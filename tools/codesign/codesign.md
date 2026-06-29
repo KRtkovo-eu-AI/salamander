@@ -1,23 +1,26 @@
 # Code signing
 
-This project signs Windows release binaries with Authenticode. The Visual Studio release projects call `tools\codesign\sign_with_retry.cmd` from post-build events. That file is intentionally only a small launcher; the Certum/SimplySign implementation lives next to it in `tools\codesign\codesign_certum.cmd`.
+This project signs Windows release binaries with Authenticode and Certum Open Source Code Signing in the Cloud on SimplySign.
 
-## Certificate
+Signing is intentionally a **manual release step**. Certum/SimplySign may ask for a PIN for every signature, so Visual Studio post-build signing is disabled by default. The post-build entry point `tools\codesign\sign_with_retry.cmd` now exits without signing unless `CODESIGN_ALLOW_POSTBUILD=1` is explicitly set.
 
-The expected certificate is **Certum Open Source Code Signing in the Cloud** on SimplySign. Install and activate:
+Use `tools\codesign\codesign_certum.cmd` manually when you are ready to sign release artifacts.
+
+## Certificate and tools
+
+Install and activate on the Windows release machine:
 
 1. SimplySign mobile application.
-2. SimplySign Desktop on the Windows release machine.
+2. SimplySign Desktop.
 3. The current Windows SDK, including `signtool.exe`.
 
-Before building a signed release, sign in to SimplySign Desktop and confirm that `signtool.exe` can see the certificate in the current user's certificate store.
+Before signing, sign in to SimplySign Desktop and confirm that the certificate is visible in the current user's certificate store. Open the certificate details and copy the certificate thumbprint. Remove spaces from the thumbprint before assigning it to `CODESIGN_CERT_SHA1`.
 
 ## Required environment
 
-Signing is disabled by default so local developer release builds do not fail when no signing certificate is available. Enable signing only on the release machine:
-
 ```cmd
 set CODESIGN_ENABLED=1
+set CODESIGN_CERT_SHA1=YOUR_CERTUM_CERTIFICATE_THUMBPRINT_WITHOUT_SPACES
 ```
 
 Optional variables:
@@ -25,54 +28,62 @@ Optional variables:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `CODESIGN_SIGNTOOL` | `signtool.exe` | Full path to `signtool.exe` if it is not on `PATH`. |
-| `CODESIGN_CERT_SUBJECT` | empty | Certificate subject passed to `signtool /n`. Useful when multiple certificates are available. |
-| `CODESIGN_CERT_SHA1` | empty | Certificate SHA-1 thumbprint passed to `signtool /sha1`. Takes precedence over `CODESIGN_CERT_SUBJECT`. |
-| `CODESIGN_TIMESTAMP_URL` | `http://timestamp.digicert.com` | RFC 3161 timestamp server. |
-| `CODESIGN_DIGEST_ALGORITHM` | `SHA256` | File digest algorithm. |
-| `CODESIGN_TIMESTAMP_DIGEST_ALGORITHM` | `SHA256` | Timestamp digest algorithm. |
+| `CODESIGN_TIMESTAMP_URL` | `http://time.certum.pl` | RFC 3161 timestamp server. |
+| `CODESIGN_DIGEST_ALGORITHM` | `sha256` | File digest algorithm. |
+| `CODESIGN_TIMESTAMP_DIGEST_ALGORITHM` | `sha256` | Timestamp digest algorithm. |
 | `CODESIGN_RETRIES` | `3` | Number of signing attempts. Useful because timestamp servers can fail temporarily. |
 | `CODESIGN_RETRY_DELAY_SECONDS` | `10` | Delay between retries. |
 | `CODESIGN_DESCRIPTION` | empty | Optional `/d` file description shown by Windows. |
 | `CODESIGN_DESCRIPTION_URL` | empty | Optional `/du` URL shown by Windows. |
+| `CODESIGN_ALLOW_POSTBUILD` | empty | Set to `1` only if you intentionally want Visual Studio post-build signing. |
 
-If neither `CODESIGN_CERT_SUBJECT` nor `CODESIGN_CERT_SHA1` is set, the script uses `signtool /a` and lets SignTool choose the best available signing certificate.
+## Manual single-file test
 
-## Example setup
-
-```cmd
-set CODESIGN_ENABLED=1
-set CODESIGN_SIGNTOOL=C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe
-set CODESIGN_CERT_SUBJECT=Open Source Developer
-set CODESIGN_DESCRIPTION=Open Salamander Samandarin
-set CODESIGN_DESCRIPTION_URL=https://github.com/KRtkovo-eu-AI/salamander
-```
-
-Then build the release configuration normally. Each project that imports a release property sheet with the signing post-build event will call:
+Use this first to verify that SimplySign, the certificate, SignTool and the script are working:
 
 ```cmd
-tools\codesign\sign_with_retry.cmd "path\to\binary.exe"
+tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-## Manual test
-
-After SimplySign is running and the environment variables are set, test one binary manually:
+The script signs only `.exe`, `.dll`, and `.spl` files. It verifies the result with:
 
 ```cmd
-tools\codesign\sign_with_retry.cmd build\x64\Release\salamand.exe
+signtool verify /pa /all /v "path\to\file.exe"
 ```
 
-Verify a signed binary:
+## Manual Inno x64 payload signing
+
+Use this after the x64 payload directory has been populated and before building or publishing the installer:
 
 ```cmd
-signtool verify /pa /v build\x64\Release\salamand.exe
+tools\codesign\codesign_certum.cmd --inno-x64 --payload-dir "H:\_projects\salamander\output\salamander\Release_x64"
 ```
+
+If `--payload-dir` is omitted, the script uses `%OPENSAL_BUILD_DIR%\salamander\Release_x64`.
+
+The script reads `doc\runbook-setup\inno_setup_salamander_x64.iss` and signs only files that are explicitly listed in that installer script and have one of these extensions:
+
+- `.exe`
+- `.dll`
+- `.spl`
+
+The matching files are passed to one `signtool sign` invocation, so a PIN-based SimplySign card should prompt only once for the payload batch. Verification still runs for each signed file.
+
+External DLLs are skipped. The exclusion list includes:
+
+- `7za.dll`, `7zwrapper.dll`, `unrar.dll`, `chmlib.dll`, `sqlite.dll`, `libeay32.dll`, `ssleay32.dll`
+- `Newtonsoft.Json.dll`, `Markdig.dll`, `PrismSharp.dll`
+- `WebView2*.dll`, `System.*.dll`, `Microsoft.Web.WebView2.*.dll`
+- VC/UCRT/API-set runtime DLLs such as `api-ms-win-*.dll`, `ucrtbase.dll`, `vcruntime140.dll`, `msvcp140.dll`, `concrt140.dll`
+- `dbghelp.dll`
 
 ## Release order
 
-1. Build release binaries.
-2. Sign every produced PE binary (`.exe`, `.dll`, `.spl`, and helper tools).
-3. Package the installer or release archive.
-4. Sign the final installer if it is an executable installer.
-5. Verify signatures on the final release artifacts.
+1. Build and populate the release payload directory.
+2. Sign a single file with `--file` if you want a smoke test.
+3. Sign the Inno x64 payload with `--inno-x64`.
+4. Build the Inno installer.
+5. Sign the final installer separately with `--file`.
+6. Verify the final installer with `signtool verify /pa /all /v`.
 
 Do not modify a signed file after signing it. Any post-signing modification invalidates the Authenticode signature.

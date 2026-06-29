@@ -1,23 +1,26 @@
 # Digitální podepisování
 
-Tento projekt podepisuje Windows release binárky pomocí Authenticode. Release projekty ve Visual Studiu volají z post-build eventů `tools\codesign\sign_with_retry.cmd`. Tento soubor je záměrně jen malý spouštěcí skript; vlastní implementace pro Certum/SimplySign je vedle něj v `tools\codesign\codesign_certum.cmd`.
+Tento projekt podepisuje Windows release binárky pomocí Authenticode a certifikátu Certum Open Source Code Signing in the Cloud na SimplySign.
 
-## Certifikát
+Podepisování je záměrně **ruční release krok**. Certum/SimplySign může chtít PIN pro každý podpis, takže podepisování z Visual Studio post-build eventů je ve výchozím stavu vypnuté. Post-build entry point `tools\codesign\sign_with_retry.cmd` skončí bez podpisu, pokud výslovně nenastavíte `CODESIGN_ALLOW_POSTBUILD=1`.
 
-Očekávaný certifikát je **Certum Open Source Code Signing in the Cloud** na SimplySign. Na release stroji nainstalujte a aktivujte:
+Až budete chtít podepisovat release artefakty, spusťte ručně `tools\codesign\codesign_certum.cmd`.
+
+## Certifikát a nástroje
+
+Na Windows release stroji nainstalujte a aktivujte:
 
 1. mobilní aplikaci SimplySign,
 2. SimplySign Desktop,
 3. aktuální Windows SDK včetně nástroje `signtool.exe`.
 
-Před podepsaným release buildem se přihlaste do SimplySign Desktop a ověřte, že `signtool.exe` vidí certifikát v certificate store aktuálního uživatele.
+Před podepisováním se přihlaste do SimplySign Desktop a ověřte, že je certifikát vidět v certificate store aktuálního uživatele. V detailu certifikátu zkopírujte thumbprint. Před uložením do `CODESIGN_CERT_SHA1` z něj odstraňte mezery.
 
 ## Povinné prostředí
 
-Podepisování je ve výchozím stavu vypnuté, aby lokální vývojářské release buildy neselhaly bez certifikátu. Na release stroji ho zapněte takto:
-
 ```cmd
 set CODESIGN_ENABLED=1
+set CODESIGN_CERT_SHA1=THUMBPRINT_CERTUM_CERTIFIKATU_BEZ_MEZER
 ```
 
 Volitelné proměnné:
@@ -25,54 +28,62 @@ Volitelné proměnné:
 | Proměnná | Výchozí hodnota | Popis |
 | --- | --- | --- |
 | `CODESIGN_SIGNTOOL` | `signtool.exe` | Plná cesta k `signtool.exe`, pokud není v `PATH`. |
-| `CODESIGN_CERT_SUBJECT` | prázdné | Subject certifikátu předaný do `signtool /n`. Hodí se, když je dostupných více certifikátů. |
-| `CODESIGN_CERT_SHA1` | prázdné | SHA-1 thumbprint certifikátu předaný do `signtool /sha1`. Má přednost před `CODESIGN_CERT_SUBJECT`. |
-| `CODESIGN_TIMESTAMP_URL` | `http://timestamp.digicert.com` | RFC 3161 timestamp server. |
-| `CODESIGN_DIGEST_ALGORITHM` | `SHA256` | Digest algoritmus podepisovaného souboru. |
-| `CODESIGN_TIMESTAMP_DIGEST_ALGORITHM` | `SHA256` | Digest algoritmus timestampu. |
+| `CODESIGN_TIMESTAMP_URL` | `http://time.certum.pl` | RFC 3161 timestamp server. |
+| `CODESIGN_DIGEST_ALGORITHM` | `sha256` | Digest algoritmus podepisovaného souboru. |
+| `CODESIGN_TIMESTAMP_DIGEST_ALGORITHM` | `sha256` | Digest algoritmus timestampu. |
 | `CODESIGN_RETRIES` | `3` | Počet pokusů o podpis. Hodí se kvůli dočasným výpadkům timestamp serverů. |
 | `CODESIGN_RETRY_DELAY_SECONDS` | `10` | Pauza mezi pokusy. |
 | `CODESIGN_DESCRIPTION` | prázdné | Volitelný popis `/d`, který může zobrazit Windows. |
 | `CODESIGN_DESCRIPTION_URL` | prázdné | Volitelná URL `/du`, kterou může zobrazit Windows. |
+| `CODESIGN_ALLOW_POSTBUILD` | prázdné | Nastavte na `1` jen tehdy, pokud opravdu chcete podepisování z Visual Studio post-build eventů. |
 
-Pokud není nastavené ani `CODESIGN_CERT_SUBJECT`, ani `CODESIGN_CERT_SHA1`, skript použije `signtool /a` a nechá SignTool vybrat nejlepší dostupný code-signing certifikát.
+## Ruční test jednoho souboru
 
-## Příklad nastavení
-
-```cmd
-set CODESIGN_ENABLED=1
-set CODESIGN_SIGNTOOL=C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe
-set CODESIGN_CERT_SUBJECT=Open Source Developer
-set CODESIGN_DESCRIPTION=Open Salamander Samandarin
-set CODESIGN_DESCRIPTION_URL=https://github.com/KRtkovo-eu-AI/salamander
-```
-
-Potom normálně spusťte release build. Každý projekt, který importuje release property sheet s post-build signing eventem, zavolá:
+Tímto nejdřív ověřte, že funguje SimplySign, certifikát, SignTool i náš script:
 
 ```cmd
-tools\codesign\sign_with_retry.cmd "path\to\binary.exe"
+tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-## Ruční test
-
-Až poběží SimplySign a budou nastavené proměnné prostředí, otestujte podpis jedné binárky ručně:
+Script podepisuje jen soubory `.exe`, `.dll` a `.spl`. Výsledek ověřuje příkazem:
 
 ```cmd
-tools\codesign\sign_with_retry.cmd build\x64\Release\salamand.exe
+signtool verify /pa /all /v "cesta\k\souboru.exe"
 ```
 
-Podepsaný soubor ověřte:
+## Ruční podepsání Inno x64 payloadu
+
+Použijte po naplnění x64 payload adresáře a před sestavením nebo publikováním instalátoru:
 
 ```cmd
-signtool verify /pa /v build\x64\Release\salamand.exe
+tools\codesign\codesign_certum.cmd --inno-x64 --payload-dir "H:\_projects\salamander\output\salamander\Release_x64"
 ```
+
+Pokud `--payload-dir` vynecháte, script použije `%OPENSAL_BUILD_DIR%\salamander\Release_x64`.
+
+Script čte `doc\runbook-setup\inno_setup_salamander_x64.iss` a podepisuje jen soubory, které jsou v tomto instalačním scriptu explicitně uvedené a mají jednu z těchto přípon:
+
+- `.exe`
+- `.dll`
+- `.spl`
+
+Odpovídající soubory se předají do jednoho volání `signtool sign`, takže PIN-based SimplySign karta by se měla pro celý payload batch zeptat jen jednou. Ověření podpisu pak stále probíhá pro každý podepsaný soubor.
+
+Externí DLL se přeskakují. Exclusion list obsahuje:
+
+- `7za.dll`, `7zwrapper.dll`, `unrar.dll`, `chmlib.dll`, `sqlite.dll`, `libeay32.dll`, `ssleay32.dll`
+- `Newtonsoft.Json.dll`, `Markdig.dll`, `PrismSharp.dll`
+- `WebView2*.dll`, `System.*.dll`, `Microsoft.Web.WebView2.*.dll`
+- VC/UCRT/API-set runtime DLL jako `api-ms-win-*.dll`, `ucrtbase.dll`, `vcruntime140.dll`, `msvcp140.dll`, `concrt140.dll`
+- `dbghelp.dll`
 
 ## Pořadí při release
 
-1. Sestavit release binárky.
-2. Podepsat všechny vyprodukované PE binárky (`.exe`, `.dll`, `.spl` a pomocné nástroje).
-3. Zabalit installer nebo release archiv.
-4. Podepsat finální installer, pokud je to spustitelný installer.
-5. Ověřit podpisy finálních release artefaktů.
+1. Sestavit a naplnit release payload adresář.
+2. Volitelně otestovat jeden soubor přes `--file`.
+3. Podepsat Inno x64 payload přes `--inno-x64`.
+4. Sestavit Inno installer.
+5. Finální installer podepsat zvlášť přes `--file`.
+6. Finální installer ověřit přes `signtool verify /pa /all /v`.
 
 Podepsaný soubor už neupravujte. Jakákoliv změna po podepsání zneplatní Authenticode podpis.
