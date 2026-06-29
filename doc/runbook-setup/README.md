@@ -58,9 +58,18 @@ Samandarin.
    - Optionally run the installer in a VM or use `setup.exe /extract` to review
      the embedded file list and ensure all new plugins are packaged.
 
-5. **Package for distribution**
-   - Archive or sign the `setup.exe` (and optionally `setup.inf`) as required.
-     Keep the matching `remove.exe` so the uninstaller remains branded for your
+5. **Sign and package for distribution**
+   - Code signing is a manual release step because Certum/SimplySign may prompt
+     for a PIN. Before compiling the final Inno installer, sign only the
+     installable x64 binaries listed by `inno_setup_salamander_x64.iss`:
+     ```cmd
+     tools\codesign\codesign_certum.cmd --inno-x64 --payload-dir "%OPENSAL_BUILD_DIR%\salamander\Release_x64"
+     ```
+   - After the final installer is built, sign that installer explicitly:
+     ```cmd
+     tools\codesign\codesign_certum.cmd --file "path\to\setup.exe"
+     ```
+   - Keep the matching `remove.exe` so the uninstaller remains branded for your
      fork.
 
 Re-run the sequence whenever plugin outputs or `setup.inf` change. Keeping the
