@@ -134,7 +134,6 @@
   <ItemGroup>
     <None Include="..\Salamand.bpf" />
     <None Include="..\Salamand.bpr" />
-    <None Include="..\Salamand.rc" />
     <None Include="..\salamander\Salamander.rh" />
     <None Include="..\salamander\SalamanderPreferences.dfm" />
     <None Include="..\salamander\WinSCP.bmp" />
