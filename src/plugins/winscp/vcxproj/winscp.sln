@@ -1,0 +1,54 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "winscp_scp_core", "winscp_scp_core.vcxproj", "{40A9F199-C34C-49A9-84D4-04961FA9F972}"
+EndProject
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "winscp_putty", "winscp_putty.vcxproj", "{2865CEDF-61E1-41C7-AE6A-934AF6A97259}"
+EndProject
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "winscp_forms", "winscp_forms.vcxproj", "{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}"
+EndProject
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "winscp", "winscp.vcxproj", "{CF45692A-39B8-4329-A577-3370F0BE0A6C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{40A9F199-C34C-49A9-84D4-04961FA9F972}.Debug|Win32.ActiveCfg = Debug|Win32
+		{40A9F199-C34C-49A9-84D4-04961FA9F972}.Debug|Win32.Build.0 = Debug|Win32
+		{40A9F199-C34C-49A9-84D4-04961FA9F972}.Debug|x64.ActiveCfg = Debug|x64
+		{40A9F199-C34C-49A9-84D4-04961FA9F972}.Debug|x64.Build.0 = Debug|x64
+		{40A9F199-C34C-49A9-84D4-04961FA9F972}.Release|Win32.ActiveCfg = Release|Win32
+		{40A9F199-C34C-49A9-84D4-04961FA9F972}.Release|Win32.Build.0 = Release|Win32
+		{40A9F199-C34C-49A9-84D4-04961FA9F972}.Release|x64.ActiveCfg = Release|x64
+		{40A9F199-C34C-49A9-84D4-04961FA9F972}.Release|x64.Build.0 = Release|x64
+		{2865CEDF-61E1-41C7-AE6A-934AF6A97259}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2865CEDF-61E1-41C7-AE6A-934AF6A97259}.Debug|Win32.Build.0 = Debug|Win32
+		{2865CEDF-61E1-41C7-AE6A-934AF6A97259}.Debug|x64.ActiveCfg = Debug|x64
+		{2865CEDF-61E1-41C7-AE6A-934AF6A97259}.Debug|x64.Build.0 = Debug|x64
+		{2865CEDF-61E1-41C7-AE6A-934AF6A97259}.Release|Win32.ActiveCfg = Release|Win32
+		{2865CEDF-61E1-41C7-AE6A-934AF6A97259}.Release|Win32.Build.0 = Release|Win32
+		{2865CEDF-61E1-41C7-AE6A-934AF6A97259}.Release|x64.ActiveCfg = Release|x64
+		{2865CEDF-61E1-41C7-AE6A-934AF6A97259}.Release|x64.Build.0 = Release|x64
+		{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}.Debug|Win32.Build.0 = Debug|Win32
+		{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}.Debug|x64.ActiveCfg = Debug|x64
+		{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}.Debug|x64.Build.0 = Debug|x64
+		{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}.Release|Win32.ActiveCfg = Release|Win32
+		{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}.Release|Win32.Build.0 = Release|Win32
+		{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}.Release|x64.ActiveCfg = Release|x64
+		{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}.Release|x64.Build.0 = Release|x64
+		{CF45692A-39B8-4329-A577-3370F0BE0A6C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CF45692A-39B8-4329-A577-3370F0BE0A6C}.Debug|Win32.Build.0 = Debug|Win32
+		{CF45692A-39B8-4329-A577-3370F0BE0A6C}.Debug|x64.ActiveCfg = Debug|x64
+		{CF45692A-39B8-4329-A577-3370F0BE0A6C}.Debug|x64.Build.0 = Debug|x64
+		{CF45692A-39B8-4329-A577-3370F0BE0A6C}.Release|Win32.ActiveCfg = Release|Win32
+		{CF45692A-39B8-4329-A577-3370F0BE0A6C}.Release|Win32.Build.0 = Release|Win32
+		{CF45692A-39B8-4329-A577-3370F0BE0A6C}.Release|x64.ActiveCfg = Release|x64
+		{CF45692A-39B8-4329-A577-3370F0BE0A6C}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+EndGlobal

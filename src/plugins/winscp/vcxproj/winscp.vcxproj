@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{CF45692A-39B8-4329-A577-3370F0BE0A6C}</ProjectGuid>
+    <RootNamespace>winscp</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalIncludeDirectories>..\salamander;..\windows;..\core;..\forms;..\putty;..\putty\windows;..\putty\charset;..\filezilla;..\openssl;..\resource;..\packages;..\packages\my;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;USE_COMPATIBLE_THREAD;SSPI_MECH;_WINDOWS;NO_FILEZILLA;LOCALINTERFACE;STRICT;NO_RESOURCES;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\salamander\FileSystem.cpp" />
+    <ClCompile Include="..\salamander\FileSystemInterface.cpp" />
+    <ClCompile Include="..\salamander\MenuInterface.cpp" />
+    <ClCompile Include="..\salamander\Salamand.cpp" />
+    <ClCompile Include="..\salamander\SalamandConfiguration.cpp" />
+    <ClCompile Include="..\salamander\SalamanderPreferences.cpp" />
+    <ClCompile Include="..\salamander\SalamandHelp.cpp" />
+    <ClCompile Include="..\salamander\SalamandInterface.cpp" />
+    <ClCompile Include="..\salamander\SalamandQueue.cpp" />
+    <ClCompile Include="..\windows\CustomWinConfiguration.cpp" />
+    <ClCompile Include="..\windows\GUIConfiguration.cpp" />
+    <ClCompile Include="..\windows\GUITools.cpp" />
+    <ClCompile Include="..\windows\QueueController.cpp" />
+    <ClCompile Include="..\windows\SynchronizeController.cpp" />
+    <ClCompile Include="..\windows\Tools.cpp" />
+    <ClCompile Include="..\windows\VCLCommon.cpp" />
+    <ClCompile Include="..\windows\WinInterface.cpp" />
+    <ClCompile Include="..\..\shared\dbg.cpp" />
+    <ClCompile Include="..\..\shared\mhandles.cpp" />
+    <ClCompile Include="..\..\shared\winliblt.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\salamander\FileSystem.h" />
+    <ClInclude Include="..\salamander\FileSystemInterface.h" />
+    <ClInclude Include="..\salamander\LocalInterface.h" />
+    <ClInclude Include="..\salamander\MenuInterface.h" />
+    <ClInclude Include="..\salamander\Precomp.h" />
+    <ClInclude Include="..\salamander\Salamand.h" />
+    <ClInclude Include="..\salamander\SalamandConfiguration.h" />
+    <ClInclude Include="..\salamander\SalamanderPreferences.h" />
+    <ClInclude Include="..\salamander\SalamandQueue.h" />
+    <ClInclude Include="..\windows\CustomWinConfiguration.h" />
+    <ClInclude Include="..\windows\GUIConfiguration.h" />
+    <ClInclude Include="..\windows\GUITools.h" />
+    <ClInclude Include="..\windows\QueueController.h" />
+    <ClInclude Include="..\windows\Setup.h" />
+    <ClInclude Include="..\windows\SynchronizeController.h" />
+    <ClInclude Include="..\windows\Tools.h" />
+    <ClInclude Include="..\windows\VCLCommon.h" />
+    <ClInclude Include="..\windows\WinApi.h" />
+    <ClInclude Include="..\windows\WinInterface.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\Salamand.rc" />
+    <ResourceCompile Include="..\salamander\Salamander.rc" />
+    <ResourceCompile Include="..\salamander\SalamanderShared.rc" />
+    <ResourceCompile Include="..\salamander\SalamanderTexts.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Salamand.bpf" />
+    <None Include="..\Salamand.bpr" />
+    <None Include="..\Salamand.rc" />
+    <None Include="..\salamander\Salamander.rh" />
+    <None Include="..\salamander\SalamanderPreferences.dfm" />
+    <None Include="..\salamander\WinSCP.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="winscp_scp_core.vcxproj">
+      <Project>{40A9F199-C34C-49A9-84D4-04961FA9F972}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="winscp_putty.vcxproj">
+      <Project>{2865CEDF-61E1-41C7-AE6A-934AF6A97259}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="winscp_forms.vcxproj">
+      <Project>{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

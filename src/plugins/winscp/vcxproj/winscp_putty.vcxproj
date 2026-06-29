@@ -1,0 +1,157 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{2865CEDF-61E1-41C7-AE6A-934AF6A97259}</ProjectGuid>
+    <RootNamespace>winscp_putty</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalIncludeDirectories>..\salamander;..\windows;..\core;..\forms;..\putty;..\putty\windows;..\putty\charset;..\filezilla;..\openssl;..\resource;..\packages;..\packages\my;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;USE_COMPATIBLE_THREAD;SSPI_MECH;_WINDOWS;NO_FILEZILLA;LOCALINTERFACE;STRICT;NO_RESOURCES;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\putty\charset\UTF8.C" />
+    <ClCompile Include="..\putty\CPROXY.C" />
+    <ClCompile Include="..\putty\INT64.C" />
+    <ClCompile Include="..\putty\LOGGING.C" />
+    <ClCompile Include="..\putty\MISC.C" />
+    <ClCompile Include="..\putty\PGSSAPI.C" />
+    <ClCompile Include="..\putty\PORTFWD.C" />
+    <ClCompile Include="..\putty\PORTFWD_.C" />
+    <ClCompile Include="..\putty\PROXY.C" />
+    <ClCompile Include="..\putty\SSH.C" />
+    <ClCompile Include="..\putty\SSH_.C" />
+    <ClCompile Include="..\putty\SSHAES.C" />
+    <ClCompile Include="..\putty\SSHAES_.C" />
+    <ClCompile Include="..\putty\SSHARCF.C" />
+    <ClCompile Include="..\putty\SSHBLOWF.C" />
+    <ClCompile Include="..\putty\SSHBN.C" />
+    <ClCompile Include="..\putty\SSHCRC.C" />
+    <ClCompile Include="..\putty\SSHCRCDA.C" />
+    <ClCompile Include="..\putty\SSHDES.C" />
+    <ClCompile Include="..\putty\SSHDH.C" />
+    <ClCompile Include="..\putty\SSHDSS.C" />
+    <ClCompile Include="..\putty\SSHGSSC.C" />
+    <ClCompile Include="..\putty\SSHMD5.C" />
+    <ClCompile Include="..\putty\SSHPUBK.C" />
+    <ClCompile Include="..\putty\SSHRAND.C" />
+    <ClCompile Include="..\putty\SSHRSA.C" />
+    <ClCompile Include="..\putty\SSHSH256.C" />
+    <ClCompile Include="..\putty\SSHSH512.C" />
+    <ClCompile Include="..\putty\SSHSHA.C" />
+    <ClCompile Include="..\putty\SSHSHA_.C" />
+    <ClCompile Include="..\putty\SSHZLIB.C" />
+    <ClCompile Include="..\putty\TREE234.C" />
+    <ClCompile Include="..\putty\WILDCARD.C" />
+    <ClCompile Include="..\putty\windows\WINGSS.C" />
+    <ClCompile Include="..\putty\windows\WINHANDL.C" />
+    <ClCompile Include="..\putty\windows\WINMISC.C" />
+    <ClCompile Include="..\putty\windows\WINNET.C" />
+    <ClCompile Include="..\putty\windows\WINNOISE.C" />
+    <ClCompile Include="..\putty\windows\WINNOJMP.C" />
+    <ClCompile Include="..\putty\windows\WINPGNTC.C" />
+    <ClCompile Include="..\putty\windows\WINPROXY.C" />
+    <ClCompile Include="..\putty\windows\WINSTORE.C" />
+    <ClCompile Include="..\putty\windows\WINSTORE_.C" />
+    <ClCompile Include="..\putty\windows\WINTIME.C" />
+    <ClCompile Include="..\putty\X11FWD.C" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\putty\charset\CHARSET.H" />
+    <ClInclude Include="..\putty\charset\INTERNAL.H" />
+    <ClInclude Include="..\putty\INT64.H" />
+    <ClInclude Include="..\putty\MISC.h" />
+    <ClInclude Include="..\putty\NETWORK.H" />
+    <ClInclude Include="..\putty\PGSSAPI.H" />
+    <ClInclude Include="..\putty\PROXY.H" />
+    <ClInclude Include="..\putty\putty.h" />
+    <ClInclude Include="..\putty\PUTTYEXP.H" />
+    <ClInclude Include="..\putty\PUTTYMEM.H" />
+    <ClInclude Include="..\putty\puttyps.h" />
+    <ClInclude Include="..\putty\SSH.H" />
+    <ClInclude Include="..\putty\SSHGSS.H" />
+    <ClInclude Include="..\putty\SSHGSSC.H" />
+    <ClInclude Include="..\putty\STORAGE.H" />
+    <ClInclude Include="..\putty\TREE234.H" />
+    <ClInclude Include="..\putty\windows\WINSTUFF.H" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Putty.bpf" />
+    <None Include="..\Putty.bpr" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

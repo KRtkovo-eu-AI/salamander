@@ -1,0 +1,164 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{D5E5A2AF-B2C0-4C5E-A22A-512CF8CC31C9}</ProjectGuid>
+    <RootNamespace>winscp_forms</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="winscp.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalIncludeDirectories>..\salamander;..\windows;..\core;..\forms;..\putty;..\putty\windows;..\putty\charset;..\filezilla;..\openssl;..\resource;..\packages;..\packages\my;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;USE_COMPATIBLE_THREAD;SSPI_MECH;_WINDOWS;NO_FILEZILLA;LOCALINTERFACE;STRICT;NO_RESOURCES;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\forms\About.cpp" />
+    <ClCompile Include="..\forms\Authenticate.cpp" />
+    <ClCompile Include="..\forms\Console.cpp" />
+    <ClCompile Include="..\forms\Copy.cpp" />
+    <ClCompile Include="..\forms\CopyParamCustom.cpp" />
+    <ClCompile Include="..\forms\CopyParams.cpp" />
+    <ClCompile Include="..\forms\Custom.cpp" />
+    <ClCompile Include="..\forms\FileSystemInfo.cpp" />
+    <ClCompile Include="..\forms\FullSynchronize.cpp" />
+    <ClCompile Include="..\forms\GeneralSettings.cpp" />
+    <ClCompile Include="..\forms\InputDlg.cpp" />
+    <ClCompile Include="..\forms\License.cpp" />
+    <ClCompile Include="..\forms\Login.cpp" />
+    <ClCompile Include="..\forms\LogSettings.cpp" />
+    <ClCompile Include="..\forms\MessageDlg.cpp" />
+    <ClCompile Include="..\forms\Progress.cpp" />
+    <ClCompile Include="..\forms\Properties.cpp" />
+    <ClCompile Include="..\forms\Rights.cpp" />
+    <ClCompile Include="..\forms\RightsExt.cpp" />
+    <ClCompile Include="..\forms\Synchronize.cpp" />
+    <ClCompile Include="..\forms\SynchronizeChecklist.cpp" />
+    <ClCompile Include="..\forms\SynchronizeProgress.cpp" />
+    <ClCompile Include="..\packages\Moje_B5.cpp" />
+    <ClCompile Include="..\packages\ThemeManagerC6.cpp" />
+    <ClCompile Include="..\packages\ThemeManagerC6D.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\forms\About.h" />
+    <ClInclude Include="..\forms\Authenticate.h" />
+    <ClInclude Include="..\forms\Console.h" />
+    <ClInclude Include="..\forms\Copy.h" />
+    <ClInclude Include="..\forms\CopyParamCustom.h" />
+    <ClInclude Include="..\forms\CopyParams.h" />
+    <ClInclude Include="..\forms\Custom.h" />
+    <ClInclude Include="..\forms\FileSystemInfo.h" />
+    <ClInclude Include="..\forms\FullSynchronize.h" />
+    <ClInclude Include="..\forms\GeneralSettings.h" />
+    <ClInclude Include="..\forms\License.h" />
+    <ClInclude Include="..\forms\Login.h" />
+    <ClInclude Include="..\forms\LogSettings.h" />
+    <ClInclude Include="..\forms\Progress.h" />
+    <ClInclude Include="..\forms\Properties.h" />
+    <ClInclude Include="..\forms\Rights.h" />
+    <ClInclude Include="..\forms\RightsExt.h" />
+    <ClInclude Include="..\forms\Synchronize.h" />
+    <ClInclude Include="..\forms\SynchronizeChecklist.h" />
+    <ClInclude Include="..\forms\SynchronizeProgress.h" />
+    <ClInclude Include="..\packages\theme\Uxtheme.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\forms\About.dfm" />
+    <None Include="..\forms\Authenticate.dfm" />
+    <None Include="..\forms\Console.dfm" />
+    <None Include="..\forms\Copy.dfm" />
+    <None Include="..\forms\CopyParamCustom.dfm" />
+    <None Include="..\forms\CopyParams.dfm" />
+    <None Include="..\forms\Custom.dfm" />
+    <None Include="..\forms\FileSystemInfo.dfm" />
+    <None Include="..\forms\FullSynchronize.dfm" />
+    <None Include="..\forms\GeneralSettings.dfm" />
+    <None Include="..\forms\License.dfm" />
+    <None Include="..\forms\Login.dfm" />
+    <None Include="..\forms\LogSettings.dfm" />
+    <None Include="..\forms\Progress.dfm" />
+    <None Include="..\forms\Properties.dfm" />
+    <None Include="..\forms\Rights.dfm" />
+    <None Include="..\forms\RightsExt.dfm" />
+    <None Include="..\forms\Synchronize.dfm" />
+    <None Include="..\forms\SynchronizeChecklist.dfm" />
+    <None Include="..\forms\SynchronizeProgress.dfm" />
+    <None Include="..\packages\Moje_B5.bpk" />
+    <None Include="..\packages\ThemeManagerC6.bpk" />
+    <None Include="..\packages\ThemeManagerC6D.bpk" />
+    <None Include="..\SalamandForms.bpf" />
+    <None Include="..\SalamandForms.bpr" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>
