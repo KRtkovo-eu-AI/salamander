@@ -13,7 +13,7 @@
 #define MyAppName "Open Salamander Samandarin"
 #define MyAppDisplayName "Open Salamander 5.0 Samandarin 0.6 (x64)"
 #define MyAppVersion "5.0-samandarin-0.6"
-#define MyAppPublisher "Open Source Developer Ondřej Kotas"
+#define MyAppPublisher "Ondřej Kotas (KRtekTM)"
 #define MyAppURL "https://github.com/KRtkovo-eu-AI/salamander"
 #define MyAppExeName "salamand.exe"
 #ifndef PayloadDir
