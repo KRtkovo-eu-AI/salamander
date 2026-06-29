@@ -627,6 +627,20 @@
       "id": "serviceexplorer",
       "name": {
         "english": "Service Explorer",
+        "chinesesimplified": "Service Explorer",
+        "czech": "Service Explorer",
+        "german": "Service Explorer",
+        "dutch": "Service Explorer",
+        "hungarian": "Service Explorer",
+        "russian": "Service Explorer",
+        "french": "Service Explorer",
+        "slovak": "Service Explorer",
+        "romanian": "Service Explorer",
+        "spanish": "Service Explorer"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Browse and configure services.",
         "chinesesimplified": "浏览并配置服务。",
         "czech": "Procházet a konfigurovat služby.",
         "german": "Dienste durchsuchen und konfigurieren.",
@@ -637,10 +651,6 @@
         "slovak": "Prehliadať a konfigurovať služby.",
         "romanian": "Răsfoiește și configurează servicii.",
         "spanish": "Examinar y configurar servicios."
-      },
-      "author": "Open Salamander Authors",
-      "description": {
-        "english": "Browse and configure services."
       },
       "latestVersion": "0.012 (x64)",
       "versionScheme": "fileversion",
