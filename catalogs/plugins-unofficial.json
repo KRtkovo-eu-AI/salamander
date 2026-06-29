@@ -52,7 +52,7 @@
         "romanian": "TAR",
         "spanish": "TAR"
       },
-      "author": "lejcik",
+      "author": "Viliam Lejčík",
       "description": {
         "english": "TAR plugin for Open Salamander",
         "chinesesimplified": "浏览并解压 Unix 压缩包。",
@@ -86,7 +86,7 @@
         "romanian": "Vizualizator de certificate",
         "spanish": "Visor de certificados"
       },
-      "author": "lejcik",
+      "author": "Viliam Lejčík",
       "description": {
         "english": "Display information about certificate files, such as PEM, DER, etc.",
         "chinesesimplified": "显示证书文件的信息，例如 PEM、DER 等。",
@@ -110,7 +110,7 @@
       "name": {
         "english": "Total Commander Proxy Plugin",
         "chinesesimplified": "Total Commander 代理插件",
-        "czech": "Proxy pro Total Commander pluginy",
+        "czech": "Total Commander Proxy Plugin",
         "german": "Total Commander Proxy Plugin",
         "dutch": "Total Commander Proxy Plugin",
         "hungarian": "Total Commander Proxy Plugin",
@@ -120,19 +120,19 @@
         "romanian": "Total Commander Proxy Plugin",
         "spanish": "Total Commander Proxy Plugin"
       },
-      "author": "manison",
+      "author": "Manison Softworks",
       "description": {
-        "english": "Total Commander Proxy Plugin for Altap Salamander",
-        "chinesesimplified": "Total Commander 代理插件用于 Altap Salamander",
-        "czech": "Proxy pro Total Commander pluginy pro Altap Salamander",
-        "german": "Total Commander Proxy Plugin für Altap Salamander",
-        "dutch": "Total Commander Proxy Plugin voor Altap Salamander",
-        "hungarian": "Total Commander Proxy Plugin az Altap Salamander számára",
-        "russian": "Total Commander Proxy Plugin для Altap Salamander",
-        "french": "Total Commander Proxy Plugin pour Altap Salamander",
-        "slovak": "Total Commander Proxy Plugin pre Altap Salamander",
-        "romanian": "Total Commander Proxy Plugin pentru Altap Salamander",
-        "spanish": "Total Commander Proxy Plugin para Altap Salamander"
+        "english": "With this plugin for Altap Salamander file manager you can use plugins originally designed for Total Commander.",
+        "chinesesimplified": "使用 Altap Salamander 文件管理器的此插件，您可以使用最初为 Total Commander 设计的插件。",
+        "czech": "S tímto pluginem pro správce souborů Altap Salamander můžete používat pluginy původně navržené pro Total Commander.",
+        "german": "Mit diesem Plugin für den Dateimanager Altap Salamander können Sie Plugins verwenden, die ursprünglich für Total Commander entwickelt wurden.",
+        "dutch": "Met deze plugin voor de Altap Salamander-bestandsbeheerder kunt u plugins gebruiken die oorspronkelijk zijn ontworpen voor Total Commander.",
+        "hungarian": "Az Altap Salamander fájlkezelőhöz készült bővítménnyel használhatja az eredetileg a Total Commanderhez tervezett bővítményeket.",
+        "russian": "С помощью этого плагина для файлового менеджера Altap Salamander вы можете использовать плагины, изначально разработанные для Total Commander.",
+        "french": "Avec ce plugin pour le gestionnaire de fichiers Altap Salamander, vous pouvez utiliser des plugins initialement conçus pour Total Commander.",
+        "slovak": "S týmto pluginom pre správcu súborov Altap Salamander môžete používať pluginy pôvodne navrhnuté pre Total Commander.",
+        "romanian": "Cu acest plugin pentru managerul de fișiere Altap Salamander, puteți utiliza pluginuri concepute inițial pentru Total Commander.",
+        "spanish": "Con este plugin para el administrador de archivos Altap Salamander, puede usar plugins diseñados originalmente para Total Commander."
       },
       "latestVersion": "0.84 (x64)",
       "versionScheme": "fileversion",
