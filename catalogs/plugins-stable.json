@@ -10,7 +10,17 @@
       },
       "author": "Open Salamander Authors",
       "description": {
-        "english": "7-Zip plugin for Open Salamander"
+        "english": "7-Zip plugin for Open Salamander",
+        "chinesesimplified": "创建、浏览和提取 7-Zip 存档。",
+        "czech": "Vytváří, prohlíží a extrahuje 7-Zip archivy.",
+        "german": "Erstellt, durchsucht und entpackt 7-Zip-Archive.",
+        "dutch": "Creëert, blader en pak 7-Zip archiefbestanden uit.",
+        "hungarian": "7-Zip archívumok létrehozása, böngészése és kibontása.",
+        "russian": "Создание, просмотр и извлечение архивов 7-Zip.",
+        "french": "Créer, parcourir et extraire les archives 7-Zip.",
+        "slovak": "Vytvára, prehliada a extrahuje 7-Zip archívy.",
+        "romanian": "Creaza, rasfoieste si extrage arhivele 7-Zip.",
+        "spanish": "Crear, hojear y extraer archivos 7-Zip."
       },
       "latestVersion": "1.31 (x64)",
       "versionScheme": "fileversion",
@@ -156,11 +166,31 @@
     {
       "id": "filecomp",
       "name": {
-        "english": "File Comparator"
+        "english": "File Comparator",
+        "chinesesimplified": "文件比较器",
+        "czech": "Porovnání souborů",
+        "german": "Dateivergleich",
+        "dutch": "Bestandsvergelijker",
+        "hungarian": "Fájlösszehasonlító",
+        "russian": "Сравнение файлов",
+        "french": "Comparateur de fichiers",
+        "slovak": "Porovnanie súborov",
+        "romanian": "Comparator de fișiere",
+        "spanish": "Comparador de archivos"
       },
       "author": "Open Salamander Authors",
       "description": {
-        "english": "File Comparator for Open Salamander"
+        "english": "File Comparator for Open Salamander",
+        "chinesesimplified": "Open Salamander 的文件比较器",
+        "czech": "Porovnání souborů pro Open Salamander",
+        "german": "Dateivergleich für Open Salamander",
+        "dutch": "Bestandsvergelijker voor Open Salamander",
+        "hungarian": "Fájlösszehasonlító az Open Salamanderhez",
+        "russian": "Сравнение файлов для Open Salamander",
+        "french": "Comparateur de fichiers pour Open Salamander",
+        "slovak": "Porovnanie súborov pre Open Salamander",
+        "romanian": "Comparator de fișiere pentru Open Salamander",
+        "spanish": "Comparador de archivos para Open Salamander"
       },
       "latestVersion": "1.19 (x64)",
       "versionScheme": "fileversion",
@@ -170,11 +200,31 @@
     {
       "id": "folders",
       "name": {
-        "english": "Folders"
+        "english": "Folders",
+        "czech": "Složky",
+        "german": "Ordner",
+        "dutch": "Mappen",
+        "hungarian": "Mappák",
+        "russian": "Папки",
+        "french": "Dossiers",
+        "slovak": "Zložky",
+        "romanian": "Foldere",
+        "spanish": "Carpetas",
+        "chinesesimplified": "文件夹"
       },
       "author": "Open Salamander Authors",
       "description": {
-        "english": "Folders plugin for Open Salamander"
+        "english": "Folders plugin for Open Salamander",
+        "czech": "Procházejte složky jako Plocha, Ovládací panely, Koš atd.",
+        "german": "Durchsuchen Sie Ordner wie Desktop, Systemsteuerung, Papierkorb usw.",
+        "dutch": "Blader door mappen zoals Bureaublad, Configuratiescherm, Prullenbak, enz.",
+        "hungarian": "Tallózzon mappák között, mint az Asztal, Vezérlőpult, Lomtár, stb.",
+        "russian": "Просмотр папок, таких как Рабочий стол, Панель управления, Корзина и т.д.",
+        "french": "Parcourez les dossiers tels que Bureau, Panneau de configuration, Corbeille, etc.",
+        "slovak": "Prehliadajte zložky ako Plocha, Ovládací panel, Kôš atď.",
+        "romanian": "Rasfoieste folderele cum ar fi Desktop, Panou de control, Cos de gunoi, etc.",
+        "spanish": "Navega por carpetas como Escritorio, Panel de control, Papelera, etc.",
+        "chinesesimplified": "浏览文件夹，如桌面、控制面板、回收站等。"
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
