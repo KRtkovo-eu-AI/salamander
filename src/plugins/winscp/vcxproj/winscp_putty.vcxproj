@@ -78,8 +78,8 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>..\salamander;..\windows;..\core;..\forms;..\putty;..\putty\windows;..\putty\charset;..\filezilla;..\openssl;..\resource;..\packages;..\packages\my;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;USE_COMPATIBLE_THREAD;SSPI_MECH;_WINDOWS;NO_FILEZILLA;LOCALINTERFACE;STRICT;NO_RESOURCES;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\salamander;..\windows;..\core;..\forms;..\putty;..\putty\windows;..\putty\charset;..\filezilla;..\openssl;..\resource;..\..\..\..\tools\comments\code_guard_stubs;..\packages;..\packages\my;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;USE_COMPATIBLE_THREAD;SSPI_MECH;_WINDOWS;NO_FILEZILLA;LOCALINTERFACE;STRICT;NO_RESOURCES;SECURITY_WIN32;NET_SETUP_DIAGNOSTICS;MPEXT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
