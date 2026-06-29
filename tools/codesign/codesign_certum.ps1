@@ -143,8 +143,16 @@ function Get-InnoSignTargets([string] $innoScript, [string] $payloadDir) {
 function Invoke-SignTool([string[]] $arguments) {
     $signTool = Get-SignToolPath
     Write-Host "> $signTool $($arguments -join ' ')"
-    & $signTool @arguments
-    return $LASTEXITCODE
+
+    # Native command output is part of a PowerShell function's success stream.
+    # Capture and re-emit it so callers assigning this function's result receive
+    # only the numeric process exit code, not SignTool's verbose text plus the code.
+    $output = & $signTool @arguments 2>&1
+    $exitCode = $LASTEXITCODE
+    foreach ($line in $output) {
+        Write-Host $line
+    }
+    return [int] $exitCode
 }
 
 function New-SignArguments([string[]] $paths) {
