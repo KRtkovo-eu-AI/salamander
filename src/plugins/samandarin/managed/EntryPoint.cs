@@ -1624,8 +1624,8 @@ internal static class SharedHttpClient
 
 internal static class PluginCatalogSources
 {
-    private const string OfficialDefaultSource = "https://ai.krtkovo.eu/samandarin/plugin-catalog.json";
-    private const string OfficialExternalSource = "https://ai.krtkovo.eu/samandarin/plugin-catalog-unofficial.json";
+    private const string OfficialDefaultSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
+    private const string OfficialExternalSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json";
 
     public static IReadOnlyList<string> Load()
     {
@@ -1635,7 +1635,7 @@ internal static class PluginCatalogSources
             return new[] { OfficialDefaultSource, OfficialExternalSource };
         }
 
-        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+        var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Trim())
             .Where(line => line.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1719,7 +1719,7 @@ internal static class PluginVersionComparer
             return PluginVersionComparison.Unknown;
         }
 
-        if (string.Equals(installed.Trim(), latest.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(installed!.Trim(), latest!.Trim(), StringComparison.OrdinalIgnoreCase))
         {
             return PluginVersionComparison.Current;
         }
