@@ -4,10 +4,19 @@
   "generatedAt": "2026-06-29T03:07:00Z",
   "plugins": [
     {
-      "id": "salamander-sftp-plugin",
+      "id": "sftp",
       "name": {
-        "english": "SFTP/SCP klient pro Open Salamander",
-        "czech": "SFTP/SCP klient pro Open Salamander"
+        "english": "SFTP/SCP client",
+        "czech": "SFTP/SCP klient",
+        "dutch": "SFTP/SCP client",
+        "french": "Client SFTP/SCP",
+        "german": "SFTP/SCP-Client",
+        "hungarian": "SFTP/SCP kliens",
+        "chinesesimplified": "SFTP/SCP 客户端",
+        "romanian": "Client SFTP/SCP",
+        "russian": "Клиент SFTP/SCP",
+        "slovak": "SFTP/SCP klient",
+        "spanish": "Cliente SFTP/SCP"
       },
       "author": "Dupl3xx",
       "description": {
