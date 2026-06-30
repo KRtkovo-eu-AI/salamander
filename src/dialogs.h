@@ -1241,7 +1241,7 @@ public:
     HWND HToolTip;                     // tooltip control pro aktivni konfiguraci
 
 public:
-    CManageConfigsDialog();
+    CManageConfigsDialog(HWND parent = NULL);
     ~CManageConfigsDialog();
 
 protected:

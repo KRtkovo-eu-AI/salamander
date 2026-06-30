@@ -393,15 +393,12 @@ static void MCDApplyCleanTargetDefaults(CSalamanderRegistryExAbstract* registry,
     else
         MCDSetConfigValue(registry, targetSubkey, "If Path Is Inaccessible Go To", REG_SZ, "", 1);
 
-    if (DarkModeShouldUseDarkColors())
-    {
-        char colorsSubkey[MAX_PATH];
-        _snprintf_s(colorsSubkey, _TRUNCATE, "%s\\Colors", targetSubkey);
-        DWORD scheme = 4;
-        DWORD useWinDark = 1;
-        MCDSetValueInSubkey(registry, colorsSubkey, "Color Scheme", REG_DWORD, &scheme, sizeof(scheme));
-        MCDSetValueInSubkey(registry, colorsSubkey, "Use Windows Dark Mode", REG_DWORD, &useWinDark, sizeof(useWinDark));
-    }
+    char colorsSubkey[MAX_PATH];
+    _snprintf_s(colorsSubkey, _TRUNCATE, "%s\\Colors", targetSubkey);
+    DWORD scheme = DarkModeShouldUseDarkColors() ? 4 : 0;
+    DWORD useWinDark = (scheme == 4) ? 1 : 0;
+    MCDSetValueInSubkey(registry, colorsSubkey, "Color Scheme", REG_DWORD, &scheme, sizeof(scheme));
+    MCDSetValueInSubkey(registry, colorsSubkey, "Use Windows Dark Mode", REG_DWORD, &useWinDark, sizeof(useWinDark));
 }
 
 static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& srcCfg,
