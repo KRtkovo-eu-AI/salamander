@@ -397,6 +397,127 @@ static void MCDCopyColorPaletteSubkeys(CSalamanderRegistryExAbstract* inReg, con
     MCDCopyRegistrySubkeyIfExists(inReg, inSubkey, outReg, outSubkey, "Custom Colors");
 }
 
+
+static void MCDSetValueInNamedSubkey(CSalamanderRegistryExAbstract* registry, const char* rootSubkey,
+                                    const char* childSubkey, const char* valueName,
+                                    DWORD type, const void* data, DWORD dataSize)
+{
+    if (registry == NULL || rootSubkey == NULL || childSubkey == NULL || valueName == NULL)
+        return;
+
+    char subkey[MAX_PATH];
+    _snprintf_s(subkey, _TRUNCATE, "%s\\%s", rootSubkey, childSubkey);
+
+    HKEY key;
+    if (registry->CreateKey(HKEY_CURRENT_USER, subkey, key))
+    {
+        registry->SetValue(key, valueName, type, data, dataSize);
+        registry->CloseKey(key);
+    }
+}
+
+struct MCDColorValue
+{
+    const char* Name;
+    int Index;
+};
+
+static void MCDStoreRunningColorPalette(CSalamanderRegistryExAbstract* registry, const char* targetSubkey)
+{
+    static const MCDColorValue userColorValues[] = {
+        {"Focus Active Normal", FOCUS_ACTIVE_NORMAL},
+        {"Focus Active Selected", FOCUS_ACTIVE_SELECTED},
+        {"Focus Inactive Normal", FOCUS_FG_INACTIVE_NORMAL},
+        {"Focus Inactive Selected", FOCUS_FG_INACTIVE_SELECTED},
+        {"Focus Bk Inactive Normal", FOCUS_BK_INACTIVE_NORMAL},
+        {"Focus Bk Inactive Selected", FOCUS_BK_INACTIVE_SELECTED},
+        {"Item Fg Normal", ITEM_FG_NORMAL},
+        {"Item Fg Selected", ITEM_FG_SELECTED},
+        {"Item Fg Focused", ITEM_FG_FOCUSED},
+        {"Item Fg Focused and Selected", ITEM_FG_FOCSEL},
+        {"Item Fg Highlight", ITEM_FG_HIGHLIGHT},
+        {"Item Bk Normal", ITEM_BK_NORMAL},
+        {"Item Bk Selected", ITEM_BK_SELECTED},
+        {"Item Bk Focused", ITEM_BK_FOCUSED},
+        {"Item Bk Focused and Selected", ITEM_BK_FOCSEL},
+        {"Item Bk Highlight", ITEM_BK_HIGHLIGHT},
+        {"Icon Blend Selected", ICON_BLEND_SELECTED},
+        {"Icon Blend Focused", ICON_BLEND_FOCUSED},
+        {"Icon Blend Focused and Selected", ICON_BLEND_FOCSEL},
+        {"Progress Fg Normal", PROGRESS_FG_NORMAL},
+        {"Progress Fg Selected", PROGRESS_FG_SELECTED},
+        {"Progress Bk Normal", PROGRESS_BK_NORMAL},
+        {"Progress Bk Selected", PROGRESS_BK_SELECTED},
+        {"Hot Panel", HOT_PANEL},
+        {"Hot Active", HOT_ACTIVE},
+        {"Hot Inactive", HOT_INACTIVE},
+        {"Active Caption Fg", ACTIVE_CAPTION_FG},
+        {"Active Caption Bk", ACTIVE_CAPTION_BK},
+        {"Inactive Caption Fg", INACTIVE_CAPTION_FG},
+        {"Inactive Caption Bk", INACTIVE_CAPTION_BK},
+        {"Thumbnail Frame Normal", THUMBNAIL_FRAME_NORMAL},
+        {"Thumbnail Frame Selected", THUMBNAIL_FRAME_SELECTED},
+        {"Thumbnail Frame Focused", THUMBNAIL_FRAME_FOCUSED},
+        {"Thumbnail Frame Focused and Selected", THUMBNAIL_FRAME_FOCSEL},
+    };
+    static const MCDColorValue viewerColorValues[] = {
+        {"Viewer Fg Normal", VIEWER_FG_NORMAL},
+        {"Viewer Bk Normal", VIEWER_BK_NORMAL},
+        {"Viewer Fg Selected", VIEWER_FG_SELECTED},
+        {"Viewer Bk Selected", VIEWER_BK_SELECTED},
+    };
+
+    DWORD scheme = Configuration.UseWindowsDarkMode ? 5U : 4U;
+    if (!Configuration.UseWindowsDarkMode)
+    {
+        if (CurrentColors == SalamanderColors) scheme = 0;
+        else if (CurrentColors == ExplorerColors) scheme = 1;
+        else if (CurrentColors == NortonColors) scheme = 2;
+        else if (CurrentColors == NavigatorColors) scheme = 3;
+    }
+    DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
+    MCDSetValueInNamedSubkey(registry, targetSubkey, "Colors", "Color Scheme", REG_DWORD, &scheme, sizeof(scheme));
+    MCDSetValueInNamedSubkey(registry, targetSubkey, "Colors", "Use Windows Dark Mode", REG_DWORD, &useWinDark, sizeof(useWinDark));
+
+    for (int i = 0; i < (int)_countof(userColorValues); i++)
+        MCDSetValueInNamedSubkey(registry, targetSubkey, "Colors", userColorValues[i].Name,
+                                 REG_DWORD, &UserColors[userColorValues[i].Index], sizeof(SALCOLOR));
+    for (int i = 0; i < (int)_countof(viewerColorValues); i++)
+        MCDSetValueInNamedSubkey(registry, targetSubkey, "Colors", viewerColorValues[i].Name,
+                                 REG_DWORD, &ViewerColors[viewerColorValues[i].Index], sizeof(SALCOLOR));
+
+    char buff[10];
+    for (int i = 0; i < NUMBER_OF_CUSTOMCOLORS; i++)
+    {
+        itoa(i + 1, buff, 10);
+        DWORD color = CustomColors[i] & 0x00ffffff;
+        MCDSetValueInNamedSubkey(registry, targetSubkey, "Custom Colors", buff, REG_DWORD, &color, sizeof(color));
+    }
+}
+
+static BOOL MCDIsRunningConfigurationSource(const CFoundConfig& srcCfg, const char* sourceSubkey)
+{
+    if (MainWindow == NULL)
+        return FALSE;
+
+    if (ConfigurationStorage.GetStorageType() == cstRegistry)
+        return !srcCfg.IsPortable && sourceSubkey != NULL && SALAMANDER_ROOT_REG != NULL &&
+               _stricmp(sourceSubkey, SALAMANDER_ROOT_REG) == 0;
+
+    if (ConfigurationStorage.GetStorageType() == cstRegFile && srcCfg.IsPortable)
+    {
+        CConfigurationStorageType bootstrapType = cstRegistry;
+        char bootstrapPath[MAX_PATH];
+        bootstrapPath[0] = 0;
+        if (ConfigurationStorage.LoadStorageTypeBootstrap(bootstrapType, bootstrapPath, SizeOf(bootstrapPath)) &&
+            bootstrapType == cstRegFile && bootstrapPath[0] != 0)
+        {
+            return IsTheSamePath(srcCfg.Location, bootstrapPath);
+        }
+    }
+    return FALSE;
+}
+
 static BOOL MCDSetValueInSubkey(CSalamanderRegistryExAbstract* registry, const char* subkey,
                                 const char* valueName, DWORD type, const void* data, DWORD dataSize)
 {
@@ -520,7 +641,11 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
             {
                 ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
                 if (ret)
+                {
                     MCDCopyColorPaletteSubkeys(sourceReg, sourceSubkey, targetReg, targetSubkey);
+                    if (MCDIsRunningConfigurationSource(srcCfg, sourceSubkey))
+                        MCDStoreRunningColorPalette(targetReg, targetSubkey);
+                }
                 if (ret && MCDShouldMigrateSamandarin01To06Scheme(sourceSubkey, srcCfg.Version))
                     MCDNormalizeSamandarin01To06ColorScheme(targetReg, targetSubkey);
             }
@@ -546,7 +671,11 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
         return FALSE;
     BOOL ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
     if (ret)
+    {
         MCDCopyColorPaletteSubkeys(sourceReg, sourceSubkey, targetReg, targetSubkey);
+        if (MCDIsRunningConfigurationSource(srcCfg, sourceSubkey))
+            MCDStoreRunningColorPalette(targetReg, targetSubkey);
+    }
     if (ret && MCDShouldMigrateSamandarin01To06Scheme(sourceSubkey, srcCfg.Version))
         MCDNormalizeSamandarin01To06ColorScheme(targetReg, targetSubkey);
     sourceReg->Release();
