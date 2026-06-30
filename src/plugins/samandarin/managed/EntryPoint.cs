@@ -1037,6 +1037,8 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly LinkLabel _detailDownloadValue;
     private readonly TextBox _detailDescriptionValue;
     private ListViewItem? _contextMenuItem;
+    private static readonly int[] ListColumnMinimumWidths = { 120, 180, 90, 90, 120, 110 };
+    private static readonly float[] ListColumnWidthWeights = { 0.16f, 0.30f, 0.12f, 0.12f, 0.17f, 0.13f };
     private int _contextMenuSubItemIndex;
     private readonly List<PluginUpdateRow> _rows = new();
     private int _sortColumn = 1;
@@ -1088,6 +1090,7 @@ internal sealed class PluginUpdatesDialog : Form
         _listView.ColumnClick += ListViewOnColumnClick;
         _listView.MouseDoubleClick += ListViewOnMouseDoubleClick;
         _listView.MouseDown += ListViewOnMouseDown;
+        _listView.Resize += (_, _) => AdjustListViewColumns();
         _listView.SelectedIndexChanged += (_, _) => UpdateDetails();
         _listContextMenu = new ContextMenuStrip();
         _listContextMenu.Opening += ListContextMenuOnOpening;
@@ -1146,8 +1149,43 @@ internal sealed class PluginUpdatesDialog : Form
 
         Controls.Add(layout);
         CancelButton = closeButton;
-        Shown += async (_, _) => { await RefreshAsync().ConfigureAwait(true); };
+        Shown += async (_, _) =>
+        {
+            await RefreshAsync().ConfigureAwait(true);
+            AdjustListViewColumns();
+        };
         UpdateDetails();
+    }
+
+    private void AdjustListViewColumns()
+    {
+        if (_listView.Columns.Count != ListColumnMinimumWidths.Length || _listView.ClientSize.Width <= 0)
+        {
+            return;
+        }
+
+        int availableWidth = Math.Max(0, _listView.ClientSize.Width - 4);
+        int minimumWidth = ListColumnMinimumWidths.Sum();
+        if (availableWidth <= minimumWidth)
+        {
+            for (int i = 0; i < ListColumnMinimumWidths.Length; i++)
+            {
+                _listView.Columns[i].Width = ListColumnMinimumWidths[i];
+            }
+
+            return;
+        }
+
+        int extraWidth = availableWidth - minimumWidth;
+        int assignedWidth = 0;
+        for (int i = 0; i < ListColumnMinimumWidths.Length; i++)
+        {
+            int width = i == ListColumnMinimumWidths.Length - 1
+                ? availableWidth - assignedWidth
+                : ListColumnMinimumWidths[i] + (int)Math.Round(extraWidth * ListColumnWidthWeights[i]);
+            _listView.Columns[i].Width = Math.Max(ListColumnMinimumWidths[i], width);
+            assignedWidth += _listView.Columns[i].Width;
+        }
     }
 
     private static Label AddValue(TableLayoutPanel layout, NativeStringId captionId, int column, int row)
@@ -1230,6 +1268,7 @@ internal sealed class PluginUpdatesDialog : Form
             _listView.EndUpdate();
         }
 
+        AdjustListViewColumns();
         NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
         ThemeHelper.ApplyNativeDarkMode(_listView);
         UpdateDetails();
