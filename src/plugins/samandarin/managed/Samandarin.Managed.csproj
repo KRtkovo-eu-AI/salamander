@@ -38,10 +38,12 @@
     <MakeDir Directories="$(IntermediateOutputPath)" />
     <ItemGroup>
       <SamandarinVersionSourceLines Include="// &lt;auto-generated /&gt;" />
-      <SamandarinVersionSourceLines Include="namespace OpenSalamander.Samandarin;" />
-      <SamandarinVersionSourceLines Include="internal static class SamandarinVersion" />
+      <SamandarinVersionSourceLines Include="namespace OpenSalamander.Samandarin" />
       <SamandarinVersionSourceLines Include="{" />
-      <SamandarinVersionSourceLines Include="    public const string PluginVersion = &quot;$(SamandarinVersionMajor).$(SamandarinVersionMinor)&quot;;" />
+      <SamandarinVersionSourceLines Include="    internal static class SamandarinVersion" />
+      <SamandarinVersionSourceLines Include="    {" />
+      <SamandarinVersionSourceLines Include="        public const string PluginVersion = %22$(SamandarinVersionMajor).$(SamandarinVersionMinor)%22;" />
+      <SamandarinVersionSourceLines Include="    }" />
       <SamandarinVersionSourceLines Include="}" />
     </ItemGroup>
     <WriteLinesToFile File="$(SamandarinVersionSource)" Lines="@(SamandarinVersionSourceLines)" Overwrite="true" />
