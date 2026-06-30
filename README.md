@@ -119,7 +119,7 @@ The viewer also registers [Prism lexers](https://github.com/KRtkovo-eu-AI/salama
 
 ### Registry Editor 1.14
 ### Renamer 1.13
-### Samandarin Update Notifier 0.3
+### Samandarin Update Notifier 0.4
 ### Service Explorer 0.012
 ### Split & Combine 1.11
 ### TAR 3.34
