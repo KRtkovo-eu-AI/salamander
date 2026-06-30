@@ -395,8 +395,8 @@ static void MCDApplyCleanTargetDefaults(CSalamanderRegistryExAbstract* registry,
 
     char colorsSubkey[MAX_PATH];
     _snprintf_s(colorsSubkey, _TRUNCATE, "%s\\Colors", targetSubkey);
-    DWORD scheme = DarkModeShouldUseDarkColors() ? 4 : 0;
-    DWORD useWinDark = (scheme == 4) ? 1 : 0;
+    DWORD scheme = DarkModeShouldUseDarkColors() ? 5 : 0;
+    DWORD useWinDark = (scheme == 5) ? 1 : 0;
     MCDSetValueInSubkey(registry, colorsSubkey, "Color Scheme", REG_DWORD, &scheme, sizeof(scheme));
     MCDSetValueInSubkey(registry, colorsSubkey, "Use Windows Dark Mode", REG_DWORD, &useWinDark, sizeof(useWinDark));
 }
@@ -3357,9 +3357,9 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 
             if (CreateKey(salamander, SALAMANDER_COLORS_REG, actKey))
             {
-                DWORD scheme = 5; // custom
+                DWORD scheme = 4; // custom
                 if (Configuration.UseWindowsDarkMode)
-                    scheme = 4;
+                    scheme = 5;
                 else if (CurrentColors == SalamanderColors)
                     scheme = 0;
                 else if (CurrentColors == ExplorerColors)
@@ -3797,7 +3797,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         if (OpenKey(salamander, SALAMANDER_COLORS_REG, actKey))
         {
-            DWORD scheme = 5;
+            DWORD scheme = 4; // custom
             BOOL colorSchemeLoaded = FALSE;
             BOOL restoreWindowsDarkPalette = FALSE;
             CurrentColors = UserColors;
@@ -3810,6 +3810,11 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 // we added a new scheme (DOS Navigator) at position 3
                 if (Configuration.ConfigVersion < 28 && scheme == 3)
                     scheme = 4;
+
+                if (scheme == 4 && Configuration.UseWindowsDarkMode)
+                    scheme = 5; // samandarin 0.1-0.6 stored Windows Dark Mode as 4
+                else if (scheme == 5 && !Configuration.UseWindowsDarkMode)
+                    scheme = 4; // samandarin 0.1-0.6 stored Custom as 5
 
                 if (scheme == 0)
                 {
@@ -3834,11 +3839,12 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 else if (scheme == 4)
                 {
                     CurrentColors = UserColors;
-                    if (!Configuration.UseWindowsDarkMode)
-                    {
-                        // Legacy configurations stored "custom" as 4 before the Windows dark mode option existed.
-                        // Leave UseWindowsDarkMode cleared to treat it as a custom scheme.
-                    }
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
+                else if (scheme == 5)
+                {
+                    CurrentColors = UserColors;
+                    Configuration.UseWindowsDarkMode = TRUE;
                 }
                 else
                 {
@@ -3897,7 +3903,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_SELECTED_REG, ViewerColors[VIEWER_FG_SELECTED]);
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_BK_SELECTED_REG, ViewerColors[VIEWER_BK_SELECTED]);
 
-            if (colorSchemeLoaded && scheme == 4 && (!useWinDarkLoaded || Configuration.UseWindowsDarkMode))
+            if (colorSchemeLoaded && scheme == 5 && (!useWinDarkLoaded || Configuration.UseWindowsDarkMode))
             {
                 SALCOLOR windowsDarkColors[NUMBER_OF_COLORS];
                 SALCOLOR windowsDarkViewerColors[NUMBER_OF_VIEWERCOLORS];
@@ -3907,7 +3913,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
                 // A file-storage configuration can contain the Windows dark scheme and dark-mode flag
                 // while the serialized palette falls back to the light defaults. In that state the
-                // non-client/menu areas are dark, but the panels stay white. Treat scheme 4 as the
+                // non-client/menu areas are dark, but the panels stay white. Treat scheme 5 as the
                 // authoritative Windows dark preset and repair the panel/viewer palette before applying it.
                 if (!useWinDarkLoaded ||
                     UserColors[ITEM_FG_NORMAL] != windowsDarkColors[ITEM_FG_NORMAL] ||

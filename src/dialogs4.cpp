@@ -4100,8 +4100,8 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             {1, IDS_COLORSCHEME_EXPLORER},
             {2, IDS_COLORSCHEME_NORTON},
             {3, IDS_COLORSCHEME_NAVIGATOR},
-            {5, IDS_COLORSCHEME_CUSTOM},
-            {4, IDS_COLORSCHEME_WINDARK},
+            {4, IDS_COLORSCHEME_CUSTOM},
+            {5, IDS_COLORSCHEME_WINDARK},
         };
         for (i = 0; i < (int)_countof(schemes); i++)
         {
@@ -4117,9 +4117,9 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < CFG_COLORS_BUTTONS; i++)
             SetDlgItemText(HWindow, CConfigurationPage7Masks[i], LoadStr(labels[i]));
 
-        int schemeId = 5; // custom
+        int schemeId = 4; // custom
         if (Configuration.UseWindowsDarkMode)
-            schemeId = 4;
+            schemeId = 5;
         else if (CurrentColors == SalamanderColors)
             schemeId = 0;
         else if (CurrentColors == ExplorerColors)
@@ -4157,7 +4157,7 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
         int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
         if (schemeId == CB_ERR)
-            schemeId = 5;
+            schemeId = 4;
         if (schemeId == 0)
             CurrentColors = SalamanderColors;
         else if (schemeId == 1)
@@ -4174,7 +4174,7 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
                 UserColors[i] = TmpColors[i];
         }
 
-        Configuration.UseWindowsDarkMode = (schemeId == 4);
+        Configuration.UseWindowsDarkMode = (schemeId == 5);
         ColorsChanged(TRUE, TRUE, FALSE); // save time, change only color-dependent items, do not reload icons
 
         SourceHighlightMasks->Load(HighlightMasks);
@@ -4193,7 +4193,7 @@ void CCfgPageColors::LoadColors()
     int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
     int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
     if (schemeId == CB_ERR)
-        schemeId = 5;
+        schemeId = 4;
     if (schemeId == 0)
         tmpColors = SalamanderColors;
     else if (schemeId == 1)
@@ -4586,7 +4586,7 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
                 int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
-                if (schemeId == 4)
+                if (schemeId == 5)
                 {
                     EditLB->DeleteAllItems();
                     WindowsDarkModeBuildPalette(TmpColors, NULL);
@@ -4648,7 +4648,7 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
                 int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
                 if (schemeId == CB_ERR)
-                    schemeId = 5;
+                    schemeId = 4;
                 if (schemeId == 0)
                     tmpColors = SalamanderColors;
                 else if (schemeId == 1)
@@ -4802,7 +4802,7 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
             {
                 int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
                 int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
-                const bool forceDarkCommonDialog = (schemeId == 4);
+                const bool forceDarkCommonDialog = (schemeId == 5);
                 if (schemeId >= 0 && schemeId <= 3)
                 {
                     COLORREF* colors;
@@ -4821,7 +4821,7 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
                     int count = (int)SendMessage(HScheme, CB_GETCOUNT, 0, 0);
                     for (int j = 0; j < count; j++)
                     {
-                        if ((int)SendMessage(HScheme, CB_GETITEMDATA, j, 0) == 5)
+                        if ((int)SendMessage(HScheme, CB_GETITEMDATA, j, 0) == 4)
                         {
                             SendMessage(HScheme, CB_SETCURSEL, j, 0);
                             break;
