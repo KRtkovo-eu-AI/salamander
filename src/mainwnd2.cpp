@@ -456,7 +456,8 @@ static void MCDApplyCleanTargetDefaults(CSalamanderRegistryExAbstract* registry,
 
 static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& srcCfg,
                                             CSalamanderRegistryExAbstract* targetReg,
-                                            const char* targetSubkey)
+                                            const char* targetSubkey,
+                                            BOOL targetIsFileStorage)
 {
     if (targetReg == NULL || targetSubkey == NULL || targetSubkey[0] == 0)
         return FALSE;
@@ -504,7 +505,7 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
     const char* sourceSubkey = MCDSubKeyFromLocation(srcCfg.Location);
     if (sourceSubkey == NULL)
         return FALSE;
-    if (_stricmp(sourceSubkey, targetSubkey) == 0)
+    if (_stricmp(sourceSubkey, targetSubkey) == 0 && !targetIsFileStorage)
         return TRUE; // selected source is already the registry target; keep it and only apply metadata
 
     CSalamanderRegistryExAbstract* sourceReg = REG_SysRegistryFactory();
@@ -536,7 +537,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
         if (targetReg == NULL)
             return FALSE;
 
-        BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey);
+        BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey, TRUE);
         if (ret)
         {
             MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, markWelcomeProcessed);
@@ -556,7 +557,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
     if (targetReg == NULL)
         return FALSE;
 
-    BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey);
+    BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey, FALSE);
     if (ret)
     {
         MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, markWelcomeProcessed);
