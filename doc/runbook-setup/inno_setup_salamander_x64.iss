@@ -1656,10 +1656,9 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   PluginsVer: String;
 begin
-  if CurStep = ssInstall then
-    CollectPreviousVersionUninstallKeysForAppDir
-  else if CurStep = ssPostInstall then
+  if CurStep = ssPostInstall then
   begin
+    CollectPreviousVersionUninstallKeysForAppDir;
     RemovePreviousVersionUninstallKeys;
 
     { Mirrors the setup_x64.inf IncrementFileContent metadata by ensuring plugins.ver exists.
