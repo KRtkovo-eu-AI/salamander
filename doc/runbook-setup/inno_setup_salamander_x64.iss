@@ -33,7 +33,8 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={autopf}\Open Salamander Samandarin
+DefaultDirName={code:GetDefaultDirName}
+AppendDefaultDirName=no
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputBaseFilename=setup_{#MyAppVersion}_win_x64
@@ -1386,9 +1387,22 @@ begin
   Result := Assigned(InstallModePage) and (InstallModePage.SelectedValueIndex = 1);
 end;
 
+function GetStandardDefaultDir(): String;
+begin
+  Result := ExpandConstant('{autopf}\Open Salamander Samandarin');
+end;
+
 function GetPortableDefaultDir(): String;
 begin
   Result := ExpandConstant('{userdocs}\') + CustomMessage('PortableDirName');
+end;
+
+function GetDefaultDirName(Param: String): String;
+begin
+  if IsPortableInstall() then
+    Result := GetPortableDefaultDir()
+  else
+    Result := GetStandardDefaultDir();
 end;
 
 function GetACP: DWORD;
@@ -1477,6 +1491,7 @@ begin
   InstallModePage.Add(CustomMessage('StandardInstall'));
   InstallModePage.Add(CustomMessage('PortableInstall'));
   InstallModePage.SelectedValueIndex := 0;
+
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -1485,10 +1500,10 @@ begin
 
   if CurPageID = InstallModePage.ID then
   begin
-    if IsPortableInstall() and (WizardDirValue = ExpandConstant('{autopf}\Open Salamander Samandarin')) then
+    if IsPortableInstall() and (WizardDirValue = GetStandardDefaultDir()) then
       WizardForm.DirEdit.Text := GetPortableDefaultDir()
-    else if (not IsPortableInstall()) then
-      WizardForm.DirEdit.Text := ExpandConstant('{autopf}\Open Salamander Samandarin');
+    else if (not IsPortableInstall()) and (WizardDirValue = GetPortableDefaultDir()) then
+      WizardForm.DirEdit.Text := GetStandardDefaultDir();
   end;
 end;
 
