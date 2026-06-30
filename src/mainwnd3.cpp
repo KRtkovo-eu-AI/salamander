@@ -5351,7 +5351,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_IMPORTCONFIG:
         {
             // Open Manage Configurations dialog
-            CManageConfigsDialog dlg;
+            CManageConfigsDialog dlg(HWindow);
             dlg.DeleteConfigurations = NULL; // no deletion from running app
             dlg.IndexOfConfigToLoad = -1;
             dlg.StorageType = (int)Configuration.StorageType;
@@ -5522,6 +5522,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 if (dlg.StorageType == cstRegFile && dlg.RegFilePath[0] != 0)
                 {
                     ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
+                }
+
+                if (dlg.SelectedSourceIndex >= 0 && dlg.SelectedSourceIndex < dlg.ConfigsCount &&
+                    dlg.Configs[dlg.SelectedSourceIndex].Exists &&
+                    dlg.Configs[dlg.SelectedSourceIndex].RootIndex == -1 &&
+                    !dlg.Configs[dlg.SelectedSourceIndex].IsPortable &&
+                    DarkModeShouldUseDarkColors())
+                {
+                    Configuration.UseWindowsDarkMode = TRUE;
+                    WindowsDarkModeBuildPalette(UserColors, ViewerColors);
+                    CurrentColors = UserColors;
                 }
 
                 // Vypnout AutoSave az po uspesnem zapisu target konfigurace, aby ukonceni bezici instance
