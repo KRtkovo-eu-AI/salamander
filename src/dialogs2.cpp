@@ -2227,6 +2227,12 @@ void CManageConfigsDialog::Transfer(CTransferInfo& ti)
     }
     else
     {
+        HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
+        int selItem = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
+        int selectedConfigIndex = MCDGetConfigIndexFromListItem(hList, selItem);
+        if (selectedConfigIndex >= 0 && selectedConfigIndex < ConfigsCount && Configs[selectedConfigIndex].Exists)
+            SelectedSourceIndex = selectedConfigIndex;
+
         if (IsDlgButtonChecked(HWindow, IDC_MCD_FILE_RADIO) == BST_CHECKED && CanSaveBootstrap)
         {
             StorageType = cstRegFile;
