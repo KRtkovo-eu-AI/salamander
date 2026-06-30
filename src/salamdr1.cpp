@@ -4719,7 +4719,7 @@ FIND_NEW_SLG_FILE:
         // source into the requested file-storage path, load that file directly.  Falling
         // back to Registry storage here would ignore the selected source and could load
         // a completely different registry configuration (colors, language, etc.).
-        BOOL selectedFileStorageReady = !storageTypeFromBootstrap && storageRegFilePath[0] != 0 &&
+        BOOL selectedFileStorageReady = !autoImportConfig && storageRegFilePath[0] != 0 &&
                                         GetFileAttributes(storageRegFilePath) != INVALID_FILE_ATTRIBUTES;
         if (selectedFileStorageReady)
         {
