@@ -25,7 +25,7 @@
 #endif
 
 [Setup]
-AppId=OpenSalamanderSamandarin-x64-{#MyAppVersion}
+AppId=OpenSalamanderSamandarin-x64
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppDisplayName}
@@ -1381,6 +1381,7 @@ var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
+  PreviousVersionUninstallKeys: array of String;
 
 function IsPortableInstall(): Boolean;
 begin
@@ -1403,6 +1404,64 @@ begin
     Result := GetPortableDefaultDir()
   else
     Result := GetStandardDefaultDir();
+end;
+
+
+procedure AddPreviousVersionUninstallKey(const RootKey: Integer; const SubKeyName: String);
+var
+  InstallLocation: String;
+  DisplayName: String;
+  UninstallString: String;
+begin
+  if RegQueryStringValue(RootKey, SubKeyName, 'InstallLocation', InstallLocation) and
+     (CompareText(RemoveBackslashUnlessRoot(InstallLocation), RemoveBackslashUnlessRoot(ExpandConstant('{app}'))) = 0) and
+     RegQueryStringValue(RootKey, SubKeyName, 'DisplayName', DisplayName) and
+     (Pos('Open Salamander', DisplayName) = 1) and
+     RegQueryStringValue(RootKey, SubKeyName, 'UninstallString', UninstallString) and
+     FileExists(RemoveQuotes(UninstallString)) then
+  begin
+    SetArrayLength(PreviousVersionUninstallKeys, GetArrayLength(PreviousVersionUninstallKeys) + 1);
+    PreviousVersionUninstallKeys[GetArrayLength(PreviousVersionUninstallKeys) - 1] := SubKeyName;
+  end;
+end;
+
+procedure CollectPreviousVersionUninstallKeys(const RootKey: Integer; const UninstallRoot: String);
+var
+  Names: array of String;
+  I: Integer;
+begin
+  if not RegGetSubkeyNames(RootKey, UninstallRoot, Names) then
+    Exit;
+
+  for I := 0 to GetArrayLength(Names) - 1 do
+  begin
+    if (CompareText(Names[I], ExpandConstant('{#SetupSetting("AppId")}') + '_is1') <> 0) and
+       (Pos('OpenSalamanderSamandarin-x64-', Names[I]) = 1) then
+    begin
+      AddPreviousVersionUninstallKey(RootKey, UninstallRoot + '\' + Names[I]);
+    end;
+  end;
+end;
+
+procedure CollectPreviousVersionUninstallKeysForAppDir;
+begin
+  SetArrayLength(PreviousVersionUninstallKeys, 0);
+  if IsPortableInstall() then
+    Exit;
+
+  CollectPreviousVersionUninstallKeys(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall');
+  CollectPreviousVersionUninstallKeys(HKLM64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall');
+end;
+
+procedure RemovePreviousVersionUninstallKeys;
+var
+  I: Integer;
+begin
+  for I := 0 to GetArrayLength(PreviousVersionUninstallKeys) - 1 do
+  begin
+    RegDeleteKeyIncludingSubkeys(HKLM, PreviousVersionUninstallKeys[I]);
+    RegDeleteKeyIncludingSubkeys(HKLM64, PreviousVersionUninstallKeys[I]);
+  end;
 end;
 
 function GetACP: DWORD;
@@ -1505,6 +1564,14 @@ begin
     else if (not IsPortableInstall()) and (WizardDirValue = GetPortableDefaultDir()) then
       WizardForm.DirEdit.Text := GetStandardDefaultDir();
   end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssInstall then
+    CollectPreviousVersionUninstallKeysForAppDir
+  else if CurStep = ssPostInstall then
+    RemovePreviousVersionUninstallKeys;
 end;
 
 function IsFileConfigurationStorageSelected(): Boolean;
