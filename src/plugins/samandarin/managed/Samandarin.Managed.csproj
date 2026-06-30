@@ -42,7 +42,8 @@
       <SamandarinVersionSourceLines Include="{" />
       <SamandarinVersionSourceLines Include="    internal static class SamandarinVersion" />
       <SamandarinVersionSourceLines Include="    {" />
-      <SamandarinVersionSourceLines Include="        public const string PluginVersion = %22$(SamandarinVersionMajor).$(SamandarinVersionMinor)%22;" />
+      <!-- Escape quotes and semicolon because MSBuild treats semicolon as an item separator in Include values. -->
+      <SamandarinVersionSourceLines Include="        public const string PluginVersion = %22$(SamandarinVersionMajor).$(SamandarinVersionMinor)%22%3B" />
       <SamandarinVersionSourceLines Include="    }" />
       <SamandarinVersionSourceLines Include="}" />
     </ItemGroup>
