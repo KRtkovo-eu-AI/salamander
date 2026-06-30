@@ -1566,14 +1566,6 @@ begin
   end;
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssInstall then
-    CollectPreviousVersionUninstallKeysForAppDir
-  else if CurStep = ssPostInstall then
-    RemovePreviousVersionUninstallKeys;
-end;
-
 function IsFileConfigurationStorageSelected(): Boolean;
 var
   StorageType: String;
@@ -1664,8 +1656,12 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   PluginsVer: String;
 begin
-  if CurStep = ssPostInstall then
+  if CurStep = ssInstall then
+    CollectPreviousVersionUninstallKeysForAppDir
+  else if CurStep = ssPostInstall then
   begin
+    RemovePreviousVersionUninstallKeys;
+
     { Mirrors the setup_x64.inf IncrementFileContent metadata by ensuring plugins.ver exists.
       The legacy installer used the registry value
       HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.7\Configuration\Plugins.ver Version (x64)
