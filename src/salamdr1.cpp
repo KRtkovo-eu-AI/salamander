@@ -135,10 +135,12 @@ static BOOL LoadLanguageFromRegistry(CSalamanderRegistryExAbstract* registry, co
     return loaded;
 }
 
-static BOOL LoadLanguageFromPortableConfig(const char* configKey, DWORD& langChanged)
+static BOOL LoadLanguageFromPortableConfig(const char* configKey, DWORD& langChanged, const char* regFilePath = NULL)
 {
     char fileName[MAX_PATH];
-    if (!ConfigurationStorage.GetPortableConfigFilePath(fileName, SizeOf(fileName)))
+    if (regFilePath != NULL && regFilePath[0] != 0)
+        strncpy_s(fileName, regFilePath, _TRUNCATE);
+    else if (!ConfigurationStorage.GetPortableConfigFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
     HANDLE file = HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
@@ -4358,10 +4360,13 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     DWORD langChanged = FALSE; // TRUE = startujeme Salama poprve s jinym jazykem (naloadime vsechny pluginy, at se overi ze mame tuto jazykovou verzi i pro ne, pripadne at user vyresi jake nahradni verze chce pouzivat)
     BOOL languageLoadedFromPortableConfig = FALSE;
     CConfigurationStorageType languageStorageType = cstRegistry;
+    char languageRegFilePath[MAX_PATH];
+    languageRegFilePath[0] = 0;
     if (!autoImportConfig &&
-        ConfigurationStorage.LoadStorageTypeBootstrap(languageStorageType) && languageStorageType == cstRegFile)
+        ConfigurationStorage.LoadStorageTypeBootstrap(languageStorageType, languageRegFilePath, SizeOf(languageRegFilePath)) &&
+        languageStorageType == cstRegFile)
     {
-        languageLoadedFromPortableConfig = LoadLanguageFromPortableConfig(configKey, langChanged);
+        languageLoadedFromPortableConfig = LoadLanguageFromPortableConfig(configKey, langChanged, languageRegFilePath);
     }
 
     if (!languageLoadedFromPortableConfig)
