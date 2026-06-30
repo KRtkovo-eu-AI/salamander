@@ -61,6 +61,10 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 <img width="397" height="185" alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a" />
 
 ### Plugin Updates in Samandarin plugin
+> [!NOTE]
+> Plugin catalog sources:
+> - Stable: https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json
+> - Unofficial 3rd party: https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json
 <img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/c1088472-335b-4421-82bb-fea8531beb92" />
 
 ### Digitally signed
@@ -72,7 +76,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### 7-Zip 1.31
 ### Automation 1.7
 ### Checksum 2.2
-### Database Viewer 1.24
+### Database Viewer 1.25
 ### DiskMap 1.12
 ### FTP Client 1.35
 ### File Comparator 1.19
@@ -80,6 +84,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### Hyper-V Machines 1.05
 Show local Hyper-V virtual machines. You can Start/Turn Off/Shut Down/Connect/Create New Machine through the plugin.
 
+### Internet Explorer Viewer 1.12
 ### JSON Viewer .NET 1.0
 Supported File Types
 | Description | Extensions |
