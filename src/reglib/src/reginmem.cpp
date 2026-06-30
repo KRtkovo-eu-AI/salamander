@@ -954,7 +954,9 @@ namespace RegLib
             switch (pValue->Type)
             {
             case VT_DWORD:
-                if (bufferSize != sizeof(DWORD))
+                // Match RegQueryValueEx semantics: callers may pass a buffer larger
+                // than sizeof(DWORD) and still expect a REG_DWORD value to load.
+                if (bufferSize < sizeof(DWORD))
                     return FALSE;
                 *(DWORD*)buffer = pValue->Value.dw;
                 break;
