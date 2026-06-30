@@ -1535,6 +1535,11 @@ static void MCDSelectListItem(HWND hList, int item)
     ListView_EnsureVisible(hList, item, FALSE);
 }
 
+static BOOL MCDIsCleanConfigItem(const CFoundConfig& cfg)
+{
+    return cfg.Exists && cfg.RootIndex == -1 && !cfg.IsPortable;
+}
+
 void CManageConfigsDialog::InitConfigsList()
 {
     HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
@@ -1727,17 +1732,28 @@ void CManageConfigsDialog::SortConfigs()
 
             const CFoundConfig& ca = Configs[i];
             const CFoundConfig& cb = Configs[j];
+            BOOL caIsClean = MCDIsCleanConfigItem(ca);
+            BOOL cbIsClean = MCDIsCleanConfigItem(cb);
             int cmp = 0;
-            switch (SortColumn)
+            if (caIsClean != cbIsClean)
             {
-            case 0: cmp = CompareFileTime(&ca.LastUpdate, &cb.LastUpdate); break;
-            case 1: cmp = _stricmp(ca.DisplayName, cb.DisplayName); break;
-            case 2: cmp = _stricmp(ca.Version, cb.Version); break;
-            case 3: cmp = _stricmp(ca.Language, cb.Language); break;
-            case 4: cmp = _stricmp(ca.StorageTypeStr, cb.StorageTypeStr); break;
-            case 5: cmp = _stricmp(ca.Location, cb.Location); break;
+                // Keep "Clean configuration with default values" pinned as the first row,
+                // independently of the active sort column or direction.
+                cmp = caIsClean ? -1 : 1;
             }
-            if (!SortAscending) cmp = -cmp;
+            else
+            {
+                switch (SortColumn)
+                {
+                case 0: cmp = CompareFileTime(&ca.LastUpdate, &cb.LastUpdate); break;
+                case 1: cmp = _stricmp(ca.DisplayName, cb.DisplayName); break;
+                case 2: cmp = _stricmp(ca.Version, cb.Version); break;
+                case 3: cmp = _stricmp(ca.Language, cb.Language); break;
+                case 4: cmp = _stricmp(ca.StorageTypeStr, cb.StorageTypeStr); break;
+                case 5: cmp = _stricmp(ca.Location, cb.Location); break;
+                }
+                if (!SortAscending) cmp = -cmp;
+            }
             if (cmp > 0)
             {
                 CFoundConfig tmp = Configs[i];
