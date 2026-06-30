@@ -580,6 +580,7 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
     salamander->AddViewer("*.csv;*.dbf;*.jsonl", FALSE); // default (plugin installation), otherwise Salamander ignores it
+    salamander->AddViewer("*.jsonl", TRUE);             // update existing installations with JSON Lines support
 }
 
 CPluginInterfaceForViewerAbstract*
