@@ -435,7 +435,9 @@ static void MCDApplyCleanTargetDefaults(CSalamanderRegistryExAbstract* registry,
 {
     char versionSubkey[MAX_PATH];
     _snprintf_s(versionSubkey, _TRUNCATE, "%s\\Version", targetSubkey);
-    DWORD configVersion = THIS_CONFIG_VERSION;
+    // Keep clean targets new enough for early language loading, but one version behind
+    // so the first real start still runs the standard plug-in auto-install path.
+    DWORD configVersion = THIS_CONFIG_VERSION - 1;
     MCDSetValueInSubkey(registry, versionSubkey, SALAMANDER_VERSIONREG_REG, REG_DWORD,
                         &configVersion, sizeof(configVersion));
 
