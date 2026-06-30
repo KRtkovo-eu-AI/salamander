@@ -378,6 +378,69 @@ static BOOL MCDSetValueInSubkey(CSalamanderRegistryExAbstract* registry, const c
     return ret;
 }
 
+static BOOL MCDIsSamandarin01To06Version(const char* version)
+{
+    const char* samandarin = version != NULL ? StrIStr(version, "Samandarin") : NULL;
+    if (samandarin == NULL)
+        return FALSE;
+
+    const char* minor = StrIStr(samandarin, "0.");
+    if (minor == NULL || minor[2] < '1' || minor[2] > '6')
+        return FALSE;
+
+    char next = minor[3];
+    return next == 0 || next < '0' || next > '9';
+}
+
+static BOOL MCDIsSamandarin01To06Root(const char* subkey)
+{
+    if (subkey == NULL)
+        return FALSE;
+
+    for (int i = 1; i <= 6 && i < SALCFG_ROOTS_COUNT; i++)
+    {
+        if (_stricmp(subkey, SalamanderConfigurationRoots[i]) == 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL MCDShouldMigrateSamandarin01To06Scheme(const char* subkey, const char* version)
+{
+    return MCDIsSamandarin01To06Root(subkey) || MCDIsSamandarin01To06Version(version);
+}
+
+static void MCDNormalizeSamandarin01To06ColorScheme(CSalamanderRegistryExAbstract* registry, const char* targetSubkey)
+{
+    if (registry == NULL || targetSubkey == NULL || targetSubkey[0] == 0)
+        return;
+
+    char colorsSubkey[MAX_PATH];
+    _snprintf_s(colorsSubkey, _TRUNCATE, "%s\\Colors", targetSubkey);
+
+    HKEY colorsKey;
+    if (!registry->OpenKey(HKEY_CURRENT_USER, colorsSubkey, colorsKey))
+        return;
+
+    DWORD scheme = 4;
+    DWORD useWinDark = 0;
+    BOOL schemeLoaded = registry->GetValue(colorsKey, "Color Scheme", REG_DWORD, &scheme, sizeof(scheme));
+    BOOL useWinDarkLoaded = registry->GetValue(colorsKey, "Use Windows Dark Mode", REG_DWORD, &useWinDark, sizeof(useWinDark));
+    registry->CloseKey(colorsKey);
+
+    if (!schemeLoaded)
+        return;
+
+    DWORD normalizedScheme = scheme;
+    if (scheme == 4 && useWinDarkLoaded && useWinDark != 0)
+        normalizedScheme = 5;
+    else if (scheme == 5 && (!useWinDarkLoaded || useWinDark == 0))
+        normalizedScheme = 4;
+
+    if (normalizedScheme != scheme)
+        MCDSetValueInSubkey(registry, colorsSubkey, "Color Scheme", REG_DWORD, &normalizedScheme, sizeof(normalizedScheme));
+}
+
 static void MCDApplyCleanTargetDefaults(CSalamanderRegistryExAbstract* registry, const char* targetSubkey)
 {
     DWORD isMyDocs = TRUE;
@@ -432,7 +495,11 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
         {
             const char* sourceSubkey = MCDFindSourceSubkeyInRegistry(sourceReg);
             if (sourceSubkey != NULL)
+            {
                 ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
+                if (ret && MCDShouldMigrateSamandarin01To06Scheme(sourceSubkey, srcCfg.Version))
+                    MCDNormalizeSamandarin01To06ColorScheme(targetReg, targetSubkey);
+            }
             else
             {
                 char text[MAX_PATH + 300];
@@ -454,6 +521,8 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
     if (sourceReg == NULL)
         return FALSE;
     BOOL ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
+    if (ret && MCDShouldMigrateSamandarin01To06Scheme(sourceSubkey, srcCfg.Version))
+        MCDNormalizeSamandarin01To06ColorScheme(targetReg, targetSubkey);
     sourceReg->Release();
     return ret;
 }
@@ -3800,6 +3869,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             DWORD scheme = 4; // custom
             BOOL colorSchemeLoaded = FALSE;
             BOOL restoreWindowsDarkPalette = FALSE;
+            BOOL migrateSamandarin01To06Scheme = MCDShouldMigrateSamandarin01To06Scheme(SALAMANDER_ROOT_REG, NULL);
             CurrentColors = UserColors;
             DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
             BOOL useWinDarkLoaded = GetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD));
@@ -3811,9 +3881,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 if (Configuration.ConfigVersion < 28 && scheme == 3)
                     scheme = 4;
 
-                if (scheme == 4 && Configuration.UseWindowsDarkMode)
+                if (migrateSamandarin01To06Scheme && scheme == 4 && Configuration.UseWindowsDarkMode)
                     scheme = 5; // samandarin 0.1-0.6 stored Windows Dark Mode as 4
-                else if (scheme == 5 && !Configuration.UseWindowsDarkMode)
+                else if (migrateSamandarin01To06Scheme && scheme == 5 && !Configuration.UseWindowsDarkMode)
                     scheme = 4; // samandarin 0.1-0.6 stored Custom as 5
 
                 if (scheme == 0)
