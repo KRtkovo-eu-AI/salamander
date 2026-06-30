@@ -5530,8 +5530,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     !dlg.Configs[dlg.SelectedSourceIndex].IsPortable &&
                     DarkModeShouldUseDarkColors())
                 {
-                    DWORD scheme = 4; // Windows Dark Mode (experimental)
-                    Configuration.UseWindowsDarkMode = (scheme == 4);
+                    DWORD scheme = 5; // Windows Dark Mode (experimental)
+                    Configuration.UseWindowsDarkMode = (scheme == 5);
                     WindowsDarkModeBuildPalette(UserColors, ViewerColors);
                     CurrentColors = UserColors;
                 }
