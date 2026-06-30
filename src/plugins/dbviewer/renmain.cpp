@@ -16,6 +16,44 @@
 
 #define TIMER_SCROLL_ID 1
 
+namespace
+{
+void PaintRendererDarkFrame(HWND hwnd)
+{
+    if (hwnd == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    HDC hdc = GetWindowDC(hwnd);
+    if (hdc == NULL)
+        return;
+
+    RECT windowRect;
+    GetWindowRect(hwnd, &windowRect);
+    OffsetRect(&windowRect, -windowRect.left, -windowRect.top);
+
+    RECT clientRect;
+    GetClientRect(hwnd, &clientRect);
+    POINT clientOrigin = {0, 0};
+    ClientToScreen(hwnd, &clientOrigin);
+    RECT screenWindowRect;
+    GetWindowRect(hwnd, &screenWindowRect);
+    OffsetRect(&clientRect, clientOrigin.x - screenWindowRect.left, clientOrigin.y - screenWindowRect.top);
+
+    HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
+    RECT band;
+    SetRect(&band, windowRect.left, windowRect.top, windowRect.right, clientRect.top);
+    FillRect(hdc, &band, frameBrush);
+    SetRect(&band, windowRect.left, clientRect.bottom, windowRect.right, windowRect.bottom);
+    FillRect(hdc, &band, frameBrush);
+    SetRect(&band, windowRect.left, clientRect.top, clientRect.left, clientRect.bottom);
+    FillRect(hdc, &band, frameBrush);
+    SetRect(&band, clientRect.right, clientRect.top, windowRect.right, clientRect.bottom);
+    FillRect(hdc, &band, frameBrush);
+
+    ReleaseDC(hwnd, hdc);
+}
+}
+
 BOOL IsAlphaNumeric[256]; // TRUE/FALSE table for characters (FALSE = neither a letter nor a digit)
 BOOL IsAlpha[256];
 
@@ -1536,6 +1574,7 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         DragAcceptFiles(HWindow, TRUE);
         WinLibApplyDarkMode(HWindow);
+        PaintRendererDarkFrame(HWindow);
         break;
     }
 
@@ -1567,10 +1606,17 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
         {
             RebuildGraphics();
-            InvalidateRect(HWindow, NULL, TRUE);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_FRAME);
             return 0;
         }
         break;
+    }
+
+    case WM_NCPAINT:
+    {
+        LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+        PaintRendererDarkFrame(HWindow);
+        return result;
     }
 
     case WM_PAINT:
