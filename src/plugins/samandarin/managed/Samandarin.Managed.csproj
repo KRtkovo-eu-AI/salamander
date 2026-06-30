@@ -20,6 +20,36 @@
              Properties="RestoreDuringBuild=true" />
   </Target>
 
+  <Target Name="GenerateSamandarinVersionSource" BeforeTargets="CoreCompile">
+    <ReadLinesFromFile File="$(MSBuildThisFileDirectory)..\versinfo.rh2">
+      <Output TaskParameter="Lines" ItemName="SamandarinVersInfoLines" />
+    </ReadLinesFromFile>
+
+    <PropertyGroup>
+      <SamandarinVersInfoText>@(SamandarinVersInfoLines, ' ')</SamandarinVersInfoText>
+      <SamandarinVersionMajor>$([System.Text.RegularExpressions.Regex]::Match('$(SamandarinVersInfoText)', '#define\s+VERSINFO_MAJOR\s+([0-9]+)').Groups[1].Value)</SamandarinVersionMajor>
+      <SamandarinVersionMinorA>$([System.Text.RegularExpressions.Regex]::Match('$(SamandarinVersInfoText)', '#define\s+VERSINFO_MINORA\s+([0-9]+)').Groups[1].Value)</SamandarinVersionMinorA>
+      <SamandarinVersionMinorB>$([System.Text.RegularExpressions.Regex]::Match('$(SamandarinVersInfoText)', '#define\s+VERSINFO_MINORB\s+([0-9]+)').Groups[1].Value)</SamandarinVersionMinorB>
+      <SamandarinVersionMinor>$(SamandarinVersionMinorA)</SamandarinVersionMinor>
+      <SamandarinVersionMinor Condition="'$(SamandarinVersionMinorB)' != '0'">$(SamandarinVersionMinorA)$(SamandarinVersionMinorB)</SamandarinVersionMinor>
+      <SamandarinVersionSource>$(IntermediateOutputPath)SamandarinVersion.g.cs</SamandarinVersionSource>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <ItemGroup>
+      <SamandarinVersionSourceLines Include="// &lt;auto-generated /&gt;" />
+      <SamandarinVersionSourceLines Include="namespace OpenSalamander.Samandarin;" />
+      <SamandarinVersionSourceLines Include="internal static class SamandarinVersion" />
+      <SamandarinVersionSourceLines Include="{" />
+      <SamandarinVersionSourceLines Include="    public const string PluginVersion = &quot;$(SamandarinVersionMajor).$(SamandarinVersionMinor)&quot;;" />
+      <SamandarinVersionSourceLines Include="}" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(SamandarinVersionSource)" Lines="@(SamandarinVersionSourceLines)" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(SamandarinVersionSource)" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Web.Extensions" />

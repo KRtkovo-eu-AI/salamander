@@ -268,7 +268,7 @@ internal static class UpdateCoordinator
         {
             Timeout = TimeSpan.FromSeconds(15),
         };
-        HttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SamandarinUpdateNotifier/0.3");
+        HttpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"SamandarinUpdateNotifier/{SamandarinVersion.PluginVersion}");
     }
 
     public static void Initialize(string currentVersion, IntPtr parent)
@@ -1527,7 +1527,7 @@ internal static class PluginCatalogService
     public static async Task<IReadOnlyList<PluginUpdateRow>> CheckAsync()
     {
         var installed = InstalledPluginScanner.Scan().ToList();
-        var catalog = new Dictionary<string, PluginCatalogEntry>(StringComparer.OrdinalIgnoreCase);
+        var catalog = new List<PluginCatalogEntry>();
         var sourceErrors = new List<string>();
 
         foreach (var source in PluginCatalogSources.Load())
@@ -1544,7 +1544,7 @@ internal static class PluginCatalogService
                 foreach (var entry in manifest.plugins.Where(entry => !string.IsNullOrWhiteSpace(entry.id)))
                 {
                     entry.source = string.IsNullOrWhiteSpace(manifest.catalogName) ? source : manifest.catalogName;
-                    catalog[entry.id!] = entry;
+                    catalog.Add(entry);
                 }
             }
             catch (Exception ex)
@@ -1554,8 +1554,17 @@ internal static class PluginCatalogService
         }
 
         var installedIds = new HashSet<string>(installed.Select(plugin => plugin.Id), StringComparer.OrdinalIgnoreCase);
-        var rows = installed.Select(plugin => BuildRow(plugin, catalog.TryGetValue(plugin.Id, out var entry) ? entry : null)).ToList();
-        rows.AddRange(catalog.Values
+        var rows = installed.SelectMany(plugin =>
+        {
+            var entries = catalog.Where(entry => string.Equals(entry.id, plugin.Id, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (entries.Count == 0)
+            {
+                return new[] { BuildRow(plugin, null) };
+            }
+
+            return entries.Select(entry => BuildRow(plugin, entry));
+        }).ToList();
+        rows.AddRange(catalog
             .Where(entry => entry.id is not null && !installedIds.Contains(entry.id))
             .Select(BuildCatalogOnlyRow));
         LastErrors = sourceErrors;
@@ -1618,7 +1627,7 @@ internal static class SharedHttpClient
 
     static SharedHttpClient()
     {
-        Instance.DefaultRequestHeaders.UserAgent.ParseAdd("SamandarinPluginCatalog/0.3");
+        Instance.DefaultRequestHeaders.UserAgent.ParseAdd($"SamandarinPluginCatalog/{SamandarinVersion.PluginVersion}");
     }
 }
 
