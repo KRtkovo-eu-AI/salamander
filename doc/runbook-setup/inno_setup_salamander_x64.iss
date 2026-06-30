@@ -46,6 +46,7 @@ PrivilegesRequired=admin
 UninstallDisplayName={#MyAppDisplayName}
 UninstallDisplayIcon={app}\salamand.exe
 CreateUninstallRegKey=yes
+Uninstallable=not IsPortableInstall
 SetupIconFile=..\..\src\res\samandarin.ico
 DisableFinishedPage=yes
 ChangesAssociations=yes
@@ -121,46 +122,90 @@ spanish.FileStorage=Almacenamiento de archivos:
 spanish.RegistryKey=Clave del Registro:
 spanish.RemoveUserConfigFiles=Elija Sí para eliminar los archivos de configuración, o No para conservar la configuración.
 spanish.RemoveUserConfigRegistry=Elija Sí para eliminar la clave con todo su contenido, o No para conservar la configuración.
+english.InstallMode=Installation mode:
+english.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+english.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+english.PortableDirName=Open Salamander Samandarin Portable
 english.StartMenuShortcut=Create a &Start Menu shortcut
 english.DesktopShortcut=Create a &desktop shortcut
 english.Shortcuts=Shortcuts:
 english.LaunchProgram=Launch {#MyAppName}
+chinesesimplified.InstallMode=Installation mode:
+chinesesimplified.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+chinesesimplified.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+chinesesimplified.PortableDirName=Open Salamander Samandarin Portable
 chinesesimplified.StartMenuShortcut=创建“开始”菜单快捷方式(&S)
 chinesesimplified.DesktopShortcut=创建桌面快捷方式(&D)
 chinesesimplified.Shortcuts=快捷方式:
 chinesesimplified.LaunchProgram=启动 {#MyAppName}
+czech.InstallMode=Režim instalace:
+czech.StandardInstall=Opravdová instalace (nabídka Start, Programy a odinstalátor)
+czech.PortableInstall=Jen rozbalit jako portable verzi (bez záznamu v Programech a odinstalátoru)
+czech.PortableDirName=Open Salamander Samandarin Portable
 czech.StartMenuShortcut=Vytvořit zástupce v nabídce &Start
 czech.DesktopShortcut=Vytvořit zástupce na &ploše
 czech.Shortcuts=Zástupci:
 czech.LaunchProgram=Spustit {#MyAppName}
+dutch.InstallMode=Installation mode:
+dutch.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+dutch.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+dutch.PortableDirName=Open Salamander Samandarin Portable
 dutch.StartMenuShortcut=Een snelkoppeling in het menu &Start maken
 dutch.DesktopShortcut=Een snelkoppeling op het &bureaublad maken
 dutch.Shortcuts=Snelkoppelingen:
 dutch.LaunchProgram={#MyAppName} starten
+french.InstallMode=Installation mode:
+french.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+french.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+french.PortableDirName=Open Salamander Samandarin Portable
 french.StartMenuShortcut=Créer un raccourci dans le menu &Démarrer
 french.DesktopShortcut=Créer un raccourci sur le &Bureau
 french.Shortcuts=Raccourcis :
 french.LaunchProgram=Lancer {#MyAppName}
+german.InstallMode=Installation mode:
+german.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+german.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+german.PortableDirName=Open Salamander Samandarin Portable
 german.StartMenuShortcut=Eine Verknüpfung im &Startmenü erstellen
 german.DesktopShortcut=Eine Verknüpfung auf dem &Desktop erstellen
 german.Shortcuts=Verknüpfungen:
 german.LaunchProgram={#MyAppName} starten
+hungarian.InstallMode=Installation mode:
+hungarian.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+hungarian.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+hungarian.PortableDirName=Open Salamander Samandarin Portable
 hungarian.StartMenuShortcut=&Start menü parancsikon létrehozása
 hungarian.DesktopShortcut=&Asztali parancsikon létrehozása
 hungarian.Shortcuts=Parancsikonok:
 hungarian.LaunchProgram={#MyAppName} indítása
+romanian.InstallMode=Installation mode:
+romanian.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+romanian.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+romanian.PortableDirName=Open Salamander Samandarin Portable
 romanian.StartMenuShortcut=Creează o scurtătură în meniul &Start
 romanian.DesktopShortcut=Creează o scurtătură pe &desktop
 romanian.Shortcuts=Scurtături:
 romanian.LaunchProgram=Pornește {#MyAppName}
+russian.InstallMode=Installation mode:
+russian.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+russian.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+russian.PortableDirName=Open Salamander Samandarin Portable
 russian.StartMenuShortcut=Создать ярлык в меню «&Пуск»
 russian.DesktopShortcut=Создать ярлык на &рабочем столе
 russian.Shortcuts=Ярлыки:
 russian.LaunchProgram=Запустить {#MyAppName}
+slovak.InstallMode=Installation mode:
+slovak.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+slovak.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+slovak.PortableDirName=Open Salamander Samandarin Portable
 slovak.StartMenuShortcut=Vytvoriť odkaz v ponuke &Štart
 slovak.DesktopShortcut=Vytvoriť odkaz na &pracovnej ploche
 slovak.Shortcuts=Odkazy:
 slovak.LaunchProgram=Spustiť {#MyAppName}
+spanish.InstallMode=Installation mode:
+spanish.StandardInstall=Install normally (Start Menu, Programs and uninstaller)
+spanish.PortableInstall=Extract as a portable version (no Programs entry or uninstaller)
+spanish.PortableDirName=Open Salamander Samandarin Portable
 spanish.StartMenuShortcut=Crear un acceso directo en el menú &Inicio
 spanish.DesktopShortcut=Crear un acceso directo en el &escritorio
 spanish.Shortcuts=Accesos directos:
@@ -189,8 +234,8 @@ spanish.CodePageWarningTitle=Advertencia de compatibilidad de páginas de códig
 spanish.CodePageWarning=El idioma seleccionado puede no mostrar todos los caracteres correctamente porque su página de códigos de configuración regional del sistema Windows (%u) no coincide con la página de códigos esperada para este idioma (%u).\n\nPara solucionarlo, cambie su configuración regional del sistema en Windows: Configuración > Hora e idioma > Región > Administración > Cambiar configuración regional del sistema.
 
 [Tasks]
-Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"
-Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm:Shortcuts}"; Flags: unchecked
+Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
+Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm:Shortcuts}"; Flags: unchecked; Check: not IsPortableInstall
 
 [Dirs]
 Name: "{app}\convert"
@@ -1315,8 +1360,8 @@ Source: "{#PayloadDir}\utils\sqlite.dll"; DestDir: "{app}\utils"; Flags: ignorev
 Source: "{#PayloadDir}\utils\ssleay32.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\vcruntime140.dll"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
-Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
-Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon
+Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon; Check: not IsPortableInstall
+Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon; Check: not IsPortableInstall
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Parameters: "-language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
@@ -1331,9 +1376,20 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 
 
 var
+  InstallModePage: TInputOptionWizardPage;
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
+
+function IsPortableInstall(): Boolean;
+begin
+  Result := Assigned(InstallModePage) and (InstallModePage.SelectedValueIndex = 1);
+end;
+
+function GetPortableDefaultDir(): String;
+begin
+  Result := ExpandConstant('{userdocs}\') + CustomMessage('PortableDirName');
+end;
 
 function GetACP: DWORD;
   external 'GetACP@kernel32.dll stdcall';
@@ -1407,6 +1463,33 @@ function InitializeSetup(): Boolean;
 begin
   Result := True;
   CheckCodePageCompatibility;
+end;
+
+procedure InitializeWizard();
+begin
+  InstallModePage := CreateInputOptionPage(
+    wpLicense,
+    SetupMessage(msgWizardSelectTasks),
+    '',
+    CustomMessage('InstallMode'),
+    True,
+    False);
+  InstallModePage.Add(CustomMessage('StandardInstall'));
+  InstallModePage.Add(CustomMessage('PortableInstall'));
+  InstallModePage.SelectedValueIndex := 0;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+
+  if CurPageID = InstallModePage.ID then
+  begin
+    if IsPortableInstall() and (WizardDirValue = ExpandConstant('{autopf}\Open Salamander Samandarin')) then
+      WizardForm.DirEdit.Text := GetPortableDefaultDir()
+    else if (not IsPortableInstall()) and (WizardDirValue = GetPortableDefaultDir()) then
+      WizardForm.DirEdit.Text := ExpandConstant('{autopf}\Open Salamander Samandarin');
+  end;
 end;
 
 function IsFileConfigurationStorageSelected(): Boolean;
