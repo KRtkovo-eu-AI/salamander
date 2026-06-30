@@ -11,6 +11,34 @@
 #include "dialogs.h"
 #include "dbviewer.h"
 
+namespace
+{
+COLORREF RendererTextColor()
+{
+    return DarkModeShouldUseDarkColors() ? DarkModeGetColors().readableText : GetSysColor(COLOR_BTNTEXT);
+}
+
+COLORREF RendererWindowTextColor()
+{
+    return DarkModeShouldUseDarkColors() ? DarkModeGetColors().readableText : GetSysColor(COLOR_WINDOWTEXT);
+}
+
+COLORREF RendererWindowBkColor()
+{
+    return DarkModeShouldUseDarkColors() ? DarkModeGetColors().background : GetSysColor(COLOR_WINDOW);
+}
+
+COLORREF RendererHeaderBkColor()
+{
+    return DarkModeShouldUseDarkColors() ? RGB(0x2A, 0x2A, 0x2A) : GetSysColor(COLOR_BTNFACE);
+}
+
+COLORREF RendererSelectionBkColor()
+{
+    return DarkModeShouldUseDarkColors() ? RGB(0x3A, 0x5F, 0x8A) : RGB(182, 190, 210);
+}
+}
+
 //****************************************************************************
 //
 // CRendererWindow
@@ -24,9 +52,9 @@ void CRendererWindow::PaintTopMargin(HDC hDC, HRGN hUpdateRgn, const RECT* clipR
 
     char textBuffer[10000];
 
-    COLORREF oldTextColor = SetTextColor(hDC, GetSysColor(COLOR_BTNTEXT));
-    COLORREF normalBkColor = GetSysColor(COLOR_BTNFACE);
-    COLORREF selectionBkColor = RGB(182, 190, 210);
+    COLORREF oldTextColor = SetTextColor(hDC, RendererTextColor());
+    COLORREF normalBkColor = RendererHeaderBkColor();
+    COLORREF selectionBkColor = RendererSelectionBkColor();
     COLORREF oldBkColor = SetBkColor(hDC, normalBkColor);
     HPEN hOldPen = (HPEN)SelectObject(hDC, HGrayPen);
 
@@ -129,20 +157,20 @@ void CRendererWindow::PaintTopMargin(HDC hDC, HRGN hUpdateRgn, const RECT* clipR
         r.left = x;
         r.right = Width;
         r.bottom++;
-        SetBkColor(hDC, GetSysColor(COLOR_WINDOW));
+        SetBkColor(hDC, RendererWindowBkColor());
         ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
     }
 
     SelectObject(hDC, hOldPen);
     SetTextColor(hDC, oldTextColor);
-    SetTextColor(hDC, oldBkColor);
+    SetBkColor(hDC, oldBkColor);
 }
 
 void CRendererWindow::PaintBody(HDC hDC, HRGN hUpdateRgn, const RECT* clipRect, BOOL selChangeOnly)
 {
-    COLORREF oldTextColor = SetTextColor(hDC, GetSysColor(COLOR_BTNTEXT));
-    COLORREF normalBkColor = GetSysColor(COLOR_WINDOW);
-    COLORREF selectionBkColor = RGB(182, 190, 210);
+    COLORREF oldTextColor = SetTextColor(hDC, RendererWindowTextColor());
+    COLORREF normalBkColor = RendererWindowBkColor();
+    COLORREF selectionBkColor = RendererSelectionBkColor();
     COLORREF oldBkColor = SetBkColor(hDC, normalBkColor);
     HPEN hOldPen = (HPEN)GetCurrentObject(hDC, OBJ_PEN);
 
@@ -177,7 +205,7 @@ void CRendererWindow::PaintBody(HDC hDC, HRGN hUpdateRgn, const RECT* clipRect, 
                     }
                     else
                     {
-                        oldBkColor2 = SetBkColor(hDC, GetSysColor(COLOR_BTNFACE));
+                        oldBkColor2 = SetBkColor(hDC, RendererHeaderBkColor());
                         SelectObject(hDC, HGrayPen);
                     }
                     SelectClipRgn(hDC, hUpdateRgn);
@@ -355,7 +383,7 @@ void CRendererWindow::PaintBody(HDC hDC, HRGN hUpdateRgn, const RECT* clipRect, 
 
     SelectObject(hDC, hOldPen);
     SetTextColor(hDC, oldTextColor);
-    SetTextColor(hDC, oldBkColor);
+    SetBkColor(hDC, oldBkColor);
 }
 
 void CRendererWindow::Paint(HDC hDC, HRGN hUpdateRgn, BOOL selChangeOnly)

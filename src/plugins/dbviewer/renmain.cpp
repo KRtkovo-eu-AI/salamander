@@ -654,10 +654,20 @@ void CRendererWindow::CreateGraphics()
     SelectObject(hDC, oldFont);
     ReleaseDC(NULL, hDC);
 
-    HGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNSHADOW));
-    HLtGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
-    HSelectionPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_ACTIVECAPTION));
-    HBlackPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNTEXT));
+    if (DarkModeShouldUseDarkColors())
+    {
+        HGrayPen = CreatePen(PS_SOLID, 0, RGB(0x55, 0x55, 0x55));
+        HLtGrayPen = CreatePen(PS_SOLID, 0, RGB(0x3A, 0x3A, 0x3A));
+        HSelectionPen = CreatePen(PS_SOLID, 0, RGB(0x5E, 0x81, 0xAC));
+        HBlackPen = CreatePen(PS_SOLID, 0, DarkModeGetColors().readableText);
+    }
+    else
+    {
+        HGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNSHADOW));
+        HLtGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
+        HSelectionPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_ACTIVECAPTION));
+        HBlackPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNTEXT));
+    }
 }
 
 void CRendererWindow::ReleaseGraphics()
@@ -1525,6 +1535,7 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         DragAcceptFiles(HWindow, TRUE);
+        DarkModeApplyWindow(HWindow);
         break;
     }
 
@@ -1546,6 +1557,19 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             OpenFile(path, TRUE);
         }
         DragFinish((HDROP)wParam);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyWindow(HWindow);
+            RebuildGraphics();
+            InvalidateRect(HWindow, NULL, TRUE);
+            return 0;
+        }
         break;
     }
 
