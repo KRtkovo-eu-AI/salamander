@@ -392,22 +392,12 @@ static BOOL MCDIsSamandarin01To06Version(const char* version)
     return next == 0 || next < '0' || next > '9';
 }
 
-static BOOL MCDIsSamandarin01To06Root(const char* subkey)
-{
-    if (subkey == NULL)
-        return FALSE;
-
-    for (int i = 1; i <= 6 && i < SALCFG_ROOTS_COUNT; i++)
-    {
-        if (_stricmp(subkey, SalamanderConfigurationRoots[i]) == 0)
-            return TRUE;
-    }
-    return FALSE;
-}
-
 static BOOL MCDShouldMigrateSamandarin01To06Scheme(const char* subkey, const char* version)
 {
-    return MCDIsSamandarin01To06Root(subkey) || MCDIsSamandarin01To06Version(version);
+    // Match the concrete Samandarin version text in either the registry/file root
+    // path or the display version. Do not depend on SalamanderConfigurationRoots[]
+    // indices because adding a newer root shifts older versions down.
+    return MCDIsSamandarin01To06Version(subkey) || MCDIsSamandarin01To06Version(version);
 }
 
 static void MCDNormalizeSamandarin01To06ColorScheme(CSalamanderRegistryExAbstract* registry, const char* targetSubkey)
