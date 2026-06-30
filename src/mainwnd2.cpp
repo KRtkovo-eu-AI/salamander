@@ -433,6 +433,23 @@ static void MCDNormalizeSamandarin01To06ColorScheme(CSalamanderRegistryExAbstrac
 
 static void MCDApplyCleanTargetDefaults(CSalamanderRegistryExAbstract* registry, const char* targetSubkey)
 {
+    char versionSubkey[MAX_PATH];
+    _snprintf_s(versionSubkey, _TRUNCATE, "%s\\Version", targetSubkey);
+    DWORD configVersion = THIS_CONFIG_VERSION;
+    MCDSetValueInSubkey(registry, versionSubkey, SALAMANDER_VERSIONREG_REG, REG_DWORD,
+                        &configVersion, sizeof(configVersion));
+
+    if (Configuration.SLGName[0] != 0)
+        MCDSetConfigValue(registry, targetSubkey, CONFIG_LANGUAGE_REG, REG_SZ,
+                          Configuration.SLGName, (DWORD)(strlen(Configuration.SLGName) + 1));
+    MCDSetConfigValue(registry, targetSubkey, CONFIG_USEALTLANGFORPLUGINS_REG, REG_DWORD,
+                      &Configuration.UseAsAltSLGInOtherPlugins, sizeof(DWORD));
+    MCDSetConfigValue(registry, targetSubkey, CONFIG_ALTLANGFORPLUGINS_REG, REG_SZ,
+                      Configuration.AltPluginSLGName, (DWORD)(strlen(Configuration.AltPluginSLGName) + 1));
+    DWORD langChanged = FALSE;
+    MCDSetConfigValue(registry, targetSubkey, CONFIG_LANGUAGECHANGED_REG, REG_DWORD,
+                      &langChanged, sizeof(langChanged));
+
     DWORD isMyDocs = TRUE;
     MCDSetConfigValue(registry, targetSubkey, "If Path Is Inaccessible Go To My Docs", REG_DWORD, &isMyDocs, sizeof(isMyDocs));
 
