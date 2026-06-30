@@ -366,6 +366,37 @@ BOOL MCDReadFileConfigurationInfo(const char* fileName, CFoundConfig& cfg, BOOL 
     return rootIndex >= 0;
 }
 
+static void MCDCopyRegistrySubkeyIfExists(CSalamanderRegistryExAbstract* inReg, const char* inRootSubkey,
+                                         CSalamanderRegistryExAbstract* outReg, const char* outRootSubkey,
+                                         const char* childSubkey)
+{
+    if (inRootSubkey == NULL || outRootSubkey == NULL || childSubkey == NULL)
+        return;
+
+    char inSubkey[MAX_PATH];
+    char outSubkey[MAX_PATH];
+    _snprintf_s(inSubkey, _TRUNCATE, "%s\\%s", inRootSubkey, childSubkey);
+    _snprintf_s(outSubkey, _TRUNCATE, "%s\\%s", outRootSubkey, childSubkey);
+
+    HKEY inKey;
+    if (!inReg->OpenKey(HKEY_CURRENT_USER, inSubkey, inKey))
+        return;
+    inReg->CloseKey(inKey);
+
+    MCDCopyRegistryBranchToTarget(inReg, inSubkey, outReg, outSubkey, TRUE);
+}
+
+static void MCDCopyColorPaletteSubkeys(CSalamanderRegistryExAbstract* inReg, const char* inSubkey,
+                                       CSalamanderRegistryExAbstract* outReg, const char* outSubkey)
+{
+    // Keep the explicit color-palette copy in addition to the whole-branch copy.
+    // Older/current registry roots can compare equal while the target is a freshly
+    // created file-storage memory registry; in that path the selected CUSTOM scheme
+    // must carry its persisted UserColors/ViewerColors palette, not only the scheme id.
+    MCDCopyRegistrySubkeyIfExists(inReg, inSubkey, outReg, outSubkey, "Colors");
+    MCDCopyRegistrySubkeyIfExists(inReg, inSubkey, outReg, outSubkey, "Custom Colors");
+}
+
 static BOOL MCDSetValueInSubkey(CSalamanderRegistryExAbstract* registry, const char* subkey,
                                 const char* valueName, DWORD type, const void* data, DWORD dataSize)
 {
@@ -488,6 +519,8 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
             if (sourceSubkey != NULL)
             {
                 ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
+                if (ret)
+                    MCDCopyColorPaletteSubkeys(sourceReg, sourceSubkey, targetReg, targetSubkey);
                 if (ret && MCDShouldMigrateSamandarin01To06Scheme(sourceSubkey, srcCfg.Version))
                     MCDNormalizeSamandarin01To06ColorScheme(targetReg, targetSubkey);
             }
@@ -512,6 +545,8 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
     if (sourceReg == NULL)
         return FALSE;
     BOOL ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
+    if (ret)
+        MCDCopyColorPaletteSubkeys(sourceReg, sourceSubkey, targetReg, targetSubkey);
     if (ret && MCDShouldMigrateSamandarin01To06Scheme(sourceSubkey, srcCfg.Version))
         MCDNormalizeSamandarin01To06ColorScheme(targetReg, targetSubkey);
     sourceReg->Release();
