@@ -4701,7 +4701,8 @@ FIND_NEW_SLG_FILE:
 
     // pokud jeste neexistuje novy klic konfigurace, vytvorime ho pred pripadnym smazanim
     // starych klicu
-    BOOL currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
+    BOOL currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG == NULL ||
+                                  _stricmp(SALAMANDER_ROOT_REG, SalamanderConfigurationRoots[0]) != 0;
     BOOL saveNewConfig = currentCfgDoesNotExist;
 
     BOOL registryConfigExists = FALSE;
@@ -4714,8 +4715,24 @@ FIND_NEW_SLG_FILE:
     BOOL migrateRegistryToFile = FALSE;
     if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
     {
-        storageType = cstRegistry;
-        migrateRegistryToFile = TRUE;
+        // If the Welcome/Manage Configurations dialog has just materialized the selected
+        // source into the requested file-storage path, load that file directly.  Falling
+        // back to Registry storage here would ignore the selected source and could load
+        // a completely different registry configuration (colors, language, etc.).
+        BOOL selectedFileStorageReady = !storageTypeFromBootstrap && storageRegFilePath[0] != 0 &&
+                                        GetFileAttributes(storageRegFilePath) != INVALID_FILE_ATTRIBUTES;
+        if (selectedFileStorageReady)
+        {
+            SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
+            currentCfgDoesNotExist = FALSE;
+            saveNewConfig = FALSE;
+            storageType = cstRegFile;
+        }
+        else
+        {
+            storageType = cstRegistry;
+            migrateRegistryToFile = TRUE;
+        }
     }
     // Note: The old 3-dialog block (Dialog A, Dialog B, auto-import) has been replaced
     // by the new CManageConfigsDialog in FindLatestConfiguration(). The Welcome dialog
