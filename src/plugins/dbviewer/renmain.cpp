@@ -39,16 +39,20 @@ void PaintRendererDarkFrame(HWND hwnd)
     GetWindowRect(hwnd, &screenWindowRect);
     OffsetRect(&clientRect, clientOrigin.x - screenWindowRect.left, clientOrigin.y - screenWindowRect.top);
 
-    HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
-    RECT band;
-    SetRect(&band, windowRect.left, windowRect.top, windowRect.right, clientRect.top);
-    FillRect(hdc, &band, frameBrush);
-    SetRect(&band, windowRect.left, clientRect.bottom, windowRect.right, windowRect.bottom);
-    FillRect(hdc, &band, frameBrush);
-    SetRect(&band, windowRect.left, clientRect.top, clientRect.left, clientRect.bottom);
-    FillRect(hdc, &band, frameBrush);
-    SetRect(&band, clientRect.right, clientRect.top, windowRect.right, clientRect.bottom);
-    FillRect(hdc, &band, frameBrush);
+    HBRUSH frameBrush = CreateSolidBrush(RGB(23, 23, 23));
+    if (frameBrush != NULL)
+    {
+        RECT band;
+        SetRect(&band, windowRect.left, windowRect.top, windowRect.right, clientRect.top);
+        FillRect(hdc, &band, frameBrush);
+        SetRect(&band, windowRect.left, clientRect.bottom, windowRect.right, windowRect.bottom);
+        FillRect(hdc, &band, frameBrush);
+        SetRect(&band, windowRect.left, clientRect.top, clientRect.left, clientRect.bottom);
+        FillRect(hdc, &band, frameBrush);
+        SetRect(&band, clientRect.right, clientRect.top, windowRect.right, clientRect.bottom);
+        FillRect(hdc, &band, frameBrush);
+        DeleteObject(frameBrush);
+    }
 
     ReleaseDC(hwnd, hdc);
 }
