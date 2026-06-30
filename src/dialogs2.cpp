@@ -1446,8 +1446,8 @@ extern eRPE_ERROR CopyBranch(LPCTSTR branch, CSalamanderRegistryExAbstract* pInR
                              CSalamanderRegistryExAbstract* pOutRegistry);
 extern void ShowFileError(HWND hParent, int errTextID, const char* fileName, DWORD err);
 
-CManageConfigsDialog::CManageConfigsDialog()
-    : CCommonDialog(HLanguage, IDD_MANAGECONFIGS, NULL)
+CManageConfigsDialog::CManageConfigsDialog(HWND parent)
+    : CCommonDialog(HLanguage, IDD_MANAGECONFIGS, parent)
 {
     ConfigsCount = 0;
     ZeroMemory(Configs, sizeof(Configs));
@@ -2307,7 +2307,10 @@ void CManageConfigsDialog::Validate(CTransferInfo& ti)
                 char msg[500];
                 _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_MCD_OVERWRITECONFIRM), regPath);
                 if (SalMessageBox(HWindow, msg, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) != IDYES)
+                {
+                    ti.ErrorOn(IDC_MCD_REG_RADIO);
                     return;
+                }
             }
             else
                 CloseKey(hKey);
