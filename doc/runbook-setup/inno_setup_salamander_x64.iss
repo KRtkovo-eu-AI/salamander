@@ -1394,7 +1394,7 @@ end;
 
 function GetPortableDefaultDir(): String;
 begin
-  Result := ExpandConstant('{autopf}\') + CustomMessage('PortableDirName');
+  Result := ExpandConstant('{userdocs}\') + CustomMessage('PortableDirName');
 end;
 
 function GetDefaultDirName(Param: String): String;
