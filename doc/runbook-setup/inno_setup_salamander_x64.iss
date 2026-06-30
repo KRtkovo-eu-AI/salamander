@@ -34,6 +34,7 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={code:GetDefaultDirName}
+AppendDefaultDirName=no
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputBaseFilename=setup_{#MyAppVersion}_win_x64
@@ -1405,20 +1406,35 @@ begin
     Result := GetStandardDefaultDir();
 end;
 
+function EndsWithText(const Value: String; const Suffix: String): Boolean;
+begin
+  Result := (Length(Value) >= Length(Suffix)) and
+    (CompareText(Copy(Value, Length(Value) - Length(Suffix) + 1, Length(Suffix)), Suffix) = 0);
+end;
+
+function AppendDefaultDirSuffix(const Dir: String): String;
+var
+  Suffix: String;
+begin
+  if IsPortableInstall() then
+    Suffix := CustomMessage('PortableDirName')
+  else
+    Suffix := 'Open Salamander Samandarin';
+
+  if EndsWithText(Dir, '\' + Suffix) then
+    Result := Dir
+  else
+    Result := AddBackslash(Dir) + Suffix;
+end;
+
 procedure DirBrowseButtonClick(Sender: TObject);
 var
-  StandardSuffix: String;
-  PortableSuffix: String;
+  PreviousDir: String;
 begin
+  PreviousDir := WizardDirValue;
   OriginalDirBrowseButtonOnClick(Sender);
-
-  if IsPortableInstall() then
-  begin
-    StandardSuffix := '\Open Salamander Samandarin';
-    PortableSuffix := '\' + CustomMessage('PortableDirName');
-    if CompareText(Copy(WizardDirValue, Length(WizardDirValue) - Length(StandardSuffix) + 1, Length(StandardSuffix)), StandardSuffix) = 0 then
-      WizardForm.DirEdit.Text := Copy(WizardDirValue, 1, Length(WizardDirValue) - Length(StandardSuffix)) + PortableSuffix;
-  end;
+  if CompareText(WizardDirValue, PreviousDir) <> 0 then
+    WizardForm.DirEdit.Text := AppendDefaultDirSuffix(WizardDirValue);
 end;
 
 function GetACP: DWORD;
