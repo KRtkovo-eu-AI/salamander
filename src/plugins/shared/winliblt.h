@@ -29,6 +29,7 @@ BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance);
 class CSalamanderGeneralAbstract;
 void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral);
 void RefreshWinLibDarkModeFromHost();
+void WinLibApplyDarkMode(HWND hwnd);
 void ReleaseWinLibDarkMode();
 #endif // USE_DARKMODELIB
 // je potreba zavolat po pouziti WinLibu; 'dllInstance' je modul pluginu (pouziva se pri zruseni

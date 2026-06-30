@@ -16,6 +16,48 @@
 
 #define TIMER_SCROLL_ID 1
 
+namespace
+{
+void PaintRendererDarkFrame(HWND hwnd)
+{
+    if (hwnd == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    HDC hdc = GetWindowDC(hwnd);
+    if (hdc == NULL)
+        return;
+
+    RECT windowRect;
+    GetWindowRect(hwnd, &windowRect);
+    OffsetRect(&windowRect, -windowRect.left, -windowRect.top);
+
+    RECT clientRect;
+    GetClientRect(hwnd, &clientRect);
+    POINT clientOrigin = {0, 0};
+    ClientToScreen(hwnd, &clientOrigin);
+    RECT screenWindowRect;
+    GetWindowRect(hwnd, &screenWindowRect);
+    OffsetRect(&clientRect, clientOrigin.x - screenWindowRect.left, clientOrigin.y - screenWindowRect.top);
+
+    HBRUSH frameBrush = CreateSolidBrush(RGB(23, 23, 23));
+    if (frameBrush != NULL)
+    {
+        RECT band;
+        SetRect(&band, windowRect.left, windowRect.top, windowRect.right, clientRect.top);
+        FillRect(hdc, &band, frameBrush);
+        SetRect(&band, windowRect.left, clientRect.bottom, windowRect.right, windowRect.bottom);
+        FillRect(hdc, &band, frameBrush);
+        SetRect(&band, windowRect.left, clientRect.top, clientRect.left, clientRect.bottom);
+        FillRect(hdc, &band, frameBrush);
+        SetRect(&band, clientRect.right, clientRect.top, windowRect.right, clientRect.bottom);
+        FillRect(hdc, &band, frameBrush);
+        DeleteObject(frameBrush);
+    }
+
+    ReleaseDC(hwnd, hdc);
+}
+}
+
 BOOL IsAlphaNumeric[256]; // TRUE/FALSE table for characters (FALSE = neither a letter nor a digit)
 BOOL IsAlpha[256];
 
@@ -654,10 +696,20 @@ void CRendererWindow::CreateGraphics()
     SelectObject(hDC, oldFont);
     ReleaseDC(NULL, hDC);
 
-    HGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNSHADOW));
-    HLtGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
-    HSelectionPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_ACTIVECAPTION));
-    HBlackPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNTEXT));
+    if (DarkModeShouldUseDarkColors())
+    {
+        HGrayPen = CreatePen(PS_SOLID, 0, RGB(0x55, 0x55, 0x55));
+        HLtGrayPen = CreatePen(PS_SOLID, 0, RGB(0x3A, 0x3A, 0x3A));
+        HSelectionPen = CreatePen(PS_SOLID, 0, RGB(0x5E, 0x81, 0xAC));
+        HBlackPen = CreatePen(PS_SOLID, 0, DarkModeGetColors().readableText);
+    }
+    else
+    {
+        HGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNSHADOW));
+        HLtGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
+        HSelectionPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_ACTIVECAPTION));
+        HBlackPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNTEXT));
+    }
 }
 
 void CRendererWindow::ReleaseGraphics()
@@ -1525,6 +1577,8 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         DragAcceptFiles(HWindow, TRUE);
+        WinLibApplyDarkMode(HWindow);
+        PaintRendererDarkFrame(HWindow);
         break;
     }
 
@@ -1547,6 +1601,26 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         DragFinish((HDROP)wParam);
         break;
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        WinLibApplyDarkMode(HWindow);
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            RebuildGraphics();
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_FRAME);
+            return 0;
+        }
+        break;
+    }
+
+    case WM_NCPAINT:
+    {
+        LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+        PaintRendererDarkFrame(HWindow);
+        return result;
     }
 
     case WM_PAINT:

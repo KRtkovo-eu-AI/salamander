@@ -580,6 +580,7 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
     salamander->AddViewer("*.csv;*.dbf;*.jsonl", FALSE); // default (plugin installation), otherwise Salamander ignores it
+    salamander->AddViewer("*.jsonl", TRUE);             // update existing installations with JSON Lines support
 }
 
 CPluginInterfaceForViewerAbstract*
@@ -1164,6 +1165,16 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // we do not want visual styles for the rebar
         SalamanderGUI->DisableWindowVisualStyles(HRebar);
 
+        WinLibApplyDarkMode(HWindow);
+        Renderer.RebuildGraphics();
+
+        if (DarkModeShouldUseDarkColors())
+        {
+            SendMessage(HRebar, RB_SETBKCOLOR, 0, (LPARAM)DarkModeGetColors().background);
+            SendMessage(HRebar, RB_SETTEXTCOLOR, 0, (LPARAM)DarkModeGetColors().readableText);
+            DarkModeApplyRebarSeparators(HRebar);
+        }
+
         Renderer.CreateEx(WS_EX_CLIENTEDGE,
                           CWINDOW_CLASSNAME2,
                           "",
@@ -1185,6 +1196,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ToolBar->SetStyle(TLB_STYLE_TEXT | TLB_STYLE_IMAGE);
         FillToolBar();
         InsertToolBarBand();
+
+        WinLibApplyDarkMode(HWindow);
 
         ViewerWindowQueue.Add(new CWindowQueueItem(HWindow));
         InitCodingSubmenu();
@@ -1248,6 +1261,30 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         // colors should be remapped here
         TRACE_I("CViewerWindow::WindowProc - WM_SYSCOLORCHANGE");
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        WinLibApplyDarkMode(HWindow);
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            if (HRebar != NULL)
+            {
+                const BOOL useDark = DarkModeShouldUseDarkColors();
+                const COLORREF background = useDark ? DarkModeGetColors().background : GetSysColor(COLOR_BTNFACE);
+                const COLORREF text = useDark ? DarkModeGetColors().readableText : GetSysColor(COLOR_BTNTEXT);
+                SendMessage(HRebar, RB_SETBKCOLOR, 0, (LPARAM)background);
+                SendMessage(HRebar, RB_SETTEXTCOLOR, 0, (LPARAM)text);
+                DarkModeApplyRebarSeparators(HRebar);
+            }
+            Renderer.RebuildGraphics();
+            InvalidateRect(HWindow, NULL, TRUE);
+            if (Renderer.HWindow != NULL)
+                InvalidateRect(Renderer.HWindow, NULL, TRUE);
+            return 0;
+        }
         break;
     }
 
