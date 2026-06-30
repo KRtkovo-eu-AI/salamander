@@ -1380,6 +1380,7 @@ var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
+  OriginalDirBrowseButtonOnClick: TNotifyEvent;
 
 function IsPortableInstall(): Boolean;
 begin
@@ -1402,6 +1403,22 @@ begin
     Result := GetPortableDefaultDir()
   else
     Result := GetStandardDefaultDir();
+end;
+
+procedure DirBrowseButtonClick(Sender: TObject);
+var
+  StandardSuffix: String;
+  PortableSuffix: String;
+begin
+  OriginalDirBrowseButtonOnClick(Sender);
+
+  if IsPortableInstall() then
+  begin
+    StandardSuffix := '\Open Salamander Samandarin';
+    PortableSuffix := '\' + CustomMessage('PortableDirName');
+    if CompareText(Copy(WizardDirValue, Length(WizardDirValue) - Length(StandardSuffix) + 1, Length(StandardSuffix)), StandardSuffix) = 0 then
+      WizardForm.DirEdit.Text := Copy(WizardDirValue, 1, Length(WizardDirValue) - Length(StandardSuffix)) + PortableSuffix;
+  end;
 end;
 
 function GetACP: DWORD;
@@ -1490,6 +1507,9 @@ begin
   InstallModePage.Add(CustomMessage('StandardInstall'));
   InstallModePage.Add(CustomMessage('PortableInstall'));
   InstallModePage.SelectedValueIndex := 0;
+
+  OriginalDirBrowseButtonOnClick := WizardForm.DirBrowseButton.OnClick;
+  WizardForm.DirBrowseButton.OnClick := @DirBrowseButtonClick;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
