@@ -1535,7 +1535,7 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         DragAcceptFiles(HWindow, TRUE);
-        DarkModeApplyWindow(HWindow);
+        WinLibApplyDarkMode(HWindow);
         break;
     }
 
@@ -1563,9 +1563,9 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     case WM_SETTINGCHANGE:
     {
-        if (DarkModeHandleSettingChange(uMsg, lParam))
+        WinLibApplyDarkMode(HWindow);
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
         {
-            DarkModeApplyWindow(HWindow);
             RebuildGraphics();
             InvalidateRect(HWindow, NULL, TRUE);
             return 0;

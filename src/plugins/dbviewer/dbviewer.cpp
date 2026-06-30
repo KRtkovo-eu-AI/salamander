@@ -1165,14 +1165,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // we do not want visual styles for the rebar
         SalamanderGUI->DisableWindowVisualStyles(HRebar);
 
+        WinLibApplyDarkMode(HWindow);
+        Renderer.RebuildGraphics();
+
         if (DarkModeShouldUseDarkColors())
         {
             SendMessage(HRebar, RB_SETBKCOLOR, 0, (LPARAM)DarkModeGetColors().background);
             SendMessage(HRebar, RB_SETTEXTCOLOR, 0, (LPARAM)DarkModeGetColors().readableText);
             DarkModeApplyRebarSeparators(HRebar);
         }
-
-        DarkModeApplyWindow(HWindow);
 
         Renderer.CreateEx(WS_EX_CLIENTEDGE,
                           CWINDOW_CLASSNAME2,
@@ -1195,6 +1196,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ToolBar->SetStyle(TLB_STYLE_TEXT | TLB_STYLE_IMAGE);
         FillToolBar();
         InsertToolBarBand();
+
+        WinLibApplyDarkMode(HWindow);
 
         ViewerWindowQueue.Add(new CWindowQueueItem(HWindow));
         InitCodingSubmenu();
@@ -1264,10 +1267,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     case WM_SETTINGCHANGE:
     {
-        if (DarkModeHandleSettingChange(uMsg, lParam))
+        WinLibApplyDarkMode(HWindow);
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
         {
-            DarkModeApplyTree(HWindow);
-            DarkModeRefreshTitleBar(HWindow);
             if (HRebar != NULL)
             {
                 const BOOL useDark = DarkModeShouldUseDarkColors();

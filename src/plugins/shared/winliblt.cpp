@@ -161,6 +161,11 @@ void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral)
     RefreshWinLibDarkModeFromHost();
 }
 
+void WinLibApplyDarkMode(HWND hwnd)
+{
+    ApplyWinLibDarkMode(hwnd);
+}
+
 void RefreshWinLibDarkModeFromHost()
 {
     if (!CanQueryWinLibHostDarkMode())
