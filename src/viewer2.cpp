@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include "viewer.h"
+#include "common/widepath.h"
 #include "codetbl.h"
 
 #include "cfgdlg.h"
@@ -356,8 +357,11 @@ BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
     HANDLE file;
     if (hFile == NULL || *hFile == NULL)
     {
-        file = HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                    OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = !FileNameW.empty() ?
+                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                         OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
+                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                        OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
@@ -501,8 +505,11 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
     HANDLE file;
     if (hFile == NULL || *hFile == NULL)
     {
-        file = HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                    FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = !FileNameW.empty() ?
+                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                                         FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
+                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                                        FILE_FLAG_SEQUENTIAL_SCAN, NULL));
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
@@ -689,6 +696,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     FileName = (char*)malloc(strlen(fileName) + 1);
     if (FileName != NULL)
         strcpy(FileName, fileName);
+    FileNameW = SalMultiByteToWidePath(fileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
     TooBigSelAction = 0;
     CanSwitchToHex = TRUE;
     CanSwitchQuietlyToHex = TRUE;
@@ -716,6 +724,13 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     InvalidateRect(HWindow, NULL, FALSE);
     UpdateWindow(HWindow);
     CanSwitchQuietlyToHex = FALSE;
+}
+
+void CViewerWindow::OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption)
+{
+    std::string fileA = SalWideToMultiBytePath(file, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    OpenFile(fileA.c_str(), caption, wholeCaption);
+    FileNameW = file != NULL ? file : L"";
 }
 
 void CViewerWindow::ReleaseMouseDrag()
@@ -764,8 +779,11 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
     BOOL close;
     if (file == NULL)
     {
-        file = HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                    FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = !FileNameW.empty() ?
+                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                                         FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
+                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                                        FILE_FLAG_SEQUENTIAL_SCAN, NULL));
         close = TRUE;
     }
     else

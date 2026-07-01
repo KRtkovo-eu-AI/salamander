@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 #define VIEW_BUFFER_SIZE 60000 // 0.5 * VIEW_BUFFER_SIZE must be > max. length \
                                // of a displayable line
 #define BORDER_WIDTH 3         // separates the text from the window edge
@@ -125,6 +127,7 @@ public:
     ~CViewerWindow();
 
     void OpenFile(const char* file, const char* caption, BOOL wholeCaption); // does not manage Lock
+    void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption); // does not manage Lock
 
     virtual BOOL Is(int type) { return type == otViewerWindow || CWindow::Is(type); }
     BOOL IsGood() { return Buffer != NULL && ViewerFont != NULL; }
@@ -329,6 +332,7 @@ protected:
 
     unsigned char* Buffer; // buffer with size VIEW_BUFFER_SIZE
     char* FileName;        // currently viewed file
+    std::wstring FileNameW; // Unicode filename for local file I/O when available
     __int64 Seek,          // offset of byte 0 in Buffer within the file
         Loaded,            // number of valid bytes in Buffer
         OriginX,           // first displayed column (in characters)

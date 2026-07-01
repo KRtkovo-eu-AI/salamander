@@ -16,6 +16,7 @@
 #include "pack.h"
 #include "shellib.h"
 #include "filesbox.h"
+#include "common/widepath.h"
 
 // helper variables for the dialogs in BuildScriptXXX()
 BOOL ConfirmADSLossAll = FALSE;
@@ -2566,6 +2567,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 return skip;
             }
         }
+        op.SetSourceNameW(SalMultiByteToWidePath(op.SourceName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP).c_str());
+        op.SetTargetNameW(SalMultiByteToWidePath(op.TargetName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP).c_str());
         if (type == atMove && strcmp(op.SourceName, op.TargetName) == 0 ||
             type == atCopy && StrICmp(op.SourceName, op.TargetName) == 0)
         {

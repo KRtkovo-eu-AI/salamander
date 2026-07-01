@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include "viewer.h"
+#include "common/widepath.h"
 
 #include "cfgdlg.h"
 #include "mainwnd.h"
@@ -567,7 +568,10 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
         {
             FileName = (char*)malloc(strlen(name) + 1);
             if (FileName != NULL)
+            {
                 strcpy(FileName, name);
+                FileNameW = SalMultiByteToWidePath(name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            }
         }
         else
             FileName = NULL;
@@ -636,6 +640,7 @@ CViewerWindow::~CViewerWindow()
         free(Buffer);
     if (FileName != NULL)
         free(FileName);
+    FileNameW.erase();
     if (Caption != NULL)
         free(Caption);
 }

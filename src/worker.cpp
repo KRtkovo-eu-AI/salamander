@@ -4550,9 +4550,13 @@ COPY_AGAIN:
     {
         if (!invalidSrcName && !asyncPar->Failed())
         {
-            in = HANDLES_Q(CreateFile(op->SourceName, GENERIC_READ,
-                                      FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                      OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+            in = op->SourceNameWValid ?
+                     HANDLES_Q(CreateFileW(op->SourceNameW.c_str(), GENERIC_READ,
+                                           FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                           OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
+                     HANDLES_Q(CreateFile(op->SourceName, GENERIC_READ,
+                                          FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                          OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
         }
         else
         {
@@ -4576,9 +4580,18 @@ COPY_AGAIN:
                 if (!invalidTgtName)
                 {
                     // GENERIC_READ for 'out' slows asynchronous copying from disk to network (measured 95 MB/s instead of 111 MB/s on Win7 x64 GLAN)
-                    out = SalCreateFileEx(op->TargetName, GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, fileAttrs, &encryptionNotSupported);
-                    if (!encryptionNotSupported && script->CopyAttrs && out == INVALID_HANDLE_VALUE) // in case read access to the directory is not allowed (we added it only for setting the Compressed attribute), try creating a write-only file
-                        out = SalCreateFileEx(op->TargetName, GENERIC_WRITE, 0, fileAttrs, &encryptionNotSupported);
+                    if (op->TargetNameWValid)
+                    {
+                        out = HANDLES_Q(CreateFileW(op->TargetNameW.c_str(), GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, NULL, CREATE_NEW, fileAttrs, NULL));
+                        if (script->CopyAttrs && out == INVALID_HANDLE_VALUE)
+                            out = HANDLES_Q(CreateFileW(op->TargetNameW.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, fileAttrs, NULL));
+                    }
+                    else
+                    {
+                        out = SalCreateFileEx(op->TargetName, GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, fileAttrs, &encryptionNotSupported);
+                        if (!encryptionNotSupported && script->CopyAttrs && out == INVALID_HANDLE_VALUE) // in case read access to the directory is not allowed (we added it only for setting the Compressed attribute), try creating a write-only file
+                            out = SalCreateFileEx(op->TargetName, GENERIC_WRITE, 0, fileAttrs, &encryptionNotSupported);
+                    }
 
                     if (out == INVALID_HANDLE_VALUE && encryptionNotSupported && dlgData.FileOutLossEncrAll && !lossEncryptionAttr)
                     { // the user agreed to lose the Encrypted attribute for all problematic files, so make that happen here
