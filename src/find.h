@@ -26,9 +26,9 @@ struct FIND_LOG_ITEM
 
 extern BOOL IsNotAlpha[256];
 
-#define ITEMNAME_TEXT_LEN MAX_PATH + MAX_PATH + 10
-#define NAMED_TEXT_LEN MAX_PATH  // maximum text length in the combobox
-#define LOOKIN_TEXT_LEN MAX_PATH // maximum text length in the combobox
+#define ITEMNAME_TEXT_LEN 6 * MAX_PATH + 10
+#define NAMED_TEXT_LEN 3 * MAX_PATH  // maximum text length in the combobox
+#define LOOKIN_TEXT_LEN 3 * MAX_PATH // maximum text length in the combobox
 #define GREP_TEXT_LEN 201        // maximum text length in the combobox; NOTE: should match FIND_TEXT_LEN
 #define GREP_LINE_LEN 10000      // maximum line length for regular expressions (viewer uses a different macro)
 

@@ -1953,7 +1953,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
     CALL_STACK_MESSAGE1("CFilesWindow::CreateDir()");
     BeginStopRefresh(); // snooper takes a break
 
-    char path[2 * MAX_PATH], nextFocus[MAX_PATH];
+    char path[3 * MAX_PATH], nextFocus[3 * MAX_PATH];
     path[0] = 0;
     nextFocus[0] = 0;
 
@@ -1964,7 +1964,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
     {
         CTruncatedString subject;
         subject.Set(LoadStr(IDS_CREATEDIRECTORY_TEXT), NULL);
-        CCopyMoveDialog dlg(HWindow, path, MAX_PATH, LoadStr(IDS_CREATEDIRECTORY_TITLE),
+        CCopyMoveDialog dlg(HWindow, path, 3 * MAX_PATH, LoadStr(IDS_CREATEDIRECTORY_TITLE),
                             &subject, IDD_CREATEDIRDIALOG,
                             Configuration.CreateDirHistory, CREATEDIR_HISTORY_SIZE,
                             FALSE);
@@ -2004,13 +2004,13 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
             }
             else
             {
-                char checkPath[MAX_PATH];
+                char checkPath[3 * MAX_PATH];
                 GetRootPath(checkPath, path);
                 if (CheckPath(TRUE, checkPath) != ERROR_SUCCESS)
                     goto CREATE_AGAIN;
                 strcpy(checkPath, path);
                 CutDirectory(checkPath);
-                char newDir[MAX_PATH];
+                char newDir[3 * MAX_PATH];
                 if (!CheckAndCreateDirectory(checkPath, HWindow, FALSE, NULL, 0, newDir, TRUE, TRUE))
                     goto CREATE_AGAIN;
                 if (newDir[0] != 0)
@@ -2885,6 +2885,9 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
         if (selectionEndBytes >= 0)
             selectionEndForControl = selectionEndBytes;
     }
+    ShowWindow(hWnd, SW_SHOW);
+    SetFocus(hWnd);
+
     if (selectionEndForControl >= 0)
     {
         if (unicodeEdit)
@@ -2900,8 +2903,6 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
             SendMessage(hWnd, EM_SETSEL, 0, (LPARAM)-1);
     }
 
-    ShowWindow(hWnd, SW_SHOW);
-    SetFocus(hWnd);
     return;
 }
 
@@ -3077,6 +3078,33 @@ CQuickRenameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_UNICHAR:
+    {
+        if (wParam == UNICODE_NOCHAR)
+            return TRUE;
+        if (wParam > 0 && wParam <= 0x10FFFF)
+        {
+            WCHAR chars[3];
+            if (wParam <= 0xFFFF)
+            {
+                chars[0] = (WCHAR)wParam;
+                chars[1] = 0;
+            }
+            else
+            {
+                DWORD codePoint = (DWORD)wParam - 0x10000;
+                chars[0] = (WCHAR)(0xD800 + (codePoint >> 10));
+                chars[1] = (WCHAR)(0xDC00 + (codePoint & 0x3FF));
+                chars[2] = 0;
+            }
+            SendMessageW(HWindow, EM_REPLACESEL, TRUE, (LPARAM)chars);
+            if (FilesWindow != NULL)
+                FilesWindow->AdjustQuickRenameWindow();
+            return 0;
+        }
+        break;
+    }
+
     case WM_CHAR:
     {
         if (SkipNextCharacter)
