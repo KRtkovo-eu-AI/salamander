@@ -577,15 +577,15 @@ INT_PTR
 CDialog::Execute()
 {
     Modal = TRUE;
-    return DialogBoxParam(Modul, MAKEINTRESOURCE(ResID), Parent,
-                          (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    return DialogBoxParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
+                           (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
 }
 
 HWND CDialog::Create()
 {
     Modal = FALSE;
-    return CreateDialogParam(Modul, MAKEINTRESOURCE(ResID), Parent,
-                             (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    return CreateDialogParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
+                              (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
 }
 
 INT_PTR

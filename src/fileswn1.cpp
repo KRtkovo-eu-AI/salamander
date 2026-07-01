@@ -2437,7 +2437,14 @@ void CFilesWindow::DirectoryLineSetText()
         if (Is(ptDisk))
         {
             PathHistory->AddPath(0, GetPath(), NULL, NULL, NULL);
-            path = GetPath();
+            if (GetPathW() != NULL && GetPathW()[0] != 0)
+            {
+                std::string pathA = SalWideToMultiBytePath(GetPathW(), CP_ACP);
+                lstrcpyn(ZIPbuf, pathA.c_str(), _countof(ZIPbuf));
+                path = ZIPbuf;
+            }
+            else
+                path = GetPath();
         }
         else
         {

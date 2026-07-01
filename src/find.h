@@ -547,6 +547,7 @@ struct CFoundFilesData
     // and returns a pointer to 'text'
     // 'fileNameFormat' determines formatting of names of found items
     char* GetText(int i, char* text, int fileNameFormat);
+    std::wstring GetTextW(int i, int fileNameFormat) const;
 };
 
 class CFoundFilesListView : public CWindow
@@ -726,6 +727,7 @@ protected:
                        //    CFindAdvancedDialog FindAdvanced;
     CFoundFilesListView* FoundFilesListView;
     char FoundFilesDataTextBuffer[MAX_PATH]; // for obtaining text from CFoundFilesData::GetText
+    std::wstring FoundFilesDataTextBufferW;  // for obtaining text from CFoundFilesData::GetTextW
     CFindTBHeader* TBHeader;
     BOOL SearchInProgress;
     BOOL CanClose; // the window can be closed (we are not inside a method of this object)

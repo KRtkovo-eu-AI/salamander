@@ -322,6 +322,73 @@ char* CFoundFilesData::GetText(int i, char* text, int fileNameFormat)
     return text;
 }
 
+std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
+{
+    switch (i)
+    {
+    case 0:
+    {
+        const std::wstring& sourceName = !NameW.empty() ? NameW : SalMultiByteToWidePath(Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        std::string nameUtf8 = SalWideToMultiBytePath(sourceName.c_str(), CP_UTF8);
+        CPathBuffer formattedUtf8;
+        AlterFileName(formattedUtf8, nameUtf8.c_str(), -1, fileNameFormat, 0, IsDir);
+        return SalMultiByteToWidePath(formattedUtf8, CP_UTF8);
+    }
+
+    case 1:
+        return !PathW.empty() ? PathW : SalMultiByteToWidePath(Path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+
+    case 2:
+    {
+        if (IsDir)
+            return SalMultiByteToWidePath(DirColumnStr, CP_ACP);
+
+        char number[50];
+        NumberToStr(number, Size);
+        return SalMultiByteToWidePath(number, CP_ACP);
+    }
+
+    case 3:
+    {
+        wchar_t buffer[100];
+        SYSTEMTIME st;
+        FILETIME ft;
+        if (FileTimeToLocalFileTime(&LastWrite, &ft) &&
+            FileTimeToSystemTime(&ft, &st))
+        {
+            if (GetDateFormatW(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buffer, _countof(buffer)) == 0)
+                swprintf_s(buffer, L"%u.%u.%u", st.wDay, st.wMonth, st.wYear);
+        }
+        else
+            wcscpy_s(buffer, LoadStrW(IDS_INVALID_DATEORTIME));
+        return buffer;
+    }
+
+    case 4:
+    {
+        wchar_t buffer[100];
+        SYSTEMTIME st;
+        FILETIME ft;
+        if (FileTimeToLocalFileTime(&LastWrite, &ft) &&
+            FileTimeToSystemTime(&ft, &st))
+        {
+            if (GetTimeFormatW(LOCALE_USER_DEFAULT, 0, &st, NULL, buffer, _countof(buffer)) == 0)
+                swprintf_s(buffer, L"%u:%02u:%02u", st.wHour, st.wMinute, st.wSecond);
+        }
+        else
+            wcscpy_s(buffer, LoadStrW(IDS_INVALID_DATEORTIME));
+        return buffer;
+    }
+
+    default:
+    {
+        char attrs[20];
+        GetAttrsString(attrs, Attr);
+        return SalMultiByteToWidePath(attrs, CP_ACP);
+    }
+    }
+}
+
 //****************************************************************************
 //
 // CFoundFilesListView
@@ -4374,6 +4441,20 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
                     info->item.iImage = item->IsDir ? 0 : 1;
                 if (info->item.mask & LVIF_TEXT)
                     info->item.pszText = item->GetText(info->item.iSubItem, FoundFilesDataTextBuffer, FileNameFormat);
+                break;
+            }
+
+            case LVN_GETDISPINFOW:
+            {
+                NMLVDISPINFOW* info = (NMLVDISPINFOW*)lParam;
+                CFoundFilesData* item = FoundFilesListView->At(info->item.iItem);
+                if (info->item.mask & LVIF_IMAGE)
+                    info->item.iImage = item->IsDir ? 0 : 1;
+                if (info->item.mask & LVIF_TEXT)
+                {
+                    FoundFilesDataTextBufferW = item->GetTextW(info->item.iSubItem, FileNameFormat);
+                    info->item.pszText = const_cast<LPWSTR>(FoundFilesDataTextBufferW.c_str());
+                }
                 break;
             }
 
