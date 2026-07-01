@@ -444,12 +444,12 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                         if (data != NULL)
                         {
                             int prefixLen = -1;
-                            wchar_t prefixBuf[MAX_PATH];
+                            std::wstring prefixW;
+                            char prefixBuf[MAX_PATH];
                             prefixBuf[0] = 0;
                             if (data->fWide)
                             {
                                 char mulbyteName[MAX_PATH];
-                                wchar_t* prefix = prefixBuf;
                                 const wchar_t* fileW = (wchar_t*)(((char*)data) + data->pFiles);
                                 while (1) // double null terminated, assumes no empty strings (start)
                                 {
@@ -457,19 +457,20 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                     {
                                         if (namesList != NULL) // add the common path of all names to namesList
                                         {
-                                            if (WideCharToMultiByte(CP_ACP, 0, prefix, prefixLen + 1, mulbyteName, MAX_PATH, NULL, NULL) == 0)
+                                            const wchar_t* prefix = prefixW.c_str();
+                                            if (WideCharToMultiByte(CP_ACP, 0, prefix, -1, mulbyteName, MAX_PATH, NULL, NULL) == 0)
                                             {
                                                 DWORD err = GetLastError();
                                                 TRACE_E("IsSimpleSelection(): WideCharToMultiByte: " << GetErrorText(err));
                                                 mulbyteName[0] = 0;
                                             }
                                             strcpy(namesList->SrcPath, mulbyteName);
-                                            lstrcpynW(namesList->SrcPathW, prefix, MAX_PATH);
+                                            namesList->SrcPathW = prefixW;
                                             if (prefixLen < 3)
                                             {
                                                 SalPathAddBackslash(namesList->SrcPath, MAX_PATH);
-                                                if (lstrlenW(namesList->SrcPathW) + 1 < MAX_PATH)
-                                                    lstrcatW(namesList->SrcPathW, L"\\");
+                                                if (!namesList->SrcPathW.empty() && namesList->SrcPathW[namesList->SrcPathW.length() - 1] != L'\\')
+                                                    namesList->SrcPathW += L"\\";
                                             }
                                         }
                                         ret = TRUE;
@@ -490,7 +491,7 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                         if (lastBackslash - fileW == prefixLen)
                                         {
                                             if (CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, fileW,
-                                                               prefixLen, prefix, prefixLen) != CSTR_EQUAL)
+                                                               prefixLen, prefixW.c_str(), prefixLen) != CSTR_EQUAL)
                                             {
                                                 ret = FALSE; // path changed, error
                                                 break;
@@ -501,10 +502,7 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                             if (prefixLen == -1)
                                             {
                                                 prefixLen = (int)(lastBackslash - fileW);
-                                                if (prefixLen >= MAX_PATH)
-                                                    prefixLen = MAX_PATH - 1;
-                                                memmove(prefix, fileW, prefixLen * sizeof(wchar_t));
-                                                prefix[prefixLen] = 0;
+                                                prefixW.assign(fileW, prefixLen);
                                             }
                                             else
                                             {

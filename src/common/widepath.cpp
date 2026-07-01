@@ -6,7 +6,9 @@
 
 #include "../texts.rh2"
 
-CPathBuffer::CPathBuffer() : Buffer(MAX_PATH, 0) {}
+static const int SAL_MAX_EXTENDED_PATH = 32768;
+
+CPathBuffer::CPathBuffer() : Buffer(SAL_MAX_EXTENDED_PATH, 0) {}
 CPathBuffer::CPathBuffer(int reserveChars) : Buffer(max(reserveChars, 1), 0) {}
 char* CPathBuffer::Data() { return Buffer.data(); }
 const char* CPathBuffer::Data() const { return Buffer.data(); }
@@ -20,7 +22,7 @@ BOOL CPathBuffer::Ensure(int chars)
     return TRUE;
 }
 
-CWidePathBuffer::CWidePathBuffer() : Buffer(MAX_PATH, 0) {}
+CWidePathBuffer::CWidePathBuffer() : Buffer(SAL_MAX_EXTENDED_PATH, 0) {}
 CWidePathBuffer::CWidePathBuffer(int reserveChars) : Buffer(max(reserveChars, 1), 0) {}
 wchar_t* CWidePathBuffer::Data() { return Buffer.data(); }
 const wchar_t* CWidePathBuffer::Data() const { return Buffer.data(); }

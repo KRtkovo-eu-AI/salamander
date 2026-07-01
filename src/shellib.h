@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 // library initialization
 BOOL InitializeShellib();
 
@@ -58,11 +60,11 @@ void GetNewOrBackgroundMenu(HWND hOwnerWindow, const char* dir, CMenuNew* menu,
 struct CDragDropOperData
 {
     char SrcPath[MAX_PATH];        // Source path shared by all files/directories from Names ("" == path conversion from Unicode failed)
-    wchar_t SrcPathW[MAX_PATH];    // Unicode source path shared by all files/directories from NamesW
+    std::wstring SrcPathW;         // Unicode source path shared by all files/directories from NamesW; may exceed MAX_PATH
     TIndirectArray<char> Names;    // Sorted, allocated names of files/directories (CF_HDROP does not distinguish whether it is a file or a directory) ("" == path conversion from Unicode failed)
     TIndirectArray<wchar_t> NamesW; // Unicode names for CF_HDROP wide payloads
 
-    CDragDropOperData() : Names(200, 200), NamesW(200, 200) { SrcPath[0] = 0; SrcPathW[0] = 0; }
+    CDragDropOperData() : Names(200, 200), NamesW(200, 200) { SrcPath[0] = 0; }
 };
 
 // Determines whether 'pDataObject' contains files and directories from disk and whether all of them share a single path.
