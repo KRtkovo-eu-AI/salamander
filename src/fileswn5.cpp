@@ -1986,10 +1986,10 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
             MakeValidFileName(lastCompName != NULL ? lastCompName + 1 : path);
 
             int errTextID;
-            if (!SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus) ||
-                strlen(path) >= PATH_MAX_PATH)
+            if (!SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, 3 * MAX_PATH) ||
+                strlen(path) >= 3 * MAX_PATH)
             {
-                if (strlen(path) >= PATH_MAX_PATH)
+                if (strlen(path) >= 3 * MAX_PATH)
                     errTextID = IDS_TOOLONGPATH;
                 /* even if the string is empty we want an error message
         if (errTextID == IDS_EMPTYNAMENOTALLOWED)
