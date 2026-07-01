@@ -11,8 +11,8 @@
 ; the fallback path below is relative to this .iss file.
 
 #define MyAppName "Open Salamander Samandarin"
-#define MyAppDisplayName "Open Salamander 5.0 Samandarin 0.7 (x64)"
-#define MyAppVersion "5.0-samandarin-0.7"
+#define MyAppDisplayName "Open Salamander 5.0 Samandarin 0.8 (x64)"
+#define MyAppVersion "5.0-samandarin-0.8"
 #define MyAppPublisher "Ondřej Kotas (KRtekTM)"
 #define MyAppURL "https://github.com/KRtkovo-eu-AI/salamander"
 #define MyAppExeName "salamand.exe"
@@ -1618,13 +1618,13 @@ begin
           MB_YESNO) = IDYES;
     end;
   end
-  else if RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.7') then
+  else if RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.8') then
   begin
     DeleteUserConfiguration :=
       MsgBox(
         CustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
         CustomMessage('RegistryKey') + #13#10 +
-        'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.7'#13#10#13#10 +
+        'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.8'#13#10#13#10 +
         CustomMessage('RemoveUserConfigRegistry'),
         mbConfirmation,
         MB_YESNO) = IDYES;
@@ -1642,7 +1642,7 @@ begin
     end
     else
     begin
-      RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.7');
+      RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.8');
       DeleteFile(ExpandConstant('{app}\configstorage.ini'));
     end;
   end;
@@ -1665,7 +1665,7 @@ begin
 
     { Mirrors the setup_x64.inf IncrementFileContent metadata by ensuring plugins.ver exists.
       The legacy installer used the registry value
-      HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.7\Configuration\Plugins.ver Version (x64)
+      HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.8\Configuration\Plugins.ver Version (x64)
       to decide whether selected plugins should be appended. Inno installs the staged plugins directly. }
     PluginsVer := ExpandConstant('{app}\plugins\plugins.ver');
     if not FileExists(PluginsVer) then
