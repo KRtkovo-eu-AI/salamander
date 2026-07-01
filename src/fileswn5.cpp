@@ -2027,7 +2027,18 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
 
                     DWORD err;
                     BOOL invalidName = FileNameInvalidForManualCreate(path);
-                    if (!invalidName && SalCreateDirectoryEx(path, &err))
+                    std::wstring pathW = SalMultiByteToWidePath(path, CP_UTF8);
+                    if (pathW.empty() && path[0] != 0)
+                        pathW = SalMultiByteToWidePath(path, CP_ACP);
+                    BOOL created = FALSE;
+                    if (!invalidName && !pathW.empty())
+                    {
+                        created = SalCreateDirectoryExW(pathW.c_str(), NULL);
+                        err = created ? ERROR_SUCCESS : GetLastError();
+                    }
+                    else if (!invalidName)
+                        created = SalCreateDirectoryEx(path, &err);
+                    if (!invalidName && created)
                     {
                         SetCursor(oldCur);
                         if (nextFocus[0] != 0)
@@ -2113,16 +2124,51 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
 
 namespace
 {
+    std::wstring MultiByteFileNameToWideBest(const char* name)
+    {
+        if (name == NULL || *name == 0)
+            return std::wstring();
+
+        int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, NULL, 0);
+        if (len > 0)
+        {
+            std::wstring ret(len - 1, L'\0');
+            MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, &ret[0], len);
+            return ret;
+        }
+
+        return SalMultiByteToWidePath(name, CP_ACP);
+    }
+
+    std::string WideFileNameToMultiByteBest(const std::wstring& name)
+    {
+        if (name.empty())
+            return std::string();
+        if (GetACP() == CP_UTF8)
+            return SalWideToMultiBytePath(name.c_str(), CP_UTF8);
+
+        BOOL usedDefaultChar = FALSE;
+        int len = WideCharToMultiByte(CP_ACP, 0, name.c_str(), -1, NULL, 0, NULL, &usedDefaultChar);
+        if (len > 0 && !usedDefaultChar)
+        {
+            std::string ret(len - 1, '\0');
+            WideCharToMultiByte(CP_ACP, 0, name.c_str(), -1, &ret[0], len, NULL, NULL);
+            return ret;
+        }
+
+        return SalWideToMultiBytePath(name.c_str(), CP_UTF8);
+    }
+
     std::wstring FileDataDisplayNameW(const CFileData* f, const char* fallbackName)
     {
         if (f != NULL && f->UseWideName())
             return std::wstring(f->NameW);
-        return SalMultiByteToWidePath(fallbackName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        return MultiByteFileNameToWideBest(fallbackName);
     }
 
     void UpdateFileDataNameAfterRename(CFileData* f, const std::wstring& newNameW, BOOL isDir)
     {
-        std::string newNameA = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        std::string newNameA = WideFileNameToMultiByteBest(newNameW);
         char* dupName = DupStr(newNameA.c_str());
         wchar_t* dupNameW = (wchar_t*)malloc((newNameW.length() + 1) * sizeof(wchar_t));
         if (dupNameW != NULL)
@@ -2981,7 +3027,7 @@ BOOL CFilesWindow::HandeQuickRenameWindowKey(WPARAM wParam)
         // Explorer behaves this way now.
         if (IsWindowUnicode(hWnd))
         {
-            std::wstring oldNameW = f->UseWideName() ? std::wstring(f->NameW) : SalMultiByteToWidePath(f->Name);
+            std::wstring oldNameW = f->UseWideName() ? std::wstring(f->NameW) : MultiByteFileNameToWideBest(f->Name);
             if (CompareStringW(LOCALE_USER_DEFAULT, 0, oldNameW.c_str(), -1, newNameW.c_str(), -1) != CSTR_EQUAL)
                 RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain);
         }

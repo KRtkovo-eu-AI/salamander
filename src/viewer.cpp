@@ -30,6 +30,9 @@ BOOL ViewerFontMeasured = FALSE;
 BOOL ViewerFontNeedsMapping = FALSE;
 char ViewerFontMapping[256];
 
+bool GetControlTextUtf8(HWND ctrl, char* buffer, int bufferSize);
+void SetControlTextUtf8(HWND ctrl, const char* text);
+
 void GetDefaultViewerLogFont(LOGFONT* lf)
 {
     const int VIEWER_FONT_PTS = 10;
@@ -60,16 +63,16 @@ void HistoryComboBox(HWND hWindow, CTransferInfo& ti, int ctrlID, char* Text,
         {
             SendMessage(hwnd, CB_RESETCONTENT, 0, 0);
             SendMessage(hwnd, CB_LIMITTEXT, textLen - 1, 0);
-            SendMessage(hwnd, WM_SETTEXT, 0, (LPARAM)Text);
+            SetControlTextUtf8(hwnd, Text);
         }
         else
         {
             if (!changeOnlyHistory)
             {
-                SendMessage(hwnd, WM_GETTEXT, textLen, (LPARAM)Text);
+                GetControlTextUtf8(hwnd, Text, textLen);
                 SendMessage(hwnd, CB_RESETCONTENT, 0, 0);
                 SendMessage(hwnd, CB_LIMITTEXT, textLen - 1, 0);
-                SendMessage(hwnd, WM_SETTEXT, 0, (LPARAM)Text);
+                SetControlTextUtf8(hwnd, Text);
             }
 
             // hex mode handling
