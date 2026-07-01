@@ -41,6 +41,23 @@ HWND ResolveComboEditControl(HWND ctrl)
     return ctrl;
 }
 
+int TrimUtf8ToCompleteCharacter(char* buffer, int length)
+{
+    if (buffer == NULL || length <= 0)
+        return 0;
+
+    int trimmed = length;
+    while (trimmed > 0)
+    {
+        if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, buffer, trimmed, NULL, 0) != 0)
+            break;
+        trimmed--;
+    }
+
+    buffer[trimmed] = '\0';
+    return trimmed;
+}
+
 bool GetControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
 {
     if (buffer == NULL || bufferSize <= 0)
@@ -79,6 +96,7 @@ bool GetControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
             if (written < 0)
                 written = 0;
             buffer[written] = '\0';
+            TrimUtf8ToCompleteCharacter(buffer, written);
         }
         else
             buffer[0] = '\0';

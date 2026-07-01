@@ -2969,7 +2969,15 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     }
     ShowWindow(hWnd, SW_SHOW);
     SetFocus(hWnd);
-    PostMessage(hWnd, EM_SETSEL, 0, selectionEndForControl >= 0 ? selectionEndForControl : (LPARAM)-1);
+
+    // Keep the selection in character units for Unicode edit controls.  Posting the
+    // ANSI message here lets the control reinterpret the end offset later, which is
+    // exactly where names containing surrogate pairs (emoji) could fall back to
+    // "select all" and include the extension even when the option is disabled.
+    if (unicodeEdit)
+        SendMessageW(hWnd, EM_SETSEL, 0, selectionEndForControl >= 0 ? selectionEndForControl : (LPARAM)-1);
+    else
+        SendMessage(hWnd, EM_SETSEL, 0, selectionEndForControl >= 0 ? selectionEndForControl : (LPARAM)-1);
 
     return;
 }
