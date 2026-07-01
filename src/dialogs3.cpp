@@ -48,13 +48,12 @@ bool GetControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
 
     buffer[0] = '\0';
 
-    if (GetACP() != CP_UTF8)
+    HWND source = ResolveComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(source))
     {
         SendMessage(ctrl, WM_GETTEXT, bufferSize, (LPARAM)buffer);
         return true;
     }
-
-    HWND source = ResolveComboEditControl(ctrl);
 
     int length = GetWindowTextLengthW(source);
     if (length < 0)
@@ -102,13 +101,13 @@ void SetControlTextUtf8(HWND ctrl, const char* text)
     if (text == NULL)
         text = "";
 
-    if (GetACP() != CP_UTF8)
+    HWND target = ResolveComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(target))
     {
         SendMessage(ctrl, WM_SETTEXT, 0, (LPARAM)text);
         return;
     }
 
-    HWND target = ResolveComboEditControl(ctrl);
     if (IsWindowUnicode(target))
     {
         std::wstring wide;
@@ -903,6 +902,10 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
 {
     DirectoryHelper = FALSE;
     NameAutoCompleteMode = helpID == IDD_CREATEDIRDIALOG || helpID == IDD_RENAMEDIALOG;
+#ifndef _UNICODE
+    if (NameAutoCompleteMode)
+        UnicodeWnd = TRUE; // Sally-style: create/rename dialogs must not lose Unicode edit text
+#endif // _UNICODE
     if (directoryHelper)
     {
         if (history != NULL)
@@ -928,7 +931,7 @@ void CCopyMoveDialog::SetSelectionEnd(int selectionEnd)
 {
     SelectionEnd = selectionEnd;
     SelectionEndChars = -1;
-    if (selectionEnd >= 0 && GetACP() == CP_UTF8 && Path != NULL)
+    if (selectionEnd >= 0 && Path != NULL)
     {
         std::wstring wide;
         if (Utf8ToWideString(Path, selectionEnd, wide))

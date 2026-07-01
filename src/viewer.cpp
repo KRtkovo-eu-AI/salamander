@@ -52,13 +52,13 @@ static bool GetHistoryControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
         return false;
     buffer[0] = 0;
 
-    if (GetACP() != CP_UTF8)
+    HWND source = ResolveHistoryComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(source))
     {
         SendMessage(ctrl, WM_GETTEXT, bufferSize, (LPARAM)buffer);
         return true;
     }
 
-    HWND source = ResolveHistoryComboEditControl(ctrl);
     int length = GetWindowTextLengthW(source);
     if (length < 0)
         length = 0;
@@ -79,13 +79,13 @@ static void SetHistoryControlTextUtf8(HWND ctrl, const char* text)
 {
     if (text == NULL)
         text = "";
-    if (GetACP() != CP_UTF8)
+    HWND target = ResolveHistoryComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(target))
     {
         SendMessage(ctrl, WM_SETTEXT, 0, (LPARAM)text);
         return;
     }
 
-    HWND target = ResolveHistoryComboEditControl(ctrl);
     std::wstring wide = SalMultiByteToWidePath(text, CP_UTF8);
     if (IsWindowUnicode(target))
         SetWindowTextW(target, wide.c_str());
