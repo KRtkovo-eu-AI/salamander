@@ -1886,7 +1886,16 @@ void CFindDialog::Validate(CTransferInfo& ti)
             SalMessageBox(HWindow, LoadStr(IDS_INCORRECTSYNTAX), LoadStr(IDS_ERRORTITLE),
                           MB_OK | MB_ICONEXCLAMATION);
             SetFocus(hNamesWnd); // ensure the CB_SETEDITSEL message works correctly
-            SendMessage(hNamesWnd, CB_SETEDITSEL, 0, MAKELPARAM(errorPos, errorPos + 1));
+            int selStart = errorPos;
+            HWND nameEdit = ResolveFindComboEditControl(hNamesWnd);
+            if (IsWindowUnicode(nameEdit) && errorPos > 0)
+            {
+                int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                                  Data.NamedText, errorPos, NULL, 0);
+                if (wideLen > 0)
+                    selStart = wideLen;
+            }
+            SendMessage(hNamesWnd, CB_SETEDITSEL, 0, MAKELPARAM(selStart, selStart + 1));
             ti.ErrorOn(IDC_FIND_NAMED);
         }
 

@@ -1986,7 +1986,29 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
             MakeValidFileName(lastCompName != NULL ? lastCompName + 1 : path);
 
             int errTextID;
-            if (!SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, 3 * MAX_PATH) ||
+            BOOL fullNameOK = FALSE;
+            std::wstring pathW = SalMultiByteToWidePath(path, CP_UTF8);
+            if (pathW.empty() && path[0] != 0)
+                pathW = SalMultiByteToWidePath(path, CP_ACP);
+            std::wstring nextFocusW;
+            if (!pathW.empty())
+            {
+                if (wcschr(pathW.c_str(), L'\\') == NULL && wcschr(pathW.c_str(), L'/') == NULL)
+                    nextFocusW = pathW;
+                const wchar_t* curDirW = GetPathW();
+                fullNameOK = SalGetFullNameW(pathW, &errTextID, curDirW, NULL, NULL, FALSE);
+                if (fullNameOK)
+                {
+                    std::string pathUtf8 = SalWideToMultiBytePath(pathW.c_str(), CP_UTF8);
+                    lstrcpyn(path, pathUtf8.c_str(), 3 * MAX_PATH);
+                    if (!nextFocusW.empty())
+                    {
+                        std::string focusUtf8 = SalWideToMultiBytePath(nextFocusW.c_str(), CP_UTF8);
+                        lstrcpyn(nextFocus, focusUtf8.c_str(), 3 * MAX_PATH);
+                    }
+                }
+            }
+            if ((!fullNameOK && !SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, 3 * MAX_PATH)) ||
                 strlen(path) >= 3 * MAX_PATH)
             {
                 if (strlen(path) >= 3 * MAX_PATH)
@@ -2027,9 +2049,6 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
 
                     DWORD err;
                     BOOL invalidName = FileNameInvalidForManualCreate(path);
-                    std::wstring pathW = SalMultiByteToWidePath(path, CP_UTF8);
-                    if (pathW.empty() && path[0] != 0)
-                        pathW = SalMultiByteToWidePath(path, CP_ACP);
                     BOOL created = FALSE;
                     if (!invalidName && !pathW.empty())
                     {
@@ -2950,6 +2969,7 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     }
     ShowWindow(hWnd, SW_SHOW);
     SetFocus(hWnd);
+    PostMessage(hWnd, EM_SETSEL, 0, selectionEndForControl >= 0 ? selectionEndForControl : (LPARAM)-1);
 
     return;
 }
