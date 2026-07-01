@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 // structure for adding messages to the Find Log; sent as the message parameter
 // of WM_USER_ADDLOG; parameters will be copied into the log data (can be deallocated after returning)
 #define FLI_INFO 0x00000000   // INFORMATION item
@@ -497,6 +499,8 @@ struct CFoundFilesData
 {
     char* Name;
     char* Path;
+    std::wstring NameW;
+    std::wstring PathW;
     CQuadWord Size;
     DWORD Attr;
     FILETIME LastWrite;
@@ -535,6 +539,9 @@ struct CFoundFilesData
     }
     BOOL Set(const char* path, const char* name, const CQuadWord& size, DWORD attr,
              const FILETIME* lastWrite, BOOL isDir);
+    BOOL SetW(const wchar_t* path, const wchar_t* name, const CQuadWord& size, DWORD attr,
+              const FILETIME* lastWrite, BOOL isDir);
+    std::wstring GetFullNameW() const;
     // if 'i' refers to Name or Path, returns a pointer to the corresponding variable
     // otherwise fills the buffer 'text' (must be at least 50 characters long) with the appropriate value
     // and returns a pointer to 'text'

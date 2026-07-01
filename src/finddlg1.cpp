@@ -17,6 +17,7 @@
 #include "execute.h"
 #include "tasklist.h"
 #include "darkmode.h"
+#include "common/widepath.h"
 
 #include <Shlwapi.h>
 
@@ -179,7 +180,6 @@ BOOL CFoundFilesData::Set(const char* path, const char* name, const CQuadWord& s
                           const FILETIME* lastWrite, BOOL isDir)
 {
     CALL_STACK_MESSAGE_NONE
-    //  CALL_STACK_MESSAGE5("CFoundFilesData::Set(%s, %s, %g, 0x%X, )", path, name, size.GetDouble(), attr);
     int l1 = (int)strlen(path), l2 = (int)strlen(name);
     Path = (char*)malloc(l1 + 1);
     Name = (char*)malloc(l2 + 1);
@@ -187,11 +187,35 @@ BOOL CFoundFilesData::Set(const char* path, const char* name, const CQuadWord& s
         return FALSE;
     memmove(Path, path, l1 + 1);
     memmove(Name, name, l2 + 1);
+    PathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    NameW = SalMultiByteToWidePath(name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
     Size = size;
     Attr = attr;
     LastWrite = *lastWrite;
     IsDir = isDir ? 1 : 0;
     return TRUE;
+}
+
+BOOL CFoundFilesData::SetW(const wchar_t* path, const wchar_t* name, const CQuadWord& size, DWORD attr,
+                           const FILETIME* lastWrite, BOOL isDir)
+{
+    std::wstring pathW = path != NULL ? path : L"";
+    std::wstring nameW = name != NULL ? name : L"";
+    std::string pathA = SalWideToMultiBytePath(pathW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    std::string nameA = SalWideToMultiBytePath(nameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    if (!Set(pathA.c_str(), nameA.c_str(), size, attr, lastWrite, isDir))
+        return FALSE;
+    PathW = pathW;
+    NameW = nameW;
+    return TRUE;
+}
+
+std::wstring CFoundFilesData::GetFullNameW() const
+{
+    std::wstring ret = !PathW.empty() ? PathW : SalMultiByteToWidePath(Path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    std::wstring name = !NameW.empty() ? NameW : SalMultiByteToWidePath(Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    SalPathAppendW(ret, name.c_str());
+    return ret;
 }
 
 char* CFoundFilesData::GetText(int i, char* text, int fileNameFormat)
@@ -720,13 +744,13 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
             {
             case 0:
             {
-                res = RegSetStrICmp(f1->Name, f2->Name);
+                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
                 break;
             }
 
             case 1:
             {
-                res = RegSetStrICmp(f1->Path, f2->Path);
+                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
                 break;
                 break;
             }
@@ -841,7 +865,7 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
     if (byName)
     {
         // by name
-        res = RegSetStrICmp(f1->Name, f2->Name);
+        res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
         if (res == 0)
         {
             // by size
@@ -877,7 +901,7 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
             if (f1->Size == f2->Size)
             {
                 // by name
-                res = RegSetStrICmp(f1->Name, f2->Name);
+                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
                 if (res == 0)
                 {
                     // by group
@@ -897,7 +921,7 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
         }
     }
     if (res == 0)
-        res = RegSetStrICmp(f1->Path, f2->Path);
+        res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
     return res;
 }
 
@@ -1191,7 +1215,7 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     index = i;
                                     if (!Data[index]->IsDir) // we only search for files
                                     {
-                                        if (!onlyAssociatedExtensions || masks.AgreeMasks(Data[index]->Name, NULL))
+                                        if (!onlyAssociatedExtensions || (!Data[index]->NameW.empty() ? masks.AgreeMasksW(Data[index]->NameW.c_str(), NULL) : masks.AgreeMasks(Data[index]->Name, NULL)))
                                         {
                                             FileNamesEnumData.Found = TRUE;
                                             break;
@@ -1205,7 +1229,7 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             {
                                 if (!Data[index]->IsDir)
                                 {
-                                    if (!onlyAssociatedExtensions || masks.AgreeMasks(Data[index]->Name, NULL))
+                                    if (!onlyAssociatedExtensions || (!Data[index]->NameW.empty() ? masks.AgreeMasksW(Data[index]->NameW.c_str(), NULL) : masks.AgreeMasks(Data[index]->Name, NULL)))
                                     {
                                         FileNamesEnumData.Found = TRUE;
                                         break;
@@ -1236,7 +1260,7 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 (!preferSelected ||
                                  (ListView_GetItemState(HWindow, index, LVIS_SELECTED) & LVIS_SELECTED)))
                             {
-                                if (!onlyAssociatedExtensions || masks.AgreeMasks(Data[index]->Name, NULL))
+                                if (!onlyAssociatedExtensions || (!Data[index]->NameW.empty() ? masks.AgreeMasksW(Data[index]->NameW.c_str(), NULL) : masks.AgreeMasks(Data[index]->Name, NULL)))
                                 {
                                     FileNamesEnumData.Found = TRUE;
                                     break;
@@ -2813,6 +2837,29 @@ void CFindDialog::OnCopyNameToClipboard(CCopyNameToClipboardModeEnum mode)
     if (index < 0)
         return;
     CFoundFilesData* data = FoundFilesListView->At(index);
+    if ((!data->NameW.empty() || !data->PathW.empty()) && mode != cntcmUNCName)
+    {
+        std::wstring textW;
+        switch (mode)
+        {
+        case cntcmFullName:
+            textW = data->GetFullNameW();
+            break;
+        case cntcmName:
+            textW = !data->NameW.empty() ? data->NameW : SalMultiByteToWidePath(data->Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            break;
+        case cntcmFullPath:
+            textW = !data->PathW.empty() ? data->PathW : SalMultiByteToWidePath(data->Path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            break;
+        default:
+            break;
+        }
+        if (!textW.empty())
+        {
+            CopyTextToClipboardW(textW.c_str());
+            return;
+        }
+    }
     char buff[2 * MAX_PATH];
     buff[0] = 0;
     switch (mode)

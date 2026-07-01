@@ -11,6 +11,7 @@
 #include "dialogs.h"
 #include "zip.h"
 #include "pack.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -657,7 +658,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                                             invalidPath = TRUE;
                                     }
                                 }
-                                if (invalidPath || !CreateDirectory(newDirs, NULL))
+                                std::wstring newDirsW = SalMultiByteToWidePath(newDirs, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                                if (invalidPath || !(GetACP() == CP_UTF8 && !newDirsW.empty() ? SalCreateDirectoryExW(newDirsW.c_str(), NULL) : CreateDirectory(newDirs, NULL)))
                                 {
                                     sprintf(textBuf, LoadStr(IDS_CREATEDIRFAILED), newDirs);
                                     SalMessageBox(HWindow, textBuf, LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
@@ -2068,8 +2070,18 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 memcpy(subject, GetPath(), l);
                 sprintf(subject + l, "\\%s", file->Name);
                 char newDir[MAX_PATH];
-                if (CheckAndCreateDirectory(path, NULL, TRUE, NULL, 0, newDir, FALSE, TRUE))
+                std::wstring pathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                std::wstring newDirW;
+                BOOL createdOK = GetACP() == CP_UTF8 && !pathW.empty() ?
+                                     CheckAndCreateDirectoryW(pathW.c_str(), NULL, TRUE, &newDirW, TRUE) :
+                                     CheckAndCreateDirectory(path, NULL, TRUE, NULL, 0, newDir, FALSE, TRUE);
+                if (createdOK)
                 {
+                    if (!newDirW.empty())
+                    {
+                        std::string newDirA = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
+                        lstrcpyn(newDir, newDirA.c_str(), MAX_PATH);
+                    }
                     // launch the unpacker
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
                     CDynamicStringImp archiveVolumes;

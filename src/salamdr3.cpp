@@ -14,6 +14,7 @@
 #include "execute.h"
 #include "shellib.h"
 #include "menu.h"
+#include "common/widepath.h"
 
 CUserMenuIconBkgndReader UserMenuIconBkgndReader;
 
@@ -1064,6 +1065,78 @@ void RemoveEmptyDirs(const char* dir)
 }
 
 // ****************************************************************************
+
+
+BOOL SalCreateDirectoryExW(const wchar_t* dir, LPSECURITY_ATTRIBUTES attrs)
+{
+    if (dir == NULL || *dir == 0)
+        return FALSE;
+    std::wstring path = wcslen(dir) >= MAX_PATH ? SalPathAddExtendedPrefixW(dir) : std::wstring(dir);
+    return CreateDirectoryW(path.c_str(), attrs);
+}
+
+BOOL CheckAndCreateDirectoryW(const wchar_t* dir, HWND parent, BOOL quiet, std::wstring* newDir, BOOL manualCrDir)
+{
+    if (newDir != NULL)
+        newDir->erase();
+    if (dir == NULL || *dir == 0)
+        return FALSE;
+    std::wstring full(dir);
+    if (SalIsExtendedLengthPathW(full.c_str()))
+        full = SalPathRemoveExtendedPrefixW(full.c_str());
+
+    DWORD attrs = GetFileAttributesW(full.length() >= MAX_PATH ? SalPathAddExtendedPrefixW(full.c_str()).c_str() : full.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+        return (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+    size_t rootLen = 0;
+    if (full.length() >= 3 && full[1] == L':' && (full[2] == L'\\' || full[2] == L'/'))
+        rootLen = 3;
+    else if (full.rfind(L"\\\\", 0) == 0)
+    {
+        size_t serverEnd = full.find(L'\\', 2);
+        size_t shareEnd = serverEnd == std::wstring::npos ? std::wstring::npos : full.find(L'\\', serverEnd + 1);
+        if (shareEnd != std::wstring::npos)
+            rootLen = shareEnd + 1;
+    }
+    if (rootLen == 0 || full.length() <= rootLen)
+        return FALSE;
+
+    std::wstring partial = full.substr(0, rootLen);
+    size_t pos = rootLen;
+    while (pos < full.length())
+    {
+        size_t next = full.find(L'\\', pos);
+        std::wstring component = full.substr(pos, next == std::wstring::npos ? std::wstring::npos : next - pos);
+        if (!component.empty())
+        {
+            if ((manualCrDir && component[0] <= L' ') || component[component.length() - 1] <= L' ' || component[component.length() - 1] == L'.')
+                return FALSE;
+            if (!partial.empty() && partial[partial.length() - 1] != L'\\')
+                partial += L'\\';
+            partial += component;
+            std::wstring createPath = partial.length() >= MAX_PATH ? SalPathAddExtendedPrefixW(partial.c_str()) : partial;
+            DWORD partAttrs = GetFileAttributesW(createPath.c_str());
+            if (partAttrs == INVALID_FILE_ATTRIBUTES)
+            {
+                if (!SalCreateDirectoryExW(partial.c_str(), NULL))
+                {
+                    DWORD err = GetLastError();
+                    if (err != ERROR_ALREADY_EXISTS)
+                        return FALSE;
+                }
+                else if (newDir != NULL && newDir->empty())
+                    *newDir = partial;
+            }
+            else if ((partAttrs & FILE_ATTRIBUTE_DIRECTORY) == 0)
+                return FALSE;
+        }
+        if (next == std::wstring::npos)
+            break;
+        pos = next + 1;
+    }
+    return TRUE;
+}
 
 BOOL CheckAndCreateDirectory(const char* dir, HWND parent, BOOL quiet, char* errBuf,
                              int errBufSize, char* newDir, BOOL noRetryButton,

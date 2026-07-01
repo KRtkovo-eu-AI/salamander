@@ -635,6 +635,9 @@ BOOL AddToListOfNames(char** list, char* listEnd, const char* name, int nameLen)
 BOOL CheckAndCreateDirectory(const char* dir, HWND parent = NULL, BOOL quiet = FALSE, char* errBuf = NULL,
                              int errBufSize = 0, char* newDir = NULL, BOOL noRetryButton = FALSE,
                              BOOL manualCrDir = FALSE);
+BOOL SalCreateDirectoryExW(const wchar_t* dir, LPSECURITY_ATTRIBUTES attrs = NULL);
+BOOL CheckAndCreateDirectoryW(const wchar_t* dir, HWND parent = NULL, BOOL quiet = FALSE,
+                              std::wstring* newDir = NULL, BOOL manualCrDir = FALSE);
 
 // smaze z disku prazdne podadresare v 'dir' a je-li 'dir' po vymazu podadresaru prazdny,
 // je smazan take

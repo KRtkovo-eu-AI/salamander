@@ -7,6 +7,7 @@
 #include "cfgdlg.h"
 #include "find.h"
 #include "md5.h"
+#include "common/widepath.h"
 
 char* FindNamedHistory[FIND_NAMED_HISTORY_SIZE];
 char* FindLookInHistory[FIND_LOOKIN_HISTORY_SIZE];
@@ -724,7 +725,7 @@ int CDuplicateCandidates::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2,
     if (bySize)
     {
         if (byName)
-            res = RegSetStrICmp(f1->Name, f2->Name);
+            res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
         else
             res = 0;
         if (res == 0)
@@ -748,10 +749,10 @@ int CDuplicateCandidates::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2,
     else
     {
         // byName && !bySize
-        res = RegSetStrICmp(f1->Name, f2->Name);
+        res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
     }
     if (byPath && res == 0)
-        res = RegSetStrICmp(f1->Path, f2->Path);
+        res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
     return res;
 }
 
@@ -1818,7 +1819,7 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
             ok = FALSE;
 
         // file name (let the extension be resolved if ext==NULL)
-        if (ok && !masksGroup->AgreeMasks(refineData->Name, NULL))
+        if (ok && !( !refineData->NameW.empty() ? masksGroup->AgreeMasksW(refineData->NameW.c_str(), NULL) : masksGroup->AgreeMasks(refineData->Name, NULL)))
             ok = FALSE;
 
         // content
