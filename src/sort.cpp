@@ -6,6 +6,7 @@
 
 #include "cfgdlg.h"
 
+#include <cwctype>
 #include <string>
 
 int RegSetStrICmpEx(const char* s1, int l1, const char* s2, int l2, BOOL* numericalyEqual);
@@ -115,6 +116,56 @@ namespace
         return WideToUtf8ForSort(wide.c_str(), utf8);
     }
 
+    bool EffectiveNameWideForSort(const CFileData& file, std::wstring& wide)
+    {
+        wide.clear();
+        if (file.UseWideName())
+        {
+            wide = file.NameW;
+            return true;
+        }
+        return MultiByteEffectiveNameToWide(file.Name, file.NameLen, wide);
+    }
+
+    int WideSortClass(wchar_t ch)
+    {
+        if (ch == 0)
+            return 0;
+        if (ch >= L'0' && ch <= L'9')
+            return 1;
+        if (iswalpha(ch))
+            return 2;
+        if (iswalnum(ch))
+            return 2;
+        // Sally-like Unicode ordering keeps symbols/emoji before textual names instead of
+        // letting locale collation move them behind the alphabet.
+        return 0;
+    }
+
+    int CompareWideNamesForSort(const std::wstring& w1, const std::wstring& w2, BOOL ignoreCase)
+    {
+        if (w1.empty() || w2.empty())
+        {
+            if (w1.empty() && w2.empty())
+                return 0;
+            return w1.empty() ? -1 : 1;
+        }
+
+        int class1 = WideSortClass(w1[0]);
+        int class2 = WideSortClass(w2[0]);
+        if (class1 != class2)
+            return class1 < class2 ? -1 : 1;
+
+        int ret = CompareStringW(LOCALE_USER_DEFAULT, ignoreCase ? NORM_IGNORECASE : 0,
+                                 w1.c_str(), (int)w1.length(),
+                                 w2.c_str(), (int)w2.length()) -
+                  CSTR_EQUAL;
+        if (ret != 0)
+            return ret;
+
+        return ignoreCase ? 0 : wcscmp(w1.c_str(), w2.c_str());
+    }
+
     bool ShouldUseEffectiveWideNameForSort(const CFileData& f1, const CFileData& f2)
     {
         return UsingUtf8ACPForSort() || f1.UseWideName() || f2.UseWideName();
@@ -122,6 +173,11 @@ namespace
 
     int CompareEffectiveNameUtf8(const CFileData& f1, const CFileData& f2, BOOL ignoreCase)
     {
+        std::wstring w1;
+        std::wstring w2;
+        if (EffectiveNameWideForSort(f1, w1) && EffectiveNameWideForSort(f2, w2))
+            return CompareWideNamesForSort(w1, w2, ignoreCase);
+
         std::string n1;
         std::string n2;
         if (!EffectiveNameUtf8ForSort(f1, n1) || !EffectiveNameUtf8ForSort(f2, n2))

@@ -1557,6 +1557,7 @@ public:
 
     // QuickRenameWindow
     void AdjustQuickRenameRect(const char* text, RECT* r); // adjusts 'r' so it doesn't exceed the panel and is large enough at the same time
+    void AdjustQuickRenameRectW(const wchar_t* text, RECT* r);
     void AdjustQuickRenameWindow();
     //    void QuickRenameOnIndex(int index); // calls QuickRenameBegin for the given index
     void QuickRenameBegin(int index, const RECT* labelRect); // opens QuickRenameWindow

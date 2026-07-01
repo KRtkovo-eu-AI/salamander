@@ -2650,6 +2650,33 @@ void CFilesWindow::AdjustQuickRenameRect(const char* text, RECT* r)
         r->right = maxR.right;
 }
 
+void CFilesWindow::AdjustQuickRenameRectW(const wchar_t* text, RECT* r)
+{
+    HDC hDC = HANDLES(GetDC(ListBox->HWindow));
+    HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
+    SIZE sz;
+    GetTextExtentPoint32W(hDC, text, (int)wcslen(text), &sz);
+    TEXTMETRIC tm;
+    GetTextMetrics(hDC, &tm);
+    SelectObject(hDC, hOldFont);
+    HANDLES(ReleaseDC(ListBox->HWindow, hDC));
+
+    int minWidth = QuickRenameRect.right - QuickRenameRect.left + 2;
+    int optimalWidth = sz.cx + 4 + tm.tmHeight;
+
+    r->left--;
+    r->right = r->left + optimalWidth;
+
+    if (r->right - r->left < minWidth)
+        r->right = r->left + minWidth;
+
+    RECT maxR = ListBox->FilesRect;
+    if (r->left < maxR.left)
+        r->left = maxR.left;
+    if (r->right > maxR.right)
+        r->right = maxR.right;
+}
+
 void CFilesWindow::AdjustQuickRenameWindow()
 {
     if (!IsQuickRenameActive())
@@ -2662,9 +2689,24 @@ void CFilesWindow::AdjustQuickRenameWindow()
     GetWindowRect(QuickRenameWindow.HWindow, &r);
     MapWindowPoints(NULL, HWindow, (POINT*)&r, 2);
 
-    char buff[3 * MAX_PATH];
-    GetWindowText(QuickRenameWindow.HWindow, buff, 3 * MAX_PATH);
-    AdjustQuickRenameRect(buff, &r);
+    if (IsWindowUnicode(QuickRenameWindow.HWindow))
+    {
+        int length = GetWindowTextLengthW(QuickRenameWindow.HWindow);
+        if (length < 0)
+            length = 0;
+        std::vector<WCHAR> buff(length + 1);
+        int copied = GetWindowTextW(QuickRenameWindow.HWindow, buff.data(), length + 1);
+        if (copied < 0)
+            copied = 0;
+        buff[copied] = 0;
+        AdjustQuickRenameRectW(buff.data(), &r);
+    }
+    else
+    {
+        char buff[3 * MAX_PATH];
+        GetWindowText(QuickRenameWindow.HWindow, buff, 3 * MAX_PATH);
+        AdjustQuickRenameRect(buff, &r);
+    }
     SetWindowPos(QuickRenameWindow.HWindow, NULL, 0, 0,
                  r.right - r.left, r.bottom - r.top,
                  SWP_NOMOVE | SWP_NOZORDER);
@@ -2785,10 +2827,10 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     }
 
     RECT r = *labelRect;
-    AdjustQuickRenameRect(formatedFileName, &r);
+    AdjustQuickRenameRectW(formatedFileNameW.c_str(), &r);
 
     HWND hWnd = NULL;
-    if (f->UseWideName() || GetACP() == CP_UTF8)
+    if (Is(ptDisk) || f->UseWideName() || GetACP() == CP_UTF8)
     {
         QuickRenameWindow.SetUnicodeWindow(TRUE);
         hWnd = QuickRenameWindow.CreateExW(0,
@@ -2831,8 +2873,7 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     if (leftMargin < 2)
         SendMessage(hWnd, EM_SETMARGINS, EC_LEFTMARGIN, 2);
 
-    //SendMessage(hWnd, EM_SETSEL, 0, -1); // select all
-    // we can select only the name without dot and extension
+    // Select all or only the name without dot and extension according to QuickRenameSelectAll.
     int selectionEndForControl = selectionEndBytes;
     if (unicodeEdit)
     {
@@ -2847,15 +2888,9 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     if (selectionEndForControl >= 0)
     {
         if (unicodeEdit)
-        {
-            SendMessageW(hWnd, EM_SETSEL, selectionEndForControl, (LPARAM)-1);
             SendMessageW(hWnd, EM_SETSEL, 0, selectionEndForControl);
-        }
         else
-        {
-            SendMessage(hWnd, EM_SETSEL, selectionEndForControl, (LPARAM)-1);
             SendMessage(hWnd, EM_SETSEL, 0, selectionEndForControl);
-        }
     }
     else
     {
