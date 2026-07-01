@@ -8,6 +8,9 @@
 
 #include <string>
 
+int RegSetStrICmpEx(const char* s1, int l1, const char* s2, int l2, BOOL* numericalyEqual);
+int RegSetStrCmpEx(const char* s1, int l1, const char* s2, int l2, BOOL* numericalyEqual);
+
 namespace
 {
     bool UsingUtf8ACPForSort()
@@ -59,6 +62,73 @@ namespace
         int cch1 = l1 == -1 ? -1 : (int)w1.size();
         int cch2 = l2 == -1 ? -1 : (int)w2.size();
         return CompareStringW(LOCALE_USER_DEFAULT, flags, w1.c_str(), cch1, w2.c_str(), cch2) - CSTR_EQUAL;
+    }
+
+
+    bool MultiByteEffectiveNameToWide(const char* text, int len, std::wstring& wide)
+    {
+        wide.clear();
+        if (text == NULL)
+            return true;
+        if (len <= 0)
+            return true;
+        UINT codePage = UsingUtf8ACPForSort() ? CP_UTF8 : CP_ACP;
+        int required = MultiByteToWideChar(codePage, 0, text, len, NULL, 0);
+        if (required <= 0 && codePage != CP_ACP)
+            required = MultiByteToWideChar(CP_ACP, 0, text, len, NULL, 0), codePage = CP_ACP;
+        if (required <= 0)
+            return false;
+        wide.resize(required);
+        int converted = MultiByteToWideChar(codePage, 0, text, len, &wide[0], required);
+        if (converted <= 0)
+            return false;
+        wide.resize(converted);
+        return true;
+    }
+
+    bool WideToUtf8ForSort(const wchar_t* text, std::string& utf8)
+    {
+        utf8.clear();
+        if (text == NULL)
+            return true;
+        int required = WideCharToMultiByte(CP_UTF8, 0, text, -1, NULL, 0, NULL, NULL);
+        if (required <= 0)
+            return false;
+        utf8.resize(required - 1);
+        if (required > 1 && WideCharToMultiByte(CP_UTF8, 0, text, -1, &utf8[0], required, NULL, NULL) == 0)
+            return false;
+        return true;
+    }
+
+    bool EffectiveNameUtf8ForSort(const CFileData& file, std::string& utf8)
+    {
+        if (file.UseWideName())
+            return WideToUtf8ForSort(file.NameW, utf8);
+        if (UsingUtf8ACPForSort())
+        {
+            utf8.assign(file.Name, file.NameLen);
+            return true;
+        }
+        std::wstring wide;
+        if (!MultiByteEffectiveNameToWide(file.Name, file.NameLen, wide))
+            return false;
+        return WideToUtf8ForSort(wide.c_str(), utf8);
+    }
+
+    bool ShouldUseEffectiveWideNameForSort(const CFileData& f1, const CFileData& f2)
+    {
+        return UsingUtf8ACPForSort() || f1.UseWideName() || f2.UseWideName();
+    }
+
+    int CompareEffectiveNameUtf8(const CFileData& f1, const CFileData& f2, BOOL ignoreCase)
+    {
+        std::string n1;
+        std::string n2;
+        if (!EffectiveNameUtf8ForSort(f1, n1) || !EffectiveNameUtf8ForSort(f2, n2))
+            return ignoreCase ? RegSetStrICmpEx(f1.Name, f1.NameLen, f2.Name, f2.NameLen, NULL) :
+                                RegSetStrCmpEx(f1.Name, f1.NameLen, f2.Name, f2.NameLen, NULL);
+        return ignoreCase ? RegSetStrICmpEx(n1.c_str(), (int)n1.length(), n2.c_str(), (int)n2.length(), NULL) :
+                            RegSetStrCmpEx(n1.c_str(), (int)n1.length(), n2.c_str(), (int)n2.length(), NULL);
     }
 } // namespace
 
@@ -343,6 +413,8 @@ int CmpNameExtIgnCase(const CFileData& f1, const CFileData& f2)
   else return res2;
 */
     //--- compare the whole Name (including Ext), same as Explorer
+    if (ShouldUseEffectiveWideNameForSort(f1, f2))
+        return CompareEffectiveNameUtf8(f1, f2, TRUE);
     return RegSetStrICmpEx(f1.Name, f1.NameLen, f2.Name, f2.NameLen, NULL);
 }
 
@@ -378,6 +450,13 @@ int CmpNameExt(const CFileData& f1, const CFileData& f2)
   else return res2;
 */
     //--- compare the whole Name (including Ext), same as Explorer
+    if (ShouldUseEffectiveWideNameForSort(f1, f2))
+    {
+        int res = CompareEffectiveNameUtf8(f1, f2, TRUE);
+        if (res != 0 || f1.Name == f2.Name)
+            return res;
+        return CompareEffectiveNameUtf8(f1, f2, FALSE);
+    }
     int res = RegSetStrICmpEx(f1.Name, f1.NameLen, f2.Name, f2.NameLen, NULL);
     if (res != 0 || f1.Name == f2.Name)
         return res; // if the addresses are identical, they must match

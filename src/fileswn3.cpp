@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1090,7 +1090,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         continue;
                     }
 
-                    if (FilterEnabled && (!Filter.AgreeMasks(f->Name, f->Ext)))
+                    if (FilterEnabled && (!(f->UseWideName() ? Filter.AgreeMasksW(f->NameW, NULL) : Filter.AgreeMasks(f->Name, f->Ext))))
                     {
                         HiddenFilesCount++;
                         HiddenDirsFilesReason |= HIDDEN_REASON_FILTER;
@@ -1357,7 +1357,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             continue;
                         }
 
-                        if (FilterEnabled && !Filter.AgreeMasks(f->Name, f->Ext))
+                        if (FilterEnabled && !(f->UseWideName() ? Filter.AgreeMasksW(f->NameW, NULL) : Filter.AgreeMasks(f->Name, f->Ext)))
                         {
                             HiddenFilesCount++;
                             HiddenDirsFilesReason |= HIDDEN_REASON_FILTER;
@@ -1626,7 +1626,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                     }
                                     if (!isDir)
                                     {
-                                        if (FilterEnabled && !Filter.AgreeMasks(f->Name, f->Ext))
+                                        if (FilterEnabled && !(f->UseWideName() ? Filter.AgreeMasksW(f->NameW, NULL) : Filter.AgreeMasks(f->Name, f->Ext)))
                                             continue;
                                     }
                                     //--- if the name is occupied in the array HiddenNames, we will discard it

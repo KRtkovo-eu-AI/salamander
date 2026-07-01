@@ -744,29 +744,121 @@ BOOL CMaskGroup::PrepareMasks(int& errorPos, const char* masksString)
     return TRUE;
 }
 
+
+namespace
+{
+    UINT MaskUnicodeCodePage()
+    {
+        return GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    }
+
+    bool MaskTextToWide(const char* text, int len, std::wstring& wide)
+    {
+        wide.erase();
+        if (text == NULL)
+            return true;
+        if (len == -1)
+            len = (int)strlen(text);
+        if (len <= 0)
+            return true;
+        int required = MultiByteToWideChar(MaskUnicodeCodePage(), 0, text, len, NULL, 0);
+        if (required <= 0 && MaskUnicodeCodePage() != CP_ACP)
+            required = MultiByteToWideChar(CP_ACP, 0, text, len, NULL, 0);
+        if (required <= 0)
+            return false;
+        wide.resize(required);
+        UINT codePage = MaskUnicodeCodePage();
+        int converted = MultiByteToWideChar(codePage, 0, text, len, &wide[0], required);
+        if (converted <= 0 && codePage != CP_ACP)
+            converted = MultiByteToWideChar(CP_ACP, 0, text, len, &wide[0], required);
+        if (converted <= 0)
+            return false;
+        wide.resize(converted);
+        return true;
+    }
+
+    int WideICmp(const wchar_t* s1, const wchar_t* s2)
+    {
+        return CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, s1, -1, s2, -1) - CSTR_EQUAL;
+    }
+
+    BOOL AgreeMaskWCore(const wchar_t* filename, const wchar_t* mask, BOOL hasExtension, BOOL extendedMode)
+    {
+        while (*filename != 0)
+        {
+            if (*mask == 0)
+                return FALSE;
+            BOOL agree = (towlower(*filename) == towlower(*mask) || *mask == L'?' ||
+                          (extendedMode && *mask == L'#' && *filename >= L'0' && *filename <= L'9'));
+            if (agree)
+            {
+                filename++;
+                mask++;
+            }
+            else if (*mask == L'*')
+            {
+                mask++;
+                while (*filename != 0)
+                {
+                    if (AgreeMaskWCore(filename, mask, hasExtension, extendedMode))
+                        return TRUE;
+                    filename++;
+                }
+                break;
+            }
+            else
+                return FALSE;
+        }
+        if (*mask == L'*')
+            mask++;
+        if (!hasExtension && *mask == L'.')
+            return *(mask + 1) == 0 || (*(mask + 1) == L'*' && *(mask + 2) == 0);
+        return *mask == 0;
+    }
+}
+
 BOOL CMaskGroup::AgreeMasks(const char* fileName, const char* fileExt)
 {
-    if (NeedPrepare)
-        TRACE_E("CMaskGroup::AgreeMasks: PrepareMasks must be called before AgreeMasks!");
+    if (fileName == NULL)
+        return FALSE;
 
-    SLOW_CALL_STACK_MESSAGE3("CMaskGroup::AgreeMasks(%s, %s)", fileName, fileExt);
+    std::wstring fileNameW;
+    if (!MaskTextToWide(fileName, -1, fileNameW))
+        return FALSE;
+
+    const wchar_t* fileExtW = NULL;
+    if (fileExt != NULL && fileExt >= fileName)
+    {
+        int extOffset = (int)(fileExt - fileName);
+        std::wstring prefixW;
+        if (MaskTextToWide(fileName, extOffset, prefixW) && prefixW.length() <= fileNameW.length())
+            fileExtW = fileNameW.c_str() + prefixW.length();
+    }
+    return AgreeMasksW(fileNameW.c_str(), fileExtW);
+}
+
+BOOL CMaskGroup::AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt)
+{
+    if (NeedPrepare)
+        TRACE_E("CMaskGroup::AgreeMasksW: PrepareMasks must be called before AgreeMasksW!");
+    if (fileName == NULL)
+        return FALSE;
+
     if (fileExt == NULL)
     {
-        int tmpLen = lstrlen(fileName);
+        int tmpLen = (int)wcslen(fileName);
         fileExt = fileName + tmpLen;
-        while (--fileExt >= fileName && *fileExt != '.')
+        while (--fileExt >= fileName && *fileExt != L'.')
             ;
         if (fileExt < fileName)
-            fileExt = fileName + tmpLen; // ".cvspass" in Windows is an extension ...
+            fileExt = fileName + tmpLen;
         else
             fileExt++;
     }
-    const char* ext = fileExt;
-    if (*ext == 0 && *fileName == '.' && *(ext - 1) != '.') // may be the ".cvspass" case; ".." has no extension
-    {
-        TRACE_E("CMaskGroup::AgreeMasks: Unexpected situation: fileName starts with '.' but fileExt points to end of name: " << fileName);
+    const wchar_t* ext = fileExt;
+    if (*ext == 0 && *fileName == L'.' && ext > fileName && *(ext - 1) != L'.')
         ext = fileName + 1;
-    }
+
     int i;
     for (i = 0; i < PreparedMasks.Count; i++)
     {
@@ -774,89 +866,39 @@ BOOL CMaskGroup::AgreeMasks(const char* fileName, const char* fileExt)
         if (mask != NULL)
         {
             CMaskItemFlags* flags = (CMaskItemFlags*)mask;
-            if (flags->Exclude == 1)
-            {
-                if (flags->Optimize == MASK_OPTIMIZE_ALL) // *.*; *
-                    return FALSE;
-                if (flags->Optimize == MASK_OPTIMIZE_EXTENSION) // *.xxxx
-                {
-                    if (StrICmp(ext, mask + 3) == 0)
-                        return FALSE;
-                    else
-                        continue;
-                }
-                mask++;
-                if (AgreeMask(fileName, mask, *fileExt != 0, ExtendedMode))
-                    return FALSE;
-            }
+            if (flags->Optimize == MASK_OPTIMIZE_ALL)
+                return flags->Exclude == 1 ? FALSE : TRUE;
+
+            std::wstring maskW;
+            const char* maskText = flags->Optimize == MASK_OPTIMIZE_EXTENSION ? mask + 3 : mask + 1;
+            if (!MaskTextToWide(maskText, -1, maskW))
+                continue;
+
+            BOOL matched;
+            if (flags->Optimize == MASK_OPTIMIZE_EXTENSION)
+                matched = WideICmp(ext, maskW.c_str()) == 0;
             else
-            {
-                if (flags->Optimize == MASK_OPTIMIZE_ALL) // *.*; *
-                    return TRUE;
-                if (flags->Optimize == MASK_OPTIMIZE_EXTENSION) // *.xxxx
-                {
-                    if (StrICmp(ext, mask + 3) == 0)
-                        return TRUE;
-                    else
-                        continue;
-                }
-                mask++;
-                if (AgreeMask(fileName, mask, *fileExt != 0, ExtendedMode))
-                    return TRUE;
-            }
+                matched = AgreeMaskWCore(fileName, maskW.c_str(), *fileExt != 0, ExtendedMode);
+
+            if (matched)
+                return flags->Exclude == 1 ? FALSE : TRUE;
         }
     }
-    if (MasksHashArray != NULL) // there are still some masks in the hash array
+
+    if (MasksHashArray != NULL)
     {
-        DWORD hash = 0;
-        COMPUTEMASKGROUPHASH(hash, (unsigned char*)ext);
-        CMasksHashEntry* item = &MasksHashArray[hash];
-        if (item->Mask != NULL)
+        // Hashing is ANSI-only, but stored masks can still be evaluated through the UTF-16 core.
+        for (i = 0; i < MasksHashArraySize; i++)
         {
-            do
+            CMasksHashEntry* item = &MasksHashArray[i];
+            while (item != NULL && item->Mask != NULL)
             {
-                if (StrICmp(ext, ((char*)item->Mask) + 3) == 0)
+                std::wstring maskW;
+                if (MaskTextToWide(((char*)item->Mask) + 3, -1, maskW) && WideICmp(ext, maskW.c_str()) == 0)
                     return TRUE;
                 item = item->Next;
-            } while (item != NULL);
+            }
         }
     }
     return FALSE;
-}
-
-BOOL CMaskGroup::AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt)
-{
-    if (fileName == NULL)
-        return FALSE;
-
-    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
-    int required = WideCharToMultiByte(codePage, 0, fileName, -1, NULL, 0, NULL, NULL);
-    if (required == 0)
-        return FALSE;
-
-    char* fileNameA = (char*)malloc(required);
-    if (fileNameA == NULL)
-    {
-        TRACE_E(LOW_MEMORY);
-        return FALSE;
-    }
-
-    BOOL ret = FALSE;
-    if (WideCharToMultiByte(codePage, 0, fileName, -1, fileNameA, required, NULL, NULL) != 0)
-    {
-        const char* fileExtA = NULL;
-        if (fileExt != NULL)
-        {
-            int charsBeforeExt = (int)(fileExt - fileName);
-            if (charsBeforeExt >= 0)
-            {
-                int bytesBeforeExt = WideCharToMultiByte(codePage, 0, fileName, charsBeforeExt, NULL, 0, NULL, NULL);
-                if (bytesBeforeExt >= 0 && bytesBeforeExt < required)
-                    fileExtA = fileNameA + bytesBeforeExt;
-            }
-        }
-        ret = AgreeMasks(fileNameA, fileExtA);
-    }
-    free(fileNameA);
-    return ret;
 }

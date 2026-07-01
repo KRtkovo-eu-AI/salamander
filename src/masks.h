@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 // functions used by the quick-search feature
 BOOL IsQSWildChar(char ch);
 BOOL IsQSWildCharW(wchar_t ch);
