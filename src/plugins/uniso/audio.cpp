@@ -34,7 +34,7 @@ BOOL CAudio::DumpInfo(FILE* outStream)
 BOOL CAudio::AddFileDir(const char* path, char* fileName,
                         CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData)
 {
-    CFileData fd;
+    CFileData fd = {0};
 
     fd.Name = SalamanderGeneral->DupStr(fileName);
     if (fd.Name == NULL)

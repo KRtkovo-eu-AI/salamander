@@ -747,3 +747,40 @@ BOOL CMaskGroup::AgreeMasks(const char* fileName, const char* fileExt)
     }
     return FALSE;
 }
+
+BOOL CMaskGroup::AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt)
+{
+    if (fileName == NULL)
+        return FALSE;
+
+    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    int required = WideCharToMultiByte(codePage, 0, fileName, -1, NULL, 0, NULL, NULL);
+    if (required == 0)
+        return FALSE;
+
+    char* fileNameA = (char*)malloc(required);
+    if (fileNameA == NULL)
+    {
+        TRACE_E(LOW_MEMORY);
+        return FALSE;
+    }
+
+    BOOL ret = FALSE;
+    if (WideCharToMultiByte(codePage, 0, fileName, -1, fileNameA, required, NULL, NULL) != 0)
+    {
+        const char* fileExtA = NULL;
+        if (fileExt != NULL)
+        {
+            int charsBeforeExt = (int)(fileExt - fileName);
+            if (charsBeforeExt >= 0)
+            {
+                int bytesBeforeExt = WideCharToMultiByte(codePage, 0, fileName, charsBeforeExt, NULL, 0, NULL, NULL);
+                if (bytesBeforeExt >= 0 && bytesBeforeExt < required)
+                    fileExtA = fileNameA + bytesBeforeExt;
+            }
+        }
+        ret = AgreeMasks(fileNameA, fileExtA);
+    }
+    free(fileNameA);
+    return ret;
+}

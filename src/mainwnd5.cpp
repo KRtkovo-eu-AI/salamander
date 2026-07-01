@@ -605,7 +605,7 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
                     counter = 0;
                 }
 
-                CFileData file;
+                CFileData file = {0};
                 // initialize structure members we won't modify further
                 file.DosName = NULL;
                 file.PluginData = -1;

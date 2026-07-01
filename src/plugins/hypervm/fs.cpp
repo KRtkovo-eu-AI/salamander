@@ -366,7 +366,7 @@ public:
                     char line[512] = {0};
                     WideCharToMultiByte(CP_ACP, 0, vtName.bstrVal, -1, line, (int)sizeof(line), NULL, NULL);
 
-                    CFileData file;
+                    CFileData file = {0};
                     memset(&file, 0, sizeof(file));
                     file.Name = SalamanderGeneral->DupStr(line);
                     if (file.Name != NULL)

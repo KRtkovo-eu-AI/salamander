@@ -212,7 +212,7 @@ BOOL PackScanLine(char* buffer, CSalamanderDirectory& dir, const int index,
 {
     CALL_STACK_MESSAGE3("PackScanLine(%s, , %d,)", buffer, index);
     // the file or directory being added
-    CFileData newfile;
+    CFileData newfile = {0};
     int idx;
 
     // buffer for the file name
@@ -1026,7 +1026,7 @@ BOOL PackUC2List(const char* archiveFileName, CPackLineArray& lineArray,
     while (1)
     {
         // added file or directory
-        CFileData newfile;
+        CFileData newfile = {0};
 
         // skip leading spaces
         for (txtPtr = lineArray[line]; *txtPtr == ' '; txtPtr++)

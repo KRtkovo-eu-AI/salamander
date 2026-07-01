@@ -205,7 +205,7 @@ CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* dir,
     if (forceRefresh)
         EmptyCache();
 
-    CFileData file;
+    CFileData file = {0};
 
     iconsType = pitFromRegistry;
 

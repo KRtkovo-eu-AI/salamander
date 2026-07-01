@@ -383,7 +383,7 @@ BOOL CFATImage::AddDirectory(char* root, TDirectArray<DWORD>* fat,
         if (longNameOrd > 1) // are we stuck in the middle (neither 0 nor 1)?
             longNameOrd = 0; // the long_name was not fully read -> discard it
 
-        CFileData file;
+        CFileData file = {0};
         char name8_3[13];
         if (!ConvertFATName(dirEnt.Short.Name, name8_3))
         {

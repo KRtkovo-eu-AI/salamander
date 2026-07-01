@@ -129,7 +129,7 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 {
 	OutputDebugString("fs2-ListCurrentPath"); 
 	dir->SetValidData(VALID_DATA_NONE);
-	CFileData file;
+	CFileData file = {0};
 	pluginData = new CPluginFSDataInterface(Path);
 	char *name; 
 	DWORD err; 

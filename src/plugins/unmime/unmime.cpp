@@ -275,7 +275,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
         return FALSE;
     }
 
-    CFileData fd;
+    CFileData fd = {0};
     int ret = TRUE;
     BOOL bDontShow[2][2] = {{0, 0}, {0, 0}}, bDontShowAgainUnknown = FALSE;
     // list the files that were found

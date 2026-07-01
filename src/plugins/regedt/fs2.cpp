@@ -438,7 +438,7 @@ BOOL CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* dir,
 {
     CALL_STACK_MESSAGE2("CPluginFSInterface::ListCurrentPath(, , , %d)",
                         forceRefresh);
-    CFileData file;
+    CFileData file = {0};
     FILETIME time;
 
     dir->Clear(NULL);

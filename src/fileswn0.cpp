@@ -2320,7 +2320,7 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
     BOOL wholeItemVisible = FALSE; // partial item visibility is enough for us
     int focusIndex = GetCaretIndex();
     BOOL focusIsDir = focusIndex < Dirs->Count;
-    CFileData focusData; // shallow copy of the old focus (valid until the old listing is destroyed)
+    CFileData focusData = {0}; // shallow copy of the old focus (valid until the old listing is destroyed)
     if (focusIndex >= 0 && focusIndex < Dirs->Count + Files->Count)
     {
         focusData = (focusIndex < Dirs->Count) ? Dirs->At(focusIndex) : Files->At(focusIndex - Dirs->Count);

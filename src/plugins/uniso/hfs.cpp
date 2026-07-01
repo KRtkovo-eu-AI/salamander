@@ -290,7 +290,7 @@ BOOL CHFS::ListDirectory(char* rootPath, int session,
         int nameLen = FromM16(pKey->nodeName.length);
         wchar_t fileNameW[256];
         char fileName[256 * 2]; // twice the length for MBCS
-        CFileData fd;
+        CFileData fd = {0};
         char* path = rootPath;
         union
         {

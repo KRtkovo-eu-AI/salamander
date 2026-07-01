@@ -1956,6 +1956,19 @@ BOOL CFilesWindow::CopyFocusedNameToClipboard(CCopyFocusedNameModeEnum mode)
     CFileData* file = (FocusedIndex < Dirs->Count) ? &Dirs->At(FocusedIndex) : &Files->At(FocusedIndex - Dirs->Count);
     if (Is(ptDisk) || Is(ptZIPArchive) || Is(ptPluginFS) && mode == cfnmShort)
     {
+        if (file->UseWideName() && (mode == cfnmShort || mode == cfnmFull && (Is(ptDisk) || Is(ptZIPArchive))))
+        {
+            std::wstring text;
+            if (mode == cfnmFull)
+            {
+                text = GetPathW();
+                if (!text.empty() && text[text.size() - 1] != L'\\')
+                    text += L'\\';
+            }
+            text += file->NameW;
+            return CopyTextToClipboardW(text.c_str());
+        }
+
         char fileName[MAX_PATH];
         AlterFileName(fileName, file->Name, -1, Configuration.FileNameFormat, 0, FocusedIndex < Dirs->Count);
         int l = (int)strlen(buff);
@@ -1988,6 +2001,8 @@ BOOL CFilesWindow::CopyCurrentPathToClipboard()
     char buff[2 * MAX_PATH];
     buff[0] = 0;
     GetGeneralPath(buff, 2 * MAX_PATH, TRUE);
+    if (GetACP() == CP_UTF8 && (Is(ptDisk) || Is(ptZIPArchive)) && GetPathW()[0] != L'\0')
+        return CopyTextToClipboardW(GetPathW());
     return CopyTextToClipboard(buff);
 }
 

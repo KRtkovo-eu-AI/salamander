@@ -5790,7 +5790,7 @@ BOOL CSalamanderDirectory::FindDir(const char* path, const char*& s, int& i, con
     }
     if (i == Dirs.Count) // we must create it
     {
-        CFileData data;
+        CFileData data = {0};
         //--- name
         data.Name = (char*)malloc((s - path) + 1); // allocation
         if (data.Name == NULL)

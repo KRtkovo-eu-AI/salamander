@@ -933,7 +933,7 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[MAX_PATH], char* name, CSalama
         strcpy(end, name);
         char* end2 = end + strlen(end);
         BOOL ok = TRUE;
-        CFileData newF; // we no longer work with these items
+        CFileData newF = {0}; // we no longer work with these items
         if (dir != NULL)
         {
             newF.PluginData = -1; // -1 is arbitrary, ignored
@@ -1157,7 +1157,7 @@ CSalamanderDirectory* ReadDirectoryTree(HWND parent, CPanelTmpEnumData* data, in
     }
 
     int index = data->CurrentIndex;
-    CFileData newF;
+    CFileData newF = {0};
     if (dir != NULL)
     {
         newF.PluginData = -1; // -1 is arbitrary, ignored

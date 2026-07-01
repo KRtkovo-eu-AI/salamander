@@ -749,7 +749,7 @@ int CUDF::ReadAllocDesc(BYTE data[], CFileEntry* fe, BYTE* vat, DWORD* o)
 BOOL CUDF::AddFileDir(const char* path, char* fileName, BYTE fileChar, CAD* icb,
                       CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData)
 {
-    CFileData fd;
+    CFileData fd = {0};
     CISOImage::CFilePos* filePos = NULL;
     BOOL ret = TRUE;
 

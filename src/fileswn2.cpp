@@ -1202,7 +1202,7 @@ void CFilesWindow::ChangeSortType(CSortType newType, BOOL reverse, BOOL force)
 
     //---  storing the focused item and sorting of old items by name
     int focusIndex = GetCaretIndex();
-    CFileData d1;
+    CFileData d1 = {0};
     if (focusIndex >= 0 && focusIndex < Dirs->Count + Files->Count)
         d1 = (focusIndex < Dirs->Count) ? Dirs->At(focusIndex) : Files->At(focusIndex - Dirs->Count);
     else

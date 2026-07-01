@@ -118,6 +118,7 @@ public:
     // fileExt must point either to the terminator of fileName or to the extension (if it exists)
     // if fileExt == NULL, the extension will be searched for - this is slower
     BOOL AgreeMasks(const char* fileName, const char* fileExt);
+    BOOL AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt);
 
 protected:
     // releases the hash array MasksHashArray

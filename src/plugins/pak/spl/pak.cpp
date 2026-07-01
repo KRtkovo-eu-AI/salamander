@@ -279,7 +279,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
             ret = FALSE;
         else
         {
-            CFileData fileData;
+            CFileData fileData = {0};
             char* slash;
             const char* path = file;
             char* name = file;

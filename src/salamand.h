@@ -71,6 +71,8 @@ public:
             TRACE_E("Unexpected situation in CFilesArray::CallDestructor()");
 #endif // _DEBUG
         free(member.Name);
+        if (member.NameW != NULL)
+            free(member.NameW);
         if (member.DosName != NULL)
             free(member.DosName);
     }

@@ -81,7 +81,7 @@ BOOL CXDVDFS::Open(BOOL quiet)
 BOOL CXDVDFS::AddFileDir(const char* path, char* fileName, CDirectoryEntry* de,
                          CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData)
 {
-    CFileData fd;
+    CFileData fd = {0};
     CISOImage::CFilePos* filePos = NULL;
     BOOL ret = TRUE;
 

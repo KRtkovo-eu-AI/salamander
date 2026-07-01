@@ -19,6 +19,32 @@
 #include "geticon.h"
 #include "shiconov.h"
 
+namespace
+{
+std::wstring PathToWideMirror(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return std::wstring();
+
+    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    DWORD flags = codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0;
+    int required = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
+    if (required == 0 && flags != 0)
+        required = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    if (required <= 1)
+        return std::wstring();
+
+    std::wstring result(required, L'\0');
+    int converted = MultiByteToWideChar(codePage, 0, path, -1, &result[0], required);
+    if (converted == 0)
+        return std::wstring();
+    if (result[converted - 1] == L'\0')
+        --converted;
+    result.resize(converted);
+    return result;
+}
+} // namespace
+
 struct CTreeViewExpandedPaths
 {
     char** Paths;
@@ -616,6 +642,7 @@ void CFilesWindowAncestor::SetPath(const char* path)
         SuppressAutoRefresh = FALSE;
     DetachDirectory((CFilesWindow*)this);
     strcpy(Path, path);
+    PathW = PathToWideMirror(path);
 
     if (MainWindow != NULL)
         MainWindow->UpdatePanelTabTitle((CFilesWindow*)this);

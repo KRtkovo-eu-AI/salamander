@@ -18,6 +18,31 @@
 #include "zip.h"
 #include "shiconov.h"
 
+namespace
+{
+wchar_t* AllocWideNameFromUtf8ACP(const char* name)
+{
+    if (name == NULL || GetACP() != CP_UTF8)
+        return NULL;
+
+    int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, NULL, 0);
+    if (required == 0)
+        required = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
+    if (required <= 1)
+        return NULL;
+
+    wchar_t* wideName = (wchar_t*)malloc(required * sizeof(wchar_t));
+    if (wideName == NULL)
+        return NULL;
+    if (MultiByteToWideChar(CP_UTF8, 0, name, -1, wideName, required) == 0)
+    {
+        free(wideName);
+        return NULL;
+    }
+    return wideName;
+}
+} // namespace
+
 //
 // ****************************************************************************
 // CFilesWindow
@@ -296,7 +321,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         iconData.FSFileData = NULL;
         iconData.SetReadingDone(0); // just for the form
         BOOL addtoIconCache;
-        CFileData file;
+        CFileData file = {0};
         // inicialization of structure members which will not be changed later
         file.PluginData = -1; // -1 just like that, ignored
         file.Selected = 0;
@@ -504,7 +529,25 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         ext = fileData.cFileName + len; // ".cvspass" in Windows is an extension ...
                     else
                         ext++;
-                    if (!Filter.AgreeMasks(fileData.cFileName, ext))
+                    BOOL agreesFilter = FALSE;
+                    wchar_t* wideNameForFilter = AllocWideNameFromUtf8ACP(fileData.cFileName);
+                    if (wideNameForFilter != NULL)
+                    {
+                        const wchar_t* wideExt = wideNameForFilter + wcslen(wideNameForFilter);
+                        while (--wideExt >= wideNameForFilter && *wideExt != L'.')
+                            ;
+                        if (wideExt < wideNameForFilter)
+                            wideExt = wideNameForFilter + wcslen(wideNameForFilter);
+                        else
+                            wideExt++;
+                        agreesFilter = Filter.AgreeMasksW(wideNameForFilter, wideExt);
+                        free(wideNameForFilter);
+                    }
+                    else
+                    {
+                        agreesFilter = Filter.AgreeMasks(fileData.cFileName, ext);
+                    }
+                    if (!agreesFilter)
                     {
                         HiddenFilesCount++;
                         HiddenDirsFilesReason |= HIDDEN_REASON_FILTER;
@@ -545,6 +588,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     return FALSE;
                 }
                 memmove(file.Name, st, len + 1); // copy of text
+                file.NameW = AllocWideNameFromUtf8ACP(file.Name);
                 file.NameLen = len;
                 //--- extension
                 if (!Configuration.SortDirsByExt && (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) // this is ptDisk
@@ -1063,7 +1107,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
                     Files->Add(*f);
                 }
-                CFileData upDir;
+                CFileData upDir = {0};
                 static char buffUp[] = "..";
                 upDir.Name = buffUp; // free() won't be called, we can afford ".."
                 upDir.Ext = upDir.Name + 2;

@@ -1454,7 +1454,7 @@ BOOL CFTPWorker::ParseListingToFTPQueue(TIndirectArray<CFTPQueueItem>* ftpQueueI
             }
             if (parser != NULL)
             {
-                CFileData file;
+                CFileData file = {0};
                 const char* listing = allocatedListing;
                 const char* listingEnd = allocatedListing + allocatedListingLen;
                 BOOL isDir = FALSE;

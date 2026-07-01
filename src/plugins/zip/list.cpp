@@ -50,7 +50,7 @@ int CZipList::List(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles)
     CALL_STACK_MESSAGE1("CZipList::List()");
     CFileHeader* centralHeader;
     CFileInfo fileInfo;
-    CFileData file;
+    CFileData file = {0};
     int errorID = 0;
     QWORD readOffset;
     //  char *              pathBuf;

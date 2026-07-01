@@ -393,7 +393,7 @@ namespace Fx
         {
             CFxItem* item = enumerator->GetCurrent();
             _ASSERTE(item != nullptr);
-            CFileData fileData;
+            CFileData fileData = {0};
             bool fileDataIsDir;
             if (converter->ConvertItemToFileData(item, validData, fileData, fileDataIsDir))
             {
