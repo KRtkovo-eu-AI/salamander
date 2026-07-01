@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -191,7 +191,7 @@ BOOL CRenamerDialog::BuildScript(CRenameScriptEntry*& script, int& count,
     BOOL ret = FALSE;
     CRenameScriptEntry* tmpScript = NULL;
     script = NULL;
-    char newName[MAX_PATH];
+    char newName[3 * MAX_PATH];
     char* newPart;
     BOOL skip;
     BOOL skipAllLongNames = FALSE,
@@ -520,13 +520,13 @@ int CRenamerDialog::GetManualModeNewName(CSourceFile* file, int index, char* new
     else
     {
         int l = (int)SendMessage(ManualEdit->HWindow, EM_LINELENGTH, charIndex, 0);
-        if (l >= MAX_PATH - pathLen)
+        if (l >= 3 * MAX_PATH - pathLen)
         {
             return -1;
         }
         else
         {
-            *LPWORD(newName) = MAX_PATH - pathLen;
+            *LPWORD(newName) = 3 * MAX_PATH - pathLen;
             int l2 = (int)SendMessage(ManualEdit->HWindow, EM_GETLINE, index, (LPARAM)newName);
             newName[l2] = 0; // just to be sure
         }

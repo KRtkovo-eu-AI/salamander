@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -12,7 +12,24 @@ CSourceFile::CSourceFile(const CFileData* fileData,
                          const char* path, int pathLen, BOOL isDir)
 {
     CALL_STACK_MESSAGE_NONE
-    NameLen = pathLen + fileData->NameLen;
+    const char* sourceName = fileData->Name;
+    int sourceNameLen = fileData->NameLen;
+    char* utf8Name = NULL;
+    if (fileData->UseWideName())
+    {
+        int utf8Len = WideCharToMultiByte(CP_UTF8, 0, fileData->NameW, -1, NULL, 0, NULL, NULL);
+        if (utf8Len > 0)
+        {
+            utf8Name = (char*)malloc(utf8Len);
+            if (utf8Name != NULL &&
+                WideCharToMultiByte(CP_UTF8, 0, fileData->NameW, -1, utf8Name, utf8Len, NULL, NULL) > 0)
+            {
+                sourceName = utf8Name;
+                sourceNameLen = utf8Len - 1;
+            }
+        }
+    }
+    NameLen = pathLen + sourceNameLen;
     if (path[pathLen - 1] != '\\')
     {
         FullName = (char*)malloc(++NameLen + 1);
@@ -25,8 +42,16 @@ CSourceFile::CSourceFile(const CFileData* fileData,
         memcpy(FullName, path, pathLen);
     }
     Name = FullName + pathLen;
-    memcpy(Name, fileData->Name, fileData->NameLen + 1);
-    Ext = Name + (isDir ? fileData->NameLen : fileData->Ext - fileData->Name);
+    memcpy(Name, sourceName, sourceNameLen + 1);
+    if (utf8Name != NULL)
+        free(utf8Name);
+    Ext = Name + sourceNameLen;
+    if (!isDir)
+    {
+        char* dot = strrchr(Name, '.');
+        if (dot != NULL && dot > Name)
+            Ext = dot + 1;
+    }
     Size = fileData->Size;
     Attr = fileData->Attr;
     FileTimeToLocalFileTime(&fileData->LastWrite, &LastWrite);
@@ -171,9 +196,9 @@ BOOL CRenamerOptions::Load(HKEY regKey, CSalamanderRegistryAbstract* registry)
 {
     CALL_STACK_MESSAGE1("CRenamerOptions::Load(, )");
     Reset(FALSE);
-    registry->GetValue(regKey, CONFIG_NEWNAME, REG_SZ, NewName, 2 * MAX_PATH);
-    registry->GetValue(regKey, CONFIG_SEARCHFOR, REG_SZ, SearchFor, 2 * MAX_PATH);
-    registry->GetValue(regKey, CONFIG_REPLACEWITH, REG_SZ, ReplaceWith, MAX_PATH);
+    registry->GetValue(regKey, CONFIG_NEWNAME, REG_SZ, NewName, 3 * MAX_PATH);
+    registry->GetValue(regKey, CONFIG_SEARCHFOR, REG_SZ, SearchFor, 3 * MAX_PATH);
+    registry->GetValue(regKey, CONFIG_REPLACEWITH, REG_SZ, ReplaceWith, 3 * MAX_PATH);
     registry->GetValue(regKey, CONFIG_CASESENSITIVE, REG_DWORD, &CaseSensitive, sizeof(BOOL));
     registry->GetValue(regKey, CONFIG_WHOLEWORDS, REG_DWORD, &WholeWords, sizeof(BOOL));
     registry->GetValue(regKey, CONFIG_GLOBAL, REG_DWORD, &Global, sizeof(BOOL));
@@ -209,7 +234,7 @@ BOOL CRenamerOptions::Save(HKEY regKey, CSalamanderRegistryAbstract* registry)
 // CRenamer
 //
 
-CRenamer::CRenamer(char (&root)[MAX_PATH], int& rootLen)
+CRenamer::CRenamer(char (&root)[3 * MAX_PATH], int& rootLen)
     : Root(root), RootLen(rootLen)
 {
     CALL_STACK_MESSAGE2("CRenamer::CRenamer(, %d)", rootLen);
@@ -331,10 +356,10 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
     int l;
     if (Substitute)
     {
-        char tmp[MAX_PATH];
+        char tmp[3 * MAX_PATH];
 
         // expand the New Name into a temporary buffer
-        l = NewName.Execute(tmp, MAX_PATH, &param);
+        l = NewName.Execute(tmp, 3 * MAX_PATH, &param);
         if (l < 0)
             return -1;
         // l is strlen(tmp)
@@ -351,10 +376,10 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
             }
 
             // perform the requested substitution in the name
-            int substl = UseRegExp ? RESubst(tmp, namel, newName, MAX_PATH - pathLen) : BMSubst(tmp, namel, newName, MAX_PATH - pathLen);
+            int substl = UseRegExp ? RESubst(tmp, namel, newName, 3 * MAX_PATH - pathLen) : BMSubst(tmp, namel, newName, 3 * MAX_PATH - pathLen);
 
             // dokopirujeme extension
-            if (substl < 0 || substl + (l - namel) >= MAX_PATH - pathLen)
+            if (substl < 0 || substl + (l - namel) >= 3 * MAX_PATH - pathLen)
                 return -1;
             memcpy(newName + substl, tmp + namel, l - namel + 1);
             // calculate new name length : substed name len + appended ext len - '\0'
@@ -363,13 +388,13 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
         else
         {
             // perform the requested substitution
-            l = UseRegExp ? RESubst(tmp, l, newName, MAX_PATH - pathLen) : BMSubst(tmp, l, newName, MAX_PATH - pathLen);
+            l = UseRegExp ? RESubst(tmp, l, newName, 3 * MAX_PATH - pathLen) : BMSubst(tmp, l, newName, 3 * MAX_PATH - pathLen);
         }
     }
     else
     {
         // expand the New Name
-        l = NewName.Execute(newName, MAX_PATH - pathLen, &param);
+        l = NewName.Execute(newName, 3 * MAX_PATH - pathLen, &param);
     }
 
     if (l < 0)

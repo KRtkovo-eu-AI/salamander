@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -29,7 +29,7 @@ protected:
     CRenamer Renamer;
 
     // data for rename operation
-    char (&Root)[MAX_PATH];
+    char (&Root)[3 * MAX_PATH];
     int& RootLen;
     TIndirectArray<CSourceFile>& SourceFiles;
     BOOL& SourceFilesValid;
@@ -38,7 +38,7 @@ protected:
     BOOL Dirty;
     char TextBuffer[MAX_PATH];
     int CachedItem;
-    char NewNameCache[MAX_PATH];
+    char NewNameCache[3 * MAX_PATH];
     BOOL NewNameValid;
 
     HWND Static;

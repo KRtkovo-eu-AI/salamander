@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -1141,7 +1141,7 @@ void CRenamerDialog::LoadSelection()
     int files = 0, dirs = 0;
     SG->GetPanelSelection(PANEL_SOURCE, &files, &dirs);
 
-    SG->GetPanelPath(PANEL_SOURCE, Root, MAX_PATH, NULL, NULL);
+    SG->GetPanelPath(PANEL_SOURCE, Root, 3 * MAX_PATH, NULL, NULL);
     RootLen = (int)strlen(Root);
 
     // load the selection from the panel
@@ -1585,19 +1585,19 @@ void CRenamerDialog::Transfer(CTransferInfo& ti)
     if (TransferDontSaveHistory)
     {
         ti.EditLine(IDC_MASK, Mask, MAX_GROUPMASK);
-        ti.EditLine(IDC_NEWNAME, RenamerOptions.NewName, 2 * MAX_PATH);
-        ti.EditLine(IDC_SEARCH, RenamerOptions.SearchFor, 2 * MAX_PATH);
-        ti.EditLine(IDC_REPLACE, RenamerOptions.ReplaceWith, MAX_PATH);
+        ti.EditLine(IDC_NEWNAME, RenamerOptions.NewName, 3 * MAX_PATH);
+        ti.EditLine(IDC_SEARCH, RenamerOptions.SearchFor, 3 * MAX_PATH);
+        ti.EditLine(IDC_REPLACE, RenamerOptions.ReplaceWith, 3 * MAX_PATH);
     }
     else
     {
         HistoryComboBox(ti, IDC_MASK, Mask, MAX_GROUPMASK, MAX_HISTORY_ENTRIES, MaskHistory);
         HistoryComboBox(ti, IDC_NEWNAME, RenamerOptions.NewName,
-                        2 * MAX_PATH, MAX_HISTORY_ENTRIES, NewNameHistory);
+                        3 * MAX_PATH, MAX_HISTORY_ENTRIES, NewNameHistory);
         HistoryComboBox(ti, IDC_SEARCH, RenamerOptions.SearchFor,
-                        2 * MAX_PATH, MAX_HISTORY_ENTRIES, SearchHistory);
+                        3 * MAX_PATH, MAX_HISTORY_ENTRIES, SearchHistory);
         HistoryComboBox(ti, IDC_REPLACE, RenamerOptions.ReplaceWith,
-                        MAX_PATH, MAX_HISTORY_ENTRIES, ReplaceHistory);
+                        3 * MAX_PATH, MAX_HISTORY_ENTRIES, ReplaceHistory);
     }
     ti.CheckBox(IDC_SUBDIRS, Subdirs);
     ti.CheckBox(IDC_CASESENSITIVE, RenamerOptions.CaseSensitive);

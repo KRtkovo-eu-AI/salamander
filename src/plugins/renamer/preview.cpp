@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -177,7 +177,7 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                 // int pos = SendDlgItemMessage(RenamerDialog->HWindow, IDE_MANUAL, EM_LINEINDEX, index, 0);
                 // if (pos < 0)
                 // {
-                //   SalPrintf(NewNameCache, MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_MISLINES));
+                //   SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_MISLINES));
                 // }
                 // else
                 // {
@@ -185,11 +185,11 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
 
                 //   if (l >= MAX_PATH)
                 //   {
-                //     SalPrintf(NewNameCache, MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
+                //     SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
                 //   }
                 //   else
                 //   {
-                *LPWORD(NewNameCache) = MAX_PATH;
+                *LPWORD(NewNameCache) = 3 * MAX_PATH;
                 int l = (int)SendMessage(RenamerDialog->ManualEdit->HWindow, EM_GETLINE,
                                          index, (LPARAM)NewNameCache);
                 NewNameCache[l] = 0; // just to be sure
@@ -209,7 +209,7 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                         int l = Renamer.Rename(item, index, NewNameCache, FALSE);
                         if (l < 0)
                         {
-                            SalPrintf(NewNameCache, MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
+                            SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
                         }
                         else
                         {
@@ -240,7 +240,7 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                             et = IDS_GENERICERR;
                             break;
                         }
-                        SalPrintf(NewNameCache, MAX_PATH, LoadStr(et), LoadStr(error));
+                        SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(et), LoadStr(error));
                     }
                 }
             }
