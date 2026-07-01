@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 int DialogWidth;
 int DialogHeight;
 BOOL Maximized;
@@ -25,6 +27,31 @@ char* NewNameHistory[MAX_HISTORY_ENTRIES];
 char* SearchHistory[MAX_HISTORY_ENTRIES];
 char* ReplaceHistory[MAX_HISTORY_ENTRIES];
 char* CommandHistory[MAX_HISTORY_ENTRIES];
+
+namespace
+{
+std::wstring Utf8OrAnsiToWide(const char* text)
+{
+    if (text == NULL || *text == 0)
+        return std::wstring();
+
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (len == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (len == 0)
+        return std::wstring();
+
+    std::wstring wide(len - 1, L'\0');
+    MultiByteToWideChar(codePage, flags, text, -1, &wide[0], len);
+    return wide;
+}
+} // namespace
 
 // ****************************************************************************
 //
@@ -1472,7 +1499,13 @@ BOOL CRenamerDialog::ReloadManualModeEdit()
         return Error(IDS_LOWMEM);
     buf.Get()[size] = 0;
 
-    SendMessage(ManualEdit->HWindow, WM_SETTEXT, 0, (LPARAM)buf.Get());
+    if (IsWindowUnicode(ManualEdit->HWindow))
+    {
+        std::wstring textW = Utf8OrAnsiToWide(buf.Get());
+        SetWindowTextW(ManualEdit->HWindow, textW.c_str());
+    }
+    else
+        SendMessage(ManualEdit->HWindow, WM_SETTEXT, 0, (LPARAM)buf.Get());
 
     return TRUE;
 }
@@ -2124,6 +2157,12 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             case LVN_GETDISPINFO:
             {
                 Preview->GetDispInfo((LV_DISPINFO*)lParam);
+                break;
+            }
+
+            case LVN_GETDISPINFOW:
+            {
+                Preview->GetDispInfoW((NMLVDISPINFOW*)lParam);
                 break;
             }
 

@@ -522,6 +522,9 @@ int GetCmdLineLimit()
 CEditLine::CEditLine()
     : CWindow(ooStatic)
 {
+#ifndef _UNICODE
+    SetUnicodeWindow(TRUE);
+#endif // _UNICODE
     SkipCharacter = FALSE;
     SelChangeDisabled = FALSE;
 }
@@ -1832,6 +1835,9 @@ int CInnerText::GetNeededWidth()
 CEditWindow::CEditWindow()
     : CWindow(ooStatic)
 {
+#ifndef _UNICODE
+    SetUnicodeWindow(TRUE);
+#endif // _UNICODE
     EditLine = new CEditLine();
     Text = new CInnerText(this);
     LastText = NULL;
@@ -1851,6 +1857,18 @@ CEditWindow::~CEditWindow()
 BOOL CEditWindow::Create(HWND hParent, int childID)
 {
     CALL_STACK_MESSAGE2("CEditWindow::Create(, %d)", childID);
+#ifndef _UNICODE
+    HWND hWnd = CreateExW(0,
+                          L"ComboBox",
+                          L"",
+                          WS_CHILD | WS_VSCROLL | WS_CLIPSIBLINGS |
+                              CBS_AUTOHSCROLL | CBS_HASSTRINGS | CBS_DROPDOWN,
+                          0, 0, 0, 0,
+                          hParent,
+                          (HMENU)(UINT_PTR)childID,
+                          HInstance,
+                          this);
+#else
     HWND hWnd = CreateEx(0,
                          "ComboBox",
                          "",
@@ -1861,13 +1879,15 @@ BOOL CEditWindow::Create(HWND hParent, int childID)
                          (HMENU)(UINT_PTR)childID,
                          HInstance,
                          this);
+#endif
     if (hWnd != NULL)
     {
         if (EditLine != NULL)
         {
             EditLine->AttachToWindow(GetWindow(HWindow, GW_CHILD));
             EditLine->RegisterDragDrop();
-            InstallWordBreakProc(EditLine->HWindow);
+            if (!IsWindowUnicode(EditLine->HWindow))
+                InstallWordBreakProc(EditLine->HWindow);
         }
         if (Text != NULL)
         {

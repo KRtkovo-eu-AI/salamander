@@ -5,6 +5,55 @@
 #include "precomp.h"
 
 #include "cfgdlg.h"
+#include "common/widepath.h"
+
+#include <string>
+
+namespace
+{
+std::wstring FileSortNameW(const CFileData& file)
+{
+    if (file.UseWideName())
+        return std::wstring(file.NameW);
+
+    std::wstring name = SalMultiByteToWidePath(file.Name, CP_UTF8);
+    if (!name.empty() || file.NameLen == 0)
+        return name;
+    return SalMultiByteToWidePath(file.Name, CP_ACP);
+}
+
+int CompareWideFileNames(const CFileData& f1, const CFileData& f2, BOOL ignoreCase)
+{
+    std::wstring n1 = FileSortNameW(f1);
+    std::wstring n2 = FileSortNameW(f2);
+    if (n1.empty() || n2.empty())
+    {
+        if (n1.empty() && n2.empty())
+            return 0;
+        return n1.empty() ? -1 : 1;
+    }
+
+    int ret = CompareStringW(LOCALE_USER_DEFAULT, ignoreCase ? NORM_IGNORECASE : 0,
+                             n1.c_str(), (int)n1.length(),
+                             n2.c_str(), (int)n2.length()) -
+              CSTR_EQUAL;
+    if (ret != 0)
+        return ret;
+
+    return ignoreCase ? 0 : wcscmp(n1.c_str(), n2.c_str());
+}
+
+BOOL ShouldCompareFileNamesWide(const CFileData& f1, const CFileData& f2)
+{
+    for (int i = 0; i < f1.NameLen; ++i)
+        if ((unsigned char)f1.Name[i] >= 0x80)
+            return TRUE;
+    for (int i = 0; i < f2.NameLen; ++i)
+        if ((unsigned char)f2.Name[i] >= 0x80)
+            return TRUE;
+    return f1.UseWideName() || f2.UseWideName() || GetACP() == CP_UTF8;
+}
+} // namespace
 
 //
 //*****************************************************************************
@@ -265,6 +314,9 @@ int RegSetStrCmpEx(const char* s1, int l1, const char* s2, int l2, BOOL* numeric
 
 int CmpNameExtIgnCase(const CFileData& f1, const CFileData& f2)
 {
+    if (ShouldCompareFileNamesWide(f1, f2))
+        return CompareWideFileNames(f1, f2, TRUE);
+
     /*
 //--- first by Name
   BOOL numericalyEqual1;
@@ -286,6 +338,14 @@ int CmpNameExtIgnCase(const CFileData& f1, const CFileData& f2)
 
 int CmpNameExt(const CFileData& f1, const CFileData& f2)
 {
+    if (ShouldCompareFileNamesWide(f1, f2))
+    {
+        int res = CompareWideFileNames(f1, f2, TRUE);
+        if (res != 0 || f1.Name == f2.Name)
+            return res;
+        return CompareWideFileNames(f1, f2, FALSE);
+    }
+
     /*  // old variant: we compare name and extension separately
 //--- first by Name
   BOOL numericalyEqual1;
