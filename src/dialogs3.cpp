@@ -921,8 +921,7 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
     DirectoryHelper = FALSE;
     NameAutoCompleteMode = helpID == IDD_CREATEDIRDIALOG || helpID == IDD_RENAMEDIALOG;
 #ifndef _UNICODE
-    if (NameAutoCompleteMode)
-        UnicodeWnd = TRUE; // Sally-style: create/rename dialogs must not lose Unicode edit text
+    UnicodeWnd = TRUE; // Sally-style: file name dialogs must not lose Unicode edit text
 #endif // _UNICODE
     if (directoryHelper)
     {
@@ -992,10 +991,20 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
-        InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+        HWND hPathEdit = ResolveComboEditControl(hPath);
+        const BOOL unicodeNameInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
+
+        // Sally keeps the Unicode filename controls away from the legacy ANSI
+        // subclasses.  InstallWordBreakProc/CreateKeyForwarder subclass the edit
+        // window and make Windows marshal characters through the ANSI window proc;
+        // with the Windows emoji picker that turns surrogate pairs into '?' and
+        // with CJK text it makes repeated rename/create cycles progressively lossy.
+        if (!unicodeNameInput)
+            InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
         PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
-        CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
+        if (!unicodeNameInput)
+            CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         if (DirectoryHelper)
         {
             ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY);   // the button will have a folder icon and an arrow to the right

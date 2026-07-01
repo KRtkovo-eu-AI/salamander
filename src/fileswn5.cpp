@@ -1883,7 +1883,9 @@ BOOL FileNameInvalidForManualCreate(const char* path)
     {
         name++;
         int nameLen = (int)strlen(name);
-        return nameLen > 0 && (*name <= ' ' || name[nameLen - 1] <= ' ' || name[nameLen - 1] == '.');
+        return nameLen > 0 && ((unsigned char)*name <= ' ' ||
+                               (unsigned char)name[nameLen - 1] <= ' ' ||
+                               name[nameLen - 1] == '.');
     }
     return FALSE;
 }
@@ -1895,7 +1897,7 @@ BOOL MakeValidFileName(char* path)
     // and https://forum.altap.cz/viewtopic.php?f=2&t=4210
     BOOL ch = FALSE;
     char* n = path;
-    while (*n != 0 && *n <= ' ')
+    while (*n != 0 && (unsigned char)*n <= ' ')
         n++;
     if (n > path)
     {
@@ -1903,7 +1905,7 @@ BOOL MakeValidFileName(char* path)
         ch = TRUE;
     }
     n = path + strlen(path);
-    while (n > path && (*(n - 1) <= ' ' || *(n - 1) == '.'))
+    while (n > path && ((unsigned char)*(n - 1) <= ' ' || *(n - 1) == '.'))
         n--;
     if (*n != 0)
     {
@@ -1918,7 +1920,7 @@ BOOL CutSpacesFromBothSides(char* path)
     // trim spaces at the beginning and end of the name
     BOOL ch = FALSE;
     char* n = path;
-    while (*n != 0 && *n <= ' ')
+    while (*n != 0 && (unsigned char)*n <= ' ')
         n++;
     if (n > path)
     {
@@ -1926,7 +1928,7 @@ BOOL CutSpacesFromBothSides(char* path)
         ch = TRUE;
     }
     n = path + strlen(path);
-    while (n > path && (*(n - 1) <= ' '))
+    while (n > path && (unsigned char)*(n - 1) <= ' ')
         n--;
     if (*n != 0)
     {
