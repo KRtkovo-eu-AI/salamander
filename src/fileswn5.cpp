@@ -23,6 +23,7 @@
 #include "codetbl.h"
 #include "find.h"
 #include "menu.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -2109,6 +2110,92 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
     EndStopRefresh(); // snooper will start again now
 }
 
+
+namespace
+{
+    std::wstring FileDataDisplayNameW(const CFileData* f, const char* fallbackName)
+    {
+        if (f != NULL && f->UseWideName())
+            return std::wstring(f->NameW);
+        return SalMultiByteToWidePath(fallbackName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    }
+
+    void UpdateFileDataNameAfterRename(CFileData* f, const std::wstring& newNameW, BOOL isDir)
+    {
+        std::string newNameA = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        char* dupName = DupStr(newNameA.c_str());
+        wchar_t* dupNameW = (wchar_t*)malloc((newNameW.length() + 1) * sizeof(wchar_t));
+        if (dupNameW != NULL)
+            wcscpy(dupNameW, newNameW.c_str());
+        if (dupName != NULL)
+        {
+            if (f->Name != NULL)
+                free(f->Name);
+            if (f->NameW != NULL)
+                free(f->NameW);
+            f->Name = dupName;
+            f->NameW = dupNameW;
+            f->NameLen = (int)strlen(f->Name);
+            if (isDir)
+                f->Ext = f->Name + f->NameLen;
+            else
+            {
+                f->Ext = strrchr(f->Name, '.');
+                if (f->Ext == NULL)
+                    f->Ext = f->Name + f->NameLen;
+                else
+                    f->Ext++;
+            }
+        }
+        else if (dupNameW != NULL)
+            free(dupNameW);
+    }
+}
+
+
+void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain)
+{
+    *tryAgain = TRUE;
+    if (f == NULL || newNameW.empty() || newNameW.find_first_of(L"\\/:<>|\"") != std::wstring::npos)
+        return;
+
+    std::wstring basePath = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(GetPath());
+    if (basePath.empty())
+        return;
+
+    std::wstring oldNameW = f->UseWideName() ? std::wstring(f->NameW) : SalMultiByteToWidePath(f->Name);
+    if (oldNameW.empty())
+        return;
+    if (CompareStringW(LOCALE_USER_DEFAULT, 0, oldNameW.c_str(), -1, newNameW.c_str(), -1) == CSTR_EQUAL)
+    {
+        *tryAgain = FALSE;
+        return;
+    }
+
+    std::wstring srcPath = basePath;
+    std::wstring tgtPath = basePath;
+    SalPathAppendW(srcPath, oldNameW.c_str());
+    SalPathAppendW(tgtPath, newNameW.c_str());
+    if (srcPath.length() >= MAX_PATH)
+        srcPath = SalPathAddExtendedPrefixW(srcPath.c_str());
+    if (tgtPath.length() >= MAX_PATH)
+        tgtPath = SalPathAddExtendedPrefixW(tgtPath.c_str());
+
+    *mayChange = TRUE;
+    if (MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0))
+    {
+        std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
+        UpdateFileDataNameAfterRename(f, newNameW, isDir);
+        *tryAgain = FALSE;
+    }
+    else
+    {
+        DWORD err = GetLastError();
+        TRACE_E("RenameFileInternalW(): MoveFileExW failed: " << GetErrorText(err));
+    }
+}
+
 void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL* mayChange, BOOL* tryAgain)
 {
     *tryAgain = TRUE;
@@ -2636,6 +2723,7 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
 
     char formatedFileName[MAX_PATH];
     AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
+    std::wstring formatedFileNameW = FileDataDisplayNameW(f, formatedFileName);
 
     // Since Windows Vista, Microsoft introduced a demanded feature: quick rename selects only the name without the dot and extension
     // the same code appears here four times
@@ -2647,29 +2735,11 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
         {
             const char* dot = strrchr(formatedFileName, '.');
             if (dot != NULL && dot > formatedFileName) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
-                                                       //    if (dot != NULL)
             {
                 selectionEndBytes = (int)(dot - formatedFileName);
-                if (GetACP() == CP_UTF8)
-                {
-                    int converted = MultiByteToWideChar(CP_UTF8,
-                                                        MB_ERR_INVALID_CHARS,
-                                                        formatedFileName,
-                                                        selectionEndBytes,
-                                                        NULL,
-                                                        0);
-                    if (converted == 0)
-                        converted = MultiByteToWideChar(CP_UTF8,
-                                                         0,
-                                                         formatedFileName,
-                                                         selectionEndBytes,
-                                                         NULL,
-                                                         0);
-                    if (converted > 0)
-                        selectionEndChars = converted;
-                    else
-                        selectionEndChars = selectionEndBytes;
-                }
+                const wchar_t* dotW = wcsrchr(formatedFileNameW.c_str(), L'.');
+                if (dotW != NULL && dotW > formatedFileNameW.c_str())
+                    selectionEndChars = (int)(dotW - formatedFileNameW.c_str());
                 else
                     selectionEndChars = selectionEndBytes;
             }
@@ -2718,41 +2788,20 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     AdjustQuickRenameRect(formatedFileName, &r);
 
     HWND hWnd = NULL;
-    std::wstring wideName;
-    if (GetACP() == CP_UTF8)
+    if (f->UseWideName() || GetACP() == CP_UTF8)
     {
-        int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, formatedFileName, -1, NULL, 0);
-        if (required == 0)
-            required = MultiByteToWideChar(CP_UTF8, 0, formatedFileName, -1, NULL, 0);
-        if (required > 0)
-        {
-            wideName.resize(required);
-            int converted = MultiByteToWideChar(CP_UTF8, 0, formatedFileName, -1, &wideName[0], required);
-            if (converted == 0)
-            {
-                wideName.clear();
-            }
-            else
-            {
-                if (wideName[converted - 1] == L'\0')
-                    --converted;
-                if (converted < (int)wideName.size())
-                    wideName.resize(converted);
-
-                QuickRenameWindow.SetUnicodeWindow(TRUE);
-                hWnd = QuickRenameWindow.CreateExW(0,
-                                                  L"edit",
-                                                  L"",
-                                                  WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_LEFT,
-                                                  r.left, r.top, r.right - r.left, r.bottom - r.top,
-                                                  GetListBoxHWND(),
-                                                  NULL,
-                                                  HInstance,
-                                                  &QuickRenameWindow);
-                if (hWnd != NULL)
-                    SendMessageW(hWnd, WM_SETTEXT, 0, (LPARAM)(wideName.empty() ? L"" : wideName.c_str()));
-            }
-        }
+        QuickRenameWindow.SetUnicodeWindow(TRUE);
+        hWnd = QuickRenameWindow.CreateExW(0,
+                                          L"edit",
+                                          L"",
+                                          WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_LEFT,
+                                          r.left, r.top, r.right - r.left, r.bottom - r.top,
+                                          GetListBoxHWND(),
+                                          NULL,
+                                          HInstance,
+                                          &QuickRenameWindow);
+        if (hWnd != NULL)
+            SetWindowTextW(hWnd, formatedFileNameW.c_str());
     }
     BOOL unicodeEdit = hWnd != NULL;
     if (hWnd == NULL)
@@ -2860,27 +2909,27 @@ BOOL CFilesWindow::HandeQuickRenameWindowKey(WPARAM wParam)
 
     HWND hWnd = QuickRenameWindow.HWindow;
     char newName[MAX_PATH];
-    if (GetACP() == CP_UTF8 && IsWindowUnicode(hWnd))
+    std::wstring newNameW;
+    if (IsWindowUnicode(hWnd))
     {
         int length = GetWindowTextLengthW(hWnd);
         if (length < 0)
             length = 0;
-        std::vector<WCHAR> wide(length + 1);
-        int copied = GetWindowTextW(hWnd, wide.data(), length + 1);
+        std::vector<WCHAR> text(length + 1);
+        int copied = GetWindowTextW(hWnd, text.data(), length + 1);
         if (copied < 0)
             copied = 0;
-        if ((size_t)copied >= wide.size())
-            wide.push_back(L'\0');
-        wide[copied] = L'\0';
-        int written = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, newName, MAX_PATH - 1, NULL, NULL);
-        if (written < 0)
-            written = 0;
-        if (written >= MAX_PATH)
-            written = MAX_PATH - 1;
-        newName[written] = '\0';
+        text[copied] = 0;
+        newNameW.assign(text.data(), copied);
+        std::string nameA = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        lstrcpyn(newName, nameA.c_str(), MAX_PATH);
     }
     else
+    {
         GetWindowText(hWnd, newName, MAX_PATH);
+        newNameW = SalMultiByteToWidePath(newName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    }
+
 
     // lower the thread priority to "normal" (so operations don't overload the machine)
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
@@ -2894,7 +2943,13 @@ BOOL CFilesWindow::HandeQuickRenameWindowKey(WPARAM wParam)
         // and we would display the "Access is denied" error. The user has no mouse option
         // to cancel the operation, so they would have to press Escape.
         // Explorer behaves this way now.
-        if (strcmp(f->Name, newName) != 0)
+        if (IsWindowUnicode(hWnd))
+        {
+            std::wstring oldNameW = f->UseWideName() ? std::wstring(f->NameW) : SalMultiByteToWidePath(f->Name);
+            if (CompareStringW(LOCALE_USER_DEFAULT, 0, oldNameW.c_str(), -1, newNameW.c_str(), -1) != CSTR_EQUAL)
+                RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain);
+        }
+        else if (strcmp(f->Name, newName) != 0)
             RenameFileInternal(f, newName, &mayChange, &tryAgain);
     }
     else if (Is(ptPluginFS) && GetPluginFS()->NotEmpty() &&

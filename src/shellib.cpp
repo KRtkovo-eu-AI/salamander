@@ -32,24 +32,32 @@ CCopyMoveRecord::CCopyMoveRecord(const char* fileName, const char* mapName)
 {
     FileName = AllocChars(fileName);
     MapName = AllocChars(mapName);
+    FileNameW = AllocWideChars(fileName);
+    MapNameW = AllocWideChars(mapName);
 }
 
 CCopyMoveRecord::CCopyMoveRecord(const wchar_t* fileName, const char* mapName)
 {
     FileName = AllocChars(fileName);
     MapName = AllocChars(mapName);
+    FileNameW = AllocWideChars(fileName);
+    MapNameW = AllocWideChars(mapName);
 }
 
 CCopyMoveRecord::CCopyMoveRecord(const char* fileName, const wchar_t* mapName)
 {
     FileName = AllocChars(fileName);
     MapName = AllocChars(mapName);
+    FileNameW = AllocWideChars(fileName);
+    MapNameW = AllocWideChars(mapName);
 }
 
 CCopyMoveRecord::CCopyMoveRecord(const wchar_t* fileName, const wchar_t* mapName)
 {
     FileName = AllocChars(fileName);
     MapName = AllocChars(mapName);
+    FileNameW = AllocWideChars(fileName);
+    MapNameW = AllocWideChars(mapName);
 }
 
 char* CCopyMoveRecord::AllocChars(const char* name)
@@ -71,13 +79,38 @@ char* CCopyMoveRecord::AllocChars(const wchar_t* name)
     if (name == NULL)
         return NULL;
 
-    int l = lstrlenW(name);
-    char* newName = (char*)malloc(l + 1);
+    int required = WideCharToMultiByte(GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP, 0, name, -1, NULL, 0, NULL, NULL);
+    char* newName = required > 0 ? (char*)malloc(required) : NULL;
     if (newName != NULL)
-    {
-        WideCharToMultiByte(CP_ACP, 0, name, l + 1, newName, l + 1, NULL, NULL);
-        newName[l] = 0;
-    }
+        WideCharToMultiByte(GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP, 0, name, -1, newName, required, NULL, NULL);
+    else
+        TRACE_E(LOW_MEMORY);
+    return newName;
+}
+
+wchar_t* CCopyMoveRecord::AllocWideChars(const wchar_t* name)
+{
+    if (name == NULL)
+        return NULL;
+    int l = lstrlenW(name);
+    wchar_t* newName = (wchar_t*)malloc((l + 1) * sizeof(wchar_t));
+    if (newName != NULL)
+        memcpy(newName, name, (l + 1) * sizeof(wchar_t));
+    else
+        TRACE_E(LOW_MEMORY);
+    return newName;
+}
+
+wchar_t* CCopyMoveRecord::AllocWideChars(const char* name)
+{
+    if (name == NULL)
+        return NULL;
+    int required = MultiByteToWideChar(GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP, 0, name, -1, NULL, 0);
+    if (required <= 0)
+        return NULL;
+    wchar_t* newName = (wchar_t*)malloc(required * sizeof(wchar_t));
+    if (newName != NULL)
+        MultiByteToWideChar(GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP, 0, name, -1, newName, required);
     else
         TRACE_E(LOW_MEMORY);
     return newName;
@@ -99,6 +132,10 @@ void DestroyCopyMoveData(CCopyMoveData* data)
                 free(data->At(i)->FileName);
             if (data->At(i)->MapName != NULL)
                 free(data->At(i)->MapName);
+            if (data->At(i)->FileNameW != NULL)
+                free(data->At(i)->FileNameW);
+            if (data->At(i)->MapNameW != NULL)
+                free(data->At(i)->MapNameW);
         }
         delete data;
     }
@@ -427,8 +464,13 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                                 mulbyteName[0] = 0;
                                             }
                                             strcpy(namesList->SrcPath, mulbyteName);
+                                            lstrcpynW(namesList->SrcPathW, prefix, MAX_PATH);
                                             if (prefixLen < 3)
+                                            {
                                                 SalPathAddBackslash(namesList->SrcPath, MAX_PATH);
+                                                if (lstrlenW(namesList->SrcPathW) + 1 < MAX_PATH)
+                                                    lstrcatW(namesList->SrcPathW, L"\\");
+                                            }
                                         }
                                         ret = TRUE;
                                         break;
@@ -487,19 +529,33 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                             else
                                                 mulbyteName[min(MAX_PATH - 1, len)] = 0;
                                             char* add = DupStr(mulbyteName);
-                                            if (add != NULL)
+                                            int wideNameLen = (int)(s - (lastBackslash + 1));
+                                            wchar_t* addW = (wchar_t*)malloc((wideNameLen + 1) * sizeof(wchar_t));
+                                            if (addW != NULL)
+                                            {
+                                                memcpy(addW, lastBackslash + 1, wideNameLen * sizeof(wchar_t));
+                                                addW[wideNameLen] = 0;
+                                            }
+                                            if (add != NULL && addW != NULL)
                                             {
                                                 namesList->Names.Add(add);
-                                                if (!namesList->Names.IsGood())
+                                                namesList->NamesW.Add(addW);
+                                                if (!namesList->Names.IsGood() || !namesList->NamesW.IsGood())
                                                 {
                                                     namesList->Names.ResetState();
+                                                    namesList->NamesW.ResetState();
                                                     free(add);
+                                                    free(addW);
                                                     ret = FALSE; // not enough memory for file/directory names, error
                                                     break;
                                                 }
                                             }
                                             else
                                             {
+                                                if (add != NULL)
+                                                    free(add);
+                                                if (addW != NULL)
+                                                    free(addW);
                                                 ret = FALSE; // not enough memory for file/directory names, error
                                                 break;
                                             }

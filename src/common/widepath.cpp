@@ -4,7 +4,7 @@
 #include "precomp.h"
 #include "widepath.h"
 
-#include "../resource.h"
+#include "resource.h"
 
 CPathBuffer::CPathBuffer() : Buffer(MAX_PATH, 0) {}
 CPathBuffer::CPathBuffer(int reserveChars) : Buffer(max(reserveChars, 1), 0) {}
