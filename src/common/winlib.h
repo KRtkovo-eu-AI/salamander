@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -249,7 +249,7 @@ public:
                    HWND hwndParent,        // handle of parent or owner window
                    HMENU hmenu,            // handle of menu or child-window identifier
                    HINSTANCE hinst,        // handle of application instance
-                   LPVOID lpvParam);       // ukazatel na objekt vytvareneho okna
+                   LPVOID lpvParam);       // pointer to the window object being created
 
     void SetUnicodeWindow(BOOL unicode) { UnicodeWnd = unicode; }
 #endif                                     // _UNICODE
