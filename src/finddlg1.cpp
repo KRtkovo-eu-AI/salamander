@@ -3182,9 +3182,25 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         UpdateAdvancedText();
 
-        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FIND_NAMED));      // install WordBreakProc into the combo box
-        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FIND_LOOKIN));     // install WordBreakProc into the combo box
-        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FIND_CONTAINING)); // install WordBreakProc into the combo box
+        // Sally keeps the Unicode filename controls away from the legacy ANSI
+        // subclasses.  InstallWordBreakProc subclasses the edit window and makes
+        // Windows marshal characters through the ANSI window proc; with the
+        // Windows emoji picker that turns surrogate pairs into '?' and with CJK
+        // text it makes repeated search cycles progressively lossy.
+        HWND hNamed = GetDlgItem(HWindow, IDC_FIND_NAMED);
+        HWND hNamedEdit = ResolveFindComboEditControl(hNamed);
+        if (!IsWindowUnicode(hNamed) && !IsWindowUnicode(hNamedEdit))
+            InstallWordBreakProc(hNamed);
+
+        HWND hLookIn = GetDlgItem(HWindow, IDC_FIND_LOOKIN);
+        HWND hLookInEdit = ResolveFindComboEditControl(hLookIn);
+        if (!IsWindowUnicode(hLookIn) && !IsWindowUnicode(hLookInEdit))
+            InstallWordBreakProc(hLookIn);
+
+        HWND hContaining = GetDlgItem(HWindow, IDC_FIND_CONTAINING);
+        HWND hContainingEdit = ResolveFindComboEditControl(hContaining);
+        if (!IsWindowUnicode(hContaining) && !IsWindowUnicode(hContainingEdit))
+            InstallWordBreakProc(hContaining);
 
         CComboboxEdit* edit = new CComboboxEdit();
         if (edit != NULL)
