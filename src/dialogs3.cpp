@@ -987,7 +987,12 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetWindowText(HWindow, Title);
         HWND hSubject = GetDlgItem(HWindow, IDS_SUBJECT);
         if (Subject->TruncateText(hSubject))
-            SetWindowText(hSubject, Subject->Get());
+        {
+            if (Subject->IsWide() && IsWindowUnicode(hSubject))
+                SetWindowTextW(hSubject, Subject->GetW());
+            else
+                SetControlTextUtf8(hSubject, Subject->Get());
+        }
 
         INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
         // umime vybirat pouze nazev bez tecky a pripony

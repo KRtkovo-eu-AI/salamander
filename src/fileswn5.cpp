@@ -2487,14 +2487,20 @@ void CFilesWindow::RenameFile(int specialIndex)
     BOOL isDir = i < Dirs->Count;
     f = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
 
-    char formatedFileName[MAX_PATH];
+    char formatedFileName[3 * MAX_PATH];
     AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
+    std::wstring formatedFileNameW = FileDataDisplayNameW(f, formatedFileName);
+    if (f->UseWideName())
+    {
+        std::string formatedUtf8 = WideFileNameToMultiByteBest(formatedFileNameW);
+        lstrcpyn(formatedFileName, formatedUtf8.c_str(), 3 * MAX_PATH);
+    }
 
     char buff[200];
     sprintf(buff, LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
     CTruncatedString subject;
-    subject.Set(buff, formatedFileName);
-    CCopyMoveDialog dlg(HWindow, formatedFileName, MAX_PATH, LoadStr(IDS_RENAME_TITLE),
+    subject.SetW(SalMultiByteToWidePath(buff, CP_ACP).c_str(), formatedFileNameW.c_str());
+    CCopyMoveDialog dlg(HWindow, formatedFileName, 3 * MAX_PATH, LoadStr(IDS_RENAME_TITLE),
                         &subject, IDD_RENAMEDIALOG, Configuration.QuickRenameHistory,
                         QUICKRENAME_HISTORY_SIZE, FALSE);
 
@@ -2821,15 +2827,12 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     {
         if (!isDir)
         {
-            const char* dot = strrchr(formatedFileName, '.');
-            if (dot != NULL && dot > formatedFileName) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
+            const wchar_t* dotW = wcsrchr(formatedFileNameW.c_str(), L'.');
+            if (dotW != NULL && dotW > formatedFileNameW.c_str()) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
             {
-                selectionEndBytes = (int)(dot - formatedFileName);
-                const wchar_t* dotW = wcsrchr(formatedFileNameW.c_str(), L'.');
-                if (dotW != NULL && dotW > formatedFileNameW.c_str())
-                    selectionEndChars = (int)(dotW - formatedFileNameW.c_str());
-                else
-                    selectionEndChars = selectionEndBytes;
+                selectionEndChars = (int)(dotW - formatedFileNameW.c_str());
+                std::string prefix = WideFileNameToMultiByteBest(std::wstring(formatedFileNameW.c_str(), selectionEndChars));
+                selectionEndBytes = (int)prefix.length();
             }
         }
     }
@@ -2931,9 +2934,6 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
         if (selectionEndBytes >= 0)
             selectionEndForControl = selectionEndBytes;
     }
-    ShowWindow(hWnd, SW_SHOW);
-    SetFocus(hWnd);
-
     if (selectionEndForControl >= 0)
     {
         if (unicodeEdit)
@@ -2948,6 +2948,8 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
         else
             SendMessage(hWnd, EM_SETSEL, 0, (LPARAM)-1);
     }
+    ShowWindow(hWnd, SW_SHOW);
+    SetFocus(hWnd);
 
     return;
 }
@@ -3102,6 +3104,7 @@ CQuickRenameWindow::CQuickRenameWindow()
     FilesWindow = NULL;
     CloseEnabled = TRUE;
     SkipNextCharacter = FALSE;
+    PendingHighSurrogate = 0;
 }
 
 void CQuickRenameWindow::SetPanel(CFilesWindow* filesWindow)
@@ -3163,6 +3166,33 @@ CQuickRenameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             FilesWindow->HandeQuickRenameWindowKey(wParam);
             return 0;
+        }
+
+        if (IsWindowUnicode(HWindow))
+        {
+            if (wParam >= 0xD800 && wParam <= 0xDBFF)
+            {
+                PendingHighSurrogate = (WCHAR)wParam;
+                return 0;
+            }
+            if (wParam >= 0xDC00 && wParam <= 0xDFFF && PendingHighSurrogate != 0)
+            {
+                WCHAR chars[3] = {PendingHighSurrogate, (WCHAR)wParam, 0};
+                PendingHighSurrogate = 0;
+                SendMessageW(HWindow, EM_REPLACESEL, TRUE, (LPARAM)chars);
+                if (FilesWindow != NULL)
+                    FilesWindow->AdjustQuickRenameWindow();
+                return 0;
+            }
+            PendingHighSurrogate = 0;
+            if (wParam >= 0x20)
+            {
+                WCHAR chars[2] = {(WCHAR)wParam, 0};
+                SendMessageW(HWindow, EM_REPLACESEL, TRUE, (LPARAM)chars);
+                if (FilesWindow != NULL)
+                    FilesWindow->AdjustQuickRenameWindow();
+                return 0;
+            }
         }
         break;
     }

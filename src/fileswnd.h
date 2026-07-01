@@ -467,6 +467,7 @@ protected:
     CFilesWindow* FilesWindow;
     BOOL CloseEnabled;
     BOOL SkipNextCharacter;
+    WCHAR PendingHighSurrogate;
 
 public:
     CQuickRenameWindow();

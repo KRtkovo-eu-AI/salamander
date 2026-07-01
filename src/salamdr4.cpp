@@ -20,18 +20,57 @@
 CTruncatedString::CTruncatedString()
 {
     Text = NULL;
+    TextW = NULL;
     SubStrIndex = -1;
     SubStrLen = 0;
     TruncatedText = NULL;
+    TruncatedTextW = NULL;
+    UseWideText = FALSE;
 }
 
 CTruncatedString::~CTruncatedString()
 {
     if (Text != NULL)
         free(Text);
+    if (TextW != NULL)
+        free(TextW);
     if (TruncatedText != NULL)
         free(TruncatedText);
+    if (TruncatedTextW != NULL)
+        free(TruncatedTextW);
 };
+
+static char* DupWideAsUtf8(const wchar_t* text)
+{
+    if (text == NULL)
+        text = L"";
+    int len = WideCharToMultiByte(CP_UTF8, 0, text, -1, NULL, 0, NULL, NULL);
+    if (len <= 0)
+        len = 1;
+    char* ret = (char*)malloc(len);
+    if (ret == NULL)
+        return NULL;
+    if (len == 1)
+        ret[0] = 0;
+    else
+        WideCharToMultiByte(CP_UTF8, 0, text, -1, ret, len, NULL, NULL);
+    return ret;
+}
+
+static wchar_t* DupWideString(const wchar_t* text, int chars = -1)
+{
+    if (text == NULL)
+        text = L"";
+    if (chars < 0)
+        chars = (int)wcslen(text);
+    wchar_t* ret = (wchar_t*)malloc((chars + 1) * sizeof(wchar_t));
+    if (ret == NULL)
+        return NULL;
+    if (chars > 0)
+        memcpy(ret, text, chars * sizeof(wchar_t));
+    ret[chars] = 0;
+    return ret;
+}
 
 BOOL CTruncatedString::CopyFrom(const CTruncatedString* src)
 {
@@ -44,6 +83,20 @@ BOOL CTruncatedString::CopyFrom(const CTruncatedString* src)
     {
         Text = DupStr(src->Text);
         if (Text == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return FALSE;
+        }
+    }
+    if (TextW != NULL)
+    {
+        free(TextW);
+        TextW = NULL;
+    }
+    if (src->TextW != NULL)
+    {
+        TextW = DupWideString(src->TextW);
+        if (TextW == NULL)
         {
             TRACE_E(LOW_MEMORY);
             return FALSE;
@@ -65,11 +118,42 @@ BOOL CTruncatedString::CopyFrom(const CTruncatedString* src)
             return FALSE;
         }
     }
+    if (TruncatedTextW != NULL)
+    {
+        free(TruncatedTextW);
+        TruncatedTextW = NULL;
+    }
+    if (src->TruncatedTextW != NULL)
+    {
+        TruncatedTextW = DupWideString(src->TruncatedTextW);
+        if (TruncatedTextW == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return FALSE;
+        }
+    }
+    UseWideText = src->UseWideText;
     return TRUE;
 }
 
 BOOL CTruncatedString::Set(const char* str, const char* subStr)
 {
+    UseWideText = FALSE;
+    if (TextW != NULL)
+    {
+        free(TextW);
+        TextW = NULL;
+    }
+    if (TruncatedTextW != NULL)
+    {
+        free(TruncatedTextW);
+        TruncatedTextW = NULL;
+    }
+    if (TruncatedText != NULL)
+    {
+        free(TruncatedText);
+        TruncatedText = NULL;
+    }
     int len = (int)strlen(str);
     int subStrIndex = -1;
     int subStrLen = 0;
@@ -135,6 +219,99 @@ BOOL CTruncatedString::Set(const char* str, const char* subStr)
     return TRUE;
 }
 
+BOOL CTruncatedString::SetW(const wchar_t* str, const wchar_t* subStr)
+{
+    UseWideText = TRUE;
+    if (Text != NULL)
+    {
+        free(Text);
+        Text = NULL;
+    }
+    if (TextW != NULL)
+    {
+        free(TextW);
+        TextW = NULL;
+    }
+    if (TruncatedText != NULL)
+    {
+        free(TruncatedText);
+        TruncatedText = NULL;
+    }
+    if (TruncatedTextW != NULL)
+    {
+        free(TruncatedTextW);
+        TruncatedTextW = NULL;
+    }
+
+    if (str == NULL)
+        str = L"";
+
+    int subStrIndex = -1;
+    int subStrLen = 0;
+    const wchar_t* insertPos = NULL;
+    if (subStr != NULL)
+    {
+        const wchar_t* p = str;
+        int doubles = 0;
+        while (*p != 0)
+        {
+            if (*p == L'%')
+            {
+                if (*(p + 1) == L'%')
+                {
+                    p++;
+                    doubles++;
+                }
+                else
+                {
+                    if (*(p + 1) == L's')
+                    {
+                        insertPos = p;
+                        subStrIndex = (int)(p - str - doubles);
+                        break;
+                    }
+                    else
+                    {
+                        TRACE_E("CTruncatedString::SetW: unknown format specifier");
+                        break;
+                    }
+                }
+            }
+            p++;
+        }
+        if (subStrIndex == -1)
+            TRACE_E("CTruncatedString::SetW: %s was not found");
+        else
+            subStrLen = (int)wcslen(subStr);
+    }
+
+    if (insertPos != NULL)
+    {
+        int prefixLen = (int)(insertPos - str);
+        int suffixLen = (int)wcslen(insertPos + 2);
+        TextW = (wchar_t*)malloc((prefixLen + subStrLen + suffixLen + 1) * sizeof(wchar_t));
+        if (TextW == NULL)
+            return FALSE;
+        memcpy(TextW, str, prefixLen * sizeof(wchar_t));
+        if (subStrLen > 0)
+            memcpy(TextW + prefixLen, subStr, subStrLen * sizeof(wchar_t));
+        memcpy(TextW + prefixLen + subStrLen, insertPos + 2, (suffixLen + 1) * sizeof(wchar_t));
+        SubStrIndex = subStrIndex;
+        SubStrLen = subStrLen;
+    }
+    else
+    {
+        TextW = DupWideString(str);
+        if (TextW == NULL)
+            return FALSE;
+        SubStrIndex = -1;
+        SubStrLen = 0;
+    }
+
+    Text = DupWideAsUtf8(TextW);
+    return Text != NULL;
+}
+
 const char*
 CTruncatedString::Get()
 {
@@ -154,6 +331,16 @@ CTruncatedString::Get()
     }
 }
 
+const wchar_t*
+CTruncatedString::GetW()
+{
+    if (!UseWideText)
+        return L"";
+    if (SubStrIndex == -1 || TruncatedTextW == NULL)
+        return TextW != NULL ? TextW : L"";
+    return TruncatedTextW;
+}
+
 BOOL CTruncatedString::TruncateText(HWND hWindow, BOOL forMessageBox)
 {
     // if there is nothing to truncate, exit
@@ -168,6 +355,80 @@ BOOL CTruncatedString::TruncateText(HWND hWindow, BOOL forMessageBox)
 
     int fitChars;
     int alpDx[8000]; // for measuring widths
+
+    if (UseWideText && TextW != NULL)
+    {
+        int textLen = (int)wcslen(TextW);
+        wchar_t* truncated = (wchar_t*)malloc((textLen + 1 + 3) * sizeof(wchar_t));
+        if (truncated == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            ret = FALSE;
+        }
+        else
+        {
+            if (TruncatedTextW != NULL)
+                free(TruncatedTextW);
+            TruncatedTextW = truncated;
+
+            if (forMessageBox)
+            {
+                int maxWidth = 400;
+                SIZE sz;
+                GetTextExtentExPointW(hDC, TextW + SubStrIndex, SubStrLen, maxWidth, &fitChars, alpDx, &sz);
+                if (fitChars < SubStrLen)
+                {
+                    memcpy(TruncatedTextW, TextW, (SubStrIndex + fitChars) * sizeof(wchar_t));
+                    memcpy(TruncatedTextW + SubStrIndex + fitChars, L"...", 3 * sizeof(wchar_t));
+                    wcscpy(TruncatedTextW + SubStrIndex + fitChars + 3, TextW + SubStrIndex + SubStrLen);
+                }
+                else
+                    memcpy(TruncatedTextW, TextW, (textLen + 1) * sizeof(wchar_t));
+            }
+            else
+            {
+                RECT r;
+                GetClientRect(hWindow, &r);
+                int maxWidth = r.right;
+
+                SIZE sz;
+                if (textLen > 8000)
+                {
+                    TRACE_E("Text was truncated (to 7999 characters)");
+                    TextW[7999] = 0;
+                    textLen = 7999;
+                }
+                GetTextExtentExPointW(hDC, TextW, textLen, 0, NULL, alpDx, &sz);
+                if (sz.cx > maxWidth)
+                {
+                    int width = sz.cx;
+                    GetTextExtentPoint32W(hDC, L"...", 3, &sz);
+                    int ellipsisWidth = sz.cx;
+                    int index = SubStrIndex + SubStrLen - 1;
+                    maxWidth -= ellipsisWidth;
+                    while (width > maxWidth && index >= SubStrIndex)
+                    {
+                        int prev = index > 0 ? alpDx[index - 1] : 0;
+                        width -= (alpDx[index] - prev);
+                        index--;
+                    }
+                    int keep = index + 1;
+                    memcpy(TruncatedTextW, TextW, keep * sizeof(wchar_t));
+                    memcpy(TruncatedTextW + keep, L"...", 3 * sizeof(wchar_t));
+                    wcscpy(TruncatedTextW + keep + 3, TextW + SubStrIndex + SubStrLen);
+                }
+                else
+                    memcpy(TruncatedTextW, TextW, (textLen + 1) * sizeof(wchar_t));
+            }
+            if (TruncatedText != NULL)
+                free(TruncatedText);
+            TruncatedText = DupWideAsUtf8(TruncatedTextW);
+        }
+        SelectObject(hDC, hOldFont);
+        HANDLES(ReleaseDC(hWindow, hDC));
+        return ret;
+    }
+
     int textLen = (int)strlen(Text);
     char* truncated = (char*)malloc(textLen + 1 + 3); // 3: reserve for an ellipsis in the extreme case
     if (truncated == NULL)

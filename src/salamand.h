@@ -475,10 +475,13 @@ class CTruncatedString
 {
 protected:
     char* Text;      // complete text
+    wchar_t* TextW;  // complete text for Unicode dialog rendering
     int SubStrIndex; // index of the first character of the truncatable substring; -1 if it does not exist
     int SubStrLen;   // number of characters in the substring
 
     char* TruncatedText; // truncated form of the text (if truncation was needed)
+    wchar_t* TruncatedTextW;
+    BOOL UseWideText;
 
 public:
     CTruncatedString();
@@ -491,6 +494,7 @@ public:
     // if subStr is not NULL, its contents will be inserted into str via sprintf
     // it is assumed that str contains the %s format string
     BOOL Set(const char* str, const char* subStr);
+    BOOL SetW(const wchar_t* str, const wchar_t* subStr);
 
     // the string will be truncated according to the size of the window specified by ctrlID
     // if the variable forMessageBox is set, the substring will be shortened so that
@@ -499,6 +503,8 @@ public:
 
     // returns the truncated version of the text (if truncation was needed)
     const char* Get();
+    const wchar_t* GetW();
+    BOOL IsWide() const { return UseWideText; }
 
     // returns TRUE if the string can be truncated
     BOOL NeedTruncate() { return SubStrIndex != -1; }
