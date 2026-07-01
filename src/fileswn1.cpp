@@ -18,6 +18,7 @@
 #include "thumbnl.h"
 #include "geticon.h"
 #include "shiconov.h"
+#include "common/widepath.h"
 
 namespace
 {

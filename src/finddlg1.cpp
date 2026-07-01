@@ -331,8 +331,8 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
         const std::wstring& sourceName = !NameW.empty() ? NameW : SalMultiByteToWidePath(Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
         std::string nameUtf8 = SalWideToMultiBytePath(sourceName.c_str(), CP_UTF8);
         CPathBuffer formattedUtf8;
-        AlterFileName(formattedUtf8, nameUtf8.c_str(), -1, fileNameFormat, 0, IsDir);
-        return SalMultiByteToWidePath(formattedUtf8, CP_UTF8);
+        AlterFileName(formattedUtf8.Data(), (char*)nameUtf8.c_str(), -1, fileNameFormat, 0, IsDir);
+        return SalMultiByteToWidePath(formattedUtf8.Data(), CP_UTF8);
     }
 
     case 1:
