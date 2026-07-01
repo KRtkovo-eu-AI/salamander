@@ -33,17 +33,54 @@ void CFilesWindow::EndQuickSearch()
 }
 
 // Finds the next/previous item. If skip = TRUE, it skips the current item.
-BOOL CFilesWindow::QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, char newChar, int& index)
+namespace
 {
-    CALL_STACK_MESSAGE6("CFilesWindow::QSFindNext(%d, %d, %d, %d, %u)", currentIndex, next, skip, wholeString, newChar);
-    int len = (int)strlen(QuickSearchMask);
-    if (newChar != 0)
+    BOOL GetUtf8QuickSearchText(WPARAM wParam, char* buffer, int bufferSize)
     {
-        if (len >= MAX_PATH)
+        if (buffer == NULL || bufferSize <= 0)
             return FALSE;
-        QuickSearchMask[len] = newChar;
-        len++;
-        QuickSearchMask[len] = 0;
+        buffer[0] = 0;
+        if (wParam <= 31)
+            return FALSE;
+        if (GetACP() != CP_UTF8)
+        {
+            if (wParam >= 256)
+                return FALSE;
+            buffer[0] = (char)wParam;
+            buffer[1] = 0;
+            return TRUE;
+        }
+
+        WCHAR wide[3] = {0, 0, 0};
+        if (wParam <= 0xFFFF)
+        {
+            wide[0] = (WCHAR)wParam;
+        }
+        else if (wParam <= 0x10FFFF)
+        {
+            DWORD codePoint = (DWORD)wParam - 0x10000;
+            wide[0] = (WCHAR)(0xD800 + (codePoint >> 10));
+            wide[1] = (WCHAR)(0xDC00 + (codePoint & 0x3FF));
+        }
+        else
+            return FALSE;
+
+        int written = WideCharToMultiByte(CP_UTF8, 0, wide, -1, buffer, bufferSize, NULL, NULL);
+        return written > 1;
+    }
+} // namespace
+
+BOOL CFilesWindow::QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, const char* newText, int& index)
+{
+    CALL_STACK_MESSAGE6("CFilesWindow::QSFindNext(%d, %d, %d, %d, %s)", currentIndex, next, skip, wholeString, newText != NULL ? newText : "");
+    int len = (int)strlen(QuickSearchMask);
+    int newTextLen = newText != NULL ? (int)strlen(newText) : 0;
+    if (newTextLen > 0)
+    {
+        if (len + newTextLen >= MAX_PATH)
+            return FALSE;
+        memcpy(QuickSearchMask + len, newText, newTextLen + 1);
+        len += newTextLen;
     }
 
     int delta = skip ? 1 : 0;
@@ -111,9 +148,9 @@ BOOL CFilesWindow::QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL whole
         }
     }
 
-    if (newChar != 0)
+    if (newTextLen > 0)
     {
-        len--;
+        len -= newTextLen;
         QuickSearchMask[len] = 0;
     }
     return FALSE;
@@ -903,7 +940,8 @@ BOOL CFilesWindow::OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
         return FALSE;
     }
 
-    if (wParam > 31 && wParam < 256 &&  // only normal characters
+    char quickSearchText[8];
+    if (GetUtf8QuickSearchText(wParam, quickSearchText, _countof(quickSearchText)) &&
         Dirs->Count + Files->Count > 0) // at least 1 item
     {
         int index = FocusedIndex;
@@ -920,13 +958,13 @@ BOOL CFilesWindow::OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
         //if (QuickSearchMode && (char)wParam == '\\')
         //{
         //  // when the '\\' character is pressed during QS, we jump to the first item that matches QuickSearchMask
-        //  if (!QSFindNext(GetCaretIndex(), TRUE, FALSE, TRUE, (char)0, index))
-        //    QSFindNext(GetCaretIndex(), FALSE, TRUE, TRUE, (char)0, index);
+        //  if (!QSFindNext(GetCaretIndex(), TRUE, FALSE, TRUE, NULL, index))
+        //    QSFindNext(GetCaretIndex(), FALSE, TRUE, TRUE, NULL, index);
         //}
         //else
         //{
-        if (!QSFindNext(GetCaretIndex(), TRUE, FALSE, FALSE, (char)wParam, index))
-            QSFindNext(GetCaretIndex(), FALSE, TRUE, FALSE, (char)wParam, index);
+        if (!QSFindNext(GetCaretIndex(), TRUE, FALSE, FALSE, quickSearchText, index))
+            QSFindNext(GetCaretIndex(), FALSE, TRUE, FALSE, quickSearchText, index);
         //}
 
         if (!QuickSearchMode) // initialization of search
@@ -1386,7 +1424,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                 QuickSearchMask[len] = 0;
 
                 int index;
-                QSFindNext(GetCaretIndex(), FALSE, FALSE, FALSE, (char)0, index);
+                QSFindNext(GetCaretIndex(), FALSE, FALSE, FALSE, NULL, index);
                 SetQuickSearchCaretPos();
             }
             return TRUE;
@@ -1449,7 +1487,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
             BOOL found;
             do
             {
-                found = QSFindNext(lastIndex, FALSE, TRUE, FALSE, (char)0, index);
+                found = QSFindNext(lastIndex, FALSE, TRUE, FALSE, NULL, index);
                 if (found)
                 {
                     lastIndex = index;
@@ -1476,7 +1514,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
             BOOL found;
             do
             {
-                found = QSFindNext(lastIndex, TRUE, TRUE, FALSE, (char)0, index);
+                found = QSFindNext(lastIndex, TRUE, TRUE, FALSE, NULL, index);
                 if (found)
                 {
                     lastIndex = index;
@@ -1502,7 +1540,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                     SetSel(SelectItems, newIndex, TRUE);
                     PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0);
                 }
-                found = QSFindNext(newIndex, FALSE, TRUE, FALSE, (char)0, index);
+                found = QSFindNext(newIndex, FALSE, TRUE, FALSE, NULL, index);
                 if (found)
                     newIndex = index;
                 if (newIndex < limit)
@@ -1524,7 +1562,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                     SetSel(SelectItems, newIndex, TRUE);
                     PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0);
                 }
-                found = QSFindNext(newIndex, TRUE, TRUE, FALSE, (char)0, index);
+                found = QSFindNext(newIndex, TRUE, TRUE, FALSE, NULL, index);
                 if (found)
                     newIndex = index;
                 if (newIndex > limit)
@@ -1543,7 +1581,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                 do
                 {
                     SetSel(SelectItems, newIndex, TRUE);
-                    found = QSFindNext(newIndex, FALSE, TRUE, FALSE, (char)0, index);
+                    found = QSFindNext(newIndex, FALSE, TRUE, FALSE, NULL, index);
                     if (found)
                         newIndex = index;
                 } while (found);
@@ -1557,7 +1595,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                 BOOL skip = FALSE;
                 do
                 {
-                    found = QSFindNext(index, TRUE, skip, FALSE, (char)0, index);
+                    found = QSFindNext(index, TRUE, skip, FALSE, NULL, index);
                     skip = TRUE;
                     if (found && GetSel(index))
                         break;
@@ -1580,7 +1618,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                 do
                 {
                     SetSel(SelectItems, newIndex, TRUE);
-                    found = QSFindNext(newIndex, TRUE, TRUE, FALSE, (char)0, index);
+                    found = QSFindNext(newIndex, TRUE, TRUE, FALSE, NULL, index);
                     if (found)
                         newIndex = index;
                 } while (found);
@@ -1594,7 +1632,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                 BOOL skip = FALSE;
                 do
                 {
-                    found = QSFindNext(index, FALSE, skip, FALSE, (char)0, index);
+                    found = QSFindNext(index, FALSE, skip, FALSE, NULL, index);
                     skip = TRUE;
                     if (found && GetSel(index))
                         break;

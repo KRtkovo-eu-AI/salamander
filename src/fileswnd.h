@@ -1568,10 +1568,10 @@ public:
     void CancelUI();
 
     // Searches for the next/previous item. If skip = TRUE, the current item is skipped
-    // if newChar != 0,it is appended to QuickSearchMask
+    // if newText != NULL, it is appended to QuickSearchMask (UTF-8 when the active code page is UTF-8)
     // if wholeString == TRUE, the entire item must match, not just its start
     // returns TRUE when a directory/file is found and also sets the index
-    BOOL QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, char newChar, int& index);
+    BOOL QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, const char* newText, int& index);
 
     // Searches for the next/previous selected item. If skip = TRUE, the current item is skipped
     BOOL SelectFindNext(int currentIndex, BOOL next, BOOL skip, int& index);

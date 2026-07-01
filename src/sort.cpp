@@ -6,6 +6,62 @@
 
 #include "cfgdlg.h"
 
+#include <string>
+
+namespace
+{
+    bool UsingUtf8ACPForSort()
+    {
+        static int cached = -1;
+        if (cached == -1)
+            cached = GetACP() == CP_UTF8 ? 1 : 0;
+        return cached == 1;
+    }
+
+    bool MultiByteSliceToWide(const char* text, int len, std::wstring& wide)
+    {
+        wide.clear();
+        if (text == NULL)
+            return true;
+        if (len == -1)
+            len = (int)strlen(text);
+        if (len <= 0)
+            return true;
+
+        int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, len, NULL, 0);
+        if (required == 0)
+            required = MultiByteToWideChar(CP_UTF8, 0, text, len, NULL, 0);
+        if (required == 0)
+            return false;
+
+        wide.resize(required);
+        int converted = MultiByteToWideChar(CP_UTF8, 0, text, len, &wide[0], required);
+        if (converted == 0)
+            return false;
+        wide.resize(converted);
+        return true;
+    }
+
+    int CompareUtf8Locale(const char* s1, int l1, const char* s2, int l2, DWORD flags)
+    {
+        std::wstring w1;
+        std::wstring w2;
+        if (!MultiByteSliceToWide(s1, l1, w1) || !MultiByteSliceToWide(s2, l2, w2))
+            return CompareString(LOCALE_USER_DEFAULT, flags, s1, l1, s2, l2) - CSTR_EQUAL;
+
+        if (w1.empty() || w2.empty())
+        {
+            if (w1.empty() && w2.empty())
+                return 0;
+            return w1.empty() ? -1 : 1;
+        }
+
+        int cch1 = l1 == -1 ? -1 : (int)w1.size();
+        int cch2 = l2 == -1 ? -1 : (int)w2.size();
+        return CompareStringW(LOCALE_USER_DEFAULT, flags, w1.c_str(), cch1, w2.c_str(), cch2) - CSTR_EQUAL;
+    }
+} // namespace
+
 //
 //*****************************************************************************
 
@@ -72,13 +128,19 @@ int StrCmpLogicalEx(const char* s1, int l1, const char* s2, int l2, BOOL* numeri
             int ret;
             if (Configuration.SortUsesLocale)
             {
-                ret = CompareString(LOCALE_USER_DEFAULT, ignoreCase ? NORM_IGNORECASE : 0,
-                                    beg1, (int)(end1 - beg1), beg2, (int)(end2 - beg2)) -
-                      CSTR_EQUAL;
+                ret = UsingUtf8ACPForSort()
+                          ? CompareUtf8Locale(beg1, (int)(end1 - beg1), beg2, (int)(end2 - beg2),
+                                              ignoreCase ? NORM_IGNORECASE : 0)
+                          : CompareString(LOCALE_USER_DEFAULT, ignoreCase ? NORM_IGNORECASE : 0,
+                                          beg1, (int)(end1 - beg1), beg2, (int)(end2 - beg2)) -
+                                CSTR_EQUAL;
             }
             else
             {
-                if (ignoreCase)
+                if (UsingUtf8ACPForSort())
+                    ret = CompareUtf8Locale(beg1, (int)(end1 - beg1), beg2, (int)(end2 - beg2),
+                                            ignoreCase ? NORM_IGNORECASE : 0);
+                else if (ignoreCase)
                     ret = StrICmpEx(beg1, (int)(end1 - beg1), beg2, (int)(end2 - beg2));
                 else
                     ret = StrCmpEx(beg1, (int)(end1 - beg1), beg2, (int)(end2 - beg2));
@@ -184,11 +246,11 @@ int RegSetStrICmp(const char* s1, const char* s2)
     {
         if (Configuration.SortUsesLocale)
         {
-            return CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, s1, -1, s2, -1) - CSTR_EQUAL;
+            return UsingUtf8ACPForSort() ? CompareUtf8Locale(s1, -1, s2, -1, NORM_IGNORECASE) : CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, s1, -1, s2, -1) - CSTR_EQUAL;
         }
         else
         {
-            return StrICmp(s1, s2);
+            return UsingUtf8ACPForSort() ? CompareUtf8Locale(s1, -1, s2, -1, NORM_IGNORECASE) : StrICmp(s1, s2);
         }
     }
 }
@@ -204,11 +266,11 @@ int RegSetStrICmpEx(const char* s1, int l1, const char* s2, int l2, BOOL* numeri
         int ret;
         if (Configuration.SortUsesLocale)
         {
-            ret = CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, s1, l1, s2, l2) - CSTR_EQUAL;
+            ret = UsingUtf8ACPForSort() ? CompareUtf8Locale(s1, l1, s2, l2, NORM_IGNORECASE) : CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, s1, l1, s2, l2) - CSTR_EQUAL;
         }
         else
         {
-            ret = StrICmpEx(s1, l1, s2, l2);
+            ret = UsingUtf8ACPForSort() ? CompareUtf8Locale(s1, l1, s2, l2, NORM_IGNORECASE) : StrICmpEx(s1, l1, s2, l2);
         }
         if (numericalyEqual != NULL)
             *numericalyEqual = ret == 0;
@@ -226,11 +288,11 @@ int RegSetStrCmp(const char* s1, const char* s2)
     {
         if (Configuration.SortUsesLocale)
         {
-            return CompareString(LOCALE_USER_DEFAULT, 0, s1, -1, s2, -1) - CSTR_EQUAL;
+            return UsingUtf8ACPForSort() ? CompareUtf8Locale(s1, -1, s2, -1, 0) : CompareString(LOCALE_USER_DEFAULT, 0, s1, -1, s2, -1) - CSTR_EQUAL;
         }
         else
         {
-            return strcmp(s1, s2);
+            return UsingUtf8ACPForSort() ? CompareUtf8Locale(s1, -1, s2, -1, 0) : strcmp(s1, s2);
         }
     }
 }
@@ -246,11 +308,11 @@ int RegSetStrCmpEx(const char* s1, int l1, const char* s2, int l2, BOOL* numeric
         int ret;
         if (Configuration.SortUsesLocale)
         {
-            ret = CompareString(LOCALE_USER_DEFAULT, 0, s1, l1, s2, l2) - CSTR_EQUAL;
+            ret = UsingUtf8ACPForSort() ? CompareUtf8Locale(s1, l1, s2, l2, 0) : CompareString(LOCALE_USER_DEFAULT, 0, s1, l1, s2, l2) - CSTR_EQUAL;
         }
         else
         {
-            ret = StrCmpEx(s1, l1, s2, l2);
+            ret = UsingUtf8ACPForSort() ? CompareUtf8Locale(s1, l1, s2, l2, 0) : StrCmpEx(s1, l1, s2, l2);
         }
         if (numericalyEqual != NULL)
             *numericalyEqual = ret == 0;
