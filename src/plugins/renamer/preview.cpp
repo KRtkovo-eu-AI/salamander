@@ -247,7 +247,7 @@ void CPreviewWindow::GetDispInfoW(NMLVDISPINFOW* info)
         if (info->item.mask & LVIF_IMAGE)
             info->item.iImage = ILS_FILE;
         if (info->item.mask & LVIF_TEXT)
-            info->item.pszText = L"";
+            info->item.pszText = const_cast<LPWSTR>(L"");
     }
 }
 
