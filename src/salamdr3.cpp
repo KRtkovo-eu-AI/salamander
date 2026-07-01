@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -419,13 +419,21 @@ BOOL SalGetFullName(char* name, int* errTextID, const char* curDir, char* nextFo
     char* s = name;
     while (*s >= 1 && *s <= ' ')
         s++;
-    if (*s == '\\' && *(s + 1) == '\\') // UNC (\\server\share\...)
+    if (*s == '\\' && *(s + 1) == '\\') // UNC (\\server\share\...) or extended-length (\\?\...)
     {                                   // trim spaces at the beginning of the path
         if (s != name)
             memmove(name, s, strlen(s) + 1);
         s = name + 2;
-        if (*s == '.' || *s == '?')
-            err = IDS_PATHISINVALID; // paths like \\?\Volume{6e76293d-1828-11df-8f3c-806e6f6e6963}\ and \\.\PhysicalDisk5\ are simply not supported here
+        if (*s == '?')
+        {
+            // Extended-length paths (\\?\C:\..., \\?\UNC\server\share\..., \\?\Volume{...}\)
+            // are valid for Unicode-aware filesystem operations and must not be rejected here.
+            if (*(s + 1) == '\\' && *(s + 2) != 0)
+                return TRUE;
+            err = IDS_PATHISINVALID;
+        }
+        else if (*s == '.')
+            err = IDS_PATHISINVALID; // device paths like \\.\PhysicalDisk5\ are simply not supported here
         else
         {
             if (*s == 0 || *s == '\\')

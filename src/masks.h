@@ -6,8 +6,11 @@
 
 // functions used by the quick-search feature
 BOOL IsQSWildChar(char ch);
+BOOL IsQSWildCharW(wchar_t ch);
 void PrepareQSMask(char* mask, const char* src);
+void PrepareQSMaskW(std::wstring& mask, const std::wstring& src);
 BOOL AgreeQSMask(const char* filename, BOOL hasExtension, const char* mask, BOOL wholeString, int& offset);
+BOOL AgreeQSMaskW(const wchar_t* filename, BOOL hasExtension, const wchar_t* mask, BOOL wholeString, int& offset);
 
 // wildcards '*' (any string) + '?' (any character) <+ '#' (a digit) if extendedMode==TRUE>
 void PrepareMask(char* mask, const char* src);                                                // converts the mask into the chosen format

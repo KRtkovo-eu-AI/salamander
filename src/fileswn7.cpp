@@ -2027,14 +2027,14 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             }
             int errpos = 0;
             tmpmask.PrepareMasks(errpos);
-            if (!tmpmask.AgreeMasks(file->Name, file->Ext))
+            if (!(file->UseWideName() ? tmpmask.AgreeMasksW(file->NameW, NULL) : tmpmask.AgreeMasks(file->Name, file->Ext)))
             {
                 int i2;
                 for (i2 = 0; i2 < UnpackerConfig.GetUnpackersCount(); i2++)
                 {
                     tmpmask.SetMasksString(UnpackerConfig.GetUnpackerExt(i2), TRUE);
                     tmpmask.PrepareMasks(errpos);
-                    if (tmpmask.AgreeMasks(file->Name, file->Ext))
+                    if ((file->UseWideName() ? tmpmask.AgreeMasksW(file->NameW, NULL) : tmpmask.AgreeMasks(file->Name, file->Ext)))
                     {
                         UnpackerConfig.SetPreferedUnpacker(i2);
                         break;

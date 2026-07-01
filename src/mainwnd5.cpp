@@ -660,7 +660,7 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
 
                 if (file.Attr & FILE_ATTRIBUTE_DIRECTORY)
                 {
-                    if (!ignDirNames || !Configuration.CompareIgnoreDirsMasks.AgreeMasks(file.Name, NULL))
+                    if (!ignDirNames || !(file.UseWideName() ? Configuration.CompareIgnoreDirsMasks.AgreeMasksW(file.NameW, NULL) : Configuration.CompareIgnoreDirsMasks.AgreeMasks(file.Name, NULL)))
                     {
                         dirs->Add(file);
                         if (!dirs->IsGood())
@@ -677,7 +677,7 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
                 }
                 else
                 {
-                    if (!ignFileNames || !Configuration.CompareIgnoreFilesMasks.AgreeMasks(file.Name, file.Ext))
+                    if (!ignFileNames || !(file.UseWideName() ? Configuration.CompareIgnoreFilesMasks.AgreeMasksW(file.NameW, NULL) : Configuration.CompareIgnoreFilesMasks.AgreeMasks(file.Name, file.Ext)))
                     {
                         files->Add(file);
                         if (!files->IsGood())

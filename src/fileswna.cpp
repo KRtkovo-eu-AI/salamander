@@ -1443,7 +1443,7 @@ BOOL CCriteriaData::IsDirty()
 
 BOOL CCriteriaData::AgreeMasksAndAdvanced(const CFileData* file)
 {
-    if (UseMasks && !Masks.AgreeMasks(file->Name, file->Ext))
+    if (UseMasks && !(file->UseWideName() ? Masks.AgreeMasksW(file->NameW, NULL) : Masks.AgreeMasks(file->Name, file->Ext)))
         return FALSE;
 
     if (UseAdvanced)

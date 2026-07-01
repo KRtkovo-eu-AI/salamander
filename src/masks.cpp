@@ -213,6 +213,37 @@ BOOL IsQSWildChar(char ch)
     return (ch == '/' || ch == '\\' || ch == '<');
 }
 
+BOOL IsQSWildCharW(wchar_t ch)
+{
+    return (ch == L'/' || ch == L'\\' || ch == L'<');
+}
+
+
+void PrepareQSMaskW(std::wstring& mask, const std::wstring& src)
+{
+    mask.erase();
+    wchar_t lastChar = 0;
+    for (size_t i = 0; i < src.length(); i++)
+    {
+        wchar_t ch = src[i];
+        if (IsQSWildCharW(ch))
+        {
+            if (lastChar != L'/')
+            {
+                mask += L'/';
+                lastChar = L'/';
+            }
+        }
+        else
+        {
+            mask += ch;
+            lastChar = ch;
+        }
+    }
+    while (!mask.empty() && mask[mask.length() - 1] == L'/')
+        mask.erase(mask.length() - 1);
+}
+
 void PrepareQSMask(char* mask, const char* src)
 {
     CALL_STACK_MESSAGE2("PrepareQSMask(, %s)", src);
@@ -278,6 +309,51 @@ BOOL AgreeQSMaskAux(const char* filename, BOOL hasExtension, const char* filenam
     }
     else
         return FALSE;
+}
+
+
+BOOL AgreeQSMaskAuxW(const wchar_t* filename, BOOL hasExtension, const wchar_t* filenameBase, const wchar_t* mask, BOOL wholeString, int& offset)
+{
+    while (*filename != 0)
+    {
+        if (!wholeString && *mask == 0)
+        {
+            offset = (int)(filename - filenameBase);
+            return TRUE;
+        }
+        if (towlower(*filename) == towlower(*mask))
+        {
+            filename++;
+            mask++;
+        }
+        else if (*mask == L'/')
+        {
+            mask++;
+            while (*filename != 0)
+            {
+                if (AgreeQSMaskAuxW(filename, hasExtension, filenameBase, mask, wholeString, offset))
+                    return TRUE;
+                filename++;
+            }
+            break;
+        }
+        else
+            return FALSE;
+    }
+    if (*mask == 0 || !hasExtension && *mask == L'.' && *(mask + 1) == 0)
+    {
+        offset = (int)(filename - filenameBase);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL AgreeQSMaskW(const wchar_t* filename, BOOL hasExtension, const wchar_t* mask, BOOL wholeString, int& offset)
+{
+    offset = 0;
+    if (filename == NULL || mask == NULL)
+        return FALSE;
+    return AgreeQSMaskAuxW(filename, hasExtension, filename, mask, wholeString, offset);
 }
 
 BOOL AgreeQSMask(const char* filename, BOOL hasExtension, const char* mask, BOOL wholeString, int& offset)

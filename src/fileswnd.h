@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -903,6 +903,8 @@ public:
     short CaretHeight;              // it is set when measuring the font in CFilesWindow
     char QuickSearch[MAX_PATH];     // name of the file that was sought via Quick Search
     char QuickSearchMask[MAX_PATH]; // quick search mask (may contain '/' after any number of characters)
+    std::wstring QuickSearchW;      // Unicode mirror of QuickSearch for UTF-8/local filesystem names
+    std::wstring QuickSearchMaskW;  // Unicode mirror of QuickSearchMask
     int SearchIndex;                // position of the cursor during Quick Search
 
     int FocusedIndex;  // current caret position

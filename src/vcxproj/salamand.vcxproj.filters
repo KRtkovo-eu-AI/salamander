@@ -219,6 +219,7 @@
     <ClCompile Include="..\mapi.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\common\widepath.cpp" />
     <ClCompile Include="..\masks.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -743,6 +744,7 @@
     <ClInclude Include="..\zip.h">
       <Filter>h</Filter>
     </ClInclude>
+    <ClInclude Include="..\common\widepath.h" />
     <ClInclude Include="..\common\allochan.h">
       <Filter>common</Filter>
     </ClInclude>

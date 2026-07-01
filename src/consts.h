@@ -1,7 +1,9 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+
+#include <string>
 
 // aktualni verze konfigurace (popis viz. mainwnd2.cpp)
 extern const DWORD THIS_CONFIG_VERSION;
@@ -357,6 +359,9 @@ BOOL SalRemovePointsFromPath(WCHAR* afterRoot);
 BOOL SalGetFullName(char* name, int* errTextID = NULL, const char* curDir = NULL,
                     char* nextFocus = NULL, BOOL* callNethood = NULL, int nameBufSize = MAX_PATH,
                     BOOL allowRelPathWithSpaces = FALSE);
+BOOL SalGetFullNameW(std::wstring& name, int* errTextID = NULL, const wchar_t* curDir = NULL,
+                     std::wstring* nextFocus = NULL, BOOL* callNethood = NULL,
+                     BOOL allowRelPathWithSpaces = FALSE);
 
 // zkusi pristup na cestu 'path' (normal nebo UNC), probiha ve vedlejsim threadu, takze
 // umoznuje prerusit zkousku klavesou ESC (po jiste dobe vybali okenko s hlasenim o ESC)
@@ -555,6 +560,8 @@ void AddStrToStr(char* dstStr, int dstBufSize, const char* srcStr);
 // ceste, ktera by v cilove ceste zpusobila problem).
 char* BuildName(char* path, char* name, char* dosName = NULL, BOOL* skip = NULL, BOOL* skipAll = NULL,
                 const char* sourcePath = NULL);
+wchar_t* BuildNameW(const wchar_t* path, const wchar_t* name, const wchar_t* dosName = NULL,
+                    BOOL* skip = NULL, BOOL* skipAll = NULL, const wchar_t* sourcePath = NULL);
 
 // vraci z panelu datum+cas pro soubor/adresar 'f' (resi i datumy+casy dodavane pluginy - nemusi
 // byt platne)
