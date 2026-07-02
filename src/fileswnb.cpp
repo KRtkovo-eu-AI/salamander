@@ -1359,6 +1359,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (loadData->Panel != this || loadData->Cancelled)
         {
+            for (int i = 0; i < loadData->DirCount; i++)
+                free(loadData->DirEntries[i].FullPath);
             free(loadData->DirEntries);
             free(loadData);
             TreeViewAsyncLoadData = NULL;
@@ -1368,6 +1370,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CTreeViewNodeData* parentData = GetTreeViewItemDataPtr(HTreeView, loadData->hParentItem);
         if (parentData == NULL || !IsTheSamePath(parentData->FullPath, loadData->Path))
         {
+            for (int i = 0; i < loadData->DirCount; i++)
+                free(loadData->DirEntries[i].FullPath);
             free(loadData->DirEntries);
             free(loadData);
             TreeViewAsyncLoadData = NULL;
@@ -1397,6 +1401,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 
         TreeViewAsyncLoadData = NULL;
+        for (i = 0; i < loadData->DirCount; i++)
+            free(loadData->DirEntries[i].FullPath);
         free(loadData->DirEntries);
         free(loadData);
         return 0;

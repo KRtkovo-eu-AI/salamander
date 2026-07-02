@@ -264,16 +264,55 @@ static int __cdecl CompareTreeViewPopulateEntries(const void* p1, const void* p2
 static BOOL AddTreeViewPopulateEntry(CTreeViewPopulateEntry** entries, int* count,
                                      const char* name, const char* fullPath, BOOL isDirectory)
 {
+    char* fullPathCopy = DuplicateTreeViewString(fullPath);
+    if (fullPathCopy == NULL)
+        return FALSE;
+
     CTreeViewPopulateEntry* newEntries = (CTreeViewPopulateEntry*)realloc(*entries,
                                                                           (*count + 1) * sizeof(CTreeViewPopulateEntry));
     if (newEntries == NULL)
+    {
+        free(fullPathCopy);
         return FALSE;
+    }
 
     *entries = newEntries;
     lstrcpyn(newEntries[*count].Name, name, MAX_PATH);
-    lstrcpyn(newEntries[*count].FullPath, fullPath, MAX_PATH);
+    newEntries[*count].FullPath = fullPathCopy;
     newEntries[*count].IsDirectory = isDirectory;
     (*count)++;
+    return TRUE;
+}
+
+static void FreeTreeViewPopulateEntries(CTreeViewPopulateEntry* entries, int count)
+{
+    if (entries != NULL)
+    {
+        for (int i = 0; i < count; i++)
+            free(entries[i].FullPath);
+        free(entries);
+    }
+}
+
+static BOOL CopyTreeViewFindDataWToA(const WIN32_FIND_DATAW& src, WIN32_FIND_DATA& dst)
+{
+    memset(&dst, 0, sizeof(dst));
+    dst.dwFileAttributes = src.dwFileAttributes;
+    dst.ftCreationTime = src.ftCreationTime;
+    dst.ftLastAccessTime = src.ftLastAccessTime;
+    dst.ftLastWriteTime = src.ftLastWriteTime;
+    dst.nFileSizeHigh = src.nFileSizeHigh;
+    dst.nFileSizeLow = src.nFileSizeLow;
+    dst.dwReserved0 = src.dwReserved0;
+    dst.dwReserved1 = src.dwReserved1;
+
+    std::string fileName = SalWideToMultiBytePath(src.cFileName, CP_UTF8);
+    if (fileName.empty() && src.cFileName[0] != L'\0')
+        return FALSE;
+    lstrcpyn(dst.cFileName, fileName.c_str(), _countof(dst.cFileName));
+
+    std::string alternateName = SalWideToMultiBytePath(src.cAlternateFileName, CP_UTF8);
+    lstrcpyn(dst.cAlternateFileName, alternateName.c_str(), _countof(dst.cAlternateFileName));
     return TRUE;
 }
 
@@ -379,9 +418,9 @@ static DWORD WINAPI TreeViewAsyncLoadThreadBody(void* param)
     data->DirCount = 0;
     data->HasChildren = FALSE;
 
-    char searchPath[MAX_PATH];
-    lstrcpyn(searchPath, data->Path, MAX_PATH);
-    if (!SalPathAppend(searchPath, "*", MAX_PATH))
+    char searchPath[32768];
+    lstrcpyn(searchPath, data->Path, _countof(searchPath));
+    if (!SalPathAppend(searchPath, "*", _countof(searchPath)))
     {
         PostMessage(data->HHostWindow, WM_USER_TREEVIEW_ASYNC_DONE, 0, (LPARAM)data);
         TRACE_I("TreeViewAsyncLoadThread: end (path append failed)");
@@ -389,8 +428,30 @@ static DWORD WINAPI TreeViewAsyncLoadThreadBody(void* param)
     }
 
     WIN32_FIND_DATA findData;
-    HANDLE find = FindFirstFileEx(searchPath, FindExInfoBasic, &findData,
-                                   FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
+    WIN32_FIND_DATAW findDataW;
+    BOOL wideSearch = FALSE;
+    HANDLE find;
+    if (strlen(searchPath) >= MAX_PATH)
+    {
+        std::wstring searchPathW = SalMultiByteToWidePath(searchPath, CP_UTF8);
+        if (searchPathW.empty())
+            searchPathW = SalMultiByteToWidePath(searchPath);
+        searchPathW = SalPathAddExtendedPrefixW(searchPathW.c_str());
+        find = FindFirstFileExW(searchPathW.c_str(), FindExInfoBasic, &findDataW,
+                                FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
+        if (find != INVALID_HANDLE_VALUE)
+        {
+            wideSearch = TRUE;
+            if (!CopyTreeViewFindDataWToA(findDataW, findData))
+            {
+                FindClose(find);
+                find = INVALID_HANDLE_VALUE;
+            }
+        }
+    }
+    else
+        find = FindFirstFileEx(searchPath, FindExInfoBasic, &findData,
+                               FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
     if (find == INVALID_HANDLE_VALUE)
     {
         PostMessage(data->HHostWindow, WM_USER_TREEVIEW_ASYNC_DONE, 0, (LPARAM)data);
@@ -404,17 +465,17 @@ static DWORD WINAPI TreeViewAsyncLoadThreadBody(void* param)
             break;
 
         if (ShouldSkipTreeViewEntry(&findData))
-            continue;
+            goto next_async_find;
 
         BOOL isDir = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-        char childPath[MAX_PATH];
-        lstrcpyn(childPath, data->Path, MAX_PATH);
-        if (!SalPathAppend(childPath, findData.cFileName, MAX_PATH))
-            continue;
+        char childPath[32768];
+        lstrcpyn(childPath, data->Path, _countof(childPath));
+        if (!SalPathAppend(childPath, findData.cFileName, _countof(childPath)))
+            goto next_async_find;
 
         // Only collect directories for the tree view (files are not shown)
         if (!isDir)
-            continue;
+            goto next_async_find;
 
         if (!AddTreeViewPopulateEntry(&data->DirEntries, &data->DirCount,
                                        findData.cFileName, childPath, TRUE))
@@ -422,7 +483,18 @@ static DWORD WINAPI TreeViewAsyncLoadThreadBody(void* param)
             data->Cancelled = TRUE;
             break;
         }
-    } while (FindNextFile(find, &findData));
+    next_async_find:
+        if (wideSearch)
+        {
+            if (!FindNextFileW(find, &findDataW) || !CopyTreeViewFindDataWToA(findDataW, findData))
+                break;
+        }
+        else
+        {
+            if (!FindNextFile(find, &findData))
+                break;
+        }
+    } while (TRUE);
 
     FindClose(find);
 
@@ -906,7 +978,7 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL
         loadData->HHostWindow = HWindow;
         loadData->Panel = this;
         loadData->hParentItem = hItem;
-        lstrcpyn(loadData->Path, itemPath, MAX_PATH);
+        lstrcpyn(loadData->Path, itemPath, _countof(loadData->Path));
         loadData->Cancelled = FALSE;
 
         TreeViewAsyncLoadData = loadData;
@@ -925,14 +997,36 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL
         return FALSE; // no children yet, they will be inserted when async load completes
     }
 
-    char searchPath[MAX_PATH];
-    lstrcpyn(searchPath, itemPath, MAX_PATH);
-    if (!SalPathAppend(searchPath, "*", MAX_PATH))
+    char searchPath[32768];
+    lstrcpyn(searchPath, itemPath, _countof(searchPath));
+    if (!SalPathAppend(searchPath, "*", _countof(searchPath)))
         return TreeView_GetChild(HTreeView, hItem) != NULL;
 
     WIN32_FIND_DATA data;
-    HANDLE find = FindFirstFileEx(searchPath, FindExInfoBasic, &data,
-                                  FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
+    WIN32_FIND_DATAW dataW;
+    BOOL wideSearch = FALSE;
+    HANDLE find;
+    if (strlen(searchPath) >= MAX_PATH)
+    {
+        std::wstring searchPathW = SalMultiByteToWidePath(searchPath, CP_UTF8);
+        if (searchPathW.empty())
+            searchPathW = SalMultiByteToWidePath(searchPath);
+        searchPathW = SalPathAddExtendedPrefixW(searchPathW.c_str());
+        find = FindFirstFileExW(searchPathW.c_str(), FindExInfoBasic, &dataW,
+                                FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
+        if (find != INVALID_HANDLE_VALUE)
+        {
+            wideSearch = TRUE;
+            if (!CopyTreeViewFindDataWToA(dataW, data))
+            {
+                FindClose(find);
+                find = INVALID_HANDLE_VALUE;
+            }
+        }
+    }
+    else
+        find = FindFirstFileEx(searchPath, FindExInfoBasic, &data,
+                               FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
     if (find == INVALID_HANDLE_VALUE)
         return TreeView_GetChild(HTreeView, hItem) != NULL;
 
@@ -942,25 +1036,36 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL
     do
     {
         if (ShouldSkipTreeViewEntry(&data))
-            continue;
+            goto next_sync_find;
 
         BOOL isDirectory = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
         if (!isDirectory)
-            continue; // skip files - tree view only shows directories
+            goto next_sync_find; // skip files - tree view only shows directories
 
-        char childPath[MAX_PATH];
-        lstrcpyn(childPath, itemPath, MAX_PATH);
-        if (!SalPathAppend(childPath, data.cFileName, MAX_PATH))
-            continue;
+        char childPath[32768];
+        lstrcpyn(childPath, itemPath, _countof(childPath));
+        if (!SalPathAppend(childPath, data.cFileName, _countof(childPath)))
+            goto next_sync_find;
 
         if (!AddTreeViewPopulateEntry(&dirEntries, &dirCount,
                                        data.cFileName, childPath, TRUE))
         {
             FindClose(find);
-            free(dirEntries);
+            FreeTreeViewPopulateEntries(dirEntries, dirCount);
             return TreeView_GetChild(HTreeView, hItem) != NULL;
         }
-    } while (FindNextFile(find, &data));
+    next_sync_find:
+        if (wideSearch)
+        {
+            if (!FindNextFileW(find, &dataW) || !CopyTreeViewFindDataWToA(dataW, data))
+                break;
+        }
+        else
+        {
+            if (!FindNextFile(find, &data))
+                break;
+        }
+    } while (TRUE);
 
     FindClose(find);
 
@@ -993,7 +1098,7 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL
         RestoreExpandedTreeViewPaths(this, hItem, &expanded);
     FreeExpandedTreeViewPaths(&expanded);
 
-    free(dirEntries);
+    FreeTreeViewPopulateEntries(dirEntries, dirCount);
 
     itemData->Populated = TRUE;
     SetTreeViewItemChildren(HTreeView, hItem, hasChildren ? 1 : 0);
