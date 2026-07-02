@@ -451,6 +451,7 @@ internal static class ViewerHost
         private ViewerSession? _session;
         private WebView2? _browser;
         private CoreWebView2? _browserCore;
+        private CoreWebView2Controller? _browserController;
         private bool _allowClose;
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
@@ -641,13 +642,16 @@ internal static class ViewerHost
                 core.Settings.AreDefaultScriptDialogsEnabled = true;
                 core.Settings.AreDevToolsEnabled = true;
 
-                if (_browserCore is not null)
-                {
-                    _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
-                }
+                DetachBrowserCoreEvents();
 
                 _browserCore = core;
                 _browserCore.WebMessageReceived += OnBrowserWebMessageReceived;
+
+                _browserController = browser.CoreWebView2Controller;
+                if (_browserController is not null)
+                {
+                    _browserController.AcceleratorKeyPressed += OnBrowserAcceleratorKeyPressed;
+                }
                 _ = _browserCore.AddScriptToExecuteOnDocumentCreatedAsync(EscapeScript);
             }
 
@@ -716,11 +720,7 @@ internal static class ViewerHost
                 _allowClose = true;
             }
 
-            if (_browserCore is not null)
-            {
-                _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
-                _browserCore = null;
-            }
+            DetachBrowserCoreEvents();
 
             _session?.SignalClosed();
         }
@@ -941,6 +941,37 @@ internal static class ViewerHost
             }
         }
 
+        private void OnBrowserAcceleratorKeyPressed(object? sender, CoreWebView2AcceleratorKeyPressedEventArgs e)
+        {
+            if (e.VirtualKey != (uint)Keys.Escape)
+            {
+                return;
+            }
+
+            if (e.KeyEventKind != CoreWebView2KeyEventKind.KeyDown &&
+                e.KeyEventKind != CoreWebView2KeyEventKind.SystemKeyDown)
+            {
+                return;
+            }
+
+            e.Handled = true;
+            CloseFromBrowserInput();
+        }
+
+        private void DetachBrowserCoreEvents()
+        {
+            if (_browserCore is not null)
+            {
+                _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
+                _browserCore = null;
+            }
+
+            if (_browserController is not null)
+            {
+                _browserController.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
+                _browserController = null;
+            }
+        }
 
         private void CloseFromBrowserInput()
         {
