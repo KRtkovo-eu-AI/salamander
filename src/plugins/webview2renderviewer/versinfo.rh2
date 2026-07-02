@@ -19,11 +19,11 @@
 
 #define VERSINFO_MAJOR       1
 #define VERSINFO_MINORA      0
-#define VERSINFO_MINORB      0
+#define VERSINFO_MINORB      1
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu
 
-#define VERSINFO_COPYRIGHT   "Copyleft 2025 Ondøej Kotas (KRtekTM)"
+#define VERSINFO_COPYRIGHT   "Copyleft 2026 Ondrej Kotas (KRtekTM), KRtkovo.eu"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "WebView2 Render Viewer .NET plugin for Open Salamander"
