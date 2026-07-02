@@ -21,6 +21,25 @@
 
 namespace
 {
+void CopyFindDataWToA(const WIN32_FIND_DATAW& src, WIN32_FIND_DATA& dst)
+{
+    memset(&dst, 0, sizeof(dst));
+    dst.dwFileAttributes = src.dwFileAttributes;
+    dst.ftCreationTime = src.ftCreationTime;
+    dst.ftLastAccessTime = src.ftLastAccessTime;
+    dst.ftLastWriteTime = src.ftLastWriteTime;
+    dst.nFileSizeHigh = src.nFileSizeHigh;
+    dst.nFileSizeLow = src.nFileSizeLow;
+    dst.dwReserved0 = src.dwReserved0;
+    dst.dwReserved1 = src.dwReserved1;
+
+    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    WideCharToMultiByte(codePage, 0, src.cFileName, -1, dst.cFileName, _countof(dst.cFileName), NULL, NULL);
+    dst.cFileName[_countof(dst.cFileName) - 1] = 0;
+    WideCharToMultiByte(codePage, 0, src.cAlternateFileName, -1, dst.cAlternateFileName, _countof(dst.cAlternateFileName), NULL, NULL);
+    dst.cAlternateFileName[_countof(dst.cAlternateFileName) - 1] = 0;
+}
+
 wchar_t* AllocWideNameFromUtf8ACP(const char* name)
 {
     if (name == NULL || GetACP() != CP_UTF8)
@@ -184,7 +203,14 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         }
         UseThumbnails = readThumbnails;
 
-        SetCurrentDirectory(GetPath()); // so that it works better
+        const bool useWideDiskPath = GetPathW() != NULL && GetPathW()[0] != 0 && strlen(GetPath()) >= MAX_PATH;
+        if (useWideDiskPath)
+        {
+            std::wstring currentDirW = SalPathAddExtendedPrefixW(GetPathW());
+            SetCurrentDirectoryW(currentDirW.c_str()); // so that it works better
+        }
+        else
+            SetCurrentDirectory(GetPath()); // so that it works better
 
 #ifndef _WIN64
         BOOL isWindows64BitDir = Windows64Bit && WindowsDirectory[0] != 0 && IsTheSamePath(GetPath(), WindowsDirectory);
@@ -355,8 +381,25 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
         BOOL isUpDir = FALSE;
         WIN32_FIND_DATA fileData;
+        WIN32_FIND_DATAW fileDataW;
+        BOOL wideSearch = FALSE;
         HANDLE search;
-        search = HANDLES_Q(FindFirstFile(fileName, &fileData));
+        if (useWideDiskPath)
+        {
+            std::wstring searchPathW = GetPathW();
+            if (!searchPathW.empty() && searchPathW[searchPathW.length() - 1] != L'\\')
+                searchPathW += L'\\';
+            searchPathW += L'*';
+            searchPathW = SalPathAddExtendedPrefixW(searchPathW.c_str());
+            search = HANDLES_Q(FindFirstFileW(searchPathW.c_str(), &fileDataW));
+            if (search != INVALID_HANDLE_VALUE)
+            {
+                wideSearch = TRUE;
+                CopyFindDataWToA(fileDataW, fileData);
+            }
+        }
+        else
+            search = HANDLES_Q(FindFirstFile(fileName, &fileData));
         if (search == INVALID_HANDLE_VALUE)
         {
             DWORD err = GetLastError();
@@ -928,7 +971,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 #endif                     // _WIN64
                     break; // the second pass (adding ".." or win64 redirected-dir)
                 }
-            } while (FindNextFile(search, &fileData));
+            } while (wideSearch ? (FindNextFileW(search, &fileDataW) ? (CopyFindDataWToA(fileDataW, fileData), TRUE) : FALSE) : FindNextFile(search, &fileData));
             DWORD err = GetLastError();
 
             if (search != NULL) // the first pass

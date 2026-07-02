@@ -1755,13 +1755,31 @@ CInnerText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int oldBkMode = SetBkMode(dc, TRANSPARENT);
             r.right -= TXEL_SPACE - 1; // bold fonts make the text overflow - hence this correction
 
-            // PathCompactPath() works better than combining DT_PATH_ELLIPSIS with DT_END_ELLIPSIS (because the last character misbehaves)
-            char buff[2 * MAX_PATH];
-            strncpy_s(buff, _countof(buff), Message, _TRUNCATE);
-            PathCompactPath(dc, buff, r.right - r.left);
-
-            DrawText(dc, buff, -1, &r,
-                     /*DT_END_ELLIPSIS | DT_PATH_ELLIPSIS | */ DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+            // PathCompactPath() works better than combining DT_PATH_ELLIPSIS with DT_END_ELLIPSIS (because the last character misbehaves).
+            // Use the Unicode variant for UTF-8 paths so compaction never splits a multi-byte character.
+            int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, Message, -1, NULL, 0);
+            UINT codePage = CP_UTF8;
+            if (wideLen == 0)
+            {
+                codePage = CP_ACP;
+                wideLen = MultiByteToWideChar(codePage, 0, Message, -1, NULL, 0);
+            }
+            if (wideLen > 0)
+            {
+                std::wstring buffW(wideLen, L'\0');
+                MultiByteToWideChar(codePage, codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0, Message, -1, &buffW[0], wideLen);
+                PathCompactPathW(dc, &buffW[0], r.right - r.left);
+                DrawTextW(dc, buffW.c_str(), -1, &r,
+                          /*DT_END_ELLIPSIS | DT_PATH_ELLIPSIS | */ DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+            }
+            else
+            {
+                char buff[2 * MAX_PATH];
+                strncpy_s(buff, _countof(buff), Message, _TRUNCATE);
+                PathCompactPath(dc, buff, r.right - r.left);
+                DrawText(dc, buff, -1, &r,
+                         /*DT_END_ELLIPSIS | DT_PATH_ELLIPSIS | */ DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+            }
             SetBkMode(dc, oldBkMode);
             SetTextColor(dc, oldColor);
             SelectObject(dc, oldFont);

@@ -2420,6 +2420,7 @@ void CFilesWindow::DirectoryLineSetText()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::DirectoryLineSetText()");
     char ZIPbuf[2 * MAX_PATH];
+    std::string diskPathText;
     const char* path = NULL;
     if (Is(ptZIPArchive))
     {
@@ -2440,9 +2441,8 @@ void CFilesWindow::DirectoryLineSetText()
             PathHistory->AddPath(0, GetPath(), NULL, NULL, NULL);
             if (GetPathW() != NULL && GetPathW()[0] != 0)
             {
-                std::string pathA = SalWideToMultiBytePath(GetPathW(), CP_ACP);
-                lstrcpyn(ZIPbuf, pathA.c_str(), _countof(ZIPbuf));
-                path = ZIPbuf;
+                diskPathText = SalWideToMultiBytePath(GetPathW(), CP_UTF8);
+                path = diskPathText.c_str();
             }
             else
                 path = GetPath();
@@ -2471,15 +2471,15 @@ void CFilesWindow::DirectoryLineSetText()
 
     if (FilterEnabled)
     {
+        std::string filterText;
         char buf[3 * MAX_PATH]; // zip path (2x) + filter (1x) = 3x MAX_PATH
         int pathLen = (int)strlen(path);
         if (Is(ptDisk) || Is(ptZIPArchive))
         {
-            int l = pathLen;
-            memcpy(buf, path, l);
-            if (buf[l - 1] != '\\')
-                buf[l++] = '\\';
-            lstrcpyn(buf + l, Filter.GetMasksString(), MAX_PATH);
+            filterText.assign(path, pathLen);
+            if (!filterText.empty() && filterText[filterText.length() - 1] != '\\')
+                filterText += '\\';
+            filterText += Filter.GetMasksString();
         }
         else
         {
@@ -2492,7 +2492,7 @@ void CFilesWindow::DirectoryLineSetText()
                 lstrcpyn(buf + l, Filter.GetMasksString(), MAX_PATH);
             }
         }
-        DirectoryLine->SetText(buf, pathLen);
+        DirectoryLine->SetText(filterText.empty() ? buf : filterText.c_str(), pathLen);
     }
     else
     {
