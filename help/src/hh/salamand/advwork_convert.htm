@@ -17,6 +17,11 @@
 <p>This command allows you to <a href ="appendix_txtfiles.htm">convert the 
 contents of text files</a> including change of character coding and end of line characters.</p>
 
+<p>The legacy conversion tables used by the Convert command describe single-byte
+code pages only. Unicode text such as UTF-8 or UTF-16 is detected and decoded
+separately and must not be represented by extra <code>convert*.tab</code> files,
+because those files are only 256-byte byte-to-byte maps.</p>
+
 <h3>To convert the contents of files:</h3>
 <ol> 
 <li>Select the files and directories you want to convert.</li>
