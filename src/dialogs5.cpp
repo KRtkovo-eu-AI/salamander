@@ -1909,11 +1909,64 @@ CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageDrives
 //
 
+static const char* WIN32_LONG_PATHS_REG_KEY = "SYSTEM\\CurrentControlSet\\Control\\FileSystem";
+static const char* WIN32_LONG_PATHS_REG_VALUE = "LongPathsEnabled";
+
+static BOOL ReadWin32LongPathsEnabled(BOOL* enabled)
+{
+    if (enabled != NULL)
+        *enabled = FALSE;
+
+    HKEY key;
+    LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, WIN32_LONG_PATHS_REG_KEY, 0,
+                            KEY_QUERY_VALUE, &key);
+    if (res != ERROR_SUCCESS)
+        return FALSE;
+
+    DWORD value = 0;
+    DWORD type = REG_DWORD;
+    DWORD size = sizeof(value);
+    res = RegQueryValueEx(key, WIN32_LONG_PATHS_REG_VALUE, NULL, &type, (BYTE*)&value, &size);
+    RegCloseKey(key);
+
+    if (res == ERROR_FILE_NOT_FOUND)
+        res = ERROR_SUCCESS;
+    if (res == ERROR_SUCCESS && enabled != NULL)
+        *enabled = (type == REG_DWORD && size == sizeof(value) && value != 0);
+    return res == ERROR_SUCCESS;
+}
+
+static BOOL CanWriteWin32LongPathsEnabled()
+{
+    HKEY key;
+    LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, WIN32_LONG_PATHS_REG_KEY, 0,
+                            KEY_SET_VALUE, &key);
+    if (res == ERROR_SUCCESS)
+        RegCloseKey(key);
+    return res == ERROR_SUCCESS;
+}
+
+static DWORD WriteWin32LongPathsEnabled(BOOL enabled)
+{
+    HKEY key;
+    LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, WIN32_LONG_PATHS_REG_KEY, 0,
+                            KEY_SET_VALUE, &key);
+    if (res != ERROR_SUCCESS)
+        return (DWORD)res;
+
+    DWORD value = enabled ? 1 : 0;
+    res = RegSetValueEx(key, WIN32_LONG_PATHS_REG_VALUE, 0, REG_DWORD, (const BYTE*)&value, sizeof(value));
+    RegCloseKey(key);
+    return (DWORD)res;
+}
+
 CCfgPageDrives::CCfgPageDrives(BOOL focusIfPathIsInaccessibleGoTo)
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_DRIVES, IDD_CFGPAGE_DRIVES, PSP_USETITLE, NULL)
 {
     IfPathIsInaccessibleGoToChanged = FALSE;
     FocusIfPathIsInaccessibleGoTo = focusIfPathIsInaccessibleGoTo;
+    Win32LongPathsEnabled = FALSE;
+    Win32LongPathsCanWrite = FALSE;
 }
 
 void CCfgPageDrives::Transfer(CTransferInfo& ti)
@@ -1936,9 +1989,35 @@ void CCfgPageDrives::Transfer(CTransferInfo& ti)
         GetIfPathIsInaccessibleGoTo(path);
         ti.EditLine(IDE_DRVSPEC_ONERRGOTO, path, MAX_PATH);
         IfPathIsInaccessibleGoToChanged = FALSE;
+
+        ReadWin32LongPathsEnabled(&Win32LongPathsEnabled);
+        Win32LongPathsCanWrite = CanWriteWin32LongPathsEnabled();
+        ti.CheckBox(IDC_DRVSPEC_LONGPATHS, Win32LongPathsEnabled);
+        EnableWindow(GetDlgItem(HWindow, IDC_DRVSPEC_LONGPATHS), Win32LongPathsCanWrite);
     }
     else
     {
+        if (Win32LongPathsCanWrite)
+        {
+            BOOL newWin32LongPathsEnabled = Win32LongPathsEnabled;
+            ti.CheckBox(IDC_DRVSPEC_LONGPATHS, newWin32LongPathsEnabled);
+            if (newWin32LongPathsEnabled != Win32LongPathsEnabled)
+            {
+                DWORD res = WriteWin32LongPathsEnabled(newWin32LongPathsEnabled);
+                if (res == ERROR_SUCCESS)
+                {
+                    Win32LongPathsEnabled = newWin32LongPathsEnabled;
+                    SalMessageBox(HWindow, LoadStr(IDS_LONGPATHS_RESTART), LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+                }
+                else
+                {
+                    char buf[512];
+                    _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_LONGPATHS_SETERROR), GetErrorText(res));
+                    SalMessageBox(HWindow, buf, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                }
+            }
+        }
+
         if (IfPathIsInaccessibleGoToChanged) // change only if the user actually edited the path
         {
             ti.EditLine(IDE_DRVSPEC_ONERRGOTO, newPath, MAX_PATH);

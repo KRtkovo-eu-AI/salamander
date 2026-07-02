@@ -2177,7 +2177,7 @@ BOOL LoadRGB(HKEY hKey, const char* name, COLORREF& color)
                     s++;
                 end = (*s == 0);
                 *s = 0;
-                c[i] = (BYTE)(DWORD)atoi(st);
+                c[i] = (BYTE)((DWORD)atoi(st) & 0xFF);
                 if (end)
                     break;
                 st = ++s;
@@ -2228,7 +2228,7 @@ BOOL LoadRGBF(HKEY hKey, const char* name, SALCOLOR& color)
                     s++;
                 end = (*s == 0);
                 *s = 0;
-                c[i] = (BYTE)(DWORD)atoi(st);
+                c[i] = (BYTE)((DWORD)atoi(st) & 0xFF);
                 if (end)
                     break;
                 st = ++s;
@@ -2309,22 +2309,22 @@ BOOL LoadLogFont(HKEY hKey, const char* name, LOGFONT* logFont)
                 logFont->lfWeight = atoi(st);
                 break;
             case 3:
-                logFont->lfItalic = (BYTE)atoi(st);
+                logFont->lfItalic = (BYTE)(atoi(st) & 0xFF);
                 break;
             case 4:
-                logFont->lfCharSet = (BYTE)atoi(st);
+                logFont->lfCharSet = (BYTE)(atoi(st) & 0xFF);
                 break;
             case 5:
-                logFont->lfOutPrecision = (BYTE)atoi(st);
+                logFont->lfOutPrecision = (BYTE)(atoi(st) & 0xFF);
                 break;
             case 6:
-                logFont->lfClipPrecision = (BYTE)atoi(st);
+                logFont->lfClipPrecision = (BYTE)(atoi(st) & 0xFF);
                 break;
             case 7:
-                logFont->lfQuality = (BYTE)atoi(st);
+                logFont->lfQuality = (BYTE)(atoi(st) & 0xFF);
                 break;
             case 8:
-                logFont->lfPitchAndFamily = (BYTE)atoi(st);
+                logFont->lfPitchAndFamily = (BYTE)(atoi(st) & 0xFF);
                 break;
             }
 

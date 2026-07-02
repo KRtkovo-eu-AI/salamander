@@ -2112,6 +2112,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_RECOGNIZE_CODEPAGE:
         {
+            if (HasDecodedTextMode())
+                return 0;
             CodePageAutoSelect = !CodePageAutoSelect;
             DefaultConvert[0] = 0;
             return 0;
@@ -2119,6 +2121,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_SETDEFAULT_CODING:
         {
+            if (HasDecodedTextMode())
+                return 0;
             CodePageAutoSelect = FALSE;
             if (!CodeTables.GetCodeName(CodeType, DefaultConvert, 200))
                 DefaultConvert[0] = 0;
@@ -2164,7 +2168,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_NEXTCODING:
         {
-            if (MouseDrag)
+            if (MouseDrag || HasDecodedTextMode())
                 return 0;
             CodeTables.Next(CodeType);
             PostMessage(HWindow, WM_COMMAND, CM_CODING_MIN + CodeType, 0);
@@ -2173,6 +2177,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_PREVCODING:
         {
+            if (HasDecodedTextMode())
+                return 0;
             CodeTables.Previous(CodeType);
             if (MouseDrag)
                 return 0;
@@ -2183,7 +2189,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         default:
         {
             int c = LOWORD(wParam) - CM_CODING_MIN;
-            if (!MouseDrag && CodeTables.Valid(c))
+            if (!MouseDrag && !HasDecodedTextMode() && CodeTables.Valid(c))
             {
                 SetCodeType(c);
                 BOOL fatalErr = FALSE;
@@ -3534,6 +3540,13 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
                 }
 
                 CheckMenuItem(subMenu, CM_RECOGNIZE_CODEPAGE, MF_BYCOMMAND | (CodePageAutoSelect ? MF_CHECKED : MF_UNCHECKED));
+                BOOL enableConvert = !HasDecodedTextMode();
+                EnableMenuItem(subMenu, CM_RECOGNIZE_CODEPAGE, MF_BYCOMMAND | (enableConvert ? MF_ENABLED : MF_GRAYED));
+                EnableMenuItem(subMenu, CM_SETDEFAULT_CODING, MF_BYCOMMAND | (enableConvert ? MF_ENABLED : MF_GRAYED));
+                EnableMenuItem(subMenu, CM_NEXTCODING, MF_BYCOMMAND | (enableConvert ? MF_ENABLED : MF_GRAYED));
+                EnableMenuItem(subMenu, CM_PREVCODING, MF_BYCOMMAND | (enableConvert ? MF_ENABLED : MF_GRAYED));
+                for (int code = CM_CODING_MIN; code <= CM_CODING_MAX; code++)
+                    EnableMenuItem(subMenu, code, MF_BYCOMMAND | (enableConvert ? MF_ENABLED : MF_GRAYED));
             }
             subMenu = GetSubMenu(main, OPTIONS_MENU_INDEX);
             if (subMenu != NULL)

@@ -13,9 +13,15 @@
 <div class="page">
 <h1>Converting Text</h1>
 
-<p>Files can contain text in various code pages. If you want to see text readable,
-you may need to convert it to ANSI code page (it depends on current regional
-settings). The viewer supports these conversions by the following commands:</p>
+<p>Files can contain text in various legacy code pages. If you want to see text
+readable, you may need to convert it from another single-byte code page to the
+ANSI code page used by your current regional settings. The viewer supports these
+legacy single-byte conversions by the following commands:</p>
+
+<p>The Convert menu is not used for Unicode text. UTF-8, UTF-16, and other Unicode
+texts are detected and decoded by the viewer separately, so they should not have
+additional <code>convert*.tab</code> files. Conversion table files are intended
+only for 256-byte single-byte mappings between legacy code pages.</p>
 
 <ul>
 <li>Auto-Select: if checked, the viewer tries to autodetect needed conversion.</li>

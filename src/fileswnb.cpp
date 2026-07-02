@@ -1357,20 +1357,32 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (loadData == NULL)
             return 0;
 
+        if (loadData == TreeViewAsyncLoadData && TreeViewAsyncLoadThread != NULL)
+        {
+            HANDLES(CloseHandle(TreeViewAsyncLoadThread));
+            TreeViewAsyncLoadThread = NULL;
+        }
+
         if (loadData->Panel != this || loadData->Cancelled)
         {
+            for (int i = 0; i < loadData->DirCount; i++)
+                free(loadData->DirEntries[i].FullPath);
             free(loadData->DirEntries);
             free(loadData);
-            TreeViewAsyncLoadData = NULL;
+            if (TreeViewAsyncLoadData == loadData)
+                TreeViewAsyncLoadData = NULL;
             return 0;
         }
 
         CTreeViewNodeData* parentData = GetTreeViewItemDataPtr(HTreeView, loadData->hParentItem);
         if (parentData == NULL || !IsTheSamePath(parentData->FullPath, loadData->Path))
         {
+            for (int i = 0; i < loadData->DirCount; i++)
+                free(loadData->DirEntries[i].FullPath);
             free(loadData->DirEntries);
             free(loadData);
-            TreeViewAsyncLoadData = NULL;
+            if (TreeViewAsyncLoadData == loadData)
+                TreeViewAsyncLoadData = NULL;
             return 0;
         }
 
@@ -1396,7 +1408,10 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         TreeViewDisableNotify = FALSE;
         RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 
-        TreeViewAsyncLoadData = NULL;
+        if (TreeViewAsyncLoadData == loadData)
+            TreeViewAsyncLoadData = NULL;
+        for (i = 0; i < loadData->DirCount; i++)
+            free(loadData->DirEntries[i].FullPath);
         free(loadData->DirEntries);
         free(loadData);
         return 0;

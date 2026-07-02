@@ -11,6 +11,7 @@
 #include "pack.h"
 #include "codetbl.h"
 #include "dialogs.h"
+#include "common/widepath.h"
 
 CSystemPolicies SystemPolicies;
 
@@ -20,7 +21,7 @@ const int ctsCanTerminate = 0x02; // can be terminated - already initialized fro
 
 HANDLE ThreadCheckPath[NUM_OF_CHECKTHREADS];
 int ThreadCheckState[NUM_OF_CHECKTHREADS]; // state of individual threads
-char ThreadPath[MAX_PATH];                 // input of the active thread
+char ThreadPath[32768];                    // input of the active thread
 BOOL ThreadValid;                          // result of the active thread
 DWORD ThreadLastError;                     // result of the active thread
 
@@ -127,7 +128,7 @@ unsigned ThreadCheckPathFBody(void* param) // directory accessibility test
 {
     CALL_STACK_MESSAGE1("ThreadCheckPathFBody()");
     int i = (int)(INT_PTR)param;
-    char threadPath[MAX_PATH + 5];
+    char threadPath[32768];
 
     SetThreadNameInVCAndTrace("CheckPath");
     //  if (i == 0) TRACE_I("First check-path thread: Begin");
@@ -275,7 +276,7 @@ RETRY:
 
     if (err == ERROR_SUCCESS)
     {
-        lstrcpyn(ThreadPath, path, MAX_PATH);
+        lstrcpyn(ThreadPath, path, _countof(ThreadPath));
 
     TEST_AGAIN:
 
@@ -392,8 +393,8 @@ RETRY:
                 if (exit == STILL_ACTIVE) // handle termination via ESC
                 {
                     // after 3 seconds display the "ESC to cancel" window
-                    char buf[MAX_PATH + 100];
-                    sprintf(buf, LoadStr(IDS_CHECKINGPATHESC), path);
+                    char buf[32768 + 100];
+                    _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_CHECKINGPATHESC), path);
                     CreateSafeWaitWindow(buf, NULL, 4800 + 200, TRUE, NULL);
 
                     while (1)
@@ -453,8 +454,8 @@ RETRY:
                     while (PeekMessage(&msg, NULL, WM_KEYFIRST, WM_KEYLAST, PM_REMOVE))
                         ;
 
-                    char buf[MAX_PATH + 200];
-                    sprintf(buf, LoadStr(IDS_TERMINATEDBYUSER), path);
+                    char buf[32768 + 200];
+                    _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_TERMINATEDBYUSER), path);
                     SalMessageBox(parent, buf, LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
                 }
             }
@@ -1487,6 +1488,12 @@ BOOL SalGetFileSize2(const char* fileName, CQuadWord& size, DWORD* err)
     return FALSE;
 }
 
+static BOOL IsValidAttrPathUtf8Text(const char* text, int textLen)
+{
+    return text != NULL && textLen >= 0 &&
+           MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
+}
+
 DWORD SalGetFileAttributes(const char* fileName)
 {
     CALL_STACK_MESSAGE2("SalGetFileAttributes(%s)", fileName);
@@ -1497,6 +1504,16 @@ DWORD SalGetFileAttributes(const char* fileName)
     char fileNameCopy[3 * MAX_PATH];
     MakeCopyWithBackslashIfNeeded(fileName, fileNameCopy);
 
+    if (fileName != NULL && (strlen(fileName) >= MAX_PATH || IsValidAttrPathUtf8Text(fileName, (int)strlen(fileName))))
+    {
+        std::wstring fileNameW = SalMultiByteToWidePath(fileName, IsValidAttrPathUtf8Text(fileName, (int)strlen(fileName)) ? CP_UTF8 : CP_ACP);
+        if (!fileNameW.empty())
+        {
+            if (fileNameW.length() >= MAX_PATH)
+                fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
+            return GetFileAttributesW(fileNameW.c_str());
+        }
+    }
     return GetFileAttributes(fileName);
 }
 

@@ -871,9 +871,13 @@ BEGIN
     CONTROL         "Use simp&le icons",IDC_DRVSPEC_REMOTESIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,143,69,12
     CONTROL         "D&o not refresh on activation of Salamander (manual refresh can be necessary)",IDC_DRVSPEC_REMOTEACT,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,155,276,12
-    LTEXT           "If path in panel is inaccessi&ble, go to:",IDC_STATIC_9,1,180,128,8
-    EDITTEXT        IDE_DRVSPEC_ONERRGOTO,130,178,146,12,ES_AUTOHSCROLL | WS_GROUP
-    PUSHBUTTON      "...",IDB_BROWSECOMMAND,280,178,13,12,WS_GROUP
+    LTEXT           "Long paths",IDC_STATIC_12,1,180,39,8
+    CONTROL         "",IDC_STATIC_13,"Static",SS_ETCHEDHORZ | WS_GROUP,42,184,251,1
+    CONTROL         "Enable Win32 long paths (Windows 10 1607+ / Windows 11)",IDC_DRVSPEC_LONGPATHS,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,190,276,12
+    LTEXT           "If path in panel is inaccessi&ble, go to:",IDC_STATIC_9,1,212,128,8
+    EDITTEXT        IDE_DRVSPEC_ONERRGOTO,130,210,146,12,ES_AUTOHSCROLL | WS_GROUP
+    PUSHBUTTON      "...",IDB_BROWSECOMMAND,280,210,13,12,WS_GROUP
 END
 
 IDD_CFGPAGE_VIEWEDIT DIALOGEX 50, 10, 299, 231

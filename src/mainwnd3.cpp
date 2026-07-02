@@ -8381,8 +8381,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     if (itemData.FullPath != NULL && itemData.FullPath[0] != 0 &&
                         !IsTheSamePath(itemData.FullPath, sourcePanel->GetPath()))
                     {
-                        char treePath[MAX_PATH];
-                        lstrcpyn(treePath, itemData.FullPath, MAX_PATH);
+                        char treePath[32768];
+                        lstrcpyn(treePath, itemData.FullPath, _countof(treePath));
                         sourcePanel->ChangePathToDisk(sourcePanel->HWindow, treePath);
                     }
                 }
@@ -10436,7 +10436,7 @@ MENU_TEMPLATE_ITEM TaskBarIconMenu[] =
         fs->szName[sizeof(fs->szName) / 2 - 1] = 0;
         fs->ftTime = f->LastWrite;
         fs->dwSize = f->Size.LoDWord;
-        fs->bAttr = (BYTE)f->Attr;
+        fs->bAttr = (BYTE)(f->Attr & 0xFF);
         return 0;
     }
 

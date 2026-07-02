@@ -864,6 +864,8 @@ class CCfgPageDrives : public CCommonPropSheetPage
 protected:
     BOOL IfPathIsInaccessibleGoToChanged; // TRUE = the user edited the IfPathIsInaccessibleGoTo path
     BOOL FocusIfPathIsInaccessibleGoTo;   // TRUE = to set focus to the "If Path Is Inaccessible Go To" edit box
+    BOOL Win32LongPathsEnabled;           // cached HKLM\...\FileSystem\LongPathsEnabled value
+    BOOL Win32LongPathsCanWrite;          // TRUE = this process can change LongPathsEnabled
 
 public:
     CCfgPageDrives(BOOL focusIfPathIsInaccessibleGoTo);

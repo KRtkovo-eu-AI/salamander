@@ -356,7 +356,7 @@ const char* SHELLEXECUTE_CLASSNAME = "SalamanderShellExecute";
 CAssociations Associations; // asociace nactene z registry
 CShares Shares;
 
-char DefaultDir['Z' - 'A' + 1][MAX_PATH];
+char DefaultDir['Z' - 'A' + 1][32768];
 
 HACCEL AccelTable1 = NULL;
 HACCEL AccelTable2 = NULL;
@@ -1297,8 +1297,9 @@ void InitLocales()
     int i;
     for (i = 0; i < 256; i++)
     {
-        IsNotAlphaNorNum[i] = !IsCharAlphaNumeric((char)i);
-        IsAlpha[i] = IsCharAlpha((char)i);
+        char ch = (char)(i & 0xFF);
+        IsNotAlphaNorNum[i] = !IsCharAlphaNumeric(ch);
+        IsAlpha[i] = IsCharAlpha(ch);
     }
 
     // Ziskame desetinny a tisicovy oddelovac pomoci WideChar verze a prevedeme
@@ -2247,13 +2248,6 @@ BOOL InitializeConstGraphics()
   */
 
     UpdateMenuAndDialogBrushes(DarkModeShouldUseDarkColors());
-
-    HDialogBrush = GetSysColorBrush(COLOR_BTNFACE);
-    HButtonTextBrush = GetSysColorBrush(COLOR_BTNTEXT);
-    HMenuSelectedBkBrush = GetSysColorBrush(COLOR_HIGHLIGHT);
-    HMenuSelectedTextBrush = GetSysColorBrush(COLOR_HIGHLIGHTTEXT);
-    HMenuHilightBrush = GetSysColorBrush(COLOR_3DHILIGHT);
-    HMenuGrayTextBrush = GetSysColorBrush(COLOR_3DSHADOW);
     if (HDialogBrush == NULL || HButtonTextBrush == NULL ||
         HMenuSelectedTextBrush == NULL || HMenuHilightBrush == NULL ||
         HMenuGrayTextBrush == NULL)
@@ -2288,6 +2282,7 @@ BOOL InitializeConstGraphics()
 void ReleaseConstGraphics()
 {
     DestroyDarkModeBrushes();
+    DarkModeShutdown();
 
     ItemBitmap.Destroy();
     //if (HWorkerBitmap != NULL)
@@ -3456,7 +3451,7 @@ void InitDefaultDir()
     for (d = 'A'; d <= 'Z'; d++)
     {
         dir[0] = d;
-        strcpy(DefaultDir[d - 'A'], dir);
+        lstrcpyn(DefaultDir[d - 'A'], dir, _countof(DefaultDir[d - 'A']));
     }
 }
 
@@ -4609,6 +4604,7 @@ FIND_NEW_SLG_FILE:
         const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
         HDialogBrush = HANDLES(CreateSolidBrush(darkBg));
         HButtonTextBrush = HANDLES(CreateSolidBrush(darkText));
+        gDarkModeBrushesOwned = true;
     }
 
     // inicializace pakovacu; drive provadeno v konstruktorech; ted presunuto sem,

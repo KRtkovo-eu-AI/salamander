@@ -128,9 +128,9 @@ void InitializeCase()
         return;
     }
     for (i = 0; i < 256; i++)
-        LowerCase[i] = (char)(UINT_PTR)CharLowerA((LPSTR)(UINT_PTR)i);
+        LowerCase[i] = (BYTE)((UINT_PTR)CharLowerA((LPSTR)(UINT_PTR)i) & 0xFF);
     for (i = 0; i < 256; i++)
-        UpperCase[i] = (char)(UINT_PTR)CharUpperA((LPSTR)(UINT_PTR)i);
+        UpperCase[i] = (BYTE)((UINT_PTR)CharUpperA((LPSTR)(UINT_PTR)i) & 0xFF);
 }
 
 //

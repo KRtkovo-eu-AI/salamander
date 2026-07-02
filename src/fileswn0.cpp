@@ -38,26 +38,76 @@ void CFilesWindow::EndQuickSearch()
 // Finds the next/previous item. If skip = TRUE, it skips the current item.
 namespace
 {
+    BOOL IsValidQuickSearchUtf8Text(const char* text, int textLen)
+    {
+        return text != NULL && textLen >= 0 &&
+               MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
+    }
+
     BOOL GetUtf8QuickSearchText(WPARAM wParam, char* buffer, int bufferSize)
     {
+        static unsigned char pendingUtf8[4];
+        static int pendingUtf8Len = 0;
+        static int pendingUtf8Expected = 0;
+
         if (buffer == NULL || bufferSize <= 0)
             return FALSE;
         buffer[0] = 0;
         if (wParam <= 31)
             return FALSE;
-        if (GetACP() != CP_UTF8)
+
+        if (GetACP() == CP_UTF8 && wParam >= 0x80 && wParam <= 0xFF)
         {
-            if (wParam >= 256)
+            unsigned char ch = (unsigned char)(wParam & 0xFF);
+            if (pendingUtf8Len == 0)
+            {
+                if ((ch & 0xE0) == 0xC0)
+                    pendingUtf8Expected = 2;
+                else if ((ch & 0xF0) == 0xE0)
+                    pendingUtf8Expected = 3;
+                else if ((ch & 0xF8) == 0xF0)
+                    pendingUtf8Expected = 4;
+                else
+                    pendingUtf8Expected = 0;
+
+                if (pendingUtf8Expected > 0)
+                {
+                    pendingUtf8[pendingUtf8Len++] = ch;
+                    return FALSE;
+                }
+            }
+            else if ((ch & 0xC0) == 0x80)
+            {
+                pendingUtf8[pendingUtf8Len++] = ch;
+                if (pendingUtf8Len < pendingUtf8Expected)
+                    return FALSE;
+
+                if (pendingUtf8Expected < bufferSize)
+                {
+                    memcpy(buffer, pendingUtf8, pendingUtf8Expected);
+                    buffer[pendingUtf8Expected] = 0;
+                    pendingUtf8Len = 0;
+                    pendingUtf8Expected = 0;
+                    return TRUE;
+                }
+                pendingUtf8Len = 0;
+                pendingUtf8Expected = 0;
                 return FALSE;
-            buffer[0] = (char)wParam;
-            buffer[1] = 0;
-            return TRUE;
+            }
+
+            pendingUtf8Len = 0;
+            pendingUtf8Expected = 0;
+        }
+        else
+        {
+            pendingUtf8Len = 0;
+            pendingUtf8Expected = 0;
         }
 
         WCHAR wide[3] = {0, 0, 0};
         if (wParam <= 0xFFFF)
         {
-            wide[0] = (WCHAR)wParam;
+            wide[0] = (WCHAR)(wParam & 0xFFFF);
         }
         else if (wParam <= 0x10FFFF)
         {
@@ -74,12 +124,14 @@ namespace
 
     std::wstring QuickSearchTextToWide(const char* text)
     {
+        if (text != NULL && IsValidQuickSearchUtf8Text(text, (int)strlen(text)))
+            return SalMultiByteToWidePath(text, CP_UTF8);
         return SalMultiByteToWidePath(text, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
     }
 
     std::string QuickSearchWideToText(const std::wstring& text)
     {
-        return SalWideToMultiBytePath(text.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        return SalWideToMultiBytePath(text.c_str(), CP_UTF8);
     }
 
     BOOL UseWideQuickSearch()

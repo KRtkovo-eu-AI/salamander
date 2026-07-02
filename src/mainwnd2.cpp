@@ -4174,18 +4174,18 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 for (d = 'A'; d <= 'Z'; d++)
                 {
                     dir[0] = d;
-                    strcpy(DefaultDir[d - 'A'], dir);
+                    lstrcpyn(DefaultDir[d - 'A'], dir, _countof(DefaultDir[d - 'A']));
                 }
 
                 char name[2];
-                BYTE path[MAX_PATH];
+                BYTE path[32768];
                 DWORD nameLen, dataLen, type;
 
                 int i;
                 for (i = 0; useActiveRegistry || i < (int)values; i++)
                 {
                     nameLen = 2;
-                    dataLen = MAX_PATH;
+                    dataLen = sizeof(path);
                     if (useActiveRegistry)
                     {
                         name[0] = 0;
@@ -4201,9 +4201,13 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                             char d2 = LowerCase[name[0]];
                             if (d2 >= 'a' && d2 <= 'z')
                             {
-                                if (dataLen > 2 && LowerCase[path[0]] == d2 &&
+                                if (dataLen > 2 && dataLen <= sizeof(DefaultDir[d2 - 'a']) &&
+                                    LowerCase[path[0]] == d2 &&
                                     path[1] == ':' && path[2] == '\\')
+                                {
                                     memmove(DefaultDir[d2 - 'a'], path, dataLen);
+                                    DefaultDir[d2 - 'a'][_countof(DefaultDir[d2 - 'a']) - 1] = 0;
+                                }
                                 else
                                     SalMessageBox(HWindow, LoadStr(IDS_UNEXPECTEDVALUE),
                                                   LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
@@ -5305,8 +5309,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         char rightPanelPath[MAX_PATH];
         GetSystemDirectory(leftPanelPath, MAX_PATH);
         strcpy(rightPanelPath, leftPanelPath);
-        char sysDefDir[MAX_PATH];
-        lstrcpyn(sysDefDir, DefaultDir[LowerCase[leftPanelPath[0]] - 'a'], MAX_PATH);
+        char sysDefDir[32768];
+        lstrcpyn(sysDefDir, DefaultDir[LowerCase[leftPanelPath[0]] - 'a'], _countof(sysDefDir));
         // Restoring each saved panel/tab path updates its monitoring state. Defer Tree View rebuilding
         // until the final active panel is focused below; rebuilding it for every restored path makes
         // startup perform the same synchronous directory enumeration many times.
@@ -5539,7 +5543,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         UpdateWindow(RightPanel->HWindow); // ensures dir/info line is drawn immediately after the panel content
 
         // restore default-dir on the system drive (damaged - system root was in both panels)
-        lstrcpyn(DefaultDir[LowerCase[sysDefDir[0]] - 'a'], sysDefDir, MAX_PATH);
+        lstrcpyn(DefaultDir[LowerCase[sysDefDir[0]] - 'a'], sysDefDir,
+                 _countof(DefaultDir[LowerCase[sysDefDir[0]] - 'a']));
         // restore DefaultDir
         MainWindow->UpdateDefaultDir(TRUE);
 

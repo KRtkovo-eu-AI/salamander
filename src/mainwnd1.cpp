@@ -530,12 +530,14 @@ void CMainWindow::UpdateDefaultDir(BOOL activePrefered)
     const char* pathActive = active->GetPath();
     if (!active->Is(ptPluginFS) && pathActive[0] != '\\')
     {
-        strcpy(DefaultDir[LowerCase[pathActive[0]] - 'a'], pathActive);
+        lstrcpyn(DefaultDir[LowerCase[pathActive[0]] - 'a'], pathActive,
+                 _countof(DefaultDir[LowerCase[pathActive[0]] - 'a']));
     }
     const char* pathPasive = nonactive->GetPath();
     if (!nonactive->Is(ptPluginFS) && pathPasive[0] != '\\')
     {
-        strcpy(DefaultDir[LowerCase[pathPasive[0]] - 'a'], pathPasive);
+        lstrcpyn(DefaultDir[LowerCase[pathPasive[0]] - 'a'], pathPasive,
+                 _countof(DefaultDir[LowerCase[pathPasive[0]] - 'a']));
     }
 }
 

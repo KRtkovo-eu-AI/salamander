@@ -13,6 +13,11 @@
 #include "svg.h"
 #include "darkmode.h"
 
+static BOOL IsUtf8ContinuationByte(unsigned char c)
+{
+    return (c & 0xC0) == 0x80;
+}
+
 static int Utf8CharLen(unsigned char c)
 {
     if (c < 0x80)
@@ -24,6 +29,17 @@ static int Utf8CharLen(unsigned char c)
     if ((c & 0xF8) == 0xF0)
         return 4;
     return 1;
+}
+
+static int MoveToPrevUtf8CharStart(const char* text, int index)
+{
+    if (text == NULL || index <= 0)
+        return 0;
+
+    index--;
+    while (index > 0 && IsUtf8ContinuationByte((unsigned char)text[index]))
+        index--;
+    return index;
 }
 
 static COLORREF GetPanelDefaultTextColor()
@@ -1017,22 +1033,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     while (visibleChars > 0 &&
                            AlpDX[visibleChars - 1] + TextEllipsisWidthEnv > textWidth)
                     {
-                        // retreat by one whole UTF-8 character
-                        unsigned char lastByte = (unsigned char)Text[visibleChars - 1];
-                        int retreat;
-                        if (lastByte < 0x80)
-                            retreat = 1;
-                        else if ((lastByte & 0xE0) == 0xC0)
-                            retreat = 2;
-                        else if ((lastByte & 0xF0) == 0xE0)
-                            retreat = 3;
-                        else if ((lastByte & 0xF8) == 0xF0)
-                            retreat = 4;
-                        else
-                            retreat = 1; // continuation byte or invalid: shouldn't normally occur at a boundary, fall back to 1
-                        if (retreat > visibleChars)
-                            retreat = visibleChars;
-                        visibleChars -= retreat;
+                        visibleChars = MoveToPrevUtf8CharStart(Text, visibleChars);
                     }
                 }
             }

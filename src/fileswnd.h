@@ -369,8 +369,8 @@ public:
 class CTopIndexMem
 {
 protected:
-    // path for the last remembered top index; the longest is archive + archive-path so 2 * MAX_PATH
-    char Path[2 * MAX_PATH];
+    // path for the last remembered top index; disk paths can be long-path aware
+    char Path[32768];
     int TopIndexes[TOP_INDEX_MEM_SIZE]; // stored top indexes
     int TopIndexesCount;                // number of stored top indexes
 
@@ -736,7 +736,7 @@ struct CTreeViewNodeData
 struct CTreeViewPopulateEntry
 {
     char Name[MAX_PATH];
-    char FullPath[MAX_PATH];
+    char* FullPath;
     BOOL IsDirectory;
 };
 
@@ -745,7 +745,7 @@ struct CTreeViewAsyncLoadData
     HWND HHostWindow;                          // panel window handle (for PostMessage)
     CFilesWindow* Panel;                       // owning panel
     HTREEITEM hParentItem;                     // parent tree item handle
-    char Path[MAX_PATH];                       // path to read
+    char Path[32768];                          // path to read; disk paths can be long-path aware
     CTreeViewPopulateEntry* DirEntries;        // results: directories
     int DirCount;
     BOOL HasChildren;

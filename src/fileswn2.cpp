@@ -137,6 +137,16 @@ static void UpdateTreeViewHeaderToolTip(CFilesWindow* panel)
     SendMessage(panel->HTreeHeaderToolTip, TTM_NEWTOOLRECT, 0, (LPARAM)&ti);
 }
 
+static void FreeTreeViewAsyncLoadData(CTreeViewAsyncLoadData* loadData)
+{
+    if (loadData == NULL)
+        return;
+    for (int i = 0; i < loadData->DirCount; i++)
+        free(loadData->DirEntries[i].FullPath);
+    free(loadData->DirEntries);
+    free(loadData);
+}
+
 static void DrawTreeViewHeaderPin(HDC hdc, const RECT* rect, BOOL autoHide, COLORREF color)
 {
     int width = rect->right - rect->left;
@@ -2168,6 +2178,17 @@ void CFilesWindow::DestroyTreeView()
         }
         HANDLES(CloseHandle(TreeViewAsyncLoadThread));
         TreeViewAsyncLoadThread = NULL;
+        if (TreeViewAsyncLoadData != NULL)
+        {
+            MSG msg;
+            while (PeekMessage(&msg, HWindow, WM_USER_TREEVIEW_ASYNC_DONE, WM_USER_TREEVIEW_ASYNC_DONE, PM_REMOVE))
+            {
+                if ((CTreeViewAsyncLoadData*)msg.lParam != TreeViewAsyncLoadData)
+                    FreeTreeViewAsyncLoadData((CTreeViewAsyncLoadData*)msg.lParam);
+            }
+            FreeTreeViewAsyncLoadData((CTreeViewAsyncLoadData*)TreeViewAsyncLoadData);
+            TreeViewAsyncLoadData = NULL;
+        }
     }
 
     if (HTreeHeaderToolTip != NULL)

@@ -434,15 +434,16 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         CHyperLink* hl;
 
-        SetDlgItemText(HWindow, IDS_ABOUT_SALAMANDER, SALAMANDER_TEXT_VERSION);
-        new CStaticText(HWindow, IDS_ABOUT_SALAMANDER, STF_BOLD);
+        CStaticText* title = new CStaticText(HWindow, IDS_ABOUT_SALAMANDER, STF_BOLD);
+        if (title != NULL)
+            title->SetText(SALAMANDER_TEXT_VERSION);
         //      new CStaticText(HWindow, IDS_ABOUT_FIRM, STF_BOLD);
 
         hl = new CHyperLink(HWindow, IDC_ABOUT_WWW, STF_UNDERLINE);
         if (hl != NULL)
         {
             const char* url = "https://github.com/KRtkovo-eu-AI/salamander";
-            SetDlgItemText(HWindow, IDC_ABOUT_WWW, url);
+            hl->SetText(url);
             hl->SetActionOpen(url);
         }
 

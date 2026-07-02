@@ -1278,6 +1278,13 @@ HICON ConvertIcon16x16ToGray(HICON hSrcIcon)
 
 const char Base64Table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+static void StoreByte(char* data, int& index, DWORD value)
+{
+    unsigned char byteValue = (unsigned char)(value & 0xFF);
+    memcpy(data + index, &byteValue, 1);
+    index++;
+}
+
 // performs in-place decode from base64; returns success;
 // except of the state when 'input_length' is zero, returns zero-terminated string
 BOOL base64_decode(char* data, int input_length, int* output_length, const char* errPrefix)
@@ -1301,10 +1308,10 @@ BOOL base64_decode(char* data, int input_length, int* output_length, const char*
 
     for (int i = 0, j = 0; i < input_length;)
     {
-        DWORD sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        DWORD sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        DWORD sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        DWORD sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        DWORD sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char)(data[i++] & 0xFF)];
+        DWORD sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char)(data[i++] & 0xFF)];
+        DWORD sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char)(data[i++] & 0xFF)];
+        DWORD sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char)(data[i++] & 0xFF)];
 
         if (sextet_a == 0xFF || sextet_b == 0xFF || sextet_c == 0xFF || sextet_d == 0xFF)
         {
@@ -1314,11 +1321,11 @@ BOOL base64_decode(char* data, int input_length, int* output_length, const char*
         DWORD triple = (sextet_a << 3 * 6) + (sextet_b << 2 * 6) + (sextet_c << 1 * 6) + (sextet_d << 0 * 6);
 
         if (j < *output_length)
-            data[j++] = (triple >> 2 * 8) & 0xFF;
+            StoreByte(data, j, triple >> 2 * 8);
         if (j < *output_length)
-            data[j++] = (triple >> 1 * 8) & 0xFF;
+            StoreByte(data, j, triple >> 1 * 8);
         if (j < *output_length)
-            data[j++] = (triple >> 0 * 8) & 0xFF;
+            StoreByte(data, j, triple >> 0 * 8);
     }
     if (*output_length > 0)
         data[*output_length] = 0;
@@ -1707,7 +1714,10 @@ HICON GetChangeDriveUserFolderIcon(CDriveTypeEnum driveType, int iconSize)
     {
         SHFILEINFO sfi;
         if (SHGetFileInfo(path, 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON) != 0)
+        {
             icon = sfi.hIcon;
+            HANDLES_ADD(__htIcon, __hoLoadImage, icon);
+        }
     }
     if (icon == NULL)
         icon = SalLoadIcon(ImageResDLL, 112, iconSize);
@@ -1807,7 +1817,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 drv.HGrayIcon = NULL;
 
                 int index = Drives->Add(drv);
-                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(char)*DriveTypeParam])
+                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(BYTE)(*DriveTypeParam & 0xFF)])
                     currentDiskIndex = index;
             }
         }
@@ -2015,7 +2025,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 separateNextDrive = FALSE;
 
                 int index = Drives->Add(drv);
-                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(char)*DriveTypeParam])
+                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(BYTE)(*DriveTypeParam & 0xFF)])
                     currentDiskIndex = index;
             }
             drive++;
@@ -2067,6 +2077,8 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                     drv.HIcon = icon;
                     drv.HGrayIcon = NULL;
                     drv.DestroyIcon = destroyIcon;
+                    if (drv.DestroyIcon && drv.HIcon != NULL)
+                        HANDLES_ADD(__htIcon, __hoLoadImage, drv.HIcon);
                     drv.PluginFS = fs->GetInterface();
                     drv.DriveType = (fs == nonactivePanelFS ? drvtPluginFSInOtherPanel : drvtPluginFS);
                     int index = Drives->Add(drv);
@@ -2205,7 +2217,10 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
             }
         }
         if (destroyOneDriveIco)
+        {
             TRACE_C("CDrivesList::BuildData(): OneDrive icon unused, should never happen");
+            HANDLES(DestroyIcon(oneDriveIco));
+        }
 
         if (sqlite3_Dyn_InOut != NULL)
             delete sqlite3_Dyn_InOut; // release sqlite.dll which is no longer needed
@@ -2306,6 +2321,8 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                             drv.HIcon = icon;
                             drv.HGrayIcon = NULL;
                             drv.DestroyIcon = destroyIcon; // we are driven by the plugin
+                            if (drv.DestroyIcon && drv.HIcon != NULL)
+                                HANDLES_ADD(__htIcon, __hoLoadImage, drv.HIcon);
                         }
                         else // standard
                         {

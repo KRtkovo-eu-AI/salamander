@@ -1636,7 +1636,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         }
         else
             s2 = mapName;
-        if (strlen(s2) + targetLen >= PATH_MAX_PATH)
+        if (strlen(s2) + targetLen >= 2 * MAX_PATH + 200)
         {
             *sourceEnd = 0; // restoring sourcePath
             *targetEnd = 0; // restoring targetPath
