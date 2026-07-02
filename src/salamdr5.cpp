@@ -21,7 +21,7 @@ const int ctsCanTerminate = 0x02; // can be terminated - already initialized fro
 
 HANDLE ThreadCheckPath[NUM_OF_CHECKTHREADS];
 int ThreadCheckState[NUM_OF_CHECKTHREADS]; // state of individual threads
-char ThreadPath[MAX_PATH];                 // input of the active thread
+char ThreadPath[32768];                    // input of the active thread
 BOOL ThreadValid;                          // result of the active thread
 DWORD ThreadLastError;                     // result of the active thread
 
@@ -128,7 +128,7 @@ unsigned ThreadCheckPathFBody(void* param) // directory accessibility test
 {
     CALL_STACK_MESSAGE1("ThreadCheckPathFBody()");
     int i = (int)(INT_PTR)param;
-    char threadPath[MAX_PATH + 5];
+    char threadPath[32768];
 
     SetThreadNameInVCAndTrace("CheckPath");
     //  if (i == 0) TRACE_I("First check-path thread: Begin");
@@ -276,7 +276,7 @@ RETRY:
 
     if (err == ERROR_SUCCESS)
     {
-        lstrcpyn(ThreadPath, path, MAX_PATH);
+        lstrcpyn(ThreadPath, path, _countof(ThreadPath));
 
     TEST_AGAIN:
 
@@ -393,8 +393,8 @@ RETRY:
                 if (exit == STILL_ACTIVE) // handle termination via ESC
                 {
                     // after 3 seconds display the "ESC to cancel" window
-                    char buf[MAX_PATH + 100];
-                    sprintf(buf, LoadStr(IDS_CHECKINGPATHESC), path);
+                    char buf[32768 + 100];
+                    _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_CHECKINGPATHESC), path);
                     CreateSafeWaitWindow(buf, NULL, 4800 + 200, TRUE, NULL);
 
                     while (1)
@@ -454,8 +454,8 @@ RETRY:
                     while (PeekMessage(&msg, NULL, WM_KEYFIRST, WM_KEYLAST, PM_REMOVE))
                         ;
 
-                    char buf[MAX_PATH + 200];
-                    sprintf(buf, LoadStr(IDS_TERMINATEDBYUSER), path);
+                    char buf[32768 + 200];
+                    _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_TERMINATEDBYUSER), path);
                     SalMessageBox(parent, buf, LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
                 }
             }

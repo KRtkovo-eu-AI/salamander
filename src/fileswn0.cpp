@@ -46,11 +46,64 @@ namespace
 
     BOOL GetUtf8QuickSearchText(WPARAM wParam, char* buffer, int bufferSize)
     {
+        static unsigned char pendingUtf8[4];
+        static int pendingUtf8Len = 0;
+        static int pendingUtf8Expected = 0;
+
         if (buffer == NULL || bufferSize <= 0)
             return FALSE;
         buffer[0] = 0;
         if (wParam <= 31)
             return FALSE;
+
+        if (GetACP() == CP_UTF8 && wParam >= 0x80 && wParam <= 0xFF)
+        {
+            unsigned char ch = (unsigned char)(wParam & 0xFF);
+            if (pendingUtf8Len == 0)
+            {
+                if ((ch & 0xE0) == 0xC0)
+                    pendingUtf8Expected = 2;
+                else if ((ch & 0xF0) == 0xE0)
+                    pendingUtf8Expected = 3;
+                else if ((ch & 0xF8) == 0xF0)
+                    pendingUtf8Expected = 4;
+                else
+                    pendingUtf8Expected = 0;
+
+                if (pendingUtf8Expected > 0)
+                {
+                    pendingUtf8[pendingUtf8Len++] = ch;
+                    return FALSE;
+                }
+            }
+            else if ((ch & 0xC0) == 0x80)
+            {
+                pendingUtf8[pendingUtf8Len++] = ch;
+                if (pendingUtf8Len < pendingUtf8Expected)
+                    return FALSE;
+
+                if (pendingUtf8Expected < bufferSize)
+                {
+                    memcpy(buffer, pendingUtf8, pendingUtf8Expected);
+                    buffer[pendingUtf8Expected] = 0;
+                    pendingUtf8Len = 0;
+                    pendingUtf8Expected = 0;
+                    return TRUE;
+                }
+                pendingUtf8Len = 0;
+                pendingUtf8Expected = 0;
+                return FALSE;
+            }
+
+            pendingUtf8Len = 0;
+            pendingUtf8Expected = 0;
+        }
+        else
+        {
+            pendingUtf8Len = 0;
+            pendingUtf8Expected = 0;
+        }
+
         WCHAR wide[3] = {0, 0, 0};
         if (wParam <= 0xFFFF)
         {
