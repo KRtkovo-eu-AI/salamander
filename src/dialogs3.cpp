@@ -1909,6 +1909,7 @@ CChangeDirDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (!unicodePathInput)
         {
             InstallWordBreakProc(hPath);       // install WordBreakProc into the combobox
+        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
             CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         }
         ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right
@@ -1917,7 +1918,15 @@ CChangeDirDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_CHANGEDIR_HINT));
 
-        break;
+        INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
+        return ret;
+    }
+
+    case WM_USER_ENABLEPATHAUTOCOMPLETE:
+    {
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), FALSE);
+        return 0;
     }
 
     case WM_USER_KEYDOWN:
