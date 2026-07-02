@@ -3769,10 +3769,6 @@ MENU_TEMPLATE_ITEM CopyMoveBrowseMenu[] =
 
 DWORD OnKeyDownHandleSelectAll(DWORD keyCode, HWND hDialog, int editID)
 {
-    // since Windows Vista, SelectAll works properly by default, so we leave Select All enabled there.
-    if (WindowsVistaAndLater)
-        return FALSE;
-
     BOOL controlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     BOOL altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;
     BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
