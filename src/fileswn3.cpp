@@ -152,7 +152,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     DeleteColumnsWithoutData();                      // removing columns for which we don't have data (empty values would be shown in them)
     GetPluginIconIndex = InternalGetPluginIconIndex; // setting standard callback (just returns zero)
 
-    char fileName[MAX_PATH + 4];
+    char fileName[2 * MAX_PATH + 4];
 
     if (Is(ptDisk))
     {

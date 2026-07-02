@@ -721,8 +721,8 @@ void CFilesWindow::Execute(int index)
     if (index < 0 || index >= Dirs->Count + Files->Count)
         return;
 
-    char path[MAX_PATH];
-    char fullName[MAX_PATH + 10];
+    char path[2 * MAX_PATH];
+    char fullName[2 * MAX_PATH + 10];
     char doublePath[2 * MAX_PATH];
     WIN32_FIND_DATA data;
 
@@ -989,7 +989,7 @@ void CFilesWindow::Execute(int index)
 
                 // new path
                 strcpy(fullName, path);
-                if (!SalPathAppend(fullName, dir->Name, MAX_PATH))
+                if (!SalPathAppend(fullName, dir->Name, 2 * MAX_PATH))
                 {
                     SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
                                   MB_OK | MB_ICONEXCLAMATION);
@@ -2504,7 +2504,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
 
     //TRACE_I("change-to-disk: begin");
 
-    if (strlen(path) >= MAX_PATH - 2)
+    if (strlen(path) >= 2 * MAX_PATH - 2)
     {
         SalMessageBox(parent, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
                       MB_OK | MB_ICONEXCLAMATION);
@@ -2514,8 +2514,8 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     }
 
     // we make backup copies
-    char backup[MAX_PATH];
-    lstrcpyn(backup, path, MAX_PATH); // must be done before UpdateDefaultDir (it may point to DefaultDir[])
+    char backup[2 * MAX_PATH];
+    lstrcpyn(backup, path, 2 * MAX_PATH); // must be done before UpdateDefaultDir (it may point to DefaultDir[])
     char backup2[MAX_PATH];
     if (suggestedFocusName != NULL)
     {
@@ -2538,7 +2538,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     int errTextID;
     //  if (!SalGetFullName(backup, &errTextID, MainWindow->GetActivePanel()->Is(ptDisk) ?
     //                      MainWindow->GetActivePanel()->GetPath() : NULL))
-    if (!SalGetFullName(backup, &errTextID, Is(ptDisk) ? GetPath() : NULL)) // for the FTP plugin - relative path in "target panel path" during connect
+    if (!SalGetFullName(backup, &errTextID, Is(ptDisk) ? GetPath() : NULL, NULL, NULL, 2 * MAX_PATH)) // for the FTP plugin - relative path in "target panel path" during connect
     {
         SalMessageBox(parent, LoadStr(errTextID), LoadStr(IDS_ERRORCHANGINGDIR),
                       MB_OK | MB_ICONEXCLAMATION);
@@ -2574,7 +2574,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     BOOL detachFS;
     if (PrepareCloseCurrentPath(parent, canForce, TRUE, detachFS, tryCloseReason))
     { // change within "ptDisk" or we can close the current path, we try to open a new one
-        char changedPath[MAX_PATH];
+        char changedPath[2 * MAX_PATH];
         strcpy(changedPath, path);
         BOOL tryNet = !CriticalShutdown && ((!Is(ptDisk) && !Is(ptZIPArchive)) || !HasTheSameRootPath(path, GetPath()));
 
