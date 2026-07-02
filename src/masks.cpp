@@ -4,6 +4,43 @@
 
 #include "precomp.h"
 
+namespace
+{
+bool NormalizeStringC(const wchar_t* text, int len, std::wstring& normalized)
+{
+    normalized.erase();
+    if (text == NULL)
+        return true;
+    if (len < 0)
+        len = (int)wcslen(text);
+    if (len == 0)
+        return true;
+
+    int required = NormalizeString(NormalizationC, text, len, NULL, 0);
+    if (required <= 0)
+    {
+        normalized.assign(text, len);
+        return false;
+    }
+    normalized.resize(required);
+    int written = NormalizeString(NormalizationC, text, len, &normalized[0], required);
+    if (written <= 0)
+    {
+        normalized.assign(text, len);
+        return false;
+    }
+    normalized.resize(written);
+    return true;
+}
+
+std::wstring NormalizeStringC(const wchar_t* text)
+{
+    std::wstring normalized;
+    NormalizeStringC(text, -1, normalized);
+    return normalized;
+}
+}
+
 //
 //*****************************************************************************
 // Functions for wildcard operations
@@ -353,7 +390,11 @@ BOOL AgreeQSMaskW(const wchar_t* filename, BOOL hasExtension, const wchar_t* mas
     offset = 0;
     if (filename == NULL || mask == NULL)
         return FALSE;
-    return AgreeQSMaskAuxW(filename, hasExtension, filename, mask, wholeString, offset);
+
+    std::wstring filenameNorm = NormalizeStringC(filename);
+    std::wstring maskNorm = NormalizeStringC(mask);
+    return AgreeQSMaskAuxW(filenameNorm.c_str(), hasExtension, filenameNorm.c_str(),
+                           maskNorm.c_str(), wholeString, offset);
 }
 
 BOOL AgreeQSMask(const char* filename, BOOL hasExtension, const char* mask, BOOL wholeString, int& offset)
@@ -844,6 +885,8 @@ BOOL CMaskGroup::AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt)
     if (fileName == NULL)
         return FALSE;
 
+    std::wstring normalizedFileName = NormalizeStringC(fileName);
+    std::wstring normalizedFileExt;
     if (fileExt == NULL)
     {
         int tmpLen = (int)wcslen(fileName);
@@ -855,9 +898,11 @@ BOOL CMaskGroup::AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt)
         else
             fileExt++;
     }
+    NormalizeStringC(fileExt, -1, normalizedFileExt);
     const wchar_t* ext = fileExt;
     if (*ext == 0 && *fileName == L'.' && ext > fileName && *(ext - 1) != L'.')
-        ext = fileName + 1;
+        NormalizeStringC(fileName + 1, -1, normalizedFileExt);
+    ext = normalizedFileExt.c_str();
 
     int i;
     for (i = 0; i < PreparedMasks.Count; i++)
@@ -873,12 +918,13 @@ BOOL CMaskGroup::AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt)
             const char* maskText = flags->Optimize == MASK_OPTIMIZE_EXTENSION ? mask + 3 : mask + 1;
             if (!MaskTextToWide(maskText, -1, maskW))
                 continue;
+            maskW = NormalizeStringC(maskW.c_str());
 
             BOOL matched;
             if (flags->Optimize == MASK_OPTIMIZE_EXTENSION)
                 matched = WideICmp(ext, maskW.c_str()) == 0;
             else
-                matched = AgreeMaskWCore(fileName, maskW.c_str(), *fileExt != 0, ExtendedMode);
+                matched = AgreeMaskWCore(normalizedFileName.c_str(), maskW.c_str(), *fileExt != 0, ExtendedMode);
 
             if (matched)
                 return flags->Exclude == 1 ? FALSE : TRUE;
@@ -894,7 +940,8 @@ BOOL CMaskGroup::AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt)
             while (item != NULL && item->Mask != NULL)
             {
                 std::wstring maskW;
-                if (MaskTextToWide(((char*)item->Mask) + 3, -1, maskW) && WideICmp(ext, maskW.c_str()) == 0)
+                if (MaskTextToWide(((char*)item->Mask) + 3, -1, maskW) &&
+                    WideICmp(ext, NormalizeStringC(maskW.c_str()).c_str()) == 0)
                     return TRUE;
                 item = item->Next;
             }
