@@ -1858,6 +1858,9 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
 
 CChangeDirDlg::CChangeDirDlg(HWND parent, char* path, BOOL* sendDirectlyToPlugin) : CCommonDialog(HLanguage, IDD_CHANGEDIR, IDD_CHANGEDIR, parent)
 {
+#ifndef _UNICODE
+    UnicodeWnd = TRUE; // keep Unicode text from the combo edit (emoji/CJK/etc.) lossless
+#endif // _UNICODE
     Path = path;
     SendDirectlyToPlugin = sendDirectlyToPlugin;
 }
@@ -1893,10 +1896,21 @@ CChangeDirDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        HWND hPath = GetDlgItem(HWindow, IDE_PATH);
+        HWND hPathEdit = ResolveComboEditControl(hPath);
+        const BOOL unicodePathInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
+
         if (SendDirectlyToPlugin == NULL)
             EnableWindow(GetDlgItem(HWindow, IDC_SENDDIRECTTOPLG), FALSE);
-        InstallWordBreakProc(GetDlgItem(HWindow, IDE_PATH));    // install WordBreakProc into the combobox
-        CreateKeyForwarder(HWindow, IDE_PATH);                  // so that we receive WM_USER_KEYDOWN
+        // Keep Unicode combo edits away from the legacy ANSI subclasses.  The
+        // same pattern is used by copy/move/create directory/quick rename; the
+        // ANSI subclass path makes Windows emoji picker and other non-ACP text
+        // arrive as '?'.
+        if (!unicodePathInput)
+        {
+            InstallWordBreakProc(hPath);       // install WordBreakProc into the combobox
+            CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
+        }
         ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right
 
         CHyperLink* hl = new CHyperLink(HWindow, IDC_CHANGEDIR_HINT, STF_DOTUNDERLINE);

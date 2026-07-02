@@ -120,7 +120,9 @@ HANDLE SalFindFirstFileHW(const char* fileName, LPWIN32_FIND_DATAW findData)
         return INVALID_HANDLE_VALUE;
     }
 
-    std::wstring wideName = SalMultiByteToWidePath(fileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    std::wstring wideName = SalMultiByteToWidePath(fileName, CP_UTF8);
+    if (wideName.empty() && GetACP() != CP_UTF8)
+        wideName = SalMultiByteToWidePath(fileName, CP_ACP);
     if (wideName.empty())
     {
         SetLastError(ERROR_INVALID_NAME);
