@@ -241,6 +241,7 @@
 #define IDC_DRVSPEC_CDROMSIMPLE         486
 #define IDC_DRVSPEC_REMOTEACT           487
 #define IDE_DRVSPEC_ONERRGOTO           488
+#define IDC_DRVSPEC_LONGPATHS           489
 #define IDD_ZIPUNPACKPROG               490
 #define IDC_ZIPSUMMARY                  496
 #define IDD_ZIPUNPACKPROG2              497
