@@ -10,6 +10,19 @@
 #include "mainwnd.h"
 #include "salinflt.h"
 
+static int Utf8CharLen(unsigned char c)
+{
+    if (c < 0x80)
+        return 1;
+    if ((c & 0xE0) == 0xC0)
+        return 2;
+    if ((c & 0xF0) == 0xE0)
+        return 3;
+    if ((c & 0xF8) == 0xF0)
+        return 4;
+    return 1;
+}
+
 //****************************************************************************
 //
 // CTruncatedString
@@ -411,6 +424,18 @@ BOOL CTruncatedString::TruncateText(HWND hWindow, BOOL forMessageBox)
                         int prev = index > 0 ? alpDx[index - 1] : 0;
                         width -= (alpDx[index] - prev);
                         index--;
+                        // don't split a surrogate pair: if index now points to a
+                        // high surrogate (D800-DBFF) followed by a low surrogate
+                        // (DC00-DFFF), retreat one more to remove the whole pair
+                        if (index >= SubStrIndex &&
+                            TextW[index] >= 0xD800 && TextW[index] <= 0xDBFF &&
+                            index + 1 < textLen &&
+                            TextW[index + 1] >= 0xDC00 && TextW[index + 1] <= 0xDFFF)
+                        {
+                            prev = index > 0 ? alpDx[index - 1] : 0;
+                            width -= (alpDx[index] - prev);
+                            index--;
+                        }
                     }
                     int keep = index + 1;
                     memcpy(TruncatedTextW, TextW, keep * sizeof(wchar_t));
@@ -489,8 +514,14 @@ BOOL CTruncatedString::TruncateText(HWND hWindow, BOOL forMessageBox)
                 maxWidth -= ellipsisWidth;
                 while (width > maxWidth && index >= SubStrIndex)
                 {
-                    width -= (alpDx[index] - alpDx[index - 1]);
-                    index--;
+                    // retreat by one whole UTF-8 character
+                    int charLen = Utf8CharLen((unsigned char)Text[index]);
+                    if (index - charLen + 1 < SubStrIndex)
+                        charLen = index - SubStrIndex + 1;
+                    int charStart = index - charLen + 1;
+                    int prevCumul = charStart > 0 ? alpDx[charStart - 1] : 0;
+                    width -= (alpDx[index] - prevCumul);
+                    index -= charLen;
                 }
                 // the first part with the shortened substring
                 memcpy(TruncatedText, Text, index);

@@ -13,6 +13,19 @@
 #include "svg.h"
 #include "darkmode.h"
 
+static int Utf8CharLen(unsigned char c)
+{
+    if (c < 0x80)
+        return 1;
+    if ((c & 0xE0) == 0xC0)
+        return 2;
+    if ((c & 0xF0) == 0xE0)
+        return 3;
+    if ((c & 0xF8) == 0xF0)
+        return 4;
+    return 1;
+}
+
 static COLORREF GetPanelDefaultTextColor()
 {
     return DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
@@ -984,11 +997,14 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     int iter = HotTrackItems[0].Chars;
                     while (len > textWidth - TextEllipsisWidthEnv && iter < TextLen)
                     {
-                        int charWidth = AlpDX[iter] - AlpDX[iter - 1];
+                        int charLen = Utf8CharLen((unsigned char)Text[iter]);
+                        if (iter + charLen > TextLen)
+                            charLen = TextLen - iter;
+                        int charWidth = AlpDX[iter + charLen - 1] - (iter > 0 ? AlpDX[iter - 1] : 0);
                         len -= charWidth;
-                        iter++;
+                        iter += charLen;
 
-                        EllipsedChars++;
+                        EllipsedChars += charLen;
                         EllipsedWidth += charWidth;
                     }
                     visibleChars = TextLen - iter;
@@ -1000,7 +1016,24 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     // za ktery lze nakopirovat "..."
                     while (visibleChars > 0 &&
                            AlpDX[visibleChars - 1] + TextEllipsisWidthEnv > textWidth)
-                        visibleChars--;
+                    {
+                        // retreat by one whole UTF-8 character
+                        unsigned char lastByte = (unsigned char)Text[visibleChars - 1];
+                        int retreat;
+                        if (lastByte < 0x80)
+                            retreat = 1;
+                        else if ((lastByte & 0xE0) == 0xC0)
+                            retreat = 2;
+                        else if ((lastByte & 0xF0) == 0xE0)
+                            retreat = 3;
+                        else if ((lastByte & 0xF8) == 0xF0)
+                            retreat = 4;
+                        else
+                            retreat = 1; // continuation byte or invalid: shouldn't normally occur at a boundary, fall back to 1
+                        if (retreat > visibleChars)
+                            retreat = visibleChars;
+                        visibleChars -= retreat;
+                    }
                 }
             }
             else
