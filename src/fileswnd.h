@@ -1156,6 +1156,11 @@ public:
                           BOOL refreshListBox = TRUE, BOOL canForce = FALSE, BOOL isRefresh = FALSE,
                           int* failReason = NULL, BOOL shorterPathWarning = TRUE,
                           int tryCloseReason = FSTRYCLOSE_CHANGEPATH);
+    BOOL ChangePathToDiskW(HWND parent, const wchar_t* path, int suggestedTopIndex = -1,
+                           const char* suggestedFocusName = NULL, BOOL* noChange = NULL,
+                           BOOL refreshListBox = TRUE, BOOL canForce = FALSE, BOOL isRefresh = FALSE,
+                           int* failReason = NULL, BOOL shorterPathWarning = TRUE,
+                           int tryCloseReason = FSTRYCLOSE_CHANGEPATH);
     // changes to an archive path; only absolute Windows paths are allowed (archive is UNC or C:\path\archive)
     // if suggestedTopIndex != -1, the top index will be set;
     // if suggestedFocusName != NULL, and present in the new list, it will be focused;
