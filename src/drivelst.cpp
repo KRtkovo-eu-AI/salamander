@@ -1278,6 +1278,13 @@ HICON ConvertIcon16x16ToGray(HICON hSrcIcon)
 
 const char Base64Table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+static void StoreByte(char* data, int& index, DWORD value)
+{
+    unsigned char byteValue = (unsigned char)(value & 0xFF);
+    memcpy(data + index, &byteValue, 1);
+    index++;
+}
+
 // performs in-place decode from base64; returns success;
 // except of the state when 'input_length' is zero, returns zero-terminated string
 BOOL base64_decode(char* data, int input_length, int* output_length, const char* errPrefix)
@@ -1314,11 +1321,11 @@ BOOL base64_decode(char* data, int input_length, int* output_length, const char*
         DWORD triple = (sextet_a << 3 * 6) + (sextet_b << 2 * 6) + (sextet_c << 1 * 6) + (sextet_d << 0 * 6);
 
         if (j < *output_length)
-            data[j++] = (triple >> 2 * 8) & 0xFF;
+            StoreByte(data, j, triple >> 2 * 8);
         if (j < *output_length)
-            data[j++] = (triple >> 1 * 8) & 0xFF;
+            StoreByte(data, j, triple >> 1 * 8);
         if (j < *output_length)
-            data[j++] = (triple >> 0 * 8) & 0xFF;
+            StoreByte(data, j, triple >> 0 * 8);
     }
     if (*output_length > 0)
         data[*output_length] = 0;
@@ -2067,6 +2074,8 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                     drv.HIcon = icon;
                     drv.HGrayIcon = NULL;
                     drv.DestroyIcon = destroyIcon;
+                    if (drv.DestroyIcon && drv.HIcon != NULL)
+                        HANDLES_ADD(__htIcon, __hoLoadImage, drv.HIcon);
                     drv.PluginFS = fs->GetInterface();
                     drv.DriveType = (fs == nonactivePanelFS ? drvtPluginFSInOtherPanel : drvtPluginFS);
                     int index = Drives->Add(drv);
@@ -2306,6 +2315,8 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                             drv.HIcon = icon;
                             drv.HGrayIcon = NULL;
                             drv.DestroyIcon = destroyIcon; // we are driven by the plugin
+                            if (drv.DestroyIcon && drv.HIcon != NULL)
+                                HANDLES_ADD(__htIcon, __hoLoadImage, drv.HIcon);
                         }
                         else // standard
                         {

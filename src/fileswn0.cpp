@@ -54,7 +54,7 @@ namespace
         WCHAR wide[3] = {0, 0, 0};
         if (wParam <= 0xFFFF)
         {
-            wide[0] = (WCHAR)wParam;
+            wide[0] = (WCHAR)(wParam & 0xFFFF);
         }
         else if (wParam <= 0x10FFFF)
         {
