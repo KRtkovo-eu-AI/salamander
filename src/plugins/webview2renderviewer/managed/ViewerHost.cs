@@ -9,6 +9,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -26,6 +27,10 @@ internal static class ViewerHost
     private static readonly HashSet<ViewerSession> s_activeSessions = new();
     private static readonly ManualResetEventSlim s_sessionsDrained = new(true);
     private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(5);
+    // WebView2 WinForms 1.0.2420.47 does not expose the controller publicly, but
+    // the controller is the only place where AcceleratorKeyPressed can intercept
+    // Escape before the built-in PDF viewer consumes it.
+    private static readonly FieldInfo? s_webView2ControllerField = typeof(WebView2).GetField("_coreWebView2Controller", BindingFlags.Instance | BindingFlags.NonPublic);
     private const string EscapeScript = "(function(){if(window.chrome&&window.chrome.webview&&document){document.addEventListener('keydown',function(ev){if(ev&&ev.key==='Escape'){ev.preventDefault();try{window.chrome.webview.postMessage('escape');}catch(e){}}});}})();";
 
     public static int Launch(IntPtr parent, string payload, bool asynchronous)
@@ -647,7 +652,7 @@ internal static class ViewerHost
                 _browserCore = core;
                 _browserCore.WebMessageReceived += OnBrowserWebMessageReceived;
 
-                _browserController = browser.CoreWebView2Controller;
+                _browserController = TryGetBrowserController(browser);
                 if (_browserController is not null)
                 {
                     _browserController.AcceleratorKeyPressed += OnBrowserAcceleratorKeyPressed;
@@ -939,6 +944,11 @@ internal static class ViewerHost
             {
                 CloseFromBrowserInput();
             }
+        }
+
+        private static CoreWebView2Controller? TryGetBrowserController(WebView2 browser)
+        {
+            return s_webView2ControllerField?.GetValue(browser) as CoreWebView2Controller;
         }
 
         private void OnBrowserAcceleratorKeyPressed(object? sender, CoreWebView2AcceleratorKeyPressedEventArgs e)
