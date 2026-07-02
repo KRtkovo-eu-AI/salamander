@@ -356,7 +356,7 @@ const char* SHELLEXECUTE_CLASSNAME = "SalamanderShellExecute";
 CAssociations Associations; // asociace nactene z registry
 CShares Shares;
 
-char DefaultDir['Z' - 'A' + 1][MAX_PATH];
+char DefaultDir['Z' - 'A' + 1][32768];
 
 HACCEL AccelTable1 = NULL;
 HACCEL AccelTable2 = NULL;
@@ -3449,7 +3449,7 @@ void InitDefaultDir()
     for (d = 'A'; d <= 'Z'; d++)
     {
         dir[0] = d;
-        strcpy(DefaultDir[d - 'A'], dir);
+        lstrcpyn(DefaultDir[d - 'A'], dir, _countof(DefaultDir[d - 'A']));
     }
 }
 
