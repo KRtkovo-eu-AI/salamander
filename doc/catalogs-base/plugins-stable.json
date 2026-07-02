@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "catalogName": "Stable",
-  "generatedAt": "2026-06-29T00:00:00Z",
+  "generatedAt": "2026-07-02T22:59:23Z",
   "plugins": [
     {
       "id": "7zip",
@@ -57,40 +57,6 @@
         "spanish": "Automatiza tareas comunes por medio de scripts."
       },
       "latestVersion": "1.7 (x64)",
-      "versionScheme": "fileversion",
-      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
-    },
-    {
-      "id": "checksum",
-      "name": {
-        "english": "Checksum",
-        "chinesesimplified": "校验和",
-        "czech": "Kontrolní součet",
-        "german": "Prüfsumme",
-        "dutch": "Controlesom",
-        "hungarian": "Ellenőrzőösszeg",
-        "russian": "Контрольная сумма",
-        "french": "Checksum",
-        "slovak": "Kontrolný súčet",
-        "romanian": "Checksum",
-        "spanish": "Suma de comprobación"
-      },
-      "author": "Open Salamander Authors",
-      "description": {
-        "english": "Checksum plugin for Open Salamander",
-        "chinesesimplified": "SFV, MD5, SHA-1, SHA-256, 及 SHA-512 校验和验证器和计算器。",
-        "czech": "Ověření a výpočet SFV, MD5, SHA-1, SHA-256 a SHA-512 kontrolního součtu.",
-        "german": "SFV-, MD5-, SHA-1-, SHA-256 und SHA-512-Prüfsummen verifizieren/berechnen.",
-        "dutch": "Bereken en controleren van SFV, MD5, SHA-1, SHA-256, en SHA-512 checksum.",
-        "hungarian": "SFV, MD5, SHA-1, SHA-256, és SHA-512 ellenőrzőösszeg vizsgálata és számítása.",
-        "russian": "Вычисление и верификация контрольных сумм SFV, MD5, SHA-1, SHA-256, и SHA-512.",
-        "french": "Vérification et calcul de checksums SFV, MD5, SHA-1, SHA-256, et SHA-512.",
-        "slovak": "Overenie a výpočet SFV, MD5, SHA-1, SHA-256, a SHA-512 kontrolného súčtu.",
-        "romanian": "SFV, MD5, SHA-1, SHA-256, si SHA-512 checksum verificator si calculator.",
-        "spanish": "Verificador y calculador de sumas SFV, MD5, SHA-1, SHA-256 y SHA-512."
-      },
-      "latestVersion": "2.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -226,7 +192,7 @@
         "spanish": "Navega por carpetas como Escritorio, Panel de control, Papelera, etc.",
         "chinesesimplified": "浏览文件夹，如桌面、控制面板、回收站等。"
       },
-      "latestVersion": "0.1 (x64)",
+      "latestVersion": "0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -260,7 +226,7 @@
         "romanian": "Transferul fisierelor si directoarelor prin FTP.",
         "spanish": "Transferencia de ficheros y directorios por FTP."
       },
-      "latestVersion": "1.35 (x64)",
+      "latestVersion": "1.36 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -294,7 +260,41 @@
         "romanian": "Afișează mașinile virtuale Hyper-V locale în panou.",
         "spanish": "Mostrar las máquinas virtuales locales de Hyper-V en el panel."
       },
-      "latestVersion": "1.05 (x64)",
+      "latestVersion": "1.06 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "checksum",
+      "name": {
+        "english": "Checksum",
+        "chinesesimplified": "校验和",
+        "czech": "Kontrolní součet",
+        "german": "Prüfsumme",
+        "dutch": "Controlesom",
+        "hungarian": "Ellenőrzőösszeg",
+        "russian": "Контрольная сумма",
+        "french": "Checksum",
+        "slovak": "Kontrolný súčet",
+        "romanian": "Checksum",
+        "spanish": "Suma de comprobación"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Checksum plugin for Open Salamander",
+        "chinesesimplified": "SFV, MD5, SHA-1, SHA-256, 及 SHA-512 校验和验证器和计算器。",
+        "czech": "Ověření a výpočet SFV, MD5, SHA-1, SHA-256 a SHA-512 kontrolního součtu.",
+        "german": "SFV-, MD5-, SHA-1-, SHA-256 und SHA-512-Prüfsummen verifizieren/berechnen.",
+        "dutch": "Bereken en controleren van SFV, MD5, SHA-1, SHA-256, en SHA-512 checksum.",
+        "hungarian": "SFV, MD5, SHA-1, SHA-256, és SHA-512 ellenőrzőösszeg vizsgálata és számítása.",
+        "russian": "Вычисление и верификация контрольных сумм SFV, MD5, SHA-1, SHA-256, и SHA-512.",
+        "french": "Vérification et calcul de checksums SFV, MD5, SHA-1, SHA-256, et SHA-512.",
+        "slovak": "Overenie a výpočet SFV, MD5, SHA-1, SHA-256, a SHA-512 kontrolného súčtu.",
+        "romanian": "SFV, MD5, SHA-1, SHA-256, si SHA-512 checksum verificator si calculator.",
+        "spanish": "Verificador y calculador de sumas SFV, MD5, SHA-1, SHA-256 y SHA-512."
+      },
+      "latestVersion": "2.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -430,7 +430,7 @@
         "romanian": "Da acces computerelor la retea.",
         "spanish": "Proporciona acceso a los ordenadores de la red."
       },
-      "latestVersion": "1.08 (x64)",
+      "latestVersion": "1.09 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -566,7 +566,7 @@
         "romanian": "Gestionați dispozitivele portabile.",
         "spanish": "Administrar dispositivos portátiles."
       },
-      "latestVersion": "0.2 (x64)",
+      "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -600,7 +600,7 @@
         "romanian": "Rasfoieste, vizualizeaza si modifica Registri Windows.",
         "spanish": "Hojear, ver y modificar el registro de Windows."
       },
-      "latestVersion": "1.14 (x64)",
+      "latestVersion": "1.15 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -634,7 +634,7 @@
         "romanian": "Pentru redenumire in grup complexa, cu verificare in timp real.",
         "spanish": "Potente utilidad de cambio de nombre con previsualización real."
       },
-      "latestVersion": "1.13 (x64)",
+      "latestVersion": "1.14 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -702,7 +702,7 @@
         "romanian": "Răsfoiește și configurează servicii.",
         "spanish": "Examinar y configurar servicios."
       },
-      "latestVersion": "0.012 (x64)",
+      "latestVersion": "0.013 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -818,7 +818,7 @@
       "description": {
         "english": "UnARJ plugin for Open Salamander"
       },
-      "latestVersion": "1.21 (x64)",
+      "latestVersion": "1.22 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -832,21 +832,7 @@
       "description": {
         "english": "UnCAB plugin for Open Salamander"
       },
-      "latestVersion": "1.27 (x64)",
-      "versionScheme": "fileversion",
-      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
-    },
-    {
-      "id": "unchm",
-      "name": {
-        "english": "UnCHM"
-      },
-      "author": "Open Salamander Authors",
-      "description": {
-        "english": "UnCHM plugin for Open Salamander"
-      },
-      "latestVersion": "1.03 (x64)",
+      "latestVersion": "1.28 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -880,7 +866,7 @@
         "romanian": "Recupereaza fisiere sterse de pe partitii FAT sau NTFS.",
         "spanish": "Recupera ficheros borrados desde particiones FAT o NTFS."
       },
-      "latestVersion": "1.11 (x64)",
+      "latestVersion": "1.12 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -894,7 +880,21 @@
       "description": {
         "english": "UnFAT plugin for Open Salamander"
       },
-      "latestVersion": "1.1 (x64)",
+      "latestVersion": "1.2 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "unchm",
+      "name": {
+        "english": "UnCHM"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnCHM plugin for Open Salamander"
+      },
+      "latestVersion": "1.04 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -908,7 +908,7 @@
       "description": {
         "english": "UnISO plugin for Open Salamander"
       },
-      "latestVersion": "1.37 (x64)",
+      "latestVersion": "1.38 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -942,7 +942,7 @@
         "romanian": "Rasfoieste si extrage arhivele LHA.",
         "spanish": "Hojear y extraer archivos LHA."
       },
-      "latestVersion": "1.13 (x64)",
+      "latestVersion": "1.14 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -976,7 +976,7 @@
         "romanian": "Rasfoieste si extrage fisierele MIME/Base64, UU/XXEncode, yEncode si BinHex.",
         "spanish": "Hojear y extraer ficheros MIME/Base64, UU/XXEncode, yEncode y BinHex."
       },
-      "latestVersion": "1.14 (x64)",
+      "latestVersion": "1.15 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -990,7 +990,7 @@
       "description": {
         "english": "UnOLE plugin for Open Salamander"
       },
-      "latestVersion": "1.01 (x64)",
+      "latestVersion": "1.02 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -1004,7 +1004,7 @@
       "description": {
         "english": "UnRAR plugin for Open Salamander"
       },
-      "latestVersion": "3.01 (x64)",
+      "latestVersion": "3.02 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -1038,7 +1038,7 @@
         "romanian": "Vizualizator care afișează HTML redat, Markdown și documente web utilizând WebView2.",
         "spanish": "Visor que muestra HTML, Markdown y documentos web renderizados mediante WebView2."
       },
-      "latestVersion": "1.0 (x64)",
+      "latestVersion": "1.01 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -1072,7 +1072,7 @@
         "romanian": "Acceseaza fisierele pe dispozitivul dvs Windows Mobile.",
         "spanish": "Acceder a ficheros en dispositivo Windows Mobile."
       },
-      "latestVersion": "1.08 (x64)",
+      "latestVersion": "1.09 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -1106,7 +1106,7 @@
         "romanian": "Creaza, rasfoieste, si extrage arhivele ZIP.",
         "spanish": "Crear, hojear y extraer archivos ZIP."
       },
-      "latestVersion": "1.4 (x64)",
+      "latestVersion": "1.5 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
