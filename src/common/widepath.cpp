@@ -112,6 +112,27 @@ const wchar_t* SalPathFindFileNameW(const wchar_t* path)
     return last;
 }
 
+HANDLE SalFindFirstFileHW(const char* fileName, LPWIN32_FIND_DATAW findData)
+{
+    if (fileName == NULL || findData == NULL)
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return INVALID_HANDLE_VALUE;
+    }
+
+    std::wstring wideName = SalMultiByteToWidePath(fileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    if (wideName.empty())
+    {
+        SetLastError(ERROR_INVALID_NAME);
+        return INVALID_HANDLE_VALUE;
+    }
+
+    if (wideName.length() >= MAX_PATH && !SalIsExtendedLengthPathW(wideName.c_str()))
+        wideName = SalPathAddExtendedPrefixW(wideName.c_str());
+
+    return HANDLES_Q(FindFirstFileW(wideName.c_str(), findData));
+}
+
 wchar_t* BuildNameW(const wchar_t* path, const wchar_t* name, const wchar_t* dosName,
                     BOOL* skip, BOOL* skipAll, const wchar_t* sourcePath)
 {

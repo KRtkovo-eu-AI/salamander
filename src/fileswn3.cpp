@@ -17,6 +17,7 @@
 #include "snooper.h"
 #include "zip.h"
 #include "shiconov.h"
+#include "common/widepath.h"
 
 namespace
 {
@@ -2289,7 +2290,7 @@ CHANGE_AGAIN:
                         DWORD copyAttr;
                         int copyLen;
                         copyLen = (int)strlen(copy);
-                        if (copyLen >= MAX_PATH)
+                        if (copyLen >= 2 * MAX_PATH + 10 - 1)
                         {
                             if (*end != 0 && !SalPathAppend(copy, end + 1, 2 * MAX_PATH)) // if the so far processed part of the path is enlengthened and the rest of the path does not fit, we will use the original form of the path
                                 strcpy(copy, path);
@@ -2299,7 +2300,10 @@ CHANGE_AGAIN:
                         }
                         if (copyLen > 0 && (copy[copyLen - 1] <= ' ' || copy[copyLen - 1] == '.'))
                         {
-                            copyAttr = SalGetFileAttributes(copy);
+                            std::wstring copyW = SalMultiByteToWidePath(copy, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                            if (copyW.length() >= MAX_PATH)
+                                copyW = SalPathAddExtendedPrefixW(copyW.c_str());
+                            copyAttr = GetFileAttributesW(copyW.c_str());
                             pathEndsWithSpaceOrDot = copyAttr != INVALID_FILE_ATTRIBUTES;
                         }
                         else
@@ -2307,10 +2311,10 @@ CHANGE_AGAIN:
                             pathEndsWithSpaceOrDot = FALSE;
                         }
 
-                        WIN32_FIND_DATA find;
+                        WIN32_FIND_DATAW find;
                         HANDLE h;
                         if (!pathEndsWithSpaceOrDot)
-                            h = HANDLES_Q(FindFirstFile(copy, &find));
+                            h = SalFindFirstFileHW(copy, &find);
                         else
                             h = INVALID_HANDLE_VALUE;
                         DWORD err;
@@ -2330,14 +2334,14 @@ CHANGE_AGAIN:
                                     memcpy(st, s, end - s);
                                     st[end - s] = 0;
                                     s = end;
-                                    if ((int)strlen(copy) >= MAX_PATH) // too long path, we're finished...
+                                    if ((int)strlen(copy) >= 2 * MAX_PATH + 10 - 1) // too long path, we're finished...
                                     {
                                         h = INVALID_HANDLE_VALUE;
                                         break;
                                     }
                                     else
                                     {
-                                        h = HANDLES_Q(FindFirstFile(copy, &find));
+                                        h = SalFindFirstFileHW(copy, &find);
                                         if (h != INVALID_HANDLE_VALUE)
                                             break; // we've found an accessible component, continuing...
                                         err = GetLastError();
@@ -2348,9 +2352,9 @@ CHANGE_AGAIN:
                                 }
                                 if (*end == 0 && h == INVALID_HANDLE_VALUE) // another accessible component not found, we will try if the current path can be listed
                                 {
-                                    if ((int)strlen(copy) < MAX_PATH && SalPathAppend(copy, "*.*", MAX_PATH + 10))
+                                    if ((int)strlen(copy) < 2 * MAX_PATH && SalPathAppend(copy, "*.*", 2 * MAX_PATH + 10))
                                     {
-                                        h = HANDLES_Q(FindFirstFile(copy, &find));
+                                        h = SalFindFirstFileHW(copy, &find);
                                         CutDirectory(copy);
                                         if (h != INVALID_HANDLE_VALUE) // the path can be listed
                                         {
@@ -2390,14 +2394,16 @@ CHANGE_AGAIN:
                             if (h != INVALID_HANDLE_VALUE)
                             {
                                 HANDLES(FindClose(h));
-                                int len2 = (int)strlen(find.cFileName); // must fit (only the size of letters is changed - result of FindFirstFile)
+                                char cFileNameA[MAX_PATH];
+                                WideCharToMultiByte(CP_ACP, 0, find.cFileName, -1, cFileNameA, MAX_PATH, NULL, NULL);
+                                int len2 = (int)strlen(cFileNameA); // must fit (only the size of letters is changed - result of FindFirstFile)
                                 if ((int)strlen(st + 1) != len2)        // it does e.g. for "aaa  " returns "aaa", reproduce: Paste (text without quotes): "   "   %TEMP%\aaa   "   "
                                 {
                                     TRACE_E("CFilesWindow::ChangeDir(): unexpected situation: FindFirstFile returned name with "
                                             "different length: \""
-                                            << find.cFileName << "\" for \"" << (st + 1) << "\"");
+                                            << cFileNameA << "\" for \"" << (st + 1) << "\"");
                                 }
-                                memcpy(st + 1, find.cFileName, len2);
+                                memcpy(st + 1, cFileNameA, len2);
                                 st += 1 + len2;
                                 *st = 0;
                             }

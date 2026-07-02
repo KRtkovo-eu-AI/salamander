@@ -41,6 +41,7 @@ std::wstring SalMultiByteToWidePath(const char* path, UINT codePage = CP_ACP);
 std::string SalWideToMultiBytePath(const wchar_t* path, UINT codePage = CP_ACP);
 BOOL SalPathAppendW(std::wstring& path, const wchar_t* name);
 const wchar_t* SalPathFindFileNameW(const wchar_t* path);
+HANDLE SalFindFirstFileHW(const char* fileName, LPWIN32_FIND_DATAW findData);
 wchar_t* BuildNameW(const wchar_t* path, const wchar_t* name, const wchar_t* dosName,
                     BOOL* skip, BOOL* skipAll, const wchar_t* sourcePath);
 BOOL SalGetFullNameW(std::wstring& name, int* errTextID, const wchar_t* curDir,
