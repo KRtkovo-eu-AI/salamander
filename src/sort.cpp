@@ -45,10 +45,10 @@ int CompareWideFileNames(const CFileData& f1, const CFileData& f2, BOOL ignoreCa
 
 BOOL ShouldCompareFileNamesWide(const CFileData& f1, const CFileData& f2)
 {
-    for (int i = 0; i < f1.NameLen; ++i)
+    for (unsigned i = 0; i < f1.NameLen; ++i)
         if ((unsigned char)f1.Name[i] >= 0x80)
             return TRUE;
-    for (int i = 0; i < f2.NameLen; ++i)
+    for (unsigned i = 0; i < f2.NameLen; ++i)
         if ((unsigned char)f2.Name[i] >= 0x80)
             return TRUE;
     return f1.UseWideName() || f2.UseWideName() || GetACP() == CP_UTF8;
