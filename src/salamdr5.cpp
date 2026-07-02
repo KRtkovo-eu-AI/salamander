@@ -11,6 +11,7 @@
 #include "pack.h"
 #include "codetbl.h"
 #include "dialogs.h"
+#include "common/widepath.h"
 
 CSystemPolicies SystemPolicies;
 
