@@ -866,6 +866,7 @@ protected:
     BOOL FocusIfPathIsInaccessibleGoTo;   // TRUE = to set focus to the "If Path Is Inaccessible Go To" edit box
     BOOL Win32LongPathsEnabled;           // cached HKLM\...\FileSystem\LongPathsEnabled value
     BOOL Win32LongPathsCanWrite;          // TRUE = this process can change LongPathsEnabled
+    HWND HWin32LongPathsToolTip;          // tooltip explaining disabled Win32 long paths checkbox
 
 public:
     CCfgPageDrives(BOOL focusIfPathIsInaccessibleGoTo);
