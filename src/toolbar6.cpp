@@ -191,7 +191,7 @@ void CDriveBar::Execute(DWORD id)
             case drvtCDROM:
             case drvtRAMDisk:
             {
-                char drive = (char)DriveTypeParam;
+                char drive = (char)(DriveTypeParam & 0xFF);
                 panel->ChangePathToDisk(HWindow, DefaultDir[LowerCase[drive] - 'a'], -1, NULL,
                                         NULL, TRUE, FALSE, FALSE, NULL, FALSE);
                 return;

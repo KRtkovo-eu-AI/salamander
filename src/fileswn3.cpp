@@ -2739,7 +2739,7 @@ void CFilesWindow::ChangeDrive(char drive)
         case drvtCDROM:
         case drvtRAMDisk:
         {
-            drive = (char)LOWORD(driveTypeParam);
+            drive = (char)(LOWORD(driveTypeParam) & 0xFF);
 
             UpdateWindow(MainWindow->HWindow);
             break;

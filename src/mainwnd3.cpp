@@ -10436,7 +10436,7 @@ MENU_TEMPLATE_ITEM TaskBarIconMenu[] =
         fs->szName[sizeof(fs->szName) / 2 - 1] = 0;
         fs->ftTime = f->LastWrite;
         fs->dwSize = f->Size.LoDWord;
-        fs->bAttr = (BYTE)f->Attr;
+        fs->bAttr = (BYTE)(f->Attr & 0xFF);
         return 0;
     }
 

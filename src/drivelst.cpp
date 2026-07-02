@@ -1308,10 +1308,10 @@ BOOL base64_decode(char* data, int input_length, int* output_length, const char*
 
     for (int i = 0, j = 0; i < input_length;)
     {
-        DWORD sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        DWORD sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        DWORD sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        DWORD sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        DWORD sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char)(data[i++] & 0xFF)];
+        DWORD sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char)(data[i++] & 0xFF)];
+        DWORD sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char)(data[i++] & 0xFF)];
+        DWORD sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char)(data[i++] & 0xFF)];
 
         if (sextet_a == 0xFF || sextet_b == 0xFF || sextet_c == 0xFF || sextet_d == 0xFF)
         {
@@ -1714,7 +1714,10 @@ HICON GetChangeDriveUserFolderIcon(CDriveTypeEnum driveType, int iconSize)
     {
         SHFILEINFO sfi;
         if (SHGetFileInfo(path, 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON) != 0)
+        {
             icon = sfi.hIcon;
+            HANDLES_ADD(__htIcon, __hoLoadImage, icon);
+        }
     }
     if (icon == NULL)
         icon = SalLoadIcon(ImageResDLL, 112, iconSize);
@@ -1814,7 +1817,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 drv.HGrayIcon = NULL;
 
                 int index = Drives->Add(drv);
-                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(char)*DriveTypeParam])
+                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(char)(*DriveTypeParam & 0xFF)])
                     currentDiskIndex = index;
             }
         }
@@ -2022,7 +2025,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 separateNextDrive = FALSE;
 
                 int index = Drives->Add(drv);
-                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(char)*DriveTypeParam])
+                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(char)(*DriveTypeParam & 0xFF)])
                     currentDiskIndex = index;
             }
             drive++;
@@ -2214,7 +2217,10 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
             }
         }
         if (destroyOneDriveIco)
+        {
             TRACE_C("CDrivesList::BuildData(): OneDrive icon unused, should never happen");
+            HANDLES(DestroyIcon(oneDriveIco));
+        }
 
         if (sqlite3_Dyn_InOut != NULL)
             delete sqlite3_Dyn_InOut; // release sqlite.dll which is no longer needed
