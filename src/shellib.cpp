@@ -79,10 +79,10 @@ char* CCopyMoveRecord::AllocChars(const wchar_t* name)
     if (name == NULL)
         return NULL;
 
-    int required = WideCharToMultiByte(GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP, 0, name, -1, NULL, 0, NULL, NULL);
+    int required = WideCharToMultiByte(CP_UTF8, 0, name, -1, NULL, 0, NULL, NULL);
     char* newName = required > 0 ? (char*)malloc(required) : NULL;
     if (newName != NULL)
-        WideCharToMultiByte(GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP, 0, name, -1, newName, required, NULL, NULL);
+        WideCharToMultiByte(CP_UTF8, 0, name, -1, newName, required, NULL, NULL);
     else
         TRACE_E(LOW_MEMORY);
     return newName;
@@ -105,12 +105,18 @@ wchar_t* CCopyMoveRecord::AllocWideChars(const char* name)
 {
     if (name == NULL)
         return NULL;
-    int required = MultiByteToWideChar(GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP, 0, name, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    int required = MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, name, -1, NULL, 0);
+    if (required <= 0 && GetACP() != CP_UTF8)
+    {
+        codePage = CP_ACP;
+        required = MultiByteToWideChar(codePage, 0, name, -1, NULL, 0);
+    }
     if (required <= 0)
         return NULL;
     wchar_t* newName = (wchar_t*)malloc(required * sizeof(wchar_t));
     if (newName != NULL)
-        MultiByteToWideChar(GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP, 0, name, -1, newName, required);
+        MultiByteToWideChar(codePage, 0, name, -1, newName, required);
     else
         TRACE_E(LOW_MEMORY);
     return newName;
