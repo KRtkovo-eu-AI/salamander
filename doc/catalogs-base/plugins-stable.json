@@ -1,0 +1,1115 @@
+{
+  "schemaVersion": 2,
+  "catalogName": "Stable",
+  "generatedAt": "2026-06-29T00:00:00Z",
+  "plugins": [
+    {
+      "id": "7zip",
+      "name": {
+        "english": "7-Zip"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "7-Zip plugin for Open Salamander",
+        "chinesesimplified": "创建、浏览和提取 7-Zip 存档。",
+        "czech": "Vytváří, prohlíží a extrahuje 7-Zip archivy.",
+        "german": "Erstellt, durchsucht und entpackt 7-Zip-Archive.",
+        "dutch": "Creëert, blader en pak 7-Zip archiefbestanden uit.",
+        "hungarian": "7-Zip archívumok létrehozása, böngészése és kibontása.",
+        "russian": "Создание, просмотр и извлечение архивов 7-Zip.",
+        "french": "Créer, parcourir et extraire les archives 7-Zip.",
+        "slovak": "Vytvára, prehliada a extrahuje 7-Zip archívy.",
+        "romanian": "Creaza, rasfoieste si extrage arhivele 7-Zip.",
+        "spanish": "Crear, hojear y extraer archivos 7-Zip."
+      },
+      "latestVersion": "1.31 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "automation",
+      "name": {
+        "english": "Automation",
+        "chinesesimplified": "自动化",
+        "czech": "Automatizace",
+        "german": "Automation",
+        "dutch": "Automatisering",
+        "hungarian": "Automation",
+        "russian": "Автоматизация",
+        "french": "Automatisation",
+        "slovak": "Automatizácia",
+        "romanian": "Automat",
+        "spanish": "Automatización"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Automation plugin for Open Salamander",
+        "chinesesimplified": "自动化通用任务使用脚本。",
+        "czech": "Automatizuje běžné úkoly použitím skriptů.",
+        "german": "Automatisiert allgemeine Aufgaben mit Hilfe von Skripts.",
+        "dutch": "Automatiseert algemene taken door scripts.",
+        "hungarian": "Általános feladatok szkriptes automatizálása.",
+        "russian": "Автоматизация регулярных задач с использованием сценариев.",
+        "french": "Automatise les tâches régulières à l'aide de scripts.",
+        "slovak": "Automatizuje bežné úlohy použitím skriptov.",
+        "romanian": "Face in mod automat tasks folosind scripturi.",
+        "spanish": "Automatiza tareas comunes por medio de scripts."
+      },
+      "latestVersion": "1.7 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "checksum",
+      "name": {
+        "english": "Checksum",
+        "chinesesimplified": "校验和",
+        "czech": "Kontrolní součet",
+        "german": "Prüfsumme",
+        "dutch": "Controlesom",
+        "hungarian": "Ellenőrzőösszeg",
+        "russian": "Контрольная сумма",
+        "french": "Checksum",
+        "slovak": "Kontrolný súčet",
+        "romanian": "Checksum",
+        "spanish": "Suma de comprobación"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Checksum plugin for Open Salamander",
+        "chinesesimplified": "SFV, MD5, SHA-1, SHA-256, 及 SHA-512 校验和验证器和计算器。",
+        "czech": "Ověření a výpočet SFV, MD5, SHA-1, SHA-256 a SHA-512 kontrolního součtu.",
+        "german": "SFV-, MD5-, SHA-1-, SHA-256 und SHA-512-Prüfsummen verifizieren/berechnen.",
+        "dutch": "Bereken en controleren van SFV, MD5, SHA-1, SHA-256, en SHA-512 checksum.",
+        "hungarian": "SFV, MD5, SHA-1, SHA-256, és SHA-512 ellenőrzőösszeg vizsgálata és számítása.",
+        "russian": "Вычисление и верификация контрольных сумм SFV, MD5, SHA-1, SHA-256, и SHA-512.",
+        "french": "Vérification et calcul de checksums SFV, MD5, SHA-1, SHA-256, et SHA-512.",
+        "slovak": "Overenie a výpočet SFV, MD5, SHA-1, SHA-256, a SHA-512 kontrolného súčtu.",
+        "romanian": "SFV, MD5, SHA-1, SHA-256, si SHA-512 checksum verificator si calculator.",
+        "spanish": "Verificador y calculador de sumas SFV, MD5, SHA-1, SHA-256 y SHA-512."
+      },
+      "latestVersion": "2.2 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "dbviewer",
+      "name": {
+        "english": "Database Viewer",
+        "chinesesimplified": "数据库查看器",
+        "czech": "Prohlížeč databází",
+        "german": "Datenbank Betrachter",
+        "dutch": "Database Viewer",
+        "hungarian": "Adatbázis néző",
+        "russian": "Средство просмотра баз данных",
+        "french": "Visualiseur de base de données",
+        "slovak": "Prehliadač databáz",
+        "romanian": "Vizualizator baze de date",
+        "spanish": "Visor de bases de datos"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Database Viewer for Open Salamander",
+        "chinesesimplified": "显示 dBase, FoxPro 和 CSV 数据库文件。",
+        "czech": "Zobrazí dBase, FoxPro a CSV soubory databáze.",
+        "german": "Anzeige von dBase, FoxPro und CSV Datenbankdateien.",
+        "dutch": "Weergave dBase, FoxPro en CSV database bestanden.",
+        "hungarian": "dBase, FoxPro és CSV adatbázis fájlok megjelenítése.",
+        "russian": "Позволяет просматривать файлы баз данных dBase, FoxPro и CSV.",
+        "french": "Visualise les fichiers dBase, FoxPro et CSV.",
+        "slovak": "Zobrazí dBase, FoxPro a CSV súbory databázy.",
+        "romanian": "Afiseaza fisiere baza de date tip dBase, FoxPro si CSV.",
+        "spanish": "Ficheros de bases de datos Display dBase, FoxPro y CSV."
+      },
+      "latestVersion": "1.25 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "diskmap",
+      "name": {
+        "english": "DiskMap",
+        "chinesesimplified": "磁盘映像",
+        "czech": "Mapa disku",
+        "german": "DiskMap",
+        "dutch": "SchijfMap",
+        "hungarian": "DiskMap",
+        "russian": "Карта диска",
+        "french": "DiskMap",
+        "slovak": "Mapa disku",
+        "romanian": "DiskMap",
+        "spanish": "Mapa del disco"
+      },
+      "author": "Ondrej Zarevucky",
+      "description": {
+        "english": "DiskMap Plugin for Open Salamander",
+        "chinesesimplified": "用树形图显示你的磁盘上的文件。",
+        "czech": "Zobrazuje stromovou mapu souborů na Vašem disku.",
+        "german": "Zeigt eine strukturelle Abbildung der Dateien eines Laufwerks an.",
+        "dutch": "Illustreert een plattegrond van bestanden op uw schijf.",
+        "hungarian": "A lemez fájljainak faszerkezetét jeleníti meg.",
+        "russian": "Отображает иерархическую структуру данных на диске.",
+        "french": "Affiche un graphique hiérarchique des fichiers sur votre disque.",
+        "slovak": "Zobrazuje stromovú mapu súborov na Vašom disku.",
+        "romanian": "Afiseaza o harta arborescenta a fisierelor de pe disk-ul dumneavoastra.",
+        "spanish": "Muestra un mapa con los ficheros del disco."
+      },
+      "latestVersion": "1.12 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "filecomp",
+      "name": {
+        "english": "File Comparator",
+        "chinesesimplified": "文件比较器",
+        "czech": "Porovnání souborů",
+        "german": "Dateivergleich",
+        "dutch": "Bestandsvergelijker",
+        "hungarian": "Fájlösszehasonlító",
+        "russian": "Сравнение файлов",
+        "french": "Comparateur de fichiers",
+        "slovak": "Porovnanie súborov",
+        "romanian": "Comparator de fișiere",
+        "spanish": "Comparador de archivos"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "File Comparator for Open Salamander",
+        "chinesesimplified": "Open Salamander 的文件比较器",
+        "czech": "Porovnání souborů pro Open Salamander",
+        "german": "Dateivergleich für Open Salamander",
+        "dutch": "Bestandsvergelijker voor Open Salamander",
+        "hungarian": "Fájlösszehasonlító az Open Salamanderhez",
+        "russian": "Сравнение файлов для Open Salamander",
+        "french": "Comparateur de fichiers pour Open Salamander",
+        "slovak": "Porovnanie súborov pre Open Salamander",
+        "romanian": "Comparator de fișiere pentru Open Salamander",
+        "spanish": "Comparador de archivos para Open Salamander"
+      },
+      "latestVersion": "1.19 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "folders",
+      "name": {
+        "english": "Folders",
+        "czech": "Složky",
+        "german": "Ordner",
+        "dutch": "Mappen",
+        "hungarian": "Mappák",
+        "russian": "Папки",
+        "french": "Dossiers",
+        "slovak": "Zložky",
+        "romanian": "Foldere",
+        "spanish": "Carpetas",
+        "chinesesimplified": "文件夹"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Folders plugin for Open Salamander",
+        "czech": "Procházejte složky jako Plocha, Ovládací panely, Koš atd.",
+        "german": "Durchsuchen Sie Ordner wie Desktop, Systemsteuerung, Papierkorb usw.",
+        "dutch": "Blader door mappen zoals Bureaublad, Configuratiescherm, Prullenbak, enz.",
+        "hungarian": "Tallózzon mappák között, mint az Asztal, Vezérlőpult, Lomtár, stb.",
+        "russian": "Просмотр папок, таких как Рабочий стол, Панель управления, Корзина и т.д.",
+        "french": "Parcourez les dossiers tels que Bureau, Panneau de configuration, Corbeille, etc.",
+        "slovak": "Prehliadajte zložky ako Plocha, Ovládací panel, Kôš atď.",
+        "romanian": "Rasfoieste folderele cum ar fi Desktop, Panou de control, Cos de gunoi, etc.",
+        "spanish": "Navega por carpetas como Escritorio, Panel de control, Papelera, etc.",
+        "chinesesimplified": "浏览文件夹，如桌面、控制面板、回收站等。"
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "ftp",
+      "name": {
+        "english": "FTP Client",
+        "chinesesimplified": "FTP 客户端",
+        "czech": "FTP klient",
+        "german": "FTP-Client",
+        "dutch": "FTP Client",
+        "hungarian": "FTP kliens",
+        "russian": "FTP-клиент",
+        "french": "Client FTP",
+        "slovak": "FTP klient",
+        "romanian": "Client FTP",
+        "spanish": "Cliente FTP"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "FTP Client for Open Salamander",
+        "chinesesimplified": "通过 FTP 传输文件和目录。",
+        "czech": "Přenáší soubory a adresáře přes FTP.",
+        "german": "Übertragung von Dateien und Verzeichnissen über FTP.",
+        "dutch": "Overdracht van bestanden en mappen via FTP.",
+        "hungarian": "Fájlok és mappát átvitele FTP-n keresztül.",
+        "russian": "Передача файлов и папок по FTP.",
+        "french": "Transfert de fichiers et répertoires par FTP.",
+        "slovak": "Prenáša súbory a adresáre cez FTP.",
+        "romanian": "Transferul fisierelor si directoarelor prin FTP.",
+        "spanish": "Transferencia de ficheros y directorios por FTP."
+      },
+      "latestVersion": "1.35 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "hypervm",
+      "name": {
+        "english": "Hyper-V Machines",
+        "chinesesimplified": "Hyper-V 虚拟机",
+        "czech": "Stroje Hyper-V",
+        "german": "Hyper-V-Maschinen",
+        "dutch": "Hyper-V-machines",
+        "hungarian": "Hyper-V gépek",
+        "russian": "Машины Hyper-V",
+        "french": "Machines Hyper-V",
+        "slovak": "Stroje Hyper-V",
+        "romanian": "Mașini Hyper-V",
+        "spanish": "Máquinas de Hyper-V"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Managed demo plugin for Open Salamander",
+        "chinesesimplified": "在面板中显示本地 Hyper-V 虚拟机。",
+        "czech": "Zobrazí lokální virtuální počítače Hyper-V v panelu.",
+        "german": "Zeigt lokale Hyper-V-virtuelle Maschinen im Bedienfeld an.",
+        "dutch": "Toon lokale Hyper-V-virtuele machines in het deelvenster.",
+        "hungarian": "Helyi Hyper-V virtuális gépek megjelenítése a panelen.",
+        "russian": "Показывать локальные виртуальные машины Hyper-V на панели.",
+        "french": "Afficher les machines virtuelles Hyper-V locales dans le panneau.",
+        "slovak": "Zobraziť lokálne virtuálne počítače Hyper-V v paneli.",
+        "romanian": "Afișează mașinile virtuale Hyper-V locale în panou.",
+        "spanish": "Mostrar las máquinas virtuales locales de Hyper-V en el panel."
+      },
+      "latestVersion": "1.05 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "ieviewer",
+      "name": {
+        "english": "Internet Explorer Viewer",
+        "chinesesimplified": "Internet Explorer 查看器",
+        "czech": "Prohlížeč Internet Explorer",
+        "german": "Internet Explorer Betrachter",
+        "dutch": "Internet Explorer Viewer",
+        "hungarian": "Internet Explorer Néző",
+        "russian": "Средство просмотра Internet Explorer",
+        "french": "Visualiseur Internet Explorer",
+        "slovak": "Prehliadač Internet Explorer",
+        "romanian": "Vizualizator Internet Explorer",
+        "spanish": "Visor de Internet Explorer"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Internet Explorer Viewer for Open Salamander",
+        "chinesesimplified": "基于 Internet Explorer 的轻量 HTML 和 XML 查看器。",
+        "czech": "Jednoduchý HTML nebo XML prohlížeč založený na Internet Exploreru.",
+        "german": "Schlanker HTML- und XML-Betrachter basierend auf dem Internet Explorer.",
+        "dutch": "Lichtgewicht HTML en XML viewer gebaseerd op Internet Explorer.",
+        "hungarian": "Internet Explorer-re épülő Lightweight HTML és XML néző.",
+        "russian": "Облегченное средство просмотра HTML и XML, использующее Internet Explorer.",
+        "french": "Visualiseur rapide HTML et XML basé sur Internet Explorer.",
+        "slovak": "Jednoduchý HTML alebo XML prehliadač založený na Internet Exploreri.",
+        "romanian": "Lightweight HTML si XML vizualizator bazate pe Internet Explorer.",
+        "spanish": "Visor ligero para HTML y XML basado en Internet Explorer."
+      },
+      "latestVersion": "1.12 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "jsonviewer",
+      "name": {
+        "english": "JSON Viewer .NET",
+        "chinesesimplified": "JSON 查看器 .NET",
+        "czech": "Prohlížeč JSON .NET",
+        "german": "JSON-Viewer .NET",
+        "dutch": "JSON Viewer .NET",
+        "hungarian": "JSON-nézegető .NET",
+        "russian": "Просмотр JSON .NET",
+        "french": "Visionneuse JSON .NET",
+        "slovak": "JSON Viewer .NET",
+        "romanian": "Vizualizator JSON .NET",
+        "spanish": "Visor JSON .NET"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "JSON Viewer .NET plugin for Open Salamander",
+        "chinesesimplified": "内部查看器，使用托管的 WinForms UI 显示 JSON 文档。",
+        "czech": "Interní prohlížeč, který zobrazuje dokumenty JSON pomocí spravovaného uživatelského rozhraní WinForms.",
+        "german": "Interner Viewer, der JSON-Dokumente mit einer verwalteten WinForms-Benutzeroberfläche anzeigt.",
+        "dutch": "Interne viewer die JSON-documenten weergeeft met behulp van een beheerde WinForms-UI.",
+        "hungarian": "Belső nézegető, amely felügyelt WinForms felület segítségével jeleníti meg a JSON dokumentumokat.",
+        "russian": "Встроенный просмотрщик, отображающий документы JSON с помощью управляемого пользовательского интерфейса WinForms.",
+        "french": "Visionneuse interne qui affiche des documents JSON à l’aide d’une interface WinForms managée.",
+        "slovak": "Interný prehliadač, ktorý zobrazuje dokumenty JSON pomocou spravovaného používateľského rozhrania WinForms.",
+        "romanian": "Vizualizator intern care afișează documente JSON utilizând o interfață WinForms gestionată.",
+        "spanish": "Visor interno que muestra documentos JSON mediante una interfaz de usuario de WinForms administrada."
+      },
+      "latestVersion": "1.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "mmviewer",
+      "name": {
+        "english": "Multimedia Viewer",
+        "chinesesimplified": "多媒体查看器",
+        "czech": "Prohlížeč Multimedia",
+        "german": "Multimedia Betrachter",
+        "dutch": "Multimedia Viewer",
+        "hungarian": "Multimédia Néző",
+        "russian": "Просмотр мультимедиа",
+        "french": "Visualiseur Multimédia",
+        "slovak": "Multimediálny prehliadač",
+        "romanian": "Vizualizator Multimedia",
+        "spanish": "Visor multimedia"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Multimedia Viewer for Open Salamander",
+        "chinesesimplified": "显示诸如 MP3, OGG, WAV, 等等的多媒体文件的信息。",
+        "czech": "Zobrazí informace o multimedia souborech jako např.: MP3, OGG, WAV, atd.",
+        "german": "Zeigt Informationen über Multimediadateien wie MP3, OGG, WAV, etc. an.",
+        "dutch": "Toon informatie over multimedia bestanden zoals MP3, OGG, WAV, etc.",
+        "hungarian": "Multimédia fájlok információinak megjelenítése, mint az MP3, OGG, WAV, stb.",
+        "russian": "Просмотр сведений о файлах мультимедиа, таких как MP3, OGG, WAV и т.п.",
+        "french": "Afficher les informations des fichiers multimédia tels que MP3, OGG, WAV, etc.",
+        "slovak": "Zobrazí informácie o multimediálnych súboroch ako napr.: MP3, OGG, WAV, atď.",
+        "romanian": "Arata informatii despre fisierele multimedia cum ar fi MP3, OGG, WAV, etc.",
+        "spanish": "Presenta información sobre ficheros multimedia como MP3, OGG, WAV, etc."
+      },
+      "latestVersion": "1.16 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "nethood",
+      "name": {
+        "english": "Network",
+        "chinesesimplified": "网络",
+        "czech": "Síť",
+        "german": "Netzwerk",
+        "dutch": "Netwerk",
+        "hungarian": "Hálózat",
+        "russian": "Сеть",
+        "french": "Réseau",
+        "slovak": "Sieť",
+        "romanian": "Retea",
+        "spanish": "Red"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Network plugin for Open Salamander",
+        "chinesesimplified": "提供到网络上的计算机的访问。",
+        "czech": "Poskytuje přístup k počítačům na síti.",
+        "german": "Ermöglicht den Zugriff auf Computer im Netzwerk.",
+        "dutch": "Biedt toegang tot computers in het netwerk.",
+        "hungarian": "Hozzáférést biztosít a hálózati számítógépekhez.",
+        "russian": "Предоставляет сетевой доступ.",
+        "french": "Permet l'accès aux ordinateurs du réseau.",
+        "slovak": "Poskytuje prístup k počítačom na sieti.",
+        "romanian": "Da acces computerelor la retea.",
+        "spanish": "Proporciona acceso a los ordenadores de la red."
+      },
+      "latestVersion": "1.08 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "pak",
+      "name": {
+        "english": "PAK",
+        "chinesesimplified": "PAK",
+        "czech": "PAK",
+        "german": "PAK",
+        "dutch": "PAK",
+        "hungarian": "PAK",
+        "russian": "PAK",
+        "french": "PAK",
+        "slovak": "PAK",
+        "romanian": "PAK",
+        "spanish": "PAK"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Quake PAK archiver for Open Salamander",
+        "chinesesimplified": "浏览并解压 Quake PAK 压缩包。",
+        "czech": "Prohlíží a extrahuje Quake PAK archivy.",
+        "german": "Durchsucht und entpackt Quake PAK-Archive.",
+        "dutch": "Bladeren en Quake PAK archieven uitpakken.",
+        "hungarian": "Quake PAK archívumok böngészése és kibontása.",
+        "russian": "Просмотр и извлечение из архивов Quake PAK.",
+        "french": "Parcourt et extrait les archives Quake PAK.",
+        "slovak": "Prehliada a extrahuje Quake PAK archívy.",
+        "romanian": "Rasfoieste si extrage arhive Quake Pak.",
+        "spanish": "Hojear y extraer archivos PAK de Quake."
+      },
+      "latestVersion": "1.71 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "peviewer",
+      "name": {
+        "english": "Portable Executable Viewer",
+        "chinesesimplified": "Portable Executable Viewer",
+        "czech": "Prohlížeč spustitelných souborů",
+        "german": "PE Dateibetrachter",
+        "dutch": "Portable Executable Viewer",
+        "hungarian": "Hordozható futtatható néző",
+        "russian": "Средство просмотра исполняемых файлов (PE)",
+        "french": "Visualiseur de fichier exécutable",
+        "slovak": "Prehliadač spustitelných súborov",
+        "romanian": "Vizualizator Executabil Portabil",
+        "spanish": "Visor de ejecutable portátil"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Portable Executable Viewer for Open Salamander",
+        "chinesesimplified": "显示可移植的可执行文件，例如EXE，DLL等信息。",
+        "czech": "Zobrazí informace o spustitelných souborech - EXE, DLL, atd.",
+        "german": "Zeigt Informationen über ausführbare Dateien an (EXE, DLL, usw.).",
+        "dutch": "Informatie weergeven over de Portable Executable bestanden zoals EXE, DLL, etc.",
+        "hungarian": "Olyan futtatható fájlok információinak megjelenítése, mint EXE, DLL, stb.",
+        "russian": "Показывает информацию об исполняемых файлах (PE), таких как EXE, DLL и проч.",
+        "french": "Affiche des informations sur les fichiers exécutables de type EXE, DLL, etc.",
+        "slovak": "Zobrazí informácie o prenosných spustiteľných súboroch, napr.: EXE, DLL, atď.",
+        "romanian": "Afiseaza informatii despre fisiere Executabile Portabile cum ar fi EXE, DLL, etc.",
+        "spanish": "Presenta información sobre ficheros ejecutables portátiles como EXE, DLL, etc."
+      },
+      "latestVersion": "3.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "pictview",
+      "name": {
+        "english": "Picture Viewer",
+        "chinesesimplified": "PictView",
+        "czech": "Prohlížeč PictView",
+        "german": "PictView",
+        "dutch": "PictView",
+        "hungarian": "PictView",
+        "russian": "PictView",
+        "french": "PictView",
+        "slovak": "Prehliadač PictView",
+        "romanian": "PictView",
+        "spanish": "PictView"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Picture Viewer for Open Salamander",
+        "chinesesimplified": "快速文件查看器和转换器。",
+        "czech": "Rychlý prohlížeč a konvertor obrázků.",
+        "german": "Schnelles Betrachten und Konvertieren von Grafikdateien.",
+        "dutch": "Snelle afbeeldingsviewer en conversieprogramma.",
+        "hungarian": "Gyors képnéző és -konvertáló.",
+        "russian": "Быстрое средство просмотра и преобразования изображений.",
+        "french": "Visualiseur et convertisseur rapide d'image.",
+        "slovak": "Rýchly prehliadač a konvertor obrázkov.",
+        "romanian": "Vizualizator rapid de imagini si convertor.",
+        "spanish": "Visor y consersor rápido de imágenes."
+      },
+      "latestVersion": "2.21 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "portables",
+      "name": {
+        "english": "Windows Portable Devices",
+        "chinesesimplified": "便携式设备",
+        "czech": "Přenosná zařízení",
+        "german": "Tragbare Geräte",
+        "dutch": "Draagbare apparaten",
+        "hungarian": "Hordozható eszközök",
+        "russian": "Портативные устройства",
+        "french": "Périphériques portables",
+        "slovak": "Prenosné zariadenia",
+        "romanian": "Dispozitive portabile",
+        "spanish": "Dispositivos portátiles"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Windows Portable Devices for Open Salamander",
+        "chinesesimplified": "管理便携式设备。",
+        "czech": "Spravujte přenosná zařízení.",
+        "german": "Tragbare Geräte verwalten.",
+        "dutch": "Draagbare apparaten beheren.",
+        "hungarian": "Hordozható eszközök kezelése.",
+        "russian": "Управление портативными устройствами.",
+        "french": "Gérer les périphériques portables.",
+        "slovak": "Spravujte prenosné zariadenia.",
+        "romanian": "Gestionați dispozitivele portabile.",
+        "spanish": "Administrar dispositivos portátiles."
+      },
+      "latestVersion": "0.2 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "regedt",
+      "name": {
+        "english": "Registry Editor",
+        "chinesesimplified": "注册表编辑器",
+        "czech": "Editor registru",
+        "german": "Registrierungs-Editor",
+        "dutch": "Register Editor",
+        "hungarian": "Rendszerleíró-adatbázis szerkesztő",
+        "russian": "Редактор реестра",
+        "french": "Editeur de registre",
+        "slovak": "Editor registra",
+        "romanian": "Editor Registri",
+        "spanish": "Editor del registro"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Registry Editor for Open Salamander",
+        "chinesesimplified": "浏览、查看和修改 Windows 注册表。",
+        "czech": "Prohlíží, zobrazuje a upravuje Windows registr.",
+        "german": "Durchsuchen, Anzeigen und Bearbeiten der Windows-Registrierung.",
+        "dutch": "Bladeren, weergeven, en wijzigen Windows register.",
+        "hungarian": "Windows regisztrációs bejegyzések böngészése, megnézése és módosítása.",
+        "russian": "Просмотр и редактирование данных реестра Windows.",
+        "french": "Parcourir, voir et modifier le registre Windows.",
+        "slovak": "Prehliada, zobrazuje a upravuje Register Windows.",
+        "romanian": "Rasfoieste, vizualizeaza si modifica Registri Windows.",
+        "spanish": "Hojear, ver y modificar el registro de Windows."
+      },
+      "latestVersion": "1.14 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "renamer",
+      "name": {
+        "english": "Renamer",
+        "chinesesimplified": "Renamer",
+        "czech": "Hromadné přejmenování",
+        "german": "Umbenennen",
+        "dutch": "Hernoemer",
+        "hungarian": "Átnevező",
+        "russian": "Переименование",
+        "french": "Renamer",
+        "slovak": "Hromadné premenovanie",
+        "romanian": "Cel ce Redenumeste",
+        "spanish": "Cambio de nombre"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Renamer plugin for Open Salamander",
+        "chinesesimplified": "强大的带有实时预览的批量重命名器。",
+        "czech": "Hromadné přejmenování s náhledem v reálném čase.",
+        "german": "Leistungsstarker Dateiumbenenner mit Echtzeit-Vorschau.",
+        "dutch": "Krachtige bulk hernoemer met real-time voorbeeld.",
+        "hungarian": "Hasznos kötegelt átnevező valós idejű előnézettel.",
+        "russian": "Групповое переименование с предпросмотром в реальном времени.",
+        "french": "Puissant outil de renommage par lots avec prévisualisation en temps-réel.",
+        "slovak": "Hromadné premenovanie s náhľadom v reálnom čase.",
+        "romanian": "Pentru redenumire in grup complexa, cu verificare in timp real.",
+        "spanish": "Potente utilidad de cambio de nombre con previsualización real."
+      },
+      "latestVersion": "1.13 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "samandarin",
+      "name": {
+        "english": "Samandarin Update Notifier",
+        "chinesesimplified": "Samandarin 更新通知程序",
+        "czech": "Oznámení aktualizací Samandarin",
+        "german": "Samandarin-Updatebenachrichtigung",
+        "dutch": "Samandarin-update-notifier",
+        "hungarian": "Samandarin frissítési értesítő",
+        "russian": "Уведомитель обновлений Samandarin",
+        "french": "Notifications de mise à jour de Samandarin",
+        "slovak": "Oznamovač aktualizácií Samandarin",
+        "romanian": "Notificator de actualizări Samandarin",
+        "spanish": "Notificador de actualizaciones de Samandarin"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Samandarin update notification plugin for Open Salamander",
+        "chinesesimplified": "检查 GitHub 版本发布，并提供打开最新的 Samandarin 构建。",
+        "czech": "Kontroluje vydání na GitHubu a nabízí otevřít nejnovější sestavení Samandarin.",
+        "german": "Prüft GitHub-Releases und bietet an, die neueste Samandarin-Version zu öffnen.",
+        "dutch": "Controleert GitHub-releases en biedt aan om de nieuwste Samandarin-build te openen.",
+        "hungarian": "Ellenőrzi a GitHub kiadásokat, és felajánlja a legújabb Samandarin build megnyitását.",
+        "russian": "Проверяет выпуски GitHub и предлагает открыть последнюю сборку Samandarin.",
+        "french": "Vérifie les versions GitHub et propose d’ouvrir la dernière version de Samandarin.",
+        "slovak": "Kontroluje vydania na GitHube a ponúka otvorenie najnovšej zostavy Samandarin.",
+        "romanian": "Verifică lansările GitHub și oferă să deschidă cea mai recentă versiune Samandarin.",
+        "spanish": "Comprueba las versiones de GitHub y ofrece abrir la última compilación de Samandarin."
+      },
+      "latestVersion": "0.4 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "serviceexplorer",
+      "name": {
+        "english": "Service Explorer",
+        "chinesesimplified": "Service Explorer",
+        "czech": "Service Explorer",
+        "german": "Service Explorer",
+        "dutch": "Service Explorer",
+        "hungarian": "Service Explorer",
+        "russian": "Service Explorer",
+        "french": "Service Explorer",
+        "slovak": "Service Explorer",
+        "romanian": "Service Explorer",
+        "spanish": "Service Explorer"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Browse and configure services.",
+        "chinesesimplified": "浏览并配置服务。",
+        "czech": "Procházet a konfigurovat služby.",
+        "german": "Dienste durchsuchen und konfigurieren.",
+        "dutch": "Blader en configureer services.",
+        "hungarian": "Szolgáltatások tallózása és beállítása.",
+        "russian": "Просматривайте и настраивайте службы.",
+        "french": "Parcourir et configurer les services.",
+        "slovak": "Prehliadať a konfigurovať služby.",
+        "romanian": "Răsfoiește și configurează servicii.",
+        "spanish": "Examinar y configurar servicios."
+      },
+      "latestVersion": "0.012 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "splitcbn",
+      "name": {
+        "english": "Split & Combine",
+        "chinesesimplified": "分割 & 合并",
+        "czech": "Rozdělit a sloučit",
+        "german": "Teilen & Zusammenfügen",
+        "dutch": "Splitsen & Combineren",
+        "hungarian": "Részek összevonása & felosztása",
+        "russian": "Split & Combine",
+        "french": "Scinder & Combiner",
+        "slovak": "Split & Combine",
+        "romanian": "Imparte & Combina",
+        "spanish": "Split & Combine"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Split & Combine plugin for Open Salamander",
+        "chinesesimplified": "分割和合并文件。",
+        "czech": "Rozdělení a spojení souborů.",
+        "german": "Teilen und Zusammenfügen von Dateien.",
+        "dutch": "Bestanden splitsen en combineren.",
+        "hungarian": "Fájlok darabolása és összeillesztése.",
+        "russian": "Разделение и объединение файлов.",
+        "french": "Scinde et combine des fichiers.",
+        "slovak": "Rozdelenie a spojenie súborov.",
+        "romanian": "Imparte si combina fisiere.",
+        "spanish": "Dividir y combinar ficheros."
+      },
+      "latestVersion": "1.11 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "tar",
+      "name": {
+        "english": "TAR",
+        "chinesesimplified": "TAR",
+        "czech": "TAR",
+        "german": "TAR",
+        "dutch": "TAR",
+        "hungarian": "TAR",
+        "russian": "TAR",
+        "french": "TAR",
+        "slovak": "TAR",
+        "romanian": "TAR",
+        "spanish": "TAR"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "TAR plugin for Open Salamander",
+        "chinesesimplified": "浏览并解压 Unix 压缩包。",
+        "czech": "Prohlíží a extrahuje Unix archivy.",
+        "german": "Durchsucht und entpackt Unix Archive.",
+        "dutch": "Blader en extraheer Unix archiefbestanden.",
+        "hungarian": "Unix archívumok böngészése és kibontása.",
+        "russian": "Просмотр и извлечение из архивов Unix.",
+        "french": "Feuilleter et extraire les archives Unix.",
+        "slovak": "Prehliada a extrahuje Unix archívy.",
+        "romanian": "Rasfoieste si extrage arhive Unix.",
+        "spanish": "Hojear y extraer archivos Unix."
+      },
+      "latestVersion": "3.34 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "textviewer",
+      "name": {
+        "english": "PrismSharp Text Viewer .NET",
+        "chinesesimplified": "PrismSharp 文本查看器 .NET",
+        "czech": "PrismSharp Text Viewer .NET",
+        "german": "PrismSharp Text Viewer .NET",
+        "dutch": "PrismSharp Tekstviewer .NET",
+        "hungarian": "PrismSharp szövegmegtekintő .NET",
+        "russian": "PrismSharp Text Viewer .NET",
+        "french": "PrismSharp Text Viewer .NET",
+        "slovak": "PrismSharp Text Viewer .NET",
+        "romanian": "PrismSharp Text Viewer .NET",
+        "spanish": "Visor de texto PrismSharp .NET"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "PrismSharp Text Viewer .NET plugin for Open Salamander",
+        "chinesesimplified": "内部查看器，可使用托管语法高亮渲染文本文件。",
+        "czech": "Interní prohlížeč, který zobrazuje textové soubory se spravovaným zvýrazňováním syntaxe.",
+        "german": "Interner Viewer, der Textdateien mit verwalteter Syntaxhervorhebung rendert.",
+        "dutch": "Interne viewer die tekstbestanden rendert met beheerde syntaxisaccentuering.",
+        "hungarian": "Belső megtekintő, amely kezelt szintaktikai kiemeléssel jeleníti meg a szövegfájlokat.",
+        "russian": "Внутренний просмотрщик, который отображает текстовые файлы с управляемой подсветкой синтаксиса.",
+        "french": "Visionneuse interne qui affiche les fichiers texte avec une mise en forme (surlignage) syntaxique gérée.",
+        "slovak": "Interný prehliadač, ktorý vykresľuje textové súbory so spravovaným zvýrazňovaním syntaxe.",
+        "romanian": "Vizualizator intern care redă fișiere text cu evidențiere sintactică gestionată.",
+        "spanish": "Visor interno que muestra archivos de texto con resaltado de sintaxis administrado."
+      },
+      "latestVersion": "1.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "unarj",
+      "name": {
+        "english": "UnARJ"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnARJ plugin for Open Salamander"
+      },
+      "latestVersion": "1.21 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "uncab",
+      "name": {
+        "english": "UnCAB"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnCAB plugin for Open Salamander"
+      },
+      "latestVersion": "1.27 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "unchm",
+      "name": {
+        "english": "UnCHM"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnCHM plugin for Open Salamander"
+      },
+      "latestVersion": "1.03 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "undelete",
+      "name": {
+        "english": "Undelete",
+        "chinesesimplified": "取消删除",
+        "czech": "Obnovení souborů a adresářů",
+        "german": "Wiederherstellen",
+        "dutch": "Herstellen",
+        "hungarian": "Visszaállítás",
+        "russian": "Восстановление файлов",
+        "french": "Récupération",
+        "slovak": "Obnovenie súborov a adresárov",
+        "romanian": "Recuperare",
+        "spanish": "Desborrado"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Undelete plugin for Open Salamander",
+        "chinesesimplified": "恢复从 FAT 或 NTFS 分区删除的文件。",
+        "czech": "Obnoví vymazané soubory z FAT nebo NTFS oddílu.",
+        "german": "Stellt auf FAT oder NTFS-Partitionen gelöschte Dateien wieder her.",
+        "dutch": "Hersteld verwijderde bestanden van FAT of NTFS partitie's.",
+        "hungarian": "Fájlok helyreállítása FAT vagy NTFS partíciókon.",
+        "russian": "Восстановление удаленных файлов на разделах FAT и NTFS.",
+        "french": "Récupère les fichiers supprimés des partitions FAT ou NTFS.",
+        "slovak": "Obnoví vymazané súbory z FAT alebo NTFS oddielu.",
+        "romanian": "Recupereaza fisiere sterse de pe partitii FAT sau NTFS.",
+        "spanish": "Recupera ficheros borrados desde particiones FAT o NTFS."
+      },
+      "latestVersion": "1.11 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "unfat",
+      "name": {
+        "english": "UnFAT"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnFAT plugin for Open Salamander"
+      },
+      "latestVersion": "1.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "uniso",
+      "name": {
+        "english": "UnISO"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnISO plugin for Open Salamander"
+      },
+      "latestVersion": "1.37 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "unlha",
+      "name": {
+        "english": "UnLHA",
+        "chinesesimplified": "UnLHA",
+        "czech": "UnLHA",
+        "german": "UnLHA",
+        "dutch": "UnLHA",
+        "hungarian": "UnLHA",
+        "russian": "UnLHA",
+        "french": "UnLHA",
+        "slovak": "UnLHA",
+        "romanian": "UnLHA",
+        "spanish": "UnLHA"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnLHA plugin for Open Salamander",
+        "chinesesimplified": "浏览并解压 LHA 压缩包。",
+        "czech": "Prohlíží a extrahuje LHA archivy.",
+        "german": "Durchsucht und entpackt LHA Archive.",
+        "dutch": "Blader en LHA archieven uitpakken.",
+        "hungarian": "LHA archívumok böngészése és kibontása.",
+        "russian": "Просмотр и извлечение архивов LHA.",
+        "french": "Parcourt et extrait les archives LHA.",
+        "slovak": "Prehliada a extrahuje LHA archívy.",
+        "romanian": "Rasfoieste si extrage arhivele LHA.",
+        "spanish": "Hojear y extraer archivos LHA."
+      },
+      "latestVersion": "1.13 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "unmime",
+      "name": {
+        "english": "UnMIME",
+        "chinesesimplified": "UnMIME",
+        "czech": "UnMIME",
+        "german": "UnMIME",
+        "dutch": "UnMIME",
+        "hungarian": "UnMIME",
+        "russian": "UnMIME",
+        "french": "UnMIME",
+        "slovak": "UnMIME",
+        "romanian": "UnMIME",
+        "spanish": "UnMIME"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnMIME plugin for Open Salamander",
+        "chinesesimplified": "浏览并解压 MIME/Base64, UU/XXEncode, yEncode 和 BinHex 文件。",
+        "czech": "Prohlíží a extrahuje MIME/Base64, UU/XXEncode, yEncode a BinHex soubory.",
+        "german": "Durchsucht und entpackt MIME/Base64, UU/XX-/yEncode und BinHex Dateien.",
+        "dutch": "Blader en extraheer MIME/Base64, UU/XXEncode, yEncode en BinHex bestanden.",
+        "hungarian": "MIME/Base64, UU/XXEncode, yEncode és BinHex fájlok böngészése és kibontása.",
+        "russian": "Просмотр и извлечение файлов MIME/Base64, UU/XXEncode, yEncode и BinHex.",
+        "french": "Parcourt et extrait les fichiers MIME/Base64, UU/XXEncode, yEncode et BinHex.",
+        "slovak": "Prehliada a extrahuje MIME/Base64, UU/XXEncode, yEncode a BinHex súbory.",
+        "romanian": "Rasfoieste si extrage fisierele MIME/Base64, UU/XXEncode, yEncode si BinHex.",
+        "spanish": "Hojear y extraer ficheros MIME/Base64, UU/XXEncode, yEncode y BinHex."
+      },
+      "latestVersion": "1.14 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "unole",
+      "name": {
+        "english": "UnOLE"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnOLE plugin for Open Salamander"
+      },
+      "latestVersion": "1.01 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "unrar",
+      "name": {
+        "english": "UnRAR"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "UnRAR plugin for Open Salamander"
+      },
+      "latestVersion": "3.01 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "webview2renderviewer",
+      "name": {
+        "english": "WebView2 Render Viewer .NET",
+        "chinesesimplified": "WebView2 渲染查看器 .NET",
+        "czech": "Zobrazovač vykreslování WebView2 .NET",
+        "german": "WebView2-Renderansicht .NET",
+        "dutch": "WebView2 Render Viewer .NET",
+        "hungarian": "WebView2 Render Viewer .NET",
+        "russian": "Средство просмотра рендеринга WebView2 .NET",
+        "french": "Visionneuse de rendu WebView2 .NET",
+        "slovak": "WebView2 Render Viewer .NET",
+        "romanian": "Vizualizator de redare WebView2 .NET",
+        "spanish": "Visor de renderizado de WebView2 .NET"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "WebView2 Render Viewer .NET plugin for Open Salamander",
+        "chinesesimplified": "使用 WebView2 显示已渲染的 HTML、Markdown 和网页文档的查看器。",
+        "czech": "Zobrazovač, který pomocí WebView2 zobrazuje vykreslený HTML, Markdown a webové dokumenty.",
+        "german": "Ansicht, die gerendertes HTML, Markdown und Webdokumente mithilfe von WebView2 anzeigt.",
+        "dutch": "Viewer die gerenderde HTML-, Markdown- en webdocumenten weergeeft met behulp van WebView2.",
+        "hungarian": "Olyan nézet, amely a WebView2 segítségével megjelenített renderelt HTML-, Markdown- és webdokumentumokat jelenít meg.",
+        "russian": "Средство просмотра, отображающее отрендеренные HTML-, Markdown- и веб-документы с использованием WebView2.",
+        "french": "Visionneuse qui affiche du HTML, du Markdown et des documents web rendus à l’aide de WebView2.",
+        "slovak": "Prehliadač, ktorý zobrazuje vykreslený HTML, Markdown a webové dokumenty pomocou WebView2.",
+        "romanian": "Vizualizator care afișează HTML redat, Markdown și documente web utilizând WebView2.",
+        "spanish": "Visor que muestra HTML, Markdown y documentos web renderizados mediante WebView2."
+      },
+      "latestVersion": "1.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "wmobile",
+      "name": {
+        "english": "Windows Mobile",
+        "chinesesimplified": "Windows Mobile",
+        "czech": "Windows Mobile",
+        "german": "Windows Mobile",
+        "dutch": "Windows Mobile",
+        "hungarian": "Windows Mobil",
+        "russian": "Windows Mobile",
+        "french": "Windows Mobile",
+        "slovak": "Windows Mobile",
+        "romanian": "Windows Mobil",
+        "spanish": "Windows Mobile"
+      },
+      "author": "Juraj Rojko",
+      "description": {
+        "english": "Windows Mobile plugin for Open Salamander",
+        "chinesesimplified": "访问你 Windows Mobile 设备上的文件。",
+        "czech": "Zpřístupní soubory na Vašem Windows Mobile zařízení.",
+        "german": "Zugriff auf Dateien des Windows Mobile Gerätes.",
+        "dutch": "Benader uw bestanden vanaf uw Windows Mobile apparaat.",
+        "hungarian": "Fájlok elérése Windows Mobile készüléken.",
+        "russian": "Средство доступа к файлам на устройствах Windows Mobile.",
+        "french": "Accède aux fichiers de votre appareil Windows Mobile.",
+        "slovak": "Sprístupní súbory na Vašom Windows Mobile zariadení.",
+        "romanian": "Acceseaza fisierele pe dispozitivul dvs Windows Mobile.",
+        "spanish": "Acceder a ficheros en dispositivo Windows Mobile."
+      },
+      "latestVersion": "1.08 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "zip",
+      "name": {
+        "english": "ZIP",
+        "chinesesimplified": "ZIP",
+        "czech": "ZIP",
+        "german": "ZIP-Archiv",
+        "dutch": "ZIP",
+        "hungarian": "ZIP",
+        "russian": "ZIP",
+        "french": "ZIP",
+        "slovak": "ZIP",
+        "romanian": "ZIP",
+        "spanish": "ZIP"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "ZIP plugin for Open Salamander",
+        "chinesesimplified": "创建，浏览，和解压 ZIP 压缩包。",
+        "czech": "Vytváří,prohlíží, a extrahuje ZIP archivy.",
+        "german": "Erstellt, durchsucht, und entpackt ZIP-Archive.",
+        "dutch": "Creër, blader, en pak ZIP-archiefbstanden uit.",
+        "hungarian": "ZIP archívumok létrehozása, böngészése és kibontása.",
+        "russian": "Создание, просмотр и извлечение архивов ZIP.",
+        "french": "Créer, parcourir et extraire les archives ZIP.",
+        "slovak": "Vytvára, prehliada a extrahuje ZIP archívy.",
+        "romanian": "Creaza, rasfoieste, si extrage arhivele ZIP.",
+        "spanish": "Crear, hojear y extraer archivos ZIP."
+      },
+      "latestVersion": "1.4 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    }
+  ]
+}
