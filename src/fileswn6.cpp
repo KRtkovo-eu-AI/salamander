@@ -1416,7 +1416,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                                          targetPathState, targetSupADS, targetIsFAT32, mask,
                                          useName, useDOSName, oneFile->Size, attrsData, NULL,
                                          oneFile->Attr, chCaseData, onlySize, NULL,
-                                         srcAndTgtPathsFlags))
+                                         srcAndTgtPathsFlags, oneFile->UseWideName() ? oneFile->NameW : NULL))
                     {
                         SetCurrentDirectoryToSystem();
                         return FALSE;
@@ -2473,7 +2473,8 @@ BOOL CFilesWindow::BuildScriptFile(COperations* script, CActionType type, char* 
                                    char* fileDOSName, const CQuadWord& fileSize,
                                    CAttrsData* attrsData, char* mapName, DWORD sourceFileAttr,
                                    CChangeCaseData* chCaseData, BOOL onlySize,
-                                   FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags)
+                                   FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags,
+                                   const wchar_t* fileNameW)
 {
     SLOW_CALL_STACK_MESSAGE14("CFilesWindow::BuildScriptFile(, %d, %s, %d, %s, %d, %d, %d, %s, %s, , , , %s, 0x%X, , %d, , 0x%X)",
                               type, sourcePath, sourcePathSupADS, targetPath, targetPathState, targetPathSupADS,
@@ -2567,8 +2568,22 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 return skip;
             }
         }
-        std::wstring sourceNameW = SalMultiByteToWidePath(op.SourceName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-        std::wstring targetNameW = SalMultiByteToWidePath(op.TargetName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        std::wstring sourceNameW;
+        if (fileNameW != NULL && *fileNameW != 0)
+        {
+            sourceNameW = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(sourcePath, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            SalPathAppendW(sourceNameW, fileNameW);
+        }
+        else
+            sourceNameW = SalMultiByteToWidePath(op.SourceName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        std::wstring targetNameW;
+        if (fileNameW != NULL && *fileNameW != 0 && mapName == NULL && mask == NULL)
+        {
+            targetNameW = SalMultiByteToWidePath(targetPath, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            SalPathAppendW(targetNameW, fileNameW);
+        }
+        else
+            targetNameW = SalMultiByteToWidePath(op.TargetName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
         if (sourceNameW.length() >= MAX_PATH)
             sourceNameW = SalPathAddExtendedPrefixW(sourceNameW.c_str());
         if (targetNameW.length() >= MAX_PATH)

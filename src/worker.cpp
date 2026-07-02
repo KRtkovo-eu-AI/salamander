@@ -5631,15 +5631,22 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
             BOOL moveSucceeded = FALSE;
             if (!invalidName && !*novellRenamePatch)
             {
-                if (op->SourceNameWValid && op->TargetNameWValid)
+                std::wstring sourceNameMvDirW = op->SourceNameWValid ? op->SourceNameW : SalMultiByteToWidePath(sourceNameMvDir, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                std::wstring targetNameMvDirW = op->TargetNameWValid ? op->TargetNameW : SalMultiByteToWidePath(targetNameMvDir, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                if (!sourceNameMvDirW.empty() && !targetNameMvDirW.empty())
                 {
-                    std::wstring sourceNameMvDirW = op->SourceNameW;
-                    std::wstring targetNameMvDirW = op->TargetNameW;
-                    if (sourceNameMvDirW.length() >= MAX_PATH)
-                        sourceNameMvDirW = SalPathAddExtendedPrefixW(sourceNameMvDirW.c_str());
-                    if (targetNameMvDirW.length() >= MAX_PATH)
-                        targetNameMvDirW = SalPathAddExtendedPrefixW(targetNameMvDirW.c_str());
-                    moveSucceeded = MoveFileW(sourceNameMvDirW.c_str(), targetNameMvDirW.c_str());
+                    std::wstring sourceCmpW = SalPathRemoveExtendedPrefixW(sourceNameMvDirW.c_str());
+                    std::wstring targetCmpW = SalPathRemoveExtendedPrefixW(targetNameMvDirW.c_str());
+                    if (CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, sourceCmpW.c_str(), -1, targetCmpW.c_str(), -1) == CSTR_EQUAL)
+                        moveSucceeded = TRUE;
+                    else
+                    {
+                        if (sourceNameMvDirW.length() >= MAX_PATH)
+                            sourceNameMvDirW = SalPathAddExtendedPrefixW(sourceNameMvDirW.c_str());
+                        if (targetNameMvDirW.length() >= MAX_PATH)
+                            targetNameMvDirW = SalPathAddExtendedPrefixW(targetNameMvDirW.c_str());
+                        moveSucceeded = MoveFileW(sourceNameMvDirW.c_str(), targetNameMvDirW.c_str());
+                    }
                 }
                 else
                     moveSucceeded = MoveFile(sourceNameMvDir, targetNameMvDir);
