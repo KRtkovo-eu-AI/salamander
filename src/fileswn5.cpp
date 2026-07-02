@@ -2576,7 +2576,8 @@ void CFilesWindow::RenameFile(int specialIndex)
                 UpdateWindow(MainWindow->HWindow);
 
                 BOOL tryAgain;
-                RenameFileInternal(f, formatedFileName, &mayChange, &tryAgain);
+                std::wstring newNameW = SalMultiByteToWidePath(formatedFileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain);
                 if (!tryAgain)
                     break;
             }
