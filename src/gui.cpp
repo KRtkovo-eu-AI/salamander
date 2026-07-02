@@ -592,11 +592,27 @@ CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
     }
 
     // obtain the initial text of the static
-    char buff[4096];
-    CWindow::WindowProc(WM_GETTEXT, 4096, (LPARAM)buff);
-    buff[4095] = 0; // just to be sure...
-    if (buff[0] != 0)
-        SetText(buff);
+    int textLen = (int)SendMessage(HWindow, WM_GETTEXTLENGTH, 0, 0);
+    if (textLen > 0)
+    {
+        WCHAR* wideBuff = (WCHAR*)malloc((textLen + 1) * sizeof(WCHAR));
+        if (wideBuff != NULL)
+        {
+            SendMessageW(HWindow, WM_GETTEXT, textLen + 1, (LPARAM)wideBuff);
+            int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideBuff, -1, NULL, 0, NULL, NULL);
+            if (utf8Len > 0)
+            {
+                char* utf8Buff = (char*)malloc(utf8Len);
+                if (utf8Buff != NULL)
+                {
+                    WideCharToMultiByte(CP_UTF8, 0, wideBuff, -1, utf8Buff, utf8Len, NULL, NULL);
+                    SetText(utf8Buff);
+                    free(utf8Buff);
+                }
+            }
+            free(wideBuff);
+        }
+    }
 }
 
 CStaticText::~CStaticText()
@@ -1088,23 +1104,87 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    case WM_SETTEXT:
-    {
-        return SetText((char*)lParam);
-    }
+case WM_SETTEXT:
+        {
+#ifdef _UNICODE
+            // Unicode build: caller passes WCHAR string
+            if (lParam == 0)
+                return SetText("");
+            int utf8Len = WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)lParam, -1, NULL, 0, NULL, NULL);
+            if (utf8Len > 0)
+            {
+                char* utf8Buff = (char*)malloc(utf8Len);
+                if (utf8Buff != NULL)
+                {
+                    WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)lParam, -1, utf8Buff, utf8Len, NULL, NULL);
+                    BOOL ret = SetText(utf8Buff);
+                    free(utf8Buff);
+                    return ret;
+                }
+            }
+            return SetText("");
+#else
+            // ANSI build: check if window is Unicode
+            if (UnicodeWnd)
+            {
+                if (lParam == 0)
+                    return SetText("");
+                int utf8Len = WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)lParam, -1, NULL, 0, NULL, NULL);
+                if (utf8Len > 0)
+                {
+                    char* utf8Buff = (char*)malloc(utf8Len);
+                    if (utf8Buff != NULL)
+                    {
+                        WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)lParam, -1, utf8Buff, utf8Len, NULL, NULL);
+                        BOOL ret = SetText(utf8Buff);
+                        free(utf8Buff);
+                        return ret;
+                    }
+                }
+                return SetText("");
+            }
+            else
+            {
+                return SetText((char*)lParam);
+            }
+#endif
+        }
 
-    case WM_GETTEXT:
-    {
-        if (Text == NULL || wParam < 2)
-            return 0;
+case WM_GETTEXT:
+        {
+            if (Text == NULL || wParam < 2)
+                return 0;
 
-        int len = (int)strlen(Text);
-        if (len > (int)wParam - 1)
-            len = (int)wParam - 1;
-        memcpy((char*)lParam, Text, len);
-        ((char*)lParam)[len + 1] = 0;
-        return len;
-    }
+            int len = (int)strlen(Text);
+#ifdef _UNICODE
+            // Unicode build: caller expects WCHAR buffer
+            int wideLen = MultiByteToWideChar(CP_UTF8, 0, Text, len, NULL, 0);
+            if (wideLen > (int)wParam - 1)
+                wideLen = (int)wParam - 1;
+            MultiByteToWideChar(CP_UTF8, 0, Text, len, (WCHAR*)lParam, wideLen);
+            ((WCHAR*)lParam)[wideLen] = 0;
+            return wideLen;
+#else
+            // ANSI build: check if window is Unicode
+            if (UnicodeWnd)
+            {
+                int wideLen = MultiByteToWideChar(CP_UTF8, 0, Text, len, NULL, 0);
+                if (wideLen > (int)wParam - 1)
+                    wideLen = (int)wParam - 1;
+                MultiByteToWideChar(CP_UTF8, 0, Text, len, (WCHAR*)lParam, wideLen);
+                ((WCHAR*)lParam)[wideLen] = 0;
+                return wideLen;
+            }
+            else
+            {
+                if (len > (int)wParam - 1)
+                    len = (int)wParam - 1;
+                memcpy((char*)lParam, Text, len);
+                ((char*)lParam)[len] = 0;
+                return len;
+            }
+#endif
+        }
 
     case WM_GETDLGCODE:
     {
