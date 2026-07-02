@@ -366,8 +366,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     _TRY_AGAIN:
 
         // after 2000 ms we will show a window with a cancel prompt
-        char buf[2 * MAX_PATH + 100];
-        sprintf(buf, LoadStr(IDS_READINGPATHESC), GetPath());
+        char buf[32768 + 1000];
+        _snprintf_s(buf, _countof(buf), _TRUNCATE, LoadStr(IDS_READINGPATHESC), GetPath());
         CreateSafeWaitWindow(buf, NULL, 2000, TRUE, MainWindow->HWindow);
 
         DWORD lastEscCheckTime;
@@ -985,7 +985,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 SetCurrentDirectoryToSystem();
                 RefreshListBox(0, -1, -1, FALSE, FALSE);
 
-                sprintf(buf, LoadStr(IDS_CANNOTREADDIR), GetPath(), GetErrorText(err));
+                _snprintf_s(buf, _countof(buf), _TRUNCATE, LoadStr(IDS_CANNOTREADDIR), GetPath(), GetErrorText(err));
                 SalMessageBox(parent, buf, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
             }
         }

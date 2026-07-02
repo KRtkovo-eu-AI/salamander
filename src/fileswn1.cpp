@@ -813,8 +813,8 @@ void CFilesWindow::RefreshTreeView()
     HTREEITEM hRestoreSelected = NULL;
 
     BOOL hadSelectedFile = FALSE;
-    char selectedFileFullPath[MAX_PATH];
-    char selectedFileFocusPath[MAX_PATH];
+    char selectedFileFullPath[32768];
+    char selectedFileFocusPath[32768];
     selectedFileFullPath[0] = 0;
     selectedFileFocusPath[0] = 0;
     HTREEITEM hSelected = TreeView_GetSelection(HTreeView);
@@ -826,8 +826,8 @@ void CFilesWindow::RefreshTreeView()
             selectedItemData.FullPath != NULL && selectedItemData.FocusPath != NULL)
         {
             hadSelectedFile = TRUE;
-            lstrcpyn(selectedFileFullPath, selectedItemData.FullPath, MAX_PATH);
-            lstrcpyn(selectedFileFocusPath, selectedItemData.FocusPath, MAX_PATH);
+            lstrcpyn(selectedFileFullPath, selectedItemData.FullPath, _countof(selectedFileFullPath));
+            lstrcpyn(selectedFileFocusPath, selectedItemData.FocusPath, _countof(selectedFileFocusPath));
         }
     }
 
@@ -876,8 +876,8 @@ void CFilesWindow::RefreshTreeView()
 
         if (!IsTheSamePath(root, sourcePath))
         {
-            char currentPath[MAX_PATH];
-            lstrcpyn(currentPath, root, MAX_PATH);
+            char currentPath[32768];
+            lstrcpyn(currentPath, root, _countof(currentPath));
 
             const char* segment = sourcePath + strlen(root);
             while (*segment == '\\' || *segment == '/')
@@ -885,17 +885,19 @@ void CFilesWindow::RefreshTreeView()
 
             while (*segment != 0)
             {
-                char nextPath[MAX_PATH];
-                lstrcpyn(nextPath, currentPath, MAX_PATH);
+                char nextPath[32768];
+                lstrcpyn(nextPath, currentPath, _countof(nextPath));
 
-                char name[MAX_PATH];
+                char name[32768];
                 int len = 0;
                 while (segment[len] != 0 && segment[len] != '\\' && segment[len] != '/')
                     len++;
+                if (len >= _countof(name))
+                    break;
                 memcpy(name, segment, len);
                 name[len] = 0;
 
-                if (!SalPathAppend(nextPath, name, MAX_PATH))
+                if (!SalPathAppend(nextPath, name, _countof(nextPath)))
                     break;
 
                 HTREEITEM hChild = FindTreeViewChildByPath(HTreeView, hCurrent, nextPath);
@@ -904,7 +906,7 @@ void CFilesWindow::RefreshTreeView()
                     break;
 
                 hCurrent = hChild;
-                lstrcpyn(currentPath, nextPath, MAX_PATH);
+                lstrcpyn(currentPath, nextPath, _countof(currentPath));
                 PopulateTreeViewItem(hCurrent);
                 TreeView_Expand(HTreeView, hCurrent, TVE_EXPAND);
 
