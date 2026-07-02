@@ -6337,7 +6337,18 @@ BOOL SalCreateDirectoryEx(const char* name, DWORD* err)
     const char* nameCrDir = name;
     char nameCrDirBuf[3 * MAX_PATH];
     MakeCopyWithBackslashIfNeeded(nameCrDir, nameCrDirBuf);
-    if (CreateDirectory(nameCrDir, NULL))
+
+    std::wstring nameCrDirW;
+    if (nameCrDir != NULL && strlen(nameCrDir) >= MAX_PATH)
+    {
+        nameCrDirW = SalMultiByteToWidePath(nameCrDir, CP_UTF8);
+        if (nameCrDirW.empty() && GetACP() != CP_UTF8)
+            nameCrDirW = SalMultiByteToWidePath(nameCrDir, CP_ACP);
+        if (!nameCrDirW.empty())
+            nameCrDirW = SalPathAddExtendedPrefixW(nameCrDirW.c_str());
+    }
+
+    if (!nameCrDirW.empty() ? CreateDirectoryW(nameCrDirW.c_str(), NULL) : CreateDirectory(nameCrDir, NULL))
         return TRUE;
     else
     {
@@ -6521,6 +6532,15 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
     const char* nameCrDir = name;
     char nameCrDirCopy[3 * MAX_PATH];
     MakeCopyWithBackslashIfNeeded(nameCrDir, nameCrDirCopy);
+    std::wstring nameCrDirW;
+    if (nameCrDir != NULL && strlen(nameCrDir) >= MAX_PATH)
+    {
+        nameCrDirW = SalMultiByteToWidePath(nameCrDir, CP_UTF8);
+        if (nameCrDirW.empty() && GetACP() != CP_UTF8)
+            nameCrDirW = SalMultiByteToWidePath(nameCrDir, CP_ACP);
+        if (!nameCrDirW.empty())
+            nameCrDirW = SalPathAddExtendedPrefixW(nameCrDirW.c_str());
+    }
     const char* sourceDirCrDir = sourceDir;
     char sourceDirCrDirCopy[3 * MAX_PATH];
     if (sourceDirCrDir != NULL)
@@ -6640,7 +6660,10 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
                         TRACE_I("DoCreateDir(): Unable to set Encrypted or Compressed attributes for " << name << "! error=" << GetErrorText(changeAttrErr));
                     }
                 }
-                SetFileAttributes(nameCrDir, newAttr);
+                if (!nameCrDirW.empty())
+                    SetFileAttributesW(nameCrDirW.c_str(), newAttr);
+                else
+                    SetFileAttributes(nameCrDir, newAttr);
 
                 if (script->CopyAttrs) // verify whether the source file attributes were preserved
                 {

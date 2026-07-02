@@ -78,7 +78,7 @@ namespace
 
     std::string QuickSearchWideToText(const std::wstring& text)
     {
-        return SalWideToMultiBytePath(text.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        return SalWideToMultiBytePath(text.c_str(), CP_UTF8);
     }
 
     BOOL UseWideQuickSearch()
