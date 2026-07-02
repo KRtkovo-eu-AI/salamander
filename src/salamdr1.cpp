@@ -1297,8 +1297,9 @@ void InitLocales()
     int i;
     for (i = 0; i < 256; i++)
     {
-        IsNotAlphaNorNum[i] = !IsCharAlphaNumeric((char)i);
-        IsAlpha[i] = IsCharAlpha((char)i);
+        char ch = (char)(i & 0xFF);
+        IsNotAlphaNorNum[i] = !IsCharAlphaNumeric(ch);
+        IsAlpha[i] = IsCharAlpha(ch);
     }
 
     // Ziskame desetinny a tisicovy oddelovac pomoci WideChar verze a prevedeme

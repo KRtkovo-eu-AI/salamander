@@ -1817,7 +1817,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 drv.HGrayIcon = NULL;
 
                 int index = Drives->Add(drv);
-                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(char)(*DriveTypeParam & 0xFF)])
+                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(BYTE)(*DriveTypeParam & 0xFF)])
                     currentDiskIndex = index;
             }
         }
@@ -2025,7 +2025,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 separateNextDrive = FALSE;
 
                 int index = Drives->Add(drv);
-                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(char)(*DriveTypeParam & 0xFF)])
+                if (LowerCase[Drives->At(index).DriveText[0]] == LowerCase[(BYTE)(*DriveTypeParam & 0xFF)])
                     currentDiskIndex = index;
             }
             drive++;

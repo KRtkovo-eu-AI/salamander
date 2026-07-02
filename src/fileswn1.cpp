@@ -294,6 +294,15 @@ static void FreeTreeViewPopulateEntries(CTreeViewPopulateEntry* entries, int cou
     }
 }
 
+static void FreeTreeViewAsyncLoadData(CTreeViewAsyncLoadData* loadData)
+{
+    if (loadData == NULL)
+        return;
+
+    FreeTreeViewPopulateEntries(loadData->DirEntries, loadData->DirCount);
+    free(loadData);
+}
+
 static BOOL CopyTreeViewFindDataWToA(const WIN32_FIND_DATAW& src, WIN32_FIND_DATA& dst)
 {
     memset(&dst, 0, sizeof(dst));
@@ -2316,6 +2325,18 @@ CFilesWindow::~CFilesWindow()
             WaitForSingleObject(TreeViewAsyncLoadThread, INFINITE);
         }
         HANDLES(CloseHandle(TreeViewAsyncLoadThread));
+        TreeViewAsyncLoadThread = NULL;
+    }
+    if (TreeViewAsyncLoadData != NULL)
+    {
+        MSG msg;
+        while (PeekMessage(&msg, HWindow, WM_USER_TREEVIEW_ASYNC_DONE, WM_USER_TREEVIEW_ASYNC_DONE, PM_REMOVE))
+        {
+            if ((CTreeViewAsyncLoadData*)msg.lParam != TreeViewAsyncLoadData)
+                FreeTreeViewAsyncLoadData((CTreeViewAsyncLoadData*)msg.lParam);
+        }
+        FreeTreeViewAsyncLoadData((CTreeViewAsyncLoadData*)TreeViewAsyncLoadData);
+        TreeViewAsyncLoadData = NULL;
     }
     if (TreeViewAsyncTerminateEvent != NULL)
         HANDLES(CloseHandle(TreeViewAsyncTerminateEvent));
