@@ -71,7 +71,7 @@ COMMENT,"Česká verze"
 1018,7,22,20,20,1,""
 
 [STRINGTABLE 0]
-1,1,"Rozdělit a sloučit"
+1,0,"Split & Combine"
 2,1,"Chyba při otevírání souboru."
 3,1,"Vyberte cílový adresář."
 4,1,"Soubor není dostatečně velký pro rozdělení."

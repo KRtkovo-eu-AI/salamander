@@ -536,9 +536,12 @@ SLGINCOMPLETE,""
 483,13,131,104,12,1,"Au&tomatisch vernieuwen"
 484,13,143,102,12,1,"Eenvoudige &pictogrammen"
 487,13,155,278,12,1,"&Niet vernieuwen bij start van Salamander (missch. manueel vernieuwen nodig)"
-1158,1,180,128,8,1,"Als pad ontoegankelijk, &ga naar:"
-488,130,178,146,12,1,""
-360,280,178,13,12,1,"..."
+1161,1,180,49,8,1,"Lange paden"
+1162,42,184,251,1,1,""
+489,13,190,286,12,1,"Schakel Win32-lange paden in (Windows 10 1607+ / Windows 11)"
+1158,1,212,128,8,1,"Als pad ontoegankelijk, &ga naar:"
+488,130,210,146,12,1,""
+360,280,210,13,12,1,"..."
 
 [DIALOG 490]
 350,118,1,""
@@ -3635,4 +3638,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 168]
 14272,1,"Deze configuratie wordt momenteel gebruikt door deze exemplaar van de toepassing."
 14273,1,"Kan configuratiebestand niet verwijderen.\n\nBestand: %s\nFout: %s"
+14274,1,"De instelling voor lange Win32-padnamen is gewijzigd. Herstart Windows zodat de wijziging van kracht wordt."
+14275,1,"Kan de Win32-lange-padinstelling niet wijzigen. Fout: %s"
+14276,1,"Voer de toepassing uit met beheerdersbevoegdheden om de Win32-lange-padinstelling te wijzigen."
 

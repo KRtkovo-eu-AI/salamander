@@ -536,9 +536,12 @@ SLGINCOMPLETE,""
 483,13,131,104,12,1,"Usar refresco au&tomático"
 484,13,143,79,12,1,"Usar iconos simp&les"
 487,13,155,276,12,1,"N&o refrescar al activar Salamander (puede ser necesario refresco manual)"
-1158,1,180,135,8,1,"Si la ruta del panel es inaccessi&ble, ir a:"
-488,130,178,146,12,1,""
-360,280,178,13,12,1,"..."
+1161,1,180,53,8,1,"Rutas largas"
+1162,42,184,251,1,1,""
+489,13,190,286,12,1,"Habilitar rutas largas Win32 (Windows 10 1607+ / Windows 11)"
+1158,1,212,135,8,1,"Si la ruta del panel es inaccessi&ble, ir a:"
+488,130,210,146,12,1,""
+360,280,210,13,12,1,"..."
 
 [DIALOG 490]
 350,118,1,""
@@ -3635,4 +3638,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 168]
 14272,1,"Esta configuración se usa actualmente por esta instancia de la aplicación."
 14273,1,"No se pudo eliminar el archivo de configuración.\n\nArchivo: %s\nError: %s"
+14274,1,"El ajuste de rutas largas de Win32 se cambió. Reinicia Windows para que el cambio surta efecto."
+14275,1,"No se pudo cambiar el ajuste de rutas largas de Win32. Error: %s"
+14276,1,"Ejecuta la aplicación con privilegios de administrador para cambiar el ajuste de rutas largas de Win32."
 

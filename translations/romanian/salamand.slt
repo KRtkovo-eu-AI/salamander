@@ -536,9 +536,12 @@ SLGINCOMPLETE,""
 483,13,131,104,12,1,"Foloseste refresh au&tomat"
 484,13,143,92,12,1,"Foloseste icoane simp&le"
 487,13,155,276,12,1,"N&u fa refresh la activarea Salamander (refresh manual poate fi necesar)"
-1158,1,180,167,8,1,"Daca calea in panou nu este accesi&bila, mergi la:"
-488,130,178,146,12,1,""
-360,280,178,13,12,1,"..."
+1161,1,180,39,8,1,"Căi lungi"
+1162,42,184,251,1,1,""
+489,13,190,286,12,1,"Activeaza cailor lungi Win32 (Windows 10 1607+ / Windows 11)"
+1158,1,212,167,8,1,"Daca calea in panou nu este accesi&bila, mergi la:"
+488,130,210,146,12,1,""
+360,280,210,13,12,1,"..."
 
 [DIALOG 490]
 350,118,1,""
@@ -3635,4 +3638,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 168]
 14272,1,"Această configurație este utilizată în prezent de această instanță a aplicației."
 14273,1,"Imposibil de șters fișierul de configurare.\n\nFișier: %s\nEroare: %s"
+14274,1,"Setarea pentru căi lungi Win32 a fost modificată. Reporniți Windows pentru ca modificarea să intre în vigoare."
+14275,1,"Nu se poate modifica setarea pentru căi lungi Win32. Eroare: %s"
+14276,1,"Rulați aplicația cu privilegii de administrator pentru a modifica setarea pentru căi lungi Win32."
 

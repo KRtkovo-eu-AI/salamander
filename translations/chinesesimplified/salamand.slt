@@ -536,9 +536,12 @@ SLGINCOMPLETE,""
 483,13,131,104,12,1,"使用自动刷新(&t)"
 484,13,143,73,12,1,"使用简单图标(&l)"
 487,13,155,276,12,1,"当 Salamander 激活时不刷新(可能有必要手动刷新)(&o)"
-1158,1,180,137,8,1,"如果面板中的路径不可访问,转到(&b):"
-488,130,178,146,12,1,""
-360,280,178,13,12,1,"..."
+1161,1,180,39,8,1,"长路径"
+1162,42,184,251,1,1,""
+489,13,190,276,12,1,"启用 Win32 长路径（Windows 10 1607+ / Windows 11）"
+1158,1,212,137,8,1,"如果面板中的路径不可访问,转到(&b):"
+488,130,210,146,12,1,""
+360,280,210,13,12,1,"..."
 
 [DIALOG 490]
 350,118,1,""
@@ -3604,7 +3607,7 @@ SLGINCOMPLETE,""
 14219,1,"6\t是 - 转换为文件存储\t7\t否 - 保留注册表存储\t2\t移除已存储的配置"
 14220,1,"找到注册表配置和可移植的 config.reg。单击“是”以使用基于文件的存储，或单击“否”以继续使用注册表存储。"
 14221,1,"代码页兼容性警告"
-14222,0,"The selected language may not display all characters correctly because your Windows system locale code page (%u) does not match the code page expected by this language (%u).\n\nTo fix this, change your system locale in Windows: Settings > Time & Language > Region > Administrative > Change system locale."
+14222,1,"由于您的 Windows 系统区域设置代码页 (%u) 与此语言 (%u) 所需的代码页不匹配，因此所选语言可能无法正确显示所有字符。\n\n要解决此问题，请在 Windows 中更改系统区域设置：设置 > 时间和语言 > 区域 > 管理 > 更改系统区域设置。"
 
 [STRINGTABLE 166]
 14232,1,"上次保存"
@@ -3635,4 +3638,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 168]
 14272,1,"此配置当前由该应用程序实例使用。"
 14273,1,"无法删除配置文件。\n\n文件：%s\n错误：%s"
+14274,1,"已更改 Win32 长路径设置。请重新启动 Windows 以使更改生效。"
+14275,1,"无法更改 Win32 长路径设置。错误：%s"
+14276,1,"请以管理员权限运行该应用程序，以更改 Win32 长路径设置。"
 

@@ -536,9 +536,12 @@ SLGINCOMPLETE,""
 483,13,131,114,12,1,"Rafraîchissement au&tomatique"
 484,13,143,69,12,1,"Icô&nes simples"
 487,13,155,286,12,1,"&Pas de rafraîchissement à l'activation de Salamander (le rafraîchissement manuel peut être alors nécessaire)"
-1158,1,180,132,8,1,"Si chemin d'accès inaccessi&ble, aller à:"
-488,130,178,146,12,1,""
-360,280,178,13,12,1,"..."
+1161,1,180,58,8,1,"Longs chemins"
+1162,42,184,251,1,1,""
+489,13,190,286,12,1,"Activer les chemins longs Win32 (Windows 10 1607+ / Windows 11)"
+1158,1,212,132,8,1,"Si chemin d'accès inaccessi&ble, aller à:"
+488,130,210,146,12,1,""
+360,280,210,13,12,1,"..."
 
 [DIALOG 490]
 350,118,1,""
@@ -3635,4 +3638,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 168]
 14272,1,"Cette configuration est actuellement utilisee par cette instance de l'application."
 14273,1,"Impossible de supprimer le fichier de configuration.\n\nFichier : %s\nErreur : %s"
+14274,1,"Le paramètre des chemins longs Win32 a été modifié. Redémarrez Windows pour que la modification prenne effet."
+14275,1,"Impossible de modifier le paramètre des chemins longs Win32. Erreur : %s"
+14276,1,"Exécutez l’application avec des privilèges d’administrateur pour modifier le paramètre des chemins longs Win32."
 

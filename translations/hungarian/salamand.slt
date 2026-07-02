@@ -536,9 +536,12 @@ SLGINCOMPLETE,""
 483,13,131,104,12,1,"Au&tomatikus frissítés"
 484,13,143,69,12,1,"Egy&szerű ikonok"
 487,13,155,276,12,1,"&Ne frissítsen a Salamander aktiválásakor (kézi frissítés szükséges)"
-1158,1,180,128,8,1,"Ha egy elérési út elérhetetlen, u&grás:"
-488,130,178,146,12,1,""
-360,280,178,13,12,1,"..."
+1161,1,180,85,8,1,"Hosszú elérési utak"
+1162,42,184,251,1,1,""
+489,13,190,286,12,1,"Hosszú Win32-elérési utak engedélyezése (Windows 10 1607+ / Windows 11)"
+1158,1,212,128,8,1,"Ha egy elérési út elérhetetlen, u&grás:"
+488,130,210,146,12,1,""
+360,280,210,13,12,1,"..."
 
 [DIALOG 490]
 350,118,1,""
@@ -3135,7 +3138,7 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 116]
 13168,1,"&Fastruktúra nézet"
-13169,0,"&Manage Configurations..."
+13169,1,"&Beállítások kezelése..."
 13170,1,"&Jobb"
 13171,1,"Meghajtó &váltása\tAlt+F2"
 
@@ -3635,4 +3638,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 168]
 14272,1,"Ezt a konfigurációt jelenleg az alkalmazás ezen példánya használja."
 14273,1,"Nem sikerült törölni a konfigurációs fájlt.\n\nFájl: %s\nHiba: %s"
+14274,1,"A Win32 hosszú elérési utak beállítása megváltozott. A módosítás érvényesítéséhez indítsa újra a Windows rendszert."
+14275,1,"Nem sikerült módosítani a Win32 hosszú útvonalak beállítását. Hiba: %s"
+14276,1,"A Win32 hosszú útvonalak beállításának módosításához rendszergazdai jogosultságokkal futtassa az alkalmazást."
 

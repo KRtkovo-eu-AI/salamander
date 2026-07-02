@@ -17,6 +17,12 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 
 ## Included Features Overview
+### Unicode and Long paths support
+- Work with files and folders whose names use characters from different languages, emojis, and other Unicode symbols.
+- When Windows long paths are enabled, local and UNC paths can go beyond the traditional `MAX_PATH` limit and use the Windows extended-length limit of about `32,767` characters.
+- Browse, Copy, Move, Rename, Delete, and Create deeply nested folders and very long file names directly from the panels.
+- The core file handling paths use Unicode-aware Windows APIs, so names no longer have to fit the active system code page.
+
 ### Portability
 - Save the Configuration into file storage instead of Registry
 <img width="687" height="172" alt="image" src="https://github.com/user-attachments/assets/5aab6d4d-cc86-42a5-a769-95af091ecab5" />

@@ -536,9 +536,12 @@ SLGINCOMPLETE,""
 483,13,131,118,12,1,"Použiť &automatickú aktualizáciu"
 484,13,143,95,12,1,"Použiť jednoduché i&kony"
 487,13,155,286,12,1,"&Neaktualizovať pri aktivácii Salamandera (môže vyžadovať manuálnu aktualizáciu)"
-1158,1,180,147,8,1,"Ak je cesta v paneli nedo&stupná, prejsť na:"
-488,130,178,146,12,1,""
-360,280,178,13,12,1,"..."
+1161,1,180,39,8,1,"Dlhé cesty"
+1162,42,184,251,1,1,""
+489,13,190,286,12,1,"Povoliť dlhé cesty Win32 (Windows 10 1607+ / Windows 11)"
+1158,1,212,147,8,1,"Ak je cesta v paneli nedo&stupná, prejsť na:"
+488,130,210,146,12,1,""
+360,280,210,13,12,1,"..."
 
 [DIALOG 490]
 350,118,1,""
@@ -3635,4 +3638,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 168]
 14272,1,"Túto konfiguráciu v súčasnosti používa táto inštancia aplikácie."
 14273,1,"Nepodarilo sa odstrániť konfiguračný súbor.\n\nSúbor: %s\nChyba: %s"
+14274,1,"Nastavenie dlhých ciest pre Win32 sa zmenilo. Reštartujte systém Windows, aby zmena nabrala účinnosť."
+14275,1,"Nepodarilo sa zmeniť nastavenie Win32 dlhých ciest. Chyba: %s"
+14276,1,"Spustite aplikáciu s oprávneniami správcu, aby ste zmenili nastavenie Win32 dlhých ciest."
 
