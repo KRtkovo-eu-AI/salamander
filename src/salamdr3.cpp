@@ -3586,12 +3586,12 @@ void CTopIndexMem::Push(const char* path, int topIndex)
                 TopIndexes[i] = TopIndexes[i + 1];
             TopIndexesCount--;
         }
-        strcpy(Path, path);
+        lstrcpyn(Path, path, _countof(Path));
         TopIndexes[TopIndexesCount++] = topIndex;
     }
     else // not sequential -> first top index in the series
     {
-        strcpy(Path, path);
+        lstrcpyn(Path, path, _countof(Path));
         TopIndexesCount = 1;
         TopIndexes[0] = topIndex;
     }

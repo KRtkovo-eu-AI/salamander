@@ -369,8 +369,8 @@ public:
 class CTopIndexMem
 {
 protected:
-    // path for the last remembered top index; the longest is archive + archive-path so 2 * MAX_PATH
-    char Path[2 * MAX_PATH];
+    // path for the last remembered top index; disk paths can be long-path aware
+    char Path[32768];
     int TopIndexes[TOP_INDEX_MEM_SIZE]; // stored top indexes
     int TopIndexesCount;                // number of stored top indexes
 
