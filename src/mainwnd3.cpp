@@ -8381,8 +8381,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     if (itemData.FullPath != NULL && itemData.FullPath[0] != 0 &&
                         !IsTheSamePath(itemData.FullPath, sourcePanel->GetPath()))
                     {
-                        char treePath[MAX_PATH];
-                        lstrcpyn(treePath, itemData.FullPath, MAX_PATH);
+                        char treePath[32768];
+                        lstrcpyn(treePath, itemData.FullPath, _countof(treePath));
                         sourcePanel->ChangePathToDisk(sourcePanel->HWindow, treePath);
                     }
                 }
