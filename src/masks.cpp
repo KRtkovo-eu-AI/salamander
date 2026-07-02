@@ -4,6 +4,59 @@
 
 #include "precomp.h"
 
+namespace
+{
+bool NormalizeStringC(const wchar_t* text, int len, std::wstring& normalized)
+{
+    normalized.erase();
+    if (text == NULL)
+        return true;
+    if (len < 0)
+        len = (int)wcslen(text);
+    if (len == 0)
+        return true;
+
+    int required = NormalizeString(NormalizationC, text, len, NULL, 0);
+    if (required <= 0)
+    {
+        normalized.assign(text, len);
+        return false;
+    }
+    normalized.resize(required);
+    int written = NormalizeString(NormalizationC, text, len, &normalized[0], required);
+    if (written <= 0)
+    {
+        normalized.assign(text, len);
+        return false;
+    }
+    normalized.resize(written);
+    return true;
+}
+
+std::wstring NormalizeStringC(const wchar_t* text)
+{
+    std::wstring normalized;
+    NormalizeStringC(text, -1, normalized);
+    return normalized;
+}
+
+int MapNormalizedOffsetToOriginal(const wchar_t* original, int normalizedOffset)
+{
+    if (original == NULL || normalizedOffset <= 0)
+        return 0;
+
+    int originalLen = (int)wcslen(original);
+    for (int i = 1; i <= originalLen; i++)
+    {
+        std::wstring prefix;
+        NormalizeStringC(original, i, prefix);
+        if ((int)prefix.length() >= normalizedOffset)
+            return i;
+    }
+    return originalLen;
+}
+}
+
 //
 //*****************************************************************************
 // Functions for wildcard operations
@@ -213,6 +266,37 @@ BOOL IsQSWildChar(char ch)
     return (ch == '/' || ch == '\\' || ch == '<');
 }
 
+BOOL IsQSWildCharW(wchar_t ch)
+{
+    return (ch == L'/' || ch == L'\\' || ch == L'<');
+}
+
+
+void PrepareQSMaskW(std::wstring& mask, const std::wstring& src)
+{
+    mask.erase();
+    wchar_t lastChar = 0;
+    for (size_t i = 0; i < src.length(); i++)
+    {
+        wchar_t ch = src[i];
+        if (IsQSWildCharW(ch))
+        {
+            if (lastChar != L'/')
+            {
+                mask += L'/';
+                lastChar = L'/';
+            }
+        }
+        else
+        {
+            mask += ch;
+            lastChar = ch;
+        }
+    }
+    while (!mask.empty() && mask[mask.length() - 1] == L'/')
+        mask.erase(mask.length() - 1);
+}
+
 void PrepareQSMask(char* mask, const char* src)
 {
     CALL_STACK_MESSAGE2("PrepareQSMask(, %s)", src);
@@ -278,6 +362,58 @@ BOOL AgreeQSMaskAux(const char* filename, BOOL hasExtension, const char* filenam
     }
     else
         return FALSE;
+}
+
+
+BOOL AgreeQSMaskAuxW(const wchar_t* filename, BOOL hasExtension, const wchar_t* filenameBase, const wchar_t* mask, BOOL wholeString, int& offset)
+{
+    while (*filename != 0)
+    {
+        if (!wholeString && *mask == 0)
+        {
+            offset = (int)(filename - filenameBase);
+            return TRUE;
+        }
+        if (towlower(*filename) == towlower(*mask))
+        {
+            filename++;
+            mask++;
+        }
+        else if (*mask == L'/')
+        {
+            mask++;
+            while (*filename != 0)
+            {
+                if (AgreeQSMaskAuxW(filename, hasExtension, filenameBase, mask, wholeString, offset))
+                    return TRUE;
+                filename++;
+            }
+            break;
+        }
+        else
+            return FALSE;
+    }
+    if (*mask == 0 || !hasExtension && *mask == L'.' && *(mask + 1) == 0)
+    {
+        offset = (int)(filename - filenameBase);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL AgreeQSMaskW(const wchar_t* filename, BOOL hasExtension, const wchar_t* mask, BOOL wholeString, int& offset)
+{
+    offset = 0;
+    if (filename == NULL || mask == NULL)
+        return FALSE;
+
+    std::wstring filenameNorm = NormalizeStringC(filename);
+    std::wstring maskNorm = NormalizeStringC(mask);
+    BOOL ret = AgreeQSMaskAuxW(filenameNorm.c_str(), hasExtension, filenameNorm.c_str(),
+                               maskNorm.c_str(), wholeString, offset);
+    if (ret)
+        offset = MapNormalizedOffsetToOriginal(filename, offset);
+    return ret;
 }
 
 BOOL AgreeQSMask(const char* filename, BOOL hasExtension, const char* mask, BOOL wholeString, int& offset)
@@ -668,29 +804,125 @@ BOOL CMaskGroup::PrepareMasks(int& errorPos, const char* masksString)
     return TRUE;
 }
 
+
+namespace
+{
+    UINT MaskUnicodeCodePage()
+    {
+        return GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    }
+
+    bool MaskTextToWide(const char* text, int len, std::wstring& wide)
+    {
+        wide.erase();
+        if (text == NULL)
+            return true;
+        if (len == -1)
+            len = (int)strlen(text);
+        if (len <= 0)
+            return true;
+        int required = MultiByteToWideChar(MaskUnicodeCodePage(), 0, text, len, NULL, 0);
+        if (required <= 0 && MaskUnicodeCodePage() != CP_ACP)
+            required = MultiByteToWideChar(CP_ACP, 0, text, len, NULL, 0);
+        if (required <= 0)
+            return false;
+        wide.resize(required);
+        UINT codePage = MaskUnicodeCodePage();
+        int converted = MultiByteToWideChar(codePage, 0, text, len, &wide[0], required);
+        if (converted <= 0 && codePage != CP_ACP)
+            converted = MultiByteToWideChar(CP_ACP, 0, text, len, &wide[0], required);
+        if (converted <= 0)
+            return false;
+        wide.resize(converted);
+        return true;
+    }
+
+    int WideICmp(const wchar_t* s1, const wchar_t* s2)
+    {
+        return CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, s1, -1, s2, -1) - CSTR_EQUAL;
+    }
+
+    BOOL AgreeMaskWCore(const wchar_t* filename, const wchar_t* mask, BOOL hasExtension, BOOL extendedMode)
+    {
+        while (*filename != 0)
+        {
+            if (*mask == 0)
+                return FALSE;
+            BOOL agree = (towlower(*filename) == towlower(*mask) || *mask == L'?' ||
+                          (extendedMode && *mask == L'#' && *filename >= L'0' && *filename <= L'9'));
+            if (agree)
+            {
+                filename++;
+                mask++;
+            }
+            else if (*mask == L'*')
+            {
+                mask++;
+                while (*filename != 0)
+                {
+                    if (AgreeMaskWCore(filename, mask, hasExtension, extendedMode))
+                        return TRUE;
+                    filename++;
+                }
+                break;
+            }
+            else
+                return FALSE;
+        }
+        if (*mask == L'*')
+            mask++;
+        if (!hasExtension && *mask == L'.')
+            return *(mask + 1) == 0 || (*(mask + 1) == L'*' && *(mask + 2) == 0);
+        return *mask == 0;
+    }
+}
+
 BOOL CMaskGroup::AgreeMasks(const char* fileName, const char* fileExt)
 {
-    if (NeedPrepare)
-        TRACE_E("CMaskGroup::AgreeMasks: PrepareMasks must be called before AgreeMasks!");
+    if (fileName == NULL)
+        return FALSE;
 
-    SLOW_CALL_STACK_MESSAGE3("CMaskGroup::AgreeMasks(%s, %s)", fileName, fileExt);
+    std::wstring fileNameW;
+    if (!MaskTextToWide(fileName, -1, fileNameW))
+        return FALSE;
+
+    const wchar_t* fileExtW = NULL;
+    if (fileExt != NULL && fileExt >= fileName)
+    {
+        int extOffset = (int)(fileExt - fileName);
+        std::wstring prefixW;
+        if (MaskTextToWide(fileName, extOffset, prefixW) && prefixW.length() <= fileNameW.length())
+            fileExtW = fileNameW.c_str() + prefixW.length();
+    }
+    return AgreeMasksW(fileNameW.c_str(), fileExtW);
+}
+
+BOOL CMaskGroup::AgreeMasksW(const wchar_t* fileName, const wchar_t* fileExt)
+{
+    if (NeedPrepare)
+        TRACE_E("CMaskGroup::AgreeMasksW: PrepareMasks must be called before AgreeMasksW!");
+    if (fileName == NULL)
+        return FALSE;
+
+    std::wstring normalizedFileName = NormalizeStringC(fileName);
+    std::wstring normalizedFileExt;
     if (fileExt == NULL)
     {
-        int tmpLen = lstrlen(fileName);
+        int tmpLen = (int)wcslen(fileName);
         fileExt = fileName + tmpLen;
-        while (--fileExt >= fileName && *fileExt != '.')
+        while (--fileExt >= fileName && *fileExt != L'.')
             ;
         if (fileExt < fileName)
-            fileExt = fileName + tmpLen; // ".cvspass" in Windows is an extension ...
+            fileExt = fileName + tmpLen;
         else
             fileExt++;
     }
-    const char* ext = fileExt;
-    if (*ext == 0 && *fileName == '.' && *(ext - 1) != '.') // may be the ".cvspass" case; ".." has no extension
-    {
-        TRACE_E("CMaskGroup::AgreeMasks: Unexpected situation: fileName starts with '.' but fileExt points to end of name: " << fileName);
-        ext = fileName + 1;
-    }
+    NormalizeStringC(fileExt, -1, normalizedFileExt);
+    const wchar_t* ext = fileExt;
+    if (*ext == 0 && *fileName == L'.' && ext > fileName && *(ext - 1) != L'.')
+        NormalizeStringC(fileName + 1, -1, normalizedFileExt);
+    ext = normalizedFileExt.c_str();
+
     int i;
     for (i = 0; i < PreparedMasks.Count; i++)
     {
@@ -698,51 +930,40 @@ BOOL CMaskGroup::AgreeMasks(const char* fileName, const char* fileExt)
         if (mask != NULL)
         {
             CMaskItemFlags* flags = (CMaskItemFlags*)mask;
-            if (flags->Exclude == 1)
-            {
-                if (flags->Optimize == MASK_OPTIMIZE_ALL) // *.*; *
-                    return FALSE;
-                if (flags->Optimize == MASK_OPTIMIZE_EXTENSION) // *.xxxx
-                {
-                    if (StrICmp(ext, mask + 3) == 0)
-                        return FALSE;
-                    else
-                        continue;
-                }
-                mask++;
-                if (AgreeMask(fileName, mask, *fileExt != 0, ExtendedMode))
-                    return FALSE;
-            }
+            if (flags->Optimize == MASK_OPTIMIZE_ALL)
+                return flags->Exclude == 1 ? FALSE : TRUE;
+
+            std::wstring maskW;
+            const char* maskText = flags->Optimize == MASK_OPTIMIZE_EXTENSION ? mask + 3 : mask + 1;
+            if (!MaskTextToWide(maskText, -1, maskW))
+                continue;
+            maskW = NormalizeStringC(maskW.c_str());
+
+            BOOL matched;
+            if (flags->Optimize == MASK_OPTIMIZE_EXTENSION)
+                matched = WideICmp(ext, maskW.c_str()) == 0;
             else
-            {
-                if (flags->Optimize == MASK_OPTIMIZE_ALL) // *.*; *
-                    return TRUE;
-                if (flags->Optimize == MASK_OPTIMIZE_EXTENSION) // *.xxxx
-                {
-                    if (StrICmp(ext, mask + 3) == 0)
-                        return TRUE;
-                    else
-                        continue;
-                }
-                mask++;
-                if (AgreeMask(fileName, mask, *fileExt != 0, ExtendedMode))
-                    return TRUE;
-            }
+                matched = AgreeMaskWCore(normalizedFileName.c_str(), maskW.c_str(), *fileExt != 0, ExtendedMode);
+
+            if (matched)
+                return flags->Exclude == 1 ? FALSE : TRUE;
         }
     }
-    if (MasksHashArray != NULL) // there are still some masks in the hash array
+
+    if (MasksHashArray != NULL)
     {
-        DWORD hash = 0;
-        COMPUTEMASKGROUPHASH(hash, (unsigned char*)ext);
-        CMasksHashEntry* item = &MasksHashArray[hash];
-        if (item->Mask != NULL)
+        // Hashing is ANSI-only, but stored masks can still be evaluated through the UTF-16 core.
+        for (i = 0; i < MasksHashArraySize; i++)
         {
-            do
+            CMasksHashEntry* item = &MasksHashArray[i];
+            while (item != NULL && item->Mask != NULL)
             {
-                if (StrICmp(ext, ((char*)item->Mask) + 3) == 0)
+                std::wstring maskW;
+                if (MaskTextToWide(((char*)item->Mask) + 3, -1, maskW) &&
+                    WideICmp(ext, NormalizeStringC(maskW.c_str()).c_str()) == 0)
                     return TRUE;
                 item = item->Next;
-            } while (item != NULL);
+            }
         }
     }
     return FALSE;

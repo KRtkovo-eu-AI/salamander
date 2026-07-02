@@ -115,7 +115,7 @@ CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salam
 
     pluginData = &ArcPluginDataInterface;
 
-    CFileData file;
+    CFileData file = {0};
 
     file.Name = SalamanderGeneral->DupStr("test.dop");
     if (file.Name == NULL)

@@ -215,6 +215,7 @@ struct CFileData // nesmi sem prijit destruktor !
     char* DosName;                 // naalokovane DOS 8.3 jmeno souboru, neni-li treba je NULL, nutne
                                    // alokovat na heapu Salamandera (viz CSalamanderGeneralAbstract::Alloc/Realloc/Free)
     DWORD_PTR PluginData;          // pouziva plugin skrze CPluginDataInterfaceAbstract, Salamander ignoruje
+    wchar_t* NameW;                // optional exact Unicode filename; NULL when Name is authoritative/enough
     unsigned NameLen : 9;          // delka retezce Name (strlen(Name)) - POZOR: maximalni delka jmena je (MAX_PATH - 5)
     unsigned Hidden : 1;           // je hidden? (je-li 1, ikonka je pruhlednejsi o 50% - ghosted)
     unsigned IsLink : 1;           // je link? (je-li 1, ikonka ma overlay linku) - standardni plneni viz CSalamanderGeneralAbstract::IsFileLink(CFileData::Ext), pri zobrazeni ma prednost pred IsOffline, ale IconOverlayIndex ma prednost
@@ -230,6 +231,8 @@ struct CFileData // nesmi sem prijit destruktor !
     unsigned Dirty : 1;           // je potreba tuto polozku prekreslit? (pouze docasna platnost; mezi nastavenim bitu a prekreslenim panelu nesmi byt pumpovana message queue, jinak muze dojit k prekresleni ikonky (icon reader) a tim resetu bitu! v dusledku se neprekresli polozka)
     unsigned CutToClip : 1;       // je CUT-nutej na clipboardu? (je-li 1, ikonka je pruhlednejsi o 50% - ghosted)
     unsigned IconOverlayDone : 1; // jen pro potreby icon-reader-threadu: ziskavame nebo uz jsme ziskavali icon-overlay? (0 - ne, 1 - ano)
+
+    bool UseWideName() const { return NameW != NULL && NameW[0] != L'\0'; }
 };
 
 // konstanty urcujici platnost dat, ktera jsou primo ulozena v CFileData (velikost, pripona, atd.)

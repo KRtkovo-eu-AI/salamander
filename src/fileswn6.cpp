@@ -16,6 +16,31 @@
 #include "pack.h"
 #include "shellib.h"
 #include "filesbox.h"
+#include "common/widepath.h"
+
+namespace
+{
+std::wstring SalMultiByteToWidePathUtf8OrAcp(const char* path)
+{
+    std::wstring wide = SalMultiByteToWidePath(path, CP_UTF8);
+    if (wide.empty() && GetACP() != CP_UTF8)
+        wide = SalMultiByteToWidePath(path, CP_ACP);
+    return wide;
+}
+
+std::wstring SalPathAddExtendedPrefixIfNeededW(const std::wstring& path)
+{
+    if (path.length() >= MAX_PATH && !SalIsExtendedLengthPathW(path.c_str()))
+        return SalPathAddExtendedPrefixW(path.c_str());
+    return path;
+}
+
+const wchar_t* SalPathFindLastComponentW(const wchar_t* path)
+{
+    const wchar_t* name = SalPathFindFileNameW(path);
+    return name != NULL ? name : path;
+}
+}
 
 // helper variables for the dialogs in BuildScriptXXX()
 BOOL ConfirmADSLossAll = FALSE;
@@ -640,8 +665,18 @@ BOOL CFilesWindow::BuildScriptMain2(COperations* script, BOOL copy, char* target
     {
         char* fileName = data->At(i)->FileName;
         char* mapName = data->At(i)->MapName;
+        const wchar_t* fileNameW = data->At(i)->FileNameW;
+        const wchar_t* fileBaseNameW = fileNameW != NULL ? SalPathFindLastComponentW(fileNameW) : NULL;
 
-        DWORD attrs = SalGetFileAttributes(fileName);
+        std::wstring fileNameLongW;
+        DWORD attrs = INVALID_FILE_ATTRIBUTES;
+        if (fileNameW != NULL && *fileNameW != 0)
+        {
+            fileNameLongW = SalPathAddExtendedPrefixIfNeededW(fileNameW);
+            attrs = GetFileAttributesW(fileNameLongW.c_str());
+        }
+        if (attrs == INVALID_FILE_ATTRIBUTES)
+            attrs = SalGetFileAttributes(fileName);
         if (attrs != 0xFFFFFFFF)
         {
             char* s = fileName + strlen(fileName);
@@ -923,9 +958,12 @@ BOOL CFilesWindow::BuildScriptMain2(COperations* script, BOOL copy, char* target
                 }
                 else
                 {
-                    HANDLE h = HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                                    NULL, OPEN_EXISTING,
-                                                    FILE_ATTRIBUTE_NORMAL, NULL));
+                    HANDLE h = fileNameW != NULL && *fileNameW != 0 ?
+                                   HANDLES_Q(CreateFileW(fileNameLongW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                                         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) :
+                                   HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                                        NULL, OPEN_EXISTING,
+                                                        FILE_ATTRIBUTE_NORMAL, NULL));
                     DWORD err = NO_ERROR;
                     if (h != INVALID_HANDLE_VALUE)
                     {
@@ -938,7 +976,7 @@ BOOL CFilesWindow::BuildScriptMain2(COperations* script, BOOL copy, char* target
                             if (!BuildScriptFile(script, type, sourcePath, sourceSupADS, targetPath,
                                                  targetPathState, targetSupADS, targetIsFAT32, NULL,
                                                  s + 1, NULL, size, NULL, mapName, attrs, NULL, TRUE,
-                                                 NULL, srcAndTgtPathsFlags))
+                                                 NULL, srcAndTgtPathsFlags, fileBaseNameW))
                             {
                                 SetCurrentDirectoryToSystem();
                                 if (usedNames != NULL)
@@ -1415,7 +1453,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                                          targetPathState, targetSupADS, targetIsFAT32, mask,
                                          useName, useDOSName, oneFile->Size, attrsData, NULL,
                                          oneFile->Attr, chCaseData, onlySize, NULL,
-                                         srcAndTgtPathsFlags))
+                                         srcAndTgtPathsFlags, oneFile->UseWideName() ? oneFile->NameW : NULL))
                     {
                         SetCurrentDirectoryToSystem();
                         return FALSE;
@@ -1530,7 +1568,7 @@ BOOL CFilesWindow::BuildScriptDir(COperations* script, CActionType type, char* s
     }
     else
         st = sourceEnd;
-    if (st - sourcePath + strlen(dirName) >= MAX_PATH - 2) // -2 determined experimentally (longer paths cannot be listed)
+    if (st - sourcePath + strlen(dirName) >= 32767)
     {                                                      // data are on disk, which doesn't mean they can't exceed MAX_PATH
         *sourceEnd = 0;                                    // restoring original sourcePath
         _snprintf_s(text, _TRUNCATE, LoadStr(IDS_NAMEISTOOLONG), dirName, sourcePath);
@@ -2472,7 +2510,8 @@ BOOL CFilesWindow::BuildScriptFile(COperations* script, CActionType type, char* 
                                    char* fileDOSName, const CQuadWord& fileSize,
                                    CAttrsData* attrsData, char* mapName, DWORD sourceFileAttr,
                                    CChangeCaseData* chCaseData, BOOL onlySize,
-                                   FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags)
+                                   FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags,
+                                   const wchar_t* fileNameW)
 {
     SLOW_CALL_STACK_MESSAGE14("CFilesWindow::BuildScriptFile(, %d, %s, %d, %s, %d, %d, %d, %s, %s, , , , %s, 0x%X, , %d, , 0x%X)",
                               type, sourcePath, sourcePathSupADS, targetPath, targetPathState, targetPathSupADS,
@@ -2566,6 +2605,26 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 return skip;
             }
         }
+        std::wstring sourceNameW;
+        if (fileNameW != NULL && *fileNameW != 0)
+        {
+            sourceNameW = GetPathW() != NULL && GetPathW()[0] != 0 && IsTheSamePath(sourcePath, GetPath()) ? std::wstring(GetPathW()) : SalMultiByteToWidePathUtf8OrAcp(sourcePath);
+            SalPathAppendW(sourceNameW, fileNameW);
+        }
+        else
+            sourceNameW = SalMultiByteToWidePathUtf8OrAcp(op.SourceName);
+        std::wstring targetNameW;
+        if (fileNameW != NULL && *fileNameW != 0 && mapName == NULL && mask == NULL)
+        {
+            targetNameW = SalMultiByteToWidePathUtf8OrAcp(targetPath);
+            SalPathAppendW(targetNameW, fileNameW);
+        }
+        else
+            targetNameW = SalMultiByteToWidePathUtf8OrAcp(op.TargetName);
+        sourceNameW = SalPathAddExtendedPrefixIfNeededW(sourceNameW);
+        targetNameW = SalPathAddExtendedPrefixIfNeededW(targetNameW);
+        op.SetSourceNameW(sourceNameW.c_str());
+        op.SetTargetNameW(targetNameW.c_str());
         if (type == atMove && strcmp(op.SourceName, op.TargetName) == 0 ||
             type == atCopy && StrICmp(op.SourceName, op.TargetName) == 0)
         {

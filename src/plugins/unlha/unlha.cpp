@@ -155,7 +155,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
                                           sizeof(sortByExtDirsAsFiles), NULL);
 
     LHA_HEADER hdr;
-    CFileData fd;
+    CFileData fd = {0};
     int ret = TRUE, gh;
     int count = 0;
     int symlinkinfo = 0, crcinfo = 0;

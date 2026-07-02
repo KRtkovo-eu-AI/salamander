@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -155,7 +155,7 @@ public:
     CWindow(HWND hDlg, int ctrlID, CObjectOrigin origin = ooAllocated) : CWindowsObject(origin)
 #else  // _UNICODE
     CWindow(HWND hDlg, int ctrlID, CObjectOrigin origin = ooAllocated,
-            BOOL unicodeWnd = FALSE) : CWindowsObject(origin, unicodeWnd)
+            BOOL unicodeWnd = TRUE) : CWindowsObject(origin, unicodeWnd)
 #endif // _UNICODE
     {
         DefWndProc = GetDefWindowProc();
@@ -167,7 +167,7 @@ public:
             CObjectOrigin origin = ooAllocated) : CWindowsObject(helpID, origin)
 #else  // _UNICODE
     CWindow(HWND hDlg, int ctrlID, UINT helpID, CObjectOrigin origin = ooAllocated,
-            BOOL unicodeWnd = FALSE) : CWindowsObject(helpID, origin, unicodeWnd)
+            BOOL unicodeWnd = TRUE) : CWindowsObject(helpID, origin, unicodeWnd)
 #endif // _UNICODE
     {
         DefWndProc = GetDefWindowProc();
@@ -235,8 +235,8 @@ public:
                  int nHeight,            // window height
                  HWND hwndParent,        // handle of parent or owner window
                  HMENU hmenu,            // handle of menu or child-window identifier
-                 HINSTANCE hinst,        // handle of application instance
-                 LPVOID lpvParam);       // ukazatel na objekt vytvareneho okna
+                  HINSTANCE hinst,        // handle of application instance
+                  LPVOID lpvParam);       // ukazatel na objekt vytvareneho okna
 
     HWND CreateExW(DWORD dwExStyle,        // extended window style
                    LPCWSTR lpszClassName,  // address of registered class name
@@ -249,7 +249,9 @@ public:
                    HWND hwndParent,        // handle of parent or owner window
                    HMENU hmenu,            // handle of menu or child-window identifier
                    HINSTANCE hinst,        // handle of application instance
-                   LPVOID lpvParam);       // ukazatel na objekt vytvareneho okna
+                   LPVOID lpvParam);       // pointer to the window object being created
+
+    void SetUnicodeWindow(BOOL unicode) { UnicodeWnd = unicode; }
 #endif                                     // _UNICODE
 
     void AttachToWindow(HWND hWnd);
@@ -339,7 +341,7 @@ public:
     CDialog(HINSTANCE modul, int resID, HWND parent, CObjectOrigin origin = ooStandard) : CWindowsObject(origin)
 #else  // _UNICODE
     CDialog(HINSTANCE modul, int resID, HWND parent, CObjectOrigin origin = ooStandard,
-            BOOL unicodeWnd = FALSE) : CWindowsObject(origin, unicodeWnd)
+            BOOL unicodeWnd = TRUE) : CWindowsObject(origin, unicodeWnd)
 #endif // _UNICODE
     {
         Modal = 0;
@@ -353,7 +355,7 @@ public:
             CObjectOrigin origin = ooStandard) : CWindowsObject(helpID, origin)
 #else  // _UNICODE
     CDialog(HINSTANCE modul, int resID, UINT helpID, HWND parent, CObjectOrigin origin = ooStandard,
-            BOOL unicodeWnd = FALSE) : CWindowsObject(helpID, origin, unicodeWnd)
+            BOOL unicodeWnd = TRUE) : CWindowsObject(helpID, origin, unicodeWnd)
 #endif // _UNICODE
     {
         Modal = 0;

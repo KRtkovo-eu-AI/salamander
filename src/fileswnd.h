@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -467,6 +467,7 @@ protected:
     CFilesWindow* FilesWindow;
     BOOL CloseEnabled;
     BOOL SkipNextCharacter;
+    WCHAR PendingHighSurrogate;
 
 public:
     CQuickRenameWindow();
@@ -486,7 +487,8 @@ public:
 class CFilesWindowAncestor : public CWindow // the real object core - everything private ;-)
 {
 private:
-    char Path[MAX_PATH];      // path for a ptDisk panel - normal ("c:\path") or UNC ("\\server\share\path")
+    char Path[32768];       // path for a ptDisk panel - normal ("c:\path") or UNC ("\\server\share\path"); supports extended-length paths
+    std::wstring PathW;       // Unicode mirror of Path, authoritative when the active code page is UTF-8
     BOOL SuppressAutoRefresh; // TRUE if the user canceled directory listing during reading and chose temporary auto-refresh suppression
 
     CPanelType PanelType; // type of panel (disk, archive, plugin FS)
@@ -559,6 +561,7 @@ public:
     BOOL GetGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal = FALSE);
 
     const char* GetPath() { return Path; }
+    const wchar_t* GetPathW() const { return PathW.c_str(); }
     BOOL Is(CPanelType type) { return type == PanelType; }
     CPanelType GetPanelType() { return PanelType; }
     BOOL GetMonitorChanges() { return MonitorChanges; }
@@ -901,6 +904,8 @@ public:
     short CaretHeight;              // it is set when measuring the font in CFilesWindow
     char QuickSearch[MAX_PATH];     // name of the file that was sought via Quick Search
     char QuickSearchMask[MAX_PATH]; // quick search mask (may contain '/' after any number of characters)
+    std::wstring QuickSearchW;      // Unicode mirror of QuickSearch for UTF-8/local filesystem names
+    std::wstring QuickSearchMaskW;  // Unicode mirror of QuickSearchMask
     int SearchIndex;                // position of the cursor during Quick Search
 
     int FocusedIndex;  // current caret position
@@ -1151,6 +1156,11 @@ public:
                           BOOL refreshListBox = TRUE, BOOL canForce = FALSE, BOOL isRefresh = FALSE,
                           int* failReason = NULL, BOOL shorterPathWarning = TRUE,
                           int tryCloseReason = FSTRYCLOSE_CHANGEPATH);
+    BOOL ChangePathToDiskW(HWND parent, const wchar_t* path, int suggestedTopIndex = -1,
+                           const char* suggestedFocusName = NULL, BOOL* noChange = NULL,
+                           BOOL refreshListBox = TRUE, BOOL canForce = FALSE, BOOL isRefresh = FALSE,
+                           int* failReason = NULL, BOOL shorterPathWarning = TRUE,
+                           int tryCloseReason = FSTRYCLOSE_CHANGEPATH);
     // changes to an archive path; only absolute Windows paths are allowed (archive is UNC or C:\path\archive)
     // if suggestedTopIndex != -1, the top index will be set;
     // if suggestedFocusName != NULL, and present in the new list, it will be focused;
@@ -1397,7 +1407,8 @@ public:
     void PluginFSFilesAction(CPluginFSActionType type);
     void CreateDir(CFilesWindow* target);
     void RenameFile(int specialIndex = -1);
-    void RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL* mayChange, BOOL* tryAgain);
+    void RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
+    void RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
     void DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data);
 
     // performs deletion using the SHFileOperation API function (only when deleting to the Recycle Bin)
@@ -1421,7 +1432,8 @@ public:
                          BOOL targetPathSupADS, BOOL targetPathIsFAT32, char* mask, char* fileName,
                          char* fileDOSName, const CQuadWord& fileSize, CAttrsData* attrsData,
                          char* mapName, DWORD sourceFileAttr, CChangeCaseData* chCaseData,
-                         BOOL onlySize, FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags);
+                         BOOL onlySize, FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags,
+                         const wchar_t* fileNameW = NULL);
     BOOL BuildScriptMain2(COperations* script, BOOL copy, char* targetDir,
                           CCopyMoveData* data);
 
@@ -1552,6 +1564,7 @@ public:
 
     // QuickRenameWindow
     void AdjustQuickRenameRect(const char* text, RECT* r); // adjusts 'r' so it doesn't exceed the panel and is large enough at the same time
+    void AdjustQuickRenameRectW(const wchar_t* text, RECT* r);
     void AdjustQuickRenameWindow();
     //    void QuickRenameOnIndex(int index); // calls QuickRenameBegin for the given index
     void QuickRenameBegin(int index, const RECT* labelRect); // opens QuickRenameWindow
@@ -1568,10 +1581,10 @@ public:
     void CancelUI();
 
     // Searches for the next/previous item. If skip = TRUE, the current item is skipped
-    // if newChar != 0,it is appended to QuickSearchMask
+    // if newText != NULL, it is appended to QuickSearchMask (UTF-8 when the active code page is UTF-8)
     // if wholeString == TRUE, the entire item must match, not just its start
     // returns TRUE when a directory/file is found and also sets the index
-    BOOL QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, char newChar, int& index);
+    BOOL QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, const char* newText, int& index);
 
     // Searches for the next/previous selected item. If skip = TRUE, the current item is skipped
     BOOL SelectFindNext(int currentIndex, BOOL next, BOOL skip, int& index);

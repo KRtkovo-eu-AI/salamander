@@ -418,7 +418,7 @@ CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* dir,
     dir->SetApproximateCount(filesCount, dirsCount);
 
     // add up-dir if we are not in root
-    CFileData fd;
+    CFileData fd = {0};
     memset(&fd, 0, sizeof(fd));
     if (CurrentDir != Snapshot->Root)
     {

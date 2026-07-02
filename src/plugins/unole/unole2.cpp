@@ -191,7 +191,7 @@ BOOL ParseStorage(CSalamanderDirectoryAbstract* Dir, LPSTORAGE CF, LPMALLOC pIMa
     STATSTG element;
     HRESULT hr;
     IEnumSTATSTG* pIEnum;
-    CFileData fileData;
+    CFileData fileData = {0};
     char* oldPath = path + strlen(path);
     char name[MAX_PATH];
     FILETIME* pFT;

@@ -17,14 +17,56 @@
 #include "execute.h"
 #include "tasklist.h"
 #include "darkmode.h"
+#include "common/widepath.h"
 
 #include <Shlwapi.h>
+#include <vector>
 
 const char* MINIMIZED_FINDING_CAPTION = "(%d) %s [%s %s]";
 const char* NORMAL_FINDING_CAPTION = "%s [%s %s]";
 
 BOOL FindManageInUse = FALSE;
 BOOL FindIgnoreInUse = FALSE;
+
+static HWND ResolveFindComboEditControl(HWND ctrl)
+{
+    HWND child = GetWindow(ctrl, GW_CHILD);
+    while (child != NULL)
+    {
+        char className[16];
+        if (GetClassName(child, className, (int)ARRAYSIZE(className)) > 0 &&
+            _stricmp(className, "Edit") == 0)
+            return child;
+        child = GetWindow(child, GW_HWNDNEXT);
+    }
+    return ctrl;
+}
+
+static void GetFindControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return;
+    buffer[0] = 0;
+    HWND source = ResolveFindComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(source))
+    {
+        SendMessage(ctrl, WM_GETTEXT, bufferSize, (LPARAM)buffer);
+        return;
+    }
+
+    int length = GetWindowTextLengthW(source);
+    if (length < 0)
+        length = 0;
+    std::vector<WCHAR> wide(length + 1);
+    int copied = GetWindowTextW(source, wide.data(), length + 1);
+    if (copied < 0)
+        copied = 0;
+    wide[copied] = 0;
+    int written = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, buffer, bufferSize - 1, NULL, NULL);
+    if (written < 0)
+        written = 0;
+    buffer[written] = 0;
+}
 
 namespace
 {
@@ -179,7 +221,6 @@ BOOL CFoundFilesData::Set(const char* path, const char* name, const CQuadWord& s
                           const FILETIME* lastWrite, BOOL isDir)
 {
     CALL_STACK_MESSAGE_NONE
-    //  CALL_STACK_MESSAGE5("CFoundFilesData::Set(%s, %s, %g, 0x%X, )", path, name, size.GetDouble(), attr);
     int l1 = (int)strlen(path), l2 = (int)strlen(name);
     Path = (char*)malloc(l1 + 1);
     Name = (char*)malloc(l2 + 1);
@@ -187,11 +228,35 @@ BOOL CFoundFilesData::Set(const char* path, const char* name, const CQuadWord& s
         return FALSE;
     memmove(Path, path, l1 + 1);
     memmove(Name, name, l2 + 1);
+    PathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    NameW = SalMultiByteToWidePath(name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
     Size = size;
     Attr = attr;
     LastWrite = *lastWrite;
     IsDir = isDir ? 1 : 0;
     return TRUE;
+}
+
+BOOL CFoundFilesData::SetW(const wchar_t* path, const wchar_t* name, const CQuadWord& size, DWORD attr,
+                           const FILETIME* lastWrite, BOOL isDir)
+{
+    std::wstring pathW = path != NULL ? path : L"";
+    std::wstring nameW = name != NULL ? name : L"";
+    std::string pathA = SalWideToMultiBytePath(pathW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    std::string nameA = SalWideToMultiBytePath(nameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    if (!Set(pathA.c_str(), nameA.c_str(), size, attr, lastWrite, isDir))
+        return FALSE;
+    PathW = pathW;
+    NameW = nameW;
+    return TRUE;
+}
+
+std::wstring CFoundFilesData::GetFullNameW() const
+{
+    std::wstring ret = !PathW.empty() ? PathW : SalMultiByteToWidePath(Path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    std::wstring name = !NameW.empty() ? NameW : SalMultiByteToWidePath(Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    SalPathAppendW(ret, name.c_str());
+    return ret;
 }
 
 char* CFoundFilesData::GetText(int i, char* text, int fileNameFormat)
@@ -255,6 +320,73 @@ char* CFoundFilesData::GetText(int i, char* text, int fileNameFormat)
     }
     }
     return text;
+}
+
+std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
+{
+    switch (i)
+    {
+    case 0:
+    {
+        const std::wstring& sourceName = !NameW.empty() ? NameW : SalMultiByteToWidePath(Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        std::string nameUtf8 = SalWideToMultiBytePath(sourceName.c_str(), CP_UTF8);
+        CPathBuffer formattedUtf8;
+        AlterFileName(formattedUtf8.Data(), (char*)nameUtf8.c_str(), -1, fileNameFormat, 0, IsDir);
+        return SalMultiByteToWidePath(formattedUtf8.Data(), CP_UTF8);
+    }
+
+    case 1:
+        return !PathW.empty() ? PathW : SalMultiByteToWidePath(Path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+
+    case 2:
+    {
+        if (IsDir)
+            return SalMultiByteToWidePath(DirColumnStr, CP_ACP);
+
+        char number[50];
+        NumberToStr(number, Size);
+        return SalMultiByteToWidePath(number, CP_ACP);
+    }
+
+    case 3:
+    {
+        wchar_t buffer[100];
+        SYSTEMTIME st;
+        FILETIME ft;
+        if (FileTimeToLocalFileTime(&LastWrite, &ft) &&
+            FileTimeToSystemTime(&ft, &st))
+        {
+            if (GetDateFormatW(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buffer, _countof(buffer)) == 0)
+                swprintf_s(buffer, L"%u.%u.%u", st.wDay, st.wMonth, st.wYear);
+        }
+        else
+            wcscpy_s(buffer, LoadStrW(IDS_INVALID_DATEORTIME));
+        return buffer;
+    }
+
+    case 4:
+    {
+        wchar_t buffer[100];
+        SYSTEMTIME st;
+        FILETIME ft;
+        if (FileTimeToLocalFileTime(&LastWrite, &ft) &&
+            FileTimeToSystemTime(&ft, &st))
+        {
+            if (GetTimeFormatW(LOCALE_USER_DEFAULT, 0, &st, NULL, buffer, _countof(buffer)) == 0)
+                swprintf_s(buffer, L"%u:%02u:%02u", st.wHour, st.wMinute, st.wSecond);
+        }
+        else
+            wcscpy_s(buffer, LoadStrW(IDS_INVALID_DATEORTIME));
+        return buffer;
+    }
+
+    default:
+    {
+        char attrs[20];
+        GetAttrsString(attrs, Attr);
+        return SalMultiByteToWidePath(attrs, CP_ACP);
+    }
+    }
 }
 
 //****************************************************************************
@@ -720,13 +852,13 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
             {
             case 0:
             {
-                res = RegSetStrICmp(f1->Name, f2->Name);
+                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
                 break;
             }
 
             case 1:
             {
-                res = RegSetStrICmp(f1->Path, f2->Path);
+                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
                 break;
                 break;
             }
@@ -841,7 +973,7 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
     if (byName)
     {
         // by name
-        res = RegSetStrICmp(f1->Name, f2->Name);
+        res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
         if (res == 0)
         {
             // by size
@@ -877,7 +1009,7 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
             if (f1->Size == f2->Size)
             {
                 // by name
-                res = RegSetStrICmp(f1->Name, f2->Name);
+                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
                 if (res == 0)
                 {
                     // by group
@@ -897,7 +1029,7 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
         }
     }
     if (res == 0)
-        res = RegSetStrICmp(f1->Path, f2->Path);
+        res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
     return res;
 }
 
@@ -1191,7 +1323,7 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     index = i;
                                     if (!Data[index]->IsDir) // we only search for files
                                     {
-                                        if (!onlyAssociatedExtensions || masks.AgreeMasks(Data[index]->Name, NULL))
+                                        if (!onlyAssociatedExtensions || (!Data[index]->NameW.empty() ? masks.AgreeMasksW(Data[index]->NameW.c_str(), NULL) : masks.AgreeMasks(Data[index]->Name, NULL)))
                                         {
                                             FileNamesEnumData.Found = TRUE;
                                             break;
@@ -1205,7 +1337,7 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             {
                                 if (!Data[index]->IsDir)
                                 {
-                                    if (!onlyAssociatedExtensions || masks.AgreeMasks(Data[index]->Name, NULL))
+                                    if (!onlyAssociatedExtensions || (!Data[index]->NameW.empty() ? masks.AgreeMasksW(Data[index]->NameW.c_str(), NULL) : masks.AgreeMasks(Data[index]->Name, NULL)))
                                     {
                                         FileNamesEnumData.Found = TRUE;
                                         break;
@@ -1236,7 +1368,7 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 (!preferSelected ||
                                  (ListView_GetItemState(HWindow, index, LVIS_SELECTED) & LVIS_SELECTED)))
                             {
-                                if (!onlyAssociatedExtensions || masks.AgreeMasks(Data[index]->Name, NULL))
+                                if (!onlyAssociatedExtensions || (!Data[index]->NameW.empty() ? masks.AgreeMasksW(Data[index]->NameW.c_str(), NULL) : masks.AgreeMasks(Data[index]->Name, NULL)))
                                 {
                                     FileNamesEnumData.Found = TRUE;
                                     break;
@@ -1424,6 +1556,9 @@ CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath)
     : CCommonDialog(HLanguage, IDD_FIND, NULL, ooStandard, hCenterAgainst),
       SearchForData(50, 10)
 {
+#ifndef _UNICODE
+    UnicodeWnd = TRUE;
+#endif // _UNICODE
     // data needed to lay out the dialog
     FirstWMSize = TRUE;
     VMargin = 0;
@@ -1810,7 +1945,7 @@ void CFindDialog::Validate(CTransferInfo& ti)
         strcpy(bufNamed, Data.NamedText);
         strcpy(bufLookIn, Data.LookInText);
 
-        SendMessage(hNamesWnd, WM_GETTEXT, NAMED_TEXT_LEN, (LPARAM)Data.NamedText);
+        GetFindControlTextUtf8(hNamesWnd, Data.NamedText, NAMED_TEXT_LEN);
         CMaskGroup mask(Data.NamedText);
         int errorPos;
         if (!mask.PrepareMasks(errorPos))
@@ -1818,13 +1953,22 @@ void CFindDialog::Validate(CTransferInfo& ti)
             SalMessageBox(HWindow, LoadStr(IDS_INCORRECTSYNTAX), LoadStr(IDS_ERRORTITLE),
                           MB_OK | MB_ICONEXCLAMATION);
             SetFocus(hNamesWnd); // ensure the CB_SETEDITSEL message works correctly
-            SendMessage(hNamesWnd, CB_SETEDITSEL, 0, MAKELPARAM(errorPos, errorPos + 1));
+            int selStart = errorPos;
+            HWND nameEdit = ResolveFindComboEditControl(hNamesWnd);
+            if (IsWindowUnicode(nameEdit) && errorPos > 0)
+            {
+                int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                                  Data.NamedText, errorPos, NULL, 0);
+                if (wideLen > 0)
+                    selStart = wideLen;
+            }
+            SendMessage(hNamesWnd, CB_SETEDITSEL, 0, MAKELPARAM(selStart, selStart + 1));
             ti.ErrorOn(IDC_FIND_NAMED);
         }
 
         if (ti.IsGood())
         {
-            SendMessage(hLookInWnd, WM_GETTEXT, LOOKIN_TEXT_LEN, (LPARAM)Data.LookInText);
+            GetFindControlTextUtf8(hLookInWnd, Data.LookInText, LOOKIN_TEXT_LEN);
 
             BuildSerchForData();
             if (SearchForData.Count == 0)
@@ -2813,6 +2957,29 @@ void CFindDialog::OnCopyNameToClipboard(CCopyNameToClipboardModeEnum mode)
     if (index < 0)
         return;
     CFoundFilesData* data = FoundFilesListView->At(index);
+    if ((!data->NameW.empty() || !data->PathW.empty()) && mode != cntcmUNCName)
+    {
+        std::wstring textW;
+        switch (mode)
+        {
+        case cntcmFullName:
+            textW = data->GetFullNameW();
+            break;
+        case cntcmName:
+            textW = !data->NameW.empty() ? data->NameW : SalMultiByteToWidePath(data->Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            break;
+        case cntcmFullPath:
+            textW = !data->PathW.empty() ? data->PathW : SalMultiByteToWidePath(data->Path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            break;
+        default:
+            break;
+        }
+        if (!textW.empty())
+        {
+            CopyTextToClipboardW(textW.c_str());
+            return;
+        }
+    }
     char buff[2 * MAX_PATH];
     buff[0] = 0;
     switch (mode)
@@ -3015,9 +3182,25 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         UpdateAdvancedText();
 
-        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FIND_NAMED));      // install WordBreakProc into the combo box
-        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FIND_LOOKIN));     // install WordBreakProc into the combo box
-        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FIND_CONTAINING)); // install WordBreakProc into the combo box
+        // Sally keeps the Unicode filename controls away from the legacy ANSI
+        // subclasses.  InstallWordBreakProc subclasses the edit window and makes
+        // Windows marshal characters through the ANSI window proc; with the
+        // Windows emoji picker that turns surrogate pairs into '?' and with CJK
+        // text it makes repeated search cycles progressively lossy.
+        HWND hNamed = GetDlgItem(HWindow, IDC_FIND_NAMED);
+        HWND hNamedEdit = ResolveFindComboEditControl(hNamed);
+        if (!IsWindowUnicode(hNamed) && !IsWindowUnicode(hNamedEdit))
+            InstallWordBreakProc(hNamed);
+
+        HWND hLookIn = GetDlgItem(HWindow, IDC_FIND_LOOKIN);
+        HWND hLookInEdit = ResolveFindComboEditControl(hLookIn);
+        if (!IsWindowUnicode(hLookIn) && !IsWindowUnicode(hLookInEdit))
+            InstallWordBreakProc(hLookIn);
+
+        HWND hContaining = GetDlgItem(HWindow, IDC_FIND_CONTAINING);
+        HWND hContainingEdit = ResolveFindComboEditControl(hContaining);
+        if (!IsWindowUnicode(hContaining) && !IsWindowUnicode(hContainingEdit))
+            InstallWordBreakProc(hContaining);
 
         CComboboxEdit* edit = new CComboboxEdit();
         if (edit != NULL)
@@ -4274,6 +4457,20 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
                     info->item.iImage = item->IsDir ? 0 : 1;
                 if (info->item.mask & LVIF_TEXT)
                     info->item.pszText = item->GetText(info->item.iSubItem, FoundFilesDataTextBuffer, FileNameFormat);
+                break;
+            }
+
+            case LVN_GETDISPINFOW:
+            {
+                NMLVDISPINFOW* info = (NMLVDISPINFOW*)lParam;
+                CFoundFilesData* item = FoundFilesListView->At(info->item.iItem);
+                if (info->item.mask & LVIF_IMAGE)
+                    info->item.iImage = item->IsDir ? 0 : 1;
+                if (info->item.mask & LVIF_TEXT)
+                {
+                    FoundFilesDataTextBufferW = item->GetTextW(info->item.iSubItem, FileNameFormat);
+                    info->item.pszText = const_cast<LPWSTR>(FoundFilesDataTextBufferW.c_str());
+                }
                 break;
             }
 

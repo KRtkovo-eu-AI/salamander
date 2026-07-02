@@ -438,7 +438,7 @@ CNethoodFSInterface::ListCurrentPath(
 
     UINT uError = NO_ERROR;
     bool bAddUpDir = false;
-    CFileData fileData;
+    CFileData fileData = {0};
     CNethoodPluginDataInterface* pDataInterface;
     TCHAR szTargetPath[MAX_PATH];
 

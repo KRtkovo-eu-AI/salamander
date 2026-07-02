@@ -132,7 +132,7 @@ BOOL CCHMFile::AddFileDir(struct chmUnitInfo* ui, CSalamanderDirectoryAbstract* 
 {
     CALL_STACK_MESSAGE1("CCHMFile::AddFileDir(, , ,)");
 
-    CFileData fd;
+    CFileData fd = {0};
 
     char* path = ui->path;
     // convert '/' to '\'

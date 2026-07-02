@@ -898,7 +898,7 @@ BOOL CPluginInterfaceForArchiver::ListFile(char* fileName, DWORD size, WORD date
     CALL_STACK_MESSAGE6("CPluginInterfaceForArchiver::ListFile( %s, 0x%X, 0x%X, "
                         "0x%X, 0x%X)",
                         fileName, size, date, time, attributes);
-    CFileData fileData;
+    CFileData fileData = {0};
     char* slash;
     const char* path;
     char* name;

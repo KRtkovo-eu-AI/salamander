@@ -22,6 +22,45 @@
 
 namespace
 {
+bool IsUtf8ContinuationByte(unsigned char ch)
+{
+    return (ch & 0xC0) == 0x80;
+}
+
+int MoveToUtf8CharStart(const char* text, int index)
+{
+    while (index > 0 && IsUtf8ContinuationByte((unsigned char)text[index]))
+        index--;
+    return index;
+}
+
+int MoveToNextUtf8CharStart(const char* text, int textLen, int index)
+{
+    if (index < 0)
+        index = 0;
+    if (index > textLen)
+        index = textLen;
+    while (index < textLen && IsUtf8ContinuationByte((unsigned char)text[index]))
+        index++;
+    return index;
+}
+
+int MoveToPrevUtf8CharStart(const char* text, int index)
+{
+    if (index <= 0)
+        return -1;
+    index--;
+    while (index > 0 && IsUtf8ContinuationByte((unsigned char)text[index]))
+        index--;
+    return index;
+}
+
+bool IsValidUtf8Text(const char* text, int textLen)
+{
+    return text != NULL && textLen >= 0 &&
+           MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
+}
+
 COLORREF LightenColorSimple(COLORREF color, int amount)
 {
     int r = GetRValue(color) + amount;
@@ -664,6 +703,7 @@ void CStaticText::PrepareForPaint()
     SIZE sz;
     if (Flags & (STF_PATH_ELLIPSIS | STF_END_ELLIPSIS))
     {
+        const bool textIsUtf8 = IsValidUtf8Text(Text, TextLen);
         if (Flags & STF_END_ELLIPSIS)
         {
             // STF_END_ELLIPSIS: the string will end with an ellipsis
@@ -682,7 +722,9 @@ void CStaticText::PrepareForPaint()
 
                 // we search from the right end to find how much to trim so we can append the ellipsis
                 while (fitChars > 0 && AlpDX[fitChars - 1] + ellipsisWidth > Width)
-                    fitChars--;
+                    fitChars = textIsUtf8 ? MoveToPrevUtf8CharStart(Text, fitChars) : fitChars - 1;
+                if (textIsUtf8 && fitChars > 0)
+                    fitChars = MoveToUtf8CharStart(Text, fitChars);
                 if (fitChars > 0)
                 {
                     memmove(Text2, Text, fitChars);
@@ -734,10 +776,10 @@ void CStaticText::PrepareForPaint()
                 {
                     // it did not fit =>we search from the left end for a place to insert the ellipsis
                     while (pIndex < TextLen && (ellipsisWidth + sz.cx - AlpDX[pIndex] > Width))
-                        pIndex++;
+                        pIndex = textIsUtf8 ? MoveToNextUtf8CharStart(Text, TextLen, pIndex + 1) : pIndex + 1;
 
                     // we insert the ellipsis and then the rest of the text behind it
-                    pIndex++;
+                    pIndex = textIsUtf8 ? MoveToNextUtf8CharStart(Text, TextLen, pIndex + 1) : pIndex + 1;
                     strcpy(Text2, "...");
                     Text2Len = 3;
                     TextWidth = ellipsisWidth;
@@ -753,7 +795,9 @@ void CStaticText::PrepareForPaint()
                     int rightPartWidth = sz.cx - AlpDX[pIndex];
                     // we determine how many characters to keep on the left side of the ellipsis
                     while (pIndex >= 0 && (AlpDX[pIndex] + ellipsisWidth + rightPartWidth) > Width)
-                        pIndex--;
+                        pIndex = textIsUtf8 ? MoveToPrevUtf8CharStart(Text, MoveToUtf8CharStart(Text, pIndex)) : pIndex - 1;
+                    if (textIsUtf8 && pIndex >= 0)
+                        pIndex = MoveToUtf8CharStart(Text, pIndex);
                     // left part
                     Text2Len = 0;
                     TextWidth = 0;

@@ -1,7 +1,68 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+
+#include <string>
+
+namespace
+{
+bool GetManualEditLineUtf8(HWND edit, int lineIndex, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+    buffer[0] = 0;
+
+    if (edit == NULL)
+        return false;
+
+    if (!IsWindowUnicode(edit))
+    {
+        int charIndex = (int)SendMessage(edit, EM_LINEINDEX, lineIndex, 0);
+        if (charIndex < 0)
+            return false;
+        int lineLen = (int)SendMessage(edit, EM_LINELENGTH, charIndex, 0);
+        if (lineLen >= bufferSize)
+            return false;
+        *LPWORD(buffer) = (WORD)bufferSize;
+        int copied = (int)SendMessage(edit, EM_GETLINE, lineIndex, (LPARAM)buffer);
+        buffer[copied] = 0;
+        return true;
+    }
+
+    int textLen = GetWindowTextLengthW(edit);
+    if (textLen <= 0)
+        return lineIndex == 0;
+
+    std::wstring text(textLen + 1, L'\0');
+    GetWindowTextW(edit, &text[0], textLen + 1);
+    text.resize(textLen);
+
+    size_t start = 0;
+    for (int line = 0; line < lineIndex; line++)
+    {
+        start = text.find(L'\n', start);
+        if (start == std::wstring::npos)
+            return false;
+        start++;
+    }
+    size_t end = text.find(L'\n', start);
+    if (end == std::wstring::npos)
+        end = text.length();
+    if (end > start && text[end - 1] == L'\r')
+        end--;
+
+    std::wstring line = text.substr(start, end - start);
+    int required = WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.length(), NULL, 0, NULL, NULL);
+    if (required >= bufferSize)
+        return false;
+    int written = WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.length(), buffer, bufferSize - 1, NULL, NULL);
+    if (written < 0)
+        written = 0;
+    buffer[written] = 0;
+    return true;
+}
+} // namespace
 
 // ****************************************************************************
 //
@@ -191,7 +252,7 @@ BOOL CRenamerDialog::BuildScript(CRenameScriptEntry*& script, int& count,
     BOOL ret = FALSE;
     CRenameScriptEntry* tmpScript = NULL;
     script = NULL;
-    char newName[MAX_PATH];
+    char newName[3 * MAX_PATH];
     char* newPart;
     BOOL skip;
     BOOL skipAllLongNames = FALSE,
@@ -512,25 +573,16 @@ int CRenamerDialog::GetManualModeNewName(CSourceFile* file, int index, char* new
     newPart = newName;
 
     int charIndex = (int)SendMessage(ManualEdit->HWindow, EM_LINEINDEX, index, 0);
-    if (charIndex < 0) // this should not happen -- CRenamerDialog::Validate would fail
+    if (charIndex < 0 && !IsWindowUnicode(ManualEdit->HWindow)) // this should not happen -- CRenamerDialog::Validate would fail
     {
         *newName = 0;
         return 0;
     }
     else
     {
-        int l = (int)SendMessage(ManualEdit->HWindow, EM_LINELENGTH, charIndex, 0);
-        if (l >= MAX_PATH - pathLen)
-        {
+        if (!GetManualEditLineUtf8(ManualEdit->HWindow, index, newName, 3 * MAX_PATH - pathLen))
             return -1;
-        }
-        else
-        {
-            *LPWORD(newName) = MAX_PATH - pathLen;
-            int l2 = (int)SendMessage(ManualEdit->HWindow, EM_GETLINE, index, (LPARAM)newName);
-            newName[l2] = 0; // just to be sure
-        }
-        return l;
+        return (int)strlen(newName);
     }
 }
 

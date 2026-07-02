@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -45,9 +45,9 @@ enum CRenameSpec
 
 struct CRenamerOptions
 {
-    char NewName[2 * MAX_PATH];
-    char SearchFor[2 * MAX_PATH];
-    char ReplaceWith[MAX_PATH];
+    char NewName[3 * MAX_PATH];
+    char SearchFor[3 * MAX_PATH];
+    char ReplaceWith[3 * MAX_PATH];
     BOOL CaseSensitive;
     BOOL WholeWords;
     BOOL Global;
@@ -104,7 +104,7 @@ enum CRenamerErrorType
 class CRenamer
 {
 protected:
-    char (&Root)[MAX_PATH];
+    char (&Root)[3 * MAX_PATH];
     int& RootLen;
 
     // information about the last error
@@ -120,7 +120,7 @@ protected:
     BOOL Substitute;
     CSalamanderBMSearchData* BMSearch;
     CRegExpAbstract* RegExp;
-    char ReplaceWith[MAX_PATH];
+    char ReplaceWith[3 * MAX_PATH];
     int ReplaceWithLen;
     BOOL UseRegExp;
     BOOL WholeWords;
@@ -128,7 +128,7 @@ protected:
     BOOL ExcludeExt;
 
 public:
-    CRenamer(char (&root)[MAX_PATH], int& rootLen);
+    CRenamer(char (&root)[3 * MAX_PATH], int& rootLen);
     ~CRenamer();
 
     BOOL IsGood() { return Error == 0; }

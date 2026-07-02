@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -1252,7 +1252,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 CFileData* f = &(Files->At(index));
                                 if (f->Selected || !preferSelected)
                                 {
-                                    if (!onlyAssociatedExtensions || masks.AgreeMasks(f->Name, f->Ext))
+                                    if (!onlyAssociatedExtensions || (f->UseWideName() ? masks.AgreeMasksW(f->NameW, NULL) : masks.AgreeMasks(f->Name, f->Ext)))
                                     {
                                         FileNamesEnumData.Found = TRUE;
                                         break;
@@ -1281,7 +1281,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 CFileData* f = &(Files->At(index));
                                 if (f->Selected || !preferSelected)
                                 {
-                                    if (!onlyAssociatedExtensions || masks.AgreeMasks(f->Name, f->Ext))
+                                    if (!onlyAssociatedExtensions || (f->UseWideName() ? masks.AgreeMasksW(f->NameW, NULL) : masks.AgreeMasks(f->Name, f->Ext)))
                                     {
                                         FileNamesEnumData.Found = TRUE;
                                         break;

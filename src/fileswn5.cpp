@@ -4,6 +4,9 @@
 
 #include "precomp.h"
 
+#include <string>
+#include <vector>
+
 #include "cfgdlg.h"
 #include "mainwnd.h"
 #include "plugins.h"
@@ -20,6 +23,7 @@
 #include "codetbl.h"
 #include "find.h"
 #include "menu.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -1879,7 +1883,9 @@ BOOL FileNameInvalidForManualCreate(const char* path)
     {
         name++;
         int nameLen = (int)strlen(name);
-        return nameLen > 0 && (*name <= ' ' || name[nameLen - 1] <= ' ' || name[nameLen - 1] == '.');
+        return nameLen > 0 && ((unsigned char)*name <= ' ' ||
+                               (unsigned char)name[nameLen - 1] <= ' ' ||
+                               name[nameLen - 1] == '.');
     }
     return FALSE;
 }
@@ -1891,7 +1897,7 @@ BOOL MakeValidFileName(char* path)
     // and https://forum.altap.cz/viewtopic.php?f=2&t=4210
     BOOL ch = FALSE;
     char* n = path;
-    while (*n != 0 && *n <= ' ')
+    while (*n != 0 && (unsigned char)*n <= ' ')
         n++;
     if (n > path)
     {
@@ -1899,7 +1905,7 @@ BOOL MakeValidFileName(char* path)
         ch = TRUE;
     }
     n = path + strlen(path);
-    while (n > path && (*(n - 1) <= ' ' || *(n - 1) == '.'))
+    while (n > path && ((unsigned char)*(n - 1) <= ' ' || *(n - 1) == '.'))
         n--;
     if (*n != 0)
     {
@@ -1914,7 +1920,7 @@ BOOL CutSpacesFromBothSides(char* path)
     // trim spaces at the beginning and end of the name
     BOOL ch = FALSE;
     char* n = path;
-    while (*n != 0 && *n <= ' ')
+    while (*n != 0 && (unsigned char)*n <= ' ')
         n++;
     if (n > path)
     {
@@ -1922,7 +1928,7 @@ BOOL CutSpacesFromBothSides(char* path)
         ch = TRUE;
     }
     n = path + strlen(path);
-    while (n > path && (*(n - 1) <= ' '))
+    while (n > path && (unsigned char)*(n - 1) <= ' ')
         n--;
     if (*n != 0)
     {
@@ -1949,7 +1955,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
     CALL_STACK_MESSAGE1("CFilesWindow::CreateDir()");
     BeginStopRefresh(); // snooper takes a break
 
-    char path[2 * MAX_PATH], nextFocus[MAX_PATH];
+    char path[3 * MAX_PATH], nextFocus[3 * MAX_PATH];
     path[0] = 0;
     nextFocus[0] = 0;
 
@@ -1960,7 +1966,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
     {
         CTruncatedString subject;
         subject.Set(LoadStr(IDS_CREATEDIRECTORY_TEXT), NULL);
-        CCopyMoveDialog dlg(HWindow, path, MAX_PATH, LoadStr(IDS_CREATEDIRECTORY_TITLE),
+        CCopyMoveDialog dlg(HWindow, path, 3 * MAX_PATH, LoadStr(IDS_CREATEDIRECTORY_TITLE),
                             &subject, IDD_CREATEDIRDIALOG,
                             Configuration.CreateDirHistory, CREATEDIR_HISTORY_SIZE,
                             FALSE);
@@ -1982,10 +1988,32 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
             MakeValidFileName(lastCompName != NULL ? lastCompName + 1 : path);
 
             int errTextID;
-            if (!SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus) ||
-                strlen(path) >= PATH_MAX_PATH)
+            BOOL fullNameOK = FALSE;
+            std::wstring pathW = SalMultiByteToWidePath(path, CP_UTF8);
+            if (pathW.empty() && path[0] != 0)
+                pathW = SalMultiByteToWidePath(path, CP_ACP);
+            std::wstring nextFocusW;
+            if (!pathW.empty())
             {
-                if (strlen(path) >= PATH_MAX_PATH)
+                if (wcschr(pathW.c_str(), L'\\') == NULL && wcschr(pathW.c_str(), L'/') == NULL)
+                    nextFocusW = pathW;
+                const wchar_t* curDirW = GetPathW();
+                fullNameOK = SalGetFullNameW(pathW, &errTextID, curDirW, NULL, NULL, FALSE);
+                if (fullNameOK)
+                {
+                    std::string pathUtf8 = SalWideToMultiBytePath(pathW.c_str(), CP_UTF8);
+                    lstrcpyn(path, pathUtf8.c_str(), 3 * MAX_PATH);
+                    if (!nextFocusW.empty())
+                    {
+                        std::string focusUtf8 = SalWideToMultiBytePath(nextFocusW.c_str(), CP_UTF8);
+                        lstrcpyn(nextFocus, focusUtf8.c_str(), 3 * MAX_PATH);
+                    }
+                }
+            }
+            if ((!fullNameOK && !SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, 3 * MAX_PATH)) ||
+                strlen(path) >= 3 * MAX_PATH)
+            {
+                if (strlen(path) >= 3 * MAX_PATH)
                     errTextID = IDS_TOOLONGPATH;
                 /* even if the string is empty we want an error message
         if (errTextID == IDS_EMPTYNAMENOTALLOWED)
@@ -2000,13 +2028,13 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
             }
             else
             {
-                char checkPath[MAX_PATH];
+                char checkPath[3 * MAX_PATH];
                 GetRootPath(checkPath, path);
                 if (CheckPath(TRUE, checkPath) != ERROR_SUCCESS)
                     goto CREATE_AGAIN;
                 strcpy(checkPath, path);
                 CutDirectory(checkPath);
-                char newDir[MAX_PATH];
+                char newDir[3 * MAX_PATH];
                 if (!CheckAndCreateDirectory(checkPath, HWindow, FALSE, NULL, 0, newDir, TRUE, TRUE))
                     goto CREATE_AGAIN;
                 if (newDir[0] != 0)
@@ -2023,7 +2051,15 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
 
                     DWORD err;
                     BOOL invalidName = FileNameInvalidForManualCreate(path);
-                    if (!invalidName && SalCreateDirectoryEx(path, &err))
+                    BOOL created = FALSE;
+                    if (!invalidName && !pathW.empty())
+                    {
+                        created = SalCreateDirectoryExW(pathW.c_str(), NULL);
+                        err = created ? ERROR_SUCCESS : GetLastError();
+                    }
+                    else if (!invalidName)
+                        created = SalCreateDirectoryEx(path, &err);
+                    if (!invalidName && created)
                     {
                         SetCursor(oldCur);
                         if (nextFocus[0] != 0)
@@ -2106,7 +2142,134 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
     EndStopRefresh(); // snooper will start again now
 }
 
-void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL* mayChange, BOOL* tryAgain)
+
+namespace
+{
+    std::wstring MultiByteFileNameToWideBest(const char* name)
+    {
+        if (name == NULL || *name == 0)
+            return std::wstring();
+
+        int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, NULL, 0);
+        if (len > 0)
+        {
+            std::wstring ret(len - 1, L'\0');
+            MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, &ret[0], len);
+            return ret;
+        }
+
+        return SalMultiByteToWidePath(name, CP_ACP);
+    }
+
+    std::string WideFileNameToMultiByteBest(const std::wstring& name)
+    {
+        if (name.empty())
+            return std::string();
+        if (GetACP() == CP_UTF8)
+            return SalWideToMultiBytePath(name.c_str(), CP_UTF8);
+
+        BOOL usedDefaultChar = FALSE;
+        int len = WideCharToMultiByte(CP_ACP, 0, name.c_str(), -1, NULL, 0, NULL, &usedDefaultChar);
+        if (len > 0 && !usedDefaultChar)
+        {
+            std::string ret(len - 1, '\0');
+            WideCharToMultiByte(CP_ACP, 0, name.c_str(), -1, &ret[0], len, NULL, NULL);
+            return ret;
+        }
+
+        return SalWideToMultiBytePath(name.c_str(), CP_UTF8);
+    }
+
+    std::wstring FileDataDisplayNameW(const CFileData* f, const char* fallbackName)
+    {
+        if (f != NULL && f->UseWideName())
+            return std::wstring(f->NameW);
+        return MultiByteFileNameToWideBest(fallbackName);
+    }
+
+    void UpdateFileDataNameAfterRename(CFileData* f, const std::wstring& newNameW, BOOL isDir)
+    {
+        std::string newNameA = WideFileNameToMultiByteBest(newNameW);
+        char* dupName = DupStr(newNameA.c_str());
+        wchar_t* dupNameW = (wchar_t*)malloc((newNameW.length() + 1) * sizeof(wchar_t));
+        if (dupNameW != NULL)
+            wcscpy(dupNameW, newNameW.c_str());
+        if (dupName != NULL)
+        {
+            if (f->Name != NULL)
+                free(f->Name);
+            if (f->NameW != NULL)
+                free(f->NameW);
+            f->Name = dupName;
+            f->NameW = dupNameW;
+            f->NameLen = (int)strlen(f->Name);
+            if (isDir)
+                f->Ext = f->Name + f->NameLen;
+            else
+            {
+                f->Ext = strrchr(f->Name, '.');
+                if (f->Ext == NULL)
+                    f->Ext = f->Name + f->NameLen;
+                else
+                    f->Ext++;
+            }
+        }
+        else if (dupNameW != NULL)
+            free(dupNameW);
+    }
+}
+
+
+void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain)
+{
+    *tryAgain = TRUE;
+    if (f == NULL || newNameW.empty() || newNameW.find_first_of(L"\\/:<>|\"") != std::wstring::npos)
+        return;
+
+    std::wstring basePath = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(GetPath());
+    if (basePath.empty())
+        return;
+
+    std::wstring oldNameW = f->UseWideName() ? std::wstring(f->NameW) : SalMultiByteToWidePath(f->Name);
+    if (oldNameW.empty())
+        return;
+    if (CompareStringW(LOCALE_USER_DEFAULT, 0, oldNameW.c_str(), -1, newNameW.c_str(), -1) == CSTR_EQUAL)
+    {
+        *tryAgain = FALSE;
+        return;
+    }
+
+    std::wstring srcPath = basePath;
+    std::wstring tgtPath = basePath;
+    SalPathAppendW(srcPath, oldNameW.c_str());
+    SalPathAppendW(tgtPath, newNameW.c_str());
+    if (srcPath.length() >= 32767 || tgtPath.length() >= 32767)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORRENAMINGFILE),
+                      MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    if (srcPath.length() >= MAX_PATH)
+        srcPath = SalPathAddExtendedPrefixW(srcPath.c_str());
+    if (tgtPath.length() >= MAX_PATH)
+        tgtPath = SalPathAddExtendedPrefixW(tgtPath.c_str());
+
+    *mayChange = TRUE;
+    if (MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0))
+    {
+        std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
+        UpdateFileDataNameAfterRename(f, newNameW, isDir);
+        *tryAgain = FALSE;
+    }
+    else
+    {
+        DWORD err = GetLastError();
+        TRACE_E("RenameFileInternalW(): MoveFileExW failed: " << GetErrorText(err));
+    }
+}
+
+void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain)
 {
     *tryAgain = TRUE;
     const char* s = formatedFileName;
@@ -2120,6 +2283,13 @@ void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName
 
         // clean the name from undesirable characters at the beginning and end
         MakeValidFileName(finalName);
+
+        std::wstring finalNameW = SalMultiByteToWidePath(finalName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        if (!finalNameW.empty())
+        {
+            RenameFileInternalW(f, finalNameW, isDir, mayChange, tryAgain);
+            return;
+        }
 
         int l = (int)strlen(GetPath());
         char tgtPath[MAX_PATH];
@@ -2351,14 +2521,20 @@ void CFilesWindow::RenameFile(int specialIndex)
     BOOL isDir = i < Dirs->Count;
     f = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
 
-    char formatedFileName[MAX_PATH];
+    char formatedFileName[3 * MAX_PATH];
     AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
+    std::wstring formatedFileNameW = FileDataDisplayNameW(f, formatedFileName);
+    if (f->UseWideName())
+    {
+        std::string formatedUtf8 = WideFileNameToMultiByteBest(formatedFileNameW);
+        lstrcpyn(formatedFileName, formatedUtf8.c_str(), 3 * MAX_PATH);
+    }
 
     char buff[200];
     sprintf(buff, LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
     CTruncatedString subject;
-    subject.Set(buff, formatedFileName);
-    CCopyMoveDialog dlg(HWindow, formatedFileName, MAX_PATH, LoadStr(IDS_RENAME_TITLE),
+    subject.SetW(SalMultiByteToWidePath(buff, CP_ACP).c_str(), formatedFileNameW.c_str());
+    CCopyMoveDialog dlg(HWindow, formatedFileName, 3 * MAX_PATH, LoadStr(IDS_RENAME_TITLE),
                         &subject, IDD_RENAMEDIALOG, Configuration.QuickRenameHistory,
                         QUICKRENAME_HISTORY_SIZE, FALSE);
 
@@ -2413,7 +2589,8 @@ void CFilesWindow::RenameFile(int specialIndex)
                 UpdateWindow(MainWindow->HWindow);
 
                 BOOL tryAgain;
-                RenameFileInternal(f, formatedFileName, &mayChange, &tryAgain);
+                std::wstring newNameW = SalMultiByteToWidePath(formatedFileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain);
                 if (!tryAgain)
                     break;
             }
@@ -2560,6 +2737,33 @@ void CFilesWindow::AdjustQuickRenameRect(const char* text, RECT* r)
         r->right = maxR.right;
 }
 
+void CFilesWindow::AdjustQuickRenameRectW(const wchar_t* text, RECT* r)
+{
+    HDC hDC = HANDLES(GetDC(ListBox->HWindow));
+    HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
+    SIZE sz;
+    GetTextExtentPoint32W(hDC, text, (int)wcslen(text), &sz);
+    TEXTMETRIC tm;
+    GetTextMetrics(hDC, &tm);
+    SelectObject(hDC, hOldFont);
+    HANDLES(ReleaseDC(ListBox->HWindow, hDC));
+
+    int minWidth = QuickRenameRect.right - QuickRenameRect.left + 2;
+    int optimalWidth = sz.cx + 4 + tm.tmHeight;
+
+    r->left--;
+    r->right = r->left + optimalWidth;
+
+    if (r->right - r->left < minWidth)
+        r->right = r->left + minWidth;
+
+    RECT maxR = ListBox->FilesRect;
+    if (r->left < maxR.left)
+        r->left = maxR.left;
+    if (r->right > maxR.right)
+        r->right = maxR.right;
+}
+
 void CFilesWindow::AdjustQuickRenameWindow()
 {
     if (!IsQuickRenameActive())
@@ -2572,9 +2776,24 @@ void CFilesWindow::AdjustQuickRenameWindow()
     GetWindowRect(QuickRenameWindow.HWindow, &r);
     MapWindowPoints(NULL, HWindow, (POINT*)&r, 2);
 
-    char buff[3 * MAX_PATH];
-    GetWindowText(QuickRenameWindow.HWindow, buff, 3 * MAX_PATH);
-    AdjustQuickRenameRect(buff, &r);
+    if (IsWindowUnicode(QuickRenameWindow.HWindow))
+    {
+        int length = GetWindowTextLengthW(QuickRenameWindow.HWindow);
+        if (length < 0)
+            length = 0;
+        std::vector<WCHAR> buff(length + 1);
+        int copied = GetWindowTextW(QuickRenameWindow.HWindow, buff.data(), length + 1);
+        if (copied < 0)
+            copied = 0;
+        buff[copied] = 0;
+        AdjustQuickRenameRectW(buff.data(), &r);
+    }
+    else
+    {
+        char buff[3 * MAX_PATH];
+        GetWindowText(QuickRenameWindow.HWindow, buff, 3 * MAX_PATH);
+        AdjustQuickRenameRect(buff, &r);
+    }
     SetWindowPos(QuickRenameWindow.HWindow, NULL, 0, 0,
                  r.right - r.left, r.bottom - r.top,
                  SWP_NOMOVE | SWP_NOZORDER);
@@ -2633,18 +2852,23 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
 
     char formatedFileName[MAX_PATH];
     AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
+    std::wstring formatedFileNameW = FileDataDisplayNameW(f, formatedFileName);
 
     // Since Windows Vista, Microsoft introduced a demanded feature: quick rename selects only the name without the dot and extension
     // the same code appears here four times
-    int selectionEnd = -1;
+    int selectionEndBytes = -1;
+    int selectionEndChars = -1;
     if (!Configuration.QuickRenameSelectAll)
     {
         if (!isDir)
         {
-            const char* dot = strrchr(formatedFileName, '.');
-            if (dot != NULL && dot > formatedFileName) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
-                                                       //    if (dot != NULL)
-                selectionEnd = (int)(dot - formatedFileName);
+            const wchar_t* dotW = wcsrchr(formatedFileNameW.c_str(), L'.');
+            if (dotW != NULL && dotW > formatedFileNameW.c_str()) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
+            {
+                selectionEndChars = (int)(dotW - formatedFileNameW.c_str());
+                std::string prefix = WideFileNameToMultiByteBest(std::wstring(formatedFileNameW.c_str(), selectionEndChars));
+                selectionEndBytes = (int)prefix.length();
+            }
         }
     }
 
@@ -2687,17 +2911,38 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     }
 
     RECT r = *labelRect;
-    AdjustQuickRenameRect(formatedFileName, &r);
+    AdjustQuickRenameRectW(formatedFileNameW.c_str(), &r);
 
-    HWND hWnd = QuickRenameWindow.CreateEx(0,
-                                           "edit",
-                                           formatedFileName,
-                                           WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_LEFT,
-                                           r.left, r.top, r.right - r.left, r.bottom - r.top,
-                                           GetListBoxHWND(),
-                                           NULL,
-                                           HInstance,
-                                           &QuickRenameWindow);
+    HWND hWnd = NULL;
+    if (Is(ptDisk) || f->UseWideName() || GetACP() == CP_UTF8)
+    {
+        QuickRenameWindow.SetUnicodeWindow(TRUE);
+        hWnd = QuickRenameWindow.CreateExW(0,
+                                          L"edit",
+                                          L"",
+                                          WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_LEFT,
+                                          r.left, r.top, r.right - r.left, r.bottom - r.top,
+                                          GetListBoxHWND(),
+                                          NULL,
+                                          HInstance,
+                                          &QuickRenameWindow);
+        if (hWnd != NULL)
+            SetWindowTextW(hWnd, formatedFileNameW.c_str());
+    }
+    BOOL unicodeEdit = hWnd != NULL;
+    if (hWnd == NULL)
+    {
+        QuickRenameWindow.SetUnicodeWindow(FALSE);
+        hWnd = QuickRenameWindow.CreateEx(0,
+                                          "edit",
+                                          formatedFileName,
+                                          WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_LEFT,
+                                          r.left, r.top, r.right - r.left, r.bottom - r.top,
+                                          GetListBoxHWND(),
+                                          NULL,
+                                          HInstance,
+                                          &QuickRenameWindow);
+    }
     if (hWnd == NULL)
     {
         TRACE_E("Cannot create QuickRenameWindow");
@@ -2712,12 +2957,44 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     if (leftMargin < 2)
         SendMessage(hWnd, EM_SETMARGINS, EC_LEFTMARGIN, 2);
 
-    //SendMessage(hWnd, EM_SETSEL, 0, -1); // select all
-    // we can select only the name without dot and extension
-    SendMessage(hWnd, EM_SETSEL, 0, selectionEnd);
-
+    // Select all or only the name without dot and extension according to QuickRenameSelectAll.
+    int selectionEndForControl = selectionEndBytes;
+    if (unicodeEdit)
+    {
+        if (selectionEndChars >= 0)
+            selectionEndForControl = selectionEndChars;
+    }
+    else
+    {
+        if (selectionEndBytes >= 0)
+            selectionEndForControl = selectionEndBytes;
+    }
+    if (selectionEndForControl >= 0)
+    {
+        if (unicodeEdit)
+            SendMessageW(hWnd, EM_SETSEL, 0, selectionEndForControl);
+        else
+            SendMessage(hWnd, EM_SETSEL, 0, selectionEndForControl);
+    }
+    else
+    {
+        if (unicodeEdit)
+            SendMessageW(hWnd, EM_SETSEL, 0, (LPARAM)-1);
+        else
+            SendMessage(hWnd, EM_SETSEL, 0, (LPARAM)-1);
+    }
     ShowWindow(hWnd, SW_SHOW);
     SetFocus(hWnd);
+
+    // Keep the selection in character units for Unicode edit controls.  Posting the
+    // ANSI message here lets the control reinterpret the end offset later, which is
+    // exactly where names containing surrogate pairs (emoji) could fall back to
+    // "select all" and include the extension even when the option is disabled.
+    if (unicodeEdit)
+        SendMessageW(hWnd, EM_SETSEL, 0, selectionEndForControl >= 0 ? selectionEndForControl : (LPARAM)-1);
+    else
+        SendMessage(hWnd, EM_SETSEL, 0, selectionEndForControl >= 0 ? selectionEndForControl : (LPARAM)-1);
+
     return;
 }
 
@@ -2760,7 +3037,27 @@ BOOL CFilesWindow::HandeQuickRenameWindowKey(WPARAM wParam)
 
     HWND hWnd = QuickRenameWindow.HWindow;
     char newName[MAX_PATH];
-    GetWindowText(hWnd, newName, MAX_PATH);
+    std::wstring newNameW;
+    if (IsWindowUnicode(hWnd))
+    {
+        int length = GetWindowTextLengthW(hWnd);
+        if (length < 0)
+            length = 0;
+        std::vector<WCHAR> text(length + 1);
+        int copied = GetWindowTextW(hWnd, text.data(), length + 1);
+        if (copied < 0)
+            copied = 0;
+        text[copied] = 0;
+        newNameW.assign(text.data(), copied);
+        std::string nameA = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        lstrcpyn(newName, nameA.c_str(), MAX_PATH);
+    }
+    else
+    {
+        GetWindowText(hWnd, newName, MAX_PATH);
+        newNameW = SalMultiByteToWidePath(newName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    }
+
 
     // lower the thread priority to "normal" (so operations don't overload the machine)
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
@@ -2774,8 +3071,14 @@ BOOL CFilesWindow::HandeQuickRenameWindowKey(WPARAM wParam)
         // and we would display the "Access is denied" error. The user has no mouse option
         // to cancel the operation, so they would have to press Escape.
         // Explorer behaves this way now.
-        if (strcmp(f->Name, newName) != 0)
-            RenameFileInternal(f, newName, &mayChange, &tryAgain);
+        if (IsWindowUnicode(hWnd))
+        {
+            std::wstring oldNameW = f->UseWideName() ? std::wstring(f->NameW) : MultiByteFileNameToWideBest(f->Name);
+            if (CompareStringW(LOCALE_USER_DEFAULT, 0, oldNameW.c_str(), -1, newNameW.c_str(), -1) != CSTR_EQUAL)
+                RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain);
+        }
+        else if (strcmp(f->Name, newName) != 0)
+            RenameFileInternal(f, newName, isDir, &mayChange, &tryAgain);
     }
     else if (Is(ptPluginFS) && GetPluginFS()->NotEmpty() &&
              GetPluginFS()->IsServiceSupported(FS_SERVICE_QUICKRENAME)) // FS is in the panel
@@ -2845,6 +3148,7 @@ CQuickRenameWindow::CQuickRenameWindow()
     FilesWindow = NULL;
     CloseEnabled = TRUE;
     SkipNextCharacter = FALSE;
+    PendingHighSurrogate = 0;
 }
 
 void CQuickRenameWindow::SetPanel(CFilesWindow* filesWindow)
@@ -2867,6 +3171,33 @@ CQuickRenameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_UNICHAR:
+    {
+        if (wParam == UNICODE_NOCHAR)
+            return TRUE;
+        if (wParam > 0 && wParam <= 0x10FFFF)
+        {
+            WCHAR chars[3];
+            if (wParam <= 0xFFFF)
+            {
+                chars[0] = (WCHAR)wParam;
+                chars[1] = 0;
+            }
+            else
+            {
+                DWORD codePoint = (DWORD)wParam - 0x10000;
+                chars[0] = (WCHAR)(0xD800 + (codePoint >> 10));
+                chars[1] = (WCHAR)(0xDC00 + (codePoint & 0x3FF));
+                chars[2] = 0;
+            }
+            SendMessageW(HWindow, EM_REPLACESEL, TRUE, (LPARAM)chars);
+            if (FilesWindow != NULL)
+                FilesWindow->AdjustQuickRenameWindow();
+            return 0;
+        }
+        break;
+    }
+
     case WM_CHAR:
     {
         if (SkipNextCharacter)
@@ -2879,6 +3210,33 @@ CQuickRenameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             FilesWindow->HandeQuickRenameWindowKey(wParam);
             return 0;
+        }
+
+        if (IsWindowUnicode(HWindow))
+        {
+            if (wParam >= 0xD800 && wParam <= 0xDBFF)
+            {
+                PendingHighSurrogate = (WCHAR)wParam;
+                return 0;
+            }
+            if (wParam >= 0xDC00 && wParam <= 0xDFFF && PendingHighSurrogate != 0)
+            {
+                WCHAR chars[3] = {PendingHighSurrogate, (WCHAR)wParam, 0};
+                PendingHighSurrogate = 0;
+                SendMessageW(HWindow, EM_REPLACESEL, TRUE, (LPARAM)chars);
+                if (FilesWindow != NULL)
+                    FilesWindow->AdjustQuickRenameWindow();
+                return 0;
+            }
+            PendingHighSurrogate = 0;
+            if (wParam >= 0x20)
+            {
+                WCHAR chars[2] = {(WCHAR)wParam, 0};
+                SendMessageW(HWindow, EM_REPLACESEL, TRUE, (LPARAM)chars);
+                if (FilesWindow != NULL)
+                    FilesWindow->AdjustQuickRenameWindow();
+                return 0;
+            }
         }
         break;
     }

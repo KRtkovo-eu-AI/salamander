@@ -605,7 +605,7 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
                     counter = 0;
                 }
 
-                CFileData file;
+                CFileData file = {0};
                 // initialize structure members we won't modify further
                 file.DosName = NULL;
                 file.PluginData = -1;
@@ -660,7 +660,7 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
 
                 if (file.Attr & FILE_ATTRIBUTE_DIRECTORY)
                 {
-                    if (!ignDirNames || !Configuration.CompareIgnoreDirsMasks.AgreeMasks(file.Name, NULL))
+                    if (!ignDirNames || !(file.UseWideName() ? Configuration.CompareIgnoreDirsMasks.AgreeMasksW(file.NameW, NULL) : Configuration.CompareIgnoreDirsMasks.AgreeMasks(file.Name, NULL)))
                     {
                         dirs->Add(file);
                         if (!dirs->IsGood())
@@ -677,7 +677,7 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
                 }
                 else
                 {
-                    if (!ignFileNames || !Configuration.CompareIgnoreFilesMasks.AgreeMasks(file.Name, file.Ext))
+                    if (!ignFileNames || !(file.UseWideName() ? Configuration.CompareIgnoreFilesMasks.AgreeMasksW(file.NameW, NULL) : Configuration.CompareIgnoreFilesMasks.AgreeMasks(file.Name, file.Ext)))
                     {
                         files->Add(file);
                         if (!files->IsGood())
@@ -730,7 +730,7 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
         for (i = 0; i < zipDirs->Count; i++)
         {
             CFileData* f = &zipDirs->At(i);
-            if (!ignDirNames || !Configuration.CompareIgnoreDirsMasks.AgreeMasks(f->Name, NULL))
+            if (!ignDirNames || !(f->UseWideName() ? Configuration.CompareIgnoreDirsMasks.AgreeMasksW(f->NameW, NULL) : Configuration.CompareIgnoreDirsMasks.AgreeMasks(f->Name, NULL)))
             {
                 dirs->Add(*f);
                 if (!dirs->IsGood())
@@ -745,7 +745,7 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
         for (i = 0; i < zipFiles->Count; i++)
         {
             CFileData* f = &zipFiles->At(i);
-            if (!ignFileNames || !Configuration.CompareIgnoreFilesMasks.AgreeMasks(f->Name, f->Ext))
+            if (!ignFileNames || !(f->UseWideName() ? Configuration.CompareIgnoreFilesMasks.AgreeMasksW(f->NameW, NULL) : Configuration.CompareIgnoreFilesMasks.AgreeMasks(f->Name, f->Ext)))
             {
                 files->Add(*f);
                 if (!files->IsGood())
@@ -1116,7 +1116,7 @@ void SkipIgnoredNames(BOOL ignoreNames, CMaskGroup* ignoreNamesMasks, BOOL dirs,
     {
         if (*l < left->Count)
         {
-            while (ignoreNamesMasks->AgreeMasks((*leftFile)->Name, dirs ? NULL : (*leftFile)->Ext))
+            while (((*leftFile)->UseWideName() ? ignoreNamesMasks->AgreeMasksW((*leftFile)->NameW, NULL) : ignoreNamesMasks->AgreeMasks((*leftFile)->Name, dirs ? NULL : (*leftFile)->Ext)))
             { // skip ignored names in the left panel
                 if (++(*l) < left->Count)
                     *leftFile = &left->At(*l);
@@ -1126,7 +1126,7 @@ void SkipIgnoredNames(BOOL ignoreNames, CMaskGroup* ignoreNamesMasks, BOOL dirs,
         }
         if (*r < right->Count)
         {
-            while (ignoreNamesMasks->AgreeMasks((*rightFile)->Name, dirs ? NULL : (*rightFile)->Ext))
+            while (((*rightFile)->UseWideName() ? ignoreNamesMasks->AgreeMasksW((*rightFile)->NameW, NULL) : ignoreNamesMasks->AgreeMasks((*rightFile)->Name, dirs ? NULL : (*rightFile)->Ext)))
             { // skip ignored names in the right panel
                 if (++(*r) < right->Count)
                     *rightFile = &right->At(*r);

@@ -269,7 +269,7 @@ void CISO9660::ConvJolietName(char* dest, const char* src, int nLen)
 BOOL CISO9660::AddFileDir(const char* path, char* fileName, CDirectoryRecord& dr,
                           CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData)
 {
-    CFileData fd;
+    CFileData fd = {0};
 
     memset(&fd, 0, sizeof(CFileData));
     fd.Name = SalamanderGeneral->DupStr(fileName);

@@ -90,7 +90,7 @@ protected:
     BOOL SourceFilesValid;
     BOOL SourceFilesNeedUpdate;
     DWORD LastUpdateTime;
-    char Root[MAX_PATH];
+    char Root[3 * MAX_PATH];
     int RootLen;
 
     BOOL Errors;

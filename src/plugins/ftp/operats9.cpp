@@ -1433,7 +1433,7 @@ BOOL CUploadPathListing::ParseListingToArray(const char* pathListing, int pathLi
             }
             if (parser != NULL)
             {
-                CFileData file;
+                CFileData file = {0};
                 const char* listing = pathListing;
                 const char* listingEnd = pathListing + pathListingLen;
                 BOOL isDir = FALSE;

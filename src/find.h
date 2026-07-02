@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 // structure for adding messages to the Find Log; sent as the message parameter
 // of WM_USER_ADDLOG; parameters will be copied into the log data (can be deallocated after returning)
 #define FLI_INFO 0x00000000   // INFORMATION item
@@ -24,9 +26,9 @@ struct FIND_LOG_ITEM
 
 extern BOOL IsNotAlpha[256];
 
-#define ITEMNAME_TEXT_LEN MAX_PATH + MAX_PATH + 10
-#define NAMED_TEXT_LEN MAX_PATH  // maximum text length in the combobox
-#define LOOKIN_TEXT_LEN MAX_PATH // maximum text length in the combobox
+#define ITEMNAME_TEXT_LEN 6 * MAX_PATH + 10
+#define NAMED_TEXT_LEN 3 * MAX_PATH  // maximum text length in the combobox
+#define LOOKIN_TEXT_LEN 3 * MAX_PATH // maximum text length in the combobox
 #define GREP_TEXT_LEN 201        // maximum text length in the combobox; NOTE: should match FIND_TEXT_LEN
 #define GREP_LINE_LEN 10000      // maximum line length for regular expressions (viewer uses a different macro)
 
@@ -497,6 +499,8 @@ struct CFoundFilesData
 {
     char* Name;
     char* Path;
+    std::wstring NameW;
+    std::wstring PathW;
     CQuadWord Size;
     DWORD Attr;
     FILETIME LastWrite;
@@ -535,11 +539,15 @@ struct CFoundFilesData
     }
     BOOL Set(const char* path, const char* name, const CQuadWord& size, DWORD attr,
              const FILETIME* lastWrite, BOOL isDir);
+    BOOL SetW(const wchar_t* path, const wchar_t* name, const CQuadWord& size, DWORD attr,
+              const FILETIME* lastWrite, BOOL isDir);
+    std::wstring GetFullNameW() const;
     // if 'i' refers to Name or Path, returns a pointer to the corresponding variable
     // otherwise fills the buffer 'text' (must be at least 50 characters long) with the appropriate value
     // and returns a pointer to 'text'
     // 'fileNameFormat' determines formatting of names of found items
     char* GetText(int i, char* text, int fileNameFormat);
+    std::wstring GetTextW(int i, int fileNameFormat) const;
 };
 
 class CFoundFilesListView : public CWindow
@@ -719,6 +727,7 @@ protected:
                        //    CFindAdvancedDialog FindAdvanced;
     CFoundFilesListView* FoundFilesListView;
     char FoundFilesDataTextBuffer[MAX_PATH]; // for obtaining text from CFoundFilesData::GetText
+    std::wstring FoundFilesDataTextBufferW;  // for obtaining text from CFoundFilesData::GetTextW
     CFindTBHeader* TBHeader;
     BOOL SearchInProgress;
     BOOL CanClose; // the window can be closed (we are not inside a method of this object)

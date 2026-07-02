@@ -4,7 +4,10 @@
 
 #include "precomp.h"
 
+#include <vector>
+
 #include "viewer.h"
+#include "common/widepath.h"
 
 #include "cfgdlg.h"
 #include "mainwnd.h"
@@ -28,6 +31,67 @@ CRITICAL_SECTION ViewerFontMeasureCS;
 BOOL ViewerFontMeasured = FALSE;
 BOOL ViewerFontNeedsMapping = FALSE;
 char ViewerFontMapping[256];
+
+static HWND ResolveHistoryComboEditControl(HWND ctrl)
+{
+    char className[16];
+    if (GetClassName(ctrl, className, (int)ARRAYSIZE(className)) > 0 &&
+        _stricmp(className, "ComboBox") == 0)
+    {
+        COMBOBOXINFO info;
+        info.cbSize = sizeof(info);
+        if (GetComboBoxInfo(ctrl, &info) && info.hwndItem != NULL)
+            return info.hwndItem;
+    }
+    return ctrl;
+}
+
+static bool GetHistoryControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+    buffer[0] = 0;
+
+    HWND source = ResolveHistoryComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(source))
+    {
+        SendMessage(ctrl, WM_GETTEXT, bufferSize, (LPARAM)buffer);
+        return true;
+    }
+
+    int length = GetWindowTextLengthW(source);
+    if (length < 0)
+        length = 0;
+    std::vector<WCHAR> wide(length + 1);
+    int copied = GetWindowTextW(source, wide.data(), length + 1);
+    if (copied < 0)
+        copied = 0;
+    wide[copied] = 0;
+
+    int written = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, buffer, bufferSize - 1, NULL, NULL);
+    if (written < 0)
+        written = 0;
+    buffer[written] = 0;
+    return written < bufferSize - 1;
+}
+
+static void SetHistoryControlTextUtf8(HWND ctrl, const char* text)
+{
+    if (text == NULL)
+        text = "";
+    HWND target = ResolveHistoryComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(target))
+    {
+        SendMessage(ctrl, WM_SETTEXT, 0, (LPARAM)text);
+        return;
+    }
+
+    std::wstring wide = SalMultiByteToWidePath(text, CP_UTF8);
+    if (IsWindowUnicode(target))
+        SetWindowTextW(target, wide.c_str());
+    else
+        SendMessage(target, WM_SETTEXT, 0, (LPARAM)text);
+}
 
 void GetDefaultViewerLogFont(LOGFONT* lf)
 {
@@ -59,16 +123,16 @@ void HistoryComboBox(HWND hWindow, CTransferInfo& ti, int ctrlID, char* Text,
         {
             SendMessage(hwnd, CB_RESETCONTENT, 0, 0);
             SendMessage(hwnd, CB_LIMITTEXT, textLen - 1, 0);
-            SendMessage(hwnd, WM_SETTEXT, 0, (LPARAM)Text);
+            SetHistoryControlTextUtf8(hwnd, Text);
         }
         else
         {
             if (!changeOnlyHistory)
             {
-                SendMessage(hwnd, WM_GETTEXT, textLen, (LPARAM)Text);
+                GetHistoryControlTextUtf8(hwnd, Text, textLen);
                 SendMessage(hwnd, CB_RESETCONTENT, 0, 0);
                 SendMessage(hwnd, CB_LIMITTEXT, textLen - 1, 0);
-                SendMessage(hwnd, WM_SETTEXT, 0, (LPARAM)Text);
+                SetHistoryControlTextUtf8(hwnd, Text);
             }
 
             // hex mode handling
@@ -567,7 +631,10 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
         {
             FileName = (char*)malloc(strlen(name) + 1);
             if (FileName != NULL)
+            {
                 strcpy(FileName, name);
+                FileNameW = SalMultiByteToWidePath(name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            }
         }
         else
             FileName = NULL;
@@ -636,6 +703,7 @@ CViewerWindow::~CViewerWindow()
         free(Buffer);
     if (FileName != NULL)
         free(FileName);
+    FileNameW.erase();
     if (Caption != NULL)
         free(Caption);
 }

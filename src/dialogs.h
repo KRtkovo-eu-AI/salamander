@@ -39,6 +39,7 @@ protected:
     BOOL DirectoryHelper;
     BOOL NameAutoCompleteMode;
     int SelectionEnd;
+    int SelectionEndChars;
 
 public:
     // 'history' determines whether the dialog will contain a combobox (TRUE) or an editline (FALSE)

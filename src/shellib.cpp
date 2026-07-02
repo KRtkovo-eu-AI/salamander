@@ -32,24 +32,32 @@ CCopyMoveRecord::CCopyMoveRecord(const char* fileName, const char* mapName)
 {
     FileName = AllocChars(fileName);
     MapName = AllocChars(mapName);
+    FileNameW = AllocWideChars(fileName);
+    MapNameW = AllocWideChars(mapName);
 }
 
 CCopyMoveRecord::CCopyMoveRecord(const wchar_t* fileName, const char* mapName)
 {
     FileName = AllocChars(fileName);
     MapName = AllocChars(mapName);
+    FileNameW = AllocWideChars(fileName);
+    MapNameW = AllocWideChars(mapName);
 }
 
 CCopyMoveRecord::CCopyMoveRecord(const char* fileName, const wchar_t* mapName)
 {
     FileName = AllocChars(fileName);
     MapName = AllocChars(mapName);
+    FileNameW = AllocWideChars(fileName);
+    MapNameW = AllocWideChars(mapName);
 }
 
 CCopyMoveRecord::CCopyMoveRecord(const wchar_t* fileName, const wchar_t* mapName)
 {
     FileName = AllocChars(fileName);
     MapName = AllocChars(mapName);
+    FileNameW = AllocWideChars(fileName);
+    MapNameW = AllocWideChars(mapName);
 }
 
 char* CCopyMoveRecord::AllocChars(const char* name)
@@ -71,13 +79,44 @@ char* CCopyMoveRecord::AllocChars(const wchar_t* name)
     if (name == NULL)
         return NULL;
 
-    int l = lstrlenW(name);
-    char* newName = (char*)malloc(l + 1);
+    int required = WideCharToMultiByte(CP_UTF8, 0, name, -1, NULL, 0, NULL, NULL);
+    char* newName = required > 0 ? (char*)malloc(required) : NULL;
     if (newName != NULL)
+        WideCharToMultiByte(CP_UTF8, 0, name, -1, newName, required, NULL, NULL);
+    else
+        TRACE_E(LOW_MEMORY);
+    return newName;
+}
+
+wchar_t* CCopyMoveRecord::AllocWideChars(const wchar_t* name)
+{
+    if (name == NULL)
+        return NULL;
+    int l = lstrlenW(name);
+    wchar_t* newName = (wchar_t*)malloc((l + 1) * sizeof(wchar_t));
+    if (newName != NULL)
+        memcpy(newName, name, (l + 1) * sizeof(wchar_t));
+    else
+        TRACE_E(LOW_MEMORY);
+    return newName;
+}
+
+wchar_t* CCopyMoveRecord::AllocWideChars(const char* name)
+{
+    if (name == NULL)
+        return NULL;
+    UINT codePage = CP_UTF8;
+    int required = MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, name, -1, NULL, 0);
+    if (required <= 0 && GetACP() != CP_UTF8)
     {
-        WideCharToMultiByte(CP_ACP, 0, name, l + 1, newName, l + 1, NULL, NULL);
-        newName[l] = 0;
+        codePage = CP_ACP;
+        required = MultiByteToWideChar(codePage, 0, name, -1, NULL, 0);
     }
+    if (required <= 0)
+        return NULL;
+    wchar_t* newName = (wchar_t*)malloc(required * sizeof(wchar_t));
+    if (newName != NULL)
+        MultiByteToWideChar(codePage, 0, name, -1, newName, required);
     else
         TRACE_E(LOW_MEMORY);
     return newName;
@@ -99,6 +138,10 @@ void DestroyCopyMoveData(CCopyMoveData* data)
                 free(data->At(i)->FileName);
             if (data->At(i)->MapName != NULL)
                 free(data->At(i)->MapName);
+            if (data->At(i)->FileNameW != NULL)
+                free(data->At(i)->FileNameW);
+            if (data->At(i)->MapNameW != NULL)
+                free(data->At(i)->MapNameW);
         }
         delete data;
     }
@@ -407,12 +450,12 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                         if (data != NULL)
                         {
                             int prefixLen = -1;
-                            wchar_t prefixBuf[MAX_PATH];
+                            std::wstring prefixW;
+                            char prefixBuf[MAX_PATH];
                             prefixBuf[0] = 0;
                             if (data->fWide)
                             {
                                 char mulbyteName[MAX_PATH];
-                                wchar_t* prefix = prefixBuf;
                                 const wchar_t* fileW = (wchar_t*)(((char*)data) + data->pFiles);
                                 while (1) // double null terminated, assumes no empty strings (start)
                                 {
@@ -420,15 +463,21 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                     {
                                         if (namesList != NULL) // add the common path of all names to namesList
                                         {
-                                            if (WideCharToMultiByte(CP_ACP, 0, prefix, prefixLen + 1, mulbyteName, MAX_PATH, NULL, NULL) == 0)
+                                            const wchar_t* prefix = prefixW.c_str();
+                                            if (WideCharToMultiByte(CP_ACP, 0, prefix, -1, mulbyteName, MAX_PATH, NULL, NULL) == 0)
                                             {
                                                 DWORD err = GetLastError();
                                                 TRACE_E("IsSimpleSelection(): WideCharToMultiByte: " << GetErrorText(err));
                                                 mulbyteName[0] = 0;
                                             }
                                             strcpy(namesList->SrcPath, mulbyteName);
+                                            namesList->SrcPathW = prefixW;
                                             if (prefixLen < 3)
+                                            {
                                                 SalPathAddBackslash(namesList->SrcPath, MAX_PATH);
+                                                if (!namesList->SrcPathW.empty() && namesList->SrcPathW[namesList->SrcPathW.length() - 1] != L'\\')
+                                                    namesList->SrcPathW += L"\\";
+                                            }
                                         }
                                         ret = TRUE;
                                         break;
@@ -448,7 +497,7 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                         if (lastBackslash - fileW == prefixLen)
                                         {
                                             if (CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, fileW,
-                                                               prefixLen, prefix, prefixLen) != CSTR_EQUAL)
+                                                               prefixLen, prefixW.c_str(), prefixLen) != CSTR_EQUAL)
                                             {
                                                 ret = FALSE; // path changed, error
                                                 break;
@@ -459,10 +508,7 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                             if (prefixLen == -1)
                                             {
                                                 prefixLen = (int)(lastBackslash - fileW);
-                                                if (prefixLen >= MAX_PATH)
-                                                    prefixLen = MAX_PATH - 1;
-                                                memmove(prefix, fileW, prefixLen * sizeof(wchar_t));
-                                                prefix[prefixLen] = 0;
+                                                prefixW.assign(fileW, prefixLen);
                                             }
                                             else
                                             {
@@ -487,19 +533,33 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                                             else
                                                 mulbyteName[min(MAX_PATH - 1, len)] = 0;
                                             char* add = DupStr(mulbyteName);
-                                            if (add != NULL)
+                                            int wideNameLen = (int)(s - (lastBackslash + 1));
+                                            wchar_t* addW = (wchar_t*)malloc((wideNameLen + 1) * sizeof(wchar_t));
+                                            if (addW != NULL)
+                                            {
+                                                memcpy(addW, lastBackslash + 1, wideNameLen * sizeof(wchar_t));
+                                                addW[wideNameLen] = 0;
+                                            }
+                                            if (add != NULL && addW != NULL)
                                             {
                                                 namesList->Names.Add(add);
-                                                if (!namesList->Names.IsGood())
+                                                namesList->NamesW.Add(addW);
+                                                if (!namesList->Names.IsGood() || !namesList->NamesW.IsGood())
                                                 {
                                                     namesList->Names.ResetState();
+                                                    namesList->NamesW.ResetState();
                                                     free(add);
+                                                    free(addW);
                                                     ret = FALSE; // not enough memory for file/directory names, error
                                                     break;
                                                 }
                                             }
                                             else
                                             {
+                                                if (add != NULL)
+                                                    free(add);
+                                                if (addW != NULL)
+                                                    free(addW);
                                                 ret = FALSE; // not enough memory for file/directory names, error
                                                 break;
                                             }

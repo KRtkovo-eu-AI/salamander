@@ -6,6 +6,7 @@
 
 #include "cfgdlg.h"
 #include "worker.h"
+#include "common/widepath.h"
 
 #include <Aclapi.h>
 #include <Ntsecapi.h>
@@ -4550,9 +4551,13 @@ COPY_AGAIN:
     {
         if (!invalidSrcName && !asyncPar->Failed())
         {
-            in = HANDLES_Q(CreateFile(op->SourceName, GENERIC_READ,
-                                      FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                      OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+            in = op->SourceNameWValid ?
+                     HANDLES_Q(CreateFileW(op->SourceNameW.c_str(), GENERIC_READ,
+                                           FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                           OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
+                     HANDLES_Q(CreateFile(op->SourceName, GENERIC_READ,
+                                          FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                          OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
         }
         else
         {
@@ -4576,9 +4581,18 @@ COPY_AGAIN:
                 if (!invalidTgtName)
                 {
                     // GENERIC_READ for 'out' slows asynchronous copying from disk to network (measured 95 MB/s instead of 111 MB/s on Win7 x64 GLAN)
-                    out = SalCreateFileEx(op->TargetName, GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, fileAttrs, &encryptionNotSupported);
-                    if (!encryptionNotSupported && script->CopyAttrs && out == INVALID_HANDLE_VALUE) // in case read access to the directory is not allowed (we added it only for setting the Compressed attribute), try creating a write-only file
-                        out = SalCreateFileEx(op->TargetName, GENERIC_WRITE, 0, fileAttrs, &encryptionNotSupported);
+                    if (op->TargetNameWValid)
+                    {
+                        out = HANDLES_Q(CreateFileW(op->TargetNameW.c_str(), GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, NULL, CREATE_NEW, fileAttrs, NULL));
+                        if (script->CopyAttrs && out == INVALID_HANDLE_VALUE)
+                            out = HANDLES_Q(CreateFileW(op->TargetNameW.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, fileAttrs, NULL));
+                    }
+                    else
+                    {
+                        out = SalCreateFileEx(op->TargetName, GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, fileAttrs, &encryptionNotSupported);
+                        if (!encryptionNotSupported && script->CopyAttrs && out == INVALID_HANDLE_VALUE) // in case read access to the directory is not allowed (we added it only for setting the Compressed attribute), try creating a write-only file
+                            out = SalCreateFileEx(op->TargetName, GENERIC_WRITE, 0, fileAttrs, &encryptionNotSupported);
+                    }
 
                     if (out == INVALID_HANDLE_VALUE && encryptionNotSupported && dlgData.FileOutLossEncrAll && !lossEncryptionAttr)
                     { // the user agreed to lose the Encrypted attribute for all problematic files, so make that happen here
@@ -5614,7 +5628,30 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
             dirTimeModifiedIsValid = GetDirTime(sourceNameMvDir, &dirTimeModified);
         while (1)
         {
-            if (!invalidName && !*novellRenamePatch && MoveFile(sourceNameMvDir, targetNameMvDir))
+            BOOL moveSucceeded = FALSE;
+            if (!invalidName && !*novellRenamePatch)
+            {
+                std::wstring sourceNameMvDirW = op->SourceNameWValid ? op->SourceNameW : SalMultiByteToWidePath(sourceNameMvDir, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                std::wstring targetNameMvDirW = op->TargetNameWValid ? op->TargetNameW : SalMultiByteToWidePath(targetNameMvDir, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                if (!sourceNameMvDirW.empty() && !targetNameMvDirW.empty())
+                {
+                    std::wstring sourceCmpW = SalPathRemoveExtendedPrefixW(sourceNameMvDirW.c_str());
+                    std::wstring targetCmpW = SalPathRemoveExtendedPrefixW(targetNameMvDirW.c_str());
+                    if (CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, sourceCmpW.c_str(), -1, targetCmpW.c_str(), -1) == CSTR_EQUAL)
+                        SetLastError(ERROR_ALREADY_EXISTS);
+                    else
+                    {
+                        if (sourceNameMvDirW.length() >= MAX_PATH)
+                            sourceNameMvDirW = SalPathAddExtendedPrefixW(sourceNameMvDirW.c_str());
+                        if (targetNameMvDirW.length() >= MAX_PATH)
+                            targetNameMvDirW = SalPathAddExtendedPrefixW(targetNameMvDirW.c_str());
+                        moveSucceeded = MoveFileW(sourceNameMvDirW.c_str(), targetNameMvDirW.c_str());
+                    }
+                }
+                else
+                    moveSucceeded = MoveFile(sourceNameMvDir, targetNameMvDir);
+            }
+            if (moveSucceeded)
             {
                 if (script->CopyAttrs && (op->Attr & FILE_ATTRIBUTE_ARCHIVE) == 0) // Archive attribute was not set, MoveFile turned it on, clear it again
                     SetFileAttributes(targetNameMvDir, op->Attr);                  // leave without handling or retry, not important (it normally toggles chaotically)

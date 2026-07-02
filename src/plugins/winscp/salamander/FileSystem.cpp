@@ -1653,7 +1653,7 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* Di
         SalamanderGeneral()->GetConfigParameter(SALCFG_SORTBYEXTDIRSASFILES,
                                                 &SortByExtDirsAsFiles, sizeof(SortByExtDirsAsFiles), NULL);
 
-        CFileData FileData;
+        CFileData FileData = {0};
 
         TRemoteFile* File;
 

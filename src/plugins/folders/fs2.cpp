@@ -148,7 +148,7 @@ CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* dir,
 {
     TRACE_I("CPluginFSInterface::ListCurrentPath");
 
-    CFileData file;
+    CFileData file = {0};
     DWORD flags;
 
     LPCITEMIDLIST currentPIDL = CurrentPIDL;

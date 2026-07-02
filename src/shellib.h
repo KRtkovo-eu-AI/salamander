@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 // library initialization
 BOOL InitializeShellib();
 
@@ -57,10 +59,12 @@ void GetNewOrBackgroundMenu(HWND hOwnerWindow, const char* dir, CMenuNew* menu,
 
 struct CDragDropOperData
 {
-    char SrcPath[MAX_PATH];     // Source path shared by all files/directories from Names ("" == path conversion from Unicode failed)
-    TIndirectArray<char> Names; // Sorted, allocated names of files/directories (CF_HDROP does not distinguish whether it is a file or a directory) ("" == path conversion from Unicode failed)
+    char SrcPath[MAX_PATH];        // Source path shared by all files/directories from Names ("" == path conversion from Unicode failed)
+    std::wstring SrcPathW;         // Unicode source path shared by all files/directories from NamesW; may exceed MAX_PATH
+    TIndirectArray<char> Names;    // Sorted, allocated names of files/directories (CF_HDROP does not distinguish whether it is a file or a directory) ("" == path conversion from Unicode failed)
+    TIndirectArray<wchar_t> NamesW; // Unicode names for CF_HDROP wide payloads
 
-    CDragDropOperData() : Names(200, 200) { SrcPath[0] = 0; }
+    CDragDropOperData() : Names(200, 200), NamesW(200, 200) { SrcPath[0] = 0; }
 };
 
 // Determines whether 'pDataObject' contains files and directories from disk and whether all of them share a single path.
@@ -183,6 +187,8 @@ struct CCopyMoveRecord
 {
     char* FileName;
     char* MapName;
+    wchar_t* FileNameW;
+    wchar_t* MapNameW;
 
     CCopyMoveRecord(const char* fileName, const char* mapName);
     CCopyMoveRecord(const wchar_t* fileName, const char* mapName);
@@ -191,6 +197,8 @@ struct CCopyMoveRecord
 
     char* AllocChars(const char* name);
     char* AllocChars(const wchar_t* name);
+    wchar_t* AllocWideChars(const char* name);
+    wchar_t* AllocWideChars(const wchar_t* name);
 };
 
 // data for the copy and move callback

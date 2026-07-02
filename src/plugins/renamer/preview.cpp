@@ -1,10 +1,90 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
 
 HIMAGELIST HSymbolsImageList = NULL;
 char DirText[100];
+
+namespace
+{
+std::wstring PreviewTextToWide(const char* text)
+{
+    if (text == NULL || *text == 0)
+        return std::wstring();
+
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (len == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (len == 0)
+        return std::wstring();
+
+    std::wstring wide(len - 1, L'\0');
+    MultiByteToWideChar(codePage, flags, text, -1, &wide[0], len);
+    return wide;
+}
+
+bool GetEditLineUtf8(HWND edit, int lineIndex, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+    buffer[0] = 0;
+
+    if (edit == NULL)
+        return false;
+
+    if (!IsWindowUnicode(edit))
+    {
+        int charIndex = (int)SendMessage(edit, EM_LINEINDEX, lineIndex, 0);
+        if (charIndex < 0)
+            return false;
+        int lineLen = (int)SendMessage(edit, EM_LINELENGTH, charIndex, 0);
+        if (lineLen >= bufferSize)
+            return false;
+        *LPWORD(buffer) = (WORD)bufferSize;
+        int copied = (int)SendMessage(edit, EM_GETLINE, lineIndex, (LPARAM)buffer);
+        buffer[copied] = 0;
+        return true;
+    }
+
+    int textLen = GetWindowTextLengthW(edit);
+    if (textLen <= 0)
+        return lineIndex == 0;
+    std::wstring text(textLen + 1, L'\0');
+    GetWindowTextW(edit, &text[0], textLen + 1);
+    text.resize(textLen);
+
+    size_t start = 0;
+    for (int line = 0; line < lineIndex; line++)
+    {
+        start = text.find(L'\n', start);
+        if (start == std::wstring::npos)
+            return false;
+        start++;
+    }
+    size_t end = text.find(L'\n', start);
+    if (end == std::wstring::npos)
+        end = text.length();
+    if (end > start && text[end - 1] == L'\r')
+        end--;
+
+    std::wstring line = text.substr(start, end - start);
+    int required = WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.length(), NULL, 0, NULL, NULL);
+    if (required >= bufferSize)
+        return false;
+    int written = WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.length(), buffer, bufferSize - 1, NULL, NULL);
+    if (written < 0)
+        written = 0;
+    buffer[written] = 0;
+    return true;
+}
+}
 
 CPreviewWindow::CPreviewWindow(CRenamerDialog* renamerDialog)
     : RenamerOptions(renamerDialog->RenamerOptions),
@@ -144,6 +224,33 @@ void CPreviewWindow::GetDispInfo(LV_DISPINFO* info)
     }
 }
 
+void CPreviewWindow::GetDispInfoW(NMLVDISPINFOW* info)
+{
+    CALL_STACK_MESSAGE1("CPreviewWindow::GetDispInfoW()");
+    if (info->item.iItem < SourceFiles.Count)
+    {
+        if (info->item.mask & LVIF_IMAGE)
+        {
+            if (CachedItem != info->item.iItem)
+                GetItemText(info->item.iItem, CI_NEWNAME);
+            info->item.iImage =
+                NewNameValid ? (SourceFiles[info->item.iItem]->IsDir ? ILS_DIRECTORY : ILS_FILE) : ILS_WARNING;
+        }
+        if (info->item.mask & LVIF_TEXT)
+        {
+            TextBufferW = PreviewTextToWide(GetItemText(info->item.iItem, info->item.iSubItem));
+            info->item.pszText = const_cast<LPWSTR>(TextBufferW.c_str());
+        }
+    }
+    else
+    {
+        if (info->item.mask & LVIF_IMAGE)
+            info->item.iImage = ILS_FILE;
+        if (info->item.mask & LVIF_TEXT)
+            info->item.pszText = const_cast<LPWSTR>(L"");
+    }
+}
+
 char* CPreviewWindow::GetItemText(int index, int subItem)
 {
     CALL_STACK_MESSAGE3("CPreviewWindow::GetItemText(%d, %d)", index, subItem);
@@ -177,7 +284,7 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                 // int pos = SendDlgItemMessage(RenamerDialog->HWindow, IDE_MANUAL, EM_LINEINDEX, index, 0);
                 // if (pos < 0)
                 // {
-                //   SalPrintf(NewNameCache, MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_MISLINES));
+                //   SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_MISLINES));
                 // }
                 // else
                 // {
@@ -185,16 +292,14 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
 
                 //   if (l >= MAX_PATH)
                 //   {
-                //     SalPrintf(NewNameCache, MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
+                //     SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
                 //   }
                 //   else
                 //   {
-                *LPWORD(NewNameCache) = MAX_PATH;
-                int l = (int)SendMessage(RenamerDialog->ManualEdit->HWindow, EM_GETLINE,
-                                         index, (LPARAM)NewNameCache);
-                NewNameCache[l] = 0; // just to be sure
-
-                NewNameValid = ValidateFileName(NewNameCache, l, RenamerOptions.Spec, NULL, NULL);
+                if (!GetEditLineUtf8(RenamerDialog->ManualEdit->HWindow, index, NewNameCache, 3 * MAX_PATH))
+                    SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
+                else
+                    NewNameValid = ValidateFileName(NewNameCache, (int)strlen(NewNameCache), RenamerOptions.Spec, NULL, NULL);
                 //  }
                 // }
             }
@@ -209,7 +314,7 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                         int l = Renamer.Rename(item, index, NewNameCache, FALSE);
                         if (l < 0)
                         {
-                            SalPrintf(NewNameCache, MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
+                            SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
                         }
                         else
                         {
@@ -240,7 +345,7 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                             et = IDS_GENERICERR;
                             break;
                         }
-                        SalPrintf(NewNameCache, MAX_PATH, LoadStr(et), LoadStr(error));
+                        SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(et), LoadStr(error));
                     }
                 }
             }

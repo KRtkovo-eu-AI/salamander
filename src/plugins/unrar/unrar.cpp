@@ -279,7 +279,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
     if (OpenArchive())
     {
         CFileHeader header;
-        CFileData fileData;
+        CFileData fileData = {0};
         LPTSTR slash;
         LPCTSTR path;
         LPTSTR name;
@@ -1707,7 +1707,7 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchiveCalculateProgress(TIndirectA
         else
         {
             CFileHeader header;
-            CFileData fileData;
+            CFileData fileData = {0};
             while ((ret = ReadHeader(&header)) != 0 && *header.FileName)
             {
                 if (header.Flags & RHDF_SPLITBEFORE)

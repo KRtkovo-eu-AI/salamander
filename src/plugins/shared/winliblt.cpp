@@ -344,7 +344,9 @@ HWND CWindow::Create(LPCTSTR lpszClassName,  // address of registered class name
 
 void CWindow::AttachToWindow(HWND hWnd)
 {
-    DefWndProc = (WNDPROC)GetWindowLongPtr(hWnd, GWLP_WNDPROC);
+    BOOL unicodeWindow = IsWindowUnicode(hWnd);
+    DefWndProc = unicodeWindow ? (WNDPROC)GetWindowLongPtrW(hWnd, GWLP_WNDPROC) :
+                                 (WNDPROC)GetWindowLongPtr(hWnd, GWLP_WNDPROC);
     if (DefWndProc == NULL)
     {
         TRACE_E("Bad window handle. hWnd = " << hWnd);
@@ -358,7 +360,10 @@ void CWindow::AttachToWindow(HWND hWnd)
         return;
     }
     HWindow = hWnd;
-    SetWindowLongPtr(HWindow, GWLP_WNDPROC, (LONG_PTR)CWindowProc);
+    if (unicodeWindow)
+        SetWindowLongPtrW(HWindow, GWLP_WNDPROC, (LONG_PTR)CWindowProc);
+    else
+        SetWindowLongPtr(HWindow, GWLP_WNDPROC, (LONG_PTR)CWindowProc);
 
     if (DefWndProc == CWindow::CWindowProc) // to by byla rekurze
     {
@@ -386,7 +391,10 @@ void CWindow::DetachWindow()
     if (HWindow != NULL)
     {
         WindowsManager.DetachWindow(HWindow);
-        SetWindowLongPtr(HWindow, GWLP_WNDPROC, (LONG_PTR)DefWndProc);
+        if (IsWindowUnicode(HWindow))
+            SetWindowLongPtrW(HWindow, GWLP_WNDPROC, (LONG_PTR)DefWndProc);
+        else
+            SetWindowLongPtr(HWindow, GWLP_WNDPROC, (LONG_PTR)DefWndProc);
         HWindow = NULL;
     }
 }
@@ -409,7 +417,8 @@ CWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return TRUE; // pokud to neni child, ukoncime zpracovani F1
     }
     }
-    return CallWindowProc((WNDPROC)DefWndProc, HWindow, uMsg, wParam, lParam);
+    return IsWindowUnicode(HWindow) ? CallWindowProcW((WNDPROC)DefWndProc, HWindow, uMsg, wParam, lParam) :
+                                      CallWindowProc((WNDPROC)DefWndProc, HWindow, uMsg, wParam, lParam);
 }
 
 LRESULT CALLBACK
@@ -459,9 +468,16 @@ CWindow::CWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             // pokud aktualni WndProc je jina nez nase, nebudeme ji menit,
             // protoze nekdo v rade subclasseni uz vratil puvodni WndProc
-            WNDPROC currentWndProc = (WNDPROC)GetWindowLongPtr(wnd->HWindow, GWLP_WNDPROC);
+            BOOL unicodeWindow = IsWindowUnicode(wnd->HWindow);
+            WNDPROC currentWndProc = unicodeWindow ? (WNDPROC)GetWindowLongPtrW(wnd->HWindow, GWLP_WNDPROC) :
+                                                     (WNDPROC)GetWindowLongPtr(wnd->HWindow, GWLP_WNDPROC);
             if (currentWndProc == CWindow::CWindowProc)
-                SetWindowLongPtr(wnd->HWindow, GWLP_WNDPROC, (LONG_PTR)wnd->DefWndProc);
+            {
+                if (unicodeWindow)
+                    SetWindowLongPtrW(wnd->HWindow, GWLP_WNDPROC, (LONG_PTR)wnd->DefWndProc);
+                else
+                    SetWindowLongPtr(wnd->HWindow, GWLP_WNDPROC, (LONG_PTR)wnd->DefWndProc);
+            }
 
             if (wnd->IsAllocated())
                 delete wnd;
@@ -577,15 +593,15 @@ INT_PTR
 CDialog::Execute()
 {
     Modal = TRUE;
-    return DialogBoxParam(Modul, MAKEINTRESOURCE(ResID), Parent,
-                          (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    return DialogBoxParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
+                           (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
 }
 
 HWND CDialog::Create()
 {
     Modal = FALSE;
-    return CreateDialogParam(Modul, MAKEINTRESOURCE(ResID), Parent,
-                             (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    return CreateDialogParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
+                              (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
 }
 
 INT_PTR

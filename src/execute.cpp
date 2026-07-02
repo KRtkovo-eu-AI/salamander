@@ -18,6 +18,9 @@
 CComboboxEdit::CComboboxEdit()
     : CWindow(ooAllocated)
 {
+#ifndef _UNICODE
+    SetUnicodeWindow(TRUE);
+#endif // _UNICODE
     SelStart = 0;
     SelEnd = -1;
 }

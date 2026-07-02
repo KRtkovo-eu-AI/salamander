@@ -12,6 +12,7 @@
 #include "cfgdlg.h"
 #include "zip.h"
 #include "spl_file.h"
+#include "common/widepath.h"
 
 CSalamanderSafeFile SalSafeFile;
 
@@ -588,7 +589,8 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
             namecpy2[len += (int)(slash - src)] = '\0';
             if (namecpy2[len - 1] <= ' ' || namecpy2[len - 1] == '.')
                 invalidPath = TRUE; // spaces and dots at the end of the directory name being created are undesirable
-            while (invalidPath || !CreateDirectory(namecpy2, NULL))
+            std::wstring namecpy2W = SalMultiByteToWidePath(namecpy2, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            while (invalidPath || !(GetACP() == CP_UTF8 && !namecpy2W.empty() ? SalCreateDirectoryExW(namecpy2W.c_str(), NULL) : CreateDirectory(namecpy2, NULL)))
             {
                 // failed to create the directory, display an error
                 int ret;

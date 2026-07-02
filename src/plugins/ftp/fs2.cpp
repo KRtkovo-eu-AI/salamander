@@ -786,7 +786,7 @@ void CPluginFSInterface::AddUpdir(BOOL& err, BOOL& needUpDir, CFTPListingPluginD
                                   TIndirectArray<CSrvTypeColumn>* columns, CSalamanderDirectoryAbstract* dir)
 {
     needUpDir = FALSE;
-    CFileData updir;
+    CFileData updir = {0};
     memset(&updir, 0, sizeof(updir));
     if (dataIface->AllocPluginData(updir))
     {
@@ -901,7 +901,7 @@ BOOL CPluginFSInterface::ParseListing(CSalamanderDirectoryAbstract* dir,
                     {
                         BOOL needUpDir = FTPIsValidAndNotRootPath(GetFTPServerPathType(Path), Path); // TRUE while an up-dir ("..") still needs to be inserted
 
-                        CFileData file;
+                        CFileData file = {0};
                         const char* listing = PathListing;
                         const char* listingEnd = PathListing + (PathListingIsBroken ? 0 /* if the listing is not OK, use an empty listing instead */ : PathListingLen);
                         BOOL isDir = FALSE;
@@ -1256,7 +1256,7 @@ BOOL CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* dir,
 
             if (!err && needSimpleListing)
             {
-                CFileData file;
+                CFileData file = {0};
                 pluginData = &SimpleListPluginDataInterface; // ATTENTION: the change may also affect obtaining the data interface in CPluginFSInterface::ChangeAttributes!
                 dir->SetValidData(VALID_DATA_NONE);
                 dir->SetFlags(SALDIRFLAG_CASESENSITIVE | SALDIRFLAG_IGNOREDUPDIRS); // probably unnecessary, but everything is treated as case-sensitive so this should be safe

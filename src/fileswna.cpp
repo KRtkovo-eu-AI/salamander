@@ -813,7 +813,7 @@ void CFilesWindow::DragDropToArcOrFS(CTmpDragDropOperData* data)
     else
     {
         BOOL ok = TRUE;
-        CFileData newF;       // we no longer work with these items
+        CFileData newF = {0};       // we no longer work with these items
         newF.PluginData = -1; // -1 is arbitrary, thevalue will be ignored
         newF.Association = 0;
         newF.Selected = 0;
@@ -1443,7 +1443,7 @@ BOOL CCriteriaData::IsDirty()
 
 BOOL CCriteriaData::AgreeMasksAndAdvanced(const CFileData* file)
 {
-    if (UseMasks && !Masks.AgreeMasks(file->Name, file->Ext))
+    if (UseMasks && !(file->UseWideName() ? Masks.AgreeMasksW(file->NameW, NULL) : Masks.AgreeMasks(file->Name, file->Ext)))
         return FALSE;
 
     if (UseAdvanced)

@@ -670,7 +670,7 @@ void CSrvTypeTestParserDlg::ParseListingToListView()
     char strDIR[100];
     lstrcpyn(strDIR, LoadStr(IDS_SRVTYPE_SIZEISDIR), 100);
 
-    CFileData file;
+    CFileData file = {0};
     CFTPListingPluginDataInterface dataIface(Columns, FALSE, 0 /* not used here */, FALSE /* not used here */);
     char buf[100];
     CQuadWord qwVal(0, 0);

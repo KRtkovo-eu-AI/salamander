@@ -11,6 +11,7 @@
 #include "dialogs.h"
 #include "zip.h"
 #include "pack.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -657,7 +658,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                                             invalidPath = TRUE;
                                     }
                                 }
-                                if (invalidPath || !CreateDirectory(newDirs, NULL))
+                                std::wstring newDirsW = SalMultiByteToWidePath(newDirs, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                                if (invalidPath || !(GetACP() == CP_UTF8 && !newDirsW.empty() ? SalCreateDirectoryExW(newDirsW.c_str(), NULL) : CreateDirectory(newDirs, NULL)))
                                 {
                                     sprintf(textBuf, LoadStr(IDS_CREATEDIRFAILED), newDirs);
                                     SalMessageBox(HWindow, textBuf, LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
@@ -933,7 +935,7 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[MAX_PATH], char* name, CSalama
         strcpy(end, name);
         char* end2 = end + strlen(end);
         BOOL ok = TRUE;
-        CFileData newF; // we no longer work with these items
+        CFileData newF = {0}; // we no longer work with these items
         if (dir != NULL)
         {
             newF.PluginData = -1; // -1 is arbitrary, ignored
@@ -1157,7 +1159,7 @@ CSalamanderDirectory* ReadDirectoryTree(HWND parent, CPanelTmpEnumData* data, in
     }
 
     int index = data->CurrentIndex;
-    CFileData newF;
+    CFileData newF = {0};
     if (dir != NULL)
     {
         newF.PluginData = -1; // -1 is arbitrary, ignored
@@ -2027,14 +2029,14 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             }
             int errpos = 0;
             tmpmask.PrepareMasks(errpos);
-            if (!tmpmask.AgreeMasks(file->Name, file->Ext))
+            if (!(file->UseWideName() ? tmpmask.AgreeMasksW(file->NameW, NULL) : tmpmask.AgreeMasks(file->Name, file->Ext)))
             {
                 int i2;
                 for (i2 = 0; i2 < UnpackerConfig.GetUnpackersCount(); i2++)
                 {
                     tmpmask.SetMasksString(UnpackerConfig.GetUnpackerExt(i2), TRUE);
                     tmpmask.PrepareMasks(errpos);
-                    if (tmpmask.AgreeMasks(file->Name, file->Ext))
+                    if ((file->UseWideName() ? tmpmask.AgreeMasksW(file->NameW, NULL) : tmpmask.AgreeMasks(file->Name, file->Ext)))
                     {
                         UnpackerConfig.SetPreferedUnpacker(i2);
                         break;
@@ -2068,8 +2070,18 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 memcpy(subject, GetPath(), l);
                 sprintf(subject + l, "\\%s", file->Name);
                 char newDir[MAX_PATH];
-                if (CheckAndCreateDirectory(path, NULL, TRUE, NULL, 0, newDir, FALSE, TRUE))
+                std::wstring pathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                std::wstring newDirW;
+                BOOL createdOK = GetACP() == CP_UTF8 && !pathW.empty() ?
+                                     CheckAndCreateDirectoryW(pathW.c_str(), NULL, TRUE, &newDirW, TRUE) :
+                                     CheckAndCreateDirectory(path, NULL, TRUE, NULL, 0, newDir, FALSE, TRUE);
+                if (createdOK)
                 {
+                    if (!newDirW.empty())
+                    {
+                        std::string newDirA = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
+                        lstrcpyn(newDir, newDirA.c_str(), MAX_PATH);
+                    }
                     // launch the unpacker
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
                     CDynamicStringImp archiveVolumes;

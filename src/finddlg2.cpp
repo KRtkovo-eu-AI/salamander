@@ -8,6 +8,7 @@
 #include "edtlbwnd.h"
 #include "mainwnd.h"
 #include "find.h"
+#include "common/widepath.h"
 #include "toolbar.h"
 #include "menu.h"
 #include "shellib.h"
@@ -1619,8 +1620,10 @@ void CFindDialog::OnOpen(BOOL onlyFocused)
                 oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
             char fullPath[MAX_PATH];
-            lstrcpy(fullPath, file->Path);
-            if (SalPathAppend(fullPath, file->Name, MAX_PATH))
+            std::wstring fullPathW = file->GetFullNameW();
+            std::string fullPathA = SalWideToMultiBytePath(fullPathW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            lstrcpyn(fullPath, fullPathA.empty() ? file->Path : fullPathA.c_str(), MAX_PATH);
+            if (fullPath[0] != 0)
                 MainWindow->FileHistory->AddFile(fhitOpen, 0, fullPath);
 
             ExecuteAssociation(HWindow, file->Path, file->Name);

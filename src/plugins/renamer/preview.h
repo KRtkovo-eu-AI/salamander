@@ -1,7 +1,9 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+
+#include <string>
 
 extern HIMAGELIST HSymbolsImageList;
 extern char DirText[100];
@@ -29,7 +31,7 @@ protected:
     CRenamer Renamer;
 
     // data for rename operation
-    char (&Root)[MAX_PATH];
+    char (&Root)[3 * MAX_PATH];
     int& RootLen;
     TIndirectArray<CSourceFile>& SourceFiles;
     BOOL& SourceFilesValid;
@@ -37,8 +39,9 @@ protected:
     BOOL TransferError;
     BOOL Dirty;
     char TextBuffer[MAX_PATH];
+    std::wstring TextBufferW;
     int CachedItem;
-    char NewNameCache[MAX_PATH];
+    char NewNameCache[3 * MAX_PATH];
     BOOL NewNameValid;
 
     HWND Static;
@@ -52,6 +55,7 @@ public:
     void SetDirty() { Dirty = TRUE; }
     void Update(BOOL force = FALSE);
     void GetDispInfo(LV_DISPINFO* info);
+    void GetDispInfoW(NMLVDISPINFOW* info);
     char* GetItemText(int index, int subItem);
     BOOL CustomDraw(LPNMLVCUSTOMDRAW cd, LRESULT& result);
 

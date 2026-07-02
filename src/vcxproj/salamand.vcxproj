@@ -267,6 +267,8 @@
     </ClCompile>
     <ClCompile Include="..\common\strutils.cpp">
     </ClCompile>
+    <ClCompile Include="..\common\utf8wrap.cpp">
+    </ClCompile>
     <ClCompile Include="..\common\trace.cpp">
     </ClCompile>
     <ClCompile Include="..\common\winlib.cpp">
@@ -429,6 +431,7 @@
     </ClCompile>
     <ClCompile Include="..\mapi.cpp">
     </ClCompile>
+    <ClCompile Include="..\common\widepath.cpp" />
     <ClCompile Include="..\masks.cpp">
     </ClCompile>
     <ClCompile Include="..\md5.cpp">
@@ -747,6 +750,7 @@
     </ClInclude>
     <ClInclude Include="..\color.h">
     </ClInclude>
+    <ClInclude Include="..\common\widepath.h" />
     <ClInclude Include="..\common\allochan.h">
     </ClInclude>
     <ClInclude Include="..\common\array.h">

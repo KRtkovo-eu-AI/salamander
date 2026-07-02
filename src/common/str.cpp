@@ -110,6 +110,23 @@ char* StrNCat(char* dst, const char* src, int dstSize)
 void InitializeCase()
 {
     int i;
+    if (GetACP() == CP_UTF8)
+    {
+        for (i = 0; i < 256; i++)
+        {
+            LowerCase[i] = (BYTE)i;
+            UpperCase[i] = (BYTE)i;
+        }
+        for (i = 'A'; i <= 'Z'; i++)
+        {
+            LowerCase[i] = (BYTE)(i - 'A' + 'a');
+        }
+        for (i = 'a'; i <= 'z'; i++)
+        {
+            UpperCase[i] = (BYTE)(i - 'a' + 'A');
+        }
+        return;
+    }
     for (i = 0; i < 256; i++)
         LowerCase[i] = (char)(UINT_PTR)CharLowerA((LPSTR)(UINT_PTR)i);
     for (i = 0; i < 256; i++)

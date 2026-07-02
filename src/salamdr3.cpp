@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -14,6 +14,7 @@
 #include "execute.h"
 #include "shellib.h"
 #include "menu.h"
+#include "common/widepath.h"
 
 CUserMenuIconBkgndReader UserMenuIconBkgndReader;
 
@@ -419,13 +420,21 @@ BOOL SalGetFullName(char* name, int* errTextID, const char* curDir, char* nextFo
     char* s = name;
     while (*s >= 1 && *s <= ' ')
         s++;
-    if (*s == '\\' && *(s + 1) == '\\') // UNC (\\server\share\...)
+    if (*s == '\\' && *(s + 1) == '\\') // UNC (\\server\share\...) or extended-length (\\?\...)
     {                                   // trim spaces at the beginning of the path
         if (s != name)
             memmove(name, s, strlen(s) + 1);
         s = name + 2;
-        if (*s == '.' || *s == '?')
-            err = IDS_PATHISINVALID; // paths like \\?\Volume{6e76293d-1828-11df-8f3c-806e6f6e6963}\ and \\.\PhysicalDisk5\ are simply not supported here
+        if (*s == '?')
+        {
+            // Extended-length paths (\\?\C:\..., \\?\UNC\server\share\..., \\?\Volume{...}\)
+            // are valid for Unicode-aware filesystem operations and must not be rejected here.
+            if (*(s + 1) == '\\' && *(s + 2) != 0)
+                return TRUE;
+            err = IDS_PATHISINVALID;
+        }
+        else if (*s == '.')
+            err = IDS_PATHISINVALID; // device paths like \\.\PhysicalDisk5\ are simply not supported here
         else
         {
             if (*s == 0 || *s == '\\')
@@ -1057,6 +1066,78 @@ void RemoveEmptyDirs(const char* dir)
 
 // ****************************************************************************
 
+
+BOOL SalCreateDirectoryExW(const wchar_t* dir, LPSECURITY_ATTRIBUTES attrs)
+{
+    if (dir == NULL || *dir == 0)
+        return FALSE;
+    std::wstring path = wcslen(dir) >= MAX_PATH ? SalPathAddExtendedPrefixW(dir) : std::wstring(dir);
+    return CreateDirectoryW(path.c_str(), attrs);
+}
+
+BOOL CheckAndCreateDirectoryW(const wchar_t* dir, HWND parent, BOOL quiet, std::wstring* newDir, BOOL manualCrDir)
+{
+    if (newDir != NULL)
+        newDir->erase();
+    if (dir == NULL || *dir == 0)
+        return FALSE;
+    std::wstring full(dir);
+    if (SalIsExtendedLengthPathW(full.c_str()))
+        full = SalPathRemoveExtendedPrefixW(full.c_str());
+
+    DWORD attrs = GetFileAttributesW(full.length() >= MAX_PATH ? SalPathAddExtendedPrefixW(full.c_str()).c_str() : full.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+        return (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+    size_t rootLen = 0;
+    if (full.length() >= 3 && full[1] == L':' && (full[2] == L'\\' || full[2] == L'/'))
+        rootLen = 3;
+    else if (full.rfind(L"\\\\", 0) == 0)
+    {
+        size_t serverEnd = full.find(L'\\', 2);
+        size_t shareEnd = serverEnd == std::wstring::npos ? std::wstring::npos : full.find(L'\\', serverEnd + 1);
+        if (shareEnd != std::wstring::npos)
+            rootLen = shareEnd + 1;
+    }
+    if (rootLen == 0 || full.length() <= rootLen)
+        return FALSE;
+
+    std::wstring partial = full.substr(0, rootLen);
+    size_t pos = rootLen;
+    while (pos < full.length())
+    {
+        size_t next = full.find(L'\\', pos);
+        std::wstring component = full.substr(pos, next == std::wstring::npos ? std::wstring::npos : next - pos);
+        if (!component.empty())
+        {
+            if ((manualCrDir && component[0] <= L' ') || component[component.length() - 1] <= L' ' || component[component.length() - 1] == L'.')
+                return FALSE;
+            if (!partial.empty() && partial[partial.length() - 1] != L'\\')
+                partial += L'\\';
+            partial += component;
+            std::wstring createPath = partial.length() >= MAX_PATH ? SalPathAddExtendedPrefixW(partial.c_str()) : partial;
+            DWORD partAttrs = GetFileAttributesW(createPath.c_str());
+            if (partAttrs == INVALID_FILE_ATTRIBUTES)
+            {
+                if (!SalCreateDirectoryExW(partial.c_str(), NULL))
+                {
+                    DWORD err = GetLastError();
+                    if (err != ERROR_ALREADY_EXISTS)
+                        return FALSE;
+                }
+                else if (newDir != NULL && newDir->empty())
+                    *newDir = partial;
+            }
+            else if ((partAttrs & FILE_ATTRIBUTE_DIRECTORY) == 0)
+                return FALSE;
+        }
+        if (next == std::wstring::npos)
+            break;
+        pos = next + 1;
+    }
+    return TRUE;
+}
+
 BOOL CheckAndCreateDirectory(const char* dir, HWND parent, BOOL quiet, char* errBuf,
                              int errBufSize, char* newDir, BOOL noRetryButton,
                              BOOL manualCrDir)
@@ -1068,7 +1149,7 @@ AGAIN:
     if (newDir != NULL)
         newDir[0] = 0;
     int dirLen = (int)strlen(dir);
-    if (dirLen >= MAX_PATH) // too long name
+    if (dirLen >= 32767) // too long name
     {
         if (errBuf != NULL)
             strncpy_s(errBuf, errBufSize, LoadStr(IDS_TOOLONGNAME), _TRUNCATE);
@@ -1077,8 +1158,8 @@ AGAIN:
         return FALSE;
     }
     DWORD attrs = SalGetFileAttributes(dir);
-    char buf[MAX_PATH + 200];
-    char name[MAX_PATH];
+    char buf[32768 + 200];
+    char name[32768];
     if (attrs == 0xFFFFFFFF) // probably does not exist, we allow it to be created
     {
         char root[MAX_PATH];
@@ -3769,10 +3850,6 @@ MENU_TEMPLATE_ITEM CopyMoveBrowseMenu[] =
 
 DWORD OnKeyDownHandleSelectAll(DWORD keyCode, HWND hDialog, int editID)
 {
-    // since Windows Vista, SelectAll works properly by default, so we leave Select All enabled there.
-    if (WindowsVistaAndLater)
-        return FALSE;
-
     BOOL controlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     BOOL altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;
     BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;

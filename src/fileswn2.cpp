@@ -13,6 +13,7 @@
 #include "plugins.h"
 #include "fileswnd.h"
 #include "filesbox.h"
+#include "common/widepath.h"
 #include "dialogs.h"
 #include "stswnd.h"
 #include "snooper.h"
@@ -721,8 +722,8 @@ void CFilesWindow::Execute(int index)
     if (index < 0 || index >= Dirs->Count + Files->Count)
         return;
 
-    char path[MAX_PATH];
-    char fullName[MAX_PATH + 10];
+    char path[32768];
+    char fullName[32768 + 10];
     char doublePath[2 * MAX_PATH];
     WIN32_FIND_DATA data;
 
@@ -988,14 +989,11 @@ void CFilesWindow::Execute(int index)
                 int caretIndex = GetCaretIndex();
 
                 // new path
-                strcpy(fullName, path);
-                if (!SalPathAppend(fullName, dir->Name, MAX_PATH))
-                {
-                    SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
-                                  MB_OK | MB_ICONEXCLAMATION);
-                    EndStopRefresh();
-                    return;
-                }
+                std::wstring fullNameW = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(path);
+                std::wstring dirNameW = dir->UseWideName() ? std::wstring(dir->NameW) : SalMultiByteToWidePath(dir->Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                SalPathAppendW(fullNameW, dirNameW.c_str());
+                std::string fullNameA = SalWideToMultiBytePath(fullNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                lstrcpyn(fullName, fullNameA.c_str(), 32768 + 10);
 
                 // Vista: we handle unlistable junction points: change path to junction point target
                 char junctTgtPath[MAX_PATH];
@@ -1026,7 +1024,7 @@ void CFilesWindow::Execute(int index)
 
                 BOOL noChange;
                 BOOL refresh = TRUE;
-                if (ChangePathToDisk(HWindow, fullName, -1, NULL, &noChange, FALSE))
+                if (ChangePathToDiskW(HWindow, fullNameW.c_str(), -1, NULL, &noChange, FALSE))
                 {
                     TopIndexMem.Push(path, topIndex); // we remember top index for return
                 }
@@ -1202,7 +1200,7 @@ void CFilesWindow::ChangeSortType(CSortType newType, BOOL reverse, BOOL force)
 
     //---  storing the focused item and sorting of old items by name
     int focusIndex = GetCaretIndex();
-    CFileData d1;
+    CFileData d1 = {0};
     if (focusIndex >= 0 && focusIndex < Dirs->Count + Files->Count)
         d1 = (focusIndex < Dirs->Count) ? Dirs->At(focusIndex) : Files->At(focusIndex - Dirs->Count);
     else
@@ -2493,6 +2491,43 @@ void CFilesWindow::InvalidateChangesInPanelWeHaveNewListing()
     }
 }
 
+BOOL CFilesWindow::ChangePathToDiskW(HWND parent, const wchar_t* path, int suggestedTopIndex,
+                                     const char* suggestedFocusName, BOOL* noChange,
+                                     BOOL refreshListBox, BOOL canForce, BOOL isRefresh, int* failReason,
+                                     BOOL shorterPathWarning, int tryCloseReason)
+{
+    std::wstring requestedPath = path != NULL ? std::wstring(path) : std::wstring();
+    if (requestedPath.length() >= 32767)
+    {
+        SalMessageBox(parent, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
+                      MB_OK | MB_ICONEXCLAMATION);
+        if (failReason != NULL)
+            *failReason = CHPPFR_INVALIDPATH;
+        return FALSE;
+    }
+
+    int errTextID;
+    if (!SalGetFullNameW(requestedPath, &errTextID, Is(ptDisk) ? GetPathW() : NULL, NULL, NULL, FALSE))
+    {
+        SalMessageBox(parent, LoadStr(errTextID), LoadStr(IDS_ERRORCHANGINGDIR),
+                      MB_OK | MB_ICONEXCLAMATION);
+        if (failReason != NULL)
+            *failReason = CHPPFR_INVALIDPATH;
+        return FALSE;
+    }
+
+    std::string requestedPathA = SalWideToMultiBytePath(requestedPath.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    if (requestedPathA.empty())
+    {
+        if (failReason != NULL)
+            *failReason = CHPPFR_INVALIDPATH;
+        return FALSE;
+    }
+
+    return ChangePathToDisk(parent, requestedPathA.c_str(), suggestedTopIndex, suggestedFocusName, noChange,
+                            refreshListBox, canForce, isRefresh, failReason, shorterPathWarning, tryCloseReason);
+}
+
 BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggestedTopIndex,
                                     const char* suggestedFocusName, BOOL* noChange,
                                     BOOL refreshListBox, BOOL canForce, BOOL isRefresh, int* failReason,
@@ -2504,7 +2539,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
 
     //TRACE_I("change-to-disk: begin");
 
-    if (strlen(path) >= MAX_PATH - 2)
+    if (strlen(path) >= 32767)
     {
         SalMessageBox(parent, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
                       MB_OK | MB_ICONEXCLAMATION);
@@ -2514,8 +2549,8 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     }
 
     // we make backup copies
-    char backup[MAX_PATH];
-    lstrcpyn(backup, path, MAX_PATH); // must be done before UpdateDefaultDir (it may point to DefaultDir[])
+    char backup[32768];
+    lstrcpyn(backup, path, 32768); // must be done before UpdateDefaultDir (it may point to DefaultDir[])
     char backup2[MAX_PATH];
     if (suggestedFocusName != NULL)
     {
@@ -2538,7 +2573,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     int errTextID;
     //  if (!SalGetFullName(backup, &errTextID, MainWindow->GetActivePanel()->Is(ptDisk) ?
     //                      MainWindow->GetActivePanel()->GetPath() : NULL))
-    if (!SalGetFullName(backup, &errTextID, Is(ptDisk) ? GetPath() : NULL)) // for the FTP plugin - relative path in "target panel path" during connect
+    if (!SalGetFullName(backup, &errTextID, Is(ptDisk) ? GetPath() : NULL, NULL, NULL, 32768)) // for the FTP plugin - relative path in "target panel path" during connect
     {
         SalMessageBox(parent, LoadStr(errTextID), LoadStr(IDS_ERRORCHANGINGDIR),
                       MB_OK | MB_ICONEXCLAMATION);
@@ -2574,7 +2609,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     BOOL detachFS;
     if (PrepareCloseCurrentPath(parent, canForce, TRUE, detachFS, tryCloseReason))
     { // change within "ptDisk" or we can close the current path, we try to open a new one
-        char changedPath[MAX_PATH];
+        char changedPath[32768];
         strcpy(changedPath, path);
         BOOL tryNet = !CriticalShutdown && ((!Is(ptDisk) && !Is(ptZIPArchive)) || !HasTheSameRootPath(path, GetPath()));
 

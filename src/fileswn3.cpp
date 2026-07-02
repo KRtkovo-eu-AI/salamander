@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -17,6 +17,32 @@
 #include "snooper.h"
 #include "zip.h"
 #include "shiconov.h"
+#include "common/widepath.h"
+
+namespace
+{
+wchar_t* AllocWideNameFromUtf8ACP(const char* name)
+{
+    if (name == NULL || GetACP() != CP_UTF8)
+        return NULL;
+
+    int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, NULL, 0);
+    if (required == 0)
+        required = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
+    if (required <= 1)
+        return NULL;
+
+    wchar_t* wideName = (wchar_t*)malloc(required * sizeof(wchar_t));
+    if (wideName == NULL)
+        return NULL;
+    if (MultiByteToWideChar(CP_UTF8, 0, name, -1, wideName, required) == 0)
+    {
+        free(wideName);
+        return NULL;
+    }
+    return wideName;
+}
+} // namespace
 
 //
 // ****************************************************************************
@@ -127,7 +153,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     DeleteColumnsWithoutData();                      // removing columns for which we don't have data (empty values would be shown in them)
     GetPluginIconIndex = InternalGetPluginIconIndex; // setting standard callback (just returns zero)
 
-    char fileName[MAX_PATH + 4];
+    char fileName[32768 + 4];
 
     if (Is(ptDisk))
     {
@@ -296,7 +322,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         iconData.FSFileData = NULL;
         iconData.SetReadingDone(0); // just for the form
         BOOL addtoIconCache;
-        CFileData file;
+        CFileData file = {0};
         // inicialization of structure members which will not be changed later
         file.PluginData = -1; // -1 just like that, ignored
         file.Selected = 0;
@@ -504,7 +530,25 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         ext = fileData.cFileName + len; // ".cvspass" in Windows is an extension ...
                     else
                         ext++;
-                    if (!Filter.AgreeMasks(fileData.cFileName, ext))
+                    BOOL agreesFilter = FALSE;
+                    wchar_t* wideNameForFilter = AllocWideNameFromUtf8ACP(fileData.cFileName);
+                    if (wideNameForFilter != NULL)
+                    {
+                        const wchar_t* wideExt = wideNameForFilter + wcslen(wideNameForFilter);
+                        while (--wideExt >= wideNameForFilter && *wideExt != L'.')
+                            ;
+                        if (wideExt < wideNameForFilter)
+                            wideExt = wideNameForFilter + wcslen(wideNameForFilter);
+                        else
+                            wideExt++;
+                        agreesFilter = Filter.AgreeMasksW(wideNameForFilter, wideExt);
+                        free(wideNameForFilter);
+                    }
+                    else
+                    {
+                        agreesFilter = Filter.AgreeMasks(fileData.cFileName, ext);
+                    }
+                    if (!agreesFilter)
                     {
                         HiddenFilesCount++;
                         HiddenDirsFilesReason |= HIDDEN_REASON_FILTER;
@@ -545,6 +589,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     return FALSE;
                 }
                 memmove(file.Name, st, len + 1); // copy of text
+                file.NameW = AllocWideNameFromUtf8ACP(file.Name);
                 file.NameLen = len;
                 //--- extension
                 if (!Configuration.SortDirsByExt && (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) // this is ptDisk
@@ -1046,7 +1091,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         continue;
                     }
 
-                    if (FilterEnabled && (!Filter.AgreeMasks(f->Name, f->Ext)))
+                    if (FilterEnabled && (!(f->UseWideName() ? Filter.AgreeMasksW(f->NameW, NULL) : Filter.AgreeMasks(f->Name, f->Ext))))
                     {
                         HiddenFilesCount++;
                         HiddenDirsFilesReason |= HIDDEN_REASON_FILTER;
@@ -1063,7 +1108,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
                     Files->Add(*f);
                 }
-                CFileData upDir;
+                CFileData upDir = {0};
                 static char buffUp[] = "..";
                 upDir.Name = buffUp; // free() won't be called, we can afford ".."
                 upDir.Ext = upDir.Name + 2;
@@ -1313,7 +1358,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             continue;
                         }
 
-                        if (FilterEnabled && !Filter.AgreeMasks(f->Name, f->Ext))
+                        if (FilterEnabled && !(f->UseWideName() ? Filter.AgreeMasksW(f->NameW, NULL) : Filter.AgreeMasks(f->Name, f->Ext)))
                         {
                             HiddenFilesCount++;
                             HiddenDirsFilesReason |= HIDDEN_REASON_FILTER;
@@ -1582,7 +1627,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                     }
                                     if (!isDir)
                                     {
-                                        if (FilterEnabled && !Filter.AgreeMasks(f->Name, f->Ext))
+                                        if (FilterEnabled && !(f->UseWideName() ? Filter.AgreeMasksW(f->NameW, NULL) : Filter.AgreeMasks(f->Name, f->Ext)))
                                             continue;
                                     }
                                     //--- if the name is occupied in the array HiddenNames, we will discard it
@@ -2245,7 +2290,7 @@ CHANGE_AGAIN:
                         DWORD copyAttr;
                         int copyLen;
                         copyLen = (int)strlen(copy);
-                        if (copyLen >= MAX_PATH)
+                        if (copyLen >= 2 * MAX_PATH + 10 - 1)
                         {
                             if (*end != 0 && !SalPathAppend(copy, end + 1, 2 * MAX_PATH)) // if the so far processed part of the path is enlengthened and the rest of the path does not fit, we will use the original form of the path
                                 strcpy(copy, path);
@@ -2255,7 +2300,10 @@ CHANGE_AGAIN:
                         }
                         if (copyLen > 0 && (copy[copyLen - 1] <= ' ' || copy[copyLen - 1] == '.'))
                         {
-                            copyAttr = SalGetFileAttributes(copy);
+                            std::wstring copyW = SalMultiByteToWidePath(copy, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                            if (copyW.length() >= MAX_PATH)
+                                copyW = SalPathAddExtendedPrefixW(copyW.c_str());
+                            copyAttr = GetFileAttributesW(copyW.c_str());
                             pathEndsWithSpaceOrDot = copyAttr != INVALID_FILE_ATTRIBUTES;
                         }
                         else
@@ -2263,10 +2311,10 @@ CHANGE_AGAIN:
                             pathEndsWithSpaceOrDot = FALSE;
                         }
 
-                        WIN32_FIND_DATA find;
+                        WIN32_FIND_DATAW find;
                         HANDLE h;
                         if (!pathEndsWithSpaceOrDot)
-                            h = HANDLES_Q(FindFirstFile(copy, &find));
+                            h = SalFindFirstFileHW(copy, &find);
                         else
                             h = INVALID_HANDLE_VALUE;
                         DWORD err;
@@ -2286,14 +2334,14 @@ CHANGE_AGAIN:
                                     memcpy(st, s, end - s);
                                     st[end - s] = 0;
                                     s = end;
-                                    if ((int)strlen(copy) >= MAX_PATH) // too long path, we're finished...
+                                    if ((int)strlen(copy) >= 2 * MAX_PATH + 10 - 1) // too long path, we're finished...
                                     {
                                         h = INVALID_HANDLE_VALUE;
                                         break;
                                     }
                                     else
                                     {
-                                        h = HANDLES_Q(FindFirstFile(copy, &find));
+                                        h = SalFindFirstFileHW(copy, &find);
                                         if (h != INVALID_HANDLE_VALUE)
                                             break; // we've found an accessible component, continuing...
                                         err = GetLastError();
@@ -2304,9 +2352,9 @@ CHANGE_AGAIN:
                                 }
                                 if (*end == 0 && h == INVALID_HANDLE_VALUE) // another accessible component not found, we will try if the current path can be listed
                                 {
-                                    if ((int)strlen(copy) < MAX_PATH && SalPathAppend(copy, "*.*", MAX_PATH + 10))
+                                    if ((int)strlen(copy) < 2 * MAX_PATH && SalPathAppend(copy, "*.*", 2 * MAX_PATH + 10))
                                     {
-                                        h = HANDLES_Q(FindFirstFile(copy, &find));
+                                        h = SalFindFirstFileHW(copy, &find);
                                         CutDirectory(copy);
                                         if (h != INVALID_HANDLE_VALUE) // the path can be listed
                                         {
@@ -2346,14 +2394,16 @@ CHANGE_AGAIN:
                             if (h != INVALID_HANDLE_VALUE)
                             {
                                 HANDLES(FindClose(h));
-                                int len2 = (int)strlen(find.cFileName); // must fit (only the size of letters is changed - result of FindFirstFile)
+                                char cFileNameA[MAX_PATH];
+                                WideCharToMultiByte(CP_ACP, 0, find.cFileName, -1, cFileNameA, MAX_PATH, NULL, NULL);
+                                int len2 = (int)strlen(cFileNameA); // must fit (only the size of letters is changed - result of FindFirstFile)
                                 if ((int)strlen(st + 1) != len2)        // it does e.g. for "aaa  " returns "aaa", reproduce: Paste (text without quotes): "   "   %TEMP%\aaa   "   "
                                 {
                                     TRACE_E("CFilesWindow::ChangeDir(): unexpected situation: FindFirstFile returned name with "
                                             "different length: \""
-                                            << find.cFileName << "\" for \"" << (st + 1) << "\"");
+                                            << cFileNameA << "\" for \"" << (st + 1) << "\"");
                                 }
-                                memcpy(st + 1, find.cFileName, len2);
+                                memcpy(st + 1, cFileNameA, len2);
                                 st += 1 + len2;
                                 *st = 0;
                             }

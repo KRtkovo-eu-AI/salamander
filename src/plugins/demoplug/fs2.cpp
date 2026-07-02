@@ -418,7 +418,7 @@ CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* dir,
     }
 #endif // DEMOPLUG_QUIET
 
-    CFileData file;
+    CFileData file = {0};
     WIN32_FIND_DATA data;
 
     pluginData = new CPluginFSDataInterface(Path);

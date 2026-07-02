@@ -231,7 +231,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
                                               sizeof(sortByExtDirsAsFiles), NULL);
 
         CARJHeaderData header;
-        CFileData fileData;
+        CFileData fileData = {0};
         char* slash;
         const char* path;
         char* name;

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -25,6 +25,188 @@
 
 namespace
 {
+HWND ResolveComboEditControl(HWND ctrl)
+{
+    char className[16];
+    if (GetClassName(ctrl, className, (int)ARRAYSIZE(className)) > 0)
+    {
+        if (_stricmp(className, "ComboBox") == 0)
+        {
+            COMBOBOXINFO info;
+            info.cbSize = sizeof(info);
+            if (GetComboBoxInfo(ctrl, &info) && info.hwndItem != NULL)
+                return info.hwndItem;
+        }
+    }
+    return ctrl;
+}
+
+int TrimUtf8ToCompleteCharacter(char* buffer, int length)
+{
+    if (buffer == NULL || length <= 0)
+        return 0;
+
+    int trimmed = length;
+    while (trimmed > 0)
+    {
+        if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, buffer, trimmed, NULL, 0) != 0)
+            break;
+        trimmed--;
+    }
+
+    buffer[trimmed] = '\0';
+    return trimmed;
+}
+
+bool GetControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+
+    buffer[0] = '\0';
+
+    HWND source = ResolveComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(source))
+    {
+        SendMessage(ctrl, WM_GETTEXT, bufferSize, (LPARAM)buffer);
+        return true;
+    }
+
+    int length = GetWindowTextLengthW(source);
+    if (length < 0)
+        length = 0;
+
+    std::vector<WCHAR> wide(length + 1);
+    int copied = GetWindowTextW(source, wide.data(), length + 1);
+    if (copied < 0)
+        copied = 0;
+    if ((size_t)copied >= wide.size())
+        wide.push_back(L'\0');
+    wide[copied] = L'\0';
+
+    int required = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, NULL, 0, NULL, NULL);
+    if (required < 0)
+        required = 0;
+
+    if (required >= bufferSize)
+    {
+        if (bufferSize > 1)
+        {
+            int written = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, buffer, bufferSize - 1, NULL, NULL);
+            if (written < 0)
+                written = 0;
+            buffer[written] = '\0';
+            TrimUtf8ToCompleteCharacter(buffer, written);
+        }
+        else
+            buffer[0] = '\0';
+        return false;
+    }
+
+    int written = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, buffer, bufferSize, NULL, NULL);
+    if (written < 0)
+        written = 0;
+    if (written >= bufferSize)
+        written = bufferSize - 1;
+    buffer[written] = '\0';
+    return true;
+}
+
+bool Utf8ToWideString(const char* text, int count, std::wstring& wide);
+
+void SetControlTextUtf8(HWND ctrl, const char* text)
+{
+    if (text == NULL)
+        text = "";
+
+    HWND target = ResolveComboEditControl(ctrl);
+    if (GetACP() != CP_UTF8 && !IsWindowUnicode(target))
+    {
+        SendMessage(ctrl, WM_SETTEXT, 0, (LPARAM)text);
+        return;
+    }
+
+    if (IsWindowUnicode(target))
+    {
+        std::wstring wide;
+        if (Utf8ToWideString(text, -1, wide))
+        {
+            SetWindowTextW(target, wide.empty() ? L"" : wide.c_str());
+            return;
+        }
+    }
+
+    SendMessage(target, WM_SETTEXT, 0, (LPARAM)text);
+}
+
+bool Utf8ToWideString(const char* text, int count, std::wstring& wide)
+{
+    if (text == NULL)
+    {
+        wide.clear();
+        return true;
+    }
+
+    if (count == 0)
+    {
+        wide.clear();
+        return true;
+    }
+
+    if (count < 0)
+    {
+        int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+        if (required == 0)
+            required = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+        if (required == 0)
+        {
+            wide.clear();
+            return false;
+        }
+
+        wide.resize(required);
+        int converted = MultiByteToWideChar(CP_UTF8, 0, text, -1, &wide[0], required);
+        if (converted == 0)
+        {
+            wide.clear();
+            return false;
+        }
+
+        if (!wide.empty() && wide.back() == L'\0')
+            wide.pop_back();
+
+        return true;
+    }
+
+    if (count == 0)
+    {
+        wide.clear();
+        return true;
+    }
+
+    int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, count, NULL, 0);
+    if (required == 0)
+        required = MultiByteToWideChar(CP_UTF8, 0, text, count, NULL, 0);
+    if (required == 0)
+    {
+        wide.clear();
+        return false;
+    }
+
+    wide.resize(required);
+    int converted = MultiByteToWideChar(CP_UTF8, 0, text, count, &wide[0], required);
+    if (converted == 0)
+    {
+        wide.clear();
+        return false;
+    }
+
+    if (converted < required)
+        wide.resize(converted);
+
+    return true;
+}
+
 
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 
@@ -420,7 +602,7 @@ void CConvertFilesDlg::Validate(CTransferInfo& ti)
         if (ti.Type == ttDataFromWindow)
         {
             char buf[MAX_PATH];
-            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)buf);
+            GetControlTextUtf8(hWnd, buf, MAX_PATH);
             CMaskGroup mask(buf);
             int errorPos;
             if (!mask.PrepareMasks(errorPos))
@@ -456,11 +638,11 @@ void CConvertFilesDlg::Transfer(CTransferInfo& ti)
         {
             LoadComboFromStdHistoryValues(hWnd, history, CONVERT_HISTORY_SIZE);
             SendMessage(hWnd, CB_LIMITTEXT, MAX_PATH - 1, 0);
-            SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Mask);
+            SetControlTextUtf8(hWnd, Mask);
         }
         else
         {
-            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)Mask);
+            GetControlTextUtf8(hWnd, Mask, MAX_PATH);
             AddValueToStdHistoryValues(history, CONVERT_HISTORY_SIZE, Mask, FALSE);
         }
     }
@@ -659,11 +841,11 @@ void CFilterDialog::Transfer(CTransferInfo& ti)
         {
             LoadComboFromStdHistoryValues(hWnd, history, FILTER_HISTORY_SIZE);
             SendMessage(hWnd, CB_LIMITTEXT, MAX_PATH - 1, 0);
-            SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Filter->GetMasksString());
+            SetControlTextUtf8(hWnd, Filter->GetMasksString());
         }
         else
         {
-            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)Filter->GetWritableMasksString());
+            GetControlTextUtf8(hWnd, Filter->GetWritableMasksString(), MAX_PATH);
             AddValueToStdHistoryValues(history, FILTER_HISTORY_SIZE, Filter->GetMasksString(), FALSE);
         }
     }
@@ -738,6 +920,9 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
 {
     DirectoryHelper = FALSE;
     NameAutoCompleteMode = helpID == IDD_CREATEDIRDIALOG || helpID == IDD_RENAMEDIALOG;
+#ifndef _UNICODE
+    UnicodeWnd = TRUE; // Sally-style: file name dialogs must not lose Unicode edit text
+#endif // _UNICODE
     if (directoryHelper)
     {
         if (history != NULL)
@@ -756,11 +941,19 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
     HistoryCount = historyCount;
     SetHelpID(helpID); // the dialog serves multiple purposes - set the proper helpID
     SelectionEnd = -1; // -1 = select all
+    SelectionEndChars = -1;
 }
 
 void CCopyMoveDialog::SetSelectionEnd(int selectionEnd)
 {
     SelectionEnd = selectionEnd;
+    SelectionEndChars = -1;
+    if (selectionEnd >= 0 && Path != NULL)
+    {
+        std::wstring wide;
+        if (Utf8ToWideString(Path, selectionEnd, wide))
+            SelectionEndChars = (int)wide.length();
+    }
 }
 
 void CCopyMoveDialog::Transfer(CTransferInfo& ti)
@@ -775,11 +968,11 @@ void CCopyMoveDialog::Transfer(CTransferInfo& ti)
             {
                 LoadComboFromStdHistoryValues(hWnd, History, HistoryCount);
                 SendMessage(hWnd, CB_LIMITTEXT, PathBufSize - 1, 0);
-                SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Path);
+                SetControlTextUtf8(hWnd, Path);
             }
             else
             {
-                SendMessage(hWnd, WM_GETTEXT, PathBufSize, (LPARAM)Path);
+                GetControlTextUtf8(hWnd, Path, PathBufSize);
                 AddValueToStdHistoryValues(History, HistoryCount, Path, FALSE);
             }
         }
@@ -798,10 +991,20 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
-        InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+        HWND hPathEdit = ResolveComboEditControl(hPath);
+        const BOOL unicodeNameInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
+
+        // Sally keeps the Unicode filename controls away from the legacy ANSI
+        // subclasses.  InstallWordBreakProc/CreateKeyForwarder subclass the edit
+        // window and make Windows marshal characters through the ANSI window proc;
+        // with the Windows emoji picker that turns surrogate pairs into '?' and
+        // with CJK text it makes repeated rename/create cycles progressively lossy.
+        if (!unicodeNameInput)
+            InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
         PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
-        CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
+        if (!unicodeNameInput)
+            CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         if (DirectoryHelper)
         {
             ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY);   // the button will have a folder icon and an arrow to the right
@@ -811,12 +1014,38 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetWindowText(HWindow, Title);
         HWND hSubject = GetDlgItem(HWindow, IDS_SUBJECT);
         if (Subject->TruncateText(hSubject))
-            SetWindowText(hSubject, Subject->Get());
+        {
+            if (Subject->IsWide() && IsWindowUnicode(hSubject))
+                SetWindowTextW(hSubject, Subject->GetW());
+            else
+                SetControlTextUtf8(hSubject, Subject->Get());
+        }
 
         INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
-        // we can select only the name without the dot and extension
+        // umime vybirat pouze nazev bez tecky a pripony
+        int selectionEnd = SelectionEnd;
+        if (SelectionEndChars >= 0)
+        {
+            HWND combo = GetDlgItem(HWindow, IDE_PATH);
+            if (combo != NULL)
+            {
+                HWND child = GetWindow(combo, GW_CHILD);
+                while (child != NULL)
+                {
+                    char className[16];
+                    if (GetClassName(child, className, (int)ARRAYSIZE(className)) > 0)
+                    {
+                        if (_stricmp(className, "Edit") == 0)
+                            break;
+                    }
+                    child = GetWindow(child, GW_HWNDNEXT);
+                }
+                if (child != NULL && IsWindowUnicode(child))
+                    selectionEnd = SelectionEndChars;
+            }
+        }
         PostMessage(GetDlgItem(HWindow, IDE_PATH), CB_SETEDITSEL, 0,
-                    MAKELPARAM(0, SelectionEnd));
+                    MAKELPARAM(0, selectionEnd));
         return FALSE;
     }
 
@@ -963,7 +1192,9 @@ MENU_TEMPLATE_ITEM EditNewFileDialogMenu[] =
             if (cmd == 1)
             {
                 Configuration.UseEditNewFileDefault = TRUE;
-                SendDlgItemMessage(HWindow, IDE_PATH, WM_GETTEXT, MAX_PATH, (LPARAM)Configuration.EditNewFileDefault);
+                HWND edit = GetDlgItem(HWindow, IDE_PATH);
+                if (edit != NULL)
+                    GetControlTextUtf8(edit, Configuration.EditNewFileDefault, MAX_PATH);
             }
             if (cmd == 2)
             {
@@ -1028,11 +1259,11 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
             {
                 LoadComboFromStdHistoryValues(hWnd, History, HistoryCount);
                 SendMessage(hWnd, CB_LIMITTEXT, PathBufSize - 1, 0);
-                SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Path);
+                SetControlTextUtf8(hWnd, Path);
             }
             else
             {
-                SendMessage(hWnd, WM_GETTEXT, PathBufSize, (LPARAM)Path);
+                GetControlTextUtf8(hWnd, Path, PathBufSize);
                 AddValueToStdHistoryValues(History, HistoryCount, Path, FALSE);
             }
         }
@@ -1627,6 +1858,9 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
 
 CChangeDirDlg::CChangeDirDlg(HWND parent, char* path, BOOL* sendDirectlyToPlugin) : CCommonDialog(HLanguage, IDD_CHANGEDIR, IDD_CHANGEDIR, parent)
 {
+#ifndef _UNICODE
+    UnicodeWnd = TRUE; // keep Unicode text from the combo edit (emoji/CJK/etc.) lossless
+#endif // _UNICODE
     Path = path;
     SendDirectlyToPlugin = sendDirectlyToPlugin;
 }
@@ -1642,11 +1876,11 @@ void CChangeDirDlg::Transfer(CTransferInfo& ti)
         {
             LoadComboFromStdHistoryValues(hWnd, history, CHANGEDIR_HISTORY_SIZE);
             SendMessage(hWnd, CB_LIMITTEXT, 2 * MAX_PATH - 1, 0);
-            SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Path);
+            SetControlTextUtf8(hWnd, Path);
         }
         else
         {
-            SendMessage(hWnd, WM_GETTEXT, 2 * MAX_PATH, (LPARAM)Path);
+            GetControlTextUtf8(hWnd, Path, 2 * MAX_PATH);
             AddValueToStdHistoryValues(history, CHANGEDIR_HISTORY_SIZE, Path, FALSE);
         }
     }
@@ -1662,17 +1896,37 @@ CChangeDirDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        HWND hPath = GetDlgItem(HWindow, IDE_PATH);
+        HWND hPathEdit = ResolveComboEditControl(hPath);
+        const BOOL unicodePathInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
+
         if (SendDirectlyToPlugin == NULL)
             EnableWindow(GetDlgItem(HWindow, IDC_SENDDIRECTTOPLG), FALSE);
-        InstallWordBreakProc(GetDlgItem(HWindow, IDE_PATH));    // install WordBreakProc into the combobox
-        CreateKeyForwarder(HWindow, IDE_PATH);                  // so that we receive WM_USER_KEYDOWN
+        // Keep Unicode combo edits away from the legacy ANSI subclasses.  The
+        // same pattern is used by copy/move/create directory/quick rename; the
+        // ANSI subclass path makes Windows emoji picker and other non-ACP text
+        // arrive as '?'.
+        if (!unicodePathInput)
+        {
+            InstallWordBreakProc(hPath);       // install WordBreakProc into the combobox
+        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
+            CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
+        }
         ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right
 
         CHyperLink* hl = new CHyperLink(HWindow, IDC_CHANGEDIR_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_CHANGEDIR_HINT));
 
-        break;
+        INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
+        return ret;
+    }
+
+    case WM_USER_ENABLEPATHAUTOCOMPLETE:
+    {
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), FALSE);
+        return 0;
     }
 
     case WM_USER_KEYDOWN:
@@ -1713,7 +1967,7 @@ void CDriveInfo::Validate(CTransferInfo& ti)
     if (ti.GetControl(edit, IDE_VOLNAME) && ti.Type == ttDataFromWindow)
     {
         char newName[MAX_PATH];
-        SendMessage(edit, WM_GETTEXT, MAX_PATH, (LPARAM)newName);
+        GetControlTextUtf8(edit, newName, MAX_PATH);
 
         if (strcmp(OldVolumeName, newName) != 0)
         {

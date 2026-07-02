@@ -1447,10 +1447,10 @@ char* BuildName(char* path, char* name, char* dosName, BOOL* skip, BOOL* skipAll
         len += l2;
         if (path[l1 - 1] != '\\')
             len++;
-        if (len >= MAX_PATH && dosName != NULL)
+        if (len >= 32767 && dosName != NULL)
         {
             int l3 = (int)strlen(dosName);
-            if (len - l2 + l3 < MAX_PATH)
+            if (len - l2 + l3 < 32767)
             {
                 len = len - l2 + l3;
                 name = dosName;
@@ -1458,7 +1458,7 @@ char* BuildName(char* path, char* name, char* dosName, BOOL* skip, BOOL* skipAll
             }
         }
     }
-    if (len >= MAX_PATH)
+    if (len >= 32767)
     {
         char text[2 * MAX_PATH + 100];
         _snprintf_s(text, _TRUNCATE, LoadStr(IDS_NAMEISTOOLONG), name, path);
@@ -4228,12 +4228,22 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     CHARSETINFO ci;
     memset(&ci, 0, sizeof(ci));
     char bufANSI[10];
-    if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IDEFAULTANSICODEPAGE, bufANSI, 10))
+    UINT activeCodePage = GetACP();
+    if (activeCodePage == CP_UTF8)
+    {
+        UserCharset = DEFAULT_CHARSET;
+    }
+    else if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IDEFAULTANSICODEPAGE, bufANSI, 10))
     {
         if (TranslateCharsetInfo((DWORD*)(DWORD_PTR)MAKELONG(atoi(bufANSI), 0), &ci, TCI_SRCCODEPAGE))
         {
             UserCharset = ci.ciCharset;
         }
+    }
+    else if (activeCodePage != 0)
+    {
+        if (TranslateCharsetInfo((DWORD*)(DWORD_PTR)MAKELONG(activeCodePage, 0), &ci, TCI_SRCCODEPAGE))
+            UserCharset = ci.ciCharset;
     }
 
     // kvuli pouzivani souboru mapovanych do pameti je nutne ziskat granularitu alokaci

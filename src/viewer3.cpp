@@ -6,6 +6,7 @@
 
 #include "cfgdlg.h"
 #include "viewer.h"
+#include "common/widepath.h"
 #include "dialogs.h"
 #include "shellib.h"
 #include "mainwnd.h"
@@ -215,7 +216,12 @@ void CViewerWindow::SetViewerCaption()
     char caption[MAX_PATH + 300];
     if (Caption == NULL)
     {
-        if (FileName != NULL)
+        if (!FileNameW.empty())
+        {
+            std::string captionA = SalWideToMultiBytePath(FileNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            lstrcpyn(caption, captionA.c_str(), MAX_PATH);
+        }
+        else if (FileName != NULL)
             lstrcpyn(caption, FileName, MAX_PATH); // caption according to the file
         else
             caption[0] = 0;

@@ -944,11 +944,11 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
             char* st = newDirs + (secondPart - path);
             while (1)
             {
-                BOOL invalidPath = *st != 0 && *st <= ' ';
+                BOOL invalidPath = *st != 0 && (unsigned char)*st <= ' ';
                 char* slash = strchr(st, '\\');
                 if (slash != NULL)
                 {
-                    if (slash > st && (*(slash - 1) <= ' ' || *(slash - 1) == '.'))
+                    if (slash > st && ((unsigned char)*(slash - 1) <= ' ' || *(slash - 1) == '.'))
                         invalidPath = TRUE;
                     *slash = 0;
                 }
@@ -957,7 +957,7 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
                     if (*st != 0)
                     {
                         char* end = st + strlen(st) - 1;
-                        if (*end <= ' ' || *end == '.')
+                        if ((unsigned char)*end <= ' ' || *end == '.')
                             invalidPath = TRUE;
                     }
                 }
@@ -1192,7 +1192,7 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
 void MakeCopyWithBackslashIfNeeded(const char*& name, char (&nameCopy)[3 * MAX_PATH])
 {
     int nameLen = (int)strlen(name);
-    if (nameLen > 0 && (name[nameLen - 1] <= ' ' || name[nameLen - 1] == '.') &&
+    if (nameLen > 0 && ((unsigned char)name[nameLen - 1] <= ' ' || name[nameLen - 1] == '.') &&
         nameLen + 1 < _countof(nameCopy))
     {
         memcpy(nameCopy, name, nameLen);
@@ -1220,7 +1220,7 @@ BOOL FileNameIsInvalid(const char* name, BOOL isFullName, BOOL ignInvalidName)
     if (ignInvalidName)
         return FALSE; // periods and spaces at the end do not concern us now (a directory of that name can exist on the disk)
     int nameLen = (int)(s - name);
-    return nameLen > 0 && (name[nameLen - 1] <= ' ' || name[nameLen - 1] == '.');
+    return nameLen > 0 && ((unsigned char)name[nameLen - 1] <= ' ' || name[nameLen - 1] == '.');
 }
 
 BOOL SalMoveFile(const char* srcName, const char* destName)
@@ -1666,7 +1666,7 @@ void GetListViewContextMenuPos(HWND hListView, POINT* p)
 
 BOOL IsDeviceNameAux(const char* s, const char* end)
 {
-    while (end > s && *(end - 1) <= ' ')
+    while (end > s && (unsigned char)*(end - 1) <= ' ')
         end--;
     // check whether it is a reserved name
     static const char* dev1_arr[] = {"CON", "PRN", "AUX", "NUL", NULL};
@@ -1701,7 +1701,7 @@ BOOL SalIsValidFileNameComponent(const char* fileNameComponent)
         return FALSE;
     // test white-spaces and '.' at the end of the name (the file system would trim them)
     s--;
-    if (s >= start && (*s <= ' ' || *s == '.'))
+    if (s >= start && ((unsigned char)*s <= ' ' || *s == '.'))
         return FALSE;
 
     BOOL testSimple = TRUE;
@@ -1710,7 +1710,7 @@ BOOL SalIsValidFileNameComponent(const char* fileNameComponent)
 
     while (*fileNameComponent != 0)
     {
-        if (testSimple && *fileNameComponent > ' ' &&
+        if (testSimple && (unsigned char)*fileNameComponent > ' ' &&
             (*fileNameComponent < 'a' || *fileNameComponent > 'z') &&
             (*fileNameComponent < 'A' || *fileNameComponent > 'Z') &&
             (*fileNameComponent < '0' || *fileNameComponent > '9'))
@@ -1723,7 +1723,7 @@ BOOL SalIsValidFileNameComponent(const char* fileNameComponent)
                 return FALSE;
             }
         }
-        if (*fileNameComponent <= ' ')
+        if ((unsigned char)*fileNameComponent <= ' ')
         {
             wasSpace = TRUE;
             if (*fileNameComponent != ' ')
@@ -1781,7 +1781,7 @@ void SalMakeValidFileNameComponent(char* fileNameComponent)
     }
     // trim white-spaces and '.' at the end of the name (the file system would do it anyway, so it will be clear immediately)
     s--;
-    while (s >= start && (*s <= ' ' || *s == '.'))
+    while (s >= start && ((unsigned char)*s <= ' ' || *s == '.'))
         s--;
     if (s >= start)
         *(s + 1) = 0;
@@ -1794,7 +1794,7 @@ void SalMakeValidFileNameComponent(char* fileNameComponent)
 
     while (*fileNameComponent != 0)
     {
-        if (testSimple && *fileNameComponent > ' ' &&
+        if (testSimple && (unsigned char)*fileNameComponent > ' ' &&
             (*fileNameComponent < 'a' || *fileNameComponent > 'z') &&
             (*fileNameComponent < 'A' || *fileNameComponent > 'Z') &&
             (*fileNameComponent < '0' || *fileNameComponent > '9'))
@@ -1821,7 +1821,7 @@ void SalMakeValidFileNameComponent(char* fileNameComponent)
                 }
             }
         }
-        if (*fileNameComponent <= ' ')
+        if ((unsigned char)*fileNameComponent <= ' ')
         {
             wasSpace = TRUE;
             *fileNameComponent = ' '; // replace all white-spaces with ' '

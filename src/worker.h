@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 #define CREATE_DIR_SIZE CQuadWord(4096, 0) // operation cost estimates (uncached measurements based on worker thread runtimes)
 #define MOVE_DIR_SIZE CQuadWord(5050, 0)
 #define DELETE_DIR_SIZE CQuadWord(2400, 0)
@@ -215,11 +217,19 @@ enum COperationCode
 
 struct COperation
 {
+    COperation() : Opcode((COperationCode)0), Size(0, 0), FileSize(0, 0), SourceName(NULL), TargetName(NULL), SourceNameWValid(FALSE), TargetNameWValid(FALSE), Attr(0), OpFlags(0) {}
+
     COperationCode Opcode;
     CQuadWord Size;
     CQuadWord FileSize; // file size, valid only for ocCopyFile and ocMoveFile
     char *SourceName,
         *TargetName;
+    std::wstring SourceNameW;
+    std::wstring TargetNameW;
+    BOOL SourceNameWValid;
+    BOOL TargetNameWValid;
+    void SetSourceNameW(const wchar_t* name) { SourceNameW = name != NULL ? name : L""; SourceNameWValid = name != NULL; }
+    void SetTargetNameW(const wchar_t* name) { TargetNameW = name != NULL ? name : L""; TargetNameWValid = name != NULL; }
     DWORD Attr;
     DWORD OpFlags; // combination of OPFL_xxx, see above
 };
