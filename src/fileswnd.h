@@ -487,7 +487,7 @@ public:
 class CFilesWindowAncestor : public CWindow // the real object core - everything private ;-)
 {
 private:
-    char Path[2 * MAX_PATH];  // path for a ptDisk panel - normal ("c:\path") or UNC ("\\server\share\path"); allows one MAX_PATH-sized component
+    char Path[32768];       // path for a ptDisk panel - normal ("c:\path") or UNC ("\\server\share\path"); supports extended-length paths
     std::wstring PathW;       // Unicode mirror of Path, authoritative when the active code page is UTF-8
     BOOL SuppressAutoRefresh; // TRUE if the user canceled directory listing during reading and chose temporary auto-refresh suppression
 
