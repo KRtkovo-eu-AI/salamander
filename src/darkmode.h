@@ -45,9 +45,6 @@ void DarkModeApplyMenuBar(HWND hwnd);
 // preference and system state.
 void DarkModeRefreshTitleBar(HWND hwnd);
 
-// Removes dark-mode window properties/subclasses before the HWND is destroyed.
-void DarkModeCleanupWindow(HWND hwnd);
-
 // Handles WM_SETTINGCHANGE/WM_THEMECHANGED broadcasts. Returns true if the
 // message represents a color scheme change (ImmersiveColorSet).
 bool DarkModeHandleSettingChange(UINT message, LPARAM lParam);

@@ -200,22 +200,6 @@ void ApplyMenuBar(HWND hwnd, bool enableDark)
 #endif
 }
 
-void CleanupWindow(HWND hwnd)
-{
-#if USE_DARKMODELIB
-    if (hwnd != NULL)
-    {
-        dmlib::removeWindowMenuBarSubclass(hwnd);
-        RemoveWindowAndChildSubclasses(hwnd);
-        RemovePropW(hwnd, DARKMODELIB_TREE_STATE_PROP);
-        RemovePropW(hwnd, DARKMODELIB_MENU_DARK_PROP);
-        RemovePropW(hwnd, DARKMODELIB_CUSTOM_TAB_PROP);
-    }
-#else
-    (void)hwnd;
-#endif
-}
-
 void ApplyCheckboxOrRadioButton(HWND hwnd, bool enableDark)
 {
 #if USE_DARKMODELIB

@@ -2548,22 +2548,6 @@ void DarkModeRefreshTitleBar(HWND hwnd)
     }
 }
 
-void DarkModeCleanupWindow(HWND hwnd)
-{
-    if (hwnd == NULL)
-        return;
-
-#if USE_DARKMODELIB
-    DarkModeBackendDarkModelib::CleanupWindow(hwnd);
-#endif
-    RemovePropW(hwnd, kDarkModeThemeProp);
-    RemovePropW(hwnd, kDarkModeClassicButtonProp);
-    RemovePropW(hwnd, kDarkModeChoiceButtonProp);
-    RemovePropW(hwnd, kDarkModeCustomTreeViewProp);
-    RemovePropW(hwnd, kDarkModeRebarOverlaySeparatorProp);
-    RemovePropW(hwnd, L"UseImmersiveDarkModeColors");
-}
-
 bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
 {
     EnsureInitialized();

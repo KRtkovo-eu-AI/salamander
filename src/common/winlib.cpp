@@ -31,7 +31,6 @@
 #define WinLib_DarkMode_ApplyTitleBar DarkModeRefreshTitleBar
 #define WinLib_DarkMode_ApplyListTreeThemeRecursive DarkModeApplyTree
 #define WinLib_DarkMode_ApplyWindow DarkModeApplyWindow
-#define WinLib_DarkMode_CleanupWindow DarkModeCleanupWindow
 #define WinLib_DarkMode_ApplyStaticTextColors DarkModeApplyStaticTextColors
 
 static const wchar_t* WinLib_DarkMode_DialogTreeAppliedProp = L"Salamander.WinLib.DarkMode.DialogTreeApplied";
@@ -102,11 +101,6 @@ static BOOL WinLib_DarkMode_OnSettingChange(LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
     return FALSE;
-}
-
-static void WinLib_DarkMode_CleanupWindow(HWND hwnd)
-{
-    UNREFERENCED_PARAMETER(hwnd);
 }
 
 static void WinLib_DarkMode_ApplyTitleBar(HWND hwnd)
@@ -514,10 +508,6 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
             // WindowsManager.DetachWindow(hwnd);
 
             LRESULT res = wnd->WindowProc(uMsg, wParam, lParam);
-            WinLib_DarkMode_CleanupWindow(hwnd);
-#ifdef INSIDE_SALAMANDER
-            RemovePropW(hwnd, WinLib_DarkMode_DialogTreeAppliedProp);
-#endif
 
             // ted uz zase do stare procedury (kvuli subclassingu)
             WindowsManager.DetachWindow(hwnd);
@@ -908,10 +898,6 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             // WindowsManager.DetachWindow(hwndDlg);
 
             ret = dlg->DialogProc(uMsg, wParam, lParam);
-            WinLib_DarkMode_CleanupWindow(hwndDlg);
-#ifdef INSIDE_SALAMANDER
-            RemovePropW(hwndDlg, WinLib_DarkMode_DialogTreeAppliedProp);
-#endif
 
             WindowsManager.DetachWindow(hwndDlg);
             if (dlg->IsAllocated())
