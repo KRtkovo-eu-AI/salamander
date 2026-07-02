@@ -2279,7 +2279,7 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     }
 }
 
-void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL* mayChange, BOOL* tryAgain)
+void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain)
 {
     *tryAgain = TRUE;
     const char* s = formatedFileName;
@@ -2297,7 +2297,7 @@ void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName
         std::wstring finalNameW = SalMultiByteToWidePath(finalName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
         if (!finalNameW.empty())
         {
-            RenameFileInternalW(f, finalNameW, f->IsDirectory, mayChange, tryAgain);
+            RenameFileInternalW(f, finalNameW, isDir, mayChange, tryAgain);
             return;
         }
 
@@ -3088,7 +3088,7 @@ BOOL CFilesWindow::HandeQuickRenameWindowKey(WPARAM wParam)
                 RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain);
         }
         else if (strcmp(f->Name, newName) != 0)
-            RenameFileInternal(f, newName, &mayChange, &tryAgain);
+            RenameFileInternal(f, newName, isDir, &mayChange, &tryAgain);
     }
     else if (Is(ptPluginFS) && GetPluginFS()->NotEmpty() &&
              GetPluginFS()->IsServiceSupported(FS_SERVICE_QUICKRENAME)) // FS is in the panel
