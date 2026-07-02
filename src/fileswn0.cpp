@@ -77,6 +77,16 @@ namespace
         return SalMultiByteToWidePath(text, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
     }
 
+    std::string QuickSearchWideToText(const std::wstring& text)
+    {
+        return SalWideToMultiBytePath(text.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    }
+
+    BOOL UseWideQuickSearch()
+    {
+        return TRUE;
+    }
+
     std::wstring FileDataNameToWide(const CFileData& file)
     {
         if (file.UseWideName())
@@ -98,7 +108,7 @@ BOOL CFilesWindow::QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL whole
     int len = (int)strlen(QuickSearchMask);
     int newTextLen = newText != NULL ? (int)strlen(newText) : 0;
     std::wstring newTextW;
-    BOOL useWideQS = (GetACP() == CP_UTF8);
+    BOOL useWideQS = UseWideQuickSearch();
 
     if (newTextLen > 0)
     {
@@ -155,7 +165,7 @@ BOOL CFilesWindow::QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL whole
                 if (agree)
                 {
                     QuickSearchW.assign(nameW.c_str(), offset);
-                    std::string quickSearch = SalWideToMultiBytePath(QuickSearchW.c_str(), CP_UTF8);
+                    std::string quickSearch = QuickSearchWideToText(QuickSearchW);
                     lstrcpyn(QuickSearch, quickSearch.c_str(), MAX_PATH);
                     index = i;
                     return TRUE;
@@ -1448,13 +1458,13 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
         {
             if (QuickSearchMask[0] != 0)
             {
-                if (GetACP() == CP_UTF8)
+                if (UseWideQuickSearch())
                 {
                     if (QuickSearchMaskW.empty())
                         QuickSearchMaskW = QuickSearchTextToWide(QuickSearchMask);
                     if (!QuickSearchMaskW.empty())
                         QuickSearchMaskW.erase(QuickSearchMaskW.length() - 1);
-                    std::string mask = SalWideToMultiBytePath(QuickSearchMaskW.c_str(), CP_UTF8);
+                    std::string mask = QuickSearchWideToText(QuickSearchMaskW);
                     lstrcpyn(QuickSearchMask, mask.c_str(), MAX_PATH);
                 }
                 else
@@ -1474,13 +1484,13 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
         {
             if (QuickSearch[0] != 0)
             {
-                if (GetACP() == CP_UTF8)
+                if (UseWideQuickSearch())
                 {
                     if (QuickSearchW.empty())
                         QuickSearchW = QuickSearchTextToWide(QuickSearch);
                     if (!QuickSearchW.empty())
                         QuickSearchW.erase(QuickSearchW.length() - 1);
-                    std::string qs = SalWideToMultiBytePath(QuickSearchW.c_str(), CP_UTF8);
+                    std::string qs = QuickSearchWideToText(QuickSearchW);
                     lstrcpyn(QuickSearch, qs.c_str(), MAX_PATH);
                 }
                 else
@@ -1514,7 +1524,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                     name[len] != 0)
                 {
                     // if there is still another one
-                    if (GetACP() == CP_UTF8)
+                    if (UseWideQuickSearch())
                     {
                         std::wstring nameW = FileDataNameToWide(FocusedIndex < Dirs->Count ? Dirs->At(FocusedIndex) : Files->At(FocusedIndex - Dirs->Count));
                         if (QuickSearchW.empty())
@@ -1523,8 +1533,8 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                         {
                             QuickSearchW += nameW[QuickSearchW.length()];
                             QuickSearchMaskW += nameW[QuickSearchW.length() - 1];
-                            std::string qs = SalWideToMultiBytePath(QuickSearchW.c_str(), CP_UTF8);
-                            std::string mask = SalWideToMultiBytePath(QuickSearchMaskW.c_str(), CP_UTF8);
+                            std::string qs = QuickSearchWideToText(QuickSearchW);
+                            std::string mask = QuickSearchWideToText(QuickSearchMaskW);
                             lstrcpyn(QuickSearch, qs.c_str(), MAX_PATH);
                             lstrcpyn(QuickSearchMask, mask.c_str(), MAX_PATH);
                         }
@@ -3281,7 +3291,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
     else
         hOldFont = (HFONT)SelectObject(hDC, Font);
 
-    if (GetACP() == CP_UTF8)
+    if (UseWideQuickSearch())
     {
         if (QuickSearchW.empty())
             QuickSearchW = QuickSearchTextToWide(QuickSearch);
