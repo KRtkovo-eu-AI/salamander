@@ -76,9 +76,9 @@ double dmlib_color::calculatePerceivedLightness(COLORREF clr) noexcept
 		return std::pow(((colorChannel + gammaOffset) / gammaScalingFactor), gammaExp);
 	};
 
-	const double r = linearValue(static_cast<double>(GetRValue(clr)));
-	const double g = linearValue(static_cast<double>(GetGValue(clr)));
-	const double b = linearValue(static_cast<double>(GetBValue(clr)));
+	const double r = linearValue(static_cast<double>(clr & 0xFF));
+	const double g = linearValue(static_cast<double>((clr >> 8) & 0xFF));
+	const double b = linearValue(static_cast<double>((clr >> 16) & 0xFF));
 
 	static constexpr double rWeight = 0.2126;
 	static constexpr double gWeight = 0.7152;
@@ -135,7 +135,8 @@ COLORREF dmlib_color::getAccentColor(bool adjust) noexcept
 	}
 
 	// DwmGetColorizationColor use 0xAARRGGBB format
-	clrAccent = RGB(GetBValue(clrAccent), GetGValue(clrAccent), GetRValue(clrAccent));
+	// Convert to COLORREF 0xBBGGRR
+	clrAccent = ((clrAccent & 0xFF) << 16) | (clrAccent & 0xFF00) | ((clrAccent >> 16) & 0xFF);
 
 	if (adjust)
 	{

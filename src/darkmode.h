@@ -17,6 +17,9 @@ struct DarkModeColors
 // Initializes the dark mode helpers. Safe to call multiple times.
 bool DarkModeInitialize();
 
+// Releases dark mode resources. Call during application shutdown.
+void DarkModeShutdown();
+
 // Returns true if native dark mode APIs are available on this system.
 bool DarkModeIsSupported();
 

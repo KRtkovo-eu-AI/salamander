@@ -2282,6 +2282,7 @@ BOOL InitializeConstGraphics()
 void ReleaseConstGraphics()
 {
     DestroyDarkModeBrushes();
+    DarkModeShutdown();
 
     ItemBitmap.Destroy();
     //if (HWorkerBitmap != NULL)

@@ -240,6 +240,7 @@ using fnSetPreferredAppMode = PreferredAppMode(WINAPI*)(PreferredAppMode appMode
 using fnIsDarkModeAllowedForApp = bool(WINAPI*)();
 
 HMODULE gUxTheme = nullptr;
+HMODULE gDwmApi = nullptr;
 fnSetWindowCompositionAttribute gSetWindowCompositionAttribute = nullptr;
 fnDwmSetWindowAttribute gDwmSetWindowAttribute = nullptr;
 fnShouldAppsUseDarkMode gShouldAppsUseDarkMode = nullptr;
@@ -268,6 +269,7 @@ thread_local int gListViewColorUpdateDepth = 0;
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
+static bool gDialogBrushOwned = false;
 static DarkModeColors gColors = {GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT), false};
 static bool gPropagatingThemeChange = false;
 
@@ -2388,9 +2390,9 @@ void EnsureInitialized()
     if (hUser32)
         gSetWindowCompositionAttribute = reinterpret_cast<fnSetWindowCompositionAttribute>(GetProcAddress(hUser32, "SetWindowCompositionAttribute"));
 
-    auto hDwmApi = LoadLibraryExW(L"dwmapi.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if (hDwmApi)
-        gDwmSetWindowAttribute = reinterpret_cast<fnDwmSetWindowAttribute>(GetProcAddress(hDwmApi, "DwmSetWindowAttribute"));
+    gDwmApi = LoadLibraryExW(L"dwmapi.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (gDwmApi)
+        gDwmSetWindowAttribute = reinterpret_cast<fnDwmSetWindowAttribute>(GetProcAddress(gDwmApi, "DwmSetWindowAttribute"));
 
     gSupported = gAllowDarkModeForWindow != nullptr &&
                  (gAllowDarkModeForApp != nullptr || gSetPreferredAppMode != nullptr) &&
@@ -2430,6 +2432,7 @@ void DarkModeDetectAndEnableSystemDarkMode()
         const DarkModeColors& palette = DarkModeGetColors();
         HBRUSH darkBrush = CreateSolidBrush(palette.background);
         DarkModeConfigureDialogColors(palette.readableText, palette.background, darkBrush);
+        gDialogBrushOwned = true;
     }
 }
 
@@ -2616,9 +2619,14 @@ void DarkModeFixScrollbars()
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
 {
+    if (gDialogBrushOwned && gDialogBrushHandle != NULL && gDialogBrushHandle != dialogBrush)
+    {
+        ::DeleteObject(gDialogBrushHandle);
+    }
     gDialogTextColor = textColor;
     gDialogBackgroundColor = backgroundColor;
     gDialogBrushHandle = dialogBrush;
+    gDialogBrushOwned = false;
     gColors.text = textColor;
     gColors.background = backgroundColor;
     gColors.readableText = ResolveReadableForeground(textColor, backgroundColor);
@@ -3116,6 +3124,33 @@ HBRUSH DarkModeGetPanelFrameBrush()
     if (brush == NULL)
         brush = CreateSolidBrush(RGB(0x38, 0x38, 0x38));
     return brush;
+}
+
+void DarkModeShutdown()
+{
+    if (gDialogBrushOwned && gDialogBrushHandle != NULL)
+    {
+        ::DeleteObject(gDialogBrushHandle);
+        gDialogBrushHandle = NULL;
+        gDialogBrushOwned = false;
+    }
+
+    if (gAutoSuggestWinEventHook != NULL)
+    {
+        UnhookWinEvent(gAutoSuggestWinEventHook);
+        gAutoSuggestWinEventHook = NULL;
+    }
+
+    if (gDwmApi != nullptr)
+    {
+        FreeLibrary(gDwmApi);
+        gDwmApi = nullptr;
+    }
+    if (gUxTheme != nullptr)
+    {
+        FreeLibrary(gUxTheme);
+        gUxTheme = nullptr;
+    }
 }
 
 void DarkModeApplyUpDownSubclass(HWND hWnd)
