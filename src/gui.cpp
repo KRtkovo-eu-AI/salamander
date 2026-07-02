@@ -513,8 +513,20 @@ CProgressBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CStaticText
 //
 
+#ifndef _UNICODE
+static BOOL IsDlgItemUnicode(HWND hDlg, int ctrlID)
+{
+    HWND hCtrl = GetDlgItem(hDlg, ctrlID);
+    return hCtrl != NULL && IsWindowUnicode(hCtrl);
+}
+#endif // _UNICODE
+
 CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
+#ifdef _UNICODE
     : CWindow(hDlg, ctrlID, ooAllocated)
+#else  // _UNICODE
+    : CWindow(hDlg, ctrlID, ooAllocated, IsDlgItemUnicode(hDlg, ctrlID))
+#endif // _UNICODE
 {
     if ((flags & STF_HANDLEPREFIX) && ((flags & STF_END_ELLIPSIS) || (flags & STF_PATH_ELLIPSIS)))
     {
@@ -595,22 +607,37 @@ CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
     int textLen = (int)SendMessage(HWindow, WM_GETTEXTLENGTH, 0, 0);
     if (textLen > 0)
     {
-        WCHAR* wideBuff = (WCHAR*)malloc((textLen + 1) * sizeof(WCHAR));
-        if (wideBuff != NULL)
+#ifndef _UNICODE
+        if (!UnicodeWnd)
         {
-            SendMessageW(HWindow, WM_GETTEXT, textLen + 1, (LPARAM)wideBuff);
-            int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideBuff, -1, NULL, 0, NULL, NULL);
-            if (utf8Len > 0)
+            char* buff = (char*)malloc(textLen + 1);
+            if (buff != NULL)
             {
-                char* utf8Buff = (char*)malloc(utf8Len);
-                if (utf8Buff != NULL)
-                {
-                    WideCharToMultiByte(CP_UTF8, 0, wideBuff, -1, utf8Buff, utf8Len, NULL, NULL);
-                    SetText(utf8Buff);
-                    free(utf8Buff);
-                }
+                SendMessage(HWindow, WM_GETTEXT, textLen + 1, (LPARAM)buff);
+                SetText(buff);
+                free(buff);
             }
-            free(wideBuff);
+        }
+        else
+#endif // _UNICODE
+        {
+            WCHAR* wideBuff = (WCHAR*)malloc((textLen + 1) * sizeof(WCHAR));
+            if (wideBuff != NULL)
+            {
+                SendMessageW(HWindow, WM_GETTEXT, textLen + 1, (LPARAM)wideBuff);
+                int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideBuff, -1, NULL, 0, NULL, NULL);
+                if (utf8Len > 0)
+                {
+                    char* utf8Buff = (char*)malloc(utf8Len);
+                    if (utf8Buff != NULL)
+                    {
+                        WideCharToMultiByte(CP_UTF8, 0, wideBuff, -1, utf8Buff, utf8Len, NULL, NULL);
+                        SetText(utf8Buff);
+                        free(utf8Buff);
+                    }
+                }
+                free(wideBuff);
+            }
         }
     }
 }
