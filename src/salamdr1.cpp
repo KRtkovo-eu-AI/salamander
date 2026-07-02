@@ -1447,10 +1447,10 @@ char* BuildName(char* path, char* name, char* dosName, BOOL* skip, BOOL* skipAll
         len += l2;
         if (path[l1 - 1] != '\\')
             len++;
-        if (len >= MAX_PATH && dosName != NULL)
+        if (len >= 32767 && dosName != NULL)
         {
             int l3 = (int)strlen(dosName);
-            if (len - l2 + l3 < MAX_PATH)
+            if (len - l2 + l3 < 32767)
             {
                 len = len - l2 + l3;
                 name = dosName;
@@ -1458,7 +1458,7 @@ char* BuildName(char* path, char* name, char* dosName, BOOL* skip, BOOL* skipAll
             }
         }
     }
-    if (len >= MAX_PATH)
+    if (len >= 32767)
     {
         char text[2 * MAX_PATH + 100];
         _snprintf_s(text, _TRUNCATE, LoadStr(IDS_NAMEISTOOLONG), name, path);

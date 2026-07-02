@@ -1531,7 +1531,7 @@ BOOL CFilesWindow::BuildScriptDir(COperations* script, CActionType type, char* s
     }
     else
         st = sourceEnd;
-    if (st - sourcePath + strlen(dirName) >= MAX_PATH - 2) // -2 determined experimentally (longer paths cannot be listed)
+    if (st - sourcePath + strlen(dirName) >= 32767)
     {                                                      // data are on disk, which doesn't mean they can't exceed MAX_PATH
         *sourceEnd = 0;                                    // restoring original sourcePath
         _snprintf_s(text, _TRUNCATE, LoadStr(IDS_NAMEISTOOLONG), dirName, sourcePath);
@@ -2567,8 +2567,14 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 return skip;
             }
         }
-        op.SetSourceNameW(SalMultiByteToWidePath(op.SourceName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP).c_str());
-        op.SetTargetNameW(SalMultiByteToWidePath(op.TargetName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP).c_str());
+        std::wstring sourceNameW = SalMultiByteToWidePath(op.SourceName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        std::wstring targetNameW = SalMultiByteToWidePath(op.TargetName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        if (sourceNameW.length() >= MAX_PATH)
+            sourceNameW = SalPathAddExtendedPrefixW(sourceNameW.c_str());
+        if (targetNameW.length() >= MAX_PATH)
+            targetNameW = SalPathAddExtendedPrefixW(targetNameW.c_str());
+        op.SetSourceNameW(sourceNameW.c_str());
+        op.SetTargetNameW(targetNameW.c_str());
         if (type == atMove && strcmp(op.SourceName, op.TargetName) == 0 ||
             type == atCopy && StrICmp(op.SourceName, op.TargetName) == 0)
         {

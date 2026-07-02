@@ -6,6 +6,7 @@
 
 #include "cfgdlg.h"
 #include "worker.h"
+#include "common/widepath.h"
 
 #include <Aclapi.h>
 #include <Ntsecapi.h>
@@ -5627,7 +5628,23 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
             dirTimeModifiedIsValid = GetDirTime(sourceNameMvDir, &dirTimeModified);
         while (1)
         {
-            if (!invalidName && !*novellRenamePatch && MoveFile(sourceNameMvDir, targetNameMvDir))
+            BOOL moveSucceeded = FALSE;
+            if (!invalidName && !*novellRenamePatch)
+            {
+                if (op->SourceNameWValid && op->TargetNameWValid)
+                {
+                    std::wstring sourceNameMvDirW = op->SourceNameW;
+                    std::wstring targetNameMvDirW = op->TargetNameW;
+                    if (sourceNameMvDirW.length() >= MAX_PATH)
+                        sourceNameMvDirW = SalPathAddExtendedPrefixW(sourceNameMvDirW.c_str());
+                    if (targetNameMvDirW.length() >= MAX_PATH)
+                        targetNameMvDirW = SalPathAddExtendedPrefixW(targetNameMvDirW.c_str());
+                    moveSucceeded = MoveFileW(sourceNameMvDirW.c_str(), targetNameMvDirW.c_str());
+                }
+                else
+                    moveSucceeded = MoveFile(sourceNameMvDir, targetNameMvDir);
+            }
+            if (moveSucceeded)
             {
                 if (script->CopyAttrs && (op->Attr & FILE_ATTRIBUTE_ARCHIVE) == 0) // Archive attribute was not set, MoveFile turned it on, clear it again
                     SetFileAttributes(targetNameMvDir, op->Attr);                  // leave without handling or retry, not important (it normally toggles chaotically)

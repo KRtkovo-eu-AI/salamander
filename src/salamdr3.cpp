@@ -1149,7 +1149,7 @@ AGAIN:
     if (newDir != NULL)
         newDir[0] = 0;
     int dirLen = (int)strlen(dir);
-    if (dirLen >= MAX_PATH) // too long name
+    if (dirLen >= 32767) // too long name
     {
         if (errBuf != NULL)
             strncpy_s(errBuf, errBufSize, LoadStr(IDS_TOOLONGNAME), _TRUNCATE);
@@ -1158,8 +1158,8 @@ AGAIN:
         return FALSE;
     }
     DWORD attrs = SalGetFileAttributes(dir);
-    char buf[MAX_PATH + 200];
-    char name[MAX_PATH];
+    char buf[32768 + 200];
+    char name[32768];
     if (attrs == 0xFFFFFFFF) // probably does not exist, we allow it to be created
     {
         char root[MAX_PATH];
