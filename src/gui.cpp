@@ -604,7 +604,11 @@ CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
     }
 
     // obtain the initial text of the static
-    int textLen = (int)SendMessage(HWindow, WM_GETTEXTLENGTH, 0, 0);
+#ifdef _UNICODE
+    int textLen = (int)CallWindowProcW(DefWndProc, HWindow, WM_GETTEXTLENGTH, 0, 0);
+#else  // _UNICODE
+    int textLen = (int)(UnicodeWnd ? CallWindowProcW(DefWndProc, HWindow, WM_GETTEXTLENGTH, 0, 0) : CallWindowProc(DefWndProc, HWindow, WM_GETTEXTLENGTH, 0, 0));
+#endif // _UNICODE
     if (textLen > 0)
     {
 #ifndef _UNICODE
@@ -613,7 +617,7 @@ CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
             char* buff = (char*)malloc(textLen + 1);
             if (buff != NULL)
             {
-                SendMessage(HWindow, WM_GETTEXT, textLen + 1, (LPARAM)buff);
+                CallWindowProc(DefWndProc, HWindow, WM_GETTEXT, textLen + 1, (LPARAM)buff);
                 SetText(buff);
                 free(buff);
             }
@@ -624,7 +628,7 @@ CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
             WCHAR* wideBuff = (WCHAR*)malloc((textLen + 1) * sizeof(WCHAR));
             if (wideBuff != NULL)
             {
-                SendMessageW(HWindow, WM_GETTEXT, textLen + 1, (LPARAM)wideBuff);
+                CallWindowProcW(DefWndProc, HWindow, WM_GETTEXT, textLen + 1, (LPARAM)wideBuff);
                 int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideBuff, -1, NULL, 0, NULL, NULL);
                 if (utf8Len > 0)
                 {
