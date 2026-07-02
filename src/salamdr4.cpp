@@ -10,17 +10,25 @@
 #include "mainwnd.h"
 #include "salinflt.h"
 
-static int Utf8CharLen(unsigned char c)
+static int Utf8CharStart(const char* text, int index)
 {
-    if (c < 0x80)
-        return 1;
-    if ((c & 0xE0) == 0xC0)
-        return 2;
-    if ((c & 0xF0) == 0xE0)
-        return 3;
-    if ((c & 0xF8) == 0xF0)
-        return 4;
-    return 1;
+    while (index > 0 && ((unsigned char)text[index] & 0xC0) == 0x80)
+        index--;
+    return index;
+}
+
+static int Utf8PrevCharStart(const char* text, int index)
+{
+    if (index <= 0)
+        return -1;
+    index--;
+    return Utf8CharStart(text, index);
+}
+
+static BOOL IsValidUtf8Text(const char* text, int textLen)
+{
+    return text != NULL && textLen >= 0 &&
+           MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
 }
 
 //****************************************************************************
@@ -512,23 +520,33 @@ BOOL CTruncatedString::TruncateText(HWND hWindow, BOOL forMessageBox)
                 // we will subtract from the part that can be shortened
                 int index = SubStrIndex + SubStrLen - 1;
                 maxWidth -= ellipsisWidth;
+                BOOL textIsUtf8 = IsValidUtf8Text(Text, textLen);
                 while (width > maxWidth && index >= SubStrIndex)
                 {
-                    // retreat by one whole UTF-8 character
-                    int charLen = Utf8CharLen((unsigned char)Text[index]);
-                    if (index - charLen + 1 < SubStrIndex)
-                        charLen = index - SubStrIndex + 1;
-                    int charStart = index - charLen + 1;
-                    int prevCumul = charStart > 0 ? alpDx[charStart - 1] : 0;
-                    width -= (alpDx[index] - prevCumul);
-                    index -= charLen;
+                    if (textIsUtf8)
+                    {
+                        // retreat by one whole UTF-8 character
+                        int charStart = Utf8CharStart(Text, index);
+                        if (charStart < SubStrIndex)
+                            charStart = SubStrIndex;
+                        int prevCumul = charStart > 0 ? alpDx[charStart - 1] : 0;
+                        width -= (alpDx[index] - prevCumul);
+                        index = Utf8PrevCharStart(Text, charStart);
+                    }
+                    else
+                    {
+                        int prevCumul = index > 0 ? alpDx[index - 1] : 0;
+                        width -= (alpDx[index] - prevCumul);
+                        index--;
+                    }
                 }
                 // the first part with the shortened substring
-                memcpy(TruncatedText, Text, index);
+                int keep = index + 1;
+                memcpy(TruncatedText, Text, keep);
                 // ellipsis
-                memcpy(TruncatedText + index, "...", 3);
+                memcpy(TruncatedText + keep, "...", 3);
                 // the rest
-                strcpy(TruncatedText + index + 3, Text + SubStrIndex + SubStrLen);
+                strcpy(TruncatedText + keep + 3, Text + SubStrIndex + SubStrLen);
             }
             else
                 memcpy(TruncatedText, Text, textLen + 1); // just copy -— we still fit
