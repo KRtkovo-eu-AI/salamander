@@ -464,26 +464,26 @@ static DWORD WINAPI TreeViewAsyncLoadThreadBody(void* param)
         if (data->Cancelled)
             break;
 
-        if (ShouldSkipTreeViewEntry(&findData))
-            goto next_async_find;
-
-        BOOL isDir = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-        char childPath[32768];
-        lstrcpyn(childPath, data->Path, _countof(childPath));
-        if (!SalPathAppend(childPath, findData.cFileName, _countof(childPath)))
-            goto next_async_find;
-
-        // Only collect directories for the tree view (files are not shown)
-        if (!isDir)
-            goto next_async_find;
-
-        if (!AddTreeViewPopulateEntry(&data->DirEntries, &data->DirCount,
-                                       findData.cFileName, childPath, TRUE))
+        if (!ShouldSkipTreeViewEntry(&findData))
         {
-            data->Cancelled = TRUE;
-            break;
+            BOOL isDir = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+            // Only collect directories for the tree view (files are not shown)
+            if (isDir)
+            {
+                char childPath[32768];
+                lstrcpyn(childPath, data->Path, _countof(childPath));
+                if (SalPathAppend(childPath, findData.cFileName, _countof(childPath)))
+                {
+                    if (!AddTreeViewPopulateEntry(&data->DirEntries, &data->DirCount,
+                                                   findData.cFileName, childPath, TRUE))
+                    {
+                        data->Cancelled = TRUE;
+                        break;
+                    }
+                }
+            }
         }
-    next_async_find:
         if (wideSearch)
         {
             if (!FindNextFileW(find, &findDataW) || !CopyTreeViewFindDataWToA(findDataW, findData))
@@ -1035,26 +1035,25 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL
     BOOL hasChildren = FALSE;
     do
     {
-        if (ShouldSkipTreeViewEntry(&data))
-            goto next_sync_find;
-
-        BOOL isDirectory = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-        if (!isDirectory)
-            goto next_sync_find; // skip files - tree view only shows directories
-
-        char childPath[32768];
-        lstrcpyn(childPath, itemPath, _countof(childPath));
-        if (!SalPathAppend(childPath, data.cFileName, _countof(childPath)))
-            goto next_sync_find;
-
-        if (!AddTreeViewPopulateEntry(&dirEntries, &dirCount,
-                                       data.cFileName, childPath, TRUE))
+        if (!ShouldSkipTreeViewEntry(&data))
         {
-            FindClose(find);
-            FreeTreeViewPopulateEntries(dirEntries, dirCount);
-            return TreeView_GetChild(HTreeView, hItem) != NULL;
+            BOOL isDirectory = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            if (isDirectory) // skip files - tree view only shows directories
+            {
+                char childPath[32768];
+                lstrcpyn(childPath, itemPath, _countof(childPath));
+                if (SalPathAppend(childPath, data.cFileName, _countof(childPath)))
+                {
+                    if (!AddTreeViewPopulateEntry(&dirEntries, &dirCount,
+                                                   data.cFileName, childPath, TRUE))
+                    {
+                        FindClose(find);
+                        FreeTreeViewPopulateEntries(dirEntries, dirCount);
+                        return TreeView_GetChild(HTreeView, hItem) != NULL;
+                    }
+                }
+            }
         }
-    next_sync_find:
         if (wideSearch)
         {
             if (!FindNextFileW(find, &dataW) || !CopyTreeViewFindDataWToA(dataW, data))
