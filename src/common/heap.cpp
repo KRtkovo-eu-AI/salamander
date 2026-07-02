@@ -74,6 +74,21 @@ int OurReportingFunction(int reportType, char* userMessage, int* retVal)
     return FALSE;
 }
 
+static BOOL IsKnownSystemMenuLeakDiff(const _CrtMemState& diff)
+{
+    // Recent Windows builds can leave eight USER32 MENU allocations alive until
+    // after our debug heap sentinel runs.  They are reported as eight 48-byte
+    // blocks paired with eight 16-byte blocks (512 bytes total) containing the
+    // UTF-16 marker "MENU".  Do not show Salamander's leak dialog for that
+    // OS-owned shutdown noise alone; any additional normal/client/free/ignore
+    // leak still goes through the regular report below.
+    return diff.lCounts[_NORMAL_BLOCK] == 16 &&
+           diff.lSizes[_NORMAL_BLOCK] == 512 &&
+           diff.lCounts[_FREE_BLOCK] == 0 &&
+           diff.lCounts[_CLIENT_BLOCK] == 0 &&
+           diff.lCounts[_IGNORE_BLOCK] == 0;
+}
+
 class C__GCHeapInit
 {
 public:
@@ -93,7 +108,8 @@ public:
 
         // zkontroluj, jestli jsou nejake leaky
         _CrtMemState diff;
-        if (_CrtMemDifference(&diff, &start_state, &end_state))
+        if (_CrtMemDifference(&diff, &start_state, &end_state) &&
+            !IsKnownSystemMenuLeakDiff(diff))
         {
             HMODULE hUsedModules[GCHEAP_MAX_USED_MODULES];
             // namapuju do pameti vsechny moduly, ve kterych se muzou hlasit memory leaky,

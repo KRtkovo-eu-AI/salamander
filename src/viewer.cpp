@@ -2108,33 +2108,10 @@ void ClearViewerHistory(BOOL dataOnly)
     }
 }
 
-static void DestroyMenuTree(HMENU menu)
-{
-    if (menu == NULL)
-        return;
-
-    for (int i = GetMenuItemCount(menu) - 1; i >= 0; --i)
-    {
-        MENUITEMINFO mi;
-        memset(&mi, 0, sizeof(mi));
-        mi.cbSize = sizeof(mi);
-        mi.fMask = MIIM_SUBMENU;
-        if (GetMenuItemInfo(menu, i, TRUE, &mi) && mi.hSubMenu != NULL)
-        {
-            RemoveMenu(menu, i, MF_BYPOSITION);
-            DestroyMenuTree(mi.hSubMenu);
-        }
-    }
-    DestroyMenu(menu);
-}
-
 void ReleaseViewer()
 {
     if (ViewerMenu != NULL)
-    {
-        DestroyMenuTree(ViewerMenu);
-        ViewerMenu = NULL;
-    }
+        DestroyMenu(ViewerMenu);
     ClearViewerHistory(TRUE); // we only want to clear the data
     if (ViewerContinue != NULL)
         HANDLES(CloseHandle(ViewerContinue));
