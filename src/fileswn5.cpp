@@ -2226,16 +2226,6 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     if (f == NULL || newNameW.empty() || newNameW.find_first_of(L"\\/:<>|\"") != std::wstring::npos)
         return;
 
-    // NTFS allows each path component to be up to 255 UTF-16 code units.
-    // Do not reject names only because the resulting full path exceeds MAX_PATH;
-    // long paths are handled below by adding the Win32 extended-length prefix.
-    if (newNameW.length() > 255)
-    {
-        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORRENAMINGFILE),
-                      MB_OK | MB_ICONEXCLAMATION);
-        return;
-    }
-
     std::wstring basePath = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(GetPath());
     if (basePath.empty())
         return;
