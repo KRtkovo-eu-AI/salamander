@@ -2247,13 +2247,6 @@ BOOL InitializeConstGraphics()
   */
 
     UpdateMenuAndDialogBrushes(DarkModeShouldUseDarkColors());
-
-    HDialogBrush = GetSysColorBrush(COLOR_BTNFACE);
-    HButtonTextBrush = GetSysColorBrush(COLOR_BTNTEXT);
-    HMenuSelectedBkBrush = GetSysColorBrush(COLOR_HIGHLIGHT);
-    HMenuSelectedTextBrush = GetSysColorBrush(COLOR_HIGHLIGHTTEXT);
-    HMenuHilightBrush = GetSysColorBrush(COLOR_3DHILIGHT);
-    HMenuGrayTextBrush = GetSysColorBrush(COLOR_3DSHADOW);
     if (HDialogBrush == NULL || HButtonTextBrush == NULL ||
         HMenuSelectedTextBrush == NULL || HMenuHilightBrush == NULL ||
         HMenuGrayTextBrush == NULL)
@@ -4609,6 +4602,7 @@ FIND_NEW_SLG_FILE:
         const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
         HDialogBrush = HANDLES(CreateSolidBrush(darkBg));
         HButtonTextBrush = HANDLES(CreateSolidBrush(darkText));
+        gDarkModeBrushesOwned = true;
     }
 
     // inicializace pakovacu; drive provadeno v konstruktorech; ted presunuto sem,

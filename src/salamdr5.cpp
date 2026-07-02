@@ -1487,6 +1487,12 @@ BOOL SalGetFileSize2(const char* fileName, CQuadWord& size, DWORD* err)
     return FALSE;
 }
 
+static BOOL IsValidAttrPathUtf8Text(const char* text, int textLen)
+{
+    return text != NULL && textLen >= 0 &&
+           MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
+}
+
 DWORD SalGetFileAttributes(const char* fileName)
 {
     CALL_STACK_MESSAGE2("SalGetFileAttributes(%s)", fileName);
@@ -1497,6 +1503,16 @@ DWORD SalGetFileAttributes(const char* fileName)
     char fileNameCopy[3 * MAX_PATH];
     MakeCopyWithBackslashIfNeeded(fileName, fileNameCopy);
 
+    if (fileName != NULL && (strlen(fileName) >= MAX_PATH || IsValidAttrPathUtf8Text(fileName, (int)strlen(fileName))))
+    {
+        std::wstring fileNameW = SalMultiByteToWidePath(fileName, IsValidAttrPathUtf8Text(fileName, (int)strlen(fileName)) ? CP_UTF8 : CP_ACP);
+        if (!fileNameW.empty())
+        {
+            if (fileNameW.length() >= MAX_PATH)
+                fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
+            return GetFileAttributesW(fileNameW.c_str());
+        }
+    }
     return GetFileAttributes(fileName);
 }
 

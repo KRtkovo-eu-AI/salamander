@@ -38,6 +38,12 @@ void CFilesWindow::EndQuickSearch()
 // Finds the next/previous item. If skip = TRUE, it skips the current item.
 namespace
 {
+    BOOL IsValidQuickSearchUtf8Text(const char* text, int textLen)
+    {
+        return text != NULL && textLen >= 0 &&
+               MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
+    }
+
     BOOL GetUtf8QuickSearchText(WPARAM wParam, char* buffer, int bufferSize)
     {
         if (buffer == NULL || bufferSize <= 0)
@@ -45,15 +51,6 @@ namespace
         buffer[0] = 0;
         if (wParam <= 31)
             return FALSE;
-        if (GetACP() != CP_UTF8)
-        {
-            if (wParam >= 256)
-                return FALSE;
-            buffer[0] = (char)wParam;
-            buffer[1] = 0;
-            return TRUE;
-        }
-
         WCHAR wide[3] = {0, 0, 0};
         if (wParam <= 0xFFFF)
         {
@@ -74,6 +71,8 @@ namespace
 
     std::wstring QuickSearchTextToWide(const char* text)
     {
+        if (text != NULL && IsValidQuickSearchUtf8Text(text, (int)strlen(text)))
+            return SalMultiByteToWidePath(text, CP_UTF8);
         return SalMultiByteToWidePath(text, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
     }
 

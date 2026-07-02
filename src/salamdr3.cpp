@@ -1138,6 +1138,12 @@ BOOL CheckAndCreateDirectoryW(const wchar_t* dir, HWND parent, BOOL quiet, std::
     return TRUE;
 }
 
+static BOOL IsValidPathUtf8Text(const char* text, int textLen)
+{
+    return text != NULL && textLen >= 0 &&
+           MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
+}
+
 BOOL CheckAndCreateDirectory(const char* dir, HWND parent, BOOL quiet, char* errBuf,
                              int errBufSize, char* newDir, BOOL noRetryButton,
                              BOOL manualCrDir)
@@ -1156,6 +1162,22 @@ AGAIN:
         else
             SalMessageBox(parent, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
+    }
+    if (dirLen >= MAX_PATH || (dir != NULL && IsValidPathUtf8Text(dir, dirLen)))
+    {
+        std::wstring dirW = SalMultiByteToWidePath(dir, IsValidPathUtf8Text(dir, dirLen) ? CP_UTF8 : CP_ACP);
+        if (!dirW.empty())
+        {
+            std::wstring newDirW;
+            BOOL ret = CheckAndCreateDirectoryW(dirW.c_str(), parent, quiet, newDir != NULL ? &newDirW : NULL, manualCrDir);
+            if (ret && newDir != NULL && !newDirW.empty())
+            {
+                std::string newDirA = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
+                lstrcpyn(newDir, newDirA.c_str(), MAX_PATH);
+            }
+            if (ret || dirLen >= MAX_PATH)
+                return ret;
+        }
     }
     DWORD attrs = SalGetFileAttributes(dir);
     char buf[32768 + 200];
