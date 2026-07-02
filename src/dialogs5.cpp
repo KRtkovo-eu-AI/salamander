@@ -1967,6 +1967,7 @@ CCfgPageDrives::CCfgPageDrives(BOOL focusIfPathIsInaccessibleGoTo)
     FocusIfPathIsInaccessibleGoTo = focusIfPathIsInaccessibleGoTo;
     Win32LongPathsEnabled = FALSE;
     Win32LongPathsCanWrite = FALSE;
+    HWin32LongPathsToolTip = NULL;
 }
 
 void CCfgPageDrives::Transfer(CTransferInfo& ti)
@@ -1993,7 +1994,38 @@ void CCfgPageDrives::Transfer(CTransferInfo& ti)
         ReadWin32LongPathsEnabled(&Win32LongPathsEnabled);
         Win32LongPathsCanWrite = CanWriteWin32LongPathsEnabled();
         ti.CheckBox(IDC_DRVSPEC_LONGPATHS, Win32LongPathsEnabled);
-        EnableWindow(GetDlgItem(HWindow, IDC_DRVSPEC_LONGPATHS), Win32LongPathsCanWrite);
+        HWND hLongPaths = GetDlgItem(HWindow, IDC_DRVSPEC_LONGPATHS);
+        EnableWindow(hLongPaths, Win32LongPathsCanWrite);
+        if (!Win32LongPathsCanWrite)
+        {
+            if (HWin32LongPathsToolTip == NULL)
+            {
+                HWin32LongPathsToolTip = CreateWindowEx(0, TOOLTIPS_CLASS, NULL, TTS_NOPREFIX | TTS_ALWAYSTIP,
+                                                        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+                                                        HWindow, NULL, HInstance, NULL);
+                if (HWin32LongPathsToolTip != NULL)
+                {
+                    TOOLINFO toolInfo;
+                    memset(&toolInfo, 0, sizeof(toolInfo));
+                    toolInfo.cbSize = sizeof(toolInfo);
+                    toolInfo.uFlags = TTF_SUBCLASS;
+                    toolInfo.hwnd = HWindow;
+                    toolInfo.uId = IDC_DRVSPEC_LONGPATHS;
+                    toolInfo.hinst = HInstance;
+                    toolInfo.lpszText = LoadStr(IDS_LONGPATHS_ADMINTOOLTIP);
+                    GetWindowRect(hLongPaths, &toolInfo.rect);
+                    MapWindowPoints(NULL, HWindow, (LPPOINT)&toolInfo.rect, 2);
+                    SendMessage(HWin32LongPathsToolTip, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
+                    SendMessage(HWin32LongPathsToolTip, TTM_SETDELAYTIME, TTDT_INITIAL, 400);
+                    SendMessage(HWin32LongPathsToolTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 10000);
+                }
+            }
+        }
+        else if (HWin32LongPathsToolTip != NULL)
+        {
+            DestroyWindow(HWin32LongPathsToolTip);
+            HWin32LongPathsToolTip = NULL;
+        }
     }
     else
     {
@@ -2041,6 +2073,16 @@ CCfgPageDrives::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_DESTROY:
+    {
+        if (HWin32LongPathsToolTip != NULL)
+        {
+            DestroyWindow(HWin32LongPathsToolTip);
+            HWin32LongPathsToolTip = NULL;
+        }
+        break;
+    }
+
     case WM_PAINT:
     {
         // Horrible mess - I need a message that arrives

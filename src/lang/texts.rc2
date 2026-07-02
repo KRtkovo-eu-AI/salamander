@@ -2060,6 +2060,7 @@ STRINGTABLE
  IDS_MCD_ACTIVECONFIGTOOLTIP, "This configuration is currently used by this application instance."
  IDS_LONGPATHS_RESTART, "Win32 long paths setting was changed. Restart Windows for the change to take effect."
  IDS_LONGPATHS_SETERROR, "Unable to change the Win32 long paths setting. Error: %s"
+ IDS_LONGPATHS_ADMINTOOLTIP, "Run the application with administrator privileges to change the Win32 long paths setting."
 
  IDS_MENU_OPT_MANAGECONFIG, "&Manage Configurations..."
 }
