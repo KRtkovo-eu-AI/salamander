@@ -22,6 +22,8 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - When Windows long paths are enabled, local and UNC paths can go beyond the traditional `MAX_PATH` limit and use the Windows extended-length limit of about `32,767` characters.
 - Browse, Copy, Move, Rename, Delete, and Create deeply nested folders and very long file names directly from the panels.
 - The core file handling paths use Unicode-aware Windows APIs, so names no longer have to fit the active system code page.
+<img width="687" height="538" alt="image" src="https://github.com/user-attachments/assets/a4a7240f-ac82-4ca8-9f9a-830539d5e8b4" />
+<img width="687" height="119" alt="image" src="https://github.com/user-attachments/assets/ab04f8a6-fe73-4f0f-8726-12755afdbde7" />
 
 ### Portability
 - Save the Configuration into file storage instead of Registry
