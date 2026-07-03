@@ -335,6 +335,15 @@ img[src*="Preview"] {
   border: 1px solid var(--sam-border);
 }
 
+#header-logo {
+  vertical-align: middle;
+  margin-right: 12px;
+  border-radius: none;
+  border: none;
+  box-shadow: none;
+  background: none;
+}
+
 /* Download / release links as restrained GitHub-like buttons */
 
 a[href$=".zip"],
