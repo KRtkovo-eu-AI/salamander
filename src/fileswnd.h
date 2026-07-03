@@ -72,7 +72,7 @@ class CCopyMoveData;
 struct CTmpDropData
 {
     BOOL Copy;
-    char TargetPath[MAX_PATH];
+    char TargetPath[SAL_MAX_PATH];
     CCopyMoveData* Data;
 };
 

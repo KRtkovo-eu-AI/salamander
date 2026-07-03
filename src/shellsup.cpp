@@ -144,7 +144,7 @@ BOOL DoCopyMove(BOOL copy, char* targetDir, CCopyMoveData* data, void* param)
     if (tmp != NULL)
     {
         tmp->Copy = copy;
-        strcpy(tmp->TargetPath, targetDir);
+        lstrcpyn(tmp->TargetPath, targetDir, SAL_MAX_PATH);
         tmp->Data = data;
         PostMessage(panel->HWindow, WM_USER_DROPCOPYMOVE, (WPARAM)tmp, 0);
         return TRUE;
