@@ -19,12 +19,24 @@ Moving to the current OpenSSL 3.x vcpkg package would require porting that code.
 OpenSSL 1.0.2 is end-of-life, so this is a compatibility build for the
 existing FTP plugin rather than a long-term TLS upgrade.
 
+### SFTP plugin dependencies
+
+The SFTP plugin (`src/plugins/sftp`) uses a separate vcpkg manifest with
+modern libraries:
+
+- `libssh2` (latest)
+- `openssl` 3.x
+
+These are installed into `build/vcpkg_installed_sftp/` and are used for
+compilation (headers + import libs) and at runtime (DLLs).
+
 ## Build
 
 Run from a Visual Studio Developer PowerShell on Windows:
 
 ```powershell
 .\tools\vcpkg\build-third-party-libs.ps1
+.\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin    # incl. libssh2 + OpenSSL 3.x for SFTP plugin
 ```
 
 By default the script:
@@ -61,3 +73,14 @@ plugins\unrar\unrar.dll
 utils\libeay32.dll
 utils\ssleay32.dll
 ```
+
+With `-SftpPlugin`, the following are also installed into
+`build\vcpkg_installed_sftp\`:
+
+```text
+build\vcpkg_installed_sftp\x64-windows\include\  (headers)
+build\vcpkg_installed_sftp\x64-windows\lib\      (import libs)
+build\vcpkg_installed_sftp\x64-windows\bin\      (DLLs)
+```
+
+These are used automatically by the SFTP plugin's MSBuild project.

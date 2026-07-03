@@ -4,7 +4,8 @@ param(
     [string]$VcpkgRoot = $env:VCPKG_ROOT,
     [string]$OutputDir,
     [switch]$NoBootstrap,
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    [switch]$SftpPlugin
 )
 
 $ErrorActionPreference = 'Stop'
@@ -153,3 +154,49 @@ foreach ($dllName in $RequiredDlls)
 }
 
 Write-Host "Done. Third-party DLLs are available in $OutputDir"
+
+# --- SFTP plugin dependencies (libssh2 + OpenSSL 3.x) ---
+
+if ($SftpPlugin)
+{
+    $sftpManifestRoot = Join-Path $PSScriptRoot 'sftp-plugin'
+    $sftpInstallRoot = Join-Path $repoRoot 'build\vcpkg_installed_sftp'
+
+    Write-Host ""
+    Write-Host "=== SFTP plugin dependencies ==="
+    Write-Host "Manifest:  $sftpManifestRoot"
+    Write-Host "Install:   $sftpInstallRoot"
+    Write-Host "Triplet:   $Triplet"
+
+    if (!$SkipInstall)
+    {
+        Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments @(
+            'install',
+            '--triplet', $Triplet,
+            '--x-install-root', $sftpInstallRoot
+        ) -WorkingDirectory $sftpManifestRoot
+    }
+
+    $sftpTripletDir = Join-Path $sftpInstallRoot $Triplet
+    $sftpBinDir = Join-Path $sftpTripletDir 'bin'
+    $sftpLibDir = Join-Path $sftpTripletDir 'lib'
+    $sftpIncludeDir = Join-Path $sftpTripletDir 'include'
+
+    Write-Host ""
+    Write-Host "SFTP plugin libraries:"
+    if (Test-Path -LiteralPath $sftpBinDir)
+    {
+        Get-ChildItem -LiteralPath $sftpBinDir -Filter '*.dll' | ForEach-Object {
+            Write-Host "  $($_.Name)"
+        }
+    }
+    if (Test-Path -LiteralPath $sftpLibDir)
+    {
+        Get-ChildItem -LiteralPath $sftpLibDir -Filter '*.lib' | ForEach-Object {
+            Write-Host "  $($_.Name)"
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Done. SFTP plugin dependencies installed in $sftpInstallRoot"
+}
