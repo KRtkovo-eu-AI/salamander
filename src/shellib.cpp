@@ -1501,12 +1501,23 @@ LPITEMIDLIST GetItemIdListForFileName(LPSHELLFOLDER folder, const char* fileName
             TRACE_E("GetItemIdListForFileName(): unable to find PIDL usign enumeration, trying to get it using ParseDisplayName...");
     }
 
-    OLECHAR olePath[MAX_PATH];
+    int fileNameWLen = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fileName, -1, NULL, 0);
+    if (fileNameWLen <= 0)
+    {
+        TRACE_E("MultiByteToWideChar error: " << GetLastError());
+        return NULL;
+    }
+    int uncPrefixLen = addUNCPrefix ? 2 : 0;
+    OLECHAR* olePath = (OLECHAR*)malloc((uncPrefixLen + fileNameWLen) * sizeof(OLECHAR));
+    if (olePath == NULL)
+    {
+        TRACE_E(LOW_MEMORY);
+        return NULL;
+    }
     if (addUNCPrefix)
         olePath[0] = olePath[1] = L'\\';
-    MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fileName, -1, olePath + (addUNCPrefix ? 2 : 0),
-                        MAX_PATH - (addUNCPrefix ? 2 : 0));
-    olePath[MAX_PATH - 1] = 0;
+    MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fileName, -1, olePath + uncPrefixLen,
+                        fileNameWLen);
 
     LPITEMIDLIST pidl;
     ULONG chEaten;
@@ -1514,11 +1525,13 @@ LPITEMIDLIST GetItemIdListForFileName(LPSHELLFOLDER folder, const char* fileName
     if (SUCCEEDED((ret = folder->ParseDisplayName(NULL, NULL, olePath, &chEaten,
                                                   &pidl, NULL))))
     {
+        free(olePath);
         return pidl;
     }
     else
     {
         TRACE_E("ParseDisplayName error: 0x" << std::hex << ret << std::dec);
+        free(olePath);
         return NULL;
     }
 }
@@ -1642,231 +1655,239 @@ BOOL GetShellFolder(const char* dir, IShellFolder*& shellFolderObj, LPITEMIDLIST
                                                            IID_IShellFolder,
                                                            (LPVOID*)&shellFolderObj))))
                 {
-                    char root[MAX_PATH];
-                    GetRootPath(root, dir);
-                    if (strlen(root) < strlen(dir)) // not a root path
+                    char* root = (char*)malloc(strlen(dir) + 2);
+                    if (root == NULL)
                     {
-                        strcpy(root, dir);
-                        char* name = root + strlen(root);
-                        if (*--name == '\\')
-                            *name = 0;
-                        else
-                            name++;
-                        while (*--name != '\\')
-                            ;
-                        char c = *++name;
-                        *name = 0;
-                        LPITEMIDLIST pidlUpperDir = GetItemIdListForFileName(shellFolderObj, root);
-                        LPSHELLFOLDER folder2;
-                        if (pidlUpperDir != NULL &&
-                            SUCCEEDED((ret = shellFolderObj->BindToObject(pidlUpperDir, NULL,
-                                                                          IID_IShellFolder, (LPVOID*)&folder2))))
-                        {
-                            shellFolderObj->Release();
-                            shellFolderObj = folder2;
-                            *name = c;
-                            dir = name;
-                        }
-                        else
-                            TRACE_E("BindToObject error: 0x" << std::hex << ret << std::dec); // dir remains
-                        IMalloc* alloc;
-                        if (pidlUpperDir != NULL && SUCCEEDED(CoGetMalloc(1, &alloc)))
-                        {
-                            if (alloc->DidAlloc(pidlUpperDir) == 1)
-                                alloc->Free(pidlUpperDir);
-                            alloc->Release();
-                        }
+                        TRACE_E(LOW_MEMORY);
                     }
                     else
                     {
-                        if (rootFolder == CSIDL_DRIVES)
+                        GetRootPath(root, dir);
+                        if (strlen(root) < strlen(dir)) // not a root path
                         {
-                            LPENUMIDLIST enumIDList;
-                            if (SUCCEEDED((ret = shellFolderObj->EnumObjects(NULL, SHCONTF_FOLDERS | SHCONTF_INCLUDEHIDDEN,
-                                                                             &enumIDList))))
+                            strcpy(root, dir);
+                            char* name = root + strlen(root);
+                            if (*--name == '\\')
+                                *name = 0;
+                            else
+                                name++;
+                            while (*--name != '\\')
+                                ;
+                            char c = *++name;
+                            *name = 0;
+                            LPITEMIDLIST pidlUpperDir = GetItemIdListForFileName(shellFolderObj, root);
+                            LPSHELLFOLDER folder2;
+                            if (pidlUpperDir != NULL &&
+                                SUCCEEDED((ret = shellFolderObj->BindToObject(pidlUpperDir, NULL,
+                                                                              IID_IShellFolder, (LPVOID*)&folder2))))
                             {
-                                ULONG celt;
-                                LPITEMIDLIST idList;
-                                STRRET str;
-                                enumIDList->Reset();
-                                IMalloc* alloc;
-                                if (SUCCEEDED(CoGetMalloc(1, &alloc)))
-                                {
-                                    while (1)
-                                    {
-                                        ret = enumIDList->Next(1, &idList, &celt);
-                                        if (ret == NOERROR)
-                                        {
-                                            ret = shellFolderObj->GetDisplayNameOf(idList, SHGDN_FORPARSING, &str);
-                                            if (ret == NOERROR)
-                                            {
-                                                char buf[MAX_PATH];
-                                                char* name;
-                                                switch (str.uType)
-                                                {
-                                                case STRRET_CSTR:
-                                                    name = str.cStr;
-                                                    break;
-                                                case STRRET_OFFSET:
-                                                    name = (char*)idList + str.uOffset;
-                                                    break;
-                                                case STRRET_WSTR:
-                                                {
-                                                    WideCharToMultiByte(CP_ACP, 0, str.pOleStr, -1, buf, MAX_PATH, NULL, NULL);
-                                                    buf[MAX_PATH - 1] = 0;
-                                                    name = buf;
-                                                    if (alloc->DidAlloc(str.pOleStr) == 1)
-                                                        alloc->Free(str.pOleStr);
-                                                    break;
-                                                }
-                                                default:
-                                                    name = NULL;
-                                                }
-
-                                                if (name != NULL)
-                                                {
-                                                    if (strlen(name) <= 3 && StrNICmp(name, root, 2) == 0) // name = "c:" nebo "c:\"
-                                                    {
-                                                        pidlFolder = idList;
-                                                        break; // PIDL found (obtained)
-                                                    }
-                                                }
-                                            }
-                                            if (alloc->DidAlloc(idList) == 1)
-                                                alloc->Free(idList);
-                                        }
-                                        else
-                                            break;
-                                    }
-                                    alloc->Release();
-                                }
-                                enumIDList->Release();
+                                shellFolderObj->Release();
+                                shellFolderObj = folder2;
+                                *name = c;
+                                dir = name;
+                            }
+                            else
+                                TRACE_E("BindToObject error: 0x" << std::hex << ret << std::dec); // dir remains
+                            IMalloc* alloc;
+                            if (pidlUpperDir != NULL && SUCCEEDED(CoGetMalloc(1, &alloc)))
+                            {
+                                if (alloc->DidAlloc(pidlUpperDir) == 1)
+                                    alloc->Free(pidlUpperDir);
+                                alloc->Release();
                             }
                         }
                         else
                         {
-                            if (rootFolder == CSIDL_NETWORK) // we must obtain the complex PIDL, otherwise mapping does not work
+                            if (rootFolder == CSIDL_DRIVES)
                             {
-                                *(root + strlen(root) - 1) = 0;
-                                dir = root;
-                                char* s = root + 2;
-                                if (*s == 0) // network path "\\" (network root)
+                                LPENUMIDLIST enumIDList;
+                                if (SUCCEEDED((ret = shellFolderObj->EnumObjects(NULL, SHCONTF_FOLDERS | SHCONTF_INCLUDEHIDDEN,
+                                                                                 &enumIDList))))
                                 {
-                                    shellFolderObj->Release();
-                                    shellFolderObj = desktop;
-                                    desktop = NULL;
-                                    pidlFolder = rootFolderID;
-                                    rootFolderID = NULL;
-                                }
-                                else
-                                {
-                                    BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
-                                    HCURSOR oldCur;
-                                    if (setWait)
-                                        oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
-
-                                    while (*s != 0 && *s != '\\')
-                                        s++;
-                                    BOOL dirIsOnlyServer = *s == 0;
-                                    *s = 0;
-                                    LPITEMIDLIST pidl = GetItemIdListForFileName(shellFolderObj, root);
-                                    if (dirIsOnlyServer) // network path "\\server" (a server on the network)
+                                    ULONG celt;
+                                    LPITEMIDLIST idList;
+                                    STRRET str;
+                                    enumIDList->Reset();
+                                    IMalloc* alloc;
+                                    if (SUCCEEDED(CoGetMalloc(1, &alloc)))
                                     {
-                                        pidlFolder = pidl;
-                                        pidl = NULL;
+                                        while (1)
+                                        {
+                                            ret = enumIDList->Next(1, &idList, &celt);
+                                            if (ret == NOERROR)
+                                            {
+                                                ret = shellFolderObj->GetDisplayNameOf(idList, SHGDN_FORPARSING, &str);
+                                                if (ret == NOERROR)
+                                                {
+                                                    char buf[MAX_PATH];
+                                                    char* name;
+                                                    switch (str.uType)
+                                                    {
+                                                    case STRRET_CSTR:
+                                                        name = str.cStr;
+                                                        break;
+                                                    case STRRET_OFFSET:
+                                                        name = (char*)idList + str.uOffset;
+                                                        break;
+                                                    case STRRET_WSTR:
+                                                    {
+                                                        WideCharToMultiByte(CP_ACP, 0, str.pOleStr, -1, buf, MAX_PATH, NULL, NULL);
+                                                        buf[MAX_PATH - 1] = 0;
+                                                        name = buf;
+                                                        if (alloc->DidAlloc(str.pOleStr) == 1)
+                                                            alloc->Free(str.pOleStr);
+                                                        break;
+                                                    }
+                                                    default:
+                                                        name = NULL;
+                                                    }
+
+                                                    if (name != NULL)
+                                                    {
+                                                        if (strlen(name) <= 3 && StrNICmp(name, root, 2) == 0) // name = "c:" nebo "c:\"
+                                                        {
+                                                            pidlFolder = idList;
+                                                            break; // PIDL found (obtained)
+                                                        }
+                                                    }
+                                                }
+                                                if (alloc->DidAlloc(idList) == 1)
+                                                    alloc->Free(idList);
+                                            }
+                                            else
+                                                break;
+                                        }
+                                        alloc->Release();
+                                    }
+                                    enumIDList->Release();
+                                }
+                            }
+                            else
+                            {
+                                if (rootFolder == CSIDL_NETWORK) // we must obtain the complex PIDL, otherwise mapping does not work
+                                {
+                                    *(root + strlen(root) - 1) = 0;
+                                    dir = root;
+                                    char* s = root + 2;
+                                    if (*s == 0) // network path "\\" (network root)
+                                    {
+                                        shellFolderObj->Release();
+                                        shellFolderObj = desktop;
+                                        desktop = NULL;
+                                        pidlFolder = rootFolderID;
+                                        rootFolderID = NULL;
                                     }
                                     else
                                     {
-                                        *s = '\\';
-                                        LPSHELLFOLDER folder2;
-                                        if (pidl != NULL &&
-                                            SUCCEEDED((ret = shellFolderObj->BindToObject(pidl, NULL,
-                                                                                          IID_IShellFolder, (LPVOID*)&folder2))))
+                                        BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
+                                        HCURSOR oldCur;
+                                        if (setWait)
+                                            oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
+
+                                        while (*s != 0 && *s != '\\')
+                                            s++;
+                                        BOOL dirIsOnlyServer = *s == 0;
+                                        *s = 0;
+                                        LPITEMIDLIST pidl = GetItemIdListForFileName(shellFolderObj, root);
+                                        if (dirIsOnlyServer) // network path "\\server" (a server on the network)
                                         {
-                                            LPENUMIDLIST enumIDList;
-                                            if (SUCCEEDED((ret = folder2->EnumObjects(NULL, SHCONTF_FOLDERS | SHCONTF_NONFOLDERS | SHCONTF_INCLUDEHIDDEN,
-                                                                                      &enumIDList))))
+                                            pidlFolder = pidl;
+                                            pidl = NULL;
+                                        }
+                                        else
+                                        {
+                                            *s = '\\';
+                                            LPSHELLFOLDER folder2;
+                                            if (pidl != NULL &&
+                                                SUCCEEDED((ret = shellFolderObj->BindToObject(pidl, NULL,
+                                                                                              IID_IShellFolder, (LPVOID*)&folder2))))
                                             {
-                                                ULONG celt;
-                                                LPITEMIDLIST idList;
-                                                STRRET str;
-                                                enumIDList->Reset();
-                                                IMalloc* alloc;
-                                                if (SUCCEEDED(CoGetMalloc(1, &alloc)))
+                                                LPENUMIDLIST enumIDList;
+                                                if (SUCCEEDED((ret = folder2->EnumObjects(NULL, SHCONTF_FOLDERS | SHCONTF_NONFOLDERS | SHCONTF_INCLUDEHIDDEN,
+                                                                                          &enumIDList))))
                                                 {
-                                                    while (1)
+                                                    ULONG celt;
+                                                    LPITEMIDLIST idList;
+                                                    STRRET str;
+                                                    enumIDList->Reset();
+                                                    IMalloc* alloc;
+                                                    if (SUCCEEDED(CoGetMalloc(1, &alloc)))
                                                     {
-                                                        ret = enumIDList->Next(1, &idList, &celt);
-                                                        if (ret == NOERROR)
+                                                        while (1)
                                                         {
-                                                            ret = folder2->GetDisplayNameOf(idList, SHGDN_FORPARSING, &str);
+                                                            ret = enumIDList->Next(1, &idList, &celt);
                                                             if (ret == NOERROR)
                                                             {
-                                                                char buf[MAX_PATH];
-                                                                char* name;
-                                                                switch (str.uType)
+                                                                ret = folder2->GetDisplayNameOf(idList, SHGDN_FORPARSING, &str);
+                                                                if (ret == NOERROR)
                                                                 {
-                                                                case STRRET_CSTR:
-                                                                    name = str.cStr;
-                                                                    break;
-                                                                case STRRET_OFFSET:
-                                                                    name = (char*)idList + str.uOffset;
-                                                                    break;
-                                                                case STRRET_WSTR:
-                                                                {
-                                                                    WideCharToMultiByte(CP_ACP, 0, str.pOleStr, -1, buf, MAX_PATH, NULL, NULL);
-                                                                    buf[MAX_PATH - 1] = 0;
-                                                                    name = buf;
-                                                                    if (alloc->DidAlloc(str.pOleStr) == 1)
-                                                                        alloc->Free(str.pOleStr);
-                                                                    break;
-                                                                }
-                                                                default:
-                                                                    name = NULL;
-                                                                }
-
-                                                                if (name != NULL)
-                                                                {
-                                                                    if (*(name + strlen(name) - 1) == '\\')
-                                                                        *(name + strlen(name) - 1) = 0;
-                                                                    if (StrICmp(name, root) == 0)
+                                                                    char buf[MAX_PATH];
+                                                                    char* name;
+                                                                    switch (str.uType)
                                                                     {
-                                                                        pidlFolder = idList;
-                                                                        LPSHELLFOLDER swap = shellFolderObj;
-                                                                        shellFolderObj = folder2;
-                                                                        folder2 = swap;
-                                                                        break; // PIDL found (obtained)
+                                                                    case STRRET_CSTR:
+                                                                        name = str.cStr;
+                                                                        break;
+                                                                    case STRRET_OFFSET:
+                                                                        name = (char*)idList + str.uOffset;
+                                                                        break;
+                                                                    case STRRET_WSTR:
+                                                                    {
+                                                                        WideCharToMultiByte(CP_ACP, 0, str.pOleStr, -1, buf, MAX_PATH, NULL, NULL);
+                                                                        buf[MAX_PATH - 1] = 0;
+                                                                        name = buf;
+                                                                        if (alloc->DidAlloc(str.pOleStr) == 1)
+                                                                            alloc->Free(str.pOleStr);
+                                                                        break;
+                                                                    }
+                                                                    default:
+                                                                        name = NULL;
+                                                                    }
+
+                                                                    if (name != NULL)
+                                                                    {
+                                                                        if (*(name + strlen(name) - 1) == '\\')
+                                                                            *(name + strlen(name) - 1) = 0;
+                                                                        if (StrICmp(name, root) == 0)
+                                                                        {
+                                                                            pidlFolder = idList;
+                                                                            LPSHELLFOLDER swap = shellFolderObj;
+                                                                            shellFolderObj = folder2;
+                                                                            folder2 = swap;
+                                                                            break; // PIDL found (obtained)
+                                                                        }
                                                                     }
                                                                 }
+                                                                if (alloc->DidAlloc(idList) == 1)
+                                                                    alloc->Free(idList);
                                                             }
-                                                            if (alloc->DidAlloc(idList) == 1)
-                                                                alloc->Free(idList);
+                                                            else
+                                                                break;
                                                         }
-                                                        else
-                                                            break;
+                                                        alloc->Release();
                                                     }
-                                                    alloc->Release();
+                                                    enumIDList->Release();
                                                 }
-                                                enumIDList->Release();
+                                                folder2->Release();
                                             }
-                                            folder2->Release();
                                         }
+                                        IMalloc* alloc;
+                                        if (pidl != NULL && SUCCEEDED(CoGetMalloc(1, &alloc)))
+                                        {
+                                            if (alloc->DidAlloc(pidl) == 1)
+                                                alloc->Free(pidl);
+                                            alloc->Release();
+                                        }
+                                        if (setWait)
+                                            SetCursor(oldCur);
                                     }
-                                    IMalloc* alloc;
-                                    if (pidl != NULL && SUCCEEDED(CoGetMalloc(1, &alloc)))
-                                    {
-                                        if (alloc->DidAlloc(pidl) == 1)
-                                            alloc->Free(pidl);
-                                        alloc->Release();
-                                    }
-                                    if (setWait)
-                                        SetCursor(oldCur);
                                 }
                             }
                         }
+                        if (pidlFolder == NULL)
+                            pidlFolder = GetItemIdListForFileName(shellFolderObj, dir);
+                        free(root);
                     }
-                    if (pidlFolder == NULL)
-                        pidlFolder = GetItemIdListForFileName(shellFolderObj, dir);
 
                     // shellFolderObj + pidlFolder together form the "dir" folder
                 }
