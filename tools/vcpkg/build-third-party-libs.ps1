@@ -3,6 +3,7 @@ param(
     [string]$Triplet = 'x64-windows',
     [string]$VcpkgRoot = $env:VCPKG_ROOT,
     [string]$OutputDir,
+    [string]$PrebuiltDllsDir,
     [switch]$NoBootstrap,
     [switch]$SkipInstall,
     [switch]$SftpPlugin
@@ -12,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 
 $VcpkgRepository = 'https://github.com/microsoft/vcpkg.git'
 $VcpkgBaseline = 'a0b1c8d3a477c1cb4813d8e127a56961707ca42b'
-$RequiredDlls = @('unrar.dll', 'libeay32.dll', 'ssleay32.dll')
+$RequiredDlls = @('unrar.dll', 'libeay32.dll', 'ssleay32.dll', 'dbghelp.dll')
 
 function Resolve-FullPath
 {
@@ -71,6 +72,12 @@ if ([string]::IsNullOrWhiteSpace($OutputDir))
     $OutputDir = Join-Path $repoRoot 'build\libs'
 }
 $OutputDir = Resolve-FullPath $OutputDir
+
+if (![string]::IsNullOrWhiteSpace($PrebuiltDllsDir))
+{
+    $PrebuiltDllsDir = Resolve-FullPath $PrebuiltDllsDir
+    Write-Host "Prebuilt DLLs: $PrebuiltDllsDir"
+}
 
 $installRoot = Join-Path $repoRoot 'build\vcpkg_installed_third_party'
 $tripletBinDir = Join-Path (Join-Path $installRoot $Triplet) 'bin'
@@ -144,7 +151,43 @@ foreach ($dllName in $RequiredDlls)
         }
         else
         {
-            throw "Required DLL was not produced by vcpkg: $dllName"
+            # Not produced by vcpkg - try prebuilt DLLs directory
+            if (![string]::IsNullOrWhiteSpace($PrebuiltDllsDir))
+            {
+                $prebuilt = Join-Path $PrebuiltDllsDir $dllName
+                if (Test-Path -LiteralPath $prebuilt)
+                {
+                    $source = $prebuilt
+                }
+                elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
+                {
+                    Write-Warning "DLL '$dllName' not in vcpkg or prebuilt dir, keeping existing copy in output dir"
+                    continue
+                }
+                else
+                {
+                    throw "Required DLL was not produced by vcpkg and not found in prebuilt dir: $dllName"
+                }
+            }
+            else
+            {
+                # Fallback: some DLLs are standard Windows system DLLs
+                $systemDll = Join-Path "$env:SystemRoot\System32" $dllName
+                if (Test-Path -LiteralPath $systemDll)
+                {
+                    Write-Host "Using system DLL: $systemDll"
+                    $source = $systemDll
+                }
+                elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
+                {
+                    Write-Warning "DLL '$dllName' not produced by vcpkg, keeping existing copy in output dir"
+                    continue
+                }
+                else
+                {
+                    throw "Required DLL was not produced by vcpkg: $dllName"
+                }
+            }
         }
     }
 
