@@ -150,29 +150,31 @@ void OnContextMenu(HWND hWnd, int x, int y)
 
         if (GetSaveFileName(&ofn))
         {
+            wchar_t wFileName[MAX_PATH];
+            MultiByteToWideChar(CP_ACP, 0, fileName, -1, wFileName, MAX_PATH);
             FILE* f;
-            if (fopen_s(&f, fileName, "w") == 0 && f != NULL)
+            if (_wfopen_s(&f, wFileName, L"w") == 0 && f != NULL)
             {
                 for (int i = 0; i < OutWindow.OutLines.Count; i++)
                 {
                     COutLine* line = &OutWindow.OutLines[i];
-                    const char* prefix = "";
+                    const wchar_t* prefix = L"";
                     switch (line->MsgType)
                     {
                     case mteInfo:
-                        prefix = "[Info] ";
+                        prefix = L"[Info] ";
                         break;
                     case mteWarning:
-                        prefix = "[Warning] ";
+                        prefix = L"[Warning] ";
                         break;
                     case mteError:
-                        prefix = "[Error] ";
+                        prefix = L"[Error] ";
                         break;
                     case mteSummary:
-                        prefix = "[Summary] ";
+                        prefix = L"[Summary] ";
                         break;
                     }
-                    fprintf(f, "%s%s\n", prefix, line->Text);
+                    fwprintf(f, L"%s%s\n", prefix, line->Text);
                 }
                 fclose(f);
             }
