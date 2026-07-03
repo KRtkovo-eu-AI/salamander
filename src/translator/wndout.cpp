@@ -530,19 +530,19 @@ COutWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     ListView_GetItem(HListView, &lvi);
                     int lineIndex = lvi.lParam;
                     COutLine* outLine = &OutWindow.OutLines[lineIndex];
-                    COLORREF textColor = GetSysColor(COLOR_WINDOWTEXT); // mteInfo
+                    COLORREF textColor = DarkModeGetDialogTextColor(); // mteInfo
                     switch (outLine->MsgType)
                     {
 
                     case mteWarning:
                     {
-                        textColor = RGB(0, 0, 160);
+                        textColor = DarkModeEnsureReadableForeground(RGB(80, 80, 255), DarkModeGetDialogBackgroundColor());
                         break;
                     }
 
                     case mteError:
                     {
-                        textColor = RGB(255, 0, 0);
+                        textColor = DarkModeEnsureReadableForeground(RGB(255, 80, 80), DarkModeGetDialogBackgroundColor());
                         break;
                     }
 
@@ -561,6 +561,15 @@ COutWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    }
+
+    case WM_CTLCOLORLISTBOX:
+    {
+        HDC hdc = (HDC)wParam;
+        SetTextColor(hdc, RGB(0xDC, 0xDC, 0xDC));
+        SetBkColor(hdc, RGB(0x20, 0x20, 0x20));
+        static HBRUSH hDarkBrush = CreateSolidBrush(RGB(0x20, 0x20, 0x20));
+        return (LRESULT)hDarkBrush;
     }
     }
     return CWindow::WindowProc(uMsg, wParam, lParam);

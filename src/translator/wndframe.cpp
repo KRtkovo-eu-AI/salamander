@@ -18,6 +18,22 @@
 
 CFrameWindow FrameWindow;
 
+static void ApplyDarkModeColors()
+{
+    const COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+    const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
+
+    HWND hTree = TreeWindow.GetTreeView();
+    if (hTree != NULL)
+    {
+        TreeView_SetTextColor(hTree, darkText);
+        TreeView_SetBkColor(hTree, darkBg);
+    }
+    DarkModeUpdateListViewColors(TextWindow.ListView.HWindow);
+    DarkModeUpdateListViewColors(RHWindow.ListBox.HWindow);
+    DarkModeUpdateListViewColors(OutWindow.GetListView());
+}
+
 const char* FRAMEWINDOW_NAME = "Translator";
 
 BOOL RestartSalamander();
@@ -152,6 +168,8 @@ BOOL CFrameWindow::OpenChildWindows()
     if (Config.PreviewWindowPlacement.length != 0)
         SetWindowPlacement(PreviewWindow.HWindow, &Config.PreviewWindowPlacement);
     ShowWindow(PreviewWindow.HWindow, SW_SHOW);
+
+    ApplyDarkModeColors();
 
     SendMessage(HMDIClient, WM_MDIACTIVATE, (WPARAM)TreeWindow.HWindow, NULL);
 
@@ -1546,6 +1564,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             DarkModeApplyTree(HWindow);
             DarkModeApplyMenuBar(HWindow);
+            ApplyDarkModeColors();
         }
         break;
     }
