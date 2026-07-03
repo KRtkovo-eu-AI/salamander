@@ -42,12 +42,13 @@ html {
 }
 
 body {
-  margin: 0;
   color: var(--sam-text);
   background: var(--sam-bg);
   font-family: var(--sam-font);
   font-size: 16px;
   line-height: 1.6;
+  max-width: 1000px;
+  margin: 0 auto;
 }
 
 /* Main centered content block */
