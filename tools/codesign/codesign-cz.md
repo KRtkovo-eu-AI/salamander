@@ -45,7 +45,7 @@ Tímto nejdřív ověřte, že funguje SimplySign, certifikát, SignTool i náš
 tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-Script podepisuje jen soubory `.exe`, `.dll` a `.spl`. Výsledek ověřuje příkazem:
+Script podepisuje jen soubory `.exe`, `.dll`, `.spl` a `.slg`. Výsledek ověřuje příkazem:
 
 ```cmd
 signtool verify /pa /all /v "cesta\k\souboru.exe"

@@ -45,7 +45,7 @@ Use this first to verify that SimplySign, the certificate, SignTool and the scri
 tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-The script signs only `.exe`, `.dll`, and `.spl` files. It verifies the result with:
+The script signs only `.exe`, `.dll`, `.spl` and `.slg` files. It verifies the result with:
 
 ```cmd
 signtool verify /pa /all /v "path\to\file.exe"

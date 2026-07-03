@@ -46,7 +46,7 @@ function Get-SignToolPath {
 
 function Test-SignableExtension([string] $path) {
     $extension = [IO.Path]::GetExtension($path).ToLowerInvariant()
-    return $extension -eq '.exe' -or $extension -eq '.dll' -or $extension -eq '.spl'
+    return $extension -eq '.exe' -or $extension -eq '.dll' -or $extension -eq '.spl' -or $extension -eq '.slg'
 }
 
 function Test-ExcludedExternalBinary([string] $path) {
@@ -54,11 +54,7 @@ function Test-ExcludedExternalBinary([string] $path) {
     $exactExclusions = @(
         '7za.dll',
         '7zwrapper.dll',
-        'unrar.dll',
         'chmlib.dll',
-        'sqlite.dll',
-        'libeay32.dll',
-        'ssleay32.dll',
         'newtonsoft.json.dll',
         'markdig.dll',
         'prismsharp.dll',
@@ -198,7 +194,7 @@ function Test-SigningTarget([string] $path) {
         throw "Signing target does not exist: $path"
     }
     if (-not (Test-SignableExtension $path)) {
-        throw "Signing target must be .exe, .dll, or .spl: $path"
+        throw "Signing target must be .exe, .dll, .spl, or .slg: $path"
     }
 }
 
