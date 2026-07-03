@@ -84,10 +84,10 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### Checksum 2.2
 ### Database Viewer 1.25
 ### DiskMap 1.12
-### FTP Client 1.35
+### FTP Client 1.36
 ### File Comparator 1.19
-### Folders 0.1
-### Hyper-V Machines 1.05
+### Folders 0.2
+### Hyper-V Machines 1.06
 Show local Hyper-V virtual machines. You can Start/Turn Off/Shut Down/Connect/Create New Machine through the plugin.
 
 ### Internet Explorer Viewer 1.12
@@ -98,11 +98,11 @@ Supported File Types
 | JSON data interchange files | `.json`, `.pc`, `.jbeam` |
 
 ### Multimedia Viewer 1.16
-### Network 1.08
-### PAK 1.71
+### Network 1.09
+### PAK 1.72
 ### PictView 2.21
 - using [WIC](https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs) backend
-### Portable Devices 0.2
+### Portable Devices 0.3
 - file operations (copy/move/rename/create etc.) with progress dialog are available.
 ### Portable Executable Viewer 3.0
 ### PrismSharp Text Viewer .NET 1.0
@@ -123,23 +123,23 @@ Common text and configuration formats
 #### Prism syntax highlighting identifiers
 The viewer also registers [Prism lexers](https://github.com/KRtkovo-eu-AI/salamander/blob/release/5.0-samandarin-0.6/src/plugins/textviewer/SUPPORTED_FILE_TYPES.md#prism-syntax-highlighting-identifiers) so matching file extensions open in this viewer. 
 
-### Registry Editor 1.14
-### Renamer 1.13
+### Registry Editor 1.15
+### Renamer 1.14
 ### Samandarin Update Notifier 0.4
-### Service Explorer 0.012
+### Service Explorer 0.013
 ### Split & Combine 1.11
 ### TAR 3.34
-### UnARJ 1.21
-### UnCAB 1.27
-### UnCHM 1.03
-### UnFAT 1.1
-### UnISO 1.37
-### UnLHA 1.13
-### UnMIME 1.14
-### UnOLE2 1.01
-### UnRAR 3.01
-### UnDelete 1.11
-### WebView2 Render Viewer .NET 1.0
+### UnARJ 1.22
+### UnCAB 1.28
+### UnCHM 1.04
+### UnFAT 1.2
+### UnISO 1.38
+### UnLHA 1.14
+### UnMIME 1.15
+### UnOLE2 1.02
+### UnRAR 3.02
+### UnDelete 1.12
+### WebView2 Render Viewer .NET 1.01
 It acts as a universal document canvas, covering web pages, Markdown (including MDX), SVG, modern image formats like WebP and AVIF, classic raster files, and PDFs up to 32 MB.
 Supported File Types
 | Category | Extensions |
@@ -151,8 +151,8 @@ Supported File Types
 | Raster image formats | `.png`, `.jpg`, `.jpeg`, `.jfif`, `.gif`, `.bmp`, `.ico`, `.tif`, `.tiff` |
 | Portable Document Format | `.pdf` |
 
-### Windows Mobile 1.08
-### ZIP 1.4
+### Windows Mobile 1.09
+### ZIP 1.5
 
 
 
