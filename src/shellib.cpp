@@ -1586,6 +1586,50 @@ void DestroyItemIdList(ITEMIDLIST** list, int itemsInList)
 
 //*****************************************************************************
 //
+// AllocShellParsingName
+//
+
+OLECHAR* AllocShellParsingName(const char* path, BOOL extendedPrefix)
+{
+    int prefixLen = 0;
+    const OLECHAR* prefix = L"";
+    const char* pathToConvert = path;
+    if (extendedPrefix)
+    {
+        if (path[0] == '\\' && path[1] == '\\')
+        {
+            prefix = L"\\\\?\\UNC\\";
+            prefixLen = 8;
+            pathToConvert = path + 2;
+        }
+        else
+        {
+            prefix = L"\\\\?\\";
+            prefixLen = 4;
+        }
+    }
+
+    int pathWLen = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, pathToConvert, -1, NULL, 0);
+    if (pathWLen <= 0)
+    {
+        TRACE_E("MultiByteToWideChar error: " << GetLastError());
+        return NULL;
+    }
+
+    OLECHAR* parsingName = (OLECHAR*)malloc((prefixLen + pathWLen) * sizeof(OLECHAR));
+    if (parsingName == NULL)
+    {
+        TRACE_E(LOW_MEMORY);
+        return NULL;
+    }
+    if (prefixLen > 0)
+        memcpy(parsingName, prefix, prefixLen * sizeof(OLECHAR));
+    MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, pathToConvert, -1, parsingName + prefixLen, pathWLen);
+    return parsingName;
+}
+
+//*****************************************************************************
+//
 // CreateItemIdList
 //
 
@@ -2220,6 +2264,51 @@ IDropTarget* CreateIDropTargetAux(HWND hOwnerWindow, const char* dir)
             alloc->Release();
         }
         shellFolderObj->Release();
+    }
+    if (dropTargetObj == NULL)
+    {
+        LPITEMIDLIST fullPidl = NULL;
+        OLECHAR* parsingName = AllocShellParsingName(dir, FALSE);
+        HRESULT ret = parsingName == NULL ? E_OUTOFMEMORY : SHParseDisplayName(parsingName, NULL, &fullPidl, 0, NULL);
+        if (!SUCCEEDED(ret) && parsingName != NULL && strlen(dir) >= MAX_PATH &&
+            (dir[0] != '\\' || dir[1] == '\\'))
+        {
+            if (fullPidl != NULL)
+            {
+                CoTaskMemFree(fullPidl);
+                fullPidl = NULL;
+            }
+            free(parsingName);
+            parsingName = AllocShellParsingName(dir, TRUE);
+            ret = parsingName == NULL ? E_OUTOFMEMORY : SHParseDisplayName(parsingName, NULL, &fullPidl, 0, NULL);
+        }
+        if (parsingName != NULL)
+            free(parsingName);
+
+        if (SUCCEEDED(ret))
+        {
+            LPCITEMIDLIST childPidl;
+            IShellFolder* parentFolder;
+            if (SUCCEEDED((ret = SHBindToParent(fullPidl, IID_IShellFolder,
+                                                (void**)&parentFolder, &childPidl))))
+            {
+                if (!SUCCEEDED((ret = parentFolder->GetUIObjectOf(hOwnerWindow, 1,
+                                                                  &childPidl,
+                                                                  IID_IDropTarget, NULL,
+                                                                  (LPVOID*)&dropTargetObj))))
+                {
+                    TRACE_I("GetUIObjectOf error: 0x" << std::hex << ret << std::dec);
+                }
+                parentFolder->Release();
+            }
+            else
+                TRACE_I("SHBindToParent error: 0x" << std::hex << ret << std::dec);
+        }
+        else
+            TRACE_I("SHParseDisplayName error: 0x" << std::hex << ret << std::dec);
+
+        if (fullPidl != NULL)
+            CoTaskMemFree(fullPidl);
     }
     return dropTargetObj;
 }
