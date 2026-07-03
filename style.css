@@ -1,0 +1,457 @@
+/* Open Salamander: Samandarin — modern landing-page skin */
+
+:root {
+  color-scheme: dark;
+
+  --sam-bg: #090b10;
+  --sam-bg-2: #10131b;
+  --sam-panel: rgba(18, 22, 31, 0.82);
+  --sam-panel-strong: rgba(24, 29, 40, 0.94);
+  --sam-border: rgba(255, 255, 255, 0.11);
+
+  --sam-text: #eef2f8;
+  --sam-muted: #aab3c2;
+  --sam-soft: #d5dbe6;
+
+  --sam-orange: #ff9d2f;
+  --sam-orange-2: #ff6a1a;
+  --sam-yellow: #ffd46b;
+  --sam-link: #7dd3fc;
+
+  --sam-radius: 18px;
+  --sam-radius-lg: 28px;
+  --sam-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+  --sam-shadow-soft: 0 14px 44px rgba(0, 0, 0, 0.28);
+
+  --sam-font:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sam-mono:
+    "Cascadia Code", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--sam-bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--sam-text);
+  font-family: var(--sam-font);
+  line-height: 1.68;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 157, 47, 0.19), transparent 34rem),
+    radial-gradient(circle at 88% 8%, rgba(125, 211, 252, 0.11), transparent 30rem),
+    linear-gradient(180deg, #0b0e14 0%, #090b10 46%, #07080c 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.22;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black, transparent 75%);
+}
+
+/* Works with common GitHub Pages / Markdown wrappers. */
+:where(body > main, body > article, body > .container, body > .container-lg, body > .main-content, .markdown-body) {
+  width: min(1120px, calc(100% - 32px));
+  margin: 36px auto 64px;
+  padding: clamp(24px, 4vw, 56px);
+  color: var(--sam-text);
+  background:
+    linear-gradient(180deg, rgba(22, 27, 38, 0.9), rgba(12, 15, 22, 0.92)),
+    var(--sam-panel);
+  border: 1px solid var(--sam-border);
+  border-radius: var(--sam-radius-lg);
+  box-shadow: var(--sam-shadow);
+  backdrop-filter: blur(18px);
+}
+
+/* Typography */
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  color: var(--sam-text);
+}
+
+h1 {
+  margin: 0 0 18px;
+  max-width: 960px;
+  font-size: clamp(2.55rem, 7vw, 5.8rem);
+  font-weight: 850;
+  background: linear-gradient(92deg, #ffffff 0%, #ffd46b 42%, #ff7a1a 82%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+h1 + p {
+  max-width: 820px;
+  margin-top: 0;
+  color: var(--sam-soft);
+  font-size: clamp(1.15rem, 2.2vw, 1.45rem);
+  line-height: 1.55;
+}
+
+h1 + p + p {
+  max-width: 880px;
+  color: var(--sam-muted);
+  font-size: 1.05rem;
+}
+
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: clamp(48px, 7vw, 78px);
+  margin-bottom: 20px;
+  padding-top: 10px;
+  font-size: clamp(1.85rem, 4vw, 3rem);
+}
+
+h2::before {
+  content: "";
+  width: 12px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--sam-yellow), var(--sam-orange-2));
+  box-shadow: 0 0 28px rgba(255, 157, 47, 0.38);
+}
+
+h3 {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 30px 0 14px;
+  padding: 10px 15px 11px;
+  font-size: clamp(1.18rem, 2.2vw, 1.52rem);
+  font-weight: 760;
+  color: #fff7e8;
+  background:
+    linear-gradient(135deg, rgba(255, 157, 47, 0.18), rgba(255, 106, 26, 0.08)),
+    rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 157, 47, 0.24);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+h4 {
+  margin-top: 24px;
+  color: var(--sam-yellow);
+  font-size: 1.08rem;
+}
+
+p {
+  margin: 0 0 1.08rem;
+}
+
+strong {
+  color: #ffffff;
+}
+
+em {
+  color: #ffe1ad;
+}
+
+hr {
+  height: 1px;
+  margin: 42px 0;
+  border: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 157, 47, 0.45), transparent);
+}
+
+/* Links */
+
+a {
+  color: var(--sam-link);
+  text-decoration: none;
+  text-underline-offset: 0.22em;
+  transition:
+    color 160ms ease,
+    text-decoration-color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+a:hover {
+  color: #b8ecff;
+  text-decoration: underline;
+  text-decoration-color: rgba(125, 211, 252, 0.55);
+}
+
+/* Top resource-style lists become nice pills. */
+h1 ~ ul:first-of-type,
+h2#resources + ul,
+h2 + ul:last-child {
+  padding-left: 0;
+  list-style: none;
+}
+
+h1 ~ ul:first-of-type li,
+h2#resources + ul li {
+  display: inline-flex;
+  margin: 6px 8px 6px 0;
+}
+
+h1 ~ ul:first-of-type a,
+h2#resources + ul a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 13px;
+  color: #fff6e6;
+  background: rgba(255, 157, 47, 0.11);
+  border: 1px solid rgba(255, 157, 47, 0.28);
+  border-radius: 999px;
+}
+
+h1 ~ ul:first-of-type a:hover,
+h2#resources + ul a:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 157, 47, 0.18);
+  text-decoration: none;
+}
+
+/* Lists */
+
+ul,
+ol {
+  padding-left: 1.35rem;
+}
+
+li {
+  margin: 0.34rem 0;
+}
+
+li::marker {
+  color: var(--sam-orange);
+}
+
+/* Important / note blocks */
+
+blockquote {
+  position: relative;
+  margin: 28px 0;
+  padding: 22px 24px 22px 58px;
+  color: #ffe9bd;
+  background:
+    linear-gradient(135deg, rgba(255, 157, 47, 0.17), rgba(255, 106, 26, 0.07)),
+    rgba(18, 22, 31, 0.94);
+  border: 1px solid rgba(255, 157, 47, 0.28);
+  border-left: 0;
+  border-radius: var(--sam-radius);
+  box-shadow: var(--sam-shadow-soft);
+}
+
+blockquote::before {
+  content: "!";
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: #16100a;
+  font-weight: 900;
+  background: linear-gradient(180deg, var(--sam-yellow), var(--sam-orange));
+  border-radius: 50%;
+}
+
+blockquote p {
+  margin-bottom: 0.65rem;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Code */
+
+code {
+  padding: 0.16em 0.42em;
+  color: #ffe0a3;
+  font-family: var(--sam-mono);
+  font-size: 0.92em;
+  background: rgba(255, 157, 47, 0.11);
+  border: 1px solid rgba(255, 157, 47, 0.18);
+  border-radius: 7px;
+}
+
+pre {
+  overflow-x: auto;
+  margin: 22px 0;
+  padding: 18px 20px;
+  background: #070a10;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: var(--sam-radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+pre code {
+  padding: 0;
+  color: #e9edf5;
+  background: transparent;
+  border: 0;
+}
+
+/* Images / screenshots */
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 18px auto 28px;
+  background: #0b0e14;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--sam-radius);
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 157, 47, 0.06);
+}
+
+p:has(> img) {
+  margin: 24px 0 34px;
+}
+
+/* First main screenshot / logo area */
+h1 ~ p img,
+h1 ~ img {
+  border-radius: 24px;
+  box-shadow:
+    0 32px 100px rgba(0, 0, 0, 0.48),
+    0 0 80px rgba(255, 157, 47, 0.12);
+}
+
+/* Tables */
+
+table {
+  width: 100%;
+  margin: 22px 0 30px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  color: var(--sam-soft);
+  background: rgba(10, 13, 19, 0.76);
+  border: 1px solid var(--sam-border);
+  border-radius: var(--sam-radius);
+  box-shadow: var(--sam-shadow-soft);
+}
+
+th,
+td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: top;
+}
+
+th {
+  color: #fff5df;
+  font-weight: 750;
+  text-align: left;
+  background: rgba(255, 157, 47, 0.12);
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+tr:hover td {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* Feature/plugin rhythm */
+
+h2 + h3 {
+  margin-top: 18px;
+}
+
+h3 + p,
+h3 + ul,
+h3 + ol,
+h3 + table {
+  margin-top: 10px;
+}
+
+h3 + p,
+h3 + ul,
+h3 + ol {
+  max-width: 920px;
+}
+
+/* Make dense plugin list feel less raw. */
+h2:nth-of-type(2) ~ h3 {
+  border-color: rgba(125, 211, 252, 0.2);
+  background:
+    linear-gradient(135deg, rgba(125, 211, 252, 0.12), rgba(255, 157, 47, 0.06)),
+    rgba(255, 255, 255, 0.04);
+}
+
+/* Selection and focus */
+
+::selection {
+  color: #16100a;
+  background: var(--sam-yellow);
+}
+
+:focus-visible {
+  outline: 3px solid rgba(255, 157, 47, 0.66);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* Mobile */
+
+@media (max-width: 760px) {
+  :where(body > main, body > article, body > .container, body > .container-lg, body > .main-content, .markdown-body) {
+    width: min(100% - 20px, 1120px);
+    margin-top: 10px;
+    padding: 22px 18px 32px;
+    border-radius: 22px;
+  }
+
+  h1 {
+    font-size: clamp(2.35rem, 12vw, 3.6rem);
+  }
+
+  h2 {
+    margin-top: 44px;
+  }
+
+  h3 {
+    width: 100%;
+    border-radius: 16px;
+  }
+
+  blockquote {
+    padding: 18px 18px 18px 50px;
+  }
+
+  blockquote::before {
+    left: 17px;
+  }
+
+  th,
+  td {
+    padding: 10px 11px;
+  }
+}
