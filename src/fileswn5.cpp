@@ -2002,18 +2002,18 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                 if (fullNameOK)
                 {
                     std::string pathUtf8 = SalWideToMultiBytePath(pathW.c_str(), CP_UTF8);
-                    lstrcpyn(path, pathUtf8.c_str(), 3 * MAX_PATH);
+                    lstrcpyn(path, pathUtf8.c_str(), SAL_MAX_PATH);
                     if (!nextFocusW.empty())
                     {
                         std::string focusUtf8 = SalWideToMultiBytePath(nextFocusW.c_str(), CP_UTF8);
-                        lstrcpyn(nextFocus, focusUtf8.c_str(), 3 * MAX_PATH);
+                        lstrcpyn(nextFocus, focusUtf8.c_str(), SAL_MAX_PATH);
                     }
                 }
             }
-            if ((!fullNameOK && !SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, 3 * MAX_PATH)) ||
-                strlen(path) >= 3 * MAX_PATH)
+            if ((!fullNameOK && !SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, SAL_MAX_PATH)) ||
+                strlen(path) >= SAL_MAX_PATH)
             {
-                if (strlen(path) >= 3 * MAX_PATH)
+                if (strlen(path) >= SAL_MAX_PATH)
                     errTextID = IDS_TOOLONGPATH;
                 /* even if the string is empty we want an error message
         if (errTextID == IDS_EMPTYNAMENOTALLOWED)

@@ -474,8 +474,8 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
                 targetPath[0] = 0;
                 if (target->Is(ptZIPArchive))
                 {
-                    target->GetGeneralPath(targetPath, 2 * MAX_PATH);
-                    SalPathAddBackslash(targetPath, 2 * MAX_PATH);
+                    target->GetGeneralPath(targetPath, SAL_MAX_PATH);
+                    SalPathAddBackslash(targetPath, SAL_MAX_PATH);
 
                     int format = PackerFormatConfig.PackIsArchive(target->GetZIPArchive());
                     if (format == 0 || !PackerFormatConfig.GetUsePacker(format - 1))
@@ -486,7 +486,7 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
                     if (target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
                         target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
                     {
-                        target->GetGeneralPath(targetPath, 2 * MAX_PATH);
+                        target->GetGeneralPath(targetPath, SAL_MAX_PATH);
                         if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
                                                                            target->GetPluginFS()->GetPluginFSName(),
                                                                            HWindow, NULL, NULL, NULL,
@@ -633,7 +633,7 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
                             }
                             if (pathType == PATH_TYPE_ARCHIVE && (backslashAtEnd || mustBePath))
                             {
-                                SalPathAddBackslash(targetPath, 2 * MAX_PATH);
+                                SalPathAddBackslash(targetPath, SAL_MAX_PATH);
                             }
                             pathError = TRUE; // path error -> mode==4
                         }

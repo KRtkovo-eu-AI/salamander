@@ -1892,7 +1892,7 @@ void CChangeDirDlg::Transfer(CTransferInfo& ti)
         }
         else
         {
-            GetControlTextUtf8(hWnd, Path, 2 * MAX_PATH);
+            GetControlTextUtf8(hWnd, Path, SAL_MAX_PATH);
             AddValueToStdHistoryValues(history, CHANGEDIR_HISTORY_SIZE, Path, FALSE);
         }
     }
@@ -1942,7 +1942,7 @@ CChangeDirDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_KEYDOWN:
     {
-        BOOL processed = OnDirectoryKeyDown((DWORD)lParam, HWindow, IDE_PATH, 2 * MAX_PATH, IDB_BROWSE);
+        BOOL processed = OnDirectoryKeyDown((DWORD)lParam, HWindow, IDE_PATH, SAL_MAX_PATH, IDB_BROWSE);
         if (!processed)
             processed = OnKeyDownHandleSelectAll((DWORD)lParam, HWindow, IDE_PATH);
         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, processed);
@@ -1951,7 +1951,7 @@ CChangeDirDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_BUTTON:
     {
-        OnDirectoryButton(HWindow, IDE_PATH, 2 * MAX_PATH, IDB_BROWSE, wParam, lParam);
+        OnDirectoryButton(HWindow, IDE_PATH, SAL_MAX_PATH, IDB_BROWSE, wParam, lParam);
         return 0;
     }
     }

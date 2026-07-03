@@ -494,7 +494,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 char textBuf[2 * MAX_PATH + 200];
                 if (ParsePath(path, pathType, pathIsDir, secondPart,
                               type == atCopy ? LoadStr(IDS_ERRORCOPY) : LoadStr(IDS_ERRORMOVE),
-                              count <= 1 ? nextFocus : NULL, NULL, 2 * MAX_PATH))
+                              count <= 1 ? nextFocus : NULL, NULL, SAL_MAX_PATH))
                 {
                     // use 'if' instead of a 'switch' to ensure that 'break' and 'continue' work correctly
                     if (pathType == PATH_TYPE_WINDOWS) // Windows path (drive + UNC)
@@ -680,7 +680,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                                 if (hasPath)
                                     *secondPart = '\\'; // restore the path - we will edit it in the Copy/Move dialog
                                 if (backslashAtEnd || mustBePath)
-                                    SalPathAddBackslash(path, 2 * MAX_PATH + 200);
+                                    SalPathAddBackslash(path, SAL_MAX_PATH);
                                 continue; // back to the copy/move dialog
                             }
 
