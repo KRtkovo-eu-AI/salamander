@@ -9,6 +9,10 @@ class CFilesWindow;
 #include "plugins.h"
 #include <string>
 
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 #define NUM_OF_CHECKTHREADS 30                   // max. pocet threadu pro "neblokujici" testy pristupnosti cest
 #define ICONOVR_REFRESH_PERIOD 2000              // minimalni odstup refreshu icon-overlays v panelu (viz IconOverlaysChangedOnPath)
 #define MIN_DELAY_BETWEENINACTIVEREFRESHES 2000  // minimalni odstup refreshu pri neaktivnim hl. okne
@@ -68,7 +72,7 @@ class CCopyMoveData;
 struct CTmpDropData
 {
     BOOL Copy;
-    char TargetPath[MAX_PATH];
+    char TargetPath[SAL_MAX_PATH];
     CCopyMoveData* Data;
 };
 
@@ -839,7 +843,7 @@ public:
     BOOL SortedWithRegSet;    // used to monitor changes of the global variable Configuration.SortUsesLocale
     BOOL SortedWithDetectNum; // used to monitor changes of the global variable Configuration.SortDetectNumbers
 
-    char DropPath[2 * MAX_PATH];  // buffer for the current directory used in a drop operation
+    char DropPath[SAL_MAX_PATH];  // buffer for the current directory used in a drop operation
     char NextFocusName[MAX_PATH]; // the name that will receive focus on the next refresh
     BOOL DontClearNextFocusName;  // TRUE = do not clear NextFocusName when the main Salamander window is activated
     BOOL FocusFirstNewItem;       // refresh: should the newly added item be selected? (for system New)

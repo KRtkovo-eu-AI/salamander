@@ -6,6 +6,10 @@
 
 #include <string>
 
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 // library initialization
 BOOL InitializeShellib();
 
@@ -285,8 +289,9 @@ private:
     BOOL* ConfirmDropEnable;
 
     int TgtType; // see CIDTTgtType values; idtttWindows also for archives and FS where dropping the current data object is not possible
+    BOOL TgtFile;
     IDropTarget* CurDirDropTarget;
-    char CurDir[2 * MAX_PATH];
+    char CurDir[SAL_MAX_PATH];
 
     CEnterLeaveDrop EnterLeaveDrop;
     void* EnterLeaveDropParam;
@@ -318,6 +323,7 @@ public:
         GetCurDir = getCurDir;
         GetCurDirParam = getCurDirParam;
         TgtType = idtttWindows;
+        TgtFile = FALSE;
         CurDirDropTarget = NULL;
         CurDir[0] = 0;
         DropEnd = dropEnd;

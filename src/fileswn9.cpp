@@ -268,8 +268,6 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                 }
                 if (GetClipboardData(cfSalDataObject) != NULL)
                     ourClipDataObject = TRUE;
-                else
-                    ownRutine = FALSE; // if it is not our IDataObject, we won't perform our own operation
                 CloseClipboard();
             }
             else
@@ -279,7 +277,7 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
             {
                 effect = (dropEffect & (DROPEFFECT_COPY | DROPEFFECT_MOVE));
                 if (effect == 0)
-                    ownRutine = FALSE; // neither copy nor move - we do not support anything else
+                    effect = DROPEFFECT_COPY; // Explorer usually provides this, but Copy is the safe fallback
             }
         }
         filesOnClip = files && ourClipDataObject;
@@ -287,9 +285,9 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
         if (ownRutine) // execute our own routine - copy or move
         {
             if (pastePath != NULL)
-                strcpy(DropPath, pastePath);
+                lstrcpyn(DropPath, pastePath, SAL_MAX_PATH);
             else
-                strcpy(DropPath, GetPath());
+                lstrcpyn(DropPath, GetPath(), SAL_MAX_PATH);
             CImpDropTarget* dropTarget = new CImpDropTarget(MainWindow->HWindow, DoCopyMove, this,
                                                             GetCurrentDirClipboard, this,
                                                             DropEnd, this, NULL, NULL, NULL, NULL,
@@ -297,7 +295,7 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                                                             NULL, NULL);
             if (dropTarget != NULL)
             {
-                OurClipDataObject = ourClipDataObject;
+                OurClipDataObject = TRUE;
                 POINTL pt;
                 pt.x = pt.y = 0;
                 DWORD eff = effect;
@@ -1270,15 +1268,21 @@ BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
                         int dxHotspot, dyHotspot;
                         int imgWidth, imgHeight;
                         hDragIL = CreateDragImage(LButtonDown.x, LButtonDown.y, dxHotspot, dyHotspot, imgWidth, imgHeight);
-                        ImageList_BeginDrag(hDragIL, 0, dxHotspot, dyHotspot);
-                        ImageDragBegin(imgWidth, imgHeight, dxHotspot, dyHotspot);
+                        if (hDragIL != NULL)
+                        {
+                            ImageList_BeginDrag(hDragIL, 0, dxHotspot, dyHotspot);
+                            ImageDragBegin(imgWidth, imgHeight, dxHotspot, dyHotspot);
+                        }
 
                         UserWorkedOnThisPath = TRUE;
                         ShellAction(this, DragDropLeftMouseBtn ? saLeftDragFiles : saRightDragFiles);
 
-                        ImageDragEnd();
-                        ImageList_EndDrag();
-                        ImageList_Destroy(hDragIL);
+                        if (hDragIL != NULL)
+                        {
+                            ImageDragEnd();
+                            ImageList_EndDrag();
+                            ImageList_Destroy(hDragIL);
+                        }
                         PerformingDragDrop = FALSE;
 
                         IdleRefreshStates = TRUE; // force checking status variables on the next Idle
@@ -1600,7 +1604,7 @@ HIMAGELIST
 CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyHotspot, int& imgWidth, int& imgHeight)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::CreateDragImage(%d, %d, , , )", cursorX, cursorY);
-    char buff[MAX_PATH];
+    char buff[2 * MAX_PATH];
     int selCount = GetSelCount();
     int iconWidth = 0;
     int itemIndex = 0;
@@ -1625,7 +1629,7 @@ CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyH
                     files++;
             }
         }
-        ExpandPluralFilesDirs(buff, MAX_PATH, files, dirs, epfdmSelected, FALSE);
+        ExpandPluralFilesDirs(buff, 2 * MAX_PATH, files, dirs, epfdmSelected, FALSE);
     }
     else
     {
