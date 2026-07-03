@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -8,7 +8,7 @@
 #include <cwctype>
 #include <limits>
 
-namespace Sally::Unicode
+namespace Salamander::Unicode
 {
 namespace
 {
@@ -427,4 +427,4 @@ bool FindLiteralBackward(const DecodedRun& run, const std::wstring& pattern, boo
     return false;
 }
 
-} // namespace Sally::Unicode
+} // namespace Salamander::Unicode

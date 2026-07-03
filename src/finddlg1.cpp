@@ -3182,7 +3182,7 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         UpdateAdvancedText();
 
-        // Sally keeps the Unicode filename controls away from the legacy ANSI
+        // Salamander keeps the Unicode filename controls away from the legacy ANSI
         // subclasses.  InstallWordBreakProc subclasses the edit window and makes
         // Windows marshal characters through the ANSI window proc; with the
         // Windows emoji picker that turns surrogate pairs into '?' and with CJK

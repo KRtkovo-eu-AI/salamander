@@ -929,7 +929,7 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
     DirectoryHelper = FALSE;
     NameAutoCompleteMode = helpID == IDD_CREATEDIRDIALOG || helpID == IDD_RENAMEDIALOG;
 #ifndef _UNICODE
-    UnicodeWnd = TRUE; // Sally-style: file name dialogs must not lose Unicode edit text
+    UnicodeWnd = TRUE; // Salamander-style: file name dialogs must not lose Unicode edit text
 #endif // _UNICODE
     if (directoryHelper)
     {
@@ -1002,7 +1002,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HWND hPathEdit = ResolveComboEditControl(hPath);
         const BOOL unicodeNameInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
 
-        // Sally keeps the Unicode filename controls away from the legacy ANSI
+        // Salamander keeps the Unicode filename controls away from the legacy ANSI
         // subclasses.  InstallWordBreakProc/CreateKeyForwarder subclass the edit
         // window and make Windows marshal characters through the ANSI window proc;
         // with the Windows emoji picker that turns surrogate pairs into '?' and

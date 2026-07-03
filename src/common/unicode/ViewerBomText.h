@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace Sally::Unicode
+namespace Salamander::Unicode
 {
 
 enum class BomEncoding
@@ -65,4 +65,4 @@ bool FindLiteralForward(const DecodedRun& run, const std::wstring& pattern, bool
 bool FindLiteralBackward(const DecodedRun& run, const std::wstring& pattern, bool caseSensitive,
                          bool wholeWords, std::size_t cellLimit, LiteralMatch& match);
 
-} // namespace Sally::Unicode
+} // namespace Salamander::Unicode

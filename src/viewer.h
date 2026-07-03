@@ -291,14 +291,14 @@ protected:
     HGLOBAL GetSelectedText(BOOL& fatalErr); // text for clipboard and drag & drop operations
     HGLOBAL GetSelectedTextW(BOOL& fatalErr, int* textLen); // decoded Unicode text for clipboard and drag & drop operations
 
-    BOOL HasDecodedTextMode() const { return Type == vtText && Sally::Unicode::IsDecodedEncoding(TextEncoding); }
-    BOOL HasDecodedTextEncoding() const { return Sally::Unicode::IsDecodedEncoding(TextEncoding); }
+    BOOL HasDecodedTextMode() const { return Type == vtText && Salamander::Unicode::IsDecodedEncoding(TextEncoding); }
+    BOOL HasDecodedTextEncoding() const { return Salamander::Unicode::IsDecodedEncoding(TextEncoding); }
     __int64 TextStartOffset() const { return HasDecodedTextEncoding() ? TextContentOffset : 0; }
-    BOOL DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end, Sally::Unicode::DecodedRun& run,
+    BOOL DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end, Salamander::Unicode::DecodedRun& run,
                          BOOL& fatalErr, bool flush = true);
-    BOOL ReadDecodedScalar(HANDLE* hFile, __int64 offset, Sally::Unicode::DecodedRun& scalar, BOOL& fatalErr);
+    BOOL ReadDecodedScalar(HANDLE* hFile, __int64 offset, Salamander::Unicode::DecodedRun& scalar, BOOL& fatalErr);
     BOOL ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int64 maxCells,
-                             Sally::Unicode::DecodedRun& visualLine, __int64& lineEnd,
+                             Salamander::Unicode::DecodedRun& visualLine, __int64& lineEnd,
                              __int64& nextLineBegin, BOOL& eol, BOOL& wrapped,
                              int& eolBytes, BOOL& fatalErr);
     void PaintDecodedText(HDC dc, const RECT& fullLine, int lines, int columns, int clipFirstRow,
@@ -396,7 +396,7 @@ protected:
     int CodeType;        // numeric encoding identifier; CodeTables memory for this viewer window
     BOOL UseCodeTable;   // should CodeTable be used for recoding?
     char CodeTable[256]; // code table
-    Sally::Unicode::BomEncoding TextEncoding; // decoded text mode selected for BOM/UTF-8 files
+    Salamander::Unicode::BomEncoding TextEncoding; // decoded text mode selected for BOM/UTF-8 files
     __int64 TextContentOffset;                // first raw byte of text content (after BOM when present)
 
     char CurrentDir[MAX_PATH]; // path for the open dialog

@@ -706,7 +706,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     ForceTextMode = FALSE;
     CodeType = 0;
     UseCodeTable = FALSE;
-    TextEncoding = Sally::Unicode::BomEncoding::LegacyBytes;
+    TextEncoding = Salamander::Unicode::BomEncoding::LegacyBytes;
     TextContentOffset = 0;
     BOOL fatalErr = FALSE;
     FileChanged(NULL, FALSE, fatalErr, TRUE);
@@ -837,7 +837,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
                 ReleaseMouseDrag();
                 FirstLineSize = LastLineSize = ViewSize = 0;
                 LastFindSeekY = -1;
-                TextEncoding = Sally::Unicode::BomEncoding::LegacyBytes;
+                TextEncoding = Salamander::Unicode::BomEncoding::LegacyBytes;
                 TextContentOffset = 0;
 
                 if (FileSize > 0)
@@ -851,7 +851,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
                     if ((sampleSeek.LoDWord != INVALID_SET_FILE_POINTER || seekErr == NO_ERROR) &&
                         ReadFile(file, sample, (DWORD)min((__int64)sizeof(sample), FileSize), &read, NULL))
                     {
-                        Sally::Unicode::BomInfo textInfo = Sally::Unicode::DetectTextEncoding(sample, read);
+                        Salamander::Unicode::BomInfo textInfo = Salamander::Unicode::DetectTextEncoding(sample, read);
                         TextEncoding = textInfo.Encoding;
                         TextContentOffset = textInfo.TextOffset;
                     }
@@ -1036,7 +1036,7 @@ void CViewerWindow::FatalFileErrorOccured(DWORD repeatCmd)
     LastFindSeekY = -1;
     LastFindOffset = 0;
     ScrollToSelection = FALSE;
-    TextEncoding = Sally::Unicode::BomEncoding::LegacyBytes;
+    TextEncoding = Salamander::Unicode::BomEncoding::LegacyBytes;
     TextContentOffset = 0;
     LineOffset.DestroyMembers();
     EnableSetScroll = TRUE;
@@ -1055,7 +1055,7 @@ BOOL CViewerWindow::FindNextEOL(HANDLE* hFile, __int64 seek, __int64 maxSeek, __
     {
         seek = max(seek, TextContentOffset);
         maxSeek = min(maxSeek, FileSize);
-        Sally::Unicode::DecodedRun decoded;
+        Salamander::Unicode::DecodedRun decoded;
         __int64 decodeEnd = min(FileSize, maxSeek + 8);
         if (!DecodeTextRange(hFile, seek, decodeEnd, decoded, fatalErr, decodeEnd >= FileSize))
             return FALSE;
@@ -1070,7 +1070,7 @@ BOOL CViewerWindow::FindNextEOL(HANDLE* hFile, __int64 seek, __int64 maxSeek, __
             {
                 if (Configuration.EOL_CRLF)
                 {
-                    Sally::Unicode::DecodedRun nextScalar;
+                    Salamander::Unicode::DecodedRun nextScalar;
                     bool haveNext = false;
                     if (i + 1 < decoded.CellCount())
                     {
@@ -1457,10 +1457,10 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
     {
         if (offset <= minSeek)
             return -1;
-        if (TextEncoding == Sally::Unicode::BomEncoding::Utf16Le ||
-            TextEncoding == Sally::Unicode::BomEncoding::Utf16Be)
+        if (TextEncoding == Salamander::Unicode::BomEncoding::Utf16Le ||
+            TextEncoding == Salamander::Unicode::BomEncoding::Utf16Be)
         {
-            __int64 pos = Sally::Unicode::AlignToCodeUnit(TextEncoding, offset - 1, TextContentOffset);
+            __int64 pos = Salamander::Unicode::AlignToCodeUnit(TextEncoding, offset - 1, TextContentOffset);
             if (pos >= offset)
                 pos -= 2;
             return pos >= minSeek ? pos : -1;
@@ -1480,7 +1480,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
         return pos >= minSeek ? pos : -1;
     };
 
-    auto readScalar = [&]( __int64 offset, Sally::Unicode::DecodedRun& scalar) -> BOOL
+    auto readScalar = [&]( __int64 offset, Salamander::Unicode::DecodedRun& scalar) -> BOOL
     {
         scalar.Clear();
         if (offset < minSeek || offset >= FileSize)
@@ -1499,7 +1499,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
         __int64 pos = previousScalarOffset(limit);
         while (pos >= minSeek)
         {
-            Sally::Unicode::DecodedRun scalar;
+            Salamander::Unicode::DecodedRun scalar;
             if (!readScalar(pos, scalar))
                 return FALSE;
             if (scalar.RawStart[0] >= limit)
@@ -1514,7 +1514,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
                 if (Configuration.EOL_CRLF)
                 {
                     __int64 prevPos = previousScalarOffset(scalar.RawStart[0]);
-                    Sally::Unicode::DecodedRun prevScalar;
+                    Salamander::Unicode::DecodedRun prevScalar;
                     if (prevPos >= minSeek && readScalar(prevPos, prevScalar) &&
                         prevScalar.Scalars[0] == L'\r' && prevScalar.RawEnd[0] == scalar.RawStart[0])
                     {
@@ -1536,7 +1536,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
             {
                 if (Configuration.EOL_CRLF)
                 {
-                    Sally::Unicode::DecodedRun nextScalar;
+                    Salamander::Unicode::DecodedRun nextScalar;
                     if (scalar.RawEnd[0] < limit && readScalar(scalar.RawEnd[0], nextScalar) &&
                         nextScalar.Scalars[0] == L'\n' && nextScalar.RawStart[0] == scalar.RawEnd[0] &&
                         nextScalar.RawEnd[0] <= limit)
@@ -1589,7 +1589,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
     if (firstLineCharLen != NULL)
     {
         __int64 countEnd = max(lineBegin, min(seek, currentEol.LineEnd >= lineBegin ? currentEol.LineEnd : seek));
-        Sally::Unicode::DecodedRun visual;
+        Salamander::Unicode::DecodedRun visual;
         if (countEnd > lineBegin)
         {
             if (!DecodeTextRange(hFile, lineBegin, countEnd, visual, fatalErr))
@@ -1722,13 +1722,13 @@ BOOL CViewerWindow::GetOffsetOrXAbs(__int64 x, __int64* offset, __int64* offsetX
         }
         if (HasDecodedTextMode())
         {
-            Sally::Unicode::DecodedRun visual;
+            Salamander::Unicode::DecodedRun visual;
             if (!DecodeTextRange(NULL, lineBegOff, lineEndOff, visual, fatalErr))
                 return FALSE;
             if (fatalErr)
                 return FALSE;
 
-            Sally::Unicode::DecodedRun expanded;
+            Salamander::Unicode::DecodedRun expanded;
             for (std::size_t i = 0; i < visual.CellCount(); ++i)
             {
                 if (visual.Scalars[i] == L'\t')
@@ -2046,7 +2046,7 @@ BOOL CViewerWindow::GetFindText(char* buf, int& len)
     {
         startSel = max(startSel, TextStartOffset());
         endSel = max(endSel, startSel);
-        Sally::Unicode::DecodedRun run;
+        Salamander::Unicode::DecodedRun run;
         if (!DecodeTextRange(NULL, startSel, endSel, run, fatalErr) || fatalErr)
         {
             if (fatalErr)
@@ -2200,7 +2200,7 @@ CViewerWindow::GetSelectedTextW(BOOL& fatalErr, int* textLen)
     endSel = max(endSel, startSel);
     endSel = min(endSel, FileSize);
 
-    Sally::Unicode::DecodedRun run;
+    Salamander::Unicode::DecodedRun run;
     if (!DecodeTextRange(NULL, startSel, endSel, run, fatalErr))
         return NULL;
     if (fatalErr)
@@ -2242,7 +2242,7 @@ BOOL CViewerWindow::FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, 
     std::wstring pattern((std::size_t)wideLen, L'\0');
     MultiByteToWideChar(CP_ACP, 0, FindDialog.Text, -1, pattern.data(), wideLen);
     pattern.resize((std::size_t)wideLen - 1);
-    std::size_t patternCells = Sally::Unicode::CountPatternCells(pattern);
+    std::size_t patternCells = Salamander::Unicode::CountPatternCells(pattern);
     if (patternCells == 0)
         return TRUE;
 
@@ -2254,7 +2254,7 @@ BOOL CViewerWindow::FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, 
         while (off < FileSize)
         {
             __int64 end = min(FileSize, off + FIND_LINE_LEN);
-            Sally::Unicode::DecodedRun run;
+            Salamander::Unicode::DecodedRun run;
             if (!DecodeTextRange(hFile, off, end, run, fatalErr, end >= FileSize))
                 return FALSE;
             if (fatalErr)
@@ -2266,8 +2266,8 @@ BOOL CViewerWindow::FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, 
             while (startCell < run.CellCount() && run.RawEnd[startCell] <= FindOffset)
                 startCell++;
 
-            Sally::Unicode::LiteralMatch match;
-            if (Sally::Unicode::FindLiteralForward(run, pattern, caseSensitive, FindDialog.WholeWords != FALSE,
+            Salamander::Unicode::LiteralMatch match;
+            if (Salamander::Unicode::FindLiteralForward(run, pattern, caseSensitive, FindDialog.WholeWords != FALSE,
                                                    startCell, match))
             {
                 StartSelection = match.RawStart;
@@ -2293,7 +2293,7 @@ BOOL CViewerWindow::FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, 
         while (off > textStart)
         {
             __int64 start = max(textStart, off - FIND_LINE_LEN);
-            Sally::Unicode::DecodedRun run;
+            Salamander::Unicode::DecodedRun run;
             if (!DecodeTextRange(hFile, start, off, run, fatalErr, off >= FileSize))
                 return FALSE;
             if (fatalErr)
@@ -2305,8 +2305,8 @@ BOOL CViewerWindow::FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, 
             while (limitCell > 0 && run.RawStart[limitCell - 1] >= FindOffset)
                 limitCell--;
 
-            Sally::Unicode::LiteralMatch match;
-            if (Sally::Unicode::FindLiteralBackward(run, pattern, caseSensitive, FindDialog.WholeWords != FALSE,
+            Salamander::Unicode::LiteralMatch match;
+            if (Salamander::Unicode::FindLiteralBackward(run, pattern, caseSensitive, FindDialog.WholeWords != FALSE,
                                                     limitCell, match))
             {
                 StartSelection = match.RawStart;

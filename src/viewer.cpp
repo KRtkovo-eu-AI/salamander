@@ -619,7 +619,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     CodeType = 0;
     CodeTables.Init(MainWindow->HWindow);
     UseCodeTable = FALSE;
-    TextEncoding = Sally::Unicode::BomEncoding::LegacyBytes;
+    TextEncoding = Salamander::Unicode::BomEncoding::LegacyBytes;
     TextContentOffset = 0;
     if (fileName == NULL)
         FileName = NULL; // error
@@ -852,7 +852,7 @@ bool IsViewerDecodedEOL(std::uint32_t scalar)
     return scalar == L'\r' || scalar == L'\n' || scalar == 0;
 }
 
-void AppendVisualCell(Sally::Unicode::DecodedRun& visual, std::uint32_t scalar,
+void AppendVisualCell(Salamander::Unicode::DecodedRun& visual, std::uint32_t scalar,
                       __int64 rawStart, __int64 rawEnd, int tabSize)
 {
     if (scalar == L'\t')
@@ -867,7 +867,7 @@ void AppendVisualCell(Sally::Unicode::DecodedRun& visual, std::uint32_t scalar,
         visual.AppendCell(scalar, rawStart, rawEnd);
 }
 
-std::size_t DecodedSelectionStartCell(const Sally::Unicode::DecodedRun& visual, __int64 offset)
+std::size_t DecodedSelectionStartCell(const Salamander::Unicode::DecodedRun& visual, __int64 offset)
 {
     for (std::size_t i = 0; i < visual.CellCount(); ++i)
     {
@@ -879,7 +879,7 @@ std::size_t DecodedSelectionStartCell(const Sally::Unicode::DecodedRun& visual, 
     return visual.CellCount();
 }
 
-std::size_t DecodedSelectionEndCell(const Sally::Unicode::DecodedRun& visual, __int64 offset)
+std::size_t DecodedSelectionEndCell(const Salamander::Unicode::DecodedRun& visual, __int64 offset)
 {
     for (std::size_t i = 0; i < visual.CellCount(); ++i)
     {
@@ -891,7 +891,7 @@ std::size_t DecodedSelectionEndCell(const Sally::Unicode::DecodedRun& visual, __
     return visual.CellCount();
 }
 
-void DrawDecodedCells(HDC dc, const Sally::Unicode::DecodedRun& visual, std::size_t cellStart,
+void DrawDecodedCells(HDC dc, const Salamander::Unicode::DecodedRun& visual, std::size_t cellStart,
                       std::size_t cellEnd, int xCell)
 {
     if (cellStart >= cellEnd)
@@ -905,7 +905,7 @@ void DrawDecodedCells(HDC dc, const Sally::Unicode::DecodedRun& visual, std::siz
 } // namespace
 
 BOOL CViewerWindow::DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end,
-                                    Sally::Unicode::DecodedRun& run, BOOL& fatalErr, bool flush)
+                                    Salamander::Unicode::DecodedRun& run, BOOL& fatalErr, bool flush)
 {
     run.Clear();
     fatalErr = FALSE;
@@ -914,7 +914,7 @@ BOOL CViewerWindow::DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end,
 
     start = max(start, TextContentOffset);
     end = min(end, FileSize);
-    start = Sally::Unicode::AlignToCodeUnit(TextEncoding, start, TextContentOffset);
+    start = Salamander::Unicode::AlignToCodeUnit(TextEncoding, start, TextContentOffset);
     if (end <= start)
         return TRUE;
 
@@ -929,7 +929,7 @@ BOOL CViewerWindow::DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end,
             break;
 
         bool finalChunk = flush && off + len >= end;
-        Sally::Unicode::DecodedRun part = Sally::Unicode::DecodeBytes(TextEncoding, Buffer + (off - Seek), (std::size_t)len, off, finalChunk);
+        Salamander::Unicode::DecodedRun part = Salamander::Unicode::DecodeBytes(TextEncoding, Buffer + (off - Seek), (std::size_t)len, off, finalChunk);
         if (part.RawBytesConsumed == 0 && part.CellCount() == 0)
         {
             if (finalChunk)
@@ -938,7 +938,7 @@ BOOL CViewerWindow::DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end,
             len = Prepare(hFile, off, len, fatalErr);
             if (fatalErr || len <= 0)
                 return !fatalErr;
-            part = Sally::Unicode::DecodeBytes(TextEncoding, Buffer + (off - Seek), (std::size_t)len, off, off + len >= FileSize);
+            part = Salamander::Unicode::DecodeBytes(TextEncoding, Buffer + (off - Seek), (std::size_t)len, off, off + len >= FileSize);
             if (part.RawBytesConsumed == 0)
                 break;
         }
@@ -948,26 +948,26 @@ BOOL CViewerWindow::DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end,
     return TRUE;
 }
 
-BOOL CViewerWindow::ReadDecodedScalar(HANDLE* hFile, __int64 offset, Sally::Unicode::DecodedRun& scalar, BOOL& fatalErr)
+BOOL CViewerWindow::ReadDecodedScalar(HANDLE* hFile, __int64 offset, Salamander::Unicode::DecodedRun& scalar, BOOL& fatalErr)
 {
     scalar.Clear();
     fatalErr = FALSE;
     if (!HasDecodedTextEncoding())
         return FALSE;
     offset = max(offset, TextContentOffset);
-    offset = Sally::Unicode::AlignToCodeUnit(TextEncoding, offset, TextContentOffset);
+    offset = Salamander::Unicode::AlignToCodeUnit(TextEncoding, offset, TextContentOffset);
     if (offset >= FileSize)
         return TRUE;
 
     __int64 len = Prepare(hFile, offset, min((__int64)8, FileSize - offset), fatalErr);
     if (fatalErr || len <= 0)
         return !fatalErr;
-    scalar = Sally::Unicode::DecodeBytes(TextEncoding, Buffer + (offset - Seek), (std::size_t)len, offset, TRUE);
+    scalar = Salamander::Unicode::DecodeBytes(TextEncoding, Buffer + (offset - Seek), (std::size_t)len, offset, TRUE);
     return TRUE;
 }
 
 BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int64 maxCells,
-                                        Sally::Unicode::DecodedRun& visualLine, __int64& lineEnd,
+                                        Salamander::Unicode::DecodedRun& visualLine, __int64& lineEnd,
                                         __int64& nextLineBegin, BOOL& eol, BOOL& wrapped,
                                         int& eolBytes, BOOL& fatalErr)
 {
@@ -981,7 +981,7 @@ BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int
         return FALSE;
 
     __int64 off = max(lineOffset, TextContentOffset);
-    off = Sally::Unicode::AlignToCodeUnit(TextEncoding, off, TextContentOffset);
+    off = Salamander::Unicode::AlignToCodeUnit(TextEncoding, off, TextContentOffset);
     lineEnd = off;
     nextLineBegin = off;
     if (off >= FileSize)
@@ -990,7 +990,7 @@ BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int
     while (off < FileSize)
     {
         __int64 readEnd = min(FileSize, off + APROX_LINE_LEN + 8);
-        Sally::Unicode::DecodedRun decoded;
+        Salamander::Unicode::DecodedRun decoded;
         if (!DecodeTextRange(hFile, off, readEnd, decoded, fatalErr, readEnd >= FileSize))
             return FALSE;
         if (fatalErr)
@@ -1010,7 +1010,7 @@ BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int
                 {
                     if (Configuration.EOL_CRLF)
                     {
-                        Sally::Unicode::DecodedRun nextScalar;
+                        Salamander::Unicode::DecodedRun nextScalar;
                         bool haveNext = false;
                         if (i + 1 < decoded.CellCount())
                         {
@@ -1092,7 +1092,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
     BOOL previousEOL = FALSE;
     for (int i = 0; i < lines; i++)
     {
-        Sally::Unicode::DecodedRun visual;
+        Salamander::Unicode::DecodedRun visual;
         __int64 lineEnd = lineOffset;
         __int64 nextLineBegin = lineOffset;
         BOOL EOL = FALSE;
