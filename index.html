@@ -271,23 +271,23 @@
       const OWNER = "KRtkovo-eu-AI";
       const REPO = "salamander";
 
-      // Only show the files that belong to the public Windows x64 download block.
-      const ASSET_RE = /_win_x64\.(exe|zip)$/i;
+      // Assets shown in the Download block for the latest release.
+      // The global total below intentionally counts ALL release assets from ALL public releases.
+      const LATEST_ASSET_RE = /_win_x64\.(exe|zip)$/i;
 
       const info = document.getElementById("latest-release-info");
       const list = document.getElementById("latest-release-downloads");
 
       if (!info || !list) {
-        console.warn("Missing #latest-release-info or #latest-release-downloads.");
         return;
       }
-
-      const apiUrl = `https://api.github.com/repos/${OWNER}/${REPO}/releases?per_page=100`;
 
       const numberFormatter = new Intl.NumberFormat(undefined);
       const sizeFormatter = new Intl.NumberFormat(undefined, {
         maximumFractionDigits: 1
       });
+
+      const apiUrl = `https://api.github.com/repos/${OWNER}/${REPO}/releases?per_page=100`;
 
       const preferredOrder = (name) => {
         const lower = name.toLowerCase();
@@ -304,8 +304,14 @@
       };
 
       const formatSize = (bytes) => {
-        if (!Number.isFinite(bytes)) return "";
-        return `${sizeFormatter.format(bytes / 1048576)} MB`;
+        const value = Number(bytes);
+        if (!Number.isFinite(value)) return "";
+        return `${sizeFormatter.format(value / 1048576)} MB`;
+      };
+
+      const formatDownloads = (value) => {
+        const count = Number(value || 0);
+        return `${numberFormatter.format(count)} download${count === 1 ? "" : "s"}`;
       };
 
       const formatDate = (isoString) => {
@@ -317,28 +323,51 @@
         }).format(new Date(isoString));
       };
 
-      const formatDownloads = (value) => {
-        const count = Number(value || 0);
-        return `${numberFormatter.format(count)} download${count === 1 ? "" : "s"}`;
-      };
+      const getNextLink = (linkHeader) => {
+        if (!linkHeader) return null;
 
-      async function loadLatestReleaseDownloads() {
-        const response = await fetch(apiUrl, {
-          cache: "no-store",
-          headers: {
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28"
+        for (const part of linkHeader.split(",")) {
+          const match = part.match(/<([^>]+)>;\s*rel="([^"]+)"/);
+          if (match && match[2] === "next") {
+            return match[1];
           }
-        });
-
-        if (!response.ok) {
-          throw new Error(`GitHub API returned ${response.status}`);
         }
 
-        const releases = await response.json();
+        return null;
+      };
 
-        const latest = releases
-          .filter((release) => !release.draft)
+      async function fetchAllReleases() {
+        const releases = [];
+        let url = apiUrl;
+
+        while (url) {
+          const response = await fetch(url, {
+            cache: "no-store",
+            headers: {
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28"
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`GitHub API returned ${response.status}`);
+          }
+
+          const page = await response.json();
+          releases.push(...page);
+
+          url = getNextLink(response.headers.get("Link"));
+        }
+
+        return releases;
+      }
+
+      async function loadLatestReleaseDownloads() {
+        const releases = await fetchAllReleases();
+        const publicReleases = releases.filter((release) => !release.draft);
+
+        const latest = publicReleases
+          .slice()
           .sort((a, b) =>
             new Date(b.published_at || b.created_at) -
             new Date(a.published_at || a.created_at)
@@ -348,8 +377,17 @@
           throw new Error("No public GitHub release found.");
         }
 
+        // Same principle as github-release-stats: sum download_count across assets from all releases.
+        const allReleaseDownloads = publicReleases.reduce((releaseSum, release) => {
+          const assetDownloads = (release.assets || []).reduce((assetSum, asset) => {
+            return assetSum + Number(asset.download_count || 0);
+          }, 0);
+
+          return releaseSum + assetDownloads;
+        }, 0);
+
         const assets = (latest.assets || [])
-          .filter((asset) => ASSET_RE.test(asset.name))
+          .filter((asset) => LATEST_ASSET_RE.test(asset.name))
           .sort((a, b) =>
             preferredOrder(a.name) - preferredOrder(b.name) ||
             a.name.localeCompare(b.name)
@@ -359,7 +397,7 @@
           throw new Error(`Release ${latest.tag_name} has no matching x64 .exe/.zip assets.`);
         }
 
-        const totalDownloads = assets.reduce((sum, asset) => {
+        const latestReleaseDownloads = assets.reduce((sum, asset) => {
           return sum + Number(asset.download_count || 0);
         }, 0);
 
@@ -368,20 +406,30 @@
 
         info.replaceChildren();
 
-        const strong = document.createElement("strong");
-        strong.textContent = "Latest release: ";
+        const latestLabel = document.createElement("strong");
+        latestLabel.textContent = "Latest release: ";
 
         const releaseLink = document.createElement("a");
         releaseLink.href = latest.html_url;
         releaseLink.textContent = releaseName;
 
-        info.append(strong, releaseLink);
+        info.append(latestLabel, releaseLink);
 
         if (published) {
           info.append(`, published ${published}`);
         }
 
-        info.append(`, ${formatDownloads(totalDownloads)} for listed files`);
+        info.append(document.createElement("br"));
+
+        const allDownloadsLabel = document.createElement("strong");
+        allDownloadsLabel.textContent = "Total downloads: ";
+        info.append(allDownloadsLabel, `${formatDownloads(allReleaseDownloads)} across all releases`);
+
+        info.append(document.createElement("br"));
+
+        const latestDownloadsLabel = document.createElement("strong");
+        latestDownloadsLabel.textContent = "Latest release downloads: ";
+        info.append(latestDownloadsLabel, formatDownloads(latestReleaseDownloads));
 
         list.replaceChildren();
 
@@ -392,7 +440,7 @@
           link.href = asset.browser_download_url;
           link.textContent = asset.name;
 
-          const details = ` ${describeAsset(asset.name)} ~ ${formatSize(Number(asset.size))}`;
+          const details = ` ${describeAsset(asset.name)} ~ ${formatSize(asset.size)}`;
           const downloads = `; ${formatDownloads(asset.download_count)}`;
 
           li.append(link, details, downloads);
