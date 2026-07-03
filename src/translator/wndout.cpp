@@ -97,6 +97,8 @@ void OnContextMenu(HWND hWnd, int x, int y)
             InsertMenu(hMenu, -1, MF_BYPOSITION | MF_SEPARATOR, 0, "");
         }
     }
+    sprintf_s(buff, "Export to File...");
+    InsertMenu(hMenu, -1, MF_BYPOSITION, 20, buff);
     sprintf_s(buff, "Clear");
     InsertMenu(hMenu, -1, MF_BYPOSITION, 10, buff);
 
@@ -121,6 +123,64 @@ void OnContextMenu(HWND hWnd, int x, int y)
     case 10: // clear
     {
         OutWindow.Clear();
+        break;
+    }
+
+    case 20: // export to file
+    {
+        if (OutWindow.OutLines.Count == 0)
+        {
+            MessageBox(hWnd, "Output window is empty.", "Export", MB_OK | MB_ICONINFORMATION);
+            break;
+        }
+
+        char fileName[MAX_PATH];
+        fileName[0] = 0;
+        OPENFILENAME ofn;
+        memset(&ofn, 0, sizeof(OPENFILENAME));
+        ofn.lStructSize = sizeof(OPENFILENAME);
+        ofn.hwndOwner = hWnd;
+        ofn.lpstrFilter = "Text File (*.txt)\0*.txt\0All Files (*.*)\0*.*\0";
+        ofn.lpstrDefExt = "txt";
+        ofn.lpstrFile = fileName;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.nFilterIndex = 1;
+        ofn.lpstrTitle = "Export Output to File";
+        ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_LONGNAMES | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
+
+        if (GetSaveFileName(&ofn))
+        {
+            FILE* f;
+            if (fopen_s(&f, fileName, "w") == 0 && f != NULL)
+            {
+                for (int i = 0; i < OutWindow.OutLines.Count; i++)
+                {
+                    COutLine* line = &OutWindow.OutLines[i];
+                    const char* prefix = "";
+                    switch (line->MsgType)
+                    {
+                    case mteInfo:
+                        prefix = "[Info] ";
+                        break;
+                    case mteWarning:
+                        prefix = "[Warning] ";
+                        break;
+                    case mteError:
+                        prefix = "[Error] ";
+                        break;
+                    case mteSummary:
+                        prefix = "[Summary] ";
+                        break;
+                    }
+                    fprintf(f, "%s%s\n", prefix, line->Text);
+                }
+                fclose(f);
+            }
+            else
+            {
+                MessageBox(hWnd, "Cannot create the file.", "Export Error", MB_OK | MB_ICONEXCLAMATION);
+            }
+        }
         break;
     }
     }

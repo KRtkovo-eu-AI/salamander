@@ -433,6 +433,22 @@ CWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;   // pokud F1 nezpracujeme a pokud je to child okno, nechame F1 propadnout do parenta
         return TRUE; // pokud to neni child, ukoncime zpracovani F1
     }
+
+#ifdef INSIDE_SALAMANDER
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brushResult = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brushResult))
+            return brushResult;
+        break;
+    }
+#endif // INSIDE_SALAMANDER
     }
 #ifndef _UNICODE
     if (UnicodeWnd)

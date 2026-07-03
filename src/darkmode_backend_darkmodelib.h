@@ -14,6 +14,7 @@ bool IsAvailable();
 
 // Backend mirrors of selected darkmode APIs used by the host implementation.
 void ApplyTree(HWND hwnd);
+void RemoveTree(HWND hwnd);
 void ApplyMenuBar(HWND hwnd, bool enableDark);
 void ApplyCheckboxOrRadioButton(HWND hwnd, bool enableDark);
 void ApplyStatusBar(HWND hwnd, bool enableDark);

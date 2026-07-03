@@ -2500,6 +2500,33 @@ void DarkModeApplyWindow(HWND hwnd)
     ApplyControlTheme(hwnd);
 }
 
+void DarkModeSuspendForLightCreation()
+{
+    EnsureInitialized();
+    if (gSupported && gAllowDarkModeForApp)
+        gAllowDarkModeForApp(false);
+    else if (gSupported && gSetPreferredAppMode)
+        gSetPreferredAppMode(Default);
+}
+
+void DarkModeResumeAfterLightCreation()
+{
+    EnsureInitialized();
+    if (gSupported && gAllowDarkModeForApp)
+        gAllowDarkModeForApp(gEnabled);
+    else if (gSupported && gSetPreferredAppMode)
+        gSetPreferredAppMode(gEnabled ? AllowDark : Default);
+}
+
+void DarkModeRemoveTree(HWND hwnd)
+{
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::RemoveTree(hwnd);
+#endif
+    if (hwnd != NULL && gSupported && gAllowDarkModeForWindow)
+        gAllowDarkModeForWindow(hwnd, false);
+}
+
 void DarkModeApplyTree(HWND hwnd)
 {
 #if USE_DARKMODELIB

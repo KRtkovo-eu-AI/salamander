@@ -174,6 +174,21 @@ void ApplyTree(HWND hwnd)
 }
 
 
+void RemoveTree(HWND hwnd)
+{
+#if USE_DARKMODELIB
+    if (hwnd != NULL)
+    {
+        RemoveWindowAndChildSubclasses(hwnd);
+        dmlib::setChildCtrlsTheme(hwnd);
+        RemovePropW(hwnd, DARKMODELIB_TREE_STATE_PROP);
+        ApplyMenuBar(hwnd, false);
+    }
+#else
+    (void)hwnd;
+#endif
+}
+
 void ApplyMenuBar(HWND hwnd, bool enableDark)
 {
 #if USE_DARKMODELIB
