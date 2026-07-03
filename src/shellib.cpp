@@ -169,10 +169,12 @@ void CImpDropTarget::SetDirectory(const char* path, DWORD grfKeyState, POINTL pt
         CurDirDropTarget = NULL;
         CurDir[0] = 0;
         TgtType = idtttWindows;
+        TgtFile = FALSE;
         return;
     }
 
     TgtType = tgtType;
+    TgtFile = tgtIsFile;
     if (tgtType == idtttWindows)
     {
         if (strcmp(path, CurDir) != 0 || CurDirDropTarget == NULL)
@@ -194,7 +196,9 @@ void CImpDropTarget::SetDirectory(const char* path, DWORD grfKeyState, POINTL pt
                 CurDirDropTarget->DragLeave();
                 CurDirDropTarget->Release();
             }
-            if (tgtIsFile && dataObject != NULL && IsFakeDataObject(dataObject, NULL, NULL, 0))
+            if (!tgtIsFile && strlen(path) >= MAX_PATH)
+                CurDirDropTarget = NULL; // avoid unstable shell drop targets for long directories; we handle these ourselves
+            else if (tgtIsFile && dataObject != NULL && IsFakeDataObject(dataObject, NULL, NULL, 0))
                 CurDirDropTarget = NULL;
             else
                 CurDirDropTarget = CreateIDropTarget(OwnerWindow, path);
@@ -834,6 +838,23 @@ STDMETHODIMP CImpDropTarget::DragEnter(IDataObject* pDataObject,
                 pdwEffect = NULL; // drop-target error
             LastEffect = (pdwEffect != NULL) ? *pdwEffect : -1;
         }
+        else if (TgtType == idtttWindows && !TgtFile && !OldDataObjectIsFake &&
+                 (UseOwnRutine == NULL || UseOwnRutine(OldDataObject)))
+        {
+            if ((origKeyState & MK_SHIFT) != 0 && (origKeyState & MK_CONTROL) == 0 &&
+                (*pdwEffect & DROPEFFECT_MOVE) != 0)
+                *pdwEffect = DROPEFFECT_MOVE;
+            else if ((origKeyState & MK_SHIFT) == 0 && (origKeyState & MK_CONTROL) != 0 &&
+                     (*pdwEffect & DROPEFFECT_COPY) != 0)
+                *pdwEffect = DROPEFFECT_COPY;
+            else if ((*pdwEffect & DROPEFFECT_MOVE) != 0)
+                *pdwEffect = DROPEFFECT_MOVE;
+            else if ((*pdwEffect & DROPEFFECT_COPY) != 0)
+                *pdwEffect = DROPEFFECT_COPY;
+            else
+                *pdwEffect = DROPEFFECT_NONE;
+            LastEffect = *pdwEffect != DROPEFFECT_NONE ? *pdwEffect : -1;
+        }
         else
         {
             *pdwEffect = DROPEFFECT_NONE;
@@ -944,6 +965,23 @@ STDMETHODIMP CImpDropTarget::DragOver(DWORD grfKeyState, POINTL pt,
             if (*pdwEffect == DROPEFFECT_NONE)
                 pdwEffect = NULL; // drop-target error
             LastEffect = (pdwEffect != NULL) ? *pdwEffect : -1;
+        }
+        else if (TgtType == idtttWindows && !TgtFile && !OldDataObjectIsFake &&
+                 (UseOwnRutine == NULL || UseOwnRutine(OldDataObject)))
+        {
+            if ((origKeyState & MK_SHIFT) != 0 && (origKeyState & MK_CONTROL) == 0 &&
+                (*pdwEffect & DROPEFFECT_MOVE) != 0)
+                *pdwEffect = DROPEFFECT_MOVE;
+            else if ((origKeyState & MK_SHIFT) == 0 && (origKeyState & MK_CONTROL) != 0 &&
+                     (*pdwEffect & DROPEFFECT_COPY) != 0)
+                *pdwEffect = DROPEFFECT_COPY;
+            else if ((*pdwEffect & DROPEFFECT_MOVE) != 0)
+                *pdwEffect = DROPEFFECT_MOVE;
+            else if ((*pdwEffect & DROPEFFECT_COPY) != 0)
+                *pdwEffect = DROPEFFECT_COPY;
+            else
+                *pdwEffect = DROPEFFECT_NONE;
+            LastEffect = *pdwEffect != DROPEFFECT_NONE ? *pdwEffect : -1;
         }
         else
         {
@@ -1061,6 +1099,14 @@ STDMETHODIMP CImpDropTarget::Drop(IDataObject* pDataObject, DWORD grfKeyState,
                 if (CurDirDropTarget != NULL) // obtain the default drop effect
                 {
                     CurDirDropTarget->DragOver(grfKeyState, pt, &defEffect);
+                }
+                else if (!TgtFile && !OldDataObjectIsFake &&
+                         (UseOwnRutine == NULL || UseOwnRutine(OldDataObject)))
+                {
+                    defEffect = lastEffect != -1 ? lastEffect : *pdwEffect;
+                    defEffect &= DROPEFFECT_COPY | DROPEFFECT_MOVE;
+                    if (defEffect == 0)
+                        defEffect = DROPEFFECT_NONE;
                 }
                 else
                     defEffect = 0;

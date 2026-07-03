@@ -285,6 +285,7 @@ private:
     BOOL* ConfirmDropEnable;
 
     int TgtType; // see CIDTTgtType values; idtttWindows also for archives and FS where dropping the current data object is not possible
+    BOOL TgtFile;
     IDropTarget* CurDirDropTarget;
     char CurDir[2 * MAX_PATH];
 
@@ -318,6 +319,7 @@ public:
         GetCurDir = getCurDir;
         GetCurDirParam = getCurDirParam;
         TgtType = idtttWindows;
+        TgtFile = FALSE;
         CurDirDropTarget = NULL;
         CurDir[0] = 0;
         DropEnd = dropEnd;
