@@ -14,6 +14,7 @@ function Write-Usage {
     Write-Host 'Usage:'
     Write-Host '  codesign_certum.cmd --file <path-to-exe-dll-or-spl>'
     Write-Host '  codesign_certum.cmd --inno-x64 --payload-dir <Release_x64 payload directory>'
+    Write-Host '  codesign_certum.cmd --slg-by-lang --payload-dir <Release_x64 payload directory>'
     Write-Host ''
     Write-Host 'Required environment:'
     Write-Host '  CODESIGN_ENABLED=1'
@@ -61,8 +62,7 @@ function Test-ExcludedExternalBinary([string] $path) {
         'ucrtbase.dll',
         'vcruntime140.dll',
         'msvcp140.dll',
-        'concrt140.dll',
-        'dbghelp.dll'
+        'concrt140.dll'
     )
     if ($exactExclusions -contains $name) {
         return $true
@@ -264,6 +264,59 @@ function Sign-InnoPayload([string] $payloadDir, [string] $innoScript) {
     Sign-ManyFiles @($targets)
 }
 
+function Get-SlgFilesByLanguage([string] $payloadDir, [string] $innoScript) {
+    $sourcePaths = Get-InnoSourcePaths -innoScript $innoScript -payloadDir $payloadDir
+    $slgByLang = @{}
+
+    foreach ($path in $sourcePaths) {
+        $extension = [IO.Path]::GetExtension($path).ToLowerInvariant()
+        if ($extension -ne '.slg') {
+            continue
+        }
+        if (-not (Test-Path -LiteralPath $path)) {
+            continue
+        }
+
+        $langName = [IO.Path]::GetFileNameWithoutExtension($path).ToLowerInvariant()
+        $resolvedPath = (Resolve-Path -LiteralPath $path).Path
+
+        if (-not $slgByLang.ContainsKey($langName)) {
+            $slgByLang[$langName] = New-Object System.Collections.Generic.List[string]
+        }
+        $slgByLang[$langName].Add($resolvedPath)
+    }
+
+    return $slgByLang
+}
+
+function Sign-SlgByLanguage([string] $payloadDir, [string] $innoScript) {
+    $slgByLang = Get-SlgFilesByLanguage -payloadDir $payloadDir -innoScript $innoScript
+
+    if ($slgByLang.Count -eq 0) {
+        throw "No .slg files were found in $payloadDir from $innoScript."
+    }
+
+    Write-Host "Found $($slgByLang.Count) language(s) with .slg files to sign."
+    $totalFiles = 0
+    foreach ($lang in ($slgByLang.Keys | Sort-Object)) {
+        $count = $slgByLang[$lang].Count
+        $totalFiles += $count
+        Write-Host "  ${lang}: $count file(s)"
+    }
+    Write-Host "Total: $totalFiles file(s)"
+    Write-Host ''
+
+    foreach ($lang in ($slgByLang.Keys | Sort-Object)) {
+        $files = $slgByLang[$lang]
+        Write-Host "Signing language: $lang ($($files.Count) file(s)) ..."
+        foreach ($file in $files) {
+            Write-Host "  $file"
+        }
+        Sign-ManyFiles @($files)
+        Write-Host ''
+    }
+}
+
 if ($Arguments.Count -eq 0) {
     Write-Usage
     exit 2
@@ -308,6 +361,37 @@ switch ($mode) {
             throw 'Use --payload-dir or set OPENSAL_BUILD_DIR.'
         }
         Sign-InnoPayload -payloadDir $payloadDir -innoScript $innoScript
+    }
+    '--slg-by-lang' {
+        $payloadDir = $null
+        $innoScript = $defaultInnoScript
+        for ($i = 1; $i -lt $Arguments.Count; $i++) {
+            switch ($Arguments[$i].ToLowerInvariant()) {
+                '--payload-dir' {
+                    $i++
+                    if ($i -ge $Arguments.Count) { throw '--payload-dir requires a value.' }
+                    $payloadDir = $Arguments[$i]
+                }
+                '--inno-script' {
+                    $i++
+                    if ($i -ge $Arguments.Count) { throw '--inno-script requires a value.' }
+                    $innoScript = $Arguments[$i]
+                }
+                default {
+                    throw "Unknown argument for --slg-by-lang: $($Arguments[$i])"
+                }
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($payloadDir)) {
+            $buildRoot = [Environment]::GetEnvironmentVariable('OPENSAL_BUILD_DIR')
+            if (-not [string]::IsNullOrWhiteSpace($buildRoot)) {
+                $payloadDir = Join-Path $buildRoot 'salamander\Release_x64'
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($payloadDir)) {
+            throw 'Use --payload-dir or set OPENSAL_BUILD_DIR.'
+        }
+        Sign-SlgByLanguage -payloadDir $payloadDir -innoScript $innoScript
     }
     default {
         Write-Usage

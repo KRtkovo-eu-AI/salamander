@@ -17,6 +17,7 @@ exit /b %ERRORLEVEL%
 echo Usage:
 echo   %~nx0 --file ^<path-to-exe-dll-or-spl^>
 echo   %~nx0 --inno-x64 --payload-dir ^<Release_x64 payload directory^>
+echo   %~nx0 --slg-by-lang --payload-dir ^<Release_x64 payload directory^>
 echo.
 echo Required environment:
 echo   CODESIGN_ENABLED=1
