@@ -1270,15 +1270,21 @@ BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
                         int dxHotspot, dyHotspot;
                         int imgWidth, imgHeight;
                         hDragIL = CreateDragImage(LButtonDown.x, LButtonDown.y, dxHotspot, dyHotspot, imgWidth, imgHeight);
-                        ImageList_BeginDrag(hDragIL, 0, dxHotspot, dyHotspot);
-                        ImageDragBegin(imgWidth, imgHeight, dxHotspot, dyHotspot);
+                        if (hDragIL != NULL)
+                        {
+                            ImageList_BeginDrag(hDragIL, 0, dxHotspot, dyHotspot);
+                            ImageDragBegin(imgWidth, imgHeight, dxHotspot, dyHotspot);
+                        }
 
                         UserWorkedOnThisPath = TRUE;
                         ShellAction(this, DragDropLeftMouseBtn ? saLeftDragFiles : saRightDragFiles);
 
-                        ImageDragEnd();
-                        ImageList_EndDrag();
-                        ImageList_Destroy(hDragIL);
+                        if (hDragIL != NULL)
+                        {
+                            ImageDragEnd();
+                            ImageList_EndDrag();
+                            ImageList_Destroy(hDragIL);
+                        }
                         PerformingDragDrop = FALSE;
 
                         IdleRefreshStates = TRUE; // force checking status variables on the next Idle
@@ -1600,7 +1606,7 @@ HIMAGELIST
 CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyHotspot, int& imgWidth, int& imgHeight)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::CreateDragImage(%d, %d, , , )", cursorX, cursorY);
-    char buff[MAX_PATH];
+    char buff[2 * MAX_PATH];
     int selCount = GetSelCount();
     int iconWidth = 0;
     int itemIndex = 0;
@@ -1625,7 +1631,7 @@ CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyH
                     files++;
             }
         }
-        ExpandPluralFilesDirs(buff, MAX_PATH, files, dirs, epfdmSelected, FALSE);
+        ExpandPluralFilesDirs(buff, 2 * MAX_PATH, files, dirs, epfdmSelected, FALSE);
     }
     else
     {

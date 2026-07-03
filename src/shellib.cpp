@@ -1260,13 +1260,13 @@ STDMETHODIMP CImpDropTarget::Drop(IDataObject* pDataObject, DWORD grfKeyState,
                     TryCopyOrMove(defEffect == DROPEFFECT_COPY, pDataObject, CF_FileMapA,
                                   CF_FileMapW, cfFileMapA, cfFileMapW))
                 {
+                    operationDone = TRUE;
+                    ret = S_OK;
                     if (CurDirDropTarget != NULL)
                     {
                         CurDirDropTarget->DragLeave();
                         CurDirDropTarget->Release();
                         CurDirDropTarget = NULL;
-                        operationDone = TRUE;
-                        ret = S_OK;
                     }
                 }
             }
