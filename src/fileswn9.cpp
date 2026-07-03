@@ -268,8 +268,6 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                 }
                 if (GetClipboardData(cfSalDataObject) != NULL)
                     ourClipDataObject = TRUE;
-                else
-                    ownRutine = FALSE; // if it is not our IDataObject, we won't perform our own operation
                 CloseClipboard();
             }
             else
@@ -279,7 +277,7 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
             {
                 effect = (dropEffect & (DROPEFFECT_COPY | DROPEFFECT_MOVE));
                 if (effect == 0)
-                    ownRutine = FALSE; // neither copy nor move - we do not support anything else
+                    effect = DROPEFFECT_COPY; // Explorer usually provides this, but Copy is the safe fallback
             }
         }
         filesOnClip = files && ourClipDataObject;
@@ -287,9 +285,9 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
         if (ownRutine) // execute our own routine - copy or move
         {
             if (pastePath != NULL)
-                strcpy(DropPath, pastePath);
+                lstrcpyn(DropPath, pastePath, SAL_MAX_PATH);
             else
-                strcpy(DropPath, GetPath());
+                lstrcpyn(DropPath, GetPath(), SAL_MAX_PATH);
             CImpDropTarget* dropTarget = new CImpDropTarget(MainWindow->HWindow, DoCopyMove, this,
                                                             GetCurrentDirClipboard, this,
                                                             DropEnd, this, NULL, NULL, NULL, NULL,
@@ -297,7 +295,7 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                                                             NULL, NULL);
             if (dropTarget != NULL)
             {
-                OurClipDataObject = ourClipDataObject;
+                OurClipDataObject = TRUE;
                 POINTL pt;
                 pt.x = pt.y = 0;
                 DWORD eff = effect;
