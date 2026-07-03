@@ -177,6 +177,18 @@ void CImpDropTarget::SetDirectory(const char* path, DWORD grfKeyState, POINTL pt
     {
         if (strcmp(path, CurDir) != 0 || CurDirDropTarget == NULL)
         {
+            if (strlen(path) >= sizeof(CurDir))
+            {
+                TRACE_E("CImpDropTarget::SetDirectory(): too long path!");
+                if (CurDirDropTarget != NULL)
+                {
+                    CurDirDropTarget->DragLeave();
+                    CurDirDropTarget->Release();
+                    CurDirDropTarget = NULL;
+                }
+                CurDir[0] = 0;
+                return;
+            }
             if (CurDirDropTarget != NULL)
             {
                 CurDirDropTarget->DragLeave();
@@ -201,6 +213,18 @@ void CImpDropTarget::SetDirectory(const char* path, DWORD grfKeyState, POINTL pt
     }
     else // archives + filesystem
     {
+        if (strlen(path) >= sizeof(CurDir))
+        {
+            TRACE_E("CImpDropTarget::SetDirectory(): too long path!");
+            if (CurDirDropTarget != NULL)
+            {
+                CurDirDropTarget->DragLeave();
+                CurDirDropTarget->Release();
+                CurDirDropTarget = NULL;
+            }
+            CurDir[0] = 0;
+            return;
+        }
         if (CurDirDropTarget != NULL)
         {
             CurDirDropTarget->DragLeave();

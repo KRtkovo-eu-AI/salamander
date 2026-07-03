@@ -281,6 +281,12 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                     {
                         panel->SetDropTarget(index);
                         int l = (int)strlen(panel->GetZIPPath());
+                        if (l >= (int)sizeof(panel->DropPath))
+                        {
+                            TRACE_E("GetCurrentDir(): too long path!");
+                            panel->SetDropTarget(-1);
+                            return NULL;
+                        }
                         memcpy(panel->DropPath, panel->GetZIPPath(), l);
                         if (index == 0 && strcmp(panel->Dirs->At(index).Name, "..") == 0)
                         {
@@ -307,7 +313,7 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                         {
                             if (l > 0 && panel->DropPath[l - 1] != '\\')
                                 panel->DropPath[l++] = '\\';
-                            if (l + panel->Dirs->At(index).NameLen >= MAX_PATH)
+                            if (l + panel->Dirs->At(index).NameLen >= (int)sizeof(panel->DropPath))
                             {
                                 TRACE_E("GetCurrentDir(): too long file name!");
                                 tgtType = idtttWindows;
@@ -459,6 +465,12 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
 
         panel->SetDropTarget(index);
         int l = (int)strlen(panel->GetPath());
+        if (l >= (int)sizeof(panel->DropPath))
+        {
+            TRACE_E("GetCurrentDir(): too long path!");
+            panel->SetDropTarget(-1);
+            return NULL;
+        }
         memcpy(panel->DropPath, panel->GetPath(), l);
         if (strcmp(panel->Dirs->At(index).Name, "..") == 0)
         {
@@ -474,7 +486,7 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
         {
             if (panel->GetPath()[l - 1] != '\\')
                 panel->DropPath[l++] = '\\';
-            if (l + panel->Dirs->At(index).NameLen >= MAX_PATH)
+            if (l + panel->Dirs->At(index).NameLen >= (int)sizeof(panel->DropPath))
             {
                 TRACE_E("GetCurrentDir(): too long file name!");
                 panel->SetDropTarget(-1); // hide the marker
@@ -504,6 +516,12 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
             }
             char fullName[MAX_PATH];
             int l = (int)strlen(panel->GetPath());
+            if (l >= MAX_PATH)
+            {
+                TRACE_E("GetCurrentDir(): too long path!");
+                panel->SetDropTarget(-1); // hide the marker
+                return NULL;
+            }
             memcpy(fullName, panel->GetPath(), l);
             if (fullName[l - 1] != '\\')
                 fullName[l++] = '\\';
