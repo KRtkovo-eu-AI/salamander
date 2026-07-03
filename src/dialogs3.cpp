@@ -217,18 +217,25 @@ void AddAutoCompleteItem(std::vector<std::wstring>& items, const std::wstring& i
         items.push_back(item);
 }
 
-void AddCurrentDirectoryAutoCompleteItem(std::vector<std::wstring>& items, const char* name)
+void AddCurrentDirectoryAutoCompleteItem(std::vector<std::wstring>& items, const CFileData& fileData)
 {
-    if (name == NULL || name[0] == 0 || strcmp(name, "..") == 0)
+    if (fileData.Name == NULL || fileData.Name[0] == 0 || strcmp(fileData.Name, "..") == 0)
         return;
 
-    int wideLen = MultiByteToWideChar(CP_ACP, 0, name, -1, NULL, 0);
+    if (fileData.UseWideName())
+    {
+        AddAutoCompleteItem(items, fileData.NameW);
+        return;
+    }
+
+    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    int wideLen = MultiByteToWideChar(codePage, 0, fileData.Name, -1, NULL, 0);
     if (wideLen <= 1)
         return;
 
     std::wstring wideName;
     wideName.resize(wideLen - 1);
-    MultiByteToWideChar(CP_ACP, 0, name, -1, &wideName[0], wideLen);
+    MultiByteToWideChar(codePage, 0, fileData.Name, -1, &wideName[0], wideLen);
     AddAutoCompleteItem(items, wideName);
 }
 
@@ -264,13 +271,14 @@ std::wstring MultiByteToWideString(const char* text)
     if (text == NULL || text[0] == 0)
         return std::wstring();
 
-    int wideLen = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
+    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    int wideLen = MultiByteToWideChar(codePage, 0, text, -1, NULL, 0);
     if (wideLen <= 1)
         return std::wstring();
 
     std::wstring wideText;
     wideText.resize(wideLen - 1);
-    MultiByteToWideChar(CP_ACP, 0, text, -1, &wideText[0], wideLen);
+    MultiByteToWideChar(codePage, 0, text, -1, &wideText[0], wideLen);
     return wideText;
 }
 
@@ -430,9 +438,9 @@ HRESULT EnableCurrentDirectoryAutoComplete(HWND hEdit)
     if (panel != NULL)
     {
         for (int i = 0; i < panel->Dirs->Count; ++i)
-            AddCurrentDirectoryAutoCompleteItem(items, panel->Dirs->At(i).Name);
+            AddCurrentDirectoryAutoCompleteItem(items, panel->Dirs->At(i));
         for (int i = 0; i < panel->Files->Count; ++i)
-            AddCurrentDirectoryAutoCompleteItem(items, panel->Files->At(i).Name);
+            AddCurrentDirectoryAutoCompleteItem(items, panel->Files->At(i));
 
         if (panel->Is(ptDisk))
             basePath = MultiByteToWideString(panel->GetPath());
@@ -1585,7 +1593,10 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
-        InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+        HWND hPathEdit = ResolveComboEditControl(hPath);
+        const BOOL unicodePathInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
+        if (!unicodePathInput)
+            InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
         PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
         // since 2.53 we can save options, so IDC_CM_STARTONIDLE must always be enabled so the user can preset it
@@ -1596,7 +1607,8 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         MoreButton = new CButton(HWindow, IDC_MORE, BTF_MORE | BTF_CHECKBOX);
         SetOptionsButtonState(TRUE);
 
-        CreateKeyForwarder(HWindow, IDE_PATH);                  // so that we receive WM_USER_KEYDOWN
+        if (!unicodePathInput)
+            CreateKeyForwarder(HWindow, IDE_PATH);                  // so that we receive WM_USER_KEYDOWN
         ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right
 
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
@@ -1875,7 +1887,7 @@ void CChangeDirDlg::Transfer(CTransferInfo& ti)
         if (ti.Type == ttDataToWindow)
         {
             LoadComboFromStdHistoryValues(hWnd, history, CHANGEDIR_HISTORY_SIZE);
-            SendMessage(hWnd, CB_LIMITTEXT, 2 * MAX_PATH - 1, 0);
+            SendMessage(hWnd, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
             SetControlTextUtf8(hWnd, Path);
         }
         else
@@ -1909,7 +1921,6 @@ CChangeDirDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (!unicodePathInput)
         {
             InstallWordBreakProc(hPath);       // install WordBreakProc into the combobox
-        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
             CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         }
         ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right

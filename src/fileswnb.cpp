@@ -852,7 +852,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_CHANGEDIR:
     {
         // postprocessing provedeme jen u cest, ktere jsme ziskali jako text (a ne primo dropnutim adresare)
-        char buff[2 * MAX_PATH];
+        char buff[SAL_MAX_PATH];
         strcpy_s(buff, (char*)lParam);
         if (!(BOOL)wParam || PostProcessPathFromUser(HWindow, buff))
             ChangeDir(buff, -1, NULL, 3 /*change-dir*/, NULL, (BOOL)wParam);

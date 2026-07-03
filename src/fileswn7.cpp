@@ -405,7 +405,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
 
     //---  obtain the files and directories to work with
     char subject[MAX_PATH + 100]; // text for the Unpack dialog (which is being unpacked)
-    char path[MAX_PATH + 200];
+    char path[SAL_MAX_PATH];
     char expanded[200];
     CPanelTmpEnumData data;
     BOOL subDir;
@@ -547,7 +547,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             }
         }
 
-        CCopyMoveDialog dlg(HWindow, path, MAX_PATH, LoadStr(IDS_UNPACKCOPY), &str, IDD_COPYDIALOG,
+        CCopyMoveDialog dlg(HWindow, path, SAL_MAX_PATH, LoadStr(IDS_UNPACKCOPY), &str, IDD_COPYDIALOG,
                             Configuration.CopyHistory, COPY_HISTORY_SIZE, TRUE);
 
     _DLG_AGAIN:

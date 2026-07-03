@@ -2038,9 +2038,9 @@ BOOL CFilesWindow::ChangeDir(const char* newDir, int suggestedTopIndex, const ch
 
     MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
     char absFSPath[MAX_PATH];
-    char path[2 * MAX_PATH];
+    char path[SAL_MAX_PATH];
     char errBuf[3 * MAX_PATH + 100];
-    GetGeneralPath(path, 2 * MAX_PATH, TRUE);
+    GetGeneralPath(path, SAL_MAX_PATH, TRUE);
     BOOL sendDirectlyToPlugin = FALSE;
     CChangeDirDlg dlg(HWindow, path, MainWindow->GetActivePanel()->Is(ptPluginFS) ? &sendDirectlyToPlugin : NULL);
 
@@ -2069,7 +2069,7 @@ CHANGE_AGAIN:
 
         UpdateWindow(MainWindow->HWindow);
         if (newDir != NULL)
-            lstrcpyn(path, newDir, 2 * MAX_PATH);
+            lstrcpyn(path, newDir, SAL_MAX_PATH);
         else // focus and top-index setting won't be done for path from dialog
         {
             suggestedTopIndex = -1;

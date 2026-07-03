@@ -1484,11 +1484,11 @@ void CFilesWindow::EditNewFile()
     // restore DefaultDir
     MainWindow->UpdateDefaultDir(TRUE);
 
-    char path[MAX_PATH];
+    char path[SAL_MAX_PATH];
     if (Configuration.UseEditNewFileDefault)
-        lstrcpyn(path, Configuration.EditNewFileDefault, MAX_PATH);
+        lstrcpyn(path, Configuration.EditNewFileDefault, SAL_MAX_PATH);
     else
-        lstrcpyn(path, LoadStr(IDS_EDITNEWFILE_DEFAULTNAME), MAX_PATH);
+        lstrcpyn(path, LoadStr(IDS_EDITNEWFILE_DEFAULTNAME), SAL_MAX_PATH);
     CTruncatedString subject;
     subject.Set(LoadStr(IDS_NEWFILENAME), NULL);
 
@@ -1496,7 +1496,7 @@ void CFilesWindow::EditNewFile()
 
     while (1)
     {
-        CEditNewFileDialog dlg(HWindow, path, MAX_PATH, &subject, Configuration.EditNewHistory, EDITNEW_HISTORY_SIZE);
+        CEditNewFileDialog dlg(HWindow, path, SAL_MAX_PATH, &subject, Configuration.EditNewHistory, EDITNEW_HISTORY_SIZE);
 
         // Some users always create .txt and are satisfied with overwriting just the extension; others create various files and want to overwrite the whole name,
         // so we compromised and introduced a dedicated option for Edit New File in the configuration.
@@ -1955,7 +1955,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
     CALL_STACK_MESSAGE1("CFilesWindow::CreateDir()");
     BeginStopRefresh(); // snooper takes a break
 
-    char path[3 * MAX_PATH], nextFocus[3 * MAX_PATH];
+    char path[SAL_MAX_PATH], nextFocus[SAL_MAX_PATH];
     path[0] = 0;
     nextFocus[0] = 0;
 
@@ -1966,7 +1966,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
     {
         CTruncatedString subject;
         subject.Set(LoadStr(IDS_CREATEDIRECTORY_TEXT), NULL);
-        CCopyMoveDialog dlg(HWindow, path, 3 * MAX_PATH, LoadStr(IDS_CREATEDIRECTORY_TITLE),
+        CCopyMoveDialog dlg(HWindow, path, SAL_MAX_PATH, LoadStr(IDS_CREATEDIRECTORY_TITLE),
                             &subject, IDD_CREATEDIRDIALOG,
                             Configuration.CreateDirHistory, CREATEDIR_HISTORY_SIZE,
                             FALSE);
@@ -2103,7 +2103,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                 {
                     CTruncatedString subject;
                     subject.Set(LoadStr(IDS_CREATEDIRECTORY_TEXT), NULL);
-                    CCopyMoveDialog dlg(HWindow, path, 2 * MAX_PATH, LoadStr(IDS_CREATEDIRECTORY_TITLE),
+                    CCopyMoveDialog dlg(HWindow, path, SAL_MAX_PATH, LoadStr(IDS_CREATEDIRECTORY_TITLE),
                                         &subject, IDD_CREATEDIRDIALOG,
                                         Configuration.CreateDirHistory, CREATEDIR_HISTORY_SIZE,
                                         FALSE);
@@ -2521,20 +2521,20 @@ void CFilesWindow::RenameFile(int specialIndex)
     BOOL isDir = i < Dirs->Count;
     f = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
 
-    char formatedFileName[3 * MAX_PATH];
+    char formatedFileName[SAL_MAX_PATH];
     AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
     std::wstring formatedFileNameW = FileDataDisplayNameW(f, formatedFileName);
     if (f->UseWideName())
     {
         std::string formatedUtf8 = WideFileNameToMultiByteBest(formatedFileNameW);
-        lstrcpyn(formatedFileName, formatedUtf8.c_str(), 3 * MAX_PATH);
+        lstrcpyn(formatedFileName, formatedUtf8.c_str(), SAL_MAX_PATH);
     }
 
     char buff[200];
     sprintf(buff, LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
     CTruncatedString subject;
     subject.SetW(SalMultiByteToWidePath(buff, CP_ACP).c_str(), formatedFileNameW.c_str());
-    CCopyMoveDialog dlg(HWindow, formatedFileName, 3 * MAX_PATH, LoadStr(IDS_RENAME_TITLE),
+    CCopyMoveDialog dlg(HWindow, formatedFileName, SAL_MAX_PATH, LoadStr(IDS_RENAME_TITLE),
                         &subject, IDD_RENAMEDIALOG, Configuration.QuickRenameHistory,
                         QUICKRENAME_HISTORY_SIZE, FALSE);
 

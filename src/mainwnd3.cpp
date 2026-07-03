@@ -1826,7 +1826,7 @@ void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
     if (panel->IsTabLocked())
         return;
 
-    char buffer[2 * MAX_PATH];
+    char buffer[SAL_MAX_PATH];
     buffer[0] = 0;
 
     if (panel->HasCustomTabPrefix())
@@ -1837,7 +1837,7 @@ void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
         buffer[_countof(buffer) - 1] = 0;
     }
 
-    char caption[2 * MAX_PATH];
+    char caption[SAL_MAX_PATH];
     BuildTabCaption(panel, caption, _countof(caption));
 
     CTruncatedString subject;

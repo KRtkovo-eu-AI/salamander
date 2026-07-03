@@ -615,7 +615,7 @@ BOOL CFilesWindow::IsTextOnClipboard()
     return text;
 }
 
-BOOL CFilesWindow::PostProcessPathFromUser(HWND parent, char (&buff)[2 * MAX_PATH])
+BOOL CFilesWindow::PostProcessPathFromUser(HWND parent, char (&buff)[SAL_MAX_PATH])
 {
     if (!IsFileURLPath(buff) && IsPluginFSPath(buff))
         return TRUE; // let the FS plugin handle the processing
@@ -666,7 +666,7 @@ BOOL CFilesWindow::PostProcessPathFromUser(HWND parent, char (&buff)[2 * MAX_PAT
 void CFilesWindow::ClipboardPastePath()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ClipboardPastePath()");
-    char buff[2 * MAX_PATH];
+    char buff[SAL_MAX_PATH];
     buff[0] = 0;
     BOOL changePath = FALSE;
 

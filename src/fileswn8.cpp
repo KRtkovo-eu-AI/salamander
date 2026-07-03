@@ -256,17 +256,17 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 #endif // _WIN64
 
         //---  build the target path for copy/move
-        char path[2 * MAX_PATH + 200]; // +200 is a reserve (Windows can create paths longer than MAX_PATH)
-        target->GetGeneralPath(path, 2 * MAX_PATH + 200);
+        char path[SAL_MAX_PATH];
+        target->GetGeneralPath(path, SAL_MAX_PATH);
         if (target->Is(ptDisk))
         {
-            SalPathAppend(path, "*.*", 2 * MAX_PATH + 200);
+            SalPathAppend(path, "*.*", SAL_MAX_PATH);
         }
         else
         {
             if (target->Is(ptZIPArchive))
             {
-                SalPathAddBackslash(path, 2 * MAX_PATH + 200);
+                SalPathAddBackslash(path, SAL_MAX_PATH);
 
                 // if packing to the archive in the other panel is not possible, leave the path empty
                 int format = PackerFormatConfig.PackIsArchive(target->GetZIPArchive());
@@ -460,9 +460,9 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 havePermissions = (flags & FS_PERSISTENT_ACLS) != 0;
             while (1)
             {
-                if (strlen(path) >= 2 * MAX_PATH)
+                if (strlen(path) >= SAL_MAX_PATH)
                     path[0] = 0; // the path is too long; not an ideal solution but I'm not up for a better one now :(
-                res = (int)CCopyMoveMoreDialog(HWindow, path, 2 * MAX_PATH,
+                res = (int)CCopyMoveMoreDialog(HWindow, path, SAL_MAX_PATH,
                                                (type == atCopy) ? LoadStr(IDS_COPY) : LoadStr(IDS_MOVE), &str,
                                                (type == atCopy) ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
                                                Configuration.CopyHistory, COPY_HISTORY_SIZE,

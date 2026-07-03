@@ -466,9 +466,9 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
                     targetSelectedDirs = 1;
             }
 
-            char targetPath[2 * MAX_PATH];
+            char targetPath[SAL_MAX_PATH];
             if (target->Is(ptDisk))
-                target->GetGeneralPath(targetPath, 2 * MAX_PATH);
+                target->GetGeneralPath(targetPath, SAL_MAX_PATH);
             else
             {
                 targetPath[0] = 0;
@@ -512,7 +512,7 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
             {
                 if (!cancelOrHandlePath) // standard dialog
                 {
-                    if (CCopyMoveDialog(HWindow, targetPath, 2 * MAX_PATH,
+                    if (CCopyMoveDialog(HWindow, targetPath, SAL_MAX_PATH,
                                         LoadStr(copy ? IDS_COPY : IDS_MOVE), &str,
                                         copy ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
                                         Configuration.CopyHistory, COPY_HISTORY_SIZE,
