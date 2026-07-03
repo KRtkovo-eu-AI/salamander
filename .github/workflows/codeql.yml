@@ -27,7 +27,6 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: s
 
     env:
       BUILD_CONFIGURATION: Release
@@ -38,7 +37,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          path: s
           ref: ${{ github.event.inputs['target-ref'] || github.ref }}
           fetch-depth: 2
 
