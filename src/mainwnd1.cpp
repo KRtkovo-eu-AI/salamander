@@ -31,6 +31,7 @@
 const char* SALAMANDER_TEXT_VERSION = "Open Salamander 5.0 Samandarin " VERSINFO_SAMANDARIN_VERSION " (" SAL_VER_PLATFORM ") ";
 
 static void Utf8SafeCopyWindowTitle(char* target, int targetSize, const char* source);
+static std::wstring MultiByteToWindowTitleWide(const char* text);
 
 //****************************************************************************
 //
@@ -1997,6 +1998,115 @@ static void TruncateUtf8WindowTitle(char* title, int maxLen)
     title[GetUtf8WindowTitleSafeCut(title, maxLen)] = 0;
 }
 
+static int GetWindowTitleTextWidth(HWND hWnd, const char* text)
+{
+    std::wstring wideText = MultiByteToWindowTitleWide(text);
+    if (wideText.empty())
+        return 0;
+
+    NONCLIENTMETRICS ncm;
+    memset(&ncm, 0, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+    HFONT font = NULL;
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
+        font = CreateFontIndirect(&ncm.lfCaptionFont);
+
+    HDC dc = GetDC(hWnd);
+    if (dc == NULL)
+    {
+        if (font != NULL)
+            DeleteObject(font);
+        return 0;
+    }
+
+    HGDIOBJ oldFont = NULL;
+    if (font != NULL)
+        oldFont = SelectObject(dc, font);
+
+    SIZE size;
+    size.cx = 0;
+    size.cy = 0;
+    GetTextExtentPoint32W(dc, wideText.c_str(), (int)wideText.length(), &size);
+
+    if (oldFont != NULL)
+        SelectObject(dc, oldFont);
+    ReleaseDC(hWnd, dc);
+    if (font != NULL)
+        DeleteObject(font);
+
+    return size.cx;
+}
+
+static int GetWindowTitleAvailableTextWidth(HWND hWnd)
+{
+    RECT rect;
+    if (hWnd == NULL || !GetWindowRect(hWnd, &rect))
+        return 0;
+
+    int width = rect.right - rect.left;
+    int buttons = GetSystemMetrics(SM_CXSIZE) * 3;
+    int paddedBorder = 0;
+#ifdef SM_CXPADDEDBORDER
+    paddedBorder = GetSystemMetrics(SM_CXPADDEDBORDER);
+#endif
+    int frame = GetSystemMetrics(SM_CXFRAME) * 2 + paddedBorder * 2;
+    int icon = GetSystemMetrics(SM_CXSMICON) + GetSystemMetrics(SM_CXEDGE) * 4;
+    int padding = GetSystemMetrics(SM_CXEDGE) * 6;
+    int available = width - buttons - frame - icon - padding;
+    return available > 0 ? available : 0;
+}
+
+static void TruncateUtf8WindowTitleToFit(HWND hWnd, char* prefixAndPath, int prefixAndPathSize, const char* suffix)
+{
+    if (prefixAndPath == NULL || suffix == NULL || prefixAndPath[0] == 0)
+        return;
+
+    int available = GetWindowTitleAvailableTextWidth(hWnd);
+    if (available <= 0)
+        return;
+
+    char testTitle[4 * SAL_MAX_PATH + 300];
+    testTitle[0] = 0;
+    AppendToWindowTitle(testTitle, sizeof(testTitle), prefixAndPath);
+    AppendToWindowTitle(testTitle, sizeof(testTitle), " - ");
+    AppendToWindowTitle(testTitle, sizeof(testTitle), suffix);
+    if (GetWindowTitleTextWidth(hWnd, testTitle) <= available)
+        return;
+
+    int low = 0;
+    int high = min((int)strlen(prefixAndPath), prefixAndPathSize);
+    int best = 0;
+    while (low <= high)
+    {
+        int mid = (low + high) / 2;
+        int cut = GetUtf8WindowTitleSafeCut(prefixAndPath, mid);
+
+        char candidatePrefix[4 * SAL_MAX_PATH];
+        Utf8SafeCopyWindowTitle(candidatePrefix, sizeof(candidatePrefix), prefixAndPath);
+        candidatePrefix[cut] = 0;
+
+        testTitle[0] = 0;
+        if (candidatePrefix[0] != 0)
+        {
+            AppendToWindowTitle(testTitle, sizeof(testTitle), candidatePrefix);
+            AppendToWindowTitle(testTitle, sizeof(testTitle), " - ");
+        }
+        AppendToWindowTitle(testTitle, sizeof(testTitle), suffix);
+
+        if (GetWindowTitleTextWidth(hWnd, testTitle) <= available)
+        {
+            best = cut;
+            low = mid + 1;
+        }
+        else
+        {
+            high = mid - 1;
+        }
+    }
+
+    prefixAndPath[best] = 0;
+}
+
 static void TrimTrailingWindowTitleSpaces(char* title)
 {
     if (title == NULL)
@@ -2123,6 +2233,7 @@ void CMainWindow::SetWindowTitle(const char* text)
         }
 
         TruncateUtf8WindowTitle(prefixAndPath, prefixAndPathSize);
+        TruncateUtf8WindowTitleToFit(HWindow, prefixAndPath, prefixAndPathSize, stdSuffix);
         stdWndName[0] = 0;
         if (prefixAndPath[0] != 0)
         {
