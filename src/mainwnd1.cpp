@@ -2033,7 +2033,7 @@ static void EnsureAppNameVisibleInTitle(HWND hwnd, std::wstring& title, const st
 
     std::wstring prefix = title.substr(0, prefixEnd);
     const std::wstring ellipsis = L"...";
-    const int maxTitleChars = 160; // keep comfortably below common caption/control text limits
+    const int maxTitleChars = 96; // keep app suffix inside the real caption text
     if ((int)title.length() > maxTitleChars)
     {
         int maxPrefixChars = maxTitleChars - (int)(ellipsis.length() + separator.length() + appSuffix.length());
