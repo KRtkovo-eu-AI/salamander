@@ -51,10 +51,15 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
 
     int suffixVW = StringVisualWidth(appSuffix);
     int sepVW = StringVisualWidth(separator);
-    int totalVWLimit = 68;
+    // Keep the logical title text as "{path} - {application}", but shorten
+    // the path early enough that Windows can paint the whole application
+    // suffix on the tested 890px-wide main window.  Unicode directory names
+    // (especially CJK) consume more title-bar pixels than their UTF-16 length,
+    // so this deliberately reserves a larger safety margin for the suffix.
+    int totalVWLimit = 58;
     int maxPrefixVW = totalVWLimit - suffixVW - sepVW - 3;
-    if (maxPrefixVW < 10)
-        maxPrefixVW = 10;
+    if (maxPrefixVW < 6)
+        maxPrefixVW = 6;
 
     int vw = 0;
     size_t cutAt = 0;

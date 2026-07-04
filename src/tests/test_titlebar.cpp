@@ -1,4 +1,6 @@
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <stdio.h>
 #include <string>
 
@@ -90,7 +92,7 @@ void Test_TotalVWCalculation()
     int suffixVW = StringVisualWidth(L"Open Salamander 5.0 Samandarin 0.9 (x64)");
     int sepVW = StringVisualWidth(L" - ");
     int ellipsisVW = StringVisualWidth(L"...");
-    int totalLimit = 68;
+    int totalLimit = 58;
     int maxPrefixVW = totalLimit - suffixVW - sepVW - ellipsisVW;
 
     printf("    Suffix VW:      %d\n", suffixVW);
@@ -104,7 +106,7 @@ void Test_TotalVWCalculation()
     CHECK(suffixVW == 40, "suffix = 40 VW");
     CHECK(sepVW == 3, "separator = 3 VW");
     CHECK(ellipsisVW == 3, "ellipsis = 3 VW");
-    CHECK(maxPrefixVW == 22, "maxPrefixVW = 22");
+    CHECK(maxPrefixVW == 12, "maxPrefixVW = 12");
 }
 
 void Test_EnsureAppNameSuffixInTitle()
@@ -143,7 +145,7 @@ void Test_EnsureAppNameSuffixInTitle()
         printf("    10x瓶 BEFORE: VW=%d  AFTER: VW=%d\n", vwBefore, vwAfter);
         printf("    Result: %ls\n", title.c_str());
         CHECK(EndsWide(title, suffix), "10x瓶: suffix preserved");
-        CHECK(vwAfter <= 68, "10x瓶: fits in title bar");
+        CHECK(vwAfter <= 58, "10x瓶: fits in title bar");
     }
 
     // Japanese long path - from screenshot 3/4
@@ -156,7 +158,7 @@ void Test_EnsureAppNameSuffixInTitle()
         printf("    Japanese BEFORE: VW=%d  AFTER: VW=%d\n", vwBefore, vwAfter);
         printf("    Result: %ls\n", title.c_str());
         CHECK(EndsWide(title, suffix), "Japanese: suffix preserved");
-        CHECK(vwAfter <= 68, "Japanese: fits in title bar");
+        CHECK(vwAfter <= 58, "Japanese: fits in title bar");
     }
 
     // 日本語 日本語 日本語 - from screenshot 5
@@ -169,7 +171,7 @@ void Test_EnsureAppNameSuffixInTitle()
         printf("    3x日本語 BEFORE: VW=%d  AFTER: VW=%d\n", vwBefore, vwAfter);
         printf("    Result: %ls\n", title.c_str());
         CHECK(EndsWide(title, suffix), "3x日本語: suffix preserved");
-        CHECK(vwAfter <= 68, "3x日本語: fits in title bar");
+        CHECK(vwAfter <= 58, "3x日本語: fits in title bar");
     }
 
     // Mixed CJK + ASCII path
@@ -180,7 +182,7 @@ void Test_EnsureAppNameSuffixInTitle()
         std::wstring title = prefix + L" - " + suffix;
         EnsureAppNameSuffixInTitle(title, suffix);
         CHECK(EndsWide(title, suffix), "mixed: suffix preserved");
-        CHECK(StringVisualWidth(title) <= 68, "mixed: fits in title bar");
+        CHECK(StringVisualWidth(title) <= 58, "mixed: fits in title bar");
         printf("    Mixed: VW=%d  Result: %ls\n", StringVisualWidth(title), title.c_str());
     }
 
@@ -208,43 +210,43 @@ void Test_EnsureAppNameSuffixInTitle()
 
     // Exactly at limit - no truncation
     {
-        // maxPrefixVW=22, 22 ASCII = 22 VW
-        std::wstring prefix(22, L'a');
+        // maxPrefixVW=12, 12 ASCII = 12 VW
+        std::wstring prefix(12, L'a');
         std::wstring title = prefix + L" - " + suffix;
         EnsureAppNameSuffixInTitle(title, suffix);
         CHECK(title == prefix + L" - " + suffix, "at limit: no truncation");
-        printf("    At limit (22): %ls\n", title.c_str());
+        printf("    At limit (12): %ls\n", title.c_str());
     }
 
     // 1 over limit - truncation
     {
-        std::wstring prefix(23, L'a');
+        std::wstring prefix(13, L'a');
         std::wstring title = prefix + L" - " + suffix;
         EnsureAppNameSuffixInTitle(title, suffix);
         CHECK(EndsWide(title, suffix), "1 over: suffix preserved");
         CHECK(title.find(L"...") != std::wstring::npos, "1 over: has ...");
-        printf("    1 over (23): %ls\n", title.c_str());
+        printf("    1 over (13): %ls\n", title.c_str());
     }
 
-    // 7 CJK (21VW) - fits
+    // 4 CJK (12VW) - fits
     {
         std::wstring prefix;
-        for (int i = 0; i < 7; i++) prefix += L'\u65E5';
+        for (int i = 0; i < 4; i++) prefix += L'\u65E5';
         std::wstring title = prefix + L" - " + suffix;
         EnsureAppNameSuffixInTitle(title, suffix);
-        CHECK(title == prefix + L" - " + suffix, "7 CJK: no truncation");
-        printf("    7 CJK (21VW): %ls\n", title.c_str());
+        CHECK(title == prefix + L" - " + suffix, "4 CJK: no truncation");
+        printf("    4 CJK (12VW): %ls\n", title.c_str());
     }
 
-    // 8 CJK (24VW) - over limit, truncated
+    // 5 CJK (15VW) - over limit, truncated
     {
         std::wstring prefix;
-        for (int i = 0; i < 8; i++) prefix += L'\u65E5';
+        for (int i = 0; i < 5; i++) prefix += L'\u65E5';
         std::wstring title = prefix + L" - " + suffix;
         EnsureAppNameSuffixInTitle(title, suffix);
-        CHECK(EndsWide(title, suffix), "8 CJK: suffix preserved");
-        CHECK(title.find(L"...") != std::wstring::npos, "8 CJK: has ...");
-        printf("    8 CJK (24VW): %ls\n", title.c_str());
+        CHECK(EndsWide(title, suffix), "5 CJK: suffix preserved");
+        CHECK(title.find(L"...") != std::wstring::npos, "5 CJK: has ...");
+        printf("    5 CJK (15VW): %ls\n", title.c_str());
     }
 }
 
