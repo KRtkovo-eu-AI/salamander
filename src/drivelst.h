@@ -6,6 +6,10 @@
 
 //*****************************************************************************
 
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 #define ONEDRIVE_MAXBUSINESSDISPLAYNAME 500
 
 struct COneDriveBusinessStorage
@@ -116,7 +120,7 @@ protected:
     int* PostCmd;              // post-cmd for context menu of a FS plugin
     void** PostCmdParam;       // post-cmd-parameter for context menu of a FS plugin
     BOOL* FromContextMenu;     // set to TRUE if the menu was invoked from a context menu
-    char CurrentPath[MAX_PATH];
+    char CurrentPath[SAL_MAX_PATH];
     TDirectArray<CDriveData>* Drives;
     CMenuPopup* MenuPopup;
     int FocusIndex; // what item from the Drives array should be focused
