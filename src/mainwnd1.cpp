@@ -338,6 +338,7 @@ CMainWindow::CMainWindow()
     WindowWidth = WindowHeight = EditHeight = 0;
     SplitPosition = 0.5; // split is in the middle
     BeforeZoomSplitPosition = 0.5;
+    BeforeZoomVisibleLeftRatio = 0.5;
     KeepSplitPositionCenteredOnVisiblePanes = FALSE;
     DragMode = FALSE;
     ContextMenuNew = new CMenuNew;

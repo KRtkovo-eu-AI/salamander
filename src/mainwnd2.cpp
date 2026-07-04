@@ -4125,6 +4125,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                         BeforeZoomSplitPosition = 0;
                     if (BeforeZoomSplitPosition > 1)
                         BeforeZoomSplitPosition = 1;
+                    BeforeZoomVisibleLeftRatio = BeforeZoomSplitPosition;
                 }
                 useWinPlacement = TRUE;
             }

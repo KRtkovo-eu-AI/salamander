@@ -7353,15 +7353,19 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
             {
-                SplitPosition = BeforeZoomSplitPosition;
+                if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+                    SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(BeforeZoomVisibleLeftRatio);
+                else
+                    SplitPosition = BeforeZoomSplitPosition;
                 KeepSplitPositionCenteredOnVisiblePanes = FALSE;
-                // better protect ourselves against a bad value in BeforeZoomSplitPosition
-                if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
+                // better protect ourselves against a bad value in the stored pre-zoom position
+                if (SplitPosition <= 0.0 || SplitPosition >= 1.0)
                     SplitPosition = 0.5;
             }
             else
             {
                 BeforeZoomSplitPosition = SplitPosition;
+                BeforeZoomVisibleLeftRatio = GetVisibleLeftPanelRatio();
                 KeepSplitPositionCenteredOnVisiblePanes = FALSE;
                 int splitWidth = GetSplitBarWidth();
                 int totalPanelsWidth = WindowWidth - 2 - splitWidth;

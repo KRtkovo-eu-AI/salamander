@@ -508,9 +508,10 @@ protected:
         PanelsHeight,
         SplitPositionPix,
         DragAnchorX;
-    double SplitPosition,        // current split position (0..1)
-        BeforeZoomSplitPosition, // split position before panel zoom
-        DragSplitPosition;       // shown in the tooltip
+    double SplitPosition,              // current split position (0..1)
+        BeforeZoomSplitPosition,       // split position before panel zoom
+        BeforeZoomVisibleLeftRatio,    // visible left panel ratio before panel zoom (tree view aware)
+        DragSplitPosition;             // shown in the tooltip
     CToolTipWindow ToolTipWindow;
     BOOL KeepSplitPositionCenteredOnVisiblePanes;
 
