@@ -1976,6 +1976,36 @@ static void TrimTrailingWindowTitleSpaces(char* title)
         *(--end) = 0;
 }
 
+static void UseUnicodeLeafPathForTitle(char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return;
+
+    bool hasNonAscii = false;
+    char* leaf = path;
+    for (char* p = path; *p != 0; p++)
+    {
+        if ((unsigned char)*p >= 0x80)
+            hasNonAscii = true;
+        if (*p == '\\' || *p == '/')
+            leaf = p + 1;
+    }
+
+    if (hasNonAscii && leaf > path && *leaf != 0)
+        memmove(path, leaf, strlen(leaf) + 1);
+
+    const int maxTitlePathBytes = 64;
+    int len = (int)strlen(path);
+    if (hasNonAscii && len > maxTitlePathBytes)
+    {
+        int cut = maxTitlePathBytes;
+        while (cut > 0 && ((unsigned char)path[cut] & 0xC0) == 0x80)
+            cut--;
+        path[cut] = 0;
+        lstrcat(path, "...");
+    }
+}
+
 static std::wstring MultiByteToWindowTitleWide(const char* text)
 {
     if (text == NULL)
@@ -2247,6 +2277,7 @@ void CMainWindow::SetWindowTitle(const char* text)
         {
             char path[SAL_MAX_PATH];
             GetFormatedPathForTitle(path, sizeof(path));
+            UseUnicodeLeafPathForTitle(path);
             AppendUtf8ToWindowTitle(prefixAndPath, prefixAndPathSize + 1, path);
         }
 
