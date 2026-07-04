@@ -119,9 +119,22 @@ BOOL SalmonSharedMemInit(CSalmonSharedMemory* mem)
 
     // base name for bug report files
     strcpy(mem->BugName, "AS" VERSINFO_SAL_SHORT_VERSION);
+    mem->UseWindowsDarkMode = Configuration.UseWindowsDarkMode;
+    mem->DarkModeText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+    mem->DarkModeBk = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
 
     return (mem->Process != NULL && mem->Fire != NULL && mem->Done != NULL && mem->SetSLG != NULL &&
             mem->CheckBugs != NULL && mem->BugPath[0] != 0);
+}
+
+void SalmonUpdateDarkModeConfig()
+{
+    if (SalmonSharedMemory != NULL)
+    {
+        SalmonSharedMemory->UseWindowsDarkMode = Configuration.UseWindowsDarkMode;
+        SalmonSharedMemory->DarkModeText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+        SalmonSharedMemory->DarkModeBk = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    }
 }
 
 void GetStartupSLGName(char* slgName, DWORD slgNameMax)
@@ -303,6 +316,7 @@ void SalmonSetSLG(const char* slgName)
 {
     ResetEvent(SalmonSharedMemory->Done);
 
+    SalmonUpdateDarkModeConfig();
     strcpy(SalmonSharedMemory->SLGName, slgName);
     SetEvent(SalmonSharedMemory->SetSLG);
 
@@ -325,6 +339,7 @@ void SalmonSetSLG(const char* slgName)
 void SalmonCheckBugs()
 {
     ResetEvent(SalmonSharedMemory->Done);
+    SalmonUpdateDarkModeConfig();
     SetEvent(SalmonSharedMemory->CheckBugs);
 
     // wait for Salmon to signal that it has processed the task (event Done) or in case Salmon was terminated
@@ -345,6 +360,7 @@ void SalmonCheckBugs()
 
 BOOL SalmonFireAndWait(const EXCEPTION_POINTERS* e, char* bugReportPath)
 {
+    SalmonUpdateDarkModeConfig();
     SalmonSharedMemory->ThreadId = GetCurrentThreadId();
     SalmonSharedMemory->ExceptionRecord = *e->ExceptionRecord;
     SalmonSharedMemory->ContextRecord = *e->ContextRecord;

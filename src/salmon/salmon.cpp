@@ -983,6 +983,26 @@ UINT PostponedMsg = 0;
 WPARAM PostponedMsgWParam = 0;
 LPARAM PostponedMsgLParam = 0;
 
+HBRUSH HDarkModeDialogBrush = NULL;
+
+void ApplySalmonDarkModeConfig(const CSalmonSharedMemory* mem)
+{
+    if (mem != NULL && mem->UseWindowsDarkMode)
+    {
+        if (HDarkModeDialogBrush != NULL)
+        {
+            HANDLES(DeleteObject(HDarkModeDialogBrush));
+            HDarkModeDialogBrush = NULL;
+        }
+        HDarkModeDialogBrush = HANDLES(CreateSolidBrush(mem->DarkModeBk));
+        DarkModeSetConfiguredColors(mem->DarkModeText, mem->DarkModeBk,
+                                    GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE));
+        DarkModeConfigureDialogColors(DarkModeEnsureReadableForeground(mem->DarkModeText, mem->DarkModeBk),
+                                      mem->DarkModeBk, HDarkModeDialogBrush);
+        DarkModeSetEnabled(true);
+    }
+}
+
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow)
 {
@@ -1040,6 +1060,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
         return SALMON_RET_ERROR;
     }
 
+    ApplySalmonDarkModeConfig(mem);
+
     HANDLE arr[4];
     arr[0] = mem->Process;
     arr[1] = mem->Fire;
@@ -1076,6 +1098,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
         case WAIT_OBJECT_0 + 1: // sharedMemory->Fire
         {
             // the parent process wants us to generate a minidump
+            ApplySalmonDarkModeConfig(mem);
             if (LoadHLanguageVerbose(slgName)) // we need to display the GUI, we must load the SLG
             {
                 // if we manage to lock the mutex, release it later; we do not want
@@ -1094,6 +1117,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
             // Salamander loaded the “correct” SLG and lets us know we should switch to it
             // store its name; actively reading it now makes no sense yet
             strcpy(slgName, mem->SLGName);
+            ApplySalmonDarkModeConfig(mem);
             ResetEvent(mem->SetSLG);
             SetEvent(mem->Done); // let Salamander know we have taken over the SLG name
             break;
@@ -1103,6 +1127,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
         {
             // Salamander informs us that the main window is open and it is time to check whether
             // there are old files in the bug report directory that we should offer to process
+            ApplySalmonDarkModeConfig(mem);
             ChechForBugs(mem, slgName);
             break;
         }
@@ -1131,6 +1156,11 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
 
     Config.Save();
 
+    if (HDarkModeDialogBrush != NULL)
+    {
+        HANDLES(DeleteObject(HDarkModeDialogBrush));
+        HDarkModeDialogBrush = NULL;
+    }
     DarkModeShutdown();
 
     if (HLanguage != NULL)

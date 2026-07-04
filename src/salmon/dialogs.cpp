@@ -444,19 +444,20 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if (CompressParams.Result)
                 {
-                    ShowChilds(dteDialog, TRUE);
                     MessageBox(HWindow, LoadStr(IDS_SALMON_UPLOADSUCCESS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
-                    HINSTANCE openResult = OpenCrashReportIssue(HWindow);
+                    BOOL restart = IsDlgButtonChecked(HWindow, IDC_SALMON_RESTART) == BST_CHECKED;
+                    ShowWindow(HWindow, SW_HIDE);
+                    PostQuitMessage(0);
+                    HINSTANCE openResult = OpenCrashReportIssue(NULL);
                     if ((INT_PTR)openResult <= 32)
                     {
                         char msg[2 * MAX_PATH];
                         sprintf(msg, LoadStr(IDS_SALMON_UPLOADFAILED, HLanguage), (INT_PTR)openResult);
-                        MessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+                        MessageBox(NULL, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
                     }
                     OpenFolder(NULL, BugReportPath);
-                    if (IsDlgButtonChecked(HWindow, IDC_SALMON_RESTART) == BST_CHECKED)
-                        RestartSalamander(HWindow);
-                    PostQuitMessage(0);
+                    if (restart)
+                        RestartSalamander(NULL);
                 }
                 else
                 {
