@@ -5,6 +5,8 @@
 #include "precomp.h"
 
 #include <string>
+#include <shlwapi.h>
+#undef PathIsPrefix
 
 #include "tooltip.h"
 #include "stswnd.h"
@@ -2055,6 +2057,140 @@ static std::wstring MultiByteToWindowTitleWide(const char* text)
     return result;
 }
 
+#include "titlebar_helpers.h"
+
+static int GetRootPathLenW(const wchar_t* path)
+{
+    if (path == NULL)
+        return 0;
+    if (path[0] == L'\\' && path[1] == L'\\')
+    {
+        int pos = 2;
+        while (path[pos] != 0 && path[pos] != L'\\')
+            pos++;
+        if (path[pos] != 0)
+            pos++;
+        while (path[pos] != 0 && path[pos] != L'\\')
+            pos++;
+        if (path[pos] != 0)
+            pos++;
+        return pos;
+    }
+    else
+    {
+        if (path[0] != 0 && path[1] == L':')
+            return 3;
+    }
+    return 0;
+}
+
+static std::wstring FormatPanelPathForDisplayW(CFilesWindow* panel, int mode)
+{
+    if (panel == NULL)
+        return std::wstring();
+
+    if (mode < TITLE_BAR_MODE_DIRECTORY || mode > TITLE_BAR_MODE_FULLPATH)
+        mode = TITLE_BAR_MODE_DIRECTORY;
+
+    CPluginFSInterfaceEncapsulation* pluginFS = NULL;
+    BOOL pluginTitleService = FALSE;
+    if (panel->Is(ptPluginFS))
+    {
+        pluginFS = panel->GetPluginFS();
+        if (pluginFS != NULL)
+            pluginTitleService = pluginFS->IsServiceSupported(FS_SERVICE_GETPATHFORMAINWNDTITLE);
+        if (!pluginTitleService && mode != TITLE_BAR_MODE_FULLPATH)
+            mode = TITLE_BAR_MODE_FULLPATH;
+    }
+
+    if (pluginTitleService && (mode == TITLE_BAR_MODE_COMPOSITE || mode == TITLE_BAR_MODE_DIRECTORY))
+    {
+        char buf[SAL_MAX_PATH];
+        buf[0] = 0;
+        int modeForPlugin = (mode == TITLE_BAR_MODE_COMPOSITE) ? 2 : 1;
+        if (pluginFS->GetPathForMainWindowTitle(pluginFS->GetPluginFSName(), modeForPlugin, buf, _countof(buf)) && buf[0] != 0)
+        {
+            std::wstring result = MultiByteToWindowTitleWide(buf);
+            if (!result.empty())
+                return result;
+        }
+    }
+
+    if (panel->Is(ptPluginFS))
+    {
+        char buffer[4 * SAL_MAX_PATH];
+        buffer[0] = 0;
+        CMainWindow::FormatPanelPathForDisplay(panel, mode, buffer, _countof(buffer));
+        if (buffer[0] != 0)
+            return MultiByteToWindowTitleWide(buffer);
+        return std::wstring();
+    }
+
+    std::wstring pathW;
+    if (panel->Is(ptDisk))
+    {
+        const wchar_t* pw = panel->GetPathW();
+        if (pw != NULL && pw[0] != 0)
+            pathW = pw;
+    }
+    else
+    {
+        char generalPath[SAL_MAX_PATH];
+        generalPath[0] = 0;
+        panel->GetGeneralPath(generalPath, _countof(generalPath));
+        if (generalPath[0] != 0)
+            pathW = MultiByteToWindowTitleWide(generalPath);
+    }
+
+    if (pathW.empty())
+        return std::wstring();
+
+    switch (mode)
+    {
+    case TITLE_BAR_MODE_COMPOSITE:
+    {
+        int rootLen = GetRootPathLenW(pathW.c_str());
+        if (rootLen > 0)
+        {
+            int lastBS = -1;
+            for (int i = (int)pathW.length() - 1; i >= rootLen; i--)
+            {
+                if (pathW[i] == L'\\')
+                {
+                    lastBS = i;
+                    break;
+                }
+            }
+            if (lastBS > rootLen)
+                return pathW.substr(0, rootLen) + L"..." + pathW.substr(lastBS);
+        }
+        return pathW;
+    }
+
+    case TITLE_BAR_MODE_DIRECTORY:
+    {
+        int len = (int)pathW.length();
+        if (len > 0 && pathW[len - 1] == L'\\')
+            len--;
+        for (int i = len - 1; i >= 0; i--)
+        {
+            if (pathW[i] == L'\\')
+            {
+                int rootLen = GetRootPathLenW(pathW.c_str());
+                if (i + 1 >= rootLen)
+                    return pathW.substr(i + 1);
+                break;
+            }
+        }
+        return pathW;
+    }
+
+    case TITLE_BAR_MODE_FULLPATH:
+    default:
+        return pathW;
+    }
+}
+
 void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
 {
     if (path == NULL || textSize <= 0)
@@ -2070,107 +2206,108 @@ void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
 }
 void CMainWindow::SetWindowTitle(const char* text)
 {
-    CALL_STACK_MESSAGE2("CMainWindow::SetWindowTitle(%s)", text);
-    char buff[1000];
-    ::GetWindowText(HWindow, buff, 1000);
-    buff[999] = 0;
+    CALL_STACK_MESSAGE2("CMainWindow::SetWindowTitle(%s)", text != NULL ? text : "");
 
-    char stdWndName[4 * SAL_MAX_PATH + 300];
+    std::wstring wideText;
+    std::wstring wideAppSuffix;
     if (text == NULL)
     {
-        char stdSuffix[300];
-        stdSuffix[0] = 0;
-        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), SALAMANDER_TEXT_VERSION);
+        std::wstring suffix = MultiByteToWindowTitleWide(SALAMANDER_TEXT_VERSION);
 
         if (RunningAsAdmin)
         {
-            AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), " (");
-            AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), LoadStr(IDS_AS_ADMIN_TITLE));
-            AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), ")");
+            suffix += L" (";
+            suffix += MultiByteToWindowTitleWide(LoadStr(IDS_AS_ADMIN_TITLE));
+            suffix += L")";
         }
 
 #ifdef X64_STRESS_TEST
-        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), " ST");
+        suffix += L" ST";
 #endif //X64_STRESS_TEST
 
 #ifdef USE_BETA_EXPIRATION_DATE
-        // beta version Expires on
-        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), " - Expires on ");
+        suffix += L" - Expires on ";
         char expire[100];
         if (GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &BETA_EXPIRATION_DATE, NULL, expire, 100) == 0)
             sprintf(expire, "%u.%u.%u", BETA_EXPIRATION_DATE.wDay, BETA_EXPIRATION_DATE.wMonth, BETA_EXPIRATION_DATE.wYear);
-        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), expire);
+        suffix += MultiByteToWindowTitleWide(expire);
 #endif // USE_BETA_EXPIRATION_DATE
 
-        TrimTrailingWindowTitleSpaces(stdSuffix);
+        while (!suffix.empty() && suffix.back() == L' ')
+            suffix.pop_back();
 
-        char prefixAndPath[4 * SAL_MAX_PATH];
-        const int titleBarMaxUtf8Bytes = 120;
-        int prefixAndPathSize = min((int)sizeof(prefixAndPath) - 1,
-                                    titleBarMaxUtf8Bytes - (int)strlen(stdSuffix) - 4);
-        prefixAndPathSize = min(prefixAndPathSize,
-                                (int)sizeof(stdWndName) - (int)strlen(stdSuffix) - 4);
-        if (prefixAndPathSize < 1)
-            prefixAndPathSize = 1;
+        wideAppSuffix = suffix;
 
-        prefixAndPath[0] = 0;
-
-        // prefix
+        std::wstring prefix;
         if (Configuration.UseTitleBarPrefixForced)
         {
-            AppendUtf8ToWindowTitle(prefixAndPath, prefixAndPathSize + 1, Configuration.TitleBarPrefixForced);
-            if (prefixAndPath[0] != 0)
-                AppendToWindowTitle(prefixAndPath, prefixAndPathSize + 1, " - ");
-        }
-        else
-        {
-            if (Configuration.UseTitleBarPrefix)
+            std::wstring wPrefix = MultiByteToWindowTitleWide(Configuration.TitleBarPrefixForced);
+            if (!wPrefix.empty())
             {
-                AppendUtf8ToWindowTitle(prefixAndPath, prefixAndPathSize + 1, Configuration.TitleBarPrefix);
-                if (prefixAndPath[0] != 0)
-                    AppendToWindowTitle(prefixAndPath, prefixAndPathSize + 1, " - ");
+                prefix = wPrefix;
+                prefix += L" - ";
+            }
+        }
+        else if (Configuration.UseTitleBarPrefix)
+        {
+            std::wstring wPrefix = MultiByteToWindowTitleWide(Configuration.TitleBarPrefix);
+            if (!wPrefix.empty())
+            {
+                prefix = wPrefix;
+                prefix += L" - ";
             }
         }
 
-        // path
+        std::wstring path;
         if (Configuration.TitleBarShowPath)
         {
-            char path[4 * SAL_MAX_PATH];
-            GetFormatedPathForTitle(path, sizeof(path));
-            AppendUtf8ToWindowTitle(prefixAndPath, prefixAndPathSize + 1, path);
+            CFilesWindow* panel = GetActivePanel();
+            if (panel != NULL)
+                path = FormatPanelPathForDisplayW(panel, Configuration.TitleBarMode);
         }
 
-        TruncateUtf8WindowTitle(prefixAndPath, prefixAndPathSize);
-        stdWndName[0] = 0;
-        if (prefixAndPath[0] != 0)
+        if (!prefix.empty() || !path.empty())
         {
-            AppendToWindowTitle(stdWndName, sizeof(stdWndName), prefixAndPath);
-            AppendToWindowTitle(stdWndName, sizeof(stdWndName), " - ");
+            wideText = prefix;
+            wideText += path;
+            wideText += L" - ";
         }
-        AppendToWindowTitle(stdWndName, sizeof(stdWndName), stdSuffix);
+        wideText += suffix;
 
-        text = stdWndName;
+        EnsureAppNameSuffixInTitle(wideText, wideAppSuffix);
+    }
+    else
+    {
+        wideText = MultiByteToWindowTitleWide(text);
     }
 
-    std::wstring wideText = MultiByteToWindowTitleWide(text);
-    std::wstring wideBuff;
-    int wideBuffLen = GetWindowTextLengthW(HWindow);
-    if (wideBuffLen > 0)
+    int curLen = GetWindowTextLengthW(HWindow);
+    std::wstring curTitle;
+    if (curLen > 0)
     {
-        wideBuff.resize(wideBuffLen + 1);
-        int copied = GetWindowTextW(HWindow, &wideBuff[0], wideBuffLen + 1);
+        curTitle.resize(curLen + 1);
+        int copied = GetWindowTextW(HWindow, &curTitle[0], curLen + 1);
         if (copied >= 0)
-            wideBuff.resize(copied);
+            curTitle.resize(copied);
     }
 
-    if (wideText.empty() ? strcmp(text, buff) != 0 : wideText != wideBuff)
+    if (wideText != curTitle)
     {
-        if (!wideText.empty())
-            ::SetWindowTextW(HWindow, wideText.c_str());
-        else
-            ::SetWindowText(HWindow, text);
+        ::SetWindowTextW(HWindow, wideText.c_str());
         if (Configuration.StatusArea)
-            SetTrayIconText(text);
+        {
+            int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideText.c_str(), (int)wideText.length(), NULL, 0, NULL, NULL);
+            if (utf8Len > 0)
+            {
+                char utf8Buf[4096];
+                if (utf8Len < (int)sizeof(utf8Buf))
+                {
+                    WideCharToMultiByte(CP_UTF8, 0, wideText.c_str(), (int)wideText.length(), utf8Buf, utf8Len, NULL, NULL);
+                    utf8Buf[utf8Len] = 0;
+                    SetTrayIconText(utf8Buf);
+                }
+            }
+        }
     }
 }
 
