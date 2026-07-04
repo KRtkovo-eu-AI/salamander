@@ -30,6 +30,8 @@
 
 const char* SALAMANDER_TEXT_VERSION = "Open Salamander 5.0 Samandarin " VERSINFO_SAMANDARIN_VERSION " (" SAL_VER_PLATFORM ") ";
 
+static void Utf8SafeCopyWindowTitle(char* target, int targetSize, const char* source);
+
 //****************************************************************************
 //
 // ToolTip's calls redirection
@@ -1813,7 +1815,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
             return;
         }
 
-        lstrcpyn(buffer, generalPath, bufferSize);
+        Utf8SafeCopyWindowTitle(buffer, bufferSize, generalPath);
         if (buffer[0] != 0)
         {
             const char backslash = 0x5C;  // '\\'
@@ -1868,7 +1870,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
             return;
         }
 
-        lstrcpyn(buffer, generalPath, bufferSize);
+        Utf8SafeCopyWindowTitle(buffer, bufferSize, generalPath);
         if (buffer[0] != 0)
         {
             const char backslash = 0x5C;      // '\\'
@@ -1912,12 +1914,12 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
 
     case TITLE_BAR_MODE_FULLPATH:
     default:
-        lstrcpyn(buffer, generalPath, bufferSize);
+        Utf8SafeCopyWindowTitle(buffer, bufferSize, generalPath);
         break;
     }
 
     if (buffer[0] == 0)
-        lstrcpyn(buffer, generalPath, bufferSize);
+        Utf8SafeCopyWindowTitle(buffer, bufferSize, generalPath);
 }
 
 static void AppendToWindowTitle(char* title, int titleSize, const char* text)
@@ -1951,6 +1953,38 @@ static void AppendUtf8ToWindowTitle(char* title, int titleSize, const char* text
     title[len + copy] = 0;
 }
 
+static int GetUtf8WindowTitleSafeCut(const char* text, int maxLen)
+{
+    if (text == NULL || maxLen <= 0)
+        return 0;
+
+    int len = (int)strlen(text);
+    if (len <= maxLen)
+        return len;
+
+    int cut = maxLen;
+    while (cut > 0 && ((unsigned char)text[cut] & 0xC0) == 0x80)
+        cut--; // do not cut in the middle of a UTF-8 character
+    return cut;
+}
+
+static void Utf8SafeCopyWindowTitle(char* target, int targetSize, const char* source)
+{
+    if (target == NULL || targetSize <= 0)
+        return;
+
+    target[0] = 0;
+    if (source == NULL)
+        return;
+
+    int copy = GetUtf8WindowTitleSafeCut(source, targetSize - 1);
+    if (copy <= 0)
+        return;
+
+    memcpy(target, source, copy);
+    target[copy] = 0;
+}
+
 static void TruncateUtf8WindowTitle(char* title, int maxLen)
 {
     if (title == NULL || maxLen < 0)
@@ -1960,10 +1994,7 @@ static void TruncateUtf8WindowTitle(char* title, int maxLen)
     if (len <= maxLen)
         return;
 
-    int cut = maxLen;
-    while (cut > 0 && ((unsigned char)title[cut] & 0xC0) == 0x80)
-        cut--; // do not cut in the middle of a UTF-8 character
-    title[cut] = 0;
+    title[GetUtf8WindowTitleSafeCut(title, maxLen)] = 0;
 }
 
 static void TrimTrailingWindowTitleSpaces(char* title)
@@ -2051,9 +2082,16 @@ void CMainWindow::SetWindowTitle(const char* text)
 
         TrimTrailingWindowTitleSpaces(stdSuffix);
 
+        // Keep the whole title short enough that the fixed application suffix remains
+        // visible in the title bar.  The path/prefix is the only part that may be
+        // shortened; the suffix (application name, version, x64/admin/beta text) is
+        // always appended in full.
+        const int titleBarMaxUtf8Bytes = 260;
         char prefixAndPath[4 * SAL_MAX_PATH];
         int prefixAndPathSize = min((int)sizeof(prefixAndPath) - 1,
-                                    (int)sizeof(stdWndName) - (int)strlen(stdSuffix) - 4);
+                                    titleBarMaxUtf8Bytes - (int)strlen(stdSuffix) - 4);
+        prefixAndPathSize = min(prefixAndPathSize,
+                                (int)sizeof(stdWndName) - (int)strlen(stdSuffix) - 4);
         if (prefixAndPathSize < 1)
             prefixAndPathSize = 1;
 
