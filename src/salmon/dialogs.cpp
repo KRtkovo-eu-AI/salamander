@@ -386,6 +386,7 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SendMessage(HWindow, DM_SETDEFID, IDC_SALMON_ACTION, 0);
 
         CDialog::DialogProc(uMsg, wParam, lParam);
+        SalmonApplyDarkModeToWindow(HWindow);
         return FALSE;
     }
 

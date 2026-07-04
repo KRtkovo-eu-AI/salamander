@@ -986,6 +986,18 @@ LPARAM PostponedMsgLParam = 0;
 HBRUSH HDarkModeDialogBrush = NULL;
 HHOOK HSalmonMessageBoxHook = NULL;
 
+void SalmonApplyDarkModeToWindow(HWND hWindow)
+{
+    if (hWindow != NULL && DarkModeShouldUseDarkColors())
+    {
+        DarkModeRemoveTree(hWindow);
+        DarkModeApplyTree(hWindow);
+        DarkModeRefreshTitleBar(hWindow);
+        DarkModeApplyStaticTextColors(hWindow, NULL);
+        RedrawWindow(hWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+    }
+}
+
 void ApplyDarkModeToSalmonMessageBox(HWND hWindow)
 {
     if (hWindow != NULL && DarkModeShouldUseDarkColors())
@@ -993,18 +1005,13 @@ void ApplyDarkModeToSalmonMessageBox(HWND hWindow)
         char className[20];
         if (GetClassName(hWindow, className, sizeof(className)) != 0 &&
             strcmp(className, "#32770") == 0)
-        {
-            DarkModeApplyTree(hWindow);
-            DarkModeRefreshTitleBar(hWindow);
-            DarkModeApplyStaticTextColors(hWindow, NULL);
-            RedrawWindow(hWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
-        }
+            SalmonApplyDarkModeToWindow(hWindow);
     }
 }
 
 LRESULT CALLBACK SalmonMessageBoxCbtProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode == HCBT_CREATEWND || nCode == HCBT_ACTIVATE)
+    if (nCode == HCBT_ACTIVATE)
         ApplyDarkModeToSalmonMessageBox((HWND)wParam);
     return CallNextHookEx(HSalmonMessageBoxHook, nCode, wParam, lParam);
 }

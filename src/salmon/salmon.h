@@ -17,6 +17,7 @@ extern CSalmonSharedMemory* SalmonSharedMemory;
 
 char* LoadStr(int resID, HINSTANCE hInstance);
 char* GetErrorText(DWORD error);
+void SalmonApplyDarkModeToWindow(HWND hWindow);
 int SalmonMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType);
 
 void OpenFolder(HWND hWnd, const char* szDir);
