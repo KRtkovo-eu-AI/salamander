@@ -40,6 +40,12 @@ jobs:
           path: s
           submodules: recursive
 
+      - name: Provide shared plugin files for SFTP submodule
+        run: |
+          $sftpShared = Join-Path (Get-Location) 'src\plugins\sftp\shared'
+          New-Item -ItemType Directory -Force -Path $sftpShared | Out-Null
+          Copy-Item -Path '.\src\plugins\shared\*' -Destination $sftpShared -Recurse -Force
+
       - name: Setup MSBuild in PATH (VS2022)
         uses: microsoft/setup-msbuild@v2
 
