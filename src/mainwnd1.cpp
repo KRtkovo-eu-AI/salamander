@@ -2196,7 +2196,10 @@ void CMainWindow::SetWindowTitle(const char* text)
         // visible in the title bar.  The path/prefix is the only part that may be
         // shortened; the suffix (application name, version, x64/admin/beta text) is
         // always appended in full.
-        const int titleBarMaxUtf8Bytes = 260;
+        // Keep this deliberately below MAX_PATH: shell captions/taskbar buttons
+        // clip from the right, so allowing a very long path here still hides the
+        // fixed application suffix even though the string itself is valid.
+        const int titleBarMaxUtf8Bytes = 120;
         char prefixAndPath[4 * SAL_MAX_PATH];
         int prefixAndPathSize = min((int)sizeof(prefixAndPath) - 1,
                                     titleBarMaxUtf8Bytes - (int)strlen(stdSuffix) - 4);
