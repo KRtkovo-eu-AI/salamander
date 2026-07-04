@@ -1360,7 +1360,7 @@ public:
     void CreateTreeView();
     void DestroyTreeView();
     void UpdateTreeView(BOOL active);
-    void RefreshTreeView();
+    void RefreshTreeView(BOOL forceRefresh = FALSE);
     BOOL PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh = FALSE, BOOL async = FALSE);
 
     void ConnectNet(BOOL readOnlyUNC, const char* netRootPath = NULL, BOOL changeToNewDrive = TRUE, char* newlyMappedDrive = NULL);

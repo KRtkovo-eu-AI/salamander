@@ -7569,6 +7569,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                             }
                             LeavePlugin();
                         }
+
+                        // The active-panel tree view caches directory children once they are
+                        // expanded.  Force-refresh the visible path after filesystem change
+                        // notifications so created, moved, renamed, and deleted folders do
+                        // not leave stale tree nodes behind.
+                        if (Configuration.TreeViewVisible && LeftPanel != NULL)
+                            LeftPanel->RefreshTreeView(TRUE);
                     }
                     else
                         break; // end of loop
