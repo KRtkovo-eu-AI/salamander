@@ -3,6 +3,10 @@
 
 #include "precomp.h"
 
+#if USE_DARKMODELIB
+#include "Darkmodelib.h"
+#endif
+
 #include <Shlobj.h>
 #include <Shellapi.h>
 #include <Sddl.h>
@@ -986,6 +990,107 @@ LPARAM PostponedMsgLParam = 0;
 HBRUSH HDarkModeDialogBrush = NULL;
 HHOOK HSalmonMessageBoxHook = NULL;
 
+constexpr UINT_PTR SALMON_DARK_BUTTON_SUBCLASS_ID = 0x53444254; // "SDBT"
+
+BOOL IsPushButton(HWND hWindow)
+{
+    wchar_t className[20];
+    if (GetClassNameW(hWindow, className, _countof(className)) == 0 ||
+        lstrcmpiW(className, L"Button") != 0)
+    {
+        return FALSE;
+    }
+
+    LONG_PTR style = GetWindowLongPtr(hWindow, GWL_STYLE);
+    switch (style & BS_TYPEMASK)
+    {
+    case BS_PUSHBUTTON:
+    case BS_DEFPUSHBUTTON:
+        return TRUE;
+    }
+    return FALSE;
+}
+
+void PaintSalmonDarkButton(HWND hWindow, HDC hDC)
+{
+    RECT r;
+    GetClientRect(hWindow, &r);
+
+    const DarkModeColors& colors = DarkModeGetColors();
+    COLORREF background = DarkModeShouldUseDarkColors() ? RGB(0x2B, 0x2B, 0x2B) : GetSysColor(COLOR_BTNFACE);
+    COLORREF border = DarkModeShouldUseDarkColors() ? RGB(0x8A, 0x8A, 0x8A) : GetSysColor(COLOR_BTNSHADOW);
+    COLORREF text = IsWindowEnabled(hWindow) ? colors.readableText : RGB(0x80, 0x80, 0x80);
+
+    HBRUSH brush = HANDLES(CreateSolidBrush(background));
+    FillRect(hDC, &r, brush);
+    HANDLES(DeleteObject(brush));
+
+    HPEN pen = HANDLES(CreatePen(PS_SOLID, 1, border));
+    HGDIOBJ oldPen = SelectObject(hDC, pen);
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
+    Rectangle(hDC, r.left, r.top, r.right, r.bottom);
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+    HANDLES(DeleteObject(pen));
+
+    char textBuffer[300];
+    GetWindowText(hWindow, textBuffer, _countof(textBuffer));
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, text);
+    RECT textRect = r;
+    InflateRect(&textRect, -4, -2);
+    DrawText(hDC, textBuffer, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+    if (GetFocus() == hWindow)
+    {
+        RECT focusRect = r;
+        InflateRect(&focusRect, -4, -4);
+        DrawFocusRect(hDC, &focusRect);
+    }
+}
+
+LRESULT CALLBACK SalmonDarkButtonSubclass(HWND hWindow, UINT msg, WPARAM wParam, LPARAM lParam,
+                                          UINT_PTR idSubclass, DWORD_PTR refData)
+{
+    switch (msg)
+    {
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hDC = BeginPaint(hWindow, &ps);
+        PaintSalmonDarkButton(hWindow, hDC);
+        EndPaint(hWindow, &ps);
+        return 0;
+    }
+
+    case WM_PRINTCLIENT:
+        PaintSalmonDarkButton(hWindow, (HDC)wParam);
+        return 0;
+
+    case WM_ENABLE:
+    case WM_SETTEXT:
+    case WM_SETFOCUS:
+    case WM_KILLFOCUS:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_MOUSEMOVE:
+        InvalidateRect(hWindow, NULL, TRUE);
+        break;
+
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hWindow, SalmonDarkButtonSubclass, SALMON_DARK_BUTTON_SUBCLASS_ID);
+        break;
+    }
+    return DefSubclassProc(hWindow, msg, wParam, lParam);
+}
+
+BOOL CALLBACK ApplySalmonDarkButtonProc(HWND hWindow, LPARAM)
+{
+    if (IsPushButton(hWindow))
+        SetWindowSubclass(hWindow, SalmonDarkButtonSubclass, SALMON_DARK_BUTTON_SUBCLASS_ID, 0);
+    return TRUE;
+}
+
 void SalmonApplyDarkModeToWindow(HWND hWindow)
 {
     if (hWindow != NULL && DarkModeShouldUseDarkColors())
@@ -994,6 +1099,7 @@ void SalmonApplyDarkModeToWindow(HWND hWindow)
         DarkModeApplyTree(hWindow);
         DarkModeRefreshTitleBar(hWindow);
         DarkModeApplyStaticTextColors(hWindow, NULL);
+        EnumChildWindows(hWindow, ApplySalmonDarkButtonProc, 0);
         RedrawWindow(hWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
     }
 }
@@ -1018,6 +1124,23 @@ LRESULT CALLBACK SalmonMessageBoxCbtProc(int nCode, WPARAM wParam, LPARAM lParam
 
 int SalmonMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 {
+#if USE_DARKMODELIB
+    if (DarkModeShouldUseDarkColors())
+    {
+        dmlib::initDarkMode();
+        dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
+        dmlib::setDefaultColors(true);
+
+        wchar_t textW[10000];
+        wchar_t captionW[500];
+        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, lpText, -1, textW, _countof(textW));
+        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, lpCaption, -1, captionW, _countof(captionW));
+        textW[_countof(textW) - 1] = 0;
+        captionW[_countof(captionW) - 1] = 0;
+        return (int)dmlib::darkMessageBoxW(hWnd, textW, captionW, uType);
+    }
+#endif
+
     HHOOK oldHook = HSalmonMessageBoxHook;
     if (DarkModeShouldUseDarkColors())
         HSalmonMessageBoxHook = SetWindowsHookEx(WH_CBT, SalmonMessageBoxCbtProc, NULL, GetCurrentThreadId());
