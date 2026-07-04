@@ -25,3 +25,5 @@
 #include "versinfo.h"
 #include "trldata.h"
 #include "resource.h"
+
+#include "../darkmode.h"

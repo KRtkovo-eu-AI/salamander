@@ -591,6 +591,19 @@ WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine, int cmd
     if (!InitializeWinLib())
         return 1; // WinLib must be initialized before showing the first window
 
+    DarkModeDetectAndEnableSystemDarkMode();
+    // Force dark mode regardless of system settings
+    DarkModeSetEnabled(true);
+    if (!DarkModeShouldUseDarkColors())
+    {
+        const COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+        const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
+        DarkModeSetConfiguredColors(darkText, darkBg,
+                                    RGB(0xFF, 0xFF, 0xFF), darkBg);
+        HBRUSH darkBrush = CreateSolidBrush(darkBg);
+        DarkModeConfigureDialogColors(darkText, darkBg, darkBrush);
+    }
+
     CFrameWindow::RegisterUniversalClass(CS_DBLCLKS | CS_SAVEBITS,
                                          0,
                                          0,
@@ -619,6 +632,9 @@ WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine, int cmd
                            HInstance,
                            &FrameWindow))
     {
+        DarkModeApplyWindow(FrameWindow.HWindow);
+        DarkModeApplyMenuBar(FrameWindow.HWindow);
+
         Config.Load();
 
         HACCEL hAccelTable = HANDLES(LoadAccelerators(HInstance,

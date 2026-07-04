@@ -244,7 +244,9 @@ void CPreviewWindow::PreviewDialog(int index)
         BufferKey(VK_CONTROL); // Force Windows to reveal hotkeys; if Ctrl is already pressed we must keep that state, and the underscores remain visible regardless.
 
     CurrentPreviewWindow = this;
+    DarkModeSuspendForLightCreation();
     HWND hDlg = CreateDialogIndirectW(HInstance, (LPDLGTEMPLATE)buff, HWindow, PreviewDialogProcW);
+    DarkModeResumeAfterLightCreation();
     if (hDlg == NULL)
     {
         DWORD err = GetLastError();
@@ -484,7 +486,11 @@ void CPreviewWindow::DisplayControlInfo()
             p += swprintf_s(p, _countof(info) - (p - info), L" Style:0x%08X ExStyle:0x%08X\n", dlg->Style, dlg->ExStyle);
         }
 
-        FillRect(hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
+        HBRUSH infoBrush = DarkModeShouldUseDarkColors() ? CreateSolidBrush(DarkModeGetDialogBackgroundColor()) : (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
+        FillRect(hDC, &r, infoBrush);
+        if (DarkModeShouldUseDarkColors())
+            DeleteObject(infoBrush);
+        SetTextColor(hDC, DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_WINDOWTEXT));
         DrawTextW(hDC, info, -1, &r, DT_LEFT);
 
         HANDLES(ReleaseDC(HWindow, hDC));
@@ -498,6 +504,8 @@ void CPreviewWindow::DisplayMenuPreview()
 
     HDC hDC = HANDLES(GetDC(HWindow));
     SelectObject(hDC, (HFONT)HMenuFont);
+    if (DarkModeShouldUseDarkColors())
+        SetTextColor(hDC, DarkModeGetDialogTextColor());
 
     RECT r;
     GetClientRect(HWindow, &r);
@@ -581,7 +589,10 @@ CPreviewWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         RECT r;
         GetClientRect(HWindow, &r);
-        FillRect((HDC)wParam, &r, (HBRUSH)GetStockObject(WHITE_BRUSH));
+        HBRUSH bgBrush = DarkModeShouldUseDarkColors() ? CreateSolidBrush(DarkModeGetDialogBackgroundColor()) : (HBRUSH)GetStockObject(WHITE_BRUSH);
+        FillRect((HDC)wParam, &r, bgBrush);
+        if (bgBrush != (HBRUSH)GetStockObject(WHITE_BRUSH))
+            DeleteObject(bgBrush);
         if (MenuPreview == NULL)
             DisplayControlInfo();
         else

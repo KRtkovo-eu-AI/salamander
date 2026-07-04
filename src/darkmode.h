@@ -94,6 +94,14 @@ void DarkModeApplyUpDownSubclass(HWND hWnd);
 void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor, bool forceDark = false);
 void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont, bool forceDark = false);
 
+// Temporarily suspends/resumes process-wide dark mode so that a child
+// dialog can be created in light mode (e.g. for live dialog previews).
+void DarkModeSuspendForLightCreation();
+void DarkModeResumeAfterLightCreation();
+
+// Removes dark mode from a window and its children (undo of DarkModeApplyTree).
+void DarkModeRemoveTree(HWND hwnd);
+
 // Detects whether the OS is configured for dark mode and enables it if so.
 // Call early during startup, before any dialogs are shown.
 void DarkModeDetectAndEnableSystemDarkMode();

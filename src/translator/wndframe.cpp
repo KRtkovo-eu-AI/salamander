@@ -18,6 +18,22 @@
 
 CFrameWindow FrameWindow;
 
+static void ApplyDarkModeColors()
+{
+    const COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+    const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
+
+    HWND hTree = TreeWindow.GetTreeView();
+    if (hTree != NULL)
+    {
+        TreeView_SetTextColor(hTree, darkText);
+        TreeView_SetBkColor(hTree, darkBg);
+    }
+    DarkModeUpdateListViewColors(TextWindow.ListView.HWindow);
+    DarkModeUpdateListViewColors(RHWindow.ListBox.HWindow);
+    DarkModeUpdateListViewColors(OutWindow.GetListView());
+}
+
 const char* FRAMEWINDOW_NAME = "Translator";
 
 BOOL RestartSalamander();
@@ -103,6 +119,7 @@ BOOL CFrameWindow::OpenChildWindows()
         SetWindowPlacement(TreeWindow.HWindow, &Config.TreeWindowPlacement);
     Data.FillTree();
     ShowWindow(TreeWindow.HWindow, SW_SHOW);
+    DarkModeApplyTree(TreeWindow.HWindow);
 
     mcs.szTitle = "Texts";
     mcs.lParam = (LPARAM)&TextWindow;
@@ -114,6 +131,7 @@ BOOL CFrameWindow::OpenChildWindows()
     if (Config.TextWindowPlacement.length != 0)
         SetWindowPlacement(TextWindow.HWindow, &Config.TextWindowPlacement);
     ShowWindow(TextWindow.HWindow, SW_SHOW);
+    DarkModeApplyTree(TextWindow.HWindow);
 
     mcs.szTitle = "Resource Symbols";
     mcs.lParam = (LPARAM)&RHWindow;
@@ -126,6 +144,7 @@ BOOL CFrameWindow::OpenChildWindows()
         SetWindowPlacement(RHWindow.HWindow, &Config.RHWindowPlacement);
     DataRH.FillListBox();
     ShowWindow(RHWindow.HWindow, SW_SHOW);
+    DarkModeApplyTree(RHWindow.HWindow);
 
     mcs.szTitle = "Output";
     mcs.lParam = (LPARAM)&OutWindow;
@@ -137,6 +156,7 @@ BOOL CFrameWindow::OpenChildWindows()
     if (Config.OutWindowPlacement.length != 0)
         SetWindowPlacement(OutWindow.HWindow, &Config.OutWindowPlacement);
     ShowWindow(OutWindow.HWindow, SW_SHOW);
+    DarkModeApplyTree(OutWindow.HWindow);
 
     mcs.szTitle = "Preview";
     mcs.lParam = (LPARAM)&PreviewWindow;
@@ -148,6 +168,8 @@ BOOL CFrameWindow::OpenChildWindows()
     if (Config.PreviewWindowPlacement.length != 0)
         SetWindowPlacement(PreviewWindow.HWindow, &Config.PreviewWindowPlacement);
     ShowWindow(PreviewWindow.HWindow, SW_SHOW);
+
+    ApplyDarkModeColors();
 
     SendMessage(HMDIClient, WM_MDIACTIVATE, (WPARAM)TreeWindow.HWindow, NULL);
 
@@ -233,6 +255,7 @@ BOOL CFrameWindow::OpenLayoutEditor()
     //    SetWindowPlacement(TreeWindow.HWindow, &Config.TreeWindowPlacement);
     //  Data.FillTree();
     ShowWindow(LayoutWindow->HWindow, SW_MAXIMIZE);
+    DarkModeApplyTree(LayoutWindow->HWindow);
 
     EnableNonLayoutWindows(FALSE);
 
@@ -240,6 +263,7 @@ BOOL CFrameWindow::OpenLayoutEditor()
     HMENU hMenu = LoadMenu(HInstance, MAKEINTRESOURCE(IDM_LAYOUTMENU));
     LayoutWindow->SetupMenu(hMenu);
     SetMenu(HWindow, hMenu);
+    DarkModeApplyMenuBar(HWindow);
     DestroyMenu(hBaseMenu);
     return TRUE;
 }
@@ -263,6 +287,7 @@ BOOL CFrameWindow::CloseLayoutEditor()
     HMENU hMenu = GetMenu(HWindow);
     HMENU hBaseMenu = LoadMenu(HInstance, MAKEINTRESOURCE(IDM_MAINMENU));
     SetMenu(HWindow, hBaseMenu);
+    DarkModeApplyMenuBar(HWindow);
     DestroyMenu(hMenu);
 
     SendMessage(HMDIClient, WM_MDIACTIVATE, (WPARAM)HPredLayoutActiveWnd, 0);
@@ -748,6 +773,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     0, 0, 0, 0, HWindow, (HMENU)0xCAC, HInstance, (LPSTR)&ccs);
 
         ShowWindow(HMDIClient, SW_SHOW);
+        DarkModeApplyWindow(HMDIClient);
         DragAcceptFiles(HWindow, TRUE);
         break;
     }
@@ -1527,6 +1553,18 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SendMessage(HMDIClient, WM_MDIACTIVATE, (WPARAM)hWnd, NULL);
             return 0;
         }
+        }
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    case WM_THEMECHANGED:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyMenuBar(HWindow);
+            ApplyDarkModeColors();
         }
         break;
     }

@@ -97,6 +97,8 @@ void OnContextMenu(HWND hWnd, int x, int y)
             InsertMenu(hMenu, -1, MF_BYPOSITION | MF_SEPARATOR, 0, "");
         }
     }
+    sprintf_s(buff, "Export to File...");
+    InsertMenu(hMenu, -1, MF_BYPOSITION, 20, buff);
     sprintf_s(buff, "Clear");
     InsertMenu(hMenu, -1, MF_BYPOSITION, 10, buff);
 
@@ -121,6 +123,66 @@ void OnContextMenu(HWND hWnd, int x, int y)
     case 10: // clear
     {
         OutWindow.Clear();
+        break;
+    }
+
+    case 20: // export to file
+    {
+        if (OutWindow.OutLines.Count == 0)
+        {
+            MessageBox(hWnd, "Output window is empty.", "Export", MB_OK | MB_ICONINFORMATION);
+            break;
+        }
+
+        char fileName[MAX_PATH];
+        fileName[0] = 0;
+        OPENFILENAME ofn;
+        memset(&ofn, 0, sizeof(OPENFILENAME));
+        ofn.lStructSize = sizeof(OPENFILENAME);
+        ofn.hwndOwner = hWnd;
+        ofn.lpstrFilter = "Text File (*.txt)\0*.txt\0All Files (*.*)\0*.*\0";
+        ofn.lpstrDefExt = "txt";
+        ofn.lpstrFile = fileName;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.nFilterIndex = 1;
+        ofn.lpstrTitle = "Export Output to File";
+        ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_LONGNAMES | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
+
+        if (GetSaveFileName(&ofn))
+        {
+            wchar_t wFileName[MAX_PATH];
+            MultiByteToWideChar(CP_ACP, 0, fileName, -1, wFileName, MAX_PATH);
+            FILE* f;
+            if (_wfopen_s(&f, wFileName, L"w") == 0 && f != NULL)
+            {
+                for (int i = 0; i < OutWindow.OutLines.Count; i++)
+                {
+                    COutLine* line = &OutWindow.OutLines[i];
+                    const wchar_t* prefix = L"";
+                    switch (line->MsgType)
+                    {
+                    case mteInfo:
+                        prefix = L"[Info] ";
+                        break;
+                    case mteWarning:
+                        prefix = L"[Warning] ";
+                        break;
+                    case mteError:
+                        prefix = L"[Error] ";
+                        break;
+                    case mteSummary:
+                        prefix = L"[Summary] ";
+                        break;
+                    }
+                    fwprintf(f, L"%s%s\n", prefix, line->Text);
+                }
+                fclose(f);
+            }
+            else
+            {
+                MessageBox(hWnd, "Cannot create the file.", "Export Error", MB_OK | MB_ICONEXCLAMATION);
+            }
+        }
         break;
     }
     }
@@ -468,19 +530,19 @@ COutWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     ListView_GetItem(HListView, &lvi);
                     int lineIndex = lvi.lParam;
                     COutLine* outLine = &OutWindow.OutLines[lineIndex];
-                    COLORREF textColor = GetSysColor(COLOR_WINDOWTEXT); // mteInfo
+                    COLORREF textColor = DarkModeGetDialogTextColor(); // mteInfo
                     switch (outLine->MsgType)
                     {
 
                     case mteWarning:
                     {
-                        textColor = RGB(0, 0, 160);
+                        textColor = DarkModeEnsureReadableForeground(RGB(80, 80, 255), DarkModeGetDialogBackgroundColor());
                         break;
                     }
 
                     case mteError:
                     {
-                        textColor = RGB(255, 0, 0);
+                        textColor = DarkModeEnsureReadableForeground(RGB(255, 80, 80), DarkModeGetDialogBackgroundColor());
                         break;
                     }
 
@@ -499,6 +561,15 @@ COutWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    }
+
+    case WM_CTLCOLORLISTBOX:
+    {
+        HDC hdc = (HDC)wParam;
+        SetTextColor(hdc, RGB(0xDC, 0xDC, 0xDC));
+        SetBkColor(hdc, RGB(0x20, 0x20, 0x20));
+        static HBRUSH hDarkBrush = CreateSolidBrush(RGB(0x20, 0x20, 0x20));
+        return (LRESULT)hDarkBrush;
     }
     }
     return CWindow::WindowProc(uMsg, wParam, lParam);

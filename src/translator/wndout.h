@@ -64,6 +64,8 @@ public:
 
     void FocusLastItem();
 
+    HWND GetListView() { return HListView; }
+
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 

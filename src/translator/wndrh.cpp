@@ -271,6 +271,15 @@ CRHWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetFocus(ListBox.HWindow);
         break;
     }
+
+    case WM_CTLCOLORLISTBOX:
+    {
+        HDC hdc = (HDC)wParam;
+        SetTextColor(hdc, RGB(0xDC, 0xDC, 0xDC));
+        SetBkColor(hdc, RGB(0x20, 0x20, 0x20));
+        static HBRUSH hDarkBrush = CreateSolidBrush(RGB(0x20, 0x20, 0x20));
+        return (LRESULT)hDarkBrush;
+    }
     }
     return CWindow::WindowProc(uMsg, wParam, lParam);
 }

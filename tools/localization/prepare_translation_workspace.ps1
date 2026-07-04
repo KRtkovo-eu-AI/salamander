@@ -541,8 +541,17 @@ function Get-IncludeFileForPlugin
         }
     }
 
-    $candidates = Get-ChildItem -Path (Join-Path $RepoRoot "src\\plugins") -Recurse -Filter lang.rh |
-        Where-Object { $_.FullName -match "\\$([regex]::Escape($PluginName))(\\|$)" }
+    if ($PluginName -eq "sftp")
+    {
+        $sftpPath = Join-Path $RepoRoot "src\\plugins\\sftp\\src\\lang\\lang.rh"
+        if (Test-Path -LiteralPath $sftpPath)
+        {
+            return $sftpPath
+        }
+    }
+
+    $candidates = @(Get-ChildItem -Path (Join-Path $RepoRoot "src\\plugins") -Recurse -Filter lang.rh |
+        Where-Object { $_.FullName -match "\\$([regex]::Escape($PluginName))(\\|$)" })
 
     if ($candidates.Count -eq 1)
     {
