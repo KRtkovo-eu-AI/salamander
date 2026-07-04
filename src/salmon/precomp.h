@@ -24,6 +24,7 @@
 #include "winlib.h"
 
 #include "..\salmoncl.h"
+#include "..\darkmode.h"
 
 #include "salmon.h"
 #include "compress.h"

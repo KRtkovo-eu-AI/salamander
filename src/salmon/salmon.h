@@ -38,4 +38,4 @@ BOOL CompresBugReports();
 
 extern BOOL AppIsBusy;
 
-//#define WM_USER_THREAD_EXIT WM_APP + 100 // upload thread has finished
+//#define WM_USER_THREAD_EXIT WM_APP + 100 // background thread has finished

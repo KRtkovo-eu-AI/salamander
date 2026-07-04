@@ -13,7 +13,7 @@ CSalmonSharedMemory* SalmonSharedMemory = NULL;
 char BugReportPath[MAX_PATH] = {0};
 extern TDirectArray<CBugReport> BugReports(1, 10);
 char LatestBugReport[MAX_PATH] = {0}; // name of the most recent bug report (name only, without extension)
-BOOL ReportOldBugs = TRUE;            // the user allowed uploading old reports as well
+BOOL ReportOldBugs = TRUE;            // the user allowed processing old reports as well
 
 const char* APP_NAME = "Open Salamander Bug Reporter";
 
@@ -281,13 +281,34 @@ BOOL ParseCommandLine(const char* cmdLine, char* fileMappingName, char* slgName)
 // LoadSLG
 //
 
-const char* LANG_PATH = "lang\\%s";
+const char* LANG_PATH = "%s\\lang\\%s";
+
+void GetSalamanderRootPath(char* path, int pathSize)
+{
+    GetModuleFileName(NULL, path, pathSize);
+    path[pathSize - 1] = 0;
+
+    char* lastSlash = strrchr(path, '\\');
+    if (lastSlash != NULL)
+        *lastSlash = 0; // strip salmon.exe
+
+    lastSlash = strrchr(path, '\\');
+    if (lastSlash != NULL && _stricmp(lastSlash + 1, "utils") == 0)
+        *lastSlash = 0; // salmon.exe lives in <root>\utils
+}
 
 HINSTANCE LoadSLG(const char* slgName)
 {
+    char rootPath[MAX_PATH];
+    GetSalamanderRootPath(rootPath, MAX_PATH);
+
     char path[MAX_PATH];
-    sprintf(path, LANG_PATH, slgName);
-    HINSTANCE hSLG = LoadLibrary(path);
+    HINSTANCE hSLG = NULL;
+    if (slgName != NULL && slgName[0] != 0)
+    {
+        sprintf(path, LANG_PATH, rootPath, slgName);
+        hSLG = LoadLibrary(path);
+    }
     if (hSLG == NULL)
     {
         // if loading the SLG failed, it might not exist or we were not given a valid name
@@ -296,19 +317,19 @@ HINSTANCE LoadSLG(const char* slgName)
         for (int i = 0; *masks[i] != 0 && (hSLG == NULL); i++)
         {
             char findPath[MAX_PATH];
-            sprintf(findPath, LANG_PATH, masks[i]);
+            sprintf(findPath, LANG_PATH, rootPath, masks[i]);
             WIN32_FIND_DATA find;
             HANDLE hFind = HANDLES_Q(FindFirstFile(findPath, &find));
             if (hFind != INVALID_HANDLE_VALUE)
             {
-                sprintf(path, LANG_PATH, find.cFileName);
+                sprintf(path, LANG_PATH, rootPath, find.cFileName);
                 hSLG = LoadLibrary(path);
                 HANDLES(FindClose(hFind));
             }
         }
     }
     if (hSLG == NULL)
-        MessageBox(NULL, "Internal error: cannot load any language file. Please contact us at support@altap.cz.", APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        MessageBox(NULL, "Internal error: cannot load any language file. Please report this at https://github.com/KRtkovo-eu-AI/salamander/issues.", APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
     return hSLG;
 }
 
@@ -977,6 +998,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
 
     HInstance = hInstance;
 
+    DarkModeDetectAndEnableSystemDarkMode();
+
     Config.Load();
 
     char fileMappingName[SALMON_FILEMAPPIN_NAME_SIZE];
@@ -987,6 +1010,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
         HINSTANCE hLanguage = LoadSLG(slgName); // load the default SLG so that we can display possible errors
         if (hLanguage != NULL)
             MessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        DarkModeShutdown();
         return SALMON_RET_ERROR;
     }
 
@@ -1001,6 +1025,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
         HINSTANCE hLanguage = LoadSLG(slgName); // load the default SLG so that we can display possible errors
         if (hLanguage != NULL)
             MessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        DarkModeShutdown();
         return SALMON_RET_ERROR;
     }
 
@@ -1011,6 +1036,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
         HINSTANCE hLanguage = LoadSLG(slgName); // load the default SLG so that we can display possible errors
         if (hLanguage != NULL)
             MessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        DarkModeShutdown();
         return SALMON_RET_ERROR;
     }
 
@@ -1076,7 +1102,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
         case WAIT_OBJECT_0 + 3: // sharedMemory->CheckBugs
         {
             // Salamander informs us that the main window is open and it is time to check whether
-            // there are old files in the bug report directory that we should send to the server
+            // there are old files in the bug report directory that we should offer to process
             ChechForBugs(mem, slgName);
             break;
         }
@@ -1104,6 +1130,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
     CloseHandle(fm);
 
     Config.Save();
+
+    DarkModeShutdown();
 
     if (HLanguage != NULL)
     {
