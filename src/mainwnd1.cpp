@@ -2052,6 +2052,21 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
     }
 
     std::wstring prefix = title.substr(0, prefixEnd);
+    bool prefixHasNonAscii = false;
+    for (size_t i = 0; i < prefix.length(); i++)
+    {
+        if (prefix[i] > 0x7F)
+        {
+            prefixHasNonAscii = true;
+            break;
+        }
+    }
+    if (prefixHasNonAscii)
+    {
+        size_t slash = prefix.find_last_of(L"\\/");
+        if (slash != std::wstring::npos && slash + 1 < prefix.length())
+            prefix = prefix.substr(slash + 1);
+    }
     RECT wndRect;
     if (!GetWindowRect(hwnd, &wndRect))
         return;
@@ -2079,7 +2094,7 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
     }
 
     int titleWidth = 0;
-    if (!GetTextWidth(dc, captionFont, title, titleWidth) || titleWidth <= captionWidth)
+    if (!GetTextWidth(dc, captionFont, title, titleWidth) || (!prefixHasNonAscii && titleWidth <= captionWidth))
     {
         ReleaseDC(hwnd, dc);
         if (captionFont != NULL)
@@ -2097,6 +2112,20 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
         if (captionFont != NULL)
             DeleteObject(captionFont);
         return;
+    }
+
+    if (prefixHasNonAscii && !prefix.empty())
+    {
+        std::wstring leafTitle = prefix + separator + appSuffix;
+        int leafWidth = 0;
+        if (GetTextWidth(dc, captionFont, leafTitle, leafWidth) && leafWidth <= captionWidth)
+        {
+            title = leafTitle;
+            ReleaseDC(hwnd, dc);
+            if (captionFont != NULL)
+                DeleteObject(captionFont);
+            return;
+        }
     }
 
     int low = 0;
