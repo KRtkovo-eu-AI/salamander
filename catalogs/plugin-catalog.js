@@ -37,6 +37,7 @@
       message: document.getElementById("message"),
       statusText: document.getElementById("statusText"),
       table: document.getElementById("pluginTable"),
+      tableFrame: document.querySelector(".table-frame"),
       rows: document.getElementById("pluginRows"),
       emptyDetails: document.getElementById("emptyDetails"),
       pluginDetails: document.getElementById("pluginDetails"),
@@ -305,8 +306,6 @@
         return plugin.author;
       case "description":
         return getLocalizedText(plugin.description, language);
-      case "download":
-        return plugin.downloadPageUrl || plugin.homepageUrl;
       default:
         return "";
     }
@@ -330,19 +329,6 @@
       row.appendChild(createCell(plugin.author, "col-author"));
       row.appendChild(createCell(getLocalizedText(plugin.description, language), "col-description"));
 
-      var downloadCell = document.createElement("td");
-      downloadCell.className = "col-download";
-      if (plugin.downloadPageUrl) {
-        var downloadLink = document.createElement("a");
-        downloadLink.href = plugin.downloadPageUrl;
-        downloadLink.target = "_blank";
-        downloadLink.rel = "noopener noreferrer";
-        downloadLink.textContent = "Download";
-        downloadCell.appendChild(downloadLink);
-      } else {
-        downloadCell.textContent = "—";
-      }
-      row.appendChild(downloadCell);
 
       fragment.appendChild(row);
     });
@@ -367,6 +353,12 @@
     });
   }
 
+  function updateSelectedRowClasses() {
+    elements.rows.querySelectorAll("tr[data-key]").forEach(function (row) {
+      row.classList.toggle("selected", row.getAttribute("data-key") === state.selectedKey);
+    });
+  }
+
   function selectPlugin(key) {
     var plugin = state.plugins.find(function (item) {
       return item.key === key;
@@ -378,7 +370,7 @@
     }
 
     state.selectedKey = key;
-    renderTable();
+    updateSelectedRowClasses();
 
     var language = elements.languageSelect.value;
     var pluginName = getLocalizedText(plugin.name, language);

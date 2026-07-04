@@ -79,7 +79,8 @@ a:focus-visible {
   border-radius: 50%;
   display: inline-grid;
   place-items: center;
-  background: var(--accent);
+  overflow: hidden;
+  background: transparent;
   color: #111;
   font-weight: 700;
   font-size: 11px;
@@ -247,10 +248,6 @@ tbody tr.selected {
   width: 220px;
 }
 
-.col-download {
-  width: 110px;
-  white-space: nowrap;
-}
 
 .col-description {
   width: auto;
@@ -338,4 +335,9 @@ tbody tr.selected {
   .table-frame {
     height: 55vh;
   }
+}
+
+
+.app-icon img {
+  display: block;
 }
