@@ -2013,9 +2013,29 @@ static int AvoidTrailingHighSurrogate(const std::wstring& text, int length)
     return length;
 }
 
-static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& appSuffix)
+static BOOL GetTextWidth(HDC dc, HFONT font, const std::wstring& text, int& width)
 {
-    if (title.empty() || appSuffix.empty() ||
+    width = 0;
+    if (dc == NULL || text.empty())
+        return TRUE;
+
+    HFONT oldFont = NULL;
+    if (font != NULL)
+        oldFont = (HFONT)SelectObject(dc, font);
+
+    SIZE size = {0, 0};
+    BOOL ok = GetTextExtentPoint32W(dc, text.c_str(), (int)text.length(), &size);
+    if (ok)
+        width = size.cx;
+
+    if (oldFont != NULL)
+        SelectObject(dc, oldFont);
+    return ok;
+}
+
+static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std::wstring& appSuffix)
+{
+    if (hwnd == NULL || title.empty() || appSuffix.empty() ||
         title.length() <= appSuffix.length() ||
         title.compare(title.length() - appSuffix.length(), appSuffix.length(), appSuffix) != 0)
     {
@@ -2024,11 +2044,6 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
 
     const std::wstring separator = L" - ";
     const std::wstring ellipsis = L"...";
-    const int maxTitleChars = 70;
-
-    if ((int)title.length() <= maxTitleChars)
-        return;
-
     size_t prefixEnd = title.length() - appSuffix.length();
     if (prefixEnd >= separator.length() &&
         title.compare(prefixEnd - separator.length(), separator.length(), separator) == 0)
@@ -2037,18 +2052,79 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
     }
 
     std::wstring prefix = title.substr(0, prefixEnd);
-    int maxPrefixChars = maxTitleChars - (int)(ellipsis.length() + separator.length() + appSuffix.length());
-    if (maxPrefixChars <= 0)
+    RECT wndRect;
+    if (!GetWindowRect(hwnd, &wndRect))
+        return;
+
+    int captionWidth = wndRect.right - wndRect.left;
+    captionWidth -= GetSystemMetrics(SM_CXSIZE) * 3;
+    captionWidth -= GetSystemMetrics(SM_CXSMICON);
+    captionWidth -= GetSystemMetrics(SM_CXFRAME) * 2 + 48;
+    if (captionWidth <= 0)
+        return;
+
+    NONCLIENTMETRICS ncm;
+    ZeroMemory(&ncm, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+    HFONT captionFont = NULL;
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
+        captionFont = CreateFontIndirect(&ncm.lfCaptionFont);
+
+    HDC dc = GetWindowDC(hwnd);
+    if (dc == NULL)
     {
-        title = appSuffix;
+        if (captionFont != NULL)
+            DeleteObject(captionFont);
         return;
     }
 
-    maxPrefixChars = AvoidTrailingHighSurrogate(prefix, min(maxPrefixChars, (int)prefix.length()));
-    title.assign(prefix, 0, maxPrefixChars);
-    title += ellipsis;
-    title += separator;
-    title += appSuffix;
+    int titleWidth = 0;
+    if (!GetTextWidth(dc, captionFont, title, titleWidth) || titleWidth <= captionWidth)
+    {
+        ReleaseDC(hwnd, dc);
+        if (captionFont != NULL)
+            DeleteObject(captionFont);
+        return;
+    }
+
+    int suffixWidth = 0;
+    std::wstring suffixTitle = ellipsis + separator + appSuffix;
+    GetTextWidth(dc, captionFont, suffixTitle, suffixWidth);
+    if (suffixWidth > captionWidth)
+    {
+        title = appSuffix;
+        ReleaseDC(hwnd, dc);
+        if (captionFont != NULL)
+            DeleteObject(captionFont);
+        return;
+    }
+
+    int low = 0;
+    int high = (int)prefix.length();
+    std::wstring best = suffixTitle;
+    while (low <= high)
+    {
+        int rawMid = (low + high) / 2;
+        int mid = AvoidTrailingHighSurrogate(prefix, rawMid);
+        std::wstring candidate(prefix, 0, mid);
+        candidate += ellipsis;
+        candidate += separator;
+        candidate += appSuffix;
+
+        int candidateWidth = 0;
+        if (GetTextWidth(dc, captionFont, candidate, candidateWidth) && candidateWidth <= captionWidth)
+        {
+            best = candidate;
+            low = rawMid + 1;
+        }
+        else
+            high = rawMid - 1;
+    }
+
+    title = best;
+    ReleaseDC(hwnd, dc);
+    if (captionFont != NULL)
+        DeleteObject(captionFont);
 }
 
 void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
@@ -2078,7 +2154,7 @@ void CMainWindow::SetWindowTitle(const char* text)
     {
         char stdSuffix[300];
         stdSuffix[0] = 0;
-        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), "Open Salamander");
+        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), SALAMANDER_TEXT_VERSION);
 
         if (RunningAsAdmin)
         {
@@ -2152,7 +2228,7 @@ void CMainWindow::SetWindowTitle(const char* text)
     if (appTitleSuffix[0] != 0)
     {
         std::wstring wideAppSuffix = MultiByteToWindowTitleWide(appTitleSuffix);
-        EnsureAppNameSuffixInTitle(wideText, wideAppSuffix);
+        EnsureAppNameSuffixInTitle(HWindow, wideText, wideAppSuffix);
     }
     std::wstring wideBuff;
     int wideBuffLen = GetWindowTextLengthW(HWindow);
