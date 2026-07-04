@@ -235,17 +235,17 @@ slovak.CodePageWarningTitle=Upozornenie na kompatibilitu kódovej stránky
 slovak.CodePageWarning=Vybraný jazyk nemusí správne zobrazovať všetky znaky, pretože kódová stránka vášho systémového nastavenia Windows (%u) nezodpovedá kódovej stránke požadovanej týmto jazykom (%u).\n\nNa opravu zmeňte svoje systémové nastavenie v Windows: Nastavenie > Čas a jazyk > Región > Správa > Zmeniť systémové nastavenie.
 spanish.CodePageWarningTitle=Advertencia de compatibilidad de páginas de códigos
 spanish.CodePageWarning=El idioma seleccionado puede no mostrar todos los caracteres correctamente porque su página de códigos de configuración regional del sistema Windows (%u) no coincide con la página de códigos esperada para este idioma (%u).\n\nPara solucionarlo, cambie su configuración regional del sistema en Windows: Configuración > Hora e idioma > Región > Administración > Cambiar configuración regional del sistema.
-english.KeepConfigQuestion=A configuration file (configstorage.ini) already exists in the destination folder.\n\nDo you want to keep your existing configuration?\n\nChoose Yes to keep your current configuration, or No to overwrite it with the default configuration.
-chinesesimplified.KeepConfigQuestion=目标文件夹中已存在配置文件 (configstorage.ini)。\n\n是否保留现有配置？\n\n选择“是”保留当前配置，选择“否”使用默认配置覆盖。
-czech.KeepConfigQuestion=V cílové složce již existuje konfigurační soubor (configstorage.ini).\n\nChcete zachovat svou stávající konfiguraci?\n\nZvolte Ano pro zachování aktuální konfigurace, nebo Ne pro přepsání výchozí konfigurací.
-dutch.KeepConfigQuestion=Er bestaat al een configuratiebestand (configstorage.ini) in de doelmap.\n\nWilt u uw huidige configuratie behouden?\n\nKies Ja om uw huidige configuratie te behouden, of Nee om deze te overschrijven met de standaardconfiguratie.
-french.KeepConfigQuestion=Un fichier de configuration (configstorage.ini) existe déjà dans le dossier de destination.\n\nVoulez-vous conserver votre configuration existante ?\n\nChoisissez Oui pour conserver votre configuration actuelle, ou Non pour la remplacer par la configuration par défaut.
-german.KeepConfigQuestion=Eine Konfigurationsdatei (configstorage.ini) ist im Zielordner bereits vorhanden.\n\nMöchten Sie Ihre vorhandene Konfiguration beibehalten?\n\nWählen Sie Ja, um Ihre aktuelle Konfiguration beizubehalten, oder Nein, um sie mit der Standardkonfiguration zu überschreiben.
-hungarian.KeepConfigQuestion=A célmappában már létezik egy konfigurációs fájl (configstorage.ini).\n\nMegtartja a meglévő konfigurációt?\n\nVálassza az Igen lehetőséget a jelenlegi konfiguráció megtartásához, vagy a Nem lehetőséget az alapértelmezett konfigurációval történő felülíráshoz.
-romanian.KeepConfigQuestion=Un fișier de configurare (configstorage.ini) există deja în folderul destinație.\n\nDoriți să păstrați configurația existentă?\n\nAlegeți Da pentru a păstra configurația curentă sau Nu pentru a o suprascrie cu configurația implicită.
-russian.KeepConfigQuestion=Файл конфигурации (configstorage.ini) уже существует в папке назначения.\n\nСохранить текущую конфигурацию?\n\nВыберите «Да», чтобы сохранить текущую конфигурацию, или «Нет», чтобы заменить её конфигурацией по умолчанию.
-slovak.KeepConfigQuestion=V cieľovom priečinku už existuje konfiguračný súbor (configstorage.ini).\n\nChcete zachovať svoju existujúcu konfiguráciu?\n\nZvoľte Áno na zachovanie aktuálnej konfigurácie alebo Nie na nahradenie predvolenou konfiguráciou.
-spanish.KeepConfigQuestion=Ya existe un archivo de configuración (configstorage.ini) en la carpeta de destino.\n\n¿Desea conservar su configuración existente?\n\nElija Sí para conservar la configuración actual, o No para sobrescribirla con la configuración predeterminada.
+english.KeepConfigQuestion=An existing configuration file (configstorage.ini) was found.\n\nIt will be renamed to configstorage.ini.BAK and the new default configuration will be installed.
+chinesesimplified.KeepConfigQuestion=检测到已存在配置文件 (configstorage.ini)。\n\n该文件将被重命名为 configstorage.ini.BAK，并安装新的默认配置。
+czech.KeepConfigQuestion=Byl nalezen existující konfigurační soubor (configstorage.ini).\n\nBude přejmenován na configstorage.ini.BAK a nainstaluje se nová výchozí konfigurace.
+dutch.KeepConfigQuestion=Er is een bestaand configuratiebestand (configstorage.ini) gevonden.\n\nDit wordt hernoemd naar configstorage.ini.BAK en er wordt een nieuw standaard configuratiebestand geïnstalleerd.
+french.KeepConfigQuestion=Un fichier de configuration existant (configstorage.ini) a été trouvé.\n\nIl sera renommé en configstorage.ini.BAK et la nouvelle configuration par défaut sera installée.
+german.KeepConfigQuestion=Eine bestehende Konfigurationsdatei (configstorage.ini) wurde gefunden.\n\nSie wird in configstorage.ini.BAK umbenannt und die neue Standardkonfiguration wird installiert.
+hungarian.KeepConfigQuestion=Meglévő konfigurációs fájl található (configstorage.ini).\n\nÁtnevezésre kerül configstorage.ini.BAK névre, és az új alapértelmezett konfiguráció telepítésre kerül.
+romanian.KeepConfigQuestion=A fost găsit un fișier de configurare existent (configstorage.ini).\n\nAcesta va fi redenumit în configstorage.ini.BAK și va fi instalată noua configurație implicită.
+russian.KeepConfigQuestion=Обнаружен существующий файл конфигурации (configstorage.ini).\n\nОн будет переименован в configstorage.ini.BAK и установлена новая конфигурация по умолчанию.
+slovak.KeepConfigQuestion=Bol nájdený existujúci konfiguračný súbor (configstorage.ini).\n\nBude premenovaný na configstorage.ini.BAK a nainštaluje sa nová predvolená konfigurácia.
+spanish.KeepConfigQuestion=Se encontró un archivo de configuración existente (configstorage.ini).\n\nSerá renombrado a configstorage.ini.BAK y se instalará la nueva configuración predeterminada.
 
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
@@ -1395,8 +1395,6 @@ var
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
   PreviousVersionUninstallKeys: array of String;
-  KeepExistingConfig: Boolean;
-  ConfigStorageCheckDone: Boolean;
 
 function IsPortableInstall(): Boolean;
 begin
@@ -1424,26 +1422,22 @@ end;
 function ShouldInstallConfigStorage(): Boolean;
 var
   ConfigPath: String;
+  BackupPath: String;
+  Msg: String;
 begin
+  Result := True;
   ConfigPath := ExpandConstant('{app}\configstorage.ini');
 
-  if not FileExists(ConfigPath) then
+  if FileExists(ConfigPath) then
   begin
-    Result := True;
-    Exit;
-  end;
+    BackupPath := ConfigPath + '.BAK';
+    DeleteFile(BackupPath);
+    RenameFile(ConfigPath, BackupPath);
 
-  if not ConfigStorageCheckDone then
-  begin
-    KeepExistingConfig :=
-      MsgBox(
-        CustomMessage('KeepConfigQuestion'),
-        mbConfirmation,
-        MB_YESNO) = IDYES;
-    ConfigStorageCheckDone := True;
+    Msg := CustomMessage('KeepConfigQuestion');
+    StringChangeEx(Msg, '\n', #13#10, True);
+    MsgBox(Msg, mbInformation, MB_OK);
   end;
-
-  Result := not KeepExistingConfig;
 end;
 
 procedure AddPreviousVersionUninstallKey(const RootKey: Integer; const SubKeyName: String);
@@ -1574,8 +1568,6 @@ end;
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  KeepExistingConfig := False;
-  ConfigStorageCheckDone := False;
   CheckCodePageCompatibility;
 end;
 
