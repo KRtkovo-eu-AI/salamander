@@ -5,6 +5,8 @@
 #include "precomp.h"
 
 #include <string>
+#include <shlwapi.h>
+#undef PathIsPrefix
 
 #include "tooltip.h"
 #include "stswnd.h"
@@ -1976,25 +1978,6 @@ static void TrimTrailingWindowTitleSpaces(char* title)
         *(--end) = 0;
 }
 
-static void UseUnicodeLeafPathForTitle(char* path)
-{
-    if (path == NULL || path[0] == 0)
-        return;
-
-    bool hasNonAscii = false;
-    char* leaf = path;
-    for (char* p = path; *p != 0; p++)
-    {
-        if ((unsigned char)*p >= 0x80)
-            hasNonAscii = true;
-        if (*p == '\\' || *p == '/')
-            leaf = p + 1;
-    }
-
-    if (hasNonAscii)
-        lstrcpyn(path, "...", 4);
-}
-
 static std::wstring MultiByteToWindowTitleWide(const char* text)
 {
     if (text == NULL)
@@ -2019,17 +2002,6 @@ static std::wstring MultiByteToWindowTitleWide(const char* text)
     std::wstring result(wideLen, L'\0');
     MultiByteToWideChar(codePage, flags, text, textLen, &result[0], wideLen);
     return result;
-}
-
-static int AvoidTrailingHighSurrogate(const std::wstring& text, int length)
-{
-    if (length > 0)
-    {
-        wchar_t ch = text[length - 1];
-        if (ch >= 0xD800 && ch <= 0xDBFF)
-            length--;
-    }
-    return length;
 }
 
 static BOOL GetTextWidth(HDC dc, HFONT font, const std::wstring& text, int& width)
@@ -2062,40 +2034,16 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
     }
 
     const std::wstring separator = L" - ";
-    const std::wstring ellipsis = L"...";
     size_t prefixEnd = title.length() - appSuffix.length();
     if (prefixEnd >= separator.length() &&
         title.compare(prefixEnd - separator.length(), separator.length(), separator) == 0)
     {
         prefixEnd -= separator.length();
     }
-
     std::wstring prefix = title.substr(0, prefixEnd);
-    bool prefixHasNonAscii = false;
-    for (size_t i = 0; i < prefix.length(); i++)
-    {
-        if (prefix[i] > 0x7F)
-        {
-            prefixHasNonAscii = true;
-            break;
-        }
-    }
-    if (prefixHasNonAscii)
-    {
-        size_t slash = prefix.find_last_of(L"\\/");
-        if (slash != std::wstring::npos && slash + 1 < prefix.length())
-            prefix = prefix.substr(slash + 1);
-        const int maxUnicodePrefixChars = 16;
-        if ((int)prefix.length() > maxUnicodePrefixChars)
-        {
-            int cut = AvoidTrailingHighSurrogate(prefix, maxUnicodePrefixChars);
-            title.assign(prefix, 0, cut);
-            title += ellipsis;
-            title += separator;
-            title += appSuffix;
-            return;
-        }
-    }
+    if (prefix.empty())
+        return;
+
     RECT wndRect;
     if (!GetWindowRect(hwnd, &wndRect))
         return;
@@ -2103,7 +2051,7 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
     int captionWidth = wndRect.right - wndRect.left;
     captionWidth -= GetSystemMetrics(SM_CXSIZE) * 3;
     captionWidth -= GetSystemMetrics(SM_CXSMICON);
-    captionWidth -= GetSystemMetrics(SM_CXFRAME) * 2 + 140;
+    captionWidth -= GetSystemMetrics(SM_CXFRAME) * 2 + 80;
     if (captionWidth <= 0)
         return;
 
@@ -2123,7 +2071,7 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
     }
 
     int titleWidth = 0;
-    if (!GetTextWidth(dc, captionFont, title, titleWidth) || (!prefixHasNonAscii && titleWidth <= captionWidth))
+    if (!GetTextWidth(dc, captionFont, title, titleWidth) || titleWidth <= captionWidth)
     {
         ReleaseDC(hwnd, dc);
         if (captionFont != NULL)
@@ -2132,9 +2080,11 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
     }
 
     int suffixWidth = 0;
-    std::wstring suffixTitle = ellipsis + separator + appSuffix;
-    GetTextWidth(dc, captionFont, suffixTitle, suffixWidth);
-    if (suffixWidth > captionWidth)
+    int separatorWidth = 0;
+    GetTextWidth(dc, captionFont, appSuffix, suffixWidth);
+    GetTextWidth(dc, captionFont, separator, separatorWidth);
+    int prefixWidth = captionWidth - suffixWidth - separatorWidth;
+    if (prefixWidth <= 0)
     {
         title = appSuffix;
         ReleaseDC(hwnd, dc);
@@ -2143,48 +2093,14 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
         return;
     }
 
-    if (prefixHasNonAscii && !prefix.empty())
-    {
-        std::wstring leafTitle = prefix + separator + appSuffix;
-        int leafWidth = 0;
-        if (GetTextWidth(dc, captionFont, leafTitle, leafWidth) && leafWidth <= captionWidth)
-        {
-            title = leafTitle;
-            ReleaseDC(hwnd, dc);
-            if (captionFont != NULL)
-                DeleteObject(captionFont);
-            return;
-        }
-    }
+    std::wstring compacted = prefix;
+    PathCompactPathW(dc, &compacted[0], prefixWidth);
+    title = compacted + separator + appSuffix;
 
-    int low = 0;
-    int high = (int)prefix.length();
-    std::wstring best = suffixTitle;
-    while (low <= high)
-    {
-        int rawMid = (low + high) / 2;
-        int mid = AvoidTrailingHighSurrogate(prefix, rawMid);
-        std::wstring candidate(prefix, 0, mid);
-        candidate += ellipsis;
-        candidate += separator;
-        candidate += appSuffix;
-
-        int candidateWidth = 0;
-        if (GetTextWidth(dc, captionFont, candidate, candidateWidth) && candidateWidth <= captionWidth)
-        {
-            best = candidate;
-            low = rawMid + 1;
-        }
-        else
-            high = rawMid - 1;
-    }
-
-    title = best;
     ReleaseDC(hwnd, dc);
     if (captionFont != NULL)
         DeleteObject(captionFont);
 }
-
 void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
 {
     if (path == NULL || textSize <= 0)
@@ -2266,7 +2182,6 @@ void CMainWindow::SetWindowTitle(const char* text)
         {
             char path[SAL_MAX_PATH];
             GetFormatedPathForTitle(path, sizeof(path));
-            UseUnicodeLeafPathForTitle(path);
             AppendUtf8ToWindowTitle(prefixAndPath, prefixAndPathSize + 1, path);
         }
 
