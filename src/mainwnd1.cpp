@@ -1964,6 +1964,16 @@ static void TruncateUtf8WindowTitle(char* title, int maxLen)
     title[cut] = 0;
 }
 
+static void TrimTrailingWindowTitleSpaces(char* title)
+{
+    if (title == NULL)
+        return;
+
+    char* end = title + strlen(title);
+    while (end > title && *(end - 1) == ' ')
+        *(--end) = 0;
+}
+
 void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
 {
     if (path == NULL || textSize <= 0)
@@ -2011,27 +2021,30 @@ void CMainWindow::SetWindowTitle(const char* text)
         AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), expire);
 #endif // USE_BETA_EXPIRATION_DATE
 
-        int prefixAndPathSize = sizeof(stdWndName) - (int)strlen(stdSuffix) - 1;
+        TrimTrailingWindowTitleSpaces(stdSuffix);
+
+        char prefixAndPath[SAL_MAX_PATH];
+        int prefixAndPathSize = min((int)sizeof(prefixAndPath) - 1,
+                                    (int)sizeof(stdWndName) - (int)strlen(stdSuffix) - 4);
         if (prefixAndPathSize < 1)
             prefixAndPathSize = 1;
 
-        // provide default content
-        stdWndName[0] = 0;
+        prefixAndPath[0] = 0;
 
         // prefix
         if (Configuration.UseTitleBarPrefixForced)
         {
-            AppendUtf8ToWindowTitle(stdWndName, prefixAndPathSize + 1, Configuration.TitleBarPrefixForced);
-            if (stdWndName[0] != 0)
-                AppendToWindowTitle(stdWndName, prefixAndPathSize + 1, " - ");
+            AppendUtf8ToWindowTitle(prefixAndPath, prefixAndPathSize + 1, Configuration.TitleBarPrefixForced);
+            if (prefixAndPath[0] != 0)
+                AppendToWindowTitle(prefixAndPath, prefixAndPathSize + 1, " - ");
         }
         else
         {
             if (Configuration.UseTitleBarPrefix)
             {
-                AppendUtf8ToWindowTitle(stdWndName, prefixAndPathSize + 1, Configuration.TitleBarPrefix);
-                if (stdWndName[0] != 0)
-                    AppendToWindowTitle(stdWndName, prefixAndPathSize + 1, " - ");
+                AppendUtf8ToWindowTitle(prefixAndPath, prefixAndPathSize + 1, Configuration.TitleBarPrefix);
+                if (prefixAndPath[0] != 0)
+                    AppendToWindowTitle(prefixAndPath, prefixAndPathSize + 1, " - ");
             }
         }
 
@@ -2040,13 +2053,17 @@ void CMainWindow::SetWindowTitle(const char* text)
         {
             char path[SAL_MAX_PATH];
             GetFormatedPathForTitle(path, sizeof(path));
-            AppendUtf8ToWindowTitle(stdWndName, prefixAndPathSize + 1, path);
-            if (stdWndName[0] != 0)
-                AppendToWindowTitle(stdWndName, prefixAndPathSize + 1, " - ");
+            AppendUtf8ToWindowTitle(prefixAndPath, prefixAndPathSize + 1, path);
         }
 
-        TruncateUtf8WindowTitle(stdWndName, prefixAndPathSize);
+        TruncateUtf8WindowTitle(prefixAndPath, prefixAndPathSize);
+        stdWndName[0] = 0;
         AppendToWindowTitle(stdWndName, sizeof(stdWndName), stdSuffix);
+        if (prefixAndPath[0] != 0)
+        {
+            AppendToWindowTitle(stdWndName, sizeof(stdWndName), " - ");
+            AppendToWindowTitle(stdWndName, sizeof(stdWndName), prefixAndPath);
+        }
 
         text = stdWndName;
     }

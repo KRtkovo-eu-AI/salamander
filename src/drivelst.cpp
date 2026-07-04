@@ -1067,7 +1067,7 @@ CDrivesList::CDrivesList(CFilesWindow* filesWindow, const char* currentPath,
     FilesWindow = filesWindow;
     DriveType = driveType;
     DriveTypeParam = driveTypeParam;
-    lstrcpy(CurrentPath, currentPath);
+    lstrcpyn(CurrentPath, currentPath != NULL ? currentPath : "", _countof(CurrentPath));
     PostCmd = postCmd;
     PostCmdParam = postCmdParam;
     FromContextMenu = fromContextMenu;
