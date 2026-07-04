@@ -2066,6 +2066,16 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
         size_t slash = prefix.find_last_of(L"\\/");
         if (slash != std::wstring::npos && slash + 1 < prefix.length())
             prefix = prefix.substr(slash + 1);
+        const int maxUnicodePrefixChars = 16;
+        if ((int)prefix.length() > maxUnicodePrefixChars)
+        {
+            int cut = AvoidTrailingHighSurrogate(prefix, maxUnicodePrefixChars);
+            title.assign(prefix, 0, cut);
+            title += ellipsis;
+            title += separator;
+            title += appSuffix;
+            return;
+        }
     }
     RECT wndRect;
     if (!GetWindowRect(hwnd, &wndRect))
