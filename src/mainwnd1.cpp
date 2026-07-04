@@ -2002,54 +2002,6 @@ static std::wstring MultiByteToWindowTitleWide(const char* text)
     return result;
 }
 
-static int AvoidTrailingHighSurrogate(const std::wstring& text, int length)
-{
-    if (length > 0)
-    {
-        wchar_t ch = text[length - 1];
-        if (ch >= 0xD800 && ch <= 0xDBFF)
-            length--;
-    }
-    return length;
-}
-
-static void EnsureAppNameVisibleInTitle(HWND hwnd, std::wstring& title, const std::wstring& appSuffix)
-{
-    if (hwnd == NULL || title.empty() || appSuffix.empty() ||
-        title.length() <= appSuffix.length() ||
-        title.compare(title.length() - appSuffix.length(), appSuffix.length(), appSuffix) != 0)
-    {
-        return;
-    }
-
-    const std::wstring separator = L" - ";
-    size_t suffixStart = title.length() - appSuffix.length();
-    size_t prefixEnd = suffixStart;
-    if (prefixEnd >= separator.length() &&
-        title.compare(prefixEnd - separator.length(), separator.length(), separator) == 0)
-    {
-        prefixEnd -= separator.length();
-    }
-
-    std::wstring prefix = title.substr(0, prefixEnd);
-    const std::wstring ellipsis = L"...";
-    const int maxTitleChars = 96; // keep app suffix inside the real caption text
-    if ((int)title.length() > maxTitleChars)
-    {
-        int maxPrefixChars = maxTitleChars - (int)(ellipsis.length() + separator.length() + appSuffix.length());
-        if (maxPrefixChars <= 0)
-            title = appSuffix;
-        else
-        {
-            maxPrefixChars = AvoidTrailingHighSurrogate(prefix, min(maxPrefixChars, (int)prefix.length()));
-            title.assign(prefix, 0, maxPrefixChars);
-            title += ellipsis;
-            title += separator;
-            title += appSuffix;
-        }
-    }
-}
-
 void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
 {
     if (path == NULL || textSize <= 0)
@@ -2071,8 +2023,6 @@ void CMainWindow::SetWindowTitle(const char* text)
     buff[999] = 0;
 
     char stdWndName[SAL_MAX_PATH + 300];
-    char appTitleSuffix[300];
-    appTitleSuffix[0] = 0;
     if (text == NULL)
     {
         char stdSuffix[300];
@@ -2136,23 +2086,17 @@ void CMainWindow::SetWindowTitle(const char* text)
 
         TruncateUtf8WindowTitle(prefixAndPath, prefixAndPathSize);
         stdWndName[0] = 0;
+        AppendToWindowTitle(stdWndName, sizeof(stdWndName), stdSuffix);
         if (prefixAndPath[0] != 0)
         {
-            AppendToWindowTitle(stdWndName, sizeof(stdWndName), prefixAndPath);
             AppendToWindowTitle(stdWndName, sizeof(stdWndName), " - ");
+            AppendToWindowTitle(stdWndName, sizeof(stdWndName), prefixAndPath);
         }
-        AppendToWindowTitle(stdWndName, sizeof(stdWndName), stdSuffix);
-        lstrcpyn(appTitleSuffix, stdSuffix, _countof(appTitleSuffix));
 
         text = stdWndName;
     }
 
     std::wstring wideText = MultiByteToWindowTitleWide(text);
-    if (appTitleSuffix[0] != 0)
-    {
-        std::wstring wideAppSuffix = MultiByteToWindowTitleWide(appTitleSuffix);
-        EnsureAppNameVisibleInTitle(HWindow, wideText, wideAppSuffix);
-    }
     std::wstring wideBuff;
     int wideBuffLen = GetWindowTextLengthW(HWindow);
     if (wideBuffLen > 0)
