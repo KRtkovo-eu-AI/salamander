@@ -445,10 +445,10 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if (CompressParams.Result)
                 {
-                    SalmonMessageBox(HWindow, LoadStr(IDS_SALMON_UPLOADSUCCESS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
                     BOOL restart = IsDlgButtonChecked(HWindow, IDC_SALMON_RESTART) == BST_CHECKED;
+                    SalmonMessageBox(HWindow, LoadStr(IDS_SALMON_UPLOADSUCCESS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
                     ShowWindow(HWindow, SW_HIDE);
-                    PostQuitMessage(0);
+                    OpenFolder(NULL, BugReportPath);
                     HINSTANCE openResult = OpenCrashReportIssue(NULL);
                     if ((INT_PTR)openResult <= 32)
                     {
@@ -456,9 +456,9 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         sprintf(msg, LoadStr(IDS_SALMON_UPLOADFAILED, HLanguage), (INT_PTR)openResult);
                         SalmonMessageBox(NULL, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
                     }
-                    OpenFolder(NULL, BugReportPath);
                     if (restart)
                         RestartSalamander(NULL);
+                    PostQuitMessage(0);
                 }
                 else
                 {

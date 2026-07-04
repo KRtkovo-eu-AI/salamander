@@ -1051,9 +1051,14 @@ int SalmonMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
     return ret;
 }
 
+BOOL SalmonColorIsDark(COLORREF color)
+{
+    return (GetRValue(color) * 299 + GetGValue(color) * 587 + GetBValue(color) * 114) < 128000;
+}
+
 void ApplySalmonDarkModeConfig(const CSalmonSharedMemory* mem)
 {
-    if (mem != NULL && mem->UseWindowsDarkMode)
+    if (mem != NULL && (mem->UseWindowsDarkMode || SalmonColorIsDark(mem->DarkModeBk)))
     {
         if (HDarkModeDialogBrush != NULL)
         {
