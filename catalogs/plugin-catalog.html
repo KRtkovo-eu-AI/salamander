@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open Salamander: Samandarin Plugin Catalog</title>
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #1f1f1f;
+      --panel: #202020;
+      --panel-2: #252525;
+      --panel-3: #2d2d2d;
+      --border: #555;
+      --border-soft: #3b3b3b;
+      --text: #f0f0f0;
+      --muted: #b8b8b8;
+      --muted-2: #8f8f8f;
+      --accent: #ffb000;
+      --accent-hover: #ffd36a;
+      --row-hover: #2c2c2c;
+      --row-selected: #3a3322;
+      --danger: #ff7b72;
+      --ok: #8fd18f;
+      --shadow: rgba(0, 0, 0, 0.35);
+      --font: "Segoe UI", Tahoma, Arial, sans-serif;
+      --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font: 12px/1.45 var(--font);
+    }
+
+    body {
+      padding: 16px;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    a:hover,
+    a:focus-visible {
+      color: var(--accent-hover);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      border: 1px solid var(--border-soft);
+      background: var(--panel);
+      box-shadow: 0 12px 28px var(--shadow);
+    }
+
+    .titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-soft);
+      background: #1b1b1b;
+    }
+
+    .titlebar-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #111;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      user-select: none;
+    }
+
+    .titlebar h1 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .content {
+      padding: 14px 14px 0;
+    }
+
+    .intro {
+      margin: 0 0 10px;
+      color: var(--text);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) 190px 160px auto;
+      gap: 8px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+
+    .field label {
+      display: block;
+      margin: 0 0 3px;
+      color: var(--muted);
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      min-height: 28px;
+      padding: 4px 7px;
+      border: 1px solid var(--border);
+      background: #171717;
+      color: var(--text);
+      outline: none;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(255, 176, 0, 0.35);
+    }
+
+    .button-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .button {
+      min-height: 28px;
+      padding: 4px 13px;
+      border: 1px solid var(--border);
+      background: var(--panel-3);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      border-color: #777;
+      background: #383838;
+    }
+
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: var(--muted);
+    }
+
+    .summary-item {
+      padding: 3px 7px;
+      border: 1px solid var(--border-soft);
+      background: #181818;
+    }
+
+    .summary-item strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .table-wrap {
+      height: 360px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      background: #171717;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      height: 30px;
+      padding: 5px 7px;
+      border-right: 1px solid var(--border-soft);
+      border-bottom: 1px solid var(--border);
+      background: #202020;
+      color: var(--text);
+      font-weight: 500;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    thead th:last-child,
+    tbody td:last-child {
+      border-right: 0;
+    }
+
+    thead th .sort-mark {
+      float: right;
+      color: var(--muted-2);
+      font-size: 10px;
+      padding-left: 6px;
+    }
+
+    tbody tr {
+      cursor: pointer;
+    }
+
+    tbody tr:hover {
+      background: var(--row-hover);
+    }
+
+    tbody tr[aria-selected="true"] {
+      background: var(--row-selected);
+    }
+
+    tbody td {
+      height: 26px;
+      padding: 4px 7px;
+      border-right: 1px solid var(--border-soft);
+      border-bottom: 1px solid var(--border-soft);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .source-badge {
+      display: inline-block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
+    }
+
+    .source-stable {
+      color: var(--ok);
+    }
+
+    .source-unofficial {
+      color: #9cc7ff;
+    }
+
+    .version {
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .details {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      padding: 0 14px 12px;
+      background: #1d1d1d;
+    }
+
+    .details legend {
+      padding: 0 6px;
+      color: var(--text);
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr) 90px minmax(0, 1fr);
+      gap: 7px 10px;
+      align-items: baseline;
+      margin-top: 10px;
+    }
+
+    .label {
+      color: var(--muted);
+    }
+
+    .value {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .description-box {
+      min-height: 96px;
+      max-height: 190px;
+      overflow: auto;
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      background: #1a1a1a;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    .empty {
+      padding: 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .error {
+      color: var(--danger);
+    }
+
+    .statusbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--border-soft);
+      background: #1b1b1b;
+      color: var(--muted);
+    }
+
+    .statusbar strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .status-actions {
+      display: flex;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 840px) {
+      body {
+        padding: 8px;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .button-row {
+        justify-content: flex-start;
+      }
+
+      .table-wrap {
+        height: 320px;
+      }
+
+      table {
+        min-width: 820px;
+      }
+
+      .details-grid {
+        grid-template-columns: 100px minmax(0, 1fr);
+      }
+
+      .statusbar {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="titlebar">
+      <span class="titlebar-icon" aria-hidden="true">S</span>
+      <h1>Open Salamander: Samandarin Plugin Catalog</h1>
+    </header>
+
+    <section class="content">
+      <p class="intro">Browse plugin catalog manifests. Click a plugin row to show details and open the plugin homepage or download page.</p>
+
+      <div class="toolbar" role="search">
+        <div class="field">
+          <label for="searchBox">Search</label>
+          <input id="searchBox" type="search" autocomplete="off" placeholder="Plugin, author, version, description…">
+        </div>
+        <div class="field">
+          <label for="sourceFilter">Source</label>
+          <select id="sourceFilter">
+            <option value="all">All sources</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="languageSelect">Text language</label>
+          <select id="languageSelect">
+            <option value="english">English</option>
+            <option value="czech">Czech</option>
+            <option value="slovak">Slovak</option>
+            <option value="german">German</option>
+            <option value="french">French</option>
+            <option value="spanish">Spanish</option>
+            <option value="dutch">Dutch</option>
+            <option value="hungarian">Hungarian</option>
+            <option value="russian">Russian</option>
+            <option value="romanian">Romanian</option>
+            <option value="chinesesimplified">Chinese Simplified</option>
+          </select>
+        </div>
+        <div class="button-row">
+          <button id="clearFiltersButton" class="button" type="button">Clear</button>
+          <button id="refreshButton" class="button" type="button">Refresh</button>
+        </div>
+      </div>
+
+      <div id="summary" class="summary" aria-live="polite"></div>
+
+      <div class="table-wrap" role="region" aria-label="Plugin table" tabindex="0">
+        <table id="pluginTable">
+          <thead>
+            <tr>
+              <th scope="col" data-sort="source" style="width: 150px;">Source <span class="sort-mark"></span></th>
+              <th scope="col" data-sort="name" style="width: 260px;">Plugin <span class="sort-mark"></span></th>
+              <th scope="col" data-sort="latestVersion" style="width: 135px;">Latest version <span class="sort-mark"></span></th>
+              <th scope="col" data-sort="author" style="width: 220px;">Author <span class="sort-mark"></span></th>
+              <th scope="col" data-sort="description">Description <span class="sort-mark"></span></th>
+              <th scope="col" data-sort="downloadPageUrl" style="width: 130px;">Download <span class="sort-mark"></span></th>
+            </tr>
+          </thead>
+          <tbody id="pluginRows">
+            <tr><td colspan="6" class="empty">Loading plugin catalogs…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <fieldset class="details">
+        <legend>Plugin details</legend>
+        <div id="detailsPanel">
+          <div class="empty">Select a plugin from the table.</div>
+        </div>
+      </fieldset>
+    </section>
+
+    <footer class="statusbar">
+      <div id="statusText">Waiting for catalog data…</div>
+      <div class="status-actions">
+        <a class="button" href="plugins-stable.json">Stable JSON</a>
+        <a class="button" href="plugins-unofficial.json">Unofficial JSON</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const CATALOGS = [
+        { file: "plugins-stable.json", fallbackName: "Stable" },
+        { file: "plugins-unofficial.json", fallbackName: "Unofficial 3rd party" }
+      ];
+
+      const elements = {
+        searchBox: document.getElementById("searchBox"),
+        sourceFilter: document.getElementById("sourceFilter"),
+        languageSelect: document.getElementById("languageSelect"),
+        clearFiltersButton: document.getElementById("clearFiltersButton"),
+        refreshButton: document.getElementById("refreshButton"),
+        summary: document.getElementById("summary"),
+        rows: document.getElementById("pluginRows"),
+        details: document.getElementById("detailsPanel"),
+        status: document.getElementById("statusText"),
+        table: document.getElementById("pluginTable")
+      };
+
+      const state = {
+        catalogs: [],
+        plugins: [],
+        filtered: [],
+        selectedKey: "",
+        sortKey: "source",
+        sortDirection: "asc"
+      };
+
+      function escapeText(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function getLocalized(value, language) {
+        if (!value) {
+          return "";
+        }
+
+        if (typeof value === "string") {
+          return value;
+        }
+
+        return value[language]
+          || value.english
+          || value.czech
+          || Object.values(value).find((item) => typeof item === "string" && item.trim())
+          || "";
+      }
+
+      function formatDate(value) {
+        if (!value) {
+          return "";
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return value;
+        }
+
+        return new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(date);
+      }
+
+      function sourceClass(source) {
+        return source.toLowerCase().includes("unofficial") ? "source-unofficial" : "source-stable";
+      }
+
+      function pluginKey(plugin) {
+        return `${plugin.source}::${plugin.id || plugin.displayName}`;
+      }
+
+      async function fetchCatalog(catalogInfo) {
+        const response = await fetch(catalogInfo.file, {
+          cache: "no-store",
+          headers: {
+            "Accept": "application/json"
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`${catalogInfo.file}: HTTP ${response.status}`);
+        }
+
+        const catalog = await response.json();
+        const source = catalog.catalogName || catalogInfo.fallbackName;
+        const plugins = Array.isArray(catalog.plugins) ? catalog.plugins : [];
+
+        return {
+          file: catalogInfo.file,
+          source,
+          schemaVersion: catalog.schemaVersion ?? "",
+          generatedAt: catalog.generatedAt || "",
+          plugins: plugins.map((plugin) => ({
+            ...plugin,
+            source,
+            catalogFile: catalogInfo.file,
+            catalogGeneratedAt: catalog.generatedAt || "",
+            catalogSchemaVersion: catalog.schemaVersion ?? ""
+          }))
+        };
+      }
+
+      async function loadCatalogs() {
+        setLoading();
+
+        try {
+          const catalogs = await Promise.all(CATALOGS.map(fetchCatalog));
+          state.catalogs = catalogs;
+          state.plugins = catalogs.flatMap((catalog) => catalog.plugins);
+
+          rebuildSourceFilter();
+          applyFilters();
+
+          const total = state.plugins.length;
+          elements.status.innerHTML = `<strong>Plugin catalog loaded.</strong> ${total} plugin${total === 1 ? "" : "s"} from ${catalogs.length} catalog${catalogs.length === 1 ? "" : "s"}.`;
+        } catch (error) {
+          console.error(error);
+          elements.rows.innerHTML = `<tr><td colspan="6" class="empty error">Could not load plugin catalogs: ${escapeText(error.message)}</td></tr>`;
+          elements.details.innerHTML = `<div class="empty error">Catalog loading failed. On a local machine, open this page through a local web server, not through file://.</div>`;
+          elements.summary.innerHTML = "";
+          elements.status.innerHTML = `<span class="error">Catalog loading failed.</span>`;
+        }
+      }
+
+      function setLoading() {
+        elements.rows.innerHTML = `<tr><td colspan="6" class="empty">Loading plugin catalogs…</td></tr>`;
+        elements.details.innerHTML = `<div class="empty">Select a plugin from the table.</div>`;
+        elements.summary.innerHTML = "";
+        elements.status.textContent = "Loading plugin catalogs…";
+      }
+
+      function rebuildSourceFilter() {
+        const previous = elements.sourceFilter.value;
+        const sources = [...new Set(state.catalogs.map((catalog) => catalog.source))];
+
+        elements.sourceFilter.innerHTML = `<option value="all">All sources</option>`;
+        for (const source of sources) {
+          const option = document.createElement("option");
+          option.value = source;
+          option.textContent = source;
+          elements.sourceFilter.append(option);
+        }
+
+        elements.sourceFilter.value = sources.includes(previous) ? previous : "all";
+      }
+
+      function applyFilters() {
+        const language = elements.languageSelect.value;
+        const query = elements.searchBox.value.trim().toLocaleLowerCase();
+        const source = elements.sourceFilter.value;
+
+        state.filtered = state.plugins.filter((plugin) => {
+          const name = getLocalized(plugin.name, language);
+          const description = getLocalized(plugin.description, language);
+          const haystack = [
+            plugin.source,
+            plugin.id,
+            name,
+            plugin.author,
+            plugin.latestVersion,
+            plugin.versionScheme,
+            plugin.homepageUrl,
+            plugin.downloadPageUrl,
+            description
+          ].join(" ").toLocaleLowerCase();
+
+          return (source === "all" || plugin.source === source)
+            && (!query || haystack.includes(query));
+        });
+
+        sortFiltered();
+        renderSummary();
+        renderTable();
+        ensureSelection();
+      }
+
+      function sortFiltered() {
+        const language = elements.languageSelect.value;
+        const direction = state.sortDirection === "asc" ? 1 : -1;
+        const sourceOrder = new Map(state.catalogs.map((catalog, index) => [catalog.source, index]));
+
+        state.filtered.sort((a, b) => {
+          let result = 0;
+
+          if (state.sortKey === "source") {
+            result = (sourceOrder.get(a.source) ?? 999) - (sourceOrder.get(b.source) ?? 999)
+              || getLocalized(a.name, language).localeCompare(getLocalized(b.name, language));
+          } else if (state.sortKey === "name") {
+            result = getLocalized(a.name, language).localeCompare(getLocalized(b.name, language));
+          } else if (state.sortKey === "description") {
+            result = getLocalized(a.description, language).localeCompare(getLocalized(b.description, language));
+          } else {
+            const left = String(a[state.sortKey] ?? "");
+            const right = String(b[state.sortKey] ?? "");
+            result = left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
+          }
+
+          return result * direction;
+        });
+      }
+
+      function renderSummary() {
+        const sourceCounts = state.catalogs.map((catalog) => {
+          const count = state.plugins.filter((plugin) => plugin.source === catalog.source).length;
+          return `<span class="summary-item"><strong>${escapeText(catalog.source)}:</strong> ${count}</span>`;
+        }).join("");
+
+        const generated = state.catalogs.map((catalog) => {
+          const date = formatDate(catalog.generatedAt) || "unknown";
+          return `<span class="summary-item"><strong>${escapeText(catalog.source)} generated:</strong> ${escapeText(date)}</span>`;
+        }).join("");
+
+        elements.summary.innerHTML = [
+          `<span class="summary-item"><strong>Showing:</strong> ${state.filtered.length} / ${state.plugins.length}</span>`,
+          sourceCounts,
+          generated
+        ].join("");
+      }
+
+      function renderTable() {
+        updateSortMarks();
+
+        if (state.filtered.length === 0) {
+          elements.rows.innerHTML = `<tr><td colspan="6" class="empty">No plugins match the current filter.</td></tr>`;
+          return;
+        }
+
+        const language = elements.languageSelect.value;
+        const fragment = document.createDocumentFragment();
+
+        for (const plugin of state.filtered) {
+          const key = pluginKey(plugin);
+          const name = getLocalized(plugin.name, language);
+          const description = getLocalized(plugin.description, language);
+          const row = document.createElement("tr");
+          row.tabIndex = 0;
+          row.dataset.key = key;
+          row.setAttribute("aria-selected", key === state.selectedKey ? "true" : "false");
+
+          row.append(
+            cellWithSource(plugin.source),
+            textCell(name || plugin.id || "Unnamed plugin"),
+            textCell(plugin.latestVersion || "", "version"),
+            textCell(plugin.author || ""),
+            textCell(description || ""),
+            linkCell(plugin.downloadPageUrl, "Open")
+          );
+
+          fragment.append(row);
+        }
+
+        elements.rows.replaceChildren(fragment);
+      }
+
+      function textCell(value, className = "") {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        if (className) {
+          cell.className = className;
+        }
+        cell.title = value;
+        return cell;
+      }
+
+      function cellWithSource(source) {
+        const cell = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = `source-badge ${sourceClass(source)}`;
+        badge.textContent = source;
+        badge.title = source;
+        cell.append(badge);
+        return cell;
+      }
+
+      function linkCell(url, text) {
+        const cell = document.createElement("td");
+        if (!url) {
+          cell.textContent = "";
+          return cell;
+        }
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.textContent = text;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.addEventListener("click", (event) => event.stopPropagation());
+        cell.append(link);
+        return cell;
+      }
+
+      function updateSortMarks() {
+        for (const th of elements.table.querySelectorAll("thead th")) {
+          const mark = th.querySelector(".sort-mark");
+          if (!mark) {
+            continue;
+          }
+
+          mark.textContent = th.dataset.sort === state.sortKey
+            ? (state.sortDirection === "asc" ? "▲" : "▼")
+            : "";
+        }
+      }
+
+      function ensureSelection() {
+        const selectedStillVisible = state.filtered.some((plugin) => pluginKey(plugin) === state.selectedKey);
+        if (!selectedStillVisible) {
+          state.selectedKey = state.filtered.length ? pluginKey(state.filtered[0]) : "";
+        }
+
+        renderDetails();
+        markSelectedRow();
+      }
+
+      function selectPlugin(key) {
+        state.selectedKey = key;
+        markSelectedRow();
+        renderDetails();
+      }
+
+      function markSelectedRow() {
+        for (const row of elements.rows.querySelectorAll("tr[data-key]")) {
+          row.setAttribute("aria-selected", row.dataset.key === state.selectedKey ? "true" : "false");
+        }
+      }
+
+      function renderDetails() {
+        const plugin = state.filtered.find((item) => pluginKey(item) === state.selectedKey);
+        if (!plugin) {
+          elements.details.innerHTML = `<div class="empty">Select a plugin from the table.</div>`;
+          return;
+        }
+
+        const language = elements.languageSelect.value;
+        const name = getLocalized(plugin.name, language) || plugin.id || "Unnamed plugin";
+        const description = getLocalized(plugin.description, language) || "No description available.";
+        const generated = formatDate(plugin.catalogGeneratedAt) || "";
+
+        elements.details.innerHTML = `
+          <div class="details-grid">
+            <div class="label">Plugin:</div>
+            <div class="value">${escapeText(name)}</div>
+            <div class="label">Source:</div>
+            <div class="value"><span class="${sourceClass(plugin.source)}">${escapeText(plugin.source)}</span></div>
+
+            <div class="label">Author:</div>
+            <div class="value">${escapeText(plugin.author || "")}</div>
+            <div class="label">Latest version:</div>
+            <div class="value version">${escapeText(plugin.latestVersion || "")}</div>
+
+            <div class="label">Plugin ID:</div>
+            <div class="value version">${escapeText(plugin.id || "")}</div>
+            <div class="label">Version scheme:</div>
+            <div class="value version">${escapeText(plugin.versionScheme || "")}</div>
+
+            <div class="label">Homepage:</div>
+            <div class="value">${renderUrl(plugin.homepageUrl)}</div>
+            <div class="label">Download page:</div>
+            <div class="value">${renderUrl(plugin.downloadPageUrl)}</div>
+
+            <div class="label">Catalog file:</div>
+            <div class="value version">${escapeText(plugin.catalogFile || "")}</div>
+            <div class="label">Generated:</div>
+            <div class="value">${escapeText(generated)}</div>
+          </div>
+          <div class="label" style="margin-top: 10px;">Description:</div>
+          <div class="description-box">${escapeText(description)}</div>
+        `;
+      }
+
+      function renderUrl(url) {
+        if (!url) {
+          return "";
+        }
+
+        const safe = escapeAttribute(url);
+        return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${escapeText(url)}</a>`;
+      }
+
+      function escapeAttribute(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function clearFilters() {
+        elements.searchBox.value = "";
+        elements.sourceFilter.value = "all";
+        applyFilters();
+        elements.searchBox.focus();
+      }
+
+      elements.searchBox.addEventListener("input", applyFilters);
+      elements.sourceFilter.addEventListener("change", applyFilters);
+      elements.languageSelect.addEventListener("change", applyFilters);
+      elements.clearFiltersButton.addEventListener("click", clearFilters);
+      elements.refreshButton.addEventListener("click", loadCatalogs);
+
+      elements.rows.addEventListener("click", (event) => {
+        const row = event.target.closest("tr[data-key]");
+        if (row) {
+          selectPlugin(row.dataset.key);
+        }
+      });
+
+      elements.rows.addEventListener("keydown", (event) => {
+        const row = event.target.closest("tr[data-key]");
+        if (!row) {
+          return;
+        }
+
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectPlugin(row.dataset.key);
+        }
+      });
+
+      elements.table.querySelector("thead").addEventListener("click", (event) => {
+        const header = event.target.closest("th[data-sort]");
+        if (!header) {
+          return;
+        }
+
+        const sortKey = header.dataset.sort;
+        if (state.sortKey === sortKey) {
+          state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
+        } else {
+          state.sortKey = sortKey;
+          state.sortDirection = "asc";
+        }
+
+        applyFilters();
+      });
+
+      loadCatalogs();
+    })();
+  </script>
+</body>
+</html>
