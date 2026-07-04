@@ -1991,19 +1991,8 @@ static void UseUnicodeLeafPathForTitle(char* path)
             leaf = p + 1;
     }
 
-    if (hasNonAscii && leaf > path && *leaf != 0)
-        memmove(path, leaf, strlen(leaf) + 1);
-
-    const int maxTitlePathBytes = 64;
-    int len = (int)strlen(path);
-    if (hasNonAscii && len > maxTitlePathBytes)
-    {
-        int cut = maxTitlePathBytes;
-        while (cut > 0 && ((unsigned char)path[cut] & 0xC0) == 0x80)
-            cut--;
-        path[cut] = 0;
-        lstrcat(path, "...");
-    }
+    if (hasNonAscii)
+        lstrcpyn(path, "...", 4);
 }
 
 static std::wstring MultiByteToWindowTitleWide(const char* text)
