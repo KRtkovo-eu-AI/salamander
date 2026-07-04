@@ -57,6 +57,11 @@ jobs:
       - name: Register MSVC problem matcher
         uses: ammaraskar/msvc-problem-matcher@master
 
+      - name: Install SFTP plugin dependencies
+        run: |
+          $triplet = if ('${{ matrix.platform }}' -eq 'Win32') { 'x86-windows' } else { 'x64-windows' }
+          .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet $triplet
+
       - name: Build via MSBuild (Debug | ${{ matrix.platform }})
         run: |
           $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
