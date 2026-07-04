@@ -2957,6 +2957,11 @@ int CMainWindow::GetSplitBarWidth()
 
 BOOL CMainWindow::IsPanelZoomed(BOOL leftPanel)
 {
+    if (PanelZoomedState == 1)
+        return leftPanel;
+    if (PanelZoomedState == 2)
+        return !leftPanel;
+
     if (leftPanel)
         return SplitPosition >= 0.99;
     else
@@ -7361,6 +7366,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 // better protect ourselves against a bad value in the stored pre-zoom position
                 if (SplitPosition <= 0.0 || SplitPosition >= 1.0)
                     SplitPosition = 0.5;
+                PanelZoomedState = 0;
             }
             else
             {
@@ -7370,6 +7376,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 int splitWidth = GetSplitBarWidth();
                 int totalPanelsWidth = WindowWidth - 2 - splitWidth;
                 int treeLeftWidth = 0;
+                if (LOWORD(wParam) == CM_LEFTZOOMPANEL ||
+                    (LOWORD(wParam) == CM_ACTIVEZOOMPANEL && activePanel == LeftPanel))
+                    PanelZoomedState = 1;
+                else
+                    PanelZoomedState = 2;
+
                 if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
                 {
                     int treeHeaderH = LeftPanel->GetTreeViewHeaderHeight();
@@ -8134,6 +8146,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 if (fabs(SplitPosition - targetSplitPosition) > 0.0001)
                 {
                     KeepSplitPositionCenteredOnVisiblePanes = TRUE;
+                    PanelZoomedState = 0;
                     SplitPosition = targetSplitPosition;
                     LayoutWindows();
                     FocusPanel(GetActivePanel());
@@ -8207,6 +8220,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 {
                     DragSplitX = leftWidth;
                     KeepSplitPositionCenteredOnVisiblePanes = FALSE;
+                    PanelZoomedState = 0;
                     SplitPosition = DragSplitPosition;
                     LayoutWindows();
                 }
@@ -8246,6 +8260,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 //          int splitWidth = MainWindow->GetSplitBarWidth();
                 //          SplitPosition = (double)DragSplitX / (WindowWidth - splitWidth);
                 KeepSplitPositionCenteredOnVisiblePanes = FALSE;
+                PanelZoomedState = 0;
                 SplitPosition = DragSplitPosition;
                 LayoutWindows();
             }

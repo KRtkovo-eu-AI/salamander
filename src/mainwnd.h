@@ -514,6 +514,7 @@ protected:
         DragSplitPosition;             // shown in the tooltip
     CToolTipWindow ToolTipWindow;
     BOOL KeepSplitPositionCenteredOnVisiblePanes;
+    int PanelZoomedState; // 0 = none, 1 = left panel, 2 = right panel
 
     BOOL FirstActivateApp; // WM_ACTIVATEAPP uses this variable during startup
 

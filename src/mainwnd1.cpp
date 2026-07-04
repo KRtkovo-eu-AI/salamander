@@ -340,6 +340,7 @@ CMainWindow::CMainWindow()
     BeforeZoomSplitPosition = 0.5;
     BeforeZoomVisibleLeftRatio = 0.5;
     KeepSplitPositionCenteredOnVisiblePanes = FALSE;
+    PanelZoomedState = 0;
     DragMode = FALSE;
     ContextMenuNew = new CMenuNew;
     ContextMenuChngDrv = NULL;
