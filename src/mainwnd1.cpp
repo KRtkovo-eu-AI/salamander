@@ -1984,7 +1984,7 @@ void CMainWindow::SetWindowTitle(const char* text)
     ::GetWindowText(HWindow, buff, 1000);
     buff[999] = 0;
 
-    char stdWndName[2 * MAX_PATH + 300];
+    char stdWndName[SAL_MAX_PATH + 300];
     if (text == NULL)
     {
         char stdSuffix[300];
@@ -2038,7 +2038,7 @@ void CMainWindow::SetWindowTitle(const char* text)
         // path
         if (Configuration.TitleBarShowPath)
         {
-            char path[2 * MAX_PATH];
+            char path[SAL_MAX_PATH];
             GetFormatedPathForTitle(path, sizeof(path));
             AppendUtf8ToWindowTitle(stdWndName, prefixAndPathSize + 1, path);
             if (stdWndName[0] != 0)
