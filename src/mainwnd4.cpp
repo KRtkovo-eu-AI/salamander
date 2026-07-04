@@ -327,29 +327,11 @@ void CMainWindow::GetPanelWidthsFromSplitPosition(double splitPosition, int& lef
 
 double CMainWindow::GetVisibleLeftPanelRatio()
 {
-    int leftWidth;
-    int rightWidth;
-    GetPanelWidthsFromSplitPosition(SplitPosition, leftWidth, rightWidth);
-
-    int leftVisibleWidth = leftWidth;
-    if (LeftPanel != NULL)
-    {
-        int reservedWidth = LeftPanel->GetTreeViewReservedWidth(leftWidth);
-        if (reservedWidth > leftVisibleWidth)
-            reservedWidth = leftVisibleWidth;
-        leftVisibleWidth -= reservedWidth;
-    }
-
-    int totalVisibleWidth = leftVisibleWidth + rightWidth;
-    if (totalVisibleWidth <= 0)
-        return 0.5;
-
-    double leftVisibleRatio = (double)leftVisibleWidth / totalVisibleWidth;
-    if (leftVisibleRatio < 0)
-        leftVisibleRatio = 0;
-    if (leftVisibleRatio > 1)
-        leftVisibleRatio = 1;
-    return leftVisibleRatio;
+    // SplitPosition is the user's ratio between the two file panels.
+    // Tree View (pinned or auto-hidden) is a side reservation outside that
+    // ratio, so toggling or resizing Tree View must not rewrite the panel
+    // split and slowly move a 50/50 split left or right.
+    return SplitPosition;
 }
 
 double CMainWindow::GetSplitPositionForVisibleLeftPanelRatio(double leftVisibleRatio)
@@ -358,38 +340,7 @@ double CMainWindow::GetSplitPositionForVisibleLeftPanelRatio(double leftVisibleR
         leftVisibleRatio = 0;
     if (leftVisibleRatio > 1)
         leftVisibleRatio = 1;
-
-    int splitWidth = GetSplitBarWidth();
-    int totalPanelsWidth = WindowWidth - 2 - splitWidth;
-    if (totalPanelsWidth <= 0)
-        return 0.5;
-
-    int targetLeftWidth = (int)(totalPanelsWidth * leftVisibleRatio + 0.5);
-    if (LeftPanel != NULL)
-    {
-        int probeLeftWidth = targetLeftWidth;
-        for (int i = 0; i < 4; i++)
-        {
-            int reservedWidth = LeftPanel->GetTreeViewReservedWidth(probeLeftWidth);
-            int totalVisibleWidth = totalPanelsWidth - reservedWidth;
-            if (totalVisibleWidth < 0)
-                totalVisibleWidth = 0;
-
-            targetLeftWidth = (int)(leftVisibleRatio * totalVisibleWidth + 0.5) + reservedWidth;
-            if (targetLeftWidth < 0)
-                targetLeftWidth = 0;
-            if (targetLeftWidth > totalPanelsWidth)
-                targetLeftWidth = totalPanelsWidth;
-            probeLeftWidth = targetLeftWidth;
-        }
-    }
-
-    double splitPosition = (double)(targetLeftWidth + 1) / (WindowWidth - splitWidth);
-    if (splitPosition < 0)
-        splitPosition = 0;
-    if (splitPosition > 1)
-        splitPosition = 1;
-    return splitPosition;
+    return leftVisibleRatio;
 }
 
 double CMainWindow::GetVisiblePanesCenteredSplitPosition()

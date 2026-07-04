@@ -8170,14 +8170,33 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             GetWindowSplitRect(r);
 
             int splitWidth = MainWindow->GetSplitBarWidth();
+            int treeReservedWidth = 0;
+            if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+            {
+                if (Configuration.TreeViewAutoHide)
+                {
+                    treeReservedWidth = LeftPanel->GetTreeViewHeaderHeight();
+                    if (LeftTabWindow != NULL)
+                        treeReservedWidth = LeftTabWindow->GetNeededHeight();
+                }
+                else
+                    treeReservedWidth = LeftPanel->GetTreeViewWidth(WindowWidth) + 4;
+            }
 
-            // stopper at the center
-            double splitPosition = (double)(x - DragAnchorX) / (WindowWidth - splitWidth);
+            int panelsSplitWidth = WindowWidth - 2 - splitWidth - treeReservedWidth;
+            if (panelsSplitWidth < 0)
+                panelsSplitWidth = 0;
+
+            // Stopper at the center of the two file panels. Tree View is a
+            // separate reservation on the left and must not affect the stored
+            // panel ratio.
+            int leftWidth = x - DragAnchorX - 1 - treeReservedWidth;
+            double splitPosition = panelsSplitWidth > 0 ? (double)(leftWidth + 1) / (panelsSplitWidth + 1) : 0.5;
 
             if (splitPosition >= 0.49 && splitPosition <= 0.51)
             {
-                x = (WindowWidth - splitWidth) / 2 + DragAnchorX;
                 splitPosition = 0.5;
+                leftWidth = (int)((panelsSplitWidth + 1) * splitPosition) - 1;
             }
 
             if (splitPosition < 0)
@@ -8185,15 +8204,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (splitPosition > 1)
                 splitPosition = 1;
 
-            int leftWidth = x - DragAnchorX;
-            if (leftWidth < MIN_WIN_WIDTH + 1)
-                leftWidth = MIN_WIN_WIDTH + 1;
-            int rightWidth = WindowWidth - 2 - leftWidth - splitWidth;
-            if (rightWidth < MIN_WIN_WIDTH - 1)
+            if (leftWidth < MIN_WIN_WIDTH)
+                leftWidth = MIN_WIN_WIDTH;
+            int rightWidth = panelsSplitWidth - leftWidth;
+            if (rightWidth < MIN_WIN_WIDTH)
             {
-                rightWidth = MIN_WIN_WIDTH - 1;
-                leftWidth = WindowWidth - 2 - splitWidth - rightWidth;
+                rightWidth = MIN_WIN_WIDTH;
+                leftWidth = panelsSplitWidth - rightWidth;
             }
+            if (leftWidth < 0)
+                leftWidth = 0;
+            splitPosition = panelsSplitWidth > 0 ? (double)(leftWidth + 1) / (panelsSplitWidth + 1) : 0.5;
+            if (splitPosition < 0)
+                splitPosition = 0;
+            if (splitPosition > 1)
+                splitPosition = 1;
+            int splitX = 1 + treeReservedWidth + leftWidth;
 
             TOOLINFO ti;
             ti.cbSize = sizeof(TOOLINFO);
@@ -8207,7 +8233,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             POINT p;
             GetCursorPos(&p);
             POINT p2;
-            p2.x = leftWidth;
+            p2.x = splitX;
             p2.y = 0;
             ClientToScreen(HWindow, &p2);
             p.x = p2.x;
@@ -8216,9 +8242,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             if (DragFullWindows)
             {
-                if (DragSplitX != leftWidth)
+                if (DragSplitX != splitX)
                 {
-                    DragSplitX = leftWidth;
+                    DragSplitX = splitX;
                     KeepSplitPositionCenteredOnVisiblePanes = FALSE;
                     PanelZoomedState = 0;
                     SplitPosition = DragSplitPosition;
@@ -8227,8 +8253,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
             else
             {
-                DrawSplitLine(HWindow, leftWidth, DragSplitX, r);
-                DragSplitX = leftWidth;
+                DrawSplitLine(HWindow, splitX, DragSplitX, r);
+                DragSplitX = splitX;
             }
 
             //        ti.hinst = HInstance;
@@ -8606,15 +8632,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (LeftTabWindow != NULL)
                 treeHeaderHeight = LeftTabWindow->GetNeededHeight();
 
-            int tempLeftWidth = (int)((WindowWidth - splitWidth) * layoutSplitPosition) - 1;
-            if (tempLeftWidth < MIN_WIN_WIDTH)
-                tempLeftWidth = MIN_WIN_WIDTH;
-            int tempRightWidth = WindowWidth - 2 - tempLeftWidth - splitWidth;
-            if (tempRightWidth < MIN_WIN_WIDTH)
-            {
-                tempRightWidth = MIN_WIN_WIDTH;
-                tempLeftWidth = WindowWidth - 2 - tempRightWidth - splitWidth;
-            }
             if (Configuration.TreeViewAutoHide)
                 treeDisplayWidth = LeftPanel->GetTreeViewWidth(WindowWidth);
             else
@@ -8640,19 +8657,23 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
         }
 
-        // Calculate split widths accounting for treeview:
-        // The treeview is part of the left side, so the split ratio applies to
-        // (leftPanelContent + treeview + splitter) vs (rightPanel)
-        int leftTotalWidth = (int)((totalPanelsWidth + 1) * layoutSplitPosition) - 1;
-        if (leftTotalWidth < MIN_WIN_WIDTH)
-            leftTotalWidth = MIN_WIN_WIDTH;
-        int rightWidth = totalPanelsWidth - leftTotalWidth;
+        // Tree View is reserved outside the user panel split.  The split ratio
+        // applies only to the two file panels so a saved 50/50 stays 50/50
+        // when Tree View is pinned, collapsed, activated, hidden, or the
+        // main window is resized/restored.
+        int panelsSplitWidth = totalPanelsWidth - treeWidth - treeSplitWidth;
+        if (panelsSplitWidth < 0)
+            panelsSplitWidth = 0;
+
+        int panelLeftWidth = (int)((panelsSplitWidth + 1) * layoutSplitPosition) - 1;
+        if (panelLeftWidth < MIN_WIN_WIDTH)
+            panelLeftWidth = MIN_WIN_WIDTH;
+        int rightWidth = panelsSplitWidth - panelLeftWidth;
         if (rightWidth < MIN_WIN_WIDTH)
         {
             rightWidth = MIN_WIN_WIDTH;
-            leftTotalWidth = totalPanelsWidth - rightWidth;
+            panelLeftWidth = panelsSplitWidth - rightWidth;
         }
-        int panelLeftWidth = leftTotalWidth - treeWidth - treeSplitWidth;
         if (panelLeftWidth < 0)
             panelLeftWidth = 0;
 
@@ -8674,7 +8695,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
         else
         {
-            SplitPositionPix = 1 + leftTotalWidth;
+            SplitPositionPix = 1 + treeWidth + treeSplitWidth + panelLeftWidth;
         }
 
         TopRebarHeight = 0;
