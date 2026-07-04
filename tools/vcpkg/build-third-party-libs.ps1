@@ -99,15 +99,23 @@ if (!(Test-Path -LiteralPath $VcpkgRoot))
     Invoke-LoggedCommand -FilePath 'git' -Arguments @('clone', $VcpkgRepository, $VcpkgRoot)
 }
 
-if (!(Test-Path -LiteralPath (Join-Path $VcpkgRoot '.git')))
+$vcpkgIsGitCheckout = Test-Path -LiteralPath (Join-Path $VcpkgRoot '.git')
+
+if ($vcpkgIsGitCheckout)
 {
-    throw "VcpkgRoot does not look like a git checkout: $VcpkgRoot"
+    Invoke-LoggedCommand -FilePath 'git' -Arguments @('fetch', '--tags', '--prune', 'origin') -WorkingDirectory $VcpkgRoot
+    Invoke-LoggedCommand -FilePath 'git' -Arguments @('checkout', $VcpkgBaseline) -WorkingDirectory $VcpkgRoot
+}
+elseif (Test-Path -LiteralPath $vcpkgExe)
+{
+    Write-Warning "Using existing non-git vcpkg root: $VcpkgRoot"
+}
+else
+{
+    throw "VcpkgRoot is neither a git checkout nor an existing vcpkg installation: $VcpkgRoot"
 }
 
-Invoke-LoggedCommand -FilePath 'git' -Arguments @('fetch', '--tags', '--prune', 'origin') -WorkingDirectory $VcpkgRoot
-Invoke-LoggedCommand -FilePath 'git' -Arguments @('checkout', $VcpkgBaseline) -WorkingDirectory $VcpkgRoot
-
-if (!$NoBootstrap -or !(Test-Path -LiteralPath $vcpkgExe))
+if ((!$NoBootstrap -and $vcpkgIsGitCheckout) -or !(Test-Path -LiteralPath $vcpkgExe))
 {
     $bootstrap = Join-Path $VcpkgRoot 'bootstrap-vcpkg.bat'
     if (!(Test-Path -LiteralPath $bootstrap))
