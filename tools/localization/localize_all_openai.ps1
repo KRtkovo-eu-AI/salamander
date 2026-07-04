@@ -13,6 +13,9 @@ $runtime=(Resolve-Path $BuildRoot).Path; $availableModules=@('salamand') + @(Get
 if($Modules){$selectedModules=Expand-List $Modules}else{$selectedModules=$availableModules}
 $unknown=@($selectedModules | Where-Object {$availableModules -notcontains $_}); if($unknown){throw "Unknown modules: $($unknown -join ', ')"}
 
+# Sync .slt files from plugin submodules into translations/
+$syncScript=Join-Path $PSScriptRoot 'sync_plugin_translations.ps1'; if(Test-Path $syncScript){ & $syncScript -RepoRoot $repoRoot }
+
 $langIdByLanguage = @{
  chinesesimplified = 2052; czech = 1029; dutch = 1043; french = 1036; german = 1031
  hungarian = 1038; romanian = 1048; russian = 1049; slovak = 1051; spanish = 3082

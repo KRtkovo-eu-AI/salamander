@@ -81,6 +81,15 @@ if (-not (Test-Path -LiteralPath $TranslatorExe))
     throw "translator.exe not found at: $TranslatorExe"
 }
 
+# Sync .slt files from plugin submodules into translations/
+$syncScript = Join-Path $scriptDir "sync_plugin_translations.ps1"
+if (Test-Path -LiteralPath $syncScript)
+{
+    Write-Host "Syncing plugin translations..."
+    & $syncScript -RepoRoot $repoRoot
+    Write-Host ""
+}
+
 # Determine languages
 $translationsDir = Join-Path $repoRoot "translations"
 $allLanguages = Get-ChildItem -Path $translationsDir -Directory |
