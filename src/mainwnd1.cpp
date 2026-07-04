@@ -2042,6 +2042,35 @@ static void EnsureAppNameVisibleInTitle(HWND hwnd, std::wstring& title, const st
         return;
     }
 
+    const std::wstring separator = L" - ";
+    size_t suffixStart = title.length() - appSuffix.length();
+    size_t prefixEnd = suffixStart;
+    if (prefixEnd >= separator.length() &&
+        title.compare(prefixEnd - separator.length(), separator.length(), separator) == 0)
+    {
+        prefixEnd -= separator.length();
+    }
+
+    std::wstring prefix = title.substr(0, prefixEnd);
+    const std::wstring ellipsis = L"...";
+    std::wstring suffixOnly = ellipsis + separator + appSuffix;
+
+    const int maxTitleChars = 240; // keep comfortably below common caption/control text limits
+    if ((int)title.length() > maxTitleChars)
+    {
+        int maxPrefixChars = maxTitleChars - (int)(ellipsis.length() + separator.length() + appSuffix.length());
+        if (maxPrefixChars <= 0)
+            title = appSuffix;
+        else
+        {
+            maxPrefixChars = AvoidTrailingHighSurrogate(prefix, min(maxPrefixChars, (int)prefix.length()));
+            title.assign(prefix, 0, maxPrefixChars);
+            title += ellipsis;
+            title += separator;
+            title += appSuffix;
+        }
+    }
+
     RECT wndRect;
     if (!GetWindowRect(hwnd, &wndRect))
         return;
@@ -2077,18 +2106,6 @@ static void EnsureAppNameVisibleInTitle(HWND hwnd, std::wstring& title, const st
         return;
     }
 
-    const std::wstring separator = L" - ";
-    size_t suffixStart = title.length() - appSuffix.length();
-    size_t prefixEnd = suffixStart;
-    if (prefixEnd >= separator.length() &&
-        title.compare(prefixEnd - separator.length(), separator.length(), separator) == 0)
-    {
-        prefixEnd -= separator.length();
-    }
-
-    std::wstring prefix = title.substr(0, prefixEnd);
-    const std::wstring ellipsis = L"...";
-    std::wstring suffixOnly = ellipsis + separator + appSuffix;
     int suffixOnlyWidth = 0;
     GetTextWidth(dc, captionFont, suffixOnly, suffixOnlyWidth);
     if (suffixOnlyWidth > captionWidth)
