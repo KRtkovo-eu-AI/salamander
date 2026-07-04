@@ -1970,9 +1970,6 @@ static BOOL IsUtf8WindowTitleCombiningMark(const char* text)
         return FALSE;
 
     const unsigned char* s = (const unsigned char*)text;
-    // U+0300..U+036F Combining Diacritical Marks.  Do not leave one of these
-    // immediately after a truncation point, otherwise it can render over the
-    // following " - " separator/application title.
     return s[0] == 0xCC || (s[0] == 0xCD && s[1] <= 0xAF);
 }
 
@@ -2107,15 +2104,8 @@ void CMainWindow::SetWindowTitle(const char* text)
 
         TrimTrailingWindowTitleSpaces(stdSuffix);
 
-        // Keep the whole title short enough that the fixed application suffix remains
-        // visible in the title bar.  The path/prefix is the only part that may be
-        // shortened; the suffix (application name, version, x64/admin/beta text) is
-        // always appended in full.
-        // Keep this deliberately below MAX_PATH: shell captions/taskbar buttons
-        // clip from the right, so allowing a very long path here still hides the
-        // fixed application suffix even though the string itself is valid.
-        const int titleBarMaxUtf8Bytes = 120;
         char prefixAndPath[4 * SAL_MAX_PATH];
+        const int titleBarMaxUtf8Bytes = 120;
         int prefixAndPathSize = min((int)sizeof(prefixAndPath) - 1,
                                     titleBarMaxUtf8Bytes - (int)strlen(stdSuffix) - 4);
         prefixAndPathSize = min(prefixAndPathSize,
