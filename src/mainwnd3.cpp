@@ -1864,7 +1864,7 @@ void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
     if ((int)dlg.Execute() != IDOK)
         return;
 
-    std::wstring prefix = AnsiToWide(buffer);
+    std::wstring prefix = Utf8OrAnsiToWide(buffer);
     size_t start = 0;
     while (start < prefix.length() && iswspace(prefix[start]))
         ++start;
