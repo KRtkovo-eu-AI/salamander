@@ -21,7 +21,7 @@
     plugins: [],
     filteredPlugins: [],
     selectedKey: null,
-    sortKey: "source",
+    sortKey: "plugin",
     sortDirection: "asc"
   };
 
