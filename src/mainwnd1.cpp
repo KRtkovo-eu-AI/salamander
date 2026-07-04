@@ -31,7 +31,6 @@
 const char* SALAMANDER_TEXT_VERSION = "Open Salamander 5.0 Samandarin " VERSINFO_SAMANDARIN_VERSION " (" SAL_VER_PLATFORM ") ";
 
 static void Utf8SafeCopyWindowTitle(char* target, int targetSize, const char* source);
-static std::wstring MultiByteToWindowTitleWide(const char* text);
 
 //****************************************************************************
 //
@@ -1954,6 +1953,29 @@ static void AppendUtf8ToWindowTitle(char* title, int titleSize, const char* text
     title[len + copy] = 0;
 }
 
+static int GetUtf8WindowTitlePrevChar(const char* text, int pos)
+{
+    if (text == NULL || pos <= 0)
+        return 0;
+
+    pos--;
+    while (pos > 0 && ((unsigned char)text[pos] & 0xC0) == 0x80)
+        pos--;
+    return pos;
+}
+
+static BOOL IsUtf8WindowTitleCombiningMark(const char* text)
+{
+    if (text == NULL)
+        return FALSE;
+
+    const unsigned char* s = (const unsigned char*)text;
+    // U+0300..U+036F Combining Diacritical Marks.  Do not leave one of these
+    // immediately after a truncation point, otherwise it can render over the
+    // following " - " separator/application title.
+    return s[0] == 0xCC || (s[0] == 0xCD && s[1] <= 0xAF);
+}
+
 static int GetUtf8WindowTitleSafeCut(const char* text, int maxLen)
 {
     if (text == NULL || maxLen <= 0)
@@ -1966,6 +1988,8 @@ static int GetUtf8WindowTitleSafeCut(const char* text, int maxLen)
     int cut = maxLen;
     while (cut > 0 && ((unsigned char)text[cut] & 0xC0) == 0x80)
         cut--; // do not cut in the middle of a UTF-8 character
+    while (cut > 0 && IsUtf8WindowTitleCombiningMark(text + cut))
+        cut = GetUtf8WindowTitlePrevChar(text, cut);
     return cut;
 }
 
@@ -1996,115 +2020,6 @@ static void TruncateUtf8WindowTitle(char* title, int maxLen)
         return;
 
     title[GetUtf8WindowTitleSafeCut(title, maxLen)] = 0;
-}
-
-static int GetWindowTitleTextWidth(HWND hWnd, const char* text)
-{
-    std::wstring wideText = MultiByteToWindowTitleWide(text);
-    if (wideText.empty())
-        return 0;
-
-    NONCLIENTMETRICS ncm;
-    memset(&ncm, 0, sizeof(ncm));
-    ncm.cbSize = sizeof(ncm);
-    HFONT font = NULL;
-    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
-        font = CreateFontIndirect(&ncm.lfCaptionFont);
-
-    HDC dc = GetDC(hWnd);
-    if (dc == NULL)
-    {
-        if (font != NULL)
-            DeleteObject(font);
-        return 0;
-    }
-
-    HGDIOBJ oldFont = NULL;
-    if (font != NULL)
-        oldFont = SelectObject(dc, font);
-
-    SIZE size;
-    size.cx = 0;
-    size.cy = 0;
-    GetTextExtentPoint32W(dc, wideText.c_str(), (int)wideText.length(), &size);
-
-    if (oldFont != NULL)
-        SelectObject(dc, oldFont);
-    ReleaseDC(hWnd, dc);
-    if (font != NULL)
-        DeleteObject(font);
-
-    return size.cx;
-}
-
-static int GetWindowTitleAvailableTextWidth(HWND hWnd)
-{
-    RECT rect;
-    if (hWnd == NULL || !GetWindowRect(hWnd, &rect))
-        return 0;
-
-    int width = rect.right - rect.left;
-    int buttons = GetSystemMetrics(SM_CXSIZE) * 3;
-    int paddedBorder = 0;
-#ifdef SM_CXPADDEDBORDER
-    paddedBorder = GetSystemMetrics(SM_CXPADDEDBORDER);
-#endif
-    int frame = GetSystemMetrics(SM_CXFRAME) * 2 + paddedBorder * 2;
-    int icon = GetSystemMetrics(SM_CXSMICON) + GetSystemMetrics(SM_CXEDGE) * 4;
-    int padding = GetSystemMetrics(SM_CXEDGE) * 6;
-    int available = width - buttons - frame - icon - padding;
-    return available > 0 ? available : 0;
-}
-
-static void TruncateUtf8WindowTitleToFit(HWND hWnd, char* prefixAndPath, int prefixAndPathSize, const char* suffix)
-{
-    if (prefixAndPath == NULL || suffix == NULL || prefixAndPath[0] == 0)
-        return;
-
-    int available = GetWindowTitleAvailableTextWidth(hWnd);
-    if (available <= 0)
-        return;
-
-    char testTitle[4 * SAL_MAX_PATH + 300];
-    testTitle[0] = 0;
-    AppendToWindowTitle(testTitle, sizeof(testTitle), prefixAndPath);
-    AppendToWindowTitle(testTitle, sizeof(testTitle), " - ");
-    AppendToWindowTitle(testTitle, sizeof(testTitle), suffix);
-    if (GetWindowTitleTextWidth(hWnd, testTitle) <= available)
-        return;
-
-    int low = 0;
-    int high = min((int)strlen(prefixAndPath), prefixAndPathSize);
-    int best = 0;
-    while (low <= high)
-    {
-        int mid = (low + high) / 2;
-        int cut = GetUtf8WindowTitleSafeCut(prefixAndPath, mid);
-
-        char candidatePrefix[4 * SAL_MAX_PATH];
-        Utf8SafeCopyWindowTitle(candidatePrefix, sizeof(candidatePrefix), prefixAndPath);
-        candidatePrefix[cut] = 0;
-
-        testTitle[0] = 0;
-        if (candidatePrefix[0] != 0)
-        {
-            AppendToWindowTitle(testTitle, sizeof(testTitle), candidatePrefix);
-            AppendToWindowTitle(testTitle, sizeof(testTitle), " - ");
-        }
-        AppendToWindowTitle(testTitle, sizeof(testTitle), suffix);
-
-        if (GetWindowTitleTextWidth(hWnd, testTitle) <= available)
-        {
-            best = cut;
-            low = mid + 1;
-        }
-        else
-        {
-            high = mid - 1;
-        }
-    }
-
-    prefixAndPath[best] = 0;
 }
 
 static void TrimTrailingWindowTitleSpaces(char* title)
@@ -2236,7 +2151,6 @@ void CMainWindow::SetWindowTitle(const char* text)
         }
 
         TruncateUtf8WindowTitle(prefixAndPath, prefixAndPathSize);
-        TruncateUtf8WindowTitleToFit(HWindow, prefixAndPath, prefixAndPathSize, stdSuffix);
         stdWndName[0] = 0;
         if (prefixAndPath[0] != 0)
         {
