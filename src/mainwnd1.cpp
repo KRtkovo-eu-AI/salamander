@@ -2078,7 +2078,7 @@ void CMainWindow::SetWindowTitle(const char* text)
     {
         char stdSuffix[300];
         stdSuffix[0] = 0;
-        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), SALAMANDER_TEXT_VERSION);
+        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), "Open Salamander");
 
         if (RunningAsAdmin)
         {
