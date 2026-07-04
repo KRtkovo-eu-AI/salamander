@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include "salmoncl.h"
+#include "cfgdlg.h"
 
 CSalmonSharedMemory* SalmonSharedMemory = NULL;
 HANDLE SalmonFileMapping = NULL;
