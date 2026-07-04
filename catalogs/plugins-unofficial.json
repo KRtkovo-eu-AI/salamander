@@ -138,6 +138,40 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://forum.altap.cz/viewtopic.php?t=2166",
       "downloadPageUrl": "https://www.manison.cz/products/tcproxy.php?Lang=en"
+    },
+    {
+      "id": "syntax-viewer",
+      "name": {
+        "english": "SyntaxView",
+        "chinesesimplified": "SyntaxView",
+        "czech": "SyntaxView",
+        "german": "SyntaxView",
+        "dutch": "SyntaxView",
+        "hungarian": "SyntaxView",
+        "russian": "SyntaxView",
+        "french": "SyntaxView",
+        "slovak": "SyntaxView",
+        "romanian": "SyntaxView",
+        "spanish": "SyntaxView"
+      },
+      "author": "Michal Mores",
+      "description": {
+        "english": "Syntax Highlighting Plugin for Open Salamander - This plugin provides file viewing capability with syntax highlighting\nusing TextMate grammars and themes.",
+        "chinesesimplified": "使用 TextMate 语法和主题的语法高亮显示插件 - 该插件为 Open Salamander 提供了文件查看功能。",
+        "czech": "Plugin pro zvýraznění syntaxe pro Open Salamander - Tento plugin poskytuje možnost prohlížení souborů se zvýrazněním syntaxe pomocí gramatik a motivů TextMate.",
+        "german": "Syntax-Highlighting-Plugin für Open Salamander - Dieses Plugin bietet die Möglichkeit, Dateien mit Syntax-Highlighting unter Verwendung von TextMate-Grammatiken und -Themen anzuzeigen.",
+        "dutch": "Syntax-Highlighting-plugin voor Open Salamander - Deze plugin biedt de mogelijkheid om bestanden te bekijken met syntax-highlighting met behulp van TextMate-grammatica's en -thema's.",
+        "hungarian": "Syntax-Highlighting plugin az Open Salamander számára - Ez a plugin lehetővé teszi a fájlok megtekintését szintaxis kiemeléssel a TextMate grammatikák és témák használatával.",
+        "russian": "Плагин для подсветки синтаксиса для Open Salamander - Этот плагин предоставляет возможность просмотра файлов с подсветкой синтаксиса с использованием грамматик и тем TextMate.",
+        "french": "Plugin de mise en valeur de la syntaxe pour Open Salamander - Ce plugin offre la possibilité de visualiser des fichiers avec mise en valeur de la syntaxe en utilisant les grammaires et thèmes de TextMate.",
+        "slovak": "Plugin pre zvýrazňovanie syntaxe pre Open Salamander - Tento plugin poskytuje možnosť prehliadania súborov so zvýraznením syntaxe pomocou gramatík a motivov TextMate.",
+        "romanian": "Plugin de evidențiere sintaxă pentru Open Salamander - Acest plugin oferă capacitatea de vizualizare fișiere cu evidențiere sintaxă folosind gramaticile și temele TextMate.",
+        "spanish": "Plugin de resaltado de sintaxis para Open Salamander - Este plugin proporciona la capacidad de visualización de archivos con resaltado de sintaxis utilizando las gramáticas y temas de TextMate."
+      },
+      "latestVersion": "1.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/umpalump7/SyntaxView/",
+      "downloadPageUrl": "https://github.com/umpalump7/SyntaxView/"
     }
   ]
 }
