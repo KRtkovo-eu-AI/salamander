@@ -8561,6 +8561,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (SplitPosition > 1)
             SplitPosition = 1;
 
+        double layoutSplitPosition = SplitPosition;
+
         int splitWidth = GetSplitBarWidth();
         int middleToolbarWidth = 0;
         if (MiddleToolBar->HWindow != NULL)
@@ -8585,7 +8587,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (LeftTabWindow != NULL)
                 treeHeaderHeight = LeftTabWindow->GetNeededHeight();
 
-            int tempLeftWidth = (int)((WindowWidth - splitWidth) * SplitPosition) - 1;
+            int tempLeftWidth = (int)((WindowWidth - splitWidth) * layoutSplitPosition) - 1;
             if (tempLeftWidth < MIN_WIN_WIDTH)
                 tempLeftWidth = MIN_WIN_WIDTH;
             int tempRightWidth = WindowWidth - 2 - tempLeftWidth - splitWidth;
@@ -8613,16 +8615,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // content would start, preventing left panel bleed and flickering.
             if (rightZoomed && totalPanelsWidth > 0)
             {
-                SplitPosition = (double)(treeWidth + treeSplitWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
-                if (SplitPosition < 0.001)
-                    SplitPosition = 0.001;
+                layoutSplitPosition = (double)(treeWidth + treeSplitWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
+                if (layoutSplitPosition < 0.001)
+                    layoutSplitPosition = 0.001;
             }
         }
 
         // Calculate split widths accounting for treeview:
         // The treeview is part of the left side, so the split ratio applies to
         // (leftPanelContent + treeview + splitter) vs (rightPanel)
-        int leftTotalWidth = (int)((totalPanelsWidth + 1) * SplitPosition) - 1;
+        int leftTotalWidth = (int)((totalPanelsWidth + 1) * layoutSplitPosition) - 1;
         if (leftTotalWidth < MIN_WIN_WIDTH)
             leftTotalWidth = MIN_WIN_WIDTH;
         int rightWidth = totalPanelsWidth - leftTotalWidth;
@@ -8635,10 +8637,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (panelLeftWidth < 0)
             panelLeftWidth = 0;
 
-        // When left panel is zoomed (SplitPosition >= 1.0), extend left panel content
+        // When left panel is zoomed (layoutSplitPosition >= 1.0), extend left panel content
         // to cover the split bar area and one extra pixel, preventing the split bar
         // from flickering at the right edge.
-        if (SplitPosition >= 1.0)
+        if (layoutSplitPosition >= 1.0)
             panelLeftWidth += splitWidth + 1;
 
         // When right panel is zoomed and no tree view is active, override the split
