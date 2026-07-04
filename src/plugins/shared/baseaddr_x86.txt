@@ -115,4 +115,6 @@ serviceexplorer 0x2a300000
 lang_serviceexplorer 0x3a300000
 hypervm         0x2a400000
 lang_hypervm    0x3a400000
+sftp            0x2a500000
+lang_sftp       0x3a500000
 
