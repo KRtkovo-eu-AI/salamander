@@ -56,7 +56,6 @@ namespace
     constexpr LPARAM kNewTabButtonParam = static_cast<LPARAM>(-1);
     constexpr wchar_t kTabWidthPaddingChar = L'\x2007';
     const wchar_t kNewTabButtonText[] = L"+";
-    const wchar_t kEllipsisText[] = L"...";
 
     COLORREF BlendColor(COLORREF from, COLORREF to, int weight)
     {
@@ -138,59 +137,6 @@ namespace
     {
         while (!text.empty() && text[text.length() - 1] == kTabWidthPaddingChar)
             text.erase(text.length() - 1);
-    }
-
-    std::wstring EllipsizeTextToWidth(const std::wstring& text, HDC hdc, int maxWidth)
-    {
-        if (maxWidth <= 0)
-            return std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-        if (text.empty())
-            return text;
-
-        SIZE textSize = {0, 0};
-        if (!GetTextExtentPoint32W(hdc, text.c_str(), (int)text.length(), &textSize))
-            return text;
-        if (textSize.cx <= maxWidth)
-            return text;
-
-        SIZE ellipsisSize = {0, 0};
-        if (!GetTextExtentPoint32W(hdc, kEllipsisText, _countof(kEllipsisText) - 1, &ellipsisSize))
-            ellipsisSize.cx = 0;
-        if (ellipsisSize.cx > maxWidth)
-            return std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-
-        int low = 0;
-        int high = (int)text.length() - 1;
-        std::wstring best(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-        while (low <= high)
-        {
-            int mid = (low + high) / 2;
-            std::wstring candidate;
-            if (mid <= 0)
-                candidate.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-            else
-            {
-                candidate.assign(text, 0, mid);
-                candidate.append(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-            }
-
-            SIZE candidateSize = {0, 0};
-            if (!GetTextExtentPoint32W(hdc, candidate.c_str(), (int)candidate.length(), &candidateSize))
-            {
-                high = mid - 1;
-                continue;
-            }
-
-            if (candidateSize.cx <= maxWidth)
-            {
-                best = candidate;
-                low = mid + 1;
-            }
-            else
-                high = mid - 1;
-        }
-
-        return best;
     }
 
 }
@@ -426,14 +372,6 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (fontToUse != NULL)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
 
-    int desiredWidth = 0;
-    if (!desired.empty() && hdc != NULL)
-    {
-        SIZE desiredSize = {0, 0};
-        if (GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
-            desiredWidth = desiredSize.cx;
-    }
-
     RECT rect;
     if (!TabCtrl_GetItemRect(HWindow, index, &rect))
     {
@@ -443,32 +381,6 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         return;
     }
     int currentWidth = rect.right - rect.left;
-
-    if (maxWidthPx > 0 && currentWidth > maxWidthPx && !desired.empty())
-    {
-        int extraWidth = currentWidth - desiredWidth;
-        int allowedTextWidth = maxWidthPx - extraWidth - closeBtnExtraPx;
-        if (allowedTextWidth <= 0)
-            finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-        else if (desiredWidth > allowedTextWidth)
-            finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
-
-        for (int attempt = 0; attempt < 3; ++attempt)
-        {
-            setItemText(finalText);
-            if (!TabCtrl_GetItemRect(HWindow, index, &rect))
-                break;
-            currentWidth = rect.right - rect.left;
-            if (currentWidth <= maxWidthPx)
-                break;
-
-            allowedTextWidth -= (currentWidth - maxWidthPx);
-            if (allowedTextWidth <= 0)
-                finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-            else
-                finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
-        }
-    }
 
     if (minWidthPx > 0 || closeBtnExtraPx > 0)
     {

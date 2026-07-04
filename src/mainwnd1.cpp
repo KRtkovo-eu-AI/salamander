@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "tooltip.h"
 #include "stswnd.h"
 #include "plugins.h"
@@ -1797,7 +1799,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
             mode = TITLE_BAR_MODE_FULLPATH;
     }
 
-    char generalPath[2 * MAX_PATH];
+    char generalPath[SAL_MAX_PATH];
     generalPath[0] = 0;
     panel->GetGeneralPath(generalPath, _countof(generalPath));
 
@@ -1819,7 +1821,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
             char* trimEnd = NULL;
             if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
             {
-                char rootPath[MAX_PATH];
+                char rootPath[SAL_MAX_PATH];
                 GetRootPath(rootPath, buffer);
                 int chars = (int)strlen(rootPath);
                 trimStart = buffer + chars;
@@ -1873,7 +1875,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
             const char forwardSlash = 0x2F;   // '/'
             if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
             {
-                char rootPath[MAX_PATH];
+                char rootPath[SAL_MAX_PATH];
                 GetRootPath(rootPath, buffer);
                 int chars = (int)strlen(rootPath);
                 char* p = buffer + strlen(buffer);
@@ -1974,6 +1976,32 @@ static void TrimTrailingWindowTitleSpaces(char* title)
         *(--end) = 0;
 }
 
+static std::wstring MultiByteToWindowTitleWide(const char* text)
+{
+    if (text == NULL)
+        return std::wstring();
+
+    int textLen = (int)strlen(text);
+    if (textLen == 0)
+        return std::wstring();
+
+    int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (wideLen <= 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        wideLen = MultiByteToWideChar(codePage, flags, text, textLen, NULL, 0);
+    }
+    if (wideLen <= 0)
+        return std::wstring();
+
+    std::wstring result(wideLen, L'\0');
+    MultiByteToWideChar(codePage, flags, text, textLen, &result[0], wideLen);
+    return result;
+}
+
 void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
 {
     if (path == NULL || textSize <= 0)
@@ -2068,9 +2096,23 @@ void CMainWindow::SetWindowTitle(const char* text)
         text = stdWndName;
     }
 
-    if (strcmp(text, buff) != 0)
+    std::wstring wideText = MultiByteToWindowTitleWide(text);
+    std::wstring wideBuff;
+    int wideBuffLen = GetWindowTextLengthW(HWindow);
+    if (wideBuffLen > 0)
     {
-        ::SetWindowText(HWindow, text);
+        wideBuff.resize(wideBuffLen + 1);
+        int copied = GetWindowTextW(HWindow, &wideBuff[0], wideBuffLen + 1);
+        if (copied >= 0)
+            wideBuff.resize(copied);
+    }
+
+    if (wideText.empty() ? strcmp(text, buff) != 0 : wideText != wideBuff)
+    {
+        if (!wideText.empty())
+            ::SetWindowTextW(HWindow, wideText.c_str());
+        else
+            ::SetWindowText(HWindow, text);
         if (Configuration.StatusArea)
             SetTrayIconText(text);
     }
