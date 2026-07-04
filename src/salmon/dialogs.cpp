@@ -185,15 +185,20 @@ void MultiMonCenterWindow(HWND hWindow, HWND hByWnd, BOOL findTopWindow)
 // CMainDialog
 //
 
+const char* CRASH_REPORT_ISSUE_URL = "https://github.com/KRtkovo-eu-AI/salamander/issues/new?template=crash_report.yml";
+
+HINSTANCE OpenCrashReportIssue(HWND hParent)
+{
+    return ShellExecute(hParent, "open", CRASH_REPORT_ISSUE_URL, NULL, NULL, SW_SHOWNORMAL);
+}
+
 CMainDialog::CMainDialog(HINSTANCE hInstance, int resID, BOOL minidumpOnOpen)
     : CDialog(hInstance, resID, NULL, ooAllocated)
 {
     HBoldFont = NULL;
     Compressing = FALSE;
-    Uploading = FALSE;
     Minidumping = FALSE;
     ZeroMemory(&CompressParams, sizeof(CompressParams));
-    ZeroMemory(&UploadParams, sizeof(UploadParams));
     CurrentProgressText[0] = 0;
     MinidumpOnOpen = minidumpOnOpen;
 }
@@ -234,9 +239,6 @@ void CMainDialog::ShowChilds(CDialogTaskEnum task, BOOL show)
         {
         case dteCompress:
             resID = IDS_SALMON_COMPRESSING;
-            break;
-        case dteUpload:
-            resID = IDS_SALMON_UPLOADING;
             break;
         case dteMinidump:
             resID = IDS_SALMON_MINIDUMP;
@@ -338,17 +340,6 @@ void CMainDialog::Transfer(CTransferInfo& ti)
     ti.EditLine(IDC_SALMON_EMAIL, Config.Email, EMAIL_SIZE);
 }
 
-BOOL CMainDialog::StartUploadIndex(int index)
-{
-    ZeroMemory(&UploadParams, sizeof(UploadParams));
-    strcpy(UploadParams.FileName, BugReportPath);
-    strcat(UploadParams.FileName, BugReports[index].Name);
-    strcat(UploadParams.FileName, ".7Z");
-    BOOL ret = StartUploadThread(&UploadParams);
-    ShowChilds(dteUpload, FALSE);
-    return ret;
-}
-
 INT_PTR
 CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -413,7 +404,7 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (!AppIsBusy && wParam == 666) // skip updates while a message box is up; we do not want another one
         {
-            if (Compressing || Uploading || Minidumping)
+            if (Compressing || Minidumping)
             {
                 static DWORD counter = 0;
                 counter++;
@@ -453,48 +444,25 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if (CompressParams.Result)
                 {
-                    // start the upload thread
-                    UploadingIndex = 0;
-                    Uploading = StartUploadIndex(UploadingIndex);
+                    ShowChilds(dteDialog, TRUE);
+                    MessageBox(HWindow, LoadStr(IDS_SALMON_UPLOADSUCCESS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
+                    HINSTANCE openResult = OpenCrashReportIssue(HWindow);
+                    if ((INT_PTR)openResult <= 32)
+                    {
+                        char msg[2 * MAX_PATH];
+                        sprintf(msg, LoadStr(IDS_SALMON_UPLOADFAILED, HLanguage), (INT_PTR)openResult);
+                        MessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+                    }
+                    OpenFolder(NULL, BugReportPath);
+                    if (IsDlgButtonChecked(HWindow, IDC_SALMON_RESTART) == BST_CHECKED)
+                        RestartSalamander(HWindow);
+                    PostQuitMessage(0);
                 }
                 else
                 {
                     char msg[2 * MAX_PATH];
                     sprintf(msg, LoadStr(IDS_SALMON_COMPRESSFAILED, HLanguage), CompressParams.ErrorMessage);
                     MessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
-                    OpenFolder(NULL, BugReportPath);
-                    PostQuitMessage(0);
-                }
-            }
-
-            if (Uploading && !IsUploadThreadRunning())
-            {
-                Uploading = FALSE;
-                ShowChilds(dteDialog, TRUE);
-
-                if (UploadParams.Result)
-                {
-                    if (UploadingIndex + 1 < BugReports.Count && ReportOldBugs)
-                    {
-                        // start uploading the next file
-                        UploadingIndex++;
-                        Uploading = StartUploadIndex(UploadingIndex);
-                    }
-                    else
-                    {
-                        MessageBox(HWindow, LoadStr(IDS_SALMON_UPLOADSUCCESS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
-                        CleanBugReportsDirectory(FALSE); // clean first so Salamander does not complain when it starts
-                        if (IsDlgButtonChecked(HWindow, IDC_SALMON_RESTART) == BST_CHECKED)
-                            RestartSalamander(HWindow);
-                        PostQuitMessage(0);
-                    }
-                }
-                else
-                {
-                    char msg[2 * MAX_PATH];
-                    sprintf(msg, LoadStr(IDS_SALMON_UPLOADFAILED, HLanguage), UploadParams.ErrorMessage);
-                    MessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
-                    CleanBugReportsDirectory(TRUE); // delete the reports, keep only the archives
                     OpenFolder(NULL, BugReportPath);
                     PostQuitMessage(0);
                 }
@@ -521,7 +489,7 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDCANCEL:
         {
-            if (Compressing || Uploading)
+            if (Compressing)
             {
                 MessageBox(HWindow, LoadStr(IDS_SALMON_WAITFORUPLOAD, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
                 return 0;

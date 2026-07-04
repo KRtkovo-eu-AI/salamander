@@ -6,6 +6,7 @@
 #define WIN32_LEAN_AND_MEAN // exclude rarely-used stuff from Windows headers
 
 #include <windows.h>
+#include <shellapi.h>
 #include <shlobj.h>
 #include <crtdbg.h>
 #include <ostream>
@@ -25,7 +26,6 @@
 #include "..\salmoncl.h"
 
 #include "salmon.h"
-#include "upload.h"
 #include "compress.h"
 #include "minidump.h"
 #include "dialogs.h"

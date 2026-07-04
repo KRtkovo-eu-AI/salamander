@@ -151,8 +151,6 @@
     </ClCompile>
     <ClCompile Include="..\..\salmon\salmon.cpp">
     </ClCompile>
-    <ClCompile Include="..\..\salmon\upload.cpp">
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\common\allochan.h">
@@ -184,8 +182,6 @@
     <ClInclude Include="..\..\salmon\precomp.h">
     </ClInclude>
     <ClInclude Include="..\..\salmon\salmon.h">
-    </ClInclude>
-    <ClInclude Include="..\..\salmon\upload.h">
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

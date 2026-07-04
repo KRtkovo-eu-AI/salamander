@@ -6,7 +6,6 @@
 enum CDialogTaskEnum
 {
     dteCompress,
-    dteUpload,
     dteMinidump,
     dteDialog
 };
@@ -16,11 +15,8 @@ class CMainDialog : public CDialog
 protected:
     HFONT HBoldFont;
     BOOL Compressing;
-    BOOL Uploading;
     BOOL Minidumping;
-    int UploadingIndex; // index into the BugReports array we are currently uploading
     CCompressParams CompressParams;
-    CUploadParams UploadParams;
     CMinidumpParams MinidumpParams;
     char CurrentProgressText[200];
     BOOL MinidumpOnOpen; // should minidump generation start after opening the window?
@@ -37,6 +33,4 @@ protected:
 
     void ShowChilds(CDialogTaskEnum task, BOOL enable);
     void CenterControl(int resID);
-
-    BOOL StartUploadIndex(int index);
 };
