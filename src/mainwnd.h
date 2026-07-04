@@ -759,8 +759,8 @@ public:
     void MakeFileList();
 
     static void FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char* text, int textSize);
-    // helper method for SetTitle; 'text' must be at least 2 * MAX_PATH characters long
-    void GetFormatedPathForTitle(char* text);
+    // helper method for SetTitle; 'textSize' is the size of 'text' in bytes
+    void GetFormatedPathForTitle(char* text, int textSize);
 
     // if 'text' == NULL the default content will be set
     void SetWindowTitle(const char* text = NULL);

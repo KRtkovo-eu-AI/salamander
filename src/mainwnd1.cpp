@@ -1918,8 +1918,56 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
         lstrcpyn(buffer, generalPath, bufferSize);
 }
 
-void CMainWindow::GetFormatedPathForTitle(char* path)
+static void AppendToWindowTitle(char* title, int titleSize, const char* text)
 {
+    if (title == NULL || titleSize <= 0 || text == NULL)
+        return;
+
+    int len = (int)strlen(title);
+    if (len >= titleSize - 1)
+        return;
+
+    lstrcpyn(title + len, text, titleSize - len);
+}
+
+static void AppendUtf8ToWindowTitle(char* title, int titleSize, const char* text)
+{
+    if (title == NULL || titleSize <= 0 || text == NULL)
+        return;
+
+    int len = (int)strlen(title);
+    if (len >= titleSize - 1)
+        return;
+
+    int copy = min((int)strlen(text), titleSize - len - 1);
+    while (copy > 0 && ((unsigned char)text[copy] & 0xC0) == 0x80)
+        copy--; // do not cut in the middle of a UTF-8 character
+    if (copy <= 0)
+        return;
+
+    memcpy(title + len, text, copy);
+    title[len + copy] = 0;
+}
+
+static void TruncateUtf8WindowTitle(char* title, int maxLen)
+{
+    if (title == NULL || maxLen < 0)
+        return;
+
+    int len = (int)strlen(title);
+    if (len <= maxLen)
+        return;
+
+    int cut = maxLen;
+    while (cut > 0 && ((unsigned char)title[cut] & 0xC0) == 0x80)
+        cut--; // do not cut in the middle of a UTF-8 character
+    title[cut] = 0;
+}
+
+void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
+{
+    if (path == NULL || textSize <= 0)
+        return;
     path[0] = 0;
     CFilesWindow* panel = GetActivePanel();
     if (panel == NULL)
@@ -1927,7 +1975,7 @@ void CMainWindow::GetFormatedPathForTitle(char* path)
         path[0] = 0;
         return;
     }
-    FormatPanelPathForDisplay(panel, Configuration.TitleBarMode, path, 2 * MAX_PATH);
+    FormatPanelPathForDisplay(panel, Configuration.TitleBarMode, path, textSize);
 }
 void CMainWindow::SetWindowTitle(const char* text)
 {
@@ -1939,52 +1987,66 @@ void CMainWindow::SetWindowTitle(const char* text)
     char stdWndName[2 * MAX_PATH + 300];
     if (text == NULL)
     {
+        char stdSuffix[300];
+        stdSuffix[0] = 0;
+        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), SALAMANDER_TEXT_VERSION);
+
+        if (RunningAsAdmin)
+        {
+            AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), " (");
+            AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), LoadStr(IDS_AS_ADMIN_TITLE));
+            AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), ")");
+        }
+
+#ifdef X64_STRESS_TEST
+        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), " ST");
+#endif //X64_STRESS_TEST
+
+#ifdef USE_BETA_EXPIRATION_DATE
+        // beta version Expires on
+        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), " - Expires on ");
+        char expire[100];
+        if (GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &BETA_EXPIRATION_DATE, NULL, expire, 100) == 0)
+            sprintf(expire, "%u.%u.%u", BETA_EXPIRATION_DATE.wDay, BETA_EXPIRATION_DATE.wMonth, BETA_EXPIRATION_DATE.wYear);
+        AppendToWindowTitle(stdSuffix, sizeof(stdSuffix), expire);
+#endif // USE_BETA_EXPIRATION_DATE
+
+        int prefixAndPathSize = sizeof(stdWndName) - (int)strlen(stdSuffix) - 1;
+        if (prefixAndPathSize < 1)
+            prefixAndPathSize = 1;
+
         // provide default content
         stdWndName[0] = 0;
 
         // prefix
         if (Configuration.UseTitleBarPrefixForced)
         {
-            strcpy(stdWndName, Configuration.TitleBarPrefixForced);
+            AppendUtf8ToWindowTitle(stdWndName, prefixAndPathSize + 1, Configuration.TitleBarPrefixForced);
             if (stdWndName[0] != 0)
-                strcat(stdWndName, " - ");
+                AppendToWindowTitle(stdWndName, prefixAndPathSize + 1, " - ");
         }
         else
         {
             if (Configuration.UseTitleBarPrefix)
             {
-                strcpy(stdWndName, Configuration.TitleBarPrefix);
+                AppendUtf8ToWindowTitle(stdWndName, prefixAndPathSize + 1, Configuration.TitleBarPrefix);
                 if (stdWndName[0] != 0)
-                    strcat(stdWndName, " - ");
+                    AppendToWindowTitle(stdWndName, prefixAndPathSize + 1, " - ");
             }
         }
 
         // path
         if (Configuration.TitleBarShowPath)
         {
-            GetFormatedPathForTitle(stdWndName + strlen(stdWndName));
+            char path[2 * MAX_PATH];
+            GetFormatedPathForTitle(path, sizeof(path));
+            AppendUtf8ToWindowTitle(stdWndName, prefixAndPathSize + 1, path);
             if (stdWndName[0] != 0)
-                strcat(stdWndName, " - ");
+                AppendToWindowTitle(stdWndName, prefixAndPathSize + 1, " - ");
         }
 
-        // Open Salamander full product name + ver/platform variant
-        lstrcat(stdWndName, SALAMANDER_TEXT_VERSION);
-
-        if (RunningAsAdmin)
-            sprintf(stdWndName + lstrlen(stdWndName), " (%s)", LoadStr(IDS_AS_ADMIN_TITLE));
-
-#ifdef X64_STRESS_TEST
-        lstrcat(stdWndName, " ST");
-#endif //X64_STRESS_TEST
-
-#ifdef USE_BETA_EXPIRATION_DATE
-        // beta version Expires on
-        lstrcat(stdWndName, " - Expires on ");
-        char expire[100];
-        if (GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &BETA_EXPIRATION_DATE, NULL, expire, 100) == 0)
-            sprintf(expire, "%u.%u.%u", BETA_EXPIRATION_DATE.wDay, BETA_EXPIRATION_DATE.wMonth, BETA_EXPIRATION_DATE.wYear);
-        lstrcat(stdWndName, expire);
-#endif // USE_BETA_EXPIRATION_DATE
+        TruncateUtf8WindowTitle(stdWndName, prefixAndPathSize);
+        AppendToWindowTitle(stdWndName, sizeof(stdWndName), stdSuffix);
 
         text = stdWndName;
     }

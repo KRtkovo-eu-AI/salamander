@@ -2073,6 +2073,13 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 BOOL destroyIcon = FALSE;
                 if (fs->GetChangeDriveOrDisconnectItem(fs->GetPluginFSName(), txt, icon, destroyIcon))
                 {
+                    if (txt == NULL)
+                    {
+                        TRACE_E("CDrivesList::BuildData(): plug-in returned a NULL change-drive item text");
+                        if (destroyIcon && icon != NULL)
+                            HANDLES(DestroyIcon(icon));
+                        continue;
+                    }
                     drv.DriveText = txt;
                     drv.HIcon = icon;
                     drv.HGrayIcon = NULL;
