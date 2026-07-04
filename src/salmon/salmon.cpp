@@ -329,7 +329,7 @@ HINSTANCE LoadSLG(const char* slgName)
         }
     }
     if (hSLG == NULL)
-        MessageBox(NULL, "Internal error: cannot load any language file. Please report this at https://github.com/KRtkovo-eu-AI/salamander/issues.", APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        SalmonMessageBox(NULL, "Internal error: cannot load any language file. Please report this at https://github.com/KRtkovo-eu-AI/salamander/issues.", APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
     return hSLG;
 }
 
@@ -582,7 +582,7 @@ int GetUniqueBugReportCount()
     for (int i = 0; i < BugReports.Count; i++)
     {
         CBugReport* item = &BugReports[i];
-        //    MessageBox(NULL, item->Name, item->Name, MB_OK);
+        //    SalmonMessageBox(NULL, item->Name, item->Name, MB_OK);
         // remove trailing -1 to -99 from the name
         strcpy(buff, item->Name);
         int len = (int)strlen(buff);
@@ -650,7 +650,7 @@ BOOL LoadHLanguageVerbose(const char* slgName)
     {
         char buff[2 * MAX_PATH];
         sprintf(buff, "Failed to load resources from %s.", slgName);
-        MessageBox(NULL, buff, APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        SalmonMessageBox(NULL, buff, APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
         return FALSE;
     }
     if (HLanguage != NULL)
@@ -954,7 +954,7 @@ void ChechForBugs(CSalmonSharedMemory* mem, const char* slgName)
                     if (GetUniqueBugReportCount() > 1)
                     {
                         // if multiple reports exist, ask whether to send them all
-                        int res = MessageBox(NULL, LoadStr(IDS_SALMON_MORE_REPORTS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_YESNO | MB_ICONQUESTION | MB_SETFOREGROUND);
+                        int res = SalmonMessageBox(NULL, LoadStr(IDS_SALMON_MORE_REPORTS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_YESNO | MB_ICONQUESTION | MB_SETFOREGROUND);
                         ReportOldBugs = (res == IDYES);
                     }
                     // with that decision made we can open the dialog
@@ -984,6 +984,44 @@ WPARAM PostponedMsgWParam = 0;
 LPARAM PostponedMsgLParam = 0;
 
 HBRUSH HDarkModeDialogBrush = NULL;
+HHOOK HSalmonMessageBoxHook = NULL;
+
+void ApplyDarkModeToSalmonMessageBox(HWND hWindow)
+{
+    if (hWindow != NULL && DarkModeShouldUseDarkColors())
+    {
+        char className[20];
+        if (GetClassName(hWindow, className, sizeof(className)) != 0 &&
+            strcmp(className, "#32770") == 0)
+        {
+            DarkModeApplyTree(hWindow);
+            DarkModeRefreshTitleBar(hWindow);
+            DarkModeApplyStaticTextColors(hWindow, NULL);
+            RedrawWindow(hWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        }
+    }
+}
+
+LRESULT CALLBACK SalmonMessageBoxCbtProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    if (nCode == HCBT_CREATEWND || nCode == HCBT_ACTIVATE)
+        ApplyDarkModeToSalmonMessageBox((HWND)wParam);
+    return CallNextHookEx(HSalmonMessageBoxHook, nCode, wParam, lParam);
+}
+
+int SalmonMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
+{
+    HHOOK oldHook = HSalmonMessageBoxHook;
+    if (DarkModeShouldUseDarkColors())
+        HSalmonMessageBoxHook = SetWindowsHookEx(WH_CBT, SalmonMessageBoxCbtProc, NULL, GetCurrentThreadId());
+
+    int ret = MessageBox(hWnd, lpText, lpCaption, uType);
+
+    if (HSalmonMessageBoxHook != NULL && HSalmonMessageBoxHook != oldHook)
+        UnhookWindowsHookEx(HSalmonMessageBoxHook);
+    HSalmonMessageBoxHook = oldHook;
+    return ret;
+}
 
 void ApplySalmonDarkModeConfig(const CSalmonSharedMemory* mem)
 {
@@ -1029,7 +1067,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
     {
         HINSTANCE hLanguage = LoadSLG(slgName); // load the default SLG so that we can display possible errors
         if (hLanguage != NULL)
-            MessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+            SalmonMessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
         DarkModeShutdown();
         return SALMON_RET_ERROR;
     }
@@ -1044,7 +1082,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
             CloseHandle(fm);
         HINSTANCE hLanguage = LoadSLG(slgName); // load the default SLG so that we can display possible errors
         if (hLanguage != NULL)
-            MessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+            SalmonMessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
         DarkModeShutdown();
         return SALMON_RET_ERROR;
     }
@@ -1055,7 +1093,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
         CloseHandle(fm);
         HINSTANCE hLanguage = LoadSLG(slgName); // load the default SLG so that we can display possible errors
         if (hLanguage != NULL)
-            MessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+            SalmonMessageBox(NULL, LoadStr(IDS_SALMON_WRONG_CMDLINE, hLanguage), LoadStr(IDS_SALMON_TITLE, hLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
         DarkModeShutdown();
         return SALMON_RET_ERROR;
     }

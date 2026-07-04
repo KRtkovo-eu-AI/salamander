@@ -329,7 +329,7 @@ void CMainDialog::Validate(CTransferInfo& ti)
     StripWhiteSpaces(buff);
     if (*buff != 0 && !ValidateEmail(buff))
     {
-        MessageBox(HWindow, LoadStr(IDS_SALMON_INVALIDEMAIL, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        SalmonMessageBox(HWindow, LoadStr(IDS_SALMON_INVALIDEMAIL, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
         ti.ErrorOn(IDC_SALMON_EMAIL);
     }
 }
@@ -425,13 +425,13 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     char msg[2 * MAX_PATH];
                     sprintf(msg, LoadStr(IDS_SALMON_BUGREPORT_PROBLEM, HLanguage), MinidumpParams.ErrorMessage);
-                    MessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+                    SalmonMessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
                 }
 
                 if (GetBugReportNames() && GetUniqueBugReportCount() > 1)
                 {
                     // if multiple reports exist, ask whether to send them all
-                    int res = MessageBox(HWindow, LoadStr(IDS_SALMON_MORE_REPORTS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_YESNO | MB_ICONQUESTION | MB_SETFOREGROUND);
+                    int res = SalmonMessageBox(HWindow, LoadStr(IDS_SALMON_MORE_REPORTS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_YESNO | MB_ICONQUESTION | MB_SETFOREGROUND);
                     ReportOldBugs = (res == IDYES);
                 }
                 // bring back the main dialog along with the question prompt
@@ -444,7 +444,7 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if (CompressParams.Result)
                 {
-                    MessageBox(HWindow, LoadStr(IDS_SALMON_UPLOADSUCCESS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
+                    SalmonMessageBox(HWindow, LoadStr(IDS_SALMON_UPLOADSUCCESS, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
                     BOOL restart = IsDlgButtonChecked(HWindow, IDC_SALMON_RESTART) == BST_CHECKED;
                     ShowWindow(HWindow, SW_HIDE);
                     PostQuitMessage(0);
@@ -453,7 +453,7 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         char msg[2 * MAX_PATH];
                         sprintf(msg, LoadStr(IDS_SALMON_UPLOADFAILED, HLanguage), (INT_PTR)openResult);
-                        MessageBox(NULL, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+                        SalmonMessageBox(NULL, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
                     }
                     OpenFolder(NULL, BugReportPath);
                     if (restart)
@@ -463,7 +463,7 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     char msg[2 * MAX_PATH];
                     sprintf(msg, LoadStr(IDS_SALMON_COMPRESSFAILED, HLanguage), CompressParams.ErrorMessage);
-                    MessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+                    SalmonMessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
                     OpenFolder(NULL, BugReportPath);
                     PostQuitMessage(0);
                 }
@@ -492,10 +492,10 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             if (Compressing)
             {
-                MessageBox(HWindow, LoadStr(IDS_SALMON_WAITFORUPLOAD, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
+                SalmonMessageBox(HWindow, LoadStr(IDS_SALMON_WAITFORUPLOAD, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
                 return 0;
             }
-            int ret = MessageBox(HWindow, LoadStr(IDS_SALMON_CONFIRMEXIT, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OKCANCEL | MB_ICONQUESTION | MB_SETFOREGROUND);
+            int ret = SalmonMessageBox(HWindow, LoadStr(IDS_SALMON_CONFIRMEXIT, HLanguage), LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OKCANCEL | MB_ICONQUESTION | MB_SETFOREGROUND);
             if (ret == IDCANCEL)
                 return 0;
 
