@@ -408,6 +408,7 @@ void CMainWindow::RestoreVisiblePanelRatio(double visibleLeftRatio)
         UpdateCenteredSplitPosition();
     else
         SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(visibleLeftRatio);
+    PanelZoomedState = 0;
     LayoutWindows();
 }
 
@@ -1494,7 +1495,8 @@ void CMainWindow::ChangePanel(BOOL force)
         // if a panel is ZOOMed, minimize it and ZOOM the other one
         if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
         {
-            if (IsPanelZoomed(TRUE))
+            BOOL leftZoomed = IsPanelZoomed(TRUE);
+            if (leftZoomed)
             {
                 int splitWidth = GetSplitBarWidth();
                 int totalPanelsWidth = WindowWidth - 2 - splitWidth;
@@ -1520,6 +1522,7 @@ void CMainWindow::ChangePanel(BOOL force)
             }
             else
                 SplitPosition = 1.0;
+            PanelZoomedState = leftZoomed ? 2 : 1;
             KeepSplitPositionCenteredOnVisiblePanes = FALSE;
             LayoutWindows();
             change = TRUE;

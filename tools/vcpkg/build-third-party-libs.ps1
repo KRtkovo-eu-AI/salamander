@@ -6,7 +6,8 @@ param(
     [string]$PrebuiltDllsDir,
     [switch]$NoBootstrap,
     [switch]$SkipInstall,
-    [switch]$SftpPlugin
+    [switch]$SftpPlugin,
+    [switch]$OnlySftpPlugin
 )
 
 $ErrorActionPreference = 'Stop'
@@ -85,9 +86,12 @@ $vcpkgExe = Join-Path $VcpkgRoot 'vcpkg.exe'
 
 Write-Host "Repository root: $repoRoot"
 Write-Host "vcpkg root:     $VcpkgRoot"
-Write-Host "Manifest root:  $manifestRoot"
+if (!$OnlySftpPlugin)
+{
+    Write-Host "Manifest root:  $manifestRoot"
+    Write-Host "Output dir:     $OutputDir"
+}
 Write-Host "Triplet:        $Triplet"
-Write-Host "Output dir:     $OutputDir"
 
 if (!(Test-Path -LiteralPath $VcpkgRoot))
 {
@@ -95,15 +99,23 @@ if (!(Test-Path -LiteralPath $VcpkgRoot))
     Invoke-LoggedCommand -FilePath 'git' -Arguments @('clone', $VcpkgRepository, $VcpkgRoot)
 }
 
-if (!(Test-Path -LiteralPath (Join-Path $VcpkgRoot '.git')))
+$vcpkgIsGitCheckout = Test-Path -LiteralPath (Join-Path $VcpkgRoot '.git')
+
+if ($vcpkgIsGitCheckout)
 {
-    throw "VcpkgRoot does not look like a git checkout: $VcpkgRoot"
+    Invoke-LoggedCommand -FilePath 'git' -Arguments @('fetch', '--tags', '--prune', 'origin') -WorkingDirectory $VcpkgRoot
+    Invoke-LoggedCommand -FilePath 'git' -Arguments @('checkout', $VcpkgBaseline) -WorkingDirectory $VcpkgRoot
+}
+elseif (Test-Path -LiteralPath $vcpkgExe)
+{
+    Write-Warning "Using existing non-git vcpkg root: $VcpkgRoot"
+}
+else
+{
+    throw "VcpkgRoot is neither a git checkout nor an existing vcpkg installation: $VcpkgRoot"
 }
 
-Invoke-LoggedCommand -FilePath 'git' -Arguments @('fetch', '--tags', '--prune', 'origin') -WorkingDirectory $VcpkgRoot
-Invoke-LoggedCommand -FilePath 'git' -Arguments @('checkout', $VcpkgBaseline) -WorkingDirectory $VcpkgRoot
-
-if (!$NoBootstrap -or !(Test-Path -LiteralPath $vcpkgExe))
+if ((!$NoBootstrap -and $vcpkgIsGitCheckout) -or !(Test-Path -LiteralPath $vcpkgExe))
 {
     $bootstrap = Join-Path $VcpkgRoot 'bootstrap-vcpkg.bat'
     if (!(Test-Path -LiteralPath $bootstrap))
@@ -119,84 +131,87 @@ if (!(Test-Path -LiteralPath $vcpkgExe))
     throw "Unable to find vcpkg executable: $vcpkgExe"
 }
 
-if (!$SkipInstall)
+if (!$OnlySftpPlugin)
 {
-    Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments @(
-        'install',
-        '--triplet', $Triplet,
-        '--x-install-root', $installRoot
-    ) -WorkingDirectory $manifestRoot
-}
-
-if (!(Test-Path -LiteralPath $tripletBinDir))
-{
-    throw "vcpkg bin directory does not exist: $tripletBinDir"
-}
-
-New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-
-foreach ($dllName in $RequiredDlls)
-{
-    $source = Join-Path $tripletBinDir $dllName
-    if (!(Test-Path -LiteralPath $source))
+    if (!$SkipInstall)
     {
-        $matches = @(Get-ChildItem -LiteralPath (Join-Path $installRoot $Triplet) -Recurse -File -Filter $dllName -ErrorAction SilentlyContinue)
-        if ($matches.Count -eq 1)
+        Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments @(
+            'install',
+            '--triplet', $Triplet,
+            '--x-install-root', $installRoot
+        ) -WorkingDirectory $manifestRoot
+    }
+
+    if (!(Test-Path -LiteralPath $tripletBinDir))
+    {
+        throw "vcpkg bin directory does not exist: $tripletBinDir"
+    }
+
+    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+
+    foreach ($dllName in $RequiredDlls)
+    {
+        $source = Join-Path $tripletBinDir $dllName
+        if (!(Test-Path -LiteralPath $source))
         {
-            $source = $matches[0].FullName
-        }
-        elseif ($matches.Count -gt 1)
-        {
-            throw "Found multiple candidates for ${dllName}: $($matches.FullName -join ', ')"
-        }
-        else
-        {
-            # Not produced by vcpkg - try prebuilt DLLs directory
-            if (![string]::IsNullOrWhiteSpace($PrebuiltDllsDir))
+            $matches = @(Get-ChildItem -LiteralPath (Join-Path $installRoot $Triplet) -Recurse -File -Filter $dllName -ErrorAction SilentlyContinue)
+            if ($matches.Count -eq 1)
             {
-                $prebuilt = Join-Path $PrebuiltDllsDir $dllName
-                if (Test-Path -LiteralPath $prebuilt)
-                {
-                    $source = $prebuilt
-                }
-                elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
-                {
-                    Write-Warning "DLL '$dllName' not in vcpkg or prebuilt dir, keeping existing copy in output dir"
-                    continue
-                }
-                else
-                {
-                    throw "Required DLL was not produced by vcpkg and not found in prebuilt dir: $dllName"
-                }
+                $source = $matches[0].FullName
+            }
+            elseif ($matches.Count -gt 1)
+            {
+                throw "Found multiple candidates for ${dllName}: $($matches.FullName -join ', ')"
             }
             else
             {
-                # Fallback: some DLLs are standard Windows system DLLs
-                $systemDll = Join-Path "$env:SystemRoot\System32" $dllName
-                if (Test-Path -LiteralPath $systemDll)
+                # Not produced by vcpkg - try prebuilt DLLs directory
+                if (![string]::IsNullOrWhiteSpace($PrebuiltDllsDir))
                 {
-                    Write-Host "Using system DLL: $systemDll"
-                    $source = $systemDll
-                }
-                elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
-                {
-                    Write-Warning "DLL '$dllName' not produced by vcpkg, keeping existing copy in output dir"
-                    continue
+                    $prebuilt = Join-Path $PrebuiltDllsDir $dllName
+                    if (Test-Path -LiteralPath $prebuilt)
+                    {
+                        $source = $prebuilt
+                    }
+                    elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
+                    {
+                        Write-Warning "DLL '$dllName' not in vcpkg or prebuilt dir, keeping existing copy in output dir"
+                        continue
+                    }
+                    else
+                    {
+                        throw "Required DLL was not produced by vcpkg and not found in prebuilt dir: $dllName"
+                    }
                 }
                 else
                 {
-                    throw "Required DLL was not produced by vcpkg: $dllName"
+                    # Fallback: some DLLs are standard Windows system DLLs
+                    $systemDll = Join-Path "$env:SystemRoot\System32" $dllName
+                    if (Test-Path -LiteralPath $systemDll)
+                    {
+                        Write-Host "Using system DLL: $systemDll"
+                        $source = $systemDll
+                    }
+                    elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
+                    {
+                        Write-Warning "DLL '$dllName' not produced by vcpkg, keeping existing copy in output dir"
+                        continue
+                    }
+                    else
+                    {
+                        throw "Required DLL was not produced by vcpkg: $dllName"
+                    }
                 }
             }
         }
+
+        $destination = Join-Path $OutputDir $dllName
+        Copy-Item -LiteralPath $source -Destination $destination -Force
+        Write-Host "Copied $source -> $destination"
     }
 
-    $destination = Join-Path $OutputDir $dllName
-    Copy-Item -LiteralPath $source -Destination $destination -Force
-    Write-Host "Copied $source -> $destination"
+    Write-Host "Done. Third-party DLLs are available in $OutputDir"
 }
-
-Write-Host "Done. Third-party DLLs are available in $OutputDir"
 
 # --- SFTP plugin dependencies (libssh2 + OpenSSL 3.x) ---
 

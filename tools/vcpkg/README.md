@@ -38,6 +38,7 @@ Run from a Visual Studio Developer PowerShell on Windows:
 ```powershell
 .\tools\vcpkg\build-third-party-libs.ps1
 .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin    # incl. libssh2 + OpenSSL 3.x for SFTP plugin
+.\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin  # only SFTP deps
 .\tools\vcpkg\build-third-party-libs.ps1 -PrebuiltDllsDir C:\path\to\dlls  # fallback for non-vcpkg DLLs
 ```
 
@@ -79,7 +80,8 @@ utils\dbghelp.dll
 ```
 
 With `-SftpPlugin`, the following are also installed into
-`build\vcpkg_installed_sftp\`:
+`build\vcpkg_installed_sftp\`. Use `-OnlySftpPlugin` when you only need
+these SFTP dependencies and want to skip the legacy third-party DLL manifest:
 
 ```text
 build\vcpkg_installed_sftp\x64-windows\include\  (headers)

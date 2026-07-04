@@ -2957,6 +2957,11 @@ int CMainWindow::GetSplitBarWidth()
 
 BOOL CMainWindow::IsPanelZoomed(BOOL leftPanel)
 {
+    if (PanelZoomedState == 1)
+        return leftPanel;
+    if (PanelZoomedState == 2)
+        return !leftPanel;
+
     if (leftPanel)
         return SplitPosition >= 0.99;
     else
@@ -7353,19 +7358,30 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
             {
-                SplitPosition = BeforeZoomSplitPosition;
+                if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+                    SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(BeforeZoomVisibleLeftRatio);
+                else
+                    SplitPosition = BeforeZoomSplitPosition;
                 KeepSplitPositionCenteredOnVisiblePanes = FALSE;
-                // better protect ourselves against a bad value in BeforeZoomSplitPosition
-                if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
+                // better protect ourselves against a bad value in the stored pre-zoom position
+                if (SplitPosition <= 0.0 || SplitPosition >= 1.0)
                     SplitPosition = 0.5;
+                PanelZoomedState = 0;
             }
             else
             {
                 BeforeZoomSplitPosition = SplitPosition;
+                BeforeZoomVisibleLeftRatio = GetVisibleLeftPanelRatio();
                 KeepSplitPositionCenteredOnVisiblePanes = FALSE;
                 int splitWidth = GetSplitBarWidth();
                 int totalPanelsWidth = WindowWidth - 2 - splitWidth;
                 int treeLeftWidth = 0;
+                if (LOWORD(wParam) == CM_LEFTZOOMPANEL ||
+                    (LOWORD(wParam) == CM_ACTIVEZOOMPANEL && activePanel == LeftPanel))
+                    PanelZoomedState = 1;
+                else
+                    PanelZoomedState = 2;
+
                 if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
                 {
                     int treeHeaderH = LeftPanel->GetTreeViewHeaderHeight();
@@ -7569,6 +7585,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                             }
                             LeavePlugin();
                         }
+
+                        // The active-panel tree view caches directory children once they are
+                        // expanded.  Force-refresh the visible path after filesystem change
+                        // notifications so created, moved, renamed, and deleted folders do
+                        // not leave stale tree nodes behind.
+                        if (Configuration.TreeViewVisible && LeftPanel != NULL)
+                            LeftPanel->RefreshTreeView(TRUE);
                     }
                     else
                         break; // end of loop
@@ -8123,6 +8146,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 if (fabs(SplitPosition - targetSplitPosition) > 0.0001)
                 {
                     KeepSplitPositionCenteredOnVisiblePanes = TRUE;
+                    PanelZoomedState = 0;
                     SplitPosition = targetSplitPosition;
                     LayoutWindows();
                     FocusPanel(GetActivePanel());
@@ -8196,6 +8220,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 {
                     DragSplitX = leftWidth;
                     KeepSplitPositionCenteredOnVisiblePanes = FALSE;
+                    PanelZoomedState = 0;
                     SplitPosition = DragSplitPosition;
                     LayoutWindows();
                 }
@@ -8235,6 +8260,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 //          int splitWidth = MainWindow->GetSplitBarWidth();
                 //          SplitPosition = (double)DragSplitX / (WindowWidth - splitWidth);
                 KeepSplitPositionCenteredOnVisiblePanes = FALSE;
+                PanelZoomedState = 0;
                 SplitPosition = DragSplitPosition;
                 LayoutWindows();
             }
@@ -8554,6 +8580,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (SplitPosition > 1)
             SplitPosition = 1;
 
+        double layoutSplitPosition = SplitPosition;
+
         int splitWidth = GetSplitBarWidth();
         int middleToolbarWidth = 0;
         if (MiddleToolBar->HWindow != NULL)
@@ -8578,7 +8606,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (LeftTabWindow != NULL)
                 treeHeaderHeight = LeftTabWindow->GetNeededHeight();
 
-            int tempLeftWidth = (int)((WindowWidth - splitWidth) * SplitPosition) - 1;
+            int tempLeftWidth = (int)((WindowWidth - splitWidth) * layoutSplitPosition) - 1;
             if (tempLeftWidth < MIN_WIN_WIDTH)
                 tempLeftWidth = MIN_WIN_WIDTH;
             int tempRightWidth = WindowWidth - 2 - tempLeftWidth - splitWidth;
@@ -8606,16 +8634,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // content would start, preventing left panel bleed and flickering.
             if (rightZoomed && totalPanelsWidth > 0)
             {
-                SplitPosition = (double)(treeWidth + treeSplitWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
-                if (SplitPosition < 0.001)
-                    SplitPosition = 0.001;
+                layoutSplitPosition = (double)(treeWidth + treeSplitWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
+                if (layoutSplitPosition < 0.001)
+                    layoutSplitPosition = 0.001;
             }
         }
 
         // Calculate split widths accounting for treeview:
         // The treeview is part of the left side, so the split ratio applies to
         // (leftPanelContent + treeview + splitter) vs (rightPanel)
-        int leftTotalWidth = (int)((totalPanelsWidth + 1) * SplitPosition) - 1;
+        int leftTotalWidth = (int)((totalPanelsWidth + 1) * layoutSplitPosition) - 1;
         if (leftTotalWidth < MIN_WIN_WIDTH)
             leftTotalWidth = MIN_WIN_WIDTH;
         int rightWidth = totalPanelsWidth - leftTotalWidth;
@@ -8628,10 +8656,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (panelLeftWidth < 0)
             panelLeftWidth = 0;
 
-        // When left panel is zoomed (SplitPosition >= 1.0), extend left panel content
+        // When left panel is zoomed (layoutSplitPosition >= 1.0), extend left panel content
         // to cover the split bar area and one extra pixel, preventing the split bar
         // from flickering at the right edge.
-        if (SplitPosition >= 1.0)
+        if (layoutSplitPosition >= 1.0)
             panelLeftWidth += splitWidth + 1;
 
         // When right panel is zoomed and no tree view is active, override the split

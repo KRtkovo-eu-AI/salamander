@@ -806,7 +806,7 @@ void CFilesWindowAncestor::SetPath(const char* path)
     // CommonRefresh(), so the file list loads first (responsive UI).
 }
 
-void CFilesWindow::RefreshTreeView()
+void CFilesWindow::RefreshTreeView(BOOL forceRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::RefreshTreeView()");
 
@@ -880,7 +880,7 @@ void CFilesWindow::RefreshTreeView()
         if (hCurrent == NULL)
             break;
 
-        PopulateTreeViewItem(hCurrent);
+        PopulateTreeViewItem(hCurrent, forceRefresh);
         TreeView_Expand(HTreeView, hCurrent, TVE_EXPAND);
 
         if (!IsTheSamePath(root, sourcePath))
@@ -916,7 +916,7 @@ void CFilesWindow::RefreshTreeView()
 
                 hCurrent = hChild;
                 lstrcpyn(currentPath, nextPath, _countof(currentPath));
-                PopulateTreeViewItem(hCurrent);
+                PopulateTreeViewItem(hCurrent, forceRefresh);
                 TreeView_Expand(HTreeView, hCurrent, TVE_EXPAND);
 
                 segment += len;
@@ -925,7 +925,7 @@ void CFilesWindow::RefreshTreeView()
             }
         }
 
-        PopulateTreeViewItem(hCurrent);
+        PopulateTreeViewItem(hCurrent, forceRefresh);
 
         HTREEITEM hSelect = hCurrent;
         if (hadSelectedFile && IsTheSamePath(selectedFileFocusPath, sourcePath))

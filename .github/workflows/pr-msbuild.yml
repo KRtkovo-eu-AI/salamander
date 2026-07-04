@@ -38,6 +38,34 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: s
+          submodules: recursive
+
+      - name: Provide shared plugin files for SFTP submodule
+        run: |
+          $sftpShared = Join-Path (Get-Location) 'src\plugins\sftp\shared'
+          New-Item -ItemType Directory -Force -Path $sftpShared | Out-Null
+          Copy-Item -Path '.\src\plugins\shared\*' -Destination $sftpShared -Recurse -Force
+
+      - name: Configure SFTP submodule build
+        run: |
+          $sftpRoot = Join-Path (Get-Location) 'src\plugins\sftp'
+          $directoryBuildProps = Join-Path $sftpRoot 'Directory.Build.props'
+          @'
+          <Project>
+            <ItemDefinitionGroup>
+              <ClCompile>
+                <PreprocessorDefinitions>OPENSSL_SUPPRESS_DEPRECATED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+              </ClCompile>
+            </ItemDefinitionGroup>
+          </Project>
+          '@ | Set-Content -Path $directoryBuildProps -Encoding UTF8
+
+          if ('${{ matrix.platform }}' -eq 'Win32') {
+            $sftpProps = Join-Path $sftpRoot 'src\vcxproj\sftp.props'
+            (Get-Content -LiteralPath $sftpProps) |
+              ForEach-Object { $_ -replace 'libcrypto-3-x64\.dll', 'libcrypto-3.dll' } |
+              Set-Content -LiteralPath $sftpProps -Encoding UTF8
+          }
 
       - name: Setup MSBuild in PATH (VS2022)
         uses: microsoft/setup-msbuild@v2
@@ -49,6 +77,11 @@ jobs:
 
       - name: Register MSVC problem matcher
         uses: ammaraskar/msvc-problem-matcher@master
+
+      - name: Install SFTP plugin dependencies
+        run: |
+          $triplet = if ('${{ matrix.platform }}' -eq 'Win32') { 'x86-windows' } else { 'x64-windows' }
+          .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet $triplet
 
       - name: Build via MSBuild (Debug | ${{ matrix.platform }})
         run: |
