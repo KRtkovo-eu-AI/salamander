@@ -2058,12 +2058,12 @@ void CMainWindow::SetWindowTitle(const char* text)
 
         TruncateUtf8WindowTitle(prefixAndPath, prefixAndPathSize);
         stdWndName[0] = 0;
-        AppendToWindowTitle(stdWndName, sizeof(stdWndName), stdSuffix);
         if (prefixAndPath[0] != 0)
         {
-            AppendToWindowTitle(stdWndName, sizeof(stdWndName), " - ");
             AppendToWindowTitle(stdWndName, sizeof(stdWndName), prefixAndPath);
+            AppendToWindowTitle(stdWndName, sizeof(stdWndName), " - ");
         }
+        AppendToWindowTitle(stdWndName, sizeof(stdWndName), stdSuffix);
 
         text = stdWndName;
     }
