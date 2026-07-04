@@ -2024,7 +2024,7 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
 
     const std::wstring separator = L" - ";
     const std::wstring ellipsis = L"...";
-    const int maxTitleChars = 96;
+    const int maxTitleChars = 70;
 
     if ((int)title.length() <= maxTitleChars)
         return;
