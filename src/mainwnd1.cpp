@@ -2002,6 +2002,131 @@ static std::wstring MultiByteToWindowTitleWide(const char* text)
     return result;
 }
 
+static BOOL GetTextWidth(HDC dc, HFONT font, const std::wstring& text, int& width)
+{
+    width = 0;
+    if (dc == NULL || text.empty())
+        return TRUE;
+
+    HFONT oldFont = NULL;
+    if (font != NULL)
+        oldFont = (HFONT)SelectObject(dc, font);
+
+    SIZE size = {0, 0};
+    BOOL ok = GetTextExtentPoint32W(dc, text.c_str(), (int)text.length(), &size);
+    if (ok)
+        width = size.cx;
+
+    if (oldFont != NULL)
+        SelectObject(dc, oldFont);
+    return ok;
+}
+
+static int AvoidTrailingHighSurrogate(const std::wstring& text, int length)
+{
+    if (length > 0)
+    {
+        wchar_t ch = text[length - 1];
+        if (ch >= 0xD800 && ch <= 0xDBFF)
+            length--;
+    }
+    return length;
+}
+
+static void EnsureAppNameVisibleInTitle(HWND hwnd, std::wstring& title, const std::wstring& appSuffix)
+{
+    if (hwnd == NULL || title.empty() || appSuffix.empty() ||
+        title.length() <= appSuffix.length() ||
+        title.compare(title.length() - appSuffix.length(), appSuffix.length(), appSuffix) != 0)
+    {
+        return;
+    }
+
+    RECT wndRect;
+    if (!GetWindowRect(hwnd, &wndRect))
+        return;
+
+    int captionWidth = wndRect.right - wndRect.left;
+    captionWidth -= GetSystemMetrics(SM_CXSIZE) * 3; // minimize, maximize/restore, close
+    captionWidth -= GetSystemMetrics(SM_CXSMICON);
+    captionWidth -= GetSystemMetrics(SM_CXFRAME) * 2 + 32;
+    if (captionWidth <= 0)
+        return;
+
+    NONCLIENTMETRICS ncm;
+    ZeroMemory(&ncm, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+    HFONT captionFont = NULL;
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
+        captionFont = CreateFontIndirect(&ncm.lfCaptionFont);
+
+    HDC dc = GetWindowDC(hwnd);
+    if (dc == NULL)
+    {
+        if (captionFont != NULL)
+            DeleteObject(captionFont);
+        return;
+    }
+
+    int fullWidth = 0;
+    if (!GetTextWidth(dc, captionFont, title, fullWidth) || fullWidth <= captionWidth)
+    {
+        ReleaseDC(hwnd, dc);
+        if (captionFont != NULL)
+            DeleteObject(captionFont);
+        return;
+    }
+
+    const std::wstring separator = L" - ";
+    size_t suffixStart = title.length() - appSuffix.length();
+    size_t prefixEnd = suffixStart;
+    if (prefixEnd >= separator.length() &&
+        title.compare(prefixEnd - separator.length(), separator.length(), separator) == 0)
+    {
+        prefixEnd -= separator.length();
+    }
+
+    std::wstring prefix = title.substr(0, prefixEnd);
+    const std::wstring ellipsis = L"...";
+    std::wstring suffixOnly = ellipsis + separator + appSuffix;
+    int suffixOnlyWidth = 0;
+    GetTextWidth(dc, captionFont, suffixOnly, suffixOnlyWidth);
+    if (suffixOnlyWidth > captionWidth)
+    {
+        title = appSuffix;
+        ReleaseDC(hwnd, dc);
+        if (captionFont != NULL)
+            DeleteObject(captionFont);
+        return;
+    }
+
+    int low = 0;
+    int high = (int)prefix.length();
+    std::wstring best = suffixOnly;
+    while (low <= high)
+    {
+        int mid = AvoidTrailingHighSurrogate(prefix, (low + high) / 2);
+        std::wstring candidate(prefix, 0, mid);
+        candidate += ellipsis;
+        candidate += separator;
+        candidate += appSuffix;
+
+        int candidateWidth = 0;
+        if (GetTextWidth(dc, captionFont, candidate, candidateWidth) && candidateWidth <= captionWidth)
+        {
+            best = candidate;
+            low = mid + 1;
+        }
+        else
+            high = mid - 1;
+    }
+
+    title = best;
+    ReleaseDC(hwnd, dc);
+    if (captionFont != NULL)
+        DeleteObject(captionFont);
+}
+
 void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
 {
     if (path == NULL || textSize <= 0)
@@ -2023,6 +2148,8 @@ void CMainWindow::SetWindowTitle(const char* text)
     buff[999] = 0;
 
     char stdWndName[SAL_MAX_PATH + 300];
+    char appTitleSuffix[300];
+    appTitleSuffix[0] = 0;
     if (text == NULL)
     {
         char stdSuffix[300];
@@ -2092,11 +2219,17 @@ void CMainWindow::SetWindowTitle(const char* text)
             AppendToWindowTitle(stdWndName, sizeof(stdWndName), " - ");
         }
         AppendToWindowTitle(stdWndName, sizeof(stdWndName), stdSuffix);
+        lstrcpyn(appTitleSuffix, stdSuffix, _countof(appTitleSuffix));
 
         text = stdWndName;
     }
 
     std::wstring wideText = MultiByteToWindowTitleWide(text);
+    if (appTitleSuffix[0] != 0)
+    {
+        std::wstring wideAppSuffix = MultiByteToWindowTitleWide(appTitleSuffix);
+        EnsureAppNameVisibleInTitle(HWindow, wideText, wideAppSuffix);
+    }
     std::wstring wideBuff;
     int wideBuffLen = GetWindowTextLengthW(HWindow);
     if (wideBuffLen > 0)
