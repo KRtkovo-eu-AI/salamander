@@ -2051,7 +2051,7 @@ static void EnsureAppNameSuffixInTitle(HWND hwnd, std::wstring& title, const std
     int captionWidth = wndRect.right - wndRect.left;
     captionWidth -= GetSystemMetrics(SM_CXSIZE) * 3;
     captionWidth -= GetSystemMetrics(SM_CXSMICON);
-    captionWidth -= GetSystemMetrics(SM_CXFRAME) * 2 + 80;
+    captionWidth -= GetSystemMetrics(SM_CXFRAME) * 2 + 220;
     if (captionWidth <= 0)
         return;
 
