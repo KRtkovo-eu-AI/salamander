@@ -989,10 +989,11 @@ LPARAM PostponedMsgLParam = 0;
 
 HBRUSH HDarkModeDialogBrush = NULL;
 HHOOK HSalmonMessageBoxHook = NULL;
+BOOL SalmonUseDarkMode = FALSE;
 
 void SalmonApplyDarkModeToWindow(HWND hWindow)
 {
-    if (hWindow != NULL && DarkModeShouldUseDarkColors())
+    if (hWindow != NULL && (SalmonUseDarkMode || DarkModeShouldUseDarkColors()))
     {
         DarkModeRemoveTree(hWindow);
         DarkModeApplyTree(hWindow);
@@ -1004,7 +1005,7 @@ void SalmonApplyDarkModeToWindow(HWND hWindow)
 
 void ApplyDarkModeToSalmonMessageBox(HWND hWindow)
 {
-    if (hWindow != NULL && DarkModeShouldUseDarkColors())
+    if (hWindow != NULL && (SalmonUseDarkMode || DarkModeShouldUseDarkColors()))
     {
         char className[20];
         if (GetClassName(hWindow, className, sizeof(className)) != 0 &&
@@ -1023,7 +1024,7 @@ LRESULT CALLBACK SalmonMessageBoxCbtProc(int nCode, WPARAM wParam, LPARAM lParam
 int SalmonMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 {
 #if USE_DARKMODELIB
-    if (DarkModeShouldUseDarkColors())
+    if (SalmonUseDarkMode || DarkModeShouldUseDarkColors())
     {
         dmlib::initDarkMode();
         dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
@@ -1040,7 +1041,7 @@ int SalmonMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 #endif
 
     HHOOK oldHook = HSalmonMessageBoxHook;
-    if (DarkModeShouldUseDarkColors())
+    if (SalmonUseDarkMode || DarkModeShouldUseDarkColors())
         HSalmonMessageBoxHook = SetWindowsHookEx(WH_CBT, SalmonMessageBoxCbtProc, NULL, GetCurrentThreadId());
 
     int ret = MessageBox(hWnd, lpText, lpCaption, uType);
@@ -1058,7 +1059,8 @@ BOOL SalmonColorIsDark(COLORREF color)
 
 void ApplySalmonDarkModeConfig(const CSalmonSharedMemory* mem)
 {
-    if (mem != NULL && (mem->UseWindowsDarkMode || SalmonColorIsDark(mem->DarkModeBk)))
+    SalmonUseDarkMode = mem != NULL && (mem->UseWindowsDarkMode || SalmonColorIsDark(mem->DarkModeBk));
+    if (SalmonUseDarkMode)
     {
         if (HDarkModeDialogBrush != NULL)
         {
@@ -1090,6 +1092,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
     HInstance = hInstance;
 
     DarkModeDetectAndEnableSystemDarkMode();
+    SalmonUseDarkMode = DarkModeShouldUseDarkColors();
 
     Config.Load();
 
