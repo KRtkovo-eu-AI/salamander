@@ -50,6 +50,18 @@ static bool StringHasNonAscii(const std::wstring& s)
     return false;
 }
 
+static int LeadingAsciiVisualWidth(const std::wstring& s)
+{
+    int w = 0;
+    for (size_t i = 0; i < s.length(); i++)
+    {
+        if (s[i] >= 0x80)
+            break;
+        w += WCharVisualWidth(s[i]);
+    }
+    return w;
+}
+
 static size_t TitlePrefixCutByVisualWidth(const std::wstring& prefix, int maxPrefixVW)
 {
     if (maxPrefixVW <= 0)
@@ -82,7 +94,7 @@ static size_t TitlePrefixCutByVisualWidth(const std::wstring& prefix, int maxPre
 }
 
 static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& appSuffix,
-                                       int maxPrefixVW = 220, int maxUnicodePrefixVW = 24)
+                                       int maxPrefixVW = 220, int maxUnicodePrefixVW = 2)
 {
     if (title.empty() || appSuffix.empty() ||
         title.length() <= appSuffix.length() ||
@@ -104,7 +116,10 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
 
     int effectiveMaxPrefixVW = maxPrefixVW;
     if (StringHasNonAscii(prefix))
-        effectiveMaxPrefixVW = effectiveMaxPrefixVW < maxUnicodePrefixVW ? effectiveMaxPrefixVW : maxUnicodePrefixVW;
+    {
+        int unicodePrefixVW = LeadingAsciiVisualWidth(prefix) + maxUnicodePrefixVW;
+        effectiveMaxPrefixVW = effectiveMaxPrefixVW < unicodePrefixVW ? effectiveMaxPrefixVW : unicodePrefixVW;
+    }
 
     size_t cutAt = TitlePrefixCutByVisualWidth(prefix, effectiveMaxPrefixVW);
 
