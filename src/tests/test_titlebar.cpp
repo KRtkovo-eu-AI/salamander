@@ -30,7 +30,7 @@ static std::wstring BuildTitleForTest(const std::wstring& pathText,
                                       const std::wstring& appSuffix,
                                       bool showPath = true,
                                       int maxPrefixVW = 80,
-                                      int maxUnicodePrefixVW = 12)
+                                      int maxUnicodePrefixVW = 4)
 {
     std::wstring title;
     if (!prefix.empty())
@@ -156,7 +156,15 @@ static void Test_ReportedRealScenarios()
     }
     {
         std::wstring title = BuildTitleForTest(L"\u65E5\u672C\u8A9E \u3053\u306E\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u306F\u3068\u3066\u3082\u9577\u3044\u540D\u524D\u3067\u3059\U00024B62\U00024B62\U00024B62", L"", suffix);
-        CHECK(title.find(L"\u65E5\u672C") == 0, "long Japanese directory keeps multiple path characters");
+        CHECK(!title.empty() && title[0] == L'\u65E5', "long Japanese directory keeps a path character");
+    }
+    {
+        std::wstring title = BuildTitleForTest(L"\u65E5\u672C\u8A9E \u3053\u306E\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u306F\u3068\u3066\u3082\u9577\u3044\u540D\u524D\u3067\u3059", L"", suffix);
+        CHECK(EndsWide(title, suffix), "long Japanese directory without supplementary chars keeps full suffix");
+    }
+    {
+        std::wstring title = BuildTitleForTest(L"\u65E5\u672C\u8A9E \u65E5\u672C\u8A9E \u65E5\u672C\u8A9E", L"", suffix);
+        CHECK(EndsWide(title, suffix), "repeated Japanese directory keeps full suffix");
     }
     {
         std::wstring longAscii(220, L'a');
@@ -168,7 +176,7 @@ static void Test_ReportedRealScenarios()
         std::wstring longZ(120, L'\u017E');
         std::wstring title = BuildTitleForTest(longZ, L"", suffix);
         CHECK(EndsWide(title, suffix), "long ž directory keeps full suffix including closing parenthesis");
-        CHECK(title.rfind(std::wstring(6, L'\u017E'), 0) == 0, "long ž directory keeps multiple path characters");
+        CHECK(title.rfind(std::wstring(4, L'\u017E'), 0) == 0, "long ž directory keeps several path characters");
     }
 }
 
