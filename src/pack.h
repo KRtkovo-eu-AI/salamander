@@ -753,6 +753,9 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
 
 // automatic configuration of packers
 void PackAutoconfig(HWND parent);
+const char* PackGetAutoconfigDrives();
+DWORD PackGetAutoconfigDrivesSize();
+void PackSetAutoconfigDrives(const char* drivesList);
 
 // runs the external program cmdLine and interprets the return code according to errorTable
 BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorTable* const errorTable);

@@ -531,8 +531,8 @@ void CCfgPageUnpackers::Validate(CTransferInfo& ti)
             }
         }
 
-        char masksStr[MAX_PATH];
-        strcpy(masksStr, Config->GetUnpackerExt(i));
+        char masksStr[MAX_GROUPMASK];
+        lstrcpyn(masksStr, Config->GetUnpackerExt(i), MAX_GROUPMASK);
         char* iterator;
         if (strlen(masksStr) > 0)
         {
@@ -624,8 +624,8 @@ void CCfgPageUnpackers::StoreControls()
     EditLB->GetCurSel(index);
     if (!DisableNotification && index >= 0 && index < EditLB->GetCount())
     {
-        int len = MAX_PATH + 2;
-        char ext[MAX_PATH + 2];
+        int len = MAX_GROUPMASK;
+        char ext[MAX_GROUPMASK];
         SendDlgItemMessage(HWindow, IDC_P2_EXT, WM_GETTEXT, len, (LPARAM)ext);
         int cmbSel = (int)SendDlgItemMessage(HWindow, IDC_P2_TYPE, CB_GETCURSEL, 0, 0);
         int type;
@@ -715,6 +715,7 @@ CCfgPageUnpackers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         EditLB->EnableDrag(::GetParent(HWindow));
         ChangeToArrowButton(HWindow, IDC_P2_EXARG_BROWSE);
         ChangeToArrowButton(HWindow, IDC_P2_EXCMD_BROWSE);
+        SendDlgItemMessage(HWindow, IDC_P2_EXT, EM_LIMITTEXT, MAX_GROUPMASK - 1, 0);
         SendDlgItemMessage(HWindow, IDC_P2_EXCMD, EM_LIMITTEXT, MAX_PATH, 0);
         SendDlgItemMessage(HWindow, IDC_P2_EXARG, EM_LIMITTEXT, MAX_PATH, 0);
 
@@ -870,6 +871,8 @@ CCfgPageExternalArchivers::CCfgPageExternalArchivers()
     Config = new CArchiverConfig /*(TRUE)*/; // without default values
     if (Config == NULL)
         return;
+    if (ArchiverConfig.GetArchiversCount() == 0)
+        ArchiverConfig.InitializeDefaultValues();
     Config->Load(ArchiverConfig);
 
     DisableNotification = FALSE;

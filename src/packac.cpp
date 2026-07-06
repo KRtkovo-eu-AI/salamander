@@ -44,6 +44,51 @@ SPackAssocItem PackACExtensions[] = {
 // CPackACDialog
 //
 
+
+static char* PackACSavedDrivesList = NULL;
+
+static DWORD GetMultiStringSize(const char* multiString)
+{
+    if (multiString == NULL)
+        return 0;
+
+    const char* iterator = multiString;
+    while (*iterator != '\0')
+    {
+        iterator += strlen(iterator) + 1;
+    }
+    return (DWORD)(iterator - multiString + 1);
+}
+
+const char* PackGetAutoconfigDrives()
+{
+    return PackACSavedDrivesList;
+}
+
+DWORD PackGetAutoconfigDrivesSize()
+{
+    return GetMultiStringSize(PackACSavedDrivesList);
+}
+
+void PackSetAutoconfigDrives(const char* drivesList)
+{
+    if (PackACSavedDrivesList != NULL)
+    {
+        HANDLES(GlobalFree((HGLOBAL)PackACSavedDrivesList));
+        PackACSavedDrivesList = NULL;
+    }
+
+    DWORD size = GetMultiStringSize(drivesList);
+    if (size == 0)
+        return;
+
+    PackACSavedDrivesList = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
+    if (PackACSavedDrivesList != NULL)
+        memcpy(PackACSavedDrivesList, drivesList, size);
+    else
+        TRACE_E(LOW_MEMORY);
+}
+
 // dialog procedure of the main dialog
 INT_PTR
 CPackACDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -1943,45 +1988,69 @@ void PackAutoconfig(HWND parent)
 
     // stop refreshes in the main window
     BeginStopRefresh();
-    // determine the buffer needed for drives to search
-    DWORD size = GetLogicalDriveStrings(0, NULL);
-    char* sysDrives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
-    char* drives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
-    if (sysDrives == NULL || drives == NULL)
+    if (ArchiverConfig.GetArchiversCount() == 0)
+        ArchiverConfig.InitializeDefaultValues();
+
+    if (PackACSavedDrivesList == NULL)
     {
-        TRACE_E(LOW_MEMORY);
-        if (sysDrives != NULL)
-            HANDLES(GlobalFree((HGLOBAL)sysDrives));
-        if (drives != NULL)
-            HANDLES(GlobalFree((HGLOBAL)drives));
-    }
-    else
-    {
-        DWORD newSize = GetLogicalDriveStrings(size, sysDrives);
-        if (newSize > size)
-            TRACE_E("The drives buffer size requested by system is too small...");
+        // determine the buffer needed for drives to search
+        DWORD size = GetLogicalDriveStrings(0, NULL);
+        char* sysDrives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
+        char* defaultDrives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
+        if (sysDrives == NULL || defaultDrives == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            if (sysDrives != NULL)
+                HANDLES(GlobalFree((HGLOBAL)sysDrives));
+            if (defaultDrives != NULL)
+                HANDLES(GlobalFree((HGLOBAL)defaultDrives));
+        }
         else
         {
-            char* dstDrive = drives;
-            // skip non-fixed drives...
-            char* srcDrive = sysDrives;
-            while (*srcDrive != '\0')
+            DWORD newSize = GetLogicalDriveStrings(size, sysDrives);
+            if (newSize > size)
+                TRACE_E("The drives buffer size requested by system is too small...");
+            else
             {
-                // what kind is it? is it worth our time?
-                if (GetDriveType(srcDrive) == DRIVE_FIXED)
+                char* dstDrive = defaultDrives;
+                // skip non-fixed drives...
+                char* srcDrive = sysDrives;
+                while (*srcDrive != '\0')
                 {
-                    strcpy(dstDrive, srcDrive);
-                    dstDrive += strlen(dstDrive) + 1;
+                    // what kind is it? is it worth our time?
+                    if (GetDriveType(srcDrive) == DRIVE_FIXED)
+                    {
+                        strcpy(dstDrive, srcDrive);
+                        dstDrive += strlen(dstDrive) + 1;
+                    }
+                    else
+                        TRACE_I("Skipping drive " << srcDrive << ", not fixed.");
+                    srcDrive += strlen(srcDrive) + 1;
                 }
-                else
-                    TRACE_I("Skipping drive " << srcDrive << ", not fixed.");
-                srcDrive += strlen(srcDrive) + 1;
+                *dstDrive = '\0';
+                PackSetAutoconfigDrives(defaultDrives);
             }
-            *dstDrive = '\0';
             HANDLES(GlobalFree((HGLOBAL)sysDrives));
-            // open the search dialog
-            CPackACDialog(HLanguage, IDD_AUTOCONF, IDD_AUTOCONF, parent, &ArchiverConfig, &drives).Execute();
+            HANDLES(GlobalFree((HGLOBAL)defaultDrives));
         }
+    }
+
+    char* drives = NULL;
+    if (PackACSavedDrivesList != NULL)
+    {
+        DWORD size = PackGetAutoconfigDrivesSize();
+        drives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
+        if (drives != NULL)
+            memcpy(drives, PackACSavedDrivesList, size);
+        else
+            TRACE_E(LOW_MEMORY);
+    }
+
+    if (drives != NULL)
+    {
+        // open the search dialog
+        CPackACDialog(HLanguage, IDD_AUTOCONF, IDD_AUTOCONF, parent, &ArchiverConfig, &drives).Execute();
+        PackSetAutoconfigDrives(drives);
         HANDLES(GlobalFree((HGLOBAL)drives));
     }
     // dialog closed, the main window resumes refreshing

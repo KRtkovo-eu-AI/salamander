@@ -929,6 +929,7 @@ const char* WINDOW_SPLIT_REG = "Split Position";
 const char* WINDOW_BEFOREZOOMSPLIT_REG = "Before Zoom Split Position";
 const char* WINDOW_SHOW_REG = "Show";
 const char* FINDDIALOG_NAMEWIDTH_REG = "Name Width";
+const char* SALAMANDER_AUTOCONFIGDRIVES_REG = "Autoconfig Search Paths";
 
 const char* SALAMANDER_LEFTP_REG = "Left Panel";
 const char* SALAMANDER_RIGHTP_REG = "Right Panel";
@@ -2756,6 +2757,9 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                         else
                             break;
                     }
+                    if (PackGetAutoconfigDrives() != NULL)
+                        SetValue(actSubKey, SALAMANDER_AUTOCONFIGDRIVES_REG, REG_MULTI_SZ,
+                                 PackGetAutoconfigDrives(), PackGetAutoconfigDrivesSize());
                     CloseKey(actSubKey);
                 }
 
@@ -4357,6 +4361,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     CloseKey(itemKey);
                     itoa(++i, buf, 10);
                 }
+                char autoconfigDrives[32768];
+                if (GetValue(actSubKey, SALAMANDER_AUTOCONFIGDRIVES_REG, REG_MULTI_SZ,
+                             autoconfigDrives, sizeof(autoconfigDrives)))
+                    PackSetAutoconfigDrives(autoconfigDrives);
                 CloseKey(actSubKey);
                 // add new items introduced since the previous version
                 // ArchiverConfig.AddDefault(Configuration.ConfigVersion); // j.r. no longer needed

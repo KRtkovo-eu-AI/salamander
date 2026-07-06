@@ -160,10 +160,15 @@ BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object, const char*
     TCHAR dllPath[MAX_PATH];
     if (!GetModuleFileName(DLLInstance, dllPath, MAX_PATH))
         return FALSE;
-    lstrcpy(_tcsrchr(dllPath, '\\') + 1, _T("7za.dll"));
 
+    TCHAR* dllName = _tcsrchr(dllPath, '\\') + 1;
+    lstrcpy(dllName, _T("7zip.dll"));
     if (!Load(dllPath))
-        return Error(IDS_CANT_LOAD_LIBRARY);
+    {
+        lstrcpy(dllName, _T("7za.dll"));
+        if (!Load(dllPath))
+            return Error(IDS_CANT_LOAD_LIBRARY);
+    }
 
     TCreateObjectFunc createObjectFunc = (TCreateObjectFunc)GetProc("CreateObject");
     if (createObjectFunc == 0)
