@@ -8659,15 +8659,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 treeSplitWidth = 4; // TREEVIEW_SPLITTER_WIDTH
             }
 
-            // When right panel is zoomed, position the split bar right after
-            // tree + splitter so the right panel starts exactly where left panel
-            // content would start, preventing left panel bleed and flickering.
-            if (rightZoomed && totalPanelsWidth > 0)
-            {
-                layoutSplitPosition = (double)(treeWidth + treeSplitWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
-                if (layoutSplitPosition < 0.001)
-                    layoutSplitPosition = 0.001;
-            }
+            // Keep the user's split ratio independent of Tree View.  A zoomed
+            // right panel is handled below by explicitly placing it at the
+            // same left edge as the left tab/panel area, so Tree View remains
+            // visible and no extra gap is left before the maximized panel.
         }
 
         // Tree View is reserved outside the user panel split.  The split ratio
@@ -8696,14 +8691,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (layoutSplitPosition >= 1.0)
             panelLeftWidth += splitWidth + 1;
 
-        // When right panel is zoomed and no tree view is active, override the split
-        // bar position so the right panel starts at x=1 (matching the left panel's
-        // left edge when tree view is off). With tree view active, the natural
-        // computation already places the right panel right after tree+splitter.
-        if (rightZoomed && treeWidth == 0 && treeSplitWidth == 0)
+        // When right panel is zoomed, override the split bar position so the
+        // right panel starts at the same x-coordinate as the left tab/panel
+        // area.  With Tree View active this keeps Tree View visible, but avoids
+        // an extra left-panel-width gap before the maximized right panel.
+        if (rightZoomed)
         {
-            SplitPositionPix = 1 - splitWidth;
-            rightWidth = totalPanelsWidth + splitWidth;
+            SplitPositionPix = 1 + treeWidth + treeSplitWidth - splitWidth;
+            rightWidth = totalPanelsWidth + splitWidth - treeWidth - treeSplitWidth;
+            if (rightWidth < 0)
+                rightWidth = 0;
             panelLeftWidth = 0;
         }
         else
@@ -8779,8 +8776,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             // Position the Tree View on the left. The expanded auto-hide panel is
             // deliberately placed above the work panels without changing their layout.
-            // When right panel is zoomed, tree must also be HWND_TOP to stay visible
-            // above the right panel which extends to x=1.
+            // Auto-hide Tree View floats above the panels while expanded/collapsed.
+            // When the right panel is zoomed, keep Tree View above it as well;
+            // the right panel starts at the left tab/panel edge, so this does not
+            // overlap Tree View but preserves its visibility.
             BOOL treeOnTop = Configuration.TreeViewAutoHide || rightZoomed;
             int treeX = Configuration.TreeViewAutoHide ? 0 : 1;
             int treeWindowWidth = treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0);
