@@ -32,17 +32,6 @@ CPluginInterfaceForArchiver InterfaceForArchiver;
 // interface for the menu
 CPluginInterfaceForMenuExt InterfaceForMenuExt;
 
-static const char* SEVENZIP_PANEL_EXTENSIONS =
-    "7z;xz;bzip2;bz2;gzip;gz;tar;zip;wim;apfs;ar;arj;cab;chm;cpio;cramfs;dmg;ext;fat;"
-    "gpt;hfs;ihex;iso;lzh;lzma;mbr;msi;nsis;ntfs;qcow2;rar;rpm;squashfs;udf;"
-    "uefi;vdi;vhd;vhdx;vmdk;xar;z";
-
-static const char* SEVENZIP_UNPACKER_MASKS =
-    "*.7z;*.xz;*.bzip2;*.bz2;*.gzip;*.gz;*.tar;*.zip;*.wim;*.apfs;*.ar;*.arj;"
-    "*.cab;*.chm;*.cpio;*.cramfs;*.dmg;*.ext;*.fat;*.gpt;*.hfs;*.ihex;*.iso;"
-    "*.lzh;*.lzma;*.mbr;*.msi;*.nsis;*.ntfs;*.qcow2;*.rar;*.rpm;*.squashfs;"
-    "*.udf;*.uefi;*.vdi;*.vhd;*.vhdx;*.vmdk;*.xar;*.z";
-
 // Salamander general interface - valid from startup until the plugin is unloaded
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
 
@@ -191,8 +180,7 @@ int ConfigVersion = 0;
 // 3: Igor changed the default values for LZMA compression (dictionary size, etc.). There are more changes,
 //    so Honza Patera and I agreed that when importing old configurations we will
 //    ignore compression settings and use the new defaults instead.
-// 4: register all formats supported by full 7-Zip builds for browsing and extraction.
-#define CURRENT_CONFIG_VERSION 4
+#define CURRENT_CONFIG_VERSION 3
 const char* CONFIG_VERSION = "Version";
 
 CConfig Config;
@@ -676,10 +664,10 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     // AddViewer and AddPanelArchiver will fall under the UPGRADE SECTION
     //  salamander->AddViewer("*.7z", FALSE); // default (plugin install), otherwise Salamander ignores it
 
-    salamander->AddPanelArchiver(SEVENZIP_PANEL_EXTENSIONS, TRUE, FALSE);
+    salamander->AddPanelArchiver("7z", TRUE, FALSE);
 
     salamander->AddCustomPacker("7-Zip (Plugin)", "7z", ConfigVersion < 1);
-    salamander->AddCustomUnpacker("7-Zip (Plugin)", SEVENZIP_UNPACKER_MASKS, ConfigVersion < 4);
+    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z", ConfigVersion < 1);
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator
    keep it synchronized with the calls to salamander->AddMenuItem() below...
@@ -706,11 +694,6 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
 
     /*
   // UPGRADE SECTION
-  if (ConfigVersion < 4) // add formats supported by full 7-Zip builds
-  {
-    salamander->AddPanelArchiver(SEVENZIP_PANEL_EXTENSIONS, FALSE, TRUE);
-  }
-
   if (ConfigVersion < 2) // add nrg, pdi, cdi, cif, ncd
   {
     salamander->AddViewer("*.nrg;*.pdi;*.cdi;*.cif;*.ncd", TRUE);

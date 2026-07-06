@@ -4,7 +4,6 @@
 The 7-ZIP plugin utilizes 7-Zip file archiver library.
 7-Zip Copyright (C) 1999-2026 Igor Pavlov
 7-Zip is distributed under the GNU LGPL, with unRAR restriction for the RAR code.
-The vcpkg pipeline can also install the 7zip package for maintainers updating the bundled 7-Zip engine.
 
 === Jean-loup Gailly and Mark Adler ===
 Portions of ZIP plugin utilizes zlib library.

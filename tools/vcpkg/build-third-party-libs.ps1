@@ -7,9 +7,7 @@ param(
     [switch]$NoBootstrap,
     [switch]$SkipInstall,
     [switch]$SftpPlugin,
-    [switch]$OnlySftpPlugin,
-    [switch]$SevenZipPlugin,
-    [switch]$OnlySevenZipPlugin
+    [switch]$OnlySftpPlugin
 )
 
 $ErrorActionPreference = 'Stop'
@@ -88,12 +86,7 @@ $vcpkgExe = Join-Path $VcpkgRoot 'vcpkg.exe'
 
 Write-Host "Repository root: $repoRoot"
 Write-Host "vcpkg root:     $VcpkgRoot"
-if ($OnlySevenZipPlugin)
-{
-    $SevenZipPlugin = $true
-}
-
-if (!$OnlySftpPlugin -and !$OnlySevenZipPlugin)
+if (!$OnlySftpPlugin)
 {
     Write-Host "Manifest root:  $manifestRoot"
     Write-Host "Output dir:     $OutputDir"
@@ -138,7 +131,7 @@ if (!(Test-Path -LiteralPath $vcpkgExe))
     throw "Unable to find vcpkg executable: $vcpkgExe"
 }
 
-if (!$OnlySftpPlugin -and !$OnlySevenZipPlugin)
+if (!$OnlySftpPlugin)
 {
     if (!$SkipInstall)
     {
@@ -264,43 +257,4 @@ if ($SftpPlugin)
 
     Write-Host ""
     Write-Host "Done. SFTP plugin dependencies installed in $sftpInstallRoot"
-}
-
-
-# --- 7-Zip plugin dependencies ---
-
-if ($SevenZipPlugin)
-{
-    $sevenZipManifestRoot = Join-Path $PSScriptRoot '7zip-plugin'
-    $sevenZipInstallRoot = Join-Path $repoRoot 'build\vcpkg_installed_7zip'
-
-    Write-Host ""
-    Write-Host "=== 7-Zip plugin dependencies ==="
-    Write-Host "Manifest:  $sevenZipManifestRoot"
-    Write-Host "Install:   $sevenZipInstallRoot"
-    Write-Host "Triplet:   $Triplet"
-
-    if (!$SkipInstall)
-    {
-        Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments @(
-            'install',
-            '--triplet', $Triplet,
-            '--x-install-root', $sevenZipInstallRoot
-        ) -WorkingDirectory $sevenZipManifestRoot
-    }
-
-    $sevenZipTripletDir = Join-Path $sevenZipInstallRoot $Triplet
-    $sevenZipToolsDir = Join-Path $sevenZipTripletDir 'tools'
-
-    Write-Host ""
-    Write-Host "7-Zip package files:"
-    if (Test-Path -LiteralPath $sevenZipToolsDir)
-    {
-        Get-ChildItem -LiteralPath $sevenZipToolsDir -Recurse -File | ForEach-Object {
-            Write-Host "  $($_.FullName.Substring($sevenZipTripletDir.Length + 1))"
-        }
-    }
-
-    Write-Host ""
-    Write-Host "Done. 7-Zip plugin dependencies installed in $sevenZipInstallRoot"
 }

@@ -50,8 +50,6 @@
 #define MAX_PATH_LEN SAL_MAX_PATH
 
 typedef UINT32(WINAPI* TCreateObjectFunc)(const GUID* clsID, const GUID* interfaceID, void** outObject);
-typedef UINT32(WINAPI* TGetNumberOfFormatsFunc)(UINT32* numFormats);
-typedef UINT32(WINAPI* TGetHandlerProperty2Func)(UINT32 formatIndex, PROPID propID, PROPVARIANT* value);
 
 // used to pass the items that will be extracted
 struct CArchiveItemInfo
@@ -89,8 +87,7 @@ public:
     };
 
 protected:
-    BOOL CreateObject(const GUID* interfaceID, void** object, const char* archiveName = NULL);
-    BOOL GetArchiveFormatClassID(const char* archiveName, GUID* classID);
+    BOOL CreateObject(const GUID* interfaceID, void** object);
 
 public:
     C7zClient();

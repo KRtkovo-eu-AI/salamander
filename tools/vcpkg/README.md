@@ -8,9 +8,6 @@ x64 distribution:
 - `libeay32.dll` and `ssleay32.dll` for the FTP plugin's legacy OpenSSL loader
 - `dbghelp.dll` for the HTML Help / crash reporting (provided as prebuilt)
 
-The 7-Zip plugin can also install the current vcpkg `7zip` package into a
-separate dependency root for maintainers updating the bundled `7za.dll` sources.
-
 The script pins the vcpkg registry baseline and package versions so the produced
 inputs are reproducible:
 
@@ -42,8 +39,6 @@ Run from a Visual Studio Developer PowerShell on Windows:
 .\tools\vcpkg\build-third-party-libs.ps1
 .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin    # incl. libssh2 + OpenSSL 3.x for SFTP plugin
 .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin  # only SFTP deps
-.\tools\vcpkg\build-third-party-libs.ps1 -SevenZipPlugin  # incl. vcpkg 7zip package
-.\tools\vcpkg\build-third-party-libs.ps1 -SevenZipPlugin -OnlySevenZipPlugin  # only 7-Zip deps
 .\tools\vcpkg\build-third-party-libs.ps1 -PrebuiltDllsDir C:\path\to\dlls  # fallback for non-vcpkg DLLs
 ```
 
@@ -95,18 +90,3 @@ build\vcpkg_installed_sftp\x64-windows\bin\      (DLLs)
 ```
 
 These are used automatically by the SFTP plugin's MSBuild project.
-
-### 7-Zip plugin dependencies
-
-The 7-Zip plugin (`src/plugins/7zip`) has a separate manifest for the current
-vcpkg `7zip` port. Use it when refreshing the plugin's bundled 7-Zip engine or
-comparing supported formats with upstream 7-Zip:
-
-```powershell
-.\tools\vcpkg\build-third-party-libs.ps1 -SevenZipPlugin
-.\tools\vcpkg\build-third-party-libs.ps1 -SevenZipPlugin -OnlySevenZipPlugin
-```
-
-These files are installed into `build\vcpkg_installed_7zip\`; the existing
-Visual Studio projects still decide which binaries/sources are packaged as
-`plugins\7zip\7za.dll`.

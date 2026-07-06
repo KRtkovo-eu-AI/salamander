@@ -4351,6 +4351,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 // they are only updated. If the registry contains an incomplete or unknown entry,
                 // it is ignored. Only when the Title matches one of the default values are its paths used.
                 // ArchiverConfig.DeleteAllArchivers();
+                ArchiverConfig.EnsureDefaultValues();
                 HKEY itemKey;
                 char buf[30];
                 int i = 1;

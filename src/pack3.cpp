@@ -769,7 +769,21 @@ void CArchiverConfig::InitializeDefaultValues()
 
 void CArchiverConfig::EnsureDefaultValues()
 {
-    if (Archivers.Count >= PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT)
+    BOOL complete = Archivers.Count >= PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT;
+    if (complete)
+    {
+        int i;
+        for (i = 0; i < PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT; i++)
+        {
+            if (Archivers[i] == NULL || !Archivers[i]->IsValid())
+            {
+                complete = FALSE;
+                break;
+            }
+        }
+    }
+
+    if (complete)
         return;
 
     DeleteAllArchivers();
