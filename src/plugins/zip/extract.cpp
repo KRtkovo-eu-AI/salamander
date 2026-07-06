@@ -1485,7 +1485,7 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
                             char attr[101];
                             char buf[SAL_MAX_PATH];
                             lstrcpyn(buf, ZipName, SAL_MAX_PATH);
-                            SalPathAppend(buf, fileInfo->Name, SAL_MAX_PATH);
+                            SalamanderGeneral->SalPathAppend(buf, fileInfo->Name, SAL_MAX_PATH);
                             GetInfo(attr, &fileInfo->LastWrite, fileInfo->Size);
                             result = SafeCreateCFile(&OutputFile, targetDir, buf, attr, GENERIC_WRITE,
                                                      FILE_SHARE_READ, fileInfo->FileAttr & ~FILE_ATTRIBUTE_READONLY | FILE_FLAG_SEQUENTIAL_SCAN,
