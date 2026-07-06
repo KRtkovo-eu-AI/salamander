@@ -240,7 +240,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
         }
         LPTSTR filePath = p;
 
-        CFileData fd;
+        CFileData fd = {0};
         fd.Name = SalamanderGeneral->DupStr(fileName);
         if (fd.Name == NULL)
         {
