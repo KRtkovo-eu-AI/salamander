@@ -51,26 +51,41 @@
     <li>When Windows long paths are enabled, local and UNC paths can go beyond the traditional <code>MAX_PATH</code> limit and use the Windows extended-length limit of about <code>32,767</code> characters.</li>
     <li>Browse, Copy, Move, Rename, Delete, and Create deeply nested folders and very long file names directly from the panels.</li>
     <li>The core file handling paths use Unicode-aware Windows APIs, so names no longer have to fit the active system code page.</li>
+    <li>Code based on our prototype and partially derived from <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>) which is being refined for Samandarin.</li>
   </ul>
   <img width="687" height="538" alt="image" src="https://github.com/user-attachments/assets/a4a7240f-ac82-4ca8-9f9a-830539d5e8b4">
   <img width="687" height="119" alt="image" src="https://github.com/user-attachments/assets/ab04f8a6-fe73-4f0f-8726-12755afdbde7">
+
+  <h3>Internal Viewer support for Unicode encoding in text files</h3>
+  <ul>
+    <li>Based on <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>) and refined for Samandarin.</li>
+  </ul>
 
   <h3>Portability</h3>
   <ul>
     <li>Save the Configuration into file storage instead of Registry</li>
   </ul>
   <img width="687" height="172" alt="image" src="https://github.com/user-attachments/assets/5aab6d4d-cc86-42a5-a769-95af091ecab5">
+
   <h3>Manage configurations</h3>
+  <ul>
+    <li>Reworked welcome dialog with configuration management options.</li>
+    <li>Configuration import and export support.</li>
+    <li>Simple wizard for restoring configurations.</li>
+    <li>Choose between locations for target configuration.</li>
+  </ul>
   <img width="782" height="552" alt="Image" src="https://github.com/user-attachments/assets/baf4bab7-50ba-4874-9241-d31b11722767">
 
   <h3>Translations</h3>
   <ul>
-    <li>automatic translate with OpenAI API (model <code>gpt-5.4-nano</code>)</li>
+    <li>Automatic translate with OpenAI API (model <code>gpt-5.4-nano</code>) with our own custom translation logic</li>
+    <li>Few scripts partially derived from <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>).</li>
   </ul>
   <img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb">
 
   <h3>Tabbed Panels</h3>
   <ul>
+    <li>One of the most wanted features over last 15 years.</li>
     <li>When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.</li>
     <li>You can switch between tabs on one side when holding right mouse button and scrolling with the mouse wheel.</li>
   </ul>
@@ -82,6 +97,9 @@
   <img width="687" height="154" alt="image" src="https://github.com/user-attachments/assets/a8e16767-4df5-4d11-8767-7701464611a6">
 
   <h3>Dark Mode</h3>
+  <ul>
+    <li>Complete dark mode support for all components, windows, plugins etc.</li>
+  </ul>
   <img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/2d326f09-305b-43f3-92e7-4ccfaf20e037">
 
   <h3>Configurable Command Shell Application</h3>
@@ -89,19 +107,27 @@
 
   <h3>Tree View panel</h3>
   <ul>
-    <li>based on <a href="https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy">fgodoy</a> changes</li>
+    <li>Docked or floating panel with tree view structure of the active disk panel.</li>
+    <li>Based on <a href="https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy">fgodoy</a> changes.</li>
   </ul>
   <img width="689" height="377" alt="image" src="https://github.com/user-attachments/assets/0717d01f-5f59-454c-a821-288b9f74b1fe">
 
-  <h3>Internal Viewer support for Unicode encoding in text files</h3>
-
   <h3>User Folders</h3>
+  <ul>
+    <li>Added missing user folders for easier access.</li>
+  </ul>
   <img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/f2295756-b5e6-44db-ae40-d22075e47d88">
 
   <h3>Copy/Move between plugin-FS and archives</h3>
+  <ul>
+    <li>Support for file operations between plugin-FS and archives (for example between FTP and archives, between different FTP servers, different archives, etc).</li>
+  </ul>
   <img width="687" height="427" alt="salam_plug_arch" src="https://github.com/user-attachments/assets/4e4fc13c-e6f7-485c-b0d6-623378e1719b">
 
   <h3>Autocomplete path in Copy/Move/Quick Rename/Create Folder dialog</h3>
+  <ul>
+    <li>Paths are suggested when typing in the path field.</li>
+  </ul>
   <img width="688" height="61" alt="image" src="https://github.com/user-attachments/assets/4d1903d9-4570-47f8-8d7a-956df14d424b"><br />
   <img width="397" height="185" alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a">
 
