@@ -1161,6 +1161,8 @@ void CFilesWindowAncestor::SetZIPPath(const char* path)
     int l = (int)strlen(path);
     if (l > 0 && path[l - 1] == '\\')
         l--; // ZIPPath will not end with '\\'
+    if (l >= SAL_MAX_PATH)
+        l = SAL_MAX_PATH - 1;
     memcpy(ZIPPath, path, l);
     ZIPPath[l] = 0;
 }
@@ -1168,7 +1170,7 @@ void CFilesWindowAncestor::SetZIPPath(const char* path)
 void CFilesWindowAncestor::SetZIPArchive(const char* archive)
 {
     CALL_STACK_MESSAGE_NONE
-    strcpy(ZIPArchive, archive);
+    lstrcpyn(ZIPArchive, archive, SAL_MAX_PATH);
 }
 
 BOOL CFilesWindowAncestor::SamePath(CFilesWindowAncestor* other)

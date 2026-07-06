@@ -502,8 +502,8 @@ private:
 
     // when we are inside an archive:
     CSalamanderDirectory* ArchiveDir; // content of the open archive; basic data - array of CFileData
-    char ZIPArchive[MAX_PATH];        // path to the open archive
-    char ZIPPath[MAX_PATH];           // path inside the open archive
+    char ZIPArchive[SAL_MAX_PATH];    // path to the open archive; can be a long Win32 path
+    char ZIPPath[SAL_MAX_PATH];       // path inside the open archive
     FILETIME ZIPArchiveDate;          // archive date (used for the ".." date and during refresh)
     CQuadWord ZIPArchiveSize;         // archive size - used to detect archive changes
 

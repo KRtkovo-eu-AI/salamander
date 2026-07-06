@@ -752,18 +752,18 @@ void CFilesWindow::Execute(int index)
 
             CFileData* file = &Files->At(index - Dirs->Count);
             char* fileName = file->Name;
-            char fullPath[MAX_PATH];
-            char netFSName[MAX_PATH];
+            char fullPath[SAL_MAX_PATH];
+            char netFSName[SAL_MAX_PATH];
             netFSName[0] = 0;
             if (file->DosName != NULL)
             {
                 lstrcpy(fullPath, GetPath());
-                if (SalPathAppend(fullPath, file->Name, MAX_PATH) &&
+                if (SalPathAppend(fullPath, file->Name, SAL_MAX_PATH) &&
                     SalGetFileAttributes(fullPath) == INVALID_FILE_ATTRIBUTES &&
                     GetLastError() == ERROR_FILE_NOT_FOUND)
                 {
                     lstrcpy(fullPath, GetPath());
-                    if (SalPathAppend(fullPath, file->DosName, MAX_PATH) &&
+                    if (SalPathAppend(fullPath, file->DosName, SAL_MAX_PATH) &&
                         SalGetFileAttributes(fullPath) != INVALID_FILE_ATTRIBUTES)
                     { // when full name is not available (problem converting from multibyte to UNICODE), we'll use DOS name
                         fileName = file->DosName;
@@ -777,7 +777,7 @@ void CFilesWindow::Execute(int index)
             if (StrICmp(file->Ext, "lnk") == 0) // is it not a directory shortcut?
             {
                 strcpy(fullName, GetPath());
-                if (!SalPathAppend(fullName, fileName, MAX_PATH))
+                if (!SalPathAppend(fullName, fileName, SAL_MAX_PATH))
                 {
                     SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
                                   MB_OK | MB_ICONEXCLAMATION);
@@ -900,7 +900,7 @@ void CFilesWindow::Execute(int index)
                 {
                     // construction of full archive name for ChangePathToArchive
                     strcpy(fullName, GetPath());
-                    if (!SalPathAppend(fullName, fileName, MAX_PATH))
+                    if (!SalPathAppend(fullName, fileName, SAL_MAX_PATH))
                     {
                         SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
                                       MB_OK | MB_ICONEXCLAMATION);
@@ -2927,15 +2927,15 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                          forceUpdate, refreshListBox, isRefresh, canFocusFileName, isHistory);
 
     // we make backup copies
-    char backup1[MAX_PATH];
-    lstrcpyn(backup1, archive, MAX_PATH);
-    char backup2[MAX_PATH];
-    lstrcpyn(backup2, archivePath, MAX_PATH);
+    char backup1[SAL_MAX_PATH];
+    lstrcpyn(backup1, archive, SAL_MAX_PATH);
+    char backup2[SAL_MAX_PATH];
+    lstrcpyn(backup2, archivePath, SAL_MAX_PATH);
     archivePath = backup2;
-    char backup3[MAX_PATH];
+    char backup3[SAL_MAX_PATH];
     if (suggestedFocusName != NULL)
     {
-        lstrcpyn(backup3, suggestedFocusName, MAX_PATH);
+        lstrcpyn(backup3, suggestedFocusName, SAL_MAX_PATH);
         suggestedFocusName = backup3;
     }
 
@@ -2955,7 +2955,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
     int errTextID;
     //  if (!SalGetFullName(backup1, &errTextID, MainWindow->GetActivePanel()->Is(ptDisk) ?
     //                      MainWindow->GetActivePanel()->GetPath() : NULL))
-    if (!SalGetFullName(backup1, &errTextID, Is(ptDisk) ? GetPath() : NULL)) // consistent with ChangePathToDisk()
+    if (!SalGetFullName(backup1, &errTextID, Is(ptDisk) ? GetPath() : NULL, NULL, NULL, SAL_MAX_PATH)) // consistent with ChangePathToDisk()
     {
         SalMessageBox(HWindow, LoadStr(errTextID), LoadStr(IDS_ERRORCHANGINGDIR),
                       MB_OK | MB_ICONEXCLAMATION);
@@ -2976,8 +2976,8 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
     FILETIME archiveDate;  // date and time of the archive file
     CQuadWord archiveSize; // size of the archive file
 
-    char text[MAX_PATH + 500];
-    char path[MAX_PATH];
+    char text[SAL_MAX_PATH + 500];
+    char path[SAL_MAX_PATH];
     BOOL sameArch;
     BOOL checkPath = TRUE;
     BOOL forceUpdateInt = FALSE; // is path change required? (possibly even to disk)
@@ -3251,7 +3251,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
     }
 
     // save the current path in the archive
-    char currentPath[MAX_PATH];
+    char currentPath[SAL_MAX_PATH];
     strcpy(currentPath, GetZIPPath());
 
     SetZIPPath(path);
@@ -3646,10 +3646,10 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
     lstrcpyn(backup2, fsUserPart, MAX_PATH);
     fsUserPart = backup2;
     char* fsUserPart2 = backup2;
-    char backup3[MAX_PATH];
+    char backup3[SAL_MAX_PATH];
     if (suggestedFocusName != NULL)
     {
-        lstrcpyn(backup3, suggestedFocusName, MAX_PATH);
+        lstrcpyn(backup3, suggestedFocusName, SAL_MAX_PATH);
         suggestedFocusName = backup3;
     }
 
