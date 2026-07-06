@@ -103,7 +103,7 @@ static size_t TitlePrefixCutByVisualWidth(const std::wstring& prefix, int maxPre
 }
 
 static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& appSuffix,
-                                       int maxPrefixVW = 80, int maxUnicodePrefixVW = 1)
+                                       int maxPrefixVW = 80, int maxUnicodePrefixVW = 12)
 {
     if (title.empty() || appSuffix.empty() ||
         title.length() <= appSuffix.length() ||
@@ -123,8 +123,9 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
     if (prefix.empty())
         return;
 
+    bool hasNonAsciiPrefix = StringHasNonAscii(prefix);
     int effectiveMaxPrefixVW = maxPrefixVW;
-    if (StringHasNonAscii(prefix))
+    if (hasNonAsciiPrefix)
     {
         int unicodePrefixVW = LeadingAsciiVisualWidth(prefix) + maxUnicodePrefixVW;
         effectiveMaxPrefixVW = effectiveMaxPrefixVW < unicodePrefixVW ? effectiveMaxPrefixVW : unicodePrefixVW;
@@ -135,6 +136,13 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
     if (cutAt < prefix.length())
     {
         title = prefix.substr(0, cutAt) + L"..." + separator + appSuffix;
+    }
+    if (hasNonAsciiPrefix)
+    {
+        // Some Windows title-bar renderers clip the last visible glyph after
+        // fallback-font Unicode text even when the title fits.  Invisible
+        // trailing guard space protects the real application suffix.
+        title += L"   ";
     }
 }
 
