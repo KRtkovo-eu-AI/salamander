@@ -295,6 +295,7 @@ extern CConfiguration Config;
 
 char* LoadStr(int resID);
 WCHAR* LoadStrW(int resID);
+bool IsUTF8Encoded(const char* s, int len);
 
 int InflateBuffer(char* sour, int sourSize, char* dest, int* destSize);
 int LoadSfxFileData(char* fileName, CSfxLang** lang);

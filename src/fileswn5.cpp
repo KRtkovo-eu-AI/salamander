@@ -791,9 +791,9 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                     StrICpy(dcFileName, GetZIPArchive()); // the archive file name should be compared case-insensitively (Windows file system), so we always convert it to lowercase
                     if (GetZIPPath()[0] != 0)
                     {
-                        SalamanderGeneral->SalPathAppend(dcFileName, GetZIPPath(), 3 * SAL_MAX_PATH + 50);
+                        SalPathAppend(dcFileName, GetZIPPath(), 3 * SAL_MAX_PATH + 50);
                     }
-                    SalamanderGeneral->SalPathAppend(dcFileName, f->Name, 3 * SAL_MAX_PATH + 50);
+                    SalPathAppend(dcFileName, f->Name, 3 * SAL_MAX_PATH + 50);
 
                     // setting disk-cache for the plugin (standard values change only for the plugin)
                     char arcCacheTmpPath[MAX_PATH];
