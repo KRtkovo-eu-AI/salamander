@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -123,7 +123,7 @@ int CZipUnpack::UnpackOneFile(const char* nameInZip, const CFileData* fileData, 
 {
     CALL_STACK_MESSAGE3("CZipUnpack::UnpackOneFile(%s, , %s)", nameInZip, targetPath);
     CFileInfo fileInfo;
-    TCHAR targetDir[MAX_PATH + 1];
+    TCHAR targetDir[SAL_MAX_PATH];
     int targetDirLen;
     char* sour;
     CZIPFileData* zipFileData = (CZIPFileData*)fileData->PluginData;

@@ -51,8 +51,9 @@ static std::wstring ZipPathToWide(const char* path)
     if (len <= 0)
         return std::wstring();
 
-    std::wstring widePath(len - 1, L'\0');
+    std::wstring widePath(len, L'\0');
     MultiByteToWideChar(codePage, 0, path, -1, &widePath[0], len);
+    widePath.resize(len - 1);
     if (widePath.length() >= MAX_PATH)
         widePath = ZipPathAddExtendedPrefix(widePath);
     return widePath;
