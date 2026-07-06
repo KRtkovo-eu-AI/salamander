@@ -3777,6 +3777,8 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
     CALL_STACK_MESSAGE1("CCfgPagePanels::Transfer()");
 
     int oldUseTabs = Configuration.UsePanelTabs;
+    int oldSortUsesLocale = Configuration.SortUsesLocale;
+    int oldSortDetectNumbers = Configuration.SortDetectNumbers;
 
     // keep values in Configuration.FileNameFormat for backward compatibility
     const int MANGLE_ITEMS = 6;
@@ -3846,8 +3848,37 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
 
     if (ti.Type == ttDataToWindow)
         EnableControls();
-    else if (oldUseTabs != Configuration.UsePanelTabs)
-        MainWindow->HandlePanelTabsEnabledChange(oldUseTabs != 0);
+    else
+    {
+        if (oldUseTabs != Configuration.UsePanelTabs)
+            MainWindow->HandlePanelTabsEnabledChange(oldUseTabs != 0);
+
+        if (oldSortUsesLocale != Configuration.SortUsesLocale ||
+            oldSortDetectNumbers != Configuration.SortDetectNumbers)
+        {
+            int totalPanels = MainWindow->LeftPanelTabs.Count + MainWindow->RightPanelTabs.Count;
+            TDirectArray<CFilesWindow*> panels(totalPanels, totalPanels);
+            for (int i = 0; i < MainWindow->LeftPanelTabs.Count; i++)
+                panels.Add(MainWindow->LeftPanelTabs[i]);
+            for (int i = 0; i < MainWindow->RightPanelTabs.Count; i++)
+                panels.Add(MainWindow->RightPanelTabs[i]);
+
+            for (int i = 0; i < panels.Count; i++)
+            {
+                CFilesWindow* panel = panels[i];
+                if (panel != NULL)
+                {
+                    if (panel->UseSystemIcons || panel->UseThumbnails)
+                        panel->SleepIconCacheThread();
+                    panel->SortDirectory();
+                    if (panel->UseSystemIcons || panel->UseThumbnails)
+                        panel->WakeupIconCacheThread();
+                    if (panel == MainWindow->LeftPanel || panel == MainWindow->RightPanel)
+                        panel->RefreshListBox(-1, -1, -1, FALSE, FALSE);
+                }
+            }
+        }
+    }
 }
 
 void CCfgPagePanels::EnableControls()
