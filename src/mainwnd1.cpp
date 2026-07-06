@@ -27,6 +27,7 @@
 #include "execute.h"
 #include "jumplist.h"
 #include "darkmode.h"
+#include "titlebar_helpers.h"
 
 #include "versinfo.rh2"
 
@@ -2467,6 +2468,7 @@ void CMainWindow::SetWindowTitle(const char* text)
         wideText += suffix;
 
         CompactTitlePrefixToFitWindow(HWindow, wideText, wideAppSuffix);
+        EnsureAppNameSuffixInTitle(wideText, wideAppSuffix);
     }
     else
     {

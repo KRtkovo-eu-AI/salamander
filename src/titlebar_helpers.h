@@ -5,11 +5,14 @@
 #define TITLEBAR_HELPERS_H
 
 #include <string>
+#include <algorithm>
 
 static int WCharVisualWidth(wchar_t ch)
 {
     if (ch < 0x80)
         return 1;
+    if (ch >= 0xD800 && ch <= 0xDFFF)
+        return 2;
     if (ch >= 0xFF01 && ch <= 0xFF5E)
         return 2;
     if ((ch >= 0x2E80 && ch <= 0x9FFF) ||
@@ -25,11 +28,62 @@ static int StringVisualWidth(const std::wstring& s)
 {
     int w = 0;
     for (size_t i = 0; i < s.length(); i++)
-        w += WCharVisualWidth(s[i]);
+    {
+        if (s[i] >= 0xD800 && s[i] <= 0xDBFF &&
+            i + 1 < s.length() && s[i + 1] >= 0xDC00 && s[i + 1] <= 0xDFFF)
+        {
+            w += 2;
+            i++;
+        }
+        else
+        {
+            w += WCharVisualWidth(s[i]);
+        }
+    }
     return w;
 }
 
-static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& appSuffix)
+static bool StringHasNonAscii(const std::wstring& s)
+{
+    for (size_t i = 0; i < s.length(); i++)
+        if (s[i] >= 0x80)
+            return true;
+    return false;
+}
+
+static size_t TitlePrefixCutByVisualWidth(const std::wstring& prefix, int maxPrefixVW)
+{
+    if (maxPrefixVW <= 0)
+        return 0;
+
+    int vw = 0;
+    size_t cutAt = 0;
+    for (size_t i = 0; i < prefix.length(); i++)
+    {
+        size_t next = i + 1;
+        int cw;
+        if (prefix[i] >= 0xD800 && prefix[i] <= 0xDBFF &&
+            next < prefix.length() && prefix[next] >= 0xDC00 && prefix[next] <= 0xDFFF)
+        {
+            cw = 2;
+            next++;
+        }
+        else
+        {
+            cw = WCharVisualWidth(prefix[i]);
+        }
+
+        if (vw + cw > maxPrefixVW)
+            break;
+        vw += cw;
+        cutAt = next;
+        i = next - 1;
+    }
+    return cutAt;
+}
+
+static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& appSuffix,
+                                       int maxPrefixVW = 220, int maxUnicodePrefixVW = 24)
 {
     if (title.empty() || appSuffix.empty() ||
         title.length() <= appSuffix.length() ||
@@ -49,44 +103,14 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
     if (prefix.empty())
         return;
 
-    int suffixVW = StringVisualWidth(appSuffix);
-    int sepVW = StringVisualWidth(separator);
-    // Keep the logical title text as "{path} - {application}", but shorten
-    // the path early enough that Windows can paint the whole application
-    // suffix on the tested 890px-wide main window.  Unicode directory names
-    // (especially CJK) consume more title-bar pixels than their UTF-16 length,
-    // so this deliberately reserves a larger safety margin for the suffix.
-    int totalVWLimit = 58;
-    int maxPrefixVW = totalVWLimit - suffixVW - sepVW - 3;
-    if (maxPrefixVW < 6)
-        maxPrefixVW = 6;
+    int effectiveMaxPrefixVW = maxPrefixVW;
+    if (StringHasNonAscii(prefix))
+        effectiveMaxPrefixVW = std::min(effectiveMaxPrefixVW, maxUnicodePrefixVW);
 
-    int vw = 0;
-    size_t cutAt = 0;
-    for (size_t i = 0; i < prefix.length(); i++)
-    {
-        int cw = WCharVisualWidth(prefix[i]);
-        if (vw + cw > maxPrefixVW)
-            break;
-        vw += cw;
-        cutAt = i + 1;
-    }
-
-    if (cutAt == 0)
-        cutAt = 1;
+    size_t cutAt = TitlePrefixCutByVisualWidth(prefix, effectiveMaxPrefixVW);
 
     if (cutAt < prefix.length())
     {
-        if (cutAt > 0 && cutAt < prefix.length())
-        {
-            wchar_t lastChar = prefix[cutAt - 1];
-            if (lastChar >= 0xD800 && lastChar <= 0xDBFF)
-            {
-                wchar_t nextChar = prefix[cutAt];
-                if (nextChar >= 0xDC00 && nextChar <= 0xDFFF)
-                    cutAt++;
-            }
-        }
         title = prefix.substr(0, cutAt) + L"..." + separator + appSuffix;
     }
 }
