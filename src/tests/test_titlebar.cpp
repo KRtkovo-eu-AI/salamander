@@ -131,6 +131,10 @@ static void Test_ReportedRealScenarios()
         CHECK(EndsWide(title, suffix), "directory-only supplementary chars keep full suffix");
     }
     {
+        std::wstring title = BuildTitleForTest(twentyFiveSupplementary + L"\\u00E1\u00E1\u00E1", L"", suffix);
+        CHECK(EndsWide(title, suffix), "reported directory-only supplementary-plus-á title keeps full suffix");
+    }
+    {
         std::wstring title = BuildTitleForTest(L"C:\\temp\\test\\" + twentyFiveSupplementary + L"\\\u00E1\u00E1\u00E1", L"", suffix);
         CHECK(EndsWide(title, suffix), "full path ending with ááá keeps full suffix");
     }

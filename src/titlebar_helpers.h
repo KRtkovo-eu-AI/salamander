@@ -62,6 +62,19 @@ static int LeadingAsciiVisualWidth(const std::wstring& s)
     return w;
 }
 
+static bool StringHasSurrogatePair(const std::wstring& s)
+{
+    for (size_t i = 0; i + 1 < s.length(); i++)
+    {
+        if (s[i] >= 0xD800 && s[i] <= 0xDBFF &&
+            s[i + 1] >= 0xDC00 && s[i + 1] <= 0xDFFF)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 static size_t TitlePrefixCutByVisualWidth(const std::wstring& prefix, int maxPrefixVW)
 {
     if (maxPrefixVW <= 0)
@@ -127,7 +140,7 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
     int effectiveMaxPrefixVW = maxPrefixVW;
     if (hasNonAsciiPrefix)
     {
-        int unicodePrefixVW = LeadingAsciiVisualWidth(prefix) + maxUnicodePrefixVW;
+        int unicodePrefixVW = LeadingAsciiVisualWidth(prefix) + (StringHasSurrogatePair(prefix) ? 4 : maxUnicodePrefixVW);
         effectiveMaxPrefixVW = effectiveMaxPrefixVW < unicodePrefixVW ? effectiveMaxPrefixVW : unicodePrefixVW;
     }
 
