@@ -5,7 +5,7 @@
 #include "precomp.h"
 
 #include "salmoncl.h"
-#include "cfgdlg.h"
+#include "darkmode.h"
 
 CSalmonSharedMemory* SalmonSharedMemory = NULL;
 HANDLE SalmonFileMapping = NULL;
@@ -120,22 +120,28 @@ BOOL SalmonSharedMemInit(CSalmonSharedMemory* mem)
 
     // base name for bug report files
     strcpy(mem->BugName, "AS" VERSINFO_SAL_SHORT_VERSION);
-    mem->UseWindowsDarkMode = Configuration.UseWindowsDarkMode;
-    mem->DarkModeText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-    mem->DarkModeBk = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    mem->UseWindowsDarkMode = FALSE;
+    mem->DarkModeText = GetSysColor(COLOR_BTNTEXT);
+    mem->DarkModeBk = GetSysColor(COLOR_BTNFACE);
 
     return (mem->Process != NULL && mem->Fire != NULL && mem->Done != NULL && mem->SetSLG != NULL &&
             mem->CheckBugs != NULL && mem->BugPath[0] != 0);
 }
 
+void SalmonUpdateDarkModeConfig(CSalmonSharedMemory* mem)
+{
+    if (mem != NULL)
+    {
+        const DarkModeColors& colors = DarkModeGetColors();
+        mem->UseWindowsDarkMode = DarkModeShouldUseDarkColors();
+        mem->DarkModeText = colors.readableText;
+        mem->DarkModeBk = colors.background;
+    }
+}
+
 void SalmonUpdateDarkModeConfig()
 {
-    if (SalmonSharedMemory != NULL)
-    {
-        SalmonSharedMemory->UseWindowsDarkMode = Configuration.UseWindowsDarkMode;
-        SalmonSharedMemory->DarkModeText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-        SalmonSharedMemory->DarkModeBk = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-    }
+    SalmonUpdateDarkModeConfig(SalmonSharedMemory);
 }
 
 void GetStartupSLGName(char* slgName, DWORD slgNameMax)

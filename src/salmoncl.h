@@ -50,9 +50,9 @@ struct CSalmonSharedMemory
     char BugName[MAX_PATH];  // set by Salamander; specifies the internal name of the minidump/bug report file
     char BaseName[MAX_PATH]; // set by Salmon; constructed as "UID-BugName-DATE-TIME"; ".DMP" is appended for a minidumps
     DWORD64 UID;             // unique machine ID created by XORing the GUID; stored in the registry under the Bug Reporter key; set by Salamander, Salmon only reads it and inserts it into the bug report name
-    BOOL UseWindowsDarkMode; // set by Salamander; mirrors Configuration.UseWindowsDarkMode for Salmon dialogs
-    COLORREF DarkModeText;   // set by Salamander; CurrentColors[ITEM_FG_NORMAL] when dark mode is enabled
-    COLORREF DarkModeBk;     // set by Salamander; CurrentColors[ITEM_BK_NORMAL] when dark mode is enabled
+    BOOL UseWindowsDarkMode; // set by Salamander; TRUE when the host is currently rendering dark UI
+    COLORREF DarkModeText;   // set by Salamander; current readable dark-mode text color for Salmon dialogs
+    COLORREF DarkModeBk;     // set by Salamander; current dark-mode background color for Salmon dialogs
 
     // pass EXCEPTION_POINTERS piece by piece; set before setting the Fire event
     EXCEPTION_RECORD ExceptionRecord;
