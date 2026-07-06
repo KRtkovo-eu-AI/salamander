@@ -1042,19 +1042,21 @@ BOOL CSalamanderGeneral::GetPanelPath(int panel, char* buffer, int bufferSize, i
     CFilesWindow* p = GetPanel(panel);
     if (p != NULL)
     {
-        char buf[2 * MAX_PATH];
+        char buf[SAL_MAX_PATH];
         int offset = -1; // offset into the buffer for computing archiveOrFS (-1 means NULL)
         if (p->Is(ptZIPArchive))
         {
             if (type != NULL)
                 *type = PATH_TYPE_ARCHIVE;
-            offset = (int)strlen(p->GetZIPArchive());
-            memcpy(buf, p->GetZIPArchive(), offset + 1);
+            size_t archiveLen = strlen(p->GetZIPArchive());
+            if (archiveLen >= SAL_MAX_PATH)
+                return FALSE;
+            lstrcpyn(buf, p->GetZIPArchive(), SAL_MAX_PATH);
+            offset = (int)archiveLen;
             if (p->GetZIPPath()[0] != 0)
             {
-                if (p->GetZIPPath()[0] != '\\')
-                    strcpy(buf + offset, "\\");
-                strcat(buf + offset, p->GetZIPPath());
+                if (!SalPathAppend(buf, p->GetZIPPath(), SAL_MAX_PATH))
+                    return FALSE;
             }
         }
         else
