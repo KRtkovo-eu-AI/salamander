@@ -1998,12 +1998,11 @@ void PackAutoconfig(HWND parent)
 
     // stop refreshes in the main window
     BeginStopRefresh();
-    ArchiverConfig.EnsureDefaultValues();
-    if (ArchiverConfig.GetArchiversCount() < PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT)
-    {
-        ArchiverConfig.DeleteAllArchivers();
-        ArchiverConfig.AddDefault(0);
-    }
+    // PackAutoconfig must always start from the built-in external archiver definitions;
+    // otherwise an incomplete in-memory/registry state leaves the virtual list without
+    // the heading rows (Jar32bitExecutable, Rar32bitExecutable, ..., Ace16bitExecutable).
+    ArchiverConfig.DeleteAllArchivers();
+    ArchiverConfig.AddDefault(0);
 
     if (PackACSavedDrivesList == NULL)
     {

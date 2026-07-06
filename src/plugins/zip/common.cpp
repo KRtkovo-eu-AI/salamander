@@ -1470,14 +1470,14 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
 
                 if (wlen > 0)
                 {
-                    // Keep ZIP UTF-8 names as UTF-8 in Salamander's multibyte filename field.
-                    int lenLocEnc = WideCharToMultiByte(CP_UTF8, 0, wsour, wlen, NULL, 0, NULL, NULL);
+                    // Convert ZIP UTF-8 names to the local encoding used by the archive panel tree.
+                    int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wsour, wlen, NULL, 0, NULL, NULL);
                     if (lenLocEnc > 0)
                     {
                         sourLocEnc = (char*)malloc(lenLocEnc);
                         if (sourLocEnc)
                         {
-                            len = WideCharToMultiByte(CP_UTF8, 0, wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
+                            len = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
                             sour = sourLocEnc;
                         }
                     }
