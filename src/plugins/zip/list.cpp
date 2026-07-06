@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -24,6 +24,25 @@
 #include "chicon.h"
 #include "common.h"
 #include "list.h"
+
+static wchar_t* DupUtf8NameW(const char* name, int nameLen)
+{
+    if (name == NULL || nameLen <= 0 || !IsUTF8Encoded(name, nameLen))
+        return NULL;
+    int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, nameLen, NULL, 0);
+    if (wideLen <= 0)
+        return NULL;
+    wchar_t* nameW = (wchar_t*)malloc((wideLen + 1) * sizeof(wchar_t));
+    if (nameW == NULL)
+        return NULL;
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, nameLen, nameW, wideLen) <= 0)
+    {
+        free(nameW);
+        return NULL;
+    }
+    nameW[wideLen] = 0;
+    return nameW;
+}
 
 int CZipList::ListArchive(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles)
 {
@@ -139,6 +158,7 @@ START_LIST:
                 break;
             }
             memcpy(file.Name, name, sizeof(TCHAR) * (file.NameLen + 1));
+            file.NameW = DupUtf8NameW(file.Name, file.NameLen);
             //initialize remaining members of CFileData
             file.Size = CQuadWord().SetUI64(fileInfo.Size);
             file.Attr = fileInfo.FileAttr & FILE_ATTTRIBUTE_MASK;
@@ -179,6 +199,8 @@ START_LIST:
                 {
                     delete (CZIPFileData*)file.PluginData;
                     TRACE_E("Error adding directory " << path << "\\" << file.Name << " in the list");
+                    if (file.NameW != NULL)
+                        free(file.NameW);
                     SalamanderGeneral->Free(file.Name);
                     if (_tcslen(path) >= _MAX_PATH)
                     {
@@ -199,6 +221,8 @@ START_LIST:
                 {
                     delete (CZIPFileData*)file.PluginData;
                     TRACE_E("Error adding file " << path << "\\" << file.Name << " to the list");
+                    if (file.NameW != NULL)
+                        free(file.NameW);
                     SalamanderGeneral->Free(file.Name);
                     if (_tcslen(path) >= _MAX_PATH)
                     {

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -709,7 +709,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
     CALL_STACK_MESSAGE6("CFilesWindow::ViewFile(%s, %d, %u, %d, %d)", name, altView, handlerID,
                         enumFileNamesSourceUID, enumFileNamesLastFileIndex);
     // verify that the file is on an accessible path
-    char path[MAX_PATH + 10];
+    char path[SAL_MAX_PATH + 10];
     if (name == NULL) // file from the panel
     {
         if (Is(ptDisk) || Is(ptZIPArchive))
@@ -734,7 +734,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
     // if viewing/editing from the panel, obtain the full long name
     BOOL useDiskCache = FALSE;          // TRUE only for ZIP - uses disk-cache
     BOOL arcCacheCacheCopies = TRUE;    // cache copies in disk-cache unless the archiver plugin requests otherwise
-    char dcFileName[3 * MAX_PATH + 50]; // ZIP: name for disk-cache
+    char dcFileName[3 * SAL_MAX_PATH + 50]; // ZIP: name for disk-cache
     if (name == NULL)
     {
         int i = GetCaretIndex();
@@ -745,13 +745,13 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
             {
                 if (enumFileNamesLastFileIndex == -1)
                     enumFileNamesLastFileIndex = i - Dirs->Count;
-                lstrcpyn(path, GetPath(), MAX_PATH);
+                lstrcpyn(path, GetPath(), SAL_MAX_PATH);
                 if (GetPath()[strlen(GetPath()) - 1] != '\\')
                     strcat(path, "\\");
                 char* s = path + strlen(path);
-                if ((s - path) + f->NameLen >= MAX_PATH)
+                if ((s - path) + f->NameLen >= SAL_MAX_PATH)
                 {
-                    if (f->DosName != NULL && strlen(f->DosName) + (s - path) < MAX_PATH)
+                    if (f->DosName != NULL && strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
                         strcpy(s, f->DosName);
                     else
                     {
@@ -769,12 +769,12 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                     DWORD err = GetLastError();
                     if (err == ERROR_FILE_NOT_FOUND || err == ERROR_INVALID_NAME)
                     {
-                        if (strlen(f->DosName) + (s - path) < MAX_PATH)
+                        if (strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
                         {
                             strcpy(s, f->DosName);
                             if (SalGetFileAttributes(path) == 0xffffffff) // still error -> revert to the long name
                             {
-                                if ((s - path) + f->NameLen < MAX_PATH)
+                                if ((s - path) + f->NameLen < SAL_MAX_PATH)
                                     strcpy(s, f->Name);
                             }
                         }
@@ -791,13 +791,9 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                     StrICpy(dcFileName, GetZIPArchive()); // the archive file name should be compared case-insensitively (Windows file system), so we always convert it to lowercase
                     if (GetZIPPath()[0] != 0)
                     {
-                        if (GetZIPPath()[0] != '\\')
-                            strcat(dcFileName, "\\");
-                        strcat(dcFileName, GetZIPPath());
+                        SalamanderGeneral->SalPathAppend(dcFileName, GetZIPPath(), 3 * SAL_MAX_PATH + 50);
                     }
-                    if (dcFileName[strlen(dcFileName) - 1] != '\\')
-                        strcat(dcFileName, "\\");
-                    strcat(dcFileName, f->Name);
+                    SalamanderGeneral->SalPathAppend(dcFileName, f->Name, 3 * SAL_MAX_PATH + 50);
 
                     // setting disk-cache for the plugin (standard values change only for the plugin)
                     char arcCacheTmpPath[MAX_PATH];
@@ -821,8 +817,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                         }
                     }
 
-                    char nameInArchive[2 * MAX_PATH];
-                    strcpy(nameInArchive, dcFileName + strlen(GetZIPArchive()) + 1);
+                    char nameInArchive[2 * SAL_MAX_PATH];
+                    lstrcpyn(nameInArchive, dcFileName + strlen(GetZIPArchive()) + 1, 2 * SAL_MAX_PATH);
 
                     // besides itself, compare the file with all the others and look for a case-sensitive identical name;
                     // if it exists, these two files must be distinguished in the disk-cache; I chose
@@ -869,7 +865,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                     if (!exists) // we must unpack it
                     {
                         char* backSlash = strrchr(name, '\\');
-                        char tmpPath[MAX_PATH];
+                        char tmpPath[SAL_MAX_PATH];
                         memcpy(tmpPath, name, backSlash - name);
                         tmpPath[backSlash - name] = 0;
                         BeginStopRefresh(); // snooper takes a break
@@ -1240,7 +1236,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     }
 
     // verify that the file is on an accessible path
-    char path[MAX_PATH + 10];
+    char path[SAL_MAX_PATH + 10];
     if (name == NULL)
     {
         if (CheckPath(TRUE) != ERROR_SUCCESS)
@@ -1269,13 +1265,13 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
             CFileData* f = &Files->At(i - Dirs->Count);
             if (Is(ptDisk))
             {
-                lstrcpyn(path, GetPath(), MAX_PATH);
+                lstrcpyn(path, GetPath(), SAL_MAX_PATH);
                 if (GetPath()[strlen(GetPath()) - 1] != '\\')
                     strcat(path, "\\");
                 char* s = path + strlen(path);
-                if ((s - path) + f->NameLen >= MAX_PATH)
+                if ((s - path) + f->NameLen >= SAL_MAX_PATH)
                 {
-                    if (f->DosName != NULL && strlen(f->DosName) + (s - path) < MAX_PATH)
+                    if (f->DosName != NULL && strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
                         strcpy(s, f->DosName);
                     else
                     {
@@ -1293,12 +1289,12 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                     DWORD err = GetLastError();
                     if (err == ERROR_FILE_NOT_FOUND || err == ERROR_INVALID_NAME)
                     {
-                        if (strlen(f->DosName) + (s - path) < MAX_PATH)
+                        if (strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
                         {
                             strcpy(s, f->DosName);
                             if (SalGetFileAttributes(path) == 0xffffffff) // still error -> revert to the long name
                             {
-                                if ((s - path) + f->NameLen < MAX_PATH)
+                                if ((s - path) + f->NameLen < SAL_MAX_PATH)
                                     strcpy(s, f->Name);
                             }
                         }
@@ -2543,9 +2539,9 @@ void CFilesWindow::RenameFile(int specialIndex)
 #ifndef _WIN64
         if (Windows64Bit && isDir)
         {
-            char path[MAX_PATH];
-            lstrcpyn(path, GetPath(), MAX_PATH);
-            if (SalPathAppend(path, f->Name, MAX_PATH) && IsWin64RedirectedDir(path, NULL, FALSE))
+            char path[SAL_MAX_PATH];
+            lstrcpyn(path, GetPath(), SAL_MAX_PATH);
+            if (SalPathAppend(path, f->Name, SAL_MAX_PATH) && IsWin64RedirectedDir(path, NULL, FALSE))
             {
                 char msg[300 + MAX_PATH];
                 _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_ERRRENAMINGW64ALIAS), f->Name);

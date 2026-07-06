@@ -6202,7 +6202,10 @@ CSalamanderDirectory::AddDirInt(const char* path, CFileData& dir,
 
             if (Dirs[i].Name != NULL)
                 free(Dirs[i].Name);
+            if (Dirs[i].NameW != NULL)
+                free(Dirs[i].NameW);
             Dirs[i].Name = dir.Name; // rather take the new name (for possible data after '\0' in the string)
+            Dirs[i].NameW = dir.NameW;
             Dirs[i].Ext = dir.Ext;
             Dirs[i].Size = dir.Size;
             Dirs[i].Attr = dir.Attr;
