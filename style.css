@@ -353,13 +353,15 @@ img[src*="Preview"] {
 a[href$=".zip"],
 a[href$=".exe"],
 a[href*="releases"],
-a[href*="download"] {
+a[href*="download"],
+a[aria="button"] {
   display: inline-block;
   margin: 4px 4px 4px 0;
   padding: 5px 12px;
-  color: var(--sam-text);
+  color: var(--sam-link);
   background: #21262d;
-  border: 1px solid rgba(240, 246, 252, 0.1);
+  border: 1px solid;
+  border-color: var(--sam-link);
   border-radius: var(--sam-radius);
   font-size: 14px;
   font-weight: 500;
@@ -369,9 +371,11 @@ a[href*="download"] {
 a[href$=".zip"]:hover,
 a[href$=".exe"]:hover,
 a[href*="releases"]:hover,
-a[href*="download"]:hover {
+a[href*="download"]:hover,
+a[aria="button"]:hover  {
   background: #30363d;
-  border-color: #8b949e;
+  border-color: var(--sam-link-hover);
+  color: var(--sam-link-hover);
   text-decoration: none;
 }
 
