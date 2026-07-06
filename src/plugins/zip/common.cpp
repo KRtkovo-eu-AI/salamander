@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -224,7 +224,7 @@ bool IsUTF8Encoded(const char* s, int len)
                 }
                 else if ((s[1] & 0xc0) != 0x80)
                 {
-                    return false; // not in UCS2
+                    return false; // not UTF-8
                 }
                 else
                 {
@@ -245,7 +245,7 @@ bool IsUTF8Encoded(const char* s, int len)
                 }
                 else if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80)
                 {
-                    return false; // not in UCS2
+                    return false; // not UTF-8
                 }
                 else
                 {
@@ -254,9 +254,30 @@ bool IsUTF8Encoded(const char* s, int len)
                     len -= 2;
                 }
             }
+            else if ((*s & 0xf8) == 0xf0)
+            {
+                if (!s[1] || !s[2] || !s[3])
+                {
+                    if (len > 2)
+                    { // incomplete 4-byte sequence
+                        return false;
+                    }
+                    break;
+                }
+                else if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[3] & 0xc0) != 0x80)
+                {
+                    return false; // not UTF-8
+                }
+                else
+                {
+                    nUTF8++;
+                    s += 4;
+                    len -= 3;
+                }
+            }
             else
             {
-                return false; // not in UCS2
+                return false; // not UTF-8
             }
         }
         else
@@ -281,7 +302,7 @@ CZipCommon::CZipCommon(const char* zipName, const char* zipRoot,
     CALL_STACK_MESSAGE3("CZipCommon::CZipCommon(%s, %s, )", zipName, zipRoot);
     Config = ::Config;
     ZipFile = 0;
-    lstrcpy(ZipName, zipName);
+    lstrcpyn(ZipName, zipName, SAL_MAX_PATH);
     ZipRoot = zipRoot;
     RootLen = lstrlen(ZipRoot);
     ZeroZip = false;
@@ -294,8 +315,8 @@ CZipCommon::CZipCommon(const char* zipName, const char* zipRoot,
     Unix = FALSE;
     ArchiveVolumes = archiveVolumes;
 
-    DWORD ret = GetCurrentDirectory(MAX_PATH + 1, OriginalCurrentDir);
-    if (!ret || ret > MAX_PATH + 1)
+    DWORD ret = GetCurrentDirectory(SAL_MAX_PATH, OriginalCurrentDir);
+    if (!ret || ret >= SAL_MAX_PATH)
         *OriginalCurrentDir = 0;
 }
 
@@ -977,7 +998,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                         CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE,
                                       lastFile, -1, ZipName, -1) != CSTR_EQUAL)
                     {
-                        lstrcpy(ZipName, lastFile);
+                        lstrcpyn(ZipName, lastFile, SAL_MAX_PATH);
                     }
                     else
                         Config.AutoExpandMV = false;

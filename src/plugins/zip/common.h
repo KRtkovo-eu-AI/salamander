@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -22,6 +22,10 @@ extern CSalamanderBZIP2Abstract* SalamanderBZIP2;
 extern CSalamanderGUIAbstract* SalamanderGUI;
 
 #define SizeOf(x) (sizeof(x) / sizeof(x[0]))
+
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
 
 #define INIT_CRC 0L
 
@@ -158,7 +162,7 @@ class CZipCommon
 {
 public:
     CFile* ZipFile;             //zip file hanndle
-    char ZipName[MAX_PATH + 1]; //name of zip file
+    char ZipName[SAL_MAX_PATH]; //name of zip file
     const char* ZipRoot;
     int RootLen; //length of ZipRoot
     bool ZeroZip;
@@ -178,7 +182,7 @@ public:
     CQuadWord ProgressTotalSize;
     bool Fatal;
     bool UserBreak;
-    char OriginalCurrentDir[MAX_PATH + 1];
+    char OriginalCurrentDir[SAL_MAX_PATH];
     bool Extract;
     //bool                MenuSfx;//this is set when creating self extracting archive from menu
     char* Comment;

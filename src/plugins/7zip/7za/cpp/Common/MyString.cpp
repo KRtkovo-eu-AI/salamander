@@ -1553,7 +1553,23 @@ FString fas2fs(const AString &s)
 
 UString fs2us(const FString &s)
 {
-  return MultiByteToUnicodeString((AString)s, GetCurrentCodePage());
+  AString a = (AString)s;
+  if (!a.IsEmpty())
+  {
+    unsigned utf8Len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, a, a.Len(), NULL, 0);
+    if (utf8Len > 0)
+    {
+      UString dest;
+      wchar_t *buf = dest.GetBuf(utf8Len);
+      if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, a, a.Len(), buf, utf8Len) > 0)
+      {
+        dest.ReleaseBuf_SetLen(utf8Len);
+        return dest;
+      }
+      dest.ReleaseBuf_SetLen(0);
+    }
+  }
+  return MultiByteToUnicodeString(a, GetCurrentCodePage());
 }
 
 FString us2fs(const wchar_t *s)
