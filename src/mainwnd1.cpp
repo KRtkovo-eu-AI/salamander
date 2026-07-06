@@ -34,6 +34,146 @@ const char* SALAMANDER_TEXT_VERSION = "Open Salamander 5.0 Samandarin " VERSINFO
 
 static void Utf8SafeCopyWindowTitle(char* target, int targetSize, const char* source);
 
+static int GetTitleTextWidth(HDC hdc, const std::wstring& text)
+{
+    if (text.empty())
+        return 0;
+
+    SIZE size;
+    if (GetTextExtentPoint32W(hdc, text.c_str(), (int)text.length(), &size))
+        return size.cx;
+    return 0;
+}
+
+static int GetMainWindowTitleTextWidth(HWND hwnd)
+{
+    RECT windowRect;
+    if (!GetWindowRect(hwnd, &windowRect))
+        return 0;
+
+    int width = windowRect.right - windowRect.left;
+    if (width <= 0)
+        return 0;
+
+    // Reserve the icon/system menu area, the min/max/close buttons and a
+    // little padding.  The exact non-client metrics are theme-dependent, so
+    // keep this conservative; it is still much better than shortening every
+    // title to a fixed character count.
+    width -= GetSystemMetrics(SM_CXSMICON);
+    width -= 3 * GetSystemMetrics(SM_CXSIZE);
+    width -= 32;
+    return width > 0 ? width : 0;
+}
+
+static void CompactTitlePrefixToFitWindow(HWND hwnd, std::wstring& title, const std::wstring& appSuffix)
+{
+    if (title.empty() || appSuffix.empty() ||
+        title.length() <= appSuffix.length() ||
+        title.compare(title.length() - appSuffix.length(), appSuffix.length(), appSuffix) != 0)
+    {
+        return;
+    }
+
+    int availableWidth = GetMainWindowTitleTextWidth(hwnd);
+    if (availableWidth <= 0)
+        return;
+
+    HDC hdc = GetDC(hwnd);
+    if (hdc == NULL)
+        return;
+
+    NONCLIENTMETRICSW ncm;
+    memset(&ncm, 0, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+#if WINVER >= 0x0600
+    // Vista added iPaddedBorderWidth; older platforms expect the smaller
+    // structure size even when compiling with newer headers.
+    if (!WindowsVistaAndLater)
+        ncm.cbSize -= sizeof(ncm.iPaddedBorderWidth);
+#endif
+    HFONT font = NULL;
+    HFONT oldFont = NULL;
+    if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
+    {
+        font = CreateFontIndirectW(&ncm.lfCaptionFont);
+        if (font != NULL)
+            oldFont = (HFONT)SelectObject(hdc, font);
+    }
+
+    if (GetTitleTextWidth(hdc, title) <= availableWidth)
+    {
+        if (oldFont != NULL)
+            SelectObject(hdc, oldFont);
+        if (font != NULL)
+            DeleteObject(font);
+        ReleaseDC(hwnd, hdc);
+        return;
+    }
+
+    const std::wstring separator = L" - ";
+    size_t prefixEnd = title.length() - appSuffix.length();
+    if (prefixEnd >= separator.length() &&
+        title.compare(prefixEnd - separator.length(), separator.length(), separator) == 0)
+    {
+        prefixEnd -= separator.length();
+    }
+
+    std::wstring prefix = title.substr(0, prefixEnd);
+    int reservedWidth = GetTitleTextWidth(hdc, separator + appSuffix);
+    int prefixWidth = availableWidth - reservedWidth;
+    if (!prefix.empty() && prefixWidth > GetTitleTextWidth(hdc, L"..."))
+    {
+        std::wstring compacted = prefix;
+        compacted.resize(compacted.length() + 1);
+        if (PathCompactPathW(hdc, &compacted[0], (UINT)prefixWidth))
+        {
+            compacted.resize(wcslen(compacted.c_str()));
+            if (!compacted.empty())
+            {
+                title = compacted + separator + appSuffix;
+                if (GetTitleTextWidth(hdc, title) <= availableWidth)
+                {
+                    if (oldFont != NULL)
+                        SelectObject(hdc, oldFont);
+                    if (font != NULL)
+                        DeleteObject(font);
+                    ReleaseDC(hwnd, hdc);
+                    return;
+                }
+            }
+        }
+    }
+
+    // Last-resort fallback for extremely narrow windows: keep the full
+    // application suffix intact and shorten only the path/prefix on UTF-16
+    // code-unit boundaries, never between a surrogate pair.
+    std::wstring ellipsis = L"...";
+    int maxPrefixWidth = availableWidth - reservedWidth - GetTitleTextWidth(hdc, ellipsis);
+    size_t cutAt = 0;
+    for (size_t i = 0; i < prefix.length(); i++)
+    {
+        size_t next = i + 1;
+        if (prefix[i] >= 0xD800 && prefix[i] <= 0xDBFF &&
+            next < prefix.length() && prefix[next] >= 0xDC00 && prefix[next] <= 0xDFFF)
+        {
+            next++;
+        }
+
+        std::wstring candidate = prefix.substr(0, next);
+        if (GetTitleTextWidth(hdc, candidate) > maxPrefixWidth)
+            break;
+        cutAt = next;
+        i = next - 1;
+    }
+    title = prefix.substr(0, cutAt) + ellipsis + separator + appSuffix;
+
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+    if (font != NULL)
+        DeleteObject(font);
+    ReleaseDC(hwnd, hdc);
+}
+
 //****************************************************************************
 //
 // ToolTip's calls redirection
@@ -2057,8 +2197,6 @@ static std::wstring MultiByteToWindowTitleWide(const char* text)
     return result;
 }
 
-#include "titlebar_helpers.h"
-
 static int GetRootPathLenW(const wchar_t* path)
 {
     if (path == NULL)
@@ -2274,7 +2412,7 @@ void CMainWindow::SetWindowTitle(const char* text)
         }
         wideText += suffix;
 
-        EnsureAppNameSuffixInTitle(wideText, wideAppSuffix);
+        CompactTitlePrefixToFitWindow(HWindow, wideText, wideAppSuffix);
     }
     else
     {
