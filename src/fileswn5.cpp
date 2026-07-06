@@ -26,6 +26,30 @@
 #include "common/widepath.h"
 
 //
+
+static DWORD UpdateArchiveCacheHash(DWORD hash, const char* text, BOOL ignoreCase)
+{
+    const unsigned char* s = (const unsigned char*)text;
+    while (s != NULL && *s != 0)
+    {
+        unsigned char c = *s++;
+        if (ignoreCase && c >= 'A' && c <= 'Z')
+            c += 'a' - 'A';
+        hash ^= c;
+        hash *= 16777619U;
+    }
+    return hash;
+}
+
+static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName, const char* nameInArchive, const char* itemName)
+{
+    DWORD hash = 2166136261U;
+    hash = UpdateArchiveCacheHash(hash, archiveName, TRUE);
+    hash = UpdateArchiveCacheHash(hash, "\\", FALSE);
+    hash = UpdateArchiveCacheHash(hash, nameInArchive, FALSE);
+    _snprintf_s(key, keySize, _TRUNCATE, "ArchiveView:%08X:%s", hash, itemName != NULL ? itemName : "");
+}
+
 // ****************************************************************************
 // CFilesWindow
 //
@@ -788,12 +812,12 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                 if (Is(ptZIPArchive))
                 {
                     useDiskCache = TRUE;
-                    StrICpy(dcFileName, GetZIPArchive()); // the archive file name should be compared case-insensitively (Windows file system), so we always convert it to lowercase
+                    char nameInArchive[2 * SAL_MAX_PATH];
+                    nameInArchive[0] = 0;
                     if (GetZIPPath()[0] != 0)
-                    {
-                        SalPathAppend(dcFileName, GetZIPPath(), 3 * SAL_MAX_PATH + 50);
-                    }
-                    SalPathAppend(dcFileName, f->Name, 3 * SAL_MAX_PATH + 50);
+                        lstrcpyn(nameInArchive, GetZIPPath(), 2 * SAL_MAX_PATH);
+                    SalPathAppend(nameInArchive, f->Name, 2 * SAL_MAX_PATH);
+                    BuildArchiveCacheKey(dcFileName, 3 * SAL_MAX_PATH + 50, GetZIPArchive(), nameInArchive, f->Name);
 
                     // setting disk-cache for the plugin (standard values change only for the plugin)
                     char arcCacheTmpPath[MAX_PATH];
@@ -816,9 +840,6 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                             }
                         }
                     }
-
-                    char nameInArchive[2 * SAL_MAX_PATH];
-                    lstrcpyn(nameInArchive, dcFileName + strlen(GetZIPArchive()) + 1, 2 * SAL_MAX_PATH);
 
                     // besides itself, compare the file with all the others and look for a case-sensitive identical name;
                     // if it exists, these two files must be distinguished in the disk-cache; I chose

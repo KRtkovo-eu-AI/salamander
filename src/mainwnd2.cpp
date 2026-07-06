@@ -4370,6 +4370,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 // add new items introduced since the previous version
                 // ArchiverConfig.AddDefault(Configuration.ConfigVersion); // j.r. no longer needed
             }
+            ArchiverConfig.EnsureDefaultValues();
             //---  Archive Association
             if (OpenKey(actKey, SALAMANDER_ARCHIVEASSOC, actSubKey))
             {

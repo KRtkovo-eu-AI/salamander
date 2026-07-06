@@ -775,7 +775,9 @@ void CArchiverConfig::EnsureDefaultValues()
         int i;
         for (i = 0; i < PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT; i++)
         {
-            if (Archivers[i] == NULL || !Archivers[i]->IsValid())
+            CArchiverConfigData* archiver = Archivers[i];
+            if (archiver == NULL || !archiver->IsValid() || archiver->Title[0] == 0 ||
+                archiver->UID != (DWORD)(i + 1))
             {
                 complete = FALSE;
                 break;
