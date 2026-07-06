@@ -26,8 +26,8 @@ static std::wstring BuildTitleForTest(const std::wstring& pathText,
                                       const std::wstring& prefix,
                                       const std::wstring& appSuffix,
                                       bool showPath = true,
-                                      int maxPrefixVW = 220,
-                                      int maxUnicodePrefixVW = 2)
+                                      int maxPrefixVW = 80,
+                                      int maxUnicodePrefixVW = 1)
 {
     std::wstring title;
     if (!prefix.empty())
@@ -148,9 +148,20 @@ static void Test_ReportedRealScenarios()
         CHECK(EndsWide(title, suffix), "long Japanese directory keeps full suffix");
     }
     {
+        std::wstring title = BuildTitleForTest(L"\u65E5\u672C\u8A9E \u3053\u306E\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u306F\u3068\u3066\u3082\u9577\u3044\u540D\u524D\u3067\u3059\U00024B62\U00024B62\U00024B62", L"", suffix);
+        CHECK(!title.empty() && title[0] != L'.', "long Japanese directory keeps at least one path character");
+    }
+    {
         std::wstring longAscii(220, L'a');
         std::wstring title = BuildTitleForTest(longAscii, L"", suffix);
         CHECK(EndsWide(title, suffix), "very long ASCII directory keeps full suffix");
+        CHECK(title.find(L"...") != std::wstring::npos, "very long ASCII directory is compacted");
+    }
+    {
+        std::wstring longZ(120, L'\u017E');
+        std::wstring title = BuildTitleForTest(longZ, L"", suffix);
+        CHECK(EndsWide(title, suffix), "long ž directory keeps full suffix including closing parenthesis");
+        CHECK(!title.empty() && title[0] == L'\u017E', "long ž directory keeps a path character");
     }
 }
 

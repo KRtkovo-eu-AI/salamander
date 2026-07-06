@@ -90,11 +90,20 @@ static size_t TitlePrefixCutByVisualWidth(const std::wstring& prefix, int maxPre
         cutAt = next;
         i = next - 1;
     }
+    if (cutAt == 0 && !prefix.empty())
+    {
+        cutAt = 1;
+        if (prefix[0] >= 0xD800 && prefix[0] <= 0xDBFF &&
+            prefix.length() > 1 && prefix[1] >= 0xDC00 && prefix[1] <= 0xDFFF)
+        {
+            cutAt = 2;
+        }
+    }
     return cutAt;
 }
 
 static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& appSuffix,
-                                       int maxPrefixVW = 220, int maxUnicodePrefixVW = 2)
+                                       int maxPrefixVW = 80, int maxUnicodePrefixVW = 1)
 {
     if (title.empty() || appSuffix.empty() ||
         title.length() <= appSuffix.length() ||
