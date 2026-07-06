@@ -33,8 +33,8 @@ CPluginInterfaceForArchiver InterfaceForArchiver;
 CPluginInterfaceForMenuExt InterfaceForMenuExt;
 
 static const char* SEVENZIP_PANEL_EXTENSIONS =
-    "7z;xz;bzip2;bz2;gzip;gz;tar;wim;apfs;ar;arj;cab;chm;cpio;cramfs;dmg;ext;fat;"
-    "gpt;hfs;ihex;iso;lzh;lzma;mbr;msi;nsis;ntfs;qcow2;rpm;squashfs;udf;"
+    "7z;xz;bzip2;bz2;gzip;gz;tar;zip;wim;apfs;ar;arj;cab;chm;cpio;cramfs;dmg;ext;fat;"
+    "gpt;hfs;ihex;iso;lzh;lzma;mbr;msi;nsis;ntfs;qcow2;rar;rpm;squashfs;udf;"
     "uefi;vdi;vhd;vhdx;vmdk;xar;z";
 
 static const char* SEVENZIP_UNPACKER_MASKS =
@@ -192,8 +192,7 @@ int ConfigVersion = 0;
 //    so Honza Patera and I agreed that when importing old configurations we will
 //    ignore compression settings and use the new defaults instead.
 // 4: register all formats supported by full 7-Zip builds for browsing and extraction.
-// 5: stop claiming ZIP/RAR panel archiver extensions; keep the native ZIP/UnRAR plugins owning them.
-#define CURRENT_CONFIG_VERSION 5
+#define CURRENT_CONFIG_VERSION 4
 const char* CONFIG_VERSION = "Version";
 
 CConfig Config;
@@ -704,12 +703,6 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
     DeleteObject(hBmp);
     salamander->SetPluginIcon(0);
     salamander->SetPluginMenuAndToolbarIcon(0);
-
-    if (ConfigVersion < 5)
-    {
-        salamander->ForceRemovePanelArchiver("zip");
-        salamander->ForceRemovePanelArchiver("rar");
-    }
 
     /*
   // UPGRADE SECTION

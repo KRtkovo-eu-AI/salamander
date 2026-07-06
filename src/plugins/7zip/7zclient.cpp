@@ -86,6 +86,16 @@ C7zClient::~C7zClient()
 {
 }
 
+
+static BOOL Is7zArchiveName(const char* archiveName)
+{
+    if (archiveName == NULL)
+        return TRUE;
+
+    const char* ext = strrchr(archiveName, '.');
+    return ext == NULL || lstrcmpiA(ext + 1, "7z") == 0;
+}
+
 static BOOL ExtensionMatches7zList(const wchar_t* extensions, const char* fileName)
 {
     if (extensions == NULL || fileName == NULL)
@@ -162,14 +172,15 @@ BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object, const char*
         return FALSE;
 
     TCHAR* dllName = _tcsrchr(dllPath, '\\') + 1;
-    lstrcpy(dllName, _T("7zip.dll"));
+    BOOL preferLegacy7za = Is7zArchiveName(archiveName);
+    lstrcpy(dllName, preferLegacy7za ? _T("7za.dll") : _T("7zip.dll"));
     BOOL providerLoaded = Load(dllPath);
     TCreateObjectFunc createObjectFunc = providerLoaded ? (TCreateObjectFunc)GetProc("CreateObject") : 0;
     if (createObjectFunc == 0)
     {
         if (providerLoaded)
             Free();
-        lstrcpy(dllName, _T("7za.dll"));
+        lstrcpy(dllName, preferLegacy7za ? _T("7zip.dll") : _T("7za.dll"));
         if (!Load(dllPath))
             return Error(IDS_CANT_LOAD_LIBRARY);
         createObjectFunc = (TCreateObjectFunc)GetProc("CreateObject");
