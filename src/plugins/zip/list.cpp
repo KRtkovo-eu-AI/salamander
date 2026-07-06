@@ -158,7 +158,7 @@ START_LIST:
                 break;
             }
             memcpy(file.Name, name, sizeof(TCHAR) * (file.NameLen + 1));
-            file.NameW = DupUtf8NameW(file.Name, file.NameLen);
+            file.NameW = NULL;
             //initialize remaining members of CFileData
             file.Size = CQuadWord().SetUI64(fileInfo.Size);
             file.Attr = fileInfo.FileAttr & FILE_ATTTRIBUTE_MASK;
@@ -216,6 +216,7 @@ START_LIST:
             }
             else
             {
+                file.NameW = DupUtf8NameW(file.Name, file.NameLen);
                 file.IsLink = SalamanderGeneral->IsFileLink(file.Ext);
                 if (!dir->AddFile(path, file, NULL))
                 {
