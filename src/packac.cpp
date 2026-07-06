@@ -1092,6 +1092,11 @@ void CPackACDialog::Transfer(CTransferInfo& ti)
     if (ti.Type == ttDataToWindow)
     {
         ArchiverConfig->EnsureDefaultValues();
+        if (ArchiverConfig->GetArchiversCount() < PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT)
+        {
+            ArchiverConfig->DeleteAllArchivers();
+            ArchiverConfig->AddDefault(0);
+        }
         // create a table of packers to search for
         APackACPackersTable* table = new APackACPackersTable(20, 10);
         int i;
@@ -1994,6 +1999,11 @@ void PackAutoconfig(HWND parent)
     // stop refreshes in the main window
     BeginStopRefresh();
     ArchiverConfig.EnsureDefaultValues();
+    if (ArchiverConfig.GetArchiversCount() < PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT)
+    {
+        ArchiverConfig.DeleteAllArchivers();
+        ArchiverConfig.AddDefault(0);
+    }
 
     if (PackACSavedDrivesList == NULL)
     {

@@ -25,25 +25,6 @@
 #include "common.h"
 #include "list.h"
 
-static wchar_t* DupUtf8NameW(const char* name, int nameLen)
-{
-    if (name == NULL || nameLen <= 0 || !IsUTF8Encoded(name, nameLen))
-        return NULL;
-    int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, nameLen, NULL, 0);
-    if (wideLen <= 0)
-        return NULL;
-    wchar_t* nameW = (wchar_t*)malloc((wideLen + 1) * sizeof(wchar_t));
-    if (nameW == NULL)
-        return NULL;
-    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, nameLen, nameW, wideLen) <= 0)
-    {
-        free(nameW);
-        return NULL;
-    }
-    nameW[wideLen] = 0;
-    return nameW;
-}
-
 int CZipList::ListArchive(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles)
 {
     CALL_STACK_MESSAGE1("CZipList::ListArchive( )");
@@ -216,7 +197,6 @@ START_LIST:
             }
             else
             {
-                file.NameW = DupUtf8NameW(file.Name, file.NameLen);
                 file.IsLink = SalamanderGeneral->IsFileLink(file.Ext);
                 if (!dir->AddFile(path, file, NULL))
                 {
