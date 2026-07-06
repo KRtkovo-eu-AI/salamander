@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include <assert.h>
+#include <wctype.h>
 #include "dbg.h"
 
 #include "Common/MyInitGuid.h"
@@ -85,7 +86,76 @@ C7zClient::~C7zClient()
 {
 }
 
-BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object)
+static BOOL ExtensionMatches7zList(const wchar_t* extensions, const char* fileName)
+{
+    if (extensions == NULL || fileName == NULL)
+        return FALSE;
+
+    const char* ext = strrchr(fileName, '.');
+    if (ext == NULL || ext[1] == 0)
+        return FALSE;
+    ext++;
+
+    char extension[MAX_PATH];
+    lstrcpynA(extension, ext, MAX_PATH);
+    CharLowerA(extension);
+
+    const wchar_t* cur = extensions;
+    while (*cur != 0)
+    {
+        while (*cur == L' ')
+            cur++;
+
+        wchar_t token[MAX_PATH];
+        int len = 0;
+        while (*cur != 0 && *cur != L' ' && len < MAX_PATH - 1)
+            token[len++] = towlower(*cur++);
+        token[len] = 0;
+
+        char tokenA[MAX_PATH];
+        WideCharToMultiByte(CP_ACP, 0, token, -1, tokenA, MAX_PATH, NULL, NULL);
+        if (lstrcmpiA(extension, tokenA) == 0)
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
+BOOL C7zClient::GetArchiveFormatClassID(const char* archiveName, GUID* classID)
+{
+    *classID = CLSID_CFormat7z;
+
+    TGetNumberOfFormatsFunc getNumberOfFormatsFunc = (TGetNumberOfFormatsFunc)GetProc("GetNumberOfFormats");
+    TGetHandlerProperty2Func getHandlerProperty2Func = (TGetHandlerProperty2Func)GetProc("GetHandlerProperty2");
+    if (getNumberOfFormatsFunc == 0 || getHandlerProperty2Func == 0)
+        return TRUE;
+
+    UINT32 numFormats = 0;
+    if (getNumberOfFormatsFunc(&numFormats) != S_OK)
+        return TRUE;
+
+    for (UINT32 i = 0; i < numFormats; i++)
+    {
+        NWindows::NCOM::CPropVariant extensions;
+        if (getHandlerProperty2Func(i, NArchive::NHandlerPropID::kExtension, &extensions) != S_OK ||
+            extensions.vt != VT_BSTR || !ExtensionMatches7zList(extensions.bstrVal, archiveName))
+        {
+            continue;
+        }
+
+        NWindows::NCOM::CPropVariant clsid;
+        if (getHandlerProperty2Func(i, NArchive::NHandlerPropID::kClassID, &clsid) == S_OK &&
+            clsid.vt == VT_BSTR && SysStringByteLen(clsid.bstrVal) == sizeof(GUID))
+        {
+            memcpy(classID, clsid.bstrVal, sizeof(GUID));
+            return TRUE;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object, const char* archiveName)
 {
     TCHAR dllPath[MAX_PATH];
     if (!GetModuleFileName(DLLInstance, dllPath, MAX_PATH))
@@ -99,7 +169,10 @@ BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object)
     if (createObjectFunc == 0)
         return Error(IDS_CANT_GET_CRATEOBJECT);
 
-    if (createObjectFunc(&CLSID_CFormat7z, interfaceID, object) != S_OK)
+    GUID classID;
+    GetArchiveFormatClassID(archiveName, &classID);
+
+    if (createObjectFunc(&classID, interfaceID, object) != S_OK)
     {
         Free();
         return Error(IDS_CANT_GET_CLASS_OBJECT);
@@ -111,7 +184,7 @@ BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object)
 BOOL C7zClient::OpenArchive(const char* fileName, IInArchive** archive, UString& password, BOOL quiet /* = FALSE*/)
 {
     CMyComPtr<IInArchive> a;
-    if (!CreateObject(&IID_IInArchive, (void**)&a))
+    if (!CreateObject(&IID_IInArchive, (void**)&a, fileName))
         return FALSE;
 
     CRetryableInFileStream* fileSpec = new CRetryableInFileStream(NULL);
@@ -1101,7 +1174,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
         if (isNewArchive)
         {
             // new
-            if (!CreateObject(&IID_IOutArchive, (void**)&outArchive))
+            if (!CreateObject(&IID_IOutArchive, (void**)&outArchive, archiveName))
                 throw OPER_CANCEL;
 
             // create an empty array
