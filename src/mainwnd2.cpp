@@ -4361,7 +4361,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     CloseKey(itemKey);
                     itoa(++i, buf, 10);
                 }
-                char autoconfigDrives[32768];
+                char autoconfigDrives[SAL_MAX_PATH];
                 if (GetValue(actSubKey, SALAMANDER_AUTOCONFIGDRIVES_REG, REG_MULTI_SZ,
                              autoconfigDrives, sizeof(autoconfigDrives)))
                     PackSetAutoconfigDrives(autoconfigDrives);

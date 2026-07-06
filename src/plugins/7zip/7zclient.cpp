@@ -157,8 +157,8 @@ BOOL C7zClient::GetArchiveFormatClassID(const char* archiveName, GUID* classID)
 
 BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object, const char* archiveName)
 {
-    TCHAR dllPath[MAX_PATH];
-    if (!GetModuleFileName(DLLInstance, dllPath, MAX_PATH))
+    TCHAR dllPath[SAL_MAX_PATH];
+    if (!GetModuleFileName(DLLInstance, dllPath, SAL_MAX_PATH))
         return FALSE;
 
     TCHAR* dllName = _tcsrchr(dllPath, '\\') + 1;

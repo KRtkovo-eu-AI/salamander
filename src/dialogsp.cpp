@@ -185,8 +185,8 @@ void CCfgPagePackers::StoreControls()
     EditLB->GetCurSel(index);
     if (!DisableNotification && index >= 0 && index < EditLB->GetCount())
     {
-        int len = MAX_PATH + 2;
-        char ext[MAX_PATH + 2];
+        int len = SAL_MAX_PATH;
+        char ext[SAL_MAX_PATH];
         SendDlgItemMessage(HWindow, IDC_P1_EXT, WM_GETTEXT, len, (LPARAM)ext);
         int cmbSel = (int)SendDlgItemMessage(HWindow, IDC_P1_TYPE, CB_GETCURSEL, 0, 0);
         int type;
@@ -210,14 +210,14 @@ void CCfgPagePackers::StoreControls()
         }
         }
 
-        char execcopy[MAX_PATH + 2];
+        char execcopy[SAL_MAX_PATH];
         execcopy[0] = 0;
-        char argscopy[MAX_PATH + 2];
+        char argscopy[SAL_MAX_PATH];
         argscopy[0] = 0;
         DWORD supmove = FALSE;
-        char execmove[MAX_PATH + 2];
+        char execmove[SAL_MAX_PATH];
         execmove[0] = 0;
-        char argsmove[MAX_PATH + 2];
+        char argsmove[SAL_MAX_PATH];
         argsmove[0] = 0;
         DWORD suplong = FALSE;
         BOOL needANSIListFile = FALSE;
@@ -299,10 +299,10 @@ CCfgPagePackers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ChangeToArrowButton(HWindow, IDC_P1_MVARG_BROWSE);
         ChangeToArrowButton(HWindow, IDC_P1_CPCMD_BROWSE);
         ChangeToArrowButton(HWindow, IDC_P1_MVCMD_BROWSE);
-        SendDlgItemMessage(HWindow, IDC_P1_CPCMD, EM_LIMITTEXT, MAX_PATH, 0);
-        SendDlgItemMessage(HWindow, IDC_P1_CPARG, EM_LIMITTEXT, MAX_PATH, 0);
-        SendDlgItemMessage(HWindow, IDC_P1_MVCMD, EM_LIMITTEXT, MAX_PATH, 0);
-        SendDlgItemMessage(HWindow, IDC_P1_MVARG, EM_LIMITTEXT, MAX_PATH, 0);
+        SendDlgItemMessage(HWindow, IDC_P1_CPCMD, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendDlgItemMessage(HWindow, IDC_P1_CPARG, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendDlgItemMessage(HWindow, IDC_P1_MVCMD, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendDlgItemMessage(HWindow, IDC_P1_MVARG, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
 
         // dialog controls should stretch according to the dialog size, set the split controls
         ElasticVerticalLayout(1, IDC_P1_LIST);
@@ -649,9 +649,9 @@ void CCfgPageUnpackers::StoreControls()
         }
         }
 
-        char execcopy[MAX_PATH + 2];
+        char execcopy[SAL_MAX_PATH];
         execcopy[0] = 0;
-        char argscopy[MAX_PATH + 2];
+        char argscopy[SAL_MAX_PATH];
         argscopy[0] = 0;
         DWORD suplong = FALSE;
         BOOL needANSI = FALSE;
@@ -716,8 +716,8 @@ CCfgPageUnpackers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ChangeToArrowButton(HWindow, IDC_P2_EXARG_BROWSE);
         ChangeToArrowButton(HWindow, IDC_P2_EXCMD_BROWSE);
         SendDlgItemMessage(HWindow, IDC_P2_EXT, EM_LIMITTEXT, MAX_GROUPMASK - 1, 0);
-        SendDlgItemMessage(HWindow, IDC_P2_EXCMD, EM_LIMITTEXT, MAX_PATH, 0);
-        SendDlgItemMessage(HWindow, IDC_P2_EXARG, EM_LIMITTEXT, MAX_PATH, 0);
+        SendDlgItemMessage(HWindow, IDC_P2_EXCMD, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendDlgItemMessage(HWindow, IDC_P2_EXARG, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
 
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
@@ -966,10 +966,10 @@ void CCfgPageExternalArchivers::StoreControls()
 
     if (!DisableNotification)
     {
-        int len = MAX_PATH + 2;
-        char view[MAX_PATH + 2];
+        int len = SAL_MAX_PATH;
+        char view[SAL_MAX_PATH];
         view[0] = 0;
-        char edit[MAX_PATH + 2];
+        char edit[SAL_MAX_PATH];
         edit[0] = 0;
         SendDlgItemMessage(HWindow, IDC_P3_VIEW, WM_GETTEXT, len, (LPARAM)view);
         BOOL same = Config->ArchiverExesAreSame(index);
@@ -1017,8 +1017,8 @@ CCfgPageExternalArchivers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HANDLES(ReleaseDC(HWindow, hdc));
         SendMessage(HListbox, LB_SETITEMHEIGHT, 0, MAKELPARAM(tm.tmHeight + 1, 0));
 
-        SendDlgItemMessage(HWindow, IDC_P3_VIEW, EM_LIMITTEXT, MAX_PATH, 0);
-        SendDlgItemMessage(HWindow, IDC_P3_EDIT, EM_LIMITTEXT, MAX_PATH, 0);
+        SendDlgItemMessage(HWindow, IDC_P3_VIEW, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendDlgItemMessage(HWindow, IDC_P3_EDIT, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
 
         ChangeToArrowButton(HWindow, IDC_P3_VIEW_BROWSE);
         ChangeToArrowButton(HWindow, IDC_P3_EDIT_BROWSE);
@@ -1043,9 +1043,9 @@ CCfgPageExternalArchivers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     BOOL same = Config->ArchiverExesAreSame(index);
                     if (!DisableNotification && same)
                     {
-                        char edit[MAX_PATH + 2];
+                        char edit[SAL_MAX_PATH];
                         edit[0] = 0;
-                        SendDlgItemMessage(HWindow, IDC_P3_VIEW, WM_GETTEXT, MAX_PATH, (LPARAM)edit);
+                        SendDlgItemMessage(HWindow, IDC_P3_VIEW, WM_GETTEXT, SAL_MAX_PATH, (LPARAM)edit);
                         BOOL old = DisableNotification;
                         DisableNotification = TRUE;
                         SendDlgItemMessage(HWindow, IDC_P3_EDIT, WM_SETTEXT, 0, (LPARAM)edit);

@@ -5,6 +5,11 @@
 
 #include <string>
 
+// Maximum Win32 long path buffer size, including terminating null.
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 // aktualni verze konfigurace (popis viz. mainwnd2.cpp)
 extern const DWORD THIS_CONFIG_VERSION;
 

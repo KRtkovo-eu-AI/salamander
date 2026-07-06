@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -979,12 +979,12 @@ BOOL CArchiverConfig::Save(int index, HKEY hKey)
 
 BOOL CArchiverConfig::Load(HKEY hKey)
 {
-    int max = MAX_PATH + 2;
-    char title[MAX_PATH + 2];
+    int max = SAL_MAX_PATH;
+    char title[SAL_MAX_PATH];
     title[0] = 0;
-    char packExe[MAX_PATH + 2];
+    char packExe[SAL_MAX_PATH];
     packExe[0] = 0;
-    char unpackExe[MAX_PATH + 2];
+    char unpackExe[SAL_MAX_PATH];
     unpackExe[0] = 0;
     DWORD exesAreSame;
     DWORD uid = -1;
@@ -1412,8 +1412,8 @@ const char* WINAPI
 PackExpExeName(unsigned int index, BOOL unpacker = FALSE)
 {
     // buffer for shortening the program name
-    static char PackExpExeName[MAX_PATH];
-    char buff[MAX_PATH];
+    static char PackExpExeName[SAL_MAX_PATH];
+    char buff[SAL_MAX_PATH];
     const char* exe;
     if (!unpacker)
         exe = ArchiverConfig.GetPackerExeFile(index);
@@ -1431,7 +1431,7 @@ PackExpExeName(unsigned int index, BOOL unpacker = FALSE)
         // on older Windows it was impossible to redirect output from a DOS program in a directory
         // with a long name; I no longer feel like patching and risking this that it won't work
         buff[0] = '\0';
-        DWORD len = GetShortPathName(exe, buff, MAX_PATH);
+        DWORD len = GetShortPathName(exe, buff, SAL_MAX_PATH);
         // if the path was shortened successfully, return the short name
         if (len == strlen(buff) && len > 0)
         {
@@ -1443,12 +1443,12 @@ PackExpExeName(unsigned int index, BOOL unpacker = FALSE)
     unsigned long src = 0, dst = 0;
     if (exe[src] != '"')
         buff[dst++] = '"';
-    while (exe[src] != '\0' && dst < MAX_PATH)
+    while (exe[src] != '\0' && dst < SAL_MAX_PATH - 1)
         buff[dst++] = exe[src++];
-    if (src == 0 || exe[src - 1] != '"')
+    if ((src == 0 || exe[src - 1] != '"') && dst < SAL_MAX_PATH - 1)
         buff[dst++] = '"';
     buff[dst] = '\0';
-    if (!ExpandCommand(NULL, buff, PackExpExeName, MAX_PATH, FALSE))
+    if (!ExpandCommand(NULL, buff, PackExpExeName, SAL_MAX_PATH, FALSE))
         strcpy(PackExpExeName, buff);
     return PackExpExeName;
 }
