@@ -350,6 +350,7 @@ const char* SALCF_FAKE_SRCFSPATH = "SalFakeSrcFSPath";
 
 const char* MAINWINDOW_NAME = "Open Salamander 5.0 Samandarin 0.2";
 const char* CMAINWINDOW_CLASSNAME = "SalamanderMainWindowVer25";
+static const wchar_t* CMAINWINDOW_CLASSNAMEW = L"SalamanderMainWindowVer25";
 const char* SAVEBITS_CLASSNAME = "SalamanderSaveBits";
 const char* SHELLEXECUTE_CLASSNAME = "SalamanderShellExecute";
 
@@ -4940,6 +4941,18 @@ FIND_NEW_SLG_FILE:
                                             NULL,
                                             CFILESBOX_CLASSNAME,
                                             NULL) &&
+#ifndef _UNICODE
+        CMainWindow::RegisterUniversalClassW(CS_DBLCLKS,
+                                             0,
+                                             0,
+                                             HANDLES(LoadIcon(HInstance,
+                                                              MAKEINTRESOURCE(IDI_SALAMANDER))),
+                                             LoadCursor(NULL, IDC_ARROW),
+                                             (HBRUSH)(COLOR_WINDOW + 1),
+                                             NULL,
+                                             CMAINWINDOW_CLASSNAMEW,
+                                             NULL)
+#else  // _UNICODE
         CMainWindow::RegisterUniversalClass(CS_DBLCLKS,
                                             0,
                                             0,
@@ -4948,22 +4961,40 @@ FIND_NEW_SLG_FILE:
                                             LoadCursor(NULL, IDC_ARROW),
                                             (HBRUSH)(COLOR_WINDOW + 1),
                                             NULL,
-                                            CMAINWINDOW_CLASSNAME,
-                                            NULL))
+                                            CMAINWINDOW_CLASSNAMEW,
+                                            NULL)
+#endif // _UNICODE
+    )
     {
         MainWindow = new CMainWindow;
         if (MainWindow != NULL)
         {
             MainWindow->CmdShow = cmdShow;
-            if (MainWindow->Create(CMAINWINDOW_CLASSNAME,
-                                   "",
+#ifndef _UNICODE
+            MainWindow->SetUnicodeWindow(TRUE);
+            if (MainWindow->CreateW(CMAINWINDOW_CLASSNAMEW,
+                                    L"",
+                                    WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+                                    CW_USEDEFAULT, 0, CW_USEDEFAULT, 0,
+                                    NULL,
+                                    NULL,
+                                    HInstance,
+                                    MainWindow))
+#else  // _UNICODE
+            if (MainWindow->Create(CMAINWINDOW_CLASSNAMEW,
+                                   L"",
                                    WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
                                    CW_USEDEFAULT, 0, CW_USEDEFAULT, 0,
                                    NULL,
                                    NULL,
                                    HInstance,
                                    MainWindow))
+#endif // _UNICODE
             {
+#ifndef _UNICODE
+                if (!IsWindowUnicode(MainWindow->HWindow))
+                    TRACE_E("Main window was expected to be a Unicode window.");
+#endif // _UNICODE
                 SetMessagesParent(MainWindow->HWindow);
                 PluginMsgBoxParent = MainWindow->HWindow;
 

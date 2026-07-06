@@ -66,10 +66,28 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     //  TRACE_I("MoresStanislav: ThreadViewerMessageLoopBody 3 succes="<<data->Success);
     //  CALL_STACK_MESSAGE1("MoresStanislav: ThreadViewerMessageLoopBody 3");
 
+#ifndef _UNICODE
+    view->SetUnicodeWindow(TRUE);
+#endif // _UNICODE
+    std::wstring viewerTitle = ViewerTextToWide(LoadStr(IDS_VIEWERTITLE));
     if (data->Success &&
+#ifndef _UNICODE
+        view->CreateExW(Configuration.AlwaysOnTop ? WS_EX_TOPMOST : 0,
+                        CVIEWERWINDOW_CLASSNAMEW,
+                        viewerTitle.c_str(),
+                        WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_HSCROLL,
+                        data->Left,
+                        data->Top,
+                        data->Width,
+                        data->Height,
+                        NULL,
+                        ViewerMenu,
+                        HInstance,
+                        view) != NULL
+#else  // _UNICODE
         view->CreateEx(Configuration.AlwaysOnTop ? WS_EX_TOPMOST : 0,
-                       CVIEWERWINDOW_CLASSNAME,
-                       LoadStr(IDS_VIEWERTITLE),
+                       CVIEWERWINDOW_CLASSNAMEW,
+                       viewerTitle.c_str(),
                        WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_HSCROLL,
                        data->Left,
                        data->Top,
@@ -78,7 +96,9 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
                        NULL,
                        ViewerMenu,
                        HInstance,
-                       view) != NULL)
+                       view) != NULL
+#endif // _UNICODE
+    )
     {
         //    TRACE_I("MoresStanislav: ThreadViewerMessageLoopBody 4");
         //    CALL_STACK_MESSAGE1("MoresStanislav: ThreadViewerMessageLoopBody 4");
@@ -467,7 +487,7 @@ BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
                 SetEvent(Lock);
                 Lock = NULL; // from now on it is up to the disk cache
             }
-            SetWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
+            SetViewerWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
             InvalidateRect(HWindow, NULL, FALSE);
         }
 
@@ -489,7 +509,7 @@ BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
             SetEvent(Lock);
             Lock = NULL; // from now on it is up to the disk cache
         }
-        SetWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
+        SetViewerWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
         InvalidateRect(HWindow, NULL, FALSE);
         SalMessageBoxViewerPaintBlocked(HWindow, GetErrorText(err), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
@@ -624,7 +644,7 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
                 SetEvent(Lock);
                 Lock = NULL; // from now on it is up to the disk cache
             }
-            SetWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
+            SetViewerWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
             InvalidateRect(HWindow, NULL, FALSE);
         }
 
@@ -646,7 +666,7 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
             SetEvent(Lock);
             Lock = NULL; // from now on it is up to the disk cache
         }
-        SetWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
+        SetViewerWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
         InvalidateRect(HWindow, NULL, FALSE);
         SalMessageBoxViewerPaintBlocked(HWindow, GetErrorText(err), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
@@ -718,7 +738,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
         return;
     }
     if (FileName == NULL)
-        SetWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
+        SetViewerWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
     else
         SetViewerCaption();
     InvalidateRect(HWindow, NULL, FALSE);
@@ -819,7 +839,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
                 SetEvent(Lock);
                 Lock = NULL; // from now on it is up to the disk cache
             }
-            SetWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
+            SetViewerWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
             InvalidateRect(HWindow, NULL, FALSE);
             SalMessageBoxViewerPaintBlocked(HWindow, err == NO_ERROR ? LoadStr(IDS_UNABLETOVIEWFILENT) : GetErrorText(err),
                                             LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
@@ -1003,7 +1023,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
             SetEvent(Lock);
             Lock = NULL; // from now on it is up to the disk cache
         }
-        SetWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
+        SetViewerWindowText(HWindow, LoadStr(IDS_VIEWERTITLE));
         InvalidateRect(HWindow, NULL, FALSE);
         if (IsWindowVisible(HWindow)) // safeguard against a message box when closing the viewer while the viewed file is being overwritten
             SalMessageBoxViewerPaintBlocked(HWindow, GetErrorText(err), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);

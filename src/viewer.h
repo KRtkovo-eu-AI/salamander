@@ -442,6 +442,10 @@ void ClearViewerHistory(BOOL dataOnly); // clears histories; for dataOnly==FALSE
 void UpdateViewerColors(SALCOLOR* colors);
 
 extern const char* CVIEWERWINDOW_CLASSNAME; // viewer window class
+extern const wchar_t* CVIEWERWINDOW_CLASSNAMEW; // Unicode viewer window class
+
+std::wstring ViewerTextToWide(const char* text);
+void SetViewerWindowText(HWND hWindow, const char* text);
 
 extern CWindowQueue ViewerWindowQueue; // list of all viewer windows
 

@@ -160,11 +160,19 @@ namespace
             return std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
 
         int low = 0;
-        int high = (int)text.length() - 1;
+        int high = (int)text.length();
         std::wstring best(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
         while (low <= high)
         {
-            int mid = (low + high) / 2;
+            int rawMid = (low + high) / 2;
+            int mid = rawMid;
+            if (mid > 0)
+            {
+                wchar_t ch = text[mid - 1];
+                if (ch >= 0xD800 && ch <= 0xDBFF)
+                    mid--;
+            }
+
             std::wstring candidate;
             if (mid <= 0)
                 candidate.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
@@ -184,10 +192,10 @@ namespace
             if (candidateSize.cx <= maxWidth)
             {
                 best = candidate;
-                low = mid + 1;
+                low = rawMid + 1;
             }
             else
-                high = mid - 1;
+                high = rawMid - 1;
         }
 
         return best;
@@ -427,7 +435,7 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
 
     int desiredWidth = 0;
-    if (!desired.empty() && hdc != NULL)
+    if (!desired.empty())
     {
         SIZE desiredSize = {0, 0};
         if (GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))

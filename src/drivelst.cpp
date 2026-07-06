@@ -1067,7 +1067,7 @@ CDrivesList::CDrivesList(CFilesWindow* filesWindow, const char* currentPath,
     FilesWindow = filesWindow;
     DriveType = driveType;
     DriveTypeParam = driveTypeParam;
-    lstrcpy(CurrentPath, currentPath);
+    lstrcpyn(CurrentPath, currentPath != NULL ? currentPath : "", _countof(CurrentPath));
     PostCmd = postCmd;
     PostCmdParam = postCmdParam;
     FromContextMenu = fromContextMenu;
@@ -2073,6 +2073,13 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 BOOL destroyIcon = FALSE;
                 if (fs->GetChangeDriveOrDisconnectItem(fs->GetPluginFSName(), txt, icon, destroyIcon))
                 {
+                    if (txt == NULL)
+                    {
+                        TRACE_E("CDrivesList::BuildData(): plug-in returned a NULL change-drive item text");
+                        if (destroyIcon && icon != NULL)
+                            HANDLES(DestroyIcon(icon));
+                        continue;
+                    }
                     drv.DriveText = txt;
                     drv.HIcon = icon;
                     drv.HGrayIcon = NULL;

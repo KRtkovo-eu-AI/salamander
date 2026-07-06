@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -11,6 +11,65 @@
 #include "mainwnd.h"
 #include "gui.h"
 #include "logo.h"
+
+#include <string>
+
+
+static std::wstring MessageBoxTextToWide(const char* text)
+{
+    if (text == NULL)
+        text = "";
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (len == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (len <= 0)
+        return std::wstring();
+
+    std::wstring wide(len, L'\0');
+    int written = MultiByteToWideChar(codePage, flags, text, -1, &wide[0], len);
+    if (written <= 0)
+        return std::wstring();
+    wide.resize(written - 1);
+    return wide;
+}
+
+static void RepairCopyrightSymbol(std::wstring& text)
+{
+    const std::wstring marker = L"Copyright ";
+    size_t pos = 0;
+    while ((pos = text.find(marker, pos)) != std::wstring::npos)
+    {
+        size_t symbolPos = pos + marker.length();
+        size_t yearPos = symbolPos + 1;
+        if (symbolPos < text.length() && yearPos + 1 < text.length() &&
+            text[yearPos] == L' ' && text[yearPos + 1] >= L'0' && text[yearPos + 1] <= L'9' &&
+            (text[symbolPos] == L'\xFFFD' || text[symbolPos] == L'?'))
+        {
+            text[symbolPos] = L'\x00A9';
+        }
+        pos = symbolPos + 1;
+    }
+}
+
+static void SetWindowTextUtf8Aware(HWND hWindow, const char* text)
+{
+    std::wstring wide = MessageBoxTextToWide(text);
+    RepairCopyrightSymbol(wide);
+    SetWindowTextW(hWindow, wide.c_str());
+}
+
+static void SetDlgItemTextUtf8Aware(HWND hWindow, int controlID, const char* text)
+{
+    std::wstring wide = MessageBoxTextToWide(text);
+    RepairCopyrightSymbol(wide);
+    SetDlgItemTextW(hWindow, controlID, wide.c_str());
+}
 
 // helper object for sending Ctrl+C to the parent via the WM_COPY message
 class CKeyForwarderWindow : public CWindow
@@ -381,10 +440,10 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             EnableMenuItem(GetSystemMenu(HWindow, FALSE), SC_CLOSE, MF_BYCOMMAND | MF_GRAYED);
 
         // set the window title and body text
-        SetWindowText(HWindow, Title);
+        SetWindowTextUtf8Aware(HWindow, Title);
         if (Text.NeedTruncate())
             Text.TruncateText(GetDlgItem(HWindow, IDS_MSGBOX_TEXT), TRUE);
-        SetDlgItemText(HWindow, IDS_MSGBOX_TEXT, Text.Get());
+        SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_TEXT, Text.Get());
 
         const char* urlText = NULL;
         if (URL != NULL)
@@ -392,7 +451,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CHyperLink* hl = new CHyperLink(HWindow, IDS_MSGBOX_URL);
             hl->SetActionOpen(URL);
             urlText = URLText != NULL ? URLText : URL;
-            SetDlgItemText(HWindow, IDS_MSGBOX_URL, urlText);
+            SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_URL, urlText);
         }
         else
             DestroyWindow(GetDlgItem(HWindow, IDS_MSGBOX_URL));
@@ -435,7 +494,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     CHyperLink* hl = new CHyperLink(HWindow, IDS_MSGBOX_HINT, STF_DOTUNDERLINE);
                     if (hl != NULL)
                     {
-                        SetDlgItemText(HWindow, IDS_MSGBOX_HINT, hintLabel);
+                        SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_HINT, hintLabel);
                         hl->SetActionShowHint(hintText);
                         hintVisible = TRUE;
                     }
@@ -456,7 +515,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
             }
 
-            SetDlgItemText(HWindow, IDS_MSGBOX_CHECK, CheckText);
+            SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_CHECK, CheckText);
         }
         else
         {
@@ -596,7 +655,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 tR.right = maxTextWidth;
                 DrawText(hDC, newText, -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
-                SetDlgItemText(HWindow, IDS_MSGBOX_TEXT, newText);
+                SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_TEXT, newText);
                 free((void*)newText);
             }
         }
@@ -806,7 +865,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         if (btnID[i] == id)
                         {
                             btnTextWasSet = TRUE;
-                            SetWindowText(hButton, aliasName);
+                            SetWindowTextUtf8Aware(hButton, aliasName);
 
                             // measure whether the button needs to be expanded
                             char btnText2[300];
@@ -834,7 +893,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
                 if (!btnTextWasSet)
-                    SetWindowText(hButton, LoadStr(btnText[i]));
+                    SetWindowTextUtf8Aware(hButton, LoadStr(btnText[i]));
 
                 // request to receive Ctrl+C in the form of WM_COPY
                 CKeyForwarderWindow* wnd = new CKeyForwarderWindow(HWindow, btnID[i]);

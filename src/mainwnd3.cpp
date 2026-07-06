@@ -519,16 +519,29 @@ void CMainWindow::InvalidateDirectoryLine(CFilesWindow* panel, BOOL update)
         dirLine->InvalidateAndUpdate(update);
 }
 
-static std::wstring AnsiToWide(const char* text)
+static std::wstring Utf8OrAnsiToWide(const char* text)
 {
     if (text == NULL)
         return std::wstring();
-    int length = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
+
+    int textLen = (int)strlen(text);
+    if (textLen == 0)
+        return std::wstring();
+
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    int length = MultiByteToWideChar(codePage, flags, text, textLen, NULL, 0);
+    if (length <= 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        length = MultiByteToWideChar(codePage, flags, text, textLen, NULL, 0);
+    }
     if (length <= 0)
         return std::wstring();
-    std::wstring result(length - 1, L'\0');
-    if (length > 1)
-        MultiByteToWideChar(CP_ACP, 0, text, -1, &result[0], length);
+
+    std::wstring result(length, L'\0');
+    MultiByteToWideChar(codePage, flags, text, textLen, &result[0], length);
     return result;
 }
 
@@ -548,9 +561,9 @@ static void BuildTabCaption(CFilesWindow* panel, char* buffer, int bufferSize)
 
 static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
 {
-    char text[2 * MAX_PATH];
+    char text[SAL_MAX_PATH];
     BuildTabCaption(panel, text, _countof(text));
-    std::wstring caption = AnsiToWide(text);
+    std::wstring caption = Utf8OrAnsiToWide(text);
     std::wstring prefix;
     if (panel != NULL && panel->HasCustomTabPrefix())
         prefix = panel->GetCustomTabPrefix();
@@ -1851,7 +1864,7 @@ void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
     if ((int)dlg.Execute() != IDOK)
         return;
 
-    std::wstring prefix = AnsiToWide(buffer);
+    std::wstring prefix = Utf8OrAnsiToWide(buffer);
     size_t start = 0;
     while (start < prefix.length() && iswspace(prefix[start]))
         ++start;
