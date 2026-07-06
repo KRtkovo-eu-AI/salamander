@@ -413,6 +413,7 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
 
     std::wstring finalText = desired;
     setItemText(finalText);
+    bool ensureSelectedVisible = (index == TabCtrl_GetCurSel(HWindow));
 
     int closeBtnExtraPx = 0;
     if (ShouldShowCloseButton(index, TabCtrl_GetCurSel(HWindow)))
@@ -427,7 +428,11 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
 
     HDC hdc = GetDC(HWindow);
     if (hdc == NULL)
+    {
+        if (ensureSelectedVisible)
+            EnsureSelectedTabVisible();
         return;
+    }
     HFONT oldFont = NULL;
     bool selected = (index == TabCtrl_GetCurSel(HWindow));
     HFONT fontToUse = (selected && EnvFontBold != NULL) ? EnvFontBold : EnvFont;
@@ -448,6 +453,8 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         if (oldFont != NULL)
             SelectObject(hdc, oldFont);
         ReleaseDC(HWindow, hdc);
+        if (ensureSelectedVisible)
+            EnsureSelectedTabVisible();
         return;
     }
     int currentWidth = rect.right - rect.left;
@@ -514,6 +521,8 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (oldFont != NULL)
         SelectObject(hdc, oldFont);
     ReleaseDC(HWindow, hdc);
+    if (ensureSelectedVisible)
+        EnsureSelectedTabVisible();
 }
 
 void CTabWindow::SetCurSel(int index)
