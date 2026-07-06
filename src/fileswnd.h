@@ -309,7 +309,7 @@ class CFilesWindow;
 class CFileTimeStamps
 {
 protected:
-    char ZIPFile[MAX_PATH];                   // name of the archive that stores all monitored files
+    char ZIPFile[SAL_MAX_PATH];               // name of the archive that stores all monitored files
     TIndirectArray<CFileTimeStampsItem> List; // list of files with data needed for their update
     CFilesWindow* Panel;                      // panel we work for
 

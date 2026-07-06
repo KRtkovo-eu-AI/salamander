@@ -3222,7 +3222,7 @@ BOOL CFileTimeStamps::AddFile(const char* zipFile, const char* zipRoot, const ch
                               const FILETIME& lastWrite, const CQuadWord& fileSize, DWORD attr)
 {
     if (ZIPFile[0] == 0)
-        strcpy(ZIPFile, zipFile);
+        lstrcpyn(ZIPFile, zipFile, SAL_MAX_PATH);
     else
     {
         if (strcmp(zipFile, ZIPFile) != 0)
@@ -3441,13 +3441,14 @@ void CFileTimeStamps::CheckAndPackAndClear(HWND parent, BOOL* someFilesChanged, 
         *someFilesChanged = FALSE;
     if (archMaybeUpdated != NULL)
         *archMaybeUpdated = FALSE;
-    char buf[MAX_PATH + 100];
+    char buf[SAL_MAX_PATH];
     WIN32_FIND_DATA data;
     int i;
     for (i = List.Count - 1; i >= 0; i--)
     {
         CFileTimeStampsItem* item = List[i];
-        sprintf(buf, "%s\\%s", item->SourcePath, item->FileName);
+        lstrcpyn(buf, item->SourcePath, SAL_MAX_PATH);
+        SalPathAppend(buf, item->FileName, SAL_MAX_PATH);
         BOOL kill = TRUE;
         HANDLE find = HANDLES_Q(FindFirstFile(buf, &data));
         if (find != INVALID_HANDLE_VALUE)

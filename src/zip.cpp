@@ -5903,7 +5903,7 @@ BOOL CSalamanderDirectory::AddFile(const char* path, CFileData& file, CPluginDat
     CALL_STACK_MESSAGE_NONE // time-critical method
 
         int pathLen = 0;
-    if (path != NULL && ((pathLen = (int)strlen(path)) > MAX_PATH - 5 || file.NameLen > MAX_PATH - 5))
+    if (path != NULL && ((pathLen = (int)strlen(path)) > SAL_MAX_PATH - 5 || file.NameLen > 511))
     {
         TRACE_E("Too long path or file name!");
         return FALSE;
@@ -6001,7 +6001,7 @@ BOOL CSalamanderDirectory::AddDir(const char* path, CFileData& dir, CPluginDataI
 {
     CALL_STACK_MESSAGE_NONE // time-critical method
 
-        if (path != NULL && (strlen(path) > MAX_PATH - 5 || dir.NameLen > MAX_PATH - 5))
+        if (path != NULL && (strlen(path) > SAL_MAX_PATH - 5 || dir.NameLen > 511))
     {
         TRACE_E("Too long path or file name!");
         return FALSE;

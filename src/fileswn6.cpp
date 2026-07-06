@@ -40,6 +40,29 @@ const wchar_t* SalPathFindLastComponentW(const wchar_t* path)
     const wchar_t* name = SalPathFindFileNameW(path);
     return name != NULL ? name : path;
 }
+static DWORD UpdateArchiveExecuteCacheHash(DWORD hash, const char* text, BOOL ignoreCase)
+{
+    const unsigned char* s = (const unsigned char*)text;
+    while (s != NULL && *s != 0)
+    {
+        unsigned char c = *s++;
+        if (ignoreCase && c >= 'A' && c <= 'Z')
+            c += 'a' - 'A';
+        hash ^= c;
+        hash *= 16777619U;
+    }
+    return hash;
+}
+
+static void BuildArchiveExecuteCacheKey(char* key, int keySize, const char* archiveName, const char* nameInArchive, const char* itemName)
+{
+    DWORD hash = 2166136261U;
+    hash = UpdateArchiveExecuteCacheHash(hash, archiveName, TRUE);
+    hash = UpdateArchiveExecuteCacheHash(hash, "\\", FALSE);
+    hash = UpdateArchiveExecuteCacheHash(hash, nameInArchive, FALSE);
+    _snprintf_s(key, keySize, _TRUNCATE, "ArchiveExec:%08X:%s", hash, itemName != NULL ? itemName : "");
+}
+
 }
 
 // helper variables for the dialogs in BuildScriptXXX()
@@ -3139,7 +3162,7 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
     }
 
     //---  get the full long name
-    char dcFileName[2 * MAX_PATH]; // ZIP: name for disk cache
+    char dcFileName[3 * SAL_MAX_PATH + 50]; // ZIP: name for disk cache
     CFileData* f = &Files->At(index - Dirs->Count);
 
     if (!SalIsValidFileNameComponent(f->Name))
@@ -3166,9 +3189,12 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
         }
     }
 
-    StrICpy(dcFileName, GetZIPArchive()); // the archive file name should be compared case-insensitively (Windows file system), so we always convert it to lowercase
-    SalPathAppend(dcFileName, GetZIPPath(), 2 * MAX_PATH);
-    SalPathAppend(dcFileName, f->Name, 2 * MAX_PATH);
+    char nameInArchive[2 * SAL_MAX_PATH];
+    nameInArchive[0] = 0;
+    if (GetZIPPath()[0] != 0)
+        lstrcpyn(nameInArchive, GetZIPPath(), 2 * SAL_MAX_PATH);
+    SalPathAppend(nameInArchive, f->Name, 2 * SAL_MAX_PATH);
+    BuildArchiveExecuteCacheKey(dcFileName, 3 * SAL_MAX_PATH + 50, GetZIPArchive(), nameInArchive, f->Name);
 
     // disk-cache settings for the plugin (default values change only for plugins)
     char arcCacheTmpPath[MAX_PATH];
@@ -3217,14 +3243,14 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
     if (!exists) // we must unpack it
     {
         char* backSlash = strrchr(name, '\\');
-        char tmpPath[MAX_PATH];
+        char tmpPath[SAL_MAX_PATH];
         memcpy(tmpPath, name, backSlash - name);
         tmpPath[backSlash - name] = 0;
         BeginStopRefresh(); // the snooper can take a break
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
         HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
         if (PackUnpackOneFile(this, GetZIPArchive(), PluginData.GetInterface(),
-                              dcFileName + strlen(GetZIPArchive()) + 1, f, tmpPath,
+                              nameInArchive, f, tmpPath,
                               NULL, NULL))
         {
             SetCursor(oldCur);
@@ -3255,7 +3281,7 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
     }
 
     // split the full file name into path (buf) and name (s)
-    char buf[MAX_PATH];
+    char buf[SAL_MAX_PATH];
     char* s = strrchr(name, '\\');
     if (s != NULL)
     {
