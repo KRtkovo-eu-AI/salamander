@@ -3,7 +3,8 @@
 :root {
   color-scheme: dark;
 
-  --sam-bg: #0d1117;
+  --sam-bg: #121212;
+  --sam-bg-content: rgba(32, 32, 32, 1);
   --sam-canvas: #0d1117;
   --sam-canvas-subtle: #161b22;
   --sam-canvas-inset: #010409;
@@ -43,12 +44,15 @@ html {
 
 body {
   color: var(--sam-text);
-  background: var(--sam-bg);
+  background: var(--sam-bg-content);
   font-family: var(--sam-font);
   font-size: 16px;
   line-height: 1.6;
-  max-width: 1000px;
+  max-width: 980px;
   margin: 0 auto;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  padding: 0 1em;
 }
 
 /* Main centered content block */
@@ -98,25 +102,21 @@ h6 {
 }
 
 h1 {
-  margin: 0 0 16px;
-  padding-bottom: 0.3em;
+  margin: 0;
   border-bottom: 1px solid var(--sam-border-muted);
   font-size: 2.25rem;
   letter-spacing: -0.02em;
 }
 
-h1::before {
-  content: "";
-  display: block;
-  width: 52px;
-  height: 3px;
-  margin-bottom: 18px;
-  background: var(--sam-accent);
-  border-radius: 999px;
+#description-text {
+  margin-top: -2.5em;
+  margin-left: 6.5em;
+  color: var(--sam-muted);
+  font-size: .75rem;
 }
 
 h2 {
-  margin-top: 2.1em;
+  margin-top: 1em;
   margin-bottom: 0.8em;
   padding-bottom: 0.28em;
   border-bottom: 1px solid var(--sam-border-muted);
@@ -213,10 +213,14 @@ ol ul {
 /* Blockquotes / Markdown notes */
 
 blockquote {
-  margin: 0 0 16px;
-  padding: 0 1em;
-  color: var(--sam-muted);
-  border-left: 0.25em solid var(--sam-border);
+  color: var(--sam-text);
+  background: var(--sam-border);
+  background-image: url("https://github.com/user-attachments/assets/af91dcec-fa35-461b-b691-0507c1e1591e") no-repeat right center;
+  border: 1px solid var(--sam-border);
+  border-radius: var(--sam-radius);
+  padding: 1em;
+  margin: 2em 0;
+  position: relative;
 }
 
 blockquote strong:first-child {
@@ -369,6 +373,33 @@ a[href*="download"]:hover {
   background: #30363d;
   border-color: #8b949e;
   text-decoration: none;
+}
+
+#download-block {
+  color: var(--sam-text);
+  background: var(--sam-border);
+  background-image: url("https://github.com/user-attachments/assets/af91dcec-fa35-461b-b691-0507c1e1591e") no-repeat right center;
+  border: 1px solid var(--sam-border);
+  border-radius: var(--sam-radius);
+  padding: 1em;
+  margin: 2em 0;
+  position: relative;
+}
+
+#download-block h2 {
+  margin-top: 0;
+}
+
+#download-block img.preview {
+  position: absolute;
+  right: 1em;
+  top: 0;
+  width: 380px;
+  z-index: 900;
+}
+
+#download-block p, #download-block ul, #download-block li {
+  z-index: 1000;
 }
 
 /* Details / summary */
