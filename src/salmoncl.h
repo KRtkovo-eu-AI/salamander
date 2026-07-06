@@ -5,7 +5,7 @@
 #pragma once
 
 // SalmonClient
-// The SALMON.EXE module is used for out-of-process minidump generation, packaging, and upload them to the server.
+// The SALMON.EXE module is used for out-of-process minidump generation and report packaging.
 // SALMON must run from Salamander start-up onward to react to crashes. Crashes that happen before SALMON starts
 // will be handled silently and processed by SALMON "next time".
 //
@@ -31,7 +31,7 @@
 #else
 #define SALMON_SHARED_MEMORY_VERSION_PLATFORM 0x00000000
 #endif
-#define SALMON_SHARED_MEMORY_VERSION (SALMON_SHARED_MEMORY_VERSION_PLATFORM | 4)
+#define SALMON_SHARED_MEMORY_VERSION (SALMON_SHARED_MEMORY_VERSION_PLATFORM | 5)
 
 #pragma pack(push)
 #pragma pack(4)
@@ -50,6 +50,9 @@ struct CSalmonSharedMemory
     char BugName[MAX_PATH];  // set by Salamander; specifies the internal name of the minidump/bug report file
     char BaseName[MAX_PATH]; // set by Salmon; constructed as "UID-BugName-DATE-TIME"; ".DMP" is appended for a minidumps
     DWORD64 UID;             // unique machine ID created by XORing the GUID; stored in the registry under the Bug Reporter key; set by Salamander, Salmon only reads it and inserts it into the bug report name
+    BOOL UseWindowsDarkMode; // set by Salamander; TRUE when the host is currently rendering dark UI
+    COLORREF DarkModeText;   // set by Salamander; current readable dark-mode text color for Salmon dialogs
+    COLORREF DarkModeBk;     // set by Salamander; current dark-mode background color for Salmon dialogs
 
     // pass EXCEPTION_POINTERS piece by piece; set before setting the Fire event
     EXCEPTION_RECORD ExceptionRecord;

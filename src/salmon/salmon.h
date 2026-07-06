@@ -17,6 +17,8 @@ extern CSalmonSharedMemory* SalmonSharedMemory;
 
 char* LoadStr(int resID, HINSTANCE hInstance);
 char* GetErrorText(DWORD error);
+void SalmonApplyDarkModeToWindow(HWND hWindow);
+int SalmonMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType);
 
 void OpenFolder(HWND hWnd, const char* szDir);
 
@@ -38,4 +40,4 @@ BOOL CompresBugReports();
 
 extern BOOL AppIsBusy;
 
-//#define WM_USER_THREAD_EXIT WM_APP + 100 // upload thread has finished
+//#define WM_USER_THREAD_EXIT WM_APP + 100 // background thread has finished

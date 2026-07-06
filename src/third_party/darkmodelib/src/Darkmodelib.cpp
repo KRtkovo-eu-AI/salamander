@@ -4079,8 +4079,17 @@ HRESULT dmlib::darkTaskDialogIndirect(
 	BOOL* pfVerificationFlagChecked
 )
 {
+	typedef HRESULT(WINAPI* TaskDialogIndirectProc)(const TASKDIALOGCONFIG*, int*, int*, BOOL*);
+	HMODULE comctl32 = ::GetModuleHandle(TEXT("comctl32.dll"));
+	if (comctl32 == NULL)
+		comctl32 = ::LoadLibrary(TEXT("comctl32.dll"));
+	TaskDialogIndirectProc taskDialogIndirect = comctl32 != NULL ?
+		reinterpret_cast<TaskDialogIndirectProc>(::GetProcAddress(comctl32, "TaskDialogIndirect")) : NULL;
+	if (taskDialogIndirect == NULL)
+		return E_NOTIMPL;
+
 	dmlib_hook::hookThemeColor();
-	const HRESULT retVal = ::TaskDialogIndirect(pTaskConfig, pnButton, pnRadioButton, pfVerificationFlagChecked);
+	const HRESULT retVal = taskDialogIndirect(pTaskConfig, pnButton, pnRadioButton, pfVerificationFlagChecked);
 	dmlib_hook::unhookThemeColor();
 	return retVal;
 }
@@ -4190,8 +4199,8 @@ static TASKDIALOGCONFIG msgBoxParamToTaskDlgConfig(HWND hWnd, LPCWSTR lpText, LP
 
 	// buttons
 
-	static const UINT btnDefMask = uType | MB_DEFMASK;
-	auto getDefBtn = [](std::array<int, 3> btnIDs)
+	const UINT btnDefMask = uType & MB_DEFMASK;
+	auto getDefBtn = [btnDefMask](std::array<int, 3> btnIDs)
 	{
 		if (btnDefMask == MB_DEFBUTTON2)
 		{

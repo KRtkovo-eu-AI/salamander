@@ -135,6 +135,44 @@
     </ClCompile>
     <ClCompile Include="..\..\darkmode.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\darkmode_backend_darkmodelib.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\Darkmodelib.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\DmlibColor.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\DmlibDpi.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\DmlibHook.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\DmlibPaintHelper.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\DmlibSubclass.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\DmlibSubclassControl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\DmlibSubclassWindow.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\darkmodelib\src\DmlibWinApi.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\salmon\compress.cpp">
     </ClCompile>
     <ClCompile Include="..\..\salmon\config.cpp">
@@ -150,8 +188,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\..\salmon\salmon.cpp">
-    </ClCompile>
-    <ClCompile Include="..\..\salmon\upload.cpp">
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -171,6 +207,10 @@
     </ClInclude>
     <ClInclude Include="..\..\common\winlib.h">
     </ClInclude>
+    <ClInclude Include="..\..\darkmode.h">
+    </ClInclude>
+    <ClInclude Include="..\..\darkmode_backend_darkmodelib.h">
+    </ClInclude>
     <ClInclude Include="..\..\salmoncl.h">
     </ClInclude>
     <ClInclude Include="..\..\salmon\compress.h">
@@ -184,8 +224,6 @@
     <ClInclude Include="..\..\salmon\precomp.h">
     </ClInclude>
     <ClInclude Include="..\..\salmon\salmon.h">
-    </ClInclude>
-    <ClInclude Include="..\..\salmon\upload.h">
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

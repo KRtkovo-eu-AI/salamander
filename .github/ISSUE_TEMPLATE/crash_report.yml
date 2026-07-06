@@ -1,0 +1,70 @@
+name: Crash report
+description: Report an Open Salamander crash and attach a prepared crash archive only after reviewing it for sensitive data.
+title: "Crash: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Open Salamander.
+
+        **Privacy warning:** crash report archives can contain sensitive data, including local file paths, names of opened files, loaded modules, registry/configuration details, and process memory from the time of the crash. Review the archive before attaching it to this public issue. If it contains sensitive information, do not attach it publicly; describe the crash and wait for a maintainer to suggest a private sharing method.
+  - type: input
+    id: version
+    attributes:
+      label: Open Salamander version
+      description: Enter the Open Salamander version/build that crashed.
+      placeholder: e.g. 4.0 beta, commit/build number
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      description: Include edition, architecture, and build if known.
+      placeholder: e.g. Windows 11 Pro 24H2 x64, build 26100
+    validations:
+      required: true
+  - type: textarea
+    id: last-action
+    attributes:
+      label: What were you doing before the crash?
+      description: Describe the last action, active panel paths if safe to share, selected plugin/viewer, archive/file type, or shell extension involved.
+      placeholder: I opened..., copied..., viewed..., used plugin...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If the crash is reproducible, list exact steps. If not, say how often it happened.
+      placeholder: |
+        1. Go to ...
+        2. Select ...
+        3. Press ...
+        4. Crash occurs
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect Open Salamander to do instead of crashing?
+    validations:
+      required: false
+  - type: textarea
+    id: crash-archive
+    attributes:
+      label: Crash report archive
+      description: The bug reporter opens the local report folder after preparing the archive. Attach the `.7Z` file only if you reviewed it and are comfortable sharing it publicly.
+      placeholder: Attach the prepared .7Z archive here, or explain why you cannot share it publicly.
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, plugin names, shell extensions, network drives, archive formats, or other context that may help.
+    validations:
+      required: false
