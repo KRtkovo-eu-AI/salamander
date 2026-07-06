@@ -39,15 +39,35 @@ static std::wstring MessageBoxTextToWide(const char* text)
     return wide;
 }
 
+static void RepairCopyrightSymbol(std::wstring& text)
+{
+    const std::wstring marker = L"Copyright ";
+    size_t pos = 0;
+    while ((pos = text.find(marker, pos)) != std::wstring::npos)
+    {
+        size_t symbolPos = pos + marker.length();
+        size_t yearPos = symbolPos + 1;
+        if (symbolPos < text.length() && yearPos + 1 < text.length() &&
+            text[yearPos] == L' ' && text[yearPos + 1] >= L'0' && text[yearPos + 1] <= L'9' &&
+            (text[symbolPos] == L'\xFFFD' || text[symbolPos] == L'?'))
+        {
+            text[symbolPos] = L'\x00A9';
+        }
+        pos = symbolPos + 1;
+    }
+}
+
 static void SetWindowTextUtf8Aware(HWND hWindow, const char* text)
 {
     std::wstring wide = MessageBoxTextToWide(text);
+    RepairCopyrightSymbol(wide);
     SetWindowTextW(hWindow, wide.c_str());
 }
 
 static void SetDlgItemTextUtf8Aware(HWND hWindow, int controlID, const char* text)
 {
     std::wstring wide = MessageBoxTextToWide(text);
+    RepairCopyrightSymbol(wide);
     SetDlgItemTextW(hWindow, controlID, wide.c_str());
 }
 
