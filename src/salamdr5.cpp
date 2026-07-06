@@ -820,7 +820,7 @@ PARSE_AGAIN:
                 int len2 = (int)strlen(path);
                 if (path[len2 - 1] != '\\') // paths ending with a backslash behave differently (classic and UNC): UNC returns success, while regular paths return ERROR_INVALID_NAME; unpacking from an archive located on a UNC path to the path "" used to report an unknown archive (because PackerFormatConfig.PackIsArchive received "...test.zip\\" instead of "...test.zip")
                 {
-                    DWORD attrs = len2 < MAX_PATH ? SalGetFileAttributes(path) : 0xFFFFFFFF;
+                    DWORD attrs = SalGetFileAttributes(path);
                     if (attrs != 0xFFFFFFFF) // this part of the path exists
                     {
                         if ((attrs & FILE_ATTRIBUTE_DIRECTORY) == 0) // it is a file
@@ -861,7 +861,7 @@ PARSE_AGAIN:
                     }
                     else
                     {
-                        DWORD err = len2 < MAX_PATH ? GetLastError() : ERROR_INVALID_NAME /* too long path */;
+                        DWORD err = GetLastError();
                         if (err != ERROR_FILE_NOT_FOUND && err != ERROR_INVALID_NAME &&
                             err != ERROR_PATH_NOT_FOUND && err != ERROR_BAD_PATHNAME &&
                             err != ERROR_DIRECTORY) // strange error - just report it
@@ -962,7 +962,10 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
                             invalidPath = TRUE;
                     }
                 }
-                if (invalidPath || !CreateDirectory(newDirs, NULL))
+                std::wstring newDirsW = SalMultiByteToWidePath(newDirs, CP_UTF8);
+                if (newDirsW.empty() && GetACP() != CP_UTF8)
+                    newDirsW = SalMultiByteToWidePath(newDirs, CP_ACP);
+                if (invalidPath || !(newDirsW.empty() ? CreateDirectory(newDirs, NULL) : SalCreateDirectoryExW(newDirsW.c_str(), NULL)))
                 {
                     sprintf(textBuf, LoadStr(IDS_CREATEDIRFAILED), newDirs);
                     SalMessageBox(parent, textBuf, errorTitle, MB_OK | MB_ICONEXCLAMATION);
@@ -1007,8 +1010,8 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
                          SGP_IsTheSamePathF isTheSamePathF)
 {
     mask = NULL;
-    char textBuf[2 * MAX_PATH + 200];
-    char tmpNewDirs[MAX_PATH];
+    char textBuf[2 * SAL_MAX_PATH + 200];
+    char tmpNewDirs[SAL_MAX_PATH];
     tmpNewDirs[0] = 0;
     if (newDirs != NULL)
         newDirs[0] = 0;
@@ -1067,8 +1070,8 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
                 }
                 else // name with a trailing slash -> directory
                 {
-                    SalPathAppend(tmpNewDirs, maskFrom, MAX_PATH);
-                    SalPathAddBackslash(path, 2 * MAX_PATH); // the path must always end with a backslash; make sure it does...
+                    SalPathAppend(tmpNewDirs, maskFrom, SAL_MAX_PATH);
+                    SalPathAddBackslash(path, SAL_MAX_PATH); // the path must always end with a backslash; make sure it does...
                     mask = path + strlen(path) + 1;
                     strcpy(mask, "*.*");
                 }
@@ -1152,7 +1155,7 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
             }
 
             // simple target path with a universal mask
-            SalPathAddBackslash(path, 2 * MAX_PATH); // the path must always end with a backslash; make sure it does...
+            SalPathAddBackslash(path, SAL_MAX_PATH); // the path must always end with a backslash; make sure it does...
             mask = path + strlen(path) + 1;
             strcpy(mask, "*.*");
             return TRUE; // leave the Copy/Move dialog loop and perform the operation

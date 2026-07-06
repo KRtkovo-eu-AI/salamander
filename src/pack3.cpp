@@ -754,8 +754,11 @@ void CPackerFormatConfig::DeleteFormat(int index)
 CArchiverConfig::CArchiverConfig(/*BOOL disableDefaultValues*/)
     : Archivers(20, 10)
 {
-    // set default values; callers that load from another configuration clear them first
+    /*
+  // set default values if it is not disabled
+  if (!disableDefaultValues)
     AddDefault(0);
+*/
 }
 
 void CArchiverConfig::InitializeDefaultValues()

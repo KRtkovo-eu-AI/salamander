@@ -1091,6 +1091,7 @@ void CPackACDialog::Transfer(CTransferInfo& ti)
     // are we starting or ending?
     if (ti.Type == ttDataToWindow)
     {
+        ArchiverConfig->EnsureDefaultValues();
         // create a table of packers to search for
         APackACPackersTable* table = new APackACPackersTable(20, 10);
         int i;
