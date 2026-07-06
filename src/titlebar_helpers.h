@@ -5,7 +5,6 @@
 #define TITLEBAR_HELPERS_H
 
 #include <string>
-#include <algorithm>
 
 static int WCharVisualWidth(wchar_t ch)
 {
@@ -105,7 +104,7 @@ static void EnsureAppNameSuffixInTitle(std::wstring& title, const std::wstring& 
 
     int effectiveMaxPrefixVW = maxPrefixVW;
     if (StringHasNonAscii(prefix))
-        effectiveMaxPrefixVW = std::min(effectiveMaxPrefixVW, maxUnicodePrefixVW);
+        effectiveMaxPrefixVW = effectiveMaxPrefixVW < maxUnicodePrefixVW ? effectiveMaxPrefixVW : maxUnicodePrefixVW;
 
     size_t cutAt = TitlePrefixCutByVisualWidth(prefix, effectiveMaxPrefixVW);
 
