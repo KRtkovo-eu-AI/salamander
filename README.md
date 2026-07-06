@@ -6,16 +6,6 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 <img width="1137" height="778" alt="image" src="https://github.com/user-attachments/assets/af91dcec-fa35-461b-b691-0507c1e1591e" />
 
 
-#
-
-> [!IMPORTANT]
-> Open Salamander: Samandarin remains an **intentionally experimental fork**—its **vibe-coded features** are actively evolving, **may surface unexpected issues**, and are best explored by **advanced, adventurous users** who can tolerate work-in-progress behavior.
-> 
-> Tools used:
-> - [OpenAI Codex](https://chatgpt.com/codex) (models `gpt-5.3-codex`, `gpt-5.5`)
-> - [OpenCode](https://opencode.ai) (models `MiMo-V2.5`, `Qwen3.7 Plus`)
-
-
 ## Included Features Overview
 ### Unicode and Long paths support
 - Work with files and folders whose names use characters from different languages, emojis, and other Unicode symbols.
