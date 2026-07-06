@@ -251,7 +251,12 @@ public:
                    HINSTANCE hinst,        // handle of application instance
                    LPVOID lpvParam);       // pointer to the window object being created
 
-    void SetUnicodeWindow(BOOL unicode) { UnicodeWnd = unicode; }
+    void SetUnicodeWindow(BOOL unicode)
+    {
+        UnicodeWnd = unicode;
+        if (HWindow == NULL)
+            DefWndProc = GetDefWindowProc();
+    }
 #endif                                     // _UNICODE
 
     void AttachToWindow(HWND hWnd);

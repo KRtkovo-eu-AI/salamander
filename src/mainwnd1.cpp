@@ -27,6 +27,7 @@
 #include "execute.h"
 #include "jumplist.h"
 #include "darkmode.h"
+#include "titlebar_builder.h"
 
 #include "versinfo.rh2"
 
@@ -2243,7 +2244,6 @@ void CMainWindow::SetWindowTitle(const char* text)
             if (!wPrefix.empty())
             {
                 prefix = wPrefix;
-                prefix += L" - ";
             }
         }
         else if (Configuration.UseTitleBarPrefix)
@@ -2252,7 +2252,6 @@ void CMainWindow::SetWindowTitle(const char* text)
             if (!wPrefix.empty())
             {
                 prefix = wPrefix;
-                prefix += L" - ";
             }
         }
 
@@ -2264,13 +2263,7 @@ void CMainWindow::SetWindowTitle(const char* text)
                 path = FormatPanelPathForDisplayW(panel, Configuration.TitleBarMode);
         }
 
-        if (!prefix.empty() || !path.empty())
-        {
-            wideText = prefix;
-            wideText += path;
-            wideText += L" - ";
-        }
-        wideText += suffix;
+        wideText = BuildMainWindowTitleText(prefix, path, suffix);
 
     }
     else
