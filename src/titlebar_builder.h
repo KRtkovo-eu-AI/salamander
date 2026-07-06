@@ -6,19 +6,45 @@
 
 #include <string>
 
+static size_t TitleBarSafePrefixLength(const std::wstring& text, size_t maxPrefixLength)
+{
+    if (text.length() <= maxPrefixLength)
+        return text.length();
+
+    size_t cutAt = maxPrefixLength;
+    if (cutAt > 0 && cutAt < text.length() &&
+        text[cutAt - 1] >= 0xD800 && text[cutAt - 1] <= 0xDBFF &&
+        text[cutAt] >= 0xDC00 && text[cutAt] <= 0xDFFF)
+    {
+        cutAt--;
+    }
+    return cutAt;
+}
+
 static std::wstring BuildMainWindowTitleText(const std::wstring& prefix,
                                              const std::wstring& path,
-                                             const std::wstring& suffix)
+                                             const std::wstring& suffix,
+                                             size_t maxPrefixLength = 60)
 {
-    std::wstring title;
+    std::wstring titlePrefix;
     if (!prefix.empty())
     {
-        title += prefix;
-        title += L" - ";
+        titlePrefix += prefix;
+        titlePrefix += L" - ";
     }
     if (!path.empty())
     {
-        title += path;
+        titlePrefix += path;
+    }
+
+    std::wstring title;
+    if (!titlePrefix.empty())
+    {
+        size_t cutAt = TitleBarSafePrefixLength(titlePrefix, maxPrefixLength);
+        if (cutAt < titlePrefix.length())
+            title += titlePrefix.substr(0, cutAt) + L"...";
+        else
+            title += titlePrefix;
         title += L" - ";
     }
     title += suffix;

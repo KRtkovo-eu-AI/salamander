@@ -47,6 +47,14 @@ int main()
     CHECK(EndsWith(BuildMainWindowTitleText(L"", L"\u65E5\u672C\u8A9E \u3053\u306E\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u306F\u3068\u3066\u3082\u9577\u3044\u540D\u524D\u3067\u3059", suffix), suffix),
           "Japanese path keeps full suffix in title string");
 
+    std::wstring longPath = supplementaryPath + L"\\";
+    longPath.append(220, L'a');
+    std::wstring longTitle = BuildMainWindowTitleText(L"", longPath, suffix);
+    CHECK(EndsWith(longTitle, suffix),
+          "very long full path keeps full suffix");
+    CHECK(longTitle.find(L"... - " + suffix) != std::wstring::npos,
+          "very long full path is compacted before suffix");
+
     printf("Titlebar tests: %d passed, %d failed\n", gPassed, gFailed);
     return gFailed == 0 ? 0 : 1;
 }
