@@ -63,6 +63,11 @@ const DarkModeColors& DarkModeGetColors();
 // a dark brush was supplied and the caller should stop default processing.
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
 
+// Shows a dark-mode aware replacement for MessageBox when dark colors are active.
+// Uses the shared darkmodelib TaskDialog path where available and falls back to
+// the native MessageBox for unsupported/light configurations.
+int DarkModeMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType);
+
 #if USE_DARKMODELIB
 #define DARKMODE_RETURN_IF_HANDLED(handled, brushResult) \
     do                                                    \

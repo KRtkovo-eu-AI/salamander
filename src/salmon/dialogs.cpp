@@ -268,6 +268,7 @@ void CMainDialog::ShowChilds(CDialogTaskEnum task, BOOL show)
         CenterControl(IDC_SALMON_UPLOADING);
     }
     ShowWindow(GetDlgItem(HWindow, IDC_SALMON_UPLOADING), show ? SW_HIDE : SW_SHOW);
+    SalmonApplyDarkModeToWindow(HWindow);
 }
 
 void CMainDialog::CenterControl(int resID)

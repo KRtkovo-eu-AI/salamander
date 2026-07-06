@@ -4199,8 +4199,8 @@ static TASKDIALOGCONFIG msgBoxParamToTaskDlgConfig(HWND hWnd, LPCWSTR lpText, LP
 
 	// buttons
 
-	static const UINT btnDefMask = uType | MB_DEFMASK;
-	auto getDefBtn = [](std::array<int, 3> btnIDs)
+	const UINT btnDefMask = uType & MB_DEFMASK;
+	auto getDefBtn = [btnDefMask](std::array<int, 3> btnIDs)
 	{
 		if (btnDefMask == MB_DEFBUTTON2)
 		{

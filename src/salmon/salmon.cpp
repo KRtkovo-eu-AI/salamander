@@ -3,10 +3,6 @@
 
 #include "precomp.h"
 
-#if USE_DARKMODELIB
-#include "Darkmodelib.h"
-#endif
-
 #include <Shlobj.h>
 #include <Shellapi.h>
 #include <Sddl.h>
@@ -1023,22 +1019,11 @@ LRESULT CALLBACK SalmonMessageBoxCbtProc(int nCode, WPARAM wParam, LPARAM lParam
 
 int SalmonMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 {
-#if USE_DARKMODELIB
     if (SalmonUseDarkMode || DarkModeShouldUseDarkColors())
     {
-        dmlib::initDarkMode();
-        dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
-        dmlib::setDefaultColors(true);
-
-        wchar_t textW[10000];
-        wchar_t captionW[500];
-        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, lpText, -1, textW, _countof(textW));
-        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, lpCaption, -1, captionW, _countof(captionW));
-        textW[_countof(textW) - 1] = 0;
-        captionW[_countof(captionW) - 1] = 0;
-        return (int)dmlib::darkMessageBoxW(hWnd, textW, captionW, uType);
+        DarkModeSetEnabled(true);
+        return DarkModeMessageBox(hWnd, lpText, lpCaption, uType);
     }
-#endif
 
     HHOOK oldHook = HSalmonMessageBoxHook;
     if (SalmonUseDarkMode || DarkModeShouldUseDarkColors())

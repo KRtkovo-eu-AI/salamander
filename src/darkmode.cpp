@@ -3063,6 +3063,36 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     return false;
 }
 
+int DarkModeMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
+{
+#if USE_DARKMODELIB
+    if (DarkModeShouldUseDarkColors())
+    {
+        static bool dmlibInitialized = false;
+        if (!dmlibInitialized)
+        {
+            dmlib::initDarkMode();
+            dmlibInitialized = true;
+        }
+        dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
+        dmlib::setDefaultColors(true);
+
+#ifdef _UNICODE
+        return static_cast<int>(dmlib::darkMessageBoxW(hWnd, lpText, lpCaption, uType));
+#else
+        wchar_t textW[10000];
+        wchar_t captionW[512];
+        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, lpText != NULL ? lpText : "", -1, textW, _countof(textW));
+        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, lpCaption != NULL ? lpCaption : "", -1, captionW, _countof(captionW));
+        textW[_countof(textW) - 1] = 0;
+        captionW[_countof(captionW) - 1] = 0;
+        return static_cast<int>(dmlib::darkMessageBoxW(hWnd, textW, captionW, uType));
+#endif
+    }
+#endif
+    return MessageBox(hWnd, lpText, lpCaption, uType);
+}
+
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
 {
     EnsureInitialized();
