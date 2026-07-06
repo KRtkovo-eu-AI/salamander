@@ -245,7 +245,7 @@ void CViewerWindow::SetViewerCaption()
             sprintf(caption + strlen(caption), " - [%s]", codeName);
         }
     }
-    SetWindowText(HWindow, caption);
+    SetViewerWindowText(HWindow, caption);
 }
 
 //

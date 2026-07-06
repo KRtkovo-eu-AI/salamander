@@ -17,6 +17,37 @@
 #include "gui.h"
 
 const char* CVIEWERWINDOW_CLASSNAME = "Salamander's Viewer Window";
+const wchar_t* CVIEWERWINDOW_CLASSNAMEW = L"Salamander's Viewer Window";
+
+std::wstring ViewerTextToWide(const char* text)
+{
+    if (text == NULL)
+        text = "";
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (len == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (len <= 0)
+        return std::wstring();
+
+    std::wstring wide(len, L'\0');
+    int written = MultiByteToWideChar(codePage, flags, text, -1, &wide[0], len);
+    if (written <= 0)
+        return std::wstring();
+    wide.resize(written - 1);
+    return wide;
+}
+
+void SetViewerWindowText(HWND hWindow, const char* text)
+{
+    std::wstring wide = ViewerTextToWide(text);
+    SetWindowTextW(hWindow, wide.c_str());
+}
 
 char* ViewerHistory[VIEWER_HISTORY_SIZE];
 
@@ -2050,6 +2081,18 @@ BOOL InitializeViewer()
         return FALSE;
     }
 
+#ifndef _UNICODE
+    if (!CViewerWindow::RegisterUniversalClassW(CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW,
+                                                0,
+                                                0,
+                                                HANDLES(LoadIcon(HInstance,
+                                                                 MAKEINTRESOURCE(IDI_VIEWER))),
+                                                LoadCursor(NULL, IDC_ARROW),
+                                                (HBRUSH)(COLOR_WINDOW + 1),
+                                                NULL,
+                                                CVIEWERWINDOW_CLASSNAMEW,
+                                                NULL))
+#else  // _UNICODE
     if (!CViewerWindow::RegisterUniversalClass(CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW,
                                                0,
                                                0,
@@ -2058,8 +2101,9 @@ BOOL InitializeViewer()
                                                LoadCursor(NULL, IDC_ARROW),
                                                (HBRUSH)(COLOR_WINDOW + 1),
                                                NULL,
-                                               CVIEWERWINDOW_CLASSNAME,
+                                               CVIEWERWINDOW_CLASSNAMEW,
                                                NULL))
+#endif // _UNICODE
     {
         TRACE_E("Unable to register window class for viewer.");
         return FALSE;
