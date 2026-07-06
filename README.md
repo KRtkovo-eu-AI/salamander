@@ -22,21 +22,31 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - When Windows long paths are enabled, local and UNC paths can go beyond the traditional `MAX_PATH` limit and use the Windows extended-length limit of about `32,767` characters.
 - Browse, Copy, Move, Rename, Delete, and Create deeply nested folders and very long file names directly from the panels.
 - The core file handling paths use Unicode-aware Windows APIs, so names no longer have to fit the active system code page.
-<img width="687" height="538" alt="image" src="https://github.com/user-attachments/assets/a4a7240f-ac82-4ca8-9f9a-830539d5e8b4" />
+- Code based on our prototype and partially derived from [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)) which is being refined for Samandarin.
+<img width="687" height="492" alt="image" src="https://github.com/user-attachments/assets/5b6e9d73-7cac-4b1b-a40f-7c3c03c1adb4" />
 <img width="687" height="119" alt="image" src="https://github.com/user-attachments/assets/ab04f8a6-fe73-4f0f-8726-12755afdbde7" />
+
+### Internal Viewer support for Unicode encoding in text files
+- Based on [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)) and refined for Samandarin.
 
 ### Portability
 - Save the Configuration into file storage instead of Registry
 <img width="687" height="172" alt="image" src="https://github.com/user-attachments/assets/5aab6d4d-cc86-42a5-a769-95af091ecab5" />
 
 ### Manage configurations
+- Reworked welcome dialog with configuration management options.
+- Configuration import and export support.
+- Simple wizard for restoring configurations.
+- Choose between locations for target configuration.
 <img width="782" height="552" alt="image" src="https://github.com/user-attachments/assets/bfd999a1-619e-481f-a14a-ca91ec63e1f8" />
 
 ### Translations
-- automatic translate with OpenAI API (model `gpt-5.4-nano`)
+- Automatic translate with OpenAI API (model `gpt-5.4-nano`) with our own custom localization logic.
+- Few scripts partially derived from [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)).
 <img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb" />
 
 ### Tabbed Panels
+- One of the most wanted features over last 15 years.
 - When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.
 - You can switch between tabs on one side when holding right mouse button and scrolling with the mouse wheel.
 <img width="687" height="147" alt="image" src="https://github.com/user-attachments/assets/cd8919c4-2640-4c99-b83d-94f814100d9f" />
@@ -47,24 +57,27 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 <img width="687" height="154" alt="image" src="https://github.com/user-attachments/assets/a8e16767-4df5-4d11-8767-7701464611a6" />
 
 ### Dark Mode
+- Complete dark mode support for all components, windows, plugins etc.
 <img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/2d326f09-305b-43f3-92e7-4ccfaf20e037" />
 
 ### Configurable Command Shell Application
 <img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/ac5d1e60-3e8d-45b2-8e21-334880780dc4" />
 
-### Tree View panel 
-- based on [fgodoy](https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy) changes
+### Tree View panel
+- Docked or floating panel with tree view structure of the active disk panel.
+- based on [fgodoy](https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy) changes.
 <img width="689" height="377" alt="image" src="https://github.com/user-attachments/assets/0717d01f-5f59-454c-a821-288b9f74b1fe" />
 
-### Internal Viewer support for Unicode encoding in text files
-
 ### User Folders
+- Added missing user folders for easier access.
 <img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/f2295756-b5e6-44db-ae40-d22075e47d88" />
 
 ### Copy/Move between plugin-FS and archives
+- Support for file operations between plugin-FS and archives (for example between FTP and archives, between different FTP servers, different archives, etc).
 <img width="687" height="427" alt="salam_plug_arch" src="https://github.com/user-attachments/assets/4e4fc13c-e6f7-485c-b0d6-623378e1719b" />
 
 ### Autocomplete path in Copy/Move/Quick Rename/Create Folder dialog
+- Paths are suggested when typing in the path field.
 <img width="688" height="61" alt="image" src="https://github.com/user-attachments/assets/4d1903d9-4570-47f8-8d7a-956df14d424b" />
 <img width="397" height="185" alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a" />
 
@@ -78,85 +91,6 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### Digitally signed
 - All binary files including installer are digitally signed
 <img width="405" height="483" alt="image" src="https://github.com/user-attachments/assets/11f33476-8c25-435c-a2ad-06f7ec858f08" />
-
-
-## Included Plugins Overview
-### 7-Zip 1.31
-### Automation 1.7
-### Checksum 2.2
-### Database Viewer 1.25
-### DiskMap 1.12
-### FTP Client 1.36
-### File Comparator 1.19
-### Folders 0.2
-### Hyper-V Machines 1.06
-Show local Hyper-V virtual machines. You can Start/Turn Off/Shut Down/Connect/Create New Machine through the plugin.
-
-### Internet Explorer Viewer 1.12
-### JSON Viewer .NET 1.0
-Supported File Types
-| Description | Extensions |
-| --- | --- |
-| JSON data interchange files | `.json`, `.pc`, `.jbeam` |
-
-### Multimedia Viewer 1.16
-### Network 1.09
-### PAK 1.72
-### PictView 2.21
-- using [WIC](https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs) backend
-### Portable Devices 0.3
-- file operations (copy/move/rename/create etc.) with progress dialog are available.
-### Portable Executable Viewer 3.0
-### PrismSharp Text Viewer .NET 1.0
-The viewer focuses on human-readable text content and syntax-highlighted source files. Extensions are matched case-insensitively.
-Common text and configuration formats
-| Category | Extensions |
-| --- | --- |
-| Plain text and logs | `.txt`, `.log` |
-| Configuration files | `.ini`, `.cfg`, `.conf`, `.config` |
-| JSON family | `.json`, `.jsonc`, `.json5` |
-| YAML | `.yaml`, `.yml` |
-| XML and markup | `.xml`, `.html`, `.htm`, `.php`, `.axaml`, `.xaml`, `.xlf`, `.nuspec`, `.plist`, `.storyboard` |
-| Markdown | `.md`, `.markdown` |
-| Windows scripting | `.bat`, `.cmd`, `.ps1`, `.psd1`, `.psm1` |
-| C-family source | `.cs`, `.cpp`, `.c`, `.cxx`, `.h`, `.hh`, `.hpp`, `.hxx` |
-| Project and build files | `.csproj`, `.fsproj`, `.vbproj`, `.vcxproj`, `.vcproj`, `.props`, `.targets` |
-
-#### Prism syntax highlighting identifiers
-The viewer also registers [Prism lexers](https://github.com/KRtkovo-eu-AI/salamander/blob/release/5.0-samandarin-0.6/src/plugins/textviewer/SUPPORTED_FILE_TYPES.md#prism-syntax-highlighting-identifiers) so matching file extensions open in this viewer. 
-
-### Registry Editor 1.15
-### Renamer 1.14
-### Samandarin Update Notifier 0.4
-### Service Explorer 0.013
-### Split & Combine 1.11
-### TAR 3.34
-### UnARJ 1.22
-### UnCAB 1.28
-### UnCHM 1.04
-### UnFAT 1.2
-### UnISO 1.38
-### UnLHA 1.14
-### UnMIME 1.15
-### UnOLE2 1.02
-### UnRAR 3.02
-### UnDelete 1.12
-### WebView2 Render Viewer .NET 1.01
-It acts as a universal document canvas, covering web pages, Markdown (including MDX), SVG, modern image formats like WebP and AVIF, classic raster files, and PDFs up to 32 MB.
-Supported File Types
-| Category | Extensions |
-| --- | --- |
-| HTML and web archives | `.html`, `.htm`, `.xhtml`, `.mhtml`, `.mht` |
-| Markdown (rendered to HTML) | `.md`, `.markdown`, `.mdown`, `.mkd`, `.mdx` |
-| SVG vector graphics | `.svg`, `.svgz` |
-| Modern image formats | `.webp`, `.avif`, `.apng` |
-| Raster image formats | `.png`, `.jpg`, `.jpeg`, `.jfif`, `.gif`, `.bmp`, `.ico`, `.tif`, `.tiff` |
-| Portable Document Format | `.pdf` |
-
-### Windows Mobile 1.09
-### ZIP 1.5
-
-
 
 
 ## Samandarin Fork Overview
