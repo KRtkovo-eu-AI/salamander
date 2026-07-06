@@ -7,6 +7,7 @@
 #include "cfgdlg.h"
 #include "common/widepath.h"
 
+#include <cwctype>
 #include <string>
 
 namespace
@@ -22,6 +23,151 @@ std::wstring FileSortNameW(const CFileData& file)
     return SalMultiByteToWidePath(file.Name, CP_ACP);
 }
 
+
+int CompareOrdinalWideSegment(const wchar_t* s1, int l1, const wchar_t* s2, int l2, BOOL ignoreCase)
+{
+    int minLen = min(l1, l2);
+    for (int i = 0; i < minLen; ++i)
+    {
+        wchar_t c1 = s1[i];
+        wchar_t c2 = s2[i];
+        if (ignoreCase)
+        {
+            c1 = (wchar_t)std::towupper(c1);
+            c2 = (wchar_t)std::towupper(c2);
+        }
+        if (c1 != c2)
+            return c1 < c2 ? -1 : 1;
+    }
+    if (l1 == l2)
+        return 0;
+    return l1 < l2 ? -1 : 1;
+}
+
+int StrCmpLogicalWEx(const wchar_t* s1, int l1, const wchar_t* s2, int l2, BOOL ignoreCase)
+{
+    const wchar_t* strEnd1 = s1 + l1;
+    const wchar_t* beg1 = s1;
+    const wchar_t* end1 = s1;
+    const wchar_t* strEnd2 = s2 + l2;
+    const wchar_t* beg2 = s2;
+    const wchar_t* end2 = s2;
+    int suggestion = 0;
+
+    BOOL findDots = WindowsVistaAndLater && !SystemPolicies.GetNoDotBreakInLogicalCompare();
+
+    while (1)
+    {
+        const wchar_t* numBeg1 = NULL;
+        BOOL isStr1 = (end1 >= strEnd1 || *end1 < L'0' || *end1 > L'9');
+        if (isStr1)
+        {
+            if (findDots && end1 < strEnd1 && *end1 == L'.')
+                end1++;
+            else
+            {
+                while (end1 < strEnd1 && (*end1 < L'0' || *end1 > L'9') && (!findDots || *end1 != L'.'))
+                    end1++;
+            }
+        }
+        else
+        {
+            while (end1 < strEnd1 && *end1 >= L'0' && *end1 <= L'9')
+            {
+                if (numBeg1 == NULL && *end1 != L'0')
+                    numBeg1 = end1;
+                end1++;
+            }
+        }
+
+        const wchar_t* numBeg2 = NULL;
+        BOOL isStr2 = (end2 >= strEnd2 || *end2 < L'0' || *end2 > L'9');
+        if (isStr2)
+        {
+            if (findDots && end2 < strEnd2 && *end2 == L'.')
+                end2++;
+            else
+            {
+                while (end2 < strEnd2 && (*end2 < L'0' || *end2 > L'9') && (!findDots || *end2 != L'.'))
+                    end2++;
+            }
+        }
+        else
+        {
+            while (end2 < strEnd2 && *end2 >= L'0' && *end2 <= L'9')
+            {
+                if (numBeg2 == NULL && *end2 != L'0')
+                    numBeg2 = end2;
+                end2++;
+            }
+        }
+
+        if (isStr1 || isStr2)
+        {
+            int ret;
+            if (Configuration.SortUsesLocale)
+            {
+                ret = CompareStringW(LOCALE_USER_DEFAULT, ignoreCase ? NORM_IGNORECASE : 0,
+                                     beg1, (int)(end1 - beg1), beg2, (int)(end2 - beg2)) -
+                      CSTR_EQUAL;
+            }
+            else
+            {
+                ret = CompareOrdinalWideSegment(beg1, (int)(end1 - beg1),
+                                                beg2, (int)(end2 - beg2), ignoreCase);
+            }
+            if (ret != 0)
+                return ret;
+        }
+        else
+        {
+            if (numBeg1 == NULL)
+            {
+                if (numBeg2 == NULL)
+                {
+                    if (suggestion == 0)
+                    {
+                        if (end1 - beg1 > end2 - beg2)
+                            suggestion = -1;
+                        else if (end1 - beg1 < end2 - beg2)
+                            suggestion = 1;
+                    }
+                }
+                else
+                    return -1;
+            }
+            else if (numBeg2 == NULL)
+                return 1;
+            else
+            {
+                if (end1 - numBeg1 > end2 - numBeg2)
+                    return 1;
+                if (end1 - numBeg1 < end2 - numBeg2)
+                    return -1;
+
+                int ret = wcsncmp(numBeg1, numBeg2, end1 - numBeg1);
+                if (ret != 0)
+                    return ret;
+
+                if (suggestion == 0)
+                {
+                    if (end1 - beg1 > end2 - beg2)
+                        suggestion = -1;
+                    else if (end1 - beg1 < end2 - beg2)
+                        suggestion = 1;
+                }
+            }
+        }
+
+        if (end1 >= strEnd1 && end2 >= strEnd2)
+            break;
+        beg1 = end1;
+        beg2 = end2;
+    }
+
+    return suggestion;
+}
+
 int CompareWideFileNames(const CFileData& f1, const CFileData& f2, BOOL ignoreCase)
 {
     std::wstring n1 = FileSortNameW(f1);
@@ -33,10 +179,18 @@ int CompareWideFileNames(const CFileData& f1, const CFileData& f2, BOOL ignoreCa
         return n1.empty() ? -1 : 1;
     }
 
-    int ret = CompareStringW(LOCALE_USER_DEFAULT, ignoreCase ? NORM_IGNORECASE : 0,
+    int ret;
+    if (Configuration.SortDetectNumbers)
+    {
+        ret = StrCmpLogicalWEx(n1.c_str(), (int)n1.length(), n2.c_str(), (int)n2.length(), ignoreCase);
+    }
+    else
+    {
+        ret = CompareStringW(LOCALE_USER_DEFAULT, ignoreCase ? NORM_IGNORECASE : 0,
                              n1.c_str(), (int)n1.length(),
                              n2.c_str(), (int)n2.length()) -
               CSTR_EQUAL;
+    }
     if (ret != 0)
         return ret;
 
