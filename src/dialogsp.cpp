@@ -871,8 +871,7 @@ CCfgPageExternalArchivers::CCfgPageExternalArchivers()
     Config = new CArchiverConfig /*(TRUE)*/; // without default values
     if (Config == NULL)
         return;
-    if (ArchiverConfig.GetArchiversCount() == 0)
-        ArchiverConfig.InitializeDefaultValues();
+    ArchiverConfig.EnsureDefaultValues();
     Config->Load(ArchiverConfig);
 
     DisableNotification = FALSE;

@@ -428,6 +428,7 @@ extern const SPackModifyTable PackModifyTable[];
 #define ARC_UID_ARJ32 10
 #define ARC_UID_ACE32 11
 #define ARC_UID_ACE16 12
+#define PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT 12
 
 // class for storing data
 class CArchiverConfigData
@@ -500,6 +501,7 @@ protected:
 public:
     CArchiverConfig(/*BOOL disableDefaultValues*/);
     void InitializeDefaultValues(); // replaces the original constructor call (j.r.)
+    void EnsureDefaultValues();
     BOOL Load(CArchiverConfig& src);
 
     void DeleteAllArchivers() { Archivers.DestroyMembers(); }

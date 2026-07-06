@@ -163,16 +163,19 @@ BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object, const char*
 
     TCHAR* dllName = _tcsrchr(dllPath, '\\') + 1;
     lstrcpy(dllName, _T("7zip.dll"));
-    if (!Load(dllPath))
+    BOOL providerLoaded = Load(dllPath);
+    TCreateObjectFunc createObjectFunc = providerLoaded ? (TCreateObjectFunc)GetProc("CreateObject") : 0;
+    if (createObjectFunc == 0)
     {
+        if (providerLoaded)
+            Free();
         lstrcpy(dllName, _T("7za.dll"));
         if (!Load(dllPath))
             return Error(IDS_CANT_LOAD_LIBRARY);
+        createObjectFunc = (TCreateObjectFunc)GetProc("CreateObject");
+        if (createObjectFunc == 0)
+            return Error(IDS_CANT_GET_CRATEOBJECT);
     }
-
-    TCreateObjectFunc createObjectFunc = (TCreateObjectFunc)GetProc("CreateObject");
-    if (createObjectFunc == 0)
-        return Error(IDS_CANT_GET_CRATEOBJECT);
 
     GUID classID;
     GetArchiveFormatClassID(archiveName, &classID);

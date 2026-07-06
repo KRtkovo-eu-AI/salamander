@@ -15,6 +15,10 @@
 #include "fileswnd.h"
 #include "edtlbwnd.h"
 
+#ifndef SCS_64BIT_BINARY
+#define SCS_64BIT_BINARY 6
+#endif
+
 // item type in the packer extensions table
 struct SPackAssocItem
 {
@@ -675,7 +679,7 @@ BOOL CPackACDialog::DirectorySearch(char* path)
                                                        findData.ftLastWriteTime,
                                                        CQuadWord(findData.nFileSizeLow,
                                                                  findData.nFileSizeHigh),
-                                                       type == SCS_32BIT_BINARY ? EXE_32BIT : EXE_16BIT);
+                                                       type == SCS_32BIT_BINARY || type == SCS_64BIT_BINARY ? EXE_32BIT : EXE_16BIT);
                 }
             }
             else
@@ -1988,8 +1992,7 @@ void PackAutoconfig(HWND parent)
 
     // stop refreshes in the main window
     BeginStopRefresh();
-    if (ArchiverConfig.GetArchiversCount() == 0)
-        ArchiverConfig.InitializeDefaultValues();
+    ArchiverConfig.EnsureDefaultValues();
 
     if (PackACSavedDrivesList == NULL)
     {

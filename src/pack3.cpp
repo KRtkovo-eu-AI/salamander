@@ -767,6 +767,15 @@ void CArchiverConfig::InitializeDefaultValues()
     AddDefault(0);
 }
 
+void CArchiverConfig::EnsureDefaultValues()
+{
+    if (Archivers.Count >= PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT)
+        return;
+
+    DeleteAllArchivers();
+    AddDefault(0);
+}
+
 // sets default values
 void CArchiverConfig::AddDefault(int SalamVersion)
 {
