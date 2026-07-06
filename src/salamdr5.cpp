@@ -916,14 +916,14 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
                          char* path, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
                          const char* dirName, const char* curDiskPath, char*& mask)
 {
-    char root[MAX_PATH];
+    char root[SAL_MAX_PATH];
     GetRootPath(root, path);
     char* afterRoot = path + strlen(root) - 1;
     if (*afterRoot == '\\')
         afterRoot++;
 
-    char newDirs[MAX_PATH];
-    char textBuf[2 * MAX_PATH + 200];
+    char newDirs[SAL_MAX_PATH];
+    char textBuf[2 * SAL_MAX_PATH + 200];
 
     if (SalSplitGeneralPath(parent, title, errorTitle, selCount, path, afterRoot, secondPart,
                             pathIsDir, backslashAtEnd, dirName, curDiskPath, mask, newDirs, NULL))

@@ -734,7 +734,7 @@ void CFilesWindow::Execute(int index)
 
     char path[32768];
     char fullName[32768 + 10];
-    char doublePath[2 * MAX_PATH];
+    char doublePath[2 * SAL_MAX_PATH];
     WIN32_FIND_DATA data;
 
     BeginStopRefresh();
@@ -932,7 +932,7 @@ void CFilesWindow::Execute(int index)
             // the ExecuteAssociation below can change the panel path during recursive
             // calls (it contains a message loop), so we store the full file name here
             lstrcpy(fullPath, GetPath());
-            if (!SalPathAppend(fullPath, fileName, MAX_PATH))
+            if (!SalPathAppend(fullPath, fileName, SAL_MAX_PATH))
                 fullPath[0] = 0;
 
             // launch of the default context menu item (association)
@@ -1121,7 +1121,7 @@ void CFilesWindow::Execute(int index)
 
                         // we build shortened path to archive and obtain top index accordingly
                         strcpy(doublePath, GetZIPArchive());
-                        SalPathAppend(doublePath, path, 2 * MAX_PATH);
+                        SalPathAppend(doublePath, path, 2 * SAL_MAX_PATH);
                         int topIndex; // next top index, -1 -> invalid
                         if (!TopIndexMem.FindAndPop(doublePath, topIndex))
                             topIndex = -1;
@@ -1137,12 +1137,12 @@ void CFilesWindow::Execute(int index)
                 {
                     // backup data for TopIndexMem (doublePath + topIndex)
                     strcpy(doublePath, GetZIPArchive());
-                    SalPathAppend(doublePath, GetZIPPath(), 2 * MAX_PATH);
+                    SalPathAppend(doublePath, GetZIPPath(), 2 * SAL_MAX_PATH);
                     int topIndex = ListBox->GetTopIndex();
 
                     // new path
                     strcpy(fullName, GetZIPPath());
-                    if (!SalPathAppend(fullName, dir->Name, MAX_PATH))
+                    if (!SalPathAppend(fullName, dir->Name, SAL_MAX_PATH))
                     {
                         SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
                                       MB_OK | MB_ICONEXCLAMATION);
@@ -3091,8 +3091,8 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                     BOOL isTheSamePath = FALSE; // TRUE = the path doesn't change
                     if (Is(ptZIPArchive) && StrICmp(GetZIPArchive(), archive) == 0)
                     {
-                        char buf[MAX_PATH];
-                        strcpy(buf, *archivePath == '\\' ? archivePath + 1 : archivePath);
+                        char buf[SAL_MAX_PATH];
+                        lstrcpyn(buf, *archivePath == '\\' ? archivePath + 1 : archivePath, SAL_MAX_PATH);
                         char* end = buf + strlen(buf);
                         if (end > buf && *(end - 1) == '\\')
                             *--end = 0;

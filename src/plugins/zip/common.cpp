@@ -5,6 +5,7 @@
 #include <crtdbg.h>
 #include <ostream>
 #include <stdio.h>
+#include <string>
 #include <commctrl.h>
 #include <tchar.h>
 
@@ -25,6 +26,37 @@
 #include "add_del.h"
 #include "sfxmake/sfxmake.h"
 #include "inflate.h"
+
+static std::wstring ZipPathAddExtendedPrefix(const std::wstring& path)
+{
+    if (path.empty() || path.compare(0, 4, L"\\\\?\\") == 0)
+        return path;
+    if (path.compare(0, 2, L"\\\\") == 0)
+        return std::wstring(L"\\\\?\\UNC\\") + path.substr(2);
+    return std::wstring(L"\\\\?\\") + path;
+}
+
+static std::wstring ZipPathToWide(const char* path)
+{
+    if (path == NULL || *path == 0)
+        return std::wstring();
+
+    UINT codePage = CP_UTF8;
+    int len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    if (len <= 0)
+    {
+        codePage = CP_ACP;
+        len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    }
+    if (len <= 0)
+        return std::wstring();
+
+    std::wstring widePath(len - 1, L'\0');
+    MultiByteToWideChar(codePage, 0, path, -1, &widePath[0], len);
+    if (widePath.length() >= MAX_PATH)
+        widePath = ZipPathAddExtendedPrefix(widePath);
+    return widePath;
+}
 
 #ifndef SSZIP
 #include "zip.rh"
@@ -596,7 +628,9 @@ int CZipCommon::CreateCFile(CFile** file, LPCTSTR fileName, unsigned int access,
         for (;;)
         {
             flagsNoRetry = 0;
-            (*file)->File = CreateFile(fileName, access, share, NULL, creation, attributes, NULL);
+            std::wstring wideFileName = ZipPathToWide(fileName);
+            (*file)->File = wideFileName.empty() ? CreateFile(fileName, access, share, NULL, creation, attributes, NULL)
+                                                 : CreateFileW(wideFileName.c_str(), access, share, NULL, creation, attributes, NULL);
             if ((*file)->File != INVALID_HANDLE_VALUE)
             {
                 (*file)->FilePointer = 0;
@@ -1414,14 +1448,14 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
 
                 if (wlen > 0)
                 {
-                    // Convert back to local encoding, convert composite chars to precomposed (e.g. accents from Mac)
-                    int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wsour, wlen, NULL, 0, NULL, NULL);
+                    // Keep ZIP UTF-8 names as UTF-8 in Salamander's multibyte filename field.
+                    int lenLocEnc = WideCharToMultiByte(CP_UTF8, 0, wsour, wlen, NULL, 0, NULL, NULL);
                     if (lenLocEnc > 0)
                     {
                         sourLocEnc = (char*)malloc(lenLocEnc);
                         if (sourLocEnc)
                         {
-                            len = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
+                            len = WideCharToMultiByte(CP_UTF8, 0, wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
                             sour = sourLocEnc;
                         }
                     }
