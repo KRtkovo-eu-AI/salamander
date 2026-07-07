@@ -1091,12 +1091,12 @@ void CPackACDialog::Transfer(CTransferInfo& ti)
     // are we starting or ending?
     if (ti.Type == ttDataToWindow)
     {
-        ArchiverConfig->EnsureDefaultValues();
-        if (ArchiverConfig->GetArchiversCount() < PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT)
-        {
-            ArchiverConfig->DeleteAllArchivers();
-            ArchiverConfig->AddDefault(0);
-        }
+        // Autoconfiguration must always start from the built-in external
+        // archiver templates.  Older/broken registry data may have the right
+        // count but empty variables/executables, which produced an empty
+        // virtual list and prevented ARC_UID_* entries from being searched.
+        ArchiverConfig->DeleteAllArchivers();
+        ArchiverConfig->AddDefault(0);
         // create a table of packers to search for
         APackACPackersTable* table = new APackACPackersTable(20, 10);
         int i;
@@ -1495,9 +1495,16 @@ void CPackACListView::Initialize(APackACPackersTable* table)
     // set the columns
     InitColumns();
     // set the initial number of items in the listview
-    ListView_SetItemCount(HWindow, GetCount());
+    int count = GetCount();
+    ListView_SetItemCount(HWindow, count);
     // set focus on the first listview item
-    ListView_SetItemState(HWindow, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+    if (count > 0)
+    {
+        ListView_SetItemState(HWindow, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+        ListView_RedrawItems(HWindow, 0, count - 1);
+    }
+    InvalidateRect(HWindow, NULL, TRUE);
+    UpdateWindow(HWindow);
 }
 
 // set the headers and basic widths of the listview columns

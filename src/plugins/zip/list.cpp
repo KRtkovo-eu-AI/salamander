@@ -130,6 +130,12 @@ START_LIST:
                 path = _T("");
             }
             int nameLen = (int)(fileInfo.Name + fileInfoNameLen - name);
+            if (nameLen <= 0 || nameLen > 511)
+            {
+                TRACE_E("ZIP entry name is too long for CFileData: " << name);
+                errorID = fileInfo.IsDir ? IDS_ERRADDDIR : IDS_ERRADDFILE;
+                break;
+            }
 
             file.NameLen = nameLen;
             file.Name = (LPTSTR)SalamanderGeneral->Alloc(sizeof(TCHAR) * (file.NameLen + 1));
