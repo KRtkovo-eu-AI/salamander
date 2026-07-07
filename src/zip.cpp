@@ -5792,17 +5792,26 @@ BOOL CSalamanderDirectory::FindDir(const char* path, const char*& s, int& i, con
     }
     if (i == Dirs.Count) // we must create it
     {
+        ptrdiff_t componentLen = s - path;
+        ptrdiff_t archivePathLen = s - archivePath;
+        if (componentLen <= 0 || componentLen > 511 ||
+            archivePathLen <= 0 || archivePathLen >= SAL_MAX_PATH)
+        {
+            TRACE_E("CSalamanderDirectory::FindDir(): too long archive directory component/path!");
+            return FALSE;
+        }
+
         CFileData data = {0};
         //--- name
-        data.Name = (char*)malloc((s - path) + 1); // allocation
+        data.Name = (char*)malloc(componentLen + 1); // allocation
         if (data.Name == NULL)
         {
             TRACE_E(LOW_MEMORY);
             return FALSE;
         }
-        memcpy(data.Name, path, s - path); // copy of the text
-        data.Name[s - path] = 0;
-        data.NameLen = s - path;
+        memcpy(data.Name, path, componentLen); // copy of the text
+        data.Name[componentLen] = 0;
+        data.NameLen = (unsigned)componentLen;
         //--- extension
         if (!Configuration.SortDirsByExt)
             data.Ext = data.Name + data.NameLen; // directories have no extensions
@@ -5839,9 +5848,9 @@ BOOL CSalamanderDirectory::FindDir(const char* path, const char*& s, int& i, con
 
         if (pluginData != NULL) // let the plug-in add its specific data
         {
-            char arcPath[MAX_PATH]; // name of the added directory inside the archive
-            memcpy(arcPath, archivePath, s - archivePath);
-            arcPath[s - archivePath] = 0;
+            char arcPath[SAL_MAX_PATH]; // name of the added directory inside the archive
+            memcpy(arcPath, archivePath, archivePathLen);
+            arcPath[archivePathLen] = 0;
             CPluginDataInterfaceEncapsulation plugin(pluginData, STR_NONE, STR_NONE, NULL, 0);
             if (!plugin.GetFileDataForNewDir(arcPath, data)) // cannot add the plug-in data
             {

@@ -911,7 +911,12 @@ BOOL CArchiverConfig::SetArchiver(int index, DWORD uid, const char* title, EPack
     data->Destroy();
 
     data->UID = uid;
-    data->Title = DupStr(title);
+    // Keep the built-in archiver templates usable even if a localized title
+    // string is missing or fails to load.  Autoconfiguration displays/searches
+    // by the variable name (Jar32bitExecutable, Rar32bitExecutable, ...), so
+    // falling back to that stable identifier is better than dropping the whole
+    // archiver definition as invalid.
+    data->Title = DupStr(title != NULL && title[0] != 0 ? title : packerVariable);
     data->Type = type;
     data->ExesAreSame = exesAreSame;
     // the variable and executable name are constant strings from Salamander's code; a shallow copy is enough
