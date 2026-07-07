@@ -15,8 +15,8 @@
 
 #include "spl_vers.h" // get version & build numbers
 
-#define VERSINFO_COPYRIGHT   _T("Copyright © 1997-2026 Open Salamander Authors")
-#define VERSINFO_COMPANY     _T("Open Salamander")
+#define VERSINFO_COPYRIGHT   "Copyright \251 1997-2026 Open Salamander Authors"
+#define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "Picture Viewer for Open Salamander"
 
