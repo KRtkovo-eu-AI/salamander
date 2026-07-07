@@ -11,11 +11,11 @@
 
 #define VERSINFO_MAJOR       2
 #define VERSINFO_MINORA      2
-#define VERSINFO_MINORB      1
+#define VERSINFO_MINORB      2
 
 #include "spl_vers.h" // get version & build numbers
 
-#define VERSINFO_COPYRIGHT   "Copyright \251 1997-2026 Open Salamander Authors"
+#define VERSINFO_COPYRIGHT   "Copyright (c) 1997-2026 Open Salamander Authors"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "Picture Viewer for Open Salamander"
