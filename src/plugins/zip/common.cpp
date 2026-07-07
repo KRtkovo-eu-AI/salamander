@@ -1471,13 +1471,43 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
                 if (wlen > 0)
                 {
                     // Convert ZIP UTF-8 names to the local encoding used by the archive panel tree.
-                    int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wsour, wlen, NULL, 0, NULL, NULL);
-                    if (lenLocEnc > 0)
+                    // If a character cannot be represented there (for example supplementary Unicode
+                    // characters), use a deterministic ASCII byte escape instead of feeding raw UTF-8
+                    // into the legacy multibyte panel path code.
+                    BOOL usedDefaultChar = FALSE;
+                    int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
+                                                        wsour, wlen, NULL, 0, NULL, &usedDefaultChar);
+                    if (lenLocEnc > 0 && !usedDefaultChar)
                     {
                         sourLocEnc = (char*)malloc(lenLocEnc);
                         if (sourLocEnc)
                         {
-                            len = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
+                            len = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
+                                                      wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
+                            sour = sourLocEnc;
+                        }
+                    }
+                    else
+                    {
+                        static const char hex[] = "0123456789ABCDEF";
+                        sourLocEnc = (char*)malloc(len * 3 + 1);
+                        if (sourLocEnc)
+                        {
+                            char* encoded = sourLocEnc;
+                            for (size_t i = 0; i < len && sour[i] != 0; i++)
+                            {
+                                unsigned char ch = (unsigned char)sour[i];
+                                if (ch < 0x80)
+                                    *encoded++ = (char)ch;
+                                else
+                                {
+                                    *encoded++ = '~';
+                                    *encoded++ = hex[ch >> 4];
+                                    *encoded++ = hex[ch & 0x0F];
+                                }
+                            }
+                            *encoded = 0;
+                            len = encoded - sourLocEnc;
                             sour = sourLocEnc;
                         }
                     }
