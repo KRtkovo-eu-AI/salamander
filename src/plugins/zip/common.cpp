@@ -1470,46 +1470,33 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
 
                 if (wlen > 0)
                 {
-                    // Convert ZIP UTF-8 names to the local encoding used by the archive panel tree.
-                    // If a character cannot be represented there (for example supplementary Unicode
-                    // characters), use an ASCII-safe replacement instead of feeding raw UTF-8
-                    // into the legacy multibyte panel path code.
-                    BOOL usedDefaultChar = FALSE;
-                    int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
-                                                        wsour, wlen, NULL, 0, NULL, &usedDefaultChar);
-                    if (lenLocEnc > 0 && !usedDefaultChar)
+                    // Keep ZIP UTF-8 names out of the legacy multibyte archive path.
+                    // The core stores CFileData::NameLen in a 9-bit field and many archive
+                    // navigation paths still use narrow-string helpers.  Feeding raw UTF-8
+                    // for supplementary characters or very long components can later make
+                    // those helpers walk malformed/truncated byte sequences.  Use a stable
+                    // ASCII-only byte escape instead; it is longer, but deterministic and
+                    // every component is bounded by the CFileData limit before insertion.
+                    static const char hex[] = "0123456789ABCDEF";
+                    sourLocEnc = (char*)malloc(len * 3 + 1);
+                    if (sourLocEnc)
                     {
-                        sourLocEnc = (char*)malloc(lenLocEnc);
-                        if (sourLocEnc)
+                        char* encoded = sourLocEnc;
+                        for (size_t i = 0; i < len && sour[i] != 0; i++)
                         {
-                            len = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
-                                                      wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
-                            sour = sourLocEnc;
-                        }
-                    }
-                    else
-                    {
-                        static const char hex[] = "0123456789ABCDEF";
-                        sourLocEnc = (char*)malloc(len * 3 + 1);
-                        if (sourLocEnc)
-                        {
-                            char* encoded = sourLocEnc;
-                            for (size_t i = 0; i < len && sour[i] != 0; i++)
+                            unsigned char ch = (unsigned char)sour[i];
+                            if (ch < 0x80)
+                                *encoded++ = (char)ch;
+                            else
                             {
-                                unsigned char ch = (unsigned char)sour[i];
-                                if (ch < 0x80)
-                                    *encoded++ = (char)ch;
-                                else
-                                {
-                                    *encoded++ = '~';
-                                    *encoded++ = hex[ch >> 4];
-                                    *encoded++ = hex[ch & 0x0F];
-                                }
+                                *encoded++ = '~';
+                                *encoded++ = hex[ch >> 4];
+                                *encoded++ = hex[ch & 0x0F];
                             }
-                            *encoded = 0;
-                            len = encoded - sourLocEnc;
-                            sour = sourLocEnc;
                         }
+                        *encoded = 0;
+                        len = encoded - sourLocEnc;
+                        sour = sourLocEnc;
                     }
                 }
                 free(wsour);
