@@ -102,11 +102,15 @@ Copyright (C) 2014-15 John MacFarlane
 Copyright (c) 2013 Karl Dubost
 
 === Sally fork ===
-Open Salamander Samandarin contains code and scripts partially derived from the Sally fork source code.
-Sally fork author: 0xeb.
+Samandarin includes code and implementation work derived from or substantially
+informed by Sally by 0xeb:
+https://github.com/0xeb/sally
+In particular, portions of the Unicode viewer/filename handling and localization
+tooling were adapted from or substantially informed by Sally. Copyright and
+license notices are preserved in the relevant source files.
 
-=== fgodoy changes ===
-Open Salamander Samandarin includes work based on changes proposed by fgodoy.
+=== Tree View panel ===
+Based on changes proposed by fgodoy.
 
 === sindresorhus/github-markdown-css ===
 Copyright (c) 2014 Dave Liepmann
