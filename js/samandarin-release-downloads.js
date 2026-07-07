@@ -169,6 +169,7 @@
 
       const link = document.createElement("a");
       link.href = asset.browser_download_url;
+      link.setAttribute("aria", "button");
       link.textContent = asset.name;
 
       const details = ` ${describeAsset(asset.name)} ~ ${formatSize(asset.size)}`;

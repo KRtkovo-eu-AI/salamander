@@ -352,10 +352,10 @@ img[src*="Preview"] {
 
 /* Download / release links as restrained GitHub-like buttons */
 
-a[href$=".zip"],
+/*a[href$=".zip"],
 a[href$=".exe"],
 a[href*="releases"],
-a[href*="download"],
+a[href*="download"],*/
 a[aria="button"] {
   display: inline-block;
   margin: 4px 4px 4px 0;
@@ -370,10 +370,10 @@ a[aria="button"] {
   text-decoration: none;
 }
 
-a[href$=".zip"]:hover,
+/*a[href$=".zip"]:hover,
 a[href$=".exe"]:hover,
 a[href*="releases"]:hover,
-a[href*="download"]:hover,
+a[href*="download"]:hover,*/
 a[aria="button"]:hover  {
   background: #30363d;
   border-color: var(--sam-link-hover);
