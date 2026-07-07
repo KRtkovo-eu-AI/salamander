@@ -33,7 +33,6 @@ extern const char* SPAWN_EXE_NAME;
 #define PACKACE16INDEX 11
 #define PACKZIP32INDEX 7
 #define PACKZIP16INDEX 8
-#define PACKUNARJ32INDEX 12
 
 // ****************************************************************************
 // Types
@@ -429,8 +428,7 @@ extern const SPackModifyTable PackModifyTable[];
 #define ARC_UID_ARJ32 10
 #define ARC_UID_ACE32 11
 #define ARC_UID_ACE16 12
-#define ARC_UID_UNARJ32 13
-#define PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT 13
+#define PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT 12
 
 // class for storing data
 class CArchiverConfigData

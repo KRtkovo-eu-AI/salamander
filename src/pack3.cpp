@@ -270,7 +270,6 @@ const char* PACK_EXE_UC216 = "UC216bitExecutable";
 const char* PACK_EXE_ZIP32 = "Zip32bitExecutable";
 const char* PACK_EXE_ZIP16 = "Zip16bitExecutable";
 const char* PACK_EXE_UZP16 = "Unzip16bitExecutable";
-const char* PACK_EXE_UNARJ32 = "UnARJ32bitExecutable";
 
 // Menu in configuration
 
@@ -855,10 +854,6 @@ void CArchiverConfig::AddDefault(int SalamVersion)
             return;
         SetArchiver(index, ARC_UID_ACE16, LoadStr(IDS_EXT_ACE16), EXE_16BIT, TRUE, PACK_EXE_ACE16, NULL,
                     "ace", NULL, "ace", NULL);
-        if ((index = AddArchiver()) == -1)
-            return;
-        SetArchiver(index, ARC_UID_UNARJ32, PACK_EXE_UNARJ32, EXE_32BIT, TRUE, PACK_EXE_UNARJ32, NULL,
-                    "unarj", NULL, "unarj", NULL);
         //    case 2:  // what was added after beta1
         //    case 3:  // what was added after beta2
         //    case 4:  // beta3 but with old configuration (contains $(SpawnName))
@@ -1553,11 +1548,6 @@ const char* WINAPI PackExpUzp16ExeName(HWND msgParent, void* param)
     return PackExpExeName(PACKZIP16INDEX, TRUE);
 }
 
-const char* WINAPI PackExpUnarj32ExeName(HWND msgParent, void* param)
-{
-    return PackExpExeName(PACKUNARJ32INDEX);
-}
-
 //
 // ****************************************************************************
 // Constants
@@ -1594,7 +1584,6 @@ CSalamanderVarStrEntry PackCmdLineExpArray[] =
         {PACK_EXE_ZIP32, PackExpZip32ExeName},
         {PACK_EXE_ZIP16, PackExpZip16ExeName},
         {PACK_EXE_UZP16, PackExpUzp16ExeName},
-        {PACK_EXE_UNARJ32, PackExpUnarj32ExeName},
         // sentinel
         {NULL, NULL}};
 
