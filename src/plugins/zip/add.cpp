@@ -622,7 +622,6 @@ int CZipPack::ExportLocalHeader(CFileInfo* fileInfo, char* buffer)
     localHeader->VersionExtr = VN_NEED_TO_EXTR(fileInfo->Method);
     //localHeader->VersionExtr |= HS_FAT << 8;
     localHeader->Method = fileInfo->Method;
-    localHeader->Flag = fileInfo->Flag;
     FileTimeToLocalFileTime(&fileInfo->LastWrite, &ft);
     //Y2K
     if (FileTimeToSystemTime(&ft, &st))
@@ -661,6 +660,7 @@ int CZipPack::ExportLocalHeader(CFileInfo* fileInfo, char* buffer)
         Zip64Size = 8 + 8; // In Local Header, both Size and CompSize must be present, if any
     }
     localHeader->NameLen = ExportName(buffer + sizeof(CLocalFileHeader), fileInfo);
+    localHeader->Flag = fileInfo->Flag;
     localHeader->ExtraLen = 0;
     if (Zip64Size)
     {
@@ -740,7 +740,6 @@ int CZipPack::WriteCentralHeader(CFileInfo* fileInfo, char* buffer, BOOL first, 
     centralHeader->Version |= HS_FAT << 8;
     centralHeader->VersionExtr = VN_NEED_TO_EXTR(fileInfo->Method);
     //centralHeader->VersionExtr |= HS_FAT << 8;
-    centralHeader->Flag = fileInfo->Flag;
     centralHeader->Method = fileInfo->Method;
     FileTimeToLocalFileTime(&fileInfo->LastWrite, &ft);
     //Y2K
@@ -781,6 +780,7 @@ int CZipPack::WriteCentralHeader(CFileInfo* fileInfo, char* buffer, BOOL first, 
     }
 
     centralHeader->NameLen = ExportName(buffer + sizeof(CFileHeader), fileInfo);
+    centralHeader->Flag = fileInfo->Flag;
     centralHeader->ExtraLen = 0;
     centralHeader->CommentLen = 0;
     if (fileInfo->StartDisk < 0xFFFF)
@@ -874,10 +874,17 @@ int CZipPack::ExportName(char* name, CFileInfo* fileInfo)
         *dest++ = '/';
     *dest = 0;
 
+    int nameLen = (int)(dest - name);
+    if (IsUTF8Encoded(name, nameLen))
+    {
+        fileInfo->Flag |= GPF_UTF8;
+        return nameLen;
+    }
+
     CharToOem(name, name);
 
     //*dest = NULL;
-    return (int)(dest - name);
+    return nameLen;
 }
 
 int CZipPack::CreateTempFile()
