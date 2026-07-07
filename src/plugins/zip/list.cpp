@@ -25,6 +25,49 @@
 #include "common.h"
 #include "list.h"
 
+static wchar_t* DupZipUtf8NameComponent(CFileHeader* fileHeader, BOOL isDir)
+{
+    if ((fileHeader->Flag & GPF_UTF8) == 0 || fileHeader->NameLen == 0)
+        return NULL;
+
+    const char* rawName = (const char*)fileHeader + sizeof(CFileHeader);
+    int rawLen = fileHeader->NameLen;
+    while (rawLen > 0 && rawName[rawLen - 1] == 0)
+        rawLen--;
+    if (isDir)
+    {
+        while (rawLen > 0 && (rawName[rawLen - 1] == '/' || rawName[rawLen - 1] == '\\'))
+            rawLen--;
+    }
+    const char* component = rawName;
+    int componentLen = rawLen;
+    for (int i = rawLen - 1; i >= 0; i--)
+    {
+        if (rawName[i] == '/' || rawName[i] == '\\')
+        {
+            component = rawName + i + 1;
+            componentLen = rawLen - i - 1;
+            break;
+        }
+    }
+    if (componentLen <= 0)
+        return NULL;
+
+    int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, component, componentLen, NULL, 0);
+    if (wideLen <= 0)
+        return NULL;
+    wchar_t* wideName = (wchar_t*)malloc((wideLen + 1) * sizeof(wchar_t));
+    if (wideName == NULL)
+        return NULL;
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, component, componentLen, wideName, wideLen) != wideLen)
+    {
+        free(wideName);
+        return NULL;
+    }
+    wideName[wideLen] = 0;
+    return wideName;
+}
+
 int CZipList::ListArchive(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles)
 {
     CALL_STACK_MESSAGE1("CZipList::ListArchive( )");
@@ -145,7 +188,7 @@ START_LIST:
                 break;
             }
             memcpy(file.Name, name, sizeof(TCHAR) * (file.NameLen + 1));
-            file.NameW = NULL;
+            file.NameW = DupZipUtf8NameComponent(centralHeader, fileInfo.IsDir);
             //initialize remaining members of CFileData
             file.Size = CQuadWord().SetUI64(fileInfo.Size);
             file.Attr = fileInfo.FileAttr & FILE_ATTTRIBUTE_MASK;
