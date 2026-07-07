@@ -1472,7 +1472,7 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
                 {
                     // Convert ZIP UTF-8 names to the local encoding used by the archive panel tree.
                     // If a character cannot be represented there (for example supplementary Unicode
-                    // characters), use a deterministic ASCII byte escape instead of feeding raw UTF-8
+                    // characters), use an ASCII-safe replacement instead of feeding raw UTF-8
                     // into the legacy multibyte panel path code.
                     BOOL usedDefaultChar = FALSE;
                     int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
@@ -1489,22 +1489,14 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
                     }
                     else
                     {
-                        static const char hex[] = "0123456789ABCDEF";
-                        sourLocEnc = (char*)malloc(len * 3 + 1);
+                        sourLocEnc = (char*)malloc(len + 1);
                         if (sourLocEnc)
                         {
                             char* encoded = sourLocEnc;
                             for (size_t i = 0; i < len && sour[i] != 0; i++)
                             {
                                 unsigned char ch = (unsigned char)sour[i];
-                                if (ch < 0x80)
-                                    *encoded++ = (char)ch;
-                                else
-                                {
-                                    *encoded++ = '~';
-                                    *encoded++ = hex[ch >> 4];
-                                    *encoded++ = hex[ch & 0x0F];
-                                }
+                                *encoded++ = ch < 0x80 ? (char)ch : '_';
                             }
                             *encoded = 0;
                             len = encoded - sourLocEnc;
