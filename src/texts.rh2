@@ -661,6 +661,7 @@
 #define IDS_DRIVEBAR2              10388
 #define IDS_GRIPSINTOOLBAR         10389
 #define IDS_HDR_SMARTMODE          10390
+#define IDS_TABBEDPANELS           10391
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FREESPACE
 
