@@ -1186,7 +1186,7 @@ internal static class ViewerHost
 
             if (FileViewHelper.IsMarkdown(extension))
             {
-                string markdown = File.ReadAllText(path);
+                string markdown = File.ReadAllText(LongPathHelper.Normalize(path));
                 string html = MarkdownRenderer.BuildHtml(markdown, path, caption);
                 return new DocumentView(DocumentViewKind.Html, caption, null, html);
             }
@@ -1415,4 +1415,32 @@ internal static class ViewerHost
             }
         }
     }
+
+    internal static class LongPathHelper
+    {
+        public static string Normalize(string path)
+        {
+            if (string.IsNullOrEmpty(path) || path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                return path;
+            }
+
+            if (path.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                return @"\\?\UNC\" + path.Substring(2);
+            }
+
+            if (Path.IsPathRooted(path))
+            {
+                string fullPath = Path.GetFullPath(path);
+                if (fullPath.Length >= 3 && fullPath[1] == ':' && (fullPath[2] == '\\' || fullPath[2] == '/'))
+                {
+                    return @"\\?\" + fullPath;
+                }
+            }
+
+            return path;
+        }
+    }
+
 }

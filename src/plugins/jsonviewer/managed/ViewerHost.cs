@@ -660,7 +660,7 @@ internal static class ViewerHost
 
             try
             {
-                string json = File.ReadAllText(session.Payload.FilePath);
+                string json = File.ReadAllText(LongPathHelper.Normalize(session.Payload.FilePath));
                 _viewer.ShowTab(ViewerTabs.Viewer);
                 _viewer.refreshFromString(json);
                 ThemeHelper.ApplyTheme(_viewer);
@@ -838,4 +838,32 @@ internal static class ViewerHost
             // null handlers, so simply subscribing prevents it from throwing.
         }
     }
+
+    internal static class LongPathHelper
+    {
+        public static string Normalize(string path)
+        {
+            if (string.IsNullOrEmpty(path) || path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                return path;
+            }
+
+            if (path.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                return @"\\?\UNC\" + path.Substring(2);
+            }
+
+            if (Path.IsPathRooted(path))
+            {
+                string fullPath = Path.GetFullPath(path);
+                if (fullPath.Length >= 3 && fullPath[1] == ':' && (fullPath[2] == '\\' || fullPath[2] == '/'))
+                {
+                    return @"\\?\" + fullPath;
+                }
+            }
+
+            return path;
+        }
+    }
+
 }

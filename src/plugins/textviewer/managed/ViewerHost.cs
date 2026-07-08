@@ -620,7 +620,7 @@ internal static class ViewerHost
                 return;
             }
 
-            string text = File.ReadAllText(path);
+            string text = File.ReadAllText(LongPathHelper.Normalize(path));
             string extension = LanguageGuesser.FromFileName(path);
             string caption = Path.GetFileName(path);
 
@@ -1545,4 +1545,32 @@ internal static class ViewerHost
             }
         }
     }
+
+    internal static class LongPathHelper
+    {
+        public static string Normalize(string path)
+        {
+            if (string.IsNullOrEmpty(path) || path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                return path;
+            }
+
+            if (path.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                return @"\\?\UNC\" + path.Substring(2);
+            }
+
+            if (Path.IsPathRooted(path))
+            {
+                string fullPath = Path.GetFullPath(path);
+                if (fullPath.Length >= 3 && fullPath[1] == ':' && (fullPath[2] == '\\' || fullPath[2] == '/'))
+                {
+                    return @"\\?\" + fullPath;
+                }
+            }
+
+            return path;
+        }
+    }
+
 }
