@@ -1489,14 +1489,22 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
                     }
                     else
                     {
-                        sourLocEnc = (char*)malloc(len + 1);
+                        sourLocEnc = (char*)malloc(len * 3 + 1);
                         if (sourLocEnc)
                         {
                             char* encoded = sourLocEnc;
+                            static const char hex[] = "0123456789ABCDEF";
                             for (size_t i = 0; i < len && sour[i] != 0; i++)
                             {
                                 unsigned char ch = (unsigned char)sour[i];
-                                *encoded++ = ch < 0x80 ? (char)ch : '_';
+                                if (ch < 0x80)
+                                    *encoded++ = (char)ch;
+                                else
+                                {
+                                    *encoded++ = '%';
+                                    *encoded++ = hex[ch >> 4];
+                                    *encoded++ = hex[ch & 0x0f];
+                                }
                             }
                             *encoded = 0;
                             len = encoded - sourLocEnc;
