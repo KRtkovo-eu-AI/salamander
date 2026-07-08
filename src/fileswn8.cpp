@@ -68,7 +68,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
     // those spaces or dots)
     if (!PathContainsValidComponents(path, TRUE))
     {
-        char textBuf[2 * MAX_PATH + 200];
+        char textBuf[2 * SAL_MAX_PATH + 200];
         sprintf(textBuf, LoadStr(IDS_RECYCLEBINERROR), path);
         SalMessageBox(MainWindow->HWindow, textBuf, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
         return FALSE; // quick dirty bloody hack - Recycle Bin simply cannot handle names ending with a space or dot (it deletes a different name created by trimming those characters, which we definitely don't want)
@@ -83,7 +83,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         }
         if (oneFile->Name[oneFile->NameLen - 1] <= ' ' || oneFile->Name[oneFile->NameLen - 1] == '.')
         {
-            char textBuf[2 * MAX_PATH + 200];
+            char textBuf[2 * SAL_MAX_PATH + 200];
             sprintf(textBuf, LoadStr(IDS_RECYCLEBINERROR), oneFile->Name);
             SalMessageBox(MainWindow->HWindow, textBuf, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
             return FALSE; // quick dirty bloody hack - Recycle Bin simply cannot handle names ending with a space or dot (it deletes a different name created by trimming those characters, which we definitely do not want)
@@ -491,7 +491,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 int pathType;
                 BOOL pathIsDir;
                 char* secondPart;
-                char textBuf[2 * MAX_PATH + 200];
+                char textBuf[2 * SAL_MAX_PATH + 200];
                 if (ParsePath(path, pathType, pathIsDir, secondPart,
                               type == atCopy ? LoadStr(IDS_ERRORCOPY) : LoadStr(IDS_ERRORMOVE),
                               count <= 1 ? nextFocus : NULL, NULL, SAL_MAX_PATH))
@@ -499,14 +499,6 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     // use 'if' instead of a 'switch' to ensure that 'break' and 'continue' work correctly
                     if (pathType == PATH_TYPE_WINDOWS) // Windows path (drive + UNC)
                     {
-                        if (strlen(path) >= MAX_PATH)
-                        {
-                            SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH),
-                                          (type == atCopy) ? LoadStr(IDS_ERRORCOPY) : LoadStr(IDS_ERRORMOVE),
-                                          MB_OK | MB_ICONEXCLAMATION);
-                            continue;
-                        }
-
                         CFileData* dir = (count == 0) ? f : ((indexes[0] < Dirs->Count) ? &Dirs->At(indexes[0]) : &Files->At(indexes[0] - Dirs->Count));
 
                         if (SalSplitWindowsPath(HWindow, LoadStr(type == atCopy ? IDS_COPY : IDS_MOVE),
@@ -527,7 +519,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     {
                         if (pathType == PATH_TYPE_ARCHIVE) // path into an archive
                         {
-                            if (strlen(secondPart) >= MAX_PATH) // isn't the path inside the archive too long?
+                            if (strlen(secondPart) >= SAL_MAX_PATH) // isn't the path inside the archive too long?
                             {
                                 SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH),
                                               (type == atCopy) ? LoadStr(IDS_ERRORCOPY) : LoadStr(IDS_ERRORMOVE),
@@ -696,7 +688,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         {
                             if (pathType == PATH_TYPE_FS) // file-system path
                             {
-                                if (strlen(secondPart) >= MAX_PATH) // is the user's part of the FS path too long?
+                                if (strlen(secondPart) >= SAL_MAX_PATH) // is the user's part of the FS path too long?
                                 {
                                     SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH),
                                                   (type == atCopy) ? LoadStr(IDS_ERRORCOPY) : LoadStr(IDS_ERRORMOVE),
@@ -1470,8 +1462,8 @@ void CFilesWindow::ChangePathToOtherPanelPath()
         {
             if (panel->Is(ptPluginFS))
             {
-                char path[2 * MAX_PATH];
-                lstrcpyn(path, panel->GetPluginFS()->GetPluginFSName(), MAX_PATH - 1);
+                char path[2 * SAL_MAX_PATH];
+                lstrcpyn(path, panel->GetPluginFS()->GetPluginFSName(), SAL_MAX_PATH - 1);
                 strcat(path, ":");
                 if (panel->GetPluginFS()->GetCurrentPath(path + strlen(path)))
                     ChangeDir(path, -1, NULL, 3 /*change-dir*/, NULL, FALSE);

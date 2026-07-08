@@ -309,7 +309,7 @@ class CFilesWindow;
 class CFileTimeStamps
 {
 protected:
-    char ZIPFile[MAX_PATH];                   // name of the archive that stores all monitored files
+    char ZIPFile[SAL_MAX_PATH];               // name of the archive that stores all monitored files
     TIndirectArray<CFileTimeStampsItem> List; // list of files with data needed for their update
     CFilesWindow* Panel;                      // panel we work for
 
@@ -502,8 +502,8 @@ private:
 
     // when we are inside an archive:
     CSalamanderDirectory* ArchiveDir; // content of the open archive; basic data - array of CFileData
-    char ZIPArchive[MAX_PATH];        // path to the open archive
-    char ZIPPath[MAX_PATH];           // path inside the open archive
+    char ZIPArchive[SAL_MAX_PATH];    // path to the open archive; can be a long Win32 path
+    char ZIPPath[SAL_MAX_PATH];       // path inside the open archive
     FILETIME ZIPArchiveDate;          // archive date (used for the ".." date and during refresh)
     CQuadWord ZIPArchiveSize;         // archive size - used to detect archive changes
 

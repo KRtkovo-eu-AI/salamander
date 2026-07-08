@@ -872,22 +872,22 @@ BOOL CPackerConfig::Save(int index, HKEY hKey)
 
 BOOL CPackerConfig::Load(HKEY hKey)
 {
-    int max = MAX_PATH + 2;
+    int max = SAL_MAX_PATH;
 
-    char title[MAX_PATH + 2];
+    char title[SAL_MAX_PATH];
     title[0] = 0;
-    char ext[MAX_PATH + 2];
+    char ext[SAL_MAX_PATH];
     DWORD type;
     DWORD suplong = FALSE;
     DWORD needANSI = FALSE;
-    char execcopy[MAX_PATH + 2];
+    char execcopy[SAL_MAX_PATH];
     execcopy[0] = 0;
-    char argscopy[MAX_PATH + 2];
+    char argscopy[SAL_MAX_PATH];
     argscopy[0] = 0;
     DWORD supmove = FALSE;
-    char execmove[MAX_PATH + 2];
+    char execmove[SAL_MAX_PATH];
     execmove[0] = 0;
-    char argsmove[MAX_PATH + 2];
+    char argsmove[SAL_MAX_PATH];
     argsmove[0] = 0;
 
     BOOL ret = TRUE;
@@ -930,8 +930,8 @@ BOOL CPackerConfig::Load(HKEY hKey)
             return FALSE;
         if (Configuration.ConfigVersion < 44) // convert extension to lowercase
         {
-            char extAux[MAX_PATH + 2];
-            lstrcpyn(extAux, ext, MAX_PATH + 2);
+            char extAux[SAL_MAX_PATH];
+            lstrcpyn(extAux, ext, SAL_MAX_PATH);
             StrICpy(ext, extAux);
         }
         ret &= SetPacker(index, (int)type, title, ext, Configuration.ConfigVersion < 6,
@@ -1493,16 +1493,16 @@ BOOL CUnpackerConfig::Save(int index, HKEY hKey)
 
 BOOL CUnpackerConfig::Load(HKEY hKey)
 {
-    int max = MAX_PATH + 2;
+    int max = SAL_MAX_PATH;
 
-    char title[MAX_PATH + 2];
-    char ext[MAX_PATH + 2];
+    char title[SAL_MAX_PATH];
+    char ext[SAL_MAX_PATH];
     DWORD type;
     DWORD suplong = FALSE;
     DWORD needANSI = FALSE;
-    char execcopy[MAX_PATH + 2];
+    char execcopy[SAL_MAX_PATH];
     execcopy[0] = 0;
-    char argscopy[MAX_PATH + 2];
+    char argscopy[SAL_MAX_PATH];
     argscopy[0] = 0;
 
     BOOL ret = TRUE;
@@ -1536,8 +1536,8 @@ BOOL CUnpackerConfig::Load(HKEY hKey)
             return FALSE;
         if (Configuration.ConfigVersion < 44) // convert extensions to lowercase
         {
-            char extAux[MAX_PATH + 2];
-            lstrcpyn(extAux, ext, MAX_PATH + 2);
+            char extAux[SAL_MAX_PATH];
+            lstrcpyn(extAux, ext, SAL_MAX_PATH);
             StrICpy(ext, extAux);
         }
         ret &= SetUnpacker(index, (int)type, title, ext, Configuration.ConfigVersion < 6,

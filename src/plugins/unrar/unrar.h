@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -35,6 +35,10 @@
 #define AF_FIRST_VOLUME 0x0100      // First volume (set only by RAR 3.0 and later)
 
 #define MAX_PASSWORD 256
+
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
 
 #ifndef QWORD
 #define QWORD unsigned __int64
@@ -131,7 +135,7 @@ class CPluginInterfaceForArchiver : public CPluginInterfaceForArchiverAbstract
 {
 protected:
     CSalamanderForOperationsAbstract* Salamander;
-    char ArcFileName[MAX_PATH];
+    char ArcFileName[SAL_MAX_PATH];
     HANDLE ArcHandle;
     unsigned ArcFlags;
     BOOL List;
@@ -140,7 +144,7 @@ protected:
     CQuadWord ProgressTotal;
     const char* ArcRoot;
     DWORD RootLen;
-    char TargetName[MAX_PATH];
+    char TargetName[SAL_MAX_PATH];
     HANDLE TargetFile;
     BOOL Success;
     //char Password[MAX_PASSWORD];

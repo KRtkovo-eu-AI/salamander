@@ -929,6 +929,7 @@ const char* WINDOW_SPLIT_REG = "Split Position";
 const char* WINDOW_BEFOREZOOMSPLIT_REG = "Before Zoom Split Position";
 const char* WINDOW_SHOW_REG = "Show";
 const char* FINDDIALOG_NAMEWIDTH_REG = "Name Width";
+const char* SALAMANDER_AUTOCONFIGDRIVES_REG = "Autoconfig Search Paths";
 
 const char* SALAMANDER_LEFTP_REG = "Left Panel";
 const char* SALAMANDER_RIGHTP_REG = "Right Panel";
@@ -2756,6 +2757,9 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                         else
                             break;
                     }
+                    if (PackGetAutoconfigDrives() != NULL)
+                        SetValue(actSubKey, SALAMANDER_AUTOCONFIGDRIVES_REG, REG_MULTI_SZ,
+                                 PackGetAutoconfigDrives(), PackGetAutoconfigDrivesSize());
                     CloseKey(actSubKey);
                 }
 
@@ -4347,6 +4351,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 // they are only updated. If the registry contains an incomplete or unknown entry,
                 // it is ignored. Only when the Title matches one of the default values are its paths used.
                 // ArchiverConfig.DeleteAllArchivers();
+                ArchiverConfig.EnsureDefaultValues();
                 HKEY itemKey;
                 char buf[30];
                 int i = 1;
@@ -4357,10 +4362,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     CloseKey(itemKey);
                     itoa(++i, buf, 10);
                 }
+                char autoconfigDrives[SAL_MAX_PATH];
+                if (GetValue(actSubKey, SALAMANDER_AUTOCONFIGDRIVES_REG, REG_MULTI_SZ,
+                             autoconfigDrives, sizeof(autoconfigDrives)))
+                    PackSetAutoconfigDrives(autoconfigDrives);
                 CloseKey(actSubKey);
                 // add new items introduced since the previous version
                 // ArchiverConfig.AddDefault(Configuration.ConfigVersion); // j.r. no longer needed
             }
+            ArchiverConfig.EnsureDefaultValues();
             //---  Archive Association
             if (OpenKey(actKey, SALAMANDER_ARCHIVEASSOC, actSubKey))
             {

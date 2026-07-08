@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -33,7 +33,7 @@
 
 // Used in CZipUnpack::ExtractFiles & CZipUnpack::ExtractSingleFile when testing archive. For simplicity reasons we assume this is enough ;-)
 
-#define ZIP_MAX_PATH 1024
+#define ZIP_MAX_PATH SAL_MAX_PATH
 
 CZipUnpack::CZipUnpack(const char* zipName, const char* zipRoot, CSalamanderForOperationsAbstract* salamander,
                        TIndirectArray2<char>* archiveVolumes) : CZipCommon(zipName, zipRoot, salamander, archiveVolumes), Passwords(8)
@@ -123,7 +123,7 @@ int CZipUnpack::UnpackOneFile(const char* nameInZip, const CFileData* fileData, 
 {
     CALL_STACK_MESSAGE3("CZipUnpack::UnpackOneFile(%s, , %s)", nameInZip, targetPath);
     CFileInfo fileInfo;
-    TCHAR targetDir[MAX_PATH + 1];
+    TCHAR targetDir[SAL_MAX_PATH];
     int targetDirLen;
     char* sour;
     CZIPFileData* zipFileData = (CZIPFileData*)fileData->PluginData;
@@ -1483,12 +1483,9 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
                         if (!Test)
                         {
                             char attr[101];
-                            char buf[MAX_PATH];
-                            int len = lstrlen(ZipName);
-
-                            lstrcpy(buf, ZipName);
-                            *(buf + len++) = '\\';
-                            lstrcpyn(buf + len, fileInfo->Name, MAX_PATH - len);
+                            char buf[SAL_MAX_PATH];
+                            lstrcpyn(buf, ZipName, SAL_MAX_PATH);
+                            SalamanderGeneral->SalPathAppend(buf, fileInfo->Name, SAL_MAX_PATH);
                             GetInfo(attr, &fileInfo->LastWrite, fileInfo->Size);
                             result = SafeCreateCFile(&OutputFile, targetDir, buf, attr, GENERIC_WRITE,
                                                      FILE_SHARE_READ, fileInfo->FileAttr & ~FILE_ATTRIBUTE_READONLY | FILE_FLAG_SEQUENTIAL_SCAN,

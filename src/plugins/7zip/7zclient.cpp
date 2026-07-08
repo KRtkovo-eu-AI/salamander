@@ -87,8 +87,8 @@ C7zClient::~C7zClient()
 
 BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object)
 {
-    TCHAR dllPath[MAX_PATH];
-    if (!GetModuleFileName(DLLInstance, dllPath, MAX_PATH))
+    TCHAR dllPath[SAL_MAX_PATH];
+    if (!GetModuleFileName(DLLInstance, dllPath, SAL_MAX_PATH))
         return FALSE;
     lstrcpy(_tcsrchr(dllPath, '\\') + 1, _T("7za.dll"));
 

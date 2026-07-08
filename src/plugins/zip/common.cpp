@@ -1,10 +1,11 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
 #include <crtdbg.h>
 #include <ostream>
 #include <stdio.h>
+#include <string>
 #include <commctrl.h>
 #include <tchar.h>
 
@@ -25,6 +26,38 @@
 #include "add_del.h"
 #include "sfxmake/sfxmake.h"
 #include "inflate.h"
+
+static std::wstring ZipPathAddExtendedPrefix(const std::wstring& path)
+{
+    if (path.empty() || path.compare(0, 4, L"\\\\?\\") == 0)
+        return path;
+    if (path.compare(0, 2, L"\\\\") == 0)
+        return std::wstring(L"\\\\?\\UNC\\") + path.substr(2);
+    return std::wstring(L"\\\\?\\") + path;
+}
+
+static std::wstring ZipPathToWide(const char* path)
+{
+    if (path == NULL || *path == 0)
+        return std::wstring();
+
+    UINT codePage = CP_UTF8;
+    int len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    if (len <= 0)
+    {
+        codePage = CP_ACP;
+        len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    }
+    if (len <= 0)
+        return std::wstring();
+
+    std::wstring widePath(len, L'\0');
+    MultiByteToWideChar(codePage, 0, path, -1, &widePath[0], len);
+    widePath.resize(len - 1);
+    if (widePath.length() >= MAX_PATH)
+        widePath = ZipPathAddExtendedPrefix(widePath);
+    return widePath;
+}
 
 #ifndef SSZIP
 #include "zip.rh"
@@ -192,7 +225,7 @@ bool IsUTF8Encoded(const char* s, int len)
                 }
                 else if ((s[1] & 0xc0) != 0x80)
                 {
-                    return false; // not in UCS2
+                    return false; // not UTF-8
                 }
                 else
                 {
@@ -213,7 +246,7 @@ bool IsUTF8Encoded(const char* s, int len)
                 }
                 else if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80)
                 {
-                    return false; // not in UCS2
+                    return false; // not UTF-8
                 }
                 else
                 {
@@ -222,9 +255,30 @@ bool IsUTF8Encoded(const char* s, int len)
                     len -= 2;
                 }
             }
+            else if ((*s & 0xf8) == 0xf0)
+            {
+                if (!s[1] || !s[2] || !s[3])
+                {
+                    if (len > 2)
+                    { // incomplete 4-byte sequence
+                        return false;
+                    }
+                    break;
+                }
+                else if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[3] & 0xc0) != 0x80)
+                {
+                    return false; // not UTF-8
+                }
+                else
+                {
+                    nUTF8++;
+                    s += 4;
+                    len -= 3;
+                }
+            }
             else
             {
-                return false; // not in UCS2
+                return false; // not UTF-8
             }
         }
         else
@@ -249,7 +303,7 @@ CZipCommon::CZipCommon(const char* zipName, const char* zipRoot,
     CALL_STACK_MESSAGE3("CZipCommon::CZipCommon(%s, %s, )", zipName, zipRoot);
     Config = ::Config;
     ZipFile = 0;
-    lstrcpy(ZipName, zipName);
+    lstrcpyn(ZipName, zipName, SAL_MAX_PATH);
     ZipRoot = zipRoot;
     RootLen = lstrlen(ZipRoot);
     ZeroZip = false;
@@ -262,8 +316,8 @@ CZipCommon::CZipCommon(const char* zipName, const char* zipRoot,
     Unix = FALSE;
     ArchiveVolumes = archiveVolumes;
 
-    DWORD ret = GetCurrentDirectory(MAX_PATH + 1, OriginalCurrentDir);
-    if (!ret || ret > MAX_PATH + 1)
+    DWORD ret = GetCurrentDirectory(SAL_MAX_PATH, OriginalCurrentDir);
+    if (!ret || ret >= SAL_MAX_PATH)
         *OriginalCurrentDir = 0;
 }
 
@@ -596,7 +650,9 @@ int CZipCommon::CreateCFile(CFile** file, LPCTSTR fileName, unsigned int access,
         for (;;)
         {
             flagsNoRetry = 0;
-            (*file)->File = CreateFile(fileName, access, share, NULL, creation, attributes, NULL);
+            std::wstring wideFileName = ZipPathToWide(fileName);
+            (*file)->File = wideFileName.empty() ? CreateFile(fileName, access, share, NULL, creation, attributes, NULL)
+                                                 : CreateFileW(wideFileName.c_str(), access, share, NULL, creation, attributes, NULL);
             if ((*file)->File != INVALID_HANDLE_VALUE)
             {
                 (*file)->FilePointer = 0;
@@ -943,7 +999,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                         CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE,
                                       lastFile, -1, ZipName, -1) != CSTR_EQUAL)
                     {
-                        lstrcpy(ZipName, lastFile);
+                        lstrcpyn(ZipName, lastFile, SAL_MAX_PATH);
                     }
                     else
                         Config.AutoExpandMV = false;
@@ -1414,14 +1470,44 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
 
                 if (wlen > 0)
                 {
-                    // Convert back to local encoding, convert composite chars to precomposed (e.g. accents from Mac)
-                    int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wsour, wlen, NULL, 0, NULL, NULL);
-                    if (lenLocEnc > 0)
+                    // Convert ZIP UTF-8 names to the local encoding used by the archive panel tree.
+                    // If a character cannot be represented there (for example supplementary Unicode
+                    // characters), use an ASCII-safe replacement instead of feeding raw UTF-8
+                    // into the legacy multibyte panel path code.
+                    BOOL usedDefaultChar = FALSE;
+                    int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
+                                                        wsour, wlen, NULL, 0, NULL, &usedDefaultChar);
+                    if (lenLocEnc > 0 && !usedDefaultChar)
                     {
                         sourLocEnc = (char*)malloc(lenLocEnc);
                         if (sourLocEnc)
                         {
-                            len = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
+                            len = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
+                                                      wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
+                            sour = sourLocEnc;
+                        }
+                    }
+                    else
+                    {
+                        sourLocEnc = (char*)malloc(len * 3 + 1);
+                        if (sourLocEnc)
+                        {
+                            char* encoded = sourLocEnc;
+                            static const char hex[] = "0123456789ABCDEF";
+                            for (size_t i = 0; i < len && sour[i] != 0; i++)
+                            {
+                                unsigned char ch = (unsigned char)sour[i];
+                                if (ch < 0x80)
+                                    *encoded++ = (char)ch;
+                                else
+                                {
+                                    *encoded++ = '%';
+                                    *encoded++ = hex[ch >> 4];
+                                    *encoded++ = hex[ch & 0x0f];
+                                }
+                            }
+                            *encoded = 0;
+                            len = encoded - sourLocEnc;
                             sour = sourLocEnc;
                         }
                     }

@@ -155,8 +155,13 @@ class CPackACDialog;
 class CPackACListView : public CWindow
 {
 protected:
+    enum
+    {
+        DISPINFO_TEXT_MAX = 4 * MAX_PATH
+    };
     const CPackACDialog* ACDialog;
     APackACPackersTable* PackersTable;
+    WCHAR DispInfoTextW[4][DISPINFO_TEXT_MAX];
 
 public:
     CPackACListView(const CPackACDialog* acDialog) : CWindow()
@@ -183,6 +188,7 @@ public:
     int GetCount();
     int GetPackersCount() { return PackersTable->Count; }
     CPackACPacker* GetPacker(int item, int* index);
+    WCHAR* GetDispInfoTextW(const char* text, int column);
     CPackACPacker* GetPacker(int index)
     {
         return PackersTable != NULL ? PackersTable->At(index) : NULL;
@@ -428,6 +434,7 @@ extern const SPackModifyTable PackModifyTable[];
 #define ARC_UID_ARJ32 10
 #define ARC_UID_ACE32 11
 #define ARC_UID_ACE16 12
+#define PACK_DEFAULT_EXTERNAL_ARCHIVERS_COUNT 12
 
 // class for storing data
 class CArchiverConfigData
@@ -500,6 +507,7 @@ protected:
 public:
     CArchiverConfig(/*BOOL disableDefaultValues*/);
     void InitializeDefaultValues(); // replaces the original constructor call (j.r.)
+    void EnsureDefaultValues();
     BOOL Load(CArchiverConfig& src);
 
     void DeleteAllArchivers() { Archivers.DestroyMembers(); }
@@ -753,6 +761,9 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
 
 // automatic configuration of packers
 void PackAutoconfig(HWND parent);
+const char* PackGetAutoconfigDrives();
+DWORD PackGetAutoconfigDrivesSize();
+void PackSetAutoconfigDrives(const char* drivesList);
 
 // runs the external program cmdLine and interprets the return code according to errorTable
 BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorTable* const errorTable);

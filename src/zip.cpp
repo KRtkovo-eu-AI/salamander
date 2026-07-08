@@ -1042,19 +1042,21 @@ BOOL CSalamanderGeneral::GetPanelPath(int panel, char* buffer, int bufferSize, i
     CFilesWindow* p = GetPanel(panel);
     if (p != NULL)
     {
-        char buf[2 * MAX_PATH];
+        char buf[SAL_MAX_PATH];
         int offset = -1; // offset into the buffer for computing archiveOrFS (-1 means NULL)
         if (p->Is(ptZIPArchive))
         {
             if (type != NULL)
                 *type = PATH_TYPE_ARCHIVE;
-            offset = (int)strlen(p->GetZIPArchive());
-            memcpy(buf, p->GetZIPArchive(), offset + 1);
+            size_t archiveLen = strlen(p->GetZIPArchive());
+            if (archiveLen >= SAL_MAX_PATH)
+                return FALSE;
+            lstrcpyn(buf, p->GetZIPArchive(), SAL_MAX_PATH);
+            offset = (int)archiveLen;
             if (p->GetZIPPath()[0] != 0)
             {
-                if (p->GetZIPPath()[0] != '\\')
-                    strcpy(buf + offset, "\\");
-                strcat(buf + offset, p->GetZIPPath());
+                if (!SalPathAppend(buf, p->GetZIPPath(), SAL_MAX_PATH))
+                    return FALSE;
             }
         }
         else
@@ -5790,17 +5792,26 @@ BOOL CSalamanderDirectory::FindDir(const char* path, const char*& s, int& i, con
     }
     if (i == Dirs.Count) // we must create it
     {
+        ptrdiff_t componentLen = s - path;
+        ptrdiff_t archivePathLen = s - archivePath;
+        if (componentLen <= 0 || componentLen > 511 ||
+            archivePathLen <= 0 || archivePathLen >= SAL_MAX_PATH)
+        {
+            TRACE_E("CSalamanderDirectory::FindDir(): too long archive directory component/path!");
+            return FALSE;
+        }
+
         CFileData data = {0};
         //--- name
-        data.Name = (char*)malloc((s - path) + 1); // allocation
+        data.Name = (char*)malloc(componentLen + 1); // allocation
         if (data.Name == NULL)
         {
             TRACE_E(LOW_MEMORY);
             return FALSE;
         }
-        memcpy(data.Name, path, s - path); // copy of the text
-        data.Name[s - path] = 0;
-        data.NameLen = s - path;
+        memcpy(data.Name, path, componentLen); // copy of the text
+        data.Name[componentLen] = 0;
+        data.NameLen = (unsigned)componentLen;
         //--- extension
         if (!Configuration.SortDirsByExt)
             data.Ext = data.Name + data.NameLen; // directories have no extensions
@@ -5837,9 +5848,9 @@ BOOL CSalamanderDirectory::FindDir(const char* path, const char*& s, int& i, con
 
         if (pluginData != NULL) // let the plug-in add its specific data
         {
-            char arcPath[MAX_PATH]; // name of the added directory inside the archive
-            memcpy(arcPath, archivePath, s - archivePath);
-            arcPath[s - archivePath] = 0;
+            char arcPath[SAL_MAX_PATH]; // name of the added directory inside the archive
+            memcpy(arcPath, archivePath, archivePathLen);
+            arcPath[archivePathLen] = 0;
             CPluginDataInterfaceEncapsulation plugin(pluginData, STR_NONE, STR_NONE, NULL, 0);
             if (!plugin.GetFileDataForNewDir(arcPath, data)) // cannot add the plug-in data
             {
@@ -5903,7 +5914,7 @@ BOOL CSalamanderDirectory::AddFile(const char* path, CFileData& file, CPluginDat
     CALL_STACK_MESSAGE_NONE // time-critical method
 
         int pathLen = 0;
-    if (path != NULL && ((pathLen = (int)strlen(path)) > MAX_PATH - 5 || file.NameLen > MAX_PATH - 5))
+    if (path != NULL && ((pathLen = (int)strlen(path)) > SAL_MAX_PATH - 5 || file.NameLen > 511))
     {
         TRACE_E("Too long path or file name!");
         return FALSE;
@@ -6001,7 +6012,7 @@ BOOL CSalamanderDirectory::AddDir(const char* path, CFileData& dir, CPluginDataI
 {
     CALL_STACK_MESSAGE_NONE // time-critical method
 
-        if (path != NULL && (strlen(path) > MAX_PATH - 5 || dir.NameLen > MAX_PATH - 5))
+        if (path != NULL && (strlen(path) > SAL_MAX_PATH - 5 || dir.NameLen > 511))
     {
         TRACE_E("Too long path or file name!");
         return FALSE;
@@ -6202,7 +6213,10 @@ CSalamanderDirectory::AddDirInt(const char* path, CFileData& dir,
 
             if (Dirs[i].Name != NULL)
                 free(Dirs[i].Name);
+            if (Dirs[i].NameW != NULL)
+                free(Dirs[i].NameW);
             Dirs[i].Name = dir.Name; // rather take the new name (for possible data after '\0' in the string)
+            Dirs[i].NameW = dir.NameW;
             Dirs[i].Ext = dir.Ext;
             Dirs[i].Size = dir.Size;
             Dirs[i].Attr = dir.Attr;

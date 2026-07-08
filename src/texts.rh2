@@ -661,6 +661,7 @@
 #define IDS_DRIVEBAR2              10388
 #define IDS_GRIPSINTOOLBAR         10389
 #define IDS_HDR_SMARTMODE          10390
+#define IDS_TABBEDPANELS           10391
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FREESPACE
 
@@ -2235,6 +2236,7 @@
 #define IDS_MENU_OPT_CST_PLG         13166
 #define IDS_MENU_OPT_IMPORTCONFIG    13167
 #define IDS_MENU_OPT_VSB_TREE        13168
+#define IDS_MENU_OPT_VSB_TABS        13172
 
 #define IDS_MENU_RIGHT               13170
 #define IDS_MENU_RIGHT_CHANGEDRIVE   13171

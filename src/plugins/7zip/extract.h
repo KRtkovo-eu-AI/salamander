@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -23,6 +23,10 @@
 
 #include "structs.h"
 #include "FStreams.h"
+
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
 
 struct CArchiveItemInfo;
 
@@ -62,7 +66,7 @@ private:
     ItemsToExtractMap& ItemsToExtract;
 
     const char* TargetDir;
-    char TargetFileName[MAX_PATH];
+    char TargetFileName[SAL_MAX_PATH];
 
     bool ExtractMode;
     struct CProcessedFileInfo

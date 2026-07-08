@@ -15,6 +15,10 @@
 #include "fileswnd.h"
 #include "edtlbwnd.h"
 
+#ifndef SCS_64BIT_BINARY
+#define SCS_64BIT_BINARY 6
+#endif
+
 // item type in the packer extensions table
 struct SPackAssocItem
 {
@@ -43,6 +47,51 @@ SPackAssocItem PackACExtensions[] = {
 // ****************************************************************************
 // CPackACDialog
 //
+
+
+static char* PackACSavedDrivesList = NULL;
+
+static DWORD GetMultiStringSize(const char* multiString)
+{
+    if (multiString == NULL)
+        return 0;
+
+    const char* iterator = multiString;
+    while (*iterator != '\0')
+    {
+        iterator += strlen(iterator) + 1;
+    }
+    return (DWORD)(iterator - multiString + 1);
+}
+
+const char* PackGetAutoconfigDrives()
+{
+    return PackACSavedDrivesList;
+}
+
+DWORD PackGetAutoconfigDrivesSize()
+{
+    return GetMultiStringSize(PackACSavedDrivesList);
+}
+
+void PackSetAutoconfigDrives(const char* drivesList)
+{
+    if (PackACSavedDrivesList != NULL)
+    {
+        HANDLES(GlobalFree((HGLOBAL)PackACSavedDrivesList));
+        PackACSavedDrivesList = NULL;
+    }
+
+    DWORD size = GetMultiStringSize(drivesList);
+    if (size == 0)
+        return;
+
+    PackACSavedDrivesList = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
+    if (PackACSavedDrivesList != NULL)
+        memcpy(PackACSavedDrivesList, drivesList, size);
+    else
+        TRACE_E(LOW_MEMORY);
+}
 
 // dialog procedure of the main dialog
 INT_PTR
@@ -175,17 +224,42 @@ CPackACDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             switch (((LPNMHDR)lParam)->code)
             {
-            case LVN_GETDISPINFO:
+            case LVN_GETDISPINFOA:
             {
                 // show the item and its state (we hold the data, not the listview)
-                LV_DISPINFO* info = (LV_DISPINFO*)lParam;
+                LV_DISPINFOA* info = (LV_DISPINFOA*)lParam;
                 int index;
                 CPackACPacker* packer = ListView->GetPacker(info->item.iItem, &index);
                 // if text was requested, provide it
-                if (info->item.mask & LVIF_TEXT)
+                if ((info->item.mask & LVIF_TEXT) && packer != NULL)
                     info->item.pszText = (char*)packer->GetText(index, info->item.iSubItem);
                 // if the checkbox icon was requested, provide it too
-                if ((info->item.mask & LVIF_STATE) &&
+                if (packer != NULL &&
+                    (info->item.mask & LVIF_STATE) &&
+                    (info->item.stateMask & LVIS_STATEIMAGEMASK))
+                {
+                    info->item.state &= ~LVIS_STATEIMAGEMASK;
+                    info->item.state |= packer->GetSelectState(index) << 12;
+                }
+                break;
+            }
+
+            case LVN_GETDISPINFOW:
+            {
+                // The main window and some common controls are Unicode now.  A Unicode
+                // list-view asks for WCHAR text in LVN_GETDISPINFOW; returning our
+                // historical char* strings through the generic LV_DISPINFO alias makes
+                // the owner-data rows render empty.
+                LV_DISPINFOW* info = (LV_DISPINFOW*)lParam;
+                int index;
+                CPackACPacker* packer = ListView->GetPacker(info->item.iItem, &index);
+                // if text was requested, provide it
+                if ((info->item.mask & LVIF_TEXT) && packer != NULL)
+                    info->item.pszText = ListView->GetDispInfoTextW(packer->GetText(index, info->item.iSubItem),
+                                                                    info->item.iSubItem);
+                // if the checkbox icon was requested, provide it too
+                if (packer != NULL &&
+                    (info->item.mask & LVIF_STATE) &&
                     (info->item.stateMask & LVIS_STATEIMAGEMASK))
                 {
                     info->item.state &= ~LVIS_STATEIMAGEMASK;
@@ -608,14 +682,14 @@ BOOL CPackACDialog::DirectorySearch(char* path)
             if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
             {
                 // it is a file; now check if it is an exe
-                if (nameLen > 4 && pathLen + nameLen < MAX_PATH &&
+                if (nameLen > 4 && pathLen + nameLen < SAL_MAX_PATH &&
                     (findData.cFileName[nameLen - 1] == 'e' || findData.cFileName[nameLen - 1] == 'E') &&
                     (findData.cFileName[nameLen - 2] == 'x' || findData.cFileName[nameLen - 2] == 'X') &&
                     (findData.cFileName[nameLen - 3] == 'e' || findData.cFileName[nameLen - 3] == 'E') &&
                     findData.cFileName[nameLen - 4] == '.')
                 {
                     // determine the program type
-                    char fullName[MAX_PATH];
+                    char fullName[SAL_MAX_PATH];
                     DWORD type;
                     strcpy(fullName, path);
                     strcat(fullName, findData.cFileName);
@@ -630,7 +704,7 @@ BOOL CPackACDialog::DirectorySearch(char* path)
                                                        findData.ftLastWriteTime,
                                                        CQuadWord(findData.nFileSizeLow,
                                                                  findData.nFileSizeHigh),
-                                                       type == SCS_32BIT_BINARY ? EXE_32BIT : EXE_16BIT);
+                                                       type == SCS_32BIT_BINARY || type == SCS_64BIT_BINARY ? EXE_32BIT : EXE_16BIT);
                 }
             }
             else
@@ -640,7 +714,7 @@ BOOL CPackACDialog::DirectorySearch(char* path)
                     (findData.cFileName[0] != '.' ||
                      (findData.cFileName[1] != '\0' &&
                       (findData.cFileName[1] != '.' || findData.cFileName[2] != '\0'))) &&
-                    pathLen + 1 + nameLen < MAX_PATH)
+                    pathLen + 1 + nameLen < SAL_MAX_PATH)
                 {
                     // create the directory name to search
                     char* newPath = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, pathLen + 1 + nameLen + 1));
@@ -1042,6 +1116,10 @@ void CPackACDialog::Transfer(CTransferInfo& ti)
     // are we starting or ending?
     if (ti.Type == ttDataToWindow)
     {
+        // Make sure the built-in archiver templates exist, but do not reset
+        // already configured executable locations merely because the
+        // autoconfiguration window was opened.
+        ArchiverConfig->EnsureDefaultValues();
         // create a table of packers to search for
         APackACPackersTable* table = new APackACPackersTable(20, 10);
         int i;
@@ -1401,6 +1479,31 @@ CPackACListView::GetPacker(int item, int* index)
     return PackersTable->At(archiver);
 }
 
+// convert owner-data text to Unicode for Unicode list-view notifications
+WCHAR*
+CPackACListView::GetDispInfoTextW(const char* text, int column)
+{
+    CALL_STACK_MESSAGE2("CPackACListView::GetDispInfoTextW(, %d)", column);
+    if (column < 0 || column >= 4)
+        column = 0;
+
+    WCHAR* buffer = DispInfoTextW[column];
+    buffer[0] = 0;
+    if (text == NULL)
+        return buffer;
+
+    if (MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, text, -1, buffer, DISPINFO_TEXT_MAX) == 0)
+    {
+        if (MultiByteToWideChar(CP_ACP, 0, text, -1, buffer, DISPINFO_TEXT_MAX) == 0)
+        {
+            TRACE_E("CPackACListView::GetDispInfoTextW(): MultiByteToWideChar error: " << GetLastError());
+            buffer[0] = 0;
+        }
+    }
+    buffer[DISPINFO_TEXT_MAX - 1] = 0;
+    return buffer;
+}
+
 // find an archiver by the index in the list view
 BOOL CPackACListView::FindArchiver(unsigned int listViewIndex,
                                    unsigned int* archiver, unsigned int* arcIndex)
@@ -1440,9 +1543,16 @@ void CPackACListView::Initialize(APackACPackersTable* table)
     // set the columns
     InitColumns();
     // set the initial number of items in the listview
-    ListView_SetItemCount(HWindow, GetCount());
+    int count = GetCount();
+    ListView_SetItemCount(HWindow, count);
     // set focus on the first listview item
-    ListView_SetItemState(HWindow, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+    if (count > 0)
+    {
+        ListView_SetItemState(HWindow, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+        ListView_RedrawItems(HWindow, 0, count - 1);
+    }
+    InvalidateRect(HWindow, NULL, TRUE);
+    UpdateWindow(HWindow);
 }
 
 // set the headers and basic widths of the listview columns
@@ -1943,45 +2053,71 @@ void PackAutoconfig(HWND parent)
 
     // stop refreshes in the main window
     BeginStopRefresh();
-    // determine the buffer needed for drives to search
-    DWORD size = GetLogicalDriveStrings(0, NULL);
-    char* sysDrives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
-    char* drives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
-    if (sysDrives == NULL || drives == NULL)
+    // Ensure the built-in external archiver definitions are available without
+    // discarding executable locations saved by the user or by a previous
+    // autoconfiguration run.
+    ArchiverConfig.EnsureDefaultValues();
+
+    if (PackACSavedDrivesList == NULL)
     {
-        TRACE_E(LOW_MEMORY);
-        if (sysDrives != NULL)
-            HANDLES(GlobalFree((HGLOBAL)sysDrives));
-        if (drives != NULL)
-            HANDLES(GlobalFree((HGLOBAL)drives));
-    }
-    else
-    {
-        DWORD newSize = GetLogicalDriveStrings(size, sysDrives);
-        if (newSize > size)
-            TRACE_E("The drives buffer size requested by system is too small...");
+        // determine the buffer needed for drives to search
+        DWORD size = GetLogicalDriveStrings(0, NULL);
+        char* sysDrives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
+        char* defaultDrives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
+        if (sysDrives == NULL || defaultDrives == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            if (sysDrives != NULL)
+                HANDLES(GlobalFree((HGLOBAL)sysDrives));
+            if (defaultDrives != NULL)
+                HANDLES(GlobalFree((HGLOBAL)defaultDrives));
+        }
         else
         {
-            char* dstDrive = drives;
-            // skip non-fixed drives...
-            char* srcDrive = sysDrives;
-            while (*srcDrive != '\0')
+            DWORD newSize = GetLogicalDriveStrings(size, sysDrives);
+            if (newSize > size)
+                TRACE_E("The drives buffer size requested by system is too small...");
+            else
             {
-                // what kind is it? is it worth our time?
-                if (GetDriveType(srcDrive) == DRIVE_FIXED)
+                char* dstDrive = defaultDrives;
+                // skip non-fixed drives...
+                char* srcDrive = sysDrives;
+                while (*srcDrive != '\0')
                 {
-                    strcpy(dstDrive, srcDrive);
-                    dstDrive += strlen(dstDrive) + 1;
+                    // what kind is it? is it worth our time?
+                    if (GetDriveType(srcDrive) == DRIVE_FIXED)
+                    {
+                        strcpy(dstDrive, srcDrive);
+                        dstDrive += strlen(dstDrive) + 1;
+                    }
+                    else
+                        TRACE_I("Skipping drive " << srcDrive << ", not fixed.");
+                    srcDrive += strlen(srcDrive) + 1;
                 }
-                else
-                    TRACE_I("Skipping drive " << srcDrive << ", not fixed.");
-                srcDrive += strlen(srcDrive) + 1;
+                *dstDrive = '\0';
+                PackSetAutoconfigDrives(defaultDrives);
             }
-            *dstDrive = '\0';
             HANDLES(GlobalFree((HGLOBAL)sysDrives));
-            // open the search dialog
-            CPackACDialog(HLanguage, IDD_AUTOCONF, IDD_AUTOCONF, parent, &ArchiverConfig, &drives).Execute();
+            HANDLES(GlobalFree((HGLOBAL)defaultDrives));
         }
+    }
+
+    char* drives = NULL;
+    if (PackACSavedDrivesList != NULL)
+    {
+        DWORD size = PackGetAutoconfigDrivesSize();
+        drives = (char*)HANDLES(GlobalAlloc(GMEM_FIXED, size));
+        if (drives != NULL)
+            memcpy(drives, PackACSavedDrivesList, size);
+        else
+            TRACE_E(LOW_MEMORY);
+    }
+
+    if (drives != NULL)
+    {
+        // open the search dialog
+        CPackACDialog(HLanguage, IDD_AUTOCONF, IDD_AUTOCONF, parent, &ArchiverConfig, &drives).Execute();
+        PackSetAutoconfigDrives(drives);
         HANDLES(GlobalFree((HGLOBAL)drives));
     }
     // dialog closed, the main window resumes refreshing

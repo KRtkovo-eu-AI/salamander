@@ -1,7 +1,8 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include <string>
 
 // ****************************************************************************
 
@@ -44,6 +45,39 @@ const char* CONFIG_OPTIONS = "Options";
 const char* CONFIG_LIST_INFO_PACKED_SIZE = "List Info Packed Size";
 const char* CONFIG_COL_PACKEDSIZE_FIXEDWIDTH = "Column PackedSize FixedWidth";
 const char* CONFIG_COL_PACKEDSIZE_WIDTH = "Column PackedSize Width";
+
+static std::wstring RarPathAddExtendedPrefix(const std::wstring& path)
+{
+    if (path.empty() || path.compare(0, 4, L"\\\\?\\") == 0)
+        return path;
+    if (path.compare(0, 2, L"\\\\") == 0)
+        return std::wstring(L"\\\\?\\UNC\\") + path.substr(2);
+    return std::wstring(L"\\\\?\\") + path;
+}
+
+
+static std::wstring RarPathToWide(const char* path)
+{
+    if (path == NULL || *path == 0)
+        return std::wstring();
+
+    UINT codePage = CP_UTF8;
+    int len = MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+    if (len <= 0)
+    {
+        codePage = CP_ACP;
+        len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    }
+    if (len <= 0)
+        return std::wstring();
+
+    std::wstring widePath(len, L'\0');
+    MultiByteToWideChar(codePage, codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0, path, -1, &widePath[0], len);
+    widePath.resize(len - 1);
+    if (widePath.length() >= MAX_PATH)
+        widePath = RarPathAddExtendedPrefix(widePath);
+    return widePath;
+}
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
@@ -432,7 +466,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
         (attr = SalamanderGeneral->SalGetFileAttributes(fv)) != -1 &&
         (attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
     {
-        _tcscpy(ArcFileName, fv);
+        lstrcpyn(ArcFileName, fv, SAL_MAX_PATH);
     }
     else
     {
@@ -599,7 +633,7 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
         (attr = SalamanderGeneral->SalGetFileAttributes(fv)) != -1 &&
         (attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
     {
-        _tcscpy(ArcFileName, fv);
+        lstrcpyn(ArcFileName, fv, SAL_MAX_PATH);
     }
     else
     {
@@ -977,8 +1011,9 @@ BOOL CPluginInterfaceForArchiver::OpenArchive()
     CALL_STACK_MESSAGE1("CPluginInterfaceForArchiver::OpenArchive()");
     RAROpenArchiveDataEx oad;
     ZeroMemory(&oad, sizeof(oad));
+    std::wstring arcNameW = RarPathToWide(ArcFileName);
     oad.ArcName = ArcFileName;
-    oad.ArcNameW = NULL;
+    oad.ArcNameW = arcNameW.empty() ? NULL : (wchar_t*)arcNameW.c_str();
     // Warning: RAR_OM_LIST lists files spanned over multiple parts only once,
     // but RAR_OM_EXTRACT lists every file segment
     oad.OpenMode = List ? RAR_OM_LIST : RAR_OM_EXTRACT;
@@ -1362,14 +1397,14 @@ int CPluginInterfaceForArchiver::NeedPassword(char* password, int size)
 BOOL CPluginInterfaceForArchiver::SwitchToFirstVol(LPCTSTR arcName, BOOL* saveFirstVolume)
 {
     CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::SwitchToFirstVol(%s)", arcName);
-    lstrcpy(ArcFileName, arcName);
+    lstrcpyn(ArcFileName, arcName, SAL_MAX_PATH);
     LPTSTR ext = PathFindExtension(ArcFileName);
     if (!ext)
         return TRUE;
     if (lstrlen(ext) > 3 &&
         isdigit(ext[2]) && isdigit(ext[3]))
     {
-        TCHAR oldExt[MAX_PATH];
+        TCHAR oldExt[SAL_MAX_PATH];
         lstrcpy(oldExt, ext);
         if (isdigit(ext[1]))
         {
@@ -1382,11 +1417,11 @@ BOOL CPluginInterfaceForArchiver::SwitchToFirstVol(LPCTSTR arcName, BOOL* saveFi
         DWORD attr = SalamanderGeneral->SalGetFileAttributes(ArcFileName);
         if (attr == -1 || attr & FILE_ATTRIBUTE_DIRECTORY)
         {
-            TCHAR path[MAX_PATH];
-            _tcscpy(path, ArcFileName);
+            TCHAR path[SAL_MAX_PATH];
+            lstrcpyn(path, ArcFileName, SAL_MAX_PATH);
             if (NextVolumeDialog(SalamanderGeneral->GetMsgBoxParent(), path, LoadStr(IDS_SELECTFIRST)) == IDOK)
             {
-                _tcscpy(ArcFileName, path);
+                lstrcpyn(ArcFileName, path, SAL_MAX_PATH);
                 if (saveFirstVolume)
                     *saveFirstVolume = TRUE;
                 return TRUE;
@@ -1416,7 +1451,7 @@ BOOL CPluginInterfaceForArchiver::SwitchToFirstVol(LPCTSTR arcName, BOOL* saveFi
         if (digits && *iterator == '.')
         {
             // the file is named according to the new convention
-            TCHAR path[MAX_PATH];
+            TCHAR path[SAL_MAX_PATH];
 
             _tcsncpy_s(path, ArcFileName, part - ArcFileName);
             _stprintf_s(path + (part - ArcFileName), _countof(path) - (part - ArcFileName), _T(".part%0*d.rar"), digits, 1);
@@ -1424,14 +1459,14 @@ BOOL CPluginInterfaceForArchiver::SwitchToFirstVol(LPCTSTR arcName, BOOL* saveFi
             DWORD attr = SalamanderGeneral->SalGetFileAttributes(path);
             if (!(attr & FILE_ATTRIBUTE_DIRECTORY))
             {
-                strcpy(ArcFileName, path);
+                lstrcpyn(ArcFileName, path, SAL_MAX_PATH);
                 if (saveFirstVolume)
                     *saveFirstVolume = TRUE;
                 return TRUE;
             }
             if (NextVolumeDialog(SalamanderGeneral->GetMsgBoxParent(), path, LoadStr(IDS_SELECTFIRST)) == IDOK)
             {
-                _tcscpy(ArcFileName, path);
+                lstrcpyn(ArcFileName, path, SAL_MAX_PATH);
                 if (saveFirstVolume)
                     *saveFirstVolume = TRUE;
             }

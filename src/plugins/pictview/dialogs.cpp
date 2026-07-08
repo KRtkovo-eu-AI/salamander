@@ -298,7 +298,7 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_ABOUT_EMAIL, STF_UNDERLINE | STF_HYPERLINK_COLOR);
         if (hl != NULL)
-            hl->SetActionOpen("https://github.com/KRtkovo-eu-AI/salamander/issues/new/choose");
+            hl->SetActionOpen("https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs");
 
         hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_ABOUT_WWW, STF_UNDERLINE | STF_HYPERLINK_COLOR);
         if (hl != NULL)

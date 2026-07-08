@@ -43,7 +43,11 @@
 
 #define E_STOPEXTRACTION (HRESULT)0x8000FEDC
 
-#define MAX_PATH_LEN 1024
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
+#define MAX_PATH_LEN SAL_MAX_PATH
 
 typedef UINT32(WINAPI* TCreateObjectFunc)(const GUID* clsID, const GUID* interfaceID, void** outObject);
 
