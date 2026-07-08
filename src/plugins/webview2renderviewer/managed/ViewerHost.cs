@@ -1426,6 +1426,13 @@ internal static class ViewerHost
                 return path;
             }
 
+            // Keep ordinary paths untouched. .NET Framework rejects the extended \?\
+            // prefix in some Path/File APIs, so only add it when it is actually needed.
+            if (path.Length < 260)
+            {
+                return path;
+            }
+
             if (path.StartsWith(@"\\", StringComparison.Ordinal))
             {
                 return @"\\?\UNC\" + path.Substring(2);
