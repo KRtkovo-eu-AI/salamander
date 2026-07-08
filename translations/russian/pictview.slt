@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\russian\pictview\pictview.atp"
-TEXTVERSION,"2.21 (x64)"
-VERSION,"2,2,1,183"
+TEXTVERSION,"2.22 (x64)"
+VERSION,"2,2,2,183"
 
 [TRANSLATION]
 LANGID,1049
@@ -18,10 +18,10 @@ COMMENT,"Русская версия"
 3001,46,40,190,8,1,"Используется библиотека обработки изображений"
 2008,46,51,277,8,1,"%hs"
 3002,46,62,220,8,1,"© 1997-2026 Open Salamander Authors"
-3005,46,81,50,8,1,"Типы файлов:"
-2009,99,81,224,8,1,"WIC codecs from Microsoft"
+3005,46,81,52,8,1,"Типы файлов:"
+2009,99,81,120,8,1,"WIC codecs from Microsoft"
 3006,46,92,50,8,1,"Сайт:"
-2010,99,92,158,8,1,"https://github.com/KRtkovo-eu-AI/salamander"
+2010,99,92,160,8,1,"https://github.com/KRtkovo-eu-AI/salamander"
 3004,2,108,339,1,1,""
 
 [DIALOG 2020]
