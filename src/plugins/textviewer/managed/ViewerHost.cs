@@ -620,9 +620,10 @@ internal static class ViewerHost
                 return;
             }
 
-            string text = File.ReadAllText(path);
-            string extension = LanguageGuesser.FromFileName(path);
-            string caption = Path.GetFileName(path);
+            string displayPath = LongPathHelper.ToDisplayPath(path);
+            string text = File.ReadAllText(LongPathHelper.ToLongPath(displayPath));
+            string extension = LanguageGuesser.FromFileName(displayPath);
+            string caption = Path.GetFileName(displayPath);
 
             _currentDocumentText = text;
             _currentDocumentLanguage = extension;
@@ -983,7 +984,7 @@ internal static class ViewerHost
                 return false;
             }
 
-            string caption = Path.GetFileName(filePath);
+            string caption = Path.GetFileName(LongPathHelper.ToDisplayPath(filePath));
             if (map.TryGetValue("caption", out var encodedCaption) && !string.IsNullOrEmpty(encodedCaption))
             {
                 if (TryDecodeBase64(encodedCaption, out var decodedCaption) && !string.IsNullOrWhiteSpace(decodedCaption))
@@ -1071,7 +1072,7 @@ internal static class ViewerHost
     {
         public static string FromFileName(string filePath)
         {
-            var extension = Path.GetExtension(filePath);
+            var extension = Path.GetExtension(LongPathHelper.ToDisplayPath(filePath));
             if (string.IsNullOrEmpty(extension))
             {
                 return string.Empty;
@@ -1545,4 +1546,55 @@ internal static class ViewerHost
             }
         }
     }
+
+    internal static class LongPathHelper
+    {
+        public static string ToLongPath(string path)
+        {
+            if (string.IsNullOrEmpty(path) || path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                return path;
+            }
+
+            // Keep ordinary paths untouched. .NET Framework rejects the extended \?\
+            // prefix in some Path/File APIs, so only add it when it is actually needed.
+            if (path.Length < 260)
+            {
+                return path;
+            }
+
+            if (path.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                return @"\\?\UNC\" + path.Substring(2);
+            }
+
+            if (path.Length >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+            {
+                return @"\\?\" + path;
+            }
+
+            return path;
+        }
+
+        public static string ToDisplayPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return path;
+            }
+
+            if (path.StartsWith(@"\\?\UNC\", StringComparison.Ordinal))
+            {
+                return @"\\" + path.Substring(8);
+            }
+
+            if (path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                return path.Substring(4);
+            }
+
+            return path;
+        }
+    }
+
 }

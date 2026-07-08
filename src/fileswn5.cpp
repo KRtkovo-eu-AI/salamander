@@ -759,6 +759,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
     BOOL useDiskCache = FALSE;          // TRUE only for ZIP - uses disk-cache
     BOOL arcCacheCacheCopies = TRUE;    // cache copies in disk-cache unless the archiver plugin requests otherwise
     char dcFileName[3 * SAL_MAX_PATH + 50]; // ZIP: name for disk-cache
+    std::string unicodeDiskFileName;        // UTF-8 full path for local files with Unicode/long names
     if (name == NULL)
     {
         int i = GetCaretIndex();
@@ -769,13 +770,21 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
             {
                 if (enumFileNamesLastFileIndex == -1)
                     enumFileNamesLastFileIndex = i - Dirs->Count;
+                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(GetPath(), CP_ACP);
+                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : SalMultiByteToWidePath(f->Name, CP_ACP).c_str());
+                unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
+
                 lstrcpyn(path, GetPath(), SAL_MAX_PATH);
                 if (GetPath()[strlen(GetPath()) - 1] != '\\')
                     strcat(path, "\\");
                 char* s = path + strlen(path);
                 if ((s - path) + f->NameLen >= SAL_MAX_PATH)
                 {
-                    if (f->DosName != NULL && strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
+                    if (!unicodeDiskFileName.empty())
+                    {
+                        name = (char*)unicodeDiskFileName.c_str();
+                    }
+                    else if (f->DosName != NULL && strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
                         strcpy(s, f->DosName);
                     else
                     {
@@ -785,15 +794,22 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                     }
                 }
                 else
+                {
                     strcpy(s, f->Name);
+                    name = path;
+                }
                 // try whether the file name is valid, otherwise try its DOS name
                 // (handles files accessible only through Unicode or DOS names)
-                if (f->DosName != NULL && SalGetFileAttributes(path) == 0xffffffff)
+                if (name == path && SalGetFileAttributes(path) == 0xffffffff)
                 {
                     DWORD err = GetLastError();
                     if (err == ERROR_FILE_NOT_FOUND || err == ERROR_INVALID_NAME)
                     {
-                        if (strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
+                        if (!unicodeDiskFileName.empty())
+                        {
+                            name = (char*)unicodeDiskFileName.c_str();
+                        }
+                        else if (f->DosName != NULL && strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
                         {
                             strcpy(s, f->DosName);
                             if (SalGetFileAttributes(path) == 0xffffffff) // still error -> revert to the long name
@@ -804,7 +820,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                         }
                     }
                 }
-                name = path;
+                if (name == NULL || name != (char*)unicodeDiskFileName.c_str())
+                    name = path;
                 addToHistory = TRUE;
             }
             else

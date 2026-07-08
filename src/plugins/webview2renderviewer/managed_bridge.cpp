@@ -73,13 +73,13 @@ std::wstring AnsiToWide(const char* text)
         return std::wstring();
     }
 
-    std::wstring result = ConvertMultiByteToWide(text, CP_ACP);
+    std::wstring result = ConvertMultiByteToWide(text, CP_UTF8);
     if (!result.empty())
     {
         return result;
     }
 
-    result = ConvertMultiByteToWide(text, CP_UTF8);
+    result = ConvertMultiByteToWide(text, CP_ACP);
     if (!result.empty())
     {
         return result;
@@ -96,6 +96,7 @@ std::wstring AnsiToWide(const char* text)
 
     return result;
 }
+
 
 std::wstring EncodeBase64FromWide(const std::wstring& value)
 {

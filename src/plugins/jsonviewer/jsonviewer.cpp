@@ -11,6 +11,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 // objekt interfacu pluginu, jeho metody se volaji ze Salamandera
 CPluginInterface PluginInterface;
 // cast interfacu CPluginInterface pro viewer
@@ -67,13 +69,57 @@ static void ShowStartupError(HWND parent, const char* text)
     SalamanderGeneral->SalMessageBox(parent, text, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
 }
 
+static std::wstring ConvertPathToWide(const char* path)
+{
+    if (path == NULL)
+        return std::wstring();
+
+    int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (required <= 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        required = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
+    }
+    if (required <= 0)
+        return std::wstring();
+
+    std::wstring result;
+    result.resize(static_cast<size_t>(required));
+    if (MultiByteToWideChar(codePage, flags, path, -1, result.data(), required) <= 0)
+        return std::wstring();
+
+    result.resize(static_cast<size_t>(required) - 1);
+    return result;
+}
+
+static std::wstring MakeLongPath(const std::wstring& path)
+{
+    if (path.empty() || path.rfind(L"\\\\?\\", 0) == 0)
+        return path;
+
+    if (path.rfind(L"\\\\", 0) == 0)
+        return L"\\\\?\\UNC\\" + path.substr(2);
+
+    if (path.length() >= 3 && path[1] == L':' && (path[2] == L'\\' || path[2] == L'/'))
+        return L"\\\\?\\" + path;
+
+    return path;
+}
+
 static bool IsFileTooLarge(const char* path, ULONGLONG limit)
 {
     if (path == NULL || path[0] == '\0')
         return false;
 
+    std::wstring widePath = MakeLongPath(ConvertPathToWide(path));
+    if (widePath.empty())
+        return false;
+
     WIN32_FILE_ATTRIBUTE_DATA attrs;
-    if (!GetFileAttributesExA(path, GetFileExInfoStandard, &attrs))
+    if (!GetFileAttributesExW(widePath.c_str(), GetFileExInfoStandard, &attrs))
         return false;
 
     if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
