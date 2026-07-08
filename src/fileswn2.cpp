@@ -1141,16 +1141,8 @@ void CFilesWindow::Execute(int index)
                     int topIndex = ListBox->GetTopIndex();
 
                     // new path
-                    char dirNameUtf8[SAL_MAX_PATH];
-                    const char* dirName = dir->Name;
-                    if (dir->UseWideName())
-                    {
-                        int dirNameLen = WideCharToMultiByte(CP_UTF8, 0, dir->NameW, -1, dirNameUtf8, SAL_MAX_PATH, NULL, NULL);
-                        if (dirNameLen > 0)
-                            dirName = dirNameUtf8;
-                    }
                     strcpy(fullName, GetZIPPath());
-                    if (!SalPathAppend(fullName, dirName, SAL_MAX_PATH))
+                    if (!SalPathAppend(fullName, dir->Name, SAL_MAX_PATH))
                     {
                         SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
                                       MB_OK | MB_ICONEXCLAMATION);
