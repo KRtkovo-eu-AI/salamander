@@ -155,8 +155,13 @@ class CPackACDialog;
 class CPackACListView : public CWindow
 {
 protected:
+    enum
+    {
+        DISPINFO_TEXT_MAX = 4 * MAX_PATH
+    };
     const CPackACDialog* ACDialog;
     APackACPackersTable* PackersTable;
+    WCHAR DispInfoTextW[4][DISPINFO_TEXT_MAX];
 
 public:
     CPackACListView(const CPackACDialog* acDialog) : CWindow()
@@ -183,6 +188,7 @@ public:
     int GetCount();
     int GetPackersCount() { return PackersTable->Count; }
     CPackACPacker* GetPacker(int item, int* index);
+    WCHAR* GetDispInfoTextW(const char* text, int column);
     CPackACPacker* GetPacker(int index)
     {
         return PackersTable != NULL ? PackersTable->At(index) : NULL;

@@ -224,17 +224,42 @@ CPackACDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             switch (((LPNMHDR)lParam)->code)
             {
-            case LVN_GETDISPINFO:
+            case LVN_GETDISPINFOA:
             {
                 // show the item and its state (we hold the data, not the listview)
-                LV_DISPINFO* info = (LV_DISPINFO*)lParam;
+                LV_DISPINFOA* info = (LV_DISPINFOA*)lParam;
                 int index;
                 CPackACPacker* packer = ListView->GetPacker(info->item.iItem, &index);
                 // if text was requested, provide it
-                if (info->item.mask & LVIF_TEXT)
+                if ((info->item.mask & LVIF_TEXT) && packer != NULL)
                     info->item.pszText = (char*)packer->GetText(index, info->item.iSubItem);
                 // if the checkbox icon was requested, provide it too
-                if ((info->item.mask & LVIF_STATE) &&
+                if (packer != NULL &&
+                    (info->item.mask & LVIF_STATE) &&
+                    (info->item.stateMask & LVIS_STATEIMAGEMASK))
+                {
+                    info->item.state &= ~LVIS_STATEIMAGEMASK;
+                    info->item.state |= packer->GetSelectState(index) << 12;
+                }
+                break;
+            }
+
+            case LVN_GETDISPINFOW:
+            {
+                // The main window and some common controls are Unicode now.  A Unicode
+                // list-view asks for WCHAR text in LVN_GETDISPINFOW; returning our
+                // historical char* strings through the generic LV_DISPINFO alias makes
+                // the owner-data rows render empty.
+                LV_DISPINFOW* info = (LV_DISPINFOW*)lParam;
+                int index;
+                CPackACPacker* packer = ListView->GetPacker(info->item.iItem, &index);
+                // if text was requested, provide it
+                if ((info->item.mask & LVIF_TEXT) && packer != NULL)
+                    info->item.pszText = ListView->GetDispInfoTextW(packer->GetText(index, info->item.iSubItem),
+                                                                    info->item.iSubItem);
+                // if the checkbox icon was requested, provide it too
+                if (packer != NULL &&
+                    (info->item.mask & LVIF_STATE) &&
                     (info->item.stateMask & LVIS_STATEIMAGEMASK))
                 {
                     info->item.state &= ~LVIS_STATEIMAGEMASK;
@@ -1091,12 +1116,10 @@ void CPackACDialog::Transfer(CTransferInfo& ti)
     // are we starting or ending?
     if (ti.Type == ttDataToWindow)
     {
-        // Autoconfiguration must always start from the built-in external
-        // archiver templates.  Older/broken registry data may have the right
-        // count but empty variables/executables, which produced an empty
-        // virtual list and prevented ARC_UID_* entries from being searched.
-        ArchiverConfig->DeleteAllArchivers();
-        ArchiverConfig->AddDefault(0);
+        // Make sure the built-in archiver templates exist, but do not reset
+        // already configured executable locations merely because the
+        // autoconfiguration window was opened.
+        ArchiverConfig->EnsureDefaultValues();
         // create a table of packers to search for
         APackACPackersTable* table = new APackACPackersTable(20, 10);
         int i;
@@ -1454,6 +1477,31 @@ CPackACListView::GetPacker(int item, int* index)
         *index = arcIndex;
     // return the desired archiver
     return PackersTable->At(archiver);
+}
+
+// convert owner-data text to Unicode for Unicode list-view notifications
+WCHAR*
+CPackACListView::GetDispInfoTextW(const char* text, int column)
+{
+    CALL_STACK_MESSAGE2("CPackACListView::GetDispInfoTextW(, %d)", column);
+    if (column < 0 || column >= 4)
+        column = 0;
+
+    WCHAR* buffer = DispInfoTextW[column];
+    buffer[0] = 0;
+    if (text == NULL)
+        return buffer;
+
+    if (MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, text, -1, buffer, DISPINFO_TEXT_MAX) == 0)
+    {
+        if (MultiByteToWideChar(CP_ACP, 0, text, -1, buffer, DISPINFO_TEXT_MAX) == 0)
+        {
+            TRACE_E("CPackACListView::GetDispInfoTextW(): MultiByteToWideChar error: " << GetLastError());
+            buffer[0] = 0;
+        }
+    }
+    buffer[DISPINFO_TEXT_MAX - 1] = 0;
+    return buffer;
 }
 
 // find an archiver by the index in the list view
@@ -2005,11 +2053,10 @@ void PackAutoconfig(HWND parent)
 
     // stop refreshes in the main window
     BeginStopRefresh();
-    // PackAutoconfig must always start from the built-in external archiver definitions;
-    // otherwise an incomplete in-memory/registry state leaves the virtual list without
-    // the heading rows (Jar32bitExecutable, Rar32bitExecutable, ..., Ace16bitExecutable).
-    ArchiverConfig.DeleteAllArchivers();
-    ArchiverConfig.AddDefault(0);
+    // Ensure the built-in external archiver definitions are available without
+    // discarding executable locations saved by the user or by a previous
+    // autoconfiguration run.
+    ArchiverConfig.EnsureDefaultValues();
 
     if (PackACSavedDrivesList == NULL)
     {
