@@ -620,7 +620,7 @@ internal static class ViewerHost
             string caption = _session?.Payload.Caption ?? string.Empty;
             if (string.IsNullOrWhiteSpace(caption))
             {
-                caption = Path.GetFileName(path);
+                caption = Path.GetFileName(LongPathHelper.ToDisplayPath(path));
             }
 
             _currentView = DocumentView.Create(path, caption ?? string.Empty);
@@ -1074,7 +1074,7 @@ internal static class ViewerHost
                 return false;
             }
 
-            string caption = Path.GetFileName(filePath);
+            string caption = Path.GetFileName(LongPathHelper.ToDisplayPath(filePath));
             if (map.TryGetValue("caption", out var encodedCaption) && !string.IsNullOrEmpty(encodedCaption))
             {
                 if (TryDecodeBase64(encodedCaption, out var decodedCaption) && !string.IsNullOrWhiteSpace(decodedCaption))
@@ -1182,23 +1182,24 @@ internal static class ViewerHost
 
         public static DocumentView Create(string path, string caption)
         {
-            string extension = Path.GetExtension(path)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
+            string displayPath = LongPathHelper.ToDisplayPath(path);
+            string extension = Path.GetExtension(displayPath)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
 
             if (FileViewHelper.IsMarkdown(extension))
             {
-                string markdown = File.ReadAllText(LongPathHelper.Normalize(path));
-                string html = MarkdownRenderer.BuildHtml(markdown, path, caption);
+                string markdown = File.ReadAllText(LongPathHelper.ToLongPath(displayPath));
+                string html = MarkdownRenderer.BuildHtml(markdown, displayPath, caption);
                 return new DocumentView(DocumentViewKind.Html, caption, null, html);
             }
 
             if (FileViewHelper.IsRasterImage(extension))
             {
-                var imageUri = new Uri(Path.GetFullPath(path));
+                var imageUri = new Uri(Path.GetFullPath(displayPath));
                 string html = RasterImageRenderer.BuildHtml(imageUri, caption);
                 return new DocumentView(DocumentViewKind.Image, caption, null, html);
             }
 
-            var uri = new Uri(Path.GetFullPath(path));
+            var uri = new Uri(Path.GetFullPath(displayPath));
             return new DocumentView(DocumentViewKind.Navigate, caption, uri, null);
         }
     }
@@ -1418,7 +1419,7 @@ internal static class ViewerHost
 
     internal static class LongPathHelper
     {
-        public static string Normalize(string path)
+        public static string ToLongPath(string path)
         {
             if (string.IsNullOrEmpty(path) || path.StartsWith(@"\\?\", StringComparison.Ordinal))
             {
@@ -1430,13 +1431,29 @@ internal static class ViewerHost
                 return @"\\?\UNC\" + path.Substring(2);
             }
 
-            if (Path.IsPathRooted(path))
+            if (path.Length >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
             {
-                string fullPath = Path.GetFullPath(path);
-                if (fullPath.Length >= 3 && fullPath[1] == ':' && (fullPath[2] == '\\' || fullPath[2] == '/'))
-                {
-                    return @"\\?\" + fullPath;
-                }
+                return @"\\?\" + path;
+            }
+
+            return path;
+        }
+
+        public static string ToDisplayPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return path;
+            }
+
+            if (path.StartsWith(@"\\?\UNC\", StringComparison.Ordinal))
+            {
+                return @"\\" + path.Substring(8);
+            }
+
+            if (path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                return path.Substring(4);
             }
 
             return path;

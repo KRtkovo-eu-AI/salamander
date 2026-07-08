@@ -98,26 +98,6 @@ std::wstring AnsiToWide(const char* text)
 }
 
 
-std::wstring MakeLongPath(const std::wstring& path)
-{
-    if (path.empty() || path.rfind(L"\\\\?\\", 0) == 0)
-    {
-        return path;
-    }
-
-    if (path.rfind(L"\\\\", 0) == 0)
-    {
-        return L"\\\\?\\UNC\\" + path.substr(2);
-    }
-
-    if (path.length() >= 3 && path[1] == L':' && (path[2] == L'\\' || path[2] == L'/'))
-    {
-        return L"\\\\?\\" + path;
-    }
-
-    return path;
-}
-
 std::wstring EncodeBase64FromWide(const std::wstring& value)
 {
     if (value.empty())
@@ -332,7 +312,7 @@ bool ManagedBridge_ViewTextFile(HWND parent, const char* filePath, const RECT& p
         return false;
     }
 
-    std::wstring widePath = MakeLongPath(AnsiToWide(filePath));
+    std::wstring widePath = AnsiToWide(filePath);
 
     std::wstring encodedPath = EncodeBase64FromWide(widePath);
     if (encodedPath.empty())

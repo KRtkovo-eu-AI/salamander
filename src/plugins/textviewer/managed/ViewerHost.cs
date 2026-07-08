@@ -620,9 +620,10 @@ internal static class ViewerHost
                 return;
             }
 
-            string text = File.ReadAllText(LongPathHelper.Normalize(path));
-            string extension = LanguageGuesser.FromFileName(path);
-            string caption = Path.GetFileName(path);
+            string displayPath = LongPathHelper.ToDisplayPath(path);
+            string text = File.ReadAllText(LongPathHelper.ToLongPath(displayPath));
+            string extension = LanguageGuesser.FromFileName(displayPath);
+            string caption = Path.GetFileName(displayPath);
 
             _currentDocumentText = text;
             _currentDocumentLanguage = extension;
@@ -983,7 +984,7 @@ internal static class ViewerHost
                 return false;
             }
 
-            string caption = Path.GetFileName(filePath);
+            string caption = Path.GetFileName(LongPathHelper.ToDisplayPath(filePath));
             if (map.TryGetValue("caption", out var encodedCaption) && !string.IsNullOrEmpty(encodedCaption))
             {
                 if (TryDecodeBase64(encodedCaption, out var decodedCaption) && !string.IsNullOrWhiteSpace(decodedCaption))
@@ -1071,7 +1072,7 @@ internal static class ViewerHost
     {
         public static string FromFileName(string filePath)
         {
-            var extension = Path.GetExtension(filePath);
+            var extension = Path.GetExtension(LongPathHelper.ToDisplayPath(filePath));
             if (string.IsNullOrEmpty(extension))
             {
                 return string.Empty;
@@ -1548,7 +1549,7 @@ internal static class ViewerHost
 
     internal static class LongPathHelper
     {
-        public static string Normalize(string path)
+        public static string ToLongPath(string path)
         {
             if (string.IsNullOrEmpty(path) || path.StartsWith(@"\\?\", StringComparison.Ordinal))
             {
@@ -1560,13 +1561,29 @@ internal static class ViewerHost
                 return @"\\?\UNC\" + path.Substring(2);
             }
 
-            if (Path.IsPathRooted(path))
+            if (path.Length >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
             {
-                string fullPath = Path.GetFullPath(path);
-                if (fullPath.Length >= 3 && fullPath[1] == ':' && (fullPath[2] == '\\' || fullPath[2] == '/'))
-                {
-                    return @"\\?\" + fullPath;
-                }
+                return @"\\?\" + path;
+            }
+
+            return path;
+        }
+
+        public static string ToDisplayPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return path;
+            }
+
+            if (path.StartsWith(@"\\?\UNC\", StringComparison.Ordinal))
+            {
+                return @"\\" + path.Substring(8);
+            }
+
+            if (path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                return path.Substring(4);
             }
 
             return path;
