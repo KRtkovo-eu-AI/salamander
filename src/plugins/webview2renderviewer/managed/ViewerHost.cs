@@ -1195,8 +1195,7 @@ internal static class ViewerHost
             if (FileViewHelper.IsRasterImage(extension))
             {
                 var imageUri = new Uri(Path.GetFullPath(displayPath));
-                string html = RasterImageRenderer.BuildHtml(imageUri, caption);
-                return new DocumentView(DocumentViewKind.Image, caption, null, html);
+                return new DocumentView(DocumentViewKind.Navigate, caption, imageUri, null);
             }
 
             var uri = new Uri(Path.GetFullPath(displayPath));
