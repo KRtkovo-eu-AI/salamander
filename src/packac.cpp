@@ -1116,12 +1116,10 @@ void CPackACDialog::Transfer(CTransferInfo& ti)
     // are we starting or ending?
     if (ti.Type == ttDataToWindow)
     {
-        // Autoconfiguration must always start from the built-in external
-        // archiver templates.  Older/broken registry data may have the right
-        // count but empty variables/executables, which produced an empty
-        // virtual list and prevented ARC_UID_* entries from being searched.
-        ArchiverConfig->DeleteAllArchivers();
-        ArchiverConfig->AddDefault(0);
+        // Make sure the built-in archiver templates exist, but do not reset
+        // already configured executable locations merely because the
+        // autoconfiguration window was opened.
+        ArchiverConfig->EnsureDefaultValues();
         // create a table of packers to search for
         APackACPackersTable* table = new APackACPackersTable(20, 10);
         int i;
@@ -2055,11 +2053,10 @@ void PackAutoconfig(HWND parent)
 
     // stop refreshes in the main window
     BeginStopRefresh();
-    // PackAutoconfig must always start from the built-in external archiver definitions;
-    // otherwise an incomplete in-memory/registry state leaves the virtual list without
-    // the heading rows (Jar32bitExecutable, Rar32bitExecutable, ..., Ace16bitExecutable).
-    ArchiverConfig.DeleteAllArchivers();
-    ArchiverConfig.AddDefault(0);
+    // Ensure the built-in external archiver definitions are available without
+    // discarding executable locations saved by the user or by a previous
+    // autoconfiguration run.
+    ArchiverConfig.EnsureDefaultValues();
 
     if (PackACSavedDrivesList == NULL)
     {
