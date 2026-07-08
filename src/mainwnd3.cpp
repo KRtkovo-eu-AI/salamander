@@ -6931,6 +6931,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
+        case CM_TOGGLEPANELTABS:
+        {
+            BOOL oldUseTabs = Configuration.UsePanelTabs != 0;
+            Configuration.UsePanelTabs = !Configuration.UsePanelTabs;
+            HandlePanelTabsEnabledChange(oldUseTabs);
+            break;
+        }
+
         case CM_TOGGLE_UMLABELS:
         {
             UMToolBar->ToggleLabels();
@@ -7996,6 +8004,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             popup->CheckItem(CM_TOGGLEHOTPATHSBAR, FALSE, HPToolBar->HWindow != NULL);
             popup->CheckItem(CM_TOGGLEDRIVEBAR, FALSE, DriveBar->HWindow != NULL && DriveBar2->HWindow == NULL);
             popup->CheckItem(CM_TOGGLEDRIVEBAR2, FALSE, DriveBar2->HWindow != NULL);
+            popup->CheckItem(CM_TOGGLEPANELTABS, FALSE, Configuration.UsePanelTabs != 0);
             popup->CheckItem(CM_TOGGLEEDITLINE, FALSE, EditPermanentVisible);
             popup->CheckItem(CM_TOGGLEBOTTOMTOOLBAR, FALSE, BottomToolBar->HWindow != NULL);
             popup->CheckItem(CM_TOGGLETREEVIEW, FALSE, Configuration.TreeViewVisible);

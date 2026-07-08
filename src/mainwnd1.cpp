@@ -2588,6 +2588,7 @@ MENU_TEMPLATE_ITEM ToolbarsCtxMenu[] =
   {MNTT_IT, IDS_HPTOOLBAR
   {MNTT_IT, IDS_DRIVEBAR
   {MNTT_IT, IDS_DRIVEBAR2
+  {MNTT_IT, IDS_TABBEDPANELS
   {MNTT_IT, IDS_MIDDLETOOLBAR
   {MNTT_IT, IDS_COMMANDLINE
   {MNTT_IT, IDS_MENU_OPT_VSB_TREE
@@ -2627,6 +2628,11 @@ MENU_TEMPLATE_ITEM ToolbarsCtxMenu[] =
         mii.String = LoadStr(IDS_DRIVEBAR2);
         mii.ID = 4;
         mii.State = (DriveBar->HWindow != NULL && DriveBar2->HWindow != NULL) ? MENU_STATE_CHECKED : 0;
+        menu.InsertItem(0xffffffff, TRUE, &mii);
+
+        mii.String = LoadStr(IDS_TABBEDPANELS);
+        mii.ID = 14;
+        mii.State = Configuration.UsePanelTabs ? MENU_STATE_CHECKED : 0;
         menu.InsertItem(0xffffffff, TRUE, &mii);
 
         mii.String = LoadStr(IDS_MIDDLETOOLBAR);
@@ -2920,6 +2926,9 @@ MENU_TEMPLATE_ITEM InfoLineMenu[] =
             break;
         case 13:
             cm = CM_TOGGLETREEVIEW;
+            break;
+        case 14:
+            cm = CM_TOGGLEPANELTABS;
             break;
         }
         if (cm != 0)

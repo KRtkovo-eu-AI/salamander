@@ -273,6 +273,7 @@
 #define CM_STORESEL            866
 #define CM_RESTORESEL          867
 #define CM_TOGGLETREEVIEW      868
+#define CM_TOGGLEPANELTABS     869
 
 #define CM_NEWDROP             870
 
