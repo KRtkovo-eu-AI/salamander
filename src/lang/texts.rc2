@@ -163,7 +163,7 @@ STRINGTABLE
  IDS_MENU_OPT_VSB_UM,        "&User Menu Bar"
  IDS_MENU_OPT_VSB_DB,        "&Drive Bar"
  IDS_MENU_OPT_VSB_DB2,       "T&wo Drive Bars"
- IDS_TABBEDPANELS,           "Tabbed &Panels"
+ IDS_MENU_OPT_VSB_TABS,      "Tabbed &Panels"
  IDS_MENU_OPT_VSB_EDIT,      "C&ommand Line"
  IDS_MENU_OPT_VSB_TREE,      "&Tree View"
  IDS_MENU_OPT_VSB_BOTTOM,    "&Bottom Toolbar"
