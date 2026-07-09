@@ -5969,7 +5969,7 @@ PVCODE WINAPI Backend::sPVGetImageInfo(LPPVHandle Img, LPPVImageInfo pImgInfo, i
     return PopulateImageInfo(*handle, pImgInfo, bufferSize, hasPreviousIndex, previousIndex, imageIndex);
 }
 
-PVCODE WINAPI Backend::sPVSetParam(LPPVHandle /*Img*/)
+PVCODE WINAPI Backend::sPVSetParam(TPVGetText /*getText*/)
 {
     return PVC_OK;
 }

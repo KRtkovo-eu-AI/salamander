@@ -1495,7 +1495,7 @@ BOOL InitViewer(HWND hParentWnd)
     int i;
 
     // initialize global variables
-    memset(&G, sizeof(G), 0);
+    memset(&G, 0, sizeof(G));
     G.ZoomType = eShrinkToFit;
     G.PageDnUpScrolls = TRUE;
     //  G.IgnoreThumbnails = FALSE;
