@@ -50,7 +50,6 @@ LPCTSTR PLUGIN_NAME_EN = _T("PICTVIEW"); // non-translated plugin name, used bef
 
 HINSTANCE DLLInstance = NULL; // handle to SPL - language-independent resources
 HINSTANCE HLanguage = NULL;   // handle to SLG - language-dependent resources
-BOOL HLanguageLoadedDirectly = FALSE; // TRUE when PictView loads its English SLG fallback itself
 HACCEL HAccel = NULL;
 
 BOOL SalamanderRegistered = FALSE;
@@ -581,12 +580,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         }
         if (PVW32DLL.Handle != NULL)
             FreeLibrary(PVW32DLL.Handle); // release the imaging backend module as well
-        if (HLanguageLoadedDirectly && HLanguage != NULL)
-        {
-            FreeLibrary(HLanguage);
-            HLanguage = NULL;
-            HLanguageLoadedDirectly = FALSE;
-        }
         if (G.HAccel != NULL)
             DestroyAcceleratorTable(G.HAccel);
         if (G.CaptureAtomID != 0)
@@ -632,21 +625,10 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
     }
 
-    // PictView must be able to initialize even when Salamander is running in a
-    // language for which the PictView SLG is missing or broken.  Load the
-    // bundled English SLG directly instead of asking the plugin manager for the
-    // current UI language; this avoids the startup-time language selection/error
-    // path and keeps the plugin functional from the first launch.
-    TCHAR langPath[MAX_PATH];
-    GetModuleFileName(DLLInstance, langPath, SizeOf(langPath));
-    _tcscpy((LPTSTR)_tcsrchr(langPath, '\\') + 1, _T("lang\\english.slg"));
-    HLanguage = LoadLibrary(langPath);
-    HLanguageLoadedDirectly = HLanguage != NULL;
+    // let it load the language module (.slg)
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), PLUGIN_NAME_EN);
     if (HLanguage == NULL)
-    {
-        MessageBox(hParentWnd, langPath, PLUGIN_NAME_EN, MB_OK | MB_ICONERROR);
         return NULL;
-    }
 
     // obtain the general Salamander interface
     SalamanderGeneral = salamander->GetSalamanderGeneral();
@@ -673,9 +655,11 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // If we crash inside pictview.spl, this message box will be displayed
     // and the happy recipient of the images will be Honza Patera.
     // Honza appears on the web in the plural (authors, we fixed, ....)
-    TCHAR exceptInfo[512];
+    TCHAR exceptInfo[1024];
     lstrcpyn(exceptInfo, LoadStr(IDS_EXCEPT_INFO1), SizeOf(exceptInfo));
-    _tcsncat(exceptInfo, LoadStr(IDS_EXCEPT_INFO2), SizeOf(exceptInfo) - _tcslen(exceptInfo));
+    size_t exceptInfoLen = _tcslen(exceptInfo);
+    if (exceptInfoLen < SizeOf(exceptInfo))
+        lstrcpyn(exceptInfo + exceptInfoLen, LoadStr(IDS_EXCEPT_INFO2), SizeOf(exceptInfo) - exceptInfoLen);
     SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "https://github.com/KRtkovo-eu-AI/salamander/issues/new/choose");
     return &PluginInterface;
 }
