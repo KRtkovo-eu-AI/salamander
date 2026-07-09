@@ -2190,30 +2190,6 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         DeleteObject(brush);
     }
 
-    if (selected && Configuration.TabActiveBorder)
-    {
-        COLORREF borderColor;
-        if (useDark)
-        {
-            if (CurrentColors != NULL)
-                borderColor = GetCOLORREF(CurrentColors[ITEM_FG_FOCUSED]);
-            else
-                borderColor = DarkModeGetDialogTextColor();
-        }
-        else
-            borderColor = GetSysColor(COLOR_BTNTEXT);
-
-        int borderHeight = 3;
-        RECT borderRect;
-        SetRect(&borderRect, fillRect.left, fillRect.top - 1, fillRect.right, fillRect.top - 1 + borderHeight);
-        HBRUSH borderBrush = CreateSolidBrush(borderColor);
-        if (borderBrush != NULL)
-        {
-            FillRect(hdc, &borderRect, borderBrush);
-            DeleteObject(borderBrush);
-        }
-    }
-
     RECT textRect = fillRect;
     InflateRect(&textRect, -4, 0);
     if (textRect.right <= textRect.left)
@@ -2229,6 +2205,13 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     if (verticalLift < 2)
         verticalLift = 2;
     ++verticalLift;
+    if (selected && Configuration.TabActiveBorder)
+    {
+        int activeBorderTextLift = EnvFontCharHeight / 8;
+        if (activeBorderTextLift < 2)
+            activeBorderTextLift = 2;
+        verticalLift += activeBorderTextLift;
+    }
     int bottomPadding = topPadding + verticalLift;
 
     textRect.top += topPadding;
@@ -2326,6 +2309,38 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
             if (oldPen != NULL)
                 SelectObject(hdc, oldPen);
             DeleteObject(closePen);
+        }
+    }
+
+    if (selected && Configuration.TabActiveBorder)
+    {
+        COLORREF borderColor;
+        if (CurrentColors != NULL)
+            borderColor = GetCOLORREF(CurrentColors[ACTIVE_CAPTION_BK]);
+        else if (useDark)
+            borderColor = DarkModeGetDialogBackgroundColor();
+        else
+            borderColor = GetSysColor(COLOR_ACTIVECAPTION);
+
+        int borderHeight = 3;
+        RECT borderRect = fillRect;
+        if (HWindow != NULL)
+        {
+            RECT clientRect;
+            if (GetClientRect(HWindow, &clientRect) && borderRect.bottom > clientRect.bottom - 1)
+                borderRect.bottom = clientRect.bottom - 1;
+        }
+        borderRect.top = borderRect.bottom - borderHeight;
+        if (borderRect.top < fillRect.top)
+            borderRect.top = fillRect.top;
+        if (borderRect.right > borderRect.left && borderRect.bottom > borderRect.top)
+        {
+            HBRUSH borderBrush = CreateSolidBrush(borderColor);
+            if (borderBrush != NULL)
+            {
+                FillRect(hdc, &borderRect, borderBrush);
+                DeleteObject(borderBrush);
+            }
         }
     }
 
