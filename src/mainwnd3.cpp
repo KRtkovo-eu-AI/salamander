@@ -5058,6 +5058,23 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_HELP_CHECKUPDATES:
+        case CM_HELP_PLUGINUPDATES:
+        {
+            int samandarinIndex;
+            if (Plugins.FindDLL("samandarin\\samandarin.spl", samandarinIndex))
+            {
+                CPluginData* samandarin = Plugins.Get(samandarinIndex);
+                if (samandarin != NULL && samandarin->GetLoaded())
+                {
+                    int pluginCmd = (LOWORD(wParam) == CM_HELP_CHECKUPDATES) ? 1 : 2;
+                    BOOL unselect;
+                    samandarin->ExecuteMenuItem2(GetActivePanel(), HWindow, -1, pluginCmd, unselect);
+                }
+            }
+            return 0;
+        }
+
         case CM_HELP_CONTENTS:
         case CM_HELP_SEARCH:
         case CM_HELP_INDEX:
@@ -7779,6 +7796,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             EndStopRefresh(); // closed in WM_USER_UNINITMENUPOPUP/WM_USER_INITMENUPOPUP
             break;
         }
+
+        case CML_HELP:
+        {
+            int pos = popup->FindItemPosition(CM_HELP_CHECKUPDATES);
+            if (pos >= 0)
+                popup->RemoveItemsRange(pos - 1, pos + 1);
+            break;
+        }
         }
         return 0;
     }
@@ -8039,6 +8064,37 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // we want all plugins
             if (Plugins.AddNamesToMenu(popup, CM_PLUGINABOUT_MIN, CM_PLUGINABOUT_MAX - CM_PLUGINABOUT_MIN, FALSE))
                 popup->AssignHotKeys();
+            break;
+        }
+
+        case CML_HELP:
+        {
+            int samandarinIndex;
+            if (Plugins.FindDLL("samandarin\\samandarin.spl", samandarinIndex))
+            {
+                CPluginData* samandarin = Plugins.Get(samandarinIndex);
+                if (samandarin != NULL && samandarin->GetLoaded())
+                {
+                    int taskListIndex = popup->FindItemPosition(CM_TASKLIST);
+                    if (taskListIndex >= 0)
+                    {
+                        MENU_ITEM_INFO mii;
+                        mii.Mask = MENU_MASK_TYPE;
+                        mii.Type = MENU_TYPE_SEPARATOR;
+                        popup->InsertItem(taskListIndex + 1, TRUE, &mii);
+
+                        mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING;
+                        mii.Type = MENU_TYPE_STRING;
+                        mii.ID = CM_HELP_CHECKUPDATES;
+                        mii.String = LoadStr(IDS_MENU_HELP_CHECKUPDATES);
+                        popup->InsertItem(taskListIndex + 2, TRUE, &mii);
+
+                        mii.ID = CM_HELP_PLUGINUPDATES;
+                        mii.String = LoadStr(IDS_MENU_HELP_PLUGINUPDATES);
+                        popup->InsertItem(taskListIndex + 3, TRUE, &mii);
+                    }
+                }
+            }
             break;
         }
         }

@@ -2273,6 +2273,8 @@
 #define IDS_MENU_HELP_ABOUT          13200
 #define IDS_MENU_HELP_CREDITS        13201
 #define IDS_MENU_HELP_FORUM          13202
+#define IDS_MENU_HELP_CHECKUPDATES   13203
+#define IDS_MENU_HELP_PLUGINUPDATES  13204
 
 //
 // find file menu

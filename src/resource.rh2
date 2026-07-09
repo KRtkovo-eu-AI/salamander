@@ -432,6 +432,8 @@
 //#define CM_HELP_TIP            2215
 #define CM_HELP_CREDITS        2215
 #define CM_HELP_ABOUT          2216
+#define CM_HELP_CHECKUPDATES   2217
+#define CM_HELP_PLUGINUPDATES  2218
 
 // commands pro find dialog
 #define CM_FIND_EXIT             2220
