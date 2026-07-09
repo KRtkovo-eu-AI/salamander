@@ -2193,19 +2193,16 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     if (selected && Configuration.TabActiveBorder)
     {
         COLORREF borderColor;
-        if (useDark)
-        {
-            if (CurrentColors != NULL)
-                borderColor = GetCOLORREF(CurrentColors[ITEM_FG_FOCUSED]);
-            else
-                borderColor = DarkModeGetDialogTextColor();
-        }
+        if (CurrentColors != NULL)
+            borderColor = GetCOLORREF(CurrentColors[ACTIVE_CAPTION_BK]);
+        else if (useDark)
+            borderColor = DarkModeGetDialogBackgroundColor();
         else
-            borderColor = GetSysColor(COLOR_BTNTEXT);
+            borderColor = GetSysColor(COLOR_ACTIVECAPTION);
 
         int borderHeight = 3;
         RECT borderRect;
-        SetRect(&borderRect, fillRect.left, fillRect.top - 1, fillRect.right, fillRect.top - 1 + borderHeight);
+        SetRect(&borderRect, fillRect.left, fillRect.bottom - borderHeight, fillRect.right, fillRect.bottom);
         HBRUSH borderBrush = CreateSolidBrush(borderColor);
         if (borderBrush != NULL)
         {
@@ -2229,6 +2226,13 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     if (verticalLift < 2)
         verticalLift = 2;
     ++verticalLift;
+    if (selected && Configuration.TabActiveBorder)
+    {
+        int activeBorderTextLift = EnvFontCharHeight / 8;
+        if (activeBorderTextLift < 2)
+            activeBorderTextLift = 2;
+        verticalLift += activeBorderTextLift;
+    }
     int bottomPadding = topPadding + verticalLift;
 
     textRect.top += topPadding;
