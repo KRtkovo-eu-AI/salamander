@@ -1,0 +1,69 @@
+# Harmadik fél szoftvereinek értesítései
+
+[Open Salamander: Samandarin](https://github.com/KRtkovo-eu-AI/salamander) számos szerző, karbantartó és projekt munkájára
+épül. Ez az oldal felsorolja az alkalmazás és bővítményei által használt
+összetevőket, kódot, ötleteket és eszközöket. Köszönjük mindenkinek, aki itt
+szerepel, hogy hozzáférhetővé tették munkájukat.
+
+## Alkalmazás magja és megosztott könyvtárak
+
+| Összetevő | Felhasználás | Szerzői jog és licenc megjegyzések |
+| --- | --- | --- |
+| REGEXP | Reguláris kifejezések illesztése | Copyright (C) 1986 Henry Spencer, University of Toronto. |
+| AES kód | Kriptográfiai rutinok | Írta Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
+| PNGLite | PNG kép támogatás | A PNGLite alapján, szerző: Daniel Karling. Copyright (C) 2007 Daniel Karling. |
+| Nano SVG | SVG megjelenítési támogatás | Copyright (c) 2013-2014 Mikko Mononen. |
+| SQLite | Beágyazott adatbázis támogatás | SQLite közszférában van. |
+| LibTomCrypt | Ellenőrző összeg bővítmény kriptográfiai alapelemei | LibTomCrypt közszférában van. Ahogy Tom St Denis írta: „Ahogy minden minőségi szoftvernek kellene lennie." |
+| LGPL könyvtárak | Megosztott harmadik fél könyvtárak | A GNU Library General Public License alatt licencelve. A licence másolata mellékelve van ezzel a szoftverrel. |
+| Unicode és Win32 hosszú elérési utak | Fájlnév kezelés részek | Samandarin tartalmaz kódot és megvalósítási munkákat, amelyek a fork [Sally](https://github.com/0xeb/sally) [Elias Bachaalany (0xeb)](https://github.com/0xeb) származékai, vagy jelentősen abból inspiráltak. A GNU Library General Public License alatt licencelve. |
+
+## Archiválási, tömörítési és lemezkép bővítmények
+
+| Összetevő | Felhasználás itt | Szerzői jog és licenc megjegyzések |
+| --- | --- | --- |
+| 7-Zip | 7-ZIP bővítmény | 7-Zip fájl archiváló könyvtár. Copyright (C) 1999-2026 Igor Pavlov. A GNU LGPL alatt terjesztve, a RAR kódra vonatkozó unRAR korlátozással. |
+| zlib | ZIP bővítmény | A ZIP bővítmény egyes részei zlib-t használnak. Copyright (C) 1995-2002 Jean-loup Gailly és Mark Adler. |
+| bzip2 | TAR bővítmény | bzip2 könyvtár. Copyright (C) 1996-2000 Julian R Seward. |
+| ARJ dekomprimáló könyvtár | UnARJ bővítmény | Dekomprimáló könyvtár, írta: ARJ Software, Inc. Copyright (C) 1990-1997 ARJ Software, Inc. |
+| Microsoft CAB dekomprimáló könyvtár | UnCAB bővítmény | Dekomprimáló könyvtár, írta: Microsoft Corporation. Copyright (C) Microsoft Corporation 1993-1997. |
+| UnRAR | UnRAR bővítmény | Dekomprimáló könyvtár, írta: Alexander Roshal. Copyright (C) 1993-2026 Alexander Roshal. Az unlicence alatt terjesztve. A vcpkg csővezeték telepíti az `unrar` csomagot az UnRAR bővítmény futtatható DLL-jéhez. |
+| ISZ SDK | UnISO bővítmény | Az UnISO bővítmény egyes részei ISZ SDK-t használnak. Copyright (C) 2002-2006 EZB Systems, Inc. Minden jog fenntartva. |
+| CHMLIB | UnCHM bővítmény | CHMLIB könyvtár. Copyright (C) 2001-2010 Jed Wing. |
+
+## Nézegető, média és fájlformátum bővítmények
+
+| Összetevő vagy szerző | Felhasználás itt | Szerzői jog és licenc megjegyzések |
+| --- | --- | --- |
+| Tomas Jelinek | Multimedia Viewer bővítmény | Tartalmaz Tomas Jelinek által írt szoftvert. Copyright (C) 2003-2026 Tomas Jelinek. |
+| Belső nézegető | Unicode nézegető részek | Samandarin tartalmaz kódot és megvalósítási munkákat, amelyek a fork [Sally](https://github.com/0xeb/sally) [Elias Bachaalany (0xeb)](https://github.com/0xeb) származékai, vagy jelentősen abból inspiráltak. A GNU Library General Public License alatt licencelve. |
+| Jan Patera | PictView bővítmény | A PictView bővítmény egyes részei Jan Patera licencéből származnak. Copyright (C) 1994-2026 Jan Patera. |
+| libexif | PictView bővítmény | A PictView bővítmény egyes részei libexif-et használnak. Copyright (C) 2001-2019 Curtis Galloway és Lutz Muller. |
+| Newtonsoft.Json 13.0.3 | JSON Viewer bővítmény | James Newton-King, MIT Licenc alatt kiadva. |
+| Microsoft .NET Framework 4.8 | JSON Viewer bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
+| PrismSharp 1.0.0-beta | PrismSharp Text Viewer bővítmény | Tomáš Kubec, MIT Licenc alatt kiadva. Tartalmazza a Prism.js-t, szerző: Lea Verou és a PrismJS közreműködők, MIT Licenc alatt. |
+| Microsoft.Web.WebView2 1.0.2420.47 | PrismSharp Text Viewer bővítmény | Microsoft Corporation, BSD 3-Clause Licenc alatt terjesztve. |
+| Microsoft .NET Framework 4.8 | PrismSharp Text Viewer bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
+| Newtonsoft.Json 13.0.3 | PrismSharp Text Viewer bővítmény | James Newton-King, MIT Licenc alatt kiadva. |
+| Markdig 0.36.2 | WebView2 Render Viewer bővítmény | Alexandre Mutel és közreműködők, BSD 2-Clause Licenc alatt kiadva. |
+| Microsoft.Web.WebView2 1.0.2420.47 | WebView2 Render Viewer bővítmény | Microsoft Corporation, BSD 3-Clause Licenc alatt terjesztve. |
+| Microsoft .NET Framework 4.8 | WebView2 Render Viewer bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
+
+## Hálózati, szinkronizációs és eszköz bővítmények
+
+| Összetevő vagy szerző | Felhasználás itt | Szerzői jog és licenc megjegyzések |
+| --- | --- | --- |
+| OpenSSL | FTP Client bővítmény és SFTP függőségek | Copyright (c) 1998-2026 The OpenSSL Project Authors. Minden jog fenntartva. Az OpenSSL 1.0.x az OpenSSL és az eredeti SSLeay licencek alatt terjesztve. Az OpenSSL 3.x az Apache License 2.0 alatt terjesztve. A vcpkg csővezeték telepíti az OpenSSL-t a FTP bővítmény kompatibilitási DLL-jeihez és az SFTP bővítmény függőségeihez. |
+| libssh2 | SFTP bővítmény | Daniel Stenberg, Simon Josefsson és a libssh2 közreműködők. BSD 3-Clause Licenc alatt terjesztve. A vcpkg csővezeték telepíti a `libssh2` csomagot az SFTP bővítmény függőségeihez. |
+| Martin Prikryl | WinSCP bővítmény | A WinSCP bővítmény egyes részei Martin Prikryl licencéből származnak. Copyright (C) 2000-2026 Martin Prikryl. |
+| Juraj Rojko | Windows Mobile bővítmény | Tartalmaz Juraj Rojko által írt szoftvert. Copyright (C) 2003-2026 Juraj Rojko. |
+| Microsoft .NET Framework 4.8 | Samandarin Update Notifier bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
+
+## Felhasználói felület, dokumentáció és Markdown megjelenítés
+
+| Összetevő vagy hozzájárulás | Felhasználás | Szerzői jog és licenc megjegyzések |
+| --- | --- | --- |
+| cmark-gfm | CommonMark és GitHub-Flavored Markdown elemzés/megjelenítés | GitHub forkja a `commonmark/cmark`-nak, egy CommonMark elemző és megjelenítő könyvtár és program C-ben. Copyright (C) 2009 Public Software Group e. V., Berlin, Germany; Copyright (C) 2012 Vicent Marti; Copyright (C) 2012 GitHub, Inc.; Copyright (C) 2014-2015 John MacFarlane; Copyright (c) 2013 Karl Dubost. |
+| github-markdown-css | Markdown dokumentumok stílusozása | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
+| Tree View panel módosítások | Tree View panel | A fgodoy által javasolt módosítások alapján. |
+| Lokalizációs szkriptek | Lokalizációs eszköz részek | Samandarin tartalmaz lokalizációs eszközöket, amelyek a fork [Sally](https://github.com/0xeb/sally) [Elias Bachaalany (0xeb)](https://github.com/0xeb) adaptált, vagy jelentősen abból inspirált munkájából származnak. A GNU Library General Public License alatt licencelve. |

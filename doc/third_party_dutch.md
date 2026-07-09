@@ -1,0 +1,69 @@
+# Mededelingen over software van derden
+
+[Open Salamander: Samandarin](https://github.com/KRtkovo-eu-AI/salamander) bouwt voort op het werk van vele auteurs,
+beheerders en projecten. Deze pagina vermeldt de componenten, code, ideeën en
+hulpmiddelen die worden gebruikt door de applicatie en haar plug-ins. Bedankt
+aan iedereen die hier wordt genoemd voor het beschikbaar stellen van hun werk.
+
+## Kernapplicatie en gedeelde bibliotheken
+
+| Component | Gebruikt voor | Attributie- en licentie-opmerkingen |
+| --- | --- | --- |
+| REGEXP | Reguliere expressie matching | Copyright (C) 1986 Henry Spencer, University of Toronto. |
+| AES code | Cryptografische routines | Geschreven door Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
+| PNGLite | PNG afbeeldingsondersteuning | Gebaseerd op PNGLite door Daniel Karling. Copyright (C) 2007 Daniel Karling. |
+| Nano SVG | SVG parsing/rendering ondersteuning | Copyright (c) 2013-2014 Mikko Mononen. |
+| SQLite | Ingebedde database ondersteuning | SQLite is in het publieke domein. |
+| LibTomCrypt | Cryptografische primitieven van het checksum plug-in | LibTomCrypt is publiek domein. Zoals Tom St Denis schreef: "Zoals elke kwaliteitssoftware zou moeten zijn." |
+| LGPL bibliotheken | Gedeelde bibliotheken van derden | Gelicenseerd onder de GNU Library General Public License. Een kopie van de licentie is bijgesloten bij deze software. |
+| Unicode en Win32 lange paden | Bestandsnaam verwerkingsgedeeltes | Samandarin bevat code en implementatiewerk afgeleid van fork [Sally](https://github.com/0xeb/sally) door [Elias Bachaalany (0xeb)](https://github.com/0xeb), of substantial geïnspireerd daardoor. Gelicenseerd onder de GNU Library General Public License. |
+
+## Archiverings-, compressie- en schijfimage plug-ins
+
+| Component | Gebruikt in | Attributie- en licentie-opmerkingen |
+| --- | --- | --- |
+| 7-Zip | 7-ZIP plug-in | 7-Zip bestandsarchiveringsbibliotheek. Copyright (C) 1999-2026 Igor Pavlov. Gedistribueerd onder GNU LGPL, met de unRAR-beperking voor de RAR-code. |
+| zlib | ZIP plug-in | Delen van de ZIP plug-in gebruiken zlib. Copyright (C) 1995-2002 Jean-loup Gailly en Mark Adler. |
+| bzip2 | TAR plug-in | bzip2 bibliotheek. Copyright (C) 1996-2000 Julian R Seward. |
+| ARJ decompressiebibliotheek | UnARJ plug-in | Decompressiebibliotheek geschreven door ARJ Software, Inc. Copyright (C) 1990-1997 ARJ Software, Inc. |
+| Microsoft CAB decompressiebibliotheek | UnCAB plug-in | Decompressiebibliotheek geschreven door Microsoft Corporation. Copyright (C) Microsoft Corporation 1993-1997. |
+| UnRAR | UnRAR plug-in | Decompressiebibliotheek geschreven door Alexander Roshal. Copyright (C) 1993-2026 Alexander Roshal. Gedistribueerd onder de unRAR-licentie. De vcpkg-pipeline installeert het `unrar`-pakket voor de runtime DLL van het UnRAR plug-in. |
+| ISZ SDK | UnISO plug-in | Delen van de UnISO plug-in gebruiken ISZ SDK. Copyright (C) 2002-2006 EZB Systems, Inc. Alle rechten voorbehouden. |
+| CHMLIB | UnCHM plug-in | CHMLIB bibliotheek. Copyright (C) 2001-2010 Jed Wing. |
+
+## Viewer, media en bestandsformaat plug-ins
+
+| Component of auteur | Gebruikt in | Attributie- en licentie-opmerkingen |
+| --- | --- | --- |
+| Tomas Jelinek | Multimedia Viewer plug-in | Bevat software geschreven door Tomas Jelinek. Copyright (C) 2003-2026 Tomas Jelinek. |
+| Interne viewer | Unicode viewer gedeeltes | Samandarin bevat code en implementatiewerk afgeleid van fork [Sally](https://github.com/0xeb/sally) door [Elias Bachaalany (0xeb)](https://github.com/0xeb), of substantial geïnspireerd daardoor. Gelicenseerd onder de GNU Library General Public License. |
+| Jan Patera | PictView plug-in | Delen van de PictView plug-in zijn gelicenseerd van Jan Patera. Copyright (C) 1994-2026 Jan Patera. |
+| libexif | PictView plug-in | Delen van de PictView plug-in gebruiken libexif. Copyright (C) 2001-2019 Curtis Galloway en Lutz Muller. |
+| Newtonsoft.Json 13.0.3 | JSON Viewer plug-in | Door James Newton-King, uitgegeven onder de MIT-licentie. |
+| Microsoft .NET Framework 4.8 | JSON Viewer plug-in | Verstrekt door Microsoft Corporation onder de licentievoorwaarden van het Microsoft .NET Framework. |
+| PrismSharp 1.0.0-beta | PrismSharp Text Viewer plug-in | Door Tomáš Kubec, uitgegeven onder de MIT-licentie. Bevat Prism.js door Lea Verou en de PrismJS-bijdragers onder de MIT-licentie. |
+| Microsoft.Web.WebView2 1.0.2420.47 | PrismSharp Text Viewer plug-in | Door Microsoft Corporation, gedistribueerd onder de BSD 3-Clause-licentie. |
+| Microsoft .NET Framework 4.8 | PrismSharp Text Viewer plug-in | Verstrekt door Microsoft Corporation onder de licentievoorwaarden van het Microsoft .NET Framework. |
+| Newtonsoft.Json 13.0.3 | PrismSharp Text Viewer plug-in | Door James Newton-King, uitgegeven onder de MIT-licentie. |
+| Markdig 0.36.2 | WebView2 Render Viewer plug-in | Door Alexandre Mutel en bijdragers, uitgegeven onder de BSD 2-Clause-licentie. |
+| Microsoft.Web.WebView2 1.0.2420.47 | WebView2 Render Viewer plug-in | Door Microsoft Corporation, gedistribueerd onder de BSD 3-Clause-licentie. |
+| Microsoft .NET Framework 4.8 | WebView2 Render Viewer plug-in | Verstrekt door Microsoft Corporation onder de licentievoorwaarden van het Microsoft .NET Framework. |
+
+## Netwerk-, synchronisatie- en apparaat plug-ins
+
+| Component of auteur | Gebruikt in | Attributie- en licentie-opmerkingen |
+| --- | --- | --- |
+| OpenSSL | FTP Client plug-in en SFTP-afhankelijkheden | Copyright (c) 1998-2026 The OpenSSL Project Authors. Alle rechten voorbehouden. OpenSSL 1.0.x wordt gedistribueerd onder de OpenSSL- en originele SSLeay-licenties. OpenSSL 3.x wordt gedistribueerd onder de Apache License 2.0. De vcpkg-pipeline installeert OpenSSL voor de FTP plug-in compatibiliteits-DLL's en voor de SFTP plug-in afhankelijkheden. |
+| libssh2 | SFTP plug-in | Door Daniel Stenberg, Simon Josefsson en libssh2-bijdragers. Gedistribueerd onder de BSD 3-Clause-licentie. De vcpkg-pipeline installeert het `libssh2`-pakket voor de SFTP plug-in afhankelijkheden. |
+| Martin Prikryl | WinSCP plug-in | Delen van de WinSCP plug-in zijn gelicenseerd van Martin Prikryl. Copyright (C) 2000-2026 Martin Prikryl. |
+| Juraj Rojko | Windows Mobile plug-in | Bevat software geschreven door Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
+| Microsoft .NET Framework 4.8 | Samandarin Update Notifier plug-in | Verstrekt door Microsoft Corporation onder de licentievoorwaarden van het Microsoft .NET Framework. |
+
+## Gebruikersinterface, documentatie en Markdown rendering
+
+| Component of bijdrage | Gebruikt voor | Attributie- en licentie-opmerkingen |
+| --- | --- | --- |
+| cmark-gfm | CommonMark en GitHub-Flavored Markdown parsing/rendering | GitHub's fork van `commonmark/cmark`, een CommonMark parsing- en renderingbibliotheek en -programma in C. Copyright (C) 2009 Public Software Group e. V., Berlin, Germany; Copyright (C) 2012 Vicent Marti; Copyright (C) 2012 GitHub, Inc.; Copyright (C) 2014-2015 John MacFarlane; Copyright (c) 2013 Karl Dubost. |
+| github-markdown-css | Markdown documentopmaak | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
+| Tree View paneelwijzigingen | Tree View paneel | Gebaseerd op wijzigingen voorgesteld door fgodoy. |
+| Lokalisatiescripts | Lokalisatie hulpmiddelgedeeltes | Samandarin bevat lokalisatiehulpmiddelen aangepast van fork [Sally](https://github.com/0xeb/sally) door [Elias Bachaalany (0xeb)](https://github.com/0xeb), of substantial geïnspireerd daardoor. Gelicenseerd onder de GNU Library General Public License. |

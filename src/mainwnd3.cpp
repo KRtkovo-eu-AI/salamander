@@ -5045,15 +5045,43 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_HELP_CREDITS:
         {
-            char thirdPartyPath[MAX_PATH];
-            if (GetModuleFileName(NULL, thirdPartyPath, MAX_PATH) != 0 &&
-                CutDirectory(thirdPartyPath) &&
-                SalPathAppend(thirdPartyPath, "doc\\third_party.md", MAX_PATH))
+            char thirdPartyDir[SAL_MAX_PATH];
+            if (GetModuleFileName(NULL, thirdPartyDir, SAL_MAX_PATH) != 0 &&
+                CutDirectory(thirdPartyDir) &&
+                SalPathAppend(thirdPartyDir, "doc", SAL_MAX_PATH))
             {
-                HANDLE lock;
-                BOOL lockOwner;
-                ViewFileInt(HWindow, thirdPartyPath, FALSE, 0xFFFFFFFF, FALSE,
-                            lock, lockOwner, FALSE, -1, -1);
+                char thirdPartyPath[SAL_MAX_PATH];
+                const char* slgName = Configuration.LoadedSLGName;
+
+                if (slgName[0] != 0)
+                {
+                    lstrcpyn(thirdPartyPath, thirdPartyDir, SAL_MAX_PATH);
+                    const char* dot = strrchr(slgName, '.');
+                    int nameLen = dot ? (int)(dot - slgName) : (int)strlen(slgName);
+                    char langFile[64];
+                    memcpy(langFile, "third_party_", 12);
+                    strncpy(langFile + 12, slgName, nameLen);
+                    langFile[12 + nameLen] = 0;
+                    strcat(langFile, ".md");
+                    if (SalPathAppend(thirdPartyPath, langFile, SAL_MAX_PATH) &&
+                        GetFileAttributes(thirdPartyPath) != INVALID_FILE_ATTRIBUTES)
+                    {
+                        HANDLE lock;
+                        BOOL lockOwner;
+                        ViewFileInt(HWindow, thirdPartyPath, FALSE, 0xFFFFFFFF, FALSE,
+                                    lock, lockOwner, FALSE, -1, -1);
+                        return 0;
+                    }
+                }
+
+                lstrcpyn(thirdPartyPath, thirdPartyDir, SAL_MAX_PATH);
+                if (SalPathAppend(thirdPartyPath, "third_party.md", SAL_MAX_PATH))
+                {
+                    HANDLE lock;
+                    BOOL lockOwner;
+                    ViewFileInt(HWindow, thirdPartyPath, FALSE, 0xFFFFFFFF, FALSE,
+                                lock, lockOwner, FALSE, -1, -1);
+                }
             }
             return 0;
         }

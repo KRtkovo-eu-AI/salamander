@@ -1,0 +1,69 @@
+# Avis de logiciels tiers
+
+[Open Salamander: Samandarin](https://github.com/KRtkovo-eu-AI/salamander) s'appuie sur le travail de nombreux auteurs,
+mainteneurs et projets. Cette page répertorie les composants, le code, les idées
+et les outils utilisés par l'application et ses plugins. Merci à tous ceux qui
+sont listés ici d'avoir rendu leur travail disponible.
+
+## Application principale et bibliothèques partagées
+
+| Composant | Utilisation | Notes sur l'attribution et la licence |
+| --- | --- | --- |
+| REGEXP | Correspondance d'expressions régulières | Copyright (C) 1986 Henry Spencer, University of Toronto. |
+| Code AES | Routines cryptographiques | Écrit par Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
+| PNGLite | Support d'images PNG | Basé sur PNGLite par Daniel Karling. Copyright (C) 2007 Daniel Karling. |
+| Nano SVG | Support de parsing/rendering SVG | Copyright (c) 2013-2014 Mikko Mononen. |
+| SQLite | Support de base de données intégrée | SQLite est dans le domaine public. |
+| LibTomCrypt | Primitives cryptographiques du plugin de contrôle d'intégrité | LibTomCrypt est dans le domaine public. Comme l'a écrit Tom St Denis : « Comme tout logiciel de qualité devrait l'être. » |
+| Bibliothèques LGPL | Bibliothèques tierces partagées | Sous licence GNU Library General Public License. Une copie de la licence est incluse avec ce logiciel. |
+| Unicode et longs chemins Win32 | Parties de gestion des noms de fichiers | Samandarin contient du code et du travail de dérivation du fork [Sally](https://github.com/0xeb/sally) par [Elias Bachaalany (0xeb)](https://github.com/0xeb), ou substantiellement inspiré par celui-ci. Sous licence GNU Library General Public License. |
+
+## Plugins d'archivage, de compression et d'image disque
+
+| Composant | Utilisé dans | Notes sur l'attribution et la licence |
+| --- | --- | --- |
+| 7-Zip | Plugin 7-ZIP | Bibliothèque d'archivage de fichiers 7-Zip. Copyright (C) 1999-2026 Igor Pavlov. Distribué sous GNU LGPL, avec la restriction unRAR pour le code RAR. |
+| zlib | Plugin ZIP | Des parties du plugin ZIP utilisent zlib. Copyright (C) 1995-2002 Jean-loup Gailly et Mark Adler. |
+| bzip2 | Plugin TAR | Bibliothèque bzip2. Copyright (C) 1996-2000 Julian R Seward. |
+| Bibliothèque de décompression ARJ | Plugin UnARJ | Bibliothèque de décompression écrite par ARJ Software, Inc. Copyright (C) 1990-1997 ARJ Software, Inc. |
+| Bibliothèque de décompression Microsoft CAB | Plugin UnCAB | Bibliothèque de décompression écrite par Microsoft Corporation. Copyright (C) Microsoft Corporation 1993-1997. |
+| UnRAR | Plugin UnRAR | Bibliothèque de décompression écrite par Alexander Roshal. Copyright (C) 1993-2026 Alexander Roshal. Distribué sous la licence unRAR. Le pipeline vcpkg installe le paquet `unrar` pour le DLL runtime du plugin UnRAR. |
+| ISZ SDK | Plugin UnISO | Des parties du plugin UnISO utilisent ISZ SDK. Copyright (C) 2002-2006 EZB Systems, Inc. Tous droits réservés. |
+| CHMLIB | Plugin UnCHM | Bibliothèque CHMLIB. Copyright (C) 2001-2010 Jed Wing. |
+
+## Plugins de visualiseur, multimédia et de formats de fichiers
+
+| Composant ou auteur | Utilisé dans | Notes sur l'attribution et la licence |
+| --- | --- | --- |
+| Tomas Jelinek | Plugin Multimedia Viewer | Inclut du logiciel écrit par Tomas Jelinek. Copyright (C) 2003-2026 Tomas Jelinek. |
+| Visualiseur interne | Parties du visualiseur Unicode | Samandarin contient du code et du travail de dérivation du fork [Sally](https://github.com/0xeb/sally) par [Elias Bachaalany (0xeb)](https://github.com/0xeb), ou substantiellement inspiré par celui-ci. Sous licence GNU Library General Public License. |
+| Jan Patera | Plugin PictView | Des parties du plugin PictView sont sous licence de Jan Patera. Copyright (C) 1994-2026 Jan Patera. |
+| libexif | Plugin PictView | Des parties du plugin PictView utilisent libexif. Copyright (C) 2001-2019 Curtis Galloway et Lutz Muller. |
+| Newtonsoft.Json 13.0.3 | Plugin JSON Viewer | Par James Newton-King, publié sous la licence MIT. |
+| Microsoft .NET Framework 4.8 | Plugin JSON Viewer | Fourni par Microsoft Corporation sous les termes de la licence Microsoft .NET Framework. |
+| PrismSharp 1.0.0-beta | Plugin PrismSharp Text Viewer | Par Tomáš Kubec, publié sous la licence MIT. Inclut Prism.js par Lea Verou et les contributeurs PrismJS sous la licence MIT. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Plugin PrismSharp Text Viewer | Par Microsoft Corporation, distribué sous la licence BSD 3-Clause. |
+| Microsoft .NET Framework 4.8 | Plugin PrismSharp Text Viewer | Fourni par Microsoft Corporation sous les termes de la licence Microsoft .NET Framework. |
+| Newtonsoft.Json 13.0.3 | Plugin PrismSharp Text Viewer | Par James Newton-King, publié sous la licence MIT. |
+| Markdig 0.36.2 | Plugin WebView2 Render Viewer | Par Alexandre Mutel et contributeurs, publié sous la licence BSD 2-Clause. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Plugin WebView2 Render Viewer | Par Microsoft Corporation, distribué sous la licence BSD 3-Clause. |
+| Microsoft .NET Framework 4.8 | Plugin WebView2 Render Viewer | Fourni par Microsoft Corporation sous les termes de la licence Microsoft .NET Framework. |
+
+## Plugins réseau, synchronisation et périphériques
+
+| Composant ou auteur | Utilisé dans | Notes sur l'attribution et la licence |
+| --- | --- | --- |
+| OpenSSL | Plugin FTP Client et dépendances SFTP | Copyright (c) 1998-2026 The OpenSSL Project Authors. Tous droits réservés. OpenSSL 1.0.x est distribué sous les licences OpenSSL et SSLeay originales. OpenSSL 3.x est distribué sous la Apache License 2.0. Le pipeline vcpkg installe OpenSSL pour les DLL de compatibilité du plugin FTP et pour les dépendances du plugin SFTP. |
+| libssh2 | Plugin SFTP | Par Daniel Stenberg, Simon Josefsson et les contributeurs libssh2. Distribué sous la licence BSD 3-Clause. Le pipeline vcpkg installe le paquet `libssh2` pour les dépendances du plugin SFTP. |
+| Martin Prikryl | Plugin WinSCP | Des parties du plugin WinSCP sont sous licence de Martin Prikryl. Copyright (C) 2000-2026 Martin Prikryl. |
+| Juraj Rojko | Plugin Windows Mobile | Inclut du logiciel écrit par Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
+| Microsoft .NET Framework 4.8 | Plugin Samandarin Update Notifier | Fourni par Microsoft Corporation sous les termes de la licence Microsoft .NET Framework. |
+
+## Interface utilisateur, documentation et rendu Markdown
+
+| Composant ou contribution | Utilisé pour | Notes sur l'attribution et la licence |
+| --- | --- | --- |
+| cmark-gfm | Parsing/rendering CommonMark et GitHub-Flavored Markdown | Fork de GitHub de `commonmark/cmark`, une bibliothèque et un programme de parsing et rendu CommonMark en C. Copyright (C) 2009 Public Software Group e. V., Berlin, Germany; Copyright (C) 2012 Vicent Marti; Copyright (C) 2012 GitHub, Inc.; Copyright (C) 2014-2015 John MacFarlane; Copyright (c) 2013 Karl Dubost. |
+| github-markdown-css | Style des documents Markdown | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
+| Modifications du panneau Tree View | Panneau Tree View | Basé sur les modifications proposées par fgodoy. |
+| Scripts de localisation | Parties d'outils de localisation | Samandarin contient des outils de localisation adaptés du fork [Sally](https://github.com/0xeb/sally) par [Elias Bachaalany (0xeb)](https://github.com/0xeb), ou substantiellement inspirés par celui-ci. Sous licence GNU Library General Public License. |

@@ -433,6 +433,16 @@ Source: "{#PayloadDir}\convert\westeuro\macrasci.tab"; DestDir: "{app}\convert\w
 Source: "{#PayloadDir}\doc\license.txt"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\license_gpl.txt"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_czech.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_dutch.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_french.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_german.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_hungarian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_chinesesimplified.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_romanian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_russian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_slovak.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_spanish.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\translations.txt"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\7zip.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\automation.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
