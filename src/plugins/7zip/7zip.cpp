@@ -665,10 +665,10 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     // AddViewer and AddPanelArchiver will fall under the UPGRADE SECTION
     //  salamander->AddViewer("*.7z", FALSE); // default (plugin install), otherwise Salamander ignores it
 
-    salamander->AddPanelArchiver("7z;xz;txz;bz2;bzip2;tbz2;tbz;gz;gzip;tgz;tpz;tar;ova;zip;z01;zipx;jar;xpi;odt;ods;docx;xlsx;epub;wim;swm;esd;apm;apfs;ar;a;deb;udeb;lib;arj;cab;chm;chi;chq;chw;hxs;hxi;hxr;hxq;hxw;lit;cpio;cramfs;dmg;img;ext;ext2;ext3;ext4;fat;gpt;hfs;hfsx;hxs;ihex;iso;lzh;lha;lzma;mbr;msi;msp;doc;xls;ppt;nsis;ntfs;qcow;qcow2;qcow2c;rar;r00;rpm;squashfs;udf;scap;uefif;vdi;vhd;vhdx;vmdk;xar;z;taz", TRUE, FALSE);
+    salamander->AddPanelArchiver("7z;xz;bz2;bzip2;gz;gzip;tar;zip;wim;apfs;ar;arj;cab;chm;cpio;cramfs;dmg;ext;fat;gpt;hfs;ihex;iso;lzh;lha;lzma;mbr;msi;nsis;ntfs;qcow2;rar;rpm;squashfs;udf;uefi;vdi;vhd;vhdx;vmdk;xar;z", TRUE, FALSE);
 
     salamander->AddCustomPacker("7-Zip (Plugin)", "7z", ConfigVersion < 1);
-    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z;*.xz;*.txz;*.bz2;*.bzip2;*.tbz2;*.tbz;*.gz;*.gzip;*.tgz;*.tpz;*.tar;*.ova;*.zip;*.zipx;*.wim;*.swm;*.esd;*.apfs;*.ar;*.arj;*.cab;*.chm;*.cpio;*.cramfs;*.dmg;*.ext;*.fat;*.gpt;*.hfs;*.ihex;*.iso;*.lzh;*.lha;*.lzma;*.mbr;*.msi;*.nsis;*.ntfs;*.qcow2;*.rar;*.rpm;*.squashfs;*.udf;*.uefi;*.vdi;*.vhd;*.vhdx;*.vmdk;*.xar;*.z", ConfigVersion < 4);
+    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z;*.xz;*.bz2;*.bzip2;*.gz;*.gzip;*.tar;*.zip;*.wim;*.apfs;*.ar;*.arj;*.cab;*.chm;*.cpio;*.cramfs;*.dmg;*.ext;*.fat;*.gpt;*.hfs;*.ihex;*.iso;*.lzh;*.lha;*.lzma;*.mbr;*.msi;*.nsis;*.ntfs;*.qcow2;*.rar;*.rpm;*.squashfs;*.udf;*.uefi;*.vdi;*.vhd;*.vhdx;*.vmdk;*.xar;*.z", ConfigVersion < 4);
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator
    keep it synchronized with the calls to salamander->AddMenuItem() below...
