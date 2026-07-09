@@ -1639,6 +1639,126 @@ begin
 end;
 
 
+function NormalizeConfiguredLanguageName(LanguageName: String): String;
+var
+  I: Integer;
+begin
+  Result := Trim(LanguageName);
+  StringChangeEx(Result, '"', '', True);
+
+  for I := Length(Result) downto 1 do
+  begin
+    if (Result[I] = '\') or (Result[I] = '/') then
+    begin
+      Result := Copy(Result, I + 1, MaxInt);
+      Break;
+    end;
+  end;
+
+  if (Length(Result) > 4) and (CompareText(Copy(Result, Length(Result) - 3, 4), '.slg') = 0) then
+    Result := Copy(Result, 1, Length(Result) - 4);
+end;
+
+function IsSupportedInstallerLanguage(const LanguageName: String): Boolean;
+begin
+  Result :=
+    (CompareText(LanguageName, 'english') = 0) or
+    (CompareText(LanguageName, 'chinesesimplified') = 0) or
+    (CompareText(LanguageName, 'czech') = 0) or
+    (CompareText(LanguageName, 'dutch') = 0) or
+    (CompareText(LanguageName, 'french') = 0) or
+    (CompareText(LanguageName, 'german') = 0) or
+    (CompareText(LanguageName, 'hungarian') = 0) or
+    (CompareText(LanguageName, 'romanian') = 0) or
+    (CompareText(LanguageName, 'russian') = 0) or
+    (CompareText(LanguageName, 'slovak') = 0) or
+    (CompareText(LanguageName, 'spanish') = 0);
+end;
+
+function GetRegistryConfigurationLanguage(): String;
+var
+  LanguageName: String;
+begin
+  Result := '';
+  if RegQueryStringValue(HKCU, {#AppToInstallRegPath} + '\Configuration', 'Language', LanguageName) then
+  begin
+    Result := NormalizeConfiguredLanguageName(LanguageName);
+  end;
+end;
+
+function GetRegFileConfigurationLanguage(const RegFilePath: String): String;
+var
+  Lines: array of String;
+  I: Integer;
+  Line: String;
+  ValuePos: Integer;
+begin
+  Result := '';
+
+  if (RegFilePath = '') or (not FileExists(RegFilePath)) or (not LoadStringsFromFile(RegFilePath, Lines)) then
+    Exit;
+
+  for I := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    Line := Trim(Lines[I]);
+    if Pos('"Language"=', Line) = 1 then
+    begin
+      ValuePos := Pos('=', Line);
+      if ValuePos > 0 then
+      begin
+        Result := NormalizeConfiguredLanguageName(Copy(Line, ValuePos + 1, MaxInt));
+        Exit;
+      end;
+    end;
+  end;
+end;
+
+function GetStoredConfigurationLanguage(const IsFileStorage: Boolean; const RegFilePath: String): String;
+begin
+  if IsFileStorage then
+    Result := GetRegFileConfigurationLanguage(RegFilePath)
+  else
+    Result := GetRegistryConfigurationLanguage();
+
+  if not IsSupportedInstallerLanguage(Result) then
+    Result := '';
+end;
+
+function HasCommandLineParameter(const ParameterName: String): Boolean;
+var
+  I: Integer;
+  Param: String;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+  begin
+    Param := Uppercase(ParamStr(I));
+    if (CompareText(Param, '/' + Uppercase(ParameterName)) = 0) or
+       (CompareText(Param, '-' + Uppercase(ParameterName)) = 0) or
+       (Pos('/' + Uppercase(ParameterName) + '=', Param) = 1) or
+       (Pos('-' + Uppercase(ParameterName) + '=', Param) = 1) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+function RelaunchUninstallInConfigurationLanguage(const LanguageName: String): Boolean;
+var
+  ResultCode: Integer;
+  Params: String;
+begin
+  Result := False;
+
+  if (LanguageName = '') or (CompareText(LanguageName, ActiveLanguage) = 0) or
+     HasCommandLineParameter('SALAMANDERLANGRELAUNCHED') then
+    Exit;
+
+  Params := GetCmdTail + ' /LANG=' + LanguageName + ' /SALAMANDERLANGRELAUNCHED';
+  Result := Exec(ParamStr(0), Params, '', SW_SHOW, ewNoWait, ResultCode);
+end;
+
 function InitializeUninstall(): Boolean;
 begin
   Result := True;
@@ -1649,6 +1769,16 @@ begin
   if DeleteUserConfigurationFromFile then
   begin
     DeleteUserConfigurationFilePath := GetFileConfigurationPath();
+  end;
+
+  if RelaunchUninstallInConfigurationLanguage(GetStoredConfigurationLanguage(DeleteUserConfigurationFromFile, DeleteUserConfigurationFilePath)) then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  if DeleteUserConfigurationFromFile then
+  begin
 
     if FileExists(DeleteUserConfigurationFilePath) or FileExists(ExpandConstant('{app}\configstorage.ini')) then
     begin
