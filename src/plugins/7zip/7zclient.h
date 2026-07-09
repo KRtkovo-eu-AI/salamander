@@ -66,6 +66,17 @@ struct CArchiveItemInfo
         FileData = fd;
         IsDir = isDir;
     }
+
+    CArchiveItemInfo(const char* name, const CFileData* fd, bool isDir)
+    {
+#ifdef _UNICODE
+        NameInArchive = GetUnicodeString(name);
+#else
+        NameInArchive = name;
+#endif
+        FileData = fd;
+        IsDir = isDir;
+    }
 };
 
 // ************************************************************************************************

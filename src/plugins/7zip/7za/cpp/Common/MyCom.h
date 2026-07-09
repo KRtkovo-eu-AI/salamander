@@ -482,6 +482,18 @@ EXTERN_C_END
   )
 
 
+
+// Compatibility aliases for legacy Salamander 7-Zip integration code.
+#ifndef MY_UNKNOWN_IMP
+#define MY_UNKNOWN_IMP Z7_COM_UNKNOWN_IMP_0 public:
+#endif
+#ifndef MY_UNKNOWN_IMP1
+#define MY_UNKNOWN_IMP1(i1) Z7_COM_UNKNOWN_IMP_1(i1) public:
+#endif
+#ifndef MY_UNKNOWN_IMP2
+#define MY_UNKNOWN_IMP2(i1, i2) Z7_COM_UNKNOWN_IMP_2(i1, i2) public:
+#endif
+
 #define Z7_IFACES_IMP_UNK_1(i1) \
   Z7_COM_UNKNOWN_IMP_1(i1) \
   Z7_IFACE_COM7_IMP(i1) \

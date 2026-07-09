@@ -63,6 +63,11 @@ static void PrintString(const AString &s)
   _snprintf_s(OutputBuffer + strlen(OutputBuffer), OutputBufferSize - strlen(OutputBuffer), _TRUNCATE, "%s", (LPCSTR)s);
 }
 
+static void PrintString(const char *s)
+{
+  PrintString(AString(s));
+}
+
 static void PrintNewLine()
 {
   _snprintf_s(OutputBuffer + strlen(OutputBuffer), OutputBufferSize - strlen(OutputBuffer), _TRUNCATE, "\n");
@@ -87,6 +92,11 @@ static void PrintError(const AString &s)
   PrintNewLine();
   PrintString(s);
   PrintNewLine();
+}
+
+static void PrintError(const char *s)
+{
+  PrintError(AString(s));
 }
 
 static HRESULT IsArchiveItemProp(IInArchive *archive, UInt32 index, PROPID propID, bool &result)

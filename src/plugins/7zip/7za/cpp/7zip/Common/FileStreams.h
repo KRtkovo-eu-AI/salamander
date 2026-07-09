@@ -38,7 +38,7 @@ Z7_CLASS_IMP_COM_5(
   , IStreamGetProp
 )
 */
-Z7_class_final(CInFileStream) :
+class CInFileStream :
   public IInStream,
   public IStreamGetSize,
   public IStreamGetProps,
@@ -54,7 +54,8 @@ Z7_class_final(CInFileStream) :
       IStreamGetProps2,
       IStreamGetProp)
 
-  Z7_IFACE_COM7_IMP(ISequentialInStream)
+public:
+  Z7_IFACE_COM7_IMP_NONFINAL(ISequentialInStream)
   Z7_IFACE_COM7_IMP(IInStream)
 public:
   Z7_IFACE_COM7_IMP(IStreamGetSize)
@@ -136,14 +137,42 @@ Z7_CLASS_IMP_NOQIB_1(
 };
 
 
-Z7_CLASS_IMP_COM_1(
-  COutFileStream
-  , IOutStream
-)
-  Z7_IFACE_COM7_IMP(ISequentialOutStream)
+class COutFileStream :
+  public IOutStream,
+  public CMyUnknownImp
+{
+  Z7_COM_UNKNOWN_IMP_1(IOutStream)
+public:
+  Z7_IFACE_COM7_IMP_NONFINAL(ISequentialOutStream)
+  Z7_IFACE_COM7_IMP(IOutStream)
 public:
 
   NWindows::NFile::NIO::COutFile File;
+
+  bool Create(CFSTR fileName, bool createAlways)
+  {
+    ProcessedSize = 0;
+    return File.Create_ALWAYS_or_Open_ALWAYS(fileName, createAlways);
+  }
+
+  bool Open(CFSTR fileName, DWORD creationDisposition)
+  {
+    ProcessedSize = 0;
+    switch (creationDisposition)
+    {
+      case CREATE_NEW: return File.Create_NEW(fileName);
+      case CREATE_ALWAYS: return File.Create_ALWAYS(fileName);
+      case OPEN_EXISTING: return File.Open_EXISTING(fileName);
+      case OPEN_ALWAYS: return File.Create_ALWAYS_or_Open_ALWAYS(fileName, false);
+      case TRUNCATE_EXISTING:
+        #ifdef Z7_FILE_STREAMS_USE_WIN_FILE
+        return File.Open(fileName, FILE_SHARE_READ, TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL);
+        #else
+        return File.Create_ALWAYS(fileName);
+        #endif
+    }
+    return false;
+  }
 
   bool Create_NEW(CFSTR fileName)
   {

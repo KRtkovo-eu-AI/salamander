@@ -70,7 +70,7 @@ public:
   bool LoadEx(CFSTR path, DWORD flags = LOAD_LIBRARY_AS_DATAFILE) throw();
   bool Load(CFSTR path) throw();
   // FARPROC
-  // void *GetProc(LPCSTR procName) const { return My_GetProcAddress(_module, procName); }
+  void *GetProc(LPCSTR procName) const { return (void *)::GetProcAddress(_module, procName); }
 };
 
 #else
@@ -89,7 +89,7 @@ public:
   bool Free() throw();
   bool Load(CFSTR path) throw();
   // FARPROC
-  // void *GetProc(LPCSTR procName) const; // { return My_GetProcAddress(_module, procName); }
+  void *GetProc(LPCSTR procName) const;
 };
 
 #endif
