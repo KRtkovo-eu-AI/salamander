@@ -487,4 +487,11 @@ kbd {
   td {
     padding: 6px 9px;
   }
+
+  #description-text {
+    margin-top: 1em;
+    margin-left: 0;
+    color: var(--sam-muted);
+    font-size: .75rem;
+  }
 }

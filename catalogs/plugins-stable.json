@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-02T22:59:23Z",
+  "generatedAt": "2026-07-09T21:15:35Z",
   "plugins": [
     {
       "id": "7zip",
@@ -22,7 +22,7 @@
         "romanian": "Creaza, rasfoieste si extrage arhivele 7-Zip.",
         "spanish": "Crear, hojear y extraer archivos 7-Zip."
       },
-      "latestVersion": "1.31 (x64)",
+      "latestVersion": "1.32 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -362,7 +362,7 @@
         "romanian": "Vizualizator intern care afișează documente JSON utilizând o interfață WinForms gestionată.",
         "spanish": "Visor interno que muestra documentos JSON mediante una interfaz de usuario de WinForms administrada."
       },
-      "latestVersion": "1.0 (x64)",
+      "latestVersion": "1.01 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -464,7 +464,7 @@
         "romanian": "Rasfoieste si extrage arhive Quake Pak.",
         "spanish": "Hojear y extraer archivos PAK de Quake."
       },
-      "latestVersion": "1.72 (x64)",
+      "latestVersion": "1.71 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -532,7 +532,7 @@
         "romanian": "Vizualizator rapid de imagini si convertor.",
         "spanish": "Visor y consersor rápido de imágenes."
       },
-      "latestVersion": "2.21 (x64)",
+      "latestVersion": "2.22 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -804,7 +804,7 @@
         "romanian": "Vizualizator intern care redă fișiere text cu evidențiere sintactică gestionată.",
         "spanish": "Visor interno que muestra archivos de texto con resaltado de sintaxis administrado."
       },
-      "latestVersion": "1.0 (x64)",
+      "latestVersion": "1.01 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -1004,7 +1004,7 @@
       "description": {
         "english": "UnRAR plugin for Open Salamander"
       },
-      "latestVersion": "3.02 (x64)",
+      "latestVersion": "3.03 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -1038,7 +1038,7 @@
         "romanian": "Vizualizator care afișează HTML redat, Markdown și documente web utilizând WebView2.",
         "spanish": "Visor que muestra HTML, Markdown y documentos web renderizados mediante WebView2."
       },
-      "latestVersion": "1.01 (x64)",
+      "latestVersion": "1.02 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -1106,7 +1106,7 @@
         "romanian": "Creaza, rasfoieste, si extrage arhivele ZIP.",
         "spanish": "Crear, hojear y extraer archivos ZIP."
       },
-      "latestVersion": "1.5 (x64)",
+      "latestVersion": "1.6 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
