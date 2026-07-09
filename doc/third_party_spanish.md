@@ -65,5 +65,5 @@ los aquí mencionados por hacer disponible su trabajo.
 | --- | --- | --- |
 | cmark-gfm | Parseo/renderizado de CommonMark y GitHub-Flavored Markdown | Fork de GitHub de `commonmark/cmark`, una biblioteca y programa de parseo y renderizado de CommonMark en C. Copyright (C) 2009 Public Software Group e. V., Berlin, Germany; Copyright (C) 2012 Vicent Marti; Copyright (C) 2012 GitHub, Inc.; Copyright (C) 2014-2015 John MacFarlane; Copyright (c) 2013 Karl Dubost. |
 | github-markdown-css | Estilizado de documentos Markdown | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
-| Cambios del panel Tree View | Panel Tree View | Basado en cambios propuestos por fgodoy. |
+| Panel Tree View | Panel Tree View | Basado en cambios propuestos por fgodoy. |
 | Scripts de localización | Partes de herramientas de localización | Samandarin incluye herramientas de localización adaptadas del fork [Sally](https://github.com/0xeb/sally) de [Elias Bachaalany (0xeb)](https://github.com/0xeb), o sustancialmente inspiradas por él. Licenciado bajo la GNU Library General Public License. |

@@ -65,5 +65,5 @@ sprístupnenie ich práce.
 | --- | --- | --- |
 | cmark-gfm | Parsovanie/vykresľovanie CommonMark a GitHub-Flavored Markdown | GitHubov fork `commonmark/cmark`, knižnica a program pre parsovanie a vykresľovanie CommonMark v C. Copyright (C) 2009 Public Software Group e. V., Berlin, Germany; Copyright (C) 2012 Vicent Marti; Copyright (C) 2012 GitHub, Inc.; Copyright (C) 2014-2015 John MacFarlane; Copyright (c) 2013 Karl Dubost. |
 | github-markdown-css | Štýlovanie dokumentov Markdown | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
-| Zmeny panelu Tree View | Panel Tree View | Založené na zmenách navrhnutých fgodoy. |
+| Základ panelu Tree View | Panel Tree View | Založené na zmenách navrhnutých fgodoy. |
 | Lokalizačné skripty | Časti nástrojov pre lokalizáciu | Samandarin obsahuje nástroje pre lokalizáciu upravené z fork [Sally](https://github.com/0xeb/sally) od [Elias Bachaalany (0xeb)](https://github.com/0xeb), alebo podstatne inšpirované ním. Licencované pod GNU Library General Public License. |
