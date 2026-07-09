@@ -102,6 +102,9 @@ CPackACDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        // set the window icon
+        SendMessage(HWindow, WM_SETICON, ICON_BIG,
+                    (LPARAM)HANDLES(LoadIcon(HInstance, MAKEINTRESOURCE(IDI_SALAMANDER))));
         // construct the listview
         ListView = new CPackACListView(this);
         if (ListView == NULL)
