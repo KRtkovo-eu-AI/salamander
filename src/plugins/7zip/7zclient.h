@@ -16,7 +16,7 @@
 #include "7za/CPP/Windows/PropVariant.h"
 #include "7za/CPP/Windows/PropVariantConv.h"
 #include "7za/CPP/Windows/DLL.h"
-#include "7za/CPP/Windows/Defs.h"
+#include "7za/CPP/Windows/WinDefs.h"
 
 #include "extract.h"
 #include "update.h"

@@ -14,7 +14,7 @@
     <ClCompile>
       <AdditionalOptions>/MP /wd4456 /wd4457 /wd4458 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>..\..\7za\cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>BZIP2_EXTRACT_ONLY;WIN32;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <CallingConvention>StdCall</CallingConvention>
     </ClCompile>

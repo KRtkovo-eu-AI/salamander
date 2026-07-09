@@ -564,7 +564,7 @@ void CPluginInterface::SetDefaultConfiguration()
     Config.ShowExtendedOptions = TRUE;
 
     Config.CompressParams.CompressLevel = COMPRESS_LEVEL_NORMAL;
-    Config.CompressParams.Method = CCompressParams::LZMA;
+    Config.CompressParams.Method = CCompressParams::LZMA2;
     Config.CompressParams.DictSize = 16 * 1024; // Dictionary Size in KB
     Config.CompressParams.WordSize = 32;
     Config.CompressParams.SolidArchive = TRUE;

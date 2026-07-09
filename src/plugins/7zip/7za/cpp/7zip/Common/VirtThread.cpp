@@ -11,39 +11,28 @@ static THREAD_FUNC_DECL CoderThread(void *p)
     CVirtThread *t = (CVirtThread *)p;
     t->StartEvent.Lock();
     if (t->Exit)
-      return 0;
+      return THREAD_FUNC_RET_ZERO;
     t->Execute();
     t->FinishedEvent.Set();
   }
 }
 
-// OPENSAL_7ZIP_PATCH BEGIN
-extern "C" {
-  DWORD
-  RunThreadWithCallStackObject(LPTHREAD_START_ROUTINE startAddress, LPVOID parameter);
-}
-
-static THREAD_FUNC_DECL CoderThreadWrap(void *p) {
-  return (THREAD_FUNC_RET_TYPE) RunThreadWithCallStackObject((LPTHREAD_START_ROUTINE) CoderThread, p);
-}
-
 WRes CVirtThread::Create()
 {
-  RINOK(StartEvent.CreateIfNotCreated());
-  RINOK(FinishedEvent.CreateIfNotCreated());
-  StartEvent.Reset();
-  FinishedEvent.Reset();
+  RINOK_WRes(StartEvent.CreateIfNotCreated_Reset())
+  RINOK_WRes(FinishedEvent.CreateIfNotCreated_Reset())
+  // StartEvent.Reset();
+  // FinishedEvent.Reset();
   Exit = false;
   if (Thread.IsCreated())
     return S_OK;
-  return Thread.Create(CoderThreadWrap, this);
+  return Thread.Create(CoderThread, this);
 }
-// OPENSAL_7ZIP_PATCH END
 
-void CVirtThread::Start()
+WRes CVirtThread::Start()
 {
   Exit = false;
-  StartEvent.Set();
+  return StartEvent.Set();
 }
 
 void CVirtThread::WaitThreadFinish()
@@ -53,7 +42,6 @@ void CVirtThread::WaitThreadFinish()
     StartEvent.Set();
   if (Thread.IsCreated())
   {
-    Thread.Wait();
-    Thread.Close();
+    Thread.Wait_Close();
   }
 }

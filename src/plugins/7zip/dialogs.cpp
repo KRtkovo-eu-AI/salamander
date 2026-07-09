@@ -32,7 +32,7 @@ CResDataPair CompressLevel[] =
 CResDataPair CompressMethod[] =
     {
         {IDS_METHOD_LZMA, CCompressParams::LZMA},
-        //  { IDS_METHOD_LZMA2, CCompressParams::LZMA2 },
+        {IDS_METHOD_LZMA2, CCompressParams::LZMA2},
         {IDS_METHOD_PPMD, CCompressParams::PPMd},
 };
 

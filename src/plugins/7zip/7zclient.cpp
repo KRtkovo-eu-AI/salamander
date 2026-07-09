@@ -387,7 +387,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
                 SalamanderGeneral->Free(fd.Name);
                 delete itemData; // already stored in fd.PluginData
                 // dir->Clear(pluginData);  // Petr: no reason to throw the rest away
-                if (_tcslen(filePath) > MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
+                if (_tcslen(filePath) > SAL_MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
                 {
                     if (*reportTooLongPathErr)
                     {
@@ -414,7 +414,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
                 SalamanderGeneral->Free(fd.Name);
                 delete itemData; // already stored in fd.PluginData
                 // dir->Clear(pluginData);  // Petr: no reason to throw the rest away
-                if (_tcslen(filePath) > MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
+                if (_tcslen(filePath) > SAL_MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
                 {
                     if (*reportTooLongPathErr)
                     {
@@ -1172,8 +1172,12 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
         UINT32 numItems = 0;
         if (isNewArchive)
         {
-            // new
-            if (!CreateObject(&CLSID_CFormat7z, &IID_IOutArchive, (void**)&outArchive))
+            // new - detect format from file extension
+            GUID classID;
+            if (!GetArchiveFormat(archiveName, &classID))
+                throw OPER_CANCEL;
+
+            if (!CreateObject(&classID, &IID_IOutArchive, (void**)&outArchive))
                 throw OPER_CANCEL;
 
             // create an empty array

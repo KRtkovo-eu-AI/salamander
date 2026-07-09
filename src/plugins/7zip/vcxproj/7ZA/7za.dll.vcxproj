@@ -154,11 +154,17 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\ApmHandler.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Archive\ApfsHandler.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\ArchiveExports.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\ArHandler.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\ArjHandler.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Archive\AvbHandler.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Archive\Base64Handler.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\Bz2Handler.cpp">
     </ClCompile>
@@ -236,6 +242,10 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\LzmaHandler.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Archive\LpHandler.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Archive\LvmHandler.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\MachoHandler.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\MbrHandler.cpp">
@@ -270,6 +280,8 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\SquashfsHandler.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Archive\SparseHandler.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\SwfHandler.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\Tar\TarHandler.cpp">
@@ -296,6 +308,8 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\VhdHandler.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Archive\VhdxHandler.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\VmdkHandler.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\Wim\WimHandler.cpp">
@@ -311,6 +325,8 @@
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\XzHandler.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\ZHandler.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Archive\ZstdHandler.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Archive\Zip\ZipAddCommon.cpp">
     </ClCompile>
@@ -351,6 +367,8 @@
     <ClCompile Include="..\..\7za\cpp\7zip\Common\MethodId.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Common\MethodProps.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Common\MultiOutStream.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Common\OffsetStream.cpp">
     </ClCompile>
@@ -470,6 +488,14 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Compress\ZlibEncoder.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Compress\LzfseDecoder.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Compress\XzDecoder.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Compress\XzEncoder.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\7zip\Compress\ZstdDecoder.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Crypto\7zAES.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\7zip\Crypto\7zAESRegister.cpp">
@@ -504,6 +530,8 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Common\CrcReg.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Common\CksumReg.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Common\C_FileIO.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Common\DynLimBuf.cpp">
@@ -530,7 +558,13 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Common\Sha1Reg.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Common\Md5Reg.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Common\Sha256Reg.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Common\Sha3Reg.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Common\Sha512Reg.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Common\StdInStream.cpp">
     </ClCompile>
@@ -547,6 +581,8 @@
     <ClCompile Include="..\..\7za\cpp\Common\Wildcard.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Common\XzCrc64Reg.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Common\Xxh64Reg.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\Clipboard.cpp">
     </ClCompile>
@@ -565,6 +601,10 @@
     <ClCompile Include="..\..\7za\cpp\Windows\Control\ListView.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\Control\PropertyPage.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Windows\Control\ReBar.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Windows\Control\StatusBar.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\Control\Window2.cpp">
     </ClCompile>
@@ -618,9 +658,13 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\System.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Windows\SystemInfo.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\TimeUtils.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\Window.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Windows\WinDefs.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\c\7zAlloc.c">
     </ClCompile>
@@ -717,6 +761,34 @@
     <ClCompile Include="..\..\7za\c\XzEnc.c">
     </ClCompile>
     <ClCompile Include="..\..\7za\c\XzIn.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\DllSecur.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\LzFindOpt.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Lzma2DecMt.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Md5.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\MtDec.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Ppmd7aDec.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Sha1Opt.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Sha256Opt.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Sha3.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Sha512.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Sha512Opt.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\SwapBytes.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\Xxh64.c">
+    </ClCompile>
+    <ClCompile Include="..\..\7za\c\ZstdDec.c">
     </ClCompile>
     <ClCompile Include="..\..\7za\spl\main.cpp">
     </ClCompile>
