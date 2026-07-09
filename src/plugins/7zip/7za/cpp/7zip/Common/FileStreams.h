@@ -144,6 +144,7 @@ class COutFileStream :
   Z7_COM_UNKNOWN_IMP_1(IOutStream)
 public:
   Z7_IFACE_COM7_IMP_NONFINAL(ISequentialOutStream)
+  Z7_IFACE_COM7_IMP(IOutStream)
 public:
 
   NWindows::NFile::NIO::COutFile File;
@@ -157,7 +158,17 @@ public:
   bool Open(CFSTR fileName, DWORD creationDisposition)
   {
     ProcessedSize = 0;
-    return File.Open(fileName, creationDisposition);
+    switch (creationDisposition)
+    {
+      case CREATE_NEW: return File.Create_NEW(fileName);
+      case CREATE_ALWAYS: return File.Create_ALWAYS(fileName);
+      case OPEN_EXISTING: return File.Open_EXISTING(fileName);
+      case OPEN_ALWAYS: return File.Create_ALWAYS_or_Open_ALWAYS(fileName, false);
+      case TRUNCATE_EXISTING:
+        return File.Create(fileName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
+            TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL);
+    }
+    return false;
   }
 
   bool Create_NEW(CFSTR fileName)

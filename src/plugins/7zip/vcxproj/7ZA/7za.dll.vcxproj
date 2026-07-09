@@ -602,10 +602,6 @@
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\Control\PropertyPage.cpp">
     </ClCompile>
-    <ClCompile Include="..\..\7za\cpp\Windows\Control\ReBar.cpp">
-    </ClCompile>
-    <ClCompile Include="..\..\7za\cpp\Windows\Control\StatusBar.cpp">
-    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\Control\Window2.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\DLL.cpp">
@@ -663,8 +659,6 @@
     <ClCompile Include="..\..\7za\cpp\Windows\TimeUtils.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Windows\Window.cpp">
-    </ClCompile>
-    <ClCompile Include="..\..\7za\cpp\Windows\WinDefs.cpp">
     </ClCompile>
     <ClCompile Include="..\..\7za\c\7zAlloc.c">
     </ClCompile>

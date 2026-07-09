@@ -746,7 +746,7 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
         }
         CMyComPtr<IOutStream> outStream(outStreamSpec);
 
-        if (!outStreamSpec->Open(tmpName, OPEN_EXISTING))
+        if (!outStreamSpec->Open(fas2fs(tmpName), OPEN_EXISTING))
         {
             Error(IDS_CANT_CREATE_ARCHIVE);
             throw OPER_CANCEL;
@@ -1216,7 +1216,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
         }
         CMyComPtr<IOutStream> outStream(outStreamSpec);
 
-        if (!outStreamSpec->Open(tmpName, OPEN_EXISTING))
+        if (!outStreamSpec->Open(fas2fs(tmpName), OPEN_EXISTING))
         {
             Error(IDS_CANT_CREATE_ARCHIVE);
             throw OPER_CANCEL;
