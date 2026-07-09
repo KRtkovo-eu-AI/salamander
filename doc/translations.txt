@@ -4,46 +4,56 @@ License Agreement for language translations available on ALTAP website
 Czech version:
 Copyright © 2010-2019 ALTAP
 Copyright © 2008-2010 Hynek Mikulic (Gtein)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 Dutch version:
 Copyright © 2013-2019 Cor van der Smissen (CeSium)
 Copyright © 2010-2012 Marco Fung (SuperBK)
 Copyright © 2013 Patrick Vijgeboom (PatrickV)
 Copyright © 2010-2012 S.V. (Stephan) Rietveld (Canefield)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 French version:
 Copyright © 2012-2019 Arnaud Dupin de Beyssat (ADB)
 Copyright © 2011-2012 Gérard Gréco
 Copyright © 2016-2019 Jérémy MARC (Bromatofiel)
 Copyright © 2016-2019 Maxime Abbey (Maxime)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 German version:
 Copyright © 2007-2010 Dirk Bornhuetter (Nighthawk)
 Copyright © 2007-2019 Thomas Kelso (Thomas)
 Copyright © 2006-2009 Thomas Pagels (Silbereis)
 Copyright © 2005-2009 Thomas Woelk (Beta)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 Hungarian version:
 Copyright © 2010-2019 Jozsef Torok (Evin)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 Romanian version:
 Copyright © 2010 Donca Radu
 Copyright © 2010-2019 Ioan Stefancu
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 Russian version:
 Copyright © 2010-2012 Alen Khayrullin (Adept)
 Copyright © 2012-2019 Igor V. Polyakoff (Polyakoff)
 Copyright © 2012 Neutron16 (Neutron16)
 Copyright © 2010-2012 Vasiliy (Vasiliy)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 Chinese Simplified version:
 Copyright © 2013-2019 Michael Lu (Michael Lu)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 Slovak version:
 Copyright © 2011-2019 Roman Paholik (Wizzard)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 Spanish version:
 Copyright © 2010-2019 Juan Pablo Barrio Lera (jpbarrio)
+Updated 2026 with automatic translate using gpt-5.4-nano from OpenAI.
 
 (languages and translators are in alphabetical order)
 
@@ -53,6 +63,8 @@ merge, publish, and distribute it, providing that Translation stays free of
 charge and the above copyright notice and this permission notice will be
 included in all copies.
 
+Portions of the localization tooling were adapted from or substantially informed by from 0xeb:
+https://github.com/0xeb/sally
 
 For more information about language versions please visit Language Translations
 section on forum:

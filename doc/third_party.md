@@ -2,144 +2,145 @@
 
 ## Igor Pavlov and Brian Gladman
 
-The 7-ZIP plugin utilizes 7-Zip file archiver library.
-7-Zip Copyright (C) 1999-2026 Igor Pavlov
-7-Zip is distributed under the GNU LGPL, with unRAR restriction for the RAR code.
+* The 7-ZIP plugin utilizes 7-Zip file archiver library.
+* 7-Zip Copyright (C) 1999-2026 Igor Pavlov.
+* 7-Zip is distributed under the GNU LGPL, with unRAR restriction for the RAR code.
 
 ## Jean-loup Gailly and Mark Adler
 
-Portions of ZIP plugin utilizes zlib library.
-ZLIB Library Copyright (C) 1995-2002 Jean-loup Gailly and Mark Adler
+* Portions of ZIP plugin utilizes zlib library.
+* ZLIB Library Copyright (C) 1995-2002 Jean-loup Gailly and Mark Adler.
 
 ## Tomas Jelinek
 
-The Multimedia Viewer plugin includes software written by Tomas Jelinek.
-Copyright (C) 2003-2026 Tomas Jelinek
+* The Multimedia Viewer plugin includes software written by Tomas Jelinek.
+* Copyright (C) 2003-2026 Tomas Jelinek.
 
 ## Jan Patera
 
-Portions of PictView plugin licensed from Jan Patera.
-Copyright (C) 1994-2026 Jan Patera
+* Portions of PictView plugin licensed from Jan Patera.
+* Copyright (C) 1994-2026 Jan Patera.
 
 ## Curtis Galloway and Lutz Muller
 
-Portions of PictView plugin utilizes libexif library.
-Libexif Library Copyright (C) 2001-2019 Curtis Galloway and Lutz Muller
+* Portions of PictView plugin utilizes libexif library.
+* Libexif Library Copyright (C) 2001-2019 Curtis Galloway and Lutz Muller.
 
 ## Julian R Seward
 
-The TAR plugin utilizes bzip2 library.
-Bzip2 Library Copyright (C) 1996-2000 Julian R Seward
+* The TAR plugin utilizes bzip2 library.
+* Bzip2 Library Copyright (C) 1996-2000 Julian R Seward.
 
 ## ARJ Software, Inc
 
-Portions of UnARJ plugin utilizes decompression library written by ARJ Software, Inc.
-Copyright (C) 1990-97 ARJ Software, Inc.
+* Portions of UnARJ plugin utilizes decompression library written by ARJ Software, Inc.
+* Copyright (C) 1990-97 ARJ Software, Inc.
 
 ## Microsoft Corporation
 
-Portions of UnCAB plugin utilizes decompression library written by Microsoft Corporation.
-Copyright (C) Microsoft Corporation 1993-1997
+* Portions of UnCAB plugin utilizes decompression library written by Microsoft Corporation.
+* Copyright (C) Microsoft Corporation 1993-1997.
 
 ## Alexander Roshal
 
-Portions of UnRAR plugin utilizes decompression library written by Alexander Roshal.
-Copyright (C) 1993-2026 Alexander Roshal
-UnRAR is distributed under the unRAR license.
-The vcpkg pipeline installs the unrar package for the UnRAR plugin runtime DLL.
+* Portions of UnRAR plugin utilizes decompression library written by Alexander Roshal.
+* Copyright (C) 1993-2026 Alexander Roshal.
+* UnRAR is distributed under the unRAR license.
+* The vcpkg pipeline installs the unrar package for the UnRAR plugin runtime DLL.
 
 ## Martin Prikryl
 
-Portions of WinSCP plugin licensed from Martin Prikryl.
-Copyright (C) 2000-2026 Martin Prikryl
+* Portions of WinSCP plugin licensed from Martin Prikryl.
+* Copyright (C) 2000-2026 Martin Prikryl.
 
 ## Juraj Rojko
 
-The Windows Mobile plugin includes software written by Juraj Rojko.
-Copyright (C) 2003-2026 Juraj Rojko
+* The Windows Mobile plugin includes software written by Juraj Rojko.
+* Copyright (C) 2003-2026 Juraj Rojko.
 
 ## Jed Wing
 
-The UnCHM plugin utilizes CHMLIB library.
-CHMLIB Library Copyright (C) 2001-2010 Jed Wing
+* The UnCHM plugin utilizes CHMLIB library.
+* CHMLIB Library Copyright (C) 2001-2010 Jed Wing.
 
 ## LGPL Libraries
 
-LGPL Libraries are licensed under the GNU Library General Public License,
-a copy of which is included with this software.
+* LGPL Libraries are licensed under the GNU Library General Public License.
+* A copy of the GNU Library General Public License is included with this software.
 
 ## Dr Brian Gladman
 
-Crypto library utilizes AES code written by Dr Brian Gladman.
-Copyright (C) 2001, Dr Brian Gladman
+* Crypto library utilizes AES code written by Dr Brian Gladman.
+* Copyright (C) 2001, Dr Brian Gladman.
 
 ## Henry Spencer
 
-Regular expression matching uses REGEXP library.
-REGEXP Library Copyright (C) 1986 Henry Spencer, University of Toronto
+* Regular expression matching uses REGEXP library.
+* REGEXP Library Copyright (C) 1986 Henry Spencer, University of Toronto.
 
 ## Daniel Karling
 
-PNG library is based on PNGLite library.
-PNGLite Library Copyright (C) 2007 Daniel Karling
+* PNG library is based on PNGLite library.
+* PNGLite Library Copyright (C) 2007 Daniel Karling.
 
 ## EZB Systems, Inc.
 
-Portion of UnISO plugin utilizes ISZ SDK.
-ISZ SDK Copyright (C) 2002-2006 EZB Systems, Inc., All Rights Reserved.
+* Portion of UnISO plugin utilizes ISZ SDK.
+* ISZ SDK Copyright (C) 2002-2006 EZB Systems, Inc., All Rights Reserved.
 
 ## OpenSSL Project
 
-The FTP Client plugin can utilize OpenSSL library.
-Copyright (c) 1998-2026 The OpenSSL Project Authors. All rights reserved.
-OpenSSL 1.0.x is distributed under the OpenSSL and original SSLeay licenses.
-OpenSSL 3.x is distributed under the Apache License 2.0.
-The vcpkg pipeline installs OpenSSL for the FTP plugin compatibility DLLs and for the SFTP plugin dependencies.
+* The FTP Client plugin can utilize OpenSSL library.
+* Copyright (c) 1998-2026 The OpenSSL Project Authors. All rights reserved.
+* OpenSSL 1.0.x is distributed under the OpenSSL and original SSLeay licenses.
+* OpenSSL 3.x is distributed under the Apache License 2.0.
+* The vcpkg pipeline installs OpenSSL for the FTP plugin compatibility DLLs and for the SFTP plugin dependencies.
 
 ## Daniel Stenberg, Simon Josefsson and libssh2 contributors
 
-The SFTP plugin utilizes libssh2 library.
-libssh2 is distributed under the BSD 3-Clause License.
-The vcpkg pipeline installs the libssh2 package for the SFTP plugin dependencies.
+* The SFTP plugin utilizes libssh2 library.
+* libssh2 is distributed under the BSD 3-Clause License.
+* The vcpkg pipeline installs the libssh2 package for the SFTP plugin dependencies.
 
 ## SQLite
 
-Open Salamander uses SQLite. SQLite is in the Public Domain.
+* Open Salamander uses SQLite.
+* SQLite is in the Public Domain.
 
 ## LibTomCrypt
 
-The Checksum plugin utilizes LibTomCrypt library.
-LibTomCrypt is public domain. As should all quality software be. Tom St Denis
+* The Checksum plugin utilizes LibTomCrypt library.
+* LibTomCrypt is public domain. As should all quality software be. Tom St Denis.
 
 ## Nano SVG
 
-Copyright (c) 2013-14 Mikko Mononen
+* Copyright (c) 2013-14 Mikko Mononen.
 
 ## github/cmark-gfm
 
-GitHub's fork of commonmark/cmark, a CommonMark parsing and rendering library and program in C.
-Copyright (C) 2009 Public Software Group e. V., Berlin, Germany.
-Copyright (C) 2012 Vicent Marti
-Copyright (C) 2012 Github, Inc.
-Copyright (C) 2014-15 John MacFarlane
-Copyright (c) 2013 Karl Dubost
+* GitHub's fork of commonmark/cmark, a CommonMark parsing and rendering library and program in C.
+* Copyright (C) 2009 Public Software Group e. V., Berlin, Germany.
+* Copyright (C) 2012 Vicent Marti.
+* Copyright (C) 2012 Github, Inc.
+* Copyright (C) 2014-15 John MacFarlane.
+* Copyright (c) 2013 Karl Dubost.
 
 ## Sally fork
 
-Samandarin includes code and implementation work derived from or substantially informed by Sally by 0xeb:
-https://github.com/0xeb/sally
-
-In particular, portions of the Unicode viewer/filename handling and localization tooling were adapted from or substantially informed by Sally. Copyright and license notices are preserved in the relevant source files.
+* Samandarin includes code and implementation work derived from or substantially informed by Sally by 0xeb.
+* Sally repository: https://github.com/0xeb/sally
+* In particular, portions of the Unicode viewer/filename handling and localization tooling were adapted from or substantially informed by Sally.
+* Copyright and license notices are preserved in the relevant source files.
 
 ## Tree View panel
 
-Based on changes proposed by fgodoy.
+* Based on changes proposed by fgodoy.
 
 ## sindresorhus/github-markdown-css
 
-Copyright (c) 2014 Dave Liepmann
-Copyright (c) Sindre Sorhus
-Copyright (c) 2016 Osmo Salomaa
+* Copyright (c) 2014 Dave Liepmann.
+* Copyright (c) Sindre Sorhus.
+* Copyright (c) 2016 Osmo Salomaa.
 
 ## JSON Viewer Plugin
 
