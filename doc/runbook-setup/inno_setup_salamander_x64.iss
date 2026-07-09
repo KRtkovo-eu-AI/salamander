@@ -10,12 +10,15 @@
 ; If /DPayloadDir is not supplied, OPENSAL_BUILD_DIR is used when present; otherwise
 ; the fallback path below is relative to this .iss file.
 
-#define MyAppName "Open Salamander Samandarin"
-#define MyAppDisplayName "Open Salamander 5.0 Samandarin 0.9 (x64)"
-#define MyAppVersion "5.0-samandarin-0.9"
-#define MyAppPublisher "Ondřej Kotas (KRtekTM)"
-#define MyAppURL "https://github.com/KRtkovo-eu-AI/salamander"
-#define MyAppExeName "salamand.exe"
+#define AppToInstallName "Open Salamander Samandarin"
+#define SamandarinVersion "0.9"
+#define AppToInstallDisplayName "Open Salamander 5.0 Samandarin " + SamandarinVersion + " (x64)"
+#define AppToInstallVersion "5.0-samandarin-" + SamandarinVersion
+#define AppToInstallPublisher "Ondřej Kotas (KRtekTM)"
+#define AppToInstallURL "https://github.com/KRtkovo-eu-AI/salamander"
+#define AppToInstallExeName "salamand.exe"
+#define AppToInstallRegPath = "'Software\Open Salamander Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
+#define AppToInstallRegPathRem = "'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
 #ifndef PayloadDir
   #if GetEnv("OPENSAL_BUILD_DIR") != ""
     #define PayloadDir AddBackslash(GetEnv("OPENSAL_BUILD_DIR")) + "salamander\Release_x64"
@@ -26,27 +29,27 @@
 
 [Setup]
 AppId=OpenSalamanderSamandarin-x64
-AppName={#MyAppName}
-AppVersion={#MyAppVersion}
-AppVerName={#MyAppDisplayName}
-AppPublisher={#MyAppPublisher}
-AppPublisherURL={#MyAppURL}
-AppSupportURL={#MyAppURL}
-AppUpdatesURL={#MyAppURL}
+AppName={#AppToInstallName}
+AppVersion={#AppToInstallVersion}
+AppVerName={#AppToInstallDisplayName}
+AppPublisher={#AppToInstallPublisher}
+AppPublisherURL={#AppToInstallURL}
+AppSupportURL={#AppToInstallURL}
+AppUpdatesURL={#AppToInstallURL}
 DefaultDirName={code:GetDefaultDirName}
 AppendDefaultDirName=no
 UsePreviousAppDir=no
 DisableDirPage=no
-DefaultGroupName={#MyAppName}
+DefaultGroupName={#AppToInstallName}
 DisableProgramGroupPage=yes
-OutputBaseFilename={#MyAppVersion}_win_x64
+OutputBaseFilename={#AppToInstallVersion}_win_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern dynamic
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
-UninstallDisplayName={#MyAppDisplayName}
+UninstallDisplayName={#AppToInstallDisplayName}
 UninstallDisplayIcon={app}\salamand.exe
 CreateUninstallRegKey=yes
 Uninstallable=not IsPortableInstall
@@ -132,7 +135,7 @@ english.PortableDirName=samandarin
 english.StartMenuShortcut=Create a &Start Menu shortcut
 english.DesktopShortcut=Create a &desktop shortcut
 english.Shortcuts=Shortcuts:
-english.LaunchProgram=Launch {#MyAppName}
+english.LaunchProgram=Launch {#AppToInstallName}
 chinesesimplified.InstallMode=安装模式:
 chinesesimplified.StandardInstall=正常安装 (开始菜单, 程序和卸载程序)
 chinesesimplified.PortableInstall=提取为便携版本 (无程序条目或卸载程序)
@@ -140,7 +143,7 @@ chinesesimplified.PortableDirName=samandarin
 chinesesimplified.StartMenuShortcut=创建“开始”菜单快捷方式(&S)
 chinesesimplified.DesktopShortcut=创建桌面快捷方式(&D)
 chinesesimplified.Shortcuts=快捷方式:
-chinesesimplified.LaunchProgram=启动 {#MyAppName}
+chinesesimplified.LaunchProgram=启动 {#AppToInstallName}
 czech.InstallMode=Režim instalace:
 czech.StandardInstall=Opravdová instalace (nabídka Start, Programy a odinstalátor)
 czech.PortableInstall=Jen rozbalit jako portable verzi (bez záznamu v Programech a odinstalátoru)
@@ -148,7 +151,7 @@ czech.PortableDirName=samandarin
 czech.StartMenuShortcut=Vytvořit zástupce v nabídce &Start
 czech.DesktopShortcut=Vytvořit zástupce na &ploše
 czech.Shortcuts=Zástupci:
-czech.LaunchProgram=Spustit {#MyAppName}
+czech.LaunchProgram=Spustit {#AppToInstallName}
 dutch.InstallMode=Installatiemodus:
 dutch.StandardInstall=Installeer normaal (Startmenu, Programmas en deïnstalleerder)
 dutch.PortableInstall=Pak uit als een draagbare versie (geen Programmas-vermelding of deïnstalleerder)
@@ -156,7 +159,7 @@ dutch.PortableDirName=samandarin
 dutch.StartMenuShortcut=Een snelkoppeling in het menu &Start maken
 dutch.DesktopShortcut=Een snelkoppeling op het &bureaublad maken
 dutch.Shortcuts=Snelkoppelingen:
-dutch.LaunchProgram={#MyAppName} starten
+dutch.LaunchProgram={#AppToInstallName} starten
 french.InstallMode=Mode d’installation :
 french.StandardInstall=Installer normalement (menu Démarrer, Programmes et désinstallateur)
 french.PortableInstall=Extraire en tant que version portable (aucune entrée dans Programmes ni désinstallateur)
@@ -164,7 +167,7 @@ french.PortableDirName=samandarin
 french.StartMenuShortcut=Créer un raccourci dans le menu &Démarrer
 french.DesktopShortcut=Créer un raccourci sur le &Bureau
 french.Shortcuts=Raccourcis :
-french.LaunchProgram=Lancer {#MyAppName}
+french.LaunchProgram=Lancer {#AppToInstallName}
 german.InstallMode=Installationsmodus:
 german.StandardInstall=Normal installieren (Startmenü, Programme und Deinstallationsprogramm)
 german.PortableInstall=Als portable Version extrahieren (kein Eintrag in Programme oder Deinstallationsprogramm)
@@ -172,7 +175,7 @@ german.PortableDirName=samandarin
 german.StartMenuShortcut=Eine Verknüpfung im &Startmenü erstellen
 german.DesktopShortcut=Eine Verknüpfung auf dem &Desktop erstellen
 german.Shortcuts=Verknüpfungen:
-german.LaunchProgram={#MyAppName} starten
+german.LaunchProgram={#AppToInstallName} starten
 hungarian.InstallMode=Telepítési mód:
 hungarian.StandardInstall=Normál telepítés (Start menü, Programok és eltávolító)
 hungarian.PortableInstall=Kicsomagolás hordozható verzióként (nincs bejegyzés a Programokban vagy az eltávolítóban)
@@ -180,7 +183,7 @@ hungarian.PortableDirName=samandarin
 hungarian.StartMenuShortcut=&Start menü parancsikon létrehozása
 hungarian.DesktopShortcut=&Asztali parancsikon létrehozása
 hungarian.Shortcuts=Parancsikonok:
-hungarian.LaunchProgram={#MyAppName} indítása
+hungarian.LaunchProgram={#AppToInstallName} indítása
 romanian.InstallMode=Mod de instalare:
 romanian.StandardInstall=Instalare normală (Meniul Start, Programe și dezinstalator)
 romanian.PortableInstall=Extrageți ca versiune portabilă (fără intrare în Programe sau dezinstalator)
@@ -188,7 +191,7 @@ romanian.PortableDirName=samandarin
 romanian.StartMenuShortcut=Creează o scurtătură în meniul &Start
 romanian.DesktopShortcut=Creează o scurtătură pe &desktop
 romanian.Shortcuts=Scurtături:
-romanian.LaunchProgram=Pornește {#MyAppName}
+romanian.LaunchProgram=Pornește {#AppToInstallName}
 russian.InstallMode=Режим установки:
 russian.StandardInstall=Установить нормально (меню «Пуск», Программы и деинсталлятор)
 russian.PortableInstall=Извлечь как портативную версию (нет записи в Программах или деинсталляторе)
@@ -196,7 +199,7 @@ russian.PortableDirName=samandarin
 russian.StartMenuShortcut=Создать ярлык в меню «&Пуск»
 russian.DesktopShortcut=Создать ярлык на &рабочем столе
 russian.Shortcuts=Ярлыки:
-russian.LaunchProgram=Запустить {#MyAppName}
+russian.LaunchProgram=Запустить {#AppToInstallName}
 slovak.InstallMode=Režim inštalácie:
 slovak.StandardInstall=Inštalovať normálne (ponuka Štart, Programy a odstránenie)
 slovak.PortableInstall=Extrahovať ako prenosnú verziu (žiadny záznam v Programech alebo odstránení)
@@ -204,7 +207,7 @@ slovak.PortableDirName=samandarin
 slovak.StartMenuShortcut=Vytvoriť odkaz v ponuke &Štart
 slovak.DesktopShortcut=Vytvoriť odkaz na &pracovnej ploche
 slovak.Shortcuts=Odkazy:
-slovak.LaunchProgram=Spustiť {#MyAppName}
+slovak.LaunchProgram=Spustiť {#AppToInstallName}
 spanish.InstallMode=Modo de instalación:
 spanish.StandardInstall=Instalar normalmente (Menú Inicio, Programas y desinstalador)
 spanish.PortableInstall=Extraer como versión portable (sin entrada en Programas ni desinstalador)
@@ -212,7 +215,7 @@ spanish.PortableDirName=samandarin
 spanish.StartMenuShortcut=Crear un acceso directo en el menú &Inicio
 spanish.DesktopShortcut=Crear un acceso directo en el &escritorio
 spanish.Shortcuts=Accesos directos:
-spanish.LaunchProgram=Iniciar {#MyAppName}
+spanish.LaunchProgram=Iniciar {#AppToInstallName}
 english.CodePageWarningTitle=Code Page Compatibility Warning
 english.CodePageWarning=The selected language may not display all characters correctly because your Windows system locale code page (%u) does not match the code page expected by this language (%u).\n\nTo fix this, change your system locale in Windows: Settings > Time & Language > Region > Administrative > Change system locale.
 chinesesimplified.CodePageWarningTitle=代码页兼容性警告
@@ -1374,11 +1377,11 @@ Source: "{#PayloadDir}\utils\sqlite.dll"; DestDir: "{app}\utils"; Flags: ignorev
 Source: "{#PayloadDir}\utils\ssleay32.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\vcruntime140.dll"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
-Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon; Check: not IsPortableInstall
-Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon; Check: not IsPortableInstall
+Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Tasks: desktopicon; Check: not IsPortableInstall
+Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon; Check: not IsPortableInstall
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "-language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
 
 
 [UninstallRun]
@@ -1649,13 +1652,13 @@ begin
           MB_YESNO) = IDYES;
     end;
   end
-  else if RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.9') then
+  else if RegKeyExists(HKCU, {#AppToInstallRegPath}) then
   begin
     DeleteUserConfiguration :=
       MsgBox(
         CustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
         CustomMessage('RegistryKey') + #13#10 +
-        'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.9'#13#10#13#10 +
+        {#AppToInstallRegPathRem} + #13#10#13#10 +
         CustomMessage('RemoveUserConfigRegistry'),
         mbConfirmation,
         MB_YESNO) = IDYES;
@@ -1673,7 +1676,7 @@ begin
     end
     else
     begin
-      RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.9');
+      RegDeleteKeyIncludingSubkeys(HKCU, {#AppToInstallRegPath});
       DeleteFile(ExpandConstant('{app}\configstorage.ini'));
     end;
   end;
@@ -1696,7 +1699,7 @@ begin
 
     { Mirrors the setup_x64.inf IncrementFileContent metadata by ensuring plugins.ver exists.
       The legacy installer used the registry value
-      HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.9\Configuration\Plugins.ver Version (x64)
+      HKCU\Software\Open Salamander Samandarin\5.0-samandarin-(samandarinVersion)\Configuration\Plugins.ver Version (x64)
       to decide whether selected plugins should be appended. Inno installs the staged plugins directly. }
     PluginsVer := ExpandConstant('{app}\plugins\plugins.ver');
     if not FileExists(PluginsVer) then
