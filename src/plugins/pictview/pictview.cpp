@@ -26,7 +26,7 @@
 #include "pictview.rh2"
 #include "lang/lang.rh"
 #include "histwnd.h"
-#include "openimagebackend.h"
+#include "wic/WicBackend.h"
 #include "PixelAccess.h"
 
 // plugin interface object; its methods are called from Salamander
@@ -50,6 +50,7 @@ LPCTSTR PLUGIN_NAME_EN = _T("PICTVIEW"); // non-translated plugin name, used bef
 
 HINSTANCE DLLInstance = NULL; // handle to SPL - language-independent resources
 HINSTANCE HLanguage = NULL;   // handle to SLG - language-dependent resources
+BOOL HLanguageLoadedDirectly = FALSE; // TRUE when PictView loads its English SLG fallback itself
 HACCEL HAccel = NULL;
 
 BOOL SalamanderRegistered = FALSE;
@@ -580,6 +581,12 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         }
         if (PVW32DLL.Handle != NULL)
             FreeLibrary(PVW32DLL.Handle); // release the imaging backend module as well
+        if (HLanguageLoadedDirectly && HLanguage != NULL)
+        {
+            FreeLibrary(HLanguage);
+            HLanguage = NULL;
+            HLanguageLoadedDirectly = FALSE;
+        }
         if (G.HAccel != NULL)
             DestroyAcceleratorTable(G.HAccel);
         if (G.CaptureAtomID != 0)
@@ -625,10 +632,21 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
     }
 
-    // let it load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), PLUGIN_NAME_EN);
+    // PictView must be able to initialize even when Salamander is running in a
+    // language for which the PictView SLG is missing or broken.  Load the
+    // bundled English SLG directly instead of asking the plugin manager for the
+    // current UI language; this avoids the startup-time language selection/error
+    // path and keeps the plugin functional from the first launch.
+    TCHAR langPath[MAX_PATH];
+    GetModuleFileName(DLLInstance, langPath, SizeOf(langPath));
+    _tcscpy((LPTSTR)_tcsrchr(langPath, '\\') + 1, _T("lang\\english.slg"));
+    HLanguage = LoadLibrary(langPath);
+    HLanguageLoadedDirectly = HLanguage != NULL;
     if (HLanguage == NULL)
+    {
+        MessageBox(hParentWnd, langPath, PLUGIN_NAME_EN, MB_OK | MB_ICONERROR);
         return NULL;
+    }
 
     // obtain the general Salamander interface
     SalamanderGeneral = salamander->GetSalamanderGeneral();
@@ -1481,12 +1499,13 @@ void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
 
 BOOL LoadPictViewDll(HWND hParentWnd)
 {
-    if (InitOpenImageBackend())
-        return TRUE;
-
-    SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND), LoadStr(IDS_ERRORTITLE),
-                                     MB_ICONSTOP | MB_OK);
-    return FALSE;
+    if (!PictView::Wic::Backend::Instance().Populate(PVW32DLL))
+    {
+        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND), LoadStr(IDS_ERRORTITLE),
+                                         MB_ICONSTOP | MB_OK);
+        return FALSE;
+    }
+    return TRUE;
 }
 
 BOOL InitViewer(HWND hParentWnd)
@@ -1534,7 +1553,7 @@ BOOL InitViewer(HWND hParentWnd)
     }
     i = PVW32DLL.PVGetDLLVersion();
 
-    _snprintf_s(PVW32DLL.Version, SizeOf(PVW32DLL.Version), _TRUNCATE, "Open backend %u.%02u",
+    _snprintf_s(PVW32DLL.Version, SizeOf(PVW32DLL.Version), _TRUNCATE, "WIC backend %u.%02u",
                 static_cast<unsigned>(PV_VERSION_MAJOR(i)), static_cast<unsigned>(PV_VERSION_MINOR(i)));
 
     PVW32DLL.PVSetParam(GetExtText);

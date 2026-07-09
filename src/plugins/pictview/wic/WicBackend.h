@@ -149,7 +149,7 @@ private:
     static PVCODE WINAPI sPVSetStretchParameters(LPPVHandle Img, DWORD width, DWORD height, DWORD mode);
     static PVCODE WINAPI sPVLoadFromClipboard(LPPVHandle* Img, LPPVImageInfo pImgInfo, int size);
     static PVCODE WINAPI sPVGetImageInfo(LPPVHandle Img, LPPVImageInfo pImgInfo, int size, int imageIndex);
-    static PVCODE WINAPI sPVSetParam(TPVGetText getText);
+    static PVCODE WINAPI sPVSetParam(LPPVHandle Img);
     static PVCODE WINAPI sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles);
     static PVCODE WINAPI sPVSaveImage(LPPVHandle Img, const char* outFileName, LPPVSaveImageInfo pSii, TProgressProc progress,
                                       void* appSpecific, int imageIndex);

@@ -58,7 +58,7 @@ static DWORD WINAPI PVGetDLLVersionOpen(void);
 static PVCODE WINAPI PVSetStretchParametersOpen(LPPVHandle Img, DWORD Width, DWORD Height, DWORD Mode);
 static PVCODE WINAPI PVLoadFromClipboardOpen(LPPVHandle* Img, LPPVImageInfo pImgInfo, int Size);
 static PVCODE WINAPI PVGetImageInfoOpen(LPPVHandle Img, LPPVImageInfo pImgInfo, int Size, int ImageIndex);
-static PVCODE WINAPI PVSetParamOpen(TPVGetText getText);
+static PVCODE WINAPI PVSetParamOpen(LPPVHandle Img);
 static PVCODE WINAPI PVGetHandles2Open(LPPVHandle Img, LPPVImageHandles* pHandles);
 static PVCODE WINAPI PVSaveImageOpen(LPPVHandle Img, const char* OutFName, LPPVSaveImageInfo pSii, TProgressProc Progress, void* AppSpecific, int ImageIndex);
 static PVCODE WINAPI PVChangeImageOpen(LPPVHandle Img, DWORD Flags);
@@ -1923,9 +1923,9 @@ static PVCODE WINAPI PVGetImageInfoOpen(LPPVHandle Img, LPPVImageInfo pImgInfo, 
     return CopyImageInfoOut(pHandle->ImageInfo, pImgInfo, Size);
 }
 
-static PVCODE WINAPI PVSetParamOpen(TPVGetText getText)
+static PVCODE WINAPI PVSetParamOpen(LPPVHandle Img)
 {
-    return getText != NULL ? PVC_OK : PVC_INVALID_HANDLE;
+    return Img != NULL ? PVC_OK : PVC_INVALID_HANDLE;
 }
 
 static PVCODE WINAPI PVGetHandles2Open(LPPVHandle Img, LPPVImageHandles* pHandles)

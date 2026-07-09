@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -17,8 +17,7 @@ typedef DWORD(WINAPI* TPVGetDLLVersion)(void);
 typedef PVCODE(WINAPI* TPVSetStretchParameters)(LPPVHandle Img, DWORD Width, DWORD Height, DWORD Mode);
 typedef PVCODE(WINAPI* TPVLoadFromClipboard)(LPPVHandle* Img, LPPVImageInfo pImgInfo, int Size);
 typedef PVCODE(WINAPI* TPVGetImageInfo)(LPPVHandle Img, LPPVImageInfo pImgInfo, int Size, int ImageIndex);
-typedef const char*(WINAPI* TPVGetText)(int msgID);
-typedef PVCODE(WINAPI* TPVSetParam)(TPVGetText getText);
+typedef PVCODE(WINAPI* TPVSetParam)(LPPVHandle Img);
 typedef PVCODE(WINAPI* TPVGetHandles2)(LPPVHandle Img, LPPVImageHandles* pHandles);
 typedef PVCODE(WINAPI* TPVSaveImage)(LPPVHandle Img, const char* OutFName, LPPVSaveImageInfo pSii, TProgressProc Progress, void* AppSpecific, int ImageIndex);
 typedef PVCODE(WINAPI* TPVChangeImage)(LPPVHandle Img, DWORD Flags);
