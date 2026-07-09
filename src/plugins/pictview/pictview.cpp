@@ -655,9 +655,14 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // If we crash inside pictview.spl, this message box will be displayed
     // and the happy recipient of the images will be Honza Patera.
     // Honza appears on the web in the plural (authors, we fixed, ....)
-    TCHAR exceptInfo[512];
+    TCHAR exceptInfo[1024];
     lstrcpyn(exceptInfo, LoadStr(IDS_EXCEPT_INFO1), SizeOf(exceptInfo));
-    _tcsncat(exceptInfo, LoadStr(IDS_EXCEPT_INFO2), SizeOf(exceptInfo) - _tcslen(exceptInfo));
+    size_t exceptInfoLen = _tcslen(exceptInfo);
+    if (exceptInfoLen < SizeOf(exceptInfo))
+    {
+        int exceptInfoRemaining = (int)(SizeOf(exceptInfo) - exceptInfoLen);
+        lstrcpyn(exceptInfo + exceptInfoLen, LoadStr(IDS_EXCEPT_INFO2), exceptInfoRemaining);
+    }
     SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "https://github.com/KRtkovo-eu-AI/salamander/issues/new/choose");
     return &PluginInterface;
 }
@@ -1495,7 +1500,7 @@ BOOL InitViewer(HWND hParentWnd)
     int i;
 
     // initialize global variables
-    memset(&G, sizeof(G), 0);
+    memset(&G, 0, sizeof(G));
     G.ZoomType = eShrinkToFit;
     G.PageDnUpScrolls = TRUE;
     //  G.IgnoreThumbnails = FALSE;
