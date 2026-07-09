@@ -5043,6 +5043,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_HELP_CREDITS:
+        {
+            char thirdPartyPath[MAX_PATH];
+            if (GetModuleFileName(NULL, thirdPartyPath, MAX_PATH) != 0 &&
+                CutDirectory(thirdPartyPath) &&
+                SalPathAppend(thirdPartyPath, "doc\\third_party.md", MAX_PATH))
+            {
+                ShellExecute(HWindow, "open", thirdPartyPath, NULL, NULL, SW_SHOWNORMAL);
+            }
+            return 0;
+        }
+
         case CM_HELP_CONTENTS:
         case CM_HELP_SEARCH:
         case CM_HELP_INDEX:

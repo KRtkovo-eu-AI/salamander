@@ -430,6 +430,7 @@
 #define CM_HELP_KEYBOARD       2213
 #define CM_HELP_CONTEXT        2214
 //#define CM_HELP_TIP            2215
+#define CM_HELP_CREDITS        2215
 #define CM_HELP_ABOUT          2216
 
 // commands pro find dialog
