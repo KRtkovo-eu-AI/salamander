@@ -84,6 +84,9 @@
     <ClCompile Include="..\7za\cpp\Windows\FileName.cpp">
       <Filter>7za\windows</Filter>
     </ClCompile>
+    <ClCompile Include="..\7za\cpp\Windows\TimeUtils.cpp">
+      <Filter>7za\windows</Filter>
+    </ClCompile>
     <ClCompile Include="..\7za\cpp\Windows\PropVariant.cpp">
       <Filter>7za\windows</Filter>
     </ClCompile>
