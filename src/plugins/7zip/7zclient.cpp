@@ -92,7 +92,7 @@ BOOL C7zClient::CreateObject(const GUID* classID, const GUID* interfaceID, void*
         return FALSE;
     lstrcpy(_tcsrchr(dllPath, '\\') + 1, _T("7za.dll"));
 
-    if (!Load(dllPath))
+    if (!Load(fas2fs(dllPath)))
         return Error(IDS_CANT_LOAD_LIBRARY);
 
     TCreateObjectFunc createObjectFunc = (TCreateObjectFunc)GetProc("CreateObject");
@@ -137,7 +137,7 @@ BOOL C7zClient::GetArchiveFormat(const char* fileName, GUID* classID)
     if (!GetModuleFileName(DLLInstance, dllPath, SAL_MAX_PATH))
         return TRUE;
     lstrcpy(_tcsrchr(dllPath, '\\') + 1, _T("7za.dll"));
-    if (!Load(dllPath))
+    if (!Load(fas2fs(dllPath)))
         return TRUE;
 
     TGetNumberOfFormatsFunc getNumberOfFormatsFunc = (TGetNumberOfFormatsFunc)GetProc("GetNumberOfFormats");
@@ -181,7 +181,7 @@ BOOL C7zClient::OpenArchiveWithFormat(const char* fileName, const GUID* classID,
     CRetryableInFileStream* fileSpec = new CRetryableInFileStream(NULL);
     CMyComPtr<IInStream> file = fileSpec;
 
-    if (!fileSpec->Open(fileName))
+    if (!fileSpec->Open(fas2fs(fileName)))
         return Error(IDS_CANT_OPEN_ARCHIVE, quiet, fileName);
 
     CArchiveOpenCallbackImp* openCallbackSpec = new CArchiveOpenCallbackImp(password);
@@ -1102,7 +1102,7 @@ C7zClient::SetCompressionParams(IOutArchive* outArchive, CCompressParams* compre
 
                 // set word size
                 names.Add(L"0fb");
-                prop = compressParams->WordSize;
+                prop = (UInt32)compressParams->WordSize;
                 values.push_back(prop);
                 break;
 
@@ -1118,7 +1118,7 @@ C7zClient::SetCompressionParams(IOutArchive* outArchive, CCompressParams* compre
 
                 // set word size
                 names.Add(L"0fb");
-                prop = compressParams->WordSize;
+                prop = (UInt32)compressParams->WordSize;
                 values.push_back(prop);
                 break;
 
@@ -1134,13 +1134,13 @@ C7zClient::SetCompressionParams(IOutArchive* outArchive, CCompressParams* compre
 
                 // set word size
                 names.Add(L"0o");
-                prop = compressParams->WordSize;
+                prop = (UInt32)compressParams->WordSize;
                 values.push_back(prop);
                 break;
             } // switch
         }
 
-        RINOK(setProperties->SetProperties(&names.Front(), &values.front(), names.Size()));
+        RINOK(setProperties->SetProperties(&names[0], &values.front(), names.Size()));
     }
 
     return S_OK;
