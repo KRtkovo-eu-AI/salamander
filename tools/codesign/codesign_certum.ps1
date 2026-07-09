@@ -198,12 +198,32 @@ function Test-SigningTarget([string] $path) {
     }
 }
 
+function Test-FileSigned([string] $path) {
+    Write-Host "Checking existing signature for $path ..."
+    $verifyExitCode = Invoke-SignTool @('verify', '/pa', '/all', '/q', $path)
+    return $verifyExitCode -eq 0
+}
+
 function Verify-OneFile([string] $path) {
     Write-Host "Verifying $path ..."
     $verifyExitCode = Invoke-SignTool @('verify', '/pa', '/all', '/v', $path)
     if ($verifyExitCode -ne 0) {
         throw "Signature verification failed for $path with exit code $verifyExitCode."
     }
+}
+
+function Get-UnsignedFiles([string[]] $paths) {
+    $unsignedPaths = New-Object System.Collections.Generic.List[string]
+
+    foreach ($path in $paths) {
+        if (Test-FileSigned $path) {
+            Write-Host "Skipping already signed file: $path"
+            continue
+        }
+        $unsignedPaths.Add($path)
+    }
+
+    return $unsignedPaths.ToArray()
 }
 
 function Invoke-SignWithRetry([string[]] $paths, [string] $label) {
@@ -234,7 +254,12 @@ function Invoke-SignWithRetry([string[]] $paths, [string] $label) {
 function Sign-OneFile([string] $path) {
     Test-SigningTarget $path
     $resolvedPath = (Resolve-Path -LiteralPath $path).Path
-    Invoke-SignWithRetry -paths @($resolvedPath) -label $resolvedPath
+    $unsignedPaths = @(Get-UnsignedFiles @($resolvedPath))
+    if ($unsignedPaths.Count -eq 0) {
+        Write-Host "No unsigned files remain for signing."
+        return
+    }
+    Invoke-SignWithRetry -paths @($unsignedPaths) -label $resolvedPath
 }
 
 function Sign-ManyFiles([string[]] $paths) {
@@ -247,7 +272,13 @@ function Sign-ManyFiles([string[]] $paths) {
         (Resolve-Path -LiteralPath $path).Path
     }
 
-    Invoke-SignWithRetry -paths @($resolvedPaths) -label "$($resolvedPaths.Count) Inno payload file(s)"
+    $unsignedPaths = @(Get-UnsignedFiles @($resolvedPaths))
+    if ($unsignedPaths.Count -eq 0) {
+        Write-Host "No unsigned files remain for signing."
+        return
+    }
+
+    Invoke-SignWithRetry -paths @($unsignedPaths) -label "$($unsignedPaths.Count) unsigned Inno payload file(s)"
 }
 
 function Sign-InnoPayload([string] $payloadDir, [string] $innoScript) {
