@@ -659,7 +659,10 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     lstrcpyn(exceptInfo, LoadStr(IDS_EXCEPT_INFO1), SizeOf(exceptInfo));
     size_t exceptInfoLen = _tcslen(exceptInfo);
     if (exceptInfoLen < SizeOf(exceptInfo))
-        lstrcpyn(exceptInfo + exceptInfoLen, LoadStr(IDS_EXCEPT_INFO2), SizeOf(exceptInfo) - exceptInfoLen);
+    {
+        int exceptInfoRemaining = (int)(SizeOf(exceptInfo) - exceptInfoLen);
+        lstrcpyn(exceptInfo + exceptInfoLen, LoadStr(IDS_EXCEPT_INFO2), exceptInfoRemaining);
+    }
     SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "https://github.com/KRtkovo-eu-AI/salamander/issues/new/choose");
     return &PluginInterface;
 }
