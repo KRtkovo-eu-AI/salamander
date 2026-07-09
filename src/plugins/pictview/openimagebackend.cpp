@@ -483,13 +483,13 @@ static PVCODE LoadFrameInfoFromFile(COpenImageBackendHandle* pHandle, DWORD imag
     if (FAILED(coInit.Hr))
         return HrToPVCode(coInit.Hr);
 
-    fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_UTF8);
+    fileNameW = PluginMultiByteToWidePath(pHandle->FileName, CP_UTF8);
     if (fileNameW.empty())
-        fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_ACP);
+        fileNameW = PluginMultiByteToWidePath(pHandle->FileName, CP_ACP);
     if (fileNameW.empty())
         return PVC_CANNOT_OPEN_FILE;
     if (fileNameW.length() >= MAX_PATH)
-        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
+        fileNameW = PluginPathAddExtendedPrefixW(fileNameW.c_str());
 
     hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
                           IID_IWICImagingFactory, (void**)&pFactory);
@@ -1035,13 +1035,13 @@ static PVCODE SaveSurfaceToWicFile(const COpenImageSurface* pSurface, const char
         return PVC_CANNOT_OPEN_FILE;
     if (FAILED(coInit.Hr))
         return HrToPVCode(coInit.Hr);
-    fileNameW = SalMultiByteToWidePath(fileName, CP_UTF8);
+    fileNameW = PluginMultiByteToWidePath(fileName, CP_UTF8);
     if (fileNameW.empty())
-        fileNameW = SalMultiByteToWidePath(fileName, CP_ACP);
+        fileNameW = PluginMultiByteToWidePath(fileName, CP_ACP);
     if (fileNameW.empty())
         return PVC_CANNOT_OPEN_FILE;
     if (fileNameW.length() >= MAX_PATH)
-        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
+        fileNameW = PluginPathAddExtendedPrefixW(fileNameW.c_str());
 
     fmt = pSii->Format;
     pixelFormat = GetEncoderPixelFormat(fmt);
@@ -1241,13 +1241,13 @@ static PVCODE BuildGifSequence(COpenImageBackendHandle* pHandle)
         return PVC_OK;
     if (FAILED(coInit.Hr))
         return HrToPVCode(coInit.Hr);
-    fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_UTF8);
+    fileNameW = PluginMultiByteToWidePath(pHandle->FileName, CP_UTF8);
     if (fileNameW.empty())
-        fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_ACP);
+        fileNameW = PluginMultiByteToWidePath(pHandle->FileName, CP_ACP);
     if (fileNameW.empty())
         return PVC_CANNOT_OPEN_FILE;
     if (fileNameW.length() >= MAX_PATH)
-        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
+        fileNameW = PluginPathAddExtendedPrefixW(fileNameW.c_str());
 
     InitSurface(&canvasSurface);
     InitSurface(&previousSurface);
@@ -1445,13 +1445,13 @@ static PVCODE DecodeFrameFromFile(COpenImageBackendHandle* pHandle, DWORD imageI
     if (FAILED(coInit.Hr))
         return HrToPVCode(coInit.Hr);
 
-    fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_UTF8);
+    fileNameW = PluginMultiByteToWidePath(pHandle->FileName, CP_UTF8);
     if (fileNameW.empty())
-        fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_ACP);
+        fileNameW = PluginMultiByteToWidePath(pHandle->FileName, CP_ACP);
     if (fileNameW.empty())
         return PVC_CANNOT_OPEN_FILE;
     if (fileNameW.length() >= MAX_PATH)
-        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
+        fileNameW = PluginPathAddExtendedPrefixW(fileNameW.c_str());
 
     hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
                           IID_IWICImagingFactory, (void**)&pFactory);

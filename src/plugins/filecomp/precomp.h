@@ -92,4 +92,44 @@
 
 #define SizeOf(x) (sizeof(x) / sizeof(x[0]))
 
-#include "../../common/widepath.h"
+static std::wstring PluginMultiByteToWidePath(const char* path, UINT codePage = CP_ACP)
+{
+    if (path == NULL || *path == 0)
+        return std::wstring();
+    if (codePage == CP_ACP && GetACP() == CP_UTF8)
+        codePage = CP_UTF8;
+    int len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    if (len <= 0 && codePage != CP_ACP)
+    {
+        codePage = CP_ACP;
+        len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    }
+    if (len <= 0)
+        return std::wstring();
+    std::wstring ret(len - 1, L'\0');
+    MultiByteToWideChar(codePage, 0, path, -1, &ret[0], len);
+    return ret;
+}
+
+static std::string PluginWideToMultiBytePath(const wchar_t* path, UINT codePage = CP_ACP)
+{
+    if (path == NULL || *path == 0)
+        return std::string();
+    if (codePage == CP_ACP && GetACP() == CP_UTF8)
+        codePage = CP_UTF8;
+    int len = WideCharToMultiByte(codePage, 0, path, -1, NULL, 0, NULL, NULL);
+    if (len <= 0)
+        return std::string();
+    std::string ret(len - 1, '\0');
+    WideCharToMultiByte(codePage, 0, path, -1, &ret[0], len, NULL, NULL);
+    return ret;
+}
+
+static std::wstring PluginPathAddExtendedPrefixW(const wchar_t* path)
+{
+    if (path == NULL || *path == 0 || wcsncmp(path, L"\\\\?\\", 4) == 0)
+        return path != NULL ? std::wstring(path) : std::wstring();
+    if (wcsncmp(path, L"\\\\", 2) == 0)
+        return std::wstring(L"\\\\?\\UNC\\") + (path + 2);
+    return std::wstring(L"\\\\?\\") + path;
+}

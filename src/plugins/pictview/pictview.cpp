@@ -2644,7 +2644,7 @@ BOOL CPluginInterfaceForViewer::CanViewFile(LPCTSTR name)
         memset(&oiei, 0, sizeof(oiei));
         oiei.cbSize = sizeof(oiei);
 #ifdef _UNICODE
-        std::string nameA = SalWideToMultiBytePath(name, CP_UTF8);
+        std::string nameA = PluginWideToMultiBytePath(name, CP_UTF8);
         oiei.FileName = nameA.c_str();
 #else
         oiei.FileName = name;

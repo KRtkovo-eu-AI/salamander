@@ -2178,7 +2178,7 @@ BOOL OpenCalculateDialog(HWND parent)
 
         while (((nFiles || nDirs) ? (fd = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir)) != NULL : (fd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isDir)) != NULL))
         {
-            std::string itemName = fd->UseWideName() ? SalWideToMultiBytePath(fd->NameW, CP_UTF8) : std::string(fd->Name);
+            std::string itemName = fd->UseWideName() ? PluginWideToMultiBytePath(fd->NameW, CP_UTF8) : std::string(fd->Name);
             int fdNameLen = (int)itemName.length();
             SEEDFILEINFO* cfi = (SEEDFILEINFO*)malloc(sizeof(SEEDFILEINFO) + fdNameLen);
             if (!cfi)
@@ -2282,7 +2282,7 @@ BOOL OpenVerifyDialog(HWND parent)
         // hand over data to the thread
         SalamanderGeneral->GetPanelPath(PANEL_SOURCE, t->sourcePath, SizeOf(t->sourcePath), NULL, NULL);
         strcpy(t->sourceFile, t->sourcePath);
-        if (SalamanderGeneral->SalPathAppend(t->sourceFile, fd->UseWideName() ? SalWideToMultiBytePath(fd->NameW, CP_UTF8).c_str() : fd->Name, SizeOf(t->sourceFile)))
+        if (SalamanderGeneral->SalPathAppend(t->sourceFile, fd->UseWideName() ? PluginWideToMultiBytePath(fd->NameW, CP_UTF8).c_str() : fd->Name, SizeOf(t->sourceFile)))
         {
             // start the thread
             if (t->Create(ThreadQueue) != NULL)

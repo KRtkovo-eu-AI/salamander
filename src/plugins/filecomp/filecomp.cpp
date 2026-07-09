@@ -742,14 +742,14 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
         // store the name of the first file
         if (!SG->GetPanelPath(PANEL_SOURCE, file1, SizeOf(file1), NULL, NULL))
             return NULL;
-        SG->SalPathAppend(file1, fd1->UseWideName() ? SalWideToMultiBytePath(fd1->NameW, CP_UTF8).c_str() : fd1->Name, SizeOf(file1));
+        SG->SalPathAppend(file1, fd1->UseWideName() ? PluginWideToMultiBytePath(fd1->NameW, CP_UTF8).c_str() : fd1->Name, SizeOf(file1));
 
         if (fd2 &&
             !isDir && fd2 != fd1) // in case we take the file from the focus
         {
             // store the name of the second file
             SG->GetPanelPath(PANEL_SOURCE, file2, SizeOf(file2), NULL, NULL);
-            SG->SalPathAppend(file2, fd2->UseWideName() ? SalWideToMultiBytePath(fd2->NameW, CP_UTF8).c_str() : fd2->Name, SizeOf(file2));
+            SG->SalPathAppend(file2, fd2->UseWideName() ? PluginWideToMultiBytePath(fd2->NameW, CP_UTF8).c_str() : fd2->Name, SizeOf(file2));
             secondFromSource = TRUE;
         }
         else
@@ -776,7 +776,7 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
                     // store the name of the second file
                     if (!SG->GetPanelPath(PANEL_TARGET, file2, SizeOf(file2), NULL, NULL))
                         return NULL;
-                    SG->SalPathAppend(file2, fd2->UseWideName() ? SalWideToMultiBytePath(fd2->NameW, CP_UTF8).c_str() : fd2->Name, SizeOf(file2));
+                    SG->SalPathAppend(file2, fd2->UseWideName() ? PluginWideToMultiBytePath(fd2->NameW, CP_UTF8).c_str() : fd2->Name, SizeOf(file2));
                 }
             }
         }

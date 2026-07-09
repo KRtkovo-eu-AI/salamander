@@ -220,11 +220,11 @@ void CFilecompWorker::GuardedBody()
         // NOTE: IntViewer can open such files, users wants FC to support them as well
         // See https://forum.altap.cz/viewtopic.php?t=2675
         // See also CHexFileViewWindow::SetData()
-        std::wstring nameW = SalMultiByteToWidePath(Files[i].Name.c_str(), CP_UTF8);
+        std::wstring nameW = PluginMultiByteToWidePath(Files[i].Name.c_str(), CP_UTF8);
         if (nameW.empty())
-            nameW = SalMultiByteToWidePath(Files[i].Name.c_str(), CP_ACP);
+            nameW = PluginMultiByteToWidePath(Files[i].Name.c_str(), CP_ACP);
         if (nameW.length() >= MAX_PATH)
-            nameW = SalPathAddExtendedPrefixW(nameW.c_str());
+            nameW = PluginPathAddExtendedPrefixW(nameW.c_str());
         Files[i].File = !nameW.empty() ?
                             CreateFileW(nameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                         NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL) :
