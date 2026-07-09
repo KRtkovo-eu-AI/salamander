@@ -8,6 +8,15 @@
 #include "../Common/StringConvert.h"
 #include "../Common/StringToInt.h"
 
+#ifdef Z7_LARGE_PAGES
+// SystemInfo.cpp local Add_LargePages_String implementation for targets that
+// compile SystemInfo.cpp without the benchmark module that also provides it.
+void Add_LargePages_String(AString &s)
+{
+  s.Empty();
+}
+#endif
+
 #ifdef _WIN32
 
 #include "Registry.h"

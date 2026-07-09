@@ -5,7 +5,6 @@
 #include <assert.h>
 #include "dbg.h"
 
-#include "Common/MyInitGuid.h"
 
 #include "7zip.h"
 #include "7zclient.h"
@@ -92,7 +91,7 @@ BOOL C7zClient::CreateObject(const GUID* classID, const GUID* interfaceID, void*
         return FALSE;
     lstrcpy(_tcsrchr(dllPath, '\\') + 1, _T("7za.dll"));
 
-    if (!Load(fas2fs(dllPath)))
+    if (!Load(us2fs(GetUnicodeString(dllPath))))
         return Error(IDS_CANT_LOAD_LIBRARY);
 
     TCreateObjectFunc createObjectFunc = (TCreateObjectFunc)GetProc("CreateObject");
@@ -137,7 +136,7 @@ BOOL C7zClient::GetArchiveFormat(const char* fileName, GUID* classID)
     if (!GetModuleFileName(DLLInstance, dllPath, SAL_MAX_PATH))
         return TRUE;
     lstrcpy(_tcsrchr(dllPath, '\\') + 1, _T("7za.dll"));
-    if (!Load(fas2fs(dllPath)))
+    if (!Load(us2fs(GetUnicodeString(dllPath))))
         return TRUE;
 
     TGetNumberOfFormatsFunc getNumberOfFormatsFunc = (TGetNumberOfFormatsFunc)GetProc("GetNumberOfFormats");
@@ -181,7 +180,7 @@ BOOL C7zClient::OpenArchiveWithFormat(const char* fileName, const GUID* classID,
     CRetryableInFileStream* fileSpec = new CRetryableInFileStream(NULL);
     CMyComPtr<IInStream> file = fileSpec;
 
-    if (!fileSpec->Open(fas2fs(fileName)))
+    if (!fileSpec->Open(us2fs(GetUnicodeString(fileName))))
         return Error(IDS_CANT_OPEN_ARCHIVE, quiet, fileName);
 
     CArchiveOpenCallbackImp* openCallbackSpec = new CArchiveOpenCallbackImp(password);
@@ -746,7 +745,7 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
         }
         CMyComPtr<IOutStream> outStream(outStreamSpec);
 
-        if (!outStreamSpec->Open(fas2fs(tmpName), OPEN_EXISTING))
+        if (!outStreamSpec->Open(us2fs(GetUnicodeString(tmpName)), OPEN_EXISTING))
         {
             Error(IDS_CANT_CREATE_ARCHIVE);
             throw OPER_CANCEL;
@@ -1216,7 +1215,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
         }
         CMyComPtr<IOutStream> outStream(outStreamSpec);
 
-        if (!outStreamSpec->Open(fas2fs(tmpName), OPEN_EXISTING))
+        if (!outStreamSpec->Open(us2fs(GetUnicodeString(tmpName)), OPEN_EXISTING))
         {
             Error(IDS_CANT_CREATE_ARCHIVE);
             throw OPER_CANCEL;

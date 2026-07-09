@@ -40,6 +40,9 @@
     <ClCompile Include="..\..\7za\cpp\Windows\PropVariantConv.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\7za\cpp\Windows\TimeUtils.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\7za\cpp\Common\IntToString.cpp">
       <Filter>Common</Filter>
     </ClCompile>

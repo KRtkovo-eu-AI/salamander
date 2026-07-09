@@ -238,7 +238,7 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
 
                     OutFileStreamSpec = new CRetryableOutFileStream(hProgWnd);
                     CMyComPtr<ISequentialOutStream> outStreamLoc(OutFileStreamSpec);
-                    if (!OutFileStreamSpec->Open(fas2fs(GetAnsiString(ProcessedFileInfo.FileName)), OPEN_ALWAYS))
+                    if (!OutFileStreamSpec->Open(us2fs(GetUnicodeString(GetAnsiString(ProcessedFileInfo.FileName))), OPEN_ALWAYS))
                     {
                         SysError(IDS_ERROR, ::GetLastError());
                         NumErrors++;
