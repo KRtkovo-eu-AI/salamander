@@ -26,7 +26,7 @@
 #include "pictview.rh2"
 #include "lang/lang.rh"
 #include "histwnd.h"
-#include "wic/WicBackend.h"
+#include "openimagebackend.h"
 #include "PixelAccess.h"
 
 // plugin interface object; its methods are called from Salamander
@@ -1481,13 +1481,12 @@ void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
 
 BOOL LoadPictViewDll(HWND hParentWnd)
 {
-    if (!PictView::Wic::Backend::Instance().Populate(PVW32DLL))
-    {
-        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND), LoadStr(IDS_ERRORTITLE),
-                                         MB_ICONSTOP | MB_OK);
-        return FALSE;
-    }
-    return TRUE;
+    if (InitOpenImageBackend())
+        return TRUE;
+
+    SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND), LoadStr(IDS_ERRORTITLE),
+                                     MB_ICONSTOP | MB_OK);
+    return FALSE;
 }
 
 BOOL InitViewer(HWND hParentWnd)
@@ -1535,7 +1534,7 @@ BOOL InitViewer(HWND hParentWnd)
     }
     i = PVW32DLL.PVGetDLLVersion();
 
-    _snprintf_s(PVW32DLL.Version, SizeOf(PVW32DLL.Version), _TRUNCATE, "WIC backend %u.%02u",
+    _snprintf_s(PVW32DLL.Version, SizeOf(PVW32DLL.Version), _TRUNCATE, "Open backend %u.%02u",
                 static_cast<unsigned>(PV_VERSION_MAJOR(i)), static_cast<unsigned>(PV_VERSION_MINOR(i)));
 
     PVW32DLL.PVSetParam(GetExtText);
