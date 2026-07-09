@@ -5,7 +5,6 @@
 #include <assert.h>
 #include "dbg.h"
 
-#include "Common/MyInitGuid.h"
 
 #include "7zip.h"
 #include "7zclient.h"
@@ -85,21 +84,21 @@ C7zClient::~C7zClient()
 {
 }
 
-BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object)
+BOOL C7zClient::CreateObject(const GUID* classID, const GUID* interfaceID, void** object)
 {
     TCHAR dllPath[SAL_MAX_PATH];
     if (!GetModuleFileName(DLLInstance, dllPath, SAL_MAX_PATH))
         return FALSE;
     lstrcpy(_tcsrchr(dllPath, '\\') + 1, _T("7za.dll"));
 
-    if (!Load(dllPath))
+    if (!Load(us2fs(GetUnicodeString(dllPath))))
         return Error(IDS_CANT_LOAD_LIBRARY);
 
     TCreateObjectFunc createObjectFunc = (TCreateObjectFunc)GetProc("CreateObject");
     if (createObjectFunc == 0)
         return Error(IDS_CANT_GET_CRATEOBJECT);
 
-    if (createObjectFunc(&CLSID_CFormat7z, interfaceID, object) != S_OK)
+    if (createObjectFunc(classID, interfaceID, object) != S_OK)
     {
         Free();
         return Error(IDS_CANT_GET_CLASS_OBJECT);
@@ -108,16 +107,80 @@ BOOL C7zClient::CreateObject(const GUID* interfaceID, void** object)
     return TRUE;
 }
 
-BOOL C7zClient::OpenArchive(const char* fileName, IInArchive** archive, UString& password, BOOL quiet /* = FALSE*/)
+static BOOL ExtensionInList(const char* extensions, const char* ext)
+{
+    const size_t extLen = strlen(ext);
+    const char* p = extensions;
+    while (*p != 0)
+    {
+        while (*p == ' ')
+            p++;
+        const char* start = p;
+        while (*p != 0 && *p != ' ')
+            p++;
+        if ((size_t)(p - start) == extLen && _strnicmp(start, ext, extLen) == 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL C7zClient::GetArchiveFormat(const char* fileName, GUID* classID)
+{
+    *classID = CLSID_CFormat7z;
+
+    const char* ext = strrchr(fileName, '.');
+    if (ext == NULL || *++ext == 0)
+        return TRUE;
+
+    TCHAR dllPath[SAL_MAX_PATH];
+    if (!GetModuleFileName(DLLInstance, dllPath, SAL_MAX_PATH))
+        return TRUE;
+    lstrcpy(_tcsrchr(dllPath, '\\') + 1, _T("7za.dll"));
+    if (!Load(us2fs(GetUnicodeString(dllPath))))
+        return TRUE;
+
+    TGetNumberOfFormatsFunc getNumberOfFormatsFunc = (TGetNumberOfFormatsFunc)GetProc("GetNumberOfFormats");
+    TGetHandlerProperty2Func getHandlerProperty2Func = (TGetHandlerProperty2Func)GetProc("GetHandlerProperty2");
+    if (getNumberOfFormatsFunc == 0 || getHandlerProperty2Func == 0)
+        return TRUE;
+
+    UINT32 numFormats = 0;
+    if (getNumberOfFormatsFunc(&numFormats) != S_OK)
+        return TRUE;
+
+    for (UINT32 i = 0; i < numFormats; i++)
+    {
+        NWindows::NCOM::CPropVariant propExt;
+        if (getHandlerProperty2Func(i, NArchive::NHandlerPropID::kExtension, &propExt) != S_OK || propExt.vt != VT_BSTR || propExt.bstrVal == NULL)
+            continue;
+
+        AString extensions = UnicodeStringToMultiByte(propExt.bstrVal, CP_ACP);
+        if (!ExtensionInList(extensions, ext))
+            continue;
+
+        NWindows::NCOM::CPropVariant propClassID;
+        if (getHandlerProperty2Func(i, NArchive::NHandlerPropID::kClassID, &propClassID) == S_OK &&
+            propClassID.vt == VT_BSTR && propClassID.bstrVal != NULL &&
+            SysStringByteLen(propClassID.bstrVal) == sizeof(GUID))
+        {
+            memcpy(classID, propClassID.bstrVal, sizeof(GUID));
+            return TRUE;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL C7zClient::OpenArchiveWithFormat(const char* fileName, const GUID* classID, IInArchive** archive, UString& password, BOOL quiet /* = FALSE*/)
 {
     CMyComPtr<IInArchive> a;
-    if (!CreateObject(&IID_IInArchive, (void**)&a))
+    if (!CreateObject(classID, &IID_IInArchive, (void**)&a))
         return FALSE;
 
     CRetryableInFileStream* fileSpec = new CRetryableInFileStream(NULL);
     CMyComPtr<IInStream> file = fileSpec;
 
-    if (!fileSpec->Open(fileName))
+    if (!fileSpec->Open(us2fs(GetUnicodeString(fileName))))
         return Error(IDS_CANT_OPEN_ARCHIVE, quiet, fileName);
 
     CArchiveOpenCallbackImp* openCallbackSpec = new CArchiveOpenCallbackImp(password);
@@ -135,6 +198,14 @@ BOOL C7zClient::OpenArchive(const char* fileName, IInArchive** archive, UString&
     *archive = a.Detach();
 
     return TRUE;
+}
+
+BOOL C7zClient::OpenArchive(const char* fileName, IInArchive** archive, UString& password, BOOL quiet /* = FALSE*/)
+{
+    GUID classID;
+    if (!GetArchiveFormat(fileName, &classID))
+        return FALSE;
+    return OpenArchiveWithFormat(fileName, &classID, archive, password, quiet);
 }
 
 BOOL C7zClient::ListArchive(const char* fileName, CSalamanderDirectoryAbstract* dir, CPluginDataInterface*& pluginData, UString& password)
@@ -315,7 +386,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
                 SalamanderGeneral->Free(fd.Name);
                 delete itemData; // already stored in fd.PluginData
                 // dir->Clear(pluginData);  // Petr: no reason to throw the rest away
-                if (_tcslen(filePath) > MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
+                if (_tcslen(filePath) > SAL_MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
                 {
                     if (*reportTooLongPathErr)
                     {
@@ -342,7 +413,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
                 SalamanderGeneral->Free(fd.Name);
                 delete itemData; // already stored in fd.PluginData
                 // dir->Clear(pluginData);  // Petr: no reason to throw the rest away
-                if (_tcslen(filePath) > MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
+                if (_tcslen(filePath) > SAL_MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
                 {
                     if (*reportTooLongPathErr)
                     {
@@ -674,7 +745,7 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
         }
         CMyComPtr<IOutStream> outStream(outStreamSpec);
 
-        if (!outStreamSpec->Open(tmpName, OPEN_EXISTING))
+        if (!outStreamSpec->Open(us2fs(GetUnicodeString(tmpName)), OPEN_EXISTING))
         {
             Error(IDS_CANT_CREATE_ARCHIVE);
             throw OPER_CANCEL;
@@ -1030,7 +1101,7 @@ C7zClient::SetCompressionParams(IOutArchive* outArchive, CCompressParams* compre
 
                 // set word size
                 names.Add(L"0fb");
-                prop = compressParams->WordSize;
+                prop = (UInt32)compressParams->WordSize;
                 values.push_back(prop);
                 break;
 
@@ -1046,7 +1117,7 @@ C7zClient::SetCompressionParams(IOutArchive* outArchive, CCompressParams* compre
 
                 // set word size
                 names.Add(L"0fb");
-                prop = compressParams->WordSize;
+                prop = (UInt32)compressParams->WordSize;
                 values.push_back(prop);
                 break;
 
@@ -1062,13 +1133,13 @@ C7zClient::SetCompressionParams(IOutArchive* outArchive, CCompressParams* compre
 
                 // set word size
                 names.Add(L"0o");
-                prop = compressParams->WordSize;
+                prop = (UInt32)compressParams->WordSize;
                 values.push_back(prop);
                 break;
             } // switch
         }
 
-        RINOK(setProperties->SetProperties(&names.Front(), &values.front(), names.Size()));
+        RINOK(setProperties->SetProperties(&names[0], &values.front(), names.Size()));
     }
 
     return S_OK;
@@ -1100,8 +1171,12 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
         UINT32 numItems = 0;
         if (isNewArchive)
         {
-            // new
-            if (!CreateObject(&IID_IOutArchive, (void**)&outArchive))
+            // new - detect format from file extension
+            GUID classID;
+            if (!GetArchiveFormat(archiveName, &classID))
+                throw OPER_CANCEL;
+
+            if (!CreateObject(&classID, &IID_IOutArchive, (void**)&outArchive))
                 throw OPER_CANCEL;
 
             // create an empty array
@@ -1140,7 +1215,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
         }
         CMyComPtr<IOutStream> outStream(outStreamSpec);
 
-        if (!outStreamSpec->Open(tmpName, OPEN_EXISTING))
+        if (!outStreamSpec->Open(us2fs(GetUnicodeString(tmpName)), OPEN_EXISTING))
         {
             Error(IDS_CANT_CREATE_ARCHIVE);
             throw OPER_CANCEL;

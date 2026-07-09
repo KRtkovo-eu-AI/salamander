@@ -16,7 +16,7 @@
 #include "7za/CPP/Windows/PropVariant.h"
 #include "7za/CPP/Windows/PropVariantConv.h"
 #include "7za/CPP/Windows/DLL.h"
-#include "7za/CPP/Windows/Defs.h"
+#include "7za/CPP/Windows/WinDefs.h"
 
 #include "extract.h"
 #include "update.h"
@@ -50,6 +50,8 @@
 #define MAX_PATH_LEN SAL_MAX_PATH
 
 typedef UINT32(WINAPI* TCreateObjectFunc)(const GUID* clsID, const GUID* interfaceID, void** outObject);
+typedef UINT32(WINAPI* TGetNumberOfFormatsFunc)(UINT32* numFormats);
+typedef UINT32(WINAPI* TGetHandlerProperty2Func)(UINT32 formatIndex, PROPID propID, PROPVARIANT* value);
 
 // used to pass the items that will be extracted
 struct CArchiveItemInfo
@@ -61,6 +63,17 @@ struct CArchiveItemInfo
     CArchiveItemInfo(CSysString name, const CFileData* fd, bool isDir)
     {
         NameInArchive = name;
+        FileData = fd;
+        IsDir = isDir;
+    }
+
+    CArchiveItemInfo(const char* name, const CFileData* fd, bool isDir)
+    {
+#ifdef _UNICODE
+        NameInArchive = GetUnicodeString(name);
+#else
+        NameInArchive = name;
+#endif
         FileData = fd;
         IsDir = isDir;
     }
@@ -87,7 +100,8 @@ public:
     };
 
 protected:
-    BOOL CreateObject(const GUID* interfaceID, void** object);
+    BOOL CreateObject(const GUID* classID, const GUID* interfaceID, void** object);
+    BOOL GetArchiveFormat(const char* fileName, GUID* classID);
 
 public:
     C7zClient();
@@ -108,6 +122,7 @@ public:
 
 protected:
     BOOL OpenArchive(const char* fileName, IInArchive** archive, UString& password, BOOL quiet = FALSE);
+    BOOL OpenArchiveWithFormat(const char* fileName, const GUID* classID, IInArchive** archive, UString& password, BOOL quiet = FALSE);
 
     BOOL FillItemData(IInArchive* archive, UINT32 index, C7zClient::CItemData* itemData);
     BOOL AddFileDir(IInArchive* archive, UINT32 idx,

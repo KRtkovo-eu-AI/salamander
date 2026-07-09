@@ -72,7 +72,19 @@
     <ClCompile Include="..\7za\cpp\windows\dll.cpp">
       <Filter>7za\windows</Filter>
     </ClCompile>
+    <ClCompile Include="..\7za\cpp\Windows\FileDir.cpp">
+      <Filter>7za\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\7za\cpp\Windows\FileFind.cpp">
+      <Filter>7za\windows</Filter>
+    </ClCompile>
     <ClCompile Include="..\7za\cpp\windows\fileio.cpp">
+      <Filter>7za\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\7za\cpp\Windows\FileName.cpp">
+      <Filter>7za\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\7za\cpp\Windows\TimeUtils.cpp">
       <Filter>7za\windows</Filter>
     </ClCompile>
     <ClCompile Include="..\7za\cpp\Windows\PropVariant.cpp">

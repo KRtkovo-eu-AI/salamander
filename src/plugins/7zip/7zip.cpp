@@ -180,7 +180,9 @@ int ConfigVersion = 0;
 // 3: Igor changed the default values for LZMA compression (dictionary size, etc.). There are more changes,
 //    so Honza Patera and I agreed that when importing old configurations we will
 //    ignore compression settings and use the new defaults instead.
-#define CURRENT_CONFIG_VERSION 3
+// 4: added registration for all formats handled by the bundled 7-Zip engine.
+// 5: split panel archiver registration per extension so associations are not grouped under another plugin.
+#define CURRENT_CONFIG_VERSION 5
 const char* CONFIG_VERSION = "Version";
 
 CConfig Config;
@@ -563,7 +565,7 @@ void CPluginInterface::SetDefaultConfiguration()
     Config.ShowExtendedOptions = TRUE;
 
     Config.CompressParams.CompressLevel = COMPRESS_LEVEL_NORMAL;
-    Config.CompressParams.Method = CCompressParams::LZMA;
+    Config.CompressParams.Method = CCompressParams::LZMA2;
     Config.CompressParams.DictSize = 16 * 1024; // Dictionary Size in KB
     Config.CompressParams.WordSize = 32;
     Config.CompressParams.SolidArchive = TRUE;
@@ -664,10 +666,21 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     // AddViewer and AddPanelArchiver will fall under the UPGRADE SECTION
     //  salamander->AddViewer("*.7z", FALSE); // default (plugin install), otherwise Salamander ignores it
 
-    salamander->AddPanelArchiver("7z", TRUE, FALSE);
+    static const char* const panelArchiverExtensions[] = {
+        "7z", "xz", "txz", "bz2", "bzip2", "tbz2", "tbz", "gz", "gzip", "tgz", "tpz",
+        "tar", "ova", "zip", "z01", "zipx", "jar", "xpi", "odt", "ods", "docx", "xlsx", "epub",
+        "wim", "swm", "esd", "apm", "apfs", "ar", "a", "deb", "udeb", "lib", "arj",
+        "cab", "chm", "chi", "chq", "chw", "hxs", "hxi", "hxr", "hxq", "hxw", "lit",
+        "cpio", "cramfs", "dmg", "img", "ext", "ext2", "ext3", "ext4", "fat", "gpt",
+        "hfs", "hfsx", "ihex", "iso", "lzh", "lha", "lzma", "mbr", "msi", "msp", "doc",
+        "xls", "ppt", "nsis", "ntfs", "qcow", "qcow2", "qcow2c", "rar", "r00", "rpm",
+        "squashfs", "udf", "scap", "uefi", "uefif", "vdi", "vhd", "vhdx", "vmdk", "xar",
+        "z", "taz"};
+    for (unsigned i = 0; i < sizeof(panelArchiverExtensions) / sizeof(panelArchiverExtensions[0]); i++)
+        salamander->AddPanelArchiver(panelArchiverExtensions[i], TRUE, FALSE);
 
     salamander->AddCustomPacker("7-Zip (Plugin)", "7z", ConfigVersion < 1);
-    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z", ConfigVersion < 1);
+    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z;*.xz;*.txz;*.bz2;*.bzip2;*.tbz2;*.tbz;*.gz;*.gzip;*.tgz;*.tpz;*.tar;*.ova;*.zip;*.z01;*.zipx;*.jar;*.xpi;*.odt;*.ods;*.docx;*.xlsx;*.epub;*.wim;*.swm;*.esd;*.apm;*.apfs;*.ar;*.a;*.deb;*.udeb;*.lib;*.arj;*.cab;*.chm;*.chi;*.chq;*.chw;*.hxs;*.hxi;*.hxr;*.hxq;*.hxw;*.lit;*.cpio;*.cramfs;*.dmg;*.img;*.ext;*.ext2;*.ext3;*.ext4;*.fat;*.gpt;*.hfs;*.hfsx;*.ihex;*.iso;*.lzh;*.lha;*.lzma;*.mbr;*.msi;*.msp;*.doc;*.xls;*.ppt;*.nsis;*.ntfs;*.qcow;*.qcow2;*.qcow2c;*.rar;*.r00;*.rpm;*.squashfs;*.udf;*.scap;*.uefi;*.uefif;*.vdi;*.vhd;*.vhdx;*.vmdk;*.xar;*.z;*.taz", ConfigVersion < 5);
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator
    keep it synchronized with the calls to salamander->AddMenuItem() below...
