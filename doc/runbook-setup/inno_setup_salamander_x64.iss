@@ -1408,6 +1408,7 @@ var
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
   PreviousVersionUninstallKeys: array of String;
+  UninstallConfigurationLanguage: String;
 
 function IsPortableInstall(): Boolean;
 begin
@@ -1724,39 +1725,86 @@ begin
     Result := '';
 end;
 
-function HasCommandLineParameter(const ParameterName: String): Boolean;
+function UninstallCustomMessage(const MsgName: String): String;
 var
-  I: Integer;
-  Param: String;
+  LanguageName: String;
 begin
-  Result := False;
-  for I := 1 to ParamCount do
+  LanguageName := UninstallConfigurationLanguage;
+  if LanguageName = '' then
+    LanguageName := ActiveLanguage;
+
+  if CompareText(MsgName, 'RemoveUserConfigQuestion') = 0 then
   begin
-    Param := Uppercase(ParamStr(I));
-    if (CompareText(Param, '/' + Uppercase(ParameterName)) = 0) or
-       (CompareText(Param, '-' + Uppercase(ParameterName)) = 0) or
-       (Pos('/' + Uppercase(ParameterName) + '=', Param) = 1) or
-       (Pos('-' + Uppercase(ParameterName) + '=', Param) = 1) then
-    begin
-      Result := True;
-      Exit;
-    end;
-  end;
-end;
-
-function RelaunchUninstallInConfigurationLanguage(const LanguageName: String): Boolean;
-var
-  ResultCode: Integer;
-  Params: String;
-begin
-  Result := False;
-
-  if (LanguageName = '') or (CompareText(LanguageName, ActiveLanguage) = 0) or
-     HasCommandLineParameter('SALAMANDERLANGRELAUNCHED') then
-    Exit;
-
-  Params := GetCmdTail + ' /LANG=' + LanguageName + ' /SALAMANDERLANGRELAUNCHED';
-  Result := Exec(ParamStr(0), Params, '', SW_SHOW, ewNoWait, ResultCode);
+    if CompareText(LanguageName, 'chinesesimplified') = 0 then Result := '是否要删除 Open Salamander Samandarin 用户配置？'
+    else if CompareText(LanguageName, 'czech') = 0 then Result := 'Chcete odstranit uživatelskou konfiguraci Open Salamander Samandarin?'
+    else if CompareText(LanguageName, 'dutch') = 0 then Result := 'Wilt u de gebruikersconfiguratie van Open Salamander Samandarin verwijderen?'
+    else if CompareText(LanguageName, 'french') = 0 then Result := 'Voulez-vous supprimer la configuration utilisateur d’Open Salamander Samandarin ?'
+    else if CompareText(LanguageName, 'german') = 0 then Result := 'Möchten Sie die Benutzerkonfiguration von Open Salamander Samandarin entfernen?'
+    else if CompareText(LanguageName, 'hungarian') = 0 then Result := 'Szeretné eltávolítani az Open Salamander Samandarin felhasználói konfigurációját?'
+    else if CompareText(LanguageName, 'romanian') = 0 then Result := 'Doriți să eliminați configurația de utilizator Open Salamander Samandarin?'
+    else if CompareText(LanguageName, 'russian') = 0 then Result := 'Удалить пользовательскую конфигурацию Open Salamander Samandarin?'
+    else if CompareText(LanguageName, 'slovak') = 0 then Result := 'Chcete odstrániť používateľskú konfiguráciu Open Salamander Samandarin?'
+    else if CompareText(LanguageName, 'spanish') = 0 then Result := '¿Desea eliminar la configuración de usuario de Open Salamander Samandarin?'
+    else Result := 'Do you want to remove the Open Salamander Samandarin user configuration?';
+  end
+  else if CompareText(MsgName, 'FileStorage') = 0 then
+  begin
+    if CompareText(LanguageName, 'chinesesimplified') = 0 then Result := '文件存储:'
+    else if CompareText(LanguageName, 'czech') = 0 then Result := 'Úložiště souborů:'
+    else if CompareText(LanguageName, 'dutch') = 0 then Result := 'Bestandsopslag:'
+    else if CompareText(LanguageName, 'french') = 0 then Result := 'Stockage des fichiers :'
+    else if CompareText(LanguageName, 'german') = 0 then Result := 'Dateispeicher:'
+    else if CompareText(LanguageName, 'hungarian') = 0 then Result := 'Fájltároló:'
+    else if CompareText(LanguageName, 'romanian') = 0 then Result := 'Stocare în fișiere:'
+    else if CompareText(LanguageName, 'russian') = 0 then Result := 'Файловое хранилище:'
+    else if CompareText(LanguageName, 'slovak') = 0 then Result := 'Úložisko súborov:'
+    else if CompareText(LanguageName, 'spanish') = 0 then Result := 'Almacenamiento de archivos:'
+    else Result := 'File storage:';
+  end
+  else if CompareText(MsgName, 'RegistryKey') = 0 then
+  begin
+    if CompareText(LanguageName, 'chinesesimplified') = 0 then Result := '注册表项:'
+    else if CompareText(LanguageName, 'czech') = 0 then Result := 'Klíč registru:'
+    else if CompareText(LanguageName, 'dutch') = 0 then Result := 'Registersleutel:'
+    else if CompareText(LanguageName, 'french') = 0 then Result := 'Clé de registre :'
+    else if CompareText(LanguageName, 'german') = 0 then Result := 'Registrierungsschlüssel:'
+    else if CompareText(LanguageName, 'hungarian') = 0 then Result := 'Beállításkulcs:'
+    else if CompareText(LanguageName, 'romanian') = 0 then Result := 'Cheie de registru:'
+    else if CompareText(LanguageName, 'russian') = 0 then Result := 'Раздел реестра:'
+    else if CompareText(LanguageName, 'slovak') = 0 then Result := 'Kľúč registra:'
+    else if CompareText(LanguageName, 'spanish') = 0 then Result := 'Clave del Registro:'
+    else Result := 'Registry key:';
+  end
+  else if CompareText(MsgName, 'RemoveUserConfigFiles') = 0 then
+  begin
+    if CompareText(LanguageName, 'chinesesimplified') = 0 then Result := '选择“是”删除配置文件，选择“否”保留您的设置。'
+    else if CompareText(LanguageName, 'czech') = 0 then Result := 'Zvolte Ano pro odstranění konfiguračních souborů, nebo Ne pro zachování nastavení.'
+    else if CompareText(LanguageName, 'dutch') = 0 then Result := 'Kies Ja om de configuratiebestanden te verwijderen, of Nee om uw instellingen te behouden.'
+    else if CompareText(LanguageName, 'french') = 0 then Result := 'Choisissez Oui pour supprimer les fichiers de configuration, ou Non pour conserver vos paramètres.'
+    else if CompareText(LanguageName, 'german') = 0 then Result := 'Wählen Sie Ja, um die Konfigurationsdateien zu löschen, oder Nein, um Ihre Einstellungen beizubehalten.'
+    else if CompareText(LanguageName, 'hungarian') = 0 then Result := 'Válassza az Igen lehetőséget a konfigurációs fájlok törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.'
+    else if CompareText(LanguageName, 'romanian') = 0 then Result := 'Alegeți Da pentru a șterge fișierele de configurare sau Nu pentru a păstra setările.'
+    else if CompareText(LanguageName, 'russian') = 0 then Result := 'Выберите «Да», чтобы удалить файлы конфигурации, или «Нет», чтобы сохранить настройки.'
+    else if CompareText(LanguageName, 'slovak') = 0 then Result := 'Zvoľte Áno na odstránenie konfiguračných súborov alebo Nie na zachovanie nastavení.'
+    else if CompareText(LanguageName, 'spanish') = 0 then Result := 'Elija Sí para eliminar los archivos de configuración, o No para conservar la configuración.'
+    else Result := 'Choose Yes to delete the configuration files, or No to keep your settings.';
+  end
+  else if CompareText(MsgName, 'RemoveUserConfigRegistry') = 0 then
+  begin
+    if CompareText(LanguageName, 'chinesesimplified') = 0 then Result := '选择“是”删除该项及其所有内容，选择“否”保留您的设置。'
+    else if CompareText(LanguageName, 'czech') = 0 then Result := 'Zvolte Ano pro odstranění klíče včetně celého obsahu, nebo Ne pro zachování nastavení.'
+    else if CompareText(LanguageName, 'dutch') = 0 then Result := 'Kies Ja om de sleutel inclusief alle inhoud te verwijderen, of Nee om uw instellingen te behouden.'
+    else if CompareText(LanguageName, 'french') = 0 then Result := 'Choisissez Oui pour supprimer la clé avec tout son contenu, ou Non pour conserver vos paramètres.'
+    else if CompareText(LanguageName, 'german') = 0 then Result := 'Wählen Sie Ja, um den Schlüssel einschließlich aller Inhalte zu löschen, oder Nein, um Ihre Einstellungen beizubehalten.'
+    else if CompareText(LanguageName, 'hungarian') = 0 then Result := 'Válassza az Igen lehetőséget a kulcs és teljes tartalmának törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.'
+    else if CompareText(LanguageName, 'romanian') = 0 then Result := 'Alegeți Da pentru a șterge cheia, inclusiv tot conținutul, sau Nu pentru a păstra setările.'
+    else if CompareText(LanguageName, 'russian') = 0 then Result := 'Выберите «Да», чтобы удалить раздел со всем содержимым, или «Нет», чтобы сохранить настройки.'
+    else if CompareText(LanguageName, 'slovak') = 0 then Result := 'Zvoľte Áno na odstránenie kľúča vrátane celého obsahu alebo Nie na zachovanie nastavení.'
+    else if CompareText(LanguageName, 'spanish') = 0 then Result := 'Elija Sí para eliminar la clave con todo su contenido, o No para conservar la configuración.'
+    else Result := 'Choose Yes to delete the key including all contents, or No to keep your settings.';
+  end
+  else
+    Result := CustomMessage(MsgName);
 end;
 
 function InitializeUninstall(): Boolean;
@@ -1765,17 +1813,14 @@ begin
   DeleteUserConfiguration := False;
   DeleteUserConfigurationFilePath := '';
   DeleteUserConfigurationFromFile := IsFileConfigurationStorageSelected();
+  UninstallConfigurationLanguage := '';
 
   if DeleteUserConfigurationFromFile then
   begin
     DeleteUserConfigurationFilePath := GetFileConfigurationPath();
   end;
 
-  if RelaunchUninstallInConfigurationLanguage(GetStoredConfigurationLanguage(DeleteUserConfigurationFromFile, DeleteUserConfigurationFilePath)) then
-  begin
-    Result := False;
-    Exit;
-  end;
+  UninstallConfigurationLanguage := GetStoredConfigurationLanguage(DeleteUserConfigurationFromFile, DeleteUserConfigurationFilePath);
 
   if DeleteUserConfigurationFromFile then
   begin
@@ -1784,10 +1829,10 @@ begin
     begin
       DeleteUserConfiguration :=
         MsgBox(
-          CustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
-          CustomMessage('FileStorage') + #13#10 +
+          UninstallCustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
+          UninstallCustomMessage('FileStorage') + #13#10 +
           DeleteUserConfigurationFilePath + #13#10#13#10 +
-          CustomMessage('RemoveUserConfigFiles'),
+          UninstallCustomMessage('RemoveUserConfigFiles'),
           mbConfirmation,
           MB_YESNO) = IDYES;
     end;
@@ -1796,10 +1841,10 @@ begin
   begin
     DeleteUserConfiguration :=
       MsgBox(
-        CustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
-        CustomMessage('RegistryKey') + #13#10 +
+        UninstallCustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
+        UninstallCustomMessage('RegistryKey') + #13#10 +
         {#AppToInstallRegPathRem} + #13#10#13#10 +
-        CustomMessage('RemoveUserConfigRegistry'),
+        UninstallCustomMessage('RemoveUserConfigRegistry'),
         mbConfirmation,
         MB_YESNO) = IDYES;
   end;
