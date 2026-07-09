@@ -33,6 +33,7 @@ Volitelné proměnné:
 | `CODESIGN_TIMESTAMP_DIGEST_ALGORITHM` | `sha256` | Digest algoritmus timestampu. |
 | `CODESIGN_RETRIES` | `3` | Počet pokusů o podpis. Hodí se kvůli dočasným výpadkům timestamp serverů. |
 | `CODESIGN_RETRY_DELAY_SECONDS` | `10` | Pauza mezi pokusy. |
+| `CODESIGN_BATCH_SIZE` | `25` | Maximální počet souborů předaných do jednoho volání `signtool sign` při hromadném podepisování. Snižte, pokud Windows hlásí, že název souboru nebo přípona jsou příliš dlouhé. |
 | `CODESIGN_DESCRIPTION` | prázdné | Volitelný popis `/d`, který může zobrazit Windows. |
 | `CODESIGN_DESCRIPTION_URL` | prázdné | Volitelná URL `/du`, kterou může zobrazit Windows. |
 | `CODESIGN_ALLOW_POSTBUILD` | prázdné | Nastavte na `1` jen tehdy, pokud opravdu chcete podepisování z Visual Studio post-build eventů. |
@@ -45,7 +46,7 @@ Tímto nejdřív ověřte, že funguje SimplySign, certifikát, SignTool i náš
 tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-Script podepisuje jen soubory `.exe`, `.dll`, `.spl` a `.slg`. Výsledek ověřuje příkazem:
+Script podepisuje jen soubory `.exe`, `.dll`, `.spl` a `.slg`. Před podepsáním ověří, jestli cíl už má platný Authenticode podpis, a pokud už je podepsaný, přeskočí ho. Nově podepsané soubory ověřuje příkazem:
 
 ```cmd
 signtool verify /pa /all /v "cesta\k\souboru.exe"
@@ -66,8 +67,17 @@ Script čte `doc\runbook-setup\inno_setup_salamander_x64.iss` a podepisuje jen s
 - `.exe`
 - `.dll`
 - `.spl`
+- `.slg`
 
-Odpovídající soubory se předají do jednoho volání `signtool sign`, takže PIN-based SimplySign karta by se měla pro celý payload batch zeptat jen jednou. Ověření podpisu pak stále probíhá pro každý podepsaný soubor.
+Soubory, které už mají platný Authenticode podpis, se před podepisováním přeskočí. Zbývající soubory se podepisují po dávkách podle `CODESIGN_BATCH_SIZE`, výchozí hodnota je 25 souborů na jedno volání `signtool sign`. Tím se obejde Windows chyba s příliš dlouhou příkazovou řádkou, která se může objevit po přidání většího množství `.slg` souborů. Ověření podpisu pak stále probíhá pro každý nově podepsaný soubor.
+
+Pokud chcete podepsat jen `.slg` soubory seskupené podle jazyka, použijte:
+
+```cmd
+tools\codesign\codesign_certum.cmd --slg-by-lang --payload-dir "H:\_projects\salamander\output\salamander\Release_x64"
+```
+
+Tento režim čte stejný Inno Setup script, seskupí existující `.slg` soubory podle názvu jazykového souboru a na každou jazykovou skupinu použije stejné přeskakování už podepsaných souborů i dávkové podepisování.
 
 Externí DLL se přeskakují. Exclusion list obsahuje:
 
@@ -81,7 +91,7 @@ Externí DLL se přeskakují. Exclusion list obsahuje:
 
 1. Sestavit a naplnit release payload adresář.
 2. Volitelně otestovat jeden soubor přes `--file`.
-3. Podepsat Inno x64 payload přes `--inno-x64`.
+3. Podepsat Inno x64 payload přes `--inno-x64`. Pokud potřebujete řešit `.slg` soubory zvlášť, použijte `--slg-by-lang` se stejným payload adresářem.
 4. Sestavit Inno installer.
 5. Finální installer podepsat zvlášť přes `--file`.
 6. Finální installer ověřit přes `signtool verify /pa /all /v`.

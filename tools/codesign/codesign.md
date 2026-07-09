@@ -33,6 +33,7 @@ Optional variables:
 | `CODESIGN_TIMESTAMP_DIGEST_ALGORITHM` | `sha256` | Timestamp digest algorithm. |
 | `CODESIGN_RETRIES` | `3` | Number of signing attempts. Useful because timestamp servers can fail temporarily. |
 | `CODESIGN_RETRY_DELAY_SECONDS` | `10` | Delay between retries. |
+| `CODESIGN_BATCH_SIZE` | `25` | Maximum number of files passed to one `signtool sign` invocation during bulk signing. Lower this if Windows reports that the filename or extension is too long. |
 | `CODESIGN_DESCRIPTION` | empty | Optional `/d` file description shown by Windows. |
 | `CODESIGN_DESCRIPTION_URL` | empty | Optional `/du` URL shown by Windows. |
 | `CODESIGN_ALLOW_POSTBUILD` | empty | Set to `1` only if you intentionally want Visual Studio post-build signing. |
@@ -45,7 +46,7 @@ Use this first to verify that SimplySign, the certificate, SignTool and the scri
 tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-The script signs only `.exe`, `.dll`, `.spl` and `.slg` files. It verifies the result with:
+The script signs only `.exe`, `.dll`, `.spl` and `.slg` files. Before signing, it checks whether the target already has a valid Authenticode signature and skips it if it is already signed. It verifies newly signed files with:
 
 ```cmd
 signtool verify /pa /all /v "path\to\file.exe"
@@ -66,8 +67,17 @@ The script reads `doc\runbook-setup\inno_setup_salamander_x64.iss` and signs onl
 - `.exe`
 - `.dll`
 - `.spl`
+- `.slg`
 
-The matching files are passed to one `signtool sign` invocation, so a PIN-based SimplySign card should prompt only once for the payload batch. Verification still runs for each signed file.
+Files that already have a valid Authenticode signature are skipped before signing. The remaining files are signed in batches of `CODESIGN_BATCH_SIZE` files, defaulting to 25 files per `signtool sign` invocation. This avoids Windows command-line length failures when the payload contains many `.slg` files. Verification still runs for each newly signed file.
+
+If you want to sign only `.slg` files grouped by language, use:
+
+```cmd
+tools\codesign\codesign_certum.cmd --slg-by-lang --payload-dir "H:\_projects\salamander\output\salamander\Release_x64"
+```
+
+This mode reads the same Inno Setup script, groups existing `.slg` files by language file name, and then applies the same already-signed skip and batch signing logic to each language group.
 
 External DLLs are skipped. The exclusion list includes:
 
@@ -81,7 +91,7 @@ External DLLs are skipped. The exclusion list includes:
 
 1. Build and populate the release payload directory.
 2. Sign a single file with `--file` if you want a smoke test.
-3. Sign the Inno x64 payload with `--inno-x64`.
+3. Sign the Inno x64 payload with `--inno-x64`. If you need to handle `.slg` files separately, use `--slg-by-lang` with the same payload directory.
 4. Build the Inno installer.
 5. Sign the final installer separately with `--file`.
 6. Verify the final installer with `signtool verify /pa /all /v`.
