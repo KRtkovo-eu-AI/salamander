@@ -88,16 +88,16 @@ public:
 class CFilecompThread : public CThread
 {
 public:
-    char Path1[MAX_PATH];
-    char Path2[MAX_PATH];
+    std::string Path1;
+    std::string Path2;
     BOOL DontConfirmSelection;
     char ReleaseEvent[20];
 
     CFilecompThread(const char* file1, const char* file2, BOOL dontConfirmSelection,
                     const char* releaseEvent) : CThread("Filecomp Thread")
     {
-        strcpy(Path1, file1);
-        strcpy(Path2, file2);
+        Path1 = file1 != NULL ? file1 : "";
+        Path2 = file2 != NULL ? file2 : "";
         DontConfirmSelection = dontConfirmSelection;
         strcpy(ReleaseEvent, releaseEvent);
     }

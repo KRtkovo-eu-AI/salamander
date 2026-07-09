@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -19,6 +19,7 @@
 #include <limits.h>
 #include <process.h>
 #include <stdio.h>
+#include <string>
 
 #if defined(_DEBUG) && defined(_MSC_VER) // without passing file+line to 'new' operator, list of memory leaks shows only 'crtdbg.h(552)'
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -96,3 +97,5 @@ inline constexpr auto max(T a, U b) -> typename std::common_type<T, U>::type
 #endif
 
 #define SizeOf(a) sizeof(a) / sizeof(a[0])
+
+#include "../../common/widepath.h"

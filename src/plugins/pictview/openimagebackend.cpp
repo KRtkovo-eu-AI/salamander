@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -22,7 +22,7 @@ struct COpenImageBackendHandle
     PVImageInfo ImageInfo;
     PVImageHandles ImageHandles;
     PVFormatSpecificInfo FormatInfo;
-    char FileName[MAX_PATH];
+    char FileName[32768];
     BYTE* Pixels;
     BYTE** Lines;
     DWORD BufferSize;
@@ -462,7 +462,7 @@ static PVCODE LoadFrameInfoFromFile(COpenImageBackendHandle* pHandle, DWORD imag
     IWICBitmapDecoder* pDecoder = NULL;
     IWICBitmapFrameDecode* pFrame = NULL;
     IWICMetadataQueryReader* pDecoderReader = NULL;
-    WCHAR fileNameW[MAX_PATH];
+    std::wstring fileNameW;
     WIN32_FILE_ATTRIBUTE_DATA attrData;
     GUID containerFormat = GUID_NULL;
     const char* formatName = "WIC";
@@ -483,13 +483,18 @@ static PVCODE LoadFrameInfoFromFile(COpenImageBackendHandle* pHandle, DWORD imag
     if (FAILED(coInit.Hr))
         return HrToPVCode(coInit.Hr);
 
-    if (0 == MultiByteToWideChar(CP_ACP, 0, pHandle->FileName, -1, fileNameW, SizeOf(fileNameW)))
+    fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_UTF8);
+    if (fileNameW.empty())
+        fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_ACP);
+    if (fileNameW.empty())
         return PVC_CANNOT_OPEN_FILE;
+    if (fileNameW.length() >= MAX_PATH)
+        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
 
     hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
                           IID_IWICImagingFactory, (void**)&pFactory);
     if (SUCCEEDED(hr))
-        hr = pFactory->CreateDecoderFromFilename(fileNameW, NULL, GENERIC_READ,
+        hr = pFactory->CreateDecoderFromFilename(fileNameW.c_str(), NULL, GENERIC_READ,
                                                  WICDecodeMetadataCacheOnDemand, &pDecoder);
     if (SUCCEEDED(hr))
         hr = pDecoder->GetContainerFormat(&containerFormat);
@@ -575,7 +580,7 @@ static PVCODE LoadFrameInfoFromFile(COpenImageBackendHandle* pHandle, DWORD imag
     else if (HasExifMetadata(pFrame, format))
         pHandle->ImageInfo.Flags |= PVFF_EXIF;
 
-    if (GetFileAttributesExA(pHandle->FileName, GetFileExInfoStandard, &attrData))
+    if (GetFileAttributesExW(fileNameW.c_str(), GetFileExInfoStandard, &attrData))
         pHandle->ImageInfo.FileSize = attrData.nFileSizeLow;
 
     pHandle->StretchWidth = (LONG)width;
@@ -1020,7 +1025,7 @@ static PVCODE SaveSurfaceToWicFile(const COpenImageSurface* pSurface, const char
     IPropertyBag2* pPropertyBag = NULL;
     IWICBitmapSource* pSourceBitmap = NULL;
     IWICBitmapSource* pWriteSource = NULL;
-    WCHAR fileNameW[MAX_PATH];
+    std::wstring fileNameW;
     WICPixelFormatGUID pixelFormat;
     HRESULT hr;
     PVCODE ret = PVC_OK;
@@ -1030,8 +1035,13 @@ static PVCODE SaveSurfaceToWicFile(const COpenImageSurface* pSurface, const char
         return PVC_CANNOT_OPEN_FILE;
     if (FAILED(coInit.Hr))
         return HrToPVCode(coInit.Hr);
-    if (0 == MultiByteToWideChar(CP_ACP, 0, fileName, -1, fileNameW, SizeOf(fileNameW)))
+    fileNameW = SalMultiByteToWidePath(fileName, CP_UTF8);
+    if (fileNameW.empty())
+        fileNameW = SalMultiByteToWidePath(fileName, CP_ACP);
+    if (fileNameW.empty())
         return PVC_CANNOT_OPEN_FILE;
+    if (fileNameW.length() >= MAX_PATH)
+        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
 
     fmt = pSii->Format;
     pixelFormat = GetEncoderPixelFormat(fmt);
@@ -1041,7 +1051,7 @@ static PVCODE SaveSurfaceToWicFile(const COpenImageSurface* pSurface, const char
     if (SUCCEEDED(hr))
         hr = pFactory->CreateStream(&pStream);
     if (SUCCEEDED(hr))
-        hr = pStream->InitializeFromFilename(fileNameW, GENERIC_WRITE);
+        hr = pStream->InitializeFromFilename(fileNameW.c_str(), GENERIC_WRITE);
     if (SUCCEEDED(hr))
         hr = pFactory->CreateEncoder(GetEncoderContainerFormat(fmt), NULL, &pEncoder);
     if (SUCCEEDED(hr))
@@ -1214,7 +1224,7 @@ static PVCODE BuildGifSequence(COpenImageBackendHandle* pHandle)
     CCoInitScope coInit;
     IWICImagingFactory* pFactory = NULL;
     IWICBitmapDecoder* pDecoder = NULL;
-    WCHAR fileNameW[MAX_PATH];
+    std::wstring fileNameW;
     UINT frameCount = 0;
     HRESULT hr;
     DWORD frameIndex;
@@ -1231,8 +1241,13 @@ static PVCODE BuildGifSequence(COpenImageBackendHandle* pHandle)
         return PVC_OK;
     if (FAILED(coInit.Hr))
         return HrToPVCode(coInit.Hr);
-    if (0 == MultiByteToWideChar(CP_ACP, 0, pHandle->FileName, -1, fileNameW, SizeOf(fileNameW)))
+    fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_UTF8);
+    if (fileNameW.empty())
+        fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_ACP);
+    if (fileNameW.empty())
         return PVC_CANNOT_OPEN_FILE;
+    if (fileNameW.length() >= MAX_PATH)
+        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
 
     InitSurface(&canvasSurface);
     InitSurface(&previousSurface);
@@ -1240,7 +1255,7 @@ static PVCODE BuildGifSequence(COpenImageBackendHandle* pHandle)
     hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
                           IID_IWICImagingFactory, (void**)&pFactory);
     if (SUCCEEDED(hr))
-        hr = pFactory->CreateDecoderFromFilename(fileNameW, NULL, GENERIC_READ,
+        hr = pFactory->CreateDecoderFromFilename(fileNameW.c_str(), NULL, GENERIC_READ,
                                                  WICDecodeMetadataCacheOnDemand, &pDecoder);
     if (SUCCEEDED(hr))
         hr = pDecoder->GetFrameCount(&frameCount);
@@ -1416,7 +1431,7 @@ static PVCODE DecodeFrameFromFile(COpenImageBackendHandle* pHandle, DWORD imageI
     IWICBitmapDecoder* pDecoder = NULL;
     IWICBitmapFrameDecode* pFrame = NULL;
     IWICFormatConverter* pConverter = NULL;
-    WCHAR fileNameW[MAX_PATH];
+    std::wstring fileNameW;
     HRESULT hr;
     PVCODE ret;
 
@@ -1430,13 +1445,18 @@ static PVCODE DecodeFrameFromFile(COpenImageBackendHandle* pHandle, DWORD imageI
     if (FAILED(coInit.Hr))
         return HrToPVCode(coInit.Hr);
 
-    if (0 == MultiByteToWideChar(CP_ACP, 0, pHandle->FileName, -1, fileNameW, SizeOf(fileNameW)))
+    fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_UTF8);
+    if (fileNameW.empty())
+        fileNameW = SalMultiByteToWidePath(pHandle->FileName, CP_ACP);
+    if (fileNameW.empty())
         return PVC_CANNOT_OPEN_FILE;
+    if (fileNameW.length() >= MAX_PATH)
+        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
 
     hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
                           IID_IWICImagingFactory, (void**)&pFactory);
     if (SUCCEEDED(hr))
-        hr = pFactory->CreateDecoderFromFilename(fileNameW, NULL, GENERIC_READ,
+        hr = pFactory->CreateDecoderFromFilename(fileNameW.c_str(), NULL, GENERIC_READ,
                                                  WICDecodeMetadataCacheOnDemand, &pDecoder);
     if (SUCCEEDED(hr))
         hr = pDecoder->GetFrame(imageIndex, &pFrame);

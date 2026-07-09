@@ -7,6 +7,7 @@
 #include "checksum.rh2"
 #include "lang\lang.rh"
 #include "misc.h"
+#include "../../common/widepath.h"
 
 BOOL Error(HWND hParent, int lastErr, int title, int error, ...)
 {
@@ -88,8 +89,17 @@ BOOL SafeOpenCreateFile(LPCTSTR fileName, DWORD desiredAccess, DWORD shareMode, 
     CALL_STACK_MESSAGE6("SafeOpenCreateFile(%s, 0x%X, 0x%X, 0x%X, 0x%X, , , )", fileName, desiredAccess,
                         shareMode, creationDisposition, flagsAndAttributes);
 
-    while ((*hFile = CreateFile(fileName, desiredAccess, shareMode, NULL, creationDisposition,
-                                flagsAndAttributes, NULL)) == INVALID_HANDLE_VALUE &&
+    std::wstring fileNameW = SalMultiByteToWidePath(fileName, CP_UTF8);
+    if (fileNameW.empty())
+        fileNameW = SalMultiByteToWidePath(fileName, CP_ACP);
+    if (fileNameW.length() >= MAX_PATH)
+        fileNameW = SalPathAddExtendedPrefixW(fileNameW.c_str());
+
+    while ((*hFile = !fileNameW.empty() ?
+                         CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL, creationDisposition,
+                                     flagsAndAttributes, NULL) :
+                         CreateFile(fileName, desiredAccess, shareMode, NULL, creationDisposition,
+                                    flagsAndAttributes, NULL)) == INVALID_HANDLE_VALUE &&
            ((silent != NULL) ? !*silent : 1))
     {
         int lastErr = GetLastError();

@@ -148,8 +148,8 @@ CFilecompWorker::CFilecompWorker(HWND parent, HWND mainWindow, const char* name0
 {
     Parent = Parent;
     MainWindow = mainWindow;
-    strcpy(Files[0].Name, name0);
-    strcpy(Files[1].Name, name1);
+    Files[0].Name = name0 != NULL ? name0 : "";
+    Files[1].Name = name1 != NULL ? name1 : "";
     Options = options;
     Event = event;
 }
@@ -220,21 +220,29 @@ void CFilecompWorker::GuardedBody()
         // NOTE: IntViewer can open such files, users wants FC to support them as well
         // See https://forum.altap.cz/viewtopic.php?t=2675
         // See also CHexFileViewWindow::SetData()
-        Files[i].File = CreateFile(Files[i].Name, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                   NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+        std::wstring nameW = SalMultiByteToWidePath(Files[i].Name.c_str(), CP_UTF8);
+        if (nameW.empty())
+            nameW = SalMultiByteToWidePath(Files[i].Name.c_str(), CP_ACP);
+        if (nameW.length() >= MAX_PATH)
+            nameW = SalPathAddExtendedPrefixW(nameW.c_str());
+        Files[i].File = !nameW.empty() ?
+                            CreateFileW(nameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                        NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL) :
+                            CreateFileA(Files[i].Name.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                        NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
         if (Files[i].File == INVALID_HANDLE_VALUE)
-            CException::Raise(IDS_OPEN, GetLastError(), Files[i].Name);
+            CException::Raise(IDS_OPEN, GetLastError(), Files[i].Name.c_str());
 
         CQuadWord size;
         DWORD err;
         if (!SG->SalGetFileSize(Files[i].File, size, err))
-            CException::Raise(IDS_ACCESFILE, err, Files[i].Name);
+            CException::Raise(IDS_ACCESFILE, err, Files[i].Name.c_str());
         Files[i].Size = size.Value;
 
         if (Files[i].Size > QWORD(numeric_limits<int>::max() - 1))
         {
             if (Options.ForceText)
-                CException::Raise(IDS_LARGEFILE, 0, Files[i].Name);
+                CException::Raise(IDS_LARGEFILE, 0, Files[i].Name.c_str());
             Options.ForceBinary;
         }
     }
@@ -251,7 +259,7 @@ void CFilecompWorker::GuardedBody()
         int j;
         for (j = 0; j <= 1; j++)
         {
-            files[j].Set(Files[j].Name, Files[j].File, size_t(Files[j].Size),
+            files[j].Set(Files[j].Name.c_str(), Files[j].File, size_t(Files[j].Size),
                          Options.EolConversion[j], (CTextFileReader::eEncoding)Options.Encoding[j],
                          (CTextFileReader::eEndian)Options.Endians[j], Options.PerformASCII8InputEnc[j],
                          Options.ASCII8InputEncTableName[j], Options.NormalizationForm,

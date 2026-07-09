@@ -18,6 +18,7 @@
 #include <commctrl.h>
 #include <limits.h>
 #include <vector>
+#include <string>
 #include <algorithm>
 #include <map>
 #include <zmouse.h>
@@ -90,3 +91,5 @@
 #include "remote.h"
 
 #define SizeOf(x) (sizeof(x) / sizeof(x[0]))
+
+#include "../../common/widepath.h"
