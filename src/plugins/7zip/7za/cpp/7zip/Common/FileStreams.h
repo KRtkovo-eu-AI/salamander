@@ -165,8 +165,11 @@ public:
       case OPEN_EXISTING: return File.Open_EXISTING(fileName);
       case OPEN_ALWAYS: return File.Create_ALWAYS_or_Open_ALWAYS(fileName, false);
       case TRUNCATE_EXISTING:
-        return File.Create(fileName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
-            TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL);
+        #ifdef Z7_FILE_STREAMS_USE_WIN_FILE
+        return File.Open(fileName, FILE_SHARE_READ, TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL);
+        #else
+        return File.Create_ALWAYS(fileName);
+        #endif
     }
     return false;
   }
