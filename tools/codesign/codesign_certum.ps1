@@ -189,6 +189,14 @@ function Get-RetryDelaySeconds {
     return [int] (Get-OptionalValue 'CODESIGN_RETRY_DELAY_SECONDS' '10')
 }
 
+function Get-SignBatchSize {
+    $batchSize = [int] (Get-OptionalValue 'CODESIGN_BATCH_SIZE' '25')
+    if ($batchSize -lt 1) {
+        throw 'CODESIGN_BATCH_SIZE must be greater than zero.'
+    }
+    return $batchSize
+}
+
 function Test-SigningTarget([string] $path) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Signing target does not exist: $path"
@@ -251,6 +259,20 @@ function Invoke-SignWithRetry([string[]] $paths, [string] $label) {
     }
 }
 
+function Invoke-SignBatches([string[]] $paths, [string] $label) {
+    $batchSize = Get-SignBatchSize
+    $total = $paths.Count
+    $batchCount = [int] [Math]::Ceiling($total / $batchSize)
+
+    for ($start = 0; $start -lt $total; $start += $batchSize) {
+        $end = [Math]::Min($start + $batchSize - 1, $total - 1)
+        $batchPaths = @($paths[$start..$end])
+        $batchNumber = [int] [Math]::Floor($start / $batchSize) + 1
+        $batchLabel = "$label batch $batchNumber of $batchCount ($($batchPaths.Count) file(s))"
+        Invoke-SignWithRetry -paths $batchPaths -label $batchLabel
+    }
+}
+
 function Sign-OneFile([string] $path) {
     Test-SigningTarget $path
     $resolvedPath = (Resolve-Path -LiteralPath $path).Path
@@ -278,7 +300,7 @@ function Sign-ManyFiles([string[]] $paths) {
         return
     }
 
-    Invoke-SignWithRetry -paths @($unsignedPaths) -label "$($unsignedPaths.Count) unsigned Inno payload file(s)"
+    Invoke-SignBatches -paths @($unsignedPaths) -label "$($unsignedPaths.Count) unsigned Inno payload file(s)"
 }
 
 function Sign-InnoPayload([string] $payloadDir, [string] $innoScript) {
