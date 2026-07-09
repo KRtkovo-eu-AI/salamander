@@ -5050,7 +5050,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 CutDirectory(thirdPartyPath) &&
                 SalPathAppend(thirdPartyPath, "doc\\third_party.md", MAX_PATH))
             {
-                ShellExecute(HWindow, "open", thirdPartyPath, NULL, NULL, SW_SHOWNORMAL);
+                HANDLE lock;
+                BOOL lockOwner;
+                ViewFileInt(HWindow, thirdPartyPath, FALSE, 0xFFFFFFFF, FALSE,
+                            lock, lockOwner, FALSE, -1, -1);
             }
             return 0;
         }
