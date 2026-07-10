@@ -168,6 +168,8 @@ public:
     BOOL Silent;
 
 private:
+    HRESULT GetStreamNoSEH(UInt32 index, ISequentialInStream** inStream);
+
     HWND hProgWnd;
 
     /*

@@ -159,8 +159,8 @@ STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PR
     return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
-                                               ISequentialInStream** inStream)
+HRESULT CArchiveUpdateCallback::GetStreamNoSEH(UInt32 index,
+                                             ISequentialInStream** inStream)
 {
     /*
   char u[1024];
@@ -258,6 +258,24 @@ STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
     LeaveCriticalSection(&CSUpdate);
 
     return res;
+}
+
+
+STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
+                                               ISequentialInStream** inStream)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return GetStreamNoSEH(index, inStream);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return GetStreamNoSEH(index, inStream);
+#endif // _MSC_VER
 }
 
 STDMETHODIMP CArchiveUpdateCallback::SetOperationResult(Int32 operationResult)
