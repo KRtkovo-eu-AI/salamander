@@ -2322,7 +2322,9 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         else
             borderColor = GetSysColor(COLOR_ACTIVECAPTION);
 
-        int borderHeight = 3;
+        borderColor = LightenColor(borderColor, 96);
+
+        int borderHeight = 2;
         RECT borderRect = fillRect;
         if (HWindow != NULL)
         {

@@ -24,15 +24,15 @@ const SPackModifyTable PackModifyTable[] =
         // JAR 1.02 Win32
         {
             (TPackErrorTable*)&JARErrors, TRUE,
-            "$(SourcePath)", "$(Jar32bitExecutable) a -hl \"$(ArchiveFullName)\" -o\"$(TargetPath)\" !\"$(ListFullName)\"", TRUE,
-            "$(ArchivePath)", "$(Jar32bitExecutable) d -r- \"$(ArchiveFileName)\" !\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
-            "$(SourcePath)", "$(Jar32bitExecutable) m -hl \"$(ArchiveFullName)\" -o\"$(TargetPath)\" !\"$(ListFullName)\"", FALSE},
+            "$(SourcePath)", "$(Jar32bitOr64bitExecutable) a -hl \"$(ArchiveFullName)\" -o\"$(TargetPath)\" !\"$(ListFullName)\"", TRUE,
+            "$(ArchivePath)", "$(Jar32bitOr64bitExecutable) d -r- \"$(ArchiveFileName)\" !\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
+            "$(SourcePath)", "$(Jar32bitOr64bitExecutable) m -hl \"$(ArchiveFullName)\" -o\"$(TargetPath)\" !\"$(ListFullName)\"", FALSE},
         // RAR 4.20 & 5.0 Win x86/x64
         {
             (TPackErrorTable*)&RARErrors, TRUE,
-            "$(SourcePath)", "$(Rar32bitExecutable) a -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", TRUE, // since version 5.0 we must enforce the -scol switch, version 4.20 is fine; it appears elsewhere and in the registry
-            "$(ArchivePath)", "$(Rar32bitExecutable) d -scol \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
-            "$(SourcePath)", "$(Rar32bitExecutable) m -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", FALSE},
+            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) a -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", TRUE, // since version 5.0 we must enforce the -scol switch, version 4.20 is fine; it appears elsewhere and in the registry
+            "$(ArchivePath)", "$(Rar32bitOr64bitExecutable) d -scol \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
+            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) m -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", FALSE},
         // ARJ 2.60 MS-DOS
         {
             (TPackErrorTable*)&ARJErrors, FALSE,
@@ -67,9 +67,9 @@ const SPackModifyTable PackModifyTable[] =
         // PKZIP 2.50 Win32
         {
             NULL, TRUE,
-            "$(SourcePath)", "$(Zip32bitExecutable) -add -nozipextension -attr -path \"$(ArchiveFullName)\" @\"$(ListFullName)\"", FALSE,
-            "$(ArchivePath)", "$(Zip32bitExecutable) -del -nozipextension \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
-            "$(SourcePath)", "$(Zip32bitExecutable) -add -nozipextension -attr -path -move \"$(ArchiveFullName)\" @\"$(ListFullName)\"", TRUE},
+            "$(SourcePath)", "$(Zip32bitOr64bitExecutable) -add -nozipextension -attr -path \"$(ArchiveFullName)\" @\"$(ListFullName)\"", FALSE,
+            "$(ArchivePath)", "$(Zip32bitOr64bitExecutable) -del -nozipextension \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
+            "$(SourcePath)", "$(Zip32bitOr64bitExecutable) -add -nozipextension -attr -path -move \"$(ArchiveFullName)\" @\"$(ListFullName)\"", TRUE},
         // PKZIP 2.04g MS-DOS
         {
             (TPackErrorTable*)&ZIP204Errors, FALSE,
@@ -79,15 +79,15 @@ const SPackModifyTable PackModifyTable[] =
         // ARJ 3.00c Win32
         {
             (TPackErrorTable*)&ARJErrors, TRUE,
-            "$(SourcePath)", "$(Arj32bitExecutable) a -p -va -hl -a \"$(ArchiveFullName)\" !\"$(ListFullName)\"", FALSE,
-            "$(ArchivePath)", "$(Arj32bitExecutable) d -p -va -hl \"$(ArchiveFileName)\" !\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
-            "$(SourcePath)", "$(Arj32bitExecutable) m -p -va -hl -a \"$(ArchiveFullName)\" !\"$(ListFullName)\"", FALSE},
+            "$(SourcePath)", "$(Arj32bitOr64bitExecutable) a -p -va -hl -a \"$(ArchiveFullName)\" !\"$(ListFullName)\"", FALSE,
+            "$(ArchivePath)", "$(Arj32bitOr64bitExecutable) d -p -va -hl \"$(ArchiveFileName)\" !\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
+            "$(SourcePath)", "$(Arj32bitOr64bitExecutable) m -p -va -hl -a \"$(ArchiveFullName)\" !\"$(ListFullName)\"", FALSE},
         // ACE 1.2b Win32
         {
             (TPackErrorTable*)&ACEErrors, TRUE,
-            "$(SourcePath)", "$(Ace32bitExecutable) a -o -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"", FALSE,
-            "$(ArchivePath)", "$(Ace32bitExecutable) d -f \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
-            "$(SourcePath)", "$(Ace32bitExecutable) m -o -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"", TRUE},
+            "$(SourcePath)", "$(Ace32bitOr64bitExecutable) a -o -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"", FALSE,
+            "$(ArchivePath)", "$(Ace32bitOr64bitExecutable) d -f \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
+            "$(SourcePath)", "$(Ace32bitOr64bitExecutable) m -o -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"", TRUE},
         // ACE 1.2b MS-DOS
         {
             (TPackErrorTable*)&ACEErrors, FALSE,
@@ -393,7 +393,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
 
     // hack for RAR 4.x+ that dislikes "-ap""" when addressing the archive root; this cleanup works with older RAR too
     // see https://forum.altap.cz/viewtopic.php?f=2&t=5487
-    if (*rootPath == 0 && strstr(command, "$(Rar32bitExecutable) ") == command)
+    if (*rootPath == 0 && strstr(command, "$(Rar32bitOr64bitExecutable) ") == command)
     {
         char* pAP = strstr(cmdLine, "\" -ap\"\" @\"");
         if (pAP != NULL)
@@ -401,7 +401,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
     // hack for copying into a directory in RAR - it fails if the path begins with a backslash; it created e.g. \Test directory but Salam shows it as Test
     // https://forum.altap.cz/viewtopic.php?p=24586#p24586
-    if (*rootPath == '\\' && strstr(command, "$(Rar32bitExecutable) ") == command)
+    if (*rootPath == '\\' && strstr(command, "$(Rar32bitOr64bitExecutable) ") == command)
     {
         char* pAP = strstr(cmdLine, "\" -ap\"\\");
         if (pAP != NULL)

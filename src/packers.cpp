@@ -33,16 +33,16 @@ struct SPackConvTable
 };
 
 SPackConvTable PackConversionTable[] = {
-    {"jar32", "$(Jar32bitExecutable)"},
+    {"jar32", "$(Jar32bitOr64bitExecutable)"},
     {"jar16", "$(Jar16bitExecutable)"},
-    {"rar", "$(Rar32bitExecutable)"},
-    {"arj32", "$(Arj32bitExecutable)"},
+    {"rar", "$(Rar32bitOr64bitExecutable)"},
+    {"arj32", "$(Arj32bitOr64bitExecutable)"},
     {"arj", "$(Arj16bitExecutable)"},
-    {"ace32", "$(Ace32bitExecutable)"},
+    {"ace32", "$(Ace32bitOr64bitExecutable)"},
     {"ace", "$(Ace16bitExecutable)"},
     {"lha", "$(Lha16bitExecutable)"},
     {"uc", "$(UC216bitExecutable)"},
-    {"pkzip25", "$(Zip32bitExecutable)"},
+    {"pkzip25", "$(Zip32bitOr64bitExecutable)"},
     {"pkzip", "$(Zip16bitExecutable)"},
     {"pkunzip", "$(Unzip16bitExecutable)"},
     {NULL, NULL}};
@@ -411,8 +411,8 @@ void CPackerConfig::AddDefault(int SalamVersion)
                 (!GetPackerOldType(index) && GetPackerType(index) == CUSTOMPACKER_EXTERNAL))
             {
                 const char* s = GetPackerCmdExecCopy(index);
-                if (s != NULL && (strcmp(s, "$(Zip32bitExecutable)") == 0 ||
-                                  strcmp(s, "$(Ace32bitExecutable)") == 0))
+                if (s != NULL && (strcmp(s, "$(Zip32bitOr64bitExecutable)") == 0 ||
+                                  strcmp(s, "$(Ace32bitOr64bitExecutable)") == 0))
                 {
                     Packers[index]->NeedANSIListFile = TRUE;
                 }
@@ -544,8 +544,8 @@ void CPackerConfig::AddDefault(int SalamVersion)
                 const char* moveArgs = GetPackerCmdArgsMove(index);
 
                 // check whether this is a PKZIP25 custom packer
-                if (copyEXE != NULL && strcmp(copyEXE, "$(Zip32bitExecutable)") == 0 &&
-                    moveEXE != NULL && strcmp(moveEXE, "$(Zip32bitExecutable)") == 0)
+                if (copyEXE != NULL && strcmp(copyEXE, "$(Zip32bitOr64bitExecutable)") == 0 &&
+                    moveEXE != NULL && strcmp(moveEXE, "$(Zip32bitOr64bitExecutable)") == 0)
                 {
                     // test whether this is an old PKZIP25 custom packer entry
                     if (copyArgs != NULL &&
@@ -594,8 +594,8 @@ void CPackerConfig::AddDefault(int SalamVersion)
                 const char* moveArgs = GetPackerCmdArgsMove(index);
 
                 // check whether this is a RAR Win32 custom packer
-                if (copyEXE != NULL && strcmp(copyEXE, "$(Rar32bitExecutable)") == 0 &&
-                    moveEXE != NULL && strcmp(moveEXE, "$(Rar32bitExecutable)") == 0)
+                if (copyEXE != NULL && strcmp(copyEXE, "$(Rar32bitOr64bitExecutable)") == 0 &&
+                    moveEXE != NULL && strcmp(moveEXE, "$(Rar32bitOr64bitExecutable)") == 0)
                 {
                     // test whether this is an old RAR Win32 custom packer entry
                     if (copyArgs != NULL &&
@@ -1160,8 +1160,8 @@ void CUnpackerConfig::AddDefault(int SalamVersion)
                 (!GetUnpackerOldType(index) && GetUnpackerType(index) == CUSTOMUNPACKER_EXTERNAL))
             {
                 const char* s = GetUnpackerCmdExecExtract(index);
-                if (s != NULL && (strcmp(s, "$(Zip32bitExecutable)") == 0 ||
-                                  strcmp(s, "$(Ace32bitExecutable)") == 0))
+                if (s != NULL && (strcmp(s, "$(Zip32bitOr64bitExecutable)") == 0 ||
+                                  strcmp(s, "$(Ace32bitOr64bitExecutable)") == 0))
                 {
                     Unpackers[index]->NeedANSIListFile = TRUE;
                 }
@@ -1221,7 +1221,7 @@ void CUnpackerConfig::AddDefault(int SalamVersion)
                 const char* ext = GetUnpackerExt(index);
 
                 // check whether this is a PKZIP25 custom unpacker
-                if (extrEXE != NULL && strcmp(extrEXE, "$(Zip32bitExecutable)") == 0)
+                if (extrEXE != NULL && strcmp(extrEXE, "$(Zip32bitOr64bitExecutable)") == 0)
                 {
                     // test whether this is an old PKZIP25 custom unpacker entry
                     if (extrArgs != NULL &&
@@ -1265,7 +1265,7 @@ void CUnpackerConfig::AddDefault(int SalamVersion)
                 const char* ext = GetUnpackerExt(index);
 
                 // check whether this is a RAR Win32 custom unpacker
-                if (extrEXE != NULL && strcmp(extrEXE, "$(Rar32bitExecutable)") == 0)
+                if (extrEXE != NULL && strcmp(extrEXE, "$(Rar32bitOr64bitExecutable)") == 0)
                 {
                     // test whether this is an old RAR Win32 custom unpacker entry
                     if (extrArgs != NULL &&
