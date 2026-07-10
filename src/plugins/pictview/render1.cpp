@@ -347,8 +347,8 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 
     if (code != PVC_OK)
     {
-        TCHAR errText[MAX_PATH + 100];
-        _stprintf(errText, LoadStr(IDS_ERROR_OPENING), name, PVW32DLL.PVGetErrorText(code));
+        TCHAR errText[SAL_MAX_PATH + 100];
+        _sntprintf_s(errText, SizeOf(errText), _TRUNCATE, LoadStr(IDS_ERROR_OPENING), name, PVW32DLL.PVGetErrorText(code));
         SalamanderGeneral->SalMessageBox(HWindow, errText, LoadStr(IDS_ERRORTITLE), MB_ICONEXCLAMATION);
         // In case the new file is not recognized, we keep the old one
         if (PVHandle != NULL)
