@@ -31,6 +31,35 @@ static BOOL IsValidUtf8Text(const char* text, int textLen)
            MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
 }
 
+
+void CopyStringTruncateUtf8(char* dst, int dstSize, const char* src)
+{
+    if (dst == NULL || dstSize <= 0)
+        return;
+
+    if (src == NULL)
+    {
+        dst[0] = 0;
+        return;
+    }
+
+    int srcLen = (int)strlen(src);
+    BOOL srcIsValidUtf8 = IsValidUtf8Text(src, srcLen);
+    lstrcpyn(dst, src, dstSize);
+
+    if (srcIsValidUtf8 && srcLen >= dstSize)
+    {
+        int len = (int)strlen(dst);
+        while (len > 0 && !IsValidUtf8Text(dst, len))
+        {
+            len = Utf8PrevCharStart(dst, len);
+            if (len < 0)
+                len = 0;
+            dst[len] = 0;
+        }
+    }
+}
+
 //****************************************************************************
 //
 // CTruncatedString
@@ -1017,7 +1046,7 @@ void CViewTemplates::Set(DWORD index, const char* name, DWORD flags, BOOL leftSm
 {
     if (lstrlen(name) >= VIEW_NAME_MAX)
         TRACE_E("String is too long");
-    lstrcpyn(Items[index].Name, name, VIEW_NAME_MAX);
+    CopyStringTruncateUtf8(Items[index].Name, VIEW_NAME_MAX, name);
     Items[index].Flags = flags;
     Items[index].LeftSmartMode = leftSmartMode;
     Items[index].RightSmartMode = rightSmartMode;
@@ -1165,7 +1194,7 @@ BOOL CViewTemplates::Load(HKEY hKey)
         HKEY actKey;
         if (OpenKey(hKey, keyName, actKey))
         {
-            char name[MAX_PATH];
+            char name[SAL_MAX_PATH];
             DWORD flags;
             name[0] = 0;
             flags = 0;
@@ -1174,7 +1203,7 @@ BOOL CViewTemplates::Load(HKEY hKey)
             DWORD rightSM = TRUE;
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &leftSM, sizeof(DWORD));
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &rightSM, sizeof(DWORD));
-            if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, name, MAX_PATH) &&
+            if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, name, SAL_MAX_PATH) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &flags, sizeof(DWORD)) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, 512))
             {

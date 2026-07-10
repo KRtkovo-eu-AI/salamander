@@ -368,6 +368,9 @@ struct CColumDataItem
 // definition of standard columns
 CColumDataItem* GetStdColumn(int i, BOOL isDisk);
 
+// Copies a possibly UTF-8 string into a fixed-size byte buffer without splitting a UTF-8 character.
+void CopyStringTruncateUtf8(char* dst, int dstSize, const char* src);
+
 //****************************************************************************
 //
 // CViewTemplate, CViewTemplates

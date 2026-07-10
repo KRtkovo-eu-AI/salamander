@@ -2138,7 +2138,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (nmhd->item.pszText != NULL)
                 {
                     char name[VIEW_NAME_MAX];
-                    lstrcpyn(name, nmhd->item.pszText, VIEW_NAME_MAX);
+                    CopyStringTruncateUtf8(name, VIEW_NAME_MAX, nmhd->item.pszText);
                     Config.CleanName(name);
                     int index = nmhd->item.iItem;
                     if (lstrlen(Config.Items[index].Name) == 0)
