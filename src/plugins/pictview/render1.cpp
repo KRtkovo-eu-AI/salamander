@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -224,7 +224,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
     LPPVHandle OldPVHandle = PVHandle;
     PVOpenImageExInfo oiei;
 #ifdef _UNICODE
-    char nameA[_MAX_PATH];
+    std::string nameA;
 #endif
 
     if (showCmd != -1)
@@ -252,9 +252,8 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
     else
     {
 #ifdef _UNICODE
-        WideCharToMultiByte(CP_ACP, 0, name, -1, nameA, sizeof(nameA), NULL, NULL);
-        nameA[sizeof(nameA) - 1] = 0;
-        oiei.FileName = nameA;
+        nameA = PluginWideToMultiBytePath(name, CP_UTF8);
+        oiei.FileName = nameA.c_str();
 #else
         oiei.FileName = name;
 #endif

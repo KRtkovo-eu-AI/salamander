@@ -643,7 +643,7 @@ BOOL CCalculateDialog::GetFileList()
 
     RefreshCounter = 0;
 
-    strcpy(path, SourcePath);
+    lstrcpynA(path, SourcePath, SizeOf(path));
     SalamanderGeneral->SalPathAddBackslash(path, SizeOf(path)); // if this fails, appending anything later would fail too (no need to handle here)
     char* pathEnd = path + strlen(path);
 
@@ -654,7 +654,7 @@ BOOL CCalculateDialog::GetFileList()
 
         if ((pathEnd - path) + strlen(cfi->Name) < SizeOf(path))
         {
-            strcpy(pathEnd, cfi->Name);
+            lstrcpynA(pathEnd, cfi->Name, (int)(SizeOf(path) - (pathEnd - path)));
             if (!cfi->bDir)
             {
                 // links: cfi->Size == 0, the file size must be obtained via GetLinkTgtFileSize()
@@ -759,11 +759,11 @@ unsigned CCalculateThread::Body()
 
         // open the file
         HANDLE hFile;
-        char path[MAX_PATH];
-        strcpy(path, dialog->SourcePath);
+        char path[32768];
+        lstrcpynA(path, dialog->SourcePath, SizeOf(path));
         // should not happen - the name length was already verified in CCalculateDialog::GetFileList()
         // FILELISTITEM::Name does not change after being added to the array = no need for synchronized access
-        if (!SalamanderGeneral->SalPathAppend(path, dialog->FileList[i]->Name, MAX_PATH))
+        if (!SalamanderGeneral->SalPathAppend(path, dialog->FileList[i]->Name, SizeOf(path)))
         {
             TRACE_E("CCalculateThread::Body(): unexpected situation: SalPathAppend() has failed");
             break;
@@ -1697,9 +1697,9 @@ BOOL CVerifyDialog::LoadSourceFile()
             if (info->fileName[0] != 0)
             {
                 // fetch file information and insert into the list
-                char path[MAX_PATH];
-                strcpy(path, sourcePath);
-                if (SalamanderGeneral->SalPathAppend(path, info->fileName, MAX_PATH))
+                char path[32768];
+                lstrcpynA(path, sourcePath, SizeOf(path));
+                if (SalamanderGeneral->SalPathAppend(path, info->fileName, SizeOf(path)))
                 {
                     WIN32_FIND_DATA fd;
                     HANDLE hFind = HANDLES_Q(FindFirstFile(path, &fd));
