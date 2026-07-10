@@ -3,6 +3,10 @@
 
 #pragma once
 
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 //****************************************************************************
 //
 // CCommonDialog
@@ -85,7 +89,7 @@ protected:
 class CExtOptionsDialog : public CCommonDialog
 {
 private:
-    char Archive[MAX_PATH];
+    char Archive[SAL_MAX_PATH];
 
     char Password[PASSWORD_LEN];
     char ConfirmedPassword[PASSWORD_LEN];
@@ -106,7 +110,7 @@ public:
     BOOL IsPasswordDefined() { return Encrypt; }
     char* GetPassword() { return Password; }
     BOOL GetNotAgain() { return NotAgain; }
-    void SetArchiveName(const char* archiveName) { lstrcpy(Archive, archiveName); }
+    void SetArchiveName(const char* archiveName) { lstrcpyn(Archive, archiveName, _countof(Archive)); }
     void SetTitle(const char* title) { Title = title; }
 
 protected:

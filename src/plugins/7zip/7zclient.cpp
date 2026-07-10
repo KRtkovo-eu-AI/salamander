@@ -700,10 +700,10 @@ int C7zClient::DeleteMakeUpdateList(TIndirectArray<CArchiveItem>* archiveItems, 
 int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* archiveName,
                       TIndirectArray<CArchiveItemInfo>* deleteList, bool passwordIsDefined, UString& password)
 {
-    char tmpName[MAX_PATH];
+    char tmpName[SAL_MAX_PATH];
     DWORD err;
 
-    char srcPath[MAX_PATH];
+    char srcPath[SAL_MAX_PATH];
     strcpy(srcPath, archiveName);
     char* rbackslash = _tcsrchr(srcPath, '\\');
     if (rbackslash != NULL)
@@ -1149,7 +1149,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
                       const char* srcPath, BOOL isNewArchive, TIndirectArray<CFileItem>* fileList,
                       CCompressParams* compressParams, bool passwordIsDefined, UString password)
 {
-    char tmpName[MAX_PATH];
+    char tmpName[SAL_MAX_PATH];
     // trim the filename from archiveName, leaving the target path where we will extract
     lstrcpy(tmpName, archiveName);
     SalamanderGeneral->CutDirectory(tmpName, NULL);
