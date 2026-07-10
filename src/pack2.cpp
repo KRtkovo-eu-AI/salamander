@@ -185,7 +185,7 @@ BOOL PackCompress(HWND parent, CFilesWindow* panel, const char* archiveFileName,
     //
     // If the archiver does not support packing into a directory, we must handle it
     //
-    char archiveRootPath[MAX_PATH];
+    char archiveRootPath[SAL_MAX_PATH];
     if (archiveRoot != NULL && *archiveRoot != '\0')
     {
         strcpy(archiveRootPath, archiveRoot);
@@ -246,7 +246,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     //
     // We must adjust the directory in the archive to the required format
     //
-    char rootPath[MAX_PATH];
+    char rootPath[SAL_MAX_PATH];
     rootPath[0] = '\0';
     if (archiveRoot != NULL && *archiveRoot != '\0')
     {
@@ -268,10 +268,10 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
 
     // For path length checks we need sourceDir in the "short" form
-    char sourceShortName[MAX_PATH];
+    char sourceShortName[SAL_MAX_PATH];
     if (!supportLongNames)
     {
-        if (!GetShortPathName(sourceDir, sourceShortName, MAX_PATH))
+        if (!GetShortPathName(sourceDir, sourceShortName, SizeOf(sourceShortName)))
         {
             char buffer[1000];
             strcpy(buffer, "GetShortPathName: ");
@@ -280,7 +280,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         }
     }
     else
-        strcpy(sourceShortName, sourceDir);
+        lstrcpyn(sourceShortName, sourceDir, SizeOf(sourceShortName));
 
     //
     // In the %TEMP% directory a helper file will contain the list of files to pack
@@ -309,11 +309,11 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
 
     const char* name;
     unsigned int maxPath;
-    char namecnv[MAX_PATH];
+    char namecnv[SAL_MAX_PATH];
     if (!supportLongNames)
         maxPath = DOS_MAX_PATH;
     else
-        maxPath = MAX_PATH;
+        maxPath = SAL_MAX_PATH;
     if (!needANSIListFile)
         CharToOem(sourceShortName, sourceShortName);
     int sourceDirLen = (int)strlen(sourceShortName) + 1;
@@ -330,7 +330,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         }
         else
         {
-            if (GetShortPathName(name, namecnv, MAX_PATH) == 0)
+            if (GetShortPathName(name, namecnv, SizeOf(namecnv)) == 0)
             {
                 char buffer[1000];
                 strcpy(buffer, "File: ");
@@ -418,10 +418,10 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
 
     // construct the current directory
-    char currentDir[MAX_PATH];
+    char currentDir[SAL_MAX_PATH];
     if (!expandInitDir)
     {
-        if (strlen(initDir) < MAX_PATH)
+        if (strlen(initDir) < SAL_MAX_PATH)
             strcpy(currentDir, initDir);
         else
         {
@@ -432,7 +432,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     else
     {
         if (!PackExpandInitDir(archiveFileName, sourceDir, rootPath, initDir, currentDir,
-                               MAX_PATH))
+                               SAL_MAX_PATH))
         {
             DeleteFile(tmpListNameBuf);
             return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_IDIRERR);
@@ -441,8 +441,8 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
 
     // back up the short archive file name, later we check whether the long name
     // survived -> if the short one remained, rename it back to the original long name
-    char DOSArchiveFileName[MAX_PATH];
-    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, MAX_PATH))
+    char DOSArchiveFileName[SAL_MAX_PATH];
+    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, SizeOf(DOSArchiveFileName)))
         DOSArchiveFileName[0] = 0;
 
     // and run the external program
@@ -467,14 +467,14 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     // if we used a temporary DOS name, rename all files of that name (name.*) to the desired long name
     if (DOSTmpName[0] != 0)
     {
-        char src[2 * MAX_PATH];
+        char src[SAL_MAX_PATH];
         strcpy(src, DOSTmpName);
         char* tmpOrigName;
         CutDirectory(src, &tmpOrigName);
         tmpOrigName = DOSTmpName + (tmpOrigName - src);
-        SalPathAddBackslash(src, 2 * MAX_PATH);
+        SalPathAddBackslash(src, SizeOf(src));
         char* srcName = src + strlen(src);
-        char dstNameBuf[2 * MAX_PATH];
+        char dstNameBuf[SAL_MAX_PATH];
         strcpy(dstNameBuf, archiveFileName);
         char* dstExt = dstNameBuf + strlen(dstNameBuf);
         //    while (--dstExt > dstNameBuf && *dstExt != '\\' && *dstExt != '.');
@@ -483,7 +483,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         //    if (dstExt == dstNameBuf || *dstExt == '\\' || *(dstExt - 1) == '\\') dstExt = dstNameBuf + strlen(dstNameBuf); // for "name", ".cvspass", "path\\name" or "path\\.name" there is no extension
         if (dstExt < dstNameBuf || *dstExt == '\\')
             dstExt = dstNameBuf + strlen(dstNameBuf); // for "name" or "path\\name" there is no extension; in Windows ".cvspass" is an extension
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
         strcpy(path, DOSTmpName);
         char* ext = path + strlen(path);
         //    while (--ext > path && *ext != '\\' && *ext != '.');
@@ -604,7 +604,7 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     //
     // We must adjust the directory in the archive to the required format
     //
-    char rootPath[MAX_PATH];
+    char rootPath[SAL_MAX_PATH];
     if (archiveRoot != NULL && *archiveRoot != '\0')
     {
         if (*archiveRoot == '\\')
@@ -647,7 +647,7 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     // and we can fill it
     BOOL isDir;
     const char* name;
-    char namecnv[MAX_PATH];
+    char namecnv[SAL_MAX_PATH];
     int errorOccured;
     if (!needANSIListFile)
         CharToOem(rootPath, rootPath);
@@ -725,9 +725,9 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     }
 
     // construct the current directory
-    char currentDir[MAX_PATH];
+    char currentDir[SAL_MAX_PATH];
     if (!PackExpandInitDir(archiveFileName, NULL, NULL, modifyTable->DeleteInitDir,
-                           currentDir, MAX_PATH))
+                           currentDir, SAL_MAX_PATH))
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_IDIRERR);
@@ -740,8 +740,8 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
 
     // back up the short archive file name, later we check whether the long name
     // survived -> if the short one remained, rename it back to the original long name
-    char DOSArchiveFileName[MAX_PATH];
-    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, MAX_PATH))
+    char DOSArchiveFileName[SAL_MAX_PATH];
+    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, SizeOf(DOSArchiveFileName)))
         DOSArchiveFileName[0] = 0;
 
     // and run the external program

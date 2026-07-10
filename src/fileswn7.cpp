@@ -121,7 +121,7 @@ ENUM_NEXT:
             if (localIsDir)
             {
                 int zipPathLen = (int)strlen(curZIPPath);
-                if (zipPathLen + (zipPathLen > 0 ? 1 : 0) + f->NameLen >= MAX_PATH)
+                if (zipPathLen + (zipPathLen > 0 ? 1 : 0) + f->NameLen >= SAL_MAX_PATH)
                 { // path is too long
                     if (errorOccured != NULL)
                         *errorOccured = SALENUM_ERROR;
@@ -197,10 +197,10 @@ ENUM_NEXT:
                 if (data->EnumLastDir->IsDirectory(data->EnumLastIndex)) // directory -> descend
                 {
                     CFileData* f = data->EnumLastDir->GetDirEx(data->EnumLastIndex);
-                    BOOL tooLong1 = strlen(data->EnumLastPath) + 1 + f->NameLen >= MAX_PATH;
+                    BOOL tooLong1 = strlen(data->EnumLastPath) + 1 + f->NameLen >= SAL_MAX_PATH;
                     BOOL tooLong2 = data->DiskDirectoryTree != NULL && strlen(data->EnumLastDosPath) + 1 +
                                                                                (f->DosName == NULL ? f->NameLen : strlen(f->DosName)) >=
-                                                                           MAX_PATH;
+                                                                           SAL_MAX_PATH;
                     if (tooLong1 || tooLong2)
                     { // path is too long
                         if (errorOccured != NULL)
@@ -242,10 +242,10 @@ ENUM_NEXT:
                         int zipPathLen = (int)strlen(curZIPPath);
                         BOOL tooLong1 = strlen(data->EnumLastPath) - (zipPathLen + (zipPathLen > 0 ? 1 : 0)) +
                                             1 + f->NameLen >=
-                                        MAX_PATH;
+                                        SAL_MAX_PATH;
                         BOOL tooLong2 = data->DiskDirectoryTree != NULL && strlen(data->EnumLastDosPath) + 1 +
                                                                                    (f->DosName == NULL ? f->NameLen : strlen(f->DosName)) >=
-                                                                               MAX_PATH;
+                                                                               SAL_MAX_PATH;
                         if (tooLong1 || tooLong2)
                         { // path is too long
                             if (errorOccured != NULL)
@@ -404,7 +404,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
     BeginStopRefresh(); // the snooper takes a break
 
     //---  obtain the files and directories to work with
-    char subject[MAX_PATH + 100]; // text for the Unpack dialog (which is being unpacked)
+    char subject[SAL_MAX_PATH + 100]; // text for the Unpack dialog (which is being unpacked)
     char path[SAL_MAX_PATH];
     char expanded[200];
     CPanelTmpEnumData data;
@@ -889,7 +889,7 @@ void CFilesWindow::DeleteFromZIPArchive()
     UnpackZIPArchive(NULL, TRUE); // almost the same operation
 }
 
-BOOL _ReadDirectoryTree(HWND parent, char (&path)[MAX_PATH], char* name, CSalamanderDirectory* dir,
+BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSalamanderDirectory* dir,
                         int* errorOccured, BOOL getLinkTgtFileSize, BOOL* errGetFileSizeOfLnkTgtIgnAll,
                         int* containsDirLinks, char* linkName)
 {
@@ -1065,7 +1065,7 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[MAX_PATH], char* name, CSalama
                     {
                         *containsDirLinks = 1; // after finding one simulate an error to end the search immediately
                         *end2 = 0;
-                        _snprintf_s(linkName, MAX_PATH, _TRUNCATE, "%s\\%s", path, file.cFileName); // truncation is fine, it is only for the message text
+                        _snprintf_s(linkName, SAL_MAX_PATH, _TRUNCATE, "%s\\%s", path, file.cFileName); // truncation is fine, it is only for the message text
                         ok = FALSE;
                         testFindNextErr = FALSE;
                         break;
@@ -1206,7 +1206,7 @@ CSalamanderDirectory* ReadDirectoryTree(HWND parent, CPanelTmpEnumData* data, in
             newF.IsOffline = f->IsOffline;
         }
 
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
         if (isDir) // directory
         {
             CSalamanderDirectory* salDir = NULL;
@@ -1229,7 +1229,7 @@ CSalamanderDirectory* ReadDirectoryTree(HWND parent, CPanelTmpEnumData* data, in
                     *containsDirLinks = 1;
                     strcpy(path, data->WorkPath);
                     SalPathRemoveBackslash(path);
-                    _snprintf_s(linkName, MAX_PATH, _TRUNCATE, "%s\\%s", path, f->Name); // truncation is fine, it is only for the message text
+                    _snprintf_s(linkName, SAL_MAX_PATH, _TRUNCATE, "%s\\%s", path, f->Name); // truncation is fine, it is only for the message text
                     break;
                 }
             }
@@ -1380,7 +1380,7 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
 
     char fsName[MAX_PATH];
     int fsNameLen = (int)((secondPart - targetPath) - 1);
-    if (fsNameLen <= 0 || fsNameLen >= MAX_PATH)
+    if (fsNameLen <= 0 || fsNameLen >= SizeOf(fsName))
         return FALSE;
     memcpy(fsName, targetPath, fsNameLen);
     fsName[fsNameLen] = 0;
@@ -1410,7 +1410,7 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
                        tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data))
     {
         data->Reset();
-        lstrcpyn(data->WorkPath, tempRoot, MAX_PATH);
+        lstrcpyn(data->WorkPath, tempRoot, SizeOf(data->WorkPath));
 
         char internalTargetPath[2 * MAX_PATH];
         lstrcpyn(internalTargetPath, targetPath, 2 * MAX_PATH);
@@ -1464,7 +1464,7 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
         return FALSE;
     }
 
-    if (strlen(secondPart) >= MAX_PATH)
+    if (strlen(secondPart) >= SAL_MAX_PATH)
     {
         SalMessageBox(source->HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
         invalidPathOrCancel = TRUE;
@@ -1530,7 +1530,7 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
                        tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data))
     {
         data->Reset();
-        lstrcpyn(data->WorkPath, tempRoot, MAX_PATH);
+        lstrcpyn(data->WorkPath, tempRoot, SizeOf(data->WorkPath));
 
         SetCurrentDirectory(tempRoot);
         done = PackCompress(source->HWindow, source, archivePath, archiveRoot,
@@ -1570,8 +1570,8 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     BeginStopRefresh(); // the snooper takes a break
 
     //---  obtain the files and directories to work with
-    char subject[MAX_PATH + 100]; // text for the Unpack dialog (that is being unpacked)
-    char path[MAX_PATH];
+    char subject[SAL_MAX_PATH + 100]; // text for the Unpack dialog (that is being unpacked)
+    char path[SAL_MAX_PATH];
     char text[1000];
     BOOL nameByItem;
     CPanelTmpEnumData data;
@@ -1581,7 +1581,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     else
         subDir = FALSE;
     data.IndexesCount = GetSelCount();
-    char expanded[MAX_PATH + 100];
+    char expanded[SAL_MAX_PATH + 100];
     int files = 0;             // number of selected files
     if (data.IndexesCount > 1) // valid selection
     {
@@ -1606,7 +1606,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
             }
         }
         // build the subject for the dialog
-        ExpandPluralFilesDirs(expanded, MAX_PATH + 100, files, data.IndexesCount - files, epfdmNormal, FALSE);
+        ExpandPluralFilesDirs(expanded, SizeOf(expanded), files, data.IndexesCount - files, epfdmNormal, FALSE);
     }
     else // take the selected file or directory
     {
@@ -1664,13 +1664,13 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     data.Dirs = Dirs;
     data.Files = Files;
     data.ArchiveDir = GetArchiveDir();
-    lstrcpyn(data.WorkPath, GetPath(), MAX_PATH);
+    lstrcpyn(data.WorkPath, GetPath(), SizeOf(data.WorkPath));
     data.EnumLastDir = NULL;
     data.EnumLastIndex = -1;
 
     //---  we are packing into a new file, ask for its name
-    char fileBuf[MAX_PATH];    // file we will pack into
-    char fileBufAlt[MAX_PATH]; // alternative name shown in the Pack dialog combo box
+    char fileBuf[SAL_MAX_PATH];    // file we will pack into
+    char fileBufAlt[SAL_MAX_PATH]; // alternative name shown in the Pack dialog combo box
 
     if (nameByItem) // if only one item (file/directory) is selected, the archive inherits its name
     {
@@ -1694,7 +1694,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
         if (end > GetPath() && *(end - 1) == '\\')
             end--;
         const char* dir = end;
-        char root[MAX_PATH];
+        char root[SAL_MAX_PATH];
         GetRootPath(root, GetPath());
         const char* min = GetPath() + strlen(root);
         while (dir > min && *(dir - 1) != '\\')
@@ -1751,7 +1751,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
         if (l > 0 && target->GetPath()[l - 1] == '\\')
             l--;
         int ll = (int)strlen(buff);
-        if (l + 2 + ll < MAX_PATH)
+        if (l + 2 + ll < SAL_MAX_PATH)
         {
             memmove(buff + l + 1, buff, ll + 1);
             buff[l] = '\\';
@@ -1760,9 +1760,9 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     }
 
     // if no item is selected, choose the focused item and store its name
-    char temporarySelected[MAX_PATH];
+    char temporarySelected[SAL_MAX_PATH];
     temporarySelected[0] = 0;
-    SelectFocusedItemAndGetName(temporarySelected, MAX_PATH);
+    SelectFocusedItemAndGetName(temporarySelected, SizeOf(temporarySelected));
 
     if (delFilesAfterPacking == 1)
         PackerConfig.Move = TRUE;
@@ -1800,7 +1800,7 @@ _PACK_AGAIN:
         //--- adjust the archive name to its full form
         int errTextID;
         BOOL empty = FALSE;
-        char nextFocus[MAX_PATH];
+        char nextFocus[SAL_MAX_PATH];
         nextFocus[0] = 0;
         if (SalGetFullName(fileBuf, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus))
         {
@@ -1816,7 +1816,7 @@ _PACK_AGAIN:
                 CreateSafeWaitWindow(LoadStr(IDS_ANALYSINGDIRTREEESC), NULL, 3000, TRUE, NULL);
 
                 // try to find the first directory link; if found, simulate an error to stop the search
-                char linkName[MAX_PATH];
+                char linkName[SAL_MAX_PATH];
                 linkName[0] = 0;
                 ReadDirectoryTree(NULL /* silent mode */, &data, NULL, FALSE, &containsDirLinks, linkName);
 
@@ -1950,10 +1950,10 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         BeginStopRefresh();
 
         CFileData* file = &Files->At(i - Dirs->Count);
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
         char pathAlt[MAX_PATH]; // alternate path displayed in the UnPack dialog combo box
         char mask[MAX_PATH];
-        char subject[MAX_PATH + 100];
+        char subject[SAL_MAX_PATH + 100];
         path[0] = 0;
         pathAlt[0] = 0;
         if (target->Is(ptDisk))
@@ -2052,7 +2052,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             UpdateWindow(MainWindow->HWindow);
             //--- adjust the archive name to its full form
             int errTextID;
-            char nextFocus[MAX_PATH];
+            char nextFocus[SAL_MAX_PATH];
             nextFocus[0] = 0;
             const char* text = NULL;
             if (!SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus))
