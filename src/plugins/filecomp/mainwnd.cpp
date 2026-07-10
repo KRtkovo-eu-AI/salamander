@@ -1619,7 +1619,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 goto LDROPERROR;
             if (count >= 1)
             {
-                DragQueryFile(drop, 0, path1, MAX_PATH);
+                DragQueryFile(drop, 0, path1, SAL_MAX_PATH);
                 if (SG->SalGetFileAttributes(path1) & FILE_ATTRIBUTE_DIRECTORY)
                 {
                     Error(HWindow, IDS_NOTVALIDFILE, path1);
@@ -1628,7 +1628,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             if (count >= 2)
             {
-                DragQueryFile(drop, 1, path2, MAX_PATH);
+                DragQueryFile(drop, 1, path2, SAL_MAX_PATH);
                 if (SG->SalGetFileAttributes(path1) & FILE_ATTRIBUTE_DIRECTORY)
                 {
                     Error(HWindow, IDS_NOTVALIDFILE, path2);
@@ -1643,7 +1643,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         lstrcpynA(path2, Path2.c_str(), SizeOf(path2));
                     else
                     {
-                        strcpy(path2, path1);
+                        lstrcpynA(path2, path1, SizeOf(path2));
                         lstrcpynA(path1, Path1.c_str(), SizeOf(path1));
                     }
                     // the operation resembles a recompare, so reuse the current settings

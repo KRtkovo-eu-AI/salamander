@@ -117,7 +117,7 @@ CRendererWindow::~CRendererWindow()
 
 void CRendererWindow::SetTitle()
 {
-    TCHAR buff[MAX_PATH + 100];
+    TCHAR buff[SAL_MAX_PATH + 100];
 
     if (PVHandle != NULL)
     {
@@ -173,11 +173,11 @@ void CRendererWindow::SetTitle()
             _stprintf(colors, LoadStr(id), nColors);
         }
         if (pvii.NumOfImages == 1)
-            _stprintf(buff, LoadStr(IDS_TITLE), fname, width, height,
-                      colors, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
+            _sntprintf_s(buff, SizeOf(buff), _TRUNCATE, LoadStr(IDS_TITLE), fname, width, height,
+                         colors, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
         else
-            _stprintf(buff, LoadStr(IDS_TITLE_MULTI), fname, width, height,
-                      colors, pvii.CurrentImage + 1, pvii.NumOfImages, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
+            _sntprintf_s(buff, SizeOf(buff), _TRUNCATE, LoadStr(IDS_TITLE_MULTI), fname, width, height,
+                         colors, pvii.CurrentImage + 1, pvii.NumOfImages, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
     }
     else
         _tcscpy(buff, LoadStr(IDS_PLUGINNAME));
@@ -402,9 +402,9 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 
     if ((code == PVC_OK) && (hBmp == NULL))
     {
-        TCHAR path[MAX_PATH];
+        TCHAR path[SAL_MAX_PATH];
 
-        _tcscpy(path, name);
+        lstrcpyn(path, name, SizeOf(path));
         // we must not pass 'name' directly to AddToHistory, because it may already come from history
         // and that would lead to a conflict when moving entries
         AddToHistory(TRUE, path);
