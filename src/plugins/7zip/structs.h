@@ -3,8 +3,30 @@
 
 #pragma once
 
+#include <string>
+
 #include "Common/MyString.h"
 #include "Common/StringConvert.h"
+
+inline UString GetSalamanderUnicodeString(const char* text)
+{
+    if (text == NULL || *text == 0)
+        return UString();
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    int len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    if (len <= 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (len <= 0)
+        return GetUnicodeString(text);
+    std::wstring ret(len - 1, L'\0');
+    MultiByteToWideChar(codePage, flags, text, -1, &ret[0], len);
+    return UString(ret.c_str());
+}
 
 struct CUpdateInfo
 {
@@ -37,11 +59,11 @@ struct CFileItem
     {
         // if archiveRoot is empty, the name must not start with a backslash '\'
         if (strlen(archiveRoot) > 0)
-            Name = GetUnicodeString(archiveRoot) + GetUnicodeString("\\") + GetUnicodeString(name);
+            Name = GetSalamanderUnicodeString(archiveRoot) + UString(L"\\") + GetSalamanderUnicodeString(name);
         else
-            Name = GetUnicodeString(name);
+            Name = GetSalamanderUnicodeString(name);
 
-        FullPath = GetUnicodeString(sourcePath) + GetUnicodeString("\\") + GetUnicodeString(name);
+        FullPath = GetSalamanderUnicodeString(sourcePath) + UString(L"\\") + GetSalamanderUnicodeString(name);
         Attributes = attr;
         Size = size;
         LastWriteTime = CreationTime = LastAccessTime = lastWrite;

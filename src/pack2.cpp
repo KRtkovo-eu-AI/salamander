@@ -330,7 +330,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         maxPath = DOS_MAX_PATH;
     else
         maxPath = SAL_MAX_PATH;
-    if (!needANSIListFile)
+    if (!needANSIListFile && !rarUnicodeListFile)
         CharToOem(sourceShortName, sourceShortName);
     int sourceDirLen = (int)strlen(sourceShortName) + 1;
     int errorOccured;
@@ -339,7 +339,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     {
         if (supportLongNames)
         {
-            if (!needANSIListFile)
+            if (!needANSIListFile && !rarUnicodeListFile)
                 CharToOem(name, namecnv);
             else
                 strcpy(namecnv, name);
@@ -357,7 +357,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
                 DeleteFile(tmpListNameBuf);
                 return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
             }
-            if (!needANSIListFile)
+            if (!needANSIListFile && !rarUnicodeListFile)
                 CharToOem(namecnv, namecnv);
         }
 

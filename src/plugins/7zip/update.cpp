@@ -289,7 +289,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetVolumeStream(UInt32 index, ISequentialOu
   fileName += VolExt;
   CRetryableOutFileStream *streamSpec = new CRetryableOutFileStream(hProgWnd);
   CMyComPtr<ISequentialOutStream> streamLoc(streamSpec);
-  if(!streamSpec->Create(us2fs(GetUnicodeString(fileName)), false))
+  if(!streamSpec->Create(us2fs(GetSalamanderUnicodeString(fileName)), false))
     return ::GetLastError();
   *volumeStream = streamLoc.Detach();
   return S_OK;*/

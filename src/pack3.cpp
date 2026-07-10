@@ -12,6 +12,7 @@
 #include "plugins.h"
 #include "pack.h"
 #include "fileswnd.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -1744,9 +1745,9 @@ BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorT
 
     // set everything needed to create the process
     PROCESS_INFORMATION pi;
-    STARTUPINFO si;
-    memset(&si, 0, sizeof(STARTUPINFO));
-    si.cb = sizeof(STARTUPINFO);
+    STARTUPINFOW si;
+    memset(&si, 0, sizeof(STARTUPINFOW));
+    si.cb = sizeof(STARTUPINFOW);
     if (PackWinTimeout != 0)
     {
         si.dwFlags = STARTF_USESHOWWINDOW;
@@ -1784,8 +1785,28 @@ BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorT
     if (tmpCmdLine == NULL)
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_NOMEM);
     sprintf(tmpCmdLine, "\"%s\" %s %s", SpawnExe, SPAWN_EXE_PARAMS, cmdLine);
-    // launch the external program
-    if (!HANDLES(CreateProcess(NULL, tmpCmdLine, NULL, NULL, TRUE, CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL, currentDir, &si, &pi)))
+    std::wstring tmpCmdLineW = SalMultiByteToWidePath(tmpCmdLine, CP_UTF8);
+    if (tmpCmdLineW.empty() && GetACP() != CP_UTF8)
+        tmpCmdLineW = SalMultiByteToWidePath(tmpCmdLine, CP_ACP);
+    std::wstring currentDirW;
+    LPCWSTR currentDirParam = NULL;
+    if (currentDir != NULL)
+    {
+        currentDirW = SalMultiByteToWidePath(currentDir, CP_UTF8);
+        if (currentDirW.empty() && GetACP() != CP_UTF8)
+            currentDirW = SalMultiByteToWidePath(currentDir, CP_ACP);
+        if (!currentDirW.empty())
+        {
+            if (currentDirW.length() >= MAX_PATH && !SalIsExtendedLengthPathW(currentDirW.c_str()))
+                currentDirW = SalPathAddExtendedPrefixW(currentDirW.c_str());
+            currentDirParam = currentDirW.c_str();
+        }
+    }
+
+    // launch the external program; use CreateProcessW so Unicode/long current directories
+    // survive the hop through salamand.exe/spawn.exe to external packers (RAR, ARJ, ACE, ...).
+    if (tmpCmdLineW.empty() ||
+        !HANDLES(CreateProcessW(NULL, &tmpCmdLineW[0], NULL, NULL, TRUE, CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL, currentDirParam, &si, &pi)))
     {
         DWORD err = GetLastError();
         free(tmpCmdLine);

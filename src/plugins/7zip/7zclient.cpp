@@ -180,7 +180,7 @@ BOOL C7zClient::OpenArchiveWithFormat(const char* fileName, const GUID* classID,
     CRetryableInFileStream* fileSpec = new CRetryableInFileStream(NULL);
     CMyComPtr<IInStream> file = fileSpec;
 
-    if (!fileSpec->Open(us2fs(GetUnicodeString(fileName))))
+    if (!fileSpec->Open(us2fs(GetSalamanderUnicodeString(fileName))))
         return Error(IDS_CANT_OPEN_ARCHIVE, quiet, fileName);
 
     CArchiveOpenCallbackImp* openCallbackSpec = new CArchiveOpenCallbackImp(password);
@@ -745,7 +745,7 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
         }
         CMyComPtr<IOutStream> outStream(outStreamSpec);
 
-        if (!outStreamSpec->Open(us2fs(GetUnicodeString(tmpName)), OPEN_EXISTING))
+        if (!outStreamSpec->Open(us2fs(GetSalamanderUnicodeString(tmpName)), OPEN_EXISTING))
         {
             Error(IDS_CANT_CREATE_ARCHIVE);
             throw OPER_CANCEL;
@@ -1215,7 +1215,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
         }
         CMyComPtr<IOutStream> outStream(outStreamSpec);
 
-        if (!outStreamSpec->Open(us2fs(GetUnicodeString(tmpName)), OPEN_EXISTING))
+        if (!outStreamSpec->Open(us2fs(GetSalamanderUnicodeString(tmpName)), OPEN_EXISTING))
         {
             Error(IDS_CANT_CREATE_ARCHIVE);
             throw OPER_CANCEL;
