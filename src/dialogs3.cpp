@@ -2567,7 +2567,9 @@ void CPackDialog::Transfer(CTransferInfo& ti)
         // if the alternative path matches the first one, don't add it (target isn't ptDisk)
         if (StrICmp(Path, PathAlt) != 0)
             ComboAddStringUtf8(combo, PathAlt);
+        SendMessage(combo, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
         SendMessage(combo, CB_SETCURSEL, 0, 0);
+        SetControlTextUtf8(combo, Path);
     }
     else if (ti.GetControl(combo, IDE_PATH))
         GetControlTextUtf8(combo, Path, SAL_MAX_PATH);
@@ -2727,24 +2729,46 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 // WARNING: code must stay consistent with CPackDialog::Transfer
                 // swap extensions in the combobox
                 SendDlgItemMessage(HWindow, IDE_PATH, CB_RESETCONTENT, 0, 0);
+                char selectedName[SAL_MAX_PATH];
+                selectedName[0] = 0;
                 strcpy(name, Path);
                 if (ChangeExtension(name, PackerConfig->GetPackerExt(i)))
+                {
                     ComboAddStringUtf8(GetDlgItem(HWindow, IDE_PATH), name);
+                    if (curSel == 0)
+                        strcpy(selectedName, name);
+                }
                 else
+                {
                     ComboAddStringUtf8(GetDlgItem(HWindow, IDE_PATH), Path);
+                    if (curSel == 0)
+                        strcpy(selectedName, Path);
+                }
 
                 // if the alternative path matches the first one, don't add it (target isn't ptDisk)
                 if (StrICmp(Path, PathAlt) != 0)
                 {
                     strcpy(name, PathAlt);
                     if (ChangeExtension(name, PackerConfig->GetPackerExt(i)))
+                    {
                         ComboAddStringUtf8(GetDlgItem(HWindow, IDE_PATH), name);
+                        if (curSel == 1)
+                            strcpy(selectedName, name);
+                    }
                     else
+                    {
                         ComboAddStringUtf8(GetDlgItem(HWindow, IDE_PATH), PathAlt);
+                        if (curSel == 1)
+                            strcpy(selectedName, PathAlt);
+                    }
                 }
 
                 if (curSel != CB_ERR)
+                {
                     SendDlgItemMessage(HWindow, IDE_PATH, CB_SETCURSEL, (WPARAM)curSel, 0);
+                    if (selectedName[0] != 0)
+                        SetControlTextUtf8(GetDlgItem(HWindow, IDE_PATH), selectedName);
+                }
                 else
                 {
                     // if the editline was modified, change the extension there as well
