@@ -8,6 +8,7 @@
 #include "zip.h"
 #include "plugins.h"
 #include "pack.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -30,9 +31,9 @@ const SPackModifyTable PackModifyTable[] =
         // RAR 4.20 & 5.0 Win x86/x64
         {
             (TPackErrorTable*)&RARErrors, TRUE,
-            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) a -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", TRUE, // since version 5.0 we must enforce the -scol switch, version 4.20 is fine; it appears elsewhere and in the registry
-            "$(ArchivePath)", "$(Rar32bitOr64bitExecutable) d -scol \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
-            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) m -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", FALSE},
+            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) a -scul \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", TRUE, // since version 5.0 we must enforce a list-file charset; use -scul because our RAR list file is UTF-16LE
+            "$(ArchivePath)", "$(Rar32bitOr64bitExecutable) d -scul \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
+            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) m -scul \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", FALSE},
         // ARJ 2.60 MS-DOS
         {
             (TPackErrorTable*)&ARJErrors, FALSE,
@@ -296,12 +297,52 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
     }
 
-    // we have the file, now open it
+    const BOOL rarUnicodeListFile = strstr(command, "$(Rar32bitOr64bitExecutable)") != NULL ||
+                                    strstr(command, "-scol") != NULL ||
+                                    strstr(command, "-scul") != NULL;
+
+    char rarTmpArchiveName[SAL_MAX_PATH];
+    rarTmpArchiveName[0] = 0;
+    const char* archiveFileNameForCommand = archiveFileName;
+    if (rarUnicodeListFile)
+    {
+        BOOL archiveNameNeedsTemp = strlen(archiveFileName) >= MAX_PATH;
+        for (const unsigned char* s = (const unsigned char*)archiveFileName; !archiveNameNeedsTemp && *s != 0; s++)
+            archiveNameNeedsTemp = *s >= 0x80;
+        if (archiveNameNeedsTemp && SalGetFileAttributes(archiveFileName) == 0xFFFFFFFF)
+        {
+            if (!SalGetTempFileName(NULL, "RAR", rarTmpArchiveName, TRUE))
+            {
+                char buffer[1000];
+                strcpy(buffer, "SalGetTempFileName: ");
+                strcat(buffer, GetErrorText(GetLastError()));
+                DeleteFile(tmpListNameBuf);
+                return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
+            }
+            DeleteFile(rarTmpArchiveName); // RAR creates the archive; we only need a safe ASCII command-line name.
+            archiveFileNameForCommand = rarTmpArchiveName;
+        }
+    }
+
+    // we have the file, now open it. RAR 4.x+ is invoked with -scul in our default
+    // configuration, which means the list file must be UTF-16LE. Without this,
+    // Unicode names outside the active ANSI/OEM code page are corrupted before RAR
+    // ever opens the source file.
     FILE* listFile;
-    if ((listFile = fopen(tmpListNameBuf, "w")) == NULL)
+    if ((listFile = fopen(tmpListNameBuf, rarUnicodeListFile ? "wb" : "w")) == NULL)
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+    }
+    if (rarUnicodeListFile)
+    {
+        const unsigned char bom[] = {0xFF, 0xFE};
+        if (fwrite(bom, sizeof(bom), 1, listFile) != 1)
+        {
+            fclose(listFile);
+            DeleteFile(tmpListNameBuf);
+            return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+        }
     }
 
     // and we can fill it
@@ -314,7 +355,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         maxPath = DOS_MAX_PATH;
     else
         maxPath = SAL_MAX_PATH;
-    if (!needANSIListFile)
+    if (!needANSIListFile && !rarUnicodeListFile)
         CharToOem(sourceShortName, sourceShortName);
     int sourceDirLen = (int)strlen(sourceShortName) + 1;
     int errorOccured;
@@ -323,7 +364,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     {
         if (supportLongNames)
         {
-            if (!needANSIListFile)
+            if (!needANSIListFile && !rarUnicodeListFile)
                 CharToOem(name, namecnv);
             else
                 strcpy(namecnv, name);
@@ -341,7 +382,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
                 DeleteFile(tmpListNameBuf);
                 return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
             }
-            if (!needANSIListFile)
+            if (!needANSIListFile && !rarUnicodeListFile)
                 CharToOem(namecnv, namecnv);
         }
 
@@ -358,7 +399,22 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         // and put it into the list
         if (!isDir)
         {
-            if (fprintf(listFile, "%s\n", namecnv) <= 0)
+            if (rarUnicodeListFile)
+            {
+                std::wstring nameW = SalMultiByteToWidePath(namecnv, CP_UTF8);
+                if (nameW.empty() && GetACP() != CP_UTF8)
+                    nameW = SalMultiByteToWidePath(namecnv, CP_ACP);
+                const wchar_t eol[] = L"\r\n";
+                if (nameW.empty() ||
+                    fwrite(nameW.c_str(), sizeof(wchar_t), nameW.length(), listFile) != nameW.length() ||
+                    fwrite(eol, sizeof(wchar_t), 2, listFile) != 2)
+                {
+                    fclose(listFile);
+                    DeleteFile(tmpListNameBuf);
+                    return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+                }
+            }
+            else if (fprintf(listFile, "%s\n", namecnv) <= 0)
             {
                 fclose(listFile);
                 DeleteFile(tmpListNameBuf);
@@ -383,12 +439,27 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     char cmdLine[PACK_CMDLINE_MAXLEN];
     // buffer for a temporary name (when creating an archive with a long name and we need its DOS name,
     // DOSTmpName expands instead of the long name; after creating the archive the file is renamed)
-    char DOSTmpName[MAX_PATH];
-    if (!PackExpandCmdLine(archiveFileName, rootPath, tmpListNameBuf, NULL,
+    char DOSTmpName[SAL_MAX_PATH];
+    if (!PackExpandCmdLine(archiveFileNameForCommand, rootPath, tmpListNameBuf, NULL,
                            command, cmdLine, PACK_CMDLINE_MAXLEN, DOSTmpName))
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_CMDLNERR);
+    }
+    if (rarTmpArchiveName[0] != 0)
+        lstrcpyn(DOSTmpName, rarTmpArchiveName, SAL_MAX_PATH);
+
+    // Older configurations can still contain "-scol" (OEM list file).  We write
+    // RAR list files as UTF-16LE above, so force RAR's list-file charset to
+    // Unicode even for commands loaded from existing user configuration.
+    if (rarUnicodeListFile)
+    {
+        char* sc = cmdLine;
+        while ((sc = strstr(sc, "-scol")) != NULL)
+        {
+            memcpy(sc, "-scul", 5);
+            sc += 5;
+        }
     }
 
     // hack for RAR 4.x+ that dislikes "-ap""" when addressing the archive root; this cleanup works with older RAR too
@@ -431,7 +502,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
     else
     {
-        if (!PackExpandInitDir(archiveFileName, sourceDir, rootPath, initDir, currentDir,
+        if (!PackExpandInitDir(archiveFileNameForCommand, sourceDir, rootPath, initDir, currentDir,
                                SAL_MAX_PATH))
         {
             DeleteFile(tmpListNameBuf);
@@ -458,6 +529,8 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     if (!exec)
     {
         DeleteFile(tmpListNameBuf);
+        if (rarTmpArchiveName[0] != 0)
+            DeleteFile(rarTmpArchiveName);
         return FALSE; // error message has already been displayed
     }
 

@@ -61,8 +61,8 @@ SPackCustomPacker CustomPackers[] = {
      FALSE,
      "jar32"},
     // RAR32
-    {{"a -scol \"$(ArchiveFullName)\" @\"$(ListFullName)\"", "a -scol -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\""}, // since version 5.0 we must enforce the -scol switch, version 4.20 is fine; appears elsewhere and in the registry
-     {"m -scol \"$(ArchiveFullName)\" @\"$(ListFullName)\"", "m -scol -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\""},
+    {{"a -scul \"$(ArchiveFullName)\" @\"$(ListFullName)\"", "a -scul -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\""}, // since version 5.0 we must enforce the -scul switch, version 4.20 is fine; appears elsewhere and in the registry
+     {"m -scul \"$(ArchiveFullName)\" @\"$(ListFullName)\"", "m -scul -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\""},
      {IDS_DP_RAR_E, IDS_DP_RARV_E},
      "rar",
      TRUE,
@@ -155,7 +155,7 @@ SPackCustomUnpacker CustomUnpackers[] = {
     // JAR32
     {"x -jyc \"$(ArchiveFullName)\" !\"$(ListFullName)\"", IDS_DU_JAR_E, "*.j", TRUE, FALSE, "jar32"},
     // RAR32
-    {"x -scol \"$(ArchiveFullName)\" @\"$(ListFullName)\"", IDS_DU_RAR_E, "*.rar", TRUE, FALSE, "rar"}, // since version 5.0 we must enforce the -scol switch, version 4.20 is fine; appears elsewhere and in the registry
+    {"x -scul \"$(ArchiveFullName)\" @\"$(ListFullName)\"", IDS_DU_RAR_E, "*.rar", TRUE, FALSE, "rar"}, // since version 5.0 we must enforce the -scul switch, version 4.20 is fine; appears elsewhere and in the registry
     // ARJ16
     {"x -va -jyc $(ArchiveDOSFullName) !$(ListDOSFullName)", IDS_DU_ARJ16_E, "*.arj", FALSE, FALSE, "arj"},
     // LZH
@@ -578,11 +578,11 @@ void CPackerConfig::AddDefault(int SalamVersion)
     }
     if (SalamVersion > 1 && SalamVersion < 81)
     {
-        // since RAR 5.0 filelists are ANSI by default instead of OEM, so we must force OEM with a switch
-        const char* newRAR5CopyArgs = "a -scol \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
-        const char* newRAR5MoveArgs = "m -scol \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
-        const char* newRAR5CopyVolArgs = "a -scol -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
-        const char* newRAR5MoveVolArgs = "m -scol -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
+        // since RAR 5.0 filelists are ANSI by default instead of OEM, so we must force Unicode list files with a switch
+        const char* newRAR5CopyArgs = "a -scul \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
+        const char* newRAR5MoveArgs = "m -scul \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
+        const char* newRAR5CopyVolArgs = "a -scul -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
+        const char* newRAR5MoveVolArgs = "m -scul -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
         for (index = 0; index < GetPackersCount(); index++)
         {
             if ((GetPackerOldType(index) && GetPackerType(index) == 1) ||
@@ -603,7 +603,7 @@ void CPackerConfig::AddDefault(int SalamVersion)
                         moveArgs != NULL &&
                         strcmp(moveArgs, "m \"$(ArchiveFullName)\" @\"$(ListFullName)\"") == 0)
                     {
-                        // convert to new arguments (added "-scol")
+                        // convert to new arguments (added "-scul")
                         free(Packers[index]->CmdArgsCopy); // cannot be NULL (old arguments here)
                         Packers[index]->CmdArgsCopy = DupStr(newRAR5CopyArgs);
                         free(Packers[index]->CmdArgsMove); // cannot be NULL (old arguments here)
@@ -614,7 +614,7 @@ void CPackerConfig::AddDefault(int SalamVersion)
                         moveArgs != NULL &&
                         strcmp(moveArgs, "m -v1440 \"$(ArchiveFullName)\" @\"$(ListFullName)\"") == 0)
                     {
-                        // convert to new arguments (added "-scol")
+                        // convert to new arguments (added "-scul")
                         free(Packers[index]->CmdArgsCopy); // cannot be NULL (old arguments here)
                         Packers[index]->CmdArgsCopy = DupStr(newRAR5CopyVolArgs);
                         free(Packers[index]->CmdArgsMove); // cannot be NULL (old arguments here)
@@ -1253,8 +1253,8 @@ void CUnpackerConfig::AddDefault(int SalamVersion)
     }
     if (SalamVersion > 1 && SalamVersion < 81)
     {
-        // since RAR 5.0 filelists are ANSI by default instead of OEM, so we must force OEM with a switch
-        const char* newRAR5Args = "x -scol \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
+        // since RAR 5.0 filelists are ANSI by default instead of OEM, so we must force Unicode list files with a switch
+        const char* newRAR5Args = "x -scul \"$(ArchiveFullName)\" @\"$(ListFullName)\"";
         for (index = 0; index < GetUnpackersCount(); index++)
         {
             if ((GetUnpackerOldType(index) && GetUnpackerType(index) == 1) ||
@@ -1271,7 +1271,7 @@ void CUnpackerConfig::AddDefault(int SalamVersion)
                     if (extrArgs != NULL &&
                         strcmp(extrArgs, "x \"$(ArchiveFullName)\" @\"$(ListFullName)\"") == 0)
                     {
-                        // convert to new arguments (added "-scol")
+                        // convert to new arguments (added "-scul")
                         free(Unpackers[index]->CmdArgsExtract); // cannot be NULL (old arguments here)
                         Unpackers[index]->CmdArgsExtract = DupStr(newRAR5Args);
                     }

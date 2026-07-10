@@ -78,8 +78,8 @@ void mainCRTStartup()
     BOOL help = FALSE;
     BOOL error = FALSE;
     int retBase = 10000;
-    char exeName[1000];
-    char* cmdline;
+    wchar_t exeName[32768];
+    wchar_t* cmdline;
     DWORD exitCode;
 
     exeName[0] = '\0';
@@ -87,32 +87,32 @@ void mainCRTStartup()
     // nechceme zadne kriticke chyby jako "no disk in drive A:"
     SetErrorMode(SetErrorMode(0) | SEM_FAILCRITICALERRORS);
 
-    cmdline = GetCommandLine();
+    cmdline = GetCommandLineW();
     // skip leading spaces
-    while (*cmdline == ' ' || *cmdline == '\t')
+    while (*cmdline == L' ' || *cmdline == L'\t')
         cmdline++;
     // skip exe name
-    if (*cmdline == '"')
+    if (*cmdline == L'"')
     {
         cmdline++;
-        while (*cmdline != '\0' && *cmdline != '"')
+        while (*cmdline != L'\0' && *cmdline != L'"')
             cmdline++;
-        if (*cmdline == '"')
+        if (*cmdline == L'"')
             cmdline++;
     }
     else
-        while (*cmdline != '\0' && *cmdline != ' ' && *cmdline != '\t')
+        while (*cmdline != L'\0' && *cmdline != L' ' && *cmdline != L'\t')
             cmdline++;
     // get params
     while (1)
     {
         // skip spaces
-        while (*cmdline == ' ' || *cmdline == '\t')
+        while (*cmdline == L' ' || *cmdline == L'\t')
             cmdline++;
-        if (*cmdline == '\0')
+        if (*cmdline == L'\0')
             break;
         // is it a switch ?
-        if (*cmdline == '-' || *cmdline == '/')
+        if (*cmdline == L'-' || *cmdline == L'/')
         {
             cmdline += 2;
             switch (*(cmdline - 1))
@@ -123,15 +123,15 @@ void mainCRTStartup()
                 help = TRUE;
                 break;
             case 'c':
-                if (*cmdline > '9' || *cmdline < '0')
+                if (*cmdline > L'9' || *cmdline < L'0')
                 {
                     help = TRUE;
                     break;
                 }
                 retBase = 0;
-                while (*cmdline <= '9' && *cmdline >= '0')
-                    retBase = retBase * 10 + *cmdline++ - '0';
-                if (*cmdline != ' ' && *cmdline != '\t' && *cmdline != '\0')
+                while (*cmdline <= L'9' && *cmdline >= L'0')
+                    retBase = retBase * 10 + *cmdline++ - L'0';
+                if (*cmdline != L' ' && *cmdline != L'\t' && *cmdline != L'\0')
                 {
                     help = TRUE;
                     break;
@@ -145,13 +145,13 @@ void mainCRTStartup()
         else
         {
             int len = 0;
-            while (len < 1000 && *cmdline != '\0')
+            while (len < _countof(exeName) - 1 && *cmdline != L'\0')
                 exeName[len++] = *cmdline++;
-            exeName[len] = '\0';
+            exeName[len] = L'\0';
         }
     }
 
-    if (exeName[0] == '\0' || help)
+    if (exeName[0] == L'\0' || help)
     {
         DWORD written;
         WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),
@@ -161,7 +161,7 @@ void mainCRTStartup()
     }
 
     PROCESS_INFORMATION pi;
-    STARTUPINFO si;
+    STARTUPINFOW si;
     si.cb = sizeof(si);
     si.lpReserved = NULL;
     si.lpTitle = NULL;
@@ -169,7 +169,7 @@ void mainCRTStartup()
     si.cbReserved2 = 0;
     si.lpReserved2 = 0;
     si.dwFlags = 0;
-    if (!CreateProcess(NULL, exeName, NULL, NULL, TRUE, CREATE_NEW_PROCESS_GROUP,
+    if (!CreateProcessW(NULL, exeName, NULL, NULL, TRUE, CREATE_NEW_PROCESS_GROUP,
                        NULL, NULL, &si, &pi))
     {
         ExitProcess(GetLastError() + retBase * 2);
