@@ -31,9 +31,9 @@ const SPackModifyTable PackModifyTable[] =
         // RAR 4.20 & 5.0 Win x86/x64
         {
             (TPackErrorTable*)&RARErrors, TRUE,
-            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) a -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", TRUE, // since version 5.0 we must enforce the -scol switch, version 4.20 is fine; it appears elsewhere and in the registry
-            "$(ArchivePath)", "$(Rar32bitOr64bitExecutable) d -scol \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
-            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) m -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", FALSE},
+            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) a -scul \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", TRUE, // since version 5.0 we must enforce a list-file charset; use -scul because our RAR list file is UTF-16LE
+            "$(ArchivePath)", "$(Rar32bitOr64bitExecutable) d -scul \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
+            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) m -scul \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", FALSE},
         // ARJ 2.60 MS-DOS
         {
             (TPackErrorTable*)&ARJErrors, FALSE,
@@ -299,7 +299,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
 
     const BOOL rarUnicodeListFile = strstr(command, "$(Rar32bitOr64bitExecutable) ") == command;
 
-    // we have the file, now open it. RAR 4.x+ is invoked with -scol in our default
+    // we have the file, now open it. RAR 4.x+ is invoked with -scul in our default
     // configuration, which means the list file must be UTF-16LE. Without this,
     // Unicode names outside the active ANSI/OEM code page are corrupted before RAR
     // ever opens the source file.
@@ -420,6 +420,19 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_CMDLNERR);
+    }
+
+    // Older configurations can still contain "-scol" (OEM list file).  We write
+    // RAR list files as UTF-16LE above, so force RAR's list-file charset to
+    // Unicode even for commands loaded from existing user configuration.
+    if (rarUnicodeListFile)
+    {
+        char* sc = cmdLine;
+        while ((sc = strstr(sc, "-scol")) != NULL)
+        {
+            memcpy(sc, "-scul", 5);
+            sc += 5;
+        }
     }
 
     // hack for RAR 4.x+ that dislikes "-ap""" when addressing the archive root; this cleanup works with older RAR too
