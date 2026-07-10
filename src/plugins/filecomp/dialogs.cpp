@@ -189,6 +189,8 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND hWnd1 = GetDlgItem(HWindow, IDE_PATH1), hWnd2 = GetDlgItem(HWindow, IDE_PATH2);
+        SendMessage(hWnd1, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendMessage(hWnd2, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
 
         SG->InstallWordBreakProc(hWnd1); // install WordBreakProc into the combo box
         SG->InstallWordBreakProc(hWnd2); // install WordBreakProc into the combo box
