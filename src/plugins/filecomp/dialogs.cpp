@@ -224,7 +224,14 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         SendMessage(HWindow, WM_SETICON, ICON_BIG, (LPARAM)LoadIcon(DLLInstance, MAKEINTRESOURCE(IDI_FCICO)));
 
-        break;
+        INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        SendMessage(hWnd1, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendMessage(hWnd2, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SetWindowText(hWnd1, Path1);
+        SetWindowText(hWnd2, Path2);
+        SendMessage(hWnd1, CB_SETEDITSEL, 0, MAKELPARAM(0, -1));
+        SendMessage(hWnd2, CB_SETEDITSEL, 0, MAKELPARAM(0, -1));
+        return ret;
     }
 
     case WM_COMMAND:

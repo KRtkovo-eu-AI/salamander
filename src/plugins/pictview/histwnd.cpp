@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include "../../darkmode.h"
+
 #include "lib\\pvw32dll.h"
 #include "pictview.h"
 #include "dialogs.h"
@@ -416,6 +418,14 @@ CHistogramWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
+        SendMessage(HWindow, WM_SETICON, ICON_BIG,
+                    (LPARAM)LoadIcon(DLLInstance, MAKEINTRESOURCE(IDI_WINDOW_ICON)));
+        SendMessage(HWindow, WM_SETICON, ICON_SMALL,
+                    (LPARAM)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_WINDOW_ICON),
+                                      IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags()));
+        ConfigurePictViewDarkModeFromHost();
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
         if (!Init())
             return -1;
         break;
