@@ -12,6 +12,7 @@
 #include "plugins.h"
 #include "pack.h"
 #include "fileswnd.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -257,17 +258,17 @@ const char* PACK_ARC_DOSNAME = "ArchiveDOSFullName";
 const char* PACK_TGT_DOSPATH = "TargetDOSPath";
 const char* PACK_LST_DOSNAME = "ListDOSFullName";
 
-const char* PACK_EXE_JAR32 = "Jar32bitExecutable";
+const char* PACK_EXE_JAR32 = "Jar32bitOr64bitExecutable";
 const char* PACK_EXE_JAR16 = "Jar16bitExecutable";
-const char* PACK_EXE_RAR32 = "Rar32bitExecutable";
+const char* PACK_EXE_RAR32 = "Rar32bitOr64bitExecutable";
 const char* PACK_EXE_RAR16 = "Rar16bitExecutable";
-const char* PACK_EXE_ARJ32 = "Arj32bitExecutable";
+const char* PACK_EXE_ARJ32 = "Arj32bitOr64bitExecutable";
 const char* PACK_EXE_ARJ16 = "Arj16bitExecutable";
-const char* PACK_EXE_ACE32 = "Ace32bitExecutable";
+const char* PACK_EXE_ACE32 = "Ace32bitOr64bitExecutable";
 const char* PACK_EXE_ACE16 = "Ace16bitExecutable";
 const char* PACK_EXE_LHA16 = "Lha16bitExecutable";
 const char* PACK_EXE_UC216 = "UC216bitExecutable";
-const char* PACK_EXE_ZIP32 = "Zip32bitExecutable";
+const char* PACK_EXE_ZIP32 = "Zip32bitOr64bitExecutable";
 const char* PACK_EXE_ZIP16 = "Zip16bitExecutable";
 const char* PACK_EXE_UZP16 = "Unzip16bitExecutable";
 
@@ -913,7 +914,7 @@ BOOL CArchiverConfig::SetArchiver(int index, DWORD uid, const char* title, EPack
     data->UID = uid;
     // Keep the built-in archiver templates usable even if a localized title
     // string is missing or fails to load.  Autoconfiguration displays/searches
-    // by the variable name (Jar32bitExecutable, Rar32bitExecutable, ...), so
+    // by the variable name (Jar32bitOr64bitExecutable, Rar32bitOr64bitExecutable, ...), so
     // falling back to that stable identifier is better than dropping the whole
     // archiver definition as invalid.
     data->Title = DupStr(title != NULL && title[0] != 0 ? title : packerVariable);
@@ -1744,9 +1745,9 @@ BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorT
 
     // set everything needed to create the process
     PROCESS_INFORMATION pi;
-    STARTUPINFO si;
-    memset(&si, 0, sizeof(STARTUPINFO));
-    si.cb = sizeof(STARTUPINFO);
+    STARTUPINFOW si;
+    memset(&si, 0, sizeof(STARTUPINFOW));
+    si.cb = sizeof(STARTUPINFOW);
     if (PackWinTimeout != 0)
     {
         si.dwFlags = STARTF_USESHOWWINDOW;
@@ -1784,8 +1785,39 @@ BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorT
     if (tmpCmdLine == NULL)
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_NOMEM);
     sprintf(tmpCmdLine, "\"%s\" %s %s", SpawnExe, SPAWN_EXE_PARAMS, cmdLine);
-    // launch the external program
-    if (!HANDLES(CreateProcess(NULL, tmpCmdLine, NULL, NULL, TRUE, CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL, currentDir, &si, &pi)))
+    std::wstring tmpCmdLineW = SalMultiByteToWidePath(tmpCmdLine, CP_UTF8);
+    if (tmpCmdLineW.empty() && GetACP() != CP_UTF8)
+        tmpCmdLineW = SalMultiByteToWidePath(tmpCmdLine, CP_ACP);
+    std::wstring currentDirW;
+    LPCWSTR currentDirParam = NULL;
+    if (currentDir != NULL)
+    {
+        currentDirW = SalMultiByteToWidePath(currentDir, CP_UTF8);
+        if (currentDirW.empty() && GetACP() != CP_UTF8)
+            currentDirW = SalMultiByteToWidePath(currentDir, CP_ACP);
+        if (!currentDirW.empty())
+        {
+            if (currentDirW.length() >= MAX_PATH && !SalIsExtendedLengthPathW(currentDirW.c_str()))
+                currentDirW = SalPathAddExtendedPrefixW(currentDirW.c_str());
+            currentDirParam = currentDirW.c_str();
+        }
+    }
+
+    // launch the external program; use CreateProcessW so Unicode/long current directories
+    // survive the hop through salamand.exe/spawn.exe to external packers (RAR, ARJ, ACE, ...).
+    BOOL processCreated = FALSE;
+    if (!tmpCmdLineW.empty())
+    {
+        processCreated = NOHANDLES(CreateProcessW(NULL, &tmpCmdLineW[0], NULL, NULL, TRUE,
+                                                  CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL,
+                                                  currentDirParam, &si, &pi));
+        if (processCreated)
+        {
+            HANDLES_ADD(__htProcess, __hoCreateProcess, pi.hProcess);
+            HANDLES_ADD(__htThread, __hoCreateProcess, pi.hThread);
+        }
+    }
+    if (!processCreated)
     {
         DWORD err = GetLastError();
         free(tmpCmdLine);

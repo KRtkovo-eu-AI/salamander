@@ -40,17 +40,17 @@ const SPackBrowseTable PackBrowseTable[] =
         // JAR 1.02 Win32
         {
             (TPackErrorTable*)&JARErrors, TRUE,
-            "$(ArchivePath)", "$(Jar32bitExecutable) v -ju- \"$(ArchiveFileName)\"",
+            "$(ArchivePath)", "$(Jar32bitOr64bitExecutable) v -ju- \"$(ArchiveFileName)\"",
             NULL, "Analyzing", 4, 0, 3, "Total files listed:", ' ', 2, 3, 9, 8, 4, 1, 2,
-            "$(TargetPath)", "$(Jar32bitExecutable) x -r- -jyc \"$(ArchiveFullName)\" !\"$(ListFullName)\"",
-            "$(TargetPath)", "$(Jar32bitExecutable) e -r- \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", FALSE},
+            "$(TargetPath)", "$(Jar32bitOr64bitExecutable) x -r- -jyc \"$(ArchiveFullName)\" !\"$(ListFullName)\"",
+            "$(TargetPath)", "$(Jar32bitOr64bitExecutable) e -r- \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", FALSE},
         // RAR 4.20 & 5.0 Win x86/x64
         {
             (TPackErrorTable*)&RARErrors, TRUE,
-            "$(ArchivePath)", "$(Rar32bitExecutable) v -c- \"$(ArchiveFileName)\"",
+            "$(ArchivePath)", "$(Rar32bitOr64bitExecutable) v -c- \"$(ArchiveFileName)\"",
             NULL, "--------", 0, 0, 2, "--------", ' ', 1, 2, 6, 5, 7, 3, 2,                              // after RAR 5.0 we patch the indices at runtime; see variable 'RAR5AndLater'
-            "$(TargetPath)", "$(Rar32bitExecutable) x -scol \"$(ArchiveFullName)\" @\"$(ListFullName)\"", // since version 5.0 we must enforce the -scol switch; version 4.20 is fine; appears elsewhere and in the registry
-            "$(TargetPath)", "$(Rar32bitExecutable) e \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", FALSE},
+            "$(TargetPath)", "$(Rar32bitOr64bitExecutable) x -scul \"$(ArchiveFullName)\" @\"$(ListFullName)\"", // since version 5.0 we must enforce the -scul switch; version 4.20 is fine; appears elsewhere and in the registry
+            "$(TargetPath)", "$(Rar32bitOr64bitExecutable) e \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", FALSE},
         // ARJ 2.60 MS-DOS
         {
             (TPackErrorTable*)&ARJErrors, FALSE,
@@ -89,10 +89,10 @@ const SPackBrowseTable PackBrowseTable[] =
         // PKZIP 2.50 Win32
         {
             NULL, TRUE,
-            "$(ArchivePath)", "$(Zip32bitExecutable) -com=none -nozipextension \"$(ArchiveFileName)\"",
+            "$(ArchivePath)", "$(Zip32bitOr64bitExecutable) -com=none -nozipextension \"$(ArchiveFileName)\"",
             NULL, "  ------  ------    -----", 0, 0, 1, "  ------           ------", ' ', 9, 1, 6, 5, 8, 3, 1,
-            "$(TargetPath)", "$(Zip32bitExecutable) -ext -nozipextension -directories -path \"$(ArchiveFullName)\" @\"$(ListFullName)\"",
-            "$(TargetPath)", "$(Zip32bitExecutable) -ext -nozipextension \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", TRUE},
+            "$(TargetPath)", "$(Zip32bitOr64bitExecutable) -ext -nozipextension -directories -path \"$(ArchiveFullName)\" @\"$(ListFullName)\"",
+            "$(TargetPath)", "$(Zip32bitOr64bitExecutable) -ext -nozipextension \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", TRUE},
         // PKUNZIP 2.04g MS-DOS
         {
             (TPackErrorTable*)&UNZIP204Errors, FALSE,
@@ -103,17 +103,17 @@ const SPackBrowseTable PackBrowseTable[] =
         // ARJ 3.00c Win32
         {
             (TPackErrorTable*)&ARJErrors, TRUE,
-            "$(ArchivePath)", "$(Arj32bitExecutable) v -ja1 \"$(ArchiveFileName)\"",
+            "$(ArchivePath)", "$(Arj32bitOr64bitExecutable) v -ja1 \"$(ArchiveFileName)\"",
             NULL, "--------", 0, 0, 0, "--------", ' ', 2, 5, 9, 8, 11, 1, 2,
-            "$(TargetPath)", "$(Arj32bitExecutable) x -p -va -hl -jyc \"$(ArchiveFullName)\" !\"$(ListFullName)\"",
-            "$(TargetPath)", "$(Arj32bitExecutable) e -p -va -hl \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", FALSE},
+            "$(TargetPath)", "$(Arj32bitOr64bitExecutable) x -p -va -hl -jyc \"$(ArchiveFullName)\" !\"$(ListFullName)\"",
+            "$(TargetPath)", "$(Arj32bitOr64bitExecutable) e -p -va -hl \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", FALSE},
         // ACE 1.2b Win32
         {
             (TPackErrorTable*)&ACEErrors, TRUE,
-            "$(ArchivePath)", "$(Ace32bitExecutable) v \"$(ArchiveFileName)\"",
+            "$(ArchivePath)", "$(Ace32bitOr64bitExecutable) v \"$(ArchiveFileName)\"",
             NULL, "Date    ", 0, 1, 1, "        ", 0xB3, 6, 4, 2, 1, 0, 3, 2,
-            "$(TargetPath)", "$(Ace32bitExecutable) x -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"",
-            "$(TargetPath)", "$(Ace32bitExecutable) e -f \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", TRUE},
+            "$(TargetPath)", "$(Ace32bitOr64bitExecutable) x -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"",
+            "$(TargetPath)", "$(Ace32bitOr64bitExecutable) e -f \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", TRUE},
         // ACE 1.2b MS-DOS
         {
             (TPackErrorTable*)&ACEErrors, FALSE,

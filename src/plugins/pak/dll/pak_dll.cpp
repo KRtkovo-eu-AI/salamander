@@ -3,12 +3,38 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #pragma warning(3 : 4706) // warning C4706: assignment within conditional expression
 
 #include "texts.rh2"
 #include "array2.h"
 #include "pakiface.h"
 #include "pak_dll.h"
+
+static HANDLE CreateFileLongPath(const char* fileName, DWORD desiredAccess, DWORD shareMode,
+                                 DWORD creationDisposition, DWORD flagsAndAttributes)
+{
+    std::wstring fileNameW;
+    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
+    if (len > 0)
+    {
+        fileNameW.resize(len);
+        MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
+        fileNameW.resize(len - 1);
+    }
+    if (!fileNameW.empty())
+    {
+        if (fileNameW.length() >= MAX_PATH && wcsncmp(fileNameW.c_str(), L"\\\\?\\", 4) != 0)
+            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + std::wstring(fileNameW.c_str() + 2)
+                                                                    : std::wstring(L"\\\\?\\") + fileNameW;
+        return CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL,
+                           creationDisposition, flagsAndAttributes, NULL);
+    }
+    return CreateFile(fileName, desiredAccess, shareMode, NULL,
+                      creationDisposition, flagsAndAttributes, NULL);
+}
 
 #ifdef PAK_DLL
 // ****************************************************************************
@@ -164,8 +190,8 @@ BOOL CPakIface::OpenPak(const char* fileName, DWORD mode)
 
     while (PakFile == INVALID_HANDLE_VALUE)
     {
-        PakFile = CreateFile(fileName, mode, FILE_SHARE_READ, NULL, OPEN_ALWAYS,
-                             FILE_ATTRIBUTE_NORMAL, NULL);
+        PakFile = CreateFileLongPath(fileName, mode, FILE_SHARE_READ, OPEN_ALWAYS,
+                                     FILE_ATTRIBUTE_NORMAL);
         if (PakFile != INVALID_HANDLE_VALUE)
             break;
         if (!HandleError(HE_RETRY, IDS_PAK_ERROPEN, LastErrorString(GetLastError(), buf)))

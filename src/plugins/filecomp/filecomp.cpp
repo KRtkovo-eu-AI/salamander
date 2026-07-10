@@ -678,8 +678,8 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
     {
     case MID_COMPAREFILES:
     {
-        char file1[MAX_PATH];
-        char file2[MAX_PATH];
+        char file1[SAL_MAX_PATH];
+        char file2[SAL_MAX_PATH];
         const CFileData *fd1, *fd2 = NULL;
         int index = 0;
         BOOL isDir;
@@ -740,16 +740,16 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
             goto SELECTION_FINISHED; // empty panel
 
         // store the name of the first file
-        if (!SG->GetPanelPath(PANEL_SOURCE, file1, MAX_PATH, NULL, NULL))
+        if (!SG->GetPanelPath(PANEL_SOURCE, file1, SizeOf(file1), NULL, NULL))
             return NULL;
-        SG->SalPathAppend(file1, fd1->Name, MAX_PATH);
+        SG->SalPathAppend(file1, fd1->UseWideName() ? PluginWideToMultiBytePath(fd1->NameW, CP_UTF8).c_str() : fd1->Name, SizeOf(file1));
 
         if (fd2 &&
             !isDir && fd2 != fd1) // in case we take the file from the focus
         {
             // store the name of the second file
-            SG->GetPanelPath(PANEL_SOURCE, file2, MAX_PATH, NULL, NULL);
-            SG->SalPathAppend(file2, fd2->Name, MAX_PATH);
+            SG->GetPanelPath(PANEL_SOURCE, file2, SizeOf(file2), NULL, NULL);
+            SG->SalPathAppend(file2, fd2->UseWideName() ? PluginWideToMultiBytePath(fd2->NameW, CP_UTF8).c_str() : fd2->Name, SizeOf(file2));
             secondFromSource = TRUE;
         }
         else
@@ -774,9 +774,9 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
                 if (fd2)
                 {
                     // store the name of the second file
-                    if (!SG->GetPanelPath(PANEL_TARGET, file2, MAX_PATH, NULL, NULL))
+                    if (!SG->GetPanelPath(PANEL_TARGET, file2, SizeOf(file2), NULL, NULL))
                         return NULL;
-                    SG->SalPathAppend(file2, fd2->Name, MAX_PATH);
+                    SG->SalPathAppend(file2, fd2->UseWideName() ? PluginWideToMultiBytePath(fd2->NameW, CP_UTF8).c_str() : fd2->Name, SizeOf(file2));
                 }
             }
         }
@@ -831,9 +831,14 @@ CFilecompThread::Body()
     HWND wnd;
     CCompareOptions options = DefCompareOptions;
 
-    if (!*Path1 || !*Path2 || !DontConfirmSelection && Configuration.ConfirmSelection)
+    char editPath1[SAL_MAX_PATH];
+    char editPath2[SAL_MAX_PATH];
+    lstrcpynA(editPath1, Path1.c_str(), SizeOf(editPath1));
+    lstrcpynA(editPath2, Path2.c_str(), SizeOf(editPath2));
+
+    if (Path1.empty() || Path2.empty() || !DontConfirmSelection && Configuration.ConfirmSelection)
     {
-        CCompareFilesDialog* dlg = new CCompareFilesDialog(0, Path1, Path2, succes, &options);
+        CCompareFilesDialog* dlg = new CCompareFilesDialog(0, editPath1, editPath2, succes, &options);
         if (!dlg)
         {
             Error(HWND(NULL), IDS_LOWMEM);
@@ -849,8 +854,8 @@ CFilecompThread::Body()
     }
     else
     {
-        AddToHistory(Path2);
-        AddToHistory(Path1);
+        AddToHistory(Path2.c_str());
+        AddToHistory(Path1.c_str());
         goto LLAUNCHFC;
     }
 
@@ -878,6 +883,8 @@ CFilecompThread::Body()
             break; // leave the message loop
 
     LLAUNCHFC:
+        Path1 = editPath1;
+        Path2 = editPath2;
 
         WINDOWPLACEMENT wp;
         wp.length = sizeof(wp);
@@ -891,7 +898,7 @@ CFilecompThread::Body()
                    workRect.top - monitorRect.top);
 
         // if the main window is minimized, keep the File Comparator restored instead
-        CMainWindow* win = new CMainWindow(Path1, Path2, &options,
+        CMainWindow* win = new CMainWindow((char*)Path1.c_str(), (char*)Path2.c_str(), &options,
                                            wp.showCmd == SW_SHOWMAXIMIZED ? SW_SHOWMAXIMIZED : SW_SHOW);
         if (!win)
         {

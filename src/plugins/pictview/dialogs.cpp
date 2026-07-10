@@ -1820,6 +1820,11 @@ CExifDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        SendMessage(HWindow, WM_SETICON, ICON_BIG,
+                    (LPARAM)LoadIcon(DLLInstance, MAKEINTRESOURCE(IDI_WINDOW_ICON)));
+        SendMessage(HWindow, WM_SETICON, ICON_SMALL,
+                    (LPARAM)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_WINDOW_ICON),
+                                      IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags()));
         DisableNotification = TRUE;
 
         CALL_STACK_MESSAGE2("EXIFGetInfo() %s", FileName);

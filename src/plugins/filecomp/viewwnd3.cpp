@@ -159,10 +159,17 @@ BOOL CHexFileViewWindow::SetData(QWORD firstDiff, const char* path, QWORD siblin
     DestroyData();
 
     // FILE_SHARE_WRITE : See also CFilecompWorker::GuardedBody()
-    HANDLE hFile = CreateFile(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-    strcpy(Path, path); // Path may be needed in Retry dialog upon WM_USER_HANDLEFILEERROR
+    Path = path != NULL ? path : ""; // Path may be needed in Retry dialog upon WM_USER_HANDLEFILEERROR
+    std::wstring nameW = PluginMultiByteToWidePath(Path.c_str(), CP_UTF8);
+    if (nameW.empty())
+        nameW = PluginMultiByteToWidePath(Path.c_str(), CP_ACP);
+    if (nameW.length() >= MAX_PATH)
+        nameW = PluginPathAddExtendedPrefixW(nameW.c_str());
+    HANDLE hFile = !nameW.empty() ?
+                       CreateFileW(nameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL) :
+                       CreateFileA(Path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     if (hFile == INVALID_HANDLE_VALUE)
-        return Error(GetParent(HWindow), IDS_OPEN, path);
+        return Error(GetParent(HWindow), IDS_OPEN, Path.c_str());
 
     Mapping.SetFile(hFile, atRead);
 
@@ -245,7 +252,7 @@ void CHexFileViewWindow::Paint()
         data = (char*)Mapping.MapViewOfFile(ViewOffset + clipFirstRow * BytesPerLine, size);
         if (!data)
         {
-            HandleFileError(Path, GetLastError());
+            HandleFileError(Path.c_str(), GetLastError());
             goto LERASE_WINDOW;
         }
 
@@ -465,7 +472,7 @@ int CHexFileViewWindow::HandleFileException(EXCEPTION_POINTERS* e)
     CALL_STACK_MESSAGE1("CHexFileViewWindow::HandleFileException()");
     if (Mapping.IsFileIOException(e))
     {
-        HandleFileError(Path, ERROR_SUCCESS);
+        HandleFileError(Path.c_str(), ERROR_SUCCESS);
         return EXCEPTION_EXECUTE_HANDLER; // start the __except block
     }
     if (((CHexFileViewWindow*)Siblink)->Mapping.IsFileIOException(e))
@@ -522,7 +529,7 @@ CHexFileViewWindow::FindDifference(int cmd, QWORD* pOffset)
                     ptr0 = (char*)Mapping.MapViewOfFile(offset, size);
                     if (!ptr0)
                     {
-                        HandleFileError(Path, GetLastError());
+                        HandleFileError(Path.c_str(), GetLastError());
                         return 0;
                     }
 
@@ -585,7 +592,7 @@ CHexFileViewWindow::FindDifference(int cmd, QWORD* pOffset)
                 ptr0 = (char*)Mapping.MapViewOfFile(offset, size);
                 if (!ptr0)
                 {
-                    HandleFileError(Path, GetLastError());
+                    HandleFileError(Path.c_str(), GetLastError());
                     return 0;
                 }
 
@@ -650,7 +657,7 @@ CHexFileViewWindow::FindDifference(int cmd, QWORD* pOffset)
                     ptr0 = (char*)Mapping.MapViewOfFile(offset - size + 1, size);
                     if (!ptr0)
                     {
-                        HandleFileError(Path, GetLastError());
+                        HandleFileError(Path.c_str(), GetLastError());
                         return 0;
                     }
                     ptr0 += size - 1;
@@ -715,7 +722,7 @@ CHexFileViewWindow::FindDifference(int cmd, QWORD* pOffset)
                 ptr0 = (char*)Mapping.MapViewOfFile(offset - size + 1, size);
                 if (!ptr0)
                 {
-                    HandleFileError(Path, GetLastError());
+                    HandleFileError(Path.c_str(), GetLastError());
                     return 0;
                 }
                 ptr0 += size - 1;

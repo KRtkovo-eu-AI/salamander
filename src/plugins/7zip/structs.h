@@ -3,8 +3,40 @@
 
 #pragma once
 
+#include <string>
+
 #include "Common/MyString.h"
 #include "Common/StringConvert.h"
+
+inline UString GetSalamanderUnicodeString(const char* text)
+{
+    if (text == NULL || *text == 0)
+        return UString();
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    int len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    if (len <= 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (len <= 0)
+        return GetUnicodeString(text);
+    std::wstring ret(len, L'\0');
+    MultiByteToWideChar(codePage, flags, text, -1, &ret[0], len);
+    ret.resize(len - 1);
+    return UString(ret.c_str());
+}
+
+inline UString GetSalamanderLongPath(const UString& path)
+{
+    if (path.Len() < MAX_PATH || path.IsPrefixedBy(L"\\\\?\\"))
+        return path;
+    if (path.IsPrefixedBy(L"\\\\"))
+        return UString(L"\\\\?\\UNC\\") + UString(path.Ptr(2));
+    return UString(L"\\\\?\\") + path;
+}
 
 struct CUpdateInfo
 {
@@ -37,11 +69,11 @@ struct CFileItem
     {
         // if archiveRoot is empty, the name must not start with a backslash '\'
         if (strlen(archiveRoot) > 0)
-            Name = GetUnicodeString(archiveRoot) + GetUnicodeString("\\") + GetUnicodeString(name);
+            Name = GetSalamanderUnicodeString(archiveRoot) + UString(L"\\") + GetSalamanderUnicodeString(name);
         else
-            Name = GetUnicodeString(name);
+            Name = GetSalamanderUnicodeString(name);
 
-        FullPath = GetUnicodeString(sourcePath) + GetUnicodeString("\\") + GetUnicodeString(name);
+        FullPath = GetSalamanderUnicodeString(sourcePath) + UString(L"\\") + GetSalamanderUnicodeString(name);
         Attributes = attr;
         Size = size;
         LastWriteTime = CreationTime = LastAccessTime = lastWrite;

@@ -30,6 +30,39 @@ CThreadQueue ThreadQueue("CheckSum Dialogs and Workers"); // list of all dialog 
 
 #define IDT_RESENDCLOSE 11
 
+
+static void SetDispInfoText(NMLVDISPINFO* plvdi, const char* text)
+{
+    if (plvdi == NULL || (plvdi->item.mask & LVIF_TEXT) == 0 || text == NULL)
+        return;
+    if (plvdi->hdr.code == LVN_GETDISPINFOW)
+    {
+        int maxChars = plvdi->item.cchTextMax;
+        if (maxChars <= 0 || plvdi->item.pszText == NULL)
+            return;
+        UINT cp = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+        int written = MultiByteToWideChar(cp, 0, text, -1, (LPWSTR)plvdi->item.pszText, maxChars);
+        if (written == 0 && cp != CP_ACP)
+            written = MultiByteToWideChar(CP_ACP, 0, text, -1, (LPWSTR)plvdi->item.pszText, maxChars);
+        if (written == 0)
+            ((LPWSTR)plvdi->item.pszText)[0] = 0;
+    }
+    else
+    {
+        lstrcpynA(plvdi->item.pszText, text, plvdi->item.cchTextMax);
+    }
+}
+
+static void ClearDispInfoText(NMLVDISPINFO* plvdi)
+{
+    if (plvdi == NULL || plvdi->item.pszText == NULL || plvdi->item.cchTextMax <= 0)
+        return;
+    if (plvdi->hdr.code == LVN_GETDISPINFOW)
+        ((LPWSTR)plvdi->item.pszText)[0] = 0;
+    else
+        plvdi->item.pszText[0] = 0;
+}
+
 // ****************************************************************************************************
 //
 //  CSFVMD5Dialog
@@ -507,7 +540,7 @@ void CCalculateDialog::RefreshUI()
     }
 }
 
-BOOL CCalculateDialog::AddDir(char (&path)[MAX_PATH + 50], size_t root, BOOL* ignoreAll)
+BOOL CCalculateDialog::AddDir(char (&path)[SAL_MAX_PATH], size_t root, BOOL* ignoreAll)
 {
     if (StopReadingDirectories)
         return FALSE;
@@ -531,7 +564,7 @@ BOOL CCalculateDialog::AddDir(char (&path)[MAX_PATH + 50], size_t root, BOOL* ig
             {
                 if (fd.cFileName[0] != 0 && strcmp(fd.cFileName, ".") && strcmp(fd.cFileName, ".."))
                 {
-                    if (plen + 1 + strlen(fd.cFileName) < MAX_PATH)
+                    if (plen + 1 + strlen(fd.cFileName) < SizeOf(path))
                     {
                         strcpy(path + plen + 1, fd.cFileName);
                         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -603,15 +636,15 @@ BOOL CCalculateDialog::GetFileList()
     totalSize = CQuadWord(0, 0);
 
     BOOL ret = TRUE;
-    char path[MAX_PATH + 50];
+    char path[SAL_MAX_PATH];
     size_t root = strlen(SourcePath);
     if (root > 0 && SourcePath[root - 1] == '\\')
         root--;
 
     RefreshCounter = 0;
 
-    strcpy(path, SourcePath);
-    SalamanderGeneral->SalPathAddBackslash(path, MAX_PATH); // if this fails, appending anything later would fail too (no need to handle here)
+    lstrcpynA(path, SourcePath, SizeOf(path));
+    SalamanderGeneral->SalPathAddBackslash(path, SizeOf(path)); // if this fails, appending anything later would fail too (no need to handle here)
     char* pathEnd = path + strlen(path);
 
     BOOL ignoreAll = FALSE;
@@ -619,9 +652,9 @@ BOOL CCalculateDialog::GetFileList()
     {
         SEEDFILEINFO* cfi = (*pSeedFileList)[i];
 
-        if ((pathEnd - path) + strlen(cfi->Name) < MAX_PATH)
+        if ((pathEnd - path) + strlen(cfi->Name) < SizeOf(path))
         {
-            strcpy(pathEnd, cfi->Name);
+            lstrcpynA(pathEnd, cfi->Name, (int)(SizeOf(path) - (pathEnd - path)));
             if (!cfi->bDir)
             {
                 // links: cfi->Size == 0, the file size must be obtained via GetLinkTgtFileSize()
@@ -726,11 +759,11 @@ unsigned CCalculateThread::Body()
 
         // open the file
         HANDLE hFile;
-        char path[MAX_PATH];
-        strcpy(path, dialog->SourcePath);
+        char path[SAL_MAX_PATH];
+        lstrcpynA(path, dialog->SourcePath, SizeOf(path));
         // should not happen - the name length was already verified in CCalculateDialog::GetFileList()
         // FILELISTITEM::Name does not change after being added to the array = no need for synchronized access
-        if (!SalamanderGeneral->SalPathAppend(path, dialog->FileList[i]->Name, MAX_PATH))
+        if (!SalamanderGeneral->SalPathAppend(path, dialog->FileList[i]->Name, SizeOf(path)))
         {
             TRACE_E("CCalculateThread::Body(): unexpected situation: SalPathAppend() has failed");
             break;
@@ -1312,6 +1345,7 @@ INT_PTR CCalculateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             switch (nmh->code)
             {
             case LVN_GETDISPINFO:
+            case LVN_GETDISPINFOW:
             {
                 NMLVDISPINFO* plvdi = (NMLVDISPINFO*)nmh;
                 int index = plvdi->item.iItem;
@@ -1332,13 +1366,17 @@ INT_PTR CCalculateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                     case 0:
                     { // Name: once added to the array it never changes = access is not synchronized
-                        strcpy(plvdi->item.pszText, FileList[index]->Name);
+                        SetDispInfoText(plvdi, FileList[index]->Name);
                         break;
                     }
 
                     case 1:
                     { // Size: once added to the array it never changes = access is not synchronized
-                        SalamanderGeneral->NumberToStr(plvdi->item.pszText, FileList[index]->Size);
+                        {
+                            char num[64];
+                            SalamanderGeneral->NumberToStr(num, FileList[index]->Size);
+                            SetDispInfoText(plvdi, num);
+                        }
                         break;
                     }
 
@@ -1350,14 +1388,14 @@ INT_PTR CCalculateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             // while the worker thread runs: calculated data are acknowledged only up to ScrollIndex,
                             // ScrollIndex itself is calculating / verifying, items after it remain unprocessed (even if they might already be done)
                             if (index == ScrollIndex && col == 2)
-                                strcpy(plvdi->item.pszText, LoadStr(IDS_CALCULATING));
+                                SetDispInfoText(plvdi, LoadStr(IDS_CALCULATING));
                             else
-                                plvdi->item.pszText[0] = 0;
+                                ClearDispInfoText(plvdi);
                         }
                         else
                         {
                             if (col >= 2 && col - 2 < HT_COUNT && FileList[index]->Hashes[col - 2] != NULL)
-                                strcpy(plvdi->item.pszText, FileList[index]->Hashes[col - 2]);
+                                SetDispInfoText(plvdi, FileList[index]->Hashes[col - 2]);
                         }
                         break;
                     }
@@ -1659,9 +1697,9 @@ BOOL CVerifyDialog::LoadSourceFile()
             if (info->fileName[0] != 0)
             {
                 // fetch file information and insert into the list
-                char path[MAX_PATH];
-                strcpy(path, sourcePath);
-                if (SalamanderGeneral->SalPathAppend(path, info->fileName, MAX_PATH))
+                char path[SAL_MAX_PATH];
+                lstrcpynA(path, sourcePath, SizeOf(path));
+                if (SalamanderGeneral->SalPathAppend(path, info->fileName, SizeOf(path)))
                 {
                     WIN32_FIND_DATA fd;
                     HANDLE hFind = HANDLES_Q(FindFirstFile(path, &fd));
@@ -1962,6 +2000,7 @@ INT_PTR CVerifyDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             switch (nmh->code)
             {
             case LVN_GETDISPINFO:
+            case LVN_GETDISPINFOW:
             {
                 NMLVDISPINFO* plvdi = (NMLVDISPINFO*)nmh;
                 int index = plvdi->item.iItem;
@@ -1984,16 +2023,20 @@ INT_PTR CVerifyDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                     case 0: // Name: once added to the array it never changes = no synchronization needed
                     {
-                        strcpy(plvdi->item.pszText, FileList[index]->Name);
+                        SetDispInfoText(plvdi, FileList[index]->Name);
                         break;
                     }
 
                     case 1: // FileExist+Size: once added to the array it never changes = no synchronization needed
                     {
                         if (FileList[index]->FileExist)
-                            SalamanderGeneral->NumberToStr(plvdi->item.pszText, FileList[index]->Size);
+                        {
+                            char num[64];
+                            SalamanderGeneral->NumberToStr(num, FileList[index]->Size);
+                            SetDispInfoText(plvdi, num);
+                        }
                         else
-                            plvdi->item.pszText[0] = 0;
+                            ClearDispInfoText(plvdi);
                         break;
                     }
 
@@ -2007,21 +2050,21 @@ INT_PTR CVerifyDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 // while the worker thread runs: calculated data are acknowledged only up to ScrollIndex,
                                 // ScrollIndex itself is calculating / verifying, items after it remain unprocessed (even if they might already be done)
                                 if (index == ScrollIndex)
-                                    strcpy(plvdi->item.pszText, LoadStr(IDS_VERIFYING));
+                                    SetDispInfoText(plvdi, LoadStr(IDS_VERIFYING));
                                 else
-                                    plvdi->item.pszText[0] = 0;
+                                    ClearDispInfoText(plvdi);
                             }
                             else
                             {
                                 if (FileList[index]->Hashes[0] != NULL)
-                                    strcpy(plvdi->item.pszText, FileList[index]->Hashes[0]);
+                                    SetDispInfoText(plvdi, FileList[index]->Hashes[0]);
                                 else
-                                    plvdi->item.pszText[0] = 0;
+                                    ClearDispInfoText(plvdi);
                             }
                         }
                         else
                         {
-                            strcpy(plvdi->item.pszText, LoadStr(IDS_MISSING));
+                            SetDispInfoText(plvdi, LoadStr(IDS_MISSING));
                         }
                         break;
                     }
@@ -2122,7 +2165,7 @@ BOOL OpenCalculateDialog(HWND parent)
     }
 
     int nFiles, nDirs;
-    char sourcePath[MAX_PATH];
+    char sourcePath[SAL_MAX_PATH];
 
     // Check if nothing is selected and no focus is set
     if (SalamanderGeneral->GetPanelSelection(PANEL_SOURCE, &nFiles, &nDirs))
@@ -2135,13 +2178,14 @@ BOOL OpenCalculateDialog(HWND parent)
 
         while (((nFiles || nDirs) ? (fd = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir)) != NULL : (fd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isDir)) != NULL))
         {
-            int fdNameLen = (int)strlen(fd->Name);
+            std::string itemName = fd->UseWideName() ? PluginWideToMultiBytePath(fd->NameW, CP_UTF8) : std::string(fd->Name);
+            int fdNameLen = (int)itemName.length();
             SEEDFILEINFO* cfi = (SEEDFILEINFO*)malloc(sizeof(SEEDFILEINFO) + fdNameLen);
             if (!cfi)
                 continue;
             cfi->bDir = isDir ? true : false;
             cfi->Attr = fd->Attr;
-            strcpy_s(cfi->Name, fdNameLen + _countof(cfi->Name), fd->Name);
+            strcpy_s(cfi->Name, fdNameLen + _countof(cfi->Name), itemName.c_str());
             if (!isDir)
                 cfi->Size = fd->Size;
             pFileList->Add(cfi);
@@ -2184,8 +2228,8 @@ public:
 
     virtual unsigned Body();
 
-    char sourcePath[MAX_PATH];
-    char sourceFile[MAX_PATH];
+    char sourcePath[SAL_MAX_PATH];
+    char sourceFile[SAL_MAX_PATH];
 
 private:
     HWND hParent;
@@ -2236,9 +2280,9 @@ BOOL OpenVerifyDialog(HWND parent)
     if (t != NULL)
     {
         // hand over data to the thread
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, t->sourcePath, MAX_PATH, NULL, NULL);
+        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, t->sourcePath, SizeOf(t->sourcePath), NULL, NULL);
         strcpy(t->sourceFile, t->sourcePath);
-        if (SalamanderGeneral->SalPathAppend(t->sourceFile, fd->Name, MAX_PATH))
+        if (SalamanderGeneral->SalPathAppend(t->sourceFile, fd->UseWideName() ? PluginWideToMultiBytePath(fd->NameW, CP_UTF8).c_str() : fd->Name, SizeOf(t->sourceFile)))
         {
             // start the thread
             if (t->Create(ThreadQueue) != NULL)

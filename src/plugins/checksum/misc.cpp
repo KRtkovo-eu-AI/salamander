@@ -88,8 +88,17 @@ BOOL SafeOpenCreateFile(LPCTSTR fileName, DWORD desiredAccess, DWORD shareMode, 
     CALL_STACK_MESSAGE6("SafeOpenCreateFile(%s, 0x%X, 0x%X, 0x%X, 0x%X, , , )", fileName, desiredAccess,
                         shareMode, creationDisposition, flagsAndAttributes);
 
-    while ((*hFile = CreateFile(fileName, desiredAccess, shareMode, NULL, creationDisposition,
-                                flagsAndAttributes, NULL)) == INVALID_HANDLE_VALUE &&
+    std::wstring fileNameW = PluginMultiByteToWidePath(fileName, CP_UTF8);
+    if (fileNameW.empty())
+        fileNameW = PluginMultiByteToWidePath(fileName, CP_ACP);
+    if (fileNameW.length() >= MAX_PATH)
+        fileNameW = PluginPathAddExtendedPrefixW(fileNameW.c_str());
+
+    while ((*hFile = !fileNameW.empty() ?
+                         CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL, creationDisposition,
+                                     flagsAndAttributes, NULL) :
+                         CreateFile(fileName, desiredAccess, shareMode, NULL, creationDisposition,
+                                    flagsAndAttributes, NULL)) == INVALID_HANDLE_VALUE &&
            ((silent != NULL) ? !*silent : 1))
     {
         int lastErr = GetLastError();

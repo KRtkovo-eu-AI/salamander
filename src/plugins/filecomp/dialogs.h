@@ -9,7 +9,7 @@
 //
 
 #define MAX_HISTORY_ENTRIES 20
-extern char CBHistory[MAX_HISTORY_ENTRIES][MAX_PATH];
+extern char CBHistory[MAX_HISTORY_ENTRIES][SAL_MAX_PATH];
 extern int CBHistoryEntries;
 
 void AddToHistory(const char* path);

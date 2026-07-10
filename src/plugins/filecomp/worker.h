@@ -258,7 +258,7 @@ protected:
 
 struct CWorkerFileData
 {
-    TCHAR Name[MAX_PATH];
+    std::string Name;
     HANDLE File;
     QWORD Size;
 

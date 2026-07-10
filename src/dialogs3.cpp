@@ -139,6 +139,21 @@ void SetControlTextUtf8(HWND ctrl, const char* text)
     SendMessage(target, WM_SETTEXT, 0, (LPARAM)text);
 }
 
+LRESULT ComboAddStringUtf8(HWND combo, const char* text)
+{
+    if (text == NULL)
+        text = "";
+
+    if (IsWindowUnicode(combo))
+    {
+        std::wstring wide;
+        if (Utf8ToWideString(text, -1, wide))
+            return SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)(wide.empty() ? L"" : wide.c_str()));
+    }
+
+    return SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
+}
+
 bool Utf8ToWideString(const char* text, int count, std::wstring& wide)
 {
     if (text == NULL)
@@ -2548,14 +2563,16 @@ void CPackDialog::Transfer(CTransferInfo& ti)
     {
         // WARNING: code must stay consistent with CPackDialog::DialogProc/WM_COMMAND
         ti.GetControl(combo, IDE_PATH);
-        SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)Path);
+        ComboAddStringUtf8(combo, Path);
         // if the alternative path matches the first one, don't add it (target isn't ptDisk)
         if (StrICmp(Path, PathAlt) != 0)
-            SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)PathAlt);
+            ComboAddStringUtf8(combo, PathAlt);
+        SendMessage(combo, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
         SendMessage(combo, CB_SETCURSEL, 0, 0);
+        SetControlTextUtf8(combo, Path);
     }
-    else
-        ti.EditLine(IDE_PATH, Path, MAX_PATH);
+    else if (ti.GetControl(combo, IDE_PATH))
+        GetControlTextUtf8(combo, Path, SAL_MAX_PATH);
 
     if (ti.Type == ttDataFromWindow) // if the entered name lacks an extension, add it automatically
     {
@@ -2568,7 +2585,7 @@ void CPackDialog::Transfer(CTransferInfo& ti)
             if ((s == NULL || s2 != NULL && s2 > s) && // '.cvspass' in Windows is considered an extension ...
                 (s2 == NULL || (s2 - Path + 1) < nameLen) &&
                 nameLen > 0 &&
-                nameLen + 1 + 1 + strlen(ext) < MAX_PATH)
+                nameLen + 1 + 1 + strlen(ext) < SAL_MAX_PATH)
             {
                 strcpy(Path + nameLen, ".");
                 strcpy(Path + nameLen + 1, ext);
@@ -2604,7 +2621,7 @@ BOOL CPackDialog::ChangeExtension(char* name, const char* ext)
     if (s != NULL && // '.cvspass' in Windows is considered an extension ...
                      //if (s != NULL && s > name &&
         (s2 == NULL || s > s2) &&
-        strlen(ext) + 1 + ((s + 1) - name) < MAX_PATH)
+        strlen(ext) + 1 + ((s + 1) - name) < SAL_MAX_PATH)
     {
         strcpy(s + 1, ext);
         return TRUE;
@@ -2615,7 +2632,7 @@ BOOL CPackDialog::ChangeExtension(char* name, const char* ext)
         if ((s == NULL || s2 != NULL && s2 > s) &&
             (s2 == NULL || (s2 - name + 1) < nameLen) &&
             nameLen > 0 &&
-            nameLen + 1 + 1 + strlen(ext) < MAX_PATH)
+            nameLen + 1 + 1 + strlen(ext) < SAL_MAX_PATH)
         {
             strcpy(name + nameLen, ".");
             strcpy(name + nameLen + 1, ext);
@@ -2702,39 +2719,61 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (i != CB_ERR)
             {
                 // swap extensions
-                char name[MAX_PATH];
-                char name2[MAX_PATH];
+                char name[SAL_MAX_PATH];
+                char name2[SAL_MAX_PATH];
 
                 int curSel = (int)SendDlgItemMessage(HWindow, IDE_PATH, CB_GETCURSEL, 0, 0);
                 if (curSel == CB_ERR) // we must retrieve the text here because CB_RESETCONTENT would wipe it
-                    GetWindowText(GetDlgItem(HWindow, IDE_PATH), name2, MAX_PATH);
+                    GetControlTextUtf8(GetDlgItem(HWindow, IDE_PATH), name2, _countof(name2));
 
                 // WARNING: code must stay consistent with CPackDialog::Transfer
                 // swap extensions in the combobox
                 SendDlgItemMessage(HWindow, IDE_PATH, CB_RESETCONTENT, 0, 0);
+                char selectedName[SAL_MAX_PATH];
+                selectedName[0] = 0;
                 strcpy(name, Path);
                 if (ChangeExtension(name, PackerConfig->GetPackerExt(i)))
-                    SendDlgItemMessage(HWindow, IDE_PATH, CB_ADDSTRING, 0, (LPARAM)name);
+                {
+                    ComboAddStringUtf8(GetDlgItem(HWindow, IDE_PATH), name);
+                    if (curSel == 0)
+                        strcpy(selectedName, name);
+                }
                 else
-                    SendDlgItemMessage(HWindow, IDE_PATH, CB_ADDSTRING, 0, (LPARAM)Path);
+                {
+                    ComboAddStringUtf8(GetDlgItem(HWindow, IDE_PATH), Path);
+                    if (curSel == 0)
+                        strcpy(selectedName, Path);
+                }
 
                 // if the alternative path matches the first one, don't add it (target isn't ptDisk)
                 if (StrICmp(Path, PathAlt) != 0)
                 {
                     strcpy(name, PathAlt);
                     if (ChangeExtension(name, PackerConfig->GetPackerExt(i)))
-                        SendDlgItemMessage(HWindow, IDE_PATH, CB_ADDSTRING, 0, (LPARAM)name);
+                    {
+                        ComboAddStringUtf8(GetDlgItem(HWindow, IDE_PATH), name);
+                        if (curSel == 1)
+                            strcpy(selectedName, name);
+                    }
                     else
-                        SendDlgItemMessage(HWindow, IDE_PATH, CB_ADDSTRING, 0, (LPARAM)PathAlt);
+                    {
+                        ComboAddStringUtf8(GetDlgItem(HWindow, IDE_PATH), PathAlt);
+                        if (curSel == 1)
+                            strcpy(selectedName, PathAlt);
+                    }
                 }
 
                 if (curSel != CB_ERR)
+                {
                     SendDlgItemMessage(HWindow, IDE_PATH, CB_SETCURSEL, (WPARAM)curSel, 0);
+                    if (selectedName[0] != 0)
+                        SetControlTextUtf8(GetDlgItem(HWindow, IDE_PATH), selectedName);
+                }
                 else
                 {
                     // if the editline was modified, change the extension there as well
                     if (ChangeExtension(name2, PackerConfig->GetPackerExt(i)))
-                        SetWindowText(GetDlgItem(HWindow, IDE_PATH), name2);
+                        SetControlTextUtf8(GetDlgItem(HWindow, IDE_PATH), name2);
                 }
 
                 BOOL supMove = TRUE;

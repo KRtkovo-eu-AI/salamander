@@ -47,7 +47,7 @@ ComDlgHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 
 // history for combo boxes
 
-TCHAR CBHistory[MAX_HISTORY_ENTRIES][MAX_PATH];
+TCHAR CBHistory[MAX_HISTORY_ENTRIES][SAL_MAX_PATH];
 int CBHistoryEntries;
 
 void AddToHistory(LPCTSTR path)
@@ -69,9 +69,9 @@ void AddToHistory(LPCTSTR path)
     // create space for the path we are going to store
     int j;
     for (j = toMove; j > 0; j--)
-        _tcscpy(CBHistory[j], CBHistory[j - 1]);
+        lstrcpyn(CBHistory[j], CBHistory[j - 1], SizeOf(CBHistory[j]));
     // And store the path...
-    _tcscpy(CBHistory[0], path);
+    lstrcpyn(CBHistory[0], path, SizeOf(CBHistory[0]));
     CBHistoryEntries = __min(CBHistoryEntries + enlarge, MAX_HISTORY_ENTRIES);
 }
 
@@ -89,21 +89,42 @@ CCompareFilesDialog::CCompareFilesDialog(HWND parent, LPTSTR path1, LPTSTR path2
 BOOL FileExists(LPCTSTR path)
 {
     CALL_STACK_MESSAGE2(_T("FileExists(%s)"), path);
-    DWORD attr = SG->SalGetFileAttributes(path);
-    int i = GetLastError();
+    DWORD attr = 0xffffffff;
+    DWORD err = ERROR_FILE_NOT_FOUND;
+
+#ifdef _UNICODE
+    std::wstring nameW = path != NULL ? path : L"";
+#else
+    std::wstring nameW = PluginMultiByteToWidePath(path, CP_UTF8);
+    if (nameW.empty())
+        nameW = PluginMultiByteToWidePath(path, CP_ACP);
+#endif
+    if (!nameW.empty())
+    {
+        if (nameW.length() >= MAX_PATH)
+            nameW = PluginPathAddExtendedPrefixW(nameW.c_str());
+        attr = GetFileAttributesW(nameW.c_str());
+        err = GetLastError();
+    }
+    else
+    {
+        attr = SG->SalGetFileAttributes(path);
+        err = GetLastError();
+    }
+
     return ((attr != 0xffffffff) && (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) ||
-           ((attr == 0xffffffff) && ((i != ERROR_FILE_NOT_FOUND) && (i != ERROR_PATH_NOT_FOUND)));
+           ((attr == 0xffffffff) && ((err != ERROR_FILE_NOT_FOUND) && (err != ERROR_PATH_NOT_FOUND)));
 }
 
 void CCompareFilesDialog::Validate(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCompareFilesDialog::Validate()");
-    TCHAR buffer[MAX_PATH];
+    TCHAR buffer[SAL_MAX_PATH];
 
     int i;
     for (i = 0; i < 2; i++)
     {
-        ti.EditLine(IDE_PATH1 + i, buffer, MAX_PATH);
+        ti.EditLine(IDE_PATH1 + i, buffer, SAL_MAX_PATH);
         if (!*buffer)
         {
             SG->SalMessageBox(HWindow, LoadStr(IDS_MISSINGPATH), LoadStr(IDS_ERROR), MB_ICONERROR);
@@ -112,7 +133,7 @@ void CCompareFilesDialog::Validate(CTransferInfo& ti)
         }
         if (!FileExists(buffer))
         {
-            TCHAR buf2[300 + MAX_PATH];
+            TCHAR buf2[300 + SAL_MAX_PATH];
 
             wsprintf(buf2, LoadStr(IDS_FILEDOESNOTEXIST), buffer);
             SG->SalMessageBox(HWindow, buf2, LoadStr(IDS_ERROR), MB_ICONERROR);
@@ -125,8 +146,8 @@ void CCompareFilesDialog::Validate(CTransferInfo& ti)
 void CCompareFilesDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCompareFilesDialog::Transfer()");
-    ti.EditLine(IDE_PATH1, Path1, MAX_PATH);
-    ti.EditLine(IDE_PATH2, Path2, MAX_PATH);
+    ti.EditLine(IDE_PATH1, Path1, SAL_MAX_PATH);
+    ti.EditLine(IDE_PATH2, Path2, SAL_MAX_PATH);
     if (ti.Type == ttDataFromWindow)
     {
         AddToHistory(Path2);
@@ -161,8 +182,8 @@ LRESULT CCompareFilesDialog::DragDropEditProc(HWND hWnd, UINT uMsg, WPARAM wPara
     if (WM_DROPFILES == uMsg)
     {
         HDROP hDrop = (HDROP)wParam;
-        TCHAR buffer[MAX_PATH];
-        int nFilesDropped = DragQueryFile(hDrop, 0, buffer, MAX_PATH);
+        TCHAR buffer[SAL_MAX_PATH];
+        int nFilesDropped = DragQueryFile(hDrop, 0, buffer, SAL_MAX_PATH);
 
         if (nFilesDropped)
         {
@@ -189,6 +210,13 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND hWnd1 = GetDlgItem(HWindow, IDE_PATH1), hWnd2 = GetDlgItem(HWindow, IDE_PATH2);
+        HWND hEdit1 = GetWindow(hWnd1, GW_CHILD), hEdit2 = GetWindow(hWnd2, GW_CHILD);
+        SendMessage(hWnd1, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendMessage(hWnd2, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        if (hEdit1 != NULL)
+            SendMessage(hEdit1, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        if (hEdit2 != NULL)
+            SendMessage(hEdit2, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
 
         SG->InstallWordBreakProc(hWnd1); // install WordBreakProc into the combo box
         SG->InstallWordBreakProc(hWnd2); // install WordBreakProc into the combo box
@@ -222,7 +250,32 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         SendMessage(HWindow, WM_SETICON, ICON_BIG, (LPARAM)LoadIcon(DLLInstance, MAKEINTRESOURCE(IDI_FCICO)));
 
-        break;
+        INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        SendMessage(hWnd1, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendMessage(hWnd2, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        if (hEdit1 != NULL)
+        {
+            SendMessage(hEdit1, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+            SetWindowText(hEdit1, Path1);
+            SendMessage(hEdit1, EM_SETSEL, 0, -1);
+        }
+        else
+        {
+            SetWindowText(hWnd1, Path1);
+            SendMessage(hWnd1, CB_SETEDITSEL, 0, MAKELPARAM(0, -1));
+        }
+        if (hEdit2 != NULL)
+        {
+            SendMessage(hEdit2, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+            SetWindowText(hEdit2, Path2);
+            SendMessage(hEdit2, EM_SETSEL, 0, -1);
+        }
+        else
+        {
+            SetWindowText(hWnd2, Path2);
+            SendMessage(hWnd2, CB_SETEDITSEL, 0, MAKELPARAM(0, -1));
+        }
+        return ret;
     }
 
     case WM_COMMAND:
@@ -259,8 +312,8 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
             OPENFILENAME ofn;
-            TCHAR path[MAX_PATH];
-            TCHAR dir[MAX_PATH];
+            TCHAR path[SAL_MAX_PATH];
+            TCHAR dir[SAL_MAX_PATH];
             TCHAR buf[128];
 
             memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -291,7 +344,7 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_CLEARHISTORY:
     {
-        TCHAR buffer[MAX_PATH];
+        TCHAR buffer[SAL_MAX_PATH];
         HWND cb = GetDlgItem(HWindow, IDE_PATH1);
         SendMessage(cb, WM_GETTEXT, SizeOf(buffer), (LPARAM)buffer);
         SendMessage(cb, CB_RESETCONTENT, 0, 0);

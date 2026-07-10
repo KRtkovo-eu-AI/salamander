@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -2236,7 +2236,7 @@ void ReleaseViewer()
 class CViewerThread : public CThread
 {
 protected:
-    TCHAR Name[MAX_PATH];
+    std::basic_string<TCHAR> Name;
     int Left, Top, Width, Height;
     UINT ShowCmd;
     BOOL AlwaysOnTop;
@@ -2257,7 +2257,7 @@ public:
                   BOOL* success, int enumFilesSourceUID,
                   int enumFilesCurrentIndex) : CThread(PLUGIN_NAME_EN)
     {
-        lstrcpyn(Name, name, MAX_PATH);
+        Name = name != NULL ? name : _T("");
         Left = left;
         Top = top;
         Width = width;
@@ -2456,7 +2456,7 @@ CViewerThread::Body()
     CALL_STACK_MESSAGE1("ViewerThreadBody::SetEvent");
     BOOL openFile = *Success;
     // before letting the main thread continue, optionally take over an image from the scanner to open in the viewer
-    HBITMAP scanExtraImg = _tcscmp(Name, SCANEXTRA) == 0 ? ExtraScanImagesToOpen.GiveNextImage() : NULL;
+    HBITMAP scanExtraImg = _tcscmp(Name.c_str(), SCANEXTRA) == 0 ? ExtraScanImagesToOpen.GiveNextImage() : NULL;
     SetEvent(Continue); // let the main thread continue; from this point the following variables are no longer valid:
     Continue = NULL;    // clearing is unnecessary, just for clarity
     Lock = NULL;        // clearing is unnecessary, just for clarity
@@ -2468,29 +2468,29 @@ CViewerThread::Body()
     {
         CALL_STACK_MESSAGE1("ViewerThreadBody::ShowWindow");
 
-        if (_tcscmp(Name, CLIPBOARD) != 0 && _tcscmp(Name, CAPTURE) != 0 &&
-            _tcscmp(Name, SCAN) != 0 && _tcscmp(Name, SCANEXTRA) != 0
+        if (_tcscmp(Name.c_str(), CLIPBOARD) != 0 && _tcscmp(Name.c_str(), CAPTURE) != 0 &&
+            _tcscmp(Name.c_str(), SCAN) != 0 && _tcscmp(Name.c_str(), SCANEXTRA) != 0
 #ifdef ENABLE_TWAIN32
-            && _tcscmp(Name, SCAN_SOURCE) != 0
+            && _tcscmp(Name.c_str(), SCAN_SOURCE) != 0
 #endif // ENABLE_TWAIN32
         )
         {
-            window->Renderer.OpenFile(Name, ShowCmd, NULL);
+            window->Renderer.OpenFile(Name.c_str(), ShowCmd, NULL);
         }
         else
         {
-            if (_tcscmp(Name, CLIPBOARD) == 0)
+            if (_tcscmp(Name.c_str(), CLIPBOARD) == 0)
             {
                 ShowWindow(window->HWindow, ShowCmd);
                 SetForegroundWindow(window->HWindow);
                 UpdateWindow(window->HWindow);
                 PostMessage(window->HWindow, WM_COMMAND, CMD_PASTE, 0);
             }
-            if (_tcscmp(Name, CAPTURE) == 0)
+            if (_tcscmp(Name.c_str(), CAPTURE) == 0)
             {
                 PostMessage(window->HWindow, WM_COMMAND, CMD_CAPTURE_INTERNAL, 0);
             }
-            if (_tcscmp(Name, SCAN) == 0)
+            if (_tcscmp(Name.c_str(), SCAN) == 0)
             {
                 ShowWindow(window->HWindow, ShowCmd);
                 SetForegroundWindow(window->HWindow);
@@ -2498,7 +2498,7 @@ CViewerThread::Body()
                 PostMessage(window->HWindow, WM_COMMAND, CMD_SCAN, 0);
             }
 #ifdef ENABLE_TWAIN32
-            if (_tcscmp(Name, SCAN_SOURCE) == 0)
+            if (_tcscmp(Name.c_str(), SCAN_SOURCE) == 0)
             {
                 ShowWindow(window->HWindow, ShowCmd);
                 SetForegroundWindow(window->HWindow);
@@ -2506,7 +2506,7 @@ CViewerThread::Body()
                 PostMessage(window->HWindow, WM_COMMAND, CMD_SCAN_SOURCE, 0);
             }
 #endif // ENABLE_TWAIN32
-            if (_tcscmp(Name, SCANEXTRA) == 0)
+            if (_tcscmp(Name.c_str(), SCANEXTRA) == 0)
             {
                 ShowWindow(window->HWindow, ShowCmd);
                 SetForegroundWindow(window->HWindow);
@@ -2644,11 +2644,8 @@ BOOL CPluginInterfaceForViewer::CanViewFile(LPCTSTR name)
         memset(&oiei, 0, sizeof(oiei));
         oiei.cbSize = sizeof(oiei);
 #ifdef _UNICODE
-        char nameA[_MAX_PATH];
-
-        WideCharToMultiByte(CP_ACP, 0, name, -1, nameA, sizeof(nameA), NULL, NULL);
-        nameA[sizeof(nameA) - 1] = 0;
-        oiei.FileName = nameA;
+        std::string nameA = PluginWideToMultiBytePath(name, CP_UTF8);
+        oiei.FileName = nameA.c_str();
 #else
         oiei.FileName = name;
 #endif

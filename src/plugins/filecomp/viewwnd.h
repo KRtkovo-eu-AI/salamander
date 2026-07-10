@@ -254,7 +254,7 @@ protected:
     int BytesPerLine;
     QWORD ViewOffset;
     QWORD SiblinkSize;
-    char Path[MAX_PATH];
+    std::string Path;
     BOOL PaintEnabled;
     int HScrollOffs;
     QWORD FocusedDiffOffset;
@@ -275,7 +275,7 @@ public:
     virtual void Paint();
     void EnablePaint() { PaintEnabled = TRUE; }
     void DisablePaint() { PaintEnabled = FALSE; }
-    const char* GetPath() { return Path; }
+    const char* GetPath() { return Path.c_str(); }
     int HandleFileException(EXCEPTION_POINTERS* e);
     void HandleFileError(const char* path, int error);
     QWORD FindDifference(int cmd, QWORD* pOffset);

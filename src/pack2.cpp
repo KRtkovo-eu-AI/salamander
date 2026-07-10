@@ -8,6 +8,7 @@
 #include "zip.h"
 #include "plugins.h"
 #include "pack.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -24,15 +25,15 @@ const SPackModifyTable PackModifyTable[] =
         // JAR 1.02 Win32
         {
             (TPackErrorTable*)&JARErrors, TRUE,
-            "$(SourcePath)", "$(Jar32bitExecutable) a -hl \"$(ArchiveFullName)\" -o\"$(TargetPath)\" !\"$(ListFullName)\"", TRUE,
-            "$(ArchivePath)", "$(Jar32bitExecutable) d -r- \"$(ArchiveFileName)\" !\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
-            "$(SourcePath)", "$(Jar32bitExecutable) m -hl \"$(ArchiveFullName)\" -o\"$(TargetPath)\" !\"$(ListFullName)\"", FALSE},
+            "$(SourcePath)", "$(Jar32bitOr64bitExecutable) a -hl \"$(ArchiveFullName)\" -o\"$(TargetPath)\" !\"$(ListFullName)\"", TRUE,
+            "$(ArchivePath)", "$(Jar32bitOr64bitExecutable) d -r- \"$(ArchiveFileName)\" !\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
+            "$(SourcePath)", "$(Jar32bitOr64bitExecutable) m -hl \"$(ArchiveFullName)\" -o\"$(TargetPath)\" !\"$(ListFullName)\"", FALSE},
         // RAR 4.20 & 5.0 Win x86/x64
         {
             (TPackErrorTable*)&RARErrors, TRUE,
-            "$(SourcePath)", "$(Rar32bitExecutable) a -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", TRUE, // since version 5.0 we must enforce the -scol switch, version 4.20 is fine; it appears elsewhere and in the registry
-            "$(ArchivePath)", "$(Rar32bitExecutable) d -scol \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
-            "$(SourcePath)", "$(Rar32bitExecutable) m -scol \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", FALSE},
+            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) a -scul \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", TRUE, // since version 5.0 we must enforce a list-file charset; use -scul because our RAR list file is UTF-16LE
+            "$(ArchivePath)", "$(Rar32bitOr64bitExecutable) d -scul \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DELETE,
+            "$(SourcePath)", "$(Rar32bitOr64bitExecutable) m -scul \"$(ArchiveFullName)\" -ap\"$(TargetPath)\" @\"$(ListFullName)\"", FALSE},
         // ARJ 2.60 MS-DOS
         {
             (TPackErrorTable*)&ARJErrors, FALSE,
@@ -67,9 +68,9 @@ const SPackModifyTable PackModifyTable[] =
         // PKZIP 2.50 Win32
         {
             NULL, TRUE,
-            "$(SourcePath)", "$(Zip32bitExecutable) -add -nozipextension -attr -path \"$(ArchiveFullName)\" @\"$(ListFullName)\"", FALSE,
-            "$(ArchivePath)", "$(Zip32bitExecutable) -del -nozipextension \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
-            "$(SourcePath)", "$(Zip32bitExecutable) -add -nozipextension -attr -path -move \"$(ArchiveFullName)\" @\"$(ListFullName)\"", TRUE},
+            "$(SourcePath)", "$(Zip32bitOr64bitExecutable) -add -nozipextension -attr -path \"$(ArchiveFullName)\" @\"$(ListFullName)\"", FALSE,
+            "$(ArchivePath)", "$(Zip32bitOr64bitExecutable) -del -nozipextension \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
+            "$(SourcePath)", "$(Zip32bitOr64bitExecutable) -add -nozipextension -attr -path -move \"$(ArchiveFullName)\" @\"$(ListFullName)\"", TRUE},
         // PKZIP 2.04g MS-DOS
         {
             (TPackErrorTable*)&ZIP204Errors, FALSE,
@@ -79,15 +80,15 @@ const SPackModifyTable PackModifyTable[] =
         // ARJ 3.00c Win32
         {
             (TPackErrorTable*)&ARJErrors, TRUE,
-            "$(SourcePath)", "$(Arj32bitExecutable) a -p -va -hl -a \"$(ArchiveFullName)\" !\"$(ListFullName)\"", FALSE,
-            "$(ArchivePath)", "$(Arj32bitExecutable) d -p -va -hl \"$(ArchiveFileName)\" !\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
-            "$(SourcePath)", "$(Arj32bitExecutable) m -p -va -hl -a \"$(ArchiveFullName)\" !\"$(ListFullName)\"", FALSE},
+            "$(SourcePath)", "$(Arj32bitOr64bitExecutable) a -p -va -hl -a \"$(ArchiveFullName)\" !\"$(ListFullName)\"", FALSE,
+            "$(ArchivePath)", "$(Arj32bitOr64bitExecutable) d -p -va -hl \"$(ArchiveFileName)\" !\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
+            "$(SourcePath)", "$(Arj32bitOr64bitExecutable) m -p -va -hl -a \"$(ArchiveFullName)\" !\"$(ListFullName)\"", FALSE},
         // ACE 1.2b Win32
         {
             (TPackErrorTable*)&ACEErrors, TRUE,
-            "$(SourcePath)", "$(Ace32bitExecutable) a -o -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"", FALSE,
-            "$(ArchivePath)", "$(Ace32bitExecutable) d -f \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
-            "$(SourcePath)", "$(Ace32bitExecutable) m -o -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"", TRUE},
+            "$(SourcePath)", "$(Ace32bitOr64bitExecutable) a -o -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"", FALSE,
+            "$(ArchivePath)", "$(Ace32bitOr64bitExecutable) d -f \"$(ArchiveFileName)\" @\"$(ListFullName)\"", PMT_EMPDIRS_DONOTDELETE,
+            "$(SourcePath)", "$(Ace32bitOr64bitExecutable) m -o -f \"$(ArchiveFullName)\" @\"$(ListFullName)\"", TRUE},
         // ACE 1.2b MS-DOS
         {
             (TPackErrorTable*)&ACEErrors, FALSE,
@@ -185,7 +186,7 @@ BOOL PackCompress(HWND parent, CFilesWindow* panel, const char* archiveFileName,
     //
     // If the archiver does not support packing into a directory, we must handle it
     //
-    char archiveRootPath[MAX_PATH];
+    char archiveRootPath[SAL_MAX_PATH];
     if (archiveRoot != NULL && *archiveRoot != '\0')
     {
         strcpy(archiveRootPath, archiveRoot);
@@ -246,7 +247,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     //
     // We must adjust the directory in the archive to the required format
     //
-    char rootPath[MAX_PATH];
+    char rootPath[SAL_MAX_PATH];
     rootPath[0] = '\0';
     if (archiveRoot != NULL && *archiveRoot != '\0')
     {
@@ -268,10 +269,10 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
 
     // For path length checks we need sourceDir in the "short" form
-    char sourceShortName[MAX_PATH];
+    char sourceShortName[SAL_MAX_PATH];
     if (!supportLongNames)
     {
-        if (!GetShortPathName(sourceDir, sourceShortName, MAX_PATH))
+        if (!GetShortPathName(sourceDir, sourceShortName, _countof(sourceShortName)))
         {
             char buffer[1000];
             strcpy(buffer, "GetShortPathName: ");
@@ -280,7 +281,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         }
     }
     else
-        strcpy(sourceShortName, sourceDir);
+        lstrcpyn(sourceShortName, sourceDir, _countof(sourceShortName));
 
     //
     // In the %TEMP% directory a helper file will contain the list of files to pack
@@ -296,12 +297,52 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
     }
 
-    // we have the file, now open it
+    const BOOL rarUnicodeListFile = strstr(command, "$(Rar32bitOr64bitExecutable)") != NULL ||
+                                    strstr(command, "-scol") != NULL ||
+                                    strstr(command, "-scul") != NULL;
+
+    char rarTmpArchiveName[SAL_MAX_PATH];
+    rarTmpArchiveName[0] = 0;
+    const char* archiveFileNameForCommand = archiveFileName;
+    if (rarUnicodeListFile)
+    {
+        BOOL archiveNameNeedsTemp = strlen(archiveFileName) >= MAX_PATH;
+        for (const unsigned char* s = (const unsigned char*)archiveFileName; !archiveNameNeedsTemp && *s != 0; s++)
+            archiveNameNeedsTemp = *s >= 0x80;
+        if (archiveNameNeedsTemp && SalGetFileAttributes(archiveFileName) == 0xFFFFFFFF)
+        {
+            if (!SalGetTempFileName(NULL, "RAR", rarTmpArchiveName, TRUE))
+            {
+                char buffer[1000];
+                strcpy(buffer, "SalGetTempFileName: ");
+                strcat(buffer, GetErrorText(GetLastError()));
+                DeleteFile(tmpListNameBuf);
+                return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
+            }
+            DeleteFile(rarTmpArchiveName); // RAR creates the archive; we only need a safe ASCII command-line name.
+            archiveFileNameForCommand = rarTmpArchiveName;
+        }
+    }
+
+    // we have the file, now open it. RAR 4.x+ is invoked with -scul in our default
+    // configuration, which means the list file must be UTF-16LE. Without this,
+    // Unicode names outside the active ANSI/OEM code page are corrupted before RAR
+    // ever opens the source file.
     FILE* listFile;
-    if ((listFile = fopen(tmpListNameBuf, "w")) == NULL)
+    if ((listFile = fopen(tmpListNameBuf, rarUnicodeListFile ? "wb" : "w")) == NULL)
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+    }
+    if (rarUnicodeListFile)
+    {
+        const unsigned char bom[] = {0xFF, 0xFE};
+        if (fwrite(bom, sizeof(bom), 1, listFile) != 1)
+        {
+            fclose(listFile);
+            DeleteFile(tmpListNameBuf);
+            return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+        }
     }
 
     // and we can fill it
@@ -309,12 +350,12 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
 
     const char* name;
     unsigned int maxPath;
-    char namecnv[MAX_PATH];
+    char namecnv[SAL_MAX_PATH];
     if (!supportLongNames)
         maxPath = DOS_MAX_PATH;
     else
-        maxPath = MAX_PATH;
-    if (!needANSIListFile)
+        maxPath = SAL_MAX_PATH;
+    if (!needANSIListFile && !rarUnicodeListFile)
         CharToOem(sourceShortName, sourceShortName);
     int sourceDirLen = (int)strlen(sourceShortName) + 1;
     int errorOccured;
@@ -323,14 +364,14 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     {
         if (supportLongNames)
         {
-            if (!needANSIListFile)
+            if (!needANSIListFile && !rarUnicodeListFile)
                 CharToOem(name, namecnv);
             else
                 strcpy(namecnv, name);
         }
         else
         {
-            if (GetShortPathName(name, namecnv, MAX_PATH) == 0)
+            if (GetShortPathName(name, namecnv, _countof(namecnv)) == 0)
             {
                 char buffer[1000];
                 strcpy(buffer, "File: ");
@@ -341,7 +382,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
                 DeleteFile(tmpListNameBuf);
                 return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
             }
-            if (!needANSIListFile)
+            if (!needANSIListFile && !rarUnicodeListFile)
                 CharToOem(namecnv, namecnv);
         }
 
@@ -358,7 +399,22 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         // and put it into the list
         if (!isDir)
         {
-            if (fprintf(listFile, "%s\n", namecnv) <= 0)
+            if (rarUnicodeListFile)
+            {
+                std::wstring nameW = SalMultiByteToWidePath(namecnv, CP_UTF8);
+                if (nameW.empty() && GetACP() != CP_UTF8)
+                    nameW = SalMultiByteToWidePath(namecnv, CP_ACP);
+                const wchar_t eol[] = L"\r\n";
+                if (nameW.empty() ||
+                    fwrite(nameW.c_str(), sizeof(wchar_t), nameW.length(), listFile) != nameW.length() ||
+                    fwrite(eol, sizeof(wchar_t), 2, listFile) != 2)
+                {
+                    fclose(listFile);
+                    DeleteFile(tmpListNameBuf);
+                    return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+                }
+            }
+            else if (fprintf(listFile, "%s\n", namecnv) <= 0)
             {
                 fclose(listFile);
                 DeleteFile(tmpListNameBuf);
@@ -383,17 +439,32 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     char cmdLine[PACK_CMDLINE_MAXLEN];
     // buffer for a temporary name (when creating an archive with a long name and we need its DOS name,
     // DOSTmpName expands instead of the long name; after creating the archive the file is renamed)
-    char DOSTmpName[MAX_PATH];
-    if (!PackExpandCmdLine(archiveFileName, rootPath, tmpListNameBuf, NULL,
+    char DOSTmpName[SAL_MAX_PATH];
+    if (!PackExpandCmdLine(archiveFileNameForCommand, rootPath, tmpListNameBuf, NULL,
                            command, cmdLine, PACK_CMDLINE_MAXLEN, DOSTmpName))
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_CMDLNERR);
     }
+    if (rarTmpArchiveName[0] != 0)
+        lstrcpyn(DOSTmpName, rarTmpArchiveName, SAL_MAX_PATH);
+
+    // Older configurations can still contain "-scol" (OEM list file).  We write
+    // RAR list files as UTF-16LE above, so force RAR's list-file charset to
+    // Unicode even for commands loaded from existing user configuration.
+    if (rarUnicodeListFile)
+    {
+        char* sc = cmdLine;
+        while ((sc = strstr(sc, "-scol")) != NULL)
+        {
+            memcpy(sc, "-scul", 5);
+            sc += 5;
+        }
+    }
 
     // hack for RAR 4.x+ that dislikes "-ap""" when addressing the archive root; this cleanup works with older RAR too
     // see https://forum.altap.cz/viewtopic.php?f=2&t=5487
-    if (*rootPath == 0 && strstr(command, "$(Rar32bitExecutable) ") == command)
+    if (*rootPath == 0 && strstr(command, "$(Rar32bitOr64bitExecutable) ") == command)
     {
         char* pAP = strstr(cmdLine, "\" -ap\"\" @\"");
         if (pAP != NULL)
@@ -401,7 +472,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
     // hack for copying into a directory in RAR - it fails if the path begins with a backslash; it created e.g. \Test directory but Salam shows it as Test
     // https://forum.altap.cz/viewtopic.php?p=24586#p24586
-    if (*rootPath == '\\' && strstr(command, "$(Rar32bitExecutable) ") == command)
+    if (*rootPath == '\\' && strstr(command, "$(Rar32bitOr64bitExecutable) ") == command)
     {
         char* pAP = strstr(cmdLine, "\" -ap\"\\");
         if (pAP != NULL)
@@ -418,10 +489,10 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
 
     // construct the current directory
-    char currentDir[MAX_PATH];
+    char currentDir[SAL_MAX_PATH];
     if (!expandInitDir)
     {
-        if (strlen(initDir) < MAX_PATH)
+        if (strlen(initDir) < SAL_MAX_PATH)
             strcpy(currentDir, initDir);
         else
         {
@@ -431,8 +502,8 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
     else
     {
-        if (!PackExpandInitDir(archiveFileName, sourceDir, rootPath, initDir, currentDir,
-                               MAX_PATH))
+        if (!PackExpandInitDir(archiveFileNameForCommand, sourceDir, rootPath, initDir, currentDir,
+                               SAL_MAX_PATH))
         {
             DeleteFile(tmpListNameBuf);
             return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_IDIRERR);
@@ -441,8 +512,8 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
 
     // back up the short archive file name, later we check whether the long name
     // survived -> if the short one remained, rename it back to the original long name
-    char DOSArchiveFileName[MAX_PATH];
-    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, MAX_PATH))
+    char DOSArchiveFileName[SAL_MAX_PATH];
+    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, _countof(DOSArchiveFileName)))
         DOSArchiveFileName[0] = 0;
 
     // and run the external program
@@ -458,6 +529,8 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     if (!exec)
     {
         DeleteFile(tmpListNameBuf);
+        if (rarTmpArchiveName[0] != 0)
+            DeleteFile(rarTmpArchiveName);
         return FALSE; // error message has already been displayed
     }
 
@@ -467,14 +540,14 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     // if we used a temporary DOS name, rename all files of that name (name.*) to the desired long name
     if (DOSTmpName[0] != 0)
     {
-        char src[2 * MAX_PATH];
+        char src[SAL_MAX_PATH];
         strcpy(src, DOSTmpName);
         char* tmpOrigName;
         CutDirectory(src, &tmpOrigName);
         tmpOrigName = DOSTmpName + (tmpOrigName - src);
-        SalPathAddBackslash(src, 2 * MAX_PATH);
+        SalPathAddBackslash(src, _countof(src));
         char* srcName = src + strlen(src);
-        char dstNameBuf[2 * MAX_PATH];
+        char dstNameBuf[SAL_MAX_PATH];
         strcpy(dstNameBuf, archiveFileName);
         char* dstExt = dstNameBuf + strlen(dstNameBuf);
         //    while (--dstExt > dstNameBuf && *dstExt != '\\' && *dstExt != '.');
@@ -483,7 +556,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         //    if (dstExt == dstNameBuf || *dstExt == '\\' || *(dstExt - 1) == '\\') dstExt = dstNameBuf + strlen(dstNameBuf); // for "name", ".cvspass", "path\\name" or "path\\.name" there is no extension
         if (dstExt < dstNameBuf || *dstExt == '\\')
             dstExt = dstNameBuf + strlen(dstNameBuf); // for "name" or "path\\name" there is no extension; in Windows ".cvspass" is an extension
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
         strcpy(path, DOSTmpName);
         char* ext = path + strlen(path);
         //    while (--ext > path && *ext != '\\' && *ext != '.');
@@ -604,7 +677,7 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     //
     // We must adjust the directory in the archive to the required format
     //
-    char rootPath[MAX_PATH];
+    char rootPath[SAL_MAX_PATH];
     if (archiveRoot != NULL && *archiveRoot != '\0')
     {
         if (*archiveRoot == '\\')
@@ -647,7 +720,7 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     // and we can fill it
     BOOL isDir;
     const char* name;
-    char namecnv[MAX_PATH];
+    char namecnv[SAL_MAX_PATH];
     int errorOccured;
     if (!needANSIListFile)
         CharToOem(rootPath, rootPath);
@@ -725,9 +798,9 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     }
 
     // construct the current directory
-    char currentDir[MAX_PATH];
+    char currentDir[SAL_MAX_PATH];
     if (!PackExpandInitDir(archiveFileName, NULL, NULL, modifyTable->DeleteInitDir,
-                           currentDir, MAX_PATH))
+                           currentDir, SAL_MAX_PATH))
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_IDIRERR);
@@ -740,8 +813,8 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
 
     // back up the short archive file name, later we check whether the long name
     // survived -> if the short one remained, rename it back to the original long name
-    char DOSArchiveFileName[MAX_PATH];
-    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, MAX_PATH))
+    char DOSArchiveFileName[SAL_MAX_PATH];
+    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, _countof(DOSArchiveFileName)))
         DOSArchiveFileName[0] = 0;
 
     // and run the external program

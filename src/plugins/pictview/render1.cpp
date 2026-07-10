@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -117,7 +117,7 @@ CRendererWindow::~CRendererWindow()
 
 void CRendererWindow::SetTitle()
 {
-    TCHAR buff[MAX_PATH + 100];
+    TCHAR buff[SAL_MAX_PATH + 100];
 
     if (PVHandle != NULL)
     {
@@ -173,11 +173,11 @@ void CRendererWindow::SetTitle()
             _stprintf(colors, LoadStr(id), nColors);
         }
         if (pvii.NumOfImages == 1)
-            _stprintf(buff, LoadStr(IDS_TITLE), fname, width, height,
-                      colors, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
+            _sntprintf_s(buff, SizeOf(buff), _TRUNCATE, LoadStr(IDS_TITLE), fname, width, height,
+                         colors, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
         else
-            _stprintf(buff, LoadStr(IDS_TITLE_MULTI), fname, width, height,
-                      colors, pvii.CurrentImage + 1, pvii.NumOfImages, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
+            _sntprintf_s(buff, SizeOf(buff), _TRUNCATE, LoadStr(IDS_TITLE_MULTI), fname, width, height,
+                         colors, pvii.CurrentImage + 1, pvii.NumOfImages, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
     }
     else
         _tcscpy(buff, LoadStr(IDS_PLUGINNAME));
@@ -224,7 +224,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
     LPPVHandle OldPVHandle = PVHandle;
     PVOpenImageExInfo oiei;
 #ifdef _UNICODE
-    char nameA[_MAX_PATH];
+    std::string nameA;
 #endif
 
     if (showCmd != -1)
@@ -252,9 +252,8 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
     else
     {
 #ifdef _UNICODE
-        WideCharToMultiByte(CP_ACP, 0, name, -1, nameA, sizeof(nameA), NULL, NULL);
-        nameA[sizeof(nameA) - 1] = 0;
-        oiei.FileName = nameA;
+        nameA = PluginWideToMultiBytePath(name, CP_UTF8);
+        oiei.FileName = nameA.c_str();
 #else
         oiei.FileName = name;
 #endif
@@ -348,8 +347,8 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 
     if (code != PVC_OK)
     {
-        TCHAR errText[MAX_PATH + 100];
-        _stprintf(errText, LoadStr(IDS_ERROR_OPENING), name, PVW32DLL.PVGetErrorText(code));
+        TCHAR errText[SAL_MAX_PATH + 100];
+        _sntprintf_s(errText, SizeOf(errText), _TRUNCATE, LoadStr(IDS_ERROR_OPENING), name, PVW32DLL.PVGetErrorText(code));
         SalamanderGeneral->SalMessageBox(HWindow, errText, LoadStr(IDS_ERRORTITLE), MB_ICONEXCLAMATION);
         // In case the new file is not recognized, we keep the old one
         if (PVHandle != NULL)
@@ -403,9 +402,9 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 
     if ((code == PVC_OK) && (hBmp == NULL))
     {
-        TCHAR path[MAX_PATH];
+        TCHAR path[SAL_MAX_PATH];
 
-        _tcscpy(path, name);
+        lstrcpyn(path, name, SizeOf(path));
         // we must not pass 'name' directly to AddToHistory, because it may already come from history
         // and that would lead to a conflict when moving entries
         AddToHistory(TRUE, path);

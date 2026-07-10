@@ -88,13 +88,36 @@ BOOL CALLBACK SubClassedProgressDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 // worker threads
 //
 
+static unsigned WINAPI DecompressThreadProcBodyNoSEH(LPVOID lpParameter)
+{
+    try
+    {
+        CDecompressParamObject* dpo = (CDecompressParamObject*)lpParameter;
+
+        HRESULT result = (dpo->Archive)->Extract(dpo->FileIndex, dpo->Count, BoolToInt(dpo->Test), dpo->Callback);
+
+        return result;
+    }
+    catch (...)
+    {
+        return E_FAIL;
+    }
+}
+
 unsigned WINAPI DecompressThreadProcBody(LPVOID lpParameter)
 {
-    CDecompressParamObject* dpo = (CDecompressParamObject*)lpParameter;
-
-    HRESULT result = (dpo->Archive)->Extract(dpo->FileIndex, dpo->Count, BoolToInt(dpo->Test), dpo->Callback);
-
-    return result;
+#ifdef _MSC_VER
+    __try
+    {
+        return DecompressThreadProcBodyNoSEH(lpParameter);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return DecompressThreadProcBodyNoSEH(lpParameter);
+#endif // _MSC_VER
 }
 
 DWORD WINAPI DecompressThreadProc(LPVOID lpParameter)
@@ -114,6 +137,7 @@ HRESULT LaunchAndDo7ZipTask(LPTHREAD_START_ROUTINE threadProc, LPVOID args)
 
     if (!hThread)
     {
+        SetWindowLongPtr(Salamander->ProgressGetHWND(), GWLP_WNDPROC, (LONG_PTR)OldProgressDlgProc);
         return GetLastError();
     }
 
@@ -126,6 +150,7 @@ HRESULT LaunchAndDo7ZipTask(LPTHREAD_START_ROUTINE threadProc, LPVOID args)
 
             GetExitCodeThread(hThread, &exitCode);
             CloseHandle(hThread);
+            SetWindowLongPtr(Salamander->ProgressGetHWND(), GWLP_WNDPROC, (LONG_PTR)OldProgressDlgProc);
             return exitCode; // Our thread body func returns HRESULT
         }
 
@@ -169,13 +194,36 @@ HRESULT DoDecompress(CSalamanderForOperationsAbstract* salamander, CDecompressPa
     return result;
 }
 
+static unsigned WINAPI UpdateThreadProcBodyNoSEH(LPVOID lpParameter)
+{
+    try
+    {
+        CUpdateParamObject* upo = (CUpdateParamObject*)lpParameter;
+
+        HRESULT result = (upo->Archive)->UpdateItems(upo->Stream, upo->Count, upo->Callback);
+
+        return result;
+    }
+    catch (...)
+    {
+        return E_FAIL;
+    }
+}
+
 unsigned WINAPI UpdateThreadProcBody(LPVOID lpParameter)
 {
-    CUpdateParamObject* upo = (CUpdateParamObject*)lpParameter;
-
-    HRESULT result = (upo->Archive)->UpdateItems(upo->Stream, upo->Count, upo->Callback);
-
-    return result;
+#ifdef _MSC_VER
+    __try
+    {
+        return UpdateThreadProcBodyNoSEH(lpParameter);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return UpdateThreadProcBodyNoSEH(lpParameter);
+#endif // _MSC_VER
 }
 
 DWORD WINAPI UpdateThreadProc(LPVOID lpParameter)

@@ -1015,6 +1015,20 @@ DWORD ClampToDword(ULONGLONG value)
                : static_cast<DWORD>(value);
 }
 
+
+std::wstring AddExtendedPrefixIfNeeded(const std::wstring& path)
+{
+    if (path.empty() || path.rfind(L"\\\\?\\", 0) == 0 || path.length() < SAL_MAX_PATH)
+    {
+        return path;
+    }
+    if (path.rfind(L"\\\\", 0) == 0)
+    {
+        return std::wstring(L"\\\\?\\UNC\\") + path.substr(2);
+    }
+    return std::wstring(L"\\\\?\\") + path;
+}
+
 DWORD QueryFileSize(const std::wstring& path)
 {
     if (path.empty())
@@ -5748,7 +5762,7 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
     }
     else
     {
-        image->fileName = Utf8ToWide(pOpenExInfo->FileName);
+        image->fileName = AddExtendedPrefixIfNeeded(Utf8ToWide(pOpenExInfo->FileName));
         if (image->fileName.empty())
         {
             return PVC_CANNOT_OPEN_FILE;
@@ -6025,7 +6039,7 @@ PVCODE WINAPI Backend::sPVSaveImage(LPPVHandle Img, const char* outFileName, LPP
     {
         return PVC_UNSUP_OUT_PARAMS;
     }
-    const auto fileName = Utf8ToWide(outFileName);
+    const auto fileName = AddExtendedPrefixIfNeeded(Utf8ToWide(outFileName));
     const GuidMapping* mapping = nullptr;
     for (const auto& item : kEncoderMappings)
     {

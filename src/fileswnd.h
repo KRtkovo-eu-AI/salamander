@@ -1763,14 +1763,14 @@ struct CPanelTmpEnumData
     // for enum-zip-selection, enumFiles > 0
     CSalamanderDirectory* EnumLastDir;
     int EnumLastIndex;
-    char EnumLastPath[MAX_PATH];
-    char EnumTmpFileName[MAX_PATH];
+    char EnumLastPath[SAL_MAX_PATH];
+    char EnumTmpFileName[SAL_MAX_PATH];
 
     // for disk enumeration, enumFiles > 0
-    char WorkPath[MAX_PATH];                 // path where Files and Dirs reside, used only when browsing disk (not archives)
+    char WorkPath[SAL_MAX_PATH];                 // path where Files and Dirs reside, used only when browsing disk (not archives)
     CSalamanderDirectory* DiskDirectoryTree; // replacement for Panel->ArchiveDir
-    char EnumLastDosPath[MAX_PATH];          // DOS name of EnumLastPath
-    char EnumTmpDosFileName[MAX_PATH];       // DOS name of EnumTmpFileName
+    char EnumLastDosPath[SAL_MAX_PATH];          // DOS name of EnumLastPath
+    char EnumTmpDosFileName[SAL_MAX_PATH];       // DOS name of EnumTmpFileName
     int FilesCountReturnedFromWP;            // number of files already returned by the enumerator directly from WorkPath (i.e. from Files)
 
     CPanelTmpEnumData();

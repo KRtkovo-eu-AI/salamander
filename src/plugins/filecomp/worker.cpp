@@ -148,8 +148,8 @@ CFilecompWorker::CFilecompWorker(HWND parent, HWND mainWindow, const char* name0
 {
     Parent = Parent;
     MainWindow = mainWindow;
-    strcpy(Files[0].Name, name0);
-    strcpy(Files[1].Name, name1);
+    Files[0].Name = name0 != NULL ? name0 : "";
+    Files[1].Name = name1 != NULL ? name1 : "";
     Options = options;
     Event = event;
 }
@@ -159,15 +159,16 @@ void CFilecompWorker::CException::Raise(int error, int lastError, ...)
     CALL_STACK_MESSAGE3("CFilecompWorker::CWorkerException::Raise(%d, %d, )", error, lastError);
     va_list arglist;
     va_start(arglist, lastError);
-    char buf[1024]; //temp variable
+    char buf[SAL_MAX_PATH]; // temp variable, may include a long file path
     *buf = 0;
-    vsprintf(buf, LoadStr(error), arglist);
+    _vsnprintf_s(buf, _countof(buf), _TRUNCATE, LoadStr(error), arglist);
     va_end(arglist);
     if (lastError != ERROR_SUCCESS)
     {
         int l = lstrlen(buf);
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastError,
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, 1024 - l, NULL);
+        if (l < int(_countof(buf)) - 1)
+            FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastError,
+                          MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, DWORD(_countof(buf) - l), NULL);
     }
     throw CException(buf);
 }
@@ -220,21 +221,29 @@ void CFilecompWorker::GuardedBody()
         // NOTE: IntViewer can open such files, users wants FC to support them as well
         // See https://forum.altap.cz/viewtopic.php?t=2675
         // See also CHexFileViewWindow::SetData()
-        Files[i].File = CreateFile(Files[i].Name, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                   NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+        std::wstring nameW = PluginMultiByteToWidePath(Files[i].Name.c_str(), CP_UTF8);
+        if (nameW.empty())
+            nameW = PluginMultiByteToWidePath(Files[i].Name.c_str(), CP_ACP);
+        if (nameW.length() >= MAX_PATH)
+            nameW = PluginPathAddExtendedPrefixW(nameW.c_str());
+        Files[i].File = !nameW.empty() ?
+                            CreateFileW(nameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                        NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL) :
+                            CreateFileA(Files[i].Name.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                        NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
         if (Files[i].File == INVALID_HANDLE_VALUE)
-            CException::Raise(IDS_OPEN, GetLastError(), Files[i].Name);
+            CException::Raise(IDS_OPEN, GetLastError(), Files[i].Name.c_str());
 
         CQuadWord size;
         DWORD err;
         if (!SG->SalGetFileSize(Files[i].File, size, err))
-            CException::Raise(IDS_ACCESFILE, err, Files[i].Name);
+            CException::Raise(IDS_ACCESFILE, err, Files[i].Name.c_str());
         Files[i].Size = size.Value;
 
         if (Files[i].Size > QWORD(numeric_limits<int>::max() - 1))
         {
             if (Options.ForceText)
-                CException::Raise(IDS_LARGEFILE, 0, Files[i].Name);
+                CException::Raise(IDS_LARGEFILE, 0, Files[i].Name.c_str());
             Options.ForceBinary;
         }
     }
@@ -251,7 +260,7 @@ void CFilecompWorker::GuardedBody()
         int j;
         for (j = 0; j <= 1; j++)
         {
-            files[j].Set(Files[j].Name, Files[j].File, size_t(Files[j].Size),
+            files[j].Set(Files[j].Name.c_str(), Files[j].File, size_t(Files[j].Size),
                          Options.EolConversion[j], (CTextFileReader::eEncoding)Options.Encoding[j],
                          (CTextFileReader::eEndian)Options.Endians[j], Options.PerformASCII8InputEnc[j],
                          Options.ASCII8InputEncTableName[j], Options.NormalizationForm,

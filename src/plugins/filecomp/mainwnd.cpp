@@ -55,8 +55,8 @@ void ApplyFileCompMainWindowChrome(HWND hwnd, HWND toolbar, HWND rebar)
 CMainWindow::CMainWindow(char* path1, char* path2, CCompareOptions* options, UINT showCmd)
 {
     CALL_STACK_MESSAGE1("CMainWindow::CMainWindow(, , )");
-    Path1 = path1;
-    Path2 = path2;
+    Path1 = path1 != NULL ? path1 : "";
+    Path2 = path2 != NULL ? path2 : "";
     FileView[fviLeft] = NULL;
     FileView[fviRight] = NULL;
     Active = 0;
@@ -769,8 +769,8 @@ void CMainWindow::ResetComboBox(BOOL* cancel)
             size_t inserted = TextChanges[i].Inserted; // # lines of file 1 changed here.
             size_t line0 = TextChanges[i].DeletePos;   // Line number of 1st deleted line.
             size_t line1 = TextChanges[i].InsertPos;   // Line number of 1st inserted line.
-            const char* path0 = SG->SalPathFindFileName(Path1);
-            const char* path1 = SG->SalPathFindFileName(Path2);
+            const char* path0 = SG->SalPathFindFileName(Path1.c_str());
+            const char* path1 = SG->SalPathFindFileName(Path2.c_str());
             char buf[MAX_PATH * 3];
 
             ++i;
@@ -1013,10 +1013,10 @@ bool CMainWindow::TextFilesDiffer(CTextCompareResults<CChar>* res, char* message
     {
         DifferencesCount = int(ChangesToLines[ViewMode].size());
 
-        strcpy(Path1, res->Files[0].Name);
-        strcpy(Path2, res->Files[1].Name);
-        LeftHeader->SetText(Path1);
-        RightHeader->SetText(Path2);
+        Path1 = res->Files[0].Name;
+        Path2 = res->Files[1].Name;
+        LeftHeader->SetText(Path1.c_str());
+        RightHeader->SetText(Path2.c_str());
 
         ResetComboBox(&cancel);
         if (!cancel)
@@ -1257,12 +1257,12 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_COMPARE:
         {
-            char path1[MAX_PATH];
-            char path2[MAX_PATH];
+            char path1[SAL_MAX_PATH];
+            char path2[SAL_MAX_PATH];
             if (DataValid)
             {
-                strcpy(path1, Path1);
-                strcpy(path2, Path2);
+                lstrcpynA(path1, Path1.c_str(), SizeOf(path1));
+                lstrcpynA(path2, Path2.c_str(), SizeOf(path2));
             }
             else
             {
@@ -1304,7 +1304,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
 
                 // start the worker
-                SpawnWorker(Path1, Path2, TRUE, Options);
+                SpawnWorker((char*)Path1.c_str(), (char*)Path2.c_str(), TRUE, Options);
             }
             return 0;
         }
@@ -1601,7 +1601,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             POINT pt;
             int count, view = -1;
-            char path1[MAX_PATH], path2[MAX_PATH];
+            char path1[SAL_MAX_PATH], path2[SAL_MAX_PATH];
             CCompareOptions options = DefCompareOptions;
 
             if (DragQueryPoint(drop, &pt))
@@ -1619,7 +1619,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 goto LDROPERROR;
             if (count >= 1)
             {
-                DragQueryFile(drop, 0, path1, MAX_PATH);
+                DragQueryFile(drop, 0, path1, SAL_MAX_PATH);
                 if (SG->SalGetFileAttributes(path1) & FILE_ATTRIBUTE_DIRECTORY)
                 {
                     Error(HWindow, IDS_NOTVALIDFILE, path1);
@@ -1628,7 +1628,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             if (count >= 2)
             {
-                DragQueryFile(drop, 1, path2, MAX_PATH);
+                DragQueryFile(drop, 1, path2, SAL_MAX_PATH);
                 if (SG->SalGetFileAttributes(path1) & FILE_ATTRIBUTE_DIRECTORY)
                 {
                     Error(HWindow, IDS_NOTVALIDFILE, path2);
@@ -1640,11 +1640,11 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (DataValid && view >= 0)
                 {
                     if (view == 0)
-                        strcpy(path2, Path2);
+                        lstrcpynA(path2, Path2.c_str(), SizeOf(path2));
                     else
                     {
-                        strcpy(path2, path1);
-                        strcpy(path1, Path1);
+                        lstrcpynA(path2, path1, SizeOf(path2));
+                        lstrcpynA(path1, Path1.c_str(), SizeOf(path1));
                     }
                     // the operation resembles a recompare, so reuse the current settings
                     // unless the user changed the defaults in the configuration in the meantime;
@@ -1888,14 +1888,14 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_WORKERNOTIFIES:
     {
         BOOL ret = TRUE;
-        TCHAR message[1024];
+        TCHAR message[SAL_MAX_PATH];
         *message = 0;
         UINT type = MB_ICONERROR;
         LPCTSTR encoding[2] = {_T(""), _T("")};
         switch (wParam)
         {
         case WN_ERROR:
-            _tcscpy(message, (LPCTSTR)lParam);
+            lstrcpyn(message, (LPCTSTR)lParam, SizeOf(message));
             break;
 
         case WN_WORKER_CANCELED:
@@ -1928,7 +1928,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         DetailedDifferences = FALSE;
                         CheckMenuItem(GetMenu(HWindow), CM_DETAILDIFF, MF_BYCOMMAND | (DetailedDifferences ? MF_CHECKED : MF_UNCHECKED));
                         // and compare again
-                        SpawnWorker(Path1, Path2, FALSE, Options);
+                        SpawnWorker((char*)Path1.c_str(), (char*)Path2.c_str(), FALSE, Options);
                         return 0;
                     }
                 }
@@ -2022,10 +2022,10 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 ((CHexFileViewWindow*)FileView[fviRight])->SetData(res->FirstChange, res->Files[1].Name, res->Files[0].Size))
             {
                 Options = res->Options;
-                strcpy(Path1, res->Files[0].Name);
-                strcpy(Path2, res->Files[1].Name);
-                LeftHeader->SetText(Path1);
-                RightHeader->SetText(Path2);
+                Path1 = res->Files[0].Name;
+                Path2 = res->Files[1].Name;
+                LeftHeader->SetText(Path1.c_str());
+                RightHeader->SetText(Path2.c_str());
 
                 ResetComboBox();
 
@@ -2099,7 +2099,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 _tcscpy(fmt, LoadStr(IDS_MAINWNDHEADERCOMPUTING_PROGRESS));
             }
-            _stprintf(buf, fmt, SG->SalPathFindFileName(Path1), SG->SalPathFindFileName(Path2),
+            _stprintf(buf, fmt, SG->SalPathFindFileName(Path1.c_str()), SG->SalPathFindFileName(Path2.c_str()),
                       LOWORD(lParam), HIWORD(lParam));
             SetWindowText(HWindow, buf);
             return 0;
@@ -2159,8 +2159,8 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (FirstCompare)
             {
                 type |= MB_YESNO | MSGBOXEX_ESCAPEENABLED;
-                _tcscat(message, _T("\n"));
-                _tcscat(message, LoadStr(IDS_CLOSEDIFF));
+                lstrcpyn(message + lstrlen(message), _T("\n"), SizeOf(message) - lstrlen(message));
+                lstrcpyn(message + lstrlen(message), LoadStr(IDS_CLOSEDIFF), SizeOf(message) - lstrlen(message));
             }
             if (SG->SalMessageBox(HWindow, message, LoadStr(IDS_PLUGINNAME), type) == IDYES)
                 PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0);
@@ -2179,12 +2179,12 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             else
                 _tcscpy(fmt, LoadStr((WN_NO_DIFFERENCE == wParam) ? IDS_MAINWNDHEADER_NODIF : IDS_MAINWNDHEADERCOMPUTING2));
-            _stprintf(buf, fmt, SG->SalPathFindFileName(Path1), encoding[0], SG->SalPathFindFileName(Path2), encoding[1], DifferencesCount);
+            _stprintf(buf, fmt, SG->SalPathFindFileName(Path1.c_str()), encoding[0], SG->SalPathFindFileName(Path2.c_str()), encoding[1], DifferencesCount);
             //        }
             //        else
             //        {
             //          _stprintf(buf, LoadStr(IDS_MAINWNDHEADERCOMPUTING2),
-            //            SG->SalPathFindFileName(Path1), SG->SalPathFindFileName(Path2));
+            //            SG->SalPathFindFileName(Path1.c_str()), SG->SalPathFindFileName(Path2.c_str()));
             //        }
         }
         else

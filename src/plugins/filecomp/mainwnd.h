@@ -51,8 +51,8 @@ extern const char* MAINWINDOW_CLASSNAME;
 class CMainWindow : public CWindow
 {
 protected:
-    char *Path1,
-        *Path2;
+    std::string Path1;
+    std::string Path2;
     DWORD HeaderHeight;
     CFileHeaderWindow* LeftHeader;
     CFileHeaderWindow* RightHeader;
