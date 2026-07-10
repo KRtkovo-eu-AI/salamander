@@ -189,8 +189,13 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND hWnd1 = GetDlgItem(HWindow, IDE_PATH1), hWnd2 = GetDlgItem(HWindow, IDE_PATH2);
+        HWND hEdit1 = GetWindow(hWnd1, GW_CHILD), hEdit2 = GetWindow(hWnd2, GW_CHILD);
         SendMessage(hWnd1, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
         SendMessage(hWnd2, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        if (hEdit1 != NULL)
+            SendMessage(hEdit1, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        if (hEdit2 != NULL)
+            SendMessage(hEdit2, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
 
         SG->InstallWordBreakProc(hWnd1); // install WordBreakProc into the combo box
         SG->InstallWordBreakProc(hWnd2); // install WordBreakProc into the combo box
@@ -227,10 +232,28 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
         SendMessage(hWnd1, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
         SendMessage(hWnd2, CB_LIMITTEXT, SAL_MAX_PATH - 1, 0);
-        SetWindowText(hWnd1, Path1);
-        SetWindowText(hWnd2, Path2);
-        SendMessage(hWnd1, CB_SETEDITSEL, 0, MAKELPARAM(0, -1));
-        SendMessage(hWnd2, CB_SETEDITSEL, 0, MAKELPARAM(0, -1));
+        if (hEdit1 != NULL)
+        {
+            SendMessage(hEdit1, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+            SetWindowText(hEdit1, Path1);
+            SendMessage(hEdit1, EM_SETSEL, 0, -1);
+        }
+        else
+        {
+            SetWindowText(hWnd1, Path1);
+            SendMessage(hWnd1, CB_SETEDITSEL, 0, MAKELPARAM(0, -1));
+        }
+        if (hEdit2 != NULL)
+        {
+            SendMessage(hEdit2, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+            SetWindowText(hEdit2, Path2);
+            SendMessage(hEdit2, EM_SETSEL, 0, -1);
+        }
+        else
+        {
+            SetWindowText(hWnd2, Path2);
+            SendMessage(hWnd2, CB_SETEDITSEL, 0, MAKELPARAM(0, -1));
+        }
         return ret;
     }
 
