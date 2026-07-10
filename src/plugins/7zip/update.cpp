@@ -19,6 +19,23 @@
 
 #include "7za/CPP/7zip/Common/FileStreams.h"
 
+static void GetThreadSafeErrorText(DWORD err, char* buffer, size_t bufferSize)
+{
+    if (bufferSize == 0)
+        return;
+
+    DWORD len = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                              NULL, err, 0, buffer, (DWORD)bufferSize, NULL);
+    if (len == 0)
+    {
+        _snprintf_s(buffer, bufferSize, _TRUNCATE, "System error %lu", err);
+        return;
+    }
+
+    while (len > 0 && (buffer[len - 1] == '\r' || buffer[len - 1] == '\n' || buffer[len - 1] == '.'))
+        buffer[--len] = 0;
+}
+
 CArchiveUpdateCallback::CArchiveUpdateCallback(HWND _hProgWnd)
 {
     InitializeCriticalSection(&CSUpdate);
@@ -283,12 +300,14 @@ HRESULT CArchiveUpdateCallback::GetStreamNoSEH(UInt32 index,
                 {
                     DWORD err = ::GetLastError();
                     AString fn = GetAnsiString(fi->FullPath);
+                    char errText[1024];
+                    GetThreadSafeErrorText(err, errText, _countof(errText));
                     // Warning: GetStream can get called from a parallel thread launched by 7za.dll!
                     CDialogErrorParams dep;
 
                     dep.Flags = BUTTONS_RETRYSKIPCANCEL;
                     dep.FileName = fn;
-                    dep.Error = SalamanderGeneral->GetErrorText(err);
+                    dep.Error = errText;
                     mbRet = (int)SendMessage(hProgWnd, WM_7ZIP, WM_7ZIP_DIALOGERROR, (LPARAM)&dep);
                 }
             }

@@ -11,6 +11,23 @@
 #include "7zip.rh2"
 #include "lang\lang.rh"
 
+static void GetThreadSafeErrorText(DWORD err, TCHAR* buffer, size_t bufferSize)
+{
+    if (bufferSize == 0)
+        return;
+
+    DWORD len = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                              NULL, err, 0, buffer, (DWORD)bufferSize, NULL);
+    if (len == 0)
+    {
+        _sntprintf_s(buffer, bufferSize, _TRUNCATE, _T("System error %lu"), err);
+        return;
+    }
+
+    while (len > 0 && (buffer[len - 1] == _T('\r') || buffer[len - 1] == _T('\n') || buffer[len - 1] == _T('.')))
+        buffer[--len] = 0;
+}
+
 BOOL ShowRetryAbortBox(HWND hParentWnd, int resID, DWORD err, ...)
 {
     TCHAR msg[1024];
@@ -27,8 +44,10 @@ BOOL ShowRetryAbortBox(HWND hParentWnd, int resID, DWORD err, ...)
         SalamanderGeneral->ExpandPluralString(fmt, sizeof(fmt), msg, 1, &CQuadWord().SetUI64(((int*)&err)[1]));
         strcpy(msg, fmt);
     }
+    TCHAR errText[1024];
+    GetThreadSafeErrorText(err, errText, _countof(errText));
     TCHAR buf[2048 + 4];
-    _stprintf(buf, _T("%s\n\n%s"), msg, SalamanderGeneral->GetErrorText(err));
+    _stprintf(buf, _T("%s\n\n%s"), msg, errText);
 
     TCHAR btnBuffer[128];
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator
