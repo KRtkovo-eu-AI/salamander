@@ -26,7 +26,7 @@ static HANDLE CreateFileLongPath(const char* fileName, DWORD desiredAccess, DWOR
     if (!fileNameW.empty())
     {
         if (fileNameW.length() >= MAX_PATH && wcsncmp(fileNameW.c_str(), L"\\\\?\\", 4) != 0)
-            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + fileNameW.c_str() + 2
+            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + std::wstring(fileNameW.c_str() + 2)
                                                                     : std::wstring(L"\\\\?\\") + fileNameW;
         return CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL,
                            creationDisposition, flagsAndAttributes, NULL);
