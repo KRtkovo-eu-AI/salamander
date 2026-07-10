@@ -1805,8 +1805,19 @@ BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorT
 
     // launch the external program; use CreateProcessW so Unicode/long current directories
     // survive the hop through salamand.exe/spawn.exe to external packers (RAR, ARJ, ACE, ...).
-    if (tmpCmdLineW.empty() ||
-        !HANDLES(CreateProcessW(NULL, &tmpCmdLineW[0], NULL, NULL, TRUE, CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL, currentDirParam, &si, &pi)))
+    BOOL processCreated = FALSE;
+    if (!tmpCmdLineW.empty())
+    {
+        processCreated = NOHANDLES(CreateProcessW(NULL, &tmpCmdLineW[0], NULL, NULL, TRUE,
+                                                  CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL,
+                                                  currentDirParam, &si, &pi));
+        if (processCreated)
+        {
+            HANDLES_ADD(__htProcess, __hoCreateProcess, pi.hProcess);
+            HANDLES_ADD(__htThread, __hoCreateProcess, pi.hThread);
+        }
+    }
+    if (!processCreated)
     {
         DWORD err = GetLastError();
         free(tmpCmdLine);
