@@ -209,7 +209,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
         do
         {
             mbRet = DIALOG_OK;
-            if (!inStreamSpec->Open(us2fs(GetUnicodeString(GetAnsiString(fi->FullPath)))))
+            if (!inStreamSpec->Open(us2fs(fi->FullPath)))
             {
                 mbRet = DIALOG_SKIP;
                 if (!Silent)

@@ -8,6 +8,7 @@
 #include "zip.h"
 #include "plugins.h"
 #include "pack.h"
+#include "common/widepath.h"
 
 //
 // ****************************************************************************
@@ -296,12 +297,27 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
     }
 
-    // we have the file, now open it
+    const BOOL rarUnicodeListFile = strstr(command, "$(Rar32bitOr64bitExecutable) ") == command;
+
+    // we have the file, now open it. RAR 4.x+ is invoked with -scol in our default
+    // configuration, which means the list file must be UTF-16LE. Without this,
+    // Unicode names outside the active ANSI/OEM code page are corrupted before RAR
+    // ever opens the source file.
     FILE* listFile;
-    if ((listFile = fopen(tmpListNameBuf, "w")) == NULL)
+    if ((listFile = fopen(tmpListNameBuf, rarUnicodeListFile ? "wb" : "w")) == NULL)
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+    }
+    if (rarUnicodeListFile)
+    {
+        const unsigned char bom[] = {0xFF, 0xFE};
+        if (fwrite(bom, sizeof(bom), 1, listFile) != 1)
+        {
+            fclose(listFile);
+            DeleteFile(tmpListNameBuf);
+            return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+        }
     }
 
     // and we can fill it
@@ -358,7 +374,22 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         // and put it into the list
         if (!isDir)
         {
-            if (fprintf(listFile, "%s\n", namecnv) <= 0)
+            if (rarUnicodeListFile)
+            {
+                std::wstring nameW = SalMultiByteToWidePath(namecnv, CP_UTF8);
+                if (nameW.empty() && GetACP() != CP_UTF8)
+                    nameW = SalMultiByteToWidePath(namecnv, CP_ACP);
+                const wchar_t eol[] = L"\r\n";
+                if (nameW.empty() ||
+                    fwrite(nameW.c_str(), sizeof(wchar_t), nameW.length(), listFile) != nameW.length() ||
+                    fwrite(eol, sizeof(wchar_t), 2, listFile) != 2)
+                {
+                    fclose(listFile);
+                    DeleteFile(tmpListNameBuf);
+                    return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_FILE);
+                }
+            }
+            else if (fprintf(listFile, "%s\n", namecnv) <= 0)
             {
                 fclose(listFile);
                 DeleteFile(tmpListNameBuf);

@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "dumpmem.h"
 #include "array2.h"
 
@@ -11,6 +13,29 @@
 #include "pak.rh2"
 #include "lang\lang.rh"
 #include "pak.h"
+
+static HANDLE CreateFileLongPath(const char* fileName, DWORD desiredAccess, DWORD shareMode,
+                                 DWORD creationDisposition, DWORD flagsAndAttributes)
+{
+    std::wstring fileNameW;
+    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
+    if (len > 0)
+    {
+        fileNameW.resize(len - 1);
+        MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
+    }
+    if (!fileNameW.empty())
+    {
+        if (fileNameW.length() >= MAX_PATH && wcsncmp(fileNameW.c_str(), L"\\\\?\\", 4) != 0)
+            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + fileNameW.c_str() + 2
+                                                                    : std::wstring(L"\\\\?\\") + fileNameW;
+        return CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL,
+                           creationDisposition, flagsAndAttributes, NULL);
+    }
+    return CreateFile(fileName, desiredAccess, shareMode, NULL,
+                      creationDisposition, flagsAndAttributes, NULL);
+}
 
 DWORD ComputeDirDepth(const char* fileName)
 {
@@ -34,7 +59,7 @@ BOOL CPluginInterfaceForArchiver::MakeFileList3(TIndirectArray2<CFileInfo>& file
     const char* nextName;
     char pakName[PAK_MAXPATH];
     DWORD pakSize;
-    char sourName[MAX_PATH];
+    char sourName[32768];
     BOOL skip;
     int errorOccured;
 
@@ -48,7 +73,7 @@ BOOL CPluginInterfaceForArchiver::MakeFileList3(TIndirectArray2<CFileInfo>& file
         if (isDir)
             continue;
         lstrcpy(sourName, sourcePath);
-        SalamanderGeneral->SalPathAppend(sourName, nextName, MAX_PATH);
+        SalamanderGeneral->SalPathAppend(sourName, nextName, _countof(sourName));
         if (lstrlen(archiveRoot) + lstrlen(nextName) + 2 >= PAK_MAXPATH)
         {
             if (Silent & SF_LONGNAMES)
@@ -87,8 +112,8 @@ BOOL CPluginInterfaceForArchiver::MakeFileList3(TIndirectArray2<CFileInfo>& file
                 file = INVALID_HANDLE_VALUE;
                 while (file == INVALID_HANDLE_VALUE && !skip)
                 {
-                    file = CreateFile(sourName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                    file = CreateFileLongPath(sourName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
                     if (file != INVALID_HANDLE_VALUE)
                         break;
                     if (Silent & SF_IOERRORS)
@@ -217,8 +242,8 @@ BOOL CPluginInterfaceForArchiver::AddFiles(TIndirectArray2<CFileInfo>& files, un
         IOFile = INVALID_HANDLE_VALUE;
         while (IOFile == INVALID_HANDLE_VALUE)
         {
-            IOFile = CreateFile(f->Name /* + sourPathLen*/, GENERIC_READ, FILE_SHARE_READ, NULL,
-                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            IOFile = CreateFileLongPath(f->Name /* + sourPathLen*/, GENERIC_READ, FILE_SHARE_READ,
+                                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
             if (IOFile != INVALID_HANDLE_VALUE)
                 break;
             if (Silent & SF_IOERRORS)
