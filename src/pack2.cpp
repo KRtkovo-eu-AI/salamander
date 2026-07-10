@@ -301,6 +301,29 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
                                     strstr(command, "-scol") != NULL ||
                                     strstr(command, "-scul") != NULL;
 
+    char rarTmpArchiveName[SAL_MAX_PATH];
+    rarTmpArchiveName[0] = 0;
+    const char* archiveFileNameForCommand = archiveFileName;
+    if (rarUnicodeListFile)
+    {
+        BOOL archiveNameNeedsTemp = strlen(archiveFileName) >= MAX_PATH;
+        for (const unsigned char* s = (const unsigned char*)archiveFileName; !archiveNameNeedsTemp && *s != 0; s++)
+            archiveNameNeedsTemp = *s >= 0x80;
+        if (archiveNameNeedsTemp && SalGetFileAttributes(archiveFileName) == 0xFFFFFFFF)
+        {
+            if (!SalGetTempFileName(NULL, "RAR", rarTmpArchiveName, TRUE))
+            {
+                char buffer[1000];
+                strcpy(buffer, "SalGetTempFileName: ");
+                strcat(buffer, GetErrorText(GetLastError()));
+                DeleteFile(tmpListNameBuf);
+                return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
+            }
+            DeleteFile(rarTmpArchiveName); // RAR creates the archive; we only need a safe ASCII command-line name.
+            archiveFileNameForCommand = rarTmpArchiveName;
+        }
+    }
+
     // we have the file, now open it. RAR 4.x+ is invoked with -scul in our default
     // configuration, which means the list file must be UTF-16LE. Without this,
     // Unicode names outside the active ANSI/OEM code page are corrupted before RAR
@@ -416,13 +439,15 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     char cmdLine[PACK_CMDLINE_MAXLEN];
     // buffer for a temporary name (when creating an archive with a long name and we need its DOS name,
     // DOSTmpName expands instead of the long name; after creating the archive the file is renamed)
-    char DOSTmpName[MAX_PATH];
-    if (!PackExpandCmdLine(archiveFileName, rootPath, tmpListNameBuf, NULL,
+    char DOSTmpName[SAL_MAX_PATH];
+    if (!PackExpandCmdLine(archiveFileNameForCommand, rootPath, tmpListNameBuf, NULL,
                            command, cmdLine, PACK_CMDLINE_MAXLEN, DOSTmpName))
     {
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_CMDLNERR);
     }
+    if (rarTmpArchiveName[0] != 0)
+        lstrcpyn(DOSTmpName, rarTmpArchiveName, SAL_MAX_PATH);
 
     // Older configurations can still contain "-scol" (OEM list file).  We write
     // RAR list files as UTF-16LE above, so force RAR's list-file charset to
@@ -477,7 +502,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     }
     else
     {
-        if (!PackExpandInitDir(archiveFileName, sourceDir, rootPath, initDir, currentDir,
+        if (!PackExpandInitDir(archiveFileNameForCommand, sourceDir, rootPath, initDir, currentDir,
                                SAL_MAX_PATH))
         {
             DeleteFile(tmpListNameBuf);
@@ -504,6 +529,8 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     if (!exec)
     {
         DeleteFile(tmpListNameBuf);
+        if (rarTmpArchiveName[0] != 0)
+            DeleteFile(rarTmpArchiveName);
         return FALSE; // error message has already been displayed
     }
 
