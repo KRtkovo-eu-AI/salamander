@@ -35,14 +35,14 @@ CArchiveUpdateCallback::~CArchiveUpdateCallback()
     DeleteCriticalSection(&CSUpdate);
 }
 
-STDMETHODIMP CArchiveUpdateCallback::SetTotal(UInt64 size)
+HRESULT CArchiveUpdateCallback::SetTotalNoSEH(UInt64 size)
 {
     Total.Value = size;
     SendMessage(hProgWnd, WM_7ZIP, WM_7ZIP_SETTOTAL, (LPARAM)&Total);
     return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::SetCompleted(const UInt64* completeValue)
+HRESULT CArchiveUpdateCallback::SetCompletedNoSEH(const UInt64* completeValue)
 {
     if (completeValue != NULL)
     {
@@ -54,13 +54,46 @@ STDMETHODIMP CArchiveUpdateCallback::SetCompleted(const UInt64* completeValue)
     return S_OK;
 }
 
+
+STDMETHODIMP CArchiveUpdateCallback::SetTotal(UInt64 size)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return SetTotalNoSEH(size);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return SetTotalNoSEH(size);
+#endif // _MSC_VER
+}
+
+STDMETHODIMP CArchiveUpdateCallback::SetCompleted(const UInt64* completeValue)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return SetCompletedNoSEH(completeValue);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return SetCompletedNoSEH(completeValue);
+#endif // _MSC_VER
+}
+
 STDMETHODIMP CArchiveUpdateCallback::EnumProperties(IEnumSTATPROPSTG** enumerator)
 {
     return E_NOTIMPL;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 index,
-                                                       Int32* newData, Int32* newProperties, UInt32* indexInArchive)
+HRESULT CArchiveUpdateCallback::GetUpdateItemInfoNoSEH(UInt32 index,
+                                                     Int32* newData, Int32* newProperties, UInt32* indexInArchive)
 {
     const CUpdateInfo* ui = (*UpdateList)[index];
     if (ui == NULL)
@@ -90,7 +123,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 index,
     return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PROPVARIANT* value)
+HRESULT CArchiveUpdateCallback::GetPropertyNoSEH(UInt32 index, PROPID propID, PROPVARIANT* value)
 {
     NWindows::NCOM::CPropVariant propVariant;
     const CUpdateInfo* ui = (*UpdateList)[index];
@@ -157,6 +190,40 @@ STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PR
     }
     propVariant.Detach(value);
     return S_OK;
+}
+
+
+STDMETHODIMP CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 index,
+                                                       Int32* newData, Int32* newProperties, UInt32* indexInArchive)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return GetUpdateItemInfoNoSEH(index, newData, newProperties, indexInArchive);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return GetUpdateItemInfoNoSEH(index, newData, newProperties, indexInArchive);
+#endif // _MSC_VER
+}
+
+STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PROPVARIANT* value)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return GetPropertyNoSEH(index, propID, value);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return GetPropertyNoSEH(index, propID, value);
+#endif // _MSC_VER
 }
 
 HRESULT CArchiveUpdateCallback::GetStreamNoSEH(UInt32 index,

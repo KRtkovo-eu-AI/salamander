@@ -168,6 +168,10 @@ public:
     BOOL Silent;
 
 private:
+    HRESULT SetTotalNoSEH(UInt64 size);
+    HRESULT SetCompletedNoSEH(const UInt64* completeValue);
+    HRESULT GetUpdateItemInfoNoSEH(UInt32 index, Int32* newData, Int32* newProperties, UInt32* indexInArchive);
+    HRESULT GetPropertyNoSEH(UInt32 index, PROPID propID, PROPVARIANT* value);
     HRESULT GetStreamNoSEH(UInt32 index, ISequentialInStream** inStream);
 
     HWND hProgWnd;
