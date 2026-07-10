@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -1236,6 +1236,18 @@ void CMainToolBar::SetType(CMainToolBarType type)
 //
 
 #define BOTTOMTB_TEXT_MAX 15 // maximalni delka retezce pro jednu klavesu
+
+static int TruncateUtf8TextToByteLimit(const char* text, int textLen, int byteLimit)
+{
+    if (textLen <= byteLimit || text == NULL || byteLimit <= 0)
+        return textLen <= byteLimit ? textLen : 0;
+
+    int count = byteLimit;
+    while (count > 0 && MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, count, NULL, 0) == 0)
+        count--;
+    return count;
+}
+
 struct CBottomTBData
 {
     DWORD Index;
@@ -1368,11 +1380,10 @@ CBottomToolBar::CBottomToolBar(HWND hNotifyWindow, CObjectOrigin origin)
 BOOL CBottomToolBar::InitDataResRow(CBottomTBStateEnum state, int textResID)
 {
     CALL_STACK_MESSAGE2("CBottomToolBar::InitDataResRow(, %d)", textResID);
-    char buff[BOTTOMTB_TEXT_MAX * 12];
-    lstrcpyn(buff, LoadStr(textResID), BOTTOMTB_TEXT_MAX * 12);
+    const char* row = LoadStr(textResID);
 
     int index = 0;
-    const char* begin = buff;
+    const char* begin = row;
     const char* end;
     do
     {
@@ -1384,8 +1395,8 @@ BOOL CBottomToolBar::InitDataResRow(CBottomTBStateEnum state, int textResID)
             int count = (int)(end - begin);
             if (count > BOTTOMTB_TEXT_MAX)
             {
-                TRACE_E("Bottom Toolbar text state:" << state << " index:" << index << " exceeds " << BOTTOMTB_TEXT_MAX << " chars");
-                count = BOTTOMTB_TEXT_MAX;
+                TRACE_E("Bottom Toolbar text state:" << state << " index:" << index << " exceeds " << BOTTOMTB_TEXT_MAX << " bytes");
+                count = GetACP() == CP_UTF8 ? TruncateUtf8TextToByteLimit(begin, count, BOTTOMTB_TEXT_MAX) : BOTTOMTB_TEXT_MAX;
             }
             if (BottomTBData[state][index].Index == TBBE_TERMINATOR)
                 count = 0;
