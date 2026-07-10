@@ -23,8 +23,9 @@ inline UString GetSalamanderUnicodeString(const char* text)
     }
     if (len <= 0)
         return GetUnicodeString(text);
-    std::wstring ret(len - 1, L'\0');
+    std::wstring ret(len, L'\0');
     MultiByteToWideChar(codePage, flags, text, -1, &ret[0], len);
+    ret.resize(len - 1);
     return UString(ret.c_str());
 }
 

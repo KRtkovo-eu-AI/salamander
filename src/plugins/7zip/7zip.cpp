@@ -28,8 +28,9 @@ static HANDLE CreateFileLongPath(const char* fileName, DWORD desiredAccess, DWOR
     int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
     if (len > 0)
     {
-        fileNameW.resize(len - 1);
+        fileNameW.resize(len);
         MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
+        fileNameW.resize(len - 1);
     }
     if (!fileNameW.empty())
     {
@@ -1162,8 +1163,9 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
             int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
             if (len > 0)
             {
-                fileNameW.resize(len - 1);
+                fileNameW.resize(len);
                 MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
+                fileNameW.resize(len - 1);
             }
             if (!fileNameW.empty() && fileNameW.length() >= MAX_PATH && wcsncmp(fileNameW.c_str(), L"\\\\?\\", 4) != 0)
                 fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + std::wstring(fileNameW.c_str() + 2)

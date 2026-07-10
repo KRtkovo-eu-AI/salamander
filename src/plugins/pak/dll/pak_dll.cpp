@@ -20,8 +20,9 @@ static HANDLE CreateFileLongPath(const char* fileName, DWORD desiredAccess, DWOR
     int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
     if (len > 0)
     {
-        fileNameW.resize(len - 1);
+        fileNameW.resize(len);
         MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
+        fileNameW.resize(len - 1);
     }
     if (!fileNameW.empty())
     {

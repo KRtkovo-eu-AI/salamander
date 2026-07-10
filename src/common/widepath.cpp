@@ -72,8 +72,9 @@ std::wstring SalMultiByteToWidePath(const char* path, UINT codePage)
         len = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0), codePage = CP_ACP;
     if (len <= 0)
         return std::wstring();
-    std::wstring ret(len - 1, L'\0');
+    std::wstring ret(len, L'\0');
     MultiByteToWideChar(codePage, 0, path, -1, &ret[0], len);
+    ret.resize(len - 1);
     return ret;
 }
 
