@@ -285,7 +285,7 @@ struct CConfiguration
         DrvSpecCDROMMon,
         DrvSpecCDROMSimple;
 
-    char CommandLineApplication[MAX_PATH];
+    char CommandLineApplication[SAL_MAX_PATH];
     char CommandLineArguments[CONFIG_COMMANDLINEARGS_MAXLEN];
 
     // options for Compare Directories dialog box / functions
@@ -303,7 +303,7 @@ struct CConfiguration
     CMaskGroup CompareIgnoreDirsMasks;
 
     BOOL IfPathIsInaccessibleGoToIsMyDocs;   // TRUE = ignore IfPathIsInaccessibleGoTo and fetch Documents from the system directly
-    char IfPathIsInaccessibleGoTo[MAX_PATH]; // path used when the current one becomes inaccessible (network outage, media removed from the removable drive, ...)
+    char IfPathIsInaccessibleGoTo[SAL_MAX_PATH]; // path used when the current one becomes inaccessible (network outage, media removed from the removable drive, ...)
 
     DWORD LastUsedSpeedLimit; // remembers the last used speed limit (users often repeat one number)
 

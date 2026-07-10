@@ -4654,7 +4654,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             GetValue(actKey, CONFIG_CLOSESHELL_REG, REG_DWORD,
                      &Configuration.CloseShell, sizeof(DWORD));
             GetValue(actKey, CONFIG_COMMANDLINEAPP_REG, REG_SZ,
-                     Configuration.CommandLineApplication, MAX_PATH);
+                     Configuration.CommandLineApplication, SAL_MAX_PATH);
             GetValue(actKey, CONFIG_COMMANDLINEARGS_REG, REG_SZ,
                      Configuration.CommandLineArguments, CONFIG_COMMANDLINEARGS_MAXLEN);
             GetValue(actKey, CONFIG_RIGHT_FOCUS_REG, REG_DWORD,
@@ -4725,11 +4725,11 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             GetValue(actKey, CONFIG_INFOLINECONTENT_REG, REG_SZ,
                      Configuration.InfoLineContent, 200);
             GetValue(actKey, CONFIG_IFPATHISINACCESSIBLEGOTO_REG, REG_SZ,
-                     Configuration.IfPathIsInaccessibleGoTo, MAX_PATH);
+                     Configuration.IfPathIsInaccessibleGoTo, SAL_MAX_PATH);
             if (!GetValue(actKey, CONFIG_IFPATHISINACCESSIBLEGOTOISMYDOCS_REG, REG_DWORD,
                           &Configuration.IfPathIsInaccessibleGoToIsMyDocs, sizeof(DWORD)))
             {
-                char path[MAX_PATH];
+                char path[SAL_MAX_PATH];
                 GetIfPathIsInaccessibleGoTo(path, TRUE);
                 if (IsTheSamePath(path, Configuration.IfPathIsInaccessibleGoTo)) // user wants to go to My Documents
                 {

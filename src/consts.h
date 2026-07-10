@@ -2433,9 +2433,9 @@ void ShellActionAux6(CFilesWindow* panel);
 
 //******************************************************************************
 
-// vraci v 'path' (buffer aspon MAX_PATH znaku) cestu Configuration.IfPathIsInaccessibleGoTo;
+// vraci v 'path' (buffer aspon pathSize znaku) cestu Configuration.IfPathIsInaccessibleGoTo;
 // zohlednuje nastaveni Configuration.IfPathIsInaccessibleGoToIsMyDocs
-void GetIfPathIsInaccessibleGoTo(char* path, BOOL forceIsMyDocs = FALSE);
+void GetIfPathIsInaccessibleGoTo(char* path, BOOL forceIsMyDocs = FALSE, int pathSize = SAL_MAX_PATH);
 
 // nacte z konfigurace v registry konfiguraci icon overlay handleru
 void LoadIconOvrlsInfo(const char* root);

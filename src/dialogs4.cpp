@@ -1234,8 +1234,8 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
 
 BOOL CCfgPageGeneral::IsDefaultCommandShellApplication()
 {
-    char commandLineApplication[MAX_PATH];
-    lstrcpyn(commandLineApplication, Configuration.CommandLineApplication, MAX_PATH);
+    char commandLineApplication[SAL_MAX_PATH];
+    lstrcpyn(commandLineApplication, Configuration.CommandLineApplication, SAL_MAX_PATH);
 
     if (ParentDialog != NULL)
     {
@@ -1248,7 +1248,7 @@ BOOL CCfgPageGeneral::IsDefaultCommandShellApplication()
                 HWND hCommandLineApplication = GetDlgItem(hPage, IDC_CMDLINEAPP_PATH);
                 if (hCommandLineApplication != NULL)
                 {
-                    GetWindowText(hCommandLineApplication, commandLineApplication, MAX_PATH);
+                    GetWindowText(hCommandLineApplication, commandLineApplication, SizeOf(commandLineApplication));
                     break;
                 }
             }

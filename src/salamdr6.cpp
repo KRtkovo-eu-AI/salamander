@@ -1734,11 +1734,11 @@ BOOL SafeGetSaveFileName(LPOPENFILENAME lpofn)
     return ret;
 }
 
-void GetIfPathIsInaccessibleGoTo(char* path, BOOL forceIsMyDocs)
+void GetIfPathIsInaccessibleGoTo(char* path, BOOL forceIsMyDocs, int pathSize)
 {
     if (forceIsMyDocs || Configuration.IfPathIsInaccessibleGoToIsMyDocs)
     {
-        if (!GetMyDocumentsOrDesktopPath(path, MAX_PATH))
+        if (!GetMyDocumentsOrDesktopPath(path, pathSize))
         {
             char winPath[MAX_PATH];
             if (GetWindowsDirectory(winPath, MAX_PATH) != 0)
@@ -1749,7 +1749,7 @@ void GetIfPathIsInaccessibleGoTo(char* path, BOOL forceIsMyDocs)
     }
     else
     {
-        lstrcpyn(path, Configuration.IfPathIsInaccessibleGoTo, MAX_PATH);
+        lstrcpyn(path, Configuration.IfPathIsInaccessibleGoTo, pathSize);
         if (path[0] != 0 && path[1] == ':')
         {
             path[0] = UpperCase[path[0]];

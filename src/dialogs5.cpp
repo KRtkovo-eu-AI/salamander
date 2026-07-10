@@ -1983,12 +1983,12 @@ void CCfgPageDrives::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_DRVSPEC_REMOTEMON, Configuration.DrvSpecRemoteMon);
     ti.CheckBox(IDC_DRVSPEC_REMOTESIMPLE, Configuration.DrvSpecRemoteSimple);
     ti.CheckBox(IDC_DRVSPEC_REMOTEACT, Configuration.DrvSpecRemoteDoNotRefreshOnAct);
-    char path[MAX_PATH];
-    char newPath[MAX_PATH];
+    char path[SAL_MAX_PATH];
+    char newPath[SAL_MAX_PATH];
     if (ti.Type == ttDataToWindow)
     {
         GetIfPathIsInaccessibleGoTo(path);
-        ti.EditLine(IDE_DRVSPEC_ONERRGOTO, path, MAX_PATH);
+        ti.EditLine(IDE_DRVSPEC_ONERRGOTO, path, SizeOf(path));
         IfPathIsInaccessibleGoToChanged = FALSE;
 
         ReadWin32LongPathsEnabled(&Win32LongPathsEnabled);
@@ -2052,7 +2052,7 @@ void CCfgPageDrives::Transfer(CTransferInfo& ti)
 
         if (IfPathIsInaccessibleGoToChanged) // change only if the user actually edited the path
         {
-            ti.EditLine(IDE_DRVSPEC_ONERRGOTO, newPath, MAX_PATH);
+            ti.EditLine(IDE_DRVSPEC_ONERRGOTO, newPath, SizeOf(newPath));
             GetIfPathIsInaccessibleGoTo(path, TRUE);
             if (IsTheSamePath(path, newPath)) // user wants to go to My Documents
             {
@@ -2062,7 +2062,7 @@ void CCfgPageDrives::Transfer(CTransferInfo& ti)
             else
             {
                 Configuration.IfPathIsInaccessibleGoToIsMyDocs = FALSE;
-                lstrcpyn(Configuration.IfPathIsInaccessibleGoTo, newPath, MAX_PATH);
+                lstrcpyn(Configuration.IfPathIsInaccessibleGoTo, newPath, SAL_MAX_PATH);
             }
         }
     }
@@ -3086,7 +3086,7 @@ void CCfgPageMainWindow::Transfer(CTransferInfo& ti)
 
     ti.CheckBox(IDC_TITLEBAR_PREFIX, Configuration.UseTitleBarPrefix);
     ti.EditLine(IDC_TITLEBAR_PREFIX_TEXT, Configuration.TitleBarPrefix, TITLE_PREFIX_MAX);
-    ti.EditLine(IDC_CMDLINEAPP_PATH, Configuration.CommandLineApplication, MAX_PATH);
+    ti.EditLine(IDC_CMDLINEAPP_PATH, Configuration.CommandLineApplication, SAL_MAX_PATH);
     ti.EditLine(IDC_CMDLINEAPP_ARGS, Configuration.CommandLineArguments, CONFIG_COMMANDLINEARGS_MAXLEN);
 
     if (ti.Type == ttDataFromWindow)
