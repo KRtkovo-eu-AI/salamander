@@ -22,7 +22,7 @@ struct COpenImageBackendHandle
     PVImageInfo ImageInfo;
     PVImageHandles ImageHandles;
     PVFormatSpecificInfo FormatInfo;
-    char FileName[32768];
+    char FileName[SAL_MAX_PATH];
     BYTE* Pixels;
     BYTE** Lines;
     DWORD BufferSize;

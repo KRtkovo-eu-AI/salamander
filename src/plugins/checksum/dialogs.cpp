@@ -540,7 +540,7 @@ void CCalculateDialog::RefreshUI()
     }
 }
 
-BOOL CCalculateDialog::AddDir(char (&path)[32768], size_t root, BOOL* ignoreAll)
+BOOL CCalculateDialog::AddDir(char (&path)[SAL_MAX_PATH], size_t root, BOOL* ignoreAll)
 {
     if (StopReadingDirectories)
         return FALSE;
@@ -636,7 +636,7 @@ BOOL CCalculateDialog::GetFileList()
     totalSize = CQuadWord(0, 0);
 
     BOOL ret = TRUE;
-    char path[32768];
+    char path[SAL_MAX_PATH];
     size_t root = strlen(SourcePath);
     if (root > 0 && SourcePath[root - 1] == '\\')
         root--;
@@ -759,7 +759,7 @@ unsigned CCalculateThread::Body()
 
         // open the file
         HANDLE hFile;
-        char path[32768];
+        char path[SAL_MAX_PATH];
         lstrcpynA(path, dialog->SourcePath, SizeOf(path));
         // should not happen - the name length was already verified in CCalculateDialog::GetFileList()
         // FILELISTITEM::Name does not change after being added to the array = no need for synchronized access
@@ -1697,7 +1697,7 @@ BOOL CVerifyDialog::LoadSourceFile()
             if (info->fileName[0] != 0)
             {
                 // fetch file information and insert into the list
-                char path[32768];
+                char path[SAL_MAX_PATH];
                 lstrcpynA(path, sourcePath, SizeOf(path));
                 if (SalamanderGeneral->SalPathAppend(path, info->fileName, SizeOf(path)))
                 {
@@ -2165,7 +2165,7 @@ BOOL OpenCalculateDialog(HWND parent)
     }
 
     int nFiles, nDirs;
-    char sourcePath[32768];
+    char sourcePath[SAL_MAX_PATH];
 
     // Check if nothing is selected and no focus is set
     if (SalamanderGeneral->GetPanelSelection(PANEL_SOURCE, &nFiles, &nDirs))
@@ -2228,8 +2228,8 @@ public:
 
     virtual unsigned Body();
 
-    char sourcePath[32768];
-    char sourceFile[32768];
+    char sourcePath[SAL_MAX_PATH];
+    char sourceFile[SAL_MAX_PATH];
 
 private:
     HWND hParent;

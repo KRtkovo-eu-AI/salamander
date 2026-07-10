@@ -19,6 +19,10 @@
 #include <limits.h>
 #include <vector>
 #include <string>
+
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
 #include <algorithm>
 #include <map>
 #include <zmouse.h>

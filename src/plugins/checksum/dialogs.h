@@ -144,7 +144,7 @@ public:
     CCalculateDialog(HWND parent, BOOL alwaysOnTop, TSeedFileList* pFileList, const char* sourcePath);
 
 protected:
-    BOOL AddDir(char (&path)[32768], size_t root, BOOL* ignoreAll);
+    BOOL AddDir(char (&path)[SAL_MAX_PATH], size_t root, BOOL* ignoreAll);
     BOOL GetFileList();
     virtual void OnThreadEnd();
     void EnableButtons(BOOL bEnable);

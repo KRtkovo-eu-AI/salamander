@@ -1257,8 +1257,8 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_COMPARE:
         {
-            char path1[MAX_PATH];
-            char path2[MAX_PATH];
+            char path1[SAL_MAX_PATH];
+            char path2[SAL_MAX_PATH];
             if (DataValid)
             {
                 lstrcpynA(path1, Path1.c_str(), SizeOf(path1));
@@ -1601,7 +1601,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             POINT pt;
             int count, view = -1;
-            char path1[MAX_PATH], path2[MAX_PATH];
+            char path1[SAL_MAX_PATH], path2[SAL_MAX_PATH];
             CCompareOptions options = DefCompareOptions;
 
             if (DragQueryPoint(drop, &pt))

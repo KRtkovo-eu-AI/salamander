@@ -125,8 +125,8 @@ void CCompareFilesDialog::Validate(CTransferInfo& ti)
 void CCompareFilesDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCompareFilesDialog::Transfer()");
-    ti.EditLine(IDE_PATH1, Path1, MAX_PATH);
-    ti.EditLine(IDE_PATH2, Path2, MAX_PATH);
+    ti.EditLine(IDE_PATH1, Path1, SAL_MAX_PATH);
+    ti.EditLine(IDE_PATH2, Path2, SAL_MAX_PATH);
     if (ti.Type == ttDataFromWindow)
     {
         AddToHistory(Path2);

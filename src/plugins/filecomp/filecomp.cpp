@@ -678,8 +678,8 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
     {
     case MID_COMPAREFILES:
     {
-        char file1[32768];
-        char file2[32768];
+        char file1[SAL_MAX_PATH];
+        char file2[SAL_MAX_PATH];
         const CFileData *fd1, *fd2 = NULL;
         int index = 0;
         BOOL isDir;
@@ -831,8 +831,8 @@ CFilecompThread::Body()
     HWND wnd;
     CCompareOptions options = DefCompareOptions;
 
-    char editPath1[32768];
-    char editPath2[32768];
+    char editPath1[SAL_MAX_PATH];
+    char editPath2[SAL_MAX_PATH];
     lstrcpynA(editPath1, Path1.c_str(), SizeOf(editPath1));
     lstrcpynA(editPath2, Path2.c_str(), SizeOf(editPath2));
 
