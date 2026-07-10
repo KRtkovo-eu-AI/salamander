@@ -108,16 +108,18 @@ static std::wstring PluginMultiByteToWidePath(const char* path, UINT codePage = 
         return std::wstring();
     if (codePage == CP_ACP && GetACP() == CP_UTF8)
         codePage = CP_UTF8;
-    int len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    DWORD flags = codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0;
+    int len = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
     if (len <= 0 && codePage != CP_ACP)
     {
         codePage = CP_ACP;
-        len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
     }
     if (len <= 0)
         return std::wstring();
     std::wstring ret(len - 1, L'\0');
-    MultiByteToWideChar(codePage, 0, path, -1, &ret[0], len);
+    MultiByteToWideChar(codePage, flags, path, -1, &ret[0], len);
     return ret;
 }
 

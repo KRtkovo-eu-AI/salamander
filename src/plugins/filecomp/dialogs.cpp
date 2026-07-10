@@ -98,12 +98,12 @@ BOOL FileExists(LPCTSTR path)
 void CCompareFilesDialog::Validate(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCompareFilesDialog::Validate()");
-    TCHAR buffer[MAX_PATH];
+    TCHAR buffer[SAL_MAX_PATH];
 
     int i;
     for (i = 0; i < 2; i++)
     {
-        ti.EditLine(IDE_PATH1 + i, buffer, MAX_PATH);
+        ti.EditLine(IDE_PATH1 + i, buffer, SAL_MAX_PATH);
         if (!*buffer)
         {
             SG->SalMessageBox(HWindow, LoadStr(IDS_MISSINGPATH), LoadStr(IDS_ERROR), MB_ICONERROR);
@@ -112,7 +112,7 @@ void CCompareFilesDialog::Validate(CTransferInfo& ti)
         }
         if (!FileExists(buffer))
         {
-            TCHAR buf2[300 + MAX_PATH];
+            TCHAR buf2[300 + SAL_MAX_PATH];
 
             wsprintf(buf2, LoadStr(IDS_FILEDOESNOTEXIST), buffer);
             SG->SalMessageBox(HWindow, buf2, LoadStr(IDS_ERROR), MB_ICONERROR);
@@ -161,8 +161,8 @@ LRESULT CCompareFilesDialog::DragDropEditProc(HWND hWnd, UINT uMsg, WPARAM wPara
     if (WM_DROPFILES == uMsg)
     {
         HDROP hDrop = (HDROP)wParam;
-        TCHAR buffer[MAX_PATH];
-        int nFilesDropped = DragQueryFile(hDrop, 0, buffer, MAX_PATH);
+        TCHAR buffer[SAL_MAX_PATH];
+        int nFilesDropped = DragQueryFile(hDrop, 0, buffer, SAL_MAX_PATH);
 
         if (nFilesDropped)
         {
@@ -291,7 +291,7 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_CLEARHISTORY:
     {
-        TCHAR buffer[MAX_PATH];
+        TCHAR buffer[SAL_MAX_PATH];
         HWND cb = GetDlgItem(HWindow, IDE_PATH1);
         SendMessage(cb, WM_GETTEXT, SizeOf(buffer), (LPARAM)buffer);
         SendMessage(cb, CB_RESETCONTENT, 0, 0);
