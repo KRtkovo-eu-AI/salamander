@@ -297,7 +297,9 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, buffer);
     }
 
-    const BOOL rarUnicodeListFile = strstr(command, "$(Rar32bitOr64bitExecutable) ") == command;
+    const BOOL rarUnicodeListFile = strstr(command, "$(Rar32bitOr64bitExecutable)") != NULL ||
+                                    strstr(command, "-scol") != NULL ||
+                                    strstr(command, "-scul") != NULL;
 
     // we have the file, now open it. RAR 4.x+ is invoked with -scul in our default
     // configuration, which means the list file must be UTF-16LE. Without this,

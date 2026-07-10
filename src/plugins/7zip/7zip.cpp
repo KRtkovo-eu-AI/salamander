@@ -1359,7 +1359,7 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
             if (ret)
             {
                 // prepare the buffer for names
-                char sourceName[MAX_PATH + 1]; // buffer for the full name on disk
+                char sourceName[SAL_MAX_PATH]; // buffer for the full name on disk
                 strcpy(sourceName, sourcePath);
                 char* endSource = sourceName + strlen(sourceName); // space for the names from the 'next' enumeration
                 if (endSource > sourceName && *(endSource - 1) != '\\')
@@ -1367,7 +1367,7 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
                     *endSource++ = '\\';
                     *endSource = 0;
                 }
-                int endSourceSize = MAX_PATH - (int)(endSource - sourceName); // maximum number of characters for a name from the 'next' enumeration
+                int endSourceSize = SAL_MAX_PATH - (int)(endSource - sourceName); // maximum number of characters for a name from the 'next' enumeration
 
                 // delete directories; if something remains inside they will not be removed and that's fine :)
                 // because we iterate from leaves to the root, we can delete them this way
