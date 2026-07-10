@@ -29,6 +29,15 @@ inline UString GetSalamanderUnicodeString(const char* text)
     return UString(ret.c_str());
 }
 
+inline UString GetSalamanderLongPath(const UString& path)
+{
+    if (path.Len() < MAX_PATH || path.IsPrefixedBy(L"\\\\?\\"))
+        return path;
+    if (path.IsPrefixedBy(L"\\\\"))
+        return UString(L"\\\\?\\UNC\\") + UString(path.Ptr(2));
+    return UString(L"\\\\?\\") + path;
+}
+
 struct CUpdateInfo
 {
     bool NewData;

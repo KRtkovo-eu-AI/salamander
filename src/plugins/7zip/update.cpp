@@ -209,7 +209,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
         do
         {
             mbRet = DIALOG_OK;
-            if (!inStreamSpec->Open(us2fs(fi->FullPath)))
+            if (!inStreamSpec->Open(us2fs(GetSalamanderLongPath(fi->FullPath))))
             {
                 mbRet = DIALOG_SKIP;
                 if (!Silent)
@@ -289,7 +289,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetVolumeStream(UInt32 index, ISequentialOu
   fileName += VolExt;
   CRetryableOutFileStream *streamSpec = new CRetryableOutFileStream(hProgWnd);
   CMyComPtr<ISequentialOutStream> streamLoc(streamSpec);
-  if(!streamSpec->Create(us2fs(GetSalamanderUnicodeString(fileName)), false))
+  if(!streamSpec->Create(us2fs(GetSalamanderLongPath(GetSalamanderUnicodeString(fileName))), false))
     return ::GetLastError();
   *volumeStream = streamLoc.Detach();
   return S_OK;*/
