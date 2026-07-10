@@ -46,8 +46,7 @@ void FillFileCompFaceRect(HDC dc, const RECT* rect)
 CFileHeaderWindow::CFileHeaderWindow(const char* text)
 {
     CALL_STACK_MESSAGE2("CFileHeaderWindow::CFileHeaderWindow(%s)", text);
-    strcpy(Text, text);
-    TextLen = int(strlen(text));
+    Text = text != NULL ? text : "";
     BkgndBrush = NULL;
 }
 
@@ -61,8 +60,7 @@ CFileHeaderWindow::~CFileHeaderWindow()
 void CFileHeaderWindow::SetText(const char* text)
 {
     CALL_STACK_MESSAGE2("CFileHeaderWindow::SetText(%s)", text);
-    strcpy(Text, text);
-    TextLen = int(strlen(text));
+    Text = text != NULL ? text : "";
     InvalidateRect(HWindow, NULL, FALSE);
     UpdateWindow(HWindow);
 }
@@ -110,8 +108,8 @@ CFileHeaderWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // DT_PATH_ELLIPSIS does not work on some strings, which prints clipped text
         // PathCompactPath() needs a copy in a local buffer, but it does not clip the text
-        char buff[2 * MAX_PATH];
-        strncpy_s(buff, _countof(buff), Text, _TRUNCATE);
+        char buff[SAL_MAX_PATH];
+        strncpy_s(buff, _countof(buff), Text.c_str(), _TRUNCATE);
         PathCompactPath(dc, buff, r.right - r.left);
 
         DrawText(dc, buff, -1, &r, /*DT_PATH_ELLIPSIS | */ DT_SINGLELINE | DT_NOPREFIX);

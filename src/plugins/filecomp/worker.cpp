@@ -159,15 +159,16 @@ void CFilecompWorker::CException::Raise(int error, int lastError, ...)
     CALL_STACK_MESSAGE3("CFilecompWorker::CWorkerException::Raise(%d, %d, )", error, lastError);
     va_list arglist;
     va_start(arglist, lastError);
-    char buf[1024]; //temp variable
+    char buf[SAL_MAX_PATH]; // temp variable, may include a long file path
     *buf = 0;
-    vsprintf(buf, LoadStr(error), arglist);
+    _vsnprintf_s(buf, _countof(buf), _TRUNCATE, LoadStr(error), arglist);
     va_end(arglist);
     if (lastError != ERROR_SUCCESS)
     {
         int l = lstrlen(buf);
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastError,
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, 1024 - l, NULL);
+        if (l < int(_countof(buf)) - 1)
+            FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastError,
+                          MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, DWORD(_countof(buf) - l), NULL);
     }
     throw CException(buf);
 }

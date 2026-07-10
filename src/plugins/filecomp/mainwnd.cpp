@@ -1888,14 +1888,14 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_WORKERNOTIFIES:
     {
         BOOL ret = TRUE;
-        TCHAR message[1024];
+        TCHAR message[SAL_MAX_PATH];
         *message = 0;
         UINT type = MB_ICONERROR;
         LPCTSTR encoding[2] = {_T(""), _T("")};
         switch (wParam)
         {
         case WN_ERROR:
-            _tcscpy(message, (LPCTSTR)lParam);
+            lstrcpyn(message, (LPCTSTR)lParam, SizeOf(message));
             break;
 
         case WN_WORKER_CANCELED:
@@ -2159,8 +2159,8 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (FirstCompare)
             {
                 type |= MB_YESNO | MSGBOXEX_ESCAPEENABLED;
-                _tcscat(message, _T("\n"));
-                _tcscat(message, LoadStr(IDS_CLOSEDIFF));
+                lstrcpyn(message + lstrlen(message), _T("\n"), SizeOf(message) - lstrlen(message));
+                lstrcpyn(message + lstrlen(message), LoadStr(IDS_CLOSEDIFF), SizeOf(message) - lstrlen(message));
             }
             if (SG->SalMessageBox(HWindow, message, LoadStr(IDS_PLUGINNAME), type) == IDYES)
                 PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0);
