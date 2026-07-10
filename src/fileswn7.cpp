@@ -1675,7 +1675,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     char fileBuf[SAL_MAX_PATH];    // file we will pack into
     char fileBufAlt[SAL_MAX_PATH]; // alternative name shown in the Pack dialog combo box
 
-    if (nameByItem) // if only one item (file/directory) is selected, the archive inherits its name
+    if (data.IndexesCount == 1 && archiveBaseName[0] != 0) // if only one item (file/directory) is selected, the archive inherits its name
     {
         const char* itemName = archiveBaseName[0] != 0 ? archiveBaseName : path;
         const char* ext = strrchr(itemName, '.');
