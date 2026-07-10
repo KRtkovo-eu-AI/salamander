@@ -47,7 +47,7 @@ ComDlgHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 
 // history for combo boxes
 
-TCHAR CBHistory[MAX_HISTORY_ENTRIES][MAX_PATH];
+TCHAR CBHistory[MAX_HISTORY_ENTRIES][SAL_MAX_PATH];
 int CBHistoryEntries;
 
 void AddToHistory(LPCTSTR path)
@@ -69,9 +69,9 @@ void AddToHistory(LPCTSTR path)
     // create space for the path we are going to store
     int j;
     for (j = toMove; j > 0; j--)
-        _tcscpy(CBHistory[j], CBHistory[j - 1]);
+        lstrcpyn(CBHistory[j], CBHistory[j - 1], SizeOf(CBHistory[j]));
     // And store the path...
-    _tcscpy(CBHistory[0], path);
+    lstrcpyn(CBHistory[0], path, SizeOf(CBHistory[0]));
     CBHistoryEntries = __min(CBHistoryEntries + enlarge, MAX_HISTORY_ENTRIES);
 }
 
@@ -89,10 +89,31 @@ CCompareFilesDialog::CCompareFilesDialog(HWND parent, LPTSTR path1, LPTSTR path2
 BOOL FileExists(LPCTSTR path)
 {
     CALL_STACK_MESSAGE2(_T("FileExists(%s)"), path);
-    DWORD attr = SG->SalGetFileAttributes(path);
-    int i = GetLastError();
+    DWORD attr = 0xffffffff;
+    DWORD err = ERROR_FILE_NOT_FOUND;
+
+#ifdef _UNICODE
+    std::wstring nameW = path != NULL ? path : L"";
+#else
+    std::wstring nameW = PluginMultiByteToWidePath(path, CP_UTF8);
+    if (nameW.empty())
+        nameW = PluginMultiByteToWidePath(path, CP_ACP);
+#endif
+    if (!nameW.empty())
+    {
+        if (nameW.length() >= MAX_PATH)
+            nameW = PluginPathAddExtendedPrefixW(nameW.c_str());
+        attr = GetFileAttributesW(nameW.c_str());
+        err = GetLastError();
+    }
+    else
+    {
+        attr = SG->SalGetFileAttributes(path);
+        err = GetLastError();
+    }
+
     return ((attr != 0xffffffff) && (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) ||
-           ((attr == 0xffffffff) && ((i != ERROR_FILE_NOT_FOUND) && (i != ERROR_PATH_NOT_FOUND)));
+           ((attr == 0xffffffff) && ((err != ERROR_FILE_NOT_FOUND) && (err != ERROR_PATH_NOT_FOUND)));
 }
 
 void CCompareFilesDialog::Validate(CTransferInfo& ti)
@@ -291,8 +312,8 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
             OPENFILENAME ofn;
-            TCHAR path[MAX_PATH];
-            TCHAR dir[MAX_PATH];
+            TCHAR path[SAL_MAX_PATH];
+            TCHAR dir[SAL_MAX_PATH];
             TCHAR buf[128];
 
             memset(&ofn, 0, sizeof(OPENFILENAME));
