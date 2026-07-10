@@ -1802,7 +1802,7 @@ _PACK_AGAIN:
         BOOL empty = FALSE;
         char nextFocus[SAL_MAX_PATH];
         nextFocus[0] = 0;
-        if (SalGetFullName(fileBuf, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus))
+        if (SalGetFullName(fileBuf, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, SAL_MAX_PATH))
         {
             //---  searching for a directory link in the packing source; cannot be combined with "delete files after packing"
             BOOL performPack = TRUE;
