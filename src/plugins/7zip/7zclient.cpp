@@ -844,6 +844,11 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
     {
         ret = e;
     }
+    catch (...)
+    {
+        Error(IDS_7Z_UPDATE_ERROR);
+        ret = OPER_CANCEL;
+    }
 
     delete archiveItems;
     ::DeleteFile(tmpName);
@@ -1339,6 +1344,11 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
     catch (int e)
     {
         ret = e;
+    }
+    catch (...)
+    {
+        Error(isNewArchive ? IDS_7Z_CREATE_UNKNOWN_ERROR : IDS_7Z_UPDATE_ERROR, FALSE, E_FAIL);
+        ret = OPER_CANCEL;
     }
 
     delete archiveItems;
