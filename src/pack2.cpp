@@ -271,7 +271,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     char sourceShortName[SAL_MAX_PATH];
     if (!supportLongNames)
     {
-        if (!GetShortPathName(sourceDir, sourceShortName, SizeOf(sourceShortName)))
+        if (!GetShortPathName(sourceDir, sourceShortName, _countof(sourceShortName)))
         {
             char buffer[1000];
             strcpy(buffer, "GetShortPathName: ");
@@ -280,7 +280,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         }
     }
     else
-        lstrcpyn(sourceShortName, sourceDir, SizeOf(sourceShortName));
+        lstrcpyn(sourceShortName, sourceDir, _countof(sourceShortName));
 
     //
     // In the %TEMP% directory a helper file will contain the list of files to pack
@@ -330,7 +330,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         }
         else
         {
-            if (GetShortPathName(name, namecnv, SizeOf(namecnv)) == 0)
+            if (GetShortPathName(name, namecnv, _countof(namecnv)) == 0)
             {
                 char buffer[1000];
                 strcpy(buffer, "File: ");
@@ -442,7 +442,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     // back up the short archive file name, later we check whether the long name
     // survived -> if the short one remained, rename it back to the original long name
     char DOSArchiveFileName[SAL_MAX_PATH];
-    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, SizeOf(DOSArchiveFileName)))
+    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, _countof(DOSArchiveFileName)))
         DOSArchiveFileName[0] = 0;
 
     // and run the external program
@@ -472,7 +472,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
         char* tmpOrigName;
         CutDirectory(src, &tmpOrigName);
         tmpOrigName = DOSTmpName + (tmpOrigName - src);
-        SalPathAddBackslash(src, SizeOf(src));
+        SalPathAddBackslash(src, _countof(src));
         char* srcName = src + strlen(src);
         char dstNameBuf[SAL_MAX_PATH];
         strcpy(dstNameBuf, archiveFileName);
@@ -741,7 +741,7 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     // back up the short archive file name, later we check whether the long name
     // survived -> if the short one remained, rename it back to the original long name
     char DOSArchiveFileName[SAL_MAX_PATH];
-    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, SizeOf(DOSArchiveFileName)))
+    if (!GetShortPathName(archiveFileName, DOSArchiveFileName, _countof(DOSArchiveFileName)))
         DOSArchiveFileName[0] = 0;
 
     // and run the external program

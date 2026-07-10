@@ -1380,7 +1380,7 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
 
     char fsName[MAX_PATH];
     int fsNameLen = (int)((secondPart - targetPath) - 1);
-    if (fsNameLen <= 0 || fsNameLen >= SizeOf(fsName))
+    if (fsNameLen <= 0 || fsNameLen >= _countof(fsName))
         return FALSE;
     memcpy(fsName, targetPath, fsNameLen);
     fsName[fsNameLen] = 0;
@@ -1410,7 +1410,7 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
                        tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data))
     {
         data->Reset();
-        lstrcpyn(data->WorkPath, tempRoot, SizeOf(data->WorkPath));
+        lstrcpyn(data->WorkPath, tempRoot, _countof(data->WorkPath));
 
         char internalTargetPath[2 * MAX_PATH];
         lstrcpyn(internalTargetPath, targetPath, 2 * MAX_PATH);
@@ -1530,7 +1530,7 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
                        tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data))
     {
         data->Reset();
-        lstrcpyn(data->WorkPath, tempRoot, SizeOf(data->WorkPath));
+        lstrcpyn(data->WorkPath, tempRoot, _countof(data->WorkPath));
 
         SetCurrentDirectory(tempRoot);
         done = PackCompress(source->HWindow, source, archivePath, archiveRoot,
@@ -1606,7 +1606,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
             }
         }
         // build the subject for the dialog
-        ExpandPluralFilesDirs(expanded, SizeOf(expanded), files, data.IndexesCount - files, epfdmNormal, FALSE);
+        ExpandPluralFilesDirs(expanded, _countof(expanded), files, data.IndexesCount - files, epfdmNormal, FALSE);
     }
     else // take the selected file or directory
     {
@@ -1664,7 +1664,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     data.Dirs = Dirs;
     data.Files = Files;
     data.ArchiveDir = GetArchiveDir();
-    lstrcpyn(data.WorkPath, GetPath(), SizeOf(data.WorkPath));
+    lstrcpyn(data.WorkPath, GetPath(), _countof(data.WorkPath));
     data.EnumLastDir = NULL;
     data.EnumLastIndex = -1;
 
@@ -1762,7 +1762,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     // if no item is selected, choose the focused item and store its name
     char temporarySelected[SAL_MAX_PATH];
     temporarySelected[0] = 0;
-    SelectFocusedItemAndGetName(temporarySelected, SizeOf(temporarySelected));
+    SelectFocusedItemAndGetName(temporarySelected, _countof(temporarySelected));
 
     if (delFilesAfterPacking == 1)
         PackerConfig.Move = TRUE;
