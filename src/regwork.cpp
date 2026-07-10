@@ -148,6 +148,33 @@ BOOL DeleteKeyAux(HKEY hKey, const char* name)
     return RegDeleteKey(hKey, name) == ERROR_SUCCESS;
 }
 
+
+static void ShowLoadConfigRegistryError(HWND parent, LONG res, const char* valueName,
+                                        DWORD expectedType, DWORD actualType,
+                                        DWORD bufferSize, DWORD requiredSize)
+{
+    const char* name = valueName != NULL && valueName[0] != 0 ? valueName : "(Default)";
+
+    if (HLanguage == NULL)
+    {
+        char text[1024];
+        _snprintf_s(text, _TRUNCATE,
+                    "%s\n\nRegistry value: %s\nExpected type: %lu\nActual type: %lu\nBuffer size: %lu bytes\nRequired size: %lu bytes",
+                    res == ERROR_SUCCESS ? "Unexpected value type." : GetErrorText(res),
+                    name, expectedType, actualType, bufferSize, requiredSize);
+        MessageBox(parent, text, "Error Loading Configuration", MB_OK | MB_ICONEXCLAMATION);
+    }
+    else
+    {
+        char text[1024];
+        _snprintf_s(text, _TRUNCATE,
+                    "%s\n\nRegistry value: %s\nExpected type: %lu\nActual type: %lu\nBuffer size: %lu bytes\nRequired size: %lu bytes",
+                    res == ERROR_SUCCESS ? LoadStr(IDS_UNEXPECTEDVALUETYPE) : GetErrorText(res),
+                    name, expectedType, actualType, bufferSize, requiredSize);
+        SalMessageBox(parent, text, LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+    }
+}
+
 // ****************************************************************************
 
 BOOL GetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type, void* buffer, DWORD bufferSize, BOOL quiet)
@@ -156,6 +183,7 @@ BOOL GetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type, void* buf
     if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
         return registry->GetValue(hKey, name, type, buffer, bufferSize);
 
+    DWORD originalBufferSize = bufferSize;
     DWORD gettedType;
     LONG res = SalRegQueryValueEx(hKey, name, 0, &gettedType, (BYTE*)buffer, &bufferSize);
     if (res == ERROR_SUCCESS)
@@ -165,16 +193,8 @@ BOOL GetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type, void* buf
         {
             if (!quiet)
             {
-                if (HLanguage == NULL)
-                {
-                    MessageBox(parent, "Unexpected value type.",
-                               "Error Loading Configuration", MB_OK | MB_ICONEXCLAMATION);
-                }
-                else
-                {
-                    SalMessageBox(parent, LoadStr(IDS_UNEXPECTEDVALUETYPE),
-                                  LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
-                }
+                ShowLoadConfigRegistryError(parent, ERROR_SUCCESS, name, type, gettedType,
+                                            originalBufferSize, bufferSize);
             }
             return FALSE;
         }
@@ -184,16 +204,8 @@ BOOL GetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type, void* buf
         {
             if (!quiet)
             {
-                if (HLanguage == NULL)
-                {
-                    MessageBox(parent, GetErrorText(res),
-                               "Error Loading Configuration", MB_OK | MB_ICONEXCLAMATION);
-                }
-                else
-                {
-                    SalMessageBox(parent, GetErrorText(res),
-                                  LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
-                }
+                ShowLoadConfigRegistryError(parent, res, name, type, gettedType,
+                                            originalBufferSize, bufferSize);
             }
         }
         return FALSE;
