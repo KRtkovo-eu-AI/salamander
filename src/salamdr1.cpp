@@ -137,7 +137,7 @@ static BOOL LoadLanguageFromRegistry(CSalamanderRegistryExAbstract* registry, co
 
 static BOOL LoadLanguageFromPortableConfig(const char* configKey, DWORD& langChanged, const char* regFilePath = NULL)
 {
-    char fileName[MAX_PATH];
+    char fileName[SAL_MAX_PATH];
     if (regFilePath != NULL && regFilePath[0] != 0)
         strncpy_s(fileName, regFilePath, _TRUNCATE);
     else if (!ConfigurationStorage.GetPortableConfigFilePath(fileName, SizeOf(fileName)))
@@ -4366,7 +4366,7 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     DWORD langChanged = FALSE; // TRUE = startujeme Salama poprve s jinym jazykem (naloadime vsechny pluginy, at se overi ze mame tuto jazykovou verzi i pro ne, pripadne at user vyresi jake nahradni verze chce pouzivat)
     BOOL languageLoadedFromPortableConfig = FALSE;
     CConfigurationStorageType languageStorageType = cstRegistry;
-    char languageRegFilePath[MAX_PATH];
+    char languageRegFilePath[SAL_MAX_PATH];
     languageRegFilePath[0] = 0;
     if (!autoImportConfig &&
         ConfigurationStorage.LoadStorageTypeBootstrap(languageStorageType, languageRegFilePath, SizeOf(languageRegFilePath)) &&
@@ -4616,7 +4616,7 @@ FIND_NEW_SLG_FILE:
     UnpackerConfig.InitializeDefaultValues();
 
     CConfigurationStorageType storageType = cstRegistry;
-    char storageRegFilePath[MAX_PATH];
+    char storageRegFilePath[SAL_MAX_PATH];
     storageRegFilePath[0] = 0;
     BOOL storageTypeBootstrapWritable = ConfigurationStorage.CanSaveStorageTypeBootstrap();
     BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
@@ -4624,7 +4624,7 @@ FIND_NEW_SLG_FILE:
                                          WasRestrictedFileStorageImported();
     Configuration.StorageType = storageType;
 
-    char portableConfigPath[MAX_PATH];
+    char portableConfigPath[SAL_MAX_PATH];
     portableConfigPath[0] = 0;
     if (storageType == cstRegFile && storageRegFilePath[0] != 0)
         strncpy_s(portableConfigPath, storageRegFilePath, _TRUNCATE);

@@ -1951,7 +1951,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     }
 
     // Check for portable config.reg
-    char portableConfigPath[MAX_PATH];
+    char portableConfigPath[SAL_MAX_PATH];
     ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
     if (GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES && configCount < MCD_MAX_CONFIGS)
     {
@@ -1961,7 +1961,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     }
 
     // Check for known file storage paths (z configstorage.ini)
-    char knownPaths[20][MAX_PATH];
+    char knownPaths[20][SAL_MAX_PATH];
     int knownCount = 0;
     ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
     for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)

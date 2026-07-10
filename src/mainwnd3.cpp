@@ -5549,7 +5549,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
 
             // Scan default portable config.reg next to salamand.exe even when it is not in known paths yet.
-            char portableConfigPath[MAX_PATH];
+            char portableConfigPath[SAL_MAX_PATH];
             portableConfigPath[0] = 0;
             ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
             if (portableConfigPath[0] != 0 && GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES &&
@@ -5561,7 +5561,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
 
             // Scan known file storage paths
-            char knownPaths[20][MAX_PATH];
+            char knownPaths[20][SAL_MAX_PATH];
             int knownCount = 0;
             ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
             for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)
