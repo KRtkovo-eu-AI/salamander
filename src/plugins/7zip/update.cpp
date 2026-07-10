@@ -19,6 +19,23 @@
 
 #include "7za/CPP/7zip/Common/FileStreams.h"
 
+static void GetThreadSafeErrorText(DWORD err, char* buffer, size_t bufferSize)
+{
+    if (bufferSize == 0)
+        return;
+
+    DWORD len = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                              NULL, err, 0, buffer, (DWORD)bufferSize, NULL);
+    if (len == 0)
+    {
+        _snprintf_s(buffer, bufferSize, _TRUNCATE, "System error %lu", err);
+        return;
+    }
+
+    while (len > 0 && (buffer[len - 1] == '\r' || buffer[len - 1] == '\n' || buffer[len - 1] == '.'))
+        buffer[--len] = 0;
+}
+
 CArchiveUpdateCallback::CArchiveUpdateCallback(HWND _hProgWnd)
 {
     InitializeCriticalSection(&CSUpdate);
@@ -35,14 +52,14 @@ CArchiveUpdateCallback::~CArchiveUpdateCallback()
     DeleteCriticalSection(&CSUpdate);
 }
 
-STDMETHODIMP CArchiveUpdateCallback::SetTotal(UInt64 size)
+HRESULT CArchiveUpdateCallback::SetTotalNoSEH(UInt64 size)
 {
     Total.Value = size;
     SendMessage(hProgWnd, WM_7ZIP, WM_7ZIP_SETTOTAL, (LPARAM)&Total);
     return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::SetCompleted(const UInt64* completeValue)
+HRESULT CArchiveUpdateCallback::SetCompletedNoSEH(const UInt64* completeValue)
 {
     if (completeValue != NULL)
     {
@@ -54,13 +71,46 @@ STDMETHODIMP CArchiveUpdateCallback::SetCompleted(const UInt64* completeValue)
     return S_OK;
 }
 
+
+STDMETHODIMP CArchiveUpdateCallback::SetTotal(UInt64 size)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return SetTotalNoSEH(size);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return SetTotalNoSEH(size);
+#endif // _MSC_VER
+}
+
+STDMETHODIMP CArchiveUpdateCallback::SetCompleted(const UInt64* completeValue)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return SetCompletedNoSEH(completeValue);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return SetCompletedNoSEH(completeValue);
+#endif // _MSC_VER
+}
+
 STDMETHODIMP CArchiveUpdateCallback::EnumProperties(IEnumSTATPROPSTG** enumerator)
 {
     return E_NOTIMPL;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 index,
-                                                       Int32* newData, Int32* newProperties, UInt32* indexInArchive)
+HRESULT CArchiveUpdateCallback::GetUpdateItemInfoNoSEH(UInt32 index,
+                                                     Int32* newData, Int32* newProperties, UInt32* indexInArchive)
 {
     const CUpdateInfo* ui = (*UpdateList)[index];
     if (ui == NULL)
@@ -90,7 +140,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 index,
     return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PROPVARIANT* value)
+HRESULT CArchiveUpdateCallback::GetPropertyNoSEH(UInt32 index, PROPID propID, PROPVARIANT* value)
 {
     NWindows::NCOM::CPropVariant propVariant;
     const CUpdateInfo* ui = (*UpdateList)[index];
@@ -159,8 +209,42 @@ STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PR
     return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
-                                               ISequentialInStream** inStream)
+
+STDMETHODIMP CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 index,
+                                                       Int32* newData, Int32* newProperties, UInt32* indexInArchive)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return GetUpdateItemInfoNoSEH(index, newData, newProperties, indexInArchive);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return GetUpdateItemInfoNoSEH(index, newData, newProperties, indexInArchive);
+#endif // _MSC_VER
+}
+
+STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PROPVARIANT* value)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return GetPropertyNoSEH(index, propID, value);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return GetPropertyNoSEH(index, propID, value);
+#endif // _MSC_VER
+}
+
+HRESULT CArchiveUpdateCallback::GetStreamNoSEH(UInt32 index,
+                                             ISequentialInStream** inStream)
 {
     /*
   char u[1024];
@@ -209,19 +293,21 @@ STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
         do
         {
             mbRet = DIALOG_OK;
-            if (!inStreamSpec->Open(us2fs(GetUnicodeString(GetAnsiString(fi->FullPath)))))
+            if (!inStreamSpec->Open(us2fs(GetSalamanderLongPath(fi->FullPath))))
             {
                 mbRet = DIALOG_SKIP;
                 if (!Silent)
                 {
                     DWORD err = ::GetLastError();
                     AString fn = GetAnsiString(fi->FullPath);
+                    char errText[1024];
+                    GetThreadSafeErrorText(err, errText, _countof(errText));
                     // Warning: GetStream can get called from a parallel thread launched by 7za.dll!
                     CDialogErrorParams dep;
 
                     dep.Flags = BUTTONS_RETRYSKIPCANCEL;
                     dep.FileName = fn;
-                    dep.Error = SalamanderGeneral->GetErrorText(err);
+                    dep.Error = errText;
                     mbRet = (int)SendMessage(hProgWnd, WM_7ZIP, WM_7ZIP_DIALOGERROR, (LPARAM)&dep);
                 }
             }
@@ -250,10 +336,32 @@ STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
     {
         res = e;
     }
+    catch (...)
+    {
+        res = E_FAIL;
+    }
 
     LeaveCriticalSection(&CSUpdate);
 
     return res;
+}
+
+
+STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
+                                               ISequentialInStream** inStream)
+{
+#ifdef _MSC_VER
+    __try
+    {
+        return GetStreamNoSEH(index, inStream);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return E_FAIL;
+    }
+#else  // _MSC_VER
+    return GetStreamNoSEH(index, inStream);
+#endif // _MSC_VER
 }
 
 STDMETHODIMP CArchiveUpdateCallback::SetOperationResult(Int32 operationResult)
@@ -289,7 +397,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetVolumeStream(UInt32 index, ISequentialOu
   fileName += VolExt;
   CRetryableOutFileStream *streamSpec = new CRetryableOutFileStream(hProgWnd);
   CMyComPtr<ISequentialOutStream> streamLoc(streamSpec);
-  if(!streamSpec->Create(us2fs(GetUnicodeString(fileName)), false))
+  if(!streamSpec->Create(us2fs(GetSalamanderLongPath(GetSalamanderUnicodeString(fileName))), false))
     return ::GetLastError();
   *volumeStream = streamLoc.Detach();
   return S_OK;*/

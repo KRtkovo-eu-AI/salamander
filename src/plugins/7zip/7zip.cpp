@@ -4,6 +4,8 @@
 #include "precomp.h"
 #include "dbg.h"
 
+#include <string>
+
 #include "..\7zip\7za\c\7zVersion.h"
 
 #include "7zip.h"
@@ -17,6 +19,30 @@
 #include "7zclient.h"
 
 // ****************************************************************************
+
+static HANDLE CreateFileLongPath(const char* fileName, DWORD desiredAccess, DWORD shareMode,
+                                 DWORD creationDisposition, DWORD flagsAndAttributes)
+{
+    std::wstring fileNameW;
+    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+    int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
+    if (len > 0)
+    {
+        fileNameW.resize(len);
+        MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
+        fileNameW.resize(len - 1);
+    }
+    if (!fileNameW.empty())
+    {
+        if (fileNameW.length() >= MAX_PATH && wcsncmp(fileNameW.c_str(), L"\\\\?\\", 4) != 0)
+            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + std::wstring(fileNameW.c_str() + 2)
+                                                                    : std::wstring(L"\\\\?\\") + fileNameW;
+        return ::CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL,
+                             creationDisposition, flagsAndAttributes, NULL);
+    }
+    return ::CreateFile(fileName, desiredAccess, shareMode, NULL,
+                        creationDisposition, flagsAndAttributes, NULL);
+}
 
 HINSTANCE DLLInstance = NULL; // handle to the SPL module - language-independent resources
 HINSTANCE HLanguage = NULL;   // handle to the SLG module - language-dependent resources
@@ -1119,20 +1145,35 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
 
     // test whether the archive exists (we need to distinguish between update and create new archive)
     BOOL isNewArchive = FALSE;
-    HANDLE hArchive = ::CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE hArchive = CreateFileLongPath(fileName, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
     if (hArchive == INVALID_HANDLE_VALUE)
     {
         isNewArchive = TRUE; // the file does not exist; this is a new archive
 
         // check whether the target path is writable
         hArchive = INVALID_HANDLE_VALUE;
-        hArchive = ::CreateFile(fileName, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+        hArchive = CreateFileLongPath(fileName, GENERIC_WRITE, FILE_SHARE_WRITE, CREATE_NEW, FILE_ATTRIBUTE_NORMAL);
         if (hArchive == INVALID_HANDLE_VALUE)
             return SysError(IDS_CANT_CREATE_ARCHIVE, ::GetLastError());
         else
         {
             ::CloseHandle(hArchive);
-            ::DeleteFile(fileName);
+            std::wstring fileNameW;
+            UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
+            int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
+            if (len > 0)
+            {
+                fileNameW.resize(len);
+                MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
+                fileNameW.resize(len - 1);
+            }
+            if (!fileNameW.empty() && fileNameW.length() >= MAX_PATH && wcsncmp(fileNameW.c_str(), L"\\\\?\\", 4) != 0)
+                fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + std::wstring(fileNameW.c_str() + 2)
+                                                                        : std::wstring(L"\\\\?\\") + fileNameW;
+            if (!fileNameW.empty())
+                ::DeleteFileW(fileNameW.c_str());
+            else
+                ::DeleteFile(fileName);
         }
     }
     else
@@ -1150,7 +1191,7 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
 
         // check whether the file is writable
         hArchive = INVALID_HANDLE_VALUE;
-        hArchive = ::CreateFile(fileName, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        hArchive = CreateFileLongPath(fileName, GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
         if (hArchive == INVALID_HANDLE_VALUE)
             return SysError(IDS_CANT_UPDATE_ARCHIVE, ::GetLastError(), FALSE, fileName);
         else
@@ -1259,9 +1300,9 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
     { // first lock the archive file so we cannot delete it ourselves (bug: https://forum.altap.cz/viewtopic.php?f=3&t=3859)
         while (1)
         {
-            hArchive = ::CreateFile(fileName, GENERIC_READ /* I tried 0, but the system then allowed deleting the file */,
-                                    FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            hArchive = CreateFileLongPath(fileName, GENERIC_READ /* I tried 0, but the system then allowed deleting the file */,
+                                          FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
 
             if (hArchive != INVALID_HANDLE_VALUE)
                 break;
@@ -1318,7 +1359,7 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
             if (ret)
             {
                 // prepare the buffer for names
-                char sourceName[MAX_PATH + 1]; // buffer for the full name on disk
+                char sourceName[SAL_MAX_PATH]; // buffer for the full name on disk
                 strcpy(sourceName, sourcePath);
                 char* endSource = sourceName + strlen(sourceName); // space for the names from the 'next' enumeration
                 if (endSource > sourceName && *(endSource - 1) != '\\')
@@ -1326,7 +1367,7 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
                     *endSource++ = '\\';
                     *endSource = 0;
                 }
-                int endSourceSize = MAX_PATH - (int)(endSource - sourceName); // maximum number of characters for a name from the 'next' enumeration
+                int endSourceSize = SAL_MAX_PATH - (int)(endSource - sourceName); // maximum number of characters for a name from the 'next' enumeration
 
                 // delete directories; if something remains inside they will not be removed and that's fine :)
                 // because we iterate from leaves to the root, we can delete them this way
