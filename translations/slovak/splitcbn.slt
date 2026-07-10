@@ -71,7 +71,7 @@ COMMENT,"Slovenská verzia"
 1018,7,22,20,20,1,""
 
 [STRINGTABLE 0]
-1,0,"Split & Combine"
+1,1,"Rozdeliť a spojiť"
 2,1,"Chyba pri otváraní súboru."
 3,1,"Vyberte cieľový adresár."
 4,1,"Súbor nie je dostatočne veľký na rozdelenie."
