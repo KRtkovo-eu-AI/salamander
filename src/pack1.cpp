@@ -49,7 +49,7 @@ const SPackBrowseTable PackBrowseTable[] =
             (TPackErrorTable*)&RARErrors, TRUE,
             "$(ArchivePath)", "$(Rar32bitOr64bitExecutable) v -c- \"$(ArchiveFileName)\"",
             NULL, "--------", 0, 0, 2, "--------", ' ', 1, 2, 6, 5, 7, 3, 2,                              // after RAR 5.0 we patch the indices at runtime; see variable 'RAR5AndLater'
-            "$(TargetPath)", "$(Rar32bitOr64bitExecutable) x -scol \"$(ArchiveFullName)\" @\"$(ListFullName)\"", // since version 5.0 we must enforce the -scol switch; version 4.20 is fine; appears elsewhere and in the registry
+            "$(TargetPath)", "$(Rar32bitOr64bitExecutable) x -scul \"$(ArchiveFullName)\" @\"$(ListFullName)\"", // since version 5.0 we must enforce the -scul switch; version 4.20 is fine; appears elsewhere and in the registry
             "$(TargetPath)", "$(Rar32bitOr64bitExecutable) e \"$(ArchiveFullName)\" \"$(ExtractFullName)\"", FALSE},
         // ARJ 2.60 MS-DOS
         {
