@@ -34,6 +34,33 @@ HINSTANCE g_hInstance;
 const CLSID CLSID_CFormat7z = {0x23170F69, 0x40C1, 0x278A, {0x10, 0x00, 0x00, 0x01, 0x10, 0x07, 0x00, 0x00}};
 //const CLSID CLSID_CFormatZIP = {0x23170F69, 0x40C1, 0x278A, {0x10, 0x00, 0x00, 0x01, 0x10, 0x01, 0x00, 0x00}};
 
+static const char* GetSafeTempDirForSalGetTempFileName(const char* archiveName, char* archiveDir, size_t archiveDirSize)
+{
+    lstrcpyn(archiveDir, archiveName, (int)archiveDirSize);
+    SalamanderGeneral->CutDirectory(archiveDir, NULL);
+
+    // SalGetTempFileName() uses an internal MAX_PATH buffer and copies the supplied path
+    // into it. For long UTF-8 paths, use the system TEMP directory instead and move the
+    // finished archive with the wide API.
+    return strlen(archiveDir) + 1 + 3 + 8 < MAX_PATH ? archiveDir : NULL;
+}
+
+static BOOL DeleteFileLongPath(const char* fileName)
+{
+    UString fileNameW = GetSalamanderLongPath(GetSalamanderUnicodeString(fileName));
+    return ::DeleteFileW(fileNameW.Ptr());
+}
+
+static BOOL MoveFileLongPath(const char* srcName, const char* destName, DWORD* err)
+{
+    UString srcNameW = GetSalamanderLongPath(GetSalamanderUnicodeString(srcName));
+    UString destNameW = GetSalamanderLongPath(GetSalamanderUnicodeString(destName));
+    BOOL ret = ::MoveFileExW(srcNameW.Ptr(), destNameW.Ptr(), MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
+    if (err != NULL)
+        *err = ret ? ERROR_SUCCESS : ::GetLastError();
+    return ret;
+}
+
 /*
 char *C7zClient::CItemData::GetMethodStr() {
   static char name[64];
@@ -704,12 +731,9 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
     DWORD err;
 
     char srcPath[SAL_MAX_PATH];
-    strcpy(srcPath, archiveName);
-    char* rbackslash = _tcsrchr(srcPath, '\\');
-    if (rbackslash != NULL)
-        *rbackslash = '\0';
+    const char* tempDir = GetSafeTempDirForSalGetTempFileName(archiveName, srcPath, _countof(srcPath));
 
-    if (!SalamanderGeneral->SalGetTempFileName(srcPath, "sal", tmpName, TRUE, &err))
+    if (!SalamanderGeneral->SalGetTempFileName(tempDir, "sal", tmpName, TRUE, &err))
     {
         SysError(IDS_CANT_CREATE_TMPFILE, err, FALSE);
         return OPER_CANCEL;
@@ -1155,11 +1179,10 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
                       CCompressParams* compressParams, bool passwordIsDefined, UString password)
 {
     char tmpName[SAL_MAX_PATH];
-    // trim the filename from archiveName, leaving the target path where we will extract
-    lstrcpy(tmpName, archiveName);
-    SalamanderGeneral->CutDirectory(tmpName, NULL);
+    char tmpDir[SAL_MAX_PATH];
+    const char* tempDir = GetSafeTempDirForSalGetTempFileName(archiveName, tmpDir, _countof(tmpDir));
     DWORD err;
-    if (!SalamanderGeneral->SalGetTempFileName(tmpName, "sal", tmpName, TRUE, &err))
+    if (!SalamanderGeneral->SalGetTempFileName(tempDir, "sal", tmpName, TRUE, &err))
     {
         SysError(IDS_CANT_CREATE_TMPFILE, err, FALSE);
         return OPER_CANCEL;
@@ -1281,7 +1304,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
                 // close the open archive
                 inArchive->Close();
                 // delete it
-                if (!::DeleteFile(archiveName))
+                if (!DeleteFileLongPath(archiveName))
                 {
                     Error(IDS_CANT_UPDATE_ARCHIVE, FALSE, archiveName);
                     throw OPER_CANCEL;
@@ -1290,7 +1313,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
 
             DWORD err2;
             // rename the tmp file to the archive
-            if (!SalamanderGeneral->SalMoveFile(tmpName, archiveName, &err2))
+            if (!MoveFileLongPath(tmpName, archiveName, &err2))
             {
                 SysError(IDS_CANT_MOVE_TMPARCHIVE, err2, FALSE, tmpName);
                 throw OPER_CANCEL;
