@@ -1174,7 +1174,7 @@ BOOL CViewTemplates::Load(HKEY hKey)
             DWORD rightSM = TRUE;
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &leftSM, sizeof(DWORD));
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &rightSM, sizeof(DWORD));
-            if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, name, VIEW_NAME_MAX) &&
+            if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, name, MAX_PATH) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &flags, sizeof(DWORD)) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, 512))
             {
