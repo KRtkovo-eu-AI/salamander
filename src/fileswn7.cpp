@@ -1582,6 +1582,8 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
         subDir = FALSE;
     data.IndexesCount = GetSelCount();
     char expanded[SAL_MAX_PATH + 100];
+    char archiveBaseName[SAL_MAX_PATH];
+    archiveBaseName[0] = 0;
     int files = 0;             // number of selected files
     if (data.IndexesCount > 1) // valid selection
     {
@@ -1650,6 +1652,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
                 if (!isDir)
                     files = 1;
                 CFileData* f = isDir ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
+                lstrcpyn(archiveBaseName, f->Name, _countof(archiveBaseName));
                 AlterFileName(path, f->Name, -1, Configuration.FileNameFormat, 0, index < Dirs->Count);
                 strcpy(expanded, LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
             }
@@ -1674,17 +1677,19 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
 
     if (nameByItem) // if only one item (file/directory) is selected, the archive inherits its name
     {
-        char* ext = strrchr(path, '.');
+        const char* itemName = archiveBaseName[0] != 0 ? archiveBaseName : path;
+        const char* ext = strrchr(itemName, '.');
         if (data.Indexes[0] < Dirs->Count || ext == NULL) // ".cvspass" is treated as an extension in Windows ...
-                                                          //  if (data.Indexes[0] < Dirs->Count || ext == NULL || ext == path)
+                                                          //  if (data.Indexes[0] < Dirs->Count || ext == NULL || ext == itemName)
         {                                                 // subdirectory or no extension
-            strcpy(fileBuf, path);
-            strcat(fileBuf, ".");
+            lstrcpyn(fileBuf, itemName, _countof(fileBuf));
+            if (strlen(fileBuf) + 1 < _countof(fileBuf))
+                strcat(fileBuf, ".");
         }
         else
         {
-            memcpy(fileBuf, path, ext + 1 - path);
-            fileBuf[ext + 1 - path] = 0;
+            memcpy(fileBuf, itemName, ext + 1 - itemName);
+            fileBuf[ext + 1 - itemName] = 0;
         }
     }
     else
