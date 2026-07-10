@@ -70,12 +70,12 @@ CRetryableOutFileStream::CRetryableOutFileStream(HWND _hParentWnd) : hParentWnd(
 
 STDMETHODIMP CRetryableOutFileStream::Write(const void* data, UInt32 size, UInt32* processedSize)
 {
-    UInt32 written;
+    UInt32 written = 0;
     HRESULT ret;
 
     if (processedSize)
         *processedSize = 0;
-    while ((S_OK != (ret = COutFileStream::Write(data, size, &written))) /*|| (size != written)*/)
+    while ((written = 0, S_OK != (ret = COutFileStream::Write(data, size, &written))) /*|| (size != written)*/)
     {
         // NOTE: COutFileStream::Write writes at most kChunkSizeMax bytes (4MB) at once
         data = (char*)data + written;
@@ -100,12 +100,12 @@ CRetryableInFileStream::CRetryableInFileStream(HWND _hParentWnd) : hParentWnd(_h
 
 STDMETHODIMP CRetryableInFileStream::Read(void* data, UInt32 size, UInt32* processedSize)
 {
-    UInt32 read;
+    UInt32 read = 0;
     HRESULT ret;
 
     if (processedSize)
         *processedSize = 0;
-    while (S_OK != (ret = CInFileStream::Read(data, size, &read)))
+    while ((read = 0, S_OK != (ret = CInFileStream::Read(data, size, &read))))
     {
         data = (char*)data + read;
         size -= read;

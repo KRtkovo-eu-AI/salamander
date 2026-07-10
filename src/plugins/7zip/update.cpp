@@ -250,6 +250,10 @@ STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index,
     {
         res = e;
     }
+    catch (...)
+    {
+        res = E_FAIL;
+    }
 
     LeaveCriticalSection(&CSUpdate);
 
