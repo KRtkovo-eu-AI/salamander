@@ -80,8 +80,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### Digitally signed
 - All binary files including installer are digitally signed
-<img width="405" height="483" alt="image" src="https://github.com/user-attachments/assets/11f33476-8c25-435c-a2ad-06f7ec858f08" />
-
+<img width="405" height="485" alt="image" src="https://github.com/user-attachments/assets/be80813f-c231-499d-976a-7e17f3ab291d" />
 
 ## Samandarin Fork Overview
 
