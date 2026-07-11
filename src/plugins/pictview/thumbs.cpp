@@ -845,7 +845,7 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
         /* PVFF_FAST: Discard/do not alloc all unnecessary info */
         //     pvoi.Flags  = PVFF_FAST | (G.IgnoreThumbnails ? 0 : PVOF_THUMBNAIL);
         pvoi.Flags = PVFF_FAST | (G.IgnoreThumbnails ? 0 : (fastThumbnail ? PVOF_THUMBNAIL : 0));
-        pvoi.FileName = filenameForBackend;
+        pvoi.FileName = filenameForBackend.c_str();
         if (pvoi.DataSize)
         {
             pvoi.Flags |= PVOF_USERDEFINED_INPUT;
