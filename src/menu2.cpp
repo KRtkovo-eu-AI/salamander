@@ -1092,33 +1092,42 @@ BOOL CMenuPopup::GetStatesFromHWindowsMenu(HMENU hMenu)
     return TRUE;
 }
 
-// This version works since W2K; we use it from Vista where MS introduced
-// alpha blended icons in menus
-typedef struct
-{
-    UINT cbSize;
-    UINT fMask;
-    UINT fType;            // used if MIIM_TYPE (4.0) or MIIM_FTYPE (>4.0)
-    UINT fState;           // used if MIIM_STATE
-    UINT wID;              // used if MIIM_ID
-    HMENU hSubMenu;        // used if MIIM_SUBMENU
-    HBITMAP hbmpChecked;   // used if MIIM_CHECKMARKS
-    HBITMAP hbmpUnchecked; // used if MIIM_CHECKMARKS
-    ULONG_PTR dwItemData;  // used if MIIM_DATA
-    LPSTR dwTypeData;      // used if MIIM_TYPE (4.0) or MIIM_STRING (>4.0)
-    UINT cch;              // used if MIIM_TYPE (4.0) or MIIM_STRING (>4.0)
-    HBITMAP hbmpItem;      // used if MIIM_BITMAP
-} MENUITEMINFOA_NEW, FAR* LPMENUITEMINFOA_NEW;
-
+#ifndef MIIM_STRING
 #define MIIM_STRING 0x00000040
+#endif
+#ifndef MIIM_BITMAP
 #define MIIM_BITMAP 0x00000080
+#endif
+#ifndef MIIM_FTYPE
 #define MIIM_FTYPE 0x00000100
+#endif
+
+static BOOL WideMenuTextToUtf8(const WCHAR* text, int len, char* buffer, int bufferSize, const char** utf8Text, int* utf8Len)
+{
+    if (text == NULL)
+    {
+        *utf8Text = "";
+        *utf8Len = 0;
+        return TRUE;
+    }
+    if (len < 0)
+        len = (int)wcslen(text);
+
+    int converted = WideCharToMultiByte(CP_UTF8, 0, text, len, buffer, bufferSize - 1, NULL, NULL);
+    if (converted == 0 && len > 0)
+        return FALSE;
+    buffer[converted] = 0;
+    *utf8Text = buffer;
+    *utf8Len = converted;
+    return TRUE;
+}
 
 BOOL CMenuPopup::LoadFromHandle()
 {
     CALL_STACK_MESSAGE1("CMenuPopup::LoadFromHandle()");
-    char buff[2048];
-    MENUITEMINFOA_NEW mii;
+    WCHAR buff[2048];
+    char utf8Buff[sizeof(buff) * 3 / sizeof(buff[0])];
+    MENUITEMINFOW mii;
     mii.cbSize = sizeof(mii);
     mii.fMask = MIIM_CHECKMARKS | MIIM_DATA | MIIM_ID | MIIM_STATE | MIIM_SUBMENU | MIIM_FTYPE | MIIM_BITMAP | MIIM_STRING;
     // convert all menu items to our data structures
@@ -1128,9 +1137,9 @@ BOOL CMenuPopup::LoadFromHandle()
     for (i = 0; i < count; i++)
     {
         mii.dwTypeData = buff;
-        mii.cch = 2048;
+        mii.cch = _countof(buff);
         // retrieve all available information about the item from the menu
-        if (!GetMenuItemInfo(HWindowsMenu, i, TRUE, (MENUITEMINFO*)&mii))
+        if (!GetMenuItemInfoW(HWindowsMenu, i, TRUE, &mii))
         {
             TRACE_E("GetMenuItemInfo failed");
             return FALSE;
@@ -1190,12 +1199,15 @@ BOOL CMenuPopup::LoadFromHandle()
         // in the case of a string, copy the string
         if (item->Type & MENU_TYPE_STRING)
         {
-            const char* p = mii.dwTypeData;
-            int len = mii.cch;
-            if (p == NULL)
+            const char* p;
+            int len;
+            if (!WideMenuTextToUtf8(mii.dwTypeData, mii.dwTypeData != NULL ? (int)wcslen(mii.dwTypeData) : 0,
+                                    utf8Buff, _countof(utf8Buff), &p, &len))
             {
-                p = "";
-                len = 0;
+                TRACE_E(LOW_MEMORY);
+                Items.Detach(index);
+                delete item;
+                return FALSE;
             }
             if (!item->SetText(p, len))
             {
