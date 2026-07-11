@@ -47,6 +47,7 @@ extern "C"
 #include "worker.h"
 #include "find.h"
 #include "viewer.h"
+#include "common/widepath.h"
 
 // critical shutdown: the maximum time we can spend in WM_QUERYENDSESSION (after that,
 // KILL comes from Windows). It is 5s (5s with an open message box, 10s without pumping
@@ -8554,9 +8555,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     if (itemData.FullPath != NULL && itemData.FullPath[0] != 0 &&
                         !IsTheSamePath(itemData.FullPath, sourcePanel->GetPath()))
                     {
-                        char treePath[32768];
-                        lstrcpyn(treePath, itemData.FullPath, _countof(treePath));
-                        sourcePanel->ChangePathToDisk(sourcePanel->HWindow, treePath);
+                        std::wstring treePathW = SalMultiByteToWidePath(itemData.FullPath, CP_UTF8);
+                        if (treePathW.empty())
+                            sourcePanel->ChangePathToDisk(sourcePanel->HWindow, itemData.FullPath);
+                        else
+                            sourcePanel->ChangePathToDiskW(sourcePanel->HWindow, treePathW.c_str());
                     }
                 }
                 else
