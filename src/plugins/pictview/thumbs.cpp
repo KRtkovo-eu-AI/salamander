@@ -828,13 +828,14 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
     char filenameA[_MAX_PATH];
     bool hasExactExifPath = ConvertPathToExifEncoding(filename, filenameA, sizeof(filenameA));
     const char* filenameForExif = filenameA;
-#ifdef _UNICODE
     // The active WIC backend expects UTF-8 paths. The old EXIF helper still
     // uses the best available ANSI/short-path representation above, so keep a
     // separate filename for image decoding.
+#ifdef _UNICODE
     std::string filenameForBackend = PluginWideToMultiBytePath(filename, CP_UTF8);
 #else
-    const char* filenameForBackend = filename;
+    std::wstring filenameWide = PluginMultiByteToWidePath(filename, CP_ACP);
+    std::string filenameForBackend = PluginWideToMultiBytePath(filenameWide.c_str(), CP_UTF8);
 #endif
 
     pvoi.DataSize = ExtractWinThumbnail(filename, &thumbData);
