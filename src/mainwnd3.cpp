@@ -8464,7 +8464,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
         if (treePanel != NULL)
         {
-            if (lphdr->code == TVN_DELETEITEM)
+            if (lphdr->code == TVN_DELETEITEMA || lphdr->code == TVN_DELETEITEMW)
             {
                 LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
                 if (pnmtv->itemOld.lParam != 0)
@@ -8526,7 +8526,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 return CDRF_DODEFAULT;
             }
 
-            case TVN_ITEMEXPANDING:
+            case TVN_ITEMEXPANDINGA:
+            case TVN_ITEMEXPANDINGW:
             {
                 LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
                 if (pnmtv->action == TVE_EXPAND)
@@ -8534,7 +8535,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 return 0;
             }
 
-            case TVN_SELCHANGED:
+            case TVN_SELCHANGEDA:
+            case TVN_SELCHANGEDW:
             {
                 LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
                 CTreeViewNodeData itemData;

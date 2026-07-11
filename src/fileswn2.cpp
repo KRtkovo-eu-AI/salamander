@@ -2537,7 +2537,7 @@ BOOL CFilesWindow::ChangePathToDiskW(HWND parent, const wchar_t* path, int sugge
         return FALSE;
     }
 
-    std::string requestedPathA = SalWideToMultiBytePath(requestedPath.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    std::string requestedPathA = SalWideToMultiBytePath(requestedPath.c_str(), CP_UTF8);
     if (requestedPathA.empty())
     {
         if (failReason != NULL)
