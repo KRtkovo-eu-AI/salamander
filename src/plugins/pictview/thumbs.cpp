@@ -1092,7 +1092,11 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
         free(thumbData);
         PVW32DLL.PVCloseImage(hPVImage);
     }
-    return code == PVC_OK;
+    if (code != PVC_OK)
+    {
+        thumbMaker->SetError();
+    }
+    return TRUE;
 }
 
 PVCODE CreateThumbnail(LPPVHandle hPVImage, LPPVSaveImageInfo pSii, int imageIndex, DWORD imgWidth, DWORD imgHeight,
