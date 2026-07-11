@@ -1049,6 +1049,7 @@ SLGINCOMPLETE,""
 2697,1,54,150,8,1,"&Alineación del texto del botón de pestaña:"
 2698,164,52,130,55,1,""
 2699,1,68,150,12,1,"Mostrar el &borde de la pestaña activa"
+2710,164,68,30,12,1,""
 2707,1,80,170,12,1,"Mostrar el botón de cerrar en la pestaña &activa"
 2708,1,92,175,12,1,"Mostrar el botón de cerrar en &todas las pestañas"
 
