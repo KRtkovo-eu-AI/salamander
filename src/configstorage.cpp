@@ -138,6 +138,8 @@ BOOL CConfigurationStorage::SaveStorageTypeBootstrap(CConfigurationStorageType t
     {
         // RegFilePath is meaningful only for file-backed configuration storage.
         ret = WritePrivateProfileString("Configuration", "RegFilePath", regFilePath, fileName);
+        if (ret)
+            ret = AddKnownFileStoragePath(regFilePath);
     }
     else if (ret)
     {
@@ -622,20 +624,37 @@ BOOL CConfigurationStorage::AddKnownFileStoragePath(const char* path)
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
-    // Nejprve zkontrolovat jestli cesta uz existuje
-    static char existingPaths[20][SAL_MAX_PATH];
-    int existingCount = 0;
-    LoadKnownFileStoragePaths(existingPaths, &existingCount, 20);
+    int firstFreeIndex = -1;
 
-    for (int i = 0; i < existingCount; i++)
+    // Nejprve zkontrolovat jestli cesta uz existuje a najit prvni volny PathN.
+    // Prochazime vsechny podporovane indexy, abychom neprepsali existujici
+    // pozdejsi Path po pripadne mezere v cislovani.
+    for (int i = 0; i < 20; i++)
     {
-        if (_stricmp(existingPaths[i], path) == 0)
+        char key[20];
+        _snprintf_s(key, _TRUNCATE, "Path%d", i);
+
+        char existingPath[SAL_MAX_PATH];
+        existingPath[0] = 0;
+        GetPrivateProfileString("KnownFileStorage", key, "", existingPath, SizeOf(existingPath), fileName);
+
+        if (existingPath[0] == 0)
+        {
+            if (firstFreeIndex == -1)
+                firstFreeIndex = i;
+            continue;
+        }
+
+        if (_stricmp(existingPath, path) == 0)
             return TRUE; // uz existuje
     }
 
-    // Pridat na konec
+    if (firstFreeIndex == -1)
+        return FALSE;
+
+    // Pridat na prvni volny PathN bez prepisovani znamych cest.
     char key[20];
-    _snprintf_s(key, _TRUNCATE, "Path%d", existingCount);
+    _snprintf_s(key, _TRUNCATE, "Path%d", firstFreeIndex);
     return WritePrivateProfileString("KnownFileStorage", key, path, fileName);
 }
 
