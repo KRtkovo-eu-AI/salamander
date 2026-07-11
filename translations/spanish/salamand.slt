@@ -2252,6 +2252,8 @@ SLGINCOMPLETE,""
 10583,1,"Título activo"
 10584,1,"Título inactivo"
 10585,1,"Parte resaltada de la fila"
+10586,1,"Sugerencias de autocompletado de ruta"
+10588,1,"Elemento seleccionado en la lista"
 
 [STRINGTABLE 39]
 10595,1,"Marco de miniatura en el panel"

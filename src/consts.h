@@ -1257,12 +1257,17 @@ struct COpenViewerData
 #define THUMBNAIL_FRAME_SELECTED 32
 #define THUMBNAIL_FRAME_FOCSEL 33
 
+#define AUTOCOMPLETE_PATH_FG 34 // barva textu v autocomplete suggestu - path field (selected)
+#define AUTOCOMPLETE_PATH_BK 35 // barva pozadi v autocomplete suggestu - path field (selected)
+#define AUTOCOMPLETE_LIST_FG 36  // barva textu v autocomplete suggestu - list (selected)
+#define AUTOCOMPLETE_LIST_BK 37  // barva pozadi v autocomplete suggestu - list (selected)
+
 #define VIEWER_FG_NORMAL 0 // normalni barvy viewru
 #define VIEWER_BK_NORMAL 1
 #define VIEWER_FG_SELECTED 2 // selected text
 #define VIEWER_BK_SELECTED 3
 
-#define NUMBER_OF_COLORS 34       // pocet barev ve schematu
+#define NUMBER_OF_COLORS 38       // pocet barev ve schematu
 #define NUMBER_OF_VIEWERCOLORS 4  // pocet barev pro viewer
 #define NUMBER_OF_CUSTOMCOLORS 16 // uzivatelelm definovane barvy v barevnem dialogu
 

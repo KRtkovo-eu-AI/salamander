@@ -2252,6 +2252,8 @@ SLGINCOMPLETE,""
 10583,1,"Aktivní titulek"
 10584,1,"Neaktivní titulek"
 10585,1,"Zvýrazněná část řádku"
+10586,1,"Automatické doplnění cesty"
+10588,1,"Vybraná položka v seznamu"
 
 [STRINGTABLE 39]
 10595,1,"Rámec kolem miniatur v panelu"

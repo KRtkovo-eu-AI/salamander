@@ -3993,7 +3993,7 @@ struct CConfigurationPage7Data
     CConfigurationPage7SubData Items[CFG_COLORS_BUTTONS];
 };
 
-#define PAGE7DATA_COUNT 7
+#define PAGE7DATA_COUNT 8
 
 CConfigurationPage7Data Page7Data[PAGE7DATA_COUNT] =
     {
@@ -4052,6 +4052,14 @@ CConfigurationPage7Data Page7Data[PAGE7DATA_COUNT] =
             {{IDS_COLORLABEL_HOTPANEL, HOT_PANEL, 0, CFG7F_SINGLECOLOR | CFG7F_DEFFG},
              {IDS_COLORLABEL_HOTACTIVE, HOT_ACTIVE, 0, CFG7F_SINGLECOLOR | CFG7F_DEFFG},
              {IDS_COLORLABEL_HOTINACTIVE, HOT_INACTIVE, 0, CFG7F_SINGLECOLOR | CFG7F_DEFFG},
+             {0, 0, 0, 0},
+             {0, 0, 0, 0}}},
+        // autocomplete suggestion colors
+        {
+            IDS_COLORITEM_AUTOCOMPLETE,
+            {{IDS_COLORLABEL_AUTOCOMPLETE_LIST, AUTOCOMPLETE_LIST_FG, AUTOCOMPLETE_LIST_BK, CFG7F_DEFFG | CFG7F_DEFBK},
+             {0, 0, 0, 0},
+             {0, 0, 0, 0},
              {0, 0, 0, 0},
              {0, 0, 0, 0}}},
 };

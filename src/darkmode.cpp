@@ -271,6 +271,8 @@ static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
 static bool gDialogBrushOwned = false;
 static DarkModeColors gColors = {GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT), false};
+static COLORREF gAutocompleteSelectedFg = RGB(255, 255, 255);
+static COLORREF gAutocompleteSelectedBk = RGB(0, 120, 215);
 static bool gPropagatingThemeChange = false;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
@@ -1147,8 +1149,8 @@ void PaintAutoSuggestListBox(HWND hwnd, HDC hdc)
 
         const LRESULT selected = SendMessage(hwnd, LB_GETSEL, index, 0);
         const bool isSelected = selected > 0 || index == curSel;
-        const COLORREF itemBk = isSelected ? RGB(0, 120, 215) : colors.background;
-        const COLORREF itemText = isSelected ? RGB(255, 255, 255) : colors.readableText;
+        const COLORREF itemBk = isSelected ? gAutocompleteSelectedBk : colors.background;
+        const COLORREF itemText = isSelected ? gAutocompleteSelectedFg : colors.readableText;
         FillRectWithColor(hdc, itemRect, itemBk);
         SetTextColor(hdc, itemText);
 
@@ -1210,8 +1212,8 @@ void PaintAutoSuggestListView(HWND hwnd, HDC hdc)
             break;
 
         const bool isSelected = ListView_GetItemState(hwnd, index, LVIS_SELECTED) != 0;
-        const COLORREF itemBk = isSelected ? RGB(0, 120, 215) : colors.background;
-        const COLORREF itemText = isSelected ? RGB(255, 255, 255) : colors.readableText;
+        const COLORREF itemBk = isSelected ? gAutocompleteSelectedBk : colors.background;
+        const COLORREF itemText = isSelected ? gAutocompleteSelectedFg : colors.readableText;
         FillRectWithColor(hdc, itemRect, itemBk);
         SetTextColor(hdc, itemText);
 
@@ -2684,6 +2686,12 @@ const DarkModeColors& DarkModeGetColors()
     EnsureInitialized();
     gColors.readableText = ResolveReadableForeground(gColors.text, gColors.background);
     return gColors;
+}
+
+void DarkModeSetAutocompleteSelectedColors(COLORREF fg, COLORREF bk)
+{
+    gAutocompleteSelectedFg = fg;
+    gAutocompleteSelectedBk = bk;
 }
 
 COLORREF DarkModeGetDialogTextColor()

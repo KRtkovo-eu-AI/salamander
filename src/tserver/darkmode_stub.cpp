@@ -74,3 +74,8 @@ void DarkModeUpdateTabControlOverflowButtons(HWND tabControl) { UNREFERENCED_PAR
 void DarkModePreserveCustomTreeView(HWND treeView) { UNREFERENCED_PARAMETER(treeView); }
 void DarkModeApplyRebarSeparators(HWND rebar) { UNREFERENCED_PARAMETER(rebar); }
 void DarkModeEnableAutoSuggestSupport(HWND edit) { UNREFERENCED_PARAMETER(edit); }
+void DarkModeSetAutocompleteSelectedColors(COLORREF fg, COLORREF bk)
+{
+    UNREFERENCED_PARAMETER(fg);
+    UNREFERENCED_PARAMETER(bk);
+}

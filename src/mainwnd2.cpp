@@ -1312,6 +1312,11 @@ const char* SALAMANDER_CLR_THUMBNAIL_FRAME_SELECTED_REG = "Thumbnail Frame Selec
 const char* SALAMANDER_CLR_THUMBNAIL_FRAME_FOCUSED_REG = "Thumbnail Frame Focused";
 const char* SALAMANDER_CLR_THUMBNAIL_FRAME_FOCSEL_REG = "Thumbnail Frame Focused and Selected";
 
+const char* SALAMANDER_CLR_AUTOCOMPLETE_PATH_FG_REG = "Autocomplete Path Fg";
+const char* SALAMANDER_CLR_AUTOCOMPLETE_PATH_BK_REG = "Autocomplete Path Bk";
+const char* SALAMANDER_CLR_AUTOCOMPLETE_LIST_FG_REG = "Autocomplete List Fg";
+const char* SALAMANDER_CLR_AUTOCOMPLETE_LIST_BK_REG = "Autocomplete List Bk";
+
 const char* SALAMANDER_HLT = "Panel Items Hilighting";
 const char* SALAMANDER_HLT_ITEM_MASKS = "Masks";
 const char* SALAMANDER_HLT_ITEM_ATTR = "Attributes";
@@ -3504,6 +3509,11 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SaveRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_FOCUSED_REG, UserColors[THUMBNAIL_FRAME_FOCUSED]);
                 SaveRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_FOCSEL_REG, UserColors[THUMBNAIL_FRAME_FOCSEL]);
 
+                SaveRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_PATH_FG_REG, UserColors[AUTOCOMPLETE_PATH_FG]);
+                SaveRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_PATH_BK_REG, UserColors[AUTOCOMPLETE_PATH_BK]);
+                SaveRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_LIST_FG_REG, UserColors[AUTOCOMPLETE_LIST_FG]);
+                SaveRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_LIST_BK_REG, UserColors[AUTOCOMPLETE_LIST_BK]);
+
                 SaveRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_NORMAL_REG, ViewerColors[VIEWER_FG_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_VIEWER_BK_NORMAL_REG, ViewerColors[VIEWER_BK_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_SELECTED_REG, ViewerColors[VIEWER_FG_SELECTED]);
@@ -3987,6 +3997,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_SELECTED_REG, UserColors[THUMBNAIL_FRAME_SELECTED]);
             LoadRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_FOCUSED_REG, UserColors[THUMBNAIL_FRAME_FOCUSED]);
             LoadRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_FOCSEL_REG, UserColors[THUMBNAIL_FRAME_FOCSEL]);
+
+            if (!LoadRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_PATH_FG_REG, UserColors[AUTOCOMPLETE_PATH_FG]))
+                UserColors[AUTOCOMPLETE_PATH_FG] = RGBF(255, 255, 255, 0);
+            if (!LoadRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_PATH_BK_REG, UserColors[AUTOCOMPLETE_PATH_BK]))
+                UserColors[AUTOCOMPLETE_PATH_BK] = RGBF(0, 0, 128, SCF_DEFAULT);
+            if (!LoadRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_LIST_FG_REG, UserColors[AUTOCOMPLETE_LIST_FG]))
+                UserColors[AUTOCOMPLETE_LIST_FG] = RGBF(255, 255, 255, 0);
+            if (!LoadRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_LIST_BK_REG, UserColors[AUTOCOMPLETE_LIST_BK]))
+                UserColors[AUTOCOMPLETE_LIST_BK] = RGBF(0, 0, 128, SCF_DEFAULT);
 
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_NORMAL_REG, ViewerColors[VIEWER_FG_NORMAL]);
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_BK_NORMAL_REG, ViewerColors[VIEWER_BK_NORMAL]);

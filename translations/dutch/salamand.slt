@@ -2252,6 +2252,8 @@ SLGINCOMPLETE,""
 10583,1,"Actief onderschrift"
 10584,1,"Inactief onderschrift"
 10585,1,"Gemarkeerd gedeelte van de rij"
+10586,1,"Pad automatisch aanvullen suggesties"
+10588,1,"Geselecteerd item in lijst"
 
 [STRINGTABLE 39]
 10595,1,"Frame om miniatuur in paneel"

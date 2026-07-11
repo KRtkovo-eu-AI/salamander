@@ -2252,6 +2252,8 @@ SLGINCOMPLETE,""
 10583,1,"Légende du panneau actif"
 10584,1,"Légende du panneau inactif"
 10585,1,"Partie mise en valeur de la ligne"
+10586,1,"Suggestions de complétion automatique du chemin"
+10588,1,"Élément sélectionné dans la liste"
 
 [STRINGTABLE 39]
 10595,1,"Cadre autour de la vignette dans le panneau"
