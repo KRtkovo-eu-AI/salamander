@@ -253,19 +253,21 @@ BOOL CTruncatedString::Set(const char* str, const char* subStr)
     if (Text != NULL)
         free(Text);
     Text = text;
+    size_t textCapacity = (size_t)len + 1;
     if (subStrIndex != -1)
     {
         int prefixLen = subStrIndex;
         memcpy(Text, str, prefixLen);
         memcpy(Text + prefixLen, subStr, subStrLen);
         const char* suffix = str + prefixLen + 2; // skip "%s"
-        strcpy(Text + prefixLen + subStrLen, suffix);
+        size_t suffixOffset = (size_t)(prefixLen + subStrLen);
+        _snprintf_s(Text + suffixOffset, textCapacity - suffixOffset, _TRUNCATE, "%s", suffix);
         SubStrIndex = subStrIndex;
         SubStrLen = subStrLen;
     }
     else
     {
-        strcpy(Text, str);
+        _snprintf_s(Text, textCapacity, _TRUNCATE, "%s", str);
         SubStrIndex = -1;
         SubStrLen = 0;
     }
