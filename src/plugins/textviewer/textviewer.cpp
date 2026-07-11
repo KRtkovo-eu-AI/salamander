@@ -222,13 +222,11 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
     static const char* const kBaseExtensions[] = {
-        "txt",
         "log",
         "ini",
         "cfg",
         "conf",
         "config",
-        "json",
         "jsonc",
         "json5",
         "yaml",
@@ -410,7 +408,6 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
         "jq",
         "js",
         "jsdoc",
-        "json",
         "json5",
         "jsonp",
         "jsstacktrace",
