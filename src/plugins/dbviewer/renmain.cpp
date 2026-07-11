@@ -253,7 +253,7 @@ CRendererWindow::~CRendererWindow()
 
 void CRendererWindow::OnFileOpen()
 {
-    char file[MAX_PATH];
+    char file[SAL_MAX_PATH];
     file[0] = 0;
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -268,7 +268,7 @@ void CRendererWindow::OnFileOpen()
         s++;
     }
     ofn.lpstrFile = file;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = SAL_MAX_PATH;
     ofn.nFilterIndex = 1;
     ofn.lpstrInitialDir = NULL;
     ofn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
@@ -284,8 +284,8 @@ void CRendererWindow::OnFileReOpen()
     if (!Database.IsOpened())
         return;
 
-    char path[MAX_PATH];
-    lstrcpy(path, Database.GetFileName());
+    char path[SAL_MAX_PATH];
+    lstrcpyn(path, Database.GetFileName(), SAL_MAX_PATH);
     OpenFile(path, FALSE);
 }
 
@@ -1592,12 +1592,12 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DROPFILES:
     {
         UINT drag;
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
 
         drag = DragQueryFile((HDROP)wParam, 0xFFFFFFFF, NULL, 0); // how many files were dropped
         if (drag > 0)
         {
-            DragQueryFile((HDROP)wParam, 0, path, MAX_PATH);
+            DragQueryFile((HDROP)wParam, 0, path, SAL_MAX_PATH);
             OpenFile(path, TRUE);
         }
         DragFinish((HDROP)wParam);
