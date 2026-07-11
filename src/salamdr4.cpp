@@ -226,7 +226,11 @@ BOOL CTruncatedString::Set(const char* str, const char* subStr)
     Text = text;
     if (subStrIndex != -1)
     {
-        sprintf(Text, str, subStr);
+        int prefixLen = subStrIndex;
+        memcpy(Text, str, prefixLen);
+        memcpy(Text + prefixLen, subStr, subStrLen);
+        const char* suffix = str + prefixLen + 2; // skip "%s"
+        strcpy(Text + prefixLen + subStrLen, suffix);
         SubStrIndex = subStrIndex;
         SubStrLen = subStrLen;
     }
