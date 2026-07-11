@@ -162,6 +162,14 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
 
 Po kontrole reportu pro jednotlivé jazyky/moduly a vygenerovaných kandidátů odstraňte `-DryRun`. V dávkovém skriptu `-DryRun` stále volá OpenAI a zapisuje přeložené soubory do `out/localization-openai/candidate/`; pouze přeskočí kopírování do `translations/`, import/export validaci v Translatoru a sestavení language packů. Běh lze omezit pomocí `-Languages czech,slovak` nebo `-Modules salamand,automation`; `-BuildLanguagePacks` sestaví balíčky pouze tehdy, když všechny překlady a validace uspějí. `-ForceRetranslate` nahradí také položky již označené jako přeložené, proto jej používejte obzvlášť opatrně.
 
+OpenAI překladač posílá s každou dávkou také ukázky již existujících překladů stejného modulu jako překladovou paměť, aby model držel terminologii konzistentně (například aby pro jeden pojem nestřídal „záložky“ a „karty“). Přepínač `-AutoTrimTranslations` nepřekládá všechno znovu; vybere pouze již přeložené položky delší než aktuální anglický originál a požádá model o kratší variantu se stejnými technickými tokeny. Typické bezpečné použití je společně s `-DryRun`, například:
+
+```powershell
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\out\salamand\Release_x64 -Languages czech -Modules salamand `
+  -AutoTrimTranslations -DryRun
+```
+
 #### ImportOnly režim
 
 `-ImportOnly` přeskočí export kostry, rebase, OpenAI překlad a přípravu workspace (která by smazala existující kandidáty). Importuje existující soubory kandidátů z `out/localization-openai/candidate/` do `.slg` projektů a volitelně exportuje finální `.slt` soubory do `translations/`. API klíč `OPENAI_API_KEY` není potřeba.

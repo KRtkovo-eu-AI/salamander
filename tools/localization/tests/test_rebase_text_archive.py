@@ -25,6 +25,12 @@ class RebaseTextArchiveTests(unittest.TestCase):
         self.assertNotIn("$args+='--dry-run'", script)
         self.assertIn("if(-not $DryRun)", script)
 
+    def test_localize_all_passes_source_archive_and_trim_switch(self):
+        script = (Path(__file__).parents[1] / "localize_all_openai.ps1").read_text(encoding="utf-8")
+        self.assertIn("[switch]$AutoTrimTranslations", script)
+        self.assertIn("'--source-archive',$source", script)
+        self.assertIn("if($AutoTrimTranslations){$args+='--trim-translations'}", script)
+
     def test_stringtables_are_rebased_by_global_string_id(self):
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("$legacyStringItemsById = @{}", text)
