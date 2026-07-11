@@ -1082,6 +1082,7 @@ const char* CONFIG_TABCAPTIONALIGNMENT_REG = "Tab caption alignment";
 const char* CONFIG_TABMINWIDTH_REG = "Tab min width";
 const char* CONFIG_TABMAXWIDTH_REG = "Tab max width";
 const char* CONFIG_TABACTIVEBORDER_REG = "Tab active border";
+const char* CONFIG_TABACTIVEBORDERCOLOR_REG = "Tab active border color";
 const char* CONFIG_TABCLOSEBUTTONACTIVE_REG = "Tab close button active";
 const char* CONFIG_TABCLOSEBUTTONALL_REG = "Tab close button all";
 const char* CONFIG_TITLEBARPREFIX_REG = "Title bar prefix";
@@ -3015,6 +3016,9 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SetValue(actKey, CONFIG_TABMAXWIDTH_REG, REG_DWORD, &tabMaxWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABACTIVEBORDER_REG, REG_DWORD,
                          &Configuration.TabActiveBorder, sizeof(DWORD));
+                DWORD tabActiveBorderColor = (DWORD)Configuration.TabActiveBorderColor;
+                SetValue(actKey, CONFIG_TABACTIVEBORDERCOLOR_REG, REG_DWORD,
+                         &tabActiveBorderColor, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABCLOSEBUTTONACTIVE_REG, REG_DWORD,
                          &Configuration.TabCloseButtonActive, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABCLOSEBUTTONALL_REG, REG_DWORD,
@@ -4875,6 +4879,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                           &Configuration.TabActiveBorder, sizeof(DWORD)))
             {
                 Configuration.TabActiveBorder = TRUE;
+            }
+            {
+                DWORD tabActiveBorderColor = (DWORD)CLR_INVALID;
+                if (!GetValue(actKey, CONFIG_TABACTIVEBORDERCOLOR_REG, REG_DWORD,
+                              &tabActiveBorderColor, sizeof(DWORD)))
+                {
+                    tabActiveBorderColor = (DWORD)CLR_INVALID;
+                }
+                Configuration.TabActiveBorderColor = (COLORREF)tabActiveBorderColor;
             }
             if (!GetValue(actKey, CONFIG_TABCLOSEBUTTONACTIVE_REG, REG_DWORD,
                           &Configuration.TabCloseButtonActive, sizeof(DWORD)))

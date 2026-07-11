@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include "gui.h"
+
 #include "bitmap.h"
 #include "toolbar.h"
 #include "svg.h"
@@ -32,13 +34,6 @@ static COLORREF GetToolBarBkColor()
     return DarkMode_ShouldUseDark() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
 }
 
-static COLORREF LightenColor(COLORREF color, int amount)
-{
-    return RGB(min(255, GetRValue(color) + amount),
-               min(255, GetGValue(color) + amount),
-               min(255, GetBValue(color) + amount));
-}
-
 static COLORREF DarkenColor(COLORREF color, int amount)
 {
     return RGB(max(0, GetRValue(color) - amount),
@@ -49,7 +44,7 @@ static COLORREF DarkenColor(COLORREF color, int amount)
 static COLORREF GetDisabledToolBarHighlightColor()
 {
     if (DarkModeShouldUseDarkColors())
-        return LightenColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), 24);
+        return LightenColorSimple(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), 24);
     return GetSysColor(COLOR_BTNHILIGHT);
 }
 

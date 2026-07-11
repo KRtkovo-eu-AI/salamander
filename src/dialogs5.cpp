@@ -3917,6 +3917,111 @@ CCfgPagePanels::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CCfgPageTabs::CCfgPageTabs()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_TABS, IDD_CFGPAGE_TABS, PSP_USETITLE, NULL)
 {
+    activeBorderColorBtn = NULL;
+    tabActiveBorderColor = CLR_INVALID;
+}
+
+static COLORREF TabActiveBorderGetDefaultColor()
+{
+    COLORREF borderColor;
+    if (CurrentColors != NULL)
+        borderColor = GetCOLORREF(CurrentColors[ACTIVE_CAPTION_BK]);
+    else if (DarkModeShouldUseDarkColors())
+        borderColor = DarkModeGetDialogBackgroundColor();
+    else
+        borderColor = GetSysColor(COLOR_ACTIVECAPTION);
+    return LightenColorSimple(borderColor, 96);
+}
+
+void CCfgPageTabs::UpdateColorButton()
+{
+    if (activeBorderColorBtn != NULL)
+    {
+        BOOL checked = SendDlgItemMessage(HWindow, IDC_TABS_ACTIVEBORDER, BM_GETCHECK, 0, 0) == BST_CHECKED;
+        EnableWindow(activeBorderColorBtn->HWindow, checked);
+    }
+}
+
+INT_PTR CCfgPageTabs::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+    {
+        INT_PTR ret = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+        tabActiveBorderColor = Configuration.TabActiveBorderColor;
+        activeBorderColorBtn = new CColorArrowButton(HWindow, IDC_TABS_ACTIVEBORDER_COLOR, TRUE);
+        COLORREF color = (tabActiveBorderColor != CLR_INVALID) ? tabActiveBorderColor : TabActiveBorderGetDefaultColor();
+        activeBorderColorBtn->SetColor(color, color);
+        UpdateColorButton();
+        return ret;
+    }
+
+    case WM_COMMAND:
+    {
+        WORD cmd = LOWORD(wParam);
+        WORD code = HIWORD(wParam);
+
+        if (cmd == IDC_TABS_ACTIVEBORDER && code == BN_CLICKED)
+        {
+            UpdateColorButton();
+            break;
+        }
+
+        if (cmd == IDC_TABS_ACTIVEBORDER_COLOR && code == BN_CLICKED)
+        {
+            HMENU hMenu = CreatePopupMenu();
+            if (hMenu != NULL)
+            {
+                BOOL isCustom = (tabActiveBorderColor != CLR_INVALID);
+                InsertMenu(hMenu, 0xFFFFFFFF, isCustom ? MF_CHECKED : 0 | MF_BYCOMMAND | MF_STRING, 1, LoadStr(IDS_TABBORDER_CUSTOM_COLOR));
+                InsertMenu(hMenu, 0xFFFFFFFF, isCustom ? 0 : MF_CHECKED | MF_BYCOMMAND | MF_STRING, 2, LoadStr(IDS_TABBORDER_AUTO_COLOR));
+
+                TPMPARAMS tpmPar;
+                tpmPar.cbSize = sizeof(tpmPar);
+                GetWindowRect(activeBorderColorBtn->HWindow, &tpmPar.rcExclude);
+                DWORD result = TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                                                tpmPar.rcExclude.right, tpmPar.rcExclude.top, HWindow, &tpmPar);
+                if (result == 1)
+                {
+                    CHOOSECOLOR cc;
+                    cc.lStructSize = sizeof(cc);
+                    cc.hwndOwner = HWindow;
+                    cc.lpCustColors = (LPDWORD)CustomColors;
+                    cc.rgbResult = (tabActiveBorderColor != CLR_INVALID) ? tabActiveBorderColor : TabActiveBorderGetDefaultColor();
+                    cc.Flags = CC_RGBINIT | CC_FULLOPEN;
+                    DarkModePrepareChooseColor(&cc);
+                    if (ChooseColor(&cc) == TRUE)
+                    {
+                        tabActiveBorderColor = cc.rgbResult;
+                        activeBorderColorBtn->SetColor(cc.rgbResult, cc.rgbResult);
+                    }
+                }
+                else if (result == 2)
+                {
+                    tabActiveBorderColor = CLR_INVALID;
+                    COLORREF color = TabActiveBorderGetDefaultColor();
+                    activeBorderColorBtn->SetColor(color, color);
+                }
+                DestroyMenu(hMenu);
+            }
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_NOTIFY:
+    {
+        NMHDR* nmhdr = reinterpret_cast<NMHDR*>(lParam);
+        if (nmhdr->code == PSN_KILLACTIVE)
+        {
+            Configuration.TabActiveBorderColor = tabActiveBorderColor;
+        }
+        break;
+    }
+    }
+
+    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
 
 void CCfgPageTabs::Transfer(CTransferInfo& ti)

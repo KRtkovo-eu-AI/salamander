@@ -2315,14 +2315,20 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     if (selected && Configuration.TabActiveBorder)
     {
         COLORREF borderColor;
-        if (CurrentColors != NULL)
-            borderColor = GetCOLORREF(CurrentColors[ACTIVE_CAPTION_BK]);
-        else if (useDark)
-            borderColor = DarkModeGetDialogBackgroundColor();
+        if (Configuration.TabActiveBorderColor != CLR_INVALID)
+        {
+            borderColor = Configuration.TabActiveBorderColor;
+        }
         else
-            borderColor = GetSysColor(COLOR_ACTIVECAPTION);
-
-        borderColor = LightenColor(borderColor, 96);
+        {
+            if (CurrentColors != NULL)
+                borderColor = GetCOLORREF(CurrentColors[ACTIVE_CAPTION_BK]);
+            else if (useDark)
+                borderColor = DarkModeGetDialogBackgroundColor();
+            else
+                borderColor = GetSysColor(COLOR_ACTIVECAPTION);
+            borderColor = LightenColor(borderColor, 96);
+        }
 
         int borderHeight = 2;
         RECT borderRect = fillRect;

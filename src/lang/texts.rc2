@@ -1604,6 +1604,8 @@ STRINGTABLE
  IDS_TITLEBAR_FULLPATH, "Full Path"
  IDS_TABCAPTIONALIGN_LEFT, "Left"
  IDS_TABCAPTIONALIGN_CENTER, "Center"
+ IDS_TABBORDER_CUSTOM_COLOR, "Custom color of border"
+ IDS_TABBORDER_AUTO_COLOR, "Automatic color of border"
 
  IDS_SHORTCUT_INVALID, "The file '%s' is not valid shortcut nor link."
  IDS_SHORTCUT_WRONG_PATH, "Cannot obtain shortcut target or target path is not accessible."

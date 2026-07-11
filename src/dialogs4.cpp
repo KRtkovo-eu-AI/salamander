@@ -788,6 +788,7 @@ CConfiguration::CConfiguration()
     TabButtonMaxWidth = 0;
     TabCaptionAlignment = TAB_CAPTION_ALIGN_CENTER;
     TabActiveBorder = TRUE;
+    TabActiveBorderColor = CLR_INVALID;
     TabCloseButtonActive = FALSE;
     TabCloseButtonAll = FALSE;
     UseTitleBarPrefix = FALSE;

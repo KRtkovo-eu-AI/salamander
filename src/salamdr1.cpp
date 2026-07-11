@@ -403,13 +403,6 @@ HBRUSH HMenuGrayTextBrush = NULL;
 static bool gDarkModeBrushesOwned = false;
 
 
-static COLORREF LightenColor(COLORREF color, int amount)
-{
-    return RGB(min(255, GetRValue(color) + amount),
-               min(255, GetGValue(color) + amount),
-               min(255, GetBValue(color) + amount));
-}
-
 static COLORREF DarkenColor(COLORREF color, int amount)
 {
     return RGB(max(0, GetRValue(color) - amount),
@@ -481,7 +474,7 @@ static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
         DestroyDarkModeBrushes();
         COLORREF panelBg = paletteBackground;
         COLORREF textColor = paletteText;
-        COLORREF highlight = LightenColor(panelBg, 24);
+        COLORREF highlight = LightenColorSimple(panelBg, 24);
         COLORREF gray = DarkenColor(panelBg, 40);
 
         HDialogBrush = HANDLES(CreateSolidBrush(panelBg));
@@ -3014,9 +3007,9 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     HThumbnailSelectedPen = HANDLES(CreatePen(PS_SOLID, 0, GetCOLORREF(CurrentColors[THUMBNAIL_FRAME_SELECTED])));
     HThumbnailFocSelPen = HANDLES(CreatePen(PS_SOLID, 0, GetCOLORREF(CurrentColors[THUMBNAIL_FRAME_FOCSEL])));
 
-    COLORREF toolbarHighlight = useDark ? LightenColor(toolbarFace, 30) : GetSysColor(COLOR_BTNHILIGHT);
+    COLORREF toolbarHighlight = useDark ? LightenColorSimple(toolbarFace, 30) : GetSysColor(COLOR_BTNHILIGHT);
     COLORREF toolbarShadow = useDark ? DarkenColor(toolbarFace, 40) : GetSysColor(COLOR_BTNSHADOW);
-    COLORREF toolbarLight = useDark ? LightenColor(toolbarFace, 18) : GetSysColor(COLOR_3DLIGHT);
+    COLORREF toolbarLight = useDark ? LightenColorSimple(toolbarFace, 18) : GetSysColor(COLOR_3DLIGHT);
     COLORREF toolbarFrame = useDark ? DarkenColor(toolbarFace, 60) : GetSysColor(COLOR_WINDOWFRAME);
     COLORREF toolbarWindow = useDark ? toolbarFace : GetSysColor(COLOR_WINDOW);
 
@@ -3062,7 +3055,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     if (useDark)
     {
         clrMap[2].from = RGB(255, 255, 255);
-        clrMap[2].to = LightenColor(toolbarFace, 24);
+        clrMap[2].to = LightenColorSimple(toolbarFace, 24);
         remapWhite = TRUE;
     }
     else if (GetCurrentBPP() > 8)

@@ -61,20 +61,6 @@ bool IsValidUtf8Text(const char* text, int textLen)
            MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
 }
 
-COLORREF LightenColorSimple(COLORREF color, int amount)
-{
-    int r = GetRValue(color) + amount;
-    int g = GetGValue(color) + amount;
-    int b = GetBValue(color) + amount;
-    if (r > 255)
-        r = 255;
-    if (g > 255)
-        g = 255;
-    if (b > 255)
-        b = 255;
-    return RGB(r, g, b);
-}
-
 COLORREF DarkenColorSimple(COLORREF color, int amount)
 {
     int r = GetRValue(color) - amount;
