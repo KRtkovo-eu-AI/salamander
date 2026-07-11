@@ -1988,7 +1988,7 @@ void CCfgPageDrives::Transfer(CTransferInfo& ti)
     if (ti.Type == ttDataToWindow)
     {
         GetIfPathIsInaccessibleGoTo(path);
-        ti.EditLine(IDE_DRVSPEC_ONERRGOTO, path, SizeOf(path));
+        ti.EditLine(IDE_DRVSPEC_ONERRGOTO, path, SAL_MAX_PATH);
         IfPathIsInaccessibleGoToChanged = FALSE;
 
         ReadWin32LongPathsEnabled(&Win32LongPathsEnabled);
@@ -2052,7 +2052,7 @@ void CCfgPageDrives::Transfer(CTransferInfo& ti)
 
         if (IfPathIsInaccessibleGoToChanged) // change only if the user actually edited the path
         {
-            ti.EditLine(IDE_DRVSPEC_ONERRGOTO, newPath, SizeOf(newPath));
+            ti.EditLine(IDE_DRVSPEC_ONERRGOTO, newPath, SAL_MAX_PATH);
             GetIfPathIsInaccessibleGoTo(path, TRUE);
             if (IsTheSamePath(path, newPath)) // user wants to go to My Documents
             {

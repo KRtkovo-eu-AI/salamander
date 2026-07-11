@@ -316,7 +316,11 @@ void CRendererWindow::SetViewerTitle()
         const char* fileName = SalGeneral->SalPathFindFileName(Database.GetFileName());
         _snprintf_s(title, _TRUNCATE, "%s - %s", fileName, LoadStr(IDS_PLUGINNAME));
         if (UseCodeTable || Database.GetIsUnicode())
-            _snprintf_s(title + strlen(title), SizeOf(title) - strlen(title), _TRUNCATE, " - [%s]", Coding);
+        {
+            size_t titleLen = strlen(title);
+            if (titleLen < SAL_MAX_PATH)
+                _snprintf_s(title + titleLen, SAL_MAX_PATH - titleLen, _TRUNCATE, " - [%s]", Coding);
+        }
     }
     else
         _snprintf_s(title, _TRUNCATE, "%s", LoadStr(IDS_PLUGINNAME));
