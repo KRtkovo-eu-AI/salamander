@@ -153,6 +153,54 @@ COMMENT,\"\"
   self.assertIn('1,1,"Krát."',text)
   self.assertIn('2,0,"Untranslated"',text)
 
+
+ def test_trim_accepts_progress_without_splitting_to_single_items(self):
+  os.environ["OPENAI_API_KEY"]="test"
+  current="""[STRINGTABLE 1]
+1,1,"Příliš dlouhý překlad jedna"
+2,1,"Příliš dlouhý překlad dva"
+"""
+  source="""[STRINGTABLE 1]
+1,0,"One"
+2,0,"Two"
+"""
+  calls=[]
+  def requester(payload,key,model):
+   calls.append(payload)
+   return {"translations":[
+    {"id":payload["items"][0]["id"],"text":"Delší 1"},
+    {"id":payload["items"][1]["id"],"text":"Delší 2"},
+   ]}
+  with tempfile.TemporaryDirectory() as d:
+   src=Path(d)/"source.slt"; inp=Path(d)/"in.slt"; out=Path(d)/"out.slt"
+   src.write_text(source,encoding="utf-8-sig"); inp.write_text(current,encoding="utf-8-sig")
+   report=slt.translate(inp,out,"czech","mock",40,False,False,requester,source_archive=src,trim_translations=True)
+   text=out.read_text(encoding="utf-8-sig")
+  self.assertEqual(len(calls),1)
+  self.assertEqual(report["trimmed"],2)
+  self.assertEqual(report["still_over_source"],2)
+  self.assertIn('1,1,"Delší 1"',text)
+  self.assertIn('2,1,"Delší 2"',text)
+
+ def test_trim_leaves_model_outputs_that_are_not_shorter(self):
+  os.environ["OPENAI_API_KEY"]="test"
+  current="""[STRINGTABLE 1]
+1,1,"Dlouhý překlad"
+"""
+  source="""[STRINGTABLE 1]
+1,0,"Short"
+"""
+  def requester(payload,key,model):
+   return {"translations":[{"id":payload["items"][0]["id"],"text":"Dlouhý překlad"}]}
+  with tempfile.TemporaryDirectory() as d:
+   src=Path(d)/"source.slt"; inp=Path(d)/"in.slt"; out=Path(d)/"out.slt"
+   src.write_text(source,encoding="utf-8-sig"); inp.write_text(current,encoding="utf-8-sig")
+   report=slt.translate(inp,out,"czech","mock",40,False,False,requester,source_archive=src,trim_translations=True)
+   text=out.read_text(encoding="utf-8-sig")
+  self.assertEqual(report["translated"],0)
+  self.assertEqual(report["not_shorter"],1)
+  self.assertIn('1,1,"Dlouhý překlad"',text)
+
  def test_requires_key_when_not_dry_run(self):
   os.environ.pop("OPENAI_API_KEY",None)
   with self.assertRaises(RuntimeError): slt.translate(FIX,Path("unused"),"czech","mock",40,False,False)

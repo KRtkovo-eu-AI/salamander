@@ -144,7 +144,8 @@ def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, s
         "Use the supplied existing_translations as translation memory for consistent terminology. "
         f"Use natural {language_name} in {language_script}; do not transliterate, strip accents/diacritics, "
         "or replace unrepresentable characters with '?', boxes, replacement characters, or mojibake. "
-        "When max_length_chars is present, make the text concise and no longer than that limit if possible."
+        "When max_length_chars is present, make the text concise, shorter than the current text, "
+        "and no longer than that limit when possible; if the exact limit is impossible, still return the shortest natural version."
     )
     if payload.get("retry_instructions"):
         instructions += " " + payload["retry_instructions"]
@@ -179,7 +180,9 @@ def validate(items: list[Item], result: dict, language: str | None = None, enfor
         if MOJIBAKE_RE.search(row["text"]): raise ValueError(f"translated text looks mojibaked for {row['id']}")
         if "??" in row["text"]: raise ValueError(f"translated text contains repeated question marks for {row['id']}")
         if tokens(row["text"]) != tokens(expected[row["id"]].text): raise ValueError(f"technical tokens changed for {row['id']}")
-        if enforce_max_length and expected[row["id"]].source_text is not None and len(row["text"]) > len(expected[row["id"]].source_text): raise ValueError(f"translated text is longer than source for {row['id']}")
+        # Length is a soft UI-fit target. Do not reject over-limit text here:
+        # rejecting a whole batch makes trim mode split down to single rows and
+        # throws away useful shorter-but-not-perfect model suggestions.
         output[row["id"]]=row["text"]
     if set(output) != set(expected): raise ValueError("response is incomplete")
     return output
@@ -198,6 +201,10 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
         attach_source_text(items, source_lines)
     all_items=parse_items(lines, True)
     report={"found":len(items),"translated":0,"skipped":len(all_items)-len(items),"failed":0,"estimated_input_characters":sum(len(i.text) for i in items)}
+    if trim_translations:
+        report["trimmed"] = 0
+        report["not_shorter"] = 0
+        report["still_over_source"] = 0
     if dry_run: return report
     if not items:
         if header_updates:
@@ -218,17 +225,30 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
             trace_handle.flush()
         return result
 
+    def apply_translations(batch: list[Item], translated: dict[str, str]) -> None:
+        for item in batch:
+            text = translated[item.key]
+            if trim_translations:
+                if len(text) >= len(item.text):
+                    report["not_shorter"] += 1
+                    continue
+                if item.source_text is not None and len(text) > len(item.source_text):
+                    report["still_over_source"] += 1
+                report["trimmed"] += 1
+            changed[item.index]=f'{item.prefix}1,"{text}"{item.ending}'
+            report["translated"] += 1
+
     def translate_batch(batch: list[Item]) -> None:
         selected={i.key for i in batch}
         payload={"target_language":lang["name"],"target_language_key":language,"target_locale":lang["locale"],"target_langid":lang["langid"],"target_script":lang["script"],"mode":"trim" if trim_translations else "translate","existing_translations":translation_context(lines, source_lines, selected),"items":[{"id":i.key,"resource_id":i.prefix.split(',',1)[0],"type":i.section,"text":i.text,"source_text":i.source_text or i.text,"max_length_chars":len(i.source_text or i.text)} for i in batch]}
         try:
-            translated=validate(batch, call_model(payload), language, enforce_max_length=trim_translations)
+            translated=validate(batch, call_model(payload), language)
         except ValueError as exc:
             if len(batch) == 1:
                 retry_payload=dict(payload)
-                retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again in the target language's native script. Keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source. Do not use '?', replacement glyphs, stripped accents, transliteration, or mojibake for target-language characters. If max_length_chars is present, shorten the translation to fit that length."
+                retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again in the target language's native script. Keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source. Do not use '?', replacement glyphs, stripped accents, transliteration, or mojibake for target-language characters. If max_length_chars is present, shorten the translation; if the exact length is impossible, return the shortest natural version."
                 try:
-                    translated=validate(batch, call_model(retry_payload), language, enforce_max_length=trim_translations)
+                    translated=validate(batch, call_model(retry_payload), language)
                 except ValueError as retry_exc:
                     report["failed"] += 1
                     print(f"translation skipped: {batch[0].key}: {retry_exc}", file=sys.stderr)
@@ -236,9 +256,7 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
                 except Exception:
                     report["failed"] += 1
                     raise
-                for item in batch:
-                    changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
-                    report["translated"] += 1
+                apply_translations(batch, translated)
                 return
             midpoint=max(1, len(batch)//2)
             translate_batch(batch[:midpoint])
@@ -251,9 +269,7 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
         except Exception:
             report["failed"] += len(batch)
             raise
-        for item in batch:
-            changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
-            report["translated"] += 1
+        apply_translations(batch, translated)
 
     try:
         for start in range(0,len(items),batch_size):
