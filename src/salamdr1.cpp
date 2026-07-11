@@ -4366,7 +4366,7 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     DWORD langChanged = FALSE; // TRUE = startujeme Salama poprve s jinym jazykem (naloadime vsechny pluginy, at se overi ze mame tuto jazykovou verzi i pro ne, pripadne at user vyresi jake nahradni verze chce pouzivat)
     BOOL languageLoadedFromPortableConfig = FALSE;
     CConfigurationStorageType languageStorageType = cstRegistry;
-    char languageRegFilePath[SAL_MAX_PATH];
+    static char languageRegFilePath[SAL_MAX_PATH];
     languageRegFilePath[0] = 0;
     if (!autoImportConfig &&
         ConfigurationStorage.LoadStorageTypeBootstrap(languageStorageType, languageRegFilePath, SizeOf(languageRegFilePath)) &&
@@ -4616,7 +4616,7 @@ FIND_NEW_SLG_FILE:
     UnpackerConfig.InitializeDefaultValues();
 
     CConfigurationStorageType storageType = cstRegistry;
-    char storageRegFilePath[SAL_MAX_PATH];
+    static char storageRegFilePath[SAL_MAX_PATH];
     storageRegFilePath[0] = 0;
     BOOL storageTypeBootstrapWritable = ConfigurationStorage.CanSaveStorageTypeBootstrap();
     BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
@@ -4624,7 +4624,7 @@ FIND_NEW_SLG_FILE:
                                          WasRestrictedFileStorageImported();
     Configuration.StorageType = storageType;
 
-    char portableConfigPath[SAL_MAX_PATH];
+    static char portableConfigPath[SAL_MAX_PATH];
     portableConfigPath[0] = 0;
     if (storageType == cstRegFile && storageRegFilePath[0] != 0)
         strncpy_s(portableConfigPath, storageRegFilePath, _TRUNCATE);

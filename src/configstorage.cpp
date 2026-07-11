@@ -623,7 +623,7 @@ BOOL CConfigurationStorage::AddKnownFileStoragePath(const char* path)
         return FALSE;
 
     // Nejprve zkontrolovat jestli cesta uz existuje
-    char existingPaths[20][SAL_MAX_PATH];
+    static char existingPaths[20][SAL_MAX_PATH];
     int existingCount = 0;
     LoadKnownFileStoragePaths(existingPaths, &existingCount, 20);
 
@@ -648,7 +648,7 @@ BOOL CConfigurationStorage::RemoveKnownFileStoragePath(const char* path)
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
-    char existingPaths[20][SAL_MAX_PATH];
+    static char existingPaths[20][SAL_MAX_PATH];
     int existingCount = 0;
     LoadKnownFileStoragePaths(existingPaths, &existingCount, 20);
 

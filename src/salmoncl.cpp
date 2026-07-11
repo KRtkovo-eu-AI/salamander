@@ -169,9 +169,9 @@ BOOL SalmonStartProcess(const char* fileMappingName) //Configuration.LoadedSLGNa
 {
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
-    char cmd[2 * SAL_MAX_PATH];
-    char rtlDir[SAL_MAX_PATH];
-    char oldCurDir[SAL_MAX_PATH];
+    static char cmd[2 * SAL_MAX_PATH];
+    static char rtlDir[SAL_MAX_PATH];
+    static char oldCurDir[SAL_MAX_PATH];
     char slgName[MAX_PATH];
 #define MAX_ENV_PATH 32766
     char envPATH[MAX_ENV_PATH];

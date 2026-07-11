@@ -5045,12 +5045,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_HELP_CREDITS:
         {
-            char thirdPartyDir[SAL_MAX_PATH];
+            static char thirdPartyDir[SAL_MAX_PATH];
             if (GetModuleFileName(NULL, thirdPartyDir, SAL_MAX_PATH) != 0 &&
                 CutDirectory(thirdPartyDir) &&
                 SalPathAppend(thirdPartyDir, "doc", SAL_MAX_PATH))
             {
-                char thirdPartyPath[SAL_MAX_PATH];
+                static char thirdPartyPath[SAL_MAX_PATH];
                 const char* slgName = Configuration.LoadedSLGName;
 
                 if (slgName[0] != 0)
@@ -5333,7 +5333,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 if (ret == IDCANCEL)
                 {
                     // navigate the user to the correct directory and focus the configuration file to make it easier
-                    char path[SAL_MAX_PATH];
+                    static char path[SAL_MAX_PATH];
                     char* s = strrchr(ConfigurationName, '\\');
                     if (s != NULL)
                     {
@@ -5549,7 +5549,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
 
             // Scan default portable config.reg next to salamand.exe even when it is not in known paths yet.
-            char portableConfigPath[SAL_MAX_PATH];
+            static char portableConfigPath[SAL_MAX_PATH];
             portableConfigPath[0] = 0;
             ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
             if (portableConfigPath[0] != 0 && GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES &&
@@ -5561,7 +5561,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
 
             // Scan known file storage paths
-            char knownPaths[20][SAL_MAX_PATH];
+            static char knownPaths[20][SAL_MAX_PATH];
             int knownCount = 0;
             ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
             for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)

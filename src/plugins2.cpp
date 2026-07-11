@@ -2895,7 +2895,7 @@ BOOL CPlugins::ReadPluginsVer(HWND parent, BOOL importFromOldConfig)
     BOOL ret = FALSE;
 
     // obtain the "plugins" directory
-    char buf[SAL_MAX_PATH + 20];
+    static char buf[SAL_MAX_PATH + 20];
     GetModuleFileName(HInstance, buf, SAL_MAX_PATH);
     char* s = strrchr(buf, '\\');
     if (s != NULL)
@@ -3192,7 +3192,7 @@ void CPlugins::RemoveNoLongerExistingPlugins(BOOL canDelPluginRegKey, BOOL loadA
                                              int maxNotLoadedPluginNames, int* numOfSkippedNotLoadedPluginNames,
                                              HWND parent)
 {
-    char buf[SAL_MAX_PATH + 20];
+    static char buf[SAL_MAX_PATH + 20];
     GetModuleFileName(HInstance, buf, SAL_MAX_PATH);
     char* s = strrchr(buf, '\\');
     if (s != NULL)
@@ -3334,7 +3334,7 @@ void CPlugins::AutoInstallStdPluginsDir(HWND parent)
     CALL_STACK_MESSAGE1("CPlugins::AutoInstallStdPluginsDir()");
 
     // obtain the "plugins" directory
-    char buf[SAL_MAX_PATH + 20];
+    static char buf[SAL_MAX_PATH + 20];
     GetModuleFileName(HInstance, buf, SAL_MAX_PATH);
     char* s = strrchr(buf, '\\');
     if (s != NULL)
