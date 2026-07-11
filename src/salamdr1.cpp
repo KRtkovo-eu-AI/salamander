@@ -285,7 +285,7 @@ BOOL RunningAsAdmin = FALSE;
 DWORD CCVerMajor = 0;
 DWORD CCVerMinor = 0;
 
-char ConfigurationName[MAX_PATH];
+char ConfigurationName[SAL_MAX_PATH];
 BOOL ConfigurationNameIgnoreIfNotExists = TRUE;
 
 int StopRefresh = 0;
@@ -367,7 +367,7 @@ HINSTANCE Shell32DLL = NULL;        // handle k shell32.dll (ikonky)
 HINSTANCE ImageResDLL = NULL;       // handle k imageres.dll (ikonky - Vista)
 HINSTANCE User32DLL = NULL;         // handle k user32.dll (DisableProcessWindowsGhosting)
 HINSTANCE HLanguage = NULL;         // handle k jazykove zavislym resourcum (.SPL souboru)
-char CurrentHelpDir[MAX_PATH] = ""; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
+char CurrentHelpDir[SAL_MAX_PATH] = ""; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
 WORD LanguageID = 0;                // language-id .SPL souboru
 
 char OpenReadmeInNotepad[MAX_PATH]; // pouziva se jen pri spusteni z instalaku: jmeno souboru, ktere mame v IDLE otevrit v notepadu (spustit notepad)
@@ -3954,14 +3954,14 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
     int p = 20; // pocet prvku pole argv
 
     char curDir[MAX_PATH];
-    GetModuleFileName(HInstance, ConfigurationName, MAX_PATH);
+    GetModuleFileName(HInstance, ConfigurationName, SAL_MAX_PATH);
     *(strrchr(ConfigurationName, '\\') + 1) = 0;
     const char* configReg = "config.reg";
     strcat(ConfigurationName, configReg);
     if (!FileExists(ConfigurationName) && GetOurPathInRoamingAPPDATA(curDir) &&
         SalPathAppend(curDir, configReg, MAX_PATH) && FileExists(curDir))
     { // pokud neexistuje soubor config.reg u .exe, hledame ho jeste v APPDATA
-        lstrcpyn(ConfigurationName, curDir, MAX_PATH);
+        lstrcpyn(ConfigurationName, curDir, SAL_MAX_PATH);
         ConfigurationNameIgnoreIfNotExists = FALSE;
     }
     OpenReadmeInNotepad[0] = 0;
@@ -4018,17 +4018,17 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
                     if (*s == '\\' && *(s + 1) == '\\' || // UNC full path
                         *s != 0 && *(s + 1) == ':')       // "c:\" full path
                     {                                     // plne jmeno
-                        lstrcpyn(ConfigurationName, argv[i + 1], MAX_PATH);
+                        lstrcpyn(ConfigurationName, argv[i + 1], SAL_MAX_PATH);
                     }
                     else // relativni jmeno
                     {
-                        GetModuleFileName(HInstance, ConfigurationName, MAX_PATH);
+                        GetModuleFileName(HInstance, ConfigurationName, SAL_MAX_PATH);
                         *(strrchr(ConfigurationName, '\\') + 1) = 0;
-                        SalPathAppend(ConfigurationName, s, MAX_PATH);
+                        SalPathAppend(ConfigurationName, s, SAL_MAX_PATH);
                         if (!FileExists(ConfigurationName) && GetOurPathInRoamingAPPDATA(curDir) &&
                             SalPathAppend(curDir, s, MAX_PATH) && FileExists(curDir))
                         { // pokud neexistuje relativne zadany soubor za -C u .exe, hledame ho jeste v APPDATA
-                            lstrcpyn(ConfigurationName, curDir, MAX_PATH);
+                            lstrcpyn(ConfigurationName, curDir, SAL_MAX_PATH);
                         }
                     }
                     ConfigurationNameIgnoreIfNotExists = FALSE;

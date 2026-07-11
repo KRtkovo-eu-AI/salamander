@@ -1390,7 +1390,7 @@ extern HINSTANCE Shell32DLL;          // handle k shell32.dll (ikonky)
 extern HINSTANCE ImageResDLL;         // handle k imageres.dll (ikonky - Vista+)
 extern HINSTANCE User32DLL;           // handle k user32.dll (DisableProcessWindowsGhosting)
 extern HINSTANCE HLanguage;           // handle k jazykove zavislym resourcum (cesta: Configuration.LoadedSLGName)
-extern char CurrentHelpDir[MAX_PATH]; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
+extern char CurrentHelpDir[SAL_MAX_PATH]; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
 extern WORD LanguageID;               // language-id jazykove zavislych resourcu (.SLG souboru)
 
 extern BOOL UseCustomPanelFont; // pokud je TRUE, vychazi Font a FontUL ze struktury LogFont; jinak ze systemoveho fontu (default)
@@ -1732,7 +1732,7 @@ extern char RTCErrorDescription[RTC_ERROR_DESCRIPTION_SIZE];
 extern char BugReportPath[MAX_PATH];
 
 // nazev souboru, ktery bude importovan (pokud existuje) do registry
-extern char ConfigurationName[MAX_PATH];
+extern char ConfigurationName[SAL_MAX_PATH];
 extern BOOL ConfigurationNameIgnoreIfNotExists;
 
 extern HWND PluginProgressDialog; // pokud si plug-in otevre progress dialog, je zde jeho HWND, jinak NULL

@@ -2086,20 +2086,20 @@ BOOL SalOpenExecute(HWND hWindow, const char* fileName)
     {
         lstrcpyn((char*)SalOpenSharedMem, fileName, MAX_PATH + 200);
 
-        char cmdline[MAX_PATH];
+        char cmdline[SAL_MAX_PATH];
         cmdline[0] = '"';
-        if (GetModuleFileName(NULL, cmdline + 1, MAX_PATH - 1) == 0)
+        if (GetModuleFileName(NULL, cmdline + 1, SAL_MAX_PATH - 1) == 0)
             return FALSE;
         char* ptr = strrchr(cmdline, '\\');
         if (ptr == NULL)
             return FALSE;
         *ptr = 0;
-        SalPathAppend(cmdline + 1, "utils\\salopen.exe", MAX_PATH - 1);
+        SalPathAppend(cmdline + 1, "utils\\salopen.exe", SAL_MAX_PATH - 1);
         char add[100];
         RECT r;
         MultiMonGetClipRectByWindow(GetTopVisibleParent(hWindow), &r, NULL);
         sprintf(add, "\" %u %Iu %u", GetCurrentProcessId(), (DWORD_PTR)SalOpenFileMapping, (DWORD)MAKELPARAM(r.left, r.top));
-        if (strlen(cmdline) + strlen(add) >= MAX_PATH)
+        if (strlen(cmdline) + strlen(add) >= SAL_MAX_PATH)
             return FALSE;
         strcat(cmdline, add);
 
