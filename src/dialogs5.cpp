@@ -4033,6 +4033,8 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
 
     int oldMinWidth = Configuration.TabButtonMinWidth;
     int oldMaxWidth = Configuration.TabButtonMaxWidth;
+    int oldActiveBorder = Configuration.TabActiveBorder;
+    COLORREF oldActiveBorderColor = Configuration.TabActiveBorderColor;
     int oldCloseButtonActive = Configuration.TabCloseButtonActive;
     int oldCloseButtonAll = Configuration.TabCloseButtonAll;
 
@@ -4098,6 +4100,7 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
             Configuration.TabButtonMinWidth > Configuration.TabButtonMaxWidth)
             Configuration.TabButtonMinWidth = Configuration.TabButtonMaxWidth;
 
+        Configuration.TabActiveBorderColor = tabActiveBorderColor;
         int oldMode = Configuration.TabCaptionMode;
         Configuration.TabCaptionMode = modes[index];
         bool modeChanged = (Configuration.TabCaptionMode != oldMode);
@@ -4106,9 +4109,13 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
         Configuration.TabCaptionAlignment = newAlignment;
         bool minChanged = (Configuration.TabButtonMinWidth != oldMinWidth);
         bool maxChanged = (Configuration.TabButtonMaxWidth != oldMaxWidth);
+        bool activeBorderChanged = (Configuration.TabActiveBorder != oldActiveBorder);
+        bool activeBorderColorChanged = (Configuration.TabActiveBorderColor != oldActiveBorderColor);
         bool closeActiveChanged = (Configuration.TabCloseButtonActive != oldCloseButtonActive);
         bool closeAllChanged = (Configuration.TabCloseButtonAll != oldCloseButtonAll);
-        if ((modeChanged || minChanged || maxChanged || alignmentChanged || closeActiveChanged || closeAllChanged) && MainWindow != NULL)
+        if ((modeChanged || minChanged || maxChanged || activeBorderChanged || activeBorderColorChanged ||
+             alignmentChanged || closeActiveChanged || closeAllChanged) &&
+            MainWindow != NULL)
             MainWindow->RefreshPanelTabLayout();
     }
 }
