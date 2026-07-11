@@ -706,6 +706,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
 // 111 = 5.0-samandarin-0.8
 // 112 = 5.0-samandarin-0.9
 // 113 = 5.0-samandarin-0.10
+// 114 = 5.0-samandarin-0.11
 //
 // When increasing configuration version, add one to THIS_CONFIG_VERSION
 //
@@ -713,7 +714,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
 // so that new plug-ins are auto-installed and the plugins.ver counter resets.
 //
 
-const DWORD THIS_CONFIG_VERSION = 113;
+const DWORD THIS_CONFIG_VERSION = 114;
 
 // Configuration roots for individual Open Salamander versions.
 // The root of the current (youngest) configuration is at index 0.
@@ -725,6 +726,7 @@ const DWORD THIS_CONFIG_VERSION = 113;
 // !!! Keep the corresponding lines in SalamanderConfigurationVersions up to date
 const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
     {
+        "Software\\Open Salamander Samandarin\\5.0-samandarin-0.11",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.10",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.9",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.8",
@@ -820,6 +822,7 @@ const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
 };
 const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT] =
     {
+        "5.0 Samandarin 0.11",
         "5.0 Samandarin 0.10",
         "5.0 Samandarin 0.9",
         "5.0 Samandarin 0.8",
