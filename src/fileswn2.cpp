@@ -588,14 +588,14 @@ void CFilesWindow::DrawTreeViewFocusedItem(HDC hdc, HTREEITEM item, const RECT* 
     RECT textRect;
     if (TreeView_GetItemRect(HTreeView, item, &textRect, TRUE))
     {
-        char text[MAX_PATH];
-        TVITEM treeItem;
+        WCHAR text[MAX_PATH];
+        TVITEMW treeItem;
         ZeroMemory(&treeItem, sizeof(treeItem));
         treeItem.mask = TVIF_TEXT;
         treeItem.hItem = item;
         treeItem.pszText = text;
-        treeItem.cchTextMax = MAX_PATH;
-        if (TreeView_GetItem(HTreeView, &treeItem))
+        treeItem.cchTextMax = _countof(text);
+        if (SendMessageW(HTreeView, TVM_GETITEMW, 0, (LPARAM)&treeItem))
         {
             HBRUSH background = HANDLES(CreateSolidBrush(GetTreeViewSelectionBkColor()));
             if (background != NULL)
@@ -608,7 +608,7 @@ void CFilesWindow::DrawTreeViewFocusedItem(HDC hdc, HTREEITEM item, const RECT* 
             HFONT oldFont = font != NULL ? (HFONT)SelectObject(hdc, font) : NULL;
             COLORREF oldTextColor = SetTextColor(hdc, GetTreeViewSelectionTextColor());
             int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-            DrawText(hdc, text, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            DrawTextW(hdc, text, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             SetBkMode(hdc, oldBkMode);
             SetTextColor(hdc, oldTextColor);
             if (oldFont != NULL)
