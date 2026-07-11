@@ -1082,6 +1082,7 @@ const char* CONFIG_TABCAPTIONALIGNMENT_REG = "Tab caption alignment";
 const char* CONFIG_TABMINWIDTH_REG = "Tab min width";
 const char* CONFIG_TABMAXWIDTH_REG = "Tab max width";
 const char* CONFIG_TABACTIVEBORDER_REG = "Tab active border";
+const char* CONFIG_TABACTIVEBORDERCOLOR_REG = "Tab active border color";
 const char* CONFIG_TABCLOSEBUTTONACTIVE_REG = "Tab close button active";
 const char* CONFIG_TABCLOSEBUTTONALL_REG = "Tab close button all";
 const char* CONFIG_TITLEBARPREFIX_REG = "Title bar prefix";
@@ -1311,6 +1312,11 @@ const char* SALAMANDER_CLR_THUMBNAIL_FRAME_NORMAL_REG = "Thumbnail Frame Normal"
 const char* SALAMANDER_CLR_THUMBNAIL_FRAME_SELECTED_REG = "Thumbnail Frame Selected";
 const char* SALAMANDER_CLR_THUMBNAIL_FRAME_FOCUSED_REG = "Thumbnail Frame Focused";
 const char* SALAMANDER_CLR_THUMBNAIL_FRAME_FOCSEL_REG = "Thumbnail Frame Focused and Selected";
+
+const char* SALAMANDER_CLR_AUTOCOMPLETE_PATH_FG_REG = "Autocomplete Path Fg";
+const char* SALAMANDER_CLR_AUTOCOMPLETE_PATH_BK_REG = "Autocomplete Path Bk";
+const char* SALAMANDER_CLR_AUTOCOMPLETE_LIST_FG_REG = "Autocomplete List Fg";
+const char* SALAMANDER_CLR_AUTOCOMPLETE_LIST_BK_REG = "Autocomplete List Bk";
 
 const char* SALAMANDER_HLT = "Panel Items Hilighting";
 const char* SALAMANDER_HLT_ITEM_MASKS = "Masks";
@@ -1951,7 +1957,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     }
 
     // Check for portable config.reg
-    char portableConfigPath[MAX_PATH];
+    static char portableConfigPath[SAL_MAX_PATH];
     ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
     if (GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES && configCount < MCD_MAX_CONFIGS)
     {
@@ -1961,7 +1967,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     }
 
     // Check for known file storage paths (z configstorage.ini)
-    char knownPaths[20][MAX_PATH];
+    static char knownPaths[20][SAL_MAX_PATH];
     int knownCount = 0;
     ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
     for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)
@@ -3010,6 +3016,9 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SetValue(actKey, CONFIG_TABMAXWIDTH_REG, REG_DWORD, &tabMaxWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABACTIVEBORDER_REG, REG_DWORD,
                          &Configuration.TabActiveBorder, sizeof(DWORD));
+                DWORD tabActiveBorderColor = (DWORD)Configuration.TabActiveBorderColor;
+                SetValue(actKey, CONFIG_TABACTIVEBORDERCOLOR_REG, REG_DWORD,
+                         &tabActiveBorderColor, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABCLOSEBUTTONACTIVE_REG, REG_DWORD,
                          &Configuration.TabCloseButtonActive, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABCLOSEBUTTONALL_REG, REG_DWORD,
@@ -3504,6 +3513,11 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SaveRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_FOCUSED_REG, UserColors[THUMBNAIL_FRAME_FOCUSED]);
                 SaveRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_FOCSEL_REG, UserColors[THUMBNAIL_FRAME_FOCSEL]);
 
+                SaveRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_PATH_FG_REG, UserColors[AUTOCOMPLETE_PATH_FG]);
+                SaveRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_PATH_BK_REG, UserColors[AUTOCOMPLETE_PATH_BK]);
+                SaveRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_LIST_FG_REG, UserColors[AUTOCOMPLETE_LIST_FG]);
+                SaveRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_LIST_BK_REG, UserColors[AUTOCOMPLETE_LIST_BK]);
+
                 SaveRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_NORMAL_REG, ViewerColors[VIEWER_FG_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_VIEWER_BK_NORMAL_REG, ViewerColors[VIEWER_BK_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_SELECTED_REG, ViewerColors[VIEWER_FG_SELECTED]);
@@ -3987,6 +4001,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_SELECTED_REG, UserColors[THUMBNAIL_FRAME_SELECTED]);
             LoadRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_FOCUSED_REG, UserColors[THUMBNAIL_FRAME_FOCUSED]);
             LoadRGBF(actKey, SALAMANDER_CLR_THUMBNAIL_FRAME_FOCSEL_REG, UserColors[THUMBNAIL_FRAME_FOCSEL]);
+
+            if (!LoadRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_PATH_FG_REG, UserColors[AUTOCOMPLETE_PATH_FG]))
+                UserColors[AUTOCOMPLETE_PATH_FG] = RGBF(255, 255, 255, 0);
+            if (!LoadRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_PATH_BK_REG, UserColors[AUTOCOMPLETE_PATH_BK]))
+                UserColors[AUTOCOMPLETE_PATH_BK] = RGBF(0, 0, 128, SCF_DEFAULT);
+            if (!LoadRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_LIST_FG_REG, UserColors[AUTOCOMPLETE_LIST_FG]))
+                UserColors[AUTOCOMPLETE_LIST_FG] = RGBF(255, 255, 255, 0);
+            if (!LoadRGBF(actKey, SALAMANDER_CLR_AUTOCOMPLETE_LIST_BK_REG, UserColors[AUTOCOMPLETE_LIST_BK]))
+                UserColors[AUTOCOMPLETE_LIST_BK] = RGBF(0, 0, 128, SCF_DEFAULT);
 
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_NORMAL_REG, ViewerColors[VIEWER_FG_NORMAL]);
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_BK_NORMAL_REG, ViewerColors[VIEWER_BK_NORMAL]);
@@ -4654,7 +4677,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             GetValue(actKey, CONFIG_CLOSESHELL_REG, REG_DWORD,
                      &Configuration.CloseShell, sizeof(DWORD));
             GetValue(actKey, CONFIG_COMMANDLINEAPP_REG, REG_SZ,
-                     Configuration.CommandLineApplication, MAX_PATH);
+                     Configuration.CommandLineApplication, SAL_MAX_PATH);
             GetValue(actKey, CONFIG_COMMANDLINEARGS_REG, REG_SZ,
                      Configuration.CommandLineArguments, CONFIG_COMMANDLINEARGS_MAXLEN);
             GetValue(actKey, CONFIG_RIGHT_FOCUS_REG, REG_DWORD,
@@ -4725,11 +4748,11 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             GetValue(actKey, CONFIG_INFOLINECONTENT_REG, REG_SZ,
                      Configuration.InfoLineContent, 200);
             GetValue(actKey, CONFIG_IFPATHISINACCESSIBLEGOTO_REG, REG_SZ,
-                     Configuration.IfPathIsInaccessibleGoTo, MAX_PATH);
+                     Configuration.IfPathIsInaccessibleGoTo, SAL_MAX_PATH);
             if (!GetValue(actKey, CONFIG_IFPATHISINACCESSIBLEGOTOISMYDOCS_REG, REG_DWORD,
                           &Configuration.IfPathIsInaccessibleGoToIsMyDocs, sizeof(DWORD)))
             {
-                char path[MAX_PATH];
+                char path[SAL_MAX_PATH];
                 GetIfPathIsInaccessibleGoTo(path, TRUE);
                 if (IsTheSamePath(path, Configuration.IfPathIsInaccessibleGoTo)) // user wants to go to My Documents
                 {
@@ -4856,6 +4879,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                           &Configuration.TabActiveBorder, sizeof(DWORD)))
             {
                 Configuration.TabActiveBorder = TRUE;
+            }
+            {
+                DWORD tabActiveBorderColor = (DWORD)CLR_INVALID;
+                if (!GetValue(actKey, CONFIG_TABACTIVEBORDERCOLOR_REG, REG_DWORD,
+                              &tabActiveBorderColor, sizeof(DWORD)))
+                {
+                    tabActiveBorderColor = (DWORD)CLR_INVALID;
+                }
+                Configuration.TabActiveBorderColor = (COLORREF)tabActiveBorderColor;
             }
             if (!GetValue(actKey, CONFIG_TABCLOSEBUTTONACTIVE_REG, REG_DWORD,
                           &Configuration.TabCloseButtonActive, sizeof(DWORD)))

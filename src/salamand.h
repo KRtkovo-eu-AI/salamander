@@ -342,7 +342,7 @@ int WINAPI InternalGetPluginIconIndex();
 
 #define STANDARD_COLUMNS_COUNT 9 // number of standard columns for the view
 #define VIEW_TEMPLATES_COUNT 10
-#define VIEW_NAME_MAX 30
+#define VIEW_NAME_MAX 100
 // column Name is always visible and if the flag VIEW_SHOW_EXTENSION is not set, it also contains the extension
 #define VIEW_SHOW_EXTENSION 0x00000001
 #define VIEW_SHOW_DOSNAME 0x00000002
@@ -367,6 +367,9 @@ struct CColumDataItem
 
 // definition of standard columns
 CColumDataItem* GetStdColumn(int i, BOOL isDisk);
+
+// Copies a possibly UTF-8 string into a fixed-size byte buffer without splitting a UTF-8 character.
+void CopyStringTruncateUtf8(char* dst, int dstSize, const char* src);
 
 //****************************************************************************
 //

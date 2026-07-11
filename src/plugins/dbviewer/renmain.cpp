@@ -253,7 +253,7 @@ CRendererWindow::~CRendererWindow()
 
 void CRendererWindow::OnFileOpen()
 {
-    char file[MAX_PATH];
+    char file[SAL_MAX_PATH];
     file[0] = 0;
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -268,7 +268,7 @@ void CRendererWindow::OnFileOpen()
         s++;
     }
     ofn.lpstrFile = file;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = SAL_MAX_PATH;
     ofn.nFilterIndex = 1;
     ofn.lpstrInitialDir = NULL;
     ofn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
@@ -284,8 +284,8 @@ void CRendererWindow::OnFileReOpen()
     if (!Database.IsOpened())
         return;
 
-    char path[MAX_PATH];
-    lstrcpy(path, Database.GetFileName());
+    char path[SAL_MAX_PATH];
+    lstrcpyn(path, Database.GetFileName(), SAL_MAX_PATH);
     OpenFile(path, FALSE);
 }
 
@@ -310,15 +310,20 @@ void CRendererWindow::OnGoto()
 
 void CRendererWindow::SetViewerTitle()
 {
-    char title[MAX_PATH + 300];
+    char title[SAL_MAX_PATH];
     if (Database.IsOpened())
     {
-        sprintf(title, "%s - %s", Database.GetFileName(), LoadStr(IDS_PLUGINNAME));
+        const char* fileName = SalGeneral->SalPathFindFileName(Database.GetFileName());
+        _snprintf_s(title, _TRUNCATE, "%s - %s", fileName, LoadStr(IDS_PLUGINNAME));
         if (UseCodeTable || Database.GetIsUnicode())
-            sprintf(title + strlen(title), " - [%s]", Coding);
+        {
+            size_t titleLen = strlen(title);
+            if (titleLen < SAL_MAX_PATH)
+                _snprintf_s(title + titleLen, SAL_MAX_PATH - titleLen, _TRUNCATE, " - [%s]", Coding);
+        }
     }
     else
-        sprintf(title, "%s", LoadStr(IDS_PLUGINNAME));
+        _snprintf_s(title, _TRUNCATE, "%s", LoadStr(IDS_PLUGINNAME));
 
     SetWindowText(GetParent(HWindow), title);
 }
@@ -1591,12 +1596,12 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DROPFILES:
     {
         UINT drag;
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
 
         drag = DragQueryFile((HDROP)wParam, 0xFFFFFFFF, NULL, 0); // how many files were dropped
         if (drag > 0)
         {
-            DragQueryFile((HDROP)wParam, 0, path, MAX_PATH);
+            DragQueryFile((HDROP)wParam, 0, path, SAL_MAX_PATH);
             OpenFile(path, TRUE);
         }
         DragFinish((HDROP)wParam);

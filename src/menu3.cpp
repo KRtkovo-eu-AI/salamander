@@ -4,19 +4,13 @@
 
 #include "precomp.h"
 
+#include "gui.h"
 #include "bitmap.h"
 #include "menu.h"
 #include "darkmode.h"
 
 namespace
 {
-COLORREF LightenColor(COLORREF color, int amount)
-{
-    return RGB(min(255, GetRValue(color) + amount),
-               min(255, GetGValue(color) + amount),
-               min(255, GetBValue(color) + amount));
-}
-
 COLORREF DarkenColor(COLORREF color, int amount)
 {
     return RGB(max(0, GetRValue(color) - amount),
@@ -129,7 +123,7 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
         SelectedBkColor = GetSysColor(COLOR_HIGHLIGHT);
         SelectedTextColor = GetSysColor(COLOR_HIGHLIGHTTEXT);
         NormalTextColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-        HilightColor = LightenColor(panelBg, 24);
+        HilightColor = LightenColorSimple(panelBg, 24);
         GrayTextColor = DarkenColor(panelBg, 40);
     }
     else

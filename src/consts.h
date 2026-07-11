@@ -1257,12 +1257,17 @@ struct COpenViewerData
 #define THUMBNAIL_FRAME_SELECTED 32
 #define THUMBNAIL_FRAME_FOCSEL 33
 
+#define AUTOCOMPLETE_PATH_FG 34 // barva textu v autocomplete suggestu - path field (selected)
+#define AUTOCOMPLETE_PATH_BK 35 // barva pozadi v autocomplete suggestu - path field (selected)
+#define AUTOCOMPLETE_LIST_FG 36  // barva textu v autocomplete suggestu - list (selected)
+#define AUTOCOMPLETE_LIST_BK 37  // barva pozadi v autocomplete suggestu - list (selected)
+
 #define VIEWER_FG_NORMAL 0 // normalni barvy viewru
 #define VIEWER_BK_NORMAL 1
 #define VIEWER_FG_SELECTED 2 // selected text
 #define VIEWER_BK_SELECTED 3
 
-#define NUMBER_OF_COLORS 34       // pocet barev ve schematu
+#define NUMBER_OF_COLORS 38       // pocet barev ve schematu
 #define NUMBER_OF_VIEWERCOLORS 4  // pocet barev pro viewer
 #define NUMBER_OF_CUSTOMCOLORS 16 // uzivatelelm definovane barvy v barevnem dialogu
 
@@ -1390,7 +1395,7 @@ extern HINSTANCE Shell32DLL;          // handle k shell32.dll (ikonky)
 extern HINSTANCE ImageResDLL;         // handle k imageres.dll (ikonky - Vista+)
 extern HINSTANCE User32DLL;           // handle k user32.dll (DisableProcessWindowsGhosting)
 extern HINSTANCE HLanguage;           // handle k jazykove zavislym resourcum (cesta: Configuration.LoadedSLGName)
-extern char CurrentHelpDir[MAX_PATH]; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
+extern char CurrentHelpDir[SAL_MAX_PATH]; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
 extern WORD LanguageID;               // language-id jazykove zavislych resourcu (.SLG souboru)
 
 extern BOOL UseCustomPanelFont; // pokud je TRUE, vychazi Font a FontUL ze struktury LogFont; jinak ze systemoveho fontu (default)
@@ -1732,7 +1737,7 @@ extern char RTCErrorDescription[RTC_ERROR_DESCRIPTION_SIZE];
 extern char BugReportPath[MAX_PATH];
 
 // nazev souboru, ktery bude importovan (pokud existuje) do registry
-extern char ConfigurationName[MAX_PATH];
+extern char ConfigurationName[SAL_MAX_PATH];
 extern BOOL ConfigurationNameIgnoreIfNotExists;
 
 extern HWND PluginProgressDialog; // pokud si plug-in otevre progress dialog, je zde jeho HWND, jinak NULL
@@ -2433,9 +2438,9 @@ void ShellActionAux6(CFilesWindow* panel);
 
 //******************************************************************************
 
-// vraci v 'path' (buffer aspon MAX_PATH znaku) cestu Configuration.IfPathIsInaccessibleGoTo;
+// vraci v 'path' (buffer aspon pathSize znaku) cestu Configuration.IfPathIsInaccessibleGoTo;
 // zohlednuje nastaveni Configuration.IfPathIsInaccessibleGoToIsMyDocs
-void GetIfPathIsInaccessibleGoTo(char* path, BOOL forceIsMyDocs = FALSE);
+void GetIfPathIsInaccessibleGoTo(char* path, BOOL forceIsMyDocs = FALSE, int pathSize = SAL_MAX_PATH);
 
 // nacte z konfigurace v registry konfiguraci icon overlay handleru
 void LoadIconOvrlsInfo(const char* root);

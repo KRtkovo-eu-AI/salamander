@@ -223,7 +223,7 @@ CParserInterfaceDBF::OpenFile(const char* fileName)
     }
 
     if (status == psOK)
-        lstrcpyn(FileName, fileName, MAX_PATH);
+        lstrcpyn(FileName, fileName, SAL_MAX_PATH);
 
     return status;
 }
@@ -930,7 +930,7 @@ CParserInterfaceCSV::OpenFile(const char* fileName)
     }
 
     if (status == psOK)
-        lstrcpyn(FileName, fileName, MAX_PATH);
+        lstrcpyn(FileName, fileName, SAL_MAX_PATH);
 
     return status;
 }
@@ -1491,7 +1491,7 @@ CParserInterfaceJSONL::OpenFile(const char* fileName)
         return status;
     }
 
-    lstrcpyn(FileName, fileName, MAX_PATH);
+    lstrcpyn(FileName, fileName, SAL_MAX_PATH);
     CurrentRecordIndex = 0;
     return psOK;
 }

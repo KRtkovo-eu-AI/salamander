@@ -1276,8 +1276,8 @@ void CPlugins::Load(HWND parent, HKEY regKey)
     DefaultConfiguration = FALSE;
     if (regKey != NULL)
     {
-        char pluginsDir[MAX_PATH];
-        GetModuleFileName(HInstance, pluginsDir, MAX_PATH);
+        char pluginsDir[SAL_MAX_PATH];
+        GetModuleFileName(HInstance, pluginsDir, SAL_MAX_PATH);
         char* s = strrchr(pluginsDir, '\\');
         if (s != NULL)
             strcpy(s + 1, "plugins");
@@ -1938,8 +1938,8 @@ CPlugins::GetPluginDataFromSuffix(const char* dllSuffix)
     if (dllSuffix != NULL)
     {
         // obtain the full name of the plugins directory
-        char fullDLLName[MAX_PATH];
-        GetModuleFileName(HInstance, fullDLLName, MAX_PATH);
+        char fullDLLName[SAL_MAX_PATH];
+        GetModuleFileName(HInstance, fullDLLName, SAL_MAX_PATH);
         char* name = strrchr(fullDLLName, '\\') + 1;
         strcpy(name, "plugins\\");
         name += strlen(name);
@@ -2895,8 +2895,8 @@ BOOL CPlugins::ReadPluginsVer(HWND parent, BOOL importFromOldConfig)
     BOOL ret = FALSE;
 
     // obtain the "plugins" directory
-    char buf[MAX_PATH + 20];
-    GetModuleFileName(HInstance, buf, MAX_PATH);
+    static char buf[SAL_MAX_PATH + 20];
+    GetModuleFileName(HInstance, buf, SAL_MAX_PATH);
     char* s = strrchr(buf, '\\');
     if (s != NULL)
     {
@@ -3192,8 +3192,8 @@ void CPlugins::RemoveNoLongerExistingPlugins(BOOL canDelPluginRegKey, BOOL loadA
                                              int maxNotLoadedPluginNames, int* numOfSkippedNotLoadedPluginNames,
                                              HWND parent)
 {
-    char buf[MAX_PATH + 20];
-    GetModuleFileName(HInstance, buf, MAX_PATH);
+    static char buf[SAL_MAX_PATH + 20];
+    GetModuleFileName(HInstance, buf, SAL_MAX_PATH);
     char* s = strrchr(buf, '\\');
     if (s != NULL)
     {
@@ -3334,8 +3334,8 @@ void CPlugins::AutoInstallStdPluginsDir(HWND parent)
     CALL_STACK_MESSAGE1("CPlugins::AutoInstallStdPluginsDir()");
 
     // obtain the "plugins" directory
-    char buf[MAX_PATH + 20];
-    GetModuleFileName(HInstance, buf, MAX_PATH);
+    static char buf[SAL_MAX_PATH + 20];
+    GetModuleFileName(HInstance, buf, SAL_MAX_PATH);
     char* s = strrchr(buf, '\\');
     if (s != NULL)
     {

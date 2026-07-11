@@ -621,6 +621,7 @@
 #define IDC_TABS_ALIGN_LABEL            2697
 #define IDC_TABS_ALIGN                  2698
 #define IDC_TABS_ACTIVEBORDER           2699
+#define IDC_TABS_ACTIVEBORDER_COLOR     2709
 #define IDC_TABS_CLOSEBUTTONACTIVE      2707
 #define IDC_TABS_CLOSEBUTTONALL         2708
 #define IDC_CMDLINEAPP_PATH             2709

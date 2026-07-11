@@ -698,7 +698,7 @@ static BOOL CanWriteRegStorageFilePath(const char* path)
         return TRUE;
     }
 
-    char tmpPath[MAX_PATH];
+    char tmpPath[SAL_MAX_PATH];
     _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
     HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
     if (file == INVALID_HANDLE_VALUE)
@@ -856,7 +856,7 @@ void CImportConfigDialog::Validate(CTransferInfo& ti)
 {
     if (ConfigurationStorage.CanSaveStorageTypeBootstrap() && IsDlgButtonChecked(HWindow, IDC_IMPORT_SAVE_TO_FILE))
     {
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
         GetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path, SizeOf(path));
         if (path[0] == 0)
         {
@@ -913,7 +913,7 @@ CImportConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             EnableImportStoragePathControls(HWindow);
         else if (LOWORD(wParam) == IDC_IMPORT_SAVE_TO_FILE_BROWSE)
         {
-            char path[MAX_PATH];
+            char path[SAL_MAX_PATH];
             GetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path, SizeOf(path));
             if (BrowseRegStorageFile(HWindow, path, SizeOf(path)))
             {
@@ -966,8 +966,8 @@ int CLanguageSelectorDialog::Execute()
     {
         // load the template from the best available SLG
         int index = GetPreferredLanguageIndex(SLGName);
-        char path[MAX_PATH];
-        GetModuleFileName(HInstance, path, MAX_PATH);
+        char path[SAL_MAX_PATH];
+        GetModuleFileName(HInstance, path, SAL_MAX_PATH);
         sprintf(strrchr(path, '\\') + 1, "lang\\%s", Items[index].FileName);
         hTmpLanguage = HANDLES(LoadLibrary(path));
         if (hTmpLanguage != NULL)
@@ -1097,10 +1097,10 @@ void CLanguageSelectorDialog::Transfer(CTransferInfo& ti)
 
 BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pluginDLL)
 {
-    char path[MAX_PATH];
+    char path[SAL_MAX_PATH];
     if (slgSearchPath == NULL)
     {
-        GetModuleFileName(NULL, path, MAX_PATH);
+        GetModuleFileName(NULL, path, SAL_MAX_PATH);
         lstrcpy(strrchr(path, '\\') + 1, "lang\\*.slg");
     }
     else
@@ -1415,8 +1415,8 @@ CCompareArgsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 BrowseCommand(HWindow, editID, IDS_ALLFILTER);
             else
             {
-                char path[MAX_PATH];
-                GetDlgItemText(HWindow, editID, path, MAX_PATH);
+                char path[SAL_MAX_PATH];
+                GetDlgItemText(HWindow, editID, path, SizeOf(path));
                 if (GetTargetDirectory(HWindow, HWindow, LoadStr(IDS_BROWSEUMCDIRTITLE),
                                        LoadStr(IDS_BROWSEUMCDIRTEXT), path, FALSE, path))
                 {
@@ -1864,9 +1864,9 @@ void CManageConfigsDialog::OnExport()
             *p = '_';
     }
 
-    char file[MAX_PATH];
+    char file[SAL_MAX_PATH];
     _snprintf_s(file, _TRUNCATE, "%s.reg", sanitizedName);
-    char defDir[MAX_PATH];
+    char defDir[SAL_MAX_PATH];
 
     if (WindowsVistaAndLater)
     {
@@ -1879,7 +1879,7 @@ void CManageConfigsDialog::OnExport()
     }
     else
     {
-        GetModuleFileName(HInstance, defDir, MAX_PATH);
+        GetModuleFileName(HInstance, defDir, SAL_MAX_PATH);
         char* slash = strrchr(defDir, '\\');
         if (slash != NULL)
             *slash = 0;
@@ -1971,7 +1971,7 @@ void CManageConfigsDialog::OnExport()
 
 void CManageConfigsDialog::OnBrowseFile()
 {
-    char path[MAX_PATH];
+    char path[SAL_MAX_PATH];
     GetDlgItemText(HWindow, IDC_MCD_FILE_PATH, path, SizeOf(path));
     if (BrowseRegStorageFile(HWindow, path, SizeOf(path)))
     {
@@ -1990,8 +1990,8 @@ void CManageConfigsDialog::OnStorageRadioChanged()
 
 void CManageConfigsDialog::OnImport()
 {
-    char file[MAX_PATH] = "";
-    char defDir[MAX_PATH];
+    char file[SAL_MAX_PATH] = "";
+    char defDir[SAL_MAX_PATH];
 
     if (WindowsVistaAndLater)
     {
@@ -2004,7 +2004,7 @@ void CManageConfigsDialog::OnImport()
     }
     else
     {
-        GetModuleFileName(HInstance, defDir, MAX_PATH);
+        GetModuleFileName(HInstance, defDir, SAL_MAX_PATH);
         char* slash = strrchr(defDir, '\\');
         if (slash != NULL)
             *slash = 0;
@@ -2276,7 +2276,7 @@ void CManageConfigsDialog::Validate(CTransferInfo& ti)
 {
     if (IsDlgButtonChecked(HWindow, IDC_MCD_FILE_RADIO) == BST_CHECKED && CanSaveBootstrap)
     {
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
         GetDlgItemText(HWindow, IDC_MCD_FILE_PATH, path, SizeOf(path));
         if (path[0] == 0)
         {

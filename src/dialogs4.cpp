@@ -381,7 +381,7 @@ static BOOL CanWriteRegStorageFilePath(const char* path)
         return TRUE;
     }
 
-    char tmpPath[MAX_PATH];
+    char tmpPath[SAL_MAX_PATH];
     _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
     HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
     if (file == INVALID_HANDLE_VALUE)
@@ -788,6 +788,7 @@ CConfiguration::CConfiguration()
     TabButtonMaxWidth = 0;
     TabCaptionAlignment = TAB_CAPTION_ALIGN_CENTER;
     TabActiveBorder = TRUE;
+    TabActiveBorderColor = CLR_INVALID;
     TabCloseButtonActive = FALSE;
     TabCloseButtonAll = FALSE;
     UseTitleBarPrefix = FALSE;
@@ -1142,7 +1143,7 @@ void CCfgPageGeneral::Validate(CTransferInfo& ti)
     ti.RadioButton(IDC_SAVE_TO_FILE, cstRegFile, storageType);
     if (storageType == cstRegFile)
     {
-        char configPath[MAX_PATH];
+        char configPath[SAL_MAX_PATH];
         ti.EditLine(IDC_SAVE_TO_FILE_PATH, configPath, SizeOf(configPath));
         if (configPath[0] == 0)
         {
@@ -1167,7 +1168,7 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_AUTOSAVE, Configuration.AutoSave);
     if (ti.Type == ttDataToWindow)
     {
-        char configPath[MAX_PATH];
+        char configPath[SAL_MAX_PATH];
         configPath[0] = 0;
         CConfigurationStorageType bootstrapType = (CConfigurationStorageType)Configuration.StorageType;
         ConfigurationStorage.LoadStorageTypeBootstrap(bootstrapType, configPath, SizeOf(configPath));
@@ -1180,7 +1181,7 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
     ti.RadioButton(IDC_SAVE_TO_FILE, cstRegFile, Configuration.StorageType);
     if (ti.Type == ttDataFromWindow && oldStorageType == Configuration.StorageType && Configuration.StorageType == cstRegFile)
     {
-        char configPath[MAX_PATH];
+        char configPath[SAL_MAX_PATH];
         ti.EditLine(IDC_SAVE_TO_FILE_PATH, configPath, SizeOf(configPath));
         if (!ConfigurationStorage.SwitchStorageType(cstRegFile, FALSE, configPath))
             SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_MIGRATIONERR), LoadStr(IDS_ERRORTITLE),
@@ -1191,7 +1192,7 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
         if (SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_SWITCHCONFIRM), LoadStr(IDS_QUESTION),
                           MB_YESNO | MB_ICONQUESTION) == IDYES)
         {
-            char configPath[MAX_PATH];
+            char configPath[SAL_MAX_PATH];
             ti.EditLine(IDC_SAVE_TO_FILE_PATH, configPath, SizeOf(configPath));
             ConfigurationStorage.Flush();
             if (!ConfigurationStorage.SwitchStorageType((CConfigurationStorageType)Configuration.StorageType, TRUE, configPath))
@@ -1234,8 +1235,8 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
 
 BOOL CCfgPageGeneral::IsDefaultCommandShellApplication()
 {
-    char commandLineApplication[MAX_PATH];
-    lstrcpyn(commandLineApplication, Configuration.CommandLineApplication, MAX_PATH);
+    char commandLineApplication[SAL_MAX_PATH];
+    lstrcpyn(commandLineApplication, Configuration.CommandLineApplication, SAL_MAX_PATH);
 
     if (ParentDialog != NULL)
     {
@@ -1248,7 +1249,7 @@ BOOL CCfgPageGeneral::IsDefaultCommandShellApplication()
                 HWND hCommandLineApplication = GetDlgItem(hPage, IDC_CMDLINEAPP_PATH);
                 if (hCommandLineApplication != NULL)
                 {
-                    GetWindowText(hCommandLineApplication, commandLineApplication, MAX_PATH);
+                    GetWindowText(hCommandLineApplication, commandLineApplication, SizeOf(commandLineApplication));
                     break;
                 }
             }
@@ -1263,7 +1264,7 @@ void CCfgPageGeneral::EnableControls()
     BOOL useTimeRes = IsDlgButtonChecked(HWindow, IDC_TIMERESOLUTION);
     EnableWindow(GetDlgItem(HWindow, IDE_TIMERESOLUTION), useTimeRes);
     EnableWindow(GetDlgItem(HWindow, IDC_ASYNCCOPYALG), Windows7AndLater);
-    char configPath[MAX_PATH];
+    char configPath[SAL_MAX_PATH];
     BOOL canSaveStorageTypeBootstrap = ConfigurationStorage.CanSaveStorageTypeBootstrap();
     BOOL canUseFileStorage = canSaveStorageTypeBootstrap && ConfigurationStorage.GetPortableConfigFilePath(configPath, SizeOf(configPath));
     BOOL fileStorageSelected = IsDlgButtonChecked(HWindow, IDC_SAVE_TO_FILE) == BST_CHECKED;
@@ -1298,7 +1299,7 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (LOWORD(wParam) == IDC_SAVE_TO_FILE_BROWSE)
         {
-            char path[MAX_PATH];
+            char path[SAL_MAX_PATH];
             GetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path, SizeOf(path));
             if (BrowseConfigurationStorageFile(HWindow, path, SizeOf(path)))
             {
@@ -2138,7 +2139,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (nmhd->item.pszText != NULL)
                 {
                     char name[VIEW_NAME_MAX];
-                    lstrcpyn(name, nmhd->item.pszText, VIEW_NAME_MAX);
+                    CopyStringTruncateUtf8(name, VIEW_NAME_MAX, nmhd->item.pszText);
                     Config.CleanName(name);
                     int index = nmhd->item.iItem;
                     if (lstrlen(Config.Items[index].Name) == 0)
@@ -3993,7 +3994,7 @@ struct CConfigurationPage7Data
     CConfigurationPage7SubData Items[CFG_COLORS_BUTTONS];
 };
 
-#define PAGE7DATA_COUNT 7
+#define PAGE7DATA_COUNT 8
 
 CConfigurationPage7Data Page7Data[PAGE7DATA_COUNT] =
     {
@@ -4052,6 +4053,14 @@ CConfigurationPage7Data Page7Data[PAGE7DATA_COUNT] =
             {{IDS_COLORLABEL_HOTPANEL, HOT_PANEL, 0, CFG7F_SINGLECOLOR | CFG7F_DEFFG},
              {IDS_COLORLABEL_HOTACTIVE, HOT_ACTIVE, 0, CFG7F_SINGLECOLOR | CFG7F_DEFFG},
              {IDS_COLORLABEL_HOTINACTIVE, HOT_INACTIVE, 0, CFG7F_SINGLECOLOR | CFG7F_DEFFG},
+             {0, 0, 0, 0},
+             {0, 0, 0, 0}}},
+        // autocomplete suggestion colors
+        {
+            IDS_COLORITEM_AUTOCOMPLETE,
+            {{IDS_COLORLABEL_AUTOCOMPLETE_LIST, AUTOCOMPLETE_LIST_FG, AUTOCOMPLETE_LIST_BK, CFG7F_DEFFG | CFG7F_DEFBK},
+             {0, 0, 0, 0},
+             {0, 0, 0, 0},
              {0, 0, 0, 0},
              {0, 0, 0, 0}}},
 };

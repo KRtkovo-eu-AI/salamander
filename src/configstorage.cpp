@@ -70,7 +70,7 @@ BOOL CConfigurationStorage::GetStorageTypeBootstrapFilePath(char* filePath, int 
 
 BOOL CConfigurationStorage::LoadStorageTypeBootstrap(CConfigurationStorageType& type, char* regFilePath, int regFilePathSize)
 {
-    char fileName[MAX_PATH];
+    char fileName[SAL_MAX_PATH];
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
@@ -97,7 +97,7 @@ BOOL CConfigurationStorage::LoadStorageTypeBootstrap(CConfigurationStorageType& 
 
 BOOL CConfigurationStorage::CanSaveStorageTypeBootstrap()
 {
-    char fileName[MAX_PATH];
+    char fileName[SAL_MAX_PATH];
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
@@ -112,7 +112,7 @@ BOOL CConfigurationStorage::CanSaveStorageTypeBootstrap()
         return TRUE;
     }
 
-    char tmpPath[MAX_PATH];
+    char tmpPath[SAL_MAX_PATH];
     _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", fileName, GetCurrentProcessId());
     HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
     if (file == INVALID_HANDLE_VALUE)
@@ -125,7 +125,7 @@ BOOL CConfigurationStorage::CanSaveStorageTypeBootstrap()
 
 BOOL CConfigurationStorage::SaveStorageTypeBootstrap(CConfigurationStorageType type, const char* regFilePath)
 {
-    char fileName[MAX_PATH];
+    char fileName[SAL_MAX_PATH];
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
@@ -165,7 +165,7 @@ BOOL CConfigurationStorage::GetRegFilePath(char* filePath, int filePathSize) con
 
 BOOL CConfigurationStorage::CanWriteRegFile() const
 {
-    char path[MAX_PATH];
+    char path[SAL_MAX_PATH];
     if (!GetRegFilePath(path, SizeOf(path)) || path[0] == 0)
         return FALSE;
 
@@ -184,7 +184,7 @@ BOOL CConfigurationStorage::CanWriteRegFile() const
         return TRUE;
     }
 
-    char tmpPath[MAX_PATH];
+    char tmpPath[SAL_MAX_PATH];
     _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
     HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
     if (file == INVALID_HANDLE_VALUE)
@@ -360,7 +360,7 @@ BOOL CConfigurationStorage::SaveRegFile(BOOL showError)
     if (FilePath[0] == 0 && !GetPortableConfigFilePath(FilePath, SizeOf(FilePath)))
         return FALSE;
 
-    char tmpFileName[MAX_PATH];
+    char tmpFileName[SAL_MAX_PATH];
     _snprintf_s(tmpFileName, _TRUNCATE, "%s.tmp", FilePath);
 
     char clearKeyName[MAX_PATH];
@@ -428,7 +428,7 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
     {
         if (newType == cstRegFile && filePath != NULL && filePath[0] != 0 && strcmp(FilePath, filePath) != 0)
         {
-            char oldFilePath[MAX_PATH];
+            char oldFilePath[SAL_MAX_PATH];
             strcpy_s(oldFilePath, FilePath);
             BOOL movedFile = FALSE;
             DWORD oldAttrs = oldFilePath[0] != 0 ? GetFileAttributes(oldFilePath) : INVALID_FILE_ATTRIBUTES;
@@ -473,7 +473,7 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
         return FALSE;
     }
 
-    char oldFilePath[MAX_PATH];
+    char oldFilePath[SAL_MAX_PATH];
     strcpy_s(oldFilePath, FilePath);
     if (newType == cstRegFile && filePath != NULL && filePath[0] != 0)
         strncpy_s(FilePath, filePath, _TRUNCATE);
@@ -515,7 +515,7 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
             DeleteFile(oldFilePath);
         else
         {
-            char portablePath[MAX_PATH];
+            char portablePath[SAL_MAX_PATH];
             if (GetPortableConfigFilePath(portablePath, SizeOf(portablePath)))
                 DeleteFile(portablePath);
         }
@@ -588,10 +588,10 @@ void CConfigurationStorage::UnregisterActiveRegistryKey(HKEY key)
     }
 }
 
-BOOL CConfigurationStorage::LoadKnownFileStoragePaths(char paths[][MAX_PATH], int* count, int maxCount)
+BOOL CConfigurationStorage::LoadKnownFileStoragePaths(char paths[][SAL_MAX_PATH], int* count, int maxCount)
 {
     *count = 0;
-    char fileName[MAX_PATH];
+    char fileName[SAL_MAX_PATH];
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
@@ -599,7 +599,7 @@ BOOL CConfigurationStorage::LoadKnownFileStoragePaths(char paths[][MAX_PATH], in
     {
         char key[20];
         _snprintf_s(key, _TRUNCATE, "Path%d", i);
-        char path[MAX_PATH];
+        char path[SAL_MAX_PATH];
         path[0] = 0;
         GetPrivateProfileString("KnownFileStorage", key, "", path, SizeOf(path), fileName);
         if (path[0] != 0)
@@ -618,12 +618,12 @@ BOOL CConfigurationStorage::AddKnownFileStoragePath(const char* path)
     if (path == NULL || path[0] == 0)
         return FALSE;
 
-    char fileName[MAX_PATH];
+    char fileName[SAL_MAX_PATH];
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
     // Nejprve zkontrolovat jestli cesta uz existuje
-    char existingPaths[20][MAX_PATH];
+    static char existingPaths[20][SAL_MAX_PATH];
     int existingCount = 0;
     LoadKnownFileStoragePaths(existingPaths, &existingCount, 20);
 
@@ -644,11 +644,11 @@ BOOL CConfigurationStorage::RemoveKnownFileStoragePath(const char* path)
     if (path == NULL || path[0] == 0)
         return FALSE;
 
-    char fileName[MAX_PATH];
+    char fileName[SAL_MAX_PATH];
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
-    char existingPaths[20][MAX_PATH];
+    static char existingPaths[20][SAL_MAX_PATH];
     int existingCount = 0;
     LoadKnownFileStoragePaths(existingPaths, &existingCount, 20);
 

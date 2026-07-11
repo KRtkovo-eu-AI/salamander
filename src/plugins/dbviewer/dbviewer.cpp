@@ -679,8 +679,8 @@ unsigned WINAPI ViewerThreadBody(void* param)
     }
 
     CALL_STACK_MESSAGE1("ViewerThreadBody::SetEvent");
-    char name[MAX_PATH];
-    strcpy(name, data->Name);
+    char name[SAL_MAX_PATH];
+    lstrcpyn(name, data->Name, SAL_MAX_PATH);
     BOOL openFile = data->Success;
     SetEvent(data->Continue); // let the main thread continue; data is invalid from this point (=NULL)
     data = NULL;

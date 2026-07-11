@@ -39,4 +39,8 @@
 
 #include "const.h"
 
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 #include "../../darkmode.h"

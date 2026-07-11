@@ -285,7 +285,7 @@ struct CConfiguration
         DrvSpecCDROMMon,
         DrvSpecCDROMSimple;
 
-    char CommandLineApplication[MAX_PATH];
+    char CommandLineApplication[SAL_MAX_PATH];
     char CommandLineArguments[CONFIG_COMMANDLINEARGS_MAXLEN];
 
     // options for Compare Directories dialog box / functions
@@ -303,7 +303,7 @@ struct CConfiguration
     CMaskGroup CompareIgnoreDirsMasks;
 
     BOOL IfPathIsInaccessibleGoToIsMyDocs;   // TRUE = ignore IfPathIsInaccessibleGoTo and fetch Documents from the system directly
-    char IfPathIsInaccessibleGoTo[MAX_PATH]; // path used when the current one becomes inaccessible (network outage, media removed from the removable drive, ...)
+    char IfPathIsInaccessibleGoTo[SAL_MAX_PATH]; // path used when the current one becomes inaccessible (network outage, media removed from the removable drive, ...)
 
     DWORD LastUsedSpeedLimit; // remembers the last used speed limit (users often repeat one number)
 
@@ -494,6 +494,7 @@ struct CConfiguration
     int TabButtonMaxWidth;                       // maximalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
     int TabCaptionAlignment;                     // zarovnani titulku tlacitek tabu (TAB_CAPTION_ALIGN_xxx)
     int TabActiveBorder;                         // zobrazit barevnou linku na hornim okraji aktivniho tabu
+    COLORREF TabActiveBorderColor;               // barva aktivniho okraje tabu (CLR_INVALID = automaticka z ACTIVE_CAPTION_BK)
     int TabCloseButtonActive;                    // zobrazit close button na aktivním tabu
     int TabCloseButtonAll;                       // zobrazit close button na všech tabech
     int UseTitleBarPrefix;                       // should prefix be shown in the title bar?
@@ -1199,6 +1200,14 @@ public:
     CCfgPageTabs();
 
     virtual void Transfer(CTransferInfo& ti);
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+private:
+    CColorArrowButton* activeBorderColorBtn;
+    COLORREF tabActiveBorderColor;
+    void UpdateColorButton();
 };
 
 //

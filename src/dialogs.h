@@ -1179,7 +1179,7 @@ public:
     // index points into the SalamanderConfigurationRoots array
     int IndexOfConfigurationToLoad;
     int StorageType;
-    char RegFilePath[MAX_PATH];
+    char RegFilePath[SAL_MAX_PATH];
 
 public:
     CImportConfigDialog();
@@ -1224,7 +1224,7 @@ public:
     BOOL* DeleteConfigurations;       // pole velikosti SALCFG_ROOTS_COUNT
     int IndexOfConfigToLoad;          // index do SalamanderConfigurationRoots, -1 = zadny
     int StorageType;                  // cstRegistry / cstRegFile
-    char RegFilePath[MAX_PATH];
+    char RegFilePath[SAL_MAX_PATH];
     BOOL CanSaveBootstrap;            // configstorage.ini writable
     int SelectedSourceIndex;          // index do Configs[] pro zdrojovou konfiguraci
     int SortColumn;                   // sloupec podle ktereho se sortuje (-1 = zadny)

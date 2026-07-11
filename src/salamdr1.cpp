@@ -137,7 +137,7 @@ static BOOL LoadLanguageFromRegistry(CSalamanderRegistryExAbstract* registry, co
 
 static BOOL LoadLanguageFromPortableConfig(const char* configKey, DWORD& langChanged, const char* regFilePath = NULL)
 {
-    char fileName[MAX_PATH];
+    char fileName[SAL_MAX_PATH];
     if (regFilePath != NULL && regFilePath[0] != 0)
         strncpy_s(fileName, regFilePath, _TRUNCATE);
     else if (!ConfigurationStorage.GetPortableConfigFilePath(fileName, SizeOf(fileName)))
@@ -285,7 +285,7 @@ BOOL RunningAsAdmin = FALSE;
 DWORD CCVerMajor = 0;
 DWORD CCVerMinor = 0;
 
-char ConfigurationName[MAX_PATH];
+char ConfigurationName[SAL_MAX_PATH];
 BOOL ConfigurationNameIgnoreIfNotExists = TRUE;
 
 int StopRefresh = 0;
@@ -367,7 +367,7 @@ HINSTANCE Shell32DLL = NULL;        // handle k shell32.dll (ikonky)
 HINSTANCE ImageResDLL = NULL;       // handle k imageres.dll (ikonky - Vista)
 HINSTANCE User32DLL = NULL;         // handle k user32.dll (DisableProcessWindowsGhosting)
 HINSTANCE HLanguage = NULL;         // handle k jazykove zavislym resourcum (.SPL souboru)
-char CurrentHelpDir[MAX_PATH] = ""; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
+char CurrentHelpDir[SAL_MAX_PATH] = ""; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
 WORD LanguageID = 0;                // language-id .SPL souboru
 
 char OpenReadmeInNotepad[MAX_PATH]; // pouziva se jen pri spusteni z instalaku: jmeno souboru, ktere mame v IDLE otevrit v notepadu (spustit notepad)
@@ -402,13 +402,6 @@ HBRUSH HMenuGrayTextBrush = NULL;
 
 static bool gDarkModeBrushesOwned = false;
 
-
-static COLORREF LightenColor(COLORREF color, int amount)
-{
-    return RGB(min(255, GetRValue(color) + amount),
-               min(255, GetGValue(color) + amount),
-               min(255, GetBValue(color) + amount));
-}
 
 static COLORREF DarkenColor(COLORREF color, int amount)
 {
@@ -470,6 +463,8 @@ static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
     const COLORREF schemeBackground = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : CLR_INVALID;
     const COLORREF schemeText = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : CLR_INVALID;
     DarkModeSetConfiguredColors(schemeText, schemeBackground, fallbackText, fallbackBackground);
+    DarkModeSetAutocompleteSelectedColors(GetCOLORREF(CurrentColors[AUTOCOMPLETE_LIST_FG]),
+                                         GetCOLORREF(CurrentColors[AUTOCOMPLETE_LIST_BK]));
     const DarkModeColors& palette = DarkModeGetColors();
     const COLORREF paletteBackground = palette.background;
     const COLORREF paletteText = palette.readableText;
@@ -479,7 +474,7 @@ static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
         DestroyDarkModeBrushes();
         COLORREF panelBg = paletteBackground;
         COLORREF textColor = paletteText;
-        COLORREF highlight = LightenColor(panelBg, 24);
+        COLORREF highlight = LightenColorSimple(panelBg, 24);
         COLORREF gray = DarkenColor(panelBg, 40);
 
         HDialogBrush = HANDLES(CreateSolidBrush(panelBg));
@@ -517,15 +512,36 @@ static void BuildLightViewerPalette(SALCOLOR* viewerTarget)
     viewerTarget[VIEWER_BK_SELECTED] = RGBF(0, 0, 0, SCF_DEFAULT);
 }
 
+static DWORD GetWindowsAccentColor()
+{
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+    {
+        DWORD value = 0;
+        DWORD size = sizeof(value);
+        DWORD type = 0;
+        if (RegQueryValueExW(hKey, L"AccentColor", NULL, &type, (LPBYTE)&value, &size) == ERROR_SUCCESS
+            && type == REG_DWORD)
+        {
+            RegCloseKey(hKey);
+            return value & 0x00FFFFFF;
+        }
+        RegCloseKey(hKey);
+    }
+    return 0x00d77800;
+}
+
 bool WindowsDarkModeIsViewerPalette(SALCOLOR* viewerColors)
 {
     if (viewerColors == NULL)
         return false;
 
+    const DWORD accentColor = GetWindowsAccentColor();
+
     return GetCOLORREF(viewerColors[VIEWER_FG_NORMAL]) == RGB(220, 220, 220) &&
            GetCOLORREF(viewerColors[VIEWER_BK_NORMAL]) == RGB(32, 32, 32) &&
            GetCOLORREF(viewerColors[VIEWER_FG_SELECTED]) == RGB(255, 255, 255) &&
-           GetCOLORREF(viewerColors[VIEWER_BK_SELECTED]) == RGB(0, 120, 215);
+           GetCOLORREF(viewerColors[VIEWER_BK_SELECTED]) == GetCOLORREF(static_cast<SALCOLOR>(accentColor));
 }
 
 void WindowsLightModeBuildViewerPalette(SALCOLOR* viewerColors)
@@ -539,8 +555,10 @@ static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
         entry = static_cast<SALCOLOR>(colorAndFlags);
     };
 
-    setColor(target[FOCUS_ACTIVE_NORMAL], 0x00d77800);
-    setColor(target[FOCUS_ACTIVE_SELECTED], 0x00d77800);
+    DWORD windowsAccentColor = GetWindowsAccentColor();
+
+    setColor(target[FOCUS_ACTIVE_NORMAL], windowsAccentColor);
+    setColor(target[FOCUS_ACTIVE_SELECTED], windowsAccentColor);
     setColor(target[FOCUS_FG_INACTIVE_NORMAL], 0x00a0a0a0);
     setColor(target[FOCUS_FG_INACTIVE_SELECTED], 0x00a0a0a0);
     setColor(target[FOCUS_BK_INACTIVE_NORMAL], 0x00202020);
@@ -565,21 +583,26 @@ static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
     setColor(target[PROGRESS_FG_NORMAL], 0x00ffffff);
     setColor(target[PROGRESS_FG_SELECTED], 0x00ffffff);
     setColor(target[PROGRESS_BK_NORMAL], 0x002c2c2c);
-    setColor(target[PROGRESS_BK_SELECTED], 0x00d77800);
+    setColor(target[PROGRESS_BK_SELECTED], windowsAccentColor);
 
-    setColor(target[HOT_PANEL], 0x000080ff);
+    setColor(target[HOT_PANEL], windowsAccentColor);
     setColor(target[HOT_ACTIVE], 0x00000000);
-    setColor(target[HOT_INACTIVE], 0x00d77800);
+    setColor(target[HOT_INACTIVE], windowsAccentColor);
 
     setColor(target[ACTIVE_CAPTION_FG], 0x00ffffff);
-    setColor(target[ACTIVE_CAPTION_BK], 0x00d77800);
+    setColor(target[ACTIVE_CAPTION_BK], windowsAccentColor);
     setColor(target[INACTIVE_CAPTION_FG], 0x00bebebe);
     setColor(target[INACTIVE_CAPTION_BK], 0x00383838);
 
     setColor(target[THUMBNAIL_FRAME_NORMAL], 0x005e5e5e);
     setColor(target[THUMBNAIL_FRAME_SELECTED], 0x0003e9fc);
-    setColor(target[THUMBNAIL_FRAME_FOCUSED], 0x00d77800);
+    setColor(target[THUMBNAIL_FRAME_FOCUSED], windowsAccentColor);
     setColor(target[THUMBNAIL_FRAME_FOCSEL], 0x0003e9fc);
+
+    setColor(target[AUTOCOMPLETE_PATH_FG], 0x00ffffff);
+    setColor(target[AUTOCOMPLETE_PATH_BK], windowsAccentColor);
+    setColor(target[AUTOCOMPLETE_LIST_FG], 0x00ffffff);
+    setColor(target[AUTOCOMPLETE_LIST_BK], windowsAccentColor);
 
     if (viewerTarget == NULL)
         viewerTarget = ViewerColors;
@@ -587,7 +610,7 @@ static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
     setColor(viewerTarget[VIEWER_FG_NORMAL], 0x00dcdcdc);
     setColor(viewerTarget[VIEWER_BK_NORMAL], 0x00202020);
     setColor(viewerTarget[VIEWER_FG_SELECTED], 0x00ffffff);
-    setColor(viewerTarget[VIEWER_BK_SELECTED], 0x00d77800);
+    setColor(viewerTarget[VIEWER_BK_SELECTED], windowsAccentColor);
 }
 
 void WindowsDarkModeBuildHighlightMasks(CHighlightMasks* highlightMasks)
@@ -922,6 +945,12 @@ COLORREF SalamanderColors[NUMBER_OF_COLORS] =
         RGBF(0, 0, 0, 0),       // THUMBNAIL_FRAME_FOCUSED
         RGBF(255, 0, 0, 0),     // THUMBNAIL_FRAME_SELECTED
         RGBF(128, 0, 0, 0),     // THUMBNAIL_FRAME_FOCSEL
+
+        // barvy autocomplete suggestu
+        RGBF(255, 255, 255, 0),         // AUTOCOMPLETE_PATH_FG
+        RGBF(0, 0, 128, SCF_DEFAULT),   // AUTOCOMPLETE_PATH_BK
+        RGBF(255, 255, 255, 0),         // AUTOCOMPLETE_LIST_FG
+        RGBF(0, 0, 128, SCF_DEFAULT),   // AUTOCOMPLETE_LIST_BK
 };
 
 COLORREF ExplorerColors[NUMBER_OF_COLORS] =
@@ -975,6 +1004,12 @@ COLORREF ExplorerColors[NUMBER_OF_COLORS] =
         RGBF(0, 0, 128, 0),     // THUMBNAIL_FRAME_FOCUSED
         RGBF(0, 0, 128, 0),     // THUMBNAIL_FRAME_SELECTED
         RGBF(0, 0, 128, 0),     // THUMBNAIL_FRAME_FOCSEL
+
+        // barvy autocomplete suggestu
+        RGBF(255, 255, 255, 0),         // AUTOCOMPLETE_PATH_FG
+        RGBF(0, 0, 128, SCF_DEFAULT),   // AUTOCOMPLETE_PATH_BK
+        RGBF(255, 255, 255, 0),         // AUTOCOMPLETE_LIST_FG
+        RGBF(0, 0, 128, SCF_DEFAULT),   // AUTOCOMPLETE_LIST_BK
 };
 
 COLORREF NortonColors[NUMBER_OF_COLORS] =
@@ -1028,6 +1063,12 @@ COLORREF NortonColors[NUMBER_OF_COLORS] =
         RGBF(0, 128, 128, 0),   // THUMBNAIL_FRAME_FOCUSED
         RGBF(255, 255, 0, 0),   // THUMBNAIL_FRAME_SELECTED
         RGBF(255, 255, 0, 0),   // THUMBNAIL_FRAME_FOCSEL
+
+        // barvy autocomplete suggestu
+        RGBF(255, 255, 0, 0),           // AUTOCOMPLETE_PATH_FG
+        RGBF(0, 0, 128, 0),             // AUTOCOMPLETE_PATH_BK
+        RGBF(255, 255, 0, 0),           // AUTOCOMPLETE_LIST_FG
+        RGBF(0, 0, 128, 0),             // AUTOCOMPLETE_LIST_BK
 };
 
 COLORREF NavigatorColors[NUMBER_OF_COLORS] =
@@ -1081,6 +1122,12 @@ COLORREF NavigatorColors[NUMBER_OF_COLORS] =
         RGBF(0, 128, 128, 0),   // THUMBNAIL_FRAME_FOCUSED
         RGBF(255, 255, 0, 0),   // THUMBNAIL_FRAME_SELECTED
         RGBF(255, 255, 0, 0),   // THUMBNAIL_FRAME_FOCSEL
+
+        // barvy autocomplete suggestu
+        RGBF(255, 255, 0, 0),           // AUTOCOMPLETE_PATH_FG
+        RGBF(0, 0, 128, 0),             // AUTOCOMPLETE_PATH_BK
+        RGBF(255, 255, 0, 0),           // AUTOCOMPLETE_LIST_FG
+        RGBF(0, 0, 128, 0),             // AUTOCOMPLETE_LIST_BK
 };
 
 COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS] =
@@ -2960,9 +3007,9 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     HThumbnailSelectedPen = HANDLES(CreatePen(PS_SOLID, 0, GetCOLORREF(CurrentColors[THUMBNAIL_FRAME_SELECTED])));
     HThumbnailFocSelPen = HANDLES(CreatePen(PS_SOLID, 0, GetCOLORREF(CurrentColors[THUMBNAIL_FRAME_FOCSEL])));
 
-    COLORREF toolbarHighlight = useDark ? LightenColor(toolbarFace, 30) : GetSysColor(COLOR_BTNHILIGHT);
+    COLORREF toolbarHighlight = useDark ? LightenColorSimple(toolbarFace, 30) : GetSysColor(COLOR_BTNHILIGHT);
     COLORREF toolbarShadow = useDark ? DarkenColor(toolbarFace, 40) : GetSysColor(COLOR_BTNSHADOW);
-    COLORREF toolbarLight = useDark ? LightenColor(toolbarFace, 18) : GetSysColor(COLOR_3DLIGHT);
+    COLORREF toolbarLight = useDark ? LightenColorSimple(toolbarFace, 18) : GetSysColor(COLOR_3DLIGHT);
     COLORREF toolbarFrame = useDark ? DarkenColor(toolbarFace, 60) : GetSysColor(COLOR_WINDOWFRAME);
     COLORREF toolbarWindow = useDark ? toolbarFace : GetSysColor(COLOR_WINDOW);
 
@@ -3008,7 +3055,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     if (useDark)
     {
         clrMap[2].from = RGB(255, 255, 255);
-        clrMap[2].to = LightenColor(toolbarFace, 24);
+        clrMap[2].to = LightenColorSimple(toolbarFace, 24);
         remapWhite = TRUE;
     }
     else if (GetCurrentBPP() > 8)
@@ -3954,14 +4001,14 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
     int p = 20; // pocet prvku pole argv
 
     char curDir[MAX_PATH];
-    GetModuleFileName(HInstance, ConfigurationName, MAX_PATH);
+    GetModuleFileName(HInstance, ConfigurationName, SAL_MAX_PATH);
     *(strrchr(ConfigurationName, '\\') + 1) = 0;
     const char* configReg = "config.reg";
     strcat(ConfigurationName, configReg);
     if (!FileExists(ConfigurationName) && GetOurPathInRoamingAPPDATA(curDir) &&
         SalPathAppend(curDir, configReg, MAX_PATH) && FileExists(curDir))
     { // pokud neexistuje soubor config.reg u .exe, hledame ho jeste v APPDATA
-        lstrcpyn(ConfigurationName, curDir, MAX_PATH);
+        lstrcpyn(ConfigurationName, curDir, SAL_MAX_PATH);
         ConfigurationNameIgnoreIfNotExists = FALSE;
     }
     OpenReadmeInNotepad[0] = 0;
@@ -4018,17 +4065,17 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
                     if (*s == '\\' && *(s + 1) == '\\' || // UNC full path
                         *s != 0 && *(s + 1) == ':')       // "c:\" full path
                     {                                     // plne jmeno
-                        lstrcpyn(ConfigurationName, argv[i + 1], MAX_PATH);
+                        lstrcpyn(ConfigurationName, argv[i + 1], SAL_MAX_PATH);
                     }
                     else // relativni jmeno
                     {
-                        GetModuleFileName(HInstance, ConfigurationName, MAX_PATH);
+                        GetModuleFileName(HInstance, ConfigurationName, SAL_MAX_PATH);
                         *(strrchr(ConfigurationName, '\\') + 1) = 0;
-                        SalPathAppend(ConfigurationName, s, MAX_PATH);
+                        SalPathAppend(ConfigurationName, s, SAL_MAX_PATH);
                         if (!FileExists(ConfigurationName) && GetOurPathInRoamingAPPDATA(curDir) &&
                             SalPathAppend(curDir, s, MAX_PATH) && FileExists(curDir))
                         { // pokud neexistuje relativne zadany soubor za -C u .exe, hledame ho jeste v APPDATA
-                            lstrcpyn(ConfigurationName, curDir, MAX_PATH);
+                            lstrcpyn(ConfigurationName, curDir, SAL_MAX_PATH);
                         }
                     }
                     ConfigurationNameIgnoreIfNotExists = FALSE;
@@ -4366,7 +4413,7 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     DWORD langChanged = FALSE; // TRUE = startujeme Salama poprve s jinym jazykem (naloadime vsechny pluginy, at se overi ze mame tuto jazykovou verzi i pro ne, pripadne at user vyresi jake nahradni verze chce pouzivat)
     BOOL languageLoadedFromPortableConfig = FALSE;
     CConfigurationStorageType languageStorageType = cstRegistry;
-    char languageRegFilePath[MAX_PATH];
+    static char languageRegFilePath[SAL_MAX_PATH];
     languageRegFilePath[0] = 0;
     if (!autoImportConfig &&
         ConfigurationStorage.LoadStorageTypeBootstrap(languageStorageType, languageRegFilePath, SizeOf(languageRegFilePath)) &&
@@ -4616,7 +4663,7 @@ FIND_NEW_SLG_FILE:
     UnpackerConfig.InitializeDefaultValues();
 
     CConfigurationStorageType storageType = cstRegistry;
-    char storageRegFilePath[MAX_PATH];
+    static char storageRegFilePath[SAL_MAX_PATH];
     storageRegFilePath[0] = 0;
     BOOL storageTypeBootstrapWritable = ConfigurationStorage.CanSaveStorageTypeBootstrap();
     BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
@@ -4624,7 +4671,7 @@ FIND_NEW_SLG_FILE:
                                          WasRestrictedFileStorageImported();
     Configuration.StorageType = storageType;
 
-    char portableConfigPath[MAX_PATH];
+    static char portableConfigPath[SAL_MAX_PATH];
     portableConfigPath[0] = 0;
     if (storageType == cstRegFile && storageRegFilePath[0] != 0)
         strncpy_s(portableConfigPath, storageRegFilePath, _TRUNCATE);

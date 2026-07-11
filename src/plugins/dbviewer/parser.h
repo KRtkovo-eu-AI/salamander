@@ -109,7 +109,7 @@ private:
     _dbf_header* DbfHdr;     // data extracted from the opened database
     _dbf_field* DbfFields;   // pointer to the list of columns
     char* Record;            // buffer used for retrieving records from the database
-    char FileName[MAX_PATH]; // path to the opened file
+    char FileName[SAL_MAX_PATH]; // path to the opened file
 
 public:
     // constructor
@@ -147,7 +147,7 @@ class CParserInterfaceCSV : public CParserInterfaceAbstract
 {
 private:
     CCSVParserBase* Csv;     // interface to the CSV library
-    char FileName[MAX_PATH]; // path to the opened file
+    char FileName[SAL_MAX_PATH]; // path to the opened file
     const CCSVConfig* Config;
     BOOL IsUnicode;
     BOOL IsUTF8;
@@ -189,7 +189,7 @@ class CParserInterfaceJSONL : public CParserInterfaceAbstract
 {
 private:
     TDirectArray<char*> Records;
-    char FileName[MAX_PATH];
+    char FileName[SAL_MAX_PATH];
     DWORD CurrentRecordIndex;
     DWORD MaxColumns;
     char* CellBuffer;

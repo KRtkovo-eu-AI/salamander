@@ -14,6 +14,11 @@ class Tests(unittest.TestCase):
   translated[1]["text"]="Použít výchozí &písmo"
   self.assertEqual(slt.validate(items,{"translations":translated})[items[1].key],"Použít výchozí &písmo")
 
+ def test_spaced_ampersand_is_literal_conjunction(self):
+  items=[slt.Item(0,"id","[STRINGTABLE 165]","Settings > Time & Language > Region","14222,","")]
+  result={"translations":[{"id":"id","text":"Nastavení > Čas a jazyk > Region"}]}
+  self.assertEqual(slt.validate(items,result)["id"],"Nastavení > Čas a jazyk > Region")
+
  def test_angle_bracketed_ui_text_can_be_translated(self):
   items=[slt.Item(0,"id","[STRINGTABLE 8]","<New name error: %s>","1107,","")]
   result={"translations":[{"id":"id","text":"<Chyba nového názvu: %s>"}]}
@@ -101,6 +106,53 @@ COMMENT,\"\"
    self.assertTrue(any(call.get("retry_instructions") for call in calls))
    self.assertIn('101,1,"Otevřít %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
    self.assertIn('"event": "request"', trace.read_text(encoding="utf-8"))
+
+ def test_translation_payload_includes_existing_context(self):
+  os.environ["OPENAI_API_KEY"]="test"
+  current="""[STRINGTABLE 1]
+1,1,"Panely se záložkami"
+2,0,"Tabbed panels"
+"""
+  source="""[STRINGTABLE 1]
+1,0,"Tabbed panels"
+2,0,"Tabbed panels"
+"""
+  seen=[]
+  def requester(payload,key,model):
+   seen.append(payload)
+   return {"translations":[{"id":payload["items"][0]["id"],"text":"Panely se záložkami"}]}
+  with tempfile.TemporaryDirectory() as d:
+   src=Path(d)/"source.slt"; inp=Path(d)/"in.slt"; out=Path(d)/"out.slt"
+   src.write_text(source,encoding="utf-8-sig"); inp.write_text(current,encoding="utf-8-sig")
+   slt.translate(inp,out,"czech","mock",40,False,False,requester,source_archive=src)
+  self.assertEqual(seen[0]["existing_translations"],[{"source":"Tabbed panels","translation":"Panely se záložkami"}])
+  self.assertEqual(seen[0]["items"][0]["source_text"],"Tabbed panels")
+
+ def test_trim_translations_shortens_only_long_translated_items(self):
+  os.environ["OPENAI_API_KEY"]="test"
+  current="""[STRINGTABLE 1]
+1,1,"Velmi dlouhý přeložený text"
+2,0,"Untranslated"
+"""
+  source="""[STRINGTABLE 1]
+1,0,"Short"
+2,0,"Untranslated"
+"""
+  seen=[]
+  def requester(payload,key,model):
+   seen.append(payload)
+   return {"translations":[{"id":payload["items"][0]["id"],"text":"Krát."}]}
+  with tempfile.TemporaryDirectory() as d:
+   src=Path(d)/"source.slt"; inp=Path(d)/"in.slt"; out=Path(d)/"out.slt"
+   src.write_text(source,encoding="utf-8-sig"); inp.write_text(current,encoding="utf-8-sig")
+   report=slt.translate(inp,out,"czech","mock",40,False,False,requester,source_archive=src,trim_translations=True)
+   text=out.read_text(encoding="utf-8-sig")
+  self.assertEqual(report["found"],1)
+  self.assertEqual(seen[0]["mode"],"trim")
+  self.assertEqual(seen[0]["items"][0]["max_length_chars"],5)
+  self.assertIn('1,1,"Krát."',text)
+  self.assertIn('2,0,"Untranslated"',text)
+
  def test_requires_key_when_not_dry_run(self):
   os.environ.pop("OPENAI_API_KEY",None)
   with self.assertRaises(RuntimeError): slt.translate(FIX,Path("unused"),"czech","mock",40,False,False)

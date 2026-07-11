@@ -8,8 +8,8 @@
 
 struct CCommandLineLaunchInfo
 {
-    char Application[MAX_PATH];
-    char CommandLine[SALCMDLINE_MAXLEN + MAX_PATH];
+    char Application[SAL_MAX_PATH];
+    char CommandLine[SALCMDLINE_MAXLEN + SAL_MAX_PATH];
     BOOL TooLong;
 };
 

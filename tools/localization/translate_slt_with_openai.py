@@ -51,7 +51,7 @@ def normalize_translation_header(lines: list[str], language: str) -> int:
 
 @dataclass
 class Item:
-    index: int; key: str; section: str; text: str; prefix: str; ending: str
+    index: int; key: str; section: str; text: str; prefix: str; ending: str; source_text: str | None = None
 
 def parse_items(lines: list[str], force: bool = False) -> list[Item]:
     section = ""
@@ -66,10 +66,74 @@ def parse_items(lines: list[str], force: bool = False) -> list[Item]:
         items.append(Item(index, key, section, match.group("text"), match.group("prefix"), match.group("ending") or ""))
     return items
 
+def item_map_by_resource(lines: list[str]) -> dict[tuple[str, str], Item]:
+    return {(item.section, item.prefix.split(',', 1)[0]): item for item in parse_items(lines, True)}
+
+def attach_source_text(items: list[Item], source_lines: list[str] | None) -> list[Item]:
+    if source_lines is None:
+        for item in items:
+            item.source_text = item.text
+        return items
+    source_items = item_map_by_resource(source_lines)
+    for item in items:
+        source_item = source_items.get((item.section, item.prefix.split(',', 1)[0]))
+        item.source_text = source_item.text if source_item else item.text
+    return items
+
+def translation_context(lines: list[str], source_lines: list[str] | None, selected: set[str], limit: int = 80) -> list[dict[str, str]]:
+    if source_lines is None or limit <= 0:
+        return []
+    source_items = item_map_by_resource(source_lines)
+    examples = []
+    for item in parse_items(lines, True):
+        if item.key in selected:
+            continue
+        match = LINE_RE.match(lines[item.index])
+        if not match or match.group("state") != "1":
+            continue
+        source_item = source_items.get((item.section, item.prefix.split(',', 1)[0]))
+        if not source_item or source_item.text == item.text:
+            continue
+        examples.append({"source": source_item.text, "translation": item.text})
+        if len(examples) >= limit:
+            break
+    return examples
+
+def trim_items(lines: list[str], source_lines: list[str]) -> list[Item]:
+    source_items = item_map_by_resource(source_lines)
+    items = []
+    for item in parse_items(lines, True):
+        match = LINE_RE.match(lines[item.index])
+        if not match or match.group("state") != "1":
+            continue
+        source_item = source_items.get((item.section, item.prefix.split(',', 1)[0]))
+        if not source_item:
+            continue
+        item.source_text = source_item.text
+        if len(item.text) > len(source_item.text):
+            items.append(item)
+    return items
+
+def accelerator_count(text: str) -> int:
+    # A bare ampersand normally marks a Windows UI accelerator, but some
+    # resource strings also contain prose/navigation text such as
+    # "Time & Language" where the ampersand is a literal conjunction.
+    # Treat only an ampersand with a non-space neighbor as an accelerator so
+    # translations are not rejected merely for localizing that conjunction.
+    count = 0
+    for match in ACCELERATOR_RE.finditer(text):
+        index = match.start()
+        previous_char = text[index - 1] if index > 0 else ""
+        next_char = text[index + 1] if index + 1 < len(text) else ""
+        if previous_char.isspace() and next_char.isspace():
+            continue
+        count += 1
+    return count
+
 def tokens(text: str) -> tuple[list[str], int]:
     # The accelerator must remain present, but its target letter normally
     # changes in translation (for example "&File" becomes "&Soubor").
-    return sorted(TOKEN_RE.findall(text)), len(ACCELERATOR_RE.findall(text))
+    return sorted(TOKEN_RE.findall(text)), accelerator_count(text)
 
 def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
     language_name = payload.get("target_language", "the target language")
@@ -77,8 +141,10 @@ def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, s
     instructions = (
         "Translate Windows UI resources. Return only valid JSON with a translations array containing id and text. "
         "Preserve placeholders, escapes, accelerators (&), markup, paths, and technical tokens exactly. "
+        "Use the supplied existing_translations as translation memory for consistent terminology. "
         f"Use natural {language_name} in {language_script}; do not transliterate, strip accents/diacritics, "
-        "or replace unrepresentable characters with '?', boxes, replacement characters, or mojibake."
+        "or replace unrepresentable characters with '?', boxes, replacement characters, or mojibake. "
+        "When max_length_chars is present, make the text concise and no longer than that limit if possible."
     )
     if payload.get("retry_instructions"):
         instructions += " " + payload["retry_instructions"]
@@ -99,7 +165,7 @@ def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, s
             sleep(2 ** attempt)
     raise RuntimeError("OpenAI request failed")
 
-def validate(items: list[Item], result: dict, language: str | None = None) -> dict[str,str]:
+def validate(items: list[Item], result: dict, language: str | None = None, enforce_max_length: bool = False) -> dict[str,str]:
     rows=result.get("translations")
     if not isinstance(rows,list): raise ValueError("response has no translations array")
     output={}
@@ -113,15 +179,23 @@ def validate(items: list[Item], result: dict, language: str | None = None) -> di
         if MOJIBAKE_RE.search(row["text"]): raise ValueError(f"translated text looks mojibaked for {row['id']}")
         if "??" in row["text"]: raise ValueError(f"translated text contains repeated question marks for {row['id']}")
         if tokens(row["text"]) != tokens(expected[row["id"]].text): raise ValueError(f"technical tokens changed for {row['id']}")
+        if enforce_max_length and expected[row["id"]].source_text is not None and len(row["text"]) > len(expected[row["id"]].source_text): raise ValueError(f"translated text is longer than source for {row['id']}")
         output[row["id"]]=row["text"]
     if set(output) != set(expected): raise ValueError("response is incomplete")
     return output
 
-def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=request_openai, trace_file: Path | None = None) -> dict:
+def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=request_openai, trace_file: Path | None = None, source_archive: Path | None = None, trim_translations: bool = False) -> dict:
     lang = language_info(language)
     lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True)
+    source_lines=source_archive.read_text(encoding="utf-8-sig").splitlines(keepends=True) if source_archive else None
     header_updates = 0 if dry_run else normalize_translation_header(lines, language)
-    items=parse_items(lines, force)
+    if trim_translations:
+        if source_lines is None:
+            raise RuntimeError("--trim-translations requires --source-archive")
+        items=trim_items(lines, source_lines)
+    else:
+        items=parse_items(lines, force)
+        attach_source_text(items, source_lines)
     all_items=parse_items(lines, True)
     report={"found":len(items),"translated":0,"skipped":len(all_items)-len(items),"failed":0,"estimated_input_characters":sum(len(i.text) for i in items)}
     if dry_run: return report
@@ -145,15 +219,16 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
         return result
 
     def translate_batch(batch: list[Item]) -> None:
-        payload={"target_language":lang["name"],"target_language_key":language,"target_locale":lang["locale"],"target_langid":lang["langid"],"target_script":lang["script"],"items":[{"id":i.key,"resource_id":i.prefix.split(',',1)[0],"type":i.section,"text":i.text} for i in batch]}
+        selected={i.key for i in batch}
+        payload={"target_language":lang["name"],"target_language_key":language,"target_locale":lang["locale"],"target_langid":lang["langid"],"target_script":lang["script"],"mode":"trim" if trim_translations else "translate","existing_translations":translation_context(lines, source_lines, selected),"items":[{"id":i.key,"resource_id":i.prefix.split(',',1)[0],"type":i.section,"text":i.text,"source_text":i.source_text or i.text,"max_length_chars":len(i.source_text or i.text)} for i in batch]}
         try:
-            translated=validate(batch, call_model(payload), language)
+            translated=validate(batch, call_model(payload), language, enforce_max_length=trim_translations)
         except ValueError as exc:
             if len(batch) == 1:
                 retry_payload=dict(payload)
-                retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again in the target language's native script. Keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source. Do not use '?', replacement glyphs, stripped accents, transliteration, or mojibake for target-language characters."
+                retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again in the target language's native script. Keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source. Do not use '?', replacement glyphs, stripped accents, transliteration, or mojibake for target-language characters. If max_length_chars is present, shorten the translation to fit that length."
                 try:
-                    translated=validate(batch, call_model(retry_payload), language)
+                    translated=validate(batch, call_model(retry_payload), language, enforce_max_length=trim_translations)
                 except ValueError as retry_exc:
                     report["failed"] += 1
                     print(f"translation skipped: {batch[0].key}: {retry_exc}", file=sys.stderr)
@@ -268,8 +343,8 @@ def expand_widths(changed: list[str], items: list[Item]) -> int:
     return modified
 
 def main() -> int:
-    p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--model",default=os.environ.get("OPENAI_MODEL","gpt-5-mini")); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true"); p.add_argument("--trace-file",type=Path)
+    p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--model",default=os.environ.get("OPENAI_MODEL","gpt-5-mini")); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true"); p.add_argument("--trace-file",type=Path); p.add_argument("--source-archive",type=Path); p.add_argument("--trim-translations",action="store_true")
     a=p.parse_args()
-    try: print(json.dumps(translate(a.input,a.output,a.language,a.model,a.batch_size,a.dry_run,a.force_retranslate,trace_file=a.trace_file),ensure_ascii=False)); return 0
+    try: print(json.dumps(translate(a.input,a.output,a.language,a.model,a.batch_size,a.dry_run,a.force_retranslate,trace_file=a.trace_file,source_archive=a.source_archive,trim_translations=a.trim_translations),ensure_ascii=False)); return 0
     except Exception as exc: print(f"translation failed: {exc}",file=sys.stderr); return 1
 if __name__ == "__main__": raise SystemExit(main())

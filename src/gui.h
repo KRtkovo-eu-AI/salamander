@@ -464,3 +464,17 @@ HIMAGELIST CreateCheckboxImagelist(int itemSize);
 // Poznamka: stare API LoadIcon() neumi ikony vetsich velikosti, proto zavadime tuto
 // funkci, ktera cte ikony pomoci noveho LoadIconWithScaleDown()
 HICON SalLoadIcon(HINSTANCE hInst, LPCTSTR iconName, CIconSizeEnum iconSize);
+
+inline COLORREF LightenColorSimple(COLORREF color, int amount)
+{
+    int r = GetRValue(color) + amount;
+    int g = GetGValue(color) + amount;
+    int b = GetBValue(color) + amount;
+    if (r > 255)
+        r = 255;
+    if (g > 255)
+        g = 255;
+    if (b > 255)
+        b = 255;
+    return RGB(r, g, b);
+}

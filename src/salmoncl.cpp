@@ -169,9 +169,9 @@ BOOL SalmonStartProcess(const char* fileMappingName) //Configuration.LoadedSLGNa
 {
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
-    char cmd[2 * MAX_PATH];
-    char rtlDir[MAX_PATH];
-    char oldCurDir[MAX_PATH];
+    static char cmd[2 * SAL_MAX_PATH];
+    static char rtlDir[SAL_MAX_PATH];
+    static char oldCurDir[SAL_MAX_PATH];
     char slgName[MAX_PATH];
 #define MAX_ENV_PATH 32766
     char envPATH[MAX_ENV_PATH];
@@ -180,18 +180,18 @@ BOOL SalmonStartProcess(const char* fileMappingName) //Configuration.LoadedSLGNa
     HSalmonProcess = NULL;
 
     ret = FALSE;
-    GetModuleFileName(NULL, cmd, MAX_PATH);
+    GetModuleFileName(NULL, cmd, SAL_MAX_PATH);
     *(strrchr(cmd, '\\') + 1) = 0;
     lstrcat(cmd, "utils\\salmon.exe");
-    AddDoubleQuotesIfNeeded(cmd, MAX_PATH); // CreateProcess requires names with spaces to be enclosed in quotes; otherwise it tries different variants (see help)
+    AddDoubleQuotesIfNeeded(cmd, 2 * SAL_MAX_PATH); // CreateProcess requires names with spaces to be enclosed in quotes; otherwise it tries different variants (see help)
     GetStartupSLGName(slgName, sizeof(slgName));
     wsprintf(cmd + strlen(cmd), " \"%s\" \"%s\"", fileMappingName, slgName); // slgName may be an empty string if the configuration does not exist
     memset(&si, 0, sizeof(STARTUPINFO));
     si.cb = sizeof(STARTUPINFO);
     si.wShowWindow = SW_SHOWNORMAL;
-    GetModuleFileName(NULL, rtlDir, MAX_PATH);
+    GetModuleFileName(NULL, rtlDir, SAL_MAX_PATH);
     *(strrchr(rtlDir, '\\') + 1) = 0;
-    GetCurrentDirectory(MAX_PATH, oldCurDir);
+    GetCurrentDirectory(SAL_MAX_PATH, oldCurDir);
 
     // another attempt to solve the problem before we split SALMON.EXE into EXE + DLL
     // extend the PATH environment variable for the child process (SALMON.EXE) by adding the RTL path.

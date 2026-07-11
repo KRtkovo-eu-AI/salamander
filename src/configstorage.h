@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "consts.h"
 #include "reglib\src\regparse.h"
 
 enum CConfigurationStorageType
@@ -16,7 +17,7 @@ class CConfigurationStorage
 protected:
     CConfigurationStorageType StorageType;
     CSalamanderRegistryExAbstract* Registry;
-    char FilePath[MAX_PATH];
+    char FilePath[SAL_MAX_PATH];
     TDirectArray<HKEY> ActiveRegistryKeys;
     BOOL DoNotDeleteHiddenKeysAndValues;
 
@@ -55,7 +56,7 @@ public:
     BOOL UseActiveRegistryForKey(HKEY key, const char* name = NULL);
 
     // Sprava seznamu known file storage paths
-    BOOL LoadKnownFileStoragePaths(char paths[][MAX_PATH], int* count, int maxCount);
+    BOOL LoadKnownFileStoragePaths(char paths[][SAL_MAX_PATH], int* count, int maxCount);
     BOOL AddKnownFileStoragePath(const char* path);
     BOOL RemoveKnownFileStoragePath(const char* path);
 };

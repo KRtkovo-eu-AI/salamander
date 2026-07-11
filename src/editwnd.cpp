@@ -419,9 +419,9 @@ BOOL AppendConfiguredCommandLineArguments(char* cmd, int cmdSize, const char* us
 
 void BuildCommandShellLine(CCommandLineLaunchInfo* launchInfo)
 {
-    GetCommandLineApplication(launchInfo->Application, MAX_PATH);
-    lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + MAX_PATH);
-    AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
+    GetCommandLineApplication(launchInfo->Application, SAL_MAX_PATH);
+    lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + SAL_MAX_PATH);
+    AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
     launchInfo->TooLong = FALSE;
 }
 
@@ -452,12 +452,12 @@ int GetCommandLineOverhead(const char* quotedApp, const char* app, BOOL closeShe
 
 void BuildCommandLine(CCommandLineLaunchInfo* launchInfo, const char* userCommand, BOOL closeShell)
 {
-    GetCommandLineApplication(launchInfo->Application, MAX_PATH);
-    lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + MAX_PATH);
-    AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
+    GetCommandLineApplication(launchInfo->Application, SAL_MAX_PATH);
+    lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + SAL_MAX_PATH);
+    AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
 
     launchInfo->TooLong = FALSE;
-    if (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, " "))
+    if (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH, " "))
     {
         launchInfo->TooLong = TRUE;
         return;
@@ -465,20 +465,20 @@ void BuildCommandLine(CCommandLineLaunchInfo* launchInfo, const char* userComman
 
     if (Configuration.CommandLineArguments[0] != 0)
     {
-        launchInfo->TooLong = !AppendConfiguredCommandLineArguments(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, userCommand);
+        launchInfo->TooLong = !AppendConfiguredCommandLineArguments(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH, userCommand);
         return;
     }
 
     if (IsCmdExeCommandLineApplication(launchInfo->Application))
     {
-        if (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, closeShell ? "/C " : "/K "))
+        if (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH, closeShell ? "/C " : "/K "))
         {
             launchInfo->TooLong = TRUE;
             return;
         }
     }
 
-    launchInfo->TooLong = !AppendQuotedUserCommand(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, userCommand, FALSE);
+    launchInfo->TooLong = !AppendQuotedUserCommand(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH, userCommand, FALSE);
 }
 
 int GetCmdLineLimit()
@@ -494,12 +494,12 @@ int GetCmdLineLimit()
 #pragma message(__FILE__ " ERROR: SALCMDLINE_MAXLEN != 8192. SALCMDLINE_MAXLEN and GetCmdLineLimit() must contain the same maximal value!")
 #endif
 
-    char app[MAX_PATH];
-    GetCommandLineApplication(app, MAX_PATH);
+    char app[SAL_MAX_PATH];
+    GetCommandLineApplication(app, SAL_MAX_PATH);
 
-    char quotedApp[SALCMDLINE_MAXLEN + MAX_PATH];
-    lstrcpyn(quotedApp, app, SALCMDLINE_MAXLEN + MAX_PATH);
-    AddDoubleQuotesIfNeeded(quotedApp, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess expects names with spaces quoted (otherwise it tries various variants; see help)
+    char quotedApp[SALCMDLINE_MAXLEN + SAL_MAX_PATH];
+    lstrcpyn(quotedApp, app, SALCMDLINE_MAXLEN + SAL_MAX_PATH);
+    AddDoubleQuotesIfNeeded(quotedApp, SALCMDLINE_MAXLEN + SAL_MAX_PATH); // CreateProcess expects names with spaces quoted (otherwise it tries various variants; see help)
 
     // Use the same launcher/argument layout as BuildCommandLine().  FALSE selects /K for
     // the default cmd.exe case; /C has the same length, so CloseShell does not affect the limit.
@@ -509,8 +509,8 @@ int GetCmdLineLimit()
     if (WindowsXP64AndLater) // XP64 + Vista + Win7 + ...
         limit = min(limit, 8191 - overhead);
 
-    // The CreateProcess command line is assembled into a SALCMDLINE_MAXLEN + MAX_PATH buffer.
-    limit = min(limit, SALCMDLINE_MAXLEN + MAX_PATH - 1 - overhead);
+    // The CreateProcess command line is assembled into a SALCMDLINE_MAXLEN + SAL_MAX_PATH buffer.
+    limit = min(limit, SALCMDLINE_MAXLEN + SAL_MAX_PATH - 1 - overhead);
     return max(0, limit);
 }
 

@@ -1316,7 +1316,7 @@ BOOL CFilesWindow::ChangeToRescuePathOrFixedDrive(HWND parent, BOOL* noChange, B
     CALL_STACK_MESSAGE4("CFilesWindow::ChangeToRescuePathOrFixedDrive(, , %d, %d, %d,)",
                         refreshListBox, canForce, tryCloseReason);
     BOOL noChangeUsed = FALSE;
-    char ifPathIsInaccessibleGoTo[MAX_PATH];
+    char ifPathIsInaccessibleGoTo[SAL_MAX_PATH];
     GetIfPathIsInaccessibleGoTo(ifPathIsInaccessibleGoTo);
     if (ifPathIsInaccessibleGoTo[0] == '\\' && ifPathIsInaccessibleGoTo[1] == '\\' ||
         ifPathIsInaccessibleGoTo[0] != 0 && ifPathIsInaccessibleGoTo[1] == ':')
@@ -2615,7 +2615,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     BOOL fixedDrive = FALSE;
     BOOL canTryUserRescuePath = FALSE; // allows using Configuration.IfPathIsInaccessibleGoTo right before the fixed-drive path
     BOOL openIfPathIsInaccessibleGoToCfg = FALSE;
-    char ifPathIsInaccessibleGoTo[MAX_PATH];
+    char ifPathIsInaccessibleGoTo[SAL_MAX_PATH];
     GetIfPathIsInaccessibleGoTo(ifPathIsInaccessibleGoTo);
     if ((ifPathIsInaccessibleGoTo[0] == '\\' && ifPathIsInaccessibleGoTo[1] == '\\' ||
          ifPathIsInaccessibleGoTo[0] != 0 && ifPathIsInaccessibleGoTo[1] == ':') &&

@@ -1804,7 +1804,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
             mode = TITLE_BAR_MODE_FULLPATH;
     }
 
-    char generalPath[SAL_MAX_PATH];
+    static char generalPath[SAL_MAX_PATH];
     generalPath[0] = 0;
     panel->GetGeneralPath(generalPath, _countof(generalPath));
 
@@ -1826,7 +1826,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
             char* trimEnd = NULL;
             if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
             {
-                char rootPath[SAL_MAX_PATH];
+                static char rootPath[SAL_MAX_PATH];
                 GetRootPath(rootPath, buffer);
                 int chars = (int)strlen(rootPath);
                 trimStart = buffer + chars;
@@ -1880,7 +1880,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
             const char forwardSlash = 0x2F;   // '/'
             if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
             {
-                char rootPath[SAL_MAX_PATH];
+                static char rootPath[SAL_MAX_PATH];
                 GetRootPath(rootPath, buffer);
                 int chars = (int)strlen(rootPath);
                 char* p = buffer + strlen(buffer);
@@ -2104,7 +2104,7 @@ static std::wstring FormatPanelPathForDisplayW(CFilesWindow* panel, int mode)
 
     if (pluginTitleService && (mode == TITLE_BAR_MODE_COMPOSITE || mode == TITLE_BAR_MODE_DIRECTORY))
     {
-        char buf[SAL_MAX_PATH];
+        static char buf[SAL_MAX_PATH];
         buf[0] = 0;
         int modeForPlugin = (mode == TITLE_BAR_MODE_COMPOSITE) ? 2 : 1;
         if (pluginFS->GetPathForMainWindowTitle(pluginFS->GetPluginFSName(), modeForPlugin, buf, _countof(buf)) && buf[0] != 0)
@@ -2117,7 +2117,7 @@ static std::wstring FormatPanelPathForDisplayW(CFilesWindow* panel, int mode)
 
     if (panel->Is(ptPluginFS))
     {
-        char buffer[4 * SAL_MAX_PATH];
+        static char buffer[4 * SAL_MAX_PATH];
         buffer[0] = 0;
         CMainWindow::FormatPanelPathForDisplay(panel, mode, buffer, _countof(buffer));
         if (buffer[0] != 0)
@@ -2134,7 +2134,7 @@ static std::wstring FormatPanelPathForDisplayW(CFilesWindow* panel, int mode)
     }
     else
     {
-        char generalPath[SAL_MAX_PATH];
+        static char generalPath[SAL_MAX_PATH];
         generalPath[0] = 0;
         panel->GetGeneralPath(generalPath, _countof(generalPath));
         if (generalPath[0] != 0)

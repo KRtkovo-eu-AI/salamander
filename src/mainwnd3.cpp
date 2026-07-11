@@ -2426,10 +2426,10 @@ BOOL OpenHtmlHelp(char* helpFileName, HWND parent, CHtmlHelpCommand command, DWO
 
     HANDLES(EnterCriticalSection(&OpenHtmlHelpCS));
 
-    char helpPath[MAX_PATH + 50];
+    char helpPath[SAL_MAX_PATH + 50];
     if (CurrentHelpDir[0] == 0)
     {
-        char helpSubdir[MAX_PATH];
+        char helpSubdir[SAL_MAX_PATH];
         helpSubdir[0] = 0;
         CLanguage language;
         if (language.Init(Configuration.LoadedSLGName, NULL))
@@ -2443,22 +2443,22 @@ BOOL OpenHtmlHelp(char* helpFileName, HWND parent, CHtmlHelpCommand command, DWO
             strcpy(helpSubdir, "english");
         }
         BOOL ok = FALSE;
-        if (GetModuleFileName(HInstance, CurrentHelpDir, MAX_PATH) != 0 &&
+        if (GetModuleFileName(HInstance, CurrentHelpDir, SAL_MAX_PATH) != 0 &&
             CutDirectory(CurrentHelpDir) &&
-            SalPathAppend(CurrentHelpDir, "help", MAX_PATH) &&
+            SalPathAppend(CurrentHelpDir, "help", SAL_MAX_PATH) &&
             DirExists(CurrentHelpDir))
         {
-            lstrcpyn(helpPath, CurrentHelpDir, MAX_PATH);
-            if (!SalPathAppend(helpPath, helpSubdir, MAX_PATH) ||
+            lstrcpyn(helpPath, CurrentHelpDir, SAL_MAX_PATH);
+            if (!SalPathAppend(helpPath, helpSubdir, SAL_MAX_PATH) ||
                 !DirExists(helpPath))
             { // the directory from the current .slg file does not exist
-                lstrcpyn(helpPath, CurrentHelpDir, MAX_PATH);
+                lstrcpyn(helpPath, CurrentHelpDir, SAL_MAX_PATH);
                 if (_stricmp(helpSubdir, "english") == 0 || // we already tested "english" and it does not exist so no point in trying again
-                    !SalPathAppend(helpPath, "english", MAX_PATH) ||
+                    !SalPathAppend(helpPath, "english", SAL_MAX_PATH) ||
                     !DirExists(helpPath))
                 { // the ENGLISH directory does not exist
-                    lstrcpyn(helpPath, CurrentHelpDir, MAX_PATH);
-                    if (SalPathAppend(helpPath, "*", MAX_PATH))
+                    lstrcpyn(helpPath, CurrentHelpDir, SAL_MAX_PATH);
+                    if (SalPathAppend(helpPath, "*", SAL_MAX_PATH))
                     { // try to find at least some other directory
                         WIN32_FIND_DATA data;
                         HANDLE find = HANDLES_Q(FindFirstFile(helpPath, &data));
@@ -2469,8 +2469,8 @@ BOOL OpenHtmlHelp(char* helpFileName, HWND parent, CHtmlHelpCommand command, DWO
                                 if (strcmp(data.cFileName, ".") != 0 && strcmp(data.cFileName, "..") != 0 &&
                                     (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) // only if it is a directory
                                 {
-                                    lstrcpyn(helpPath, CurrentHelpDir, MAX_PATH);
-                                    if (SalPathAppend(helpPath, data.cFileName, MAX_PATH))
+                                    lstrcpyn(helpPath, CurrentHelpDir, SAL_MAX_PATH);
+                                    if (SalPathAppend(helpPath, data.cFileName, SAL_MAX_PATH))
                                     {
                                         ok = TRUE;
                                         break;
@@ -2487,7 +2487,7 @@ BOOL OpenHtmlHelp(char* helpFileName, HWND parent, CHtmlHelpCommand command, DWO
             else
                 ok = TRUE;
             if (ok)
-                lstrcpyn(CurrentHelpDir, helpPath, MAX_PATH);
+                lstrcpyn(CurrentHelpDir, helpPath, SAL_MAX_PATH);
         }
         if (!ok)
         {
@@ -2552,8 +2552,8 @@ BOOL OpenHtmlHelp(char* helpFileName, HWND parent, CHtmlHelpCommand command, DWO
     if (helpFileName != NULL) // plugin help: to open the window in the right position
     {                         // with remembered Favorites, we must open "salamand.chm" first (then
                               // the plugin help opens in this same window)
-        lstrcpyn(helpPath, CurrentHelpDir, MAX_PATH);
-        if (SalPathAppend(helpPath, "salamand.chm", MAX_PATH) &&
+        lstrcpyn(helpPath, CurrentHelpDir, SAL_MAX_PATH);
+        if (SalPathAppend(helpPath, "salamand.chm", SAL_MAX_PATH) &&
             FileExists(helpPath))
         {
             HtmlHelp(NULL, helpPath, HH_DISPLAY_TOC, 0); // ignore potential error
@@ -2562,8 +2562,8 @@ BOOL OpenHtmlHelp(char* helpFileName, HWND parent, CHtmlHelpCommand command, DWO
 
     BOOL ret = FALSE;
 
-    lstrcpyn(helpPath, CurrentHelpDir, MAX_PATH);
-    if (SalPathAppend(helpPath, helpFileName == NULL ? "salamand.chm" : helpFileName, MAX_PATH) &&
+    lstrcpyn(helpPath, CurrentHelpDir, SAL_MAX_PATH);
+    if (SalPathAppend(helpPath, helpFileName == NULL ? "salamand.chm" : helpFileName, SAL_MAX_PATH) &&
         FileExists(helpPath))
     {
         if (HtmlHelp(NULL, helpPath, uCommand, dwData) == NULL)
@@ -5045,12 +5045,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_HELP_CREDITS:
         {
-            char thirdPartyDir[SAL_MAX_PATH];
+            static char thirdPartyDir[SAL_MAX_PATH];
             if (GetModuleFileName(NULL, thirdPartyDir, SAL_MAX_PATH) != 0 &&
                 CutDirectory(thirdPartyDir) &&
                 SalPathAppend(thirdPartyDir, "doc", SAL_MAX_PATH))
             {
-                char thirdPartyPath[SAL_MAX_PATH];
+                static char thirdPartyPath[SAL_MAX_PATH];
                 const char* slgName = Configuration.LoadedSLGName;
 
                 if (slgName[0] != 0)
@@ -5333,7 +5333,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 if (ret == IDCANCEL)
                 {
                     // navigate the user to the correct directory and focus the configuration file to make it easier
-                    char path[MAX_PATH];
+                    static char path[SAL_MAX_PATH];
                     char* s = strrchr(ConfigurationName, '\\');
                     if (s != NULL)
                     {
@@ -5549,7 +5549,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
 
             // Scan default portable config.reg next to salamand.exe even when it is not in known paths yet.
-            char portableConfigPath[MAX_PATH];
+            static char portableConfigPath[SAL_MAX_PATH];
             portableConfigPath[0] = 0;
             ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
             if (portableConfigPath[0] != 0 && GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES &&
@@ -5561,7 +5561,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
 
             // Scan known file storage paths
-            char knownPaths[20][MAX_PATH];
+            static char knownPaths[20][SAL_MAX_PATH];
             int knownCount = 0;
             ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
             for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)

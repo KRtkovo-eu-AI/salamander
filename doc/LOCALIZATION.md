@@ -164,6 +164,14 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
 
 Remove `-DryRun` after reviewing the per-language/module report and the generated candidates. In the batch script, `-DryRun` still calls OpenAI and writes translated files under `out/localization-openai/candidate/`; it only skips copying to `translations/`, Translator import/export validation, and language-pack building. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
 
+The OpenAI translator sends examples of existing translations from the same module with each batch as translation memory so the model keeps terminology consistent. `-AutoTrimTranslations` does not retranslate everything; it selects already translated entries that are longer than the current English source and asks the model for a shorter variant with the same technical tokens. The safest first pass is with `-DryRun`, for example:
+
+```powershell
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\out\salamand\Release_x64 -Languages czech -Modules salamand `
+  -AutoTrimTranslations -DryRun
+```
+
 #### ImportOnly Mode
 
 `-ImportOnly` skips skeleton export, rebase, OpenAI translation, and workspace preparation (which would delete existing candidates). It imports existing candidate files from `out/localization-openai/candidate/` into the `.slg` projects and optionally exports the final `.slt` files to `translations/`. No `OPENAI_API_KEY` is required.

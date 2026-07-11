@@ -1238,6 +1238,7 @@ STRINGTABLE
  IDS_COLORITEM_PROGRESS, "Operation progress"
  IDS_COLORITEM_CAPTION, "Panel caption"
  IDS_COLORITEM_HOT, "Hot items"
+ IDS_COLORITEM_AUTOCOMPLETE, "Path autocomplete suggestions"
 
 // color Label
  IDS_COLORLABEL_ACTIVENORMAL, "Active Normal"
@@ -1256,6 +1257,7 @@ STRINGTABLE
  IDS_COLORLABEL_HOTACTIVE, "Active Caption"
  IDS_COLORLABEL_HOTINACTIVE, "Inactive Caption"
  IDS_COLORLABEL_HIGHLIGHTED, "Highlighted part of row"
+ IDS_COLORLABEL_AUTOCOMPLETE_LIST, "Selected item in List"
 
  IDS_FILEHISTORY_VIEW, "View"
  IDS_FILEHISTORY_EDIT, "Edit"
@@ -1602,6 +1604,8 @@ STRINGTABLE
  IDS_TITLEBAR_FULLPATH, "Full Path"
  IDS_TABCAPTIONALIGN_LEFT, "Left"
  IDS_TABCAPTIONALIGN_CENTER, "Center"
+ IDS_TABBORDER_CUSTOM_COLOR, "Custom color of border"
+ IDS_TABBORDER_AUTO_COLOR, "Automatic color of border"
 
  IDS_SHORTCUT_INVALID, "The file '%s' is not valid shortcut nor link."
  IDS_SHORTCUT_WRONG_PATH, "Cannot obtain shortcut target or target path is not accessible."

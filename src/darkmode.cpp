@@ -271,6 +271,8 @@ static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
 static bool gDialogBrushOwned = false;
 static DarkModeColors gColors = {GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT), false};
+static COLORREF gAutocompleteSelectedFg = RGB(255, 255, 255);
+static COLORREF gAutocompleteSelectedBk = RGB(0, 120, 215);
 static bool gPropagatingThemeChange = false;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
@@ -1147,8 +1149,8 @@ void PaintAutoSuggestListBox(HWND hwnd, HDC hdc)
 
         const LRESULT selected = SendMessage(hwnd, LB_GETSEL, index, 0);
         const bool isSelected = selected > 0 || index == curSel;
-        const COLORREF itemBk = isSelected ? RGB(0, 120, 215) : colors.background;
-        const COLORREF itemText = isSelected ? RGB(255, 255, 255) : colors.readableText;
+        const COLORREF itemBk = isSelected ? gAutocompleteSelectedBk : colors.background;
+        const COLORREF itemText = isSelected ? gAutocompleteSelectedFg : colors.readableText;
         FillRectWithColor(hdc, itemRect, itemBk);
         SetTextColor(hdc, itemText);
 
@@ -1210,8 +1212,8 @@ void PaintAutoSuggestListView(HWND hwnd, HDC hdc)
             break;
 
         const bool isSelected = ListView_GetItemState(hwnd, index, LVIS_SELECTED) != 0;
-        const COLORREF itemBk = isSelected ? RGB(0, 120, 215) : colors.background;
-        const COLORREF itemText = isSelected ? RGB(255, 255, 255) : colors.readableText;
+        const COLORREF itemBk = isSelected ? gAutocompleteSelectedBk : colors.background;
+        const COLORREF itemText = isSelected ? gAutocompleteSelectedFg : colors.readableText;
         FillRectWithColor(hdc, itemRect, itemBk);
         SetTextColor(hdc, itemText);
 
@@ -2556,17 +2558,23 @@ void DarkModeRefreshTitleBar(HWND hwnd)
     if (!gSupported || hwnd == NULL)
         return;
 
-    BOOL useDark = FALSE;
-    if (gIsDarkModeAllowedForWindow && gIsDarkModeAllowedForWindow(hwnd) && ShouldUseDarkColorsInternal())
-        useDark = TRUE;
+    // Keep the per-window native opt-in synchronized here too, not only in
+    // DarkModeApplyWindow().  Shutdown/close dialogs can be created while the
+    // main window is already tearing down; setting the DWM attribute without
+    // first reasserting the opt-in can leave the caption on the native light
+    // path for one paint and causes a white title-bar flash.
+    if (gAllowDarkModeForWindow)
+        gAllowDarkModeForWindow(hwnd, gEnabled);
 
-    if (gBuildNumber < 18362)
+    BOOL useDark = ShouldUseDarkColorsInternal() ? TRUE : FALSE;
+
+    SetPropW(hwnd, L"UseImmersiveDarkModeColors", reinterpret_cast<HANDLE>(static_cast<INT_PTR>(useDark)));
+
+    if (gDwmSetWindowAttribute)
     {
-        SetPropW(hwnd, L"UseImmersiveDarkModeColors", reinterpret_cast<HANDLE>(static_cast<INT_PTR>(useDark)));
-    }
-    else if (gDwmSetWindowAttribute)
-    {
-        gDwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &useDark, sizeof(useDark));
+        HRESULT hr = gDwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &useDark, sizeof(useDark));
+        if (FAILED(hr))
+            gDwmSetWindowAttribute(hwnd, 19 /* DWMWA_USE_IMMERSIVE_DARK_MODE before 20H1 */, &useDark, sizeof(useDark));
     }
     else if (gSetWindowCompositionAttribute)
     {
@@ -2678,6 +2686,12 @@ const DarkModeColors& DarkModeGetColors()
     EnsureInitialized();
     gColors.readableText = ResolveReadableForeground(gColors.text, gColors.background);
     return gColors;
+}
+
+void DarkModeSetAutocompleteSelectedColors(COLORREF fg, COLORREF bk)
+{
+    gAutocompleteSelectedFg = fg;
+    gAutocompleteSelectedBk = bk;
 }
 
 COLORREF DarkModeGetDialogTextColor()
