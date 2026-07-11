@@ -310,15 +310,16 @@ void CRendererWindow::OnGoto()
 
 void CRendererWindow::SetViewerTitle()
 {
-    char title[MAX_PATH + 300];
+    char title[SAL_MAX_PATH];
     if (Database.IsOpened())
     {
-        sprintf(title, "%s - %s", Database.GetFileName(), LoadStr(IDS_PLUGINNAME));
+        const char* fileName = SalGeneral->SalPathFindFileName(Database.GetFileName());
+        _snprintf_s(title, _TRUNCATE, "%s - %s", fileName, LoadStr(IDS_PLUGINNAME));
         if (UseCodeTable || Database.GetIsUnicode())
-            sprintf(title + strlen(title), " - [%s]", Coding);
+            _snprintf_s(title + strlen(title), SizeOf(title) - strlen(title), _TRUNCATE, " - [%s]", Coding);
     }
     else
-        sprintf(title, "%s", LoadStr(IDS_PLUGINNAME));
+        _snprintf_s(title, _TRUNCATE, "%s", LoadStr(IDS_PLUGINNAME));
 
     SetWindowText(GetParent(HWindow), title);
 }
