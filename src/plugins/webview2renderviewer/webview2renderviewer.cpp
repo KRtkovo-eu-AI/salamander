@@ -225,7 +225,7 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
         "html", "htm", "xhtml", "mhtml", "mht",
         "md", "markdown", "mdown", "mkd", "mdx",
         "svg", "svgz",
-        "webp", "avif", "apng", "jpeg", "gif", "bmp", "ico", "tif", "tiff",
+        "webp", "avif", "apng",
         "pdf"
     };
 
