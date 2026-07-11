@@ -28,7 +28,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - Configuration import and export support.
 - Simple wizard for restoring configurations.
 - Choose between locations for target configuration.
-<img width="782" height="552" alt="image" src="https://github.com/user-attachments/assets/bfd999a1-619e-481f-a14a-ca91ec63e1f8" />
+<img width="782" height="552" alt="image" src="https://github.com/user-attachments/assets/d8c0d5a0-232a-49cf-ae20-6ce5670b8a32" />
 
 ### Translations
 - Automatic translate with OpenAI API (model `gpt-5.4-nano`) with our own custom localization logic.
@@ -40,18 +40,18 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.
 - You can switch between tabs on one side when holding right mouse button and scrolling with the mouse wheel.
 <img width="687" height="147" alt="image" src="https://github.com/user-attachments/assets/cd8919c4-2640-4c99-b83d-94f814100d9f" />
-<img width="687" height="247" alt="image" src="https://github.com/user-attachments/assets/1443370b-e663-48dd-807a-26d17b115c41" />
+<img width="687" height="244" alt="image" src="https://github.com/user-attachments/assets/d446320b-ee21-49bb-b3cd-f249186f2d41" />
 <img width="687" height="479" alt="image" src="https://github.com/user-attachments/assets/30765cbf-a26b-4a2e-8e76-720908342467" />
 
 ### Shared/separate History
-<img width="687" height="154" alt="image" src="https://github.com/user-attachments/assets/a8e16767-4df5-4d11-8767-7701464611a6" />
+<img width="687" height="155" alt="image" src="https://github.com/user-attachments/assets/569b023f-9f69-4c19-a830-57e2542b0de5" />
 
 ### Dark Mode
 - Complete dark mode support for all components, windows, plugins etc.
-<img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/2d326f09-305b-43f3-92e7-4ccfaf20e037" />
+<img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/3d124bed-a670-414d-9f21-ea453561bce3" />
 
 ### Configurable Command Shell Application
-<img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/ac5d1e60-3e8d-45b2-8e21-334880780dc4" />
+<img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/d5109ceb-ec72-43ce-9731-749f3cb13fec" />
 
 ### Tree View panel
 - Docked or floating panel with tree view structure of the active disk panel.
@@ -60,7 +60,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### User Folders
 - Added missing user folders for easier access.
-<img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/f2295756-b5e6-44db-ae40-d22075e47d88" />
+<img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/515790ee-46e4-40c8-ae5e-407b294afdd1" />
 
 ### Copy/Move between plugin-FS and archives
 - Support for file operations between plugin-FS and archives (for example between FTP and archives, between different FTP servers, different archives, etc).
@@ -68,7 +68,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### Autocomplete path in Copy/Move/Quick Rename/Create Folder dialog
 - Paths are suggested when typing in the path field.
-<img width="688" height="61" alt="image" src="https://github.com/user-attachments/assets/4d1903d9-4570-47f8-8d7a-956df14d424b" />
+<img width="687" height="89" alt="image" src="https://github.com/user-attachments/assets/59a7cff2-0db2-4866-8d6a-74ccd2f4376f" />
 <img width="397" height="185" alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a" />
 
 ### Plugin Updates in Samandarin plugin
