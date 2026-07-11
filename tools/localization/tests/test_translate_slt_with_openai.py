@@ -14,6 +14,11 @@ class Tests(unittest.TestCase):
   translated[1]["text"]="Použít výchozí &písmo"
   self.assertEqual(slt.validate(items,{"translations":translated})[items[1].key],"Použít výchozí &písmo")
 
+ def test_spaced_ampersand_is_literal_conjunction(self):
+  items=[slt.Item(0,"id","[STRINGTABLE 165]","Settings > Time & Language > Region","14222,","")]
+  result={"translations":[{"id":"id","text":"Nastavení > Čas a jazyk > Region"}]}
+  self.assertEqual(slt.validate(items,result)["id"],"Nastavení > Čas a jazyk > Region")
+
  def test_angle_bracketed_ui_text_can_be_translated(self):
   items=[slt.Item(0,"id","[STRINGTABLE 8]","<New name error: %s>","1107,","")]
   result={"translations":[{"id":"id","text":"<Chyba nového názvu: %s>"}]}

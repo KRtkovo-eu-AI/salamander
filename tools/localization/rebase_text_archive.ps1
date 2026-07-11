@@ -301,7 +301,20 @@ function Get-AcceleratorCount
 {
     param([Parameter(Mandatory = $true)][string]$Text)
 
-    return [regex]::Matches($Text, '(?<!&)&(?!&)').Count
+    $count = 0
+    foreach ($match in [regex]::Matches($Text, '(?<!&)&(?!&)'))
+    {
+        $index = $match.Index
+        $previousChar = if ($index -gt 0) { $Text[$index - 1] } else { [char]0 }
+        $nextChar = if ($index + 1 -lt $Text.Length) { $Text[$index + 1] } else { [char]0 }
+        if ([char]::IsWhiteSpace($previousChar) -and [char]::IsWhiteSpace($nextChar))
+        {
+            continue
+        }
+        $count++
+    }
+
+    return $count
 }
 
 function Test-CanReuseTranslation
