@@ -257,7 +257,7 @@ HTREEITEM InsertTreeViewItem(HWND hTreeView, HTREEITEM hParent, const char* text
     tvis.item.iImage = itemData->ImageIndex;
     tvis.item.iSelectedImage = itemData->SelectedImageIndex;
 
-    HTREEITEM hItem = TreeView_InsertItemW(hTreeView, &tvis);
+    HTREEITEM hItem = (HTREEITEM)SendMessageW(hTreeView, TVM_INSERTITEMW, 0, (LPARAM)&tvis);
     if (hItem == NULL)
         FreeTreeViewNodeData(itemData);
     return hItem;
