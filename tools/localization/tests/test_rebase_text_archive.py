@@ -36,5 +36,9 @@ class RebaseTextArchiveTests(unittest.TestCase):
         self.assertIn("Test-CanReuseTranslation -CurrentText $currentItem.Text -TranslatedText $legacyItem.Text", text)
         self.assertIn("Get-AcceleratorCount", text)
 
+    def test_literal_spaced_ampersand_is_not_accelerator(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("[char]::IsWhiteSpace($previousChar) -and [char]::IsWhiteSpace($nextChar)", text)
+
 if __name__ == "__main__":
     unittest.main()

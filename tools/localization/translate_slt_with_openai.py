@@ -66,10 +66,26 @@ def parse_items(lines: list[str], force: bool = False) -> list[Item]:
         items.append(Item(index, key, section, match.group("text"), match.group("prefix"), match.group("ending") or ""))
     return items
 
+def accelerator_count(text: str) -> int:
+    # A bare ampersand normally marks a Windows UI accelerator, but some
+    # resource strings also contain prose/navigation text such as
+    # "Time & Language" where the ampersand is a literal conjunction.
+    # Treat only an ampersand with a non-space neighbor as an accelerator so
+    # translations are not rejected merely for localizing that conjunction.
+    count = 0
+    for match in ACCELERATOR_RE.finditer(text):
+        index = match.start()
+        previous_char = text[index - 1] if index > 0 else ""
+        next_char = text[index + 1] if index + 1 < len(text) else ""
+        if previous_char.isspace() and next_char.isspace():
+            continue
+        count += 1
+    return count
+
 def tokens(text: str) -> tuple[list[str], int]:
     # The accelerator must remain present, but its target letter normally
     # changes in translation (for example "&File" becomes "&Soubor").
-    return sorted(TOKEN_RE.findall(text)), len(ACCELERATOR_RE.findall(text))
+    return sorted(TOKEN_RE.findall(text)), accelerator_count(text)
 
 def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
     language_name = payload.get("target_language", "the target language")
