@@ -1501,7 +1501,7 @@ void CCfgPageView::Transfer(CTransferInfo& ti)
         Config.Load(MainWindow->ViewTemplates);
 
         DisableNotification = TRUE;
-        char buff[20];
+        char hotKey[20];
         int i;
         for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
         {
@@ -1513,31 +1513,32 @@ void CCfgPageView::Transfer(CTransferInfo& ti)
             lvi.pszText = Config.Items[i].Name;
             ListView_InsertItem(HListView, &lvi);
 
+            char* modeName = NULL;
             switch (Config.Items[i].Mode)
             {
             case VIEW_MODE_TREE:
-                lstrcpy(buff, LoadStr(IDS_TREE_VIEW_NAME));
+                modeName = LoadStr(IDS_TREE_VIEW_NAME);
                 break;
             case VIEW_MODE_BRIEF:
-                lstrcpy(buff, LoadStr(IDS_BRIEF_VIEW_NAME));
+                modeName = LoadStr(IDS_BRIEF_VIEW_NAME);
                 break;
             case VIEW_MODE_DETAILED:
-                lstrcpy(buff, LoadStr(IDS_DETAILED_VIEW_NAME));
+                modeName = LoadStr(IDS_DETAILED_VIEW_NAME);
                 break;
             case VIEW_MODE_ICONS:
-                lstrcpy(buff, LoadStr(IDS_ICONS_VIEW_NAME));
+                modeName = LoadStr(IDS_ICONS_VIEW_NAME);
                 break;
             case VIEW_MODE_THUMBNAILS:
-                lstrcpy(buff, LoadStr(IDS_THUMBNAILS_VIEW_NAME));
+                modeName = LoadStr(IDS_THUMBNAILS_VIEW_NAME);
                 break;
             case VIEW_MODE_TILES:
-                lstrcpy(buff, LoadStr(IDS_TILES_VIEW_NAME));
+                modeName = LoadStr(IDS_TILES_VIEW_NAME);
                 break;
             }
-            ListView_SetItemText(HListView, i, 1, buff);
+            ListView_SetItemText(HListView, i, 1, modeName != NULL ? modeName : (char*)"");
 
-            sprintf(buff, "Alt+%d", i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0);
-            ListView_SetItemText(HListView, i, 2, buff);
+            sprintf(hotKey, "Alt+%d", i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0);
+            ListView_SetItemText(HListView, i, 2, hotKey);
         }
         // set column widths
         ListView_SetColumnWidth(HListView, 0, LVSCW_AUTOSIZE_USEHEADER);
