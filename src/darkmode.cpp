@@ -2556,17 +2556,23 @@ void DarkModeRefreshTitleBar(HWND hwnd)
     if (!gSupported || hwnd == NULL)
         return;
 
-    BOOL useDark = FALSE;
-    if (gIsDarkModeAllowedForWindow && gIsDarkModeAllowedForWindow(hwnd) && ShouldUseDarkColorsInternal())
-        useDark = TRUE;
+    // Keep the per-window native opt-in synchronized here too, not only in
+    // DarkModeApplyWindow().  Shutdown/close dialogs can be created while the
+    // main window is already tearing down; setting the DWM attribute without
+    // first reasserting the opt-in can leave the caption on the native light
+    // path for one paint and causes a white title-bar flash.
+    if (gAllowDarkModeForWindow)
+        gAllowDarkModeForWindow(hwnd, gEnabled);
 
-    if (gBuildNumber < 18362)
+    BOOL useDark = ShouldUseDarkColorsInternal() ? TRUE : FALSE;
+
+    SetPropW(hwnd, L"UseImmersiveDarkModeColors", reinterpret_cast<HANDLE>(static_cast<INT_PTR>(useDark)));
+
+    if (gDwmSetWindowAttribute)
     {
-        SetPropW(hwnd, L"UseImmersiveDarkModeColors", reinterpret_cast<HANDLE>(static_cast<INT_PTR>(useDark)));
-    }
-    else if (gDwmSetWindowAttribute)
-    {
-        gDwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &useDark, sizeof(useDark));
+        HRESULT hr = gDwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &useDark, sizeof(useDark));
+        if (FAILED(hr))
+            gDwmSetWindowAttribute(hwnd, 19 /* DWMWA_USE_IMMERSIVE_DARK_MODE before 20H1 */, &useDark, sizeof(useDark));
     }
     else if (gSetWindowCompositionAttribute)
     {
