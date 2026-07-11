@@ -621,7 +621,7 @@
 #define IDC_TABS_ALIGN_LABEL            2697
 #define IDC_TABS_ALIGN                  2698
 #define IDC_TABS_ACTIVEBORDER           2699
-#define IDC_TABS_ACTIVEBORDER_COLOR     2709
+#define IDC_TABS_ACTIVEBORDER_COLOR     2710
 #define IDC_TABS_CLOSEBUTTONACTIVE      2707
 #define IDC_TABS_CLOSEBUTTONALL         2708
 #define IDC_CMDLINEAPP_PATH             2709
@@ -656,7 +656,7 @@
 #define IDC_FINDLOG_LIST                2756
 #define IDC_FINDLOG_FOCUS               2757
 #define IDC_FINDLOG_IGNORE              2758
-#define IDD_EXITINGOPENSAL             2760
+#define IDD_EXITINGOPENSAL              2760
 #define IDT_RUNNINGOPERS                2761
 #define IDB_CANCELALLOPERS              2762
 #define IDB_FOCUSNEXTOPER               2763
