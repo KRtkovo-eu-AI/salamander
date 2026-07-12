@@ -18,6 +18,7 @@
 #include "shellib.h"
 #include "consts.h"
 #include "darkmode.h"
+#include "third_party/darkmodelib/include/Darkmodelib.h"
 
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // after reopening Plugins Manager, select the last chosen plugin
 
@@ -1791,9 +1792,11 @@ CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         HTreeView = GetDlgItem(HWindow, IDC_CNFRM_TREE);
 
-        DWORD style = GetWindowLongPtr(HTreeView, GWL_STYLE);
+        DWORD style = (DWORD)GetWindowLongPtr(HTreeView, GWL_STYLE);
         style |= TVS_CHECKBOXES;
         SetWindowLongPtr(HTreeView, GWL_STYLE, style);
+
+        dmlib::setDarkTreeViewCheckboxes(HTreeView);
 
         HImageList = CreateImageList();
         TreeView_SetImageList(HTreeView, HImageList, TVSIL_NORMAL);
@@ -1846,12 +1849,8 @@ CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             if (nmh->code == NM_DBLCLK)
             {
-                UINT flags = 0;
-                POINT pt;
-                GetCursorPos(&pt);
-                ScreenToClient(HTreeView, &pt);
-                HTREEITEM hItem = TreeView_HitTest(HTreeView, &pt, &flags);
-                if (hItem && (flags & TVHT_ONITEM))
+                HTREEITEM hItem = TreeView_GetSelection(HTreeView);
+                if (hItem)
                 {
                     int index = FindInList(hItem);
                     if (index != -1)
