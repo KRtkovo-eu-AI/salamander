@@ -431,7 +431,8 @@ public:
 
     BOOL Created;
     BOOL RestoringPanelPaths; // suppress repeated Tree View rebuilds while LoadConfig restores panels
-    BOOL DetachedPanels;      // TRUE = left and right sides are hosted in separate top-level windows
+    BOOL DetachedPanels;      // TRUE = one panel side is hosted in a separate top-level window
+    CPanelSide DetachedPanelSide;
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;
@@ -702,11 +703,11 @@ public:
     BOOL HandleCtrlLetter(char c); // Ctrl+letter hotkeys
 
     void LayoutWindows();
-    BOOL SetPanelsDetached(BOOL detached);
-    BOOL TogglePanelsDetached();
+    BOOL SetPanelsDetached(BOOL detached, CPanelSide side = cpsRight);
+    BOOL TogglePanelsDetached(CPanelSide side);
     void LayoutDetachedPanelWindow(CPanelSide side, int width, int height);
     void LayoutDetachedPanels();
-    void LayoutMainWindowDetachedPanel(int width, int height);
+    void LayoutMainWindowDetachedPanel(CPanelSide side, int width, int height);
     HWND GetDetachedPanelWindow(CPanelSide side);
     static LRESULT CALLBACK DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     BOOL ToggleTopToolBar(BOOL storePos = TRUE);

@@ -6999,9 +6999,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
-        case CM_DETACHPANELS:
+        case CM_LEFTDETACHPANEL:
+        case CM_RIGHTDETACHPANEL:
         {
-            TogglePanelsDetached();
+            TogglePanelsDetached(LOWORD(wParam) == CM_LEFTDETACHPANEL ? cpsLeft : cpsRight);
             IdleRefreshStates = TRUE;
             break;
         }
@@ -7260,14 +7261,27 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             if (DetachedPanels)
             {
+                HWND detachedWindow = GetDetachedPanelWindow(DetachedPanelSide);
                 if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
-                    SetParent(LeftTabWindow->HWindow, HWindow);
+                    SetParent(LeftTabWindow->HWindow, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
                 if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
-                    SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
+                    SetParent(RightTabWindow->HWindow, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
+                if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL)
+                    SetParent(LeftPanel->HTreeHeader, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
+                if (RightPanel != NULL && RightPanel->HTreeHeader != NULL)
+                    SetParent(RightPanel->HTreeHeader, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
+                if (LeftPanel != NULL && LeftPanel->HTreeView != NULL)
+                    SetParent(LeftPanel->HTreeView, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
+                if (RightPanel != NULL && RightPanel->HTreeView != NULL)
+                    SetParent(RightPanel->HTreeView, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
+                if (LeftPanel != NULL && LeftPanel->HTreeSplit != NULL)
+                    SetParent(LeftPanel->HTreeSplit, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
+                if (RightPanel != NULL && RightPanel->HTreeSplit != NULL)
+                    SetParent(RightPanel->HTreeSplit, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
                 if (LeftPanel != NULL && LeftPanel->HWindow != NULL)
-                    SetParent(LeftPanel->HWindow, HWindow);
+                    SetParent(LeftPanel->HWindow, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
                 if (RightPanel != NULL && RightPanel->HWindow != NULL)
-                    SetParent(RightPanel->HWindow, HRightDetachedWindow);
+                    SetParent(RightPanel->HWindow, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
             }
 
             LockWindowUpdate(HWindow);
@@ -7888,6 +7902,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 // populate the list of views
                 FillViewModeMenu(popup, firstIndex + 1, left ? 1 : 2);
             }
+            popup->CheckItem(left ? CM_LEFTDETACHPANEL : CM_RIGHTDETACHPANEL,
+                             FALSE, DetachedPanels && DetachedPanelSide == (left ? cpsLeft : cpsRight));
             break;
         }
 
@@ -8065,7 +8081,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CML_OPTIONS:
         {
             popup->CheckItem(CM_ALWAYSONTOP, FALSE, Configuration.AlwaysOnTop);
-            popup->CheckItem(CM_DETACHPANELS, FALSE, DetachedPanels);
             break;
         }
 
@@ -8745,7 +8760,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (DetachedPanels)
         {
-            LayoutMainWindowDetachedPanel(WindowWidth, WindowHeight);
+            LayoutMainWindowDetachedPanel(DetachedPanelSide == cpsLeft ? cpsRight : cpsLeft, WindowWidth, WindowHeight);
             LayoutDetachedPanels();
             break;
         }

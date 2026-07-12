@@ -361,6 +361,7 @@ CMainWindow::CMainWindow()
     Created = FALSE;
     RestoringPanelPaths = FALSE;
     DetachedPanels = FALSE;
+    DetachedPanelSide = cpsRight;
     //  DrivesControlHWnd = NULL;
     HDisabledKeyboard = NULL;
     CmdShow = SW_SHOWNORMAL;
@@ -1761,14 +1762,43 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
                        Configuration.UsePanelTabs && tabs.Count > 0;
     if (tabsVisible)
         tabHeight = tabWindow->GetNeededHeight();
+    BOOL treeVisible = panel->HTreeView != NULL && panel->TreeViewActive;
+    int treeWidth = 0;
+    int treeSplitWidth = 0;
+    int treeHeaderHeight = 0;
+    if (treeVisible)
+    {
+        treeHeaderHeight = panel->GetTreeViewHeaderHeight();
+        treeWidth = panel->GetTreeViewWidth(width);
+        treeSplitWidth = 4;
+    }
+    int treeHeight = height - treeHeaderHeight;
+    if (treeHeight < 0)
+        treeHeight = 0;
+    int panelX = treeWidth + treeSplitWidth;
+    int panelWidth = width - panelX;
+    if (panelWidth < 0)
+        panelWidth = 0;
 
-    HDWP hdwp = HANDLES(BeginDeferWindowPos(2));
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(5));
     if (hdwp != NULL)
     {
+        if (treeVisible && panel->HTreeHeader != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeHeader, NULL,
+                                          0, 0, treeWidth, treeHeaderHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+        if (treeVisible && panel->HTreeView != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeView, NULL,
+                                          0, treeHeaderHeight, treeWidth, treeHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+        if (treeVisible && panel->HTreeSplit != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeSplit, NULL,
+                                          treeWidth, 0, treeSplitWidth, height,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
         if (tabWindow != NULL && tabWindow->HWindow != NULL)
         {
             hdwp = HANDLES(DeferWindowPos(hdwp, tabWindow->HWindow, NULL,
-                                          0, 0, width, tabHeight,
+                                          panelX, 0, panelWidth, tabHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER |
                                               (tabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
@@ -1778,7 +1808,7 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
             if (panelHeight < 0)
                 panelHeight = 0;
             hdwp = HANDLES(DeferWindowPos(hdwp, panel->HWindow, NULL,
-                                          0, tabHeight, width, panelHeight,
+                                          panelX, tabHeight, panelWidth, panelHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
         }
         HANDLES(EndDeferWindowPos(hdwp));
@@ -1793,17 +1823,22 @@ void CMainWindow::LayoutDetachedPanels()
     if (!DetachedPanels)
         return;
 
+    HWND detachedWindow = GetDetachedPanelWindow(DetachedPanelSide);
     RECT r;
-    if (HRightDetachedWindow != NULL)
+    if (detachedWindow != NULL)
     {
-        GetClientRect(HRightDetachedWindow, &r);
-        LayoutDetachedPanelWindow(cpsRight, r.right - r.left, r.bottom - r.top);
+        GetClientRect(detachedWindow, &r);
+        LayoutDetachedPanelWindow(DetachedPanelSide, r.right - r.left, r.bottom - r.top);
     }
 }
 
-void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
+void CMainWindow::LayoutMainWindowDetachedPanel(CPanelSide side, int width, int height)
 {
-    if (LeftPanel == NULL)
+    CFilesWindow* panel = side == cpsLeft ? LeftPanel : RightPanel;
+    CTabWindow* tabWindow = side == cpsLeft ? LeftTabWindow : RightTabWindow;
+    TIndirectArray<CFilesWindow>& tabs = side == cpsLeft ? LeftPanelTabs : RightPanelTabs;
+
+    if (panel == NULL)
         return;
 
     TopRebarHeight = 0;
@@ -1826,21 +1861,37 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
     PanelsHeight -= TopRebarHeight + BottomToolBarHeight + EditHeight;
     if (PanelsHeight < 0)
         PanelsHeight = 0;
-    int panelWidth = width - 2;
+
+    int leftTabHeight = 0;
+    BOOL leftTabsVisible = tabWindow != NULL && tabWindow->HWindow != NULL &&
+                           Configuration.UsePanelTabs && tabs.Count > 0;
+    if (leftTabsVisible)
+        leftTabHeight = tabWindow->GetNeededHeight();
+    BOOL treeVisible = panel->HTreeView != NULL && panel->TreeViewActive;
+    int treeWidth = 0;
+    int treeSplitWidth = 0;
+    int treeHeaderHeight = 0;
+    if (treeVisible)
+    {
+        treeHeaderHeight = panel->GetTreeViewHeaderHeight();
+        treeWidth = panel->GetTreeViewWidth(width);
+        treeSplitWidth = 4;
+    }
+    int treeHeight = PanelsHeight - treeHeaderHeight;
+    if (treeHeight < 0)
+        treeHeight = 0;
+    int panelX = 1 + treeWidth + treeSplitWidth;
+    int panelWidth = width - panelX - 1;
     if (panelWidth < 0)
         panelWidth = 0;
 
-    int leftTabHeight = 0;
-    BOOL leftTabsVisible = LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL &&
-                           Configuration.UsePanelTabs && LeftPanelTabs.Count > 0;
-    if (leftTabsVisible)
-        leftTabHeight = LeftTabWindow->GetNeededHeight();
-
     int windowsCount = 1;
-    if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+    if (tabWindow != NULL && tabWindow->HWindow != NULL)
         windowsCount++;
-    if (LeftPanel->HWindow != NULL)
+    if (panel->HWindow != NULL)
         windowsCount++;
+    if (treeVisible)
+        windowsCount += 3;
     if (EditWindow != NULL && EditWindow->HWindow != NULL)
         windowsCount++;
     if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
@@ -1853,22 +1904,34 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
             hdwp = HANDLES(DeferWindowPos(hdwp, HTopRebar, NULL,
                                           0, 0, width, TopRebarHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER));
+        if (treeVisible && panel->HTreeHeader != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeHeader, NULL,
+                                          1, TopRebarHeight, treeWidth, treeHeaderHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+        if (treeVisible && panel->HTreeView != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeView, NULL,
+                                          1, TopRebarHeight + treeHeaderHeight, treeWidth, treeHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+        if (treeVisible && panel->HTreeSplit != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeSplit, NULL,
+                                          1 + treeWidth, TopRebarHeight, treeSplitWidth, PanelsHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
 
-        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+        if (tabWindow != NULL && tabWindow->HWindow != NULL)
         {
-            hdwp = HANDLES(DeferWindowPos(hdwp, LeftTabWindow->HWindow, NULL,
-                                          1, TopRebarHeight, panelWidth, leftTabHeight,
+            hdwp = HANDLES(DeferWindowPos(hdwp, tabWindow->HWindow, NULL,
+                                          panelX, TopRebarHeight, panelWidth, leftTabHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER |
                                               (leftTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
 
-        if (LeftPanel->HWindow != NULL)
+        if (panel->HWindow != NULL)
         {
             int leftPanelHeight = PanelsHeight - leftTabHeight;
             if (leftPanelHeight < 0)
                 leftPanelHeight = 0;
-            hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HWindow, NULL,
-                                          1, TopRebarHeight + leftTabHeight, panelWidth, leftPanelHeight,
+            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HWindow, NULL,
+                                          panelX, TopRebarHeight + leftTabHeight, panelWidth, leftPanelHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
         }
 
@@ -1885,8 +1948,8 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
         HANDLES(EndDeferWindowPos(hdwp));
     }
 
-    if (LeftPanel->HWindow != NULL)
-        LeftPanel->LayoutListBoxChilds();
+    if (panel->HWindow != NULL)
+        panel->LayoutListBoxChilds();
 }
 
 static const char* DETACHED_PANEL_CLASSNAME = "SalamanderDetachedPanelWindow";
@@ -1939,44 +2002,68 @@ static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
     return hWnd;
 }
 
-BOOL CMainWindow::SetPanelsDetached(BOOL detached)
+BOOL CMainWindow::SetPanelsDetached(BOOL detached, CPanelSide side)
 {
-    CALL_STACK_MESSAGE2("CMainWindow::SetPanelsDetached(%d)", detached);
+    CALL_STACK_MESSAGE3("CMainWindow::SetPanelsDetached(%d, %d)", detached, side);
 
-    if (DetachedPanels == detached)
+    if (DetachedPanels == detached && (!detached || DetachedPanelSide == side))
         return TRUE;
     if (LeftPanel == NULL || RightPanel == NULL)
         return FALSE;
 
     CancelPanelsUI();
 
+    if (DetachedPanels && (!detached || DetachedPanelSide != side))
+        SetPanelsDetached(FALSE, DetachedPanelSide);
+
     if (detached)
     {
-        if (HRightDetachedWindow == NULL)
-            HRightDetachedWindow = CreateDetachedPanelWindow(this, cpsRight);
-        if (HRightDetachedWindow == NULL)
+        HWND* detachedWindow = side == cpsLeft ? &HLeftDetachedWindow : &HRightDetachedWindow;
+        CFilesWindow* detachedPanel = side == cpsLeft ? LeftPanel : RightPanel;
+        CTabWindow* detachedTabWindow = side == cpsLeft ? LeftTabWindow : RightTabWindow;
+
+        if (*detachedWindow == NULL)
+            *detachedWindow = CreateDetachedPanelWindow(this, side);
+        if (*detachedWindow == NULL)
             return FALSE;
 
-        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
-            SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
-        if (RightPanel->HWindow != NULL)
-            SetParent(RightPanel->HWindow, HRightDetachedWindow);
+        if (detachedTabWindow != NULL && detachedTabWindow->HWindow != NULL)
+            SetParent(detachedTabWindow->HWindow, *detachedWindow);
+        if (detachedPanel->HTreeHeader != NULL)
+            SetParent(detachedPanel->HTreeHeader, *detachedWindow);
+        if (detachedPanel->HTreeView != NULL)
+            SetParent(detachedPanel->HTreeView, *detachedWindow);
+        if (detachedPanel->HTreeSplit != NULL)
+            SetParent(detachedPanel->HTreeSplit, *detachedWindow);
+        if (detachedPanel->HWindow != NULL)
+            SetParent(detachedPanel->HWindow, *detachedWindow);
 
         DetachedPanels = TRUE;
-        ShowWindow(HRightDetachedWindow, SW_SHOW);
+        DetachedPanelSide = side;
+        ShowWindow(*detachedWindow, SW_SHOW);
         LayoutWindows();
         LayoutDetachedPanels();
     }
     else
     {
-        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
-            SetParent(RightTabWindow->HWindow, HWindow);
-        if (RightPanel->HWindow != NULL)
-            SetParent(RightPanel->HWindow, HWindow);
+        CFilesWindow* detachedPanel = DetachedPanelSide == cpsLeft ? LeftPanel : RightPanel;
+        CTabWindow* detachedTabWindow = DetachedPanelSide == cpsLeft ? LeftTabWindow : RightTabWindow;
+        HWND detachedWindow = GetDetachedPanelWindow(DetachedPanelSide);
+
+        if (detachedTabWindow != NULL && detachedTabWindow->HWindow != NULL)
+            SetParent(detachedTabWindow->HWindow, HWindow);
+        if (detachedPanel != NULL && detachedPanel->HTreeHeader != NULL)
+            SetParent(detachedPanel->HTreeHeader, HWindow);
+        if (detachedPanel != NULL && detachedPanel->HTreeView != NULL)
+            SetParent(detachedPanel->HTreeView, HWindow);
+        if (detachedPanel != NULL && detachedPanel->HTreeSplit != NULL)
+            SetParent(detachedPanel->HTreeSplit, HWindow);
+        if (detachedPanel != NULL && detachedPanel->HWindow != NULL)
+            SetParent(detachedPanel->HWindow, HWindow);
 
         DetachedPanels = FALSE;
-        if (HRightDetachedWindow != NULL)
-            ShowWindow(HRightDetachedWindow, SW_HIDE);
+        if (detachedWindow != NULL)
+            ShowWindow(detachedWindow, SW_HIDE);
         LayoutWindows();
     }
 
@@ -1984,9 +2071,9 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
     return TRUE;
 }
 
-BOOL CMainWindow::TogglePanelsDetached()
+BOOL CMainWindow::TogglePanelsDetached(CPanelSide side)
 {
-    return SetPanelsDetached(!DetachedPanels);
+    return SetPanelsDetached(!(DetachedPanels && DetachedPanelSide == side), side);
 }
 
 LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
