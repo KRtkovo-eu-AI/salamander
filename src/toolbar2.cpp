@@ -55,6 +55,26 @@ static COLORREF GetDisabledToolBarTextColor()
     return GetSysColor(COLOR_BTNSHADOW);
 }
 
+static BOOL DrawDarkDisabledImageText(HDC hDC, int imageIndex, int x, int y, int width, int height)
+{
+    if (!DarkModeShouldUseDarkColors() || imageIndex < 0 || imageIndex >= 12)
+        return FALSE;
+
+    char text[4];
+    wsprintf(text, "F%d", imageIndex + 1);
+
+    RECT textRect = {x, y, x + width, y + height};
+    COLORREF oldText = SetTextColor(hDC, GetDisabledToolBarTextColor());
+    int oldBkMode = SetBkMode(hDC, TRANSPARENT);
+    HFONT oldFont = (HFONT)SelectObject(hDC, EnvFont);
+    DrawText(hDC, text, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    if (oldFont != NULL)
+        SelectObject(hDC, oldFont);
+    SetBkMode(hDC, oldBkMode);
+    SetTextColor(hDC, oldText);
+    return TRUE;
+}
+
 void CToolBar::SetFont()
 {
     CALL_STACK_MESSAGE1("CToolBar::SetFont()");
@@ -658,8 +678,12 @@ void CToolBar::DrawItem(HDC hDC, int index)
                 else
                 {
                     HIMAGELIST hImageList = HImageList;
-                    ImageList_Draw(hImageList, item->ImageIndex, CacheBitmap->HMemDC,
-                                   x, y, checked ? ILD_TRANSPARENT : ILD_NORMAL);
+                    if (!(item->Style & TLBI_STYLE_DARK_DISABLED_IMAGE_TEXT) ||
+                        !DrawDarkDisabledImageText(CacheBitmap->HMemDC, item->ImageIndex, x, y, imgW, imgH))
+                    {
+                        ImageList_Draw(hImageList, item->ImageIndex, CacheBitmap->HMemDC,
+                                       x, y, checked ? ILD_TRANSPARENT : ILD_NORMAL);
+                    }
                 }
                 if (item->HOverlay != NULL)
                     DrawIconEx(CacheBitmap->HMemDC, x, y, item->HOverlay, iconSize, iconSize, 0, NULL, DI_NORMAL);
