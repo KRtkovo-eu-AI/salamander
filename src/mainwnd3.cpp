@@ -7293,6 +7293,40 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             LayoutWindows();
             if (DetachedPanels)
                 LayoutDetachedPanels();
+
+            // Hidden tab panels keep their window rectangles while they are hidden.
+            // When Swap Sides moves tabs between the main and detached windows, those
+            // stale rectangles may belong to the other top-level window size; make all
+            // tabs on each side inherit the final active-panel rectangle so the next
+            // tab activation fits its current host immediately.
+            for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
+            {
+                CPanelSide side = sideIndex == 0 ? cpsLeft : cpsRight;
+                CFilesWindow* activeSidePanel = side == cpsLeft ? LeftPanel : RightPanel;
+                if (activeSidePanel == NULL || activeSidePanel->HWindow == NULL)
+                    continue;
+
+                RECT activeRect;
+                GetWindowRect(activeSidePanel->HWindow, &activeRect);
+                HWND parent = GetParent(activeSidePanel->HWindow);
+                MapWindowPoints(NULL, parent, (POINT*)&activeRect, 2);
+
+                TIndirectArray<CFilesWindow>& sideTabs = side == cpsLeft ? LeftPanelTabs : RightPanelTabs;
+                for (int i = 0; i < sideTabs.Count; ++i)
+                {
+                    CFilesWindow* panel = sideTabs[i];
+                    if (panel == NULL || panel == activeSidePanel || panel->HWindow == NULL)
+                        continue;
+
+                    if (GetParent(panel->HWindow) != parent)
+                        SetParent(panel->HWindow, parent);
+                    SetWindowPos(panel->HWindow, NULL, activeRect.left, activeRect.top,
+                                 activeRect.right - activeRect.left, activeRect.bottom - activeRect.top,
+                                 SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+                    panel->LayoutListBoxChilds();
+                }
+            }
+
             LockWindowUpdate(NULL);
 
             // reload columns again (column widths are not swapped)
