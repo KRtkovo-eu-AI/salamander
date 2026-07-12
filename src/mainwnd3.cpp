@@ -7525,6 +7525,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_LEFTZOOMPANEL:
         case CM_RIGHTZOOMPANEL:
         {
+            if (DetachedPanels &&
+                (LOWORD(wParam) == CM_LEFTZOOMPANEL ||
+                 LOWORD(wParam) == CM_RIGHTZOOMPANEL))
+            {
+                return 0;
+            }
             if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
             {
                 if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
@@ -7938,6 +7944,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             popup->CheckItem(left ? CM_LCHANGEFILTER : CM_RCHANGEFILTER, FALSE,
                              (left ? LeftPanel : RightPanel)->FilterEnabled);
+
+            popup->EnableItem(left ? CM_LEFTZOOMPANEL : CM_RIGHTZOOMPANEL,
+                              FALSE,
+                              !DetachedPanels);
 
             DWORD firstID = left ? CML_LEFT_VIEWS1 : CML_RIGHT_VIEWS1;
             DWORD lastID = left ? CML_LEFT_VIEWS2 : CML_RIGHT_VIEWS2;
