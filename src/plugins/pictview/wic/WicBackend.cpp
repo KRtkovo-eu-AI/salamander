@@ -6410,7 +6410,8 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
         source = scaled.data();
     }
 
-    if (progressProc && !progressProc(100, progressProcArg))
+    // PictView progress callbacks return TRUE to request cancellation.
+    if (progressProc && progressProc(100, progressProcArg))
     {
         return PVC_CANCELED;
     }

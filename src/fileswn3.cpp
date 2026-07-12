@@ -33,11 +33,21 @@ void CopyFindDataWToA(const WIN32_FIND_DATAW& src, WIN32_FIND_DATA& dst)
     dst.dwReserved0 = src.dwReserved0;
     dst.dwReserved1 = src.dwReserved1;
 
-    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
-    WideCharToMultiByte(codePage, 0, src.cFileName, -1, dst.cFileName, _countof(dst.cFileName), NULL, NULL);
-    dst.cFileName[_countof(dst.cFileName) - 1] = 0;
-    WideCharToMultiByte(codePage, 0, src.cAlternateFileName, -1, dst.cAlternateFileName, _countof(dst.cAlternateFileName), NULL, NULL);
-    dst.cAlternateFileName[_countof(dst.cAlternateFileName) - 1] = 0;
+    std::string fileName = SalWideToMultiBytePath(src.cFileName, CP_UTF8);
+    CopyStringTruncateUtf8(dst.cFileName, _countof(dst.cFileName), fileName.c_str());
+    std::string alternateFileName = SalWideToMultiBytePath(src.cAlternateFileName, CP_UTF8);
+    CopyStringTruncateUtf8(dst.cAlternateFileName, _countof(dst.cAlternateFileName), alternateFileName.c_str());
+}
+
+wchar_t* AllocWideNameCopy(const wchar_t* name)
+{
+    if (name == NULL || *name == 0)
+        return NULL;
+    size_t len = wcslen(name);
+    wchar_t* copy = (wchar_t*)malloc((len + 1) * sizeof(wchar_t));
+    if (copy != NULL)
+        wcscpy(copy, name);
+    return copy;
 }
 
 wchar_t* AllocWideNameFromUtf8ACP(const char* name)
@@ -632,7 +642,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     return FALSE;
                 }
                 memmove(file.Name, st, len + 1); // copy of text
-                file.NameW = AllocWideNameFromUtf8ACP(file.Name);
+                file.NameW = wideSearch ? AllocWideNameCopy(fileDataW.cFileName) : AllocWideNameFromUtf8ACP(file.Name);
                 file.NameLen = len;
                 //--- extension
                 if (!Configuration.SortDirsByExt && (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) // this is ptDisk

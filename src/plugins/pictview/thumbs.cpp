@@ -828,6 +828,19 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
     char filenameA[_MAX_PATH];
     bool hasExactExifPath = ConvertPathToExifEncoding(filename, filenameA, sizeof(filenameA));
     const char* filenameForExif = filenameA;
+    // The active WIC backend expects UTF-8 paths. The old EXIF helper still
+    // uses the best available ANSI/short-path representation above, so keep a
+    // separate filename for image decoding.
+#ifdef _UNICODE
+    std::string filenameForBackend = PluginWideToMultiBytePath(filename, CP_UTF8);
+#else
+    std::wstring filenameWide = PluginMultiByteToWidePath(filename, CP_UTF8);
+    if (filenameWide.empty())
+    {
+        filenameWide = PluginMultiByteToWidePath(filename, CP_ACP);
+    }
+    std::string filenameForBackend = PluginWideToMultiBytePath(filenameWide.c_str(), CP_UTF8);
+#endif
 
     pvoi.DataSize = ExtractWinThumbnail(filename, &thumbData);
     for (;;)
@@ -836,7 +849,7 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
         /* PVFF_FAST: Discard/do not alloc all unnecessary info */
         //     pvoi.Flags  = PVFF_FAST | (G.IgnoreThumbnails ? 0 : PVOF_THUMBNAIL);
         pvoi.Flags = PVFF_FAST | (G.IgnoreThumbnails ? 0 : (fastThumbnail ? PVOF_THUMBNAIL : 0));
-        pvoi.FileName = filenameForExif;
+        pvoi.FileName = filenameForBackend.c_str();
         if (pvoi.DataSize)
         {
             pvoi.Flags |= PVOF_USERDEFINED_INPUT;
@@ -1082,6 +1095,10 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
         CALL_STACK_MESSAGE1("PVW32DLL.PVCloseImage");
         free(thumbData);
         PVW32DLL.PVCloseImage(hPVImage);
+    }
+    if (code != PVC_OK)
+    {
+        thumbMaker->SetError();
     }
     return TRUE;
 }

@@ -208,7 +208,8 @@ int ConfigVersion = 0;
 //    ignore compression settings and use the new defaults instead.
 // 4: added registration for all formats handled by the bundled 7-Zip engine.
 // 5: split panel archiver registration per extension so associations are not grouped under another plugin.
-#define CURRENT_CONFIG_VERSION 5
+// 6: force registration of formats added after the original .7z-only plugin.
+#define CURRENT_CONFIG_VERSION 6
 const char* CONFIG_VERSION = "Version";
 
 CConfig Config;
@@ -692,21 +693,19 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     // AddViewer and AddPanelArchiver will fall under the UPGRADE SECTION
     //  salamander->AddViewer("*.7z", FALSE); // default (plugin install), otherwise Salamander ignores it
 
-    static const char* const panelArchiverExtensions[] = {
-        "7z", "xz", "txz", "bz2", "bzip2", "tbz2", "tbz", "gz", "gzip", "tgz", "tpz",
-        "tar", "ova", "zip", "z01", "zipx", "jar", "xpi", "odt", "ods", "docx", "xlsx", "epub",
-        "wim", "swm", "esd", "apm", "apfs", "ar", "a", "deb", "udeb", "lib", "arj",
-        "cab", "chm", "chi", "chq", "chw", "hxs", "hxi", "hxr", "hxq", "hxw", "lit",
-        "cpio", "cramfs", "dmg", "img", "ext", "ext2", "ext3", "ext4", "fat", "gpt",
-        "hfs", "hfsx", "ihex", "iso", "lzh", "lha", "lzma", "mbr", "msi", "msp", "doc",
-        "xls", "ppt", "nsis", "ntfs", "qcow", "qcow2", "qcow2c", "rar", "r00", "rpm",
-        "squashfs", "udf", "scap", "uefi", "uefif", "vdi", "vhd", "vhdx", "vmdk", "xar",
-        "z", "taz"};
-    for (unsigned i = 0; i < sizeof(panelArchiverExtensions) / sizeof(panelArchiverExtensions[0]); i++)
-        salamander->AddPanelArchiver(panelArchiverExtensions[i], TRUE, FALSE);
+    static const char* const panelArchiverExtensionGroups[] = {
+        "7z;xz;txz;bz2;bzip2;tbz2;tbz;gz;gzip;tgz;tpz;tar;ova;zip;z01;zipx;jar;xpi;odt;ods;docx;xlsx;epub;wim;swm;esd",
+        "apm;apfs;ar;a;deb;udeb;lib;arj;cab;chm;chi;chq;chw;hxs;hxi;hxr;hxq;hxw;lit;cpio;cramfs;dmg;img;ext;ext2;ext3;ext4;fat;gpt;hfs;hfsx;ihex;iso;lzh;lha;lzma;mbr",
+        "msi;msp;doc;xls;ppt;nsis;ntfs;qcow;qcow2;qcow2c;rar;r00;rpm;squashfs;udf;scap;uefi;uefif;vdi;vhd;vhdx;vmdk;xar;z;taz"};
+    for (unsigned i = 0; i < sizeof(panelArchiverExtensionGroups) / sizeof(panelArchiverExtensionGroups[0]); i++)
+        salamander->AddPanelArchiver(panelArchiverExtensionGroups[i], TRUE, FALSE);
 
     salamander->AddCustomPacker("7-Zip (Plugin)", "7z", ConfigVersion < 1);
-    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z;*.xz;*.txz;*.bz2;*.bzip2;*.tbz2;*.tbz;*.gz;*.gzip;*.tgz;*.tpz;*.tar;*.ova;*.zip;*.z01;*.zipx;*.jar;*.xpi;*.odt;*.ods;*.docx;*.xlsx;*.epub;*.wim;*.swm;*.esd;*.apm;*.apfs;*.ar;*.a;*.deb;*.udeb;*.lib;*.arj;*.cab;*.chm;*.chi;*.chq;*.chw;*.hxs;*.hxi;*.hxr;*.hxq;*.hxw;*.lit;*.cpio;*.cramfs;*.dmg;*.img;*.ext;*.ext2;*.ext3;*.ext4;*.fat;*.gpt;*.hfs;*.hfsx;*.ihex;*.iso;*.lzh;*.lha;*.lzma;*.mbr;*.msi;*.msp;*.doc;*.xls;*.ppt;*.nsis;*.ntfs;*.qcow;*.qcow2;*.qcow2c;*.rar;*.r00;*.rpm;*.squashfs;*.udf;*.scap;*.uefi;*.uefif;*.vdi;*.vhd;*.vhdx;*.vmdk;*.xar;*.z;*.taz", ConfigVersion < 5);
+    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z;*.xz;*.txz;*.bz2;*.bzip2;*.tbz2;*.tbz;*.gz;*.gzip;*.tgz;*.tpz;*.tar;*.ova;*.zip;*.z01;*.zipx;*.jar;*.xpi;*.odt;*.ods;*.docx;*.xlsx;*.epub;*.wim;*.swm;*.esd;*.apm;*.apfs;*.ar;*.a;*.deb;*.udeb;*.lib;*.arj;*.cab;*.chm;*.chi;*.chq;*.chw;*.hxs;*.hxi;*.hxr;*.hxq;*.hxw;*.lit;*.cpio;*.cramfs;*.dmg;*.img;*.ext;*.ext2;*.ext3;*.ext4;*.fat;*.gpt;*.hfs;*.hfsx;*.ihex;*.iso;*.lzh;*.lha;*.lzma;*.mbr;*.msi;*.msp;*.doc;*.xls;*.ppt;*.nsis;*.ntfs;*.qcow;*.qcow2;*.qcow2c;*.rar;*.r00;*.rpm;*.squashfs;*.udf;*.scap;*.uefi;*.uefif;*.vdi;*.vhd;*.vhdx;*.vmdk;*.xar;*.z;*.taz", ConfigVersion < 6);
+
+    // UPGRADE SECTION
+    // Panel archiver extensions are registered above in bounded groups.  This also upgrades
+    // older configurations without creating one overlong registry value or one row per extension.
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator
    keep it synchronized with the calls to salamander->AddMenuItem() below...

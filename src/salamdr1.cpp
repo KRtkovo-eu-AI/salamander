@@ -3851,6 +3851,103 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     return FALSE;
 }
 
+static BOOL CopyRegistryTreeForUpgrade(HKEY sourceKey, HKEY targetKey)
+{
+    char name[MAX_PATH];
+
+    for (DWORD valueIndex = 0;; valueIndex++)
+    {
+        DWORD nameSize = SizeOf(name);
+        DWORD type = 0;
+        DWORD dataSize = 0;
+        LONG err = RegEnumValue(sourceKey, valueIndex, name, &nameSize, NULL, &type, NULL, &dataSize);
+        if (err == ERROR_NO_MORE_ITEMS)
+            break;
+        if (err != ERROR_SUCCESS)
+            return FALSE;
+
+        BYTE stackData[512];
+        LPBYTE data = stackData;
+        if (dataSize > sizeof(stackData))
+        {
+            data = (LPBYTE)malloc(dataSize);
+            if (data == NULL)
+                return FALSE;
+        }
+
+        nameSize = SizeOf(name);
+        err = RegEnumValue(sourceKey, valueIndex, name, &nameSize, NULL, &type, data, &dataSize);
+        BOOL ok = err == ERROR_SUCCESS &&
+                  RegSetValueEx(targetKey, name, 0, type, data, dataSize) == ERROR_SUCCESS;
+        if (data != stackData)
+            free(data);
+        if (!ok)
+            return FALSE;
+    }
+
+    for (DWORD keyIndex = 0;; keyIndex++)
+    {
+        DWORD nameSize = SizeOf(name);
+        LONG err = RegEnumKeyEx(sourceKey, keyIndex, name, &nameSize, NULL, NULL, NULL, NULL);
+        if (err == ERROR_NO_MORE_ITEMS)
+            break;
+        if (err != ERROR_SUCCESS)
+            return FALSE;
+
+        HKEY sourceSubKey;
+        if (RegOpenKeyEx(sourceKey, name, 0, KEY_READ, &sourceSubKey) != ERROR_SUCCESS)
+            return FALSE;
+
+        HKEY targetSubKey;
+        if (RegCreateKeyEx(targetKey, name, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE,
+                           NULL, &targetSubKey, NULL) != ERROR_SUCCESS)
+        {
+            RegCloseKey(sourceSubKey);
+            return FALSE;
+        }
+
+        BOOL copied = CopyRegistryTreeForUpgrade(sourceSubKey, targetSubKey);
+        RegCloseKey(targetSubKey);
+        RegCloseKey(sourceSubKey);
+        if (!copied)
+            return FALSE;
+    }
+    return TRUE;
+}
+
+static void PreservePluginConfigurationsForUpgrade(const char* oldRootKey, const char* newRootKey)
+{
+    if (oldRootKey == NULL || newRootKey == NULL || oldRootKey[0] == 0 || newRootKey[0] == 0 ||
+        _stricmp(oldRootKey, newRootKey) == 0)
+        return;
+
+    HKEY oldRoot;
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, oldRootKey, 0, KEY_READ, &oldRoot) != ERROR_SUCCESS)
+        return;
+
+    HKEY oldPluginsConfig;
+    if (RegOpenKeyEx(oldRoot, SALAMANDER_PLUGINSCONFIG, 0, KEY_READ, &oldPluginsConfig) == ERROR_SUCCESS)
+    {
+        HKEY newRoot;
+        if (RegCreateKeyEx(HKEY_CURRENT_USER, newRootKey, 0, NULL, REG_OPTION_NON_VOLATILE,
+                           KEY_READ | KEY_WRITE, NULL, &newRoot, NULL) == ERROR_SUCCESS)
+        {
+            HKEY newPluginsConfig;
+            if (RegCreateKeyEx(newRoot, SALAMANDER_PLUGINSCONFIG, 0, NULL, REG_OPTION_NON_VOLATILE,
+                               KEY_READ | KEY_WRITE, NULL, &newPluginsConfig, NULL) == ERROR_SUCCESS)
+            {
+                ClearKey(newPluginsConfig);
+                if (!CopyRegistryTreeForUpgrade(oldPluginsConfig, newPluginsConfig))
+                    TRACE_E("PreservePluginConfigurationsForUpgrade(): unable to copy HKCU\\" << oldRootKey << "\\" << SALAMANDER_PLUGINSCONFIG << " to HKCU\\" << newRootKey << "\\" << SALAMANDER_PLUGINSCONFIG);
+                RegCloseKey(newPluginsConfig);
+            }
+            RegCloseKey(newRoot);
+        }
+        RegCloseKey(oldPluginsConfig);
+    }
+    RegCloseKey(oldRoot);
+}
+
 void StartNotepad(const char* file)
 {
     STARTUPINFO si = {0};
@@ -5175,6 +5272,12 @@ FIND_NEW_SLG_FILE:
                             Plugins.LoadAll(MainWindow->HWindow);
 
                         // save uz pujde do nejnovejsiho klice
+                        if (autoImportConfig)
+                        {
+                            // Preserve private configuration of plug-ins that were not loaded during the upgrade
+                            // (for example FTP bookmarks).  Loaded plug-ins will overwrite their copied keys below.
+                            PreservePluginConfigurationsForUpgrade(autoImportConfigFromKey, SalamanderConfigurationRoots[0]);
+                        }
                         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
                         // konfiguraci ulozime hned, dokud je to cista konverze stare verze -- user muze
                         // mit vypnuty "Save Cfg on Exit" a pokud behem chodu Salamandera neco zmeni, nechce to na zaver ulozit
