@@ -2492,10 +2492,12 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         DetachedPanels = TRUE;
         if (!EnsureDetachedChrome())
             return FALSE;
+        CreatingDetachedChrome = TRUE;
         RightPanel->UpdateTreeView(TRUE);
         ShowWindow(HRightDetachedWindow, SW_SHOW);
         LayoutWindows();
         LayoutDetachedPanels();
+        CreatingDetachedChrome = FALSE;
     }
     else
     {
@@ -2505,7 +2507,9 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
             SetParent(RightPanel->HWindow, HWindow);
 
         DetachedPanels = FALSE;
+        CreatingDetachedChrome = TRUE;
         RightPanel->UpdateTreeView(FALSE);
+        CreatingDetachedChrome = FALSE;
         DestroyDetachedChrome();
         if (HRightDetachedWindow != NULL)
             ShowWindow(HRightDetachedWindow, SW_HIDE);
@@ -2558,18 +2562,21 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             return 0;
 
         case WM_COMMAND:
-            if (!mainWindow->CreatingDetachedChrome)
-                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            if (mainWindow->CreatingDetachedChrome)
+                return 0;
+            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return SendMessage(mainWindow->HWindow, WM_COMMAND, wParam, lParam);
 
         case WM_NOTIFY:
-            if (!mainWindow->CreatingDetachedChrome)
-                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            if (mainWindow->CreatingDetachedChrome)
+                return 0;
+            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return SendMessage(mainWindow->HWindow, WM_NOTIFY, wParam, lParam);
 
         case WM_CONTEXTMENU:
-            if (!mainWindow->CreatingDetachedChrome)
-                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            if (mainWindow->CreatingDetachedChrome)
+                return 0;
+            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return SendMessage(mainWindow->HWindow, WM_CONTEXTMENU, wParam, lParam);
 
         case WM_SYSCOMMAND:
