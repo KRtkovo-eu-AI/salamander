@@ -7269,14 +7269,24 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     SetParent(LeftTabWindow->HWindow, HWindow);
                 if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
                     SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
-                if (LeftPanel != NULL && LeftPanel->HWindow != NULL)
-                    SetParent(LeftPanel->HWindow, HWindow);
-                if (RightPanel != NULL && RightPanel->HWindow != NULL)
-                    SetParent(RightPanel->HWindow, HRightDetachedWindow);
+                for (int i = 0; i < LeftPanelTabs.Count; ++i)
+                {
+                    CFilesWindow* panel = LeftPanelTabs[i];
+                    if (panel != NULL && panel->HWindow != NULL)
+                        SetParent(panel->HWindow, HWindow);
+                }
+                for (int i = 0; i < RightPanelTabs.Count; ++i)
+                {
+                    CFilesWindow* panel = RightPanelTabs[i];
+                    if (panel != NULL && panel->HWindow != NULL)
+                        SetParent(panel->HWindow, HRightDetachedWindow);
+                }
             }
 
             LockWindowUpdate(HWindow);
             LayoutWindows();
+            if (DetachedPanels)
+                LayoutDetachedPanels();
             LockWindowUpdate(NULL);
 
             // reload columns again (column widths are not swapped)
@@ -8473,16 +8483,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // is being destroyed.  Resolve the owner by HWND so those notifications
         // are not ignored.
         CFilesWindow* treePanel = NULL;
-        if (LeftPanel != NULL && lphdr != NULL && lphdr->hwndFrom == LeftPanel->HTreeView)
-            treePanel = LeftPanel;
-        else if (lphdr != NULL)
+        if (lphdr != NULL)
         {
-            for (int i = 0; i < LeftPanelTabs.Count; i++)
+            for (int sideIndex = 0; sideIndex < 2 && treePanel == NULL; ++sideIndex)
             {
-                if (LeftPanelTabs[i] != NULL && lphdr->hwndFrom == LeftPanelTabs[i]->HTreeView)
+                CPanelSide treeSide = sideIndex == 0 ? cpsLeft : cpsRight;
+                TIndirectArray<CFilesWindow>& treeTabs = GetPanelTabs(treeSide);
+                for (int i = 0; i < treeTabs.Count; i++)
                 {
-                    treePanel = LeftPanelTabs[i];
-                    break;
+                    if (treeTabs[i] != NULL &&
+                        (lphdr->hwndFrom == treeTabs[i]->HTreeView ||
+                         lphdr->hwndFrom == treeTabs[i]->HTreeHeader ||
+                         lphdr->hwndFrom == treeTabs[i]->HTreeSplit))
+                    {
+                        treePanel = treeTabs[i];
+                        break;
+                    }
                 }
             }
         }
