@@ -806,8 +806,14 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
     if (s != NULL)
     {
         namePart = s + 1;
-        memcpy(CurrentDir, FileName, (s - FileName) + 1);
-        CurrentDir[(s - FileName) + 1] = 0;
+        size_t currentDirLen = (s - FileName) + 1;
+        if (currentDirLen < SAL_MAX_PATH)
+        {
+            memcpy(CurrentDir, FileName, currentDirLen);
+            CurrentDir[currentDirLen] = 0;
+        }
+        else
+            CurrentDir[0] = 0;
     }
     else
         CurrentDir[0] = 0;
