@@ -1216,7 +1216,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                     {
                         DWORD err = GetLastError();
                         CPathBuffer buff(4 * SAL_MAX_PATH);
-                        _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, LoadStr(IDS_ERROREXECVIEW), expCommand.Data(), GetErrorText(err));
+                        _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, "%s", LoadStr(IDS_ERROREXECVIEW));
                         SalMessageBox(parent, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                     }
                     else
