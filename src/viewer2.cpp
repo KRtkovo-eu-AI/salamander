@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "viewer.h"
 #include "common/widepath.h"
 #include "codetbl.h"
@@ -47,8 +49,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     //  TRACE_I("MoresStanislav: ThreadViewerMessageLoopBody 1");
     CTVData* data = (CTVData*)parameter;
     CViewerWindow* view = data->View;
-    char name[MAX_PATH];
-    strcpy(name, data->Name);
+    std::string name = data->Name != NULL ? data->Name : "";
     char captionBuf[MAX_PATH];
     const char* caption = NULL;
     BOOL wholeCaption = FALSE;
@@ -131,8 +132,10 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     if (ok) // if the window was created, run the application loop
     {
         CALL_STACK_MESSAGE1("ThreadViewerMessageLoopBody::message_loop");
-        if (SalGetFullName(name))
-            view->OpenFile(name, caption, wholeCaption);
+        CPathBuffer fullName;
+        strcpy(fullName.Data(), name.c_str());
+        if (SalGetFullName(fullName.Data(), NULL, NULL, NULL, NULL, fullName.Capacity()))
+            view->OpenFile(fullName.Data(), caption, wholeCaption);
 
         MSG msg;
         HWND viewHWindow = view->HWindow; // because WM_QUIT leaves the window object unallocated
@@ -696,8 +699,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCaption)
 {
     CALL_STACK_MESSAGE3("CViewerWindow::OpenFile(%s, %s)", file, caption);
-    char fileName[MAX_PATH];
-    strcpy(fileName, file);
+    std::string fileName = file != NULL ? file : "";
 
     if (Caption != NULL)
     {
@@ -713,10 +715,10 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
         WholeCaption = FALSE;
     if (FileName != NULL)
         free(FileName);
-    FileName = (char*)malloc(strlen(fileName) + 1);
+    FileName = (char*)malloc(fileName.length() + 1);
     if (FileName != NULL)
-        strcpy(FileName, fileName);
-    FileNameW = SalMultiByteToWidePath(fileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        strcpy(FileName, fileName.c_str());
+    FileNameW = SalMultiByteToWidePath(fileName.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
     TooBigSelAction = 0;
     CanSwitchToHex = TRUE;
     CanSwitchQuietlyToHex = TRUE;

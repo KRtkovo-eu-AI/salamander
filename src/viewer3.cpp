@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "cfgdlg.h"
 #include "viewer.h"
 #include "common/widepath.h"
@@ -213,26 +215,21 @@ BOOL ViewerActive(HWND hwnd)
 
 void CViewerWindow::SetViewerCaption()
 {
-    char caption[MAX_PATH + 300];
+    std::string caption;
     if (Caption == NULL)
     {
         if (!FileNameW.empty())
-        {
-            std::string captionA = SalWideToMultiBytePath(FileNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-            lstrcpyn(caption, captionA.c_str(), MAX_PATH);
-        }
+            caption = SalWideToMultiBytePath(FileNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
         else if (FileName != NULL)
-            lstrcpyn(caption, FileName, MAX_PATH); // caption according to the file
-        else
-            caption[0] = 0;
+            caption = FileName; // caption according to the file
     }
     else
-        lstrcpyn(caption, Caption, MAX_PATH); // caption according to the plug-in request
+        caption = Caption; // caption according to the plug-in request
     if (Caption == NULL || !WholeCaption)
     {
-        if (caption[0] != 0)
-            strcat(caption, " - ");
-        strcat(caption, LoadStr(IDS_VIEWERTITLE));
+        if (!caption.empty())
+            caption += " - ";
+        caption += LoadStr(IDS_VIEWERTITLE);
         if (CodeType > 0)
         {
             char codeName[200];
@@ -242,10 +239,12 @@ void CViewerWindow::SetViewerCaption()
             while (s > codeName && *(s - 1) == ' ')
                 s--;
             *s = 0; // trim extra spaces
-            sprintf(caption + strlen(caption), " - [%s]", codeName);
+            caption += " - [";
+            caption += codeName;
+            caption += "]";
         }
     }
-    SetViewerWindowText(HWindow, caption);
+    SetViewerWindowText(HWindow, caption.c_str());
 }
 
 //
