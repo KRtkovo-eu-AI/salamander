@@ -79,8 +79,26 @@ static BOOL CreateProcessForFileAction(const char* cmdLine, const char* currentD
         }
     }
 
+    STARTUPINFOW siW;
+    memset(&siW, 0, sizeof(siW));
+    siW.cb = sizeof(siW);
+    siW.dwX = si->dwX;
+    siW.dwY = si->dwY;
+    siW.dwXSize = si->dwXSize;
+    siW.dwYSize = si->dwYSize;
+    siW.dwXCountChars = si->dwXCountChars;
+    siW.dwYCountChars = si->dwYCountChars;
+    siW.dwFillAttribute = si->dwFillAttribute;
+    siW.dwFlags = si->dwFlags;
+    siW.wShowWindow = si->wShowWindow;
+    siW.cbReserved2 = si->cbReserved2;
+    siW.lpReserved2 = si->lpReserved2;
+    siW.hStdInput = si->hStdInput;
+    siW.hStdOutput = si->hStdOutput;
+    siW.hStdError = si->hStdError;
+
     return HANDLES(CreateProcessW(NULL, &cmdLineW[0], NULL, NULL, FALSE,
-                                  NORMAL_PRIORITY_CLASS, NULL, currentDirParam, si, pi));
+                                  NORMAL_PRIORITY_CLASS, NULL, currentDirParam, &siW, pi));
 }
 
 // ****************************************************************************
