@@ -9580,6 +9580,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_CLOSE:
     {
+        if (DetachedPanels)
+            SetPanelsDetached(FALSE, DetachedPanelSide);
         PostMessage(HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
         return 0;
     }
