@@ -215,21 +215,26 @@ BOOL ViewerActive(HWND hwnd)
 
 void CViewerWindow::SetViewerCaption()
 {
-    std::string caption;
+    char caption[SAL_MAX_PATH + 300];
     if (Caption == NULL)
     {
         if (!FileNameW.empty())
-            caption = SalWideToMultiBytePath(FileNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        {
+            std::string captionA = SalWideToMultiBytePath(FileNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            lstrcpyn(caption, captionA.c_str(), SAL_MAX_PATH);
+        }
         else if (FileName != NULL)
-            caption = FileName; // caption according to the file
+            lstrcpyn(caption, FileName, SAL_MAX_PATH); // caption according to the file
+        else
+            caption[0] = 0;
     }
     else
-        caption = Caption; // caption according to the plug-in request
+        lstrcpyn(caption, Caption, SAL_MAX_PATH); // caption according to the plug-in request
     if (Caption == NULL || !WholeCaption)
     {
-        if (!caption.empty())
-            caption += " - ";
-        caption += LoadStr(IDS_VIEWERTITLE);
+        if (caption[0] != 0)
+            strcat(caption, " - ");
+        strcat(caption, LoadStr(IDS_VIEWERTITLE));
         if (CodeType > 0)
         {
             char codeName[200];
@@ -239,12 +244,10 @@ void CViewerWindow::SetViewerCaption()
             while (s > codeName && *(s - 1) == ' ')
                 s--;
             *s = 0; // trim extra spaces
-            caption += " - [";
-            caption += codeName;
-            caption += "]";
+            sprintf(caption + strlen(caption), " - [%s]", codeName);
         }
     }
-    SetViewerWindowText(HWindow, caption.c_str());
+    SetViewerWindowText(HWindow, caption);
 }
 
 //

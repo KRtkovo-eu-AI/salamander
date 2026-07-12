@@ -5,7 +5,6 @@
 #include "precomp.h"
 
 #include <vector>
-#include <string>
 
 #include "viewer.h"
 #include "common/widepath.h"
@@ -657,15 +656,15 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
         FileName = NULL; // error
     else
     {
-        CPathBuffer name;
-        strcpy(name.Data(), fileName);
-        if (SalGetFullName(name.Data(), NULL, NULL, NULL, NULL, name.Capacity()))
+        char name[SAL_MAX_PATH];
+        lstrcpyn(name, fileName, SAL_MAX_PATH);
+        if (SalGetFullName(name, NULL, NULL, NULL, NULL, SAL_MAX_PATH))
         {
-            FileName = (char*)malloc(strlen(name.Data()) + 1);
+            FileName = (char*)malloc(strlen(name) + 1);
             if (FileName != NULL)
             {
-                strcpy(FileName, name.Data());
-                FileNameW = SalMultiByteToWidePath(name.Data(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                strcpy(FileName, name);
+                FileNameW = SalMultiByteToWidePath(name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
             }
         }
         else
