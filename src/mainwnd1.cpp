@@ -2523,7 +2523,7 @@ static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
                                 title,
                                 WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
                                 x, y, width, height,
-                                mainWindow->HWindow, NULL, HInstance, mainWindow);
+                                NULL, NULL, HInstance, mainWindow);
     if (hWnd != NULL)
     {
         SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)((DWORD_PTR)mainWindow | (side == cpsRight ? 1 : 0)));
@@ -2684,7 +2684,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
 
         UpdatePanelTabVisibility(cpsLeft);
         UpdatePanelTabVisibility(cpsRight);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
 
     }
 
@@ -2727,13 +2727,36 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
 
         case WM_SETFOCUS:
             if (!mainWindow->CreatingDetachedChrome)
-                mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
+            {
+                CFilesWindow* oldPanel = mainWindow->GetActivePanel();
+                CFilesWindow* newPanel = side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel;
+                mainWindow->SetActivePanel(newPanel);
+                mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
+                mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+            }
             return 0;
+
+        case WM_MOUSEACTIVATE:
+            if (!mainWindow->CreatingDetachedChrome)
+            {
+                CFilesWindow* oldPanel = mainWindow->GetActivePanel();
+                CFilesWindow* newPanel = side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel;
+                mainWindow->SetActivePanel(newPanel);
+                mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
+                mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+            }
+            return MA_ACTIVATE;
 
         case WM_ACTIVATE:
             mainWindow->CaptionIsActive = LOWORD(wParam) != WA_INACTIVE;
             if (mainWindow->CaptionIsActive && !mainWindow->CreatingDetachedChrome)
-                mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
+            {
+                CFilesWindow* oldPanel = mainWindow->GetActivePanel();
+                CFilesWindow* newPanel = side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel;
+                mainWindow->SetActivePanel(newPanel);
+                mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
+                mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+            }
             return 0;
 
         case WM_COMMAND:

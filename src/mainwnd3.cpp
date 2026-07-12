@@ -10425,6 +10425,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         PAINTSTRUCT ps;
 
         HDC dc = HANDLES(BeginPaint(HWindow, &ps));
+        RECT paintRect = ps.rcPaint;
+        FillRect(dc, &paintRect, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
         HPEN oldPen = (HPEN)SelectObject(dc, BtnShadowPen);
 
         RECT r;
