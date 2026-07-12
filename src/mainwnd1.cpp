@@ -2604,6 +2604,86 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         WindowWidth = mainClientRect.right - mainClientRect.left;
         WindowHeight = mainClientRect.bottom - mainClientRect.top;
         LayoutWindows();
+
+        // WM_SIZE normally restores the two-panel layout.  After Swap Sides while detached,
+        // however, the tabs being reattached have just moved between two different top-level
+        // hosts and may still carry the single-host/maximized rectangle.  Normalize every tab
+        // window to the freshly computed main-window split so the reattached side becomes the
+        // right pane immediately instead of overlapping the left pane.
+        int splitWidth = GetSplitBarWidth();
+        int totalPanelsWidth = WindowWidth - 2 - splitWidth;
+        if (totalPanelsWidth < 0)
+            totalPanelsWidth = 0;
+
+        int treeWidth = 0;
+        int treeSplitWidth = 0;
+        if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+        {
+            int treeHeaderHeight = LeftPanel->GetTreeViewHeaderHeight();
+            if (LeftTabWindow != NULL)
+                treeHeaderHeight = LeftTabWindow->GetNeededHeight();
+            if (Configuration.TreeViewAutoHide)
+                treeWidth = treeHeaderHeight;
+            else
+            {
+                treeWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth);
+                treeSplitWidth = 4;
+            }
+        }
+
+        int leftX = 1 + treeWidth + treeSplitWidth;
+        int leftWidth = SplitPositionPix - leftX;
+        if (leftWidth < 0)
+            leftWidth = 0;
+        int rightX = SplitPositionPix + splitWidth;
+        int rightWidth = WindowWidth - 2 - rightX;
+        if (rightWidth < 0)
+            rightWidth = 0;
+
+        int leftTabHeight = LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL &&
+                                    Configuration.UsePanelTabs && LeftPanelTabs.Count > 0 ?
+                                LeftTabWindow->GetNeededHeight() :
+                                0;
+        int rightTabHeight = RightTabWindow != NULL && RightTabWindow->HWindow != NULL &&
+                                     Configuration.UsePanelTabs && RightPanelTabs.Count > 0 ?
+                                 RightTabWindow->GetNeededHeight() :
+                                 0;
+        int leftPanelHeight = PanelsHeight - leftTabHeight;
+        int rightPanelHeight = PanelsHeight - rightTabHeight;
+        if (leftPanelHeight < 0)
+            leftPanelHeight = 0;
+        if (rightPanelHeight < 0)
+            rightPanelHeight = 0;
+
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+            MoveWindow(LeftTabWindow->HWindow, leftX, TopRebarHeight, leftWidth, leftTabHeight, TRUE);
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+            MoveWindow(RightTabWindow->HWindow, rightX, TopRebarHeight, rightWidth, rightTabHeight, TRUE);
+
+        for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
+        {
+            BOOL leftSide = sideIndex == 0;
+            TIndirectArray<CFilesWindow>& tabs = leftSide ? LeftPanelTabs : RightPanelTabs;
+            int panelX = leftSide ? leftX : rightX;
+            int panelY = TopRebarHeight + (leftSide ? leftTabHeight : rightTabHeight);
+            int panelWidth = leftSide ? leftWidth : rightWidth;
+            int panelHeight = leftSide ? leftPanelHeight : rightPanelHeight;
+
+            for (int i = 0; i < tabs.Count; ++i)
+            {
+                CFilesWindow* tabPanel = tabs[i];
+                if (tabPanel == NULL || tabPanel->HWindow == NULL)
+                    continue;
+                if (GetParent(tabPanel->HWindow) != HWindow)
+                    SetParent(tabPanel->HWindow, HWindow);
+                MoveWindow(tabPanel->HWindow, panelX, panelY, panelWidth, panelHeight, FALSE);
+                ::SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(panelWidth, panelHeight));
+                tabPanel->LayoutListBoxChilds();
+            }
+        }
+
+        UpdatePanelTabVisibility(cpsLeft);
+        UpdatePanelTabVisibility(cpsRight);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
 
     }
