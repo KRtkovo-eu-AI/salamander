@@ -7197,6 +7197,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_SWAPPANELS:
         {
+            if (DetachedPanels)
+                DetachedPanelsSwapFixNeeded = TRUE;
+
             CFilesWindow* oldLeftPanel = LeftPanel;
             CFilesWindow* oldRightPanel = RightPanel;
 

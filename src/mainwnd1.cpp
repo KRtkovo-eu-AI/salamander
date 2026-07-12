@@ -362,6 +362,7 @@ CMainWindow::CMainWindow()
     RestoringPanelPaths = FALSE;
     DetachedPanels = FALSE;
     CreatingDetachedChrome = FALSE;
+    DetachedPanelsSwapFixNeeded = FALSE;
     //  DrivesControlHWnd = NULL;
     HDisabledKeyboard = NULL;
     CmdShow = SW_SHOWNORMAL;
@@ -2561,6 +2562,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         }
 
         DetachedPanels = TRUE;
+        DetachedPanelsSwapFixNeeded = FALSE;
         if (!EnsureDetachedChrome())
             return FALSE;
         CreatingDetachedChrome = TRUE;
@@ -2685,6 +2687,17 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         UpdatePanelTabVisibility(cpsLeft);
         UpdatePanelTabVisibility(cpsRight);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
+
+        if (DetachedPanelsSwapFixNeeded)
+        {
+            DetachedPanelsSwapFixNeeded = FALSE;
+            // A single Swap Sides while the right side is detached can leave stale side/host
+            // layout state that is refreshed by the user's workaround of doing Swap Sides
+            // twice after reattach.  Replay that no-op double swap here so the final side
+            // contents stay unchanged but all swap-side layout bookkeeping is rebuilt.
+            SendMessage(HWindow, WM_COMMAND, CM_SWAPPANELS, 0);
+            SendMessage(HWindow, WM_COMMAND, CM_SWAPPANELS, 0);
+        }
 
     }
 
