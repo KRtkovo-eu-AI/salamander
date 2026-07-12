@@ -984,7 +984,8 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
         UpdateWindow(MainWindow->HWindow);
 
-        SetForegroundWindow(HNotifyWindow);
+        HWND hActivate = GetAncestor(HWindow, GA_ROOT);
+        SetForegroundWindow(hActivate != NULL ? hActivate : HNotifyWindow);
         int xPos = (short)LOWORD(lParam);
         int yPos = (short)HIWORD(lParam);
         int index;

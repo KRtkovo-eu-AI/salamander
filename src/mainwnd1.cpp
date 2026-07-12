@@ -3587,6 +3587,68 @@ CMainWindow::HitTest(int xPos, int yPos) // screen coordinates
     POINT p;
     p.x = xPos;
     p.y = yPos;
+    auto pointInWindow = [](HWND hwnd, POINT pt) {
+        if (hwnd == NULL || !IsWindowVisible(hwnd))
+            return FALSE;
+        RECT wr;
+        return GetWindowRect(hwnd, &wr) && PtInRect(&wr, pt);
+    };
+
+    auto hitRebarBand = [](HWND hRebar, POINT screenPt) {
+        POINT rebarPt = screenPt;
+        ScreenToClient(hRebar, &rebarPt);
+        RBHITTESTINFO hti;
+        hti.pt = rebarPt;
+        if (SendMessage(hRebar, RB_HITTEST, 0, (LPARAM)&hti) == -1 ||
+            hti.flags == RBHT_NOWHERE || hti.iBand == -1)
+            return mwhteTopRebar;
+
+        REBARBANDINFO rbi;
+        rbi.cbSize = sizeof(rbi);
+        rbi.fMask = RBBIM_ID;
+        SendMessage(hRebar, RB_GETBANDINFO, hti.iBand, (LPARAM)&rbi);
+        switch (rbi.wID)
+        {
+        case BANDID_MENU:
+            return mwhteMenu;
+        case BANDID_TOPTOOLBAR:
+            return mwhteTopToolbar;
+        case BANDID_PLUGINSBAR:
+            return mwhtePluginsBar;
+        case BANDID_UMTOOLBAR:
+            return mwhteUMToolbar;
+        case BANDID_HPTOOLBAR:
+            return mwhteHPToolbar;
+        case BANDID_DRIVEBAR:
+        case BANDID_DRIVEBAR2:
+            return mwhteDriveBar;
+        case BANDID_WORKER:
+            return mwhteWorker;
+        default:
+            TRACE_E("Unknown band in rebar id = " << rbi.wID);
+            return mwhteTopRebar;
+        }
+    };
+
+    if (DetachedPanels && pointInWindow(HRightDetachedWindow, p))
+    {
+        if (pointInWindow(HDetachedTopRebar, p))
+            return hitRebarBand(HDetachedTopRebar, p);
+        if (DetachedBottomToolBar != NULL && pointInWindow(DetachedBottomToolBar->HWindow, p))
+            return mwhteBottomToolbar;
+        if (RightPanel != NULL && pointInWindow(RightPanel->HWindow, p))
+        {
+            if (RightPanel->DirectoryLine != NULL && pointInWindow(RightPanel->DirectoryLine->HWindow, p))
+                return mwhteRightDirLine;
+            if (pointInWindow(RightPanel->GetHeaderLineHWND(), p))
+                return mwhteRightHeaderLine;
+            if (RightPanel->StatusLine != NULL && pointInWindow(RightPanel->StatusLine->HWindow, p))
+                return mwhteRightStatusLine;
+            return mwhteRightWorkingArea;
+        }
+        return mwhteNone;
+    }
+
     RECT clientRect;
     RECT r;
     GetClientRect(HWindow, &clientRect);
@@ -4104,8 +4166,16 @@ MENU_TEMPLATE_ITEM InfoLineMenu[] =
     }
 
     // open the menu
+    HWND hTrackWnd = HWindow;
+    if (DetachedPanels && HRightDetachedWindow != NULL)
+    {
+        POINT pt = {xPos, yPos};
+        RECT wr;
+        if (GetWindowRect(HRightDetachedWindow, &wr) && PtInRect(&wr, pt))
+            hTrackWnd = HRightDetachedWindow;
+    }
     int cmd = menu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
-                         xPos, yPos, HWindow, NULL);
+                         xPos, yPos, hTrackWnd, NULL);
     if (cmd == 0)
         return;
 

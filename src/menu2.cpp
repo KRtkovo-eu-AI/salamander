@@ -2699,6 +2699,14 @@ BOOL CMenuPopup::CreatePopupWindow(CMenuPopup* firstPopup, int x, int y, int sub
     if (Height < TotalHeight)
         DownArrowVisible = TRUE;
 
+    HWND hPopupOwner = SharedRes->HParent;
+    if (SharedRes->MenuBar != NULL)
+    {
+        HWND hMenuBarRoot = GetAncestor(SharedRes->MenuBar->HWindow, GA_ROOT);
+        if (hMenuBarRoot != NULL)
+            hPopupOwner = hMenuBarRoot;
+    }
+
     if (CreateEx(WS_EX_TOPMOST | WS_EX_DLGMODALFRAME,
                  WC_POPUPMENU,
                  "",
@@ -2707,7 +2715,7 @@ BOOL CMenuPopup::CreatePopupWindow(CMenuPopup* firstPopup, int x, int y, int sub
                  newY,
                  width,
                  height,
-                 SharedRes->HParent,
+                 hPopupOwner,
                  NULL,
                  HInstance,
                  this) == NULL)
