@@ -518,6 +518,16 @@ protected:
     int PanelZoomedState; // 0 = none, 1 = left panel, 2 = right panel
     HWND HLeftDetachedWindow;
     HWND HRightDetachedWindow;
+    HWND HDetachedTopRebar;
+    CMenuBar* DetachedMenuBar;
+    CMainToolBar* DetachedTopToolBar;
+    CPluginsBar* DetachedPluginsBar;
+    CUserMenuBar* DetachedUMToolBar;
+    CHotPathsBar* DetachedHPToolBar;
+    CDriveBar* DetachedDriveBar;
+    CDriveBar* DetachedDriveBar2;
+    CBottomToolBar* DetachedBottomToolBar;
+    CEditWindow* DetachedEditWindow;
 
     BOOL FirstActivateApp; // WM_ACTIVATEAPP uses this variable during startup
 
@@ -704,6 +714,9 @@ public:
     void LayoutWindows();
     BOOL SetPanelsDetached(BOOL detached);
     BOOL TogglePanelsDetached();
+    BOOL EnsureDetachedChrome();
+    void DestroyDetachedChrome();
+    void UpdateDetachedCommandLine();
     void LayoutDetachedPanelWindow(CPanelSide side, int width, int height);
     void LayoutDetachedPanels();
     void LayoutMainWindowDetachedPanel(int width, int height);

@@ -374,6 +374,16 @@ CMainWindow::CMainWindow()
     LockedUIReason = NULL;
     HLeftDetachedWindow = NULL;
     HRightDetachedWindow = NULL;
+    HDetachedTopRebar = NULL;
+    DetachedMenuBar = NULL;
+    DetachedTopToolBar = NULL;
+    DetachedPluginsBar = NULL;
+    DetachedUMToolBar = NULL;
+    DetachedHPToolBar = NULL;
+    DetachedDriveBar = NULL;
+    DetachedDriveBar2 = NULL;
+    DetachedBottomToolBar = NULL;
+    DetachedEditWindow = NULL;
 
     PanelConfigPathsRestoredLeft = FALSE;
     PanelConfigPathsRestoredRight = FALSE;
@@ -468,6 +478,7 @@ BOOL CMainWindow::IsGood()
 CMainWindow::~CMainWindow()
 {
     HANDLES(DeleteCriticalSection(&DispachChangeNotifCS));
+    DestroyDetachedChrome();
     if (HLeftDetachedWindow != NULL)
         HANDLES(DestroyWindow(HLeftDetachedWindow));
     if (HRightDetachedWindow != NULL)
@@ -593,6 +604,13 @@ BOOL CMainWindow::ToggleTopToolBar(BOOL storePos)
 
     LockWindowUpdate(NULL);
 
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+    }
+
     return TRUE;
 }
 
@@ -628,6 +646,13 @@ BOOL CMainWindow::TogglePluginsBar(BOOL storePos)
     }
 
     LockWindowUpdate(NULL);
+
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+    }
 
     return TRUE;
 }
@@ -696,6 +721,13 @@ BOOL CMainWindow::ToggleUserMenuToolBar(BOOL storePos)
 
     LockWindowUpdate(NULL);
 
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+    }
+
     return TRUE;
 }
 
@@ -730,6 +762,13 @@ BOOL CMainWindow::ToggleHotPathsBar(BOOL storePos)
     }
 
     LockWindowUpdate(NULL);
+
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+    }
 
     return TRUE;
 }
@@ -797,6 +836,13 @@ BOOL CMainWindow::ToggleDriveBar(BOOL twoDriveBars, BOOL storePos)
     LockWindowUpdate(NULL);
     //  InvalidateRect(HTopRebar, NULL, TRUE);
     //  UpdateWindow(HTopRebar);
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+    }
+
     return TRUE;
 }
 
@@ -810,7 +856,6 @@ BOOL CMainWindow::ToggleBottomToolBar()
         DestroyWindow(BottomToolBar->HWindow);
         BottomToolBar->SetState(btbsCount); // on the next display, load some valid state
         Configuration.BottomToolBarVisible = FALSE;
-        return TRUE;
     }
     else
     {
@@ -822,9 +867,18 @@ BOOL CMainWindow::ToggleBottomToolBar()
         UpdateBottomToolBar();
         ShowWindow(BottomToolBar->HWindow, SW_SHOW);
         Configuration.BottomToolBarVisible = TRUE;
-        return TRUE;
     }
+
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+    }
+
+    return TRUE;
 }
+
 
 BOOL CMainWindow::ToggleTreeView()
 {
@@ -900,6 +954,13 @@ void CMainWindow::ToggleToolBarGrips()
     }
 
     LockWindowUpdate(NULL);
+
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+    }
 }
 
 void CMainWindow::StoreBandsPos()
@@ -1747,6 +1808,316 @@ HWND CMainWindow::GetDetachedPanelWindow(CPanelSide side)
     return side == cpsLeft ? HLeftDetachedWindow : HRightDetachedWindow;
 }
 
+
+static BOOL InsertDetachedBand(HWND rebar, HWND child, int bandID, int index, int width, int height,
+                               BOOL breakBand, BOOL fixedSize = FALSE)
+{
+    if (rebar == NULL || child == NULL)
+        return FALSE;
+
+    REBARBANDINFO rbbi;
+    ZeroMemory(&rbbi, sizeof(rbbi));
+    rbbi.cbSize = sizeof(REBARBANDINFO);
+    rbbi.fMask = RBBIM_SIZE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_STYLE | RBBIM_ID;
+    rbbi.cxMinChild = fixedSize ? width : 10;
+    rbbi.cyMinChild = height + (DarkModeShouldUseDarkColors() ? 2 : 0);
+    rbbi.cx = width;
+    rbbi.hwndChild = child;
+    rbbi.wID = bandID;
+    if (breakBand)
+        rbbi.fStyle |= RBBS_BREAK;
+    if (fixedSize)
+        rbbi.fStyle |= RBBS_FIXEDSIZE;
+    if (Configuration.GripsVisible && !fixedSize)
+        rbbi.fStyle |= RBBS_GRIPPERALWAYS;
+    else
+    {
+        rbbi.fStyle |= RBBS_NOGRIPPER;
+        rbbi.fMask |= RBBIM_HEADERSIZE;
+        rbbi.cxHeader = 2;
+    }
+
+    int count = (int)SendMessage(rebar, RB_GETBANDCOUNT, 0, 0);
+    if (index < 0 || index > count)
+        index = count;
+    return SendMessage(rebar, RB_INSERTBAND, (WPARAM)index, (LPARAM)&rbbi) != 0;
+}
+
+BOOL CMainWindow::EnsureDetachedChrome()
+{
+    CALL_STACK_MESSAGE1("CMainWindow::EnsureDetachedChrome()");
+    if (HRightDetachedWindow == NULL)
+        return FALSE;
+
+    if (HDetachedTopRebar == NULL)
+    {
+        DWORD rebarStyle = WS_VISIBLE | WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
+                           RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN | RBS_AUTOSIZE;
+        if (!DarkModeShouldUseDarkColors())
+            rebarStyle |= WS_BORDER | RBS_BANDBORDERS;
+        HDetachedTopRebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, "",
+                                           rebarStyle, 0, 0, 0, 0,
+                                           HRightDetachedWindow, (HMENU)0, HInstance, NULL);
+        if (HDetachedTopRebar == NULL)
+            return FALSE;
+        if (DarkModeShouldUseDarkColors())
+            SetWindowTheme(HDetachedTopRebar, L"DarkMode_Explorer", nullptr);
+        else
+            SetWindowTheme(HDetachedTopRebar, (L" "), (L" "));
+        DarkModeApplyWindow(HDetachedTopRebar);
+        DarkModeApplyRebarSeparators(HDetachedTopRebar);
+    }
+
+    if (DetachedMenuBar == NULL)
+        DetachedMenuBar = new CMenuBar(&MainMenu, HWindow);
+    if (DetachedMenuBar == NULL)
+        return FALSE;
+    if (DetachedMenuBar->HWindow == NULL && !DetachedMenuBar->CreateWnd(HDetachedTopRebar))
+        return FALSE;
+    if ((int)SendMessage(HDetachedTopRebar, RB_IDTOINDEX, BANDID_MENU, 0) == -1)
+        InsertDetachedBand(HDetachedTopRebar, DetachedMenuBar->HWindow, BANDID_MENU,
+                           Configuration.MenuIndex, Configuration.MenuWidth,
+                           DetachedMenuBar->GetNeededHeight(), Configuration.MenuBreak);
+
+    if (Configuration.TopToolBarVisible)
+    {
+        if (DetachedTopToolBar == NULL)
+            DetachedTopToolBar = new CMainToolBar(HWindow, mtbtTop, ooStatic);
+        if (DetachedTopToolBar == NULL)
+            return FALSE;
+        if (DetachedTopToolBar->HWindow == NULL)
+        {
+            if (!DetachedTopToolBar->CreateWnd(HDetachedTopRebar))
+                return FALSE;
+            DetachedTopToolBar->Load(Configuration.TopToolBar);
+            InsertDetachedBand(HDetachedTopRebar, DetachedTopToolBar->HWindow, BANDID_TOPTOOLBAR,
+                               Configuration.TopToolbarIndex, Configuration.TopToolbarWidth,
+                               DetachedTopToolBar->GetNeededHeight(), Configuration.TopToolbarBreak);
+            ShowWindow(DetachedTopToolBar->HWindow, SW_SHOW);
+        }
+    }
+
+    if (Configuration.PluginsBarVisible)
+    {
+        if (DetachedPluginsBar == NULL)
+            DetachedPluginsBar = new CPluginsBar(HWindow, ooStatic);
+        if (DetachedPluginsBar == NULL)
+            return FALSE;
+        if (DetachedPluginsBar->HWindow == NULL)
+        {
+            if (!DetachedPluginsBar->CreateWnd(HDetachedTopRebar))
+                return FALSE;
+            DetachedPluginsBar->CreatePluginButtons();
+            InsertDetachedBand(HDetachedTopRebar, DetachedPluginsBar->HWindow, BANDID_PLUGINSBAR,
+                               Configuration.PluginsBarIndex, Configuration.PluginsBarWidth,
+                               DetachedPluginsBar->GetNeededHeight(), Configuration.PluginsBarBreak);
+            ShowWindow(DetachedPluginsBar->HWindow, SW_SHOW);
+        }
+    }
+
+    if (Configuration.UserMenuToolBarVisible)
+    {
+        if (DetachedUMToolBar == NULL)
+            DetachedUMToolBar = new CUserMenuBar(HWindow, ooStatic);
+        if (DetachedUMToolBar == NULL)
+            return FALSE;
+        if (DetachedUMToolBar->HWindow == NULL)
+        {
+            if (!DetachedUMToolBar->CreateWnd(HDetachedTopRebar))
+                return FALSE;
+            DetachedUMToolBar->CreateButtons();
+            InsertDetachedBand(HDetachedTopRebar, DetachedUMToolBar->HWindow, BANDID_UMTOOLBAR,
+                               Configuration.UserMenuToolbarIndex, Configuration.UserMenuToolbarWidth,
+                               DetachedUMToolBar->GetNeededHeight(), Configuration.UserMenuToolbarBreak);
+            ShowWindow(DetachedUMToolBar->HWindow, SW_SHOW);
+        }
+    }
+
+    if (Configuration.HotPathsBarVisible)
+    {
+        if (DetachedHPToolBar == NULL)
+            DetachedHPToolBar = new CHotPathsBar(HWindow, ooStatic);
+        if (DetachedHPToolBar == NULL)
+            return FALSE;
+        if (DetachedHPToolBar->HWindow == NULL)
+        {
+            if (!DetachedHPToolBar->CreateWnd(HDetachedTopRebar))
+                return FALSE;
+            DetachedHPToolBar->CreateButtons();
+            InsertDetachedBand(HDetachedTopRebar, DetachedHPToolBar->HWindow, BANDID_HPTOOLBAR,
+                               Configuration.HotPathsBarIndex, Configuration.HotPathsBarWidth,
+                               DetachedHPToolBar->GetNeededHeight(), Configuration.HotPathsBarBreak);
+            ShowWindow(DetachedHPToolBar->HWindow, SW_SHOW);
+        }
+    }
+
+    if (Configuration.DriveBarVisible)
+    {
+        if (DetachedDriveBar == NULL)
+            DetachedDriveBar = new CDriveBar(HWindow, ooStatic);
+        if (DetachedDriveBar == NULL)
+            return FALSE;
+        if (DetachedDriveBar->HWindow == NULL)
+        {
+            if (!DetachedDriveBar->CreateWnd(HDetachedTopRebar))
+                return FALSE;
+            DetachedDriveBar->CreateDriveButtons(NULL);
+            InsertDetachedBand(HDetachedTopRebar, DetachedDriveBar->HWindow, BANDID_DRIVEBAR,
+                               Configuration.DriveBarIndex, Configuration.DriveBarWidth,
+                               DetachedDriveBar->GetNeededHeight(), Configuration.DriveBarBreak);
+            ShowWindow(DetachedDriveBar->HWindow, SW_SHOW);
+        }
+    }
+
+    if (Configuration.DriveBar2Visible)
+    {
+        if (DetachedDriveBar2 == NULL)
+            DetachedDriveBar2 = new CDriveBar(HWindow, ooStatic);
+        if (DetachedDriveBar2 == NULL)
+            return FALSE;
+        if (DetachedDriveBar2->HWindow == NULL)
+        {
+            if (!DetachedDriveBar2->CreateWnd(HDetachedTopRebar))
+                return FALSE;
+            DetachedDriveBar2->CreateDriveButtons(DetachedDriveBar);
+            InsertDetachedBand(HDetachedTopRebar, DetachedDriveBar2->HWindow, BANDID_DRIVEBAR2,
+                               -1, Configuration.DriveBarWidth,
+                               DetachedDriveBar2->GetNeededHeight(), FALSE);
+            ShowWindow(DetachedDriveBar2->HWindow, SW_SHOW);
+        }
+    }
+
+    if (Configuration.BottomToolBarVisible)
+    {
+        if (DetachedBottomToolBar == NULL)
+            DetachedBottomToolBar = new CBottomToolBar(HWindow, ooStatic);
+        if (DetachedBottomToolBar == NULL)
+            return FALSE;
+        if (DetachedBottomToolBar->HWindow == NULL)
+        {
+            if (!CBottomToolBar::InitDataFromResources())
+                return FALSE;
+            if (!DetachedBottomToolBar->CreateWnd(HRightDetachedWindow))
+                return FALSE;
+            DetachedBottomToolBar->SetFont();
+            DetachedBottomToolBar->SetState(btbsNormal);
+            ShowWindow(DetachedBottomToolBar->HWindow, SW_SHOW);
+        }
+    }
+
+    if (EditWindow != NULL && EditWindow->HWindow != NULL)
+    {
+        if (DetachedEditWindow == NULL)
+            DetachedEditWindow = new CEditWindow();
+        if (DetachedEditWindow == NULL)
+            return FALSE;
+        if (DetachedEditWindow->HWindow == NULL)
+        {
+            if (!DetachedEditWindow->Create(HRightDetachedWindow, IDC_EDITWINDOW))
+                return FALSE;
+            DetachedEditWindow->SetFont();
+            ShowWindow(DetachedEditWindow->HWindow, SW_SHOW);
+        }
+        UpdateDetachedCommandLine();
+    }
+
+    return TRUE;
+}
+
+void CMainWindow::DestroyDetachedChrome()
+{
+    if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedEditWindow->HWindow));
+    if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedBottomToolBar->HWindow));
+    if (DetachedDriveBar2 != NULL && DetachedDriveBar2->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedDriveBar2->HWindow));
+    if (DetachedDriveBar != NULL && DetachedDriveBar->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedDriveBar->HWindow));
+    if (DetachedHPToolBar != NULL && DetachedHPToolBar->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedHPToolBar->HWindow));
+    if (DetachedUMToolBar != NULL && DetachedUMToolBar->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedUMToolBar->HWindow));
+    if (DetachedPluginsBar != NULL && DetachedPluginsBar->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedPluginsBar->HWindow));
+    if (DetachedTopToolBar != NULL && DetachedTopToolBar->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedTopToolBar->HWindow));
+    if (DetachedMenuBar != NULL && DetachedMenuBar->HWindow != NULL)
+        HANDLES(DestroyWindow(DetachedMenuBar->HWindow));
+
+    if (DetachedEditWindow != NULL)
+    {
+        delete DetachedEditWindow;
+        DetachedEditWindow = NULL;
+    }
+    if (DetachedBottomToolBar != NULL)
+    {
+        delete DetachedBottomToolBar;
+        DetachedBottomToolBar = NULL;
+    }
+    if (DetachedDriveBar2 != NULL)
+    {
+        delete DetachedDriveBar2;
+        DetachedDriveBar2 = NULL;
+    }
+    if (DetachedDriveBar != NULL)
+    {
+        delete DetachedDriveBar;
+        DetachedDriveBar = NULL;
+    }
+    if (DetachedHPToolBar != NULL)
+    {
+        delete DetachedHPToolBar;
+        DetachedHPToolBar = NULL;
+    }
+    if (DetachedUMToolBar != NULL)
+    {
+        delete DetachedUMToolBar;
+        DetachedUMToolBar = NULL;
+    }
+    if (DetachedPluginsBar != NULL)
+    {
+        delete DetachedPluginsBar;
+        DetachedPluginsBar = NULL;
+    }
+    if (DetachedTopToolBar != NULL)
+    {
+        delete DetachedTopToolBar;
+        DetachedTopToolBar = NULL;
+    }
+    if (DetachedMenuBar != NULL)
+    {
+        delete DetachedMenuBar;
+        DetachedMenuBar = NULL;
+    }
+    if (HDetachedTopRebar != NULL)
+    {
+        HANDLES(DestroyWindow(HDetachedTopRebar));
+        HDetachedTopRebar = NULL;
+    }
+}
+
+void CMainWindow::UpdateDetachedCommandLine()
+{
+    if (DetachedEditWindow == NULL || DetachedEditWindow->HWindow == NULL || RightPanel == NULL)
+        return;
+
+    if (RightPanel->Is(ptDisk) ||
+        RightPanel->Is(ptPluginFS) && RightPanel->GetPluginFS()->NotEmpty() &&
+            RightPanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COMMANDLINE))
+    {
+        char dir[2 * MAX_PATH];
+        RightPanel->GetGeneralPath(dir, 2 * MAX_PATH);
+        DetachedEditWindow->Enable(TRUE);
+        DetachedEditWindow->SetDirectory(dir);
+    }
+    else
+    {
+        DetachedEditWindow->Enable(FALSE);
+        DetachedEditWindow->SetDirectory("");
+    }
+}
+
 void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int height)
 {
     CFilesWindow* panel = side == cpsLeft ? LeftPanel : RightPanel;
@@ -1755,6 +2126,27 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
 
     if (panel == NULL)
         return;
+
+    int detachedTopRebarHeight = 0;
+    int detachedBottomToolBarHeight = 0;
+    int detachedEditHeight = 0;
+    if (HDetachedTopRebar != NULL)
+    {
+        RECT rebRect;
+        GetWindowRect(HDetachedTopRebar, &rebRect);
+        detachedTopRebarHeight = rebRect.bottom - rebRect.top;
+    }
+    if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
+        detachedBottomToolBarHeight = DetachedBottomToolBar->GetNeededHeight();
+    if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
+    {
+        UpdateDetachedCommandLine();
+        detachedEditHeight = DetachedEditWindow->GetNeededHeight() + 1;
+    }
+
+    int contentHeight = height - detachedTopRebarHeight - detachedBottomToolBarHeight - detachedEditHeight;
+    if (contentHeight < 0)
+        contentHeight = 0;
 
     int tabHeight = 0;
     BOOL tabsVisible = tabWindow != NULL && tabWindow->HWindow != NULL &&
@@ -1789,13 +2181,26 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
     if (panelWidth < 0)
         panelWidth = 0;
 
-    HDWP hdwp = HANDLES(BeginDeferWindowPos(5));
+    int windowsCount = 5;
+    if (HDetachedTopRebar != NULL)
+        windowsCount++;
+    if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
+        windowsCount++;
+    if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
+        windowsCount++;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(windowsCount));
     if (hdwp != NULL)
     {
+        if (HDetachedTopRebar != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, HDetachedTopRebar, NULL,
+                                          0, 0, width, detachedTopRebarHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER));
+
         if (tabWindow != NULL && tabWindow->HWindow != NULL)
         {
             hdwp = HANDLES(DeferWindowPos(hdwp, tabWindow->HWindow, NULL,
-                                          panelX, 0, panelWidth, tabHeight,
+                                          panelX, detachedTopRebarHeight, panelWidth, tabHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER |
                                               (tabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
@@ -1803,19 +2208,19 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
         {
             BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
             int headerWidth = collapsed ? treeWidth + 1 : treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0);
-            int headerHeight = collapsed ? height : treeHeaderHeight;
+            int headerHeight = collapsed ? contentHeight : treeHeaderHeight;
             hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeHeader, HWND_TOP,
-                                          0, 0, headerWidth, headerHeight,
+                                          0, detachedTopRebarHeight, headerWidth, headerHeight,
                                           SWP_NOACTIVATE | SWP_SHOWWINDOW));
         }
         if (panel->HTreeView != NULL && panel->TreeViewActive)
         {
-            int treeViewHeight = height - treeHeaderHeight;
+            int treeViewHeight = contentHeight - treeHeaderHeight;
             if (treeViewHeight < 0)
                 treeViewHeight = 0;
             BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
             hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeView, HWND_TOP,
-                                          0, treeHeaderHeight, treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0), treeViewHeight,
+                                          0, detachedTopRebarHeight + treeHeaderHeight, treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0), treeViewHeight,
                                           SWP_NOACTIVATE | (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
         if (panel->HTreeSplit != NULL && panel->TreeViewActive)
@@ -1823,18 +2228,26 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
             BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
             int displaySplitWidth = show ? 4 : 0;
             hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeSplit, HWND_TOP,
-                                          treeDisplayWidth, 0, displaySplitWidth, height,
+                                          treeDisplayWidth, detachedTopRebarHeight, displaySplitWidth, contentHeight,
                                           SWP_NOACTIVATE | (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
         if (panel->HWindow != NULL)
         {
-            int panelHeight = height - tabHeight;
+            int panelHeight = contentHeight - tabHeight;
             if (panelHeight < 0)
                 panelHeight = 0;
             hdwp = HANDLES(DeferWindowPos(hdwp, panel->HWindow, NULL,
-                                          panelX, tabHeight, panelWidth, panelHeight,
+                                          panelX, detachedTopRebarHeight + tabHeight, panelWidth, panelHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
         }
+        if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, DetachedEditWindow->HWindow, HWND_BOTTOM,
+                                          0, detachedTopRebarHeight + contentHeight + 2, width, detachedEditHeight + 150,
+                                          SWP_NOACTIVATE));
+        if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, DetachedBottomToolBar->HWindow, NULL,
+                                          1, detachedTopRebarHeight + contentHeight + detachedEditHeight + 1, max(0, width - 2), detachedBottomToolBarHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER));
         HANDLES(EndDeferWindowPos(hdwp));
     }
 
@@ -2070,6 +2483,8 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
             SetParent(RightPanel->HWindow, HRightDetachedWindow);
 
         DetachedPanels = TRUE;
+        if (!EnsureDetachedChrome())
+            return FALSE;
         RightPanel->UpdateTreeView(TRUE);
         ShowWindow(HRightDetachedWindow, SW_SHOW);
         LayoutWindows();
@@ -2084,6 +2499,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
 
         DetachedPanels = FALSE;
         RightPanel->UpdateTreeView(FALSE);
+        DestroyDetachedChrome();
         if (HRightDetachedWindow != NULL)
             ShowWindow(HRightDetachedWindow, SW_HIDE);
         LayoutWindows();
@@ -2729,7 +3145,8 @@ CBottomTBStateEnum VirtKeyStateTable[2][2][2] =
 
 void CMainWindow::UpdateBottomToolBar()
 {
-    if (BottomToolBar == NULL || BottomToolBar->HWindow == NULL)
+    if ((BottomToolBar == NULL || BottomToolBar->HWindow == NULL) &&
+        (DetachedBottomToolBar == NULL || DetachedBottomToolBar->HWindow == NULL))
         return;
 
     DWORD shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0 ? 1 : 0;
@@ -2747,8 +3164,16 @@ void CMainWindow::UpdateBottomToolBar()
     else
         newState = btbsNormal;
 
-    BottomToolBar->SetState(newState);
-    BottomToolBar->UpdateItemsState();
+    if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+    {
+        BottomToolBar->SetState(newState);
+        BottomToolBar->UpdateItemsState();
+    }
+    if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
+    {
+        DetachedBottomToolBar->SetState(newState);
+        DetachedBottomToolBar->UpdateItemsState();
+    }
 }
 
 CMainWindowsHitTestEnum
@@ -3963,6 +4388,12 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             obj->BottomToolBar->UpdateItemsState();
         if (obj->UMToolBar != NULL && obj->UMToolBar->HWindow != NULL)
             obj->UMToolBar->UpdateItemsState();
+        if (obj->DetachedTopToolBar != NULL && obj->DetachedTopToolBar->HWindow != NULL)
+            obj->DetachedTopToolBar->UpdateItemsState();
+        if (obj->DetachedBottomToolBar != NULL && obj->DetachedBottomToolBar->HWindow != NULL)
+            obj->DetachedBottomToolBar->UpdateItemsState();
+        if (obj->DetachedUMToolBar != NULL && obj->DetachedUMToolBar->HWindow != NULL)
+            obj->DetachedUMToolBar->UpdateItemsState();
     }
 
     CToolBar* topToolbar = obj->TopToolBar;

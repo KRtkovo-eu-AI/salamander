@@ -2271,6 +2271,11 @@ void CMainWindow::UpdateDriveBars()
         DriveBar->SetCheckedDrive(LeftPanel);
         DriveBar2->SetCheckedDrive(RightPanel);
     }
+
+    if (DetachedDriveBar != NULL && DetachedDriveBar->HWindow != NULL)
+        DetachedDriveBar->SetCheckedDrive(RightPanel);
+    if (DetachedDriveBar2 != NULL && DetachedDriveBar2->HWindow != NULL)
+        DetachedDriveBar2->SetCheckedDrive(RightPanel);
 }
 
 void CMainWindow::CancelPanelsUI()
