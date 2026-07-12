@@ -636,7 +636,7 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     si.lpTitle = LoadStr(IDS_COMMANDSHELL);
                     si.dwFlags = STARTF_USESHOWWINDOW;
                     POINT p;
-                    if (MultiMonGetDefaultWindowPos(MainWindow->HWindow, &p))
+                    if (MultiMonGetDefaultWindowPos(MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow), &p))
                     {
                         // if the main window is on another monitor, we should open
                         // the created window there as well, ideally at the default position (same as on the primary)

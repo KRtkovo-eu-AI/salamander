@@ -1752,7 +1752,7 @@ BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorT
     {
         si.dwFlags = STARTF_USESHOWWINDOW;
         POINT p;
-        if (MultiMonGetDefaultWindowPos(MainWindow->HWindow, &p))
+        if (MultiMonGetDefaultWindowPos(MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow), &p))
         {
             // if the main window is on another monitor we should open the new window there
             // preferably at the default position (as on the primary monitor)

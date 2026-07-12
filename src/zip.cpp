@@ -811,9 +811,14 @@ int CSalamanderGeneral::DialogQuestion(HWND parent, DWORD flags, const char* fil
     return ::DialogQuestion(parent, flags, fileName, question, title);
 }
 
+static HWND GetPluginCallerCenterWindow()
+{
+    return MainWindow != NULL ? MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow) : NULL;
+}
+
 HWND CSalamanderGeneral::GetMainWindowHWND()
 {
-    return MainWindow != NULL ? MainWindow->HWindow : NULL;
+    return GetPluginCallerCenterWindow();
 }
 
 void RestoreFocusInSourcePanel()
@@ -2583,7 +2588,8 @@ BOOL ViewFileInPluginViewer(const char* pluginSPL,
     // position for viewers
     WINDOWPLACEMENT place;
     place.length = sizeof(WINDOWPLACEMENT);
-    GetWindowPlacement(MainWindow->HWindow, &place);
+    HWND centerWindow = GetPluginCallerCenterWindow();
+    GetWindowPlacement(centerWindow, &place);
     // GetWindowPlacement accounts for the taskbar, so if the taskbar is at the top or left,
     // the values are shifted by its dimensions. Apply a correction.
     RECT monitorRect;
@@ -3855,6 +3861,8 @@ HWND CSalamanderGeneral::GetTopVisibleParent(HWND hParent)
 BOOL CSalamanderGeneral::MultiMonGetDefaultWindowPos(HWND hByWnd, POINT* p)
 {
     CALL_STACK_MESSAGE_NONE
+    if (hByWnd == (MainWindow != NULL ? MainWindow->HWindow : NULL))
+        hByWnd = GetPluginCallerCenterWindow();
     return ::MultiMonGetDefaultWindowPos(hByWnd, p);
 }
 
@@ -3867,12 +3875,16 @@ void CSalamanderGeneral::MultiMonGetClipRectByRect(const RECT* rect, RECT* workC
 void CSalamanderGeneral::MultiMonGetClipRectByWindow(HWND hByWnd, RECT* workClipRect, RECT* monitorClipRect)
 {
     CALL_STACK_MESSAGE_NONE
+    if (hByWnd == (MainWindow != NULL ? MainWindow->HWindow : NULL))
+        hByWnd = GetPluginCallerCenterWindow();
     ::MultiMonGetClipRectByWindow(hByWnd, workClipRect, monitorClipRect);
 }
 
 void CSalamanderGeneral::MultiMonCenterWindow(HWND hWindow, HWND hByWnd, BOOL findTopWindow)
 {
     CALL_STACK_MESSAGE_NONE
+    if (hByWnd == (MainWindow != NULL ? MainWindow->HWindow : NULL))
+        hByWnd = GetPluginCallerCenterWindow();
     ::MultiMonCenterWindow(hWindow, hByWnd, findTopWindow);
 }
 

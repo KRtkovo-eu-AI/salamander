@@ -170,6 +170,7 @@ STRINGTABLE
  IDS_MENU_OPT_VSB_UMLABELS,  "Te&xt Labels in User Menu Bar"
  IDS_MENU_OPT_VSB_GRIPS,     "&Lock the Toolbars"
  IDS_DETACHED_WINDOW_TITLE, "Detached window"
+ IDS_MAIN_WINDOW_TITLE, "Main window"
  IDS_MENU_MAIN_WINDOW,      "&Main window"
  IDS_MENU_DETACHED_WINDOW,  "&Detached window"
  IDS_DETACHED_CLOSE_CAPTION, "Close Detached Window"
@@ -185,7 +186,7 @@ STRINGTABLE
 
  IDS_MENU_RIGHT,             "&Right"
  IDS_MENU_RIGHT_CHANGEDRIVE, "&Change Drive\tAlt+F2"
- IDS_MENU_RIGHT_DETACHPANELS,  "Split into a &Detached window"
+ IDS_MENU_RIGHT_DETACHPANELS,  "&Detach into separate window"
  IDS_MENU_RIGHT_TABS,       "&Tabs"
  IDS_MENU_RIGHT_NEWTAB,      "New &Tab\tAlt+Shift+T"
  IDS_MENU_RIGHT_CLOSETAB,    "&Close Tab\tAlt+Shift+W"

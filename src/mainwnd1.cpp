@@ -2796,6 +2796,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                 mainWindow->SetActivePanel(newPanel);
                 mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
                 mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+                mainWindow->RefreshCommandStates();
             }
             return 0;
 
@@ -2807,6 +2808,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                 mainWindow->SetActivePanel(newPanel);
                 mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
                 mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+                mainWindow->RefreshCommandStates();
             }
             return MA_ACTIVATE;
 
@@ -2819,6 +2821,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                 mainWindow->SetActivePanel(newPanel);
                 mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
                 mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+                mainWindow->RefreshCommandStates();
             }
             return 0;
 
@@ -2878,7 +2881,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                 if (mainWindow->ConfirmDetachedWindowClose(hWnd, &closeSalamander))
                 {
                     if (closeSalamander)
-                        PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
+                        PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 1, 0);
                     else
                         mainWindow->SetPanelsDetached(FALSE);
                 }
@@ -2892,7 +2895,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             if (mainWindow->ConfirmDetachedWindowClose(hWnd, &closeSalamander))
             {
                 if (closeSalamander)
-                    PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
+                    PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 1, 0);
                 else
                     mainWindow->SetPanelsDetached(FALSE);
             }
@@ -3388,6 +3391,7 @@ void CMainWindow::SetWindowTitle(const char* text)
 
     std::wstring wideText;
     std::wstring wideAppSuffix;
+    std::wstring explicitDetachedText;
     std::wstring prefix;
     if (text == NULL)
     {
@@ -3434,12 +3438,24 @@ void CMainWindow::SetWindowTitle(const char* text)
             }
         }
 
-        wideText = BuildWindowTitleForPanel(DetachedPanels ? LeftPanel : GetActivePanel(), prefix, suffix);
+        std::wstring mainSuffix = suffix;
+        if (DetachedPanels)
+        {
+            mainSuffix += L" - ";
+            mainSuffix += MultiByteToWindowTitleWide(LoadStr(IDS_MAIN_WINDOW_TITLE));
+        }
+        wideText = BuildWindowTitleForPanel(DetachedPanels ? LeftPanel : GetActivePanel(), prefix, mainSuffix);
 
     }
     else
     {
         wideText = MultiByteToWindowTitleWide(text);
+        explicitDetachedText = wideText;
+        if (DetachedPanels)
+        {
+            wideText += L" - ";
+            wideText += MultiByteToWindowTitleWide(LoadStr(IDS_MAIN_WINDOW_TITLE));
+        }
     }
 
     std::wstring detachedText;
@@ -3451,7 +3467,7 @@ void CMainWindow::SetWindowTitle(const char* text)
         }
         else
         {
-            detachedText = wideText;
+            detachedText = explicitDetachedText;
         }
         detachedText += L" - ";
         detachedText += MultiByteToWindowTitleWide(LoadStr(IDS_DETACHED_WINDOW_TITLE));
@@ -3558,10 +3574,13 @@ void CMainWindow::UpdateBottomToolBar()
     DWORD altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0 ? 1 : 0;
     DWORD ctrlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0 ? 1 : 0;
 
+    BOOL updateDetached = DetachedPanels && GetActivePanel() == RightPanel;
+    CMenuBar* activeMenuBar = updateDetached ? DetachedMenuBar : MenuBar;
+
     CBottomTBStateEnum newState = btbsCount;
     if (CaptionIsActive)
     {
-        if (MenuBar != NULL && MenuBar->IsInMenuLoop())
+        if (activeMenuBar != NULL && activeMenuBar->IsInMenuLoop())
             newState = btbsMenu;
         else
             newState = VirtKeyStateTable[shiftPressed][altPressed][ctrlPressed];
@@ -3569,12 +3588,12 @@ void CMainWindow::UpdateBottomToolBar()
     else
         newState = btbsNormal;
 
-    if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+    if (!updateDetached && BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
     {
         BottomToolBar->SetState(newState);
         BottomToolBar->UpdateItemsState();
     }
-    if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
+    if (updateDetached && DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
     {
         DetachedBottomToolBar->SetState(newState);
         DetachedBottomToolBar->UpdateItemsState();
@@ -3587,6 +3606,68 @@ CMainWindow::HitTest(int xPos, int yPos) // screen coordinates
     POINT p;
     p.x = xPos;
     p.y = yPos;
+    auto pointInWindow = [](HWND hwnd, POINT pt) -> BOOL {
+        if (hwnd == NULL || !IsWindowVisible(hwnd))
+            return FALSE;
+        RECT wr;
+        return (GetWindowRect(hwnd, &wr) && PtInRect(&wr, pt)) ? TRUE : FALSE;
+    };
+
+    auto hitRebarBand = [](HWND hRebar, POINT screenPt) {
+        POINT rebarPt = screenPt;
+        ScreenToClient(hRebar, &rebarPt);
+        RBHITTESTINFO hti;
+        hti.pt = rebarPt;
+        if (SendMessage(hRebar, RB_HITTEST, 0, (LPARAM)&hti) == -1 ||
+            hti.flags == RBHT_NOWHERE || hti.iBand == -1)
+            return mwhteTopRebar;
+
+        REBARBANDINFO rbi;
+        rbi.cbSize = sizeof(rbi);
+        rbi.fMask = RBBIM_ID;
+        SendMessage(hRebar, RB_GETBANDINFO, hti.iBand, (LPARAM)&rbi);
+        switch (rbi.wID)
+        {
+        case BANDID_MENU:
+            return mwhteMenu;
+        case BANDID_TOPTOOLBAR:
+            return mwhteTopToolbar;
+        case BANDID_PLUGINSBAR:
+            return mwhtePluginsBar;
+        case BANDID_UMTOOLBAR:
+            return mwhteUMToolbar;
+        case BANDID_HPTOOLBAR:
+            return mwhteHPToolbar;
+        case BANDID_DRIVEBAR:
+        case BANDID_DRIVEBAR2:
+            return mwhteDriveBar;
+        case BANDID_WORKER:
+            return mwhteWorker;
+        default:
+            TRACE_E("Unknown band in rebar id = " << rbi.wID);
+            return mwhteTopRebar;
+        }
+    };
+
+    if (DetachedPanels && pointInWindow(HRightDetachedWindow, p))
+    {
+        if (pointInWindow(HDetachedTopRebar, p))
+            return hitRebarBand(HDetachedTopRebar, p);
+        if (DetachedBottomToolBar != NULL && pointInWindow(DetachedBottomToolBar->HWindow, p))
+            return mwhteBottomToolbar;
+        if (RightPanel != NULL && pointInWindow(RightPanel->HWindow, p))
+        {
+            if (RightPanel->DirectoryLine != NULL && pointInWindow(RightPanel->DirectoryLine->HWindow, p))
+                return mwhteRightDirLine;
+            if (pointInWindow(RightPanel->GetHeaderLineHWND(), p))
+                return mwhteRightHeaderLine;
+            if (RightPanel->StatusLine != NULL && pointInWindow(RightPanel->StatusLine->HWindow, p))
+                return mwhteRightStatusLine;
+            return mwhteRightWorkingArea;
+        }
+        return mwhteNone;
+    }
+
     RECT clientRect;
     RECT r;
     GetClientRect(HWindow, &clientRect);
@@ -4104,8 +4185,16 @@ MENU_TEMPLATE_ITEM InfoLineMenu[] =
     }
 
     // open the menu
+    HWND hTrackWnd = HWindow;
+    if (DetachedPanels && HRightDetachedWindow != NULL)
+    {
+        POINT pt = {xPos, yPos};
+        RECT wr;
+        if (GetWindowRect(HRightDetachedWindow, &wr) && PtInRect(&wr, pt))
+            hTrackWnd = HRightDetachedWindow;
+    }
     int cmd = menu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
-                         xPos, yPos, HWindow, NULL);
+                         xPos, yPos, hTrackWnd, NULL);
     if (cmd == 0)
         return;
 
@@ -4789,13 +4878,14 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         if (obj->RightPanel->DirectoryLine->ToolBar != NULL &&
             obj->RightPanel->DirectoryLine->ToolBar->HWindow != NULL)
             obj->RightPanel->DirectoryLine->ToolBar->UpdateItemsState();
-        if (obj->BottomToolBar != NULL && obj->BottomToolBar->HWindow != NULL)
+        BOOL updateDetachedBottom = obj->DetachedPanels && obj->GetActivePanel() == obj->RightPanel;
+        if (!updateDetachedBottom && obj->BottomToolBar != NULL && obj->BottomToolBar->HWindow != NULL)
             obj->BottomToolBar->UpdateItemsState();
         if (obj->UMToolBar != NULL && obj->UMToolBar->HWindow != NULL)
             obj->UMToolBar->UpdateItemsState();
         if (obj->DetachedTopToolBar != NULL && obj->DetachedTopToolBar->HWindow != NULL)
             obj->DetachedTopToolBar->UpdateItemsState();
-        if (obj->DetachedBottomToolBar != NULL && obj->DetachedBottomToolBar->HWindow != NULL)
+        if (updateDetachedBottom && obj->DetachedBottomToolBar != NULL && obj->DetachedBottomToolBar->HWindow != NULL)
             obj->DetachedBottomToolBar->UpdateItemsState();
         if (obj->DetachedUMToolBar != NULL && obj->DetachedUMToolBar->HWindow != NULL)
             obj->DetachedUMToolBar->UpdateItemsState();

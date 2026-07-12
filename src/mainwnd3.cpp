@@ -4330,7 +4330,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             UserMenuIconBkgndReader.BeginUserMenuIconsInUse();
         BOOL oldUseCustomPanelFont = UseCustomPanelFont;
         LOGFONT oldLogFont = LogFont;
-        CConfigurationDlg dlg(HWindow, UserMenuItems, (int)wParam, (int)lParam);
+        CConfigurationDlg dlg(GetDetachedAwareDialogParent(HWindow), UserMenuItems, (int)wParam, (int)lParam);
         int res = dlg.Execute(LoadStr(IDS_BUTTON_OK), LoadStr(IDS_BUTTON_CANCEL),
                               LoadStr(IDS_BUTTON_HELP));
         if (readingUMIcons)
@@ -5272,7 +5272,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             BeginStopRefresh(); // snooper takes a break
 
-            CPluginsDlg dlg(HWindow);
+            CPluginsDlg dlg(GetDetachedAwareDialogParent(HWindow));
             dlg.Execute();
             if (dlg.GetRefreshPanels())
             {
@@ -7145,7 +7145,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // STARTF_MONITOR was mentioned online in an article about undocumented features
             si.dwFlags = STARTF_USESHOWWINDOW;
             POINT p;
-            if (MultiMonGetDefaultWindowPos(MainWindow->HWindow, &p))
+            if (MultiMonGetDefaultWindowPos(MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow), &p))
             {
                 // if the main window is on another monitor we should open
                 // the new window there as well, preferably at the default position (same as on the primary)
@@ -7948,6 +7948,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             popup->EnableItem(left ? CM_LEFTZOOMPANEL : CM_RIGHTZOOMPANEL,
                               FALSE,
                               !DetachedPanels);
+
+            if (!left)
+            {
+                MENU_ITEM_INFO mii;
+                mii.Mask = MENU_MASK_TYPE | MENU_MASK_STATE;
+                mii.Type = MENU_TYPE_STRING | MENU_TYPE_RADIOCHECK;
+                mii.State = DetachedPanels ? MENU_STATE_CHECKED : 0;
+                popup->SetItemInfo(CM_DETACHPANELS, FALSE, &mii);
+            }
 
             DWORD firstID = left ? CML_LEFT_VIEWS1 : CML_RIGHT_VIEWS1;
             DWORD lastID = left ? CML_LEFT_VIEWS2 : CML_RIGHT_VIEWS2;
@@ -10297,6 +10306,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (DetachedPanels)
         {
+            if (wParam == 0)
+            {
+                BOOL closeSalamander = FALSE;
+                if (!ConfirmDetachedWindowClose(HWindow, &closeSalamander))
+                    goto EXIT_WM_USER_CLOSE_MAINWND;
+                if (!closeSalamander)
+                {
+                    SetPanelsDetached(FALSE);
+                    goto EXIT_WM_USER_CLOSE_MAINWND;
+                }
+            }
+
             WINDOWPLACEMENT detachedPlace;
             memset(&detachedPlace, 0, sizeof(detachedPlace));
             detachedPlace.length = sizeof(WINDOWPLACEMENT);
