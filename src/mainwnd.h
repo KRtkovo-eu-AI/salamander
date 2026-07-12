@@ -706,6 +706,7 @@ public:
     BOOL TogglePanelsDetached();
     void LayoutDetachedPanelWindow(CPanelSide side, int width, int height);
     void LayoutDetachedPanels();
+    void LayoutMainWindowDetachedPanel(int width, int height);
     HWND GetDetachedPanelWindow(CPanelSide side);
     static LRESULT CALLBACK DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     BOOL ToggleTopToolBar(BOOL storePos = TRUE);

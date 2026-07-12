@@ -7261,11 +7261,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (DetachedPanels)
             {
                 if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
-                    SetParent(LeftTabWindow->HWindow, HLeftDetachedWindow);
+                    SetParent(LeftTabWindow->HWindow, HWindow);
                 if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
                     SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
                 if (LeftPanel != NULL && LeftPanel->HWindow != NULL)
-                    SetParent(LeftPanel->HWindow, HLeftDetachedWindow);
+                    SetParent(LeftPanel->HWindow, HWindow);
                 if (RightPanel != NULL && RightPanel->HWindow != NULL)
                     SetParent(RightPanel->HWindow, HRightDetachedWindow);
             }
@@ -8745,6 +8745,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (DetachedPanels)
         {
+            LayoutMainWindowDetachedPanel(WindowWidth, WindowHeight);
             LayoutDetachedPanels();
             break;
         }

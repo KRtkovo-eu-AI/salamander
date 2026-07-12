@@ -1794,16 +1794,99 @@ void CMainWindow::LayoutDetachedPanels()
         return;
 
     RECT r;
-    if (HLeftDetachedWindow != NULL)
-    {
-        GetClientRect(HLeftDetachedWindow, &r);
-        LayoutDetachedPanelWindow(cpsLeft, r.right - r.left, r.bottom - r.top);
-    }
     if (HRightDetachedWindow != NULL)
     {
         GetClientRect(HRightDetachedWindow, &r);
         LayoutDetachedPanelWindow(cpsRight, r.right - r.left, r.bottom - r.top);
     }
+}
+
+void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
+{
+    if (LeftPanel == NULL)
+        return;
+
+    TopRebarHeight = 0;
+    BottomToolBarHeight = 0;
+    EditHeight = 0;
+    PanelsHeight = height - 1;
+
+    RECT rebRect;
+    if (HTopRebar != NULL)
+    {
+        GetWindowRect(HTopRebar, &rebRect);
+        TopRebarHeight = rebRect.bottom - rebRect.top;
+    }
+
+    if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+        BottomToolBarHeight = BottomToolBar->GetNeededHeight();
+    if (EditWindow != NULL && EditWindow->HWindow != NULL)
+        EditHeight = EditWindow->GetNeededHeight() + 1;
+
+    PanelsHeight -= TopRebarHeight + BottomToolBarHeight + EditHeight;
+    if (PanelsHeight < 0)
+        PanelsHeight = 0;
+    int panelWidth = width - 2;
+    if (panelWidth < 0)
+        panelWidth = 0;
+
+    int leftTabHeight = 0;
+    BOOL leftTabsVisible = LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL &&
+                           Configuration.UsePanelTabs && LeftPanelTabs.Count > 0;
+    if (leftTabsVisible)
+        leftTabHeight = LeftTabWindow->GetNeededHeight();
+
+    int windowsCount = 1;
+    if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+        windowsCount++;
+    if (LeftPanel->HWindow != NULL)
+        windowsCount++;
+    if (EditWindow != NULL && EditWindow->HWindow != NULL)
+        windowsCount++;
+    if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+        windowsCount++;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(windowsCount));
+    if (hdwp != NULL)
+    {
+        if (HTopRebar != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, HTopRebar, NULL,
+                                          0, 0, width, TopRebarHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER));
+
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+        {
+            hdwp = HANDLES(DeferWindowPos(hdwp, LeftTabWindow->HWindow, NULL,
+                                          1, TopRebarHeight, panelWidth, leftTabHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER |
+                                              (leftTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
+        }
+
+        if (LeftPanel->HWindow != NULL)
+        {
+            int leftPanelHeight = PanelsHeight - leftTabHeight;
+            if (leftPanelHeight < 0)
+                leftPanelHeight = 0;
+            hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HWindow, NULL,
+                                          1, TopRebarHeight + leftTabHeight, panelWidth, leftPanelHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+        }
+
+        if (EditWindow != NULL && EditWindow->HWindow != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, EditWindow->HWindow, HWND_BOTTOM,
+                                          0, TopRebarHeight + PanelsHeight + 2, width, EditHeight + 150,
+                                          SWP_NOACTIVATE));
+
+        if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, BottomToolBar->HWindow, NULL,
+                                          1, TopRebarHeight + PanelsHeight + EditHeight + 1, panelWidth, BottomToolBarHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER));
+
+        HANDLES(EndDeferWindowPos(hdwp));
+    }
+
+    if (LeftPanel->HWindow != NULL)
+        LeftPanel->LayoutListBoxChilds();
 }
 
 static const char* DETACHED_PANEL_CLASSNAME = "SalamanderDetachedPanelWindow";
@@ -1869,41 +1952,29 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
 
     if (detached)
     {
-        if (HLeftDetachedWindow == NULL)
-            HLeftDetachedWindow = CreateDetachedPanelWindow(this, cpsLeft);
         if (HRightDetachedWindow == NULL)
             HRightDetachedWindow = CreateDetachedPanelWindow(this, cpsRight);
-        if (HLeftDetachedWindow == NULL || HRightDetachedWindow == NULL)
+        if (HRightDetachedWindow == NULL)
             return FALSE;
 
-        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
-            SetParent(LeftTabWindow->HWindow, HLeftDetachedWindow);
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
             SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
-        if (LeftPanel->HWindow != NULL)
-            SetParent(LeftPanel->HWindow, HLeftDetachedWindow);
         if (RightPanel->HWindow != NULL)
             SetParent(RightPanel->HWindow, HRightDetachedWindow);
 
         DetachedPanels = TRUE;
-        ShowWindow(HLeftDetachedWindow, SW_SHOW);
         ShowWindow(HRightDetachedWindow, SW_SHOW);
+        LayoutWindows();
         LayoutDetachedPanels();
     }
     else
     {
-        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
-            SetParent(LeftTabWindow->HWindow, HWindow);
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
             SetParent(RightTabWindow->HWindow, HWindow);
-        if (LeftPanel->HWindow != NULL)
-            SetParent(LeftPanel->HWindow, HWindow);
         if (RightPanel->HWindow != NULL)
             SetParent(RightPanel->HWindow, HWindow);
 
         DetachedPanels = FALSE;
-        if (HLeftDetachedWindow != NULL)
-            ShowWindow(HLeftDetachedWindow, SW_HIDE);
         if (HRightDetachedWindow != NULL)
             ShowWindow(HRightDetachedWindow, SW_HIDE);
         LayoutWindows();
@@ -1937,6 +2008,12 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
 
         case WM_SETFOCUS:
             mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            return 0;
+
+        case WM_ACTIVATE:
+            mainWindow->CaptionIsActive = LOWORD(wParam) != WA_INACTIVE;
+            if (mainWindow->CaptionIsActive)
+                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return 0;
 
         case WM_COMMAND:
