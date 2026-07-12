@@ -468,9 +468,9 @@ BOOL CMainWindow::IsGood()
 
 CMainWindow::~CMainWindow()
 {
-    HANDLES(DeleteCriticalSection(&DispachChangeNotifCS));
     if (DetachedPanels)
         SetPanelsDetached(FALSE, DetachedPanelSide);
+    HANDLES(DeleteCriticalSection(&DispachChangeNotifCS));
     if (HLeftDetachedWindow != NULL)
         HANDLES(DestroyWindow(HLeftDetachedWindow));
     if (HRightDetachedWindow != NULL)
