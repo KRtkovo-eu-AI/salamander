@@ -120,6 +120,7 @@ CStatusWindow::CStatusWindow(CFilesWindow* filesWindow, int border, CObjectOrigi
     Left = TRUE; // dummy
     ToolBar = NULL;
     ToolBarWidth = 0;
+    DriveIcon = NULL;
     EllipsedChars = -1;
     EllipsedWidth = -1;
     NeedToInvalidate = FALSE;
@@ -168,6 +169,8 @@ CStatusWindow::~CStatusWindow()
         free(ThrobberTooltip);
     if (SecurityTooltip != NULL)
         free(SecurityTooltip);
+    if (DriveIcon != NULL)
+        HANDLES(DestroyIcon(DriveIcon));
     if (ToolBar != NULL)
     {
         if (ToolBar->HWindow != NULL)
@@ -655,6 +658,8 @@ BOOL CStatusWindow::ToggleToolBar()
         ToolBar->SetHotImageList(HHotToolBarImageList);
         ToolBar->SetStyle(TLB_STYLE_IMAGE | TLB_STYLE_ADJUSTABLE);
         ToolBar->Load(Left ? Configuration.LeftToolBar : Configuration.RightToolBar);
+        if (DriveIcon != NULL)
+            ToolBar->ReplaceImage(Left ? CM_LCHANGEDRIVE : CM_RCHANGEDRIVE, FALSE, DriveIcon, TRUE, TRUE);
         SendMessage(ToolBar->HWindow, TB_SETPARENT, (WPARAM)MainWindow->HWindow, 0);
         ShowWindow(ToolBar->HWindow, SW_SHOW);
         return TRUE;
@@ -665,8 +670,19 @@ BOOL CStatusWindow::ToggleToolBar()
 BOOL CStatusWindow::SetDriveIcon(HICON hIcon)
 {
     CALL_STACK_MESSAGE_NONE
+    if (hIcon == NULL)
+        return FALSE;
+
+    HICON iconCopy = HANDLES(CopyIcon(hIcon));
+    if (iconCopy == NULL)
+        return FALSE;
+
+    if (DriveIcon != NULL)
+        HANDLES(DestroyIcon(DriveIcon));
+    DriveIcon = iconCopy;
+
     if (ToolBar != NULL && ToolBar->HWindow != NULL)
-        ToolBar->ReplaceImage(Left ? CM_LCHANGEDRIVE : CM_RCHANGEDRIVE, FALSE, hIcon, TRUE, TRUE);
+        ToolBar->ReplaceImage(Left ? CM_LCHANGEDRIVE : CM_RCHANGEDRIVE, FALSE, DriveIcon, TRUE, TRUE);
     return TRUE;
 }
 

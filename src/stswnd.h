@@ -94,6 +94,7 @@ protected:
     BOOL Left;
 
     int ToolBarWidth; // Current toolbar width
+    HICON DriveIcon;  // Current Change Drive icon copied for toolbar recreation
 
     int EllipsedChars; // Number of characters omitted after the root; otherwise -1
     int EllipsedWidth; // Length of the omitted string after the root; otherwise -1

@@ -2842,11 +2842,14 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
             if (DirectoryLine->HWindow != NULL)
             {
                 UINT type = MyGetDriveType(GetPath());
-                char root[MAX_PATH];
+                CPathBuffer root; // long/Unicode paths may have UNC roots longer than MAX_PATH
                 GetRootPath(root, GetPath());
                 HICON hIcon = GetDriveIcon(root, type, TRUE);
-                DirectoryLine->SetDriveIcon(hIcon);
-                HANDLES(DestroyIcon(hIcon));
+                if (hIcon != NULL)
+                {
+                    DirectoryLine->SetDriveIcon(hIcon);
+                    HANDLES(DestroyIcon(hIcon));
+                }
             }
             // 2.5RC3: the button in drive bars must be set even if directory line is disabled
             MainWindow->UpdateDriveBars(); // press the correct disk in drive bar
