@@ -721,6 +721,11 @@ void CStatusWindow::GetHotText(char* buffer, int bufSize)
         buffer[0] = 0;
 }
 
+BOOL CStatusWindow::IsDetachedPinButton() const
+{
+    return MainWindow != NULL && MainWindow->DetachedPanels;
+}
+
 BOOL CStatusWindow::FindHotTrackItem(int xPos, int& index)
 {
     CALL_STACK_MESSAGE_NONE
@@ -1312,7 +1317,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     else
                         pinColor = GetPanelDefaultTextColor();
                 }
-                DrawDirectoryLinePin(dc, &ZoomRect, FALSE, pinColor);
+                DrawDirectoryLinePin(dc, &ZoomRect, TRUE, pinColor);
             }
             else
             {

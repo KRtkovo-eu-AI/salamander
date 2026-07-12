@@ -1789,7 +1789,7 @@ CCfgPageConfirmations::CreateImageList()
     ImageList_AddIcon(hIL, hIcon);
     DestroyIcon(hIcon);
 
-    LoadIconWithScaleDown(HInstance, MAKEINTRESOURCE(IDI_CONFIRM_ERRORS), iconSize, iconSize, &hIcon);
+    LoadIconWithScaleDown(HInstance, (PCWSTR)IDI_CONFIRM_ERRORS, iconSize, iconSize, &hIcon);
     ImageList_AddIcon(hIL, hIcon);
     DestroyIcon(hIcon);
 
