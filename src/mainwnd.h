@@ -431,8 +431,7 @@ public:
 
     BOOL Created;
     BOOL RestoringPanelPaths; // suppress repeated Tree View rebuilds while LoadConfig restores panels
-    BOOL DetachedPanels;      // TRUE = one panel side is hosted in a separate top-level window
-    CPanelSide DetachedPanelSide;
+    BOOL DetachedPanels;      // TRUE = left and right sides are hosted in separate top-level windows
     BOOL DetachedPanels;      // TRUE = one panel side is hosted in a separate top-level window
     CPanelSide DetachedPanelSide;
 
@@ -679,11 +678,11 @@ public:
     // returns the index of an unassigned hot path or -1 if all are assigned
     int GetUnassignedHotPathIndex();
 
-    BOOL SetPanelsDetached(BOOL detached, CPanelSide side = cpsRight);
-    BOOL TogglePanelsDetached(CPanelSide side);
+    BOOL SetPanelsDetached(BOOL detached);
+    BOOL TogglePanelsDetached();
     void LayoutDetachedPanelWindow(CPanelSide side, int width, int height);
     void LayoutDetachedPanels();
-    void LayoutMainWindowDetachedPanel(CPanelSide side, int width, int height);
+    void LayoutMainWindowDetachedPanel(int width, int height);
     HWND GetDetachedPanelWindow(CPanelSide side);
     static LRESULT CALLBACK DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     void SetFont();

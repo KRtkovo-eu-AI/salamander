@@ -169,6 +169,7 @@ STRINGTABLE
  IDS_MENU_OPT_VSB_BOTTOM,    "&Bottom Toolbar"
  IDS_MENU_OPT_VSB_UMLABELS,  "Te&xt Labels in User Menu Bar"
  IDS_MENU_OPT_VSB_GRIPS,     "&Lock the Toolbars"
+ IDS_MENU_OPT_DETACHPANELS,  "&Detach Right Side"
  IDS_MENU_OPT_SAVECONFIG,    "&Save Configuration"
  IDS_MENU_OPT_EXPORTCONFIG,  "&Export Configuration..."
  IDS_MENU_OPT_IMPORTCONFIG,  "&Import Configuration..."
@@ -192,8 +193,6 @@ STRINGTABLE
  IDS_MENU_RIGHT_MOVETABTOLEFT,      "Move Tab to &Left Side"
  IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT, "Close all &Right Side tabs except default"
  IDS_MENU_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT, "Close all &Right Side tabs except this and default"
- IDS_MENU_LEFT_DETACHPANEL,  "&Detach Left Side"
- IDS_MENU_RIGHT_DETACHPANEL, "&Detach Right Side"
  IDS_MENU_LEFT_DETACHPANEL,  "&Detach Left Side"
  IDS_MENU_RIGHT_DETACHPANEL, "&Detach Right Side"
 

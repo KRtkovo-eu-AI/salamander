@@ -303,6 +303,7 @@
 #define CM_SETSPLIMOPER        933
 
 #define CM_IMPORTCONFIG        934
+#define CM_DETACHPANELS        935
 
 #define CM_NEWTAB              1100
 #define CM_CLOSETAB            1101
@@ -344,8 +345,6 @@
 #define CM_RIGHT_REOPENTAB     1137
 #define CM_RIGHT_LOCKTAB       1138
 #define CM_RIGHT_UNLOCKTAB     1139
-#define CM_LEFTDETACHPANEL     1140
-#define CM_RIGHTDETACHPANEL    1141
 #define CM_LEFTDETACHPANEL     1140
 #define CM_RIGHTDETACHPANEL    1141
 

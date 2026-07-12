@@ -6999,10 +6999,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
-        case CM_LEFTDETACHPANEL:
-        case CM_RIGHTDETACHPANEL:
+        case CM_DETACHPANELS:
         {
-            TogglePanelsDetached(LOWORD(wParam) == CM_LEFTDETACHPANEL ? cpsLeft : cpsRight);
+            TogglePanelsDetached();
             IdleRefreshStates = TRUE;
             break;
         }
@@ -7236,27 +7235,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             LeftPanel = oldRightPanel;
             if (DetachedPanels)
             {
-                HWND detachedWindow = GetDetachedPanelWindow(DetachedPanelSide);
                 if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
-                    SetParent(LeftTabWindow->HWindow, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
+                    SetParent(LeftTabWindow->HWindow, HWindow);
                 if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
-                    SetParent(RightTabWindow->HWindow, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
-                if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL)
-                    SetParent(LeftPanel->HTreeHeader, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
-                if (RightPanel != NULL && RightPanel->HTreeHeader != NULL)
-                    SetParent(RightPanel->HTreeHeader, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
-                if (LeftPanel != NULL && LeftPanel->HTreeView != NULL)
-                    SetParent(LeftPanel->HTreeView, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
-                if (RightPanel != NULL && RightPanel->HTreeView != NULL)
-                    SetParent(RightPanel->HTreeView, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
-                if (LeftPanel != NULL && LeftPanel->HTreeSplit != NULL)
-                    SetParent(LeftPanel->HTreeSplit, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
-                if (RightPanel != NULL && RightPanel->HTreeSplit != NULL)
-                    SetParent(RightPanel->HTreeSplit, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
+                    SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
                 if (LeftPanel != NULL && LeftPanel->HWindow != NULL)
-                    SetParent(LeftPanel->HWindow, DetachedPanelSide == cpsLeft ? detachedWindow : HWindow);
+                    SetParent(LeftPanel->HWindow, HWindow);
                 if (RightPanel != NULL && RightPanel->HWindow != NULL)
-                    SetParent(RightPanel->HWindow, DetachedPanelSide == cpsRight ? detachedWindow : HWindow);
+                    SetParent(RightPanel->HWindow, HRightDetachedWindow);
             }
 
             RightPanel = oldLeftPanel;
@@ -7877,8 +7863,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (hIcons != NULL)
             {
                 popup->SetHotImageList(NULL); // just to be safe, so the popup doesn't own an invalid handle
-            popup->CheckItem(left ? CM_LEFTDETACHPANEL : CM_RIGHTDETACHPANEL,
-                             FALSE, DetachedPanels && DetachedPanelSide == (left ? cpsLeft : cpsRight));
                 ImageList_Destroy(hIcons);
             }
             if (popupID == CML_PLUGINS) // closing the Plugins menu; dynamic icons can be freed (they are rebuilt before each next menu opening)
@@ -8056,6 +8040,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_STATE;
                 mii.Type = MENU_TYPE_STRING;
                 mii.String = LoadStr(IDS_NEWISNOTAVAILABLE);
+            popup->CheckItem(CM_DETACHPANELS, FALSE, DetachedPanels);
                 mii.State = MENU_STATE_GRAYED;
                 popup->InsertItem(0, TRUE, &mii);
             }
@@ -8736,7 +8721,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (DetachedPanels)
         {
-            LayoutMainWindowDetachedPanel(DetachedPanelSide == cpsLeft ? cpsRight : cpsLeft, WindowWidth, WindowHeight);
+            LayoutMainWindowDetachedPanel(WindowWidth, WindowHeight);
             LayoutDetachedPanels();
             break;
         }
@@ -9556,8 +9541,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
         else
         {
-        if (DetachedPanels)
-            SetPanelsDetached(FALSE, DetachedPanelSide);
             if (ActivateSuspMode != actSusMode) // e.g. two deactivations in a row or missed activation
             {
                 KillTimer(HWindow, IDT_POSTENDSUSPMODE); // if activation hasn't happened yet, cancel (it may start again)
