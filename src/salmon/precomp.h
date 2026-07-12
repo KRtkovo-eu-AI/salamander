@@ -25,6 +25,7 @@
 
 #include "..\salmoncl.h"
 #include "..\darkmode.h"
+#include "..\consts.h"
 
 #include "salmon.h"
 #include "compress.h"

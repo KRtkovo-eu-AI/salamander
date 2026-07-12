@@ -12,9 +12,9 @@ BOOL CompresBugReports(CCompressParams* compressParams)
 {
     BOOL ret = FALSE;
     compressParams->ErrorMessage[0] = 0;
-    char wrapperDLL[MAX_PATH];
-    GetSalamanderRootPath(wrapperDLL, MAX_PATH);
-    lstrcpyn(wrapperDLL + strlen(wrapperDLL), "\\plugins\\7zip\\7zwrapper.dll", MAX_PATH - (int)strlen(wrapperDLL));
+    char wrapperDLL[SAL_MAX_PATH];
+    GetSalamanderRootPath(wrapperDLL, SAL_MAX_PATH);
+    lstrcpyn(wrapperDLL + strlen(wrapperDLL), "\\plugins\\7zip\\7zwrapper.dll", SAL_MAX_PATH - (int)strlen(wrapperDLL));
 
     HINSTANCE h7zwrapper = LoadLibraryEx(wrapperDLL, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
     if (h7zwrapper != NULL)
