@@ -1567,7 +1567,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     else
     {
         char buff[SAL_MAX_PATH + 300];
-        _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_CANT_EDIT_FILE), name);
+        _snprintf_s(buff, _TRUNCATE, "%s", LoadStr(IDS_CANT_EDIT_FILE));
         SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);
     }
