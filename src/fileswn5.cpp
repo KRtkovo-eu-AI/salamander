@@ -1052,11 +1052,11 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     lockOwner = FALSE;
 
     // obtain the full DOS name
-    char dosName[SAL_MAX_PATH];
-    if (GetShortPathName(name, dosName, SAL_MAX_PATH) == 0)
+    CPathBuffer dosName(SAL_MAX_PATH);
+    if (GetShortPathName(name, dosName.Data(), dosName.Capacity()) == 0)
     {
         TRACE_E("GetShortPathName() failed");
-        dosName[0] = 0;
+        dosName.Data()[0] = 0;
     }
 
     // find the file name and check if it has an extension - needed for masks
@@ -1155,15 +1155,15 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         {
         case VIEWER_EXTERNAL:
         {
-            char expCommand[SAL_MAX_PATH];
-            char expArguments[SAL_MAX_PATH];
-            char expInitDir[SAL_MAX_PATH];
-            if (ExpandCommand(parent, viewer->Command, expCommand, SAL_MAX_PATH, FALSE) &&
-                ExpandArguments(parent, name, dosName, viewer->Arguments, expArguments, SAL_MAX_PATH, NULL) &&
-                ExpandInitDir(parent, name, dosName, viewer->InitDir, expInitDir, SAL_MAX_PATH, FALSE))
+            CPathBuffer expCommand(SAL_MAX_PATH);
+            CPathBuffer expArguments(SAL_MAX_PATH);
+            CPathBuffer expInitDir(SAL_MAX_PATH);
+            if (ExpandCommand(parent, viewer->Command, expCommand.Data(), expCommand.Capacity(), FALSE) &&
+                ExpandArguments(parent, name, dosName.Data(), viewer->Arguments, expArguments.Data(), expArguments.Capacity(), NULL) &&
+                ExpandInitDir(parent, name, dosName.Data(), viewer->InitDir, expInitDir.Data(), expInitDir.Capacity(), FALSE))
             {
                 if (SystemPolicies.GetMyRunRestricted() &&
-                    !SystemPolicies.GetMyCanRun(expCommand))
+                    !SystemPolicies.GetMyCanRun(expCommand.Data()))
                 {
                     MSGBOXEX_PARAMS params;
                     memset(&params, 0, sizeof(params));
@@ -1189,29 +1189,29 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                               STARTF_USESHOWWINDOW;
                 si.wShowWindow = SW_SHOWNORMAL;
 
-                char cmdLine[2 * SAL_MAX_PATH];
-                lstrcpyn(cmdLine, expCommand, 2 * SAL_MAX_PATH);
-                AddDoubleQuotesIfNeeded(cmdLine, 2 * SAL_MAX_PATH); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
-                int len = (int)strlen(cmdLine);
-                int lArgs = (int)strlen(expArguments);
-                if (len + lArgs + 2 <= 2 * SAL_MAX_PATH)
+                CPathBuffer cmdLine(2 * SAL_MAX_PATH);
+                lstrcpyn(cmdLine.Data(), expCommand.Data(), cmdLine.Capacity());
+                AddDoubleQuotesIfNeeded(cmdLine.Data(), cmdLine.Capacity()); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
+                int len = (int)strlen(cmdLine.Data());
+                int lArgs = (int)strlen(expArguments.Data());
+                if (len + lArgs + 2 <= cmdLine.Capacity())
                 {
-                    cmdLine[len] = ' ';
-                    memcpy(cmdLine + len + 1, expArguments, lArgs + 1);
+                    cmdLine.Data()[len] = ' ';
+                    memcpy(cmdLine.Data() + len + 1, expArguments.Data(), lArgs + 1);
 
                     MainWindow->SetDefaultDirectories();
 
-                    if (expInitDir[0] == 0) // this should never happen
+                    if (expInitDir.Data()[0] == 0) // this should never happen
                     {
-                        strcpy(expInitDir, name);
-                        CutDirectory(expInitDir);
+                        lstrcpyn(expInitDir.Data(), name, expInitDir.Capacity());
+                        CutDirectory(expInitDir.Data());
                     }
-                    if (!CreateProcessForFileAction(cmdLine, expInitDir, &si, &pi))
+                    if (!CreateProcessForFileAction(cmdLine.Data(), expInitDir.Data(), &si, &pi))
                     {
                         DWORD err = GetLastError();
-                        char buff[4 * SAL_MAX_PATH];
-                        sprintf(buff, LoadStr(IDS_ERROREXECVIEW), expCommand, GetErrorText(err));
-                        SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                        CPathBuffer buff(4 * SAL_MAX_PATH);
+                        sprintf(buff.Data(), LoadStr(IDS_ERROREXECVIEW), expCommand.Data(), GetErrorText(err));
+                        SalMessageBox(parent, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                     }
                     else
                     {
@@ -1228,9 +1228,9 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 }
                 else
                 {
-                    char buff[4 * SAL_MAX_PATH];
-                    sprintf(buff, LoadStr(IDS_ERROREXECVIEW), expCommand, LoadStr(IDS_TOOLONGNAME));
-                    SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                    CPathBuffer buff(4 * SAL_MAX_PATH);
+                    sprintf(buff.Data(), LoadStr(IDS_ERROREXECVIEW), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
+                    SalMessageBox(parent, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
             }
             break;
@@ -1403,11 +1403,11 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     }
 
     // obtain the full DOS name
-    char dosName[SAL_MAX_PATH];
-    if (GetShortPathName(name, dosName, SAL_MAX_PATH) == 0)
+    CPathBuffer dosName(SAL_MAX_PATH);
+    if (GetShortPathName(name, dosName.Data(), dosName.Capacity()) == 0)
     {
         TRACE_I("GetShortPathName() failed.");
-        dosName[0] = 0;
+        dosName.Data()[0] = 0;
     }
 
     // find the file name and check if it has an extension - needed for masks
@@ -1482,15 +1482,15 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         if (addToHistory)
             MainWindow->FileHistory->AddFile(fhitEdit, editor->HandlerID, name); // add file to history
 
-        char expCommand[SAL_MAX_PATH];
-        char expArguments[SAL_MAX_PATH];
-        char expInitDir[SAL_MAX_PATH];
-        if (ExpandCommand(HWindow, editor->Command, expCommand, SAL_MAX_PATH, FALSE) &&
-            ExpandArguments(HWindow, name, dosName, editor->Arguments, expArguments, SAL_MAX_PATH, NULL) &&
-            ExpandInitDir(HWindow, name, dosName, editor->InitDir, expInitDir, SAL_MAX_PATH, FALSE))
+        CPathBuffer expCommand(SAL_MAX_PATH);
+        CPathBuffer expArguments(SAL_MAX_PATH);
+        CPathBuffer expInitDir(SAL_MAX_PATH);
+        if (ExpandCommand(HWindow, editor->Command, expCommand.Data(), expCommand.Capacity(), FALSE) &&
+            ExpandArguments(HWindow, name, dosName.Data(), editor->Arguments, expArguments.Data(), expArguments.Capacity(), NULL) &&
+            ExpandInitDir(HWindow, name, dosName.Data(), editor->InitDir, expInitDir.Data(), expInitDir.Capacity(), FALSE))
         {
             if (SystemPolicies.GetMyRunRestricted() &&
-                !SystemPolicies.GetMyCanRun(expCommand))
+                !SystemPolicies.GetMyCanRun(expCommand.Data()))
             {
                 MSGBOXEX_PARAMS params;
                 memset(&params, 0, sizeof(params));
@@ -1516,29 +1516,29 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                           STARTF_USESHOWWINDOW;
             si.wShowWindow = SW_SHOWNORMAL;
 
-            char cmdLine[2 * SAL_MAX_PATH];
-            lstrcpyn(cmdLine, expCommand, 2 * SAL_MAX_PATH);
-            AddDoubleQuotesIfNeeded(cmdLine, 2 * SAL_MAX_PATH); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
-            int len = (int)strlen(cmdLine);
-            int lArgs = (int)strlen(expArguments);
-            if (len + lArgs + 2 <= 2 * SAL_MAX_PATH)
+            CPathBuffer cmdLine(2 * SAL_MAX_PATH);
+            lstrcpyn(cmdLine.Data(), expCommand.Data(), cmdLine.Capacity());
+            AddDoubleQuotesIfNeeded(cmdLine.Data(), cmdLine.Capacity()); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
+            int len = (int)strlen(cmdLine.Data());
+            int lArgs = (int)strlen(expArguments.Data());
+            if (len + lArgs + 2 <= cmdLine.Capacity())
             {
-                cmdLine[len] = ' ';
-                memcpy(cmdLine + len + 1, expArguments, lArgs + 1);
+                cmdLine.Data()[len] = ' ';
+                memcpy(cmdLine.Data() + len + 1, expArguments.Data(), lArgs + 1);
 
                 MainWindow->SetDefaultDirectories();
 
-                if (expInitDir[0] == 0) // this should never happen
+                if (expInitDir.Data()[0] == 0) // this should never happen
                 {
-                    strcpy(expInitDir, name);
-                    CutDirectory(expInitDir);
+                    lstrcpyn(expInitDir.Data(), name, expInitDir.Capacity());
+                    CutDirectory(expInitDir.Data());
                 }
-                if (!CreateProcessForFileAction(cmdLine, expInitDir, &si, &pi))
+                if (!CreateProcessForFileAction(cmdLine.Data(), expInitDir.Data(), &si, &pi))
                 {
                     DWORD err = GetLastError();
-                    char buff[4 * SAL_MAX_PATH];
-                    sprintf(buff, LoadStr(IDS_ERROREXECEDIT), expCommand, GetErrorText(err));
-                    SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                    CPathBuffer buff(4 * SAL_MAX_PATH);
+                    sprintf(buff.Data(), LoadStr(IDS_ERROREXECEDIT), expCommand.Data(), GetErrorText(err));
+                    SalMessageBox(HWindow, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
                 else
                 {
@@ -1548,9 +1548,9 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
             }
             else
             {
-                char buff[4 * SAL_MAX_PATH];
-                sprintf(buff, LoadStr(IDS_ERROREXECEDIT), expCommand, LoadStr(IDS_TOOLONGNAME));
-                SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                CPathBuffer buff(4 * SAL_MAX_PATH);
+                sprintf(buff.Data(), LoadStr(IDS_ERROREXECEDIT), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
+                SalMessageBox(HWindow, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
             }
         }
     }
