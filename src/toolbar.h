@@ -11,6 +11,10 @@
 class CToolBar;
 class CTBCustomizeDialog;
 
+// Internal toolbar item style: when a grayed item is drawn in dark mode,
+// render its image using the same disabled color as the label text.
+#define TLBI_STYLE_DARK_DISABLED_IMAGE_TEXT 0x80000000
+
 class CToolBarItem
 {
 protected:
