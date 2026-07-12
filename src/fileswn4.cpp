@@ -464,6 +464,22 @@ void DrawFocusRect(HDC hDC, const RECT* r, BOOL selected, BOOL editMode)
 char DrawItemBuff[1024]; // destination buffer for strings
 int DrawItemAlpDx[1024]; // for width calculations of columns with FixedWidth bit + elastic columns with smart mode
 
+static BOOL IsValidUtf8PrefixForDraw(const char* text, int len)
+{
+    return text != NULL && len >= 0 &&
+           MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, len, NULL, 0) != 0;
+}
+
+static int Utf8SafeDrawPrefixLen(const char* text, int len)
+{
+    if (GetACP() != CP_UTF8 || text == NULL || len <= 0)
+        return max(len, 0);
+
+    while (len > 0 && !IsValidUtf8PrefixForDraw(text, len))
+        --len;
+    return len;
+}
+
 void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD drawFlags)
 {
     CALL_STACK_MESSAGE_NONE
@@ -728,6 +744,10 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                     int totalCount;
                     if (fitChars > 0)
                     {
+                        fitChars = Utf8SafeDrawPrefixLen(TransferBuffer, fitChars);
+                    }
+                    if (fitChars > 0)
+                    {
                         memmove(DrawItemBuff, TransferBuffer, fitChars);
                         // and append "..."
                         memmove(DrawItemBuff + fitChars, "...", 3);
@@ -735,9 +755,8 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                     }
                     else
                     {
-                        DrawItemBuff[0] = TransferBuffer[0];
-                        DrawItemBuff[1] = '.';
-                        totalCount = 2;
+                        DrawItemBuff[0] = '.';
+                        totalCount = 1;
                     }
 
                     // DRAWFLAG_MASK: hack, under XP some stuff is added in font of the text in the mask while drawing short texts; not an issue if text is not drawn
@@ -866,6 +885,10 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                                 int totalCount;
                                 if (fitChars > 0)
                                 {
+                                    fitChars = Utf8SafeDrawPrefixLen(TransferBuffer, fitChars);
+                                }
+                                if (fitChars > 0)
+                                {
                                     memmove(DrawItemBuff, TransferBuffer, fitChars);
                                     // and append "..."
                                     memmove(DrawItemBuff + fitChars, "...", 3);
@@ -873,9 +896,8 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                                 }
                                 else
                                 {
-                                    DrawItemBuff[0] = TransferBuffer[0];
-                                    DrawItemBuff[1] = '.';
-                                    totalCount = 2;
+                                    DrawItemBuff[0] = '.';
+                                    totalCount = 1;
                                 }
                                 ExtTextOut(hDC, r.left + SPACE_WIDTH / 2, y, ETO_OPAQUE, &adjR, DrawItemBuff, totalCount, NULL);
                             }
@@ -1033,7 +1055,8 @@ void SplitText(HDC hDC, const char* text, int textLen, int* maxWidth,
             // (the space is omitted to save room)
             if (lastSpaceIndex > 0)
             {
-                *out1Len = min(*out1Len, lastSpaceIndex);
+                int out1CopyLen = Utf8SafeDrawPrefixLen(text, lastSpaceIndex);
+                *out1Len = min(*out1Len, out1CopyLen);
                 *out1Width = DrawItemAlpDx[lastSpaceIndex - 1];
                 memmove(out1, text, *out1Len);
             }
@@ -1055,8 +1078,9 @@ void SplitText(HDC hDC, const char* text, int textLen, int* maxWidth,
             while (DrawItemAlpDx[backTrackIndex] + TextEllipsisWidth > maxW && backTrackIndex > 0)
                 backTrackIndex--;
 
-            *out1Len = min(*out1Len, backTrackIndex + 3);
-            *out1Width = DrawItemAlpDx[backTrackIndex - 1] + TextEllipsisWidth;
+            int out1CopyLen = Utf8SafeDrawPrefixLen(text, backTrackIndex);
+            *out1Len = min(*out1Len, out1CopyLen + 3);
+            *out1Width = backTrackIndex > 0 ? DrawItemAlpDx[backTrackIndex - 1] + TextEllipsisWidth : TextEllipsisWidth;
             memmove(out1, text, *out1Len - 3);
             if (*out1Len >= 3)
                 memmove(out1 + *out1Len - 3, "...", 3);
@@ -1096,7 +1120,8 @@ void SplitText(HDC hDC, const char* text, int textLen, int* maxWidth,
                        backTrackIndex > oldIndex)
                     backTrackIndex--;
 
-                *out2Len = min(*out2Len, backTrackIndex - oldIndex + 3);
+                int out2CopyLen = Utf8SafeDrawPrefixLen(text + oldIndex, backTrackIndex - oldIndex);
+                *out2Len = min(*out2Len, out2CopyLen + 3);
                 *out2Width = DrawItemAlpDx[backTrackIndex - 1] - offsetX + TextEllipsisWidth;
                 memmove(out2, text + oldIndex, *out2Len - 3);
                 if (*out2Len >= 3)
@@ -1105,8 +1130,8 @@ void SplitText(HDC hDC, const char* text, int textLen, int* maxWidth,
             else
             {
                 // the second line fit completely
-                memmove(out2, text + oldIndex, index - oldIndex);
-                *out2Len = index - oldIndex;
+                *out2Len = Utf8SafeDrawPrefixLen(text + oldIndex, index - oldIndex);
+                memmove(out2, text + oldIndex, *out2Len);
                 *out2Width = DrawItemAlpDx[index - 1] - offsetX;
             }
         }
@@ -1559,14 +1584,18 @@ void TruncateSringToFitWidth(HDC hDC, char* buffer, int* bufferLen, int maxTextW
         // copy part of the original string to another buffer
         if (fitChars > 0)
         {
+            fitChars = Utf8SafeDrawPrefixLen(buffer, fitChars);
+        }
+        if (fitChars > 0)
+        {
             // and append "..."
             memmove(buffer + fitChars, "...", 3);
             *bufferLen = fitChars + 3;
         }
         else
         {
-            buffer[1] = '.';
-            *bufferLen = 2;
+            buffer[0] = '.';
+            *bufferLen = 1;
         }
     }
     else
