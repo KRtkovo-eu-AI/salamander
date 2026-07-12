@@ -12,8 +12,11 @@ BOOL CompresBugReports(CCompressParams* compressParams)
 {
     BOOL ret = FALSE;
     compressParams->ErrorMessage[0] = 0;
-    const char* WRAPPER_DLL = "..\\plugins\\7zip\\7zwrapper.dll";
-    HINSTANCE h7zwrapper = LoadLibrary(WRAPPER_DLL);
+    char wrapperDLL[MAX_PATH];
+    GetSalamanderRootPath(wrapperDLL, MAX_PATH);
+    lstrcpyn(wrapperDLL + strlen(wrapperDLL), "\\plugins\\7zip\\7zwrapper.dll", MAX_PATH - (int)strlen(wrapperDLL));
+
+    HINSTANCE h7zwrapper = LoadLibraryEx(wrapperDLL, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
     if (h7zwrapper != NULL)
     {
         typedef BOOL(WINAPI * CompressFiles_t)(const char* archiveName7z, const char* sourceDir, const char* filter, char* errorMessage, int errorMessageSize);
