@@ -2881,7 +2881,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                 if (mainWindow->ConfirmDetachedWindowClose(hWnd, &closeSalamander))
                 {
                     if (closeSalamander)
-                        PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
+                        PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 1, 0);
                     else
                         mainWindow->SetPanelsDetached(FALSE);
                 }
@@ -2895,7 +2895,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             if (mainWindow->ConfirmDetachedWindowClose(hWnd, &closeSalamander))
             {
                 if (closeSalamander)
-                    PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
+                    PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 1, 0);
                 else
                     mainWindow->SetPanelsDetached(FALSE);
             }
@@ -3391,6 +3391,7 @@ void CMainWindow::SetWindowTitle(const char* text)
 
     std::wstring wideText;
     std::wstring wideAppSuffix;
+    std::wstring explicitDetachedText;
     std::wstring prefix;
     if (text == NULL)
     {
@@ -3437,12 +3438,24 @@ void CMainWindow::SetWindowTitle(const char* text)
             }
         }
 
-        wideText = BuildWindowTitleForPanel(DetachedPanels ? LeftPanel : GetActivePanel(), prefix, suffix);
+        std::wstring mainSuffix = suffix;
+        if (DetachedPanels)
+        {
+            mainSuffix += L" - ";
+            mainSuffix += MultiByteToWindowTitleWide(LoadStr(IDS_MAIN_WINDOW_TITLE));
+        }
+        wideText = BuildWindowTitleForPanel(DetachedPanels ? LeftPanel : GetActivePanel(), prefix, mainSuffix);
 
     }
     else
     {
         wideText = MultiByteToWindowTitleWide(text);
+        explicitDetachedText = wideText;
+        if (DetachedPanels)
+        {
+            wideText += L" - ";
+            wideText += MultiByteToWindowTitleWide(LoadStr(IDS_MAIN_WINDOW_TITLE));
+        }
     }
 
     std::wstring detachedText;
@@ -3454,7 +3467,7 @@ void CMainWindow::SetWindowTitle(const char* text)
         }
         else
         {
-            detachedText = wideText;
+            detachedText = explicitDetachedText;
         }
         detachedText += L" - ";
         detachedText += MultiByteToWindowTitleWide(LoadStr(IDS_DETACHED_WINDOW_TITLE));

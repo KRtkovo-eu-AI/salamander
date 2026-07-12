@@ -10306,6 +10306,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (DetachedPanels)
         {
+            if (wParam == 0)
+            {
+                BOOL closeSalamander = FALSE;
+                if (!ConfirmDetachedWindowClose(HWindow, &closeSalamander))
+                    goto EXIT_WM_USER_CLOSE_MAINWND;
+                if (!closeSalamander)
+                {
+                    SetPanelsDetached(FALSE);
+                    goto EXIT_WM_USER_CLOSE_MAINWND;
+                }
+            }
+
             WINDOWPLACEMENT detachedPlace;
             memset(&detachedPlace, 0, sizeof(detachedPlace));
             detachedPlace.length = sizeof(WINDOWPLACEMENT);
