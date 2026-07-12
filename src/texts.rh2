@@ -873,6 +873,7 @@
 #define IDS_FREESPACE                10672
 #define IDS_DIRHISTORY               10673
 #define IDS_ZOOMPANEL                10674
+#define IDS_REATTACH_DETACHED_WINDOW 10676
 
 // wait window
 #define IDS_ANALYSINGDIRTREEESC      10675

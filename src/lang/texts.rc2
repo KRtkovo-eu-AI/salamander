@@ -1281,6 +1281,7 @@ STRINGTABLE
  IDS_FREESPACE, "Disk Free Space\nClick to display Drive Information (Ctrl+F1)"
  IDS_DIRHISTORY, "List of Working Directories (Alt+F12)"
  IDS_ZOOMPANEL, "Maximize/Restore Panel (Ctrl+F11)"
+ IDS_REATTACH_DETACHED_WINDOW, "Reattach Detached Window"
 
  IDS_MENUNEWTITLE, "Ne&w"
 

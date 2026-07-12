@@ -841,6 +841,43 @@ void CStatusWindow::PaintSecurity(HDC hDC)
 #define ZOOM_WIDTH 9
 #define ZOOM_HEIGHT 8
 
+static void DrawDirectoryLinePin(HDC hdc, const RECT* rect, BOOL attached, COLORREF color)
+{
+    int width = rect->right - rect->left;
+    int height = rect->bottom - rect->top;
+    int cx = (rect->left + rect->right) / 2;
+    int cy = (rect->top + rect->bottom) / 2;
+    int arm = max(3, min(width, height) / 4);
+    HPEN pen = CreatePen(PS_SOLID, 1, color);
+    if (pen == NULL)
+        return;
+    HPEN oldPen = (HPEN)SelectObject(hdc, pen);
+    if (!attached)
+    {
+        MoveToEx(hdc, cx + arm, cy, NULL);
+        LineTo(hdc, cx - arm - 2, cy);
+        MoveToEx(hdc, cx + arm, cy, NULL);
+        LineTo(hdc, cx, cy - arm);
+        MoveToEx(hdc, cx + arm, cy, NULL);
+        LineTo(hdc, cx, cy + arm);
+        MoveToEx(hdc, cx - 1, cy - arm, NULL);
+        LineTo(hdc, cx - 1, cy + arm + 1);
+    }
+    else
+    {
+        MoveToEx(hdc, cx, cy + arm, NULL);
+        LineTo(hdc, cx, cy - arm - 2);
+        MoveToEx(hdc, cx, cy - arm - 2, NULL);
+        LineTo(hdc, cx - arm, cy);
+        MoveToEx(hdc, cx, cy - arm - 2, NULL);
+        LineTo(hdc, cx + arm, cy);
+        MoveToEx(hdc, cx - arm, cy + 1, NULL);
+        LineTo(hdc, cx + arm + 1, cy + 1);
+    }
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+}
+
 void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnly)
 {
     CALL_STACK_MESSAGE3("CStatusWindow::Paint(, %d, %d)", highlightText, highlightHotTrackOnly);
@@ -953,10 +990,10 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         // zjistim, ktere polozky (text/history/size/zoom) se vejdou do dostupne plochy
         if (isDirectoryLine)
         {
-            if (Configuration.ShowPanelZoom)
+            if (Configuration.ShowPanelZoom || IsDetachedPinButton())
             {
                 if (tmpR.right - tmpR.left < ZOOM_WIDTH + 4)
-                    goto SKIP_MEASURING; // nevejde zoom tlacitko - vypadneme z mereni
+                    goto SKIP_MEASURING; // nevejde zoom/pin tlacitko - vypadneme z mereni
 
                 ZoomRect.left = tmpR.right - ZOOM_WIDTH - 6;
                 ZoomRect.right = tmpR.right;
@@ -1254,15 +1291,38 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
 
         HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));
 
-        // zoom symbol
+        // zoom symbol / pin button
         if (ZoomRect.left < ZoomRect.right)
         {
-            BOOL zoomed;
-            if (MainWindow->LeftPanel == FilesWindow)
-                zoomed = MainWindow->IsPanelZoomed(TRUE);
+            BOOL detached = IsDetachedPinButton();
+            if (detached)
+            {
+                COLORREF pinColor;
+                if (HotZoom)
+                {
+                    if (Configuration.ShowPanelCaption)
+                        pinColor = GetCOLORREF(CurrentColors[activeCaption ? HOT_ACTIVE : HOT_INACTIVE]);
+                    else
+                        pinColor = GetCOLORREF(CurrentColors[HOT_PANEL]);
+                }
+                else
+                {
+                    if (Configuration.ShowPanelCaption)
+                        pinColor = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
+                    else
+                        pinColor = GetPanelDefaultTextColor();
+                }
+                DrawDirectoryLinePin(dc, &ZoomRect, FALSE, pinColor);
+            }
             else
-                zoomed = MainWindow->IsPanelZoomed(FALSE);
-            PaintSymbol(dc, hMemDC, HZoomBitmap, zoomed ? ZOOM_WIDTH : 0, ZOOM_WIDTH, ZOOM_HEIGHT, &ZoomRect, HotZoom, activeCaption);
+            {
+                BOOL zoomed;
+                if (MainWindow->LeftPanel == FilesWindow)
+                    zoomed = MainWindow->IsPanelZoomed(TRUE);
+                else
+                    zoomed = MainWindow->IsPanelZoomed(FALSE);
+                PaintSymbol(dc, hMemDC, HZoomBitmap, zoomed ? ZOOM_WIDTH : 0, ZOOM_WIDTH, ZOOM_HEIGHT, &ZoomRect, HotZoom, activeCaption);
+            }
         }
 
         // disk free
@@ -1853,7 +1913,7 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case 7:
         {
-            lstrcpy(text, LoadStr(IDS_ZOOMPANEL));
+            lstrcpy(text, LoadStr(IsDetachedPinButton() ? IDS_REATTACH_DETACHED_WINDOW : IDS_ZOOMPANEL));
             break;
         }
 
@@ -2252,8 +2312,15 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if (HotZoom)
                 {
-                    SendMessage(MainWindow->HWindow, WM_COMMAND,
-                                MainWindow->LeftPanel == FilesWindow ? CM_LEFTZOOMPANEL : CM_RIGHTZOOMPANEL, 0);
+                    if (IsDetachedPinButton())
+                    {
+                        MainWindow->SetPanelsDetached(FALSE);
+                    }
+                    else
+                    {
+                        SendMessage(MainWindow->HWindow, WM_COMMAND,
+                                    MainWindow->LeftPanel == FilesWindow ? CM_LEFTZOOMPANEL : CM_RIGHTZOOMPANEL, 0);
+                    }
                     UpdateWindow(MainWindow->HWindow); // aby nasledujici WM_MOUSEMOVE prisel uz do prekresleneho okna
                 }
 

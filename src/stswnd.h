@@ -182,6 +182,8 @@ public:
     BOOL SetDriveIcon(HICON hIcon);     // The icon is copied into the image list - the caller is responsible for destruction
     void SetDrivePressed(BOOL pressed); // Presses the drive icon
 
+    BOOL IsDetachedPinButton() const { return MainWindow != NULL && MainWindow->DetachedPanels; }
+
     BOOL GetTextFrameRect(RECT* r);   // Returns the rectangle around the text in screen coordinates
     BOOL GetFilterFrameRect(RECT* r); // Returns the rectangle around the filter symbol in screen coordinates
 
