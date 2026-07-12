@@ -7212,9 +7212,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 oldRightTabs.Add(RightPanelTabs[i]);
 
             if (leftTabsCount > 0)
-                LeftPanelTabs.Delete(0, leftTabsCount);
+                LeftPanelTabs.Detach(0, leftTabsCount);
             if (rightTabsCount > 0)
-                RightPanelTabs.Delete(0, rightTabsCount);
+                RightPanelTabs.Detach(0, rightTabsCount);
 
             for (int i = 0; i < oldRightTabs.Count; i++)
             {
