@@ -33,6 +33,7 @@
 #include "color.h"
 #include "toolbar.h"
 #include "darkmode.h"
+#include "common/widepath.h"
 #include "configstorage.h"
 
 #include "svg.h"
@@ -1451,11 +1452,15 @@ HICON GetDriveIcon(const char* root, UINT type, BOOL accessible, BOOL large)
     default:
     {
         id = 32;
-        if (type == DRIVE_FIXED && root[1] == ':')
+        if (root != NULL && root[1] == ':')
         {
-            char win[MAX_PATH];
-            if (GetWindowsDirectory(win, MAX_PATH) && win[1] == ':' && win[0] == root[0])
+            CPathBuffer win;
+            if (GetWindowsDirectory(win.Data(), win.Capacity()) &&
+                win.Data()[1] == ':' && UpperCase[win.Data()[0]] == UpperCase[root[0]] &&
+                (type == DRIVE_FIXED || type == DRIVE_UNKNOWN || type == DRIVE_NO_ROOT_DIR))
+            {
                 id = 36;
+            }
         }
         break;
     }
@@ -2652,7 +2657,10 @@ void GetSystemDPI(HDC hDC)
 BOOL InitializeGraphics(BOOL colorsOnly)
 {
     bool useDark = DarkModeShouldUseDarkColors();
-    COLORREF toolbarFace = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
+    // Match the toolbar bitmap pre-composition background to the real dark toolbar
+    // surface.  Using the file-list background here leaves light/dark fringe pixels
+    // around SVG-rendered icons after they are placed into mask-based image lists.
+    COLORREF toolbarFace = useDark ? RGB(45, 45, 48) : GetSysColor(COLOR_BTNFACE);
     // 48x48 only on XP and later
     // Large icons have actually been supported for a long time; they can be enabled via
     // Desktop/Properties/???/Large Icons. Note that there will then be no system image list

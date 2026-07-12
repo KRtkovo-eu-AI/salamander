@@ -8,6 +8,7 @@
 // ****************************************************************************
 
 class CMainToolBar;
+class CMainWindow;
 
 enum CBorderLines
 {
@@ -94,6 +95,7 @@ protected:
     BOOL Left;
 
     int ToolBarWidth; // Current toolbar width
+    HICON DriveIcon;  // Current Change Drive icon copied for toolbar recreation
 
     int EllipsedChars; // Number of characters omitted after the root; otherwise -1
     int EllipsedWidth; // Length of the omitted string after the root; otherwise -1
@@ -180,6 +182,8 @@ public:
 
     BOOL SetDriveIcon(HICON hIcon);     // The icon is copied into the image list - the caller is responsible for destruction
     void SetDrivePressed(BOOL pressed); // Presses the drive icon
+
+    BOOL IsDetachedPinButton() const;
 
     BOOL GetTextFrameRect(RECT* r);   // Returns the rectangle around the text in screen coordinates
     BOOL GetFilterFrameRect(RECT* r); // Returns the rectangle around the filter symbol in screen coordinates

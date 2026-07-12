@@ -262,6 +262,7 @@ struct CConfiguration
         CnfrmCreatePath,         // Show "do you want to create target path?" in Copy/Move operations
         CnfrmAlwaysOnTop,        // Show "Always on Top information"
         CnfrmOnSalClose,         // Show "do you want to close SS?"
+        CnfrmDetachClose,        // Show prompt when closing detached window
         CnfrmSendEmail,          // Show "Do you want to Email selected files?"
         CnfrmAddToArchive,       // Show "Do you want to update existing archive?"
         CnfrmCreateDir,          // Show "The directory doesn't exist. Do you want to create it?"
@@ -411,6 +412,9 @@ struct CConfiguration
     int TreeViewWidth;
     BOOL TreeViewAutoHide;
     int GripsVisible;
+
+    BOOL DetachedPanels;                    // TRUE = restore right side in a detached top-level window
+    WINDOWPLACEMENT DetachedWindowPlacement; // invalid unless DetachedWindowPlacement.length != 0
 
     // Change drive
     int ChangeDriveShowMyDoc;     // display Documents item
@@ -836,6 +840,7 @@ protected:
     HWND HTreeView;
     HTREEITEM HConfirmOn;
     HTREEITEM HShowMessage;
+    HTREEITEM HErrorsAndFailures;
     HIMAGELIST HImageList;
     TDirectArray<CConfirmationItem> List;
     BOOL DisableNotification;
@@ -850,11 +855,8 @@ protected:
 
     void InitTree();
     HIMAGELIST CreateImageList();
-    HTREEITEM AddItem(HTREEITEM hParent, int iImage, int textResID, int* value);
-    void SetItemChecked(HTREEITEM hTreeItem, BOOL checked);
-    //BOOL GetItemChecked(HTREEITEM hTreeItem);
+    HTREEITEM AddItem(HTREEITEM hParent, int iImage, int textResID, int* value, int sectionIcon = -1);
     int FindInList(HTREEITEM hTreeItem);
-    void ChangeSelected();
 };
 
 //

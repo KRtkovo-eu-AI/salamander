@@ -259,6 +259,11 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         RightPanel = panel;
 
     panel->SetPanelSide(side);
+    if (DetachedPanels && side == cpsRight && HRightDetachedWindow != NULL && panel->HWindow != NULL &&
+        GetParent(panel->HWindow) != HRightDetachedWindow)
+    {
+        SetParent(panel->HWindow, HRightDetachedWindow);
+    }
 
     if (UsingSharedWorkDirHistory())
         UpdateAllDirectoryLineHistoryStates();
@@ -297,7 +302,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
             // window. Prepare the incoming tree while it is hidden and keep the outgoing one
             // alive until the complete new layout is ready; otherwise the main window is
             // briefly exposed across the reserved tree-view width.
-            if (side == cpsLeft && Configuration.TreeViewVisible)
+            if ((side == cpsLeft || (DetachedPanels && side == cpsRight)) && Configuration.TreeViewVisible)
             {
                 panel->TreeViewActive = TRUE;
                 panel->CreateTreeView();
@@ -729,7 +734,7 @@ void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
             continue;
         BOOL show = (panel == active);
         SetPanelTabVisible(panel, show);
-        if (side == cpsLeft && !show)
+        if ((side == cpsLeft || (DetachedPanels && side == cpsRight)) && !show)
         {
             // Keep per-tab tree-view windows allocated so switching tabs can prepare the next
             // tree before replacing the currently visible one. Destroying them here exposes a
@@ -6999,6 +7004,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
+        case CM_DETACHPANELS:
+        {
+            TogglePanelsDetached();
+            IdleRefreshStates = TRUE;
+            break;
+        }
+
         case CM_TOGGLE_UMLABELS:
         {
             UMToolBar->ToggleLabels();
@@ -7185,6 +7197,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_SWAPPANELS:
         {
+            if (DetachedPanels)
+                DetachedPanelsSwapFixNeeded = TRUE;
+
             CFilesWindow* oldLeftPanel = LeftPanel;
             CFilesWindow* oldRightPanel = RightPanel;
 
@@ -7200,9 +7215,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 oldRightTabs.Add(RightPanelTabs[i]);
 
             if (leftTabsCount > 0)
-                LeftPanelTabs.Delete(0, leftTabsCount);
+                LeftPanelTabs.Detach(0, leftTabsCount);
             if (rightTabsCount > 0)
-                RightPanelTabs.Delete(0, rightTabsCount);
+                RightPanelTabs.Detach(0, rightTabsCount);
 
             for (int i = 0; i < oldRightTabs.Count; i++)
             {
@@ -7251,8 +7266,81 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             else if (activePanel == oldRightPanel)
                 SetActivePanel(LeftPanel);
 
+            if (Configuration.TreeViewVisible)
+            {
+                LeftPanel->UpdateTreeView(TRUE);
+                RightPanel->UpdateTreeView(DetachedPanels);
+            }
+
+            if (DetachedPanels)
+            {
+                if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+                    SetParent(LeftTabWindow->HWindow, HWindow);
+                if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+                    SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
+                for (int i = 0; i < LeftPanelTabs.Count; ++i)
+                {
+                    CFilesWindow* panel = LeftPanelTabs[i];
+                    if (panel != NULL && panel->HWindow != NULL)
+                        SetParent(panel->HWindow, HWindow);
+                }
+                for (int i = 0; i < RightPanelTabs.Count; ++i)
+                {
+                    CFilesWindow* panel = RightPanelTabs[i];
+                    if (panel != NULL && panel->HWindow != NULL)
+                        SetParent(panel->HWindow, HRightDetachedWindow);
+                }
+                UpdatePanelTabVisibility(cpsLeft);
+                UpdatePanelTabVisibility(cpsRight);
+            }
+
             LockWindowUpdate(HWindow);
             LayoutWindows();
+            if (DetachedPanels)
+            {
+                RECT mainClient;
+                GetClientRect(HWindow, &mainClient);
+                LayoutMainWindowDetachedPanel(mainClient.right - mainClient.left, mainClient.bottom - mainClient.top);
+                LayoutDetachedPanels();
+            }
+
+            // Tab panels keep their previous window rectangles while they move between hosts.
+            // When Swap Sides moves tabs between the main and detached windows, those
+            // stale rectangles may belong to the other top-level window size; make all
+            // tabs on each side inherit the final active-panel rectangle so the visible
+            // panel and the next tab activation both fit the current host immediately.
+            for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
+            {
+                CPanelSide side = sideIndex == 0 ? cpsLeft : cpsRight;
+                CFilesWindow* activeSidePanel = side == cpsLeft ? LeftPanel : RightPanel;
+                if (activeSidePanel == NULL || activeSidePanel->HWindow == NULL)
+                    continue;
+
+                RECT activeRect;
+                GetWindowRect(activeSidePanel->HWindow, &activeRect);
+                HWND parent = GetParent(activeSidePanel->HWindow);
+                MapWindowPoints(NULL, parent, (POINT*)&activeRect, 2);
+
+                TIndirectArray<CFilesWindow>& sideTabs = side == cpsLeft ? LeftPanelTabs : RightPanelTabs;
+                for (int i = 0; i < sideTabs.Count; ++i)
+                {
+                    CFilesWindow* panel = sideTabs[i];
+                    if (panel == NULL || panel->HWindow == NULL)
+                        continue;
+
+                    if (GetParent(panel->HWindow) != parent)
+                        SetParent(panel->HWindow, parent);
+                    SetWindowPos(panel->HWindow, NULL, activeRect.left, activeRect.top,
+                                 activeRect.right - activeRect.left, activeRect.bottom - activeRect.top,
+                                 SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+                    ::SendMessage(panel->HWindow, WM_SIZE, SIZE_RESTORED,
+                                  MAKELPARAM(activeRect.right - activeRect.left, activeRect.bottom - activeRect.top));
+                    panel->LayoutListBoxChilds();
+                    if (panel == activeSidePanel)
+                        RedrawWindow(panel->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
+                }
+            }
+
             LockWindowUpdate(NULL);
 
             // reload columns again (column widths are not swapped)
@@ -7437,6 +7525,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_LEFTZOOMPANEL:
         case CM_RIGHTZOOMPANEL:
         {
+            if (DetachedPanels &&
+                (LOWORD(wParam) == CM_LEFTZOOMPANEL ||
+                 LOWORD(wParam) == CM_RIGHTZOOMPANEL))
+            {
+                return 0;
+            }
             if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
             {
                 if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
@@ -7851,6 +7945,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             popup->CheckItem(left ? CM_LCHANGEFILTER : CM_RCHANGEFILTER, FALSE,
                              (left ? LeftPanel : RightPanel)->FilterEnabled);
 
+            popup->EnableItem(left ? CM_LEFTZOOMPANEL : CM_RIGHTZOOMPANEL,
+                              FALSE,
+                              !DetachedPanels);
+
             DWORD firstID = left ? CML_LEFT_VIEWS1 : CML_RIGHT_VIEWS1;
             DWORD lastID = left ? CML_LEFT_VIEWS2 : CML_RIGHT_VIEWS2;
             // find the separator above and below the views
@@ -8046,6 +8144,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CML_OPTIONS:
         {
             popup->CheckItem(CM_ALWAYSONTOP, FALSE, Configuration.AlwaysOnTop);
+            popup->CheckItem(CM_DETACHPANELS, FALSE, DetachedPanels);
             break;
         }
 
@@ -8448,16 +8547,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // is being destroyed.  Resolve the owner by HWND so those notifications
         // are not ignored.
         CFilesWindow* treePanel = NULL;
-        if (LeftPanel != NULL && lphdr != NULL && lphdr->hwndFrom == LeftPanel->HTreeView)
-            treePanel = LeftPanel;
-        else if (lphdr != NULL)
+        if (lphdr != NULL)
         {
-            for (int i = 0; i < LeftPanelTabs.Count; i++)
+            for (int sideIndex = 0; sideIndex < 2 && treePanel == NULL; ++sideIndex)
             {
-                if (LeftPanelTabs[i] != NULL && lphdr->hwndFrom == LeftPanelTabs[i]->HTreeView)
+                CPanelSide treeSide = sideIndex == 0 ? cpsLeft : cpsRight;
+                TIndirectArray<CFilesWindow>& treeTabs = GetPanelTabs(treeSide);
+                for (int i = 0; i < treeTabs.Count; i++)
                 {
-                    treePanel = LeftPanelTabs[i];
-                    break;
+                    if (treeTabs[i] != NULL &&
+                        (lphdr->hwndFrom == treeTabs[i]->HTreeView ||
+                         lphdr->hwndFrom == treeTabs[i]->HTreeHeader ||
+                         lphdr->hwndFrom == treeTabs[i]->HTreeSplit))
+                    {
+                        treePanel = treeTabs[i];
+                        break;
+                    }
                 }
             }
         }
@@ -8707,6 +8812,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_WINDOWPOSCHANGED:
     {
         GetWindowRect(HWindow, &WindowRect);
+
+        // Some detach/reattach paths move tab HWNDs between top-level hosts while Windows
+        // is also changing activation/z-order.  If the following maximize/resize does not
+        // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
+        // and the newly exposed part of the main window remains empty.  Treat a changed
+        // client size observed in WM_WINDOWPOSCHANGED as authoritative and run the same
+        // sizing path immediately.
+        if (Created && !DetachedPanels)
+        {
+            RECT clientRect;
+            GetClientRect(HWindow, &clientRect);
+            int clientWidth = clientRect.right - clientRect.left;
+            int clientHeight = clientRect.bottom - clientRect.top;
+            if (clientWidth != WindowWidth || clientHeight != WindowHeight)
+                SendMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
+        }
         break;
     }
 
@@ -8722,6 +8843,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         WindowWidth = LOWORD(lParam);
         WindowHeight = HIWORD(lParam);
+
+        if (DetachedPanels)
+        {
+            LayoutMainWindowDetachedPanel(WindowWidth, WindowHeight);
+            LayoutDetachedPanels();
+            break;
+        }
 
         if (KeepSplitPositionCenteredOnVisiblePanes)
             UpdateCenteredSplitPosition();
@@ -9083,6 +9211,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             if (!EditMode)
             {
+                if (DetachedPanels && LeftPanel != NULL)
+                    SetActivePanel(LeftPanel);
                 if (GetActivePanel() != NULL)
                 {
                     FocusPanel(GetActivePanel());
@@ -10165,6 +10295,19 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         CALL_STACK_MESSAGE1("WM_USER_CLOSE_MAINWND::3");
 
+        if (DetachedPanels)
+        {
+            WINDOWPLACEMENT detachedPlace;
+            memset(&detachedPlace, 0, sizeof(detachedPlace));
+            detachedPlace.length = sizeof(WINDOWPLACEMENT);
+            BOOL haveDetachedPlace = HRightDetachedWindow != NULL &&
+                                     GetWindowPlacement(HRightDetachedWindow, &detachedPlace);
+            SetPanelsDetached(FALSE);
+            Configuration.DetachedPanels = TRUE;
+            if (haveDetachedPlace)
+                Configuration.DetachedWindowPlacement = detachedPlace;
+        }
+
         // optame se panelu, jestli muzeme koncit
         int totalPanels = LeftPanelTabs.Count + RightPanelTabs.Count;
         if (totalPanels > 0)
@@ -10173,13 +10316,21 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             TDirectArray<BOOL> detachFlags(totalPanels, totalPanels);
             for (int i = 0; i < LeftPanelTabs.Count; i++)
             {
-                panels.Add(LeftPanelTabs[i]);
-                detachFlags.Add(FALSE);
+                CFilesWindow* panel = LeftPanelTabs[i];
+                if (panel != NULL && panel->HWindow != NULL && panel->ListBox != NULL)
+                {
+                    panels.Add(panel);
+                    detachFlags.Add(FALSE);
+                }
             }
             for (int i = 0; i < RightPanelTabs.Count; i++)
             {
-                panels.Add(RightPanelTabs[i]);
-                detachFlags.Add(FALSE);
+                CFilesWindow* panel = RightPanelTabs[i];
+                if (panel != NULL && panel->HWindow != NULL && panel->ListBox != NULL)
+                {
+                    panels.Add(panel);
+                    detachFlags.Add(FALSE);
+                }
             }
 
             BOOL canClose = TRUE;
@@ -10313,6 +10464,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         PAINTSTRUCT ps;
 
         HDC dc = HANDLES(BeginPaint(HWindow, &ps));
+        RECT paintRect = ps.rcPaint;
+        FillRect(dc, &paintRect, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
         HPEN oldPen = (HPEN)SelectObject(dc, BtnShadowPen);
 
         RECT r;

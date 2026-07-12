@@ -303,6 +303,7 @@
 #define CM_SETSPLIMOPER        933
 
 #define CM_IMPORTCONFIG        934
+#define CM_DETACHPANELS        935
 
 #define CM_NEWTAB              1100
 #define CM_CLOSETAB            1101
@@ -393,6 +394,8 @@
 #define IDI_GOOGLEDRIVE     981
 #define IDI_DROPBOX         982
 #define IDI_ONEDRIVE        983
+
+#define IDI_CONFIRM_ERRORS  984
 
 // bitmaps
 #define IDB_LOCK            990

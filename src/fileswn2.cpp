@@ -519,16 +519,31 @@ static LRESULT CALLBACK TreeViewSplitSubclassProc(HWND hwnd, UINT message, WPARA
 
 BOOL CFilesWindow::IsTreeViewHost()
 {
-    return MainWindow != NULL && MainWindow->LeftPanel == this;
+    // Tree View is a window-level companion panel.  In the normal two-panel
+    // layout the main window hosts it on the left edge.  When the right side
+    // is detached, the detached top-level window needs its own companion tree
+    // so the detached side remains a complete clone of the main-window chrome.
+    return MainWindow != NULL &&
+           (MainWindow->LeftPanel == this ||
+            (MainWindow->DetachedPanels && MainWindow->RightPanel == this));
 }
 
 CFilesWindow* CFilesWindow::GetTreeViewSourcePanel()
 {
-    // The tree view window is hosted on the left side, but its content must
-    // follow the currently active panel/tab, regardless of whether it is on the
-    // left or right side.
+    // The tree view is a companion for its top-level host. In the standard
+    // combined layout there is only one host, so the tree follows the globally
+    // active panel. In detached mode, each top-level window must keep an
+    // independent tree: the main window follows the left/main panel, while the
+    // detached window follows the right/detached panel.
     if (MainWindow != NULL)
     {
+        if (MainWindow->DetachedPanels)
+        {
+            if (MainWindow->RightPanel == this)
+                return MainWindow->RightPanel;
+            if (MainWindow->LeftPanel == this)
+                return MainWindow->LeftPanel;
+        }
         CFilesWindow* activePanel = MainWindow->GetActivePanel();
         if (activePanel != NULL)
             return activePanel;
@@ -2071,7 +2086,9 @@ void CFilesWindow::CreateTreeView()
                                        TVS_DISABLEDRAGDROP | TVS_HASBUTTONS | TVS_LINESATROOT |
                                        TVS_SHOWSELALWAYS | (appIsThemed ? TVS_FULLROWSELECT : TVS_HASLINES),
                                    0, 0, 0, 0,
-                                   MainWindow->HWindow, (HMENU)IDC_TREEVIEW, HInstance, NULL);
+                                   MainWindow->GetDetachedPanelWindow(PanelSide) != NULL ?
+                                       MainWindow->GetDetachedPanelWindow(PanelSide) : MainWindow->HWindow,
+                                   (HMENU)IDC_TREEVIEW, HInstance, NULL);
         if (HTreeView == NULL)
         {
             TRACE_E("Unable to create tree-view.");
@@ -2096,7 +2113,9 @@ void CFilesWindow::CreateTreeView()
         HTreeHeader = CreateWindowEx(0, "STATIC", LoadStr(IDS_TREEVIEW_PANEL_TITLE),
                                      WS_CHILD | WS_CLIPSIBLINGS | SS_NOTIFY,
                                      0, 0, 0, 0,
-                                     MainWindow->HWindow, (HMENU)IDC_TREEHEADER, HInstance, NULL);
+                                     MainWindow->GetDetachedPanelWindow(PanelSide) != NULL ?
+                                         MainWindow->GetDetachedPanelWindow(PanelSide) : MainWindow->HWindow,
+                                     (HMENU)IDC_TREEHEADER, HInstance, NULL);
         if (HTreeHeader == NULL)
         {
             TRACE_E("Unable to create tree-view header.");
@@ -2114,7 +2133,9 @@ void CFilesWindow::CreateTreeView()
         HTreeHeaderToolTip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
                                             WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
                                             CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-                                            MainWindow->HWindow, NULL, HInstance, NULL);
+                                            MainWindow->GetDetachedPanelWindow(PanelSide) != NULL ?
+                                                MainWindow->GetDetachedPanelWindow(PanelSide) : MainWindow->HWindow,
+                                            NULL, HInstance, NULL);
         if (HTreeHeaderToolTip != NULL)
         {
             TOOLINFO ti;
@@ -2142,7 +2163,9 @@ void CFilesWindow::CreateTreeView()
         HTreeSplit = CreateWindowEx(0, "STATIC", "",
                                     WS_CHILD | WS_CLIPSIBLINGS | SS_NOTIFY,
                                     0, 0, 0, 0,
-                                    MainWindow->HWindow, (HMENU)IDC_TREESPLIT, HInstance, NULL);
+                                    MainWindow->GetDetachedPanelWindow(PanelSide) != NULL ?
+                                        MainWindow->GetDetachedPanelWindow(PanelSide) : MainWindow->HWindow,
+                                    (HMENU)IDC_TREESPLIT, HInstance, NULL);
         if (HTreeSplit == NULL)
         {
             TRACE_E("Unable to create tree-view splitter.");

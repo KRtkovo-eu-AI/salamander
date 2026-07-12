@@ -169,6 +169,17 @@ STRINGTABLE
  IDS_MENU_OPT_VSB_BOTTOM,    "&Bottom Toolbar"
  IDS_MENU_OPT_VSB_UMLABELS,  "Te&xt Labels in User Menu Bar"
  IDS_MENU_OPT_VSB_GRIPS,     "&Lock the Toolbars"
+ IDS_MENU_OPT_DETACHPANELS,  "&Detach Right Side"
+ IDS_DETACHED_WINDOW_TITLE, "Detached window"
+ IDS_MENU_MAIN_WINDOW,      "&Main window"
+ IDS_MENU_DETACHED_WINDOW,  "&Detached window"
+ IDS_DETACHED_CLOSE_CAPTION, "Close Detached Window"
+ IDS_DETACHED_CLOSE_TEXT, "Do you want to reattach the detached window or close Open Salamander?"
+ IDS_DETACHED_CLOSE_CHECKBOX, "&Don't show this message again\thow to revert\tYou can change this option later on the Confirmations page in the Configuration."
+ IDS_CNFRM_DETACHCLOSE, "Do you want to reattach the detached window or close Open Salamander?"
+ IDS_CNFRM_ERRORSFAILURES, "Errors and Failures"
+ IDS_DETACHED_BTN_CLOSE, "&Close Open Salamander"
+ IDS_DETACHED_BTN_REATTACH, "&Reattach the detached window"
  IDS_MENU_OPT_SAVECONFIG,    "&Save Configuration"
  IDS_MENU_OPT_EXPORTCONFIG,  "&Export Configuration..."
  IDS_MENU_OPT_IMPORTCONFIG,  "&Import Configuration..."
@@ -1206,17 +1217,17 @@ STRINGTABLE
  IDS_DU_ZIP16_E, "PKUNZIP (External DOS, tested with v2.04g)"
 
 // supported external archivers
- IDS_EXT_JAR32,  "Win32 JAR console executable (tested with v1.02)"
- IDS_EXT_RAR32,  "Win32 RAR console executable (tested with v2.50)"
+ IDS_EXT_JAR32,  "Win32/x64 JAR console executable (tested with v1.02)"
+ IDS_EXT_RAR32,  "Win32/x64 RAR console executable (tested with v2.50)"
  IDS_EXT_ARJ16,  "MS-DOS ARJ executable (tested with v2.60)"
  IDS_EXT_LHA16,  "MS-DOS LHA executable (tested with v2.55)"
  IDS_EXT_UC216,  "MS-DOS UC2 executable (tested with v2r3PRO)"
  IDS_EXT_JAR16,  "MS-DOS JAR executable (tested with v1.02)"
  IDS_EXT_RAR16,  "MS-DOS RAR executable (tested with v2.50)"
- IDS_EXT_ZIP32,  "Win32 PKZIP console executable (tested with v2.50)"
+ IDS_EXT_ZIP32,  "Win32/x64 PKZIP console executable (tested with v2.50)"
  IDS_EXT_ZIP16,  "MS-DOS PKZIP/PKUNZIP executable (tested with v2.04g)"
- IDS_EXT_ARJ32,  "Win32 ARJ console executable (tested with v3.00c)"
- IDS_EXT_ACE32,  "Win32 ACE console executable (tested with v1.2b)"
+ IDS_EXT_ARJ32,  "Win32/x64 ARJ console executable (tested with v3.00c)"
+ IDS_EXT_ACE32,  "Win32/x64 ACE console executable (tested with v1.2b)"
  IDS_EXT_ACE16,  "MS-DOS ACE executable (tested with v1.2b)"
 
 // packer/unpacker type
@@ -1277,6 +1288,7 @@ STRINGTABLE
  IDS_FREESPACE, "Disk Free Space\nClick to display Drive Information (Ctrl+F1)"
  IDS_DIRHISTORY, "List of Working Directories (Alt+F12)"
  IDS_ZOOMPANEL, "Maximize/Restore Panel (Ctrl+F11)"
+ IDS_REATTACH_DETACHED_WINDOW, "Reattach Detached Window"
 
  IDS_MENUNEWTITLE, "Ne&w"
 
