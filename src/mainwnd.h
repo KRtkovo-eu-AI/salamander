@@ -724,7 +724,7 @@ public:
     void LayoutMainWindowDetachedPanel(int width, int height);
     HWND GetDetachedPanelWindow(CPanelSide side);
     static LRESULT CALLBACK DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-    BOOL ConfirmDetachedWindowClose(BOOL* closeSalamander);
+    BOOL ConfirmDetachedWindowClose(HWND hWndDetached, BOOL* closeSalamander);
     BOOL ToggleTopToolBar(BOOL storePos = TRUE);
     BOOL TogglePluginsBar(BOOL storePos = TRUE);
     BOOL ToggleMiddleToolBar();

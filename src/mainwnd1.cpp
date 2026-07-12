@@ -2725,7 +2725,7 @@ BOOL CMainWindow::TogglePanelsDetached()
     return SetPanelsDetached(!DetachedPanels);
 }
 
-BOOL CMainWindow::ConfirmDetachedWindowClose(BOOL* closeSalamander)
+BOOL CMainWindow::ConfirmDetachedWindowClose(HWND hWndDetached, BOOL* closeSalamander)
 {
     if (!Configuration.CnfrmDetachClose)
     {
@@ -2734,7 +2734,7 @@ BOOL CMainWindow::ConfirmDetachedWindowClose(BOOL* closeSalamander)
     }
     MSGBOXEX_PARAMS params;
     memset(&params, 0, sizeof(params));
-    params.HParent = HWindow;
+    params.HParent = hWndDetached;
     params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_ICONQUESTION |
                    MSGBOXEX_SILENT | MSGBOXEX_HINT;
     params.Caption = LoadStr(IDS_DETACHED_CLOSE_CAPTION);
@@ -2742,6 +2742,12 @@ BOOL CMainWindow::ConfirmDetachedWindowClose(BOOL* closeSalamander)
     params.CheckBoxText = LoadStr(IDS_DETACHED_CLOSE_CHECKBOX);
     BOOL dontShow = !Configuration.CnfrmDetachClose;
     params.CheckBoxValue = &dontShow;
+    char aliasBtnNames[200];
+    sprintf(aliasBtnNames, "%d\t%s\t%d\t%s\t%d\t%s",
+            DIALOG_YES, LoadStr(IDS_DETACHED_BTN_CLOSE),
+            DIALOG_NO, LoadStr(IDS_DETACHED_BTN_REATTACH),
+            DIALOG_CANCEL, LoadStr(IDS_BUTTON_CANCEL));
+    params.AliasBtnNames = aliasBtnNames;
     int ret = SalMessageBoxEx(&params);
     Configuration.CnfrmDetachClose = !dontShow;
     if (ret == IDYES)
@@ -2869,7 +2875,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             if ((wParam & 0xFFF0) == SC_CLOSE)
             {
                 BOOL closeSalamander = FALSE;
-                if (mainWindow->ConfirmDetachedWindowClose(&closeSalamander))
+                if (mainWindow->ConfirmDetachedWindowClose(hWnd, &closeSalamander))
                 {
                     if (closeSalamander)
                         PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
@@ -2883,7 +2889,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         case WM_CLOSE:
         {
             BOOL closeSalamander = FALSE;
-            if (mainWindow->ConfirmDetachedWindowClose(&closeSalamander))
+            if (mainWindow->ConfirmDetachedWindowClose(hWnd, &closeSalamander))
             {
                 if (closeSalamander)
                     PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
