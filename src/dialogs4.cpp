@@ -599,6 +599,7 @@ CConfiguration::CConfiguration()
     CnfrmCreatePath = TRUE;
     CnfrmAlwaysOnTop = TRUE;
     CnfrmOnSalClose = FALSE;
+    CnfrmDetachClose = TRUE;
     CnfrmSendEmail = TRUE;
     CnfrmAddToArchive = TRUE;
     CnfrmChangeDirTC = TRUE;

@@ -262,6 +262,7 @@ struct CConfiguration
         CnfrmCreatePath,         // Show "do you want to create target path?" in Copy/Move operations
         CnfrmAlwaysOnTop,        // Show "Always on Top information"
         CnfrmOnSalClose,         // Show "do you want to close SS?"
+        CnfrmDetachClose,        // Show "close or reattach?" when closing detached window
         CnfrmSendEmail,          // Show "Do you want to Email selected files?"
         CnfrmAddToArchive,       // Show "Do you want to update existing archive?"
         CnfrmCreateDir,          // Show "The directory doesn't exist. Do you want to create it?"

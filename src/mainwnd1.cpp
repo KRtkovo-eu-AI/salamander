@@ -2725,6 +2725,38 @@ BOOL CMainWindow::TogglePanelsDetached()
     return SetPanelsDetached(!DetachedPanels);
 }
 
+BOOL CMainWindow::ConfirmDetachedWindowClose(BOOL* closeSalamander)
+{
+    if (!Configuration.CnfrmDetachClose)
+    {
+        *closeSalamander = FALSE;
+        return TRUE;
+    }
+    MSGBOXEX_PARAMS params;
+    memset(&params, 0, sizeof(params));
+    params.HParent = HWindow;
+    params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_ICONQUESTION |
+                   MSGBOXEX_SILENT | MSGBOXEX_HINT;
+    params.Caption = LoadStr(IDS_DETACHED_CLOSE_CAPTION);
+    params.Text = LoadStr(IDS_DETACHED_CLOSE_TEXT);
+    params.CheckBoxText = LoadStr(IDS_DETACHED_CLOSE_CHECKBOX);
+    BOOL dontShow = !Configuration.CnfrmDetachClose;
+    params.CheckBoxValue = &dontShow;
+    int ret = SalMessageBoxEx(&params);
+    Configuration.CnfrmDetachClose = !dontShow;
+    if (ret == IDYES)
+    {
+        *closeSalamander = TRUE;
+        return TRUE;
+    }
+    if (ret == IDNO)
+    {
+        *closeSalamander = FALSE;
+        return TRUE;
+    }
+    return FALSE; // cancel / escape
+}
+
 LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LONG_PTR data = GetWindowLongPtr(hWnd, GWLP_USERDATA);
@@ -2836,14 +2868,30 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         case WM_SYSCOMMAND:
             if ((wParam & 0xFFF0) == SC_CLOSE)
             {
-                mainWindow->SetPanelsDetached(FALSE);
+                BOOL closeSalamander = FALSE;
+                if (mainWindow->ConfirmDetachedWindowClose(&closeSalamander))
+                {
+                    if (closeSalamander)
+                        PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
+                    else
+                        mainWindow->SetPanelsDetached(FALSE);
+                }
                 return 0;
             }
             break;
 
         case WM_CLOSE:
-            mainWindow->SetPanelsDetached(FALSE);
+        {
+            BOOL closeSalamander = FALSE;
+            if (mainWindow->ConfirmDetachedWindowClose(&closeSalamander))
+            {
+                if (closeSalamander)
+                    PostMessage(mainWindow->HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
+                else
+                    mainWindow->SetPanelsDetached(FALSE);
+            }
             return 0;
+        }
         }
     }
 

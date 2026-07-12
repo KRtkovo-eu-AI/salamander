@@ -1185,6 +1185,7 @@ const char* CONFIG_CNFRM_STOPFIND = "Stop Find";
 const char* CONFIG_CNFRM_CREATETARGETPATH = "Create Target Path";
 const char* CONFIG_CNFRM_ALWAYSONTOP = "Always on Top";
 const char* CONFIG_CNFRM_ONSALCLOSE = "Close Salamander";
+const char* CONFIG_CNFRM_DETACHCLOSE = "Detach Close";
 const char* CONFIG_CNFRM_SENDEMAIL = "Send Email";
 const char* CONFIG_CNFRM_ADDTOARCHIVE = "Add To Archive";
 const char* CONFIG_CNFRM_CREATEDIR = "Create Dir";
@@ -3153,6 +3154,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                              &Configuration.CnfrmAlwaysOnTop, sizeof(DWORD));
                     SetValue(actSubKey, CONFIG_CNFRM_ONSALCLOSE, REG_DWORD,
                              &Configuration.CnfrmOnSalClose, sizeof(DWORD));
+                    SetValue(actSubKey, CONFIG_CNFRM_DETACHCLOSE, REG_DWORD,
+                             &Configuration.CnfrmDetachClose, sizeof(DWORD));
                     SetValue(actSubKey, CONFIG_CNFRM_SENDEMAIL, REG_DWORD,
                              &Configuration.CnfrmSendEmail, sizeof(DWORD));
                     SetValue(actSubKey, CONFIG_CNFRM_ADDTOARCHIVE, REG_DWORD,
@@ -5064,6 +5067,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                          &Configuration.CnfrmAlwaysOnTop, sizeof(DWORD));
                 GetValue(actSubKey, CONFIG_CNFRM_ONSALCLOSE, REG_DWORD,
                          &Configuration.CnfrmOnSalClose, sizeof(DWORD));
+                GetValue(actSubKey, CONFIG_CNFRM_DETACHCLOSE, REG_DWORD,
+                         &Configuration.CnfrmDetachClose, sizeof(DWORD));
                 GetValue(actSubKey, CONFIG_CNFRM_SENDEMAIL, REG_DWORD,
                          &Configuration.CnfrmSendEmail, sizeof(DWORD));
                 GetValue(actSubKey, CONFIG_CNFRM_ADDTOARCHIVE, REG_DWORD,

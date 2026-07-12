@@ -1760,6 +1760,7 @@ void CCfgPageConfirmations::InitTree()
     AddItem(HShowMessage, -1, IDS_CNFRM_CREATEPATH, &Configuration.CnfrmCreatePath);
     AddItem(HShowMessage, -1, IDS_CNFRM_ALWAYSONTOP, &Configuration.CnfrmAlwaysOnTop);
     AddItem(HShowMessage, -1, IDS_CNFRM_ONSALCLOSE, &Configuration.CnfrmOnSalClose);
+    AddItem(HShowMessage, -1, IDS_CNFRM_DETACHCLOSE, &Configuration.CnfrmDetachClose);
     AddItem(HShowMessage, -1, IDS_CNFRM_ONSENDEMAIL, &Configuration.CnfrmSendEmail);
     AddItem(HShowMessage, -1, IDS_CNFRM_ONADDTOARCHIVE, &Configuration.CnfrmAddToArchive);
     AddItem(HShowMessage, -1, IDS_CNFRM_ONCREATEDIR, &Configuration.CnfrmCreateDir);
