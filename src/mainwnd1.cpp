@@ -480,9 +480,9 @@ CMainWindow::~CMainWindow()
     HANDLES(DeleteCriticalSection(&DispachChangeNotifCS));
     DestroyDetachedChrome();
     if (HLeftDetachedWindow != NULL)
-        HANDLES(DestroyWindow(HLeftDetachedWindow));
+        DestroyWindow(HLeftDetachedWindow);
     if (HRightDetachedWindow != NULL)
-        HANDLES(DestroyWindow(HRightDetachedWindow));
+        DestroyWindow(HRightDetachedWindow);
     if (FileHistory != NULL)
         delete FileHistory;
     if (DetachedFSList != NULL)
@@ -1860,10 +1860,6 @@ BOOL CMainWindow::EnsureDetachedChrome()
                                            HRightDetachedWindow, (HMENU)0, HInstance, NULL);
         if (HDetachedTopRebar == NULL)
             return FALSE;
-        if (DarkModeShouldUseDarkColors())
-            SetWindowTheme(HDetachedTopRebar, L"DarkMode_Explorer", nullptr);
-        else
-            SetWindowTheme(HDetachedTopRebar, (L" "), (L" "));
         DarkModeApplyWindow(HDetachedTopRebar);
         DarkModeApplyRebarSeparators(HDetachedTopRebar);
     }
@@ -2027,23 +2023,23 @@ BOOL CMainWindow::EnsureDetachedChrome()
 void CMainWindow::DestroyDetachedChrome()
 {
     if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedEditWindow->HWindow));
+        DestroyWindow(DetachedEditWindow->HWindow);
     if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedBottomToolBar->HWindow));
+        DestroyWindow(DetachedBottomToolBar->HWindow);
     if (DetachedDriveBar2 != NULL && DetachedDriveBar2->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedDriveBar2->HWindow));
+        DestroyWindow(DetachedDriveBar2->HWindow);
     if (DetachedDriveBar != NULL && DetachedDriveBar->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedDriveBar->HWindow));
+        DestroyWindow(DetachedDriveBar->HWindow);
     if (DetachedHPToolBar != NULL && DetachedHPToolBar->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedHPToolBar->HWindow));
+        DestroyWindow(DetachedHPToolBar->HWindow);
     if (DetachedUMToolBar != NULL && DetachedUMToolBar->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedUMToolBar->HWindow));
+        DestroyWindow(DetachedUMToolBar->HWindow);
     if (DetachedPluginsBar != NULL && DetachedPluginsBar->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedPluginsBar->HWindow));
+        DestroyWindow(DetachedPluginsBar->HWindow);
     if (DetachedTopToolBar != NULL && DetachedTopToolBar->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedTopToolBar->HWindow));
+        DestroyWindow(DetachedTopToolBar->HWindow);
     if (DetachedMenuBar != NULL && DetachedMenuBar->HWindow != NULL)
-        HANDLES(DestroyWindow(DetachedMenuBar->HWindow));
+        DestroyWindow(DetachedMenuBar->HWindow);
 
     if (DetachedEditWindow != NULL)
     {
@@ -2092,7 +2088,7 @@ void CMainWindow::DestroyDetachedChrome()
     }
     if (HDetachedTopRebar != NULL)
     {
-        HANDLES(DestroyWindow(HDetachedTopRebar));
+        DestroyWindow(HDetachedTopRebar);
         HDetachedTopRebar = NULL;
     }
 }
@@ -2444,12 +2440,12 @@ static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
     int x = side == cpsLeft ? mainRect.left : mainRect.left + width + 16;
     int y = mainRect.top;
 
-    HWND hWnd = HANDLES(CreateWindowEx(WS_EX_APPWINDOW,
-                                       DETACHED_PANEL_CLASSNAME,
-                                       title,
-                                       WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-                                       x, y, width, height,
-                                       mainWindow->HWindow, NULL, HInstance, mainWindow));
+    HWND hWnd = CreateWindowEx(WS_EX_APPWINDOW,
+                                DETACHED_PANEL_CLASSNAME,
+                                title,
+                                WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+                                x, y, width, height,
+                                mainWindow->HWindow, NULL, HInstance, mainWindow);
     if (hWnd != NULL)
     {
         SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)((DWORD_PTR)mainWindow | (side == cpsRight ? 1 : 0)));
