@@ -745,6 +745,8 @@ CConfiguration::CConfiguration()
     TreeViewAutoHide = FALSE;
 
     GripsVisible = TRUE;
+    DetachedPanels = FALSE;
+    DetachedWindowPlacement.length = 0;
 
     // Packers / Unpackers
     UseAnotherPanelForPack = FALSE;   // like WinZip folks - let's annoy them

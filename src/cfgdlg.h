@@ -412,6 +412,9 @@ struct CConfiguration
     BOOL TreeViewAutoHide;
     int GripsVisible;
 
+    BOOL DetachedPanels;                    // TRUE = restore right side in a detached top-level window
+    WINDOWPLACEMENT DetachedWindowPlacement; // invalid unless DetachedWindowPlacement.length != 0
+
     // Change drive
     int ChangeDriveShowMyDoc;     // display Documents item
     int ChangeDriveShow3DObjects; // display 3D Objects item

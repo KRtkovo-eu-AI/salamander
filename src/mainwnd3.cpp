@@ -10286,7 +10286,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         CALL_STACK_MESSAGE1("WM_USER_CLOSE_MAINWND::3");
 
         if (DetachedPanels)
+        {
+            WINDOWPLACEMENT detachedPlace;
+            memset(&detachedPlace, 0, sizeof(detachedPlace));
+            detachedPlace.length = sizeof(WINDOWPLACEMENT);
+            BOOL haveDetachedPlace = HRightDetachedWindow != NULL &&
+                                     GetWindowPlacement(HRightDetachedWindow, &detachedPlace);
             SetPanelsDetached(FALSE);
+            Configuration.DetachedPanels = TRUE;
+            if (haveDetachedPlace)
+                Configuration.DetachedWindowPlacement = detachedPlace;
+        }
 
         // optame se panelu, jestli muzeme koncit
         int totalPanels = LeftPanelTabs.Count + RightPanelTabs.Count;

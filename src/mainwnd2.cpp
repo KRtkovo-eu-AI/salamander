@@ -934,6 +934,12 @@ const char* WINDOW_BOTTOM_REG = "Bottom";
 const char* WINDOW_SPLIT_REG = "Split Position";
 const char* WINDOW_BEFOREZOOMSPLIT_REG = "Before Zoom Split Position";
 const char* WINDOW_SHOW_REG = "Show";
+const char* WINDOW_DETACHED_PANELS_REG = "Detached Panels";
+const char* WINDOW_DETACHED_LEFT_REG = "Detached Left";
+const char* WINDOW_DETACHED_RIGHT_REG = "Detached Right";
+const char* WINDOW_DETACHED_TOP_REG = "Detached Top";
+const char* WINDOW_DETACHED_BOTTOM_REG = "Detached Bottom";
+const char* WINDOW_DETACHED_SHOW_REG = "Detached Show";
 const char* FINDDIALOG_NAMEWIDTH_REG = "Name Width";
 const char* SALAMANDER_AUTOCONFIGDRIVES_REG = "Autoconfig Search Paths";
 
@@ -2589,6 +2595,28 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 sprintf(buf, "%.1lf", BeforeZoomSplitPosition * 100);
                 SetValue(actKey, WINDOW_BEFOREZOOMSPLIT_REG, REG_SZ, buf, -1);
 
+                if (DetachedPanels && HRightDetachedWindow != NULL)
+                {
+                    Configuration.DetachedWindowPlacement.length = sizeof(WINDOWPLACEMENT);
+                    GetWindowPlacement(HRightDetachedWindow, &Configuration.DetachedWindowPlacement);
+                    Configuration.DetachedPanels = TRUE;
+                }
+                DWORD detachedPanels = Configuration.DetachedPanels ? 1 : 0;
+                SetValue(actKey, WINDOW_DETACHED_PANELS_REG, REG_DWORD, &detachedPanels, sizeof(DWORD));
+                if (Configuration.DetachedWindowPlacement.length != 0)
+                {
+                    SetValue(actKey, WINDOW_DETACHED_LEFT_REG, REG_DWORD,
+                             &(Configuration.DetachedWindowPlacement.rcNormalPosition.left), sizeof(DWORD));
+                    SetValue(actKey, WINDOW_DETACHED_RIGHT_REG, REG_DWORD,
+                             &(Configuration.DetachedWindowPlacement.rcNormalPosition.right), sizeof(DWORD));
+                    SetValue(actKey, WINDOW_DETACHED_TOP_REG, REG_DWORD,
+                             &(Configuration.DetachedWindowPlacement.rcNormalPosition.top), sizeof(DWORD));
+                    SetValue(actKey, WINDOW_DETACHED_BOTTOM_REG, REG_DWORD,
+                             &(Configuration.DetachedWindowPlacement.rcNormalPosition.bottom), sizeof(DWORD));
+                    SetValue(actKey, WINDOW_DETACHED_SHOW_REG, REG_DWORD,
+                             &(Configuration.DetachedWindowPlacement.showCmd), sizeof(DWORD));
+                }
+
                 CloseKey(actKey);
             }
 
@@ -4160,6 +4188,23 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                         BeforeZoomSplitPosition = 1;
                     BeforeZoomVisibleLeftRatio = BeforeZoomSplitPosition;
                 }
+                DWORD detachedPanels = 0;
+                if (GetValue(actKey, WINDOW_DETACHED_PANELS_REG, REG_DWORD, &detachedPanels, sizeof(DWORD)))
+                    Configuration.DetachedPanels = detachedPanels != 0;
+                BOOL detachedPlacementExists = TRUE;
+                Configuration.DetachedWindowPlacement.length = 0;
+                detachedPlacementExists &= GetValue(actKey, WINDOW_DETACHED_LEFT_REG, REG_DWORD,
+                                                    &Configuration.DetachedWindowPlacement.rcNormalPosition.left, sizeof(DWORD));
+                detachedPlacementExists &= GetValue(actKey, WINDOW_DETACHED_RIGHT_REG, REG_DWORD,
+                                                    &Configuration.DetachedWindowPlacement.rcNormalPosition.right, sizeof(DWORD));
+                detachedPlacementExists &= GetValue(actKey, WINDOW_DETACHED_TOP_REG, REG_DWORD,
+                                                    &Configuration.DetachedWindowPlacement.rcNormalPosition.top, sizeof(DWORD));
+                detachedPlacementExists &= GetValue(actKey, WINDOW_DETACHED_BOTTOM_REG, REG_DWORD,
+                                                    &Configuration.DetachedWindowPlacement.rcNormalPosition.bottom, sizeof(DWORD));
+                detachedPlacementExists &= GetValue(actKey, WINDOW_DETACHED_SHOW_REG, REG_DWORD,
+                                                    &Configuration.DetachedWindowPlacement.showCmd, sizeof(DWORD));
+                if (detachedPlacementExists)
+                    Configuration.DetachedWindowPlacement.length = sizeof(WINDOWPLACEMENT);
                 useWinPlacement = TRUE;
             }
             else
@@ -5514,6 +5559,20 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 }
             }
             SetWindowPlacement(HWindow, &place);
+        }
+        if (Configuration.DetachedPanels)
+        {
+            if (SetPanelsDetached(TRUE) &&
+                Configuration.DetachedWindowPlacement.length != 0 &&
+                HRightDetachedWindow != NULL)
+            {
+                WINDOWPLACEMENT detachedPlace = Configuration.DetachedWindowPlacement;
+                detachedPlace.length = sizeof(WINDOWPLACEMENT);
+                if (detachedPlace.showCmd == SW_MINIMIZE || detachedPlace.showCmd == SW_SHOWMINIMIZED)
+                    detachedPlace.showCmd = SW_SHOWNORMAL;
+                SetWindowPlacement(HRightDetachedWindow, &detachedPlace);
+                LayoutDetachedPanels();
+            }
         }
         LeftPanel->SetupListBoxScrollBars();
         RightPanel->SetupListBoxScrollBars();

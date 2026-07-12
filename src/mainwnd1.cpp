@@ -2563,6 +2563,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         }
 
         DetachedPanels = TRUE;
+        Configuration.DetachedPanels = TRUE;
         DetachedPanelsSwapFixNeeded = FALSE;
         UpdateDetachedMenuLabels();
         if (!EnsureDetachedChrome())
@@ -2586,7 +2587,13 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
                 SetParent(tabPanel->HWindow, HWindow);
         }
 
+        if (HRightDetachedWindow != NULL)
+        {
+            Configuration.DetachedWindowPlacement.length = sizeof(WINDOWPLACEMENT);
+            GetWindowPlacement(HRightDetachedWindow, &Configuration.DetachedWindowPlacement);
+        }
         DetachedPanels = FALSE;
+        Configuration.DetachedPanels = FALSE;
         UpdateDetachedMenuLabels();
         PanelZoomedState = 0;
         KeepSplitPositionCenteredOnVisiblePanes = FALSE;
