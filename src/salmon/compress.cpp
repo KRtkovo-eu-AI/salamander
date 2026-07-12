@@ -55,7 +55,7 @@ static BOOL RunHiddenProcessAndWait(char* commandLine, const char* currentDir)
     return exitCode == 0;
 }
 
-static BOOL CompressBugReportWithPowerShell(const char* reportName, char* errorMessage, int errorMessageSize)
+static BOOL CompressBugReportToZip(const char* reportName, char* errorMessage, int errorMessageSize)
 {
     char archive[SAL_MAX_PATH];
     sprintf(archive, "%s%s.ZIP", BugReportPath, reportName);
@@ -114,17 +114,17 @@ static BOOL CompressBugReportWithPowerShell(const char* reportName, char* errorM
     DeleteFile(scriptPath);
 
     if (!ret)
-        lstrcpyn(errorMessage, "Can not compress the bug report with Windows PowerShell Compress-Archive.", errorMessageSize);
+        lstrcpyn(errorMessage, "Can not compress the bug report into a ZIP archive.", errorMessageSize);
     return ret;
 }
 
-static BOOL CompressBugReportsWithPowerShell(CCompressParams* compressParams)
+static BOOL CompressBugReportsToZip(CCompressParams* compressParams)
 {
     BOOL ret = TRUE;
     compressParams->ErrorMessage[0] = 0;
     for (int i = 0; i < BugReports.Count; i++)
     {
-        BOOL res = CompressBugReportWithPowerShell(BugReports[i].Name, compressParams->ErrorMessage, 2 * MAX_PATH - 1);
+        BOOL res = CompressBugReportToZip(BugReports[i].Name, compressParams->ErrorMessage, 2 * MAX_PATH - 1);
         ret &= res;
         if (!res || !ReportOldBugs)
             break;
@@ -141,77 +141,7 @@ static BOOL CompressBugReportsWithPowerShell(CCompressParams* compressParams)
 
 BOOL CompresBugReports(CCompressParams* compressParams)
 {
-    BOOL ret = FALSE;
-    compressParams->ErrorMessage[0] = 0;
-    char wrapperDLL[SAL_MAX_PATH];
-    GetSalamanderRootPath(wrapperDLL, SAL_MAX_PATH);
-    lstrcpyn(wrapperDLL + strlen(wrapperDLL), "\\plugins\\7zip\\7zwrapper.dll", SAL_MAX_PATH - (int)strlen(wrapperDLL));
-
-    char wrapperDir[SAL_MAX_PATH];
-    lstrcpyn(wrapperDir, wrapperDLL, SAL_MAX_PATH);
-    char* lastSlash = strrchr(wrapperDir, '\\');
-    if (lastSlash != NULL)
-        *lastSlash = 0;
-
-    char oldDllDirectory[SAL_MAX_PATH];
-    DWORD oldDllDirectoryLen = GetDllDirectory(SAL_MAX_PATH, oldDllDirectory);
-    BOOL restoreDllDirectory = oldDllDirectoryLen < SAL_MAX_PATH;
-    SetDllDirectory(wrapperDir);
-
-    HINSTANCE h7zwrapper = LoadLibraryEx(wrapperDLL, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
-    if (h7zwrapper != NULL)
-    {
-        typedef BOOL(WINAPI * CompressFiles_t)(const char* archiveName7z, const char* sourceDir, const char* filter, char* errorMessage, int errorMessageSize);
-        CompressFiles_t CompressFiles;
-        CompressFiles = (CompressFiles_t)GetProcAddress(h7zwrapper, "CompressFiles");
-        if (CompressFiles != NULL)
-        {
-            char oldCurrentDir[MAX_PATH];
-            GetCurrentDirectory(MAX_PATH, oldCurrentDir);
-
-            ret = TRUE;
-
-            char error[10000];
-            for (int i = 0; i < BugReports.Count; i++)
-            {
-                SetCurrentDirectory(BugReportPath);
-
-                char mask[MAX_PATH];
-                strcpy(mask, BugReports[i].Name);
-                strcat(mask, ".*");
-
-                char archive[MAX_PATH];
-                strcpy(archive, BugReports[i].Name);
-                strcat(archive, ".7Z");
-                DeleteFile(archive); // so the subsequent compression does not fail
-
-                error[0] = 0;
-                BOOL res = CompressFiles(archive, BugReportPath, mask, error, 10000);
-                if (!res)
-                    lstrcpyn(compressParams->ErrorMessage, error, 2 * MAX_PATH - 1);
-                ret &= res;
-                if (!ReportOldBugs)
-                    break;
-            }
-
-            SetCurrentDirectory(oldCurrentDir);
-        }
-        else
-        {
-            sprintf(compressParams->ErrorMessage, LoadStr(IDS_SALMON_LOAD_FAILED, HLanguage), wrapperDLL);
-        }
-        FreeLibrary(h7zwrapper);
-    }
-    else
-    {
-        sprintf(compressParams->ErrorMessage, LoadStr(IDS_SALMON_LOAD_FAILED, HLanguage), wrapperDLL);
-    }
-    if (restoreDllDirectory)
-        SetDllDirectory(oldDllDirectoryLen == 0 ? NULL : oldDllDirectory);
-
-    if (!ret)
-        ret = CompressBugReportsWithPowerShell(compressParams);
-    return ret;
+    return CompressBugReportsToZip(compressParams);
 }
 
 DWORD WINAPI CompressThreadF(void* param)

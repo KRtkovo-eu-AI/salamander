@@ -1985,7 +1985,7 @@ STRINGTABLE
  IDS_SALMON_UPLOADING "Opening GitHub issue, wait please..."
  IDS_SALMON_UPLOADSUCCESS "The crash report archive has been prepared locally. A GitHub issue page and the report folder will be opened now.\n\nPrivacy warning: the archive may contain sensitive data such as file paths, loaded modules, and process memory. Review it before attaching it to a public GitHub issue."
  IDS_SALMON_UPLOADFAILED "Opening the GitHub issue failed. ShellExecute returned code %d.\n\nThe report archive remains on your disk. Click OK to show the report folder."
- IDS_SALMON_COMPRESSFAILED "Report compression has failed, reason: %s\n\nPlease pack your bug report manually using 7-Zip and attach it to a GitHub issue only after reviewing it for sensitive data. Click OK to show the report folder."
+ IDS_SALMON_COMPRESSFAILED "Report compression has failed, reason: %s\n\nPlease pack your bug report manually into a ZIP archive and attach it to a GitHub issue only after reviewing it for sensitive data. Click OK to show the report folder."
  IDS_SALMON_LOAD_FAILED "Loading of %s failed."
  IDS_SALMON_WRONG_CMDLINE "This is an internal Open Salamander utility, please don't start it directly."
  IDS_SALMON_WRONG_VERSION "Incorrect version of Open Salamander Bug Reporter. Please report this at https://github.com/KRtkovo-eu-AI/salamander/issues."
@@ -1994,7 +1994,7 @@ STRINGTABLE
  IDS_SALMON_MINIDUMP_CREATE "Cannot create minidump file %s. Code: %d."
  IDS_SALMON_MINIDUMP_CALL "Error during minidump creation. Code: %d."
 
-// IDS_SALMON_FAILED, "Starting of Bug Reporter failed. Please pack following bug report using 7-Zip packer and attach it to a GitHub issue after reviewing it for sensitive data.\n\nThank you for helping us improve Open Salamander."
+// IDS_SALMON_FAILED, "Starting of Bug Reporter failed. Please pack following bug report into a ZIP archive and attach it to a GitHub issue after reviewing it for sensitive data.\n\nThank you for helping us improve Open Salamander."
  IDS_SALMON_NOT_RUNNING, "Open Salamander Bug Reporter (salmon.exe) is not running. Open Salamander will not be able to handle potential crashes. Please restart Open Salamander."
 
  IDS_SLGINCOMPLETE_TITLE, "Unfinished Translation of Open Salamander"

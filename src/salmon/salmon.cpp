@@ -1033,7 +1033,7 @@ int RunTestCompression(const char* slgName)
 
     char dmpPath[SAL_MAX_PATH];
     sprintf(dmpPath, "%s%s.DMP", BugReportPath, reportName);
-    if (!WriteTestReportFile(dmpPath, "Dummy minidump placeholder for testing 7-Zip report compression.\r\n"))
+    if (!WriteTestReportFile(dmpPath, "Dummy minidump placeholder for testing bug report ZIP compression.\r\n"))
     {
         SalmonMessageBox(NULL, "Cannot write the dummy minidump file.", APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
         return SALMON_RET_ERROR;
