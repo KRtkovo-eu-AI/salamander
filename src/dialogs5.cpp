@@ -1637,24 +1637,6 @@ CArchiveUpdateDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageConfirmations
 //
 
-// used only to suppress quick search in the tree view
-class CMyTreeView : public CWindow
-{
-public:
-    CMyTreeView(HWND hDlg, int ctrlID) : CWindow(hDlg, ctrlID) {}
-
-protected:
-    virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
-    {
-        if (uMsg == WM_CHAR)
-        {
-            PostMessage(GetParent(HWindow), WM_USER_CHAR, wParam, lParam);
-            return 0;
-        }
-        return CWindow::WindowProc(uMsg, wParam, lParam);
-    }
-};
-
 CCfgPageConfirmations::CCfgPageConfirmations()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_CONFIRMATIONS, IDD_CFGPAGE_CONFIRMATIONS, PSP_USETITLE, NULL),
       List(20, 5)
@@ -1662,26 +1644,6 @@ CCfgPageConfirmations::CCfgPageConfirmations()
     HTreeView = NULL;
     DisableNotification = FALSE;
 }
-
-void CCfgPageConfirmations::SetItemChecked(HTREEITEM hTreeItem, BOOL checked)
-{
-    TVITEM item;
-    item.mask = TVIF_HANDLE | TVIF_IMAGE | TVIF_SELECTEDIMAGE;
-    item.hItem = hTreeItem;
-    item.iImage = checked ? 1 : 0;
-    item.iSelectedImage = item.iImage;
-    TreeView_SetItem(HTreeView, &item);
-}
-
-//BOOL
-//CCfgPageConfirmations::GetItemChecked(HTREEITEM hTreeItem)
-//{
-//  TVITEM item;
-//  item.mask = TVIF_HANDLE | TVIF_IMAGE;
-//  item.hItem = hTreeItem;
-//  TreeView_GetItem(HTreeView, &item);
-//  return item.iImage = 1;
-//}
 
 void CCfgPageConfirmations::Transfer(CTransferInfo& ti)
 {
@@ -1693,7 +1655,9 @@ void CCfgPageConfirmations::Transfer(CTransferInfo& ti)
         if (ti.Type == ttDataToWindow)
         {
             cnfrm->Checked = *cnfrm->Variable;
-            SetItemChecked(cnfrm->HTreeItem, cnfrm->Checked);
+            TreeView_SetItemState(HTreeView, cnfrm->HTreeItem,
+                                  INDEXTOSTATEIMAGEMASK(cnfrm->Checked ? 2 : 1),
+                                  TVIS_STATEIMAGEMASK);
         }
         else
         {
@@ -1704,7 +1668,7 @@ void CCfgPageConfirmations::Transfer(CTransferInfo& ti)
 }
 
 HTREEITEM
-CCfgPageConfirmations::AddItem(HTREEITEM hParent, int iImage, int textResID, int* value)
+CCfgPageConfirmations::AddItem(HTREEITEM hParent, int iImage, int textResID, int* value, int sectionIcon)
 {
     TVINSERTSTRUCT tvis;
     tvis.hParent = hParent;
@@ -1717,6 +1681,12 @@ CCfgPageConfirmations::AddItem(HTREEITEM hParent, int iImage, int textResID, int
         tvis.item.iImage = iImage;
         tvis.item.iSelectedImage = iImage;
         tvis.item.state |= TVIS_EXPANDED;
+    }
+    else if (sectionIcon != -1)
+    {
+        tvis.item.mask |= TVIF_IMAGE | TVIF_SELECTEDIMAGE;
+        tvis.item.iImage = sectionIcon;
+        tvis.item.iSelectedImage = sectionIcon;
     }
 
     tvis.item.pszText = LoadStr(textResID);
@@ -1731,44 +1701,49 @@ CCfgPageConfirmations::AddItem(HTREEITEM hParent, int iImage, int textResID, int
         item.Checked = 0;
         List.Add(item); // put the leaf handles into an array for easy access
     }
+    else
+    {
+        // section header - remove checkbox completely (state image 0 = no checkbox)
+        TreeView_SetItemState(HTreeView, ret, 0, TVIS_STATEIMAGEMASK);
+    }
     return ret;
 }
 
 void CCfgPageConfirmations::InitTree()
 {
-    // Confirm On
-    HConfirmOn = AddItem(NULL, 2, IDS_CNFRM_CONFIRMON, NULL);
-    HTREEITEM hFirst = AddItem(HConfirmOn, -1, IDS_CNFRM_FILEDIRDEL, &Configuration.CnfrmFileDirDel);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_NEDIRDEL, &Configuration.CnfrmNEDirDel);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_FILEOVER, &Configuration.CnfrmFileOver);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_SHFILEDEL, &Configuration.CnfrmSHFileDel);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_SHDIRDEL, &Configuration.CnfrmSHDirDel);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_SHFILEOVER, &Configuration.CnfrmSHFileOver);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_DIRALREADYEXISTS, &Configuration.CnfrmDirOver);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_NTFSPRESS, &Configuration.CnfrmNTFSPress);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_NTFSCRYPT, &Configuration.CnfrmNTFSCrypt);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_DAD, &Configuration.CnfrmDragDrop);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_UMDIFFDLG, &Configuration.CnfrmShowNamesToCompare);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_DSTIGNORED, &Configuration.CnfrmDSTShiftsIgnored);
-    AddItem(HConfirmOn, -1, IDS_CNFRM_DSTCANIGN, &Configuration.CnfrmDSTShiftsOccured);
+    // Confirm On (icon: exclamation = 0)
+    HConfirmOn = AddItem(NULL, 0, IDS_CNFRM_CONFIRMON, NULL);
+    HTREEITEM hFirst = AddItem(HConfirmOn, -1, IDS_CNFRM_FILEDIRDEL, &Configuration.CnfrmFileDirDel, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_NEDIRDEL, &Configuration.CnfrmNEDirDel, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_FILEOVER, &Configuration.CnfrmFileOver, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_SHFILEDEL, &Configuration.CnfrmSHFileDel, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_SHDIRDEL, &Configuration.CnfrmSHDirDel, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_SHFILEOVER, &Configuration.CnfrmSHFileOver, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_DIRALREADYEXISTS, &Configuration.CnfrmDirOver, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_NTFSPRESS, &Configuration.CnfrmNTFSPress, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_NTFSCRYPT, &Configuration.CnfrmNTFSCrypt, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_DAD, &Configuration.CnfrmDragDrop, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_UMDIFFDLG, &Configuration.CnfrmShowNamesToCompare, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_DSTIGNORED, &Configuration.CnfrmDSTShiftsIgnored, 0);
+    AddItem(HConfirmOn, -1, IDS_CNFRM_DSTCANIGN, &Configuration.CnfrmDSTShiftsOccured, 0);
 
-    // Show message
-    HShowMessage = AddItem(NULL, 3, IDS_CNFRM_SHOWMESSAGE, NULL);
-    AddItem(HShowMessage, -1, IDS_CNFRM_CLOSEARCHIVE, &Configuration.CnfrmCloseArchive);
-    AddItem(HShowMessage, -1, IDS_CNFRM_CLOSEFIND, &Configuration.CnfrmCloseFind);
-    AddItem(HShowMessage, -1, IDS_CNFRM_STOPFIND, &Configuration.CnfrmStopFind);
-    AddItem(HShowMessage, -1, IDS_CNFRM_CREATEPATH, &Configuration.CnfrmCreatePath);
-    AddItem(HShowMessage, -1, IDS_CNFRM_ALWAYSONTOP, &Configuration.CnfrmAlwaysOnTop);
-    AddItem(HShowMessage, -1, IDS_CNFRM_ONSALCLOSE, &Configuration.CnfrmOnSalClose);
-    AddItem(HShowMessage, -1, IDS_CNFRM_DETACHCLOSE, &Configuration.CnfrmDetachClose);
-    AddItem(HShowMessage, -1, IDS_CNFRM_ONSENDEMAIL, &Configuration.CnfrmSendEmail);
-    AddItem(HShowMessage, -1, IDS_CNFRM_ONADDTOARCHIVE, &Configuration.CnfrmAddToArchive);
-    AddItem(HShowMessage, -1, IDS_CNFRM_ONCREATEDIR, &Configuration.CnfrmCreateDir);
-    AddItem(HShowMessage, -1, IDS_CNFRM_COPYMOVEOPTNS, &Configuration.CnfrmCopyMoveOptionsNS);
+    // Show message (icon: question = 1)
+    HShowMessage = AddItem(NULL, 1, IDS_CNFRM_SHOWMESSAGE, NULL);
+    AddItem(HShowMessage, -1, IDS_CNFRM_CLOSEARCHIVE, &Configuration.CnfrmCloseArchive, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_CLOSEFIND, &Configuration.CnfrmCloseFind, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_STOPFIND, &Configuration.CnfrmStopFind, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_CREATEPATH, &Configuration.CnfrmCreatePath, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_ALWAYSONTOP, &Configuration.CnfrmAlwaysOnTop, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_ONSALCLOSE, &Configuration.CnfrmOnSalClose, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_DETACHCLOSE, &Configuration.CnfrmDetachClose, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_ONSENDEMAIL, &Configuration.CnfrmSendEmail, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_ONADDTOARCHIVE, &Configuration.CnfrmAddToArchive, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_ONCREATEDIR, &Configuration.CnfrmCreateDir, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_COPYMOVEOPTNS, &Configuration.CnfrmCopyMoveOptionsNS, 1);
 
-    // Errors and Failures
-    HErrorsAndFailures = AddItem(NULL, 4, IDS_CNFRM_ERRORSFAILURES, NULL);
-    AddItem(HErrorsAndFailures, -1, IDS_CNFRM_CHANGEDIRHISTORYERR, &Configuration.CnfrmChangeDirHistoryErr);
+    // Errors and Failures (icon: error = 2)
+    HErrorsAndFailures = AddItem(NULL, 2, IDS_CNFRM_ERRORSFAILURES, NULL);
+    AddItem(HErrorsAndFailures, -1, IDS_CNFRM_CHANGEDIRHISTORYERR, &Configuration.CnfrmChangeDirHistoryErr, 2);
 
     // select the first usable item
     TreeView_Select(HTreeView, hFirst, TVGN_CARET);
@@ -1778,7 +1753,7 @@ HIMAGELIST
 CCfgPageConfirmations::CreateImageList()
 {
     int iconSize = IconSizes[ICONSIZE_16];
-    HIMAGELIST hIL = CreateCheckboxImagelist(iconSize);
+    HIMAGELIST hIL = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 0, 4);
 
     HICON hIcon;
     LoadIconWithScaleDown(NULL, (PCWSTR)IDI_EXCLAMATION, iconSize, iconSize, &hIcon);
@@ -1807,20 +1782,6 @@ int CCfgPageConfirmations::FindInList(HTREEITEM hTreeItem)
     return -1;
 }
 
-void CCfgPageConfirmations::ChangeSelected()
-{
-    HTREEITEM hSelected = TreeView_GetSelection(HTreeView);
-    if (hSelected != NULL)
-    {
-        int index = FindInList(hSelected);
-        if (index != -1)
-        {
-            List[index].Checked = !List[index].Checked;
-            SetItemChecked(hSelected, List[index].Checked);
-        }
-    }
-}
-
 INT_PTR
 CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1828,12 +1789,11 @@ CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        CMyTreeView* treeView = new CMyTreeView(HWindow, IDC_CNFRM_TREE);
-        HTreeView = treeView->HWindow;
+        HTreeView = GetDlgItem(HWindow, IDC_CNFRM_TREE);
 
-        // DWORD style = GetWindowLongPtr(HTreeView, GWL_STYLE);
-        // style |= TVS_CHECKBOXES;
-        // SetWindowLongPtr(HTreeView, GWL_STYLE, style);
+        DWORD style = GetWindowLongPtr(HTreeView, GWL_STYLE);
+        style |= TVS_CHECKBOXES;
+        SetWindowLongPtr(HTreeView, GWL_STYLE, style);
 
         HImageList = CreateImageList();
         TreeView_SetImageList(HTreeView, HImageList, TVSIL_NORMAL);
@@ -1859,55 +1819,54 @@ CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    // space on the item
-    case WM_USER_CHAR:
-    {
-        if (wParam == ' ')
-            ChangeSelected();
-        break;
-    }
-
     case WM_NOTIFY:
     {
         if (DisableNotification)
             break;
-
         if (wParam == IDC_CNFRM_TREE)
         {
             LPNMHDR nmh = (LPNMHDR)lParam;
-            switch (nmh->code)
-            {
-            // mouse click on an unselected item -> toggle checkbox
-            case TVN_SELCHANGED:
+            if (nmh->code == TVN_ITEMCHANGED)
             {
                 LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
-                if (pnmtv->action == TVC_BYMOUSE)
-                    ChangeSelected();
-                break;
-            }
-
-            // mouse click on a selected item -> toggle checkbox
-            case NM_CLICK:
-            case NM_DBLCLK:
-            {
-                HTREEITEM hSelected = TreeView_GetSelection(HTreeView);
-                if (hSelected != NULL)
+                if ((pnmtv->itemNew.state & TVIS_STATEIMAGEMASK) != (pnmtv->itemOld.state & TVIS_STATEIMAGEMASK))
                 {
-                    DWORD pos = GetMessagePos();
-                    TVHITTESTINFO hti;
-                    hti.pt.x = GET_X_LPARAM(pos);
-                    hti.pt.y = GET_Y_LPARAM(pos);
-                    ScreenToClient(HTreeView, &hti.pt);
-                    HTREEITEM hHit = TreeView_HitTest(HTreeView, &hti);
-                    if (hHit == hSelected && (hti.flags & TVHT_ONITEM) != 0)
-                        ChangeSelected();
+                    int index = FindInList(pnmtv->itemNew.hItem);
+                    if (index != -1)
+                    {
+                        List[index].Checked = ((pnmtv->itemNew.state & TVIS_STATEIMAGEMASK) >> 12) == 2;
+                    }
+                    else
+                    {
+                        // section header - remove checkbox completely
+                        TreeView_SetItemState(HTreeView, pnmtv->itemNew.hItem,
+                                              0, TVIS_STATEIMAGEMASK);
+                    }
                 }
-                break;
             }
+            if (nmh->code == NM_DBLCLK)
+            {
+                UINT flags = 0;
+                POINT pt;
+                GetCursorPos(&pt);
+                ScreenToClient(HTreeView, &pt);
+                HTREEITEM hItem = TreeView_HitTest(HTreeView, &pt, &flags);
+                if (hItem && (flags & TVHT_ONITEM))
+                {
+                    int index = FindInList(hItem);
+                    if (index != -1)
+                    {
+                        List[index].Checked = !List[index].Checked;
+                        TreeView_SetItemState(HTreeView, hItem,
+                                              INDEXTOSTATEIMAGEMASK(List[index].Checked ? 2 : 1),
+                                              TVIS_STATEIMAGEMASK);
+                    }
+                }
             }
         }
         break;
     }
+
     }
     return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }

@@ -855,11 +855,8 @@ protected:
 
     void InitTree();
     HIMAGELIST CreateImageList();
-    HTREEITEM AddItem(HTREEITEM hParent, int iImage, int textResID, int* value);
-    void SetItemChecked(HTREEITEM hTreeItem, BOOL checked);
-    //BOOL GetItemChecked(HTREEITEM hTreeItem);
+    HTREEITEM AddItem(HTREEITEM hParent, int iImage, int textResID, int* value, int sectionIcon = -1);
     int FindInList(HTREEITEM hTreeItem);
-    void ChangeSelected();
 };
 
 //

@@ -1217,17 +1217,17 @@ STRINGTABLE
  IDS_DU_ZIP16_E, "PKUNZIP (External DOS, tested with v2.04g)"
 
 // supported external archivers
- IDS_EXT_JAR32,  "Win32 JAR console executable (tested with v1.02)"
- IDS_EXT_RAR32,  "Win32 RAR console executable (tested with v2.50)"
+ IDS_EXT_JAR32,  "Win32/x64 JAR console executable (tested with v1.02)"
+ IDS_EXT_RAR32,  "Win32/x64 RAR console executable (tested with v2.50)"
  IDS_EXT_ARJ16,  "MS-DOS ARJ executable (tested with v2.60)"
  IDS_EXT_LHA16,  "MS-DOS LHA executable (tested with v2.55)"
  IDS_EXT_UC216,  "MS-DOS UC2 executable (tested with v2r3PRO)"
  IDS_EXT_JAR16,  "MS-DOS JAR executable (tested with v1.02)"
  IDS_EXT_RAR16,  "MS-DOS RAR executable (tested with v2.50)"
- IDS_EXT_ZIP32,  "Win32 PKZIP console executable (tested with v2.50)"
+ IDS_EXT_ZIP32,  "Win32/x64 PKZIP console executable (tested with v2.50)"
  IDS_EXT_ZIP16,  "MS-DOS PKZIP/PKUNZIP executable (tested with v2.04g)"
- IDS_EXT_ARJ32,  "Win32 ARJ console executable (tested with v3.00c)"
- IDS_EXT_ACE32,  "Win32 ACE console executable (tested with v1.2b)"
+ IDS_EXT_ARJ32,  "Win32/x64 ARJ console executable (tested with v3.00c)"
+ IDS_EXT_ACE32,  "Win32/x64 ACE console executable (tested with v1.2b)"
  IDS_EXT_ACE16,  "MS-DOS ACE executable (tested with v1.2b)"
 
 // packer/unpacker type
