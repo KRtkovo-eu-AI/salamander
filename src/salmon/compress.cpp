@@ -16,6 +16,17 @@ BOOL CompresBugReports(CCompressParams* compressParams)
     GetSalamanderRootPath(wrapperDLL, SAL_MAX_PATH);
     lstrcpyn(wrapperDLL + strlen(wrapperDLL), "\\plugins\\7zip\\7zwrapper.dll", SAL_MAX_PATH - (int)strlen(wrapperDLL));
 
+    char wrapperDir[SAL_MAX_PATH];
+    lstrcpyn(wrapperDir, wrapperDLL, SAL_MAX_PATH);
+    char* lastSlash = strrchr(wrapperDir, '\\');
+    if (lastSlash != NULL)
+        *lastSlash = 0;
+
+    char oldDllDirectory[SAL_MAX_PATH];
+    DWORD oldDllDirectoryLen = GetDllDirectory(SAL_MAX_PATH, oldDllDirectory);
+    BOOL restoreDllDirectory = oldDllDirectoryLen < SAL_MAX_PATH;
+    SetDllDirectory(wrapperDir);
+
     HINSTANCE h7zwrapper = LoadLibraryEx(wrapperDLL, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
     if (h7zwrapper != NULL)
     {
@@ -64,6 +75,8 @@ BOOL CompresBugReports(CCompressParams* compressParams)
     {
         sprintf(compressParams->ErrorMessage, LoadStr(IDS_SALMON_LOAD_FAILED, HLanguage), wrapperDLL);
     }
+    if (restoreDllDirectory)
+        SetDllDirectory(oldDllDirectoryLen == 0 ? NULL : oldDllDirectory);
     return ret;
 }
 
