@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "cfgdlg.h"
 #include "viewer.h"
 #include "common/widepath.h"
@@ -213,21 +215,21 @@ BOOL ViewerActive(HWND hwnd)
 
 void CViewerWindow::SetViewerCaption()
 {
-    char caption[MAX_PATH + 300];
+    char caption[SAL_MAX_PATH + 300];
     if (Caption == NULL)
     {
         if (!FileNameW.empty())
         {
             std::string captionA = SalWideToMultiBytePath(FileNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-            lstrcpyn(caption, captionA.c_str(), MAX_PATH);
+            lstrcpyn(caption, captionA.c_str(), SAL_MAX_PATH);
         }
         else if (FileName != NULL)
-            lstrcpyn(caption, FileName, MAX_PATH); // caption according to the file
+            lstrcpyn(caption, FileName, SAL_MAX_PATH); // caption according to the file
         else
             caption[0] = 0;
     }
     else
-        lstrcpyn(caption, Caption, MAX_PATH); // caption according to the plug-in request
+        lstrcpyn(caption, Caption, SAL_MAX_PATH); // caption according to the plug-in request
     if (Caption == NULL || !WholeCaption)
     {
         if (caption[0] != 0)

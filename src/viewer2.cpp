@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "viewer.h"
 #include "common/widepath.h"
 #include "codetbl.h"
@@ -26,6 +28,28 @@ struct CTVData
 
 HANDLE ViewerContinue = NULL;
 
+static std::wstring ViewerPathToWide(const char* path)
+{
+    std::wstring wide = SalMultiByteToWidePath(path, CP_UTF8);
+    if (wide.empty() && GetACP() != CP_UTF8)
+        wide = SalMultiByteToWidePath(path, CP_ACP);
+    return wide;
+}
+
+static HANDLE OpenViewerFileForRead(const std::wstring& fileNameW, const char* fileName)
+{
+    if (!fileNameW.empty())
+    {
+        std::wstring ioName = fileNameW;
+        if (ioName.length() >= MAX_PATH && !SalIsExtendedLengthPathW(ioName.c_str()))
+            ioName = SalPathAddExtendedPrefixW(ioName.c_str());
+        return HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                     OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+    }
+    return HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+}
+
 void ThreadViewerMessageLoopBodyAux()
 {
     __try
@@ -47,14 +71,14 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     //  TRACE_I("MoresStanislav: ThreadViewerMessageLoopBody 1");
     CTVData* data = (CTVData*)parameter;
     CViewerWindow* view = data->View;
-    char name[MAX_PATH];
-    strcpy(name, data->Name);
-    char captionBuf[MAX_PATH];
+    char name[SAL_MAX_PATH];
+    lstrcpyn(name, data->Name, SAL_MAX_PATH);
+    char captionBuf[SAL_MAX_PATH];
     const char* caption = NULL;
     BOOL wholeCaption = FALSE;
     if (data->Caption != NULL)
     {
-        lstrcpyn(captionBuf, data->Caption, MAX_PATH);
+        lstrcpyn(captionBuf, data->Caption, SAL_MAX_PATH);
         caption = captionBuf;
         wholeCaption = data->WholeCaption;
     }
@@ -131,7 +155,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     if (ok) // if the window was created, run the application loop
     {
         CALL_STACK_MESSAGE1("ThreadViewerMessageLoopBody::message_loop");
-        if (SalGetFullName(name))
+        if (SalGetFullName(name, NULL, NULL, NULL, NULL, SAL_MAX_PATH))
             view->OpenFile(name, caption, wholeCaption);
 
         MSG msg;
@@ -377,11 +401,7 @@ BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
     HANDLE file;
     if (hFile == NULL || *hFile == NULL)
     {
-        file = !FileNameW.empty() ?
-                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                         OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
-                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                        OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = OpenViewerFileForRead(FileNameW, FileName);
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
@@ -525,11 +545,7 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
     HANDLE file;
     if (hFile == NULL || *hFile == NULL)
     {
-        file = !FileNameW.empty() ?
-                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                         FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
-                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                        FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = OpenViewerFileForRead(FileNameW, FileName);
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
@@ -696,8 +712,8 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCaption)
 {
     CALL_STACK_MESSAGE3("CViewerWindow::OpenFile(%s, %s)", file, caption);
-    char fileName[MAX_PATH];
-    strcpy(fileName, file);
+    char fileName[SAL_MAX_PATH];
+    lstrcpyn(fileName, file, SAL_MAX_PATH);
 
     if (Caption != NULL)
     {
@@ -716,7 +732,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     FileName = (char*)malloc(strlen(fileName) + 1);
     if (FileName != NULL)
         strcpy(FileName, fileName);
-    FileNameW = SalMultiByteToWidePath(fileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    FileNameW = ViewerPathToWide(fileName);
     TooBigSelAction = 0;
     CanSwitchToHex = TRUE;
     CanSwitchQuietlyToHex = TRUE;
@@ -790,8 +806,14 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
     if (s != NULL)
     {
         namePart = s + 1;
-        memcpy(CurrentDir, FileName, (s - FileName) + 1);
-        CurrentDir[(s - FileName) + 1] = 0;
+        size_t currentDirLen = (s - FileName) + 1;
+        if (currentDirLen < SAL_MAX_PATH)
+        {
+            memcpy(CurrentDir, FileName, currentDirLen);
+            CurrentDir[currentDirLen] = 0;
+        }
+        else
+            CurrentDir[0] = 0;
     }
     else
         CurrentDir[0] = 0;
@@ -799,11 +821,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
     BOOL close;
     if (file == NULL)
     {
-        file = !FileNameW.empty() ?
-                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                         FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
-                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                        FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = OpenViewerFileForRead(FileNameW, FileName);
         close = TRUE;
     }
     else

@@ -50,6 +50,63 @@ static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName
     _snprintf_s(key, keySize, _TRUNCATE, "ArchiveView:%08X:%s", hash, itemName != NULL ? itemName : "");
 }
 
+
+static std::wstring FileActionTextToWide(const char* text)
+{
+    std::wstring wide = SalMultiByteToWidePath(text, CP_UTF8);
+    if (wide.empty() && GetACP() != CP_UTF8)
+        wide = SalMultiByteToWidePath(text, CP_ACP);
+    return wide;
+}
+
+static BOOL CreateProcessForFileAction(const char* cmdLine, const char* currentDir, STARTUPINFO* si, PROCESS_INFORMATION* pi)
+{
+    std::wstring cmdLineW = FileActionTextToWide(cmdLine);
+    if (cmdLineW.empty())
+        return HANDLES(CreateProcess(NULL, (char*)cmdLine, NULL, NULL, FALSE,
+                                     NORMAL_PRIORITY_CLASS, NULL, currentDir, si, pi));
+
+    std::wstring currentDirW;
+    LPCWSTR currentDirParam = NULL;
+    if (currentDir != NULL && *currentDir != 0)
+    {
+        currentDirW = FileActionTextToWide(currentDir);
+        if (!currentDirW.empty())
+        {
+            if (currentDirW.length() >= MAX_PATH && !SalIsExtendedLengthPathW(currentDirW.c_str()))
+                currentDirW = SalPathAddExtendedPrefixW(currentDirW.c_str());
+            currentDirParam = currentDirW.c_str();
+        }
+    }
+
+    STARTUPINFOW siW;
+    memset(&siW, 0, sizeof(siW));
+    siW.cb = sizeof(siW);
+    siW.dwX = si->dwX;
+    siW.dwY = si->dwY;
+    siW.dwXSize = si->dwXSize;
+    siW.dwYSize = si->dwYSize;
+    siW.dwXCountChars = si->dwXCountChars;
+    siW.dwYCountChars = si->dwYCountChars;
+    siW.dwFillAttribute = si->dwFillAttribute;
+    siW.dwFlags = si->dwFlags;
+    siW.wShowWindow = si->wShowWindow;
+    siW.cbReserved2 = si->cbReserved2;
+    siW.lpReserved2 = si->lpReserved2;
+    siW.hStdInput = si->hStdInput;
+    siW.hStdOutput = si->hStdOutput;
+    siW.hStdError = si->hStdError;
+
+    BOOL created = NOHANDLES(CreateProcessW(NULL, &cmdLineW[0], NULL, NULL, FALSE,
+                                            NORMAL_PRIORITY_CLASS, NULL, currentDirParam, &siW, pi));
+    if (created)
+    {
+        HANDLES_ADD(__htProcess, __hoCreateProcess, pi->hProcess);
+        HANDLES_ADD(__htThread, __hoCreateProcess, pi->hThread);
+    }
+    return created;
+}
+
 // ****************************************************************************
 // CFilesWindow
 //
@@ -431,7 +488,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                         resTextID = encrypted ? IDS_CONFIRM_NTFSENCRYPT : IDS_CONFIRM_NTFSDECRYPT;
                         resTitleID = encrypted ? IDS_CONFIRM_NTFSENCRYPT_TITLE : IDS_CONFIRM_NTFSDECRYPT_TITLE;
                     }
-                    sprintf(subject, LoadStr(resTextID), expanded);
+                    _snprintf_s(subject, _TRUNCATE, "%s %s", LoadStr(resTextID), expanded);
                     CTruncatedString str;
                     str.Set(subject, count > 1 ? NULL : path);
                     CMessageBox msgBox(HWindow, MSGBOXEX_YESNO | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_ICONQUESTION | MSGBOXEX_SILENT,
@@ -770,8 +827,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
             {
                 if (enumFileNamesLastFileIndex == -1)
                     enumFileNamesLastFileIndex = i - Dirs->Count;
-                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(GetPath(), CP_ACP);
-                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : SalMultiByteToWidePath(f->Name, CP_ACP).c_str());
+                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : FileActionTextToWide(GetPath());
+                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : FileActionTextToWide(f->Name).c_str());
                 unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
 
                 lstrcpyn(path, GetPath(), SAL_MAX_PATH);
@@ -820,8 +877,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                         }
                     }
                 }
-                if (name == NULL || name != (char*)unicodeDiskFileName.c_str())
-                    name = path;
+                name = !unicodeDiskFileName.empty() ? (char*)unicodeDiskFileName.c_str() : path;
                 addToHistory = TRUE;
             }
             else
@@ -870,7 +926,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                             CFileData* f2 = &Files->At(x);
                             if (strcmp(f2->Name, f->Name) == 0)
                             {
-                                sprintf(dcFileName + strlen(dcFileName), ":0x%p", f->Name);
+                                _snprintf_s(dcFileName + strlen(dcFileName), (3 * SAL_MAX_PATH + 50) - strlen(dcFileName), _TRUNCATE, ":0x%p", f->Name);
                                 break;
                             }
                         }
@@ -1002,11 +1058,11 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     lockOwner = FALSE;
 
     // obtain the full DOS name
-    char dosName[MAX_PATH];
-    if (GetShortPathName(name, dosName, MAX_PATH) == 0)
+    CPathBuffer dosName(SAL_MAX_PATH);
+    if (GetShortPathName(name, dosName.Data(), dosName.Capacity()) == 0)
     {
         TRACE_E("GetShortPathName() failed");
-        dosName[0] = 0;
+        dosName.Data()[0] = 0;
     }
 
     // find the file name and check if it has an extension - needed for masks
@@ -1105,15 +1161,15 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         {
         case VIEWER_EXTERNAL:
         {
-            char expCommand[MAX_PATH];
-            char expArguments[MAX_PATH];
-            char expInitDir[MAX_PATH];
-            if (ExpandCommand(parent, viewer->Command, expCommand, MAX_PATH, FALSE) &&
-                ExpandArguments(parent, name, dosName, viewer->Arguments, expArguments, MAX_PATH, NULL) &&
-                ExpandInitDir(parent, name, dosName, viewer->InitDir, expInitDir, MAX_PATH, FALSE))
+            CPathBuffer expCommand(SAL_MAX_PATH);
+            CPathBuffer expArguments(SAL_MAX_PATH);
+            CPathBuffer expInitDir(SAL_MAX_PATH);
+            if (ExpandCommand(parent, viewer->Command, expCommand.Data(), expCommand.Capacity(), FALSE) &&
+                ExpandArguments(parent, name, dosName.Data(), viewer->Arguments, expArguments.Data(), expArguments.Capacity(), NULL) &&
+                ExpandInitDir(parent, name, dosName.Data(), viewer->InitDir, expInitDir.Data(), expInitDir.Capacity(), FALSE))
             {
                 if (SystemPolicies.GetMyRunRestricted() &&
-                    !SystemPolicies.GetMyCanRun(expCommand))
+                    !SystemPolicies.GetMyCanRun(expCommand.Data()))
                 {
                     MSGBOXEX_PARAMS params;
                     memset(&params, 0, sizeof(params));
@@ -1139,30 +1195,29 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                               STARTF_USESHOWWINDOW;
                 si.wShowWindow = SW_SHOWNORMAL;
 
-                char cmdLine[2 * MAX_PATH];
-                lstrcpyn(cmdLine, expCommand, 2 * MAX_PATH);
-                AddDoubleQuotesIfNeeded(cmdLine, 2 * MAX_PATH); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
-                int len = (int)strlen(cmdLine);
-                int lArgs = (int)strlen(expArguments);
-                if (len + lArgs + 2 <= 2 * MAX_PATH)
+                CPathBuffer cmdLine(2 * SAL_MAX_PATH);
+                lstrcpyn(cmdLine.Data(), expCommand.Data(), cmdLine.Capacity());
+                AddDoubleQuotesIfNeeded(cmdLine.Data(), cmdLine.Capacity()); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
+                int len = (int)strlen(cmdLine.Data());
+                int lArgs = (int)strlen(expArguments.Data());
+                if (len + lArgs + 2 <= cmdLine.Capacity())
                 {
-                    cmdLine[len] = ' ';
-                    memcpy(cmdLine + len + 1, expArguments, lArgs + 1);
+                    cmdLine.Data()[len] = ' ';
+                    memcpy(cmdLine.Data() + len + 1, expArguments.Data(), lArgs + 1);
 
                     MainWindow->SetDefaultDirectories();
 
-                    if (expInitDir[0] == 0) // this should never happen
+                    if (expInitDir.Data()[0] == 0) // this should never happen
                     {
-                        strcpy(expInitDir, name);
-                        CutDirectory(expInitDir);
+                        lstrcpyn(expInitDir.Data(), name, expInitDir.Capacity());
+                        CutDirectory(expInitDir.Data());
                     }
-                    if (!HANDLES(CreateProcess(NULL, cmdLine, NULL, NULL, FALSE,
-                                               NORMAL_PRIORITY_CLASS, NULL, expInitDir, &si, &pi)))
+                    if (!CreateProcessForFileAction(cmdLine.Data(), expInitDir.Data(), &si, &pi))
                     {
                         DWORD err = GetLastError();
-                        char buff[4 * MAX_PATH];
-                        sprintf(buff, LoadStr(IDS_ERROREXECVIEW), expCommand, GetErrorText(err));
-                        SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                        CPathBuffer buff(4 * SAL_MAX_PATH);
+                        _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, "%s", LoadStr(IDS_ERROREXECVIEW));
+                        SalMessageBox(parent, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                     }
                     else
                     {
@@ -1179,9 +1234,9 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 }
                 else
                 {
-                    char buff[4 * MAX_PATH];
-                    sprintf(buff, LoadStr(IDS_ERROREXECVIEW), expCommand, LoadStr(IDS_TOOLONGNAME));
-                    SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                    CPathBuffer buff(4 * SAL_MAX_PATH);
+                    _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, "%s %s %s", LoadStr(IDS_ERROREXECVIEW), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
+                    SalMessageBox(parent, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
             }
             break;
@@ -1256,9 +1311,9 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     }
     else
     {
-        char buff[MAX_PATH + 300];
+        char buff[SAL_MAX_PATH + 300];
         int textID = altView ? IDS_CANT_VIEW_FILE_ALT : IDS_CANT_VIEW_FILE;
-        sprintf(buff, LoadStr(textID), name);
+        _snprintf_s(buff, _TRUNCATE, "%s", LoadStr(textID));
         SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
     }
     return success;
@@ -1295,6 +1350,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     BOOL addToHistory = name != NULL && Is(ptDisk);
 
     // if viewing/editing from the panel, obtain the full long name
+    std::string unicodeDiskFileName; // UTF-8 full path for local files with Unicode/long names
     if (name == NULL)
     {
         int i = GetCaretIndex();
@@ -1303,6 +1359,10 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
             CFileData* f = &Files->At(i - Dirs->Count);
             if (Is(ptDisk))
             {
+                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : FileActionTextToWide(GetPath());
+                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : FileActionTextToWide(f->Name).c_str());
+                unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
+
                 lstrcpyn(path, GetPath(), SAL_MAX_PATH);
                 if (GetPath()[strlen(GetPath()) - 1] != '\\')
                     strcat(path, "\\");
@@ -1338,7 +1398,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                         }
                     }
                 }
-                name = path;
+                name = !unicodeDiskFileName.empty() ? (char*)unicodeDiskFileName.c_str() : path;
                 addToHistory = TRUE;
             }
         }
@@ -1349,11 +1409,11 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     }
 
     // obtain the full DOS name
-    char dosName[MAX_PATH];
-    if (GetShortPathName(name, dosName, MAX_PATH) == 0)
+    CPathBuffer dosName(SAL_MAX_PATH);
+    if (GetShortPathName(name, dosName.Data(), dosName.Capacity()) == 0)
     {
         TRACE_I("GetShortPathName() failed.");
-        dosName[0] = 0;
+        dosName.Data()[0] = 0;
     }
 
     // find the file name and check if it has an extension - needed for masks
@@ -1428,15 +1488,15 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         if (addToHistory)
             MainWindow->FileHistory->AddFile(fhitEdit, editor->HandlerID, name); // add file to history
 
-        char expCommand[MAX_PATH];
-        char expArguments[MAX_PATH];
-        char expInitDir[MAX_PATH];
-        if (ExpandCommand(HWindow, editor->Command, expCommand, MAX_PATH, FALSE) &&
-            ExpandArguments(HWindow, name, dosName, editor->Arguments, expArguments, MAX_PATH, NULL) &&
-            ExpandInitDir(HWindow, name, dosName, editor->InitDir, expInitDir, MAX_PATH, FALSE))
+        CPathBuffer expCommand(SAL_MAX_PATH);
+        CPathBuffer expArguments(SAL_MAX_PATH);
+        CPathBuffer expInitDir(SAL_MAX_PATH);
+        if (ExpandCommand(HWindow, editor->Command, expCommand.Data(), expCommand.Capacity(), FALSE) &&
+            ExpandArguments(HWindow, name, dosName.Data(), editor->Arguments, expArguments.Data(), expArguments.Capacity(), NULL) &&
+            ExpandInitDir(HWindow, name, dosName.Data(), editor->InitDir, expInitDir.Data(), expInitDir.Capacity(), FALSE))
         {
             if (SystemPolicies.GetMyRunRestricted() &&
-                !SystemPolicies.GetMyCanRun(expCommand))
+                !SystemPolicies.GetMyCanRun(expCommand.Data()))
             {
                 MSGBOXEX_PARAMS params;
                 memset(&params, 0, sizeof(params));
@@ -1462,30 +1522,31 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                           STARTF_USESHOWWINDOW;
             si.wShowWindow = SW_SHOWNORMAL;
 
-            char cmdLine[2 * MAX_PATH];
-            lstrcpyn(cmdLine, expCommand, 2 * MAX_PATH);
-            AddDoubleQuotesIfNeeded(cmdLine, 2 * MAX_PATH); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
-            int len = (int)strlen(cmdLine);
-            int lArgs = (int)strlen(expArguments);
-            if (len + lArgs + 2 <= 2 * MAX_PATH)
+            CPathBuffer cmdLine(2 * SAL_MAX_PATH);
+            lstrcpyn(cmdLine.Data(), expCommand.Data(), cmdLine.Capacity());
+            AddDoubleQuotesIfNeeded(cmdLine.Data(), cmdLine.Capacity()); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
+            int len = (int)strlen(cmdLine.Data());
+            int lArgs = (int)strlen(expArguments.Data());
+            if (len + lArgs + 2 <= cmdLine.Capacity())
             {
-                cmdLine[len] = ' ';
-                memcpy(cmdLine + len + 1, expArguments, lArgs + 1);
+                cmdLine.Data()[len] = ' ';
+                memcpy(cmdLine.Data() + len + 1, expArguments.Data(), lArgs + 1);
 
                 MainWindow->SetDefaultDirectories();
 
-                if (expInitDir[0] == 0) // this should never happen
+                if (expInitDir.Data()[0] == 0) // this should never happen
                 {
-                    strcpy(expInitDir, name);
-                    CutDirectory(expInitDir);
+                    lstrcpyn(expInitDir.Data(), name, expInitDir.Capacity());
+                    CutDirectory(expInitDir.Data());
                 }
-                if (!HANDLES(CreateProcess(NULL, cmdLine, NULL, NULL, FALSE,
-                                           NORMAL_PRIORITY_CLASS, NULL, expInitDir, &si, &pi)))
+                if (!CreateProcessForFileAction(cmdLine.Data(), expInitDir.Data(), &si, &pi))
                 {
                     DWORD err = GetLastError();
-                    char buff[4 * MAX_PATH];
-                    sprintf(buff, LoadStr(IDS_ERROREXECEDIT), expCommand, GetErrorText(err));
-                    SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                    CPathBuffer detail(2 * SAL_MAX_PATH);
+                    _snprintf_s(detail.Data(), detail.Capacity(), _TRUNCATE, "%s", GetErrorText(err));
+                    CPathBuffer buff(4 * SAL_MAX_PATH);
+                    _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, "%s%s", LoadStr(IDS_ERROREXECEDIT), detail.Data());
+                    SalMessageBox(HWindow, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
                 else
                 {
@@ -1495,16 +1556,18 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
             }
             else
             {
-                char buff[4 * MAX_PATH];
-                sprintf(buff, LoadStr(IDS_ERROREXECEDIT), expCommand, LoadStr(IDS_TOOLONGNAME));
-                SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                CPathBuffer detail(2 * SAL_MAX_PATH);
+                _snprintf_s(detail.Data(), detail.Capacity(), _TRUNCATE, "%s", LoadStr(IDS_TOOLONGNAME));
+                CPathBuffer buff(4 * SAL_MAX_PATH);
+                _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, "%s %s %s", LoadStr(IDS_ERROREXECEDIT), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
+                SalMessageBox(HWindow, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
             }
         }
     }
     else
     {
-        char buff[MAX_PATH + 300];
-        sprintf(buff, LoadStr(IDS_CANT_EDIT_FILE), name);
+        char buff[SAL_MAX_PATH + 300];
+        _snprintf_s(buff, _countof(buff), _TRUNCATE, "%s %s", LoadStr(IDS_CANT_EDIT_FILE), name);
         SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);
     }
@@ -1656,7 +1719,7 @@ void CFilesWindow::FillViewWithMenu(CMenuPopup* popup)
                 imgIndex = pluginIndex;
         }
         if (item->ViewerType == VIEWER_EXTERNAL)
-            sprintf(buff, LoadStr(IDS_VIEWWITH_EXTERNAL), item->Command);
+            _snprintf_s(buff, _TRUNCATE, "%s%s", LoadStr(IDS_VIEWWITH_EXTERNAL), item->Command);
         if (item->ViewerType == VIEWER_INTERNAL)
             lstrcpy(buff, LoadStr(IDS_VIEWWITH_INTERNAL));
 
@@ -1846,7 +1909,7 @@ void CFilesWindow::FillEditWithMenu(CMenuPopup* popup)
         }
         if (!alreadyAdded)
         {
-            sprintf(buff, LoadStr(IDS_EDITWITH_EXTERNAL), item->Command);
+            _snprintf_s(buff, _TRUNCATE, "%s", LoadStr(IDS_EDITWITH_EXTERNAL));
             popup->InsertItem(-1, TRUE, &mii);
         }
     }
@@ -2416,7 +2479,7 @@ void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName
                                 DWORD num = (GetTickCount() / 10) % 0xFFF;
                                 while (1)
                                 {
-                                    sprintf(tmpNamePart, "sal%03X", num++);
+                                    _snprintf_s(tmpNamePart, (MAX_PATH + 20) - (tmpNamePart - tmpName), _TRUNCATE, "sal%03X", num++);
                                     if (SalMoveFile(origFullName, tmpName))
                                         break;
                                     DWORD e = GetLastError();
@@ -2565,7 +2628,7 @@ void CFilesWindow::RenameFile(int specialIndex)
     }
 
     char buff[200];
-    sprintf(buff, LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
+    _snprintf_s(buff, _TRUNCATE, "%s %s", LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
     CTruncatedString subject;
     subject.SetW(SalMultiByteToWidePath(buff, CP_ACP).c_str(), formatedFileNameW.c_str());
     CCopyMoveDialog dlg(HWindow, formatedFileName, SAL_MAX_PATH, LoadStr(IDS_RENAME_TITLE),

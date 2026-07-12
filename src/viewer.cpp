@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include <vector>
+#include <string>
 
 #include "viewer.h"
 #include "common/widepath.h"
@@ -47,6 +48,15 @@ void SetViewerWindowText(HWND hWindow, const char* text)
 {
     std::wstring wide = ViewerTextToWide(text);
     SetWindowTextW(hWindow, wide.c_str());
+}
+
+
+static std::wstring ViewerPathToWide(const char* path)
+{
+    std::wstring wide = SalMultiByteToWidePath(path, CP_UTF8);
+    if (wide.empty() && GetACP() != CP_UTF8)
+        wide = SalMultiByteToWidePath(path, CP_ACP);
+    return wide;
 }
 
 char* ViewerHistory[VIEWER_HISTORY_SIZE];
@@ -656,15 +666,15 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
         FileName = NULL; // error
     else
     {
-        char name[MAX_PATH];
-        lstrcpyn(name, fileName, MAX_PATH);
-        if (SalGetFullName(name))
+        char name[SAL_MAX_PATH];
+        lstrcpyn(name, fileName, SAL_MAX_PATH);
+        if (SalGetFullName(name, NULL, NULL, NULL, NULL, SAL_MAX_PATH))
         {
             FileName = (char*)malloc(strlen(name) + 1);
             if (FileName != NULL)
             {
                 strcpy(FileName, name);
-                FileNameW = SalMultiByteToWidePath(name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                FileNameW = ViewerPathToWide(name);
             }
         }
         else

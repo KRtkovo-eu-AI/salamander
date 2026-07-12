@@ -399,7 +399,7 @@ protected:
     Salamander::Unicode::BomEncoding TextEncoding; // decoded text mode selected for BOM/UTF-8 files
     __int64 TextContentOffset;                // first raw byte of text content (after BOM when present)
 
-    char CurrentDir[MAX_PATH]; // path for the open dialog
+    char CurrentDir[SAL_MAX_PATH]; // path for the open dialog
 
     BOOL WaitForViewerRefresh;   // TRUE - waiting for WM_USER_VIEWERREFRESH; other commands are skipped
     __int64 LastSeekY;           // SeekY before the error
