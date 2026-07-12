@@ -33,6 +33,7 @@
 #include "color.h"
 #include "toolbar.h"
 #include "darkmode.h"
+#include "common/widepath.h"
 #include "configstorage.h"
 
 #include "svg.h"
@@ -1451,11 +1452,15 @@ HICON GetDriveIcon(const char* root, UINT type, BOOL accessible, BOOL large)
     default:
     {
         id = 32;
-        if (type == DRIVE_FIXED && root[1] == ':')
+        if (root != NULL && root[1] == ':')
         {
-            char win[MAX_PATH];
-            if (GetWindowsDirectory(win, MAX_PATH) && win[1] == ':' && win[0] == root[0])
+            CPathBuffer win;
+            if (GetWindowsDirectory(win.Data(), win.Capacity()) &&
+                win.Data()[1] == ':' && UpperCase[win.Data()[0]] == UpperCase[root[0]] &&
+                (type == DRIVE_FIXED || type == DRIVE_UNKNOWN || type == DRIVE_NO_ROOT_DIR))
+            {
                 id = 36;
+            }
         }
         break;
     }

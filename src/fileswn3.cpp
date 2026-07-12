@@ -2841,9 +2841,9 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
         { // only if the path is accessible
             if (DirectoryLine->HWindow != NULL)
             {
-                UINT type = MyGetDriveType(GetPath());
                 CPathBuffer root; // long/Unicode paths may have UNC roots longer than MAX_PATH
                 GetRootPath(root.Data(), GetPath());
+                UINT type = MyGetDriveType(root.Data());
                 HICON hIcon = GetDriveIcon(root.Data(), type, TRUE);
                 if (hIcon != NULL)
                 {
