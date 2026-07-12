@@ -2296,7 +2296,13 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
     {
         CFilesWindow* tabPanel = tabs[i];
         if (tabPanel != NULL && tabPanel->HWindow != NULL)
+        {
+            RECT panelClient;
+            GetClientRect(tabPanel->HWindow, &panelClient);
+            SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED,
+                        MAKELPARAM(panelClient.right - panelClient.left, panelClient.bottom - panelClient.top));
             tabPanel->LayoutListBoxChilds();
+        }
     }
 }
 
@@ -2461,7 +2467,13 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
     {
         CFilesWindow* tabPanel = LeftPanelTabs[i];
         if (tabPanel != NULL && tabPanel->HWindow != NULL)
+        {
+            RECT panelClient;
+            GetClientRect(tabPanel->HWindow, &panelClient);
+            SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED,
+                        MAKELPARAM(panelClient.right - panelClient.left, panelClient.bottom - panelClient.top));
             tabPanel->LayoutListBoxChilds();
+        }
     }
 }
 
