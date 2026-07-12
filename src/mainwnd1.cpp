@@ -28,6 +28,7 @@
 #include "jumplist.h"
 #include "darkmode.h"
 #include "titlebar_builder.h"
+#include "common/widepath.h"
 
 #include "versinfo.rh2"
 
@@ -1313,16 +1314,16 @@ BOOL CMainWindow::EditWindowKnowHWND(HWND hwnd)
 void CMainWindow::EditWindowSetDirectory()
 {
     SetWindowTitle(); // current directory into the title bar
-    CFilesWindow* panel = GetActivePanel();
+    CFilesWindow* panel = DetachedPanels ? LeftPanel : GetActivePanel();
     if (panel != NULL &&
         (panel->Is(ptDisk) ||
          panel->Is(ptPluginFS) && panel->GetPluginFS()->NotEmpty() &&
              panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COMMANDLINE)))
     {
-        char dir[2 * MAX_PATH];
-        panel->GetGeneralPath(dir, 2 * MAX_PATH);
+        CPathBuffer dir(2 * SAL_MAX_PATH);
+        panel->GetGeneralPath(dir.Data(), dir.Capacity());
         EditWindow->Enable(TRUE); // cached in EditWindow
-        EditWindow->SetDirectory(dir);
+        EditWindow->SetDirectory(dir.Data());
     }
     else // disable/hide edit-line
     {
@@ -2135,10 +2136,10 @@ void CMainWindow::UpdateDetachedCommandLine()
         RightPanel->Is(ptPluginFS) && RightPanel->GetPluginFS()->NotEmpty() &&
             RightPanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COMMANDLINE))
     {
-        char dir[2 * MAX_PATH];
-        RightPanel->GetGeneralPath(dir, 2 * MAX_PATH);
+        CPathBuffer dir(2 * SAL_MAX_PATH);
+        RightPanel->GetGeneralPath(dir.Data(), dir.Capacity());
         DetachedEditWindow->Enable(TRUE);
-        DetachedEditWindow->SetDirectory(dir);
+        DetachedEditWindow->SetDirectory(dir.Data());
     }
     else
     {
@@ -3326,6 +3327,7 @@ void CMainWindow::SetWindowTitle(const char* text)
 
     std::wstring wideText;
     std::wstring wideAppSuffix;
+    std::wstring prefix;
     if (text == NULL)
     {
         std::wstring suffix = MultiByteToWindowTitleWide(SALAMANDER_TEXT_VERSION);
@@ -3354,7 +3356,6 @@ void CMainWindow::SetWindowTitle(const char* text)
 
         wideAppSuffix = suffix;
 
-        std::wstring prefix;
         if (Configuration.UseTitleBarPrefixForced)
         {
             std::wstring wPrefix = MultiByteToWindowTitleWide(Configuration.TitleBarPrefixForced);
@@ -3457,7 +3458,7 @@ void CMainWindow::UpdateDetachedMenuLabels()
     {
         if (bars[i] != NULL && bars[i]->HWindow != NULL)
         {
-            bars[i]->RefreshMinWidths();
+            bars[i]->SetFont();
             InvalidateRect(bars[i]->HWindow, NULL, TRUE);
         }
     }
