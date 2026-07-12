@@ -284,6 +284,9 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
             hCenterBy = Parent;
 
+        if (MainWindow != NULL)
+            hCenterBy = MainWindow->GetDetachedAwareDialogParent(hCenterBy);
+
         if (hCenterBy != NULL)
             MultiMonCenterWindow(HWindow, hCenterBy, TRUE);
         else

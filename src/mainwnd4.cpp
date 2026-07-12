@@ -1223,7 +1223,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         si.dwFlags = STARTF_USESHOWWINDOW;
                         POINT p;
                         if (UserMenuItems->At(itemIndex)->UseWindow &&
-                            MultiMonGetDefaultWindowPos(MainWindow->HWindow, &p))
+                            MultiMonGetDefaultWindowPos(MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow), &p))
                         {
                             // if the main window is on another monitor, we should open
                             // the new window there, preferably at the default position (as on the primary monitor)

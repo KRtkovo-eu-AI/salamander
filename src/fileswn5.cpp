@@ -1083,7 +1083,8 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     // position for viewers
     WINDOWPLACEMENT place;
     place.length = sizeof(WINDOWPLACEMENT);
-    GetWindowPlacement(MainWindow->HWindow, &place);
+    HWND hPlacementWindow = MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow);
+    GetWindowPlacement(hPlacementWindow, &place);
     // GetWindowPlacement respects the Taskbar, so if the Taskbar is at the top or left,
     // the values are shifted by its dimensions. Perform correction.
     RECT monitorRect;
@@ -1434,7 +1435,8 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     // position for editors
     WINDOWPLACEMENT place;
     place.length = sizeof(WINDOWPLACEMENT);
-    GetWindowPlacement(MainWindow->HWindow, &place);
+    HWND hPlacementWindow = MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow);
+    GetWindowPlacement(hPlacementWindow, &place);
     // GetWindowPlacement respects the Taskbar, so if the Taskbar is at the top or left,
     // the values are shifted by its dimensions. Perform correction.
     RECT monitorRect;

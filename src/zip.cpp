@@ -813,26 +813,12 @@ int CSalamanderGeneral::DialogQuestion(HWND parent, DWORD flags, const char* fil
 
 static HWND GetPluginCallerCenterWindow()
 {
-    if (MainWindow != NULL && MainWindow->DetachedPanels)
-    {
-        HWND hRightDetachedWindow = MainWindow->GetRightDetachedWindowHWND();
-        if (hRightDetachedWindow != NULL && IsWindowVisible(hRightDetachedWindow))
-        {
-            HWND foreground = GetForegroundWindow();
-            if (foreground == hRightDetachedWindow ||
-                IsChild(hRightDetachedWindow, foreground) ||
-                GetAncestor(foreground, GA_ROOT) == hRightDetachedWindow)
-            {
-                return hRightDetachedWindow;
-            }
-        }
-    }
-    return MainWindow != NULL ? MainWindow->HWindow : NULL;
+    return MainWindow != NULL ? MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow) : NULL;
 }
 
 HWND CSalamanderGeneral::GetMainWindowHWND()
 {
-    return MainWindow != NULL ? MainWindow->HWindow : NULL;
+    return GetPluginCallerCenterWindow();
 }
 
 void RestoreFocusInSourcePanel()

@@ -894,6 +894,13 @@ public:
     void ApplyCommandLineParams(const CCommandLineParams* params, BOOL setActivePanelAndPanelPaths = TRUE);
 
     HWND GetRightDetachedWindowHWND() const { return HRightDetachedWindow; }
+    HWND GetDetachedAwareDialogParent(HWND parent)
+    {
+        if (parent == HWindow && DetachedPanels && GetActivePanel() == RightPanel &&
+            HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
+            return HRightDetachedWindow;
+        return parent;
+    }
 
     void LockUI(BOOL lock, HWND hToolWnd, const char* lockReason);
     BOOL HasLockedUI() { return LockedUI; }

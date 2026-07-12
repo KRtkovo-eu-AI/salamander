@@ -4330,7 +4330,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             UserMenuIconBkgndReader.BeginUserMenuIconsInUse();
         BOOL oldUseCustomPanelFont = UseCustomPanelFont;
         LOGFONT oldLogFont = LogFont;
-        CConfigurationDlg dlg(HWindow, UserMenuItems, (int)wParam, (int)lParam);
+        CConfigurationDlg dlg(GetDetachedAwareDialogParent(HWindow), UserMenuItems, (int)wParam, (int)lParam);
         int res = dlg.Execute(LoadStr(IDS_BUTTON_OK), LoadStr(IDS_BUTTON_CANCEL),
                               LoadStr(IDS_BUTTON_HELP));
         if (readingUMIcons)
@@ -5272,7 +5272,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             BeginStopRefresh(); // snooper takes a break
 
-            CPluginsDlg dlg(HWindow);
+            CPluginsDlg dlg(GetDetachedAwareDialogParent(HWindow));
             dlg.Execute();
             if (dlg.GetRefreshPanels())
             {
@@ -7145,7 +7145,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // STARTF_MONITOR was mentioned online in an article about undocumented features
             si.dwFlags = STARTF_USESHOWWINDOW;
             POINT p;
-            if (MultiMonGetDefaultWindowPos(MainWindow->HWindow, &p))
+            if (MultiMonGetDefaultWindowPos(MainWindow->GetDetachedAwareDialogParent(MainWindow->HWindow), &p))
             {
                 // if the main window is on another monitor we should open
                 // the new window there as well, preferably at the default position (same as on the primary)
