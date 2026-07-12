@@ -360,6 +360,7 @@ CMainWindow::CMainWindow()
     strcpy(SelectionMask, "*.*");
     Created = FALSE;
     RestoringPanelPaths = FALSE;
+    DetachedPanels = FALSE;
     //  DrivesControlHWnd = NULL;
     HDisabledKeyboard = NULL;
     CmdShow = SW_SHOWNORMAL;
@@ -371,6 +372,8 @@ CMainWindow::CMainWindow()
     LockedUI = FALSE;
     LockedUIToolWnd = NULL;
     LockedUIReason = NULL;
+    HLeftDetachedWindow = NULL;
+    HRightDetachedWindow = NULL;
 
     PanelConfigPathsRestoredLeft = FALSE;
     PanelConfigPathsRestoredRight = FALSE;
@@ -465,6 +468,10 @@ BOOL CMainWindow::IsGood()
 CMainWindow::~CMainWindow()
 {
     HANDLES(DeleteCriticalSection(&DispachChangeNotifCS));
+    if (HLeftDetachedWindow != NULL)
+        HANDLES(DestroyWindow(HLeftDetachedWindow));
+    if (HRightDetachedWindow != NULL)
+        HANDLES(DestroyWindow(HRightDetachedWindow));
     if (FileHistory != NULL)
         delete FileHistory;
     if (DetachedFSList != NULL)
@@ -1732,6 +1739,293 @@ void CMainWindow::LayoutWindows()
     GetClientRect(HWindow, &r);
     SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
                 MAKELONG(r.right - r.left, r.bottom - r.top));
+    LayoutDetachedPanels();
+}
+
+HWND CMainWindow::GetDetachedPanelWindow(CPanelSide side)
+{
+    return side == cpsLeft ? HLeftDetachedWindow : HRightDetachedWindow;
+}
+
+void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int height)
+{
+    CFilesWindow* panel = side == cpsLeft ? LeftPanel : RightPanel;
+    CTabWindow* tabWindow = side == cpsLeft ? LeftTabWindow : RightTabWindow;
+    TIndirectArray<CFilesWindow>& tabs = side == cpsLeft ? LeftPanelTabs : RightPanelTabs;
+
+    if (panel == NULL)
+        return;
+
+    int tabHeight = 0;
+    BOOL tabsVisible = tabWindow != NULL && tabWindow->HWindow != NULL &&
+                       Configuration.UsePanelTabs && tabs.Count > 0;
+    if (tabsVisible)
+        tabHeight = tabWindow->GetNeededHeight();
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(2));
+    if (hdwp != NULL)
+    {
+        if (tabWindow != NULL && tabWindow->HWindow != NULL)
+        {
+            hdwp = HANDLES(DeferWindowPos(hdwp, tabWindow->HWindow, NULL,
+                                          0, 0, width, tabHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER |
+                                              (tabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
+        }
+        if (panel->HWindow != NULL)
+        {
+            int panelHeight = height - tabHeight;
+            if (panelHeight < 0)
+                panelHeight = 0;
+            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HWindow, NULL,
+                                          0, tabHeight, width, panelHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+        }
+        HANDLES(EndDeferWindowPos(hdwp));
+    }
+
+    if (panel->HWindow != NULL)
+        panel->LayoutListBoxChilds();
+}
+
+void CMainWindow::LayoutDetachedPanels()
+{
+    if (!DetachedPanels)
+        return;
+
+    RECT r;
+    if (HRightDetachedWindow != NULL)
+    {
+        GetClientRect(HRightDetachedWindow, &r);
+        LayoutDetachedPanelWindow(cpsRight, r.right - r.left, r.bottom - r.top);
+    }
+}
+
+void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
+{
+    if (LeftPanel == NULL)
+        return;
+
+    TopRebarHeight = 0;
+    BottomToolBarHeight = 0;
+    EditHeight = 0;
+    PanelsHeight = height - 1;
+
+    RECT rebRect;
+    if (HTopRebar != NULL)
+    {
+        GetWindowRect(HTopRebar, &rebRect);
+        TopRebarHeight = rebRect.bottom - rebRect.top;
+    }
+
+    if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+        BottomToolBarHeight = BottomToolBar->GetNeededHeight();
+    if (EditWindow != NULL && EditWindow->HWindow != NULL)
+        EditHeight = EditWindow->GetNeededHeight() + 1;
+
+    PanelsHeight -= TopRebarHeight + BottomToolBarHeight + EditHeight;
+    if (PanelsHeight < 0)
+        PanelsHeight = 0;
+    int panelWidth = width - 2;
+    if (panelWidth < 0)
+        panelWidth = 0;
+
+    int leftTabHeight = 0;
+    BOOL leftTabsVisible = LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL &&
+                           Configuration.UsePanelTabs && LeftPanelTabs.Count > 0;
+    if (leftTabsVisible)
+        leftTabHeight = LeftTabWindow->GetNeededHeight();
+
+    int windowsCount = 1;
+    if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+        windowsCount++;
+    if (LeftPanel->HWindow != NULL)
+        windowsCount++;
+    if (EditWindow != NULL && EditWindow->HWindow != NULL)
+        windowsCount++;
+    if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+        windowsCount++;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(windowsCount));
+    if (hdwp != NULL)
+    {
+        if (HTopRebar != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, HTopRebar, NULL,
+                                          0, 0, width, TopRebarHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER));
+
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+        {
+            hdwp = HANDLES(DeferWindowPos(hdwp, LeftTabWindow->HWindow, NULL,
+                                          1, TopRebarHeight, panelWidth, leftTabHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER |
+                                              (leftTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
+        }
+
+        if (LeftPanel->HWindow != NULL)
+        {
+            int leftPanelHeight = PanelsHeight - leftTabHeight;
+            if (leftPanelHeight < 0)
+                leftPanelHeight = 0;
+            hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HWindow, NULL,
+                                          1, TopRebarHeight + leftTabHeight, panelWidth, leftPanelHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+        }
+
+        if (EditWindow != NULL && EditWindow->HWindow != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, EditWindow->HWindow, HWND_BOTTOM,
+                                          0, TopRebarHeight + PanelsHeight + 2, width, EditHeight + 150,
+                                          SWP_NOACTIVATE));
+
+        if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+            hdwp = HANDLES(DeferWindowPos(hdwp, BottomToolBar->HWindow, NULL,
+                                          1, TopRebarHeight + PanelsHeight + EditHeight + 1, panelWidth, BottomToolBarHeight,
+                                          SWP_NOACTIVATE | SWP_NOZORDER));
+
+        HANDLES(EndDeferWindowPos(hdwp));
+    }
+
+    if (LeftPanel->HWindow != NULL)
+        LeftPanel->LayoutListBoxChilds();
+}
+
+static const char* DETACHED_PANEL_CLASSNAME = "SalamanderDetachedPanelWindow";
+
+static void RegisterDetachedPanelWindowClass()
+{
+    static BOOL registered = FALSE;
+    if (registered)
+        return;
+
+    WNDCLASS wc;
+    memset(&wc, 0, sizeof(wc));
+    wc.style = CS_DBLCLKS;
+    wc.lpfnWndProc = CMainWindow::DetachedPanelWindowProc;
+    wc.hInstance = HInstance;
+    wc.hIcon = SalLoadIcon(HInstance, IDI_SALAMANDER, IconSizes[ICONSIZE_32]);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszClassName = DETACHED_PANEL_CLASSNAME;
+    RegisterClass(&wc);
+    registered = TRUE;
+}
+
+static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
+{
+    RegisterDetachedPanelWindowClass();
+
+    char title[200];
+    sprintf(title, "%s - %s", MAINWINDOW_NAME, side == cpsLeft ? "Left Side" : "Right Side");
+
+    RECT mainRect;
+    GetWindowRect(mainWindow->HWindow, &mainRect);
+    int width = max(320, (mainRect.right - mainRect.left) / 2);
+    int height = max(240, mainRect.bottom - mainRect.top);
+    int x = side == cpsLeft ? mainRect.left : mainRect.left + width + 16;
+    int y = mainRect.top;
+
+    HWND hWnd = HANDLES(CreateWindowEx(WS_EX_APPWINDOW,
+                                       DETACHED_PANEL_CLASSNAME,
+                                       title,
+                                       WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+                                       x, y, width, height,
+                                       mainWindow->HWindow, NULL, HInstance, mainWindow));
+    if (hWnd != NULL)
+    {
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)((DWORD_PTR)mainWindow | (side == cpsRight ? 1 : 0)));
+        DarkModeApplyWindow(hWnd);
+        DarkModeRefreshTitleBar(hWnd);
+    }
+    return hWnd;
+}
+
+BOOL CMainWindow::SetPanelsDetached(BOOL detached)
+{
+    CALL_STACK_MESSAGE2("CMainWindow::SetPanelsDetached(%d)", detached);
+
+    if (DetachedPanels == detached)
+        return TRUE;
+    if (LeftPanel == NULL || RightPanel == NULL)
+        return FALSE;
+
+    CancelPanelsUI();
+
+    if (detached)
+    {
+        if (HRightDetachedWindow == NULL)
+            HRightDetachedWindow = CreateDetachedPanelWindow(this, cpsRight);
+        if (HRightDetachedWindow == NULL)
+            return FALSE;
+
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+            SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
+        if (RightPanel->HWindow != NULL)
+            SetParent(RightPanel->HWindow, HRightDetachedWindow);
+
+        DetachedPanels = TRUE;
+        ShowWindow(HRightDetachedWindow, SW_SHOW);
+        LayoutWindows();
+        LayoutDetachedPanels();
+    }
+    else
+    {
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+            SetParent(RightTabWindow->HWindow, HWindow);
+        if (RightPanel->HWindow != NULL)
+            SetParent(RightPanel->HWindow, HWindow);
+
+        DetachedPanels = FALSE;
+        if (HRightDetachedWindow != NULL)
+            ShowWindow(HRightDetachedWindow, SW_HIDE);
+        LayoutWindows();
+    }
+
+    FocusPanel(GetActivePanel());
+    return TRUE;
+}
+
+BOOL CMainWindow::TogglePanelsDetached()
+{
+    return SetPanelsDetached(!DetachedPanels);
+}
+
+LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    LONG_PTR data = GetWindowLongPtr(hWnd, GWLP_USERDATA);
+    CMainWindow* mainWindow = (CMainWindow*)(data & ~(LONG_PTR)1);
+    CPanelSide side = (data & 1) ? cpsRight : cpsLeft;
+
+    if (uMsg == WM_CREATE)
+        return 0;
+
+    if (mainWindow != NULL)
+    {
+        switch (uMsg)
+        {
+        case WM_SIZE:
+            mainWindow->LayoutDetachedPanelWindow(side, LOWORD(lParam), HIWORD(lParam));
+            return 0;
+
+        case WM_SETFOCUS:
+            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            return 0;
+
+        case WM_ACTIVATE:
+            mainWindow->CaptionIsActive = LOWORD(wParam) != WA_INACTIVE;
+            if (mainWindow->CaptionIsActive)
+                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            return 0;
+
+        case WM_COMMAND:
+            return SendMessage(mainWindow->HWindow, WM_COMMAND, wParam, lParam);
+
+        case WM_CLOSE:
+            mainWindow->SetPanelsDetached(FALSE);
+            return 0;
+        }
+    }
+
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
 void CMainWindow::AddTrayIcon(BOOL updateIcon)

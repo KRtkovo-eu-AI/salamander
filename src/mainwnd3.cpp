@@ -6999,6 +6999,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
+        case CM_DETACHPANELS:
+        {
+            TogglePanelsDetached();
+            IdleRefreshStates = TRUE;
+            break;
+        }
+
         case CM_TOGGLE_UMLABELS:
         {
             UMToolBar->ToggleLabels();
@@ -7250,6 +7257,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 SetActivePanel(RightPanel);
             else if (activePanel == oldRightPanel)
                 SetActivePanel(LeftPanel);
+
+            if (DetachedPanels)
+            {
+                if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+                    SetParent(LeftTabWindow->HWindow, HWindow);
+                if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+                    SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
+                if (LeftPanel != NULL && LeftPanel->HWindow != NULL)
+                    SetParent(LeftPanel->HWindow, HWindow);
+                if (RightPanel != NULL && RightPanel->HWindow != NULL)
+                    SetParent(RightPanel->HWindow, HRightDetachedWindow);
+            }
 
             LockWindowUpdate(HWindow);
             LayoutWindows();
@@ -8046,6 +8065,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CML_OPTIONS:
         {
             popup->CheckItem(CM_ALWAYSONTOP, FALSE, Configuration.AlwaysOnTop);
+            popup->CheckItem(CM_DETACHPANELS, FALSE, DetachedPanels);
             break;
         }
 
@@ -8722,6 +8742,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         WindowWidth = LOWORD(lParam);
         WindowHeight = HIWORD(lParam);
+
+        if (DetachedPanels)
+        {
+            LayoutMainWindowDetachedPanel(WindowWidth, WindowHeight);
+            LayoutDetachedPanels();
+            break;
+        }
 
         if (KeepSplitPositionCenteredOnVisiblePanes)
             UpdateCenteredSplitPosition();

@@ -169,6 +169,7 @@ STRINGTABLE
  IDS_MENU_OPT_VSB_BOTTOM,    "&Bottom Toolbar"
  IDS_MENU_OPT_VSB_UMLABELS,  "Te&xt Labels in User Menu Bar"
  IDS_MENU_OPT_VSB_GRIPS,     "&Lock the Toolbars"
+ IDS_MENU_OPT_DETACHPANELS,  "&Detach Right Side"
  IDS_MENU_OPT_SAVECONFIG,    "&Save Configuration"
  IDS_MENU_OPT_EXPORTCONFIG,  "&Export Configuration..."
  IDS_MENU_OPT_IMPORTCONFIG,  "&Import Configuration..."
