@@ -2297,11 +2297,11 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
         CFilesWindow* tabPanel = tabs[i];
         if (tabPanel != NULL && tabPanel->HWindow != NULL)
         {
-            RECT panelClient;
-            GetClientRect(tabPanel->HWindow, &panelClient);
-            SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED,
-                        MAKELPARAM(panelClient.right - panelClient.left, panelClient.bottom - panelClient.top));
+            MoveWindow(tabPanel->HWindow, panelX, detachedTopRebarHeight + tabHeight, panelWidth, panelHeight, FALSE);
+            SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(panelWidth, panelHeight));
             tabPanel->LayoutListBoxChilds();
+            if (tabPanel == panel)
+                RedrawWindow(tabPanel->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
         }
     }
 }
@@ -2468,11 +2468,11 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
         CFilesWindow* tabPanel = LeftPanelTabs[i];
         if (tabPanel != NULL && tabPanel->HWindow != NULL)
         {
-            RECT panelClient;
-            GetClientRect(tabPanel->HWindow, &panelClient);
-            SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED,
-                        MAKELPARAM(panelClient.right - panelClient.left, panelClient.bottom - panelClient.top));
+            MoveWindow(tabPanel->HWindow, panelX, TopRebarHeight + leftTabHeight, panelWidth, leftPanelHeight, FALSE);
+            SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(panelWidth, leftPanelHeight));
             tabPanel->LayoutListBoxChilds();
+            if (tabPanel == LeftPanel)
+                RedrawWindow(tabPanel->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
         }
     }
 }
