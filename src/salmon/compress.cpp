@@ -56,13 +56,13 @@ BOOL CompresBugReports(CCompressParams* compressParams)
         }
         else
         {
-            sprintf(compressParams->ErrorMessage, LoadStr(IDS_SALMON_LOAD_FAILED, HLanguage), WRAPPER_DLL);
+            sprintf(compressParams->ErrorMessage, LoadStr(IDS_SALMON_LOAD_FAILED, HLanguage), wrapperDLL);
         }
         FreeLibrary(h7zwrapper);
     }
     else
     {
-        sprintf(compressParams->ErrorMessage, LoadStr(IDS_SALMON_LOAD_FAILED, HLanguage), WRAPPER_DLL);
+        sprintf(compressParams->ErrorMessage, LoadStr(IDS_SALMON_LOAD_FAILED, HLanguage), wrapperDLL);
     }
     return ret;
 }
