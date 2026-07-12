@@ -171,6 +171,8 @@ STRINGTABLE
  IDS_MENU_OPT_VSB_GRIPS,     "&Lock the Toolbars"
  IDS_MENU_OPT_DETACHPANELS,  "&Detach Right Side"
  IDS_DETACHED_WINDOW_TITLE, "Detached window"
+ IDS_MENU_MAIN_WINDOW,      "&Main window"
+ IDS_MENU_DETACHED_WINDOW,  "&Detached window"
  IDS_MENU_OPT_SAVECONFIG,    "&Save Configuration"
  IDS_MENU_OPT_EXPORTCONFIG,  "&Export Configuration..."
  IDS_MENU_OPT_IMPORTCONFIG,  "&Import Configuration..."

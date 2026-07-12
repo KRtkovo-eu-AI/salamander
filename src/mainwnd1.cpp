@@ -2563,6 +2563,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
 
         DetachedPanels = TRUE;
         DetachedPanelsSwapFixNeeded = FALSE;
+        UpdateDetachedMenuLabels();
         if (!EnsureDetachedChrome())
             return FALSE;
         CreatingDetachedChrome = TRUE;
@@ -2570,6 +2571,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         ShowWindow(HRightDetachedWindow, SW_SHOW);
         LayoutWindows();
         LayoutDetachedPanels();
+        SetWindowTitle();
         CreatingDetachedChrome = FALSE;
     }
     else
@@ -2584,6 +2586,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         }
 
         DetachedPanels = FALSE;
+        UpdateDetachedMenuLabels();
         PanelZoomedState = 0;
         KeepSplitPositionCenteredOnVisiblePanes = FALSE;
         SplitPosition = 0.5;
@@ -2606,6 +2609,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         WindowWidth = mainClientRect.right - mainClientRect.left;
         WindowHeight = mainClientRect.bottom - mainClientRect.top;
         LayoutWindows();
+        SetWindowTitle();
 
         // WM_SIZE normally restores the two-panel layout.  After Swap Sides while detached,
         // however, the tabs being reattached have just moved between two different top-level
@@ -3294,6 +3298,15 @@ static std::wstring FormatPanelPathForDisplayW(CFilesWindow* panel, int mode)
     }
 }
 
+static std::wstring BuildWindowTitleForPanel(CFilesWindow* panel, const std::wstring& prefix,
+                                             const std::wstring& suffix)
+{
+    std::wstring path;
+    if (Configuration.TitleBarShowPath && panel != NULL)
+        path = FormatPanelPathForDisplayW(panel, Configuration.TitleBarMode);
+    return BuildMainWindowTitleText(prefix, path, suffix);
+}
+
 void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
 {
     if (path == NULL || textSize <= 0)
@@ -3359,20 +3372,27 @@ void CMainWindow::SetWindowTitle(const char* text)
             }
         }
 
-        std::wstring path;
-        if (Configuration.TitleBarShowPath)
-        {
-            CFilesWindow* panel = GetActivePanel();
-            if (panel != NULL)
-                path = FormatPanelPathForDisplayW(panel, Configuration.TitleBarMode);
-        }
-
-        wideText = BuildMainWindowTitleText(prefix, path, suffix);
+        wideText = BuildWindowTitleForPanel(DetachedPanels ? LeftPanel : GetActivePanel(), prefix, suffix);
 
     }
     else
     {
         wideText = MultiByteToWindowTitleWide(text);
+    }
+
+    std::wstring detachedText;
+    if (HRightDetachedWindow != NULL)
+    {
+        if (text == NULL)
+        {
+            detachedText = BuildWindowTitleForPanel(DetachedPanels ? RightPanel : GetActivePanel(), prefix, wideAppSuffix);
+        }
+        else
+        {
+            detachedText = wideText;
+        }
+        detachedText += L" - ";
+        detachedText += MultiByteToWindowTitleWide(LoadStr(IDS_DETACHED_WINDOW_TITLE));
     }
 
     int curLen = GetWindowTextLengthW(HWindow);
@@ -3388,13 +3408,6 @@ void CMainWindow::SetWindowTitle(const char* text)
     if (wideText != curTitle)
     {
         ::SetWindowTextW(HWindow, wideText.c_str());
-        if (HRightDetachedWindow != NULL)
-        {
-            std::wstring detachedTitle = wideText;
-            detachedTitle += L" - ";
-            detachedTitle += MultiByteToWindowTitleWide(LoadStr(IDS_DETACHED_WINDOW_TITLE));
-            ::SetWindowTextW(HRightDetachedWindow, detachedTitle.c_str());
-        }
         if (Configuration.StatusArea)
         {
             int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideText.c_str(), (int)wideText.length(), NULL, 0, NULL, NULL);
@@ -3408,6 +3421,44 @@ void CMainWindow::SetWindowTitle(const char* text)
                     SetTrayIconText(utf8Buf);
                 }
             }
+        }
+    }
+
+    if (HRightDetachedWindow != NULL)
+    {
+        int detachedCurLen = GetWindowTextLengthW(HRightDetachedWindow);
+        std::wstring detachedCurTitle;
+        if (detachedCurLen > 0)
+        {
+            detachedCurTitle.resize(detachedCurLen + 1);
+            int copied = GetWindowTextW(HRightDetachedWindow, &detachedCurTitle[0], detachedCurLen + 1);
+            if (copied >= 0)
+                detachedCurTitle.resize(copied);
+        }
+        if (detachedText != detachedCurTitle)
+            ::SetWindowTextW(HRightDetachedWindow, detachedText.c_str());
+    }
+}
+
+void CMainWindow::UpdateDetachedMenuLabels()
+{
+    MENU_ITEM_INFO mii;
+    ZeroMemory(&mii, sizeof(mii));
+    mii.Mask = MENU_MASK_STRING;
+
+    mii.String = LoadStr(DetachedPanels ? IDS_MENU_MAIN_WINDOW : IDS_MENU_LEFT);
+    MainMenu.SetItemInfo(CML_LEFT, FALSE, &mii);
+
+    mii.String = LoadStr(DetachedPanels ? IDS_MENU_DETACHED_WINDOW : IDS_MENU_RIGHT);
+    MainMenu.SetItemInfo(CML_RIGHT, FALSE, &mii);
+
+    CMenuBar* bars[] = {MenuBar, DetachedMenuBar};
+    for (int i = 0; i < _countof(bars); ++i)
+    {
+        if (bars[i] != NULL && bars[i]->HWindow != NULL)
+        {
+            bars[i]->RefreshMinWidths();
+            InvalidateRect(bars[i]->HWindow, NULL, TRUE);
         }
     }
 }

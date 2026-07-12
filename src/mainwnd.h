@@ -789,6 +789,7 @@ public:
 
     // if 'text' == NULL the default content will be set
     void SetWindowTitle(const char* text = NULL);
+    void UpdateDetachedMenuLabels();
 
     // sets the main window icon according to MainWindowIconIndex
     void SetWindowIcon();
