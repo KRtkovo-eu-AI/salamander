@@ -1216,7 +1216,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                     {
                         DWORD err = GetLastError();
                         CPathBuffer buff(4 * SAL_MAX_PATH);
-                        sprintf(buff.Data(), LoadStr(IDS_ERROREXECVIEW), expCommand.Data(), GetErrorText(err));
+                        _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, LoadStr(IDS_ERROREXECVIEW), expCommand.Data(), GetErrorText(err));
                         SalMessageBox(parent, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                     }
                     else
@@ -1235,7 +1235,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 else
                 {
                     CPathBuffer buff(4 * SAL_MAX_PATH);
-                    sprintf(buff.Data(), LoadStr(IDS_ERROREXECVIEW), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
+                    _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, LoadStr(IDS_ERROREXECVIEW), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
                     SalMessageBox(parent, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
             }
@@ -1543,7 +1543,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                 {
                     DWORD err = GetLastError();
                     CPathBuffer buff(4 * SAL_MAX_PATH);
-                    sprintf(buff.Data(), LoadStr(IDS_ERROREXECEDIT), expCommand.Data(), GetErrorText(err));
+                    _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, LoadStr(IDS_ERROREXECEDIT), expCommand.Data(), GetErrorText(err));
                     SalMessageBox(HWindow, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
                 else
@@ -1555,7 +1555,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
             else
             {
                 CPathBuffer buff(4 * SAL_MAX_PATH);
-                sprintf(buff.Data(), LoadStr(IDS_ERROREXECEDIT), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
+                _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, LoadStr(IDS_ERROREXECEDIT), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
                 SalMessageBox(HWindow, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
             }
         }
