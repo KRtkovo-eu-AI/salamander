@@ -2796,6 +2796,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                 mainWindow->SetActivePanel(newPanel);
                 mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
                 mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+                mainWindow->RefreshCommandStates();
             }
             return 0;
 
@@ -2807,6 +2808,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                 mainWindow->SetActivePanel(newPanel);
                 mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
                 mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+                mainWindow->RefreshCommandStates();
             }
             return MA_ACTIVATE;
 
@@ -2819,6 +2821,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                 mainWindow->SetActivePanel(newPanel);
                 mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
                 mainWindow->InvalidateDirectoryLine(newPanel, TRUE);
+                mainWindow->RefreshCommandStates();
             }
             return 0;
 
@@ -3558,10 +3561,13 @@ void CMainWindow::UpdateBottomToolBar()
     DWORD altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0 ? 1 : 0;
     DWORD ctrlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0 ? 1 : 0;
 
+    BOOL updateDetached = DetachedPanels && GetActivePanel() == RightPanel;
+    CMenuBar* activeMenuBar = updateDetached ? DetachedMenuBar : MenuBar;
+
     CBottomTBStateEnum newState = btbsCount;
     if (CaptionIsActive)
     {
-        if (MenuBar != NULL && MenuBar->IsInMenuLoop())
+        if (activeMenuBar != NULL && activeMenuBar->IsInMenuLoop())
             newState = btbsMenu;
         else
             newState = VirtKeyStateTable[shiftPressed][altPressed][ctrlPressed];
@@ -3569,12 +3575,12 @@ void CMainWindow::UpdateBottomToolBar()
     else
         newState = btbsNormal;
 
-    if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
+    if (!updateDetached && BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
     {
         BottomToolBar->SetState(newState);
         BottomToolBar->UpdateItemsState();
     }
-    if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
+    if (updateDetached && DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
     {
         DetachedBottomToolBar->SetState(newState);
         DetachedBottomToolBar->UpdateItemsState();
@@ -4859,13 +4865,14 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         if (obj->RightPanel->DirectoryLine->ToolBar != NULL &&
             obj->RightPanel->DirectoryLine->ToolBar->HWindow != NULL)
             obj->RightPanel->DirectoryLine->ToolBar->UpdateItemsState();
-        if (obj->BottomToolBar != NULL && obj->BottomToolBar->HWindow != NULL)
+        BOOL updateDetachedBottom = obj->DetachedPanels && obj->GetActivePanel() == obj->RightPanel;
+        if (!updateDetachedBottom && obj->BottomToolBar != NULL && obj->BottomToolBar->HWindow != NULL)
             obj->BottomToolBar->UpdateItemsState();
         if (obj->UMToolBar != NULL && obj->UMToolBar->HWindow != NULL)
             obj->UMToolBar->UpdateItemsState();
         if (obj->DetachedTopToolBar != NULL && obj->DetachedTopToolBar->HWindow != NULL)
             obj->DetachedTopToolBar->UpdateItemsState();
-        if (obj->DetachedBottomToolBar != NULL && obj->DetachedBottomToolBar->HWindow != NULL)
+        if (updateDetachedBottom && obj->DetachedBottomToolBar != NULL && obj->DetachedBottomToolBar->HWindow != NULL)
             obj->DetachedBottomToolBar->UpdateItemsState();
         if (obj->DetachedUMToolBar != NULL && obj->DetachedUMToolBar->HWindow != NULL)
             obj->DetachedUMToolBar->UpdateItemsState();
