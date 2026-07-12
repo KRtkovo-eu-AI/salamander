@@ -1719,7 +1719,7 @@ void CFilesWindow::FillViewWithMenu(CMenuPopup* popup)
                 imgIndex = pluginIndex;
         }
         if (item->ViewerType == VIEWER_EXTERNAL)
-            _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_VIEWWITH_EXTERNAL), item->Command);
+            _snprintf_s(buff, _TRUNCATE, "%s%s", LoadStr(IDS_VIEWWITH_EXTERNAL), item->Command);
         if (item->ViewerType == VIEWER_INTERNAL)
             lstrcpy(buff, LoadStr(IDS_VIEWWITH_INTERNAL));
 
