@@ -8799,6 +8799,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_WINDOWPOSCHANGED:
     {
         GetWindowRect(HWindow, &WindowRect);
+
+        // Some detach/reattach paths move tab HWNDs between top-level hosts while Windows
+        // is also changing activation/z-order.  If the following maximize/resize does not
+        // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
+        // and the newly exposed part of the main window remains empty.  Treat a changed
+        // client size observed in WM_WINDOWPOSCHANGED as authoritative and run the same
+        // sizing path immediately.
+        if (Created && !DetachedPanels)
+        {
+            RECT clientRect;
+            GetClientRect(HWindow, &clientRect);
+            int clientWidth = clientRect.right - clientRect.left;
+            int clientHeight = clientRect.bottom - clientRect.top;
+            if (clientWidth != WindowWidth || clientHeight != WindowHeight)
+                SendMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
+        }
         break;
     }
 
