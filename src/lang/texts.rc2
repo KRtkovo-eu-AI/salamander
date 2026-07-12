@@ -177,6 +177,7 @@ STRINGTABLE
  IDS_DETACHED_CLOSE_TEXT, "Do you want to close Open Salamander or reattach the detached window?"
  IDS_DETACHED_CLOSE_CHECKBOX, "&Don't show this message again\thow to revert\tYou can change this option later on the Confirmations page in the Configuration."
  IDS_CNFRM_DETACHCLOSE, "Close detached window"
+ IDS_CNFRM_ERRORSFAILURES, "Errors and Failures"
  IDS_MENU_OPT_SAVECONFIG,    "&Save Configuration"
  IDS_MENU_OPT_EXPORTCONFIG,  "&Export Configuration..."
  IDS_MENU_OPT_IMPORTCONFIG,  "&Import Configuration..."

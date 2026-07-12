@@ -1765,7 +1765,10 @@ void CCfgPageConfirmations::InitTree()
     AddItem(HShowMessage, -1, IDS_CNFRM_ONADDTOARCHIVE, &Configuration.CnfrmAddToArchive);
     AddItem(HShowMessage, -1, IDS_CNFRM_ONCREATEDIR, &Configuration.CnfrmCreateDir);
     AddItem(HShowMessage, -1, IDS_CNFRM_COPYMOVEOPTNS, &Configuration.CnfrmCopyMoveOptionsNS);
-    AddItem(HShowMessage, -1, IDS_CNFRM_CHANGEDIRHISTORYERR, &Configuration.CnfrmChangeDirHistoryErr);
+
+    // Errors and Failures
+    HErrorsAndFailures = AddItem(NULL, 4, IDS_CNFRM_ERRORSFAILURES, NULL);
+    AddItem(HErrorsAndFailures, -1, IDS_CNFRM_CHANGEDIRHISTORYERR, &Configuration.CnfrmChangeDirHistoryErr);
 
     // select the first usable item
     TreeView_Select(HTreeView, hFirst, TVGN_CARET);
@@ -1783,6 +1786,10 @@ CCfgPageConfirmations::CreateImageList()
     DestroyIcon(hIcon);
 
     LoadIconWithScaleDown(NULL, (PCWSTR)IDI_QUESTION, iconSize, iconSize, &hIcon);
+    ImageList_AddIcon(hIL, hIcon);
+    DestroyIcon(hIcon);
+
+    LoadIconWithScaleDown(HInstance, MAKEINTRESOURCE(IDI_CONFIRM_ERRORS), iconSize, iconSize, &hIcon);
     ImageList_AddIcon(hIL, hIcon);
     DestroyIcon(hIcon);
 

@@ -395,6 +395,8 @@
 #define IDI_DROPBOX         982
 #define IDI_ONEDRIVE        983
 
+#define IDI_CONFIRM_ERRORS  984
+
 // bitmaps
 #define IDB_LOCK            990
 #define IDB_TOOLBAR_16      991
