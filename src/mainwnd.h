@@ -431,6 +431,7 @@ public:
 
     BOOL Created;
     BOOL RestoringPanelPaths; // suppress repeated Tree View rebuilds while LoadConfig restores panels
+    BOOL DetachedPanels;      // TRUE = left and right sides are hosted in separate top-level windows
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;
@@ -515,6 +516,8 @@ protected:
     CToolTipWindow ToolTipWindow;
     BOOL KeepSplitPositionCenteredOnVisiblePanes;
     int PanelZoomedState; // 0 = none, 1 = left panel, 2 = right panel
+    HWND HLeftDetachedWindow;
+    HWND HRightDetachedWindow;
 
     BOOL FirstActivateApp; // WM_ACTIVATEAPP uses this variable during startup
 
@@ -699,6 +702,12 @@ public:
     BOOL HandleCtrlLetter(char c); // Ctrl+letter hotkeys
 
     void LayoutWindows();
+    BOOL SetPanelsDetached(BOOL detached);
+    BOOL TogglePanelsDetached();
+    void LayoutDetachedPanelWindow(CPanelSide side, int width, int height);
+    void LayoutDetachedPanels();
+    HWND GetDetachedPanelWindow(CPanelSide side);
+    static LRESULT CALLBACK DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     BOOL ToggleTopToolBar(BOOL storePos = TRUE);
     BOOL TogglePluginsBar(BOOL storePos = TRUE);
     BOOL ToggleMiddleToolBar();

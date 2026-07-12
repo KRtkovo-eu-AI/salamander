@@ -303,6 +303,7 @@
 #define CM_SETSPLIMOPER        933
 
 #define CM_IMPORTCONFIG        934
+#define CM_DETACHPANELS        935
 
 #define CM_NEWTAB              1100
 #define CM_CLOSETAB            1101
