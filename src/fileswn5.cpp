@@ -50,6 +50,39 @@ static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName
     _snprintf_s(key, keySize, _TRUNCATE, "ArchiveView:%08X:%s", hash, itemName != NULL ? itemName : "");
 }
 
+
+static std::wstring FileActionTextToWide(const char* text)
+{
+    std::wstring wide = SalMultiByteToWidePath(text, CP_UTF8);
+    if (wide.empty() && GetACP() != CP_UTF8)
+        wide = SalMultiByteToWidePath(text, CP_ACP);
+    return wide;
+}
+
+static BOOL CreateProcessForFileAction(const char* cmdLine, const char* currentDir, STARTUPINFO* si, PROCESS_INFORMATION* pi)
+{
+    std::wstring cmdLineW = FileActionTextToWide(cmdLine);
+    if (cmdLineW.empty())
+        return HANDLES(CreateProcess(NULL, (char*)cmdLine, NULL, NULL, FALSE,
+                                     NORMAL_PRIORITY_CLASS, NULL, currentDir, si, pi));
+
+    std::wstring currentDirW;
+    LPCWSTR currentDirParam = NULL;
+    if (currentDir != NULL && *currentDir != 0)
+    {
+        currentDirW = FileActionTextToWide(currentDir);
+        if (!currentDirW.empty())
+        {
+            if (currentDirW.length() >= MAX_PATH && !SalIsExtendedLengthPathW(currentDirW.c_str()))
+                currentDirW = SalPathAddExtendedPrefixW(currentDirW.c_str());
+            currentDirParam = currentDirW.c_str();
+        }
+    }
+
+    return HANDLES(CreateProcessW(NULL, &cmdLineW[0], NULL, NULL, FALSE,
+                                  NORMAL_PRIORITY_CLASS, NULL, currentDirParam, si, pi));
+}
+
 // ****************************************************************************
 // CFilesWindow
 //
@@ -1156,8 +1189,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                         strcpy(expInitDir, name);
                         CutDirectory(expInitDir);
                     }
-                    if (!HANDLES(CreateProcess(NULL, cmdLine, NULL, NULL, FALSE,
-                                               NORMAL_PRIORITY_CLASS, NULL, expInitDir, &si, &pi)))
+                    if (!CreateProcessForFileAction(cmdLine, expInitDir, &si, &pi))
                     {
                         DWORD err = GetLastError();
                         char buff[4 * SAL_MAX_PATH];
@@ -1479,8 +1511,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                     strcpy(expInitDir, name);
                     CutDirectory(expInitDir);
                 }
-                if (!HANDLES(CreateProcess(NULL, cmdLine, NULL, NULL, FALSE,
-                                           NORMAL_PRIORITY_CLASS, NULL, expInitDir, &si, &pi)))
+                if (!CreateProcessForFileAction(cmdLine, expInitDir, &si, &pi))
                 {
                     DWORD err = GetLastError();
                     char buff[4 * SAL_MAX_PATH];

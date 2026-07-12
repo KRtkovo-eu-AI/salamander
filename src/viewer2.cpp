@@ -28,6 +28,14 @@ struct CTVData
 
 HANDLE ViewerContinue = NULL;
 
+static std::wstring ViewerPathToWide(const char* path)
+{
+    std::wstring wide = SalMultiByteToWidePath(path, CP_UTF8);
+    if (wide.empty() && GetACP() != CP_UTF8)
+        wide = SalMultiByteToWidePath(path, CP_ACP);
+    return wide;
+}
+
 static HANDLE OpenViewerFileForRead(const std::wstring& fileNameW, const char* fileName)
 {
     if (!fileNameW.empty())
@@ -724,7 +732,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     FileName = (char*)malloc(strlen(fileName) + 1);
     if (FileName != NULL)
         strcpy(FileName, fileName);
-    FileNameW = SalMultiByteToWidePath(fileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    FileNameW = ViewerPathToWide(fileName);
     TooBigSelAction = 0;
     CanSwitchToHex = TRUE;
     CanSwitchQuietlyToHex = TRUE;
