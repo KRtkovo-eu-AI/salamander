@@ -2843,8 +2843,8 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
             {
                 UINT type = MyGetDriveType(GetPath());
                 CPathBuffer root; // long/Unicode paths may have UNC roots longer than MAX_PATH
-                GetRootPath(root, GetPath());
-                HICON hIcon = GetDriveIcon(root, type, TRUE);
+                GetRootPath(root.Data(), GetPath());
+                HICON hIcon = GetDriveIcon(root.Data(), type, TRUE);
                 if (hIcon != NULL)
                 {
                     DirectoryLine->SetDriveIcon(hIcon);
