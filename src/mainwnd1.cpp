@@ -2626,6 +2626,26 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
             return SendMessage(mainWindow->HWindow, WM_CONTEXTMENU, wParam, lParam);
 
+        case WM_MOUSEWHEEL:
+        {
+            POINT screenPt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            if (mainWindow->TrySwitchPanelTabByMouseWheel(screenPt, wParam))
+                return 0;
+            break;
+        }
+
+        case WM_APPCOMMAND:
+        {
+            DWORD cmd = GET_APPCOMMAND_LPARAM(lParam);
+            if (cmd == APPCOMMAND_BROWSER_BACKWARD || cmd == APPCOMMAND_BROWSER_FORWARD)
+            {
+                mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
+                return SendMessage(mainWindow->HWindow, WM_COMMAND,
+                                   cmd == APPCOMMAND_BROWSER_BACKWARD ? CM_RBACK : CM_RFORWARD, 0);
+            }
+            break;
+        }
+
         case WM_SYSCOMMAND:
             if ((wParam & 0xFFF0) == SC_CLOSE)
             {

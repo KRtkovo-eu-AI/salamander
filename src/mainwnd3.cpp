@@ -302,7 +302,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
             // window. Prepare the incoming tree while it is hidden and keep the outgoing one
             // alive until the complete new layout is ready; otherwise the main window is
             // briefly exposed across the reserved tree-view width.
-            if (side == cpsLeft && Configuration.TreeViewVisible)
+            if ((side == cpsLeft || (DetachedPanels && side == cpsRight)) && Configuration.TreeViewVisible)
             {
                 panel->TreeViewActive = TRUE;
                 panel->CreateTreeView();
@@ -734,7 +734,7 @@ void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
             continue;
         BOOL show = (panel == active);
         SetPanelTabVisible(panel, show);
-        if (side == cpsLeft && !show)
+        if ((side == cpsLeft || (DetachedPanels && side == cpsRight)) && !show)
         {
             // Keep per-tab tree-view windows allocated so switching tabs can prepare the next
             // tree before replacing the currently visible one. Destroying them here exposes a
