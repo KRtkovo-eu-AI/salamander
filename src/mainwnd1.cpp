@@ -1888,7 +1888,21 @@ BOOL CMainWindow::EnsureDetachedChrome()
     if (TopToolBar != NULL && TopToolBar->HWindow != NULL)
     {
         if (DetachedTopToolBar == NULL)
+        {
             DetachedTopToolBar = new CMainToolBar(HWindow, mtbtTop, ooStatic);
+            if (DetachedTopToolBar != NULL)
+            {
+                DetachedTopToolBar->SetImageList(HGrayToolBarImageList);
+                DetachedTopToolBar->SetHotImageList(HHotToolBarImageList);
+                DetachedTopToolBar->SetStyle(TLB_STYLE_IMAGE | TLB_STYLE_ADJUSTABLE);
+                TOOLBAR_PADDING padding;
+                DetachedTopToolBar->GetPadding(&padding);
+                padding.ToolBarVertical = 1;
+                padding.IconLeft = 2;
+                padding.IconRight = 3;
+                DetachedTopToolBar->SetPadding(&padding);
+            }
+        }
         if (DetachedTopToolBar == NULL)
             DETACHED_CHROME_FAIL();
         if (DetachedTopToolBar->HWindow == NULL)
@@ -1996,7 +2010,14 @@ BOOL CMainWindow::EnsureDetachedChrome()
     if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
     {
         if (DetachedBottomToolBar == NULL)
+        {
             DetachedBottomToolBar = new CBottomToolBar(HWindow, ooStatic);
+            if (DetachedBottomToolBar != NULL)
+            {
+                DetachedBottomToolBar->SetImageList(HBottomTBImageList);
+                DetachedBottomToolBar->SetHotImageList(HHotBottomTBImageList);
+            }
+        }
         if (DetachedBottomToolBar == NULL)
             DETACHED_CHROME_FAIL();
         if (DetachedBottomToolBar->HWindow == NULL)
@@ -2574,6 +2595,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             {
                 LPNMHDR hdr = (LPNMHDR)lParam;
                 if (hdr != NULL &&
+                    !mainWindow->RightPanel->TreeViewDisableNotify &&
                     (hdr->hwndFrom == mainWindow->RightPanel->HTreeView ||
                      hdr->hwndFrom == mainWindow->RightPanel->HTreeHeader ||
                      hdr->hwndFrom == mainWindow->RightPanel->HTreeSplit))
