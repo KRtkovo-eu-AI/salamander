@@ -2537,7 +2537,10 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         LayoutWindows();
     }
 
-    FocusPanel(GetActivePanel());
+    if (DetachedPanels)
+        SetActivePanel(RightPanel);
+    else
+        FocusPanel(GetActivePanel());
     return TRUE;
 }
 
@@ -2573,19 +2576,19 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
 
         case WM_SETFOCUS:
             if (!mainWindow->CreatingDetachedChrome)
-                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+                mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
             return 0;
 
         case WM_ACTIVATE:
             mainWindow->CaptionIsActive = LOWORD(wParam) != WA_INACTIVE;
             if (mainWindow->CaptionIsActive && !mainWindow->CreatingDetachedChrome)
-                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+                mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
             return 0;
 
         case WM_COMMAND:
             if (mainWindow->CreatingDetachedChrome)
                 return 0;
-            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
             return SendMessage(mainWindow->HWindow, WM_COMMAND, wParam, lParam);
 
         case WM_NOTIFY:
@@ -2600,7 +2603,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                      hdr->hwndFrom == mainWindow->RightPanel->HTreeHeader ||
                      hdr->hwndFrom == mainWindow->RightPanel->HTreeSplit))
                 {
-                    mainWindow->FocusPanel(mainWindow->RightPanel, FALSE);
+                    mainWindow->SetActivePanel(mainWindow->RightPanel);
                 }
             }
             return SendMessage(mainWindow->HWindow, WM_NOTIFY, wParam, lParam);
@@ -2608,7 +2611,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         case WM_CONTEXTMENU:
             if (mainWindow->CreatingDetachedChrome)
                 return 0;
-            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
             return SendMessage(mainWindow->HWindow, WM_CONTEXTMENU, wParam, lParam);
 
         case WM_SYSCOMMAND:
