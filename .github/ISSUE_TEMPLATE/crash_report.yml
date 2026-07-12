@@ -57,8 +57,8 @@ body:
     id: crash-archive
     attributes:
       label: Crash report archive
-      description: The bug reporter opens the local report folder after preparing the archive. Attach the `.7Z` file only if you reviewed it and are comfortable sharing it publicly.
-      placeholder: Attach the prepared .7Z archive here, or explain why you cannot share it publicly.
+      description: The bug reporter opens the local report folder after preparing the archive. Attach the `.zip` file only if you reviewed it and are comfortable sharing it publicly.
+      placeholder: Attach the prepared .zip archive here, or explain why you cannot share it publicly.
     validations:
       required: false
   - type: textarea
