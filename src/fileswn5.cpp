@@ -488,7 +488,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                         resTextID = encrypted ? IDS_CONFIRM_NTFSENCRYPT : IDS_CONFIRM_NTFSDECRYPT;
                         resTitleID = encrypted ? IDS_CONFIRM_NTFSENCRYPT_TITLE : IDS_CONFIRM_NTFSDECRYPT_TITLE;
                     }
-                    sprintf(subject, LoadStr(resTextID), expanded);
+                    _snprintf_s(subject, _TRUNCATE, LoadStr(resTextID), expanded);
                     CTruncatedString str;
                     str.Set(subject, count > 1 ? NULL : path);
                     CMessageBox msgBox(HWindow, MSGBOXEX_YESNO | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_ICONQUESTION | MSGBOXEX_SILENT,
@@ -926,7 +926,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                             CFileData* f2 = &Files->At(x);
                             if (strcmp(f2->Name, f->Name) == 0)
                             {
-                                sprintf(dcFileName + strlen(dcFileName), ":0x%p", f->Name);
+                                _snprintf_s(dcFileName + strlen(dcFileName), (3 * SAL_MAX_PATH + 50) - strlen(dcFileName), _TRUNCATE, ":0x%p", f->Name);
                                 break;
                             }
                         }
@@ -1313,7 +1313,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     {
         char buff[SAL_MAX_PATH + 300];
         int textID = altView ? IDS_CANT_VIEW_FILE_ALT : IDS_CANT_VIEW_FILE;
-        sprintf(buff, LoadStr(textID), name);
+        _snprintf_s(buff, _TRUNCATE, LoadStr(textID), name);
         SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
     }
     return success;
@@ -1563,7 +1563,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     else
     {
         char buff[SAL_MAX_PATH + 300];
-        sprintf(buff, LoadStr(IDS_CANT_EDIT_FILE), name);
+        _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_CANT_EDIT_FILE), name);
         SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);
     }
@@ -1715,7 +1715,7 @@ void CFilesWindow::FillViewWithMenu(CMenuPopup* popup)
                 imgIndex = pluginIndex;
         }
         if (item->ViewerType == VIEWER_EXTERNAL)
-            sprintf(buff, LoadStr(IDS_VIEWWITH_EXTERNAL), item->Command);
+            _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_VIEWWITH_EXTERNAL), item->Command);
         if (item->ViewerType == VIEWER_INTERNAL)
             lstrcpy(buff, LoadStr(IDS_VIEWWITH_INTERNAL));
 
@@ -1905,7 +1905,7 @@ void CFilesWindow::FillEditWithMenu(CMenuPopup* popup)
         }
         if (!alreadyAdded)
         {
-            sprintf(buff, LoadStr(IDS_EDITWITH_EXTERNAL), item->Command);
+            _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_EDITWITH_EXTERNAL), item->Command);
             popup->InsertItem(-1, TRUE, &mii);
         }
     }
@@ -2475,7 +2475,7 @@ void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName
                                 DWORD num = (GetTickCount() / 10) % 0xFFF;
                                 while (1)
                                 {
-                                    sprintf(tmpNamePart, "sal%03X", num++);
+                                    _snprintf_s(tmpNamePart, (MAX_PATH + 20) - (tmpNamePart - tmpName), _TRUNCATE, "sal%03X", num++);
                                     if (SalMoveFile(origFullName, tmpName))
                                         break;
                                     DWORD e = GetLastError();
@@ -2624,7 +2624,7 @@ void CFilesWindow::RenameFile(int specialIndex)
     }
 
     char buff[200];
-    sprintf(buff, LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
+    _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
     CTruncatedString subject;
     subject.SetW(SalMultiByteToWidePath(buff, CP_ACP).c_str(), formatedFileNameW.c_str());
     CCopyMoveDialog dlg(HWindow, formatedFileName, SAL_MAX_PATH, LoadStr(IDS_RENAME_TITLE),
