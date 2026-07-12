@@ -2209,9 +2209,16 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
     if (panelWidth < 0)
         panelWidth = 0;
 
-    int windowsCount = 5;
+    int windowsCount = 0;
     if (HDetachedTopRebar != NULL)
         windowsCount++;
+    if (tabWindow != NULL && tabWindow->HWindow != NULL)
+        windowsCount++;
+    if (panel->HTreeView != NULL && panel->TreeViewActive)
+        windowsCount += 3;
+    for (int i = 0; i < tabs.Count; ++i)
+        if (tabs[i] != NULL && tabs[i]->HWindow != NULL)
+            windowsCount++;
     if (DetachedBottomToolBar != NULL && DetachedBottomToolBar->HWindow != NULL)
         windowsCount++;
     if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
@@ -2259,14 +2266,20 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
                                           treeDisplayWidth, detachedTopRebarHeight, displaySplitWidth, contentHeight,
                                           SWP_NOACTIVATE | (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
-        if (panel->HWindow != NULL)
+        int panelHeight = contentHeight - tabHeight;
+        if (panelHeight < 0)
+            panelHeight = 0;
+        for (int i = 0; i < tabs.Count; ++i)
         {
-            int panelHeight = contentHeight - tabHeight;
-            if (panelHeight < 0)
-                panelHeight = 0;
-            hdwp = HANDLES(DeferWindowPos(hdwp, panel->HWindow, NULL,
+            CFilesWindow* tabPanel = tabs[i];
+            if (tabPanel == NULL || tabPanel->HWindow == NULL)
+                continue;
+            UINT flags = SWP_NOACTIVATE | SWP_NOZORDER;
+            if (tabPanel == panel)
+                flags |= SWP_SHOWWINDOW;
+            hdwp = HANDLES(DeferWindowPos(hdwp, tabPanel->HWindow, NULL,
                                           panelX, detachedTopRebarHeight + tabHeight, panelWidth, panelHeight,
-                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+                                          flags));
         }
         if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
             hdwp = HANDLES(DeferWindowPos(hdwp, DetachedEditWindow->HWindow, HWND_BOTTOM,
@@ -2279,8 +2292,12 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
         HANDLES(EndDeferWindowPos(hdwp));
     }
 
-    if (panel->HWindow != NULL)
-        panel->LayoutListBoxChilds();
+    for (int i = 0; i < tabs.Count; ++i)
+    {
+        CFilesWindow* tabPanel = tabs[i];
+        if (tabPanel != NULL && tabPanel->HWindow != NULL)
+            tabPanel->LayoutListBoxChilds();
+    }
 }
 
 void CMainWindow::LayoutDetachedPanels()
@@ -2357,8 +2374,9 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
     int windowsCount = 1;
     if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
         windowsCount++;
-    if (LeftPanel->HWindow != NULL)
-        windowsCount++;
+    for (int i = 0; i < LeftPanelTabs.Count; ++i)
+        if (LeftPanelTabs[i] != NULL && LeftPanelTabs[i]->HWindow != NULL)
+            windowsCount++;
     if (LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
         windowsCount += 3;
     if (EditWindow != NULL && EditWindow->HWindow != NULL)
@@ -2410,14 +2428,20 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
                                               (leftTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
 
-        if (LeftPanel->HWindow != NULL)
+        int leftPanelHeight = PanelsHeight - leftTabHeight;
+        if (leftPanelHeight < 0)
+            leftPanelHeight = 0;
+        for (int i = 0; i < LeftPanelTabs.Count; ++i)
         {
-            int leftPanelHeight = PanelsHeight - leftTabHeight;
-            if (leftPanelHeight < 0)
-                leftPanelHeight = 0;
-            hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HWindow, NULL,
+            CFilesWindow* tabPanel = LeftPanelTabs[i];
+            if (tabPanel == NULL || tabPanel->HWindow == NULL)
+                continue;
+            UINT flags = SWP_NOACTIVATE | SWP_NOZORDER;
+            if (tabPanel == LeftPanel)
+                flags |= SWP_SHOWWINDOW;
+            hdwp = HANDLES(DeferWindowPos(hdwp, tabPanel->HWindow, NULL,
                                           panelX, TopRebarHeight + leftTabHeight, panelWidth, leftPanelHeight,
-                                          SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW));
+                                          flags));
         }
 
         if (EditWindow != NULL && EditWindow->HWindow != NULL)
@@ -2433,8 +2457,12 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
         HANDLES(EndDeferWindowPos(hdwp));
     }
 
-    if (LeftPanel->HWindow != NULL)
-        LeftPanel->LayoutListBoxChilds();
+    for (int i = 0; i < LeftPanelTabs.Count; ++i)
+    {
+        CFilesWindow* tabPanel = LeftPanelTabs[i];
+        if (tabPanel != NULL && tabPanel->HWindow != NULL)
+            tabPanel->LayoutListBoxChilds();
+    }
 }
 
 static const char* DETACHED_PANEL_CLASSNAME = "SalamanderDetachedPanelWindow";
