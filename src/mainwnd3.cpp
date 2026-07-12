@@ -7949,6 +7949,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                               FALSE,
                               !DetachedPanels);
 
+            if (!left)
+            {
+                MENU_ITEM_INFO mii;
+                mii.Mask = MENU_MASK_TYPE | MENU_MASK_STATE;
+                mii.Type = MENU_TYPE_STRING | MENU_TYPE_RADIOCHECK;
+                mii.State = DetachedPanels ? MENU_STATE_CHECKED : 0;
+                popup->SetItemInfo(CM_DETACHPANELS, FALSE, &mii);
+            }
+
             DWORD firstID = left ? CML_LEFT_VIEWS1 : CML_RIGHT_VIEWS1;
             DWORD lastID = left ? CML_LEFT_VIEWS2 : CML_RIGHT_VIEWS2;
             // find the separator above and below the views
