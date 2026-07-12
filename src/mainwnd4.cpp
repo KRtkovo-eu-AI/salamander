@@ -1537,7 +1537,7 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
     CFilesWindow* old = GetActivePanel();
     SetActivePanel(focus);
     LeftPanel->UpdateTreeView(TRUE);
-    RightPanel->UpdateTreeView(FALSE);
+    RightPanel->UpdateTreeView(DetachedPanels);
 
     if (LeftPanel != NULL)
         LeftPanel->SetPanelSide(cpsLeft);
