@@ -2628,7 +2628,7 @@ void CFilesWindow::RenameFile(int specialIndex)
     }
 
     char buff[200];
-    _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
+    _snprintf_s(buff, _TRUNCATE, "%s %s", LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
     CTruncatedString subject;
     subject.SetW(SalMultiByteToWidePath(buff, CP_ACP).c_str(), formatedFileNameW.c_str());
     CCopyMoveDialog dlg(HWindow, formatedFileName, SAL_MAX_PATH, LoadStr(IDS_RENAME_TITLE),
