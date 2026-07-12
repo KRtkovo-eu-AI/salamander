@@ -9182,6 +9182,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             if (!EditMode)
             {
+                if (DetachedPanels && LeftPanel != NULL)
+                    SetActivePanel(LeftPanel);
                 if (GetActivePanel() != NULL)
                 {
                     FocusPanel(GetActivePanel());

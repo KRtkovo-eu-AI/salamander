@@ -2596,14 +2596,15 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         DestroyDetachedChrome();
         if (HRightDetachedWindow != NULL)
             ShowWindow(HRightDetachedWindow, SW_HIDE);
-        UpdatePanelTabVisibility(cpsLeft);
-        UpdatePanelTabVisibility(cpsRight);
+        RebuildPanelTabs(cpsLeft);
+        RebuildPanelTabs(cpsRight);
         RefreshPanelTabLayout();
         RECT mainClientRect;
         GetClientRect(HWindow, &mainClientRect);
         WindowWidth = mainClientRect.right - mainClientRect.left;
         WindowHeight = mainClientRect.bottom - mainClientRect.top;
         LayoutWindows();
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
 
     }
 

@@ -12,6 +12,7 @@
 #include "shellib.h"
 #include "svg.h"
 #include "darkmode.h"
+#include "common/widepath.h"
 
 static BOOL IsUtf8ContinuationByte(unsigned char c)
 {
@@ -2200,15 +2201,20 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         //if (HotItem->Chars != (int)TextLen) // tato podminka selhala pokud byl pripojen filtr
                         if (HotItem != lastItem)
                         {
-                            // zkraceni cesty
-                            char path[MAX_PATH];
-                            strncpy(path, Text, HotItem->Chars);
-                            path[HotItem->Chars] = 0;
+                            // zkraceni cesty; the clicked breadcrumb can be a long/Unicode path
+                            // whose UTF-8 byte length is larger than MAX_PATH, so do not copy it
+                            // into a fixed stack buffer.
+                            CPathBuffer path(HotItem->Chars + 1);
+                            if (path.Ensure(HotItem->Chars + 1))
+                            {
+                                memcpy(path.Data(), Text, HotItem->Chars);
+                                path.Data()[HotItem->Chars] = 0;
 
-                            if (FilesWindow->Is(ptPluginFS) && FilesWindow->GetPluginFS()->NotEmpty())
-                                FilesWindow->GetPluginFS()->CompleteDirectoryLineHotPath(path, MAX_PATH);
+                                if (FilesWindow->Is(ptPluginFS) && FilesWindow->GetPluginFS()->NotEmpty())
+                                    FilesWindow->GetPluginFS()->CompleteDirectoryLineHotPath(path.Data(), path.Capacity());
 
-                            FilesWindow->ChangeDir(path, -1, NULL, 2 /* jako back/forward in history*/, NULL, FALSE);
+                                FilesWindow->ChangeDir(path.Data(), -1, NULL, 2 /* jako back/forward in history*/, NULL, FALSE);
+                            }
                         }
                         else
                         {
