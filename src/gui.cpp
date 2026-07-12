@@ -2897,9 +2897,10 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     HBITMAP hTmpMaskBitmap;
     HBITMAP hTmpGrayBitmap;
     HBITMAP hTmpColorBitmap;
+    COLORREF toolbarBkColor = DarkModeShouldUseDarkColors() ? RGB(45, 45, 48) : GetSysColor(COLOR_BTNFACE);
     CreateToolbarBitmaps(HInstance,
                          IDB_EDTLBTB,
-                         RGB(255, 0, 255), GetSysColor(COLOR_BTNFACE),
+                         RGB(255, 0, 255), toolbarBkColor,
                          hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap,
                          FALSE, svgIcons, TLBHDR_COUNT);
     HHotImageList = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB, TLBHDR_COUNT, 1);
