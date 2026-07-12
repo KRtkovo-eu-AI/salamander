@@ -194,6 +194,8 @@ STRINGTABLE
  IDS_MENU_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT, "Close all &Right Side tabs except this and default"
  IDS_MENU_LEFT_DETACHPANEL,  "&Detach Left Side"
  IDS_MENU_RIGHT_DETACHPANEL, "&Detach Right Side"
+ IDS_MENU_LEFT_DETACHPANEL,  "&Detach Left Side"
+ IDS_MENU_RIGHT_DETACHPANEL, "&Detach Right Side"
 
  IDS_SETTABPREFIX_TITLE,      "Set Tab Prefix"
  IDS_SETTABPREFIX_PROMPT,     "Enter a custom tab prefix for '%s' (leave empty to clear):"

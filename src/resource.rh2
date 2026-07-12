@@ -346,6 +346,8 @@
 #define CM_RIGHT_UNLOCKTAB     1139
 #define CM_LEFTDETACHPANEL     1140
 #define CM_RIGHTDETACHPANEL    1141
+#define CM_LEFTDETACHPANEL     1140
+#define CM_RIGHTDETACHPANEL    1141
 
 // accelerators
 #define IDA_MAINACCELS1        935        // pouzitelne i v editacnim modu
