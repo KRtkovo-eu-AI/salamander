@@ -2459,7 +2459,7 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
 
         if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
             hdwp = HANDLES(DeferWindowPos(hdwp, BottomToolBar->HWindow, NULL,
-                                          1, TopRebarHeight + PanelsHeight + EditHeight + 1, max(0, width - 2), BottomToolBarHeight,
+                                          1, TopRebarHeight + PanelsHeight + EditHeight + 1, panelWidth, BottomToolBarHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER));
 
         HANDLES(EndDeferWindowPos(hdwp));
@@ -2605,43 +2605,74 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         WindowHeight = mainClientRect.bottom - mainClientRect.top;
         LayoutWindows();
 
-        RECT hostClient;
-        GetClientRect(HWindow, &hostClient);
-        int panelBottom = hostClient.bottom;
-        RECT bottomRect;
-        if (EditWindow != NULL && EditWindow->HWindow != NULL && GetWindowRect(EditWindow->HWindow, &bottomRect))
+        int splitWidth = GetSplitBarWidth();
+        int totalPanelsWidth = WindowWidth - 2 - splitWidth;
+        if (totalPanelsWidth < 0)
+            totalPanelsWidth = 0;
+
+        int treeWidth = 0;
+        int treeSplitWidth = 0;
+        if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
         {
-            MapWindowPoints(NULL, HWindow, (POINT*)&bottomRect, 2);
-            panelBottom = bottomRect.top - 2;
+            int treeHeaderHeight = LeftPanel->GetTreeViewHeaderHeight();
+            if (LeftTabWindow != NULL)
+                treeHeaderHeight = LeftTabWindow->GetNeededHeight();
+            if (Configuration.TreeViewAutoHide)
+                treeWidth = treeHeaderHeight;
+            else
+            {
+                treeWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth);
+                treeSplitWidth = 4;
+            }
         }
-        else if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL && GetWindowRect(BottomToolBar->HWindow, &bottomRect))
+
+        int panelsSplitWidth = totalPanelsWidth - treeWidth - treeSplitWidth;
+        if (panelsSplitWidth < 0)
+            panelsSplitWidth = 0;
+        int leftWidth = (panelsSplitWidth + 1) / 2 - 1;
+        if (leftWidth < MIN_WIN_WIDTH)
+            leftWidth = MIN_WIN_WIDTH;
+        int rightWidth = panelsSplitWidth - leftWidth;
+        if (rightWidth < MIN_WIN_WIDTH)
         {
-            MapWindowPoints(NULL, HWindow, (POINT*)&bottomRect, 2);
-            panelBottom = bottomRect.top - 1;
+            rightWidth = MIN_WIN_WIDTH;
+            leftWidth = panelsSplitWidth - rightWidth;
         }
+        if (leftWidth < 0)
+            leftWidth = 0;
+
+        int leftX = 1 + treeWidth + treeSplitWidth;
+        int rightX = leftX + leftWidth + splitWidth;
+
+        int leftTabHeight = LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL &&
+                                    Configuration.UsePanelTabs && LeftPanelTabs.Count > 0 ?
+                                LeftTabWindow->GetNeededHeight() :
+                                0;
+        int rightTabHeight = RightTabWindow != NULL && RightTabWindow->HWindow != NULL &&
+                                     Configuration.UsePanelTabs && RightPanelTabs.Count > 0 ?
+                                 RightTabWindow->GetNeededHeight() :
+                                 0;
+        int leftPanelHeight = PanelsHeight - leftTabHeight;
+        int rightPanelHeight = PanelsHeight - rightTabHeight;
+        if (leftPanelHeight < 0)
+            leftPanelHeight = 0;
+        if (rightPanelHeight < 0)
+            rightPanelHeight = 0;
+
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+            MoveWindow(LeftTabWindow->HWindow, leftX, TopRebarHeight, leftWidth, leftTabHeight, TRUE);
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+            MoveWindow(RightTabWindow->HWindow, rightX, TopRebarHeight, rightWidth, rightTabHeight, TRUE);
 
         for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
         {
-            CPanelSide side = sideIndex == 0 ? cpsLeft : cpsRight;
-            CTabWindow* tabWindow = side == cpsLeft ? LeftTabWindow : RightTabWindow;
-            TIndirectArray<CFilesWindow>& tabs = side == cpsLeft ? LeftPanelTabs : RightPanelTabs;
-            CFilesWindow* activeSidePanel = side == cpsLeft ? LeftPanel : RightPanel;
-            if (tabWindow == NULL || tabWindow->HWindow == NULL || activeSidePanel == NULL)
-                continue;
-
-            RECT tabRect;
-            if (!GetWindowRect(tabWindow->HWindow, &tabRect))
-                continue;
-            MapWindowPoints(NULL, HWindow, (POINT*)&tabRect, 2);
-
-            int panelX = tabRect.left;
-            int panelY = tabRect.bottom;
-            int panelWidth = tabRect.right - tabRect.left;
-            int panelHeight = panelBottom - panelY;
-            if (panelWidth < 0)
-                panelWidth = 0;
-            if (panelHeight < 0)
-                panelHeight = 0;
+            BOOL leftSide = sideIndex == 0;
+            TIndirectArray<CFilesWindow>& tabs = leftSide ? LeftPanelTabs : RightPanelTabs;
+            CFilesWindow* activeSidePanel = leftSide ? LeftPanel : RightPanel;
+            int panelX = leftSide ? leftX : rightX;
+            int panelY = TopRebarHeight + (leftSide ? leftTabHeight : rightTabHeight);
+            int panelWidth = leftSide ? leftWidth : rightWidth;
+            int panelHeight = leftSide ? leftPanelHeight : rightPanelHeight;
 
             for (int i = 0; i < tabs.Count; ++i)
             {

@@ -10264,6 +10264,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         CALL_STACK_MESSAGE1("WM_USER_CLOSE_MAINWND::3");
 
+        if (DetachedPanels)
+            SetPanelsDetached(FALSE);
+
         // optame se panelu, jestli muzeme koncit
         int totalPanels = LeftPanelTabs.Count + RightPanelTabs.Count;
         if (totalPanels > 0)
