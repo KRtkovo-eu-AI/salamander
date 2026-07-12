@@ -821,8 +821,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
             {
                 if (enumFileNamesLastFileIndex == -1)
                     enumFileNamesLastFileIndex = i - Dirs->Count;
-                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(GetPath(), CP_ACP);
-                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : SalMultiByteToWidePath(f->Name, CP_ACP).c_str());
+                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : FileActionTextToWide(GetPath());
+                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : FileActionTextToWide(f->Name).c_str());
                 unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
 
                 lstrcpyn(path, GetPath(), SAL_MAX_PATH);
@@ -871,8 +871,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                         }
                     }
                 }
-                if (name == NULL || name != (char*)unicodeDiskFileName.c_str())
-                    name = path;
+                name = !unicodeDiskFileName.empty() ? (char*)unicodeDiskFileName.c_str() : path;
                 addToHistory = TRUE;
             }
             else
@@ -1345,6 +1344,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     BOOL addToHistory = name != NULL && Is(ptDisk);
 
     // if viewing/editing from the panel, obtain the full long name
+    std::string unicodeDiskFileName; // UTF-8 full path for local files with Unicode/long names
     if (name == NULL)
     {
         int i = GetCaretIndex();
@@ -1353,6 +1353,10 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
             CFileData* f = &Files->At(i - Dirs->Count);
             if (Is(ptDisk))
             {
+                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : FileActionTextToWide(GetPath());
+                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : FileActionTextToWide(f->Name).c_str());
+                unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
+
                 lstrcpyn(path, GetPath(), SAL_MAX_PATH);
                 if (GetPath()[strlen(GetPath()) - 1] != '\\')
                     strcat(path, "\\");
@@ -1388,7 +1392,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                         }
                     }
                 }
-                name = path;
+                name = !unicodeDiskFileName.empty() ? (char*)unicodeDiskFileName.c_str() : path;
                 addToHistory = TRUE;
             }
         }
