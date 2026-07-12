@@ -1885,7 +1885,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
                            Configuration.MenuIndex, Configuration.MenuWidth,
                            DetachedMenuBar->GetNeededHeight(), Configuration.MenuBreak);
 
-    if (Configuration.TopToolBarVisible)
+    if (TopToolBar != NULL && TopToolBar->HWindow != NULL)
     {
         if (DetachedTopToolBar == NULL)
             DetachedTopToolBar = new CMainToolBar(HWindow, mtbtTop, ooStatic);
@@ -1903,7 +1903,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
     }
 
-    if (Configuration.PluginsBarVisible)
+    if (PluginsBar != NULL && PluginsBar->HWindow != NULL)
     {
         if (DetachedPluginsBar == NULL)
             DetachedPluginsBar = new CPluginsBar(HWindow, ooStatic);
@@ -1921,7 +1921,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
     }
 
-    if (Configuration.UserMenuToolBarVisible)
+    if (UMToolBar != NULL && UMToolBar->HWindow != NULL)
     {
         if (DetachedUMToolBar == NULL)
             DetachedUMToolBar = new CUserMenuBar(HWindow, ooStatic);
@@ -1939,7 +1939,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
     }
 
-    if (Configuration.HotPathsBarVisible)
+    if (HPToolBar != NULL && HPToolBar->HWindow != NULL)
     {
         if (DetachedHPToolBar == NULL)
             DetachedHPToolBar = new CHotPathsBar(HWindow, ooStatic);
@@ -1957,7 +1957,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
     }
 
-    if (Configuration.DriveBarVisible)
+    if (DriveBar != NULL && DriveBar->HWindow != NULL)
     {
         if (DetachedDriveBar == NULL)
             DetachedDriveBar = new CDriveBar(HWindow, ooStatic);
@@ -1975,7 +1975,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
     }
 
-    if (Configuration.DriveBar2Visible)
+    if (DriveBar2 != NULL && DriveBar2->HWindow != NULL)
     {
         if (DetachedDriveBar2 == NULL)
             DetachedDriveBar2 = new CDriveBar(HWindow, ooStatic);
@@ -1993,7 +1993,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
     }
 
-    if (Configuration.BottomToolBarVisible)
+    if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
     {
         if (DetachedBottomToolBar == NULL)
             DetachedBottomToolBar = new CBottomToolBar(HWindow, ooStatic);
@@ -2570,7 +2570,17 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         case WM_NOTIFY:
             if (mainWindow->CreatingDetachedChrome)
                 return 0;
-            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            if (side == cpsRight && mainWindow->RightPanel != NULL)
+            {
+                LPNMHDR hdr = (LPNMHDR)lParam;
+                if (hdr != NULL &&
+                    (hdr->hwndFrom == mainWindow->RightPanel->HTreeView ||
+                     hdr->hwndFrom == mainWindow->RightPanel->HTreeHeader ||
+                     hdr->hwndFrom == mainWindow->RightPanel->HTreeSplit))
+                {
+                    mainWindow->FocusPanel(mainWindow->RightPanel, FALSE);
+                }
+            }
             return SendMessage(mainWindow->HWindow, WM_NOTIFY, wParam, lParam);
 
         case WM_CONTEXTMENU:
