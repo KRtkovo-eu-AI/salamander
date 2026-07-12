@@ -26,6 +26,10 @@
 #include "..\salmoncl.h"
 #include "..\darkmode.h"
 
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 #include "salmon.h"
 #include "compress.h"
 #include "minidump.h"

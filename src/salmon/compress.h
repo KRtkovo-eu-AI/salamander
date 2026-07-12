@@ -10,5 +10,6 @@ struct CCompressParams
     char ErrorMessage[2 * MAX_PATH]; // if Result is FALSE, contains the error description
 };
 
+BOOL CompresBugReports(CCompressParams* compressParams);
 BOOL StartCompressThread(CCompressParams* params);
 BOOL IsCompressThreadRunning();
