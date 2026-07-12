@@ -488,7 +488,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                         resTextID = encrypted ? IDS_CONFIRM_NTFSENCRYPT : IDS_CONFIRM_NTFSDECRYPT;
                         resTitleID = encrypted ? IDS_CONFIRM_NTFSENCRYPT_TITLE : IDS_CONFIRM_NTFSDECRYPT_TITLE;
                     }
-                    _snprintf_s(subject, _TRUNCATE, LoadStr(resTextID), expanded);
+                    _snprintf_s(subject, _TRUNCATE, "%s %s", LoadStr(resTextID), expanded);
                     CTruncatedString str;
                     str.Set(subject, count > 1 ? NULL : path);
                     CMessageBox msgBox(HWindow, MSGBOXEX_YESNO | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_ICONQUESTION | MSGBOXEX_SILENT,
