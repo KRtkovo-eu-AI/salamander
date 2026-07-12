@@ -1909,7 +1909,7 @@ void CFilesWindow::FillEditWithMenu(CMenuPopup* popup)
         }
         if (!alreadyAdded)
         {
-            _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_EDITWITH_EXTERNAL), item->Command);
+            _snprintf_s(buff, _TRUNCATE, "%s", LoadStr(IDS_EDITWITH_EXTERNAL));
             popup->InsertItem(-1, TRUE, &mii);
         }
     }
