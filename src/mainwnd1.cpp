@@ -361,6 +361,7 @@ CMainWindow::CMainWindow()
     Created = FALSE;
     RestoringPanelPaths = FALSE;
     DetachedPanels = FALSE;
+    CreatingDetachedChrome = FALSE;
     //  DrivesControlHWnd = NULL;
     HDisabledKeyboard = NULL;
     CmdShow = SW_SHOWNORMAL;
@@ -1849,6 +1850,15 @@ BOOL CMainWindow::EnsureDetachedChrome()
     if (HRightDetachedWindow == NULL)
         return FALSE;
 
+#define DETACHED_CHROME_FAIL() \
+    do                         \
+    {                          \
+        CreatingDetachedChrome = FALSE; \
+        return FALSE;          \
+    } while (0)
+
+    CreatingDetachedChrome = TRUE;
+
     if (HDetachedTopRebar == NULL)
     {
         DWORD rebarStyle = WS_VISIBLE | WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
@@ -1859,7 +1869,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
                                            rebarStyle, 0, 0, 0, 0,
                                            HRightDetachedWindow, (HMENU)0, HInstance, NULL);
         if (HDetachedTopRebar == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         DarkModeApplyWindow(HDetachedTopRebar);
         DarkModeApplyRebarSeparators(HDetachedTopRebar);
     }
@@ -1867,9 +1877,9 @@ BOOL CMainWindow::EnsureDetachedChrome()
     if (DetachedMenuBar == NULL)
         DetachedMenuBar = new CMenuBar(&MainMenu, HWindow);
     if (DetachedMenuBar == NULL)
-        return FALSE;
+        DETACHED_CHROME_FAIL();
     if (DetachedMenuBar->HWindow == NULL && !DetachedMenuBar->CreateWnd(HDetachedTopRebar))
-        return FALSE;
+        DETACHED_CHROME_FAIL();
     if ((int)SendMessage(HDetachedTopRebar, RB_IDTOINDEX, BANDID_MENU, 0) == -1)
         InsertDetachedBand(HDetachedTopRebar, DetachedMenuBar->HWindow, BANDID_MENU,
                            Configuration.MenuIndex, Configuration.MenuWidth,
@@ -1880,11 +1890,11 @@ BOOL CMainWindow::EnsureDetachedChrome()
         if (DetachedTopToolBar == NULL)
             DetachedTopToolBar = new CMainToolBar(HWindow, mtbtTop, ooStatic);
         if (DetachedTopToolBar == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         if (DetachedTopToolBar->HWindow == NULL)
         {
             if (!DetachedTopToolBar->CreateWnd(HDetachedTopRebar))
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             DetachedTopToolBar->Load(Configuration.TopToolBar);
             InsertDetachedBand(HDetachedTopRebar, DetachedTopToolBar->HWindow, BANDID_TOPTOOLBAR,
                                Configuration.TopToolbarIndex, Configuration.TopToolbarWidth,
@@ -1898,11 +1908,11 @@ BOOL CMainWindow::EnsureDetachedChrome()
         if (DetachedPluginsBar == NULL)
             DetachedPluginsBar = new CPluginsBar(HWindow, ooStatic);
         if (DetachedPluginsBar == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         if (DetachedPluginsBar->HWindow == NULL)
         {
             if (!DetachedPluginsBar->CreateWnd(HDetachedTopRebar))
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             DetachedPluginsBar->CreatePluginButtons();
             InsertDetachedBand(HDetachedTopRebar, DetachedPluginsBar->HWindow, BANDID_PLUGINSBAR,
                                Configuration.PluginsBarIndex, Configuration.PluginsBarWidth,
@@ -1916,11 +1926,11 @@ BOOL CMainWindow::EnsureDetachedChrome()
         if (DetachedUMToolBar == NULL)
             DetachedUMToolBar = new CUserMenuBar(HWindow, ooStatic);
         if (DetachedUMToolBar == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         if (DetachedUMToolBar->HWindow == NULL)
         {
             if (!DetachedUMToolBar->CreateWnd(HDetachedTopRebar))
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             DetachedUMToolBar->CreateButtons();
             InsertDetachedBand(HDetachedTopRebar, DetachedUMToolBar->HWindow, BANDID_UMTOOLBAR,
                                Configuration.UserMenuToolbarIndex, Configuration.UserMenuToolbarWidth,
@@ -1934,11 +1944,11 @@ BOOL CMainWindow::EnsureDetachedChrome()
         if (DetachedHPToolBar == NULL)
             DetachedHPToolBar = new CHotPathsBar(HWindow, ooStatic);
         if (DetachedHPToolBar == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         if (DetachedHPToolBar->HWindow == NULL)
         {
             if (!DetachedHPToolBar->CreateWnd(HDetachedTopRebar))
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             DetachedHPToolBar->CreateButtons();
             InsertDetachedBand(HDetachedTopRebar, DetachedHPToolBar->HWindow, BANDID_HPTOOLBAR,
                                Configuration.HotPathsBarIndex, Configuration.HotPathsBarWidth,
@@ -1952,11 +1962,11 @@ BOOL CMainWindow::EnsureDetachedChrome()
         if (DetachedDriveBar == NULL)
             DetachedDriveBar = new CDriveBar(HWindow, ooStatic);
         if (DetachedDriveBar == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         if (DetachedDriveBar->HWindow == NULL)
         {
             if (!DetachedDriveBar->CreateWnd(HDetachedTopRebar))
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             DetachedDriveBar->CreateDriveButtons(NULL);
             InsertDetachedBand(HDetachedTopRebar, DetachedDriveBar->HWindow, BANDID_DRIVEBAR,
                                Configuration.DriveBarIndex, Configuration.DriveBarWidth,
@@ -1970,11 +1980,11 @@ BOOL CMainWindow::EnsureDetachedChrome()
         if (DetachedDriveBar2 == NULL)
             DetachedDriveBar2 = new CDriveBar(HWindow, ooStatic);
         if (DetachedDriveBar2 == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         if (DetachedDriveBar2->HWindow == NULL)
         {
             if (!DetachedDriveBar2->CreateWnd(HDetachedTopRebar))
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             DetachedDriveBar2->CreateDriveButtons(DetachedDriveBar);
             InsertDetachedBand(HDetachedTopRebar, DetachedDriveBar2->HWindow, BANDID_DRIVEBAR2,
                                -1, Configuration.DriveBarWidth,
@@ -1988,13 +1998,13 @@ BOOL CMainWindow::EnsureDetachedChrome()
         if (DetachedBottomToolBar == NULL)
             DetachedBottomToolBar = new CBottomToolBar(HWindow, ooStatic);
         if (DetachedBottomToolBar == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         if (DetachedBottomToolBar->HWindow == NULL)
         {
             if (!CBottomToolBar::InitDataFromResources())
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             if (!DetachedBottomToolBar->CreateWnd(HRightDetachedWindow))
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             DetachedBottomToolBar->SetFont();
             ShowWindow(DetachedBottomToolBar->HWindow, SW_SHOW);
             UpdateBottomToolBar();
@@ -2006,20 +2016,21 @@ BOOL CMainWindow::EnsureDetachedChrome()
         if (DetachedEditWindow == NULL)
             DetachedEditWindow = new CEditWindow();
         if (DetachedEditWindow == NULL)
-            return FALSE;
+            DETACHED_CHROME_FAIL();
         if (DetachedEditWindow->HWindow == NULL)
         {
             if (!DetachedEditWindow->Create(HRightDetachedWindow, IDC_EDITWINDOW))
-                return FALSE;
+                DETACHED_CHROME_FAIL();
             DetachedEditWindow->SetFont();
             ShowWindow(DetachedEditWindow->HWindow, SW_SHOW);
         }
         UpdateDetachedCommandLine();
     }
 
+    CreatingDetachedChrome = FALSE;
+#undef DETACHED_CHROME_FAIL
     return TRUE;
 }
-
 void CMainWindow::DestroyDetachedChrome()
 {
     if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
@@ -2431,7 +2442,7 @@ static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
     RegisterDetachedPanelWindowClass();
 
     char title[200];
-    sprintf(title, "%s - Detached window", MAINWINDOW_NAME);
+    sprintf(title, "%s - %s", MAINWINDOW_NAME, LoadStr(IDS_DETACHED_WINDOW_TITLE));
 
     RECT mainRect;
     GetWindowRect(mainWindow->HWindow, &mainRect);
@@ -2536,25 +2547,29 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         }
 
         case WM_SETFOCUS:
-            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            if (!mainWindow->CreatingDetachedChrome)
+                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return 0;
 
         case WM_ACTIVATE:
             mainWindow->CaptionIsActive = LOWORD(wParam) != WA_INACTIVE;
-            if (mainWindow->CaptionIsActive)
+            if (mainWindow->CaptionIsActive && !mainWindow->CreatingDetachedChrome)
                 mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return 0;
 
         case WM_COMMAND:
-            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            if (!mainWindow->CreatingDetachedChrome)
+                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return SendMessage(mainWindow->HWindow, WM_COMMAND, wParam, lParam);
 
         case WM_NOTIFY:
-            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            if (!mainWindow->CreatingDetachedChrome)
+                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return SendMessage(mainWindow->HWindow, WM_NOTIFY, wParam, lParam);
 
         case WM_CONTEXTMENU:
-            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            if (!mainWindow->CreatingDetachedChrome)
+                mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return SendMessage(mainWindow->HWindow, WM_CONTEXTMENU, wParam, lParam);
 
         case WM_SYSCOMMAND:

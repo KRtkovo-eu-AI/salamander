@@ -432,6 +432,7 @@ public:
     BOOL Created;
     BOOL RestoringPanelPaths; // suppress repeated Tree View rebuilds while LoadConfig restores panels
     BOOL DetachedPanels;      // TRUE = left and right sides are hosted in separate top-level windows
+    BOOL CreatingDetachedChrome; // suppress detached-window activation while its child chrome is being built
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;
