@@ -97,8 +97,14 @@ static BOOL CreateProcessForFileAction(const char* cmdLine, const char* currentD
     siW.hStdOutput = si->hStdOutput;
     siW.hStdError = si->hStdError;
 
-    return HANDLES(CreateProcessW(NULL, &cmdLineW[0], NULL, NULL, FALSE,
-                                  NORMAL_PRIORITY_CLASS, NULL, currentDirParam, &siW, pi));
+    BOOL created = NOHANDLES(CreateProcessW(NULL, &cmdLineW[0], NULL, NULL, FALSE,
+                                            NORMAL_PRIORITY_CLASS, NULL, currentDirParam, &siW, pi));
+    if (created)
+    {
+        HANDLES_ADD(__htProcess, __hoCreateProcess, pi->hProcess);
+        HANDLES_ADD(__htThread, __hoCreateProcess, pi->hThread);
+    }
+    return created;
 }
 
 // ****************************************************************************
