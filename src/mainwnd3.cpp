@@ -7287,18 +7287,25 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     if (panel != NULL && panel->HWindow != NULL)
                         SetParent(panel->HWindow, HRightDetachedWindow);
                 }
+                UpdatePanelTabVisibility(cpsLeft);
+                UpdatePanelTabVisibility(cpsRight);
             }
 
             LockWindowUpdate(HWindow);
             LayoutWindows();
             if (DetachedPanels)
+            {
+                RECT mainClient;
+                GetClientRect(HWindow, &mainClient);
+                LayoutMainWindowDetachedPanel(mainClient.right - mainClient.left, mainClient.bottom - mainClient.top);
                 LayoutDetachedPanels();
+            }
 
-            // Hidden tab panels keep their window rectangles while they are hidden.
+            // Tab panels keep their previous window rectangles while they move between hosts.
             // When Swap Sides moves tabs between the main and detached windows, those
             // stale rectangles may belong to the other top-level window size; make all
-            // tabs on each side inherit the final active-panel rectangle so the next
-            // tab activation fits its current host immediately.
+            // tabs on each side inherit the final active-panel rectangle so the visible
+            // panel and the next tab activation both fit the current host immediately.
             for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
             {
                 CPanelSide side = sideIndex == 0 ? cpsLeft : cpsRight;
@@ -7315,7 +7322,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 for (int i = 0; i < sideTabs.Count; ++i)
                 {
                     CFilesWindow* panel = sideTabs[i];
-                    if (panel == NULL || panel == activeSidePanel || panel->HWindow == NULL)
+                    if (panel == NULL || panel->HWindow == NULL)
                         continue;
 
                     if (GetParent(panel->HWindow) != parent)
@@ -7324,6 +7331,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                  activeRect.right - activeRect.left, activeRect.bottom - activeRect.top,
                                  SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
                     panel->LayoutListBoxChilds();
+                    if (panel == activeSidePanel)
+                        RedrawWindow(panel->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
                 }
             }
 
