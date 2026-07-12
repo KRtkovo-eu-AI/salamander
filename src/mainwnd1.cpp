@@ -1996,8 +1996,8 @@ BOOL CMainWindow::EnsureDetachedChrome()
             if (!DetachedBottomToolBar->CreateWnd(HRightDetachedWindow))
                 return FALSE;
             DetachedBottomToolBar->SetFont();
-            DetachedBottomToolBar->SetState(btbsNormal);
             ShowWindow(DetachedBottomToolBar->HWindow, SW_SHOW);
+            UpdateBottomToolBar();
         }
     }
 
@@ -2420,7 +2420,7 @@ static void RegisterDetachedPanelWindowClass()
     wc.hInstance = HInstance;
     wc.hIcon = SalLoadIcon(HInstance, IDI_SALAMANDER, IconSizes[ICONSIZE_32]);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hbrBackground = NULL;
     wc.lpszClassName = DETACHED_PANEL_CLASSNAME;
     RegisterClass(&wc);
     registered = TRUE;
@@ -2431,7 +2431,7 @@ static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
     RegisterDetachedPanelWindowClass();
 
     char title[200];
-    sprintf(title, "%s - %s", MAINWINDOW_NAME, side == cpsLeft ? "Left Side" : "Right Side");
+    sprintf(title, "%s - Detached window", MAINWINDOW_NAME);
 
     RECT mainRect;
     GetWindowRect(mainWindow->HWindow, &mainRect);
@@ -2527,6 +2527,14 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             mainWindow->LayoutDetachedPanelWindow(side, LOWORD(lParam), HIWORD(lParam));
             return 0;
 
+        case WM_ERASEBKGND:
+        {
+            RECT r;
+            GetClientRect(hWnd, &r);
+            FillRect((HDC)wParam, &r, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+            return 1;
+        }
+
         case WM_SETFOCUS:
             mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return 0;
@@ -2538,7 +2546,24 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             return 0;
 
         case WM_COMMAND:
+            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
             return SendMessage(mainWindow->HWindow, WM_COMMAND, wParam, lParam);
+
+        case WM_NOTIFY:
+            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            return SendMessage(mainWindow->HWindow, WM_NOTIFY, wParam, lParam);
+
+        case WM_CONTEXTMENU:
+            mainWindow->FocusPanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel, FALSE);
+            return SendMessage(mainWindow->HWindow, WM_CONTEXTMENU, wParam, lParam);
+
+        case WM_SYSCOMMAND:
+            if ((wParam & 0xFFF0) == SC_CLOSE)
+            {
+                mainWindow->SetPanelsDetached(FALSE);
+                return 0;
+            }
+            break;
 
         case WM_CLOSE:
             mainWindow->SetPanelsDetached(FALSE);
@@ -4627,6 +4652,16 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
     }
 
     UpdateRebarVisuals();
+    if (HRightDetachedWindow != NULL)
+    {
+        DarkModeApplyTree(HRightDetachedWindow);
+        DarkModeRefreshTitleBar(HRightDetachedWindow);
+    }
+    if (HDetachedTopRebar != NULL)
+    {
+        DarkModeApplyWindow(HDetachedTopRebar);
+        DarkModeApplyRebarSeparators(HDetachedTopRebar);
+    }
     LayoutWindows();
 
     // main menu
@@ -4663,6 +4698,14 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
         const BOOL focusCommandLine = EditWindow->KnowHWND(GetFocus());
         HideCommandLine(TRUE, FALSE);
         ShowCommandLine(focusCommandLine);
+    }
+
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+        RedrawWindow(HRightDetachedWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
     }
 
     RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
