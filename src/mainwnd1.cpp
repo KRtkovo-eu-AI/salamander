@@ -2600,6 +2600,57 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         UpdatePanelTabVisibility(cpsRight);
         RefreshPanelTabLayout();
         LayoutWindows();
+
+        RECT hostClient;
+        GetClientRect(HWindow, &hostClient);
+        int panelBottom = hostClient.bottom;
+        RECT bottomRect;
+        if (EditWindow != NULL && EditWindow->HWindow != NULL && GetWindowRect(EditWindow->HWindow, &bottomRect))
+        {
+            MapWindowPoints(NULL, HWindow, (POINT*)&bottomRect, 2);
+            panelBottom = bottomRect.top - 2;
+        }
+        else if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL && GetWindowRect(BottomToolBar->HWindow, &bottomRect))
+        {
+            MapWindowPoints(NULL, HWindow, (POINT*)&bottomRect, 2);
+            panelBottom = bottomRect.top - 1;
+        }
+
+        for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
+        {
+            CPanelSide side = sideIndex == 0 ? cpsLeft : cpsRight;
+            CTabWindow* tabWindow = side == cpsLeft ? LeftTabWindow : RightTabWindow;
+            TIndirectArray<CFilesWindow>& tabs = side == cpsLeft ? LeftPanelTabs : RightPanelTabs;
+            CFilesWindow* activeSidePanel = side == cpsLeft ? LeftPanel : RightPanel;
+            if (tabWindow == NULL || tabWindow->HWindow == NULL || activeSidePanel == NULL)
+                continue;
+
+            RECT tabRect;
+            if (!GetWindowRect(tabWindow->HWindow, &tabRect))
+                continue;
+            MapWindowPoints(NULL, HWindow, (POINT*)&tabRect, 2);
+
+            int panelX = tabRect.left;
+            int panelY = tabRect.bottom;
+            int panelWidth = tabRect.right - tabRect.left;
+            int panelHeight = panelBottom - panelY;
+            if (panelWidth < 0)
+                panelWidth = 0;
+            if (panelHeight < 0)
+                panelHeight = 0;
+
+            for (int i = 0; i < tabs.Count; ++i)
+            {
+                CFilesWindow* tabPanel = tabs[i];
+                if (tabPanel == NULL || tabPanel->HWindow == NULL)
+                    continue;
+                MoveWindow(tabPanel->HWindow, panelX, panelY, panelWidth, panelHeight, FALSE);
+                ::SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(panelWidth, panelHeight));
+                tabPanel->LayoutListBoxChilds();
+                if (tabPanel == activeSidePanel)
+                    RedrawWindow(tabPanel->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
+            }
+        }
     }
 
     if (DetachedPanels)
