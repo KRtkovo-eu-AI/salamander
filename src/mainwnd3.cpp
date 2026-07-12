@@ -7263,6 +7263,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             else if (activePanel == oldRightPanel)
                 SetActivePanel(LeftPanel);
 
+            if (Configuration.TreeViewVisible)
+            {
+                LeftPanel->UpdateTreeView(TRUE);
+                RightPanel->UpdateTreeView(DetachedPanels);
+            }
+
             if (DetachedPanels)
             {
                 if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)

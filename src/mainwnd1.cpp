@@ -2541,7 +2541,12 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
 
         DetachedPanels = FALSE;
         CreatingDetachedChrome = TRUE;
-        RightPanel->UpdateTreeView(FALSE);
+        for (int i = 0; i < RightPanelTabs.Count; ++i)
+        {
+            CFilesWindow* tabPanel = RightPanelTabs[i];
+            if (tabPanel != NULL)
+                tabPanel->UpdateTreeView(FALSE);
+        }
         CreatingDetachedChrome = FALSE;
         DestroyDetachedChrome();
         if (HRightDetachedWindow != NULL)
