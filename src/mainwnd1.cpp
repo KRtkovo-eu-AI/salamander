@@ -2462,8 +2462,12 @@ static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
 {
     RegisterDetachedPanelWindowClass();
 
-    char title[200];
-    sprintf(title, "%s - %s", MAINWINDOW_NAME, LoadStr(IDS_DETACHED_WINDOW_TITLE));
+    char title[4096];
+    GetWindowText(mainWindow->HWindow, title, _countof(title));
+    if (title[0] == 0)
+        lstrcpyn(title, MAINWINDOW_NAME, _countof(title));
+    lstrcat(title, " - ");
+    lstrcat(title, LoadStr(IDS_DETACHED_WINDOW_TITLE));
 
     RECT mainRect;
     GetWindowRect(mainWindow->HWindow, &mainRect);
@@ -2507,8 +2511,12 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
 
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
             SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
-        if (RightPanel->HWindow != NULL)
-            SetParent(RightPanel->HWindow, HRightDetachedWindow);
+        for (int i = 0; i < RightPanelTabs.Count; ++i)
+        {
+            CFilesWindow* tabPanel = RightPanelTabs[i];
+            if (tabPanel != NULL && tabPanel->HWindow != NULL)
+                SetParent(tabPanel->HWindow, HRightDetachedWindow);
+        }
 
         DetachedPanels = TRUE;
         if (!EnsureDetachedChrome())
@@ -2524,8 +2532,12 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
     {
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
             SetParent(RightTabWindow->HWindow, HWindow);
-        if (RightPanel->HWindow != NULL)
-            SetParent(RightPanel->HWindow, HWindow);
+        for (int i = 0; i < RightPanelTabs.Count; ++i)
+        {
+            CFilesWindow* tabPanel = RightPanelTabs[i];
+            if (tabPanel != NULL && tabPanel->HWindow != NULL)
+                SetParent(tabPanel->HWindow, HWindow);
+        }
 
         DetachedPanels = FALSE;
         CreatingDetachedChrome = TRUE;
@@ -3181,6 +3193,13 @@ void CMainWindow::SetWindowTitle(const char* text)
     if (wideText != curTitle)
     {
         ::SetWindowTextW(HWindow, wideText.c_str());
+        if (HRightDetachedWindow != NULL)
+        {
+            std::wstring detachedTitle = wideText;
+            detachedTitle += L" - ";
+            detachedTitle += MultiByteToWindowTitleWide(LoadStr(IDS_DETACHED_WINDOW_TITLE));
+            ::SetWindowTextW(HRightDetachedWindow, detachedTitle.c_str());
+        }
         if (Configuration.StatusArea)
         {
             int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideText.c_str(), (int)wideText.length(), NULL, 0, NULL, NULL);

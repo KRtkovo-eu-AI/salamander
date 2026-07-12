@@ -535,6 +535,8 @@ CFilesWindow* CFilesWindow::GetTreeViewSourcePanel()
     // left or right side.
     if (MainWindow != NULL)
     {
+        if (MainWindow->DetachedPanels && MainWindow->RightPanel == this)
+            return MainWindow->RightPanel;
         CFilesWindow* activePanel = MainWindow->GetActivePanel();
         if (activePanel != NULL)
             return activePanel;

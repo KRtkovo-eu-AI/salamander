@@ -259,6 +259,11 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         RightPanel = panel;
 
     panel->SetPanelSide(side);
+    if (DetachedPanels && side == cpsRight && HRightDetachedWindow != NULL && panel->HWindow != NULL &&
+        GetParent(panel->HWindow) != HRightDetachedWindow)
+    {
+        SetParent(panel->HWindow, HRightDetachedWindow);
+    }
 
     if (UsingSharedWorkDirHistory())
         UpdateAllDirectoryLineHistoryStates();
