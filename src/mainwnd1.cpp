@@ -2593,6 +2593,9 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         DestroyDetachedChrome();
         if (HRightDetachedWindow != NULL)
             ShowWindow(HRightDetachedWindow, SW_HIDE);
+        UpdatePanelTabVisibility(cpsLeft);
+        UpdatePanelTabVisibility(cpsRight);
+        RefreshPanelTabLayout();
         LayoutWindows();
     }
 
