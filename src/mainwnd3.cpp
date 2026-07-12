@@ -7330,8 +7330,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     SetWindowPos(panel->HWindow, NULL, activeRect.left, activeRect.top,
                                  activeRect.right - activeRect.left, activeRect.bottom - activeRect.top,
                                  SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
-                    SendMessage(panel->HWindow, WM_SIZE, SIZE_RESTORED,
-                                MAKELPARAM(activeRect.right - activeRect.left, activeRect.bottom - activeRect.top));
+                    ::SendMessage(panel->HWindow, WM_SIZE, SIZE_RESTORED,
+                                  MAKELPARAM(activeRect.right - activeRect.left, activeRect.bottom - activeRect.top));
                     panel->LayoutListBoxChilds();
                     if (panel == activeSidePanel)
                         RedrawWindow(panel->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);

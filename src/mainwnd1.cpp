@@ -2224,6 +2224,10 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
     if (DetachedEditWindow != NULL && DetachedEditWindow->HWindow != NULL)
         windowsCount++;
 
+    int panelHeight = contentHeight - tabHeight;
+    if (panelHeight < 0)
+        panelHeight = 0;
+
     HDWP hdwp = HANDLES(BeginDeferWindowPos(windowsCount));
     if (hdwp != NULL)
     {
@@ -2266,9 +2270,6 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
                                           treeDisplayWidth, detachedTopRebarHeight, displaySplitWidth, contentHeight,
                                           SWP_NOACTIVATE | (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
-        int panelHeight = contentHeight - tabHeight;
-        if (panelHeight < 0)
-            panelHeight = 0;
         for (int i = 0; i < tabs.Count; ++i)
         {
             CFilesWindow* tabPanel = tabs[i];
@@ -2298,7 +2299,7 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
         if (tabPanel != NULL && tabPanel->HWindow != NULL)
         {
             MoveWindow(tabPanel->HWindow, panelX, detachedTopRebarHeight + tabHeight, panelWidth, panelHeight, FALSE);
-            SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(panelWidth, panelHeight));
+            ::SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(panelWidth, panelHeight));
             tabPanel->LayoutListBoxChilds();
             if (tabPanel == panel)
                 RedrawWindow(tabPanel->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
@@ -2390,6 +2391,10 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
     if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
         windowsCount++;
 
+    int leftPanelHeight = PanelsHeight - leftTabHeight;
+    if (leftPanelHeight < 0)
+        leftPanelHeight = 0;
+
     HDWP hdwp = HANDLES(BeginDeferWindowPos(windowsCount));
     if (hdwp != NULL)
     {
@@ -2434,9 +2439,6 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
                                               (leftTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
 
-        int leftPanelHeight = PanelsHeight - leftTabHeight;
-        if (leftPanelHeight < 0)
-            leftPanelHeight = 0;
         for (int i = 0; i < LeftPanelTabs.Count; ++i)
         {
             CFilesWindow* tabPanel = LeftPanelTabs[i];
@@ -2469,7 +2471,7 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
         if (tabPanel != NULL && tabPanel->HWindow != NULL)
         {
             MoveWindow(tabPanel->HWindow, panelX, TopRebarHeight + leftTabHeight, panelWidth, leftPanelHeight, FALSE);
-            SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(panelWidth, leftPanelHeight));
+            ::SendMessage(tabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(panelWidth, leftPanelHeight));
             tabPanel->LayoutListBoxChilds();
             if (tabPanel == LeftPanel)
                 RedrawWindow(tabPanel->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
