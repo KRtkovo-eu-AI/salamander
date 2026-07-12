@@ -1559,7 +1559,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                 CPathBuffer detail(2 * SAL_MAX_PATH);
                 _snprintf_s(detail.Data(), detail.Capacity(), _TRUNCATE, "%s", LoadStr(IDS_TOOLONGNAME));
                 CPathBuffer buff(4 * SAL_MAX_PATH);
-                _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, "%s%s", LoadStr(IDS_ERROREXECEDIT), detail.Data());
+                _snprintf_s(buff.Data(), buff.Capacity(), _TRUNCATE, "%s %s %s", LoadStr(IDS_ERROREXECEDIT), expCommand.Data(), LoadStr(IDS_TOOLONGNAME));
                 SalMessageBox(HWindow, buff.Data(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
             }
         }
@@ -1567,7 +1567,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     else
     {
         char buff[SAL_MAX_PATH + 300];
-        _snprintf_s(buff, _TRUNCATE, "%s", LoadStr(IDS_CANT_EDIT_FILE));
+        _snprintf_s(buff, _countof(buff), _TRUNCATE, "%s %s", LoadStr(IDS_CANT_EDIT_FILE), name);
         SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);
     }
