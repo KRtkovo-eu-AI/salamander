@@ -290,8 +290,9 @@ BOOL CDriveBar::OnContextMenu()
                     return FALSE; // nemelo by se stat
             }
             CFilesWindow* panel;
-            BOOL detachedBar = this == MainWindow->DetachedDriveBar || this == MainWindow->DetachedDriveBar2;
-            BOOL bar2 = this == MainWindow->DriveBar2 || this == MainWindow->DetachedDriveBar2;
+            HWND hRoot = GetAncestor(HWindow, GA_ROOT);
+            BOOL detachedBar = hRoot != NULL && hRoot == MainWindow->GetRightDetachedWindowHWND();
+            BOOL bar2 = indexInList >= CM_DRIVEBAR2_MIN && indexInList <= CM_DRIVEBAR2_MAX;
             if (detachedBar)
                 panel = MainWindow->RightPanel;
             else if (MainWindow->DriveBar2->HWindow != NULL)

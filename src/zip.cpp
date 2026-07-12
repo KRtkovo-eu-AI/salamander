@@ -813,16 +813,18 @@ int CSalamanderGeneral::DialogQuestion(HWND parent, DWORD flags, const char* fil
 
 static HWND GetPluginCallerCenterWindow()
 {
-    if (MainWindow != NULL && MainWindow->DetachedPanels &&
-        MainWindow->HRightDetachedWindow != NULL &&
-        IsWindowVisible(MainWindow->HRightDetachedWindow))
+    if (MainWindow != NULL && MainWindow->DetachedPanels)
     {
-        HWND foreground = GetForegroundWindow();
-        if (foreground == MainWindow->HRightDetachedWindow ||
-            IsChild(MainWindow->HRightDetachedWindow, foreground) ||
-            GetAncestor(foreground, GA_ROOT) == MainWindow->HRightDetachedWindow)
+        HWND hRightDetachedWindow = MainWindow->GetRightDetachedWindowHWND();
+        if (hRightDetachedWindow != NULL && IsWindowVisible(hRightDetachedWindow))
         {
-            return MainWindow->HRightDetachedWindow;
+            HWND foreground = GetForegroundWindow();
+            if (foreground == hRightDetachedWindow ||
+                IsChild(hRightDetachedWindow, foreground) ||
+                GetAncestor(foreground, GA_ROOT) == hRightDetachedWindow)
+            {
+                return hRightDetachedWindow;
+            }
         }
     }
     return MainWindow != NULL ? MainWindow->HWindow : NULL;

@@ -3587,11 +3587,11 @@ CMainWindow::HitTest(int xPos, int yPos) // screen coordinates
     POINT p;
     p.x = xPos;
     p.y = yPos;
-    auto pointInWindow = [](HWND hwnd, POINT pt) {
+    auto pointInWindow = [](HWND hwnd, POINT pt) -> BOOL {
         if (hwnd == NULL || !IsWindowVisible(hwnd))
             return FALSE;
         RECT wr;
-        return GetWindowRect(hwnd, &wr) && PtInRect(&wr, pt);
+        return (GetWindowRect(hwnd, &wr) && PtInRect(&wr, pt)) ? TRUE : FALSE;
     };
 
     auto hitRebarBand = [](HWND hRebar, POINT screenPt) {
