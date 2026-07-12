@@ -2459,7 +2459,7 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
 
         if (BottomToolBar != NULL && BottomToolBar->HWindow != NULL)
             hdwp = HANDLES(DeferWindowPos(hdwp, BottomToolBar->HWindow, NULL,
-                                          1, TopRebarHeight + PanelsHeight + EditHeight + 1, panelWidth, BottomToolBarHeight,
+                                          1, TopRebarHeight + PanelsHeight + EditHeight + 1, max(0, width - 2), BottomToolBarHeight,
                                           SWP_NOACTIVATE | SWP_NOZORDER));
 
         HANDLES(EndDeferWindowPos(hdwp));
@@ -2599,6 +2599,10 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         UpdatePanelTabVisibility(cpsLeft);
         UpdatePanelTabVisibility(cpsRight);
         RefreshPanelTabLayout();
+        RECT mainClientRect;
+        GetClientRect(HWindow, &mainClientRect);
+        WindowWidth = mainClientRect.right - mainClientRect.left;
+        WindowHeight = mainClientRect.bottom - mainClientRect.top;
         LayoutWindows();
 
         RECT hostClient;

@@ -10272,13 +10272,21 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             TDirectArray<BOOL> detachFlags(totalPanels, totalPanels);
             for (int i = 0; i < LeftPanelTabs.Count; i++)
             {
-                panels.Add(LeftPanelTabs[i]);
-                detachFlags.Add(FALSE);
+                CFilesWindow* panel = LeftPanelTabs[i];
+                if (panel != NULL && panel->HWindow != NULL && panel->ListBox != NULL)
+                {
+                    panels.Add(panel);
+                    detachFlags.Add(FALSE);
+                }
             }
             for (int i = 0; i < RightPanelTabs.Count; i++)
             {
-                panels.Add(RightPanelTabs[i]);
-                detachFlags.Add(FALSE);
+                CFilesWindow* panel = RightPanelTabs[i];
+                if (panel != NULL && panel->HWindow != NULL && panel->ListBox != NULL)
+                {
+                    panels.Add(panel);
+                    detachFlags.Add(FALSE);
+                }
             }
 
             BOOL canClose = TRUE;
