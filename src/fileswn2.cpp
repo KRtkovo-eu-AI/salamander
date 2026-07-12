@@ -530,13 +530,20 @@ BOOL CFilesWindow::IsTreeViewHost()
 
 CFilesWindow* CFilesWindow::GetTreeViewSourcePanel()
 {
-    // The tree view window is hosted on the left side, but its content must
-    // follow the currently active panel/tab, regardless of whether it is on the
-    // left or right side.
+    // The tree view is a companion for its top-level host. In the standard
+    // combined layout there is only one host, so the tree follows the globally
+    // active panel. In detached mode, each top-level window must keep an
+    // independent tree: the main window follows the left/main panel, while the
+    // detached window follows the right/detached panel.
     if (MainWindow != NULL)
     {
-        if (MainWindow->DetachedPanels && MainWindow->RightPanel == this)
-            return MainWindow->RightPanel;
+        if (MainWindow->DetachedPanels)
+        {
+            if (MainWindow->RightPanel == this)
+                return MainWindow->RightPanel;
+            if (MainWindow->LeftPanel == this)
+                return MainWindow->LeftPanel;
+        }
         CFilesWindow* activePanel = MainWindow->GetActivePanel();
         if (activePanel != NULL)
             return activePanel;
