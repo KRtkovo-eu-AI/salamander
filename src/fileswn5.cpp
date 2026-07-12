@@ -1002,8 +1002,8 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     lockOwner = FALSE;
 
     // obtain the full DOS name
-    char dosName[MAX_PATH];
-    if (GetShortPathName(name, dosName, MAX_PATH) == 0)
+    char dosName[SAL_MAX_PATH];
+    if (GetShortPathName(name, dosName, SAL_MAX_PATH) == 0)
     {
         TRACE_E("GetShortPathName() failed");
         dosName[0] = 0;
@@ -1105,12 +1105,12 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         {
         case VIEWER_EXTERNAL:
         {
-            char expCommand[MAX_PATH];
-            char expArguments[MAX_PATH];
-            char expInitDir[MAX_PATH];
-            if (ExpandCommand(parent, viewer->Command, expCommand, MAX_PATH, FALSE) &&
-                ExpandArguments(parent, name, dosName, viewer->Arguments, expArguments, MAX_PATH, NULL) &&
-                ExpandInitDir(parent, name, dosName, viewer->InitDir, expInitDir, MAX_PATH, FALSE))
+            char expCommand[SAL_MAX_PATH];
+            char expArguments[SAL_MAX_PATH];
+            char expInitDir[SAL_MAX_PATH];
+            if (ExpandCommand(parent, viewer->Command, expCommand, SAL_MAX_PATH, FALSE) &&
+                ExpandArguments(parent, name, dosName, viewer->Arguments, expArguments, SAL_MAX_PATH, NULL) &&
+                ExpandInitDir(parent, name, dosName, viewer->InitDir, expInitDir, SAL_MAX_PATH, FALSE))
             {
                 if (SystemPolicies.GetMyRunRestricted() &&
                     !SystemPolicies.GetMyCanRun(expCommand))
@@ -1139,12 +1139,12 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                               STARTF_USESHOWWINDOW;
                 si.wShowWindow = SW_SHOWNORMAL;
 
-                char cmdLine[2 * MAX_PATH];
-                lstrcpyn(cmdLine, expCommand, 2 * MAX_PATH);
-                AddDoubleQuotesIfNeeded(cmdLine, 2 * MAX_PATH); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
+                char cmdLine[2 * SAL_MAX_PATH];
+                lstrcpyn(cmdLine, expCommand, 2 * SAL_MAX_PATH);
+                AddDoubleQuotesIfNeeded(cmdLine, 2 * SAL_MAX_PATH); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
                 int len = (int)strlen(cmdLine);
                 int lArgs = (int)strlen(expArguments);
-                if (len + lArgs + 2 <= 2 * MAX_PATH)
+                if (len + lArgs + 2 <= 2 * SAL_MAX_PATH)
                 {
                     cmdLine[len] = ' ';
                     memcpy(cmdLine + len + 1, expArguments, lArgs + 1);
@@ -1160,7 +1160,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                                                NORMAL_PRIORITY_CLASS, NULL, expInitDir, &si, &pi)))
                     {
                         DWORD err = GetLastError();
-                        char buff[4 * MAX_PATH];
+                        char buff[4 * SAL_MAX_PATH];
                         sprintf(buff, LoadStr(IDS_ERROREXECVIEW), expCommand, GetErrorText(err));
                         SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                     }
@@ -1179,7 +1179,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 }
                 else
                 {
-                    char buff[4 * MAX_PATH];
+                    char buff[4 * SAL_MAX_PATH];
                     sprintf(buff, LoadStr(IDS_ERROREXECVIEW), expCommand, LoadStr(IDS_TOOLONGNAME));
                     SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
@@ -1256,7 +1256,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     }
     else
     {
-        char buff[MAX_PATH + 300];
+        char buff[SAL_MAX_PATH + 300];
         int textID = altView ? IDS_CANT_VIEW_FILE_ALT : IDS_CANT_VIEW_FILE;
         sprintf(buff, LoadStr(textID), name);
         SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
@@ -1349,8 +1349,8 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     }
 
     // obtain the full DOS name
-    char dosName[MAX_PATH];
-    if (GetShortPathName(name, dosName, MAX_PATH) == 0)
+    char dosName[SAL_MAX_PATH];
+    if (GetShortPathName(name, dosName, SAL_MAX_PATH) == 0)
     {
         TRACE_I("GetShortPathName() failed.");
         dosName[0] = 0;
@@ -1428,12 +1428,12 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         if (addToHistory)
             MainWindow->FileHistory->AddFile(fhitEdit, editor->HandlerID, name); // add file to history
 
-        char expCommand[MAX_PATH];
-        char expArguments[MAX_PATH];
-        char expInitDir[MAX_PATH];
-        if (ExpandCommand(HWindow, editor->Command, expCommand, MAX_PATH, FALSE) &&
-            ExpandArguments(HWindow, name, dosName, editor->Arguments, expArguments, MAX_PATH, NULL) &&
-            ExpandInitDir(HWindow, name, dosName, editor->InitDir, expInitDir, MAX_PATH, FALSE))
+        char expCommand[SAL_MAX_PATH];
+        char expArguments[SAL_MAX_PATH];
+        char expInitDir[SAL_MAX_PATH];
+        if (ExpandCommand(HWindow, editor->Command, expCommand, SAL_MAX_PATH, FALSE) &&
+            ExpandArguments(HWindow, name, dosName, editor->Arguments, expArguments, SAL_MAX_PATH, NULL) &&
+            ExpandInitDir(HWindow, name, dosName, editor->InitDir, expInitDir, SAL_MAX_PATH, FALSE))
         {
             if (SystemPolicies.GetMyRunRestricted() &&
                 !SystemPolicies.GetMyCanRun(expCommand))
@@ -1462,12 +1462,12 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                           STARTF_USESHOWWINDOW;
             si.wShowWindow = SW_SHOWNORMAL;
 
-            char cmdLine[2 * MAX_PATH];
-            lstrcpyn(cmdLine, expCommand, 2 * MAX_PATH);
-            AddDoubleQuotesIfNeeded(cmdLine, 2 * MAX_PATH); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
+            char cmdLine[2 * SAL_MAX_PATH];
+            lstrcpyn(cmdLine, expCommand, 2 * SAL_MAX_PATH);
+            AddDoubleQuotesIfNeeded(cmdLine, 2 * SAL_MAX_PATH); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
             int len = (int)strlen(cmdLine);
             int lArgs = (int)strlen(expArguments);
-            if (len + lArgs + 2 <= 2 * MAX_PATH)
+            if (len + lArgs + 2 <= 2 * SAL_MAX_PATH)
             {
                 cmdLine[len] = ' ';
                 memcpy(cmdLine + len + 1, expArguments, lArgs + 1);
@@ -1483,7 +1483,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                                            NORMAL_PRIORITY_CLASS, NULL, expInitDir, &si, &pi)))
                 {
                     DWORD err = GetLastError();
-                    char buff[4 * MAX_PATH];
+                    char buff[4 * SAL_MAX_PATH];
                     sprintf(buff, LoadStr(IDS_ERROREXECEDIT), expCommand, GetErrorText(err));
                     SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
@@ -1495,7 +1495,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
             }
             else
             {
-                char buff[4 * MAX_PATH];
+                char buff[4 * SAL_MAX_PATH];
                 sprintf(buff, LoadStr(IDS_ERROREXECEDIT), expCommand, LoadStr(IDS_TOOLONGNAME));
                 SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
             }
@@ -1503,7 +1503,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     }
     else
     {
-        char buff[MAX_PATH + 300];
+        char buff[SAL_MAX_PATH + 300];
         sprintf(buff, LoadStr(IDS_CANT_EDIT_FILE), name);
         SalMessageBox(HWindow, buff, LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);

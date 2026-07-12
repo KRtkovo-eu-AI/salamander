@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "viewer.h"
 #include "common/widepath.h"
 #include "codetbl.h"
@@ -25,6 +27,20 @@ struct CTVData
 };
 
 HANDLE ViewerContinue = NULL;
+
+static HANDLE OpenViewerFileForRead(const std::wstring& fileNameW, const char* fileName)
+{
+    if (!fileNameW.empty())
+    {
+        std::wstring ioName = fileNameW;
+        if (ioName.length() >= MAX_PATH && !SalIsExtendedLengthPathW(ioName.c_str()))
+            ioName = SalPathAddExtendedPrefixW(ioName.c_str());
+        return HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                     OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+    }
+    return HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+}
 
 void ThreadViewerMessageLoopBodyAux()
 {
@@ -377,11 +393,7 @@ BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
     HANDLE file;
     if (hFile == NULL || *hFile == NULL)
     {
-        file = !FileNameW.empty() ?
-                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                         OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
-                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                        OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = OpenViewerFileForRead(FileNameW, FileName);
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
@@ -525,11 +537,7 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
     HANDLE file;
     if (hFile == NULL || *hFile == NULL)
     {
-        file = !FileNameW.empty() ?
-                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                         FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
-                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                        FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = OpenViewerFileForRead(FileNameW, FileName);
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
@@ -799,11 +807,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
     BOOL close;
     if (file == NULL)
     {
-        file = !FileNameW.empty() ?
-                   HANDLES_Q(CreateFileW(FileNameW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                         FILE_FLAG_SEQUENTIAL_SCAN, NULL)) :
-                   HANDLES_Q(CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                        FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        file = OpenViewerFileForRead(FileNameW, FileName);
         close = TRUE;
     }
     else
