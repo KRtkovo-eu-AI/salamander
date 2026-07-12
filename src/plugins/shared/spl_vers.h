@@ -102,11 +102,21 @@
 // 180 - 4.0
 // 181 - 4.0 (SDK)
 // 182 - 4.0 (CB182)
-// 183 - 5.0
+// 183 - 5.0, 5.0-samandarin-0.1
+// 184 = 5.0-samandarin-0.2
+// 185 = 5.0-samandarin-0.3
+// 186 = 5.0-samandarin-0.4
+// 187 = 5.0-samandarin-0.5
+// 188 = 5.0-samandarin-0.6
+// 189 = 5.0-samandarin-0.7
+// 190 = 5.0-samandarin-0.8
+// 191 = 5.0-samandarin-0.9
+// 192 = 5.0-samandarin-0.10
+// 193 = 5.0-samandarin-0.11
 
 // ! DULEZITE: nova cisla buildu je nutne zapsat do vetve "default", a pak
 //             teprve do vedlejsi vetve (kompletni seznam je jen v "default" vetvi)
-#define VERSINFO_BUILDNUMBER 183
+#define VERSINFO_BUILDNUMBER 193
 
 // VERSINFO_BETAVERSION_TXT:
 //

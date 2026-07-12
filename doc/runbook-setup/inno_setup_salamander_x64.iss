@@ -58,6 +58,7 @@ DisableFinishedPage=yes
 ChangesAssociations=yes
 WizardSmallImageFile={#SourcePath}\setup_img_small.png
 WizardSmallImageFileDynamicDark={#SourcePath}\setup_img_small.png
+VersionInfoVersion=5.0.{#SamandarinVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"; LicenseFile: "{#SourcePath}\license.txt"
