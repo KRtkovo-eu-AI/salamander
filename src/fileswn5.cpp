@@ -1313,7 +1313,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     {
         char buff[SAL_MAX_PATH + 300];
         int textID = altView ? IDS_CANT_VIEW_FILE_ALT : IDS_CANT_VIEW_FILE;
-        _snprintf_s(buff, _TRUNCATE, LoadStr(textID), name);
+        _snprintf_s(buff, _TRUNCATE, "%s", LoadStr(textID));
         SalMessageBox(parent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
     }
     return success;
