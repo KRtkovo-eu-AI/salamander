@@ -2582,12 +2582,9 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         }
 
         DetachedPanels = FALSE;
-        if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
-        {
-            PanelZoomedState = 0;
-            KeepSplitPositionCenteredOnVisiblePanes = FALSE;
-            SplitPosition = 0.5;
-        }
+        PanelZoomedState = 0;
+        KeepSplitPositionCenteredOnVisiblePanes = FALSE;
+        SplitPosition = 0.5;
         CreatingDetachedChrome = TRUE;
         for (int i = 0; i < RightPanelTabs.Count; ++i)
         {
