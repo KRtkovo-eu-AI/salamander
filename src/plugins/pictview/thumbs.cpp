@@ -834,7 +834,11 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
 #ifdef _UNICODE
     std::string filenameForBackend = PluginWideToMultiBytePath(filename, CP_UTF8);
 #else
-    std::wstring filenameWide = PluginMultiByteToWidePath(filename, CP_ACP);
+    std::wstring filenameWide = PluginMultiByteToWidePath(filename, CP_UTF8);
+    if (filenameWide.empty())
+    {
+        filenameWide = PluginMultiByteToWidePath(filename, CP_ACP);
+    }
     std::string filenameForBackend = PluginWideToMultiBytePath(filenameWide.c_str(), CP_UTF8);
 #endif
 

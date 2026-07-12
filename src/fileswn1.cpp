@@ -58,6 +58,52 @@ std::string TreeViewWideToText(const wchar_t* text)
 {
     return SalWideToMultiBytePath(text, CP_UTF8);
 }
+
+std::string BuildDiskThumbnailPathUtf8(CFilesWindow* window, const char* fileName)
+{
+    if (window == NULL || fileName == NULL || fileName[0] == 0 || !window->Is(ptDisk))
+        return std::string();
+
+    std::wstring fullPath;
+    if (window->GetPathW() != NULL && window->GetPathW()[0] != 0)
+    {
+        fullPath = window->GetPathW();
+    }
+    else
+    {
+        fullPath = SalMultiByteToWidePath(window->GetPath(), CP_UTF8);
+        if (fullPath.empty())
+            fullPath = SalMultiByteToWidePath(window->GetPath(), CP_ACP);
+    }
+    if (fullPath.empty())
+        return std::string();
+
+    const CFileData* file = NULL;
+    for (int i = 0; i < window->Files->Count; ++i)
+    {
+        if (strcmp(window->Files->At(i).Name, fileName) == 0)
+        {
+            file = &window->Files->At(i);
+            break;
+        }
+    }
+
+    std::wstring nameW;
+    if (file != NULL && file->UseWideName())
+    {
+        nameW = file->NameW;
+    }
+    else
+    {
+        nameW = SalMultiByteToWidePath(fileName, CP_UTF8);
+        if (nameW.empty())
+            nameW = SalMultiByteToWidePath(fileName, CP_ACP);
+    }
+    if (nameW.empty() || !SalPathAppendW(fullPath, nameW.c_str()))
+        return std::string();
+
+    return SalWideToMultiBytePath(fullPath.c_str(), CP_UTF8);
+}
 } // namespace
 
 struct CTreeViewExpandedPaths
@@ -1672,10 +1718,20 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             int len = (int)strlen(s);
                                             int size = len + 4;
                                             size -= (size & 0x3); // size % 4 (alignment to four bytes)
-                                            if (strlen(s) + (name - path) < MAX_PATH)
+                                            std::string thumbnailPathUtf8 = BuildDiskThumbnailPathUtf8(window, s);
+                                            const char* thumbnailPath = NULL;
+                                            if (!thumbnailPathUtf8.empty())
+                                            {
+                                                thumbnailPath = thumbnailPathUtf8.c_str();
+                                            }
+                                            else if (strlen(s) + (name - path) < MAX_PATH)
                                             {
                                                 strcpy(name, s);
+                                                thumbnailPath = path;
+                                            }
 
+                                            if (thumbnailPath != NULL)
+                                            {
                                                 //                          TRACE_I("Load thumbnail for: " << name << "...");
                                                 CPluginInterfaceForThumbLoaderEncapsulation** loader;
                                                 loader = (CPluginInterfaceForThumbLoaderEncapsulation**)(s + size + sizeof(CQuadWord) + sizeof(FILETIME));
@@ -1683,8 +1739,8 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                 {
                                                     int thumbnailSize = window->GetThumbnailSize();
                                                     thumbMaker.Clear(thumbnailSize);
-                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::LoadThumbnail(%s, %d)", path, wanted == 4);
-                                                    if ((*loader)->LoadThumbnail(path, thumbnailSize, thumbnailSize, &thumbMaker, wanted == 4))
+                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::LoadThumbnail(%s, %d)", thumbnailPath, wanted == 4);
+                                                    if ((*loader)->LoadThumbnail(thumbnailPath, thumbnailSize, thumbnailSize, &thumbMaker, wanted == 4))
                                                     {
                                                         thumbnailFlag = wanted == 4 /* first thumbnail loading round */ ? (thumbMaker.IsOnlyPreview() ? 6 /* low-quality/smaller */ : 5 /* quality */) : 5 /* in the second round all obtained thumbnails are quality */;
                                                         thumbMaker.HandleIncompleteImages();
