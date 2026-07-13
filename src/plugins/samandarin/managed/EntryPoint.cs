@@ -118,6 +118,7 @@ public static class EntryPoint
     private static DialogResult ShowDialog(Form dialog, IntPtr parent)
     {
         IWin32Window? owner = parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null;
+        ThemeHelper.CenterDialogOverOwner(dialog, owner);
         return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
     }
 
