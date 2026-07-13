@@ -297,13 +297,10 @@ void CMainWindow::DirHistoryRemoveActualPath(CFilesWindow* panel)
 
 void CMainWindow::GetSplitRect(RECT& r)
 {
-    const int splitHitPadding = 4;
     r.left = SplitPositionPix;
     r.top = TopRebarHeight;
     r.right = SplitPositionPix + MainWindow->GetSplitBarWidth();
     r.bottom = WindowHeight - EditHeight - BottomToolBarHeight;
-    r.left -= splitHitPadding;
-    r.right += splitHitPadding;
 }
 
 void CMainWindow::GetWindowSplitRect(RECT& r)
