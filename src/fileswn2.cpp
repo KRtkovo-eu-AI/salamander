@@ -674,6 +674,7 @@ void CFilesWindow::ToggleTreeViewAutoHide()
 
     Configuration.TreeViewAutoHide = !Configuration.TreeViewAutoHide;
     TreeViewAutoHideExpanded = FALSE;
+    TreeViewAutoHideCollapseStart = 0;
     if (HTreeHeader != NULL)
     {
         SetWindowLongPtr(HTreeHeader, GWLP_USERDATA, 0);
@@ -693,6 +694,7 @@ void CFilesWindow::ExpandTreeViewAutoHide()
     if (!Configuration.TreeViewAutoHide || TreeViewAutoHideExpanded)
         return;
     TreeViewAutoHideExpanded = TRUE;
+    TreeViewAutoHideCollapseStart = 0;
     if (HTreeHeader != NULL)
         InvalidateRect(HTreeHeader, NULL, TRUE);
     if (MainWindow != NULL)
@@ -705,14 +707,30 @@ void CFilesWindow::CollapseTreeViewAutoHideIfNeeded()
         return;
 
     if (GetCapture() == HTreeSplit)
+    {
+        TreeViewAutoHideCollapseStart = 0;
         return;
+    }
 
     POINT pt;
     GetCursorPos(&pt);
     if (IsPointInWindow(HTreeHeader, pt) || IsPointInWindow(HTreeView, pt) || IsPointInWindow(HTreeSplit, pt))
+    {
+        TreeViewAutoHideCollapseStart = 0;
+        return;
+    }
+
+    DWORD now = GetTickCount();
+    if (TreeViewAutoHideCollapseStart == 0)
+    {
+        TreeViewAutoHideCollapseStart = now;
+        return;
+    }
+    if (now - TreeViewAutoHideCollapseStart < TREEVIEW_AUTOHIDE_EXPAND_DELAY)
         return;
 
     TreeViewAutoHideExpanded = FALSE;
+    TreeViewAutoHideCollapseStart = 0;
     SetWindowLongPtr(HTreeHeader, GWLP_USERDATA, 0);
     InvalidateRect(HTreeHeader, NULL, TRUE);
     if (MainWindow != NULL)
@@ -2230,7 +2248,10 @@ void CFilesWindow::DestroyTreeView()
         HTreeSplit = NULL;
     }
     if (!TreeViewActive)
+    {
         TreeViewAutoHideExpanded = FALSE;
+        TreeViewAutoHideCollapseStart = 0;
+    }
 
     if (HTreeView != NULL)
     {

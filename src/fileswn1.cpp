@@ -2224,6 +2224,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     HTreeHeaderToolTip = NULL;
     HTreeSplit = NULL;
     TreeViewAutoHideExpanded = FALSE;
+    TreeViewAutoHideCollapseStart = 0;
     TreeViewAsyncLoadThread = NULL;
     TreeViewAsyncTerminateEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL)); // manual reset
     TreeViewAsyncLoadData = NULL;

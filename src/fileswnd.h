@@ -817,6 +817,7 @@ public:
     HWND HTreeHeaderToolTip;
     HWND HTreeSplit;
     BOOL TreeViewAutoHideExpanded;
+    DWORD TreeViewAutoHideCollapseStart;
 
     CPanelSide PanelSide;
     bool CustomTabColorValid;
