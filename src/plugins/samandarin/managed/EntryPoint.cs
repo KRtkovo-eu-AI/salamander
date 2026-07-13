@@ -18,6 +18,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using Timer = System.Threading.Timer;
 
 namespace OpenSalamander.Samandarin;
@@ -1701,7 +1702,58 @@ internal static class PluginCatalogSources
 
 internal static class InstalledPluginScanner
 {
+    private const string CurrentConfigurationRoot = @"Software\Open Salamander Samandarin\5.0-samandarin-0.11";
+    private const string PluginsKeyName = "Plugins";
+    private const string PluginNameValue = "Name";
+    private const string PluginDllValue = "DLL";
+    private const string PluginVersionValue = "Version";
+
     public static IEnumerable<InstalledPlugin> Scan()
+    {
+        return TryScanConfiguredPlugins(out var configuredPlugins)
+            ? configuredPlugins
+            : ScanPluginDirectory();
+    }
+
+    private static bool TryScanConfiguredPlugins(out IReadOnlyList<InstalledPlugin> plugins)
+    {
+        var configuredPlugins = new List<InstalledPlugin>();
+        using var pluginsKey = Registry.CurrentUser.OpenSubKey(CurrentConfigurationRoot + @"\" + PluginsKeyName);
+        if (pluginsKey is null)
+        {
+            plugins = configuredPlugins;
+            return false;
+        }
+
+        foreach (var subKeyName in pluginsKey.GetSubKeyNames().OrderBy(ParsePluginOrder))
+        {
+            using var pluginKey = pluginsKey.OpenSubKey(subKeyName);
+            if (pluginKey is null)
+            {
+                continue;
+            }
+
+            var dllName = ReadString(pluginKey, PluginDllValue);
+            if (string.IsNullOrWhiteSpace(dllName))
+            {
+                continue;
+            }
+
+            var id = BuildIdFromRegisteredDll(dllName);
+            var displayName = ReadString(pluginKey, PluginNameValue);
+            if (string.IsNullOrWhiteSpace(displayName))
+            {
+                displayName = id;
+            }
+
+            configuredPlugins.Add(new InstalledPlugin(id, displayName!, ReadString(pluginKey, PluginVersionValue) ?? string.Empty));
+        }
+
+        plugins = configuredPlugins;
+        return true;
+    }
+
+    private static IEnumerable<InstalledPlugin> ScanPluginDirectory()
     {
         var assemblyPath = Assembly.GetExecutingAssembly().Location;
         var pluginDirectory = Directory.GetParent(assemblyPath)?.FullName;
@@ -1730,6 +1782,26 @@ internal static class InstalledPluginScanner
             yield return new InstalledPlugin(id, display, version);
         }
     }
+
+    private static string? ReadString(RegistryKey key, string name) => key.GetValue(name) as string;
+
+    private static int ParsePluginOrder(string subKeyName) => int.TryParse(subKeyName, NumberStyles.Integer, CultureInfo.InvariantCulture, out var order) ? order : int.MaxValue;
+
+    private static string BuildIdFromRegisteredDll(string dllName)
+    {
+        var normalized = dllName.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fileName = Path.GetFileNameWithoutExtension(normalized);
+        if (Path.IsPathRooted(normalized))
+        {
+            return string.IsNullOrWhiteSpace(fileName) ? normalized : fileName!;
+        }
+
+        var firstSegment = normalized.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return string.IsNullOrWhiteSpace(firstSegment)
+            ? (string.IsNullOrWhiteSpace(fileName) ? normalized : fileName!)
+            : firstSegment!;
+    }
+
     private static string BuildDisplayName(string id, string file, FileVersionInfo info)
     {
         if (!string.IsNullOrWhiteSpace(info.FileDescription) &&
