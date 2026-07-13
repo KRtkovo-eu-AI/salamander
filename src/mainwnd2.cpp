@@ -4692,6 +4692,20 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.TreeViewWidth, sizeof(DWORD));
             GetValue(actKey, CONFIG_TREEVIEWAUTOHIDE_REG, REG_DWORD,
                      &Configuration.TreeViewAutoHide, sizeof(DWORD));
+            if (LeftPanel != NULL)
+            {
+                LeftPanel->TreeViewWidth = Configuration.TreeViewWidth;
+                LeftPanel->TreeViewAutoHide = Configuration.TreeViewAutoHide;
+                LeftPanel->TreeViewAutoHideExpanded = FALSE;
+                LeftPanel->TreeViewAutoHideCollapseStart = 0;
+            }
+            if (RightPanel != NULL)
+            {
+                RightPanel->TreeViewWidth = Configuration.TreeViewWidth;
+                RightPanel->TreeViewAutoHide = Configuration.TreeViewAutoHide;
+                RightPanel->TreeViewAutoHideExpanded = FALSE;
+                RightPanel->TreeViewAutoHideCollapseStart = 0;
+            }
             GetValue(actKey, CONFIG_GRIPSVISIBLE_REG, REG_DWORD,
                      &Configuration.GripsVisible, sizeof(DWORD));
             //---  top rebar end
