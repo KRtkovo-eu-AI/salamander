@@ -71,6 +71,30 @@ internal static class ThemeHelper
         s_cachedPalette = null;
     }
 
+    public static void CenterDialogOverOwner(Form dialog, IWin32Window? owner)
+    {
+        if (owner is null || owner.Handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        dialog.StartPosition = FormStartPosition.Manual;
+        dialog.Shown += (_, _) =>
+        {
+            if (!NativeMethods.TryGetWindowRectangle(owner.Handle, out var ownerBounds))
+            {
+                return;
+            }
+
+            var workingArea = Screen.FromHandle(owner.Handle).WorkingArea;
+            int x = ownerBounds.Left + (ownerBounds.Width - dialog.Width) / 2;
+            int y = ownerBounds.Top + (ownerBounds.Height - dialog.Height) / 2;
+            x = Math.Max(workingArea.Left, Math.Min(x, workingArea.Right - dialog.Width));
+            y = Math.Max(workingArea.Top, Math.Min(y, workingArea.Bottom - dialog.Height));
+            dialog.Location = new Point(x, y);
+        };
+    }
+
     public static DialogResult ShowMessageBox(IWin32Window? owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
     {
         if (!TryGetPalette(out _))
@@ -81,7 +105,7 @@ internal static class ThemeHelper
         using var dialog = new Form
         {
             Text = caption,
-            StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent,
+            StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.Manual,
             FormBorderStyle = FormBorderStyle.FixedDialog,
             MaximizeBox = false,
             MinimizeBox = false,
@@ -182,6 +206,7 @@ internal static class ThemeHelper
 
         dialog.Controls.Add(layout);
         ApplyTheme(dialog);
+        CenterDialogOverOwner(dialog, owner);
 
         var ownerWindow = owner;
         ownerWindow ??= Form.ActiveForm;
@@ -616,6 +641,23 @@ internal static class ThemeHelper
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
         private const int DWMWA_BORDER_COLOR = 34;
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsIconic(IntPtr hwnd);
+
         [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
         public static extern uint Samandarin_GetCurrentColor(int color);
 
@@ -630,6 +672,18 @@ internal static class ThemeHelper
 
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+        public static bool TryGetWindowRectangle(IntPtr handle, out Rectangle bounds)
+        {
+            bounds = Rectangle.Empty;
+            if (handle == IntPtr.Zero || IsIconic(handle) || !GetWindowRect(handle, out var rect))
+            {
+                return false;
+            }
+
+            bounds = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            return bounds.Width > 0 && bounds.Height > 0;
+        }
 
         public static void SetDarkModeEnabled(bool enabled)
         {

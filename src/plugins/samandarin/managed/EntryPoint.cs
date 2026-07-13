@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using System.Net;
 using System.Net.Http;
@@ -18,6 +19,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using Timer = System.Threading.Timer;
 
 namespace OpenSalamander.Samandarin;
@@ -116,6 +118,7 @@ public static class EntryPoint
     private static DialogResult ShowDialog(Form dialog, IntPtr parent)
     {
         IWin32Window? owner = parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null;
+        ThemeHelper.CenterDialogOverOwner(dialog, owner);
         return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
     }
 
@@ -1703,6 +1706,13 @@ internal static class InstalledPluginScanner
 {
     public static IEnumerable<InstalledPlugin> Scan()
     {
+        return PluginConfigurationReader.TryReadConfiguredPlugins(out var configuredPlugins)
+            ? configuredPlugins
+            : ScanPluginDirectory();
+    }
+
+    private static IEnumerable<InstalledPlugin> ScanPluginDirectory()
+    {
         var assemblyPath = Assembly.GetExecutingAssembly().Location;
         var pluginDirectory = Directory.GetParent(assemblyPath)?.FullName;
         var pluginsRoot = pluginDirectory is null ? null : Directory.GetParent(pluginDirectory)?.FullName;
@@ -1730,6 +1740,7 @@ internal static class InstalledPluginScanner
             yield return new InstalledPlugin(id, display, version);
         }
     }
+
     private static string BuildDisplayName(string id, string file, FileVersionInfo info)
     {
         if (!string.IsNullOrWhiteSpace(info.FileDescription) &&
@@ -1758,28 +1769,322 @@ internal static class InstalledPluginScanner
     }
 }
 
-internal static class PluginVersionComparer
+internal static class PluginConfigurationReader
 {
-    public static PluginVersionComparison Compare(string? installed, string? latest, string? scheme)
+    private const string CurrentConfigurationRoot = @"Software\Open Salamander Samandarin\5.0-samandarin-0.11";
+    private const string PluginsKeyName = "Plugins";
+    private const string PluginNameValue = "Name";
+    private const string PluginDllValue = "DLL";
+    private const string PluginVersionValue = "Version";
+    private const string ConfigurationSection = "Configuration";
+    private const string StorageTypeKey = "StorageType";
+    private const string RegFilePathKey = "RegFilePath";
+    private const string RegFileStorageType = "RegFile";
+    private const string ConfigStorageFileName = "configstorage.ini";
+    private const string DefaultRegFileName = "config.reg";
+
+    private static readonly Regex RegFilePluginSectionRegex = new(
+        @"^HKEY_CURRENT_USER\\" + Regex.Escape(CurrentConfigurationRoot).Replace(@"\\", @"\\") + @"\\" + PluginsKeyName + @"\\([^\\]+)$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    public static bool TryReadConfiguredPlugins(out IReadOnlyList<InstalledPlugin> plugins)
     {
-        if (string.IsNullOrWhiteSpace(installed) || string.IsNullOrWhiteSpace(latest))
+        if (TryGetActiveRegFilePath(out var regFilePath))
         {
-            return PluginVersionComparison.Unknown;
+            return TryReadRegFilePlugins(regFilePath, out plugins);
         }
 
-        if (string.Equals(installed!.Trim(), latest!.Trim(), StringComparison.OrdinalIgnoreCase))
+        return TryReadRegistryPlugins(out plugins);
+    }
+
+    private static bool TryGetActiveRegFilePath(out string regFilePath)
+    {
+        regFilePath = string.Empty;
+        var executableDirectory = GetExecutableDirectory();
+        if (string.IsNullOrWhiteSpace(executableDirectory))
         {
-            return PluginVersionComparison.Current;
+            return false;
         }
 
-        var normalized = (scheme ?? "fileversion").Trim().ToLowerInvariant();
-        if (normalized == "opaque")
+        var bootstrapPath = Path.Combine(executableDirectory!, ConfigStorageFileName);
+        if (File.Exists(bootstrapPath))
         {
-            return PluginVersionComparison.Different;
+            var storageType = ReadIniValue(bootstrapPath, ConfigurationSection, StorageTypeKey);
+            if (string.Equals(storageType, RegFileStorageType, StringComparison.OrdinalIgnoreCase))
+            {
+                regFilePath = ReadIniValue(bootstrapPath, ConfigurationSection, RegFilePathKey) ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(regFilePath))
+                {
+                    regFilePath = Path.Combine(executableDirectory!, DefaultRegFileName);
+                }
+                else if (!Path.IsPathRooted(regFilePath))
+                {
+                    regFilePath = Path.GetFullPath(Path.Combine(executableDirectory!, regFilePath));
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
-        int comparison = VersionComparer.Compare(latest, installed);
-        return comparison > 0 ? PluginVersionComparison.UpdateAvailable : comparison == 0 ? PluginVersionComparison.Current : PluginVersionComparison.Different;
+        var defaultRegFilePath = Path.Combine(executableDirectory!, DefaultRegFileName);
+        if (File.Exists(defaultRegFilePath))
+        {
+            regFilePath = defaultRegFilePath;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryReadRegistryPlugins(out IReadOnlyList<InstalledPlugin> plugins)
+    {
+        var configuredPlugins = new List<InstalledPlugin>();
+        using var pluginsKey = Registry.CurrentUser.OpenSubKey(CurrentConfigurationRoot + @"\" + PluginsKeyName);
+        if (pluginsKey is null)
+        {
+            plugins = configuredPlugins;
+            return false;
+        }
+
+        foreach (var subKeyName in pluginsKey.GetSubKeyNames().OrderBy(ParsePluginOrder))
+        {
+            using var pluginKey = pluginsKey.OpenSubKey(subKeyName);
+            if (pluginKey is null)
+            {
+                continue;
+            }
+
+            var dllName = ReadString(pluginKey, PluginDllValue);
+            if (string.IsNullOrWhiteSpace(dllName))
+            {
+                continue;
+            }
+
+            configuredPlugins.Add(BuildInstalledPlugin(dllName!, ReadString(pluginKey, PluginNameValue), ReadString(pluginKey, PluginVersionValue)));
+        }
+
+        plugins = configuredPlugins;
+        return true;
+    }
+
+    private static bool TryReadRegFilePlugins(string regFilePath, out IReadOnlyList<InstalledPlugin> plugins)
+    {
+        var configuredPluginsByKey = new Dictionary<string, PluginConfigurationEntry>(StringComparer.OrdinalIgnoreCase);
+        if (!File.Exists(regFilePath))
+        {
+            plugins = Array.Empty<InstalledPlugin>();
+            return true;
+        }
+
+        string? currentPluginKey = null;
+        foreach (var rawLine in File.ReadLines(regFilePath, DetectEncoding(regFilePath)))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith(";", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (line.StartsWith("[", StringComparison.Ordinal) && line.EndsWith("]", StringComparison.Ordinal))
+            {
+                var section = line.Substring(1, line.Length - 2);
+                var match = RegFilePluginSectionRegex.Match(section);
+                currentPluginKey = match.Success ? match.Groups[1].Value : null;
+                if (currentPluginKey is not null && !configuredPluginsByKey.ContainsKey(currentPluginKey))
+                {
+                    configuredPluginsByKey.Add(currentPluginKey, new PluginConfigurationEntry());
+                }
+
+                continue;
+            }
+
+            if (currentPluginKey is null || !TryParseRegFileStringValue(line, out var valueName, out var valueText))
+            {
+                continue;
+            }
+
+            var entry = configuredPluginsByKey[currentPluginKey];
+            if (string.Equals(valueName, PluginDllValue, StringComparison.OrdinalIgnoreCase))
+            {
+                entry.DllName = valueText;
+            }
+            else if (string.Equals(valueName, PluginNameValue, StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Name = valueText;
+            }
+            else if (string.Equals(valueName, PluginVersionValue, StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Version = valueText;
+            }
+        }
+
+        plugins = configuredPluginsByKey
+            .OrderBy(pair => ParsePluginOrder(pair.Key))
+            .Select(pair => pair.Value)
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.DllName))
+            .Select(entry => BuildInstalledPlugin(entry.DllName!, entry.Name, entry.Version))
+            .ToList();
+        return true;
+    }
+
+    private static InstalledPlugin BuildInstalledPlugin(string dllName, string? displayName, string? version)
+    {
+        var id = BuildIdFromRegisteredDll(dllName);
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            displayName = id;
+        }
+
+        return new InstalledPlugin(id, displayName!, version ?? string.Empty);
+    }
+
+    private static string? ReadString(RegistryKey key, string name) => key.GetValue(name) as string;
+
+    private static int ParsePluginOrder(string subKeyName) => int.TryParse(subKeyName, NumberStyles.Integer, CultureInfo.InvariantCulture, out var order) ? order : int.MaxValue;
+
+    private static string BuildIdFromRegisteredDll(string dllName)
+    {
+        var normalized = dllName.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fileName = Path.GetFileNameWithoutExtension(normalized);
+        if (Path.IsPathRooted(normalized))
+        {
+            return string.IsNullOrWhiteSpace(fileName) ? normalized : fileName!;
+        }
+
+        var firstSegment = normalized.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return string.IsNullOrWhiteSpace(firstSegment)
+            ? (string.IsNullOrWhiteSpace(fileName) ? normalized : fileName!)
+            : firstSegment!;
+    }
+
+    private static string? ReadIniValue(string filePath, string sectionName, string valueName)
+    {
+        var inSection = false;
+        foreach (var rawLine in File.ReadLines(filePath))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith(";", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (line.StartsWith("[", StringComparison.Ordinal) && line.EndsWith("]", StringComparison.Ordinal))
+            {
+                inSection = string.Equals(line.Substring(1, line.Length - 2), sectionName, StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            if (!inSection)
+            {
+                continue;
+            }
+
+            var equalsIndex = line.IndexOf('=');
+            if (equalsIndex < 0)
+            {
+                continue;
+            }
+
+            var key = line.Substring(0, equalsIndex).Trim();
+            if (string.Equals(key, valueName, StringComparison.OrdinalIgnoreCase))
+            {
+                return line.Substring(equalsIndex + 1).Trim().Trim('"');
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryParseRegFileStringValue(string line, out string valueName, out string valueText)
+    {
+        valueName = string.Empty;
+        valueText = string.Empty;
+        if (!line.StartsWith("\"", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var nameEnd = FindClosingQuote(line, 1);
+        if (nameEnd < 0 || nameEnd + 1 >= line.Length || line[nameEnd + 1] != '=')
+        {
+            return false;
+        }
+
+        var data = line.Substring(nameEnd + 2).TrimStart();
+        if (!data.StartsWith("\"", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var dataEnd = FindClosingQuote(data, 1);
+        if (dataEnd < 0)
+        {
+            return false;
+        }
+
+        valueName = UnescapeRegFileString(line.Substring(1, nameEnd - 1));
+        valueText = UnescapeRegFileString(data.Substring(1, dataEnd - 1));
+        return true;
+    }
+
+    private static int FindClosingQuote(string text, int start)
+    {
+        var backslashCount = 0;
+        for (int i = start; i < text.Length; i++)
+        {
+            if (text[i] == '\\')
+            {
+                backslashCount++;
+                continue;
+            }
+
+            if (text[i] == '"' && backslashCount % 2 == 0)
+            {
+                return i;
+            }
+
+            backslashCount = 0;
+        }
+
+        return -1;
+    }
+
+    private static string UnescapeRegFileString(string text) => text.Replace("\\\\", "\\").Replace("\\\"", "\"");
+
+    private static Encoding DetectEncoding(string filePath)
+    {
+        var bom = new byte[3];
+        using (var stream = File.OpenRead(filePath))
+        {
+            _ = stream.Read(bom, 0, bom.Length);
+        }
+
+        if (bom[0] == 0xFF && bom[1] == 0xFE)
+        {
+            return Encoding.Unicode;
+        }
+
+        if (bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF)
+        {
+            return Encoding.UTF8;
+        }
+
+        return Encoding.Default;
+    }
+
+    private static string? GetExecutableDirectory()
+    {
+        var executablePath = Application.ExecutablePath;
+        return string.IsNullOrWhiteSpace(executablePath) ? null : Path.GetDirectoryName(executablePath);
+    }
+
+    private sealed class PluginConfigurationEntry
+    {
+        public string? Name { get; set; }
+        public string? DllName { get; set; }
+        public string? Version { get; set; }
     }
 }
 
@@ -1874,6 +2179,33 @@ internal static class LocalizedText
     }
 }
 
+internal static class PluginVersionComparer
+{
+    public static PluginVersionComparison Compare(string? installed, string? latest, string? scheme)
+    {
+        var installedVersion = InstalledPluginVersionFormatter.RemovePlatformSuffix(installed);
+        var latestVersion = InstalledPluginVersionFormatter.RemovePlatformSuffix(latest);
+        if (string.IsNullOrWhiteSpace(installedVersion) || string.IsNullOrWhiteSpace(latestVersion))
+        {
+            return PluginVersionComparison.Unknown;
+        }
+
+        if (string.Equals(installedVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
+        {
+            return PluginVersionComparison.Current;
+        }
+
+        var normalized = (scheme ?? "fileversion").Trim().ToLowerInvariant();
+        if (normalized == "opaque")
+        {
+            return PluginVersionComparison.Different;
+        }
+
+        int comparison = VersionComparer.Compare(latestVersion, installedVersion);
+        return comparison > 0 ? PluginVersionComparison.UpdateAvailable : comparison == 0 ? PluginVersionComparison.Current : PluginVersionComparison.Different;
+    }
+}
+
 internal enum PluginVersionComparison { Unknown, Current, UpdateAvailable, Different }
 internal enum PluginUpdateStatus { Other, UpdateAvailable, NotInCatalog, CatalogError }
 
@@ -1883,12 +2215,37 @@ internal sealed class InstalledPlugin
     {
         Id = id;
         DisplayName = displayName;
-        VersionText = versionText;
+        VersionText = InstalledPluginVersionFormatter.WithCurrentPlatform(versionText);
     }
 
     public string Id { get; }
     public string DisplayName { get; }
     public string VersionText { get; }
+}
+
+internal static class InstalledPluginVersionFormatter
+{
+    private static readonly Regex PlatformSuffixRegex = new(@"\s\((x86|x64)\)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    public static string WithCurrentPlatform(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version) || PlatformSuffixRegex.IsMatch(version))
+        {
+            return version;
+        }
+
+        return version.TrimEnd() + (Environment.Is64BitProcess ? " (x64)" : " (x86)");
+    }
+
+    public static string RemovePlatformSuffix(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return string.Empty;
+        }
+
+        return PlatformSuffixRegex.Replace(version!.Trim(), string.Empty);
+    }
 }
 
 internal sealed class PluginUpdateRow
