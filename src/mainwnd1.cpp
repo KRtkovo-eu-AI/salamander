@@ -2598,11 +2598,13 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         RightPanel->UpdateTreeView(TRUE);
         SetWindowPos(HRightDetachedWindow, NULL, mainRect.left + leftOuterWidth + 16, mainRect.top,
                      rightOuterWidth, mainOuterHeight, SWP_NOZORDER | SWP_NOACTIVATE);
-        ShowWindow(HRightDetachedWindow, SW_SHOW);
         SetWindowPos(HWindow, NULL, mainRect.left, mainRect.top, leftOuterWidth, mainOuterHeight,
                      SWP_NOZORDER | SWP_NOACTIVATE);
         LayoutWindows();
         LayoutDetachedPanels();
+        ShowWindow(HRightDetachedWindow, SW_SHOW);
+        RedrawWindow(HRightDetachedWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        UpdateWindow(HRightDetachedWindow);
         SetWindowTitle();
         CreatingDetachedChrome = FALSE;
     }
