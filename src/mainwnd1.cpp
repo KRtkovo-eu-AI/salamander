@@ -2591,6 +2591,10 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         if (!EnsureDetachedChrome())
             return FALSE;
         CreatingDetachedChrome = TRUE;
+        RightPanel->TreeViewWidth = Configuration.DetachedTreeViewWidth;
+        RightPanel->TreeViewAutoHide = Configuration.DetachedTreeViewAutoHide;
+        RightPanel->TreeViewAutoHideExpanded = FALSE;
+        RightPanel->TreeViewAutoHideCollapseStart = 0;
         RightPanel->UpdateTreeView(TRUE);
         SetWindowPos(HRightDetachedWindow, NULL, mainRect.left + leftOuterWidth + 16, mainRect.top,
                      rightOuterWidth, mainOuterHeight, SWP_NOZORDER | SWP_NOACTIVATE);

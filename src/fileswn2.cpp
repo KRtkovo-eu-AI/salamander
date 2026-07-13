@@ -698,6 +698,8 @@ void CFilesWindow::SetTreeViewWidth(int width)
     TreeViewWidth = width;
     if (MainWindow == NULL || !MainWindow->DetachedPanels || MainWindow->LeftPanel == this)
         Configuration.TreeViewWidth = width;
+    else if (MainWindow->RightPanel == this)
+        Configuration.DetachedTreeViewWidth = width;
 
     if (MainWindow != NULL)
         MainWindow->LayoutWindows();
@@ -711,6 +713,8 @@ void CFilesWindow::ToggleTreeViewAutoHide()
     TreeViewAutoHide = !TreeViewAutoHide;
     if (MainWindow == NULL || !MainWindow->DetachedPanels || MainWindow->LeftPanel == this)
         Configuration.TreeViewAutoHide = TreeViewAutoHide;
+    else if (MainWindow->RightPanel == this)
+        Configuration.DetachedTreeViewAutoHide = TreeViewAutoHide;
     TreeViewAutoHideExpanded = FALSE;
     TreeViewAutoHideCollapseStart = 0;
     if (HTreeHeader != NULL)

@@ -744,6 +744,8 @@ CConfiguration::CConfiguration()
     DriveBarWidth = 1; // dummy
     TreeViewWidth = 200;
     TreeViewAutoHide = FALSE;
+    DetachedTreeViewWidth = TreeViewWidth;
+    DetachedTreeViewAutoHide = TreeViewAutoHide;
 
     GripsVisible = TRUE;
     DetachedPanels = FALSE;
