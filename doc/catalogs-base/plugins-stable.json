@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-11T09:11:05Z",
+  "generatedAt": "2026-07-13T00:14:37Z",
   "plugins": [
     {
       "id": "7zip",
@@ -22,7 +22,7 @@
         "romanian": "Creaza, rasfoieste si extrage arhivele 7-Zip.",
         "spanish": "Crear, hojear y extraer archivos 7-Zip."
       },
-      "latestVersion": "1.32 (x64)",
+      "latestVersion": "1.33 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -464,7 +464,7 @@
         "romanian": "Rasfoieste si extrage arhive Quake Pak.",
         "spanish": "Hojear y extraer archivos PAK de Quake."
       },
-      "latestVersion": "1.71 (x64)",
+      "latestVersion": "1.72 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -532,7 +532,7 @@
         "romanian": "Vizualizator rapid de imagini si convertor.",
         "spanish": "Visor y consersor rápido de imágenes."
       },
-      "latestVersion": "2.22 (x64)",
+      "latestVersion": "2.23 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
@@ -668,7 +668,7 @@
         "romanian": "Verifică lansările GitHub și oferă să deschidă cea mai recentă versiune Samandarin.",
         "spanish": "Comprueba las versiones de GitHub y ofrece abrir la última compilación de Samandarin."
       },
-      "latestVersion": "0.4 (x64)",
+      "latestVersion": "0.5 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
