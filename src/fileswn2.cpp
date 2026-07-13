@@ -38,6 +38,7 @@ enum
 static const char* TREEVIEW_SPLIT_SUBCLASSPROC = "SAL_TREEVIEW_SPLIT_SUBCLASSPROC";
 static const char* TREEVIEW_SPLIT_OWNER = "SAL_TREEVIEW_SPLIT_OWNER";
 static const UINT_PTR TREEVIEW_HEADER_SUBCLASS_ID = 1;
+static const UINT_PTR TREEVIEW_SUBCLASS_ID = 2;
 
 static void DrawTreeViewHeaderIcon(HDC hdc, int left, int top, int size, COLORREF color)
 {
@@ -188,6 +189,30 @@ static BOOL IsPointInWindow(HWND hwnd, POINT pt)
 {
     RECT r;
     return hwnd != NULL && IsWindowVisible(hwnd) && GetWindowRect(hwnd, &r) && PtInRect(&r, pt);
+}
+
+static LRESULT CALLBACK TreeViewSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                             UINT_PTR subclassId, DWORD_PTR referenceData)
+{
+    (void)referenceData;
+
+    switch (message)
+    {
+    case WM_HSCROLL:
+    case WM_VSCROLL:
+    case WM_SIZE:
+    {
+        LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+        return result;
+    }
+
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, TreeViewSubclassProc, subclassId);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, message, wParam, lParam);
 }
 
 static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
@@ -2112,6 +2137,7 @@ void CFilesWindow::CreateTreeView()
             TRACE_E("Unable to create tree-view.");
             return;
         }
+        SetWindowSubclass(HTreeView, TreeViewSubclassProc, TREEVIEW_SUBCLASS_ID, (DWORD_PTR)this);
         if (appIsThemed)
             SetWindowTheme(HTreeView, (L" "), (L" "));
         DarkModeApplyWindow(HTreeView);
