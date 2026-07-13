@@ -2182,12 +2182,14 @@ internal static class PluginVersionComparer
 {
     public static PluginVersionComparison Compare(string? installed, string? latest, string? scheme)
     {
-        if (string.IsNullOrWhiteSpace(installed) || string.IsNullOrWhiteSpace(latest))
+        var installedVersion = InstalledPluginVersionFormatter.RemovePlatformSuffix(installed);
+        var latestVersion = InstalledPluginVersionFormatter.RemovePlatformSuffix(latest);
+        if (string.IsNullOrWhiteSpace(installedVersion) || string.IsNullOrWhiteSpace(latestVersion))
         {
             return PluginVersionComparison.Unknown;
         }
 
-        if (string.Equals(installed!.Trim(), latest!.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(installedVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
         {
             return PluginVersionComparison.Current;
         }
@@ -2198,7 +2200,7 @@ internal static class PluginVersionComparer
             return PluginVersionComparison.Different;
         }
 
-        int comparison = VersionComparer.Compare(latest, installed);
+        int comparison = VersionComparer.Compare(latestVersion, installedVersion);
         return comparison > 0 ? PluginVersionComparison.UpdateAvailable : comparison == 0 ? PluginVersionComparison.Current : PluginVersionComparison.Different;
     }
 }
@@ -2212,12 +2214,37 @@ internal sealed class InstalledPlugin
     {
         Id = id;
         DisplayName = displayName;
-        VersionText = versionText;
+        VersionText = InstalledPluginVersionFormatter.WithCurrentPlatform(versionText);
     }
 
     public string Id { get; }
     public string DisplayName { get; }
     public string VersionText { get; }
+}
+
+internal static class InstalledPluginVersionFormatter
+{
+    private static readonly Regex PlatformSuffixRegex = new(@"\s\((x86|x64)\)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    public static string WithCurrentPlatform(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version) || PlatformSuffixRegex.IsMatch(version))
+        {
+            return version;
+        }
+
+        return version.TrimEnd() + (Environment.Is64BitProcess ? " (x64)" : " (x86)");
+    }
+
+    public static string RemovePlatformSuffix(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return string.Empty;
+        }
+
+        return PlatformSuffixRegex.Replace(version!.Trim(), string.Empty);
+    }
 }
 
 internal sealed class PluginUpdateRow
