@@ -1457,7 +1457,7 @@ void CMainWindow::ChangePanel(BOOL force)
                     int treeHeaderH = LeftPanel->GetTreeViewHeaderHeight();
                     if (LeftTabWindow != NULL)
                         treeHeaderH = LeftTabWindow->GetNeededHeight();
-                    if (Configuration.TreeViewAutoHide)
+                    if (LeftPanel->TreeViewAutoHide)
                         treeLeftWidth = treeHeaderH;
                     else
                         treeLeftWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth) + 4;

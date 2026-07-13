@@ -29,6 +29,8 @@ extern CWinLibHelp* WinLibHelp;
 
 namespace
 {
+const UINT_PTR TREE_PROP_TREE_REDRAW_SUBCLASS_ID = 1;
+
 COLORREF LightenColorSimple(COLORREF color, int amount)
 {
     int r = GetRValue(color) + amount;
@@ -78,13 +80,37 @@ void ApplyTreeViewColors(HWND treeView)
             SetWindowTheme(treeView, L"explorer", NULL);
     }
 
-    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
+    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
 }
 
 void RepaintWindowTree(HWND hwnd)
 {
     if (hwnd != NULL)
-        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_ALLCHILDREN);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+}
+
+LRESULT CALLBACK TreeViewRedrawSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                            UINT_PTR subclassId, DWORD_PTR referenceData)
+{
+    (void)referenceData;
+
+    switch (message)
+    {
+    case WM_HSCROLL:
+    case WM_VSCROLL:
+    case WM_SIZE:
+    {
+        LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+        return result;
+    }
+
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, TreeViewRedrawSubclassProc, subclassId);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, message, wParam, lParam);
 }
 
 bool IsChoiceButton(HWND hwnd)
@@ -1259,6 +1285,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ChildDialogRect.bottom = p.y + h;
         DestroyWindow(hwnd);
         HTreeView = GetDlgItem(HWindow, _TPD_IDC_TREE);
+        SetWindowSubclass(HTreeView, TreeViewRedrawSubclassProc, TREE_PROP_TREE_REDRAW_SUBCLASS_ID, 0);
         BOOL appIsThemed = IsAppThemed();
         ApplyTreeViewColors(HTreeView);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
@@ -1515,6 +1542,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (WindowWidth != NULL)
             *WindowWidth = r.right - r.left;
         LayoutControls();
+        RepaintWindowTree(HWindow);
         break;
     }
 
