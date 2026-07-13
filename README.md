@@ -30,6 +30,10 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - Choose between locations for target configuration.
 <img width="782" height="552" alt="image" src="https://github.com/user-attachments/assets/d8c0d5a0-232a-49cf-ae20-6ce5670b8a32" />
 
+### Split panels into detached window
+- You can have each side in separate window.
+<img width="782" height="316" alt="image" src="https://github.com/user-attachments/assets/bf3a6b9d-4897-4a85-989e-b2cf43840372" />
+
 ### Translations
 - Automatic translate with OpenAI API (model `gpt-5.4-nano`) with our own custom localization logic.
 - Few scripts partially derived from [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)).
