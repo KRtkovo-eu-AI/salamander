@@ -2178,6 +2178,31 @@ internal static class LocalizedText
     }
 }
 
+internal static class PluginVersionComparer
+{
+    public static PluginVersionComparison Compare(string? installed, string? latest, string? scheme)
+    {
+        if (string.IsNullOrWhiteSpace(installed) || string.IsNullOrWhiteSpace(latest))
+        {
+            return PluginVersionComparison.Unknown;
+        }
+
+        if (string.Equals(installed!.Trim(), latest!.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return PluginVersionComparison.Current;
+        }
+
+        var normalized = (scheme ?? "fileversion").Trim().ToLowerInvariant();
+        if (normalized == "opaque")
+        {
+            return PluginVersionComparison.Different;
+        }
+
+        int comparison = VersionComparer.Compare(latest, installed);
+        return comparison > 0 ? PluginVersionComparison.UpdateAvailable : comparison == 0 ? PluginVersionComparison.Current : PluginVersionComparison.Different;
+    }
+}
+
 internal enum PluginVersionComparison { Unknown, Current, UpdateAvailable, Different }
 internal enum PluginUpdateStatus { Other, UpdateAvailable, NotInCatalog, CatalogError }
 
