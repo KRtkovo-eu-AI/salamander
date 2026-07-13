@@ -2604,6 +2604,20 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
     }
     else
     {
+        RECT mainRectBeforeReattach;
+        RECT mainClientBeforeReattach;
+        RECT detachedRectBeforeReattach;
+        RECT detachedClientBeforeReattach;
+        GetWindowRect(HWindow, &mainRectBeforeReattach);
+        GetClientRect(HWindow, &mainClientBeforeReattach);
+        SetRectEmpty(&detachedRectBeforeReattach);
+        SetRectEmpty(&detachedClientBeforeReattach);
+        if (HRightDetachedWindow != NULL)
+        {
+            GetWindowRect(HRightDetachedWindow, &detachedRectBeforeReattach);
+            GetClientRect(HRightDetachedWindow, &detachedClientBeforeReattach);
+        }
+
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
             SetParent(RightTabWindow->HWindow, HWindow);
         for (int i = 0; i < RightPanelTabs.Count; ++i)
@@ -2638,6 +2652,24 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         RebuildPanelTabs(cpsLeft);
         RebuildPanelTabs(cpsRight);
         RefreshPanelTabLayout();
+        int mainClientWidthBeforeReattach = mainClientBeforeReattach.right - mainClientBeforeReattach.left;
+        int detachedClientWidthBeforeReattach = detachedClientBeforeReattach.right - detachedClientBeforeReattach.left;
+        if (detachedClientWidthBeforeReattach > 0)
+        {
+            int mainOuterWidthBeforeReattach = mainRectBeforeReattach.right - mainRectBeforeReattach.left;
+            int mainOuterHeightBeforeReattach = mainRectBeforeReattach.bottom - mainRectBeforeReattach.top;
+            int mainClientHeightBeforeReattach = mainClientBeforeReattach.bottom - mainClientBeforeReattach.top;
+            int detachedOuterHeightBeforeReattach = detachedRectBeforeReattach.bottom - detachedRectBeforeReattach.top;
+            int detachedClientHeightBeforeReattach = detachedClientBeforeReattach.bottom - detachedClientBeforeReattach.top;
+            int nonClientWidth = mainOuterWidthBeforeReattach - mainClientWidthBeforeReattach;
+            int nonClientHeight = mainOuterHeightBeforeReattach - mainClientHeightBeforeReattach;
+            int combinedClientWidth = mainClientWidthBeforeReattach + detachedClientWidthBeforeReattach + GetSplitBarWidth();
+            int combinedClientHeight = max(mainClientHeightBeforeReattach, detachedClientHeightBeforeReattach);
+            int combinedOuterWidth = combinedClientWidth + nonClientWidth;
+            int combinedOuterHeight = max(combinedClientHeight + nonClientHeight, detachedOuterHeightBeforeReattach);
+            SetWindowPos(HWindow, NULL, mainRectBeforeReattach.left, mainRectBeforeReattach.top,
+                         combinedOuterWidth, combinedOuterHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+        }
         RECT mainClientRect;
         GetClientRect(HWindow, &mainClientRect);
         WindowWidth = mainClientRect.right - mainClientRect.left;

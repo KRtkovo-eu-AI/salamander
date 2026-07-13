@@ -8324,7 +8324,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     BeginStopStatusbarRepaint(); // skip throbber repaints when dragging the XOR split bar
 
                 DragMode = TRUE;
-                DragAnchorX = p.x - r.left;
+                DragAnchorX = p.x - SplitPositionPix;
                 SetCapture(HWindow);
 
                 HWND toolTip = CreateWindowEx(0,
@@ -8356,7 +8356,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 POINT mp;
                 GetCursorPos(&mp);
                 POINT p2;
-                p2.x = r.left;
+                p2.x = SplitPositionPix;
                 p2.y = 0;
                 ClientToScreen(HWindow, &p2);
                 mp.x = p2.x;

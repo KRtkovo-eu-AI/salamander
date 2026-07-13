@@ -502,7 +502,12 @@ static LRESULT CALLBACK TreeViewSplitSubclassProc(HWND hwnd, UINT message, WPARA
         {
             POINT pt;
             GetCursorPos(&pt);
-            ScreenToClient(MainWindow->HWindow, &pt);
+            HWND hostWindow = MainWindow != NULL ? MainWindow->GetDetachedPanelWindow(panel->PanelSide) : NULL;
+            if (hostWindow == NULL && MainWindow != NULL)
+                hostWindow = MainWindow->HWindow;
+            if (hostWindow == NULL)
+                hostWindow = GetParent(hwnd);
+            ScreenToClient(hostWindow, &pt);
             panel->SetTreeViewWidth(pt.x - panel->TreeViewSplitOffset);
             return 0;
         }
