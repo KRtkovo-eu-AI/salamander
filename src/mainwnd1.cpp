@@ -2848,7 +2848,9 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         {
             RECT r;
             GetClientRect(hWnd, &r);
-            FillRect((HDC)wParam, &r, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+            HBRUSH brush = DarkModeShouldUseDarkColors() ? DarkModeGetPanelFrameBrush() :
+                                                            (HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+            FillRect((HDC)wParam, &r, brush);
             return 1;
         }
 
