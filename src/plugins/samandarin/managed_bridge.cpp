@@ -23,6 +23,28 @@ const wchar_t* const kManagedType = L"OpenSalamander.Samandarin.EntryPoint";
 const wchar_t* const kManagedMethod = L"Dispatch";
 const wchar_t* const kPluginCaption = L"Samandarin Update Notifier";
 
+HWND ResolveOwnerWindow(HWND parent)
+{
+    HWND foreground = GetForegroundWindow();
+    if (foreground != nullptr)
+    {
+        HWND root = GetAncestor(foreground, GA_ROOT);
+        if (root != nullptr)
+        {
+            foreground = root;
+        }
+
+        DWORD windowProcessId = 0;
+        GetWindowThreadProcessId(foreground, &windowProcessId);
+        if (windowProcessId == GetCurrentProcessId() && IsWindowVisible(foreground) && !IsIconic(foreground))
+        {
+            return foreground;
+        }
+    }
+
+    return parent;
+}
+
 std::wstring BuildArgument(const wchar_t* command, HWND parent, const wchar_t* payload)
 {
     std::wstring argument = command;
@@ -49,15 +71,16 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
         return false;
     }
 
+    HWND owner = ResolveOwnerWindow(parent);
     DWORD returnValue = 0;
-    std::wstring argument = BuildArgument(command, parent, payload);
+    std::wstring argument = BuildArgument(command, owner, payload);
     HRESULT hr = gRuntimeHost->ExecuteInDefaultAppDomain(gAssemblyPath.c_str(), kManagedType, kManagedMethod,
                                                          argument.c_str(), &returnValue);
     if (FAILED(hr))
     {
         wchar_t message[256];
         StringCchPrintfW(message, _countof(message), L"Failed to execute managed command '%s' (0x%08X).", command, hr);
-        MessageBoxW(parent, message, kPluginCaption, MB_ICONERROR | MB_OK);
+        MessageBoxW(owner, message, kPluginCaption, MB_ICONERROR | MB_OK);
         return false;
     }
 
@@ -66,7 +89,7 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
 
 void ShowLoadError(HWND parent, const wchar_t* text)
 {
-    MessageBoxW(parent, text, kPluginCaption, MB_ICONERROR | MB_OK);
+    MessageBoxW(ResolveOwnerWindow(parent), text, kPluginCaption, MB_ICONERROR | MB_OK);
 }
 
 std::wstring BuildCurrentVersion()
