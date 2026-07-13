@@ -3268,6 +3268,8 @@ BOOL CFilesWindow::CommonRefresh(HWND parent, int suggestedTopIndex, const char*
         {
             Parent->EditWindowSetDirectory();
         }
+        if (Parent->DetachedPanels && IsRightPanel())
+            Parent->UpdateDetachedCommandLine();
     }
 
     //TRACE_I("read directory: begin");
