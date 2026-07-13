@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\renamer\renamer.atp"
 TEXTVERSION,"1.14 (x64)"
-VERSION,"1,1,4,183"
+VERSION,"1,1,4,193"
 
 [TRANSLATION]
 LANGID,1043
@@ -258,7 +258,7 @@ COMMENT,"Nederlandse versie"
 1106,1,"Verwacht opvulteken specificatie (een letter)"
 1107,1,"<Fout bij nieuwe naam: %s>"
 1108,0,"<Invalid value in some input field>"
-1109,1,"<Fout in reguliere expressie: %s>"
+1109,1,"Fout in reguliere expressie: %s"
 1110,1,"<Boyer-Moore-fout: %s>"
 1111,1,"<Fout: %s>"
 1112,1,"Geen fout."
@@ -280,7 +280,7 @@ COMMENT,"Nederlandse versie"
 1127,1,"Stack overloop"
 1128,1,"Gecompileerde expressie vereist."
 1129,1,"Kan geen nieuwe thread starten."
-1130,1,"<Fout bij patroonsvervanging: %s>"
+1130,1,"<Fout in vervangpatroon: %s>"
 1131,1,"Verwacht sluitende aanhalingstekens of hoofd/klein letter specificatie ('klein', 'hoofd', 'gemixt', of 'stripdia')."
 1132,1,"Verwacht sluitende aanhalingstekens."
 1133,1,"Verwacht sluitende aanhalingstekens of een dubbele punt ':' gevolgd door hoofd/klein letter specificatie ('klein', 'hoofd', 'gemixt', or 'stripdia')."

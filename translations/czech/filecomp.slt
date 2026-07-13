@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\filecomp\filecomp.atp"
 TEXTVERSION,"1.19 (x64)"
-VERSION,"1,1,9,183"
+VERSION,"1,1,9,193"
 
 [TRANSLATION]
 LANGID,1029
@@ -254,7 +254,7 @@ COMMENT,"Česká verze"
 1061,1,"%s : %s - Porovnání souborů - Počítám rozdíly (stiskněte ESC pro přerušení)"
 1062,1,"%s %s: %s %s - Porovnání souborů - Počítám rozdíly"
 1063,0,"%s : %s - File Comparator - Computing Differences (%d%% Done)"
-1064,0,"{!}%s : %s - File Comparator - Computing Differences (%d%% Done, %d Found{})"
+1064,1,"{!}%s : %s - Porovnávání souborů - Výpočet rozdílů (%d%% Dokončeno, %d Nalezeno{})"
 1065,1,"%s : %s - Porovnání souborů - Více jak 32 768 rozdílů"
 1066,1,"OK"
 1067,1,"Storno"

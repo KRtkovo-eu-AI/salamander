@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\russian\splitcbn\splitcbn.atp"
 TEXTVERSION,"1.11 (x64)"
-VERSION,"1,1,1,183"
+VERSION,"1,1,1,193"
 
 [TRANSLATION]
 LANGID,1049
@@ -71,7 +71,7 @@ COMMENT,"Русская версия"
 1018,7,22,20,20,1,""
 
 [STRINGTABLE 0]
-1,1,"Разделить и &объединить"
+1,1,"Разделение и объединение"
 2,1,"Ошибка открытия файла."
 3,1,"Выберите папку назначения."
 4,1,"Размер файла слишком мал для разделения."

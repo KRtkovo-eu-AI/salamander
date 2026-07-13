@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\splitcbn\splitcbn.atp"
 TEXTVERSION,"1.11 (x64)"
-VERSION,"1,1,1,183"
+VERSION,"1,1,1,193"
 
 [TRANSLATION]
 LANGID,3082
@@ -71,7 +71,7 @@ COMMENT,"Versión en español"
 1018,7,22,20,20,1,""
 
 [STRINGTABLE 0]
-1,0,"Split & Combine"
+1,1,"Dividir y combinar"
 2,1,"Error al abrir el fichero."
 3,1,"Seleccione el directorio destino."
 4,1,"El fichero no es lo bastante grande como para ser dividido."
