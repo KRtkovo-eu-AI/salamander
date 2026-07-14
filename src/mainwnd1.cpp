@@ -2193,12 +2193,12 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
     {
         if (treeHeaderHeight == 0)
             treeHeaderHeight = panel->GetTreeViewHeaderHeight();
-        if (Configuration.TreeViewAutoHide)
+        if (panel->TreeViewAutoHide)
             treeDisplayWidth = panel->GetTreeViewWidth(width);
         else
             treeDisplayWidth = panel->GetTreeViewWidth(width);
-        treeAutoHideExpanded = Configuration.TreeViewAutoHide && panel->TreeViewAutoHideExpanded;
-        if (Configuration.TreeViewAutoHide)
+        treeAutoHideExpanded = panel->TreeViewAutoHide && panel->TreeViewAutoHideExpanded;
+        if (panel->TreeViewAutoHide)
             treeWidth = treeHeaderHeight;
         else
         {
@@ -2247,8 +2247,8 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
         }
         if (panel->HTreeHeader != NULL && panel->TreeViewActive)
         {
-            BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
-            int headerWidth = collapsed ? treeWidth + 1 : treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0);
+            BOOL collapsed = panel->TreeViewAutoHide && !treeAutoHideExpanded;
+            int headerWidth = collapsed ? treeWidth + 1 : treeDisplayWidth + (panel->TreeViewAutoHide ? 1 : 0);
             int headerHeight = collapsed ? contentHeight : treeHeaderHeight;
             hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeHeader, HWND_TOP,
                                           0, detachedTopRebarHeight, headerWidth, headerHeight,
@@ -2259,14 +2259,14 @@ void CMainWindow::LayoutDetachedPanelWindow(CPanelSide side, int width, int heig
             int treeViewHeight = contentHeight - treeHeaderHeight;
             if (treeViewHeight < 0)
                 treeViewHeight = 0;
-            BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+            BOOL show = !panel->TreeViewAutoHide || treeAutoHideExpanded;
             hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeView, HWND_TOP,
-                                          0, detachedTopRebarHeight + treeHeaderHeight, treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0), treeViewHeight,
+                                          0, detachedTopRebarHeight + treeHeaderHeight, treeDisplayWidth + (panel->TreeViewAutoHide ? 1 : 0), treeViewHeight,
                                           SWP_NOACTIVATE | (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
         if (panel->HTreeSplit != NULL && panel->TreeViewActive)
         {
-            BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+            BOOL show = !panel->TreeViewAutoHide || treeAutoHideExpanded;
             int displaySplitWidth = show ? 4 : 0;
             hdwp = HANDLES(DeferWindowPos(hdwp, panel->HTreeSplit, HWND_TOP,
                                           treeDisplayWidth, detachedTopRebarHeight, displaySplitWidth, contentHeight,
@@ -2355,12 +2355,12 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
     if (LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
     {
         treeHeaderHeight = LeftPanel->GetTreeViewHeaderHeight();
-        if (Configuration.TreeViewAutoHide)
+        if (LeftPanel->TreeViewAutoHide)
             treeDisplayWidth = LeftPanel->GetTreeViewWidth(width);
         else
             treeDisplayWidth = LeftPanel->GetTreeViewWidth(width);
-        treeAutoHideExpanded = Configuration.TreeViewAutoHide && LeftPanel->TreeViewAutoHideExpanded;
-        if (Configuration.TreeViewAutoHide)
+        treeAutoHideExpanded = LeftPanel->TreeViewAutoHide && LeftPanel->TreeViewAutoHideExpanded;
+        if (LeftPanel->TreeViewAutoHide)
             treeWidth = treeHeaderHeight;
         else
         {
@@ -2407,8 +2407,8 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
 
         if (LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
         {
-            BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
-            int headerWidth = collapsed ? treeWidth + 1 : treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0);
+            BOOL collapsed = LeftPanel->TreeViewAutoHide && !treeAutoHideExpanded;
+            int headerWidth = collapsed ? treeWidth + 1 : treeDisplayWidth + (LeftPanel->TreeViewAutoHide ? 1 : 0);
             int headerHeight = collapsed ? PanelsHeight : treeHeaderHeight;
             hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader, HWND_TOP,
                                           0, TopRebarHeight, headerWidth, headerHeight,
@@ -2419,14 +2419,14 @@ void CMainWindow::LayoutMainWindowDetachedPanel(int width, int height)
             int treeViewHeight = PanelsHeight - treeHeaderHeight;
             if (treeViewHeight < 0)
                 treeViewHeight = 0;
-            BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+            BOOL show = !LeftPanel->TreeViewAutoHide || treeAutoHideExpanded;
             hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView, HWND_TOP,
-                                          0, TopRebarHeight + treeHeaderHeight, treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0), treeViewHeight,
+                                          0, TopRebarHeight + treeHeaderHeight, treeDisplayWidth + (LeftPanel->TreeViewAutoHide ? 1 : 0), treeViewHeight,
                                           SWP_NOACTIVATE | (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
         if (LeftPanel->HTreeSplit != NULL && LeftPanel->TreeViewActive)
         {
-            BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+            BOOL show = !LeftPanel->TreeViewAutoHide || treeAutoHideExpanded;
             int displaySplitWidth = show ? 4 : 0;
             hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeSplit, HWND_TOP,
                                           treeDisplayWidth, TopRebarHeight, displaySplitWidth, PanelsHeight,
@@ -2548,6 +2548,28 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
 
     if (detached)
     {
+        RECT mainRect;
+        RECT mainClientRect;
+        GetWindowRect(HWindow, &mainRect);
+        GetClientRect(HWindow, &mainClientRect);
+        int mainOuterWidth = mainRect.right - mainRect.left;
+        int mainOuterHeight = mainRect.bottom - mainRect.top;
+        int mainClientWidth = mainClientRect.right - mainClientRect.left;
+        int nonClientWidth = mainOuterWidth - mainClientWidth;
+        int leftClientWidth = SplitPositionPix > 0 ? SplitPositionPix : mainClientWidth / 2;
+        if (leftClientWidth < MIN_WIN_WIDTH)
+            leftClientWidth = MIN_WIN_WIDTH;
+        int leftOuterWidth = leftClientWidth + nonClientWidth;
+        if (leftOuterWidth < 320)
+            leftOuterWidth = 320;
+        int splitWidth = GetSplitBarWidth();
+        int rightClientWidth = mainClientWidth - leftClientWidth - splitWidth;
+        if (rightClientWidth < MIN_WIN_WIDTH)
+            rightClientWidth = MIN_WIN_WIDTH;
+        int rightOuterWidth = rightClientWidth + nonClientWidth;
+        if (rightOuterWidth < 320)
+            rightOuterWidth = 320;
+
         if (HRightDetachedWindow == NULL)
             HRightDetachedWindow = CreateDetachedPanelWindow(this, cpsRight);
         if (HRightDetachedWindow == NULL)
@@ -2569,8 +2591,16 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         if (!EnsureDetachedChrome())
             return FALSE;
         CreatingDetachedChrome = TRUE;
+        RightPanel->TreeViewWidth = Configuration.DetachedTreeViewWidth;
+        RightPanel->TreeViewAutoHide = Configuration.DetachedTreeViewAutoHide;
+        RightPanel->TreeViewAutoHideExpanded = FALSE;
+        RightPanel->TreeViewAutoHideCollapseStart = 0;
         RightPanel->UpdateTreeView(TRUE);
+        SetWindowPos(HRightDetachedWindow, NULL, mainRect.left + leftOuterWidth + 16, mainRect.top,
+                     rightOuterWidth, mainOuterHeight, SWP_NOZORDER | SWP_NOACTIVATE);
         ShowWindow(HRightDetachedWindow, SW_SHOW);
+        SetWindowPos(HWindow, NULL, mainRect.left, mainRect.top, leftOuterWidth, mainOuterHeight,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
         LayoutWindows();
         LayoutDetachedPanels();
         SetWindowTitle();
@@ -2578,6 +2608,20 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
     }
     else
     {
+        RECT mainRectBeforeReattach;
+        RECT mainClientBeforeReattach;
+        RECT detachedRectBeforeReattach;
+        RECT detachedClientBeforeReattach;
+        GetWindowRect(HWindow, &mainRectBeforeReattach);
+        GetClientRect(HWindow, &mainClientBeforeReattach);
+        SetRectEmpty(&detachedRectBeforeReattach);
+        SetRectEmpty(&detachedClientBeforeReattach);
+        if (HRightDetachedWindow != NULL)
+        {
+            GetWindowRect(HRightDetachedWindow, &detachedRectBeforeReattach);
+            GetClientRect(HRightDetachedWindow, &detachedClientBeforeReattach);
+        }
+
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
             SetParent(RightTabWindow->HWindow, HWindow);
         for (int i = 0; i < RightPanelTabs.Count; ++i)
@@ -2612,6 +2656,24 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         RebuildPanelTabs(cpsLeft);
         RebuildPanelTabs(cpsRight);
         RefreshPanelTabLayout();
+        int mainClientWidthBeforeReattach = mainClientBeforeReattach.right - mainClientBeforeReattach.left;
+        int detachedClientWidthBeforeReattach = detachedClientBeforeReattach.right - detachedClientBeforeReattach.left;
+        if (detachedClientWidthBeforeReattach > 0)
+        {
+            int mainOuterWidthBeforeReattach = mainRectBeforeReattach.right - mainRectBeforeReattach.left;
+            int mainOuterHeightBeforeReattach = mainRectBeforeReattach.bottom - mainRectBeforeReattach.top;
+            int mainClientHeightBeforeReattach = mainClientBeforeReattach.bottom - mainClientBeforeReattach.top;
+            int detachedOuterHeightBeforeReattach = detachedRectBeforeReattach.bottom - detachedRectBeforeReattach.top;
+            int detachedClientHeightBeforeReattach = detachedClientBeforeReattach.bottom - detachedClientBeforeReattach.top;
+            int nonClientWidth = mainOuterWidthBeforeReattach - mainClientWidthBeforeReattach;
+            int nonClientHeight = mainOuterHeightBeforeReattach - mainClientHeightBeforeReattach;
+            int combinedClientWidth = mainClientWidthBeforeReattach + detachedClientWidthBeforeReattach + GetSplitBarWidth();
+            int combinedClientHeight = max(mainClientHeightBeforeReattach, detachedClientHeightBeforeReattach);
+            int combinedOuterWidth = combinedClientWidth + nonClientWidth;
+            int combinedOuterHeight = max(combinedClientHeight + nonClientHeight, detachedOuterHeightBeforeReattach);
+            SetWindowPos(HWindow, NULL, mainRectBeforeReattach.left, mainRectBeforeReattach.top,
+                         combinedOuterWidth, combinedOuterHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+        }
         RECT mainClientRect;
         GetClientRect(HWindow, &mainClientRect);
         WindowWidth = mainClientRect.right - mainClientRect.left;
@@ -2636,7 +2698,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
             int treeHeaderHeight = LeftPanel->GetTreeViewHeaderHeight();
             if (LeftTabWindow != NULL)
                 treeHeaderHeight = LeftTabWindow->GetNeededHeight();
-            if (Configuration.TreeViewAutoHide)
+            if (LeftPanel->TreeViewAutoHide)
                 treeWidth = treeHeaderHeight;
             else
             {

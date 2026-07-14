@@ -2995,7 +2995,7 @@ BOOL CMainWindow::IsPanelZoomed(BOOL leftPanel)
                 if (LeftTabWindow != NULL)
                     treeHeaderH = LeftTabWindow->GetNeededHeight();
                 int treeLeftWidth = 0;
-                if (Configuration.TreeViewAutoHide)
+                if (LeftPanel->TreeViewAutoHide)
                     treeLeftWidth = treeHeaderH;
                 else
                     treeLeftWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth) + 4;
@@ -7562,7 +7562,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     int treeHeaderH = LeftPanel->GetTreeViewHeaderHeight();
                     if (LeftTabWindow != NULL)
                         treeHeaderH = LeftTabWindow->GetNeededHeight();
-                    if (Configuration.TreeViewAutoHide)
+                    if (LeftPanel->TreeViewAutoHide)
                         treeLeftWidth = treeHeaderH;
                     else
                         treeLeftWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth) + 4; // +TREEVIEW_SPLITTER_WIDTH
@@ -8402,7 +8402,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             int treeReservedWidth = 0;
             if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
             {
-                if (Configuration.TreeViewAutoHide)
+                if (LeftPanel->TreeViewAutoHide)
                 {
                     treeReservedWidth = LeftPanel->GetTreeViewHeaderHeight();
                     if (LeftTabWindow != NULL)
@@ -8894,13 +8894,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (LeftTabWindow != NULL)
                 treeHeaderHeight = LeftTabWindow->GetNeededHeight();
 
-            if (Configuration.TreeViewAutoHide)
+            if (LeftPanel->TreeViewAutoHide)
                 treeDisplayWidth = LeftPanel->GetTreeViewWidth(WindowWidth);
             else
                 treeDisplayWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth);
-            treeAutoHideExpanded = Configuration.TreeViewAutoHide && LeftPanel->TreeViewAutoHideExpanded;
+            treeAutoHideExpanded = LeftPanel->TreeViewAutoHide && LeftPanel->TreeViewAutoHideExpanded;
 
-            if (Configuration.TreeViewAutoHide)
+            if (LeftPanel->TreeViewAutoHide)
                 treeWidth = treeHeaderHeight;
             else
             {
@@ -9029,12 +9029,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // When the right panel is zoomed, keep Tree View above it as well;
             // the right panel starts at the left tab/panel edge, so this does not
             // overlap Tree View but preserves its visibility.
-            BOOL treeOnTop = Configuration.TreeViewAutoHide || rightZoomed;
-            int treeX = Configuration.TreeViewAutoHide ? 0 : 1;
-            int treeWindowWidth = treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0);
+            BOOL treeOnTop = LeftPanel->TreeViewAutoHide || rightZoomed;
+            int treeX = LeftPanel->TreeViewAutoHide ? 0 : 1;
+            int treeWindowWidth = treeDisplayWidth + (LeftPanel->TreeViewAutoHide ? 1 : 0);
             if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
             {
-                BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
+                BOOL collapsed = LeftPanel->TreeViewAutoHide && !treeAutoHideExpanded;
                 int headerWidth = collapsed ? treeWidth + 1 : treeWindowWidth;
                 int headerHeight = collapsed ? PanelsHeight : treeHeaderHeight;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader,
@@ -9047,7 +9047,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 int treeViewHeight = PanelsHeight - treeHeaderHeight;
                 if (treeViewHeight < 0)
                     treeViewHeight = 0;
-                BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+                BOOL show = !LeftPanel->TreeViewAutoHide || treeAutoHideExpanded;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView,
                                               treeOnTop ? HWND_TOP : NULL,
                                               treeX, TopRebarHeight + treeHeaderHeight, treeWindowWidth, treeViewHeight,
@@ -9056,7 +9056,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
             if (LeftPanel != NULL && LeftPanel->HTreeSplit != NULL && LeftPanel->TreeViewActive)
             {
-                BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+                BOOL show = !LeftPanel->TreeViewAutoHide || treeAutoHideExpanded;
                 int displaySplitWidth = show ? 4 : 0;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeSplit,
                                               treeOnTop ? HWND_TOP : NULL,

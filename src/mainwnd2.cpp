@@ -1166,6 +1166,8 @@ const char* CONFIG_DRIVEBARBREAK_REG = "Drive Bar Break";
 const char* CONFIG_DRIVEBARWIDTH_REG = "Drive Bar Width";
 const char* CONFIG_TREEVIEWWIDTH_REG = "Tree View Width";
 const char* CONFIG_TREEVIEWAUTOHIDE_REG = "Tree View Auto Hide";
+const char* CONFIG_DETACHEDTREEVIEWWIDTH_REG = "Detached Tree View Width";
+const char* CONFIG_DETACHEDTREEVIEWAUTOHIDE_REG = "Detached Tree View Auto Hide";
 const char* CONFIG_GRIPSVISIBLE_REG = "Grips Visible";
 
 const char* SALAMANDER_CONFIRMATION_REG = "Confirmation";
@@ -2871,10 +2873,24 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.DriveBarBreak, sizeof(DWORD));
                 SetValue(actKey, CONFIG_DRIVEBARWIDTH_REG, REG_DWORD,
                          &Configuration.DriveBarWidth, sizeof(DWORD));
+                if (LeftPanel != NULL)
+                {
+                    Configuration.TreeViewWidth = LeftPanel->TreeViewWidth;
+                    Configuration.TreeViewAutoHide = LeftPanel->TreeViewAutoHide;
+                }
+                if (RightPanel != NULL && DetachedPanels)
+                {
+                    Configuration.DetachedTreeViewWidth = RightPanel->TreeViewWidth;
+                    Configuration.DetachedTreeViewAutoHide = RightPanel->TreeViewAutoHide;
+                }
                 SetValue(actKey, CONFIG_TREEVIEWWIDTH_REG, REG_DWORD,
                          &Configuration.TreeViewWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TREEVIEWAUTOHIDE_REG, REG_DWORD,
                          &Configuration.TreeViewAutoHide, sizeof(DWORD));
+                SetValue(actKey, CONFIG_DETACHEDTREEVIEWWIDTH_REG, REG_DWORD,
+                         &Configuration.DetachedTreeViewWidth, sizeof(DWORD));
+                SetValue(actKey, CONFIG_DETACHEDTREEVIEWAUTOHIDE_REG, REG_DWORD,
+                         &Configuration.DetachedTreeViewAutoHide, sizeof(DWORD));
                 SetValue(actKey, CONFIG_GRIPSVISIBLE_REG, REG_DWORD,
                          &Configuration.GripsVisible, sizeof(DWORD));
 
@@ -4692,6 +4708,26 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.TreeViewWidth, sizeof(DWORD));
             GetValue(actKey, CONFIG_TREEVIEWAUTOHIDE_REG, REG_DWORD,
                      &Configuration.TreeViewAutoHide, sizeof(DWORD));
+            Configuration.DetachedTreeViewWidth = Configuration.TreeViewWidth;
+            Configuration.DetachedTreeViewAutoHide = Configuration.TreeViewAutoHide;
+            GetValue(actKey, CONFIG_DETACHEDTREEVIEWWIDTH_REG, REG_DWORD,
+                     &Configuration.DetachedTreeViewWidth, sizeof(DWORD));
+            GetValue(actKey, CONFIG_DETACHEDTREEVIEWAUTOHIDE_REG, REG_DWORD,
+                     &Configuration.DetachedTreeViewAutoHide, sizeof(DWORD));
+            if (LeftPanel != NULL)
+            {
+                LeftPanel->TreeViewWidth = Configuration.TreeViewWidth;
+                LeftPanel->TreeViewAutoHide = Configuration.TreeViewAutoHide;
+                LeftPanel->TreeViewAutoHideExpanded = FALSE;
+                LeftPanel->TreeViewAutoHideCollapseStart = 0;
+            }
+            if (RightPanel != NULL)
+            {
+                RightPanel->TreeViewWidth = Configuration.DetachedPanels ? Configuration.DetachedTreeViewWidth : Configuration.TreeViewWidth;
+                RightPanel->TreeViewAutoHide = Configuration.DetachedPanels ? Configuration.DetachedTreeViewAutoHide : Configuration.TreeViewAutoHide;
+                RightPanel->TreeViewAutoHideExpanded = FALSE;
+                RightPanel->TreeViewAutoHideCollapseStart = 0;
+            }
             GetValue(actKey, CONFIG_GRIPSVISIBLE_REG, REG_DWORD,
                      &Configuration.GripsVisible, sizeof(DWORD));
             //---  top rebar end

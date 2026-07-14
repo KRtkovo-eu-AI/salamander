@@ -411,6 +411,8 @@ struct CConfiguration
     int DriveBarWidth;
     int TreeViewWidth;
     BOOL TreeViewAutoHide;
+    int DetachedTreeViewWidth;
+    BOOL DetachedTreeViewAutoHide;
     int GripsVisible;
 
     BOOL DetachedPanels;                    // TRUE = restore right side in a detached top-level window

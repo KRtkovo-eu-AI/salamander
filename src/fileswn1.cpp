@@ -2224,6 +2224,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     HTreeHeaderToolTip = NULL;
     HTreeSplit = NULL;
     TreeViewAutoHideExpanded = FALSE;
+    TreeViewAutoHideCollapseStart = 0;
+    TreeViewWidth = Configuration.TreeViewWidth;
+    TreeViewAutoHide = Configuration.TreeViewAutoHide;
     TreeViewAsyncLoadThread = NULL;
     TreeViewAsyncTerminateEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL)); // manual reset
     TreeViewAsyncLoadData = NULL;
@@ -3265,6 +3268,8 @@ BOOL CFilesWindow::CommonRefresh(HWND parent, int suggestedTopIndex, const char*
         {
             Parent->EditWindowSetDirectory();
         }
+        if (Parent->DetachedPanels && IsRightPanel())
+            Parent->UpdateDetachedCommandLine();
     }
 
     //TRACE_I("read directory: begin");
