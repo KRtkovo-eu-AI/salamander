@@ -51,6 +51,18 @@ void SetPluginManagerText(HWND ctrl, const char* text)
         std::vector<WCHAR> wide(required);
         if (MultiByteToWideChar(codePage, flags, text, -1, wide.data(), required) != 0)
         {
+            // Some plugin metadata may already contain U+FFFD from an earlier
+            // lossy conversion.  Repair the known copyright pattern before
+            // showing it, otherwise SetWindowTextW would faithfully display
+            // the replacement character.
+            const WCHAR copyrightPrefix[] = L"Copyright ";
+            size_t copyrightPrefixLen = ARRAYSIZE(copyrightPrefix) - 1;
+            if (wcsncmp(wide.data(), copyrightPrefix, copyrightPrefixLen) == 0 &&
+                wide[copyrightPrefixLen] == 0xFFFD)
+            {
+                wide[copyrightPrefixLen] = 0x00A9;
+            }
+
             SetWindowTextW(ctrl, wide.data());
             return;
         }
