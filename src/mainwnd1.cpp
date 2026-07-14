@@ -6,7 +6,6 @@
 
 #include <string>
 #include <shlwapi.h>
-#include <uxtheme.h>
 #undef PathIsPrefix
 
 #include "tooltip.h"
@@ -1847,54 +1846,6 @@ static BOOL InsertDetachedBand(HWND rebar, HWND child, int bandID, int index, in
     return SendMessage(rebar, RB_INSERTBAND, (WPARAM)index, (LPARAM)&rbbi) != 0;
 }
 
-static void ApplyDetachedRebarVisuals(HWND rebar)
-{
-    if (rebar == NULL)
-        return;
-
-    if (DarkModeShouldUseDarkColors())
-    {
-        SetWindowTheme(rebar, nullptr, nullptr);
-        SetWindowTheme(rebar, L"DarkMode_Explorer", nullptr);
-        SendMessage(rebar, RB_SETBKCOLOR, 0, (LPARAM)DarkModeGetColors().background);
-        SendMessage(rebar, RB_SETTEXTCOLOR, 0, (LPARAM)DarkModeGetColors().readableText);
-
-        COLORSCHEME colorScheme = {sizeof(COLORSCHEME)};
-        colorScheme.clrBtnHighlight = RGB(0x38, 0x38, 0x38);
-        colorScheme.clrBtnShadow = RGB(0x38, 0x38, 0x38);
-        SendMessage(rebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
-    }
-    else
-    {
-        SetWindowTheme(rebar, (L" "), (L" "));
-        SendMessage(rebar, RB_SETBKCOLOR, 0, (LPARAM)CLR_DEFAULT);
-        SendMessage(rebar, RB_SETTEXTCOLOR, 0, (LPARAM)CLR_DEFAULT);
-
-        COLORSCHEME colorScheme = {sizeof(COLORSCHEME)};
-        colorScheme.clrBtnHighlight = GetSysColor(COLOR_BTNHILIGHT);
-        colorScheme.clrBtnShadow = GetSysColor(COLOR_BTNSHADOW);
-        SendMessage(rebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
-    }
-
-    DarkModeApplyWindow(rebar);
-    DarkModeApplyRebarSeparators(rebar);
-
-    const int bandCount = (int)SendMessage(rebar, RB_GETBANDCOUNT, 0, 0);
-    for (int i = 0; i < bandCount; ++i)
-    {
-        REBARBANDINFO rbi = {0};
-        rbi.cbSize = sizeof(REBARBANDINFO);
-        rbi.fMask = RBBIM_CHILD;
-        if (SendMessage(rebar, RB_GETBANDINFO, i, (LPARAM)&rbi) != 0 && rbi.hwndChild != NULL)
-        {
-            DarkModeApplyWindow(rbi.hwndChild);
-            RedrawWindow(rbi.hwndChild, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
-        }
-    }
-
-    RedrawWindow(rebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
-}
-
 BOOL CMainWindow::EnsureDetachedChrome()
 {
     CALL_STACK_MESSAGE1("CMainWindow::EnsureDetachedChrome()");
@@ -1921,7 +1872,8 @@ BOOL CMainWindow::EnsureDetachedChrome()
                                            HRightDetachedWindow, (HMENU)0, HInstance, NULL);
         if (HDetachedTopRebar == NULL)
             DETACHED_CHROME_FAIL();
-        ApplyDetachedRebarVisuals(HDetachedTopRebar);
+        DarkModeApplyWindow(HDetachedTopRebar);
+        DarkModeApplyRebarSeparators(HDetachedTopRebar);
     }
 
     if (DetachedMenuBar == NULL)
@@ -2097,8 +2049,6 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
         UpdateDetachedCommandLine();
     }
-
-    ApplyDetachedRebarVisuals(HDetachedTopRebar);
 
     CreatingDetachedChrome = FALSE;
 #undef DETACHED_CHROME_FAIL
@@ -2648,13 +2598,11 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         RightPanel->UpdateTreeView(TRUE);
         SetWindowPos(HRightDetachedWindow, NULL, mainRect.left + leftOuterWidth + 16, mainRect.top,
                      rightOuterWidth, mainOuterHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+        ShowWindow(HRightDetachedWindow, SW_SHOW);
         SetWindowPos(HWindow, NULL, mainRect.left, mainRect.top, leftOuterWidth, mainOuterHeight,
                      SWP_NOZORDER | SWP_NOACTIVATE);
         LayoutWindows();
         LayoutDetachedPanels();
-        ShowWindow(HRightDetachedWindow, SW_SHOW);
-        RedrawWindow(HRightDetachedWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
-        UpdateWindow(HRightDetachedWindow);
         SetWindowTitle();
         CreatingDetachedChrome = FALSE;
     }
@@ -2898,9 +2846,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         {
             RECT r;
             GetClientRect(hWnd, &r);
-            HBRUSH brush = DarkModeShouldUseDarkColors() ? DarkModeGetPanelFrameBrush() :
-                                                            (HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
-            FillRect((HDC)wParam, &r, brush);
+            FillRect((HDC)wParam, &r, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
             return 1;
         }
 
@@ -5249,7 +5195,8 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
     }
     if (HDetachedTopRebar != NULL)
     {
-        ApplyDetachedRebarVisuals(HDetachedTopRebar);
+        DarkModeApplyWindow(HDetachedTopRebar);
+        DarkModeApplyRebarSeparators(HDetachedTopRebar);
     }
     LayoutWindows();
 
