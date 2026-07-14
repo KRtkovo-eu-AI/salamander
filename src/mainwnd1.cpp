@@ -6,6 +6,7 @@
 
 #include <string>
 #include <shlwapi.h>
+#include <uxtheme.h>
 #undef PathIsPrefix
 
 #include "tooltip.h"
@@ -1853,13 +1854,14 @@ static void ApplyDetachedRebarVisuals(HWND rebar)
 
     if (DarkModeShouldUseDarkColors())
     {
+        SetWindowTheme(rebar, nullptr, nullptr);
         SetWindowTheme(rebar, L"DarkMode_Explorer", nullptr);
         SendMessage(rebar, RB_SETBKCOLOR, 0, (LPARAM)DarkModeGetColors().background);
         SendMessage(rebar, RB_SETTEXTCOLOR, 0, (LPARAM)DarkModeGetColors().readableText);
 
         COLORSCHEME colorScheme = {sizeof(COLORSCHEME)};
-        colorScheme.clrBtnHighlight = DarkModeGetColors().highlightFrame;
-        colorScheme.clrBtnShadow = DarkModeGetColors().lighterBackground;
+        colorScheme.clrBtnHighlight = RGB(0x38, 0x38, 0x38);
+        colorScheme.clrBtnShadow = RGB(0x38, 0x38, 0x38);
         SendMessage(rebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
     }
     else
