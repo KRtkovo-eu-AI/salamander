@@ -51,7 +51,14 @@ BOOL GenerateMiniDump(CMinidumpParams* minidumpParams, CSalmonSharedMemory* mem,
                 ePtrs.ExceptionRecord = &mem->ExceptionRecord;
                 expParam.ThreadId = mem->ThreadId;
                 expParam.ExceptionPointers = &ePtrs;
-                expParam.ClientPointers = FALSE;
+                // Salmon writes the dump from a helper process.  The exception
+                // records above are copies stored in Salmon's address space, not
+                // pointers inside the crashed Salamander process, so DbgHelp must
+                // treat them as client-side pointers.  Passing FALSE makes newer
+                // DbgHelp versions validate those addresses in the target process
+                // and MiniDumpWriteDump can fail with HRESULT_FROM_WIN32(
+                // ERROR_INVALID_USER_BUFFER), shown in the UI as -2147023112.
+                expParam.ClientPointers = TRUE;
 
                 // great explanation of the flags (better than on MSDN): http://www.debuginfo.com/articles/effminidumps.html#minidumptypes
                 static MINIDUMP_TYPE dumpType;
