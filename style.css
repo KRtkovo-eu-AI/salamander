@@ -317,7 +317,7 @@ tr:nth-child(2n) {
 
 /* Images / screenshots */
 
-img {
+img:not([id="header-logo"]) {
   max-width: 100%;
   height: auto;
   display: block;
