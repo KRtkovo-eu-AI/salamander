@@ -3060,9 +3060,9 @@ void CPluginData::CallLoadOrSaveConfiguration(BOOL load,
 }
 
 
-static BOOL IsLegacyTotalCommanderProxyPlugin(const char* dllName, int builtForVersion)
+static BOOL IsTotalCommanderProxyPlugin(const char* dllName)
 {
-    if (dllName == NULL || builtForVersion >= LAST_VERSION_OF_SALAMANDER)
+    if (dllName == NULL)
         return FALSE;
 
     // Total Commander proxy can be installed anywhere by the user.  The stable
@@ -3081,7 +3081,8 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
         { // the plugin is no longer used by Salamander; it can be unloaded
             char buf[MAX_PATH + 300];
             BOOL skipUnload = FALSE;
-            if (SupportLoadSave && ::Configuration.AutoSave)
+            BOOL skipTCProxyShutdownCallbacks = !ask && IsTotalCommanderProxyPlugin(DLLName);
+            if (SupportLoadSave && ::Configuration.AutoSave && !skipTCProxyShutdownCallbacks)
             { // ask if the user wants to save configuration when "save on exit" is on
                 sprintf(buf, LoadStr(IDS_PLUGINSAVECONFIG), Name);
                 if (!ask || SalMessageBox(parent, buf, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) == IDYES)
@@ -3152,13 +3153,13 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
                 CPluginInterfaceAbstract* unloadedPlugin = PluginIface.GetInterface();
                 DeleteManager.PluginMayBeUnloaded(parent, this);
 
-                if (!ask && IsLegacyTotalCommanderProxyPlugin(DLLName, BuiltForVersion))
+                if (skipTCProxyShutdownCallbacks)
                 {
-                    // Older Total Commander proxy builds can crash in Release() during process
-                    // shutdown after their FS has already been closed.  The process is exiting,
-                    // so keep the compatibility path conservative: skip only the final Release()
-                    // callback and continue with library unload.
-                    TRACE_I("Skipping legacy Total Commander proxy Release() during unload: " << DLLName);
+                    // Total Commander proxy builds can crash in shutdown callbacks after their
+                    // FS has already been closed.  The process is exiting, so skip plug-in
+                    // SaveConfiguration/Release/DllMain-detach calls and let process teardown
+                    // reclaim the proxy module.
+                    TRACE_I("Skipping Total Commander proxy shutdown callbacks: " << DLLName);
                     ret = TRUE;
                 }
                 else if (PluginIface.Release(parent, CriticalShutdown) || CriticalShutdown)
@@ -3177,7 +3178,7 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
                 {
                     // unload SPL+SLG and clean up the interfaces
                     SalamanderGeneral.Clear();
-                    if (DLL != NULL)
+                    if (DLL != NULL && !skipTCProxyShutdownCallbacks)
                         HANDLES(FreeLibrary(DLL));
                     DLL = NULL;
                     BuiltForVersion = 0;
