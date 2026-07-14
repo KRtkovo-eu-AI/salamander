@@ -1226,8 +1226,15 @@ void IconThreadThreadFBodyAux(const char* path, SHFILEINFO& shi, CIconSizeEnum i
         //SHGetFileInfo(path, 0, &shi, sizeof(shi),
         //              SHGFI_ICON | SHGFI_SMALLICON | SHGFI_SHELLICONSIZE);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 4))
+    __except (EXCEPTION_EXECUTE_HANDLER)
     {
+        // Shell icon handlers run in-process and some third-party handlers are
+        // known to throw SEH exceptions while extracting icons.  This icon
+        // reader already has a safe fallback path (simple/default icons), so do
+        // not route these exceptions through CCallStack::HandleException(): that
+        // handler intentionally terminates the process after writing a bug
+        // report.  Keep Salamander alive and mark this icon as unavailable.
+        TRACE_E("Shell icon handler failed while getting an icon for: " << path);
         FGIExceptionHasOccured++;
         shi.hIcon = NULL;
     }
