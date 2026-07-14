@@ -1846,6 +1846,53 @@ static BOOL InsertDetachedBand(HWND rebar, HWND child, int bandID, int index, in
     return SendMessage(rebar, RB_INSERTBAND, (WPARAM)index, (LPARAM)&rbbi) != 0;
 }
 
+static void ApplyDetachedRebarVisuals(HWND rebar)
+{
+    if (rebar == NULL)
+        return;
+
+    if (DarkModeShouldUseDarkColors())
+    {
+        SetWindowTheme(rebar, L"DarkMode_Explorer", nullptr);
+        SendMessage(rebar, RB_SETBKCOLOR, 0, (LPARAM)DarkModeGetColors().background);
+        SendMessage(rebar, RB_SETTEXTCOLOR, 0, (LPARAM)DarkModeGetColors().readableText);
+
+        COLORSCHEME colorScheme = {sizeof(COLORSCHEME)};
+        colorScheme.clrBtnHighlight = DarkModeGetColors().highlightFrame;
+        colorScheme.clrBtnShadow = DarkModeGetColors().lighterBackground;
+        SendMessage(rebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
+    }
+    else
+    {
+        SetWindowTheme(rebar, (L" "), (L" "));
+        SendMessage(rebar, RB_SETBKCOLOR, 0, (LPARAM)CLR_DEFAULT);
+        SendMessage(rebar, RB_SETTEXTCOLOR, 0, (LPARAM)CLR_DEFAULT);
+
+        COLORSCHEME colorScheme = {sizeof(COLORSCHEME)};
+        colorScheme.clrBtnHighlight = GetSysColor(COLOR_BTNHILIGHT);
+        colorScheme.clrBtnShadow = GetSysColor(COLOR_BTNSHADOW);
+        SendMessage(rebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
+    }
+
+    DarkModeApplyWindow(rebar);
+    DarkModeApplyRebarSeparators(rebar);
+
+    const int bandCount = (int)SendMessage(rebar, RB_GETBANDCOUNT, 0, 0);
+    for (int i = 0; i < bandCount; ++i)
+    {
+        REBARBANDINFO rbi = {0};
+        rbi.cbSize = sizeof(REBARBANDINFO);
+        rbi.fMask = RBBIM_CHILD;
+        if (SendMessage(rebar, RB_GETBANDINFO, i, (LPARAM)&rbi) != 0 && rbi.hwndChild != NULL)
+        {
+            DarkModeApplyWindow(rbi.hwndChild);
+            RedrawWindow(rbi.hwndChild, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        }
+    }
+
+    RedrawWindow(rebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+}
+
 BOOL CMainWindow::EnsureDetachedChrome()
 {
     CALL_STACK_MESSAGE1("CMainWindow::EnsureDetachedChrome()");
@@ -1872,8 +1919,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
                                            HRightDetachedWindow, (HMENU)0, HInstance, NULL);
         if (HDetachedTopRebar == NULL)
             DETACHED_CHROME_FAIL();
-        DarkModeApplyWindow(HDetachedTopRebar);
-        DarkModeApplyRebarSeparators(HDetachedTopRebar);
+        ApplyDetachedRebarVisuals(HDetachedTopRebar);
     }
 
     if (DetachedMenuBar == NULL)
@@ -2049,6 +2095,8 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
         UpdateDetachedCommandLine();
     }
+
+    ApplyDetachedRebarVisuals(HDetachedTopRebar);
 
     CreatingDetachedChrome = FALSE;
 #undef DETACHED_CHROME_FAIL
@@ -5199,8 +5247,7 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
     }
     if (HDetachedTopRebar != NULL)
     {
-        DarkModeApplyWindow(HDetachedTopRebar);
-        DarkModeApplyRebarSeparators(HDetachedTopRebar);
+        ApplyDetachedRebarVisuals(HDetachedTopRebar);
     }
     LayoutWindows();
 
