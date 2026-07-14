@@ -3065,20 +3065,10 @@ static BOOL IsLegacyTotalCommanderProxyPlugin(const char* dllName, int builtForV
     if (dllName == NULL || builtForVersion >= LAST_VERSION_OF_SALAMANDER)
         return FALSE;
 
+    // Total Commander proxy can be installed anywhere by the user.  The stable
+    // identifier is the proxy module name itself, not any particular directory.
     const char* fileName = SalPathFindFileName(dllName);
-    if (fileName == NULL || StrICmp(fileName, "tcproxy.spl") != 0)
-        return FALSE;
-
-    for (const char* s = dllName; *s != 0; ++s)
-    {
-        if ((s == dllName || s[-1] == '\\' || s[-1] == '/') &&
-            _strnicmp(s, "_tc_plugins", 11) == 0 &&
-            (s[11] == '\\' || s[11] == '/' || s[11] == 0))
-        {
-            return TRUE;
-        }
-    }
-    return FALSE;
+    return fileName != NULL && StrICmp(fileName, "tcproxy.spl") == 0;
 }
 
 BOOL CPluginData::Unload(HWND parent, BOOL ask)
