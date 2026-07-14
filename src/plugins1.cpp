@@ -3059,6 +3059,28 @@ void CPluginData::CallLoadOrSaveConfiguration(BOOL load,
     }
 }
 
+
+static BOOL IsLegacyTotalCommanderProxyPlugin(const char* dllName, int builtForVersion)
+{
+    if (dllName == NULL || builtForVersion >= LAST_VERSION_OF_SALAMANDER)
+        return FALSE;
+
+    const char* fileName = SalPathFindFileName(dllName);
+    if (fileName == NULL || StrICmp(fileName, "tcproxy.spl") != 0)
+        return FALSE;
+
+    for (const char* s = dllName; *s != 0; ++s)
+    {
+        if ((s == dllName || s[-1] == '\\' || s[-1] == '/') &&
+            _strnicmp(s, "_tc_plugins", 11) == 0 &&
+            (s[11] == '\\' || s[11] == '/' || s[11] == 0))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 BOOL CPluginData::Unload(HWND parent, BOOL ask)
 {
     CALL_STACK_MESSAGE5("CPluginData::Unload(0x%p, %d) (%s v. %s)", parent, ask, DLLName, Version);
@@ -3140,7 +3162,16 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
                 CPluginInterfaceAbstract* unloadedPlugin = PluginIface.GetInterface();
                 DeleteManager.PluginMayBeUnloaded(parent, this);
 
-                if (PluginIface.Release(parent, CriticalShutdown) || CriticalShutdown)
+                if (!ask && IsLegacyTotalCommanderProxyPlugin(DLLName, BuiltForVersion))
+                {
+                    // Older Total Commander proxy builds can crash in Release() during process
+                    // shutdown after their FS has already been closed.  The process is exiting,
+                    // so keep the compatibility path conservative: skip only the final Release()
+                    // callback and continue with library unload.
+                    TRACE_I("Skipping legacy Total Commander proxy Release() during unload: " << DLLName);
+                    ret = TRUE;
+                }
+                else if (PluginIface.Release(parent, CriticalShutdown) || CriticalShutdown)
                     ret = TRUE;
                 else
                 {
