@@ -55,10 +55,28 @@ def main() -> None:
     old_version = f"{major}.{old_minor}"
     new_version = f"{major}.{new_minor}"
 
+    build_match = re.search(r"^#define VERSINFO_BUILDNUMBER (\d+)$", spl_text, re.MULTILINE)
+    if not build_match:
+        raise RuntimeError(f"Could not find VERSINFO_BUILDNUMBER in {spl_vers}.")
+    old_build_number = int(build_match.group(1))
+    new_build_number = old_build_number + 1
+
     spl_text = replace_one(
         spl_text,
         r"^(#define VERSINFO_SAMANDARIN_MINORA )\d+$",
         rf"\g<1>{new_minor}",
+        file_name=str(spl_vers),
+    )
+    spl_text = replace_one(
+        spl_text,
+        rf"^(// {old_build_number} = 5\.0-samandarin-{re.escape(old_version)}\n)",
+        rf"\g<1>// {new_build_number} = 5.0-samandarin-{new_version}\n",
+        file_name=str(spl_vers),
+    )
+    spl_text = replace_one(
+        spl_text,
+        r"^(#define VERSINFO_BUILDNUMBER )\d+$",
+        rf"\g<1>{new_build_number}",
         file_name=str(spl_vers),
     )
     write(spl_vers, spl_text)
@@ -98,13 +116,13 @@ def main() -> None:
     main_text = replace_one(
         main_text,
         rf"^(\s*)\"Software\\\\Open Salamander Samandarin\\\\5\.0-samandarin-{re.escape(old_version)}\",$",
-        rf"\1\"Software\\\\Open Salamander Samandarin\\\\5.0-samandarin-{new_version}\",\n\g<0>",
+        rf'\g<1>"Software\\\\Open Salamander Samandarin\\\\5.0-samandarin-{new_version}",\n\g<0>',
         file_name=str(mainwnd2),
     )
     main_text = replace_one(
         main_text,
         rf"^(\s*)\"5\.0 Samandarin {re.escape(old_version)}\",$",
-        rf"\1\"5.0 Samandarin {new_version}\",\n\g<0>",
+        rf'\g<1>"5.0 Samandarin {new_version}",\n\g<0>',
         file_name=str(mainwnd2),
     )
     write(mainwnd2, main_text)
@@ -119,6 +137,7 @@ def main() -> None:
     write(inno, inno_text)
 
     print(f"Bumped Samandarin {old_version} -> {new_version}")
+    print(f"Bumped VERSINFO_BUILDNUMBER {old_build_number} -> {new_build_number}")
     print(f"Bumped THIS_CONFIG_VERSION {old_config_version} -> {new_config_version}")
     print(f"Bumped SALCFG_ROOTS_COUNT {old_roots_count} -> {old_roots_count + 1}")
 
