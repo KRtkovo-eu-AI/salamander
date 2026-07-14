@@ -248,7 +248,7 @@
       },
       "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "Managed demo plugin for Open Salamander",
+        "english": "Show local Hyper-V virtual machines in the panel.",
         "chinesesimplified": "在面板中显示本地 Hyper-V 虚拟机。",
         "czech": "Zobrazí lokální virtuální počítače Hyper-V v panelu.",
         "german": "Zeigt lokale Hyper-V-virtuelle Maschinen im Bedienfeld an.",
