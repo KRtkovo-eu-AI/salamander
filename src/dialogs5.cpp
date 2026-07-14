@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <vector>
+
 #include "tasklist.h"
 #include "mainwnd.h"
 #include "edtlbwnd.h"
@@ -27,6 +29,46 @@ namespace
 bool ShouldUsePluginsDarkPalette()
 {
     return DarkModeShouldUseDarkColors();
+}
+
+void SetPluginManagerText(HWND ctrl, const char* text)
+{
+    if (text == NULL)
+        text = "";
+
+    int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (required == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        required = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+
+    if (required > 0)
+    {
+        std::vector<WCHAR> wide(required);
+        if (MultiByteToWideChar(codePage, flags, text, -1, wide.data(), required) != 0)
+        {
+            // Some plugin metadata may already contain U+FFFD from an earlier
+            // lossy conversion.  Repair the known copyright pattern before
+            // showing it, otherwise SetWindowTextW would faithfully display
+            // the replacement character.
+            const WCHAR copyrightPrefix[] = L"Copyright ";
+            size_t copyrightPrefixLen = ARRAYSIZE(copyrightPrefix) - 1;
+            if (wcsncmp(wide.data(), copyrightPrefix, copyrightPrefixLen) == 0 &&
+                wide[copyrightPrefixLen] == 0xFFFD)
+            {
+                wide[copyrightPrefixLen] = 0x00A9;
+            }
+
+            SetWindowTextW(ctrl, wide.data());
+            return;
+        }
+    }
+
+    SetWindowText(ctrl, text);
 }
 }
 
@@ -260,16 +302,16 @@ void CPluginsDlg::OnSelChanged()
             ShowWindow(showInChDrv, SW_SHOW);
 
         // description
-        SetWindowText(GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION), p->Description);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION), p->Description);
         // copyright
-        SetWindowText(GetDlgItem(HWindow, IDC_PLUGINCOPYRIGHT), p->Copyright);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINCOPYRIGHT), p->Copyright);
         // www
-        SetWindowText(GetDlgItem(HWindow, IDC_PLUGINWWW),
-                      p->PluginHomePageURL != NULL ? p->PluginHomePageURL : LoadStr(IDS_PLUGINURLNONE));
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINWWW),
+                             p->PluginHomePageURL != NULL ? p->PluginHomePageURL : LoadStr(IDS_PLUGINURLNONE));
         Url->SetActionOpen(p->PluginHomePageURL != NULL ? p->PluginHomePageURL : "");
         // extension
-        SetWindowText(GetDlgItem(HWindow, IDC_PLUGINEXTENSIONS),
-                      p->Extensions[0] == 0 ? LoadStr(IDS_PLUGINEXTNONE) : p->Extensions);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINEXTENSIONS),
+                             p->Extensions[0] == 0 ? LoadStr(IDS_PLUGINEXTNONE) : p->Extensions);
         // FS Name
         char buf[500];
         buf[0] = 0;
@@ -281,8 +323,8 @@ void CPluginsDlg::OnSelChanged()
                         (i + 1 != p->FSNames.Count) ? "%s;" : "%s", p->FSNames[i]);
             remainingSize = (int)sizeof(buf) - (int)strlen(buf);
         }
-        SetWindowText(GetDlgItem(HWindow, IDC_PLUGINFSNAME),
-                      buf[0] == 0 ? LoadStr(IDS_PLUGINFSNONE) : buf);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINFSNAME),
+                             buf[0] == 0 ? LoadStr(IDS_PLUGINFSNONE) : buf);
         // Functions
         buf[0] = 0;
         if (p->SupportPanelView)
@@ -352,12 +394,12 @@ void CPluginsDlg::OnSelChanged()
                     strcat(buf, ",\n");
             }
             strcat(buf, LoadStr(IDS_PLUGINFUNCTHUMBLOADER));
-            SetWindowText(GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS), p->ThumbnailMasks.GetMasksString());
+            SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS), p->ThumbnailMasks.GetMasksString());
         }
         else
-            SetWindowText(GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS), LoadStr(IDS_PLUGINTHUMBNONE));
+            SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS), LoadStr(IDS_PLUGINTHUMBNONE));
 
-        SetWindowText(GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS), buf);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS), buf);
 
         char buff[MAX_PATH + 200];
         char pluginName[300];
