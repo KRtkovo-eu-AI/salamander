@@ -498,3 +498,141 @@ kbd {
     font-size: .75rem;
   }
 }
+/* Header, navigation, and localization controls */
+body > main#content {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.site-header {
+  margin: 0 0 1rem;
+  padding: 0 0 0.7rem;
+  background: var(--sam-bg-content);
+  border-bottom: 1px solid var(--sam-border-muted);
+}
+
+.site-header__row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.site-branding {
+  min-width: 0;
+}
+
+.site-branding h1 {
+  margin: 0;
+}
+
+.site-branding #description-text {
+  margin: 0.1rem 0 0 76px;
+  color: var(--sam-muted);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0.75rem;
+  padding: 0.4rem 0.65rem;
+  background: var(--sam-bg-content);
+  border: 1px solid var(--sam-link);
+  border-radius: var(--sam-radius);
+}
+
+.skip-link:focus {
+  left: 1rem;
+}
+
+.language-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.28rem;
+  color: var(--sam-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.language-switcher__flag {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+#language-select {
+  max-width: 11rem;
+  color: var(--sam-text);
+  background: var(--sam-bg-content);
+  border: 1px solid var(--sam-border);
+  border-radius: var(--sam-radius);
+  padding: 0.22rem 0.35rem;
+  font: inherit;
+}
+
+.section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  margin-top: 0.55rem;
+  padding-left: 76px;
+}
+
+.section-nav a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.45rem;
+  color: var(--sam-muted);
+  background: transparent;
+  border: 1px solid var(--sam-border-muted);
+  border-radius: var(--sam-radius);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.section-nav a:hover {
+  color: var(--sam-link-hover);
+  border-color: var(--sam-accent-border);
+  text-decoration: none;
+}
+
+@media (max-width: 720px) {
+  body > main#content {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-header__row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .site-branding #description-text {
+    margin-left: 0;
+  }
+
+  .language-switcher {
+    margin-bottom: 0;
+    width: 100%;
+  }
+
+  #language-select {
+    max-width: none;
+    width: 100%;
+  }
+
+  .section-nav {
+    padding-left: 0;
+  }
+}

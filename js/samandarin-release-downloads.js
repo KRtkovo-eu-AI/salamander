@@ -13,8 +13,11 @@
     return;
   }
 
-  const numberFormatter = new Intl.NumberFormat(undefined);
-  const sizeFormatter = new Intl.NumberFormat(undefined, {
+  const getLocale = () => window.SamandarinI18n?.getLocale?.() || undefined;
+  const t = (text) => window.SamandarinI18n?.translateText?.(text, getLocale())?.trim() || text;
+
+  const getNumberFormatter = () => new Intl.NumberFormat(getLocale());
+  const getSizeFormatter = () => new Intl.NumberFormat(getLocale(), {
     maximumFractionDigits: 1
   });
 
@@ -29,25 +32,25 @@
 
   const describeAsset = (name) => {
     const lower = name.toLowerCase();
-    if (lower.endsWith(".exe")) return "Installer/Extract Portable";
-    if (lower.endsWith(".zip")) return "ZIP Archive";
-    return "Download";
+    if (lower.endsWith(".exe")) return t("Installer/Extract Portable");
+    if (lower.endsWith(".zip")) return t("ZIP Archive");
+    return t("Download");
   };
 
   const formatSize = (bytes) => {
     const value = Number(bytes);
     if (!Number.isFinite(value)) return "";
-    return `${sizeFormatter.format(value / 1048576)} MB`;
+    return `${getSizeFormatter().format(value / 1048576)} MB`;
   };
 
   const formatDownloads = (value) => {
     const count = Number(value || 0);
-    return `${numberFormatter.format(count)} download${count === 1 ? "" : "s"}`;
+    return `${getNumberFormatter().format(count)} ${count === 1 ? t("download") : t("downloads")}`;
   };
 
   const formatDate = (isoString) => {
     if (!isoString) return "";
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(getLocale(), {
       year: "numeric",
       month: "short",
       day: "numeric"
@@ -132,13 +135,18 @@
       return sum + Number(asset.download_count || 0);
     }, 0);
 
+    renderReleaseDownloads(latest, assets, allReleaseDownloads, latestReleaseDownloads);
+    window.__samandarinLatestReleaseRender = () => renderReleaseDownloads(latest, assets, allReleaseDownloads, latestReleaseDownloads);
+  }
+
+  function renderReleaseDownloads(latest, assets, allReleaseDownloads, latestReleaseDownloads) {
     const releaseName = latest.tag_name || latest.name || "GitHub release";
     const published = formatDate(latest.published_at || latest.created_at);
 
     info.replaceChildren();
 
     const latestLabel = document.createElement("strong");
-    latestLabel.textContent = "Latest release: ";
+    latestLabel.textContent = t("Latest release: ") + " ";
 
     const releaseLink = document.createElement("a");
     releaseLink.href = latest.html_url;
@@ -147,19 +155,19 @@
     info.append(latestLabel, releaseLink);
 
     if (published) {
-      info.append(`, published ${published}`);
+      info.append(`${t(", published")} ${published}`);
     }
 
     info.append(document.createElement("br"));
 
     const allDownloadsLabel = document.createElement("strong");
-    allDownloadsLabel.textContent = "Total downloads: ";
-    info.append(allDownloadsLabel, `${formatDownloads(allReleaseDownloads)} across all releases`);
+    allDownloadsLabel.textContent = t("Total downloads: ") + " ";
+    info.append(allDownloadsLabel, `${formatDownloads(allReleaseDownloads)} ${t("across all releases")}`);
 
     info.append(document.createElement("br"));
 
     const latestDownloadsLabel = document.createElement("strong");
-    latestDownloadsLabel.textContent = "Latest release downloads: ";
+    latestDownloadsLabel.textContent = t("Latest release downloads: ") + " ";
     info.append(latestDownloadsLabel, formatDownloads(latestReleaseDownloads));
 
     list.replaceChildren();
@@ -180,8 +188,12 @@
     }
   }
 
+  window.addEventListener("samandarin:locale-change", () => {
+    window.__samandarinLatestReleaseRender?.();
+  });
+
   loadLatestReleaseDownloads().catch((error) => {
     console.warn("Could not load latest GitHub release downloads:", error);
-    info.textContent = "Could not load latest GitHub release data. Showing fallback download links.";
+    info.textContent = t("Could not load latest GitHub release data. Showing fallback download links.");
   });
 })();
