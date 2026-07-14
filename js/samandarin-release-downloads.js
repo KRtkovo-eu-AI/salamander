@@ -16,8 +16,8 @@
   const getLocale = () => window.SamandarinI18n?.getLocale?.() || undefined;
   const t = (text) => window.SamandarinI18n?.translateText?.(text, getLocale())?.trim() || text;
 
-  let numberFormatter = new Intl.NumberFormat(getLocale());
-  let sizeFormatter = new Intl.NumberFormat(getLocale(), {
+  const getNumberFormatter = () => new Intl.NumberFormat(getLocale());
+  const getSizeFormatter = () => new Intl.NumberFormat(getLocale(), {
     maximumFractionDigits: 1
   });
 
@@ -40,12 +40,12 @@
   const formatSize = (bytes) => {
     const value = Number(bytes);
     if (!Number.isFinite(value)) return "";
-    return `${sizeFormatter.format(value / 1048576)} MB`;
+    return `${getSizeFormatter().format(value / 1048576)} MB`;
   };
 
   const formatDownloads = (value) => {
     const count = Number(value || 0);
-    return `${numberFormatter.format(count)} ${count === 1 ? t("download") : t("downloads")}`;
+    return `${getNumberFormatter().format(count)} ${count === 1 ? t("download") : t("downloads")}`;
   };
 
   const formatDate = (isoString) => {
@@ -135,6 +135,11 @@
       return sum + Number(asset.download_count || 0);
     }, 0);
 
+    renderReleaseDownloads(latest, assets, allReleaseDownloads, latestReleaseDownloads);
+    window.__samandarinLatestReleaseRender = () => renderReleaseDownloads(latest, assets, allReleaseDownloads, latestReleaseDownloads);
+  }
+
+  function renderReleaseDownloads(latest, assets, allReleaseDownloads, latestReleaseDownloads) {
     const releaseName = latest.tag_name || latest.name || "GitHub release";
     const published = formatDate(latest.published_at || latest.created_at);
 
@@ -182,6 +187,10 @@
       list.append(li);
     }
   }
+
+  window.addEventListener("samandarin:locale-change", () => {
+    window.__samandarinLatestReleaseRender?.();
+  });
 
   loadLatestReleaseDownloads().catch((error) => {
     console.warn("Could not load latest GitHub release downloads:", error);
