@@ -5925,8 +5925,32 @@ BOOL CSalamanderDirectory::AddFile(const char* path, CFileData& file, CPluginDat
 {
     CALL_STACK_MESSAGE_NONE // time-critical method
 
+    CFileData fileCopy;
+    fileCopy.Name = file.Name;
+    fileCopy.Ext = file.Ext;
+    fileCopy.Size = file.Size;
+    fileCopy.Attr = file.Attr;
+    fileCopy.LastWrite = file.LastWrite;
+    fileCopy.DosName = file.DosName;
+    fileCopy.PluginData = file.PluginData;
+    fileCopy.NameLen = file.NameLen;
+    fileCopy.Hidden = file.Hidden;
+    fileCopy.IsLink = file.IsLink;
+    fileCopy.IsOffline = file.IsOffline;
+    fileCopy.IconOverlayIndex = file.IconOverlayIndex;
+    fileCopy.Association = file.Association;
+    fileCopy.Selected = file.Selected;
+    fileCopy.Shared = file.Shared;
+    fileCopy.Archive = file.Archive;
+    fileCopy.SizeValid = file.SizeValid;
+    fileCopy.Dirty = file.Dirty;
+    fileCopy.CutToClip = file.CutToClip;
+    fileCopy.IconOverlayDone = file.IconOverlayDone;
+    fileCopy.NameW = NULL; // do not read/copy ABI-extension fields from old binary plug-ins
+    CFileData& addFile = fileCopy;
+
         int pathLen = 0;
-    if (path != NULL && ((pathLen = (int)strlen(path)) > SAL_MAX_PATH - 5 || file.NameLen > 511))
+    if (path != NULL && ((pathLen = (int)strlen(path)) > SAL_MAX_PATH - 5 || addFile.NameLen > 511))
     {
         TRACE_E("Too long path or file name!");
         return FALSE;
@@ -5936,17 +5960,17 @@ BOOL CSalamanderDirectory::AddFile(const char* path, CFileData& file, CPluginDat
 
     // zero out variables that the plugin does not define
     if ((ValidData & VALID_DATA_EXTENSION) == 0)
-        file.Ext = file.Name + file.NameLen;
+        addFile.Ext = addFile.Name + addFile.NameLen;
     if ((ValidData & VALID_DATA_DOSNAME) == 0)
-        file.DosName = NULL;
+        addFile.DosName = NULL;
     if ((ValidData & VALID_DATA_SIZE) == 0)
-        file.Size = CQuadWord(0, 0);
+        addFile.Size = CQuadWord(0, 0);
     if ((ValidData & VALID_DATA_DATE) == 0 || (ValidData & VALID_DATA_TIME) == 0)
     {
         SYSTEMTIME st;
         FILETIME ft;
         if ((ValidData & (VALID_DATA_DATE | VALID_DATA_TIME)) == 0 ||
-            FileTimeToLocalFileTime(&file.LastWrite, &ft) &&
+            FileTimeToLocalFileTime(&addFile.LastWrite, &ft) &&
                 FileTimeToSystemTime(&ft, &st))
         {
             if ((ValidData & VALID_DATA_DATE) == 0) // missing date
@@ -5964,41 +5988,41 @@ BOOL CSalamanderDirectory::AddFile(const char* path, CFileData& file, CPluginDat
                 st.wMilliseconds = 0;
             }
             SystemTimeToFileTime(&st, &ft);
-            LocalFileTimeToFileTime(&ft, &file.LastWrite);
+            LocalFileTimeToFileTime(&ft, &addFile.LastWrite);
         }
-        else // invalid file.LastWrite
+        else // invalid addFile.LastWrite
         {
-            TRACE_E("CSalamanderDirectory::AddFile(): invalid file.LastWrite!");
-            file.LastWrite.dwLowDateTime = 0;
-            file.LastWrite.dwHighDateTime = 0;
+            TRACE_E("CSalamanderDirectory::AddFile(): invalid addFile.LastWrite!");
+            addFile.LastWrite.dwLowDateTime = 0;
+            addFile.LastWrite.dwHighDateTime = 0;
         }
     }
     if ((ValidData & VALID_DATA_ATTRIBUTES) == 0)
-        file.Attr = 0;
+        addFile.Attr = 0;
     if ((ValidData & VALID_DATA_HIDDEN) == 0)
-        file.Hidden = 0;
+        addFile.Hidden = 0;
     if ((ValidData & VALID_DATA_ISLINK) == 0)
-        file.IsLink = 0;
+        addFile.IsLink = 0;
     if ((ValidData & VALID_DATA_ISOFFLINE) == 0)
-        file.IsOffline = 0;
+        addFile.IsOffline = 0;
     if ((ValidData & VALID_DATA_ICONOVERLAY) == 0)
-        file.IconOverlayIndex = ICONOVERLAYINDEX_NOTUSED;
+        addFile.IconOverlayIndex = ICONOVERLAYINDEX_NOTUSED;
 
-    file.Association = 0;
-    file.Selected = 0;
-    file.Shared = 0;
-    file.Archive = 0;
-    file.SizeValid = 0;
-    file.Dirty = 0; // optional, kept only for formality
-    file.CutToClip = 0;
-    file.IconOverlayDone = 0;
+    addFile.Association = 0;
+    addFile.Selected = 0;
+    addFile.Shared = 0;
+    addFile.Archive = 0;
+    addFile.SizeValid = 0;
+    addFile.Dirty = 0; // optional, kept only for formality
+    addFile.CutToClip = 0;
+    addFile.IconOverlayDone = 0;
 
     // if we have the path cached from the previous addition, we can insert the file right into its place
     if (path != NULL && AddCache != NULL && pathLen > 0 &&
         pathLen == AddCache->PathLen && memcmp(path, AddCache->Path, pathLen) == 0)
     {
         // the cache already held our path, so we can insert the file immediately
-        AddCache->Dir->Files.Add(file);
+        AddCache->Dir->Files.Add(addFile);
         if (!AddCache->Dir->Files.IsGood())
         {
             AddCache->Dir->Files.ResetState();
@@ -6007,7 +6031,7 @@ BOOL CSalamanderDirectory::AddFile(const char* path, CFileData& file, CPluginDat
         return TRUE;
     }
 
-    CSalamanderDirectory* ret = AddFileInt(path, file, pluginData, path);
+    CSalamanderDirectory* ret = AddFileInt(path, addFile, pluginData, path);
 
     // if the insertion succeeded and the cache is used, remember the path
     if (ret != NULL && AddCache != NULL && pathLen > 0)
@@ -6024,7 +6048,31 @@ BOOL CSalamanderDirectory::AddDir(const char* path, CFileData& dir, CPluginDataI
 {
     CALL_STACK_MESSAGE_NONE // time-critical method
 
-        if (path != NULL && (strlen(path) > SAL_MAX_PATH - 5 || dir.NameLen > 511))
+    CFileData dirCopy;
+    dirCopy.Name = dir.Name;
+    dirCopy.Ext = dir.Ext;
+    dirCopy.Size = dir.Size;
+    dirCopy.Attr = dir.Attr;
+    dirCopy.LastWrite = dir.LastWrite;
+    dirCopy.DosName = dir.DosName;
+    dirCopy.PluginData = dir.PluginData;
+    dirCopy.NameLen = dir.NameLen;
+    dirCopy.Hidden = dir.Hidden;
+    dirCopy.IsLink = dir.IsLink;
+    dirCopy.IsOffline = dir.IsOffline;
+    dirCopy.IconOverlayIndex = dir.IconOverlayIndex;
+    dirCopy.Association = dir.Association;
+    dirCopy.Selected = dir.Selected;
+    dirCopy.Shared = dir.Shared;
+    dirCopy.Archive = dir.Archive;
+    dirCopy.SizeValid = dir.SizeValid;
+    dirCopy.Dirty = dir.Dirty;
+    dirCopy.CutToClip = dir.CutToClip;
+    dirCopy.IconOverlayDone = dir.IconOverlayDone;
+    dirCopy.NameW = NULL; // do not read/copy ABI-extension fields from old binary plug-ins
+    CFileData& addDir = dirCopy;
+
+        if (path != NULL && (strlen(path) > SAL_MAX_PATH - 5 || addDir.NameLen > 511))
     {
         TRACE_E("Too long path or file name!");
         return FALSE;
@@ -6034,17 +6082,17 @@ BOOL CSalamanderDirectory::AddDir(const char* path, CFileData& dir, CPluginDataI
 
     // zero out variables that the plugin does not define
     if ((ValidData & VALID_DATA_EXTENSION) == 0)
-        dir.Ext = dir.Name + dir.NameLen;
+        addDir.Ext = addDir.Name + addDir.NameLen;
     if ((ValidData & VALID_DATA_DOSNAME) == 0)
-        dir.DosName = NULL;
+        addDir.DosName = NULL;
     if ((ValidData & VALID_DATA_SIZE) == 0)
-        dir.Size = CQuadWord(0, 0);
+        addDir.Size = CQuadWord(0, 0);
     if ((ValidData & VALID_DATA_DATE) == 0 || (ValidData & VALID_DATA_TIME) == 0)
     {
         SYSTEMTIME st;
         FILETIME ft;
         if ((ValidData & (VALID_DATA_DATE | VALID_DATA_TIME)) == 0 ||
-            FileTimeToLocalFileTime(&dir.LastWrite, &ft) &&
+            FileTimeToLocalFileTime(&addDir.LastWrite, &ft) &&
                 FileTimeToSystemTime(&ft, &st))
         {
             if ((ValidData & VALID_DATA_DATE) == 0) // missing date
@@ -6062,36 +6110,36 @@ BOOL CSalamanderDirectory::AddDir(const char* path, CFileData& dir, CPluginDataI
                 st.wMilliseconds = 0;
             }
             SystemTimeToFileTime(&st, &ft);
-            LocalFileTimeToFileTime(&ft, &dir.LastWrite);
+            LocalFileTimeToFileTime(&ft, &addDir.LastWrite);
         }
-        else // invalid dir.LastWrite
+        else // invalid addDir.LastWrite
         {
-            TRACE_E("CSalamanderDirectory::AddDir(): invalid dir.LastWrite!");
-            dir.LastWrite.dwLowDateTime = 0;
-            dir.LastWrite.dwHighDateTime = 0;
+            TRACE_E("CSalamanderDirectory::AddDir(): invalid addDir.LastWrite!");
+            addDir.LastWrite.dwLowDateTime = 0;
+            addDir.LastWrite.dwHighDateTime = 0;
         }
     }
     if ((ValidData & VALID_DATA_ATTRIBUTES) == 0)
-        dir.Attr = 0;
+        addDir.Attr = 0;
     if ((ValidData & VALID_DATA_HIDDEN) == 0)
-        dir.Hidden = 0;
+        addDir.Hidden = 0;
     if ((ValidData & VALID_DATA_ISLINK) == 0)
-        dir.IsLink = 0;
+        addDir.IsLink = 0;
     if ((ValidData & VALID_DATA_ISOFFLINE) == 0)
-        dir.IsOffline = 0;
+        addDir.IsOffline = 0;
     if ((ValidData & VALID_DATA_ICONOVERLAY) == 0)
-        dir.IconOverlayIndex = ICONOVERLAYINDEX_NOTUSED;
+        addDir.IconOverlayIndex = ICONOVERLAYINDEX_NOTUSED;
 
-    dir.Association = 0;
-    dir.Selected = 0;
-    dir.Shared = 0;
-    dir.Archive = 0;
-    dir.SizeValid = 0;
-    dir.Dirty = 0; // optional, kept only for formality
-    dir.CutToClip = 0;
-    dir.IconOverlayDone = 0;
+    addDir.Association = 0;
+    addDir.Selected = 0;
+    addDir.Shared = 0;
+    addDir.Archive = 0;
+    addDir.SizeValid = 0;
+    addDir.Dirty = 0; // optional, kept only for formality
+    addDir.CutToClip = 0;
+    addDir.IconOverlayDone = 0;
 
-    return AddDirInt(path, dir, pluginData, path) != NULL;
+    return AddDirInt(path, addDir, pluginData, path) != NULL;
 }
 
 int CSalamanderDirectory::GetFilesCount() const
