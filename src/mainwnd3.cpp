@@ -3438,6 +3438,40 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+
+static HANDLE SetThreadDPIAwarenessForRefresh()
+{
+    typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE dpiContext);
+    static FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            setThreadDpiAwarenessContext = (FSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext");
+        loaded = TRUE;
+    }
+    if (setThreadDpiAwarenessContext != NULL)
+        return setThreadDpiAwarenessContext((HANDLE)-4 /* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 */);
+    return NULL;
+}
+
+static void RestoreThreadDPIAwarenessAfterRefresh(HANDLE oldContext)
+{
+    typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE dpiContext);
+    static FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            setThreadDpiAwarenessContext = (FSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext");
+        loaded = TRUE;
+    }
+    if (setThreadDpiAwarenessContext != NULL && oldContext != NULL)
+        setThreadDpiAwarenessContext(oldContext);
+}
+
 static BOOL DPIRefreshInProgress = FALSE;
 static BOOL DPIRefreshPosted = FALSE;
 static int PendingDPI = 0;
@@ -3465,6 +3499,7 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     }
 
     TraceDPIState("RefreshDPI", HWindow);
+    HANDLE oldThreadDPIContext = SetThreadDPIAwarenessForRefresh();
 
     if (suggestedRect != NULL)
     {
@@ -3492,6 +3527,7 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
 
     if (LeftPanel == NULL || RightPanel == NULL)
     {
+        RestoreThreadDPIAwarenessAfterRefresh(oldThreadDPIContext);
         DPIRefreshInProgress = FALSE;
         return;
     }
@@ -3519,6 +3555,7 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     MainWindowContentDPI = newDPI;
     InitialSessionDPI = newDPI;
     DPIChangePromptShown = FALSE;
+    RestoreThreadDPIAwarenessAfterRefresh(oldThreadDPIContext);
     DPIRefreshInProgress = FALSE;
 }
 
