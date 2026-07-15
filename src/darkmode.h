@@ -26,6 +26,9 @@ bool DarkModeIsSupported();
 // Enables or disables native dark mode integration for the process.
 void DarkModeSetEnabled(bool enabled);
 
+// Returns true if the explicit Windows Dark Mode color scheme is selected.
+bool IsWindowsDarkSchemeSelected();
+
 // Returns true if dark colors should currently be used.
 bool DarkModeShouldUseDarkColors();
 // Compatibility helper used by legacy call sites.
