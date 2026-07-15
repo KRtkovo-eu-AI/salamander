@@ -3456,6 +3456,18 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
                      suggestedRect->bottom - suggestedRect->top,
                      SWP_NOACTIVATE | SWP_NOZORDER);
     }
+    else if (oldDPI > 0 && newDPI > 0 && oldDPI != newDPI)
+    {
+        RECT windowRect;
+        if (GetWindowRect(HWindow, &windowRect))
+        {
+            int width = windowRect.right - windowRect.left;
+            int height = windowRect.bottom - windowRect.top;
+            SetWindowPos(HWindow, NULL, windowRect.left, windowRect.top,
+                         MulDiv(width, newDPI, oldDPI), MulDiv(height, newDPI, oldDPI),
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
+    }
 
     if (LeftPanel == NULL || RightPanel == NULL)
         return;
@@ -3859,7 +3871,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_DISPLAYCHANGE:
     {
         TraceDPIState("WM_DISPLAYCHANGE", HWindow);
-        RefreshDPI(FALSE);
+        RefreshDPI(TRUE, GetCurrentSessionDPI());
         PromptIfSessionDPIChanged(HWindow);
         break;
     }
@@ -3869,6 +3881,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         TraceDPIState("WM_WTSSESSION_CHANGE", HWindow);
         if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
             wParam == WTS_SESSION_UNLOCK)
+            RefreshDPI(TRUE, GetCurrentSessionDPI());
+        if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
+            wParam == WTS_SESSION_UNLOCK)
             ShowDPIChangePrompt(HWindow);
         return 0;
     }
@@ -3876,7 +3891,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_SETTINGCHANGE:
     {
         TraceDPIState("WM_SETTINGCHANGE", HWindow);
-        RefreshDPI(FALSE);
+        RefreshDPI(TRUE, GetCurrentSessionDPI());
         PromptIfSessionDPIChanged(HWindow);
 
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
@@ -9793,7 +9808,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (wParam == TRUE) // activating the app
         {
             TraceDPIState("WM_ACTIVATEAPP", HWindow);
-            RefreshDPI(FALSE);
+            RefreshDPI(TRUE, GetCurrentSessionDPI());
             PromptIfSessionDPIChanged(HWindow);
 
             if (!LeftPanel->DontClearNextFocusName)
