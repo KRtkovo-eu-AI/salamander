@@ -294,7 +294,7 @@ BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMA
     HBITMAP hMemBmp = HANDLES(CreateDIBSection(hMemDC, (CONST BITMAPINFO*)&bmhdr, DIB_RGB_COLORS, &lpMemBits, NULL, 0));
     if (hMemBmp != NULL && lpMemBits != NULL)
     {
-        memset(lpMemBits, 0, iconSize * iconSize * 4);
+        memset(lpMemBits, 0, static_cast<size_t>(iconSize) * iconSize * 4);
         float sysDPIScale = (float)GetScaleForSystemDPI();
         NSVGimage* image = nsvgParse(svg, "px", sysDPIScale);
         if (image != NULL)
