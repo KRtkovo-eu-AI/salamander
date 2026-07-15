@@ -3439,6 +3439,9 @@ void CMainWindow::UpdateRebarVisuals()
 }
 
 static BOOL DPIRefreshInProgress = FALSE;
+static int MainWindowContentDPI = 0;
+static int InitialSessionDPI = 0;
+static BOOL DPIChangePromptShown = FALSE;
 
 void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
 {
@@ -3447,7 +3450,7 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
 
     DPIRefreshInProgress = TRUE;
 
-    int oldDPI = GetSystemDPI();
+    int oldDPI = MainWindowContentDPI > 0 ? MainWindowContentDPI : GetSystemDPI();
     int newDPI = dpi > 0 ? dpi : GetDPIForWindow(HWindow);
     SetSystemDPI(newDPI);
 
@@ -3492,13 +3495,13 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
     RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
     RefreshDiskFreeSpace();
-    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
     Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
+    MainWindowContentDPI = newDPI;
+    InitialSessionDPI = newDPI;
+    DPIChangePromptShown = FALSE;
     DPIRefreshInProgress = FALSE;
 }
-
-static int InitialSessionDPI = 0;
-static BOOL DPIChangePromptShown = FALSE;
 
 static BOOL RegisterSessionNotification(HWND hWindow)
 {
@@ -3584,6 +3587,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         SHChangeNotifyInitialize(); // request receiving Shell Notifications
         InitialSessionDPI = GetCurrentSessionDPI();
+        MainWindowContentDPI = InitialSessionDPI;
         TraceDPIState("WM_CREATE", HWindow);
         RegisterSessionNotification(HWindow);
 
@@ -3896,9 +3900,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
             wParam == WTS_SESSION_UNLOCK)
             RefreshDPI(FALSE, GetCurrentSessionDPI());
-        if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
-            wParam == WTS_SESSION_UNLOCK)
-            ShowDPIChangePrompt(HWindow);
+        PromptIfSessionDPIChanged(HWindow);
         return 0;
     }
 
