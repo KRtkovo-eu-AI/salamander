@@ -1438,15 +1438,38 @@ int CMainWindow::GetUnassignedHotPathIndex()
     return HotPaths.GetUnassignedHotPathIndex();
 }
 
+static BOOL SystemParametersInfoForCurrentDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
+{
+    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
+    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
+    static BOOL systemParametersInfoForDpiLoaded = FALSE;
+
+    if (!systemParametersInfoForDpiLoaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
+        systemParametersInfoForDpiLoaded = TRUE;
+    }
+
+    if (systemParametersInfoForDpi != NULL)
+    {
+        if (systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, GetSystemDPI()))
+            return TRUE;
+    }
+
+    return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
+}
+
 // font for our GUI (the panel font can be defined in the configuration)
 BOOL GetSystemGUIFont(LOGFONT* lf)
 {
-    if (!SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), lf, 0))
+    if (!SystemParametersInfoForCurrentDPI(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), lf, 0))
     {
         // if SystemParametersInfo fails unexpectedly, use a fallback
         NONCLIENTMETRICS ncm;
         ncm.cbSize = sizeof(ncm);
-        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+        SystemParametersInfoForCurrentDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
         *lf = ncm.lfMessageFont;
         lf->lfWeight = FW_NORMAL;
     }
@@ -1458,7 +1481,7 @@ BOOL GetSystemTooltipFont(LOGFONT* lf)
 {
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
-    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    SystemParametersInfoForCurrentDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
     *lf = ncm.lfStatusFont;
     return TRUE;
 }
