@@ -2105,7 +2105,7 @@ public:
     // Creates toolbar bitmaps from a bitmap resource and optionally overlays SVG icons loaded from toolbars/*.svg.
     virtual BOOL WINAPI CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
                                              HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
-                                             const CSVGIcon* svgIcons, int svgIconsCount);
+                                             const CSVGIcon* svgIcons, int svgIconsCount) = 0;
     virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize) = 0;
 
     ///////////////////////////////////////////////////////////////////////////
