@@ -3474,6 +3474,8 @@ static void RestoreThreadDPIAwarenessAfterRefresh(HANDLE oldContext)
 
 static BOOL DPIRefreshInProgress = FALSE;
 static BOOL DPIRefreshPosted = FALSE;
+static BOOL DPIRefreshDeferredForSizeMove = FALSE;
+static BOOL DPIInSizeMove = FALSE;
 static int PendingDPI = 0;
 static BOOL PendingDPIWindowRectApplied = FALSE;
 static BOOL DPIWindowRectAlreadyApplied = FALSE;
@@ -3959,6 +3961,24 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         break;
     }
 
+    case WM_ENTERSIZEMOVE:
+    {
+        DPIInSizeMove = TRUE;
+        break;
+    }
+
+    case WM_EXITSIZEMOVE:
+    {
+        DPIInSizeMove = FALSE;
+        if (DPIRefreshDeferredForSizeMove && PendingDPI > 0 && !DPIRefreshPosted)
+        {
+            DPIRefreshPosted = TRUE;
+            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
+        }
+        DPIRefreshDeferredForSizeMove = FALSE;
+        break;
+    }
+
     case WM_DPICHANGED:
     {
         int dpi = HIWORD(wParam);
@@ -3972,7 +3992,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
         PendingDPI = dpi;
         PendingDPIWindowRectApplied = lParam != 0;
-        if (!DPIRefreshPosted)
+        if (DPIInSizeMove)
+        {
+            DPIRefreshDeferredForSizeMove = TRUE;
+        }
+        else if (!DPIRefreshPosted)
         {
             DPIRefreshPosted = TRUE;
             PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)dpi, 0);
