@@ -2283,6 +2283,13 @@ BOOL InitializeConstGraphics()
     ncm.cbSize = sizeof(ncm);
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
     LogFont = ncm.lfStatusFont;
+    if (LogFont.lfHeight != 0)
+    {
+        int expected = MulDiv(12, GetSystemDPI(), 96);
+        int height = abs(LogFont.lfHeight);
+        if (height < expected - 1 || height > expected + 2)
+            LogFont.lfHeight = LogFont.lfHeight < 0 ? -expected : expected;
+    }
     /*
   LogFont.lfHeight = -10;
   LogFont.lfWidth = 0;

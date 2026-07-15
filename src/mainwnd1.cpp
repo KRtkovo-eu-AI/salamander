@@ -1446,11 +1446,9 @@ static void ScaleSmallLogFontForCurrentDPI(LOGFONT* lf)
         return;
 
     int height = abs(lf->lfHeight);
-    if (height <= 14)
-    {
-        int scaled = MulDiv(height, dpi, 96);
-        lf->lfHeight = lf->lfHeight < 0 ? -scaled : scaled;
-    }
+    int expected = MulDiv(12, dpi, 96);
+    if (height < expected - 1 || height > expected + 2)
+        lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
 }
 
 static BOOL SystemParametersInfoForCurrentDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
