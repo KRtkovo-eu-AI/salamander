@@ -18,6 +18,11 @@
 #include <unordered_set>
 #include <vector>
 
+#define NANOSVG_IMPLEMENTATION
+#include "../../common/dep/nanosvg/nanosvg.h"
+#define NANOSVGRAST_IMPLEMENTATION
+#include "../../common/dep/nanosvg/nanosvgrast.h"
+
 // objekt interfacu pluginu, jeho metody se volaji ze Salamandera
 CPluginInterface PluginInterface;
 // cast interfacu CPluginInterface pro viewer
@@ -347,102 +352,101 @@ static bool HasSvgExtension(const char* filename)
     return extension != NULL && _stricmp(extension, ".svg") == 0;
 }
 
-static bool CreateTemporaryThumbnailPath(std::wstring& tempFile)
+static bool ReadSvgFile(const char* filename, std::vector<char>& svgData)
 {
-    tempFile.clear();
+    svgData.clear();
 
-    DWORD required = GetTempPathW(0, NULL);
-    if (required == 0)
+    std::wstring path = MakeLongPath(ConvertPathToWide(filename));
+    if (path.empty())
         return false;
 
-    std::vector<wchar_t> tempPath(static_cast<size_t>(required) + 1);
-    DWORD copied = GetTempPathW(static_cast<DWORD>(tempPath.size()), tempPath.data());
-    if (copied == 0 || copied >= tempPath.size())
-        return false;
-
-    std::wstring basePath(tempPath.data(), copied);
-    if (!basePath.empty() && basePath.back() != L'\\' && basePath.back() != L'/')
-        basePath.push_back(L'\\');
-
-    for (DWORD attempt = 0; attempt < 100; ++attempt)
-    {
-        wchar_t name[64];
-        swprintf_s(name, L"w2thumb-%lu-%lu-%llu-%lu.raw",
-                   GetCurrentProcessId(), GetCurrentThreadId(), GetTickCount64(), attempt);
-
-        std::wstring candidate = basePath + name;
-        HANDLE file = CreateFileW(candidate.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW,
-                                  FILE_ATTRIBUTE_TEMPORARY | FILE_ATTRIBUTE_NOT_CONTENT_INDEXED, NULL);
-        if (file != INVALID_HANDLE_VALUE)
-        {
-            CloseHandle(file);
-            tempFile = candidate;
-            return true;
-        }
-
-        DWORD error = GetLastError();
-        if (error != ERROR_FILE_EXISTS && error != ERROR_ALREADY_EXISTS)
-            return false;
-    }
-
-    return false;
-}
-
-static bool ReadExact(HANDLE file, void* buffer, DWORD bytes)
-{
-    BYTE* out = static_cast<BYTE*>(buffer);
-    DWORD remaining = bytes;
-    while (remaining > 0)
-    {
-        DWORD read = 0;
-        if (!ReadFile(file, out, remaining, &read, NULL) || read == 0)
-            return false;
-
-        out += read;
-        remaining -= read;
-    }
-
-    return true;
-}
-
-static bool FeedRenderedThumbnailToMaker(const wchar_t* thumbnailPath, CSalamanderThumbnailMakerAbstract* thumbMaker)
-{
-    HANDLE file = CreateFileW(thumbnailPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
                               FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     if (file == INVALID_HANDLE_VALUE)
         return false;
 
-    DWORD header[2];
-    bool ok = ReadExact(file, header, sizeof(header));
-    DWORD width = header[0];
-    DWORD height = header[1];
-    if (ok && (width == 0 || height == 0 || width > 4096 || height > 4096))
-        ok = false;
-
-    std::vector<DWORD> pixels;
+    LARGE_INTEGER size;
+    bool ok = GetFileSizeEx(file, &size) != FALSE && size.QuadPart > 0 &&
+              static_cast<ULONGLONG>(size.QuadPart) <= kMaxDocumentFileSize;
     if (ok)
     {
-        const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
-        if (pixelCount > (static_cast<size_t>(-1) / sizeof(DWORD)))
-        {
-            ok = false;
-        }
-        else
-        {
-            pixels.resize(pixelCount);
-            ok = ReadExact(file, pixels.data(), static_cast<DWORD>(pixelCount * sizeof(DWORD))) != false;
-        }
+        svgData.resize(static_cast<size_t>(size.QuadPart) + 1);
+        DWORD read = 0;
+        ok = ReadFile(file, svgData.data(), static_cast<DWORD>(size.QuadPart), &read, NULL) != FALSE &&
+             read == static_cast<DWORD>(size.QuadPart);
+        if (ok)
+            svgData[static_cast<size_t>(size.QuadPart)] = '\0';
     }
 
     CloseHandle(file);
-
     if (!ok)
+        svgData.clear();
+    return ok;
+}
+
+static bool RenderSvgThumbnail(const char* filename, int thumbWidth, int thumbHeight,
+                               CSalamanderThumbnailMakerAbstract* thumbMaker)
+{
+    if (thumbWidth <= 0 || thumbHeight <= 0)
         return false;
 
-    if (!thumbMaker->SetParameters(static_cast<int>(width), static_cast<int>(height), 0))
+    std::vector<char> svgData;
+    if (!ReadSvgFile(filename, svgData))
         return false;
 
-    return thumbMaker->ProcessBuffer(pixels.data(), static_cast<int>(height)) != FALSE;
+    NSVGimage* image = nsvgParse(svgData.data(), "px", 96.0f);
+    if (image == NULL || image->width <= 0.0f || image->height <= 0.0f)
+    {
+        if (image != NULL)
+            nsvgDelete(image);
+        return false;
+    }
+
+    NSVGrasterizer* rasterizer = nsvgCreateRasterizer();
+    if (rasterizer == NULL)
+    {
+        nsvgDelete(image);
+        return false;
+    }
+
+    const float scaleX = static_cast<float>(thumbWidth) / image->width;
+    const float scaleY = static_cast<float>(thumbHeight) / image->height;
+    const float scale = scaleX < scaleY ? scaleX : scaleY;
+    const float tx = (static_cast<float>(thumbWidth) - image->width * scale) * 0.5f;
+    const float ty = (static_cast<float>(thumbHeight) - image->height * scale) * 0.5f;
+
+    const size_t pixelCount = static_cast<size_t>(thumbWidth) * static_cast<size_t>(thumbHeight);
+    if (pixelCount > (static_cast<size_t>(-1) / 4))
+    {
+        nsvgDeleteRasterizer(rasterizer);
+        nsvgDelete(image);
+        return false;
+    }
+
+    std::vector<unsigned char> rgba(pixelCount * 4, 0);
+    nsvgRasterize(rasterizer, image, tx, ty, scale, rgba.data(), thumbWidth, thumbHeight, thumbWidth * 4);
+
+    nsvgDeleteRasterizer(rasterizer);
+    nsvgDelete(image);
+
+    std::vector<DWORD> dibPixels(pixelCount);
+    for (size_t i = 0; i < pixelCount; ++i)
+    {
+        const unsigned char r = rgba[i * 4];
+        const unsigned char g = rgba[i * 4 + 1];
+        const unsigned char b = rgba[i * 4 + 2];
+        const unsigned char a = rgba[i * 4 + 3];
+
+        const unsigned char outR = static_cast<unsigned char>((r * a + 255 * (255 - a)) / 255);
+        const unsigned char outG = static_cast<unsigned char>((g * a + 255 * (255 - a)) / 255);
+        const unsigned char outB = static_cast<unsigned char>((b * a + 255 * (255 - a)) / 255);
+        dibPixels[i] = static_cast<DWORD>(outB) | (static_cast<DWORD>(outG) << 8) | (static_cast<DWORD>(outR) << 16);
+    }
+
+    if (!thumbMaker->SetParameters(thumbWidth, thumbHeight, 0))
+        return false;
+
+    return thumbMaker->ProcessBuffer(dibPixels.data(), thumbHeight) != FALSE;
 }
 
 BOOL WINAPI CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename, int thumbWidth, int thumbHeight,
@@ -458,21 +462,7 @@ BOOL WINAPI CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename, 
     if (thumbMaker == NULL || thumbMaker->GetCancelProcessing())
         return TRUE;
 
-    std::wstring tempFile;
-    if (!CreateTemporaryThumbnailPath(tempFile))
-    {
-        thumbMaker->SetError();
-        return TRUE;
-    }
-
-    bool rendered = ManagedBridge_RenderThumbnail(NULL, filename, thumbWidth, thumbHeight, tempFile.c_str());
-    bool loaded = false;
-    if (rendered && !thumbMaker->GetCancelProcessing())
-        loaded = FeedRenderedThumbnailToMaker(tempFile.c_str(), thumbMaker);
-
-    DeleteFileW(tempFile.c_str());
-
-    if (!rendered || !loaded)
+    if (!RenderSvgThumbnail(filename, thumbWidth, thumbHeight, thumbMaker))
         thumbMaker->SetError();
 
     return TRUE;

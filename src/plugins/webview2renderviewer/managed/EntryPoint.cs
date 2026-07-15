@@ -37,7 +37,6 @@ public static class EntryPoint
             {
                 "View" => ViewerHost.Launch(parent, payload, asynchronous: true),
                 "ViewSync" => ViewerHost.Launch(parent, payload, asynchronous: false),
-                "Thumbnail" => ThumbnailHost.Render(payload),
                 "Release" => ViewerHost.ReleaseSessions(ShouldForceRelease(payload)),
                 _ => 1,
             };
