@@ -1438,60 +1438,18 @@ int CMainWindow::GetUnassignedHotPathIndex()
     return HotPaths.GetUnassignedHotPathIndex();
 }
 
-static BOOL SystemParametersInfoForCurrentDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
-{
-    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
-    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
-    static BOOL systemParametersInfoForDpiLoaded = FALSE;
-
-    if (!systemParametersInfoForDpiLoaded)
-    {
-        HMODULE user32 = GetModuleHandle("user32.dll");
-        if (user32 != NULL)
-            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
-        systemParametersInfoForDpiLoaded = TRUE;
-    }
-
-    if (systemParametersInfoForDpi != NULL)
-    {
-        if (systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, GetSystemDPI()))
-            return TRUE;
-    }
-
-    return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
-}
-
-static void ScaleLogFontForCurrentDPIIfNeeded(LOGFONT* lf)
-{
-    if (lf == NULL || lf->lfHeight == 0)
-        return;
-
-    int dpi = GetSystemDPI();
-    if (dpi < 144)
-        return;
-
-    int height = abs(lf->lfHeight);
-    // If Windows returned metrics from the old 96-DPI session, their pixel height
-    // remains small.  Scale those fonts explicitly so all owner-drawn controls
-    // rebuild with the current session DPI.  If SystemParametersInfoForDpi already
-    // returned a DPI-scaled font, the height will be above this threshold.
-    if (height <= 16)
-        lf->lfHeight = MulDiv(lf->lfHeight, dpi, 96);
-}
-
 // font for our GUI (the panel font can be defined in the configuration)
 BOOL GetSystemGUIFont(LOGFONT* lf)
 {
-    if (!SystemParametersInfoForCurrentDPI(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), lf, 0))
+    if (!SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), lf, 0))
     {
         // if SystemParametersInfo fails unexpectedly, use a fallback
         NONCLIENTMETRICS ncm;
         ncm.cbSize = sizeof(ncm);
-        SystemParametersInfoForCurrentDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
         *lf = ncm.lfMessageFont;
         lf->lfWeight = FW_NORMAL;
     }
-    ScaleLogFontForCurrentDPIIfNeeded(lf);
     return TRUE;
 }
 
@@ -1500,9 +1458,8 @@ BOOL GetSystemTooltipFont(LOGFONT* lf)
 {
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
-    SystemParametersInfoForCurrentDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
     *lf = ncm.lfStatusFont;
-    ScaleLogFontForCurrentDPIIfNeeded(lf);
     return TRUE;
 }
 
@@ -1515,10 +1472,7 @@ BOOL CreatePanelFont()
 
     LOGFONT lf;
     if (UseCustomPanelFont)
-    {
         lf = LogFont; // the user set a custom font
-        ScaleLogFontForCurrentDPIIfNeeded(&lf);
-    }
     else
         GetSystemGUIFont(&lf); // get the font from the system
 

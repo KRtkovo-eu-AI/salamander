@@ -35,19 +35,6 @@
 #include "cache.h"
 #include "gui.h"
 #include <uxtheme.h>
-
-#ifndef WM_DPICHANGED
-#define WM_DPICHANGED 0x02E0
-#endif
-
-#ifndef WM_WTSSESSION_CHANGE
-#define WM_WTSSESSION_CHANGE 0x02B1
-#endif
-
-#ifndef NOTIFY_FOR_THIS_SESSION
-#define NOTIFY_FOR_THIS_SESSION 0
-#endif
-
 #include "zip.h"
 #include "tasklist.h"
 #include "jumplist.h"
@@ -3430,87 +3417,6 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
-static BOOL RegisterSessionNotification(HWND hWindow)
-{
-    typedef BOOL(WINAPI * FWTSRegisterSessionNotification)(HWND hWnd, DWORD dwFlags);
-    HMODULE wtsapi32 = LoadLibrary("wtsapi32.dll");
-    if (wtsapi32 == NULL)
-        return FALSE;
-
-    FWTSRegisterSessionNotification registerSessionNotification =
-        (FWTSRegisterSessionNotification)GetProcAddress(wtsapi32, "WTSRegisterSessionNotification");
-    if (registerSessionNotification == NULL)
-        return FALSE;
-
-    return registerSessionNotification(hWindow, NOTIFY_FOR_THIS_SESSION);
-}
-
-static void UnregisterSessionNotification(HWND hWindow)
-{
-    typedef BOOL(WINAPI * FWTSUnRegisterSessionNotification)(HWND hWnd);
-    HMODULE wtsapi32 = GetModuleHandle("wtsapi32.dll");
-    if (wtsapi32 == NULL)
-        return;
-
-    FWTSUnRegisterSessionNotification unregisterSessionNotification =
-        (FWTSUnRegisterSessionNotification)GetProcAddress(wtsapi32, "WTSUnRegisterSessionNotification");
-    if (unregisterSessionNotification != NULL)
-        unregisterSessionNotification(hWindow);
-}
-
-void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
-{
-    int oldDPI = GetSystemDPI();
-    int newDPI;
-    if (dpi > 0)
-    {
-        SetSystemDPI(dpi);
-        newDPI = dpi;
-    }
-    else
-    {
-        newDPI = UpdateSystemDPIForWindow(HWindow);
-    }
-
-    if (!force && newDPI == oldDPI)
-        return;
-
-    if (suggestedRect != NULL)
-    {
-        SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
-                     suggestedRect->right - suggestedRect->left,
-                     suggestedRect->bottom - suggestedRect->top,
-                     SWP_NOACTIVATE | SWP_NOZORDER);
-    }
-    else if (oldDPI > 0 && newDPI > 0 && oldDPI != newDPI)
-    {
-        RECT windowRect;
-        if (GetWindowRect(HWindow, &windowRect))
-        {
-            int width = windowRect.right - windowRect.left;
-            int height = windowRect.bottom - windowRect.top;
-            SetWindowPos(HWindow, NULL, windowRect.left, windowRect.top,
-                         MulDiv(width, newDPI, oldDPI), MulDiv(height, newDPI, oldDPI),
-                         SWP_NOACTIVATE | SWP_NOZORDER);
-        }
-    }
-
-    if (LeftPanel == NULL || RightPanel == NULL)
-        return;
-
-    ColorsChanged(TRUE, FALSE, TRUE);
-    SetFont();
-    SetEnvFont();
-    GetShortcutOverlay();
-
-    LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
-    RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
-    RefreshDiskFreeSpace();
-    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
-    Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
-}
-
-
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -3522,7 +3428,6 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SHChangeNotifyInitialize(); // request receiving Shell Notifications
 
         SetTimer(HWindow, IDT_ADDNEWMODULES, 15000, NULL); // timer after 15 seconds for AddNewlyLoadedModulesToGlobalModulesStore()
-        RegisterSessionNotification(HWindow);
 
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
@@ -3811,25 +3716,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         break;
     }
 
-    case WM_DPICHANGED:
-    {
-        RefreshDPI(TRUE, HIWORD(wParam), lParam != 0 ? reinterpret_cast<const RECT*>(lParam) : NULL);
-        return 0;
-    }
-
-    case WM_DISPLAYCHANGE:
-    {
-        RefreshDPI(FALSE);
-        return 0;
-    }
-
-    case WM_WTSSESSION_CHANGE:
-    {
-        RefreshDPI(TRUE);
-        SetTimer(HWindow, IDT_DPI_REFRESH, 250, NULL);
-        return 0;
-    }
-
     case WM_SETTINGCHANGE:
     {
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
@@ -3868,8 +3754,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         // unknown change, rebuild everything
-
-        RefreshDPI(FALSE);
 
         GotMouseWheelScrollLines = FALSE; // reload number of lines for wheel scrolling
         InitLocales();
@@ -9665,13 +9549,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
-        case IDT_DPI_REFRESH:
-        {
-            KillTimer(HWindow, IDT_DPI_REFRESH);
-            RefreshDPI(TRUE);
-            break;
-        }
-
         default:
         {
             TRACE_E("Unknown WM_TIMER wParam=" << wParam);
@@ -9754,9 +9631,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         //      {
         if (wParam == TRUE) // activating the app
         {
-            RefreshDPI(FALSE);
-            SetTimer(HWindow, IDT_DPI_REFRESH, 250, NULL);
-
             if (!LeftPanel->DontClearNextFocusName)
                 LeftPanel->NextFocusName[0] = 0;
             else
@@ -10692,8 +10566,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             while (1)
                 Sleep(1000);
         }
-
-        UnregisterSessionNotification(HWindow);
 
         // notify the task list that we are exiting
         TaskList.SetProcessState(PROCESS_STATE_ENDING, NULL);

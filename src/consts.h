@@ -1789,7 +1789,6 @@ DWORD CfgSkillLevelToMenu(BYTE cfgSkillLevel);
 #define IDT_THROBBER 949
 #define IDT_DELAYEDTHROBBER 950
 #define IDT_UPDATETASKLIST 951
-#define IDT_DPI_REFRESH 952
 
 // POZOR: skoro vsechny funkce v teto sekci pri chybe zobrazuji hlaseni o LOAD / SAVE
 //        konfigurace, coz z nich dela nevhodne pro bezny pristup do Registry,
@@ -2520,12 +2519,6 @@ int GetIconSizeForSystemDPI(CIconSizeEnum iconSize);
 
 // vraci aktualni systemove DPI (96, 120, 144, ...)
 int GetSystemDPI();
-
-// nastavi aktualni DPI, napr. po WM_DPICHANGED
-void SetSystemDPI(int dpi);
-
-// aktualizuje DPI podle okna/monitoru; vraci aktualni DPI
-int UpdateSystemDPIForWindow(HWND hWindow);
 
 // vraci scale odpovidajici aktualnimu DPI; misto 1.0 vraci 100, pro 1.25 vraci 125, atd
 int GetScaleForSystemDPI();

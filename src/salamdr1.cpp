@@ -2574,116 +2574,6 @@ int GetSystemDPI()
     }
 }
 
-void GetSystemDPI(HDC hDC);
-
-void SetSystemDPI(int dpi)
-{
-    if (dpi <= 0)
-    {
-        TRACE_E("SetSystemDPI() invalid dpi=" << dpi);
-        return;
-    }
-    SystemDPI = dpi;
-}
-
-static BOOL GetDPIFromRegistry(int* dpi)
-{
-    if (dpi == NULL)
-        return FALSE;
-
-    HKEY hKey;
-    if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Desktop\\WindowMetrics", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
-    {
-        DWORD value = 0;
-        DWORD type = 0;
-        DWORD size = sizeof(value);
-        LONG res = RegQueryValueEx(hKey, "AppliedDPI", NULL, &type, (LPBYTE)&value, &size);
-        RegCloseKey(hKey);
-        if (res == ERROR_SUCCESS && type == REG_DWORD && value >= 48 && value <= 960)
-        {
-            *dpi = (int)value;
-            return TRUE;
-        }
-    }
-
-    if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
-    {
-        DWORD value = 0;
-        DWORD type = 0;
-        DWORD size = sizeof(value);
-        LONG res = RegQueryValueEx(hKey, "LogPixels", NULL, &type, (LPBYTE)&value, &size);
-        RegCloseKey(hKey);
-        if (res == ERROR_SUCCESS && type == REG_DWORD && value >= 48 && value <= 960)
-        {
-            *dpi = (int)value;
-            return TRUE;
-        }
-    }
-
-    return FALSE;
-}
-
-int UpdateSystemDPIForWindow(HWND hWindow)
-{
-    typedef UINT(WINAPI * FGetDpiForSystem)();
-    typedef UINT(WINAPI * FGetDpiForWindow)(HWND hwnd);
-    static FGetDpiForSystem getDpiForSystem = NULL;
-    static FGetDpiForWindow getDpiForWindow = NULL;
-    static BOOL dpiFunctionsLoaded = FALSE;
-
-    if (!dpiFunctionsLoaded)
-    {
-        HMODULE user32 = GetModuleHandle("user32.dll");
-        if (user32 != NULL)
-        {
-            getDpiForSystem = (FGetDpiForSystem)GetProcAddress(user32, "GetDpiForSystem");
-            getDpiForWindow = (FGetDpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
-        }
-        dpiFunctionsLoaded = TRUE;
-    }
-
-    // Salamander still uses one global DPI value.  Prefer the current session/system
-    // DPI so reconnecting an RDP/session at a different scale can update already
-    // existing windows even if GetDpiForWindow() keeps returning the DPI from the
-    // time the window was created.  The WindowMetrics value is the one changed by
-    // Windows when the session scale changes, so try it before window-bound APIs.
-    int registryDPI = 0;
-    if (GetDPIFromRegistry(&registryDPI))
-    {
-        SetSystemDPI(registryDPI);
-        return SystemDPI;
-    }
-
-    if (getDpiForSystem != NULL)
-    {
-        UINT dpi = getDpiForSystem();
-        if (dpi != 0)
-        {
-            SetSystemDPI((int)dpi);
-            return SystemDPI;
-        }
-    }
-
-    if (getDpiForWindow != NULL && hWindow != NULL)
-    {
-        UINT dpi = getDpiForWindow(hWindow);
-        if (dpi != 0)
-        {
-            SetSystemDPI((int)dpi);
-            return SystemDPI;
-        }
-    }
-
-    HDC hDC = GetDC(NULL);
-    if (hDC != NULL)
-    {
-        GetSystemDPI(hDC);
-        ReleaseDC(NULL, hDC);
-    }
-
-    return GetSystemDPI();
-}
-
 int GetScaleForSystemDPI()
 {
     int dpi = GetSystemDPI();
@@ -2781,11 +2671,10 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     // Vytahneme z Registry pozadovanou barevnou hloubku ikonek
     //
     int iconColorsCount = 0;
-    HWND hDPIWindow = MainWindow != NULL ? MainWindow->HWindow : NULL;
-    HDC hDesktopDC = GetDC(hDPIWindow);
+    HDC hDesktopDC = GetDC(NULL);
     int bpp = GetCurrentBPP(hDesktopDC);
-    ReleaseDC(hDPIWindow, hDesktopDC);
-    UpdateSystemDPIForWindow(hDPIWindow);
+    GetSystemDPI(hDesktopDC);
+    ReleaseDC(NULL, hDesktopDC);
 
     IconSizes[ICONSIZE_16] = GetIconSizeForSystemDPI(ICONSIZE_16);
     IconSizes[ICONSIZE_32] = GetIconSizeForSystemDPI(ICONSIZE_32);
@@ -4382,37 +4271,8 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
     return TRUE;
 }
 
-void InitializeDPIAwareness()
-{
-    typedef BOOL(WINAPI * FSetProcessDpiAwarenessContext)(HANDLE value);
-    typedef BOOL(WINAPI * FSetProcessDPIAware)();
-
-    HMODULE user32 = GetModuleHandle("user32.dll");
-    if (user32 == NULL)
-        return;
-
-    FSetProcessDpiAwarenessContext setProcessDpiAwarenessContext =
-        (FSetProcessDpiAwarenessContext)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
-    if (setProcessDpiAwarenessContext != NULL)
-    {
-        // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, not present in older SDKs.
-        if (setProcessDpiAwarenessContext((HANDLE)-4))
-            return;
-        // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE.
-        if (setProcessDpiAwarenessContext((HANDLE)-3))
-            return;
-    }
-
-    FSetProcessDPIAware setProcessDPIAware =
-        (FSetProcessDPIAware)GetProcAddress(user32, "SetProcessDPIAware");
-    if (setProcessDPIAware != NULL)
-        setProcessDPIAware();
-}
-
 int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine, int cmdShow)
 {
-    InitializeDPIAwareness();
-
     int myExitCode = 1;
 
     //--- nechci zadne kriticke chyby jako "no disk in drive A:"
