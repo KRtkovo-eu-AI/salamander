@@ -38,6 +38,7 @@
 
   const fullPageTranslations = {
   "cs": {
+    "Original Salamander DNA with modern energy": "Původní DNA Salamanderu s moderní energií",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Přejít na obsah",
     "Open Salamander": "Open Salamander",
@@ -175,6 +176,7 @@
     "use different but compatible licenses.": "používat různé, ale kompatibilní licence."
   },
   "nl": {
+    "Original Salamander DNA with modern energy": "Origineel Salamander-DNA met moderne energie",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Ga naar de inhoud",
     "Open Salamander": "Open Salamander",
@@ -312,6 +314,7 @@
     "use different but compatible licenses.": "gebruik verschillende maar compatibele licenties."
   },
   "fr": {
+    "Original Salamander DNA with modern energy": "ADN Salamander original avec une énergie moderne",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Passer au contenu",
     "Open Salamander": "Open Salamander",
@@ -449,6 +452,7 @@
     "use different but compatible licenses.": "utilisez des licences différentes mais compatibles."
   },
   "de": {
+    "Original Salamander DNA with modern energy": "Originale Salamander-DNA mit moderner Energie",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Zum Inhalt springen",
     "Open Salamander": "Open Salamander",
@@ -586,6 +590,7 @@
     "use different but compatible licenses.": "Verwenden Sie unterschiedliche, aber kompatible Lizenzen."
   },
   "hu": {
+    "Original Salamander DNA with modern energy": "Eredeti Salamander DNS modern energiával",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Ugrás a tartalomhoz",
     "Open Salamander": "Open Salamander",
@@ -723,6 +728,7 @@
     "use different but compatible licenses.": "különböző, de kompatibilis licenceket használjon."
   },
   "zhHans": {
+    "Original Salamander DNA with modern energy": "原始 Salamander DNA，注入现代活力",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "跳至内容",
     "Open Salamander": "Open Salamander",
@@ -860,6 +866,7 @@
     "use different but compatible licenses.": "使用不同但兼容的许可证。"
   },
   "ro": {
+    "Original Salamander DNA with modern energy": "ADN-ul original Salamander cu energie modernă",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Treci la conținut",
     "Open Salamander": "Open Salamander",
@@ -997,6 +1004,7 @@
     "use different but compatible licenses.": "utilizați licențe diferite, dar compatibile."
   },
   "ru": {
+    "Original Salamander DNA with modern energy": "Оригинальная ДНК Salamander с современной энергией",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Перейти к содержимому",
     "Open Salamander": "Open Salamander",
@@ -1134,6 +1142,7 @@
     "use different but compatible licenses.": "используйте разные, но совместимые лицензии."
   },
   "sk": {
+    "Original Salamander DNA with modern energy": "Pôvodná DNA Salamandera s modernou energiou",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Preskočiť na obsah",
     "Open Salamander": "Open Salamander",
@@ -1271,6 +1280,7 @@
     "use different but compatible licenses.": "používať rôzne, ale kompatibilné licencie."
   },
   "es": {
+    "Original Salamander DNA with modern energy": "ADN original de Salamander con energía moderna",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Saltar al contenido",
     "Open Salamander": "Open Salamander",
