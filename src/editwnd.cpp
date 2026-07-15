@@ -1868,8 +1868,7 @@ CEditWindow::CEditWindow()
     SetUnicodeWindow(TRUE);
 #endif // _UNICODE
     EditLine = new CEditLine();
-    if (EditLine != NULL)
-        EditLine->SetEditWindow(this);
+    EditLine->SetEditWindow(this);
     Text = new CInnerText(this);
     LastText = NULL;
     Enabled = TRUE;
