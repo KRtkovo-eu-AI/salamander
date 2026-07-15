@@ -40,6 +40,14 @@
 #define WM_DPICHANGED 0x02E0
 #endif
 
+#ifndef WM_WTSSESSION_CHANGE
+#define WM_WTSSESSION_CHANGE 0x02B1
+#endif
+
+#ifndef NOTIFY_FOR_THIS_SESSION
+#define NOTIFY_FOR_THIS_SESSION 0
+#endif
+
 #include "zip.h"
 #include "tasklist.h"
 #include "jumplist.h"
@@ -3422,6 +3430,34 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+static BOOL RegisterSessionNotification(HWND hWindow)
+{
+    typedef BOOL(WINAPI * FWTSRegisterSessionNotification)(HWND hWnd, DWORD dwFlags);
+    HMODULE wtsapi32 = LoadLibrary("wtsapi32.dll");
+    if (wtsapi32 == NULL)
+        return FALSE;
+
+    FWTSRegisterSessionNotification registerSessionNotification =
+        (FWTSRegisterSessionNotification)GetProcAddress(wtsapi32, "WTSRegisterSessionNotification");
+    if (registerSessionNotification == NULL)
+        return FALSE;
+
+    return registerSessionNotification(hWindow, NOTIFY_FOR_THIS_SESSION);
+}
+
+static void UnregisterSessionNotification(HWND hWindow)
+{
+    typedef BOOL(WINAPI * FWTSUnRegisterSessionNotification)(HWND hWnd);
+    HMODULE wtsapi32 = GetModuleHandle("wtsapi32.dll");
+    if (wtsapi32 == NULL)
+        return;
+
+    FWTSUnRegisterSessionNotification unregisterSessionNotification =
+        (FWTSUnRegisterSessionNotification)GetProcAddress(wtsapi32, "WTSUnRegisterSessionNotification");
+    if (unregisterSessionNotification != NULL)
+        unregisterSessionNotification(hWindow);
+}
+
 void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
 {
     int oldDPI = GetSystemDPI();
@@ -3486,6 +3522,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SHChangeNotifyInitialize(); // request receiving Shell Notifications
 
         SetTimer(HWindow, IDT_ADDNEWMODULES, 15000, NULL); // timer after 15 seconds for AddNewlyLoadedModulesToGlobalModulesStore()
+        RegisterSessionNotification(HWindow);
 
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
@@ -3783,6 +3820,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_DISPLAYCHANGE:
     {
         RefreshDPI(FALSE);
+        return 0;
+    }
+
+    case WM_WTSSESSION_CHANGE:
+    {
+        RefreshDPI(TRUE);
+        SetTimer(HWindow, IDT_DPI_REFRESH, 250, NULL);
         return 0;
     }
 
@@ -9621,6 +9665,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
+        case IDT_DPI_REFRESH:
+        {
+            KillTimer(HWindow, IDT_DPI_REFRESH);
+            RefreshDPI(TRUE);
+            break;
+        }
+
         default:
         {
             TRACE_E("Unknown WM_TIMER wParam=" << wParam);
@@ -9704,6 +9755,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (wParam == TRUE) // activating the app
         {
             RefreshDPI(FALSE);
+            SetTimer(HWindow, IDT_DPI_REFRESH, 250, NULL);
 
             if (!LeftPanel->DontClearNextFocusName)
                 LeftPanel->NextFocusName[0] = 0;
@@ -10640,6 +10692,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             while (1)
                 Sleep(1000);
         }
+
+        UnregisterSessionNotification(HWindow);
 
         // notify the task list that we are exiting
         TaskList.SetProcessState(PROCESS_STATE_ENDING, NULL);

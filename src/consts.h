@@ -1789,6 +1789,7 @@ DWORD CfgSkillLevelToMenu(BYTE cfgSkillLevel);
 #define IDT_THROBBER 949
 #define IDT_DELAYEDTHROBBER 950
 #define IDT_UPDATETASKLIST 951
+#define IDT_DPI_REFRESH 952
 
 // POZOR: skoro vsechny funkce v teto sekci pri chybe zobrazuji hlaseni o LOAD / SAVE
 //        konfigurace, coz z nich dela nevhodne pro bezny pristup do Registry,
