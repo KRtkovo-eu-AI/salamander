@@ -3503,6 +3503,23 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     DPIRefreshInProgress = FALSE;
 }
 
+
+static void EnableNonClientDPIScalingIfAvailable(HWND hWindow)
+{
+    typedef BOOL(WINAPI * FEnableNonClientDpiScaling)(HWND hwnd);
+    static FEnableNonClientDpiScaling enableNonClientDpiScaling = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            enableNonClientDpiScaling = (FEnableNonClientDpiScaling)GetProcAddress(user32, "EnableNonClientDpiScaling");
+        loaded = TRUE;
+    }
+    if (enableNonClientDpiScaling != NULL)
+        enableNonClientDpiScaling(hWindow);
+}
+
 static BOOL RegisterSessionNotification(HWND hWindow)
 {
     typedef BOOL(WINAPI * FWTSRegisterSessionNotification)(HWND hWnd, DWORD dwFlags);
@@ -3583,6 +3600,12 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_NCCREATE:
+    {
+        EnableNonClientDPIScalingIfAvailable(HWindow);
+        break;
+    }
+
     case WM_CREATE:
     {
         SHChangeNotifyInitialize(); // request receiving Shell Notifications
