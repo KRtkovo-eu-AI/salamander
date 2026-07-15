@@ -43,6 +43,7 @@ namespace dmlib_subclass
 		ipAddress,
 		hotKey,
 		dtp,
+		treeViewPaint,
 		windowEraseBg,
 		windowCtlColor,
 		windowNotify,

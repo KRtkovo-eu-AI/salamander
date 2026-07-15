@@ -2093,6 +2093,7 @@ static void setTreeViewCtrlTheme(HWND hWnd, DarkModeParams p)
 		dmlib::setTreeViewWindowThemeEx(hWnd, p.m_theme);
 		dmlib::setDarkTreeViewCheckboxes(hWnd);
 		dmlib::setDarkTooltips(hWnd, static_cast<int>(dmlib::ToolTipsType::treeview));
+		dmlib_subclass::SetSubclass(hWnd, dmlib_subclass::TreeViewPaintSubclass, dmlib_subclass::SubclassID::treeViewPaint);
 	}
 }
 
