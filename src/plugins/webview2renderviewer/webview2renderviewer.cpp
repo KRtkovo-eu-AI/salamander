@@ -347,6 +347,47 @@ static bool HasSvgExtension(const char* filename)
     return extension != NULL && _stricmp(extension, ".svg") == 0;
 }
 
+static bool CreateTemporaryBitmapPath(std::wstring& tempFile)
+{
+    tempFile.clear();
+
+    DWORD required = GetTempPathW(0, NULL);
+    if (required == 0)
+        return false;
+
+    std::vector<wchar_t> tempPath(static_cast<size_t>(required) + 1);
+    DWORD copied = GetTempPathW(static_cast<DWORD>(tempPath.size()), tempPath.data());
+    if (copied == 0 || copied >= tempPath.size())
+        return false;
+
+    std::wstring basePath(tempPath.data(), copied);
+    if (!basePath.empty() && basePath.back() != L'\\' && basePath.back() != L'/')
+        basePath.push_back(L'\\');
+
+    for (DWORD attempt = 0; attempt < 100; ++attempt)
+    {
+        wchar_t name[64];
+        swprintf_s(name, L"w2thumb-%lu-%lu-%llu-%lu.bmp",
+                   GetCurrentProcessId(), GetCurrentThreadId(), GetTickCount64(), attempt);
+
+        std::wstring candidate = basePath + name;
+        HANDLE file = CreateFileW(candidate.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                                  FILE_ATTRIBUTE_TEMPORARY | FILE_ATTRIBUTE_NOT_CONTENT_INDEXED, NULL);
+        if (file != INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(file);
+            tempFile = candidate;
+            return true;
+        }
+
+        DWORD error = GetLastError();
+        if (error != ERROR_FILE_EXISTS && error != ERROR_ALREADY_EXISTS)
+            return false;
+    }
+
+    return false;
+}
+
 static bool FeedBitmapToThumbnailMaker(const wchar_t* bitmapPath, CSalamanderThumbnailMakerAbstract* thumbMaker)
 {
     HBITMAP bitmap = (HBITMAP)LoadImageW(NULL, bitmapPath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
@@ -378,21 +419,19 @@ BOOL WINAPI CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename, 
     if (thumbMaker == NULL || thumbMaker->GetCancelProcessing())
         return TRUE;
 
-    wchar_t tempPath[SAL_MAX_PATH];
-    wchar_t tempFile[SAL_MAX_PATH];
-    if (GetTempPathW(_countof(tempPath), tempPath) == 0 ||
-        GetTempFileNameW(tempPath, L"w2t", 0, tempFile) == 0)
+    std::wstring tempFile;
+    if (!CreateTemporaryBitmapPath(tempFile))
     {
         thumbMaker->SetError();
         return TRUE;
     }
 
-    bool rendered = ManagedBridge_RenderThumbnail(NULL, filename, thumbWidth, thumbHeight, tempFile);
+    bool rendered = ManagedBridge_RenderThumbnail(NULL, filename, thumbWidth, thumbHeight, tempFile.c_str());
     bool loaded = false;
     if (rendered && !thumbMaker->GetCancelProcessing())
-        loaded = FeedBitmapToThumbnailMaker(tempFile, thumbMaker);
+        loaded = FeedBitmapToThumbnailMaker(tempFile.c_str(), thumbMaker);
 
-    DeleteFileW(tempFile);
+    DeleteFileW(tempFile.c_str());
 
     if (!rendered || !loaded)
         thumbMaker->SetError();
