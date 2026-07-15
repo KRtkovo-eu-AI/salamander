@@ -3912,7 +3912,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_DISPLAYCHANGE:
     {
         TraceDPIState("WM_DISPLAYCHANGE", HWindow);
-        RefreshDPI(FALSE, GetCurrentSessionDPI());
+        RefreshDPI(FALSE, GetDPIForWindow(HWindow));
         PromptIfSessionDPIChanged(HWindow);
         break;
     }
@@ -3930,7 +3930,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_SETTINGCHANGE:
     {
         TraceDPIState("WM_SETTINGCHANGE", HWindow);
-        RefreshDPI(FALSE, GetCurrentSessionDPI());
+        RefreshDPI(FALSE, GetDPIForWindow(HWindow));
         PromptIfSessionDPIChanged(HWindow);
 
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
