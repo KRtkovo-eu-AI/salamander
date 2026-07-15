@@ -7,6 +7,7 @@
 struct NSVGrasterizer;
 struct NSVGimage;
 void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svgName, int iconSize, COLORREF bkColor, BOOL enabled);
+BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap);
 
 // returns SysColor in the format for the SVG library (BGR instead of Win32 RGB)
 DWORD GetSVGSysColor(int index);

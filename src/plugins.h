@@ -1818,6 +1818,7 @@ public:
     virtual BOOL WINAPI CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
                                              HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
                                              const CSVGIcon* svgIcons, int svgIconsCount);
+    virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize);
     virtual CGUIToolBarAbstract* WINAPI CreateToolBar(HWND hNotifyWindow);
     virtual BOOL WINAPI DestroyToolBar(CGUIToolBarAbstract* toolBar);
     virtual void WINAPI SetCurrentToolTip(HWND hNotifyWindow, DWORD id);

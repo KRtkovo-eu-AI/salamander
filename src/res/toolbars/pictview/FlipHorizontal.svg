@@ -3,25 +3,7 @@
 <svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
      width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
   <g id="Icon_1_">
-    <rect fill="#003399" x="6" y="3" width="1" height="1"/>
-    <rect fill="#3366FF" x="9" y="3" width="1" height="1"/>
-    <rect fill="#003399" x="6" y="4" width="1" height="1"/>
-    <rect fill="#3366FF" x="9" y="4" width="1" height="1"/>
-    <rect fill="#003399" x="5" y="5" width="2" height="1"/>
-    <rect fill="#3366FF" x="9" y="5" width="2" height="1"/>
-    <rect fill="#003399" x="5" y="6" width="2" height="1"/>
-    <rect fill="#3366FF" x="9" y="6" width="2" height="1"/>
-    <rect fill="#003399" x="4" y="7" width="3" height="1"/>
-    <rect fill="#3366FF" x="9" y="7" width="3" height="1"/>
-    <rect fill="#003399" x="4" y="8" width="3" height="1"/>
-    <rect fill="#3366FF" x="9" y="8" width="3" height="1"/>
-    <rect fill="#003399" x="3" y="9" width="4" height="1"/>
-    <rect fill="#3366FF" x="9" y="9" width="4" height="1"/>
-    <rect fill="#003399" x="3" y="10" width="4" height="1"/>
-    <rect fill="#3366FF" x="9" y="10" width="4" height="1"/>
-    <rect fill="#003399" x="2" y="11" width="5" height="1"/>
-    <rect fill="#3366FF" x="9" y="11" width="5" height="1"/>
-    <rect fill="#003399" x="2" y="12" width="5" height="1"/>
-    <rect fill="#3366FF" x="9" y="12" width="5" height="1"/>
+    <path fill="#2A5496" d="M1,8 L7,3 V7 H9 V3 L15,8 L9,13 V9 H7 V13 Z"/>
+    <rect fill="#414141" x="7" y="2" width="2" height="12"/> 
   </g>
 </svg>

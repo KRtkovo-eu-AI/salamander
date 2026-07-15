@@ -20,10 +20,18 @@
 CStatusBar::CStatusBar()
     : CWindow(ooAllocated)
 {
-    HCursor = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_CURSOR), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
-    HAnchor = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_ANCHOR), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
-    HSize = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_SIZE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
-    HPipette = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_PIPETTE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
+    HCursor = SalamanderGUI->CreateSVGIcon("pictview\\StatusCursor", 16);
+    if (HCursor == NULL)
+        HCursor = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_CURSOR), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
+    HAnchor = SalamanderGUI->CreateSVGIcon("pictview\\StatusAnchor", 16);
+    if (HAnchor == NULL)
+        HAnchor = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_ANCHOR), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
+    HSize = SalamanderGUI->CreateSVGIcon("pictview\\StatusSize", 16);
+    if (HSize == NULL)
+        HSize = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_SIZE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
+    HPipette = SalamanderGUI->CreateSVGIcon("pictview\\StatusPipette", 16);
+    if (HPipette == NULL)
+        HPipette = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_PIPETTE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
     hProgBar = NULL;
 }
 

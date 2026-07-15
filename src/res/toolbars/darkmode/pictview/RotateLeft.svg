@@ -3,28 +3,7 @@
 <svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
      width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
   <g id="Icon_1_">
-    <rect fill="#3D3DFF" x="9" y="1" width="1" height="1"/>
-    <rect fill="#3D3DFF" x="8" y="2" width="2" height="1"/>
-    <rect fill="#3D3DFF" x="7" y="3" width="5" height="1"/>
-    <rect fill="#3D6EFF" x="4" y="4" width="1" height="1"/>
-    <rect fill="#3D3DFF" x="8" y="4" width="2" height="1"/>
-    <rect fill="#3D3DFF" x="12" y="4" width="1" height="1"/>
-    <rect fill="#3D6EFF" x="4" y="5" width="1" height="1"/>
-    <rect fill="#3D3DFF" x="9" y="5" width="1" height="1"/>
-    <rect fill="#3D3DFF" x="13" y="5" width="1" height="1"/>
-    <rect fill="#3D6EFF" x="3" y="6" width="2" height="1"/>
-    <rect fill="#3D3DFF" x="13" y="6" width="1" height="1"/>
-    <rect fill="#3D6EFF" x="3" y="7" width="2" height="1"/>
-    <rect fill="#3D6EFF" x="2" y="8" width="3" height="1"/>
-    <rect fill="#3D6EFF" x="2" y="9" width="3" height="1"/>
-    <rect fill="#3D7EFF" x="6" y="9" width="2" height="1"/>
-    <rect fill="#3D6EFF" x="1" y="10" width="4" height="1"/>
-    <rect fill="#3D7EFF" x="6" y="10" width="4" height="1"/>
-    <rect fill="#3D6EFF" x="1" y="11" width="4" height="1"/>
-    <rect fill="#3D7EFF" x="6" y="11" width="6" height="1"/>
-    <rect fill="#3D6EFF" x="0" y="12" width="5" height="1"/>
-    <rect fill="#3D7EFF" x="6" y="12" width="8" height="1"/>
-    <rect fill="#3D6EFF" x="0" y="13" width="5" height="1"/>
-    <rect fill="#3D7EFF" x="6" y="13" width="10" height="1"/>
+    <path fill="none" stroke="#4DA3FF" stroke-width="2" d="M5,5 A4,4 0 1,0 11,4"/>
+    <path fill="#4DA3FF" d="M5,2 L5,7 L1,4 Z"/>
   </g>
 </svg>

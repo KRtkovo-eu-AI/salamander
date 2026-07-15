@@ -269,6 +269,66 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
     }
 }
 
+
+BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+{
+    if (hBitmap == NULL)
+        return FALSE;
+    *hBitmap = NULL;
+    char* svg = LoadToolbarSVG(svgName);
+    if (svg == NULL)
+        return FALSE;
+
+    HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));
+    BITMAPINFOHEADER bmhdr;
+    memset(&bmhdr, 0, sizeof(bmhdr));
+    bmhdr.biSize = sizeof(bmhdr);
+    bmhdr.biWidth = iconSize;
+    bmhdr.biHeight = -iconSize;
+    if (bmhdr.biHeight == 0)
+        bmhdr.biHeight = -1;
+    bmhdr.biPlanes = 1;
+    bmhdr.biBitCount = 32;
+    bmhdr.biCompression = BI_RGB;
+    void* lpMemBits = NULL;
+    HBITMAP hMemBmp = HANDLES(CreateDIBSection(hMemDC, (CONST BITMAPINFO*)&bmhdr, DIB_RGB_COLORS, &lpMemBits, NULL, 0));
+    if (hMemBmp != NULL && lpMemBits != NULL)
+    {
+        memset(lpMemBits, 0, iconSize * iconSize * 4);
+        float sysDPIScale = (float)GetScaleForSystemDPI();
+        NSVGimage* image = nsvgParse(svg, "px", sysDPIScale);
+        if (image != NULL)
+        {
+            if (!enabled)
+            {
+                DWORD disabledColor = GetSVGSysColor(COLOR_BTNSHADOW);
+                NSVGshape* shape = image->shapes;
+                while (shape != NULL)
+                {
+                    if ((shape->fill.color & 0x00FFFFFF) != 0x00FFFFFF)
+                        shape->fill.color = disabledColor;
+                    shape = shape->next;
+                }
+            }
+            NSVGrasterizer* rast = nsvgCreateRasterizer();
+            if (rast != NULL)
+            {
+                float scale = sysDPIScale / 100;
+                nsvgRasterize(rast, image, 0, 0, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
+                nsvgDeleteRasterizer(rast);
+                *hBitmap = hMemBmp;
+                hMemBmp = NULL;
+            }
+            nsvgDelete(image);
+        }
+    }
+    if (hMemBmp != NULL)
+        HANDLES(DeleteObject(hMemBmp));
+    HANDLES(DeleteDC(hMemDC));
+    free(svg);
+    return *hBitmap != NULL;
+}
+
 //*****************************************************************************
 //
 // CSVGSprite

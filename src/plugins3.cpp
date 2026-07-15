@@ -9,6 +9,7 @@
 #include "plugins.h"
 #include "toolbar.h"
 #include "gui.h"
+#include "svg.h"
 #include <uxtheme.h>
 
 //
@@ -428,6 +429,30 @@ BOOL CSalamanderGUI::CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORR
         HANDLES_REMOVE(hColorBitmap, __htHandle_comp_with_DeleteObject, "DeleteObject");
     }
     return ret;
+}
+
+
+HICON CSalamanderGUI::CreateSVGIcon(const char* svgName, int iconSize)
+{
+    HBITMAP hColorBitmap = NULL;
+    if (!RenderSVGIconBitmap(svgName, iconSize, TRUE, &hColorBitmap))
+        return NULL;
+
+    HBITMAP hMaskBitmap = HANDLES(CreateBitmap(iconSize, iconSize, 1, 1, NULL));
+    if (hMaskBitmap == NULL)
+    {
+        HANDLES(DeleteObject(hColorBitmap));
+        return NULL;
+    }
+    ICONINFO iconInfo;
+    memset(&iconInfo, 0, sizeof(iconInfo));
+    iconInfo.fIcon = TRUE;
+    iconInfo.hbmMask = hMaskBitmap;
+    iconInfo.hbmColor = hColorBitmap;
+    HICON hIcon = CreateIconIndirect(&iconInfo);
+    HANDLES(DeleteObject(hMaskBitmap));
+    HANDLES(DeleteObject(hColorBitmap));
+    return hIcon;
 }
 
 //****************************************************************************

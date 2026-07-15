@@ -2829,7 +2829,8 @@ BOOL CViewerWindow::InitializeGraphics()
 
     if (!SalamanderGUI->CreateToolbarBitmaps(DLLInstance,
                                              SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16,
-                                             RGB(255, 0, 255), GetSysColor(COLOR_BTNFACE),
+                                             RGB(255, 0, 255),
+                                             PictViewShouldUseWindowsDarkMode() ? RGB(0x2F, 0x34, 0x3A) : GetSysColor(COLOR_BTNFACE),
                                              hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap,
                                              PictViewSVGIcons, _countof(PictViewSVGIcons)))
     {
