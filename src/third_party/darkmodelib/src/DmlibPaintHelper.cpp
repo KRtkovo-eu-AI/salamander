@@ -40,7 +40,14 @@ void dmlib_paint::paintRoundRect(
 {
 	auto holdBrush = ::SelectObject(hdc, hBrush);
 	auto holdPen = ::SelectObject(hdc, hpen);
-	::RoundRect(hdc, rect.left, rect.top, rect.right, rect.bottom, width, height);
+	if (width <= 0 && height <= 0)
+	{
+		::Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
+	}
+	else
+	{
+		::RoundRect(hdc, rect.left, rect.top, rect.right, rect.bottom, width, height);
+	}
 	::SelectObject(hdc, holdBrush);
 	::SelectObject(hdc, holdPen);
 }
