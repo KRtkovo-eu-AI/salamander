@@ -35,6 +35,11 @@
 #include "cache.h"
 #include "gui.h"
 #include <uxtheme.h>
+
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
 #include "zip.h"
 #include "tasklist.h"
 #include "jumplist.h"
@@ -3714,6 +3719,35 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             SendMessage(HTopRebar, uMsg, wParam, lParam);
         UpdateRebarVisuals();
         break;
+    }
+
+    case WM_DPICHANGED:
+    {
+        SetSystemDPI(HIWORD(wParam));
+
+        if (lParam != 0)
+        {
+            const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
+            SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                         suggestedRect->right - suggestedRect->left,
+                         suggestedRect->bottom - suggestedRect->top,
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
+
+        if (LeftPanel == NULL || RightPanel == NULL)
+            return 0;
+
+        ColorsChanged(TRUE, FALSE, TRUE);
+        SetFont();
+        SetEnvFont();
+        GetShortcutOverlay();
+
+        LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
+        RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
+        RefreshDiskFreeSpace();
+        Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
+
+        return 0;
     }
 
     case WM_SETTINGCHANGE:

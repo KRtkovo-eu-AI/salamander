@@ -2574,6 +2574,16 @@ int GetSystemDPI()
     }
 }
 
+void SetSystemDPI(int dpi)
+{
+    if (dpi <= 0)
+    {
+        TRACE_E("SetSystemDPI() invalid dpi=" << dpi);
+        return;
+    }
+    SystemDPI = dpi;
+}
+
 int GetScaleForSystemDPI()
 {
     int dpi = GetSystemDPI();
@@ -2671,10 +2681,11 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     // Vytahneme z Registry pozadovanou barevnou hloubku ikonek
     //
     int iconColorsCount = 0;
-    HDC hDesktopDC = GetDC(NULL);
+    HWND hDPIWindow = MainWindow != NULL ? MainWindow->HWindow : NULL;
+    HDC hDesktopDC = GetDC(hDPIWindow);
     int bpp = GetCurrentBPP(hDesktopDC);
     GetSystemDPI(hDesktopDC);
-    ReleaseDC(NULL, hDesktopDC);
+    ReleaseDC(hDPIWindow, hDesktopDC);
 
     IconSizes[ICONSIZE_16] = GetIconSizeForSystemDPI(ICONSIZE_16);
     IconSizes[ICONSIZE_32] = GetIconSizeForSystemDPI(ICONSIZE_32);
