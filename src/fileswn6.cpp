@@ -1425,7 +1425,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     if (type == atChangeCase)
                     {
                         COperation op;
-                        op.OpFlags = 0; // case change = rename = report invalid names (not just tolerance of existing ones)
+                        op.OpFlags = OPFL_ALLOW_CASE_ONLY_RENAME; // case change = rename = report invalid names (not just tolerance of existing ones)
                         op.Opcode = ocMoveDir;
                         op.Size = MOVE_DIR_SIZE;
                         op.Attr = oneFile->Attr;
@@ -2345,7 +2345,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     if (type == atChangeCase)
     {
         op.Opcode = ocMoveDir;
-        op.OpFlags = 0; // case change = rename; we'll report invalid names (not just tolerate existing ones)
+        op.OpFlags = OPFL_ALLOW_CASE_ONLY_RENAME; // case change = rename; we'll report invalid names (not just tolerate existing ones)
         op.Size = MOVE_DIR_SIZE;
         op.Attr = sourceDirAttr;
         BOOL skip;
@@ -3086,7 +3086,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     {
         op.Opcode = ocMoveFile;
         op.FileSize = fileSizeLoc;
-        op.OpFlags = 0;
+        op.OpFlags = OPFL_ALLOW_CASE_ONLY_RENAME;
         op.Size = MOVE_FILE_SIZE;
         op.Attr = sourceFileAttr;
         BOOL skip;
