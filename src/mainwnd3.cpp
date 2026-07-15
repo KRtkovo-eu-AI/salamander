@@ -3422,6 +3422,46 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
+{
+    int oldDPI = GetSystemDPI();
+    int newDPI;
+    if (dpi > 0)
+    {
+        SetSystemDPI(dpi);
+        newDPI = dpi;
+    }
+    else
+    {
+        newDPI = UpdateSystemDPIForWindow(HWindow);
+    }
+
+    if (!force && newDPI == oldDPI)
+        return;
+
+    if (suggestedRect != NULL)
+    {
+        SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                     suggestedRect->right - suggestedRect->left,
+                     suggestedRect->bottom - suggestedRect->top,
+                     SWP_NOACTIVATE | SWP_NOZORDER);
+    }
+
+    if (LeftPanel == NULL || RightPanel == NULL)
+        return;
+
+    ColorsChanged(TRUE, FALSE, TRUE);
+    SetFont();
+    SetEnvFont();
+    GetShortcutOverlay();
+
+    LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
+    RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
+    RefreshDiskFreeSpace();
+    Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
+}
+
+
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -3723,30 +3763,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_DPICHANGED:
     {
-        SetSystemDPI(HIWORD(wParam));
+        RefreshDPI(TRUE, HIWORD(wParam), lParam != 0 ? reinterpret_cast<const RECT*>(lParam) : NULL);
+        return 0;
+    }
 
-        if (lParam != 0)
-        {
-            const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
-            SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
-                         suggestedRect->right - suggestedRect->left,
-                         suggestedRect->bottom - suggestedRect->top,
-                         SWP_NOACTIVATE | SWP_NOZORDER);
-        }
-
-        if (LeftPanel == NULL || RightPanel == NULL)
-            return 0;
-
-        ColorsChanged(TRUE, FALSE, TRUE);
-        SetFont();
-        SetEnvFont();
-        GetShortcutOverlay();
-
-        LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
-        RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
-        RefreshDiskFreeSpace();
-        Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
-
+    case WM_DISPLAYCHANGE:
+    {
+        RefreshDPI(FALSE);
         return 0;
     }
 
@@ -3789,10 +3812,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         // unknown change, rebuild everything
 
-        int oldDPI = GetSystemDPI();
-        int newDPI = UpdateSystemDPIForWindow(HWindow);
-        if (newDPI != oldDPI)
-            ColorsChanged(TRUE, FALSE, TRUE);
+        RefreshDPI(FALSE);
 
         GotMouseWheelScrollLines = FALSE; // reload number of lines for wheel scrolling
         InitLocales();
@@ -9670,6 +9690,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         //      {
         if (wParam == TRUE) // activating the app
         {
+            RefreshDPI(FALSE);
+
             if (!LeftPanel->DontClearNextFocusName)
                 LeftPanel->NextFocusName[0] = 0;
             else

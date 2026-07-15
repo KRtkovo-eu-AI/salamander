@@ -4318,8 +4318,37 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
     return TRUE;
 }
 
+void InitializeDPIAwareness()
+{
+    typedef BOOL(WINAPI * FSetProcessDpiAwarenessContext)(HANDLE value);
+    typedef BOOL(WINAPI * FSetProcessDPIAware)();
+
+    HMODULE user32 = GetModuleHandle("user32.dll");
+    if (user32 == NULL)
+        return;
+
+    FSetProcessDpiAwarenessContext setProcessDpiAwarenessContext =
+        (FSetProcessDpiAwarenessContext)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+    if (setProcessDpiAwarenessContext != NULL)
+    {
+        // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, not present in older SDKs.
+        if (setProcessDpiAwarenessContext((HANDLE)-4))
+            return;
+        // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE.
+        if (setProcessDpiAwarenessContext((HANDLE)-3))
+            return;
+    }
+
+    FSetProcessDPIAware setProcessDPIAware =
+        (FSetProcessDPIAware)GetProcAddress(user32, "SetProcessDPIAware");
+    if (setProcessDPIAware != NULL)
+        setProcessDPIAware();
+}
+
 int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine, int cmdShow)
 {
+    InitializeDPIAwareness();
+
     int myExitCode = 1;
 
     //--- nechci zadne kriticke chyby jako "no disk in drive A:"
