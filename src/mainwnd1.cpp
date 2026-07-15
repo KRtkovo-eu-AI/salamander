@@ -1438,6 +1438,21 @@ int CMainWindow::GetUnassignedHotPathIndex()
     return HotPaths.GetUnassignedHotPathIndex();
 }
 
+
+static void ScaleSmallLogFontForCurrentDPI(LOGFONT* lf)
+{
+    int dpi = GetSystemDPI();
+    if (lf == NULL || dpi <= 96 || lf->lfHeight == 0)
+        return;
+
+    int height = abs(lf->lfHeight);
+    if (height <= 14)
+    {
+        int scaled = MulDiv(height, dpi, 96);
+        lf->lfHeight = lf->lfHeight < 0 ? -scaled : scaled;
+    }
+}
+
 static BOOL SystemParametersInfoForCurrentDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
 {
     typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
@@ -1468,6 +1483,7 @@ BOOL GetSystemGUIFont(LOGFONT* lf)
         *lf = ncm.lfMessageFont;
         lf->lfWeight = FW_NORMAL;
     }
+    ScaleSmallLogFontForCurrentDPI(lf);
     return TRUE;
 }
 
@@ -1478,6 +1494,7 @@ BOOL GetSystemTooltipFont(LOGFONT* lf)
     ncm.cbSize = sizeof(ncm);
     SystemParametersInfoForCurrentDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
     *lf = ncm.lfStatusFont;
+    ScaleSmallLogFontForCurrentDPI(lf);
     return TRUE;
 }
 

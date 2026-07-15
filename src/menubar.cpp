@@ -17,6 +17,21 @@
 #define MENUBAR_TB_MARGIN 4 // number of points above and below the text, including the horizontal line
 
 
+
+static void ScaleSmallMenuLogFontForCurrentDPI(LOGFONT* lf)
+{
+    int dpi = GetSystemDPI();
+    if (lf == NULL || dpi <= 96 || lf->lfHeight == 0)
+        return;
+
+    int height = abs(lf->lfHeight);
+    if (height <= 14)
+    {
+        int scaled = MulDiv(height, dpi, 96);
+        lf->lfHeight = lf->lfHeight < 0 ? -scaled : scaled;
+    }
+}
+
 static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
 {
     typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
@@ -142,6 +157,7 @@ void CMenuBar::SetFont()
     SystemParametersInfoForMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
 
     LOGFONT* lf = &ncm.lfMenuFont;
+    ScaleSmallMenuLogFontForCurrentDPI(lf);
     if (HFont != NULL)
         HANDLES(DeleteObject(HFont));
     HFont = HANDLES(CreateFontIndirect(lf));
