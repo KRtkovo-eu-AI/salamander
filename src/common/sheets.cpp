@@ -89,6 +89,38 @@ void RepaintWindowTree(HWND hwnd)
         RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+void DrawTreeViewSelectedItemFrame(HWND treeView)
+{
+    if (treeView == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    HTREEITEM selectedItem = TreeView_GetSelection(treeView);
+    if (selectedItem == NULL)
+        return;
+
+    RECT itemRect;
+    if (!TreeView_GetItemRect(treeView, selectedItem, &itemRect, FALSE))
+        return;
+
+    RECT clientRect;
+    GetClientRect(treeView, &clientRect);
+    IntersectRect(&itemRect, &itemRect, &clientRect);
+    if (itemRect.left >= itemRect.right || itemRect.top >= itemRect.bottom)
+        return;
+
+    HDC hdc = GetDC(treeView);
+    if (hdc == NULL)
+        return;
+
+    HBRUSH frameBrush = CreateSolidBrush(GetSysColor(COLOR_HIGHLIGHT));
+    if (frameBrush != NULL)
+    {
+        FrameRect(hdc, &itemRect, frameBrush);
+        DeleteObject(frameBrush);
+    }
+    ReleaseDC(treeView, hdc);
+}
+
 LRESULT CALLBACK TreeViewRedrawSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
                                             UINT_PTR subclassId, DWORD_PTR referenceData)
 {
@@ -96,6 +128,13 @@ LRESULT CALLBACK TreeViewRedrawSubclassProc(HWND hwnd, UINT message, WPARAM wPar
 
     switch (message)
     {
+    case WM_PAINT:
+    {
+        LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
+        DrawTreeViewSelectedItemFrame(hwnd);
+        return result;
+    }
+
     case WM_HSCROLL:
     case WM_VSCROLL:
     case WM_SIZE:
