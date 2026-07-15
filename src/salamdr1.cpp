@@ -5849,6 +5849,31 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     return 0;
 }
 
+
+static void InitializeProcessDPIAwareness()
+{
+    // The manifest is the primary declaration, but make the DPI context explicit
+    // as early as possible as recommended for legacy Win32 applications.
+    // This must run before any window/control is created.
+    typedef BOOL(WINAPI * FSetProcessDpiAwarenessContext)(HANDLE dpiContext);
+    typedef BOOL(WINAPI * FSetProcessDPIAware)();
+
+    HMODULE user32 = GetModuleHandle("user32.dll");
+    if (user32 != NULL)
+    {
+        FSetProcessDpiAwarenessContext setProcessDpiAwarenessContext =
+            (FSetProcessDpiAwarenessContext)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+        if (setProcessDpiAwarenessContext != NULL &&
+            setProcessDpiAwarenessContext((HANDLE)-4 /* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 */))
+            return;
+
+        FSetProcessDPIAware setProcessDPIAware =
+            (FSetProcessDPIAware)GetProcAddress(user32, "SetProcessDPIAware");
+        if (setProcessDPIAware != NULL)
+            setProcessDPIAware();
+    }
+}
+
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow)
 {
@@ -5856,6 +5881,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
     __try
     {
 #endif // CALLSTK_DISABLE
+
+        InitializeProcessDPIAwareness();
 
         //#ifdef MSVC_RUNTIME_CHECKS
         _RTC_SetErrorFuncW(&MyRTCErrorFunc);
