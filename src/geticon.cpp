@@ -327,8 +327,11 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             if (hIconSmall == NULL || hIconSmall == hIconLarge || smallIconSize != targetIconSize)
             {
                 HICON hIconSource = hIconLarge != NULL ? hIconLarge : hIconSmall;
+                // Do not use LR_COPYFROMRESOURCE here: handles taken from the
+                // shell image list are already concrete bitmaps, and that flag
+                // may keep their original size when we need to shrink 24 -> 16.
                 HICON hIconDPI = hIconSource != NULL ?
-                                     (HICON)CopyImage(hIconSource, IMAGE_ICON, targetIconSize, targetIconSize, LR_COPYFROMRESOURCE) :
+                                     (HICON)CopyImage(hIconSource, IMAGE_ICON, targetIconSize, targetIconSize, 0) :
                                      NULL;
                 if (hIconDPI != NULL)
                 {
