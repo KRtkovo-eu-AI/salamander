@@ -2778,7 +2778,14 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     int iconColorsCount = 0;
     HDC hDesktopDC = GetDC(NULL);
     int bpp = GetCurrentBPP(hDesktopDC);
-    GetSystemDPI(hDesktopDC);
+    // During a live DPI refresh the caller has already selected the target DPI
+    // (for RDP/session switches this can come from AppliedDPI before the main
+    // window reports the new DPI).  Do not overwrite it here with the desktop
+    // DC value, otherwise rebuilt fonts, SVGs and image lists immediately fall
+    // back to the old DPI and the main window contents stay at the previous
+    // scale until restart.
+    if (SystemDPI == 0)
+        GetSystemDPI(hDesktopDC);
     ReleaseDC(NULL, hDesktopDC);
 
     IconSizes[ICONSIZE_16] = GetIconSizeForSystemDPI(ICONSIZE_16);
