@@ -32,8 +32,8 @@
 
   const describeAsset = (name) => {
     const lower = name.toLowerCase();
-    if (lower.endsWith(".exe")) return t("Installer/Extract Portable");
-    if (lower.endsWith(".zip")) return t("ZIP Archive");
+    if (lower.endsWith(".exe")) return t("Installer/Extract portable");
+    if (lower.endsWith(".zip")) return t("ZIP archive");
     return t("Download");
   };
 
@@ -178,12 +178,11 @@
       const link = document.createElement("a");
       link.href = asset.browser_download_url;
       link.setAttribute("aria", "button");
-      link.textContent = asset.name;
+      link.textContent = describeAsset(asset.name);
 
-      const details = ` ${describeAsset(asset.name)} ~ ${formatSize(asset.size)}`;
-      const downloads = `; ${formatDownloads(asset.download_count)}`;
+      const details = ` ~ ${formatSize(asset.size)}`;
 
-      li.append(link, details, downloads);
+      li.append(link, details);
       list.append(li);
     }
   }
