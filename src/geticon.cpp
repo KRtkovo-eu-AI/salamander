@@ -146,11 +146,13 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             // ***** hIconSmall ******
             //TRACE_I("  SalGetIconFromPIDL() Asking system image list '*' for iconIndex="<<iconIndex);
             IImageList* imageListSmall = NULL;
-            // For per-monitor-DPI small icons, SHIL_SMALL can keep returning the
-            // classic 16x16 image.  SHIL_SYSSMALL tracks the current small-icon
-            // system metric, so at 150% it can supply the 24x24 shell image
-            // instead of forcing Salamander to upscale the 16x16 variant.
-            hres = SHGetImageList(SHIL_SYSSMALL, IID_IImageList, (void**)&imageListSmall);
+            // Use the shell image list that matches the requested pixel size.
+            // At 100% DPI we want the real 16x16 artwork from SHIL_SMALL, not a
+            // 24x24 SYSSMALL icon from a primary high-DPI monitor scaled down.
+            // At higher DPI, SYSSMALL can provide the DPI-sized small icon and
+            // avoids upscaling the 16x16 variant.
+            int smallImageListSize = IconSizes[ICONSIZE_16] <= 16 ? SHIL_SMALL : SHIL_SYSSMALL;
+            hres = SHGetImageList(smallImageListSize, IID_IImageList, (void**)&imageListSmall);
             if (SUCCEEDED(hres) && (imageListSmall != NULL))
             {
                 if (imageListSmall->GetIcon(iconIndex, ILD_NORMAL, &hIconSmall) != S_OK)
