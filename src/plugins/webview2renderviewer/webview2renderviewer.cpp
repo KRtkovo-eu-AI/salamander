@@ -347,69 +347,6 @@ static bool HasSvgExtension(const char* filename)
     return extension != NULL && _stricmp(extension, ".svg") == 0;
 }
 
-static bool FeedHBitmapToThumbnailMaker(HBITMAP bitmap, CSalamanderThumbnailMakerAbstract* thumbMaker)
-{
-    BITMAP bm;
-    if (bitmap == NULL || GetObject(bitmap, sizeof(bm), &bm) != sizeof(bm) || bm.bmWidth <= 0 || bm.bmHeight <= 0)
-        return false;
-
-    BITMAPINFO bmi;
-    ZeroMemory(&bmi, sizeof(bmi));
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = bm.bmWidth;
-    bmi.bmiHeader.biHeight = -bm.bmHeight;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-
-    const size_t pixelCount = static_cast<size_t>(bm.bmWidth) * static_cast<size_t>(bm.bmHeight);
-    if (pixelCount > (static_cast<size_t>(-1) / sizeof(DWORD)))
-        return false;
-
-    std::vector<DWORD> pixels(pixelCount);
-    HDC dc = GetDC(NULL);
-    if (dc == NULL)
-        return false;
-
-    int copied = GetDIBits(dc, bitmap, 0, static_cast<UINT>(bm.bmHeight), pixels.data(), &bmi, DIB_RGB_COLORS);
-    ReleaseDC(NULL, dc);
-    if (copied != bm.bmHeight)
-        return false;
-
-    if (!thumbMaker->SetParameters(bm.bmWidth, bm.bmHeight, 0))
-        return false;
-
-    return thumbMaker->ProcessBuffer(pixels.data(), bm.bmHeight) != FALSE;
-}
-
-static bool TryLoadShellThumbnail(const char* filename, int thumbWidth, int thumbHeight,
-                                  CSalamanderThumbnailMakerAbstract* thumbMaker)
-{
-    std::wstring path = ConvertPathToWide(filename);
-    if (path.empty())
-        return false;
-
-    IShellItemImageFactory* imageFactory = NULL;
-    HRESULT hr = SHCreateItemFromParsingName(path.c_str(), NULL, IID_PPV_ARGS(&imageFactory));
-    if (FAILED(hr) || imageFactory == NULL)
-        return false;
-
-    SIZE size;
-    size.cx = thumbWidth > 1 ? thumbWidth : 1;
-    size.cy = thumbHeight > 1 ? thumbHeight : 1;
-
-    HBITMAP bitmap = NULL;
-    hr = imageFactory->GetImage(size, static_cast<SIIGBF>(SIIGBF_BIGGERSIZEOK | SIIGBF_THUMBNAILONLY), &bitmap);
-    imageFactory->Release();
-
-    if (FAILED(hr) || bitmap == NULL)
-        return false;
-
-    bool loaded = FeedHBitmapToThumbnailMaker(bitmap, thumbMaker);
-    DeleteObject(bitmap);
-    return loaded;
-}
-
 static bool CreateTemporaryThumbnailPath(std::wstring& tempFile)
 {
     tempFile.clear();
@@ -519,12 +456,6 @@ BOOL WINAPI CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename, 
         return FALSE;
 
     if (thumbMaker == NULL || thumbMaker->GetCancelProcessing())
-        return TRUE;
-
-    if (TryLoadShellThumbnail(filename, thumbWidth, thumbHeight, thumbMaker))
-        return TRUE;
-
-    if (thumbMaker->GetCancelProcessing())
         return TRUE;
 
     std::wstring tempFile;

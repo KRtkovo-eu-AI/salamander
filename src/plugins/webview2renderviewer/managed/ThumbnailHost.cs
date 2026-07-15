@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -165,13 +166,13 @@ internal static class ThumbnailHost
                 }
 
                 _webView.NavigationCompleted += OnNavigationCompleted;
-                _webView.Source = new Uri(_path);
+                _webView.CoreWebView2.NavigateToString(BuildSvgThumbnailHtml(_path));
                 if (!await navigated.Task.ConfigureAwait(true))
                 {
                     return;
                 }
 
-                await Task.Delay(150).ConfigureAwait(true);
+                await Task.Delay(500).ConfigureAwait(true);
                 using var stream = new MemoryStream();
                 await _webView.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, stream).ConfigureAwait(true);
                 stream.Position = 0;
@@ -192,6 +193,18 @@ internal static class ThumbnailHost
                 Completed?.Invoke(this, EventArgs.Empty);
                 _form.Close();
             }
+        }
+
+        private static string BuildSvgThumbnailHtml(string path)
+        {
+            byte[] svgBytes = File.ReadAllBytes(path);
+            string svgBase64 = Convert.ToBase64String(svgBytes);
+            string title = WebUtility.HtmlEncode(Path.GetFileName(path));
+            return "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + title + "</title>" +
+                   "<style>html,body{width:100%;height:100%;margin:0;overflow:hidden;background:white;}" +
+                   "body{display:flex;align-items:center;justify-content:center;}" +
+                   "img{display:block;max-width:100vw;max-height:100vh;width:100%;height:100%;object-fit:contain;}" +
+                   "</style></head><body><img alt=\"\" src=\"data:image/svg+xml;base64," + svgBase64 + "\"></body></html>";
         }
 
         private static void SaveRawThumbnail(Bitmap bitmap, string output)
