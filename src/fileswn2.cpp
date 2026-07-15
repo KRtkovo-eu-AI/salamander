@@ -203,7 +203,11 @@ static LRESULT CALLBACK TreeViewSubclassProc(HWND hwnd, UINT message, WPARAM wPa
     case WM_SIZE:
     {
         LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
-        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_UPDATENOW);
+
+        HWND parent = GetParent(hwnd);
+        if (parent != NULL && MainWindow != NULL && parent == MainWindow->GetDetachedPanelWindow(cpsRight))
+            RedrawWindow(parent, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
         return result;
     }
 

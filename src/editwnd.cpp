@@ -527,6 +527,7 @@ CEditLine::CEditLine()
 #endif // _UNICODE
     SkipCharacter = FALSE;
     SelChangeDisabled = FALSE;
+    EditWindow = NULL;
 }
 
 void CEditLine::InsertText(char* s)
@@ -546,7 +547,8 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (MainWindow->HasLockedUI())
             return 0;
-        if (MainWindow->EditWindow->Dropped())
+        CEditWindow* editWindow = EditWindow != NULL ? EditWindow : MainWindow->EditWindow;
+        if (editWindow != NULL && editWindow->Dropped())
             break;
 
         if (SkipCharacter)
@@ -836,7 +838,8 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (MainWindow->HasLockedUI())
             return 0;
-        if (MainWindow->EditWindow->Dropped())
+        CEditWindow* editWindow = EditWindow != NULL ? EditWindow : MainWindow->EditWindow;
+        if (editWindow != NULL && editWindow->Dropped())
             break;
         SkipCharacter = FALSE;
         break;
@@ -846,7 +849,8 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (MainWindow->HasLockedUI())
             return 0;
-        if (MainWindow->EditWindow->Dropped())
+        CEditWindow* editWindow = EditWindow != NULL ? EditWindow : MainWindow->EditWindow;
+        if (editWindow != NULL && editWindow->Dropped())
             break;
         if (SkipCharacter)
             return 0;
@@ -889,7 +893,8 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             panel->SelectItems = !panel->GetSel(panel->FocusedIndex);
         }
 
-        if (MainWindow->EditWindow->Dropped())
+        CEditWindow* editWindow = EditWindow != NULL ? EditWindow : MainWindow->EditWindow;
+        if (editWindow != NULL && editWindow->Dropped())
             break;
         else
         {
@@ -901,6 +906,12 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 // Control - scroll without popping up the listbox
                 if (controlPressed && !altPressed && !shiftPressed)
                     break;
+                if (!controlPressed && !altPressed && !shiftPressed &&
+                    editWindow != NULL && editWindow->NavigateHistory(wParam == VK_UP))
+                {
+                    SkipCharacter = TRUE;
+                    return 0;
+                }
             }
         }
 
@@ -1857,6 +1868,8 @@ CEditWindow::CEditWindow()
     SetUnicodeWindow(TRUE);
 #endif // _UNICODE
     EditLine = new CEditLine();
+    if (EditLine != NULL)
+        EditLine->SetEditWindow(this);
     Text = new CInnerText(this);
     LastText = NULL;
     Enabled = TRUE;
@@ -1939,6 +1952,47 @@ void CEditWindow::FillHistory()
             if (Configuration.EditHistory[i] != NULL)
                 SendMessage(HWindow, CB_ADDSTRING, 0, (LPARAM)Configuration.EditHistory[i]);
     }
+}
+
+BOOL CEditWindow::NavigateHistory(BOOL older)
+{
+    if (HWindow == NULL || !Configuration.EnableCmdLineHistory)
+        return FALSE;
+
+    int count = (int)SendMessage(HWindow, CB_GETCOUNT, 0, 0);
+    if (count <= 0)
+        return FALSE;
+
+    int index = (int)SendMessage(HWindow, CB_GETCURSEL, 0, 0);
+    if (older)
+    {
+        if (index == CB_ERR)
+            index = 0;
+        else if (index < count - 1)
+            index++;
+        else
+            return TRUE;
+    }
+    else
+    {
+        if (index == CB_ERR)
+            return TRUE;
+        if (index > 0)
+            index--;
+        else
+            return TRUE;
+    }
+
+    if (SendMessage(HWindow, CB_SETCURSEL, index, 0) != CB_ERR)
+    {
+        if (EditLine != NULL && EditLine->HWindow != NULL)
+        {
+            int len = GetWindowTextLength(EditLine->HWindow);
+            SendMessage(EditLine->HWindow, EM_SETSEL, len, len);
+        }
+        return TRUE;
+    }
+    return FALSE;
 }
 
 BOOL CEditWindow::Dropped()

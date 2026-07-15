@@ -15,6 +15,8 @@ struct CCommandLineLaunchInfo
 
 void BuildCommandShellLine(CCommandLineLaunchInfo* launchInfo);
 
+class CEditWindow;
+
 //
 // ****************************************************************************
 
@@ -23,9 +25,11 @@ class CEditLine : public CWindow
 protected:
     BOOL SkipCharacter;
     BOOL SelChangeDisabled;
+    CEditWindow* EditWindow;
 
 public:
     CEditLine();
+    void SetEditWindow(CEditWindow* editWindow) { EditWindow = editWindow; }
 
     void InsertText(char* s);
 
@@ -92,6 +96,7 @@ public:
     int GetNeededHeight();
     void SetFont();
     void FillHistory();
+    BOOL NavigateHistory(BOOL older);
     BOOL Dropped(); // listbox is dropped down
     void Enable(BOOL enable);
     BOOL IsEnabled() { return Enabled; }
