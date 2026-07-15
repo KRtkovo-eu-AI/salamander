@@ -5202,7 +5202,7 @@ FIND_NEW_SLG_FILE:
                     WindowsDarkModeBuildPalette(UserColors, ViewerColors);
                     Configuration.UseWindowsDarkMode = TRUE;
                     WindowsDarkModeBuildHighlightMasks(MainWindow->HighlightMasks);
-                    ColorsChanged(TRUE, TRUE, FALSE);
+                    ColorsChanged(TRUE, FALSE, FALSE);
                 }
 
                 if (Configuration.ReloadEnvVariables)
