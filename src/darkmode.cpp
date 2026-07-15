@@ -2471,17 +2471,17 @@ bool DarkModeShouldUseDarkColors()
 {
     EnsureInitialized();
 
-    if (ShouldUseDarkColorsInternal())
-        return true;
-
     if (!DarkModeIsWindowsDarkSchemeSelected())
         return false;
 
+    if (ShouldUseDarkColorsInternal())
+        return true;
+
     // Fall back to the configured dialog palette only for the explicit Windows
     // Dark Mode scheme when native dark mode isn't available (for example on
-    // older Windows builds).  Light/custom schemes must stay native light UI and
-    // must not re-enter dark CTLCOLOR/subclass paths just because their panel
-    // palette happens to be dark.
+    // older Windows builds), or when Salamander is dark while the system is
+    // light.  Light/custom schemes must stay native light UI and must not
+    // re-enter dark CTLCOLOR/subclass paths just because the system is dark.
     return ComputeLuminance(gDialogBackgroundColor) < 128;
 }
 
