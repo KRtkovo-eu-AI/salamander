@@ -61,6 +61,31 @@ BOOL ExtIsExe(LPCTSTR szExt)
 #define SHIL_JUMBO 4      // Windows Vista and later. The image is normally 256x256 pixels.
 // regarding icon sizes on Windows Vista: see "Creating a DPI-Aware Application" (http://msdn.microsoft.com/en-us/library/ms701681(VS.85).aspx)
 
+static int GetIconPixelWidth(HICON hIcon)
+{
+    if (hIcon == NULL)
+        return 0;
+
+    ICONINFO iconInfo;
+    memset(&iconInfo, 0, sizeof(iconInfo));
+    if (!GetIconInfo(hIcon, &iconInfo))
+        return 0;
+
+    BITMAP bitmap;
+    memset(&bitmap, 0, sizeof(bitmap));
+    int width = 0;
+    HBITMAP hBitmap = iconInfo.hbmColor != NULL ? iconInfo.hbmColor : iconInfo.hbmMask;
+    if (hBitmap != NULL && GetObject(hBitmap, sizeof(bitmap), &bitmap) == sizeof(bitmap))
+        width = bitmap.bmWidth;
+
+    if (iconInfo.hbmColor != NULL)
+        HANDLES(DeleteObject(iconInfo.hbmColor));
+    if (iconInfo.hbmMask != NULL)
+        HANDLES(DeleteObject(iconInfo.hbmMask));
+
+    return width;
+}
+
 BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl, HICON* hIcon,
                         CIconSizeEnum iconSize, BOOL fallbackToDefIcon, BOOL defIconIsDir)
 {
@@ -121,7 +146,11 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             // ***** hIconSmall ******
             //TRACE_I("  SalGetIconFromPIDL() Asking system image list '*' for iconIndex="<<iconIndex);
             IImageList* imageListSmall = NULL;
-            hres = SHGetImageList(SHIL_SMALL, IID_IImageList, (void**)&imageListSmall);
+            // For per-monitor-DPI small icons, SHIL_SMALL can keep returning the
+            // classic 16x16 image.  SHIL_SYSSMALL tracks the current small-icon
+            // system metric, so at 150% it can supply the 24x24 shell image
+            // instead of forcing Salamander to upscale the 16x16 variant.
+            hres = SHGetImageList(SHIL_SYSSMALL, IID_IImageList, (void**)&imageListSmall);
             if (SUCCEEDED(hres) && (imageListSmall != NULL))
             {
                 if (imageListSmall->GetIcon(iconIndex, ILD_NORMAL, &hIconSmall) != S_OK)
@@ -285,13 +314,28 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
     if (hIconLarge != NULL || hIconSmall != NULL)
     {
         ret = TRUE;
-        // use hIconSmall for the small icon because IExtractIcon::Extract() ignores the pixel size and always returns 16 and 32
+        // Use a real icon for the current DPI.  IExtractIcon::Extract() and
+        // SHGFI_SMALLICON often return the historical 16x16 small icon even
+        // when IconSizes[ICONSIZE_16] is 20/24/... in a higher-DPI monitor.
+        // In that case prefer the DPI-sized shell image from SHIL_SYSSMALL, or
+        // derive the requested size from the larger icon instead of upscaling
+        // the 16x16 design.
         if (iconSize == ICONSIZE_16)
         {
-            // if the small icon is missing or we were given the handle of the large one, create it
-            if (hIconSmall == NULL || hIconSmall == hIconLarge)
+            int targetIconSize = IconSizes[ICONSIZE_16];
+            int smallIconSize = GetIconPixelWidth(hIconSmall);
+            if (hIconSmall == NULL || hIconSmall == hIconLarge || smallIconSize != targetIconSize)
             {
-                hIconSmall = (HICON)CopyImage(hIconLarge, IMAGE_ICON, IconSizes[ICONSIZE_16], IconSizes[ICONSIZE_16], LR_COPYFROMRESOURCE);
+                HICON hIconSource = hIconLarge != NULL ? hIconLarge : hIconSmall;
+                HICON hIconDPI = hIconSource != NULL ?
+                                     (HICON)CopyImage(hIconSource, IMAGE_ICON, targetIconSize, targetIconSize, LR_COPYFROMRESOURCE) :
+                                     NULL;
+                if (hIconDPI != NULL)
+                {
+                    if (hIconSmall != NULL && hIconSmall != hIconLarge)
+                        HANDLES(DestroyIcon(hIconSmall));
+                    hIconSmall = hIconDPI;
+                }
                 //TRACE_I("  SalGetIconFromPIDL() CopyImage 1 hIconSmall="<<hIconSmall<<" hIconLarge="<<hIconLarge);
             }
             *hIcon = hIconSmall;
