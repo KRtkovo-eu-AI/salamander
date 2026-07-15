@@ -3961,17 +3961,33 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_DPICHANGED:
     {
-        // In DPI_UNAWARE_GDISCALED mode Windows owns DPI transitions.
-        // Do not run Salamander's legacy per-monitor refresh path here; mixing
-        // both approaches causes double scaling and blurry/misaligned content.
-        break;
+        int dpi = HIWORD(wParam);
+        if (lParam != 0)
+        {
+            const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
+            SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                         suggestedRect->right - suggestedRect->left,
+                         suggestedRect->bottom - suggestedRect->top,
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
+        PendingDPI = dpi;
+        PendingDPIWindowRectApplied = lParam != 0;
+        if (!DPIRefreshPosted)
+        {
+            DPIRefreshPosted = TRUE;
+            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)dpi, 0);
+        }
+        return 0;
     }
 
     case WM_USER_APPLY_DPI_CHANGE:
     {
         DPIRefreshPosted = FALSE;
+        int dpi = PendingDPI > 0 ? PendingDPI : (int)wParam;
+        DPIWindowRectAlreadyApplied = PendingDPIWindowRectApplied;
         PendingDPI = 0;
         PendingDPIWindowRectApplied = FALSE;
+        RefreshDPI(TRUE, dpi, NULL);
         return 0;
     }
 
