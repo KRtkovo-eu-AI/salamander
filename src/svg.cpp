@@ -183,7 +183,7 @@ static char* LoadToolbarSVG(const char* svgName)
     char* s = strrchr(svgFile, '\\');
     if (s != NULL)
     {
-        if (DarkModeIsWindowsDarkSchemeSelected() && DarkModeShouldUseDarkColors())
+        if (DarkModeShouldUseDarkColors())
         {
             sprintf(s + 1, "toolbars\\darkmode\\%s.svg", svgName);
             char* svg = ReadSVGFile(svgFile);
