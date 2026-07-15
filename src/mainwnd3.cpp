@@ -3438,14 +3438,24 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+static BOOL DPIRefreshInProgress = FALSE;
+
 void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
 {
+    if (DPIRefreshInProgress)
+        return;
+
+    DPIRefreshInProgress = TRUE;
+
     int oldDPI = GetSystemDPI();
     int newDPI = dpi > 0 ? dpi : GetDPIForWindow(HWindow);
     SetSystemDPI(newDPI);
 
     if (!force && newDPI == oldDPI)
+    {
+        DPIRefreshInProgress = FALSE;
         return;
+    }
 
     TraceDPIState("RefreshDPI", HWindow);
 
@@ -3470,7 +3480,10 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     }
 
     if (LeftPanel == NULL || RightPanel == NULL)
+    {
+        DPIRefreshInProgress = FALSE;
         return;
+    }
 
     ColorsChanged(TRUE, FALSE, TRUE);
     SetFont();
@@ -3481,6 +3494,7 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     RefreshDiskFreeSpace();
     RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
     Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
+    DPIRefreshInProgress = FALSE;
 }
 
 static int InitialSessionDPI = 0;
