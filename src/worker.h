@@ -214,6 +214,7 @@ enum COperationCode
 #define OPFL_TGTPATH_IS_NET 0x00000020       // the target path is a network path
 #define OPFL_TGTPATH_IS_FAST 0x00000040      // the target path is a disk, USB disk, flash drive, flash-card reader, CD, DVD, or RAM disk (not a network or floppy)
 #define OPFL_IGNORE_INVALID_NAME 0x00000080  // skip the name validity test (for directories: unchanged name = do not flag as invalid)
+#define OPFL_ALLOW_CASE_ONLY_RENAME 0x00000100 // allow renames where source and target differ only by letter case
 
 struct COperation
 {

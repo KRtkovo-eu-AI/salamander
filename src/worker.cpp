@@ -5637,7 +5637,8 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                 {
                     std::wstring sourceCmpW = SalPathRemoveExtendedPrefixW(sourceNameMvDirW.c_str());
                     std::wstring targetCmpW = SalPathRemoveExtendedPrefixW(targetNameMvDirW.c_str());
-                    if (CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, sourceCmpW.c_str(), -1, targetCmpW.c_str(), -1) == CSTR_EQUAL)
+                    if ((op->OpFlags & OPFL_ALLOW_CASE_ONLY_RENAME) == 0 &&
+                        CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, sourceCmpW.c_str(), -1, targetCmpW.c_str(), -1) == CSTR_EQUAL)
                         SetLastError(ERROR_ALREADY_EXISTS);
                     else
                     {
