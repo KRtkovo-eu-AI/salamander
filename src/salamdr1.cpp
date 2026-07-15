@@ -2574,6 +2574,8 @@ int GetSystemDPI()
     }
 }
 
+void GetSystemDPI(HDC hDC);
+
 void SetSystemDPI(int dpi)
 {
     if (dpi <= 0)
