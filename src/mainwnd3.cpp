@@ -3550,10 +3550,17 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
 
     GetShortcutOverlay();
 
-    // Force panel file icons to be re-read at the new icon size.  SetEnvFont()
-    // already releases icon caches asynchronously, but an immediate list-box
-    // repaint can otherwise keep using large HICONs after a high-DPI -> low-DPI
-    // transition until the next directory refresh.
+    // Force all file-panel icon sources to be rebuilt at the new pixel size.
+    // Panel icon caches hold per-directory icons, while Associations owns shared
+    // extension/default icons used by the listboxes.  CAssociations::Release()
+    // keeps its old image lists alive, so use Destroy() here; otherwise the
+    // same ICONSIZE_16/32 enum can keep reusing old-DPI bitmaps after the
+    // IconSizes[] pixel values changed.
+    BOOL leftCanDrawItems = LeftPanel->CanDrawItems;
+    BOOL rightCanDrawItems = RightPanel->CanDrawItems;
+    LeftPanel->CanDrawItems = FALSE;
+    RightPanel->CanDrawItems = FALSE;
+
     LeftPanel->SleepIconCacheThread();
     LeftPanel->IconCache->Destroy();
     LeftPanel->IconCacheValid = FALSE;
@@ -3564,6 +3571,12 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     RightPanel->IconCacheValid = FALSE;
     RightPanel->EndOfIconReadingTime = GetTickCount() - 10000;
     RightPanel->UseThumbnails = FALSE;
+
+    Associations.Destroy();
+    Associations.ReadAssociations(FALSE);
+
+    LeftPanel->CanDrawItems = leftCanDrawItems;
+    RightPanel->CanDrawItems = rightCanDrawItems;
 
     LeftPanel->RefreshDirectory(FALSE, TRUE);
     RightPanel->RefreshDirectory(FALSE, TRUE);
