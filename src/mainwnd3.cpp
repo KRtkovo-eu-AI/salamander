@@ -4002,8 +4002,23 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         DPIInSizeMove = FALSE;
         if (DPIRefreshDeferredForSizeMove && PendingDPI > 0 && !DPIRefreshPosted)
         {
+            int windowDPI = GetDPIForWindow(HWindow);
+            if (windowDPI > 0)
+                PendingDPI = windowDPI; // final monitor can differ from the first WM_DPICHANGED during drag
             DPIRefreshPosted = TRUE;
             PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
+        }
+        else if (!DPIRefreshPosted)
+        {
+            int windowDPI = GetDPIForWindow(HWindow);
+            int contentDPI = MainWindowContentDPI > 0 ? MainWindowContentDPI : GetSystemDPI();
+            if (windowDPI > 0 && windowDPI != contentDPI)
+            {
+                PendingDPI = windowDPI;
+                PendingDPIWindowRectApplied = FALSE;
+                DPIRefreshPosted = TRUE;
+                PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
+            }
         }
         DPIRefreshDeferredForSizeMove = FALSE;
         break;
@@ -4038,7 +4053,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     {
         DPIRefreshPosted = FALSE;
         int dpi = PendingDPI > 0 ? PendingDPI : (int)wParam;
-        DPIWindowRectAlreadyApplied = PendingDPIWindowRectApplied;
+        BOOL windowRectAlreadyApplied = PendingDPIWindowRectApplied;
+        int windowDPI = GetDPIForWindow(HWindow);
+        if (windowDPI > 0 && windowDPI != dpi)
+        {
+            dpi = windowDPI;
+            windowRectAlreadyApplied = FALSE;
+        }
+        DPIWindowRectAlreadyApplied = windowRectAlreadyApplied;
         PendingDPI = 0;
         PendingDPIWindowRectApplied = FALSE;
         RefreshDPI(TRUE, dpi, NULL);
