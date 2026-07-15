@@ -3446,6 +3446,18 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
                      suggestedRect->bottom - suggestedRect->top,
                      SWP_NOACTIVATE | SWP_NOZORDER);
     }
+    else if (oldDPI > 0 && newDPI > 0 && oldDPI != newDPI)
+    {
+        RECT windowRect;
+        if (GetWindowRect(HWindow, &windowRect))
+        {
+            int width = windowRect.right - windowRect.left;
+            int height = windowRect.bottom - windowRect.top;
+            SetWindowPos(HWindow, NULL, windowRect.left, windowRect.top,
+                         MulDiv(width, newDPI, oldDPI), MulDiv(height, newDPI, oldDPI),
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
+    }
 
     if (LeftPanel == NULL || RightPanel == NULL)
         return;

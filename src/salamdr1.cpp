@@ -2586,6 +2586,43 @@ void SetSystemDPI(int dpi)
     SystemDPI = dpi;
 }
 
+static BOOL GetDPIFromRegistry(int* dpi)
+{
+    if (dpi == NULL)
+        return FALSE;
+
+    HKEY hKey;
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Desktop\\WindowMetrics", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+    {
+        DWORD value = 0;
+        DWORD type = 0;
+        DWORD size = sizeof(value);
+        LONG res = RegQueryValueEx(hKey, "AppliedDPI", NULL, &type, (LPBYTE)&value, &size);
+        RegCloseKey(hKey);
+        if (res == ERROR_SUCCESS && type == REG_DWORD && value >= 48 && value <= 960)
+        {
+            *dpi = (int)value;
+            return TRUE;
+        }
+    }
+
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+    {
+        DWORD value = 0;
+        DWORD type = 0;
+        DWORD size = sizeof(value);
+        LONG res = RegQueryValueEx(hKey, "LogPixels", NULL, &type, (LPBYTE)&value, &size);
+        RegCloseKey(hKey);
+        if (res == ERROR_SUCCESS && type == REG_DWORD && value >= 48 && value <= 960)
+        {
+            *dpi = (int)value;
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
 int UpdateSystemDPIForWindow(HWND hWindow)
 {
     typedef UINT(WINAPI * FGetDpiForSystem)();
@@ -2608,7 +2645,15 @@ int UpdateSystemDPIForWindow(HWND hWindow)
     // Salamander still uses one global DPI value.  Prefer the current session/system
     // DPI so reconnecting an RDP/session at a different scale can update already
     // existing windows even if GetDpiForWindow() keeps returning the DPI from the
-    // time the window was created.
+    // time the window was created.  The WindowMetrics value is the one changed by
+    // Windows when the session scale changes, so try it before window-bound APIs.
+    int registryDPI = 0;
+    if (GetDPIFromRegistry(&registryDPI))
+    {
+        SetSystemDPI(registryDPI);
+        return SystemDPI;
+    }
+
     if (getDpiForSystem != NULL)
     {
         UINT dpi = getDpiForSystem();
