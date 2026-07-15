@@ -1461,6 +1461,24 @@ static BOOL SystemParametersInfoForCurrentDPI(UINT action, UINT uiParam, PVOID p
     return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
 }
 
+static void ScaleLogFontForCurrentDPIIfNeeded(LOGFONT* lf)
+{
+    if (lf == NULL || lf->lfHeight == 0)
+        return;
+
+    int dpi = GetSystemDPI();
+    if (dpi < 144)
+        return;
+
+    int height = abs(lf->lfHeight);
+    // If Windows returned metrics from the old 96-DPI session, their pixel height
+    // remains small.  Scale those fonts explicitly so all owner-drawn controls
+    // rebuild with the current session DPI.  If SystemParametersInfoForDpi already
+    // returned a DPI-scaled font, the height will be above this threshold.
+    if (height <= 16)
+        lf->lfHeight = MulDiv(lf->lfHeight, dpi, 96);
+}
+
 // font for our GUI (the panel font can be defined in the configuration)
 BOOL GetSystemGUIFont(LOGFONT* lf)
 {
@@ -1473,6 +1491,7 @@ BOOL GetSystemGUIFont(LOGFONT* lf)
         *lf = ncm.lfMessageFont;
         lf->lfWeight = FW_NORMAL;
     }
+    ScaleLogFontForCurrentDPIIfNeeded(lf);
     return TRUE;
 }
 
@@ -1483,6 +1502,7 @@ BOOL GetSystemTooltipFont(LOGFONT* lf)
     ncm.cbSize = sizeof(ncm);
     SystemParametersInfoForCurrentDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
     *lf = ncm.lfStatusFont;
+    ScaleLogFontForCurrentDPIIfNeeded(lf);
     return TRUE;
 }
 
@@ -1495,7 +1515,10 @@ BOOL CreatePanelFont()
 
     LOGFONT lf;
     if (UseCustomPanelFont)
+    {
         lf = LogFont; // the user set a custom font
+        ScaleLogFontForCurrentDPIIfNeeded(&lf);
+    }
     else
         GetSystemGUIFont(&lf); // get the font from the system
 

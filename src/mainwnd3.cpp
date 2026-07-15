@@ -3470,6 +3470,7 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
     RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
     RefreshDiskFreeSpace();
+    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
     Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
 }
 
