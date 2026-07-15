@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -1849,11 +1849,14 @@ HCURSOR SetHandCursor();
 //       hColorBitmap - barevne provedeni
 //
 
+#ifndef SAL_CSVGICON_DEFINED
+#define SAL_CSVGICON_DEFINED
 struct CSVGIcon
 {
     int ImageIndex;
     const char* SVGName;
 };
+#endif
 
 BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
                           HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap, BOOL appendIcons,
