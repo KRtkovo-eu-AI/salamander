@@ -17,16 +17,17 @@
         <p id="description-text">Fast and reliable two-panel file manager for Windows 11 enhanced with modern features.</p>
       </div>
       <label class="language-switcher" for="language-select">
-        <span class="language-switcher__flag" aria-hidden="true" id="language-flag">🇬🇧</span>
-        <span data-i18n="languageLabel">Language</span>
         <select id="language-select" aria-label="Language selector"></select>
       </label>
     </div>
     <nav class="section-nav" aria-label="Page sections" data-i18n-attr="aria-label:Page sections"><a href="#download-block" data-i18n="navDownload">Download</a><a href="#plugins" data-i18n="navPlugins">Plugins</a><a href="#features" data-i18n="navFeatures">Features</a><a href="#fork" data-i18n="navFork">Fork</a><a href="#origin" data-i18n="navOrigin">Origin</a><a href="#resources" data-i18n="navResources">Resources</a></nav>
   </header>
   <main id="content">
-  <p>Unofficial fork</p>
-  <p>It evolves the <a href="https://github.com/OpenSalamander/salamander">original project</a> with enhancements and new features while staying compatible with the upstream code and plugin ecosystem.</p>
+  <section class="hero-panel" aria-labelledby="hero-title">
+    <div class="hero-panel__copy">
+      <p class="eyebrow">Unofficial fork</p>
+      <h2 id="hero-title">Original Salamander DNA with modern energy</h2>
+      <p>It evolves the <a href="https://github.com/OpenSalamander/salamander">original project</a> with enhancements and new features while staying compatible with the upstream code and plugin ecosystem.</p>
 
   <!--<blockquote>
     <p>!IMPORTANT<br>Open Salamander: Samandarin remains an <strong>intentionally experimental fork</strong>—its <strong>vibe-coded features</strong> are actively evolving, <strong>may surface unexpected issues</strong>, and are best explored by <strong>advanced, adventurous users</strong> who can tolerate work-in-progress behavior.</p>
@@ -37,17 +38,22 @@
     </ul>
   </blockquote>-->
 
-  <div id="download-block">
+      <div id="download-block">
     <h2>Download latest release</h2>
     <p id="latest-release-info" aria-live="polite">Loading latest GitHub release data...</p>
     <ul id="latest-release-downloads" aria-live="polite">
-      <li><a aria="button" href="https://github.com/KRtkovo-eu-AI/salamander/releases/download/5.0-samandarin-0.11/5.0-samandarin-0.11_win_x64.exe">5.0-samandarin-0.11_win_x64.exe</a> Installer/Extract Portable ~ 12.6 MB</li>
-      <li><a aria="button" href="https://github.com/KRtkovo-eu-AI/salamander/releases/download/5.0-samandarin-0.11/5.0-samandarin-0.11_win_x64.zip">5.0-samandarin-0.11_win_x64.zip</a> ZIP Archive ~ 19.5 MB</li>
+      <li><a aria="button" href="https://github.com/KRtkovo-eu-AI/salamander/releases/download/5.0-samandarin-0.11/5.0-samandarin-0.11_win_x64.exe">Installer/Extract portable</a> ~ 12.6 MB</li>
+      <li><a aria="button" href="https://github.com/KRtkovo-eu-AI/salamander/releases/download/5.0-samandarin-0.11/5.0-samandarin-0.11_win_x64.zip">ZIP archive</a> ~ 19.5 MB</li>
     </ul>
-  </div>
+      </div>
+    </div>
+    <div class="hero-panel__visual">
+      <img class="preview" width="1137" height="778" alt="Samandarin application preview" src="https://github.com/user-attachments/assets/af91dcec-fa35-461b-b691-0507c1e1591e">
+      <span class="compatibility-badge"><img src="win11.png" alt="Windows 11 ready"></span>
+    </div>
+  </section>
   
-  <img class="preview" width="1137" height="778" alt="image" src="https://github.com/user-attachments/assets/af91dcec-fa35-461b-b691-0507c1e1591e">
-  
+  <section class="content-grid">
   <h2 id="plugins">Plugin Catalog</h2>
   <blockquote>
     <p>Plugin catalog sources:</p>
@@ -157,7 +163,7 @@
     <li>All binary files including installer are digitally signed.</li>
   </ul>
   <img width="405" height="485" alt="image" src="https://github.com/user-attachments/assets/be80813f-c231-499d-976a-7e17f3ab291d">
-
+  </section>
   <h2 id="fork">Samandarin Fork Overview</h2>
   <h3>Author &amp; Motivation</h3>
   <p><strong>Open Salamander: Samandarin</strong> is introduced by <a href="https://github.com/KRtekTM">Ondřej Kotas (KRtekTM)</a>. Instead of coming from a traditional C++ background, Ondřej is a C# developer and QA test/automation & AI specialist who uses OpenAI Codex to rapidly prototype and implement new ideas. The fork exists so AI-written code can evolve separately without risking the quality of the upstream project while development practices mature.</p>

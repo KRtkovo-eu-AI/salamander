@@ -29,7 +29,7 @@
       "Explore the available plugins in": "Prozkoumejte dostupné pluginy v", "Plugin catalog overview": "přehledu katalogu pluginů",
       "Work with files and folders whose names use characters from different languages, emojis, and other Unicode symbols.": "Pracujte se soubory a složkami, jejichž názvy používají znaky různých jazyků, emoji a další symboly Unicode.",
       "Save the Configuration into file storage instead of Registry.": "Ukládejte konfiguraci do souborového úložiště místo registru.", "Reworked welcome dialog with configuration management options.": "Přepracovaný uvítací dialog s možnostmi správy konfigurací.", "Configuration import and export support.": "Podpora importu a exportu konfigurace.", "Simple wizard for restoring configurations.": "Jednoduchý průvodce obnovením konfigurace.", "Choose between locations for target configuration.": "Možnost výběru umístění cílové konfigurace.", "You can have each side in separate window.": "Každou stranu můžete mít v samostatném okně.", "All binary files including installer are digitally signed.": "Všechny binární soubory včetně instalátoru jsou digitálně podepsané.",
-      "Latest release:": "Nejnovější vydání:", ", published": ", vydáno", "Total downloads:": "Celkem stažení:", "Latest release downloads:": "Stažení nejnovějšího vydání:", "across all releases": "napříč všemi vydáními", "download": "stažení", "downloads": "stažení", "Installer/Extract Portable": "Instalátor / rozbalitelná portable verze", "ZIP Archive": "Archiv ZIP", "Could not load latest GitHub release data. Showing fallback download links.": "Nepodařilo se načíst data nejnovějšího vydání z GitHubu. Zobrazují se záložní odkazy ke stažení."
+      "Latest release:": "Nejnovější vydání:", ", published": ", vydáno", "Total downloads:": "Celkem stažení:", "Latest release downloads:": "Stažení nejnovějšího vydání:", "across all releases": "napříč všemi vydáními", "download": "stažení", "downloads": "stažení", "Installer/Extract portable": "Instalátor / rozbalitelná portable verze", "ZIP archive": "Archiv ZIP", "Could not load latest GitHub release data. Showing fallback download links.": "Nepodařilo se načíst data nejnovějšího vydání z GitHubu. Zobrazují se záložní odkazy ke stažení."
     },
     sk: {}, nl: {}, fr: {}, de: {}, hu: {}, zhHans: {}, ro: {}, ru: {}, es: {}
   };
@@ -38,6 +38,7 @@
 
   const fullPageTranslations = {
   "cs": {
+    "Original Salamander DNA with modern energy": "Původní DNA Salamanderu s moderní energií",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Přejít na obsah",
     "Open Salamander": "Open Salamander",
@@ -57,9 +58,9 @@
     "Download latest release": "Stáhněte si nejnovější verzi",
     "Loading latest GitHub release data...": "Načítání nejnovějších dat vydání GitHubu...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Instalační/rozbalovací přenosný ~ 12,6 MB",
+    "Installer/Extract portable ~ 12.6 MB": "Instalační/rozbalovací přenosný ~ 12,6 MB",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "ZIP archiv ~ 19,5 MB",
+    "ZIP archive ~ 19.5 MB": "ZIP archiv ~ 19,5 MB",
     "Plugin Catalog": "Katalog pluginů",
     "Plugin catalog sources:": "Zdroje katalogu pluginů:",
     "Stable:": "Stabilní:",
@@ -175,6 +176,7 @@
     "use different but compatible licenses.": "používat různé, ale kompatibilní licence."
   },
   "nl": {
+    "Original Salamander DNA with modern energy": "Origineel Salamander-DNA met moderne energie",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Ga naar de inhoud",
     "Open Salamander": "Open Salamander",
@@ -194,9 +196,9 @@
     "Download latest release": "Download de nieuwste versie",
     "Loading latest GitHub release data...": "Laatste GitHub-releasegegevens laden...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Installer/uittreksel Draagbaar ~ 12,6 MB",
+    "Installer/Extract portable ~ 12.6 MB": "Installer/uittreksel Draagbaar ~ 12,6 MB",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "ZIP-archief ~ 19,5 MB",
+    "ZIP archive ~ 19.5 MB": "ZIP-archief ~ 19,5 MB",
     "Plugin Catalog": "Plug-incatalogus",
     "Plugin catalog sources:": "Bronnen voor plug-inscatalogus:",
     "Stable:": "Stabiel:",
@@ -312,6 +314,7 @@
     "use different but compatible licenses.": "gebruik verschillende maar compatibele licenties."
   },
   "fr": {
+    "Original Salamander DNA with modern energy": "ADN Salamander original avec une énergie moderne",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Passer au contenu",
     "Open Salamander": "Open Salamander",
@@ -331,9 +334,9 @@
     "Download latest release": "Téléchargez la dernière version",
     "Loading latest GitHub release data...": "Chargement des dernières données de version de GitHub...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Installateur/Extrait Portable ~ 12,6 Mo",
+    "Installer/Extract portable ~ 12.6 MB": "Installateur/Extrait Portable ~ 12,6 Mo",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "Archives ZIP ~ 19,5 Mo",
+    "ZIP archive ~ 19.5 MB": "Archives ZIP ~ 19,5 Mo",
     "Plugin Catalog": "Catalogue de plugins",
     "Plugin catalog sources:": "Sources du catalogue de plugins :",
     "Stable:": "Stables :",
@@ -449,6 +452,7 @@
     "use different but compatible licenses.": "utilisez des licences différentes mais compatibles."
   },
   "de": {
+    "Original Salamander DNA with modern energy": "Originale Salamander-DNA mit moderner Energie",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Zum Inhalt springen",
     "Open Salamander": "Open Salamander",
@@ -468,9 +472,9 @@
     "Download latest release": "Laden Sie die neueste Version herunter",
     "Loading latest GitHub release data...": "Die neuesten GitHub-Release-Daten werden geladen...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Installer/Extrahieren Portable ~ 12,6 MB",
+    "Installer/Extract portable ~ 12.6 MB": "Installer/Extrahieren Portable ~ 12,6 MB",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "ZIP-Archiv ~ 19,5 MB",
+    "ZIP archive ~ 19.5 MB": "ZIP-Archiv ~ 19,5 MB",
     "Plugin Catalog": "Plugin-Katalog",
     "Plugin catalog sources:": "Quellen des Plugin-Katalogs:",
     "Stable:": "Stabil:",
@@ -586,6 +590,7 @@
     "use different but compatible licenses.": "Verwenden Sie unterschiedliche, aber kompatible Lizenzen."
   },
   "hu": {
+    "Original Salamander DNA with modern energy": "Eredeti Salamander DNS modern energiával",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Ugrás a tartalomhoz",
     "Open Salamander": "Open Salamander",
@@ -605,9 +610,9 @@
     "Download latest release": "Töltse le a legújabb kiadást",
     "Loading latest GitHub release data...": "A GitHub legújabb kiadási adatainak betöltése...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Telepítő/kivonat hordozható ~ 12,6 MB",
+    "Installer/Extract portable ~ 12.6 MB": "Telepítő/kivonat hordozható ~ 12,6 MB",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "ZIP archívum ~ 19,5 MB",
+    "ZIP archive ~ 19.5 MB": "ZIP archívum ~ 19,5 MB",
     "Plugin Catalog": "Plugin katalógus",
     "Plugin catalog sources:": "Beépülő modulok katalógusának forrásai:",
     "Stable:": "Stabil:",
@@ -723,6 +728,7 @@
     "use different but compatible licenses.": "különböző, de kompatibilis licenceket használjon."
   },
   "zhHans": {
+    "Original Salamander DNA with modern energy": "原始 Salamander DNA，注入现代活力",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "跳至内容",
     "Open Salamander": "Open Salamander",
@@ -742,9 +748,9 @@
     "Download latest release": "下载最新版本",
     "Loading latest GitHub release data...": "正在加载最新的 GitHub 发布数据...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "安装程序/解压便携式 ~ 12.6 MB",
+    "Installer/Extract portable ~ 12.6 MB": "安装程序/解压便携式 ~ 12.6 MB",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "ZIP 存档 ~ 19.5 MB",
+    "ZIP archive ~ 19.5 MB": "ZIP 存档 ~ 19.5 MB",
     "Plugin Catalog": "插件目录",
     "Plugin catalog sources:": "插件目录来源：",
     "Stable:": "稳定：",
@@ -860,6 +866,7 @@
     "use different but compatible licenses.": "使用不同但兼容的许可证。"
   },
   "ro": {
+    "Original Salamander DNA with modern energy": "ADN-ul original Salamander cu energie modernă",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Treci la conținut",
     "Open Salamander": "Open Salamander",
@@ -879,9 +886,9 @@
     "Download latest release": "Descărcați cea mai recentă versiune",
     "Loading latest GitHub release data...": "Se încarcă cele mai recente date de lansare GitHub...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Instalator/Extract Portable ~ 12,6 MB",
+    "Installer/Extract portable ~ 12.6 MB": "Instalator/Extract Portable ~ 12,6 MB",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "Arhivă ZIP ~ 19,5 MB",
+    "ZIP archive ~ 19.5 MB": "Arhivă ZIP ~ 19,5 MB",
     "Plugin Catalog": "Catalog de pluginuri",
     "Plugin catalog sources:": "Surse de catalog de pluginuri:",
     "Stable:": "Stabil:",
@@ -997,6 +1004,7 @@
     "use different but compatible licenses.": "utilizați licențe diferite, dar compatibile."
   },
   "ru": {
+    "Original Salamander DNA with modern energy": "Оригинальная ДНК Salamander с современной энергией",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Перейти к содержимому",
     "Open Salamander": "Open Salamander",
@@ -1016,9 +1024,9 @@
     "Download latest release": "Скачать последнюю версию",
     "Loading latest GitHub release data...": "Загрузка данных о последнем выпуске GitHub...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Установщик/Извлечение Портативный ~ 12,6 МБ",
+    "Installer/Extract portable ~ 12.6 MB": "Установщик/Извлечение Портативный ~ 12,6 МБ",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "ZIP-архив ~ 19,5 МБ",
+    "ZIP archive ~ 19.5 MB": "ZIP-архив ~ 19,5 МБ",
     "Plugin Catalog": "Каталог плагинов",
     "Plugin catalog sources:": "Исходники каталога плагинов:",
     "Stable:": "Стабильный:",
@@ -1134,6 +1142,7 @@
     "use different but compatible licenses.": "используйте разные, но совместимые лицензии."
   },
   "sk": {
+    "Original Salamander DNA with modern energy": "Pôvodná DNA Salamandera s modernou energiou",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Preskočiť na obsah",
     "Open Salamander": "Open Salamander",
@@ -1153,9 +1162,9 @@
     "Download latest release": "Stiahnite si najnovšie vydanie",
     "Loading latest GitHub release data...": "Načítavajú sa najnovšie údaje o vydaní GitHub...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Inštalátor/Extrahujte prenosný ~ 12,6 MB",
+    "Installer/Extract portable ~ 12.6 MB": "Inštalátor/Extrahujte prenosný ~ 12,6 MB",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "ZIP archív ~ 19,5 MB",
+    "ZIP archive ~ 19.5 MB": "ZIP archív ~ 19,5 MB",
     "Plugin Catalog": "Katalóg doplnkov",
     "Plugin catalog sources:": "Zdroje katalógu doplnkov:",
     "Stable:": "Stabilné:",
@@ -1271,6 +1280,7 @@
     "use different but compatible licenses.": "používať rôzne, ale kompatibilné licencie."
   },
   "es": {
+    "Original Salamander DNA with modern energy": "ADN original de Salamander con energía moderna",
     "Open Salamander: Samandarin": "Open Salamander: Samandarin",
     "Skip to content": "Saltar al contenido",
     "Open Salamander": "Open Salamander",
@@ -1290,9 +1300,9 @@
     "Download latest release": "Descargar la última versión",
     "Loading latest GitHub release data...": "Cargando datos de la última versión de GitHub...",
     "5.0-samandarin-0.11_win_x64.exe": "5.0-samandarin-0.11_win_x64.exe",
-    "Installer/Extract Portable ~ 12.6 MB": "Instalador/Extracción portátil ~ 12,6 MB",
+    "Installer/Extract portable ~ 12.6 MB": "Instalador/Extracción portátil ~ 12,6 MB",
     "5.0-samandarin-0.11_win_x64.zip": "5.0-samandarin-0.11_win_x64.zip",
-    "ZIP Archive ~ 19.5 MB": "Archivo ZIP ~ 19,5 MB",
+    "ZIP archive ~ 19.5 MB": "Archivo ZIP ~ 19,5 MB",
     "Plugin Catalog": "Catálogo de complementos",
     "Plugin catalog sources:": "Fuentes del catálogo de complementos:",
     "Stable:": "Estable:",
@@ -1444,15 +1454,15 @@
 
 
   const releaseTranslations = {
-    nl: { "download": "download", "downloads": "downloads", "Latest release:": "Nieuwste release:", "Total downloads:": "Totale downloads:", "Latest release downloads:": "Downloads van nieuwste release:", "across all releases": "over alle releases", "Installer/Extract Portable": "Installer/portable uitpakken", "ZIP Archive": "ZIP-archief", "Installer/Extract Portable ~ 12.6 MB": "Installer/portable uitpakken ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "ZIP-archief ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Kon de nieuwste GitHub-releasegegevens niet laden. Fallback-downloadlinks worden getoond." },
-    fr: { "download": "téléchargement", "downloads": "téléchargements", "Latest release:": "Dernière version :", "Total downloads:": "Téléchargements totaux :", "Latest release downloads:": "Téléchargements de la dernière version :", "across all releases": "sur toutes les versions", "Installer/Extract Portable": "Installateur / portable extractible", "ZIP Archive": "Archive ZIP", "Installer/Extract Portable ~ 12.6 MB": "Installateur / portable extractible ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "Archive ZIP ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Impossible de charger les données de la dernière version GitHub. Les liens de téléchargement de secours sont affichés." },
-    de: { "download": "Download", "downloads": "Downloads", "Latest release:": "Neueste Version:", "Total downloads:": "Downloads insgesamt:", "Latest release downloads:": "Downloads der neuesten Version:", "across all releases": "über alle Versionen", "Installer/Extract Portable": "Installer / portable entpacken", "ZIP Archive": "ZIP-Archiv", "Installer/Extract Portable ~ 12.6 MB": "Installer / portable entpacken ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "ZIP-Archiv ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Die neuesten GitHub-Release-Daten konnten nicht geladen werden. Ersatz-Downloadlinks werden angezeigt." },
-    sk: { "download": "stiahnutie", "downloads": "stiahnutí", "Latest release:": "Najnovšie vydanie:", "Total downloads:": "Celkom stiahnutí:", "Latest release downloads:": "Stiahnutia najnovšieho vydania:", "across all releases": "naprieč všetkými vydaniami", "Installer/Extract Portable": "Inštalátor / rozbaliteľná portable verzia", "ZIP Archive": "Archív ZIP", "Installer/Extract Portable ~ 12.6 MB": "Inštalátor / rozbaliteľná portable verzia ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "Archív ZIP ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Nepodarilo sa načítať údaje najnovšieho vydania z GitHubu. Zobrazujú sa záložné odkazy na stiahnutie." },
-    es: { "download": "descarga", "downloads": "descargas", "Latest release:": "Última versión:", "Total downloads:": "Descargas totales:", "Latest release downloads:": "Descargas de la última versión:", "across all releases": "en todas las versiones", "Installer/Extract Portable": "Instalador / portable extraíble", "ZIP Archive": "Archivo ZIP", "Installer/Extract Portable ~ 12.6 MB": "Instalador / portable extraíble ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "Archivo ZIP ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "No se pudieron cargar los datos de la última versión de GitHub. Se muestran enlaces de descarga de reserva." },
-    hu: { "download": "letöltés", "downloads": "letöltés", "Latest release:": "Legújabb kiadás:", "Total downloads:": "Letöltések összesen:", "Latest release downloads:": "A legújabb kiadás letöltései:", "across all releases": "az összes kiadásban", "Installer/Extract Portable": "Telepítő / kicsomagolható portable", "ZIP Archive": "ZIP-archívum", "Installer/Extract Portable ~ 12.6 MB": "Telepítő / kicsomagolható portable ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "ZIP-archívum ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Nem sikerült betölteni a legújabb GitHub-kiadás adatait. Tartalék letöltési hivatkozások láthatók." },
-    zhHans: { "download": "次下载", "downloads": "次下载", "Latest release:": "最新版本：", "Total downloads:": "总下载量：", "Latest release downloads:": "最新版本下载量：", "across all releases": "所有版本", "Installer/Extract Portable": "安装程序 / 可解压便携版", "ZIP Archive": "ZIP 压缩包", "Installer/Extract Portable ~ 12.6 MB": "安装程序 / 可解压便携版 ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "ZIP 压缩包 ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "无法加载最新的 GitHub 发布数据。正在显示备用下载链接。" },
-    ro: { "download": "descărcare", "downloads": "descărcări", "Latest release:": "Cea mai recentă versiune:", "Total downloads:": "Descărcări totale:", "Latest release downloads:": "Descărcări pentru cea mai recentă versiune:", "across all releases": "în toate versiunile", "Installer/Extract Portable": "Instalator / portable extractibil", "ZIP Archive": "Arhivă ZIP", "Installer/Extract Portable ~ 12.6 MB": "Instalator / portable extractibil ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "Arhivă ZIP ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Nu s-au putut încărca datele celei mai recente versiuni GitHub. Se afișează linkuri de descărcare de rezervă." },
-    ru: { "download": "загрузка", "downloads": "загрузок", "Latest release:": "Последний релиз:", "Total downloads:": "Всего загрузок:", "Latest release downloads:": "Загрузки последнего релиза:", "across all releases": "во всех релизах", "Installer/Extract Portable": "Установщик / распаковываемая portable-версия", "ZIP Archive": "ZIP-архив", "Installer/Extract Portable ~ 12.6 MB": "Установщик / portable-версия ~ 12.6 MB", "ZIP Archive ~ 19.5 MB": "ZIP-архив ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Не удалось загрузить данные последнего релиза GitHub. Показаны резервные ссылки для скачивания." }
+    nl: { "download": "download", "downloads": "downloads", "Latest release:": "Nieuwste release:", "Total downloads:": "Totale downloads:", "Latest release downloads:": "Downloads van nieuwste release:", "across all releases": "over alle releases", "Installer/Extract portable": "Installer/portable uitpakken", "ZIP archive": "ZIP-archief", "Installer/Extract portable ~ 12.6 MB": "Installer/portable uitpakken ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "ZIP-archief ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Kon de nieuwste GitHub-releasegegevens niet laden. Fallback-downloadlinks worden getoond." },
+    fr: { "download": "téléchargement", "downloads": "téléchargements", "Latest release:": "Dernière version :", "Total downloads:": "Téléchargements totaux :", "Latest release downloads:": "Téléchargements de la dernière version :", "across all releases": "sur toutes les versions", "Installer/Extract portable": "Installateur / portable extractible", "ZIP archive": "Archive ZIP", "Installer/Extract portable ~ 12.6 MB": "Installateur / portable extractible ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "Archive ZIP ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Impossible de charger les données de la dernière version GitHub. Les liens de téléchargement de secours sont affichés." },
+    de: { "download": "Download", "downloads": "Downloads", "Latest release:": "Neueste Version:", "Total downloads:": "Downloads insgesamt:", "Latest release downloads:": "Downloads der neuesten Version:", "across all releases": "über alle Versionen", "Installer/Extract portable": "Installer / portable entpacken", "ZIP archive": "ZIP-Archiv", "Installer/Extract portable ~ 12.6 MB": "Installer / portable entpacken ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "ZIP-Archiv ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Die neuesten GitHub-Release-Daten konnten nicht geladen werden. Ersatz-Downloadlinks werden angezeigt." },
+    sk: { "download": "stiahnutie", "downloads": "stiahnutí", "Latest release:": "Najnovšie vydanie:", "Total downloads:": "Celkom stiahnutí:", "Latest release downloads:": "Stiahnutia najnovšieho vydania:", "across all releases": "naprieč všetkými vydaniami", "Installer/Extract portable": "Inštalátor / rozbaliteľná portable verzia", "ZIP archive": "Archív ZIP", "Installer/Extract portable ~ 12.6 MB": "Inštalátor / rozbaliteľná portable verzia ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "Archív ZIP ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Nepodarilo sa načítať údaje najnovšieho vydania z GitHubu. Zobrazujú sa záložné odkazy na stiahnutie." },
+    es: { "download": "descarga", "downloads": "descargas", "Latest release:": "Última versión:", "Total downloads:": "Descargas totales:", "Latest release downloads:": "Descargas de la última versión:", "across all releases": "en todas las versiones", "Installer/Extract portable": "Instalador / portable extraíble", "ZIP archive": "Archivo ZIP", "Installer/Extract portable ~ 12.6 MB": "Instalador / portable extraíble ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "Archivo ZIP ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "No se pudieron cargar los datos de la última versión de GitHub. Se muestran enlaces de descarga de reserva." },
+    hu: { "download": "letöltés", "downloads": "letöltés", "Latest release:": "Legújabb kiadás:", "Total downloads:": "Letöltések összesen:", "Latest release downloads:": "A legújabb kiadás letöltései:", "across all releases": "az összes kiadásban", "Installer/Extract portable": "Telepítő / kicsomagolható portable", "ZIP archive": "ZIP-archívum", "Installer/Extract portable ~ 12.6 MB": "Telepítő / kicsomagolható portable ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "ZIP-archívum ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Nem sikerült betölteni a legújabb GitHub-kiadás adatait. Tartalék letöltési hivatkozások láthatók." },
+    zhHans: { "download": "次下载", "downloads": "次下载", "Latest release:": "最新版本：", "Total downloads:": "总下载量：", "Latest release downloads:": "最新版本下载量：", "across all releases": "所有版本", "Installer/Extract portable": "安装程序 / 可解压便携版", "ZIP archive": "ZIP 压缩包", "Installer/Extract portable ~ 12.6 MB": "安装程序 / 可解压便携版 ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "ZIP 压缩包 ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "无法加载最新的 GitHub 发布数据。正在显示备用下载链接。" },
+    ro: { "download": "descărcare", "downloads": "descărcări", "Latest release:": "Cea mai recentă versiune:", "Total downloads:": "Descărcări totale:", "Latest release downloads:": "Descărcări pentru cea mai recentă versiune:", "across all releases": "în toate versiunile", "Installer/Extract portable": "Instalator / portable extractibil", "ZIP archive": "Arhivă ZIP", "Installer/Extract portable ~ 12.6 MB": "Instalator / portable extractibil ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "Arhivă ZIP ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Nu s-au putut încărca datele celei mai recente versiuni GitHub. Se afișează linkuri de descărcare de rezervă." },
+    ru: { "download": "загрузка", "downloads": "загрузок", "Latest release:": "Последний релиз:", "Total downloads:": "Всего загрузок:", "Latest release downloads:": "Загрузки последнего релиза:", "across all releases": "во всех релизах", "Installer/Extract portable": "Установщик / распаковываемая portable-версия", "ZIP archive": "ZIP-архив", "Installer/Extract portable ~ 12.6 MB": "Установщик / portable-версия ~ 12.6 MB", "ZIP archive ~ 19.5 MB": "ZIP-архив ~ 19.5 MB", "Could not load latest GitHub release data. Showing fallback download links.": "Не удалось загрузить данные последнего релиза GitHub. Показаны резервные ссылки для скачивания." }
   };
   Object.entries(releaseTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
 
@@ -1564,7 +1574,11 @@
   const applyLocale = (locale) => {
     const selected = locales[locale] ? locale : DEFAULT_LOCALE;
     document.documentElement.lang = locales[selected].htmlLang;
-    document.getElementById("language-flag").textContent = locales[selected].flag;
+
+    const languageFlag = document.getElementById("language-flag");
+    if (languageFlag) {
+      languageFlag.textContent = locales[selected].flag;
+    }
 
     for (const node of translatableTextNodes) {
       node.nodeValue = translateText(node.__samOriginalText, selected);
