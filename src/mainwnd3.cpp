@@ -35,6 +35,23 @@
 #include "cache.h"
 #include "gui.h"
 #include <uxtheme.h>
+
+#ifndef WM_WTSSESSION_CHANGE
+#define WM_WTSSESSION_CHANGE 0x02B1
+#endif
+#ifndef NOTIFY_FOR_THIS_SESSION
+#define NOTIFY_FOR_THIS_SESSION 0
+#endif
+#ifndef WTS_REMOTE_CONNECT
+#define WTS_REMOTE_CONNECT 0x3
+#endif
+#ifndef WTS_SESSION_LOGON
+#define WTS_SESSION_LOGON 0x5
+#endif
+#ifndef WTS_SESSION_UNLOCK
+#define WTS_SESSION_UNLOCK 0x8
+#endif
+
 #include "zip.h"
 #include "tasklist.h"
 #include "jumplist.h"
@@ -3418,9 +3435,9 @@ void CMainWindow::UpdateRebarVisuals()
 }
 
 static int InitialSessionDPI = 0;
-static BOOL RestartingForSessionDPI = FALSE;
+static BOOL DPIChangePromptShown = FALSE;
 
-static int GetSessionDPIForRestart()
+static int GetSessionDPIForPrompt()
 {
     HKEY hKey;
     DWORD value = 0;
@@ -3446,42 +3463,53 @@ static int GetSessionDPIForRestart()
     return 96;
 }
 
-static void RelaunchIfSessionDPIChanged(HWND hWindow)
+static BOOL RegisterSessionNotification(HWND hWindow)
 {
-    if (RestartingForSessionDPI)
+    typedef BOOL(WINAPI * FWTSRegisterSessionNotification)(HWND hWnd, DWORD dwFlags);
+    HMODULE wtsapi32 = LoadLibrary("wtsapi32.dll");
+    if (wtsapi32 == NULL)
+        return FALSE;
+
+    FWTSRegisterSessionNotification registerSessionNotification =
+        (FWTSRegisterSessionNotification)GetProcAddress(wtsapi32, "WTSRegisterSessionNotification");
+    if (registerSessionNotification == NULL)
+        return FALSE;
+
+    return registerSessionNotification(hWindow, NOTIFY_FOR_THIS_SESSION);
+}
+
+static void UnregisterSessionNotification(HWND hWindow)
+{
+    typedef BOOL(WINAPI * FWTSUnRegisterSessionNotification)(HWND hWnd);
+    HMODULE wtsapi32 = GetModuleHandle("wtsapi32.dll");
+    if (wtsapi32 == NULL)
         return;
 
-    int dpi = GetSessionDPIForRestart();
+    FWTSUnRegisterSessionNotification unregisterSessionNotification =
+        (FWTSUnRegisterSessionNotification)GetProcAddress(wtsapi32, "WTSUnRegisterSessionNotification");
+    if (unregisterSessionNotification != NULL)
+        unregisterSessionNotification(hWindow);
+}
+
+static void ShowDPIChangePrompt(HWND hWindow)
+{
+    if (DPIChangePromptShown)
+        return;
+
+    DPIChangePromptShown = TRUE;
+    SalMessageBox(hWindow, LoadStr(IDS_DPI_CHANGE_RESTART), LoadStr(IDS_DPI_CHANGE_TITLE), MB_OK | MB_ICONINFORMATION);
+}
+
+static void PromptIfSessionDPIChanged(HWND hWindow)
+{
+    int dpi = GetSessionDPIForPrompt();
     if (InitialSessionDPI == 0)
     {
         InitialSessionDPI = dpi;
         return;
     }
-    if (dpi == InitialSessionDPI)
-        return;
-
-    RestartingForSessionDPI = TRUE;
-    if (MainWindow != NULL)
-        MainWindow->SaveConfig(hWindow, FALSE);
-
-    char cmdLine[32768];
-    lstrcpyn(cmdLine, GetCommandLine(), _countof(cmdLine));
-
-    STARTUPINFO si;
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&si, sizeof(si));
-    ZeroMemory(&pi, sizeof(pi));
-    si.cb = sizeof(si);
-    if (CreateProcess(NULL, cmdLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-    {
-        CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
-        PostMessage(hWindow, WM_CLOSE, 0, 0);
-    }
-    else
-    {
-        RestartingForSessionDPI = FALSE;
-    }
+    if (dpi != InitialSessionDPI)
+        ShowDPIChangePrompt(hWindow);
 }
 
 LRESULT
@@ -3493,7 +3521,8 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         SHChangeNotifyInitialize(); // request receiving Shell Notifications
-        InitialSessionDPI = GetSessionDPIForRestart();
+        InitialSessionDPI = GetSessionDPIForPrompt();
+        RegisterSessionNotification(HWindow);
 
         SetTimer(HWindow, IDT_ADDNEWMODULES, 15000, NULL); // timer after 15 seconds for AddNewlyLoadedModulesToGlobalModulesStore()
 
@@ -3786,13 +3815,21 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_DISPLAYCHANGE:
     {
-        RelaunchIfSessionDPIChanged(HWindow);
+        PromptIfSessionDPIChanged(HWindow);
         break;
+    }
+
+    case WM_WTSSESSION_CHANGE:
+    {
+        if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
+            wParam == WTS_SESSION_UNLOCK)
+            ShowDPIChangePrompt(HWindow);
+        return 0;
     }
 
     case WM_SETTINGCHANGE:
     {
-        RelaunchIfSessionDPIChanged(HWindow);
+        PromptIfSessionDPIChanged(HWindow);
 
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
         if (darkChanged)
@@ -9707,7 +9744,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         //      {
         if (wParam == TRUE) // activating the app
         {
-            RelaunchIfSessionDPIChanged(HWindow);
+            PromptIfSessionDPIChanged(HWindow);
 
             if (!LeftPanel->DontClearNextFocusName)
                 LeftPanel->NextFocusName[0] = 0;
@@ -10644,6 +10681,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             while (1)
                 Sleep(1000);
         }
+
+        UnregisterSessionNotification(HWindow);
 
         // notify the task list that we are exiting
         TaskList.SetProcessState(PROCESS_STATE_ENDING, NULL);
