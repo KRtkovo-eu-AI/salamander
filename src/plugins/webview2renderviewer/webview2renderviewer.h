@@ -31,6 +31,14 @@ public:
     virtual BOOL WINAPI CanViewFile(const char* name) override;
 };
 
+class CPluginInterfaceForThumbLoader : public CPluginInterfaceForThumbLoaderAbstract
+{
+public:
+    virtual BOOL WINAPI LoadThumbnail(const char* filename, int thumbWidth, int thumbHeight,
+                                      CSalamanderThumbnailMakerAbstract* thumbMaker,
+                                      BOOL fastThumbnail) override;
+};
+
 class CPluginInterface : public CPluginInterfaceAbstract
 {
 public:
@@ -50,7 +58,7 @@ public:
     virtual CPluginInterfaceForViewerAbstract* WINAPI GetInterfaceForViewer() override;
     virtual CPluginInterfaceForMenuExtAbstract* WINAPI GetInterfaceForMenuExt() override { return NULL; }
     virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS() override { return NULL; }
-    virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() override { return NULL; }
+    virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() override;
 
     virtual void WINAPI Event(int event, DWORD param) override {}
     virtual void WINAPI ClearHistory(HWND parent) override {}
@@ -62,3 +70,4 @@ public:
 // rozhrani pluginu poskytnute Salamanderovi
 extern CPluginInterface PluginInterface;
 extern CPluginInterfaceForViewer InterfaceForViewer;
+extern CPluginInterfaceForThumbLoader InterfaceForThumbLoader;

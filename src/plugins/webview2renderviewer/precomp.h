@@ -37,6 +37,7 @@
 #include "spl_gen.h"
 #include "spl_gui.h"
 #include "spl_view.h"
+#include "spl_thum.h"
 #include "spl_vers.h"
 
 #include "dbg.h"

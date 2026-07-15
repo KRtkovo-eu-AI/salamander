@@ -304,6 +304,31 @@ bool ManagedBridge_RequestShutdown(HWND parent, bool forceClose)
     return ExecuteCommand(L"Release", parent, payload.c_str());
 }
 
+bool ManagedBridge_RenderThumbnail(HWND parent, const char* filePath, int thumbWidth, int thumbHeight,
+                                   const wchar_t* outputPath)
+{
+    if (!ManagedBridge_EnsureInitialized(parent))
+    {
+        return false;
+    }
+
+    std::wstring widePath = AnsiToWide(filePath);
+    std::wstring encodedPath = EncodeBase64FromWide(widePath);
+    std::wstring encodedOutput = EncodeBase64FromWide(outputPath != nullptr ? outputPath : L"");
+    if (encodedPath.empty() || encodedOutput.empty())
+    {
+        return false;
+    }
+
+    std::wstring payload;
+    AppendKeyValue(payload, L"path", encodedPath.c_str());
+    AppendKeyValue(payload, L"output", encodedOutput.c_str());
+    AppendInt(payload, L"width", thumbWidth);
+    AppendInt(payload, L"height", thumbHeight);
+
+    return ExecuteCommand(L"Thumbnail", parent, payload.c_str());
+}
+
 bool ManagedBridge_ViewDocument(HWND parent, const char* filePath, const RECT& placement,
                                 UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous)
 {

@@ -22,6 +22,7 @@
 CPluginInterface PluginInterface;
 // cast interfacu CPluginInterface pro viewer
 CPluginInterfaceForViewer InterfaceForViewer;
+CPluginInterfaceForThumbLoader InterfaceForThumbLoader;
 
 // globalni data
 const char* PluginNameEN = "WebView2 Render Viewer .NET"; // neprekladane jmeno pluginu
@@ -293,6 +294,8 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
         flushPattern();
     }
 
+    salamander->SetThumbnailLoader("*.svg");
+
     if (SalamanderGUI != NULL)
     {
         CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
@@ -324,7 +327,79 @@ CPluginInterfaceForViewerAbstract* WINAPI CPluginInterface::GetInterfaceForViewe
     return &InterfaceForViewer;
 }
 
+CPluginInterfaceForThumbLoaderAbstract* WINAPI CPluginInterface::GetInterfaceForThumbLoader()
+{
+    return &InterfaceForThumbLoader;
+}
+
 //
+
+// ****************************************************************************
+// CPluginInterfaceForThumbLoader
+//
+
+static bool HasSvgExtension(const char* filename)
+{
+    if (filename == NULL)
+        return false;
+
+    const char* extension = strrchr(filename, '.');
+    return extension != NULL && _stricmp(extension, ".svg") == 0;
+}
+
+static bool FeedBitmapToThumbnailMaker(const wchar_t* bitmapPath, CSalamanderThumbnailMakerAbstract* thumbMaker)
+{
+    HBITMAP bitmap = (HBITMAP)LoadImageW(NULL, bitmapPath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+    if (bitmap == NULL)
+        return false;
+
+    BITMAP bm;
+    bool ok = false;
+    if (GetObject(bitmap, sizeof(bm), &bm) == sizeof(bm) && bm.bmWidth > 0 && bm.bmHeight > 0 && bm.bmBits != NULL &&
+        bm.bmBitsPixel == 32 && thumbMaker->SetParameters(bm.bmWidth, bm.bmHeight, 0))
+    {
+        ok = thumbMaker->ProcessBuffer(bm.bmBits, bm.bmHeight) != FALSE;
+    }
+
+    DeleteObject(bitmap);
+    return ok;
+}
+
+BOOL WINAPI CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename, int thumbWidth, int thumbHeight,
+                                                          CSalamanderThumbnailMakerAbstract* thumbMaker,
+                                                          BOOL fastThumbnail)
+{
+    CALL_STACK_MESSAGE5("CPluginInterfaceForThumbLoader::LoadThumbnail(%s, %d, %d, , %d)",
+                        filename, thumbWidth, thumbHeight, fastThumbnail);
+
+    if (!HasSvgExtension(filename))
+        return FALSE;
+
+    if (thumbMaker == NULL || thumbMaker->GetCancelProcessing())
+        return TRUE;
+
+    wchar_t tempPath[SAL_MAX_PATH];
+    wchar_t tempFile[SAL_MAX_PATH];
+    if (GetTempPathW(_countof(tempPath), tempPath) == 0 ||
+        GetTempFileNameW(tempPath, L"w2t", 0, tempFile) == 0)
+    {
+        thumbMaker->SetError();
+        return TRUE;
+    }
+
+    bool rendered = ManagedBridge_RenderThumbnail(NULL, filename, thumbWidth, thumbHeight, tempFile);
+    bool loaded = false;
+    if (rendered && !thumbMaker->GetCancelProcessing())
+        loaded = FeedBitmapToThumbnailMaker(tempFile, thumbMaker);
+
+    DeleteFileW(tempFile);
+
+    if (!rendered || !loaded)
+        thumbMaker->SetError();
+
+    return TRUE;
+}
+
 // ****************************************************************************
 // CPluginInterfaceForViewer
 //

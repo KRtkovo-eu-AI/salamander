@@ -10,3 +10,5 @@ void ManagedBridge_Shutdown();
 bool ManagedBridge_RequestShutdown(HWND parent, bool forceClose);
 bool ManagedBridge_ViewDocument(HWND parent, const char* filePath, const RECT& placement,
                                 UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous);
+bool ManagedBridge_RenderThumbnail(HWND parent, const char* filePath, int thumbWidth, int thumbHeight,
+                                   const wchar_t* outputPath);
