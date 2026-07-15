@@ -1825,6 +1825,30 @@ int CCfgPageConfirmations::FindInList(HTREEITEM hTreeItem)
     return -1;
 }
 
+static HTREEITEM
+GetConfirmationsTreeItemFromPoint(HWND hTreeView, POINT pt)
+{
+    TVHITTESTINFO hit;
+    memset(&hit, 0, sizeof(hit));
+    hit.pt = pt;
+    HTREEITEM hItem = TreeView_HitTest(hTreeView, &hit);
+    if (hItem != NULL && (hit.flags & (TVHT_ONITEM | TVHT_ONITEMRIGHT)) != 0)
+        return hItem;
+
+    hItem = TreeView_GetFirstVisible(hTreeView);
+    while (hItem != NULL)
+    {
+        RECT r;
+        if (TreeView_GetItemRect(hTreeView, hItem, &r, FALSE) &&
+            pt.y >= r.top && pt.y < r.bottom)
+        {
+            return hItem;
+        }
+        hItem = TreeView_GetNextVisible(hTreeView, hItem);
+    }
+    return NULL;
+}
+
 INT_PTR
 CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1835,7 +1859,7 @@ CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HTreeView = GetDlgItem(HWindow, IDC_CNFRM_TREE);
 
         DWORD style = (DWORD)GetWindowLongPtr(HTreeView, GWL_STYLE);
-        style |= TVS_CHECKBOXES;
+        style |= TVS_CHECKBOXES | TVS_FULLROWSELECT;
         SetWindowLongPtr(HTreeView, GWL_STYLE, style);
 
         dmlib::setDarkTreeViewCheckboxes(HTreeView);
@@ -1889,18 +1913,27 @@ CCfgPageConfirmations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
             }
-            if (nmh->code == NM_DBLCLK)
+            if (nmh->code == NM_CLICK || nmh->code == NM_DBLCLK)
             {
-                HTREEITEM hItem = TreeView_GetSelection(HTreeView);
-                if (hItem)
+                POINT pt;
+                DWORD pos = GetMessagePos();
+                pt.x = GET_X_LPARAM(pos);
+                pt.y = GET_Y_LPARAM(pos);
+                ScreenToClient(HTreeView, &pt);
+                HTREEITEM hItem = GetConfirmationsTreeItemFromPoint(HTreeView, pt);
+                if (hItem != NULL)
                 {
-                    int index = FindInList(hItem);
-                    if (index != -1)
+                    TreeView_SelectItem(HTreeView, hItem);
+                    if (nmh->code == NM_DBLCLK)
                     {
-                        List[index].Checked = !List[index].Checked;
-                        TreeView_SetItemState(HTreeView, hItem,
-                                              INDEXTOSTATEIMAGEMASK(List[index].Checked ? 2 : 1),
-                                              TVIS_STATEIMAGEMASK);
+                        int index = FindInList(hItem);
+                        if (index != -1)
+                        {
+                            List[index].Checked = !List[index].Checked;
+                            TreeView_SetItemState(HTreeView, hItem,
+                                                  INDEXTOSTATEIMAGEMASK(List[index].Checked ? 2 : 1),
+                                                  TVIS_STATEIMAGEMASK);
+                        }
                     }
                 }
             }

@@ -21,6 +21,7 @@ namespace dmlib_subclass
 	LRESULT CALLBACK WindowNotifySubclass(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK WindowMenuBarSubclass(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK WindowSettingChangeSubclass(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) noexcept;
+	LRESULT CALLBACK TreeViewPaintSubclass(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) noexcept;
 
 	/// Applies a subclass to task dialog and its children to handle dark mode.
 	void setTaskDlgChildCtrlsSubclassAndTheme(HWND hWnd);

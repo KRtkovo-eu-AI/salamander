@@ -16,6 +16,7 @@
 
 #include <windows.h>
 
+#include <commctrl.h>
 #include <uxtheme.h>
 #include <vsstyle.h>
 #include <vssym32.h>
@@ -33,6 +34,53 @@
 #include "DmlibSubclassControl.h"
 
 #include "UAHMenuBar.h"
+
+namespace
+{
+	constexpr COLORREF kTreeViewSelectionFrameColor = RGB(96, 205, 255);
+
+	void DrawTreeViewSelectedItemFrame(HWND hWnd) noexcept
+	{
+		if (!dmlib::isEnabled())
+		{
+			return;
+		}
+
+		HTREEITEM selectedItem = TreeView_GetSelection(hWnd);
+		if (selectedItem == nullptr)
+		{
+			return;
+		}
+
+		RECT rcFrame{};
+		if (TreeView_GetItemRect(hWnd, selectedItem, &rcFrame, FALSE) == FALSE)
+		{
+			return;
+		}
+
+		RECT rcClient{};
+		::GetClientRect(hWnd, &rcClient);
+		::IntersectRect(&rcFrame, &rcFrame, &rcClient);
+		if (rcFrame.left >= rcFrame.right || rcFrame.top >= rcFrame.bottom)
+		{
+			return;
+		}
+
+		HDC hdc = ::GetDC(hWnd);
+		if (hdc == nullptr)
+		{
+			return;
+		}
+
+		HBRUSH hBrush = ::CreateSolidBrush(kTreeViewSelectionFrameColor);
+		if (hBrush != nullptr)
+		{
+			::FrameRect(hdc, &rcFrame, hBrush);
+			::DeleteObject(hBrush);
+		}
+		::ReleaseDC(hWnd, hdc);
+	}
+}
 
 /**
  * @brief Window subclass procedure for handling `WM_ERASEBKGND` message.
@@ -79,6 +127,47 @@ LRESULT CALLBACK dmlib_subclass::WindowEraseBgSubclass(
 			::GetClientRect(hWnd, &rcClient);
 			::FillRect(reinterpret_cast<HDC>(wParam), &rcClient, dmlib::getDlgBackgroundBrush());
 			return TRUE;
+		}
+
+		default:
+		{
+			break;
+		}
+	}
+	return ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
+}
+
+LRESULT CALLBACK dmlib_subclass::TreeViewPaintSubclass(
+	HWND hWnd,
+	UINT uMsg,
+	WPARAM wParam,
+	LPARAM lParam,
+	UINT_PTR uIdSubclass,
+	[[maybe_unused]] DWORD_PTR dwRefData
+) noexcept
+{
+	switch (uMsg)
+	{
+		case WM_PAINT:
+		{
+			const LRESULT result = ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
+			DrawTreeViewSelectedItemFrame(hWnd);
+			return result;
+		}
+
+		case WM_HSCROLL:
+		case WM_VSCROLL:
+		case WM_SIZE:
+		{
+			const LRESULT result = ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
+			::RedrawWindow(hWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+			return result;
+		}
+
+		case WM_NCDESTROY:
+		{
+			::RemoveWindowSubclass(hWnd, TreeViewPaintSubclass, uIdSubclass);
+			break;
 		}
 
 		default:
