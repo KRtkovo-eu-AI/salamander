@@ -2031,7 +2031,7 @@ bool ShouldUseDarkColorsInternal()
     return gShouldAppsUseDarkMode() && !IsHighContrast();
 }
 
-bool IsWindowsDarkSchemeSelected()
+bool DarkModeIsWindowsDarkSchemeSelected()
 {
     return gWindowsDarkSchemeSelected;
 }
@@ -2040,14 +2040,14 @@ bool ShouldUseDarkColorsForSurfaces()
 {
     if (ShouldUseDarkColorsInternal())
         return true;
-    if (!IsWindowsDarkSchemeSelected())
+    if (!DarkModeIsWindowsDarkSchemeSelected())
         return false;
     return ComputeLuminance(gDialogBackgroundColor) < 128;
 }
 
 bool ShouldApplyNativeDarkEnhancements()
 {
-    return IsWindowsDarkSchemeSelected() && !IsHighContrast();
+    return DarkModeIsWindowsDarkSchemeSelected() && !IsHighContrast();
 }
 
 BOOL CALLBACK ApplyTreeCallback(HWND hwnd, LPARAM)
@@ -2474,7 +2474,7 @@ bool DarkModeShouldUseDarkColors()
     if (ShouldUseDarkColorsInternal())
         return true;
 
-    if (!IsWindowsDarkSchemeSelected())
+    if (!DarkModeIsWindowsDarkSchemeSelected())
         return false;
 
     // Fall back to the configured dialog palette only for the explicit Windows
@@ -2539,7 +2539,7 @@ void DarkModeApplyTree(HWND hwnd)
         return;
 
     DarkModeApplyWindow(hwnd);
-    ApplyListTreeThemeRecursive(hwnd, IsWindowsDarkSchemeSelected());
+    ApplyListTreeThemeRecursive(hwnd, DarkModeIsWindowsDarkSchemeSelected());
     EnumChildWindows(hwnd, ApplyTreeCallback, 0);
 }
 
@@ -2821,7 +2821,7 @@ void DarkModePreserveCustomTreeView(HWND treeView)
 
     SetPropW(treeView, kDarkModeCustomTreeViewProp, reinterpret_cast<HANDLE>(1));
 
-    const bool wantDark = IsWindowsDarkSchemeSelected();
+    const bool wantDark = DarkModeIsWindowsDarkSchemeSelected();
     if (gSetWindowTheme != nullptr)
         gSetWindowTheme(treeView, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
 
@@ -2907,7 +2907,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     const COLORREF sysTextColor = GetSysColor(COLOR_BTNTEXT);
     const COLORREF sysBackground = GetSysColor(COLOR_BTNFACE);
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
-    const bool hasCustomPalette = IsWindowsDarkSchemeSelected() &&
+    const bool hasCustomPalette = DarkModeIsWindowsDarkSchemeSelected() &&
                                   (textColor != sysTextColor || background != sysBackground);
 #if USE_DARKMODELIB
     const bool forceClassicButtons = false;
@@ -3126,7 +3126,7 @@ void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
         if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) != 0)
             return;
         if (gSetWindowTheme != nullptr)
-            gSetWindowTheme(ctrl, IsWindowsDarkSchemeSelected() ? L"DarkMode_Explorer" : nullptr, nullptr);
+            gSetWindowTheme(ctrl, DarkModeIsWindowsDarkSchemeSelected() ? L"DarkMode_Explorer" : nullptr, nullptr);
         InvalidateRect(ctrl, NULL, TRUE);
     };
 
@@ -3141,7 +3141,7 @@ void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
 
 void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor, bool forceDark)
 {
-    if (chooseColor == NULL || (!forceDark && !IsWindowsDarkSchemeSelected()))
+    if (chooseColor == NULL || (!forceDark && !DarkModeIsWindowsDarkSchemeSelected()))
         return;
 
 #if USE_DARKMODELIB
@@ -3163,7 +3163,7 @@ void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor, bool forceDark)
 
 void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont, bool forceDark)
 {
-    if (chooseFont == NULL || (!forceDark && !IsWindowsDarkSchemeSelected()))
+    if (chooseFont == NULL || (!forceDark && !DarkModeIsWindowsDarkSchemeSelected()))
         return;
 
 #if USE_DARKMODELIB

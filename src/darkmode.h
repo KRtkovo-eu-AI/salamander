@@ -27,7 +27,7 @@ bool DarkModeIsSupported();
 void DarkModeSetEnabled(bool enabled);
 
 // Returns true if the explicit Windows Dark Mode color scheme is selected.
-bool IsWindowsDarkSchemeSelected();
+bool DarkModeIsWindowsDarkSchemeSelected();
 
 // Returns true if dark colors should currently be used.
 bool DarkModeShouldUseDarkColors();
