@@ -665,13 +665,34 @@ static void postpaintTreeViewItem(const LPNMTVCUSTOMDRAW& lptvcd) noexcept
 	RECT rcFrame{ lptvcd->nmcd.rc };
 	::InflateRect(&rcFrame, 1, 0);
 
+	HPEN hPen = nullptr;
 	if ((lptvcd->nmcd.uItemState & CDIS_HOT) == CDIS_HOT)
 	{
-		dmlib_paint::paintRoundFrameRect(lptvcd->nmcd.hdc, rcFrame, dmlib::getHotEdgePen(), 0, 0);
+		hPen = dmlib::getHotEdgePen();
 	}
 	else if ((lptvcd->nmcd.uItemState & CDIS_SELECTED) == CDIS_SELECTED)
 	{
-		dmlib_paint::paintRoundFrameRect(lptvcd->nmcd.hdc, rcFrame, dmlib::getEdgePen(), 0, 0);
+		hPen = dmlib::getEdgePen();
+	}
+
+	if (hPen != nullptr)
+	{
+		RECT rcClient{};
+		::GetClientRect(lptvcd->nmcd.hdr.hwndFrom, &rcClient);
+		::IntersectRect(&rcFrame, &rcFrame, &rcClient);
+		if (rcFrame.left < rcFrame.right && rcFrame.top < rcFrame.bottom)
+		{
+			HDC hdc = ::GetDC(lptvcd->nmcd.hdr.hwndFrom);
+			if (hdc != nullptr)
+			{
+				HPEN hOldPen = static_cast<HPEN>(::SelectObject(hdc, hPen));
+				HBRUSH hOldBrush = static_cast<HBRUSH>(::SelectObject(hdc, ::GetStockObject(NULL_BRUSH)));
+				::Rectangle(hdc, rcFrame.left, rcFrame.top, rcFrame.right, rcFrame.bottom);
+				::SelectObject(hdc, hOldBrush);
+				::SelectObject(hdc, hOldPen);
+				::ReleaseDC(lptvcd->nmcd.hdr.hwndFrom, hdc);
+			}
+		}
 	}
 }
 
