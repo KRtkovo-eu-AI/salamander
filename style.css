@@ -26,6 +26,9 @@
 
 * { box-sizing: border-box; }
 html { min-height: 100%; background: radial-gradient(circle at top, #3a3a3a 0, var(--sam-bg) 42rem); }
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
 body {
   max-width: 1100px;
   margin: 18px auto;

@@ -9,9 +9,14 @@
     backToTop.classList.toggle("back-to-top--visible", window.scrollY > 480);
   };
 
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
   backToTop.addEventListener("click", (event) => {
     event.preventDefault();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({
+      top: 0,
+      behavior: prefersReducedMotion.matches ? "auto" : "smooth"
+    });
   });
 
   toggleBackToTop();
