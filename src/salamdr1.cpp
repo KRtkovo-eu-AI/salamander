@@ -2588,16 +2588,35 @@ void SetSystemDPI(int dpi)
 
 int UpdateSystemDPIForWindow(HWND hWindow)
 {
+    typedef UINT(WINAPI * FGetDpiForSystem)();
     typedef UINT(WINAPI * FGetDpiForWindow)(HWND hwnd);
+    static FGetDpiForSystem getDpiForSystem = NULL;
     static FGetDpiForWindow getDpiForWindow = NULL;
-    static BOOL getDpiForWindowLoaded = FALSE;
+    static BOOL dpiFunctionsLoaded = FALSE;
 
-    if (!getDpiForWindowLoaded)
+    if (!dpiFunctionsLoaded)
     {
         HMODULE user32 = GetModuleHandle("user32.dll");
         if (user32 != NULL)
+        {
+            getDpiForSystem = (FGetDpiForSystem)GetProcAddress(user32, "GetDpiForSystem");
             getDpiForWindow = (FGetDpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
-        getDpiForWindowLoaded = TRUE;
+        }
+        dpiFunctionsLoaded = TRUE;
+    }
+
+    // Salamander still uses one global DPI value.  Prefer the current session/system
+    // DPI so reconnecting an RDP/session at a different scale can update already
+    // existing windows even if GetDpiForWindow() keeps returning the DPI from the
+    // time the window was created.
+    if (getDpiForSystem != NULL)
+    {
+        UINT dpi = getDpiForSystem();
+        if (dpi != 0)
+        {
+            SetSystemDPI((int)dpi);
+            return SystemDPI;
+        }
     }
 
     if (getDpiForWindow != NULL && hWindow != NULL)
@@ -2610,11 +2629,11 @@ int UpdateSystemDPIForWindow(HWND hWindow)
         }
     }
 
-    HDC hDC = GetDC(hWindow);
+    HDC hDC = GetDC(NULL);
     if (hDC != NULL)
     {
         GetSystemDPI(hDC);
-        ReleaseDC(hWindow, hDC);
+        ReleaseDC(NULL, hDC);
     }
 
     return GetSystemDPI();
