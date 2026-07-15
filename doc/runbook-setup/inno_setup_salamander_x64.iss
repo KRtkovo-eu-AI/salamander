@@ -1311,7 +1311,7 @@ Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversio
 Source: "{#PayloadDir}\toolbars\Back.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\CalculateDirectorySizes.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\CalculateOccupiedSpace.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
-Source: "{#PayloadDir}\toolbars\CilpboardCut.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\ClipboardCut.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ClipboardCopy.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ClipboardPaste.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\CommandShell.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -1385,7 +1385,7 @@ Source: "{#PayloadDir}\toolbars\WhatIsThis.svg"; DestDir: "{app}\toolbars"; Flag
 Source: "{#PayloadDir}\toolbars\darkmode\Back.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\CalculateDirectorySizes.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\CalculateOccupiedSpace.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
-Source: "{#PayloadDir}\toolbars\darkmode\CilpboardCut.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\ClipboardCut.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ClipboardCopy.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ClipboardPaste.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\CommandShell.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
