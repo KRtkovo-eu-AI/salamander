@@ -21,7 +21,7 @@
 static void ScaleSmallMenuLogFontForCurrentDPI(LOGFONT* lf)
 {
     int dpi = GetSystemDPI();
-    if (lf == NULL || dpi <= 96 || lf->lfHeight == 0)
+    if (lf == NULL || lf->lfHeight == 0)
         return;
 
     int height = abs(lf->lfHeight);
