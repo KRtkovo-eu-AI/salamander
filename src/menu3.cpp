@@ -110,6 +110,35 @@ CMenuSharedResources::~CMenuSharedResources()
         HANDLES(CloseHandle(HCloseEvent));
 }
 
+
+static BOOL SystemParametersInfoForPopupMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
+{
+    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
+    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
+        loaded = TRUE;
+    }
+    if (systemParametersInfoForDpi != NULL && systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, GetSystemDPI()))
+        return TRUE;
+    return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
+}
+
+static void ScalePopupMenuFontForCurrentDPI(LOGFONT* lf)
+{
+    int dpi = GetSystemDPI();
+    if (lf == NULL || lf->lfHeight == 0)
+        return;
+    int expected = MulDiv(12, dpi, 96);
+    int height = abs(lf->lfHeight);
+    if (height < expected - 1 || height > expected + 2)
+        lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
+}
+
 BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
 {
     CALL_STACK_MESSAGE3("CMenuSharedResources::Create(, %d, %d)", width, height);
@@ -139,9 +168,10 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
     // generate a copy and a bold version from the menu font
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
-    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    SystemParametersInfoForPopupMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
 
     LOGFONT* lf = &ncm.lfMenuFont;
+    ScalePopupMenuFontForCurrentDPI(lf);
     HNormalFont = HANDLES(CreateFontIndirect(lf));
     lf->lfWeight = FW_BOLD;
     HBoldFont = HANDLES(CreateFontIndirect(lf));

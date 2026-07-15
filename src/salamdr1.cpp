@@ -2283,6 +2283,13 @@ BOOL InitializeConstGraphics()
     ncm.cbSize = sizeof(ncm);
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
     LogFont = ncm.lfStatusFont;
+    if (LogFont.lfHeight != 0)
+    {
+        int expected = MulDiv(12, GetSystemDPI(), 96);
+        int height = abs(LogFont.lfHeight);
+        if (height < expected - 1 || height > expected + 2)
+            LogFont.lfHeight = LogFont.lfHeight < 0 ? -expected : expected;
+    }
     /*
   LogFont.lfHeight = -10;
   LogFont.lfWidth = 0;
@@ -2574,6 +2581,111 @@ int GetSystemDPI()
     }
 }
 
+void SetSystemDPI(int dpi)
+{
+    if (dpi <= 0)
+    {
+        TRACE_E("SetSystemDPI() invalid dpi=" << dpi);
+        return;
+    }
+    SystemDPI = dpi;
+}
+
+static int GetRegistrySessionDPI()
+{
+    HKEY hKey;
+    DWORD value = 0;
+    DWORD type = 0;
+    DWORD size = sizeof(value);
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Desktop\\WindowMetrics", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+    {
+        LONG res = RegQueryValueEx(hKey, "AppliedDPI", NULL, &type, (LPBYTE)&value, &size);
+        RegCloseKey(hKey);
+        if (res == ERROR_SUCCESS && type == REG_DWORD && value >= 48 && value <= 960)
+            return (int)value;
+    }
+    return 0;
+}
+
+static int GetDesktopDPI()
+{
+    HDC hDC = GetDC(NULL);
+    if (hDC == NULL)
+        return 0;
+    int dpi = GetDeviceCaps(hDC, LOGPIXELSX);
+    ReleaseDC(NULL, hDC);
+    return dpi;
+}
+
+int GetCurrentSessionDPI()
+{
+    int dpi = GetRegistrySessionDPI();
+    if (dpi > 0)
+        return dpi;
+
+    typedef UINT(WINAPI * FGetDpiForSystem)();
+    static FGetDpiForSystem getDpiForSystem = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            getDpiForSystem = (FGetDpiForSystem)GetProcAddress(user32, "GetDpiForSystem");
+        loaded = TRUE;
+    }
+    if (getDpiForSystem != NULL)
+    {
+        dpi = (int)getDpiForSystem();
+        if (dpi > 0)
+            return dpi;
+    }
+
+    dpi = GetDesktopDPI();
+    return dpi > 0 ? dpi : 96;
+}
+
+int GetDPIForWindow(HWND hWindow)
+{
+    typedef UINT(WINAPI * FGetDpiForWindow)(HWND hwnd);
+    static FGetDpiForWindow getDpiForWindow = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            getDpiForWindow = (FGetDpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
+        loaded = TRUE;
+    }
+    if (getDpiForWindow != NULL && hWindow != NULL)
+    {
+        int dpi = (int)getDpiForWindow(hWindow);
+        if (dpi > 0)
+            return dpi;
+    }
+    return GetCurrentSessionDPI();
+}
+
+int UpdateSystemDPIForWindow(HWND hWindow)
+{
+    int dpi = GetDPIForWindow(hWindow);
+    SetSystemDPI(dpi);
+    return GetSystemDPI();
+}
+
+void TraceDPIState(const char* reason, HWND hWindow)
+{
+    TRACE_I("DPI state (" << (reason != NULL ? reason : "") << "): SystemDPI=" << SystemDPI
+            << ", SessionDPI=" << GetCurrentSessionDPI()
+            << ", WindowDPI=" << GetDPIForWindow(hWindow)
+            << ", DesktopDPI=" << GetDesktopDPI()
+            << ", RegistryDPI=" << GetRegistrySessionDPI());
+}
+
+int ScaleForDPI(int value, int dpi)
+{
+    return MulDiv(value, dpi > 0 ? dpi : 96, 96);
+}
+
 int GetScaleForSystemDPI()
 {
     int dpi = GetSystemDPI();
@@ -2673,7 +2785,14 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     int iconColorsCount = 0;
     HDC hDesktopDC = GetDC(NULL);
     int bpp = GetCurrentBPP(hDesktopDC);
-    GetSystemDPI(hDesktopDC);
+    // During a live DPI refresh the caller has already selected the target DPI
+    // (for RDP/session switches this can come from AppliedDPI before the main
+    // window reports the new DPI).  Do not overwrite it here with the desktop
+    // DC value, otherwise rebuilt fonts, SVGs and image lists immediately fall
+    // back to the old DPI and the main window contents stay at the previous
+    // scale until restart.
+    if (SystemDPI == 0)
+        GetSystemDPI(hDesktopDC);
     ReleaseDC(NULL, hDesktopDC);
 
     IconSizes[ICONSIZE_16] = GetIconSizeForSystemDPI(ICONSIZE_16);
@@ -5737,6 +5856,25 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     return 0;
 }
 
+
+static void InitializeProcessDPIAwareness()
+{
+    // The manifest is the primary declaration, but make the per-monitor-v2
+    // DPI context explicit as early as possible so Windows does not bitmap-scale
+    // the main window text.
+    typedef BOOL(WINAPI * FSetProcessDpiAwarenessContext)(HANDLE dpiContext);
+    HMODULE user32 = GetModuleHandle("user32.dll");
+    if (user32 != NULL)
+    {
+        FSetProcessDpiAwarenessContext setProcessDpiAwarenessContext =
+            (FSetProcessDpiAwarenessContext)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+        if (setProcessDpiAwarenessContext != NULL &&
+            setProcessDpiAwarenessContext((HANDLE)-4 /* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 */))
+            return;
+
+    }
+}
+
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow)
 {
@@ -5744,6 +5882,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
     __try
     {
 #endif // CALLSTK_DISABLE
+
+        InitializeProcessDPIAwareness();
 
         //#ifdef MSVC_RUNTIME_CHECKS
         _RTC_SetErrorFuncW(&MyRTCErrorFunc);
