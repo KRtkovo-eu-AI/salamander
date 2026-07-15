@@ -2574,6 +2574,94 @@ int GetSystemDPI()
     }
 }
 
+static int GetRegistrySessionDPI()
+{
+    HKEY hKey;
+    DWORD value = 0;
+    DWORD type = 0;
+    DWORD size = sizeof(value);
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Desktop\\WindowMetrics", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+    {
+        LONG res = RegQueryValueEx(hKey, "AppliedDPI", NULL, &type, (LPBYTE)&value, &size);
+        RegCloseKey(hKey);
+        if (res == ERROR_SUCCESS && type == REG_DWORD && value >= 48 && value <= 960)
+            return (int)value;
+    }
+    return 0;
+}
+
+static int GetDesktopDPI()
+{
+    HDC hDC = GetDC(NULL);
+    if (hDC == NULL)
+        return 0;
+    int dpi = GetDeviceCaps(hDC, LOGPIXELSX);
+    ReleaseDC(NULL, hDC);
+    return dpi;
+}
+
+int GetCurrentSessionDPI()
+{
+    int dpi = GetRegistrySessionDPI();
+    if (dpi > 0)
+        return dpi;
+
+    typedef UINT(WINAPI * FGetDpiForSystem)();
+    static FGetDpiForSystem getDpiForSystem = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            getDpiForSystem = (FGetDpiForSystem)GetProcAddress(user32, "GetDpiForSystem");
+        loaded = TRUE;
+    }
+    if (getDpiForSystem != NULL)
+    {
+        dpi = (int)getDpiForSystem();
+        if (dpi > 0)
+            return dpi;
+    }
+
+    dpi = GetDesktopDPI();
+    return dpi > 0 ? dpi : 96;
+}
+
+int GetDPIForWindow(HWND hWindow)
+{
+    typedef UINT(WINAPI * FGetDpiForWindow)(HWND hwnd);
+    static FGetDpiForWindow getDpiForWindow = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            getDpiForWindow = (FGetDpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
+        loaded = TRUE;
+    }
+    if (getDpiForWindow != NULL && hWindow != NULL)
+    {
+        int dpi = (int)getDpiForWindow(hWindow);
+        if (dpi > 0)
+            return dpi;
+    }
+    return GetCurrentSessionDPI();
+}
+
+void TraceDPIState(const char* reason, HWND hWindow)
+{
+    TRACE_I("DPI state (" << (reason != NULL ? reason : "") << "): SystemDPI=" << SystemDPI
+            << ", SessionDPI=" << GetCurrentSessionDPI()
+            << ", WindowDPI=" << GetDPIForWindow(hWindow)
+            << ", DesktopDPI=" << GetDesktopDPI()
+            << ", RegistryDPI=" << GetRegistrySessionDPI());
+}
+
+int ScaleForDPI(int value, int dpi)
+{
+    return MulDiv(value, dpi > 0 ? dpi : 96, 96);
+}
+
 int GetScaleForSystemDPI()
 {
     int dpi = GetSystemDPI();
