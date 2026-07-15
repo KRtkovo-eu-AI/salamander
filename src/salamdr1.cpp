@@ -4271,28 +4271,8 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
     return TRUE;
 }
 
-static void InitializeDPIAwareness()
-{
-    typedef BOOL(WINAPI * FSetProcessDpiAwarenessContext)(HANDLE value);
-
-    HMODULE user32 = GetModuleHandle("user32.dll");
-    if (user32 == NULL)
-        return;
-
-    FSetProcessDpiAwarenessContext setProcessDpiAwarenessContext =
-        (FSetProcessDpiAwarenessContext)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
-    if (setProcessDpiAwarenessContext != NULL)
-    {
-        // DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED: let Windows scale the legacy
-        // GDI UI, but render text/GDI primitives through the enhanced path.
-        setProcessDpiAwarenessContext((HANDLE)-5);
-    }
-}
-
 int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine, int cmdShow)
 {
-    InitializeDPIAwareness();
-
     int myExitCode = 1;
 
     //--- nechci zadne kriticke chyby jako "no disk in drive A:"

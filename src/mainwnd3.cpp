@@ -3417,6 +3417,73 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+static int InitialSessionDPI = 0;
+static BOOL RestartingForSessionDPI = FALSE;
+
+static int GetSessionDPIForRestart()
+{
+    HKEY hKey;
+    DWORD value = 0;
+    DWORD type = 0;
+    DWORD size = sizeof(value);
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Desktop\\WindowMetrics", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+    {
+        LONG res = RegQueryValueEx(hKey, "AppliedDPI", NULL, &type, (LPBYTE)&value, &size);
+        RegCloseKey(hKey);
+        if (res == ERROR_SUCCESS && type == REG_DWORD && value >= 48 && value <= 960)
+            return (int)value;
+    }
+
+    HDC hDC = GetDC(NULL);
+    if (hDC != NULL)
+    {
+        int dpi = GetDeviceCaps(hDC, LOGPIXELSX);
+        ReleaseDC(NULL, hDC);
+        if (dpi > 0)
+            return dpi;
+    }
+
+    return 96;
+}
+
+static void RelaunchIfSessionDPIChanged(HWND hWindow)
+{
+    if (RestartingForSessionDPI)
+        return;
+
+    int dpi = GetSessionDPIForRestart();
+    if (InitialSessionDPI == 0)
+    {
+        InitialSessionDPI = dpi;
+        return;
+    }
+    if (dpi == InitialSessionDPI)
+        return;
+
+    RestartingForSessionDPI = TRUE;
+    if (MainWindow != NULL)
+        MainWindow->SaveConfig(hWindow, FALSE);
+
+    char cmdLine[32768];
+    lstrcpyn(cmdLine, GetCommandLine(), _countof(cmdLine));
+
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    ZeroMemory(&pi, sizeof(pi));
+    si.cb = sizeof(si);
+    if (CreateProcess(NULL, cmdLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+    {
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        PostMessage(hWindow, WM_CLOSE, 0, 0);
+    }
+    else
+    {
+        RestartingForSessionDPI = FALSE;
+    }
+}
+
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -3426,6 +3493,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         SHChangeNotifyInitialize(); // request receiving Shell Notifications
+        InitialSessionDPI = GetSessionDPIForRestart();
 
         SetTimer(HWindow, IDT_ADDNEWMODULES, 15000, NULL); // timer after 15 seconds for AddNewlyLoadedModulesToGlobalModulesStore()
 
@@ -3716,8 +3784,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         break;
     }
 
+    case WM_DISPLAYCHANGE:
+    {
+        RelaunchIfSessionDPIChanged(HWindow);
+        break;
+    }
+
     case WM_SETTINGCHANGE:
     {
+        RelaunchIfSessionDPIChanged(HWindow);
+
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
         if (darkChanged)
         {
@@ -9631,6 +9707,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         //      {
         if (wParam == TRUE) // activating the app
         {
+            RelaunchIfSessionDPIChanged(HWindow);
+
             if (!LeftPanel->DontClearNextFocusName)
                 LeftPanel->NextFocusName[0] = 0;
             else
