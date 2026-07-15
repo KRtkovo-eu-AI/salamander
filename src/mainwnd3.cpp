@@ -3439,6 +3439,8 @@ void CMainWindow::UpdateRebarVisuals()
 }
 
 static BOOL DPIRefreshInProgress = FALSE;
+static BOOL DPIRefreshPosted = FALSE;
+static int PendingDPI = 0;
 static int MainWindowContentDPI = 0;
 static int InitialSessionDPI = 0;
 static BOOL DPIChangePromptShown = FALSE;
@@ -3916,15 +3918,42 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_DPICHANGED:
     {
-        RefreshDPI(TRUE, HIWORD(wParam), lParam != 0 ? reinterpret_cast<const RECT*>(lParam) : NULL);
+        int dpi = HIWORD(wParam);
+        if (lParam != 0)
+        {
+            const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
+            SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                         suggestedRect->right - suggestedRect->left,
+                         suggestedRect->bottom - suggestedRect->top,
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
+        PendingDPI = dpi;
+        if (!DPIRefreshPosted)
+        {
+            DPIRefreshPosted = TRUE;
+            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)dpi, 0);
+        }
+        return 0;
+    }
+
+    case WM_USER_APPLY_DPI_CHANGE:
+    {
+        DPIRefreshPosted = FALSE;
+        int dpi = PendingDPI > 0 ? PendingDPI : (int)wParam;
+        PendingDPI = 0;
+        RefreshDPI(TRUE, dpi, NULL);
         return 0;
     }
 
     case WM_DISPLAYCHANGE:
     {
         TraceDPIState("WM_DISPLAYCHANGE", HWindow);
-        RefreshDPI(FALSE, GetDPIForWindow(HWindow));
-        PromptIfSessionDPIChanged(HWindow);
+        PendingDPI = GetDPIForWindow(HWindow);
+        if (!DPIRefreshPosted)
+        {
+            DPIRefreshPosted = TRUE;
+            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
+        }
         break;
     }
 
@@ -3933,17 +3962,26 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         TraceDPIState("WM_WTSSESSION_CHANGE", HWindow);
         if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
             wParam == WTS_SESSION_UNLOCK)
-            RefreshDPI(FALSE, GetCurrentSessionDPI());
-        PromptIfSessionDPIChanged(HWindow);
+        {
+            PendingDPI = GetCurrentSessionDPI();
+            if (!DPIRefreshPosted)
+            {
+                DPIRefreshPosted = TRUE;
+                PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
+            }
+        }
         return 0;
     }
 
     case WM_SETTINGCHANGE:
     {
         TraceDPIState("WM_SETTINGCHANGE", HWindow);
-        RefreshDPI(FALSE, GetDPIForWindow(HWindow));
-        PromptIfSessionDPIChanged(HWindow);
-
+        PendingDPI = GetDPIForWindow(HWindow);
+        if (!DPIRefreshPosted)
+        {
+            DPIRefreshPosted = TRUE;
+            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
+        }
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
         if (darkChanged)
         {
@@ -9858,11 +9896,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (wParam == TRUE) // activating the app
         {
             TraceDPIState("WM_ACTIVATEAPP", HWindow);
-            // Activation is noisy during minimize/restore of other applications.
-            // Do not rebuild or resize the main window here; only check whether
-            // a session DPI change happened and let the restart prompt handle it.
-            PromptIfSessionDPIChanged(HWindow);
-
             if (!LeftPanel->DontClearNextFocusName)
                 LeftPanel->NextFocusName[0] = 0;
             else

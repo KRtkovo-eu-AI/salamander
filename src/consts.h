@@ -1197,6 +1197,7 @@ struct COpenViewerData
 #define WM_USER_SLGINCOMPLETE WM_APP + 414 // [0, 0] - upozorneni, ze SLG neni kompletne prelozene, motivacni text aby se zapojili
 
 #define WM_USER_USERMENUICONS_READY WM_APP + 415 // [bkgndReaderData, threadID] - notifikace pro hl. okno, ze se dokoncilo cteni ikon pro User Menu v threadu s ID 'threadID'
+#define WM_USER_APPLY_DPI_CHANGE WM_APP + 416 // [dpi, 0] - deferred main-window DPI refresh
 
 #define WM_USER_TREEVIEW_ASYNC_DONE WM_APP + 420 // [0, CTreeViewAsyncLoadData*] - asynchronni nacteni obsahu slozky dokonceno
 
