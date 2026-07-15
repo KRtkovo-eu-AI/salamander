@@ -3565,8 +3565,8 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     RightPanel->EndOfIconReadingTime = GetTickCount() - 10000;
     RightPanel->UseThumbnails = FALSE;
 
-    LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
-    RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
+    LeftPanel->RefreshDirectory(FALSE, TRUE);
+    RightPanel->RefreshDirectory(FALSE, TRUE);
     PostMessage(HWindow, WM_USER_REPAINTALLICONS, 0, 0);
     RefreshDiskFreeSpace();
     RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
