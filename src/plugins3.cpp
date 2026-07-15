@@ -9,6 +9,7 @@
 #include "plugins.h"
 #include "toolbar.h"
 #include "gui.h"
+#include "svg.h"
 #include <uxtheme.h>
 
 //
@@ -412,6 +413,54 @@ BOOL CSalamanderGUI::CreateGrayscaleAndMaskBitmaps(HBITMAP hSource, COLORREF tra
         HANDLES_REMOVE(hMask, __htHandle_comp_with_DeleteObject, "DeleteObject");
     }
     return ret;
+}
+
+BOOL CSalamanderGUI::CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
+                                          HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
+                                          const CSVGIcon* svgIcons, int svgIconsCount)
+{
+    BOOL ret = ::CreateToolbarBitmaps(hInstance, resID, transparent, bkColorForAlpha,
+                                      hMaskBitmap, hGrayBitmap, hColorBitmap,
+                                      FALSE, svgIcons, svgIconsCount);
+    if (ret)
+    {
+        HANDLES_REMOVE(hMaskBitmap, __htHandle_comp_with_DeleteObject, "DeleteObject");
+        HANDLES_REMOVE(hGrayBitmap, __htHandle_comp_with_DeleteObject, "DeleteObject");
+        HANDLES_REMOVE(hColorBitmap, __htHandle_comp_with_DeleteObject, "DeleteObject");
+    }
+    return ret;
+}
+
+
+HICON CSalamanderGUI::CreateSVGIcon(const char* svgName, int iconSize)
+{
+    HBITMAP hColorBitmap = NULL;
+    if (!RenderSVGIconBitmap(svgName, iconSize, TRUE, &hColorBitmap))
+        return NULL;
+
+    const int maskStride = ((iconSize + 15) / 16) * 2;
+    BYTE* maskBits = (BYTE*)calloc(maskStride, iconSize);
+    if (maskBits == NULL)
+    {
+        HANDLES(DeleteObject(hColorBitmap));
+        return NULL;
+    }
+    HBITMAP hMaskBitmap = HANDLES(CreateBitmap(iconSize, iconSize, 1, 1, maskBits));
+    free(maskBits);
+    if (hMaskBitmap == NULL)
+    {
+        HANDLES(DeleteObject(hColorBitmap));
+        return NULL;
+    }
+    ICONINFO iconInfo;
+    memset(&iconInfo, 0, sizeof(iconInfo));
+    iconInfo.fIcon = TRUE;
+    iconInfo.hbmMask = hMaskBitmap;
+    iconInfo.hbmColor = hColorBitmap;
+    HICON hIcon = CreateIconIndirect(&iconInfo);
+    HANDLES(DeleteObject(hMaskBitmap));
+    HANDLES(DeleteObject(hColorBitmap));
+    return hIcon;
 }
 
 //****************************************************************************

@@ -184,7 +184,7 @@ static char* LoadToolbarSVG(const char* svgName)
     char* s = strrchr(svgFile, '\\');
     if (s != NULL)
     {
-        if (Configuration.UseWindowsDarkMode && DarkModeShouldUseDarkColors())
+        if (Configuration.UseWindowsDarkMode)
         {
             sprintf(s + 1, "toolbars\\darkmode\\%s.svg", svgName);
             char* svg = ReadSVGFile(svgFile);
@@ -267,6 +267,78 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
 
         free(svg);
     }
+}
+
+
+BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+{
+    if (hBitmap == NULL)
+        return FALSE;
+    *hBitmap = NULL;
+    char* svg = LoadToolbarSVG(svgName);
+    if (svg == NULL)
+        return FALSE;
+
+    HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));
+    BITMAPINFOHEADER bmhdr;
+    memset(&bmhdr, 0, sizeof(bmhdr));
+    bmhdr.biSize = sizeof(bmhdr);
+    bmhdr.biWidth = iconSize;
+    bmhdr.biHeight = -iconSize;
+    if (bmhdr.biHeight == 0)
+        bmhdr.biHeight = -1;
+    bmhdr.biPlanes = 1;
+    bmhdr.biBitCount = 32;
+    bmhdr.biCompression = BI_RGB;
+    void* lpMemBits = NULL;
+    HBITMAP hMemBmp = HANDLES(CreateDIBSection(hMemDC, (CONST BITMAPINFO*)&bmhdr, DIB_RGB_COLORS, &lpMemBits, NULL, 0));
+    if (hMemBmp != NULL && lpMemBits != NULL)
+    {
+        memset(lpMemBits, 0, static_cast<size_t>(iconSize) * iconSize * 4);
+        float sysDPIScale = (float)GetScaleForSystemDPI();
+        NSVGimage* image = nsvgParse(svg, "px", sysDPIScale);
+        if (image != NULL)
+        {
+            if (!enabled)
+            {
+                DWORD disabledColor = GetSVGSysColor(COLOR_BTNSHADOW);
+                NSVGshape* shape = image->shapes;
+                while (shape != NULL)
+                {
+                    if ((shape->fill.color & 0x00FFFFFF) != 0x00FFFFFF)
+                        shape->fill.color = disabledColor;
+                    shape = shape->next;
+                }
+            }
+            NSVGrasterizer* rast = nsvgCreateRasterizer();
+            if (rast != NULL)
+            {
+                float scale = sysDPIScale / 100;
+                nsvgRasterize(rast, image, 0, 0, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
+                DWORD* pixels = (DWORD*)lpMemBits;
+                for (int i = 0; i < iconSize * iconSize; i++)
+                {
+                    BYTE alpha = (BYTE)(pixels[i] >> 24);
+                    BYTE red = (BYTE)(pixels[i] & 0xff);
+                    BYTE green = (BYTE)((pixels[i] >> 8) & 0xff);
+                    BYTE blue = (BYTE)((pixels[i] >> 16) & 0xff);
+                    red = (BYTE)((red * alpha + 127) / 255);
+                    green = (BYTE)((green * alpha + 127) / 255);
+                    blue = (BYTE)((blue * alpha + 127) / 255);
+                    pixels[i] = ((DWORD)alpha << 24) | ((DWORD)blue << 16) | ((DWORD)green << 8) | red;
+                }
+                nsvgDeleteRasterizer(rast);
+                *hBitmap = hMemBmp;
+                hMemBmp = NULL;
+            }
+            nsvgDelete(image);
+        }
+    }
+    if (hMemBmp != NULL)
+        HANDLES(DeleteObject(hMemBmp));
+    HANDLES(DeleteDC(hMemDC));
+    free(svg);
+    return *hBitmap != NULL;
 }
 
 //*****************************************************************************

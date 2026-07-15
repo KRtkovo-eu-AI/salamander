@@ -192,6 +192,47 @@ CExtraScanImagesToOpen ExtraScanImagesToOpen; // list of all images from the sca
 #define IDX_TB_NEXTSELFILE 37
 #define IDX_TB_COUNT 38
 
+static const CSVGIcon PictViewSVGIcons[] = {
+    {IDX_TB_PROPERTIES, "pictview\\Properties"},
+    {IDX_TB_COPY, "pictview\\Copy"},
+    {IDX_TB_PASTE, "pictview\\Paste"},
+    {IDX_TB_FULLSCREEN, "pictview\\FullScreen"},
+    {IDX_TB_OPEN, "pictview\\Open"},
+    {IDX_TB_180, "pictview\\Rotate180"},
+    {IDX_TB_RIGHT, "pictview\\RotateRight"},
+    {IDX_TB_LEFT, "pictview\\RotateLeft"},
+    {IDX_TB_FLIPV, "pictview\\FlipVertical"},
+    {IDX_TB_FLIPH, "pictview\\FlipHorizontal"},
+    {IDX_TB_ZOOMIN, "pictview\\ZoomIn"},
+    {IDX_TB_ZOOMOUT, "pictview\\ZoomOut"},
+    {IDX_TB_FIRST, "pictview\\First"},
+    {IDX_TB_LAST, "pictview\\Last"},
+    {IDX_TB_SAVE, "pictview\\Save"},
+    {IDX_TB_PREVPAGE, "pictview\\PrevPage"},
+    {IDX_TB_NEXTPAGE, "pictview\\NextPage"},
+    {IDX_TB_HELP, "pictview\\Help"},
+    {IDX_TB_HAND, "pictview\\Hand"},
+    {IDX_TB_PICK, "pictview\\Pipette"},
+    {IDX_TB_SELECT, "pictview\\Select"},
+    {IDX_TB_ZOOM, "pictview\\Zoom"},
+    {IDX_TB_PRINT, "pictview\\Print"},
+    {IDX_TB_ZOOMACTUAL, "pictview\\ZoomActual"},
+    {IDX_TB_ZOOMWHOLE, "pictview\\ZoomWhole"},
+    {IDX_TB_ZOOMWIDTH, "pictview\\ZoomWidth"},
+    {IDX_TB_PREV, "pictview\\Previous"},
+    {IDX_TB_NEXT, "pictview\\Next"},
+    {IDX_TB_OTHERCHANNELS, "pictview\\OtherChannels"},
+    {IDX_TB_LUMINOSITY, "pictview\\Luminosity"},
+    {IDX_TB_RED, "pictview\\Red"},
+    {IDX_TB_GREEN, "pictview\\Green"},
+    {IDX_TB_BLUE, "pictview\\Blue"},
+    {IDX_TB_RGBSUM, "pictview\\RGBSum"},
+    {IDX_TB_SELSRCFILE, "pictview\\SelectSourceFile"},
+    {IDX_TB_CROP, "pictview\\Crop"},
+    {IDX_TB_PREVSELFILE, "pictview\\PreviousSelectedFile"},
+    {IDX_TB_NEXTSELFILE, "pictview\\NextSelectedFile"},
+};
+
 MENU_TEMPLATE_ITEM MenuTemplate[] =
     {
         {MNTT_PB, -1, MNTS_B | MNTS_I | MNTS_A, 0, -1, 0, NULL},
@@ -2786,9 +2827,17 @@ BOOL CViewerWindow::InitializeGraphics()
     HBITMAP hTmpGrayBitmap;
     HBITMAP hTmpColorBitmap;
 
-    hTmpColorBitmap = LoadBitmap(DLLInstance, MAKEINTRESOURCE(SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16));
-    SalamanderGUI->CreateGrayscaleAndMaskBitmaps(hTmpColorBitmap, RGB(255, 0, 255),
-                                                 hTmpGrayBitmap, hTmpMaskBitmap);
+    if (!SalamanderGUI->CreateToolbarBitmaps(DLLInstance,
+                                             SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16,
+                                             RGB(255, 0, 255),
+                                             PictViewShouldUseWindowsDarkMode() ? RGB(0x2F, 0x34, 0x3A) : GetSysColor(COLOR_BTNFACE),
+                                             hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap,
+                                             PictViewSVGIcons, _countof(PictViewSVGIcons)))
+    {
+        hTmpColorBitmap = LoadBitmap(DLLInstance, MAKEINTRESOURCE(SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16));
+        SalamanderGUI->CreateGrayscaleAndMaskBitmaps(hTmpColorBitmap, RGB(255, 0, 255),
+                                                     hTmpGrayBitmap, hTmpMaskBitmap);
+    }
     HHotToolBarImageList = ImageList_Create(16, 16, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
     HGrayToolBarImageList = ImageList_Create(16, 16, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
     ImageList_Add(HHotToolBarImageList, hTmpColorBitmap, hTmpMaskBitmap);

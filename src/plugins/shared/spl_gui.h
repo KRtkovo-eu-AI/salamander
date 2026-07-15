@@ -19,6 +19,16 @@
 #pragma option -a4
 #endif // __BORLANDC__
 
+#ifndef SAL_CSVGICON_DEFINED
+#define SAL_CSVGICON_DEFINED
+struct CSVGIcon
+{
+    int ImageIndex;
+    const char* SVGName;
+};
+#endif
+
+
 ////////////////////////////////////////////////////////
 //                                                    //
 // Prostor WM_APP + 200 az WM_APP + 399 je v const.h  //
@@ -2092,6 +2102,11 @@ public:
     // Pri uspechu vraci TRUE  a 'hGrayscale' a 'hMask'; pri chybe vraci FALSE.
     virtual BOOL WINAPI CreateGrayscaleAndMaskBitmaps(HBITMAP hSource, COLORREF transparent,
                                                       HBITMAP& hGrayscale, HBITMAP& hMask) = 0;
+    // Creates toolbar bitmaps from a bitmap resource and optionally overlays SVG icons loaded from toolbars/*.svg.
+    virtual BOOL WINAPI CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
+                                             HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
+                                             const CSVGIcon* svgIcons, int svgIconsCount) = 0;
+    virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize) = 0;
 
     ///////////////////////////////////////////////////////////////////////////
     //
