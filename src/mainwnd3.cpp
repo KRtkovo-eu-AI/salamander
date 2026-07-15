@@ -3491,13 +3491,38 @@ static void UnregisterSessionNotification(HWND hWindow)
         unregisterSessionNotification(hWindow);
 }
 
+static void RelaunchAfterDPIChange(HWND hWindow)
+{
+    if (MainWindow != NULL)
+        MainWindow->SaveConfig(hWindow, FALSE);
+
+    char cmdLine[32768];
+    lstrcpyn(cmdLine, GetCommandLine(), _countof(cmdLine));
+
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    ZeroMemory(&pi, sizeof(pi));
+    si.cb = sizeof(si);
+    if (CreateProcess(NULL, cmdLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+    {
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        PostMessage(hWindow, WM_CLOSE, 0, 0);
+    }
+}
+
 static void ShowDPIChangePrompt(HWND hWindow)
 {
     if (DPIChangePromptShown)
         return;
 
     DPIChangePromptShown = TRUE;
-    SalMessageBox(hWindow, LoadStr(IDS_DPI_CHANGE_RESTART), LoadStr(IDS_DPI_CHANGE_TITLE), MB_OK | MB_ICONINFORMATION);
+    if (SalMessageBox(hWindow, LoadStr(IDS_DPI_CHANGE_RESTART), LoadStr(IDS_DPI_CHANGE_TITLE),
+                      MB_OK | MB_ICONINFORMATION) == IDOK)
+    {
+        RelaunchAfterDPIChange(hWindow);
+    }
 }
 
 static void PromptIfSessionDPIChanged(HWND hWindow)
