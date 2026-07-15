@@ -1405,6 +1405,14 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetTreeViewItemChildren(HTreeView, loadData->hParentItem, hasChildren ? 1 : 0);
 
         SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
+
+        // The async load is started from TVN_ITEMEXPANDING before the item has
+        // real child nodes.  The common control cannot complete that first
+        // expansion until the children exist, so expand the item now to make
+        // the original click on the +/- button take effect immediately.
+        if (hasChildren)
+            TreeView_Expand(HTreeView, loadData->hParentItem, TVE_EXPAND);
+
         TreeViewDisableNotify = FALSE;
         RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 
