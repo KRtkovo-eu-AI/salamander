@@ -3789,6 +3789,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         // unknown change, rebuild everything
 
+        int oldDPI = GetSystemDPI();
+        int newDPI = UpdateSystemDPIForWindow(HWindow);
+        if (newDPI != oldDPI)
+            ColorsChanged(TRUE, FALSE, TRUE);
+
         GotMouseWheelScrollLines = FALSE; // reload number of lines for wheel scrolling
         InitLocales();
         SetFont(); // panel font follows the system font by default

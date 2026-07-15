@@ -2523,6 +2523,9 @@ int GetSystemDPI();
 // nastavi aktualni DPI, napr. po WM_DPICHANGED
 void SetSystemDPI(int dpi);
 
+// aktualizuje DPI podle okna/monitoru; vraci aktualni DPI
+int UpdateSystemDPIForWindow(HWND hWindow);
+
 // vraci scale odpovidajici aktualnimu DPI; misto 1.0 vraci 100, pro 1.25 vraci 125, atd
 int GetScaleForSystemDPI();
 

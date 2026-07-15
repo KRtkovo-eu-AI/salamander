@@ -2584,6 +2584,40 @@ void SetSystemDPI(int dpi)
     SystemDPI = dpi;
 }
 
+int UpdateSystemDPIForWindow(HWND hWindow)
+{
+    typedef UINT(WINAPI * FGetDpiForWindow)(HWND hwnd);
+    static FGetDpiForWindow getDpiForWindow = NULL;
+    static BOOL getDpiForWindowLoaded = FALSE;
+
+    if (!getDpiForWindowLoaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            getDpiForWindow = (FGetDpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
+        getDpiForWindowLoaded = TRUE;
+    }
+
+    if (getDpiForWindow != NULL && hWindow != NULL)
+    {
+        UINT dpi = getDpiForWindow(hWindow);
+        if (dpi != 0)
+        {
+            SetSystemDPI((int)dpi);
+            return SystemDPI;
+        }
+    }
+
+    HDC hDC = GetDC(hWindow);
+    if (hDC != NULL)
+    {
+        GetSystemDPI(hDC);
+        ReleaseDC(hWindow, hDC);
+    }
+
+    return GetSystemDPI();
+}
+
 int GetScaleForSystemDPI()
 {
     int dpi = GetSystemDPI();
@@ -2684,8 +2718,8 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     HWND hDPIWindow = MainWindow != NULL ? MainWindow->HWindow : NULL;
     HDC hDesktopDC = GetDC(hDPIWindow);
     int bpp = GetCurrentBPP(hDesktopDC);
-    GetSystemDPI(hDesktopDC);
     ReleaseDC(hDPIWindow, hDesktopDC);
+    UpdateSystemDPIForWindow(hDPIWindow);
 
     IconSizes[ICONSIZE_16] = GetIconSizeForSystemDPI(ICONSIZE_16);
     IconSizes[ICONSIZE_32] = GetIconSizeForSystemDPI(ICONSIZE_32);
