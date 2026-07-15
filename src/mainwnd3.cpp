@@ -3885,7 +3885,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_DISPLAYCHANGE:
     {
         TraceDPIState("WM_DISPLAYCHANGE", HWindow);
-        RefreshDPI(TRUE, GetCurrentSessionDPI());
+        RefreshDPI(FALSE, GetCurrentSessionDPI());
         PromptIfSessionDPIChanged(HWindow);
         break;
     }
@@ -3895,7 +3895,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         TraceDPIState("WM_WTSSESSION_CHANGE", HWindow);
         if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
             wParam == WTS_SESSION_UNLOCK)
-            RefreshDPI(TRUE, GetCurrentSessionDPI());
+            RefreshDPI(FALSE, GetCurrentSessionDPI());
         if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
             wParam == WTS_SESSION_UNLOCK)
             ShowDPIChangePrompt(HWindow);
@@ -3905,7 +3905,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_SETTINGCHANGE:
     {
         TraceDPIState("WM_SETTINGCHANGE", HWindow);
-        RefreshDPI(TRUE, GetCurrentSessionDPI());
+        RefreshDPI(FALSE, GetCurrentSessionDPI());
         PromptIfSessionDPIChanged(HWindow);
 
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
@@ -9822,7 +9822,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (wParam == TRUE) // activating the app
         {
             TraceDPIState("WM_ACTIVATEAPP", HWindow);
-            RefreshDPI(TRUE, GetCurrentSessionDPI());
+            // Activation is noisy during minimize/restore of other applications.
+            // Do not rebuild or resize the main window here; only check whether
+            // a session DPI change happened and let the restart prompt handle it.
             PromptIfSessionDPIChanged(HWindow);
 
             if (!LeftPanel->DontClearNextFocusName)
