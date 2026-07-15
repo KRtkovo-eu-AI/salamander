@@ -36,6 +36,10 @@
 #include "gui.h"
 #include <uxtheme.h>
 
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
 #ifndef WM_WTSSESSION_CHANGE
 #define WM_WTSSESSION_CHANGE 0x02B1
 #endif
@@ -3434,6 +3438,39 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
+{
+    int oldDPI = GetSystemDPI();
+    int newDPI = dpi > 0 ? dpi : GetDPIForWindow(HWindow);
+    SetSystemDPI(newDPI);
+
+    if (!force && newDPI == oldDPI)
+        return;
+
+    TraceDPIState("RefreshDPI", HWindow);
+
+    if (suggestedRect != NULL)
+    {
+        SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                     suggestedRect->right - suggestedRect->left,
+                     suggestedRect->bottom - suggestedRect->top,
+                     SWP_NOACTIVATE | SWP_NOZORDER);
+    }
+
+    if (LeftPanel == NULL || RightPanel == NULL)
+        return;
+
+    ColorsChanged(TRUE, FALSE, TRUE);
+    SetFont();
+    SetEnvFont();
+    GetShortcutOverlay();
+    LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
+    RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
+    RefreshDiskFreeSpace();
+    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+    Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
+}
+
 static int InitialSessionDPI = 0;
 static BOOL DPIChangePromptShown = FALSE;
 
@@ -3813,9 +3850,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         break;
     }
 
+    case WM_DPICHANGED:
+    {
+        RefreshDPI(TRUE, HIWORD(wParam), lParam != 0 ? reinterpret_cast<const RECT*>(lParam) : NULL);
+        return 0;
+    }
+
     case WM_DISPLAYCHANGE:
     {
         TraceDPIState("WM_DISPLAYCHANGE", HWindow);
+        RefreshDPI(FALSE);
         PromptIfSessionDPIChanged(HWindow);
         break;
     }
@@ -3832,6 +3876,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_SETTINGCHANGE:
     {
         TraceDPIState("WM_SETTINGCHANGE", HWindow);
+        RefreshDPI(FALSE);
         PromptIfSessionDPIChanged(HWindow);
 
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
@@ -9748,6 +9793,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (wParam == TRUE) // activating the app
         {
             TraceDPIState("WM_ACTIVATEAPP", HWindow);
+            RefreshDPI(FALSE);
             PromptIfSessionDPIChanged(HWindow);
 
             if (!LeftPanel->DontClearNextFocusName)

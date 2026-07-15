@@ -2519,12 +2519,14 @@ int GetIconSizeForSystemDPI(CIconSizeEnum iconSize);
 
 // vraci aktualni systemove DPI (96, 120, 144, ...)
 int GetSystemDPI();
+void SetSystemDPI(int dpi);
 
 // DPI aktualni relace/desktopu; pouziva se pro detekci zmen RDP/session DPI
 int GetCurrentSessionDPI();
 
 // DPI daneho okna; fallbackuje na DPI relace, pokud API neni dostupne
 int GetDPIForWindow(HWND hWindow);
+int UpdateSystemDPIForWindow(HWND hWindow);
 
 // zapise do trace vsechny zdroje DPI, ktere jsou dulezite pri ladeni DPI zmen
 void TraceDPIState(const char* reason, HWND hWindow);

@@ -2574,6 +2574,16 @@ int GetSystemDPI()
     }
 }
 
+void SetSystemDPI(int dpi)
+{
+    if (dpi <= 0)
+    {
+        TRACE_E("SetSystemDPI() invalid dpi=" << dpi);
+        return;
+    }
+    SystemDPI = dpi;
+}
+
 static int GetRegistrySessionDPI()
 {
     HKEY hKey;
@@ -2646,6 +2656,13 @@ int GetDPIForWindow(HWND hWindow)
             return dpi;
     }
     return GetCurrentSessionDPI();
+}
+
+int UpdateSystemDPIForWindow(HWND hWindow)
+{
+    int dpi = GetDPIForWindow(hWindow);
+    SetSystemDPI(dpi);
+    return GetSystemDPI();
 }
 
 void TraceDPIState(const char* reason, HWND hWindow)
