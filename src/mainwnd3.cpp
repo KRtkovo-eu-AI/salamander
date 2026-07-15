@@ -3438,6 +3438,39 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+
+struct CScaleChildWindowsDPIData
+{
+    int OldDPI;
+    int NewDPI;
+};
+
+static BOOL CALLBACK ScaleChildWindowForDPI(HWND hWindow, LPARAM lParam)
+{
+    CScaleChildWindowsDPIData* data = (CScaleChildWindowsDPIData*)lParam;
+    if (data == NULL || data->OldDPI <= 0 || data->NewDPI <= 0 || data->OldDPI == data->NewDPI)
+        return TRUE;
+
+    HWND parent = GetParent(hWindow);
+    if (parent == NULL)
+        return TRUE;
+
+    RECT windowRect;
+    if (!GetWindowRect(hWindow, &windowRect))
+        return TRUE;
+
+    POINT pos = {windowRect.left, windowRect.top};
+    ScreenToClient(parent, &pos);
+
+    SetWindowPos(hWindow, NULL,
+                 MulDiv(pos.x, data->NewDPI, data->OldDPI),
+                 MulDiv(pos.y, data->NewDPI, data->OldDPI),
+                 MulDiv(windowRect.right - windowRect.left, data->NewDPI, data->OldDPI),
+                 MulDiv(windowRect.bottom - windowRect.top, data->NewDPI, data->OldDPI),
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+    return TRUE;
+}
+
 static BOOL DPIRefreshInProgress = FALSE;
 static BOOL DPIRefreshPosted = FALSE;
 static int PendingDPI = 0;
@@ -3489,6 +3522,9 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
         DPIRefreshInProgress = FALSE;
         return;
     }
+
+    CScaleChildWindowsDPIData scaleData = {oldDPI, newDPI};
+    EnumChildWindows(HWindow, ScaleChildWindowForDPI, (LPARAM)&scaleData);
 
     ColorsChanged(TRUE, FALSE, TRUE);
     SetFont();
