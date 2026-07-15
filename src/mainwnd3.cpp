@@ -3438,42 +3438,11 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
-
-struct CScaleChildWindowsDPIData
-{
-    int OldDPI;
-    int NewDPI;
-};
-
-static BOOL CALLBACK ScaleChildWindowForDPI(HWND hWindow, LPARAM lParam)
-{
-    CScaleChildWindowsDPIData* data = (CScaleChildWindowsDPIData*)lParam;
-    if (data == NULL || data->OldDPI <= 0 || data->NewDPI <= 0 || data->OldDPI == data->NewDPI)
-        return TRUE;
-
-    HWND parent = GetParent(hWindow);
-    if (parent == NULL)
-        return TRUE;
-
-    RECT windowRect;
-    if (!GetWindowRect(hWindow, &windowRect))
-        return TRUE;
-
-    POINT pos = {windowRect.left, windowRect.top};
-    ScreenToClient(parent, &pos);
-
-    SetWindowPos(hWindow, NULL,
-                 MulDiv(pos.x, data->NewDPI, data->OldDPI),
-                 MulDiv(pos.y, data->NewDPI, data->OldDPI),
-                 MulDiv(windowRect.right - windowRect.left, data->NewDPI, data->OldDPI),
-                 MulDiv(windowRect.bottom - windowRect.top, data->NewDPI, data->OldDPI),
-                 SWP_NOZORDER | SWP_NOACTIVATE);
-    return TRUE;
-}
-
 static BOOL DPIRefreshInProgress = FALSE;
 static BOOL DPIRefreshPosted = FALSE;
 static int PendingDPI = 0;
+static BOOL PendingDPIWindowRectApplied = FALSE;
+static BOOL DPIWindowRectAlreadyApplied = FALSE;
 static int MainWindowContentDPI = 0;
 static int InitialSessionDPI = 0;
 static BOOL DPIChangePromptShown = FALSE;
@@ -3504,6 +3473,10 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
                      suggestedRect->bottom - suggestedRect->top,
                      SWP_NOACTIVATE | SWP_NOZORDER);
     }
+    else if (DPIWindowRectAlreadyApplied)
+    {
+        DPIWindowRectAlreadyApplied = FALSE;
+    }
     else if (oldDPI > 0 && newDPI > 0 && oldDPI != newDPI)
     {
         RECT windowRect;
@@ -3522,9 +3495,6 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
         DPIRefreshInProgress = FALSE;
         return;
     }
-
-    CScaleChildWindowsDPIData scaleData = {oldDPI, newDPI};
-    EnumChildWindows(HWindow, ScaleChildWindowForDPI, (LPARAM)&scaleData);
 
     ColorsChanged(TRUE, FALSE, TRUE);
     SetFont();
@@ -3964,6 +3934,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                          SWP_NOACTIVATE | SWP_NOZORDER);
         }
         PendingDPI = dpi;
+        PendingDPIWindowRectApplied = lParam != 0;
         if (!DPIRefreshPosted)
         {
             DPIRefreshPosted = TRUE;
@@ -3976,7 +3947,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     {
         DPIRefreshPosted = FALSE;
         int dpi = PendingDPI > 0 ? PendingDPI : (int)wParam;
+        DPIWindowRectAlreadyApplied = PendingDPIWindowRectApplied;
         PendingDPI = 0;
+        PendingDPIWindowRectApplied = FALSE;
         RefreshDPI(TRUE, dpi, NULL);
         return 0;
     }
