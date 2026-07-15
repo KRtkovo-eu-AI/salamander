@@ -347,7 +347,7 @@ static bool HasSvgExtension(const char* filename)
     return extension != NULL && _stricmp(extension, ".svg") == 0;
 }
 
-static bool CreateTemporaryBitmapPath(std::wstring& tempFile)
+static bool CreateTemporaryThumbnailPath(std::wstring& tempFile)
 {
     tempFile.clear();
 
@@ -367,7 +367,7 @@ static bool CreateTemporaryBitmapPath(std::wstring& tempFile)
     for (DWORD attempt = 0; attempt < 100; ++attempt)
     {
         wchar_t name[64];
-        swprintf_s(name, L"w2thumb-%lu-%lu-%llu-%lu.bmp",
+        swprintf_s(name, L"w2thumb-%lu-%lu-%llu-%lu.raw",
                    GetCurrentProcessId(), GetCurrentThreadId(), GetTickCount64(), attempt);
 
         std::wstring candidate = basePath + name;
@@ -388,22 +388,61 @@ static bool CreateTemporaryBitmapPath(std::wstring& tempFile)
     return false;
 }
 
-static bool FeedBitmapToThumbnailMaker(const wchar_t* bitmapPath, CSalamanderThumbnailMakerAbstract* thumbMaker)
+static bool ReadExact(HANDLE file, void* buffer, DWORD bytes)
 {
-    HBITMAP bitmap = (HBITMAP)LoadImageW(NULL, bitmapPath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
-    if (bitmap == NULL)
-        return false;
-
-    BITMAP bm;
-    bool ok = false;
-    if (GetObject(bitmap, sizeof(bm), &bm) == sizeof(bm) && bm.bmWidth > 0 && bm.bmHeight > 0 && bm.bmBits != NULL &&
-        bm.bmBitsPixel == 32 && thumbMaker->SetParameters(bm.bmWidth, bm.bmHeight, 0))
+    BYTE* out = static_cast<BYTE*>(buffer);
+    DWORD remaining = bytes;
+    while (remaining > 0)
     {
-        ok = thumbMaker->ProcessBuffer(bm.bmBits, bm.bmHeight) != FALSE;
+        DWORD read = 0;
+        if (!ReadFile(file, out, remaining, &read, NULL) || read == 0)
+            return false;
+
+        out += read;
+        remaining -= read;
     }
 
-    DeleteObject(bitmap);
-    return ok;
+    return true;
+}
+
+static bool FeedRenderedThumbnailToMaker(const wchar_t* thumbnailPath, CSalamanderThumbnailMakerAbstract* thumbMaker)
+{
+    HANDLE file = CreateFileW(thumbnailPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+
+    DWORD header[2];
+    bool ok = ReadExact(file, header, sizeof(header));
+    DWORD width = header[0];
+    DWORD height = header[1];
+    if (ok && (width == 0 || height == 0 || width > 4096 || height > 4096))
+        ok = false;
+
+    std::vector<DWORD> pixels;
+    if (ok)
+    {
+        const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+        if (pixelCount > (static_cast<size_t>(-1) / sizeof(DWORD)))
+        {
+            ok = false;
+        }
+        else
+        {
+            pixels.resize(pixelCount);
+            ok = ReadExact(file, pixels.data(), static_cast<DWORD>(pixelCount * sizeof(DWORD))) != false;
+        }
+    }
+
+    CloseHandle(file);
+
+    if (!ok)
+        return false;
+
+    if (!thumbMaker->SetParameters(static_cast<int>(width), static_cast<int>(height), 0))
+        return false;
+
+    return thumbMaker->ProcessBuffer(pixels.data(), static_cast<int>(height)) != FALSE;
 }
 
 BOOL WINAPI CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename, int thumbWidth, int thumbHeight,
@@ -420,7 +459,7 @@ BOOL WINAPI CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename, 
         return TRUE;
 
     std::wstring tempFile;
-    if (!CreateTemporaryBitmapPath(tempFile))
+    if (!CreateTemporaryThumbnailPath(tempFile))
     {
         thumbMaker->SetError();
         return TRUE;
@@ -429,7 +468,7 @@ BOOL WINAPI CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename, 
     bool rendered = ManagedBridge_RenderThumbnail(NULL, filename, thumbWidth, thumbHeight, tempFile.c_str());
     bool loaded = false;
     if (rendered && !thumbMaker->GetCancelProcessing())
-        loaded = FeedBitmapToThumbnailMaker(tempFile.c_str(), thumbMaker);
+        loaded = FeedRenderedThumbnailToMaker(tempFile.c_str(), thumbMaker);
 
     DeleteFileW(tempFile.c_str());
 

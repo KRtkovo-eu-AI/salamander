@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -58,7 +59,23 @@ internal static class ThumbnailHost
             return 1;
         }
 
-        return error == null && File.Exists(output) ? 0 : 1;
+        return error == null && TryHasRenderedOutput(output) ? 0 : 1;
+    }
+
+    private static bool TryHasRenderedOutput(string output)
+    {
+        try
+        {
+            return new FileInfo(output).Length > 8;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static bool TryParse(string payload, out string path, out string output, out int width, out int height)
@@ -165,7 +182,7 @@ internal static class ThumbnailHost
                     graphics.Clear(Color.White);
                     graphics.DrawImage(captured, new Rectangle(0, 0, _width, _height));
                 }
-                bitmap.Save(_output, ImageFormat.Bmp);
+                SaveRawThumbnail(bitmap, _output);
             }
             catch (Exception)
             {
@@ -174,6 +191,36 @@ internal static class ThumbnailHost
             {
                 Completed?.Invoke(this, EventArgs.Empty);
                 _form.Close();
+            }
+        }
+
+        private static void SaveRawThumbnail(Bitmap bitmap, string output)
+        {
+            var bounds = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+            BitmapData? data = null;
+            try
+            {
+                data = bitmap.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppRgb);
+                using var stream = new FileStream(output, FileMode.Create, FileAccess.Write, FileShare.Read);
+                using var writer = new BinaryWriter(stream);
+                writer.Write(bitmap.Width);
+                writer.Write(bitmap.Height);
+
+                int rowBytes = checked(bitmap.Width * 4);
+                byte[] row = new byte[rowBytes];
+                for (int y = 0; y < bitmap.Height; ++y)
+                {
+                    IntPtr source = IntPtr.Add(data.Scan0, y * data.Stride);
+                    Marshal.Copy(source, row, 0, rowBytes);
+                    writer.Write(row, 0, rowBytes);
+                }
+            }
+            finally
+            {
+                if (data != null)
+                {
+                    bitmap.UnlockBits(data);
+                }
             }
         }
 
