@@ -3948,9 +3948,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_DISPLAYCHANGE:
     {
         TraceDPIState("WM_DISPLAYCHANGE", HWindow);
-        PendingDPI = GetDPIForWindow(HWindow);
         if (!DPIRefreshPosted)
         {
+            PendingDPI = GetDPIForWindow(HWindow);
             DPIRefreshPosted = TRUE;
             PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
         }
@@ -3963,9 +3963,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
             wParam == WTS_SESSION_UNLOCK)
         {
-            PendingDPI = GetCurrentSessionDPI();
             if (!DPIRefreshPosted)
             {
+                PendingDPI = GetCurrentSessionDPI();
                 DPIRefreshPosted = TRUE;
                 PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
             }
@@ -3976,9 +3976,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_SETTINGCHANGE:
     {
         TraceDPIState("WM_SETTINGCHANGE", HWindow);
-        PendingDPI = GetDPIForWindow(HWindow);
         if (!DPIRefreshPosted)
         {
+            PendingDPI = GetDPIForWindow(HWindow);
             DPIRefreshPosted = TRUE;
             PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
         }
