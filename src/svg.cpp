@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include "svg.h"
+#include "cfgdlg.h"
 
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg\nanosvg.h"
@@ -182,7 +183,17 @@ static char* LoadToolbarSVG(const char* svgName)
     GetModuleFileName(NULL, svgFile, _countof(svgFile));
     char* s = strrchr(svgFile, '\\');
     if (s != NULL)
+    {
+        if (Configuration.UseWindowsDarkMode && DarkModeShouldUseDarkColors())
+        {
+            sprintf(s + 1, "toolbars\\darkmode\\%s.svg", svgName);
+            char* svg = ReadSVGFile(svgFile);
+            if (svg != NULL)
+                return svg;
+        }
+
         sprintf(s + 1, "toolbars\\%s.svg", svgName);
+    }
     char* svg = ReadSVGFile(svgFile);
     if (svg != NULL)
         return svg;

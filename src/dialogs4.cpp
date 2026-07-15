@@ -4189,8 +4189,10 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
                 UserColors[i] = TmpColors[i];
         }
 
+        BOOL oldUseWindowsDarkMode = Configuration.UseWindowsDarkMode;
         Configuration.UseWindowsDarkMode = (schemeId == 5);
-        ColorsChanged(TRUE, TRUE, FALSE); // save time, change only color-dependent items, do not reload icons
+        BOOL windowsDarkModeChanged = oldUseWindowsDarkMode != Configuration.UseWindowsDarkMode;
+        ColorsChanged(TRUE, !windowsDarkModeChanged, FALSE); // switching Windows Dark Mode scheme changes toolbar SVGs/backgrounds, so reload icons
 
         SourceHighlightMasks->Load(HighlightMasks);
         int errPos;

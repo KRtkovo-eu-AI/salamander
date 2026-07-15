@@ -6,6 +6,7 @@
 #include "bitmap.h"
 #include "toolbar.h"
 #include "darkmode.h"
+#include "cfgdlg.h"
 
 //*****************************************************************************
 //
@@ -882,10 +883,10 @@ CToolBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return TRUE;
         RECT r;
         GetClientRect(HWindow, &r);
-        if (DarkMode_ShouldUseDark())
+        if (Configuration.UseWindowsDarkMode && DarkMode_ShouldUseDark())
         {
             HGDIOBJ oldBrush = SelectObject((HDC)wParam, GetStockObject(DC_BRUSH));
-            SetDCBrushColor((HDC)wParam, RGB(45, 45, 48));
+            SetDCBrushColor((HDC)wParam, RGB(32, 32, 32));
             FillRect((HDC)wParam, &r, (HBRUSH)GetStockObject(DC_BRUSH));
             SelectObject((HDC)wParam, oldBrush);
         }

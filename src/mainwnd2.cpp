@@ -4166,7 +4166,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (restoreWindowsDarkPalette)
                 WindowsDarkModeBuildHighlightMasks(HighlightMasks);
 
-            ColorsChanged(FALSE, TRUE, TRUE); // save time by updating only color-dependent items
+            ColorsChanged(FALSE, !Configuration.UseWindowsDarkMode, TRUE); // Windows Dark Mode changes toolbar SVGs/backgrounds, so reload icons
 
             CloseKey(actKey);
         }
