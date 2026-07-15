@@ -112,7 +112,7 @@ void DrawTreeViewSelectedItemFrame(HWND treeView)
     if (hdc == NULL)
         return;
 
-    HBRUSH frameBrush = CreateSolidBrush(GetSysColor(COLOR_HIGHLIGHT));
+    HBRUSH frameBrush = CreateSolidBrush(RGB(96, 205, 255));
     if (frameBrush != NULL)
     {
         FrameRect(hdc, &itemRect, frameBrush);
