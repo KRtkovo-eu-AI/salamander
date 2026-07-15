@@ -2656,7 +2656,7 @@ void GetSystemDPI(HDC hDC)
 
 BOOL InitializeGraphics(BOOL colorsOnly)
 {
-    bool useDark = DarkModeShouldUseDarkColors();
+    bool useDark = Configuration.UseWindowsDarkMode && DarkModeShouldUseDarkColors();
     // Match the toolbar bitmap pre-composition background to the real dark toolbar
     // surface.  Using the file-list background here leaves light/dark fringe pixels
     // around SVG-rendered icons after they are placed into mask-based image lists.
