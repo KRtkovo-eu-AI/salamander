@@ -315,6 +315,18 @@ BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMA
             {
                 float scale = sysDPIScale / 100;
                 nsvgRasterize(rast, image, 0, 0, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
+                DWORD* pixels = (DWORD*)lpMemBits;
+                for (int i = 0; i < iconSize * iconSize; i++)
+                {
+                    BYTE alpha = (BYTE)(pixels[i] >> 24);
+                    BYTE red = (BYTE)(pixels[i] & 0xff);
+                    BYTE green = (BYTE)((pixels[i] >> 8) & 0xff);
+                    BYTE blue = (BYTE)((pixels[i] >> 16) & 0xff);
+                    red = (BYTE)((red * alpha + 127) / 255);
+                    green = (BYTE)((green * alpha + 127) / 255);
+                    blue = (BYTE)((blue * alpha + 127) / 255);
+                    pixels[i] = ((DWORD)alpha << 24) | ((DWORD)blue << 16) | ((DWORD)green << 8) | red;
+                }
                 nsvgDeleteRasterizer(rast);
                 *hBitmap = hMemBmp;
                 hMemBmp = NULL;

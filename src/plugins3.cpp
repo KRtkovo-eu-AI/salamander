@@ -438,7 +438,15 @@ HICON CSalamanderGUI::CreateSVGIcon(const char* svgName, int iconSize)
     if (!RenderSVGIconBitmap(svgName, iconSize, TRUE, &hColorBitmap))
         return NULL;
 
-    HBITMAP hMaskBitmap = HANDLES(CreateBitmap(iconSize, iconSize, 1, 1, NULL));
+    const int maskStride = ((iconSize + 15) / 16) * 2;
+    BYTE* maskBits = (BYTE*)calloc(maskStride, iconSize);
+    if (maskBits == NULL)
+    {
+        HANDLES(DeleteObject(hColorBitmap));
+        return NULL;
+    }
+    HBITMAP hMaskBitmap = HANDLES(CreateBitmap(iconSize, iconSize, 1, 1, maskBits));
+    free(maskBits);
     if (hMaskBitmap == NULL)
     {
         HANDLES(DeleteObject(hColorBitmap));

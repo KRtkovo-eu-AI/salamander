@@ -3,7 +3,21 @@
 <svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
      width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
   <g id="Icon_1_">
-    <path fill="#4DA3FF" d="M2,4 L4,2 H8 V4 H5 L4,5 V8 H2 Z M14,12 L12,14 H8 V12 H11 L12,11 V8 H14 Z"/>
-    <rect fill="#D6D6D6" x="5" y="5" width="6" height="6"/>
+    <rect fill="#D6D6D6" x="0" y="0" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="1" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="2" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="3" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="4" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="5" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="6" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="7" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="8" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="9" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="10" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="11" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="12" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="13" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="14" width="16" height="1"/>
+    <rect fill="#D6D6D6" x="0" y="15" width="16" height="1"/>
   </g>
 </svg>
