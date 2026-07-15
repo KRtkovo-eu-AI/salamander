@@ -5852,25 +5852,19 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
 
 static void InitializeProcessDPIAwareness()
 {
-    // The manifest is the primary declaration, but make the DPI context explicit
-    // as early as possible as recommended for legacy Win32 applications.
-    // This must run before any window/control is created.
+    // The manifest is the primary declaration, but make the GDI-scaled unaware
+    // DPI context explicit as early as possible. This lets Windows handle DPI
+    // transitions without restarting while keeping GDI text rendering crisp.
     typedef BOOL(WINAPI * FSetProcessDpiAwarenessContext)(HANDLE dpiContext);
-    typedef BOOL(WINAPI * FSetProcessDPIAware)();
-
     HMODULE user32 = GetModuleHandle("user32.dll");
     if (user32 != NULL)
     {
         FSetProcessDpiAwarenessContext setProcessDpiAwarenessContext =
             (FSetProcessDpiAwarenessContext)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
         if (setProcessDpiAwarenessContext != NULL &&
-            setProcessDpiAwarenessContext((HANDLE)-2 /* DPI_AWARENESS_CONTEXT_SYSTEM_AWARE */))
+            setProcessDpiAwarenessContext((HANDLE)-5 /* DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED */))
             return;
 
-        FSetProcessDPIAware setProcessDPIAware =
-            (FSetProcessDPIAware)GetProcAddress(user32, "SetProcessDPIAware");
-        if (setProcessDPIAware != NULL)
-            setProcessDPIAware();
     }
 }
 

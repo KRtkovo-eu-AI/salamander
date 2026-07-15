@@ -4000,7 +4000,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             DPIRefreshPosted = TRUE;
             PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
         }
-        PromptIfSessionDPIChanged(HWindow);
         break;
     }
 
@@ -4017,7 +4016,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
             }
         }
-        PromptIfSessionDPIChanged(HWindow);
         return 0;
     }
 
@@ -4030,7 +4028,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             DPIRefreshPosted = TRUE;
             PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
         }
-        PromptIfSessionDPIChanged(HWindow);
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
         if (darkChanged)
         {
