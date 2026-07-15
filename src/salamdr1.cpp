@@ -5864,7 +5864,7 @@ static void InitializeProcessDPIAwareness()
         FSetProcessDpiAwarenessContext setProcessDpiAwarenessContext =
             (FSetProcessDpiAwarenessContext)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
         if (setProcessDpiAwarenessContext != NULL &&
-            setProcessDpiAwarenessContext((HANDLE)-4 /* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 */))
+            setProcessDpiAwarenessContext((HANDLE)-2 /* DPI_AWARENESS_CONTEXT_SYSTEM_AWARE */))
             return;
 
         FSetProcessDPIAware setProcessDPIAware =
