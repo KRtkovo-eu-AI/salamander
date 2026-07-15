@@ -3491,6 +3491,17 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     ColorsChanged(TRUE, FALSE, TRUE);
     SetFont();
     SetEnvFont();
+
+    // SetFont()/SetEnvFont() normally post WM_SIZE and panel refresh messages.
+    // During a DPI transition we must complete the layout synchronously before
+    // any follow-up WM_SETTINGCHANGE/WM_DISPLAYCHANGE can repaint the old-sized
+    // controls and make the window appear to snap back to the previous DPI.
+    RECT clientRect;
+    if (GetClientRect(HWindow, &clientRect))
+        SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
+                    MAKELONG(clientRect.right - clientRect.left, clientRect.bottom - clientRect.top));
+    LayoutWindows();
+
     GetShortcutOverlay();
     LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
     RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
