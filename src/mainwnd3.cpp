@@ -3549,8 +3549,25 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     LayoutWindows();
 
     GetShortcutOverlay();
+
+    // Force panel file icons to be re-read at the new icon size.  SetEnvFont()
+    // already releases icon caches asynchronously, but an immediate list-box
+    // repaint can otherwise keep using large HICONs after a high-DPI -> low-DPI
+    // transition until the next directory refresh.
+    LeftPanel->SleepIconCacheThread();
+    LeftPanel->IconCache->Release();
+    LeftPanel->IconCacheValid = FALSE;
+    LeftPanel->EndOfIconReadingTime = GetTickCount() - 10000;
+    LeftPanel->UseThumbnails = FALSE;
+    RightPanel->SleepIconCacheThread();
+    RightPanel->IconCache->Release();
+    RightPanel->IconCacheValid = FALSE;
+    RightPanel->EndOfIconReadingTime = GetTickCount() - 10000;
+    RightPanel->UseThumbnails = FALSE;
+
     LeftPanel->RefreshListBox(-1, -1, LeftPanel->FocusedIndex, FALSE, FALSE);
     RightPanel->RefreshListBox(-1, -1, RightPanel->FocusedIndex, FALSE, FALSE);
+    PostMessage(HWindow, WM_USER_REPAINTALLICONS, 0, 0);
     RefreshDiskFreeSpace();
     RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
     Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
