@@ -137,12 +137,13 @@ internal static class ThumbnailHost
             _output = output;
             _width = Math.Max(1, width);
             _height = Math.Max(1, height);
-            _form = new Form
+            Rectangle screen = SystemInformation.VirtualScreen;
+            _form = new ThumbnailForm
             {
                 ShowInTaskbar = false,
                 FormBorderStyle = FormBorderStyle.None,
                 StartPosition = FormStartPosition.Manual,
-                Bounds = new Rectangle(-32000, -32000, _width, _height)
+                Bounds = new Rectangle(screen.Left, screen.Top, _width, _height)
             };
             _webView = new WebView2 { Dock = DockStyle.Fill };
             _form.Controls.Add(_webView);
@@ -172,7 +173,11 @@ internal static class ThumbnailHost
                     return;
                 }
 
-                await Task.Delay(500).ConfigureAwait(true);
+                if (!await WaitForSvgImageAsync().ConfigureAwait(true))
+                {
+                    return;
+                }
+
                 using var stream = new MemoryStream();
                 await _webView.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, stream).ConfigureAwait(true);
                 stream.Position = 0;
@@ -193,6 +198,29 @@ internal static class ThumbnailHost
                 Completed?.Invoke(this, EventArgs.Empty);
                 _form.Close();
             }
+        }
+
+        private async Task<bool> WaitForSvgImageAsync()
+        {
+            for (int attempt = 0; attempt < 20; ++attempt)
+            {
+                string result = await _webView.CoreWebView2.ExecuteScriptAsync(
+                    "Boolean(document.images.length && document.images[0].complete && document.images[0].naturalWidth > 0 && document.images[0].naturalHeight > 0)").ConfigureAwait(true);
+                if (string.Equals(result, "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    await Task.Delay(250).ConfigureAwait(true);
+                    return true;
+                }
+
+                await Task.Delay(100).ConfigureAwait(true);
+            }
+
+            return false;
+        }
+
+        private sealed class ThumbnailForm : Form
+        {
+            protected override bool ShowWithoutActivation => true;
         }
 
         private static string BuildSvgThumbnailHtml(string path)
