@@ -2855,6 +2855,8 @@
 #define IDS_DETACHED_BTN_CLOSE           14285
 #define IDS_DETACHED_BTN_REATTACH        14286
 #define IDS_MAIN_WINDOW_TITLE            14287
+#define IDS_DPI_CHANGE_TITLE             14288
+#define IDS_DPI_CHANGE_RESTART           14289
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

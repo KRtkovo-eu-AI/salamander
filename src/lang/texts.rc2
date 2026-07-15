@@ -2084,5 +2084,8 @@ STRINGTABLE
  IDS_LONGPATHS_SETERROR, "Unable to change the Win32 long paths setting. Error: %s"
  IDS_LONGPATHS_ADMINTOOLTIP, "Run the application with administrator privileges to change the Win32 long paths setting."
 
+ IDS_DPI_CHANGE_TITLE, "Display scaling changed"
+ IDS_DPI_CHANGE_RESTART, "Windows display scaling or the remote desktop session DPI may have changed. Restart Open Salamander to redraw the whole user interface sharply in the current DPI."
+
  IDS_MENU_OPT_MANAGECONFIG, "&Manage Configurations..."
 }
