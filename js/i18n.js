@@ -1574,7 +1574,11 @@
   const applyLocale = (locale) => {
     const selected = locales[locale] ? locale : DEFAULT_LOCALE;
     document.documentElement.lang = locales[selected].htmlLang;
-    document.getElementById("language-flag").textContent = locales[selected].flag;
+
+    const languageFlag = document.getElementById("language-flag");
+    if (languageFlag) {
+      languageFlag.textContent = locales[selected].flag;
+    }
 
     for (const node of translatableTextNodes) {
       node.nodeValue = translateText(node.__samOriginalText, selected);
