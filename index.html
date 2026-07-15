@@ -13,20 +13,46 @@
     <a class="skip-link" href="#content" data-i18n="skipToContent">Skip to content</a>
     <div class="site-header__row">
       <div class="site-branding">
-        <h1><img id="header-logo" src="https://images.krtkovo.eu/samandarin_logo_64px.png" />Open Salamander <span style="color: var(--sam-link);">Samandarin</span></h1>
+        <h1><img id="header-logo" src="https://images.krtkovo.eu/samandarin_logo_64px.png" alt="Samandarin logo">Open Salamander <span class="site-branding__accent">Samandarin</span></h1>
         <p id="description-text">Fast and reliable two-panel file manager for Windows 11 enhanced with modern features.</p>
       </div>
-      <label class="language-switcher" for="language-select">
+      <label class="language-switcher">
         <select id="language-select" aria-label="Language selector"></select>
       </label>
     </div>
-    <nav class="section-nav" aria-label="Page sections" data-i18n-attr="aria-label:Page sections"><a href="#download-block" data-i18n="navDownload">Download</a><a href="#plugins" data-i18n="navPlugins">Plugins</a><a href="#features" data-i18n="navFeatures">Features</a><a href="#fork" data-i18n="navFork">Fork</a><a href="#origin" data-i18n="navOrigin">Origin</a><a href="#resources" data-i18n="navResources">Resources</a></nav>
+    <nav class="section-nav" aria-label="Page sections" data-i18n-attr="aria-label:Page sections">
+      <a href="#download-block" data-i18n="navDownload">Download</a>
+      <a href="#plugins" data-i18n="navPlugins">Plugins</a>
+      <div class="section-nav__item section-nav__item--has-submenu">
+        <a href="#features" data-i18n="navFeatures" aria-haspopup="true">Features</a>
+        <div class="section-nav__submenu">
+          <a href="#feature-unicode-long-paths">Unicode and long paths support</a>
+          <a href="#feature-internal-viewer-unicode">Internal Viewer support for Unicode encoding in text files</a>
+          <a href="#feature-translations">Translations</a>
+          <a href="#feature-portability">Portability</a>
+          <a href="#feature-manage-configurations">Manage configurations</a>
+          <a href="#feature-detached-panels">Split panels into detached window</a>
+          <a href="#feature-tabbed-panels">Tabbed Panels</a>
+          <a href="#feature-history">Shared/separate History</a>
+          <a href="#feature-dark-mode">Dark Mode</a>
+          <a href="#feature-command-shell">Configurable Command Shell Application</a>
+          <a href="#feature-tree-view">Tree View panel</a>
+          <a href="#feature-user-folders">User Folders</a>
+          <a href="#feature-plugin-archives">Copy/Move between plugin-FS and archives</a>
+          <a href="#feature-autocomplete-path">Autocomplete path in Copy/Move/Quick Rename/Create Folder dialog</a>
+          <a href="#feature-digitally-signed">Digitally signed</a>
+        </div>
+      </div>
+      <a href="#fork" data-i18n="navFork">Fork</a>
+      <a href="#origin" data-i18n="navOrigin">Origin</a>
+      <a href="#resources" data-i18n="navResources">Resources</a>
+    </nav>
   </header>
   <main id="content">
   <section class="hero-panel" aria-labelledby="hero-title">
     <div class="hero-panel__copy">
       <p class="eyebrow">Unofficial fork</p>
-      <h2 id="hero-title">Original Salamander DNA with modern energy</h2>
+      <!--<h2 id="hero-title">Original Salamander DNA with modern energy</h2>-->
       <p>It evolves the <a href="https://github.com/OpenSalamander/salamander">original project</a> with enhancements and new features while staying compatible with the upstream code and plugin ecosystem.</p>
 
   <!--<blockquote>
@@ -52,7 +78,7 @@
       <span class="compatibility-badge"><img src="win11.png" alt="Windows 11 ready"></span>
     </div>
   </section>
-  
+
   <section class="content-grid">
   <h2 id="plugins">Plugin Catalog</h2>
   <blockquote>
@@ -66,7 +92,7 @@
   <img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/c1088472-335b-4421-82bb-fea8531beb92">
 
   <h2 id="features">Included Features Overview</h2>
-  <h3>Unicode and long paths support</h3>
+  <h3 id="feature-unicode-long-paths">Unicode and long paths support</h3>
   <ul>
     <li>Work with files and folders whose names use characters from different languages, emojis, and other Unicode symbols.</li>
     <li>When Windows long paths are enabled, local and UNC paths can go beyond the traditional <code>MAX_PATH</code> limit and use the Windows extended-length limit of about <code>32,767</code> characters.</li>
@@ -77,18 +103,25 @@
   <img width="687" height="492" alt="image" src="https://github.com/user-attachments/assets/5b6e9d73-7cac-4b1b-a40f-7c3c03c1adb4">
   <img width="687" height="119" alt="image" src="https://github.com/user-attachments/assets/ab04f8a6-fe73-4f0f-8726-12755afdbde7">
 
-  <h3>Internal Viewer support for Unicode encoding in text files</h3>
+  <h3 id="feature-internal-viewer-unicode">Internal Viewer support for Unicode encoding in text files</h3>
   <ul>
     <li>Based on <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>) and refined for Samandarin.</li>
   </ul>
 
-  <h3>Portability</h3>
+  <h3 id="feature-translations">Translations</h3>
+  <ul>
+    <li>Automatic translate with OpenAI API (model <code>gpt-5.4-nano</code>) with our own custom localization logic.</li>
+    <li>Few scripts partially derived from <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>).</li>
+  </ul>
+  <img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb">
+
+  <h3 id="feature-portability">Portability</h3>
   <ul>
     <li>Save the Configuration into file storage instead of Registry.</li>
   </ul>
   <img width="687" height="172" alt="image" src="https://github.com/user-attachments/assets/5aab6d4d-cc86-42a5-a769-95af091ecab5">
 
-  <h3>Manage configurations</h3>
+  <h3 id="feature-manage-configurations">Manage configurations</h3>
   <ul>
     <li>Reworked welcome dialog with configuration management options.</li>
     <li>Configuration import and export support.</li>
@@ -97,20 +130,13 @@
   </ul>
   <img width="782" height="552" alt="Image" src="https://github.com/user-attachments/assets/baf4bab7-50ba-4874-9241-d31b11722767">
 
-  <h3>Split panels into detached window</h3>
+  <h3 id="feature-detached-panels">Split panels into detached window</h3>
   <ul>
     <li>You can have each side in separate window.</li>
   </ul>
   <img src="https://images.krtkovo.eu/salam_detach1.gif" width="782" height="414" alt="detached panels demo">
 
-  <h3>Translations</h3>
-  <ul>
-    <li>Automatic translate with OpenAI API (model <code>gpt-5.4-nano</code>) with our own custom localization logic.</li>
-    <li>Few scripts partially derived from <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>).</li>
-  </ul>
-  <img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb">
-
-  <h3>Tabbed Panels</h3>
+  <h3 id="feature-tabbed-panels">Tabbed Panels</h3>
   <ul>
     <li>One of the most wanted features over last 15 years.</li>
     <li>When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.</li>
@@ -120,45 +146,45 @@
   <img width="687" height="244" alt="image" src="https://github.com/user-attachments/assets/d446320b-ee21-49bb-b3cd-f249186f2d41">
   <img width="687" height="479" alt="image" src="https://github.com/user-attachments/assets/30765cbf-a26b-4a2e-8e76-720908342467">
 
-  <h3>Shared/separate History</h3>
+  <h3 id="feature-history">Shared/separate History</h3>
   <img width="687" height="155" alt="image" src="https://github.com/user-attachments/assets/569b023f-9f69-4c19-a830-57e2542b0de5">
 
-  <h3>Dark Mode</h3>
+  <h3 id="feature-dark-mode">Dark Mode</h3>
   <ul>
     <li>Complete dark mode support for all components, windows, plugins etc.</li>
   </ul>
   <img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/3d124bed-a670-414d-9f21-ea453561bce3">
 
-  <h3>Configurable Command Shell Application</h3>
+  <h3 id="feature-command-shell">Configurable Command Shell Application</h3>
   <img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/d5109ceb-ec72-43ce-9731-749f3cb13fec">
 
-  <h3>Tree View panel</h3>
+  <h3 id="feature-tree-view">Tree View panel</h3>
   <ul>
     <li>Docked or floating panel with tree view structure of the active disk panel.</li>
     <li>Based on <a href="https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy">fgodoy</a> changes.</li>
   </ul>
   <img width="689" height="377" alt="image" src="https://github.com/user-attachments/assets/0717d01f-5f59-454c-a821-288b9f74b1fe">
 
-  <h3>User Folders</h3>
+  <h3 id="feature-user-folders">User Folders</h3>
   <ul>
     <li>Added missing user folders for easier access.</li>
   </ul>
   <img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/515790ee-46e4-40c8-ae5e-407b294afdd1">
 
-  <h3>Copy/Move between plugin-FS and archives</h3>
+  <h3 id="feature-plugin-archives">Copy/Move between plugin-FS and archives</h3>
   <ul>
     <li>Support for file operations between plugin-FS and archives (for example between FTP and archives, between different FTP servers, different archives, etc).</li>
   </ul>
   <img width="687" height="427" alt="salam_plug_arch" src="https://github.com/user-attachments/assets/4e4fc13c-e6f7-485c-b0d6-623378e1719b">
 
-  <h3>Autocomplete path in Copy/Move/Quick Rename/Create Folder dialog</h3>
+  <h3 id="feature-autocomplete-path">Autocomplete path in Copy/Move/Quick Rename/Create Folder dialog</h3>
   <ul>
     <li>Paths are suggested when typing in the path field.</li>
   </ul>
   <img width="687" height="89" alt="image" src="https://github.com/user-attachments/assets/59a7cff2-0db2-4866-8d6a-74ccd2f4376f">
   <img width="397" height="185" alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a">
 
-  <h3>Digitally signed</h3>
+  <h3 id="feature-digitally-signed">Digitally signed</h3>
   <ul>
     <li>All binary files including installer are digitally signed.</li>
   </ul>
@@ -166,7 +192,7 @@
   </section>
   <h2 id="fork">Samandarin Fork Overview</h2>
   <h3>Author &amp; Motivation</h3>
-  <p><strong>Open Salamander: Samandarin</strong> is introduced by <a href="https://github.com/KRtekTM">Ondřej Kotas (KRtekTM)</a>. Instead of coming from a traditional C++ background, Ondřej is a C# developer and QA test/automation & AI specialist who uses OpenAI Codex to rapidly prototype and implement new ideas. The fork exists so AI-written code can evolve separately without risking the quality of the upstream project while development practices mature.</p>
+  <p><strong>Open Salamander: Samandarin</strong> is introduced by <a href="https://github.com/KRtekTM">Ondřej Kotas (KRtekTM)</a>. Instead of coming from a traditional C++ background, Ondřej is a C# developer and QA test/automation &amp; AI specialist who uses OpenAI Codex to rapidly prototype and implement new ideas. The fork exists so AI-written code can evolve separately without risking the quality of the upstream project while development practices mature.</p>
   <h3>Fork Name Inspiration</h3>
   <p>The “Samandarin” name is a three-way pun that pays homage to the Salamander legacy:</p>
   <ul>
@@ -197,7 +223,9 @@
   <h2 id="license">License</h2>
   <p>Open Salamander is open-source software licensed under <a href="LICENSE">GPLv2</a> or later.<br>Some individual <a href="doc/third_party.txt">files and libraries</a> use different but compatible licenses.</p>
   </main>
+  <a class="back-to-top" href="#content" aria-label="Back to top" title="Back to top" data-back-to-top>↑</a>
   <script src="js/i18n.js" defer></script>
   <script src="js/samandarin-release-downloads.js" defer></script>
+  <script src="js/back-to-top.js" defer></script>
 </body>
 </html>
