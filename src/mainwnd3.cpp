@@ -3555,12 +3555,12 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     // repaint can otherwise keep using large HICONs after a high-DPI -> low-DPI
     // transition until the next directory refresh.
     LeftPanel->SleepIconCacheThread();
-    LeftPanel->IconCache->Release();
+    LeftPanel->IconCache->Destroy();
     LeftPanel->IconCacheValid = FALSE;
     LeftPanel->EndOfIconReadingTime = GetTickCount() - 10000;
     LeftPanel->UseThumbnails = FALSE;
     RightPanel->SleepIconCacheThread();
-    RightPanel->IconCache->Release();
+    RightPanel->IconCache->Destroy();
     RightPanel->IconCacheValid = FALSE;
     RightPanel->EndOfIconReadingTime = GetTickCount() - 10000;
     RightPanel->UseThumbnails = FALSE;
