@@ -22,7 +22,6 @@
     </div>
     <nav class="section-nav" aria-label="Page sections" data-i18n-attr="aria-label:Page sections">
       <a href="#download-block" data-i18n="navDownload">Download</a>
-      <a href="#plugins" data-i18n="navPlugins">Plugins</a>
       <div class="section-nav__item section-nav__item--has-submenu">
         <a href="#features" data-i18n="navFeatures" aria-haspopup="true">Features</a>
         <div class="section-nav__submenu">
@@ -43,6 +42,7 @@
           <a href="#feature-digitally-signed">Digitally signed</a>
         </div>
       </div>
+      <a href="#plugins" data-i18n="navPlugins">Plugins</a>
       <a href="#fork" data-i18n="navFork">Fork</a>
       <a href="#origin" data-i18n="navOrigin">Origin</a>
       <a href="#resources" data-i18n="navResources">Resources</a>
@@ -80,17 +80,6 @@
   </section>
 
   <section class="content-grid">
-  <h2 id="plugins">Plugin Catalog</h2>
-  <blockquote>
-    <p>Plugin catalog sources:</p>
-    <ul>
-      <li>Stable: <a href="https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json" target="_blank">https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json</a></li>
-      <li>Unofficial 3rd party: <a href="https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json" target="_blank">https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json</a></li>
-    </ul>
-    <p>Explore the available plugins in <a aria="button" href="catalogs/plugin-catalog.html">Plugin catalog overview</a> or directly in the Salamander application via the Plugin Updates window in the Samandarin Update Notifier plugin.</p>
-  </blockquote>
-  <img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/c1088472-335b-4421-82bb-fea8531beb92">
-
   <h2 id="features">Included Features Overview</h2>
   <h3 id="feature-unicode-long-paths">Unicode and long paths support</h3>
   <ul>
@@ -189,7 +178,18 @@
     <li>All binary files including installer are digitally signed.</li>
   </ul>
   <img width="405" height="485" alt="image" src="https://github.com/user-attachments/assets/be80813f-c231-499d-976a-7e17f3ab291d">
-  </section>
+
+  <h2 id="plugins">Plugin Catalog</h2>
+  <blockquote>
+    <p>Plugin catalog sources:</p>
+    <ul>
+      <li>Stable: <a href="https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json" target="_blank">https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json</a></li>
+      <li>Unofficial 3rd party: <a href="https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json" target="_blank">https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json</a></li>
+    </ul>
+    <p>Explore the available plugins in <a aria="button" href="catalogs/plugin-catalog.html">Plugin catalog overview</a> or directly in the Salamander application via the Plugin Updates window in the Samandarin Update Notifier plugin.</p>
+  </blockquote>
+  <img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/c1088472-335b-4421-82bb-fea8531beb92">
+
   <h2 id="fork">Samandarin Fork Overview</h2>
   <h3>Author &amp; Motivation</h3>
   <p><strong>Open Salamander: Samandarin</strong> is introduced by <a href="https://github.com/KRtekTM">Ondřej Kotas (KRtekTM)</a>. Instead of coming from a traditional C++ background, Ondřej is a C# developer and QA test/automation &amp; AI specialist who uses OpenAI Codex to rapidly prototype and implement new ideas. The fork exists so AI-written code can evolve separately without risking the quality of the upstream project while development practices mature.</p>
@@ -203,12 +203,14 @@
   <p>Together they promise the same Salamander DNA with a spicy hint of danger.</p>
   <h3>Installation Notes</h3>
   <p>Samandarin writes its configuration to a dedicated registry hive named "Open Salamander Samandarin" to avoid interfering with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.</p>
+
   <h2 id="origin">Origin Overview</h2>
   <p>The original version of Servant Salamander was developed by Petr Šolín while he was studying at the Czech Technical University. He released it as freeware in 1997. After graduating, Petr Šolín founded <a href="https://www.altap.cz/">Altap</a> together with Jan Ryšavý. In 2001, they released the first shareware version of the program. In 2007, the project was renamed Altap Salamander with the release of version 2.5. Many other programmers and translators have <a href="AUTHORS">contributed</a> to the project over the years. In 2019, Altap was acquired by <a href="https://www.finesoftware.eu/">Fine</a>. After the acquisition, Altap Salamander 4.0 was released as freeware. In 2023, the source code was released under the GPLv2 license as Open Salamander 5.0.</p>
   <p>The name Servant Salamander came from a brainstorming session between Petr Šolín and his friend Pavel Schreib. At the time, the best-known file managers were the aging Norton Commander and the increasingly popular Windows Commander. They wondered why a file manager should be called a commander at all: a good file manager serves its users rather than commands them. That idea led to the name Servant Salamander.</p>
   <p>Salamander was our first major C++ project, and the code reflects both that learning process and the era in which it was built. It does not follow the <a href="https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines">C++ Core Guidelines</a>, use smart pointers, rely on <a href="https://en.cppreference.com/w/cpp/language/raii">RAII</a>, or use libraries such as the <a href="https://github.com/microsoft/STL">STL</a> or <a href="https://github.com/microsoft/wil">WIL</a>. Most of these practices and libraries were still emerging when Salamander was created. Many comments are still written in Czech, but recent advances in AI-assisted translation make them much easier to improve incrementally. Salamander is a pure WinAPI application and does not use application frameworks such as MFC.</p>
   <p>We would like to thank <a href="https://www.finesoftware.eu/">Fine</a> for making the open-source release of Salamander possible.</p>
   <p>The Samandarin fork continues this story by blending the original Salamander DNA with AI-driven enhancements, keeping development moving while inviting adventurous contributors to explore and extend the project.</p>
+
   <h2 id="resources">Resources</h2>
   <ul>
     <li><a href="https://github.com/OpenSalamander/salamander">Open Salamander 5.0</a> original project</li>
@@ -220,6 +222,7 @@
     <li><a href="https://forum.altap.cz/">User community forum</a></li>
     <li>Altap Salamander on <a href="https://en.wikipedia.org/wiki/Altap_Salamander">Wikipedia</a></li>
   </ul>
+
   <h2 id="license">License</h2>
   <p>Open Salamander is open-source software licensed under <a href="LICENSE">GPLv2</a> or later.<br>Some individual <a href="doc/third_party.txt">files and libraries</a> use different but compatible licenses.</p>
   </main>
