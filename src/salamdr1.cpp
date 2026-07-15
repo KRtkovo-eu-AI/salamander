@@ -2660,7 +2660,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     // Match the toolbar bitmap pre-composition background to the real dark toolbar
     // surface.  Using the file-list background here leaves light/dark fringe pixels
     // around SVG-rendered icons after they are placed into mask-based image lists.
-    COLORREF toolbarFace = useDark ? RGB(45, 45, 48) : GetSysColor(COLOR_BTNFACE);
+    COLORREF toolbarFace = useDark ? RGB(32, 32, 32) : GetSysColor(COLOR_BTNFACE);
     // 48x48 only on XP and later
     // Large icons have actually been supported for a long time; they can be enabled via
     // Desktop/Properties/???/Large Icons. Note that there will then be no system image list

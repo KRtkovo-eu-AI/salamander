@@ -2897,7 +2897,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     HBITMAP hTmpMaskBitmap;
     HBITMAP hTmpGrayBitmap;
     HBITMAP hTmpColorBitmap;
-    COLORREF toolbarBkColor = DarkModeShouldUseDarkColors() ? RGB(45, 45, 48) : GetSysColor(COLOR_BTNFACE);
+    COLORREF toolbarBkColor = DarkModeShouldUseDarkColors() ? RGB(32, 32, 32) : GetSysColor(COLOR_BTNFACE);
     CreateToolbarBitmaps(HInstance,
                          IDB_EDTLBTB,
                          RGB(255, 0, 255), toolbarBkColor,
