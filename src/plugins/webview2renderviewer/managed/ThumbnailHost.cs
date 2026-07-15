@@ -6,10 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
 using System.Net;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -159,36 +158,27 @@ internal static class ThumbnailHost
                 _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                 _webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
 
-                var navigated = new TaskCompletionSource<bool>();
-                void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)
+                var pixelsReady = new TaskCompletionSource<string>();
+                void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
                 {
-                    _webView.NavigationCompleted -= OnNavigationCompleted;
-                    navigated.TrySetResult(args.IsSuccess);
+                    _webView.CoreWebView2.WebMessageReceived -= OnWebMessageReceived;
+                    pixelsReady.TrySetResult(args.TryGetWebMessageAsString() ?? string.Empty);
                 }
 
-                _webView.NavigationCompleted += OnNavigationCompleted;
-                _webView.CoreWebView2.NavigateToString(BuildSvgThumbnailHtml(_path));
-                if (!await navigated.Task.ConfigureAwait(true))
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                using var timeoutRegistration = timeout.Token.Register(() => pixelsReady.TrySetResult(string.Empty));
+
+                _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+                _webView.CoreWebView2.NavigateToString(BuildSvgCanvasHtml(_path, _width, _height));
+
+                string pixelBase64 = await pixelsReady.Task.ConfigureAwait(true);
+                if (string.IsNullOrEmpty(pixelBase64))
                 {
                     return;
                 }
 
-                if (!await WaitForSvgImageAsync().ConfigureAwait(true))
-                {
-                    return;
-                }
-
-                using var stream = new MemoryStream();
-                await _webView.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, stream).ConfigureAwait(true);
-                stream.Position = 0;
-                using var captured = Image.FromStream(stream);
-                using var bitmap = new Bitmap(_width, _height, PixelFormat.Format32bppRgb);
-                using (var graphics = Graphics.FromImage(bitmap))
-                {
-                    graphics.Clear(Color.White);
-                    graphics.DrawImage(captured, new Rectangle(0, 0, _width, _height));
-                }
-                SaveRawThumbnail(bitmap, _output);
+                byte[] rgbaPixels = Convert.FromBase64String(pixelBase64);
+                SaveRawThumbnail(rgbaPixels, _width, _height, _output);
             }
             catch (Exception)
             {
@@ -200,68 +190,55 @@ internal static class ThumbnailHost
             }
         }
 
-        private async Task<bool> WaitForSvgImageAsync()
-        {
-            for (int attempt = 0; attempt < 20; ++attempt)
-            {
-                string result = await _webView.CoreWebView2.ExecuteScriptAsync(
-                    "Boolean(document.images.length && document.images[0].complete && document.images[0].naturalWidth > 0 && document.images[0].naturalHeight > 0)").ConfigureAwait(true);
-                if (string.Equals(result, "true", StringComparison.OrdinalIgnoreCase))
-                {
-                    await Task.Delay(250).ConfigureAwait(true);
-                    return true;
-                }
-
-                await Task.Delay(100).ConfigureAwait(true);
-            }
-
-            return false;
-        }
-
         private sealed class ThumbnailForm : Form
         {
             protected override bool ShowWithoutActivation => true;
         }
 
-        private static string BuildSvgThumbnailHtml(string path)
+        private static string BuildSvgCanvasHtml(string path, int width, int height)
         {
             byte[] svgBytes = File.ReadAllBytes(path);
             string svgBase64 = Convert.ToBase64String(svgBytes);
             string title = WebUtility.HtmlEncode(Path.GetFileName(path));
+            string widthText = width.ToString(CultureInfo.InvariantCulture);
+            string heightText = height.ToString(CultureInfo.InvariantCulture);
             return "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + title + "</title>" +
                    "<style>html,body{width:100%;height:100%;margin:0;overflow:hidden;background:white;}" +
-                   "body{display:flex;align-items:center;justify-content:center;}" +
-                   "img{display:block;max-width:100vw;max-height:100vh;width:100%;height:100%;object-fit:contain;}" +
-                   "</style></head><body><img alt=\"\" src=\"data:image/svg+xml;base64," + svgBase64 + "\"></body></html>";
+                   "canvas{display:block;width:100vw;height:100vh;}</style></head><body>" +
+                   "<canvas id=\"c\" width=\"" + widthText + "\" height=\"" + heightText + "\"></canvas>" +
+                   "<script>(()=>{const w=" + widthText + ",h=" + heightText + ";" +
+                   "const done=v=>{try{chrome.webview.postMessage(v||'');}catch(e){}};" +
+                   "const img=new Image();img.onload=()=>{try{const c=document.getElementById('c');const x=c.getContext('2d');" +
+                   "x.fillStyle='white';x.fillRect(0,0,w,h);" +
+                   "const s=Math.min(w/img.naturalWidth,h/img.naturalHeight);" +
+                   "const dw=Math.max(1,Math.round(img.naturalWidth*s));const dh=Math.max(1,Math.round(img.naturalHeight*s));" +
+                   "const dx=Math.floor((w-dw)/2);const dy=Math.floor((h-dh)/2);x.drawImage(img,dx,dy,dw,dh);" +
+                   "const d=x.getImageData(0,0,w,h).data;const chunk=32768;let out=[];" +
+                   "for(let i=0;i<d.length;i+=chunk){let e=Math.min(i+chunk,d.length),p='';for(let j=i;j<e;j++)p+=String.fromCharCode(d[j]);out.push(p);}" +
+                   "done(btoa(out.join('')));}catch(e){done('');}};img.onerror=()=>done('');" +
+                   "img.src='data:image/svg+xml;base64," + svgBase64 + "';})();</script></body></html>";
         }
 
-        private static void SaveRawThumbnail(Bitmap bitmap, string output)
+        private static void SaveRawThumbnail(byte[] rgbaPixels, int width, int height, string output)
         {
-            var bounds = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
-            BitmapData? data = null;
-            try
+            int pixelCount = checked(width * height);
+            if (rgbaPixels.Length < checked(pixelCount * 4))
             {
-                data = bitmap.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppRgb);
-                using var stream = new FileStream(output, FileMode.Create, FileAccess.Write, FileShare.Read);
-                using var writer = new BinaryWriter(stream);
-                writer.Write(bitmap.Width);
-                writer.Write(bitmap.Height);
-
-                int rowBytes = checked(bitmap.Width * 4);
-                byte[] row = new byte[rowBytes];
-                for (int y = 0; y < bitmap.Height; ++y)
-                {
-                    IntPtr source = IntPtr.Add(data.Scan0, y * data.Stride);
-                    Marshal.Copy(source, row, 0, rowBytes);
-                    writer.Write(row, 0, rowBytes);
-                }
+                return;
             }
-            finally
+
+            using var stream = new FileStream(output, FileMode.Create, FileAccess.Write, FileShare.Read);
+            using var writer = new BinaryWriter(stream);
+            writer.Write(width);
+            writer.Write(height);
+
+            for (int i = 0; i < pixelCount; ++i)
             {
-                if (data != null)
-                {
-                    bitmap.UnlockBits(data);
-                }
+                int offset = i * 4;
+                writer.Write(rgbaPixels[offset + 2]);
+                writer.Write(rgbaPixels[offset + 1]);
+                writer.Write(rgbaPixels[offset]);
+                writer.Write((byte)0);
             }
         }
 
