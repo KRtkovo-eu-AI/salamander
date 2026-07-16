@@ -824,6 +824,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                    0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_EDIT, HInstance, NULL);
         HZoomIn = CreateWindowEx(0, "BUTTON", "+", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                  0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_IN, HInstance, NULL);
+        HFONT statusFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        SendMessage(HZoomReset, WM_SETFONT, (WPARAM)statusFont, FALSE);
+        SendMessage(HZoomOut, WM_SETFONT, (WPARAM)statusFont, FALSE);
+        SendMessage(HZoomEdit, WM_SETFONT, (WPARAM)statusFont, FALSE);
+        SendMessage(HZoomIn, WM_SETFONT, (WPARAM)statusFont, FALSE);
         SetWindowSubclass(HZoomReset, ViewerZoomControlSubclass, 1, 0);
         SetWindowSubclass(HZoomOut, ViewerZoomControlSubclass, 1, 0);
         SetWindowSubclass(HZoomEdit, ViewerZoomControlSubclass, 1, 0);
@@ -918,12 +923,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
+        LayoutStatusBar();
         if (IsWindowVisible(HWindow)) // the last WM_SIZE arrives when closing the window; we do not care (error dialogs without the viewer window are highly undesirable)
         {
             SetToolTipOffset(-1);
             int clientWidth = LOWORD(lParam);
             int clientHeight = HIWORD(lParam);
-            LayoutStatusBar();
             BOOL widthChanged = (Width != clientWidth);
             Width = clientWidth;
             Bitmap.Enlarge(Width, CharHeight);
@@ -3662,6 +3667,24 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
     {
+        if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
+        {
+            switch (wParam)
+            {
+            case '0':
+            case VK_NUMPAD0:
+                SetViewerZoom(100);
+                return 0;
+            case VK_OEM_PLUS:
+            case VK_ADD:
+                SetViewerZoom(ZoomPercent + 10);
+                return 0;
+            case VK_OEM_MINUS:
+            case VK_SUBTRACT:
+                SetViewerZoom(ZoomPercent - 10);
+                return 0;
+            }
+        }
         BOOL ctrlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
         BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
         BOOL altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;

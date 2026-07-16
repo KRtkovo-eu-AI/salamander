@@ -320,6 +320,7 @@ protected:
     void LayoutStatusBar();
     void UpdateStatusBar(__int64 offset = -1);
     int GetTextLeft() const;
+    __int64 GetDocumentLineNumber(__int64 offset);
 
     void ResetMouseWheelAccumulator()
     {

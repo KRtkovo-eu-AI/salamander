@@ -2015,7 +2015,7 @@ void CViewerWindow::Paint(HDC dc)
             for (int i = 0; i < LineOffset.Count / 3; i++)
             {
                 char number[32];
-                sprintf(number, "%d", i + 1);
+                sprintf(number, "%I64d", GetDocumentLineNumber(LineOffset[i * 3]));
                 RECT numberRect = {0, i * CharHeight, GetTextLeft() - BORDER_WIDTH, (i + 1) * CharHeight};
                 DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             }
@@ -2313,6 +2313,30 @@ int CViewerWindow::GetTextLeft() const
     return BORDER_WIDTH + (digits + 1) * CharWidth;
 }
 
+__int64 CViewerWindow::GetDocumentLineNumber(__int64 offset)
+{
+    if (offset <= TextStartOffset())
+        return 1;
+    if (Type == vtHex)
+        return offset / 16 + 1;
+
+    __int64 line = 1;
+    __int64 pos = TextStartOffset();
+    BOOL fatalErr = FALSE;
+    while (pos < offset)
+    {
+        __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, offset - pos), fatalErr);
+        if (fatalErr || read <= 0)
+            break;
+        unsigned char* text = Buffer + pos - Seek;
+        for (__int64 i = 0; i < read; ++i)
+            if (text[i] == '\n')
+                ++line;
+        pos += read;
+    }
+    return line;
+}
+
 void CViewerWindow::LayoutStatusBar()
 {
     if (HStatusBar == NULL)
@@ -2357,7 +2381,7 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
             for (int i = 0; i + 2 < LineOffset.Count; i += 3)
                 if (StatusOffset >= LineOffset[i] && StatusOffset <= LineOffset[i + 1])
                 {
-                    line = i / 3 + 1;
+                    line = GetDocumentLineNumber(LineOffset[i]);
                     column = StatusOffset - LineOffset[i] + 1;
                     break;
                 }
