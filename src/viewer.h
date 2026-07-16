@@ -316,6 +316,9 @@ protected:
     BOOL CreateViewerBrushs();
     void ReleaseViewerBrushs();
     void SetViewerFont();
+    void SetViewerZoom(int percent);
+    void LayoutStatusBar();
+    void UpdateStatusBar(__int64 offset = -1);
 
     void ResetMouseWheelAccumulator()
     {
@@ -423,6 +426,15 @@ protected:
 
     CBitmap Bitmap;
     HFONT ViewerFont;
+
+    HWND HStatusBar;
+    HWND HZoomReset;
+    HWND HZoomOut;
+    HWND HZoomEdit;
+    HWND HZoomIn;
+    int StatusBarHeight;
+    int ZoomPercent;
+    __int64 StatusOffset;
 
     int EnumFileNamesSourceUID;     // UID of our source for enumerating names in the viewer
     int EnumFileNamesLastFileIndex; // index of the currently viewed file

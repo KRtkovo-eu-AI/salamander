@@ -635,6 +635,10 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     BkgndBrush = NULL;
     BkgndBrushSel = NULL;
     ViewerFont = NULL;
+    HStatusBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
+    StatusBarHeight = 0;
+    ZoomPercent = 100;
+    StatusOffset = -1;
 
     Width = Height = 0;
 
@@ -2181,6 +2185,7 @@ void CViewerWindow::SetViewerFont()
         lf = ViewerLogFont;
     else
         GetDefaultViewerLogFont(&lf);
+    lf.lfHeight = MulDiv(lf.lfHeight, ZoomPercent, 100);
     ViewerFont = HANDLES(CreateFontIndirect(&lf));
     if (ViewerFont == NULL)
     {
@@ -2265,4 +2270,83 @@ void CViewerWindow::SetViewerFont()
 
         HANDLES(LeaveCriticalSection(&ViewerFontMeasureCS));
     }
+}
+
+void CViewerWindow::SetViewerZoom(int percent)
+{
+    percent = max(25, min(500, percent));
+    if (ZoomPercent == percent)
+        return;
+    ZoomPercent = percent;
+    SetViewerFont();
+    char text[16];
+    sprintf(text, "%d %%", ZoomPercent);
+    SetWindowText(HZoomEdit, text);
+    LayoutStatusBar();
+    SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(Width, Height + StatusBarHeight));
+}
+
+void CViewerWindow::LayoutStatusBar()
+{
+    if (HStatusBar == NULL)
+        return;
+    RECT rc;
+    GetClientRect(HWindow, &rc);
+    StatusBarHeight = max(20, CharHeight + 8);
+    SetWindowPos(HStatusBar, NULL, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+    int x = rc.right - 4;
+    x -= 22;
+    SetWindowPos(HZoomIn, NULL, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOZORDER | SWP_NOACTIVATE);
+    x -= 54;
+    SetWindowPos(HZoomEdit, NULL, x, rc.bottom - StatusBarHeight + 3, 54, StatusBarHeight - 6, SWP_NOZORDER | SWP_NOACTIVATE);
+    x -= 22;
+    SetWindowPos(HZoomOut, NULL, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOZORDER | SWP_NOACTIVATE);
+    x -= 42;
+    SetWindowPos(HZoomReset, NULL, x, rc.bottom - StatusBarHeight + 2, 42, StatusBarHeight - 4, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void CViewerWindow::UpdateStatusBar(__int64 offset)
+{
+    if (HStatusBar == NULL)
+        return;
+    if (offset != -1)
+        StatusOffset = offset;
+    __int64 line = 0;
+    __int64 column = 0;
+    if (StatusOffset >= 0)
+    {
+        if (Type == vtHex)
+        {
+            line = StatusOffset / 16 + 1;
+            column = StatusOffset % 16 + 1;
+        }
+        else
+        {
+            for (int i = 0; i + 2 < LineOffset.Count; i += 3)
+                if (StatusOffset >= LineOffset[i] && StatusOffset <= LineOffset[i + 1])
+                {
+                    line = i / 3 + 1;
+                    column = StatusOffset - LineOffset[i] + 1;
+                    break;
+                }
+        }
+    }
+    char text[256];
+    if (line == 0)
+        strcpy(text, "Line -, Column -");
+    else
+        sprintf(text, "Line %I64d, Column %I64d", line, column);
+    if (StartSelection != -1 && EndSelection != -1 && StartSelection != EndSelection)
+    {
+        __int64 first = min(StartSelection, EndSelection);
+        __int64 last = max(StartSelection, EndSelection);
+        int lines = 0;
+        for (int i = 0; i + 2 < LineOffset.Count; i += 3)
+            if (last > LineOffset[i] && first <= LineOffset[i + 1])
+                ++lines;
+        char selection[96];
+        sprintf(selection, "  |  %I64d characters, %d lines selected", last - first, max(1, lines));
+        strcat(text, selection);
+    }
+    SendMessage(HStatusBar, SB_SETTEXT, 0, (LPARAM)text);
 }

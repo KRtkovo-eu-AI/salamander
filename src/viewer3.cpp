@@ -18,6 +18,14 @@
 namespace
 {
 
+enum
+{
+    IDC_VIEWER_ZOOM_RESET = 61001,
+    IDC_VIEWER_ZOOM_OUT,
+    IDC_VIEWER_ZOOM_EDIT,
+    IDC_VIEWER_ZOOM_IN
+};
+
 #ifndef WM_UAHDRAWMENU
 #define WM_UAHDRAWMENU 0x0091
 #endif
@@ -692,6 +700,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
         short zDelta = (short)HIWORD(wParam);
+        if (controlPressed && !altPressed && !shiftPressed)
+        {
+            int steps = zDelta / WHEEL_DELTA;
+            if (steps != 0)
+                SetViewerZoom(ZoomPercent + steps * 10);
+            return 0;
+        }
         if ((zDelta < 0 && MouseWheelAccumulator > 0) || (zDelta > 0 && MouseWheelAccumulator < 0))
             ResetMouseWheelAccumulator(); // when the wheel direction changes we must reset the accumulator
 
@@ -788,11 +803,23 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HToolTip = CreateWindowEx(0, TOOLTIPS_CLASS, NULL, TTS_NOPREFIX,
                                   CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                   NULL, NULL, HInstance, NULL);
+        HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
+                                    0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
+        HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                    0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
+        HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                  0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_OUT, HInstance, NULL);
+        HZoomEdit = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "100 %", WS_CHILD | WS_VISIBLE | ES_CENTER,
+                                   0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_EDIT, HInstance, NULL);
+        HZoomIn = CreateWindowEx(0, "BUTTON", "+", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                 0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_IN, HInstance, NULL);
 
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
         DarkModeApplyTree(HWindow);
         ApplyViewerMenuTheme(HWindow);
+        LayoutStatusBar();
+        UpdateStatusBar();
 
         if (HToolTip != NULL)
         {
@@ -879,16 +906,20 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (IsWindowVisible(HWindow)) // the last WM_SIZE arrives when closing the window; we do not care (error dialogs without the viewer window are highly undesirable)
         {
             SetToolTipOffset(-1);
-            BOOL widthChanged = (Width != LOWORD(lParam));
-            Width = LOWORD(lParam);
+            int clientWidth = LOWORD(lParam);
+            int clientHeight = HIWORD(lParam);
+            LayoutStatusBar();
+            BOOL widthChanged = (Width != clientWidth);
+            Width = clientWidth;
             Bitmap.Enlarge(Width, CharHeight);
             if (Width < 0)
                 Width = 0;
-            if (Height != HIWORD(lParam) ||
+            int viewHeight = max(0, clientHeight - StatusBarHeight);
+            if (Height != viewHeight ||
                 widthChanged && Type == vtText && WrapText)
             {
                 BOOL fatalErr = FALSE;
-                Height = HIWORD(lParam);
+                Height = viewHeight;
                 if (Height < 0)
                     Height = 0;
                 if (MaxSeekY == -1)
@@ -920,6 +951,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
             }
+            UpdateStatusBar();
             if (HToolTip != NULL)
             {
                 TOOLINFO ti;
@@ -944,6 +976,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (HToolTip != NULL)
             DarkModeApplyWindow(HToolTip);
         ConfigHasChanged();
+        LayoutStatusBar();
         return 0;
     }
 
@@ -974,6 +1007,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             InvalidateRect(HWindow, NULL, TRUE);
             return 0;
         }
+        break;
+    }
+
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT result;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -1111,6 +1153,24 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL ch = FALSE;
         switch (LOWORD(wParam))
         {
+        case IDC_VIEWER_ZOOM_RESET:
+            SetViewerZoom(100);
+            return 0;
+        case IDC_VIEWER_ZOOM_OUT:
+            SetViewerZoom(ZoomPercent - 10);
+            return 0;
+        case IDC_VIEWER_ZOOM_IN:
+            SetViewerZoom(ZoomPercent + 10);
+            return 0;
+        case IDC_VIEWER_ZOOM_EDIT:
+            if (HIWORD(wParam) == EN_KILLFOCUS)
+            {
+                char zoom[32];
+                GetWindowText(HZoomEdit, zoom, _countof(zoom));
+                SetViewerZoom(atoi(zoom));
+            }
+            return 0;
+
         case CM_EXIT:
             DestroyWindow(HWindow);
             return 0;
@@ -3152,6 +3212,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (Configuration.AutoCopySelection && StartSelection != EndSelection)
                 PostMessage(HWindow, WM_COMMAND, CM_COPYTOCLIP, 0);
         }
+        UpdateStatusBar();
         break;
     }
 
@@ -3222,6 +3283,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             BOOL fatalErr = FALSE;
             if (GetOffset(x, y, off, fatalErr) && !fatalErr)
             {
+                UpdateStatusBar(off);
                 if (EndSelection != off)
                 {
                     // optimization introduced: detect the changed area while dragging the block
@@ -3271,6 +3333,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         else
         {
+            __int64 offset;
+            BOOL fatalErr = FALSE;
+            if (GetOffset((short)LOWORD(lParam), (short)HIWORD(lParam), offset, fatalErr) && !fatalErr)
+                UpdateStatusBar(offset);
             if (Type == vtHex)
             {
                 __int64 offset = -1;
