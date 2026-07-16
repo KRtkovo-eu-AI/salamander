@@ -637,7 +637,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     ViewerFont = NULL;
     HStatusBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
     StatusBarHeight = 0;
-    ZoomPercent = 100;
+    ZoomPercent = Configuration.ViewerZoomPercent;
     StatusOffset = -1;
 
     Width = Height = 0;
@@ -2291,6 +2291,7 @@ void CViewerWindow::SetViewerZoom(int percent)
     if (ZoomPercent == percent)
         return;
     ZoomPercent = percent;
+    Configuration.ViewerZoomPercent = ZoomPercent;
     SetViewerFont();
     char text[16];
     sprintf(text, "%d %%", ZoomPercent);

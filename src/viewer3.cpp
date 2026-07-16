@@ -985,6 +985,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_SHOWWINDOW:
+        if (wParam != 0)
+        {
+            RECT rc;
+            GetClientRect(HWindow, &rc);
+            SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
+        }
+        break;
+
     case WM_USER_CFGCHANGED:
     {
         ReleaseViewerBrushs();

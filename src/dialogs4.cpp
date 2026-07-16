@@ -703,6 +703,7 @@ CConfiguration::CConfiguration()
     WrapText = TRUE;
     ViewerShowLineNumbers = FALSE;
     ViewerShowStatusBar = TRUE;
+    ViewerZoomPercent = 100;
     CodePageAutoSelect = TRUE;
     DefaultConvert[0] = 0;
     AutoCopySelection = FALSE;
