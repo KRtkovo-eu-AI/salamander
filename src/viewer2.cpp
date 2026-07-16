@@ -1968,10 +1968,12 @@ BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatal
         *onHexNum = FALSE;
     if (x >= 0 && y >= 0 && x < Width && y < Height)
     {
+        // The line-number gutter is chrome, not document text.  Coordinates
+        // in the gutter must map to the first text column.
         if (!leftMost)
-            x = (x - BORDER_WIDTH + CharWidth / 2) / CharWidth;
+            x = (x - GetTextLeft() + CharWidth / 2) / CharWidth;
         else
-            x = (x - BORDER_WIDTH) / CharWidth;
+            x = (x - GetTextLeft()) / CharWidth;
         y = y / CharHeight;
         switch (Type)
         {

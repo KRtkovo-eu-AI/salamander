@@ -2016,10 +2016,13 @@ void CViewerWindow::Paint(HDC dc)
         if (ShowLineNumbers)
         {
             SetTextColor(dc, GetCOLORREF(ViewerColors[VIEWER_FG_NORMAL]));
+            __int64 documentLine = LineOffset.Count >= 3 ? GetDocumentLineNumber(LineOffset[0]) : 1;
             for (int i = 0; i < LineOffset.Count / 3; i++)
             {
                 char number[32];
-                sprintf(number, "%d", i + 1);
+                if (i > 0 && LineOffset[i * 3] > LineOffset[i * 3 - 2])
+                    ++documentLine; // the preceding visible row ended in EOL, not a wrap
+                sprintf(number, "%I64d", documentLine);
                 RECT numberRect = {0, i * CharHeight, GetTextLeft() - BORDER_WIDTH, (i + 1) * CharHeight};
                 DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             }
@@ -2322,6 +2325,11 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset)
     if (Type == vtHex)
         return offset / 16 + 1;
 
+    // Prepare() reuses the rendering buffer.  Restore the visible buffer
+    // afterwards so obtaining a label/status position cannot disturb an
+    // incremental scroll repaint.
+    const __int64 savedSeek = Seek;
+    const __int64 savedLoaded = Loaded;
     __int64 line = 1;
     __int64 pos = TextStartOffset();
     BOOL fatalErr = FALSE;
@@ -2335,6 +2343,11 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset)
             if (text[i] == '\n')
                 ++line;
         pos += read;
+    }
+    if (savedLoaded > 0)
+    {
+        BOOL restoreFatalErr = FALSE;
+        Prepare(NULL, savedSeek, savedLoaded, restoreFatalErr);
     }
     return line;
 }
@@ -2359,7 +2372,10 @@ void CViewerWindow::LayoutStatusBar()
                  rc.right - scrollWidth, scrollHeight, SWP_NOZORDER | SWP_NOACTIVATE);
     SetWindowPos(VScrollBar, NULL, rc.right - scrollWidth, 0, scrollWidth,
                  rc.bottom - StatusBarHeight - scrollHeight, SWP_NOZORDER | SWP_NOACTIVATE);
-    SetWindowPos(HStatusBar, NULL, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+    // Keep the native status bar behind its interactive children.  Some
+    // common-control versions repaint it over the zoom controls after a
+    // resize or a document scroll.
+    SetWindowPos(HStatusBar, HWND_BOTTOM, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOACTIVATE);
     int x = rc.right - 4;
     x -= 22;
     SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
@@ -2391,7 +2407,7 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
             for (int i = 0; i + 2 < LineOffset.Count; i += 3)
                 if (StatusOffset >= LineOffset[i] && StatusOffset <= LineOffset[i + 1])
                 {
-                    line = i / 3 + 1;
+                    line = GetDocumentLineNumber(LineOffset[i]);
                     column = StatusOffset - LineOffset[i] + 1;
                     break;
                 }

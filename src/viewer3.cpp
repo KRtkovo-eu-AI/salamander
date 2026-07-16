@@ -420,7 +420,11 @@ BOOL CViewerWindow::ScrollViewLineUp(DWORD repeatCmd, BOOL* scrolled, BOOL repai
                 *scrolled = TRUE;
             if (repaint)
             {
-                ::ScrollWindow(HWindow, 0, CharHeight, NULL, NULL); // scroll the window
+                RECT documentRect = {0, 0, Width, Height};
+                // Keep child scrollbars and status controls fixed while only
+                // the document surface is scrolled.
+                ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
+                               NULL, NULL, SW_INVALIDATE);
                 UpdateWindow(HWindow);
                 if (EndSelectionRow != -1)
                     EndSelectionRow++;
@@ -441,7 +445,13 @@ BOOL CViewerWindow::ScrollViewLineDown(BOOL fullRedraw)
         if (oldSeekY != SeekY)
         {
             if (!fullRedraw)
-                ::ScrollWindow(HWindow, 0, -CharHeight, NULL, NULL); // scroll the window
+            {
+                RECT documentRect = {0, 0, Width, Height};
+                // Keep child scrollbars and status controls fixed while only
+                // the document surface is scrolled.
+                ScrollWindowEx(HWindow, 0, -CharHeight, &documentRect, &documentRect,
+                               NULL, NULL, SW_INVALIDATE);
+            }
             UpdateWindow(HWindow);
             if (EndSelectionRow != -1)
                 EndSelectionRow--;
@@ -2700,7 +2710,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             if (fullRedraw)
                                 InvalidateRect(HWindow, NULL, FALSE);
                             else
-                                ::ScrollWindow(HWindow, 0, CharHeight, NULL, NULL); // scroll the window
+                            {
+                                RECT documentRect = {0, 0, Width, Height};
+                                ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
+                                               NULL, NULL, SW_INVALIDATE);
+                            }
                             UpdateWindow(HWindow);
                         }
                         else // the previous line does not exist; we are probably at the beginning of the file
@@ -2836,7 +2850,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 if (fullRedraw)
                                     InvalidateRect(HWindow, NULL, FALSE);
                                 else
-                                    ::ScrollWindow(HWindow, 0, CharHeight, NULL, NULL); // scroll the window
+                                {
+                                    RECT documentRect = {0, 0, Width, Height};
+                                    ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
+                                                   NULL, NULL, SW_INVALIDATE);
+                                }
                                 UpdateWindow(HWindow);
                                 updateView = FALSE; // already repainted, no need to do it again
                             }
