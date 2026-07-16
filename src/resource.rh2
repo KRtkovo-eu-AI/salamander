@@ -687,6 +687,8 @@
 #define CM_EXTSEL_END         6098
 #define CM_EXTSEL_FILEBEG     6099
 #define CM_EXTSEL_FILEEND     6100
+#define CM_VIEW_LINENUMBERS   6101
+#define CM_VIEW_STATUSBAR     6102
 
 
 // timers

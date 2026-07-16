@@ -269,6 +269,7 @@ thread_local int gListViewColorUpdateDepth = 0;
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
+static HBRUSH gScrollbarTrackBrush = NULL;
 static bool gDialogBrushOwned = false;
 static DarkModeColors gColors = {GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT), false};
 static COLORREF gAutocompleteSelectedFg = RGB(255, 255, 255);
@@ -1714,6 +1715,30 @@ void PaintDarkStatusBar(HWND hwnd, HDC hdc)
     SetTextColor(hdc, oldText);
     if (oldFont != NULL)
         SelectObject(hdc, oldFont);
+
+    // Draw the size-grip handle in the bottom-right corner when the
+    // status bar has SBARS_SIZEGRIP.  The dark theme override
+    // (PaintDarkStatusBar) replaces default painting, so the grip must
+    // be drawn manually.
+    if ((GetWindowLong(hwnd, GWL_STYLE) & SBARS_SIZEGRIP) != 0)
+    {
+        const int gripW = GetSystemMetrics(SM_CXVSCROLL);
+        const int gripH = GetSystemMetrics(SM_CYHSCROLL);
+        RECT gripRc = {client.right - gripW, client.bottom - gripH,
+                       client.right, client.bottom};
+        HPEN hPen = CreatePen(PS_SOLID, 1, colors.readableText);
+        if (hPen != NULL)
+        {
+            HPEN hOldPen = static_cast<HPEN>(SelectObject(hdc, hPen));
+            for (int i = 0; i < gripW - 2; i += 4)
+            {
+                MoveToEx(hdc, gripRc.right - i - 2, gripRc.bottom - 2, NULL);
+                LineTo(hdc, gripRc.right - 2, gripRc.bottom - i - 2);
+            }
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+        }
+    }
 }
 
 LRESULT CALLBACK DarkStatusBarSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
@@ -2084,7 +2109,9 @@ void HookDarkScrollbars()
     auto replacement = [](HWND hWnd, LPCWSTR classList) -> HTHEME {
         if (classList != nullptr && wcscmp(classList, L"ScrollBar") == 0)
         {
-            hWnd = nullptr;
+            // Preserve the real scrollbar HWND so UxTheme can use the
+            // window's dark-mode policy and palette instead of falling back
+            // to the generic Explorer track color.
             classList = L"Explorer::ScrollBar";
         }
         return gOpenNcThemeData ? gOpenNcThemeData(hWnd, classList) : nullptr;
@@ -2649,7 +2676,9 @@ void DarkModeFixScrollbars()
     if (!gSupported)
         return;
 
-    HookDarkScrollbars();
+    // darkmodelib owns the supported scrollbar hook.  Do not install the
+    // legacy duplicate hook here: it forces Explorer::ScrollBar and bypasses
+    // the library's per-window dark scrollbar policy.
 }
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
@@ -3069,9 +3098,14 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         return true;
 
     case WM_CTLCOLORSCROLLBAR:
-        SetBkColor(hdc, background);
-        result = reinterpret_cast<LRESULT>(brush);
+    {
+        const COLORREF scrollbarTrack = RGB(23, 23, 23);
+        SetBkColor(hdc, scrollbarTrack);
+        if (gScrollbarTrackBrush == NULL)
+            gScrollbarTrackBrush = CreateSolidBrush(scrollbarTrack);
+        result = reinterpret_cast<LRESULT>(gScrollbarTrackBrush != NULL ? gScrollbarTrackBrush : brush);
         return true;
+    }
     }
 
     return false;

@@ -18,6 +18,170 @@
 namespace
 {
 
+enum
+{
+    IDC_VIEWER_ZOOM_RESET = 61001,
+    IDC_VIEWER_ZOOM_OUT,
+    IDC_VIEWER_ZOOM_EDIT,
+    IDC_VIEWER_ZOOM_IN
+};
+
+void FillViewerRectWithColor(HDC hdc, const RECT* rect, COLORREF color);
+
+LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                           UINT_PTR subclassId, DWORD_PTR refData)
+{
+    if (message == WM_MOUSEWHEEL)
+    {
+        SendMessage(GetParent(hwnd), message, wParam, lParam);
+        return 0;
+    }
+    if (message == WM_KEYDOWN)
+    {
+        if (wParam == VK_RETURN)
+        {
+            // Apply the typed zoom value on Enter, same as losing focus.
+            SendMessage(GetParent(hwnd), WM_COMMAND,
+                        MAKEWPARAM(IDC_VIEWER_ZOOM_EDIT, EN_KILLFOCUS), (LPARAM)hwnd);
+            SetFocus(GetParent(hwnd));
+            return 0;
+        }
+        if (wParam == VK_ESCAPE)
+        {
+            // Cancel editing: restore the current zoom value and return focus.
+            char text[16];
+            sprintf(text, "%d %%", (int)SendMessage(GetParent(hwnd), WM_USER_GETZOOM, 0, 0));
+            SetWindowText(hwnd, text);
+            SetFocus(GetParent(hwnd));
+            return 0;
+        }
+        // Forward Ctrl+plus/minus/0 to the parent so zoom shortcuts work
+        // even when the edit has focus.
+        if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
+        {
+            SendMessage(GetParent(hwnd), message, wParam, lParam);
+            return 0;
+        }
+    }
+    // Owner-draw the zoom push buttons in dark mode to avoid artifacts from
+    // BS_FLAT + SetWindowTheme().  In light mode, let the default Win32
+    // rendering handle the buttons (original BS_PUSHBUTTON | BS_FLAT look).
+    if (DarkModeShouldUseDarkColors())
+    {
+        DWORD style = GetWindowLong(hwnd, GWL_STYLE);
+        if ((style & BS_TYPEMASK) == BS_PUSHBUTTON)
+        {
+            if (message == WM_ERASEBKGND)
+                return 1;
+            if (message == WM_PAINT)
+            {
+                PAINTSTRUCT ps;
+                HDC hdc = BeginPaint(hwnd, &ps);
+                RECT rc;
+                GetClientRect(hwnd, &rc);
+                const DarkModeColors& colors = DarkModeGetColors();
+                LRESULT state = SendMessage(hwnd, BM_GETSTATE, 0, 0);
+                bool pressed = (state & BST_PUSHED) != 0;
+                bool hot = (state & BST_HOT) != 0;
+                COLORREF bg = pressed ? RGB(0x50, 0x50, 0x50)
+                           : hot     ? RGB(0x40, 0x40, 0x40)
+                           :           colors.background;
+                FillViewerRectWithColor(hdc, &rc, bg);
+                DrawEdge(hdc, &rc, BDR_SUNKENOUTER, BF_RECT);
+                SetBkMode(hdc, TRANSPARENT);
+                SetTextColor(hdc, colors.readableText);
+                HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+                HGDIOBJ oldFont = font ? SelectObject(hdc, font) : NULL;
+                char buf[64];
+                GetWindowTextA(hwnd, buf, _countof(buf));
+                DrawTextA(hdc, buf, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                if (oldFont)
+                    SelectObject(hdc, oldFont);
+                EndPaint(hwnd, &ps);
+                return 0;
+            }
+        }
+    }
+    return DefSubclassProc(hwnd, message, wParam, lParam);
+}
+
+// The native themed SCROLLBAR can issue a second paint after thumb tracking.
+// Queue the track overlay after every native paint, so RGB(23,23,23) wins over
+// that delayed themed repaint without replacing the native arrows or thumb.
+static const UINT_PTR kHScrollBarSubclassId = 2;
+static const UINT_PTR kVScrollBarSubclassId = 3;
+static const UINT kScrollBarTrackRepaint = WM_APP + 203;
+
+static void PaintScrollBarTrack(HWND hwnd)
+{
+    SCROLLBARINFO sbi;
+    memset(&sbi, 0, sizeof(sbi));
+    sbi.cbSize = sizeof(sbi);
+    if (!GetScrollBarInfo(hwnd, OBJID_CLIENT, &sbi))
+        return;
+
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    HDC hdc = GetDC(hwnd);
+    HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
+    if (hdc != NULL && brush != NULL)
+    {
+            const int arrowSize = sbi.dxyLineButton;
+        const bool vertical = (GetWindowLong(hwnd, GWL_STYLE) & SBS_VERT) != 0;
+        if (vertical)
+        {
+            if (arrowSize < sbi.xyThumbTop)
+            {
+                RECT track = {rc.left, arrowSize, rc.right, sbi.xyThumbTop};
+                FillRect(hdc, &track, brush);
+            }
+            if (sbi.xyThumbBottom < rc.bottom - arrowSize)
+            {
+                RECT track = {rc.left, sbi.xyThumbBottom, rc.right, rc.bottom - arrowSize};
+                FillRect(hdc, &track, brush);
+            }
+        }
+        else
+        {
+            if (arrowSize < sbi.xyThumbTop)
+            {
+                RECT track = {arrowSize, rc.top, sbi.xyThumbTop, rc.bottom};
+                FillRect(hdc, &track, brush);
+            }
+            if (sbi.xyThumbBottom < rc.right - arrowSize)
+            {
+                RECT track = {sbi.xyThumbBottom, rc.top, rc.right - arrowSize, rc.bottom};
+                FillRect(hdc, &track, brush);
+            }
+        }
+    }
+    if (brush != NULL)
+        HANDLES(DeleteObject(brush));
+    if (hdc != NULL)
+        ReleaseDC(hwnd, hdc);
+}
+
+static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                           UINT_PTR subclassId, DWORD_PTR refData)
+{
+    if (message == WM_NCDESTROY)
+        RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
+    if (message == kScrollBarTrackRepaint)
+    {
+        if (DarkModeShouldUseDarkColors())
+            PaintScrollBarTrack(hwnd);
+        return 0;
+    }
+    if ((message == WM_PAINT || message == WM_NCPAINT) && DarkModeShouldUseDarkColors())
+    {
+        LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
+        PostMessage(hwnd, kScrollBarTrackRepaint, 0, 0);
+        return result;
+    }
+    return DefSubclassProc(hwnd, message, wParam, lParam);
+}
+
+
 #ifndef WM_UAHDRAWMENU
 #define WM_UAHDRAWMENU 0x0091
 #endif
@@ -210,8 +374,8 @@ BOOL ViewerActive(HWND hwnd)
 }
 
 // proportional to the window width, it's just an "estimate"
-#define FAST_LEFTRIGHT max(1, (Width - BORDER_WIDTH) / CharWidth / 6)
-#define MAKEVIS_LEFTRIGHT max(0, (Width - BORDER_WIDTH) / CharWidth / 6)
+#define FAST_LEFTRIGHT max(1, (Width - GetTextLeft()) / CharWidth / 6)
+#define MAKEVIS_LEFTRIGHT max(0, (Width - GetTextLeft()) / CharWidth / 6)
 
 void CViewerWindow::SetViewerCaption()
 {
@@ -401,7 +565,11 @@ BOOL CViewerWindow::ScrollViewLineUp(DWORD repeatCmd, BOOL* scrolled, BOOL repai
                 *scrolled = TRUE;
             if (repaint)
             {
-                ::ScrollWindow(HWindow, 0, CharHeight, NULL, NULL); // scroll the window
+                RECT documentRect = {0, 0, Width, Height};
+                // Keep child scrollbars and status controls fixed while only
+                // the document surface is scrolled.
+                ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
+                               NULL, NULL, SW_INVALIDATE);
                 UpdateWindow(HWindow);
                 if (EndSelectionRow != -1)
                     EndSelectionRow++;
@@ -422,7 +590,13 @@ BOOL CViewerWindow::ScrollViewLineDown(BOOL fullRedraw)
         if (oldSeekY != SeekY)
         {
             if (!fullRedraw)
-                ::ScrollWindow(HWindow, 0, -CharHeight, NULL, NULL); // scroll the window
+            {
+                RECT documentRect = {0, 0, Width, Height};
+                // Keep child scrollbars and status controls fixed while only
+                // the document surface is scrolled.
+                ScrollWindowEx(HWindow, 0, -CharHeight, &documentRect, &documentRect,
+                               NULL, NULL, SW_INVALIDATE);
+            }
             UpdateWindow(HWindow);
             if (EndSelectionRow != -1)
                 EndSelectionRow--;
@@ -465,8 +639,13 @@ CViewerWindow::GetMaxVisibleLineLen(__int64 newFirstLineLen, BOOL ignoreFirstLin
 __int64
 CViewerWindow::GetMaxOriginX(__int64 newFirstLineLen, BOOL ignoreFirstLine, __int64 maxLineLen)
 {
-    __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxVisibleLineLen(newFirstLineLen, ignoreFirstLine);
-    int columns = (Width - BORDER_WIDTH) / CharWidth;
+    // Horizontal scrolling is defined by the whole document.  Limiting it
+    // to the current rows makes the thumb size and reachable range change
+    // as the user scrolls vertically.
+    if (WrapText)
+        return 0;
+    __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxDocumentLineLen();
+    int columns = (Width - GetTextLeft()) / CharWidth;
     return maxLL > columns ? maxLL - columns : 0;
 }
 
@@ -486,7 +665,7 @@ void CViewerWindow::EnsureXVisibleInView(__int64 x, BOOL showPrevChar, BOOL& ful
                                          __int64 newFirstLineLen, BOOL ignoreFirstLine, __int64 maxLineLen)
 {
     fullRedraw = FALSE;
-    int columns = (Width - BORDER_WIDTH) / CharWidth;
+    int columns = (Width - GetTextLeft()) / CharWidth;
     if (x > 0 && showPrevChar)
         x--;
     if (x >= OriginX + columns)
@@ -692,6 +871,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
         short zDelta = (short)HIWORD(wParam);
+        if (controlPressed && !altPressed && !shiftPressed)
+        {
+            int steps = zDelta / WHEEL_DELTA;
+            if (steps != 0)
+                SetViewerZoom(ZoomPercent + steps * 10);
+            return 0;
+        }
         if ((zDelta < 0 && MouseWheelAccumulator > 0) || (zDelta > 0 && MouseWheelAccumulator < 0))
             ResetMouseWheelAccumulator(); // when the wheel direction changes we must reset the accumulator
 
@@ -730,7 +916,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             zDelta = (short)HIWORD(wParam);
 
             DWORD wheelScroll = GetMouseWheelScrollLines(); // 'delta' can be as large as WHEEL_PAGESCROLL(0xffffffff)
-            DWORD pageWidth = max(1, (DWORD)(Width - BORDER_WIDTH) / CharWidth);
+            DWORD pageWidth = max(1, (DWORD)(Width - GetTextLeft()) / CharWidth);
             wheelScroll = max(1, min(wheelScroll, pageWidth - 1)); // limit it to at most the page width
 
             MouseHWheelAccumulator += 1000 * zDelta;
@@ -789,10 +975,58 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                   CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                   NULL, NULL, HInstance, NULL);
 
+        // Apply the viewer theme before creating the native status bar.  The
+        // viewer's document surface must never be repainted by a status-bar
+        // custom-draw subclass.
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
-        DarkModeApplyTree(HWindow);
         ApplyViewerMenuTheme(HWindow);
+
+        SetWindowLong(HWindow, GWL_STYLE, GetWindowLong(HWindow, GWL_STYLE) & ~WS_VSCROLL);
+        SetWindowPos(HWindow, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+
+        HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL,
+                                    WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | SBARS_SIZEGRIP,
+                                    0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
+        HScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_HORZ,
+                                    0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
+        SetWindowSubclass(HScrollBar, HScrollBarSubclass, kHScrollBarSubclassId, 0);
+        VScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_VERT,
+                                    0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
+        SetWindowSubclass(VScrollBar, HScrollBarSubclass, kVScrollBarSubclassId, 0);
+        HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+                                    0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
+        HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+                                  0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_OUT, HInstance, NULL);
+        HZoomEdit = CreateWindowEx(0, "EDIT", "100 %", WS_CHILD | WS_VISIBLE | ES_CENTER,
+                                   0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_EDIT, HInstance, NULL);
+        HZoomIn = CreateWindowEx(0, "BUTTON", "+", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+                                 0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_IN, HInstance, NULL);
+        HFONT statusFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        SendMessage(HZoomReset, WM_SETFONT, (WPARAM)statusFont, FALSE);
+        SendMessage(HZoomOut, WM_SETFONT, (WPARAM)statusFont, FALSE);
+        SendMessage(HZoomEdit, WM_SETFONT, (WPARAM)statusFont, FALSE);
+        SendMessage(HZoomIn, WM_SETFONT, (WPARAM)statusFont, FALSE);
+        SetWindowSubclass(HZoomReset, ViewerZoomControlSubclass, 1, 0);
+        SetWindowSubclass(HZoomOut, ViewerZoomControlSubclass, 1, 0);
+        SetWindowSubclass(HZoomEdit, ViewerZoomControlSubclass, 1, 0);
+        SetWindowSubclass(HZoomIn, ViewerZoomControlSubclass, 1, 0);
+
+        DarkModeApplyWindow(HStatusBar);
+        DarkModeApplyWindow(HZoomReset);
+        DarkModeApplyWindow(HZoomOut);
+        DarkModeApplyWindow(HZoomEdit);
+        DarkModeApplyWindow(HZoomIn);
+
+        // Now that all child controls exist, walk the tree so that
+        // ApplyListTreeThemeRecursive can reach them.  The earlier call
+        // happened before any children were created and was a no-op for
+        // the EnumChildWindows pass.  This ensures the status bar gets
+        // its dark subclass and scrollbars receive the correct theme.
+        DarkModeApplyTree(HWindow);
+
+        LayoutStatusBar();
+        UpdateStatusBar();
 
         if (HToolTip != NULL)
         {
@@ -851,12 +1085,53 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+
     case WM_PAINT:
     {
         EraseBkgnd = FALSE;
         PAINTSTRUCT ps;
         HANDLES(BeginPaint(HWindow, &ps));
+        // Re-layout only when the geometry actually changed (flag set by
+        // WM_SIZE or the status-bar toggle).  Calling LayoutStatusBar()
+        // on every paint repositions child scrollbars via SetWindowPos,
+        // which disrupts thumb tracking and causes flicker.
+        if (LayoutNeeded)
+        {
+            LayoutNeeded = FALSE;
+            LayoutStatusBar();
+        }
         Paint(ps.hdc);
+        if (DarkModeShouldUseDarkColors())
+        {
+            PostMessage(HScrollBar, kScrollBarTrackRepaint, 0, 0);
+            PostMessage(VScrollBar, kScrollBarTrackRepaint, 0, 0);
+        }
+        RECT corner = {Width, Height,
+                       Width + GetSystemMetrics(SM_CXVSCROLL),
+                       Height + GetSystemMetrics(SM_CYHSCROLL)};
+        if (ShowStatusBar)
+        {
+            // The child scrollbars leave one intersection cell above the
+            // status bar. Paint it in the active scheme color.
+            const COLORREF cornerColor = DarkModeShouldUseDarkColors() ? RGB(32, 32, 32)
+                                                                         : RGB(240, 240, 240);
+            FillViewerRectWithColor(ps.hdc, &corner, cornerColor);
+        }
+        else
+        {
+            // With no status bar there is no STATUSCLASS size grip to repaint
+            // this cell. Draw a scheme-aware grip on every parent paint.
+            if (DarkModeShouldUseDarkColors())
+            {
+                FillViewerRectWithColor(ps.hdc, &corner, RGB(32, 32, 32));
+                for (int offset = 3; offset < corner.right - corner.left; offset += 4)
+                    for (int dot = 0; dot < offset; dot += 4)
+                        SetPixel(ps.hdc, corner.right - 2 - dot, corner.bottom - 2 - offset + dot,
+                                 RGB(150, 150, 150));
+            }
+            else
+                DrawFrameControl(ps.hdc, &corner, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
+        }
         HANDLES(EndPaint(HWindow, &ps));
         return 0;
     }
@@ -876,19 +1151,26 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
+        LayoutNeeded = TRUE;
+        LayoutStatusBar();
+        LayoutNeeded = FALSE; // already done; prevent a redundant second pass in WM_PAINT
         if (IsWindowVisible(HWindow)) // the last WM_SIZE arrives when closing the window; we do not care (error dialogs without the viewer window are highly undesirable)
         {
             SetToolTipOffset(-1);
-            BOOL widthChanged = (Width != LOWORD(lParam));
-            Width = LOWORD(lParam);
+            int clientWidth = LOWORD(lParam) - GetSystemMetrics(SM_CXVSCROLL);
+            int clientHeight = HIWORD(lParam) - GetSystemMetrics(SM_CYHSCROLL);
+            BOOL widthChanged = (Width != clientWidth);
+            Width = clientWidth;
             Bitmap.Enlarge(Width, CharHeight);
             if (Width < 0)
                 Width = 0;
-            if (Height != HIWORD(lParam) ||
+            int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
+            int viewHeight = max(0, clientHeight - StatusBarHeight);
+            if (Height != viewHeight ||
                 widthChanged && Type == vtText && WrapText)
             {
                 BOOL fatalErr = FALSE;
-                Height = HIWORD(lParam);
+                Height = viewHeight;
                 if (Height < 0)
                     Height = 0;
                 if (MaxSeekY == -1)
@@ -911,7 +1193,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if (FileName != NULL)
                 {
-                    // limit movement according to the longest visible line
+                    // limit movement according to the longest document line
                     __int64 maxOX = GetMaxOriginX();
                     if (OriginX > maxOX)
                     {
@@ -920,6 +1202,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
             }
+            UpdateStatusBar();
             if (HToolTip != NULL)
             {
                 TOOLINFO ti;
@@ -933,6 +1216,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_SHOWWINDOW:
+        if (wParam != 0)
+        {
+            RECT rc;
+            GetClientRect(HWindow, &rc);
+            SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
+        }
+        break;
+
     case WM_USER_CFGCHANGED:
     {
         ReleaseViewerBrushs();
@@ -944,6 +1236,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (HToolTip != NULL)
             DarkModeApplyWindow(HToolTip);
         ConfigHasChanged();
+        LayoutStatusBar();
         return 0;
     }
 
@@ -977,6 +1270,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT result;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, result))
+            return result;
+        break;
+    }
+
     case WM_USER_CLEARHISTORY:
     {
         // we must prune the history in the Find dialog if it is open
@@ -984,6 +1286,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SendMessage(FindDialog.HWindow, WM_USER_CLEARHISTORY, wParam, lParam);
         return 0;
     }
+
+    case WM_USER_GETZOOM:
+        return (LRESULT)ZoomPercent;
 
     case WM_VSCROLL:
     {
@@ -1009,30 +1314,30 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 // drag finished; we must call OnVScroll() from here or the scrollbar briefly blinks at the old position
                 VScrollWParam = wParam;
+                // Force the final released position through OnVScroll() even
+                // when it matches the last SB_THUMBTRACK notification.
+                VScrollWParamOld = -1;
                 KillTimer(HWindow, IDT_THUMBSCROLL);
                 MSG msg; // we do not want any additional timer; clear the queue
                 while (PeekMessage(&msg, HWindow, WM_TIMER, WM_TIMER, PM_REMOVE))
                     ;
                 OnVScroll();
                 VScrollWParam = -1;
+                // Commit the final position immediately after tracking ends;
+                // otherwise the child control retains its pre-drag scroll info
+                // until a later repaint/input event.
+                SetScrollBar();
                 break;
             }
 
             case SB_THUMBTRACK:
             {
-                // the actual scrolling runs from a timer because USB mice and MS scrollbars 
-                // misbehave otherwise: when the viewer is fullscreen, repainting the whole window 
-                // takes long enough that the stubborn scrollbar waits, so dragging feels like 
-                // a chewing gum; posting the scroll message or deferring painting did not help;
-                // a timer was the only reliable fix we found.
-                if (VScrollWParam == -1)
-                {
-                    VScrollWParam = wParam;
-                    VScrollWParamOld = -1;
-                    SetTimer(HWindow, IDT_THUMBSCROLL, 20, NULL);
-                }
-                else
-                    VScrollWParam = wParam;
+                // A child SCROLLBAR already tracks its native thumb smoothly.
+                // Handle each track notification directly, but keep
+                // EnableSetScroll false so Paint() cannot reset its metrics
+                // or snap the thumb back to an older position.
+                VScrollWParam = wParam;
+                OnVScroll();
                 break;
             }
             }
@@ -1062,7 +1367,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                 case SB_PAGELEFT:
                 {
-                    int step = ((Width - BORDER_WIDTH) / CharWidth);
+                    int step = ((Width - GetTextLeft()) / CharWidth);
                     if (step > 1)
                         step--;
                     OriginX -= step;
@@ -1077,7 +1382,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     if ((int)LOWORD(wParam) == SB_PAGERIGHT)
                     {
-                        int step = ((Width - BORDER_WIDTH) / CharWidth);
+                        int step = ((Width - GetTextLeft()) / CharWidth);
                         if (step > 1)
                             step--;
                         OriginX += step;
@@ -1088,7 +1393,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         OriginX = (__int64)(ScrollScaleX * ((short)HIWORD(wParam)) + 0.5);
                     }
 
-                    // limit movement according to the longest visible line
+                    // limit movement according to the longest document line
                     __int64 maxOX = GetMaxOriginX();
                     if (OriginX > maxOX)
                         OriginX = maxOX;
@@ -1111,6 +1416,24 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL ch = FALSE;
         switch (LOWORD(wParam))
         {
+        case IDC_VIEWER_ZOOM_RESET:
+            SetViewerZoom(100);
+            return 0;
+        case IDC_VIEWER_ZOOM_OUT:
+            SetViewerZoom(ZoomPercent - 10);
+            return 0;
+        case IDC_VIEWER_ZOOM_IN:
+            SetViewerZoom(ZoomPercent + 10);
+            return 0;
+        case IDC_VIEWER_ZOOM_EDIT:
+            if (HIWORD(wParam) == EN_KILLFOCUS)
+            {
+                char zoom[32];
+                GetWindowText(HZoomEdit, zoom, _countof(zoom));
+                SetViewerZoom(atoi(zoom));
+            }
+            return 0;
+
         case CM_EXIT:
             DestroyWindow(HWindow);
             return 0;
@@ -2070,6 +2393,23 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
         }
 
+        case CM_VIEW_LINENUMBERS:
+            ShowLineNumbers = !ShowLineNumbers;
+            Configuration.ViewerShowLineNumbers = ShowLineNumbers;
+            InvalidateRect(HWindow, NULL, FALSE);
+            return 0;
+
+        case CM_VIEW_STATUSBAR:
+        {
+            ShowStatusBar = !ShowStatusBar;
+            Configuration.ViewerShowStatusBar = ShowStatusBar;
+            // LayoutStatusBar() runs inside the WM_SIZE handler below.
+            RECT rc;
+            GetClientRect(HWindow, &rc);
+            SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
+            return 0;
+        }
+
         case CM_WRAPED:
         {
             if (MouseDrag)
@@ -2576,7 +2916,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             if (fullRedraw)
                                 InvalidateRect(HWindow, NULL, FALSE);
                             else
-                                ::ScrollWindow(HWindow, 0, CharHeight, NULL, NULL); // scroll the window
+                            {
+                                RECT documentRect = {0, 0, Width, Height};
+                                ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
+                                               NULL, NULL, SW_INVALIDATE);
+                            }
                             UpdateWindow(HWindow);
                         }
                         else // the previous line does not exist; we are probably at the beginning of the file
@@ -2712,7 +3056,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 if (fullRedraw)
                                     InvalidateRect(HWindow, NULL, FALSE);
                                 else
-                                    ::ScrollWindow(HWindow, 0, CharHeight, NULL, NULL); // scroll the window
+                                {
+                                    RECT documentRect = {0, 0, Width, Height};
+                                    ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
+                                                   NULL, NULL, SW_INVALIDATE);
+                                }
                                 UpdateWindow(HWindow);
                                 updateView = FALSE; // already repainted, no need to do it again
                             }
@@ -2811,8 +3159,20 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (LOWORD(lParam) == HTCLIENT)
         {
-            SetCursor(LoadCursor(NULL, IDC_IBEAM));
-            return TRUE;
+            // Only show the I-beam over the document surface.  When the
+            // cursor is over a child control (scrollbar, zoom button, …)
+            // the parent receives WM_SETCURSOR with HTCLIENT as well;
+            // returning TRUE here would prevent the child from setting
+            // its own cursor (arrow for scrollbars, hand for links, etc.).
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(HWindow, &pt);
+            HWND hChild = ChildWindowFromPoint(HWindow, pt);
+            if (hChild == NULL || hChild == HWindow)
+            {
+                SetCursor(LoadCursor(NULL, IDC_IBEAM));
+                return TRUE;
+            }
         }
         break;
     }
@@ -3152,6 +3512,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (Configuration.AutoCopySelection && StartSelection != EndSelection)
                 PostMessage(HWindow, WM_COMMAND, CM_COPYTOCLIP, 0);
         }
+        UpdateStatusBar();
         break;
     }
 
@@ -3206,10 +3567,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             // jr: previously the condition was if (x < 0) { x = 0; ...}, but users reported that with the viewer window maximized
             // they could not scroll to the left; because we have an empty strip on the left (the text is not glued to the edge)
-            // we can allow scrolling for x < BORDER_WIDTH
-            if (x < BORDER_WIDTH)
+            // we can allow scrolling for x < GetTextLeft()
+            if (x < GetTextLeft())
             {
-                x = BORDER_WIDTH;
+                x = GetTextLeft();
                 wait = TRUE;
                 SendMessage(HWindow, WM_COMMAND, CM_LEFT, 0);
             }
@@ -3222,6 +3583,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             BOOL fatalErr = FALSE;
             if (GetOffset(x, y, off, fatalErr) && !fatalErr)
             {
+                UpdateStatusBar(off);
                 if (EndSelection != off)
                 {
                     // optimization introduced: detect the changed area while dragging the block
@@ -3242,7 +3604,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     // when shortening the block after reaching the left edge of the view (start of the line after wrapping)
                     // repaint the end of the previous line (its black-end was erased)
                     if (WrapText && StartSelection < EndSelection && off < EndSelection &&
-                        (x - BORDER_WIDTH + CharWidth / 2) / CharWidth <= Configuration.TabSize / 2 && minRow > 0)
+                        (x - GetTextLeft() + CharWidth / 2) / CharWidth <= Configuration.TabSize / 2 && minRow > 0)
                     {
                         minRow--;
                     }
@@ -3271,6 +3633,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         else
         {
+            __int64 offset;
+            BOOL fatalErr = FALSE;
+            if (GetOffset((short)LOWORD(lParam), (short)HIWORD(lParam), offset, fatalErr) && !fatalErr)
+                UpdateStatusBar(offset);
             if (Type == vtHex)
             {
                 __int64 offset = -1;
@@ -3278,7 +3644,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int y = (short)HIWORD(lParam);
                 if (x >= 0 && y >= 0 && x < Width && y < Height)
                 {
-                    x = (int)((x - BORDER_WIDTH) / CharWidth + OriginX);
+                    x = (int)((x - GetTextLeft()) / CharWidth + OriginX);
                     y = y / CharHeight;
                     if (x > 9 - 8 + HexOffsetLength && x < 61 - 8 + HexOffsetLength)
                     {
@@ -3309,7 +3675,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ResetMouseWheelAccumulator(); // when the wheel tilt direction changes we must reset the accumulator
 
         DWORD wheelScroll = GetMouseWheelScrollChars();
-        DWORD pageWidth = max(1, (DWORD)(Width - BORDER_WIDTH) / CharWidth);
+        DWORD pageWidth = max(1, (DWORD)(Width - GetTextLeft()) / CharWidth);
         wheelScroll = max(1, min(wheelScroll, pageWidth - 1)); // limit it to at most the page width
 
         MouseHWheelAccumulator += 1000 * zDelta;
@@ -3446,6 +3812,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 CheckMenuRadioItem(subMenu, CM_TO_HEX, CM_TO_TEXT,
                                    (Type == vtHex) ? CM_TO_HEX : CM_TO_TEXT, MF_BYCOMMAND);
                 CheckMenuItem(subMenu, CM_WRAPED, MF_BYCOMMAND | (WrapText ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(subMenu, CM_VIEW_LINENUMBERS, MF_BYCOMMAND | (ShowLineNumbers ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(subMenu, CM_VIEW_STATUSBAR, MF_BYCOMMAND | (ShowStatusBar ? MF_CHECKED : MF_UNCHECKED));
                 EnableMenuItem(subMenu, CM_WRAPED, MF_BYCOMMAND | ((Type == vtText) ? MF_ENABLED : MF_GRAYED));
                 BOOL zoomed = IsZoomed(HWindow);
                 CheckMenuItem(subMenu, CM_VIEW_FULLSCREEN, MF_BYCOMMAND | (zoomed ? MF_CHECKED : MF_UNCHECKED));
@@ -3562,6 +3930,24 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
     {
+        if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
+        {
+            switch (wParam)
+            {
+            case '0':
+            case VK_NUMPAD0:
+                SetViewerZoom(100);
+                return 0;
+            case VK_OEM_PLUS:
+            case VK_ADD:
+                SetViewerZoom(ZoomPercent + 10);
+                return 0;
+            case VK_OEM_MINUS:
+            case VK_SUBTRACT:
+                SetViewerZoom(ZoomPercent - 10);
+                return 0;
+            }
+        }
         BOOL ctrlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
         BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
         BOOL altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;

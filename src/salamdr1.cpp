@@ -659,10 +659,20 @@ void WindowsDarkModeBuildHighlightMasks(CHighlightMasks* highlightMasks)
             0x01202020, 0x01202020, 0x013a3a3a, 0x013a3a3a, 0x01454545);
 }
 
+static SALCOLOR SavedViewerColorsBeforeDark[NUMBER_OF_VIEWERCOLORS];
+static bool ViewerColorsSavedBeforeDark = false;
+
 void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors)
 {
     if (colors == NULL)
         return;
+    // Save the current ViewerColors so they can be restored when the user
+    // switches back from Windows Dark Mode to a light color scheme.
+    if (viewerColors == ViewerColors && !ViewerColorsSavedBeforeDark)
+    {
+        memcpy(SavedViewerColorsBeforeDark, viewerColors, sizeof(SavedViewerColorsBeforeDark));
+        ViewerColorsSavedBeforeDark = true;
+    }
     BuildWindowsDarkPalette(colors, viewerColors);
 }
 
@@ -674,6 +684,24 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         // Do not rebuild the preset on every color refresh: doing so overwrites
         // colors customized on Configuration / Colors (for example Hot Items,
         // captions and panel colors) and prevents them from being saved and used.
+    }
+    else if (ViewerColorsSavedBeforeDark)
+    {
+        // Restore the ViewerColors that were saved before the dark palette
+        // was applied.  BuildWindowsDarkPalette() overwrites ViewerColors[]
+        // with hardcoded dark RGB values (no SCF_DEFAULT flag), so
+        // UpdateViewerColors() below cannot fix them.  Without this restore,
+        // switching from Dark back to Light leaves dark backgrounds/text.
+        memcpy(ViewerColors, SavedViewerColorsBeforeDark, sizeof(ViewerColors));
+        ViewerColorsSavedBeforeDark = false;
+    }
+    else if (WindowsDarkModeIsViewerPalette(ViewerColors))
+    {
+        // A dark configuration loaded from storage is repaired through a
+        // temporary palette, so WindowsDarkModeBuildPalette() never receives
+        // ViewerColors and therefore has no light palette to restore here.
+        // Restore the standard light viewer palette explicitly in that path.
+        WindowsLightModeBuildViewerPalette(ViewerColors);
     }
 }
 

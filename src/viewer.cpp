@@ -634,7 +634,16 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     // GDI variables
     BkgndBrush = NULL;
     BkgndBrushSel = NULL;
+    LineNumberBrush = NULL;
     ViewerFont = NULL;
+    HStatusBar = HScrollBar = VScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
+    StatusBarHeight = 0;
+    ZoomPercent = Configuration.ViewerZoomPercent;
+    StatusOffset = -1;
+    CachedTotalLines = -1;
+    CachedMaxLineLen = -1;
+    CachedVerticalPageSize = -1;
+    LayoutNeeded = TRUE;
 
     Width = Height = 0;
 
@@ -708,6 +717,9 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     HToolTip = NULL;
     Lock = NULL;
     WrapText = Configuration.WrapText;
+    ShowLineNumbers = Configuration.ViewerShowLineNumbers;
+    ShowStatusBar = Configuration.ViewerShowStatusBar;
+    LineNumberDigits = 1;
     CodePageAutoSelect = Configuration.CodePageAutoSelect;
     strcpy(DefaultConvert, Configuration.DefaultConvert);
     LastFindSeekY = -1;
@@ -1123,7 +1135,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                                      int clipFirstRow, int clipLastRow, BOOL& fatalErr,
                                      BOOL& setFindOffset)
 {
-    __int64 xRollLimit = (Width - BORDER_WIDTH) / CharWidth / 6;
+    __int64 xRollLimit = (Width - GetTextLeft()) / CharWidth / 6;
     FirstLineSize = LastLineSize = 0;
     WrapIsBeforeFirstLine = FALSE;
 
@@ -1145,7 +1157,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
             int redrI = i;
             if (redrI < clipFirstRow)
                 redrI = clipFirstRow;
-            r.left = BORDER_WIDTH;
+            r.left = GetTextLeft();
             r.right = Width;
             r.top = CharHeight * redrI;
             r.bottom = CharHeight * clipLastRow;
@@ -1190,7 +1202,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
 
         if (ScrollToSelection)
         {
-            int len2 = (Width - BORDER_WIDTH) / CharWidth;
+            int len2 = (Width - GetTextLeft()) / CharWidth;
             if (len2 - 2 * xRollLimit < (__int64)selEndCell - (__int64)selStartCell)
             {
                 xRollLimit = (len2 - ((__int64)selEndCell - (__int64)selStartCell)) / 2;
@@ -1243,7 +1255,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
         BOOL blackEnd = (lineEndIsWrapped ? startSel < lineEnd : startSel <= lineEnd) && endSel > lineEnd;
         if (OriginX < lineLen)
         {
-            __int64 len2 = min((Width - BORDER_WIDTH) / CharWidth + 1, lineLen - OriginX);
+            __int64 len2 = min((Width - GetTextLeft()) / CharWidth + 1, lineLen - OriginX);
             std::size_t left = (std::size_t)OriginX;
             std::size_t right = (std::size_t)(OriginX + len2);
             std::size_t u1 = (std::size_t)len2, u2 = 0, u3 = 0;
@@ -1277,7 +1289,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                     endRect.right = (int)((u1 + u2 + u3) * CharWidth);
                     FillRect(Bitmap.HMemDC, &endRect, BkgndBrush);
                     endRect.left = endRect.right;
-                    endRect.right = Width - BORDER_WIDTH;
+                    endRect.right = Width - GetTextLeft();
                     FillRect(Bitmap.HMemDC, &endRect, BkgndBrushSel);
                 }
                 else
@@ -1298,22 +1310,22 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                 if (u1 > 0)
                     DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1, 0);
 
-                BitBlt(dc, BORDER_WIDTH, CharHeight * i, myLine.right,
+                BitBlt(dc, GetTextLeft(), CharHeight * i, myLine.right,
                        CharHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);
 
                 if (myLine.right < fullLine.right)
                 {
                     myLine.top = CharHeight * i;
                     myLine.bottom = myLine.top + CharHeight;
-                    myLine.left = BORDER_WIDTH + myLine.right;
-                    myLine.right = BORDER_WIDTH + fullLine.right;
+                    myLine.left = GetTextLeft() + myLine.right;
+                    myLine.right = GetTextLeft() + fullLine.right;
                     FillRect(dc, &myLine, blackEnd ? BkgndBrushSel : BkgndBrush);
                 }
             }
         }
         else if (i >= clipFirstRow && i <= clipLastRow)
         {
-            r.left = BORDER_WIDTH;
+            r.left = GetTextLeft();
             r.top = CharHeight * i;
             r.right = Width;
             r.bottom = r.top + CharHeight;
@@ -1347,23 +1359,39 @@ void CViewerWindow::Paint(HDC dc)
         int oldMode = SetBkMode(Bitmap.HMemDC, TRANSPARENT);
 
         EnablePaint = FALSE;
+        // Calculate digit count from the actual total line count, cached
+        // per file.  For hex mode the count is trivial; for text mode
+        // GetDocumentLineNumber scans the file once and the result is
+        // stored in CachedTotalLines so subsequent paints are free.
+        if (CachedTotalLines < 0)
+        {
+            if (Type == vtHex)
+                CachedTotalLines = MaxSeekY / 16 + 1;
+            else if (FileName != NULL && MaxSeekY > 0)
+                CachedTotalLines = GetDocumentLineNumber(MaxSeekY);
+            else
+                CachedTotalLines = 1;
+        }
+        LineNumberDigits = 1;
+        for (__int64 n = max((__int64)1, CachedTotalLines); n >= 10; n /= 10)
+            ++LineNumberDigits;
         LineOffset.DestroyMembers();
         RECT r;
         r.left = 0;
-        r.right = BORDER_WIDTH;
+        r.right = GetTextLeft();
         r.top = 0;
         r.bottom = Height;
-        FillRect(dc, &r, BkgndBrush); // clear the columns to the left of the text
+        FillRect(dc, &r, ShowLineNumbers ? LineNumberBrush : BkgndBrush);
         RECT fullLine;
         fullLine.left = 0;
         fullLine.top = 0;
-        fullLine.right = Width - BORDER_WIDTH;
+        fullLine.right = Width - GetTextLeft();
         fullLine.bottom = CharHeight /*Height*/; // j.r. W2K slowness patch
 
         r.right = Width;
         ViewSize = 0;
         int lines = Height / CharHeight + 1;
-        int columns = (Width - BORDER_WIDTH) / CharWidth;
+        int columns = (Width - GetTextLeft()) / CharWidth;
         char line[2001]; // holds at most 2000 fully visible characters per line plus 1 partially visible character
         char* s;
         BOOL fatalErr = FALSE;
@@ -1539,15 +1567,15 @@ void CViewerWindow::Paint(HDC dc)
                             }
 
                             // bitblt the entire row to the screen
-                            BitBlt(dc, BORDER_WIDTH, CharHeight * i, (lineLen + 1) * CharWidth, // extend the line by one character so italics fit
+                            BitBlt(dc, GetTextLeft(), CharHeight * i, (lineLen + 1) * CharWidth, // extend the line by one character so italics fit
                                    CharHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);
                             // if needed, clear the space on the right
                             if (myLine.right < fullLine.right)
                             {
                                 myLine.top = CharHeight * i;
                                 myLine.bottom = myLine.top + CharHeight;
-                                myLine.left = BORDER_WIDTH + myLine.right;
-                                myLine.right = BORDER_WIDTH + fullLine.right;
+                                myLine.left = GetTextLeft() + myLine.right;
+                                myLine.right = GetTextLeft() + fullLine.right;
                                 FillRect(dc, &myLine, BkgndBrush);
                             }
                         }
@@ -1556,7 +1584,7 @@ void CViewerWindow::Paint(HDC dc)
                     lineOffset += len;
                     if (lineOffset == FileSize)
                     {
-                        r.left = BORDER_WIDTH;
+                        r.left = GetTextLeft();
                         if (FileSize > 0) // JR: up to AS2.52b1 (inclusive) we rendered a 0-byte file in hex without clearing the first line (it appeared when resizing the window)
                             r.top = CharHeight * (i + 1);
                         else
@@ -1577,7 +1605,7 @@ void CViewerWindow::Paint(HDC dc)
                     PaintDecodedText(dc, fullLine, lines, columns, clipFirstRow, clipLastRow, fatalErr, setFindOffset);
                     break;
                 }
-                __int64 xRollLimit = (Width - BORDER_WIDTH) / CharWidth / 6;
+                __int64 xRollLimit = (Width - GetTextLeft()) / CharWidth / 6;
                 FirstLineSize = LastLineSize = 0;
 
                 WrapIsBeforeFirstLine = FALSE;
@@ -1637,7 +1665,7 @@ void CViewerWindow::Paint(HDC dc)
                         int redrI = i;
                         if (redrI < clipFirstRow)
                             redrI = clipFirstRow; // avoid repainting unnecessarily
-                        r.left = BORDER_WIDTH;
+                        r.left = GetTextLeft();
                         r.top = CharHeight * redrI;
                         r.bottom = CharHeight * clipLastRow;
                         if (r.bottom > Height)
@@ -1659,7 +1687,7 @@ void CViewerWindow::Paint(HDC dc)
                     __int64 lineLen = 0;                                             // line length in characters (tab != 1 character)
                     BOOL lineEndIsWrapped = FALSE;                                   // is the end of the line wrapped because wrap mode is enabled?
                     __int64 fullLineLen = 0;                                         // line length in bytes
-                    __int64 endX = OriginX + (Width - BORDER_WIDTH) / CharWidth + 1; // screen edge offset in characters
+                    __int64 endX = OriginX + (Width - GetTextLeft()) / CharWidth + 1; // screen edge offset in characters
                     BOOL onlyOne = (len == 1);                                       // last character of the file?
                     __int64 startSel = min(StartSelection, EndSelection);            // selection start - offset in bytes
                     if (startSel == -1)
@@ -1844,7 +1872,7 @@ void CViewerWindow::Paint(HDC dc)
 
                     if (ScrollToSelection)
                     {
-                        int len2 = (Width - BORDER_WIDTH) / CharWidth;
+                        int len2 = (Width - GetTextLeft()) / CharWidth;
                         if (len2 - 2 * xRollLimit < endSel - startSel)
                         { // try to show as much of long strings as possible, so set xRollLimit -> 0
                             xRollLimit = (len2 - (endSel - startSel)) / 2;
@@ -1900,7 +1928,7 @@ void CViewerWindow::Paint(HDC dc)
                     BOOL blackEnd;
                     if (OriginX < lineLen)
                     {
-                        __int64 len2 = min((Width - BORDER_WIDTH) / CharWidth + 1, lineLen - OriginX);
+                        __int64 len2 = min((Width - GetTextLeft()) / CharWidth + 1, lineLen - OriginX);
                         __int64 left = lineOffset + OriginX;
                         __int64 right = lineOffset + OriginX + len2;
                         __int64 u1 = len2, u2 = 0, u3 = 0;
@@ -1935,7 +1963,7 @@ void CViewerWindow::Paint(HDC dc)
                                 endRect.right = (int)((u1 + u2 + u3) * CharWidth);
                                 FillRect(Bitmap.HMemDC, &endRect, BkgndBrush);
                                 endRect.left = endRect.right;
-                                endRect.right = Width - BORDER_WIDTH;
+                                endRect.right = Width - GetTextLeft();
                                 FillRect(Bitmap.HMemDC, &endRect, BkgndBrushSel);
                             }
                             else
@@ -1960,7 +1988,7 @@ void CViewerWindow::Paint(HDC dc)
                             }
 
                             // bitblt the entire row to the screen
-                            BitBlt(dc, BORDER_WIDTH, CharHeight * i, myLine.right,
+                            BitBlt(dc, GetTextLeft(), CharHeight * i, myLine.right,
                                    CharHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);
 
                             // if needed, clear the space on the right
@@ -1968,8 +1996,8 @@ void CViewerWindow::Paint(HDC dc)
                             {
                                 myLine.top = CharHeight * i;
                                 myLine.bottom = myLine.top + CharHeight;
-                                myLine.left = BORDER_WIDTH + myLine.right;
-                                myLine.right = BORDER_WIDTH + fullLine.right;
+                                myLine.left = GetTextLeft() + myLine.right;
+                                myLine.right = GetTextLeft() + fullLine.right;
                                 FillRect(dc, &myLine, blackEnd ? BkgndBrushSel : BkgndBrush);
                             }
                         }
@@ -1980,7 +2008,7 @@ void CViewerWindow::Paint(HDC dc)
                         {
                             blackEnd = (lineEndIsWrapped ? startSel < lineOffset + lineLen : startSel <= lineOffset + lineLen) &&
                                        endSel > lineOffset + lineLen;
-                            r.left = BORDER_WIDTH;
+                            r.left = GetTextLeft();
                             r.top = CharHeight * i;
                             r.right = Width;
                             r.bottom = r.top + CharHeight;
@@ -2003,6 +2031,34 @@ void CViewerWindow::Paint(HDC dc)
         EnablePaint = TRUE;
         ScrollToSelection = FALSE;
         SetBkMode(Bitmap.HMemDC, oldMode);
+        if (ShowLineNumbers)
+        {
+            // Keep the gutter visibly distinct from document text in both
+            // standard light schemes and Windows Dark Mode.
+            SetTextColor(dc, DarkModeShouldUseDarkColors() ? RGB(160, 160, 160) : RGB(96, 96, 96));
+            int gutterBkMode = SetBkMode(dc, TRANSPARENT);
+            __int64 documentLine = LineOffset.Count >= 3 ? GetDocumentLineNumber(LineOffset[0]) : 1;
+            for (int i = 0; i < LineOffset.Count / 3; i++)
+            {
+                BOOL isWrap = (i > 0 && LineOffset[i * 3] <= LineOffset[i * 3 - 2]);
+                if (!isWrap && i > 0)
+                    ++documentLine;
+                RECT numberRect = {0, i * CharHeight, GetTextLeft() - BORDER_WIDTH, (i + 1) * CharHeight};
+                if (isWrap)
+                {
+                    // Show a rightwards arrow with hook for wrapped lines
+                    // instead of repeating the line number.
+                    DrawTextW(dc, L"\x21AA", -1, &numberRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                }
+                else
+                {
+                    char number[32];
+                    sprintf(number, "%I64d", documentLine);
+                    DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                }
+            }
+            SetBkMode(dc, gutterBkMode);
+        }
         //---
         SelectObject(dc, oldFont);
         SelectObject(Bitmap.HMemDC, oldFont2);
@@ -2041,6 +2097,13 @@ BOOL CViewerWindow::CreateViewerBrushs()
     if (BkgndBrushSel == NULL)
     {
         TRACE_E("Unable to create window selected text background brush.");
+        return FALSE;
+    }
+    const COLORREF gutterBackground = DarkModeShouldUseDarkColors() ? RGB(38, 38, 38) : RGB(245, 245, 245);
+    LineNumberBrush = HANDLES(CreateSolidBrush(gutterBackground));
+    if (LineNumberBrush == NULL)
+    {
+        TRACE_E("Unable to create line-number gutter background brush.");
         return FALSE;
     }
     return TRUE;
@@ -2141,6 +2204,11 @@ void CViewerWindow::ReleaseViewerBrushs()
         HANDLES(DeleteObject(BkgndBrushSel));
         BkgndBrushSel = NULL;
     }
+    if (LineNumberBrush != NULL)
+    {
+        HANDLES(DeleteObject(LineNumberBrush));
+        LineNumberBrush = NULL;
+    }
 }
 
 void ClearViewerHistory(BOOL dataOnly)
@@ -2181,6 +2249,7 @@ void CViewerWindow::SetViewerFont()
         lf = ViewerLogFont;
     else
         GetDefaultViewerLogFont(&lf);
+    lf.lfHeight = MulDiv(lf.lfHeight, ZoomPercent, 100);
     ViewerFont = HANDLES(CreateFontIndirect(&lf));
     if (ViewerFont == NULL)
     {
@@ -2265,4 +2334,230 @@ void CViewerWindow::SetViewerFont()
 
         HANDLES(LeaveCriticalSection(&ViewerFontMeasureCS));
     }
+}
+
+void CViewerWindow::SetViewerZoom(int percent)
+{
+    percent = max(25, min(500, percent));
+    if (ZoomPercent == percent)
+        return;
+    ZoomPercent = percent;
+    Configuration.ViewerZoomPercent = ZoomPercent;
+    SetViewerFont();
+    char text[16];
+    sprintf(text, "%d %%", ZoomPercent);
+    SetWindowText(HZoomEdit, text);
+    LayoutStatusBar();
+    RECT rc;
+    GetClientRect(HWindow, &rc);
+    SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
+    InvalidateRect(HWindow, NULL, FALSE);
+    UpdateWindow(HWindow);
+}
+
+int CViewerWindow::GetTextLeft() const
+{
+    if (!ShowLineNumbers)
+        return BORDER_WIDTH;
+    return BORDER_WIDTH + (LineNumberDigits + 1) * CharWidth;
+}
+
+__int64 CViewerWindow::GetMaxDocumentLineLen()
+{
+    if (CachedMaxLineLen >= 0)
+        return CachedMaxLineLen;
+    if (Type == vtHex)
+        return CachedMaxLineLen = 62 + 16 - 8 + HexOffsetLength;
+
+    const __int64 savedSeek = Seek;
+    const __int64 savedLoaded = Loaded;
+    __int64 longest = 0;
+    __int64 current = 0;
+    __int64 pos = TextStartOffset();
+    BOOL fatalErr = FALSE;
+    while (pos < FileSize)
+    {
+        __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, FileSize - pos), fatalErr);
+        if (fatalErr || read <= 0)
+            break;
+        unsigned char* text = Buffer + pos - Seek;
+        for (__int64 i = 0; i < read; ++i)
+        {
+            unsigned char ch = text[i];
+            if (ch == '\r' || ch == '\n' || (Configuration.EOL_NULL && ch == 0))
+            {
+                if (current > longest)
+                    longest = current;
+                current = 0;
+            }
+            else if (ch == '\t')
+            {
+                const int tabSize = max(1, Configuration.TabSize);
+                current += tabSize - current % tabSize;
+            }
+            else if ((ch & 0xC0) != 0x80) // count UTF-8 code points, not continuation bytes
+            {
+                ++current;
+            }
+        }
+        pos += read;
+    }
+    if (current > longest)
+        longest = current;
+    if (savedLoaded > 0)
+    {
+        BOOL restoreFatalErr = FALSE;
+        Prepare(NULL, savedSeek, savedLoaded, restoreFatalErr);
+    }
+    return CachedMaxLineLen = longest;
+}
+
+__int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
+{
+    if (offset <= TextStartOffset())
+    {
+        if (lineStart)
+            *lineStart = TextStartOffset();
+        return 1;
+    }
+    if (Type == vtHex)
+    {
+        if (lineStart)
+            *lineStart = offset - (offset % 16);
+        return offset / 16 + 1;
+    }
+
+    // Prepare() reuses the rendering buffer.  Restore the visible buffer
+    // afterwards so obtaining a label/status position cannot disturb an
+    // incremental scroll repaint.
+    const __int64 savedSeek = Seek;
+    const __int64 savedLoaded = Loaded;
+    __int64 line = 1;
+    __int64 lastNewline = TextStartOffset() - 1; // offset of last '\n' seen (-1 = none yet)
+    __int64 pos = TextStartOffset();
+    BOOL fatalErr = FALSE;
+    while (pos < offset)
+    {
+        __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, offset - pos), fatalErr);
+        if (fatalErr || read <= 0)
+            break;
+        unsigned char* text = Buffer + pos - Seek;
+        for (__int64 i = 0; i < read; ++i)
+        {
+            if (text[i] == '\n')
+            {
+                lastNewline = pos + i;
+                ++line;
+            }
+        }
+        pos += read;
+    }
+    if (lineStart)
+        *lineStart = lastNewline + 1; // character after the last '\n' is the start of the current logical line
+    if (savedLoaded > 0)
+    {
+        BOOL restoreFatalErr = FALSE;
+        Prepare(NULL, savedSeek, savedLoaded, restoreFatalErr);
+    }
+    return line;
+}
+
+void CViewerWindow::LayoutStatusBar()
+{
+    if (HStatusBar == NULL)
+        return;
+    RECT rc;
+    GetClientRect(HWindow, &rc);
+    // The status bar and its controls are window chrome.  Their dimensions
+    // must not follow the document font zoom.
+    StatusBarHeight = ShowStatusBar ? max(20, GetSystemMetrics(SM_CYSMICON) + 4) : 0;
+    int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
+    int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
+    int gripWidth = (GetWindowLong(HStatusBar, GWL_STYLE) & SBARS_SIZEGRIP) ? scrollWidth : 0;
+    ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    ShowWindow(HZoomOut, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    ShowWindow(HZoomEdit, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    ShowWindow(HZoomIn, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    // Horizontal scrollbar (child control) spans the full client width, positioned
+    // above the status bar — same layout as Notepad's Edit control.
+    SetWindowPos(HScrollBar, NULL, 0, rc.bottom - StatusBarHeight - scrollHeight,
+                 rc.right - scrollWidth, scrollHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+    SetWindowPos(VScrollBar, NULL, rc.right - scrollWidth, 0, scrollWidth,
+                 rc.bottom - StatusBarHeight - scrollHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+    // Keep the native status bar behind its interactive children.
+    SetWindowPos(HStatusBar, HWND_BOTTOM, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOACTIVATE);
+    // Do not reserve the size-grip width here.  The status bar owns that
+    // grip at the window edge, while the zoom controls must extend right up
+    // to it instead of leaving an unused scrollbar-width gap.
+    int x = rc.right - gripWidth;
+    x -= 22;
+    SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
+    x -= 54;
+    SetWindowPos(HZoomEdit, HWND_TOP, x, rc.bottom - StatusBarHeight + 3, 54, StatusBarHeight - 6, SWP_NOACTIVATE);
+    x -= 22;
+    SetWindowPos(HZoomOut, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
+    x -= 42;
+    SetWindowPos(HZoomReset, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 42, StatusBarHeight - 4, SWP_NOACTIVATE);
+    InvalidateRect(HWindow, NULL, FALSE);
+    InvalidateRect(HScrollBar, NULL, FALSE);
+    InvalidateRect(VScrollBar, NULL, FALSE);
+    InvalidateRect(HStatusBar, NULL, FALSE);
+}
+
+void CViewerWindow::UpdateStatusBar(__int64 offset)
+{
+    if (HStatusBar == NULL)
+        return;
+    if (offset != -1)
+        StatusOffset = offset;
+    __int64 line = 0;
+    __int64 column = 0;
+    if (StatusOffset >= 0)
+    {
+        if (Type == vtHex)
+        {
+            line = StatusOffset / 16 + 1;
+            column = StatusOffset % 16 + 1;
+        }
+        else
+        {
+            for (int i = 0; i + 2 < LineOffset.Count; i += 3)
+                if (StatusOffset >= LineOffset[i] && StatusOffset <= LineOffset[i + 1])
+                {
+                    __int64 lineStart;
+                    line = GetDocumentLineNumber(LineOffset[i], &lineStart);
+                    column = StatusOffset - lineStart + 1;
+                    break;
+                }
+        }
+    }
+    char text[256];
+    if (line == 0)
+        strcpy(text, "Line -, Column -");
+    else
+        sprintf(text, "Line %I64d, Column %I64d", line, column);
+    if (StartSelection != -1 && EndSelection != -1 && StartSelection != EndSelection)
+    {
+        __int64 first = min(StartSelection, EndSelection);
+        __int64 last = max(StartSelection, EndSelection);
+        int lines = 0;
+        __int64 prevDocLine = -1;
+        for (int i = 0; i + 2 < LineOffset.Count; i += 3)
+            if (last > LineOffset[i] && first <= LineOffset[i + 1])
+            {
+                __int64 docLine = GetDocumentLineNumber(LineOffset[i]);
+                if (docLine != prevDocLine)
+                {
+                    ++lines;
+                    prevDocLine = docLine;
+                }
+            }
+        char selection[96];
+        sprintf(selection, "  |  %I64d characters, %d lines selected", last - first, max(1, lines));
+        strcat(text, selection);
+    }
+    SendMessage(HStatusBar, SB_SETTEXT, 0, (LPARAM)text);
 }

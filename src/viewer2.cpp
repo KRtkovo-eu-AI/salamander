@@ -99,7 +99,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
         view->CreateExW(Configuration.AlwaysOnTop ? WS_EX_TOPMOST : 0,
                         CVIEWERWINDOW_CLASSNAMEW,
                         viewerTitle.c_str(),
-                        WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_HSCROLL,
+                        WS_OVERLAPPEDWINDOW | WS_VSCROLL,
                         data->Left,
                         data->Top,
                         data->Width,
@@ -112,7 +112,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
         view->CreateEx(Configuration.AlwaysOnTop ? WS_EX_TOPMOST : 0,
                        CVIEWERWINDOW_CLASSNAMEW,
                        viewerTitle.c_str(),
-                       WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_HSCROLL,
+                       WS_OVERLAPPEDWINDOW | WS_VSCROLL,
                        data->Left,
                        data->Top,
                        data->Width,
@@ -693,6 +693,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 {
     CALL_STACK_MESSAGE1("CViewerWindow::HeightChanged()");
     fatalErr = FALSE;
+    CachedTotalLines = CachedMaxLineLen = CachedVerticalPageSize = -1; // invalidate document metrics cache
     switch (Type)
     {
     case vtHex:
@@ -1968,10 +1969,12 @@ BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatal
         *onHexNum = FALSE;
     if (x >= 0 && y >= 0 && x < Width && y < Height)
     {
+        // The line-number gutter is chrome, not document text.  Coordinates
+        // in the gutter must map to the first text column.
         if (!leftMost)
-            x = (x - BORDER_WIDTH + CharWidth / 2) / CharWidth;
+            x = (x - GetTextLeft() + CharWidth / 2) / CharWidth;
         else
-            x = (x - BORDER_WIDTH) / CharWidth;
+            x = (x - GetTextLeft()) / CharWidth;
         y = y / CharHeight;
         switch (Type)
         {
@@ -2000,16 +2003,23 @@ void CViewerWindow::SetScrollBar()
         SCROLLINFO si;
         si.cbSize = sizeof(si);
         si.fMask = SIF_ALL;
-        GetScrollInfo(HWindow, SB_VERT, &si);
+        GetScrollInfo(VScrollBar, SB_CTL, &si);
 
-        __int64 max = ViewSize + MaxSeekY;
+        if (CachedVerticalPageSize < 0)
+            CachedVerticalPageSize = ViewSize;
+        // The thumb coordinate range must end exactly at MaxSeekY plus the
+        // stable page extent. FileSize is not equivalent for text mode
+        // (BOM/EOL and variable visible byte spans), which made drag mapping
+        // lag behind the pointer and prevented reaching the document end.
+        __int64 max = MaxSeekY + CachedVerticalPageSize;
         ScrollScaleY = ((double)max) / 20000.0;
         if (ScrollScaleY < 0.00001)
             ScrollScaleY = 0.00001; // against "divide by zero"
-        int page = (int)(ViewSize / ScrollScaleY + 0.5 + 1);
-        if (max == 0 || si.nMin != 0 || si.nMax != max / ScrollScaleY + 0.5 + 1 ||
+        int page = (int)(CachedVerticalPageSize / ScrollScaleY + 0.5 + 1);
+        if (VScrollWParam == -1 &&
+            (max == 0 || si.nMin != 0 || si.nMax != max / ScrollScaleY + 0.5 + 1 ||
             si.nPage != (DWORD)page ||
-            si.nPos != SeekY / ScrollScaleY + 0.5) // if it needs to be set ...
+            si.nPos != SeekY / ScrollScaleY + 0.5)) // if it needs to be set ...
         {
             si.cbSize = sizeof(si);
             si.fMask = SIF_ALL | SIF_DISABLENOSCROLL;
@@ -2026,23 +2036,36 @@ void CViewerWindow::SetScrollBar()
                 si.nPage = 0;
                 si.nPos = 0;
             }
-            SetScrollInfo(HWindow, SB_VERT, &si, TRUE);
+            SetScrollInfo(VScrollBar, SB_CTL, &si, TRUE);
         }
 
         // horizontal scrollbar
         si.cbSize = sizeof(si);
         si.fMask = SIF_ALL;
-        GetScrollInfo(HWindow, SB_HORZ, &si);
+        GetScrollInfo(HScrollBar, SB_CTL, &si);
 
-        max = OriginX + (Width - BORDER_WIDTH) / CharWidth;
-        __int64 maxLL = GetMaxVisibleLineLen();
+        const int visibleColumns = (Width - GetTextLeft()) / CharWidth;
+        if (WrapText)
+        {
+            OriginX = 0;
+            ScrollScaleX = 1.0;
+            si.cbSize = sizeof(si);
+            si.fMask = SIF_ALL | SIF_DISABLENOSCROLL;
+            si.nMin = si.nMax = si.nPage = si.nPos = 0;
+            SetScrollInfo(HScrollBar, SB_CTL, &si, TRUE);
+            return;
+        }
+        max = OriginX + visibleColumns;
+        // Use the longest line in the whole document, not merely the rows
+        // currently on screen.  The thumb must not resize while scrolling.
+        __int64 maxLL = GetMaxDocumentLineLen();
         if (max < maxLL)
             max = maxLL;
 
         ScrollScaleX = ((double)max) / 20000.0;
         if (ScrollScaleX < 0.00001)
             ScrollScaleX = 0.00001; // against "divide by zero"
-        page = (int)(((Width - BORDER_WIDTH) / CharWidth) / ScrollScaleX + 0.5 + 2);
+        page = (int)(visibleColumns / ScrollScaleX + 0.5 + 2);
         if (max == 0 || si.nMin != 0 || si.nMax != max / ScrollScaleX + 0.5 + 1 ||
             si.nPage != (DWORD)page ||
             si.nPos != OriginX / ScrollScaleX + 0.5) // if it needs to be set ...
@@ -2062,7 +2085,7 @@ void CViewerWindow::SetScrollBar()
                 si.nPage = 0;
                 si.nPos = 0;
             }
-            SetScrollInfo(HWindow, SB_HORZ, &si, TRUE);
+            SetScrollInfo(HScrollBar, SB_CTL, &si, TRUE);
         }
     }
 }
