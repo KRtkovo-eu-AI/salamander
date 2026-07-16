@@ -814,6 +814,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HToolTip = CreateWindowEx(0, TOOLTIPS_CLASS, NULL, TTS_NOPREFIX,
                                   CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                   NULL, NULL, HInstance, NULL);
+
+        // Apply the viewer theme before creating the native status bar.  The
+        // viewer's document surface must never be repainted by a status-bar
+        // custom-draw subclass.
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+        ApplyViewerMenuTheme(HWindow);
+
         HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         HScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_HORZ,
@@ -838,10 +847,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetWindowSubclass(HZoomEdit, ViewerZoomControlSubclass, 1, 0);
         SetWindowSubclass(HZoomIn, ViewerZoomControlSubclass, 1, 0);
 
-        DarkModeApplyWindow(HWindow);
-        DarkModeRefreshTitleBar(HWindow);
-        DarkModeApplyTree(HWindow);
-        ApplyViewerMenuTheme(HWindow);
+        DarkModeApplyWindow(HStatusBar);
+        DarkModeApplyWindow(HZoomReset);
+        DarkModeApplyWindow(HZoomOut);
+        DarkModeApplyWindow(HZoomEdit);
+        DarkModeApplyWindow(HZoomIn);
         LayoutStatusBar();
         UpdateStatusBar();
 
