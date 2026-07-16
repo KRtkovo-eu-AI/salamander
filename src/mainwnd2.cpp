@@ -4237,6 +4237,24 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         else
             ret = FALSE;
 
+        if (useWinPlacement)
+        {
+            RECT startupRect = place.rcNormalPosition;
+            if (startupRect.right > startupRect.left && startupRect.bottom > startupRect.top &&
+                MonitorFromRect(&startupRect, MONITOR_DEFAULTTONULL) != NULL)
+            {
+                // Move the hidden main window to its saved monitor before panels
+                // and icon caches are loaded.  Otherwise a process started on a
+                // high-DPI primary monitor can initialize 24px shell icons and
+                // only later move to the remembered 100% monitor.
+                SetWindowPos(HWindow, NULL, startupRect.left, startupRect.top,
+                             startupRect.right - startupRect.left, startupRect.bottom - startupRect.top,
+                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW);
+                UpdateSystemDPIForWindow(HWindow);
+                ColorsChanged(FALSE, FALSE, TRUE);
+            }
+        }
+
         if (OpenKey(salamander, FINDDIALOG_WINDOW_REG, actKey))
         {
             Configuration.FindDialogWindowPlacement.length = sizeof(WINDOWPLACEMENT);

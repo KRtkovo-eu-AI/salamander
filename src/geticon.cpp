@@ -275,6 +275,40 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             //TRACE_I("  SalGetIconFromPIDL() ExtractIcons hIconLarge="<<hIconLarge<<" hIconSmall="<<hIconSmall);
         }
     }
+    if (iconSize == ICONSIZE_16 && hIconSmall != NULL &&
+        GetIconPixelWidth(hIconSmall) != IconSizes[ICONSIZE_16] && pxi != NULL)
+    {
+        // If the process first touched the shell image lists while running on a
+        // high-DPI monitor, even SHIL_SMALL can still hand back that larger
+        // process-global bitmap.  Ask the item's extractor directly for the
+        // requested 16px small icon before falling back to scaling it down.
+        HICON hExtractedLarge = NULL;
+        HICON hExtractedSmall = NULL;
+        BOOL extractedSmallAdopted = FALSE;
+        HRESULT extractResult;
+        if (isIExtractIconW)
+            extractResult = ((IExtractIconW*)pxi)->Extract(iconFileW, iconIndex, &hExtractedLarge, &hExtractedSmall,
+                                                           MAKELONG(IconSizes[largeIconSize], IconSizes[ICONSIZE_16]));
+        else
+            extractResult = pxi->Extract(iconFile, iconIndex, &hExtractedLarge, &hExtractedSmall,
+                                         MAKELONG(IconSizes[largeIconSize], IconSizes[ICONSIZE_16]));
+
+        if (SUCCEEDED(extractResult) && hExtractedSmall != NULL &&
+            GetIconPixelWidth(hExtractedSmall) == IconSizes[ICONSIZE_16])
+        {
+            if (hIconSmall != NULL && hIconSmall != hIconLarge)
+                HANDLES(DestroyIcon(hIconSmall));
+            hIconSmall = hExtractedSmall;
+            hExtractedSmall = NULL;
+            extractedSmallAdopted = TRUE;
+        }
+
+        if (hExtractedSmall != NULL)
+            HANDLES(DestroyIcon(hExtractedSmall));
+        if (hExtractedLarge != NULL && (!extractedSmallAdopted || hExtractedLarge != hIconSmall))
+            HANDLES(DestroyIcon(hExtractedLarge));
+    }
+
     if (pxi != NULL)
     {
         if (isIExtractIconW)
