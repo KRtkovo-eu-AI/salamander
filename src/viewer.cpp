@@ -714,6 +714,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     WrapText = Configuration.WrapText;
     ShowLineNumbers = Configuration.ViewerShowLineNumbers;
     ShowStatusBar = Configuration.ViewerShowStatusBar;
+    LineNumberDigits = 1;
     CodePageAutoSelect = Configuration.CodePageAutoSelect;
     strcpy(DefaultConvert, Configuration.DefaultConvert);
     LastFindSeekY = -1;
@@ -1353,6 +1354,9 @@ void CViewerWindow::Paint(HDC dc)
         int oldMode = SetBkMode(Bitmap.HMemDC, TRANSPARENT);
 
         EnablePaint = FALSE;
+        LineNumberDigits = 1;
+        for (int number = max(1, Height / CharHeight + 1); number >= 10; number /= 10)
+            ++LineNumberDigits;
         LineOffset.DestroyMembers();
         RECT r;
         r.left = 0;
@@ -2015,7 +2019,7 @@ void CViewerWindow::Paint(HDC dc)
             for (int i = 0; i < LineOffset.Count / 3; i++)
             {
                 char number[32];
-                sprintf(number, "%I64d", GetDocumentLineNumber(LineOffset[i * 3]));
+                sprintf(number, "%d", i + 1);
                 RECT numberRect = {0, i * CharHeight, GetTextLeft() - BORDER_WIDTH, (i + 1) * CharHeight};
                 DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             }
@@ -2308,10 +2312,7 @@ int CViewerWindow::GetTextLeft() const
 {
     if (!ShowLineNumbers)
         return BORDER_WIDTH;
-    int digits = 1;
-    for (int number = max(1, LineOffset.Count / 3); number >= 10; number /= 10)
-        ++digits;
-    return BORDER_WIDTH + (digits + 1) * CharWidth;
+    return BORDER_WIDTH + (LineNumberDigits + 1) * CharWidth;
 }
 
 __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset)
@@ -2344,7 +2345,9 @@ void CViewerWindow::LayoutStatusBar()
         return;
     RECT rc;
     GetClientRect(HWindow, &rc);
-    StatusBarHeight = ShowStatusBar ? max(20, CharHeight + 8) : 0;
+    // The status bar and its controls are window chrome.  Their dimensions
+    // must not follow the document font zoom.
+    StatusBarHeight = ShowStatusBar ? max(20, GetSystemMetrics(SM_CYSMICON) + 4) : 0;
     int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
     int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
     ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
@@ -2388,7 +2391,7 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
             for (int i = 0; i + 2 < LineOffset.Count; i += 3)
                 if (StatusOffset >= LineOffset[i] && StatusOffset <= LineOffset[i + 1])
                 {
-                    line = GetDocumentLineNumber(LineOffset[i]);
+                    line = i / 3 + 1;
                     column = StatusOffset - LineOffset[i] + 1;
                     break;
                 }

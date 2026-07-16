@@ -392,6 +392,7 @@ protected:
     BOOL WrapText; // local copy of Configuration.WrapText
     BOOL ShowLineNumbers;
     BOOL ShowStatusBar;
+    int LineNumberDigits;
 
     BOOL CodePageAutoSelect;  // local copy of Configuration.CodePageAutoSelect
     char DefaultConvert[200]; // local copy of Configuration.DefaultConvert
