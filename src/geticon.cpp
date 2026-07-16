@@ -86,6 +86,20 @@ static int GetIconPixelWidth(HICON hIcon)
     return width;
 }
 
+static HICON GetShellImageListIcon(int imageListSize, int iconIndex)
+{
+    IImageList* imageList = NULL;
+    HICON hIcon = NULL;
+    HRESULT hres = SHGetImageList(imageListSize, IID_IImageList, (void**)&imageList);
+    if (SUCCEEDED(hres) && imageList != NULL)
+    {
+        if (imageList->GetIcon(iconIndex, ILD_NORMAL, &hIcon) != S_OK)
+            hIcon = NULL;
+        imageList->Release();
+    }
+    return hIcon;
+}
+
 BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl, HICON* hIcon,
                         CIconSizeEnum iconSize, BOOL fallbackToDefIcon, BOOL defIconIsDir)
 {
@@ -104,6 +118,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
     CIconSizeEnum largeIconSize = ICONSIZE_32;
     if (iconSize == ICONSIZE_48)
         largeIconSize = ICONSIZE_48;
+    BOOL preferExtractorSmallIcon = iconSize == ICONSIZE_16 && IconSizes[ICONSIZE_16] <= 16;
 
     HRESULT hres = psf->GetUIObjectOf(NULL, 1, &pidl, IID_IExtractIconA, NULL, (void**)&pxi);
     if (SUCCEEDED(hres))
@@ -135,7 +150,8 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         // another way to get 48x48 icons is LoadImage, but we would need the file path and icon number
         // a "*" in the file name means iconIndex already refers to a system icon index
         //TRACE_I("  SalGetIconFromPIDL() wFlags="<<wFlags<<" iconFile='"<<iconFile<<"' TryObtainGetImageList="<<TryObtainGetImageList);
-        if ((wFlags & GIL_NOTFILENAME) && iconFile[0] == '*' && iconFile[1] == 0)
+        if ((wFlags & GIL_NOTFILENAME) && iconFile[0] == '*' && iconFile[1] == 0 &&
+            !preferExtractorSmallIcon)
         {
             // multiple attempts helped JIS, but if icon extraction keeps failing
             // we would waste 50 ms on each icon retrieval for no reason
@@ -247,6 +263,22 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             //      }
         }
 
+        // For 100% DPI prefer extracting from the icon resource file first.
+        // Shell-provided small image lists may already be initialized for a
+        // high-DPI monitor and can contain a downscaled 24px design at 16px.
+        if (preferExtractorSmallIcon && hIconSmall == NULL && hIconLarge == NULL && !(wFlags & GIL_NOTFILENAME))
+        {
+            HICON hIcons[2] = {0, 0};
+            UINT u = ExtractIcons(iconFile, iconIndex, MAKELONG(IconSizes[largeIconSize], IconSizes[ICONSIZE_16]),
+                                  MAKELONG(IconSizes[largeIconSize], IconSizes[ICONSIZE_16]), hIcons, NULL, 2, IconLRFlags);
+            if (u != -1)
+            {
+                hIconLarge = hIcons[0];
+                hIconSmall = hIcons[1];
+            }
+            //TRACE_I("  SalGetIconFromPIDL() ExtractIcons hIconLarge="<<hIconLarge<<" hIconSmall="<<hIconSmall);
+        }
+
         // if the icon was not taken from the system image list, ask the pxi interface for it
         if (hIconSmall == NULL && hIconLarge == NULL)
         {
@@ -273,6 +305,12 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
                 hIconSmall = hIcons[1];
             }
             //TRACE_I("  SalGetIconFromPIDL() ExtractIcons hIconLarge="<<hIconLarge<<" hIconSmall="<<hIconSmall);
+        }
+
+        if (preferExtractorSmallIcon && hIconSmall == NULL && hIconLarge == NULL &&
+            (wFlags & GIL_NOTFILENAME) && iconFile[0] == '*' && iconFile[1] == 0)
+        {
+            hIconSmall = GetShellImageListIcon(SHIL_SMALL, iconIndex);
         }
     }
     if (iconSize == ICONSIZE_16 && hIconSmall != NULL &&
