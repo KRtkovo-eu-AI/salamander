@@ -36,6 +36,10 @@
 #include "gui.h"
 #include <uxtheme.h>
 
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
 #ifndef WM_WTSSESSION_CHANGE
 #define WM_WTSSESSION_CHANGE 0x02B1
 #endif
@@ -3434,33 +3438,174 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+
+static HANDLE SetThreadDPIAwarenessForRefresh()
+{
+    typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE dpiContext);
+    static FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            setThreadDpiAwarenessContext = (FSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext");
+        loaded = TRUE;
+    }
+    if (setThreadDpiAwarenessContext != NULL)
+        return setThreadDpiAwarenessContext((HANDLE)-4 /* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 */);
+    return NULL;
+}
+
+static void RestoreThreadDPIAwarenessAfterRefresh(HANDLE oldContext)
+{
+    typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE dpiContext);
+    static FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            setThreadDpiAwarenessContext = (FSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext");
+        loaded = TRUE;
+    }
+    if (setThreadDpiAwarenessContext != NULL && oldContext != NULL)
+        setThreadDpiAwarenessContext(oldContext);
+}
+
+static BOOL DPIRefreshInProgress = FALSE;
+static BOOL DPIRefreshPosted = FALSE;
+static BOOL DPIRefreshDeferredForSizeMove = FALSE;
+static BOOL DPIInSizeMove = FALSE;
+static int PendingDPI = 0;
+static BOOL PendingDPIWindowRectApplied = FALSE;
+static BOOL DPIWindowRectAlreadyApplied = FALSE;
+static int MainWindowContentDPI = 0;
 static int InitialSessionDPI = 0;
 static BOOL DPIChangePromptShown = FALSE;
 
-static int GetSessionDPIForPrompt()
+void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
 {
-    HKEY hKey;
-    DWORD value = 0;
-    DWORD type = 0;
-    DWORD size = sizeof(value);
-    if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Desktop\\WindowMetrics", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+    if (DPIRefreshInProgress)
+        return;
+
+    DPIRefreshInProgress = TRUE;
+
+    int oldDPI = MainWindowContentDPI > 0 ? MainWindowContentDPI : GetSystemDPI();
+    int newDPI = dpi > 0 ? dpi : GetDPIForWindow(HWindow);
+    SetSystemDPI(newDPI);
+
+    if (!force && newDPI == oldDPI)
     {
-        LONG res = RegQueryValueEx(hKey, "AppliedDPI", NULL, &type, (LPBYTE)&value, &size);
-        RegCloseKey(hKey);
-        if (res == ERROR_SUCCESS && type == REG_DWORD && value >= 48 && value <= 960)
-            return (int)value;
+        DPIRefreshInProgress = FALSE;
+        return;
     }
 
-    HDC hDC = GetDC(NULL);
-    if (hDC != NULL)
+    TraceDPIState("RefreshDPI", HWindow);
+    HANDLE oldThreadDPIContext = SetThreadDPIAwarenessForRefresh();
+
+    if (suggestedRect != NULL)
     {
-        int dpi = GetDeviceCaps(hDC, LOGPIXELSX);
-        ReleaseDC(NULL, hDC);
-        if (dpi > 0)
-            return dpi;
+        SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                     suggestedRect->right - suggestedRect->left,
+                     suggestedRect->bottom - suggestedRect->top,
+                     SWP_NOACTIVATE | SWP_NOZORDER);
+    }
+    else if (DPIWindowRectAlreadyApplied)
+    {
+        DPIWindowRectAlreadyApplied = FALSE;
+    }
+    else if (oldDPI > 0 && newDPI > 0 && oldDPI != newDPI)
+    {
+        RECT windowRect;
+        if (GetWindowRect(HWindow, &windowRect))
+        {
+            int width = windowRect.right - windowRect.left;
+            int height = windowRect.bottom - windowRect.top;
+            SetWindowPos(HWindow, NULL, windowRect.left, windowRect.top,
+                         MulDiv(width, newDPI, oldDPI), MulDiv(height, newDPI, oldDPI),
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
     }
 
-    return 96;
+    if (LeftPanel == NULL || RightPanel == NULL)
+    {
+        RestoreThreadDPIAwarenessAfterRefresh(oldThreadDPIContext);
+        DPIRefreshInProgress = FALSE;
+        return;
+    }
+
+    ColorsChanged(TRUE, FALSE, TRUE);
+    SetFont();
+    SetEnvFont();
+
+    // SetFont()/SetEnvFont() normally post WM_SIZE and panel refresh messages.
+    // During a DPI transition we must complete the layout synchronously before
+    // any follow-up WM_SETTINGCHANGE/WM_DISPLAYCHANGE can repaint the old-sized
+    // controls and make the window appear to snap back to the previous DPI.
+    RECT clientRect;
+    if (GetClientRect(HWindow, &clientRect))
+        SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
+                    MAKELONG(clientRect.right - clientRect.left, clientRect.bottom - clientRect.top));
+    LayoutWindows();
+
+    GetShortcutOverlay();
+
+    // Force all file-panel icon sources to be rebuilt at the new pixel size.
+    // Panel icon caches hold per-directory icons, while Associations owns shared
+    // extension/default icons used by the listboxes.  CAssociations::Release()
+    // keeps its old image lists alive, so use Destroy() here; otherwise the
+    // same ICONSIZE_16/32 enum can keep reusing old-DPI bitmaps after the
+    // IconSizes[] pixel values changed.
+    BOOL leftCanDrawItems = LeftPanel->CanDrawItems;
+    BOOL rightCanDrawItems = RightPanel->CanDrawItems;
+    LeftPanel->CanDrawItems = FALSE;
+    RightPanel->CanDrawItems = FALSE;
+
+    LeftPanel->SleepIconCacheThread();
+    LeftPanel->IconCache->Destroy();
+    LeftPanel->IconCacheValid = FALSE;
+    LeftPanel->EndOfIconReadingTime = GetTickCount() - 10000;
+    LeftPanel->UseThumbnails = FALSE;
+    RightPanel->SleepIconCacheThread();
+    RightPanel->IconCache->Destroy();
+    RightPanel->IconCacheValid = FALSE;
+    RightPanel->EndOfIconReadingTime = GetTickCount() - 10000;
+    RightPanel->UseThumbnails = FALSE;
+
+    Associations.Destroy();
+    Associations.ReadAssociations(FALSE);
+
+    LeftPanel->CanDrawItems = leftCanDrawItems;
+    RightPanel->CanDrawItems = rightCanDrawItems;
+
+    LeftPanel->RefreshDirectory(FALSE, TRUE);
+    RightPanel->RefreshDirectory(FALSE, TRUE);
+    PostMessage(HWindow, WM_USER_REPAINTALLICONS, 0, 0);
+    RefreshDiskFreeSpace();
+    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+    Plugins.Event(PLUGINEVENT_SETTINGCHANGE, 0);
+    MainWindowContentDPI = newDPI;
+    InitialSessionDPI = newDPI;
+    DPIChangePromptShown = FALSE;
+    RestoreThreadDPIAwarenessAfterRefresh(oldThreadDPIContext);
+    DPIRefreshInProgress = FALSE;
+}
+
+
+static void EnableNonClientDPIScalingIfAvailable(HWND hWindow)
+{
+    typedef BOOL(WINAPI * FEnableNonClientDpiScaling)(HWND hwnd);
+    static FEnableNonClientDpiScaling enableNonClientDpiScaling = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            enableNonClientDpiScaling = (FEnableNonClientDpiScaling)GetProcAddress(user32, "EnableNonClientDpiScaling");
+        loaded = TRUE;
+    }
+    if (enableNonClientDpiScaling != NULL)
+        enableNonClientDpiScaling(hWindow);
 }
 
 static BOOL RegisterSessionNotification(HWND hWindow)
@@ -3527,7 +3672,7 @@ static void ShowDPIChangePrompt(HWND hWindow)
 
 static void PromptIfSessionDPIChanged(HWND hWindow)
 {
-    int dpi = GetSessionDPIForPrompt();
+    int dpi = GetCurrentSessionDPI();
     if (InitialSessionDPI == 0)
     {
         InitialSessionDPI = dpi;
@@ -3543,10 +3688,18 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_NCCREATE:
+    {
+        EnableNonClientDPIScalingIfAvailable(HWindow);
+        break;
+    }
+
     case WM_CREATE:
     {
         SHChangeNotifyInitialize(); // request receiving Shell Notifications
-        InitialSessionDPI = GetSessionDPIForPrompt();
+        InitialSessionDPI = GetCurrentSessionDPI();
+        MainWindowContentDPI = InitialSessionDPI;
+        TraceDPIState("WM_CREATE", HWindow);
         RegisterSessionNotification(HWindow);
 
         SetTimer(HWindow, IDT_ADDNEWMODULES, 15000, NULL); // timer after 15 seconds for AddNewlyLoadedModulesToGlobalModulesStore()
@@ -3838,24 +3991,97 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         break;
     }
 
+    case WM_ENTERSIZEMOVE:
+    {
+        DPIInSizeMove = TRUE;
+        break;
+    }
+
+    case WM_EXITSIZEMOVE:
+    {
+        DPIInSizeMove = FALSE;
+        if (DPIRefreshDeferredForSizeMove && PendingDPI > 0 && !DPIRefreshPosted)
+        {
+            int windowDPI = GetDPIForWindow(HWindow);
+            if (windowDPI > 0)
+                PendingDPI = windowDPI; // final monitor can differ from the first WM_DPICHANGED during drag
+            DPIRefreshPosted = TRUE;
+            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
+        }
+        else if (!DPIRefreshPosted)
+        {
+            int windowDPI = GetDPIForWindow(HWindow);
+            int contentDPI = MainWindowContentDPI > 0 ? MainWindowContentDPI : GetSystemDPI();
+            if (windowDPI > 0 && windowDPI != contentDPI)
+            {
+                PendingDPI = windowDPI;
+                PendingDPIWindowRectApplied = FALSE;
+                DPIRefreshPosted = TRUE;
+                PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
+            }
+        }
+        DPIRefreshDeferredForSizeMove = FALSE;
+        break;
+    }
+
+    case WM_DPICHANGED:
+    {
+        int dpi = HIWORD(wParam);
+        if (lParam != 0)
+        {
+            const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
+            SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                         suggestedRect->right - suggestedRect->left,
+                         suggestedRect->bottom - suggestedRect->top,
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
+        PendingDPI = dpi;
+        PendingDPIWindowRectApplied = lParam != 0;
+        if (DPIInSizeMove)
+        {
+            DPIRefreshDeferredForSizeMove = TRUE;
+        }
+        else if (!DPIRefreshPosted)
+        {
+            DPIRefreshPosted = TRUE;
+            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)dpi, 0);
+        }
+        return 0;
+    }
+
+    case WM_USER_APPLY_DPI_CHANGE:
+    {
+        DPIRefreshPosted = FALSE;
+        int dpi = PendingDPI > 0 ? PendingDPI : (int)wParam;
+        BOOL windowRectAlreadyApplied = PendingDPIWindowRectApplied;
+        int windowDPI = GetDPIForWindow(HWindow);
+        if (windowDPI > 0 && windowDPI != dpi)
+        {
+            dpi = windowDPI;
+            windowRectAlreadyApplied = FALSE;
+        }
+        DPIWindowRectAlreadyApplied = windowRectAlreadyApplied;
+        PendingDPI = 0;
+        PendingDPIWindowRectApplied = FALSE;
+        RefreshDPI(TRUE, dpi, NULL);
+        return 0;
+    }
+
     case WM_DISPLAYCHANGE:
     {
-        PromptIfSessionDPIChanged(HWindow);
+        TraceDPIState("WM_DISPLAYCHANGE", HWindow);
         break;
     }
 
     case WM_WTSSESSION_CHANGE:
     {
-        if (wParam == WTS_REMOTE_CONNECT || wParam == WTS_SESSION_LOGON ||
-            wParam == WTS_SESSION_UNLOCK)
-            ShowDPIChangePrompt(HWindow);
+        TraceDPIState("WM_WTSSESSION_CHANGE", HWindow);
         return 0;
     }
 
     case WM_SETTINGCHANGE:
     {
-        PromptIfSessionDPIChanged(HWindow);
-
+        TraceDPIState("WM_SETTINGCHANGE", HWindow);
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
         if (darkChanged)
         {
@@ -9769,8 +9995,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         //      {
         if (wParam == TRUE) // activating the app
         {
-            PromptIfSessionDPIChanged(HWindow);
-
+            TraceDPIState("WM_ACTIVATEAPP", HWindow);
             if (!LeftPanel->DontClearNextFocusName)
                 LeftPanel->NextFocusName[0] = 0;
             else

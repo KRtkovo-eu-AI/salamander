@@ -1438,18 +1438,50 @@ int CMainWindow::GetUnassignedHotPathIndex()
     return HotPaths.GetUnassignedHotPathIndex();
 }
 
+
+static void ScaleSmallLogFontForCurrentDPI(LOGFONT* lf)
+{
+    int dpi = GetSystemDPI();
+    if (lf == NULL || lf->lfHeight == 0)
+        return;
+
+    int height = abs(lf->lfHeight);
+    int expected = MulDiv(12, dpi, 96);
+    if (height < expected - 1 || height > expected + 2)
+        lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
+}
+
+static BOOL SystemParametersInfoForCurrentDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
+{
+    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
+    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
+        loaded = TRUE;
+    }
+    if (systemParametersInfoForDpi != NULL &&
+        systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, GetSystemDPI()))
+        return TRUE;
+    return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
+}
+
 // font for our GUI (the panel font can be defined in the configuration)
 BOOL GetSystemGUIFont(LOGFONT* lf)
 {
-    if (!SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), lf, 0))
+    if (!SystemParametersInfoForCurrentDPI(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), lf, 0))
     {
         // if SystemParametersInfo fails unexpectedly, use a fallback
         NONCLIENTMETRICS ncm;
         ncm.cbSize = sizeof(ncm);
-        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+        SystemParametersInfoForCurrentDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
         *lf = ncm.lfMessageFont;
         lf->lfWeight = FW_NORMAL;
     }
+    ScaleSmallLogFontForCurrentDPI(lf);
     return TRUE;
 }
 
@@ -1458,8 +1490,9 @@ BOOL GetSystemTooltipFont(LOGFONT* lf)
 {
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
-    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    SystemParametersInfoForCurrentDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
     *lf = ncm.lfStatusFont;
+    ScaleSmallLogFontForCurrentDPI(lf);
     return TRUE;
 }
 

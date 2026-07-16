@@ -688,6 +688,7 @@ public:
 
     void SetFont();
     void SetEnvFont();
+    void RefreshDPI(BOOL force, int dpi = 0, const RECT* suggestedRect = NULL);
 
     void RefreshDiskFreeSpace();
     void RefreshDirs();

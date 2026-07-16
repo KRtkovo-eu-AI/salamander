@@ -16,6 +16,38 @@
 #define MENUBAR_LR_MARGIN 8 // number of points before and after the text, including the vertical line
 #define MENUBAR_TB_MARGIN 4 // number of points above and below the text, including the horizontal line
 
+
+
+static void ScaleSmallMenuLogFontForCurrentDPI(LOGFONT* lf)
+{
+    int dpi = GetSystemDPI();
+    if (lf == NULL || lf->lfHeight == 0)
+        return;
+
+    int height = abs(lf->lfHeight);
+    int expected = MulDiv(12, dpi, 96);
+    if (height < expected - 1 || height > expected + 2)
+        lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
+}
+
+static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
+{
+    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
+    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
+        loaded = TRUE;
+    }
+    if (systemParametersInfoForDpi != NULL &&
+        systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, GetSystemDPI()))
+        return TRUE;
+    return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
+}
+
 static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
 {
     HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
@@ -120,9 +152,10 @@ void CMenuBar::SetFont()
     CALL_STACK_MESSAGE1("CMenuBar::SetFont()");
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
-    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    SystemParametersInfoForMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
 
     LOGFONT* lf = &ncm.lfMenuFont;
+    ScaleSmallMenuLogFontForCurrentDPI(lf);
     if (HFont != NULL)
         HANDLES(DeleteObject(HFont));
     HFont = HANDLES(CreateFontIndirect(lf));

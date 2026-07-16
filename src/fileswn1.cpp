@@ -1302,6 +1302,8 @@ unsigned IconThreadThreadFBody(void* parameter)
                 window->ICWorking = TRUE;
 
                 CIconSizeEnum iconSize = window->GetIconSizeForCurrentViewMode();
+                int iconPixelSize = IconSizes[iconSize];
+                int iconDPI = GetSystemDPI();
 
                 CIconList* iconList;
                 int iconListIndex;
@@ -1784,6 +1786,15 @@ unsigned IconThreadThreadFBody(void* parameter)
                                     {
                                         if (shi.hIcon == NULL)
                                             failed = TRUE;
+                                        else if (iconPixelSize != IconSizes[iconSize] || iconDPI != GetSystemDPI())
+                                        {
+                                            // The icon was extracted while the panel was still using an old DPI.
+                                            // Do not let a delayed 24px read populate a freshly rebuilt 16px cache
+                                            // after moving from a high-DPI monitor to a 100% monitor.
+                                            HANDLES(DestroyIcon(shi.hIcon));
+                                            shi.hIcon = NULL;
+                                            failed = TRUE;
+                                        }
                                         else
                                         {
                                             if (window->IconCache->GetIcon(iconData->GetIndex(),
