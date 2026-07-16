@@ -701,6 +701,8 @@ CConfiguration::CConfiguration()
     HexModeMasks.PrepareMasks(errPos);
     WindowPlacement.length = 0;
     WrapText = TRUE;
+    ViewerShowLineNumbers = FALSE;
+    ViewerShowStatusBar = TRUE;
     CodePageAutoSelect = TRUE;
     DefaultConvert[0] = 0;
     AutoCopySelection = FALSE;

@@ -381,6 +381,8 @@ struct CConfiguration
     WINDOWPLACEMENT WindowPlacement; // invalid unless SavePosition != TRUE
 
     BOOL WrapText; // text wrapping set via menu (here only for saving)
+    BOOL ViewerShowLineNumbers;
+    BOOL ViewerShowStatusBar;
 
     BOOL CodePageAutoSelect;  // automatically detect the code page
     char DefaultConvert[200]; // encoding name the user wants to use by default

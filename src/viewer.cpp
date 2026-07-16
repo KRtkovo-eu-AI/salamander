@@ -712,8 +712,8 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     HToolTip = NULL;
     Lock = NULL;
     WrapText = Configuration.WrapText;
-    ShowLineNumbers = FALSE;
-    ShowStatusBar = TRUE;
+    ShowLineNumbers = Configuration.ViewerShowLineNumbers;
+    ShowStatusBar = Configuration.ViewerShowStatusBar;
     CodePageAutoSelect = Configuration.CodePageAutoSelect;
     strcpy(DefaultConvert, Configuration.DefaultConvert);
     LastFindSeekY = -1;
@@ -2299,11 +2299,18 @@ void CViewerWindow::SetViewerZoom(int percent)
     RECT rc;
     GetClientRect(HWindow, &rc);
     SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
+    InvalidateRect(HWindow, NULL, FALSE);
+    UpdateWindow(HWindow);
 }
 
 int CViewerWindow::GetTextLeft() const
 {
-    return BORDER_WIDTH + (ShowLineNumbers ? 6 * CharWidth : 0);
+    if (!ShowLineNumbers)
+        return BORDER_WIDTH;
+    int digits = 1;
+    for (int number = max(1, LineOffset.Count / 3); number >= 10; number /= 10)
+        ++digits;
+    return BORDER_WIDTH + (digits + 1) * CharWidth;
 }
 
 void CViewerWindow::LayoutStatusBar()

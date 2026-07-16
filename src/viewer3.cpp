@@ -26,6 +26,17 @@ enum
     IDC_VIEWER_ZOOM_IN
 };
 
+LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                           UINT_PTR subclassId, DWORD_PTR refData)
+{
+    if (message == WM_MOUSEWHEEL)
+    {
+        SendMessage(GetParent(hwnd), message, wParam, lParam);
+        return 0;
+    }
+    return DefSubclassProc(hwnd, message, wParam, lParam);
+}
+
 #ifndef WM_UAHDRAWMENU
 #define WM_UAHDRAWMENU 0x0091
 #endif
@@ -803,16 +814,20 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HToolTip = CreateWindowEx(0, TOOLTIPS_CLASS, NULL, TTS_NOPREFIX,
                                   CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                   NULL, NULL, HInstance, NULL);
-        HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
+        HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
-        HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                     0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
-        HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                   0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_OUT, HInstance, NULL);
-        HZoomEdit = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "100 %", WS_CHILD | WS_VISIBLE | ES_CENTER,
+        HZoomEdit = CreateWindowEx(0, "EDIT", "100 %", WS_CHILD | WS_VISIBLE | ES_CENTER,
                                    0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_EDIT, HInstance, NULL);
-        HZoomIn = CreateWindowEx(0, "BUTTON", "+", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        HZoomIn = CreateWindowEx(0, "BUTTON", "+", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                  0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_IN, HInstance, NULL);
+        SetWindowSubclass(HZoomReset, ViewerZoomControlSubclass, 1, 0);
+        SetWindowSubclass(HZoomOut, ViewerZoomControlSubclass, 1, 0);
+        SetWindowSubclass(HZoomEdit, ViewerZoomControlSubclass, 1, 0);
+        SetWindowSubclass(HZoomIn, ViewerZoomControlSubclass, 1, 0);
 
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
@@ -2132,12 +2147,14 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_VIEW_LINENUMBERS:
             ShowLineNumbers = !ShowLineNumbers;
+            Configuration.ViewerShowLineNumbers = ShowLineNumbers;
             InvalidateRect(HWindow, NULL, FALSE);
             return 0;
 
         case CM_VIEW_STATUSBAR:
         {
             ShowStatusBar = !ShowStatusBar;
+            Configuration.ViewerShowStatusBar = ShowStatusBar;
             LayoutStatusBar();
             RECT rc;
             GetClientRect(HWindow, &rc);
