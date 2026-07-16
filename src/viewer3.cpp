@@ -830,10 +830,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // custom-draw subclass.
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
-        DarkModeApplyTree(HWindow);
         ApplyViewerMenuTheme(HWindow);
 
-        HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE,
+        HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL,
+                                    WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         HScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_HORZ,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
@@ -862,6 +862,14 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeApplyWindow(HZoomOut);
         DarkModeApplyWindow(HZoomEdit);
         DarkModeApplyWindow(HZoomIn);
+
+        // Now that all child controls exist, walk the tree so that
+        // ApplyListTreeThemeRecursive can reach them.  The earlier call
+        // happened before any children were created and was a no-op for
+        // the EnumChildWindows pass.  This ensures the status bar gets
+        // its dark subclass and scrollbars receive the correct theme.
+        DarkModeApplyTree(HWindow);
+
         LayoutStatusBar();
         UpdateStatusBar();
 
