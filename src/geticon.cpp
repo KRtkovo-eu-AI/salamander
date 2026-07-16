@@ -5,8 +5,68 @@
 #include "precomp.h"
 #include "commoncontrols.h"
 
+static UINT PrivateExtractSingleIcon(LPCTSTR fileName, int iconIndex, int iconSize, HICON* hIcon, UINT* iconID, UINT flags)
+{
+    typedef UINT(WINAPI * FPrivateExtractIcons)(LPCTSTR, int, int, int, HICON*, UINT*, UINT, UINT);
+    static FPrivateExtractIcons privateExtractIcons = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle("user32.dll");
+        if (user32 != NULL)
+            privateExtractIcons = (FPrivateExtractIcons)GetProcAddress(user32, "PrivateExtractIconsA");
+        loaded = TRUE;
+    }
+
+    if (privateExtractIcons == NULL || hIcon == NULL || iconSize <= 0)
+        return 0;
+
+    *hIcon = NULL;
+    UINT count = privateExtractIcons(fileName, iconIndex, iconSize, iconSize, hIcon, iconID, 1, flags);
+    return count == (UINT)-1 ? 0 : count;
+}
+
 UINT WINAPI ExtractIcons(LPCTSTR szFileName, int nIconIndex, int cxIcon, int cyIcon, HICON* phicon, UINT* piconid, UINT nIcons, UINT flags)
 {
+    int largeIconSize = LOWORD(cxIcon);
+    int smallIconSize = HIWORD(cxIcon);
+    if (largeIconSize == 0)
+        largeIconSize = cxIcon;
+
+    if (phicon != NULL)
+    {
+        phicon[0] = NULL;
+        if (nIcons > 1)
+            phicon[1] = NULL;
+    }
+
+    // Prefer exact-size extraction. SHDefExtractIcon may return an already-scaled
+    // shell bitmap from a high-DPI image list, while PrivateExtractIcons asks for
+    // the concrete size we need (for example the native 16x16 group image at 100%).
+    UINT extracted = 0;
+    if (phicon != NULL)
+    {
+        extracted += PrivateExtractSingleIcon(szFileName, nIconIndex, largeIconSize, &phicon[0], piconid, flags) > 0 ? 1 : 0;
+        if (nIcons > 1 && smallIconSize > 0)
+        {
+            UINT* smallIconID = piconid != NULL ? piconid + 1 : NULL;
+            extracted += PrivateExtractSingleIcon(szFileName, nIconIndex, smallIconSize, &phicon[1], smallIconID, flags) > 0 ? 1 : 0;
+        }
+        BOOL exactExtractionComplete = nIcons > 1 ? phicon[0] != NULL && phicon[1] != NULL : phicon[0] != NULL;
+        if (exactExtractionComplete)
+            return extracted;
+        if (phicon[0] != NULL)
+        {
+            HANDLES(DestroyIcon(phicon[0]));
+            phicon[0] = NULL;
+        }
+        if (nIcons > 1 && phicon[1] != NULL)
+        {
+            HANDLES(DestroyIcon(phicon[1]));
+            phicon[1] = NULL;
+        }
+    }
+
     UINT nIconSize = cxIcon;
     HICON hLarge{};
     HICON hSmall{};
