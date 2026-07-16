@@ -712,6 +712,8 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     HToolTip = NULL;
     Lock = NULL;
     WrapText = Configuration.WrapText;
+    ShowLineNumbers = FALSE;
+    ShowStatusBar = TRUE;
     CodePageAutoSelect = Configuration.CodePageAutoSelect;
     strcpy(DefaultConvert, Configuration.DefaultConvert);
     LastFindSeekY = -1;
@@ -1127,7 +1129,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                                      int clipFirstRow, int clipLastRow, BOOL& fatalErr,
                                      BOOL& setFindOffset)
 {
-    __int64 xRollLimit = (Width - BORDER_WIDTH) / CharWidth / 6;
+    __int64 xRollLimit = (Width - GetTextLeft()) / CharWidth / 6;
     FirstLineSize = LastLineSize = 0;
     WrapIsBeforeFirstLine = FALSE;
 
@@ -1149,7 +1151,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
             int redrI = i;
             if (redrI < clipFirstRow)
                 redrI = clipFirstRow;
-            r.left = BORDER_WIDTH;
+            r.left = GetTextLeft();
             r.right = Width;
             r.top = CharHeight * redrI;
             r.bottom = CharHeight * clipLastRow;
@@ -1194,7 +1196,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
 
         if (ScrollToSelection)
         {
-            int len2 = (Width - BORDER_WIDTH) / CharWidth;
+            int len2 = (Width - GetTextLeft()) / CharWidth;
             if (len2 - 2 * xRollLimit < (__int64)selEndCell - (__int64)selStartCell)
             {
                 xRollLimit = (len2 - ((__int64)selEndCell - (__int64)selStartCell)) / 2;
@@ -1247,7 +1249,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
         BOOL blackEnd = (lineEndIsWrapped ? startSel < lineEnd : startSel <= lineEnd) && endSel > lineEnd;
         if (OriginX < lineLen)
         {
-            __int64 len2 = min((Width - BORDER_WIDTH) / CharWidth + 1, lineLen - OriginX);
+            __int64 len2 = min((Width - GetTextLeft()) / CharWidth + 1, lineLen - OriginX);
             std::size_t left = (std::size_t)OriginX;
             std::size_t right = (std::size_t)(OriginX + len2);
             std::size_t u1 = (std::size_t)len2, u2 = 0, u3 = 0;
@@ -1281,7 +1283,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                     endRect.right = (int)((u1 + u2 + u3) * CharWidth);
                     FillRect(Bitmap.HMemDC, &endRect, BkgndBrush);
                     endRect.left = endRect.right;
-                    endRect.right = Width - BORDER_WIDTH;
+                    endRect.right = Width - GetTextLeft();
                     FillRect(Bitmap.HMemDC, &endRect, BkgndBrushSel);
                 }
                 else
@@ -1302,22 +1304,22 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                 if (u1 > 0)
                     DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1, 0);
 
-                BitBlt(dc, BORDER_WIDTH, CharHeight * i, myLine.right,
+                BitBlt(dc, GetTextLeft(), CharHeight * i, myLine.right,
                        CharHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);
 
                 if (myLine.right < fullLine.right)
                 {
                     myLine.top = CharHeight * i;
                     myLine.bottom = myLine.top + CharHeight;
-                    myLine.left = BORDER_WIDTH + myLine.right;
-                    myLine.right = BORDER_WIDTH + fullLine.right;
+                    myLine.left = GetTextLeft() + myLine.right;
+                    myLine.right = GetTextLeft() + fullLine.right;
                     FillRect(dc, &myLine, blackEnd ? BkgndBrushSel : BkgndBrush);
                 }
             }
         }
         else if (i >= clipFirstRow && i <= clipLastRow)
         {
-            r.left = BORDER_WIDTH;
+            r.left = GetTextLeft();
             r.top = CharHeight * i;
             r.right = Width;
             r.bottom = r.top + CharHeight;
@@ -1354,20 +1356,20 @@ void CViewerWindow::Paint(HDC dc)
         LineOffset.DestroyMembers();
         RECT r;
         r.left = 0;
-        r.right = BORDER_WIDTH;
+        r.right = GetTextLeft();
         r.top = 0;
         r.bottom = Height;
         FillRect(dc, &r, BkgndBrush); // clear the columns to the left of the text
         RECT fullLine;
         fullLine.left = 0;
         fullLine.top = 0;
-        fullLine.right = Width - BORDER_WIDTH;
+        fullLine.right = Width - GetTextLeft();
         fullLine.bottom = CharHeight /*Height*/; // j.r. W2K slowness patch
 
         r.right = Width;
         ViewSize = 0;
         int lines = Height / CharHeight + 1;
-        int columns = (Width - BORDER_WIDTH) / CharWidth;
+        int columns = (Width - GetTextLeft()) / CharWidth;
         char line[2001]; // holds at most 2000 fully visible characters per line plus 1 partially visible character
         char* s;
         BOOL fatalErr = FALSE;
@@ -1543,15 +1545,15 @@ void CViewerWindow::Paint(HDC dc)
                             }
 
                             // bitblt the entire row to the screen
-                            BitBlt(dc, BORDER_WIDTH, CharHeight * i, (lineLen + 1) * CharWidth, // extend the line by one character so italics fit
+                            BitBlt(dc, GetTextLeft(), CharHeight * i, (lineLen + 1) * CharWidth, // extend the line by one character so italics fit
                                    CharHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);
                             // if needed, clear the space on the right
                             if (myLine.right < fullLine.right)
                             {
                                 myLine.top = CharHeight * i;
                                 myLine.bottom = myLine.top + CharHeight;
-                                myLine.left = BORDER_WIDTH + myLine.right;
-                                myLine.right = BORDER_WIDTH + fullLine.right;
+                                myLine.left = GetTextLeft() + myLine.right;
+                                myLine.right = GetTextLeft() + fullLine.right;
                                 FillRect(dc, &myLine, BkgndBrush);
                             }
                         }
@@ -1560,7 +1562,7 @@ void CViewerWindow::Paint(HDC dc)
                     lineOffset += len;
                     if (lineOffset == FileSize)
                     {
-                        r.left = BORDER_WIDTH;
+                        r.left = GetTextLeft();
                         if (FileSize > 0) // JR: up to AS2.52b1 (inclusive) we rendered a 0-byte file in hex without clearing the first line (it appeared when resizing the window)
                             r.top = CharHeight * (i + 1);
                         else
@@ -1581,7 +1583,7 @@ void CViewerWindow::Paint(HDC dc)
                     PaintDecodedText(dc, fullLine, lines, columns, clipFirstRow, clipLastRow, fatalErr, setFindOffset);
                     break;
                 }
-                __int64 xRollLimit = (Width - BORDER_WIDTH) / CharWidth / 6;
+                __int64 xRollLimit = (Width - GetTextLeft()) / CharWidth / 6;
                 FirstLineSize = LastLineSize = 0;
 
                 WrapIsBeforeFirstLine = FALSE;
@@ -1641,7 +1643,7 @@ void CViewerWindow::Paint(HDC dc)
                         int redrI = i;
                         if (redrI < clipFirstRow)
                             redrI = clipFirstRow; // avoid repainting unnecessarily
-                        r.left = BORDER_WIDTH;
+                        r.left = GetTextLeft();
                         r.top = CharHeight * redrI;
                         r.bottom = CharHeight * clipLastRow;
                         if (r.bottom > Height)
@@ -1663,7 +1665,7 @@ void CViewerWindow::Paint(HDC dc)
                     __int64 lineLen = 0;                                             // line length in characters (tab != 1 character)
                     BOOL lineEndIsWrapped = FALSE;                                   // is the end of the line wrapped because wrap mode is enabled?
                     __int64 fullLineLen = 0;                                         // line length in bytes
-                    __int64 endX = OriginX + (Width - BORDER_WIDTH) / CharWidth + 1; // screen edge offset in characters
+                    __int64 endX = OriginX + (Width - GetTextLeft()) / CharWidth + 1; // screen edge offset in characters
                     BOOL onlyOne = (len == 1);                                       // last character of the file?
                     __int64 startSel = min(StartSelection, EndSelection);            // selection start - offset in bytes
                     if (startSel == -1)
@@ -1848,7 +1850,7 @@ void CViewerWindow::Paint(HDC dc)
 
                     if (ScrollToSelection)
                     {
-                        int len2 = (Width - BORDER_WIDTH) / CharWidth;
+                        int len2 = (Width - GetTextLeft()) / CharWidth;
                         if (len2 - 2 * xRollLimit < endSel - startSel)
                         { // try to show as much of long strings as possible, so set xRollLimit -> 0
                             xRollLimit = (len2 - (endSel - startSel)) / 2;
@@ -1904,7 +1906,7 @@ void CViewerWindow::Paint(HDC dc)
                     BOOL blackEnd;
                     if (OriginX < lineLen)
                     {
-                        __int64 len2 = min((Width - BORDER_WIDTH) / CharWidth + 1, lineLen - OriginX);
+                        __int64 len2 = min((Width - GetTextLeft()) / CharWidth + 1, lineLen - OriginX);
                         __int64 left = lineOffset + OriginX;
                         __int64 right = lineOffset + OriginX + len2;
                         __int64 u1 = len2, u2 = 0, u3 = 0;
@@ -1939,7 +1941,7 @@ void CViewerWindow::Paint(HDC dc)
                                 endRect.right = (int)((u1 + u2 + u3) * CharWidth);
                                 FillRect(Bitmap.HMemDC, &endRect, BkgndBrush);
                                 endRect.left = endRect.right;
-                                endRect.right = Width - BORDER_WIDTH;
+                                endRect.right = Width - GetTextLeft();
                                 FillRect(Bitmap.HMemDC, &endRect, BkgndBrushSel);
                             }
                             else
@@ -1964,7 +1966,7 @@ void CViewerWindow::Paint(HDC dc)
                             }
 
                             // bitblt the entire row to the screen
-                            BitBlt(dc, BORDER_WIDTH, CharHeight * i, myLine.right,
+                            BitBlt(dc, GetTextLeft(), CharHeight * i, myLine.right,
                                    CharHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);
 
                             // if needed, clear the space on the right
@@ -1972,8 +1974,8 @@ void CViewerWindow::Paint(HDC dc)
                             {
                                 myLine.top = CharHeight * i;
                                 myLine.bottom = myLine.top + CharHeight;
-                                myLine.left = BORDER_WIDTH + myLine.right;
-                                myLine.right = BORDER_WIDTH + fullLine.right;
+                                myLine.left = GetTextLeft() + myLine.right;
+                                myLine.right = GetTextLeft() + fullLine.right;
                                 FillRect(dc, &myLine, blackEnd ? BkgndBrushSel : BkgndBrush);
                             }
                         }
@@ -1984,7 +1986,7 @@ void CViewerWindow::Paint(HDC dc)
                         {
                             blackEnd = (lineEndIsWrapped ? startSel < lineOffset + lineLen : startSel <= lineOffset + lineLen) &&
                                        endSel > lineOffset + lineLen;
-                            r.left = BORDER_WIDTH;
+                            r.left = GetTextLeft();
                             r.top = CharHeight * i;
                             r.right = Width;
                             r.bottom = r.top + CharHeight;
@@ -2007,6 +2009,17 @@ void CViewerWindow::Paint(HDC dc)
         EnablePaint = TRUE;
         ScrollToSelection = FALSE;
         SetBkMode(Bitmap.HMemDC, oldMode);
+        if (ShowLineNumbers)
+        {
+            SetTextColor(dc, GetCOLORREF(ViewerColors[VIEWER_FG_NORMAL]));
+            for (int i = 0; i < LineOffset.Count / 3; i++)
+            {
+                char number[32];
+                sprintf(number, "%d", i + 1);
+                RECT numberRect = {0, i * CharHeight, GetTextLeft() - BORDER_WIDTH, (i + 1) * CharHeight};
+                DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            }
+        }
         //---
         SelectObject(dc, oldFont);
         SelectObject(Bitmap.HMemDC, oldFont2);
@@ -2283,7 +2296,9 @@ void CViewerWindow::SetViewerZoom(int percent)
     sprintf(text, "%d %%", ZoomPercent);
     SetWindowText(HZoomEdit, text);
     LayoutStatusBar();
-    SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(Width, Height + StatusBarHeight));
+    RECT rc;
+    GetClientRect(HWindow, &rc);
+    SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
 }
 
 void CViewerWindow::LayoutStatusBar()
@@ -2292,7 +2307,12 @@ void CViewerWindow::LayoutStatusBar()
         return;
     RECT rc;
     GetClientRect(HWindow, &rc);
-    StatusBarHeight = max(20, CharHeight + 8);
+    StatusBarHeight = ShowStatusBar ? max(20, CharHeight + 8) : 0;
+    ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    ShowWindow(HZoomOut, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    ShowWindow(HZoomEdit, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    ShowWindow(HZoomIn, ShowStatusBar ? SW_SHOW : SW_HIDE);
     SetWindowPos(HStatusBar, NULL, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOZORDER | SWP_NOACTIVATE);
     int x = rc.right - 4;
     x -= 22;

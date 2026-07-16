@@ -218,8 +218,8 @@ BOOL ViewerActive(HWND hwnd)
 }
 
 // proportional to the window width, it's just an "estimate"
-#define FAST_LEFTRIGHT max(1, (Width - BORDER_WIDTH) / CharWidth / 6)
-#define MAKEVIS_LEFTRIGHT max(0, (Width - BORDER_WIDTH) / CharWidth / 6)
+#define FAST_LEFTRIGHT max(1, (Width - GetTextLeft()) / CharWidth / 6)
+#define MAKEVIS_LEFTRIGHT max(0, (Width - GetTextLeft()) / CharWidth / 6)
 
 void CViewerWindow::SetViewerCaption()
 {
@@ -474,7 +474,7 @@ __int64
 CViewerWindow::GetMaxOriginX(__int64 newFirstLineLen, BOOL ignoreFirstLine, __int64 maxLineLen)
 {
     __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxVisibleLineLen(newFirstLineLen, ignoreFirstLine);
-    int columns = (Width - BORDER_WIDTH) / CharWidth;
+    int columns = (Width - GetTextLeft()) / CharWidth;
     return maxLL > columns ? maxLL - columns : 0;
 }
 
@@ -494,7 +494,7 @@ void CViewerWindow::EnsureXVisibleInView(__int64 x, BOOL showPrevChar, BOOL& ful
                                          __int64 newFirstLineLen, BOOL ignoreFirstLine, __int64 maxLineLen)
 {
     fullRedraw = FALSE;
-    int columns = (Width - BORDER_WIDTH) / CharWidth;
+    int columns = (Width - GetTextLeft()) / CharWidth;
     if (x > 0 && showPrevChar)
         x--;
     if (x >= OriginX + columns)
@@ -745,7 +745,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             zDelta = (short)HIWORD(wParam);
 
             DWORD wheelScroll = GetMouseWheelScrollLines(); // 'delta' can be as large as WHEEL_PAGESCROLL(0xffffffff)
-            DWORD pageWidth = max(1, (DWORD)(Width - BORDER_WIDTH) / CharWidth);
+            DWORD pageWidth = max(1, (DWORD)(Width - GetTextLeft()) / CharWidth);
             wheelScroll = max(1, min(wheelScroll, pageWidth - 1)); // limit it to at most the page width
 
             MouseHWheelAccumulator += 1000 * zDelta;
@@ -1104,7 +1104,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                 case SB_PAGELEFT:
                 {
-                    int step = ((Width - BORDER_WIDTH) / CharWidth);
+                    int step = ((Width - GetTextLeft()) / CharWidth);
                     if (step > 1)
                         step--;
                     OriginX -= step;
@@ -1119,7 +1119,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     if ((int)LOWORD(wParam) == SB_PAGERIGHT)
                     {
-                        int step = ((Width - BORDER_WIDTH) / CharWidth);
+                        int step = ((Width - GetTextLeft()) / CharWidth);
                         if (step > 1)
                             step--;
                         OriginX += step;
@@ -2127,6 +2127,21 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DefViewMode = 1;
             else
                 DefViewMode = 2;
+            return 0;
+        }
+
+        case CM_VIEW_LINENUMBERS:
+            ShowLineNumbers = !ShowLineNumbers;
+            InvalidateRect(HWindow, NULL, FALSE);
+            return 0;
+
+        case CM_VIEW_STATUSBAR:
+        {
+            ShowStatusBar = !ShowStatusBar;
+            LayoutStatusBar();
+            RECT rc;
+            GetClientRect(HWindow, &rc);
+            SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
             return 0;
         }
 
@@ -3267,10 +3282,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             // jr: previously the condition was if (x < 0) { x = 0; ...}, but users reported that with the viewer window maximized
             // they could not scroll to the left; because we have an empty strip on the left (the text is not glued to the edge)
-            // we can allow scrolling for x < BORDER_WIDTH
-            if (x < BORDER_WIDTH)
+            // we can allow scrolling for x < GetTextLeft()
+            if (x < GetTextLeft())
             {
-                x = BORDER_WIDTH;
+                x = GetTextLeft();
                 wait = TRUE;
                 SendMessage(HWindow, WM_COMMAND, CM_LEFT, 0);
             }
@@ -3304,7 +3319,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     // when shortening the block after reaching the left edge of the view (start of the line after wrapping)
                     // repaint the end of the previous line (its black-end was erased)
                     if (WrapText && StartSelection < EndSelection && off < EndSelection &&
-                        (x - BORDER_WIDTH + CharWidth / 2) / CharWidth <= Configuration.TabSize / 2 && minRow > 0)
+                        (x - GetTextLeft() + CharWidth / 2) / CharWidth <= Configuration.TabSize / 2 && minRow > 0)
                     {
                         minRow--;
                     }
@@ -3344,7 +3359,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int y = (short)HIWORD(lParam);
                 if (x >= 0 && y >= 0 && x < Width && y < Height)
                 {
-                    x = (int)((x - BORDER_WIDTH) / CharWidth + OriginX);
+                    x = (int)((x - GetTextLeft()) / CharWidth + OriginX);
                     y = y / CharHeight;
                     if (x > 9 - 8 + HexOffsetLength && x < 61 - 8 + HexOffsetLength)
                     {
@@ -3375,7 +3390,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ResetMouseWheelAccumulator(); // when the wheel tilt direction changes we must reset the accumulator
 
         DWORD wheelScroll = GetMouseWheelScrollChars();
-        DWORD pageWidth = max(1, (DWORD)(Width - BORDER_WIDTH) / CharWidth);
+        DWORD pageWidth = max(1, (DWORD)(Width - GetTextLeft()) / CharWidth);
         wheelScroll = max(1, min(wheelScroll, pageWidth - 1)); // limit it to at most the page width
 
         MouseHWheelAccumulator += 1000 * zDelta;
@@ -3512,6 +3527,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 CheckMenuRadioItem(subMenu, CM_TO_HEX, CM_TO_TEXT,
                                    (Type == vtHex) ? CM_TO_HEX : CM_TO_TEXT, MF_BYCOMMAND);
                 CheckMenuItem(subMenu, CM_WRAPED, MF_BYCOMMAND | (WrapText ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(subMenu, CM_VIEW_LINENUMBERS, MF_BYCOMMAND | (ShowLineNumbers ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(subMenu, CM_VIEW_STATUSBAR, MF_BYCOMMAND | (ShowStatusBar ? MF_CHECKED : MF_UNCHECKED));
                 EnableMenuItem(subMenu, CM_WRAPED, MF_BYCOMMAND | ((Type == vtText) ? MF_ENABLED : MF_GRAYED));
                 BOOL zoomed = IsZoomed(HWindow);
                 CheckMenuItem(subMenu, CM_VIEW_FULLSCREEN, MF_BYCOMMAND | (zoomed ? MF_CHECKED : MF_UNCHECKED));

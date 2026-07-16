@@ -319,6 +319,7 @@ protected:
     void SetViewerZoom(int percent);
     void LayoutStatusBar();
     void UpdateStatusBar(__int64 offset = -1);
+    int GetTextLeft() const { return BORDER_WIDTH + (ShowLineNumbers ? 6 * CharWidth : 0); }
 
     void ResetMouseWheelAccumulator()
     {
@@ -388,6 +389,8 @@ protected:
     HANDLE Lock; // handle for the disk cache
 
     BOOL WrapText; // local copy of Configuration.WrapText
+    BOOL ShowLineNumbers;
+    BOOL ShowStatusBar;
 
     BOOL CodePageAutoSelect;  // local copy of Configuration.CodePageAutoSelect
     char DefaultConvert[200]; // local copy of Configuration.DefaultConvert
