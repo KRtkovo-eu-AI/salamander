@@ -99,7 +99,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
         view->CreateExW(Configuration.AlwaysOnTop ? WS_EX_TOPMOST : 0,
                         CVIEWERWINDOW_CLASSNAMEW,
                         viewerTitle.c_str(),
-                        WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_HSCROLL,
+                        WS_OVERLAPPEDWINDOW,
                         data->Left,
                         data->Top,
                         data->Width,
@@ -112,7 +112,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
         view->CreateEx(Configuration.AlwaysOnTop ? WS_EX_TOPMOST : 0,
                        CVIEWERWINDOW_CLASSNAMEW,
                        viewerTitle.c_str(),
-                       WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_HSCROLL,
+                       WS_OVERLAPPEDWINDOW,
                        data->Left,
                        data->Top,
                        data->Width,
@@ -2000,7 +2000,7 @@ void CViewerWindow::SetScrollBar()
         SCROLLINFO si;
         si.cbSize = sizeof(si);
         si.fMask = SIF_ALL;
-        GetScrollInfo(HWindow, SB_VERT, &si);
+        GetScrollInfo(VScrollBar, SB_CTL, &si);
 
         __int64 max = ViewSize + MaxSeekY;
         ScrollScaleY = ((double)max) / 20000.0;
@@ -2026,13 +2026,13 @@ void CViewerWindow::SetScrollBar()
                 si.nPage = 0;
                 si.nPos = 0;
             }
-            SetScrollInfo(HWindow, SB_VERT, &si, TRUE);
+            SetScrollInfo(VScrollBar, SB_CTL, &si, TRUE);
         }
 
         // horizontal scrollbar
         si.cbSize = sizeof(si);
         si.fMask = SIF_ALL;
-        GetScrollInfo(HWindow, SB_HORZ, &si);
+        GetScrollInfo(HScrollBar, SB_CTL, &si);
 
         max = OriginX + (Width - BORDER_WIDTH) / CharWidth;
         __int64 maxLL = GetMaxVisibleLineLen();
@@ -2062,7 +2062,7 @@ void CViewerWindow::SetScrollBar()
                 si.nPage = 0;
                 si.nPos = 0;
             }
-            SetScrollInfo(HWindow, SB_HORZ, &si, TRUE);
+            SetScrollInfo(HScrollBar, SB_CTL, &si, TRUE);
         }
     }
 }

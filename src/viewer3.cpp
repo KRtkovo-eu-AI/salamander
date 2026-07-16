@@ -816,6 +816,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                   NULL, NULL, HInstance, NULL);
         HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
+        HScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_HORZ,
+                                    0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
+        VScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_VERT,
+                                    0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                     0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
         HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
@@ -927,8 +931,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (IsWindowVisible(HWindow)) // the last WM_SIZE arrives when closing the window; we do not care (error dialogs without the viewer window are highly undesirable)
         {
             SetToolTipOffset(-1);
-            int clientWidth = LOWORD(lParam);
-            int clientHeight = HIWORD(lParam);
+            int clientWidth = LOWORD(lParam) - GetSystemMetrics(SM_CXVSCROLL);
+            int clientHeight = HIWORD(lParam) - GetSystemMetrics(SM_CYHSCROLL);
             BOOL widthChanged = (Width != clientWidth);
             Width = clientWidth;
             Bitmap.Enlarge(Width, CharHeight);

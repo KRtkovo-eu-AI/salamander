@@ -635,7 +635,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     BkgndBrush = NULL;
     BkgndBrushSel = NULL;
     ViewerFont = NULL;
-    HStatusBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
+    HStatusBar = HScrollBar = VScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
     StatusBarHeight = 0;
     ZoomPercent = Configuration.ViewerZoomPercent;
     StatusOffset = -1;
@@ -2345,11 +2345,17 @@ void CViewerWindow::LayoutStatusBar()
     RECT rc;
     GetClientRect(HWindow, &rc);
     StatusBarHeight = ShowStatusBar ? max(20, CharHeight + 8) : 0;
+    int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
+    int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
     ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomOut, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomEdit, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomIn, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    SetWindowPos(HScrollBar, NULL, 0, rc.bottom - StatusBarHeight - scrollHeight,
+                 rc.right - scrollWidth, scrollHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(VScrollBar, NULL, rc.right - scrollWidth, 0, scrollWidth,
+                 rc.bottom - StatusBarHeight - scrollHeight, SWP_NOZORDER | SWP_NOACTIVATE);
     SetWindowPos(HStatusBar, NULL, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOZORDER | SWP_NOACTIVATE);
     int x = rc.right - 4;
     x -= 22;
