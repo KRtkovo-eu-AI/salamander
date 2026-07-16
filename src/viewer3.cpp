@@ -917,6 +917,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         EraseBkgnd = FALSE;
         PAINTSTRUCT ps;
         HANDLES(BeginPaint(HWindow, &ps));
+        // Child scrollbars and the native status bar must use the final client
+        // rectangle.  The viewer can be shown after its initial WM_SIZE, so a
+        // paint is the first reliable point at which that rectangle is final.
+        LayoutStatusBar();
         Paint(ps.hdc);
         HANDLES(EndPaint(HWindow, &ps));
         return 0;

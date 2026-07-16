@@ -2362,13 +2362,13 @@ void CViewerWindow::LayoutStatusBar()
     SetWindowPos(HStatusBar, NULL, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOZORDER | SWP_NOACTIVATE);
     int x = rc.right - 4;
     x -= 22;
-    SetWindowPos(HZoomIn, NULL, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
     x -= 54;
-    SetWindowPos(HZoomEdit, NULL, x, rc.bottom - StatusBarHeight + 3, 54, StatusBarHeight - 6, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(HZoomEdit, HWND_TOP, x, rc.bottom - StatusBarHeight + 3, 54, StatusBarHeight - 6, SWP_NOACTIVATE);
     x -= 22;
-    SetWindowPos(HZoomOut, NULL, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(HZoomOut, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
     x -= 42;
-    SetWindowPos(HZoomReset, NULL, x, rc.bottom - StatusBarHeight + 2, 42, StatusBarHeight - 4, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(HZoomReset, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 42, StatusBarHeight - 4, SWP_NOACTIVATE);
 }
 
 void CViewerWindow::UpdateStatusBar(__int64 offset)
