@@ -2301,6 +2301,11 @@ void CViewerWindow::SetViewerZoom(int percent)
     SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
 }
 
+int CViewerWindow::GetTextLeft() const
+{
+    return BORDER_WIDTH + (ShowLineNumbers ? 6 * CharWidth : 0);
+}
+
 void CViewerWindow::LayoutStatusBar()
 {
     if (HStatusBar == NULL)

@@ -319,7 +319,7 @@ protected:
     void SetViewerZoom(int percent);
     void LayoutStatusBar();
     void UpdateStatusBar(__int64 offset = -1);
-    int GetTextLeft() const { return BORDER_WIDTH + (ShowLineNumbers ? 6 * CharWidth : 0); }
+    int GetTextLeft() const;
 
     void ResetMouseWheelAccumulator()
     {
