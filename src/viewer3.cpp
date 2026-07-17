@@ -1002,7 +1002,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         VScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_VERT,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         SetWindowSubclass(VScrollBar, HScrollBarSubclass, kVScrollBarSubclassId, 0);
-        HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        HZoomReset = CreateWindowEx(0, "BUTTON", LoadStr(IDS_VIEWER_ZOOM_RESET), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                     0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
         HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                   0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_OUT, HInstance, NULL);
@@ -2397,10 +2397,24 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         case CM_VIEW_LINENUMBERS:
+        {
             ShowLineNumbers = !ShowLineNumbers;
             Configuration.ViewerShowLineNumbers = ShowLineNumbers;
+            // Toggling line numbers changes GetTextLeft(), which changes the
+            // available text columns.  For wrapped text this affects line breaks,
+            // MaxSeekY, and the current seek position.  Recalculate directly;
+            // WM_SIZE would not trigger HeightChanged() because the raw client
+            // dimensions are unchanged.
+            if (FileName != NULL && Type == vtText && WrapText && !ExitTextMode)
+            {
+                BOOL fatalErr = FALSE;
+                HeightChanged(fatalErr);
+                if (!fatalErr)
+                    FindNewSeekY(SeekY, fatalErr);
+            }
             InvalidateRect(HWindow, NULL, FALSE);
             return 0;
+        }
 
         case CM_VIEW_STATUSBAR:
         {

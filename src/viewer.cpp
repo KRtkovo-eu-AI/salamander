@@ -2348,6 +2348,18 @@ void CViewerWindow::SetViewerZoom(int percent)
     sprintf(text, "%d %%", ZoomPercent);
     SetWindowText(HZoomEdit, text);
     LayoutStatusBar();
+    // SetViewerFont() updated CharWidth/CharHeight, so document metrics
+    // (MaxSeekY, CachedVerticalPageSize, wrap bounds) are now stale.
+    // HeightChanged() would normally be called from WM_SIZE, but WM_SIZE
+    // only triggers it when the pixel dimensions change — a zoom change
+    // keeps the same client rect.  Force a full recalculation here.
+    if (FileName != NULL && !ExitTextMode)
+    {
+        BOOL fatalErr = FALSE;
+        HeightChanged(fatalErr);
+        if (!fatalErr)
+            FindNewSeekY(SeekY, fatalErr);
+    }
     RECT rc;
     GetClientRect(HWindow, &rc);
     SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
