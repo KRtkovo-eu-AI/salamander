@@ -3490,11 +3490,6 @@ void CCfgPageHotPath::Transfer(CTransferInfo& ti)
 
 void CCfgPageHotPath::LoadControls()
 {
-    // Keep the edit control's contents before replacing them for another item.
-    // During LVN_ITEMCHANGED the list selection has already changed, so using
-    // the current selection here would save the old path into the new item.
-    StoreControls();
-
     int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
     char path[HOTPATHITEM_MAXPATH];
     path[0] = 0;
@@ -3739,6 +3734,10 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 LPNMLISTVIEW nmhi = (LPNMLISTVIEW)nmh;
                 if (!(nmhi->uOldState & LVIS_SELECTED) && nmhi->uNewState & LVIS_SELECTED)
                 {
+                    // The list selection has already changed.  Store the
+                    // edit control under the row that owned it before
+                    // loading the newly selected row.
+                    StoreControls();
                     LoadControls();
                 }
                 if (nmhi->uOldState & 0x2000 && nmhi->uNewState & 0x1000 ||
@@ -3774,10 +3773,8 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     path[0] = 0;
                     if (strlen(name) != 0)
                         Config->GetPath(index, path, HOTPATHITEM_MAXPATH);
-                    // Clearing a label also clears its path.  Do not let
-                    // LoadControls() store the stale edit-control text back
-                    // into this row before replacing the control contents.
-                    PathEditIndex = -1;
+                    if (strlen(name) == 0)
+                        PathEditIndex = -1;
                     Config->Set(index, name, path);
                     LoadControls();
                     ListView_SetItemText(HListView, index, 0, name);
