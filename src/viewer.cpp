@@ -643,6 +643,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     CachedTotalLines = -1;
     CachedMaxLineLen = 0;
     VisibleFirstDocumentLine = -1;
+    CachedSelectionStart = CachedSelectionEnd = CachedSelectionLineCount = -1;
     CachedVerticalPageSize = -1;
     LayoutNeeded = TRUE;
 
@@ -2646,28 +2647,22 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
         strcpy(text, "Line -, Column -");
     else
         sprintf(text, "Line %I64d, Column %I64d", line, column);
-    if (VisibleFirstDocumentLine > 0 && StartSelection != -1 && EndSelection != -1 && StartSelection != EndSelection)
+    if (StartSelection != -1 && EndSelection != -1 && StartSelection != EndSelection)
     {
         __int64 first = min(StartSelection, EndSelection);
         __int64 last = max(StartSelection, EndSelection);
-        int lines = 0;
-        __int64 documentLine = VisibleFirstDocumentLine;
-        __int64 prevDocLine = -1;
-        for (int i = 0; i + 2 < LineOffset.Count; i += 3)
+        // LineOffset covers only the current paint.  Use document offsets so
+        // multi-page selections are counted in their entirety.  'last' is
+        // exclusive, hence the final selected byte is last - 1.
+        if (CachedSelectionStart != first || CachedSelectionEnd != last)
         {
-            if (i > 0 && LineOffset[i] > LineOffset[i - 2])
-                ++documentLine;
-            if (last > LineOffset[i] && first <= LineOffset[i + 1])
-            {
-                if (documentLine != prevDocLine)
-                {
-                    ++lines;
-                    prevDocLine = documentLine;
-                }
-            }
+            CachedSelectionStart = first;
+            CachedSelectionEnd = last;
+            CachedSelectionLineCount = GetDocumentLineNumber(last - 1) - GetDocumentLineNumber(first) + 1;
         }
         char selection[96];
-        sprintf(selection, "  |  %I64d characters, %d lines selected", last - first, max(1, lines));
+        sprintf(selection, "  |  %I64d characters, %I64d lines selected", last - first,
+                max((__int64)1, CachedSelectionLineCount));
         strcat(text, selection);
     }
     SendMessage(HStatusBar, SB_SETTEXT, 0, (LPARAM)text);
