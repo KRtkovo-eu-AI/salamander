@@ -3771,6 +3771,10 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     path[0] = 0;
                     if (strlen(name) != 0)
                         Config->GetPath(index, path, HOTPATHITEM_MAXPATH);
+                    // Clearing a label also clears its path.  Do not let
+                    // LoadControls() store the stale edit-control text back
+                    // into this row before replacing the control contents.
+                    PathEditIndex = -1;
                     Config->Set(index, name, path);
                     LoadControls();
                     ListView_SetItemText(HListView, index, 0, name);
