@@ -29,6 +29,7 @@
 #define OPTIONS_MENU_INDEX 5             // in the viewer main menu
 
 #define WM_USER_VIEWERREFRESH WM_APP + 201 // [0, 0] - perform a refresh
+#define WM_USER_GETZOOM WM_APP + 202      // [0, 0] -> current ZoomPercent
 
 #ifndef INSIDE_SALAMANDER
 char* LoadStr(int resID);
@@ -320,7 +321,7 @@ protected:
     void LayoutStatusBar();
     void UpdateStatusBar(__int64 offset = -1);
     int GetTextLeft() const;
-    __int64 GetDocumentLineNumber(__int64 offset);
+    __int64 GetDocumentLineNumber(__int64 offset, __int64* lineStart = NULL);
 
     void ResetMouseWheelAccumulator()
     {
@@ -434,7 +435,6 @@ protected:
 
     HWND HStatusBar;
     HWND HScrollBar;
-    HWND VScrollBar;
     HWND HZoomReset;
     HWND HZoomOut;
     HWND HZoomEdit;

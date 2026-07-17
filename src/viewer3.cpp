@@ -26,6 +26,8 @@ enum
     IDC_VIEWER_ZOOM_IN
 };
 
+void FillViewerRectWithColor(HDC hdc, const RECT* rect, COLORREF color);
+
 LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
                                            UINT_PTR subclassId, DWORD_PTR refData)
 {
@@ -34,12 +36,129 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
         SendMessage(GetParent(hwnd), message, wParam, lParam);
         return 0;
     }
-    if (message == WM_KEYDOWN && wParam == VK_RETURN)
+    if (message == WM_KEYDOWN)
     {
-        // Apply the typed zoom value on Enter, same as losing focus.
-        SendMessage(GetParent(hwnd), WM_COMMAND,
-                    MAKEWPARAM(IDC_VIEWER_ZOOM_EDIT, EN_KILLFOCUS), (LPARAM)hwnd);
-        return 0;
+        if (wParam == VK_RETURN)
+        {
+            // Apply the typed zoom value on Enter, same as losing focus.
+            SendMessage(GetParent(hwnd), WM_COMMAND,
+                        MAKEWPARAM(IDC_VIEWER_ZOOM_EDIT, EN_KILLFOCUS), (LPARAM)hwnd);
+            SetFocus(GetParent(hwnd));
+            return 0;
+        }
+        if (wParam == VK_ESCAPE)
+        {
+            // Cancel editing: restore the current zoom value and return focus.
+            char text[16];
+            sprintf(text, "%d %%", (int)SendMessage(GetParent(hwnd), WM_USER_GETZOOM, 0, 0));
+            SetWindowText(hwnd, text);
+            SetFocus(GetParent(hwnd));
+            return 0;
+        }
+        // Forward Ctrl+plus/minus/0 to the parent so zoom shortcuts work
+        // even when the edit has focus.
+        if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
+        {
+            SendMessage(GetParent(hwnd), message, wParam, lParam);
+            return 0;
+        }
+    }
+    // Owner-draw the zoom push buttons in dark mode to avoid artifacts from
+    // BS_FLAT + SetWindowTheme().  In light mode, let the default Win32
+    // rendering handle the buttons (original BS_PUSHBUTTON | BS_FLAT look).
+    if (DarkModeShouldUseDarkColors())
+    {
+        DWORD style = GetWindowLong(hwnd, GWL_STYLE);
+        if ((style & BS_TYPEMASK) == BS_PUSHBUTTON)
+        {
+            if (message == WM_ERASEBKGND)
+                return 1;
+            if (message == WM_PAINT)
+            {
+                PAINTSTRUCT ps;
+                HDC hdc = BeginPaint(hwnd, &ps);
+                RECT rc;
+                GetClientRect(hwnd, &rc);
+                const DarkModeColors& colors = DarkModeGetColors();
+                LRESULT state = SendMessage(hwnd, BM_GETSTATE, 0, 0);
+                bool pressed = (state & BST_PUSHED) != 0;
+                bool hot = (state & BST_HOT) != 0;
+                COLORREF bg = pressed ? RGB(0x50, 0x50, 0x50)
+                           : hot     ? RGB(0x40, 0x40, 0x40)
+                           :           colors.background;
+                FillViewerRectWithColor(hdc, &rc, bg);
+                DrawEdge(hdc, &rc, BDR_SUNKENOUTER, BF_RECT);
+                SetBkMode(hdc, TRANSPARENT);
+                SetTextColor(hdc, colors.readableText);
+                HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+                HGDIOBJ oldFont = font ? SelectObject(hdc, font) : NULL;
+                char buf[64];
+                GetWindowTextA(hwnd, buf, _countof(buf));
+                DrawTextA(hdc, buf, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                if (oldFont)
+                    SelectObject(hdc, oldFont);
+                EndPaint(hwnd, &ps);
+                return 0;
+            }
+        }
+    }
+    return DefSubclassProc(hwnd, message, wParam, lParam);
+}
+
+// Subclass for the horizontal scrollbar: repaints the track background
+// with RGB(23,23,23) so it is darker than the default dark-mode track
+// (RGB(32,32,32)), matching the user's desired look.
+// The scrollbar's track is drawn in WM_NCPAINT (non-client area), so we
+// intercept that message, let the default dark theme paint, then overdraw
+// only the track regions (between arrows, excluding the thumb).
+static const UINT_PTR kHScrollBarSubclassId = 2;
+
+static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                           UINT_PTR subclassId, DWORD_PTR refData)
+{
+    if (message == WM_NCDESTROY)
+        RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
+    if (message == WM_NCPAINT && DarkModeShouldUseDarkColors())
+    {
+        // Let the default dark scrollbar paint (arrows, track, thumb).
+        LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
+        HDC hdc = GetWindowDC(hwnd);
+        if (hdc != NULL)
+        {
+            RECT rcWnd;
+            GetWindowRect(hwnd, &rcWnd);
+            int wndW = rcWnd.right - rcWnd.left;
+            int wndH = rcWnd.bottom - rcWnd.top;
+            // Get scrollbar layout info (absolute positions within the control).
+            SCROLLBARINFO sbi;
+            sbi.cbSize = sizeof(sbi);
+            if (GetScrollBarInfo(hwnd, OBJID_CLIENT, &sbi))
+            {
+                int arrowSize = sbi.dxyLineButton;
+                // thumbLeft/thumbRight are absolute x-coordinates within the scrollbar.
+                int thumbLeft = sbi.xyThumbTop;
+                int thumbRight = sbi.xyThumbBottom;
+                HBRUSH br = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
+                if (br != NULL)
+                {
+                    // Left track: between left arrow and thumb
+                    if (arrowSize < thumbLeft)
+                    {
+                        RECT leftTrack = { arrowSize, 0, thumbLeft, wndH };
+                        FillRect(hdc, &leftTrack, br);
+                    }
+                    // Right track: between thumb and right arrow
+                    if (thumbRight < wndW - arrowSize)
+                    {
+                        RECT rightTrack = { thumbRight, 0, wndW - arrowSize, wndH };
+                        FillRect(hdc, &rightTrack, br);
+                    }
+                    HANDLES(DeleteObject(br));
+                }
+            }
+            ReleaseDC(hwnd, hdc);
+        }
+        return result;
     }
     return DefSubclassProc(hwnd, message, wParam, lParam);
 }
@@ -844,8 +963,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         HScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_HORZ,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
-        VScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_VERT,
-                                    0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
+        SetWindowSubclass(HScrollBar, HScrollBarSubclass, kHScrollBarSubclassId, 0);
         HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                     0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
         HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
@@ -937,6 +1055,43 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    // Paint over the bottom portion of the non-client V scrollbar and fix
+    // the 1px white line at its top.  The V scrollbar (WS_VSCROLL) is a
+    // non-client element that extends the full client height.  We let
+    // DefWindowProc draw it first, then overdraw two regions:
+    //   1) The top 1px – paint with the background colour (RGB(32,32,32)).
+    //   2) The bottom StatusBarHeight pixels – paint with the same colour
+    //      so the V scrollbar appears shortened (stops at the H scrollbar).
+    case WM_NCPAINT:
+    {
+        LRESULT ncResult = DefWindowProc(HWindow, WM_NCPAINT, wParam, lParam);
+        if (DarkModeShouldUseDarkColors() && StatusBarHeight > 0)
+        {
+            HDC hdc = GetWindowDC(HWindow);
+            if (hdc != NULL)
+            {
+                RECT rcWnd;
+                GetWindowRect(HWindow, &rcWnd);
+                int wndW = rcWnd.right - rcWnd.left;
+                int vScrollW = GetSystemMetrics(SM_CXVSCROLL);
+                HBRUSH br = HANDLES(CreateSolidBrush(DarkModeGetColors().background));
+                if (br != NULL)
+                {
+                    // Fix 1px white line at the very top of the V scrollbar
+                    RECT topFix = { wndW - vScrollW, 0, wndW, 1 };
+                    FillRect(hdc, &topFix, br);
+                    // Paint over the bottom StatusBarHeight pixels
+                    int bottomTop = (rcWnd.bottom - rcWnd.top) - StatusBarHeight;
+                    RECT bottomFix = { wndW - vScrollW, bottomTop, wndW, rcWnd.bottom - rcWnd.top };
+                    FillRect(hdc, &bottomFix, br);
+                    HANDLES(DeleteObject(br));
+                }
+                ReleaseDC(HWindow, hdc);
+            }
+        }
+        return ncResult;
+    }
+
     case WM_PAINT:
     {
         EraseBkgnd = FALSE;
@@ -977,14 +1132,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (IsWindowVisible(HWindow)) // the last WM_SIZE arrives when closing the window; we do not care (error dialogs without the viewer window are highly undesirable)
         {
             SetToolTipOffset(-1);
-            int clientWidth = LOWORD(lParam) - GetSystemMetrics(SM_CXVSCROLL);
-            int clientHeight = HIWORD(lParam) - GetSystemMetrics(SM_CYHSCROLL);
+            int clientWidth = LOWORD(lParam);
+            int clientHeight = HIWORD(lParam);
             BOOL widthChanged = (Width != clientWidth);
             Width = clientWidth;
             Bitmap.Enlarge(Width, CharHeight);
             if (Width < 0)
                 Width = 0;
-            int viewHeight = max(0, clientHeight - StatusBarHeight);
+            int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
+            int viewHeight = max(0, clientHeight - scrollHeight - StatusBarHeight);
             if (Height != viewHeight ||
                 widthChanged && Type == vtText && WrapText)
             {
@@ -1105,6 +1261,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SendMessage(FindDialog.HWindow, WM_USER_CLEARHISTORY, wParam, lParam);
         return 0;
     }
+
+    case WM_USER_GETZOOM:
+        return (LRESULT)ZoomPercent;
 
     case WM_VSCROLL:
     {

@@ -635,7 +635,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     BkgndBrush = NULL;
     BkgndBrushSel = NULL;
     ViewerFont = NULL;
-    HStatusBar = HScrollBar = VScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
+    HStatusBar = HScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
     StatusBarHeight = 0;
     ZoomPercent = Configuration.ViewerZoomPercent;
     StatusOffset = -1;
@@ -2073,21 +2073,6 @@ void CViewerWindow::Paint(HDC dc)
         FillRect(dc, &r, BkgndBrush); // clear the column to the left of the text
         SetScrollBar();
     }
-    // Fill the scrollbar corner (where H and V scrollbars meet) with the
-    // background brush.  Without this, the area shows a white square in
-    // dark mode because the standard SCROLLBAR class does not paint it.
-    if (HScrollBar != NULL && VScrollBar != NULL)
-    {
-        int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
-        int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
-        RECT rcWnd;
-        GetClientRect(HWindow, &rcWnd);
-        RECT corner = {rcWnd.right - scrollWidth,
-                       rcWnd.bottom - StatusBarHeight - scrollHeight,
-                       rcWnd.right,
-                       rcWnd.bottom - StatusBarHeight};
-        FillRect(dc, &corner, BkgndBrush);
-    }
 }
 
 //
@@ -2358,12 +2343,20 @@ int CViewerWindow::GetTextLeft() const
     return BORDER_WIDTH + (LineNumberDigits + 1) * CharWidth;
 }
 
-__int64 CViewerWindow::GetDocumentLineNumber(__int64 offset)
+__int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
 {
     if (offset <= TextStartOffset())
+    {
+        if (lineStart)
+            *lineStart = TextStartOffset();
         return 1;
+    }
     if (Type == vtHex)
+    {
+        if (lineStart)
+            *lineStart = offset - (offset % 16);
         return offset / 16 + 1;
+    }
 
     // Prepare() reuses the rendering buffer.  Restore the visible buffer
     // afterwards so obtaining a label/status position cannot disturb an
@@ -2371,6 +2364,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset)
     const __int64 savedSeek = Seek;
     const __int64 savedLoaded = Loaded;
     __int64 line = 1;
+    __int64 lastNewline = TextStartOffset() - 1; // offset of last '\n' seen (-1 = none yet)
     __int64 pos = TextStartOffset();
     BOOL fatalErr = FALSE;
     while (pos < offset)
@@ -2380,10 +2374,17 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset)
             break;
         unsigned char* text = Buffer + pos - Seek;
         for (__int64 i = 0; i < read; ++i)
+        {
             if (text[i] == '\n')
+            {
+                lastNewline = pos + i;
                 ++line;
+            }
+        }
         pos += read;
     }
+    if (lineStart)
+        *lineStart = lastNewline + 1; // character after the last '\n' is the start of the current logical line
     if (savedLoaded > 0)
     {
         BOOL restoreFatalErr = FALSE;
@@ -2401,25 +2402,27 @@ void CViewerWindow::LayoutStatusBar()
     // The status bar and its controls are window chrome.  Their dimensions
     // must not follow the document font zoom.
     StatusBarHeight = ShowStatusBar ? max(20, GetSystemMetrics(SM_CYSMICON) + 4) : 0;
-    int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
     int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
-    int gripWidth = (HStatusBar != NULL && (GetWindowLong(HStatusBar, GWL_STYLE) & SBARS_SIZEGRIP)) ? scrollWidth : 0;
+    // The grip width corresponds to the V scrollbar area.  With non-client
+    // WS_VSCROLL the client area is already reduced by SM_CXVSCROLL; the
+    // status bar size grip occupies that same width at the right edge.
+    int gripWidth = (HStatusBar != NULL && (GetWindowLong(HStatusBar, GWL_STYLE) & SBARS_SIZEGRIP)) ? GetSystemMetrics(SM_CXVSCROLL) : 0;
     ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomOut, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomEdit, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomIn, ShowStatusBar ? SW_SHOW : SW_HIDE);
+    // Horizontal scrollbar (child control) spans the full client width, positioned
+    // above the status bar — same layout as Notepad's Edit control.
     SetWindowPos(HScrollBar, NULL, 0, rc.bottom - StatusBarHeight - scrollHeight,
-                 rc.right - scrollWidth, scrollHeight,
+                 rc.right, scrollHeight,
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
-    SetWindowPos(VScrollBar, NULL, rc.right - scrollWidth, 0, scrollWidth,
-                 rc.bottom - StatusBarHeight - scrollHeight,
-                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
-    // Keep the native status bar behind its interactive children.  Some
-    // common-control versions repaint it over the zoom controls after a
-    // resize or a document scroll.
+    // Keep the native status bar behind its interactive children.
     SetWindowPos(HStatusBar, HWND_BOTTOM, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOACTIVATE);
-    int x = rc.right - gripWidth - 4;
+    // Position zoom buttons at the right edge of the client area, flush
+    // against the grip.  The V scrollbar (non-client) is already shortened
+    // by WM_NCPAINT, so the grip/zoom area visually meets the window edge.
+    int x = rc.right - gripWidth;
     x -= 22;
     SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
     x -= 54;
@@ -2428,13 +2431,8 @@ void CViewerWindow::LayoutStatusBar()
     SetWindowPos(HZoomOut, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
     x -= 42;
     SetWindowPos(HZoomReset, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 42, StatusBarHeight - 4, SWP_NOACTIVATE);
-    // Ensure the parent and its chrome children are invalidated after
-    // repositioning.  This covers status-bar hide/show (the old area
-    // must be cleared) and maximize/restore (scrollbar children must
-    // redraw at new positions).
     InvalidateRect(HWindow, NULL, FALSE);
     InvalidateRect(HScrollBar, NULL, FALSE);
-    InvalidateRect(VScrollBar, NULL, FALSE);
     InvalidateRect(HStatusBar, NULL, FALSE);
 }
 
@@ -2458,8 +2456,9 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
             for (int i = 0; i + 2 < LineOffset.Count; i += 3)
                 if (StatusOffset >= LineOffset[i] && StatusOffset <= LineOffset[i + 1])
                 {
-                    line = GetDocumentLineNumber(LineOffset[i]);
-                    column = StatusOffset - LineOffset[i] + 1;
+                    __int64 lineStart;
+                    line = GetDocumentLineNumber(LineOffset[i], &lineStart);
+                    column = StatusOffset - lineStart + 1;
                     break;
                 }
         }
@@ -2474,9 +2473,17 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
         __int64 first = min(StartSelection, EndSelection);
         __int64 last = max(StartSelection, EndSelection);
         int lines = 0;
+        __int64 prevDocLine = -1;
         for (int i = 0; i + 2 < LineOffset.Count; i += 3)
             if (last > LineOffset[i] && first <= LineOffset[i + 1])
-                ++lines;
+            {
+                __int64 docLine = GetDocumentLineNumber(LineOffset[i]);
+                if (docLine != prevDocLine)
+                {
+                    ++lines;
+                    prevDocLine = docLine;
+                }
+            }
         char selection[96];
         sprintf(selection, "  |  %I64d characters, %d lines selected", last - first, max(1, lines));
         strcat(text, selection);

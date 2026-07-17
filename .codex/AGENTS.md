@@ -47,3 +47,18 @@ For any change touching file paths, viewers, editors, file actions, command expa
 8. Internal viewer open, refresh, previous/next file, and title/caption rendering with long/Unicode paths.
 
 When a Windows build/test environment is unavailable, document that limitation clearly and still run static checks that look for newly introduced `MAX_PATH` path buffers, ANSI-only Win32 APIs, unsafe copies, and nested `MAX_PATH` scratch buffers.
+
+## Credits and attributions
+
+- Add visible attribution to authors of the third party component, to the repository used as a reference point for implementation or fixing issues in our code or for taking an inspiration, in the doc/third_party.md file (keep the existing structure).
+- Preserve all authors copyright/SPDX/provenance notices in files directly derived from other sources.
+- Add comments or documentation where substantial code or tooling was copied or adapted from other sources.
+
+# Darkmode
+
+By Darkmode we always means the situation when user has set the Configuration - Colors - Scheme as Windows Dark Mode (experimental) scheme, not the operating system being in dark mode (if we means the system settings, we mention it specifically in the task prompt). All others color schemes are in light mode.
+
+- Darkmode win32 winapi components and controls should use the win32-darkmodelib library included our project. USE_DARKMODELIB=1
+- Darkmode windows and dialogs have to use dark window title bar, IMMERSIVEMODE and other undocumented Windows API calls.
+- If creating any new window, any new dialog, showing new messagebox, creating new plugin etc., always don't forget to support the darkmode!
+
