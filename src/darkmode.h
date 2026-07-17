@@ -5,6 +5,7 @@
 
 #include <windows.h>
 #include <commdlg.h>
+#include <commctrl.h>
 
 struct DarkModeColors
 {
@@ -89,6 +90,12 @@ COLORREF DarkModeGetDialogBackgroundColor();
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
 void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
+
+// Repairs native list-view checkbox painting that can remain light on Win10
+// when the application uses dark colors.
+void RemoveListViewWhiteClientEdge(HWND listView);
+bool ShouldCustomDrawListViewCheckboxes();
+void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, int columnCount);
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);
 void DarkModeUpdateTabControlOverflowButtons(HWND tabControl);
 void DarkModePreserveCustomTabControl(HWND tabControl);

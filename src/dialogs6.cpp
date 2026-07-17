@@ -2622,6 +2622,18 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // dialog elements should stretch depending on its size, set split controls
         ElasticVerticalLayout(1, IDC_ICONOVRLS_LIST);
 
+        DarkModeUpdateListViewColors(HListView);
+        RemoveListViewWhiteClientEdge(HListView);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            // See the corresponding Available Columns list: on Win10 the
+            // native checkbox state image and client edge can remain light.
+            RemoveListViewWhiteClientEdge(HListView);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
+
         break;
     }
 
@@ -2632,6 +2644,7 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeUpdateListViewColors(HListView);
+            RemoveListViewWhiteClientEdge(HListView);
             DarkModeApplyStaticTextColors(HWindow, NULL);
             RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
             return TRUE;
@@ -2641,10 +2654,34 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SYSCOLORCHANGE:
     {
-        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
-            DarkModeUpdateListViewColors(HListView);
-        else
-            ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
+        DarkModeUpdateListViewColors(HListView);
+        RemoveListViewWhiteClientEdge(HListView);
+        break;
+    }
+
+    case WM_NOTIFY:
+    {
+        if (wParam == IDC_ICONOVRLS_LIST && ((LPNMHDR)lParam)->code == NM_CUSTOMDRAW)
+        {
+            LPNMLVCUSTOMDRAW customDraw = reinterpret_cast<LPNMLVCUSTOMDRAW>(lParam);
+            LRESULT customDrawResult = CDRF_DODEFAULT;
+            if (DarkModeShouldUseDarkColors())
+            {
+                if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
+                    customDrawResult = CDRF_NOTIFYITEMDRAW;
+                else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+                {
+                    customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
+                    customDraw->clrText = DarkModeGetDialogTextColor();
+                    if (ShouldCustomDrawListViewCheckboxes())
+                        customDrawResult = CDRF_NOTIFYPOSTPAINT;
+                }
+                else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
+                    DrawDarkModeListViewCheckboxes(HListView, customDraw, 2);
+            }
+            SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
+            return TRUE;
+        }
         break;
     }
 

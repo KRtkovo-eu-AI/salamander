@@ -88,7 +88,7 @@ static void SetViewsAvailableColumnsColumnWidth(HWND listView)
     ListView_SetColumnWidth(listView, 0, width);
 }
 
-static void RemoveViewsListViewWhiteClientEdge(HWND listView)
+void RemoveListViewWhiteClientEdge(HWND listView)
 {
     if (listView == NULL || !DarkModeShouldUseDarkColors())
         return;
@@ -108,29 +108,27 @@ static void RemoveViewsListViewWhiteClientEdge(HWND listView)
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 }
 
-static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
+static void RemoveListViewsWhiteClientEdge(HWND listView, HWND listView2)
 {
-    RemoveViewsListViewWhiteClientEdge(listView);
-    RemoveViewsListViewWhiteClientEdge(listView2);
+    RemoveListViewWhiteClientEdge(listView);
+    RemoveListViewWhiteClientEdge(listView2);
 }
 
-static bool ShouldCustomDrawViewsAvailableColumnCheckboxes()
+bool ShouldCustomDrawListViewCheckboxes()
 {
-    // Available Columns used to be fixed by overlaying the checkbox cell after
-    // the native list-view item has been painted. Keep the post-paint path for
-    // this single list-view whenever dark colors are active: darkmodelib still
-    // themes the list-view/header chrome, and this pass covers any native
-    // state-image background that can remain white.
+    // Keep the post-paint path for checkbox list views whenever dark colors are
+    // active: darkmodelib themes the list-view/header chrome, but the native
+    // state-image background can still remain white.
     return DarkModeShouldUseDarkColors();
 }
 
-// Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
+// Custom-draw handler for dark-mode checkboxes in a ListView.
 // Called from CDDS_ITEMPOSTPAINT so the native/default item draw stays intact
-// and this pass only overlays the problematic state-image area (plus the row
+// and this pass overlays the problematic state-image area (plus the row
 // background/text) with dark colors.
-static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
+void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, int columnCount)
 {
-    if (!ShouldCustomDrawViewsAvailableColumnCheckboxes() || listView == NULL || customDraw == NULL)
+    if (!ShouldCustomDrawListViewCheckboxes() || listView == NULL || customDraw == NULL || columnCount <= 0)
         return;
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
@@ -199,14 +197,22 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
             DeleteObject(checkPen);
     }
 
-    char text[256];
-    text[0] = 0;
-    ListView_GetItemText(listView, item, 0, text, _countof(text));
-    RECT textRect = labelRect;
-    textRect.left += 2;
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
     COLORREF oldTextColor = SetTextColor(hdc, DarkModeGetDialogTextColor());
-    DrawText(hdc, text, -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
+    for (int column = 0; column < columnCount; ++column)
+    {
+        char text[256];
+        text[0] = 0;
+        ListView_GetItemText(listView, item, column, text, _countof(text));
+
+        RECT textRect;
+        if (ListView_GetSubItemRect(listView, item, column, LVIR_LABEL, &textRect))
+        {
+            textRect.left += 2;
+            DrawText(hdc, text, -1, &textRect,
+                     DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
+        }
+    }
     SetTextColor(hdc, oldTextColor);
     SetBkMode(hdc, oldBkMode);
 
@@ -1939,7 +1945,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
-        RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
+        RemoveListViewsWhiteClientEdge(HListView, HListView2);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
@@ -1952,7 +1958,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // visible at the edges. Remove WS_EX_CLIENTEDGE so only the CToolbarHeader's
             // dark sunken border remains. On Win11+, darkmodelib's setDarkCheckboxes
             // replaces the native state images entirely, so the border isn't an issue.
-            RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
+            RemoveListViewsWhiteClientEdge(HListView, HListView2);
             DarkModeApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
@@ -1971,7 +1977,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
-        RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
+        RemoveListViewsWhiteClientEdge(HListView, HListView2);
         break;
     }
 
@@ -2009,14 +2015,14 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
                         customDraw->clrText = DarkModeGetDialogTextColor();
-                        if (ShouldCustomDrawViewsAvailableColumnCheckboxes())
+                        if (ShouldCustomDrawListViewCheckboxes())
                             customDrawResult = CDRF_NOTIFYPOSTPAINT;
                         else
                             customDrawResult = CDRF_DODEFAULT;
                     }
                     else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
                     {
-                        DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
+                        DrawDarkModeListViewCheckboxes(HListView2, customDraw, 1);
                         customDrawResult = CDRF_DODEFAULT;
                     }
                 }
