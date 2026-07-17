@@ -1457,10 +1457,7 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 class CMyListView : public CWindow
 {
 public:
-    // Salamand's main project is built without _UNICODE.  Keep this subclass
-    // ANSI as well, otherwise it receives LVN_*W notifications while the
-    // configuration pages handle the ANSI LVN_* variants.
-    CMyListView(HWND hDlg, int ctrlID) : CWindow(hDlg, ctrlID, ooAllocated, FALSE) {}
+    CMyListView(HWND hDlg, int ctrlID) : CWindow(hDlg, ctrlID) {}
 #ifdef _UNICODE
         : CWindow(hDlg, ctrlID)
 #else
