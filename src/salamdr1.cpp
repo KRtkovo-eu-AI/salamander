@@ -4968,11 +4968,11 @@ FIND_NEW_SLG_FILE:
     // nactena (NULL -> zadna; pouziji se default hodnoty)
     if (autoImportConfig)
         SALAMANDER_ROOT_REG = autoImportConfigFromKey; // pri UPGRADE nema hledani konfigurace smysl
-    else if (storageTypeFromBootstrap && bootstrapStorageUsable)
+    else if (storageTypeFromBootstrap && bootstrapStorageUsable && !ForceWelcomeDialog)
         // configstorage.ini is the authoritative storage selection with existing configuration.  Do not open
         // the Welcome dialog again just because importable configurations exist;
-        // the dialog is only for first-time/unselected storage or explicit Manage
-        // Configurations from the menu.
+        // the dialog is only for first-time/unselected storage, an explicit -welcome
+        // request, or Manage Configurations from the menu.
         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
     else
     {
