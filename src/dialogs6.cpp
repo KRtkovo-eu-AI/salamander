@@ -2524,29 +2524,87 @@ CDriveSelectErrDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageIconOvrls
 //
 
-static void SetIconOverlaysListColumnWidths(HWND listView)
+// The native state-image background can stay light in Windows dark mode. Paint
+// only that narrow gutter after the ListView has completed its normal item
+// draw; repainting the row or labels here causes artifacts while scrolling.
+static void DrawIconOverlaysCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
 {
-    if (listView == NULL)
+    if (!DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
         return;
 
-    RECT clientRect;
-    GetClientRect(listView, &clientRect);
-    const int clientWidth = clientRect.right - clientRect.left;
-    if (clientWidth <= 0)
+    const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
+    RECT boundsRect;
+    RECT labelRect;
+    if (!ListView_GetItemRect(listView, item, &boundsRect, LVIR_BOUNDS) ||
+        !ListView_GetItemRect(listView, item, &labelRect, LVIR_LABEL))
+    {
+        return;
+    }
+
+    HDC hdc = customDraw->nmcd.hdc;
+    if (hdc == NULL)
         return;
 
-    // Keep the report view within its client width. Apart from avoiding an
-    // unnecessary horizontal scrollbar, this makes long shell descriptions
-    // use the regular ListView ellipsis behavior instead of exposing a legacy
-    // light scrollbar in the dark dialog.
-    int nameWidth = ListView_GetColumnWidth(listView, 0);
-    const int maxNameWidth = clientWidth / 2;
-    if (nameWidth > maxNameWidth)
-        nameWidth = maxNameWidth;
-    if (nameWidth < 20)
-        nameWidth = 20;
-    ListView_SetColumnWidth(listView, 0, nameWidth);
-    ListView_SetColumnWidth(listView, 1, max(20, clientWidth - nameWidth));
+    RECT stateRect = boundsRect;
+    stateRect.left = 0;
+    stateRect.right = labelRect.left;
+    if (stateRect.right <= stateRect.left)
+        return; // checkbox gutter is horizontally scrolled out of view
+
+    const bool enabled = IsWindowEnabled(listView) != FALSE;
+    const bool checked = ListView_GetItemState(listView, item, LVIS_STATEIMAGEMASK) == INDEXTOSTATEIMAGEMASK(2);
+    const COLORREF background = DarkModeGetDialogBackgroundColor();
+    const COLORREF fill = enabled ? (checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24))
+                                  : (checked ? RGB(0x3B, 0x6B, 0x78) : RGB(0x2A, 0x2A, 0x2A));
+    const COLORREF border = enabled ? (checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78))
+                                    : RGB(0x58, 0x58, 0x58);
+
+    HBRUSH backgroundBrush = CreateSolidBrush(background);
+    if (backgroundBrush != NULL)
+    {
+        FillRect(hdc, &stateRect, backgroundBrush);
+        DeleteObject(backgroundBrush);
+    }
+
+    int checkSize = stateRect.bottom - stateRect.top - 2;
+    if (checkSize < 9)
+        checkSize = 9;
+    if (checkSize > 13)
+        checkSize = 13;
+    RECT checkRect = {stateRect.left + ((stateRect.right - stateRect.left) - checkSize) / 2,
+                      stateRect.top + ((stateRect.bottom - stateRect.top) - checkSize) / 2,
+                      0,
+                      0};
+    checkRect.right = checkRect.left + checkSize;
+    checkRect.bottom = checkRect.top + checkSize;
+
+    HBRUSH fillBrush = CreateSolidBrush(fill);
+    HPEN borderPen = CreatePen(PS_SOLID, 1, border);
+    HGDIOBJ oldBrush = fillBrush != NULL ? SelectObject(hdc, fillBrush) : NULL;
+    HGDIOBJ oldPen = borderPen != NULL ? SelectObject(hdc, borderPen) : NULL;
+    Rectangle(hdc, checkRect.left, checkRect.top, checkRect.right, checkRect.bottom);
+
+    if (checked)
+    {
+        HPEN checkPen = CreatePen(PS_SOLID, 2, enabled ? RGB(0x10, 0x10, 0x10) : RGB(0x98, 0x98, 0x98));
+        HGDIOBJ oldCheckPen = checkPen != NULL ? SelectObject(hdc, checkPen) : NULL;
+        MoveToEx(hdc, checkRect.left + 3, checkRect.top + checkSize / 2, NULL);
+        LineTo(hdc, checkRect.left + checkSize / 2 - 1, checkRect.bottom - 4);
+        LineTo(hdc, checkRect.right - 3, checkRect.top + 3);
+        if (oldCheckPen != NULL)
+            SelectObject(hdc, oldCheckPen);
+        if (checkPen != NULL)
+            DeleteObject(checkPen);
+    }
+
+    if (oldPen != NULL)
+        SelectObject(hdc, oldPen);
+    if (oldBrush != NULL)
+        SelectObject(hdc, oldBrush);
+    if (borderPen != NULL)
+        DeleteObject(borderPen);
+    if (fillBrush != NULL)
+        DeleteObject(fillBrush);
 }
 
 CCfgPageIconOvrls::CCfgPageIconOvrls()
@@ -2579,7 +2637,7 @@ void CCfgPageIconOvrls::Transfer(CTransferInfo& ti)
         }
         // set column widths
         ListView_SetColumnWidth(HListView, 0, LVSCW_AUTOSIZE_USEHEADER);
-        SetIconOverlaysListColumnWidths(HListView);
+        ListView_SetColumnWidth(HListView, 1, LVSCW_AUTOSIZE_USEHEADER);
 
         DWORD state = LVIS_SELECTED | LVIS_FOCUSED;
         ListView_SetItemState(HListView, 0, state, state);
@@ -2647,18 +2705,6 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // dialog elements should stretch depending on its size, set split controls
         ElasticVerticalLayout(1, IDC_ICONOVRLS_LIST);
 
-        DarkModeUpdateListViewColors(HListView);
-        RemoveListViewWhiteClientEdge(HListView);
-        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
-        {
-            DarkModeApplyTree(HWindow);
-            // See the corresponding Available Columns list: on Win10 the
-            // native checkbox state image and client edge can remain light.
-            RemoveListViewWhiteClientEdge(HListView);
-            DarkModeApplyStaticTextColors(HWindow, NULL);
-            WinLib_DarkMode_PostDeferredRedraw(HWindow);
-        }
-
         break;
     }
 
@@ -2669,7 +2715,6 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeUpdateListViewColors(HListView);
-            RemoveListViewWhiteClientEdge(HListView);
             DarkModeApplyStaticTextColors(HWindow, NULL);
             RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
             return TRUE;
@@ -2677,43 +2722,28 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_SIZE:
-    {
-        INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
-        SetIconOverlaysListColumnWidths(HListView);
-        return result;
-    }
-
     case WM_SYSCOLORCHANGE:
     {
-        DarkModeUpdateListViewColors(HListView);
-        RemoveListViewWhiteClientEdge(HListView);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+            DarkModeUpdateListViewColors(HListView);
+        else
+            ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
         break;
     }
 
     case WM_NOTIFY:
     {
-        if (wParam == IDC_ICONOVRLS_LIST && ((LPNMHDR)lParam)->code == NM_CUSTOMDRAW)
+        if (wParam == IDC_ICONOVRLS_LIST && ((LPNMHDR)lParam)->code == NM_CUSTOMDRAW &&
+            DarkModeShouldUseDarkColors())
         {
             LPNMLVCUSTOMDRAW customDraw = reinterpret_cast<LPNMLVCUSTOMDRAW>(lParam);
             LRESULT customDrawResult = CDRF_DODEFAULT;
-            // The native dark-mode state images stay blue even after the list
-            // is disabled, so repaint disabled rows with muted checkbox/text
-            // colors as well.
-            if (DarkModeShouldUseDarkColors())
-            {
-                if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
-                    customDrawResult = CDRF_NOTIFYITEMDRAW;
-                else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
-                {
-                    customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
-                    customDraw->clrText = DarkModeGetDialogTextColor();
-                    if (ShouldCustomDrawListViewCheckboxes())
-                        customDrawResult = CDRF_NOTIFYPOSTPAINT;
-                }
-                else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
-                    DrawDarkModeListViewCheckboxes(HListView, customDraw, 2);
-            }
+            if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
+                customDrawResult = CDRF_NOTIFYITEMDRAW;
+            else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+                customDrawResult = CDRF_NOTIFYPOSTPAINT;
+            else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
+                DrawIconOverlaysCheckbox(HListView, customDraw);
             SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
             return TRUE;
         }

@@ -21,7 +21,6 @@
 #include "gui.h"
 #include "darkmode.h"
 #include <uxtheme.h>
-#include <vector>
 
 #ifndef DARKMODE_TRACE_CTLFLOW
 #define DARKMODE_TRACE_CTLFLOW 0
@@ -89,7 +88,7 @@ static void SetViewsAvailableColumnsColumnWidth(HWND listView)
     ListView_SetColumnWidth(listView, 0, width);
 }
 
-void RemoveListViewWhiteClientEdge(HWND listView)
+static void RemoveViewsListViewWhiteClientEdge(HWND listView)
 {
     if (listView == NULL || !DarkModeShouldUseDarkColors())
         return;
@@ -109,41 +108,29 @@ void RemoveListViewWhiteClientEdge(HWND listView)
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 }
 
-static void RemoveListViewsWhiteClientEdge(HWND listView, HWND listView2)
+static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
 {
-    RemoveListViewWhiteClientEdge(listView);
-    RemoveListViewWhiteClientEdge(listView2);
+    RemoveViewsListViewWhiteClientEdge(listView);
+    RemoveViewsListViewWhiteClientEdge(listView2);
 }
 
-bool ShouldCustomDrawListViewCheckboxes()
+static bool ShouldCustomDrawViewsAvailableColumnCheckboxes()
 {
-    // Keep the post-paint path for checkbox list views whenever dark colors are
-    // active: darkmodelib themes the list-view/header chrome, but the native
-    // state-image background can still remain white.
+    // Available Columns used to be fixed by overlaying the checkbox cell after
+    // the native list-view item has been painted. Keep the post-paint path for
+    // this single list-view whenever dark colors are active: darkmodelib still
+    // themes the list-view/header chrome, and this pass covers any native
+    // state-image background that can remain white.
     return DarkModeShouldUseDarkColors();
 }
 
-static COLORREF GetDarkListViewSelectionBackground(bool focused)
-{
-    // Do not use COLOR_HIGHLIGHT/COLOR_3DFACE here. The application can use
-    // its Windows dark-mode scheme while Windows itself still supplies light
-    // system colors. Derive both selection shades from the configured dark
-    // palette so they remain dark and visibly distinct from the row color.
-    const DarkModeColors& colors = DarkModeGetColors();
-    const int textWeight = focused ? 35 : 18;
-    const int backgroundWeight = 100 - textWeight;
-    return RGB((GetRValue(colors.background) * backgroundWeight + GetRValue(colors.readableText) * textWeight) / 100,
-               (GetGValue(colors.background) * backgroundWeight + GetGValue(colors.readableText) * textWeight) / 100,
-               (GetBValue(colors.background) * backgroundWeight + GetBValue(colors.readableText) * textWeight) / 100);
-}
-
-// Custom-draw handler for dark-mode checkboxes in a ListView.
+// Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
 // Called from CDDS_ITEMPOSTPAINT so the native/default item draw stays intact
-// and this pass overlays the problematic state-image area (plus the row
+// and this pass only overlays the problematic state-image area (plus the row
 // background/text) with dark colors.
-void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, int columnCount)
+static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
 {
-    if (!ShouldCustomDrawListViewCheckboxes() || listView == NULL || customDraw == NULL || columnCount <= 0)
+    if (!ShouldCustomDrawViewsAvailableColumnCheckboxes() || listView == NULL || customDraw == NULL)
         return;
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
@@ -169,90 +156,68 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
     rowRect.right = clientRect.right;
 
     const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
-    const bool focused = GetFocus() == listView;
-    const bool enabled = IsWindowEnabled(listView) != FALSE;
-    const COLORREF rowBackground = enabled && selected
-                                       ? GetDarkListViewSelectionBackground(focused)
-                                       : DarkModeGetDialogBackgroundColor();
+    const COLORREF rowBackground = selected ? DarkModeGetColors().background : DarkModeGetDialogBackgroundColor();
     FillRectWithSysColor(hdc, rowRect, rowBackground);
 
     // Calculate checkbox area (same region the native state image occupies)
     RECT stateRect = rowRect;
     stateRect.right = labelRect.left;
-    if (stateRect.right > stateRect.left)
+    if (stateRect.right <= stateRect.left)
+        return;
+
+    int checkSize = stateRect.bottom - stateRect.top - 2;
+    if (checkSize < 9)
+        checkSize = 9;
+    if (checkSize > 13)
+        checkSize = 13;
+    RECT checkRect;
+    checkRect.left = stateRect.left + ((stateRect.right - stateRect.left) - checkSize) / 2;
+    checkRect.top = stateRect.top + ((stateRect.bottom - stateRect.top) - checkSize) / 2;
+    checkRect.right = checkRect.left + checkSize;
+    checkRect.bottom = checkRect.top + checkSize;
+
+    const bool checked = (ListView_GetItemState(listView, item, LVIS_STATEIMAGEMASK) == INDEXTOSTATEIMAGEMASK(2));
+    const COLORREF fill = checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24);
+    const COLORREF border = checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78);
+
+    HBRUSH fillBrush = CreateSolidBrush(fill);
+    HPEN borderPen = CreatePen(PS_SOLID, 1, border);
+    HGDIOBJ oldBrush = fillBrush != NULL ? SelectObject(hdc, fillBrush) : NULL;
+    HGDIOBJ oldPen = borderPen != NULL ? SelectObject(hdc, borderPen) : NULL;
+    Rectangle(hdc, checkRect.left, checkRect.top, checkRect.right, checkRect.bottom);
+
+    if (checked)
     {
-        int checkSize = stateRect.bottom - stateRect.top - 2;
-        if (checkSize < 9)
-            checkSize = 9;
-        if (checkSize > 13)
-            checkSize = 13;
-        RECT checkRect;
-        checkRect.left = stateRect.left + ((stateRect.right - stateRect.left) - checkSize) / 2;
-        checkRect.top = stateRect.top + ((stateRect.bottom - stateRect.top) - checkSize) / 2;
-        checkRect.right = checkRect.left + checkSize;
-        checkRect.bottom = checkRect.top + checkSize;
-
-        const bool checked = (ListView_GetItemState(listView, item, LVIS_STATEIMAGEMASK) == INDEXTOSTATEIMAGEMASK(2));
-        const COLORREF fill = enabled ? (checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24))
-                                      : (checked ? RGB(0x3B, 0x6B, 0x78) : RGB(0x2A, 0x2A, 0x2A));
-        const COLORREF border = enabled ? (checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78))
-                                        : RGB(0x58, 0x58, 0x58);
-
-        HBRUSH fillBrush = CreateSolidBrush(fill);
-        HPEN borderPen = CreatePen(PS_SOLID, 1, border);
-        HGDIOBJ oldBrush = fillBrush != NULL ? SelectObject(hdc, fillBrush) : NULL;
-        HGDIOBJ oldPen = borderPen != NULL ? SelectObject(hdc, borderPen) : NULL;
-        Rectangle(hdc, checkRect.left, checkRect.top, checkRect.right, checkRect.bottom);
-
-        if (checked)
-        {
-            HPEN checkPen = CreatePen(PS_SOLID, 2, enabled ? RGB(0x10, 0x10, 0x10) : RGB(0x98, 0x98, 0x98));
-            HGDIOBJ oldCheckPen = checkPen != NULL ? SelectObject(hdc, checkPen) : NULL;
-            MoveToEx(hdc, checkRect.left + 3, checkRect.top + checkSize / 2, NULL);
-            LineTo(hdc, checkRect.left + checkSize / 2 - 1, checkRect.bottom - 4);
-            LineTo(hdc, checkRect.right - 3, checkRect.top + 3);
-            if (oldCheckPen != NULL)
-                SelectObject(hdc, oldCheckPen);
-            if (checkPen != NULL)
-                DeleteObject(checkPen);
-        }
-
-        if (oldPen != NULL)
-            SelectObject(hdc, oldPen);
-        if (oldBrush != NULL)
-            SelectObject(hdc, oldBrush);
-        if (borderPen != NULL)
-            DeleteObject(borderPen);
-        if (fillBrush != NULL)
-            DeleteObject(fillBrush);
+        HPEN checkPen = CreatePen(PS_SOLID, 2, RGB(0x10, 0x10, 0x10));
+        HGDIOBJ oldCheckPen = checkPen != NULL ? SelectObject(hdc, checkPen) : NULL;
+        MoveToEx(hdc, checkRect.left + 3, checkRect.top + checkSize / 2, NULL);
+        LineTo(hdc, checkRect.left + checkSize / 2 - 1, checkRect.bottom - 4);
+        LineTo(hdc, checkRect.right - 3, checkRect.top + 3);
+        if (oldCheckPen != NULL)
+            SelectObject(hdc, oldCheckPen);
+        if (checkPen != NULL)
+            DeleteObject(checkPen);
     }
 
+    char text[256];
+    text[0] = 0;
+    ListView_GetItemText(listView, item, 0, text, _countof(text));
+    RECT textRect = labelRect;
+    textRect.left += 2;
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-    const COLORREF textColor = !enabled
-                                   ? DarkModeEnsureReadableForeground(RGB(0x88, 0x88, 0x88), rowBackground)
-                                   : selected
-                                   ? DarkModeGetColors().readableText
-                                   : DarkModeGetDialogTextColor();
-    COLORREF oldTextColor = SetTextColor(hdc, textColor);
-    // The list can contain shell data up to SAL_MAX_PATH characters. Keep the
-    // repaint buffer heap-backed and large enough to avoid changing what the
-    // native list-view would display.
-    std::vector<char> text(SAL_MAX_PATH, 0);
-    for (int column = 0; column < columnCount; ++column)
-    {
-        ListView_GetItemText(listView, item, column, &text[0], (int)text.size());
-
-        RECT textRect;
-        if (ListView_GetSubItemRect(listView, item, column, LVIR_LABEL, &textRect))
-        {
-            textRect.left += 2;
-            DrawText(hdc, &text[0], -1, &textRect,
-                     DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
-        }
-    }
+    COLORREF oldTextColor = SetTextColor(hdc, DarkModeGetDialogTextColor());
+    DrawText(hdc, text, -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
     SetTextColor(hdc, oldTextColor);
     SetBkMode(hdc, oldBkMode);
 
+    if (oldPen != NULL)
+        SelectObject(hdc, oldPen);
+    if (oldBrush != NULL)
+        SelectObject(hdc, oldBrush);
+    if (borderPen != NULL)
+        DeleteObject(borderPen);
+    if (fillBrush != NULL)
+        DeleteObject(fillBrush);
 }
 
 //****************************************************************************
@@ -1974,7 +1939,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
-        RemoveListViewsWhiteClientEdge(HListView, HListView2);
+        RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
@@ -1987,7 +1952,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // visible at the edges. Remove WS_EX_CLIENTEDGE so only the CToolbarHeader's
             // dark sunken border remains. On Win11+, darkmodelib's setDarkCheckboxes
             // replaces the native state images entirely, so the border isn't an issue.
-            RemoveListViewsWhiteClientEdge(HListView, HListView2);
+            RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
             DarkModeApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
@@ -2006,7 +1971,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
-        RemoveListViewsWhiteClientEdge(HListView, HListView2);
+        RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
         break;
     }
 
@@ -2044,14 +2009,14 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
                         customDraw->clrText = DarkModeGetDialogTextColor();
-                        if (ShouldCustomDrawListViewCheckboxes())
+                        if (ShouldCustomDrawViewsAvailableColumnCheckboxes())
                             customDrawResult = CDRF_NOTIFYPOSTPAINT;
                         else
                             customDrawResult = CDRF_DODEFAULT;
                     }
                     else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
                     {
-                        DrawDarkModeListViewCheckboxes(HListView2, customDraw, 1);
+                        DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
                         customDrawResult = CDRF_DODEFAULT;
                     }
                 }
