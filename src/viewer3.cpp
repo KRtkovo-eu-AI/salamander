@@ -105,12 +105,11 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
     return DefSubclassProc(hwnd, message, wParam, lParam);
 }
 
-// The native themed SCROLLBAR can issue a second paint after thumb tracking.
-// Queue the track overlay after every native paint, so RGB(23,23,23) wins over
-// that delayed themed repaint without replacing the native arrows or thumb.
+// Keep the native arrows and thumb, but paint its track with Salamander's dark
+// palette.  This must happen in the same paint cycle: posting a second paint
+// visibly exposes the system's lighter track between the two operations.
 static const UINT_PTR kHScrollBarSubclassId = 2;
 static const UINT_PTR kVScrollBarSubclassId = 3;
-static const UINT kScrollBarTrackRepaint = WM_APP + 203;
 
 static void PaintScrollBarTrack(HWND hwnd)
 {
@@ -126,7 +125,7 @@ static void PaintScrollBarTrack(HWND hwnd)
     HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
     if (hdc != NULL && brush != NULL)
     {
-            const int arrowSize = sbi.dxyLineButton;
+        const int arrowSize = sbi.dxyLineButton;
         const bool vertical = (GetWindowLong(hwnd, GWL_STYLE) & SBS_VERT) != 0;
         if (vertical)
         {
@@ -166,16 +165,10 @@ static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wPara
 {
     if (message == WM_NCDESTROY)
         RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
-    if (message == kScrollBarTrackRepaint)
-    {
-        if (DarkModeShouldUseDarkColors())
-            PaintScrollBarTrack(hwnd);
-        return 0;
-    }
     if ((message == WM_PAINT || message == WM_NCPAINT) && DarkModeShouldUseDarkColors())
     {
         LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
-        PostMessage(hwnd, kScrollBarTrackRepaint, 0, 0);
+        PaintScrollBarTrack(hwnd);
         return result;
     }
     return DefSubclassProc(hwnd, message, wParam, lParam);
@@ -1332,12 +1325,19 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             case SB_THUMBTRACK:
             {
-                // A child SCROLLBAR already tracks its native thumb smoothly.
-                // Handle each track notification directly, but keep
-                // EnableSetScroll false so Paint() cannot reset its metrics
-                // or snap the thumb back to an older position.
+                // Do not load and repaint the document in the scrollbar's
+                // tracking message.  A slow file or a large fullscreen paint
+                // otherwise blocks the control's mouse loop, making its thumb
+                // lag behind the pointer or jump when the queued messages are
+                // eventually handled.  The native child control continues to
+                // track immediately; coalesce document updates on a timer.
+                EnableSetScroll = FALSE;
+                if (VScrollWParam == -1)
+                {
+                    VScrollWParamOld = -1;
+                    SetTimer(HWindow, IDT_THUMBSCROLL, 20, NULL);
+                }
                 VScrollWParam = wParam;
-                OnVScroll();
                 break;
             }
             }

@@ -228,7 +228,11 @@ static HTHEME WINAPI MyOpenNcThemeData(HWND hWnd, LPCWSTR pszClassList)
 		if (isWindowOrParentUsingDarkScrollBar(hWnd))
 #endif
 		{
-			hWnd = nullptr;
+			// Keep the real owner window.  Passing nullptr forces UxTheme to
+			// use its generic Explorer palette, which has a light (32,32,32)
+			// scrollbar track even when the owner opted into dark mode.  The
+			// owner is needed to select its dark policy and the corresponding
+			// RGB(23,23,23) track palette for both client and non-client bars.
 			pszClassList = L"Explorer::ScrollBar";
 		}
 	}
