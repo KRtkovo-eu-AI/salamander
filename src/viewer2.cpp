@@ -693,6 +693,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 {
     CALL_STACK_MESSAGE1("CViewerWindow::HeightChanged()");
     fatalErr = FALSE;
+    CachedTotalLines = -1; // invalidate gutter line-count cache
     switch (Type)
     {
     case vtHex:

@@ -34,6 +34,13 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
         SendMessage(GetParent(hwnd), message, wParam, lParam);
         return 0;
     }
+    if (message == WM_KEYDOWN && wParam == VK_RETURN)
+    {
+        // Apply the typed zoom value on Enter, same as losing focus.
+        SendMessage(GetParent(hwnd), WM_COMMAND,
+                    MAKEWPARAM(IDC_VIEWER_ZOOM_EDIT, EN_KILLFOCUS), (LPARAM)hwnd);
+        return 0;
+    }
     return DefSubclassProc(hwnd, message, wParam, lParam);
 }
 
@@ -833,7 +840,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ApplyViewerMenuTheme(HWindow);
 
         HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL,
-                                    WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+                                    WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | SBARS_SIZEGRIP,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         HScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_HORZ,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
@@ -935,10 +942,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         EraseBkgnd = FALSE;
         PAINTSTRUCT ps;
         HANDLES(BeginPaint(HWindow, &ps));
-        // Child scrollbars and the native status bar must use the final client
-        // rectangle.  The viewer can be shown after its initial WM_SIZE, so a
-        // paint is the first reliable point at which that rectangle is final.
-        LayoutStatusBar();
+        // Re-layout only when the geometry actually changed (flag set by
+        // WM_SIZE or the status-bar toggle).  Calling LayoutStatusBar()
+        // on every paint repositions child scrollbars via SetWindowPos,
+        // which disrupts thumb tracking and causes flicker.
+        if (LayoutNeeded)
+        {
+            LayoutNeeded = FALSE;
+            LayoutStatusBar();
+        }
         Paint(ps.hdc);
         HANDLES(EndPaint(HWindow, &ps));
         return 0;
@@ -959,7 +971,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
+        LayoutNeeded = TRUE;
         LayoutStatusBar();
+        LayoutNeeded = FALSE; // already done; prevent a redundant second pass in WM_PAINT
         if (IsWindowVisible(HWindow)) // the last WM_SIZE arrives when closing the window; we do not care (error dialogs without the viewer window are highly undesirable)
         {
             SetToolTipOffset(-1);
@@ -2205,7 +2219,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             ShowStatusBar = !ShowStatusBar;
             Configuration.ViewerShowStatusBar = ShowStatusBar;
-            LayoutStatusBar();
+            // LayoutStatusBar() runs inside the WM_SIZE handler below.
             RECT rc;
             GetClientRect(HWindow, &rc);
             SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
@@ -2961,8 +2975,20 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (LOWORD(lParam) == HTCLIENT)
         {
-            SetCursor(LoadCursor(NULL, IDC_IBEAM));
-            return TRUE;
+            // Only show the I-beam over the document surface.  When the
+            // cursor is over a child control (scrollbar, zoom button, …)
+            // the parent receives WM_SETCURSOR with HTCLIENT as well;
+            // returning TRUE here would prevent the child from setting
+            // its own cursor (arrow for scrollbars, hand for links, etc.).
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(HWindow, &pt);
+            HWND hChild = ChildWindowFromPoint(HWindow, pt);
+            if (hChild == NULL || hChild == HWindow)
+            {
+                SetCursor(LoadCursor(NULL, IDC_IBEAM));
+                return TRUE;
+            }
         }
         break;
     }

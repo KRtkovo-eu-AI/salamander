@@ -639,6 +639,8 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     StatusBarHeight = 0;
     ZoomPercent = Configuration.ViewerZoomPercent;
     StatusOffset = -1;
+    CachedTotalLines = -1;
+    LayoutNeeded = TRUE;
 
     Width = Height = 0;
 
@@ -1354,8 +1356,21 @@ void CViewerWindow::Paint(HDC dc)
         int oldMode = SetBkMode(Bitmap.HMemDC, TRANSPARENT);
 
         EnablePaint = FALSE;
+        // Calculate digit count from the actual total line count, cached
+        // per file.  For hex mode the count is trivial; for text mode
+        // GetDocumentLineNumber scans the file once and the result is
+        // stored in CachedTotalLines so subsequent paints are free.
+        if (CachedTotalLines < 0)
+        {
+            if (Type == vtHex)
+                CachedTotalLines = MaxSeekY / 16 + 1;
+            else if (FileName != NULL && MaxSeekY > 0)
+                CachedTotalLines = GetDocumentLineNumber(MaxSeekY);
+            else
+                CachedTotalLines = 1;
+        }
         LineNumberDigits = 1;
-        for (int number = max(1, Height / CharHeight + 1); number >= 10; number /= 10)
+        for (__int64 n = max((__int64)1, CachedTotalLines); n >= 10; n /= 10)
             ++LineNumberDigits;
         LineOffset.DestroyMembers();
         RECT r;
@@ -2019,12 +2034,22 @@ void CViewerWindow::Paint(HDC dc)
             __int64 documentLine = LineOffset.Count >= 3 ? GetDocumentLineNumber(LineOffset[0]) : 1;
             for (int i = 0; i < LineOffset.Count / 3; i++)
             {
-                char number[32];
-                if (i > 0 && LineOffset[i * 3] > LineOffset[i * 3 - 2])
-                    ++documentLine; // the preceding visible row ended in EOL, not a wrap
-                sprintf(number, "%I64d", documentLine);
+                BOOL isWrap = (i > 0 && LineOffset[i * 3] <= LineOffset[i * 3 - 2]);
+                if (!isWrap && i > 0)
+                    ++documentLine;
                 RECT numberRect = {0, i * CharHeight, GetTextLeft() - BORDER_WIDTH, (i + 1) * CharHeight};
-                DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                if (isWrap)
+                {
+                    // Show a rightwards arrow with hook for wrapped lines
+                    // instead of repeating the line number.
+                    DrawTextW(dc, L"\x21AA", -1, &numberRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                }
+                else
+                {
+                    char number[32];
+                    sprintf(number, "%I64d", documentLine);
+                    DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                }
             }
         }
         //---
@@ -2047,6 +2072,21 @@ void CViewerWindow::Paint(HDC dc)
         r.bottom = Height;
         FillRect(dc, &r, BkgndBrush); // clear the column to the left of the text
         SetScrollBar();
+    }
+    // Fill the scrollbar corner (where H and V scrollbars meet) with the
+    // background brush.  Without this, the area shows a white square in
+    // dark mode because the standard SCROLLBAR class does not paint it.
+    if (HScrollBar != NULL && VScrollBar != NULL)
+    {
+        int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
+        int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
+        RECT rcWnd;
+        GetClientRect(HWindow, &rcWnd);
+        RECT corner = {rcWnd.right - scrollWidth,
+                       rcWnd.bottom - StatusBarHeight - scrollHeight,
+                       rcWnd.right,
+                       rcWnd.bottom - StatusBarHeight};
+        FillRect(dc, &corner, BkgndBrush);
     }
 }
 
@@ -2363,20 +2403,23 @@ void CViewerWindow::LayoutStatusBar()
     StatusBarHeight = ShowStatusBar ? max(20, GetSystemMetrics(SM_CYSMICON) + 4) : 0;
     int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
     int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
+    int gripWidth = (HStatusBar != NULL && (GetWindowLong(HStatusBar, GWL_STYLE) & SBARS_SIZEGRIP)) ? scrollWidth : 0;
     ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomOut, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomEdit, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomIn, ShowStatusBar ? SW_SHOW : SW_HIDE);
     SetWindowPos(HScrollBar, NULL, 0, rc.bottom - StatusBarHeight - scrollHeight,
-                 rc.right - scrollWidth, scrollHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+                 rc.right - scrollWidth, scrollHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
     SetWindowPos(VScrollBar, NULL, rc.right - scrollWidth, 0, scrollWidth,
-                 rc.bottom - StatusBarHeight - scrollHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+                 rc.bottom - StatusBarHeight - scrollHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
     // Keep the native status bar behind its interactive children.  Some
     // common-control versions repaint it over the zoom controls after a
     // resize or a document scroll.
     SetWindowPos(HStatusBar, HWND_BOTTOM, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOACTIVATE);
-    int x = rc.right - 4;
+    int x = rc.right - gripWidth - 4;
     x -= 22;
     SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
     x -= 54;
@@ -2385,6 +2428,14 @@ void CViewerWindow::LayoutStatusBar()
     SetWindowPos(HZoomOut, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
     x -= 42;
     SetWindowPos(HZoomReset, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 42, StatusBarHeight - 4, SWP_NOACTIVATE);
+    // Ensure the parent and its chrome children are invalidated after
+    // repositioning.  This covers status-bar hide/show (the old area
+    // must be cleared) and maximize/restore (scrollbar children must
+    // redraw at new positions).
+    InvalidateRect(HWindow, NULL, FALSE);
+    InvalidateRect(HScrollBar, NULL, FALSE);
+    InvalidateRect(VScrollBar, NULL, FALSE);
+    InvalidateRect(HStatusBar, NULL, FALSE);
 }
 
 void CViewerWindow::UpdateStatusBar(__int64 offset)

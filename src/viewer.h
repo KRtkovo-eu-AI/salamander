@@ -442,6 +442,8 @@ protected:
     int StatusBarHeight;
     int ZoomPercent;
     __int64 StatusOffset;
+    __int64 CachedTotalLines; // cached total line count for gutter sizing (-1 = not computed)
+    BOOL LayoutNeeded; // TRUE = LayoutStatusBar() must run before the next paint
 
     int EnumFileNamesSourceUID;     // UID of our source for enumerating names in the viewer
     int EnumFileNamesLastFileIndex; // index of the currently viewed file

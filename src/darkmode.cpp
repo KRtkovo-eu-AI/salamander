@@ -1714,6 +1714,30 @@ void PaintDarkStatusBar(HWND hwnd, HDC hdc)
     SetTextColor(hdc, oldText);
     if (oldFont != NULL)
         SelectObject(hdc, oldFont);
+
+    // Draw the size-grip handle in the bottom-right corner when the
+    // status bar has SBARS_SIZEGRIP.  The dark theme override
+    // (PaintDarkStatusBar) replaces default painting, so the grip must
+    // be drawn manually.
+    if ((GetWindowLong(hwnd, GWL_STYLE) & SBARS_SIZEGRIP) != 0)
+    {
+        const int gripW = GetSystemMetrics(SM_CXVSCROLL);
+        const int gripH = GetSystemMetrics(SM_CYHSCROLL);
+        RECT gripRc = {client.right - gripW, client.bottom - gripH,
+                       client.right, client.bottom};
+        HPEN hPen = CreatePen(PS_SOLID, 1, colors.readableText);
+        if (hPen != NULL)
+        {
+            HPEN hOldPen = static_cast<HPEN>(SelectObject(hdc, hPen));
+            for (int i = 0; i < gripW - 2; i += 4)
+            {
+                MoveToEx(hdc, gripRc.right - i - 2, gripRc.bottom - 2, NULL);
+                LineTo(hdc, gripRc.right - 2, gripRc.bottom - i - 2);
+            }
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+        }
+    }
 }
 
 LRESULT CALLBACK DarkStatusBarSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
