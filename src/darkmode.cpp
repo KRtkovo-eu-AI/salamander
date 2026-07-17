@@ -2109,7 +2109,9 @@ void HookDarkScrollbars()
     auto replacement = [](HWND hWnd, LPCWSTR classList) -> HTHEME {
         if (classList != nullptr && wcscmp(classList, L"ScrollBar") == 0)
         {
-            hWnd = nullptr;
+            // Preserve the real scrollbar HWND so UxTheme can use the
+            // window's dark-mode policy and palette instead of falling back
+            // to the generic Explorer track color.
             classList = L"Explorer::ScrollBar";
         }
         return gOpenNcThemeData ? gOpenNcThemeData(hWnd, classList) : nullptr;
