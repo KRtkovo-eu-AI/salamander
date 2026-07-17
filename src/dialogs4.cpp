@@ -21,6 +21,7 @@
 #include "gui.h"
 #include "darkmode.h"
 #include <uxtheme.h>
+#include <vector>
 
 #ifndef DARKMODE_TRACE_CTLFLOW
 #define DARKMODE_TRACE_CTLFLOW 0
@@ -154,7 +155,10 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
     rowRect.right = clientRect.right;
 
     const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
-    const COLORREF rowBackground = selected ? DarkModeGetColors().background : DarkModeGetDialogBackgroundColor();
+    const bool focused = GetFocus() == listView;
+    const COLORREF rowBackground = selected
+                                       ? GetSysColor(focused ? COLOR_HIGHLIGHT : COLOR_3DFACE)
+                                       : DarkModeGetDialogBackgroundColor();
     FillRectWithSysColor(hdc, rowRect, rowBackground);
 
     // Calculate checkbox area (same region the native state image occupies)
@@ -198,18 +202,23 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
     }
 
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-    COLORREF oldTextColor = SetTextColor(hdc, DarkModeGetDialogTextColor());
+    const COLORREF textColor = selected
+                                   ? GetSysColor(focused ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT)
+                                   : DarkModeGetDialogTextColor();
+    COLORREF oldTextColor = SetTextColor(hdc, textColor);
+    // The list can contain shell data up to SAL_MAX_PATH characters. Keep the
+    // repaint buffer heap-backed and large enough to avoid changing what the
+    // native list-view would display.
+    std::vector<char> text(SAL_MAX_PATH, 0);
     for (int column = 0; column < columnCount; ++column)
     {
-        char text[256];
-        text[0] = 0;
-        ListView_GetItemText(listView, item, column, text, _countof(text));
+        ListView_GetItemText(listView, item, column, &text[0], (int)text.size());
 
         RECT textRect;
         if (ListView_GetSubItemRect(listView, item, column, LVIR_LABEL, &textRect))
         {
             textRect.left += 2;
-            DrawText(hdc, text, -1, &textRect,
+            DrawText(hdc, &text[0], -1, &textRect,
                      DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
         }
     }
