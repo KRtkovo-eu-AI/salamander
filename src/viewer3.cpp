@@ -1101,15 +1101,18 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LayoutStatusBar();
         }
         Paint(ps.hdc);
-        if (DarkModeShouldUseDarkColors())
+        if (ShowStatusBar)
         {
-            // Child scrollbars stop at the document rectangle.  Paint their
-            // uncovered intersection explicitly so resize/layout repainting
-            // cannot leave a white system-color corner behind.
+            // The child scrollbars leave one intersection cell above the
+            // status bar.  Paint it in the active scheme color.  When the
+            // status bar is hidden, leave this cell untouched so its native
+            // resize grip remains visible and functional.
             RECT corner = {Width, Height,
                            Width + GetSystemMetrics(SM_CXVSCROLL),
                            Height + GetSystemMetrics(SM_CYHSCROLL)};
-            FillViewerRectWithColor(ps.hdc, &corner, RGB(32, 32, 32));
+            const COLORREF cornerColor = DarkModeShouldUseDarkColors() ? RGB(32, 32, 32)
+                                                                         : RGB(240, 240, 240);
+            FillViewerRectWithColor(ps.hdc, &corner, cornerColor);
         }
         HANDLES(EndPaint(HWindow, &ps));
         return 0;
