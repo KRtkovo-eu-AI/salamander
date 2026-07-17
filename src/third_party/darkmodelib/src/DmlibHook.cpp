@@ -661,21 +661,26 @@ void dmlib_hook::unhookThemeColor() noexcept
 		g_hDarkTheme = nullptr;
 	}
 
-	if (g_hBrushBg != nullptr)
+	// The scrollbar hook keeps the theme drawing hook alive for the process.
+	// A temporary TaskDialog must not delete brushes still used by that hook.
+	if (g_hookDataGetThemeColor.m_ref == 0)
 	{
-		::DeleteObject(g_hBrushBg);
-		g_hBrushBg = nullptr;
-	}
+		if (g_hBrushBg != nullptr)
+		{
+			::DeleteObject(g_hBrushBg);
+			g_hBrushBg = nullptr;
+		}
 
-	if (g_hBrushBgFooter != nullptr)
-	{
-		::DeleteObject(g_hBrushBgFooter);
-		g_hBrushBgFooter = nullptr;
-	}
+		if (g_hBrushBgFooter != nullptr)
+		{
+			::DeleteObject(g_hBrushBgFooter);
+			g_hBrushBgFooter = nullptr;
+		}
 
-	if (g_hBrushScrollBarTrack != nullptr)
-	{
-		::DeleteObject(g_hBrushScrollBarTrack);
-		g_hBrushScrollBarTrack = nullptr;
+		if (g_hBrushScrollBarTrack != nullptr)
+		{
+			::DeleteObject(g_hBrushScrollBarTrack);
+			g_hBrushScrollBarTrack = nullptr;
+		}
 	}
 }

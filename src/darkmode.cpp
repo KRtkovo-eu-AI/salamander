@@ -2652,7 +2652,7 @@ void DarkModeFixScrollbars()
 #endif
 }
 
-void DarkModeAllowDarkScrollbars(HWND hwnd)
+static void AllowDarkScrollbarsInHost(HWND hwnd)
 {
     if (hwnd == NULL)
         return;
@@ -2667,6 +2667,36 @@ void DarkModeAllowDarkScrollbars(HWND hwnd)
 #else
     (void)hwnd;
 #endif
+}
+
+extern "C" __declspec(dllexport) void WINAPI SalamanderAllowDarkScrollbars(HWND hwnd)
+{
+    AllowDarkScrollbarsInHost(hwnd);
+}
+
+void DarkModeAllowDarkScrollbars(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    // Plugins link their own copy of darkmode.cpp, whereas the IAT callback
+    // and its scoped-window set belong to salamand.exe.  Route plugin calls
+    // to the exported host entry point instead of updating their inert local
+    // DarkModeLib instance.
+    HMODULE callerModule = NULL;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(&DarkModeAllowDarkScrollbars), &callerModule);
+    if (callerModule != GetModuleHandleW(NULL))
+    {
+        typedef void(WINAPI* HostAllowDarkScrollbarsFn)(HWND);
+        HostAllowDarkScrollbarsFn hostAllow = reinterpret_cast<HostAllowDarkScrollbarsFn>(
+            GetProcAddress(GetModuleHandleW(NULL), "SalamanderAllowDarkScrollbars"));
+        if (hostAllow != NULL)
+            hostAllow(hwnd);
+        return;
+    }
+
+    AllowDarkScrollbarsInHost(hwnd);
 }
 
 void DarkModeDisallowDarkScrollbars(HWND hwnd)
