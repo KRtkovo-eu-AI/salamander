@@ -1457,12 +1457,7 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 class CMyListView : public CWindow
 {
 public:
-    CMyListView(HWND hDlg, int ctrlID);
-CMyListView::CMyListView(HWND hDlg, int ctrlID)
-    : CWindow(hDlg, ctrlID)
-{
-}
-
+    CMyListView(HWND hDlg, int ctrlID) : CWindow(hDlg, ctrlID) {}
 #ifdef _UNICODE
         : CWindow(hDlg, ctrlID)
 #else
