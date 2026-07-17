@@ -1120,8 +1120,17 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
         {
             // With no status bar there is no STATUSCLASS size grip to repaint
-            // this cell. Draw the native sizing grip on every parent paint.
-            DrawFrameControl(ps.hdc, &corner, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
+            // this cell. Draw a scheme-aware grip on every parent paint.
+            if (DarkModeShouldUseDarkColors())
+            {
+                FillViewerRectWithColor(ps.hdc, &corner, RGB(32, 32, 32));
+                for (int offset = 3; offset < corner.right - corner.left; offset += 4)
+                    for (int dot = 0; dot < offset; dot += 4)
+                        SetPixel(ps.hdc, corner.right - 2 - dot, corner.bottom - 2 - offset + dot,
+                                 RGB(150, 150, 150));
+            }
+            else
+                DrawFrameControl(ps.hdc, &corner, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
         }
         HANDLES(EndPaint(HWindow, &ps));
         return 0;
@@ -1314,6 +1323,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     ;
                 OnVScroll();
                 VScrollWParam = -1;
+                // Commit the final position immediately after tracking ends;
+                // otherwise the child control retains its pre-drag scroll info
+                // until a later repaint/input event.
+                SetScrollBar();
                 break;
             }
 
