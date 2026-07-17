@@ -3148,8 +3148,8 @@ void CFilesWindow::GotoHotPath(int index)
     if (index < 0 || index >= HOT_PATHS_COUNT)
         return;
     //---  switch to a hot path
-    char path[2 * MAX_PATH];
-    if (MainWindow->GetExpandedHotPath(HWindow, index, path, 2 * MAX_PATH))
+    char path[SAL_MAX_PATH];
+    if (MainWindow->GetExpandedHotPath(HWindow, index, path, SAL_MAX_PATH))
         ChangeDir(path);
 }
 

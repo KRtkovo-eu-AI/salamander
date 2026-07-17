@@ -1406,8 +1406,8 @@ void CMainWindow::SetUnescapedHotPath(int index, const char* path)
 
 BOOL CMainWindow::GetExpandedHotPath(HWND hParent, int index, char* buffer, int bufferSize)
 {
-    // the buffer should be 2 * MAX_PATH in size
-    if (bufferSize != 2 * MAX_PATH)
+    // The expanded path can be up to the Win32 long-path limit.
+    if (bufferSize != SAL_MAX_PATH)
         TRACE_E("CMainWindow::GetExpandedHotPath: invalid buffer size!");
 
     // if the path is not defined, we can exit immediately
