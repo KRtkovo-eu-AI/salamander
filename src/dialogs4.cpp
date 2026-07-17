@@ -3760,7 +3760,12 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     char path[HOTPATHITEM_MAXPATH];
                     path[0] = 0;
                     if (strlen(name) != 0)
-                        Config->GetPath(index, path, HOTPATHITEM_MAXPATH);
+                    {
+                        if (ListView_GetNextItem(HListView, -1, LVNI_SELECTED) == index)
+                            GetDlgItemText(HWindow, IDC_HOTPATH_PATH, path, HOTPATHITEM_MAXPATH);
+                        else
+                            Config->GetPath(index, path, HOTPATHITEM_MAXPATH);
+                    }
                     Config->Set(index, name, path);
                     Dirty = TRUE;
                     EnableControls();
