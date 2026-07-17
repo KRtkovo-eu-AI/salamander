@@ -2663,7 +2663,15 @@ static void AllowDarkScrollbarsInHost(HWND hwnd)
     // non-client scrollbars have already obtained a theme handle.  Reapply
     // the Explorer theme to make those existing scrollbars reopen their
     // theme through the now-enabled scoped hook.
-    dmlib::setDarkScrollBar(hwnd);
+    static const wchar_t kScrollBarThemeAppliedProp[] = L"Salamander.DarkScrollBarThemeApplied";
+    if (GetPropW(hwnd, kScrollBarThemeAppliedProp) == NULL)
+    {
+        // SetWindowTheme can synchronously deliver WM_THEMECHANGED.  Mark the
+        // window first so its handler's dark-mode refresh does not recursively
+        // attempt to reapply the same theme until the stack overflows.
+        SetPropW(hwnd, kScrollBarThemeAppliedProp, reinterpret_cast<HANDLE>(1));
+        dmlib::setDarkScrollBar(hwnd);
+    }
 #else
     (void)hwnd;
 #endif
