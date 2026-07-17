@@ -163,6 +163,47 @@ static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wPara
     return DefSubclassProc(hwnd, message, wParam, lParam);
 }
 
+static const UINT kViewerVScrollOverlayRepaint = WM_APP + 204;
+
+static void PaintViewerVScrollOverlay(HWND hwnd, int statusBarHeight)
+{
+    SCROLLBARINFO sbi;
+    memset(&sbi, 0, sizeof(sbi));
+    sbi.cbSize = sizeof(sbi);
+    if (!GetScrollBarInfo(hwnd, OBJID_VSCROLL, &sbi))
+        return;
+
+    RECT rcWindow;
+    GetWindowRect(hwnd, &rcWindow);
+    RECT vScroll = sbi.rcScrollBar;
+    OffsetRect(&vScroll, -rcWindow.left, -rcWindow.top);
+
+    RECT rcClient;
+    GetClientRect(hwnd, &rcClient);
+    POINT clientOrigin = {0, 0};
+    ClientToScreen(hwnd, &clientOrigin);
+    const int hScrollTop = clientOrigin.y - rcWindow.top + rcClient.bottom -
+                           statusBarHeight - GetSystemMetrics(SM_CYHSCROLL);
+
+    HDC hdc = GetWindowDC(hwnd);
+    HBRUSH brush = HANDLES(CreateSolidBrush(RGB(32, 32, 32)));
+    if (hdc != NULL && brush != NULL)
+    {
+        // Hide the themed seam and the complete part of the non-client
+        // scrollbar below the document rectangle.  Its native painting is
+        // queued first, then this overlay runs after it.
+        RECT topFix = {vScroll.left, vScroll.top - 1, vScroll.right, vScroll.top + 1};
+        FillRect(hdc, &topFix, brush);
+        RECT bottomFix = {vScroll.left, max(vScroll.top, hScrollTop),
+                          vScroll.right, vScroll.bottom};
+        FillRect(hdc, &bottomFix, brush);
+    }
+    if (brush != NULL)
+        HANDLES(DeleteObject(brush));
+    if (hdc != NULL)
+        ReleaseDC(hwnd, hdc);
+}
+
 #ifndef WM_UAHDRAWMENU
 #define WM_UAHDRAWMENU 0x0091
 #endif
@@ -1058,56 +1099,21 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    // The vertical scrollbar is a non-client element.  Ask USER for its
-    // actual screen rectangle, because client/window metric arithmetic is
-    // offset by the menu and non-client frame on some Windows versions.
+    // Keep WS_VSCROLL on the main viewer window.  Windows paints that native
+    // scrollbar to the full non-client height, so queue the masking overlay
+    // after its paint rather than forcing another NC paint while thumb-tracking.
     case WM_NCPAINT:
     {
         LRESULT ncResult = DefWindowProc(HWindow, WM_NCPAINT, wParam, lParam);
         if (DarkModeShouldUseDarkColors())
-        {
-            SCROLLBARINFO sbi;
-            memset(&sbi, 0, sizeof(sbi));
-            sbi.cbSize = sizeof(sbi);
-            RECT rcWindow;
-            GetWindowRect(HWindow, &rcWindow);
-            if (GetScrollBarInfo(HWindow, OBJID_VSCROLL, &sbi))
-            {
-                RECT vScroll = sbi.rcScrollBar;
-                OffsetRect(&vScroll, -rcWindow.left, -rcWindow.top);
-
-                RECT rcClient;
-                GetClientRect(HWindow, &rcClient);
-                POINT clientOrigin = {0, 0};
-                ClientToScreen(HWindow, &clientOrigin);
-                const int hScrollTop = clientOrigin.y - rcWindow.top + rcClient.bottom -
-                                       StatusBarHeight - GetSystemMetrics(SM_CYHSCROLL);
-
-                HDC hdc = GetWindowDC(HWindow);
-                HBRUSH brush = HANDLES(CreateSolidBrush(RGB(32, 32, 32)));
-                if (hdc != NULL && brush != NULL)
-                {
-                    // Cover both the seam row immediately above the scrollbar
-                    // and its first row.  This removes the persistent 1px
-                    // white line without relying on frame/menu dimensions.
-                    RECT topFix = {vScroll.left, vScroll.top - 1, vScroll.right, vScroll.top + 1};
-                    FillRect(hdc, &topFix, brush);
-
-                    // The V scrollbar ends at the horizontal scrollbar's top
-                    // edge.  This keeps it out of both the horizontal bar and
-                    // the status-bar size grip below it.
-                    RECT bottomFix = {vScroll.left, max(vScroll.top, hScrollTop),
-                                      vScroll.right, vScroll.bottom};
-                    FillRect(hdc, &bottomFix, brush);
-                }
-                if (brush != NULL)
-                    HANDLES(DeleteObject(brush));
-                if (hdc != NULL)
-                    ReleaseDC(HWindow, hdc);
-            }
-        }
+            PostMessage(HWindow, kViewerVScrollOverlayRepaint, 0, 0);
         return ncResult;
     }
+
+    case kViewerVScrollOverlayRepaint:
+        if (DarkModeShouldUseDarkColors())
+            PaintViewerVScrollOverlay(HWindow, StatusBarHeight);
+        return 0;
 
     case WM_PAINT:
     {
