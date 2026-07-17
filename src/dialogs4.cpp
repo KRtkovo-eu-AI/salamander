@@ -3762,10 +3762,14 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     if (strlen(name) != 0)
                         Config->GetPath(index, path, HOTPATHITEM_MAXPATH);
                     Config->Set(index, name, path);
-                    LoadControls();
-                    ListView_SetItemText(HListView, index, 0, name);
                     Dirty = TRUE;
-                    break;
+                    EnableControls();
+
+                    // The list view applies the label after this notification
+                    // returns.  Report that the edit was accepted without
+                    // changing the list control while it is finishing it.
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+                    return TRUE;
                 }
                 break;
             }
