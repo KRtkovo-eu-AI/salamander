@@ -3801,7 +3801,10 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                     Config->Set(index, name, path);
                     Dirty = TRUE;
-                    EnableControls();
+                    if (name[0] == 0)
+                        LoadControls(); // discard the removed item's path before it can be reused
+                    else
+                        EnableControls();
 
                     // The list view applies the label after this notification
                     // returns.  Report that the edit was accepted without
