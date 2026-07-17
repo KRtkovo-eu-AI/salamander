@@ -1094,11 +1094,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LayoutStatusBar();
         }
         Paint(ps.hdc);
-        if (DarkModeShouldUseDarkColors())
-        {
-            PostMessage(HScrollBar, kScrollBarTrackRepaint, 0, 0);
-            PostMessage(VScrollBar, kScrollBarTrackRepaint, 0, 0);
-        }
         RECT corner = {Width, Height,
                        Width + GetSystemMetrics(SM_CXVSCROLL),
                        Height + GetSystemMetrics(SM_CYHSCROLL)};
