@@ -3774,7 +3774,6 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         PathEditIndex = -1;
                     Config->Set(index, name, path);
                     LoadControls();
-                    ListView_SetItemText(HListView, index, 0, name);
                     Dirty = TRUE;
                     // Confirm the edit so the list view does not restore its
                     // previous label after this notification returns.
