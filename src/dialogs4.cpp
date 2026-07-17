@@ -143,8 +143,7 @@ static COLORREF GetDarkListViewSelectionBackground(bool focused)
 // background/text) with dark colors.
 void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, int columnCount)
 {
-    if (!ShouldCustomDrawListViewCheckboxes() || listView == NULL || customDraw == NULL ||
-        columnCount <= 0 || !IsWindowEnabled(listView))
+    if (!ShouldCustomDrawListViewCheckboxes() || listView == NULL || customDraw == NULL || columnCount <= 0)
         return;
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
@@ -171,7 +170,8 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
 
     const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
     const bool focused = GetFocus() == listView;
-    const COLORREF rowBackground = selected
+    const bool enabled = IsWindowEnabled(listView) != FALSE;
+    const COLORREF rowBackground = enabled && selected
                                        ? GetDarkListViewSelectionBackground(focused)
                                        : DarkModeGetDialogBackgroundColor();
     FillRectWithSysColor(hdc, rowRect, rowBackground);
@@ -194,8 +194,10 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
     checkRect.bottom = checkRect.top + checkSize;
 
     const bool checked = (ListView_GetItemState(listView, item, LVIS_STATEIMAGEMASK) == INDEXTOSTATEIMAGEMASK(2));
-    const COLORREF fill = checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24);
-    const COLORREF border = checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78);
+    const COLORREF fill = enabled ? (checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24))
+                                  : (checked ? RGB(0x3B, 0x6B, 0x78) : RGB(0x2A, 0x2A, 0x2A));
+    const COLORREF border = enabled ? (checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78))
+                                    : RGB(0x58, 0x58, 0x58);
 
     HBRUSH fillBrush = CreateSolidBrush(fill);
     HPEN borderPen = CreatePen(PS_SOLID, 1, border);
@@ -205,7 +207,7 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
 
     if (checked)
     {
-        HPEN checkPen = CreatePen(PS_SOLID, 2, RGB(0x10, 0x10, 0x10));
+        HPEN checkPen = CreatePen(PS_SOLID, 2, enabled ? RGB(0x10, 0x10, 0x10) : RGB(0x98, 0x98, 0x98));
         HGDIOBJ oldCheckPen = checkPen != NULL ? SelectObject(hdc, checkPen) : NULL;
         MoveToEx(hdc, checkRect.left + 3, checkRect.top + checkSize / 2, NULL);
         LineTo(hdc, checkRect.left + checkSize / 2 - 1, checkRect.bottom - 4);
@@ -217,7 +219,9 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
     }
 
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-    const COLORREF textColor = selected
+    const COLORREF textColor = !enabled
+                                   ? DarkModeEnsureReadableForeground(RGB(0x88, 0x88, 0x88), rowBackground)
+                                   : selected
                                    ? DarkModeGetColors().readableText
                                    : DarkModeGetDialogTextColor();
     COLORREF oldTextColor = SetTextColor(hdc, textColor);
