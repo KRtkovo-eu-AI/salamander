@@ -2524,6 +2524,31 @@ CDriveSelectErrDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageIconOvrls
 //
 
+static void SetIconOverlaysListColumnWidths(HWND listView)
+{
+    if (listView == NULL)
+        return;
+
+    RECT clientRect;
+    GetClientRect(listView, &clientRect);
+    const int clientWidth = clientRect.right - clientRect.left;
+    if (clientWidth <= 0)
+        return;
+
+    // Keep the report view within its client width. Apart from avoiding an
+    // unnecessary horizontal scrollbar, this makes long shell descriptions
+    // use the regular ListView ellipsis behavior instead of exposing a legacy
+    // light scrollbar in the dark dialog.
+    int nameWidth = ListView_GetColumnWidth(listView, 0);
+    const int maxNameWidth = clientWidth / 2;
+    if (nameWidth > maxNameWidth)
+        nameWidth = maxNameWidth;
+    if (nameWidth < 20)
+        nameWidth = 20;
+    ListView_SetColumnWidth(listView, 0, nameWidth);
+    ListView_SetColumnWidth(listView, 1, max(20, clientWidth - nameWidth));
+}
+
 CCfgPageIconOvrls::CCfgPageIconOvrls()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_ICONOVRLS, IDD_CFGPAGE_ICONOVRLS, PSP_USETITLE, NULL)
 {
@@ -2554,7 +2579,7 @@ void CCfgPageIconOvrls::Transfer(CTransferInfo& ti)
         }
         // set column widths
         ListView_SetColumnWidth(HListView, 0, LVSCW_AUTOSIZE_USEHEADER);
-        ListView_SetColumnWidth(HListView, 1, LVSCW_AUTOSIZE_USEHEADER);
+        SetIconOverlaysListColumnWidths(HListView);
 
         DWORD state = LVIS_SELECTED | LVIS_FOCUSED;
         ListView_SetItemState(HListView, 0, state, state);
@@ -2650,6 +2675,13 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return TRUE;
         }
         break;
+    }
+
+    case WM_SIZE:
+    {
+        INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+        SetIconOverlaysListColumnWidths(HListView);
+        return result;
     }
 
     case WM_SYSCOLORCHANGE:

@@ -179,43 +179,52 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
     // Calculate checkbox area (same region the native state image occupies)
     RECT stateRect = rowRect;
     stateRect.right = labelRect.left;
-    if (stateRect.right <= stateRect.left)
-        return;
-
-    int checkSize = stateRect.bottom - stateRect.top - 2;
-    if (checkSize < 9)
-        checkSize = 9;
-    if (checkSize > 13)
-        checkSize = 13;
-    RECT checkRect;
-    checkRect.left = stateRect.left + ((stateRect.right - stateRect.left) - checkSize) / 2;
-    checkRect.top = stateRect.top + ((stateRect.bottom - stateRect.top) - checkSize) / 2;
-    checkRect.right = checkRect.left + checkSize;
-    checkRect.bottom = checkRect.top + checkSize;
-
-    const bool checked = (ListView_GetItemState(listView, item, LVIS_STATEIMAGEMASK) == INDEXTOSTATEIMAGEMASK(2));
-    const COLORREF fill = enabled ? (checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24))
-                                  : (checked ? RGB(0x3B, 0x6B, 0x78) : RGB(0x2A, 0x2A, 0x2A));
-    const COLORREF border = enabled ? (checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78))
-                                    : RGB(0x58, 0x58, 0x58);
-
-    HBRUSH fillBrush = CreateSolidBrush(fill);
-    HPEN borderPen = CreatePen(PS_SOLID, 1, border);
-    HGDIOBJ oldBrush = fillBrush != NULL ? SelectObject(hdc, fillBrush) : NULL;
-    HGDIOBJ oldPen = borderPen != NULL ? SelectObject(hdc, borderPen) : NULL;
-    Rectangle(hdc, checkRect.left, checkRect.top, checkRect.right, checkRect.bottom);
-
-    if (checked)
+    if (stateRect.right > stateRect.left)
     {
-        HPEN checkPen = CreatePen(PS_SOLID, 2, enabled ? RGB(0x10, 0x10, 0x10) : RGB(0x98, 0x98, 0x98));
-        HGDIOBJ oldCheckPen = checkPen != NULL ? SelectObject(hdc, checkPen) : NULL;
-        MoveToEx(hdc, checkRect.left + 3, checkRect.top + checkSize / 2, NULL);
-        LineTo(hdc, checkRect.left + checkSize / 2 - 1, checkRect.bottom - 4);
-        LineTo(hdc, checkRect.right - 3, checkRect.top + 3);
-        if (oldCheckPen != NULL)
-            SelectObject(hdc, oldCheckPen);
-        if (checkPen != NULL)
-            DeleteObject(checkPen);
+        int checkSize = stateRect.bottom - stateRect.top - 2;
+        if (checkSize < 9)
+            checkSize = 9;
+        if (checkSize > 13)
+            checkSize = 13;
+        RECT checkRect;
+        checkRect.left = stateRect.left + ((stateRect.right - stateRect.left) - checkSize) / 2;
+        checkRect.top = stateRect.top + ((stateRect.bottom - stateRect.top) - checkSize) / 2;
+        checkRect.right = checkRect.left + checkSize;
+        checkRect.bottom = checkRect.top + checkSize;
+
+        const bool checked = (ListView_GetItemState(listView, item, LVIS_STATEIMAGEMASK) == INDEXTOSTATEIMAGEMASK(2));
+        const COLORREF fill = enabled ? (checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24))
+                                      : (checked ? RGB(0x3B, 0x6B, 0x78) : RGB(0x2A, 0x2A, 0x2A));
+        const COLORREF border = enabled ? (checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78))
+                                        : RGB(0x58, 0x58, 0x58);
+
+        HBRUSH fillBrush = CreateSolidBrush(fill);
+        HPEN borderPen = CreatePen(PS_SOLID, 1, border);
+        HGDIOBJ oldBrush = fillBrush != NULL ? SelectObject(hdc, fillBrush) : NULL;
+        HGDIOBJ oldPen = borderPen != NULL ? SelectObject(hdc, borderPen) : NULL;
+        Rectangle(hdc, checkRect.left, checkRect.top, checkRect.right, checkRect.bottom);
+
+        if (checked)
+        {
+            HPEN checkPen = CreatePen(PS_SOLID, 2, enabled ? RGB(0x10, 0x10, 0x10) : RGB(0x98, 0x98, 0x98));
+            HGDIOBJ oldCheckPen = checkPen != NULL ? SelectObject(hdc, checkPen) : NULL;
+            MoveToEx(hdc, checkRect.left + 3, checkRect.top + checkSize / 2, NULL);
+            LineTo(hdc, checkRect.left + checkSize / 2 - 1, checkRect.bottom - 4);
+            LineTo(hdc, checkRect.right - 3, checkRect.top + 3);
+            if (oldCheckPen != NULL)
+                SelectObject(hdc, oldCheckPen);
+            if (checkPen != NULL)
+                DeleteObject(checkPen);
+        }
+
+        if (oldPen != NULL)
+            SelectObject(hdc, oldPen);
+        if (oldBrush != NULL)
+            SelectObject(hdc, oldBrush);
+        if (borderPen != NULL)
+            DeleteObject(borderPen);
+        if (fillBrush != NULL)
+            DeleteObject(fillBrush);
     }
 
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
@@ -244,14 +253,6 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
     SetTextColor(hdc, oldTextColor);
     SetBkMode(hdc, oldBkMode);
 
-    if (oldPen != NULL)
-        SelectObject(hdc, oldPen);
-    if (oldBrush != NULL)
-        SelectObject(hdc, oldBrush);
-    if (borderPen != NULL)
-        DeleteObject(borderPen);
-    if (fillBrush != NULL)
-        DeleteObject(fillBrush);
 }
 
 //****************************************************************************
