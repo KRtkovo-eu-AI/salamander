@@ -2005,7 +2005,10 @@ void CViewerWindow::SetScrollBar()
         si.fMask = SIF_ALL;
         GetScrollInfo(VScrollBar, SB_CTL, &si);
 
-        __int64 max = ViewSize + MaxSeekY;
+        // Keep the V-scroll coordinate system tied to the full document.
+        // ViewSize varies with the byte lengths of currently visible rows;
+        // using it in the range makes thumb drag mapping lag or jump.
+        __int64 max = Type == vtText ? FileSize : ViewSize + MaxSeekY;
         ScrollScaleY = ((double)max) / 20000.0;
         if (ScrollScaleY < 0.00001)
             ScrollScaleY = 0.00001; // against "divide by zero"
