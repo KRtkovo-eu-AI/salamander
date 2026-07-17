@@ -2665,7 +2665,9 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             LPNMLVCUSTOMDRAW customDraw = reinterpret_cast<LPNMLVCUSTOMDRAW>(lParam);
             LRESULT customDrawResult = CDRF_DODEFAULT;
-            if (DarkModeShouldUseDarkColors())
+            // Let the native list-view paint its disabled state. The custom
+            // overlay uses enabled dark checkbox and text colors.
+            if (DarkModeShouldUseDarkColors() && IsWindowEnabled(HListView))
             {
                 if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
                     customDrawResult = CDRF_NOTIFYITEMDRAW;

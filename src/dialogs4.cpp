@@ -123,13 +123,28 @@ bool ShouldCustomDrawListViewCheckboxes()
     return DarkModeShouldUseDarkColors();
 }
 
+static COLORREF GetDarkListViewSelectionBackground(bool focused)
+{
+    // Do not use COLOR_HIGHLIGHT/COLOR_3DFACE here. The application can use
+    // its Windows dark-mode scheme while Windows itself still supplies light
+    // system colors. Derive both selection shades from the configured dark
+    // palette so they remain dark and visibly distinct from the row color.
+    const DarkModeColors& colors = DarkModeGetColors();
+    const int textWeight = focused ? 35 : 18;
+    const int backgroundWeight = 100 - textWeight;
+    return RGB((GetRValue(colors.background) * backgroundWeight + GetRValue(colors.readableText) * textWeight) / 100,
+               (GetGValue(colors.background) * backgroundWeight + GetGValue(colors.readableText) * textWeight) / 100,
+               (GetBValue(colors.background) * backgroundWeight + GetBValue(colors.readableText) * textWeight) / 100);
+}
+
 // Custom-draw handler for dark-mode checkboxes in a ListView.
 // Called from CDDS_ITEMPOSTPAINT so the native/default item draw stays intact
 // and this pass overlays the problematic state-image area (plus the row
 // background/text) with dark colors.
 void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, int columnCount)
 {
-    if (!ShouldCustomDrawListViewCheckboxes() || listView == NULL || customDraw == NULL || columnCount <= 0)
+    if (!ShouldCustomDrawListViewCheckboxes() || listView == NULL || customDraw == NULL ||
+        columnCount <= 0 || !IsWindowEnabled(listView))
         return;
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
@@ -157,7 +172,7 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
     const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
     const bool focused = GetFocus() == listView;
     const COLORREF rowBackground = selected
-                                       ? GetSysColor(focused ? COLOR_HIGHLIGHT : COLOR_3DFACE)
+                                       ? GetDarkListViewSelectionBackground(focused)
                                        : DarkModeGetDialogBackgroundColor();
     FillRectWithSysColor(hdc, rowRect, rowBackground);
 
@@ -203,7 +218,7 @@ void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, i
 
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
     const COLORREF textColor = selected
-                                   ? GetSysColor(focused ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT)
+                                   ? DarkModeGetColors().readableText
                                    : DarkModeGetDialogTextColor();
     COLORREF oldTextColor = SetTextColor(hdc, textColor);
     // The list can contain shell data up to SAL_MAX_PATH characters. Keep the
