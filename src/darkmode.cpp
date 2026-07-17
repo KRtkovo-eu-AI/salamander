@@ -269,6 +269,7 @@ thread_local int gListViewColorUpdateDepth = 0;
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
+static HBRUSH gScrollbarTrackBrush = NULL;
 static bool gDialogBrushOwned = false;
 static DarkModeColors gColors = {GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT), false};
 static COLORREF gAutocompleteSelectedFg = RGB(255, 255, 255);
@@ -3093,9 +3094,14 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         return true;
 
     case WM_CTLCOLORSCROLLBAR:
-        SetBkColor(hdc, background);
-        result = reinterpret_cast<LRESULT>(brush);
+    {
+        const COLORREF scrollbarTrack = RGB(23, 23, 23);
+        SetBkColor(hdc, scrollbarTrack);
+        if (gScrollbarTrackBrush == NULL)
+            gScrollbarTrackBrush = CreateSolidBrush(scrollbarTrack);
+        result = reinterpret_cast<LRESULT>(gScrollbarTrackBrush != NULL ? gScrollbarTrackBrush : brush);
         return true;
+    }
     }
 
     return false;
