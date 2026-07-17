@@ -23,6 +23,7 @@ EXPORTS
 	isDarkModeReg
 	setSysColor
 	enableDarkScrollBarForWindowAndChildren
+	disableDarkScrollBarForWindowAndChildren
 	setColorTone
 	getColorTone
 	setBackgroundColor

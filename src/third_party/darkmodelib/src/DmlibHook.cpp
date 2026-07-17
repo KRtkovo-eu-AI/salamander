@@ -26,6 +26,7 @@
 #if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 0)
 #include <mutex>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #endif
 
@@ -178,7 +179,8 @@ bool dmlib_hook::loadOpenNcThemeData(const HMODULE& hUxtheme) noexcept
 #if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
 // limit dark scroll bar to specific windows and their children
 static std::unordered_set<HWND> g_darkScrollBarWindows;
-static std::unordered_set<HTHEME> g_darkScrollBarThemes;
+static std::unordered_map<HWND, std::unordered_set<HTHEME>> g_darkScrollBarThemesByWindow;
+static std::unordered_map<HTHEME, size_t> g_darkScrollBarThemeRefs;
 static std::mutex g_darkScrollBarMutex;
 
 /**
@@ -197,6 +199,24 @@ void dmlib_hook::enableDarkScrollBarForWindowAndChildren(HWND hWnd)
 {
 	const std::lock_guard<std::mutex> lock(g_darkScrollBarMutex);
 	g_darkScrollBarWindows.insert(hWnd);
+}
+
+void dmlib_hook::disableDarkScrollBarForWindowAndChildren(HWND hWnd)
+{
+	const std::lock_guard<std::mutex> lock(g_darkScrollBarMutex);
+	g_darkScrollBarWindows.erase(hWnd);
+
+	const auto themesIt = g_darkScrollBarThemesByWindow.find(hWnd);
+	if (themesIt == g_darkScrollBarThemesByWindow.end())
+		return;
+
+	for (HTHEME hTheme : themesIt->second)
+	{
+		const auto refIt = g_darkScrollBarThemeRefs.find(hTheme);
+		if (refIt != g_darkScrollBarThemeRefs.end() && --refIt->second == 0)
+			g_darkScrollBarThemeRefs.erase(refIt);
+	}
+	g_darkScrollBarThemesByWindow.erase(themesIt);
 }
 
 static bool isWindowOrParentUsingDarkScrollBar(HWND hWnd)
@@ -220,12 +240,13 @@ static bool isWindowOrParentUsingDarkScrollBar(HWND hWnd)
 	return (hWnd != hRoot && hasElement(g_darkScrollBarWindows, hRoot));
 }
 
-static void rememberDarkScrollBarTheme(HTHEME hTheme)
+static void rememberDarkScrollBarTheme(HTHEME hTheme, HWND hWnd)
 {
 	if (hTheme != nullptr)
 	{
 		const std::lock_guard<std::mutex> lock(g_darkScrollBarMutex);
-		g_darkScrollBarThemes.insert(hTheme);
+		if (g_darkScrollBarThemesByWindow[hWnd].insert(hTheme).second)
+			++g_darkScrollBarThemeRefs[hTheme];
 	}
 }
 
@@ -233,9 +254,9 @@ static bool isDarkScrollBarTheme(HTHEME hTheme)
 {
 	const std::lock_guard<std::mutex> lock(g_darkScrollBarMutex);
 #if (defined(_MSC_VER) && (_MSVC_LANG >= 202002L)) || (__cplusplus >= 202002L)
-	return g_darkScrollBarThemes.contains(hTheme);
+	return g_darkScrollBarThemeRefs.contains(hTheme);
 #else
-	return g_darkScrollBarThemes.count(hTheme) != 0;
+	return g_darkScrollBarThemeRefs.count(hTheme) != 0;
 #endif
 }
 #endif // defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
@@ -244,12 +265,14 @@ static HTHEME WINAPI MyOpenNcThemeData(HWND hWnd, LPCWSTR pszClassList)
 {
 	static constexpr std::wstring_view scrollBarClassName = WC_SCROLLBAR;
 	bool useDarkScrollBar = false;
+	HWND darkScrollBarRoot = nullptr;
 	if (scrollBarClassName == pszClassList)
 	{
 #if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
 		if (isWindowOrParentUsingDarkScrollBar(hWnd))
 		{
 			useDarkScrollBar = true;
+			darkScrollBarRoot = ::GetAncestor(hWnd, GA_ROOT);
 			hWnd = nullptr;
 			pszClassList = L"Explorer::ScrollBar";
 		}
@@ -262,7 +285,7 @@ static HTHEME WINAPI MyOpenNcThemeData(HWND hWnd, LPCWSTR pszClassList)
 #if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
 	if (useDarkScrollBar)
 	{
-		rememberDarkScrollBarTheme(hTheme);
+		rememberDarkScrollBarTheme(hTheme, darkScrollBarRoot);
 	}
 #endif
 	return hTheme;

@@ -20,6 +20,8 @@ namespace dmlib_hook
 	bool loadOpenNcThemeData(const HMODULE& hUxtheme) noexcept;
 	/// Makes scroll bars on the specified window and all its children consistent.
 	void enableDarkScrollBarForWindowAndChildren(HWND hWnd);
+	/// Removes a window from the limited dark scrollbar scope.
+	void disableDarkScrollBarForWindowAndChildren(HWND hWnd);
 	void fixDarkScrollBar();
 #endif
 

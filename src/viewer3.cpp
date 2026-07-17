@@ -4133,6 +4133,9 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
 
     case WM_DESTROY:
     {
+        // The scrollbar hook stores HWNDs.  Remove this entry before Windows
+        // can recycle the handle for an unrelated top-level dialog.
+        DarkModeDisallowDarkScrollbars(HWindow);
         DragAcceptFiles(HWindow, FALSE);
         if (HToolTip != NULL)
         {

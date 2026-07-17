@@ -2664,6 +2664,18 @@ void DarkModeAllowDarkScrollbars(HWND hwnd)
 #endif
 }
 
+void DarkModeDisallowDarkScrollbars(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+#if USE_DARKMODELIB && defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
+    dmlib::disableDarkScrollBarForWindowAndChildren(hwnd);
+#else
+    (void)hwnd;
+#endif
+}
+
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
 {
     if (gDialogBrushOwned && gDialogBrushHandle != NULL && gDialogBrushHandle != dialogBrush)

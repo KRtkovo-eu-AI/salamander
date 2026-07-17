@@ -57,6 +57,9 @@ void DarkModeFixScrollbars();
 // Allows the limited dark scrollbar hook to affect this window subtree.
 void DarkModeAllowDarkScrollbars(HWND hwnd);
 
+// Removes a window subtree from the limited dark scrollbar hook.
+void DarkModeDisallowDarkScrollbars(HWND hwnd);
+
 // Supplies dialog foreground/background colors and brush for WM_CTLCOLOR helpers.
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush);
 void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,

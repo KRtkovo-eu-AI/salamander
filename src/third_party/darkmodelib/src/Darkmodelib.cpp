@@ -1020,6 +1020,13 @@ void dmlib::enableDarkScrollBarForWindowAndChildren([[maybe_unused]] HWND hWnd)
 #endif
 }
 
+void dmlib::disableDarkScrollBarForWindowAndChildren([[maybe_unused]] HWND hWnd)
+{
+#if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
+	dmlib_hook::disableDarkScrollBarForWindowAndChildren(hWnd);
+#endif
+}
+
 /**
  * @brief Checks if current mode is dark type.
  */

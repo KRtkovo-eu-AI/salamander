@@ -21,6 +21,8 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
     return false;
 }
 void DarkModeFixScrollbars() {}
+void DarkModeAllowDarkScrollbars(HWND hwnd) { UNREFERENCED_PARAMETER(hwnd); }
+void DarkModeDisallowDarkScrollbars(HWND hwnd) { UNREFERENCED_PARAMETER(hwnd); }
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
 {
     UNREFERENCED_PARAMETER(textColor);

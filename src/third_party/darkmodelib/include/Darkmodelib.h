@@ -299,6 +299,8 @@ namespace dmlib
 
 	/// Makes scroll bars on the specified window and all its children consistent.
 	DMLIB_API void enableDarkScrollBarForWindowAndChildren(HWND hWnd);
+	/// Removes a window from the limited dark scrollbar scope.
+	DMLIB_API void disableDarkScrollBarForWindowAndChildren(HWND hWnd);
 
 	// ========================================================================
 	// Colors
