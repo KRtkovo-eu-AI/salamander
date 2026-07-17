@@ -3367,8 +3367,6 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageHotPath
 //
 
-#define WM_USER_HOTPATH_COMMIT_LABEL (WM_APP + 250)
-
 CCfgPageHotPath::CCfgPageHotPath(BOOL editMode, int editIndex)
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_HOTPATH, IDD_CFGPAGE_HOTPATH, PSP_USETITLE, NULL)
 {
@@ -3378,8 +3376,6 @@ CCfgPageHotPath::CCfgPageHotPath(BOOL editMode, int editIndex)
     DisableNotification = FALSE;
     EditMode = editMode;
     EditIndex = editIndex;
-    PendingLabelIndex = -1;
-    PendingLabel[0] = 0;
     if (editIndex < 0 || editIndex >= HOT_PATHS_COUNT)
     {
         EditMode = FALSE;
@@ -3751,16 +3747,49 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
             case LVN_ENDLABELEDIT:
+#ifndef _UNICODE
+            case LVN_ENDLABELEDITW:
+#endif // _UNICODE
             {
-                NMLVDISPINFO* nmhd = (NMLVDISPINFO*)nmh;
                 LabelEdit = FALSE;
                 EnableHeader();
+                int index = -1;
+                BOOL hasLabel = FALSE;
+                char name[MAX_PATH];
+                name[0] = 0;
+#ifdef _UNICODE
+                NMLVDISPINFO* nmhd = (NMLVDISPINFO*)nmh;
+                index = nmhd->item.iItem;
                 if (nmhd->item.pszText != NULL)
                 {
-                    char name[MAX_PATH];
                     lstrcpyn(name, nmhd->item.pszText, MAX_PATH);
+                    hasLabel = TRUE;
+                }
+#else  // _UNICODE
+                if (nmh->code == LVN_ENDLABELEDITW)
+                {
+                    NMLVDISPINFOW* nmhd = (NMLVDISPINFOW*)nmh;
+                    index = nmhd->item.iItem;
+                    if (nmhd->item.pszText != NULL)
+                    {
+                        WideCharToMultiByte(CP_ACP, 0, nmhd->item.pszText, -1, name, MAX_PATH, NULL, NULL);
+                        hasLabel = TRUE;
+                    }
+                }
+                else
+                {
+                    NMLVDISPINFOA* nmhd = (NMLVDISPINFOA*)nmh;
+                    index = nmhd->item.iItem;
+                    if (nmhd->item.pszText != NULL)
+                    {
+                        lstrcpyn(name, nmhd->item.pszText, MAX_PATH);
+                        hasLabel = TRUE;
+                    }
+                }
+#endif // _UNICODE
+                if (index != -1 && hasLabel)
+                {
                     Config->CleanName(name);
-                    int index = nmhd->item.iItem;
                     char path[HOTPATHITEM_MAXPATH];
                     path[0] = 0;
                     if (strlen(name) != 0)
@@ -3774,10 +3803,6 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     Dirty = TRUE;
                     EnableControls();
 
-                    PendingLabelIndex = index;
-                    lstrcpyn(PendingLabel, name, MAX_PATH);
-                    PostMessage(HWindow, WM_USER_HOTPATH_COMMIT_LABEL, 0, 0);
-
                     // The list view applies the label after this notification
                     // returns.  Report that the edit was accepted without
                     // changing the list control while it is finishing it.
@@ -3789,14 +3814,6 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
-    }
-
-    case WM_USER_HOTPATH_COMMIT_LABEL:
-    {
-        if (PendingLabelIndex >= 0 && PendingLabelIndex < HOT_PATHS_COUNT)
-            ListView_SetItemText(HListView, PendingLabelIndex, 0, PendingLabel);
-        PendingLabelIndex = -1;
-        return TRUE;
     }
 
     case WM_COMMAND:

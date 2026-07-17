@@ -754,8 +754,6 @@ protected:
     BOOL EditMode;
     int EditIndex;
     BOOL LabelEdit; // we are editing a label
-    int PendingLabelIndex;
-    char PendingLabel[MAX_PATH];
 
 public:
     CCfgPageHotPath(BOOL editMode, int editIndex);
