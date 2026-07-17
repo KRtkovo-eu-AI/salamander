@@ -643,7 +643,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     CachedTotalLines = -1;
     CachedMaxLineLen = 0;
     VisibleFirstDocumentLine = -1;
-    CachedSelectionStart = CachedSelectionEnd = CachedSelectionLineCount = -1;
+    CachedSelectionStart = CachedSelectionEnd = CachedSelectionLineCount = CachedSelectionCharacterCount = -1;
     CachedVerticalPageSize = -1;
     LayoutNeeded = TRUE;
 
@@ -2659,9 +2659,24 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
             CachedSelectionStart = first;
             CachedSelectionEnd = last;
             CachedSelectionLineCount = GetDocumentLineNumber(last - 1) - GetDocumentLineNumber(first) + 1;
+            CachedSelectionCharacterCount = last - first;
+            if (HasDecodedTextMode())
+            {
+                const __int64 savedSeek = Seek;
+                const __int64 savedLoaded = Loaded;
+                Salamander::Unicode::DecodedRun selected;
+                BOOL fatalErr = FALSE;
+                if (DecodeTextRange(NULL, first, last, selected, fatalErr) && !fatalErr)
+                    CachedSelectionCharacterCount = (__int64)selected.CellCount();
+                if (savedLoaded > 0)
+                {
+                    BOOL restoreFatalErr = FALSE;
+                    Prepare(NULL, savedSeek, savedLoaded, restoreFatalErr);
+                }
+            }
         }
         char selection[96];
-        sprintf(selection, "  |  %I64d characters, %I64d lines selected", last - first,
+        sprintf(selection, "  |  %I64d characters, %I64d lines selected", CachedSelectionCharacterCount,
                 max((__int64)1, CachedSelectionLineCount));
         strcat(text, selection);
     }

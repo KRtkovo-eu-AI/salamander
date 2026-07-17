@@ -453,6 +453,7 @@ protected:
     __int64 CachedSelectionStart;
     __int64 CachedSelectionEnd;
     __int64 CachedSelectionLineCount;
+    __int64 CachedSelectionCharacterCount;
     __int64 CachedVerticalPageSize; // stable V-scrollbar page extent (-1 = not computed)
     BOOL LayoutNeeded; // TRUE = LayoutStatusBar() must run before the next paint
 
