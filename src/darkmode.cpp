@@ -2147,7 +2147,6 @@ void ApplyControlTheme(HWND hwnd)
         L"msctls_progress32",
         L"msctls_statusbar32",
         L"msctls_trackbar32",
-        L"ScrollBar",
         L"msctls_scrollbar32",
     };
 
@@ -2159,6 +2158,7 @@ void ApplyControlTheme(HWND hwnd)
         L"ComboBoxEx32",
         L"ReBarWindow32",
         L"ToolbarWindow32",
+        L"ScrollBar",
     };
 
     static const wchar_t* const cfdClasses[] = {
@@ -2676,9 +2676,7 @@ void DarkModeFixScrollbars()
     if (!gSupported)
         return;
 
-    // darkmodelib owns the supported scrollbar hook.  Do not install the
-    // legacy duplicate hook here: it forces Explorer::ScrollBar and bypasses
-    // the library's per-window dark scrollbar policy.
+    HookDarkScrollbars();
 }
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)

@@ -106,13 +106,11 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
 }
 
 // The native themed SCROLLBAR can issue a second paint after thumb tracking.
-// Queue the track overlay after every native paint, so RGB(23,23,23) wins over
-// that delayed themed repaint without replacing the native arrows or thumb.
+// We override the track background to RGB(23,23,23) after every native paint.
 static const UINT_PTR kHScrollBarSubclassId = 2;
 static const UINT_PTR kVScrollBarSubclassId = 3;
-static const UINT kScrollBarTrackRepaint = WM_APP + 203;
 
-static void PaintScrollBarTrack(HWND hwnd)
+static void PaintScrollBarTrack(HDC hdc, HWND hwnd)
 {
     SCROLLBARINFO sbi;
     memset(&sbi, 0, sizeof(sbi));
@@ -122,43 +120,40 @@ static void PaintScrollBarTrack(HWND hwnd)
 
     RECT rc;
     GetClientRect(hwnd, &rc);
-    HDC hdc = GetDC(hwnd);
+
     HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
-    if (hdc != NULL && brush != NULL)
+    if (brush == NULL)
+        return;
+
+    const int arrowSize = sbi.dxyLineButton;
+    const bool vertical = (GetWindowLong(hwnd, GWL_STYLE) & SBS_VERT) != 0;
+    if (vertical)
     {
-            const int arrowSize = sbi.dxyLineButton;
-        const bool vertical = (GetWindowLong(hwnd, GWL_STYLE) & SBS_VERT) != 0;
-        if (vertical)
+        if (arrowSize < sbi.xyThumbTop)
         {
-            if (arrowSize < sbi.xyThumbTop)
-            {
-                RECT track = {rc.left, arrowSize, rc.right, sbi.xyThumbTop};
-                FillRect(hdc, &track, brush);
-            }
-            if (sbi.xyThumbBottom < rc.bottom - arrowSize)
-            {
-                RECT track = {rc.left, sbi.xyThumbBottom, rc.right, rc.bottom - arrowSize};
-                FillRect(hdc, &track, brush);
-            }
+            RECT track = {rc.left, arrowSize, rc.right, sbi.xyThumbTop};
+            FillRect(hdc, &track, brush);
         }
-        else
+        if (sbi.xyThumbBottom < rc.bottom - arrowSize)
         {
-            if (arrowSize < sbi.xyThumbTop)
-            {
-                RECT track = {arrowSize, rc.top, sbi.xyThumbTop, rc.bottom};
-                FillRect(hdc, &track, brush);
-            }
-            if (sbi.xyThumbBottom < rc.right - arrowSize)
-            {
-                RECT track = {sbi.xyThumbBottom, rc.top, rc.right - arrowSize, rc.bottom};
-                FillRect(hdc, &track, brush);
-            }
+            RECT track = {rc.left, sbi.xyThumbBottom, rc.right, rc.bottom - arrowSize};
+            FillRect(hdc, &track, brush);
         }
     }
-    if (brush != NULL)
-        HANDLES(DeleteObject(brush));
-    if (hdc != NULL)
-        ReleaseDC(hwnd, hdc);
+    else
+    {
+        if (arrowSize < sbi.xyThumbTop)
+        {
+            RECT track = {arrowSize, rc.top, sbi.xyThumbTop, rc.bottom};
+            FillRect(hdc, &track, brush);
+        }
+        if (sbi.xyThumbBottom < rc.right - arrowSize)
+        {
+            RECT track = {sbi.xyThumbBottom, rc.top, rc.right - arrowSize, rc.bottom};
+            FillRect(hdc, &track, brush);
+        }
+    }
+    HANDLES(DeleteObject(brush));
 }
 
 static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
@@ -166,16 +161,29 @@ static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wPara
 {
     if (message == WM_NCDESTROY)
         RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
-    if (message == kScrollBarTrackRepaint)
+
+    if (message == WM_ERASEBKGND && DarkModeShouldUseDarkColors())
     {
-        if (DarkModeShouldUseDarkColors())
-            PaintScrollBarTrack(hwnd);
-        return 0;
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
+        if (brush != NULL)
+        {
+            FillRect((HDC)wParam, &rc, brush);
+            HANDLES(DeleteObject(brush));
+        }
+        return 1;
     }
+
     if ((message == WM_PAINT || message == WM_NCPAINT) && DarkModeShouldUseDarkColors())
     {
         LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
-        PostMessage(hwnd, kScrollBarTrackRepaint, 0, 0);
+        HDC hdc = GetDC(hwnd);
+        if (hdc != NULL)
+        {
+            PaintScrollBarTrack(hdc, hwnd);
+            ReleaseDC(hwnd, hdc);
+        }
         return result;
     }
     return DefSubclassProc(hwnd, message, wParam, lParam);
@@ -1101,11 +1109,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LayoutStatusBar();
         }
         Paint(ps.hdc);
-        if (DarkModeShouldUseDarkColors())
-        {
-            PostMessage(HScrollBar, kScrollBarTrackRepaint, 0, 0);
-            PostMessage(VScrollBar, kScrollBarTrackRepaint, 0, 0);
-        }
         RECT corner = {Width, Height,
                        Width + GetSystemMetrics(SM_CXVSCROLL),
                        Height + GetSystemMetrics(SM_CYHSCROLL)};
@@ -1113,7 +1116,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             // The child scrollbars leave one intersection cell above the
             // status bar. Paint it in the active scheme color.
-            const COLORREF cornerColor = DarkModeShouldUseDarkColors() ? RGB(32, 32, 32)
+            const COLORREF cornerColor = DarkModeShouldUseDarkColors() ? RGB(23, 23, 23)
                                                                          : RGB(240, 240, 240);
             FillViewerRectWithColor(ps.hdc, &corner, cornerColor);
         }
@@ -1123,7 +1126,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // this cell. Draw a scheme-aware grip on every parent paint.
             if (DarkModeShouldUseDarkColors())
             {
-                FillViewerRectWithColor(ps.hdc, &corner, RGB(32, 32, 32));
+                FillViewerRectWithColor(ps.hdc, &corner, RGB(23, 23, 23));
                 for (int offset = 3; offset < corner.right - corner.left; offset += 4)
                     for (int dot = 0; dot < offset; dot += 4)
                         SetPixel(ps.hdc, corner.right - 2 - dot, corner.bottom - 2 - offset + dot,
