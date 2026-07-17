@@ -105,50 +105,59 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
     return DefSubclassProc(hwnd, message, wParam, lParam);
 }
 
-// Subclass for the horizontal scrollbar.  A child SCROLLBAR has no useful
-// non-client track: its complete surface is painted by WM_PAINT.  Repaint the
-// native control first and then replace only its two track sections with the
-// requested RGB(23,23,23), keeping its arrows and thumb intact.
+// The native themed SCROLLBAR can issue a second paint after thumb tracking.
+// Queue the track overlay after every native paint, so RGB(23,23,23) wins over
+// that delayed themed repaint without replacing the native arrows or thumb.
 static const UINT_PTR kHScrollBarSubclassId = 2;
+static const UINT kHScrollBarTrackRepaint = WM_APP + 203;
+
+static void PaintHScrollBarTrack(HWND hwnd)
+{
+    SCROLLBARINFO sbi;
+    memset(&sbi, 0, sizeof(sbi));
+    sbi.cbSize = sizeof(sbi);
+    if (!GetScrollBarInfo(hwnd, OBJID_CLIENT, &sbi))
+        return;
+
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    HDC hdc = GetDC(hwnd);
+    HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
+    if (hdc != NULL && brush != NULL)
+    {
+        const int arrowWidth = sbi.dxyLineButton;
+        if (arrowWidth < sbi.xyThumbTop)
+        {
+            RECT track = {arrowWidth, rc.top, sbi.xyThumbTop, rc.bottom};
+            FillRect(hdc, &track, brush);
+        }
+        if (sbi.xyThumbBottom < rc.right - arrowWidth)
+        {
+            RECT track = {sbi.xyThumbBottom, rc.top, rc.right - arrowWidth, rc.bottom};
+            FillRect(hdc, &track, brush);
+        }
+    }
+    if (brush != NULL)
+        HANDLES(DeleteObject(brush));
+    if (hdc != NULL)
+        ReleaseDC(hwnd, hdc);
+}
 
 static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
                                            UINT_PTR subclassId, DWORD_PTR refData)
 {
     if (message == WM_NCDESTROY)
         RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
+    if (message == kHScrollBarTrackRepaint)
+    {
+        if (DarkModeShouldUseDarkColors())
+            PaintHScrollBarTrack(hwnd);
+        return 0;
+    }
     if ((message == WM_PAINT || message == WM_NCPAINT) && DarkModeShouldUseDarkColors())
     {
         LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
-        SCROLLBARINFO sbi;
-        memset(&sbi, 0, sizeof(sbi));
-        sbi.cbSize = sizeof(sbi);
-        if (GetScrollBarInfo(hwnd, OBJID_CLIENT, &sbi))
-        {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
-            const int arrowWidth = sbi.dxyLineButton;
-            const int thumbLeft = sbi.xyThumbTop;
-            const int thumbRight = sbi.xyThumbBottom;
-            HDC hdc = GetDC(hwnd);
-            HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
-            if (hdc != NULL && brush != NULL)
-            {
-                if (arrowWidth < thumbLeft)
-                {
-                    RECT track = {arrowWidth, rc.top, thumbLeft, rc.bottom};
-                    FillRect(hdc, &track, brush);
-                }
-                if (thumbRight < rc.right - arrowWidth)
-                {
-                    RECT track = {thumbRight, rc.top, rc.right - arrowWidth, rc.bottom};
-                    FillRect(hdc, &track, brush);
-                }
-            }
-            if (brush != NULL)
-                HANDLES(DeleteObject(brush));
-            if (hdc != NULL)
-                ReleaseDC(hwnd, hdc);
-        }
+        PostMessage(hwnd, kHScrollBarTrackRepaint, 0, 0);
         return result;
     }
     return DefSubclassProc(hwnd, message, wParam, lParam);
@@ -1071,7 +1080,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 GetClientRect(HWindow, &rcClient);
                 POINT clientOrigin = {0, 0};
                 ClientToScreen(HWindow, &clientOrigin);
-                const int clientBottom = clientOrigin.y - rcWindow.top + rcClient.bottom;
+                const int hScrollTop = clientOrigin.y - rcWindow.top + rcClient.bottom -
+                                       StatusBarHeight - GetSystemMetrics(SM_CYHSCROLL);
 
                 HDC hdc = GetWindowDC(HWindow);
                 HBRUSH brush = HANDLES(CreateSolidBrush(RGB(32, 32, 32)));
@@ -1083,14 +1093,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     RECT topFix = {vScroll.left, vScroll.top - 1, vScroll.right, vScroll.top + 1};
                     FillRect(hdc, &topFix, brush);
 
-                    // End the V scrollbar at the horizontal scrollbar's lower
-                    // edge, which is immediately above the status bar.
-                    if (StatusBarHeight > 0)
-                    {
-                        RECT bottomFix = {vScroll.left, clientBottom - StatusBarHeight,
-                                          vScroll.right, vScroll.bottom};
-                        FillRect(hdc, &bottomFix, brush);
-                    }
+                    // The V scrollbar ends at the horizontal scrollbar's top
+                    // edge.  This keeps it out of both the horizontal bar and
+                    // the status-bar size grip below it.
+                    RECT bottomFix = {vScroll.left, max(vScroll.top, hScrollTop),
+                                      vScroll.right, vScroll.bottom};
+                    FillRect(hdc, &bottomFix, brush);
                 }
                 if (brush != NULL)
                     HANDLES(DeleteObject(brush));
@@ -1117,9 +1125,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         Paint(ps.hdc);
         HANDLES(EndPaint(HWindow, &ps));
-        // Scroll/status-bar repaints can occur after the original NC paint.
-        // Apply the V-scrollbar overlay once more after the client paint.
-        SendMessage(HWindow, WM_NCPAINT, 1, 0);
         return 0;
     }
 
@@ -1392,13 +1397,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 UpdateWindow(HWindow); // so that ViewSize is calculated for the next PageDown
             }
             }
-        }
-        // The themed scrollbar can repaint itself after the document update.
-        // Force its subclass to restore the dark track after that repaint.
-        if (HScrollBar != NULL)
-        {
-            InvalidateRect(HScrollBar, NULL, FALSE);
-            UpdateWindow(HScrollBar);
         }
         return 0;
     }
