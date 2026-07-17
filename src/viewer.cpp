@@ -634,6 +634,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     // GDI variables
     BkgndBrush = NULL;
     BkgndBrushSel = NULL;
+    LineNumberBrush = NULL;
     ViewerFont = NULL;
     HStatusBar = HScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
     StatusBarHeight = 0;
@@ -1378,7 +1379,7 @@ void CViewerWindow::Paint(HDC dc)
         r.right = GetTextLeft();
         r.top = 0;
         r.bottom = Height;
-        FillRect(dc, &r, BkgndBrush); // clear the columns to the left of the text
+        FillRect(dc, &r, ShowLineNumbers ? LineNumberBrush : BkgndBrush);
         RECT fullLine;
         fullLine.left = 0;
         fullLine.top = 0;
@@ -2030,7 +2031,9 @@ void CViewerWindow::Paint(HDC dc)
         SetBkMode(Bitmap.HMemDC, oldMode);
         if (ShowLineNumbers)
         {
-            SetTextColor(dc, GetCOLORREF(ViewerColors[VIEWER_FG_NORMAL]));
+            // Keep the gutter visibly distinct from document text in both
+            // standard light schemes and Windows Dark Mode.
+            SetTextColor(dc, DarkModeShouldUseDarkColors() ? RGB(160, 160, 160) : RGB(96, 96, 96));
             __int64 documentLine = LineOffset.Count >= 3 ? GetDocumentLineNumber(LineOffset[0]) : 1;
             for (int i = 0; i < LineOffset.Count / 3; i++)
             {
@@ -2090,6 +2093,13 @@ BOOL CViewerWindow::CreateViewerBrushs()
     if (BkgndBrushSel == NULL)
     {
         TRACE_E("Unable to create window selected text background brush.");
+        return FALSE;
+    }
+    const COLORREF gutterBackground = DarkModeShouldUseDarkColors() ? RGB(38, 38, 38) : RGB(245, 245, 245);
+    LineNumberBrush = HANDLES(CreateSolidBrush(gutterBackground));
+    if (LineNumberBrush == NULL)
+    {
+        TRACE_E("Unable to create line-number gutter background brush.");
         return FALSE;
     }
     return TRUE;
@@ -2189,6 +2199,11 @@ void CViewerWindow::ReleaseViewerBrushs()
     {
         HANDLES(DeleteObject(BkgndBrushSel));
         BkgndBrushSel = NULL;
+    }
+    if (LineNumberBrush != NULL)
+    {
+        HANDLES(DeleteObject(LineNumberBrush));
+        LineNumberBrush = NULL;
     }
 }
 

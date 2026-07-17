@@ -427,8 +427,9 @@ protected:
     int HexOffsetLength; // hex mode: number of characters in the offset (in the leftmost column)
 
     // GDI objects (each thread has its own)
-    HBRUSH BkgndBrush;    // solid brush with the window background color
-    HBRUSH BkgndBrushSel; // solid brush with the window background color - selected text
+    HBRUSH BkgndBrush;       // solid brush with the window background color
+    HBRUSH BkgndBrushSel;    // solid brush with the window background color - selected text
+    HBRUSH LineNumberBrush;  // distinct background for the line-number gutter
 
     CBitmap Bitmap;
     HFONT ViewerFont;

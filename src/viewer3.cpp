@@ -116,7 +116,7 @@ static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wPara
 {
     if (message == WM_NCDESTROY)
         RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
-    if (message == WM_PAINT && DarkModeShouldUseDarkColors())
+    if ((message == WM_PAINT || message == WM_NCPAINT) && DarkModeShouldUseDarkColors())
     {
         LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
         SCROLLBARINFO sbi;
@@ -1046,47 +1046,54 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    // The vertical scrollbar is a non-client element.  Its coordinates in a
-    // window DC are not client coordinates, therefore derive both edges from
-    // ClientToScreen() rather than from the outer window rectangle.
+    // The vertical scrollbar is a non-client element.  Ask USER for its
+    // actual screen rectangle, because client/window metric arithmetic is
+    // offset by the menu and non-client frame on some Windows versions.
     case WM_NCPAINT:
     {
         LRESULT ncResult = DefWindowProc(HWindow, WM_NCPAINT, wParam, lParam);
         if (DarkModeShouldUseDarkColors())
         {
+            SCROLLBARINFO sbi;
+            memset(&sbi, 0, sizeof(sbi));
+            sbi.cbSize = sizeof(sbi);
             RECT rcWindow;
-            RECT rcClient;
             GetWindowRect(HWindow, &rcWindow);
-            GetClientRect(HWindow, &rcClient);
-            POINT clientOrigin = {0, 0};
-            ClientToScreen(HWindow, &clientOrigin);
-
-            const int clientTop = clientOrigin.y - rcWindow.top;
-            const int clientBottom = clientTop + rcClient.bottom;
-            const int vScrollLeft = clientOrigin.x - rcWindow.left + rcClient.right;
-            const int vScrollRight = vScrollLeft + GetSystemMetrics(SM_CXVSCROLL);
-            HDC hdc = GetWindowDC(HWindow);
-            HBRUSH brush = HANDLES(CreateSolidBrush(RGB(32, 32, 32)));
-            if (hdc != NULL && brush != NULL)
+            if (GetScrollBarInfo(HWindow, OBJID_VSCROLL, &sbi))
             {
-                // Cover the native dark-theme seam at the actual top edge of
-                // the non-client scrollbar, not at the top of the title bar.
-                RECT topFix = {vScrollLeft, clientTop, vScrollRight, clientTop + 1};
-                FillRect(hdc, &topFix, brush);
+                RECT vScroll = sbi.rcScrollBar;
+                OffsetRect(&vScroll, -rcWindow.left, -rcWindow.top);
 
-                // The scrollbar must end at the bottom of the horizontal bar.
-                // The horizontal bar ends directly above the status bar.
-                if (StatusBarHeight > 0)
+                RECT rcClient;
+                GetClientRect(HWindow, &rcClient);
+                POINT clientOrigin = {0, 0};
+                ClientToScreen(HWindow, &clientOrigin);
+                const int clientBottom = clientOrigin.y - rcWindow.top + rcClient.bottom;
+
+                HDC hdc = GetWindowDC(HWindow);
+                HBRUSH brush = HANDLES(CreateSolidBrush(RGB(32, 32, 32)));
+                if (hdc != NULL && brush != NULL)
                 {
-                    RECT bottomFix = {vScrollLeft, clientBottom - StatusBarHeight,
-                                      vScrollRight, clientBottom};
-                    FillRect(hdc, &bottomFix, brush);
+                    // Cover both the seam row immediately above the scrollbar
+                    // and its first row.  This removes the persistent 1px
+                    // white line without relying on frame/menu dimensions.
+                    RECT topFix = {vScroll.left, vScroll.top - 1, vScroll.right, vScroll.top + 1};
+                    FillRect(hdc, &topFix, brush);
+
+                    // End the V scrollbar at the horizontal scrollbar's lower
+                    // edge, which is immediately above the status bar.
+                    if (StatusBarHeight > 0)
+                    {
+                        RECT bottomFix = {vScroll.left, clientBottom - StatusBarHeight,
+                                          vScroll.right, vScroll.bottom};
+                        FillRect(hdc, &bottomFix, brush);
+                    }
                 }
+                if (brush != NULL)
+                    HANDLES(DeleteObject(brush));
+                if (hdc != NULL)
+                    ReleaseDC(HWindow, hdc);
             }
-            if (brush != NULL)
-                HANDLES(DeleteObject(brush));
-            if (hdc != NULL)
-                ReleaseDC(HWindow, hdc);
         }
         return ncResult;
     }
