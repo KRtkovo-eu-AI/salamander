@@ -1236,6 +1236,9 @@ const char* VIEWER_CONFIGHEXMASK_REG = "Hex Masks";
 const char* VIEWER_CONFIGUSECUSTOMFONT_REG = "Viewer Use Custom Font";
 const char* VIEWER_CONFIGFONT_REG = "Viewer Font";
 const char* VIEWER_WRAPTEXT_REG = "Wrap Text";
+const char* VIEWER_SHOWNUMBERS_REG = "Show Line Numbers";
+const char* VIEWER_SHOWSTATUS_REG = "Show Status Bar";
+const char* VIEWER_ZOOMPERCENT_REG = "Zoom Percent";
 const char* VIEWER_CPAUTOSELECT_REG = "Auto-Select";
 const char* VIEWER_DEFAULTCONVERT_REG = "Default Convert";
 const char* VIEWER_AUTOCOPYSELECTION_REG = "Auto-Copy Selection";
@@ -3402,6 +3405,12 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SaveLogFont(actKey, VIEWER_CONFIGFONT_REG, &ViewerLogFont);
                 SetValue(actKey, VIEWER_WRAPTEXT_REG, REG_DWORD,
                          &Configuration.WrapText, sizeof(DWORD));
+                SetValue(actKey, VIEWER_SHOWNUMBERS_REG, REG_DWORD,
+                         &Configuration.ViewerShowLineNumbers, sizeof(DWORD));
+                SetValue(actKey, VIEWER_SHOWSTATUS_REG, REG_DWORD,
+                         &Configuration.ViewerShowStatusBar, sizeof(DWORD));
+                SetValue(actKey, VIEWER_ZOOMPERCENT_REG, REG_DWORD,
+                         &Configuration.ViewerZoomPercent, sizeof(DWORD));
                 SetValue(actKey, VIEWER_CPAUTOSELECT_REG, REG_DWORD,
                          &Configuration.CodePageAutoSelect, sizeof(DWORD));
                 SetValue(actKey, VIEWER_DEFAULTCONVERT_REG, REG_SZ, Configuration.DefaultConvert, -1);
@@ -5435,6 +5444,13 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadLogFont(actKey, VIEWER_CONFIGFONT_REG, &ViewerLogFont); // no viewer can be open yet, so no need to call SetViewerFont()
             GetValue(actKey, VIEWER_WRAPTEXT_REG, REG_DWORD,
                      &Configuration.WrapText, sizeof(DWORD));
+            GetValue(actKey, VIEWER_SHOWNUMBERS_REG, REG_DWORD,
+                     &Configuration.ViewerShowLineNumbers, sizeof(DWORD));
+            GetValue(actKey, VIEWER_SHOWSTATUS_REG, REG_DWORD,
+                     &Configuration.ViewerShowStatusBar, sizeof(DWORD));
+            GetValue(actKey, VIEWER_ZOOMPERCENT_REG, REG_DWORD,
+                     &Configuration.ViewerZoomPercent, sizeof(DWORD));
+            Configuration.ViewerZoomPercent = max(25, min(500, Configuration.ViewerZoomPercent));
             GetValue(actKey, VIEWER_CPAUTOSELECT_REG, REG_DWORD,
                      &Configuration.CodePageAutoSelect, sizeof(DWORD));
             GetValue(actKey, VIEWER_DEFAULTCONVERT_REG, REG_SZ, Configuration.DefaultConvert, 200);

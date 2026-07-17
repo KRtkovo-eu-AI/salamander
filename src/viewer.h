@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -29,6 +29,8 @@
 #define OPTIONS_MENU_INDEX 5             // in the viewer main menu
 
 #define WM_USER_VIEWERREFRESH WM_APP + 201 // [0, 0] - perform a refresh
+#define WM_USER_GETZOOM WM_APP + 202      // [0, 0] -> current ZoomPercent
+#define WM_USER_VIEWERZOOMCHANGED WM_APP + 203 // [0, 0] - apply shared viewer zoom
 
 #ifndef INSIDE_SALAMANDER
 char* LoadStr(int resID);
@@ -316,6 +318,11 @@ protected:
     BOOL CreateViewerBrushs();
     void ReleaseViewerBrushs();
     void SetViewerFont();
+    void SetViewerZoom(int percent);
+    void LayoutStatusBar();
+    void UpdateStatusBar(__int64 offset = -1);
+    int GetTextLeft() const;
+    __int64 GetDocumentLineNumber(__int64 offset, __int64* lineStart = NULL);
 
     void ResetMouseWheelAccumulator()
     {
@@ -385,6 +392,9 @@ protected:
     HANDLE Lock; // handle for the disk cache
 
     BOOL WrapText; // local copy of Configuration.WrapText
+    BOOL ShowLineNumbers;
+    BOOL ShowStatusBar;
+    int LineNumberDigits;
 
     BOOL CodePageAutoSelect;  // local copy of Configuration.CodePageAutoSelect
     char DefaultConvert[200]; // local copy of Configuration.DefaultConvert
@@ -418,11 +428,34 @@ protected:
     int HexOffsetLength; // hex mode: number of characters in the offset (in the leftmost column)
 
     // GDI objects (each thread has its own)
-    HBRUSH BkgndBrush;    // solid brush with the window background color
-    HBRUSH BkgndBrushSel; // solid brush with the window background color - selected text
+    HBRUSH BkgndBrush;       // solid brush with the window background color
+    HBRUSH BkgndBrushSel;    // solid brush with the window background color - selected text
+    HBRUSH LineNumberBrush;  // distinct background for the line-number gutter
 
     CBitmap Bitmap;
     HFONT ViewerFont;
+
+    HWND HStatusBar;
+    HWND HScrollBar;
+    HWND VScrollBar;
+    HWND HZoomReset;
+    HWND HZoomOut;
+    HWND HZoomEdit;
+    HWND HZoomIn;
+    int StatusBarHeight;
+    int ZoomPercent;
+    __int64 StatusOffset;
+    __int64 CachedTotalLines;  // cached total line count for gutter sizing (-1 = not computed)
+    // Longest rendered line encountered in this document.  It grows while
+    // navigating, avoiding a blocking full-file scan for the scrollbar.
+    __int64 CachedMaxLineLen;
+    __int64 VisibleFirstDocumentLine;
+    __int64 CachedSelectionStart;
+    __int64 CachedSelectionEnd;
+    __int64 CachedSelectionLineCount;
+    __int64 CachedSelectionCharacterCount;
+    __int64 CachedVerticalPageSize; // stable V-scrollbar page extent (-1 = not computed)
+    BOOL LayoutNeeded; // TRUE = LayoutStatusBar() must run before the next paint
 
     int EnumFileNamesSourceUID;     // UID of our source for enumerating names in the viewer
     int EnumFileNamesLastFileIndex; // index of the currently viewed file

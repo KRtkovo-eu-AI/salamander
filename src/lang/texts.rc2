@@ -2087,5 +2087,7 @@ STRINGTABLE
  IDS_DPI_CHANGE_TITLE, "Display scaling changed"
  IDS_DPI_CHANGE_RESTART, "Windows display scaling or the remote desktop session DPI may have changed. Restart Open Salamander to redraw the whole user interface sharply in the current DPI."
 
+ IDS_VIEWER_ZOOM_RESET, "Reset"
+
  IDS_MENU_OPT_MANAGECONFIG, "&Manage Configurations..."
 }

@@ -2857,6 +2857,7 @@
 #define IDS_MAIN_WINDOW_TITLE            14287
 #define IDS_DPI_CHANGE_TITLE             14288
 #define IDS_DPI_CHANGE_RESTART           14289
+#define IDS_VIEWER_ZOOM_RESET            14290
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 
