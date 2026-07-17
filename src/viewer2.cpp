@@ -2010,9 +2010,10 @@ void CViewerWindow::SetScrollBar()
         if (ScrollScaleY < 0.00001)
             ScrollScaleY = 0.00001; // against "divide by zero"
         int page = (int)(ViewSize / ScrollScaleY + 0.5 + 1);
-        if (max == 0 || si.nMin != 0 || si.nMax != max / ScrollScaleY + 0.5 + 1 ||
+        if (VScrollWParam == -1 &&
+            (max == 0 || si.nMin != 0 || si.nMax != max / ScrollScaleY + 0.5 + 1 ||
             si.nPage != (DWORD)page ||
-            si.nPos != SeekY / ScrollScaleY + 0.5) // if it needs to be set ...
+            si.nPos != SeekY / ScrollScaleY + 0.5)) // if it needs to be set ...
         {
             si.cbSize = sizeof(si);
             si.fMask = SIF_ALL | SIF_DISABLENOSCROLL;

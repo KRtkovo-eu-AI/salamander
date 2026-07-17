@@ -1101,6 +1101,16 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LayoutStatusBar();
         }
         Paint(ps.hdc);
+        if (DarkModeShouldUseDarkColors())
+        {
+            // Child scrollbars stop at the document rectangle.  Paint their
+            // uncovered intersection explicitly so resize/layout repainting
+            // cannot leave a white system-color corner behind.
+            RECT corner = {Width, Height,
+                           Width + GetSystemMetrics(SM_CXVSCROLL),
+                           Height + GetSystemMetrics(SM_CYHSCROLL)};
+            FillViewerRectWithColor(ps.hdc, &corner, RGB(32, 32, 32));
+        }
         HANDLES(EndPaint(HWindow, &ps));
         return 0;
     }
