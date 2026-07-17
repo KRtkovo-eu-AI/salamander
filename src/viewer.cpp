@@ -1363,7 +1363,9 @@ void CViewerWindow::Paint(HDC dc)
         // per file.  For hex mode the count is trivial; for text mode
         // GetDocumentLineNumber scans the file once and the result is
         // stored in CachedTotalLines so subsequent paints are free.
-        if (CachedTotalLines < 0)
+        // When line numbers are not shown, skip the expensive scan since
+        // GetTextLeft() does not depend on LineNumberDigits.
+        if (ShowLineNumbers && CachedTotalLines < 0)
         {
             if (Type == vtHex)
                 CachedTotalLines = MaxSeekY / 16 + 1;
@@ -1372,9 +1374,43 @@ void CViewerWindow::Paint(HDC dc)
             else
                 CachedTotalLines = 1;
         }
-        LineNumberDigits = 1;
-        for (__int64 n = max((__int64)1, CachedTotalLines); n >= 10; n /= 10)
-            ++LineNumberDigits;
+        int prevLineNumberDigits = LineNumberDigits;
+        if (ShowLineNumbers)
+        {
+            LineNumberDigits = 1;
+            for (__int64 n = max((__int64)1, CachedTotalLines); n >= 10; n /= 10)
+                ++LineNumberDigits;
+        }
+        else
+        {
+            LineNumberDigits = 1; // GetTextLeft() ignores this when !ShowLineNumbers
+        }
+        // When the real gutter width differs from what HeightChanged()
+        // used during wrapping (which assumed LineNumberDigits == 1 at
+        // file-open time), recompute the layout so wrapped lines and
+        // the scrollbar range reflect the correct text area width.
+        if (ShowLineNumbers && FileName != NULL && Type == vtText && WrapText &&
+            LineNumberDigits != prevLineNumberDigits)
+        {
+            BOOL fatalErr = FALSE;
+            HeightChanged(fatalErr);
+            if (!fatalErr)
+            {
+                FindNewSeekY(SeekY, fatalErr);
+                // HeightChanged() invalidated CachedTotalLines; recompute
+                // so the rest of this paint pass uses the correct value.
+                if (CachedTotalLines < 0)
+                {
+                    if (MaxSeekY > 0)
+                        CachedTotalLines = GetDocumentLineNumber(MaxSeekY);
+                    else
+                        CachedTotalLines = 1;
+                }
+                LineNumberDigits = 1;
+                for (__int64 n = max((__int64)1, CachedTotalLines); n >= 10; n /= 10)
+                    ++LineNumberDigits;
+            }
+        }
         LineOffset.DestroyMembers();
         RECT r;
         r.left = 0;
@@ -2445,7 +2481,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
     const __int64 savedSeek = Seek;
     const __int64 savedLoaded = Loaded;
     __int64 line = 1;
-    __int64 lastNewline = TextStartOffset() - 1; // offset of last '\n' seen (-1 = none yet)
+    __int64 lastNewline = TextStartOffset() - 1; // offset of last EOL seen (-1 = none yet)
     __int64 pos = TextStartOffset();
     BOOL fatalErr = FALSE;
     while (pos < offset)
@@ -2456,16 +2492,43 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         unsigned char* text = Buffer + pos - Seek;
         for (__int64 i = 0; i < read; ++i)
         {
-            if (text[i] == '\n')
+            unsigned char ch = text[i];
+            if (ch == '\r')
             {
-                lastNewline = pos + i;
-                ++line;
+                // CRLF: '\r' + '\n' treated as one line ending
+                if (Configuration.EOL_CRLF && i + 1 < read && text[i + 1] == '\n')
+                {
+                    lastNewline = pos + i + 1; // offset of the '\n' in the CRLF pair
+                    ++line;
+                    ++i; // skip the '\n'
+                }
+                else if (Configuration.EOL_CR)
+                {
+                    lastNewline = pos + i;
+                    ++line;
+                }
+            }
+            else if (ch == '\n')
+            {
+                if (Configuration.EOL_LF)
+                {
+                    lastNewline = pos + i;
+                    ++line;
+                }
+            }
+            else if (ch == 0)
+            {
+                if (Configuration.EOL_NULL)
+                {
+                    lastNewline = pos + i;
+                    ++line;
+                }
             }
         }
         pos += read;
     }
     if (lineStart)
-        *lineStart = lastNewline + 1; // character after the last '\n' is the start of the current logical line
+        *lineStart = lastNewline + 1; // character after the last EOL is the start of the current logical line
     if (savedLoaded > 0)
     {
         BOOL restoreFatalErr = FALSE;
