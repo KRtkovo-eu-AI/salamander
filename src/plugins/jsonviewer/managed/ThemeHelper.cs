@@ -893,7 +893,12 @@ namespace EPocalipse.Json.Viewer
 
                 try
                 {
-                    SetWindowTheme(handle, "DarkMode_Explorer", null);
+                    // The scrollbar-specific class list is required for
+                    // WinForms controls that own native scrollbars.  The
+                    // generic DarkMode_Explorer theme leaves those tracks on
+                    // the light system rendering path on several Windows 11
+                    // builds.
+                    SetWindowTheme(handle, "Explorer::ScrollBar", null);
                 }
                 catch (DllNotFoundException)
                 {

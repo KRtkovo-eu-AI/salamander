@@ -257,7 +257,7 @@ BOOL CMainWindow::Init()
     LeftHeader = new CFileHeaderWindow("");
     if (!LeftHeader)
         return Error(HWND(NULL), IDS_LOWMEM);
-    if (!LeftHeader->CreateEx(WS_EX_STATICEDGE,
+    if (!LeftHeader->CreateEx(0,
                               CWINDOW_CLASSNAME,
                               "",
                               WS_VISIBLE | WS_CHILD,
@@ -274,7 +274,7 @@ BOOL CMainWindow::Init()
     RightHeader = new CFileHeaderWindow("");
     if (!RightHeader)
         return Error(HWND(NULL), IDS_LOWMEM);
-    if (!RightHeader->CreateEx(WS_EX_STATICEDGE,
+    if (!RightHeader->CreateEx(0,
                                CWINDOW_CLASSNAME,
                                "",
                                WS_VISIBLE | WS_CHILD,
@@ -289,7 +289,7 @@ BOOL CMainWindow::Init()
     }
 
     // create the file view windows
-    LeftFileViewHWnd = CreateWindowEx(WS_EX_STATICEDGE,
+    LeftFileViewHWnd = CreateWindowEx(0,
                                       FILEVIEWWINDOW_CLASSNAME,
                                       "",
                                       WS_VISIBLE | WS_CHILD | WS_VSCROLL | WS_HSCROLL,
@@ -304,7 +304,7 @@ BOOL CMainWindow::Init()
         return FALSE;
     }
 
-    RightFileViewHWnd = CreateWindowEx(WS_EX_STATICEDGE,
+    RightFileViewHWnd = CreateWindowEx(0,
                                        FILEVIEWWINDOW_CLASSNAME,
                                        "",
                                        WS_VISIBLE | WS_CHILD | WS_VSCROLL | WS_HSCROLL,
