@@ -3782,7 +3782,9 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     LoadControls();
                     ListView_SetItemText(HListView, index, 0, name);
                     Dirty = TRUE;
-                    break;
+                    // Confirm the edit so the list view does not restore its
+                    // previous label after this notification returns.
+                    return TRUE;
                 }
                 break;
             }
