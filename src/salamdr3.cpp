@@ -3959,7 +3959,7 @@ DWORD OnDirectoryKeyDown(DWORD keyCode, HWND hDialog, int editID, int editBufSiz
 
 void InvokeDirectoryMenuCommand(DWORD cmd, HWND hDialog, int editID, int editBufSize)
 {
-    char path[2 * MAX_PATH];
+    char path[SAL_MAX_PATH];
     BOOL setPathToEdit = FALSE;
     switch (cmd)
     {
@@ -4003,7 +4003,7 @@ void InvokeDirectoryMenuCommand(DWORD cmd, HWND hDialog, int editID, int editBuf
         // hot path
         if (cmd >= DIRECTORY_COMMAND_HOTPATHF && cmd <= DIRECTORY_COMMAND_HOTPATHL)
         {
-            if (MainWindow->GetExpandedHotPath(hDialog, cmd - DIRECTORY_COMMAND_HOTPATHF, path, 2 * MAX_PATH))
+            if (MainWindow->GetExpandedHotPath(hDialog, cmd - DIRECTORY_COMMAND_HOTPATHF, path, SAL_MAX_PATH))
                 setPathToEdit = TRUE;
         }
         else

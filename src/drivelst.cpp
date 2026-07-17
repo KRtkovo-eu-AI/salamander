@@ -2976,7 +2976,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
     RECT selectedIndexRect = {0};
     if (MenuPopup != NULL)
         MenuPopup->GetItemRect(selectedIndex, &selectedIndexRect);
-    char path[2 * MAX_PATH];
+    char path[SAL_MAX_PATH];
     CDriveTypeEnum dt = Drives->At(selectedIndex).DriveType;
     switch (dt)
     {
@@ -2994,7 +2994,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
 
     case drvtHotPath:
     {
-        if (!MainWindow->GetExpandedHotPath(MainWindow->HWindow, Drives->At(selectedIndex).Param, path, 2 * MAX_PATH))
+        if (!MainWindow->GetExpandedHotPath(MainWindow->HWindow, Drives->At(selectedIndex).Param, path, SAL_MAX_PATH))
             return FALSE;
         if (LowerCase[path[0]] >= 'a' && LowerCase[path[0]] <= 'z' && path[1] == ':' && (path[2] == '\\' || path[2] == '/') ||
             (path[0] == '\\' || path[0] == '/') && (path[1] == '\\' || path[1] == '/'))

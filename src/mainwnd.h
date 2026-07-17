@@ -78,7 +78,7 @@ protected:
 // used in the configuration dialog and specifies the maximum allowed length of CHotPathItem::Path
 // we keep some margin because the path may contain long variables that will "shrink" to just a few characters after expansion,
 // for example $[SystemDrive] -> C:
-#define HOTPATHITEM_MAXPATH (4 * MAX_PATH)
+#define HOTPATHITEM_MAXPATH (2 * SAL_MAX_PATH)
 
 struct CHotPathItem
 {
