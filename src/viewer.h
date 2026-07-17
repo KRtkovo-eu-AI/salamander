@@ -243,6 +243,7 @@ protected:
     // determine the maximum length of a visible line in the view (text mode: must be repainted,
     // otherwise LineOffset is outdated)
     __int64 GetMaxVisibleLineLen(__int64 newFirstLineLen = -1, BOOL ignoreFirstLine = FALSE);
+    __int64 GetMaxDocumentLineLen();
 
     // determine the maximum OriginX for the current view (text mode: must be repainted,
     // otherwise LineOffset is outdated)
@@ -443,7 +444,8 @@ protected:
     int StatusBarHeight;
     int ZoomPercent;
     __int64 StatusOffset;
-    __int64 CachedTotalLines; // cached total line count for gutter sizing (-1 = not computed)
+    __int64 CachedTotalLines;  // cached total line count for gutter sizing (-1 = not computed)
+    __int64 CachedMaxLineLen;  // longest document line in display cells (-1 = not computed)
     BOOL LayoutNeeded; // TRUE = LayoutStatusBar() must run before the next paint
 
     int EnumFileNamesSourceUID;     // UID of our source for enumerating names in the viewer

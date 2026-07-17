@@ -693,7 +693,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 {
     CALL_STACK_MESSAGE1("CViewerWindow::HeightChanged()");
     fatalErr = FALSE;
-    CachedTotalLines = -1; // invalidate gutter line-count cache
+    CachedTotalLines = CachedMaxLineLen = -1; // invalidate document metrics cache
     switch (Type)
     {
     case vtHex:
@@ -2037,15 +2037,18 @@ void CViewerWindow::SetScrollBar()
         si.fMask = SIF_ALL;
         GetScrollInfo(HScrollBar, SB_CTL, &si);
 
-        max = OriginX + (Width - BORDER_WIDTH) / CharWidth;
-        __int64 maxLL = GetMaxVisibleLineLen();
+        const int visibleColumns = (Width - GetTextLeft()) / CharWidth;
+        max = OriginX + visibleColumns;
+        // Use the longest line in the whole document, not merely the rows
+        // currently on screen.  The thumb must not resize while scrolling.
+        __int64 maxLL = GetMaxDocumentLineLen();
         if (max < maxLL)
             max = maxLL;
 
         ScrollScaleX = ((double)max) / 20000.0;
         if (ScrollScaleX < 0.00001)
             ScrollScaleX = 0.00001; // against "divide by zero"
-        page = (int)(((Width - BORDER_WIDTH) / CharWidth) / ScrollScaleX + 0.5 + 2);
+        page = (int)(visibleColumns / ScrollScaleX + 0.5 + 2);
         if (max == 0 || si.nMin != 0 || si.nMax != max / ScrollScaleX + 0.5 + 1 ||
             si.nPage != (DWORD)page ||
             si.nPos != OriginX / ScrollScaleX + 0.5) // if it needs to be set ...

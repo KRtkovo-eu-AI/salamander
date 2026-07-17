@@ -611,7 +611,10 @@ CViewerWindow::GetMaxVisibleLineLen(__int64 newFirstLineLen, BOOL ignoreFirstLin
 __int64
 CViewerWindow::GetMaxOriginX(__int64 newFirstLineLen, BOOL ignoreFirstLine, __int64 maxLineLen)
 {
-    __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxVisibleLineLen(newFirstLineLen, ignoreFirstLine);
+    // Horizontal scrolling is defined by the whole document.  Limiting it
+    // to the current rows makes the thumb size and reachable range change
+    // as the user scrolls vertically.
+    __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxDocumentLineLen();
     int columns = (Width - GetTextLeft()) / CharWidth;
     return maxLL > columns ? maxLL - columns : 0;
 }
@@ -1114,6 +1117,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         Paint(ps.hdc);
         HANDLES(EndPaint(HWindow, &ps));
+        // Scroll/status-bar repaints can occur after the original NC paint.
+        // Apply the V-scrollbar overlay once more after the client paint.
+        SendMessage(HWindow, WM_NCPAINT, 1, 0);
         return 0;
     }
 
@@ -1174,7 +1180,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if (FileName != NULL)
                 {
-                    // limit movement according to the longest visible line
+                    // limit movement according to the longest document line
                     __int64 maxOX = GetMaxOriginX();
                     if (OriginX > maxOX)
                     {
@@ -1374,7 +1380,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         OriginX = (__int64)(ScrollScaleX * ((short)HIWORD(wParam)) + 0.5);
                     }
 
-                    // limit movement according to the longest visible line
+                    // limit movement according to the longest document line
                     __int64 maxOX = GetMaxOriginX();
                     if (OriginX > maxOX)
                         OriginX = maxOX;
@@ -1386,6 +1392,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 UpdateWindow(HWindow); // so that ViewSize is calculated for the next PageDown
             }
             }
+        }
+        // The themed scrollbar can repaint itself after the document update.
+        // Force its subclass to restore the dark track after that repaint.
+        if (HScrollBar != NULL)
+        {
+            InvalidateRect(HScrollBar, NULL, FALSE);
+            UpdateWindow(HScrollBar);
         }
         return 0;
     }

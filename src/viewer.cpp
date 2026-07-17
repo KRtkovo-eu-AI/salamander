@@ -641,6 +641,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     ZoomPercent = Configuration.ViewerZoomPercent;
     StatusOffset = -1;
     CachedTotalLines = -1;
+    CachedMaxLineLen = -1;
     LayoutNeeded = TRUE;
 
     Width = Height = 0;
@@ -2034,6 +2035,7 @@ void CViewerWindow::Paint(HDC dc)
             // Keep the gutter visibly distinct from document text in both
             // standard light schemes and Windows Dark Mode.
             SetTextColor(dc, DarkModeShouldUseDarkColors() ? RGB(160, 160, 160) : RGB(96, 96, 96));
+            int gutterBkMode = SetBkMode(dc, TRANSPARENT);
             __int64 documentLine = LineOffset.Count >= 3 ? GetDocumentLineNumber(LineOffset[0]) : 1;
             for (int i = 0; i < LineOffset.Count / 3; i++)
             {
@@ -2054,6 +2056,7 @@ void CViewerWindow::Paint(HDC dc)
                     DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
                 }
             }
+            SetBkMode(dc, gutterBkMode);
         }
         //---
         SelectObject(dc, oldFont);
@@ -2356,6 +2359,56 @@ int CViewerWindow::GetTextLeft() const
     if (!ShowLineNumbers)
         return BORDER_WIDTH;
     return BORDER_WIDTH + (LineNumberDigits + 1) * CharWidth;
+}
+
+__int64 CViewerWindow::GetMaxDocumentLineLen()
+{
+    if (CachedMaxLineLen >= 0)
+        return CachedMaxLineLen;
+    if (Type == vtHex)
+        return CachedMaxLineLen = 62 + 16 - 8 + HexOffsetLength;
+
+    const __int64 savedSeek = Seek;
+    const __int64 savedLoaded = Loaded;
+    __int64 longest = 0;
+    __int64 current = 0;
+    __int64 pos = TextStartOffset();
+    BOOL fatalErr = FALSE;
+    while (pos < FileSize)
+    {
+        __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, FileSize - pos), fatalErr);
+        if (fatalErr || read <= 0)
+            break;
+        unsigned char* text = Buffer + pos - Seek;
+        for (__int64 i = 0; i < read; ++i)
+        {
+            unsigned char ch = text[i];
+            if (ch == '\r' || ch == '\n' || (Configuration.EOL_NULL && ch == 0))
+            {
+                if (current > longest)
+                    longest = current;
+                current = 0;
+            }
+            else if (ch == '\t')
+            {
+                const int tabSize = max(1, Configuration.TabSize);
+                current += tabSize - current % tabSize;
+            }
+            else if ((ch & 0xC0) != 0x80) // count UTF-8 code points, not continuation bytes
+            {
+                ++current;
+            }
+        }
+        pos += read;
+    }
+    if (current > longest)
+        longest = current;
+    if (savedLoaded > 0)
+    {
+        BOOL restoreFatalErr = FALSE;
+        Prepare(NULL, savedSeek, savedLoaded, restoreFatalErr);
+    }
+    return CachedMaxLineLen = longest;
 }
 
 __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
