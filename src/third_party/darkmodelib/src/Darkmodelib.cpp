@@ -1015,7 +1015,7 @@ void dmlib::setSysColor(int nIndex, COLORREF color)
  */
 void dmlib::enableDarkScrollBarForWindowAndChildren([[maybe_unused]] HWND hWnd)
 {
-#if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 0)
+#if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
 	dmlib_hook::enableDarkScrollBarForWindowAndChildren(hWnd);
 #endif
 }

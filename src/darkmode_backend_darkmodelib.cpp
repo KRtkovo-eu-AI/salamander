@@ -273,7 +273,8 @@ bool HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result,
 {
 #if USE_DARKMODELIB
     if (message == WM_CTLCOLORSTATIC || message == WM_CTLCOLORBTN || message == WM_CTLCOLOREDIT ||
-        message == WM_CTLCOLORLISTBOX || message == WM_CTLCOLORDLG || message == WM_CTLCOLORMSGBOX)
+        message == WM_CTLCOLORLISTBOX || message == WM_CTLCOLORDLG || message == WM_CTLCOLORMSGBOX ||
+        message == WM_CTLCOLORSCROLLBAR)
     {
         HDC hdc = reinterpret_cast<HDC>(wParam);
         if (hdc != NULL)

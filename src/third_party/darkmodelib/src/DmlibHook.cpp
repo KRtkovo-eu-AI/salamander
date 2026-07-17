@@ -177,6 +177,7 @@ bool dmlib_hook::loadOpenNcThemeData(const HMODULE& hUxtheme) noexcept
 #if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
 // limit dark scroll bar to specific windows and their children
 static std::unordered_set<HWND> g_darkScrollBarWindows;
+static std::unordered_set<HTHEME> g_darkScrollBarThemes;
 static std::mutex g_darkScrollBarMutex;
 
 /**
@@ -217,22 +218,52 @@ static bool isWindowOrParentUsingDarkScrollBar(HWND hWnd)
 	}
 	return (hWnd != hRoot && hasElement(g_darkScrollBarWindows, hRoot));
 }
+
+static void rememberDarkScrollBarTheme(HTHEME hTheme)
+{
+	if (hTheme != nullptr)
+	{
+		const std::lock_guard<std::mutex> lock(g_darkScrollBarMutex);
+		g_darkScrollBarThemes.insert(hTheme);
+	}
+}
+
+static bool isDarkScrollBarTheme(HTHEME hTheme)
+{
+	const std::lock_guard<std::mutex> lock(g_darkScrollBarMutex);
+#if (defined(_MSC_VER) && (_MSVC_LANG >= 202002L)) || (__cplusplus >= 202002L)
+	return g_darkScrollBarThemes.contains(hTheme);
+#else
+	return g_darkScrollBarThemes.count(hTheme) != 0;
+#endif
+}
 #endif // defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
 
 static HTHEME WINAPI MyOpenNcThemeData(HWND hWnd, LPCWSTR pszClassList)
 {
 	static constexpr std::wstring_view scrollBarClassName = WC_SCROLLBAR;
+	bool useDarkScrollBar = false;
 	if (scrollBarClassName == pszClassList)
 	{
 #if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
 		if (isWindowOrParentUsingDarkScrollBar(hWnd))
-#endif
 		{
-			hWnd = nullptr;
+			useDarkScrollBar = true;
 			pszClassList = L"Explorer::ScrollBar";
 		}
+#else
+		hWnd = nullptr;
+		pszClassList = L"Explorer::ScrollBar";
+#endif
 	}
-	return pfOpenNcThemeData(hWnd, pszClassList);
+	HTHEME hTheme = pfOpenNcThemeData(hWnd, pszClassList);
+#if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
+	if (useDarkScrollBar)
+	{
+		rememberDarkScrollBarTheme(hTheme);
+	}
+#endif
+	return hTheme;
 }
 
 void dmlib_hook::fixDarkScrollBar()
@@ -244,6 +275,7 @@ void dmlib_hook::fixDarkScrollBar()
 		if (addr != nullptr) // && pfOpenNcThemeData != nullptr) // checked in InitDarkMode
 		{
 			ReplaceFunction<fnOpenNcThemeData>(addr, MyOpenNcThemeData);
+			dmlib_hook::hookThemeColor();
 		}
 	}
 }
@@ -364,6 +396,7 @@ static HookData<fnDrawThemeBackgroundEx> g_hookDataDrawThemeBackgroundEx{};
 
 static constexpr COLORREF kMainInstructionTextClr = RGB(96, 205, 255);
 static constexpr COLORREF kOtherTextClr = RGB(255, 255, 255);
+static constexpr COLORREF kScrollBarTrackClr = RGB(23, 23, 23);
 
 static HTHEME g_hDarkTheme = nullptr;
 
@@ -380,6 +413,24 @@ static HRESULT WINAPI MyGetThemeColor(
 	{
 		return retVal;
 	}
+
+#if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
+	if (iPropId == TMT_FILLCOLOR
+		&& isDarkScrollBarTheme(hTheme))
+	{
+		switch (iPartId)
+		{
+			case SBP_LOWERTRACKHORZ:
+			case SBP_UPPERTRACKHORZ:
+			case SBP_LOWERTRACKVERT:
+			case SBP_UPPERTRACKVERT:
+			{
+				*pColor = kScrollBarTrackClr;
+				return S_OK;
+			}
+		}
+	}
+#endif
 
 	if (iPropId == TMT_TEXTCOLOR)
 	{
@@ -424,6 +475,22 @@ static constexpr COLORREF kFooterBgClr = RGB(32, 32, 32);
 
 static HBRUSH g_hBrushBg = nullptr;
 static HBRUSH g_hBrushBgFooter = nullptr;
+static HBRUSH g_hBrushScrollBarTrack = nullptr;
+
+static bool isScrollBarTrackPart(int iPartId) noexcept
+{
+	switch (iPartId)
+	{
+		case SBP_LOWERTRACKHORZ:
+		case SBP_UPPERTRACKHORZ:
+		case SBP_LOWERTRACKVERT:
+		case SBP_UPPERTRACKVERT:
+		{
+			return true;
+		}
+	}
+	return false;
+}
 
 static HRESULT WINAPI MyDrawThemeBackgroundEx(
 	HTHEME hTheme,
@@ -434,7 +501,20 @@ static HRESULT WINAPI MyDrawThemeBackgroundEx(
 	const DTBGOPTS* pOptions
 ) noexcept
 {
-	if (!dmlib_win32api::IsDarkModeActive() || pOptions == nullptr)
+	if (!dmlib_win32api::IsDarkModeActive())
+	{
+		return g_hookDataDrawThemeBackgroundEx.m_trueFn(hTheme, hdc, iPartId, iStateId, pRect, pOptions);
+	}
+
+#if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
+	if (isScrollBarTrackPart(iPartId) && isDarkScrollBarTheme(hTheme))
+	{
+		::FillRect(hdc, pRect, g_hBrushScrollBarTrack);
+		return S_OK;
+	}
+#endif
+
+	if (pOptions == nullptr)
 	{
 		return g_hookDataDrawThemeBackgroundEx.m_trueFn(hTheme, hdc, iPartId, iStateId, pRect, pOptions);
 	}
@@ -499,6 +579,11 @@ bool dmlib_hook::hookThemeColor() noexcept
 		g_hBrushBgFooter = ::CreateSolidBrush(clrFooter);
 	}
 
+	if (g_hBrushScrollBarTrack == nullptr)
+	{
+		g_hBrushScrollBarTrack = ::CreateSolidBrush(kScrollBarTrackClr);
+	}
+
 	return
 		HookFunction<fnGetThemeColor>(g_hookDataGetThemeColor,
 			MyGetThemeColor,
@@ -539,5 +624,11 @@ void dmlib_hook::unhookThemeColor() noexcept
 	{
 		::DeleteObject(g_hBrushBgFooter);
 		g_hBrushBgFooter = nullptr;
+	}
+
+	if (g_hBrushScrollBarTrack != nullptr)
+	{
+		::DeleteObject(g_hBrushScrollBarTrack);
+		g_hBrushScrollBarTrack = nullptr;
 	}
 }

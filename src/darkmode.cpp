@@ -2083,42 +2083,11 @@ BOOL CALLBACK ApplyTreeCallback(HWND hwnd, LPARAM)
 
 void HookDarkScrollbars()
 {
-    if (gScrollbarsHooked || !gSupported)
-        return;
-
-    HMODULE hComctl = LoadLibraryExW(L"comctl32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if (!hComctl)
-        return;
-
-    auto thunk = FindDelayLoadThunkInModule(hComctl, "uxtheme.dll", 49); // OpenNcThemeData
-    if (!thunk)
-        return;
-
-    DWORD oldProtect;
-    if (!VirtualProtect(thunk, sizeof(IMAGE_THUNK_DATA), PAGE_READWRITE, &oldProtect))
-        return;
-
-    auto original = reinterpret_cast<fnOpenNcThemeData>(thunk->u1.Function);
-    if (!original)
-    {
-        VirtualProtect(thunk, sizeof(IMAGE_THUNK_DATA), oldProtect, &oldProtect);
-        return;
-    }
-
-    gOpenNcThemeData = original;
-    auto replacement = [](HWND hWnd, LPCWSTR classList) -> HTHEME {
-        if (classList != nullptr && wcscmp(classList, L"ScrollBar") == 0)
-        {
-            // Preserve the real scrollbar HWND so UxTheme can use the
-            // window's dark-mode policy and palette instead of falling back
-            // to the generic Explorer track color.
-            classList = L"Explorer::ScrollBar";
-        }
-        return gOpenNcThemeData ? gOpenNcThemeData(hWnd, classList) : nullptr;
-    };
-
-    thunk->u1.Function = reinterpret_cast<ULONG_PTR>(static_cast<fnOpenNcThemeData>(replacement));
-    VirtualProtect(thunk, sizeof(IMAGE_THUNK_DATA), oldProtect, &oldProtect);
+#if USE_DARKMODELIB
+    dmlib::initDarkMode();
+    dmlib::setDarkModeConfigEx(static_cast<UINT>(DarkModeShouldUseDarkColors() ? dmlib::DarkModeType::dark : dmlib::DarkModeType::classic));
+    dmlib::setDefaultColors(true);
+#endif
     gScrollbarsHooked = true;
 }
 
@@ -2148,6 +2117,7 @@ void ApplyControlTheme(HWND hwnd)
         L"msctls_statusbar32",
         L"msctls_trackbar32",
         L"msctls_scrollbar32",
+        L"ScrollBar",
     };
 
     static const wchar_t* const darkExplorerClasses[] = {
@@ -2676,7 +2646,22 @@ void DarkModeFixScrollbars()
     if (!gSupported)
         return;
 
-    HookDarkScrollbars();
+#if USE_DARKMODELIB
+    if (!gScrollbarsHooked)
+        HookDarkScrollbars();
+#endif
+}
+
+void DarkModeAllowDarkScrollbars(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+#if USE_DARKMODELIB && defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
+    dmlib::enableDarkScrollBarForWindowAndChildren(hwnd);
+#else
+    (void)hwnd;
+#endif
 }
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)

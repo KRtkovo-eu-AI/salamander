@@ -54,6 +54,9 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam);
 // install it; calls from unloadable plugins are ignored.
 void DarkModeFixScrollbars();
 
+// Allows the limited dark scrollbar hook to affect this window subtree.
+void DarkModeAllowDarkScrollbars(HWND hwnd);
+
 // Supplies dialog foreground/background colors and brush for WM_CTLCOLOR helpers.
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush);
 void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,
