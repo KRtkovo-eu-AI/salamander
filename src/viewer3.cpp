@@ -1008,7 +1008,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
         HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                   0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_OUT, HInstance, NULL);
-        HZoomEdit = CreateWindowEx(0, "EDIT", "100 %", WS_CHILD | WS_VISIBLE | ES_CENTER,
+        char zoomText[16];
+        sprintf(zoomText, "%d %%", ZoomPercent);
+        HZoomEdit = CreateWindowEx(0, "EDIT", zoomText, WS_CHILD | WS_VISIBLE | ES_CENTER,
                                    0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_EDIT, HInstance, NULL);
         HZoomIn = CreateWindowEx(0, "BUTTON", "+", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                  0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_IN, HInstance, NULL);
