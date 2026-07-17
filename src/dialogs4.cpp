@@ -3373,6 +3373,7 @@ CCfgPageHotPath::CCfgPageHotPath(BOOL editMode, int editIndex)
     DisableNotification = FALSE;
     EditMode = editMode;
     EditIndex = editIndex;
+    PathEditIndex = -1;
     if (editIndex < 0 || editIndex >= HOT_PATHS_COUNT)
     {
         EditMode = FALSE;
@@ -3486,6 +3487,11 @@ void CCfgPageHotPath::Transfer(CTransferInfo& ti)
 
 void CCfgPageHotPath::LoadControls()
 {
+    // Keep the edit control's contents before replacing them for another item.
+    // During LVN_ITEMCHANGED the list selection has already changed, so using
+    // the current selection here would save the old path into the new item.
+    StoreControls();
+
     int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
     char path[HOTPATHITEM_MAXPATH];
     path[0] = 0;
@@ -3499,6 +3505,7 @@ void CCfgPageHotPath::LoadControls()
     DisableNotification = TRUE;
     SendDlgItemMessage(HWindow, IDC_HOTPATH_PATH, EM_LIMITTEXT, HOTPATHITEM_MAXPATH - 1, 0);
     SetDlgItemText(HWindow, IDC_HOTPATH_PATH, path);
+    PathEditIndex = index;
 
     DisableNotification = FALSE;
     EnableControls();
@@ -3506,12 +3513,11 @@ void CCfgPageHotPath::LoadControls()
 
 void CCfgPageHotPath::StoreControls()
 {
-    int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
-    if (index != -1)
+    if (PathEditIndex >= 0 && PathEditIndex < HOT_PATHS_COUNT)
     {
         char buff[HOTPATHITEM_MAXPATH];
         GetDlgItemText(HWindow, IDC_HOTPATH_PATH, buff, HOTPATHITEM_MAXPATH);
-        Config->SetPath(index, buff);
+        Config->SetPath(PathEditIndex, buff);
     }
 }
 
@@ -3549,13 +3555,16 @@ void CCfgPageHotPath::OnModify()
 
 void CCfgPageHotPath::OnDelete()
 {
+    StoreControls();
     int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
     if (index != -1)
     {
+        PathEditIndex = -1;
         Config->Set(index, "", "");
         char buffEmpty[] = "";
         ListView_SetItemText(HListView, index, 0, buffEmpty);
         LoadControls();
+        Dirty = TRUE;
     }
     EnableHeader();
 }
@@ -3563,6 +3572,7 @@ void CCfgPageHotPath::OnDelete()
 void CCfgPageHotPath::OnMove(BOOL up)
 {
     CALL_STACK_MESSAGE2("CCfgPageHotPath::OnMove(%d)", up);
+    StoreControls();
     DisableNotification = TRUE;
     int index1 = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
     int index2 = index1;
@@ -3574,6 +3584,7 @@ void CCfgPageHotPath::OnMove(BOOL up)
         index2 = index1 + 1;
     if (index2 != index1)
     {
+        PathEditIndex = -1;
         char name1[MAX_PATH];
         char name2[MAX_PATH];
         Config->GetName(index1, name1, MAX_PATH);
@@ -3588,6 +3599,7 @@ void CCfgPageHotPath::OnMove(BOOL up)
         ListView_EnsureVisible(HListView, index2, FALSE);
         Config->SwapItems(index1, index2);
         LoadControls();
+        Dirty = TRUE;
     }
     DisableNotification = FALSE;
     EnableHeader();
@@ -3731,6 +3743,7 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     BOOL checked = nmhi->uNewState & 0x2000;
                     Config->SetVisible(nmhi->iItem, checked);
+                    Dirty = TRUE;
                 }
                 EnableHeader();
                 break;
