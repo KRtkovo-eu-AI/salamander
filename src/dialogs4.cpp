@@ -3784,6 +3784,7 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     Dirty = TRUE;
                     // Confirm the edit so the list view does not restore its
                     // previous label after this notification returns.
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
                     return TRUE;
                 }
                 break;
