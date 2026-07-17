@@ -1101,6 +1101,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LayoutStatusBar();
         }
         Paint(ps.hdc);
+        if (DarkModeShouldUseDarkColors())
+        {
+            PostMessage(HScrollBar, kScrollBarTrackRepaint, 0, 0);
+            PostMessage(VScrollBar, kScrollBarTrackRepaint, 0, 0);
+        }
         if (ShowStatusBar)
         {
             // The child scrollbars leave one intersection cell above the
@@ -1307,19 +1312,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             case SB_THUMBTRACK:
             {
-                // the actual scrolling runs from a timer because USB mice and MS scrollbars 
-                // misbehave otherwise: when the viewer is fullscreen, repainting the whole window 
-                // takes long enough that the stubborn scrollbar waits, so dragging feels like 
-                // a chewing gum; posting the scroll message or deferring painting did not help;
-                // a timer was the only reliable fix we found.
-                if (VScrollWParam == -1)
-                {
-                    VScrollWParam = wParam;
-                    VScrollWParamOld = -1;
-                    SetTimer(HWindow, IDT_THUMBSCROLL, 20, NULL);
-                }
-                else
-                    VScrollWParam = wParam;
+                // A child SCROLLBAR already tracks its native thumb smoothly.
+                // Handle each track notification directly, but keep
+                // EnableSetScroll false so Paint() cannot reset its metrics
+                // or snap the thumb back to an older position.
+                VScrollWParam = wParam;
+                OnVScroll();
                 break;
             }
             }
