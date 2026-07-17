@@ -2676,7 +2676,9 @@ void DarkModeFixScrollbars()
     if (!gSupported)
         return;
 
-    HookDarkScrollbars();
+    // darkmodelib owns the supported scrollbar hook.  Do not install the
+    // legacy duplicate hook here: it forces Explorer::ScrollBar and bypasses
+    // the library's per-window dark scrollbar policy.
 }
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
