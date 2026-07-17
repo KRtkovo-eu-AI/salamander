@@ -694,6 +694,14 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         memcpy(ViewerColors, SavedViewerColorsBeforeDark, sizeof(ViewerColors));
         ViewerColorsSavedBeforeDark = false;
     }
+    else if (WindowsDarkModeIsViewerPalette(ViewerColors))
+    {
+        // A dark configuration loaded from storage is repaired through a
+        // temporary palette, so WindowsDarkModeBuildPalette() never receives
+        // ViewerColors and therefore has no light palette to restore here.
+        // Restore the standard light viewer palette explicitly in that path.
+        WindowsLightModeBuildViewerPalette(ViewerColors);
+    }
 }
 
 
