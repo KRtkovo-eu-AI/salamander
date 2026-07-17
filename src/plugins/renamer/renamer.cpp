@@ -150,6 +150,7 @@ void ApplyRenamerDarkMode(HWND hwnd)
     {
         DarkModeApplyWindow(hwnd);
         DarkModeRefreshTitleBar(hwnd);
+        DarkModeAllowDarkScrollbars(hwnd);
         DarkModeApplyTree(hwnd);
     }
 }

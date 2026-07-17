@@ -273,11 +273,7 @@ bool HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result,
 {
 #if USE_DARKMODELIB
     if (message == WM_CTLCOLORSTATIC || message == WM_CTLCOLORBTN || message == WM_CTLCOLOREDIT ||
-        message == WM_CTLCOLORLISTBOX || message == WM_CTLCOLORDLG || message == WM_CTLCOLORMSGBOX ||
-        // Some plugin-owned standard controls do not reopen their native
-        // scrollbar theme after creation.  Supplying the dark parent brush
-        // keeps those tracks out of the system-light fallback path.
-        message == WM_CTLCOLORSCROLLBAR)
+        message == WM_CTLCOLORLISTBOX || message == WM_CTLCOLORDLG || message == WM_CTLCOLORMSGBOX)
     {
         HDC hdc = reinterpret_cast<HDC>(wParam);
         if (hdc != NULL)

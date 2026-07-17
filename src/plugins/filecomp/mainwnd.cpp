@@ -319,6 +319,12 @@ BOOL CMainWindow::Init()
         return FALSE;
     }
 
+    // These custom windows own WS_VSCROLL/WS_HSCROLL themselves.  Reapply
+    // the scoped Explorer scrollbar theme to the actual scrollbar owners,
+    // not just to the File Comparator frame created earlier.
+    DarkModeAllowDarkScrollbars(LeftFileViewHWnd);
+    DarkModeAllowDarkScrollbars(RightFileViewHWnd);
+
     // disable the scrollbars
     EnableScrollBar(LeftFileViewHWnd, SB_BOTH, ESB_DISABLE_BOTH);
     EnableScrollBar(RightFileViewHWnd, SB_BOTH, ESB_DISABLE_BOTH);
