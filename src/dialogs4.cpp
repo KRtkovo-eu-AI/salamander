@@ -3747,25 +3747,70 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
             case LVN_ENDLABELEDIT:
+#ifndef _UNICODE
+            case LVN_ENDLABELEDITW:
+#endif // _UNICODE
             {
-                NMLVDISPINFO* nmhd = (NMLVDISPINFO*)nmh;
                 LabelEdit = FALSE;
                 EnableHeader();
+                int index = -1;
+                BOOL hasLabel = FALSE;
+                char name[MAX_PATH];
+                name[0] = 0;
+#ifdef _UNICODE
+                NMLVDISPINFO* nmhd = (NMLVDISPINFO*)nmh;
+                index = nmhd->item.iItem;
                 if (nmhd->item.pszText != NULL)
                 {
-                    char name[MAX_PATH];
                     lstrcpyn(name, nmhd->item.pszText, MAX_PATH);
+                    hasLabel = TRUE;
+                }
+#else  // _UNICODE
+                if (nmh->code == LVN_ENDLABELEDITW)
+                {
+                    NMLVDISPINFOW* nmhd = (NMLVDISPINFOW*)nmh;
+                    index = nmhd->item.iItem;
+                    if (nmhd->item.pszText != NULL)
+                    {
+                        WideCharToMultiByte(CP_ACP, 0, nmhd->item.pszText, -1, name, MAX_PATH, NULL, NULL);
+                        hasLabel = TRUE;
+                    }
+                }
+                else
+                {
+                    NMLVDISPINFOA* nmhd = (NMLVDISPINFOA*)nmh;
+                    index = nmhd->item.iItem;
+                    if (nmhd->item.pszText != NULL)
+                    {
+                        lstrcpyn(name, nmhd->item.pszText, MAX_PATH);
+                        hasLabel = TRUE;
+                    }
+                }
+#endif // _UNICODE
+                if (index != -1 && hasLabel)
+                {
                     Config->CleanName(name);
-                    int index = nmhd->item.iItem;
                     char path[HOTPATHITEM_MAXPATH];
                     path[0] = 0;
                     if (strlen(name) != 0)
-                        Config->GetPath(index, path, HOTPATHITEM_MAXPATH);
+                    {
+                        if (ListView_GetNextItem(HListView, -1, LVNI_SELECTED) == index)
+                            GetDlgItemText(HWindow, IDC_HOTPATH_PATH, path, HOTPATHITEM_MAXPATH);
+                        else
+                            Config->GetPath(index, path, HOTPATHITEM_MAXPATH);
+                    }
                     Config->Set(index, name, path);
-                    LoadControls();
-                    ListView_SetItemText(HListView, index, 0, name);
                     Dirty = TRUE;
-                    break;
+                    if (name[0] == 0)
+                        LoadControls(); // discard the removed item's path before it can be reused
+                    else
+                        EnableControls();
+
+                    // The list view applies the label after this notification
+                    // returns.  Report that the edit was accepted without
+                    // changing the list control while it is finishing it.
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+                    return TRUE;
                 }
                 break;
             }
