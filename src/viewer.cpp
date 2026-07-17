@@ -642,6 +642,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     StatusOffset = -1;
     CachedTotalLines = -1;
     CachedMaxLineLen = -1;
+    CachedVerticalPageSize = -1;
     LayoutNeeded = TRUE;
 
     Width = Height = 0;

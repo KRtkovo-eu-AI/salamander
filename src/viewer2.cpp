@@ -693,7 +693,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 {
     CALL_STACK_MESSAGE1("CViewerWindow::HeightChanged()");
     fatalErr = FALSE;
-    CachedTotalLines = CachedMaxLineLen = -1; // invalidate document metrics cache
+    CachedTotalLines = CachedMaxLineLen = CachedVerticalPageSize = -1; // invalidate document metrics cache
     switch (Type)
     {
     case vtHex:
@@ -2009,7 +2009,9 @@ void CViewerWindow::SetScrollBar()
         ScrollScaleY = ((double)max) / 20000.0;
         if (ScrollScaleY < 0.00001)
             ScrollScaleY = 0.00001; // against "divide by zero"
-        int page = (int)(ViewSize / ScrollScaleY + 0.5 + 1);
+        if (CachedVerticalPageSize < 0)
+            CachedVerticalPageSize = ViewSize;
+        int page = (int)(CachedVerticalPageSize / ScrollScaleY + 0.5 + 1);
         if (VScrollWParam == -1 &&
             (max == 0 || si.nMin != 0 || si.nMax != max / ScrollScaleY + 0.5 + 1 ||
             si.nPage != (DWORD)page ||
