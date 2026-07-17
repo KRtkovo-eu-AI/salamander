@@ -2003,7 +2003,7 @@ void CViewerWindow::SetScrollBar()
         SCROLLINFO si;
         si.cbSize = sizeof(si);
         si.fMask = SIF_ALL;
-        GetScrollInfo(HWindow, SB_VERT, &si);
+        GetScrollInfo(VScrollBar, SB_CTL, &si);
 
         __int64 max = ViewSize + MaxSeekY;
         ScrollScaleY = ((double)max) / 20000.0;
@@ -2029,7 +2029,7 @@ void CViewerWindow::SetScrollBar()
                 si.nPage = 0;
                 si.nPos = 0;
             }
-            SetScrollInfo(HWindow, SB_VERT, &si, TRUE);
+            SetScrollInfo(VScrollBar, SB_CTL, &si, TRUE);
         }
 
         // horizontal scrollbar

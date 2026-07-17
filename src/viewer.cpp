@@ -636,7 +636,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     BkgndBrushSel = NULL;
     LineNumberBrush = NULL;
     ViewerFont = NULL;
-    HStatusBar = HScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
+    HStatusBar = HScrollBar = VScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
     StatusBarHeight = 0;
     ZoomPercent = Configuration.ViewerZoomPercent;
     StatusOffset = -1;
@@ -2470,6 +2470,7 @@ void CViewerWindow::LayoutStatusBar()
     // The status bar and its controls are window chrome.  Their dimensions
     // must not follow the document font zoom.
     StatusBarHeight = ShowStatusBar ? max(20, GetSystemMetrics(SM_CYSMICON) + 4) : 0;
+    int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
     int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
     ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
@@ -2479,7 +2480,10 @@ void CViewerWindow::LayoutStatusBar()
     // Horizontal scrollbar (child control) spans the full client width, positioned
     // above the status bar — same layout as Notepad's Edit control.
     SetWindowPos(HScrollBar, NULL, 0, rc.bottom - StatusBarHeight - scrollHeight,
-                 rc.right, scrollHeight,
+                 rc.right - scrollWidth, scrollHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+    SetWindowPos(VScrollBar, NULL, rc.right - scrollWidth, 0, scrollWidth,
+                 rc.bottom - StatusBarHeight - scrollHeight,
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
     // Keep the native status bar behind its interactive children.
     SetWindowPos(HStatusBar, HWND_BOTTOM, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOACTIVATE);
@@ -2497,6 +2501,7 @@ void CViewerWindow::LayoutStatusBar()
     SetWindowPos(HZoomReset, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 42, StatusBarHeight - 4, SWP_NOACTIVATE);
     InvalidateRect(HWindow, NULL, FALSE);
     InvalidateRect(HScrollBar, NULL, FALSE);
+    InvalidateRect(VScrollBar, NULL, FALSE);
     InvalidateRect(HStatusBar, NULL, FALSE);
 }
 

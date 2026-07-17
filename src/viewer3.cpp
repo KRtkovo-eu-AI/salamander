@@ -163,46 +163,6 @@ static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wPara
     return DefSubclassProc(hwnd, message, wParam, lParam);
 }
 
-static const UINT kViewerVScrollOverlayRepaint = WM_APP + 204;
-
-static void PaintViewerVScrollOverlay(HWND hwnd, int statusBarHeight)
-{
-    SCROLLBARINFO sbi;
-    memset(&sbi, 0, sizeof(sbi));
-    sbi.cbSize = sizeof(sbi);
-    if (!GetScrollBarInfo(hwnd, OBJID_VSCROLL, &sbi))
-        return;
-
-    RECT rcWindow;
-    GetWindowRect(hwnd, &rcWindow);
-    RECT vScroll = sbi.rcScrollBar;
-    OffsetRect(&vScroll, -rcWindow.left, -rcWindow.top);
-
-    RECT rcClient;
-    GetClientRect(hwnd, &rcClient);
-    POINT clientOrigin = {0, 0};
-    ClientToScreen(hwnd, &clientOrigin);
-    const int hScrollTop = clientOrigin.y - rcWindow.top + rcClient.bottom -
-                           statusBarHeight - GetSystemMetrics(SM_CYHSCROLL);
-
-    HDC hdc = GetWindowDC(hwnd);
-    HBRUSH brush = HANDLES(CreateSolidBrush(RGB(32, 32, 32)));
-    if (hdc != NULL && brush != NULL)
-    {
-        // Hide the themed seam and the complete part of the non-client
-        // scrollbar below the document rectangle.  Its native painting is
-        // queued first, then this overlay runs after it.
-        RECT topFix = {vScroll.left, vScroll.top - 1, vScroll.right, vScroll.top + 1};
-        FillRect(hdc, &topFix, brush);
-        RECT bottomFix = {vScroll.left, max(vScroll.top, hScrollTop),
-                          vScroll.right, vScroll.bottom};
-        FillRect(hdc, &bottomFix, brush);
-    }
-    if (brush != NULL)
-        HANDLES(DeleteObject(brush));
-    if (hdc != NULL)
-        ReleaseDC(hwnd, hdc);
-}
 
 #ifndef WM_UAHDRAWMENU
 #define WM_UAHDRAWMENU 0x0091
@@ -1002,12 +962,17 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeRefreshTitleBar(HWindow);
         ApplyViewerMenuTheme(HWindow);
 
+        SetWindowLong(HWindow, GWL_STYLE, GetWindowLong(HWindow, GWL_STYLE) & ~WS_VSCROLL);
+        SetWindowPos(HWindow, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+
         HStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL,
                                     WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | SBARS_SIZEGRIP,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         HScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_HORZ,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         SetWindowSubclass(HScrollBar, HScrollBarSubclass, kHScrollBarSubclassId, 0);
+        VScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_VERT,
+                                    0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                     0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
         HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
@@ -1099,21 +1064,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    // Keep WS_VSCROLL on the main viewer window.  Windows paints that native
-    // scrollbar to the full non-client height, so queue the masking overlay
-    // after its paint rather than forcing another NC paint while thumb-tracking.
-    case WM_NCPAINT:
-    {
-        LRESULT ncResult = DefWindowProc(HWindow, WM_NCPAINT, wParam, lParam);
-        if (DarkModeShouldUseDarkColors())
-            PostMessage(HWindow, kViewerVScrollOverlayRepaint, 0, 0);
-        return ncResult;
-    }
-
-    case kViewerVScrollOverlayRepaint:
-        if (DarkModeShouldUseDarkColors())
-            PaintViewerVScrollOverlay(HWindow, StatusBarHeight);
-        return 0;
 
     case WM_PAINT:
     {
@@ -1155,15 +1105,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (IsWindowVisible(HWindow)) // the last WM_SIZE arrives when closing the window; we do not care (error dialogs without the viewer window are highly undesirable)
         {
             SetToolTipOffset(-1);
-            int clientWidth = LOWORD(lParam);
-            int clientHeight = HIWORD(lParam);
+            int clientWidth = LOWORD(lParam) - GetSystemMetrics(SM_CXVSCROLL);
+            int clientHeight = HIWORD(lParam) - GetSystemMetrics(SM_CYHSCROLL);
             BOOL widthChanged = (Width != clientWidth);
             Width = clientWidth;
             Bitmap.Enlarge(Width, CharHeight);
             if (Width < 0)
                 Width = 0;
             int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
-            int viewHeight = max(0, clientHeight - scrollHeight - StatusBarHeight);
+            int viewHeight = max(0, clientHeight - StatusBarHeight);
             if (Height != viewHeight ||
                 widthChanged && Type == vtText && WrapText)
             {

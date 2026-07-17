@@ -437,6 +437,7 @@ protected:
 
     HWND HStatusBar;
     HWND HScrollBar;
+    HWND VScrollBar;
     HWND HZoomReset;
     HWND HZoomOut;
     HWND HZoomEdit;
