@@ -2705,6 +2705,12 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // dialog elements should stretch depending on its size, set split controls
         ElasticVerticalLayout(1, IDC_ICONOVRLS_LIST);
 
+        // This page may be created after the configuration scheme has already
+        // changed, in which case it does not receive an initial theme-change
+        // notification. Set the ListView surface directly, without applying a
+        // tree-wide theme that would affect unrelated scrollbars.
+        DarkModeUpdateListViewColors(HListView);
+
         break;
     }
 
