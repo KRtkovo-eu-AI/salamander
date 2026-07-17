@@ -3367,6 +3367,8 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageHotPath
 //
 
+#define WM_USER_HOTPATH_COMMIT_LABEL (WM_APP + 250)
+
 CCfgPageHotPath::CCfgPageHotPath(BOOL editMode, int editIndex)
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_HOTPATH, IDD_CFGPAGE_HOTPATH, PSP_USETITLE, NULL)
 {
@@ -3376,6 +3378,8 @@ CCfgPageHotPath::CCfgPageHotPath(BOOL editMode, int editIndex)
     DisableNotification = FALSE;
     EditMode = editMode;
     EditIndex = editIndex;
+    PendingLabelIndex = -1;
+    PendingLabel[0] = 0;
     if (editIndex < 0 || editIndex >= HOT_PATHS_COUNT)
     {
         EditMode = FALSE;
@@ -3770,6 +3774,10 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     Dirty = TRUE;
                     EnableControls();
 
+                    PendingLabelIndex = index;
+                    lstrcpyn(PendingLabel, name, MAX_PATH);
+                    PostMessage(HWindow, WM_USER_HOTPATH_COMMIT_LABEL, 0, 0);
+
                     // The list view applies the label after this notification
                     // returns.  Report that the edit was accepted without
                     // changing the list control while it is finishing it.
@@ -3781,6 +3789,14 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    }
+
+    case WM_USER_HOTPATH_COMMIT_LABEL:
+    {
+        if (PendingLabelIndex >= 0 && PendingLabelIndex < HOT_PATHS_COUNT)
+            ListView_SetItemText(HListView, PendingLabelIndex, 0, PendingLabel);
+        PendingLabelIndex = -1;
+        return TRUE;
     }
 
     case WM_COMMAND:
