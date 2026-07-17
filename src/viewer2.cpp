@@ -739,6 +739,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     CanSwitchQuietlyToHex = TRUE;
     OriginX = 0;
     SeekY = 0;
+    CachedMaxLineLen = 0;
     ExitTextMode = FALSE;
     ForceTextMode = FALSE;
     CodeType = 0;
@@ -868,6 +869,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
         {
             if (!testOnlyFileSize || FileSize != oldFS)
             {
+                CachedMaxLineLen = 0;
                 Seek = 0;
                 Loaded = 0;
                 FindOffset = 0;
@@ -2057,10 +2059,11 @@ void CViewerWindow::SetScrollBar()
         }
         max = OriginX + visibleColumns;
         // Measuring every line would synchronously read the whole document
-        // during the first paint.  Keep the range based on the rendered
-        // viewport instead; it is also the only measurement that accurately
-        // represents decoded text cells.
-        __int64 maxLL = GetMaxVisibleLineLen();
+        // during the first paint.  Retain the widest rendered line so the
+        // range does not shrink after leaving a long line, while the current
+        // viewport continues to supply display-cell measurements.
+        CachedMaxLineLen = max(CachedMaxLineLen, GetMaxVisibleLineLen());
+        __int64 maxLL = CachedMaxLineLen;
         if (max < maxLL)
             max = maxLL;
 

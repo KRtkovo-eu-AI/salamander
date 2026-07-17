@@ -445,6 +445,9 @@ protected:
     int ZoomPercent;
     __int64 StatusOffset;
     __int64 CachedTotalLines;  // cached total line count for gutter sizing (-1 = not computed)
+    // Longest rendered line encountered in this document.  It grows while
+    // navigating, avoiding a blocking full-file scan for the scrollbar.
+    __int64 CachedMaxLineLen;
     __int64 CachedVerticalPageSize; // stable V-scrollbar page extent (-1 = not computed)
     BOOL LayoutNeeded; // TRUE = LayoutStatusBar() must run before the next paint
 

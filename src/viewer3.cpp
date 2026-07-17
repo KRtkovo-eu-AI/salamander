@@ -647,12 +647,14 @@ CViewerWindow::GetMaxVisibleLineLen(__int64 newFirstLineLen, BOOL ignoreFirstLin
 __int64
 CViewerWindow::GetMaxOriginX(__int64 newFirstLineLen, BOOL ignoreFirstLine, __int64 maxLineLen)
 {
-    // Use the rendered viewport.  Scanning the entire document here would
-    // block the UI while opening large files and would count decoded text in
-    // bytes rather than display cells.
+    // Extend the persistent document extent from rendered viewport cells.
+    // This avoids a blocking full-file scan and prevents horizontal movement
+    // from shrinking after leaving a long line.
     if (WrapText)
         return 0;
-    __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxVisibleLineLen(newFirstLineLen, ignoreFirstLine);
+    __int64 visibleMax = maxLineLen != -1 ? maxLineLen : GetMaxVisibleLineLen(newFirstLineLen, ignoreFirstLine);
+    CachedMaxLineLen = max(CachedMaxLineLen, visibleMax);
+    __int64 maxLL = CachedMaxLineLen;
     int columns = (Width - GetTextLeft()) / CharWidth;
     return maxLL > columns ? maxLL - columns : 0;
 }
