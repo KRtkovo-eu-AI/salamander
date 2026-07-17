@@ -1369,9 +1369,9 @@ void CViewerWindow::Paint(HDC dc)
         if (ShowLineNumbers && CachedTotalLines < 0)
         {
             if (Type == vtHex)
-                CachedTotalLines = MaxSeekY / 16 + 1;
-            else if (FileName != NULL && MaxSeekY > 0)
-                CachedTotalLines = GetDocumentLineNumber(MaxSeekY);
+                CachedTotalLines = max((__int64)1, (FileSize + 15) / 16);
+            else if (FileName != NULL && FileSize > TextStartOffset())
+                CachedTotalLines = GetDocumentLineNumber(FileSize);
             else
                 CachedTotalLines = 1;
         }
@@ -1402,8 +1402,8 @@ void CViewerWindow::Paint(HDC dc)
                 // so the rest of this paint pass uses the correct value.
                 if (CachedTotalLines < 0)
                 {
-                    if (MaxSeekY > 0)
-                        CachedTotalLines = GetDocumentLineNumber(MaxSeekY);
+                    if (FileSize > TextStartOffset())
+                        CachedTotalLines = GetDocumentLineNumber(FileSize);
                     else
                         CachedTotalLines = 1;
                 }
@@ -2383,28 +2383,9 @@ void CViewerWindow::SetViewerZoom(int percent)
         return;
     ZoomPercent = percent;
     Configuration.ViewerZoomPercent = ZoomPercent;
-    SetViewerFont();
-    char text[16];
-    sprintf(text, "%d %%", ZoomPercent);
-    SetWindowText(HZoomEdit, text);
-    LayoutStatusBar();
-    // SetViewerFont() updated CharWidth/CharHeight, so document metrics
-    // (MaxSeekY, CachedVerticalPageSize, wrap bounds) are now stale.
-    // HeightChanged() would normally be called from WM_SIZE, but WM_SIZE
-    // only triggers it when the pixel dimensions change — a zoom change
-    // keeps the same client rect.  Force a full recalculation here.
-    if (FileName != NULL && !ExitTextMode)
-    {
-        BOOL fatalErr = FALSE;
-        HeightChanged(fatalErr);
-        if (!fatalErr)
-            FindNewSeekY(SeekY, fatalErr);
-    }
-    RECT rc;
-    GetClientRect(HWindow, &rc);
-    SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
-    InvalidateRect(HWindow, NULL, FALSE);
-    UpdateWindow(HWindow);
+    // Font metrics are shared by the legacy viewer drawing code.  Reflow all
+    // open viewers at the new shared zoom so none retains an old font.
+    ViewerWindowQueue.BroadcastMessage(WM_USER_VIEWERZOOMCHANGED, 0, 0);
 }
 
 int CViewerWindow::GetTextLeft() const
@@ -2504,6 +2485,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
     const __int64 savedLoaded = Loaded;
     __int64 line = 1;
     __int64 lastNewline = TextStartOffset() - 1; // offset of last EOL seen (-1 = none yet)
+    __int64 pendingCREnd = -1;
     __int64 pos = TextStartOffset();
     BOOL fatalErr = FALSE;
     while (pos < offset)
@@ -2515,20 +2497,25 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         for (__int64 i = 0; i < read; ++i)
         {
             unsigned char ch = text[i];
-            if (ch == '\r')
+            if (pendingCREnd != -1)
             {
-                // CRLF: '\r' + '\n' treated as one line ending
-                if (Configuration.EOL_CRLF && i + 1 < read && text[i + 1] == '\n')
-                {
-                    lastNewline = pos + i + 1; // offset of the '\n' in the CRLF pair
-                    ++line;
-                    ++i; // skip the '\n'
-                }
-                else if (Configuration.EOL_CR)
+                if (ch == '\n' && Configuration.EOL_CRLF)
                 {
                     lastNewline = pos + i;
                     ++line;
+                    pendingCREnd = -1;
+                    continue;
                 }
+                if (Configuration.EOL_CR)
+                {
+                    lastNewline = pendingCREnd;
+                    ++line;
+                }
+                pendingCREnd = -1;
+            }
+            if (ch == '\r')
+            {
+                pendingCREnd = pos + i;
             }
             else if (ch == '\n')
             {
@@ -2548,6 +2535,11 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
             }
         }
         pos += read;
+    }
+    if (pendingCREnd != -1 && Configuration.EOL_CR)
+    {
+        lastNewline = pendingCREnd;
+        ++line;
     }
     if (lineStart)
         *lineStart = lastNewline + 1; // character after the last EOL is the start of the current logical line
@@ -2629,7 +2621,22 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
                     for (int row = 1; row <= i / 3; ++row)
                         if (LineOffset[row * 3] > LineOffset[row * 3 - 2])
                             ++line;
-                    column = StatusOffset - lineStart + 1;
+                    if (HasDecodedTextMode())
+                    {
+                        const __int64 savedSeek = Seek;
+                        const __int64 savedLoaded = Loaded;
+                        Salamander::Unicode::DecodedRun visual;
+                        BOOL fatalErr = FALSE;
+                        if (DecodeTextRange(NULL, lineStart, StatusOffset, visual, fatalErr, FALSE) && !fatalErr)
+                            column = (__int64)visual.CellCount() + 1;
+                        if (savedLoaded > 0)
+                        {
+                            BOOL restoreFatalErr = FALSE;
+                            Prepare(NULL, savedSeek, savedLoaded, restoreFatalErr);
+                        }
+                    }
+                    else
+                        column = StatusOffset - lineStart + 1;
                     break;
                 }
         }
