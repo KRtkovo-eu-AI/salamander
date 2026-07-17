@@ -54,7 +54,7 @@ When a Windows build/test environment is unavailable, document that limitation c
 - Preserve all authors copyright/SPDX/provenance notices in files directly derived from other sources.
 - Add comments or documentation where substantial code or tooling was copied or adapted from other sources.
 
-# Darkmode
+## Darkmode
 
 By Darkmode we always means the situation when user has set the Configuration - Colors - Scheme as Windows Dark Mode (experimental) scheme, not the operating system being in dark mode (if we means the system settings, we mention it specifically in the task prompt). All others color schemes are in light mode.
 
@@ -62,3 +62,10 @@ By Darkmode we always means the situation when user has set the Configuration - 
 - Darkmode windows and dialogs have to use dark window title bar, IMMERSIVEMODE and other undocumented Windows API calls.
 - If creating any new window, any new dialog, showing new messagebox, creating new plugin etc., always don't forget to support the darkmode!
 
+## Setup/Installer
+
+By the Setup/Installer for Salamander we mean the Inno Setup script in doc/runbook-setup/inno_setup_salamander_x64.iss
+
+## Localization and translate
+
+All texts and strings has to be localized!
