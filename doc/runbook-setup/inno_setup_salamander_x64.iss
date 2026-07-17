@@ -1559,7 +1559,7 @@ Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppTo
 Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon; Check: not IsPortableInstall
 
 [Run]
-Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-welcome -language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
 
 
 [UninstallRun]

@@ -372,6 +372,7 @@ char CurrentHelpDir[SAL_MAX_PATH] = ""; // po prvnim pouziti helpu je zde cesta 
 WORD LanguageID = 0;                // language-id .SPL souboru
 
 char OpenReadmeInNotepad[MAX_PATH]; // pouziva se jen pri spusteni z instalaku: jmeno souboru, ktere mame v IDLE otevrit v notepadu (spustit notepad)
+BOOL ForceWelcomeDialog = FALSE;    // command-line request to show the Welcome dialog
 
 BOOL UseCustomPanelFont = FALSE;
 HFONT Font = NULL;
@@ -4236,6 +4237,7 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
         ConfigurationNameIgnoreIfNotExists = FALSE;
     }
     OpenReadmeInNotepad[0] = 0;
+    ForceWelcomeDialog = FALSE;
     if (GetCmdLine(buf, _countof(buf), argv, p, cmdLine))
     {
         int i;
@@ -4372,6 +4374,12 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
             { // Vista+: after installation: installer (SFX7ZIP) executes Salamander and asks for execution of notepad with readme file
                 lstrcpyn(OpenReadmeInNotepad, argv[i + 1], MAX_PATH);
                 i++;
+                continue;
+            }
+
+            if (StrICmp(argv[i], "-welcome") == 0)
+            { // show the configuration Welcome dialog even when a configuration already exists
+                ForceWelcomeDialog = TRUE;
                 continue;
             }
 
@@ -4926,8 +4934,8 @@ FIND_NEW_SLG_FILE:
             bootstrapStorageUsable = currentRegistryConfigExistsAtStartup;
     }
 
-    BOOL forceWelcomeDialog = !autoImportConfig && (!storageTypeFromBootstrap || !bootstrapStorageUsable) &&
-                              !portableConfigExists && !currentRegistryConfigExistsAtStartup;
+    BOOL forceWelcomeDialog = ForceWelcomeDialog || (!autoImportConfig && (!storageTypeFromBootstrap || !bootstrapStorageUsable) &&
+                                                     !portableConfigExists && !currentRegistryConfigExistsAtStartup);
 
     // pokud soubor existuje, bude importovan do registry; v portable file rezimu
     // je config.reg aktivni storage backend, ne legacy auto-import do HKCU
@@ -4960,11 +4968,11 @@ FIND_NEW_SLG_FILE:
     // nactena (NULL -> zadna; pouziji se default hodnoty)
     if (autoImportConfig)
         SALAMANDER_ROOT_REG = autoImportConfigFromKey; // pri UPGRADE nema hledani konfigurace smysl
-    else if (storageTypeFromBootstrap && bootstrapStorageUsable)
+    else if (storageTypeFromBootstrap && bootstrapStorageUsable && !ForceWelcomeDialog)
         // configstorage.ini is the authoritative storage selection with existing configuration.  Do not open
         // the Welcome dialog again just because importable configurations exist;
-        // the dialog is only for first-time/unselected storage or explicit Manage
-        // Configurations from the menu.
+        // the dialog is only for first-time/unselected storage, an explicit -welcome
+        // request, or Manage Configurations from the menu.
         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
     else
     {
