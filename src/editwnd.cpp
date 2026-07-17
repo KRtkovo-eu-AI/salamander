@@ -422,7 +422,10 @@ void BuildCommandShellLine(CCommandLineLaunchInfo* launchInfo)
     GetCommandLineApplication(launchInfo->Application, SAL_MAX_PATH);
     lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + SAL_MAX_PATH);
     AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
-    launchInfo->TooLong = FALSE;
+    launchInfo->TooLong = Configuration.CommandLineArguments[0] != 0 &&
+                          (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH, " ") ||
+                           !AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH,
+                                                Configuration.CommandLineArguments));
 }
 
 int GetCommandLineOverhead(const char* quotedApp, const char* app, BOOL closeShell)
