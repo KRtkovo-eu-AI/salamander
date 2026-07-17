@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -642,6 +642,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     StatusOffset = -1;
     CachedTotalLines = -1;
     CachedMaxLineLen = 0;
+    VisibleFirstDocumentLine = -1;
     CachedVerticalPageSize = -1;
     LayoutNeeded = TRUE;
 
@@ -2067,13 +2068,16 @@ void CViewerWindow::Paint(HDC dc)
         EnablePaint = TRUE;
         ScrollToSelection = FALSE;
         SetBkMode(Bitmap.HMemDC, oldMode);
+        __int64 documentLine = 1;
+        if ((ShowLineNumbers || ShowStatusBar) && LineOffset.Count >= 3)
+            documentLine = GetDocumentLineNumber(LineOffset[0]);
+        VisibleFirstDocumentLine = documentLine;
         if (ShowLineNumbers)
         {
             // Keep the gutter visibly distinct from document text in both
             // standard light schemes and Windows Dark Mode.
             SetTextColor(dc, DarkModeShouldUseDarkColors() ? RGB(160, 160, 160) : RGB(96, 96, 96));
             int gutterBkMode = SetBkMode(dc, TRANSPARENT);
-            __int64 documentLine = LineOffset.Count >= 3 ? GetDocumentLineNumber(LineOffset[0]) : 1;
             for (int i = 0; i < LineOffset.Count / 3; i++)
             {
                 BOOL isWrap = (i > 0 && LineOffset[i * 3] <= LineOffset[i * 3 - 2]);
@@ -2425,6 +2429,74 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         return offset / 16 + 1;
     }
 
+    if (HasDecodedTextMode())
+    {
+        const __int64 savedSeek = Seek;
+        const __int64 savedLoaded = Loaded;
+        __int64 line = 1;
+        __int64 lastNewline = TextStartOffset();
+        __int64 pos = TextStartOffset();
+        __int64 pendingCREnd = -1;
+        BOOL fatalErr = FALSE;
+        while (pos < offset)
+        {
+            __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, offset - pos), fatalErr);
+            if (fatalErr || read <= 0)
+                break;
+            Salamander::Unicode::DecodedRun decoded = Salamander::Unicode::DecodeBytes(
+                TextEncoding, Buffer + pos - Seek, (std::size_t)read, pos, pos + read >= offset);
+            for (std::size_t i = 0; i < decoded.Scalars.size(); ++i)
+            {
+                if (decoded.RawStart[i] >= offset)
+                    break;
+                std::uint32_t scalar = decoded.Scalars[i];
+                __int64 rawEnd = decoded.RawEnd[i];
+                if (pendingCREnd != -1)
+                {
+                    if (scalar == L'\n' && Configuration.EOL_CRLF)
+                    {
+                        lastNewline = rawEnd;
+                        ++line;
+                        pendingCREnd = -1;
+                        continue;
+                    }
+                    if (Configuration.EOL_CR)
+                    {
+                        lastNewline = pendingCREnd;
+                        ++line;
+                    }
+                    pendingCREnd = -1;
+                }
+                if (scalar == L'\r')
+                    pendingCREnd = rawEnd;
+                else if (scalar == L'\n' && Configuration.EOL_LF)
+                {
+                    lastNewline = rawEnd;
+                    ++line;
+                }
+                else if (scalar == 0 && Configuration.EOL_NULL)
+                {
+                    lastNewline = rawEnd;
+                    ++line;
+                }
+            }
+            pos += read;
+        }
+        if (pendingCREnd != -1 && Configuration.EOL_CR)
+        {
+            lastNewline = pendingCREnd;
+            ++line;
+        }
+        if (lineStart)
+            *lineStart = lastNewline;
+        if (savedLoaded > 0)
+        {
+            BOOL restoreFatalErr = FALSE;
+            Prepare(NULL, savedSeek, savedLoaded, restoreFatalErr);
+        }
+        return line;
+    }
+
     // Prepare() reuses the rendering buffer.  Restore the visible buffer
     // afterwards so obtaining a label/status position cannot disturb an
     // incremental scroll repaint.
@@ -2534,7 +2606,7 @@ void CViewerWindow::LayoutStatusBar()
 
 void CViewerWindow::UpdateStatusBar(__int64 offset)
 {
-    if (HStatusBar == NULL)
+    if (HStatusBar == NULL || !ShowStatusBar)
         return;
     if (offset != -1)
         StatusOffset = offset;
@@ -2547,13 +2619,16 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
             line = StatusOffset / 16 + 1;
             column = StatusOffset % 16 + 1;
         }
-        else
+        else if (VisibleFirstDocumentLine > 0)
         {
             for (int i = 0; i + 2 < LineOffset.Count; i += 3)
                 if (StatusOffset >= LineOffset[i] && StatusOffset <= LineOffset[i + 1])
                 {
-                    __int64 lineStart;
-                    line = GetDocumentLineNumber(LineOffset[i], &lineStart);
+                    __int64 lineStart = LineOffset[i];
+                    line = VisibleFirstDocumentLine;
+                    for (int row = 1; row <= i / 3; ++row)
+                        if (LineOffset[row * 3] > LineOffset[row * 3 - 2])
+                            ++line;
                     column = StatusOffset - lineStart + 1;
                     break;
                 }
@@ -2564,22 +2639,26 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
         strcpy(text, "Line -, Column -");
     else
         sprintf(text, "Line %I64d, Column %I64d", line, column);
-    if (StartSelection != -1 && EndSelection != -1 && StartSelection != EndSelection)
+    if (VisibleFirstDocumentLine > 0 && StartSelection != -1 && EndSelection != -1 && StartSelection != EndSelection)
     {
         __int64 first = min(StartSelection, EndSelection);
         __int64 last = max(StartSelection, EndSelection);
         int lines = 0;
+        __int64 documentLine = VisibleFirstDocumentLine;
         __int64 prevDocLine = -1;
         for (int i = 0; i + 2 < LineOffset.Count; i += 3)
+        {
+            if (i > 0 && LineOffset[i] > LineOffset[i - 2])
+                ++documentLine;
             if (last > LineOffset[i] && first <= LineOffset[i + 1])
             {
-                __int64 docLine = GetDocumentLineNumber(LineOffset[i]);
-                if (docLine != prevDocLine)
+                if (documentLine != prevDocLine)
                 {
                     ++lines;
-                    prevDocLine = docLine;
+                    prevDocLine = documentLine;
                 }
             }
+        }
         char selection[96];
         sprintf(selection, "  |  %I64d characters, %d lines selected", last - first, max(1, lines));
         strcat(text, selection);
