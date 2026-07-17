@@ -423,6 +423,17 @@ BOOL AppendConfiguredCommandShellArguments(char* cmd, int cmdSize)
     const char* placeholder = strstr(args, COMMANDLINE_COMMAND_PLACEHOLDER);
     if (placeholder != NULL)
     {
+        const char* commandOptionPrefix = "-Command \"";
+        int commandOptionPrefixLen = lstrlen(commandOptionPrefix);
+        if (placeholder - args >= commandOptionPrefixLen &&
+            memcmp(placeholder - commandOptionPrefixLen, commandOptionPrefix, commandOptionPrefixLen) == 0 &&
+            placeholder[lstrlen(COMMANDLINE_COMMAND_PLACEHOLDER)] == '\"')
+        {
+            return AppendToCommandLine(cmd, cmdSize, args,
+                                       (int)(placeholder - commandOptionPrefixLen - args)) &&
+                   AppendToCommandLine(cmd, cmdSize,
+                                       placeholder + lstrlen(COMMANDLINE_COMMAND_PLACEHOLDER) + 1);
+        }
         return AppendToCommandLine(cmd, cmdSize, args, (int)(placeholder - args)) &&
                AppendToCommandLine(cmd, cmdSize, placeholder + lstrlen(COMMANDLINE_COMMAND_PLACEHOLDER));
     }
