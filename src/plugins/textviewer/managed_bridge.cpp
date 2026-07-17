@@ -371,5 +371,6 @@ extern "C" __declspec(dllexport) void __stdcall TextViewer_SetDarkModeState(BOOL
 
 extern "C" __declspec(dllexport) void __stdcall TextViewer_ApplyDarkModeTree(HWND hwnd)
 {
+    DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
 }

@@ -371,5 +371,6 @@ extern "C" __declspec(dllexport) void __stdcall RenderViewer_SetDarkModeState(BO
 
 extern "C" __declspec(dllexport) void __stdcall RenderViewer_ApplyDarkModeTree(HWND hwnd)
 {
+    DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
 }

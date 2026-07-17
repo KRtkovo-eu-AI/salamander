@@ -269,11 +269,13 @@ extern "C" __declspec(dllexport) void __stdcall Samandarin_SetDarkModeState(BOOL
 
 extern "C" __declspec(dllexport) void __stdcall Samandarin_ApplyDarkModeTree(HWND hwnd)
 {
+    DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
 }
 
 extern "C" __declspec(dllexport) void __stdcall Samandarin_UpdateListViewDarkMode(HWND hwnd)
 {
+    DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
     DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }
