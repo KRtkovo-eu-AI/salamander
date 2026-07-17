@@ -2439,6 +2439,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (!fatalErr)
                     FindNewSeekY(SeekY, fatalErr);
             }
+            else if (FileName != NULL && !WrapText)
+            {
+                // Removing the gutter widens the viewport and can reduce the
+                // rightmost valid origin.  Clamp before SetScrollBar() uses
+                // the current origin to derive its extent.
+                OriginX = min(OriginX, GetMaxOriginX());
+            }
             InvalidateRect(HWindow, NULL, FALSE);
             return 0;
         }
