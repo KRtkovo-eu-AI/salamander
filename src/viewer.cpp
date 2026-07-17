@@ -2403,10 +2403,6 @@ void CViewerWindow::LayoutStatusBar()
     // must not follow the document font zoom.
     StatusBarHeight = ShowStatusBar ? max(20, GetSystemMetrics(SM_CYSMICON) + 4) : 0;
     int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
-    // The grip width corresponds to the V scrollbar area.  With non-client
-    // WS_VSCROLL the client area is already reduced by SM_CXVSCROLL; the
-    // status bar size grip occupies that same width at the right edge.
-    int gripWidth = (HStatusBar != NULL && (GetWindowLong(HStatusBar, GWL_STYLE) & SBARS_SIZEGRIP)) ? GetSystemMetrics(SM_CXVSCROLL) : 0;
     ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomOut, ShowStatusBar ? SW_SHOW : SW_HIDE);
@@ -2419,10 +2415,10 @@ void CViewerWindow::LayoutStatusBar()
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
     // Keep the native status bar behind its interactive children.
     SetWindowPos(HStatusBar, HWND_BOTTOM, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOACTIVATE);
-    // Position zoom buttons at the right edge of the client area, flush
-    // against the grip.  The V scrollbar (non-client) is already shortened
-    // by WM_NCPAINT, so the grip/zoom area visually meets the window edge.
-    int x = rc.right - gripWidth;
+    // Do not reserve the size-grip width here.  The status bar owns that
+    // grip at the window edge, while the zoom controls must extend right up
+    // to it instead of leaving an unused scrollbar-width gap.
+    int x = rc.right;
     x -= 22;
     SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
     x -= 54;

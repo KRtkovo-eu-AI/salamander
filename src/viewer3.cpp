@@ -105,12 +105,10 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
     return DefSubclassProc(hwnd, message, wParam, lParam);
 }
 
-// Subclass for the horizontal scrollbar: repaints the track background
-// with RGB(23,23,23) so it is darker than the default dark-mode track
-// (RGB(32,32,32)), matching the user's desired look.
-// The scrollbar's track is drawn in WM_NCPAINT (non-client area), so we
-// intercept that message, let the default dark theme paint, then overdraw
-// only the track regions (between arrows, excluding the thumb).
+// Subclass for the horizontal scrollbar.  A child SCROLLBAR has no useful
+// non-client track: its complete surface is painted by WM_PAINT.  Repaint the
+// native control first and then replace only its two track sections with the
+// requested RGB(23,23,23), keeping its arrows and thumb intact.
 static const UINT_PTR kHScrollBarSubclassId = 2;
 
 static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
@@ -118,45 +116,38 @@ static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wPara
 {
     if (message == WM_NCDESTROY)
         RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
-    if (message == WM_NCPAINT && DarkModeShouldUseDarkColors())
+    if (message == WM_PAINT && DarkModeShouldUseDarkColors())
     {
-        // Let the default dark scrollbar paint (arrows, track, thumb).
         LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
-        HDC hdc = GetWindowDC(hwnd);
-        if (hdc != NULL)
+        SCROLLBARINFO sbi;
+        memset(&sbi, 0, sizeof(sbi));
+        sbi.cbSize = sizeof(sbi);
+        if (GetScrollBarInfo(hwnd, OBJID_CLIENT, &sbi))
         {
-            RECT rcWnd;
-            GetWindowRect(hwnd, &rcWnd);
-            int wndW = rcWnd.right - rcWnd.left;
-            int wndH = rcWnd.bottom - rcWnd.top;
-            // Get scrollbar layout info (absolute positions within the control).
-            SCROLLBARINFO sbi;
-            sbi.cbSize = sizeof(sbi);
-            if (GetScrollBarInfo(hwnd, OBJID_CLIENT, &sbi))
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            const int arrowWidth = sbi.dxyLineButton;
+            const int thumbLeft = sbi.xyThumbTop;
+            const int thumbRight = sbi.xyThumbBottom;
+            HDC hdc = GetDC(hwnd);
+            HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
+            if (hdc != NULL && brush != NULL)
             {
-                int arrowSize = sbi.dxyLineButton;
-                // thumbLeft/thumbRight are absolute x-coordinates within the scrollbar.
-                int thumbLeft = sbi.xyThumbTop;
-                int thumbRight = sbi.xyThumbBottom;
-                HBRUSH br = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
-                if (br != NULL)
+                if (arrowWidth < thumbLeft)
                 {
-                    // Left track: between left arrow and thumb
-                    if (arrowSize < thumbLeft)
-                    {
-                        RECT leftTrack = { arrowSize, 0, thumbLeft, wndH };
-                        FillRect(hdc, &leftTrack, br);
-                    }
-                    // Right track: between thumb and right arrow
-                    if (thumbRight < wndW - arrowSize)
-                    {
-                        RECT rightTrack = { thumbRight, 0, wndW - arrowSize, wndH };
-                        FillRect(hdc, &rightTrack, br);
-                    }
-                    HANDLES(DeleteObject(br));
+                    RECT track = {arrowWidth, rc.top, thumbLeft, rc.bottom};
+                    FillRect(hdc, &track, brush);
+                }
+                if (thumbRight < rc.right - arrowWidth)
+                {
+                    RECT track = {thumbRight, rc.top, rc.right - arrowWidth, rc.bottom};
+                    FillRect(hdc, &track, brush);
                 }
             }
-            ReleaseDC(hwnd, hdc);
+            if (brush != NULL)
+                HANDLES(DeleteObject(brush));
+            if (hdc != NULL)
+                ReleaseDC(hwnd, hdc);
         }
         return result;
     }
@@ -1055,39 +1046,47 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    // Paint over the bottom portion of the non-client V scrollbar and fix
-    // the 1px white line at its top.  The V scrollbar (WS_VSCROLL) is a
-    // non-client element that extends the full client height.  We let
-    // DefWindowProc draw it first, then overdraw two regions:
-    //   1) The top 1px – paint with the background colour (RGB(32,32,32)).
-    //   2) The bottom StatusBarHeight pixels – paint with the same colour
-    //      so the V scrollbar appears shortened (stops at the H scrollbar).
+    // The vertical scrollbar is a non-client element.  Its coordinates in a
+    // window DC are not client coordinates, therefore derive both edges from
+    // ClientToScreen() rather than from the outer window rectangle.
     case WM_NCPAINT:
     {
         LRESULT ncResult = DefWindowProc(HWindow, WM_NCPAINT, wParam, lParam);
-        if (DarkModeShouldUseDarkColors() && StatusBarHeight > 0)
+        if (DarkModeShouldUseDarkColors())
         {
+            RECT rcWindow;
+            RECT rcClient;
+            GetWindowRect(HWindow, &rcWindow);
+            GetClientRect(HWindow, &rcClient);
+            POINT clientOrigin = {0, 0};
+            ClientToScreen(HWindow, &clientOrigin);
+
+            const int clientTop = clientOrigin.y - rcWindow.top;
+            const int clientBottom = clientTop + rcClient.bottom;
+            const int vScrollLeft = clientOrigin.x - rcWindow.left + rcClient.right;
+            const int vScrollRight = vScrollLeft + GetSystemMetrics(SM_CXVSCROLL);
             HDC hdc = GetWindowDC(HWindow);
-            if (hdc != NULL)
+            HBRUSH brush = HANDLES(CreateSolidBrush(RGB(32, 32, 32)));
+            if (hdc != NULL && brush != NULL)
             {
-                RECT rcWnd;
-                GetWindowRect(HWindow, &rcWnd);
-                int wndW = rcWnd.right - rcWnd.left;
-                int vScrollW = GetSystemMetrics(SM_CXVSCROLL);
-                HBRUSH br = HANDLES(CreateSolidBrush(DarkModeGetColors().background));
-                if (br != NULL)
+                // Cover the native dark-theme seam at the actual top edge of
+                // the non-client scrollbar, not at the top of the title bar.
+                RECT topFix = {vScrollLeft, clientTop, vScrollRight, clientTop + 1};
+                FillRect(hdc, &topFix, brush);
+
+                // The scrollbar must end at the bottom of the horizontal bar.
+                // The horizontal bar ends directly above the status bar.
+                if (StatusBarHeight > 0)
                 {
-                    // Fix 1px white line at the very top of the V scrollbar
-                    RECT topFix = { wndW - vScrollW, 0, wndW, 1 };
-                    FillRect(hdc, &topFix, br);
-                    // Paint over the bottom StatusBarHeight pixels
-                    int bottomTop = (rcWnd.bottom - rcWnd.top) - StatusBarHeight;
-                    RECT bottomFix = { wndW - vScrollW, bottomTop, wndW, rcWnd.bottom - rcWnd.top };
-                    FillRect(hdc, &bottomFix, br);
-                    HANDLES(DeleteObject(br));
+                    RECT bottomFix = {vScrollLeft, clientBottom - StatusBarHeight,
+                                      vScrollRight, clientBottom};
+                    FillRect(hdc, &bottomFix, brush);
                 }
-                ReleaseDC(HWindow, hdc);
             }
+            if (brush != NULL)
+                HANDLES(DeleteObject(brush));
+            if (hdc != NULL)
+                ReleaseDC(HWindow, hdc);
         }
         return ncResult;
     }
