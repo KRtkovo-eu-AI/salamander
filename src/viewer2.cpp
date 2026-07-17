@@ -693,7 +693,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 {
     CALL_STACK_MESSAGE1("CViewerWindow::HeightChanged()");
     fatalErr = FALSE;
-    CachedTotalLines = CachedMaxLineLen = CachedVerticalPageSize = -1; // invalidate document metrics cache
+    CachedTotalLines = CachedVerticalPageSize = -1; // invalidate document metrics cache
     switch (Type)
     {
     case vtHex:
@@ -739,6 +739,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     CanSwitchQuietlyToHex = TRUE;
     OriginX = 0;
     SeekY = 0;
+    CachedMaxLineLen = 0;
     ExitTextMode = FALSE;
     ForceTextMode = FALSE;
     CodeType = 0;
@@ -868,6 +869,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
         {
             if (!testOnlyFileSize || FileSize != oldFS)
             {
+                CachedMaxLineLen = 0;
                 Seek = 0;
                 Loaded = 0;
                 FindOffset = 0;
@@ -2056,9 +2058,12 @@ void CViewerWindow::SetScrollBar()
             return;
         }
         max = OriginX + visibleColumns;
-        // Use the longest line in the whole document, not merely the rows
-        // currently on screen.  The thumb must not resize while scrolling.
-        __int64 maxLL = GetMaxDocumentLineLen();
+        // Measuring every line would synchronously read the whole document
+        // during the first paint.  Retain the widest rendered line so the
+        // range does not shrink after leaving a long line, while the current
+        // viewport continues to supply display-cell measurements.
+        CachedMaxLineLen = max(CachedMaxLineLen, GetMaxVisibleLineLen());
+        __int64 maxLL = CachedMaxLineLen;
         if (max < maxLL)
             max = maxLL;
 
