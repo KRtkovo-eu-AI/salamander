@@ -2981,6 +2981,9 @@ CMainWindowIconItem MainWindowIcons[MAINWINDOWICONS_COUNT] =
 
 static const char* EXECUTE_TEMPLATE_DEFAULTCOMSPEC = "TemplateDefaultCOMSPEC";
 static const char* EXECUTE_TEMPLATE_POWERSHELL = "TemplatePowerShell";
+static const char* EXECUTE_TEMPLATE_POWERSHELL7 = "TemplatePowerShell7";
+static const char* EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL = "TemplateWindowsTerminalPowerShell";
+static const char* EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7 = "TemplateWindowsTerminalPowerShell7";
 
 static CExecuteItem CommandShellApplicationExecutes[] =
     {
@@ -2995,6 +2998,9 @@ static CExecuteItem CommandShellApplicationExecutes[] =
         {EXECUTE_SUBMENUSTART, IDS_EXECUTE_TEMPLATES, 0},
         {EXECUTE_TEMPLATE_DEFAULTCOMSPEC, IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC, EIF_NO_INSERT},
         {EXECUTE_TEMPLATE_POWERSHELL, IDS_EXECUTE_TEMPLATE_POWERSHELL, EIF_NO_INSERT},
+        {EXECUTE_TEMPLATE_POWERSHELL7, IDS_EXECUTE_TEMPLATE_POWERSHELL7, EIF_NO_INSERT},
+        {EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL, IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL, EIF_NO_INSERT},
+        {EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7, IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7, EIF_NO_INSERT},
         {EXECUTE_SUBMENUEND, 0, 0},
         {EXECUTE_TERMINATOR, 0, 0},
 };
@@ -3253,6 +3259,27 @@ void CCfgPageMainWindow::ApplyCommandShellTemplate(int templateNameResID)
     {
         SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "powershell");
         SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-NoExit \"& {command}\"");
+        break;
+    }
+
+    case IDS_EXECUTE_TEMPLATE_POWERSHELL7:
+    {
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "C:\\Program Files\\PowerShell\\7\\pwsh.exe");
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-NoExit -WorkingDirectory . -Command \"& {command}\"");
+        break;
+    }
+
+    case IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL:
+    {
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "wt.exe");
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-d . powershell -NoExit -Command \"{command}\"");
+        break;
+    }
+
+    case IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7:
+    {
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "wt.exe");
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-d . pwsh -NoExit -Command \"{command}\"");
         break;
     }
     }
