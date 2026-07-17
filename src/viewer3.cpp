@@ -1106,18 +1106,22 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             PostMessage(HScrollBar, kScrollBarTrackRepaint, 0, 0);
             PostMessage(VScrollBar, kScrollBarTrackRepaint, 0, 0);
         }
+        RECT corner = {Width, Height,
+                       Width + GetSystemMetrics(SM_CXVSCROLL),
+                       Height + GetSystemMetrics(SM_CYHSCROLL)};
         if (ShowStatusBar)
         {
             // The child scrollbars leave one intersection cell above the
-            // status bar.  Paint it in the active scheme color.  When the
-            // status bar is hidden, leave this cell untouched so its native
-            // resize grip remains visible and functional.
-            RECT corner = {Width, Height,
-                           Width + GetSystemMetrics(SM_CXVSCROLL),
-                           Height + GetSystemMetrics(SM_CYHSCROLL)};
+            // status bar. Paint it in the active scheme color.
             const COLORREF cornerColor = DarkModeShouldUseDarkColors() ? RGB(32, 32, 32)
                                                                          : RGB(240, 240, 240);
             FillViewerRectWithColor(ps.hdc, &corner, cornerColor);
+        }
+        else
+        {
+            // With no status bar there is no STATUSCLASS size grip to repaint
+            // this cell. Draw the native sizing grip on every parent paint.
+            DrawFrameControl(ps.hdc, &corner, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
         }
         HANDLES(EndPaint(HWindow, &ps));
         return 0;
@@ -1301,6 +1305,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 // drag finished; we must call OnVScroll() from here or the scrollbar briefly blinks at the old position
                 VScrollWParam = wParam;
+                // Force the final released position through OnVScroll() even
+                // when it matches the last SB_THUMBTRACK notification.
+                VScrollWParamOld = -1;
                 KillTimer(HWindow, IDT_THUMBSCROLL);
                 MSG msg; // we do not want any additional timer; clear the queue
                 while (PeekMessage(&msg, HWindow, WM_TIMER, WM_TIMER, PM_REMOVE))
