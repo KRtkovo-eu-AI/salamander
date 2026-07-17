@@ -647,12 +647,12 @@ CViewerWindow::GetMaxVisibleLineLen(__int64 newFirstLineLen, BOOL ignoreFirstLin
 __int64
 CViewerWindow::GetMaxOriginX(__int64 newFirstLineLen, BOOL ignoreFirstLine, __int64 maxLineLen)
 {
-    // Horizontal scrolling is defined by the whole document.  Limiting it
-    // to the current rows makes the thumb size and reachable range change
-    // as the user scrolls vertically.
+    // Use the rendered viewport.  Scanning the entire document here would
+    // block the UI while opening large files and would count decoded text in
+    // bytes rather than display cells.
     if (WrapText)
         return 0;
-    __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxDocumentLineLen();
+    __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxVisibleLineLen(newFirstLineLen, ignoreFirstLine);
     int columns = (Width - GetTextLeft()) / CharWidth;
     return maxLL > columns ? maxLL - columns : 0;
 }

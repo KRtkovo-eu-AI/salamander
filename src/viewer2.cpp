@@ -693,7 +693,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 {
     CALL_STACK_MESSAGE1("CViewerWindow::HeightChanged()");
     fatalErr = FALSE;
-    CachedTotalLines = CachedMaxLineLen = CachedVerticalPageSize = -1; // invalidate document metrics cache
+    CachedTotalLines = CachedVerticalPageSize = -1; // invalidate document metrics cache
     switch (Type)
     {
     case vtHex:
@@ -2056,9 +2056,11 @@ void CViewerWindow::SetScrollBar()
             return;
         }
         max = OriginX + visibleColumns;
-        // Use the longest line in the whole document, not merely the rows
-        // currently on screen.  The thumb must not resize while scrolling.
-        __int64 maxLL = GetMaxDocumentLineLen();
+        // Measuring every line would synchronously read the whole document
+        // during the first paint.  Keep the range based on the rendered
+        // viewport instead; it is also the only measurement that accurately
+        // represents decoded text cells.
+        __int64 maxLL = GetMaxVisibleLineLen();
         if (max < maxLL)
             max = maxLL;
 
