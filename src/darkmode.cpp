@@ -2659,6 +2659,11 @@ void DarkModeAllowDarkScrollbars(HWND hwnd)
 
 #if USE_DARKMODELIB && defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
     dmlib::enableDarkScrollBarForWindowAndChildren(hwnd);
+    // Plugin windows normally opt in from WM_CREATE, after their WS_*SCROLL
+    // non-client scrollbars have already obtained a theme handle.  Reapply
+    // the Explorer theme to make those existing scrollbars reopen their
+    // theme through the now-enabled scoped hook.
+    dmlib::setDarkScrollBar(hwnd);
 #else
     (void)hwnd;
 #endif
