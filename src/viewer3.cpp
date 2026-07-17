@@ -1245,6 +1245,29 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case WM_USER_VIEWERZOOMCHANGED:
+    {
+        ZoomPercent = Configuration.ViewerZoomPercent;
+        SetViewerFont();
+        char text[16];
+        sprintf(text, "%d %%", ZoomPercent);
+        SetWindowText(HZoomEdit, text);
+        LayoutStatusBar();
+        if (FileName != NULL && !ExitTextMode)
+        {
+            BOOL fatalErr = FALSE;
+            HeightChanged(fatalErr);
+            if (!fatalErr)
+                FindNewSeekY(SeekY, fatalErr);
+        }
+        RECT rc;
+        GetClientRect(HWindow, &rc);
+        SendMessage(HWindow, WM_SIZE, 0, MAKELPARAM(rc.right, rc.bottom));
+        InvalidateRect(HWindow, NULL, FALSE);
+        UpdateWindow(HWindow);
+        return 0;
+    }
+
     case WM_THEMECHANGED:
     {
         DarkModeApplyTree(HWindow);

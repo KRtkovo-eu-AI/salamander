@@ -30,6 +30,7 @@
 
 #define WM_USER_VIEWERREFRESH WM_APP + 201 // [0, 0] - perform a refresh
 #define WM_USER_GETZOOM WM_APP + 202      // [0, 0] -> current ZoomPercent
+#define WM_USER_VIEWERZOOMCHANGED WM_APP + 203 // [0, 0] - apply shared viewer zoom
 
 #ifndef INSIDE_SALAMANDER
 char* LoadStr(int resID);
