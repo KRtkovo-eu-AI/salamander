@@ -753,9 +753,6 @@ protected:
     BOOL DisableNotification;
     BOOL EditMode;
     int EditIndex;
-    // Index whose path is currently displayed in IDC_HOTPATH_PATH.  It can differ
-    // from the list selection while a selection-change notification is handled.
-    int PathEditIndex;
     BOOL LabelEdit; // we are editing a label
 
 public:
