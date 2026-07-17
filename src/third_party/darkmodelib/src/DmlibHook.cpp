@@ -168,6 +168,7 @@ static void UnhookFunction(HookData<T>& hookData) noexcept
 #if defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 0)
 using fnOpenNcThemeData = auto (WINAPI*)(HWND hWnd, LPCWSTR pszClassList) -> HTHEME; // ordinal 49
 static fnOpenNcThemeData pfOpenNcThemeData = nullptr;
+static bool g_scrollBarThemeColorHooked = false;
 
 bool dmlib_hook::loadOpenNcThemeData(const HMODULE& hUxtheme) noexcept
 {
@@ -249,6 +250,7 @@ static HTHEME WINAPI MyOpenNcThemeData(HWND hWnd, LPCWSTR pszClassList)
 		if (isWindowOrParentUsingDarkScrollBar(hWnd))
 		{
 			useDarkScrollBar = true;
+			hWnd = nullptr;
 			pszClassList = L"Explorer::ScrollBar";
 		}
 #else
@@ -275,7 +277,11 @@ void dmlib_hook::fixDarkScrollBar()
 		if (addr != nullptr) // && pfOpenNcThemeData != nullptr) // checked in InitDarkMode
 		{
 			ReplaceFunction<fnOpenNcThemeData>(addr, MyOpenNcThemeData);
-			dmlib_hook::hookThemeColor();
+			// This hook remains installed for the process lifetime.  Do not add a
+			// reference on every color refresh, otherwise the refcount can grow
+			// indefinitely while switching the application theme.
+			if (!g_scrollBarThemeColorHooked)
+				g_scrollBarThemeColorHooked = dmlib_hook::hookThemeColor();
 		}
 	}
 }
