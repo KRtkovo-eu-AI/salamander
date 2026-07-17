@@ -2472,6 +2472,7 @@ void CViewerWindow::LayoutStatusBar()
     StatusBarHeight = ShowStatusBar ? max(20, GetSystemMetrics(SM_CYSMICON) + 4) : 0;
     int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
     int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
+    int gripWidth = (GetWindowLong(HStatusBar, GWL_STYLE) & SBARS_SIZEGRIP) ? scrollWidth : 0;
     ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomOut, ShowStatusBar ? SW_SHOW : SW_HIDE);
@@ -2490,7 +2491,7 @@ void CViewerWindow::LayoutStatusBar()
     // Do not reserve the size-grip width here.  The status bar owns that
     // grip at the window edge, while the zoom controls must extend right up
     // to it instead of leaving an unused scrollbar-width gap.
-    int x = rc.right;
+    int x = rc.right - gripWidth;
     x -= 22;
     SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
     x -= 54;

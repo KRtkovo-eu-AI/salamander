@@ -2038,6 +2038,16 @@ void CViewerWindow::SetScrollBar()
         GetScrollInfo(HScrollBar, SB_CTL, &si);
 
         const int visibleColumns = (Width - GetTextLeft()) / CharWidth;
+        if (WrapText)
+        {
+            OriginX = 0;
+            ScrollScaleX = 1.0;
+            si.cbSize = sizeof(si);
+            si.fMask = SIF_ALL | SIF_DISABLENOSCROLL;
+            si.nMin = si.nMax = si.nPage = si.nPos = 0;
+            SetScrollInfo(HScrollBar, SB_CTL, &si, TRUE);
+            return;
+        }
         max = OriginX + visibleColumns;
         // Use the longest line in the whole document, not merely the rows
         // currently on screen.  The thumb must not resize while scrolling.

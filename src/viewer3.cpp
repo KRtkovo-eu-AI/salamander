@@ -109,9 +109,10 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
 // Queue the track overlay after every native paint, so RGB(23,23,23) wins over
 // that delayed themed repaint without replacing the native arrows or thumb.
 static const UINT_PTR kHScrollBarSubclassId = 2;
-static const UINT kHScrollBarTrackRepaint = WM_APP + 203;
+static const UINT_PTR kVScrollBarSubclassId = 3;
+static const UINT kScrollBarTrackRepaint = WM_APP + 203;
 
-static void PaintHScrollBarTrack(HWND hwnd)
+static void PaintScrollBarTrack(HWND hwnd)
 {
     SCROLLBARINFO sbi;
     memset(&sbi, 0, sizeof(sbi));
@@ -125,16 +126,33 @@ static void PaintHScrollBarTrack(HWND hwnd)
     HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
     if (hdc != NULL && brush != NULL)
     {
-        const int arrowWidth = sbi.dxyLineButton;
-        if (arrowWidth < sbi.xyThumbTop)
+            const int arrowSize = sbi.dxyLineButton;
+        const bool vertical = (GetWindowLong(hwnd, GWL_STYLE) & SBS_VERT) != 0;
+        if (vertical)
         {
-            RECT track = {arrowWidth, rc.top, sbi.xyThumbTop, rc.bottom};
-            FillRect(hdc, &track, brush);
+            if (arrowSize < sbi.xyThumbTop)
+            {
+                RECT track = {rc.left, arrowSize, rc.right, sbi.xyThumbTop};
+                FillRect(hdc, &track, brush);
+            }
+            if (sbi.xyThumbBottom < rc.bottom - arrowSize)
+            {
+                RECT track = {rc.left, sbi.xyThumbBottom, rc.right, rc.bottom - arrowSize};
+                FillRect(hdc, &track, brush);
+            }
         }
-        if (sbi.xyThumbBottom < rc.right - arrowWidth)
+        else
         {
-            RECT track = {sbi.xyThumbBottom, rc.top, rc.right - arrowWidth, rc.bottom};
-            FillRect(hdc, &track, brush);
+            if (arrowSize < sbi.xyThumbTop)
+            {
+                RECT track = {arrowSize, rc.top, sbi.xyThumbTop, rc.bottom};
+                FillRect(hdc, &track, brush);
+            }
+            if (sbi.xyThumbBottom < rc.right - arrowSize)
+            {
+                RECT track = {sbi.xyThumbBottom, rc.top, rc.right - arrowSize, rc.bottom};
+                FillRect(hdc, &track, brush);
+            }
         }
     }
     if (brush != NULL)
@@ -148,16 +166,16 @@ static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wPara
 {
     if (message == WM_NCDESTROY)
         RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
-    if (message == kHScrollBarTrackRepaint)
+    if (message == kScrollBarTrackRepaint)
     {
         if (DarkModeShouldUseDarkColors())
-            PaintHScrollBarTrack(hwnd);
+            PaintScrollBarTrack(hwnd);
         return 0;
     }
     if ((message == WM_PAINT || message == WM_NCPAINT) && DarkModeShouldUseDarkColors())
     {
         LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
-        PostMessage(hwnd, kHScrollBarTrackRepaint, 0, 0);
+        PostMessage(hwnd, kScrollBarTrackRepaint, 0, 0);
         return result;
     }
     return DefSubclassProc(hwnd, message, wParam, lParam);
@@ -624,6 +642,8 @@ CViewerWindow::GetMaxOriginX(__int64 newFirstLineLen, BOOL ignoreFirstLine, __in
     // Horizontal scrolling is defined by the whole document.  Limiting it
     // to the current rows makes the thumb size and reachable range change
     // as the user scrolls vertically.
+    if (WrapText)
+        return 0;
     __int64 maxLL = maxLineLen != -1 ? maxLineLen : GetMaxDocumentLineLen();
     int columns = (Width - GetTextLeft()) / CharWidth;
     return maxLL > columns ? maxLL - columns : 0;
@@ -973,6 +993,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetWindowSubclass(HScrollBar, HScrollBarSubclass, kHScrollBarSubclassId, 0);
         VScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_VERT,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
+        SetWindowSubclass(VScrollBar, HScrollBarSubclass, kVScrollBarSubclassId, 0);
         HZoomReset = CreateWindowEx(0, "BUTTON", "Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                     0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
         HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
