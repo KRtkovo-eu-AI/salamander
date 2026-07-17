@@ -16,6 +16,8 @@
 
 #include <windows.h>
 
+#include <commctrl.h>
+
 #include <uxtheme.h>
 #include <vsstyle.h>
 #include <vssym32.h>
@@ -182,6 +184,10 @@ static std::unordered_set<HWND> g_darkScrollBarWindows;
 static std::unordered_map<HWND, std::unordered_set<HTHEME>> g_darkScrollBarThemesByWindow;
 static std::unordered_map<HTHEME, size_t> g_darkScrollBarThemeRefs;
 static std::mutex g_darkScrollBarMutex;
+static constexpr UINT_PTR kDarkScrollBarScopeSubclassId = 1;
+
+static LRESULT CALLBACK DarkScrollBarScopeSubclass(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                                   UINT_PTR subclassId, DWORD_PTR refData);
 
 /**
  * @brief Makes scroll bars on the specified window and all its children consistent.
@@ -199,6 +205,7 @@ void dmlib_hook::enableDarkScrollBarForWindowAndChildren(HWND hWnd)
 {
 	const std::lock_guard<std::mutex> lock(g_darkScrollBarMutex);
 	g_darkScrollBarWindows.insert(hWnd);
+	::SetWindowSubclass(hWnd, DarkScrollBarScopeSubclass, kDarkScrollBarScopeSubclassId, 0);
 }
 
 void dmlib_hook::disableDarkScrollBarForWindowAndChildren(HWND hWnd)
@@ -217,6 +224,17 @@ void dmlib_hook::disableDarkScrollBarForWindowAndChildren(HWND hWnd)
 			g_darkScrollBarThemeRefs.erase(refIt);
 	}
 	g_darkScrollBarThemesByWindow.erase(themesIt);
+}
+
+static LRESULT CALLBACK DarkScrollBarScopeSubclass(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                                   UINT_PTR subclassId, [[maybe_unused]] DWORD_PTR refData)
+{
+	if (message == WM_NCDESTROY)
+	{
+		dmlib_hook::disableDarkScrollBarForWindowAndChildren(hWnd);
+		::RemoveWindowSubclass(hWnd, DarkScrollBarScopeSubclass, subclassId);
+	}
+	return ::DefSubclassProc(hWnd, message, wParam, lParam);
 }
 
 static bool isWindowOrParentUsingDarkScrollBar(HWND hWnd)

@@ -134,6 +134,10 @@ void ApplyWinLibDarkMode(HWND hwnd)
     {
         DarkModeApplyWindow(hwnd);
         DarkModeRefreshTitleBar(hwnd);
+        // Plugin top-level windows are intentionally part of the scoped
+        // scrollbar hook.  Without this opt-in, their native list/viewer
+        // scrollbars retain the system light theme in dark mode.
+        DarkModeAllowDarkScrollbars(hwnd);
         DarkModeApplyTree(hwnd);
     }
 }

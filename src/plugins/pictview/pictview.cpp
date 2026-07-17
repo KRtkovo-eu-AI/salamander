@@ -3597,6 +3597,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ConfigurePictViewDarkModeFromHost();
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
+        DarkModeAllowDarkScrollbars(HWindow);
         DarkModeApplyTree(HWindow);
         UpdateRendererFrameForTheme();
 
