@@ -87,7 +87,13 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
                            : hot     ? RGB(0x40, 0x40, 0x40)
                            :           colors.background;
                 FillViewerRectWithColor(hdc, &rc, bg);
-                DrawEdge(hdc, &rc, BDR_SUNKENOUTER, BF_RECT);
+                // DrawEdge obtains its highlight/shadow colors from the
+                // system palette, which leaves a bright legacy frame around
+                // these otherwise dark status-bar controls.  Use the same
+                // dark panel frame as the rest of the application instead.
+                HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
+                if (frameBrush != NULL)
+                    FrameRect(hdc, &rc, frameBrush);
                 SetBkMode(hdc, TRANSPARENT);
                 SetTextColor(hdc, colors.readableText);
                 HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
