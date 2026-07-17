@@ -417,12 +417,51 @@ BOOL AppendConfiguredCommandLineArguments(char* cmd, int cmdSize, const char* us
            AppendQuotedUserCommand(cmd, cmdSize, userCommand, TRUE);
 }
 
+BOOL AppendConfiguredCommandShellArguments(char* cmd, int cmdSize)
+{
+    const char* args = Configuration.CommandLineArguments;
+    const char* placeholder = strstr(args, COMMANDLINE_COMMAND_PLACEHOLDER);
+    if (placeholder != NULL)
+    {
+        int placeholderLen = lstrlen(COMMANDLINE_COMMAND_PLACEHOLDER);
+        const char* quotedArgument = placeholder;
+        while (quotedArgument > args && quotedArgument[-1] != '\"')
+            quotedArgument--;
+
+        if (quotedArgument > args && placeholder[placeholderLen] == '\"')
+        {
+            const char* argumentStart = quotedArgument - 1;
+            const char* optionEnd = argumentStart;
+            while (optionEnd > args && (optionEnd[-1] == ' ' || optionEnd[-1] == '\t'))
+                optionEnd--;
+            const char* optionStart = optionEnd;
+            while (optionStart > args && optionStart[-1] != ' ' && optionStart[-1] != '\t')
+                optionStart--;
+
+            if (optionEnd - optionStart == lstrlen("-Command") &&
+                memcmp(optionStart, "-Command", lstrlen("-Command")) == 0)
+            {
+                argumentStart = optionStart;
+            }
+
+            return AppendToCommandLine(cmd, cmdSize, args, (int)(argumentStart - args)) &&
+                   AppendToCommandLine(cmd, cmdSize, placeholder + placeholderLen + 1);
+        }
+        return AppendToCommandLine(cmd, cmdSize, args, (int)(placeholder - args)) &&
+               AppendToCommandLine(cmd, cmdSize, placeholder + lstrlen(COMMANDLINE_COMMAND_PLACEHOLDER));
+    }
+    return AppendToCommandLine(cmd, cmdSize, args);
+}
+
 void BuildCommandShellLine(CCommandLineLaunchInfo* launchInfo)
 {
     GetCommandLineApplication(launchInfo->Application, SAL_MAX_PATH);
     lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + SAL_MAX_PATH);
     AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
-    launchInfo->TooLong = FALSE;
+    launchInfo->TooLong = Configuration.CommandLineArguments[0] != 0 &&
+                          (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH, " ") ||
+                           !AppendConfiguredCommandShellArguments(launchInfo->CommandLine,
+                                                                 SALCMDLINE_MAXLEN + SAL_MAX_PATH));
 }
 
 int GetCommandLineOverhead(const char* quotedApp, const char* app, BOOL closeShell)
