@@ -4,6 +4,7 @@
 
 #include "precomp.h"
 
+#include <string>
 #include <vector>
 
 #include "tasklist.h"
@@ -2982,8 +2983,6 @@ CMainWindowIconItem MainWindowIcons[MAINWINDOWICONS_COUNT] =
 static const char* EXECUTE_TEMPLATE_DEFAULTCOMSPEC = "TemplateDefaultCOMSPEC";
 static const char* EXECUTE_TEMPLATE_POWERSHELL = "TemplatePowerShell";
 static const char* EXECUTE_TEMPLATE_POWERSHELL7 = "TemplatePowerShell7";
-static const char* EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL = "TemplateWindowsTerminalPowerShell";
-static const char* EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7 = "TemplateWindowsTerminalPowerShell7";
 
 static CExecuteItem CommandShellApplicationExecutes[] =
     {
@@ -2999,11 +2998,207 @@ static CExecuteItem CommandShellApplicationExecutes[] =
         {EXECUTE_TEMPLATE_DEFAULTCOMSPEC, IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC, EIF_NO_INSERT},
         {EXECUTE_TEMPLATE_POWERSHELL, IDS_EXECUTE_TEMPLATE_POWERSHELL, EIF_NO_INSERT},
         {EXECUTE_TEMPLATE_POWERSHELL7, IDS_EXECUTE_TEMPLATE_POWERSHELL7, EIF_NO_INSERT},
-        {EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL, IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL, EIF_NO_INSERT},
-        {EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7, IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7, EIF_NO_INSERT},
         {EXECUTE_SUBMENUEND, 0, 0},
         {EXECUTE_TERMINATOR, 0, 0},
 };
+
+
+static BOOL FileExists(const char* path)
+{
+    DWORD attrs = GetFileAttributes(path);
+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+static BOOL FindWindowsTerminal(char* wtPath, int wtPathSize)
+{
+    if (SearchPath(NULL, "wt.exe", NULL, wtPathSize, wtPath, NULL) != 0)
+        return TRUE;
+
+    char localAppData[SAL_MAX_PATH];
+    if (SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, localAppData) == S_OK)
+    {
+        _snprintf_s(wtPath, wtPathSize, _TRUNCATE, "%s\\Microsoft\\WindowsApps\\wt.exe", localAppData);
+        if (FileExists(wtPath))
+            return TRUE;
+    }
+    wtPath[0] = 0;
+    return FALSE;
+}
+
+static void AddWindowsTerminalSettingsPath(std::vector<std::string>& paths, const char* localAppData, const char* suffix)
+{
+    char path[SAL_MAX_PATH];
+    _snprintf_s(path, SizeOf(path), _TRUNCATE, "%s\\%s", localAppData, suffix);
+    if (FileExists(path))
+        paths.push_back(path);
+}
+
+static BOOL ReadTextFile(const char* path, std::string& text)
+{
+    HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                       NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    DWORD size = GetFileSize(file, NULL);
+    if (size == INVALID_FILE_SIZE || size > 1024 * 1024)
+    {
+        HANDLES(CloseHandle(file));
+        return FALSE;
+    }
+    text.resize(size);
+    DWORD read = 0;
+    BOOL ok = ReadFile(file, &text[0], size, &read, NULL);
+    HANDLES(CloseHandle(file));
+    if (!ok)
+        return FALSE;
+    text.resize(read);
+    return TRUE;
+}
+
+static void CollectWindowsTerminalProfiles(std::vector<std::string>& profiles)
+{
+    char localAppData[SAL_MAX_PATH];
+    if (SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, localAppData) != S_OK)
+        return;
+
+    std::vector<std::string> paths;
+    AddWindowsTerminalSettingsPath(paths, localAppData, "Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json");
+    AddWindowsTerminalSettingsPath(paths, localAppData, "Packages\\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\\LocalState\\settings.json");
+    AddWindowsTerminalSettingsPath(paths, localAppData, "Microsoft\\Windows Terminal\\settings.json");
+
+    for (size_t p = 0; p < paths.size(); p++)
+    {
+        std::string json;
+        if (!ReadTextFile(paths[p].c_str(), json))
+            continue;
+        size_t pos = 0;
+        while ((pos = json.find("\"name\"", pos)) != std::string::npos)
+        {
+            pos = json.find(':', pos + 6);
+            if (pos == std::string::npos)
+                break;
+            pos = json.find('"', pos + 1);
+            if (pos == std::string::npos)
+                break;
+            std::string name;
+            for (++pos; pos < json.size(); pos++)
+            {
+                char ch = json[pos];
+                if (ch == '"')
+                    break;
+                if (ch == '\\' && pos + 1 < json.size())
+                    ch = json[++pos];
+                name.push_back(ch);
+            }
+            if (!name.empty())
+            {
+                BOOL duplicate = FALSE;
+                for (size_t i = 0; i < profiles.size(); i++)
+                    if (_stricmp(profiles[i].c_str(), name.c_str()) == 0)
+                        duplicate = TRUE;
+                if (!duplicate)
+                    profiles.push_back(name);
+            }
+        }
+    }
+}
+
+static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, const char* profile)
+{
+    char args[CONFIG_COMMANDLINEARGS_MAXLEN];
+    lstrcpyn(args, "-d . -p ", SizeOf(args));
+    strncat_s(args, SizeOf(args), "\"", _TRUNCATE);
+    for (const char* s = profile; *s != 0; s++)
+    {
+        if (*s == '"')
+            strncat_s(args, SizeOf(args), "\\\"", _TRUNCATE);
+        else
+        {
+            char ch[2] = {*s, 0};
+            strncat_s(args, SizeOf(args), ch, _TRUNCATE);
+        }
+    }
+    strncat_s(args, SizeOf(args), "\"", _TRUNCATE);
+
+    SetDlgItemText(hWindow, IDC_CMDLINEAPP_PATH, wtPath[0] != 0 ? wtPath : "wt.exe");
+    SetDlgItemText(hWindow, IDC_CMDLINEAPP_ARGS, args);
+}
+
+static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::string& wtProfile)
+{
+    char wtPath[SAL_MAX_PATH];
+    std::vector<std::string> wtProfiles;
+    if (FindWindowsTerminal(wtPath, SizeOf(wtPath)))
+        CollectWindowsTerminalProfiles(wtProfiles);
+
+    if (wtProfiles.empty())
+        return TrackExecuteMenu(hWindow, IDC_CMDLINEAPP_BROWSE, IDC_CMDLINEAPP_PATH, FALSE,
+                                CommandShellApplicationExecutes, IDS_EXEFILTER);
+
+    HWND hButton = GetDlgItem(hWindow, IDC_CMDLINEAPP_BROWSE);
+    RECT r;
+    GetWindowRect(hButton, &r);
+
+    HMENU hMenu = CreatePopupMenu();
+    HMENU hTemplates = CreatePopupMenu();
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 1, LoadStr(IDS_EXECUTE_BROWSE));
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 3, LoadStr(IDS_EXECUTE_WINDIR));
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 4, LoadStr(IDS_EXECUTE_SYSDIR));
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 5, LoadStr(IDS_EXECUTE_SALDIR));
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 7, LoadStr(IDS_EXECUTE_ENV));
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC));
+    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL));
+    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7));
+    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+    for (size_t i = 0; i < wtProfiles.size(); i++)
+        InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 200 + i, wtProfiles[i].c_str());
+    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hTemplates, LoadStr(IDS_EXECUTE_TEMPLATES));
+
+    TPMPARAMS tpmPar;
+    tpmPar.cbSize = sizeof(tpmPar);
+    tpmPar.rcExclude = r;
+    DWORD cmd = TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                                 r.right, r.top, hWindow, &tpmPar);
+    DestroyMenu(hMenu);
+
+    if (cmd == 0)
+        return NULL;
+    if (cmd == 1)
+    {
+        BrowseCommand(hWindow, IDC_CMDLINEAPP_PATH, IDS_EXEFILTER);
+        return NULL;
+    }
+    if (cmd >= 200 && cmd < 200 + wtProfiles.size())
+    {
+        wtProfile = wtProfiles[cmd - 200];
+        SetWindowsTerminalProfileTemplate(hWindow, wtPath, wtProfile.c_str());
+        return NULL;
+    }
+    if (cmd == 3 || cmd == 4 || cmd == 5 || cmd == 7)
+    {
+        const char* text = cmd == 3 ? "$(WinDir)" : cmd == 4 ? "$(SysDir)" : cmd == 5 ? "$(SalDir)" : "%";
+        HWND hEdit = GetDlgItem(hWindow, IDC_CMDLINEAPP_PATH);
+        SendMessage(hEdit, EM_REPLACESEL, TRUE, (LPARAM)text);
+        if (cmd == 7)
+        {
+            DWORD start;
+            DWORD end;
+            SendMessage(hEdit, EM_GETSEL, (WPARAM)&start, (LPARAM)&end);
+            SendMessage(hEdit, EM_SETSEL, end - 1, end - 1);
+        }
+        SetFocus(hEdit);
+        return NULL;
+    }
+    static CExecuteItem selected;
+    selected.Keyword = "";
+    selected.Flags = EIF_NO_INSERT;
+    selected.NameResID = cmd == 100 ? IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC :
+                         cmd == 101 ? IDS_EXECUTE_TEMPLATE_POWERSHELL : IDS_EXECUTE_TEMPLATE_POWERSHELL7;
+    return &selected;
+}
 
 #define COMMAND_SHELL_PLACEHOLDER_SUBCLASS_ID 1
 
@@ -3269,19 +3464,6 @@ void CCfgPageMainWindow::ApplyCommandShellTemplate(int templateNameResID)
         break;
     }
 
-    case IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL:
-    {
-        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "wt.exe");
-        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-d . powershell -NoExit -Command \"{command}\"");
-        break;
-    }
-
-    case IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7:
-    {
-        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "wt.exe");
-        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-d . pwsh -NoExit -Command \"{command}\"");
-        break;
-    }
     }
 
     HWND hShellApplication = GetDlgItem(HWindow, IDC_CMDLINEAPP_PATH);
@@ -3324,8 +3506,8 @@ CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDC_CMDLINEAPP_BROWSE:
         {
-            const CExecuteItem* item = TrackExecuteMenu(HWindow, IDC_CMDLINEAPP_BROWSE, IDC_CMDLINEAPP_PATH, FALSE,
-                                                        CommandShellApplicationExecutes, IDS_EXEFILTER);
+            std::string wtProfile;
+            const CExecuteItem* item = TrackCommandShellApplicationMenu(HWindow, wtProfile);
             if (item != NULL && (item->Flags & EIF_NO_INSERT))
                 ApplyCommandShellTemplate(item->NameResID);
             EnableControls();
