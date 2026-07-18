@@ -3028,7 +3028,7 @@ static BOOL FindWindowsTerminal(char* wtPath, int wtPathSize)
 static void AddWindowsTerminalSettingsPath(std::vector<std::string>& paths, const char* localAppData, const char* suffix)
 {
     char path[SAL_MAX_PATH];
-    _snprintf_s(path, SizeOf(path), _TRUNCATE, "%s\\%s", localAppData, suffix);
+    _snprintf_s(path, ARRAYSIZE(path), _TRUNCATE, "%s\\%s", localAppData, suffix);
     if (FileExists(path))
         paths.push_back(path);
 }
@@ -3106,19 +3106,19 @@ static void CollectWindowsTerminalProfiles(std::vector<std::string>& profiles)
 static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, const char* profile)
 {
     char args[CONFIG_COMMANDLINEARGS_MAXLEN];
-    lstrcpyn(args, "-d . -p ", SizeOf(args));
-    strncat_s(args, SizeOf(args), "\"", _TRUNCATE);
+    lstrcpyn(args, "-d . -p ", ARRAYSIZE(args));
+    strncat_s(args, ARRAYSIZE(args), "\"", _TRUNCATE);
     for (const char* s = profile; *s != 0; s++)
     {
         if (*s == '"')
-            strncat_s(args, SizeOf(args), "\\\"", _TRUNCATE);
+            strncat_s(args, ARRAYSIZE(args), "\\\"", _TRUNCATE);
         else
         {
             char ch[2] = {*s, 0};
-            strncat_s(args, SizeOf(args), ch, _TRUNCATE);
+            strncat_s(args, ARRAYSIZE(args), ch, _TRUNCATE);
         }
     }
-    strncat_s(args, SizeOf(args), "\"", _TRUNCATE);
+    strncat_s(args, ARRAYSIZE(args), "\"", _TRUNCATE);
 
     SetDlgItemText(hWindow, IDC_CMDLINEAPP_PATH, wtPath[0] != 0 ? wtPath : "wt.exe");
     SetDlgItemText(hWindow, IDC_CMDLINEAPP_ARGS, args);
@@ -3128,7 +3128,7 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
 {
     char wtPath[SAL_MAX_PATH];
     std::vector<std::string> wtProfiles;
-    if (FindWindowsTerminal(wtPath, SizeOf(wtPath)))
+    if (FindWindowsTerminal(wtPath, ARRAYSIZE(wtPath)))
         CollectWindowsTerminalProfiles(wtProfiles);
 
     if (wtProfiles.empty())
