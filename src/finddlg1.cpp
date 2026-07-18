@@ -92,6 +92,25 @@ void FillFindRect(HDC hdc, const RECT* rect, COLORREF color)
         FillRect(hdc, rect, brush);
 }
 
+
+void ApplyFindResultsFontAndColors(HWND listView)
+{
+    if (listView == NULL)
+        return;
+
+    SendMessage(listView, WM_SETFONT, (WPARAM)Font, MAKELPARAM(TRUE, 0));
+
+    if (DarkModeShouldUseDarkColors())
+    {
+        DarkModeUpdateListViewColors(listView);
+        return;
+    }
+
+    COLORREF windowColor = GetSysColor(COLOR_WINDOW);
+    ListView_SetBkColor(listView, windowColor);
+    ListView_SetTextBkColor(listView, windowColor);
+}
+
 void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHeader* tbHeader)
 {
     if (WinLib_DarkMode_ShouldApplyDialogTree(dialog))
@@ -103,7 +122,7 @@ void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHea
     }
 
     if (listView != NULL)
-        DarkModeUpdateListViewColors(listView);
+        ApplyFindResultsFontAndColors(listView);
 
     if (statusBar != NULL)
     {
@@ -403,7 +422,7 @@ CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* find
     // add this panel to the array of sources for enumerating files in viewers
     EnumFileNamesAddSourceUID(HWindow, &EnumFileNamesSourceUID);
 
-    DarkModeUpdateListViewColors(HWindow);
+    ApplyFindResultsFontAndColors(HWindow);
 }
 
 CFoundFilesListView::~CFoundFilesListView()
@@ -4654,6 +4673,8 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
     case WM_USER_CFGCHANGED:
     {
         TBHeader->SetFont();
+        if (FoundFilesListView != NULL)
+            ApplyFindResultsFontAndColors(FoundFilesListView->HWindow);
         return 0;
     }
 
