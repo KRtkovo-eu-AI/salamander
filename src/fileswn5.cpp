@@ -2290,8 +2290,9 @@ namespace
         int len = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, NULL, 0, NULL, &usedDefaultChar);
         if (len > 0 && !usedDefaultChar)
         {
-            std::string text(len - 1, '\0');
+            std::string text(len, '\0');
             WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, &text[0], len, NULL, NULL);
+            text.resize(len - 1);
             return text;
         }
 
