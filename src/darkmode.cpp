@@ -2083,42 +2083,11 @@ BOOL CALLBACK ApplyTreeCallback(HWND hwnd, LPARAM)
 
 void HookDarkScrollbars()
 {
-    if (gScrollbarsHooked || !gSupported)
-        return;
-
-    HMODULE hComctl = LoadLibraryExW(L"comctl32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if (!hComctl)
-        return;
-
-    auto thunk = FindDelayLoadThunkInModule(hComctl, "uxtheme.dll", 49); // OpenNcThemeData
-    if (!thunk)
-        return;
-
-    DWORD oldProtect;
-    if (!VirtualProtect(thunk, sizeof(IMAGE_THUNK_DATA), PAGE_READWRITE, &oldProtect))
-        return;
-
-    auto original = reinterpret_cast<fnOpenNcThemeData>(thunk->u1.Function);
-    if (!original)
-    {
-        VirtualProtect(thunk, sizeof(IMAGE_THUNK_DATA), oldProtect, &oldProtect);
-        return;
-    }
-
-    gOpenNcThemeData = original;
-    auto replacement = [](HWND hWnd, LPCWSTR classList) -> HTHEME {
-        if (classList != nullptr && wcscmp(classList, L"ScrollBar") == 0)
-        {
-            // Preserve the real scrollbar HWND so UxTheme can use the
-            // window's dark-mode policy and palette instead of falling back
-            // to the generic Explorer track color.
-            classList = L"Explorer::ScrollBar";
-        }
-        return gOpenNcThemeData ? gOpenNcThemeData(hWnd, classList) : nullptr;
-    };
-
-    thunk->u1.Function = reinterpret_cast<ULONG_PTR>(static_cast<fnOpenNcThemeData>(replacement));
-    VirtualProtect(thunk, sizeof(IMAGE_THUNK_DATA), oldProtect, &oldProtect);
+#if USE_DARKMODELIB
+    dmlib::initDarkMode();
+    dmlib::setDarkModeConfigEx(static_cast<UINT>(DarkModeShouldUseDarkColors() ? dmlib::DarkModeType::dark : dmlib::DarkModeType::classic));
+    dmlib::setDefaultColors(true);
+#endif
     gScrollbarsHooked = true;
 }
 
@@ -2148,6 +2117,7 @@ void ApplyControlTheme(HWND hwnd)
         L"msctls_statusbar32",
         L"msctls_trackbar32",
         L"msctls_scrollbar32",
+        L"ScrollBar",
     };
 
     static const wchar_t* const darkExplorerClasses[] = {
@@ -2676,7 +2646,77 @@ void DarkModeFixScrollbars()
     if (!gSupported)
         return;
 
-    HookDarkScrollbars();
+#if USE_DARKMODELIB
+    if (!gScrollbarsHooked)
+        HookDarkScrollbars();
+#endif
+}
+
+static void AllowDarkScrollbarsInHost(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+#if USE_DARKMODELIB && defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
+    dmlib::enableDarkScrollBarForWindowAndChildren(hwnd);
+    // Plugin windows normally opt in from WM_CREATE, after their WS_*SCROLL
+    // non-client scrollbars have already obtained a theme handle.  Reapply
+    // the Explorer theme to make those existing scrollbars reopen their
+    // theme through the now-enabled scoped hook.
+    static const wchar_t kScrollBarThemeAppliedProp[] = L"Salamander.DarkScrollBarThemeApplied";
+    if (GetPropW(hwnd, kScrollBarThemeAppliedProp) == NULL)
+    {
+        // SetWindowTheme can synchronously deliver WM_THEMECHANGED.  Mark the
+        // window first so its handler's dark-mode refresh does not recursively
+        // attempt to reapply the same theme until the stack overflows.
+        SetPropW(hwnd, kScrollBarThemeAppliedProp, reinterpret_cast<HANDLE>(1));
+        dmlib::setDarkScrollBar(hwnd);
+    }
+#else
+    (void)hwnd;
+#endif
+}
+
+extern "C" __declspec(dllexport) void WINAPI SalamanderAllowDarkScrollbars(HWND hwnd)
+{
+    AllowDarkScrollbarsInHost(hwnd);
+}
+
+void DarkModeAllowDarkScrollbars(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    // Plugins link their own copy of darkmode.cpp, whereas the IAT callback
+    // and its scoped-window set belong to salamand.exe.  Route plugin calls
+    // to the exported host entry point instead of updating their inert local
+    // DarkModeLib instance.
+    HMODULE callerModule = NULL;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(&DarkModeAllowDarkScrollbars), &callerModule);
+    if (callerModule != GetModuleHandleW(NULL))
+    {
+        typedef void(WINAPI* HostAllowDarkScrollbarsFn)(HWND);
+        HostAllowDarkScrollbarsFn hostAllow = reinterpret_cast<HostAllowDarkScrollbarsFn>(
+            GetProcAddress(GetModuleHandleW(NULL), "SalamanderAllowDarkScrollbars"));
+        if (hostAllow != NULL)
+            hostAllow(hwnd);
+        return;
+    }
+
+    AllowDarkScrollbarsInHost(hwnd);
+}
+
+void DarkModeDisallowDarkScrollbars(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+#if USE_DARKMODELIB && defined(_DARKMODELIB_USE_SCROLLBAR_FIX) && (_DARKMODELIB_USE_SCROLLBAR_FIX > 1)
+    dmlib::disableDarkScrollBarForWindowAndChildren(hwnd);
+#else
+    (void)hwnd;
+#endif
 }
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)

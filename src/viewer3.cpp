@@ -87,7 +87,13 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
                            : hot     ? RGB(0x40, 0x40, 0x40)
                            :           colors.background;
                 FillViewerRectWithColor(hdc, &rc, bg);
-                DrawEdge(hdc, &rc, BDR_SUNKENOUTER, BF_RECT);
+                // DrawEdge obtains its highlight/shadow colors from the
+                // system palette, which leaves a bright legacy frame around
+                // these otherwise dark status-bar controls.  Use the same
+                // dark panel frame as the rest of the application instead.
+                HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
+                if (frameBrush != NULL)
+                    FrameRect(hdc, &rc, frameBrush);
                 SetBkMode(hdc, TRANSPARENT);
                 SetTextColor(hdc, colors.readableText);
                 HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
@@ -104,91 +110,6 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
     }
     return DefSubclassProc(hwnd, message, wParam, lParam);
 }
-
-// The native themed SCROLLBAR can issue a second paint after thumb tracking.
-// We override the track background to RGB(23,23,23) after every native paint.
-static const UINT_PTR kHScrollBarSubclassId = 2;
-static const UINT_PTR kVScrollBarSubclassId = 3;
-
-static void PaintScrollBarTrack(HDC hdc, HWND hwnd)
-{
-    SCROLLBARINFO sbi;
-    memset(&sbi, 0, sizeof(sbi));
-    sbi.cbSize = sizeof(sbi);
-    if (!GetScrollBarInfo(hwnd, OBJID_CLIENT, &sbi))
-        return;
-
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-
-    HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
-    if (brush == NULL)
-        return;
-
-    const int arrowSize = sbi.dxyLineButton;
-    const bool vertical = (GetWindowLong(hwnd, GWL_STYLE) & SBS_VERT) != 0;
-    if (vertical)
-    {
-        if (arrowSize < sbi.xyThumbTop)
-        {
-            RECT track = {rc.left, arrowSize, rc.right, sbi.xyThumbTop};
-            FillRect(hdc, &track, brush);
-        }
-        if (sbi.xyThumbBottom < rc.bottom - arrowSize)
-        {
-            RECT track = {rc.left, sbi.xyThumbBottom, rc.right, rc.bottom - arrowSize};
-            FillRect(hdc, &track, brush);
-        }
-    }
-    else
-    {
-        if (arrowSize < sbi.xyThumbTop)
-        {
-            RECT track = {arrowSize, rc.top, sbi.xyThumbTop, rc.bottom};
-            FillRect(hdc, &track, brush);
-        }
-        if (sbi.xyThumbBottom < rc.right - arrowSize)
-        {
-            RECT track = {sbi.xyThumbBottom, rc.top, rc.right - arrowSize, rc.bottom};
-            FillRect(hdc, &track, brush);
-        }
-    }
-    HANDLES(DeleteObject(brush));
-}
-
-static LRESULT CALLBACK HScrollBarSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
-                                           UINT_PTR subclassId, DWORD_PTR refData)
-{
-    if (message == WM_NCDESTROY)
-        RemoveWindowSubclass(hwnd, HScrollBarSubclass, subclassId);
-
-    if (message == WM_ERASEBKGND && DarkModeShouldUseDarkColors())
-    {
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        HBRUSH brush = HANDLES(CreateSolidBrush(RGB(23, 23, 23)));
-        if (brush != NULL)
-        {
-            FillRect((HDC)wParam, &rc, brush);
-            HANDLES(DeleteObject(brush));
-        }
-        return 1;
-    }
-
-    if ((message == WM_PAINT || message == WM_NCPAINT) && DarkModeShouldUseDarkColors())
-    {
-        LRESULT result = DefSubclassProc(hwnd, message, wParam, lParam);
-        HDC hdc = GetDC(hwnd);
-        if (hdc != NULL)
-        {
-            PaintScrollBarTrack(hdc, hwnd);
-            ReleaseDC(hwnd, hdc);
-        }
-        return result;
-    }
-    return DefSubclassProc(hwnd, message, wParam, lParam);
-}
-
 
 #ifndef WM_UAHDRAWMENU
 #define WM_UAHDRAWMENU 0x0091
@@ -991,6 +912,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
         ApplyViewerMenuTheme(HWindow);
+        // The scrollbar hook is intentionally opt-in.  Register this top-level
+        // viewer before its child SCROLLBAR controls are created, so only this
+        // viewer (not unrelated dialogs) receives the Explorer scrollbar theme.
+        DarkModeAllowDarkScrollbars(HWindow);
 
         SetWindowLong(HWindow, GWL_STYLE, GetWindowLong(HWindow, GWL_STYLE) & ~WS_VSCROLL);
         SetWindowPos(HWindow, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
@@ -1000,10 +925,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
         HScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_HORZ,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
-        SetWindowSubclass(HScrollBar, HScrollBarSubclass, kHScrollBarSubclassId, 0);
         VScrollBar = CreateWindowEx(0, "SCROLLBAR", NULL, WS_CHILD | WS_VISIBLE | SBS_VERT,
                                     0, 0, 0, 0, HWindow, NULL, HInstance, NULL);
-        SetWindowSubclass(VScrollBar, HScrollBarSubclass, kVScrollBarSubclassId, 0);
         HZoomReset = CreateWindowEx(0, "BUTTON", LoadStr(IDS_VIEWER_ZOOM_RESET), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                     0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_RESET, HInstance, NULL);
         HZoomOut = CreateWindowEx(0, "BUTTON", "-", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
@@ -4210,6 +4133,9 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
 
     case WM_DESTROY:
     {
+        // The scrollbar hook stores HWNDs.  Remove this entry before Windows
+        // can recycle the handle for an unrelated top-level dialog.
+        DarkModeDisallowDarkScrollbars(HWindow);
         DragAcceptFiles(HWindow, FALSE);
         if (HToolTip != NULL)
         {

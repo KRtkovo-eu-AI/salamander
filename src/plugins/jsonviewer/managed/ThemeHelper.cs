@@ -231,12 +231,46 @@ namespace EPocalipse.Json.Viewer
                 ThemeRenderer.Attach(contextual, palette);
             }
 
+            ApplyNativeScrollbarTheme(control, palette);
+
             control.ControlAdded -= ControlOnControlAdded;
             control.ControlAdded += ControlOnControlAdded;
 
             foreach (Control child in control.Controls)
             {
                 ApplyToControl(child, palette);
+            }
+        }
+
+        // WinForms owns the native scrollbar HWNDs for TreeView, PropertyGrid,
+        // ListView and the embedded editors.  Their scrollbars are not painted
+        // by the managed BackColor properties, so opt the control itself into
+        // the dark Explorer theme after its handle exists.
+        private static void ApplyNativeScrollbarTheme(Control control, ThemePalette palette)
+        {
+            if (!palette.IsDark)
+            {
+                return;
+            }
+
+            if (control is TreeView || control is ListView || control is PropertyGrid ||
+                control is TextBoxBase || control is ComboBox || control is DataGridView ||
+                control is ScrollableControl)
+            {
+                control.HandleCreated -= ControlOnHandleCreatedApplyScrollbarTheme;
+                control.HandleCreated += ControlOnHandleCreatedApplyScrollbarTheme;
+                if (control.IsHandleCreated)
+                {
+                    NativeMethods.ApplyDarkScrollbarTheme(control.Handle);
+                }
+            }
+        }
+
+        private static void ControlOnHandleCreatedApplyScrollbarTheme(object? sender, EventArgs e)
+        {
+            if (sender is Control control && GetPalette() is ThemePalette palette)
+            {
+                ApplyNativeScrollbarTheme(control, palette);
             }
         }
 
@@ -844,6 +878,30 @@ namespace EPocalipse.Json.Viewer
                 try
                 {
                     SetWindowTheme(handle, string.Empty, string.Empty);
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
+                }
+            }
+
+            public static void ApplyDarkScrollbarTheme(IntPtr handle)
+            {
+                if (handle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    // The scrollbar-specific class list is required for
+                    // WinForms controls that own native scrollbars.  The
+                    // generic DarkMode_Explorer theme leaves those tracks on
+                    // the light system rendering path on several Windows 11
+                    // builds.
+                    SetWindowTheme(handle, "Explorer::ScrollBar", null);
                 }
                 catch (DllNotFoundException)
                 {

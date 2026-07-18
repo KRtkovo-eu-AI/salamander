@@ -5,6 +5,7 @@
 
 #include <windows.h>
 #include <commdlg.h>
+#include <commctrl.h>
 
 struct DarkModeColors
 {
@@ -53,6 +54,12 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam);
 // install it; calls from unloadable plugins are ignored.
 void DarkModeFixScrollbars();
 
+// Allows the limited dark scrollbar hook to affect this window subtree.
+void DarkModeAllowDarkScrollbars(HWND hwnd);
+
+// Removes a window subtree from the limited dark scrollbar hook.
+void DarkModeDisallowDarkScrollbars(HWND hwnd);
+
 // Supplies dialog foreground/background colors and brush for WM_CTLCOLOR helpers.
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush);
 void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,
@@ -89,6 +96,12 @@ COLORREF DarkModeGetDialogBackgroundColor();
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
 void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
+
+// Repairs native list-view checkbox painting that can remain light on Win10
+// when the application uses dark colors.
+void RemoveListViewWhiteClientEdge(HWND listView);
+bool ShouldCustomDrawListViewCheckboxes();
+void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, int columnCount);
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);
 void DarkModeUpdateTabControlOverflowButtons(HWND tabControl);
 void DarkModePreserveCustomTabControl(HWND tabControl);

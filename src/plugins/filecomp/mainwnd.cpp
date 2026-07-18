@@ -250,14 +250,14 @@ BOOL CMainWindow::Init()
 
     RestoreRebarLayout();
 
-    RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + 4 + REBAR_BORDER;
+    RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + REBAR_BORDER;
     ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar->HWindow);
 
     // create the window caption
     LeftHeader = new CFileHeaderWindow("");
     if (!LeftHeader)
         return Error(HWND(NULL), IDS_LOWMEM);
-    if (!LeftHeader->CreateEx(WS_EX_STATICEDGE,
+    if (!LeftHeader->CreateEx(0,
                               CWINDOW_CLASSNAME,
                               "",
                               WS_VISIBLE | WS_CHILD,
@@ -274,7 +274,7 @@ BOOL CMainWindow::Init()
     RightHeader = new CFileHeaderWindow("");
     if (!RightHeader)
         return Error(HWND(NULL), IDS_LOWMEM);
-    if (!RightHeader->CreateEx(WS_EX_STATICEDGE,
+    if (!RightHeader->CreateEx(0,
                                CWINDOW_CLASSNAME,
                                "",
                                WS_VISIBLE | WS_CHILD,
@@ -289,7 +289,7 @@ BOOL CMainWindow::Init()
     }
 
     // create the file view windows
-    LeftFileViewHWnd = CreateWindowEx(WS_EX_STATICEDGE,
+    LeftFileViewHWnd = CreateWindowEx(0,
                                       FILEVIEWWINDOW_CLASSNAME,
                                       "",
                                       WS_VISIBLE | WS_CHILD | WS_VSCROLL | WS_HSCROLL,
@@ -304,7 +304,7 @@ BOOL CMainWindow::Init()
         return FALSE;
     }
 
-    RightFileViewHWnd = CreateWindowEx(WS_EX_STATICEDGE,
+    RightFileViewHWnd = CreateWindowEx(0,
                                        FILEVIEWWINDOW_CLASSNAME,
                                        "",
                                        WS_VISIBLE | WS_CHILD | WS_VSCROLL | WS_HSCROLL,
@@ -318,6 +318,12 @@ BOOL CMainWindow::Init()
         TRACE_E("CreateWindowEx has failed; last error: " << GetLastError());
         return FALSE;
     }
+
+    // These custom windows own WS_VSCROLL/WS_HSCROLL themselves.  Reapply
+    // the scoped Explorer scrollbar theme to the actual scrollbar owners,
+    // not just to the File Comparator frame created earlier.
+    DarkModeAllowDarkScrollbars(LeftFileViewHWnd);
+    DarkModeAllowDarkScrollbars(RightFileViewHWnd);
 
     // disable the scrollbars
     EnableScrollBar(LeftFileViewHWnd, SB_BOTH, ESB_DISABLE_BOTH);
@@ -1695,7 +1701,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
             case RBN_HEIGHTCHANGE:
             {
-                RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + 4 + REBAR_BORDER;
+                RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + REBAR_BORDER;
                 ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar->HWindow);
                 if (Initialized)
                     LayoutChilds();
