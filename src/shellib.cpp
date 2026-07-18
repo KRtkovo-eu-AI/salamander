@@ -746,6 +746,12 @@ STDMETHODIMP CImpDropTarget::DragEnter(IDataObject* pDataObject,
         const char* tgtPath = GetCurDir(pt, GetCurDirParam, pdwEffect, RButton, tgtFile,
                                         grfKeyState, tgtType, OldDataObjectSrcType);
         SetDirectory(tgtPath, 0, pt, NULL, OldDataObject, tgtFile, tgtType);
+        if (tgtPath == NULL)
+        {
+            *pdwEffect = DROPEFFECT_NONE;
+            LastEffect = -1;
+            return S_OK;
+        }
         if (TgtType != idtttWindows && TgtType != idtttFullPluginFSPath)
         { // if the selection is not from a single path (likely only with Find), we cannot copy/move into archives or the filesystem
             OldDataObjectIsSimple = IsSimpleSelection(OldDataObject, NULL);
@@ -883,6 +889,12 @@ STDMETHODIMP CImpDropTarget::DragOver(DWORD grfKeyState, POINTL pt,
         const char* tgtPath = GetCurDir(pt, GetCurDirParam, pdwEffect, RButton, tgtFile,
                                         grfKeyState, tgtType, OldDataObjectSrcType);
         SetDirectory(tgtPath, grfKeyState, pt, pdwEffect, OldDataObject, tgtFile, tgtType);
+        if (tgtPath == NULL)
+        {
+            *pdwEffect = DROPEFFECT_NONE;
+            LastEffect = -1;
+            return S_OK;
+        }
         if (TgtType != idtttWindows && TgtType != idtttFullPluginFSPath)
         { // if the selection is not from a single path (likely only with Find), we cannot copy/move into archives or the filesystem
             if (OldDataObjectIsSimple == -1)
@@ -1058,6 +1070,11 @@ STDMETHODIMP CImpDropTarget::Drop(IDataObject* pDataObject, DWORD grfKeyState,
             const char* tgtPath = GetCurDir(pt, GetCurDirParam, pdwEffect, RButton, tgtFile,
                                             grfKeyState, tgtType, OldDataObjectSrcType);
             SetDirectory(tgtPath, grfKeyState, pt, pdwEffect, OldDataObject, tgtFile, tgtType);
+            if (tgtPath == NULL)
+            {
+                *pdwEffect = DROPEFFECT_NONE;
+                return DragLeave();
+            }
             if (TgtType != idtttWindows && TgtType != idtttFullPluginFSPath)
             { // if the selection is not from a single path (likely only with Find), we cannot copy/move into archives or the filesystem
                 if (OldDataObjectIsSimple == -1)
@@ -1194,6 +1211,15 @@ STDMETHODIMP CImpDropTarget::Drop(IDataObject* pDataObject, DWORD grfKeyState,
         const char* tgtPath = GetCurDir(pt, GetCurDirParam, pdwEffect, RButton, tgtFile,
                                         grfKeyState, tgtType, dataObjectSrcType);
         SetDirectory(tgtPath, grfKeyState, pt, pdwEffect, pDataObject, tgtFile, tgtType);
+        if (tgtPath == NULL)
+        {
+            *pdwEffect = DROPEFFECT_NONE;
+            if (DropEnd != NULL)
+                DropEnd(FALSE, FALSE, DropEndParam, FALSE, FALSE, TgtType);
+            if (namesList != NULL)
+                delete namesList;
+            return S_OK;
+        }
         if (TgtType != idtttWindows && TgtType != idtttFullPluginFSPath &&
             !IsSimpleSelection(pDataObject, namesList))
         { // if the selection is not from a single path (likely only with Find), we cannot copy/move into archives or the filesystem
