@@ -2338,6 +2338,36 @@ namespace
             SetFileAttributesW(path.c_str(), attr & ~FILE_ATTRIBUTE_READONLY);
     }
 
+    void BuildRenameSubjectFormat(char* buff, int buffLen, BOOL isDir)
+    {
+        const char* renameTo = LoadStr(IDS_RENAME_TO);
+        const char* itemFormat = LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE);
+        const char* insertPos = NULL;
+        for (const char* p = renameTo; *p != 0; p++)
+        {
+            if (*p == '%' && *(p + 1) == '%')
+            {
+                p++;
+                continue;
+            }
+            if (*p == '%' && *(p + 1) == 's')
+            {
+                insertPos = p;
+                break;
+            }
+        }
+
+        if (insertPos != NULL)
+        {
+            std::string subjectFormat(renameTo, insertPos - renameTo);
+            subjectFormat += itemFormat;
+            subjectFormat += insertPos + 2;
+            lstrcpyn(buff, subjectFormat.c_str(), buffLen);
+        }
+        else
+            lstrcpyn(buff, renameTo, buffLen);
+    }
+
     std::wstring FileDataDisplayNameW(const CFileData* f, const char* fallbackName)
     {
         if (f != NULL && f->UseWideName())
@@ -2763,7 +2793,7 @@ void CFilesWindow::RenameFile(int specialIndex)
     }
 
     char buff[200];
-    _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
+    BuildRenameSubjectFormat(buff, _countof(buff), isDir);
     CTruncatedString subject;
     subject.SetW(SalMultiByteToWidePath(buff, CP_ACP).c_str(), formatedFileNameW.c_str());
     CCopyMoveDialog dlg(HWindow, formatedFileName, SAL_MAX_PATH, LoadStr(IDS_RENAME_TITLE),
