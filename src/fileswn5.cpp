@@ -2281,10 +2281,21 @@ namespace
 
     std::string WidePathToDialogText(const std::wstring& path)
     {
-        std::string text = SalWideToMultiBytePath(path.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-        if (text.empty() && !path.empty())
-            text = WideFileNameToMultiByteBest(path);
-        return text;
+        if (path.empty())
+            return std::string();
+        if (GetACP() == CP_UTF8)
+            return SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+
+        BOOL usedDefaultChar = FALSE;
+        int len = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, NULL, 0, NULL, &usedDefaultChar);
+        if (len > 0 && !usedDefaultChar)
+        {
+            std::string text(len - 1, '\0');
+            WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, &text[0], len, NULL, NULL);
+            return text;
+        }
+
+        return SalWideToMultiBytePath(path.c_str(), CP_UTF8);
     }
 
     void GetFileOverwriteInfoW(char* buff, int buffLen, HANDLE file, DWORD attrs, FILETIME* fileTime = NULL, BOOL* getTimeFailed = NULL)
@@ -2336,6 +2347,94 @@ namespace
             attr = GetFileAttributesW(path.c_str());
         if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_READONLY) != 0)
             SetFileAttributesW(path.c_str(), attr & ~FILE_ATTRIBUTE_READONLY);
+    }
+
+    BOOL TryBypassDosNameOverwriteW(const std::wstring& srcPath, const std::wstring& tgtPath,
+                                    const std::wstring& tgtPathDisplay, DWORD* err)
+    {
+        WIN32_FIND_DATAW data;
+        HANDLE find = HANDLES_Q(FindFirstFileW(tgtPath.c_str(), &data));
+        if (find == INVALID_HANDLE_VALUE)
+            return FALSE;
+        HANDLES(FindClose(find));
+
+        const wchar_t* tgtName = SalPathFindFileNameW(tgtPathDisplay.c_str());
+        if (tgtName == NULL || data.cAlternateFileName[0] == 0)
+            return FALSE;
+
+        BOOL matchesOnlyDosName =
+            CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, tgtName, -1, data.cAlternateFileName, -1) == CSTR_EQUAL &&
+            CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, tgtName, -1, data.cFileName, -1) != CSTR_EQUAL;
+        if (!matchesOnlyDosName)
+            return FALSE;
+
+        std::wstring origFullName = tgtPathDisplay;
+        size_t slash = origFullName.find_last_of(L"\\/");
+        if (slash == std::wstring::npos)
+            origFullName = data.cFileName;
+        else
+            origFullName.erase(slash + 1).append(data.cFileName);
+
+        std::wstring tmpName = tgtPathDisplay;
+        slash = tmpName.find_last_of(L"\\/");
+        if (slash == std::wstring::npos)
+            tmpName.clear();
+        else
+            tmpName.erase(slash + 1);
+
+        if (tmpName.empty())
+        {
+            *err = ERROR_INVALID_NAME;
+            return TRUE;
+        }
+
+        std::wstring origFullNameOp = origFullName.length() >= MAX_PATH ? SalPathAddExtendedPrefixW(origFullName.c_str()) : origFullName;
+        DWORD num = (GetTickCount() / 10) % 0xFFF;
+        std::wstring tmpNameOp;
+        BOOL tmpRenamed = FALSE;
+        for (int attempt = 0; attempt < 0x1000; attempt++)
+        {
+            WCHAR tmpPart[20];
+            swprintf_s(tmpPart, _countof(tmpPart), L"sal%03X", num++ & 0xFFF);
+            std::wstring candidate = tmpName + tmpPart;
+            tmpNameOp = candidate.length() >= MAX_PATH ? SalPathAddExtendedPrefixW(candidate.c_str()) : candidate;
+            if (MoveFileExW(origFullNameOp.c_str(), tmpNameOp.c_str(), 0))
+            {
+                tmpRenamed = TRUE;
+                break;
+            }
+            DWORD moveErr = GetLastError();
+            if (moveErr != ERROR_FILE_EXISTS && moveErr != ERROR_ALREADY_EXISTS)
+            {
+                *err = moveErr;
+                return TRUE;
+            }
+        }
+
+        if (!tmpRenamed)
+        {
+            *err = ERROR_ALREADY_EXISTS;
+            return TRUE;
+        }
+
+        BOOL moveDone = MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0);
+        DWORD moveErr = moveDone ? ERROR_SUCCESS : GetLastError();
+        if (!MoveFileExW(tmpNameOp.c_str(), origFullNameOp.c_str(), 0))
+        {
+            TRACE_I("TryBypassDosNameOverwriteW(): unable to restore temporary DOS-name conflict file");
+            if (moveDone)
+            {
+                MoveFileExW(tgtPath.c_str(), srcPath.c_str(), 0);
+                moveDone = FALSE;
+                moveErr = GetLastError();
+                MoveFileExW(tmpNameOp.c_str(), origFullNameOp.c_str(), 0);
+            }
+            else
+                moveErr = GetLastError();
+        }
+
+        *err = moveErr;
+        return TRUE;
     }
 
     void BuildRenameSubjectFormat(char* buff, int buffLen, BOOL isDir)
@@ -2459,10 +2558,19 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
         if ((err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS) &&
             CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, srcPathDisplay.c_str(), -1, tgtPathDisplay.c_str(), -1) != CSTR_EQUAL)
         {
-            DWORD inAttr = GetFileAttributesW(srcPath.c_str());
-            DWORD outAttr = GetFileAttributesW(tgtPath.c_str());
+            BOOL dosNameConflict = TryBypassDosNameOverwriteW(srcPath, tgtPath, tgtPathDisplay, &err);
+            if (dosNameConflict && err == ERROR_SUCCESS)
+            {
+                std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
+                UpdateFileDataNameAfterRename(f, newNameW, isDir);
+                *tryAgain = FALSE;
+            }
 
-            if (inAttr != INVALID_FILE_ATTRIBUTES && outAttr != INVALID_FILE_ATTRIBUTES &&
+            DWORD inAttr = dosNameConflict ? INVALID_FILE_ATTRIBUTES : GetFileAttributesW(srcPath.c_str());
+            DWORD outAttr = dosNameConflict ? INVALID_FILE_ATTRIBUTES : GetFileAttributesW(tgtPath.c_str());
+
+            if (!dosNameConflict && inAttr != INVALID_FILE_ATTRIBUTES && outAttr != INVALID_FILE_ATTRIBUTES &&
                 (inAttr & FILE_ATTRIBUTE_DIRECTORY) == 0 &&
                 (outAttr & FILE_ATTRIBUTE_DIRECTORY) == 0)
             {
