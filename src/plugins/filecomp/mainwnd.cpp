@@ -250,7 +250,7 @@ BOOL CMainWindow::Init()
 
     RestoreRebarLayout();
 
-    RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + 4 + REBAR_BORDER;
+    RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + REBAR_BORDER;
     ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar->HWindow);
 
     // create the window caption
@@ -1701,7 +1701,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
             case RBN_HEIGHTCHANGE:
             {
-                RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + 4 + REBAR_BORDER;
+                RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + REBAR_BORDER;
                 ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar->HWindow);
                 if (Initialized)
                     LayoutChilds();

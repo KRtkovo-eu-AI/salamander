@@ -248,7 +248,7 @@ namespace EPocalipse.Json.Viewer
         // the dark Explorer theme after its handle exists.
         private static void ApplyNativeScrollbarTheme(Control control, ThemePalette palette)
         {
-            if (!palette.IsDark || !control.IsHandleCreated)
+            if (!palette.IsDark)
             {
                 return;
             }
@@ -257,9 +257,12 @@ namespace EPocalipse.Json.Viewer
                 control is TextBoxBase || control is ComboBox || control is DataGridView ||
                 control is ScrollableControl)
             {
-                NativeMethods.ApplyDarkScrollbarTheme(control.Handle);
                 control.HandleCreated -= ControlOnHandleCreatedApplyScrollbarTheme;
                 control.HandleCreated += ControlOnHandleCreatedApplyScrollbarTheme;
+                if (control.IsHandleCreated)
+                {
+                    NativeMethods.ApplyDarkScrollbarTheme(control.Handle);
+                }
             }
         }
 

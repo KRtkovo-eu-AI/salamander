@@ -25,7 +25,7 @@
 #define BI_NEXTDIFF 4
 #define BI_LASTDIFF 5
 
-#define REBAR_BORDER 2 // height of the gap below the rebar
+#define REBAR_BORDER 0 // no legacy gap below the rebar in dark mode
 
 // flags for CMainWindow::UpdateToolbarButtons()
 #define UTB_DIFFSSELECTION 0x01
