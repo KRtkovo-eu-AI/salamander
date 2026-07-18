@@ -2279,6 +2279,194 @@ namespace
         return SalWideToMultiBytePath(name.c_str(), CP_UTF8);
     }
 
+    std::string WidePathToDialogText(const std::wstring& path)
+    {
+        if (path.empty())
+            return std::string();
+        if (GetACP() == CP_UTF8)
+            return SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+
+        BOOL usedDefaultChar = FALSE;
+        int len = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, NULL, 0, NULL, &usedDefaultChar);
+        if (len > 0 && !usedDefaultChar)
+        {
+            std::string text(len - 1, '\0');
+            WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, &text[0], len, NULL, NULL);
+            return text;
+        }
+
+        return SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    }
+
+    void GetFileOverwriteInfoW(char* buff, int buffLen, HANDLE file, DWORD attrs, FILETIME* fileTime = NULL, BOOL* getTimeFailed = NULL)
+    {
+        FILETIME lastWrite;
+        SYSTEMTIME st;
+        FILETIME ft;
+        char date[50], time[50];
+        if (!GetFileTime(file, NULL, NULL, &lastWrite) ||
+            !FileTimeToLocalFileTime(&lastWrite, &ft) ||
+            !FileTimeToSystemTime(&ft, &st))
+        {
+            if (getTimeFailed != NULL)
+                *getTimeFailed = TRUE;
+            date[0] = 0;
+            time[0] = 0;
+        }
+        else
+        {
+            if (fileTime != NULL)
+                *fileTime = ft;
+            if (GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, time, 50) == 0)
+                sprintf(time, "%u:%02u:%02u", st.wHour, st.wMinute, st.wSecond);
+            if (GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, date, 50) == 0)
+                sprintf(date, "%u.%u.%u", st.wDay, st.wMonth, st.wYear);
+        }
+
+        char attr[30];
+        lstrcpy(attr, ", ");
+        if (attrs != INVALID_FILE_ATTRIBUTES)
+            GetAttrsString(attr + 2, attrs);
+        if (strlen(attr) == 2)
+            attr[0] = 0;
+
+        char number[50];
+        CQuadWord size;
+        DWORD err;
+        if (SalGetFileSize(file, size, err))
+            NumberToStr(number, size);
+        else
+            number[0] = 0;
+
+        _snprintf_s(buff, buffLen, _TRUNCATE, "%s, %s, %s%s", number, date, time, attr);
+    }
+
+    void ClearReadOnlyAttrW(const std::wstring& path, DWORD attr)
+    {
+        if (attr == INVALID_FILE_ATTRIBUTES)
+            attr = GetFileAttributesW(path.c_str());
+        if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_READONLY) != 0)
+            SetFileAttributesW(path.c_str(), attr & ~FILE_ATTRIBUTE_READONLY);
+    }
+
+    BOOL TryBypassDosNameOverwriteW(const std::wstring& srcPath, const std::wstring& tgtPath,
+                                    const std::wstring& tgtPathDisplay, DWORD* err)
+    {
+        WIN32_FIND_DATAW data;
+        HANDLE find = HANDLES_Q(FindFirstFileW(tgtPath.c_str(), &data));
+        if (find == INVALID_HANDLE_VALUE)
+            return FALSE;
+        HANDLES(FindClose(find));
+
+        const wchar_t* tgtName = SalPathFindFileNameW(tgtPathDisplay.c_str());
+        if (tgtName == NULL || data.cAlternateFileName[0] == 0)
+            return FALSE;
+
+        BOOL matchesOnlyDosName =
+            CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, tgtName, -1, data.cAlternateFileName, -1) == CSTR_EQUAL &&
+            CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, tgtName, -1, data.cFileName, -1) != CSTR_EQUAL;
+        if (!matchesOnlyDosName)
+            return FALSE;
+
+        std::wstring origFullName = tgtPathDisplay;
+        size_t slash = origFullName.find_last_of(L"\\/");
+        if (slash == std::wstring::npos)
+            origFullName = data.cFileName;
+        else
+            origFullName.erase(slash + 1).append(data.cFileName);
+
+        std::wstring tmpName = tgtPathDisplay;
+        slash = tmpName.find_last_of(L"\\/");
+        if (slash == std::wstring::npos)
+            tmpName.clear();
+        else
+            tmpName.erase(slash + 1);
+
+        if (tmpName.empty())
+        {
+            *err = ERROR_INVALID_NAME;
+            return TRUE;
+        }
+
+        std::wstring origFullNameOp = origFullName.length() >= MAX_PATH ? SalPathAddExtendedPrefixW(origFullName.c_str()) : origFullName;
+        DWORD num = (GetTickCount() / 10) % 0xFFF;
+        std::wstring tmpNameOp;
+        BOOL tmpRenamed = FALSE;
+        for (int attempt = 0; attempt < 0x1000; attempt++)
+        {
+            WCHAR tmpPart[20];
+            swprintf_s(tmpPart, _countof(tmpPart), L"sal%03X", num++ & 0xFFF);
+            std::wstring candidate = tmpName + tmpPart;
+            tmpNameOp = candidate.length() >= MAX_PATH ? SalPathAddExtendedPrefixW(candidate.c_str()) : candidate;
+            if (MoveFileExW(origFullNameOp.c_str(), tmpNameOp.c_str(), 0))
+            {
+                tmpRenamed = TRUE;
+                break;
+            }
+            DWORD moveErr = GetLastError();
+            if (moveErr != ERROR_FILE_EXISTS && moveErr != ERROR_ALREADY_EXISTS)
+            {
+                *err = moveErr;
+                return TRUE;
+            }
+        }
+
+        if (!tmpRenamed)
+        {
+            *err = ERROR_ALREADY_EXISTS;
+            return TRUE;
+        }
+
+        BOOL moveDone = MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0);
+        DWORD moveErr = moveDone ? ERROR_SUCCESS : GetLastError();
+        if (!MoveFileExW(tmpNameOp.c_str(), origFullNameOp.c_str(), 0))
+        {
+            TRACE_I("TryBypassDosNameOverwriteW(): unable to restore temporary DOS-name conflict file");
+            if (moveDone)
+            {
+                MoveFileExW(tgtPath.c_str(), srcPath.c_str(), 0);
+                moveDone = FALSE;
+                moveErr = GetLastError();
+                MoveFileExW(tmpNameOp.c_str(), origFullNameOp.c_str(), 0);
+            }
+            else
+                moveErr = GetLastError();
+        }
+
+        *err = moveErr;
+        return TRUE;
+    }
+
+    void BuildRenameSubjectFormat(char* buff, int buffLen, BOOL isDir)
+    {
+        const char* renameTo = LoadStr(IDS_RENAME_TO);
+        const char* itemFormat = LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE);
+        const char* insertPos = NULL;
+        for (const char* p = renameTo; *p != 0; p++)
+        {
+            if (*p == '%' && *(p + 1) == '%')
+            {
+                p++;
+                continue;
+            }
+            if (*p == '%' && *(p + 1) == 's')
+            {
+                insertPos = p;
+                break;
+            }
+        }
+
+        if (insertPos != NULL)
+        {
+            std::string subjectFormat(renameTo, insertPos - renameTo);
+            subjectFormat += itemFormat;
+            subjectFormat += insertPos + 2;
+            lstrcpyn(buff, subjectFormat.c_str(), buffLen);
+        }
+        else
+            lstrcpyn(buff, renameTo, buffLen);
+    }
+
     std::wstring FileDataDisplayNameW(const CFileData* f, const char* fallbackName)
     {
         if (f != NULL && f->UseWideName())
@@ -2348,6 +2536,9 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
                       MB_OK | MB_ICONEXCLAMATION);
         return;
     }
+
+    std::wstring srcPathDisplay = srcPath;
+    std::wstring tgtPathDisplay = tgtPath;
     if (srcPath.length() >= MAX_PATH)
         srcPath = SalPathAddExtendedPrefixW(srcPath.c_str());
     if (tgtPath.length() >= MAX_PATH)
@@ -2364,7 +2555,87 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     else
     {
         DWORD err = GetLastError();
-        TRACE_E("RenameFileInternalW(): MoveFileExW failed: " << GetErrorText(err));
+        if ((err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS) &&
+            CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, srcPathDisplay.c_str(), -1, tgtPathDisplay.c_str(), -1) != CSTR_EQUAL)
+        {
+            BOOL dosNameConflict = TryBypassDosNameOverwriteW(srcPath, tgtPath, tgtPathDisplay, &err);
+            if (dosNameConflict && err == ERROR_SUCCESS)
+            {
+                std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
+                UpdateFileDataNameAfterRename(f, newNameW, isDir);
+                *tryAgain = FALSE;
+            }
+
+            DWORD inAttr = dosNameConflict ? INVALID_FILE_ATTRIBUTES : GetFileAttributesW(srcPath.c_str());
+            DWORD outAttr = dosNameConflict ? INVALID_FILE_ATTRIBUTES : GetFileAttributesW(tgtPath.c_str());
+
+            if (!dosNameConflict && inAttr != INVALID_FILE_ATTRIBUTES && outAttr != INVALID_FILE_ATTRIBUTES &&
+                (inAttr & FILE_ATTRIBUTE_DIRECTORY) == 0 &&
+                (outAttr & FILE_ATTRIBUTE_DIRECTORY) == 0)
+            {
+                std::string srcText = WidePathToDialogText(srcPathDisplay);
+                std::string tgtText = WidePathToDialogText(tgtPathDisplay);
+                HANDLE in = HANDLES_Q(CreateFileW(srcPath.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+                HANDLE out = HANDLES_Q(CreateFileW(tgtPath.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+                if (in != INVALID_HANDLE_VALUE && out != INVALID_HANDLE_VALUE)
+                {
+                    char iAttr[101], oAttr[101];
+                    GetFileOverwriteInfoW(iAttr, _countof(iAttr), in, inAttr);
+                    GetFileOverwriteInfoW(oAttr, _countof(oAttr), out, outAttr);
+                    HANDLES(CloseHandle(in));
+                    HANDLES(CloseHandle(out));
+
+                    COverwriteDlg dlg(HWindow, tgtText.c_str(), oAttr, srcText.c_str(), iAttr, TRUE);
+                    int res = (int)dlg.Execute();
+
+                    switch (res)
+                    {
+                    case IDCANCEL:
+                        *tryAgain = FALSE;
+                    case IDNO:
+                        err = ERROR_SUCCESS;
+                        break;
+
+                    case IDYES:
+                    {
+                        ClearReadOnlyAttrW(tgtPath, outAttr);
+                        if (!DeleteFileW(tgtPath.c_str()) || !MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0))
+                            err = GetLastError();
+                        else
+                        {
+                            err = ERROR_SUCCESS;
+                            std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                            lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
+                            UpdateFileDataNameAfterRename(f, newNameW, isDir);
+                            *tryAgain = FALSE;
+                        }
+                        break;
+                    }
+                    }
+                }
+                else
+                {
+                    if (in == INVALID_HANDLE_VALUE)
+                        TRACE_E("Unable to open file " << srcText.c_str());
+                    else
+                        HANDLES(CloseHandle(in));
+                    if (out == INVALID_HANDLE_VALUE)
+                        TRACE_E("Unable to open file " << tgtText.c_str());
+                    else
+                        HANDLES(CloseHandle(out));
+                }
+            }
+        }
+
+        if (err != ERROR_SUCCESS)
+        {
+            TRACE_E("RenameFileInternalW(): MoveFileExW failed: " << GetErrorText(err));
+            SalMessageBox(HWindow, GetErrorText(err), LoadStr(IDS_ERRORRENAMINGFILE),
+                          MB_OK | MB_ICONEXCLAMATION);
+        }
     }
 }
 
@@ -2630,7 +2901,7 @@ void CFilesWindow::RenameFile(int specialIndex)
     }
 
     char buff[200];
-    _snprintf_s(buff, _TRUNCATE, "%s %s", LoadStr(IDS_RENAME_TO), LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
+    BuildRenameSubjectFormat(buff, _countof(buff), isDir);
     CTruncatedString subject;
     subject.SetW(SalMultiByteToWidePath(buff, CP_ACP).c_str(), formatedFileNameW.c_str());
     CCopyMoveDialog dlg(HWindow, formatedFileName, SAL_MAX_PATH, LoadStr(IDS_RENAME_TITLE),
