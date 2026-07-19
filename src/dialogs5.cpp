@@ -3489,7 +3489,21 @@ static BOOL IsBashLikeCommandLine(const std::string& commandLine)
 {
     return ContainsTextI(commandLine, "bash") || ContainsTextI(commandLine, "sh.exe") ||
            ContainsTextI(commandLine, "zsh") || ContainsTextI(commandLine, "cygwin") ||
-           ContainsTextI(commandLine, "git-bash") || ContainsTextI(commandLine, "mingw");
+           ContainsTextI(commandLine, "git-bash") || ContainsTextI(commandLine, "mingw") ||
+           ContainsTextI(commandLine, "msys");
+}
+
+static void AppendBashCommandExecution(char* args, int argsSize, const std::string& commandLine)
+{
+    // Git Bash/Cygwin/MSYS Windows Terminal profiles usually keep startup flags in the
+    // profile commandline.  Do not append {command} as a positional script argument;
+    // ask the shell to execute it explicitly.
+    if (ContainsCommandLineSwitch(commandLine, "-lc") || ContainsCommandLineSwitch(commandLine, "-c"))
+        strncat_s(args, argsSize, " \"{command}\"", _TRUNCATE);
+    else if (ContainsCommandLineSwitch(commandLine, "--login") || ContainsCommandLineSwitch(commandLine, "-l"))
+        strncat_s(args, argsSize, " -c \"{command}\"", _TRUNCATE);
+    else
+        strncat_s(args, argsSize, " -lc \"{command}\"", _TRUNCATE);
 }
 
 static void AppendProfileCommandLine(char* args, int argsSize, const std::string& commandLine)
@@ -3579,12 +3593,7 @@ static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const 
     else if (ContainsTextI(profile.CommandLine, "wsl"))
         strncat_s(args, argsSize, " --exec sh -lc \"{command}\"", _TRUNCATE);
     else if (IsBashLikeCommandLine(profile.CommandLine))
-    {
-        if (ContainsCommandLineSwitch(profile.CommandLine, "-lc") || ContainsCommandLineSwitch(profile.CommandLine, "-c"))
-            strncat_s(args, argsSize, " \"{command}\"", _TRUNCATE);
-        else
-            strncat_s(args, argsSize, " -lc \"{command}\"", _TRUNCATE);
-    }
+        AppendBashCommandExecution(args, argsSize, profile.CommandLine);
     else
         strncat_s(args, argsSize, " \"{command}\"", _TRUNCATE);
 }
