@@ -3257,6 +3257,33 @@ static HBITMAP LoadBuiltinShellSVG(const char* svgName)
     return hBitmap;
 }
 
+static HBITMAP LoadCommandPromptBitmap()
+{
+    SHFILEINFO shfi;
+    memset(&shfi, 0, sizeof(shfi));
+    if (SHGetFileInfo("cmd.exe", 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES) == 0)
+        return NULL;
+    HBITMAP hBitmap = CreateMenuBitmapFromIcon(shfi.hIcon);
+    DestroyIcon(shfi.hIcon);
+    return hBitmap;
+}
+
+static void SetMenuBitmapAndRemember(HMENU hMenu, UINT id, HBITMAP hBitmap, std::vector<HBITMAP>& bitmaps)
+{
+    if (hBitmap != NULL)
+    {
+        SetMenuItemBitmaps(hMenu, id, MF_BYCOMMAND, hBitmap, hBitmap);
+        bitmaps.push_back(hBitmap);
+    }
+}
+
+static void FreeMenuBitmaps(std::vector<HBITMAP>& bitmaps)
+{
+    for (size_t i = 0; i < bitmaps.size(); i++)
+        HANDLES(DeleteObject(bitmaps[i]));
+    bitmaps.clear();
+}
+
 static BOOL IsDeveloperProfile(const CWindowsTerminalProfile& profile)
 {
     return ContainsTextI(profile.Name, "Developer ") &&
@@ -3385,6 +3412,7 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     HMENU hMenu = CreatePopupMenu();
     HMENU hTemplates = CreatePopupMenu();
     HMENU hWindowsTerminal = CreatePopupMenu();
+    std::vector<HBITMAP> menuBitmaps;
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 1, LoadStr(IDS_EXECUTE_BROWSE));
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 3, LoadStr(IDS_EXECUTE_WINDIR));
@@ -3396,6 +3424,9 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC));
     InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL));
     InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7));
+    SetMenuBitmapAndRemember(hTemplates, 100, LoadCommandPromptBitmap(), menuBitmaps);
+    SetMenuBitmapAndRemember(hTemplates, 101, LoadBuiltinShellSVG("WindowsPowerShell"), menuBitmaps);
+    SetMenuBitmapAndRemember(hTemplates, 102, LoadBuiltinShellSVG("PowerShell"), menuBitmaps);
     InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
     for (size_t i = 0; i < wtProfiles.size(); i++)
     {
@@ -3418,12 +3449,14 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     if (cmd == 0)
     {
         FreeWindowsTerminalProfileBitmaps(wtProfiles);
+        FreeMenuBitmaps(menuBitmaps);
         return NULL;
     }
     if (cmd == 1)
     {
         BrowseCommand(hWindow, IDC_CMDLINEAPP_PATH, IDS_EXEFILTER);
         FreeWindowsTerminalProfileBitmaps(wtProfiles);
+        FreeMenuBitmaps(menuBitmaps);
         return NULL;
     }
     if (cmd >= 200 && cmd < 200 + wtProfiles.size())
@@ -3431,9 +3464,11 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
         wtProfile = wtProfiles[cmd - 200].Name;
         SetWindowsTerminalProfileTemplate(hWindow, wtPath, wtProfiles[cmd - 200]);
         FreeWindowsTerminalProfileBitmaps(wtProfiles);
+        FreeMenuBitmaps(menuBitmaps);
         return NULL;
     }
     FreeWindowsTerminalProfileBitmaps(wtProfiles);
+    FreeMenuBitmaps(menuBitmaps);
     if (cmd == 3 || cmd == 4 || cmd == 5 || cmd == 7)
     {
         const char* text = cmd == 3 ? "$(WinDir)" : cmd == 4 ? "$(SysDir)" : cmd == 5 ? "$(SalDir)" : "%";
