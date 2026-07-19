@@ -3373,10 +3373,33 @@ static HICON CreateIconFromBitmap(HBITMAP hColorBitmap, int iconSize)
 {
     if (hColorBitmap == NULL)
         return NULL;
+
     const int maskStride = ((iconSize + 15) / 16) * 2;
     BYTE* maskBits = (BYTE*)calloc(maskStride, iconSize);
     if (maskBits == NULL)
         return NULL;
+
+    BITMAP bitmap;
+    memset(&bitmap, 0, sizeof(bitmap));
+    if (GetObject(hColorBitmap, sizeof(bitmap), &bitmap) == sizeof(bitmap) &&
+        bitmap.bmBits != NULL && bitmap.bmBitsPixel == 32)
+    {
+        BYTE* colorBits = (BYTE*)bitmap.bmBits;
+        int width = min(iconSize, bitmap.bmWidth);
+        int height = min(iconSize, abs(bitmap.bmHeight));
+        for (int y = 0; y < height; y++)
+        {
+            BYTE* src = colorBits + y * bitmap.bmWidthBytes;
+            BYTE* dst = maskBits + y * maskStride;
+            for (int x = 0; x < width; x++)
+            {
+                BYTE alpha = src[x * 4 + 3];
+                if (alpha < 16)
+                    dst[x / 8] |= 0x80 >> (x % 8); // 1 means transparent in an icon mask
+            }
+        }
+    }
+
     HBITMAP hMaskBitmap = HANDLES(CreateBitmap(iconSize, iconSize, 1, 1, maskBits));
     free(maskBits);
     if (hMaskBitmap == NULL)
