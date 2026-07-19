@@ -25,6 +25,15 @@ namespace EPocalipse.Json.Viewer
             }
         }
 
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (pgJsonObject is not null)
+            {
+                NativeThemeRefreshScheduler.ScheduleNativeDarkModeRefresh(pgJsonObject);
+            }
+        }
+
         private void PgJsonObjectOnSelectedObjectsChanged(object sender, EventArgs e)
         {
             ApplyPropertyGridTheme();
@@ -54,6 +63,15 @@ namespace EPocalipse.Json.Viewer
             if (Visible)
             {
                 ApplyGridTheme();
+            }
+        }
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (lvGrid is not null)
+            {
+                NativeThemeRefreshScheduler.ScheduleNativeDarkModeRefresh(lvGrid);
             }
         }
 
