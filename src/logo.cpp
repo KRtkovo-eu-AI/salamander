@@ -165,16 +165,17 @@ BOOL CSplashScreen::PrepareBitmap()
     r.right = Width;
     r.bottom = Height;
 
-    // paint the background to match the application's dark theme (#212121)
-    SetBkColor(hDC, RGB(33, 33, 33));
+    bool useDark = Configuration.UseWindowsDarkMode;
+    SetBkColor(hDC, useDark ? RGB(33, 33, 33) : RGB(255, 255, 255));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
+    int logoTextResID = useDark ? IDB_LOGO_TEXT : IDB_LOGO_TEXT_BLACK;
     CSVGSprite svgText;
     CSVGSprite svgGrad;
     CSVGSprite svgHand;
     concurrency::parallel_invoke(
         [&]
-        { svgText.Load(IDB_LOGO_TEXT, OpenSalR.right - OpenSalR.left, OpenSalR.bottom - OpenSalR.top, SVGSTATE_ORIGINAL); },
+        { svgText.Load(logoTextResID, OpenSalR.right - OpenSalR.left, OpenSalR.bottom - OpenSalR.top, SVGSTATE_ORIGINAL); },
         [&]
         { svgGrad.Load(IDB_LOGO_GRAD, Width, -1, SVGSTATE_ORIGINAL); },
         [&]
@@ -193,7 +194,7 @@ BOOL CSplashScreen::PrepareBitmap()
     PaintText(SALAMANDER_TEXT_VERSION,
               VersionR.left,
               VersionR.top,
-              FALSE, RGB(128, 128, 128));
+              FALSE, useDark ? RGB(255, 255, 255) : RGB(96, 96, 96));
 
     PaintTextW(L"Copyright \u00A9 1997-2026 Open Salamander Authors",
                CopyrightR.left,
@@ -214,7 +215,7 @@ void CSplashScreen::SetText(const char* text)
         BitBlt(Bitmap->HMemDC, StatusR.left, StatusR.top, StatusR.right - StatusR.left, StatusR.bottom - StatusR.top, OriginalBitmap->HMemDC, StatusR.left, StatusR.top, SRCCOPY);
         PaintText(text,
                   StatusR.left, StatusR.top,
-                  FALSE, RGB(255, 255, 255));
+                   FALSE, RGB(255, 255, 255));
 
         // if visible, update the display with the change
         if (HWindow != NULL)
@@ -391,16 +392,17 @@ AboutAndEvalDlgCreateBkgnd(HWND hWindow)
 
     hDC = bitmap->HMemDC;
 
-    // paint the background to match the application's dark theme (#212121)
-    SetBkColor(hDC, RGB(33, 33, 33));
+    bool useDark = Configuration.UseWindowsDarkMode;
+    SetBkColor(hDC, useDark ? RGB(33, 33, 33) : RGB(255, 255, 255));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
+    int logoTextResID = useDark ? IDB_LOGO_TEXT : IDB_LOGO_TEXT_BLACK;
     CSVGSprite svgText;
     CSVGSprite svgGrad;
     CSVGSprite svgHand;
     concurrency::parallel_invoke(
         [&]
-        { svgText.Load(IDB_LOGO_TEXT, opensalR.right - opensalR.left, opensalR.bottom - opensalR.top, SVGSTATE_ORIGINAL); },
+        { svgText.Load(logoTextResID, opensalR.right - opensalR.left, opensalR.bottom - opensalR.top, SVGSTATE_ORIGINAL); },
         [&]
         { svgGrad.Load(IDB_ABOUT_GRAD, r.right - r.left, -1, SVGSTATE_ORIGINAL); },
         [&]
@@ -456,20 +458,21 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HDC hdcStatic = (HDC)wParam;
         HWND hwndStatic = (HWND)lParam;
         int resID = GetWindowLong(hwndStatic, GWL_ID);
-        COLORREF textClr = RGB(224, 224, 224);
+        bool useDark = Configuration.UseWindowsDarkMode;
+        COLORREF textClr = useDark ? RGB(224, 224, 224) : RGB(32, 32, 32);
         switch (resID)
         {
         case IDC_ABOUT_WWW:
-            textClr = RGB(86, 156, 214);
+            textClr = useDark ? RGB(86, 156, 214) : RGB(0, 92, 198);
             break;
         case IDC_STATIC_6:
         case IDC_STATIC_7:
         case IDC_STATIC_8:
-            textClr = RGB(160, 160, 160);
+            textClr = useDark ? RGB(160, 160, 160) : RGB(96, 96, 96);
             break;
         }
         SetTextColor(hdcStatic, textClr);
-        SetBkColor(hdcStatic, RGB(33, 33, 33));
+        SetBkColor(hdcStatic, useDark ? RGB(33, 33, 33) : RGB(255, 255, 255));
         return (BOOL)(UINT_PTR)GetStockObject(NULL_BRUSH);
     }
 

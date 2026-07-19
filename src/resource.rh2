@@ -414,6 +414,7 @@
 #define IDB_LOGO_HAND      1004
 #define IDB_LOGO_GRAD      1005
 #define IDB_LOGO_TEXT      1006
+#define IDB_LOGO_TEXT_BLACK 1011
 
 #define IDC_COLORTABLE       1009
 

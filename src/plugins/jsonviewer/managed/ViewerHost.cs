@@ -629,6 +629,10 @@ internal static class ViewerHost
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             DoubleBuffered = true;
 
+            ThemeHelper.InitializeNativeDarkMode();
+            _ = Handle;
+            ThemeHelper.ApplyNativeDarkMode(this);
+
             _viewer = new JsonViewerControl
             {
                 Dock = DockStyle.Fill
@@ -663,7 +667,8 @@ internal static class ViewerHost
                 string json = File.ReadAllText(LongPathHelper.ToLongPath(LongPathHelper.ToDisplayPath(session.Payload.FilePath)));
                 _viewer.ShowTab(ViewerTabs.Viewer);
                 _viewer.refreshFromString(json);
-                ThemeHelper.ApplyTheme(_viewer);
+                _viewer.ApplyCurrentTheme();
+                ThemeHelper.ApplyNativeDarkMode(_viewer);
             }
             catch (Exception ex)
             {
@@ -679,7 +684,19 @@ internal static class ViewerHost
             Show();
             Activate();
             NativeMethods.SetForegroundWindow(Handle);
+            BeginInvoke(new Action(ApplyThemeAfterFirstShow));
             return true;
+        }
+
+        private void ApplyThemeAfterFirstShow()
+        {
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+
+            ThemeHelper.ApplyNativeDarkMode(this);
+            ThemeHelper.ApplyNativeDarkMode(_viewer);
         }
 
         public void AllowClose()

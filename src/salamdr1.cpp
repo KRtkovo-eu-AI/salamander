@@ -4885,45 +4885,7 @@ FIND_NEW_SLG_FILE:
     }
     LoadSaveToRegistryMutex.Leave();
 
-    if (Configuration.ShowSplashScreen)
-        SplashScreenOpen();
-
-    // okno pro import konfigurace obsahuje listview s checkboxama, musime inicializovat COMMON CONTROLS
-    INITCOMMONCONTROLSEX initCtrls;
-    initCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
-    initCtrls.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES |
-                      ICC_TAB_CLASSES | ICC_COOL_CLASSES |
-                      ICC_DATE_CLASSES | ICC_USEREX_CLASSES;
-    if (!InitCommonControlsEx(&initCtrls))
-    {
-        TRACE_E("InitCommonControlsEx failed");
-        SplashScreenCloseIfExist();
-        goto EXIT_2;
-    }
-
-    SetWinLibStrings(LoadStr(IDS_INVALIDNUMBER), MAINWINDOW_NAME); // j.r. - posunout na spravne misto
-
-    // detect system dark mode and enable it early, before any dialogs are shown
-    DarkModeDetectAndEnableSystemDarkMode();
-    if (DarkModeShouldUseDarkColors())
-    {
-        // Set up the global dialog/message-box brushes early so that message boxes
-        // shown before ColorsChanged() paint dark backgrounds (WM_ERASEBKGND,
-        // WM_CTLCOLORSTATIC in CMessageBox all use HDialogBrush).
-        const COLORREF darkBg = RGB(0x20, 0x20, 0x20);
-        const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
-        HDialogBrush = HANDLES(CreateSolidBrush(darkBg));
-        HButtonTextBrush = HANDLES(CreateSolidBrush(darkText));
-        gDarkModeBrushesOwned = true;
-    }
-
-    // inicializace pakovacu; drive provadeno v konstruktorech; ted presunuto sem,
-    // kdy uz je rozhodnuto o jazykovem DLL
-    PackerFormatConfig.InitializeDefaultValues();
-    ArchiverConfig.InitializeDefaultValues();
-    PackerConfig.InitializeDefaultValues();
-    UnpackerConfig.InitializeDefaultValues();
-
+    // Load storage type bootstrap early (before splash screen) so we know UseWindowsDarkMode
     CConfigurationStorageType storageType = cstRegistry;
     static char storageRegFilePath[SAL_MAX_PATH];
     storageRegFilePath[0] = 0;
@@ -4933,6 +4895,12 @@ FIND_NEW_SLG_FILE:
                                          WasRestrictedFileStorageImported();
     Configuration.StorageType = storageType;
 
+    // Read UseWindowsDarkMode from configstorage.ini for splash screen theme
+    BOOL useDarkFromConfig;
+    if (ConfigurationStorage.LoadUseWindowsDarkMode(useDarkFromConfig))
+        Configuration.UseWindowsDarkMode = useDarkFromConfig;
+
+    // Compute forceWelcomeDialog early so we can skip the splash screen on first run
     static char portableConfigPath[SAL_MAX_PATH];
     portableConfigPath[0] = 0;
     if (storageType == cstRegFile && storageRegFilePath[0] != 0)
@@ -4966,6 +4934,46 @@ FIND_NEW_SLG_FILE:
 
     BOOL forceWelcomeDialog = ForceWelcomeDialog || (!autoImportConfig && (!storageTypeFromBootstrap || !bootstrapStorageUsable) &&
                                                      !portableConfigExists && !currentRegistryConfigExistsAtStartup);
+
+    // Don't show splash screen during Welcome dialog (first run / no usable config)
+    if (Configuration.ShowSplashScreen && !forceWelcomeDialog)
+        SplashScreenOpen();
+
+    // okno pro import konfigurace obsahuje listview s checkboxama, musime inicializovat COMMON CONTROLS
+    INITCOMMONCONTROLSEX initCtrls;
+    initCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    initCtrls.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES |
+                      ICC_TAB_CLASSES | ICC_COOL_CLASSES |
+                      ICC_DATE_CLASSES | ICC_USEREX_CLASSES;
+    if (!InitCommonControlsEx(&initCtrls))
+    {
+        TRACE_E("InitCommonControlsEx failed");
+        SplashScreenCloseIfExist();
+        goto EXIT_2;
+    }
+
+    SetWinLibStrings(LoadStr(IDS_INVALIDNUMBER), MAINWINDOW_NAME); // j.r. - posunout na spravne misto
+
+    // inicializace pakovacu; drive provadeno v konstruktorech; ted presunuto sem,
+    // kdy uz je rozhodnuto o jazykovem DLL
+    PackerFormatConfig.InitializeDefaultValues();
+    ArchiverConfig.InitializeDefaultValues();
+    PackerConfig.InitializeDefaultValues();
+    UnpackerConfig.InitializeDefaultValues();
+
+    // detect system dark mode and enable it early, before any dialogs are shown
+    DarkModeDetectAndEnableSystemDarkMode();
+    if (DarkModeShouldUseDarkColors())
+    {
+        // Set up the global dialog/message-box brushes early so that message boxes
+        // shown before ColorsChanged() paint dark backgrounds (WM_ERASEBKGND,
+        // WM_CTLCOLORSTATIC in CMessageBox all use HDialogBrush).
+        const COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+        const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
+        HDialogBrush = HANDLES(CreateSolidBrush(darkBg));
+        HButtonTextBrush = HANDLES(CreateSolidBrush(darkText));
+        gDarkModeBrushesOwned = true;
+    }
 
     // pokud soubor existuje, bude importovan do registry; v portable file rezimu
     // je config.reg aktivni storage backend, ne legacy auto-import do HKCU

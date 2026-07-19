@@ -4,8 +4,10 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -18,6 +20,8 @@ namespace EPocalipse.Json.Viewer
         private const int SALCOL_ITEM_BK_NORMAL = 11;
         private const int SALCOL_ITEM_BK_SELECTED = 12;
         private const int SALCOL_HOT_PANEL = 23;
+
+        private static readonly HashSet<Control> s_recreatedDarkHandles = new HashSet<Control>();
 
         public static bool TryGetPalette(out ThemePalette palette)
         {
@@ -32,6 +36,14 @@ namespace EPocalipse.Json.Viewer
             return false;
         }
 
+        public static void InitializeNativeDarkMode()
+        {
+            if (GetPalette() is ThemePalette palette)
+            {
+                NativeMethods.SetDarkModeEnabled(palette.IsDark);
+            }
+        }
+
         public static void ApplyTheme(Form form)
         {
             var palette = GetPalette();
@@ -40,6 +52,7 @@ namespace EPocalipse.Json.Viewer
                 return;
             }
 
+            NativeMethods.SetDarkModeEnabled(palette.Value.IsDark);
             ApplyToControl(form, palette.Value);
             ApplyFormChrome(form, palette.Value);
 
@@ -48,7 +61,9 @@ namespace EPocalipse.Json.Viewer
                 var refreshed = GetPalette();
                 if (refreshed.HasValue)
                 {
+                    NativeMethods.SetDarkModeEnabled(refreshed.Value.IsDark);
                     NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark, refreshed.Value.ControlBorder);
+                    NativeMethods.ApplyDarkModeTree(form.Handle);
                     ApplyFormChrome(form, refreshed.Value);
                 }
             };
@@ -56,6 +71,7 @@ namespace EPocalipse.Json.Viewer
             if (form.IsHandleCreated)
             {
                 NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.ControlBorder);
+                NativeMethods.ApplyDarkModeTree(form.Handle);
             }
         }
 
@@ -74,6 +90,32 @@ namespace EPocalipse.Json.Viewer
             }
 
             ApplyToControl(root, palette.Value);
+        }
+
+        public static void ApplyNativeDarkMode(Control control)
+        {
+            if (!control.IsHandleCreated || GetPalette() is not ThemePalette palette || !palette.IsDark)
+            {
+                return;
+            }
+
+            ApplyNativeTheme(control);
+        }
+
+        public static void RecreateHandleForInitialDarkTheme(Control control)
+        {
+            if (!control.IsHandleCreated || GetPalette() is not ThemePalette palette || !palette.IsDark ||
+                s_recreatedDarkHandles.Contains(control))
+            {
+                return;
+            }
+
+            s_recreatedDarkHandles.Add(control);
+            ApplyNativeTheme(control);
+            typeof(Control).GetMethod("RecreateHandle", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(control, null);
+            ApplyNativeTheme(control);
+            control.Invalidate(true);
         }
 
         private static ThemePalette? GetPalette()
@@ -151,14 +193,16 @@ namespace EPocalipse.Json.Viewer
                 case TextBoxBase textBox:
                     textBox.BackColor = palette.InputBackground;
                     textBox.ForeColor = palette.InputForeground;
-                    textBox.BorderStyle = BorderStyle.FixedSingle;
+                    textBox.BorderStyle = palette.IsDark ? BorderStyle.None : BorderStyle.FixedSingle;
                     backgroundSet = true;
                     foregroundSet = true;
                     break;
                 case ComboBox comboBox:
                     comboBox.BackColor = palette.InputBackground;
                     comboBox.ForeColor = palette.InputForeground;
+                    comboBox.FlatStyle = FlatStyle.Flat;
                     comboBox.DrawMode = DrawMode.OwnerDrawFixed;
+                    ComboBoxDarkModePainter.Attach(comboBox, palette);
                     comboBox.DrawItem -= ComboBoxOnDrawItem;
                     comboBox.DrawItem += ComboBoxOnDrawItem;
                     backgroundSet = true;
@@ -261,7 +305,7 @@ namespace EPocalipse.Json.Viewer
                 control.HandleCreated += ControlOnHandleCreatedApplyScrollbarTheme;
                 if (control.IsHandleCreated)
                 {
-                    NativeMethods.ApplyDarkScrollbarTheme(control.Handle);
+                    ApplyNativeTheme(control);
                 }
             }
         }
@@ -271,6 +315,18 @@ namespace EPocalipse.Json.Viewer
             if (sender is Control control && GetPalette() is ThemePalette palette)
             {
                 ApplyNativeScrollbarTheme(control, palette);
+            }
+        }
+
+        private static void ApplyNativeTheme(Control control)
+        {
+            if (control is ListView)
+            {
+                NativeMethods.UpdateListViewDarkMode(control.Handle);
+            }
+            else
+            {
+                NativeMethods.ApplyDarkModeTree(control.Handle);
             }
         }
 
@@ -692,6 +748,141 @@ namespace EPocalipse.Json.Viewer
             public Color TabBorder { get; }
         }
 
+
+        private sealed class ComboBoxDarkModePainter : NativeWindow
+        {
+            private const int WM_PAINT = 0x000F;
+            private const int WM_NCPAINT = 0x0085;
+            private const int WM_PRINTCLIENT = 0x0318;
+
+            private static readonly ConditionalWeakTable<ComboBox, ComboBoxDarkModePainter> s_painters = new ConditionalWeakTable<ComboBox, ComboBoxDarkModePainter>();
+
+            private ComboBox _comboBox;
+            private ThemePalette _palette;
+
+            private ComboBoxDarkModePainter(ComboBox comboBox, ThemePalette palette)
+            {
+                _comboBox = comboBox;
+                _palette = palette;
+                if (comboBox.IsHandleCreated)
+                {
+                    AssignHandle(comboBox.Handle);
+                }
+                comboBox.HandleCreated += ComboBoxOnHandleCreated;
+                comboBox.HandleDestroyed += ComboBoxOnHandleDestroyed;
+                comboBox.Disposed += ComboBoxOnDisposed;
+            }
+
+            public static void Attach(ComboBox comboBox, ThemePalette palette)
+            {
+                if (!palette.IsDark)
+                {
+                    if (s_painters.TryGetValue(comboBox, out var existingLight))
+                    {
+                        existingLight.Detach();
+                        s_painters.Remove(comboBox);
+                    }
+                    return;
+                }
+
+                if (s_painters.TryGetValue(comboBox, out var existing))
+                {
+                    existing._palette = palette;
+                    if (comboBox.IsHandleCreated && existing.Handle != comboBox.Handle)
+                    {
+                        existing.AssignHandle(comboBox.Handle);
+                    }
+                    comboBox.Invalidate();
+                    return;
+                }
+
+                var painter = new ComboBoxDarkModePainter(comboBox, palette);
+                s_painters.Add(comboBox, painter);
+                if (comboBox.IsHandleCreated)
+                {
+                    comboBox.Invalidate();
+                }
+            }
+
+            protected override void WndProc(ref Message m)
+            {
+                base.WndProc(ref m);
+
+                if (m.Msg == WM_PAINT || m.Msg == WM_NCPAINT || m.Msg == WM_PRINTCLIENT)
+                {
+                    PaintDropDownButton();
+                }
+            }
+
+            private void ComboBoxOnHandleCreated(object? sender, EventArgs e)
+            {
+                if (_comboBox.IsHandleCreated)
+                {
+                    AssignHandle(_comboBox.Handle);
+                    _comboBox.Invalidate();
+                }
+            }
+
+            private void ComboBoxOnHandleDestroyed(object? sender, EventArgs e)
+            {
+                ReleaseHandle();
+            }
+
+            private void ComboBoxOnDisposed(object? sender, EventArgs e)
+            {
+                Detach();
+                s_painters.Remove(_comboBox);
+            }
+
+            private void Detach()
+            {
+                _comboBox.HandleCreated -= ComboBoxOnHandleCreated;
+                _comboBox.HandleDestroyed -= ComboBoxOnHandleDestroyed;
+                _comboBox.Disposed -= ComboBoxOnDisposed;
+                ReleaseHandle();
+            }
+
+            private void PaintDropDownButton()
+            {
+                if (!_comboBox.IsHandleCreated || _comboBox.ClientSize.Width <= 0 || _comboBox.ClientSize.Height <= 0)
+                {
+                    return;
+                }
+
+                using var graphics = Graphics.FromHwnd(_comboBox.Handle);
+                var client = _comboBox.ClientRectangle;
+                int buttonWidth = Math.Max(SystemInformation.HorizontalScrollBarArrowWidth, _comboBox.Height);
+                var buttonBounds = new Rectangle(Math.Max(client.Left, client.Right - buttonWidth), client.Top, Math.Min(buttonWidth, client.Width), client.Height);
+
+                using (var background = new SolidBrush(_palette.InputBackground))
+                {
+                    graphics.FillRectangle(background, buttonBounds);
+                }
+
+                using (var border = new Pen(_palette.ControlBorder))
+                {
+                    var borderBounds = client;
+                    borderBounds.Width -= 1;
+                    borderBounds.Height -= 1;
+                    graphics.DrawRectangle(border, borderBounds);
+                    graphics.DrawLine(border, buttonBounds.Left, buttonBounds.Top, buttonBounds.Left, buttonBounds.Bottom - 1);
+                }
+
+                int arrowWidth = Math.Max(6, _comboBox.DeviceDpi / 16);
+                int arrowHeight = Math.Max(4, _comboBox.DeviceDpi / 24);
+                int centerX = buttonBounds.Left + buttonBounds.Width / 2;
+                int centerY = buttonBounds.Top + buttonBounds.Height / 2;
+                Point[] arrow =
+                {
+                    new Point(centerX - arrowWidth / 2, centerY - arrowHeight / 2),
+                    new Point(centerX + arrowWidth / 2, centerY - arrowHeight / 2),
+                    new Point(centerX, centerY + arrowHeight / 2)
+                };
+
+                using var arrowBrush = new SolidBrush(_palette.InputForeground);
+                graphics.FillPolygon(arrowBrush, arrow);
+            }
+        }
         private static class ThemeRenderer
         {
             public static void Attach(ToolStrip toolStrip, ThemePalette palette)
@@ -816,6 +1007,15 @@ namespace EPocalipse.Json.Viewer
             [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
             public static extern uint JsonViewer_GetCurrentColor(int color);
 
+            [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+            private static extern void JsonViewer_SetDarkModeState([MarshalAs(UnmanagedType.Bool)] bool enabled);
+
+            [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+            private static extern void JsonViewer_ApplyDarkModeTree(IntPtr hwnd);
+
+            [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+            private static extern void JsonViewer_UpdateListViewDarkMode(IntPtr hwnd);
+
             [DllImport("dwmapi.dll", PreserveSig = true)]
             private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
@@ -835,6 +1035,60 @@ namespace EPocalipse.Json.Viewer
                 catch (EntryPointNotFoundException)
                 {
                     return 0;
+                }
+            }
+
+            public static void SetDarkModeEnabled(bool enabled)
+            {
+                try
+                {
+                    JsonViewer_SetDarkModeState(enabled);
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
+                }
+            }
+
+            public static void ApplyDarkModeTree(IntPtr handle)
+            {
+                if (handle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    JsonViewer_ApplyDarkModeTree(handle);
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    ApplyDarkScrollbarTheme(handle);
+                }
+            }
+
+            public static void UpdateListViewDarkMode(IntPtr handle)
+            {
+                if (handle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    JsonViewer_UpdateListViewDarkMode(handle);
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    ApplyDarkModeTree(handle);
                 }
             }
 

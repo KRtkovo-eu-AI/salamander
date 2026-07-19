@@ -3536,6 +3536,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
                 SetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD));
 
+                ConfigurationStorage.SaveUseWindowsDarkMode(Configuration.UseWindowsDarkMode);
+
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_NORMAL_REG, UserColors[FOCUS_ACTIVE_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_SELECTED_REG, UserColors[FOCUS_ACTIVE_SELECTED]);
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_INACTIVE_NORMAL_REG, UserColors[FOCUS_FG_INACTIVE_NORMAL]);
