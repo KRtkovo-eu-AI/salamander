@@ -229,3 +229,21 @@ extern "C" __declspec(dllexport) void __stdcall HyperVM_UpdateListViewDarkMode(H
     DarkModeApplyTree(hwnd);
     DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }
+
+extern "C" __declspec(dllexport) int __stdcall HyperVM_LoadString(int stringId, wchar_t* buffer, int bufferLength)
+{
+    if (HLanguage == nullptr || buffer == nullptr || bufferLength <= 0)
+    {
+        return 0;
+    }
+
+    int copied = LoadStringW(HLanguage, stringId, buffer, bufferLength);
+    if (copied <= 0)
+    {
+        buffer[0] = L'\0';
+        return 0;
+    }
+
+    buffer[bufferLength - 1] = L'\0';
+    return copied;
+}

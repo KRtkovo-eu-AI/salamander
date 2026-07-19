@@ -4,7 +4,6 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.Globalization;
 using System.IO;
 using System.Management;
 using System.Windows.Forms;
@@ -13,36 +12,75 @@ namespace OpenSalamander.HyperVM;
 
 internal static class Texts
 {
-    private static bool Cs => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName is "cs" or "sk";
-    public static string PluginName => Cs ? "Stroje Hyper-V" : "Hyper-V Machines";
-    public static string CreateMenu => Cs ? "Vytvořit VHD" : "Create VHD";
-    public static string AttachMenu => Cs ? "Připojit VHD" : "Attach VHD";
-    public static string DetachMenu => Cs ? "Odpojit VHD" : "Detach VHD";
-    public static string CreateTitle => Cs ? "Vytvořit a připojit virtuální pevný disk" : "Create and Attach Virtual Hard Disk";
-    public static string AttachTitle => Cs ? "Připojit virtuální pevný disk" : "Attach Virtual Hard Disk";
-    public static string DetachTitle => Cs ? "Odpojit virtuální pevný disk" : "Detach Virtual Hard Disk";
-    public static string Location => Cs ? "Umístění:" : "Location:";
-    public static string Browse => Cs ? "Procházet..." : "Browse...";
-    public static string Size => Cs ? "Velikost virtuálního disku:" : "Virtual hard disk size:";
-    public static string Format => Cs ? "Formát virtuálního disku" : "Virtual hard disk format";
-    public static string Type => Cs ? "Typ virtuálního disku" : "Virtual hard disk type";
-    public static string VhdHelp => Cs ? "Podporuje virtuální disky do velikosti 2040 GB." : "Supports virtual disks up to 2040 GB in size.";
-    public static string VhdxHelp => Cs ? "Podporuje virtuální disky větší než 2040 GB a je odolnější proti výpadkům napájení." : "Supports virtual disks larger than 2040 GB and is resilient to power failure events.";
-    public static string Fixed => Cs ? "Pevná velikost (doporučeno)" : "Fixed size (Recommended)";
-    public static string Dynamic => Cs ? "Dynamicky se zvětšující" : "Dynamically expanding";
-    public static string FixedHelp => Cs ? "Soubor disku se při vytvoření alokuje na maximální velikost." : "The virtual hard disk file is allocated to its maximum size when created.";
-    public static string DynamicHelp => Cs ? "Soubor disku roste podle zapisovaných dat." : "The virtual hard disk file grows as data is written to it.";
-    public static string ReadOnly => Cs ? "Jen pro čtení." : "Read-only.";
-    public static string CreateIntro => Cs ? "Zadejte umístění virtuálního pevného disku v počítači." : "Specify the virtual hard disk location on the machine.";
-    public static string AttachIntro => Cs ? "Zadejte umístění virtuálního pevného disku v počítači." : "Specify the virtual hard disk location on the computer.";
-    public static string DetachQuestion => Cs ? "Odpojit virtuální disk {0}?" : "Detach virtual hard disk {0}?";
-    public static string Attached => Cs ? "Virtuální disk byl připojen: {0}" : "Virtual hard disk attached: {0}";
-    public static string NoMachines => Cs ? "Nebyly nalezeny žádné virtuální počítače Hyper-V." : "No Hyper-V virtual machines found.";
-    public static string AboutTitle => Cs ? "O pluginu" : "About";
-    public static string ConfigurationTitle => Cs ? "Konfigurace" : "Configuration";
-    public static string AboutText => Cs ? "Zobrazí lokální virtuální počítače Hyper-V v panelu." : "Show local Hyper-V virtual machines in panel.";
-    public static string NoConfiguration => Cs ? "Zatím žádná konfigurace." : "No configuration yet.";
+    private const int IDS_PLUGINNAME = 46;
+    private const int IDS_VHD_CREATE_TITLE = 60;
+    private const int IDS_VHD_ATTACH_TITLE = 61;
+    private const int IDS_VHD_DETACH_TITLE = 62;
+    private const int IDS_VHD_LOCATION = 63;
+    private const int IDS_VHD_BROWSE = 64;
+    private const int IDS_VHD_SIZE = 65;
+    private const int IDS_VHD_FORMAT = 66;
+    private const int IDS_VHD_TYPE = 67;
+    private const int IDS_VHD_VHD_HELP = 68;
+    private const int IDS_VHD_VHDX_HELP = 69;
+    private const int IDS_VHD_FIXED = 70;
+    private const int IDS_VHD_DYNAMIC = 71;
+    private const int IDS_VHD_FIXED_HELP = 72;
+    private const int IDS_VHD_DYNAMIC_HELP = 73;
+    private const int IDS_VHD_READONLY = 74;
+    private const int IDS_VHD_CREATE_INTRO = 75;
+    private const int IDS_VHD_ATTACH_INTRO = 76;
+    private const int IDS_VHD_DETACH_QUESTION = 77;
+    private const int IDS_VHD_ATTACHED = 78;
+    private const int IDS_VHD_NO_MACHINES = 79;
+    private const int IDS_CONFIG_TITLE = 80;
+    private const int IDS_NO_CONFIGURATION = 81;
+    private const int IDS_OK = 82;
+    private const int IDS_CANCEL = 83;
+    private const int IDS_VHD_FILTER = 84;
+
+    public static string PluginName => Load(IDS_PLUGINNAME);
+    public static string CreateTitle => Load(IDS_VHD_CREATE_TITLE);
+    public static string AttachTitle => Load(IDS_VHD_ATTACH_TITLE);
+    public static string DetachTitle => Load(IDS_VHD_DETACH_TITLE);
+    public static string Location => Load(IDS_VHD_LOCATION);
+    public static string Browse => Load(IDS_VHD_BROWSE);
+    public static string Size => Load(IDS_VHD_SIZE);
+    public static string Format => Load(IDS_VHD_FORMAT);
+    public static string Type => Load(IDS_VHD_TYPE);
+    public static string VhdHelp => Load(IDS_VHD_VHD_HELP);
+    public static string VhdxHelp => Load(IDS_VHD_VHDX_HELP);
+    public static string Fixed => Load(IDS_VHD_FIXED);
+    public static string Dynamic => Load(IDS_VHD_DYNAMIC);
+    public static string FixedHelp => Load(IDS_VHD_FIXED_HELP);
+    public static string DynamicHelp => Load(IDS_VHD_DYNAMIC_HELP);
+    public static string ReadOnly => Load(IDS_VHD_READONLY);
+    public static string CreateIntro => Load(IDS_VHD_CREATE_INTRO);
+    public static string AttachIntro => Load(IDS_VHD_ATTACH_INTRO);
+    public static string DetachQuestion => Load(IDS_VHD_DETACH_QUESTION);
+    public static string Attached => Load(IDS_VHD_ATTACHED);
+    public static string NoMachines => Load(IDS_VHD_NO_MACHINES);
+    public static string AboutTitle => Load(47);
+    public static string ConfigurationTitle => Load(IDS_CONFIG_TITLE);
+    public static string AboutText => Load(48);
+    public static string NoConfiguration => Load(IDS_NO_CONFIGURATION);
+    public static string OK => Load(IDS_OK);
+    public static string Cancel => Load(IDS_CANCEL);
+    public static string VhdFilter => Load(IDS_VHD_FILTER);
+
+    private static string Load(int id)
+    {
+        var buffer = new System.Text.StringBuilder(1024);
+        return NativeMethods.HyperVM_LoadString(id, buffer, buffer.Capacity) > 0 ? buffer.ToString() : string.Empty;
+    }
+
+    private static class NativeMethods
+    {
+        [System.Runtime.InteropServices.DllImport("HyperVM.Spl", CallingConvention = System.Runtime.InteropServices.CallingConvention.StdCall, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        public static extern int HyperVM_LoadString(int stringId, System.Text.StringBuilder buffer, int bufferLength);
+    }
 }
+
 
 internal sealed class CreateVhdDialog : Form
 {
@@ -53,13 +91,13 @@ internal sealed class CreateVhdDialog : Form
     private readonly RadioButton _vhdx = new() { Text = "VHDX", AutoSize = true };
     private readonly RadioButton _fixed = new() { Text = Texts.Fixed, Checked = true, AutoSize = true };
     private readonly RadioButton _dynamic = new() { Text = Texts.Dynamic, AutoSize = true };
-    private readonly Button _ok = new() { Text = "OK", DialogResult = DialogResult.OK, Enabled = false };
+    private readonly Button _ok = new() { Text = Texts.OK, DialogResult = DialogResult.OK, Enabled = false };
     public CreateVhdDialog()
     {
         Text = Texts.CreateTitle; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = MinimizeBox = false; ClientSize = new Size(380, 470);
         _unit.Items.AddRange(new object[] { "MB", "GB", "TB" }); _unit.SelectedIndex = 0; _path.TextChanged += (_, _) => _ok.Enabled = !string.IsNullOrWhiteSpace(_path.Text);
-        var browse = new Button { Text = Texts.Browse, Width = 74 }; browse.Click += (_, _) => { using var s = new SaveFileDialog { Filter = "Virtual hard disks (*.vhd;*.vhdx)|*.vhd;*.vhdx", DefaultExt = _vhd.Checked ? "vhd" : "vhdx" }; if (s.ShowDialog(this) == DialogResult.OK) _path.Text = s.FileName; };
-        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel };
+        var browse = new Button { Text = Texts.Browse, Width = 74 }; browse.Click += (_, _) => { using var s = new SaveFileDialog { Filter = Texts.VhdFilter, DefaultExt = _vhd.Checked ? "vhd" : "vhdx" }; if (s.ShowDialog(this) == DialogResult.OK) _path.Text = s.FileName; };
+        var cancel = new Button { Text = Texts.Cancel, DialogResult = DialogResult.Cancel };
         Controls.AddRange(new Control[] { L(Texts.CreateIntro,12,12,350), L(Texts.Location,12,74,100), _path, browse, L(Texts.Size,12,138,170), _size, _unit, Group(Texts.Format,12,164,356,134,_vhd,L(Texts.VhdHelp,32,34,315),_vhdx,L(Texts.VhdxHelp,32,78,315)), Group(Texts.Type,12,306,356,118,_fixed,L(Texts.FixedHelp,32,34,315),_dynamic,L(Texts.DynamicHelp,32,78,315)), _ok, cancel });
         _path.Location = new Point(12,93); browse.Location = new Point(295,91); _size.Location = new Point(236,131); _unit.Location = new Point(315,130); _ok.SetBounds(215,438,72,24); cancel.SetBounds(295,438,72,24); AcceptButton = _ok; CancelButton = cancel; ThemeHelper.ApplyTheme(this);
     }
@@ -72,8 +110,8 @@ internal sealed class AttachVhdDialog : Form
 {
     private readonly TextBox _path = new() { Width = 275 };
     private readonly CheckBox _ro = new() { Text = Texts.ReadOnly, AutoSize = true };
-    private readonly Button _ok = new() { Text = "OK", DialogResult = DialogResult.OK, Enabled = false };
-    public AttachVhdDialog(){Text=Texts.AttachTitle; FormBorderStyle=FormBorderStyle.FixedDialog; StartPosition=FormStartPosition.CenterParent; MaximizeBox=MinimizeBox=false; ClientSize=new Size(380,185); _path.TextChanged+=(_,_)=>_ok.Enabled=!string.IsNullOrWhiteSpace(_path.Text); var browse=new Button{Text=Texts.Browse,Width=74}; browse.Click+=(_,_)=>{using var o=new OpenFileDialog{Filter="Virtual hard disks (*.vhd;*.vhdx)|*.vhd;*.vhdx"}; if(o.ShowDialog(this)==DialogResult.OK)_path.Text=o.FileName;}; var cancel=new Button{Text="Cancel",DialogResult=DialogResult.Cancel}; Controls.AddRange(new Control[]{new Label{Text=Texts.AttachIntro,Location=new Point(12,12),AutoSize=true},new Label{Text=Texts.Location,Location=new Point(12,74),AutoSize=true},_path,browse,_ro,_ok,cancel}); _path.Location=new Point(12,94); browse.Location=new Point(295,92); _ro.Location=new Point(12,121); _ok.SetBounds(215,153,72,24); cancel.SetBounds(295,153,72,24); AcceptButton=_ok; CancelButton=cancel; ThemeHelper.ApplyTheme(this);} 
+    private readonly Button _ok = new() { Text = Texts.OK, DialogResult = DialogResult.OK, Enabled = false };
+    public AttachVhdDialog(){Text=Texts.AttachTitle; FormBorderStyle=FormBorderStyle.FixedDialog; StartPosition=FormStartPosition.CenterParent; MaximizeBox=MinimizeBox=false; ClientSize=new Size(380,148); _path.TextChanged+=(_,_)=>_ok.Enabled=!string.IsNullOrWhiteSpace(_path.Text); var browse=new Button{Text=Texts.Browse,Width=74}; browse.Click+=(_,_)=>{using var o=new OpenFileDialog{Filter=Texts.VhdFilter}; if(o.ShowDialog(this)==DialogResult.OK)_path.Text=o.FileName;}; var cancel=new Button{Text=Texts.Cancel,DialogResult=DialogResult.Cancel}; Controls.AddRange(new Control[]{new Label{Text=Texts.AttachIntro,Location=new Point(12,12),AutoSize=true},new Label{Text=Texts.Location,Location=new Point(12,74),AutoSize=true},_path,browse,_ro,_ok,cancel}); _path.Location=new Point(12,94); browse.Location=new Point(295,92); _ro.Location=new Point(12,121); _ok.SetBounds(215,116,72,24); cancel.SetBounds(295,116,72,24); AcceptButton=_ok; CancelButton=cancel; ThemeHelper.ApplyTheme(this);}
     public string VhdPath=>_path.Text; public bool ReadOnly=>_ro.Checked;
 }
 

@@ -22,6 +22,32 @@
 #define IDS_MENU_CREATE_VHD      51
 #define IDS_MENU_ATTACH_VHD      52
 
+#define IDS_VHD_CREATE_TITLE     60
+#define IDS_VHD_ATTACH_TITLE     61
+#define IDS_VHD_DETACH_TITLE     62
+#define IDS_VHD_LOCATION         63
+#define IDS_VHD_BROWSE           64
+#define IDS_VHD_SIZE             65
+#define IDS_VHD_FORMAT           66
+#define IDS_VHD_TYPE             67
+#define IDS_VHD_VHD_HELP         68
+#define IDS_VHD_VHDX_HELP        69
+#define IDS_VHD_FIXED            70
+#define IDS_VHD_DYNAMIC          71
+#define IDS_VHD_FIXED_HELP       72
+#define IDS_VHD_DYNAMIC_HELP     73
+#define IDS_VHD_READONLY         74
+#define IDS_VHD_CREATE_INTRO     75
+#define IDS_VHD_ATTACH_INTRO     76
+#define IDS_VHD_DETACH_QUESTION  77
+#define IDS_VHD_ATTACHED         78
+#define IDS_VHD_NO_MACHINES      79
+#define IDS_CONFIG_TITLE         80
+#define IDS_NO_CONFIGURATION     81
+#define IDS_OK                   82
+#define IDS_CANCEL               83
+#define IDS_VHD_FILTER           84
+#define IDS_PLUGIN_CAPTION       85
 
 #define IDH_MENU_HELLO           900
 #define IDH_MENU_CREATE_VHD      901
