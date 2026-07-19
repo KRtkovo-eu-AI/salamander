@@ -192,7 +192,7 @@ private:
     RuntimeServices& operator=(const RuntimeServices&);
 
 public:
-    explicit RuntimeServices(CSalamanderGeneralAbstract* general)
+    explicit RuntimeServices(CSalamanderGeneralAbstract* general, BOOL registerHostServices = TRUE)
         : UIService(),
           CommandService(general),
           FileOperationsService(&CommandService),
@@ -203,18 +203,18 @@ public:
           HostRegistered(FALSE)
     {
         Registered = TRUE;
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix PoC");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix PoC");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix PoC");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix PoC");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Runtime");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Runtime");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Runtime");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Runtime");
 
-        if (General != NULL)
+        if (General != NULL && registerHostServices)
         {
             HostRegistered = TRUE;
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix PoC");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix PoC");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix PoC");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix PoC");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Runtime");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Runtime");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Runtime");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Runtime");
         }
     }
 

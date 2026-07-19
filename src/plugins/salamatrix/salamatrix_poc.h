@@ -32,6 +32,46 @@ inline const char* WINAPI ResultToText(Runtime::OperationResult result)
     }
 }
 
+inline Commands::ICommandService* WINAPI QueryHostCommands(CSalamanderGeneralAbstract* general)
+{
+    if (general == NULL)
+        return NULL;
+
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    query.ServiceId = SALAMATRIX_SERVICE_COMMANDS;
+    query.MinimumVersion = SALAMATRIX_COMMANDS_VERSION_1_0;
+    if (!general->QueryService(&query, &result))
+        return NULL;
+    return static_cast<Commands::ICommandService*>(result.Interface);
+}
+
+inline FileOperations::IFileOperationsService* WINAPI QueryHostFileOperations(CSalamanderGeneralAbstract* general)
+{
+    if (general == NULL)
+        return NULL;
+
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    query.ServiceId = SALAMATRIX_SERVICE_FILEOPERATIONS;
+    query.MinimumVersion = SALAMATRIX_FILEOPERATIONS_VERSION_1_0;
+    if (!general->QueryService(&query, &result))
+        return NULL;
+    return static_cast<FileOperations::IFileOperationsService*>(result.Interface);
+}
+
+inline BOOL WINAPI QueryHostUI(CSalamanderGeneralAbstract* general)
+{
+    if (general == NULL)
+        return FALSE;
+
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    query.ServiceId = SALAMATRIX_SERVICE_UI;
+    query.MinimumVersion = SALAMATRIX_UI_VERSION_1_0;
+    return general->QueryService(&query, &result);
+}
+
 inline Runtime::OperationResult WINAPI RunProgressDialogPoc(CSalamanderForOperationsAbstract* operations)
 {
     Runtime::LocalUIService uiService;
@@ -102,17 +142,27 @@ inline Runtime::OperationResult WINAPI RunAutomationProgressPoc(CSalamanderForOp
 
 inline Runtime::OperationResult WINAPI ExecuteQuickRenamePoc(CSalamanderGeneralAbstract* general)
 {
-    Runtime::RuntimeServices services(general);
     Commands::ExecuteOptions options;
     options.RequireEnabled = FALSE;
+
+    Commands::ICommandService* hostCommands = QueryHostCommands(general);
+    if (hostCommands != NULL)
+        return hostCommands->Execute("QuickRename", options);
+
+    Runtime::RuntimeServices services(general, FALSE);
     return services.Commands()->Execute("QuickRename", options);
 }
 
 inline Runtime::OperationResult WINAPI CopyInteractivePoc(CSalamanderGeneralAbstract* general)
 {
-    Runtime::RuntimeServices services(general);
     FileOperations::InteractiveOptions options;
     options.RequireEnabled = FALSE;
+
+    FileOperations::IFileOperationsService* hostFileOperations = QueryHostFileOperations(general);
+    if (hostFileOperations != NULL)
+        return hostFileOperations->CopyInteractive(options);
+
+    Runtime::RuntimeServices services(general, FALSE);
     return services.FileOperations()->CopyInteractive(options);
 }
 
@@ -141,20 +191,22 @@ struct RunAllResult
 inline RunAllResult WINAPI RunAllPoc(CSalamanderGeneralAbstract* general, CSalamanderForOperationsAbstract* operations)
 {
     RunAllResult result;
-    Runtime::RuntimeServices services(general);
+    Runtime::RuntimeServices services(general, FALSE);
     result.ServicesRegistered = services.IsRegistered();
-    result.HostServicesRegistered = services.IsHostRegistered();
+    result.HostServicesRegistered = QueryHostUI(general);
     result.ServiceCount = services.Services()->GetCount();
 
     result.NativeProgress = RunProgressDialogPoc(operations);
     result.ScriptProgress = RunAutomationProgressPoc(operations);
     Commands::ExecuteOptions commandOptions;
     commandOptions.RequireEnabled = FALSE;
-    result.QuickRename = services.Commands()->Execute("QuickRename", commandOptions);
+    Commands::ICommandService* hostCommands = QueryHostCommands(general);
+    result.QuickRename = hostCommands != NULL ? hostCommands->Execute("QuickRename", commandOptions) : services.Commands()->Execute("QuickRename", commandOptions);
 
     FileOperations::InteractiveOptions fileOptions;
     fileOptions.RequireEnabled = FALSE;
-    result.CopyInteractive = services.FileOperations()->CopyInteractive(fileOptions);
+    FileOperations::IFileOperationsService* hostFileOperations = QueryHostFileOperations(general);
+    result.CopyInteractive = hostFileOperations != NULL ? hostFileOperations->CopyInteractive(fileOptions) : services.FileOperations()->CopyInteractive(fileOptions);
     return result;
 }
 
