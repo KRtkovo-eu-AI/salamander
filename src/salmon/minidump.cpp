@@ -83,20 +83,64 @@ BOOL GenerateMiniDump(CMinidumpParams* minidumpParams, CSalmonSharedMemory* mem,
                                                MiniDumpIgnoreInaccessibleMemory); // under no circumstances do we want the function to fail
                 }
 
-                BOOL bMiniDumpSuccessful;
-                bMiniDumpSuccessful = funcMiniDumpWriteDump(mem->Process, mem->ProcessId,
-                                                            hDumpFile, dumpType,
-                                                            &expParam,
-                                                            NULL, NULL);
-                if (bMiniDumpSuccessful)
+                // MiniDumpWriteDump can still fail during a real crash when optional
+                // streams require reading memory that is already gone from the crashing
+                // process.  ERROR_PARTIAL_COPY is one observed case.  Keep the richer
+                // dump as the first choice, but progressively fall back to dump types
+                // that avoid the most fragile optional streams; a smaller dump is much
+                // more useful than no dump and no report upload.
+                MINIDUMP_TYPE fallbackDumpTypes[3];
+                fallbackDumpTypes[0] = dumpType;
+                fallbackDumpTypes[1] = (MINIDUMP_TYPE)(MiniDumpWithDataSegs |
+                                                       MiniDumpWithFullMemoryInfo |
+                                                       MiniDumpWithUnloadedModules |
+                                                       MiniDumpIgnoreInaccessibleMemory);
+                fallbackDumpTypes[2] = (MINIDUMP_TYPE)(MiniDumpNormal |
+                                                       MiniDumpWithUnloadedModules |
+                                                       MiniDumpIgnoreInaccessibleMemory);
+
+                DWORD firstErr = ERROR_SUCCESS;
+                DWORD lastErr = ERROR_SUCCESS;
+                for (int dumpAttempt = 0; dumpAttempt < 3 && !ret; dumpAttempt++)
                 {
-                    ret = TRUE;
+                    SetFilePointer(hDumpFile, 0, NULL, FILE_BEGIN);
+                    SetEndOfFile(hDumpFile);
+
+                    BOOL bMiniDumpSuccessful = funcMiniDumpWriteDump(mem->Process, mem->ProcessId,
+                                                                     hDumpFile, fallbackDumpTypes[dumpAttempt],
+                                                                     &expParam,
+                                                                     NULL, NULL);
+                    if (bMiniDumpSuccessful)
+                    {
+                        ret = TRUE;
+                        break;
+                    }
+
+                    lastErr = GetLastError();
+                    if (firstErr == ERROR_SUCCESS)
+                        firstErr = lastErr;
                 }
-                else
+
+                if (!ret)
                 {
-                    // generation fails on W7 with the x64/Debug build launched from MSVC; if I run it outside MSVC, everything works fine
-                    DWORD err = GetLastError();
-                    sprintf(minidumpParams->ErrorMessage, LoadStr(IDS_SALMON_MINIDUMP_CALL, HLanguage), err);
+                    // If even the minimal dump with the copied exception information
+                    // fails, make one last attempt without exception pointers.  This
+                    // loses the precise exception stream, but still preserves stacks,
+                    // modules and enough process state for many crash reports.
+                    SetFilePointer(hDumpFile, 0, NULL, FILE_BEGIN);
+                    SetEndOfFile(hDumpFile);
+
+                    ret = funcMiniDumpWriteDump(mem->Process, mem->ProcessId,
+                                                hDumpFile, fallbackDumpTypes[2],
+                                                NULL,
+                                                NULL, NULL);
+                    if (!ret)
+                    {
+                        // generation fails on W7 with the x64/Debug build launched from MSVC; if I run it outside MSVC, everything works fine
+                        lastErr = GetLastError();
+                        sprintf(minidumpParams->ErrorMessage, LoadStr(IDS_SALMON_MINIDUMP_CALL, HLanguage),
+                                firstErr != ERROR_SUCCESS ? firstErr : lastErr);
+                    }
                 }
                 // regardless of whether minidump generation returned TRUE or FALSE, check the size of the produced dump
                 DWORD sizeHigh = 0;
