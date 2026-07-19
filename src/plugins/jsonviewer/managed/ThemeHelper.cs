@@ -764,7 +764,10 @@ namespace EPocalipse.Json.Viewer
             {
                 _comboBox = comboBox;
                 _palette = palette;
-                AssignHandle(comboBox.Handle);
+                if (comboBox.IsHandleCreated)
+                {
+                    AssignHandle(comboBox.Handle);
+                }
                 comboBox.HandleCreated += ComboBoxOnHandleCreated;
                 comboBox.HandleDestroyed += ComboBoxOnHandleDestroyed;
                 comboBox.Disposed += ComboBoxOnDisposed;
@@ -793,9 +796,10 @@ namespace EPocalipse.Json.Viewer
                     return;
                 }
 
+                var painter = new ComboBoxDarkModePainter(comboBox, palette);
+                s_painters.Add(comboBox, painter);
                 if (comboBox.IsHandleCreated)
                 {
-                    s_painters.Add(comboBox, new ComboBoxDarkModePainter(comboBox, palette));
                     comboBox.Invalidate();
                 }
             }
