@@ -455,6 +455,16 @@ BOOL AppendConfiguredCommandShellArguments(char* cmd, int cmdSize)
                 const char* fragmentStart = placeholder;
                 while (fragmentStart > quotedArgument && (fragmentStart[-1] == ' ' || fragmentStart[-1] == '\t'))
                     fragmentStart--;
+                if (fragmentStart - quotedArgument >= lstrlen("eval") &&
+                    memcmp(fragmentStart - lstrlen("eval"), "eval", lstrlen("eval")) == 0 &&
+                    (fragmentStart - lstrlen("eval") == quotedArgument ||
+                     fragmentStart[-lstrlen("eval") - 1] == ' ' || fragmentStart[-lstrlen("eval") - 1] == '\t' ||
+                     fragmentStart[-lstrlen("eval") - 1] == ';'))
+                {
+                    fragmentStart -= lstrlen("eval");
+                    while (fragmentStart > quotedArgument && (fragmentStart[-1] == ' ' || fragmentStart[-1] == '\t'))
+                        fragmentStart--;
+                }
                 if (fragmentStart > quotedArgument && fragmentStart[-1] == ';')
                 {
                     fragmentStart--;

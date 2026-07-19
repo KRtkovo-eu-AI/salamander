@@ -3135,6 +3135,7 @@ static void AddFragmentJsonFiles(std::vector<std::wstring>& paths, const std::ws
 struct CWindowsTerminalProfile
 {
     std::string Name;
+    std::string Guid;
     std::string CommandLine;
     std::string Icon;
     std::string Source;
@@ -3381,26 +3382,48 @@ static BOOL FindJsonPropertyObjectOrArray(const std::string& json, size_t object
 }
 
 static void AddWindowsTerminalProfileFromObject(const std::string& json, size_t objectStart, size_t objectEnd,
-                                                std::vector<CWindowsTerminalProfile>& profiles)
+                                                std::vector<CWindowsTerminalProfile>& profiles,
+                                                std::vector<CWindowsTerminalProfile>& hiddenProfiles)
 {
+    std::string name;
+    BOOL hasName = FindJsonStringProperty(json, objectStart, objectEnd, "name", name) && !name.empty();
+    if (hasName)
+        name = Utf8ToAnsi(name);
+
+    std::string guid;
+    if (FindJsonStringProperty(json, objectStart, objectEnd, "guid", guid))
+        guid = Utf8ToAnsi(guid);
+
     BOOL hidden = FALSE;
     if (FindJsonBoolProperty(json, objectStart, objectEnd, "hidden", hidden) && hidden)
+    {
+        if (hasName || !guid.empty())
+        {
+            CWindowsTerminalProfile hiddenProfile;
+            hiddenProfile.Name = name;
+            hiddenProfile.Guid = guid;
+            hiddenProfiles.push_back(hiddenProfile);
+        }
+        return;
+    }
+
+    if (!hasName)
         return;
 
-    std::string name;
-    if (!FindJsonStringProperty(json, objectStart, objectEnd, "name", name) || name.empty())
-        return;
-
-    name = Utf8ToAnsi(name);
     BOOL duplicate = FALSE;
     for (size_t i = 0; i < profiles.size(); i++)
-        if (_stricmp(profiles[i].Name.c_str(), name.c_str()) == 0)
+        if (_stricmp(profiles[i].Name.c_str(), name.c_str()) == 0 || (!guid.empty() && _stricmp(profiles[i].Guid.c_str(), guid.c_str()) == 0))
+            duplicate = TRUE;
+    for (size_t i = 0; i < hiddenProfiles.size(); i++)
+        if ((!hiddenProfiles[i].Name.empty() && _stricmp(hiddenProfiles[i].Name.c_str(), name.c_str()) == 0) ||
+            (!guid.empty() && !hiddenProfiles[i].Guid.empty() && _stricmp(hiddenProfiles[i].Guid.c_str(), guid.c_str()) == 0))
             duplicate = TRUE;
     if (duplicate)
         return;
 
     CWindowsTerminalProfile profile;
     profile.Name = name;
+    profile.Guid = guid;
     if (FindJsonStringProperty(json, objectStart, objectEnd, "commandline", profile.CommandLine))
         profile.CommandLine = Utf8ToAnsi(profile.CommandLine);
     if (FindJsonStringProperty(json, objectStart, objectEnd, "icon", profile.Icon))
@@ -3445,16 +3468,18 @@ static BOOL FindNextProfileObjectInArray(const std::string& json, size_t arrayEn
 }
 
 static void CollectProfilesFromArray(const std::string& json, size_t arrayStart, size_t arrayEnd,
-                                     std::vector<CWindowsTerminalProfile>& profiles)
+                                     std::vector<CWindowsTerminalProfile>& profiles,
+                                     std::vector<CWindowsTerminalProfile>& hiddenProfiles)
 {
     size_t pos = arrayStart + 1;
     size_t objectStart;
     size_t objectEnd;
     while (FindNextProfileObjectInArray(json, arrayEnd, pos, objectStart, objectEnd))
-        AddWindowsTerminalProfileFromObject(json, objectStart, objectEnd, profiles);
+        AddWindowsTerminalProfileFromObject(json, objectStart, objectEnd, profiles, hiddenProfiles);
 }
 
-static void CollectProfilesFromJson(const std::string& json, std::vector<CWindowsTerminalProfile>& profiles)
+static void CollectProfilesFromJson(const std::string& json, std::vector<CWindowsTerminalProfile>& profiles,
+                                    std::vector<CWindowsTerminalProfile>& hiddenProfiles)
 {
     size_t rootEnd = json.size();
     size_t profilesStart;
@@ -3464,10 +3489,10 @@ static void CollectProfilesFromJson(const std::string& json, std::vector<CWindow
         size_t listStart;
         size_t listEnd;
         if (FindJsonPropertyObjectOrArray(json, profilesStart, profilesEnd, "list", '[', ']', listStart, listEnd))
-            CollectProfilesFromArray(json, listStart, listEnd, profiles);
+            CollectProfilesFromArray(json, listStart, listEnd, profiles, hiddenProfiles);
     }
     else if (FindJsonPropertyObjectOrArray(json, 0, rootEnd, "profiles", '[', ']', profilesStart, profilesEnd))
-        CollectProfilesFromArray(json, profilesStart, profilesEnd, profiles);
+        CollectProfilesFromArray(json, profilesStart, profilesEnd, profiles, hiddenProfiles);
 }
 
 static void AddWindowsTerminalSettingsPaths(std::vector<std::wstring>& paths, const std::wstring& localAppData)
@@ -3486,6 +3511,8 @@ static void CollectWindowsTerminalProfiles(std::vector<CWindowsTerminalProfile>&
     wchar_t localAppData[SAL_MAX_PATH];
     if (SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, localAppData) != S_OK)
         return;
+
+    std::vector<CWindowsTerminalProfile> hiddenProfiles;
 
     std::vector<std::wstring> paths;
     AddWindowsTerminalSettingsPaths(paths, localAppData);
@@ -3508,7 +3535,7 @@ static void CollectWindowsTerminalProfiles(std::vector<CWindowsTerminalProfile>&
         if (ReadTextFileWPath(paths[p].c_str(), json))
         {
             StripJsonComments(json);
-            CollectProfilesFromJson(json, profiles);
+            CollectProfilesFromJson(json, profiles, hiddenProfiles);
         }
     }
 }
@@ -3657,7 +3684,7 @@ static BOOL AppendComposedBashCommand(char* args, int argsSize, const std::strin
         return FALSE;
 
     AppendProfileCommandLine(args, argsSize, std::string(commandLine.c_str(), commandEnd - commandLine.c_str()));
-    strncat_s(args, argsSize, "; {command}", _TRUNCATE);
+    strncat_s(args, argsSize, "; eval {command}", _TRUNCATE);
     strncat_s(args, argsSize, commandEnd, _TRUNCATE);
     return TRUE;
 }
@@ -3673,9 +3700,9 @@ static void AppendBashCommandExecution(char* args, int argsSize, const std::stri
 
     AppendProfileCommandLine(args, argsSize, commandLine);
     if (ContainsCommandLineSwitch(commandLine, "--login") || ContainsCommandLineSwitch(commandLine, "-l"))
-        strncat_s(args, argsSize, " -c \"{command}\"", _TRUNCATE);
+        strncat_s(args, argsSize, " -c \"eval {command}\"", _TRUNCATE);
     else
-        strncat_s(args, argsSize, " -lc \"{command}\"", _TRUNCATE);
+        strncat_s(args, argsSize, " -lc \"eval {command}\"", _TRUNCATE);
 }
 
 static void AppendProfileCommandLine(char* args, int argsSize, const std::string& commandLine)
@@ -3786,7 +3813,7 @@ static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const 
             strncat_s(args, argsSize, " /K \"{command}\"", _TRUNCATE);
     }
     else if (ContainsTextI(profile.CommandLine, "wsl"))
-        strncat_s(args, argsSize, " --exec sh -lc \"{command}\"", _TRUNCATE);
+        strncat_s(args, argsSize, " --exec sh -lc \"eval {command}\"", _TRUNCATE);
 }
 
 static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, const CWindowsTerminalProfile& profile)
