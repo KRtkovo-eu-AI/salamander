@@ -23,6 +23,8 @@
 
 namespace
 {
+const int VHD_PATH_BUFFER = 32768;
+
 struct CVhdDialogState
 {
     bool Create;
@@ -64,11 +66,11 @@ void SetFont(HWND child, HFONT font)
     SendMessage(child, WM_SETFONT, (WPARAM)font, TRUE);
 }
 
-HWND AddControl(HWND parent, const wchar_t* cls, const wchar_t* text, DWORD style, int x, int y, int w, int h, int id, HFONT font)
+HWND AddControl(HWND parent, const wchar_t* cls, const wchar_t* text, DWORD style, int x, int y, int w, int height, int id, HFONT font)
 {
-    HWND h = CreateWindowExW(0, cls, text, WS_CHILD | WS_VISIBLE | style, x, y, w, h, parent, (HMENU)(INT_PTR)id, DLLInstance, nullptr);
-    SetFont(h, font);
-    return h;
+    HWND control = CreateWindowExW(0, cls, text, WS_CHILD | WS_VISIBLE | style, x, y, w, height, parent, (HMENU)(INT_PTR)id, DLLInstance, nullptr);
+    SetFont(control, font);
+    return control;
 }
 
 void EnableOk(CVhdDialogState* s)
@@ -79,7 +81,7 @@ void EnableOk(CVhdDialogState* s)
 
 bool Browse(HWND owner, bool save, std::wstring& path)
 {
-    std::vector<wchar_t> file(SAL_MAX_PATH, L'\0');
+    std::vector<wchar_t> file(VHD_PATH_BUFFER, L'\0');
     OPENFILENAMEW ofn = {0};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = owner;
@@ -106,7 +108,7 @@ void Finish(CVhdDialogState* s, bool result)
 
 void ExecuteCreate(CVhdDialogState* s)
 {
-    std::vector<wchar_t> path(SAL_MAX_PATH, L'\0');
+    std::vector<wchar_t> path(VHD_PATH_BUFFER, L'\0');
     wchar_t sizeText[64] = L"";
     GetWindowTextW(s->Path, path.data(), (int)path.size());
     GetWindowTextW(s->Size, sizeText, _countof(sizeText));
@@ -115,16 +117,16 @@ void ExecuteCreate(CVhdDialogState* s)
     unsigned long long multiplier = unit == 2 ? 1024ULL * 1024 * 1024 * 1024 : unit == 1 ? 1024ULL * 1024 * 1024 : 1024ULL * 1024;
     const wchar_t* format = IsDlgButtonChecked(s->Window, IDC_VHD_FORMAT_VHD) == BST_CHECKED ? L"VHD" : L"VHDX";
     const wchar_t* type = IsDlgButtonChecked(s->Window, IDC_VHD_TYPE_FIXED) == BST_CHECKED ? L"Fixed" : L"Dynamic";
-    std::vector<wchar_t> payload(2 * SAL_MAX_PATH, L'\0');
+    std::vector<wchar_t> payload(2 * VHD_PATH_BUFFER, L'\0');
     StringCchPrintfW(payload.data(), payload.size(), L"CreateVhd|%s|%llu|%s|%s", path.data(), value * multiplier, format, type);
     if (ManagedBridge_RunMenuCommandW(s->Parent, payload.data())) Finish(s, true);
 }
 
 void ExecuteAttach(CVhdDialogState* s)
 {
-    std::vector<wchar_t> path(SAL_MAX_PATH, L'\0');
+    std::vector<wchar_t> path(VHD_PATH_BUFFER, L'\0');
     GetWindowTextW(s->Path, path.data(), (int)path.size());
-    std::vector<wchar_t> payload(2 * SAL_MAX_PATH, L'\0');
+    std::vector<wchar_t> payload(2 * VHD_PATH_BUFFER, L'\0');
     StringCchPrintfW(payload.data(), payload.size(), L"AttachVhd|%s|%d", path.data(), IsDlgButtonChecked(s->Window, IDC_VHD_READONLY) == BST_CHECKED ? 1 : 0);
     if (ManagedBridge_RunMenuCommandW(s->Parent, payload.data())) Finish(s, true);
 }
