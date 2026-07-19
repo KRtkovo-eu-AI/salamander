@@ -3504,10 +3504,6 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     if (FindWindowsTerminal(wtPath, ARRAYSIZE(wtPath)))
         CollectWindowsTerminalProfiles(wtProfiles);
 
-    if (wtProfiles.empty())
-        return TrackExecuteMenu(hWindow, IDC_CMDLINEAPP_BROWSE, IDC_CMDLINEAPP_PATH, FALSE,
-                                CommandShellApplicationExecutes, IDS_EXEFILTER);
-
     HWND hButton = GetDlgItem(hWindow, IDC_CMDLINEAPP_BROWSE);
     RECT r;
     GetWindowRect(hButton, &r);
@@ -3526,6 +3522,13 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
         return NULL;
     }
 
+    popup.SetImageList(HGrayToolBarImageList);
+    popup.SetHotImageList(HHotToolBarImageList);
+    templatesPopup->SetImageList(HGrayToolBarImageList);
+    templatesPopup->SetHotImageList(HHotToolBarImageList);
+    windowsTerminalPopup->SetImageList(HGrayToolBarImageList);
+    windowsTerminalPopup->SetHotImageList(HHotToolBarImageList);
+
     InsertCommandShellMenuItem(&popup, 1, LoadStr(IDS_EXECUTE_BROWSE));
     InsertCommandShellMenuSeparator(&popup);
     InsertCommandShellMenuItem(&popup, 3, LoadStr(IDS_EXECUTE_WINDIR));
@@ -3538,24 +3541,30 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     InsertCommandShellMenuItem(templatesPopup, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC), IDX_TB_COMMANDSHELL);
     InsertCommandShellMenuItem(templatesPopup, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL), IDX_TB_WINDOWSPOWERSHELL);
     InsertCommandShellMenuItem(templatesPopup, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7), IDX_TB_POWERSHELL);
-    InsertCommandShellMenuSeparator(templatesPopup);
 
-    for (size_t i = 0; i < wtProfiles.size(); i++)
+    if (!wtProfiles.empty())
     {
-        UINT id = 200 + (UINT)i;
-        int imageIndex = GetWindowsTerminalProfileImageIndex(wtProfiles[i]);
-        HICON hIcon = NULL;
-        if (imageIndex < 0)
-            hIcon = AddMenuIcon(menuIcons, CreateMenuIconFromBitmap(LoadWindowsTerminalProfileBitmap(wtProfiles[i])));
-        InsertCommandShellMenuItem(windowsTerminalPopup, id, wtProfiles[i].Name.c_str(), imageIndex, hIcon);
+        InsertCommandShellMenuSeparator(templatesPopup);
+        for (size_t i = 0; i < wtProfiles.size(); i++)
+        {
+            UINT id = 200 + (UINT)i;
+            int imageIndex = GetWindowsTerminalProfileImageIndex(wtProfiles[i]);
+            HICON hIcon = NULL;
+            if (imageIndex < 0)
+                hIcon = AddMenuIcon(menuIcons, CreateMenuIconFromBitmap(LoadWindowsTerminalProfileBitmap(wtProfiles[i])));
+            InsertCommandShellMenuItem(windowsTerminalPopup, id, wtProfiles[i].Name.c_str(), imageIndex, hIcon);
+        }
+        InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), -1, NULL, windowsTerminalPopup);
+        windowsTerminalPopup = NULL; // ownership moved to templatesPopup
     }
-    InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), -1, NULL, windowsTerminalPopup);
-    windowsTerminalPopup = NULL; // ownership moved to templatesPopup
     InsertCommandShellMenuItem(&popup, 0, LoadStr(IDS_EXECUTE_TEMPLATES), -1, NULL, templatesPopup);
     templatesPopup = NULL; // ownership moved to popup
+    if (windowsTerminalPopup != NULL)
+    {
+        delete windowsTerminalPopup;
+        windowsTerminalPopup = NULL;
+    }
 
-    popup.SetImageList(HGrayToolBarImageList);
-    popup.SetHotImageList(HHotToolBarImageList);
     DWORD cmd = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                             r.right, r.top, hWindow, &r);
     DestroyMenuIcons(menuIcons);
