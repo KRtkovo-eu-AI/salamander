@@ -3329,15 +3329,7 @@ static HBITMAP LoadBuiltinWindowsTerminalProfileBitmap(const CWindowsTerminalPro
             CWindowsTerminalProfile inferred = profile;
             InferWindowsTerminalProfileCommandLine(inferred);
             if (ContainsTextI(inferred.CommandLine, "cmd"))
-            {
-                SHFILEINFO shfi;
-                memset(&shfi, 0, sizeof(shfi));
-                if (SHGetFileInfo("cmd.exe", 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES) != 0)
-                {
-                    hBitmap = CreateMenuBitmapFromIcon(shfi.hIcon);
-                    DestroyIcon(shfi.hIcon);
-                }
-            }
+                hBitmap = LoadBuiltinShellSVG("CommandPrompt");
             else if (ContainsTextI(inferred.CommandLine, "powershell"))
                 hBitmap = LoadBuiltinShellSVG("WindowsPowerShell");
             else if (ContainsTextI(inferred.CommandLine, "pwsh"))
