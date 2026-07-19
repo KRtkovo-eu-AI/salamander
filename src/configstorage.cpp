@@ -254,6 +254,32 @@ BOOL CConfigurationStorage::OpenConfigurationRootKey(HKEY& key, BOOL createKey)
     return ::OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key);
 }
 
+BOOL CConfigurationStorage::SaveUseWindowsDarkMode(BOOL useDark)
+{
+    char fileName[SAL_MAX_PATH];
+    if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    return WritePrivateProfileString("SplashScreen", "UseWindowsDarkMode",
+                                     useDark ? "1" : "0", fileName);
+}
+
+BOOL CConfigurationStorage::LoadUseWindowsDarkMode(BOOL& useDark)
+{
+    useDark = FALSE;
+    char fileName[SAL_MAX_PATH];
+    if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    char value[4];
+    DWORD read = GetPrivateProfileString("SplashScreen", "UseWindowsDarkMode", "", value, SizeOf(value), fileName);
+    if (read == 0)
+        return FALSE;
+
+    useDark = (value[0] == '1');
+    return TRUE;
+}
+
 BOOL CConfigurationStorage::GetPortableConfigFilePath(char* filePath, int filePathSize)
 {
     if (filePath == NULL || filePathSize <= 0)

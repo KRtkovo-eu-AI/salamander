@@ -4885,6 +4885,21 @@ FIND_NEW_SLG_FILE:
     }
     LoadSaveToRegistryMutex.Leave();
 
+    // Load storage type bootstrap early (before splash screen) so we know UseWindowsDarkMode
+    CConfigurationStorageType storageType = cstRegistry;
+    static char storageRegFilePath[SAL_MAX_PATH];
+    storageRegFilePath[0] = 0;
+    BOOL storageTypeBootstrapWritable = ConfigurationStorage.CanSaveStorageTypeBootstrap();
+    BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
+    BOOL restrictedFileStorageImported = !storageTypeBootstrapWritable && !storageTypeFromBootstrap &&
+                                         WasRestrictedFileStorageImported();
+    Configuration.StorageType = storageType;
+
+    // Read UseWindowsDarkMode from configstorage.ini for splash screen theme
+    BOOL useDarkFromConfig;
+    if (ConfigurationStorage.LoadUseWindowsDarkMode(useDarkFromConfig))
+        Configuration.UseWindowsDarkMode = useDarkFromConfig;
+
     if (Configuration.ShowSplashScreen)
         SplashScreenOpen();
 
@@ -4903,6 +4918,13 @@ FIND_NEW_SLG_FILE:
 
     SetWinLibStrings(LoadStr(IDS_INVALIDNUMBER), MAINWINDOW_NAME); // j.r. - posunout na spravne misto
 
+    // inicializace pakovacu; drive provadeno v konstruktorech; ted presunuto sem,
+    // kdy uz je rozhodnuto o jazykovem DLL
+    PackerFormatConfig.InitializeDefaultValues();
+    ArchiverConfig.InitializeDefaultValues();
+    PackerConfig.InitializeDefaultValues();
+    UnpackerConfig.InitializeDefaultValues();
+
     // detect system dark mode and enable it early, before any dialogs are shown
     DarkModeDetectAndEnableSystemDarkMode();
     if (DarkModeShouldUseDarkColors())
@@ -4916,22 +4938,6 @@ FIND_NEW_SLG_FILE:
         HButtonTextBrush = HANDLES(CreateSolidBrush(darkText));
         gDarkModeBrushesOwned = true;
     }
-
-    // inicializace pakovacu; drive provadeno v konstruktorech; ted presunuto sem,
-    // kdy uz je rozhodnuto o jazykovem DLL
-    PackerFormatConfig.InitializeDefaultValues();
-    ArchiverConfig.InitializeDefaultValues();
-    PackerConfig.InitializeDefaultValues();
-    UnpackerConfig.InitializeDefaultValues();
-
-    CConfigurationStorageType storageType = cstRegistry;
-    static char storageRegFilePath[SAL_MAX_PATH];
-    storageRegFilePath[0] = 0;
-    BOOL storageTypeBootstrapWritable = ConfigurationStorage.CanSaveStorageTypeBootstrap();
-    BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
-    BOOL restrictedFileStorageImported = !storageTypeBootstrapWritable && !storageTypeFromBootstrap &&
-                                         WasRestrictedFileStorageImported();
-    Configuration.StorageType = storageType;
 
     static char portableConfigPath[SAL_MAX_PATH];
     portableConfigPath[0] = 0;

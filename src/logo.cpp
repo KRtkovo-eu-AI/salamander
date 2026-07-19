@@ -165,7 +165,7 @@ BOOL CSplashScreen::PrepareBitmap()
     r.right = Width;
     r.bottom = Height;
 
-    bool useDark = DarkModeShouldUseDarkColors();
+    bool useDark = Configuration.UseWindowsDarkMode;
     SetBkColor(hDC, useDark ? RGB(33, 33, 33) : RGB(255, 255, 255));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
@@ -194,12 +194,12 @@ BOOL CSplashScreen::PrepareBitmap()
     PaintText(SALAMANDER_TEXT_VERSION,
               VersionR.left,
               VersionR.top,
-              FALSE, useDark ? RGB(128, 128, 128) : RGB(96, 96, 96));
+              FALSE, useDark ? RGB(255, 255, 255) : RGB(96, 96, 96));
 
     PaintTextW(L"Copyright \u00A9 1997-2026 Open Salamander Authors",
                CopyrightR.left,
                CopyrightR.top,
-               TRUE, useDark ? RGB(255, 255, 255) : RGB(32, 32, 32));
+               TRUE, RGB(255, 255, 255));
 
     // backup of the bitmap without text
     BitBlt(OriginalBitmap->HMemDC, 0, 0, Width, Height, Bitmap->HMemDC, 0, 0, SRCCOPY);
@@ -215,7 +215,7 @@ void CSplashScreen::SetText(const char* text)
         BitBlt(Bitmap->HMemDC, StatusR.left, StatusR.top, StatusR.right - StatusR.left, StatusR.bottom - StatusR.top, OriginalBitmap->HMemDC, StatusR.left, StatusR.top, SRCCOPY);
         PaintText(text,
                   StatusR.left, StatusR.top,
-                  FALSE, DarkModeShouldUseDarkColors() ? RGB(255, 255, 255) : RGB(32, 32, 32));
+                   FALSE, RGB(255, 255, 255));
 
         // if visible, update the display with the change
         if (HWindow != NULL)
@@ -392,7 +392,7 @@ AboutAndEvalDlgCreateBkgnd(HWND hWindow)
 
     hDC = bitmap->HMemDC;
 
-    bool useDark = DarkModeShouldUseDarkColors();
+    bool useDark = Configuration.UseWindowsDarkMode;
     SetBkColor(hDC, useDark ? RGB(33, 33, 33) : RGB(255, 255, 255));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
@@ -458,7 +458,7 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HDC hdcStatic = (HDC)wParam;
         HWND hwndStatic = (HWND)lParam;
         int resID = GetWindowLong(hwndStatic, GWL_ID);
-        bool useDark = DarkModeShouldUseDarkColors();
+        bool useDark = Configuration.UseWindowsDarkMode;
         COLORREF textClr = useDark ? RGB(224, 224, 224) : RGB(32, 32, 32);
         switch (resID)
         {

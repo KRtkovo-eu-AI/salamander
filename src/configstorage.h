@@ -59,6 +59,10 @@ public:
     BOOL LoadKnownFileStoragePaths(char paths[][SAL_MAX_PATH], int* count, int maxCount);
     BOOL AddKnownFileStoragePath(const char* path);
     BOOL RemoveKnownFileStoragePath(const char* path);
+
+    // Ulozeni/nacteni UseWindowsDarkMode z configstorage.ini (jen pro splash screen)
+    BOOL SaveUseWindowsDarkMode(BOOL useDark);
+    BOOL LoadUseWindowsDarkMode(BOOL& useDark);
 };
 
 extern CConfigurationStorage ConfigurationStorage;
