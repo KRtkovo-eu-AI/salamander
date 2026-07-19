@@ -184,7 +184,9 @@ private:
     FileOperations::FileOperationsService FileOperationsService;
     Automation::ScriptRootAdapter ScriptRoot;
     ServiceRegistry Registry;
+    CSalamanderGeneralAbstract* General;
     BOOL Registered;
+    BOOL HostRegistered;
 
     RuntimeServices(const RuntimeServices&);
     RuntimeServices& operator=(const RuntimeServices&);
@@ -196,18 +198,45 @@ public:
           FileOperationsService(&CommandService),
           ScriptRoot(&UIService, &CommandService, &FileOperationsService),
           Registry(),
-          Registered(FALSE)
+          General(general),
+          Registered(FALSE),
+          HostRegistered(FALSE)
     {
         Registered = TRUE;
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix PoC");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix PoC");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix PoC");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix PoC");
+
+        if (General != NULL)
+        {
+            HostRegistered = TRUE;
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix PoC");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix PoC");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix PoC");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix PoC");
+        }
+    }
+
+    ~RuntimeServices()
+    {
+        if (General != NULL && HostRegistered)
+        {
+            General->UnregisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, &ScriptRoot);
+            General->UnregisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, &FileOperationsService);
+            General->UnregisterService(SALAMATRIX_SERVICE_COMMANDS, &CommandService);
+            General->UnregisterService(SALAMATRIX_SERVICE_UI, &UIService);
+        }
     }
 
     BOOL WINAPI IsRegistered() const
     {
         return Registered;
+    }
+
+    BOOL WINAPI IsHostRegistered() const
+    {
+        return HostRegistered;
     }
 
     ServiceRegistry* WINAPI Services()

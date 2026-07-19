@@ -824,9 +824,29 @@ class CSalamanderBZIP2Abstract;
 
 class CSalamanderCryptAbstract;
 
+
+struct CSalamanderServiceQuery
+{
+    const char* ServiceId;
+    DWORD MinimumVersion;
+    DWORD Flags;
+};
+
+struct CSalamanderServiceResult
+{
+    void* Interface;
+    DWORD Version;
+    const char* ProviderName;
+};
+
 class CSalamanderGeneralAbstract
 {
 public:
+    // Salamatrix/service-provider MVP: register, unregister, and query in-process runtime services.
+    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
+    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
+    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
+
     // zobrazi message-box se zadanym textem a titulkem, parent message-boxu je HWND
     // vracene metodou GetMsgBoxParent() (viz nize); pouziva SalMessageBox (viz nize)
     // type = MSGBOX_INFO        - informace (ok)
