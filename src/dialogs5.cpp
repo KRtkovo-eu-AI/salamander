@@ -3690,29 +3690,48 @@ static void AppendProfileCommandLine(char* args, int argsSize, const std::string
         return;
     }
 
-    const char* extensions[] = {".exe", ".cmd", ".bat", ".com"};
-    const char* exeEnd = NULL;
-    for (int e = 0; e < _countof(extensions); e++)
+    const char* tokenEnd = start;
+    BOOL firstTokenCanBePathWithSpaces = FALSE;
+    while (*tokenEnd != 0 && *tokenEnd != ' ' && *tokenEnd != '\t')
     {
-        const char* found = FindTextI(start, extensions[e]);
-        if (found != NULL && (exeEnd == NULL || found < exeEnd))
-            exeEnd = found + strlen(extensions[e]);
+        if (*tokenEnd == ':' || *tokenEnd == '\\' || *tokenEnd == '/')
+            firstTokenCanBePathWithSpaces = TRUE;
+        tokenEnd++;
     }
-    if (exeEnd != NULL)
+
+    if (firstTokenCanBePathWithSpaces)
     {
-        BOOL needsQuotes = FALSE;
-        for (const char* s = start; s < exeEnd; s++)
-            if (*s == ' ' || *s == '\t')
-                needsQuotes = TRUE;
-        if (needsQuotes)
+        // Only complete and quote the launcher token.  Do not scan into later
+        // arguments such as cmd.exe /k "...\VsDevCmd.bat", where the .bat is an
+        // initializer argument rather than the Windows Terminal commandline launcher.
+        const char* searchEnd = start;
+        while (*searchEnd != 0 && *searchEnd != '"')
+            searchEnd++;
+
+        const char* extensions[] = {".exe", ".cmd", ".bat", ".com"};
+        const char* exeEnd = NULL;
+        for (int e = 0; e < _countof(extensions); e++)
         {
-            strncat_s(args, argsSize, "\"", _TRUNCATE);
-            size_t len = exeEnd - start;
-            std::string exe(start, len);
-            strncat_s(args, argsSize, exe.c_str(), _TRUNCATE);
-            strncat_s(args, argsSize, "\"", _TRUNCATE);
-            strncat_s(args, argsSize, exeEnd, _TRUNCATE);
-            return;
+            const char* found = FindTextI(start, extensions[e]);
+            if (found != NULL && found < searchEnd && (exeEnd == NULL || found < exeEnd))
+                exeEnd = found + strlen(extensions[e]);
+        }
+        if (exeEnd != NULL)
+        {
+            BOOL needsQuotes = FALSE;
+            for (const char* s = start; s < exeEnd; s++)
+                if (*s == ' ' || *s == '\t')
+                    needsQuotes = TRUE;
+            if (needsQuotes)
+            {
+                strncat_s(args, argsSize, "\"", _TRUNCATE);
+                size_t len = exeEnd - start;
+                std::string exe(start, len);
+                strncat_s(args, argsSize, exe.c_str(), _TRUNCATE);
+                strncat_s(args, argsSize, "\"", _TRUNCATE);
+                strncat_s(args, argsSize, exeEnd, _TRUNCATE);
+                return;
+            }
         }
     }
     strncat_s(args, argsSize, start, _TRUNCATE);
