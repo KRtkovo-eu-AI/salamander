@@ -163,6 +163,15 @@ CPluginInterface::Release(HWND parent, BOOL force)
 }
 
 void WINAPI
+CPluginInterface::Event(int event, DWORD /*param*/)
+{
+    if (event == PLUGINEVENT_COLORSCHANGED)
+    {
+        ManagedBridge_NotifyColorsChanged();
+    }
+}
+
+void WINAPI
 CPluginInterface::Configuration(HWND parent)
 {
     if (!ManagedBridge_ShowConfiguration(parent))

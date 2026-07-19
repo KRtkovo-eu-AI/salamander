@@ -29,6 +29,7 @@ public static class EntryPoint
                 "About" => ShowAbout(parentHandle),
                 "Configure" => ShowConfiguration(parentHandle),
                 "Menu" => ExecuteMenu(parentHandle, payload),
+                "ColorsChanged" => ColorsChanged(),
                 _ => 1,
             };
         }
@@ -109,6 +110,12 @@ public static class EntryPoint
     private static int ShowConfiguration(IntPtr parent)
     {
         ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), Texts.NoConfiguration, Texts.ConfigurationTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        return 0;
+    }
+
+    private static int ColorsChanged()
+    {
+        ThemeHelper.InvalidatePalette();
         return 0;
     }
 

@@ -25,23 +25,50 @@ internal static class ThemeHelper
     {
         if (!TryGetPalette(out var palette))
         {
+            NativeMethods.SetDarkModeEnabled(false);
             return;
         }
 
+        NativeMethods.SetDarkModeEnabled(palette.IsDark);
         ApplyPalette(form, palette);
 
         if (form.IsHandleCreated)
         {
             NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.IsDark, palette.ControlBorder);
+            NativeMethods.ApplyDarkModeTree(form.Handle);
         }
 
         form.HandleCreated += (_, _) =>
         {
             if (TryGetPalette(out var refreshed))
             {
+                NativeMethods.SetDarkModeEnabled(refreshed.IsDark);
                 NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.IsDark, refreshed.ControlBorder);
+                NativeMethods.ApplyDarkModeTree(form.Handle);
             }
         };
+    }
+
+    public static void ApplyNativeDarkMode(Control control)
+    {
+        if (!control.IsHandleCreated)
+        {
+            return;
+        }
+
+        if (control is ListView)
+        {
+            NativeMethods.UpdateListViewDarkMode(control.Handle);
+        }
+        else
+        {
+            NativeMethods.ApplyDarkModeTree(control.Handle);
+        }
+    }
+
+    public static void InvalidatePalette()
+    {
+        s_cachedPalette = null;
     }
 
     public static DialogResult ShowMessageBox(IWin32Window? owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
@@ -230,37 +257,49 @@ internal static class ThemeHelper
             case TextBoxBase textBox:
                 textBox.BackColor = palette.InputBackground;
                 textBox.ForeColor = palette.InputForeground;
+                textBox.BorderStyle = BorderStyle.FixedSingle;
+                textBox.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                textBox.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
             case ComboBox comboBox:
                 comboBox.BackColor = palette.InputBackground;
                 comboBox.ForeColor = palette.InputForeground;
                 comboBox.DrawMode = DrawMode.OwnerDrawFixed;
-                comboBox.FlatStyle = palette.IsDark ? FlatStyle.Flat : FlatStyle.Standard;
+                comboBox.FlatStyle = FlatStyle.Standard;
+                comboBox.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                comboBox.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 comboBox.DrawItem -= ComboBoxOnDrawItem;
                 comboBox.DrawItem += ComboBoxOnDrawItem;
                 break;
             case UpDownBase upDown:
                 upDown.BackColor = palette.InputBackground;
                 upDown.ForeColor = palette.InputForeground;
+                upDown.BorderStyle = BorderStyle.FixedSingle;
+                upDown.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                upDown.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
-            case CheckBox checkBox when palette.IsDark:
-                checkBox.FlatStyle = FlatStyle.Flat;
-                checkBox.FlatAppearance.BorderColor = palette.ControlBorder;
-                checkBox.FlatAppearance.CheckedBackColor = palette.Accent;
-                checkBox.FlatAppearance.MouseDownBackColor = palette.HighlightBackground;
-                checkBox.FlatAppearance.MouseOverBackColor = palette.ControlBackground;
+            case CheckBox checkBox:
+                checkBox.FlatStyle = FlatStyle.Standard;
+                checkBox.ForeColor = palette.Foreground;
+                checkBox.BackColor = palette.Background;
+                checkBox.UseVisualStyleBackColor = false;
+                checkBox.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                checkBox.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
-            case RadioButton radioButton when palette.IsDark:
-                radioButton.FlatStyle = FlatStyle.Flat;
-                radioButton.FlatAppearance.BorderColor = palette.ControlBorder;
-                radioButton.FlatAppearance.CheckedBackColor = palette.Accent;
-                radioButton.FlatAppearance.MouseDownBackColor = palette.HighlightBackground;
-                radioButton.FlatAppearance.MouseOverBackColor = palette.ControlBackground;
+            case RadioButton radioButton:
+                radioButton.FlatStyle = FlatStyle.Standard;
+                radioButton.ForeColor = palette.Foreground;
+                radioButton.BackColor = palette.Background;
+                radioButton.UseVisualStyleBackColor = false;
+                radioButton.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                radioButton.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
             case ListView listView:
                 listView.BackColor = palette.InputBackground;
                 listView.ForeColor = palette.InputForeground;
                 listView.BorderStyle = BorderStyle.FixedSingle;
+                listView.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                listView.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
             case TreeView treeView:
                 treeView.BackColor = palette.InputBackground;
@@ -301,6 +340,14 @@ internal static class ThemeHelper
         foreach (Control child in control.Controls)
         {
             ApplyPalette(child, palette);
+        }
+    }
+
+    private static void ControlOnHandleCreatedApplyNativeDarkMode(object? sender, EventArgs e)
+    {
+        if (sender is Control control)
+        {
+            ApplyNativeDarkMode(control);
         }
     }
 
@@ -597,8 +644,71 @@ internal static class ThemeHelper
         [DllImport("HyperVM.Spl", CallingConvention = CallingConvention.StdCall)]
         public static extern uint HyperVM_GetCurrentColor(int color);
 
+        [DllImport("HyperVM.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void HyperVM_SetDarkModeState([MarshalAs(UnmanagedType.Bool)] bool enabled);
+
+        [DllImport("HyperVM.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void HyperVM_ApplyDarkModeTree(IntPtr hwnd);
+
+        [DllImport("HyperVM.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void HyperVM_UpdateListViewDarkMode(IntPtr hwnd);
+
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+
+        public static void SetDarkModeEnabled(bool enabled)
+        {
+            try
+            {
+                HyperVM_SetDarkModeState(enabled);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+        }
+
+        public static void ApplyDarkModeTree(IntPtr handle)
+        {
+            if (handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                HyperVM_ApplyDarkModeTree(handle);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+        }
+
+        public static void UpdateListViewDarkMode(IntPtr handle)
+        {
+            if (handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                HyperVM_UpdateListViewDarkMode(handle);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+                ApplyDarkModeTree(handle);
+            }
+        }
 
         public static uint GetCurrentColor(int color)
         {

@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "managed_bridge.h"
+#include "../../darkmode.h"
 
 #include <metahost.h>
 #include <mscoree.h>
@@ -180,6 +181,16 @@ bool ManagedBridge_ShowConfiguration(HWND parent)
     return ExecuteCommand(L"Configure", parent, nullptr);
 }
 
+void ManagedBridge_NotifyColorsChanged()
+{
+    if (!ManagedBridge_EnsureInitialized(nullptr))
+    {
+        return;
+    }
+
+    ExecuteCommand(L"ColorsChanged", nullptr, nullptr);
+}
+
 bool ManagedBridge_RunMenuCommand(HWND parent, const char* command)
 {
     if (!ManagedBridge_EnsureInitialized(parent))
@@ -199,4 +210,22 @@ extern "C" __declspec(dllexport) UINT32 __stdcall HyperVM_GetCurrentColor(int co
     }
 
     return SalamanderGeneral->GetCurrentColor(color);
+}
+
+extern "C" __declspec(dllexport) void __stdcall HyperVM_SetDarkModeState(BOOL enabled)
+{
+    DarkModeSetEnabled(enabled != FALSE);
+}
+
+extern "C" __declspec(dllexport) void __stdcall HyperVM_ApplyDarkModeTree(HWND hwnd)
+{
+    DarkModeAllowDarkScrollbars(hwnd);
+    DarkModeApplyTree(hwnd);
+}
+
+extern "C" __declspec(dllexport) void __stdcall HyperVM_UpdateListViewDarkMode(HWND hwnd)
+{
+    DarkModeAllowDarkScrollbars(hwnd);
+    DarkModeApplyTree(hwnd);
+    DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }
