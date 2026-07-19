@@ -26,6 +26,9 @@ private:
     class CSalamanderWaitWndAutomation* m_pWaitWindow;
     class CSalamanderGuiNamespace* m_pGui;
     class CSalamanderScriptInfoAutomation* m_pScriptAut;
+    class CSalamanderUINamespaceAutomation* m_pUI;
+    class CSalamanderCommandsAutomation* m_pCommands;
+    class CSalamanderFileOperationsAutomation* m_pFileOperations;
 
     HRESULT GetPanel(int nPanel, ISalamanderPanel** ppPanel);
 
@@ -154,4 +157,13 @@ public:
         /* [in] */ BSTR path,
         /* [optional][in] */ VARIANT* panel,
         /* [out][retval] */ BSTR* result);
+
+    virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_UI(
+        /* [retval][out] */ ISalamanderUI** ui);
+
+    virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Commands(
+        /* [retval][out] */ ISalamanderCommands** commands);
+
+    virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_FileOperations(
+        /* [retval][out] */ ISalamanderFileOperations** fileOperations);
 };
