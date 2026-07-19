@@ -1433,6 +1433,7 @@ Source: "{#PayloadDir}\toolbars\pictview\ZoomOut.svg"; DestDir: "{app}\toolbars\
 Source: "{#PayloadDir}\toolbars\pictview\ZoomWhole.svg"; DestDir: "{app}\toolbars\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\pictview\ZoomWidth.svg"; DestDir: "{app}\toolbars\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Back.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\AzureCloudShell.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\CalculateDirectorySizes.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\CalculateOccupiedSpace.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ClipboardCut.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
