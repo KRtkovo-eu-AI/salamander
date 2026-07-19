@@ -3057,16 +3057,28 @@ static std::string Utf8ToAnsi(const std::string& value)
     return WideToAnsi(wide);
 }
 
+static BOOL StoreWindowsTerminalPath(char* wtPath, int wtPathSize, const std::wstring& widePath)
+{
+    std::string path = WideToAnsi(widePath);
+    if (path.empty())
+        return FALSE;
+    lstrcpyn(wtPath, path.c_str(), wtPathSize);
+    return TRUE;
+}
+
 static BOOL FindWindowsTerminal(char* wtPath, int wtPathSize)
 {
-    if (SearchPath(NULL, "wt.exe", NULL, wtPathSize, wtPath, NULL) != 0)
+    wchar_t widePath[SAL_MAX_PATH];
+    DWORD foundLen = SearchPathW(NULL, L"wt.exe", NULL, ARRAYSIZE(widePath), widePath, NULL);
+    if (foundLen > 0 && foundLen < ARRAYSIZE(widePath) && StoreWindowsTerminalPath(wtPath, wtPathSize, widePath))
         return TRUE;
 
-    char localAppData[SAL_MAX_PATH];
-    if (SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, localAppData) == S_OK)
+    wchar_t localAppData[SAL_MAX_PATH];
+    if (SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, localAppData) == S_OK)
     {
-        _snprintf_s(wtPath, wtPathSize, _TRUNCATE, "%s\\Microsoft\\WindowsApps\\wt.exe", localAppData);
-        if (FileExists(wtPath))
+        std::wstring path = localAppData;
+        AppendPathW(path, L"Microsoft\\WindowsApps\\wt.exe");
+        if (FileExistsWPath(path.c_str()) && StoreWindowsTerminalPath(wtPath, wtPathSize, path))
             return TRUE;
     }
     wtPath[0] = 0;
@@ -3381,6 +3393,13 @@ static BOOL FindJsonPropertyObjectOrArray(const std::string& json, size_t object
     return TRUE;
 }
 
+static BOOL IsSameWindowsTerminalProfileIdentity(const CWindowsTerminalProfile& profile, const std::string& name, const std::string& guid)
+{
+    if (!guid.empty() && !profile.Guid.empty())
+        return _stricmp(profile.Guid.c_str(), guid.c_str()) == 0;
+    return !profile.Name.empty() && _stricmp(profile.Name.c_str(), name.c_str()) == 0;
+}
+
 static void AddWindowsTerminalProfileFromObject(const std::string& json, size_t objectStart, size_t objectEnd,
                                                 std::vector<CWindowsTerminalProfile>& profiles,
                                                 std::vector<CWindowsTerminalProfile>& hiddenProfiles)
@@ -3412,11 +3431,10 @@ static void AddWindowsTerminalProfileFromObject(const std::string& json, size_t 
 
     BOOL duplicate = FALSE;
     for (size_t i = 0; i < profiles.size(); i++)
-        if (_stricmp(profiles[i].Name.c_str(), name.c_str()) == 0 || (!guid.empty() && _stricmp(profiles[i].Guid.c_str(), guid.c_str()) == 0))
+        if (IsSameWindowsTerminalProfileIdentity(profiles[i], name, guid))
             duplicate = TRUE;
     for (size_t i = 0; i < hiddenProfiles.size(); i++)
-        if ((!hiddenProfiles[i].Name.empty() && _stricmp(hiddenProfiles[i].Name.c_str(), name.c_str()) == 0) ||
-            (!guid.empty() && !hiddenProfiles[i].Guid.empty() && _stricmp(hiddenProfiles[i].Guid.c_str(), guid.c_str()) == 0))
+        if (IsSameWindowsTerminalProfileIdentity(hiddenProfiles[i], name, guid))
             duplicate = TRUE;
     if (duplicate)
         return;
@@ -3820,7 +3838,7 @@ static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, 
 {
     char args[CONFIG_COMMANDLINEARGS_MAXLEN];
     lstrcpyn(args, "-d . -p ", ARRAYSIZE(args));
-    AppendMenuQuotedArg(args, ARRAYSIZE(args), profile.Name.c_str());
+    AppendMenuQuotedArg(args, ARRAYSIZE(args), !profile.Guid.empty() ? profile.Guid.c_str() : profile.Name.c_str());
     AppendWindowsTerminalProfileCommand(args, ARRAYSIZE(args), profile);
 
     SetDlgItemText(hWindow, IDC_CMDLINEAPP_PATH, wtPath[0] != 0 ? wtPath : "wt.exe");
