@@ -162,6 +162,10 @@ namespace EPocalipse.Json.Viewer
                 case ComboBox comboBox:
                     comboBox.BackColor = palette.InputBackground;
                     comboBox.ForeColor = palette.InputForeground;
+                    if (palette.IsDark)
+                    {
+                        comboBox.FlatStyle = FlatStyle.Flat;
+                    }
                     comboBox.DrawMode = DrawMode.OwnerDrawFixed;
                     comboBox.DrawItem -= ComboBoxOnDrawItem;
                     comboBox.DrawItem += ComboBoxOnDrawItem;
@@ -368,6 +372,10 @@ namespace EPocalipse.Json.Viewer
 
         private static void ApplyToPropertyGrid(PropertyGrid grid, ThemePalette palette)
         {
+            grid.SelectedObjectsChanged -= PropertyGridOnSelectedObjectsChanged;
+            grid.SelectedObjectsChanged += PropertyGridOnSelectedObjectsChanged;
+            grid.HandleCreated -= ControlOnHandleCreatedApplyScrollbarTheme;
+            grid.HandleCreated += ControlOnHandleCreatedApplyScrollbarTheme;
             grid.BackColor = palette.Background;
             grid.ForeColor = palette.Foreground;
             grid.ViewBackColor = palette.InputBackground;
@@ -381,6 +389,31 @@ namespace EPocalipse.Json.Viewer
             grid.CategoryForeColor = palette.Accent;
             grid.CategorySplitterColor = palette.ControlBorder;
             grid.LineColor = palette.ControlBorder;
+            ApplyNativeThemeWhenIdle(grid);
+        }
+
+        private static void PropertyGridOnSelectedObjectsChanged(object? sender, EventArgs e)
+        {
+            if (sender is PropertyGrid grid)
+            {
+                ApplyNativeThemeWhenIdle(grid);
+            }
+        }
+
+        private static void ApplyNativeThemeWhenIdle(Control control)
+        {
+            if (!control.IsHandleCreated)
+            {
+                return;
+            }
+
+            control.BeginInvoke(new Action(() =>
+            {
+                if (control.IsHandleCreated && GetPalette() is ThemePalette palette && palette.IsDark)
+                {
+                    ApplyNativeTheme(control);
+                }
+            }));
         }
 
         private static void ApplyToDataGridView(DataGridView grid, ThemePalette palette)
