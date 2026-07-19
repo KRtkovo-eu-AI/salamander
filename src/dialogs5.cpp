@@ -3061,9 +3061,6 @@ struct CWindowsTerminalProfile
     std::string Name;
     std::string CommandLine;
     std::string Icon;
-    HBITMAP HBitmap;
-
-    CWindowsTerminalProfile() : HBitmap(NULL) {}
 };
 
 static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& profile);
@@ -3268,27 +3265,6 @@ static HBITMAP LoadCommandPromptBitmap()
     return hBitmap;
 }
 
-static void SetMenuBitmapAndRemember(HMENU hMenu, UINT id, HBITMAP hBitmap, std::vector<HBITMAP>& bitmaps)
-{
-    if (hBitmap != NULL)
-    {
-        MENUITEMINFO mii;
-        memset(&mii, 0, sizeof(mii));
-        mii.cbSize = sizeof(mii);
-        mii.fMask = MIIM_BITMAP;
-        mii.hbmpItem = hBitmap;
-        SetMenuItemInfo(hMenu, id, FALSE, &mii);
-        bitmaps.push_back(hBitmap);
-    }
-}
-
-static void FreeMenuBitmaps(std::vector<HBITMAP>& bitmaps)
-{
-    for (size_t i = 0; i < bitmaps.size(); i++)
-        HANDLES(DeleteObject(bitmaps[i]));
-    bitmaps.clear();
-}
-
 static BOOL IsDeveloperProfile(const CWindowsTerminalProfile& profile)
 {
     return ContainsTextI(profile.Name, "Developer ") &&
@@ -3392,11 +3368,39 @@ static HBITMAP LoadWindowsTerminalProfileBitmap(const CWindowsTerminalProfile& p
     return NULL;
 }
 
-static void FreeWindowsTerminalProfileBitmaps(std::vector<CWindowsTerminalProfile>& profiles)
+static int AddBitmapToMenuImageList(HIMAGELIST hImages, HBITMAP hBitmap)
 {
-    for (size_t i = 0; i < profiles.size(); i++)
-        if (profiles[i].HBitmap != NULL)
-            HANDLES(DeleteObject(profiles[i].HBitmap));
+    if (hBitmap == NULL)
+        return -1;
+    int index = ImageList_Add(hImages, hBitmap, NULL);
+    HANDLES(DeleteObject(hBitmap));
+    return index;
+}
+
+static BOOL InsertCommandShellMenuItem(CMenuPopup* popup, DWORD id, const char* text, int imageIndex = -1, CMenuPopup* subMenu = NULL)
+{
+    MENU_ITEM_INFO mii;
+    memset(&mii, 0, sizeof(mii));
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_IMAGEINDEX;
+    mii.Type = MENU_TYPE_STRING;
+    mii.ID = id;
+    mii.String = text;
+    mii.ImageIndex = imageIndex;
+    if (subMenu != NULL)
+    {
+        mii.Mask |= MENU_MASK_SUBMENU;
+        mii.SubMenu = subMenu;
+    }
+    return popup->InsertItem(0xFFFFFFFF, TRUE, &mii);
+}
+
+static BOOL InsertCommandShellMenuSeparator(CMenuPopup* popup)
+{
+    MENU_ITEM_INFO mii;
+    memset(&mii, 0, sizeof(mii));
+    mii.Mask = MENU_MASK_TYPE;
+    mii.Type = MENU_TYPE_SEPARATOR;
+    return popup->InsertItem(0xFFFFFFFF, TRUE, &mii);
 }
 
 static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::string& wtProfile)
@@ -3414,65 +3418,71 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     RECT r;
     GetWindowRect(hButton, &r);
 
-    HMENU hMenu = CreatePopupMenu();
-    HMENU hTemplates = CreatePopupMenu();
-    HMENU hWindowsTerminal = CreatePopupMenu();
-    std::vector<HBITMAP> menuBitmaps;
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 1, LoadStr(IDS_EXECUTE_BROWSE));
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 3, LoadStr(IDS_EXECUTE_WINDIR));
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 4, LoadStr(IDS_EXECUTE_SYSDIR));
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 5, LoadStr(IDS_EXECUTE_SALDIR));
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 7, LoadStr(IDS_EXECUTE_ENV));
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
-    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC));
-    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL));
-    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7));
-    SetMenuBitmapAndRemember(hTemplates, 100, LoadCommandPromptBitmap(), menuBitmaps);
-    SetMenuBitmapAndRemember(hTemplates, 101, LoadBuiltinShellSVG("WindowsPowerShell"), menuBitmaps);
-    SetMenuBitmapAndRemember(hTemplates, 102, LoadBuiltinShellSVG("PowerShell"), menuBitmaps);
-    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+    HIMAGELIST hMenuImages = ImageList_Create(16, 16, ILC_COLOR32 | ILC_MASK, 8, 8);
+
+    CMenuPopup popup;
+    CMenuPopup* templatesPopup = new CMenuPopup();
+    CMenuPopup* windowsTerminalPopup = new CMenuPopup();
+    if (templatesPopup == NULL || windowsTerminalPopup == NULL || hMenuImages == NULL)
+    {
+        if (templatesPopup != NULL)
+            delete templatesPopup;
+        if (windowsTerminalPopup != NULL)
+            delete windowsTerminalPopup;
+        if (hMenuImages != NULL)
+            ImageList_Destroy(hMenuImages);
+        return NULL;
+    }
+
+    InsertCommandShellMenuItem(&popup, 1, LoadStr(IDS_EXECUTE_BROWSE));
+    InsertCommandShellMenuSeparator(&popup);
+    InsertCommandShellMenuItem(&popup, 3, LoadStr(IDS_EXECUTE_WINDIR));
+    InsertCommandShellMenuItem(&popup, 4, LoadStr(IDS_EXECUTE_SYSDIR));
+    InsertCommandShellMenuItem(&popup, 5, LoadStr(IDS_EXECUTE_SALDIR));
+    InsertCommandShellMenuSeparator(&popup);
+    InsertCommandShellMenuItem(&popup, 7, LoadStr(IDS_EXECUTE_ENV));
+    InsertCommandShellMenuSeparator(&popup);
+
+    InsertCommandShellMenuItem(templatesPopup, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC),
+                               AddBitmapToMenuImageList(hMenuImages, LoadCommandPromptBitmap()));
+    InsertCommandShellMenuItem(templatesPopup, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL),
+                               AddBitmapToMenuImageList(hMenuImages, LoadBuiltinShellSVG("WindowsPowerShell")));
+    InsertCommandShellMenuItem(templatesPopup, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7),
+                               AddBitmapToMenuImageList(hMenuImages, LoadBuiltinShellSVG("PowerShell")));
+    InsertCommandShellMenuSeparator(templatesPopup);
+
     for (size_t i = 0; i < wtProfiles.size(); i++)
     {
         UINT id = 200 + (UINT)i;
-        InsertMenu(hWindowsTerminal, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, id, wtProfiles[i].Name.c_str());
-        wtProfiles[i].HBitmap = LoadWindowsTerminalProfileBitmap(wtProfiles[i]);
-        SetMenuBitmapAndRemember(hWindowsTerminal, id, wtProfiles[i].HBitmap, menuBitmaps);
-        wtProfiles[i].HBitmap = NULL; // ownership moved to menuBitmaps
+        InsertCommandShellMenuItem(windowsTerminalPopup, id, wtProfiles[i].Name.c_str(),
+                                   AddBitmapToMenuImageList(hMenuImages, LoadWindowsTerminalProfileBitmap(wtProfiles[i])));
     }
-    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hWindowsTerminal, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL));
-    InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hTemplates, LoadStr(IDS_EXECUTE_TEMPLATES));
+    InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), -1, windowsTerminalPopup);
+    windowsTerminalPopup = NULL; // ownership moved to templatesPopup
+    InsertCommandShellMenuItem(&popup, 0, LoadStr(IDS_EXECUTE_TEMPLATES), -1, templatesPopup);
+    templatesPopup = NULL; // ownership moved to popup
 
-    CMenuPopup popup;
-    popup.SetTemplateMenu(hMenu);
+    popup.SetImageList(hMenuImages, TRUE);
+    popup.SetHotImageList(hMenuImages, TRUE);
     DWORD cmd = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                             r.right, r.top, hWindow, &r);
-    DestroyMenu(hMenu);
+    ImageList_Destroy(hMenuImages);
 
     if (cmd == 0)
     {
-        FreeWindowsTerminalProfileBitmaps(wtProfiles);
-        FreeMenuBitmaps(menuBitmaps);
         return NULL;
     }
     if (cmd == 1)
     {
         BrowseCommand(hWindow, IDC_CMDLINEAPP_PATH, IDS_EXEFILTER);
-        FreeWindowsTerminalProfileBitmaps(wtProfiles);
-        FreeMenuBitmaps(menuBitmaps);
         return NULL;
     }
     if (cmd >= 200 && cmd < 200 + wtProfiles.size())
     {
         wtProfile = wtProfiles[cmd - 200].Name;
         SetWindowsTerminalProfileTemplate(hWindow, wtPath, wtProfiles[cmd - 200]);
-        FreeWindowsTerminalProfileBitmaps(wtProfiles);
-        FreeMenuBitmaps(menuBitmaps);
         return NULL;
     }
-    FreeWindowsTerminalProfileBitmaps(wtProfiles);
-    FreeMenuBitmaps(menuBitmaps);
     if (cmd == 3 || cmd == 4 || cmd == 5 || cmd == 7)
     {
         const char* text = cmd == 3 ? "$(WinDir)" : cmd == 4 ? "$(SysDir)" : cmd == 5 ? "$(SalDir)" : "%";
