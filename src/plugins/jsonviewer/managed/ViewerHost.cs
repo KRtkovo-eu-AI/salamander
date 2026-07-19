@@ -682,9 +682,21 @@ internal static class ViewerHost
 
             ShowInTaskbar = true;
             Show();
+            ApplyThemeAfterFirstShow();
             Activate();
             NativeMethods.SetForegroundWindow(Handle);
             return true;
+        }
+
+        private void ApplyThemeAfterFirstShow()
+        {
+            ThemeHelper.ApplyTheme(this);
+            ThemeHelper.ApplyTheme(_viewer);
+            _viewer.ApplyCurrentTheme();
+            ThemeHelper.ApplyNativeDarkMode(this);
+            ThemeHelper.ApplyNativeDarkMode(_viewer);
+            Update();
+            _viewer.Update();
         }
 
         public void AllowClose()
