@@ -58,6 +58,8 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
     bool bExecuted = false;
     bool bRunScript = false;
 
+    g_oAutomationPlugin.RefreshSalamatrixServices();
+
     info.pOperation = salamander;
     info.bEnableDebugger = g_oAutomationPlugin.IsDebuggerEnabled();
 
@@ -449,6 +451,8 @@ void CAutomationPluginInterface::Connect(
     CGUIIconListAbstract* pIcons;
     BOOL bLoaded;
 
+    RefreshSalamatrixServices();
+
     pIcons = SalamanderGUI->CreateIconList();
     _ASSERTE(pIcons);
 
@@ -491,16 +495,27 @@ void CAutomationPluginInterface::Connect(
     }
 }
 
+void CAutomationPluginInterface::RefreshSalamatrixServices()
+{
+    m_oSalamatrix.Refresh(SalamanderGeneral);
+}
+
 void CAutomationPluginInterface::About(HWND parent)
 {
-    TCHAR szMessage[256];
+    TCHAR szMessage[512];
+    TCHAR szSalamatrixStatus[256];
+
+    RefreshSalamatrixServices();
+    m_oSalamatrix.GetStatusText(szSalamatrixStatus, _countof(szSalamatrixStatus));
 
     StringCchPrintf(szMessage, _countof(szMessage),
                     TEXT("%s ") TEXT(VERSINFO_VERSION) TEXT("\n\n")
                         TEXT(VERSINFO_COPYRIGHT) TEXT("\n\n")
-                            TEXT("%s"),
+                            TEXT("%s\n\n")
+                                TEXT("Salamatrix Runtime: %s"),
                     SalamanderGeneral->LoadStr(g_hLangInst, IDS_PLUGINNAME),
-                    SalamanderGeneral->LoadStr(g_hLangInst, IDS_DESCRIPTION));
+                    SalamanderGeneral->LoadStr(g_hLangInst, IDS_DESCRIPTION),
+                    szSalamatrixStatus);
 
     SalamanderGeneral->SalMessageBox(
         parent,

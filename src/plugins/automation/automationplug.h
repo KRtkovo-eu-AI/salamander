@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include "salamatrixbridge.h"
+
 /// Defines indices of the icons used throughout the plugin.
 enum PluginIcons
 {
@@ -109,6 +111,9 @@ protected:
     /// Salamander directory.
     TCHAR m_szSalDir[MAX_PATH];
 
+    /// Cached consumer bridge to the host-registered Salamatrix runtime.
+    CAutomationSalamatrixBridge m_oSalamatrix;
+
     void AddScriptContainerToMenu(
         const class CScriptContainer* pContainer,
         CSalamanderConnectAbstract* pConnect,
@@ -183,6 +188,18 @@ public:
         __in PCTSTR pszPath,
         __out_ecount(cchMax) PTSTR pszExpanded,
         __in int cchMax);
+
+    void RefreshSalamatrixServices();
+
+    const CAutomationSalamatrixBridge* GetSalamatrixBridge() const
+    {
+        return &m_oSalamatrix;
+    }
+
+    CAutomationSalamatrixBridge* GetSalamatrixBridge()
+    {
+        return &m_oSalamatrix;
+    }
 
     // CPluginInterfaceAbstract
 
