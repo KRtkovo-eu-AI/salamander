@@ -417,6 +417,35 @@ window creation, and individual control implementations. The Salamatrix directio
 is to move the native control model into `Salamatrix.UI` and leave Automation
 classes as COM/IDispatch wrappers over those native objects.
 
+## Salamatrix PoC runtime wiring
+
+The first in-process proof-of-concept wiring is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_poc.h
+```
+
+This PoC is intentionally small and does not yet register a real runtime plugin.
+It proves that the MVP contracts can be composed inside a native plugin call:
+
+- `Poc::LocalUIService` implements `Salamatrix::UI::IUIService` by creating and
+  destroying `Salamatrix::UI::ProgressDialog` objects over the existing
+  `CSalamanderForOperationsAbstract` progress API.
+- `Poc::RuntimeServices` wires one in-process UI service, command service,
+  file-operation service, and script root adapter together.
+- `RunProgressDialogPoc(...)` opens a native Salamatrix progress dialog, sets a
+  total, adds text, steps progress, detects Cancel, disables Cancel for cleanup,
+  and closes the dialog.
+- `RunAutomationProgressPoc(...)` exercises the script-facing
+  `Salamander.UI.progress(...)` shape through `ScriptUIAdapter`.
+- `ExecuteQuickRenamePoc(...)` and `CopyInteractivePoc(...)` prove that the
+  Commands/FileOperations MVP can route to existing Salamander command workflows.
+
+The intended first integration point is a temporary DemoPlug command that creates
+`Poc::RuntimeServices` from the existing `SalamanderGeneral` pointer and calls one
+of the PoC functions from a plugin operation callback. After that works, the same
+wiring can move behind `RegisterService` and `QueryService`.
+
 ## MVP acceptance criteria
 
 The platform skeleton is ready when:
@@ -439,6 +468,8 @@ The platform skeleton is ready when:
    wrappers over the native UI, Commands, and FileOperations MVP services.
 9. The generic form-builder model is reserved as adapter contracts only; no
    duplicate Automation UI implementation is introduced outside `Salamatrix.UI`.
-10. The next MVP can turn `IUIService`, `ICommandService`,
+10. The in-process Salamatrix PoC wires UI, Commands, FileOperations, and
+   Automation adapters together without requiring service registration yet.
+11. The next MVP can turn `IUIService`, `ICommandService`,
    `IFileOperationsService`, and the Automation adapter into registered runtime
    services without revisiting the naming and service-discovery foundation.
