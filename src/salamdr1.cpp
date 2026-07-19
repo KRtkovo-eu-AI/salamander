@@ -4900,7 +4900,43 @@ FIND_NEW_SLG_FILE:
     if (ConfigurationStorage.LoadUseWindowsDarkMode(useDarkFromConfig))
         Configuration.UseWindowsDarkMode = useDarkFromConfig;
 
-    if (Configuration.ShowSplashScreen)
+    // Compute forceWelcomeDialog early so we can skip the splash screen on first run
+    static char portableConfigPath[SAL_MAX_PATH];
+    portableConfigPath[0] = 0;
+    if (storageType == cstRegFile && storageRegFilePath[0] != 0)
+        strncpy_s(portableConfigPath, storageRegFilePath, _TRUNCATE);
+    else
+        ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
+    BOOL portableConfigExists = !restrictedFileStorageImported && portableConfigPath[0] != 0 &&
+                                GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
+
+    BOOL currentRegistryConfigExistsAtStartup = FALSE;
+    HKEY hStartupRootKey;
+    if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hStartupRootKey))
+    {
+        HKEY hStartupCfgKey;
+        if (OpenKey(hStartupRootKey, SALAMANDER_CONFIG_REG, hStartupCfgKey))
+        {
+            currentRegistryConfigExistsAtStartup = TRUE;
+            CloseKey(hStartupCfgKey);
+        }
+        CloseKey(hStartupRootKey);
+    }
+
+    BOOL bootstrapStorageUsable = FALSE;
+    if (storageTypeFromBootstrap)
+    {
+        if (storageType == cstRegFile)
+            bootstrapStorageUsable = portableConfigExists;
+        else
+            bootstrapStorageUsable = currentRegistryConfigExistsAtStartup;
+    }
+
+    BOOL forceWelcomeDialog = ForceWelcomeDialog || (!autoImportConfig && (!storageTypeFromBootstrap || !bootstrapStorageUsable) &&
+                                                     !portableConfigExists && !currentRegistryConfigExistsAtStartup);
+
+    // Don't show splash screen during Welcome dialog (first run / no usable config)
+    if (Configuration.ShowSplashScreen && !forceWelcomeDialog)
         SplashScreenOpen();
 
     // okno pro import konfigurace obsahuje listview s checkboxama, musime inicializovat COMMON CONTROLS
@@ -4938,40 +4974,6 @@ FIND_NEW_SLG_FILE:
         HButtonTextBrush = HANDLES(CreateSolidBrush(darkText));
         gDarkModeBrushesOwned = true;
     }
-
-    static char portableConfigPath[SAL_MAX_PATH];
-    portableConfigPath[0] = 0;
-    if (storageType == cstRegFile && storageRegFilePath[0] != 0)
-        strncpy_s(portableConfigPath, storageRegFilePath, _TRUNCATE);
-    else
-        ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
-    BOOL portableConfigExists = !restrictedFileStorageImported && portableConfigPath[0] != 0 &&
-                                GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
-
-    BOOL currentRegistryConfigExistsAtStartup = FALSE;
-    HKEY hStartupRootKey;
-    if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hStartupRootKey))
-    {
-        HKEY hStartupCfgKey;
-        if (OpenKey(hStartupRootKey, SALAMANDER_CONFIG_REG, hStartupCfgKey))
-        {
-            currentRegistryConfigExistsAtStartup = TRUE;
-            CloseKey(hStartupCfgKey);
-        }
-        CloseKey(hStartupRootKey);
-    }
-
-    BOOL bootstrapStorageUsable = FALSE;
-    if (storageTypeFromBootstrap)
-    {
-        if (storageType == cstRegFile)
-            bootstrapStorageUsable = portableConfigExists;
-        else
-            bootstrapStorageUsable = currentRegistryConfigExistsAtStartup;
-    }
-
-    BOOL forceWelcomeDialog = ForceWelcomeDialog || (!autoImportConfig && (!storageTypeFromBootstrap || !bootstrapStorageUsable) &&
-                                                     !portableConfigExists && !currentRegistryConfigExistsAtStartup);
 
     // pokud soubor existuje, bude importovan do registry; v portable file rezimu
     // je config.reg aktivni storage backend, ne legacy auto-import do HKCU

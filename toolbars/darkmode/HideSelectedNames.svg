@@ -31,19 +31,19 @@
 	</g>
 </g>
 <g>
-	<polygon fill="#2B2B2B" points="2.5,6.5 2.5,2.5 5.5,2.5 5.5,3.5 6.5,3.5 6.5,6.5 	"/>
+	<polygon fill="#ffffff" points="2.5,6.5 2.5,2.5 5.5,2.5 5.5,3.5 6.5,3.5 6.5,6.5 	"/>
 	<path fill="#C8C8C8" d="M5,3v1h1v2H3V3H5 M6,2H2v5h5V3H6V2L6,2z"/>
 </g>
 <g>
-	<polygon fill="#2B2B2B" points="2.5,12.5 2.5,8.5 5.5,8.5 5.5,9.5 6.5,9.5 6.5,12.5 	"/>
+	<polygon fill="#ffffff" points="2.5,12.5 2.5,8.5 5.5,8.5 5.5,9.5 6.5,9.5 6.5,12.5 	"/>
 	<path fill="#C8C8C8" d="M5,9v1h1v2H3V9H5 M6,8H2v5h5V9H6V8L6,8z"/>
 </g>
 <g>
-	<polygon fill="#2B2B2B" points="10.5,12.5 10.5,8.5 13.5,8.5 13.5,9.5 14.5,9.5 14.5,12.5 	"/>
+	<polygon fill="#ffffff" points="10.5,12.5 10.5,8.5 13.5,8.5 13.5,9.5 14.5,9.5 14.5,12.5 	"/>
 	<path d="M13,9v1h1v2h-3V9H13 M14,8h-4v5h5V9h-1V8L14,8z"/>
 </g>
 <g>
-	<polygon fill="#2B2B2B" points="10.5,6.5 10.5,2.5 13.5,2.5 13.5,3.5 14.5,3.5 14.5,6.5 	"/>
+	<polygon fill="#ffffff" points="10.5,6.5 10.5,2.5 13.5,2.5 13.5,3.5 14.5,3.5 14.5,6.5 	"/>
 	<path d="M13,3v1h1v2h-3V3H13 M14,2h-4v5h5V3h-1V2L14,2z"/>
 </g>
 </svg>
