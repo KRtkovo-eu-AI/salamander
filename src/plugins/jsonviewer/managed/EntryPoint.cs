@@ -6,6 +6,7 @@
 using System;
 using System.Globalization;
 using System.Windows.Forms;
+using EPocalipse.Json.Viewer;
 
 namespace OpenSalamander.JsonViewer;
 
@@ -64,6 +65,7 @@ public static class EntryPoint
         }
 
         Application.EnableVisualStyles();
+        ThemeHelper.InitializeNativeDarkMode();
 
         try
         {
