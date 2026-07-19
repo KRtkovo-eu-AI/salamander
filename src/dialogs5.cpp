@@ -3272,7 +3272,12 @@ static void SetMenuBitmapAndRemember(HMENU hMenu, UINT id, HBITMAP hBitmap, std:
 {
     if (hBitmap != NULL)
     {
-        SetMenuItemBitmaps(hMenu, id, MF_BYCOMMAND, hBitmap, hBitmap);
+        MENUITEMINFO mii;
+        memset(&mii, 0, sizeof(mii));
+        mii.cbSize = sizeof(mii);
+        mii.fMask = MIIM_BITMAP;
+        mii.hbmpItem = hBitmap;
+        SetMenuItemInfo(hMenu, id, FALSE, &mii);
         bitmaps.push_back(hBitmap);
     }
 }
@@ -3433,8 +3438,8 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
         UINT id = 200 + (UINT)i;
         InsertMenu(hWindowsTerminal, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, id, wtProfiles[i].Name.c_str());
         wtProfiles[i].HBitmap = LoadWindowsTerminalProfileBitmap(wtProfiles[i]);
-        if (wtProfiles[i].HBitmap != NULL)
-            SetMenuItemBitmaps(hWindowsTerminal, id, MF_BYCOMMAND, wtProfiles[i].HBitmap, wtProfiles[i].HBitmap);
+        SetMenuBitmapAndRemember(hWindowsTerminal, id, wtProfiles[i].HBitmap, menuBitmaps);
+        wtProfiles[i].HBitmap = NULL; // ownership moved to menuBitmaps
     }
     InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hWindowsTerminal, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL));
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hTemplates, LoadStr(IDS_EXECUTE_TEMPLATES));
