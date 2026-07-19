@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 
 namespace EPocalipse.Json.Viewer
@@ -86,6 +87,8 @@ namespace EPocalipse.Json.Viewer
 
     internal static class NativeThemeRefreshScheduler
     {
+        private static readonly ConditionalWeakTable<Control, RefreshState> s_refreshes = new ConditionalWeakTable<Control, RefreshState>();
+
         public static void ScheduleNativeDarkModeRefresh(Control control)
         {
             if (!control.IsHandleCreated || control.IsDisposed)
@@ -93,26 +96,42 @@ namespace EPocalipse.Json.Viewer
                 return;
             }
 
-            int remainingPasses = 4;
-            var timer = new Timer { Interval = 50 };
-            timer.Tick += (_, _) =>
+            if (!s_refreshes.TryGetValue(control, out var state))
             {
-                if (control.IsDisposed || !control.IsHandleCreated || --remainingPasses <= 0)
+                state = new RefreshState();
+                s_refreshes.Add(control, state);
+                control.Disposed += (_, _) =>
                 {
-                    timer.Stop();
-                    timer.Dispose();
-                    return;
-                }
+                    StopRefresh(state);
+                    s_refreshes.Remove(control);
+                };
+            }
 
-                ThemeHelper.ApplyNativeDarkMode(control);
-                control.Invalidate(true);
-            };
-            control.Disposed += (_, _) =>
+            state.Timer?.Stop();
+            state.Timer?.Dispose();
+
+            state.Timer = new Timer { Interval = 25 };
+            state.Timer.Tick += (_, _) =>
             {
-                timer.Stop();
-                timer.Dispose();
+                StopRefresh(state);
+                if (!control.IsDisposed && control.IsHandleCreated)
+                {
+                    ThemeHelper.ApplyNativeDarkMode(control);
+                }
             };
-            timer.Start();
+            state.Timer.Start();
+        }
+
+        private static void StopRefresh(RefreshState state)
+        {
+            state.Timer?.Stop();
+            state.Timer?.Dispose();
+            state.Timer = null;
+        }
+
+        private sealed class RefreshState
+        {
+            public Timer Timer { get; set; }
         }
     }
 }
