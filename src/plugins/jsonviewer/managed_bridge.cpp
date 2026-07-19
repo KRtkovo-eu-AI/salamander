@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "managed_bridge.h"
+#include "../../darkmode.h"
 
 #include <metahost.h>
 #include <mscoree.h>
@@ -360,4 +361,22 @@ extern "C" __declspec(dllexport) UINT32 __stdcall JsonViewer_GetCurrentColor(int
     }
 
     return SalamanderGeneral->GetCurrentColor(color);
+}
+
+extern "C" __declspec(dllexport) void __stdcall JsonViewer_SetDarkModeState(BOOL enabled)
+{
+    DarkModeSetEnabled(enabled != FALSE);
+}
+
+extern "C" __declspec(dllexport) void __stdcall JsonViewer_ApplyDarkModeTree(HWND hwnd)
+{
+    DarkModeAllowDarkScrollbars(hwnd);
+    DarkModeApplyTree(hwnd);
+}
+
+extern "C" __declspec(dllexport) void __stdcall JsonViewer_UpdateListViewDarkMode(HWND hwnd)
+{
+    DarkModeAllowDarkScrollbars(hwnd);
+    DarkModeApplyTree(hwnd);
+    DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }

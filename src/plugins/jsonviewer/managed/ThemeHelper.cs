@@ -40,6 +40,7 @@ namespace EPocalipse.Json.Viewer
                 return;
             }
 
+            NativeMethods.SetDarkModeEnabled(palette.Value.IsDark);
             ApplyToControl(form, palette.Value);
             ApplyFormChrome(form, palette.Value);
 
@@ -48,7 +49,9 @@ namespace EPocalipse.Json.Viewer
                 var refreshed = GetPalette();
                 if (refreshed.HasValue)
                 {
+                    NativeMethods.SetDarkModeEnabled(refreshed.Value.IsDark);
                     NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark, refreshed.Value.ControlBorder);
+                    NativeMethods.ApplyDarkModeTree(form.Handle);
                     ApplyFormChrome(form, refreshed.Value);
                 }
             };
@@ -56,6 +59,7 @@ namespace EPocalipse.Json.Viewer
             if (form.IsHandleCreated)
             {
                 NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.ControlBorder);
+                NativeMethods.ApplyDarkModeTree(form.Handle);
             }
         }
 
@@ -261,7 +265,7 @@ namespace EPocalipse.Json.Viewer
                 control.HandleCreated += ControlOnHandleCreatedApplyScrollbarTheme;
                 if (control.IsHandleCreated)
                 {
-                    NativeMethods.ApplyDarkScrollbarTheme(control.Handle);
+                    ApplyNativeTheme(control);
                 }
             }
         }
@@ -271,6 +275,18 @@ namespace EPocalipse.Json.Viewer
             if (sender is Control control && GetPalette() is ThemePalette palette)
             {
                 ApplyNativeScrollbarTheme(control, palette);
+            }
+        }
+
+        private static void ApplyNativeTheme(Control control)
+        {
+            if (control is ListView)
+            {
+                NativeMethods.UpdateListViewDarkMode(control.Handle);
+            }
+            else
+            {
+                NativeMethods.ApplyDarkModeTree(control.Handle);
             }
         }
 
@@ -816,6 +832,15 @@ namespace EPocalipse.Json.Viewer
             [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
             public static extern uint JsonViewer_GetCurrentColor(int color);
 
+            [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+            private static extern void JsonViewer_SetDarkModeState([MarshalAs(UnmanagedType.Bool)] bool enabled);
+
+            [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+            private static extern void JsonViewer_ApplyDarkModeTree(IntPtr hwnd);
+
+            [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+            private static extern void JsonViewer_UpdateListViewDarkMode(IntPtr hwnd);
+
             [DllImport("dwmapi.dll", PreserveSig = true)]
             private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
@@ -835,6 +860,60 @@ namespace EPocalipse.Json.Viewer
                 catch (EntryPointNotFoundException)
                 {
                     return 0;
+                }
+            }
+
+            public static void SetDarkModeEnabled(bool enabled)
+            {
+                try
+                {
+                    JsonViewer_SetDarkModeState(enabled);
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
+                }
+            }
+
+            public static void ApplyDarkModeTree(IntPtr handle)
+            {
+                if (handle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    JsonViewer_ApplyDarkModeTree(handle);
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    ApplyDarkScrollbarTheme(handle);
+                }
+            }
+
+            public static void UpdateListViewDarkMode(IntPtr handle)
+            {
+                if (handle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    JsonViewer_UpdateListViewDarkMode(handle);
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    ApplyDarkModeTree(handle);
                 }
             }
 
