@@ -3629,10 +3629,14 @@ static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& prof
 {
     if (!profile.CommandLine.empty())
         return;
-    if (ContainsTextI(profile.Name, "PowerShell 7") || ContainsTextI(profile.Name, "pwsh"))
+    if (ContainsTextI(profile.Source, "Windows.Terminal.PowershellCore") ||
+        ContainsTextI(profile.Name, "PowerShell 7") || ContainsTextI(profile.Name, "pwsh"))
         profile.CommandLine = "pwsh.exe";
-    else if (ContainsTextI(profile.Name, "PowerShell"))
+    else if (ContainsTextI(profile.Source, "Windows.Terminal.WindowsPowerShell") ||
+             ContainsTextI(profile.Name, "Windows PowerShell"))
         profile.CommandLine = "powershell.exe";
+    else if (ContainsTextI(profile.Name, "PowerShell"))
+        profile.CommandLine = "pwsh.exe";
     else if (ContainsTextI(profile.Name, "Command Prompt") || ContainsTextI(profile.Name, "cmd"))
         profile.CommandLine = "cmd.exe";
     else if (ContainsTextI(profile.Name, "Ubuntu") || ContainsTextI(profile.Name, "Debian") ||
