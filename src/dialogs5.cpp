@@ -21,6 +21,7 @@
 #include "shellib.h"
 #include "consts.h"
 #include "darkmode.h"
+#include "svg.h"
 #include "third_party/darkmodelib/include/Darkmodelib.h"
 
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // after reopening Plugins Manager, select the last chosen plugin
@@ -3248,8 +3249,94 @@ static HBITMAP CreateMenuBitmapFromIcon(HICON hIcon)
     return hBitmap;
 }
 
+
+static HBITMAP LoadBuiltinShellSVG(const char* svgName)
+{
+    HBITMAP hBitmap = NULL;
+    RenderSVGIconBitmap(svgName, 16, TRUE, &hBitmap);
+    return hBitmap;
+}
+
+static BOOL IsDeveloperProfile(const CWindowsTerminalProfile& profile)
+{
+    return ContainsTextI(profile.Name, "Developer ") &&
+           (ContainsTextI(profile.Name, "Visual Studio") || ContainsTextI(profile.Name, " VS"));
+}
+
+static HBITMAP ComposeVisualStudioOverlay(HBITMAP hBase)
+{
+    HBITMAP hVisualStudio = LoadBuiltinShellSVG("VisualStudio");
+    if (hBase == NULL || hVisualStudio == NULL)
+    {
+        if (hVisualStudio != NULL)
+            HANDLES(DeleteObject(hVisualStudio));
+        return hBase;
+    }
+
+    HDC hDC = HANDLES(GetDC(NULL));
+    HDC hDstDC = HANDLES(CreateCompatibleDC(hDC));
+    HDC hSrcDC = HANDLES(CreateCompatibleDC(hDC));
+    HBITMAP hOldDst = (HBITMAP)SelectObject(hDstDC, hBase);
+    HBITMAP hOldSrc = (HBITMAP)SelectObject(hSrcDC, hVisualStudio);
+    BLENDFUNCTION bf;
+    bf.BlendOp = AC_SRC_OVER;
+    bf.BlendFlags = 0;
+    bf.SourceConstantAlpha = 255;
+    bf.AlphaFormat = AC_SRC_ALPHA;
+    AlphaBlend(hDstDC, 8, 8, 8, 8, hSrcDC, 0, 0, 16, 16, bf);
+    SelectObject(hSrcDC, hOldSrc);
+    SelectObject(hDstDC, hOldDst);
+    HANDLES(DeleteDC(hSrcDC));
+    HANDLES(DeleteDC(hDstDC));
+    HANDLES(ReleaseDC(NULL, hDC));
+    HANDLES(DeleteObject(hVisualStudio));
+    return hBase;
+}
+
+static HBITMAP LoadBuiltinWindowsTerminalProfileBitmap(const CWindowsTerminalProfile& profile)
+{
+    HBITMAP hBitmap = NULL;
+    if (ContainsTextI(profile.Name, "Azure Cloud Shell"))
+        hBitmap = LoadBuiltinShellSVG("AzureCloudShell");
+    else if (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.Name, "PowerShell 7"))
+        hBitmap = LoadBuiltinShellSVG("PowerShell");
+    else if (ContainsTextI(profile.CommandLine, "powershell") || ContainsTextI(profile.Name, "Windows PowerShell"))
+        hBitmap = LoadBuiltinShellSVG("WindowsPowerShell");
+    else if (ContainsTextI(profile.Name, "PowerShell"))
+        hBitmap = LoadBuiltinShellSVG("PowerShell");
+
+    if (IsDeveloperProfile(profile))
+    {
+        if (hBitmap == NULL)
+        {
+            CWindowsTerminalProfile inferred = profile;
+            InferWindowsTerminalProfileCommandLine(inferred);
+            if (ContainsTextI(inferred.CommandLine, "cmd"))
+            {
+                SHFILEINFO shfi;
+                memset(&shfi, 0, sizeof(shfi));
+                if (SHGetFileInfo("cmd.exe", 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES) != 0)
+                {
+                    hBitmap = CreateMenuBitmapFromIcon(shfi.hIcon);
+                    DestroyIcon(shfi.hIcon);
+                }
+            }
+            else if (ContainsTextI(inferred.CommandLine, "powershell"))
+                hBitmap = LoadBuiltinShellSVG("WindowsPowerShell");
+            else if (ContainsTextI(inferred.CommandLine, "pwsh"))
+                hBitmap = LoadBuiltinShellSVG("PowerShell");
+        }
+        hBitmap = ComposeVisualStudioOverlay(hBitmap);
+    }
+    return hBitmap;
+}
+
 static HBITMAP LoadWindowsTerminalProfileBitmap(const CWindowsTerminalProfile& profile)
 {
+    HBITMAP hBuiltin = LoadBuiltinWindowsTerminalProfileBitmap(profile);
+    if (hBuiltin != NULL)
+        return hBuiltin;
+
     SHFILEINFO shfi;
     memset(&shfi, 0, sizeof(shfi));
     if (!profile.Icon.empty() && FileExists(profile.Icon.c_str()) &&
