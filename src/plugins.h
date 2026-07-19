@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1885,6 +1885,10 @@ public:
 public:
     CSalamanderGeneral();
     ~CSalamanderGeneral();
+
+    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
+    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
+    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
 
     // must be called immediately after the plugin's entry point
     void Init(CPluginInterfaceAbstract* plugin) { Plugin = plugin; }

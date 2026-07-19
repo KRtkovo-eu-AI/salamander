@@ -625,9 +625,10 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
         Salamatrix::Poc::RunAllResult result = Salamatrix::Poc::RunAllPoc(SalamanderGeneral, salamander);
         char message[1024];
         _snprintf_s(message, _TRUNCATE,
-                    "Salamatrix PoC summary:\n\nServices registered: %s (%d services)\nNative progress: %s\nScript progress: %s\nQuick Rename command: %s\nCopy dialog command: %s",
+                    "Salamatrix PoC summary:\n\nLocal services registered: %s (%d services)\nHost services registered: %s\nNative progress: %s\nScript progress: %s\nQuick Rename command: %s\nCopy dialog command: %s",
                     result.ServicesRegistered ? "yes" : "no",
                     result.ServiceCount,
+                    result.HostServicesRegistered ? "yes" : "no",
                     Salamatrix::Poc::ResultToText(result.NativeProgress),
                     Salamatrix::Poc::ResultToText(result.ScriptProgress),
                     Salamatrix::Poc::ResultToText(result.QuickRename),

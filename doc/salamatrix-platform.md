@@ -116,7 +116,7 @@ and use it to obtain core services such as the general, debug, and GUI
 interfaces. The service lookup should therefore be exposed either from the plugin
 entry interface or from `CSalamanderGeneralAbstract`.
 
-Recommended shape:
+Implemented MVP shape:
 
 ```cpp
 struct CSalamanderServiceQuery
@@ -138,31 +138,32 @@ virtual BOOL WINAPI QueryService(
     CSalamanderServiceResult* result) = 0;
 ```
 
-For a smaller MVP, this can be reduced to:
+The MVP also adds `UnregisterService(serviceId, serviceInterface)` so temporary
+PoC providers can safely remove stack-owned service instances before returning
+from DemoPlug command handlers.
 
-```cpp
-virtual void* WINAPI QueryService(
-    const char* serviceId,
-    DWORD minimumVersion,
-    DWORD* providedVersion) = 0;
-```
-
-A richer result structure is preferred because it allows diagnostics, provider
-identification, and future flags without changing the ABI again.
+The core-facing MVP is now implemented on `CSalamanderGeneralAbstract` and backed
+by a process-local registry in `CSalamanderGeneral`. `Runtime::RuntimeServices`
+registers the PoC UI, Commands, FileOperations, and Automation services with both
+its local registry and the host registry while the runtime object is alive.
 
 ### Provider registration
 
 Runtime plugins should register services during their plugin entry/init phase,
 after their own version check and language/resource initialization succeed.
 
-Recommended shape:
+Implemented MVP shape:
 
 ```cpp
 virtual BOOL WINAPI RegisterService(
     const char* serviceId,
     DWORD version,
     void* serviceInterface,
-    CPluginInterfaceAbstract* providerPlugin) = 0;
+    const char* providerName) = 0;
+
+virtual BOOL WINAPI UnregisterService(
+    const char* serviceId,
+    void* serviceInterface) = 0;
 ```
 
 The registry must reject duplicate providers for the same service/version unless
@@ -425,12 +426,14 @@ The first in-process proof-of-concept wiring is declared in:
 src/plugins/salamatrix/salamatrix_poc.h
 ```
 
-This PoC is intentionally small and uses an in-process service registry instead
-of registering a real runtime plugin yet. It proves that the MVP contracts can be
+This PoC is intentionally small and uses both a local in-process service registry
+and the new core-facing `CSalamanderGeneralAbstract` service registry instead of
+registering a real runtime plugin yet. It proves that the MVP contracts can be
 composed inside a native plugin call:
 
-- `Runtime::ServiceRegistry` provides a minimal fixed-size in-process
-  `RegisterService`/`QueryService` implementation.
+- `Runtime::ServiceRegistry` provides a minimal fixed-size local
+  `RegisterService`/`QueryService` implementation, while `CSalamanderGeneral`
+  provides the core-facing registry used by plugin consumers.
 - `Runtime::LocalUIService` implements `Salamatrix::UI::IUIService` by creating
   and destroying `Salamatrix::UI::ProgressDialog` objects over the existing
   `CSalamanderForOperationsAbstract` progress API.
@@ -449,8 +452,8 @@ It exposes a `Run All PoC` summary command, a progress PoC command, a Quick
 Rename command PoC, and a Copy dialog PoC. The individual menu entries are always
 enabled; for these PoC menu commands the adapter bypasses panel enabler checks so
 the summary reports whether the existing command was accepted/posted rather than
-whether the current panel context has a focused or selected item. The progress command calls the native progress
-PoC and the script-facing progress adapter PoC from
+whether the current panel context has a focused or selected item. The progress
+command calls the native progress PoC and the script-facing progress adapter PoC from
 `CPluginInterfaceForMenuExt::ExecuteMenuItem`, while the Quick Rename and Copy
 entries route through the Commands/FileOperations adapters.
 After this in-plugin sample is proven useful, the same wiring can move behind
@@ -479,9 +482,9 @@ The platform skeleton is ready when:
 9. The generic form-builder model is reserved as adapter contracts only; no
    duplicate Automation UI implementation is introduced outside `Salamatrix.UI`.
 10. The in-process Salamatrix PoC wires UI, Commands, FileOperations,
-   Automation adapters, and a minimal service registry together and is exposed as
-   a DemoPlug `Salamatrix PoC` menu sample without requiring core service
-   registration yet.
+   Automation adapters, a local service registry, and the core-facing
+   `CSalamanderGeneral` service registry together and is exposed as a DemoPlug
+   `Salamatrix PoC` menu sample.
 11. The next MVP can turn `IUIService`, `ICommandService`,
    `IFileOperationsService`, and the Automation adapter into registered runtime
    services without revisiting the naming and service-discovery foundation.
