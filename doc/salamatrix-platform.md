@@ -95,18 +95,27 @@ Salamatrix.UI
 Salamatrix.Commands
 Salamatrix.FileOperations
 Salamatrix.Runtime
+Salamatrix.Automation
 ```
 
-Recommended C-style constants for future public headers:
+Implemented C-style constants in the Salamatrix headers:
 
 ```cpp
 #define SALAMATRIX_SERVICE_UI              "Salamatrix.UI"
 #define SALAMATRIX_SERVICE_COMMANDS        "Salamatrix.Commands"
 #define SALAMATRIX_SERVICE_FILEOPERATIONS  "Salamatrix.FileOperations"
 #define SALAMATRIX_SERVICE_RUNTIME         "Salamatrix.Runtime"
+#define SALAMATRIX_SERVICE_AUTOMATION_ADAPTER "Salamatrix.Automation"
 
-#define SALAMATRIX_VERSION_1_0 0x00010000
+#define SALAMATRIX_UI_VERSION_1_0             0x00010000
+#define SALAMATRIX_COMMANDS_VERSION_1_0       0x00010000
+#define SALAMATRIX_FILEOPERATIONS_VERSION_1_0 0x00010000
+#define SALAMATRIX_AUTOMATION_VERSION_1_0     0x00010000
 ```
+
+The runtime service id is reserved for the provider/runtime surface; the current
+host registration publishes the UI, Commands, FileOperations, and Automation
+adapter services.
 
 ## Service lookup API
 
@@ -130,7 +139,7 @@ struct CSalamanderServiceResult
 {
     void* Interface;
     DWORD Version;
-    const char* ProviderPluginName;
+    const char* ProviderName;
 };
 
 virtual BOOL WINAPI QueryService(
@@ -183,7 +192,14 @@ fatal.
 Recommended helper behavior for required services:
 
 ```cpp
-if (!QueryService("Salamatrix.UI", SALAMATRIX_VERSION_1_0, &ui))
+CSalamanderServiceQuery query;
+memset(&query, 0, sizeof(query));
+query.ServiceId = SALAMATRIX_SERVICE_UI;
+query.MinimumVersion = SALAMATRIX_UI_VERSION_1_0;
+
+CSalamanderServiceResult result;
+memset(&result, 0, sizeof(result));
+if (!SalamanderGeneral->QueryService(&query, &result) || result.Interface == NULL)
 {
     SalamanderGeneral->SalMessageBox(
         parent,
@@ -293,22 +309,31 @@ The object covers the MVP lifecycle and control flow:
 8. `Close()` closes the dialog explicitly, and the C++ adapter destructor closes
    it as a final safety net.
 
-The first script mapping should remain user-facing through the `Salamander` root
-object while still being backed by `Salamatrix.UI` internally:
+The first script mapping is now exposed through the `Salamander` root object and
+is backed by `Salamatrix.UI` internally:
 
-```python
-with Salamander.UI.progress("Processing files") as progress:
-    progress.total = len(files)
-    for file in files:
-        progress.add_text(file.name)
-        if not progress.step(1):
-            progress.cancel_enabled = False
-            break
+```javascript
+var progress = Salamander.UI.progress("Processing files");
+progress.Maximum = files.length;
+progress.Show();
+try {
+    for (var i = 0; i < files.length; ++i) {
+        progress.AddText(files[i].Name);
+        progress.Position = i + 1;
+        if (progress.IsCancelled) {
+            progress.CanCancel = false;
+            break;
+        }
+    }
+}
+finally {
+    progress.Hide();
+}
 ```
 
-Existing Automation scripts may keep using `Salamander.ProgressDialog`; a later
-adapter can expose `Salamander.UI.progress(...)` as a more structured wrapper
-without breaking the older object.
+Existing Automation scripts may keep using `Salamander.ProgressDialog`; the new
+`Salamander.UI.progress(...)` path returns the same progress Automation interface
+but is backed by `Salamatrix.UI` through the Automation bridge.
 
 ## Salamatrix.Commands and FileOperations MVP
 
@@ -351,18 +376,18 @@ disabled, or no command service was available. `OperationResultCancel` is reserv
 for the next synchronous/modal integration step where a direct workflow wrapper
 can observe the dialog result.
 
-Recommended script mapping:
+Implemented script mapping:
 
-```python
-Salamander.Commands.execute("QuickRename")
-Salamander.FileOperations.rename_interactive()
-Salamander.FileOperations.copy_interactive()
-Salamander.FileOperations.move_interactive()
+```javascript
+Salamander.Commands.execute("QuickRename")              // returns "ok", "cancel", or "error"
+Salamander.FileOperations.rename_interactive()          // returns "ok", "cancel", or "error"
+Salamander.FileOperations.copy_interactive()            // returns "ok", "cancel", or "error"
+Salamander.FileOperations.move_interactive()            // returns "ok", "cancel", or "error"
 ```
 
-The script layer should convert `OperationResultError` to a readable exception
-and may expose `OperationResultCancel` as `False`, `None`, or a typed result
-object depending on the final scripting style.
+Missing Salamatrix runtime services are converted by the Automation wrapper to a
+readable script exception: `This script requires Salamatrix Runtime to be
+installed and loaded.`
 
 ## Salamatrix Automation adapter MVP
 
@@ -490,18 +515,39 @@ The initial command catalog is deliberately small and stable: `QuickRename`,
 handlers and require the current panel context to make the command meaningful.
 
 
-For the first real scripted-extension sample, Automation recognizes optional
-script header metadata:
+For the first real scripted-extension sample, Automation recognizes two MVP
+registration styles while discovering scripts in the existing script repository.
+
+Inline script metadata remains supported for tiny single-file samples:
 
 ```javascript
 // Salamatrix.CommandId: Salamatrix.ProgressDemo
 // Salamatrix.CommandTitle: Salamatrix Progress Demo
 ```
 
-This is the MVP command-registration path for script files discovered by the
-existing Automation script repository. The command id is stored with the script
-metadata and the title overrides the file-name-derived menu caption; execution
-continues to use the existing Automation script command workflow.
+The manifest-based MVP uses an `extension.json` file next to the script entry
+point:
+
+```json
+{
+  "id": "Salamatrix.ProgressDemo",
+  "name": "Salamatrix Progress Demo",
+  "runtime": "Automation.JScript",
+  "entryPoint": "main.js",
+  "commands": [
+    {
+      "id": "Salamatrix.ProgressDemo",
+      "title": "Salamatrix Progress Demo"
+    }
+  ]
+}
+```
+
+The current manifest reader intentionally supports only the MVP fields required
+by the sample: `id`, `name`/`title`, `runtime`, and `entryPoint`. The script is
+still executed by the existing Automation script command workflow; the manifest
+sets the stable Salamatrix command id and overrides the menu caption when
+`entryPoint` matches the discovered script file.
 
 ## MVP acceptance criteria
 
@@ -535,3 +581,7 @@ The platform skeleton is ready when:
 12. The Automation plugin contains a consumer-only bridge that refreshes and
    caches host-registered Salamatrix services instead of instantiating a local
    duplicate runtime.
+13. Automation 2.0 exposes `Salamander.UI`, `Salamander.Commands`, and
+   `Salamander.FileOperations` backed by the Salamatrix runtime bridge.
+14. Script discovery supports the first command-registration metadata and a
+   minimal `extension.json` manifest for the sample scripted extension.

@@ -1,0 +1,12 @@
+{
+  "id": "Salamatrix.ProgressDemo",
+  "name": "Salamatrix Progress Demo",
+  "runtime": "Automation.JScript",
+  "entryPoint": "main.js",
+  "commands": [
+    {
+      "id": "Salamatrix.ProgressDemo",
+      "title": "Salamatrix Progress Demo"
+    }
+  ]
+}
