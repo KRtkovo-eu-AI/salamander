@@ -608,15 +608,32 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
     {
         Salamatrix::Runtime::OperationResult nativeResult = Salamatrix::Poc::RunProgressDialogPoc(salamander);
         Salamatrix::Runtime::OperationResult scriptResult = Salamatrix::Poc::RunAutomationProgressPoc(salamander);
-        const char* message = nativeResult == Salamatrix::Runtime::OperationResultOk &&
-                                      scriptResult == Salamatrix::Runtime::OperationResultOk
-                                  ? "Salamatrix progress PoC finished."
-                                  : "Salamatrix progress PoC was cancelled or failed.";
+        char message[512];
+        _snprintf_s(message, _TRUNCATE,
+                    "Salamatrix Progress PoC finished.\n\nNative progress: %s\nScript progress: %s",
+                    Salamatrix::Poc::ResultToText(nativeResult),
+                    Salamatrix::Poc::ResultToText(scriptResult));
         SalamanderGeneral->SalMessageBox(parent, message, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
         return nativeResult == Salamatrix::Runtime::OperationResultError ||
                        scriptResult == Salamatrix::Runtime::OperationResultError
                    ? FALSE
                    : TRUE;
+    }
+
+    case MENUCMD_SALAMATRIX_RUN_ALL_POC:
+    {
+        Salamatrix::Poc::RunAllResult result = Salamatrix::Poc::RunAllPoc(SalamanderGeneral, salamander);
+        char message[1024];
+        _snprintf_s(message, _TRUNCATE,
+                    "Salamatrix PoC summary:\n\nServices registered: %s (%d services)\nNative progress: %s\nScript progress: %s\nQuick Rename command: %s\nCopy dialog command: %s",
+                    result.ServicesRegistered ? "yes" : "no",
+                    result.ServiceCount,
+                    Salamatrix::Poc::ResultToText(result.NativeProgress),
+                    Salamatrix::Poc::ResultToText(result.ScriptProgress),
+                    Salamatrix::Poc::ResultToText(result.QuickRename),
+                    Salamatrix::Poc::ResultToText(result.CopyInteractive));
+        SalamanderGeneral->SalMessageBox(parent, message, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
+        return result.ServicesRegistered;
     }
 
     case MENUCMD_SALAMATRIX_QUICKRENAME_POC:
@@ -934,9 +951,10 @@ CPluginInterfaceForMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract*
                                 MENU_SKILLLEVEL_BEGINNER | MENU_SKILLLEVEL_INTERMEDIATE | MENU_SKILLLEVEL_ADVANCED);
         salamander->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0, MENU_SKILLLEVEL_ALL); // separator
         salamander->AddSubmenuStart(-1, "Salamatrix PoC", 0, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+        salamander->AddMenuItem(-1, "Run &All PoC", 0, MENUCMD_SALAMATRIX_RUN_ALL_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
         salamander->AddMenuItem(-1, "Run &Progress PoC", 0, MENUCMD_SALAMATRIX_PROGRESS_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
-        salamander->AddMenuItem(-1, "Run &Quick Rename Command PoC", 0, MENUCMD_SALAMATRIX_QUICKRENAME_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_FILE_FOCUSED | MENU_EVENT_DIR_FOCUSED, MENU_SKILLLEVEL_ALL);
-        salamander->AddMenuItem(-1, "Run &Copy Dialog PoC", 0, MENUCMD_SALAMATRIX_COPY_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_FILES_SELECTED | MENU_EVENT_DIRS_SELECTED, MENU_SKILLLEVEL_ALL);
+        salamander->AddMenuItem(-1, "Run &Quick Rename Command PoC", 0, MENUCMD_SALAMATRIX_QUICKRENAME_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+        salamander->AddMenuItem(-1, "Run &Copy Dialog PoC", 0, MENUCMD_SALAMATRIX_COPY_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
         salamander->AddSubmenuEnd();
 
         salamander->AddMenuItem(-1, NULL, 0, MENUCMD_SEP, TRUE, 0, 0, MENU_SKILLLEVEL_ADVANCED); // separator
