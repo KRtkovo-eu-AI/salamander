@@ -74,7 +74,7 @@ All texts and strings has to be localized!
 When adding SVG icons to Salamander popup menus, use the same shared toolbar/menu image-list path that the Tab button bar context menu uses:
 
 1. Add the SVG file to both `toolbars/` and `src/res/toolbars/`, and include it in the Inno Setup script (`doc/runbook-setup/inno_setup_salamander_x64.iss`) so installed builds receive it.
-2. Add an embedded fallback entry in `src/svg.cpp`'s `BuiltinToolbarSVGs` table for the new SVG name.
+2. Do not hardcode newly added menu SVG artwork in `src/svg.cpp`; keep the SVG content in the files above and let `LoadToolbarSVG()` load it from the installed `toolbars` directory.
 3. Reserve a stable `IDX_TB_*` image index in `src/consts.h`. Keep `IDX_TB_FD` after all statically reserved SVG indices so dynamically appended shell icons do not overlap them.
 4. Add the SVG name and image index to `GetSVGIconsMainToolbar()` in `src/toolbar4.cpp`. Extra menu-only SVGs can be appended there without adding them as toolbar buttons.
 5. For every `CMenuPopup` that owns icon-bearing items, including nested submenus, call `SetImageList(HGrayToolBarImageList)` and `SetHotImageList(HHotToolBarImageList)`.
