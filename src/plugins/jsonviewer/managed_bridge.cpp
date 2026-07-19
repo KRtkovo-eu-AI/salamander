@@ -15,6 +15,8 @@
 
 namespace
 {
+constexpr UINT kDarkModeRedrawFlags = RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW;
+
 ICLRRuntimeHost* gRuntimeHost = nullptr;
 std::wstring gAssemblyPath;
 const wchar_t* const kManagedType = L"OpenSalamander.JsonViewer.EntryPoint";
@@ -221,6 +223,7 @@ BOOL CALLBACK ApplyJsonViewerDarkModeChild(HWND hwnd, LPARAM)
 {
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
+    RedrawWindow(hwnd, nullptr, nullptr, kDarkModeRedrawFlags);
     return TRUE;
 }
 
@@ -380,6 +383,7 @@ extern "C" __declspec(dllexport) void __stdcall JsonViewer_ApplyDarkModeTree(HWN
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
     EnumChildWindows(hwnd, ApplyJsonViewerDarkModeChild, 0);
+    RedrawWindow(hwnd, nullptr, nullptr, kDarkModeRedrawFlags);
 }
 
 extern "C" __declspec(dllexport) void __stdcall JsonViewer_UpdateListViewDarkMode(HWND hwnd)
@@ -387,5 +391,6 @@ extern "C" __declspec(dllexport) void __stdcall JsonViewer_UpdateListViewDarkMod
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
     EnumChildWindows(hwnd, ApplyJsonViewerDarkModeChild, 0);
+    RedrawWindow(hwnd, nullptr, nullptr, kDarkModeRedrawFlags);
     DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }
