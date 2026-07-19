@@ -39,6 +39,8 @@ CScriptInfo::CScriptInfo(
     pszNameStart = PathFindFileName(pszFileName);
     pszNameEnd = PathFindExtension(pszNameStart);
     StringCchCopyN(m_szDisplayName, _countof(m_szDisplayName), pszNameStart, pszNameEnd - pszNameStart);
+    m_szSalamatrixCommandId[0] = _T('\0');
+    LoadSalamatrixMetadata();
 
     m_clsidEngine = CLSID_NULL;
 
@@ -69,6 +71,78 @@ CScriptInfo::~CScriptInfo()
     if (m_pScript != NULL)
     {
         m_pScript->Release();
+    }
+}
+
+
+void CScriptInfo::ApplySalamatrixMetadataLine(PCTSTR pszLine)
+{
+    static const TCHAR COMMAND_ID_PREFIX[] = _T("// Salamatrix.CommandId:");
+    static const TCHAR COMMAND_TITLE_PREFIX[] = _T("// Salamatrix.CommandTitle:");
+
+    while (*pszLine == _T(' ') || *pszLine == _T('\t'))
+        ++pszLine;
+
+    if (_tcsnicmp(pszLine, COMMAND_ID_PREFIX, _countof(COMMAND_ID_PREFIX) - 1) == 0)
+    {
+        pszLine += _countof(COMMAND_ID_PREFIX) - 1;
+        while (*pszLine == _T(' ') || *pszLine == _T('\t'))
+            ++pszLine;
+        StringCchCopy(m_szSalamatrixCommandId, _countof(m_szSalamatrixCommandId), pszLine);
+    }
+    else if (_tcsnicmp(pszLine, COMMAND_TITLE_PREFIX, _countof(COMMAND_TITLE_PREFIX) - 1) == 0)
+    {
+        pszLine += _countof(COMMAND_TITLE_PREFIX) - 1;
+        while (*pszLine == _T(' ') || *pszLine == _T('\t'))
+            ++pszLine;
+        StringCchCopy(m_szDisplayName, _countof(m_szDisplayName), pszLine);
+    }
+}
+
+void CScriptInfo::LoadSalamatrixMetadata()
+{
+    HANDLE hFile = HANDLES_Q(CreateFile(m_szFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL));
+    if (hFile == INVALID_HANDLE_VALUE)
+        return;
+
+    char buffer[4097];
+    DWORD bytesRead = 0;
+    if (!ReadFile(hFile, buffer, sizeof(buffer) - 1, &bytesRead, NULL) || bytesRead == 0)
+    {
+        HANDLES(CloseHandle(hFile));
+        return;
+    }
+    HANDLES(CloseHandle(hFile));
+
+    buffer[bytesRead] = 0;
+
+    char* line = buffer;
+    while (line != NULL && *line != 0)
+    {
+        char* next = strchr(line, '\n');
+        if (next != NULL)
+        {
+            *next = 0;
+            ++next;
+        }
+
+        char* end = line + strlen(line);
+        while (end > line && (end[-1] == '\r' || end[-1] == '\n'))
+        {
+            --end;
+            *end = 0;
+        }
+
+#ifdef UNICODE
+        TCHAR wideLine[512];
+        MultiByteToWideChar(CP_ACP, 0, line, -1, wideLine, _countof(wideLine));
+        wideLine[_countof(wideLine) - 1] = 0;
+        ApplySalamatrixMetadataLine(wideLine);
+#else
+        ApplySalamatrixMetadataLine(line);
+#endif
+
+        line = next;
     }
 }
 

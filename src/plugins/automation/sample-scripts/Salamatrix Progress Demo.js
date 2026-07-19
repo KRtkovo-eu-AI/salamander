@@ -1,3 +1,5 @@
+// Salamatrix.CommandId: Salamatrix.ProgressDemo
+// Salamatrix.CommandTitle: Salamatrix Progress Demo
 // Demonstrates the Salamatrix-backed Automation API.
 // Requires the Salamatrix Runtime plugin to be installed and loaded.
 

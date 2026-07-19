@@ -57,6 +57,7 @@ public:
 private:
     TCHAR m_szFileName[MAX_PATH];
     TCHAR m_szDisplayName[64];
+    TCHAR m_szSalamatrixCommandId[64];
     CLSID m_clsidEngine;
     IActiveScript* m_pScript;
     class CScriptSite* m_pSite;
@@ -95,6 +96,8 @@ private:
 
     void InitializeDebugger(DEBUG_INFO* dbgInfo);
     void UninitializeDebugger(DEBUG_INFO* dbgInfo);
+    void LoadSalamatrixMetadata();
+    void ApplySalamatrixMetadataLine(PCTSTR pszLine);
 
     void ScriptEnter();
     void ScriptLeave();
@@ -119,6 +122,16 @@ public:
     PCTSTR GetDisplayName() const
     {
         return m_szDisplayName;
+    }
+
+    bool IsSalamatrixCommand() const
+    {
+        return m_szSalamatrixCommandId[0] != _T('\0');
+    }
+
+    PCTSTR GetSalamatrixCommandId() const
+    {
+        return m_szSalamatrixCommandId;
     }
 
     REFCLSID GetEngineCLSID() const
