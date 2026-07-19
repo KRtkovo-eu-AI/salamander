@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -199,8 +200,9 @@ namespace EPocalipse.Json.Viewer
                 case ComboBox comboBox:
                     comboBox.BackColor = palette.InputBackground;
                     comboBox.ForeColor = palette.InputForeground;
-                    comboBox.FlatStyle = FlatStyle.Standard;
+                    comboBox.FlatStyle = FlatStyle.Flat;
                     comboBox.DrawMode = DrawMode.OwnerDrawFixed;
+                    ComboBoxDarkModePainter.Attach(comboBox, palette);
                     comboBox.DrawItem -= ComboBoxOnDrawItem;
                     comboBox.DrawItem += ComboBoxOnDrawItem;
                     backgroundSet = true;
@@ -746,6 +748,137 @@ namespace EPocalipse.Json.Viewer
             public Color TabBorder { get; }
         }
 
+
+        private sealed class ComboBoxDarkModePainter : NativeWindow
+        {
+            private const int WM_PAINT = 0x000F;
+            private const int WM_NCPAINT = 0x0085;
+            private const int WM_PRINTCLIENT = 0x0318;
+
+            private static readonly ConditionalWeakTable<ComboBox, ComboBoxDarkModePainter> s_painters = new ConditionalWeakTable<ComboBox, ComboBoxDarkModePainter>();
+
+            private ComboBox _comboBox;
+            private ThemePalette _palette;
+
+            private ComboBoxDarkModePainter(ComboBox comboBox, ThemePalette palette)
+            {
+                _comboBox = comboBox;
+                _palette = palette;
+                AssignHandle(comboBox.Handle);
+                comboBox.HandleCreated += ComboBoxOnHandleCreated;
+                comboBox.HandleDestroyed += ComboBoxOnHandleDestroyed;
+                comboBox.Disposed += ComboBoxOnDisposed;
+            }
+
+            public static void Attach(ComboBox comboBox, ThemePalette palette)
+            {
+                if (!palette.IsDark)
+                {
+                    if (s_painters.TryGetValue(comboBox, out var existingLight))
+                    {
+                        existingLight.Detach();
+                        s_painters.Remove(comboBox);
+                    }
+                    return;
+                }
+
+                if (s_painters.TryGetValue(comboBox, out var existing))
+                {
+                    existing._palette = palette;
+                    if (comboBox.IsHandleCreated && existing.Handle != comboBox.Handle)
+                    {
+                        existing.AssignHandle(comboBox.Handle);
+                    }
+                    comboBox.Invalidate();
+                    return;
+                }
+
+                if (comboBox.IsHandleCreated)
+                {
+                    s_painters.Add(comboBox, new ComboBoxDarkModePainter(comboBox, palette));
+                    comboBox.Invalidate();
+                }
+            }
+
+            protected override void WndProc(ref Message m)
+            {
+                base.WndProc(ref m);
+
+                if (m.Msg == WM_PAINT || m.Msg == WM_NCPAINT || m.Msg == WM_PRINTCLIENT)
+                {
+                    PaintDropDownButton();
+                }
+            }
+
+            private void ComboBoxOnHandleCreated(object? sender, EventArgs e)
+            {
+                if (_comboBox.IsHandleCreated)
+                {
+                    AssignHandle(_comboBox.Handle);
+                    _comboBox.Invalidate();
+                }
+            }
+
+            private void ComboBoxOnHandleDestroyed(object? sender, EventArgs e)
+            {
+                ReleaseHandle();
+            }
+
+            private void ComboBoxOnDisposed(object? sender, EventArgs e)
+            {
+                Detach();
+                s_painters.Remove(_comboBox);
+            }
+
+            private void Detach()
+            {
+                _comboBox.HandleCreated -= ComboBoxOnHandleCreated;
+                _comboBox.HandleDestroyed -= ComboBoxOnHandleDestroyed;
+                _comboBox.Disposed -= ComboBoxOnDisposed;
+                ReleaseHandle();
+            }
+
+            private void PaintDropDownButton()
+            {
+                if (!_comboBox.IsHandleCreated || _comboBox.ClientSize.Width <= 0 || _comboBox.ClientSize.Height <= 0)
+                {
+                    return;
+                }
+
+                using var graphics = Graphics.FromHwnd(_comboBox.Handle);
+                var client = _comboBox.ClientRectangle;
+                int buttonWidth = Math.Max(SystemInformation.HorizontalScrollBarArrowWidth, _comboBox.Height);
+                var buttonBounds = new Rectangle(Math.Max(client.Left, client.Right - buttonWidth), client.Top, Math.Min(buttonWidth, client.Width), client.Height);
+
+                using (var background = new SolidBrush(_palette.InputBackground))
+                {
+                    graphics.FillRectangle(background, buttonBounds);
+                }
+
+                using (var border = new Pen(_palette.ControlBorder))
+                {
+                    var borderBounds = client;
+                    borderBounds.Width -= 1;
+                    borderBounds.Height -= 1;
+                    graphics.DrawRectangle(border, borderBounds);
+                    graphics.DrawLine(border, buttonBounds.Left, buttonBounds.Top, buttonBounds.Left, buttonBounds.Bottom - 1);
+                }
+
+                int arrowWidth = Math.Max(6, _comboBox.DeviceDpi / 16);
+                int arrowHeight = Math.Max(4, _comboBox.DeviceDpi / 24);
+                int centerX = buttonBounds.Left + buttonBounds.Width / 2;
+                int centerY = buttonBounds.Top + buttonBounds.Height / 2;
+                Point[] arrow =
+                {
+                    new Point(centerX - arrowWidth / 2, centerY - arrowHeight / 2),
+                    new Point(centerX + arrowWidth / 2, centerY - arrowHeight / 2),
+                    new Point(centerX, centerY + arrowHeight / 2)
+                };
+
+                using var arrowBrush = new SolidBrush(_palette.InputForeground);
+                graphics.FillPolygon(arrowBrush, arrow);
+            }
+        }
         private static class ThemeRenderer
         {
             public static void Attach(ToolStrip toolStrip, ThemePalette palette)
