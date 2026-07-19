@@ -12,13 +12,62 @@ namespace EPocalipse.Json.Viewer
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            ApplyCurrentTheme();
+            HookDynamicThemeUpdates();
+            ApplyCurrentThemeDeferred();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Visible)
+            {
+                ApplyCurrentThemeDeferred();
+            }
         }
 
         protected override void OnParentChanged(EventArgs e)
         {
             base.OnParentChanged(e);
+            ApplyCurrentThemeDeferred();
+        }
+
+        private void HookDynamicThemeUpdates()
+        {
+            pnlVisualizer.ControlAdded -= PnlVisualizerOnControlAddedApplyTheme;
+            pnlVisualizer.ControlAdded += PnlVisualizerOnControlAddedApplyTheme;
+            cbVisualizers.SelectedIndexChanged -= CbVisualizersOnSelectedIndexChangedApplyTheme;
+            cbVisualizers.SelectedIndexChanged += CbVisualizersOnSelectedIndexChangedApplyTheme;
+        }
+
+        private void PnlVisualizerOnControlAddedApplyTheme(object sender, ControlEventArgs e)
+        {
+            ApplyCurrentThemeDeferred();
+        }
+
+        private void CbVisualizersOnSelectedIndexChangedApplyTheme(object sender, EventArgs e)
+        {
+            ApplyCurrentThemeDeferred();
+        }
+
+        private void ApplyCurrentThemeDeferred()
+        {
             ApplyCurrentTheme();
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            BeginInvoke(new Action(() =>
+            {
+                ApplyCurrentTheme();
+                ThemeHelper.ApplyNativeDarkMode(pnlVisualizer);
+                ThemeHelper.ApplyNativeDarkMode(cbVisualizers);
+                foreach (Control child in pnlVisualizer.Controls)
+                {
+                    ThemeHelper.ApplyTheme(child);
+                    ThemeHelper.ApplyNativeDarkMode(child);
+                }
+            }));
         }
 
         private void ApplyCurrentTheme()
