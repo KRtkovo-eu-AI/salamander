@@ -48,6 +48,8 @@ namespace EPocalipse.Json.Viewer
 
             pnlVisualizer.BackColor = palette.Background;
             pnlVisualizer.ForeColor = palette.Foreground;
+            pnlVisualizer.SizeChanged -= PnlVisualizerOnSizeChanged;
+            pnlVisualizer.SizeChanged += PnlVisualizerOnSizeChanged;
             ThemeHelper.ApplyNativeDarkMode(pnlVisualizer);
             ThemeHelper.ApplyNativeDarkMode(cbVisualizers);
 
@@ -63,6 +65,29 @@ namespace EPocalipse.Json.Viewer
             lblError.LinkColor = palette.Accent;
             lblError.ActiveLinkColor = palette.HighlightForeground;
             lblError.VisitedLinkColor = palette.Accent;
+        }
+
+        private void PnlVisualizerOnSizeChanged(object sender, EventArgs e)
+        {
+            if (!IsHandleCreated || IsDisposed)
+            {
+                return;
+            }
+
+            BeginInvoke(new Action(() =>
+            {
+                if (IsDisposed || !pnlVisualizer.IsHandleCreated)
+                {
+                    return;
+                }
+
+                ThemeHelper.ApplyNativeDarkMode(pnlVisualizer);
+                foreach (Control visualizer in pnlVisualizer.Controls)
+                {
+                    ThemeHelper.ApplyNativeDarkMode(visualizer);
+                    NativeThemeRefreshScheduler.ScheduleNativeDarkModeRefresh(visualizer);
+                }
+            }));
         }
 
         private void StyleTabControl(ThemeHelper.ThemePalette palette)
