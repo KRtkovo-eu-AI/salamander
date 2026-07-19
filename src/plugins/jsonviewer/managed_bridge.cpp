@@ -217,6 +217,13 @@ void ShowLoadError(HWND parent, const wchar_t* text)
     MessageBoxW(parent, text, L"JSON Viewer .NET Plugin", MB_ICONERROR | MB_OK);
 }
 
+BOOL CALLBACK ApplyJsonViewerDarkModeChild(HWND hwnd, LPARAM)
+{
+    DarkModeAllowDarkScrollbars(hwnd);
+    DarkModeApplyTree(hwnd);
+    return TRUE;
+}
+
 } // namespace
 
 bool ManagedBridge_EnsureInitialized(HWND parent)
@@ -372,11 +379,13 @@ extern "C" __declspec(dllexport) void __stdcall JsonViewer_ApplyDarkModeTree(HWN
 {
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
+    EnumChildWindows(hwnd, ApplyJsonViewerDarkModeChild, 0);
 }
 
 extern "C" __declspec(dllexport) void __stdcall JsonViewer_UpdateListViewDarkMode(HWND hwnd)
 {
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
+    EnumChildWindows(hwnd, ApplyJsonViewerDarkModeChild, 0);
     DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }
