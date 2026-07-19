@@ -97,7 +97,9 @@ private:
     void InitializeDebugger(DEBUG_INFO* dbgInfo);
     void UninitializeDebugger(DEBUG_INFO* dbgInfo);
     void LoadSalamatrixMetadata();
+    void LoadSalamatrixManifestMetadata();
     void ApplySalamatrixMetadataLine(PCTSTR pszLine);
+    void ApplySalamatrixManifestValue(const char* key, const char* value);
 
     void ScriptEnter();
     void ScriptLeave();
