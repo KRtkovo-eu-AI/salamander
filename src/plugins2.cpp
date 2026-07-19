@@ -1361,6 +1361,10 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 dynMenuExt = (functions & FUNCTION_DYNAMICMENUEXT) != 0;
                 automationRuntime = (functions & FUNCTION_AUTOMATIONRUNTIME) != 0;
 
+                // Upgrade configurations saved before FUNCTION_AUTOMATIONRUNTIME existed.
+                if (!automationRuntime && StrICmp(regKeyName, "SALAMATRIX") == 0)
+                    automationRuntime = TRUE;
+
                 DWORD loadOnStartDWORD;
                 if (GetValue(itemKey, SALAMANDER_PLUGINS_LOADONSTART, REG_DWORD, &loadOnStartDWORD, sizeof(DWORD)))
                 {
@@ -1636,7 +1640,9 @@ void CPlugins::Save(HWND parent, HKEY regKey, HKEY regKeyConfig, HKEY regKeyOrde
                 functions |= p->SupportViewer ? FUNCTION_VIEWER : 0;
                 functions |= p->SupportFS ? FUNCTION_FILESYSTEM : 0;
                 functions |= p->SupportDynMenuExt ? FUNCTION_DYNAMICMENUEXT : 0;
-                functions |= p->SupportAutomationRuntime ? FUNCTION_AUTOMATIONRUNTIME : 0;
+                BOOL supportAutomationRuntime = p->SupportAutomationRuntime ||
+                                                (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
+                functions |= supportAutomationRuntime ? FUNCTION_AUTOMATIONRUNTIME : 0;
 
                 SetValue(itemKey, SALAMANDER_PLUGINS_FUNCTIONS, REG_DWORD, &functions, sizeof(DWORD));
 
