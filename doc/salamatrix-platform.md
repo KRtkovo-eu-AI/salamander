@@ -363,6 +363,60 @@ The script layer should convert `OperationResultError` to a readable exception
 and may expose `OperationResultCancel` as `False`, `None`, or a typed result
 object depending on the final scripting style.
 
+## Salamatrix Automation adapter MVP
+
+The first script/Automation adapter contract is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_automation.h
+```
+
+The adapter is deliberately thin: it owns no dialog resources and implements no
+parallel UI behavior. It receives native `Salamatrix.UI`, `Salamatrix.Commands`,
+and `Salamatrix.FileOperations` services and exposes script-shaped wrapper
+objects over them. This keeps the Automation/COM layer as an adapter instead of
+a second UI framework.
+
+MVP script facade mapping:
+
+```text
+Salamander.UI.progress(...)              -> Salamatrix::Automation::ScriptUIAdapter
+Salamander.Commands.execute(...)         -> Salamatrix::Automation::ScriptCommandsAdapter
+Salamander.FileOperations.*_interactive  -> Salamatrix::Automation::ScriptFileOperationsAdapter
+```
+
+`ScriptProgressDialog` creates a native `Salamatrix::UI::IProgressDialog` through
+`IUIService`, opens it with the supplied title, delegates `total`, `add_text`,
+`step`, `is_cancelled`, and `cancel_enabled`, then closes and destroys the native
+progress object when the script wrapper is destroyed. Existing Automation
+`Salamander.ProgressDialog` can remain as a compatibility facade and later be
+implemented on top of the same `IUIService`.
+
+`ScriptCommandsAdapter::Execute(...)` delegates to `ICommandService::Execute(...)`
+so script calls such as `Salamander.Commands.execute("QuickRename")` still use the
+existing Salamander command handlers. `ScriptFileOperationsAdapter` delegates
+`rename_interactive`, `copy_interactive`, and `move_interactive` to
+`IFileOperationsService`, which in the MVP routes to the existing Quick Rename,
+Copy, and Move workflows.
+
+The generic form builder is intentionally not part of this MVP. The adapter file
+only reserves the minimal future object model needed to connect the existing
+Automation GUI component approach to the native `Salamatrix.UI` core:
+
+- `Dialog` -> `IDialogAdapter`
+- `Container` -> `IContainerAdapter`
+- `Label` -> `ControlKindLabel`
+- `TextBox` -> `ControlKindTextBox`
+- `CheckBox` -> `ControlKindCheckBox`
+- `ComboBox` -> `ControlKindComboBox`
+- `Button` -> `ControlKindButton`
+- `ListView` -> `ControlKindListView`
+
+The current Automation GUI layer already separates component state, containers,
+window creation, and individual control implementations. The Salamatrix direction
+is to move the native control model into `Salamatrix.UI` and leave Automation
+classes as COM/IDispatch wrappers over those native objects.
+
 ## MVP acceptance criteria
 
 The platform skeleton is ready when:
@@ -381,6 +435,10 @@ The platform skeleton is ready when:
 7. The first `Salamatrix.Commands` and `Salamatrix.FileOperations` contracts
    exist and route their MVP interactive behavior through existing Salamander
    command/workflow entry points.
-8. The next MVP can turn `IUIService`, `ICommandService`, and
-   `IFileOperationsService` into registered runtime services without revisiting
-   the naming and service-discovery foundation.
+8. The first `Salamatrix.Automation` adapter contract exposes script-shaped
+   wrappers over the native UI, Commands, and FileOperations MVP services.
+9. The generic form-builder model is reserved as adapter contracts only; no
+   duplicate Automation UI implementation is introduced outside `Salamatrix.UI`.
+10. The next MVP can turn `IUIService`, `ICommandService`,
+   `IFileOperationsService`, and the Automation adapter into registered runtime
+   services without revisiting the naming and service-discovery foundation.
