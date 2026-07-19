@@ -3055,7 +3055,47 @@ static BOOL ReadTextFile(const char* path, std::string& text)
     return TRUE;
 }
 
-static void CollectWindowsTerminalProfiles(std::vector<std::string>& profiles)
+struct CWindowsTerminalProfile
+{
+    std::string Name;
+    std::string CommandLine;
+    std::string Icon;
+    HBITMAP HBitmap;
+
+    CWindowsTerminalProfile() : HBitmap(NULL) {}
+};
+
+static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& profile);
+
+static BOOL FindJsonStringProperty(const std::string& json, size_t objectStart, size_t objectEnd, const char* property, std::string& value)
+{
+    std::string key = "\"";
+    key += property;
+    key += "\"";
+    size_t pos = json.find(key, objectStart);
+    if (pos == std::string::npos || pos >= objectEnd)
+        return FALSE;
+    pos = json.find(':', pos + key.size());
+    if (pos == std::string::npos || pos >= objectEnd)
+        return FALSE;
+    pos = json.find('"', pos + 1);
+    if (pos == std::string::npos || pos >= objectEnd)
+        return FALSE;
+
+    value.clear();
+    for (++pos; pos < objectEnd; pos++)
+    {
+        char ch = json[pos];
+        if (ch == '"')
+            return TRUE;
+        if (ch == '\\' && pos + 1 < objectEnd)
+            ch = json[++pos];
+        value.push_back(ch);
+    }
+    return FALSE;
+}
+
+static void CollectWindowsTerminalProfiles(std::vector<CWindowsTerminalProfile>& profiles)
 {
     char localAppData[SAL_MAX_PATH];
     if (SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, localAppData) != S_OK)
@@ -3074,60 +3114,176 @@ static void CollectWindowsTerminalProfiles(std::vector<std::string>& profiles)
         size_t pos = 0;
         while ((pos = json.find("\"name\"", pos)) != std::string::npos)
         {
-            pos = json.find(':', pos + 6);
-            if (pos == std::string::npos)
-                break;
-            pos = json.find('"', pos + 1);
-            if (pos == std::string::npos)
+            size_t objectStart = json.rfind('{', pos);
+            size_t objectEnd = json.find('}', pos);
+            if (objectStart == std::string::npos || objectEnd == std::string::npos)
                 break;
             std::string name;
-            for (++pos; pos < json.size(); pos++)
-            {
-                char ch = json[pos];
-                if (ch == '"')
-                    break;
-                if (ch == '\\' && pos + 1 < json.size())
-                    ch = json[++pos];
-                name.push_back(ch);
-            }
-            if (!name.empty())
+            if (FindJsonStringProperty(json, objectStart, objectEnd, "name", name) && !name.empty())
             {
                 BOOL duplicate = FALSE;
                 for (size_t i = 0; i < profiles.size(); i++)
-                    if (_stricmp(profiles[i].c_str(), name.c_str()) == 0)
+                    if (_stricmp(profiles[i].Name.c_str(), name.c_str()) == 0)
                         duplicate = TRUE;
                 if (!duplicate)
-                    profiles.push_back(name);
+                {
+                    CWindowsTerminalProfile profile;
+                    profile.Name = name;
+                    FindJsonStringProperty(json, objectStart, objectEnd, "commandline", profile.CommandLine);
+                    FindJsonStringProperty(json, objectStart, objectEnd, "icon", profile.Icon);
+                    InferWindowsTerminalProfileCommandLine(profile);
+                    profiles.push_back(profile);
+                }
             }
+            pos = objectEnd + 1;
         }
     }
 }
 
-static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, const char* profile)
+static void AppendMenuQuotedArg(char* args, int argsSize, const char* text)
 {
-    char args[CONFIG_COMMANDLINEARGS_MAXLEN];
-    lstrcpyn(args, "-d . -p ", ARRAYSIZE(args));
-    strncat_s(args, ARRAYSIZE(args), "\"", _TRUNCATE);
-    for (const char* s = profile; *s != 0; s++)
+    strncat_s(args, argsSize, "\"", _TRUNCATE);
+    for (const char* s = text; *s != 0; s++)
     {
         if (*s == '"')
-            strncat_s(args, ARRAYSIZE(args), "\\\"", _TRUNCATE);
+            strncat_s(args, argsSize, "\\\"", _TRUNCATE);
         else
         {
             char ch[2] = {*s, 0};
-            strncat_s(args, ARRAYSIZE(args), ch, _TRUNCATE);
+            strncat_s(args, argsSize, ch, _TRUNCATE);
         }
     }
-    strncat_s(args, ARRAYSIZE(args), "\"", _TRUNCATE);
+    strncat_s(args, argsSize, "\"", _TRUNCATE);
+}
+
+static BOOL ContainsTextI(const std::string& text, const char* needle)
+{
+    size_t needleLen = strlen(needle);
+    if (needleLen == 0)
+        return TRUE;
+    for (size_t i = 0; i < text.size(); i++)
+        if (_strnicmp(text.c_str() + i, needle, needleLen) == 0)
+            return TRUE;
+    return FALSE;
+}
+
+static void CopyFirstCommandToken(const char* commandLine, char* exe, int exeSize)
+{
+    exe[0] = 0;
+    while (*commandLine == ' ' || *commandLine == '\t')
+        commandLine++;
+    BOOL quoted = *commandLine == '"';
+    if (quoted)
+        commandLine++;
+    int pos = 0;
+    while (*commandLine != 0 && pos < exeSize - 1)
+    {
+        if (quoted ? *commandLine == '"' : (*commandLine == ' ' || *commandLine == '\t'))
+            break;
+        exe[pos++] = *commandLine++;
+    }
+    exe[pos] = 0;
+}
+
+static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& profile)
+{
+    if (!profile.CommandLine.empty())
+        return;
+    if (ContainsTextI(profile.Name, "PowerShell 7") || ContainsTextI(profile.Name, "pwsh"))
+        profile.CommandLine = "pwsh.exe";
+    else if (ContainsTextI(profile.Name, "PowerShell"))
+        profile.CommandLine = "powershell.exe";
+    else if (ContainsTextI(profile.Name, "Command Prompt") || ContainsTextI(profile.Name, "cmd"))
+        profile.CommandLine = "cmd.exe";
+    else if (ContainsTextI(profile.Name, "Ubuntu") || ContainsTextI(profile.Name, "Debian") ||
+             ContainsTextI(profile.Name, "SLES") || ContainsTextI(profile.Name, "kali"))
+        profile.CommandLine = "wsl.exe";
+}
+
+static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const CWindowsTerminalProfile& profile)
+{
+    if (profile.CommandLine.empty())
+    {
+        strncat_s(args, argsSize, " {command}", _TRUNCATE);
+        return;
+    }
+
+    strncat_s(args, argsSize, " ", _TRUNCATE);
+    strncat_s(args, argsSize, profile.CommandLine.c_str(), _TRUNCATE);
+    if (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.CommandLine, "powershell"))
+        strncat_s(args, argsSize, " -NoExit -Command \"{command}\"", _TRUNCATE);
+    else if (ContainsTextI(profile.CommandLine, "cmd"))
+        strncat_s(args, argsSize, " /K \"{command}\"", _TRUNCATE);
+    else if (ContainsTextI(profile.CommandLine, "wsl"))
+        strncat_s(args, argsSize, " --exec sh -lc \"{command}\"", _TRUNCATE);
+    else
+        strncat_s(args, argsSize, " \"{command}\"", _TRUNCATE);
+}
+
+static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, const CWindowsTerminalProfile& profile)
+{
+    char args[CONFIG_COMMANDLINEARGS_MAXLEN];
+    lstrcpyn(args, "-d . -p ", ARRAYSIZE(args));
+    AppendMenuQuotedArg(args, ARRAYSIZE(args), profile.Name.c_str());
+    AppendWindowsTerminalProfileCommand(args, ARRAYSIZE(args), profile);
 
     SetDlgItemText(hWindow, IDC_CMDLINEAPP_PATH, wtPath[0] != 0 ? wtPath : "wt.exe");
     SetDlgItemText(hWindow, IDC_CMDLINEAPP_ARGS, args);
 }
 
+static HBITMAP CreateMenuBitmapFromIcon(HICON hIcon)
+{
+    if (hIcon == NULL)
+        return NULL;
+    HDC hDC = HANDLES(GetDC(NULL));
+    HDC hMemDC = HANDLES(CreateCompatibleDC(hDC));
+    HBITMAP hBitmap = HANDLES(CreateCompatibleBitmap(hDC, 16, 16));
+    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
+    RECT r = {0, 0, 16, 16};
+    FillRect(hMemDC, &r, (HBRUSH)(COLOR_MENU + 1));
+    DrawIconEx(hMemDC, 0, 0, hIcon, 16, 16, 0, NULL, DI_NORMAL);
+    SelectObject(hMemDC, hOldBitmap);
+    HANDLES(DeleteDC(hMemDC));
+    HANDLES(ReleaseDC(NULL, hDC));
+    return hBitmap;
+}
+
+static HBITMAP LoadWindowsTerminalProfileBitmap(const CWindowsTerminalProfile& profile)
+{
+    SHFILEINFO shfi;
+    memset(&shfi, 0, sizeof(shfi));
+    if (!profile.Icon.empty() && FileExists(profile.Icon.c_str()) &&
+        SHGetFileInfo(profile.Icon.c_str(), 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SMALLICON) != 0)
+    {
+        HBITMAP hBitmap = CreateMenuBitmapFromIcon(shfi.hIcon);
+        DestroyIcon(shfi.hIcon);
+        return hBitmap;
+    }
+    if (!profile.CommandLine.empty())
+    {
+        char exe[SAL_MAX_PATH];
+        CopyFirstCommandToken(profile.CommandLine.c_str(), exe, ARRAYSIZE(exe));
+        if (FileExists(exe) && SHGetFileInfo(exe, 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SMALLICON) != 0)
+        {
+            HBITMAP hBitmap = CreateMenuBitmapFromIcon(shfi.hIcon);
+            DestroyIcon(shfi.hIcon);
+            return hBitmap;
+        }
+    }
+    return NULL;
+}
+
+static void FreeWindowsTerminalProfileBitmaps(std::vector<CWindowsTerminalProfile>& profiles)
+{
+    for (size_t i = 0; i < profiles.size(); i++)
+        if (profiles[i].HBitmap != NULL)
+            HANDLES(DeleteObject(profiles[i].HBitmap));
+}
+
 static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::string& wtProfile)
 {
     char wtPath[SAL_MAX_PATH];
-    std::vector<std::string> wtProfiles;
+    std::vector<CWindowsTerminalProfile> wtProfiles;
     if (FindWindowsTerminal(wtPath, ARRAYSIZE(wtPath)))
         CollectWindowsTerminalProfiles(wtProfiles);
 
@@ -3141,6 +3297,7 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
 
     HMENU hMenu = CreatePopupMenu();
     HMENU hTemplates = CreatePopupMenu();
+    HMENU hWindowsTerminal = CreatePopupMenu();
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 1, LoadStr(IDS_EXECUTE_BROWSE));
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 3, LoadStr(IDS_EXECUTE_WINDIR));
@@ -3154,7 +3311,14 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7));
     InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
     for (size_t i = 0; i < wtProfiles.size(); i++)
-        InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, 200 + i, wtProfiles[i].c_str());
+    {
+        UINT id = 200 + (UINT)i;
+        InsertMenu(hWindowsTerminal, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, id, wtProfiles[i].Name.c_str());
+        wtProfiles[i].HBitmap = LoadWindowsTerminalProfileBitmap(wtProfiles[i]);
+        if (wtProfiles[i].HBitmap != NULL)
+            SetMenuItemBitmaps(hWindowsTerminal, id, MF_BYCOMMAND, wtProfiles[i].HBitmap, wtProfiles[i].HBitmap);
+    }
+    InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hWindowsTerminal, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL));
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hTemplates, LoadStr(IDS_EXECUTE_TEMPLATES));
 
     TPMPARAMS tpmPar;
@@ -3165,18 +3329,24 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     DestroyMenu(hMenu);
 
     if (cmd == 0)
+    {
+        FreeWindowsTerminalProfileBitmaps(wtProfiles);
         return NULL;
+    }
     if (cmd == 1)
     {
         BrowseCommand(hWindow, IDC_CMDLINEAPP_PATH, IDS_EXEFILTER);
+        FreeWindowsTerminalProfileBitmaps(wtProfiles);
         return NULL;
     }
     if (cmd >= 200 && cmd < 200 + wtProfiles.size())
     {
-        wtProfile = wtProfiles[cmd - 200];
-        SetWindowsTerminalProfileTemplate(hWindow, wtPath, wtProfile.c_str());
+        wtProfile = wtProfiles[cmd - 200].Name;
+        SetWindowsTerminalProfileTemplate(hWindow, wtPath, wtProfiles[cmd - 200]);
+        FreeWindowsTerminalProfileBitmaps(wtProfiles);
         return NULL;
     }
+    FreeWindowsTerminalProfileBitmaps(wtProfiles);
     if (cmd == 3 || cmd == 4 || cmd == 5 || cmd == 7)
     {
         const char* text = cmd == 3 ? "$(WinDir)" : cmd == 4 ? "$(SysDir)" : cmd == 5 ? "$(SalDir)" : "%";
