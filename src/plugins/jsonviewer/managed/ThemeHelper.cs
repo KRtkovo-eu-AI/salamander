@@ -199,10 +199,7 @@ namespace EPocalipse.Json.Viewer
                 case ComboBox comboBox:
                     comboBox.BackColor = palette.InputBackground;
                     comboBox.ForeColor = palette.InputForeground;
-                    if (palette.IsDark)
-                    {
-                        comboBox.FlatStyle = FlatStyle.Flat;
-                    }
+                    comboBox.FlatStyle = FlatStyle.Standard;
                     comboBox.DrawMode = DrawMode.OwnerDrawFixed;
                     comboBox.DrawItem -= ComboBoxOnDrawItem;
                     comboBox.DrawItem += ComboBoxOnDrawItem;

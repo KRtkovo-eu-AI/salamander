@@ -36,17 +36,7 @@ namespace EPocalipse.Json.Viewer
             ThemeHelper.RecreateHandleForInitialDarkTheme(pgJsonObject);
             ThemeHelper.ApplyNativeDarkMode(pgJsonObject);
 
-            if (pgJsonObject.IsHandleCreated)
-            {
-                pgJsonObject.BeginInvoke(new Action(() =>
-                {
-                    if (pgJsonObject.IsHandleCreated)
-                    {
-                        ThemeHelper.ApplyNativeDarkMode(pgJsonObject);
-                        pgJsonObject.Invalidate(true);
-                    }
-                }));
-            }
+            NativeThemeRefreshScheduler.ScheduleNativeDarkModeRefresh(pgJsonObject);
         }
     }
 
@@ -72,6 +62,39 @@ namespace EPocalipse.Json.Viewer
             ThemeHelper.ApplyTheme(this);
             ThemeHelper.RecreateHandleForInitialDarkTheme(lvGrid);
             ThemeHelper.ApplyNativeDarkMode(lvGrid);
+            NativeThemeRefreshScheduler.ScheduleNativeDarkModeRefresh(lvGrid);
+        }
+    }
+
+    internal static class NativeThemeRefreshScheduler
+    {
+        public static void ScheduleNativeDarkModeRefresh(Control control)
+        {
+            if (!control.IsHandleCreated || control.IsDisposed)
+            {
+                return;
+            }
+
+            int remainingPasses = 4;
+            var timer = new Timer { Interval = 50 };
+            timer.Tick += (_, _) =>
+            {
+                if (control.IsDisposed || !control.IsHandleCreated || --remainingPasses <= 0)
+                {
+                    timer.Stop();
+                    timer.Dispose();
+                    return;
+                }
+
+                ThemeHelper.ApplyNativeDarkMode(control);
+                control.Invalidate(true);
+            };
+            control.Disposed += (_, _) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+            };
+            timer.Start();
         }
     }
 }
