@@ -118,3 +118,4 @@ lang_hypervm    0x000001003a400000
 sftp            0x000001002a500000
 lang_sftp       0x000001003a500000
 
+salamatrix      0x000001002a600000
