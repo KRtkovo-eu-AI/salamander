@@ -2984,6 +2984,7 @@ CMainWindowIconItem MainWindowIcons[MAINWINDOWICONS_COUNT] =
 static const char* EXECUTE_TEMPLATE_DEFAULTCOMSPEC = "TemplateDefaultCOMSPEC";
 static const char* EXECUTE_TEMPLATE_POWERSHELL = "TemplatePowerShell";
 static const char* EXECUTE_TEMPLATE_POWERSHELL7 = "TemplatePowerShell7";
+static const char* EXECUTE_TEMPLATE_POWERSHELL7_PATH = "C:\\Program Files\\PowerShell\\7\\pwsh.exe";
 
 static CExecuteItem CommandShellApplicationExecutes[] =
     {
@@ -3537,7 +3538,8 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
 
     InsertCommandShellMenuItem(templatesPopup, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC), IDX_TB_COMMANDPROMPT);
     InsertCommandShellMenuItem(templatesPopup, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL), IDX_TB_WINDOWSPOWERSHELL);
-    InsertCommandShellMenuItem(templatesPopup, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7), IDX_TB_POWERSHELL);
+    if (FileExists(EXECUTE_TEMPLATE_POWERSHELL7_PATH))
+        InsertCommandShellMenuItem(templatesPopup, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7), IDX_TB_POWERSHELL);
 
     if (!wtProfiles.empty())
     {
@@ -3863,7 +3865,7 @@ void CCfgPageMainWindow::ApplyCommandShellTemplate(int templateNameResID)
 
     case IDS_EXECUTE_TEMPLATE_POWERSHELL7:
     {
-        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "C:\\Program Files\\PowerShell\\7\\pwsh.exe");
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, EXECUTE_TEMPLATE_POWERSHELL7_PATH);
         SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-NoExit -WorkingDirectory . -Command \"& {command}\"");
         break;
     }
