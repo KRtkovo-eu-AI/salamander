@@ -3444,11 +3444,10 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     InsertMenu(hTemplates, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hWindowsTerminal, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL));
     InsertMenu(hMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hTemplates, LoadStr(IDS_EXECUTE_TEMPLATES));
 
-    TPMPARAMS tpmPar;
-    tpmPar.cbSize = sizeof(tpmPar);
-    tpmPar.rcExclude = r;
-    DWORD cmd = TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
-                                 r.right, r.top, hWindow, &tpmPar);
+    CMenuPopup popup;
+    popup.SetTemplateMenu(hMenu);
+    DWORD cmd = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
+                            r.right, r.top, hWindow, &r);
     DestroyMenu(hMenu);
 
     if (cmd == 0)
