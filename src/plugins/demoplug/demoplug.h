@@ -111,6 +111,9 @@ char* LoadStr(int resID);
 #define MENUCMD_DISCONNECT_LEFT 16
 #define MENUCMD_DISCONNECT_RIGHT 17
 #define MENUCMD_DISCONNECT_ACTIVE 18
+#define MENUCMD_SALAMATRIX_PROGRESS_POC 19
+#define MENUCMD_SALAMATRIX_QUICKRENAME_POC 20
+#define MENUCMD_SALAMATRIX_COPY_POC 21
 
 //
 // ****************************************************************************
