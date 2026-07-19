@@ -3384,7 +3384,7 @@ static BOOL InsertCommandShellMenuItem(CMenuPopup* popup, DWORD id, const char* 
     mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_IMAGEINDEX;
     mii.Type = MENU_TYPE_STRING;
     mii.ID = id;
-    mii.String = text;
+    mii.String = (char*)text;
     mii.ImageIndex = imageIndex;
     if (subMenu != NULL)
     {
