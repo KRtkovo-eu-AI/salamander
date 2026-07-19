@@ -426,10 +426,15 @@ The first in-process proof-of-concept wiring is declared in:
 src/plugins/salamatrix/salamatrix_poc.h
 ```
 
-This PoC is intentionally small and uses both a local in-process service registry
-and the new core-facing `CSalamanderGeneralAbstract` service registry instead of
-registering a real runtime plugin yet. It proves that the MVP contracts can be
-composed inside a native plugin call:
+This PoC is intentionally small and can run either against the real Salamatrix
+runtime plugin or against a local fallback service aggregate. The runtime plugin
+lives in `src/plugins/salamatrix/`, has a standalone Visual Studio project in
+`src/plugins/salamatrix/vcxproj/`, and exports `SALAMATRIX.SPL`; on plugin entry
+it creates a persistent `Runtime::RuntimeServices` instance and registers
+`Salamatrix.UI`, `Salamatrix.Commands`, `Salamatrix.FileOperations`, and the
+Automation adapter in Salamander's core-facing `CSalamanderGeneralAbstract`
+service registry. DemoPlug remains only a consumer/sample and no longer needs to
+act as the long-lived provider.
 
 - `Runtime::ServiceRegistry` provides a minimal fixed-size local
   `RegisterService`/`QueryService` implementation, while `CSalamanderGeneral`
@@ -439,6 +444,8 @@ composed inside a native plugin call:
   `CSalamanderForOperationsAbstract` progress API.
 - `Runtime::RuntimeServices` wires one in-process UI service, command service,
   file-operation service, script root adapter, and service registry together.
+  The Salamatrix runtime plugin owns one persistent instance and unregisters the
+  host services when the plugin is released.
 - `RunProgressDialogPoc(...)` opens a native Salamatrix progress dialog, sets a
   total, adds text, steps progress, detects Cancel, disables Cancel for cleanup,
   and closes the dialog.
@@ -447,7 +454,7 @@ composed inside a native plugin call:
 - `ExecuteQuickRenamePoc(...)` and `CopyInteractivePoc(...)` prove that the
   Commands/FileOperations MVP can route to existing Salamander command workflows.
 
-The first integration point is now a DemoPlug menu submenu named `Salamatrix PoC`.
+The first consumer/sample integration point is a DemoPlug menu submenu named `Salamatrix PoC`.
 It exposes a `Run All PoC` summary command, a progress PoC command, a Quick
 Rename command PoC, and a Copy dialog PoC. The individual menu entries are always
 enabled; for these PoC menu commands the adapter bypasses panel enabler checks so
@@ -456,8 +463,9 @@ whether the current panel context has a focused or selected item. The progress
 command calls the native progress PoC and the script-facing progress adapter PoC from
 `CPluginInterfaceForMenuExt::ExecuteMenuItem`, while the Quick Rename and Copy
 entries route through the Commands/FileOperations adapters.
-After this in-plugin sample is proven useful, the same wiring can move behind
-`RegisterService` and `QueryService`.
+When `SALAMATRIX.SPL` is installed and loaded, the sample queries the host
+registry first and uses the registered runtime services; when the runtime plugin
+is missing, the PoC keeps a local fallback so the demo remains runnable.
 
 ## MVP acceptance criteria
 
@@ -485,6 +493,6 @@ The platform skeleton is ready when:
    Automation adapters, a local service registry, and the core-facing
    `CSalamanderGeneral` service registry together and is exposed as a DemoPlug
    `Salamatrix PoC` menu sample.
-11. The next MVP can turn `IUIService`, `ICommandService`,
-   `IFileOperationsService`, and the Automation adapter into registered runtime
-   services without revisiting the naming and service-discovery foundation.
+11. `SALAMATRIX.SPL` exists as the first runtime provider plugin, creates the
+   persistent `Runtime::RuntimeServices` aggregate, registers the MVP services
+   with `CSalamanderGeneral`, and unregisters them during plugin release.

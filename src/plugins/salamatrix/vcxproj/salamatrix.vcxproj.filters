@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files"><UniqueIdentifier>{B8DE21D1-34E6-4E3A-8298-D45B08F4A4D8}</UniqueIdentifier></Filter>
+    <Filter Include="Header Files"><UniqueIdentifier>{E5A47F42-E244-49B6-95C8-D381AA203193}</UniqueIdentifier></Filter>
+    <Filter Include="Definition Files"><UniqueIdentifier>{92241D20-C91B-4A21-A929-4D2B6B926C3D}</UniqueIdentifier></Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\salamatrix.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\precomp.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\..\shared\dbg.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\..\shared\mhandles.cpp"><Filter>Source Files</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\salamatrix.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_automation.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_commands.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_poc.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_runtime.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_ui.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\precomp.h"><Filter>Header Files</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\salamatrix.def"><Filter>Definition Files</Filter></None>
+  </ItemGroup>
+</Project>
