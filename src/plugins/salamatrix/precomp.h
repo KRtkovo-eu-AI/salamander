@@ -7,6 +7,7 @@
 
 #include <windows.h>
 #include <CommDlg.h>
+#include <shlobj.h>
 #include <commctrl.h>
 #include <ostream>
 #include <stdio.h>
