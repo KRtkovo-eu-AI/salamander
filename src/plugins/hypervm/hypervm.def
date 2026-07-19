@@ -3,3 +3,7 @@ LIBRARY hypervm.spl
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
 EXPORTS HyperVM_GetCurrentColor
+EXPORTS HyperVM_SetDarkModeState
+EXPORTS HyperVM_ApplyDarkModeTree
+EXPORTS HyperVM_UpdateListViewDarkMode
+EXPORTS HyperVM_LoadString

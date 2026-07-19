@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -23,7 +23,8 @@ char* LoadStr(int resID);
 extern char AssignedFSName[MAX_PATH];
 extern int AssignedFSNameLen;
 
-#define MENUCMD_SHOWHELLO 1
+#define MENUCMD_CREATE_VHD 1
+#define MENUCMD_ATTACH_VHD 2
 
 
 //
@@ -62,7 +63,7 @@ public:
     virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS();
     virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() { return NULL; }
 
-    virtual void WINAPI Event(int event, DWORD param) {}
+    virtual void WINAPI Event(int event, DWORD param);
     virtual void WINAPI ClearHistory(HWND parent) {}
     virtual void WINAPI AcceptChangeOnPathNotification(const char* path, BOOL includingSubdirs) {}
 
