@@ -121,11 +121,13 @@ struct InteractiveOptions
     HWND Parent;
     const char* TargetHint;
     BOOL UseExistingDialog;
+    BOOL RequireEnabled;
 
     InteractiveOptions()
         : Parent(NULL),
           TargetHint(NULL),
-          UseExistingDialog(TRUE)
+          UseExistingDialog(TRUE),
+          RequireEnabled(TRUE)
     {
     }
 };
@@ -154,7 +156,7 @@ private:
 
         Commands::ExecuteOptions executeOptions;
         executeOptions.Parent = options.Parent;
-        executeOptions.RequireEnabled = TRUE;
+        executeOptions.RequireEnabled = options.RequireEnabled;
         return CommandServicePtr->Execute(salamanderCommandId, executeOptions);
     }
 

@@ -104,6 +104,7 @@ inline Runtime::OperationResult WINAPI ExecuteQuickRenamePoc(CSalamanderGeneralA
 {
     Runtime::RuntimeServices services(general);
     Commands::ExecuteOptions options;
+    options.RequireEnabled = FALSE;
     return services.Commands()->Execute("QuickRename", options);
 }
 
@@ -111,6 +112,7 @@ inline Runtime::OperationResult WINAPI CopyInteractivePoc(CSalamanderGeneralAbst
 {
     Runtime::RuntimeServices services(general);
     FileOperations::InteractiveOptions options;
+    options.RequireEnabled = FALSE;
     return services.FileOperations()->CopyInteractive(options);
 }
 
@@ -143,8 +145,13 @@ inline RunAllResult WINAPI RunAllPoc(CSalamanderGeneralAbstract* general, CSalam
 
     result.NativeProgress = RunProgressDialogPoc(operations);
     result.ScriptProgress = RunAutomationProgressPoc(operations);
-    result.QuickRename = services.Commands()->Execute("QuickRename", Commands::ExecuteOptions());
-    result.CopyInteractive = services.FileOperations()->CopyInteractive(FileOperations::InteractiveOptions());
+    Commands::ExecuteOptions commandOptions;
+    commandOptions.RequireEnabled = FALSE;
+    result.QuickRename = services.Commands()->Execute("QuickRename", commandOptions);
+
+    FileOperations::InteractiveOptions fileOptions;
+    fileOptions.RequireEnabled = FALSE;
+    result.CopyInteractive = services.FileOperations()->CopyInteractive(fileOptions);
     return result;
 }
 

@@ -447,8 +447,9 @@ composed inside a native plugin call:
 The first integration point is now a DemoPlug menu submenu named `Salamatrix PoC`.
 It exposes a `Run All PoC` summary command, a progress PoC command, a Quick
 Rename command PoC, and a Copy dialog PoC. The individual menu entries are always
-enabled, so the command/file-operation service can report `error` instead of the
-DemoPlug menu hiding the scenario. The progress command calls the native progress
+enabled; for these PoC menu commands the adapter bypasses panel enabler checks so
+the summary reports whether the existing command was accepted/posted rather than
+whether the current panel context has a focused or selected item. The progress command calls the native progress
 PoC and the script-facing progress adapter PoC from
 `CPluginInterfaceForMenuExt::ExecuteMenuItem`, while the Quick Rename and Copy
 entries route through the Commands/FileOperations adapters.
