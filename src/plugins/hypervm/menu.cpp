@@ -43,6 +43,12 @@ CPluginInterfaceForMenuExt::HelpForMenuItem(HWND parent, int id)
     int helpID = 0;
     switch (id)
     {
+    case MENUCMD_CREATE_VHD:
+        helpID = IDH_MENU_CREATE_VHD;
+        break;
+    case MENUCMD_ATTACH_VHD:
+        helpID = IDH_MENU_ATTACH_VHD;
+        break;
     }
     if (helpID != 0)
         SalamanderGeneral->OpenHtmlHelp(parent, HHCDisplayContext, helpID, FALSE);
