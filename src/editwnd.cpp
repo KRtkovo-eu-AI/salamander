@@ -445,6 +445,10 @@ BOOL AppendConfiguredCommandShellArguments(char* cmd, int cmdSize)
             {
                 argumentStart = optionStart;
             }
+            else if (optionLen == 1 && *optionStart == '&')
+            {
+                argumentStart = optionStart;
+            }
             else if ((optionLen == lstrlen("-lc") && memcmp(optionStart, "-lc", optionLen) == 0) ||
                      (optionLen == lstrlen("-c") && memcmp(optionStart, "-c", optionLen) == 0))
             {

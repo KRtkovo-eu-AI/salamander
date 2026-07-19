@@ -3320,6 +3320,41 @@ static BOOL FindJsonStringProperty(const std::string& json, size_t objectStart, 
     return FALSE;
 }
 
+
+static BOOL FindJsonBoolProperty(const std::string& json, size_t objectStart, size_t objectEnd, const char* property, BOOL& value)
+{
+    std::string key = "\"";
+    key += property;
+    key += "\"";
+    size_t pos = objectStart;
+    while ((pos = json.find(key, pos)) != std::string::npos && pos < objectEnd)
+    {
+        if (pos > objectStart && (isalnum((unsigned char)json[pos - 1]) || json[pos - 1] == '_'))
+        {
+            pos += key.size();
+            continue;
+        }
+        size_t colon = json.find(':', pos + key.size());
+        if (colon == std::string::npos || colon >= objectEnd)
+            return FALSE;
+        size_t boolStart = colon + 1;
+        while (boolStart < objectEnd && (json[boolStart] == ' ' || json[boolStart] == '\t' || json[boolStart] == '\r' || json[boolStart] == '\n'))
+            boolStart++;
+        if (boolStart + 4 <= objectEnd && memcmp(json.c_str() + boolStart, "true", 4) == 0)
+        {
+            value = TRUE;
+            return TRUE;
+        }
+        if (boolStart + 5 <= objectEnd && memcmp(json.c_str() + boolStart, "false", 5) == 0)
+        {
+            value = FALSE;
+            return TRUE;
+        }
+        return FALSE;
+    }
+    return FALSE;
+}
+
 static BOOL FindJsonPropertyObjectOrArray(const std::string& json, size_t objectStart, size_t objectEnd, const char* property,
                                           char openCh, char closeCh, size_t& valueStart, size_t& valueEnd)
 {
@@ -3348,6 +3383,10 @@ static BOOL FindJsonPropertyObjectOrArray(const std::string& json, size_t object
 static void AddWindowsTerminalProfileFromObject(const std::string& json, size_t objectStart, size_t objectEnd,
                                                 std::vector<CWindowsTerminalProfile>& profiles)
 {
+    BOOL hidden = FALSE;
+    if (FindJsonBoolProperty(json, objectStart, objectEnd, "hidden", hidden) && hidden)
+        return;
+
     std::string name;
     if (!FindJsonStringProperty(json, objectStart, objectEnd, "name", name) || name.empty())
         return;
