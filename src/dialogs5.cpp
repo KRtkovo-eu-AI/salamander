@@ -329,6 +329,10 @@ void CPluginsDlg::OnSelChanged()
         SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINFSNAME),
                              buf[0] == 0 ? LoadStr(IDS_PLUGINFSNONE) : buf);
         // Functions
+        // Salamatrix may already be installed in user configurations saved before
+        // FUNCTION_AUTOMATIONRUNTIME existed; identify it by its stable registry key too.
+        BOOL supportAutomationRuntime = p->SupportAutomationRuntime ||
+                                        (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
         buf[0] = 0;
         if (p->SupportPanelView)
             strcat(buf, LoadStr(IDS_PLUGINFUNCVIEW));
@@ -386,7 +390,7 @@ void CPluginsDlg::OnSelChanged()
             strcat(buf, LoadStr(IDS_PLUGINFUNCFILESYSTEM));
         }
 
-        if (p->SupportAutomationRuntime)
+        if (supportAutomationRuntime)
         {
             if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS)
                 strcat(buf, ", ");
@@ -401,7 +405,7 @@ void CPluginsDlg::OnSelChanged()
         // Thumbnails
         if (p->ThumbnailMasks.GetMasksString()[0] != 0)
         {
-            if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS || p->SupportAutomationRuntime)
+            if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS || supportAutomationRuntime)
                 strcat(buf, ", ");
             else
             {
