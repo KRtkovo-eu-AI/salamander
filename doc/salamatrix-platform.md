@@ -467,6 +467,15 @@ When `SALAMATRIX.SPL` is installed and loaded, the sample queries the host
 registry first and uses the registered runtime services; when the runtime plugin
 is missing, the PoC keeps a local fallback so the demo remains runnable.
 
+
+The Automation plugin is the first non-demo consumer bridge. Its
+`CAutomationSalamatrixBridge` queries `CSalamanderGeneral::QueryService` for the
+runtime-provided `Salamatrix.Automation`, `Salamatrix.UI`,
+`Salamatrix.Commands`, and `Salamatrix.FileOperations` services when the plugin
+connects and immediately before script execution. It does not create a local
+fallback runtime, so the Automation layer remains an adapter/consumer of
+`SALAMATRIX.SPL` rather than another provider of duplicated UI or command logic.
+
 ## MVP acceptance criteria
 
 The platform skeleton is ready when:
@@ -496,3 +505,6 @@ The platform skeleton is ready when:
 11. `SALAMATRIX.SPL` exists as the first runtime provider plugin, creates the
    persistent `Runtime::RuntimeServices` aggregate, registers the MVP services
    with `CSalamanderGeneral`, and unregisters them during plugin release.
+12. The Automation plugin contains a consumer-only bridge that refreshes and
+   caches host-registered Salamatrix services instead of instantiating a local
+   duplicate runtime.
