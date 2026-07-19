@@ -3158,6 +3158,47 @@ static size_t FindJsonStringEnd(const std::string& json, size_t quote)
     return std::string::npos;
 }
 
+static void StripJsonComments(std::string& json)
+{
+    BOOL inString = FALSE;
+    for (size_t i = 0; i < json.size(); i++)
+    {
+        if (json[i] == '"' && !IsJsonEscaped(json, i))
+        {
+            inString = !inString;
+            continue;
+        }
+        if (inString || json[i] != '/' || i + 1 >= json.size())
+            continue;
+
+        if (json[i + 1] == '/')
+        {
+            json[i++] = ' ';
+            while (i < json.size() && json[i] != '\r' && json[i] != '\n')
+                json[i++] = ' ';
+            if (i < json.size())
+                i--;
+        }
+        else if (json[i + 1] == '*')
+        {
+            json[i++] = ' ';
+            json[i++] = ' ';
+            while (i + 1 < json.size() && !(json[i] == '*' && json[i + 1] == '/'))
+            {
+                if (json[i] != '\r' && json[i] != '\n')
+                    json[i] = ' ';
+                i++;
+            }
+            if (i + 1 < json.size())
+            {
+                json[i] = ' ';
+                json[i + 1] = ' ';
+                i++;
+            }
+        }
+    }
+}
+
 static size_t FindMatchingJsonChar(const std::string& json, size_t open, char openCh, char closeCh)
 {
     int depth = 0;
@@ -3322,6 +3363,8 @@ static void AddWindowsTerminalProfileFromObject(const std::string& json, size_t 
     if (FindJsonStringProperty(json, objectStart, objectEnd, "source", profile.Source))
         profile.Source = Utf8ToAnsi(profile.Source);
     InferWindowsTerminalProfileCommandLine(profile);
+    if (profile.CommandLine.empty())
+        return; // Unknown profile shell/defaults: skip it instead of appending a bare {command} executable to wt.exe.
     profiles.push_back(profile);
 }
 
@@ -3399,7 +3442,10 @@ static void CollectWindowsTerminalProfiles(std::vector<CWindowsTerminalProfile>&
     {
         std::string json;
         if (ReadTextFileWPath(paths[p].c_str(), json))
+        {
+            StripJsonComments(json);
             CollectProfilesFromJson(json, profiles);
+        }
     }
 }
 
@@ -3568,10 +3614,7 @@ static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& prof
 static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const CWindowsTerminalProfile& profile)
 {
     if (profile.CommandLine.empty())
-    {
-        strncat_s(args, argsSize, " {command}", _TRUNCATE);
         return;
-    }
 
     AppendProfileCommandLine(args, argsSize, profile.CommandLine);
     if (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.CommandLine, "powershell"))
@@ -3874,6 +3917,20 @@ static BOOL InsertCommandShellMenuSeparator(CMenuPopup* popup)
     return popup->InsertItem(0xFFFFFFFF, TRUE, &mii);
 }
 
+static CMenuPopup* NewCommandShellMenuPopup()
+{
+#ifdef new
+#undef new
+#define RESTORE_DEBUG_NEW_MACRO
+#endif
+    CMenuPopup* popup = new (std::nothrow) CMenuPopup();
+#ifdef RESTORE_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_DEBUG_NEW_MACRO
+#endif
+    return popup;
+}
+
 static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::string& wtProfile)
 {
     char wtPath[SAL_MAX_PATH];
@@ -3888,8 +3945,8 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     std::vector<HICON> menuIcons;
 
     CMenuPopup popup;
-    CMenuPopup* templatesPopup = new (std::nothrow) CMenuPopup();
-    CMenuPopup* windowsTerminalPopup = new (std::nothrow) CMenuPopup();
+    CMenuPopup* templatesPopup = NewCommandShellMenuPopup();
+    CMenuPopup* windowsTerminalPopup = NewCommandShellMenuPopup();
     if (templatesPopup == NULL || windowsTerminalPopup == NULL)
     {
         if (templatesPopup != NULL)
