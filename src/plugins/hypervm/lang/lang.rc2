@@ -1,4 +1,4 @@
-﻿//****************************************************************************
+//****************************************************************************
 //
 // Copyright (c) 2023 Open Salamander Authors
 //
@@ -27,4 +27,6 @@ STRINGTABLE
  IDS_PLUGIN_DESCRIPTION,     "Show local Hyper-V virtual machines in panel."
  IDS_PLUGIN_HOME,            "https://samandarin.krtkovo.eu/"
  IDS_MENU_HELLO,             "Show &Hyper-V Machines Window"
+ IDS_MENU_CREATE_VHD,        "Create &VHD"
+ IDS_MENU_ATTACH_VHD,        "&Attach VHD"
 }

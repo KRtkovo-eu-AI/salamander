@@ -3,8 +3,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
+using System.Management;
 using System.Windows.Forms;
 
 namespace OpenSalamander.HyperVM;
@@ -23,83 +22,94 @@ public static class EntryPoint
             var parts = (argument ?? string.Empty).Split(new[] { ';' }, 3);
             var command = parts.Length > 0 ? parts[0] : string.Empty;
             var parentHandle = ParseHandle(parts.Length > 1 ? parts[1] : string.Empty);
+            var payload = parts.Length > 2 ? parts[2] : string.Empty;
 
             return command switch
             {
                 "About" => ShowAbout(parentHandle),
                 "Configure" => ShowConfiguration(parentHandle),
-                "Menu" => ShowMachines(parentHandle),
+                "Menu" => ExecuteMenu(parentHandle, payload),
                 _ => 1,
             };
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.ToString(), "Hyper-V Machines Plugin", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemeHelper.ShowMessageBox(null, ex.Message, Texts.PluginName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             return -1;
         }
+    }
+
+    private static int ExecuteMenu(IntPtr parent, string command)
+    {
+        return command switch
+        {
+            "ShowMachines" => ShowMachines(parent),
+            "CreateVhd" => ShowCreateVhd(parent),
+            "AttachVhd" => ShowAttachVhd(parent),
+            var s when s.StartsWith("DetachVhd|", StringComparison.Ordinal) => DetachVhd(parent, s.Substring(10)),
+            _ => 1,
+        };
+    }
+
+    private static int ShowCreateVhd(IntPtr parent)
+    {
+        using var dialog = new CreateVhdDialog();
+        if (dialog.ShowDialog(new WindowHandleWrapper(parent)) != DialogResult.OK) return 0;
+        VirtualDiskManager.CreateVhd(dialog.VhdPath, dialog.SizeBytes, dialog.Format, dialog.IsFixed);
+        return dialog.AttachAfterCreate ? AttachVhd(parent, dialog.VhdPath, false, false) : 0;
+    }
+
+    private static int ShowAttachVhd(IntPtr parent)
+    {
+        using var dialog = new AttachVhdDialog();
+        return dialog.ShowDialog(new WindowHandleWrapper(parent)) == DialogResult.OK
+            ? AttachVhd(parent, dialog.VhdPath, dialog.ReadOnly, true)
+            : 0;
+    }
+
+    private static int AttachVhd(IntPtr parent, string path, bool readOnly, bool showMessage)
+    {
+        VirtualDiskManager.AttachVhd(path, readOnly);
+        if (showMessage) ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), string.Format(Texts.Attached, path), Texts.PluginName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        return 0;
+    }
+
+    private static int DetachVhd(IntPtr parent, string path)
+    {
+        if (ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), string.Format(Texts.DetachQuestion, path), Texts.DetachTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return 0;
+        VirtualDiskManager.DetachVhd(path);
+        return 0;
     }
 
     private static int ShowMachines(IntPtr parent)
     {
         var machines = GetHyperVMachines();
-        var text = machines.Count == 0 ? "No Hyper-V virtual machines found." : string.Join(Environment.NewLine, machines);
-        MessageBox.Show(new WindowHandleWrapper(parent), text, "Hyper-V Machines", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        var text = machines.Count == 0 ? Texts.NoMachines : string.Join(Environment.NewLine, machines);
+        ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), text, Texts.PluginName, MessageBoxButtons.OK, MessageBoxIcon.Information);
         return 0;
     }
 
     private static List<string> GetHyperVMachines()
     {
-        var psi = new ProcessStartInfo
-        {
-            FileName = GetPreferredPowerShellPath(),
-            Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$ErrorActionPreference = 'Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | Select-Object -ExpandProperty Name\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to run PowerShell.");
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException("Get-VM failed: " + error);
-        }
-
-        if (!string.IsNullOrWhiteSpace(error))
-        {
-            throw new InvalidOperationException("PowerShell reported an error while querying Hyper-V: " + error);
-        }
-
+        using var searcher = new ManagementObjectSearcher(@"root\virtualization\v2", "SELECT ElementName FROM Msvm_ComputerSystem WHERE Caption = 'Virtual Machine'");
         var result = new List<string>();
-        foreach (var line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+        foreach (ManagementObject vm in searcher.Get())
         {
-            var trimmed = line.Trim();
-            if (!string.IsNullOrEmpty(trimmed))
-                result.Add(trimmed);
+            var name = Convert.ToString(vm["ElementName"]);
+            if (!string.IsNullOrWhiteSpace(name)) result.Add(name!);
         }
         return result;
     }
 
-
-    private static string GetPreferredPowerShellPath()
+    private static int ShowAbout(IntPtr parent)
     {
-        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-
-        var sysnativePath = System.IO.Path.Combine(windowsDirectory, "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe");
-        if (System.IO.File.Exists(sysnativePath))
-            return sysnativePath;
-
-        var system32Path = System.IO.Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-        if (System.IO.File.Exists(system32Path))
-            return system32Path;
-
-        return "powershell.exe";
+        ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), Texts.AboutText, Texts.AboutTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        return 0;
+    }
+    private static int ShowConfiguration(IntPtr parent)
+    {
+        ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), Texts.NoConfiguration, Texts.ConfigurationTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        return 0;
     }
 
     private static void EnsureApplicationInitialized()
@@ -108,23 +118,6 @@ public static class EntryPoint
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         _visualsEnabled = true;
-    }
-
-    private static int ShowAbout(IntPtr parent)
-    {
-        const string description = "Show local Hyper-V virtual machines in panel.";
-        const string copyright = "Copyleft 2026 Ondrej Kotas, KRtkovo.eu";
-        ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent),
-            description + Environment.NewLine + copyright,
-            "About",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
-        return 0;
-    }
-    private static int ShowConfiguration(IntPtr parent)
-    {
-        ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), "No configuration yet.", "Configuration", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        return 0;
     }
 
     private static IntPtr ParseHandle(string value) => ulong.TryParse(value, out var parsed) ? new IntPtr(unchecked((long)parsed)) : IntPtr.Zero;

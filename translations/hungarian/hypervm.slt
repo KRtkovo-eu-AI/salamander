@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\hypervm\hypervm.atp"
 TEXTVERSION,"1.06 (x64)"
 VERSION,"1,0,6,193"
@@ -17,4 +17,5 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 48,1,"Helyi Hyper-V virtuális gépek megjelenítése a panelen."
 49,1,"https://samandarin.krtkovo.eu/"
 50,1,"&Hyper-V Gépek ablak megjelenítése"
-
+51,1,"&VHD létrehozása"
+52,1,"VHD &csatolása"

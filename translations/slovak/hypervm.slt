@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\hypervm\hypervm.atp"
 TEXTVERSION,"1.06 (x64)"
 VERSION,"1,0,6,193"
@@ -17,4 +17,5 @@ COMMENT,"English version"
 48,1,"Zobraziť lokálne virtuálne počítače Hyper-V v paneli."
 49,1,"https://samandarin.krtkovo.eu/"
 50,1,"Zobraziť okno &Stroje Hyper-V"
-
+51,1,"Vytvoriť &VHD"
+52,1,"&Pripojiť VHD"

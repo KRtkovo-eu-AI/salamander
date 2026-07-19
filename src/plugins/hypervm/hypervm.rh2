@@ -1,4 +1,4 @@
-﻿//****************************************************************************
+//****************************************************************************
 //
 // Copyright (c) 2023 Open Salamander Authors
 //
@@ -19,7 +19,12 @@
 #define IDS_PLUGIN_DESCRIPTION   48
 #define IDS_PLUGIN_HOME          49
 #define IDS_MENU_HELLO           50
+#define IDS_MENU_CREATE_VHD      51
+#define IDS_MENU_ATTACH_VHD      52
+
 
 #define IDH_MENU_HELLO           900
+#define IDH_MENU_CREATE_VHD      901
+#define IDH_MENU_ATTACH_VHD      902
 
 #endif // __CSDEMO_RH2

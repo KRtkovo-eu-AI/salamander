@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -24,6 +24,8 @@ extern char AssignedFSName[MAX_PATH];
 extern int AssignedFSNameLen;
 
 #define MENUCMD_SHOWHELLO 1
+#define MENUCMD_CREATE_VHD 2
+#define MENUCMD_ATTACH_VHD 3
 
 
 //

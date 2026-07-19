@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -23,12 +23,22 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
     {
     case MENUCMD_SHOWHELLO:
     {
-        if (!ManagedBridge_RunMenuCommand(parent, "Hello"))
+        if (!ManagedBridge_RunMenuCommand(parent, "ShowMachines"))
         {
             SalamanderGeneral->ShowMessageBox("Unable to execute the managed command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
         }
         break;
     }
+
+    case MENUCMD_CREATE_VHD:
+        if (!ManagedBridge_RunMenuCommand(parent, "CreateVhd"))
+            SalamanderGeneral->ShowMessageBox("Unable to execute the managed command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+        break;
+
+    case MENUCMD_ATTACH_VHD:
+        if (!ManagedBridge_RunMenuCommand(parent, "AttachVhd"))
+            SalamanderGeneral->ShowMessageBox("Unable to execute the managed command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+        break;
 
     default:
         SalamanderGeneral->ShowMessageBox("Unknown command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
@@ -59,4 +69,8 @@ CPluginInterfaceForMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract*
     (void)parent;
     salamander->AddMenuItem(-1, LoadStr(IDS_MENU_HELLO), SALHOTKEY('M', HOTKEYF_CONTROL | HOTKEYF_SHIFT),
                             MENUCMD_SHOWHELLO, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_CREATE_VHD), 0,
+                            MENUCMD_CREATE_VHD, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_ATTACH_VHD), 0,
+                            MENUCMD_ATTACH_VHD, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
 }
