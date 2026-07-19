@@ -10,6 +10,7 @@
 //****************************************************************************
 
 #include "precomp.h"
+#include "../salamatrix/salamatrix_poc.h"
 
 // ****************************************************************************
 // MENU SECTION
@@ -602,6 +603,28 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
         break;
     }
 
+
+    case MENUCMD_SALAMATRIX_PROGRESS_POC:
+    {
+        Salamatrix::Runtime::OperationResult nativeResult = Salamatrix::Poc::RunProgressDialogPoc(salamander);
+        Salamatrix::Runtime::OperationResult scriptResult = Salamatrix::Poc::RunAutomationProgressPoc(salamander);
+        const char* message = nativeResult == Salamatrix::Runtime::OperationResultOk &&
+                                      scriptResult == Salamatrix::Runtime::OperationResultOk
+                                  ? "Salamatrix progress PoC finished."
+                                  : "Salamatrix progress PoC was cancelled or failed.";
+        SalamanderGeneral->SalMessageBox(parent, message, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
+        return nativeResult == Salamatrix::Runtime::OperationResultError ||
+                       scriptResult == Salamatrix::Runtime::OperationResultError
+                   ? FALSE
+                   : TRUE;
+    }
+
+    case MENUCMD_SALAMATRIX_QUICKRENAME_POC:
+        return Salamatrix::Poc::ExecuteQuickRenamePoc(SalamanderGeneral) == Salamatrix::Runtime::OperationResultOk;
+
+    case MENUCMD_SALAMATRIX_COPY_POC:
+        return Salamatrix::Poc::CopyInteractivePoc(SalamanderGeneral) == Salamatrix::Runtime::OperationResultOk;
+
     case MENUCMD_DIR:
         SalamanderGeneral->ShowMessageBox("Directory", LoadStr(IDS_PLUGINNAME), MSGBOX_INFO);
         break;
@@ -909,6 +932,13 @@ CPluginInterfaceForMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract*
         salamander->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0, MENU_SKILLLEVEL_ALL); // separator
         salamander->AddMenuItem(-1, "&Controls provided by Open Salamander...", 0, MENUCMD_SHOWCONTROLS, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE,
                                 MENU_SKILLLEVEL_BEGINNER | MENU_SKILLLEVEL_INTERMEDIATE | MENU_SKILLLEVEL_ADVANCED);
+        salamander->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0, MENU_SKILLLEVEL_ALL); // separator
+        salamander->AddSubmenuStart(-1, "Salamatrix PoC", 0, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+        salamander->AddMenuItem(-1, "Run &Progress PoC", 0, MENUCMD_SALAMATRIX_PROGRESS_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+        salamander->AddMenuItem(-1, "Run &Quick Rename Command PoC", 0, MENUCMD_SALAMATRIX_QUICKRENAME_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_FILE_FOCUSED | MENU_EVENT_DIR_FOCUSED, MENU_SKILLLEVEL_ALL);
+        salamander->AddMenuItem(-1, "Run &Copy Dialog PoC", 0, MENUCMD_SALAMATRIX_COPY_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_FILES_SELECTED | MENU_EVENT_DIRS_SELECTED, MENU_SKILLLEVEL_ALL);
+        salamander->AddSubmenuEnd();
+
         salamander->AddMenuItem(-1, NULL, 0, MENUCMD_SEP, TRUE, 0, 0, MENU_SKILLLEVEL_ADVANCED); // separator
         salamander->AddMenuItem(-1, "Press Shift key when opening menu to hide this item", 0, MENUCMD_HIDDENITEM, TRUE, 0, 0, MENU_SKILLLEVEL_ADVANCED);
     }

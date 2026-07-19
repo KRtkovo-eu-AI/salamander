@@ -441,10 +441,13 @@ It proves that the MVP contracts can be composed inside a native plugin call:
 - `ExecuteQuickRenamePoc(...)` and `CopyInteractivePoc(...)` prove that the
   Commands/FileOperations MVP can route to existing Salamander command workflows.
 
-The intended first integration point is a temporary DemoPlug command that creates
-`Poc::RuntimeServices` from the existing `SalamanderGeneral` pointer and calls one
-of the PoC functions from a plugin operation callback. After that works, the same
-wiring can move behind `RegisterService` and `QueryService`.
+The first integration point is now a DemoPlug menu submenu named `Salamatrix PoC`.
+It exposes a progress PoC command, a Quick Rename command PoC, and a Copy dialog
+PoC. The progress command calls the native progress PoC and the script-facing
+progress adapter PoC from `CPluginInterfaceForMenuExt::ExecuteMenuItem`, while the
+Quick Rename and Copy entries route through the Commands/FileOperations adapters.
+After this in-plugin sample is proven useful, the same wiring can move behind
+`RegisterService` and `QueryService`.
 
 ## MVP acceptance criteria
 
@@ -469,7 +472,8 @@ The platform skeleton is ready when:
 9. The generic form-builder model is reserved as adapter contracts only; no
    duplicate Automation UI implementation is introduced outside `Salamatrix.UI`.
 10. The in-process Salamatrix PoC wires UI, Commands, FileOperations, and
-   Automation adapters together without requiring service registration yet.
+   Automation adapters together and is exposed as a DemoPlug `Salamatrix PoC`
+   menu sample without requiring service registration yet.
 11. The next MVP can turn `IUIService`, `ICommandService`,
    `IFileOperationsService`, and the Automation adapter into registered runtime
    services without revisiting the naming and service-discovery foundation.
