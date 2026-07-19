@@ -19,4 +19,7 @@
              Targets="Restore"
              Properties="RestoreDuringBuild=true" />
   </Target>
+  <ItemGroup>
+    <Reference Include="System.Management" />
+  </ItemGroup>
 </Project>
