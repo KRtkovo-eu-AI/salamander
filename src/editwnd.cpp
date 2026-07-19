@@ -445,7 +445,8 @@ BOOL AppendConfiguredCommandShellArguments(char* cmd, int cmdSize)
             {
                 argumentStart = optionStart;
             }
-            else if (optionLen == lstrlen("-lc") && memcmp(optionStart, "-lc", optionLen) == 0)
+            else if ((optionLen == lstrlen("-lc") && memcmp(optionStart, "-lc", optionLen) == 0) ||
+                     (optionLen == lstrlen("-c") && memcmp(optionStart, "-c", optionLen) == 0))
             {
                 const char* shellEnd = optionStart;
                 while (shellEnd > args && (shellEnd[-1] == ' ' || shellEnd[-1] == '\t'))

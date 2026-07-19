@@ -3141,6 +3141,7 @@ struct CWindowsTerminalProfile
 };
 
 static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& profile);
+static BOOL IsWindowsTerminalCommandLineSupported(const CWindowsTerminalProfile& profile);
 
 static BOOL IsJsonEscaped(const std::string& json, size_t pos)
 {
@@ -3158,6 +3159,29 @@ static size_t FindJsonStringEnd(const std::string& json, size_t quote)
     return std::string::npos;
 }
 
+static BOOL SkipJsonComment(const std::string& json, size_t& pos)
+{
+    if (json[pos] != '/' || pos + 1 >= json.size())
+        return FALSE;
+    if (json[pos + 1] == '/')
+    {
+        pos += 2;
+        while (pos < json.size() && json[pos] != '\r' && json[pos] != '\n')
+            pos++;
+        return TRUE;
+    }
+    if (json[pos + 1] == '*')
+    {
+        pos += 2;
+        while (pos + 1 < json.size() && !(json[pos] == '*' && json[pos + 1] == '/'))
+            pos++;
+        if (pos + 1 < json.size())
+            pos++;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 static void StripJsonComments(std::string& json)
 {
     BOOL inString = FALSE;
@@ -3171,30 +3195,12 @@ static void StripJsonComments(std::string& json)
         if (inString || json[i] != '/' || i + 1 >= json.size())
             continue;
 
-        if (json[i + 1] == '/')
+        size_t commentStart = i;
+        if (SkipJsonComment(json, i))
         {
-            json[i++] = ' ';
-            while (i < json.size() && json[i] != '\r' && json[i] != '\n')
-                json[i++] = ' ';
-            if (i < json.size())
-                i--;
-        }
-        else if (json[i + 1] == '*')
-        {
-            json[i++] = ' ';
-            json[i++] = ' ';
-            while (i + 1 < json.size() && !(json[i] == '*' && json[i + 1] == '/'))
-            {
-                if (json[i] != '\r' && json[i] != '\n')
-                    json[i] = ' ';
-                i++;
-            }
-            if (i + 1 < json.size())
-            {
-                json[i] = ' ';
-                json[i + 1] = ' ';
-                i++;
-            }
+            for (size_t c = commentStart; c <= i && c < json.size(); c++)
+                if (json[c] != '\r' && json[c] != '\n')
+                    json[c] = ' ';
         }
     }
 }
@@ -3363,8 +3369,8 @@ static void AddWindowsTerminalProfileFromObject(const std::string& json, size_t 
     if (FindJsonStringProperty(json, objectStart, objectEnd, "source", profile.Source))
         profile.Source = Utf8ToAnsi(profile.Source);
     InferWindowsTerminalProfileCommandLine(profile);
-    if (profile.CommandLine.empty())
-        return; // Unknown profile shell/defaults: skip it instead of appending a bare {command} executable to wt.exe.
+    if (!IsWindowsTerminalCommandLineSupported(profile))
+        return;
     profiles.push_back(profile);
 }
 
@@ -3377,6 +3383,11 @@ static void CollectProfilesFromArray(const std::string& json, size_t arrayStart,
         {
             pos = FindJsonStringEnd(json, pos);
             if (pos == std::string::npos)
+                break;
+        }
+        else if (json[pos] == '/' && SkipJsonComment(json, pos))
+        {
+            if (pos >= arrayEnd)
                 break;
         }
         else if (json[pos] == '{')
@@ -3539,6 +3550,14 @@ static BOOL IsBashLikeCommandLine(const std::string& commandLine)
            ContainsTextI(commandLine, "msys");
 }
 
+static BOOL IsWindowsTerminalCommandLineSupported(const CWindowsTerminalProfile& profile)
+{
+    return !profile.CommandLine.empty() &&
+           (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.CommandLine, "powershell") ||
+            ContainsTextI(profile.CommandLine, "cmd") || ContainsTextI(profile.CommandLine, "wsl") ||
+            IsBashLikeCommandLine(profile.CommandLine));
+}
+
 static void AppendBashCommandExecution(char* args, int argsSize, const std::string& commandLine)
 {
     // Git Bash/Cygwin/MSYS Windows Terminal profiles usually keep startup flags in the
@@ -3613,16 +3632,13 @@ static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& prof
 
 static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const CWindowsTerminalProfile& profile)
 {
-    if (profile.CommandLine.empty())
-        return;
-
     AppendProfileCommandLine(args, argsSize, profile.CommandLine);
     if (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.CommandLine, "powershell"))
     {
         if (ContainsCommandLineSwitch(profile.CommandLine, "-Command") ||
             ContainsCommandLineSwitch(profile.CommandLine, "-CommandWithArgs") ||
             ContainsCommandLineSwitch(profile.CommandLine, "-c"))
-            strncat_s(args, argsSize, " ; {command}", _TRUNCATE);
+            strncat_s(args, argsSize, " \"; {command}\"", _TRUNCATE);
         else
             strncat_s(args, argsSize, " -NoExit -Command \"{command}\"", _TRUNCATE);
     }
@@ -3637,8 +3653,6 @@ static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const 
         strncat_s(args, argsSize, " --exec sh -lc \"{command}\"", _TRUNCATE);
     else if (IsBashLikeCommandLine(profile.CommandLine))
         AppendBashCommandExecution(args, argsSize, profile.CommandLine);
-    else
-        strncat_s(args, argsSize, " \"{command}\"", _TRUNCATE);
 }
 
 static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, const CWindowsTerminalProfile& profile)
