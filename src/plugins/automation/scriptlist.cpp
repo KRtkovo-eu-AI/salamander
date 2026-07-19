@@ -28,6 +28,57 @@ extern HINSTANCE g_hLangInst;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern CAutomationPluginInterface g_oAutomationPlugin;
 
+
+static BOOL ReadSmallTextFile(PCTSTR path, char* buffer, DWORD bufferSize)
+{
+    HANDLE hFile = HANDLES_Q(CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL));
+    if (hFile == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    DWORD bytesRead = 0;
+    BOOL ok = ReadFile(hFile, buffer, bufferSize - 1, &bytesRead, NULL);
+    HANDLES(CloseHandle(hFile));
+
+    if (!ok || bytesRead == 0)
+        return FALSE;
+
+    buffer[bytesRead] = 0;
+    return TRUE;
+}
+
+static BOOL FindJsonStringValue(const char* json, const char* key, char* value, DWORD valueSize)
+{
+    char quotedKey[96];
+    _snprintf_s(quotedKey, _countof(quotedKey), _TRUNCATE, "\"%s\"", key);
+
+    const char* keyPos = strstr(json, quotedKey);
+    if (keyPos == NULL)
+        return FALSE;
+
+    const char* colon = strchr(keyPos + strlen(quotedKey), ':');
+    if (colon == NULL)
+        return FALSE;
+
+    const char* start = colon + 1;
+    while (*start == ' ' || *start == '\t' || *start == '\r' || *start == '\n')
+        ++start;
+
+    if (*start != '"')
+        return FALSE;
+    ++start;
+
+    char* out = value;
+    char* outEnd = value + valueSize - 1;
+    while (*start != 0 && *start != '"' && out < outEnd)
+    {
+        if (*start == '\\' && start[1] != 0)
+            ++start;
+        *out++ = *start++;
+    }
+    *out = 0;
+    return TRUE;
+}
+
 CScriptInfo::CScriptInfo(
     PCTSTR pszFileName,
     CScriptContainer* pContainer)
@@ -41,6 +92,7 @@ CScriptInfo::CScriptInfo(
     StringCchCopyN(m_szDisplayName, _countof(m_szDisplayName), pszNameStart, pszNameEnd - pszNameStart);
     m_szSalamatrixCommandId[0] = _T('\0');
     LoadSalamatrixMetadata();
+    LoadSalamatrixManifestMetadata();
 
     m_clsidEngine = CLSID_NULL;
 
@@ -99,22 +151,70 @@ void CScriptInfo::ApplySalamatrixMetadataLine(PCTSTR pszLine)
     }
 }
 
+
+void CScriptInfo::ApplySalamatrixManifestValue(const char* key, const char* value)
+{
+    if (value == NULL || value[0] == 0)
+        return;
+
+#ifdef UNICODE
+    TCHAR converted[128];
+    MultiByteToWideChar(CP_ACP, 0, value, -1, converted, _countof(converted));
+    converted[_countof(converted) - 1] = 0;
+#else
+    const char* converted = value;
+#endif
+
+    if (strcmp(key, "id") == 0)
+    {
+        StringCchCopy(m_szSalamatrixCommandId, _countof(m_szSalamatrixCommandId), converted);
+    }
+    else if (strcmp(key, "title") == 0 || strcmp(key, "name") == 0)
+    {
+        StringCchCopy(m_szDisplayName, _countof(m_szDisplayName), converted);
+    }
+}
+
+void CScriptInfo::LoadSalamatrixManifestMetadata()
+{
+    TCHAR manifestPath[MAX_PATH];
+    StringCchCopy(manifestPath, _countof(manifestPath), m_szFileName);
+    PathRemoveFileSpec(manifestPath);
+    SalamanderGeneral->SalPathAppend(manifestPath, _T("extension.json"), _countof(manifestPath));
+
+    char json[8193];
+    if (!ReadSmallTextFile(manifestPath, json, sizeof(json)))
+        return;
+
+    char entryPoint[MAX_PATH];
+    if (!FindJsonStringValue(json, "entryPoint", entryPoint, sizeof(entryPoint)))
+        return;
+
+#ifdef UNICODE
+    TCHAR entryPointT[MAX_PATH];
+    MultiByteToWideChar(CP_ACP, 0, entryPoint, -1, entryPointT, _countof(entryPointT));
+    entryPointT[_countof(entryPointT) - 1] = 0;
+    if (_tcsicmp(PathFindFileName(m_szFileName), entryPointT) != 0)
+        return;
+#else
+    if (_tcsicmp(PathFindFileName(m_szFileName), entryPoint) != 0)
+        return;
+#endif
+
+    char value[256];
+    if (FindJsonStringValue(json, "id", value, sizeof(value)))
+        ApplySalamatrixManifestValue("id", value);
+    if (FindJsonStringValue(json, "title", value, sizeof(value)))
+        ApplySalamatrixManifestValue("title", value);
+    else if (FindJsonStringValue(json, "name", value, sizeof(value)))
+        ApplySalamatrixManifestValue("name", value);
+}
+
 void CScriptInfo::LoadSalamatrixMetadata()
 {
-    HANDLE hFile = HANDLES_Q(CreateFile(m_szFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL));
-    if (hFile == INVALID_HANDLE_VALUE)
-        return;
-
     char buffer[4097];
-    DWORD bytesRead = 0;
-    if (!ReadFile(hFile, buffer, sizeof(buffer) - 1, &bytesRead, NULL) || bytesRead == 0)
-    {
-        HANDLES(CloseHandle(hFile));
+    if (!ReadSmallTextFile(m_szFileName, buffer, sizeof(buffer)))
         return;
-    }
-    HANDLES(CloseHandle(hFile));
-
-    buffer[bytesRead] = 0;
 
     char* line = buffer;
     while (line != NULL && *line != 0)
