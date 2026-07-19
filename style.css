@@ -22,6 +22,7 @@
   --sam-radius: 6px;
   --sam-font: Arial, "Segoe UI", Tahoma, sans-serif;
   --sam-mono: Consolas, "Liberation Mono", monospace;
+  --site-header-height: 128px;
 }
 
 * { box-sizing: border-box; }
@@ -29,6 +30,7 @@ html { min-height: 100%; background: radial-gradient(circle at top, #3a3a3a 0, v
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
 }
+[id] { scroll-margin-top: calc(var(--site-header-height) + 40px); }
 body {
   max-width: 1100px;
   margin: 18px auto;
@@ -45,7 +47,8 @@ body {
 
 .skip-link { position: absolute; left: -999px; top: .75rem; padding: .4rem .65rem; background: var(--sam-bg-content); border: 1px solid var(--sam-link); border-radius: var(--sam-radius); }
 .skip-link:focus { left: 1rem; z-index: 10; }
-.site-header { margin: 0 -26px 22px; padding: 14px 26px 0; background: linear-gradient(#f4f7fb10, transparent); border-bottom: 1px solid #171717; }
+.site-header { position: fixed; top: 18px; left: 50%; z-index: 30; width: min(1100px, calc(100% - 52px)); min-height: var(--site-header-height); margin: 0; padding: 14px 26px 0; background: linear-gradient(#2b2b2b, #242424); border: 1px solid rgba(190, 190, 190, .22); border-bottom-color: #171717; border-radius: 7px 7px 0 0; box-shadow: 0 18px 42px rgba(0,0,0,.42), inset 0 1px rgba(255,255,255,.05); transform: translateX(-50%); transition: top .16s ease; }
+body.site-header--scrolled .site-header { top: 0; }
 .site-header__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .site-branding__accent { color: var(--sam-link); }
 .site-branding h1 { margin: 0; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; font-size: 2.25rem; font-weight: 600; line-height: 1.25; letter-spacing: -0.02em; text-shadow: none; }
@@ -69,7 +72,7 @@ body {
 .section-nav__submenu a:hover,
 .section-nav__submenu a:focus { color: #1b1100; background: linear-gradient(#ffd761, #f49b08); text-decoration: none; }
 
-main { padding-bottom: 28px; }
+main { padding-top: calc(var(--site-header-height) + 22px); padding-bottom: 28px; }
 .hero-panel { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr); gap: 22px; padding: 28px; margin-bottom: 28px; background: radial-gradient(circle at 78% 35%, rgba(210, 210, 210, .10), transparent 18rem), linear-gradient(#282828, #1b1b1b); border: 1px solid #444444; border-radius: 6px; box-shadow: inset 0 1px rgba(255,255,255,.06); }
 .eyebrow { margin: 0 0 8px; color: var(--sam-link-hover); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
 .hero-panel h2 { margin: 0 0 18px; border: 0; }
@@ -100,4 +103,4 @@ a[aria="button"]:hover { color: #000; background: linear-gradient(#ffe58a, #ffad
 .back-to-top:hover,
 .back-to-top:focus { color: #000; background: linear-gradient(#ffe58a, #ffad22); text-decoration: none; }
 
-@media (max-width: 860px) { body { margin: 0; border-radius: 0; padding: 0 16px 20px; } .site-header { margin-inline: -16px; padding-inline: 16px; } .site-header__row, .hero-panel { display: block; } .hero-panel { padding: 18px; } .hero-panel h2 { font-size: 1.8rem; } .section-nav a { flex: 1 1 auto; text-align: center; } .section-nav__item { flex: 1 1 auto; } .section-nav__submenu { left: 50%; transform: translateX(-50%); } .site-branding #description-text { margin: 6px 0 0; } }
+@media (max-width: 860px) { :root { --site-header-height: 172px; } [id] { scroll-margin-top: 0; } body { margin: 0; border-radius: 0; padding: 0 16px 20px; } .site-header { position: static; width: auto; min-height: 0; margin: 0 -16px 22px; padding-inline: 16px; background: linear-gradient(#f4f7fb10, transparent); border: 0; border-bottom: 1px solid #171717; border-radius: 0; box-shadow: none; transform: none; transition: none; } main { padding-top: 0; } .site-header__row, .hero-panel { display: block; } .hero-panel { padding: 18px; } .hero-panel h2 { font-size: 1.8rem; } .section-nav a { flex: 1 1 auto; text-align: center; } .section-nav__item { flex: 1 1 auto; } .section-nav__submenu { left: 50%; transform: translateX(-50%); } .site-branding #description-text { margin: 6px 0 0; } }
