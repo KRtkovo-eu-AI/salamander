@@ -309,6 +309,60 @@ Existing Automation scripts may keep using `Salamander.ProgressDialog`; a later
 adapter can expose `Salamander.UI.progress(...)` as a more structured wrapper
 without breaking the older object.
 
+## Salamatrix.Commands and FileOperations MVP
+
+The command and interactive file-operation MVP surface is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_commands.h
+```
+
+`Salamatrix.Commands` is intentionally a thin layer over existing Salamander
+commands. It maps public command names such as `QuickRename`, `Copy`, and `Move`
+to the existing `SALCMD_QUICKRENAME`, `SALCMD_COPY`, and `SALCMD_MOVE` command
+identifiers and posts them through `CSalamanderGeneralAbstract::PostSalamanderCommand`.
+Before posting, the MVP implementation can check `GetSalamanderCommand` so that
+disabled commands fail instead of opening inconsistent UI.
+
+`Salamatrix.FileOperations` uses the same command path for its interactive MVP:
+
+- `RenameInteractive(...)` opens the existing Quick Rename workflow.
+- `CopyInteractive(...)` opens the existing Copy dialog/workflow.
+- `MoveInteractive(...)` opens the existing Move/Rename dialog/workflow.
+
+The file-operation MVP must not clone `.rc` dialog resources or reimplement the
+copy/move/rename validation logic. It should route to the command handlers that
+already use the localized strings, histories, target-directory helpers, operation
+mask handling, and panel/file-system integration. This keeps the behavior aligned
+with the documented Quick Rename, Copy, and Move/Rename dialog boxes.
+
+The shared return enum is `Salamatrix::Runtime::OperationResult`:
+
+```cpp
+OperationResultOk
+OperationResultCancel
+OperationResultError
+```
+
+For the command-posting MVP, `OperationResultOk` means the existing command was
+accepted and posted, while `OperationResultError` means the command was unknown,
+disabled, or no command service was available. `OperationResultCancel` is reserved
+for the next synchronous/modal integration step where a direct workflow wrapper
+can observe the dialog result.
+
+Recommended script mapping:
+
+```python
+Salamander.Commands.execute("QuickRename")
+Salamander.FileOperations.rename_interactive()
+Salamander.FileOperations.copy_interactive()
+Salamander.FileOperations.move_interactive()
+```
+
+The script layer should convert `OperationResultError` to a readable exception
+and may expose `OperationResultCancel` as `False`, `None`, or a typed result
+object depending on the final scripting style.
+
 ## MVP acceptance criteria
 
 The platform skeleton is ready when:
@@ -324,5 +378,9 @@ The platform skeleton is ready when:
    lifetime management is documented.
 6. The first `Salamatrix.UI` progress dialog contract exists and wraps the
    current `CSalamanderForOperationsAbstract` progress implementation.
-7. The next MVP can turn `IUIService` into a registered runtime service without
-   revisiting the naming and service-discovery foundation.
+7. The first `Salamatrix.Commands` and `Salamatrix.FileOperations` contracts
+   exist and route their MVP interactive behavior through existing Salamander
+   command/workflow entry points.
+8. The next MVP can turn `IUIService`, `ICommandService`, and
+   `IFileOperationsService` into registered runtime services without revisiting
+   the naming and service-discovery foundation.
