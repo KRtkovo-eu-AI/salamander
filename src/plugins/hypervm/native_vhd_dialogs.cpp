@@ -67,7 +67,19 @@ const wchar_t* WStr(int id)
     static int index = 0;
     wchar_t* buffer = buffers[index++ % 16];
     buffer[0] = L'\0';
-    LoadStringW(HLanguage, id, buffer, 1024);
+
+    const char* text = LoadStr(id);
+    if (text == nullptr)
+    {
+        return buffer;
+    }
+
+    int converted = MultiByteToWideChar(CP_UTF8, 0, text, -1, buffer, 1024);
+    if (converted <= 0)
+    {
+        MultiByteToWideChar(CP_ACP, 0, text, -1, buffer, 1024);
+    }
+    buffer[1023] = L'\0';
     return buffer;
 }
 
@@ -213,47 +225,45 @@ bool RunDialog(HWND parent, bool create)
     RegisterClassW(&wc);
 
     int width = 380;
-    int height = create ? 470 : 148;
-    RECT rc = {0, 0, width, height};
-    AdjustWindowRectEx(&rc, WS_CAPTION | WS_SYSMENU | WS_POPUP, FALSE, WS_EX_DLGMODALFRAME);
+    int height = create ? 469 : 186;
     std::wstring title = WStr(create ? IDS_VHD_CREATE_TITLE : IDS_VHD_ATTACH_TITLE);
     HWND hwnd = CreateWindowExW(WS_EX_DLGMODALFRAME, wc.lpszClassName, title.c_str(),
                                 WS_CAPTION | WS_SYSMENU | WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT,
-                                rc.right - rc.left, rc.bottom - rc.top, parent, nullptr, DLLInstance, &s);
+                                width, height, parent, nullptr, DLLInstance, &s);
     SetWindowTextW(hwnd, title.c_str());
     s.Window = hwnd;
     HFONT font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 
     AddControl(hwnd, L"STATIC", WStr(create ? IDS_VHD_CREATE_INTRO : IDS_VHD_ATTACH_INTRO), 0, 12, 12, 350, 18, -1, font);
-    AddControl(hwnd, L"STATIC", WStr(IDS_VHD_LOCATION), 0, 12, 74, 100, 18, -1, font);
-    s.Path = AddControl(hwnd, L"EDIT", L"", WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL, 12, 94, 275, 21, IDC_VHD_PATH, font);
-    AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_BROWSE), WS_TABSTOP, 295, 92, 74, 24, IDC_VHD_BROWSE, font);
+    AddControl(hwnd, L"STATIC", WStr(IDS_VHD_LOCATION), 0, 12, 43, 100, 18, -1, font);
+    s.Path = AddControl(hwnd, L"EDIT", L"", WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL, 12, 61, 275, 21, IDC_VHD_PATH, font);
+    AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_BROWSE), WS_TABSTOP, 295, 59, 74, 24, IDC_VHD_BROWSE, font);
     if (create)
     {
-        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_SIZE), 0, 12, 138, 170, 18, -1, font);
-        s.Size = AddControl(hwnd, L"EDIT", L"64", WS_TABSTOP | WS_BORDER | ES_NUMBER, 236, 131, 74, 21, IDC_VHD_SIZE, font);
-        s.Unit = AddControl(hwnd, L"COMBOBOX", L"", WS_TABSTOP | CBS_DROPDOWNLIST, 315, 130, 54, 200, IDC_VHD_UNIT, font);
+        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_SIZE), 0, 12, 105, 170, 18, -1, font);
+        s.Size = AddControl(hwnd, L"EDIT", L"64", WS_TABSTOP | WS_BORDER | ES_NUMBER, 236, 98, 74, 21, IDC_VHD_SIZE, font);
+        s.Unit = AddControl(hwnd, L"COMBOBOX", L"", WS_TABSTOP | CBS_DROPDOWNLIST, 315, 98, 54, 200, IDC_VHD_UNIT, font);
         SendMessageW(s.Unit, CB_ADDSTRING, 0, (LPARAM)L"MB"); SendMessageW(s.Unit, CB_ADDSTRING, 0, (LPARAM)L"GB"); SendMessageW(s.Unit, CB_ADDSTRING, 0, (LPARAM)L"TB"); SendMessage(s.Unit, CB_SETCURSEL, 0, 0);
-        AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_FORMAT), BS_GROUPBOX, 12, 164, 356, 134, -1, font);
-        AddControl(hwnd, L"BUTTON", L"VHD", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 21, 181, 80, 18, IDC_VHD_FORMAT_VHD, font);
-        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_VHD_HELP), 0, 33, 202, 315, 18, -1, font);
-        AddControl(hwnd, L"BUTTON", L"VHDX", BS_AUTORADIOBUTTON | WS_TABSTOP, 21, 218, 80, 18, IDC_VHD_FORMAT_VHDX, font);
-        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_VHDX_HELP), 0, 33, 239, 315, 48, -1, font);
+        AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_FORMAT), BS_GROUPBOX, 12, 132, 356, 134, -1, font);
+        AddControl(hwnd, L"BUTTON", L"VHD", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 21, 149, 80, 18, IDC_VHD_FORMAT_VHD, font);
+        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_VHD_HELP), 0, 33, 170, 315, 18, -1, font);
+        AddControl(hwnd, L"BUTTON", L"VHDX", BS_AUTORADIOBUTTON | WS_TABSTOP, 21, 186, 80, 18, IDC_VHD_FORMAT_VHDX, font);
+        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_VHDX_HELP), 0, 33, 207, 315, 48, -1, font);
         CheckRadioButton(hwnd, IDC_VHD_FORMAT_VHD, IDC_VHD_FORMAT_VHDX, IDC_VHD_FORMAT_VHD);
-        AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_TYPE), BS_GROUPBOX, 12, 306, 356, 118, -1, font);
-        AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_FIXED), BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 21, 323, 220, 18, IDC_VHD_TYPE_FIXED, font);
-        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_FIXED_HELP), 0, 33, 344, 315, 30, -1, font);
-        AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_DYNAMIC), BS_AUTORADIOBUTTON | WS_TABSTOP, 21, 380, 220, 18, IDC_VHD_TYPE_DYNAMIC, font);
-        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_DYNAMIC_HELP), 0, 33, 401, 315, 30, -1, font);
+        AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_TYPE), BS_GROUPBOX, 12, 280, 356, 115, -1, font);
+        AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_FIXED), BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 21, 297, 220, 18, IDC_VHD_TYPE_FIXED, font);
+        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_FIXED_HELP), 0, 33, 318, 315, 30, -1, font);
+        AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_DYNAMIC), BS_AUTORADIOBUTTON | WS_TABSTOP, 21, 354, 220, 18, IDC_VHD_TYPE_DYNAMIC, font);
+        AddControl(hwnd, L"STATIC", WStr(IDS_VHD_DYNAMIC_HELP), 0, 33, 375, 315, 30, -1, font);
         CheckRadioButton(hwnd, IDC_VHD_TYPE_FIXED, IDC_VHD_TYPE_DYNAMIC, IDC_VHD_TYPE_FIXED);
-        s.Ok = AddControl(hwnd, L"BUTTON", WStr(IDS_OK), WS_TABSTOP | BS_DEFPUSHBUTTON, 215, 438, 72, 24, IDOK, font);
-        AddControl(hwnd, L"BUTTON", WStr(IDS_CANCEL), WS_TABSTOP, 295, 438, 72, 24, IDCANCEL, font);
+        s.Ok = AddControl(hwnd, L"BUTTON", WStr(IDS_OK), WS_TABSTOP | BS_DEFPUSHBUTTON, 215, 407, 72, 24, IDOK, font);
+        AddControl(hwnd, L"BUTTON", WStr(IDS_CANCEL), WS_TABSTOP, 295, 407, 72, 24, IDCANCEL, font);
     }
     else
     {
-        s.ReadOnly = AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_READONLY), BS_AUTOCHECKBOX | WS_TABSTOP, 12, 121, 120, 18, IDC_VHD_READONLY, font);
-        s.Ok = AddControl(hwnd, L"BUTTON", WStr(IDS_OK), WS_TABSTOP | BS_DEFPUSHBUTTON, 215, 116, 72, 24, IDOK, font);
-        AddControl(hwnd, L"BUTTON", WStr(IDS_CANCEL), WS_TABSTOP, 295, 116, 72, 24, IDCANCEL, font);
+        s.ReadOnly = AddControl(hwnd, L"BUTTON", WStr(IDS_VHD_READONLY), BS_AUTOCHECKBOX | WS_TABSTOP, 12, 88, 120, 18, IDC_VHD_READONLY, font);
+        s.Ok = AddControl(hwnd, L"BUTTON", WStr(IDS_OK), WS_TABSTOP | BS_DEFPUSHBUTTON, 215, 121, 72, 24, IDOK, font);
+        AddControl(hwnd, L"BUTTON", WStr(IDS_CANCEL), WS_TABSTOP, 295, 121, 72, 24, IDCANCEL, font);
     }
     EnableWindow(s.Ok, FALSE);
     if (dark)
