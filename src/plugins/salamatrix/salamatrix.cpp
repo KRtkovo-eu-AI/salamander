@@ -21,6 +21,7 @@ const char* PluginNameShort = "SALAMATRIX";
 HINSTANCE DLLInstance = NULL;
 HINSTANCE HLanguage = NULL;
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
+CSalamanderGUIAbstract* SalamanderGUI = NULL;
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 int SalamanderVersion = 0;
 
@@ -89,10 +90,11 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     }
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
-    salamander->SetBasicPluginData(PluginNameEN, 0, "0.1", "Open Salamander Authors",
+    SalamanderGUI = salamander->GetSalamanderGUI();
+    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONRUNTIME, "0.1", "Open Salamander Authors",
                                    "Runtime provider for Salamatrix UI, Commands, FileOperations and Automation services.",
                                    PluginNameShort, NULL, NULL);
-    salamander->SetPluginHomePageURL("https://www.altap.cz/salamander/");
+    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
 
     SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
 
@@ -120,9 +122,40 @@ void WINAPI CPluginInterface::About(HWND parent)
     SalamanderGeneral->SalMessageBox(parent, buf, PluginNameEN, MB_OK | MB_ICONINFORMATION);
 }
 
+void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
+{
+    CALL_STACK_MESSAGE1("CPluginInterface::Connect(,) - Salamatrix Runtime");
+
+    if (SalamanderGUI != NULL)
+    {
+        CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
+        if (iconList != NULL)
+        {
+            if (iconList->Create(16, 16, 1))
+            {
+                UINT loadFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags() : LR_DEFAULTCOLOR;
+                HICON hIcon = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON, 16, 16, loadFlags);
+                if (hIcon != NULL)
+                {
+                    iconList->ReplaceIcon(0, hIcon);
+                    DestroyIcon(hIcon);
+                    salamander->SetIconListForGUI(iconList);
+                    salamander->SetPluginIcon(0);
+                    salamander->SetPluginMenuAndToolbarIcon(0);
+                    iconList = NULL;
+                }
+            }
+
+            if (iconList != NULL)
+                SalamanderGUI->DestroyIconList(iconList);
+        }
+    }
+}
+
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
     DestroyRuntimeServices();
     SalamanderGeneral = NULL;
+    SalamanderGUI = NULL;
     return TRUE;
 }

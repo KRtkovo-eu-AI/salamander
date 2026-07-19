@@ -4,6 +4,7 @@
     <Filter Include="Source Files"><UniqueIdentifier>{B8DE21D1-34E6-4E3A-8298-D45B08F4A4D8}</UniqueIdentifier></Filter>
     <Filter Include="Header Files"><UniqueIdentifier>{E5A47F42-E244-49B6-95C8-D381AA203193}</UniqueIdentifier></Filter>
     <Filter Include="Definition Files"><UniqueIdentifier>{92241D20-C91B-4A21-A929-4D2B6B926C3D}</UniqueIdentifier></Filter>
+    <Filter Include="Resource Files"><UniqueIdentifier>{6A38557F-927A-4F13-BCF5-C72E6F83D1B5}</UniqueIdentifier></Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\salamatrix.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -13,6 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\salamatrix.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix.rh"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_automation.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_commands.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_poc.h"><Filter>Header Files</Filter></ClInclude>
@@ -22,5 +24,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\salamatrix.def"><Filter>Definition Files</Filter></None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\salamatrix.rc"><Filter>Resource Files</Filter></ResourceCompile>
   </ItemGroup>
 </Project>
