@@ -82,6 +82,16 @@ namespace EPocalipse.Json.Viewer
             ApplyToControl(root, palette.Value);
         }
 
+        public static void ApplyNativeDarkMode(Control control)
+        {
+            if (!control.IsHandleCreated || GetPalette() is not ThemePalette palette || !palette.IsDark)
+            {
+                return;
+            }
+
+            ApplyNativeTheme(control);
+        }
+
         private static ThemePalette? GetPalette()
         {
             try
