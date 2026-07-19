@@ -25,6 +25,6 @@ STRINGTABLE
  IDS_PLUGINNAME,             "Hyper-V Machines"
  IDS_ABOUT,                  "About Plugin"
  IDS_PLUGIN_DESCRIPTION,     "Show local Hyper-V virtual machines in panel."
- IDS_PLUGIN_HOME,            "https://github.com/KRtkovo-eu-AI/salamander/"
+ IDS_PLUGIN_HOME,            "https://samandarin.krtkovo.eu/"
  IDS_MENU_HELLO,             "Show &Hyper-V Machines Window"
 }

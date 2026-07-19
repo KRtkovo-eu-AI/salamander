@@ -6,7 +6,7 @@ VERSION,"0,2,0,193"
 [TRANSLATION]
 LANGID,1036
 AUTHOR,"KRtekTM"
-WEB,"https://github.com/KRtkovo-eu-AI/salamander/"
+WEB,"https://samandarin.krtkovo.eu/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
