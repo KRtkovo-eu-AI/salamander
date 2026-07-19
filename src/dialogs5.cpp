@@ -3374,31 +3374,45 @@ static void AddWindowsTerminalProfileFromObject(const std::string& json, size_t 
     profiles.push_back(profile);
 }
 
-static void CollectProfilesFromArray(const std::string& json, size_t arrayStart, size_t arrayEnd,
-                                     std::vector<CWindowsTerminalProfile>& profiles)
+static BOOL FindNextProfileObjectInArray(const std::string& json, size_t arrayEnd, size_t& pos,
+                                         size_t& objectStart, size_t& objectEnd)
 {
-    for (size_t pos = arrayStart + 1; pos < arrayEnd; pos++)
+    while (pos < arrayEnd)
     {
         if (json[pos] == '"')
         {
             pos = FindJsonStringEnd(json, pos);
             if (pos == std::string::npos)
-                break;
+                return FALSE;
         }
-        else if (json[pos] == '/' && SkipJsonComment(json, pos))
+        else if (json[pos] == '/')
         {
-            if (pos >= arrayEnd)
-                break;
+            if (!SkipJsonComment(json, pos))
+                pos++;
         }
         else if (json[pos] == '{')
         {
-            size_t objectEnd = FindMatchingJsonChar(json, pos, '{', '}');
+            objectStart = pos;
+            objectEnd = FindMatchingJsonChar(json, objectStart, '{', '}');
             if (objectEnd == std::string::npos || objectEnd > arrayEnd)
-                break;
-            AddWindowsTerminalProfileFromObject(json, pos, objectEnd, profiles);
-            pos = objectEnd;
+                return FALSE;
+            pos = objectEnd + 1;
+            return TRUE;
         }
+        else
+            pos++;
     }
+    return FALSE;
+}
+
+static void CollectProfilesFromArray(const std::string& json, size_t arrayStart, size_t arrayEnd,
+                                     std::vector<CWindowsTerminalProfile>& profiles)
+{
+    size_t pos = arrayStart + 1;
+    size_t objectStart;
+    size_t objectEnd;
+    while (FindNextProfileObjectInArray(json, arrayEnd, pos, objectStart, objectEnd))
+        AddWindowsTerminalProfileFromObject(json, objectStart, objectEnd, profiles);
 }
 
 static void CollectProfilesFromJson(const std::string& json, std::vector<CWindowsTerminalProfile>& profiles)
