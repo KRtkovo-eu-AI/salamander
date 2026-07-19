@@ -55,6 +55,8 @@ namespace EPocalipse.Json.Viewer
                     ApplyFormChrome(form, refreshed.Value);
                 }
             };
+            form.Shown -= FormOnShownApplyNativeTheme;
+            form.Shown += FormOnShownApplyNativeTheme;
 
             if (form.IsHandleCreated)
             {
@@ -155,7 +157,7 @@ namespace EPocalipse.Json.Viewer
                 case TextBoxBase textBox:
                     textBox.BackColor = palette.InputBackground;
                     textBox.ForeColor = palette.InputForeground;
-                    textBox.BorderStyle = BorderStyle.FixedSingle;
+                    textBox.BorderStyle = palette.IsDark ? BorderStyle.None : BorderStyle.FixedSingle;
                     backgroundSet = true;
                     foregroundSet = true;
                     break;
@@ -291,6 +293,21 @@ namespace EPocalipse.Json.Viewer
             else
             {
                 NativeMethods.ApplyDarkModeTree(control.Handle);
+            }
+        }
+
+        private static void FormOnShownApplyNativeTheme(object? sender, EventArgs e)
+        {
+            if (sender is Form form && form.IsHandleCreated && GetPalette() is ThemePalette palette && palette.IsDark)
+            {
+                NativeMethods.ApplyDarkModeTree(form.Handle);
+                form.BeginInvoke(new Action(() =>
+                {
+                    if (form.IsHandleCreated && GetPalette() is ThemePalette refreshed && refreshed.IsDark)
+                    {
+                        NativeMethods.ApplyDarkModeTree(form.Handle);
+                    }
+                }));
             }
         }
 
