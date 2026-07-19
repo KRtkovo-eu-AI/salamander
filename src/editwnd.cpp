@@ -438,10 +438,32 @@ BOOL AppendConfiguredCommandShellArguments(char* cmd, int cmdSize)
             while (optionStart > args && optionStart[-1] != ' ' && optionStart[-1] != '\t')
                 optionStart--;
 
-            if (optionEnd - optionStart == lstrlen("-Command") &&
-                memcmp(optionStart, "-Command", lstrlen("-Command")) == 0)
+            int optionLen = (int)(optionEnd - optionStart);
+            if ((optionLen == lstrlen("-Command") && memcmp(optionStart, "-Command", optionLen) == 0) ||
+                (optionLen == lstrlen("/K") && _strnicmp(optionStart, "/K", optionLen) == 0) ||
+                (optionLen == lstrlen("/C") && _strnicmp(optionStart, "/C", optionLen) == 0))
             {
                 argumentStart = optionStart;
+            }
+            else if ((optionLen == lstrlen("-lc") && memcmp(optionStart, "-lc", optionLen) == 0) ||
+                     (optionLen == lstrlen("-c") && memcmp(optionStart, "-c", optionLen) == 0))
+            {
+                const char* shellEnd = optionStart;
+                while (shellEnd > args && (shellEnd[-1] == ' ' || shellEnd[-1] == '\t'))
+                    shellEnd--;
+                const char* shellStart = shellEnd;
+                while (shellStart > args && shellStart[-1] != ' ' && shellStart[-1] != '\t')
+                    shellStart--;
+                const char* execEnd = shellStart;
+                while (execEnd > args && (execEnd[-1] == ' ' || execEnd[-1] == '\t'))
+                    execEnd--;
+                const char* execStart = execEnd;
+                while (execStart > args && execStart[-1] != ' ' && execStart[-1] != '\t')
+                    execStart--;
+                if (execEnd - execStart == lstrlen("--exec") && memcmp(execStart, "--exec", lstrlen("--exec")) == 0)
+                    argumentStart = execStart;
+                else
+                    argumentStart = optionStart;
             }
 
             return AppendToCommandLine(cmd, cmdSize, args, (int)(argumentStart - args)) &&

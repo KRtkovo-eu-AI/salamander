@@ -67,3 +67,4 @@ making their work available.
 | github-markdown-css | Markdown document styling | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
 | Base of Tree View panel | Tree View panel | Based on changes proposed by fgodoy. |
 | Localization scripts | Localization tooling portions | Samandarin includes localization tooling adapted from, or substantially informed by, fork [Sally](https://github.com/0xeb/sally) by [Elias Bachaalany (0xeb)](https://github.com/0xeb). Licensed under the GNU Library General Public License. |
+| Command shell template SVG icons | Windows Terminal profile menu icons | SVG artwork adapted from Microsoft product icon shapes for PowerShell, Windows PowerShell, Windows Terminal, Command Prompt, and Visual Studio, and from the SVG Repo Azure Cloud Shell icon. |

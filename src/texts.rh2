@@ -2794,10 +2794,8 @@
 #define IDS_EXECUTE_TEMPLATE_POWERSHELL 14204
 // Configuration > Main Window > Command Shell: template setting Shell Application and Arguments for PowerShell 7
 #define IDS_EXECUTE_TEMPLATE_POWERSHELL7 14293
-// Configuration > Main Window > Command Shell: template setting Shell Application and Arguments for Windows Terminal PowerShell
-#define IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL 14294
-// Configuration > Main Window > Command Shell: template setting Shell Application and Arguments for Windows Terminal PowerShell 7
-#define IDS_EXECUTE_TEMPLATE_WINDOWS_TERMINAL_POWERSHELL7 14295
+// Configuration > Main Window > Command Shell: submenu with detected Windows Terminal profiles
+#define IDS_EXECUTE_WINDOWS_TERMINAL    14294
 // Configuration > Main Window > Command Shell: non-persistent placeholder shown in empty Shell Application and Arguments fields
 #define IDS_CMDLINEAPP_PLACEHOLDER      14205
 
