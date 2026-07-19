@@ -33,6 +33,7 @@ namespace EPocalipse.Json.Viewer
         private void ApplyPropertyGridTheme()
         {
             ThemeHelper.ApplyTheme(this);
+            ThemeHelper.RecreateHandleForInitialDarkTheme(pgJsonObject);
             ThemeHelper.ApplyNativeDarkMode(pgJsonObject);
 
             if (pgJsonObject.IsHandleCreated)
@@ -69,6 +70,7 @@ namespace EPocalipse.Json.Viewer
         private void ApplyGridTheme()
         {
             ThemeHelper.ApplyTheme(this);
+            ThemeHelper.RecreateHandleForInitialDarkTheme(lvGrid);
             ThemeHelper.ApplyNativeDarkMode(lvGrid);
         }
     }

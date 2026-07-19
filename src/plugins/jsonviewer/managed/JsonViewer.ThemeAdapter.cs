@@ -48,6 +48,8 @@ namespace EPocalipse.Json.Viewer
 
             pnlVisualizer.BackColor = palette.Background;
             pnlVisualizer.ForeColor = palette.Foreground;
+            ThemeHelper.ApplyNativeDarkMode(pnlVisualizer);
+            ThemeHelper.RecreateHandleForInitialDarkTheme(cbVisualizers);
 
             pnlFind.BackColor = palette.ControlBackground;
             pnlFind.ForeColor = palette.Foreground;

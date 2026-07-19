@@ -4,6 +4,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -18,6 +19,8 @@ namespace EPocalipse.Json.Viewer
         private const int SALCOL_ITEM_BK_NORMAL = 11;
         private const int SALCOL_ITEM_BK_SELECTED = 12;
         private const int SALCOL_HOT_PANEL = 23;
+
+        private static readonly HashSet<Control> s_recreatedDarkHandles = new HashSet<Control>();
 
         public static bool TryGetPalette(out ThemePalette palette)
         {
@@ -96,6 +99,22 @@ namespace EPocalipse.Json.Viewer
             }
 
             ApplyNativeTheme(control);
+        }
+
+        public static void RecreateHandleForInitialDarkTheme(Control control)
+        {
+            if (!control.IsHandleCreated || GetPalette() is not ThemePalette palette || !palette.IsDark ||
+                s_recreatedDarkHandles.Contains(control))
+            {
+                return;
+            }
+
+            s_recreatedDarkHandles.Add(control);
+            ApplyNativeTheme(control);
+            typeof(Control).GetMethod("RecreateHandle", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(control, null);
+            ApplyNativeTheme(control);
+            control.Invalidate(true);
         }
 
         private static ThemePalette? GetPalette()
