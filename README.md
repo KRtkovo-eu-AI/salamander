@@ -78,8 +78,8 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### Plugin Updates in Samandarin plugin
 > [!NOTE]
 > Plugin catalog sources:
-> - Stable: https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json
-> - Unofficial 3rd party: https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json
+> - Stable: https://samandarin.krtkovo.eu/catalogs/plugins-stable.json
+> - Unofficial 3rd party: https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json
 <img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/c1088472-335b-4421-82bb-fea8531beb92" />
 
 ### Digitally signed

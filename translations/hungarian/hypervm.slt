@@ -6,7 +6,7 @@ VERSION,"1,0,6,193"
 [TRANSLATION]
 LANGID,1038
 AUTHOR,"KRtekTM"
-WEB,"https://github.com/KRtkovo-eu-AI/salamander/"
+WEB,"https://samandarin.krtkovo.eu/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,6 +15,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Helyi Hyper-V virtuális gépek megjelenítése a panelen."
-49,1,"https://github.com/KRtkovo-eu-AI/salamander/"
+49,1,"https://samandarin.krtkovo.eu/"
 50,1,"&Hyper-V Gépek ablak megjelenítése"
 

@@ -442,7 +442,7 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         hl = new CHyperLink(HWindow, IDC_ABOUT_WWW, STF_UNDERLINE);
         if (hl != NULL)
         {
-            const char* url = "https://github.com/KRtkovo-eu-AI/salamander";
+            const char* url = "https://samandarin.krtkovo.eu/";
             hl->SetText(url);
             hl->SetActionOpen(url);
         }

@@ -15,7 +15,7 @@
 #define AppToInstallDisplayName "Open Salamander 5.0 Samandarin " + SamandarinVersion + " (x64)"
 #define AppToInstallVersion "5.0-samandarin-" + SamandarinVersion
 #define AppToInstallPublisher "Ondřej Kotas (KRtekTM)"
-#define AppToInstallURL "https://github.com/KRtkovo-eu-AI/salamander"
+#define AppToInstallURL "https://samandarin.krtkovo.eu/"
 #define AppToInstallExeName "salamand.exe"
 #define AppToInstallRegPath = "'Software\Open Salamander Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
 #define AppToInstallRegPathRem = "'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
