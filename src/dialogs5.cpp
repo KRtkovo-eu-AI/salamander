@@ -3368,11 +3368,41 @@ static HBITMAP LoadWindowsTerminalProfileBitmap(const CWindowsTerminalProfile& p
     return NULL;
 }
 
+
+static HICON CreateIconFromBitmap(HBITMAP hColorBitmap, int iconSize)
+{
+    if (hColorBitmap == NULL)
+        return NULL;
+    const int maskStride = ((iconSize + 15) / 16) * 2;
+    BYTE* maskBits = (BYTE*)calloc(maskStride, iconSize);
+    if (maskBits == NULL)
+        return NULL;
+    HBITMAP hMaskBitmap = HANDLES(CreateBitmap(iconSize, iconSize, 1, 1, maskBits));
+    free(maskBits);
+    if (hMaskBitmap == NULL)
+        return NULL;
+
+    ICONINFO iconInfo;
+    memset(&iconInfo, 0, sizeof(iconInfo));
+    iconInfo.fIcon = TRUE;
+    iconInfo.hbmMask = hMaskBitmap;
+    iconInfo.hbmColor = hColorBitmap;
+    HICON hIcon = CreateIconIndirect(&iconInfo);
+    HANDLES(DeleteObject(hMaskBitmap));
+    return hIcon;
+}
+
 static int AddBitmapToMenuImageList(HIMAGELIST hImages, HBITMAP hBitmap)
 {
     if (hBitmap == NULL)
         return -1;
-    int index = ImageList_Add(hImages, hBitmap, NULL);
+    HICON hIcon = CreateIconFromBitmap(hBitmap, 16);
+    int index = -1;
+    if (hIcon != NULL)
+    {
+        index = ImageList_AddIcon(hImages, hIcon);
+        DestroyIcon(hIcon);
+    }
     HANDLES(DeleteObject(hBitmap));
     return index;
 }
