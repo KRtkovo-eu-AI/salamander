@@ -21,15 +21,6 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 {
     switch (id)
     {
-    case MENUCMD_SHOWHELLO:
-    {
-        if (!ManagedBridge_RunMenuCommand(parent, "ShowMachines"))
-        {
-            SalamanderGeneral->ShowMessageBox("Unable to execute the managed command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
-        }
-        break;
-    }
-
     case MENUCMD_CREATE_VHD:
         if (!ManagedBridge_RunMenuCommand(parent, "CreateVhd"))
             SalamanderGeneral->ShowMessageBox("Unable to execute the managed command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
@@ -53,9 +44,6 @@ CPluginInterfaceForMenuExt::HelpForMenuItem(HWND parent, int id)
     int helpID = 0;
     switch (id)
     {
-    case MENUCMD_SHOWHELLO:
-        helpID = IDH_MENU_HELLO;
-        break;
     }
     if (helpID != 0)
         SalamanderGeneral->OpenHtmlHelp(parent, HHCDisplayContext, helpID, FALSE);
@@ -67,8 +55,6 @@ void WINAPI
 CPluginInterfaceForMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander)
 {
     (void)parent;
-    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_HELLO), SALHOTKEY('M', HOTKEYF_CONTROL | HOTKEYF_SHIFT),
-                            MENUCMD_SHOWHELLO, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
     salamander->AddMenuItem(-1, LoadStr(IDS_MENU_CREATE_VHD), 0,
                             MENUCMD_CREATE_VHD, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
     salamander->AddMenuItem(-1, LoadStr(IDS_MENU_ATTACH_VHD), 0,

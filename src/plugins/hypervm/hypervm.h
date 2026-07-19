@@ -23,9 +23,8 @@ char* LoadStr(int resID);
 extern char AssignedFSName[MAX_PATH];
 extern int AssignedFSNameLen;
 
-#define MENUCMD_SHOWHELLO 1
-#define MENUCMD_CREATE_VHD 2
-#define MENUCMD_ATTACH_VHD 3
+#define MENUCMD_CREATE_VHD 1
+#define MENUCMD_ATTACH_VHD 2
 
 
 //

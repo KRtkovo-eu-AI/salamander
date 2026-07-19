@@ -235,8 +235,27 @@ internal static class ThemeHelper
                 comboBox.BackColor = palette.InputBackground;
                 comboBox.ForeColor = palette.InputForeground;
                 comboBox.DrawMode = DrawMode.OwnerDrawFixed;
+                comboBox.FlatStyle = palette.IsDark ? FlatStyle.Flat : FlatStyle.Standard;
                 comboBox.DrawItem -= ComboBoxOnDrawItem;
                 comboBox.DrawItem += ComboBoxOnDrawItem;
+                break;
+            case UpDownBase upDown:
+                upDown.BackColor = palette.InputBackground;
+                upDown.ForeColor = palette.InputForeground;
+                break;
+            case CheckBox checkBox when palette.IsDark:
+                checkBox.FlatStyle = FlatStyle.Flat;
+                checkBox.FlatAppearance.BorderColor = palette.ControlBorder;
+                checkBox.FlatAppearance.CheckedBackColor = palette.Accent;
+                checkBox.FlatAppearance.MouseDownBackColor = palette.HighlightBackground;
+                checkBox.FlatAppearance.MouseOverBackColor = palette.ControlBackground;
+                break;
+            case RadioButton radioButton when palette.IsDark:
+                radioButton.FlatStyle = FlatStyle.Flat;
+                radioButton.FlatAppearance.BorderColor = palette.ControlBorder;
+                radioButton.FlatAppearance.CheckedBackColor = palette.Accent;
+                radioButton.FlatAppearance.MouseDownBackColor = palette.HighlightBackground;
+                radioButton.FlatAppearance.MouseOverBackColor = palette.ControlBackground;
                 break;
             case ListView listView:
                 listView.BackColor = palette.InputBackground;
@@ -261,11 +280,18 @@ internal static class ThemeHelper
                 break;
         }
 
-        if (!(control is Button))
+        if (control is TextBoxBase or ComboBox or UpDownBase or ListView or TreeView)
         {
-            control.BackColor = palette.Background;
+            control.ForeColor = palette.InputForeground;
         }
-        control.ForeColor = palette.Foreground;
+        else
+        {
+            if (!(control is Button))
+            {
+                control.BackColor = palette.Background;
+            }
+            control.ForeColor = palette.Foreground;
+        }
 
         if (control.ContextMenuStrip is ContextMenuStrip menu)
         {
