@@ -37,6 +37,37 @@ enum OperationResult
 namespace Commands
 {
 
+struct CommandCatalogEntry
+{
+    const char* StableId;
+    const char* ScriptAlias;
+    int SalamanderCommandId;
+    BOOL RequiresPanelContext;
+    BOOL RequiresFocusedOrSelectedItem;
+};
+
+static const CommandCatalogEntry CommandCatalog[] = {
+    {"QuickRename", "quick_rename", SALCMD_QUICKRENAME, TRUE, TRUE},
+    {"Copy", "copy", SALCMD_COPY, TRUE, TRUE},
+    {"Move", "move", SALCMD_MOVE, TRUE, TRUE},
+    {"MoveRename", "move_rename", SALCMD_MOVE, TRUE, TRUE},
+};
+
+inline const CommandCatalogEntry* WINAPI FindCommandCatalogEntry(const char* commandId)
+{
+    if (commandId == NULL)
+        return NULL;
+
+    for (int i = 0; i < (int)(sizeof(CommandCatalog) / sizeof(CommandCatalog[0])); ++i)
+    {
+        if (strcmp(commandId, CommandCatalog[i].StableId) == 0 ||
+            strcmp(commandId, CommandCatalog[i].ScriptAlias) == 0)
+            return &CommandCatalog[i];
+    }
+
+    return NULL;
+}
+
 struct ExecuteOptions
 {
     HWND Parent;
@@ -67,15 +98,8 @@ private:
 
     static int ResolveCommandId(const char* commandId)
     {
-        if (commandId == NULL)
-            return -1;
-        if (strcmp(commandId, "QuickRename") == 0 || strcmp(commandId, "quick_rename") == 0)
-            return SALCMD_QUICKRENAME;
-        if (strcmp(commandId, "Copy") == 0 || strcmp(commandId, "copy") == 0)
-            return SALCMD_COPY;
-        if (strcmp(commandId, "Move") == 0 || strcmp(commandId, "move") == 0 || strcmp(commandId, "MoveRename") == 0)
-            return SALCMD_MOVE;
-        return -1;
+        const CommandCatalogEntry* entry = FindCommandCatalogEntry(commandId);
+        return entry != NULL ? entry->SalamanderCommandId : -1;
     }
 
 public:

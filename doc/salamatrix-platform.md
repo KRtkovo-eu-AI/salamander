@@ -476,6 +476,19 @@ connects and immediately before script execution. It does not create a local
 fallback runtime, so the Automation layer remains an adapter/consumer of
 `SALAMATRIX.SPL` rather than another provider of duplicated UI or command logic.
 
+
+Automation 2.0 starts exposing that bridge to scripts through `Salamander.UI`,
+`Salamander.Commands`, and `Salamander.FileOperations`. The first script-facing
+UI object is `Salamander.UI.progress(...)`, returning the existing progress
+Automation interface backed by `Salamatrix.UI`. Commands and interactive file
+operations return textual MVP results: `ok`, `cancel`, or `error`.
+
+
+The initial command catalog is deliberately small and stable: `QuickRename`,
+`Copy`, `Move`, and `MoveRename`, with script aliases `quick_rename`, `copy`,
+`move`, and `move_rename`. All MVP entries route to existing Salamander command
+handlers and require the current panel context to make the command meaningful.
+
 ## MVP acceptance criteria
 
 The platform skeleton is ready when:
