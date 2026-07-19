@@ -3572,14 +3572,68 @@ static BOOL IsWindowsTerminalCommandLineSupported(const CWindowsTerminalProfile&
             IsBashLikeCommandLine(profile.CommandLine));
 }
 
+static void AppendProfileCommandLine(char* args, int argsSize, const std::string& commandLine);
+
+static const char* FindCommandLineSwitch(const std::string& commandLine, const char* sw)
+{
+    size_t swLen = strlen(sw);
+    for (size_t i = 0; i < commandLine.size(); i++)
+    {
+        if ((i == 0 || commandLine[i - 1] == ' ' || commandLine[i - 1] == '\t' || commandLine[i - 1] == '"') &&
+            _strnicmp(commandLine.c_str() + i, sw, swLen) == 0 &&
+            (commandLine[i + swLen] == 0 || commandLine[i + swLen] == ' ' || commandLine[i + swLen] == '\t' || commandLine[i + swLen] == '"'))
+            return commandLine.c_str() + i;
+    }
+    return NULL;
+}
+
+static BOOL AppendComposedBashCommand(char* args, int argsSize, const std::string& commandLine)
+{
+    const char* commandSwitch = FindCommandLineSwitch(commandLine, "-lc");
+    if (commandSwitch == NULL)
+        commandSwitch = FindCommandLineSwitch(commandLine, "-c");
+    if (commandSwitch == NULL)
+        return FALSE;
+
+    const char* commandArgument = commandSwitch;
+    while (*commandArgument != 0 && *commandArgument != ' ' && *commandArgument != '\t')
+        commandArgument++;
+    while (*commandArgument == ' ' || *commandArgument == '\t')
+        commandArgument++;
+    if (*commandArgument != '"')
+        return FALSE;
+
+    const char* commandEnd = commandArgument + 1;
+    BOOL escaped = FALSE;
+    while (*commandEnd != 0)
+    {
+        if (!escaped && *commandEnd == '"')
+            break;
+        escaped = !escaped && *commandEnd == '\\';
+        if (*commandEnd != '\\')
+            escaped = FALSE;
+        commandEnd++;
+    }
+    if (*commandEnd != '"')
+        return FALSE;
+
+    AppendProfileCommandLine(args, argsSize, std::string(commandLine.c_str(), commandEnd - commandLine.c_str()));
+    strncat_s(args, argsSize, "; {command}", _TRUNCATE);
+    strncat_s(args, argsSize, commandEnd, _TRUNCATE);
+    return TRUE;
+}
+
 static void AppendBashCommandExecution(char* args, int argsSize, const std::string& commandLine)
 {
     // Git Bash/Cygwin/MSYS Windows Terminal profiles usually keep startup flags in the
     // profile commandline.  Do not append {command} as a positional script argument;
-    // ask the shell to execute it explicitly.
-    if (ContainsCommandLineSwitch(commandLine, "-lc") || ContainsCommandLineSwitch(commandLine, "-c"))
-        strncat_s(args, argsSize, " \"{command}\"", _TRUNCATE);
-    else if (ContainsCommandLineSwitch(commandLine, "--login") || ContainsCommandLineSwitch(commandLine, "-l"))
+    // ask the shell to execute it explicitly.  If the profile already has -c/-lc, merge
+    // Salamander's command into that existing shell command string.
+    if (AppendComposedBashCommand(args, argsSize, commandLine))
+        return;
+
+    AppendProfileCommandLine(args, argsSize, commandLine);
+    if (ContainsCommandLineSwitch(commandLine, "--login") || ContainsCommandLineSwitch(commandLine, "-l"))
         strncat_s(args, argsSize, " -c \"{command}\"", _TRUNCATE);
     else
         strncat_s(args, argsSize, " -lc \"{command}\"", _TRUNCATE);
@@ -3650,6 +3704,12 @@ static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& prof
 
 static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const CWindowsTerminalProfile& profile)
 {
+    if (IsBashLikeCommandLine(profile.CommandLine))
+    {
+        AppendBashCommandExecution(args, argsSize, profile.CommandLine);
+        return;
+    }
+
     AppendProfileCommandLine(args, argsSize, profile.CommandLine);
     if (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.CommandLine, "powershell"))
     {
@@ -3669,8 +3729,6 @@ static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const 
     }
     else if (ContainsTextI(profile.CommandLine, "wsl"))
         strncat_s(args, argsSize, " --exec sh -lc \"{command}\"", _TRUNCATE);
-    else if (IsBashLikeCommandLine(profile.CommandLine))
-        AppendBashCommandExecution(args, argsSize, profile.CommandLine);
 }
 
 static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, const CWindowsTerminalProfile& profile)
