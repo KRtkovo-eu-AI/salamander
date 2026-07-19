@@ -3229,18 +3229,35 @@ static void SetWindowsTerminalProfileTemplate(HWND hWindow, const char* wtPath, 
     SetDlgItemText(hWindow, IDC_CMDLINEAPP_ARGS, args);
 }
 
+static int GetMenuIconSize()
+{
+    return GetIconSizeForSystemDPI(ICONSIZE_16);
+}
+
 static HBITMAP CreateMenuBitmapFromIcon(HICON hIcon)
 {
     if (hIcon == NULL)
         return NULL;
+    int iconSize = GetMenuIconSize();
     HDC hDC = HANDLES(GetDC(NULL));
     HDC hMemDC = HANDLES(CreateCompatibleDC(hDC));
-    HBITMAP hBitmap = HANDLES(CreateCompatibleBitmap(hDC, 16, 16));
-    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
-    RECT r = {0, 0, 16, 16};
-    FillRect(hMemDC, &r, (HBRUSH)(COLOR_MENU + 1));
-    DrawIconEx(hMemDC, 0, 0, hIcon, 16, 16, 0, NULL, DI_NORMAL);
-    SelectObject(hMemDC, hOldBitmap);
+    BITMAPINFOHEADER bmhdr;
+    memset(&bmhdr, 0, sizeof(bmhdr));
+    bmhdr.biSize = sizeof(bmhdr);
+    bmhdr.biWidth = iconSize;
+    bmhdr.biHeight = -iconSize;
+    bmhdr.biPlanes = 1;
+    bmhdr.biBitCount = 32;
+    bmhdr.biCompression = BI_RGB;
+    void* bits = NULL;
+    HBITMAP hBitmap = HANDLES(CreateDIBSection(hMemDC, (CONST BITMAPINFO*)&bmhdr, DIB_RGB_COLORS, &bits, NULL, 0));
+    if (hBitmap != NULL && bits != NULL)
+    {
+        memset(bits, 0, static_cast<size_t>(iconSize) * iconSize * 4);
+        HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
+        DrawIconEx(hMemDC, 0, 0, hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+        SelectObject(hMemDC, hOldBitmap);
+    }
     HANDLES(DeleteDC(hMemDC));
     HANDLES(ReleaseDC(NULL, hDC));
     return hBitmap;
@@ -3250,18 +3267,7 @@ static HBITMAP CreateMenuBitmapFromIcon(HICON hIcon)
 static HBITMAP LoadBuiltinShellSVG(const char* svgName)
 {
     HBITMAP hBitmap = NULL;
-    RenderSVGIconBitmap(svgName, 16, TRUE, &hBitmap);
-    return hBitmap;
-}
-
-static HBITMAP LoadCommandPromptBitmap()
-{
-    SHFILEINFO shfi;
-    memset(&shfi, 0, sizeof(shfi));
-    if (SHGetFileInfo("cmd.exe", 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES) == 0)
-        return NULL;
-    HBITMAP hBitmap = CreateMenuBitmapFromIcon(shfi.hIcon);
-    DestroyIcon(shfi.hIcon);
+    RenderSVGIconBitmap(svgName, GetMenuIconSize(), TRUE, &hBitmap);
     return hBitmap;
 }
 
@@ -3291,7 +3297,10 @@ static HBITMAP ComposeVisualStudioOverlay(HBITMAP hBase)
     bf.BlendFlags = 0;
     bf.SourceConstantAlpha = 255;
     bf.AlphaFormat = AC_SRC_ALPHA;
-    AlphaBlend(hDstDC, 8, 8, 8, 8, hSrcDC, 0, 0, 16, 16, bf);
+    int iconSize = GetMenuIconSize();
+    int overlaySize = max(1, iconSize / 2);
+    AlphaBlend(hDstDC, iconSize - overlaySize, iconSize - overlaySize, overlaySize, overlaySize,
+               hSrcDC, 0, 0, iconSize, iconSize, bf);
     SelectObject(hSrcDC, hOldSrc);
     SelectObject(hDstDC, hOldDst);
     HANDLES(DeleteDC(hSrcDC));
@@ -3415,30 +3424,65 @@ static HICON CreateIconFromBitmap(HBITMAP hColorBitmap, int iconSize)
     return hIcon;
 }
 
-static int AddBitmapToMenuImageList(HIMAGELIST hImages, HBITMAP hBitmap)
+static HICON CreateMenuIconFromBitmap(HBITMAP hBitmap)
 {
     if (hBitmap == NULL)
-        return -1;
-    HICON hIcon = CreateIconFromBitmap(hBitmap, 16);
-    int index = -1;
-    if (hIcon != NULL)
-    {
-        index = ImageList_AddIcon(hImages, hIcon);
-        DestroyIcon(hIcon);
-    }
+        return NULL;
+
+    HICON hIcon = CreateIconFromBitmap(hBitmap, GetMenuIconSize());
     HANDLES(DeleteObject(hBitmap));
-    return index;
+    return hIcon;
 }
 
-static BOOL InsertCommandShellMenuItem(CMenuPopup* popup, DWORD id, const char* text, int imageIndex = -1, CMenuPopup* subMenu = NULL)
+static HICON CreateBuiltinShellIcon(const char* svgName)
+{
+    HBITMAP hColorBitmap = NULL;
+    int iconSize = GetMenuIconSize();
+    if (!RenderSVGIconBitmap(svgName, iconSize, TRUE, &hColorBitmap))
+        return NULL;
+
+    // Use the same CMenuPopup HICON rendering path that other Salamander menus use.
+    HICON hIcon = CreateIconFromBitmap(hColorBitmap, iconSize);
+    HANDLES(DeleteObject(hColorBitmap));
+    return hIcon;
+}
+
+static HICON CreateCommandPromptIcon()
+{
+    SHFILEINFO shfi;
+    memset(&shfi, 0, sizeof(shfi));
+    if (SHGetFileInfo("cmd.exe", 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES) == 0)
+        return NULL;
+    return shfi.hIcon;
+}
+
+static HICON AddMenuIcon(std::vector<HICON>& icons, HICON hIcon)
+{
+    if (hIcon != NULL)
+        icons.push_back(hIcon);
+    return hIcon;
+}
+
+static void DestroyMenuIcons(std::vector<HICON>& icons)
+{
+    for (size_t i = 0; i < icons.size(); i++)
+        DestroyIcon(icons[i]);
+    icons.clear();
+}
+
+static BOOL InsertCommandShellMenuItem(CMenuPopup* popup, DWORD id, const char* text, HICON hIcon = NULL, CMenuPopup* subMenu = NULL)
 {
     MENU_ITEM_INFO mii;
     memset(&mii, 0, sizeof(mii));
-    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_IMAGEINDEX;
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING;
     mii.Type = MENU_TYPE_STRING;
     mii.ID = id;
     mii.String = (char*)text;
-    mii.ImageIndex = imageIndex;
+    if (hIcon != NULL)
+    {
+        mii.Mask |= MENU_MASK_ICON;
+        mii.HIcon = hIcon;
+    }
     if (subMenu != NULL)
     {
         mii.Mask |= MENU_MASK_SUBMENU;
@@ -3471,19 +3515,17 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     RECT r;
     GetWindowRect(hButton, &r);
 
-    HIMAGELIST hMenuImages = ImageList_Create(16, 16, ILC_COLOR32 | ILC_MASK, 8, 8);
+    std::vector<HICON> menuIcons;
 
     CMenuPopup popup;
     CMenuPopup* templatesPopup = new CMenuPopup();
     CMenuPopup* windowsTerminalPopup = new CMenuPopup();
-    if (templatesPopup == NULL || windowsTerminalPopup == NULL || hMenuImages == NULL)
+    if (templatesPopup == NULL || windowsTerminalPopup == NULL)
     {
         if (templatesPopup != NULL)
             delete templatesPopup;
         if (windowsTerminalPopup != NULL)
             delete windowsTerminalPopup;
-        if (hMenuImages != NULL)
-            ImageList_Destroy(hMenuImages);
         return NULL;
     }
 
@@ -3497,29 +3539,27 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     InsertCommandShellMenuSeparator(&popup);
 
     InsertCommandShellMenuItem(templatesPopup, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC),
-                               AddBitmapToMenuImageList(hMenuImages, LoadCommandPromptBitmap()));
+                               AddMenuIcon(menuIcons, CreateCommandPromptIcon()));
     InsertCommandShellMenuItem(templatesPopup, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL),
-                               AddBitmapToMenuImageList(hMenuImages, LoadBuiltinShellSVG("WindowsPowerShell")));
+                               AddMenuIcon(menuIcons, CreateBuiltinShellIcon("WindowsPowerShell")));
     InsertCommandShellMenuItem(templatesPopup, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7),
-                               AddBitmapToMenuImageList(hMenuImages, LoadBuiltinShellSVG("PowerShell")));
+                               AddMenuIcon(menuIcons, CreateBuiltinShellIcon("PowerShell")));
     InsertCommandShellMenuSeparator(templatesPopup);
 
     for (size_t i = 0; i < wtProfiles.size(); i++)
     {
         UINT id = 200 + (UINT)i;
         InsertCommandShellMenuItem(windowsTerminalPopup, id, wtProfiles[i].Name.c_str(),
-                                   AddBitmapToMenuImageList(hMenuImages, LoadWindowsTerminalProfileBitmap(wtProfiles[i])));
+                                   AddMenuIcon(menuIcons, CreateMenuIconFromBitmap(LoadWindowsTerminalProfileBitmap(wtProfiles[i]))));
     }
-    InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), -1, windowsTerminalPopup);
+    InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), NULL, windowsTerminalPopup);
     windowsTerminalPopup = NULL; // ownership moved to templatesPopup
-    InsertCommandShellMenuItem(&popup, 0, LoadStr(IDS_EXECUTE_TEMPLATES), -1, templatesPopup);
+    InsertCommandShellMenuItem(&popup, 0, LoadStr(IDS_EXECUTE_TEMPLATES), NULL, templatesPopup);
     templatesPopup = NULL; // ownership moved to popup
 
-    popup.SetImageList(hMenuImages, TRUE);
-    popup.SetHotImageList(hMenuImages, TRUE);
     DWORD cmd = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                             r.right, r.top, hWindow, &r);
-    ImageList_Destroy(hMenuImages);
+    DestroyMenuIcons(menuIcons);
 
     if (cmd == 0)
     {
