@@ -298,9 +298,7 @@ namespace EPocalipse.Json.Viewer
                 return;
             }
 
-            if (control is TreeView || control is ListView || control is PropertyGrid ||
-                control is TextBoxBase || control is ComboBox || control is DataGridView ||
-                control is ScrollableControl)
+            if (ControlNeedsNativeScrollbarTheme(control))
             {
                 control.HandleCreated -= ControlOnHandleCreatedApplyScrollbarTheme;
                 control.HandleCreated += ControlOnHandleCreatedApplyScrollbarTheme;
@@ -329,6 +327,19 @@ namespace EPocalipse.Json.Viewer
             {
                 NativeMethods.ApplyDarkModeTree(control.Handle);
             }
+
+            if (ControlNeedsNativeScrollbarTheme(control))
+            {
+                NativeMethods.ApplyDarkScrollbarTheme(control.Handle);
+                NativeMethods.RedrawNonClientArea(control.Handle);
+            }
+        }
+
+        private static bool ControlNeedsNativeScrollbarTheme(Control control)
+        {
+            return control is TreeView || control is ListView || control is PropertyGrid ||
+                control is TextBoxBase || control is ComboBox || control is DataGridView ||
+                control is ScrollableControl;
         }
 
         private static void ApplyFormChrome(Form form, ThemePalette palette)
@@ -885,8 +896,17 @@ namespace EPocalipse.Json.Viewer
             [DllImport("dwmapi.dll", PreserveSig = true)]
             private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
+            private const uint RDW_INVALIDATE = 0x0001;
+            private const uint RDW_ERASE = 0x0004;
+            private const uint RDW_FRAME = 0x0400;
+            private const uint RDW_ALLCHILDREN = 0x0080;
+            private const uint RDW_UPDATENOW = 0x0100;
+
             [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, SetLastError = true)]
             private static extern int SetWindowTheme(IntPtr hwnd, string? appName, string? idList);
+
+            [DllImport("user32.dll", SetLastError = true)]
+            private static extern bool RedrawWindow(IntPtr hwnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, uint flags);
 
             public static uint GetCurrentColor(int color)
             {
@@ -1016,12 +1036,32 @@ namespace EPocalipse.Json.Viewer
 
                 try
                 {
-                    // The scrollbar-specific class list is required for
-                    // WinForms controls that own native scrollbars.  The
-                    // generic DarkMode_Explorer theme leaves those tracks on
-                    // the light system rendering path on several Windows 11
-                    // builds.
-                    SetWindowTheme(handle, "Explorer::ScrollBar", null);
+                    // The scrollbar-specific id list must be applied to the
+                    // control after the native dark-scrollbar hook is enabled.
+                    // Passing it as the sub-app name does not reliably reopen
+                    // the scrollbar theme on first show, leaving WinForms
+                    // scrollbars light until a later repaint.
+                    SetWindowTheme(handle, null, "DarkMode_Explorer::ScrollBar");
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
+                }
+            }
+
+            public static void RedrawNonClientArea(IntPtr handle)
+            {
+                if (handle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    RedrawWindow(handle, IntPtr.Zero, IntPtr.Zero,
+                        RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 }
                 catch (DllNotFoundException)
                 {
