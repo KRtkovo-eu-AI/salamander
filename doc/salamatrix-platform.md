@@ -489,6 +489,20 @@ The initial command catalog is deliberately small and stable: `QuickRename`,
 `move`, and `move_rename`. All MVP entries route to existing Salamander command
 handlers and require the current panel context to make the command meaningful.
 
+
+For the first real scripted-extension sample, Automation recognizes optional
+script header metadata:
+
+```javascript
+// Salamatrix.CommandId: Salamatrix.ProgressDemo
+// Salamatrix.CommandTitle: Salamatrix Progress Demo
+```
+
+This is the MVP command-registration path for script files discovered by the
+existing Automation script repository. The command id is stored with the script
+metadata and the title overrides the file-name-derived menu caption; execution
+continues to use the existing Automation script command workflow.
+
 ## MVP acceptance criteria
 
 The platform skeleton is ready when:
