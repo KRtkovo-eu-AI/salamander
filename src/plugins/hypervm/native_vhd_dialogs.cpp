@@ -68,7 +68,10 @@ const wchar_t* WStr(int id)
     wchar_t* buffer = buffers[index++ % 16];
     buffer[0] = L'\0';
 
-    const char* text = LoadStr(id);
+    char textA[4096];
+    textA[0] = '\0';
+    LoadStringA(HLanguage, id, textA, _countof(textA));
+    const char* text = textA[0] != '\0' ? textA : LoadStr(id);
     if (text == nullptr)
     {
         return buffer;
@@ -225,11 +228,13 @@ bool RunDialog(HWND parent, bool create)
     RegisterClassW(&wc);
 
     int width = 380;
-    int height = create ? 469 : 186;
+    int height = create ? 430 : 147;
+    RECT windowRect = {0, 0, width, height};
+    AdjustWindowRectEx(&windowRect, WS_CAPTION | WS_SYSMENU | WS_POPUP, FALSE, WS_EX_DLGMODALFRAME);
     std::wstring title = WStr(create ? IDS_VHD_CREATE_TITLE : IDS_VHD_ATTACH_TITLE);
     HWND hwnd = CreateWindowExW(WS_EX_DLGMODALFRAME, wc.lpszClassName, title.c_str(),
                                 WS_CAPTION | WS_SYSMENU | WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT,
-                                width, height, parent, nullptr, DLLInstance, &s);
+                                windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, parent, nullptr, DLLInstance, &s);
     SetWindowTextW(hwnd, title.c_str());
     s.Window = hwnd;
     HFONT font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
@@ -275,6 +280,7 @@ bool RunDialog(HWND parent, bool create)
     SalamanderGeneral->MultiMonCenterWindow(hwnd, parent, TRUE);
     EnableWindow(parent, FALSE);
     ShowWindow(hwnd, SW_SHOW);
+    SetWindowTextW(hwnd, title.c_str());
     MSG msg;
     while (!s.Done && GetMessage(&msg, nullptr, 0, 0))
     {
