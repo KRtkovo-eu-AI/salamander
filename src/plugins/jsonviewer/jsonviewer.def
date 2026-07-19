@@ -3,3 +3,6 @@ LIBRARY JSONVIEWER.SPL
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
 EXPORTS JsonViewer_GetCurrentColor
+EXPORTS JsonViewer_SetDarkModeState
+EXPORTS JsonViewer_ApplyDarkModeTree
+EXPORTS JsonViewer_UpdateListViewDarkMode
