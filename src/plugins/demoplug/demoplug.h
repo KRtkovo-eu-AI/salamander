@@ -114,6 +114,7 @@ char* LoadStr(int resID);
 #define MENUCMD_SALAMATRIX_PROGRESS_POC 19
 #define MENUCMD_SALAMATRIX_QUICKRENAME_POC 20
 #define MENUCMD_SALAMATRIX_COPY_POC 21
+#define MENUCMD_SALAMATRIX_RUN_ALL_POC 22
 
 //
 // ****************************************************************************

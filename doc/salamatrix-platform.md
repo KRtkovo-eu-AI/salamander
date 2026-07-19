@@ -425,14 +425,17 @@ The first in-process proof-of-concept wiring is declared in:
 src/plugins/salamatrix/salamatrix_poc.h
 ```
 
-This PoC is intentionally small and does not yet register a real runtime plugin.
-It proves that the MVP contracts can be composed inside a native plugin call:
+This PoC is intentionally small and uses an in-process service registry instead
+of registering a real runtime plugin yet. It proves that the MVP contracts can be
+composed inside a native plugin call:
 
-- `Poc::LocalUIService` implements `Salamatrix::UI::IUIService` by creating and
-  destroying `Salamatrix::UI::ProgressDialog` objects over the existing
+- `Runtime::ServiceRegistry` provides a minimal fixed-size in-process
+  `RegisterService`/`QueryService` implementation.
+- `Runtime::LocalUIService` implements `Salamatrix::UI::IUIService` by creating
+  and destroying `Salamatrix::UI::ProgressDialog` objects over the existing
   `CSalamanderForOperationsAbstract` progress API.
-- `Poc::RuntimeServices` wires one in-process UI service, command service,
-  file-operation service, and script root adapter together.
+- `Runtime::RuntimeServices` wires one in-process UI service, command service,
+  file-operation service, script root adapter, and service registry together.
 - `RunProgressDialogPoc(...)` opens a native Salamatrix progress dialog, sets a
   total, adds text, steps progress, detects Cancel, disables Cancel for cleanup,
   and closes the dialog.
@@ -442,10 +445,13 @@ It proves that the MVP contracts can be composed inside a native plugin call:
   Commands/FileOperations MVP can route to existing Salamander command workflows.
 
 The first integration point is now a DemoPlug menu submenu named `Salamatrix PoC`.
-It exposes a progress PoC command, a Quick Rename command PoC, and a Copy dialog
-PoC. The progress command calls the native progress PoC and the script-facing
-progress adapter PoC from `CPluginInterfaceForMenuExt::ExecuteMenuItem`, while the
-Quick Rename and Copy entries route through the Commands/FileOperations adapters.
+It exposes a `Run All PoC` summary command, a progress PoC command, a Quick
+Rename command PoC, and a Copy dialog PoC. The individual menu entries are always
+enabled, so the command/file-operation service can report `error` instead of the
+DemoPlug menu hiding the scenario. The progress command calls the native progress
+PoC and the script-facing progress adapter PoC from
+`CPluginInterfaceForMenuExt::ExecuteMenuItem`, while the Quick Rename and Copy
+entries route through the Commands/FileOperations adapters.
 After this in-plugin sample is proven useful, the same wiring can move behind
 `RegisterService` and `QueryService`.
 
@@ -471,9 +477,10 @@ The platform skeleton is ready when:
    wrappers over the native UI, Commands, and FileOperations MVP services.
 9. The generic form-builder model is reserved as adapter contracts only; no
    duplicate Automation UI implementation is introduced outside `Salamatrix.UI`.
-10. The in-process Salamatrix PoC wires UI, Commands, FileOperations, and
-   Automation adapters together and is exposed as a DemoPlug `Salamatrix PoC`
-   menu sample without requiring service registration yet.
+10. The in-process Salamatrix PoC wires UI, Commands, FileOperations,
+   Automation adapters, and a minimal service registry together and is exposed as
+   a DemoPlug `Salamatrix PoC` menu sample without requiring core service
+   registration yet.
 11. The next MVP can turn `IUIService`, `ICommandService`,
    `IFileOperationsService`, and the Automation adapter into registered runtime
    services without revisiting the naming and service-discovery foundation.
