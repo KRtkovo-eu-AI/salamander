@@ -4,6 +4,7 @@
 
 #include "precomp.h"
 
+#include <new>
 #include <string>
 #include <vector>
 
@@ -3011,6 +3012,51 @@ static BOOL FileExists(const char* path)
     return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
+static BOOL FileExistsWPath(const wchar_t* path)
+{
+    DWORD attrs = GetFileAttributesW(path);
+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+static BOOL DirectoryExistsWPath(const wchar_t* path)
+{
+    DWORD attrs = GetFileAttributesW(path);
+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+static void AppendPathW(std::wstring& path, const wchar_t* suffix)
+{
+    if (!path.empty() && path[path.size() - 1] != L'\\')
+        path += L'\\';
+    path += suffix;
+}
+
+static std::string WideToAnsi(const std::wstring& value)
+{
+    if (value.empty())
+        return std::string();
+    int len = WideCharToMultiByte(CP_ACP, 0, value.c_str(), (int)value.size(), NULL, 0, NULL, NULL);
+    if (len <= 0)
+        return std::string();
+    std::string out;
+    out.resize(len);
+    WideCharToMultiByte(CP_ACP, 0, value.c_str(), (int)value.size(), &out[0], len, NULL, NULL);
+    return out;
+}
+
+static std::string Utf8ToAnsi(const std::string& value)
+{
+    if (value.empty())
+        return std::string();
+    int wideLen = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), (int)value.size(), NULL, 0);
+    if (wideLen <= 0)
+        return value;
+    std::wstring wide;
+    wide.resize(wideLen);
+    MultiByteToWideChar(CP_UTF8, 0, value.c_str(), (int)value.size(), &wide[0], wideLen);
+    return WideToAnsi(wide);
+}
+
 static BOOL FindWindowsTerminal(char* wtPath, int wtPathSize)
 {
     if (SearchPath(NULL, "wt.exe", NULL, wtPathSize, wtPath, NULL) != 0)
@@ -3027,18 +3073,18 @@ static BOOL FindWindowsTerminal(char* wtPath, int wtPathSize)
     return FALSE;
 }
 
-static void AddWindowsTerminalSettingsPath(std::vector<std::string>& paths, const char* localAppData, const char* suffix)
+static void AddExistingSettingsPath(std::vector<std::wstring>& paths, const std::wstring& base, const wchar_t* suffix)
 {
-    char path[SAL_MAX_PATH];
-    _snprintf_s(path, ARRAYSIZE(path), _TRUNCATE, "%s\\%s", localAppData, suffix);
-    if (FileExists(path))
+    std::wstring path = base;
+    AppendPathW(path, suffix);
+    if (FileExistsWPath(path.c_str()))
         paths.push_back(path);
 }
 
-static BOOL ReadTextFile(const char* path, std::string& text)
+static BOOL ReadTextFileWPath(const wchar_t* path, std::string& text)
 {
-    HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                       NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+    HANDLE file = HANDLES_Q(CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                        NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
     if (file == INVALID_HANDLE_VALUE)
         return FALSE;
     DWORD size = GetFileSize(file, NULL);
@@ -3049,7 +3095,7 @@ static BOOL ReadTextFile(const char* path, std::string& text)
     }
     text.resize(size);
     DWORD read = 0;
-    BOOL ok = ReadFile(file, &text[0], size, &read, NULL);
+    BOOL ok = size == 0 ? TRUE : ReadFile(file, &text[0], size, &read, NULL);
     HANDLES(CloseHandle(file));
     if (!ok)
         return FALSE;
@@ -3057,16 +3103,178 @@ static BOOL ReadTextFile(const char* path, std::string& text)
     return TRUE;
 }
 
+static void AddFragmentJsonFiles(std::vector<std::wstring>& paths, const std::wstring& directory, int depth = 0)
+{
+    if (depth > 6 || !DirectoryExistsWPath(directory.c_str()))
+        return;
+
+    std::wstring mask = directory;
+    AppendPathW(mask, L"*");
+    WIN32_FIND_DATAW data;
+    HANDLE find = FindFirstFileW(mask.c_str(), &data);
+    if (find == INVALID_HANDLE_VALUE)
+        return;
+    do
+    {
+        if (wcscmp(data.cFileName, L".") == 0 || wcscmp(data.cFileName, L"..") == 0)
+            continue;
+        std::wstring child = directory;
+        AppendPathW(child, data.cFileName);
+        if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            AddFragmentJsonFiles(paths, child, depth + 1);
+        else
+        {
+            const wchar_t* ext = wcsrchr(data.cFileName, L'.');
+            if (ext != NULL && _wcsicmp(ext, L".json") == 0)
+                paths.push_back(child);
+        }
+    } while (FindNextFileW(find, &data));
+    FindClose(find);
+}
+
 struct CWindowsTerminalProfile
 {
     std::string Name;
     std::string CommandLine;
     std::string Icon;
+    std::string Source;
 };
 
 static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& profile);
 
+static BOOL IsJsonEscaped(const std::string& json, size_t pos)
+{
+    size_t slashCount = 0;
+    while (pos > 0 && json[--pos] == '\\')
+        slashCount++;
+    return (slashCount & 1) != 0;
+}
+
+static size_t FindJsonStringEnd(const std::string& json, size_t quote)
+{
+    for (size_t i = quote + 1; i < json.size(); i++)
+        if (json[i] == '"' && !IsJsonEscaped(json, i))
+            return i;
+    return std::string::npos;
+}
+
+static size_t FindMatchingJsonChar(const std::string& json, size_t open, char openCh, char closeCh)
+{
+    int depth = 0;
+    for (size_t i = open; i < json.size(); i++)
+    {
+        if (json[i] == '"')
+        {
+            i = FindJsonStringEnd(json, i);
+            if (i == std::string::npos)
+                return std::string::npos;
+            continue;
+        }
+        if (json[i] == openCh)
+            depth++;
+        else if (json[i] == closeCh && --depth == 0)
+            return i;
+    }
+    return std::string::npos;
+}
+
+static void AppendUtf8Codepoint(std::string& value, unsigned code)
+{
+    if (code < 0x80)
+        value.push_back((char)code);
+    else if (code < 0x800)
+    {
+        value.push_back((char)(0xC0 | (code >> 6)));
+        value.push_back((char)(0x80 | (code & 0x3F)));
+    }
+    else
+    {
+        value.push_back((char)(0xE0 | (code >> 12)));
+        value.push_back((char)(0x80 | ((code >> 6) & 0x3F)));
+        value.push_back((char)(0x80 | (code & 0x3F)));
+    }
+}
+
+static int HexDigitValue(char ch)
+{
+    if (ch >= '0' && ch <= '9')
+        return ch - '0';
+    if (ch >= 'a' && ch <= 'f')
+        return ch - 'a' + 10;
+    if (ch >= 'A' && ch <= 'F')
+        return ch - 'A' + 10;
+    return -1;
+}
+
 static BOOL FindJsonStringProperty(const std::string& json, size_t objectStart, size_t objectEnd, const char* property, std::string& value)
+{
+    std::string key = "\"";
+    key += property;
+    key += "\"";
+    size_t pos = objectStart;
+    while ((pos = json.find(key, pos)) != std::string::npos && pos < objectEnd)
+    {
+        if (pos > objectStart && (isalnum((unsigned char)json[pos - 1]) || json[pos - 1] == '_'))
+        {
+            pos += key.size();
+            continue;
+        }
+        size_t colon = json.find(':', pos + key.size());
+        if (colon == std::string::npos || colon >= objectEnd)
+            return FALSE;
+        size_t quote = colon + 1;
+        while (quote < objectEnd && (json[quote] == ' ' || json[quote] == '\t' || json[quote] == '\r' || json[quote] == '\n'))
+            quote++;
+        if (quote >= objectEnd || json[quote] != '"')
+            return FALSE;
+
+        value.clear();
+        for (size_t i = quote + 1; i < objectEnd; i++)
+        {
+            char ch = json[i];
+            if (ch == '"')
+                return TRUE;
+            if (ch == '\\' && i + 1 < objectEnd)
+            {
+                ch = json[++i];
+                switch (ch)
+                {
+                case 'n': ch = '\n'; break;
+                case 'r': ch = '\r'; break;
+                case 't': ch = '\t'; break;
+                case 'u':
+                {
+                    if (i + 4 < objectEnd)
+                    {
+                        unsigned code = 0;
+                        BOOL ok = TRUE;
+                        for (int h = 0; h < 4; h++)
+                        {
+                            int v = HexDigitValue(json[i + 1 + h]);
+                            if (v < 0)
+                                ok = FALSE;
+                            code = (code << 4) | (unsigned)max(v, 0);
+                        }
+                        if (ok)
+                        {
+                            AppendUtf8Codepoint(value, code);
+                            i += 4;
+                            continue;
+                        }
+                    }
+                    break;
+                }
+                }
+            }
+            value.push_back(ch);
+        }
+        return FALSE;
+    }
+    return FALSE;
+}
+
+static BOOL FindJsonPropertyObjectOrArray(const std::string& json, size_t objectStart, size_t objectEnd, const char* property,
+                                          char openCh, char closeCh, size_t& valueStart, size_t& valueEnd)
 {
     std::string key = "\"";
     key += property;
@@ -3077,65 +3285,121 @@ static BOOL FindJsonStringProperty(const std::string& json, size_t objectStart, 
     pos = json.find(':', pos + key.size());
     if (pos == std::string::npos || pos >= objectEnd)
         return FALSE;
-    pos = json.find('"', pos + 1);
-    if (pos == std::string::npos || pos >= objectEnd)
+    pos++;
+    while (pos < objectEnd && (json[pos] == ' ' || json[pos] == '\t' || json[pos] == '\r' || json[pos] == '\n'))
+        pos++;
+    if (pos >= objectEnd || json[pos] != openCh)
         return FALSE;
+    size_t end = FindMatchingJsonChar(json, pos, openCh, closeCh);
+    if (end == std::string::npos || end >= objectEnd)
+        return FALSE;
+    valueStart = pos;
+    valueEnd = end;
+    return TRUE;
+}
 
-    value.clear();
-    for (++pos; pos < objectEnd; pos++)
+static void AddWindowsTerminalProfileFromObject(const std::string& json, size_t objectStart, size_t objectEnd,
+                                                std::vector<CWindowsTerminalProfile>& profiles)
+{
+    std::string name;
+    if (!FindJsonStringProperty(json, objectStart, objectEnd, "name", name) || name.empty())
+        return;
+
+    name = Utf8ToAnsi(name);
+    BOOL duplicate = FALSE;
+    for (size_t i = 0; i < profiles.size(); i++)
+        if (_stricmp(profiles[i].Name.c_str(), name.c_str()) == 0)
+            duplicate = TRUE;
+    if (duplicate)
+        return;
+
+    CWindowsTerminalProfile profile;
+    profile.Name = name;
+    if (FindJsonStringProperty(json, objectStart, objectEnd, "commandline", profile.CommandLine))
+        profile.CommandLine = Utf8ToAnsi(profile.CommandLine);
+    if (FindJsonStringProperty(json, objectStart, objectEnd, "icon", profile.Icon))
+        profile.Icon = Utf8ToAnsi(profile.Icon);
+    if (FindJsonStringProperty(json, objectStart, objectEnd, "source", profile.Source))
+        profile.Source = Utf8ToAnsi(profile.Source);
+    InferWindowsTerminalProfileCommandLine(profile);
+    profiles.push_back(profile);
+}
+
+static void CollectProfilesFromArray(const std::string& json, size_t arrayStart, size_t arrayEnd,
+                                     std::vector<CWindowsTerminalProfile>& profiles)
+{
+    for (size_t pos = arrayStart + 1; pos < arrayEnd; pos++)
     {
-        char ch = json[pos];
-        if (ch == '"')
-            return TRUE;
-        if (ch == '\\' && pos + 1 < objectEnd)
-            ch = json[++pos];
-        value.push_back(ch);
+        if (json[pos] == '"')
+        {
+            pos = FindJsonStringEnd(json, pos);
+            if (pos == std::string::npos)
+                break;
+        }
+        else if (json[pos] == '{')
+        {
+            size_t objectEnd = FindMatchingJsonChar(json, pos, '{', '}');
+            if (objectEnd == std::string::npos || objectEnd > arrayEnd)
+                break;
+            AddWindowsTerminalProfileFromObject(json, pos, objectEnd, profiles);
+            pos = objectEnd;
+        }
     }
-    return FALSE;
+}
+
+static void CollectProfilesFromJson(const std::string& json, std::vector<CWindowsTerminalProfile>& profiles)
+{
+    size_t rootEnd = json.size();
+    size_t profilesStart;
+    size_t profilesEnd;
+    if (FindJsonPropertyObjectOrArray(json, 0, rootEnd, "profiles", '{', '}', profilesStart, profilesEnd))
+    {
+        size_t listStart;
+        size_t listEnd;
+        if (FindJsonPropertyObjectOrArray(json, profilesStart, profilesEnd, "list", '[', ']', listStart, listEnd))
+            CollectProfilesFromArray(json, listStart, listEnd, profiles);
+    }
+    else if (FindJsonPropertyObjectOrArray(json, 0, rootEnd, "profiles", '[', ']', profilesStart, profilesEnd))
+        CollectProfilesFromArray(json, profilesStart, profilesEnd, profiles);
+}
+
+static void AddWindowsTerminalSettingsPaths(std::vector<std::wstring>& paths, const std::wstring& localAppData)
+{
+    // Prefer the settings store used by the normal wt.exe alias; fall back to Preview/unpackaged only when needed.
+    size_t before = paths.size();
+    AddExistingSettingsPath(paths, localAppData, L"Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json");
+    if (paths.size() == before)
+        AddExistingSettingsPath(paths, localAppData, L"Packages\\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\\LocalState\\settings.json");
+    if (paths.size() == before)
+        AddExistingSettingsPath(paths, localAppData, L"Microsoft\\Windows Terminal\\settings.json");
 }
 
 static void CollectWindowsTerminalProfiles(std::vector<CWindowsTerminalProfile>& profiles)
 {
-    char localAppData[SAL_MAX_PATH];
-    if (SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, localAppData) != S_OK)
+    wchar_t localAppData[SAL_MAX_PATH];
+    if (SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, localAppData) != S_OK)
         return;
 
-    std::vector<std::string> paths;
-    AddWindowsTerminalSettingsPath(paths, localAppData, "Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json");
-    AddWindowsTerminalSettingsPath(paths, localAppData, "Packages\\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\\LocalState\\settings.json");
-    AddWindowsTerminalSettingsPath(paths, localAppData, "Microsoft\\Windows Terminal\\settings.json");
+    std::vector<std::wstring> paths;
+    AddWindowsTerminalSettingsPaths(paths, localAppData);
+
+    std::wstring fragments = localAppData;
+    AppendPathW(fragments, L"Microsoft\\Windows Terminal\\Fragments");
+    AddFragmentJsonFiles(paths, fragments);
+
+    wchar_t programData[SAL_MAX_PATH];
+    if (SHGetFolderPathW(NULL, CSIDL_COMMON_APPDATA, NULL, SHGFP_TYPE_CURRENT, programData) == S_OK)
+    {
+        fragments = programData;
+        AppendPathW(fragments, L"Microsoft\\Windows Terminal\\Fragments");
+        AddFragmentJsonFiles(paths, fragments);
+    }
 
     for (size_t p = 0; p < paths.size(); p++)
     {
         std::string json;
-        if (!ReadTextFile(paths[p].c_str(), json))
-            continue;
-        size_t pos = 0;
-        while ((pos = json.find("\"name\"", pos)) != std::string::npos)
-        {
-            size_t objectStart = json.rfind('{', pos);
-            size_t objectEnd = json.find('}', pos);
-            if (objectStart == std::string::npos || objectEnd == std::string::npos)
-                break;
-            std::string name;
-            if (FindJsonStringProperty(json, objectStart, objectEnd, "name", name) && !name.empty())
-            {
-                BOOL duplicate = FALSE;
-                for (size_t i = 0; i < profiles.size(); i++)
-                    if (_stricmp(profiles[i].Name.c_str(), name.c_str()) == 0)
-                        duplicate = TRUE;
-                if (!duplicate)
-                {
-                    CWindowsTerminalProfile profile;
-                    profile.Name = name;
-                    FindJsonStringProperty(json, objectStart, objectEnd, "commandline", profile.CommandLine);
-                    FindJsonStringProperty(json, objectStart, objectEnd, "icon", profile.Icon);
-                    InferWindowsTerminalProfileCommandLine(profile);
-                    profiles.push_back(profile);
-                }
-            }
-            pos = objectEnd + 1;
-        }
+        if (ReadTextFileWPath(paths[p].c_str(), json))
+            CollectProfilesFromJson(json, profiles);
     }
 }
 
@@ -3153,6 +3417,30 @@ static void AppendMenuQuotedArg(char* args, int argsSize, const char* text)
         }
     }
     strncat_s(args, argsSize, "\"", _TRUNCATE);
+}
+
+static void AppendQuotedArgString(std::string& args, const char* text)
+{
+    args += '"';
+    for (const char* s = text; *s != 0; s++)
+    {
+        if (*s == '"')
+            args += "\\\"";
+        else
+            args += *s;
+    }
+    args += '"';
+}
+
+static const char* FindTextI(const char* text, const char* needle)
+{
+    size_t needleLen = strlen(needle);
+    if (needleLen == 0)
+        return text;
+    for (const char* s = text; *s != 0; s++)
+        if (_strnicmp(s, needle, needleLen) == 0)
+            return s;
+    return NULL;
 }
 
 static BOOL ContainsTextI(const std::string& text, const char* needle)
@@ -3184,6 +3472,66 @@ static void CopyFirstCommandToken(const char* commandLine, char* exe, int exeSiz
     exe[pos] = 0;
 }
 
+static BOOL ContainsCommandLineSwitch(const std::string& commandLine, const char* sw)
+{
+    size_t swLen = strlen(sw);
+    for (size_t i = 0; i < commandLine.size(); i++)
+    {
+        if ((i == 0 || commandLine[i - 1] == ' ' || commandLine[i - 1] == '\t' || commandLine[i - 1] == '"') &&
+            _strnicmp(commandLine.c_str() + i, sw, swLen) == 0 &&
+            (commandLine[i + swLen] == 0 || commandLine[i + swLen] == ' ' || commandLine[i + swLen] == '\t' || commandLine[i + swLen] == '"'))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL IsBashLikeCommandLine(const std::string& commandLine)
+{
+    return ContainsTextI(commandLine, "bash") || ContainsTextI(commandLine, "sh.exe") ||
+           ContainsTextI(commandLine, "zsh") || ContainsTextI(commandLine, "cygwin") ||
+           ContainsTextI(commandLine, "git-bash") || ContainsTextI(commandLine, "mingw");
+}
+
+static void AppendProfileCommandLine(char* args, int argsSize, const std::string& commandLine)
+{
+    const char* start = commandLine.c_str();
+    while (*start == ' ' || *start == '\t')
+        start++;
+    strncat_s(args, argsSize, " ", _TRUNCATE);
+    if (*start == '"')
+    {
+        strncat_s(args, argsSize, start, _TRUNCATE);
+        return;
+    }
+
+    const char* extensions[] = {".exe", ".cmd", ".bat", ".com"};
+    const char* exeEnd = NULL;
+    for (int e = 0; e < _countof(extensions); e++)
+    {
+        const char* found = FindTextI(start, extensions[e]);
+        if (found != NULL && (exeEnd == NULL || found < exeEnd))
+            exeEnd = found + strlen(extensions[e]);
+    }
+    if (exeEnd != NULL)
+    {
+        BOOL needsQuotes = FALSE;
+        for (const char* s = start; s < exeEnd; s++)
+            if (*s == ' ' || *s == '\t')
+                needsQuotes = TRUE;
+        if (needsQuotes)
+        {
+            strncat_s(args, argsSize, "\"", _TRUNCATE);
+            size_t len = exeEnd - start;
+            std::string exe(start, len);
+            strncat_s(args, argsSize, exe.c_str(), _TRUNCATE);
+            strncat_s(args, argsSize, "\"", _TRUNCATE);
+            strncat_s(args, argsSize, exeEnd, _TRUNCATE);
+            return;
+        }
+    }
+    strncat_s(args, argsSize, start, _TRUNCATE);
+}
+
 static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& profile)
 {
     if (!profile.CommandLine.empty())
@@ -3195,8 +3543,12 @@ static void InferWindowsTerminalProfileCommandLine(CWindowsTerminalProfile& prof
     else if (ContainsTextI(profile.Name, "Command Prompt") || ContainsTextI(profile.Name, "cmd"))
         profile.CommandLine = "cmd.exe";
     else if (ContainsTextI(profile.Name, "Ubuntu") || ContainsTextI(profile.Name, "Debian") ||
-             ContainsTextI(profile.Name, "SLES") || ContainsTextI(profile.Name, "kali"))
-        profile.CommandLine = "wsl.exe";
+             ContainsTextI(profile.Name, "SLES") || ContainsTextI(profile.Name, "kali") ||
+             ContainsTextI(profile.Source, "Windows.Terminal.Wsl"))
+    {
+        profile.CommandLine = "wsl.exe -d ";
+        AppendQuotedArgString(profile.CommandLine, profile.Name.c_str());
+    }
 }
 
 static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const CWindowsTerminalProfile& profile)
@@ -3207,14 +3559,32 @@ static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const 
         return;
     }
 
-    strncat_s(args, argsSize, " ", _TRUNCATE);
-    strncat_s(args, argsSize, profile.CommandLine.c_str(), _TRUNCATE);
+    AppendProfileCommandLine(args, argsSize, profile.CommandLine);
     if (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.CommandLine, "powershell"))
-        strncat_s(args, argsSize, " -NoExit -Command \"{command}\"", _TRUNCATE);
+    {
+        if (ContainsCommandLineSwitch(profile.CommandLine, "-Command") ||
+            ContainsCommandLineSwitch(profile.CommandLine, "-CommandWithArgs") ||
+            ContainsCommandLineSwitch(profile.CommandLine, "-c"))
+            strncat_s(args, argsSize, " ; {command}", _TRUNCATE);
+        else
+            strncat_s(args, argsSize, " -NoExit -Command \"{command}\"", _TRUNCATE);
+    }
     else if (ContainsTextI(profile.CommandLine, "cmd"))
-        strncat_s(args, argsSize, " /K \"{command}\"", _TRUNCATE);
+    {
+        if (ContainsCommandLineSwitch(profile.CommandLine, "/K") || ContainsCommandLineSwitch(profile.CommandLine, "/C"))
+            strncat_s(args, argsSize, " & \"{command}\"", _TRUNCATE);
+        else
+            strncat_s(args, argsSize, " /K \"{command}\"", _TRUNCATE);
+    }
     else if (ContainsTextI(profile.CommandLine, "wsl"))
         strncat_s(args, argsSize, " --exec sh -lc \"{command}\"", _TRUNCATE);
+    else if (IsBashLikeCommandLine(profile.CommandLine))
+    {
+        if (ContainsCommandLineSwitch(profile.CommandLine, "-lc") || ContainsCommandLineSwitch(profile.CommandLine, "-c"))
+            strncat_s(args, argsSize, " \"{command}\"", _TRUNCATE);
+        else
+            strncat_s(args, argsSize, " -lc \"{command}\"", _TRUNCATE);
+    }
     else
         strncat_s(args, argsSize, " \"{command}\"", _TRUNCATE);
 }
@@ -3509,8 +3879,8 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     std::vector<HICON> menuIcons;
 
     CMenuPopup popup;
-    CMenuPopup* templatesPopup = new CMenuPopup();
-    CMenuPopup* windowsTerminalPopup = new CMenuPopup();
+    CMenuPopup* templatesPopup = new (std::nothrow) CMenuPopup();
+    CMenuPopup* windowsTerminalPopup = new (std::nothrow) CMenuPopup();
     if (templatesPopup == NULL || windowsTerminalPopup == NULL)
     {
         if (templatesPopup != NULL)
@@ -3585,7 +3955,7 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     }
     if (cmd == 3 || cmd == 4 || cmd == 5 || cmd == 7)
     {
-        const char* text = cmd == 3 ? "$(WinDir)" : cmd == 4 ? "$(SysDir)" : cmd == 5 ? "$(SalDir)" : "%";
+        const char* text = cmd == 3 ? "$(WinDir)" : cmd == 4 ? "$(SysDir)" : cmd == 5 ? "$(SalDir)" : "$[]";
         HWND hEdit = GetDlgItem(hWindow, IDC_CMDLINEAPP_PATH);
         SendMessage(hEdit, EM_REPLACESEL, TRUE, (LPARAM)text);
         if (cmd == 7)
