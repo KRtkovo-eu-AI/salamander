@@ -3776,7 +3776,7 @@ static void AppendWindowsTerminalProfileCommand(char* args, int argsSize, const 
             ContainsCommandLineSwitch(profile.CommandLine, "-c"))
             strncat_s(args, argsSize, " \"; {command}\"", _TRUNCATE);
         else
-            strncat_s(args, argsSize, " -NoExit -Command \"{command}\"", _TRUNCATE);
+            strncat_s(args, argsSize, " -NoExit -Command \"& {command}\"", _TRUNCATE);
     }
     else if (ContainsTextI(profile.CommandLine, "cmd"))
     {

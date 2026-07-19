@@ -452,6 +452,16 @@ BOOL AppendConfiguredCommandShellArguments(char* cmd, int cmdSize)
             else if ((optionLen == lstrlen("-lc") && memcmp(optionStart, "-lc", optionLen) == 0) ||
                      (optionLen == lstrlen("-c") && memcmp(optionStart, "-c", optionLen) == 0))
             {
+                const char* fragmentStart = placeholder;
+                while (fragmentStart > quotedArgument && (fragmentStart[-1] == ' ' || fragmentStart[-1] == '\t'))
+                    fragmentStart--;
+                if (fragmentStart > quotedArgument && fragmentStart[-1] == ';')
+                {
+                    fragmentStart--;
+                    return AppendToCommandLine(cmd, cmdSize, args, (int)(fragmentStart - args)) &&
+                           AppendToCommandLine(cmd, cmdSize, placeholder + placeholderLen);
+                }
+
                 const char* shellEnd = optionStart;
                 while (shellEnd > args && (shellEnd[-1] == ' ' || shellEnd[-1] == '\t'))
                     shellEnd--;
