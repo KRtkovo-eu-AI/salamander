@@ -16,6 +16,7 @@
 namespace
 {
 ICLRRuntimeHost* gRuntimeHost = nullptr;
+bool gJsonViewerDarkModeEnabled = false;
 std::wstring gAssemblyPath;
 const wchar_t* const kManagedType = L"OpenSalamander.JsonViewer.EntryPoint";
 const wchar_t* const kManagedMethod = L"Dispatch";
@@ -380,11 +381,18 @@ extern "C" __declspec(dllexport) UINT32 __stdcall JsonViewer_GetCurrentColor(int
 
 extern "C" __declspec(dllexport) void __stdcall JsonViewer_SetDarkModeState(BOOL enabled)
 {
-    DarkModeSetEnabled(enabled != FALSE);
+    gJsonViewerDarkModeEnabled = enabled != FALSE;
+    DarkModeSetEnabled(gJsonViewerDarkModeEnabled);
 }
 
 extern "C" __declspec(dllexport) void __stdcall JsonViewer_ApplyDarkModeTree(HWND hwnd)
 {
+    if (!gJsonViewerDarkModeEnabled)
+    {
+        DarkModeApplyTree(hwnd);
+        return;
+    }
+
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
     EnumChildWindows(hwnd, ApplyJsonViewerDarkModeChild, 0);
@@ -392,6 +400,12 @@ extern "C" __declspec(dllexport) void __stdcall JsonViewer_ApplyDarkModeTree(HWN
 
 extern "C" __declspec(dllexport) void __stdcall JsonViewer_UpdateListViewDarkMode(HWND hwnd)
 {
+    if (!gJsonViewerDarkModeEnabled)
+    {
+        DarkModeApplyTree(hwnd);
+        return;
+    }
+
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
     EnumChildWindows(hwnd, ApplyJsonViewerDarkModeChild, 0);

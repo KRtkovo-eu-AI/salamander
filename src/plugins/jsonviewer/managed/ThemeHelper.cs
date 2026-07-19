@@ -32,6 +32,14 @@ namespace EPocalipse.Json.Viewer
             return false;
         }
 
+        public static void InitializeNativeDarkMode()
+        {
+            if (GetPalette() is ThemePalette palette)
+            {
+                NativeMethods.SetDarkModeEnabled(palette.IsDark);
+            }
+        }
+
         public static void ApplyTheme(Form form)
         {
             var palette = GetPalette();

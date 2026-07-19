@@ -629,6 +629,10 @@ internal static class ViewerHost
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             DoubleBuffered = true;
 
+            ThemeHelper.InitializeNativeDarkMode();
+            _ = Handle;
+            ThemeHelper.ApplyNativeDarkMode(this);
+
             _viewer = new JsonViewerControl
             {
                 Dock = DockStyle.Fill
