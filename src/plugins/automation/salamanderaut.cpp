@@ -26,12 +26,14 @@
 #include "scriptinfoaut.h"
 #include "persistence.h"
 #include "abortmodal.h"
+#include "automationplug.h"
 
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern int SalamanderVersion;
 extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CPersistentValueStorage g_oPersistentStorage;
+extern CAutomationPluginInterface g_oAutomationPlugin;
 
 CSalamanderAutomation::CSalamanderAutomation(__in CScriptInfo* pScriptInfo)
 {
@@ -371,6 +373,7 @@ void CSalamanderAutomation::SetExecutionInfo(CScriptInfo::EXECUTION_INFO* info)
 
 void CSalamanderAutomation::OnBeginExecution()
 {
+    g_oAutomationPlugin.RefreshSalamatrixServices();
 }
 
 void CSalamanderAutomation::OnEndExecution()
