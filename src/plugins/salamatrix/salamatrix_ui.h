@@ -1,0 +1,222 @@
+﻿// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+/*
+    Salamatrix Runtime for Open Salamander
+
+    salamatrix_ui.h
+    First public C++ shape for Salamatrix.UI.
+*/
+
+#pragma once
+
+#include "../shared/spl_com.h"
+
+namespace Salamatrix
+{
+namespace UI
+{
+
+#define SALAMATRIX_SERVICE_UI "Salamatrix.UI"
+#define SALAMATRIX_UI_VERSION_1_0 0x00010000
+
+struct ProgressDialogOptions
+{
+    const char* Title;
+    HWND Parent;
+    BOOL TwoProgressBars;
+    BOOL FileProgress;
+    BOOL CancelEnabled;
+
+    ProgressDialogOptions()
+        : Title(NULL),
+          Parent(NULL),
+          TwoProgressBars(FALSE),
+          FileProgress(FALSE),
+          CancelEnabled(TRUE)
+    {
+    }
+};
+
+class IProgressDialog
+{
+public:
+    virtual void WINAPI SetTitle(const char* title) = 0;
+    virtual void WINAPI Open() = 0;
+    virtual void WINAPI Open(const ProgressDialogOptions& options) = 0;
+    virtual void WINAPI Close() = 0;
+    virtual BOOL WINAPI IsOpen() const = 0;
+
+    virtual void WINAPI SetTotal(const CQuadWord& total) = 0;
+    virtual void WINAPI SetTotals(const CQuadWord& firstTotal, const CQuadWord& secondTotal) = 0;
+    virtual BOOL WINAPI SetPosition(const CQuadWord& position, BOOL delayedPaint) = 0;
+    virtual BOOL WINAPI SetPositions(const CQuadWord& firstPosition, const CQuadWord& secondPosition, BOOL delayedPaint) = 0;
+    virtual BOOL WINAPI Step(int amount, BOOL delayedPaint) = 0;
+    virtual BOOL WINAPI IsCancelled() = 0;
+
+    virtual void WINAPI AddText(const char* text, BOOL delayedPaint) = 0;
+    virtual void WINAPI SetCancelEnabled(BOOL enabled) = 0;
+    virtual HWND WINAPI GetHWND() = 0;
+
+protected:
+    virtual ~IProgressDialog() {}
+};
+
+class ProgressDialog : public IProgressDialog
+{
+private:
+    CSalamanderForOperationsAbstract* Operations;
+    BOOL Opened;
+    BOOL TwoProgressBars;
+    ProgressDialogOptions Options;
+
+    static const CQuadWord& InvalidSize()
+    {
+        static const CQuadWord Invalid(-1, -1);
+        return Invalid;
+    }
+
+public:
+    explicit ProgressDialog(CSalamanderForOperationsAbstract* operations)
+        : Operations(operations),
+          Opened(FALSE),
+          TwoProgressBars(FALSE)
+    {
+    }
+
+private:
+    ProgressDialog(const ProgressDialog&);
+    ProgressDialog& operator=(const ProgressDialog&);
+
+public:
+    ~ProgressDialog()
+    {
+        Close();
+    }
+
+    virtual void WINAPI SetTitle(const char* title)
+    {
+        if (Opened)
+            return;
+
+        Options.Title = title;
+    }
+
+    virtual void WINAPI Open()
+    {
+        Open(Options);
+    }
+
+    virtual void WINAPI Open(const ProgressDialogOptions& options)
+    {
+        if (Opened || Operations == NULL)
+            return;
+
+        Operations->OpenProgressDialog(options.Title != NULL ? options.Title : "Operation Progress",
+                                       options.TwoProgressBars, options.Parent, options.FileProgress);
+        Opened = TRUE;
+        TwoProgressBars = options.TwoProgressBars;
+        Operations->ProgressEnableCancel(options.CancelEnabled);
+    }
+
+    virtual void WINAPI Close()
+    {
+        if (!Opened || Operations == NULL)
+            return;
+
+        Operations->CloseProgressDialog();
+        Opened = FALSE;
+        TwoProgressBars = FALSE;
+    }
+
+    virtual BOOL WINAPI IsOpen() const
+    {
+        return Opened;
+    }
+
+    virtual void WINAPI SetTotal(const CQuadWord& total)
+    {
+        if (!Opened || Operations == NULL)
+            return;
+
+        Operations->ProgressSetTotalSize(total, InvalidSize());
+    }
+
+    virtual void WINAPI SetTotals(const CQuadWord& firstTotal, const CQuadWord& secondTotal)
+    {
+        if (!Opened || Operations == NULL)
+            return;
+
+        Operations->ProgressSetTotalSize(firstTotal, TwoProgressBars ? secondTotal : InvalidSize());
+    }
+
+    virtual BOOL WINAPI SetPosition(const CQuadWord& position, BOOL delayedPaint)
+    {
+        if (!Opened || Operations == NULL)
+            return TRUE;
+
+        return Operations->ProgressSetSize(position, InvalidSize(), delayedPaint);
+    }
+
+    virtual BOOL WINAPI SetPositions(const CQuadWord& firstPosition, const CQuadWord& secondPosition, BOOL delayedPaint)
+    {
+        if (!Opened || Operations == NULL)
+            return TRUE;
+
+        return Operations->ProgressSetSize(firstPosition, TwoProgressBars ? secondPosition : InvalidSize(), delayedPaint);
+    }
+
+    virtual BOOL WINAPI Step(int amount, BOOL delayedPaint)
+    {
+        if (!Opened || Operations == NULL)
+            return TRUE;
+
+        return Operations->ProgressAddSize(amount, delayedPaint);
+    }
+
+    virtual BOOL WINAPI IsCancelled()
+    {
+        if (!Opened || Operations == NULL)
+            return FALSE;
+
+        return Operations->ProgressAddSize(0, TRUE) ? FALSE : TRUE;
+    }
+
+    virtual void WINAPI AddText(const char* text, BOOL delayedPaint)
+    {
+        if (!Opened || Operations == NULL || text == NULL)
+            return;
+
+        Operations->ProgressDialogAddText(text, delayedPaint);
+    }
+
+    virtual void WINAPI SetCancelEnabled(BOOL enabled)
+    {
+        if (!Opened || Operations == NULL)
+            return;
+
+        Operations->ProgressEnableCancel(enabled);
+    }
+
+    virtual HWND WINAPI GetHWND()
+    {
+        if (!Opened || Operations == NULL)
+            return NULL;
+
+        return Operations->ProgressGetHWND();
+    }
+};
+
+class IUIService
+{
+public:
+    virtual DWORD WINAPI GetVersion() const = 0;
+    virtual IProgressDialog* WINAPI CreateProgressDialog(CSalamanderForOperationsAbstract* operations) = 0;
+    virtual void WINAPI DestroyProgressDialog(IProgressDialog* dialog) = 0;
+
+protected:
+    virtual ~IUIService() {}
+};
+
+} // namespace UI
+} // namespace Salamatrix

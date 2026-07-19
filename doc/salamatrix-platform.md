@@ -253,6 +253,62 @@ Recommended implementation direction:
 - make unload checks fail while exported services are still registered or held,
 - persist only plugin installation metadata, not live service pointers.
 
+## Salamatrix.UI progress dialog MVP
+
+The first concrete object API in `Salamatrix.UI` is the progress dialog. The C++
+MVP surface is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_ui.h
+```
+
+The declaration intentionally wraps the existing `CSalamanderForOperationsAbstract`
+progress methods instead of duplicating progress-window behavior. This keeps the
+first Salamatrix UI object compatible with current native plugin operations and
+with the existing Automation progress object.
+
+The initial API shape contains:
+
+- `Salamatrix::UI::ProgressDialogOptions` for title, parent window, one/two-bar
+  mode, file/total labeling, and initial Cancel state.
+- `Salamatrix::UI::IProgressDialog` as the ABI-oriented object contract.
+- `Salamatrix::UI::ProgressDialog` as the first C++ adapter over
+  `CSalamanderForOperationsAbstract`.
+- `Salamatrix::UI::IUIService` as the future service returned by
+  `QueryService("Salamatrix.UI", SALAMATRIX_UI_VERSION_1_0, ...)`.
+
+The object covers the MVP lifecycle and control flow:
+
+1. `SetTitle(...)` sets the title before the dialog is opened.
+2. `Open()` or `Open(options)` creates the existing Salamander progress dialog.
+3. `SetTotal(...)` and `SetTotals(...)` configure one-bar or two-bar totals.
+4. `AddText(...)` appends progress log/status text.
+5. `Step(...)`, `SetPosition(...)`, and `SetPositions(...)` update progress and
+   return whether the operation should continue.
+6. `IsCancelled()` polls cancellation by refreshing the existing progress dialog
+   with a zero-sized progress update.
+7. `SetCancelEnabled(FALSE)` supports cleanup phases where Cancel must be
+   disabled.
+8. `Close()` closes the dialog explicitly, and the C++ adapter destructor closes
+   it as a final safety net.
+
+The first script mapping should remain user-facing through the `Salamander` root
+object while still being backed by `Salamatrix.UI` internally:
+
+```python
+with Salamander.UI.progress("Processing files") as progress:
+    progress.total = len(files)
+    for file in files:
+        progress.add_text(file.name)
+        if not progress.step(1):
+            progress.cancel_enabled = False
+            break
+```
+
+Existing Automation scripts may keep using `Salamander.ProgressDialog`; a later
+adapter can expose `Salamander.UI.progress(...)` as a more structured wrapper
+without breaking the older object.
+
 ## MVP acceptance criteria
 
 The platform skeleton is ready when:
@@ -266,5 +322,7 @@ The platform skeleton is ready when:
 4. Missing-runtime behavior is defined for native plugins, scripts, and UI.
 5. The intended integration point with existing plugin registration and plugin
    lifetime management is documented.
-6. The next MVP can implement `Salamatrix.UI` progress dialog without revisiting
-   the naming and service-discovery foundation.
+6. The first `Salamatrix.UI` progress dialog contract exists and wraps the
+   current `CSalamanderForOperationsAbstract` progress implementation.
+7. The next MVP can turn `IUIService` into a registered runtime service without
+   revisiting the naming and service-discovery foundation.
