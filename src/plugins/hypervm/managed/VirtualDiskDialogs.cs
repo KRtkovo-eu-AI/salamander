@@ -3,10 +3,8 @@
 
 using System;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Management;
-using System.Windows.Forms;
 
 namespace OpenSalamander.HyperVM;
 
@@ -81,39 +79,6 @@ internal static class Texts
     }
 }
 
-
-internal sealed class CreateVhdDialog : Form
-{
-    private readonly TextBox _path = new() { Width = 275 };
-    private readonly NumericUpDown _size = new() { Minimum = 1, Maximum = 1024 * 1024, Value = 64, Width = 74 };
-    private readonly ComboBox _unit = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 54 };
-    private readonly RadioButton _vhd = new() { Text = "VHD", Checked = true, AutoSize = true };
-    private readonly RadioButton _vhdx = new() { Text = "VHDX", AutoSize = true };
-    private readonly RadioButton _fixed = new() { Text = Texts.Fixed, Checked = true, AutoSize = true };
-    private readonly RadioButton _dynamic = new() { Text = Texts.Dynamic, AutoSize = true };
-    private readonly Button _ok = new() { Text = Texts.OK, DialogResult = DialogResult.OK, Enabled = false };
-    public CreateVhdDialog()
-    {
-        Text = Texts.CreateTitle; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = MinimizeBox = false; ClientSize = new Size(380, 470);
-        _unit.Items.AddRange(new object[] { "MB", "GB", "TB" }); _unit.SelectedIndex = 0; _path.TextChanged += (_, _) => _ok.Enabled = !string.IsNullOrWhiteSpace(_path.Text);
-        var browse = new Button { Text = Texts.Browse, Width = 74 }; browse.Click += (_, _) => { using var s = new SaveFileDialog { Filter = Texts.VhdFilter, DefaultExt = _vhd.Checked ? "vhd" : "vhdx" }; if (s.ShowDialog(this) == DialogResult.OK) _path.Text = s.FileName; };
-        var cancel = new Button { Text = Texts.Cancel, DialogResult = DialogResult.Cancel };
-        Controls.AddRange(new Control[] { L(Texts.CreateIntro,12,12,350), L(Texts.Location,12,74,100), _path, browse, L(Texts.Size,12,138,170), _size, _unit, Group(Texts.Format,12,164,356,134,_vhd,L(Texts.VhdHelp,32,34,315),_vhdx,L(Texts.VhdxHelp,32,78,315)), Group(Texts.Type,12,306,356,118,_fixed,L(Texts.FixedHelp,32,34,315),_dynamic,L(Texts.DynamicHelp,32,78,315)), _ok, cancel });
-        _path.Location = new Point(12,93); browse.Location = new Point(295,91); _size.Location = new Point(236,131); _unit.Location = new Point(315,130); _ok.SetBounds(215,438,72,24); cancel.SetBounds(295,438,72,24); AcceptButton = _ok; CancelButton = cancel; ThemeHelper.ApplyTheme(this);
-    }
-    public string VhdPath => _path.Text; public string Format => _vhd.Checked ? "VHD" : "VHDX"; public bool IsFixed => _fixed.Checked; public bool AttachAfterCreate => true; public ulong SizeBytes => (ulong)_size.Value * (_unit.Text == "TB" ? 1024UL*1024*1024*1024 : _unit.Text == "GB" ? 1024UL*1024*1024 : 1024UL*1024);
-    private static Label L(string t,int x,int y,int w)=>new(){Text=t,Location=new Point(x,y),MaximumSize=new Size(w,0),AutoSize=true};
-    private static GroupBox Group(string text,int x,int y,int w,int h,params Control[] c){var g=new GroupBox{Text=text,Location=new Point(x,y),Size=new Size(w,h)}; foreach(var cc in c) g.Controls.Add(cc); c[0].Location=new Point(8,18); c[2].Location=new Point(8,62); return g;}
-}
-
-internal sealed class AttachVhdDialog : Form
-{
-    private readonly TextBox _path = new() { Width = 275 };
-    private readonly CheckBox _ro = new() { Text = Texts.ReadOnly, AutoSize = true };
-    private readonly Button _ok = new() { Text = Texts.OK, DialogResult = DialogResult.OK, Enabled = false };
-    public AttachVhdDialog(){Text=Texts.AttachTitle; FormBorderStyle=FormBorderStyle.FixedDialog; StartPosition=FormStartPosition.CenterParent; MaximizeBox=MinimizeBox=false; ClientSize=new Size(380,148); _path.TextChanged+=(_,_)=>_ok.Enabled=!string.IsNullOrWhiteSpace(_path.Text); var browse=new Button{Text=Texts.Browse,Width=74}; browse.Click+=(_,_)=>{using var o=new OpenFileDialog{Filter=Texts.VhdFilter}; if(o.ShowDialog(this)==DialogResult.OK)_path.Text=o.FileName;}; var cancel=new Button{Text=Texts.Cancel,DialogResult=DialogResult.Cancel}; Controls.AddRange(new Control[]{new Label{Text=Texts.AttachIntro,Location=new Point(12,12),AutoSize=true},new Label{Text=Texts.Location,Location=new Point(12,74),AutoSize=true},_path,browse,_ro,_ok,cancel}); _path.Location=new Point(12,94); browse.Location=new Point(295,92); _ro.Location=new Point(12,121); _ok.SetBounds(215,116,72,24); cancel.SetBounds(295,116,72,24); AcceptButton=_ok; CancelButton=cancel; ThemeHelper.ApplyTheme(this);}
-    public string VhdPath=>_path.Text; public bool ReadOnly=>_ro.Checked;
-}
 
 internal static class VirtualDiskManager
 {

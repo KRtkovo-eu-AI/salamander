@@ -45,33 +45,28 @@ public static class EntryPoint
         return command switch
         {
             "ShowMachines" => ShowMachines(parent),
-            "CreateVhd" => ShowCreateVhd(parent),
-            "AttachVhd" => ShowAttachVhd(parent),
+            var s when s.StartsWith("CreateVhd|", StringComparison.Ordinal) => CreateVhd(parent, s.Substring(10)),
+            var s when s.StartsWith("AttachVhd|", StringComparison.Ordinal) => AttachVhd(parent, s.Substring(10)),
             var s when s.StartsWith("DetachVhd|", StringComparison.Ordinal) => DetachVhd(parent, s.Substring(10)),
             _ => 1,
         };
     }
 
-    private static int ShowCreateVhd(IntPtr parent)
+    private static int CreateVhd(IntPtr parent, string payload)
     {
-        using var dialog = new CreateVhdDialog();
-        if (dialog.ShowDialog(new WindowHandleWrapper(parent)) != DialogResult.OK) return 0;
-        VirtualDiskManager.CreateVhd(dialog.VhdPath, dialog.SizeBytes, dialog.Format, dialog.IsFixed);
-        return dialog.AttachAfterCreate ? AttachVhd(parent, dialog.VhdPath, false, false) : 0;
+        var parts = payload.Split(new[] { '|' }, 4);
+        if (parts.Length != 4 || !ulong.TryParse(parts[1], out var sizeBytes)) return 1;
+        VirtualDiskManager.CreateVhd(parts[0], sizeBytes, parts[2], parts[3] == "Fixed");
+        VirtualDiskManager.AttachVhd(parts[0], false);
+        return 0;
     }
 
-    private static int ShowAttachVhd(IntPtr parent)
+    private static int AttachVhd(IntPtr parent, string payload)
     {
-        using var dialog = new AttachVhdDialog();
-        return dialog.ShowDialog(new WindowHandleWrapper(parent)) == DialogResult.OK
-            ? AttachVhd(parent, dialog.VhdPath, dialog.ReadOnly, true)
-            : 0;
-    }
-
-    private static int AttachVhd(IntPtr parent, string path, bool readOnly, bool showMessage)
-    {
-        VirtualDiskManager.AttachVhd(path, readOnly);
-        if (showMessage) ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), string.Format(Texts.Attached, path), Texts.PluginName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        var parts = payload.Split(new[] { '|' }, 2);
+        if (parts.Length != 2) return 1;
+        VirtualDiskManager.AttachVhd(parts[0], parts[1] == "1");
+        ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), string.Format(Texts.Attached, parts[0]), Texts.PluginName, MessageBoxButtons.OK, MessageBoxIcon.Information);
         return 0;
     }
 

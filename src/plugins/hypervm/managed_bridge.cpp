@@ -202,6 +202,16 @@ bool ManagedBridge_RunMenuCommand(HWND parent, const char* command)
     return ExecuteCommand(L"Menu", parent, payload.c_str());
 }
 
+bool ManagedBridge_RunMenuCommandW(HWND parent, const wchar_t* command)
+{
+    if (!ManagedBridge_EnsureInitialized(parent))
+    {
+        return false;
+    }
+
+    return ExecuteCommand(L"Menu", parent, command);
+}
+
 extern "C" __declspec(dllexport) UINT32 __stdcall HyperVM_GetCurrentColor(int color)
 {
     if (SalamanderGeneral == nullptr)

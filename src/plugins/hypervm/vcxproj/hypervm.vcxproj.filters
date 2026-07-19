@@ -57,6 +57,9 @@
     <ClCompile Include="..\menu.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\native_vhd_dialogs.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\precomp.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -72,6 +75,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\hypervm.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_vhd_dialogs.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\precomp.h">

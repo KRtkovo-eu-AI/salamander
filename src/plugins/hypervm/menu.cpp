@@ -10,6 +10,7 @@
 //****************************************************************************
 
 #include "precomp.h"
+#include "native_vhd_dialogs.h"
 
 // ****************************************************************************
 // SEKCE MENU
@@ -22,13 +23,11 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
     switch (id)
     {
     case MENUCMD_CREATE_VHD:
-        if (!ManagedBridge_RunMenuCommand(parent, "CreateVhd"))
-            SalamanderGeneral->ShowMessageBox("Unable to execute the managed command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+        ShowCreateVhdDialog(parent);
         break;
 
     case MENUCMD_ATTACH_VHD:
-        if (!ManagedBridge_RunMenuCommand(parent, "AttachVhd"))
-            SalamanderGeneral->ShowMessageBox("Unable to execute the managed command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+        ShowAttachVhdDialog(parent);
         break;
 
     default:
