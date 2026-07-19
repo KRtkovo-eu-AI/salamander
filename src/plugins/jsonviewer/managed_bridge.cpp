@@ -217,48 +217,10 @@ void ShowLoadError(HWND parent, const wchar_t* text)
     MessageBoxW(parent, text, L"JSON Viewer .NET Plugin", MB_ICONERROR | MB_OK);
 }
 
-typedef HRESULT(WINAPI* SetWindowThemeFn)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList);
-
-void ApplyJsonViewerNativeTheme(HWND hwnd)
-{
-    if (hwnd == NULL)
-        return;
-
-    static HMODULE uxTheme = LoadLibraryW(L"uxtheme.dll");
-    static SetWindowThemeFn setWindowTheme = uxTheme != NULL
-        ? reinterpret_cast<SetWindowThemeFn>(GetProcAddress(uxTheme, "SetWindowTheme"))
-        : NULL;
-
-    if (setWindowTheme != NULL)
-    {
-        wchar_t className[64] = {0};
-        GetClassNameW(hwnd, className, _countof(className));
-        if (lstrcmpiW(className, WC_COMBOBOXW) == 0 ||
-            lstrcmpiW(className, WC_COMBOBOXEXW) == 0)
-        {
-            setWindowTheme(hwnd, L"DarkMode_Explorer", NULL);
-        }
-
-        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-        if ((style & (WS_VSCROLL | WS_HSCROLL)) != 0)
-        {
-            // Some WinForms controls used by PropertyGrid have private window
-            // classes that darkmodelib cannot recognize as list-like controls.
-            // Applying the scrollbar class list directly to native windows that
-            // actually own scrollbars makes those non-client scrollbars reopen
-            // through the dark theme without overriding unrelated controls.
-            setWindowTheme(hwnd, NULL, L"DarkMode_Explorer::ScrollBar");
-        }
-    }
-
-    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_FRAME | RDW_ERASE | RDW_UPDATENOW);
-}
-
 BOOL CALLBACK ApplyJsonViewerDarkModeChild(HWND hwnd, LPARAM)
 {
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
-    ApplyJsonViewerNativeTheme(hwnd);
 
     wchar_t className[64] = {0};
     if (GetClassNameW(hwnd, className, _countof(className)) != 0 &&
@@ -425,7 +387,6 @@ extern "C" __declspec(dllexport) void __stdcall JsonViewer_ApplyDarkModeTree(HWN
 {
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
-    ApplyJsonViewerNativeTheme(hwnd);
     EnumChildWindows(hwnd, ApplyJsonViewerDarkModeChild, 0);
 }
 
@@ -433,7 +394,6 @@ extern "C" __declspec(dllexport) void __stdcall JsonViewer_UpdateListViewDarkMod
 {
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
-    ApplyJsonViewerNativeTheme(hwnd);
     EnumChildWindows(hwnd, ApplyJsonViewerDarkModeChild, 0);
     DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }
