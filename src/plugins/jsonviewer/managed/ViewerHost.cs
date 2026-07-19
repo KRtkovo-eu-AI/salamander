@@ -695,13 +695,8 @@ internal static class ViewerHost
                 return;
             }
 
-            ThemeHelper.ApplyTheme(this);
-            ThemeHelper.ApplyTheme(_viewer);
-            _viewer.ApplyCurrentTheme();
             ThemeHelper.ApplyNativeDarkMode(this);
             ThemeHelper.ApplyNativeDarkMode(_viewer);
-            Invalidate(true);
-            _viewer.Invalidate(true);
         }
 
         public void AllowClose()
