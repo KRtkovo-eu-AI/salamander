@@ -21,7 +21,7 @@ namespace EPocalipse.Json.Viewer
             ApplyCurrentTheme();
         }
 
-        private void ApplyCurrentTheme()
+        internal void ApplyCurrentTheme()
         {
             ThemeHelper.ApplyTheme(this);
 

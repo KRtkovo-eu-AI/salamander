@@ -667,7 +667,8 @@ internal static class ViewerHost
                 string json = File.ReadAllText(LongPathHelper.ToLongPath(LongPathHelper.ToDisplayPath(session.Payload.FilePath)));
                 _viewer.ShowTab(ViewerTabs.Viewer);
                 _viewer.refreshFromString(json);
-                ThemeHelper.ApplyTheme(_viewer);
+                _viewer.ApplyCurrentTheme();
+                ThemeHelper.ApplyNativeDarkMode(_viewer);
             }
             catch (Exception ex)
             {
