@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="cpp">
@@ -13,12 +13,51 @@
     <Filter Include="shared">
       <UniqueIdentifier>{199e8645-6a17-4b65-a388-f9700eb782af}</UniqueIdentifier>
     </Filter>
+    <Filter Include="thirdparty">
+      <UniqueIdentifier>{1e94a8b7-d767-4b3b-87dc-938db8ef9bb0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\darkmode.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\darkmode_backend_darkmodelib.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\Darkmodelib.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibColor.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibDpi.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibHook.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibPaintHelper.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclass.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassControl.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassWindow.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibWinApi.cpp">
+      <Filter>thirdparty</Filter>
+    </ClCompile>
     <ClCompile Include="..\hypervm.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\menu.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_vhd_dialogs.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\precomp.cpp">
@@ -36,6 +75,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\hypervm.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_vhd_dialogs.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\precomp.h">

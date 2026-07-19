@@ -130,7 +130,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGeneral->SetHelpFileName("hypervm.chm");
 
     // nastavime zakladni informace o pluginu
-    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_FILESYSTEM | FUNCTION_CONFIGURATION,
+    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_FILESYSTEM | FUNCTION_CONFIGURATION | FUNCTION_DYNAMICMENUEXT,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION), PluginNameShort,
                                    "hypervm", "hyperv");
@@ -160,6 +160,15 @@ CPluginInterface::Release(HWND parent, BOOL force)
 {
     ManagedBridge_Shutdown();
     return TRUE;
+}
+
+void WINAPI
+CPluginInterface::Event(int event, DWORD /*param*/)
+{
+    if (event == PLUGINEVENT_COLORSCHANGED)
+    {
+        ManagedBridge_NotifyColorsChanged();
+    }
 }
 
 void WINAPI

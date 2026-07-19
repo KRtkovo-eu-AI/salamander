@@ -7,7 +7,9 @@
 
 bool ManagedBridge_EnsureInitialized(HWND parent);
 void ManagedBridge_Shutdown();
+void ManagedBridge_NotifyColorsChanged();
 bool ManagedBridge_ShowAbout(HWND parent);
 bool ManagedBridge_ShowConfiguration(HWND parent);
 bool ManagedBridge_RunMenuCommand(HWND parent, const char* command);
+bool ManagedBridge_RunMenuCommandW(HWND parent, const wchar_t* command);
 

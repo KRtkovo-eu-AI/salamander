@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -10,6 +10,7 @@
 //****************************************************************************
 
 #include "precomp.h"
+#include "native_vhd_dialogs.h"
 
 // ****************************************************************************
 // SEKCE MENU
@@ -21,14 +22,13 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 {
     switch (id)
     {
-    case MENUCMD_SHOWHELLO:
-    {
-        if (!ManagedBridge_RunMenuCommand(parent, "Hello"))
-        {
-            SalamanderGeneral->ShowMessageBox("Unable to execute the managed command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
-        }
+    case MENUCMD_CREATE_VHD:
+        ShowCreateVhdDialog(parent);
         break;
-    }
+
+    case MENUCMD_ATTACH_VHD:
+        ShowAttachVhdDialog(parent);
+        break;
 
     default:
         SalamanderGeneral->ShowMessageBox("Unknown command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
@@ -43,9 +43,6 @@ CPluginInterfaceForMenuExt::HelpForMenuItem(HWND parent, int id)
     int helpID = 0;
     switch (id)
     {
-    case MENUCMD_SHOWHELLO:
-        helpID = IDH_MENU_HELLO;
-        break;
     }
     if (helpID != 0)
         SalamanderGeneral->OpenHtmlHelp(parent, HHCDisplayContext, helpID, FALSE);
@@ -57,6 +54,8 @@ void WINAPI
 CPluginInterfaceForMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander)
 {
     (void)parent;
-    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_HELLO), SALHOTKEY('M', HOTKEYF_CONTROL | HOTKEYF_SHIFT),
-                            MENUCMD_SHOWHELLO, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_CREATE_VHD), 0,
+                            MENUCMD_CREATE_VHD, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_ATTACH_VHD), 0,
+                            MENUCMD_ATTACH_VHD, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
 }
