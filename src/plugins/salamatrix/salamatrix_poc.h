@@ -119,6 +119,7 @@ inline Runtime::OperationResult WINAPI CopyInteractivePoc(CSalamanderGeneralAbst
 struct RunAllResult
 {
     BOOL ServicesRegistered;
+    BOOL HostServicesRegistered;
     int ServiceCount;
     Runtime::OperationResult NativeProgress;
     Runtime::OperationResult ScriptProgress;
@@ -127,6 +128,7 @@ struct RunAllResult
 
     RunAllResult()
         : ServicesRegistered(FALSE),
+          HostServicesRegistered(FALSE),
           ServiceCount(0),
           NativeProgress(Runtime::OperationResultError),
           ScriptProgress(Runtime::OperationResultError),
@@ -141,6 +143,7 @@ inline RunAllResult WINAPI RunAllPoc(CSalamanderGeneralAbstract* general, CSalam
     RunAllResult result;
     Runtime::RuntimeServices services(general);
     result.ServicesRegistered = services.IsRegistered();
+    result.HostServicesRegistered = services.IsHostRegistered();
     result.ServiceCount = services.Services()->GetCount();
 
     result.NativeProgress = RunProgressDialogPoc(operations);
