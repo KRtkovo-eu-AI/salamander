@@ -386,10 +386,22 @@ void CPluginsDlg::OnSelChanged()
             strcat(buf, LoadStr(IDS_PLUGINFUNCFILESYSTEM));
         }
 
+        if (p->SupportAutomationRuntime)
+        {
+            if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS)
+                strcat(buf, ", ");
+            else
+            {
+                if (buf[0] != 0)
+                    strcat(buf, ",\n");
+            }
+            strcat(buf, LoadStr(IDS_PLUGINFUNCAUTORUNTIME));
+        }
+
         // Thumbnails
         if (p->ThumbnailMasks.GetMasksString()[0] != 0)
         {
-            if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS)
+            if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS || p->SupportAutomationRuntime)
                 strcat(buf, ", ");
             else
             {

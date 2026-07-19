@@ -26,8 +26,10 @@
 #include "../shared/spl_view.h"
 #include "../shared/spl_thum.h"
 #include "../shared/spl_vers.h"
+#include "../shared/spl_gui.h"
 #include "../shared/dbg.h"
 #include "../shared/mhandles.h"
 
 #include "salamatrix.h"
+#include "salamatrix.rh"
 #include "salamatrix_runtime.h"
