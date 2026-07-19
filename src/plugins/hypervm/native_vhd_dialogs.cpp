@@ -37,7 +37,17 @@ struct CVhdDialogState
     HWND Size;
     HWND Unit;
     HWND ReadOnly;
+    bool Dark;
+    HBRUSH BackgroundBrush;
 };
+
+bool ShouldUseDarkMode(COLORREF background)
+{
+    int r = GetRValue(background);
+    int g = GetGValue(background);
+    int b = GetBValue(background);
+    return (r * 30 + g * 59 + b * 11) / 100 < 128;
+}
 
 std::wstring Utf8ToWide(const char* text)
 {
@@ -153,9 +163,21 @@ LRESULT CALLBACK VhdWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_CLOSE:
         if (s) Finish(s, false);
         return 0;
+    case WM_ERASEBKGND:
+        if (s != nullptr && s->Dark && s->BackgroundBrush != nullptr)
+        {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRect((HDC)wp, &rc, s->BackgroundBrush);
+            return TRUE;
+        }
+        break;
     default:
-        LRESULT result;
-        if (DarkModeHandleCtlColor(msg, wp, lp, result)) return result;
+        if (s != nullptr && s->Dark)
+        {
+            LRESULT result;
+            if (DarkModeHandleCtlColor(msg, wp, lp, result)) return result;
+        }
         break;
     }
     return DefWindowProc(hwnd, msg, wp, lp);
@@ -166,7 +188,20 @@ bool RunDialog(HWND parent, bool create)
     CVhdDialogState s = {0};
     s.Create = create;
     s.Parent = parent;
-    bool dark = SalamanderGeneral->GetCurrentColor(11) < 0x808080;
+    COLORREF background = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    COLORREF text = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+    bool dark = ShouldUseDarkMode(background);
+    COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    if (!dark)
+    {
+        text = fallbackText;
+        background = fallbackBackground;
+    }
+    s.Dark = dark;
+    s.BackgroundBrush = CreateSolidBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(DarkModeEnsureReadableForeground(text, background), background, s.BackgroundBrush);
     DarkModeSetEnabled(dark);
 
     WNDCLASSW wc = {0};
@@ -181,9 +216,11 @@ bool RunDialog(HWND parent, bool create)
     int height = create ? 470 : 148;
     RECT rc = {0, 0, width, height};
     AdjustWindowRectEx(&rc, WS_CAPTION | WS_SYSMENU | WS_POPUP, FALSE, WS_EX_DLGMODALFRAME);
-    HWND hwnd = CreateWindowExW(WS_EX_DLGMODALFRAME, wc.lpszClassName, WStr(create ? IDS_VHD_CREATE_TITLE : IDS_VHD_ATTACH_TITLE),
+    std::wstring title = WStr(create ? IDS_VHD_CREATE_TITLE : IDS_VHD_ATTACH_TITLE);
+    HWND hwnd = CreateWindowExW(WS_EX_DLGMODALFRAME, wc.lpszClassName, title.c_str(),
                                 WS_CAPTION | WS_SYSMENU | WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT,
                                 rc.right - rc.left, rc.bottom - rc.top, parent, nullptr, DLLInstance, &s);
+    SetWindowTextW(hwnd, title.c_str());
     s.Window = hwnd;
     HFONT font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 
@@ -219,7 +256,12 @@ bool RunDialog(HWND parent, bool create)
         AddControl(hwnd, L"BUTTON", WStr(IDS_CANCEL), WS_TABSTOP, 295, 116, 72, 24, IDCANCEL, font);
     }
     EnableWindow(s.Ok, FALSE);
-    DarkModeApplyTree(hwnd);
+    if (dark)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeApplyTree(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+    }
     SalamanderGeneral->MultiMonCenterWindow(hwnd, parent, TRUE);
     EnableWindow(parent, FALSE);
     ShowWindow(hwnd, SW_SHOW);
@@ -229,6 +271,10 @@ bool RunDialog(HWND parent, bool create)
         if (!IsDialogMessage(hwnd, &msg)) { TranslateMessage(&msg); DispatchMessage(&msg); }
     }
     EnableWindow(parent, TRUE);
+    if (s.BackgroundBrush != nullptr)
+    {
+        DeleteObject(s.BackgroundBrush);
+    }
     SetActiveWindow(parent);
     return s.Result;
 }
