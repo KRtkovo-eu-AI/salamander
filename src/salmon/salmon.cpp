@@ -1175,10 +1175,64 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
 
     if (IsTestCommandLine(cmdLine))
     {
-        int ret = RunTestCompression("");
+        // Full crash simulation: generate a real minidump of this process
+        // and open the bug reporter dialog, exactly as after a real Salamander crash.
+        static CSalmonSharedMemory fakeMem;
+        ZeroMemory(&fakeMem, sizeof(fakeMem));
+
+        fakeMem.Version = SALMON_SHARED_MEMORY_VERSION;
+        fakeMem.Process = GetCurrentProcess();
+        fakeMem.ProcessId = GetCurrentProcessId();
+        fakeMem.ThreadId = GetCurrentThreadId();
+
+        char testDir[MAX_PATH];
+        if (GetTempPath(MAX_PATH, testDir) > 0 && GetTempPath(MAX_PATH, testDir) < MAX_PATH)
+        {
+            strcat(testDir, "OpenSalamanderTestCrash\\");
+            SHCreateDirectoryEx(NULL, testDir, NULL);
+        }
+        else
+        {
+            strcpy(testDir, "C:\\");
+        }
+        strcpy(fakeMem.BugPath, testDir);
+        strcpy(fakeMem.BugName, "TESTCRASH");
+        fakeMem.UID = 0x12345678;
+        fakeMem.UseWindowsDarkMode = FALSE;
+        fakeMem.DarkModeText = GetSysColor(COLOR_BTNTEXT);
+        fakeMem.DarkModeBk = GetSysColor(COLOR_BTNFACE);
+
+        SalmonSharedMemory = &fakeMem;
+        strcpy(BugReportPath, fakeMem.BugPath);
+        if (BugReportPath[0] != 0 && BugReportPath[strlen(BugReportPath) - 1] != '\\')
+            strcat(BugReportPath, "\\");
+
+        char slgName[MAX_PATH] = {0};
+        HINSTANCE hLanguage = LoadSLG(slgName);
+        if (hLanguage != NULL)
+            HLanguage = hLanguage;
+
+        if (HLanguage != NULL)
+        {
+            BOOL leave = MainDialogMutex.Enter();
+            OpenMainDialog(TRUE);
+            if (leave)
+                MainDialogMutex.Leave();
+        }
+        else
+        {
+            SalmonMessageBox(NULL, "Cannot load language resources for test mode.", APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        }
+
+        SalmonSharedMemory = NULL;
         Config.Save();
+        if (HLanguage != NULL)
+        {
+            FreeLibrary(HLanguage);
+            HLanguage = NULL;
+        }
         DarkModeShutdown();
-        return ret;
+        return SALMON_RET_OK;
     }
 
     char fileMappingName[SALMON_FILEMAPPIN_NAME_SIZE];
