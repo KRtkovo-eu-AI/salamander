@@ -419,15 +419,29 @@ DWORD RightToolBarButtons[] =
 
 void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
 {
-    static CSVGIcon SVGIcons[TBBE_TERMINATOR];
+    static CSVGIcon SVGIcons[TBBE_TERMINATOR + 4];
+    int count = 0;
     for (auto i = 0; i < TBBE_TERMINATOR; i++)
     {
-        SVGIcons[i].ImageIndex = ToolBarButtons[i].ImageIndex;
-        SVGIcons[i].SVGName = ToolBarButtons[i].SVGName;
+        SVGIcons[count].ImageIndex = ToolBarButtons[i].ImageIndex;
+        SVGIcons[count].SVGName = ToolBarButtons[i].SVGName;
+        count++;
     }
 
+    // Extra SVGs are not toolbar buttons; they extend the shared toolbar/menu
+    // image lists so CMenuPopup can draw Command Shell template icons the same
+    // way as Tab button bar context-menu icons.
+    SVGIcons[count].ImageIndex = IDX_TB_WINDOWSPOWERSHELL;
+    SVGIcons[count++].SVGName = "WindowsPowerShell";
+    SVGIcons[count].ImageIndex = IDX_TB_POWERSHELL;
+    SVGIcons[count++].SVGName = "PowerShell";
+    SVGIcons[count].ImageIndex = IDX_TB_AZURECLOUDSHELL;
+    SVGIcons[count++].SVGName = "AzureCloudShell";
+    SVGIcons[count].ImageIndex = IDX_TB_VISUALSTUDIO;
+    SVGIcons[count++].SVGName = "VisualStudio";
+
     *svgIcons = SVGIcons;
-    *svgIconsCount = TBBE_TERMINATOR;
+    *svgIconsCount = count;
 }
 
 //****************************************************************************

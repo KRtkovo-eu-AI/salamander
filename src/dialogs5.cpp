@@ -3348,6 +3348,19 @@ static HBITMAP LoadBuiltinWindowsTerminalProfileBitmap(const CWindowsTerminalPro
     return hBitmap;
 }
 
+static int GetWindowsTerminalProfileImageIndex(const CWindowsTerminalProfile& profile)
+{
+    if (ContainsTextI(profile.Name, "Azure Cloud Shell"))
+        return IDX_TB_AZURECLOUDSHELL;
+    if (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.Name, "PowerShell 7"))
+        return IDX_TB_POWERSHELL;
+    if (ContainsTextI(profile.CommandLine, "powershell") || ContainsTextI(profile.Name, "Windows PowerShell"))
+        return IDX_TB_WINDOWSPOWERSHELL;
+    if (ContainsTextI(profile.Name, "PowerShell"))
+        return IDX_TB_POWERSHELL;
+    return -1;
+}
+
 static HBITMAP LoadWindowsTerminalProfileBitmap(const CWindowsTerminalProfile& profile)
 {
     HBITMAP hBuiltin = LoadBuiltinWindowsTerminalProfileBitmap(profile);
@@ -3434,28 +3447,6 @@ static HICON CreateMenuIconFromBitmap(HBITMAP hBitmap)
     return hIcon;
 }
 
-static HICON CreateBuiltinShellIcon(const char* svgName)
-{
-    HBITMAP hColorBitmap = NULL;
-    int iconSize = GetMenuIconSize();
-    if (!RenderSVGIconBitmap(svgName, iconSize, TRUE, &hColorBitmap))
-        return NULL;
-
-    // Use the same CMenuPopup HICON rendering path that other Salamander menus use.
-    HICON hIcon = CreateIconFromBitmap(hColorBitmap, iconSize);
-    HANDLES(DeleteObject(hColorBitmap));
-    return hIcon;
-}
-
-static HICON CreateCommandPromptIcon()
-{
-    SHFILEINFO shfi;
-    memset(&shfi, 0, sizeof(shfi));
-    if (SHGetFileInfo("cmd.exe", 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES) == 0)
-        return NULL;
-    return shfi.hIcon;
-}
-
 static HICON AddMenuIcon(std::vector<HICON>& icons, HICON hIcon)
 {
     if (hIcon != NULL)
@@ -3470,15 +3461,21 @@ static void DestroyMenuIcons(std::vector<HICON>& icons)
     icons.clear();
 }
 
-static BOOL InsertCommandShellMenuItem(CMenuPopup* popup, DWORD id, const char* text, HICON hIcon = NULL, CMenuPopup* subMenu = NULL)
+static BOOL InsertCommandShellMenuItem(CMenuPopup* popup, DWORD id, const char* text, int imageIndex = -1, HICON hIcon = NULL, CMenuPopup* subMenu = NULL)
 {
     MENU_ITEM_INFO mii;
     memset(&mii, 0, sizeof(mii));
-    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING;
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_STATE;
     mii.Type = MENU_TYPE_STRING;
     mii.ID = id;
     mii.String = (char*)text;
-    if (hIcon != NULL)
+    mii.State = 0;
+    if (imageIndex >= 0)
+    {
+        mii.Mask |= MENU_MASK_IMAGEINDEX;
+        mii.ImageIndex = imageIndex;
+    }
+    else if (hIcon != NULL)
     {
         mii.Mask |= MENU_MASK_ICON;
         mii.HIcon = hIcon;
@@ -3538,25 +3535,27 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     InsertCommandShellMenuItem(&popup, 7, LoadStr(IDS_EXECUTE_ENV));
     InsertCommandShellMenuSeparator(&popup);
 
-    InsertCommandShellMenuItem(templatesPopup, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC),
-                               AddMenuIcon(menuIcons, CreateCommandPromptIcon()));
-    InsertCommandShellMenuItem(templatesPopup, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL),
-                               AddMenuIcon(menuIcons, CreateBuiltinShellIcon("WindowsPowerShell")));
-    InsertCommandShellMenuItem(templatesPopup, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7),
-                               AddMenuIcon(menuIcons, CreateBuiltinShellIcon("PowerShell")));
+    InsertCommandShellMenuItem(templatesPopup, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC), IDX_TB_COMMANDSHELL);
+    InsertCommandShellMenuItem(templatesPopup, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL), IDX_TB_WINDOWSPOWERSHELL);
+    InsertCommandShellMenuItem(templatesPopup, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7), IDX_TB_POWERSHELL);
     InsertCommandShellMenuSeparator(templatesPopup);
 
     for (size_t i = 0; i < wtProfiles.size(); i++)
     {
         UINT id = 200 + (UINT)i;
-        InsertCommandShellMenuItem(windowsTerminalPopup, id, wtProfiles[i].Name.c_str(),
-                                   AddMenuIcon(menuIcons, CreateMenuIconFromBitmap(LoadWindowsTerminalProfileBitmap(wtProfiles[i]))));
+        int imageIndex = GetWindowsTerminalProfileImageIndex(wtProfiles[i]);
+        HICON hIcon = NULL;
+        if (imageIndex < 0)
+            hIcon = AddMenuIcon(menuIcons, CreateMenuIconFromBitmap(LoadWindowsTerminalProfileBitmap(wtProfiles[i])));
+        InsertCommandShellMenuItem(windowsTerminalPopup, id, wtProfiles[i].Name.c_str(), imageIndex, hIcon);
     }
-    InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), NULL, windowsTerminalPopup);
+    InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), -1, NULL, windowsTerminalPopup);
     windowsTerminalPopup = NULL; // ownership moved to templatesPopup
-    InsertCommandShellMenuItem(&popup, 0, LoadStr(IDS_EXECUTE_TEMPLATES), NULL, templatesPopup);
+    InsertCommandShellMenuItem(&popup, 0, LoadStr(IDS_EXECUTE_TEMPLATES), -1, NULL, templatesPopup);
     templatesPopup = NULL; // ownership moved to popup
 
+    popup.SetImageList(HGrayToolBarImageList);
+    popup.SetHotImageList(HHotToolBarImageList);
     DWORD cmd = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                             r.right, r.top, hWindow, &r);
     DestroyMenuIcons(menuIcons);
