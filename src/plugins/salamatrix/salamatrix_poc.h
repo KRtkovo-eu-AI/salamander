@@ -5,83 +5,36 @@
     Salamatrix Runtime for Open Salamander
 
     salamatrix_poc.h
-    In-process proof-of-concept wiring for the MVP services.
+    Proof-of-concept scenarios for the MVP services.
 */
 
 #pragma once
 
-#include "salamatrix_automation.h"
+#include "salamatrix_runtime.h"
 
 namespace Salamatrix
 {
 namespace Poc
 {
 
-class LocalUIService : public UI::IUIService
+inline const char* WINAPI ResultToText(Runtime::OperationResult result)
 {
-public:
-    virtual DWORD WINAPI GetVersion() const
+    switch (result)
     {
-        return SALAMATRIX_UI_VERSION_1_0;
+    case Runtime::OperationResultOk:
+        return "ok";
+    case Runtime::OperationResultCancel:
+        return "cancel";
+    case Runtime::OperationResultError:
+        return "error";
+    default:
+        return "unknown";
     }
-
-    virtual UI::IProgressDialog* WINAPI CreateProgressDialog(CSalamanderForOperationsAbstract* operations)
-    {
-        if (operations == NULL)
-            return NULL;
-        return new UI::ProgressDialog(operations);
-    }
-
-    virtual void WINAPI DestroyProgressDialog(UI::IProgressDialog* dialog)
-    {
-        delete static_cast<UI::ProgressDialog*>(dialog);
-    }
-};
-
-class RuntimeServices
-{
-private:
-    LocalUIService UIService;
-    Commands::CommandService CommandService;
-    FileOperations::FileOperationsService FileOperationsService;
-    Automation::ScriptRootAdapter ScriptRoot;
-
-    RuntimeServices(const RuntimeServices&);
-    RuntimeServices& operator=(const RuntimeServices&);
-
-public:
-    explicit RuntimeServices(CSalamanderGeneralAbstract* general)
-        : UIService(),
-          CommandService(general),
-          FileOperationsService(&CommandService),
-          ScriptRoot(&UIService, &CommandService, &FileOperationsService)
-    {
-    }
-
-    UI::IUIService* WINAPI UI()
-    {
-        return &UIService;
-    }
-
-    Commands::ICommandService* WINAPI Commands()
-    {
-        return &CommandService;
-    }
-
-    FileOperations::IFileOperationsService* WINAPI FileOperations()
-    {
-        return &FileOperationsService;
-    }
-
-    Automation::ScriptRootAdapter* WINAPI Script()
-    {
-        return &ScriptRoot;
-    }
-};
+}
 
 inline Runtime::OperationResult WINAPI RunProgressDialogPoc(CSalamanderForOperationsAbstract* operations)
 {
-    LocalUIService uiService;
+    Runtime::LocalUIService uiService;
     UI::IProgressDialog* progress = uiService.CreateProgressDialog(operations);
     if (progress == NULL)
         return Runtime::OperationResultError;
@@ -90,12 +43,13 @@ inline Runtime::OperationResult WINAPI RunProgressDialogPoc(CSalamanderForOperat
     options.Title = "Salamatrix.UI ProgressDialog PoC";
     options.CancelEnabled = TRUE;
     progress->Open(options);
-    progress->SetTotal(CQuadWord(3, 0));
+    progress->SetTotal(CQuadWord(6, 0));
     progress->AddText("Preparing Salamatrix progress PoC...", FALSE);
 
     Runtime::OperationResult result = Runtime::OperationResultOk;
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 6; ++i)
     {
+        Sleep(250);
         if (!progress->Step(1, FALSE))
         {
             progress->AddText("Canceling operation, please wait...", FALSE);
@@ -105,6 +59,7 @@ inline Runtime::OperationResult WINAPI RunProgressDialogPoc(CSalamanderForOperat
         }
     }
 
+    Sleep(250);
     progress->Close();
     uiService.DestroyProgressDialog(progress);
     return result;
@@ -112,7 +67,7 @@ inline Runtime::OperationResult WINAPI RunProgressDialogPoc(CSalamanderForOperat
 
 inline Runtime::OperationResult WINAPI RunAutomationProgressPoc(CSalamanderForOperationsAbstract* operations)
 {
-    LocalUIService uiService;
+    Runtime::LocalUIService uiService;
     Automation::ScriptUIAdapter scriptUI(&uiService);
     Automation::ScriptProgressDialog* progress = scriptUI.Progress(operations, "Salamander.UI.progress PoC");
     if (progress == NULL || !progress->IsAvailable())
@@ -121,9 +76,20 @@ inline Runtime::OperationResult WINAPI RunAutomationProgressPoc(CSalamanderForOp
         return Runtime::OperationResultError;
     }
 
-    progress->SetTotal(CQuadWord(2, 0));
+    progress->SetTotal(CQuadWord(3, 0));
     progress->AddText("Running script-facing Salamatrix progress PoC...");
-    Runtime::OperationResult result = progress->Step(1) ? Runtime::OperationResultOk : Runtime::OperationResultCancel;
+
+    Runtime::OperationResult result = Runtime::OperationResultOk;
+    for (int i = 0; i < 3; ++i)
+    {
+        Sleep(250);
+        if (!progress->Step(1))
+        {
+            result = Runtime::OperationResultCancel;
+            break;
+        }
+    }
+
     if (result == Runtime::OperationResultOk && progress->IsCancelled())
         result = Runtime::OperationResultCancel;
 
@@ -136,17 +102,50 @@ inline Runtime::OperationResult WINAPI RunAutomationProgressPoc(CSalamanderForOp
 
 inline Runtime::OperationResult WINAPI ExecuteQuickRenamePoc(CSalamanderGeneralAbstract* general)
 {
-    Commands::CommandService commands(general);
+    Runtime::RuntimeServices services(general);
     Commands::ExecuteOptions options;
-    return commands.Execute("QuickRename", options);
+    return services.Commands()->Execute("QuickRename", options);
 }
 
 inline Runtime::OperationResult WINAPI CopyInteractivePoc(CSalamanderGeneralAbstract* general)
 {
-    Commands::CommandService commands(general);
-    FileOperations::FileOperationsService fileOperations(&commands);
+    Runtime::RuntimeServices services(general);
     FileOperations::InteractiveOptions options;
-    return fileOperations.CopyInteractive(options);
+    return services.FileOperations()->CopyInteractive(options);
+}
+
+struct RunAllResult
+{
+    BOOL ServicesRegistered;
+    int ServiceCount;
+    Runtime::OperationResult NativeProgress;
+    Runtime::OperationResult ScriptProgress;
+    Runtime::OperationResult QuickRename;
+    Runtime::OperationResult CopyInteractive;
+
+    RunAllResult()
+        : ServicesRegistered(FALSE),
+          ServiceCount(0),
+          NativeProgress(Runtime::OperationResultError),
+          ScriptProgress(Runtime::OperationResultError),
+          QuickRename(Runtime::OperationResultError),
+          CopyInteractive(Runtime::OperationResultError)
+    {
+    }
+};
+
+inline RunAllResult WINAPI RunAllPoc(CSalamanderGeneralAbstract* general, CSalamanderForOperationsAbstract* operations)
+{
+    RunAllResult result;
+    Runtime::RuntimeServices services(general);
+    result.ServicesRegistered = services.IsRegistered();
+    result.ServiceCount = services.Services()->GetCount();
+
+    result.NativeProgress = RunProgressDialogPoc(operations);
+    result.ScriptProgress = RunAutomationProgressPoc(operations);
+    result.QuickRename = services.Commands()->Execute("QuickRename", Commands::ExecuteOptions());
+    result.CopyInteractive = services.FileOperations()->CopyInteractive(FileOperations::InteractiveOptions());
+    return result;
 }
 
 } // namespace Poc
