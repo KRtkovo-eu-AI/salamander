@@ -3350,9 +3350,14 @@ static HBITMAP LoadBuiltinWindowsTerminalProfileBitmap(const CWindowsTerminalPro
 
 static int GetWindowsTerminalProfileImageIndex(const CWindowsTerminalProfile& profile)
 {
+    if (IsDeveloperProfile(profile))
+        return -1; // developer profiles use composed base-shell + Visual Studio overlay bitmaps
+    if (ContainsTextI(profile.Name, "Command Prompt") || ContainsTextI(profile.Name, "cmd"))
+        return IDX_TB_COMMANDPROMPT;
     if (ContainsTextI(profile.Name, "Azure Cloud Shell"))
         return IDX_TB_AZURECLOUDSHELL;
-    if (ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.Name, "PowerShell 7"))
+    if (_stricmp(profile.Name.c_str(), "PowerShell") == 0 ||
+        ContainsTextI(profile.CommandLine, "pwsh") || ContainsTextI(profile.Name, "PowerShell 7"))
         return IDX_TB_POWERSHELL;
     if (ContainsTextI(profile.CommandLine, "powershell") || ContainsTextI(profile.Name, "Windows PowerShell"))
         return IDX_TB_WINDOWSPOWERSHELL;
@@ -3538,7 +3543,7 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
     InsertCommandShellMenuItem(&popup, 7, LoadStr(IDS_EXECUTE_ENV));
     InsertCommandShellMenuSeparator(&popup);
 
-    InsertCommandShellMenuItem(templatesPopup, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC), IDX_TB_COMMANDSHELL);
+    InsertCommandShellMenuItem(templatesPopup, 100, LoadStr(IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC), IDX_TB_COMMANDPROMPT);
     InsertCommandShellMenuItem(templatesPopup, 101, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL), IDX_TB_WINDOWSPOWERSHELL);
     InsertCommandShellMenuItem(templatesPopup, 102, LoadStr(IDS_EXECUTE_TEMPLATE_POWERSHELL7), IDX_TB_POWERSHELL);
 
@@ -3554,7 +3559,7 @@ static const CExecuteItem* TrackCommandShellApplicationMenu(HWND hWindow, std::s
                 hIcon = AddMenuIcon(menuIcons, CreateMenuIconFromBitmap(LoadWindowsTerminalProfileBitmap(wtProfiles[i])));
             InsertCommandShellMenuItem(windowsTerminalPopup, id, wtProfiles[i].Name.c_str(), imageIndex, hIcon);
         }
-        InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), -1, NULL, windowsTerminalPopup);
+        InsertCommandShellMenuItem(templatesPopup, 0, LoadStr(IDS_EXECUTE_WINDOWS_TERMINAL), IDX_TB_WINDOWSTERMINAL, NULL, windowsTerminalPopup);
         windowsTerminalPopup = NULL; // ownership moved to templatesPopup
     }
     InsertCommandShellMenuItem(&popup, 0, LoadStr(IDS_EXECUTE_TEMPLATES), -1, NULL, templatesPopup);

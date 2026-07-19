@@ -2096,8 +2096,10 @@ extern DWORD EnablerRightUnlockTab;       // can a tab in the right panel be unl
 #define IDX_TB_POWERSHELL 84        // PowerShell 7
 #define IDX_TB_AZURECLOUDSHELL 85   // Azure Cloud Shell
 #define IDX_TB_VISUALSTUDIO 86      // Visual Studio overlay
+#define IDX_TB_COMMANDPROMPT 87     // Command Prompt
+#define IDX_TB_WINDOWSTERMINAL 88   // Windows Terminal
 
-#define IDX_TB_FD 87 // first "dynamic added" index
+#define IDX_TB_FD 89 // first "dynamic added" index
 // nasledujici ikony budou pridany k bitmape dynamicky
 // a nektere budou nacteny z shell32.dll
 

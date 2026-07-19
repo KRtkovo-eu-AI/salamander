@@ -419,7 +419,7 @@ DWORD RightToolBarButtons[] =
 
 void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
 {
-    static CSVGIcon SVGIcons[TBBE_TERMINATOR + 4];
+    static CSVGIcon SVGIcons[TBBE_TERMINATOR + 6];
     int count = 0;
     for (auto i = 0; i < TBBE_TERMINATOR; i++)
     {
@@ -439,6 +439,10 @@ void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
     SVGIcons[count++].SVGName = "AzureCloudShell";
     SVGIcons[count].ImageIndex = IDX_TB_VISUALSTUDIO;
     SVGIcons[count++].SVGName = "VisualStudio";
+    SVGIcons[count].ImageIndex = IDX_TB_COMMANDPROMPT;
+    SVGIcons[count++].SVGName = "CommandPrompt";
+    SVGIcons[count].ImageIndex = IDX_TB_WINDOWSTERMINAL;
+    SVGIcons[count++].SVGName = "WindowsTerminal";
 
     *svgIcons = SVGIcons;
     *svgIconsCount = count;
