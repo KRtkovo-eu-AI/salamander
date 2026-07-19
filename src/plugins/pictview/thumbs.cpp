@@ -26,6 +26,116 @@
 #define FL_NON_IMG_SKIP_ALL 0x200
 #define FL_KEEP (FL_SKIP_ALL | FL_OVERWRITE_RO_ALL | FL_JFXX_ALL | FL_JFXX_SKIP_ALL | FL_NON_JPEG_ALL | FL_NON_IMG_SKIP_ALL)
 
+#define NANOSVG_IMPLEMENTATION
+#include "../../common/dep/nanosvg/nanosvg.h"
+#define NANOSVGRAST_IMPLEMENTATION
+#include "../../common/dep/nanosvg/nanosvgrast.h"
+
+static BOOL IsSVGThumbnailFile(LPCTSTR filename)
+{
+    const TCHAR* ext = _tcsrchr(filename, _T('.'));
+    return ext != NULL && _tcsicmp(ext, _T(".svg")) == 0;
+}
+
+static char* ReadWholeFileForSVG(LPCTSTR filename)
+{
+    char* buffer = NULL;
+    HANDLE hFile = HANDLES_Q(CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                        FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+    if (hFile != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER size;
+        if (GetFileSizeEx(hFile, &size) && size.QuadPart > 0 && size.QuadPart <= 32 * 1024 * 1024)
+        {
+            buffer = (char*)malloc((size_t)size.QuadPart + 1);
+            if (buffer != NULL)
+            {
+                DWORD read = 0;
+                if (ReadFile(hFile, buffer, (DWORD)size.QuadPart, &read, NULL) && read == (DWORD)size.QuadPart)
+                {
+                    buffer[size.QuadPart] = 0;
+                }
+                else
+                {
+                    free(buffer);
+                    buffer = NULL;
+                }
+            }
+        }
+        HANDLES(CloseHandle(hFile));
+    }
+    return buffer;
+}
+
+static BOOL LoadSVGThumbnail(LPCTSTR filename, int thumbWidth, int thumbHeight,
+                             CSalamanderThumbnailMakerAbstract* thumbMaker)
+{
+    if (thumbMaker == NULL || thumbWidth <= 0 || thumbHeight <= 0)
+        return FALSE;
+
+    char* svg = ReadWholeFileForSVG(filename);
+    if (svg == NULL)
+        return FALSE;
+
+    BOOL ret = FALSE;
+    NSVGimage* image = nsvgParse(svg, "px", 96.0f);
+    if (image != NULL && image->width > 0.0f && image->height > 0.0f)
+    {
+        int targetWidth = thumbWidth;
+        int targetHeight = thumbHeight;
+        const float scale = min((float)thumbWidth / image->width, (float)thumbHeight / image->height);
+        targetWidth = max(1, (int)(image->width * scale + 0.5f));
+        targetHeight = max(1, (int)(image->height * scale + 0.5f));
+
+        if (thumbMaker->SetParameters(targetWidth, targetHeight, 0))
+        {
+            BYTE* pixels = (BYTE*)malloc((size_t)targetWidth * targetHeight * 4);
+            NSVGrasterizer* rast = nsvgCreateRasterizer();
+            if (pixels != NULL && rast != NULL)
+            {
+                memset(pixels, 0, (size_t)targetWidth * targetHeight * 4);
+                nsvgRasterize(rast, image, 0.0f, 0.0f, scale, pixels, targetWidth, targetHeight, targetWidth * 4);
+
+                const BYTE bgR = GetRValue(G.rgbPanelBackground);
+                const BYTE bgG = GetGValue(G.rgbPanelBackground);
+                const BYTE bgB = GetBValue(G.rgbPanelBackground);
+                for (int i = 0; i < targetWidth * targetHeight; i++)
+                {
+                    BYTE* p = pixels + (size_t)i * 4;
+                    const BYTE alpha = p[3];
+                    p[0] = (BYTE)((p[0] * alpha + bgR * (255 - alpha) + 127) / 255);
+                    p[1] = (BYTE)((p[1] * alpha + bgG * (255 - alpha) + 127) / 255);
+                    p[2] = (BYTE)((p[2] * alpha + bgB * (255 - alpha) + 127) / 255);
+                    p[3] = 0;
+                }
+
+                int processedRows = 0;
+                while (processedRows < targetHeight)
+                {
+                    if (thumbMaker->GetCancelProcessing())
+                        break;
+                    const int rows = min(32, targetHeight - processedRows);
+                    if (!thumbMaker->ProcessBuffer(pixels + (size_t)processedRows * targetWidth * 4, rows))
+                        break;
+                    processedRows += rows;
+                }
+                ret = TRUE;
+            }
+            else
+            {
+                thumbMaker->SetError();
+            }
+            if (rast != NULL)
+                nsvgDeleteRasterizer(rast);
+            free(pixels);
+        }
+    }
+    if (image != NULL)
+        nsvgDelete(image);
+    free(svg);
+    return ret;
+}
+
 class CEnumFiles
 {
     int iFiles, iDirs, index;
@@ -815,6 +925,9 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
 {
     CALL_STACK_MESSAGE5(_T("CPluginInterfaceForThumbLoader::LoadThumbnail(%s, %d, %d, , %d)"),
                         filename, thumbWidth, thumbHeight, fastThumbnail);
+
+    if (IsSVGThumbnailFile(filename))
+        return LoadSVGThumbnail(filename, thumbWidth, thumbHeight, thumbMaker);
 
     PVSaveImageInfo sii;
     LPPVHandle hPVImage;

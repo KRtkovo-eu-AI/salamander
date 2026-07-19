@@ -1272,7 +1272,7 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
     salamander->SetPluginMenuAndToolbarIcon(0);
 
     // we can provide thumbnails for these formats:
-    salamander->SetThumbnailLoader("*.mng;*.dtx;*.dds;*.nef;*.crw;*.eps;*.ept;*.ai;*.raf;*.mov;*.hpi;"
+    salamander->SetThumbnailLoader("*.webp;*.svg;*.mng;*.dtx;*.dds;*.nef;*.crw;*.eps;*.ept;*.ai;*.raf;*.mov;*.hpi;"
                                    "*.pntg;*.thumb;*.tiff;*.wbmp;*.mbm;*.ani;*.psp*;*.clk;*.thm;*.zno;"
                                    "*.st;*.cals;*.itiff;*.jfif;*.jpeg;*.macp;*.mpnt;*.paint;*.pict;*.2bp;"
                                    "*.stw;*.sun;*.tga;*.tif;*.udi;*.web;*.wpg;*.xar;*.zbr;*.zmf;*.bw;"
