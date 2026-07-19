@@ -267,8 +267,16 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
             }
         }
 
-        float scale = sysDPIScale / 100;
-        nsvgRasterize(rast, image, 0, 0, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
+        float scale = 1.0f;
+        float offsetX = 0.0f;
+        float offsetY = 0.0f;
+        if (image->width > 0.0f && image->height > 0.0f)
+        {
+            scale = min((float)iconSize / image->width, (float)iconSize / image->height);
+            offsetX = ((float)iconSize - image->width * scale) / 2.0f;
+            offsetY = ((float)iconSize - image->height * scale) / 2.0f;
+        }
+        nsvgRasterize(rast, image, offsetX, offsetY, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
         nsvgDelete(image);
 
         BLENDFUNCTION bf;
@@ -329,8 +337,16 @@ BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMA
             NSVGrasterizer* rast = nsvgCreateRasterizer();
             if (rast != NULL)
             {
-                float scale = sysDPIScale / 100;
-                nsvgRasterize(rast, image, 0, 0, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
+                float scale = 1.0f;
+                float offsetX = 0.0f;
+                float offsetY = 0.0f;
+                if (image->width > 0.0f && image->height > 0.0f)
+                {
+                    scale = min((float)iconSize / image->width, (float)iconSize / image->height);
+                    offsetX = ((float)iconSize - image->width * scale) / 2.0f;
+                    offsetY = ((float)iconSize - image->height * scale) / 2.0f;
+                }
+                nsvgRasterize(rast, image, offsetX, offsetY, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
                 DWORD* pixels = (DWORD*)lpMemBits;
                 for (int i = 0; i < iconSize * iconSize; i++)
                 {
