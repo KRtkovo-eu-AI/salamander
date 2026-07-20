@@ -29,7 +29,8 @@ enum OperationResult
 {
     OperationResultOk = 0,
     OperationResultCancel = 1,
-    OperationResultError = 2
+    OperationResultError = 2,
+    OperationResultNotAvailable = 3
 };
 
 } // namespace Runtime
@@ -121,8 +122,10 @@ public:
         if (options.RequireEnabled)
         {
             BOOL enabled = TRUE;
-            if (!General->GetSalamanderCommand(salamanderCommandId, NULL, 0, &enabled, NULL) || !enabled)
+            if (!General->GetSalamanderCommand(salamanderCommandId, NULL, 0, &enabled, NULL))
                 return Runtime::OperationResultError;
+            if (!enabled)
+                return Runtime::OperationResultNotAvailable;
         }
 
         General->PostSalamanderCommand(salamanderCommandId);
