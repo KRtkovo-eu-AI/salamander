@@ -2033,7 +2033,17 @@ internal static class PluginConfigurationReader
         ["salamatrix"] = new("Salamatrix Framework", "0.1"),
     };
 
-    private readonly record struct KnownPluginInfo(string DisplayName, string? Version);
+    private readonly struct KnownPluginInfo
+    {
+        public KnownPluginInfo(string displayName, string? version)
+        {
+            DisplayName = displayName;
+            Version = version;
+        }
+
+        public string DisplayName { get; }
+        public string? Version { get; }
+    }
 
     private static string? ReadString(RegistryKey key, string name) => key.GetValue(name) as string;
 
