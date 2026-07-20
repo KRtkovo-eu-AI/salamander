@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -24,8 +24,6 @@
 #include "md5.h"
 #include "geticon.h"
 #include "pack.h"
-
-#include <string>
 extern "C"
 {
 #include "shexreg.h"
@@ -527,164 +525,6 @@ void CSalamanderGeneral::Clear()
         HANDLES(FreeLibrary(LanguageModule));
     LanguageModule = NULL;
     HelpFileName[0] = 0;
-}
-
-
-namespace
-{
-struct CRegisteredServiceRecord
-{
-    const char* ServiceId;
-    DWORD Version;
-    void* Interface;
-    const char* ProviderName;
-
-    CRegisteredServiceRecord()
-    {
-        ServiceId = NULL;
-        Version = 0;
-        Interface = NULL;
-        ProviderName = NULL;
-    }
-};
-
-enum
-{
-    SALAMANDER_SERVICE_REGISTRY_MAX = 64
-};
-
-CRegisteredServiceRecord SalamanderServiceRegistry[SALAMANDER_SERVICE_REGISTRY_MAX];
-int SalamanderServiceRegistryCount = 0;
-
-BOOL SameServiceId(const char* left, const char* right)
-{
-    if (left == NULL || right == NULL)
-        return FALSE;
-    return strcmp(left, right) == 0;
-}
-}
-
-extern "C" __declspec(dllexport) BOOL WINAPI SalamanderRegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName)
-{
-    CALL_STACK_MESSAGE2("SalamanderRegisterService(%s, , ,)", serviceId);
-    if (serviceId == NULL || serviceInterface == NULL || version == 0)
-        return FALSE;
-
-    for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
-    {
-        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId))
-            return FALSE;
-    }
-
-    if (SalamanderServiceRegistryCount >= SALAMANDER_SERVICE_REGISTRY_MAX)
-        return FALSE;
-
-    SalamanderServiceRegistry[SalamanderServiceRegistryCount].ServiceId = serviceId;
-    SalamanderServiceRegistry[SalamanderServiceRegistryCount].Version = version;
-    SalamanderServiceRegistry[SalamanderServiceRegistryCount].Interface = serviceInterface;
-    SalamanderServiceRegistry[SalamanderServiceRegistryCount].ProviderName = providerName;
-    ++SalamanderServiceRegistryCount;
-    return TRUE;
-}
-
-extern "C" __declspec(dllexport) BOOL WINAPI SalamanderUnregisterService(const char* serviceId, void* serviceInterface)
-{
-    CALL_STACK_MESSAGE2("SalamanderUnregisterService(%s, ,)", serviceId);
-    if (serviceId == NULL || serviceInterface == NULL)
-        return FALSE;
-
-    for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
-    {
-        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId) &&
-            SalamanderServiceRegistry[i].Interface == serviceInterface)
-        {
-            for (int j = i; j + 1 < SalamanderServiceRegistryCount; ++j)
-                SalamanderServiceRegistry[j] = SalamanderServiceRegistry[j + 1];
-            --SalamanderServiceRegistryCount;
-            SalamanderServiceRegistry[SalamanderServiceRegistryCount] = CRegisteredServiceRecord();
-            return TRUE;
-        }
-    }
-
-    return FALSE;
-}
-
-extern "C" __declspec(dllexport) BOOL WINAPI SalamanderQueryService(const char* serviceId, DWORD minimumVersion, void** serviceInterface, DWORD* providedVersion, const char** providerName)
-{
-    CALL_STACK_MESSAGE2("SalamanderQueryService(%s, , , ,)", serviceId);
-    if (serviceInterface != NULL)
-        *serviceInterface = NULL;
-    if (providedVersion != NULL)
-        *providedVersion = 0;
-    if (providerName != NULL)
-        *providerName = NULL;
-    if (serviceId == NULL)
-        return FALSE;
-
-    for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
-    {
-        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId) &&
-            SalamanderServiceRegistry[i].Version >= minimumVersion)
-        {
-            if (serviceInterface != NULL)
-                *serviceInterface = SalamanderServiceRegistry[i].Interface;
-            if (providedVersion != NULL)
-                *providedVersion = SalamanderServiceRegistry[i].Version;
-            if (providerName != NULL)
-                *providerName = SalamanderServiceRegistry[i].ProviderName;
-            return TRUE;
-        }
-    }
-
-    return FALSE;
-}
-
-namespace
-{
-void AppendEscapedInstalledPluginField(std::string& output, const char* text)
-{
-    if (text == NULL)
-        return;
-
-    for (const char* p = text; *p != 0; ++p)
-    {
-        switch (*p)
-        {
-        case '\t':
-        case '\r':
-        case '\n':
-            output.push_back(' ');
-            break;
-        default:
-            output.push_back(*p);
-            break;
-        }
-    }
-}
-}
-
-extern "C" __declspec(dllexport) int WINAPI SalamanderExportInstalledPlugins(char* buffer, int cchBuffer)
-{
-    std::string text;
-    int count = Plugins.GetCount();
-    for (int orderIndex = 0; orderIndex < count; ++orderIndex)
-    {
-        CPluginData* plugin = Plugins.Get(orderIndex);
-        if (plugin == NULL)
-            continue;
-
-        AppendEscapedInstalledPluginField(text, plugin->DLLName != NULL ? plugin->DLLName : "");
-        text.push_back('\t');
-        AppendEscapedInstalledPluginField(text, plugin->Name != NULL ? plugin->Name : "");
-        text.push_back('\t');
-        AppendEscapedInstalledPluginField(text, plugin->Version != NULL ? plugin->Version : "");
-        text.push_back('\n');
-    }
-
-    int required = (int)text.size() + 1;
-    if (buffer != NULL && cchBuffer > 0)
-        lstrcpynA(buffer, text.c_str(), cchBuffer);
-    return required;
 }
 
 int CSalamanderGeneral::ShowMessageBox(const char* text, const char* title, int type)
