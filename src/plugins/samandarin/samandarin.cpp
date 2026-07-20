@@ -88,7 +88,7 @@ extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledPlugins
     int required = (int)context.Text.size() + 1;
     if (buffer != NULL && cchBuffer > 0)
     {
-        StringCchCopyA(buffer, cchBuffer, context.Text.c_str());
+        lstrcpynA(buffer, context.Text.c_str(), cchBuffer);
     }
     return required;
 }
