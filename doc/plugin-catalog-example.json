@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "catalogName": "Sample Plugin Catalog",
   "generatedAt": "2026-06-29T03:07:00Z",
   "plugins": [
@@ -35,7 +35,8 @@
       "latestVersion": "plugin-version",
       "versionScheme": "fileversion | opaque",
       "homepageUrl": "Your plugin homepage URL or repository URL etc.",
-      "downloadPageUrl": "Your plugin download page URL"
+      "downloadPageUrl": "Your plugin download page URL",
+      "icon": "plugin"
     }
   ]
 }

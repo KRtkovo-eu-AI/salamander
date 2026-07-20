@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.Collections.Generic;
 using System.IO;
@@ -1030,6 +1031,7 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
     private readonly ContextMenuStrip _listContextMenu;
+    private readonly ImageList _pluginImages;
     private readonly Label _detailNameValue;
     private readonly Label _detailAuthorValue;
     private readonly Label _detailInstalledValue;
@@ -1040,8 +1042,8 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly LinkLabel _detailDownloadValue;
     private readonly TextBox _detailDescriptionValue;
     private ListViewItem? _contextMenuItem;
-    private static readonly int[] ListColumnMinimumWidths = { 120, 180, 90, 90, 120, 110 };
-    private static readonly float[] ListColumnWidthWeights = { 0.16f, 0.30f, 0.12f, 0.12f, 0.17f, 0.13f };
+    private static readonly int[] ListColumnMinimumWidths = { 46, 120, 180, 90, 90, 120, 110 };
+    private static readonly float[] ListColumnWidthWeights = { 0.00f, 0.15f, 0.30f, 0.12f, 0.12f, 0.18f, 0.13f };
     private int _contextMenuSubItemIndex;
     private readonly List<PluginUpdateRow> _rows = new();
     private int _sortColumn = 1;
@@ -1084,6 +1086,9 @@ internal sealed class PluginUpdatesDialog : Form
             Scrollable = true,
             View = View.Details,
         };
+        _pluginImages = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new System.Drawing.Size(16, 16) };
+        _listView.SmallImageList = _pluginImages;
+        _listView.Columns.Add(string.Empty, 46);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 140);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnName), 240);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 120);
@@ -1253,7 +1258,8 @@ internal sealed class PluginUpdatesDialog : Form
             _listView.Items.Clear();
             foreach (var row in rows)
             {
-                var item = new ListViewItem(row.Source) { Tag = row };
+                var item = new ListViewItem(row.IconLabel) { Tag = row, ImageKey = EnsurePluginImage(row) };
+                item.SubItems.Add(row.Source);
                 item.SubItems.Add(row.Name);
                 item.SubItems.Add(row.InstalledVersion);
                 item.SubItems.Add(row.LatestVersion);
@@ -1275,6 +1281,35 @@ internal sealed class PluginUpdatesDialog : Form
         NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
         ThemeHelper.ApplyNativeDarkMode(_listView);
         UpdateDetails();
+    }
+
+    private string EnsurePluginImage(PluginUpdateRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.IconPath))
+        {
+            return string.Empty;
+        }
+
+        var key = row.IconPath!;
+        if (_pluginImages.Images.ContainsKey(key))
+        {
+            return key;
+        }
+
+        try
+        {
+            using var icon = Icon.ExtractAssociatedIcon(key);
+            if (icon is not null)
+            {
+                _pluginImages.Images.Add(key, icon);
+                return key;
+            }
+        }
+        catch
+        {
+        }
+
+        return string.Empty;
     }
 
     private void UpdateDetails()
@@ -1418,12 +1453,13 @@ internal sealed class PluginUpdatesDialog : Form
 
         private string GetValue(PluginUpdateRow row) => _column switch
         {
-            1 => row.Name,
-            2 => row.InstalledVersion,
-            3 => row.LatestVersion,
-            4 => row.StatusText,
-            5 => row.Author,
-            _ => row.Source,
+            1 => row.Source,
+            2 => row.Name,
+            3 => row.InstalledVersion,
+            4 => row.LatestVersion,
+            5 => row.StatusText,
+            6 => row.Author,
+            _ => row.IconLabel,
         };
     }
 }
@@ -1637,14 +1673,14 @@ internal static class PluginCatalogService
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty);
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
     {
         if (entry is null)
         {
-            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty);
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty);
         }
 
         var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
@@ -1657,7 +1693,7 @@ internal static class PluginCatalogService
         };
 
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -1737,7 +1773,7 @@ internal static class InstalledPluginScanner
             var id = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }).FirstOrDefault() ?? Path.GetFileNameWithoutExtension(file);
             var display = BuildDisplayName(id, file, info);
             var version = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion! : info.ProductVersion ?? string.Empty;
-            yield return new InstalledPlugin(id, display, version);
+            yield return new InstalledPlugin(id, display, version, file);
         }
     }
 
@@ -1832,13 +1868,6 @@ internal static class PluginConfigurationReader
             }
 
             return false;
-        }
-
-        var defaultRegFilePath = Path.Combine(executableDirectory!, DefaultRegFileName);
-        if (File.Exists(defaultRegFilePath))
-        {
-            regFilePath = defaultRegFilePath;
-            return true;
         }
 
         return false;
@@ -1981,7 +2010,7 @@ internal static class PluginConfigurationReader
             displayName = id;
         }
 
-        return new InstalledPlugin(id, displayName!, version ?? string.Empty);
+        return new InstalledPlugin(id, displayName!, version ?? string.Empty, resolvedDllPath);
     }
 
     private static bool IsFallbackDisplayName(string? displayName, string id)
@@ -2201,6 +2230,7 @@ internal sealed class PluginCatalogEntry
     public string? author { get; set; }
     public object? description { get; set; }
     public string? latestVersion { get; set; }
+    public string? icon { get; set; }
     public string? versionScheme { get; set; }
     public string? homepageUrl { get; set; }
     public string? downloadPageUrl { get; set; }
@@ -2316,16 +2346,18 @@ internal enum PluginUpdateStatus { Other, UpdateAvailable, NotInCatalog, Catalog
 
 internal sealed class InstalledPlugin
 {
-    public InstalledPlugin(string id, string displayName, string versionText)
+    public InstalledPlugin(string id, string displayName, string versionText, string? iconPath = null)
     {
         Id = id;
         DisplayName = displayName;
         VersionText = InstalledPluginVersionFormatter.WithCurrentPlatform(versionText);
+        IconPath = iconPath ?? string.Empty;
     }
 
     public string Id { get; }
     public string DisplayName { get; }
     public string VersionText { get; }
+    public string IconPath { get; }
 }
 
 internal static class InstalledPluginVersionFormatter
@@ -2355,7 +2387,7 @@ internal static class InstalledPluginVersionFormatter
 
 internal sealed class PluginUpdateRow
 {
-    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description)
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? iconLabel)
     {
         Name = name;
         InstalledVersion = installedVersion;
@@ -2367,6 +2399,8 @@ internal sealed class PluginUpdateRow
         Source = source;
         WebUrl = webUrl;
         Description = description;
+        IconPath = iconPath ?? string.Empty;
+        IconLabel = iconLabel ?? string.Empty;
     }
 
     public string Name { get; }
@@ -2379,8 +2413,10 @@ internal sealed class PluginUpdateRow
     public string Source { get; }
     public string? WebUrl { get; }
     public string Description { get; }
+    public string IconPath { get; }
+    public string IconLabel { get; }
 
-    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty);
+    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty, null, string.Empty);
 }
 
 internal static class VersionComparer

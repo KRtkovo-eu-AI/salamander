@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "catalogName": "Stable",
   "generatedAt": "2026-07-13T00:14:37Z",
   "plugins": [
@@ -25,7 +25,8 @@
       "latestVersion": "1.33 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "automation",
@@ -59,7 +60,8 @@
       "latestVersion": "1.7 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "dbviewer",
@@ -93,7 +95,8 @@
       "latestVersion": "1.25 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "diskmap",
@@ -127,7 +130,8 @@
       "latestVersion": "1.12 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "filecomp",
@@ -161,7 +165,8 @@
       "latestVersion": "1.19 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "folders",
@@ -195,7 +200,8 @@
       "latestVersion": "0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "ftp",
@@ -229,7 +235,8 @@
       "latestVersion": "1.36 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "hypervm",
@@ -263,7 +270,8 @@
       "latestVersion": "1.06 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "checksum",
@@ -297,7 +305,8 @@
       "latestVersion": "2.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "ieviewer",
@@ -331,7 +340,8 @@
       "latestVersion": "1.12 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "jsonviewer",
@@ -365,7 +375,8 @@
       "latestVersion": "1.01 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "mmviewer",
@@ -399,7 +410,8 @@
       "latestVersion": "1.16 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "nethood",
@@ -433,7 +445,8 @@
       "latestVersion": "1.09 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "pak",
@@ -467,7 +480,8 @@
       "latestVersion": "1.72 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "peviewer",
@@ -501,7 +515,8 @@
       "latestVersion": "3.0 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "pictview",
@@ -535,7 +550,8 @@
       "latestVersion": "2.23 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "portables",
@@ -569,7 +585,8 @@
       "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "regedt",
@@ -603,7 +620,8 @@
       "latestVersion": "1.15 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "renamer",
@@ -637,7 +655,8 @@
       "latestVersion": "1.14 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "samandarin",
@@ -671,7 +690,8 @@
       "latestVersion": "0.5 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "serviceexplorer",
@@ -705,7 +725,8 @@
       "latestVersion": "0.013 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "splitcbn",
@@ -739,7 +760,8 @@
       "latestVersion": "1.11 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "tar",
@@ -773,7 +795,8 @@
       "latestVersion": "3.34 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "textviewer",
@@ -807,7 +830,8 @@
       "latestVersion": "1.01 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "unarj",
@@ -821,7 +845,8 @@
       "latestVersion": "1.22 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "uncab",
@@ -835,7 +860,8 @@
       "latestVersion": "1.28 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "undelete",
@@ -869,7 +895,8 @@
       "latestVersion": "1.12 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "unfat",
@@ -883,7 +910,8 @@
       "latestVersion": "1.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "unchm",
@@ -897,7 +925,8 @@
       "latestVersion": "1.04 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "uniso",
@@ -911,7 +940,8 @@
       "latestVersion": "1.38 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "unlha",
@@ -945,7 +975,8 @@
       "latestVersion": "1.14 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "unmime",
@@ -979,7 +1010,8 @@
       "latestVersion": "1.15 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "unole",
@@ -993,7 +1025,8 @@
       "latestVersion": "1.02 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "unrar",
@@ -1007,7 +1040,8 @@
       "latestVersion": "3.03 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "webview2renderviewer",
@@ -1041,7 +1075,8 @@
       "latestVersion": "1.02 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "wmobile",
@@ -1075,7 +1110,8 @@
       "latestVersion": "1.09 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     },
     {
       "id": "zip",
@@ -1109,7 +1145,8 @@
       "latestVersion": "1.6 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
-      "downloadPageUrl": "https://samandarin.krtkovo.eu/download"
+      "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
+      "icon": "plugin"
     }
   ]
 }
