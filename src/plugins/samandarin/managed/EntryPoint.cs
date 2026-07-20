@@ -1770,43 +1770,16 @@ internal static class InstalledPluginScanner
 
             var relative = file.Substring(pluginsRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var id = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }).FirstOrDefault() ?? Path.GetFileNameWithoutExtension(file);
-            var display = BuildDisplayName(id, file, info);
+            var display = BuildDisplayName(id, file);
             var version = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion! : info.ProductVersion ?? string.Empty;
             yield return new InstalledPlugin(id, display, version, file);
         }
     }
 
-    public static string BuildDisplayName(string id, string file, FileVersionInfo info)
+    public static string BuildDisplayName(string id, string file)
     {
-        if (PluginMetadata.TryGetKnownDisplayName(id, out var knownDisplayName))
-        {
-            return knownDisplayName;
-        }
-
-        if (!string.IsNullOrWhiteSpace(info.FileDescription) &&
-            !info.FileDescription!.Equals("Open Salamander", StringComparison.OrdinalIgnoreCase) &&
-            !info.FileDescription!.StartsWith("Sample plugin", StringComparison.OrdinalIgnoreCase))
-        {
-            return TrimOpenSalamanderSuffix(info.FileDescription!);
-        }
-
         var fileName = Path.GetFileNameWithoutExtension(file);
         return string.IsNullOrWhiteSpace(fileName) ? id : fileName;
-    }
-
-    private static string TrimOpenSalamanderSuffix(string name)
-    {
-        var result = name.Trim();
-        foreach (var suffix in new[] { " plugin for Open Salamander", " for Open Salamander" })
-        {
-            if (result.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-            {
-                result = result.Substring(0, result.Length - suffix.Length).TrimEnd();
-                break;
-            }
-        }
-
-        return result;
     }
 }
 
@@ -1862,19 +1835,6 @@ internal static class NativeInstalledPluginProvider
             var version = parts[2];
             var resolvedDllPath = PluginMetadata.ResolveRegisteredDllPath(dllName);
 
-            if (PluginMetadata.TryGetKnownInfo(id, out var known))
-            {
-                if (string.IsNullOrWhiteSpace(displayName) || PluginMetadata.IsFallbackDisplayName(displayName, id))
-                {
-                    displayName = known.DisplayName;
-                }
-
-                if (string.IsNullOrWhiteSpace(version) && !string.IsNullOrWhiteSpace(known.Version))
-                {
-                    version = known.Version;
-                }
-            }
-
             if (string.IsNullOrWhiteSpace(displayName))
             {
                 displayName = id;
@@ -1887,33 +1847,6 @@ internal static class NativeInstalledPluginProvider
 
 internal static class PluginMetadata
 {
-    public static bool TryGetKnownDisplayName(string id, out string displayName)
-    {
-        if (TryGetKnownInfo(id, out var known))
-        {
-            displayName = known.DisplayName;
-            return true;
-        }
-
-        displayName = string.Empty;
-        return false;
-    }
-
-    public static bool TryGetKnownInfo(string id, out KnownPluginInfo known) => KnownPluginMetadata.TryGetValue(id, out known);
-
-    public static bool IsFallbackDisplayName(string? displayName, string id)
-    {
-        if (string.IsNullOrWhiteSpace(displayName))
-        {
-            return true;
-        }
-
-        var text = displayName!.Trim();
-        return string.Equals(text, id, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(text, Path.GetFileNameWithoutExtension(id), StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(text, "Sample", StringComparison.OrdinalIgnoreCase);
-    }
-
     public static string? ResolveRegisteredDllPath(string dllName)
     {
         var normalized = dllName.Trim();
@@ -1951,24 +1884,6 @@ internal static class PluginMetadata
     {
         var executablePath = Application.ExecutablePath;
         return string.IsNullOrWhiteSpace(executablePath) ? null : Path.GetDirectoryName(executablePath);
-    }
-
-    private static readonly Dictionary<string, KnownPluginInfo> KnownPluginMetadata = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["demoplug"] = new("DemoPlug", null),
-        ["salamatrix"] = new("Salamatrix Framework", "0.1"),
-    };
-
-    public readonly struct KnownPluginInfo
-    {
-        public KnownPluginInfo(string displayName, string? version)
-        {
-            DisplayName = displayName;
-            Version = version;
-        }
-
-        public string DisplayName { get; }
-        public string? Version { get; }
     }
 }
 
