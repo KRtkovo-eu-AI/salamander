@@ -24,6 +24,8 @@
 #include "md5.h"
 #include "geticon.h"
 #include "pack.h"
+
+#include <string>
 extern "C"
 {
 #include "shexreg.h"
@@ -635,6 +637,54 @@ BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSal
     }
 
     return FALSE;
+}
+
+namespace
+{
+void AppendEscapedInstalledPluginField(std::string& output, const char* text)
+{
+    if (text == NULL)
+        return;
+
+    for (const char* p = text; *p != 0; ++p)
+    {
+        switch (*p)
+        {
+        case '\t':
+        case '\r':
+        case '\n':
+            output.push_back(' ');
+            break;
+        default:
+            output.push_back(*p);
+            break;
+        }
+    }
+}
+}
+
+extern "C" __declspec(dllexport) int WINAPI SalamanderExportInstalledPlugins(char* buffer, int cchBuffer)
+{
+    std::string text;
+    int count = Plugins.GetCount();
+    for (int orderIndex = 0; orderIndex < count; ++orderIndex)
+    {
+        CPluginData* plugin = Plugins.Get(orderIndex);
+        if (plugin == NULL)
+            continue;
+
+        AppendEscapedInstalledPluginField(text, plugin->DLLName != NULL ? plugin->DLLName : "");
+        text.push_back('\t');
+        AppendEscapedInstalledPluginField(text, plugin->Name != NULL ? plugin->Name : "");
+        text.push_back('\t');
+        AppendEscapedInstalledPluginField(text, plugin->Version != NULL ? plugin->Version : "");
+        text.push_back('\n');
+    }
+
+    int required = (int)text.size() + 1;
+    if (buffer != NULL && cchBuffer > 0)
+        lstrcpynA(buffer, text.c_str(), cchBuffer);
+    return required;
 }
 
 int CSalamanderGeneral::ShowMessageBox(const char* text, const char* title, int type)

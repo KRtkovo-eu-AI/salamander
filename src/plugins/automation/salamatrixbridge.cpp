@@ -103,7 +103,7 @@ void CAutomationSalamatrixBridge::GetStatusText(PTSTR buffer, int cchBuffer) con
 
     if (!IsAvailable())
     {
-        StringCchCopy(buffer, cchBuffer, TEXT("not available (install/load Salamatrix Runtime)"));
+        StringCchCopy(buffer, cchBuffer, TEXT("not available (install/load Salamatrix Framework)"));
         return;
     }
 

@@ -2424,7 +2424,7 @@ public:
     BOOL SupportViewer;        // TRUE => supports ViewFile and CanViewFile (file viewer)
     BOOL SupportFS;            // TRUE => supports a file system
     BOOL SupportDynMenuExt;    // TRUE => menu is added in PluginIfaceForMenuExt::BuildMenu instead of PluginIface::Connect (menu is dynamic and rebuilt before each plugin menu open)
-    BOOL SupportAutomationRuntime; // TRUE => provides automation/script runtime services
+    BOOL SupportAutomationFramework; // TRUE => provides automation framework services
 
     BOOL LoadOnStart; // should the plugin load at every Salamander start?
 
@@ -2511,7 +2511,7 @@ public:
     CPluginData(const char* name, const char* dllName, BOOL supportPanelView,
                 BOOL supportPanelEdit, BOOL supportCustomPack, BOOL supportCustomUnpack,
                 BOOL supportConfiguration, BOOL supportLoadSave, BOOL supportViewer,
-                BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationRuntime, const char* version,
+                BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationFramework, const char* version,
                 const char* copyright, const char* description, const char* regKeyName,
                 const char* extensions, TIndirectArray<char>* fsNames, BOOL loadOnStart,
                 char* lastSLGName, const char* pluginHomePageURL);
@@ -2930,7 +2930,7 @@ public:
     BOOL AddPlugin(const char* name, const char* dllName, BOOL supportPanelView,
                    BOOL supportPanelEdit, BOOL supportCustomPack, BOOL supportCustomUnpack,
                    BOOL supportConfiguration, BOOL supportLoadSave, BOOL supportViewer,
-                   BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationRuntime, const char* version,
+                   BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationFramework, const char* version,
                    const char* copyright, const char* description, const char* regKeyName,
                    const char* extensions, TIndirectArray<char>* fsNames, BOOL loadOnStart,
                    char* lastSLGName, const char* pluginHomePageURL);

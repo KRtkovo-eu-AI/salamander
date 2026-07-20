@@ -1594,7 +1594,7 @@ BOOL CSalamanderPluginEntry::SetBasicPluginData(const char* pluginName, DWORD fu
     BOOL supportViewer = (functions & FUNCTION_VIEWER) != 0;
     BOOL supportFS = (functions & FUNCTION_FILESYSTEM) != 0;
     BOOL supportDynMenuExt = (functions & FUNCTION_DYNAMICMENUEXT) != 0;
-    BOOL supportAutomationRuntime = (functions & FUNCTION_AUTOMATIONRUNTIME) != 0;
+    BOOL supportAutomationFramework = (functions & FUNCTION_AUTOMATIONFRAMEWORK) != 0;
 
     if (pluginName == NULL || version == NULL || copyright == NULL || description == NULL ||
         supportLoadSave && (regKeyName == NULL || regKeyName[0] == 0) ||
@@ -1632,7 +1632,7 @@ BOOL CSalamanderPluginEntry::SetBasicPluginData(const char* pluginName, DWORD fu
     Plugin->SupportViewer = supportViewer;
     Plugin->SupportFS = supportFS;
     Plugin->SupportDynMenuExt = supportDynMenuExt;
-    Plugin->SupportAutomationRuntime = supportAutomationRuntime;
+    Plugin->SupportAutomationFramework = supportAutomationFramework;
 
     char* s = DupStr(pluginName);
     if (s != NULL)
@@ -1989,7 +1989,7 @@ CPluginMenuItem::CPluginMenuItem(int iconIndex, const char* name, DWORD hotKey, 
 CPluginData::CPluginData(const char* name, const char* dllName, BOOL supportPanelView,
                          BOOL supportPanelEdit, BOOL supportCustomPack, BOOL supportCustomUnpack,
                          BOOL supportConfiguration, BOOL supportLoadSave, BOOL supportViewer,
-                         BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationRuntime, const char* version, const char* copyright,
+                         BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationFramework, const char* version, const char* copyright,
                          const char* description, const char* regKeyName, const char* extensions,
                          TIndirectArray<char>* fsNames, BOOL loadOnStart, char* lastSLGName,
                          const char* pluginHomePageURL)
@@ -1999,7 +1999,7 @@ CPluginData::CPluginData(const char* name, const char* dllName, BOOL supportPane
     CALL_STACK_MESSAGE21("CPluginData::CPluginData(%s, %s, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %s, %s, %s, %s, %s, , %d, %s, %s)",
                          name, dllName, supportPanelView, supportPanelEdit, supportCustomPack,
                          supportCustomUnpack, supportConfiguration, supportLoadSave, supportViewer,
-                         supportFS, supportDynMenuExt, supportAutomationRuntime, version, copyright, description, regKeyName,
+                         supportFS, supportDynMenuExt, supportAutomationFramework, version, copyright, description, regKeyName,
                          extensions, loadOnStart, lastSLGName, pluginHomePageURL);
     ArcCacheHaveInfo = FALSE;
     ArcCacheTmpPath = NULL;
@@ -2092,7 +2092,7 @@ CPluginData::CPluginData(const char* name, const char* dllName, BOOL supportPane
     SupportLoadSave = supportLoadSave;
     SupportViewer = supportViewer;
     SupportDynMenuExt = supportDynMenuExt;
-    SupportAutomationRuntime = supportAutomationRuntime;
+    SupportAutomationFramework = supportAutomationFramework;
     LoadOnStart = loadOnStart;
     ChDrvMenuFSItemName = NULL;
     ChDrvMenuFSItemVisible = TRUE;
