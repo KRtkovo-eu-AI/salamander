@@ -825,20 +825,6 @@ class CSalamanderBZIP2Abstract;
 class CSalamanderCryptAbstract;
 
 
-struct CSalamanderServiceQuery
-{
-    const char* ServiceId;
-    DWORD MinimumVersion;
-    DWORD Flags;
-};
-
-struct CSalamanderServiceResult
-{
-    void* Interface;
-    DWORD Version;
-    const char* ProviderName;
-};
-
 class CSalamanderGeneralAbstract
 {
 public:
@@ -3467,11 +3453,6 @@ public:
     // modalni dialogy, hrozi-li vice vrstev, je nutne volat opakovane
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0) = 0;
 
-    // Salamatrix/service-provider MVP: register, unregister, and query in-process framework services.
-    // These methods must stay at the end of the interface to preserve the vtable layout for older plugins.
-    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
-    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
-    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
 };
 
 #ifdef _MSC_VER

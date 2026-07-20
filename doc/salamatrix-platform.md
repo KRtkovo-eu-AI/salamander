@@ -119,87 +119,71 @@ adapter services.
 
 ## Service lookup API
 
-The natural integration point is the existing plugin host interfaces. Plugins
-already receive a `CSalamanderPluginEntryAbstract` in `SalamanderPluginEntry()`
-and use it to obtain core services such as the general, debug, and GUI
-interfaces. The service lookup should therefore be exposed either from the plugin
-entry interface or from `CSalamanderGeneralAbstract`.
+The MVP must not change the public plugin vtable or the layout of
+`CSalamanderGeneralAbstract`: older binary plugins depend on that ABI. The
+current implementation therefore keeps service discovery out of the plugin API
+and uses process-local host exports for the experimental in-process registry.
+Those exports are an implementation detail for bundled Salamatrix/Automation
+components, not a stable third-party plugin contract.
 
 Implemented MVP shape:
 
 ```cpp
-struct CSalamanderServiceQuery
-{
-    const char* ServiceId;
-    DWORD MinimumVersion;
-    DWORD Flags;
-};
-
-struct CSalamanderServiceResult
-{
-    void* Interface;
-    DWORD Version;
-    const char* ProviderName;
-};
-
-virtual BOOL WINAPI QueryService(
-    const CSalamanderServiceQuery* query,
-    CSalamanderServiceResult* result) = 0;
-```
-
-The MVP also adds `UnregisterService(serviceId, serviceInterface)` so temporary
-PoC providers can safely remove stack-owned service instances before returning
-from DemoPlug command handlers.
-
-The core-facing MVP is now implemented on `CSalamanderGeneralAbstract` and backed
-by a process-local registry in `CSalamanderGeneral`. `Runtime::RuntimeServices`
-registers the PoC UI, Commands, FileOperations, and Automation services with both
-its local registry and the host registry while the runtime object is alive.
-
-### Provider registration
-
-Automation Framework providers should register services during their plugin entry/init phase,
-after their own version check and language/resource initialization succeed.
-
-Implemented MVP shape:
-
-```cpp
-virtual BOOL WINAPI RegisterService(
+extern "C" __declspec(dllexport) BOOL WINAPI SalamanderRegisterService(
     const char* serviceId,
     DWORD version,
     void* serviceInterface,
-    const char* providerName) = 0;
+    const char* providerName);
 
-virtual BOOL WINAPI UnregisterService(
+extern "C" __declspec(dllexport) BOOL WINAPI SalamanderUnregisterService(
     const char* serviceId,
-    void* serviceInterface) = 0;
+    void* serviceInterface);
+
+extern "C" __declspec(dllexport) BOOL WINAPI SalamanderQueryService(
+    const char* serviceId,
+    DWORD minimumVersion,
+    void** serviceInterface,
+    DWORD* providedVersion,
+    const char** providerName);
 ```
 
-The registry must reject duplicate providers for the same service/version unless
-a future policy explicitly supports replacement. The provider plugin must not be
-unloaded while a registered service may still be queried or retained by other
-plugins.
+`Runtime::RuntimeServices` still owns a local registry for in-plugin fallback and
+registers the PoC UI, Commands, FileOperations, and Automation services with the
+host export while the runtime object is alive.
+
+### Provider registration
+
+Automation Framework providers should register services during their plugin
+entry/init phase, after their own version check and language/resource
+initialization succeed. The registry must reject duplicate providers for the same
+service/version unless a future policy explicitly supports replacement. The
+provider plugin must not be unloaded while a registered service may still be
+queried or retained by another in-process component.
 
 ## Missing runtime behavior
 
-### Native plugin callers
+### Native/plugin callers
 
-If a native plugin requests a service that is not installed, not loaded, or too
-old, `QueryService` should return failure and set the output interface pointer to
-`NULL`. The caller remains responsible for deciding whether this is optional or
-fatal.
+If a bundled native component requests a service that is not installed, not
+loaded, or too old, `SalamanderQueryService` should return failure and leave the
+output interface pointer as `NULL`. The caller remains responsible for deciding
+whether this is optional or fatal.
 
 Recommended helper behavior for required services:
 
 ```cpp
-CSalamanderServiceQuery query;
-memset(&query, 0, sizeof(query));
-query.ServiceId = SALAMATRIX_SERVICE_UI;
-query.MinimumVersion = SALAMATRIX_UI_VERSION_1_0;
+typedef BOOL(WINAPI* FSalamanderQueryService)(
+    const char* serviceId,
+    DWORD minimumVersion,
+    void** serviceInterface,
+    DWORD* providedVersion,
+    const char** providerName);
 
-CSalamanderServiceResult result;
-memset(&result, 0, sizeof(result));
-if (!SalamanderGeneral->QueryService(&query, &result) || result.Interface == NULL)
+void* serviceInterface = NULL;
+DWORD providedVersion = 0;
+if (!queryService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0,
+                  &serviceInterface, &providedVersion, NULL) ||
+    serviceInterface == NULL)
 {
     SalamanderGeneral->SalMessageBox(
         parent,
@@ -264,9 +248,8 @@ lifetime and unload checks.
 Recommended implementation direction:
 
 - add service registry storage to the core plugin manager implementation,
-- expose `RegisterService` to plugin providers through a host interface,
-- expose `QueryService` to consumers through `CSalamanderGeneralAbstract` or a
-  dedicated service-manager interface,
+- keep the public plugin vtable unchanged,
+- expose experimental service registration/query only through non-vtable host exports or a future versioned service-manager interface,
 - make unload checks fail while exported services are still registered or held,
 - persist only plugin installation metadata, not live service pointers.
 
@@ -460,13 +443,12 @@ lives in `src/plugins/salamatrix/`, has a standalone Visual Studio project in
 `src/plugins/salamatrix/vcxproj/`, and exports `SALAMATRIX.SPL`; on plugin entry
 it creates a persistent `Runtime::RuntimeServices` instance and registers
 `Salamatrix.UI`, `Salamatrix.Commands`, `Salamatrix.FileOperations`, and the
-Automation adapter in Salamander's core-facing `CSalamanderGeneralAbstract`
-service registry. DemoPlug remains only a consumer/sample and no longer needs to
+Automation adapter in Salamander's process-local host-export service registry. DemoPlug remains only a consumer/sample and no longer needs to
 act as the long-lived provider.
 
 - `Runtime::ServiceRegistry` provides a minimal fixed-size local
-  `RegisterService`/`QueryService` implementation, while `CSalamanderGeneral`
-  provides the core-facing registry used by plugin consumers.
+  `RegisterService`/`QueryService` implementation, while Salamander host exports
+  provide the process-local registry used by bundled in-process consumers.
 - `Runtime::LocalUIService` implements `Salamatrix::UI::IUIService` by creating
   and destroying `Salamatrix::UI::ProgressDialog` objects over the existing
   `CSalamanderForOperationsAbstract` progress API.
@@ -497,7 +479,7 @@ is missing, the PoC keeps a local fallback so the demo remains runnable.
 
 
 The Automation plugin is the first non-demo consumer bridge. Its
-`CAutomationSalamatrixBridge` queries `CSalamanderGeneral::QueryService` for the
+`CAutomationSalamatrixBridge` resolves `SalamanderQueryService` from the host process for the
 framework-provided `Salamatrix.Automation`, `Salamatrix.UI`,
 `Salamatrix.Commands`, and `Salamatrix.FileOperations` services when the plugin
 connects and immediately before script execution. It does not create a local
@@ -578,7 +560,7 @@ The platform skeleton is ready when:
 2. The active MVP subsystem names are defined as `Salamatrix.UI`,
    `Salamatrix.Commands`, `Salamatrix.FileOperations`, and
    `Salamatrix.Runtime`.
-3. A versioned `QueryService`/`RegisterService` ABI shape is documented.
+3. A versioned host-export `SalamanderQueryService`/`SalamanderRegisterService` shape is documented without changing the plugin vtable ABI.
 4. Missing-runtime behavior is defined for native plugins, scripts, and UI.
 5. The intended integration point with existing plugin registration and plugin
    lifetime management is documented.

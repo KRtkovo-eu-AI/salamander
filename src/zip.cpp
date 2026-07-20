@@ -564,9 +564,9 @@ BOOL SameServiceId(const char* left, const char* right)
 }
 }
 
-BOOL CSalamanderGeneral::RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName)
+extern "C" __declspec(dllexport) BOOL WINAPI SalamanderRegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName)
 {
-    CALL_STACK_MESSAGE2("CSalamanderGeneral::RegisterService(%s, , ,)", serviceId);
+    CALL_STACK_MESSAGE2("SalamanderRegisterService(%s, , ,)", serviceId);
     if (serviceId == NULL || serviceInterface == NULL || version == 0)
         return FALSE;
 
@@ -587,9 +587,9 @@ BOOL CSalamanderGeneral::RegisterService(const char* serviceId, DWORD version, v
     return TRUE;
 }
 
-BOOL CSalamanderGeneral::UnregisterService(const char* serviceId, void* serviceInterface)
+extern "C" __declspec(dllexport) BOOL WINAPI SalamanderUnregisterService(const char* serviceId, void* serviceInterface)
 {
-    CALL_STACK_MESSAGE2("CSalamanderGeneral::UnregisterService(%s, ,)", serviceId);
+    CALL_STACK_MESSAGE2("SalamanderUnregisterService(%s, ,)", serviceId);
     if (serviceId == NULL || serviceInterface == NULL)
         return FALSE;
 
@@ -609,29 +609,29 @@ BOOL CSalamanderGeneral::UnregisterService(const char* serviceId, void* serviceI
     return FALSE;
 }
 
-BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result)
+extern "C" __declspec(dllexport) BOOL WINAPI SalamanderQueryService(const char* serviceId, DWORD minimumVersion, void** serviceInterface, DWORD* providedVersion, const char** providerName)
 {
-    CALL_STACK_MESSAGE1("CSalamanderGeneral::QueryService(,)");
-    if (result != NULL)
-    {
-        result->Interface = NULL;
-        result->Version = 0;
-        result->ProviderName = NULL;
-    }
-    if (query == NULL || query->ServiceId == NULL)
+    CALL_STACK_MESSAGE2("SalamanderQueryService(%s, , , ,)", serviceId);
+    if (serviceInterface != NULL)
+        *serviceInterface = NULL;
+    if (providedVersion != NULL)
+        *providedVersion = 0;
+    if (providerName != NULL)
+        *providerName = NULL;
+    if (serviceId == NULL)
         return FALSE;
 
     for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
     {
-        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, query->ServiceId) &&
-            SalamanderServiceRegistry[i].Version >= query->MinimumVersion)
+        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId) &&
+            SalamanderServiceRegistry[i].Version >= minimumVersion)
         {
-            if (result != NULL)
-            {
-                result->Interface = SalamanderServiceRegistry[i].Interface;
-                result->Version = SalamanderServiceRegistry[i].Version;
-                result->ProviderName = SalamanderServiceRegistry[i].ProviderName;
-            }
+            if (serviceInterface != NULL)
+                *serviceInterface = SalamanderServiceRegistry[i].Interface;
+            if (providedVersion != NULL)
+                *providedVersion = SalamanderServiceRegistry[i].Version;
+            if (providerName != NULL)
+                *providerName = SalamanderServiceRegistry[i].ProviderName;
             return TRUE;
         }
     }

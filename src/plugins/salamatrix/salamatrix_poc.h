@@ -39,13 +39,8 @@ inline Commands::ICommandService* WINAPI QueryHostCommands(CSalamanderGeneralAbs
     if (general == NULL)
         return NULL;
 
-    CSalamanderServiceQuery query;
-    CSalamanderServiceResult result;
-    query.ServiceId = SALAMATRIX_SERVICE_COMMANDS;
-    query.MinimumVersion = SALAMATRIX_COMMANDS_VERSION_1_0;
-    if (!general->QueryService(&query, &result))
-        return NULL;
-    return static_cast<Commands::ICommandService*>(result.Interface);
+    return static_cast<Commands::ICommandService*>(
+        Runtime::QueryHostService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, NULL));
 }
 
 inline FileOperations::IFileOperationsService* WINAPI QueryHostFileOperations(CSalamanderGeneralAbstract* general)
@@ -53,13 +48,8 @@ inline FileOperations::IFileOperationsService* WINAPI QueryHostFileOperations(CS
     if (general == NULL)
         return NULL;
 
-    CSalamanderServiceQuery query;
-    CSalamanderServiceResult result;
-    query.ServiceId = SALAMATRIX_SERVICE_FILEOPERATIONS;
-    query.MinimumVersion = SALAMATRIX_FILEOPERATIONS_VERSION_1_0;
-    if (!general->QueryService(&query, &result))
-        return NULL;
-    return static_cast<FileOperations::IFileOperationsService*>(result.Interface);
+    return static_cast<FileOperations::IFileOperationsService*>(
+        Runtime::QueryHostService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, NULL));
 }
 
 inline BOOL WINAPI QueryHostUI(CSalamanderGeneralAbstract* general)
@@ -67,11 +57,7 @@ inline BOOL WINAPI QueryHostUI(CSalamanderGeneralAbstract* general)
     if (general == NULL)
         return FALSE;
 
-    CSalamanderServiceQuery query;
-    CSalamanderServiceResult result;
-    query.ServiceId = SALAMATRIX_SERVICE_UI;
-    query.MinimumVersion = SALAMATRIX_UI_VERSION_1_0;
-    return general->QueryService(&query, &result);
+    return Runtime::QueryHostService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, NULL) != NULL;
 }
 
 inline Runtime::OperationResult WINAPI RunProgressDialogPoc(CSalamanderForOperationsAbstract* operations)

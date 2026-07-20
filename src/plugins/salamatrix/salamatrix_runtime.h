@@ -17,6 +17,60 @@ namespace Salamatrix
 namespace Runtime
 {
 
+typedef BOOL(WINAPI* FSalamanderRegisterService)(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
+typedef BOOL(WINAPI* FSalamanderUnregisterService)(const char* serviceId, void* serviceInterface);
+typedef BOOL(WINAPI* FSalamanderQueryService)(const char* serviceId, DWORD minimumVersion, void** serviceInterface, DWORD* providedVersion, const char** providerName);
+
+static BOOL WINAPI RegisterHostService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName)
+{
+    HMODULE host = GetModuleHandle(NULL);
+    if (host == NULL)
+        return FALSE;
+
+    FSalamanderRegisterService registerService =
+        (FSalamanderRegisterService)GetProcAddress(host, "SalamanderRegisterService");
+    if (registerService == NULL)
+        return FALSE;
+
+    return registerService(serviceId, version, serviceInterface, providerName);
+}
+
+static BOOL WINAPI UnregisterHostService(const char* serviceId, void* serviceInterface)
+{
+    HMODULE host = GetModuleHandle(NULL);
+    if (host == NULL)
+        return FALSE;
+
+    FSalamanderUnregisterService unregisterService =
+        (FSalamanderUnregisterService)GetProcAddress(host, "SalamanderUnregisterService");
+    if (unregisterService == NULL)
+        return FALSE;
+
+    return unregisterService(serviceId, serviceInterface);
+}
+
+static void* WINAPI QueryHostService(const char* serviceId, DWORD minimumVersion, DWORD* providedVersion)
+{
+    HMODULE host = GetModuleHandle(NULL);
+    if (host == NULL)
+        return NULL;
+
+    FSalamanderQueryService queryService =
+        (FSalamanderQueryService)GetProcAddress(host, "SalamanderQueryService");
+    if (queryService == NULL)
+        return NULL;
+
+    void* serviceInterface = NULL;
+    DWORD actualVersion = 0;
+    if (!queryService(serviceId, minimumVersion, &serviceInterface, &actualVersion, NULL))
+        return NULL;
+
+    if (providedVersion != NULL)
+        *providedVersion = actualVersion;
+
+    return serviceInterface;
+}
+
 #define SALAMATRIX_SERVICE_RUNTIME "Salamatrix.Runtime"
 #define SALAMATRIX_RUNTIME_VERSION_1_0 0x00010000
 
@@ -211,10 +265,10 @@ public:
         if (General != NULL && registerHostServices)
         {
             HostRegistered = TRUE;
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
+            HostRegistered &= RegisterHostService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
+            HostRegistered &= RegisterHostService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
+            HostRegistered &= RegisterHostService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
+            HostRegistered &= RegisterHostService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
         }
     }
 
@@ -222,10 +276,10 @@ public:
     {
         if (General != NULL && HostRegistered)
         {
-            General->UnregisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, &ScriptRoot);
-            General->UnregisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, &FileOperationsService);
-            General->UnregisterService(SALAMATRIX_SERVICE_COMMANDS, &CommandService);
-            General->UnregisterService(SALAMATRIX_SERVICE_UI, &UIService);
+            UnregisterHostService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, &ScriptRoot);
+            UnregisterHostService(SALAMATRIX_SERVICE_FILEOPERATIONS, &FileOperationsService);
+            UnregisterHostService(SALAMATRIX_SERVICE_COMMANDS, &CommandService);
+            UnregisterHostService(SALAMATRIX_SERVICE_UI, &UIService);
         }
     }
 

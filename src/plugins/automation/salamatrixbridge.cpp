@@ -35,35 +35,32 @@ void* CAutomationSalamatrixBridge::QueryService(
     DWORD minVersion,
     DWORD* actualVersion)
 {
+    typedef BOOL(WINAPI* FSalamanderQueryService)(const char* serviceId, DWORD minimumVersion, void** serviceInterface, DWORD* providedVersion, const char** providerName);
+
     if (actualVersion != NULL)
-    {
         *actualVersion = 0;
-    }
 
     if (salamander == NULL || serviceName == NULL)
-    {
         return NULL;
-    }
 
-    CSalamanderServiceQuery query;
-    memset(&query, 0, sizeof(query));
-    query.ServiceId = serviceName;
-    query.MinimumVersion = minVersion;
-
-    CSalamanderServiceResult result;
-    memset(&result, 0, sizeof(result));
-
-    if (!salamander->QueryService(&query, &result))
-    {
+    HMODULE host = GetModuleHandle(NULL);
+    if (host == NULL)
         return NULL;
-    }
+
+    FSalamanderQueryService queryService =
+        (FSalamanderQueryService)GetProcAddress(host, "SalamanderQueryService");
+    if (queryService == NULL)
+        return NULL;
+
+    void* serviceInterface = NULL;
+    DWORD providedVersion = 0;
+    if (!queryService(serviceName, minVersion, &serviceInterface, &providedVersion, NULL))
+        return NULL;
 
     if (actualVersion != NULL)
-    {
-        *actualVersion = result.Version;
-    }
+        *actualVersion = providedVersion;
 
-    return result.Interface;
+    return serviceInterface;
 }
 
 void CAutomationSalamatrixBridge::Refresh(CSalamanderGeneralAbstract* salamander)

@@ -2353,10 +2353,6 @@ public:
 
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0);
 
-    // Salamatrix/service-provider MVP: keep new virtual methods at the end of CSalamanderGeneralAbstract.
-    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
-    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
-    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
 };
 
 //
