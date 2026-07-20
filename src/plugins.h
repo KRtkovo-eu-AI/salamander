@@ -1886,10 +1886,6 @@ public:
     CSalamanderGeneral();
     ~CSalamanderGeneral();
 
-    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
-    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
-    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
-
     // must be called immediately after the plugin's entry point
     void Init(CPluginInterfaceAbstract* plugin) { Plugin = plugin; }
 
@@ -2356,6 +2352,11 @@ public:
     virtual BOOL WINAPI IsCriticalShutdown();
 
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0);
+
+    // Salamatrix/service-provider MVP: keep new virtual methods at the end of CSalamanderGeneralAbstract.
+    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
+    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
+    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
 };
 
 //

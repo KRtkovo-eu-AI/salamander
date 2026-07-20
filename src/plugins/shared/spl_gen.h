@@ -842,11 +842,6 @@ struct CSalamanderServiceResult
 class CSalamanderGeneralAbstract
 {
 public:
-    // Salamatrix/service-provider MVP: register, unregister, and query in-process runtime services.
-    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
-    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
-    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
-
     // zobrazi message-box se zadanym textem a titulkem, parent message-boxu je HWND
     // vracene metodou GetMsgBoxParent() (viz nize); pouziva SalMessageBox (viz nize)
     // type = MSGBOX_INFO        - informace (ok)
@@ -3471,6 +3466,12 @@ public:
     // pouziva se pri critical shutdown k odblokovani okna/dialogu, nad kterym jsou otevrene
     // modalni dialogy, hrozi-li vice vrstev, je nutne volat opakovane
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0) = 0;
+
+    // Salamatrix/service-provider MVP: register, unregister, and query in-process framework services.
+    // These methods must stay at the end of the interface to preserve the vtable layout for older plugins.
+    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
+    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
+    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
 };
 
 #ifdef _MSC_VER
