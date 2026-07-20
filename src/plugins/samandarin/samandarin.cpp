@@ -11,6 +11,7 @@
 
 #include "precomp.h"
 #include <stdlib.h>
+#include <string>
 
 // objekt interfacu pluginu, jeho metody se volaji ze Salamandera
 CPluginInterface PluginInterface;
@@ -34,6 +35,63 @@ int SalamanderVersion = 0;
 
 // rozhrani poskytujici upravene Windows controly pouzivane v Salamanderovi
 CSalamanderGUIAbstract* SalamanderGUI = NULL;
+
+
+namespace
+{
+void AppendEscapedPluginField(std::string& output, const char* text)
+{
+    if (text == NULL)
+        return;
+
+    for (const char* p = text; *p != 0; ++p)
+    {
+        switch (*p)
+        {
+        case '\t':
+        case '\r':
+        case '\n':
+            output.push_back(' ');
+            break;
+        default:
+            output.push_back(*p);
+            break;
+        }
+    }
+}
+
+struct InstalledPluginExportContext
+{
+    std::string Text;
+};
+
+BOOL WINAPI AppendInstalledPluginExport(const char* name, const char* dllName, const char* version, void* param)
+{
+    InstalledPluginExportContext* context = (InstalledPluginExportContext*)param;
+    AppendEscapedPluginField(context->Text, dllName);
+    context->Text.push_back('\t');
+    AppendEscapedPluginField(context->Text, name);
+    context->Text.push_back('\t');
+    AppendEscapedPluginField(context->Text, version);
+    context->Text.push_back('\n');
+    return TRUE;
+}
+}
+
+extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledPlugins(char* buffer, int cchBuffer)
+{
+    if (SalamanderGeneral == NULL)
+        return 0;
+
+    InstalledPluginExportContext context;
+    SalamanderGeneral->EnumInstalledPlugins(AppendInstalledPluginExport, &context);
+    int required = (int)context.Text.size() + 1;
+    if (buffer != NULL && cchBuffer > 0)
+    {
+        StringCchCopyA(buffer, cchBuffer, context.Text.c_str());
+    }
+    return required;
+}
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {

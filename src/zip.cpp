@@ -637,6 +637,31 @@ BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSal
     return FALSE;
 }
 
+int CSalamanderGeneral::EnumInstalledPlugins(FSalamanderEnumInstalledPlugin callback, void* param)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::EnumInstalledPlugins(,)");
+    if (callback == NULL)
+        return 0;
+
+    int count = Plugins.GetCount();
+    int emitted = 0;
+    for (int orderIndex = 0; orderIndex < count; ++orderIndex)
+    {
+        CPluginData* plugin = Plugins.Get(orderIndex);
+        if (plugin == NULL)
+            continue;
+
+        const char* name = plugin->Name != NULL ? plugin->Name : "";
+        const char* dllName = plugin->DLLName != NULL ? plugin->DLLName : "";
+        const char* version = plugin->Version != NULL ? plugin->Version : "";
+        ++emitted;
+        if (!callback(name, dllName, version, param))
+            break;
+    }
+
+    return emitted;
+}
+
 int CSalamanderGeneral::ShowMessageBox(const char* text, const char* title, int type)
 {
     if (MainThreadID != GetCurrentThreadId()) // Petr: just close; I do not have the energy to track down every wrong call

@@ -839,6 +839,9 @@ struct CSalamanderServiceResult
     const char* ProviderName;
 };
 
+// Callback used to enumerate the live Plugin Manager list. Return FALSE to stop enumeration.
+typedef BOOL(WINAPI* FSalamanderEnumInstalledPlugin)(const char* name, const char* dllName, const char* version, void* param);
+
 class CSalamanderGeneralAbstract
 {
 public:
@@ -846,6 +849,7 @@ public:
     virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
     virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
     virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
+    virtual int WINAPI EnumInstalledPlugins(FSalamanderEnumInstalledPlugin callback, void* param) = 0;
 
     // zobrazi message-box se zadanym textem a titulkem, parent message-boxu je HWND
     // vracene metodou GetMsgBoxParent() (viz nize); pouziva SalMessageBox (viz nize)

@@ -58,6 +58,10 @@ private:
     TCHAR m_szFileName[MAX_PATH];
     TCHAR m_szDisplayName[64];
     TCHAR m_szSalamatrixCommandId[64];
+    bool m_bShowInPluginMenu;
+    bool m_bShowInContextMenu;
+    DWORD m_dwMenuEventOrMask;
+    DWORD m_dwMenuEventAndMask;
     CLSID m_clsidEngine;
     IActiveScript* m_pScript;
     class CScriptSite* m_pSite;
@@ -100,6 +104,9 @@ private:
     void LoadSalamatrixManifestMetadata();
     void ApplySalamatrixMetadataLine(PCTSTR pszLine);
     void ApplySalamatrixManifestValue(const char* key, const char* value);
+    void ApplySalamatrixPlacement(PCTSTR pszValue);
+    void ApplySalamatrixRequires(PCTSTR pszValue);
+    void ApplySalamatrixContextMenu(bool value);
 
     void ScriptEnter();
     void ScriptLeave();
@@ -134,6 +141,26 @@ public:
     PCTSTR GetSalamatrixCommandId() const
     {
         return m_szSalamatrixCommandId;
+    }
+
+    bool ShowInPluginMenu() const
+    {
+        return m_bShowInPluginMenu;
+    }
+
+    bool ShowInContextMenu() const
+    {
+        return m_bShowInContextMenu;
+    }
+
+    DWORD GetMenuEventOrMask() const
+    {
+        return m_dwMenuEventOrMask;
+    }
+
+    DWORD GetMenuEventAndMask() const
+    {
+        return m_dwMenuEventAndMask;
     }
 
     REFCLSID GetEngineCLSID() const
