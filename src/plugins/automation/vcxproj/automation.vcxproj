@@ -236,10 +236,6 @@
     </ClCompile>
     <ClCompile Include="..\salamanderaut.cpp">
     </ClCompile>
-    <ClCompile Include="..\salamatrixaut.cpp">
-    </ClCompile>
-    <ClCompile Include="..\salamatrixbridge.cpp">
-    </ClCompile>
     <ClCompile Include="..\saltypelib.cpp">
     </ClCompile>
     <ClCompile Include="..\scriptinfoaut.cpp">
@@ -321,10 +317,6 @@
     <ClInclude Include="..\salamander.h">
     </ClInclude>
     <ClInclude Include="..\salamanderaut.h">
-    </ClInclude>
-    <ClInclude Include="..\salamatrixaut.h">
-    </ClInclude>
-    <ClInclude Include="..\salamatrixbridge.h">
     </ClInclude>
     <ClInclude Include="..\saltypelib.h">
     </ClInclude>

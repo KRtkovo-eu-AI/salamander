@@ -1,4 +1,4 @@
-﻿/*
+/*
 	Automation Plugin for Open Salamander
 	
 	Copyright (c) 2009-2026 Milan Kase <manison@manison.cz>
@@ -19,9 +19,6 @@ interface ISalamanderProgressDialog;
 interface ISalamanderWaitWindow;
 interface ISalamanderGui;
 interface ISalamanderScriptInfo;
-interface ISalamanderUI;
-interface ISalamanderCommands;
-interface ISalamanderFileOperations;
 
 
 /// \brief Salamander Object
@@ -731,87 +728,6 @@ interface ISalamander : IUnknown
 	HRESULT GetFullPath(
 		[in] BSTR path,
 		[in, optional] VARIANT *panel,
-		[out, retval] BSTR *result);
-
-	/// \brief Gets the Salamatrix-backed UI namespace.
-	[id(27), propget]
-	HRESULT UI(
-		[out, retval] ISalamanderUI **ui);
-
-	/// \brief Gets the Salamatrix-backed command namespace.
-	[id(28), propget]
-	HRESULT Commands(
-		[out, retval] ISalamanderCommands **commands);
-
-	/// \brief Gets the Salamatrix-backed interactive file-operation namespace.
-	[id(29), propget]
-	HRESULT FileOperations(
-		[out, retval] ISalamanderFileOperations **fileOperations);
-};
-
-
-/// \brief Salamatrix-backed UI namespace.
-[
-	object,
-	uuid(4E070436-4D04-4F65-8A4D-E9639CB1EB23),
-	dual,
-	pointer_default(unique),
-	oleautomation,
-	nonextensible
-]
-interface ISalamanderUI : IUnknown
-{
-	/// \brief Creates a Salamatrix-backed progress dialog object.
-	[id(1)]
-	HRESULT progress(
-		[in, optional] VARIANT *title,
-		[out, retval] ISalamanderProgressDialog **dialog);
-};
-
-
-/// \brief Salamatrix-backed commands namespace.
-[
-	object,
-	uuid(EE5A5E4D-9E1D-4B72-9E76-224868C4D16F),
-	dual,
-	pointer_default(unique),
-	oleautomation,
-	nonextensible
-]
-interface ISalamanderCommands : IUnknown
-{
-	/// \brief Executes an existing Salamander command by stable Salamatrix command id.
-	[id(1)]
-	HRESULT execute(
-		[in] BSTR commandId,
-		[out, retval] BSTR *result);
-};
-
-
-/// \brief Salamatrix-backed interactive file-operation namespace.
-[
-	object,
-	uuid(8901848B-9335-4059-A9D9-E8B41352D5DE),
-	dual,
-	pointer_default(unique),
-	oleautomation,
-	nonextensible
-]
-interface ISalamanderFileOperations : IUnknown
-{
-	/// \brief Opens the existing Quick Rename dialog/workflow.
-	[id(1)]
-	HRESULT rename_interactive(
-		[out, retval] BSTR *result);
-
-	/// \brief Opens the existing Copy dialog/workflow.
-	[id(2)]
-	HRESULT copy_interactive(
-		[out, retval] BSTR *result);
-
-	/// \brief Opens the existing Move dialog/workflow.
-	[id(3)]
-	HRESULT move_interactive(
 		[out, retval] BSTR *result);
 };
 
@@ -1695,36 +1611,6 @@ library SalamanderLib
 	coclass WaitWindow
 	{
 		[default] interface ISalamanderWaitWindow;
-	};
-
-
-	[
-		uuid(A051D34D-4AF7-4904-9E29-4E89F5C98492),
-		noncreatable
-	]
-	coclass SalamanderUI
-	{
-		[default] interface ISalamanderUI;
-	};
-
-
-	[
-		uuid(D8DCD6E4-D4C9-4E63-9287-89475E6849BA),
-		noncreatable
-	]
-	coclass SalamanderCommands
-	{
-		[default] interface ISalamanderCommands;
-	};
-
-
-	[
-		uuid(5428052C-2E2F-4833-AE8D-D2F87D443C38),
-		noncreatable
-	]
-	coclass SalamanderFileOperations
-	{
-		[default] interface ISalamanderFileOperations;
 	};
 
 
