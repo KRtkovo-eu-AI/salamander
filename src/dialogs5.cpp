@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -331,8 +331,7 @@ void CPluginsDlg::OnSelChanged()
         // Functions
         // Salamatrix may already be installed in user configurations saved before
         // Preserve older configurations; identify Salamatrix by its stable registry key too.
-        BOOL supportAutomationFramework = p->SupportAutomationFramework ||
-                                        (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
+        BOOL supportAutomationFramework = p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0;
         buf[0] = 0;
         if (p->SupportPanelView)
             strcat(buf, LoadStr(IDS_PLUGINFUNCVIEW));

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1286,7 +1286,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
         char buf[30];
         int i = 1;
         strcpy(buf, "1");
-        BOOL view, edit, pack, unpack, config, loadsave, viewer, fs, loadOnStart, dynMenuExt, automationFramework;
+        BOOL view, edit, pack, unpack, config, loadsave, viewer, fs, loadOnStart, dynMenuExt;
         char name[MAX_PATH];
         char dllName[MAX_PATH];
         char version[MAX_PATH];
@@ -1308,7 +1308,6 @@ void CPlugins::Load(HWND parent, HKEY regKey)
             BOOL err = TRUE;
             BOOL ok = FALSE;
             loadOnStart = FALSE;
-            automationFramework = FALSE;
             thumbnailMasks[0] = 0;
             lastSLGName[0] = 0;
             pluginHomePageURL[0] = 0;
@@ -1335,7 +1334,6 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                      GetValue(itemKey, SALAMANDER_PLUGINS_VIEWER, REG_DWORD, &viewer, sizeof(DWORD)) &&
                      GetValue(itemKey, SALAMANDER_PLUGINS_FS, REG_DWORD, &fs, sizeof(DWORD));
                 dynMenuExt = FALSE;
-                automationFramework = FALSE;
             }
             else // new version (fstores functions in a single DWORD using bit fields)
             {
@@ -1359,12 +1357,6 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 viewer = (functions & FUNCTION_VIEWER) != 0;
                 fs = (functions & FUNCTION_FILESYSTEM) != 0;
                 dynMenuExt = (functions & FUNCTION_DYNAMICMENUEXT) != 0;
-                automationFramework = (functions & FUNCTION_AUTOMATIONFRAMEWORK) != 0;
-
-                // Upgrade configurations saved before FUNCTION_AUTOMATIONFRAMEWORK existed.
-                if (!automationFramework && StrICmp(regKeyName, "SALAMATRIX") == 0)
-                    automationFramework = TRUE;
-
                 DWORD loadOnStartDWORD;
                 if (GetValue(itemKey, SALAMANDER_PLUGINS_LOADONSTART, REG_DWORD, &loadOnStartDWORD, sizeof(DWORD)))
                 {
@@ -1402,7 +1394,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 else
                 {
                     if (AddPlugin(name, normalizedDLLName, view, edit, pack, unpack, config, loadsave, viewer, fs,
-                                  dynMenuExt, automationFramework, version, copyright, description, regKeyName, extensions, &fsNames,
+                                  dynMenuExt, version, copyright, description, regKeyName, extensions, &fsNames,
                                   loadOnStart, lastSLGName, pluginHomePageURL[0] != 0 ? pluginHomePageURL : NULL))
                     {
                         err = FALSE;
@@ -1552,22 +1544,22 @@ void CPlugins::Load(HWND parent, HKEY regKey)
     else // default values
     {
         if (!AddPlugin("ZIP", "zip\\zip.spl",
-                       TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, "1.32",
+                       TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, "1.32",
                        "Copyright © 2000-2026 Open Salamander Authors",
                        "ZIP archives support for Open Salamander.",
                        "ZIP", "zip;pk3;jar", NULL, FALSE, NULL, NULL) ||
             !AddPlugin("TAR", "tar\\tar.spl",
-                       TRUE, FALSE, FALSE, TRUE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE, "3.3",
+                       TRUE, FALSE, FALSE, TRUE, FALSE, TRUE, TRUE, FALSE, FALSE, "3.3",
                        "Copyright © 1999-2026 Open Salamander Authors",
                        "Unix archives readonly support for Open Salamander.",
                        "TAR", "tar;tgz;taz;tbz;gz;bz;bz2;z;rpm;cpio", NULL, FALSE, NULL, NULL) ||
             !AddPlugin("PAK", "pak\\pak.spl",
-                       TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, "1.68",
+                       TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, "1.68",
                        "Copyright © 1999-2026 Open Salamander Authors",
                        "This plug-ing adds support for Quake PAK archives.",
                        "PAK", "pak", NULL, FALSE, NULL, NULL) ||
             !AddPlugin("Internet Explorer Viewer", "ieviewer\\ieviewer.spl",
-                       FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE,
+                       FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
                        "1.1", "Copyright © 1999-2026 Open Salamander Authors",
                        "Internet Explorer Viewer for Open Salamander.",
                        "IEVIEWER", "", NULL, FALSE, NULL, NULL))
@@ -1640,9 +1632,8 @@ void CPlugins::Save(HWND parent, HKEY regKey, HKEY regKeyConfig, HKEY regKeyOrde
                 functions |= p->SupportViewer ? FUNCTION_VIEWER : 0;
                 functions |= p->SupportFS ? FUNCTION_FILESYSTEM : 0;
                 functions |= p->SupportDynMenuExt ? FUNCTION_DYNAMICMENUEXT : 0;
-                BOOL supportAutomationFramework = p->SupportAutomationFramework ||
-                                                (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
-                functions |= supportAutomationFramework ? FUNCTION_AUTOMATIONFRAMEWORK : 0;
+                if (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0)
+                    functions |= FUNCTION_AUTOMATIONFRAMEWORK;
 
                 SetValue(itemKey, SALAMANDER_PLUGINS_FUNCTIONS, REG_DWORD, &functions, sizeof(DWORD));
 
@@ -2231,7 +2222,7 @@ BOOL CPlugins::AddPlugin(HWND parent, const char* fileName)
 {
     CALL_STACK_MESSAGE2("CPlugins::AddPlugin(, %s)", fileName);
     static char emptyBuffer[] = "";
-    if (AddPlugin(emptyBuffer, fileName, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
+    if (AddPlugin(emptyBuffer, fileName, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
                   emptyBuffer, emptyBuffer, emptyBuffer, emptyBuffer, emptyBuffer, NULL, FALSE, emptyBuffer, NULL))
     {
         LoadInfoBase |= LOADINFO_INSTALL;
@@ -2373,15 +2364,15 @@ void CPlugins::GetUniqueFSName(char* uniqueFSName, const char* fsName, TIndirect
 BOOL CPlugins::AddPlugin(const char* name, const char* dllName, BOOL supportPanelView,
                          BOOL supportPanelEdit, BOOL supportCustomPack, BOOL supportCustomUnpack,
                          BOOL supportConfiguration, BOOL supportLoadSave, BOOL supportViewer,
-                         BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationFramework, const char* version,
+                         BOOL supportFS, BOOL supportDynMenuExt, const char* version,
                          const char* copyright, const char* description, const char* regKeyName,
                          const char* extensions, TIndirectArray<char>* fsNames, BOOL loadOnStart,
                          char* lastSLGName, const char* pluginHomePageURL)
 {
-    CALL_STACK_MESSAGE21("CPlugins::AddPlugin(%s, %s, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %s, %s, %s, %s, %s, , %d, %s, %s)",
+    CALL_STACK_MESSAGE20("CPlugins::AddPlugin(%s, %s, %d, %d, %d, %d, %d, %d, %d, %d, %d, %s, %s, %s, %s, %s, , %d, %s, %s)",
                          name, dllName, supportPanelView, supportPanelEdit, supportCustomPack,
                          supportCustomUnpack, supportConfiguration, supportLoadSave, supportViewer,
-                         supportFS, supportDynMenuExt, supportAutomationFramework, version, copyright, description, regKeyName, extensions,
+                         supportFS, supportDynMenuExt, version, copyright, description, regKeyName, extensions,
                          loadOnStart, lastSLGName, pluginHomePageURL);
     BOOL ret = FALSE;
 
@@ -2432,7 +2423,7 @@ BOOL CPlugins::AddPlugin(const char* name, const char* dllName, BOOL supportPane
         CPluginData* item = new CPluginData(name, dllName, supportPanelView,
                                             supportPanelEdit, supportCustomPack, supportCustomUnpack,
                                             supportConfiguration, supportLoadSave, supportViewer, supportFS,
-                                            supportDynMenuExt, supportAutomationFramework, version, copyright, description,
+                                            supportDynMenuExt, version, copyright, description,
                                             uniqueKeyName, extensions, uniqueFSNames, loadOnStart,
                                             lastSLGName, pluginHomePageURL);
         if (item != NULL && item->IsGood())

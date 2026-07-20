@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -2352,7 +2352,6 @@ public:
     virtual BOOL WINAPI IsCriticalShutdown();
 
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0);
-
 };
 
 //
@@ -2421,7 +2420,6 @@ public:
     BOOL SupportViewer;        // TRUE => supports ViewFile and CanViewFile (file viewer)
     BOOL SupportFS;            // TRUE => supports a file system
     BOOL SupportDynMenuExt;    // TRUE => menu is added in PluginIfaceForMenuExt::BuildMenu instead of PluginIface::Connect (menu is dynamic and rebuilt before each plugin menu open)
-    BOOL SupportAutomationFramework; // TRUE => provides automation framework services
 
     BOOL LoadOnStart; // should the plugin load at every Salamander start?
 
@@ -2508,7 +2506,7 @@ public:
     CPluginData(const char* name, const char* dllName, BOOL supportPanelView,
                 BOOL supportPanelEdit, BOOL supportCustomPack, BOOL supportCustomUnpack,
                 BOOL supportConfiguration, BOOL supportLoadSave, BOOL supportViewer,
-                BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationFramework, const char* version,
+                BOOL supportFS, BOOL supportDynMenuExt, const char* version,
                 const char* copyright, const char* description, const char* regKeyName,
                 const char* extensions, TIndirectArray<char>* fsNames, BOOL loadOnStart,
                 char* lastSLGName, const char* pluginHomePageURL);
@@ -2927,7 +2925,7 @@ public:
     BOOL AddPlugin(const char* name, const char* dllName, BOOL supportPanelView,
                    BOOL supportPanelEdit, BOOL supportCustomPack, BOOL supportCustomUnpack,
                    BOOL supportConfiguration, BOOL supportLoadSave, BOOL supportViewer,
-                   BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationFramework, const char* version,
+                   BOOL supportFS, BOOL supportDynMenuExt, const char* version,
                    const char* copyright, const char* description, const char* regKeyName,
                    const char* extensions, TIndirectArray<char>* fsNames, BOOL loadOnStart,
                    char* lastSLGName, const char* pluginHomePageURL);

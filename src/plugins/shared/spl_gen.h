@@ -824,7 +824,6 @@ class CSalamanderBZIP2Abstract;
 
 class CSalamanderCryptAbstract;
 
-
 class CSalamanderGeneralAbstract
 {
 public:
@@ -3452,7 +3451,6 @@ public:
     // pouziva se pri critical shutdown k odblokovani okna/dialogu, nad kterym jsou otevrene
     // modalni dialogy, hrozi-li vice vrstev, je nutne volat opakovane
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0) = 0;
-
 };
 
 #ifdef _MSC_VER
