@@ -44,6 +44,12 @@ LRESULT CScriptAbortPaletteWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM l
         OnCreate();
         break;
 
+    case WM_SETTINGCHANGE:
+    case WM_THEMECHANGED:
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        break;
+
     case WM_DESTROY:
         OnDestroy();
         break;
@@ -99,6 +105,9 @@ LRESULT CScriptAbortPaletteWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM l
 
 void CScriptAbortPaletteWindow::OnCreate()
 {
+    DarkModeApplyWindow(HWindow);
+    DarkModeRefreshTitleBar(HWindow);
+
     RECT rc;
     int cx, cy;
     TLBI_ITEM_INFO2 tii = {

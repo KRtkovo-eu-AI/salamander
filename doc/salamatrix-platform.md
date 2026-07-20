@@ -368,21 +368,24 @@ The shared return enum is `Salamatrix::Runtime::OperationResult`:
 OperationResultOk
 OperationResultCancel
 OperationResultError
+OperationResultNotAvailable
 ```
 
 For the command-posting MVP, `OperationResultOk` means the existing command was
-accepted and posted, while `OperationResultError` means the command was unknown,
-disabled, or no command service was available. `OperationResultCancel` is reserved
-for the next synchronous/modal integration step where a direct workflow wrapper
-can observe the dialog result.
+accepted and posted, `OperationResultNotAvailable` means the command exists but
+is disabled in the current panel context (for example Quick Rename without a
+focused/selected item), and `OperationResultError` means the command was unknown
+or no command service was available. `OperationResultCancel` is reserved for the
+next synchronous/modal integration step where a direct workflow wrapper can
+observe the dialog result.
 
 Implemented script mapping:
 
 ```javascript
-Salamander.Commands.execute("QuickRename")              // returns "ok", "cancel", or "error"
-Salamander.FileOperations.rename_interactive()          // returns "ok", "cancel", or "error"
-Salamander.FileOperations.copy_interactive()            // returns "ok", "cancel", or "error"
-Salamander.FileOperations.move_interactive()            // returns "ok", "cancel", or "error"
+Salamander.Commands.execute("QuickRename")              // returns "ok", "cancel", "not_available", or "error"
+Salamander.FileOperations.rename_interactive()          // returns "ok", "cancel", "not_available", or "error"
+Salamander.FileOperations.copy_interactive()            // returns "ok", "cancel", "not_available", or "error"
+Salamander.FileOperations.move_interactive()            // returns "ok", "cancel", "not_available", or "error"
 ```
 
 Missing Salamatrix runtime services are converted by the Automation wrapper to a
@@ -506,7 +509,8 @@ Automation 2.0 starts exposing that bridge to scripts through `Salamander.UI`,
 `Salamander.Commands`, and `Salamander.FileOperations`. The first script-facing
 UI object is `Salamander.UI.progress(...)`, returning the existing progress
 Automation interface backed by `Salamatrix.UI`. Commands and interactive file
-operations return textual MVP results: `ok`, `cancel`, or `error`.
+operations return textual MVP results: `ok`, `cancel`, `not_available`, or
+`error`.
 
 
 The initial command catalog is deliberately small and stable: `QuickRename`,
