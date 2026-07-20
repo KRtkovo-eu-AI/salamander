@@ -35,6 +35,23 @@ int SalamanderVersion = 0;
 // rozhrani poskytujici upravene Windows controly pouzivane v Salamanderovi
 CSalamanderGUIAbstract* SalamanderGUI = NULL;
 
+
+typedef int(WINAPI* FSalamanderExportInstalledPlugins)(char* buffer, int cchBuffer);
+
+extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledPlugins(char* buffer, int cchBuffer)
+{
+    HMODULE host = GetModuleHandle(NULL);
+    if (host == NULL)
+        return 0;
+
+    FSalamanderExportInstalledPlugins exportInstalledPlugins =
+        (FSalamanderExportInstalledPlugins)GetProcAddress(host, "SalamanderExportInstalledPlugins");
+    if (exportInstalledPlugins == NULL)
+        return 0;
+
+    return exportInstalledPlugins(buffer, cchBuffer);
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)

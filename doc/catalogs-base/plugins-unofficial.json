@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "catalogName": "Unofficial 3rd party",
   "generatedAt": "2026-06-29T03:07:00Z",
   "plugins": [
@@ -35,7 +35,8 @@
       "latestVersion": "5.0 beta (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin",
-      "downloadPageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin/tree/master/bin"
+      "downloadPageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin/tree/master/bin",
+      "icon": "plugin"
     },
     {
       "id": "tar",
@@ -69,7 +70,8 @@
       "latestVersion": "3.5 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/OpenSalamander/salamander/pull/5#issuecomment-3289439303",
-      "downloadPageUrl": "https://github.com/user-attachments/files/22319444/tar-plugin-x64.zip"
+      "downloadPageUrl": "https://github.com/user-attachments/files/22319444/tar-plugin-x64.zip",
+      "icon": "plugin"
     },
     {
       "id": "certview",
@@ -103,7 +105,8 @@
       "latestVersion": "1.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/lejcik/certviewer",
-      "downloadPageUrl": "https://github.com/lejcik/certviewer/releases/latest"
+      "downloadPageUrl": "https://github.com/lejcik/certviewer/releases/latest",
+      "icon": "plugin"
     },
     {
       "id": "x-tc-proxy",
@@ -137,7 +140,8 @@
       "latestVersion": "0.84 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://forum.altap.cz/viewtopic.php?t=2166",
-      "downloadPageUrl": "https://www.manison.cz/products/tcproxy.php?Lang=en"
+      "downloadPageUrl": "https://www.manison.cz/products/tcproxy.php?Lang=en",
+      "icon": "plugin"
     },
     {
       "id": "syntax-viewer",
@@ -171,7 +175,8 @@
       "latestVersion": "1.0 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/umpalump7/SyntaxView/",
-      "downloadPageUrl": "https://github.com/umpalump7/SyntaxView/"
+      "downloadPageUrl": "https://github.com/umpalump7/SyntaxView/",
+      "icon": "plugin"
     }
   ]
 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
-    Salamatrix Runtime plugin for Open Salamander
+    Salamatrix Framework plugin for Open Salamander
 
     This plugin is the first concrete provider of the Salamatrix service set. It
     owns the native RuntimeServices aggregate and registers versioned services in
@@ -15,7 +15,7 @@
 
 CPluginInterface PluginInterface;
 
-const char* PluginNameEN = "Salamatrix Runtime";
+const char* PluginNameEN = "Salamatrix Framework";
 const char* PluginNameShort = "SALAMATRIX";
 
 HINSTANCE DLLInstance = NULL;
@@ -81,7 +81,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderDebug = salamander->GetSalamanderDebug();
     SalamanderVersion = salamander->GetVersion();
     HANDLES_CAN_USE_TRACE();
-    CALL_STACK_MESSAGE1("SalamanderPluginEntry() - Salamatrix Runtime");
+    CALL_STACK_MESSAGE1("SalamanderPluginEntry() - Salamatrix Framework");
 
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER)
     {
@@ -91,8 +91,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     SalamanderGUI = salamander->GetSalamanderGUI();
-    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONRUNTIME, "0.1", "Open Salamander Authors",
-                                   "Runtime provider for Salamatrix UI, Commands, FileOperations and Automation services.",
+    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK, "0.1", "Open Salamander Authors",
+                                   "Automation Framework provider for Salamatrix UI, Commands, FileOperations and Automation services.",
                                    PluginNameShort, NULL, NULL);
     salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
 
@@ -101,7 +101,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     if (!CreateRuntimeServices())
     {
         SalamanderGeneral->SalMessageBox(salamander->GetParentWindow(),
-                                         "Salamatrix Runtime could not register its services. Another provider may already be active.",
+                                         "Salamatrix Framework could not register its services. Another provider may already be active.",
                                          PluginNameEN, MB_OK | MB_ICONERROR);
         return NULL;
     }
@@ -113,7 +113,7 @@ void WINAPI CPluginInterface::About(HWND parent)
 {
     char buf[1000];
     _snprintf_s(buf, _TRUNCATE,
-                "Salamatrix Runtime 0.1\n\n"
+                "Salamatrix Framework 0.1\n\n"
                 "Registered services: %s\n"
                 "Service count: %d\n\n"
                 "Provides Salamatrix.UI, Salamatrix.Commands, Salamatrix.FileOperations and the Automation adapter.",
@@ -124,7 +124,7 @@ void WINAPI CPluginInterface::About(HWND parent)
 
 void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
-    CALL_STACK_MESSAGE1("CPluginInterface::Connect(,) - Salamatrix Runtime");
+    CALL_STACK_MESSAGE1("CPluginInterface::Connect(,) - Salamatrix Framework");
 
     if (SalamanderGUI != NULL)
     {

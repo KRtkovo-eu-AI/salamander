@@ -21,7 +21,7 @@ extern HINSTANCE g_hLangInst;
 
 static HRESULT RaiseMissingRuntime(LPCOLESTR objectName)
 {
-    ::RaiseError(L"This script requires Salamatrix Runtime to be installed and loaded.", __uuidof(ISalamander), objectName);
+    ::RaiseError(L"This script requires Salamatrix Framework to be installed and loaded.", __uuidof(ISalamander), objectName);
     return E_FAIL;
 }
 

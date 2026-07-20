@@ -6,7 +6,10 @@
   "commands": [
     {
       "id": "Salamatrix.ProgressDemo",
-      "title": "Salamatrix Progress Demo"
+      "title": "Salamatrix Progress Demo",
+      "menu": "both",
+      "contextMenu": true,
+      "requires": "file"
     }
   ]
 }

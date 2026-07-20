@@ -1286,7 +1286,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
         char buf[30];
         int i = 1;
         strcpy(buf, "1");
-        BOOL view, edit, pack, unpack, config, loadsave, viewer, fs, loadOnStart, dynMenuExt, automationRuntime;
+        BOOL view, edit, pack, unpack, config, loadsave, viewer, fs, loadOnStart, dynMenuExt, automationFramework;
         char name[MAX_PATH];
         char dllName[MAX_PATH];
         char version[MAX_PATH];
@@ -1308,7 +1308,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
             BOOL err = TRUE;
             BOOL ok = FALSE;
             loadOnStart = FALSE;
-            automationRuntime = FALSE;
+            automationFramework = FALSE;
             thumbnailMasks[0] = 0;
             lastSLGName[0] = 0;
             pluginHomePageURL[0] = 0;
@@ -1335,7 +1335,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                      GetValue(itemKey, SALAMANDER_PLUGINS_VIEWER, REG_DWORD, &viewer, sizeof(DWORD)) &&
                      GetValue(itemKey, SALAMANDER_PLUGINS_FS, REG_DWORD, &fs, sizeof(DWORD));
                 dynMenuExt = FALSE;
-                automationRuntime = FALSE;
+                automationFramework = FALSE;
             }
             else // new version (fstores functions in a single DWORD using bit fields)
             {
@@ -1359,11 +1359,11 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 viewer = (functions & FUNCTION_VIEWER) != 0;
                 fs = (functions & FUNCTION_FILESYSTEM) != 0;
                 dynMenuExt = (functions & FUNCTION_DYNAMICMENUEXT) != 0;
-                automationRuntime = (functions & FUNCTION_AUTOMATIONRUNTIME) != 0;
+                automationFramework = (functions & FUNCTION_AUTOMATIONFRAMEWORK) != 0;
 
-                // Upgrade configurations saved before FUNCTION_AUTOMATIONRUNTIME existed.
-                if (!automationRuntime && StrICmp(regKeyName, "SALAMATRIX") == 0)
-                    automationRuntime = TRUE;
+                // Upgrade configurations saved before FUNCTION_AUTOMATIONFRAMEWORK existed.
+                if (!automationFramework && StrICmp(regKeyName, "SALAMATRIX") == 0)
+                    automationFramework = TRUE;
 
                 DWORD loadOnStartDWORD;
                 if (GetValue(itemKey, SALAMANDER_PLUGINS_LOADONSTART, REG_DWORD, &loadOnStartDWORD, sizeof(DWORD)))
@@ -1402,7 +1402,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 else
                 {
                     if (AddPlugin(name, normalizedDLLName, view, edit, pack, unpack, config, loadsave, viewer, fs,
-                                  dynMenuExt, automationRuntime, version, copyright, description, regKeyName, extensions, &fsNames,
+                                  dynMenuExt, automationFramework, version, copyright, description, regKeyName, extensions, &fsNames,
                                   loadOnStart, lastSLGName, pluginHomePageURL[0] != 0 ? pluginHomePageURL : NULL))
                     {
                         err = FALSE;
@@ -1640,9 +1640,9 @@ void CPlugins::Save(HWND parent, HKEY regKey, HKEY regKeyConfig, HKEY regKeyOrde
                 functions |= p->SupportViewer ? FUNCTION_VIEWER : 0;
                 functions |= p->SupportFS ? FUNCTION_FILESYSTEM : 0;
                 functions |= p->SupportDynMenuExt ? FUNCTION_DYNAMICMENUEXT : 0;
-                BOOL supportAutomationRuntime = p->SupportAutomationRuntime ||
+                BOOL supportAutomationFramework = p->SupportAutomationFramework ||
                                                 (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
-                functions |= supportAutomationRuntime ? FUNCTION_AUTOMATIONRUNTIME : 0;
+                functions |= supportAutomationFramework ? FUNCTION_AUTOMATIONFRAMEWORK : 0;
 
                 SetValue(itemKey, SALAMANDER_PLUGINS_FUNCTIONS, REG_DWORD, &functions, sizeof(DWORD));
 
@@ -2373,7 +2373,7 @@ void CPlugins::GetUniqueFSName(char* uniqueFSName, const char* fsName, TIndirect
 BOOL CPlugins::AddPlugin(const char* name, const char* dllName, BOOL supportPanelView,
                          BOOL supportPanelEdit, BOOL supportCustomPack, BOOL supportCustomUnpack,
                          BOOL supportConfiguration, BOOL supportLoadSave, BOOL supportViewer,
-                         BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationRuntime, const char* version,
+                         BOOL supportFS, BOOL supportDynMenuExt, BOOL supportAutomationFramework, const char* version,
                          const char* copyright, const char* description, const char* regKeyName,
                          const char* extensions, TIndirectArray<char>* fsNames, BOOL loadOnStart,
                          char* lastSLGName, const char* pluginHomePageURL)
@@ -2381,7 +2381,7 @@ BOOL CPlugins::AddPlugin(const char* name, const char* dllName, BOOL supportPane
     CALL_STACK_MESSAGE21("CPlugins::AddPlugin(%s, %s, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %s, %s, %s, %s, %s, , %d, %s, %s)",
                          name, dllName, supportPanelView, supportPanelEdit, supportCustomPack,
                          supportCustomUnpack, supportConfiguration, supportLoadSave, supportViewer,
-                         supportFS, supportDynMenuExt, supportAutomationRuntime, version, copyright, description, regKeyName, extensions,
+                         supportFS, supportDynMenuExt, supportAutomationFramework, version, copyright, description, regKeyName, extensions,
                          loadOnStart, lastSLGName, pluginHomePageURL);
     BOOL ret = FALSE;
 
@@ -2432,7 +2432,7 @@ BOOL CPlugins::AddPlugin(const char* name, const char* dllName, BOOL supportPane
         CPluginData* item = new CPluginData(name, dllName, supportPanelView,
                                             supportPanelEdit, supportCustomPack, supportCustomUnpack,
                                             supportConfiguration, supportLoadSave, supportViewer, supportFS,
-                                            supportDynMenuExt, supportAutomationRuntime, version, copyright, description,
+                                            supportDynMenuExt, supportAutomationFramework, version, copyright, description,
                                             uniqueKeyName, extensions, uniqueFSNames, loadOnStart,
                                             lastSLGName, pluginHomePageURL);
         if (item != NULL && item->IsGood())
