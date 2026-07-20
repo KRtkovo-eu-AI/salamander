@@ -33,6 +33,8 @@ static BSTR ResultToBSTR(Salamatrix::Runtime::OperationResult result)
         return SysAllocString(L"ok");
     case Salamatrix::Runtime::OperationResultCancel:
         return SysAllocString(L"cancel");
+    case Salamatrix::Runtime::OperationResultNotAvailable:
+        return SysAllocString(L"not_available");
     default:
         return SysAllocString(L"error");
     }

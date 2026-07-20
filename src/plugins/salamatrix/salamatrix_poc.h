@@ -27,6 +27,8 @@ inline const char* WINAPI ResultToText(Runtime::OperationResult result)
         return "cancel";
     case Runtime::OperationResultError:
         return "error";
+    case Runtime::OperationResultNotAvailable:
+        return "not available";
     default:
         return "unknown";
     }

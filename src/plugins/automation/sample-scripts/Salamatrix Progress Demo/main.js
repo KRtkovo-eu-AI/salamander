@@ -21,4 +21,9 @@ finally {
 }
 
 var commandResult = Salamander.Commands.execute("QuickRename");
-Salamander.MsgBox("Salamatrix command result: " + commandResult, 0, "Salamatrix Demo");
+if (commandResult == "not_available") {
+    Salamander.MsgBox("Quick Rename is not available in the current panel context. Select or focus a file first and run the demo again.", 0, "Salamatrix Demo");
+}
+else {
+    Salamander.MsgBox("Salamatrix command result: " + commandResult, 0, "Salamatrix Demo");
+}

@@ -27,6 +27,7 @@
 #include <uxtheme.h>
 #include <Tlhelp32.h>
 #include "salamander.h"
+#include "../../darkmode.h"
 
 #define STRSAFE_NO_DEPRECATE
 #include <strsafe.h>
