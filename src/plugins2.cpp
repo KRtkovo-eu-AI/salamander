@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1357,6 +1357,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 viewer = (functions & FUNCTION_VIEWER) != 0;
                 fs = (functions & FUNCTION_FILESYSTEM) != 0;
                 dynMenuExt = (functions & FUNCTION_DYNAMICMENUEXT) != 0;
+
                 DWORD loadOnStartDWORD;
                 if (GetValue(itemKey, SALAMANDER_PLUGINS_LOADONSTART, REG_DWORD, &loadOnStartDWORD, sizeof(DWORD)))
                 {
@@ -1632,8 +1633,6 @@ void CPlugins::Save(HWND parent, HKEY regKey, HKEY regKeyConfig, HKEY regKeyOrde
                 functions |= p->SupportViewer ? FUNCTION_VIEWER : 0;
                 functions |= p->SupportFS ? FUNCTION_FILESYSTEM : 0;
                 functions |= p->SupportDynMenuExt ? FUNCTION_DYNAMICMENUEXT : 0;
-                if (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0)
-                    functions |= FUNCTION_AUTOMATIONFRAMEWORK;
 
                 SetValue(itemKey, SALAMANDER_PLUGINS_FUNCTIONS, REG_DWORD, &functions, sizeof(DWORD));
 

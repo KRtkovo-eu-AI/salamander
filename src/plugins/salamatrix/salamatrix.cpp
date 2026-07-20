@@ -91,7 +91,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     SalamanderGUI = salamander->GetSalamanderGUI();
-    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK, "0.1", "Open Salamander Authors",
+    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_LOADSAVECONFIGURATION, "0.1", "Open Salamander Authors",
                                    "Automation Framework provider for Salamatrix UI, Commands, FileOperations and Automation services.",
                                    PluginNameShort, NULL, NULL);
     salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");

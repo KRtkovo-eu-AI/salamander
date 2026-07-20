@@ -433,8 +433,6 @@ public:
 #define FUNCTION_VIEWER 0x0040                // metody pro "file viewer"
 #define FUNCTION_FILESYSTEM 0x0080            // metody pro "file system"
 #define FUNCTION_DYNAMICMENUEXT 0x0100        // metody pro "dynamic menu extension"
-#define FUNCTION_AUTOMATIONFRAMEWORK 0x0200   // metody/sluzby pro "automation framework"
-#define FUNCTION_AUTOMATIONRUNTIME FUNCTION_AUTOMATIONFRAMEWORK // compatibility alias
 
 // kody ruznych udalosti (a vyznam parametru 'param'), prijima metoda CPluginInterfaceAbstract::Event():
 // doslo ke zmene barev (diky zmene systemovych barev / WM_SYSCOLORCHANGE nebo diky zmene v konfiguraci); plugin si
