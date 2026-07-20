@@ -1741,10 +1741,16 @@ internal static class InstalledPluginScanner
         }
     }
 
-    private static string BuildDisplayName(string id, string file, FileVersionInfo info)
+    public static string BuildDisplayName(string id, string file, FileVersionInfo info)
     {
+        if (PluginConfigurationReader.TryGetKnownDisplayName(id, out var knownDisplayName))
+        {
+            return knownDisplayName;
+        }
+
         if (!string.IsNullOrWhiteSpace(info.FileDescription) &&
-            !info.FileDescription!.Equals("Open Salamander", StringComparison.OrdinalIgnoreCase))
+            !info.FileDescription!.Equals("Open Salamander", StringComparison.OrdinalIgnoreCase) &&
+            !info.FileDescription!.StartsWith("Sample plugin", StringComparison.OrdinalIgnoreCase))
         {
             return TrimOpenSalamanderSuffix(info.FileDescription!);
         }
@@ -1771,7 +1777,7 @@ internal static class InstalledPluginScanner
 
 internal static class PluginConfigurationReader
 {
-    private const string CurrentConfigurationRoot = @"Software\Open Salamander Samandarin\5.0-samandarin-0.11";
+    private static string CurrentConfigurationRoot => $@"Software\Open Salamander Samandarin\5.0-samandarin-{SamandarinVersion.PluginVersion}";
     private const string PluginsKeyName = "Plugins";
     private const string PluginNameValue = "Name";
     private const string PluginDllValue = "DLL";
@@ -1783,7 +1789,7 @@ internal static class PluginConfigurationReader
     private const string ConfigStorageFileName = "configstorage.ini";
     private const string DefaultRegFileName = "config.reg";
 
-    private static readonly Regex RegFilePluginSectionRegex = new(
+    private static Regex CreateRegFilePluginSectionRegex() => new(
         @"^HKEY_CURRENT_USER\\" + Regex.Escape(CurrentConfigurationRoot).Replace(@"\\", @"\\") + @"\\" + PluginsKeyName + @"\\([^\\]+)$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
@@ -1878,6 +1884,7 @@ internal static class PluginConfigurationReader
             return true;
         }
 
+        var pluginSectionRegex = CreateRegFilePluginSectionRegex();
         string? currentPluginKey = null;
         foreach (var rawLine in File.ReadLines(regFilePath, DetectEncoding(regFilePath)))
         {
@@ -1890,7 +1897,7 @@ internal static class PluginConfigurationReader
             if (line.StartsWith("[", StringComparison.Ordinal) && line.EndsWith("]", StringComparison.Ordinal))
             {
                 var section = line.Substring(1, line.Length - 2);
-                var match = RegFilePluginSectionRegex.Match(section);
+                var match = pluginSectionRegex.Match(section);
                 currentPluginKey = match.Success ? match.Groups[1].Value : null;
                 if (currentPluginKey is not null && !configuredPluginsByKey.ContainsKey(currentPluginKey))
                 {
@@ -1932,6 +1939,43 @@ internal static class PluginConfigurationReader
     private static InstalledPlugin BuildInstalledPlugin(string dllName, string? displayName, string? version)
     {
         var id = BuildIdFromRegisteredDll(dllName);
+        var resolvedDllPath = ResolveRegisteredDllPath(dllName);
+        FileVersionInfo? fileInfo = null;
+        if (!string.IsNullOrWhiteSpace(resolvedDllPath) && File.Exists(resolvedDllPath))
+        {
+            try
+            {
+                fileInfo = FileVersionInfo.GetVersionInfo(resolvedDllPath!);
+            }
+            catch
+            {
+                fileInfo = null;
+            }
+        }
+
+        if (KnownPluginMetadata.TryGetValue(id, out var known))
+        {
+            if (string.IsNullOrWhiteSpace(displayName) || IsFallbackDisplayName(displayName, id))
+            {
+                displayName = known.DisplayName;
+            }
+
+            if (string.IsNullOrWhiteSpace(version) && !string.IsNullOrWhiteSpace(known.Version))
+            {
+                version = known.Version;
+            }
+        }
+
+        if ((string.IsNullOrWhiteSpace(displayName) || IsFallbackDisplayName(displayName, id)) && fileInfo is not null)
+        {
+            displayName = InstalledPluginScanner.BuildDisplayName(id, resolvedDllPath!, fileInfo);
+        }
+
+        if (string.IsNullOrWhiteSpace(version) && fileInfo is not null)
+        {
+            version = !string.IsNullOrWhiteSpace(fileInfo.FileVersion) ? fileInfo.FileVersion : fileInfo.ProductVersion;
+        }
+
         if (string.IsNullOrWhiteSpace(displayName))
         {
             displayName = id;
@@ -1939,6 +1983,57 @@ internal static class PluginConfigurationReader
 
         return new InstalledPlugin(id, displayName!, version ?? string.Empty);
     }
+
+    private static bool IsFallbackDisplayName(string? displayName, string id)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return true;
+        }
+
+        var text = displayName!.Trim();
+        return string.Equals(text, id, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, Path.GetFileNameWithoutExtension(id), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, "Sample", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? ResolveRegisteredDllPath(string dllName)
+    {
+        var normalized = dllName.Trim();
+        if (Path.IsPathRooted(normalized))
+        {
+            return normalized;
+        }
+
+        var executableDirectory = GetExecutableDirectory();
+        if (string.IsNullOrWhiteSpace(executableDirectory))
+        {
+            return null;
+        }
+
+        var pluginsRoot = Path.Combine(executableDirectory!, "plugins");
+        return Path.GetFullPath(Path.Combine(pluginsRoot, normalized));
+    }
+
+    public static bool TryGetKnownDisplayName(string id, out string displayName)
+    {
+        if (KnownPluginMetadata.TryGetValue(id, out var known))
+        {
+            displayName = known.DisplayName;
+            return true;
+        }
+
+        displayName = string.Empty;
+        return false;
+    }
+
+    private static readonly Dictionary<string, KnownPluginInfo> KnownPluginMetadata = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["demoplug"] = new("DemoPlug", null),
+        ["salamatrix"] = new("Salamatrix Framework", "0.1"),
+    };
+
+    private readonly record struct KnownPluginInfo(string DisplayName, string? Version);
 
     private static string? ReadString(RegistryKey key, string name) => key.GetValue(name) as string;
 
@@ -2297,6 +2392,11 @@ internal static class VersionComparer
             return 1;
         }
 
+        if (TryCompareDecimalVersion(left!, right!, out var decimalComparison))
+        {
+            return decimalComparison;
+        }
+
         var leftTokens = Tokenize(left!);
         var rightTokens = Tokenize(right!);
         int count = Math.Max(leftTokens.Length, rightTokens.Length);
@@ -2313,6 +2413,35 @@ internal static class VersionComparer
 
         return 0;
     }
+
+    private static bool TryCompareDecimalVersion(string left, string right, out int comparison)
+    {
+        comparison = 0;
+        var leftMatch = DecimalVersionRegex.Match(left.Trim());
+        var rightMatch = DecimalVersionRegex.Match(right.Trim());
+        if (!leftMatch.Success || !rightMatch.Success)
+        {
+            return false;
+        }
+
+        var leftMajor = long.Parse(leftMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+        var rightMajor = long.Parse(rightMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+        comparison = leftMajor.CompareTo(rightMajor);
+        if (comparison != 0)
+        {
+            return true;
+        }
+
+        var leftMinor = leftMatch.Groups[2].Value;
+        var rightMinor = rightMatch.Groups[2].Value;
+        var width = Math.Max(leftMinor.Length, rightMinor.Length);
+        var leftFraction = long.Parse(leftMinor.PadRight(width, '0'), CultureInfo.InvariantCulture);
+        var rightFraction = long.Parse(rightMinor.PadRight(width, '0'), CultureInfo.InvariantCulture);
+        comparison = leftFraction.CompareTo(rightFraction);
+        return true;
+    }
+
+    private static readonly Regex DecimalVersionRegex = new(@"^(\d+)\.(\d+)$", RegexOptions.CultureInvariant);
 
     private static VersionToken[] Tokenize(string value)
     {
