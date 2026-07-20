@@ -25,6 +25,17 @@ extern HINSTANCE g_hLangInst;
 extern CAutomationPluginInterface g_oAutomationPlugin;
 extern CWindowQueue AbortPaletteWindowQueue;
 
+namespace
+{
+
+void ApplyAbortPaletteDarkMode(HWND hwnd)
+{
+    RefreshWinLibDarkModeFromHost();
+    WinLibApplyDarkMode(hwnd);
+}
+
+} // namespace
+
 CScriptAbortPaletteWindow::CScriptAbortPaletteWindow(CScriptInfo* pScriptInfo)
 {
     m_pToolBar = NULL;
@@ -46,8 +57,7 @@ LRESULT CScriptAbortPaletteWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM l
 
     case WM_SETTINGCHANGE:
     case WM_THEMECHANGED:
-        DarkModeApplyWindow(HWindow);
-        DarkModeRefreshTitleBar(HWindow);
+        ApplyAbortPaletteDarkMode(HWindow);
         break;
 
     case WM_DESTROY:
@@ -67,6 +77,7 @@ LRESULT CScriptAbortPaletteWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM l
 
     case WM_USER_SETTINGCHANGE:
     {
+        ApplyAbortPaletteDarkMode(HWindow);
         if (m_pToolBar != NULL)
             m_pToolBar->SetFont();
         return 0;
@@ -105,8 +116,7 @@ LRESULT CScriptAbortPaletteWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM l
 
 void CScriptAbortPaletteWindow::OnCreate()
 {
-    DarkModeApplyWindow(HWindow);
-    DarkModeRefreshTitleBar(HWindow);
+    ApplyAbortPaletteDarkMode(HWindow);
 
     RECT rc;
     int cx, cy;
@@ -146,6 +156,7 @@ void CScriptAbortPaletteWindow::OnCreate()
     pt = FindPlacement(cx, cy);
     SetWindowPos(HWindow, NULL, pt.x, pt.y, cx, cy,
                  SWP_NOZORDER | SWP_NOACTIVATE);
+    ApplyAbortPaletteDarkMode(HWindow);
 
     // Initialize latch status for the Ctrl+Break
     GetAsyncKeyState(VK_CANCEL);
