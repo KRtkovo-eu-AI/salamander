@@ -4,7 +4,7 @@
 
 Salamatrix is the working technical name for the unified extensibility platform in
 Open Salamander. It is intended to connect the Salamander core, native plugins,
-scripted extensions, automation runtimes, shared UI services, and future SDK
+scripted extensions, future language runtime adapters, shared UI services, and future SDK
 surface area without creating separate APIs for each runtime.
 
 This document captures the initial platform foundation for the first MVP. It is a
@@ -13,22 +13,22 @@ at once.
 
 ## Component name and location
 
-The first runtime component should use the technical name **Salamatrix**. The
-preferred source-tree location for the runtime plugin is:
+The first Automation Framework provider component uses the technical name **Salamatrix**. The
+preferred source-tree location for the framework plugin is:
 
 ```text
 src/plugins/salamatrix/
 ```
 
-The component should be packaged and registered as a runtime/service plugin, not
-as a user-facing command plugin. It may expose a small About/configuration page
+The component should be packaged and registered as an Automation Framework/service plugin, not
+as a language runtime or user-facing command plugin. It may expose a small About/configuration page
 and demo commands while the MVP is developed, but its primary purpose is to
-provide shared services to other plugins and script runtimes.
+provide shared services to other plugins and future script runtime adapters.
 
 Recommended user-visible names:
 
-- `Salamatrix Runtime`
-- `Salamatrix UI Runtime`
+- `Salamatrix Framework`
+- `Salamatrix UI Framework`
 - `Salamatrix SDK` for developer-facing documentation and headers
 
 ## Naming model
@@ -79,8 +79,8 @@ Salamander.FileOperations.copy_interactive(...)
 ```
 
 In this model, **Salamatrix** is the platform and SDK name, while
-**Salamander** is the user-friendly script root object. Runtime adapters may also
-expose advanced metadata under `Salamander.Runtime` when needed.
+**Salamander** is the user-friendly script root object. Future runtime adapters such as Python, JavaScript, PowerShell, or WSH may also
+expose advanced adapter metadata under `Salamander.Runtime` when needed.
 
 ## Service identifiers and versioning
 
@@ -113,7 +113,7 @@ Implemented C-style constants in the Salamatrix headers:
 #define SALAMATRIX_AUTOMATION_VERSION_1_0     0x00010000
 ```
 
-The runtime service id is reserved for the provider/runtime surface; the current
+The `Salamatrix.Runtime` service id is reserved for compatibility/provider metadata; `SALAMATRIX.SPL` itself is an Automation Framework provider. The current
 host registration publishes the UI, Commands, FileOperations, and Automation
 adapter services.
 
@@ -158,7 +158,7 @@ its local registry and the host registry while the runtime object is alive.
 
 ### Provider registration
 
-Runtime plugins should register services during their plugin entry/init phase,
+Automation Framework providers should register services during their plugin entry/init phase,
 after their own version check and language/resource initialization succeed.
 
 Implemented MVP shape:
@@ -203,7 +203,7 @@ if (!SalamanderGeneral->QueryService(&query, &result) || result.Interface == NUL
 {
     SalamanderGeneral->SalMessageBox(
         parent,
-        "This plugin requires Salamatrix UI Runtime.",
+        "This plugin requires Salamatrix UI Framework.",
         pluginName,
         MB_OK | MB_ICONERROR);
     return FALSE;
@@ -216,8 +216,8 @@ Script runtimes should translate missing required services into clear runtime
 exceptions. Recommended wording:
 
 ```text
-This script requires Salamatrix UI Runtime 1.0 or newer. Install or enable the
-Salamatrix Runtime plugin and try again.
+This script requires Salamatrix UI Framework 1.0 or newer. Install or enable the
+Salamatrix Framework plugin and try again.
 ```
 
 The exception should include:
@@ -233,11 +233,11 @@ When a user invokes an extension whose required service is missing, the UI shoul
 show a localized message in this form:
 
 ```text
-This extension requires Salamatrix UI Runtime.
-Install or enable Salamatrix Runtime and try again.
+This extension requires Salamatrix UI Framework.
+Install or enable Salamatrix Framework and try again.
 ```
 
-If the Plugin Manager supports runtime classification, Salamatrix should be shown
+If the Plugin Manager supports Automation Framework classification, Salamatrix should be shown
 as a runtime/service component rather than as an ordinary menu extension.
 
 ## Integration with existing plugin registration
@@ -389,7 +389,7 @@ Salamander.FileOperations.move_interactive()            // returns "ok", "cancel
 ```
 
 Missing Salamatrix runtime services are converted by the Automation wrapper to a
-readable script exception: `This script requires Salamatrix Runtime to be
+readable script exception: `This script requires Salamatrix Framework to be
 installed and loaded.`
 
 ## Salamatrix Automation adapter MVP
@@ -498,10 +498,10 @@ is missing, the PoC keeps a local fallback so the demo remains runnable.
 
 The Automation plugin is the first non-demo consumer bridge. Its
 `CAutomationSalamatrixBridge` queries `CSalamanderGeneral::QueryService` for the
-runtime-provided `Salamatrix.Automation`, `Salamatrix.UI`,
+framework-provided `Salamatrix.Automation`, `Salamatrix.UI`,
 `Salamatrix.Commands`, and `Salamatrix.FileOperations` services when the plugin
 connects and immediately before script execution. It does not create a local
-fallback runtime, so the Automation layer remains an adapter/consumer of
+fallback framework provider, so the Automation layer remains an adapter/consumer of
 `SALAMATRIX.SPL` rather than another provider of duplicated UI or command logic.
 
 
@@ -527,6 +527,9 @@ Inline script metadata remains supported for tiny single-file samples:
 ```javascript
 // Salamatrix.CommandId: Salamatrix.ProgressDemo
 // Salamatrix.CommandTitle: Salamatrix Progress Demo
+// Salamatrix.CommandMenu: both
+// Salamatrix.CommandContextMenu: true
+// Salamatrix.CommandRequires: file
 ```
 
 The manifest-based MVP uses an `extension.json` file next to the script entry
@@ -541,17 +544,30 @@ point:
   "commands": [
     {
       "id": "Salamatrix.ProgressDemo",
-      "title": "Salamatrix Progress Demo"
+      "title": "Salamatrix Progress Demo",
+      "menu": "both",
+      "contextMenu": true,
+      "requires": "file"
     }
   ]
 }
 ```
 
-The current manifest reader intentionally supports only the MVP fields required
-by the sample: `id`, `name`/`title`, `runtime`, and `entryPoint`. The script is
-still executed by the existing Automation script command workflow; the manifest
-sets the stable Salamatrix command id and overrides the menu caption when
-`entryPoint` matches the discovered script file.
+The current manifest reader intentionally remains a simple MVP parser. It supports
+the package-level fields `id`, `name`/`title`, `runtime`, and `entryPoint`, plus
+command placement fields `menu`/`placement`, `contextMenu`, and `requires`. The
+script is still executed by the existing Automation script command workflow; the
+manifest sets the stable Salamatrix command id, overrides the menu caption when
+`entryPoint` matches the discovered script file, and controls whether the command
+appears in the plugin menu, context menu, both, or neither.
+
+MVP `requires` values map to Salamander menu event masks as follows:
+
+- `any`: no special context; enabled by `MENU_EVENT_TRUE`.
+- `disk`: requires a disk panel context.
+- `focused`: requires a focused file or directory on disk.
+- `file`: requires a focused file or selected files on disk.
+- `selection`: requires selected files or directories on disk.
 
 ## MVP acceptance criteria
 
@@ -579,7 +595,7 @@ The platform skeleton is ready when:
    Automation adapters, a local service registry, and the core-facing
    `CSalamanderGeneral` service registry together and is exposed as a DemoPlug
    `Salamatrix PoC` menu sample.
-11. `SALAMATRIX.SPL` exists as the first runtime provider plugin, creates the
+11. `SALAMATRIX.SPL` exists as the first Automation Framework provider plugin, creates the
    persistent `Runtime::RuntimeServices` aggregate, registers the MVP services
    with `CSalamanderGeneral`, and unregisters them during plugin release.
 12. The Automation plugin contains a consumer-only bridge that refreshes and
@@ -589,3 +605,5 @@ The platform skeleton is ready when:
    `Salamander.FileOperations` backed by the Salamatrix runtime bridge.
 14. Script discovery supports the first command-registration metadata and a
    minimal `extension.json` manifest for the sample scripted extension.
+15. Scripted-extension command placement controls plugin-menu vs context-menu
+   visibility and applies MVP `requires` context masks to Automation menu items.

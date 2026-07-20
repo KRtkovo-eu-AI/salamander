@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -330,8 +330,8 @@ void CPluginsDlg::OnSelChanged()
                              buf[0] == 0 ? LoadStr(IDS_PLUGINFSNONE) : buf);
         // Functions
         // Salamatrix may already be installed in user configurations saved before
-        // FUNCTION_AUTOMATIONRUNTIME existed; identify it by its stable registry key too.
-        BOOL supportAutomationRuntime = p->SupportAutomationRuntime ||
+        // Preserve older configurations; identify Salamatrix by its stable registry key too.
+        BOOL supportAutomationFramework = p->SupportAutomationFramework ||
                                         (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
         buf[0] = 0;
         if (p->SupportPanelView)
@@ -390,7 +390,7 @@ void CPluginsDlg::OnSelChanged()
             strcat(buf, LoadStr(IDS_PLUGINFUNCFILESYSTEM));
         }
 
-        if (supportAutomationRuntime)
+        if (supportAutomationFramework)
         {
             if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS)
                 strcat(buf, ", ");
@@ -405,7 +405,7 @@ void CPluginsDlg::OnSelChanged()
         // Thumbnails
         if (p->ThumbnailMasks.GetMasksString()[0] != 0)
         {
-            if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS || supportAutomationRuntime)
+            if (p->SupportViewer || p->MenuItems.Count > 0 || p->SupportDynMenuExt || p->SupportFS || supportAutomationFramework)
                 strcat(buf, ", ");
             else
             {

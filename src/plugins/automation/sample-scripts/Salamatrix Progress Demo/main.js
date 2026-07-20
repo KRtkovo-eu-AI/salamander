@@ -1,5 +1,5 @@
-// Demonstrates the Salamatrix-backed Automation API.
-// Requires the Salamatrix Runtime plugin to be installed and loaded.
+﻿// Demonstrates the Salamatrix-backed Automation API.
+// Requires the Salamatrix Framework plugin to be installed and loaded.
 
 var progress = Salamander.UI.progress("Salamatrix progress demo");
 progress.Maximum = 5;

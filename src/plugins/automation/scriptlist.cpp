@@ -46,6 +46,36 @@ static BOOL ReadSmallTextFile(PCTSTR path, char* buffer, DWORD bufferSize)
     return TRUE;
 }
 
+static BOOL FindJsonBoolValue(const char* json, const char* key, BOOL* value)
+{
+    char quotedKey[96];
+    _snprintf_s(quotedKey, _countof(quotedKey), _TRUNCATE, "\"%s\"", key);
+
+    const char* keyPos = strstr(json, quotedKey);
+    if (keyPos == NULL)
+        return FALSE;
+
+    const char* colon = strchr(keyPos + strlen(quotedKey), ':');
+    if (colon == NULL)
+        return FALSE;
+
+    const char* start = colon + 1;
+    while (*start == ' ' || *start == '\t' || *start == '\r' || *start == '\n')
+        ++start;
+
+    if (_strnicmp(start, "true", 4) == 0)
+    {
+        *value = TRUE;
+        return TRUE;
+    }
+    if (_strnicmp(start, "false", 5) == 0)
+    {
+        *value = FALSE;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 static BOOL FindJsonStringValue(const char* json, const char* key, char* value, DWORD valueSize)
 {
     char quotedKey[96];
@@ -91,6 +121,10 @@ CScriptInfo::CScriptInfo(
     pszNameEnd = PathFindExtension(pszNameStart);
     StringCchCopyN(m_szDisplayName, _countof(m_szDisplayName), pszNameStart, pszNameEnd - pszNameStart);
     m_szSalamatrixCommandId[0] = _T('\0');
+    m_bShowInPluginMenu = true;
+    m_bShowInContextMenu = false;
+    m_dwMenuEventOrMask = MENU_EVENT_TRUE;
+    m_dwMenuEventAndMask = MENU_EVENT_TRUE;
     LoadSalamatrixMetadata();
     LoadSalamatrixManifestMetadata();
 
@@ -127,10 +161,72 @@ CScriptInfo::~CScriptInfo()
 }
 
 
+
+void CScriptInfo::ApplySalamatrixPlacement(PCTSTR pszValue)
+{
+    if (_tcsicmp(pszValue, _T("plugin")) == 0)
+    {
+        m_bShowInPluginMenu = true;
+        m_bShowInContextMenu = false;
+    }
+    else if (_tcsicmp(pszValue, _T("context")) == 0)
+    {
+        m_bShowInPluginMenu = false;
+        m_bShowInContextMenu = true;
+    }
+    else if (_tcsicmp(pszValue, _T("both")) == 0)
+    {
+        m_bShowInPluginMenu = true;
+        m_bShowInContextMenu = true;
+    }
+    else if (_tcsicmp(pszValue, _T("none")) == 0)
+    {
+        m_bShowInPluginMenu = false;
+        m_bShowInContextMenu = false;
+    }
+}
+
+void CScriptInfo::ApplySalamatrixContextMenu(bool value)
+{
+    m_bShowInContextMenu = value;
+}
+
+void CScriptInfo::ApplySalamatrixRequires(PCTSTR pszValue)
+{
+    if (_tcsicmp(pszValue, _T("any")) == 0)
+    {
+        m_dwMenuEventOrMask = MENU_EVENT_TRUE;
+        m_dwMenuEventAndMask = MENU_EVENT_TRUE;
+    }
+    else if (_tcsicmp(pszValue, _T("disk")) == 0)
+    {
+        m_dwMenuEventOrMask = MENU_EVENT_TRUE;
+        m_dwMenuEventAndMask = MENU_EVENT_DISK;
+    }
+    else if (_tcsicmp(pszValue, _T("focused")) == 0)
+    {
+        m_dwMenuEventOrMask = MENU_EVENT_FILE_FOCUSED | MENU_EVENT_DIR_FOCUSED;
+        m_dwMenuEventAndMask = MENU_EVENT_DISK;
+    }
+    else if (_tcsicmp(pszValue, _T("file")) == 0)
+    {
+        m_dwMenuEventOrMask = MENU_EVENT_FILE_FOCUSED | MENU_EVENT_FILES_SELECTED;
+        m_dwMenuEventAndMask = MENU_EVENT_DISK;
+    }
+    else if (_tcsicmp(pszValue, _T("selection")) == 0)
+    {
+        m_dwMenuEventOrMask = MENU_EVENT_FILES_SELECTED | MENU_EVENT_DIRS_SELECTED;
+        m_dwMenuEventAndMask = MENU_EVENT_DISK;
+    }
+}
+
 void CScriptInfo::ApplySalamatrixMetadataLine(PCTSTR pszLine)
 {
     static const TCHAR COMMAND_ID_PREFIX[] = _T("// Salamatrix.CommandId:");
     static const TCHAR COMMAND_TITLE_PREFIX[] = _T("// Salamatrix.CommandTitle:");
+    static const TCHAR COMMAND_MENU_PREFIX[] = _T("// Salamatrix.CommandMenu:");
+    static const TCHAR COMMAND_CONTEXT_MENU_PREFIX[] = _T("// Salamatrix.CommandContextMenu:");
+    static const TCHAR COMMAND_REQUIRES_PREFIX[] = _T("// Salamatrix.CommandRequires:");
 
     while (*pszLine == _T(' ') || *pszLine == _T('\t'))
         ++pszLine;
@@ -148,6 +244,27 @@ void CScriptInfo::ApplySalamatrixMetadataLine(PCTSTR pszLine)
         while (*pszLine == _T(' ') || *pszLine == _T('\t'))
             ++pszLine;
         StringCchCopy(m_szDisplayName, _countof(m_szDisplayName), pszLine);
+    }
+    else if (_tcsnicmp(pszLine, COMMAND_MENU_PREFIX, _countof(COMMAND_MENU_PREFIX) - 1) == 0)
+    {
+        pszLine += _countof(COMMAND_MENU_PREFIX) - 1;
+        while (*pszLine == _T(' ') || *pszLine == _T('\t'))
+            ++pszLine;
+        ApplySalamatrixPlacement(pszLine);
+    }
+    else if (_tcsnicmp(pszLine, COMMAND_CONTEXT_MENU_PREFIX, _countof(COMMAND_CONTEXT_MENU_PREFIX) - 1) == 0)
+    {
+        pszLine += _countof(COMMAND_CONTEXT_MENU_PREFIX) - 1;
+        while (*pszLine == _T(' ') || *pszLine == _T('\t'))
+            ++pszLine;
+        ApplySalamatrixContextMenu(_tcsicmp(pszLine, _T("true")) == 0);
+    }
+    else if (_tcsnicmp(pszLine, COMMAND_REQUIRES_PREFIX, _countof(COMMAND_REQUIRES_PREFIX) - 1) == 0)
+    {
+        pszLine += _countof(COMMAND_REQUIRES_PREFIX) - 1;
+        while (*pszLine == _T(' ') || *pszLine == _T('\t'))
+            ++pszLine;
+        ApplySalamatrixRequires(pszLine);
     }
 }
 
@@ -172,6 +289,14 @@ void CScriptInfo::ApplySalamatrixManifestValue(const char* key, const char* valu
     else if (strcmp(key, "title") == 0 || strcmp(key, "name") == 0)
     {
         StringCchCopy(m_szDisplayName, _countof(m_szDisplayName), converted);
+    }
+    else if (strcmp(key, "menu") == 0 || strcmp(key, "placement") == 0)
+    {
+        ApplySalamatrixPlacement(converted);
+    }
+    else if (strcmp(key, "requires") == 0)
+    {
+        ApplySalamatrixRequires(converted);
     }
 }
 
@@ -208,6 +333,15 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         ApplySalamatrixManifestValue("title", value);
     else if (FindJsonStringValue(json, "name", value, sizeof(value)))
         ApplySalamatrixManifestValue("name", value);
+    if (FindJsonStringValue(json, "menu", value, sizeof(value)))
+        ApplySalamatrixManifestValue("menu", value);
+    else if (FindJsonStringValue(json, "placement", value, sizeof(value)))
+        ApplySalamatrixManifestValue("placement", value);
+    BOOL boolValue;
+    if (FindJsonBoolValue(json, "contextMenu", &boolValue))
+        ApplySalamatrixContextMenu(boolValue != FALSE);
+    if (FindJsonStringValue(json, "requires", value, sizeof(value)))
+        ApplySalamatrixManifestValue("requires", value);
 }
 
 void CScriptInfo::LoadSalamatrixMetadata()

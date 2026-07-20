@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
-    Salamatrix Runtime for Open Salamander
+    Salamatrix Framework for Open Salamander
 
     salamatrix_runtime.h
     Minimal in-process service registry and runtime service wiring.
@@ -203,18 +203,18 @@ public:
           HostRegistered(FALSE)
     {
         Registered = TRUE;
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Runtime");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Runtime");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Runtime");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Runtime");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
 
         if (General != NULL && registerHostServices)
         {
             HostRegistered = TRUE;
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Runtime");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Runtime");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Runtime");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Runtime");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
+            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
         }
     }
 

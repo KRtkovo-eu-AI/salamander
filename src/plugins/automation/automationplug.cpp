@@ -123,6 +123,16 @@ DWORD WINAPI CAutomationMenuExtInterface::GetMenuItemState(
     else
     {
         // preloaded script item
+        CScriptInfo* pScript = g_oScriptLookup.LookupScript(id);
+        if (pScript == NULL)
+            return 0;
+
+        if ((eventMask & pScript->GetMenuEventAndMask()) != pScript->GetMenuEventAndMask())
+            return 0;
+
+        if ((eventMask & pScript->GetMenuEventOrMask()) == 0)
+            return 0;
+
         return MENU_ITEM_STATE_ENABLED;
     }
 }
@@ -235,6 +245,9 @@ void CAutomationMenuExtInterface::AddScriptContainerToPopup(
     mii.ImageIndex = PluginIconScript;
     for (pScript = pContainer->FirstScript(); pScript; pScript = pScript->Next(), i++)
     {
+        if (!pScript->ShowInPluginMenu())
+            continue;
+
         mii.ID = pScript->GetId();
 
         StringCchCopy(szDisplayName, _countof(szDisplayName), pScript->GetDisplayName());
@@ -382,6 +395,12 @@ void CAutomationMenuExtInterface::AddScriptContainerToMenu(
     pScript = pContainer->FirstScript();
     while (pScript)
     {
+        if (!pScript->ShowInPluginMenu() && !pScript->ShowInContextMenu())
+        {
+            pScript = pScript->Next();
+            continue;
+        }
+
         StringCchCopy(szDisplayName, _countof(szDisplayName), pScript->GetDisplayName());
         SalamanderGeneral->DuplicateAmpersands(szDisplayName, _countof(szDisplayName));
 
@@ -390,9 +409,9 @@ void CAutomationMenuExtInterface::AddScriptContainerToMenu(
             szDisplayName,
             0,                // hotkey
             pScript->GetId(), // id
-            TRUE,             // callGetState
-            MENU_EVENT_TRUE,  // or-mask
-            MENU_EVENT_TRUE,  // and-mask
+            TRUE,                         // callGetState
+            pScript->GetMenuEventOrMask(),  // or-mask
+            pScript->GetMenuEventAndMask(), // and-mask
             MENU_SKILLLEVEL_ALL);
 
         pScript = pScript->Next();
@@ -512,7 +531,7 @@ void CAutomationPluginInterface::About(HWND parent)
                     TEXT("%s ") TEXT(VERSINFO_VERSION) TEXT("\n\n")
                         TEXT(VERSINFO_COPYRIGHT) TEXT("\n\n")
                             TEXT("%s\n\n")
-                                TEXT("Salamatrix Runtime: %s"),
+                                TEXT("Salamatrix Framework: %s"),
                     SalamanderGeneral->LoadStr(g_hLangInst, IDS_PLUGINNAME),
                     SalamanderGeneral->LoadStr(g_hLangInst, IDS_DESCRIPTION),
                     szSalamatrixStatus);
