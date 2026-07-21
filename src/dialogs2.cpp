@@ -2066,7 +2066,7 @@ void CManageConfigsDialog::OnExport()
             if (attrs != INVALID_FILE_ATTRIBUTES)
             {
                 char msg[500];
-                _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_MCD_OVERWRITECONFIRM), file);
+                _snprintf_s(msg, _TRUNCATE, "%s", LoadStr(IDS_MCD_OVERWRITECONFIRM));
                 if (SalMessageBox(HWindow, msg, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) != IDYES)
                     return;
             }
