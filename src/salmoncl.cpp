@@ -380,9 +380,9 @@ BOOL SalmonFireAndWait(const EXCEPTION_POINTERS* e, char* bugReportPath)
     WaitForMultipleObjects(2, arr, FALSE, INFINITE);
     ResetEvent(SalmonSharedMemory->Done);
 
-    strcpy(bugReportPath, SalmonSharedMemory->BugPath);
+    lstrcpyn(bugReportPath, SalmonSharedMemory->BugPath, MAX_PATH);
     SalPathAppend(bugReportPath, SalmonSharedMemory->BaseName, MAX_PATH);
-    strcat(bugReportPath, ".TXT");
+    strcat_s(bugReportPath, MAX_PATH, ".TXT");
 
     return TRUE;
 }

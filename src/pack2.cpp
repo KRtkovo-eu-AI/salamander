@@ -483,7 +483,7 @@ BOOL PackUniversalCompress(HWND parent, const char* command, TPackErrorTable* co
     if (!supportLongNames && strlen(cmdLine) >= 128)
     {
         char buffer[1000];
-        strcpy(buffer, cmdLine);
+        lstrcpyn(buffer, cmdLine, _countof(buffer));
         DeleteFile(tmpListNameBuf);
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_CMDLNLEN, buffer);
     }
@@ -793,7 +793,7 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     {
         char buffer[1000];
         DeleteFile(tmpListNameBuf);
-        strcpy(buffer, cmdLine);
+        lstrcpyn(buffer, cmdLine, _countof(buffer));
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_CMDLNLEN, buffer);
     }
 

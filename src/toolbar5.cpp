@@ -237,7 +237,7 @@ public:
                         }
                         DropTarget = CreateIDropTarget(UserMenuBar->HWindow, fileName);
                         if (DropTarget != NULL)
-                            strcpy(DropTargetFileName, fileName);
+                            lstrcpyn(DropTargetFileName, fileName, _countof(DropTargetFileName));
                     }
                     if (DropTarget != NULL)
                     {
@@ -291,7 +291,7 @@ public:
                         DropTarget = CreateIDropTarget(UserMenuBar->HWindow, fileName);
                         if (DropTarget != NULL)
                         {
-                            strcpy(DropTargetFileName, fileName);
+                            lstrcpyn(DropTargetFileName, fileName, _countof(DropTargetFileName));
                             DropTarget->DragEnter(DataObject, grfKeyState, pt, pdwEffect);
                         }
                     }
@@ -468,7 +468,7 @@ public:
                         }
                         DropTarget = CreateIDropTarget(UserMenuBar->HWindow, fileName);
                         if (DropTarget != NULL)
-                            strcpy(DropTargetFileName, fileName);
+                            lstrcpyn(DropTargetFileName, fileName, _countof(DropTargetFileName));
                     }
                     if (DropTarget != NULL)
                     {

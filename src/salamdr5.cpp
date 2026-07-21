@@ -151,7 +151,7 @@ CPF_AGAIN:
     }
     //  TRACE_I("Testing path " << ThreadPath);
 
-    strcpy(threadPath, ThreadPath);
+    lstrcpyn(threadPath, ThreadPath, _countof(threadPath));
     ThreadCheckState[i] |= ctsCanTerminate; // the main thread can now terminate
 
     // it can hang here, which is why we do all this circus around it

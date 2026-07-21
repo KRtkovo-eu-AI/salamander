@@ -1784,7 +1784,8 @@ BOOL PackExecute(HWND parent, char* cmdLine, const char* currentDir, TPackErrorT
     char* tmpCmdLine = (char*)malloc(2 + strlen(SpawnExe) + 2 + strlen(SPAWN_EXE_PARAMS) + 1 + strlen(cmdLine) + 1);
     if (tmpCmdLine == NULL)
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_NOMEM);
-    sprintf(tmpCmdLine, "\"%s\" %s %s", SpawnExe, SPAWN_EXE_PARAMS, cmdLine);
+    _snprintf_s(tmpCmdLine, 2 + strlen(SpawnExe) + 2 + strlen(SPAWN_EXE_PARAMS) + 1 + strlen(cmdLine) + 1,
+                _TRUNCATE, "\"%s\" %s %s", SpawnExe, SPAWN_EXE_PARAMS, cmdLine);
     std::wstring tmpCmdLineW = SalMultiByteToWidePath(tmpCmdLine, CP_UTF8);
     if (tmpCmdLineW.empty() && GetACP() != CP_UTF8)
         tmpCmdLineW = SalMultiByteToWidePath(tmpCmdLine, CP_ACP);

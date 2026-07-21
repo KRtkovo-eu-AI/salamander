@@ -664,7 +664,7 @@ BOOL PackList(CFilesWindow* panel, const char* archiveFileName, CSalamanderDirec
     if (!browseTable->SupportLongNames && strlen(cmdLine) >= 128)
     {
         char buffer[1000];
-        strcpy(buffer, cmdLine);
+        lstrcpyn(buffer, cmdLine, _countof(buffer));
         return (*PackErrorHandlerPtr)(NULL, IDS_PACKERR_CMDLNLEN, buffer);
     }
 
@@ -1544,7 +1544,7 @@ BOOL PackUniversalUncompress(HWND parent, const char* command, TPackErrorTable* 
         char buffer[1000];
         DeleteFile(tmpListNameBuf);
         RemoveDirectory(tmpDirNameBuf);
-        strcpy(buffer, cmdLine);
+        lstrcpyn(buffer, cmdLine, _countof(buffer));
         return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_CMDLNLEN, buffer);
     }
 
@@ -1835,7 +1835,7 @@ BOOL PackUnpackOneFile(CFilesWindow* panel, const char* archiveFileName,
     {
         char buffer[1000];
         RemoveTemporaryDir(tmpDirNameBuf);
-        strcpy(buffer, cmdLine);
+        lstrcpyn(buffer, cmdLine, _countof(buffer));
         return (*PackErrorHandlerPtr)(NULL, IDS_PACKERR_CMDLNLEN, buffer);
     }
 
