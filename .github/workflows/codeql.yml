@@ -3,6 +3,8 @@ name: CodeQL Security Scan
 on:
   pull_request:
     branches: [main, darkmode, dev_tabs, 'release/*']
+  pull_request_review:
+    types: [submitted]
   workflow_dispatch:
     inputs:
       target-ref:
@@ -35,14 +37,27 @@ jobs:
       LOG_DIRECTORY: build_logs
 
     steps:
-      - name: Check whether C++ files changed
-        id: cpp_changes
+      - name: Check whether CodeQL should run
+        id: codeql_gate
         uses: actions/github-script@v7
         with:
           script: |
-            if (context.eventName !== 'pull_request') {
-              core.setOutput('has_cpp_header_changes', 'true');
-              core.info('Not a pull_request event; CodeQL analysis will run.');
+            if (context.eventName !== 'pull_request' && context.eventName !== 'pull_request_review') {
+              core.setOutput('should_analyze', 'true');
+              core.info('Not a pull request event; CodeQL analysis will run.');
+              return;
+            }
+
+            const pull = context.payload.pull_request;
+            if (!pull) {
+              core.setOutput('should_analyze', 'false');
+              core.info('No pull request payload found; CodeQL analysis steps will be skipped.');
+              return;
+            }
+
+            if (context.eventName === 'pull_request_review' && context.payload.review?.state !== 'approved') {
+              core.setOutput('should_analyze', 'false');
+              core.info(`Pull request review state is ${context.payload.review?.state}; CodeQL analysis waits for an approval.`);
               return;
             }
 
@@ -51,7 +66,7 @@ jobs:
               {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: context.payload.pull_request.number,
+                pull_number: pull.number,
                 per_page: 100,
               },
             );
@@ -60,23 +75,43 @@ jobs:
               .map((file) => file.filename)
               .filter((filename) => /^src\/(?!plugins\/).+\.(cpp|h)$/i.test(filename));
 
-            const shouldRun = relevantFiles.length > 0;
-            core.setOutput('has_cpp_header_changes', shouldRun ? 'true' : 'false');
+            if (relevantFiles.length === 0) {
+              core.setOutput('should_analyze', 'false');
+              core.info('No main-project .cpp or .h files changed; CodeQL analysis steps will be skipped while the required workflow succeeds.');
+              return;
+            }
+
+            const reviews = await github.paginate(
+              github.rest.pulls.listReviews,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pull.number,
+                per_page: 100,
+              },
+            );
+
+            const latestReviewByUser = new Map();
+            for (const review of reviews) {
+              latestReviewByUser.set(review.user.login, review.state);
+            }
+            const approved = Array.from(latestReviewByUser.values()).includes('APPROVED');
+            core.setOutput('should_analyze', approved ? 'true' : 'false');
             core.info(
-              shouldRun
-                ? `CodeQL analysis will run because these main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`
-                : 'No main-project .cpp or .h files changed; CodeQL analysis steps will be skipped while the required workflow succeeds.',
+              approved
+                ? `CodeQL analysis will run because the PR is approved and these main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`
+                : `CodeQL analysis waits for a PR approval; relevant main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`,
             );
 
       - name: Checkout repository
-        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs['target-ref'] || github.ref }}
           fetch-depth: 2
 
       - name: Initialize CodeQL
-        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: github/codeql-action/init@v3
         with:
           languages: cpp
@@ -85,21 +120,21 @@ jobs:
           threads: 4
 
       - name: Setup MSBuild in PATH (VS2022)
-        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup MSVC Developer Command Prompt (x64 toolchain)
-        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
       - name: Register MSVC problem matcher
-        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: ammaraskar/msvc-problem-matcher@master
 
       - name: Build with MSBuild (Release | x64)
-        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
         run: |
           $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -128,13 +163,13 @@ jobs:
           }
 
       - name: Perform CodeQL Analysis
-        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: github/codeql-action/analyze@v3
         with:
           category: '/language:cpp'
 
       - name: Upload build logs
-        if: always() && steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
+        if: always() && steps.codeql_gate.outputs.should_analyze == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: codeql-msbuild-logs
