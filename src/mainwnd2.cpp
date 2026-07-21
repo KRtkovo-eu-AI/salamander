@@ -2078,7 +2078,13 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         if (StrIStr(cfg.Version, "Samandarin") != NULL)
             for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
         strncpy_s(cfg.StorageTypeStr, "-", _TRUNCATE);
-        strncpy_s(cfg.Language, "-", _TRUNCATE);
+        const char* welcomeLanguage = Configuration.LoadedSLGName[0] != 0 ? Configuration.LoadedSLGName : Configuration.SLGName;
+        strncpy_s(cfg.Language, welcomeLanguage != NULL && welcomeLanguage[0] != 0 ? welcomeLanguage : "english", _TRUNCATE);
+        {
+            char* dot = strrchr(cfg.Language, '.');
+            if (dot != NULL && _stricmp(dot, ".slg") == 0)
+                *dot = 0;
+        }
         strncpy_s(cfg.Location, "-", _TRUNCATE);
         cfg.LastUpdate.dwLowDateTime = 0;
         cfg.LastUpdate.dwHighDateTime = 0;
