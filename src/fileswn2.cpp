@@ -587,6 +587,23 @@ CFilesWindow* CFilesWindow::GetTreeViewSourcePanel()
     return this;
 }
 
+void CFilesWindow::SyncTreeViewStateFromConfiguration()
+{
+    // The tree-view panel is shared by the top-level window, not by the tab.
+    // Keep every host tab in sync with the window-level configuration before
+    // it creates or lays out its tree-view chrome.
+    if (MainWindow != NULL && MainWindow->DetachedPanels && MainWindow->RightPanel == this)
+    {
+        TreeViewWidth = Configuration.DetachedTreeViewWidth;
+        TreeViewAutoHide = Configuration.DetachedTreeViewAutoHide;
+    }
+    else
+    {
+        TreeViewWidth = Configuration.TreeViewWidth;
+        TreeViewAutoHide = Configuration.TreeViewAutoHide;
+    }
+}
+
 int CFilesWindow::GetTreeViewWidth(int clientWidth)
 {
     return ClampTreeViewWidth(clientWidth, TreeViewWidth);
@@ -2137,6 +2154,7 @@ BOOL CFilesWindow::PrepareCloseCurrentPath(HWND parent, BOOL canForce, BOOL canD
 void CFilesWindow::CreateTreeView()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CreateTreeView()");
+    SyncTreeViewStateFromConfiguration();
     if (!IsTreeViewHost() || HWindow == NULL)
     {
         if (HWindow == NULL)
@@ -2320,6 +2338,7 @@ void CFilesWindow::UpdateTreeView(BOOL active)
     }
     else
     {
+        SyncTreeViewStateFromConfiguration();
         TreeViewActive = active && Configuration.TreeViewVisible;
         if (Configuration.TreeViewVisible)
             CreateTreeView();

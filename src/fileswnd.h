@@ -1347,6 +1347,7 @@ public:
     void ToggleHeaderLine();
     BOOL IsTreeViewHost();
     CFilesWindow* GetTreeViewSourcePanel();
+    void SyncTreeViewStateFromConfiguration();
     int GetTreeViewWidth(int clientWidth);
     int GetTreeViewReservedWidth(int clientWidth);
     int GetTreeViewHeaderHeight();
