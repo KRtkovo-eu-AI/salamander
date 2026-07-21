@@ -58,14 +58,14 @@ jobs:
 
             const relevantFiles = changedFiles
               .map((file) => file.filename)
-              .filter((filename) => /\.(cpp|h)$/i.test(filename));
+              .filter((filename) => /^src\/(?!plugins\/).+\.(cpp|h)$/i.test(filename));
 
             const shouldRun = relevantFiles.length > 0;
             core.setOutput('has_cpp_header_changes', shouldRun ? 'true' : 'false');
             core.info(
               shouldRun
-                ? `CodeQL analysis will run because these files changed: ${relevantFiles.join(', ')}`
-                : 'No .cpp or .h files changed; CodeQL analysis steps will be skipped while the required workflow succeeds.',
+                ? `CodeQL analysis will run because these main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`
+                : 'No main-project .cpp or .h files changed; CodeQL analysis steps will be skipped while the required workflow succeeds.',
             );
 
       - name: Checkout repository
