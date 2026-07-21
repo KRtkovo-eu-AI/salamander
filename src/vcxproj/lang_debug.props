@@ -8,7 +8,8 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <Link>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <RandomizedBaseAddress Condition="'$(Platform)'!='ARM64'">false</RandomizedBaseAddress>
+      <RandomizedBaseAddress Condition="'$(Platform)'=='ARM64'">true</RandomizedBaseAddress>
       <BaseAddress>..\plugins\shared\baseaddr_$(ShortPlatform).txt,$(ProjectName)</BaseAddress>
     </Link>
     <ResourceCompile>
