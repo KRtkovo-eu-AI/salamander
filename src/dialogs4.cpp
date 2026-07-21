@@ -1583,8 +1583,7 @@ void CCfgPageView::Validate(CTransferInfo& ti)
 const int CFGP2ItemsCount = 9;
 const int CFGP2Flags[CFGP2ItemsCount] = {0, VIEW_SHOW_EXTENSION, VIEW_SHOW_DOSNAME, VIEW_SHOW_SIZE, VIEW_SHOW_TYPE, VIEW_SHOW_DATE, VIEW_SHOW_TIME, VIEW_SHOW_ATTRIBUTES, VIEW_SHOW_DESCRIPTION};
 const int CFGP2ResID[CFGP2ItemsCount] = {IDS_COLUMN_CFG_NAME, IDS_COLUMN_CFG_EXT, IDS_COLUMN_CFG_DOSNAME, IDS_COLUMN_CFG_SIZE, IDS_COLUMN_CFG_TYPE, IDS_COLUMN_CFG_DATE, IDS_COLUMN_CFG_TIME, IDS_COLUMN_CFG_ATTR, IDS_COLUMN_CFG_DESC};
-const int CFGP2SeparatorColumnIndex = -100000;
-const int CFGP2ExplorerColumnsStart = CFGP2ItemsCount + 1;
+const int CFGP2ExplorerColumnsStart = CFGP2ItemsCount;
 
 static int GetAvailableColumnIndex(HWND listView, int item)
 {
@@ -1739,15 +1738,6 @@ void CCfgPageView::LoadControls()
             lvi.pszText = LoadStr(CFGP2ResID[columnIndex]);
             ListView_InsertItem(HListView2, &lvi);
         }
-        LVITEM separator;
-        separator.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM;
-        separator.iItem = CFGP2ItemsCount;
-        separator.iSubItem = 0;
-        separator.state = 0;
-        separator.lParam = CFGP2SeparatorColumnIndex;
-        separator.pszText = (char*)"──────────";
-        ListView_InsertItem(HListView2, &separator);
-
         InitExplorerColumnOrder(Config.Items[index].ExplorerColumnOrder);
         int explorerColumnsCount = GetExplorerColumnCount();
         for (i = 0; i < explorerColumnsCount; i++)
@@ -1775,7 +1765,7 @@ void CCfgPageView::LoadControls()
             BOOL isChecked = FALSE;
             if (columnIndex >= 0)
                 isChecked = checked[columnIndex];
-            else if (columnIndex != CFGP2SeparatorColumnIndex)
+            else
             {
                 int explorerIndex = -columnIndex - 1;
                 isChecked = explorerIndex >= 0 && explorerIndex < EXPLORER_COLUMNS_COUNT && Config.Items[index].ExplorerColumnVisible[explorerIndex];
@@ -1855,8 +1845,7 @@ void CCfgPageView::EnableControls()
         enable = FALSE;
 
     int index2 = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
-    int selectedColumnIndex = index2 != -1 ? GetAvailableColumnIndex(HListView2, index2) : -1;
-    BOOL supportFixedWidth = (selectedColumnIndex != CFGP2SeparatorColumnIndex && enable);
+    BOOL supportFixedWidth = (index2 != -1 && enable);
 
     EnableWindow(HListView2, enable);
     CTransferInfo ti(HWindow, ttDataToWindow);
@@ -2266,7 +2255,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 LPNMLISTVIEW nmhi = (LPNMLISTVIEW)nmh;
                 // disagree :-) beep when attempting to hide the Name column
-                if ((nmhi->iItem == 0 || GetAvailableColumnIndex(HListView2, nmhi->iItem) == CFGP2SeparatorColumnIndex) && (nmhi->uOldState & 0xF000) != (nmhi->uNewState & 0xF000))
+                if (nmhi->iItem == 0 && (nmhi->uOldState & 0xF000) != (nmhi->uNewState & 0xF000))
                 {
                     MessageBeep(MB_ICONASTERISK);
                     SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
@@ -2289,7 +2278,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
                     int columnIndex = GetAvailableColumnIndex(HListView2, nmhi->iItem);
-                    if (viewIndex >= 2 && columnIndex != CFGP2SeparatorColumnIndex)
+                    if (viewIndex >= 2)
                     {
                         CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[viewIndex].Columns[columnIndex] : &Config.Items[viewIndex].ExplorerColumns[-columnIndex - 1];
                         DisableNotification = TRUE;
@@ -2412,9 +2401,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (index >= 2 && index2 != -1)
                 {
                     int columnIndex = GetAvailableColumnIndex(HListView2, index2);
-                    CColumnConfig* columnConfig = columnIndex != CFGP2SeparatorColumnIndex ?
-                                                    (columnIndex >= 0 ? &Config.Items[index].Columns[columnIndex] : &Config.Items[index].ExplorerColumns[-columnIndex - 1]) :
-                                                    NULL;
+                    CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[index].Columns[columnIndex] : &Config.Items[index].ExplorerColumns[-columnIndex - 1];
                     BOOL checked = IsDlgButtonChecked(HWindow, LOWORD(wParam)) == BST_CHECKED;
                     switch (LOWORD(wParam))
                     {
@@ -2481,7 +2468,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int columnIndex2 = GetAvailableColumnIndex(HListView2, item2);
                 if (index >= 2 && item > 0 && item2 > 0 &&
                     ((columnIndex >= 0 && columnIndex2 >= 0 && item2 < CFGP2ItemsCount) ||
-                     (columnIndex < 0 && columnIndex2 < 0 && columnIndex != CFGP2SeparatorColumnIndex && columnIndex2 != CFGP2SeparatorColumnIndex && item >= CFGP2ExplorerColumnsStart && item2 >= CFGP2ExplorerColumnsStart)))
+                     (columnIndex < 0 && columnIndex2 < 0 && item >= CFGP2ExplorerColumnsStart && item2 >= CFGP2ExplorerColumnsStart)))
                 {
                     StoreControls();
                     if (columnIndex >= 0)
