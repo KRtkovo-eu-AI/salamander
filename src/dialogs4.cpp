@@ -2017,12 +2017,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HListView2 = GetDlgItem(HWindow, IDC_VIEW_LIST2);
         Header = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER, HListView,
                                     TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE);
-        if (Header == NULL)
-            TRACE_E(LOW_MEMORY);
-
         Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2, TLBHDRMASK_UP | TLBHDRMASK_DOWN);
-        if (Header2 == NULL)
-            TRACE_E(LOW_MEMORY);
 
         DWORD exFlags = LVS_EX_FULLROWSELECT /*| LVS_EX_CHECKBOXES*/;
         DWORD origFlags = ListView_GetExtendedListViewStyle(HListView);
