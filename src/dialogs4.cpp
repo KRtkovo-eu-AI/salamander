@@ -1330,72 +1330,6 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_SETCURSOR:
-    {
-        POINT pt;
-        GetCursorPos(&pt);
-        ScreenToClient(HWindow, &pt);
-        RECT client;
-        GetClientRect(HWindow, &client);
-        int splitterX = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth - ViewsListGap / 2;
-        if (abs(pt.x - splitterX) <= 4)
-        {
-            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
-            SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
-            return TRUE;
-        }
-        break;
-    }
-
-    case WM_LBUTTONDOWN:
-    {
-        int x = GET_X_LPARAM(lParam);
-        RECT client;
-        GetClientRect(HWindow, &client);
-        int splitterX = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth - ViewsListGap / 2;
-        if (abs(x - splitterX) <= 4)
-        {
-            ViewsSplitterDrag = TRUE;
-            SetCapture(HWindow);
-            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
-            return TRUE;
-        }
-        break;
-    }
-
-    case WM_MOUSEMOVE:
-    {
-        if (ViewsSplitterDrag)
-        {
-            RECT client;
-            GetClientRect(HWindow, &client);
-            int x = GET_X_LPARAM(lParam);
-            const int minLeftWidth = 160;
-            const int minRightWidth = 120;
-            int rightLeft = x + ViewsListGap / 2;
-            if (rightLeft < minLeftWidth)
-                rightLeft = minLeftWidth;
-            if (rightLeft > client.right - AvailableColumnsRightMargin - minRightWidth)
-                rightLeft = client.right - AvailableColumnsRightMargin - minRightWidth;
-            AvailableColumnsWidth = client.right - AvailableColumnsRightMargin - rightLeft;
-            LayoutViewsListControls();
-            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
-            return TRUE;
-        }
-        break;
-    }
-
-    case WM_LBUTTONUP:
-    {
-        if (ViewsSplitterDrag)
-        {
-            ViewsSplitterDrag = FALSE;
-            ReleaseCapture();
-            return TRUE;
-        }
-        break;
-    }
-
     case WM_NOTIFY:
     {
         if (((NMHDR*)lParam)->code == PSN_SETACTIVE)
@@ -2182,6 +2116,72 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
         LayoutViewsListControls();
         return result;
+    }
+
+    case WM_SETCURSOR:
+    {
+        POINT pt;
+        GetCursorPos(&pt);
+        ScreenToClient(HWindow, &pt);
+        RECT client;
+        GetClientRect(HWindow, &client);
+        int splitterX = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth - ViewsListGap / 2;
+        if (abs(pt.x - splitterX) <= 4)
+        {
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_LBUTTONDOWN:
+    {
+        int x = GET_X_LPARAM(lParam);
+        RECT client;
+        GetClientRect(HWindow, &client);
+        int splitterX = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth - ViewsListGap / 2;
+        if (abs(x - splitterX) <= 4)
+        {
+            ViewsSplitterDrag = TRUE;
+            SetCapture(HWindow);
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_MOUSEMOVE:
+    {
+        if (ViewsSplitterDrag)
+        {
+            RECT client;
+            GetClientRect(HWindow, &client);
+            int x = GET_X_LPARAM(lParam);
+            const int minLeftWidth = 160;
+            const int minRightWidth = 120;
+            int rightLeft = x + ViewsListGap / 2;
+            if (rightLeft < minLeftWidth)
+                rightLeft = minLeftWidth;
+            if (rightLeft > client.right - AvailableColumnsRightMargin - minRightWidth)
+                rightLeft = client.right - AvailableColumnsRightMargin - minRightWidth;
+            AvailableColumnsWidth = client.right - AvailableColumnsRightMargin - rightLeft;
+            LayoutViewsListControls();
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_LBUTTONUP:
+    {
+        if (ViewsSplitterDrag)
+        {
+            ViewsSplitterDrag = FALSE;
+            ReleaseCapture();
+            return TRUE;
+        }
+        break;
     }
 
     case WM_SYSCOLORCHANGE:
