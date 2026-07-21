@@ -1815,10 +1815,6 @@ public:
     virtual BOOL WINAPI DestroyMenuBar(CGUIMenuBarAbstract* menuBar);
     virtual BOOL WINAPI CreateGrayscaleAndMaskBitmaps(HBITMAP hSource, COLORREF transparent,
                                                       HBITMAP& hGrayscale, HBITMAP& hMask);
-    virtual BOOL WINAPI CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
-                                             HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
-                                             const CSVGIcon* svgIcons, int svgIconsCount);
-    virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize);
     virtual CGUIToolBarAbstract* WINAPI CreateToolBar(HWND hNotifyWindow);
     virtual BOOL WINAPI DestroyToolBar(CGUIToolBarAbstract* toolBar);
     virtual void WINAPI SetCurrentToolTip(HWND hNotifyWindow, DWORD id);
@@ -1832,6 +1828,13 @@ public:
     virtual CGUIToolbarHeaderAbstract* WINAPI AttachToolbarHeader(HWND hParent, int ctrlID, HWND hAlignWindow, DWORD buttonMask);
     virtual void WINAPI ArrangeHorizontalLines(HWND hWindow);
     virtual int WINAPI GetWindowFontHeight(HWND hWindow);
+
+    // Keep newly added methods at the end of CSalamanderGUIAbstract/CSalamanderGUI
+    // so older plug-ins keep their original vtable layout.
+    virtual BOOL WINAPI CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
+                                             HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
+                                             const CSVGIcon* svgIcons, int svgIconsCount);
+    virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize);
 
 protected:
     // helper function: checks whether 'control' was successfully allocated and attached;

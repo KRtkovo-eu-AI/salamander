@@ -2102,12 +2102,6 @@ public:
     // Pri uspechu vraci TRUE  a 'hGrayscale' a 'hMask'; pri chybe vraci FALSE.
     virtual BOOL WINAPI CreateGrayscaleAndMaskBitmaps(HBITMAP hSource, COLORREF transparent,
                                                       HBITMAP& hGrayscale, HBITMAP& hMask) = 0;
-    // Creates toolbar bitmaps from a bitmap resource and optionally overlays SVG icons loaded from toolbars/*.svg.
-    virtual BOOL WINAPI CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
-                                             HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
-                                             const CSVGIcon* svgIcons, int svgIconsCount) = 0;
-    virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize) = 0;
-
     ///////////////////////////////////////////////////////////////////////////
     //
     // ToolBar
@@ -2215,6 +2209,14 @@ public:
     // pro 'hWindow' ziska aktualni font pomoci WM_GETFONT a vrati jeho vysku
     // pomoci GetObject()
     virtual int WINAPI GetWindowFontHeight(HWND hWindow) = 0;
+
+    // Creates toolbar bitmaps from a bitmap resource and optionally overlays SVG icons loaded from toolbars/*.svg.
+    // These methods must stay at the end of CSalamanderGUIAbstract to preserve the vtable layout
+    // used by plug-ins built with older SDK headers.
+    virtual BOOL WINAPI CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
+                                             HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
+                                             const CSVGIcon* svgIcons, int svgIconsCount) = 0;
+    virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize) = 0;
 };
 
 #ifdef _MSC_VER
