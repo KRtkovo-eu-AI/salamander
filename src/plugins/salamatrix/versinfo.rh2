@@ -1,0 +1,29 @@
+﻿// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
+#ifndef __SALAMATRIX_VERSINFO_RH2
+#define __SALAMATRIX_VERSINFO_RH2
+
+#if defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
+#error this file is not editable by Microsoft Visual C++
+#endif //defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
+
+// defines for plugin.SPL VERSIONINFO
+// look at shared\versinfo.rc2
+
+#define VERSINFO_MAJOR       0
+#define VERSINFO_MINORA      1
+#define VERSINFO_MINORB      0
+
+#include "spl_vers.h" // retrieve version and build numbers
+
+#define VERSINFO_COPYRIGHT   "Copyright © 2026 Open Salamander Authors"
+#define VERSINFO_COMPANY     "Open Salamander"
+
+#define VERSINFO_DESCRIPTION "Automation Framework provider for Salamatrix UI, Commands, FileOperations and Automation services."
+
+#define VERSINFO_INTERNAL    "SALAMATRIX"
+#define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SPL"
+
+#endif // __SALAMATRIX_VERSINFO_RH2

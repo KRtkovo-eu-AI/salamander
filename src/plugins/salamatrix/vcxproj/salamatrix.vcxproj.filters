@@ -20,10 +20,12 @@
     <ClInclude Include="..\salamatrix_poc.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_runtime.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_ui.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\versinfo.rh2"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\precomp.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\salamatrix.def"><Filter>Definition Files</Filter></None>
+    <None Include="..\salamatrix.rc2"><Filter>Resource Files</Filter></None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\salamatrix.rc"><Filter>Resource Files</Filter></ResourceCompile>
