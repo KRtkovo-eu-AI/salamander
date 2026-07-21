@@ -1246,7 +1246,7 @@ static void AppendTipLine(char* text, int textSize, int resID, const char* value
         text[len++] = '\n';
         text[len] = 0;
     }
-    _snprintf_s(text + len, textSize - len, _TRUNCATE, LoadStr(resID), value);
+    _snprintf_s(text + len, textSize - len, _TRUNCATE, "%s%s", LoadStr(resID), value);
 }
 
 static void FormatTipFileTime(const FILETIME* ft, char* buf, int bufSize)
@@ -1391,7 +1391,7 @@ static BOOL AppendShellPropertyLine(char* text, int textSize, IPropertyStore* st
                 if (nameText[0] != 0)
                 {
                     char line[700];
-                    _snprintf_s(line, _countof(line), _TRUNCATE, LoadStr(IDS_PANELTIP_SHELLPROP), nameText, valueText);
+                    _snprintf_s(line, _countof(line), _TRUNCATE, "%s: %s", nameText, valueText);
                     AppendTipText(text, textSize, line);
                     ret = TRUE;
                 }
