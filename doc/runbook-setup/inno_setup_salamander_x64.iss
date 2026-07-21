@@ -252,48 +252,26 @@ slovak.KeepConfigQuestion=Bol nájdený existujúci konfiguračný súbor (confi
 spanish.KeepConfigQuestion=Se encontró un archivo de configuración existente (configstorage.ini).\n\nSerá renombrado a configstorage.ini.BAK y se instalará la nueva configuración predeterminada.
 english.PluginSelectionTitle=Select plugins
 english.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-english.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-english.PluginColumnHeader=Install    Plugin                         Version
 chinesesimplified.PluginSelectionTitle=选择插件
 chinesesimplified.PluginSelectionDescription=选择要安装或解压的随附插件。
-chinesesimplified.PluginSelectionSubCaption=选择要复制到 plugins 文件夹的插件。
-chinesesimplified.PluginColumnHeader=安装      插件                           版本
 dutch.PluginSelectionTitle=Plug-ins selecteren
 dutch.PluginSelectionDescription=Kies welke meegeleverde plug-ins worden geïnstalleerd of uitgepakt.
-dutch.PluginSelectionSubCaption=Selecteer de plug-ins die naar de map plugins worden gekopieerd.
-dutch.PluginColumnHeader=Install.   Plug-in                        Versie
 french.PluginSelectionTitle=Sélection des modules
 french.PluginSelectionDescription=Choisissez les modules inclus à installer ou extraire.
-french.PluginSelectionSubCaption=Sélectionnez les modules à copier dans le dossier plugins.
-french.PluginColumnHeader=Installer Module                         Version
 german.PluginSelectionTitle=Plugins auswählen
 german.PluginSelectionDescription=Wählen Sie aus, welche mitgelieferten Plugins installiert oder entpackt werden.
-german.PluginSelectionSubCaption=Wählen Sie die Plugins aus, die in den Ordner plugins kopiert werden.
-german.PluginColumnHeader=Install.   Plugin                         Version
 hungarian.PluginSelectionTitle=Bővítmények kiválasztása
 hungarian.PluginSelectionDescription=Válassza ki a telepítendő vagy kicsomagolandó mellékelt bővítményeket.
-hungarian.PluginSelectionSubCaption=Válassza ki a plugins mappába másolandó bővítményeket.
-hungarian.PluginColumnHeader=Telepít.   Bővítmény                      Verzió
 romanian.PluginSelectionTitle=Selectare pluginuri
 romanian.PluginSelectionDescription=Alegeți pluginurile incluse care vor fi instalate sau extrase.
-romanian.PluginSelectionSubCaption=Selectați pluginurile de copiat în folderul plugins.
-romanian.PluginColumnHeader=Instalare  Plugin                         Versiune
 russian.PluginSelectionTitle=Выбор плагинов
 russian.PluginSelectionDescription=Выберите, какие включенные плагины будут установлены или извлечены.
-russian.PluginSelectionSubCaption=Выберите плагины для копирования в папку plugins.
-russian.PluginColumnHeader=Установ.   Плагин                         Версия
 slovak.PluginSelectionTitle=Výber pluginov
 slovak.PluginSelectionDescription=Zvoľte, ktoré pribalené pluginy sa nainštalujú alebo rozbalia.
-slovak.PluginSelectionSubCaption=Vyberte pluginy na skopírovanie do priečinka plugins.
-slovak.PluginColumnHeader=Inštalovať Plugin                        Verzia
 spanish.PluginSelectionTitle=Seleccionar complementos
 spanish.PluginSelectionDescription=Elija qué complementos incluidos se instalarán o extraerán.
-spanish.PluginSelectionSubCaption=Seleccione los complementos que se copiarán en la carpeta plugins.
-spanish.PluginColumnHeader=Instalar   Complemento                    Versión
 czech.PluginSelectionTitle=Výběr pluginů
 czech.PluginSelectionDescription=Zvolte, které přibalené pluginy se nainstalují nebo rozbalí.
-czech.PluginSelectionSubCaption=Vyberte pluginy ke zkopírování do složky plugins.
-czech.PluginColumnHeader=Instalovat Plugin                        Verze
 
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
@@ -1872,38 +1850,17 @@ begin
     CustomMessage('PluginSelectionTitle'),
     CustomMessage('PluginSelectionDescription'));
 
-  with TNewStaticText.Create(PluginSelectionPage) do
-  begin
-    Parent := PluginSelectionPage.Surface;
-    Left := 0;
-    Top := 0;
-    Width := PluginSelectionPage.SurfaceWidth;
-    AutoSize := False;
-    Caption := CustomMessage('PluginSelectionSubCaption');
-  end;
-
-  with TNewStaticText.Create(PluginSelectionPage) do
-  begin
-    Parent := PluginSelectionPage.Surface;
-    Left := 0;
-    Top := ScaleY(28);
-    Width := PluginSelectionPage.SurfaceWidth;
-    AutoSize := False;
-    Caption := CustomMessage('PluginColumnHeader');
-  end;
-
   PluginList := TNewCheckListBox.Create(PluginSelectionPage);
   PluginList.Parent := PluginSelectionPage.Surface;
   PluginList.Left := 0;
-  PluginList.Top := ScaleY(48);
+  PluginList.Top := 0;
   PluginList.Width := PluginSelectionPage.SurfaceWidth;
-  PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top;
+  PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top - ScaleY(8);
 
   AddPlugin('7zip', '7-Zip', '1.33 (x64)', True);
   AddPlugin('automation', 'Automation', '2.0 (x64)', True);
   AddPlugin('checksum', 'Checksum', '2.2 (x64)', True);
   AddPlugin('dbviewer', 'DB Viewer', '1.25 (x64)', True);
-  AddPlugin('demoplug', 'DemoPlug', '1.96 (x64)', False);
   AddPlugin('diskmap', 'DiskMap', '1.12 (x64)', True);
   AddPlugin('filecomp', 'File Comparator', '1.20 (x64)', True);
   AddPlugin('folders', 'Folders', '0.2 (x64)', True);
@@ -1938,6 +1895,7 @@ begin
   AddPlugin('webview2renderviewer', 'WebView2 Render Viewer', '1.03 (x64)', True);
   AddPlugin('wmobile', 'Windows Mobile', '1.09 (x64)', True);
   AddPlugin('zip', 'ZIP', '1.6 (x64)', True);
+  AddPlugin('demoplug', '[DEV] DemoPlug', '1.96 (x64)', False);
 
 end;
 
