@@ -2102,10 +2102,10 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         Header = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER, HListView,
                                     TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE);
         Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2, TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_FILTER);
-        HAvailableColumnsFilter = HANDLES(CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
-                                                         WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
-                                                         0, 0, 0, 0, HWindow,
-                                                         (HMENU)IDC_VIEW_COLUMNS_FILTER, HInstance, NULL));
+        HAvailableColumnsFilter = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
+                                                 WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
+                                                 0, 0, 0, 0, HWindow,
+                                                 (HMENU)IDC_VIEW_COLUMNS_FILTER, HInstance, NULL);
         if (HAvailableColumnsFilter != NULL)
         {
             SendMessage(HAvailableColumnsFilter, WM_SETFONT, SendMessage(HListView2, WM_GETFONT, 0, 0), TRUE);
