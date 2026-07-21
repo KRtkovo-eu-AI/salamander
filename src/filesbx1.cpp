@@ -1540,6 +1540,12 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_USER_TTGETTEXT:
+    {
+        Parent->GetPanelItemToolTip((DWORD)wParam, (char*)lParam, TOOLTIP_TEXT_MAX);
+        return 0;
+    }
+
     case WM_MOUSEMOVE:
     {
         if (MainWindow->HasLockedUI())

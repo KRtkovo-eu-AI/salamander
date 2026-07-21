@@ -5,6 +5,9 @@
 #include "precomp.h"
 
 #include <shlwapi.h>
+#include <propsys.h>
+#include <propkey.h>
+#include <propvarutil.h>
 #undef PathIsPrefix // otherwise collision with CSalamanderGeneral::PathIsPrefix
 
 #include "cfgdlg.h"
@@ -1219,6 +1222,327 @@ void CFilesWindow::OfferArchiveUpdateIfNeeded(HWND parent, int textID, BOOL* arc
     EndStopRefresh();
 }
 
+
+static void AppendTipText(char* text, int textSize, const char* line)
+{
+    if (line == NULL || line[0] == 0 || text == NULL || textSize <= 0)
+        return;
+    int len = (int)strlen(text);
+    if (len > 0 && len < textSize - 1)
+    {
+        text[len++] = '\n';
+        text[len] = 0;
+    }
+    lstrcpyn(text + len, line, textSize - len);
+}
+
+static void AppendTipLine(char* text, int textSize, int resID, const char* value)
+{
+    if (value == NULL || value[0] == 0 || text == NULL || textSize <= 0)
+        return;
+    int len = (int)strlen(text);
+    if (len > 0 && len < textSize - 1)
+    {
+        text[len++] = '\n';
+        text[len] = 0;
+    }
+    _snprintf_s(text + len, textSize - len, _TRUNCATE, "%s%s", LoadStr(resID), value);
+}
+
+static void FormatTipFileTime(const FILETIME* ft, char* buf, int bufSize)
+{
+    buf[0] = 0;
+    FILETIME localFT;
+    SYSTEMTIME st;
+    char date[80];
+    char time[80];
+    date[0] = 0;
+    time[0] = 0;
+    if (FileTimeToLocalFileTime(ft, &localFT) && FileTimeToSystemTime(&localFT, &st))
+    {
+        GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, date, _countof(date));
+        GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, time, _countof(time));
+        _snprintf_s(buf, bufSize, _TRUNCATE, "%s %s", date, time);
+    }
+}
+
+
+static BOOL IsKnownExt(const CFileData* f, const char* const* exts, int count)
+{
+    if (f == NULL || f->Ext == NULL || f->Ext[0] == 0)
+        return FALSE;
+    for (int i = 0; i < count; i++)
+    {
+        // Historically CFileData::Ext can be either ".ext" or "ext" depending on source.
+        if (StrICmp(f->Ext, exts[i]) == 0 ||
+            exts[i][0] == '.' && StrICmp(f->Ext, exts[i] + 1) == 0)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+
+
+static BOOL AppendMultiBytePathToWide(std::wstring& target, const char* text)
+{
+    if (text == NULL || text[0] == 0)
+        return FALSE;
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (len == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (len <= 1)
+        return FALSE;
+    std::vector<wchar_t> converted(len);
+    if (MultiByteToWideChar(codePage, flags, text, -1, &converted[0], len) <= 0)
+        return FALSE;
+    target.append(&converted[0]);
+    return TRUE;
+}
+
+
+static BOOL FormatPanelTipName(const CFileData* f, char* name, int nameSize)
+{
+    if (name == NULL || nameSize <= 0)
+        return FALSE;
+    name[0] = 0;
+    if (f == NULL)
+        return FALSE;
+
+    const int maxNameChars = 96;
+    std::wstring nameW;
+    if (f->UseWideName())
+        nameW.assign((const wchar_t*)f->NameW);
+    else
+        AppendMultiBytePathToWide(nameW, f->Name);
+    if (!nameW.empty())
+    {
+        if ((int)nameW.length() > maxNameChars)
+        {
+            int cut = maxNameChars - 3;
+            if (cut > 0 && cut < (int)nameW.length() && nameW[cut - 1] >= 0xD800 && nameW[cut - 1] <= 0xDBFF)
+                cut--;
+            nameW.resize(cut);
+            nameW.append(L"...");
+        }
+        if (WideCharToMultiByte(CP_ACP, 0, nameW.c_str(), -1, name, nameSize, NULL, NULL) > 0)
+            return TRUE;
+    }
+
+    lstrcpyn(name, f->Name, nameSize);
+    return name[0] != 0;
+}
+
+static BOOL BuildPanelFilePathW(const wchar_t* panelPathW, const char* panelPath, const CFileData* f, std::wstring& pathW)
+{
+    pathW.clear();
+    if (f == NULL)
+        return FALSE;
+    if (panelPathW != NULL && panelPathW[0] != 0)
+        pathW.assign((const wchar_t*)panelPathW);
+    else if (panelPath != NULL && panelPath[0] != 0)
+        AppendMultiBytePathToWide(pathW, panelPath);
+    if (pathW.empty())
+        return FALSE;
+    if (pathW[pathW.length() - 1] != L'\\')
+        pathW.append(1, L'\\');
+    if (f->UseWideName())
+        pathW.append((const wchar_t*)f->NameW);
+    else if (!AppendMultiBytePathToWide(pathW, f->Name))
+        return FALSE;
+    return TRUE;
+}
+
+static BOOL AppendShellPropertyLine(char* text, int textSize, IPropertyStore* store, REFPROPERTYKEY key)
+{
+    if (store == NULL)
+        return FALSE;
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    BOOL ret = FALSE;
+    if (SUCCEEDED(store->GetValue(key, &value)) && value.vt != VT_EMPTY && value.vt != VT_NULL)
+    {
+        PWSTR display = NULL;
+        if (SUCCEEDED(PSFormatForDisplayAlloc(key, value, PDFF_DEFAULT, &display)) && display != NULL && display[0] != 0)
+        {
+            char valueText[512];
+            if (WideCharToMultiByte(CP_ACP, 0, display, -1, valueText, _countof(valueText), NULL, NULL) > 0 && valueText[0] != 0)
+            {
+                char nameText[128];
+                nameText[0] = 0;
+                IPropertyDescription* desc = NULL;
+                if (SUCCEEDED(PSGetPropertyDescription(key, IID_IPropertyDescription, (void**)&desc)) && desc != NULL)
+                {
+                    LPWSTR name = NULL;
+                    if (SUCCEEDED(desc->GetDisplayName(&name)) && name != NULL)
+                    {
+                        WideCharToMultiByte(CP_ACP, 0, name, -1, nameText, _countof(nameText), NULL, NULL);
+                        CoTaskMemFree(name);
+                    }
+                    desc->Release();
+                }
+                if (nameText[0] != 0)
+                {
+                    char line[700];
+                    _snprintf_s(line, _countof(line), _TRUNCATE, "%s: %s", nameText, valueText);
+                    AppendTipText(text, textSize, line);
+                    ret = TRUE;
+                }
+            }
+            CoTaskMemFree(display);
+        }
+    }
+    PropVariantClear(&value);
+    return ret;
+}
+
+enum CPanelTipCategory
+{
+    ptcUnknown,
+    ptcExecutable,
+    ptcImage,
+    ptcAudio,
+    ptcVideo,
+    ptcDocument,
+    ptcArchive
+};
+
+static CPanelTipCategory GetPanelTipCategory(const CFileData* f)
+{
+    static const char* const executableExts[] = {".exe", ".dll", ".ocx", ".cpl", ".sys", ".scr"};
+    static const char* const imageExts[] = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".heic", ".ico"};
+    static const char* const audioExts[] = {".mp3", ".wav", ".wma", ".flac", ".m4a", ".aac", ".ogg"};
+    static const char* const videoExts[] = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm", ".m4v"};
+    static const char* const documentExts[] = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".txt", ".rtf"};
+    static const char* const archiveExts[] = {".zip", ".7z", ".rar", ".cab", ".tar", ".gz", ".bz2", ".xz", ".iso"};
+
+    if (IsKnownExt(f, executableExts, _countof(executableExts)))
+        return ptcExecutable;
+    if (IsKnownExt(f, imageExts, _countof(imageExts)))
+        return ptcImage;
+    if (IsKnownExt(f, audioExts, _countof(audioExts)))
+        return ptcAudio;
+    if (IsKnownExt(f, videoExts, _countof(videoExts)))
+        return ptcVideo;
+    if (IsKnownExt(f, documentExts, _countof(documentExts)))
+        return ptcDocument;
+    if (IsKnownExt(f, archiveExts, _countof(archiveExts)))
+        return ptcArchive;
+    return ptcUnknown;
+}
+
+static BOOL AppendCategoryProperties(char* text, int textSize, const wchar_t* pathW, CPanelTipCategory category)
+{
+    PROPERTYKEY keys[10];
+    int count = 0;
+    switch (category)
+    {
+    case ptcExecutable:
+        keys[count++] = PKEY_FileDescription;
+        keys[count++] = PKEY_Company;
+        keys[count++] = PKEY_FileVersion;
+        keys[count++] = PKEY_DateCreated;
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcImage:
+        keys[count++] = PKEY_Image_Dimensions;
+        keys[count++] = PKEY_Image_BitDepth;
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcAudio:
+        keys[count++] = PKEY_Title;
+        keys[count++] = PKEY_Music_Artist;
+        keys[count++] = PKEY_Music_AlbumTitle;
+        keys[count++] = PKEY_Media_Duration;
+        keys[count++] = PKEY_Audio_EncodingBitrate;
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcVideo:
+        keys[count++] = PKEY_Video_FrameWidth;
+        keys[count++] = PKEY_Video_FrameHeight;
+        keys[count++] = PKEY_Media_Duration;
+        keys[count++] = PKEY_Video_FrameRate;
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcDocument:
+        keys[count++] = PKEY_Title;
+        keys[count++] = PKEY_Author;
+        keys[count++] = PKEY_Document_PageCount;
+        keys[count++] = PKEY_DateModified;
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcArchive:
+        keys[count++] = PKEY_ItemTypeText;
+        keys[count++] = PKEY_DateModified;
+        keys[count++] = PKEY_Size;
+        break;
+    default:
+        return FALSE;
+    }
+
+    IPropertyStore* store = NULL;
+    if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)
+        return FALSE;
+    BOOL appended = FALSE;
+    for (int i = 0; i < count; i++)
+        appended |= AppendShellPropertyLine(text, textSize, store, keys[i]);
+    store->Release();
+    return appended;
+}
+
+void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
+{
+    CALL_STACK_MESSAGE2("CFilesWindow::GetPanelItemToolTip(0x%X, , )", id);
+    if (text == NULL || textSize <= 0)
+        return;
+    text[0] = 0;
+    int index = (int)id - 1;
+    if (index < 0 || index >= Dirs->Count + Files->Count)
+        return;
+
+    BOOL isDir = index < Dirs->Count;
+    const CFileData* f = isDir ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
+    if (f->Name != NULL && strcmp(f->Name, "..") == 0)
+        return;
+
+    char displayName[256];
+    FormatPanelTipName(f, displayName, _countof(displayName));
+    AppendTipLine(text, textSize, IDS_PANELTIP_NAME, displayName);
+
+    CPanelTipCategory category = isDir ? ptcUnknown : GetPanelTipCategory(f);
+    BOOL categoryAppended = FALSE;
+    if (!isDir && Is(ptDisk) && category != ptcUnknown)
+    {
+        std::wstring pathW;
+        if (BuildPanelFilePathW(GetPathW(), GetPath(), f, pathW))
+            categoryAppended = AppendCategoryProperties(text, textSize, pathW.c_str(), category);
+    }
+
+    if (!categoryAppended)
+    {
+        const char* type = isDir ? LoadStr(IDS_PANELTIP_KIND_DIRECTORY) : (f->Ext != NULL && f->Ext[0] != 0 ? (f->Ext[0] == '.' ? f->Ext + 1 : f->Ext) : LoadStr(IDS_PANELTIP_KIND_FILE));
+        AppendTipLine(text, textSize, IDS_PANELTIP_TYPE, type);
+
+        char timeBuf[160];
+        FormatTipFileTime(&f->LastWrite, timeBuf, _countof(timeBuf));
+        AppendTipLine(text, textSize, IDS_PANELTIP_MODIFIED, timeBuf);
+
+        if (!isDir || f->SizeValid)
+        {
+            char sizeBuf[100];
+            PrintDiskSize(sizeBuf, f->Size, 1);
+            AppendTipLine(text, textSize, IDS_PANELTIP_SIZE, sizeBuf);
+        }
+    }
+}
+
 BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
 {
     CALL_STACK_MESSAGE_NONE
@@ -1361,6 +1685,28 @@ BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
             }
         }
         return TRUE;
+    }
+
+    if ((wParam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) == 0)
+    {
+        int x = (short)LOWORD(lParam);
+        int y = (short)HIWORD(lParam);
+        int index = -1;
+        if (Configuration.PanelTooltips &&
+            x >= ListBox->FilesRect.left && x < ListBox->FilesRect.right &&
+            y >= ListBox->FilesRect.top && y < ListBox->FilesRect.bottom)
+        {
+            index = GetIndex(x, y);
+            if (index < 0 || index >= Dirs->Count + Files->Count)
+                index = -1;
+            else
+            {
+                CFileData* f = index < Dirs->Count ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
+                if (f->Name != NULL && strcmp(f->Name, "..") == 0)
+                    index = -1;
+            }
+        }
+        SetCurrentToolTip(index >= 0 ? GetListBoxHWND() : NULL, index >= 0 ? (DWORD)index + 1 : 0);
     }
 
     if (Configuration.SingleClick)
@@ -1519,6 +1865,7 @@ BOOL CFilesWindow::OnCaptureChanged(WPARAM wParam, LPARAM lParam, LRESULT* lResu
 BOOL CFilesWindow::OnCancelMode(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
 {
     CALL_STACK_MESSAGE_NONE
+    SetCurrentToolTip(NULL, 0);
     if (GetCapture() == GetListBoxHWND())
         ReleaseCapture();
     if (BeginDragDrop)

@@ -1674,6 +1674,7 @@ public:
     BOOL OnRButtonDown(WPARAM wParam, LPARAM lParam, LRESULT* lResult);
     BOOL OnRButtonUp(WPARAM wParam, LPARAM lParam, LRESULT* lResult);
     BOOL OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult);
+    void GetPanelItemToolTip(DWORD id, char* text, int textSize);
 
     BOOL IsDragDropSafe(int x, int y); // safer drag&drop: returns TRUE if the drag was long enough; x,y are coordinates relative to the panel origin
 
