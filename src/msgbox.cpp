@@ -958,6 +958,8 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetWindowRect(HWindow, &windowR);
         int width = windowR.right - windowR.left;
         int height = windowR.bottom - windowR.top - checkLineH;
+        const int scrollableWindowWidth = 620;
+        const int scrollableWindowHeight = 300;
 
         RECT clientR;
         GetClientRect(HWindow, &clientR);
@@ -970,6 +972,13 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (clientR.right + deltaX < totalBtnWidth + 2 * btnBottomMargin)
             deltaX = totalBtnWidth + 2 * btnBottomMargin - clientR.right;
+        if (scrollableText)
+        {
+            deltaX = scrollableWindowWidth - width;
+            deltaY = scrollableWindowHeight - height;
+            btnY = p.y + deltaY;
+            tR.right = textR.right + deltaX + iconWidth;
+        }
 
         // reduce the text height
         GetWindowRect(GetDlgItem(HWindow, IDS_MSGBOX_TEXT), &textR);
@@ -987,15 +996,25 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetWindowPos(hText, NULL, p.x - iconWidth, p.y,
                          tR.right - tR.left, labelHeight,
                          SWP_NOZORDER);
+            int editHeight = btnY - btnBottomMargin - (p.y + labelHeight + scrollableEditTopMargin);
+            if (editHeight < fontCharHeight * 4)
+                editHeight = fontCharHeight * 4;
             HWND hEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
                                          WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | WS_HSCROLL |
                                              ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
                                          p.x - iconWidth, p.y + labelHeight + scrollableEditTopMargin,
-                                         tR.right - tR.left, scrollableEditHeight,
+                                         tR.right - tR.left, editHeight,
                                          HWindow, (HMENU)(INT_PTR)IDS_MSGBOX_URL, HInstance, NULL);
             SendMessage(hEdit, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
             SetWindowTextW(hEdit, scrollableBodyText.c_str());
             DarkModeApplyWindow(hEdit);
+            if (DarkModeShouldUseDarkColors())
+            {
+                DarkModeFixScrollbars();
+                DarkModeAllowDarkScrollbars(hEdit);
+            }
+            else
+                DarkModeDisallowDarkScrollbars(hEdit);
         }
         else
         {
@@ -1167,7 +1186,16 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             HWND hEdit = GetDlgItem(HWindow, IDS_MSGBOX_URL);
             if (hEdit != NULL)
+            {
                 DarkModeApplyWindow(hEdit);
+                if (DarkModeShouldUseDarkColors())
+                {
+                    DarkModeFixScrollbars();
+                    DarkModeAllowDarkScrollbars(hEdit);
+                }
+                else
+                    DarkModeDisallowDarkScrollbars(hEdit);
+            }
             DarkModeApplyStaticTextColors(HWindow, NULL);
             InvalidateRect(HWindow, NULL, TRUE);
         }
