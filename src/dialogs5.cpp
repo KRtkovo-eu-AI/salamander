@@ -5659,6 +5659,13 @@ CCfgPageKeyboard::CCfgPageKeyboard()
 {
 }
 
+void
+CCfgPageKeyboard::Transfer(CTransferInfo& ti)
+{
+    ti.RadioButton(IDC_KEYBOARD_BACKSPACE_PARENT, 0, Configuration.BackspaceAction);
+    ti.RadioButton(IDC_KEYBOARD_BACKSPACE_HISTORY, 1, Configuration.BackspaceAction);
+}
+
 INT_PTR
 CCfgPageKeyboard::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {

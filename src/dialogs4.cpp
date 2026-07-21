@@ -551,6 +551,7 @@ CConfiguration::CConfiguration()
     QuickRenameSelectAll = FALSE;
     EditNewSelectAll = TRUE;
     ShiftForHotPaths = TRUE;
+    BackspaceAction = 0;
     OnlyOneInstance = FALSE;
     ForceOnlyOneInstance = FALSE;
     StatusArea = FALSE;
