@@ -344,6 +344,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         }
         if (DetachedPanels && side == cpsRight)
             LayoutDetachedPanels();
+        else if (DetachedPanels && side == cpsLeft)
+            LayoutMainWindow();
         else
             LayoutWindows();
     }

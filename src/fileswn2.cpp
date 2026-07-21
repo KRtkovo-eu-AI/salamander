@@ -2382,6 +2382,8 @@ void CFilesWindow::UpdateTreeView(BOOL active)
     {
         if (MainWindow->DetachedPanels && MainWindow->RightPanel == this)
             MainWindow->LayoutDetachedPanels();
+        else if (MainWindow->DetachedPanels && MainWindow->LeftPanel == this)
+            MainWindow->LayoutMainWindow();
         else
             MainWindow->LayoutWindows();
     }

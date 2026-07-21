@@ -1543,6 +1543,12 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
         // causes a visible blink in the main window.
         RightPanel->UpdateTreeView(TRUE);
     }
+    else if (DetachedPanels && focus == LeftPanel)
+    {
+        // Symmetrically, main-window focus changes must not relayout the
+        // detached tree-view host.
+        LeftPanel->UpdateTreeView(TRUE);
+    }
     else
     {
         LeftPanel->UpdateTreeView(TRUE);
