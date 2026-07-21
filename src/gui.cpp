@@ -2869,6 +2869,7 @@ int TlbHdrTooltips[TLBHDR_COUNT] =
         IDS_EDTLB_DOWN,
         IDS_EDTLB_TOP,
         IDS_EDTLB_FILTER,
+        IDS_EDTLB_SEARCH,
 };
 
 CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask)
@@ -2895,7 +2896,8 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
         {4, "MoveItemUp"},
         {5, "MoveItemDown"},
         {6, "MoveItemTop"},
-        {7, "View"},
+        {7, "Filter"},
+        {8, "View"},
     };
 
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
@@ -2930,7 +2932,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     TLBI_ITEM_INFO2 tii;
     tii.Mask = TLBI_MASK_ID | TLBI_MASK_IMAGEINDEX;
     int buttonsCount = 0;
-    const int buttonOrder[TLBHDR_COUNT] = {0, 1, 2, 3, 6, 4, 5, 7};
+    const int buttonOrder[TLBHDR_COUNT] = {8, 0, 1, 2, 3, 6, 4, 5, 7};
     for (int orderIndex = 0; orderIndex < TLBHDR_COUNT; orderIndex++)
     {
         int i = buttonOrder[orderIndex];
@@ -2991,7 +2993,7 @@ void CToolbarHeader::CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled)
 
     NSVGrasterizer* rast = nsvgCreateRasterizer();
     // JRYFIXME: temporarily reading from a file, switch to a shared storage with toolbars
-    const char* svgNames[] = {"Modify", "New", "Delete", "SortByName", "MoveItemUp", "MoveItemDown", "MoveItemTop", "View"};
+    const char* svgNames[] = {"Modify", "New", "Delete", "SortByName", "MoveItemUp", "MoveItemDown", "MoveItemTop", "Filter", "View"};
     for (int j = 0; j < 2; j++)
     {
         DWORD* p = (DWORD*)lpBits;

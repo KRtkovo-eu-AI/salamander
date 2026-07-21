@@ -40,7 +40,7 @@ typedef struct
                   //  BOOL          Up;            // for EDTLBN_MOVEITEM
     HWND HEdit;   // for EDTLBN_CONTEXTMENU
     POINT Point;  // for EDTLBN_CONTEXTMENU
-    BYTE Enable;  // for EDTLBN_ENABLECOMMANDS, contains TLBHDRMASK_xxx
+    DWORD Enable; // for EDTLBN_ENABLECOMMANDS, contains TLBHDRMASK_xxx
     int NewIndex; // for EDTLBN_MOVEITEM2
 } EDTLB_DISPINFO;
 
@@ -148,7 +148,7 @@ public:
     BOOL SearchMatches(const char* text);
 
     // returns which commands are enabled (can query the parent)
-    BYTE GetEnabler();
+    DWORD GetEnabler();
 
     void RedrawFocusedItem();
 

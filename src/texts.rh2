@@ -595,6 +595,7 @@
 #define IDS_EXT_ACE16              10330
 
 // buttons for Edit ListBox ToolBar
+#define IDS_EDTLB_SEARCH           10331
 #define IDS_EDTLB_MODIFY           10334
 #define IDS_EDTLB_NEW              10335
 #define IDS_EDTLB_DELETE           10336
