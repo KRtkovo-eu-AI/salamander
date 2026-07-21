@@ -55,11 +55,6 @@ jobs:
               return;
             }
 
-            if (context.eventName === 'pull_request_review' && context.payload.review?.state !== 'approved') {
-              core.setOutput('should_analyze', 'false');
-              core.info(`Pull request review state is ${context.payload.review?.state}; CodeQL analysis waits for an approval.`);
-              return;
-            }
 
             const changedFiles = await github.paginate(
               github.rest.pulls.listFiles,
@@ -96,12 +91,14 @@ jobs:
               latestReviewByUser.set(review.user.login, review.state);
             }
             const approved = Array.from(latestReviewByUser.values()).includes('APPROVED');
-            core.setOutput('should_analyze', approved ? 'true' : 'false');
-            core.info(
-              approved
-                ? `CodeQL analysis will run because the PR is approved and these main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`
-                : `CodeQL analysis waits for a PR approval; relevant main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`,
-            );
+            if (!approved) {
+              core.setOutput('should_analyze', 'false');
+              core.setFailed(`CodeQL analysis is required because these main-project .cpp/.h files changed, but the PR has no approval yet: ${relevantFiles.join(', ')}`);
+              return;
+            }
+
+            core.setOutput('should_analyze', 'true');
+            core.info(`CodeQL analysis will run because the PR is approved and these main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`);
 
       - name: Checkout repository
         if: steps.codeql_gate.outputs.should_analyze == 'true'
