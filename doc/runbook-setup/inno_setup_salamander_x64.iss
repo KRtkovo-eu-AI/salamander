@@ -273,16 +273,27 @@ spanish.PluginSelectionDescription=Elija qué complementos incluidos se instalar
 czech.PluginSelectionTitle=Výběr pluginů
 czech.PluginSelectionDescription=Zvolte, které přibalené pluginy se nainstalují nebo rozbalí.
 english.InstalledVersionLabel=installed
+english.NotInstalledVersionLabel=not installed
 chinesesimplified.InstalledVersionLabel=已安装
+chinesesimplified.NotInstalledVersionLabel=未安装
 dutch.InstalledVersionLabel=geïnstalleerd
+dutch.NotInstalledVersionLabel=niet geïnstalleerd
 french.InstalledVersionLabel=installé
+french.NotInstalledVersionLabel=non installé
 german.InstalledVersionLabel=installiert
+german.NotInstalledVersionLabel=nicht installiert
 hungarian.InstalledVersionLabel=telepítve
+hungarian.NotInstalledVersionLabel=nincs telepítve
 romanian.InstalledVersionLabel=instalat
+romanian.NotInstalledVersionLabel=neinstalat
 russian.InstalledVersionLabel=установлено
+russian.NotInstalledVersionLabel=не установлено
 slovak.InstalledVersionLabel=nainštalované
+slovak.NotInstalledVersionLabel=nenainštalované
 spanish.InstalledVersionLabel=instalado
+spanish.NotInstalledVersionLabel=no instalado
 czech.InstalledVersionLabel=nainstalováno
+czech.NotInstalledVersionLabel=nenainstalováno
 
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
@@ -1733,9 +1744,11 @@ end;
 
 function FormatPluginVersionText(const InstallerVersion, InstalledVersion: String): String;
 begin
-  Result := PadRight(EnsureX64Suffix(InstallerVersion), 14);
+  Result := PadRight(EnsureX64Suffix(InstallerVersion), 16);
   if InstalledVersion <> '' then
-    Result := Result + CustomMessage('InstalledVersionLabel') + ' ' + EnsureX64Suffix(InstalledVersion);
+    Result := Result + PadRight(CustomMessage('InstalledVersionLabel'), 14) + EnsureX64Suffix(InstalledVersion)
+  else
+    Result := Result + CustomMessage('NotInstalledVersionLabel');
 end;
 
 procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
