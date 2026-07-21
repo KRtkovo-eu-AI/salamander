@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-21T02:38:42Z",
+  "generatedAt": "2026-07-21T03:02:48Z",
   "plugins": [
     {
       "id": "7zip",
@@ -1147,34 +1147,6 @@
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
       "icon": "plugin"
-    },
-    {
-      "id": "salamatrix",
-      "name": {
-        "english": "Salamatrix"
-      },
-      "author": "Open Salamander Authors",
-      "description": {
-        "english": "Salamatrix plugin for Open Salamander"
-      },
-      "latestVersion": "0.1 (x64)",
-      "versionScheme": "fileversion",
-      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
-    },
-    {
-      "id": "demoplug",
-      "name": {
-        "english": "Demoplug"
-      },
-      "author": "Open Salamander Authors",
-      "description": {
-        "english": "Sample plugin for Open Salamander"
-      },
-      "latestVersion": "1.95 (x64)",
-      "versionScheme": "fileversion",
-      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
     }
   ]
 }

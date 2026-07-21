@@ -21,6 +21,7 @@ DEFAULT_CATALOG = ROOT / "doc" / "catalogs-base" / "plugins-stable.json"
 DEFAULT_INSTALLER = ROOT / "doc" / "runbook-setup" / "inno_setup_salamander_x64.iss"
 DEFAULT_PLUGINS_ROOT = ROOT / "src" / "plugins"
 DEFAULT_RELEASE_URL = "https://github.com/KRtkovo-eu-AI/salamander/releases"
+STABLE_CATALOG_EXCLUDED_PLUGIN_IDS = {"demoplug", "salamatrix"}
 
 SOURCE_SPL_RE = re.compile(
     r'^\s*Source:\s*"\{#PayloadDir\}\\plugins\\(?P<id>[^\\"]+)\\(?P<file>[^\\"]+\.spl)"',
@@ -133,7 +134,8 @@ def update_catalog(
 ) -> dict[str, Any]:
     existing = {plugin["id"]: plugin for plugin in catalog.get("plugins", [])}
     updated_plugins: list[dict[str, Any]] = []
-    for plugin_id in shipped_ids:
+    stable_ids = [plugin_id for plugin_id in shipped_ids if plugin_id not in STABLE_CATALOG_EXCLUDED_PLUGIN_IDS]
+    for plugin_id in stable_ids:
         version, description = read_plugin_metadata(plugin_id, plugins_root)
         entry = dict(existing.get(plugin_id) or new_plugin_entry(plugin_id, version, description))
         if version is not None:
@@ -152,7 +154,7 @@ def update_installer_plugin_versions(installer_text: str, shipped_ids: list[str]
     """Update AddPlugin(..., version, ...) calls in the installer script."""
     versions: dict[str, str] = {}
     for plugin_id in shipped_ids:
-        version, _ = read_plugin_metadata(plugin_id, plugins_root, include_platform=False)
+        version, _ = read_plugin_metadata(plugin_id, plugins_root, include_platform=True)
         if version is not None:
             versions[plugin_id] = version
 
@@ -199,7 +201,7 @@ def main() -> int:
     args.catalog.write_text(rendered, encoding="utf-8")
     args.installer.write_text(installer_rendered, encoding="utf-8")
     print(
-        f"Updated {args.catalog} with {len(shipped_ids)} plugins "
+        f"Updated {args.catalog} with {len(updated['plugins'])} stable plugins "
         "and synchronized installer plugin versions."
     )
     return 0
