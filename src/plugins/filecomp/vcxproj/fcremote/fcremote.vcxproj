@@ -168,6 +168,7 @@
     <ClCompile Include="..\..\fcremote\fcremote_crt.cpp">
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <WholeProgramOptimization>false</WholeProgramOptimization>
+      <AdditionalOptions>/Oi- %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

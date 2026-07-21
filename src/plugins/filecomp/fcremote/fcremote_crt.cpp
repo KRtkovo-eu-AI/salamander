@@ -3,6 +3,9 @@
 
 #include <stddef.h>
 
+extern "C" void* memcpy(void* dst, const void* src, size_t len);
+#pragma function(memcpy)
+
 extern "C" void* memcpy(void* dst, const void* src, size_t len)
 {
     char* d = (char*)dst;
