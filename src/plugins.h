@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1886,9 +1886,6 @@ public:
     CSalamanderGeneral();
     ~CSalamanderGeneral();
 
-    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
-    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
-    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
 
     // must be called immediately after the plugin's entry point
     void Init(CPluginInterfaceAbstract* plugin) { Plugin = plugin; }
@@ -2356,6 +2353,12 @@ public:
     virtual BOOL WINAPI IsCriticalShutdown();
 
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0);
+
+    // Keep newly added methods at the end of CSalamanderGeneralAbstract/CSalamanderGeneral
+    // so older plug-ins keep their original vtable layout.
+    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
+    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
+    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
 };
 
 //
