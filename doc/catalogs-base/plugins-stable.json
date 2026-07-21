@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-13T00:14:37Z",
+  "generatedAt": "2026-07-21T02:38:42Z",
   "plugins": [
     {
       "id": "7zip",
@@ -57,7 +57,7 @@
         "romanian": "Face in mod automat tasks folosind scripturi.",
         "spanish": "Automatiza tareas comunes por medio de scripts."
       },
-      "latestVersion": "1.7 (x64)",
+      "latestVersion": "2.0 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
@@ -267,7 +267,7 @@
         "romanian": "Afișează mașinile virtuale Hyper-V locale în panou.",
         "spanish": "Mostrar las máquinas virtuales locales de Hyper-V en el panel."
       },
-      "latestVersion": "1.06 (x64)",
+      "latestVersion": "1.07 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
@@ -547,7 +547,7 @@
         "romanian": "Vizualizator rapid de imagini si convertor.",
         "spanish": "Visor y consersor rápido de imágenes."
       },
-      "latestVersion": "2.23 (x64)",
+      "latestVersion": "2.24 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
@@ -687,7 +687,7 @@
         "romanian": "Verifică lansările GitHub și oferă să deschidă cea mai recentă versiune Samandarin.",
         "spanish": "Comprueba las versiones de GitHub y ofrece abrir la última compilación de Samandarin."
       },
-      "latestVersion": "0.5 (x64)",
+      "latestVersion": "0.6 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
@@ -1147,6 +1147,34 @@
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
       "icon": "plugin"
+    },
+    {
+      "id": "salamatrix",
+      "name": {
+        "english": "Salamatrix"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Salamatrix plugin for Open Salamander"
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+    },
+    {
+      "id": "demoplug",
+      "name": {
+        "english": "Demoplug"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Sample plugin for Open Salamander"
+      },
+      "latestVersion": "1.95 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
     }
   ]
 }

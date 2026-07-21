@@ -254,57 +254,46 @@ english.PluginSelectionTitle=Select plugins
 english.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
 english.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
 english.PluginColumnHeader=Install    Plugin                         Version
-english.PluginVersionBundled={#SamandarinVersion}
-chinesesimplified.PluginSelectionTitle=Select plugins
-chinesesimplified.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-chinesesimplified.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-chinesesimplified.PluginColumnHeader=Install    Plugin                         Version
-chinesesimplified.PluginVersionBundled={#SamandarinVersion}
-dutch.PluginSelectionTitle=Select plugins
-dutch.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-dutch.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-dutch.PluginColumnHeader=Install    Plugin                         Version
-dutch.PluginVersionBundled={#SamandarinVersion}
-french.PluginSelectionTitle=Select plugins
-french.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-french.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-french.PluginColumnHeader=Install    Plugin                         Version
-french.PluginVersionBundled={#SamandarinVersion}
-german.PluginSelectionTitle=Select plugins
-german.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-german.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-german.PluginColumnHeader=Install    Plugin                         Version
-german.PluginVersionBundled={#SamandarinVersion}
-hungarian.PluginSelectionTitle=Select plugins
-hungarian.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-hungarian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-hungarian.PluginColumnHeader=Install    Plugin                         Version
-hungarian.PluginVersionBundled={#SamandarinVersion}
-romanian.PluginSelectionTitle=Select plugins
-romanian.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-romanian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-romanian.PluginColumnHeader=Install    Plugin                         Version
-romanian.PluginVersionBundled={#SamandarinVersion}
-russian.PluginSelectionTitle=Select plugins
-russian.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-russian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-russian.PluginColumnHeader=Install    Plugin                         Version
-russian.PluginVersionBundled={#SamandarinVersion}
-slovak.PluginSelectionTitle=Select plugins
-slovak.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-slovak.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-slovak.PluginColumnHeader=Install    Plugin                         Version
-slovak.PluginVersionBundled={#SamandarinVersion}
-spanish.PluginSelectionTitle=Select plugins
-spanish.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-spanish.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
-spanish.PluginColumnHeader=Install    Plugin                         Version
-spanish.PluginVersionBundled={#SamandarinVersion}
+chinesesimplified.PluginSelectionTitle=选择插件
+chinesesimplified.PluginSelectionDescription=选择要安装或解压的随附插件。
+chinesesimplified.PluginSelectionSubCaption=选择要复制到 plugins 文件夹的插件。
+chinesesimplified.PluginColumnHeader=安装      插件                           版本
+dutch.PluginSelectionTitle=Plug-ins selecteren
+dutch.PluginSelectionDescription=Kies welke meegeleverde plug-ins worden geïnstalleerd of uitgepakt.
+dutch.PluginSelectionSubCaption=Selecteer de plug-ins die naar de map plugins worden gekopieerd.
+dutch.PluginColumnHeader=Install.   Plug-in                        Versie
+french.PluginSelectionTitle=Sélection des modules
+french.PluginSelectionDescription=Choisissez les modules inclus à installer ou extraire.
+french.PluginSelectionSubCaption=Sélectionnez les modules à copier dans le dossier plugins.
+french.PluginColumnHeader=Installer Module                         Version
+german.PluginSelectionTitle=Plugins auswählen
+german.PluginSelectionDescription=Wählen Sie aus, welche mitgelieferten Plugins installiert oder entpackt werden.
+german.PluginSelectionSubCaption=Wählen Sie die Plugins aus, die in den Ordner plugins kopiert werden.
+german.PluginColumnHeader=Install.   Plugin                         Version
+hungarian.PluginSelectionTitle=Bővítmények kiválasztása
+hungarian.PluginSelectionDescription=Válassza ki a telepítendő vagy kicsomagolandó mellékelt bővítményeket.
+hungarian.PluginSelectionSubCaption=Válassza ki a plugins mappába másolandó bővítményeket.
+hungarian.PluginColumnHeader=Telepít.   Bővítmény                      Verzió
+romanian.PluginSelectionTitle=Selectare pluginuri
+romanian.PluginSelectionDescription=Alegeți pluginurile incluse care vor fi instalate sau extrase.
+romanian.PluginSelectionSubCaption=Selectați pluginurile de copiat în folderul plugins.
+romanian.PluginColumnHeader=Instalare  Plugin                         Versiune
+russian.PluginSelectionTitle=Выбор плагинов
+russian.PluginSelectionDescription=Выберите, какие включенные плагины будут установлены или извлечены.
+russian.PluginSelectionSubCaption=Выберите плагины для копирования в папку plugins.
+russian.PluginColumnHeader=Установ.   Плагин                         Версия
+slovak.PluginSelectionTitle=Výber pluginov
+slovak.PluginSelectionDescription=Zvoľte, ktoré pribalené pluginy sa nainštalujú alebo rozbalia.
+slovak.PluginSelectionSubCaption=Vyberte pluginy na skopírovanie do priečinka plugins.
+slovak.PluginColumnHeader=Inštalovať Plugin                        Verzia
+spanish.PluginSelectionTitle=Seleccionar complementos
+spanish.PluginSelectionDescription=Elija qué complementos incluidos se instalarán o extraerán.
+spanish.PluginSelectionSubCaption=Seleccione los complementos que se copiarán en la carpeta plugins.
+spanish.PluginColumnHeader=Instalar   Complemento                    Versión
 czech.PluginSelectionTitle=Výběr pluginů
 czech.PluginSelectionDescription=Zvolte, které přibalené pluginy se nainstalují nebo rozbalí.
 czech.PluginSelectionSubCaption=Vyberte pluginy ke zkopírování do složky plugins.
 czech.PluginColumnHeader=Instalovat Plugin                        Verze
-czech.PluginVersionBundled={#SamandarinVersion}
 
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
@@ -1650,18 +1639,18 @@ var
 
 
 
-function PadRight(const Value: String; const Width: Integer): String;
+function PadLeft(const Value: String; const Width: Integer): String;
 begin
   Result := Value;
   while Length(Result) < Width do
-    Result := Result + ' ';
+    Result := ' ' + Result;
 end;
 
-procedure AddPlugin(const PluginId, DisplayName: String; const CheckedByDefault: Boolean);
+procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
 begin
   PluginList.AddCheckBox(
-    PadRight(DisplayName, 30) + CustomMessage('PluginVersionBundled'),
-    '',
+    DisplayName,
+    PadLeft(Version, 12),
     0,
     CheckedByDefault,
     True,
@@ -1910,45 +1899,45 @@ begin
   PluginList.Width := PluginSelectionPage.SurfaceWidth;
   PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top;
 
-  AddPlugin('7zip', '7-Zip', True);
-  AddPlugin('automation', 'Automation', True);
-  AddPlugin('checksum', 'Checksum', True);
-  AddPlugin('dbviewer', 'DB Viewer', True);
-  AddPlugin('demoplug', 'DemoPlug', False);
-  AddPlugin('diskmap', 'DiskMap', True);
-  AddPlugin('filecomp', 'File Comparator', True);
-  AddPlugin('folders', 'Folders', True);
-  AddPlugin('ftp', 'FTP Client', True);
-  AddPlugin('hypervm', 'Hyper-V Manager', True);
-  AddPlugin('ieviewer', 'IE Viewer', True);
-  AddPlugin('jsonviewer', 'JSON Viewer', True);
-  AddPlugin('mmviewer', 'Multimedia Viewer', True);
-  AddPlugin('nethood', 'Network Neighborhood', True);
-  AddPlugin('pak', 'PAK', True);
-  AddPlugin('peviewer', 'PE Viewer', True);
-  AddPlugin('pictview', 'PictView', True);
-  AddPlugin('portables', 'Portables', True);
-  AddPlugin('regedt', 'Registry Editor', True);
-  AddPlugin('renamer', 'Renamer', True);
-  AddPlugin('samandarin', 'Samandarin', True);
-  AddPlugin('salamatrix', 'Salamatrix', True);
-  AddPlugin('serviceexplorer', 'Service Explorer', True);
-  AddPlugin('splitcbn', 'Split & Combine', True);
-  AddPlugin('tar', 'TAR', True);
-  AddPlugin('textviewer', 'Text Viewer', True);
-  AddPlugin('unarj', 'UnARJ', True);
-  AddPlugin('uncab', 'UnCAB', True);
-  AddPlugin('unchm', 'UnCHM', True);
-  AddPlugin('undelete', 'Undelete', True);
-  AddPlugin('unfat', 'UnFAT', True);
-  AddPlugin('uniso', 'UnISO', True);
-  AddPlugin('unlha', 'UnLHA', True);
-  AddPlugin('unmime', 'UnMIME', True);
-  AddPlugin('unole', 'UnOLE', True);
-  AddPlugin('unrar', 'UnRAR', True);
-  AddPlugin('webview2renderviewer', 'WebView2 Render Viewer', True);
-  AddPlugin('wmobile', 'Windows Mobile', True);
-  AddPlugin('zip', 'ZIP', True);
+  AddPlugin('7zip', '7-Zip', '1.33', True);
+  AddPlugin('automation', 'Automation', '2.0', True);
+  AddPlugin('checksum', 'Checksum', '2.2', True);
+  AddPlugin('dbviewer', 'DB Viewer', '1.25', True);
+  AddPlugin('demoplug', 'DemoPlug', '1.95', False);
+  AddPlugin('diskmap', 'DiskMap', '1.12', True);
+  AddPlugin('filecomp', 'File Comparator', '1.19', True);
+  AddPlugin('folders', 'Folders', '0.2', True);
+  AddPlugin('ftp', 'FTP Client', '1.36', True);
+  AddPlugin('hypervm', 'Hyper-V Manager', '1.07', True);
+  AddPlugin('ieviewer', 'IE Viewer', '1.12', True);
+  AddPlugin('jsonviewer', 'JSON Viewer', '1.01', True);
+  AddPlugin('mmviewer', 'Multimedia Viewer', '1.16', True);
+  AddPlugin('nethood', 'Network Neighborhood', '1.09', True);
+  AddPlugin('pak', 'PAK', '1.72', True);
+  AddPlugin('peviewer', 'PE Viewer', '3.0', True);
+  AddPlugin('pictview', 'PictView', '2.24', True);
+  AddPlugin('portables', 'Portables', '0.3', True);
+  AddPlugin('regedt', 'Registry Editor', '1.15', True);
+  AddPlugin('renamer', 'Renamer', '1.14', True);
+  AddPlugin('samandarin', 'Samandarin', '0.6', True);
+  AddPlugin('salamatrix', 'Salamatrix', '0.1', True);
+  AddPlugin('serviceexplorer', 'Service Explorer', '0.013', True);
+  AddPlugin('splitcbn', 'Split & Combine', '1.11', True);
+  AddPlugin('tar', 'TAR', '3.34', True);
+  AddPlugin('textviewer', 'Text Viewer', '1.01', True);
+  AddPlugin('unarj', 'UnARJ', '1.22', True);
+  AddPlugin('uncab', 'UnCAB', '1.28', True);
+  AddPlugin('unchm', 'UnCHM', '1.04', True);
+  AddPlugin('undelete', 'Undelete', '1.12', True);
+  AddPlugin('unfat', 'UnFAT', '1.2', True);
+  AddPlugin('uniso', 'UnISO', '1.38', True);
+  AddPlugin('unlha', 'UnLHA', '1.14', True);
+  AddPlugin('unmime', 'UnMIME', '1.15', True);
+  AddPlugin('unole', 'UnOLE', '1.02', True);
+  AddPlugin('unrar', 'UnRAR', '3.03', True);
+  AddPlugin('webview2renderviewer', 'WebView2 Render Viewer', '1.02', True);
+  AddPlugin('wmobile', 'Windows Mobile', '1.09', True);
+  AddPlugin('zip', 'ZIP', '1.6', True);
 
 end;
 
