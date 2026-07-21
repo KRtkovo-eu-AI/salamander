@@ -676,7 +676,7 @@ static BOOL BrowseRegStorageFile(HWND hParent, char* path, int pathSize)
     ofn.lpstrFilter = filter;
     ofn.lpstrFile = path;
     ofn.nMaxFile = pathSize;
-    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
     ofn.lpstrDefExt = "reg";
     return SafeGetSaveFileName(&ofn);
 }
@@ -1795,13 +1795,45 @@ void CManageConfigsDialog::SelectLanguageInCombo(const char* language)
     SendMessage(hCombo, CB_SETCURSEL, select, 0);
 }
 
+static void MCDNormalizeGeneratedNameText(char* text)
+{
+    if (text == NULL)
+        return;
+    for (char* p = text; *p != 0; p++)
+        if (*p == '-')
+            *p = ' ';
+    char* end = text + strlen(text);
+    while (end > text && end[-1] == ' ')
+        *--end = 0;
+}
+
+static BOOL MCDLooksLikeGeneratedConfigName(const CFoundConfig& cfg)
+{
+    if (cfg.DisplayName[0] == 0 || cfg.Version[0] == 0)
+        return FALSE;
+
+    char name[256];
+    strncpy_s(name, cfg.DisplayName, _TRUNCATE);
+    MCDNormalizeGeneratedNameText(name);
+
+    char version[64];
+    strncpy_s(version, cfg.Version, _TRUNCATE);
+    MCDNormalizeGeneratedNameText(version);
+
+    return (_strnicmp(name, "Open Salamander ", 16) == 0 ||
+            _strnicmp(name, "Altap Salamander ", 16) == 0 ||
+            _strnicmp(name, "Servant Salamander ", 18) == 0) &&
+           StrIStr(name, version) != NULL;
+}
+
 void CManageConfigsDialog::UpdateSyncNameButton()
 {
     BOOL show = FALSE;
     if (SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount && Configs[SelectedSourceIndex].Exists)
     {
         const CFoundConfig& cfg = Configs[SelectedSourceIndex];
-        show = !MCDIsCleanConfigItem(cfg) && !cfg.IsCurrentVersion && cfg.IsGeneratedName;
+        show = !MCDIsCleanConfigItem(cfg) && !cfg.IsCurrentVersion &&
+               (cfg.IsGeneratedName || MCDLooksLikeGeneratedConfigName(cfg));
     }
     HWND hButton = GetDlgItem(HWindow, IDC_MCD_SYNC_NAME);
     ShowWindow(hButton, show ? SW_SHOW : SW_HIDE);
@@ -2023,13 +2055,22 @@ void CManageConfigsDialog::OnExport()
     ofn.lpstrFile = file;
     ofn.nMaxFile = SizeOf(file);
     ofn.lpstrInitialDir = defDir;
-    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
     ofn.lpstrDefExt = "reg";
 
     if (SafeGetSaveFileName(&ofn))
     {
         if (SalGetFullName(file))
         {
+            DWORD attrs = GetFileAttributes(file);
+            if (attrs != INVALID_FILE_ATTRIBUTES)
+            {
+                char msg[500];
+                _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_MCD_OVERWRITECONFIRM), file);
+                if (SalMessageBox(HWindow, msg, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) != IDYES)
+                    return;
+            }
+
             BOOL exported = FALSE;
 
             if (cfg.IsPortable)
