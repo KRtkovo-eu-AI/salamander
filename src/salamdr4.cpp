@@ -1703,6 +1703,8 @@ static void LoadExplorerColumns()
                 propDesc->Release();
             }
         }
+        if (count > EXPLORER_COLUMNS_COUNT && ExplorerColumnsCount >= EXPLORER_COLUMNS_COUNT)
+            TRACE_E("Explorer property column list was truncated at " << EXPLORER_COLUMNS_COUNT << " entries (Windows reported " << count << ").");
     }
     propList->Release();
 }

@@ -348,7 +348,7 @@ int WINAPI InternalGetPluginIconIndex();
 //
 
 #define STANDARD_COLUMNS_COUNT 9 // number of standard columns for the view
-#define EXPLORER_COLUMNS_COUNT 1024 // maximum Windows Explorer property columns shown in the view configuration
+#define EXPLORER_COLUMNS_COUNT 4096 // maximum Windows Explorer property columns shown in the view configuration
 #define VIEW_TEMPLATES_COUNT 10
 #define VIEW_NAME_MAX 100
 // column Name is always visible and if the flag VIEW_SHOW_EXTENSION is not set, it also contains the extension
