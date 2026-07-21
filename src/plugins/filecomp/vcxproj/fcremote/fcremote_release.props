@@ -9,7 +9,8 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <IntrinsicFunctions Condition="'$(Platform)'!='ARM64'">true</IntrinsicFunctions>
+      <IntrinsicFunctions Condition="'$(Platform)'=='ARM64'">false</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <WholeProgramOptimization>true</WholeProgramOptimization>
