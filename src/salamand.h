@@ -404,6 +404,7 @@ struct CViewTemplate
     CColumnConfig Columns[STANDARD_COLUMNS_COUNT]; // stores widths and elasticity of columns
     CColumnConfig ExplorerColumns[EXPLORER_COLUMNS_COUNT]; // stores widths and elasticity of Explorer property columns
     BYTE ExplorerColumnVisible[EXPLORER_COLUMNS_COUNT]; // visible Explorer property columns
+    BYTE ExplorerColumnOrder[EXPLORER_COLUMNS_COUNT]; // order of Explorer property columns
     BYTE ColumnOrder[STANDARD_COLUMNS_COUNT]; // order of standard columns in detailed views/configuration
 
     BOOL LeftSmartMode;  // smart mode for the left panel (only the elastic Name column: the column narrows so a horizontal scrollbar is not needed)

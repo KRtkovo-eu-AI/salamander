@@ -2126,19 +2126,22 @@ BOOL CFilesWindow::BuildColumnsTemplate()
     int explorerCount = GetExplorerColumnCount();
     for (i = 0; i < explorerCount && i < EXPLORER_COLUMNS_COUNT; i++)
     {
-        if (ViewTemplate->ExplorerColumnVisible[i])
+        int explorerIndex = ViewTemplate->ExplorerColumnOrder[i];
+        if (explorerIndex < 0 || explorerIndex >= explorerCount)
+            explorerIndex = i;
+        if (ViewTemplate->ExplorerColumnVisible[explorerIndex])
         {
-            lstrcpyn(column.Name, GetExplorerColumnName(i), COLUMN_NAME_MAX);
-            lstrcpyn(column.Description, GetExplorerColumnName(i), COLUMN_DESCRIPTION_MAX);
+            lstrcpyn(column.Name, GetExplorerColumnName(explorerIndex), COLUMN_NAME_MAX);
+            lstrcpyn(column.Description, GetExplorerColumnName(explorerIndex), COLUMN_DESCRIPTION_MAX);
             column.GetText = InternalGetExplorerColumn;
             column.SupportSorting = 0;
             column.LeftAlignment = 1;
             column.ID = COLUMN_ID_CUSTOM;
-            column.CustomData = i;
-            column.Width = leftPanel ? ViewTemplate->ExplorerColumns[i].LeftWidth : ViewTemplate->ExplorerColumns[i].RightWidth;
+            column.CustomData = explorerIndex;
+            column.Width = leftPanel ? ViewTemplate->ExplorerColumns[explorerIndex].LeftWidth : ViewTemplate->ExplorerColumns[explorerIndex].RightWidth;
             if (column.Width == 0)
                 column.Width = 120;
-            column.FixedWidth = leftPanel ? ViewTemplate->ExplorerColumns[i].LeftFixedWidth : ViewTemplate->ExplorerColumns[i].RightFixedWidth;
+            column.FixedWidth = leftPanel ? ViewTemplate->ExplorerColumns[explorerIndex].LeftFixedWidth : ViewTemplate->ExplorerColumns[explorerIndex].RightFixedWidth;
             column.MinWidth = 0;
 
             ColumnsTemplate.Add(column);

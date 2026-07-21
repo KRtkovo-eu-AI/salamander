@@ -1053,6 +1053,8 @@ CViewTemplates::CViewTemplates()
         ZeroMemory(Items[i].Columns, sizeof(Items[i].Columns));
         ZeroMemory(Items[i].ExplorerColumns, sizeof(Items[i].ExplorerColumns));
         ZeroMemory(Items[i].ExplorerColumnVisible, sizeof(Items[i].ExplorerColumnVisible));
+        for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
+            Items[i].ExplorerColumnOrder[j] = (BYTE)j;
         for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
             Items[i].ColumnOrder[j] = (BYTE)j;
     }

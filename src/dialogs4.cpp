@@ -1616,6 +1616,34 @@ static void InitColumnOrder(BYTE* order)
     }
 }
 
+static void InitExplorerColumnOrder(BYTE* order)
+{
+    BOOL used[EXPLORER_COLUMNS_COUNT];
+    ZeroMemory(used, sizeof(used));
+    for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+    {
+        if (order[i] < EXPLORER_COLUMNS_COUNT && !used[order[i]])
+            used[order[i]] = TRUE;
+        else
+            order[i] = 0xff;
+    }
+    int next = 0;
+    for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+    {
+        if (order[i] == 0xff)
+        {
+            while (next < EXPLORER_COLUMNS_COUNT && used[next])
+                next++;
+            if (next < EXPLORER_COLUMNS_COUNT)
+            {
+                order[i] = (BYTE)next;
+                used[next] = TRUE;
+            }
+        }
+    }
+}
+
+
 void CCfgPageView::LayoutViewsListControls()
 {
     if (HListView == NULL || HListView2 == NULL || Header == NULL || Header2 == NULL ||
@@ -1708,16 +1736,18 @@ void CCfgPageView::LoadControls()
             lvi.pszText = LoadStr(CFGP2ResID[columnIndex]);
             ListView_InsertItem(HListView2, &lvi);
         }
+        InitExplorerColumnOrder(Config.Items[index].ExplorerColumnOrder);
         int explorerColumnsCount = GetExplorerColumnCount();
         for (i = 0; i < explorerColumnsCount; i++)
         {
+            int explorerIndex = Config.Items[index].ExplorerColumnOrder[i];
             LVITEM lvi;
             lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM;
             lvi.iItem = CFGP2ItemsCount + i;
             lvi.iSubItem = 0;
             lvi.state = 0;
-            lvi.lParam = -(i + 1);
-            lvi.pszText = (char*)GetExplorerColumnName(i);
+            lvi.lParam = -(explorerIndex + 1);
+            lvi.pszText = (char*)GetExplorerColumnName(explorerIndex);
             ListView_InsertItem(HListView2, &lvi);
         }
         ListView_SetItemState(HListView2, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
@@ -1796,6 +1826,7 @@ void CCfgPageView::StoreControls()
                 {
                     DWORD state = ListView_GetItemState(HListView2, i, LVIS_STATEIMAGEMASK);
                     Config.Items[index].ExplorerColumnVisible[explorerIndex] = state == INDEXTOSTATEIMAGEMASK(2);
+                    Config.Items[index].ExplorerColumnOrder[i - CFGP2ItemsCount] = (BYTE)explorerIndex;
                 }
             }
         }
@@ -1861,10 +1892,7 @@ CCfgPageView::GetEnabledFunctions()
             if (lstrlen(Config.Items[index].Name) > 0)
             {
                 mask |= TLBHDRMASK_DELETE;
-                if (index > 7)
-                    mask |= TLBHDRMASK_UP;
-                if (index < VIEW_TEMPLATES_COUNT - 1)
-                    mask |= TLBHDRMASK_DOWN;
+                /* view up/down buttons are intentionally hidden */
             }
         }
     }
@@ -1885,6 +1913,13 @@ void CCfgPageView::EnableHeader()
             if (colIndex > 1 && GetAvailableColumnIndex(HListView2, colIndex - 1) >= 0)
                 mask |= TLBHDRMASK_UP;
             if (colIndex > 0 && colIndex < CFGP2ItemsCount - 1 && GetAvailableColumnIndex(HListView2, colIndex + 1) >= 0)
+                mask |= TLBHDRMASK_DOWN;
+        }
+        else
+        {
+            if (colIndex > CFGP2ItemsCount && GetAvailableColumnIndex(HListView2, colIndex - 1) < 0)
+                mask |= TLBHDRMASK_UP;
+            if (colIndex < ListView_GetItemCount(HListView2) - 1 && GetAvailableColumnIndex(HListView2, colIndex + 1) < 0)
                 mask |= TLBHDRMASK_DOWN;
         }
     }
@@ -1971,8 +2006,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HListView = listView->HWindow;
         HListView2 = GetDlgItem(HWindow, IDC_VIEW_LIST2);
         Header = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER, HListView,
-                                    TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE |
-                                        TLBHDRMASK_UP | TLBHDRMASK_DOWN);
+                                    TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE);
         if (Header == NULL)
             TRACE_E(LOW_MEMORY);
 
@@ -2361,13 +2395,27 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
                 int item = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
                 int item2 = HIWORD(wParam) == TLBHDR_UP ? item - 1 : item + 1;
-                if (index >= 2 && item > 0 && item2 > 0 && item2 < CFGP2ItemsCount &&
-                    GetAvailableColumnIndex(HListView2, item) >= 0 && GetAvailableColumnIndex(HListView2, item2) >= 0)
+                int columnIndex = GetAvailableColumnIndex(HListView2, item);
+                int columnIndex2 = GetAvailableColumnIndex(HListView2, item2);
+                if (index >= 2 && item > 0 && item2 > 0 &&
+                    ((columnIndex >= 0 && columnIndex2 >= 0 && item2 < CFGP2ItemsCount) ||
+                     (columnIndex < 0 && columnIndex2 < 0 && item >= CFGP2ItemsCount && item2 >= CFGP2ItemsCount)))
                 {
                     StoreControls();
-                    BYTE tmp = Config.Items[index].ColumnOrder[item];
-                    Config.Items[index].ColumnOrder[item] = Config.Items[index].ColumnOrder[item2];
-                    Config.Items[index].ColumnOrder[item2] = tmp;
+                    if (columnIndex >= 0)
+                    {
+                        BYTE tmp = Config.Items[index].ColumnOrder[item];
+                        Config.Items[index].ColumnOrder[item] = Config.Items[index].ColumnOrder[item2];
+                        Config.Items[index].ColumnOrder[item2] = tmp;
+                    }
+                    else
+                    {
+                        int explorerItem = item - CFGP2ItemsCount;
+                        int explorerItem2 = item2 - CFGP2ItemsCount;
+                        BYTE tmp = Config.Items[index].ExplorerColumnOrder[explorerItem];
+                        Config.Items[index].ExplorerColumnOrder[explorerItem] = Config.Items[index].ExplorerColumnOrder[explorerItem2];
+                        Config.Items[index].ExplorerColumnOrder[explorerItem2] = tmp;
+                    }
                     ListView_DeleteAllItems(HListView2);
                     LoadControls();
                     ListView_SetItemState(HListView2, -1, 0, LVIS_FOCUSED | LVIS_SELECTED);
