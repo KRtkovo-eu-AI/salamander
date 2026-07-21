@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include <tchar.h>
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
 #include "salamand.rh"
