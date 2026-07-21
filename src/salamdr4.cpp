@@ -3,6 +3,8 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include <propsys.h>
+#include <propvarutil.h>
 
 #include "cfgdlg.h"
 #include "plugins.h"
@@ -1048,6 +1050,8 @@ CViewTemplates::CViewTemplates()
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
     {
         ZeroMemory(Items[i].Columns, sizeof(Items[i].Columns));
+        ZeroMemory(Items[i].ExplorerColumns, sizeof(Items[i].ExplorerColumns));
+        ZeroMemory(Items[i].ExplorerColumnVisible, sizeof(Items[i].ExplorerColumnVisible));
         for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
             Items[i].ColumnOrder[j] = (BYTE)j;
     }
@@ -1566,6 +1570,76 @@ BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND 
     return err == ERROR_SUCCESS;
 }
 
+
+// Windows Explorer property columns discovered through the Property System.
+static char ExplorerColumnNames[EXPLORER_COLUMNS_COUNT][COLUMN_DESCRIPTION_MAX];
+static PROPERTYKEY ExplorerColumnKeys[EXPLORER_COLUMNS_COUNT];
+static int ExplorerColumnsCount = -1;
+
+static void LoadExplorerColumns()
+{
+    if (ExplorerColumnsCount >= 0)
+        return;
+
+    ExplorerColumnsCount = 0;
+    IPropertyDescriptionList* propList = NULL;
+    if (FAILED(PSEnumeratePropertyDescriptions(PDEF_ALL, IID_IPropertyDescriptionList, (void**)&propList)) || propList == NULL)
+        return;
+
+    UINT count = 0;
+    if (SUCCEEDED(propList->GetCount(&count)))
+    {
+        for (UINT i = 0; i < count && ExplorerColumnsCount < EXPLORER_COLUMNS_COUNT; i++)
+        {
+            IPropertyDescription* propDesc = NULL;
+            if (SUCCEEDED(propList->GetAt(i, IID_IPropertyDescription, (void**)&propDesc)) && propDesc != NULL)
+            {
+                LPWSTR displayName = NULL;
+                PROPERTYKEY key;
+                if (SUCCEEDED(propDesc->GetDisplayName(&displayName)) && displayName != NULL && displayName[0] != 0 &&
+                    SUCCEEDED(propDesc->GetPropertyKey(&key)))
+                {
+                    char name[COLUMN_DESCRIPTION_MAX];
+                    if (WideCharToMultiByte(CP_ACP, 0, displayName, -1, name, COLUMN_DESCRIPTION_MAX, NULL, NULL) > 0 && name[0] != 0)
+                    {
+                        BOOL duplicate = FALSE;
+                        for (int j = 0; j < ExplorerColumnsCount; j++)
+                        {
+                            if (StrICmp(name, ExplorerColumnNames[j]) == 0)
+                            {
+                                duplicate = TRUE;
+                                break;
+                            }
+                        }
+                        if (!duplicate)
+                        {
+                            lstrcpyn(ExplorerColumnNames[ExplorerColumnsCount], name, COLUMN_DESCRIPTION_MAX);
+                            ExplorerColumnKeys[ExplorerColumnsCount] = key;
+                            ExplorerColumnsCount++;
+                        }
+                    }
+                }
+                if (displayName != NULL)
+                    CoTaskMemFree(displayName);
+                propDesc->Release();
+            }
+        }
+    }
+    propList->Release();
+}
+
+int GetExplorerColumnCount()
+{
+    LoadExplorerColumns();
+    return ExplorerColumnsCount;
+}
+
+const char* GetExplorerColumnName(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnNames[index] : "";
+}
+
 //****************************************************************************
 //
 // Internal functions for retrieving column content
@@ -1575,6 +1649,7 @@ BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND 
 const CFileData* TransferFileData;
 int TransferIsDir;
 char TransferBuffer[TRANSFER_BUFFER_MAX];
+char TransferPanelPath[SAL_MAX_PATH];
 int TransferLen;
 DWORD TransferRowData;
 CPluginDataInterfaceAbstract* TransferPluginDataIface;
@@ -1795,6 +1870,53 @@ void WINAPI InternalGetDescr()
         InternalGetType();
     }
 }
+
+void WINAPI InternalGetExplorerColumn()
+{
+    TransferLen = 0;
+    if (TransferIsDir == 2 || TransferPanelPath[0] == 0)
+        return;
+
+    int columnIndex = (int)TransferActCustomData;
+    LoadExplorerColumns();
+    if (columnIndex < 0 || columnIndex >= ExplorerColumnsCount)
+        return;
+
+    char path[SAL_MAX_PATH];
+    lstrcpyn(path, TransferPanelPath, SAL_MAX_PATH);
+    if (!SalPathAppend(path, TransferFileData->Name, SAL_MAX_PATH))
+        return;
+
+    WCHAR pathW[SAL_MAX_PATH];
+    if (MultiByteToWideChar(CP_ACP, 0, path, -1, pathW, SAL_MAX_PATH) <= 0)
+        return;
+
+    IPropertyStore* store = NULL;
+    if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)
+        return;
+
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    if (SUCCEEDED(store->GetValue(ExplorerColumnKeys[columnIndex], &value)))
+    {
+        PWSTR display = NULL;
+        if (SUCCEEDED(PSFormatForDisplayAlloc(ExplorerColumnKeys[columnIndex], value, PDFF_DEFAULT, &display)) && display != NULL)
+        {
+            char text[TRANSFER_BUFFER_MAX];
+            if (WideCharToMultiByte(CP_ACP, 0, display, -1, text, TRANSFER_BUFFER_MAX, NULL, NULL) > 0)
+            {
+                TransferLen = (int)strlen(text);
+                if (TransferLen > TRANSFER_BUFFER_MAX)
+                    TransferLen = TRANSFER_BUFFER_MAX;
+                memcpy(TransferBuffer, text, TransferLen);
+            }
+            CoTaskMemFree(display);
+        }
+    }
+    PropVariantClear(&value);
+    store->Release();
+}
+
 
 //****************************************************************************
 //

@@ -317,6 +317,7 @@ extern int TransferLen;                                       // number of retur
 extern DWORD TransferRowData;                                 // user data, bits 0x00000001 to 0x00000080 are reserved for Salamander
 extern CPluginDataInterfaceAbstract* TransferPluginDataIface; // plugin data interface of the panel in which the item is drawn (belongs to TransferFileData->PluginData)
 extern DWORD TransferActCustomData;                           // column CustomData for which text is obtained (for which the callback is invoked) // FIXME_X64 - too small for a pointer, is it ever needed?
+extern char TransferPanelPath[SAL_MAX_PATH];                  // current disk panel path for Explorer property columns
 
 // if the extension was already looked up in Associations, the search result is stored here
 extern int TransferAssocIndex; // -2 not searched yet, -1 not present, >=0 valid index
@@ -331,6 +332,9 @@ void WINAPI InternalGetTime();
 void WINAPI InternalGetTimeOnlyForDisk();
 void WINAPI InternalGetAttr();
 void WINAPI InternalGetDescr();
+void WINAPI InternalGetExplorerColumn();
+int GetExplorerColumnCount();
+const char* GetExplorerColumnName(int index);
 
 // function to get the index of simple icons for FS with custom icons (pitFromPlugin)
 int WINAPI InternalGetPluginIconIndex();
@@ -341,6 +345,7 @@ int WINAPI InternalGetPluginIconIndex();
 //
 
 #define STANDARD_COLUMNS_COUNT 9 // number of standard columns for the view
+#define EXPLORER_COLUMNS_COUNT 256 // maximum Windows Explorer property columns shown in the view configuration
 #define VIEW_TEMPLATES_COUNT 10
 #define VIEW_NAME_MAX 100
 // column Name is always visible and if the flag VIEW_SHOW_EXTENSION is not set, it also contains the extension
@@ -397,6 +402,8 @@ struct CViewTemplate
                               // VIEW_SHOW_xxxx
 
     CColumnConfig Columns[STANDARD_COLUMNS_COUNT]; // stores widths and elasticity of columns
+    CColumnConfig ExplorerColumns[EXPLORER_COLUMNS_COUNT]; // stores widths and elasticity of Explorer property columns
+    BYTE ExplorerColumnVisible[EXPLORER_COLUMNS_COUNT]; // visible Explorer property columns
     BYTE ColumnOrder[STANDARD_COLUMNS_COUNT]; // order of standard columns in detailed views/configuration
 
     BOOL LeftSmartMode;  // smart mode for the left panel (only the elastic Name column: the column narrows so a horizontal scrollbar is not needed)

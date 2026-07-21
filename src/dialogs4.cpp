@@ -21,7 +21,6 @@
 #include "gui.h"
 #include "darkmode.h"
 #include <uxtheme.h>
-#include <propsys.h>
 
 #ifndef DARKMODE_TRACE_CTLFLOW
 #define DARKMODE_TRACE_CTLFLOW 0
@@ -1617,65 +1616,6 @@ static void InitColumnOrder(BYTE* order)
     }
 }
 
-
-const int CFGP2ExplorerColumnsMax = 256;
-static char CFGP2ExplorerColumnNames[CFGP2ExplorerColumnsMax][COLUMN_DESCRIPTION_MAX];
-static int CFGP2ExplorerColumnsCount = -1;
-
-static void LoadExplorerPropertyColumns()
-{
-    if (CFGP2ExplorerColumnsCount >= 0)
-        return;
-
-    CFGP2ExplorerColumnsCount = 0;
-    IPropertyDescriptionList* propList = NULL;
-    HRESULT hr = PSEnumeratePropertyDescriptions(PDEF_ALL, IID_IPropertyDescriptionList, (void**)&propList);
-    if (FAILED(hr) || propList == NULL)
-        return;
-
-    UINT count = 0;
-    if (SUCCEEDED(propList->GetCount(&count)))
-    {
-        for (UINT i = 0; i < count && CFGP2ExplorerColumnsCount < CFGP2ExplorerColumnsMax; i++)
-        {
-            IPropertyDescription* propDesc = NULL;
-            if (SUCCEEDED(propList->GetAt(i, IID_IPropertyDescription, (void**)&propDesc)) && propDesc != NULL)
-            {
-                LPWSTR displayName = NULL;
-                if (SUCCEEDED(propDesc->GetDisplayName(&displayName)) && displayName != NULL && displayName[0] != 0)
-                {
-                    char name[COLUMN_DESCRIPTION_MAX];
-                    if (WideCharToMultiByte(CP_ACP, 0, displayName, -1, name, COLUMN_DESCRIPTION_MAX, NULL, NULL) > 0 && name[0] != 0)
-                    {
-                        BOOL duplicate = FALSE;
-                        for (int j = 0; j < CFGP2ItemsCount; j++)
-                        {
-                            if (StrICmp(name, LoadStr(CFGP2ResID[j])) == 0)
-                            {
-                                duplicate = TRUE;
-                                break;
-                            }
-                        }
-                        for (int j = 0; !duplicate && j < CFGP2ExplorerColumnsCount; j++)
-                        {
-                            if (StrICmp(name, CFGP2ExplorerColumnNames[j]) == 0)
-                                duplicate = TRUE;
-                        }
-                        if (!duplicate)
-                        {
-                            lstrcpyn(CFGP2ExplorerColumnNames[CFGP2ExplorerColumnsCount], name, COLUMN_DESCRIPTION_MAX);
-                            CFGP2ExplorerColumnsCount++;
-                        }
-                    }
-                    CoTaskMemFree(displayName);
-                }
-                propDesc->Release();
-            }
-        }
-    }
-    propList->Release();
-}
-
 void CCfgPageView::LayoutViewsListControls()
 {
     if (HListView == NULL || HListView2 == NULL || Header == NULL || Header2 == NULL ||
@@ -1768,8 +1708,8 @@ void CCfgPageView::LoadControls()
             lvi.pszText = LoadStr(CFGP2ResID[columnIndex]);
             ListView_InsertItem(HListView2, &lvi);
         }
-        LoadExplorerPropertyColumns();
-        for (i = 0; i < CFGP2ExplorerColumnsCount; i++)
+        int explorerColumnsCount = GetExplorerColumnCount();
+        for (i = 0; i < explorerColumnsCount; i++)
         {
             LVITEM lvi;
             lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM;
@@ -1777,7 +1717,7 @@ void CCfgPageView::LoadControls()
             lvi.iSubItem = 0;
             lvi.state = 0;
             lvi.lParam = -(i + 1);
-            lvi.pszText = CFGP2ExplorerColumnNames[i];
+            lvi.pszText = (char*)GetExplorerColumnName(i);
             ListView_InsertItem(HListView2, &lvi);
         }
         ListView_SetItemState(HListView2, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
@@ -1787,10 +1727,18 @@ void CCfgPageView::LoadControls()
     if (!empty)
     {
         int i;
-        for (i = 0; i < CFGP2ItemsCount; i++)
+        for (i = 0; i < ListView_GetItemCount(HListView2); i++)
         {
             int columnIndex = GetAvailableColumnIndex(HListView2, i);
-            UINT state = INDEXTOSTATEIMAGEMASK((columnIndex >= 0 && checked[columnIndex] ? 2 : 1));
+            BOOL isChecked = FALSE;
+            if (columnIndex >= 0)
+                isChecked = checked[columnIndex];
+            else
+            {
+                int explorerIndex = -columnIndex - 1;
+                isChecked = explorerIndex >= 0 && explorerIndex < EXPLORER_COLUMNS_COUNT && Config.Items[index].ExplorerColumnVisible[explorerIndex];
+            }
+            UINT state = INDEXTOSTATEIMAGEMASK((isChecked ? 2 : 1));
             ListView_SetItemState(HListView2, i, state, LVIS_STATEIMAGEMASK);
         }
         CTransferInfo ti(HWindow, ttDataToWindow);
@@ -1802,13 +1750,14 @@ void CCfgPageView::LoadControls()
         if (index2 != -1)
         {
             int columnIndex = GetAvailableColumnIndex(HListView2, index2);
-            tmp = Config.Items[index].Columns[columnIndex].LeftFixedWidth;
+            CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[index].Columns[columnIndex] : &Config.Items[index].ExplorerColumns[-columnIndex - 1];
+            tmp = columnConfig->LeftFixedWidth;
             ti.CheckBox(IDC_VIEW_LEFT_FIXED, tmp);
-            tmp = Config.Items[index].Columns[columnIndex].RightFixedWidth;
+            tmp = columnConfig->RightFixedWidth;
             ti.CheckBox(IDC_VIEW_RIGHT_FIXED, tmp);
-            tmp = Config.Items[index].Columns[columnIndex].LeftWidth;
+            tmp = columnConfig->LeftWidth;
             ti.EditLine(IDC_VIEW_LEFT_WIDTH, tmp);
-            tmp = Config.Items[index].Columns[columnIndex].RightWidth;
+            tmp = columnConfig->RightWidth;
             ti.EditLine(IDC_VIEW_RIGHT_WIDTH, tmp);
         }
     }
@@ -1824,6 +1773,7 @@ void CCfgPageView::StoreControls()
     {
         DWORD flags = 0;
         int i;
+        ZeroMemory(Config.Items[index].ExplorerColumnVisible, sizeof(Config.Items[index].ExplorerColumnVisible));
         for (i = 0; i < CFGP2ItemsCount; i++)
         {
             int columnIndex = GetAvailableColumnIndex(HListView2, i);
@@ -1833,6 +1783,20 @@ void CCfgPageView::StoreControls()
                 DWORD state = ListView_GetItemState(HListView2, i, LVIS_STATEIMAGEMASK);
                 if (state == INDEXTOSTATEIMAGEMASK(2))
                     flags |= CFGP2Flags[columnIndex];
+            }
+        }
+        int count = ListView_GetItemCount(HListView2);
+        for (i = CFGP2ItemsCount; i < count; i++)
+        {
+            int columnIndex = GetAvailableColumnIndex(HListView2, i);
+            if (columnIndex < 0)
+            {
+                int explorerIndex = -columnIndex - 1;
+                if (explorerIndex >= 0 && explorerIndex < EXPLORER_COLUMNS_COUNT)
+                {
+                    DWORD state = ListView_GetItemState(HListView2, i, LVIS_STATEIMAGEMASK);
+                    Config.Items[index].ExplorerColumnVisible[explorerIndex] = state == INDEXTOSTATEIMAGEMASK(2);
+                }
             }
         }
         Config.Items[index].Flags = flags;
@@ -1849,7 +1813,7 @@ void CCfgPageView::EnableControls()
 
     int index2 = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
     int selectedColumnIndex = index2 != -1 ? GetAvailableColumnIndex(HListView2, index2) : -1;
-    BOOL supportFixedWidth = (selectedColumnIndex >= 0 && enable);
+    BOOL supportFixedWidth = (selectedColumnIndex != -1 && enable);
 
     EnableWindow(HListView2, enable);
     CTransferInfo ti(HWindow, ttDataToWindow);
@@ -2189,9 +2153,8 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             case LVN_ITEMCHANGING:
             {
                 LPNMLISTVIEW nmhi = (LPNMLISTVIEW)nmh;
-                // disagree :-) beep when attempting to hide the Name column or check Explorer columns that are not persisted yet
-                int changingColumnIndex = GetAvailableColumnIndex(HListView2, nmhi->iItem);
-                if ((nmhi->iItem == 0 || changingColumnIndex < 0) && (nmhi->uOldState & 0xF000) != (nmhi->uNewState & 0xF000))
+                // disagree :-) beep when attempting to hide the Name column
+                if (nmhi->iItem == 0 && (nmhi->uOldState & 0xF000) != (nmhi->uNewState & 0xF000))
                 {
                     MessageBeep(MB_ICONASTERISK);
                     SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
@@ -2214,17 +2177,18 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
                     int columnIndex = GetAvailableColumnIndex(HListView2, nmhi->iItem);
-                    if (viewIndex >= 2 && columnIndex >= 0)
+                    if (viewIndex >= 2 && columnIndex != -1)
                     {
+                        CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[viewIndex].Columns[columnIndex] : &Config.Items[viewIndex].ExplorerColumns[-columnIndex - 1];
                         DisableNotification = TRUE;
                         CTransferInfo ti(HWindow, ttDataToWindow);
-                        int tmp = Config.Items[viewIndex].Columns[columnIndex].LeftFixedWidth;
+                        int tmp = columnConfig->LeftFixedWidth;
                         ti.CheckBox(IDC_VIEW_LEFT_FIXED, tmp);
-                        tmp = Config.Items[viewIndex].Columns[columnIndex].RightFixedWidth;
+                        tmp = columnConfig->RightFixedWidth;
                         ti.CheckBox(IDC_VIEW_RIGHT_FIXED, tmp);
-                        tmp = Config.Items[viewIndex].Columns[columnIndex].LeftWidth;
+                        tmp = columnConfig->LeftWidth;
                         ti.EditLine(IDC_VIEW_LEFT_WIDTH, tmp);
-                        tmp = Config.Items[viewIndex].Columns[columnIndex].RightWidth;
+                        tmp = columnConfig->RightWidth;
                         ti.EditLine(IDC_VIEW_RIGHT_WIDTH, tmp);
                         DisableNotification = FALSE;
                     }
@@ -2335,14 +2299,16 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int index2 = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
                 if (index >= 2 && index2 != -1)
                 {
+                    int columnIndex = GetAvailableColumnIndex(HListView2, index2);
+                    CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[index].Columns[columnIndex] : &Config.Items[index].ExplorerColumns[-columnIndex - 1];
                     BOOL checked = IsDlgButtonChecked(HWindow, LOWORD(wParam)) == BST_CHECKED;
                     switch (LOWORD(wParam))
                     {
                     case IDC_VIEW_LEFT_FIXED:
-                        Config.Items[index].Columns[GetAvailableColumnIndex(HListView2, index2)].LeftFixedWidth = checked ? 1 : 0;
+                        columnConfig->LeftFixedWidth = checked ? 1 : 0;
                         break;
                     case IDC_VIEW_RIGHT_FIXED:
-                        Config.Items[index].Columns[GetAvailableColumnIndex(HListView2, index2)].RightFixedWidth = checked ? 1 : 0;
+                        columnConfig->RightFixedWidth = checked ? 1 : 0;
                         break;
                     case IDC_VIEW_LEFT_SMARTMODE:
                         Config.Items[index].LeftSmartMode = checked;
@@ -2366,17 +2332,19 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int index2 = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
                 if (index >= 2 && index2 != -1)
                 {
+                    int columnIndex = GetAvailableColumnIndex(HListView2, index2);
+                    CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[index].Columns[columnIndex] : &Config.Items[index].ExplorerColumns[-columnIndex - 1];
                     CTransferInfo ti(HWindow, ttDataFromWindow);
                     int tmp;
                     if (LOWORD(wParam) == IDC_VIEW_LEFT_WIDTH)
                     {
                         ti.EditLine(IDC_VIEW_LEFT_WIDTH, tmp);
-                        Config.Items[index].Columns[GetAvailableColumnIndex(HListView2, index2)].LeftWidth = tmp;
+                        columnConfig->LeftWidth = tmp;
                     }
                     else
                     {
                         ti.EditLine(IDC_VIEW_RIGHT_WIDTH, tmp);
-                        Config.Items[index].Columns[GetAvailableColumnIndex(HListView2, index2)].RightWidth = tmp;
+                        columnConfig->RightWidth = tmp;
                     }
                     Dirty = TRUE;
                 }
