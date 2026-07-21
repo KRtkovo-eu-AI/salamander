@@ -127,6 +127,67 @@ void CFilesWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
     PathHistory->ClearPluginFSFromHistory(fs);
 }
 
+
+static BOOL RequestFakePasteFromSourceSalamander(const char* targetPath, DWORD pasteEffect)
+{
+    CALL_STACK_MESSAGE2("RequestFakePasteFromSourceSalamander(%s,)", targetPath);
+
+    if (SalShExtSharedMemView == NULL || SalShExtSharedMemMutex == NULL || targetPath == NULL ||
+        (pasteEffect != DROPEFFECT_COPY && pasteEffect != DROPEFFECT_MOVE))
+        return FALSE;
+
+    BOOL requested = FALSE;
+    HANDLE doPasteEvent = NULL;
+    WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
+    if (SalShExtSharedMemView->DoPasteFromSalamander &&
+        (SalShExtSharedMemView->SalamanderMainWndPID != GetCurrentProcessId() ||
+         SalShExtSharedMemView->SalamanderMainWndTID != GetCurrentThreadId()))
+    {
+        SalShExtSharedMemView->SalBusyState = 0;
+        SalShExtSharedMemView->PasteDone = FALSE;
+        doPasteEvent = HANDLES_Q(OpenEvent(SYNCHRONIZE | EVENT_MODIFY_STATE, FALSE, SALSHEXT_DOPASTEEVENTNAME));
+        if (doPasteEvent != NULL)
+            SetEvent(doPasteEvent);
+        else
+        {
+            SalShExtSharedMemView->BlockPasteDataRelease = TRUE;
+            PostMessage((HWND)SalShExtSharedMemView->SalamanderMainWnd, WM_USER_SALSHEXT_PASTE,
+                        SalShExtSharedMemView->PostMsgIndex, 0);
+        }
+
+        int count = 0;
+        while (SalShExtSharedMemView->SalBusyState == 0 && count++ < 50)
+        {
+            ReleaseMutex(SalShExtSharedMemMutex);
+            Sleep(100);
+            WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
+        }
+
+        if (SalShExtSharedMemView->SalBusyState == 1)
+        {
+            lstrcpyn(SalShExtSharedMemView->TargetPath, targetPath, 2 * MAX_PATH);
+            SalShExtSharedMemView->Operation = pasteEffect == DROPEFFECT_COPY ? SALSHEXT_COPY : SALSHEXT_MOVE;
+            SalShExtSharedMemView->PasteDone = TRUE;
+            SalShExtSharedMemView->DropDone = FALSE;
+            requested = TRUE;
+        }
+        SalShExtSharedMemView->PostMsgIndex++;
+        if (doPasteEvent == NULL)
+        {
+            SalShExtSharedMemView->BlockPasteDataRelease = FALSE;
+            PostMessage((HWND)SalShExtSharedMemView->SalamanderMainWnd, WM_USER_SALSHEXT_TRYRELDATA, 0, 0);
+        }
+    }
+    ReleaseMutex(SalShExtSharedMemMutex);
+
+    if (doPasteEvent != NULL)
+    {
+        ResetEvent(doPasteEvent);
+        HANDLES(CloseHandle(doPasteEvent));
+    }
+    return requested;
+}
+
 BOOL SafeInvokeCommand(IContextMenu2* menu, CMINVOKECOMMANDINFO& ici)
 {
     CALL_STACK_MESSAGE_NONE
@@ -174,28 +235,42 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
             }
             ReleaseMutex(SalShExtSharedMemMutex);
 
+            DWORD pasteEffect = 0;
+            if (OpenClipboard(HWindow))
+            {
+                HANDLE handle = GetClipboardData(RegisterClipboardFormat(CFSTR_PREFERREDDROPEFFECT));
+                if (handle != NULL)
+                {
+                    DWORD* effect = (DWORD*)HANDLES(GlobalLock(handle));
+                    if (effect != NULL)
+                    {
+                        pasteEffect = *effect;
+                        HANDLES(GlobalUnlock(handle));
+                    }
+                }
+                CloseClipboard();
+            }
+            else
+                TRACE_E("OpenClipboard() has failed!");
+            pasteEffect &= DROPEFFECT_COPY | DROPEFFECT_MOVE;
+
+            if (!pasteFromOurData)
+            {
+                if (RequestFakePasteFromSourceSalamander(pastePath != NULL ? pastePath : GetPath(), pasteEffect))
+                {
+                    dataObj->Release();
+                    FocusFirstNewItem = TRUE;
+                    return TRUE;
+                }
+                TRACE_E("Paste: fake Salamander clipboard data could not be handed to the source instance.");
+                dataObj->Release();
+                return TRUE; // do not let the generic shell path copy the CLIPFAKE directory
+            }
+
             if (pasteFromOurData)
             {
-                DWORD pasteEffect = 0;
-                if (OpenClipboard(HWindow))
-                {
-                    HANDLE handle = GetClipboardData(RegisterClipboardFormat(CFSTR_PREFERREDDROPEFFECT));
-                    if (handle != NULL)
-                    {
-                        DWORD* effect = (DWORD*)HANDLES(GlobalLock(handle));
-                        if (effect != NULL)
-                        {
-                            pasteEffect = *effect;
-                            HANDLES(GlobalUnlock(handle));
-                        }
-                    }
-                    CloseClipboard();
-                }
-                else
-                    TRACE_E("OpenClipboard() has failed!");
                 SalShExtPastedData.SetLock(TRUE);
                 dataObj->Release(); // one instance still remains on the clipboard
-                pasteEffect &= DROPEFFECT_COPY | DROPEFFECT_MOVE;
                 if (pasteEffect == DROPEFFECT_COPY || pasteEffect == DROPEFFECT_MOVE)
                 {
                     // move clears the clipboard after itself (cut&paste), release the clipboard before launching

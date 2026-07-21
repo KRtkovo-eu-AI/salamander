@@ -141,13 +141,18 @@ CH_CopyCallback(THIS_ HWND hwnd, UINT wFunc, UINT wFlags,
                 LPCSTR pszDestFile, DWORD dwDestAttribs)
 {
 
+    // Copy/Paste of Salamander fake clipboard data no longer depends only on this
+    // copy hook.  If the target is another Salamander panel, the target instance
+    // recognizes CLIPFAKE on the clipboard and drives the same shared-memory +
+    // salShExtDoPasteEvent handshake itself.  This path crosses integrity levels
+    // because it uses kernel objects with the shared security descriptor instead of
+    // UIPI-blocked window messages.  The hook remains necessary for Explorer and
+    // other shell targets, where we still must cancel the shell's copy of CLIPFAKE.
+
     // Vista: when Copy originates from Salamander's archive (regardless of elevation or user)
-    // and Paste occurs in a different elevated Salamander, the system Drop operation does not
-    // call this copy hook, so only the CLIPFAKE directory is copied. The same happens when the
-    // Paste target is one of the elevated Salamander browser windows. Salamander ideally should
-    // not run elevated (this is only a temporary workaround while UAC support is missing). We
-    // will likely leave this unresolved unless someone complains. Pasting into Salamander panels
-    // is under our control and therefore solvable, but we probably do not want to address it.
+    // and Paste occurs in a different elevated Salamander browser window, the system Drop
+    // operation does not call this copy hook, so only the CLIPFAKE directory is copied.
+    // Pasting into Salamander panels is handled by the controlled IPC path above.
 
     // W2K: when Copy & Paste occurs between Salamander instances running under different users,
     // the process handling Paste must have access to the TEMP directory of the user who executed
