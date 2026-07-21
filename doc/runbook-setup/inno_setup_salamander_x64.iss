@@ -252,488 +252,59 @@ slovak.KeepConfigQuestion=Bol nájdený existujúci konfiguračný súbor (confi
 spanish.KeepConfigQuestion=Se encontró un archivo de configuración existente (configstorage.ini).\n\nSerá renombrado a configstorage.ini.BAK y se instalará la nueva configuración predeterminada.
 english.PluginSelectionTitle=Select plugins
 english.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-english.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-english.PluginColumnHeader=Install    Plugin                         Version        Description
+english.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+english.PluginColumnHeader=Install    Plugin                         Version
 english.PluginVersionBundled={#SamandarinVersion}
-english.PluginDesc7zip=7-Zip archive support.
-english.PluginDescAutomation=Automation and scripting support.
-english.PluginDescChecksum=Checksum calculation and verification.
-english.PluginDescDbviewer=Database file viewer.
-english.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-english.PluginDescDiskmap=Disk usage map viewer.
-english.PluginDescFilecomp=File comparison tools.
-english.PluginDescFolders=Folder shortcuts and navigation.
-english.PluginDescFtp=FTP client plugin.
-english.PluginDescHypervm=Hyper-V virtual machine tools.
-english.PluginDescIeviewer=Internet Explorer based viewer.
-english.PluginDescJsonviewer=JSON file viewer.
-english.PluginDescMmviewer=Multimedia viewer.
-english.PluginDescNethood=Network neighborhood browser.
-english.PluginDescPak=PAK archive support.
-english.PluginDescPeviewer=Portable Executable viewer.
-english.PluginDescPictview=Image viewer.
-english.PluginDescPortables=Portable devices support.
-english.PluginDescRegedt=Registry editor.
-english.PluginDescRenamer=Batch rename tools.
-english.PluginDescSalamandarin=Samandarin integration plugin.
-english.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-english.PluginDescServiceexplorer=Windows service explorer.
-english.PluginDescSplitcbn=Split and combine files.
-english.PluginDescTar=TAR archive support.
-english.PluginDescTextviewer=Text viewer.
-english.PluginDescUnarj=ARJ archive unpacker.
-english.PluginDescUncab=CAB archive unpacker.
-english.PluginDescUnchm=CHM archive unpacker.
-english.PluginDescUndelete=Deleted file recovery.
-english.PluginDescUnfat=FAT undelete support.
-english.PluginDescUniso=ISO image unpacker.
-english.PluginDescUnlha=LHA archive unpacker.
-english.PluginDescUnmime=MIME message unpacker.
-english.PluginDescUnole=OLE storage unpacker.
-english.PluginDescUnrar=RAR archive unpacker.
-english.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-english.PluginDescWmobile=Windows Mobile support.
-english.PluginDescZip=ZIP archive support.
 chinesesimplified.PluginSelectionTitle=Select plugins
 chinesesimplified.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-chinesesimplified.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-chinesesimplified.PluginColumnHeader=Install    Plugin                         Version        Description
+chinesesimplified.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+chinesesimplified.PluginColumnHeader=Install    Plugin                         Version
 chinesesimplified.PluginVersionBundled={#SamandarinVersion}
-chinesesimplified.PluginDesc7zip=7-Zip archive support.
-chinesesimplified.PluginDescAutomation=Automation and scripting support.
-chinesesimplified.PluginDescChecksum=Checksum calculation and verification.
-chinesesimplified.PluginDescDbviewer=Database file viewer.
-chinesesimplified.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-chinesesimplified.PluginDescDiskmap=Disk usage map viewer.
-chinesesimplified.PluginDescFilecomp=File comparison tools.
-chinesesimplified.PluginDescFolders=Folder shortcuts and navigation.
-chinesesimplified.PluginDescFtp=FTP client plugin.
-chinesesimplified.PluginDescHypervm=Hyper-V virtual machine tools.
-chinesesimplified.PluginDescIeviewer=Internet Explorer based viewer.
-chinesesimplified.PluginDescJsonviewer=JSON file viewer.
-chinesesimplified.PluginDescMmviewer=Multimedia viewer.
-chinesesimplified.PluginDescNethood=Network neighborhood browser.
-chinesesimplified.PluginDescPak=PAK archive support.
-chinesesimplified.PluginDescPeviewer=Portable Executable viewer.
-chinesesimplified.PluginDescPictview=Image viewer.
-chinesesimplified.PluginDescPortables=Portable devices support.
-chinesesimplified.PluginDescRegedt=Registry editor.
-chinesesimplified.PluginDescRenamer=Batch rename tools.
-chinesesimplified.PluginDescSalamandarin=Samandarin integration plugin.
-chinesesimplified.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-chinesesimplified.PluginDescServiceexplorer=Windows service explorer.
-chinesesimplified.PluginDescSplitcbn=Split and combine files.
-chinesesimplified.PluginDescTar=TAR archive support.
-chinesesimplified.PluginDescTextviewer=Text viewer.
-chinesesimplified.PluginDescUnarj=ARJ archive unpacker.
-chinesesimplified.PluginDescUncab=CAB archive unpacker.
-chinesesimplified.PluginDescUnchm=CHM archive unpacker.
-chinesesimplified.PluginDescUndelete=Deleted file recovery.
-chinesesimplified.PluginDescUnfat=FAT undelete support.
-chinesesimplified.PluginDescUniso=ISO image unpacker.
-chinesesimplified.PluginDescUnlha=LHA archive unpacker.
-chinesesimplified.PluginDescUnmime=MIME message unpacker.
-chinesesimplified.PluginDescUnole=OLE storage unpacker.
-chinesesimplified.PluginDescUnrar=RAR archive unpacker.
-chinesesimplified.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-chinesesimplified.PluginDescWmobile=Windows Mobile support.
-chinesesimplified.PluginDescZip=ZIP archive support.
 dutch.PluginSelectionTitle=Select plugins
 dutch.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-dutch.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-dutch.PluginColumnHeader=Install    Plugin                         Version        Description
+dutch.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+dutch.PluginColumnHeader=Install    Plugin                         Version
 dutch.PluginVersionBundled={#SamandarinVersion}
-dutch.PluginDesc7zip=7-Zip archive support.
-dutch.PluginDescAutomation=Automation and scripting support.
-dutch.PluginDescChecksum=Checksum calculation and verification.
-dutch.PluginDescDbviewer=Database file viewer.
-dutch.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-dutch.PluginDescDiskmap=Disk usage map viewer.
-dutch.PluginDescFilecomp=File comparison tools.
-dutch.PluginDescFolders=Folder shortcuts and navigation.
-dutch.PluginDescFtp=FTP client plugin.
-dutch.PluginDescHypervm=Hyper-V virtual machine tools.
-dutch.PluginDescIeviewer=Internet Explorer based viewer.
-dutch.PluginDescJsonviewer=JSON file viewer.
-dutch.PluginDescMmviewer=Multimedia viewer.
-dutch.PluginDescNethood=Network neighborhood browser.
-dutch.PluginDescPak=PAK archive support.
-dutch.PluginDescPeviewer=Portable Executable viewer.
-dutch.PluginDescPictview=Image viewer.
-dutch.PluginDescPortables=Portable devices support.
-dutch.PluginDescRegedt=Registry editor.
-dutch.PluginDescRenamer=Batch rename tools.
-dutch.PluginDescSalamandarin=Samandarin integration plugin.
-dutch.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-dutch.PluginDescServiceexplorer=Windows service explorer.
-dutch.PluginDescSplitcbn=Split and combine files.
-dutch.PluginDescTar=TAR archive support.
-dutch.PluginDescTextviewer=Text viewer.
-dutch.PluginDescUnarj=ARJ archive unpacker.
-dutch.PluginDescUncab=CAB archive unpacker.
-dutch.PluginDescUnchm=CHM archive unpacker.
-dutch.PluginDescUndelete=Deleted file recovery.
-dutch.PluginDescUnfat=FAT undelete support.
-dutch.PluginDescUniso=ISO image unpacker.
-dutch.PluginDescUnlha=LHA archive unpacker.
-dutch.PluginDescUnmime=MIME message unpacker.
-dutch.PluginDescUnole=OLE storage unpacker.
-dutch.PluginDescUnrar=RAR archive unpacker.
-dutch.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-dutch.PluginDescWmobile=Windows Mobile support.
-dutch.PluginDescZip=ZIP archive support.
 french.PluginSelectionTitle=Select plugins
 french.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-french.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-french.PluginColumnHeader=Install    Plugin                         Version        Description
+french.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+french.PluginColumnHeader=Install    Plugin                         Version
 french.PluginVersionBundled={#SamandarinVersion}
-french.PluginDesc7zip=7-Zip archive support.
-french.PluginDescAutomation=Automation and scripting support.
-french.PluginDescChecksum=Checksum calculation and verification.
-french.PluginDescDbviewer=Database file viewer.
-french.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-french.PluginDescDiskmap=Disk usage map viewer.
-french.PluginDescFilecomp=File comparison tools.
-french.PluginDescFolders=Folder shortcuts and navigation.
-french.PluginDescFtp=FTP client plugin.
-french.PluginDescHypervm=Hyper-V virtual machine tools.
-french.PluginDescIeviewer=Internet Explorer based viewer.
-french.PluginDescJsonviewer=JSON file viewer.
-french.PluginDescMmviewer=Multimedia viewer.
-french.PluginDescNethood=Network neighborhood browser.
-french.PluginDescPak=PAK archive support.
-french.PluginDescPeviewer=Portable Executable viewer.
-french.PluginDescPictview=Image viewer.
-french.PluginDescPortables=Portable devices support.
-french.PluginDescRegedt=Registry editor.
-french.PluginDescRenamer=Batch rename tools.
-french.PluginDescSalamandarin=Samandarin integration plugin.
-french.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-french.PluginDescServiceexplorer=Windows service explorer.
-french.PluginDescSplitcbn=Split and combine files.
-french.PluginDescTar=TAR archive support.
-french.PluginDescTextviewer=Text viewer.
-french.PluginDescUnarj=ARJ archive unpacker.
-french.PluginDescUncab=CAB archive unpacker.
-french.PluginDescUnchm=CHM archive unpacker.
-french.PluginDescUndelete=Deleted file recovery.
-french.PluginDescUnfat=FAT undelete support.
-french.PluginDescUniso=ISO image unpacker.
-french.PluginDescUnlha=LHA archive unpacker.
-french.PluginDescUnmime=MIME message unpacker.
-french.PluginDescUnole=OLE storage unpacker.
-french.PluginDescUnrar=RAR archive unpacker.
-french.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-french.PluginDescWmobile=Windows Mobile support.
-french.PluginDescZip=ZIP archive support.
 german.PluginSelectionTitle=Select plugins
 german.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-german.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-german.PluginColumnHeader=Install    Plugin                         Version        Description
+german.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+german.PluginColumnHeader=Install    Plugin                         Version
 german.PluginVersionBundled={#SamandarinVersion}
-german.PluginDesc7zip=7-Zip archive support.
-german.PluginDescAutomation=Automation and scripting support.
-german.PluginDescChecksum=Checksum calculation and verification.
-german.PluginDescDbviewer=Database file viewer.
-german.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-german.PluginDescDiskmap=Disk usage map viewer.
-german.PluginDescFilecomp=File comparison tools.
-german.PluginDescFolders=Folder shortcuts and navigation.
-german.PluginDescFtp=FTP client plugin.
-german.PluginDescHypervm=Hyper-V virtual machine tools.
-german.PluginDescIeviewer=Internet Explorer based viewer.
-german.PluginDescJsonviewer=JSON file viewer.
-german.PluginDescMmviewer=Multimedia viewer.
-german.PluginDescNethood=Network neighborhood browser.
-german.PluginDescPak=PAK archive support.
-german.PluginDescPeviewer=Portable Executable viewer.
-german.PluginDescPictview=Image viewer.
-german.PluginDescPortables=Portable devices support.
-german.PluginDescRegedt=Registry editor.
-german.PluginDescRenamer=Batch rename tools.
-german.PluginDescSalamandarin=Samandarin integration plugin.
-german.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-german.PluginDescServiceexplorer=Windows service explorer.
-german.PluginDescSplitcbn=Split and combine files.
-german.PluginDescTar=TAR archive support.
-german.PluginDescTextviewer=Text viewer.
-german.PluginDescUnarj=ARJ archive unpacker.
-german.PluginDescUncab=CAB archive unpacker.
-german.PluginDescUnchm=CHM archive unpacker.
-german.PluginDescUndelete=Deleted file recovery.
-german.PluginDescUnfat=FAT undelete support.
-german.PluginDescUniso=ISO image unpacker.
-german.PluginDescUnlha=LHA archive unpacker.
-german.PluginDescUnmime=MIME message unpacker.
-german.PluginDescUnole=OLE storage unpacker.
-german.PluginDescUnrar=RAR archive unpacker.
-german.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-german.PluginDescWmobile=Windows Mobile support.
-german.PluginDescZip=ZIP archive support.
 hungarian.PluginSelectionTitle=Select plugins
 hungarian.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-hungarian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-hungarian.PluginColumnHeader=Install    Plugin                         Version        Description
+hungarian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+hungarian.PluginColumnHeader=Install    Plugin                         Version
 hungarian.PluginVersionBundled={#SamandarinVersion}
-hungarian.PluginDesc7zip=7-Zip archive support.
-hungarian.PluginDescAutomation=Automation and scripting support.
-hungarian.PluginDescChecksum=Checksum calculation and verification.
-hungarian.PluginDescDbviewer=Database file viewer.
-hungarian.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-hungarian.PluginDescDiskmap=Disk usage map viewer.
-hungarian.PluginDescFilecomp=File comparison tools.
-hungarian.PluginDescFolders=Folder shortcuts and navigation.
-hungarian.PluginDescFtp=FTP client plugin.
-hungarian.PluginDescHypervm=Hyper-V virtual machine tools.
-hungarian.PluginDescIeviewer=Internet Explorer based viewer.
-hungarian.PluginDescJsonviewer=JSON file viewer.
-hungarian.PluginDescMmviewer=Multimedia viewer.
-hungarian.PluginDescNethood=Network neighborhood browser.
-hungarian.PluginDescPak=PAK archive support.
-hungarian.PluginDescPeviewer=Portable Executable viewer.
-hungarian.PluginDescPictview=Image viewer.
-hungarian.PluginDescPortables=Portable devices support.
-hungarian.PluginDescRegedt=Registry editor.
-hungarian.PluginDescRenamer=Batch rename tools.
-hungarian.PluginDescSalamandarin=Samandarin integration plugin.
-hungarian.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-hungarian.PluginDescServiceexplorer=Windows service explorer.
-hungarian.PluginDescSplitcbn=Split and combine files.
-hungarian.PluginDescTar=TAR archive support.
-hungarian.PluginDescTextviewer=Text viewer.
-hungarian.PluginDescUnarj=ARJ archive unpacker.
-hungarian.PluginDescUncab=CAB archive unpacker.
-hungarian.PluginDescUnchm=CHM archive unpacker.
-hungarian.PluginDescUndelete=Deleted file recovery.
-hungarian.PluginDescUnfat=FAT undelete support.
-hungarian.PluginDescUniso=ISO image unpacker.
-hungarian.PluginDescUnlha=LHA archive unpacker.
-hungarian.PluginDescUnmime=MIME message unpacker.
-hungarian.PluginDescUnole=OLE storage unpacker.
-hungarian.PluginDescUnrar=RAR archive unpacker.
-hungarian.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-hungarian.PluginDescWmobile=Windows Mobile support.
-hungarian.PluginDescZip=ZIP archive support.
 romanian.PluginSelectionTitle=Select plugins
 romanian.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-romanian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-romanian.PluginColumnHeader=Install    Plugin                         Version        Description
+romanian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+romanian.PluginColumnHeader=Install    Plugin                         Version
 romanian.PluginVersionBundled={#SamandarinVersion}
-romanian.PluginDesc7zip=7-Zip archive support.
-romanian.PluginDescAutomation=Automation and scripting support.
-romanian.PluginDescChecksum=Checksum calculation and verification.
-romanian.PluginDescDbviewer=Database file viewer.
-romanian.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-romanian.PluginDescDiskmap=Disk usage map viewer.
-romanian.PluginDescFilecomp=File comparison tools.
-romanian.PluginDescFolders=Folder shortcuts and navigation.
-romanian.PluginDescFtp=FTP client plugin.
-romanian.PluginDescHypervm=Hyper-V virtual machine tools.
-romanian.PluginDescIeviewer=Internet Explorer based viewer.
-romanian.PluginDescJsonviewer=JSON file viewer.
-romanian.PluginDescMmviewer=Multimedia viewer.
-romanian.PluginDescNethood=Network neighborhood browser.
-romanian.PluginDescPak=PAK archive support.
-romanian.PluginDescPeviewer=Portable Executable viewer.
-romanian.PluginDescPictview=Image viewer.
-romanian.PluginDescPortables=Portable devices support.
-romanian.PluginDescRegedt=Registry editor.
-romanian.PluginDescRenamer=Batch rename tools.
-romanian.PluginDescSalamandarin=Samandarin integration plugin.
-romanian.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-romanian.PluginDescServiceexplorer=Windows service explorer.
-romanian.PluginDescSplitcbn=Split and combine files.
-romanian.PluginDescTar=TAR archive support.
-romanian.PluginDescTextviewer=Text viewer.
-romanian.PluginDescUnarj=ARJ archive unpacker.
-romanian.PluginDescUncab=CAB archive unpacker.
-romanian.PluginDescUnchm=CHM archive unpacker.
-romanian.PluginDescUndelete=Deleted file recovery.
-romanian.PluginDescUnfat=FAT undelete support.
-romanian.PluginDescUniso=ISO image unpacker.
-romanian.PluginDescUnlha=LHA archive unpacker.
-romanian.PluginDescUnmime=MIME message unpacker.
-romanian.PluginDescUnole=OLE storage unpacker.
-romanian.PluginDescUnrar=RAR archive unpacker.
-romanian.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-romanian.PluginDescWmobile=Windows Mobile support.
-romanian.PluginDescZip=ZIP archive support.
 russian.PluginSelectionTitle=Select plugins
 russian.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-russian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-russian.PluginColumnHeader=Install    Plugin                         Version        Description
+russian.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+russian.PluginColumnHeader=Install    Plugin                         Version
 russian.PluginVersionBundled={#SamandarinVersion}
-russian.PluginDesc7zip=7-Zip archive support.
-russian.PluginDescAutomation=Automation and scripting support.
-russian.PluginDescChecksum=Checksum calculation and verification.
-russian.PluginDescDbviewer=Database file viewer.
-russian.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-russian.PluginDescDiskmap=Disk usage map viewer.
-russian.PluginDescFilecomp=File comparison tools.
-russian.PluginDescFolders=Folder shortcuts and navigation.
-russian.PluginDescFtp=FTP client plugin.
-russian.PluginDescHypervm=Hyper-V virtual machine tools.
-russian.PluginDescIeviewer=Internet Explorer based viewer.
-russian.PluginDescJsonviewer=JSON file viewer.
-russian.PluginDescMmviewer=Multimedia viewer.
-russian.PluginDescNethood=Network neighborhood browser.
-russian.PluginDescPak=PAK archive support.
-russian.PluginDescPeviewer=Portable Executable viewer.
-russian.PluginDescPictview=Image viewer.
-russian.PluginDescPortables=Portable devices support.
-russian.PluginDescRegedt=Registry editor.
-russian.PluginDescRenamer=Batch rename tools.
-russian.PluginDescSalamandarin=Samandarin integration plugin.
-russian.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-russian.PluginDescServiceexplorer=Windows service explorer.
-russian.PluginDescSplitcbn=Split and combine files.
-russian.PluginDescTar=TAR archive support.
-russian.PluginDescTextviewer=Text viewer.
-russian.PluginDescUnarj=ARJ archive unpacker.
-russian.PluginDescUncab=CAB archive unpacker.
-russian.PluginDescUnchm=CHM archive unpacker.
-russian.PluginDescUndelete=Deleted file recovery.
-russian.PluginDescUnfat=FAT undelete support.
-russian.PluginDescUniso=ISO image unpacker.
-russian.PluginDescUnlha=LHA archive unpacker.
-russian.PluginDescUnmime=MIME message unpacker.
-russian.PluginDescUnole=OLE storage unpacker.
-russian.PluginDescUnrar=RAR archive unpacker.
-russian.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-russian.PluginDescWmobile=Windows Mobile support.
-russian.PluginDescZip=ZIP archive support.
 slovak.PluginSelectionTitle=Select plugins
 slovak.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-slovak.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-slovak.PluginColumnHeader=Install    Plugin                         Version        Description
+slovak.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+slovak.PluginColumnHeader=Install    Plugin                         Version
 slovak.PluginVersionBundled={#SamandarinVersion}
-slovak.PluginDesc7zip=7-Zip archive support.
-slovak.PluginDescAutomation=Automation and scripting support.
-slovak.PluginDescChecksum=Checksum calculation and verification.
-slovak.PluginDescDbviewer=Database file viewer.
-slovak.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-slovak.PluginDescDiskmap=Disk usage map viewer.
-slovak.PluginDescFilecomp=File comparison tools.
-slovak.PluginDescFolders=Folder shortcuts and navigation.
-slovak.PluginDescFtp=FTP client plugin.
-slovak.PluginDescHypervm=Hyper-V virtual machine tools.
-slovak.PluginDescIeviewer=Internet Explorer based viewer.
-slovak.PluginDescJsonviewer=JSON file viewer.
-slovak.PluginDescMmviewer=Multimedia viewer.
-slovak.PluginDescNethood=Network neighborhood browser.
-slovak.PluginDescPak=PAK archive support.
-slovak.PluginDescPeviewer=Portable Executable viewer.
-slovak.PluginDescPictview=Image viewer.
-slovak.PluginDescPortables=Portable devices support.
-slovak.PluginDescRegedt=Registry editor.
-slovak.PluginDescRenamer=Batch rename tools.
-slovak.PluginDescSalamandarin=Samandarin integration plugin.
-slovak.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-slovak.PluginDescServiceexplorer=Windows service explorer.
-slovak.PluginDescSplitcbn=Split and combine files.
-slovak.PluginDescTar=TAR archive support.
-slovak.PluginDescTextviewer=Text viewer.
-slovak.PluginDescUnarj=ARJ archive unpacker.
-slovak.PluginDescUncab=CAB archive unpacker.
-slovak.PluginDescUnchm=CHM archive unpacker.
-slovak.PluginDescUndelete=Deleted file recovery.
-slovak.PluginDescUnfat=FAT undelete support.
-slovak.PluginDescUniso=ISO image unpacker.
-slovak.PluginDescUnlha=LHA archive unpacker.
-slovak.PluginDescUnmime=MIME message unpacker.
-slovak.PluginDescUnole=OLE storage unpacker.
-slovak.PluginDescUnrar=RAR archive unpacker.
-slovak.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-slovak.PluginDescWmobile=Windows Mobile support.
-slovak.PluginDescZip=ZIP archive support.
 spanish.PluginSelectionTitle=Select plugins
 spanish.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
-spanish.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder. DemoPlug is cleared by default.
-spanish.PluginColumnHeader=Install    Plugin                         Version        Description
+spanish.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+spanish.PluginColumnHeader=Install    Plugin                         Version
 spanish.PluginVersionBundled={#SamandarinVersion}
-spanish.PluginDesc7zip=7-Zip archive support.
-spanish.PluginDescAutomation=Automation and scripting support.
-spanish.PluginDescChecksum=Checksum calculation and verification.
-spanish.PluginDescDbviewer=Database file viewer.
-spanish.PluginDescDemoplug=Sample plugin for demonstrations and developers.
-spanish.PluginDescDiskmap=Disk usage map viewer.
-spanish.PluginDescFilecomp=File comparison tools.
-spanish.PluginDescFolders=Folder shortcuts and navigation.
-spanish.PluginDescFtp=FTP client plugin.
-spanish.PluginDescHypervm=Hyper-V virtual machine tools.
-spanish.PluginDescIeviewer=Internet Explorer based viewer.
-spanish.PluginDescJsonviewer=JSON file viewer.
-spanish.PluginDescMmviewer=Multimedia viewer.
-spanish.PluginDescNethood=Network neighborhood browser.
-spanish.PluginDescPak=PAK archive support.
-spanish.PluginDescPeviewer=Portable Executable viewer.
-spanish.PluginDescPictview=Image viewer.
-spanish.PluginDescPortables=Portable devices support.
-spanish.PluginDescRegedt=Registry editor.
-spanish.PluginDescRenamer=Batch rename tools.
-spanish.PluginDescSalamandarin=Samandarin integration plugin.
-spanish.PluginDescSalamatrix=Salamatrix automation matrix plugin.
-spanish.PluginDescServiceexplorer=Windows service explorer.
-spanish.PluginDescSplitcbn=Split and combine files.
-spanish.PluginDescTar=TAR archive support.
-spanish.PluginDescTextviewer=Text viewer.
-spanish.PluginDescUnarj=ARJ archive unpacker.
-spanish.PluginDescUncab=CAB archive unpacker.
-spanish.PluginDescUnchm=CHM archive unpacker.
-spanish.PluginDescUndelete=Deleted file recovery.
-spanish.PluginDescUnfat=FAT undelete support.
-spanish.PluginDescUniso=ISO image unpacker.
-spanish.PluginDescUnlha=LHA archive unpacker.
-spanish.PluginDescUnmime=MIME message unpacker.
-spanish.PluginDescUnole=OLE storage unpacker.
-spanish.PluginDescUnrar=RAR archive unpacker.
-spanish.PluginDescWebview2renderviewer=WebView2 based rendered viewer.
-spanish.PluginDescWmobile=Windows Mobile support.
-spanish.PluginDescZip=ZIP archive support.
 czech.PluginSelectionTitle=Výběr pluginů
 czech.PluginSelectionDescription=Zvolte, které přibalené pluginy se nainstalují nebo rozbalí.
-czech.PluginSelectionSubCaption=Vyberte pluginy ke zkopírování do složky plugins. DemoPlug není ve výchozím stavu vybraný.
-czech.PluginColumnHeader=Instalovat Plugin                        Verze         Popis
+czech.PluginSelectionSubCaption=Vyberte pluginy ke zkopírování do složky plugins.
+czech.PluginColumnHeader=Instalovat Plugin                        Verze
 czech.PluginVersionBundled={#SamandarinVersion}
-czech.PluginDesc7zip=Podpora archivů 7-Zip.
-czech.PluginDescAutomation=Podpora automatizace a skriptování.
-czech.PluginDescChecksum=Výpočet a ověřování kontrolních součtů.
-czech.PluginDescDbviewer=Prohlížeč databázových souborů.
-czech.PluginDescDemoplug=Ukázkový plugin pro demonstrace a vývojáře.
-czech.PluginDescDiskmap=Mapa využití disku.
-czech.PluginDescFilecomp=Nástroje pro porovnávání souborů.
-czech.PluginDescFolders=Záložky složek a navigace.
-czech.PluginDescFtp=FTP klient.
-czech.PluginDescHypervm=Nástroje pro virtuální počítače Hyper-V.
-czech.PluginDescIeviewer=Prohlížeč založený na Internet Exploreru.
-czech.PluginDescJsonviewer=Prohlížeč souborů JSON.
-czech.PluginDescMmviewer=Multimediální prohlížeč.
-czech.PluginDescNethood=Procházení síťového okolí.
-czech.PluginDescPak=Podpora archivů PAK.
-czech.PluginDescPeviewer=Prohlížeč Portable Executable.
-czech.PluginDescPictview=Prohlížeč obrázků.
-czech.PluginDescPortables=Podpora přenosných zařízení.
-czech.PluginDescRegedt=Editor registru.
-czech.PluginDescRenamer=Hromadné přejmenování.
-czech.PluginDescSalamandarin=Integrační plugin Samandarin.
-czech.PluginDescSalamatrix=Automatizační matrix plugin Salamatrix.
-czech.PluginDescServiceexplorer=Průzkumník služeb Windows.
-czech.PluginDescSplitcbn=Rozdělení a spojování souborů.
-czech.PluginDescTar=Podpora archivů TAR.
-czech.PluginDescTextviewer=Textový prohlížeč.
-czech.PluginDescUnarj=Rozbalování archivů ARJ.
-czech.PluginDescUncab=Rozbalování archivů CAB.
-czech.PluginDescUnchm=Rozbalování archivů CHM.
-czech.PluginDescUndelete=Obnova smazaných souborů.
-czech.PluginDescUnfat=Obnova smazaných souborů na FAT.
-czech.PluginDescUniso=Rozbalování obrazů ISO.
-czech.PluginDescUnlha=Rozbalování archivů LHA.
-czech.PluginDescUnmime=Rozbalování zpráv MIME.
-czech.PluginDescUnole=Rozbalování úložišť OLE.
-czech.PluginDescUnrar=Rozbalování archivů RAR.
-czech.PluginDescWebview2renderviewer=Renderovaný prohlížeč založený na WebView2.
-czech.PluginDescWmobile=Podpora Windows Mobile.
-czech.PluginDescZip=Podpora archivů ZIP.
 
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
@@ -2086,63 +1657,10 @@ begin
     Result := Result + ' ';
 end;
 
-function PluginDescriptionMessageName(const PluginId: String): String;
-begin
-  if CompareText(PluginId, '7zip') = 0 then Result := 'PluginDesc7zip'
-  else if CompareText(PluginId, 'automation') = 0 then Result := 'PluginDescAutomation'
-  else if CompareText(PluginId, 'checksum') = 0 then Result := 'PluginDescChecksum'
-  else if CompareText(PluginId, 'dbviewer') = 0 then Result := 'PluginDescDbviewer'
-  else if CompareText(PluginId, 'demoplug') = 0 then Result := 'PluginDescDemoplug'
-  else if CompareText(PluginId, 'diskmap') = 0 then Result := 'PluginDescDiskmap'
-  else if CompareText(PluginId, 'filecomp') = 0 then Result := 'PluginDescFilecomp'
-  else if CompareText(PluginId, 'folders') = 0 then Result := 'PluginDescFolders'
-  else if CompareText(PluginId, 'ftp') = 0 then Result := 'PluginDescFtp'
-  else if CompareText(PluginId, 'hypervm') = 0 then Result := 'PluginDescHypervm'
-  else if CompareText(PluginId, 'ieviewer') = 0 then Result := 'PluginDescIeviewer'
-  else if CompareText(PluginId, 'jsonviewer') = 0 then Result := 'PluginDescJsonviewer'
-  else if CompareText(PluginId, 'mmviewer') = 0 then Result := 'PluginDescMmviewer'
-  else if CompareText(PluginId, 'nethood') = 0 then Result := 'PluginDescNethood'
-  else if CompareText(PluginId, 'pak') = 0 then Result := 'PluginDescPak'
-  else if CompareText(PluginId, 'peviewer') = 0 then Result := 'PluginDescPeviewer'
-  else if CompareText(PluginId, 'pictview') = 0 then Result := 'PluginDescPictview'
-  else if CompareText(PluginId, 'portables') = 0 then Result := 'PluginDescPortables'
-  else if CompareText(PluginId, 'regedt') = 0 then Result := 'PluginDescRegedt'
-  else if CompareText(PluginId, 'renamer') = 0 then Result := 'PluginDescRenamer'
-  else if CompareText(PluginId, 'samandarin') = 0 then Result := 'PluginDescSalamandarin'
-  else if CompareText(PluginId, 'salamatrix') = 0 then Result := 'PluginDescSalamatrix'
-  else if CompareText(PluginId, 'serviceexplorer') = 0 then Result := 'PluginDescServiceexplorer'
-  else if CompareText(PluginId, 'splitcbn') = 0 then Result := 'PluginDescSplitcbn'
-  else if CompareText(PluginId, 'tar') = 0 then Result := 'PluginDescTar'
-  else if CompareText(PluginId, 'textviewer') = 0 then Result := 'PluginDescTextviewer'
-  else if CompareText(PluginId, 'unarj') = 0 then Result := 'PluginDescUnarj'
-  else if CompareText(PluginId, 'uncab') = 0 then Result := 'PluginDescUncab'
-  else if CompareText(PluginId, 'unchm') = 0 then Result := 'PluginDescUnchm'
-  else if CompareText(PluginId, 'undelete') = 0 then Result := 'PluginDescUndelete'
-  else if CompareText(PluginId, 'unfat') = 0 then Result := 'PluginDescUnfat'
-  else if CompareText(PluginId, 'uniso') = 0 then Result := 'PluginDescUniso'
-  else if CompareText(PluginId, 'unlha') = 0 then Result := 'PluginDescUnlha'
-  else if CompareText(PluginId, 'unmime') = 0 then Result := 'PluginDescUnmime'
-  else if CompareText(PluginId, 'unole') = 0 then Result := 'PluginDescUnole'
-  else if CompareText(PluginId, 'unrar') = 0 then Result := 'PluginDescUnrar'
-  else if CompareText(PluginId, 'webview2renderviewer') = 0 then Result := 'PluginDescWebview2renderviewer'
-  else if CompareText(PluginId, 'wmobile') = 0 then Result := 'PluginDescWmobile'
-  else if CompareText(PluginId, 'zip') = 0 then Result := 'PluginDescZip'
-  else Result := '';
-end;
-
 procedure AddPlugin(const PluginId, DisplayName: String; const CheckedByDefault: Boolean);
-var
-  DescriptionMessageName: String;
-  Description: String;
 begin
-  DescriptionMessageName := PluginDescriptionMessageName(PluginId);
-  if DescriptionMessageName <> '' then
-    Description := CustomMessage(DescriptionMessageName)
-  else
-    Description := '';
-
   PluginList.AddCheckBox(
-    PadRight(DisplayName, 30) + PadRight(CustomMessage('PluginVersionBundled'), 15) + Description,
+    PadRight(DisplayName, 30) + CustomMessage('PluginVersionBundled'),
     '',
     0,
     CheckedByDefault,
@@ -2382,7 +1900,6 @@ begin
     Top := ScaleY(28);
     Width := PluginSelectionPage.SurfaceWidth;
     AutoSize := False;
-    Font.Name := 'Courier New';
     Caption := CustomMessage('PluginColumnHeader');
   end;
 
@@ -2392,7 +1909,6 @@ begin
   PluginList.Top := ScaleY(48);
   PluginList.Width := PluginSelectionPage.SurfaceWidth;
   PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top;
-  PluginList.Font.Name := 'Courier New';
 
   AddPlugin('7zip', '7-Zip', True);
   AddPlugin('automation', 'Automation', True);
