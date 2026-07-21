@@ -352,6 +352,9 @@ STRINGTABLE
  IDS_TOOLONGNAME2, "Path to target directory is too long, press Skip button to skip whole directory.\n\nPath: %s\n\nName: %s"
 
  IDS_ERRORTITLE, "Error"
+ IDS_ELEVATEDRETRY_TITLE, "Administrator rights required"
+ IDS_ELEVATEDRETRY_PROMPT, "The operation failed because administrator rights may be required for:\n\n%s\n\nDo you want to retry the operation as administrator?"
+ IDS_ELEVATEDRETRY_BUTTON, "Retry as &Administrator"
 
  IDS_ERRORFINDINGFILE, "Error Finding File"
 

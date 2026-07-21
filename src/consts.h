@@ -2378,6 +2378,11 @@ BOOL IsProcessElevated();
 // na Windows Vista+ vraci TokenElevationTypeDefault/Full/Limited aktualniho procesu
 BOOL GetElevationType(TOKEN_ELEVATION_TYPE* elevationType);
 
+// centralni UAC heuristika pro souborove operace: vraci TRUE, pokud chyba typicky
+// znamena chybejici elevaci a ne-elevovanemu adminovi lze nabidnout opakovani jako spravce
+BOOL CanOfferElevatedRetryForFileError(DWORD error, const char* path);
+BOOL IsPathInElevatedWriteLocation(const char* path);
+
 //******************************************************************************
 
 // pro zajisteni uniku z odstranenych drivu na fixed drive (po vysunuti device - USB flash disk, atd.)

@@ -1509,6 +1509,93 @@ BOOL GetElevationType(TOKEN_ELEVATION_TYPE* elevationType)
     return bSuccess;
 }
 
+
+static BOOL NormalizePathForElevationCheck(const char* path, char* normalized, DWORD normalizedSize)
+{
+    if (path == NULL || *path == 0 || normalized == NULL || normalizedSize == 0)
+        return FALSE;
+
+    DWORD len = GetFullPathName(path, normalizedSize, normalized, NULL);
+    if (len == 0 || len >= normalizedSize)
+        return FALSE;
+
+    for (char* s = normalized; *s != 0; s++)
+    {
+        if (*s == '/')
+            *s = '\\';
+    }
+    return TRUE;
+}
+
+static BOOL PathHasPrefix(const char* path, const char* prefix)
+{
+    if (path == NULL || prefix == NULL || *prefix == 0)
+        return FALSE;
+
+    int prefixLen = (int)strlen(prefix);
+    while (prefixLen > 0 && (prefix[prefixLen - 1] == '\\' || prefix[prefixLen - 1] == '/'))
+        prefixLen--;
+
+    return _strnicmp(path, prefix, prefixLen) == 0 &&
+           (path[prefixLen] == 0 || path[prefixLen] == '\\' || path[prefixLen] == '/');
+}
+
+static BOOL GetEnvironmentPathForElevationCheck(const char* envName, char* path, DWORD pathSize)
+{
+    DWORD len = GetEnvironmentVariable(envName, path, pathSize);
+    return len > 0 && len < pathSize;
+}
+
+BOOL IsPathInElevatedWriteLocation(const char* path)
+{
+    char normalized[MAX_PATH];
+    char protectedPath[MAX_PATH];
+
+    if (!NormalizePathForElevationCheck(path, normalized, MAX_PATH))
+        return FALSE;
+
+    if (GetWindowsDirectory(protectedPath, MAX_PATH) > 0 && PathHasPrefix(normalized, protectedPath))
+        return TRUE;
+
+    if (GetSystemDirectory(protectedPath, MAX_PATH) > 0 && PathHasPrefix(normalized, protectedPath))
+        return TRUE;
+
+    if (GetEnvironmentPathForElevationCheck("ProgramFiles", protectedPath, MAX_PATH) &&
+        PathHasPrefix(normalized, protectedPath))
+        return TRUE;
+
+    if (GetEnvironmentPathForElevationCheck("ProgramFiles(x86)", protectedPath, MAX_PATH) &&
+        PathHasPrefix(normalized, protectedPath))
+        return TRUE;
+
+    if (GetEnvironmentPathForElevationCheck("ProgramW6432", protectedPath, MAX_PATH) &&
+        PathHasPrefix(normalized, protectedPath))
+        return TRUE;
+
+    return FALSE;
+}
+
+BOOL CanOfferElevatedRetryForFileError(DWORD error, const char* path)
+{
+    switch (error)
+    {
+    case ERROR_ACCESS_DENIED:
+    case ERROR_PRIVILEGE_NOT_HELD:
+    case ERROR_ELEVATION_REQUIRED:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (IsProcessElevated() || !IsUserInAdministratorsGroup())
+        return FALSE;
+
+    // For now offer elevation only for well-known protected local locations.  This
+    // avoids training users to elevate for ordinary sharing/ACL failures and keeps
+    // the future broker's allowed operation set small and auditable.
+    return IsPathInElevatedWriteLocation(path);
+}
+
 struct CSrcSecurity // helper structure for keeping security info for MoveFile (the source disappears after the operation, its security info must be stored beforehand)
 {
     PSID SrcOwner;
