@@ -3,8 +3,6 @@ name: CodeQL Security Scan
 on:
   pull_request:
     branches: [main, darkmode, dev_tabs, 'release/*']
-  pull_request_review:
-    types: [submitted]
   workflow_dispatch:
     inputs:
       target-ref:
@@ -42,7 +40,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            if (context.eventName !== 'pull_request' && context.eventName !== 'pull_request_review') {
+            if (context.eventName !== 'pull_request') {
               core.setOutput('should_analyze', 'true');
               core.info('Not a pull request event; CodeQL analysis will run.');
               return;
@@ -76,29 +74,8 @@ jobs:
               return;
             }
 
-            const reviews = await github.paginate(
-              github.rest.pulls.listReviews,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pull.number,
-                per_page: 100,
-              },
-            );
-
-            const latestReviewByUser = new Map();
-            for (const review of reviews) {
-              latestReviewByUser.set(review.user.login, review.state);
-            }
-            const approved = Array.from(latestReviewByUser.values()).includes('APPROVED');
-            if (!approved) {
-              core.setOutput('should_analyze', 'false');
-              core.setFailed(`CodeQL analysis is required because these main-project .cpp/.h files changed, but the PR has no approval yet: ${relevantFiles.join(', ')}`);
-              return;
-            }
-
             core.setOutput('should_analyze', 'true');
-            core.info(`CodeQL analysis will run because the PR is approved and these main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`);
+            core.info(`CodeQL analysis will run because these main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`);
 
       - name: Checkout repository
         if: steps.codeql_gate.outputs.should_analyze == 'true'
