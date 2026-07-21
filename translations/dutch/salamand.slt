@@ -1059,6 +1059,10 @@ SLGINCOMPLETE,""
 1151,2,17,204,8,1,"Een uitgebreide lijst met sneltoetsen staat ter beschikking in"
 1111,198,17,20,8,1,"'hulp'"
 1152,2,31,282,32,1,"U kunt sneltoetsen voor de plugin kommandos definiëren:\r 1. Uit het Plugin menu kies Plugins Manager\r  2. Kies de gewenste plugin\r  3. Klik de knop 'Toetsenbord'"
+1115,2,76,178,8,1,"Functies van enkele toetsen instellen:"
+1112,2,91,297,48,1,"Backspace-toets in het paneel"
+1113,12,105,115,12,1,"&Bovenliggende map"
+1114,12,120,150,12,1,"&Terug in geschiedenis"
 
 [DIALOG 1120]
 353,89,1,"Fout bij attributen zetten"

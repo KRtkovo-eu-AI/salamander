@@ -1059,6 +1059,10 @@ SLGINCOMPLETE,""
 1151,2,17,216,8,1,"Eine umfangreiche Liste der Tastaturbelegung finden Sie in der"
 1111,198,17,17,8,1,"Hilfe"
 1152,2,31,282,32,1,"Sie können für die Plugin-Befehle die Tastaturbelegung festlegen:\r  1. Wählen Sie 'Plugins anpassen' im Plugins-Menü\r  2. Wählen Sie das gewünschte Plugin\r  3. Klicken Sie die Schaltfläche 'Tastatur'"
+1115,2,76,110,8,1,"Funktionen einiger Tasten:"
+1112,2,91,282,48,1,"Rücktaste im Fenster"
+1113,12,105,173,12,1,"&Übergeordnetes Verzeichnis"
+1114,12,120,122,12,1,"&Zurück in Verlauf"
 
 [DIALOG 1120]
 353,89,1,"Fehler beim Festlegen der Attribute"
