@@ -1919,7 +1919,8 @@ public:
 #define TLBHDRMASK_SORT 0x08
 #define TLBHDRMASK_UP 0x10
 #define TLBHDRMASK_DOWN 0x20
-#define TLBHDRMASK_FILTER 0x40
+#define TLBHDRMASK_TOP 0x40
+#define TLBHDRMASK_FILTER 0x80
 
 // Identifikace tlacitek pro WM_COMMAND, viz SetNotifyWindow()
 #define TLBHDR_MODIFY 1
@@ -1928,9 +1929,10 @@ public:
 #define TLBHDR_SORT 4
 #define TLBHDR_UP 5
 #define TLBHDR_DOWN 6
-#define TLBHDR_FILTER 7
+#define TLBHDR_TOP 7
+#define TLBHDR_FILTER 8
 // Pocet polozek
-#define TLBHDR_COUNT 7
+#define TLBHDR_COUNT 8
 
 class CGUIToolbarHeaderAbstract
 {

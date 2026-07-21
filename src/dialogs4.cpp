@@ -2004,14 +2004,14 @@ void CCfgPageView::EnableHeader()
         if (selectedColumnIndex >= 0)
         {
             if (colIndex > 1 && GetAvailableColumnIndex(HListView2, colIndex - 1) >= 0)
-                mask |= TLBHDRMASK_UP;
+                mask |= TLBHDRMASK_UP | TLBHDRMASK_TOP;
             if (colIndex > 0 && colIndex < CFGP2ItemsCount - 1 && GetAvailableColumnIndex(HListView2, colIndex + 1) >= 0)
                 mask |= TLBHDRMASK_DOWN;
         }
         else
         {
             if (colIndex > CFGP2ExplorerColumnsStart && GetAvailableColumnIndex(HListView2, colIndex - 1) < 0)
-                mask |= TLBHDRMASK_UP;
+                mask |= TLBHDRMASK_UP | TLBHDRMASK_TOP;
             if (colIndex < ListView_GetItemCount(HListView2) - 1 && GetAvailableColumnIndex(HListView2, colIndex + 1) < 0)
                 mask |= TLBHDRMASK_DOWN;
         }
@@ -2101,7 +2101,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HListView2 = GetDlgItem(HWindow, IDC_VIEW_LIST2);
         Header = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER, HListView,
                                     TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE);
-        Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2, TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_FILTER);
+        Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2, TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_FILTER);
         HAvailableColumnsFilter = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
                                                  WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
                                                  0, 0, 0, 0, HWindow,
@@ -2591,16 +2591,49 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 ToggleAvailableColumnsFilter();
             }
-            else if (HIWORD(wParam) == TLBHDR_UP || HIWORD(wParam) == TLBHDR_DOWN)
+            else if (HIWORD(wParam) == TLBHDR_TOP || HIWORD(wParam) == TLBHDR_UP || HIWORD(wParam) == TLBHDR_DOWN)
             {
                 int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
                 int item = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
                 int item2 = HIWORD(wParam) == TLBHDR_UP ? item - 1 : item + 1;
                 int columnIndex = GetAvailableColumnIndex(HListView2, item);
                 int columnIndex2 = GetAvailableColumnIndex(HListView2, item2);
-                if (index >= 2 && item > 0 && item2 > 0 &&
-                    ((columnIndex >= 0 && columnIndex2 >= 0 && item2 < CFGP2ItemsCount) ||
-                     (columnIndex < 0 && columnIndex2 < 0 && item >= CFGP2ExplorerColumnsStart && item2 >= CFGP2ExplorerColumnsStart)))
+                if (HIWORD(wParam) == TLBHDR_TOP)
+                {
+                    int topItem = columnIndex >= 0 ? 1 : CFGP2ExplorerColumnsStart;
+                    if (index >= 2 && item > topItem &&
+                        ((columnIndex >= 0 && item < CFGP2ItemsCount) ||
+                         (columnIndex < 0 && item >= CFGP2ExplorerColumnsStart)))
+                    {
+                        StoreControls();
+                        if (columnIndex >= 0)
+                        {
+                            BYTE tmp = Config.Items[index].ColumnOrder[item];
+                            memmove(Config.Items[index].ColumnOrder + topItem + 1,
+                                    Config.Items[index].ColumnOrder + topItem,
+                                    item - topItem);
+                            Config.Items[index].ColumnOrder[topItem] = tmp;
+                        }
+                        else
+                        {
+                            int explorerItem = item - CFGP2ExplorerColumnsStart;
+                            WORD tmp = Config.Items[index].ExplorerColumnOrder[explorerItem];
+                            memmove(Config.Items[index].ExplorerColumnOrder + 1,
+                                    Config.Items[index].ExplorerColumnOrder,
+                                    explorerItem * sizeof(WORD));
+                            Config.Items[index].ExplorerColumnOrder[0] = tmp;
+                        }
+                        ListView_DeleteAllItems(HListView2);
+                        LoadControls();
+                        ListView_SetItemState(HListView2, -1, 0, LVIS_FOCUSED | LVIS_SELECTED);
+                        ListView_SetItemState(HListView2, topItem, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+                        ListView_EnsureVisible(HListView2, topItem, FALSE);
+                        Dirty = TRUE;
+                    }
+                }
+                else if (index >= 2 && item > 0 && item2 > 0 &&
+                         ((columnIndex >= 0 && columnIndex2 >= 0 && item2 < CFGP2ItemsCount) ||
+                          (columnIndex < 0 && columnIndex2 < 0 && item >= CFGP2ExplorerColumnsStart && item2 >= CFGP2ExplorerColumnsStart)))
                 {
                     StoreControls();
                     if (columnIndex >= 0)
