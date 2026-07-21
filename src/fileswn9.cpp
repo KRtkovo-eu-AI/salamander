@@ -1219,6 +1219,66 @@ void CFilesWindow::OfferArchiveUpdateIfNeeded(HWND parent, int textID, BOOL* arc
     EndStopRefresh();
 }
 
+
+static void AppendTipLine(char* text, int textSize, int resID, const char* value)
+{
+    if (value == NULL || value[0] == 0 || text == NULL || textSize <= 0)
+        return;
+    int len = (int)strlen(text);
+    if (len > 0 && len < textSize - 1)
+    {
+        text[len++] = '\n';
+        text[len] = 0;
+    }
+    _snprintf_s(text + len, textSize - len, _TRUNCATE, LoadStr(resID), value);
+}
+
+static void FormatTipFileTime(const FILETIME* ft, char* buf, int bufSize)
+{
+    buf[0] = 0;
+    FILETIME localFT;
+    SYSTEMTIME st;
+    char date[80];
+    char time[80];
+    date[0] = 0;
+    time[0] = 0;
+    if (FileTimeToLocalFileTime(ft, &localFT) && FileTimeToSystemTime(&localFT, &st))
+    {
+        GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, date, _countof(date));
+        GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, time, _countof(time));
+        _snprintf_s(buf, bufSize, _TRUNCATE, "%s %s", date, time);
+    }
+}
+
+void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
+{
+    CALL_STACK_MESSAGE2("CFilesWindow::GetPanelItemToolTip(0x%X, , )", id);
+    if (text == NULL || textSize <= 0)
+        return;
+    text[0] = 0;
+    int index = (int)id - 1;
+    if (index < 0 || index >= Dirs->Count + Files->Count)
+        return;
+
+    BOOL isDir = index < Dirs->Count;
+    const CFileData* f = isDir ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
+    AppendTipLine(text, textSize, IDS_PANELTIP_NAME, f->Name);
+
+    const char* type = isDir ? LoadStr(IDS_PANELTIP_KIND_DIRECTORY) : (f->Ext != NULL && f->Ext[0] != 0 ? f->Ext + 1 : LoadStr(IDS_PANELTIP_KIND_FILE));
+    AppendTipLine(text, textSize, IDS_PANELTIP_TYPE, type);
+
+    char timeBuf[160];
+    FormatTipFileTime(&f->LastWrite, timeBuf, _countof(timeBuf));
+    AppendTipLine(text, textSize, IDS_PANELTIP_MODIFIED, timeBuf);
+
+    if (!isDir || f->SizeValid)
+    {
+        char sizeBuf[100];
+        PrintDiskSize(sizeBuf, f->Size, 1);
+        AppendTipLine(text, textSize, IDS_PANELTIP_SIZE, sizeBuf);
+    }
+}
+
 BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
 {
     CALL_STACK_MESSAGE_NONE
@@ -1361,6 +1421,21 @@ BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
             }
         }
         return TRUE;
+    }
+
+    if ((wParam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) == 0)
+    {
+        int x = (short)LOWORD(lParam);
+        int y = (short)HIWORD(lParam);
+        int index = -1;
+        if (x >= ListBox->FilesRect.left && x < ListBox->FilesRect.right &&
+            y >= ListBox->FilesRect.top && y < ListBox->FilesRect.bottom)
+        {
+            index = GetIndex(x, y);
+            if (index < 0 || index >= Dirs->Count + Files->Count)
+                index = -1;
+        }
+        SetCurrentToolTip(index >= 0 ? GetListBoxHWND() : NULL, index >= 0 ? (DWORD)index + 1 : 0);
     }
 
     if (Configuration.SingleClick)
@@ -1519,6 +1594,7 @@ BOOL CFilesWindow::OnCaptureChanged(WPARAM wParam, LPARAM lParam, LRESULT* lResu
 BOOL CFilesWindow::OnCancelMode(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
 {
     CALL_STACK_MESSAGE_NONE
+    SetCurrentToolTip(NULL, 0);
     if (GetCapture() == GetListBoxHWND())
         ReleaseCapture();
     if (BeginDragDrop)
