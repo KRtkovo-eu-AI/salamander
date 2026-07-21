@@ -522,6 +522,43 @@ LPITEMIDLIST SHILCreateFromPath(LPCSTR pszPath)
 }
 
 // comment see spl_gen.h/GetFileIcon
+
+static BOOL IsIconFilePath(LPCTSTR path)
+{
+    if (path == NULL)
+        return FALSE;
+
+    LPCTSTR slash = strrchr(path, '\\');
+    LPCTSTR slash2 = strrchr(path, '/');
+    if (slash2 != NULL && (slash == NULL || slash2 > slash))
+        slash = slash2;
+
+    LPCTSTR dot = strrchr(path, '.');
+    return dot != NULL && (slash == NULL || dot > slash) && stricmp(dot + 1, "ico") == 0;
+}
+
+static BOOL LoadIcoFileSmallIcon(LPCTSTR path, HICON* hIcon)
+{
+    if (hIcon == NULL)
+        return FALSE;
+
+    *hIcon = NULL;
+    if (!IsIconFilePath(path))
+        return FALSE;
+
+    int iconSize = IconSizes[ICONSIZE_16];
+    *hIcon = (HICON)HANDLES(LoadImage(NULL, path, IMAGE_ICON, iconSize, iconSize,
+                                       LR_LOADFROMFILE | IconLRFlags));
+    if (*hIcon != NULL)
+        return TRUE;
+
+    if (ExtractIcons(path, 0, iconSize, iconSize, hIcon, NULL, 1, IconLRFlags) == 1 && *hIcon != NULL)
+        return TRUE;
+
+    *hIcon = NULL;
+    return FALSE;
+}
+
 BOOL GetFileIcon(const char* path, BOOL pathIsPIDL, HICON* hIcon, CIconSizeEnum iconSize,
                  BOOL fallbackToDefIcon, BOOL defIconIsDir)
 {
@@ -539,6 +576,9 @@ BOOL GetFileIcon(const char* path, BOOL pathIsPIDL, HICON* hIcon, CIconSizeEnum 
   else
     TRACE_I("GetFileIcon() pathIsPIDL"); // not used by Salamander itself, only by the Folders plugin
 */
+    if (!pathIsPIDL && iconSize == ICONSIZE_16 && LoadIcoFileSmallIcon(path, hIcon))
+        return TRUE;
+
     if (!pathIsPIDL)
         pidlFull = SHILCreateFromPath(path);
     else
