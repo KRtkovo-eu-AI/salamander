@@ -1635,6 +1635,13 @@ begin
     Result := ' ' + Result;
 end;
 
+function PadRight(const Value: String; const Width: Integer): String;
+begin
+  Result := Value;
+  while Length(Result) < Width do
+    Result := Result + ' ';
+end;
+
 function GetInstalledPluginVersion(const PluginId: String): String;
 var
   I: Integer;
@@ -1665,11 +1672,70 @@ begin
     Result := Result + ' (x64)';
 end;
 
+function StripX64Suffix(const Version: String): String;
+begin
+  Result := Version;
+  StringChangeEx(Result, '(x64)', '', True);
+  Result := Trim(Result);
+end;
+
+function ExtractNextVersionNumber(var Version: String): Integer;
+var
+  I: Integer;
+  Part: String;
+begin
+  I := Pos('.', Version);
+  if I = 0 then
+  begin
+    Part := Version;
+    Version := '';
+  end
+  else
+  begin
+    Part := Copy(Version, 1, I - 1);
+    Version := Copy(Version, I + 1, Length(Version) - I);
+  end;
+
+  Result := StrToIntDef(Part, 0);
+end;
+
+function ComparePluginVersions(LeftVersion, RightVersion: String): Integer;
+var
+  LeftPart: Integer;
+  RightPart: Integer;
+begin
+  LeftVersion := StripX64Suffix(LeftVersion);
+  RightVersion := StripX64Suffix(RightVersion);
+  Result := 0;
+
+  while (LeftVersion <> '') or (RightVersion <> '') do
+  begin
+    LeftPart := ExtractNextVersionNumber(LeftVersion);
+    RightPart := ExtractNextVersionNumber(RightVersion);
+
+    if LeftPart > RightPart then
+    begin
+      Result := 1;
+      Exit;
+    end
+    else if LeftPart < RightPart then
+    begin
+      Result := -1;
+      Exit;
+    end;
+  end;
+end;
+
+function IsInstallerPluginVersionNewer(const InstallerVersion, InstalledVersion: String): Boolean;
+begin
+  Result := (InstalledVersion <> '') and (ComparePluginVersions(InstallerVersion, InstalledVersion) > 0);
+end;
+
 function FormatPluginVersionText(const InstallerVersion, InstalledVersion: String): String;
 begin
-  Result := EnsureX64Suffix(InstallerVersion);
+  Result := PadRight(EnsureX64Suffix(InstallerVersion), 14);
   if InstalledVersion <> '' then
-    Result := Result + '; ' + CustomMessage('InstalledVersionLabel') + ' ' + EnsureX64Suffix(InstalledVersion);
+    Result := Result + CustomMessage('InstalledVersionLabel') + ' ' + EnsureX64Suffix(InstalledVersion);
 end;
 
 procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
@@ -1686,8 +1752,8 @@ begin
     False,
     False,
     nil);
-  if InstalledVersion <> '' then
-    PluginList.SubItemFontStyle[PluginList.Items.Count - 1] := [fsItalic];
+  if IsInstallerPluginVersionNewer(Version, InstalledVersion) then
+    PluginList.SubItemFontStyle[PluginList.Items.Count - 1] := [fsBold];
   SetArrayLength(PluginIds, GetArrayLength(PluginIds) + 1);
   PluginIds[GetArrayLength(PluginIds) - 1] := PluginId;
 end;
