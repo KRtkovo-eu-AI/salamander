@@ -57,3 +57,12 @@ not set `SHELLEXECUTEINFO::hwnd`, treats `ERROR_CANCELLED` as user cancellation,
 and restores focus to the owner instead of reporting cancellation as a normal
 operation failure. Plugin or setup code that cannot link to the main wrapper
 should mirror the same behavior locally.
+
+## Current integration points
+
+The first connected file-operation path is direct file deletion: when `DeleteFile`
+fails in the worker with an elevation-candidate error, Salamander shows the retry
+prompt and routes the confirmed operation through `RunElevatedFileOperation()` with
+the `delete-file` broker verb. Copy, move, directory delete, and attribute changes
+should follow the same helper once their existing retry/skip UI paths are split
+cleanly enough to preserve current progress-dialog semantics.

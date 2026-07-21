@@ -1664,6 +1664,36 @@ DWORD RunElevatedFileOperation(HWND parent, const char* verb, const char* source
     return exitCode;
 }
 
+
+#ifndef MB_ICONSHIELD
+#define MB_ICONSHIELD 0x00004000L
+#endif
+
+static BOOL ConfirmAndRunElevatedFileOperation(HWND parent, DWORD originalError, const char* pathForCheck,
+                                               const char* verb, const char* source, const char* target,
+                                               DWORD attributes, BOOL useAttributes, DWORD* resultError)
+{
+    if (resultError != NULL)
+        *resultError = originalError;
+
+    if (!CanOfferElevatedRetryForFileError(originalError, pathForCheck))
+        return FALSE;
+
+    char prompt[2 * MAX_PATH + 400];
+    sprintf(prompt, LoadStr(IDS_ELEVATEDRETRY_PROMPT), pathForCheck != NULL ? pathForCheck : "");
+    if (MessageBox(parent, prompt, LoadStr(IDS_ELEVATEDRETRY_TITLE), MB_YESNO | MB_ICONSHIELD | MB_DEFBUTTON2) != IDYES)
+    {
+        if (resultError != NULL)
+            *resultError = ERROR_CANCELLED;
+        return TRUE;
+    }
+
+    DWORD elevatedError = RunElevatedFileOperation(parent, verb, source, target, attributes, useAttributes);
+    if (resultError != NULL)
+        *resultError = elevatedError;
+    return TRUE;
+}
+
 struct CSrcSecurity // helper structure for keeping security info for MoveFile (the source disappears after the operation, its security info must be stored beforehand)
 {
     PSID SrcOwner;
@@ -6487,7 +6517,12 @@ BOOL DoDeleteFile(HWND hProgressDlg, char* name, const CQuadWord& size, COperati
             else
             {
                 if (DeleteFile(name) == 0)
+                {
                     err = GetLastError();
+                    DWORD elevatedErr;
+                    if (ConfirmAndRunElevatedFileOperation(hProgressDlg, err, name, "delete-file", name, NULL, 0, FALSE, &elevatedErr))
+                        err = elevatedErr;
+                }
             }
         }
         else
