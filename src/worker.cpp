@@ -1680,7 +1680,18 @@ static BOOL ConfirmAndRunElevatedFileOperation(HWND parent, DWORD originalError,
         return FALSE;
 
     char prompt[2 * MAX_PATH + 400];
-    sprintf(prompt, LoadStr(IDS_ELEVATEDRETRY_PROMPT), pathForCheck != NULL ? pathForCheck : "");
+    const char* promptTemplate = LoadStr(IDS_ELEVATEDRETRY_PROMPT);
+    const char* pathText = (pathForCheck != NULL) ? pathForCheck : "";
+    const char* placeholder = strstr(promptTemplate, "%s");
+    if (placeholder != NULL)
+    {
+        snprintf(prompt, sizeof(prompt), "%.*s%s%s",
+                 (int)(placeholder - promptTemplate), promptTemplate, pathText, placeholder + 2);
+    }
+    else
+    {
+        snprintf(prompt, sizeof(prompt), "%s%s", promptTemplate, pathText);
+    }
     if (MessageBox(parent, prompt, LoadStr(IDS_ELEVATEDRETRY_TITLE), MB_YESNO | MB_ICONSHIELD | MB_DEFBUTTON2) != IDYES)
     {
         if (resultError != NULL)
