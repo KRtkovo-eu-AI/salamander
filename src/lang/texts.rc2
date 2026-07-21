@@ -222,6 +222,7 @@ STRINGTABLE
  IDS_MENU_HELP_ABOUT,        "&About Open Salamander: Samandarin"
  IDS_MENU_HELP_CHECKUPDATES, "Check &updates now"
  IDS_MENU_HELP_PLUGINUPDATES, "Check &Plugin updates..."
+ IDS_PLUGINUPDATES, "&Updates"
 
 //
 // find file menu

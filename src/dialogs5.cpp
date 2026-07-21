@@ -34,6 +34,25 @@ bool ShouldUsePluginsDarkPalette()
     return DarkModeShouldUseDarkColors();
 }
 
+BOOL GetLoadedSamandarinUpdateNotifier(CPluginData** plugin)
+{
+    int samandarinIndex;
+    if (Plugins.FindDLL("samandarin\\samandarin.spl", samandarinIndex))
+    {
+        CPluginData* samandarin = Plugins.Get(samandarinIndex);
+        if (samandarin != NULL && samandarin->GetLoaded())
+        {
+            if (plugin != NULL)
+                *plugin = samandarin;
+            return TRUE;
+        }
+    }
+
+    if (plugin != NULL)
+        *plugin = NULL;
+    return FALSE;
+}
+
 void SetPluginManagerText(HWND ctrl, const char* text)
 {
     if (text == NULL)
@@ -265,6 +284,13 @@ void CPluginsDlg::EnableButtons(CPluginData* plugin)
         (plugin == NULL || plugin->MenuItems.Count == 0 && !plugin->SupportDynMenuExt))
         changeFocus = TRUE;
     EnableWindow(GetDlgItem(HWindow, IDB_PLUGINKEYS), plugin != NULL && (plugin->MenuItems.Count > 0 || plugin->SupportDynMenuExt));
+
+    HWND updates = GetDlgItem(HWindow, IDB_PLUGINUPDATES);
+    BOOL updatesVisible = GetLoadedSamandarinUpdateNotifier(NULL);
+    if (updates == focus && !updatesVisible)
+        changeFocus = TRUE;
+    ShowWindow(updates, updatesVisible ? SW_SHOW : SW_HIDE);
+    EnableWindow(updates, updatesVisible);
 
     if (changeFocus)
     {
@@ -594,6 +620,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // copy the "Installed Plugins:" text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINHEADER, InstalledPluginsText, 200);
+
+        SetWindowText(GetDlgItem(HWindow, IDB_PLUGINUPDATES), LoadStr(IDS_PLUGINUPDATES));
 
         // Add will have a drop-down
         // new CButton(HWindow, IDB_PLUGINADD, BTF_DROPDOWN);
@@ -996,6 +1024,17 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
                 strcpy(FocusPlugin, s);
                 PostMessage(HWindow, WM_COMMAND, IDOK, 0);
+            }
+            return 0;
+        }
+
+        case IDB_PLUGINUPDATES:
+        {
+            CPluginData* samandarin;
+            if (GetLoadedSamandarinUpdateNotifier(&samandarin))
+            {
+                BOOL unselect;
+                samandarin->ExecuteMenuItem2(MainWindow->GetActivePanel(), HWindow, -1, 2, unselect);
             }
             return 0;
         }

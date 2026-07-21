@@ -2285,6 +2285,7 @@
 #define IDS_MENU_HELP_FORUM          13202
 #define IDS_MENU_HELP_CHECKUPDATES   13203
 #define IDS_MENU_HELP_PLUGINUPDATES  13204
+#define IDS_PLUGINUPDATES             13205
 
 //
 // find file menu
