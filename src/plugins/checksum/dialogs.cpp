@@ -19,6 +19,7 @@ CThreadQueue ThreadQueue("CheckSum Dialogs and Workers"); // list of all dialog 
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 
 #define CM_REMOVEITEM 100
+#define CM_COPYALLVALUES 101
 
 // even for small files we want to move the progress bar
 // originally this constant was 1, but the progress behaved very non-linearly when processing thousands
@@ -1105,8 +1106,6 @@ void CCalculateDialog::OnContextMenu(int x, int y, eHASH_TYPE forceCopyHash)
     mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID;
     mii.Type = MENU_TYPE_STRING;
 
-    bool bSomeValue = false;
-
     int forcedHashIndex = -1;
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for Translator
@@ -1119,6 +1118,7 @@ MENU_TEMPLATE_ITEM CalculateDialogMenu[] =
   {MNTT_IT, IDS_COPYTOCBOARD_SHA1
   {MNTT_IT, IDS_COPYTOCBOARD_SHA256
   {MNTT_IT, IDS_COPYTOCBOARD_SHA512
+  {MNTT_IT, IDS_COPYALLTOCBOARD
   {MNTT_IT, IDS_REMOVEITEM
   {MNTT_PE, 0
 };
@@ -1138,15 +1138,17 @@ MENU_TEMPLATE_ITEM CalculateDialogMenu[] =
                 popup->InsertItem(-1, TRUE, &mii);
                 if (forceCopyHash != HT_COUNT && forceCopyHash == i)
                     forcedHashIndex = mii.ID;
-                bSomeValue = true;
             }
         }
     }
-    if (bSomeValue)
-    {
-        mii.Type = MENU_TYPE_SEPARATOR;
-        popup->InsertItem(-1, TRUE, &mii);
-    }
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID;
+    mii.Type = MENU_TYPE_STRING;
+    mii.String = LoadStr(IDS_COPYALLTOCBOARD);
+    mii.ID = CM_COPYALLVALUES;
+    popup->InsertItem(-1, TRUE, &mii);
+
+    mii.Type = MENU_TYPE_SEPARATOR;
+    popup->InsertItem(-1, TRUE, &mii);
 
     mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID | MENU_MASK_STATE;
     mii.Type = MENU_TYPE_STRING;
@@ -1163,6 +1165,37 @@ MENU_TEMPLATE_ITEM CalculateDialogMenu[] =
     if (id == CM_REMOVEITEM)
     {
         DeleteItem(focIndex);
+    }
+    else if (id == CM_COPYALLVALUES)
+    {
+        std::string rowText;
+        if (focIndex >= 0 && focIndex < FileList.Count)
+        {
+            char num[64];
+            SalamanderGeneral->NumberToStr(num, FileList[focIndex]->Size);
+
+            rowText = LoadStr(IDS_COLUMN_FILE);
+            rowText += ": ";
+            rowText += FileList[focIndex]->Name != NULL ? FileList[focIndex]->Name : "";
+            rowText += "\r\n";
+
+            rowText += LoadStr(IDS_COLUMN_SIZE);
+            rowText += ": ";
+            rowText += num;
+
+            for (int hashIndex = 0; hashIndex < HT_COUNT; hashIndex++)
+            {
+                if (HashInfo[hashIndex].bCalculate)
+                {
+                    rowText += "\r\n";
+                    rowText += LoadStr(HashInfo[hashIndex].idColumnHeader);
+                    rowText += ": ";
+                    if (FileList[focIndex]->Hashes[hashIndex] != NULL)
+                        rowText += FileList[focIndex]->Hashes[hashIndex];
+                }
+            }
+        }
+        SalamanderGeneral->CopyTextToClipboard(rowText.c_str(), -1, FALSE, NULL);
     }
     else if ((id >= 1) && (id <= HT_COUNT))
     {

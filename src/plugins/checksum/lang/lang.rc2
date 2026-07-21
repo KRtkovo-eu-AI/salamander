@@ -30,6 +30,7 @@ STRINGTABLE
  IDS_COPYTOCBOARD_SHA1 "Copy SHA-&1 Checksum to Clipboard\tCtrl+1"
  IDS_COPYTOCBOARD_SHA256 "Copy SHA-&256 Checksum to Clipboard\tCtrl+2"
  IDS_COPYTOCBOARD_SHA512 "Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
+ IDS_COPYALLTOCBOARD "Copy &All Values to Clipboard"
  IDS_REMOVEITEM "&Remove Item\tDelete"
  IDS_SAVE_TITLE  "Save Checksum File"
  IDS_SAVE_FILTER_CRC  "SFV Files (*.sfv)|*.sfv|"
