@@ -167,6 +167,22 @@ GetItemIdListForFileName(LPSHELLFOLDER folder, const char* fileName,
     }
 }
 
+
+static BOOL SalmonShellExecuteEx(SHELLEXECUTEINFO* se, HWND fallbackParent)
+{
+    if (se == NULL)
+        return FALSE;
+    if (se->hwnd == NULL)
+        se->hwnd = fallbackParent;
+    BOOL ret = ShellExecuteEx(se);
+    if (!ret && GetLastError() == ERROR_CANCELLED && se->hwnd != NULL && IsWindow(se->hwnd))
+    {
+        SetForegroundWindow(se->hwnd);
+        SetActiveWindow(se->hwnd);
+    }
+    return ret;
+}
+
 void OpenFolder(HWND hWnd, const char* szDir)
 {
     LPITEMIDLIST pidl = NULL;
@@ -187,7 +203,7 @@ void OpenFolder(HWND hWnd, const char* szDir)
         se.hwnd = hWnd;
         se.nShow = SW_SHOWNORMAL;
         se.lpIDList = pidl;
-        ShellExecuteEx(&se);
+        SalmonShellExecuteEx(&se, hWnd);
 
         IMalloc* alloc;
         if (SUCCEEDED(CoGetMalloc(1, &alloc)))
@@ -360,7 +376,7 @@ BOOL RestartSalamander(HWND hParent)
         se.hwnd = hParent;
         se.lpDirectory = initDir;
         se.lpFile = path;
-        return ShellExecuteEx(&se);
+        return SalmonShellExecuteEx(&se, hParent);
     }
     return FALSE;
 }

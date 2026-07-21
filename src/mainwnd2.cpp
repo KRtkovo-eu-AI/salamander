@@ -335,7 +335,7 @@ static BOOL MCDRestartSalamanderAfterWelcome(HWND parent)
     se.lpFile = exePath;
     se.lpDirectory = initDir;
 
-    return ShellExecuteEx(&se);
+    return SalShellExecuteEx(&se, parent, "RestartSalamander");
 }
 
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize)

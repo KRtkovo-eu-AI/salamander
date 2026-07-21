@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -2006,9 +2006,9 @@ void CDriveInfo::Validate(CTransferInfo& ti)
                 MainWindow->LeftPanel->HandsOff(TRUE);
             if (handsOffRight)
                 MainWindow->RightPanel->HandsOff(TRUE);
-            //      SAD_SetUACParentWindow(HWindow);
-            //      BOOL res = SAD_SetVolumeLabel(volumePathWithBackslash, newName);
-            //      DWORD err = SAD_GetLastError();
+            // Historical SAD_SetUACParentWindow(HWindow) hook was replaced by the
+            // centralized SalShellExecuteEx() wrapper for ShellExecuteEx/UAC prompts.
+            // SetVolumeLabel itself does not show UAC UI, so keep the direct call here.
             BOOL res = SetVolumeLabel(volumePathWithBackslash, newName);
             DWORD err = GetLastError();
             if (handsOffLeft)

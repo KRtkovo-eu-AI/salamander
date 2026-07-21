@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1051,6 +1051,10 @@ public:
 // does not exceed the size of the 'textMax' buffer and terminates the end with the character 0
 // returns the number of windows found
 int EnumCShellExecuteWnd(HWND hParent, char* text, int textMax);
+
+// Wrapper around ShellExecuteEx that normalizes the owner window and treats
+// ERROR_CANCELLED from UAC/runas as user cancellation, restoring focus to parent.
+BOOL SalShellExecuteEx(SHELLEXECUTEINFO* sei, HWND hFallbackParent, const char* traceName);
 
 //
 // ****************************************************************************

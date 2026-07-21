@@ -1646,6 +1646,11 @@ BOOL RunAsAdminAndWait(HWND hWnd, LPTSTR lpFile, LPTSTR lpParameters, DWORD* exi
             CloseHandle(sei.hProcess);
         }
     }
+    else if (GetLastError() == ERROR_CANCELLED && hWnd != NULL && IsWindow(hWnd))
+    {
+        SetForegroundWindow(hWnd);
+        SetActiveWindow(hWnd);
+    }
     return ret;
 }
 

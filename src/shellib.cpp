@@ -2418,7 +2418,7 @@ void OpenSpecFolder(HWND hOwnerWindow, int specFolder)
         se.hwnd = shellExecuteWnd.Create(hOwnerWindow, "SEW: OpenSpecFolder specFolder=%d verb=%s", specFolder, se.lpVerb);
         se.nShow = SW_SHOWNORMAL;
         se.lpIDList = pidl;
-        ShellExecuteEx(&se);
+        SalShellExecuteEx(&se, hOwnerWindow, "OpenSpecFolder");
 
         IMalloc* alloc;
         if (SUCCEEDED(CoGetMalloc(1, &alloc)))
@@ -2506,7 +2506,7 @@ void OpenFolderAndFocusItem(HWND hOwnerWindow, const char* dir, const char* item
                 se.hwnd = shellExecuteWnd.Create(hOwnerWindow, "SEW: OpenFolderAndFocusItem verb=%s", se.lpVerb);
                 se.nShow = SW_SHOWNORMAL;
                 se.lpIDList = pidl;
-                ShellExecuteEx(&se);
+                SalShellExecuteEx(&se, hOwnerWindow, "OpenFolderAndFocusItem");
 
                 IMalloc* alloc;
                 if (SUCCEEDED(CoGetMalloc(1, &alloc)))

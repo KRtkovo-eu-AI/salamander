@@ -1591,6 +1591,30 @@ int EnumCShellExecuteWnd(HWND hParent, char* text, int textMax)
     return data.Count;
 }
 
+
+BOOL SalShellExecuteEx(SHELLEXECUTEINFO* sei, HWND hFallbackParent, const char* traceName)
+{
+    if (sei == NULL)
+        return FALSE;
+
+    if (sei->hwnd == NULL && hFallbackParent != NULL)
+        sei->hwnd = hFallbackParent;
+
+    BOOL ret = ShellExecuteEx(sei);
+    if (!ret && GetLastError() == ERROR_CANCELLED)
+    {
+        if (sei->hwnd != NULL && IsWindow(sei->hwnd))
+        {
+            SetForegroundWindow(sei->hwnd);
+            SetActiveWindow(sei->hwnd);
+        }
+        TRACE_I("SalShellExecuteEx(): user cancelled ShellExecuteEx/UAC prompt" <<
+                (traceName != NULL ? " in " : "") << (traceName != NULL ? traceName : ""));
+        SetLastError(ERROR_CANCELLED);
+    }
+    return ret;
+}
+
 int IsFileLink(const char* fileExtension)
 {
     // convert the extension characters to lowercase and detect whether it is a link

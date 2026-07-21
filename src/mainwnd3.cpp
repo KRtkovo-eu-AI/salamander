@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -6018,7 +6018,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     *slash = 0;
                 se.lpDirectory = initDir;
 
-                BOOL started = ShellExecuteEx(&se);
+                BOOL started = SalShellExecuteEx(&se, HWindow, "Restart after configuration import");
 
                 // Zavrit aplikaci bez ulozeni konfigurace
                 if (started)
@@ -9557,9 +9557,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     {
         if (WindowsVistaAndLater)
         {
-            // Windows Vista UAC patch: when starting a file from the panels caused the UAC elevation prompt to appear
-            // and then was closed using Cancel, Salamander would lose focus from the panel.
-            // The main window is disabled at the time messages like WM_ACTIVATE or WM_SETFOCUS arrive, and the focus is received by Microsoft IME-supported popups.
+            // Windows Vista UAC patch: ShellExecuteEx/UAC prompts now go through SalShellExecuteEx(),
+            // which restores the owner on ERROR_CANCELLED. Keep this defensive focus repair because
+            // older shell paths may still disable the main window while IME helper popups take focus.
             BOOL enabled = (BOOL)wParam;
             if (enabled)
             {

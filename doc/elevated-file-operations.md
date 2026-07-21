@@ -46,3 +46,12 @@ only after UAC consent and the Salamander confirmation prompt.
 
 The shared strings added for the prompt are `IDS_ELEVATEDRETRY_TITLE`,
 `IDS_ELEVATEDRETRY_PROMPT`, and `IDS_ELEVATEDRETRY_BUTTON`.
+
+## UAC prompt ownership and cancellation
+
+All Salamander-owned `ShellExecuteEx` calls that can surface UAC UI should use
+`SalShellExecuteEx`. The wrapper supplies a safe owner window when the caller did
+not set `SHELLEXECUTEINFO::hwnd`, treats `ERROR_CANCELLED` as user cancellation,
+and restores focus to the owner instead of reporting cancellation as a normal
+operation failure. Plugin or setup code that cannot link to the main wrapper
+should mirror the same behavior locally.

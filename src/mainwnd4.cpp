@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1183,9 +1183,11 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         sei.lpDirectory = (initDir[0] != 0) ? initDir : NULL;
                         sei.nShow = SW_SHOWNORMAL;
 
-                        if (!ShellExecuteEx(&sei))
+                        if (!SalShellExecuteEx(&sei, parent, "CMainWindow::UserMenu"))
                         {
                             DWORD err = GetLastError();
+                            if (err == ERROR_CANCELLED)
+                                break;
                             char buff[4 * MAX_PATH];
                             if (strlen(cmdLine) > 2 * MAX_PATH) // "always false" (arguments are in 'arguments'): shorten overly long command lines for error display
                                 strcpy(cmdLine + 2 * MAX_PATH - 4, "...");
@@ -1253,6 +1255,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                                    NULL, NULL, &si, &pi)))
                         {
                             DWORD err = GetLastError();
+                            if (err == ERROR_CANCELLED)
+                                break;
                             char buff[4 * MAX_PATH];
                             if (strlen(cmdLine) > 2 * MAX_PATH)
                                 strcpy(cmdLine + 2 * MAX_PATH, "..."); // shorten just in case (probably never needed)
