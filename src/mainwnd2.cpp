@@ -193,7 +193,7 @@ static BOOL MCDSetConfigValue(CSalamanderRegistryExAbstract* registry, const cha
 }
 
 static void MCDApplyWelcomeTargetMetadata(CSalamanderRegistryExAbstract* registry, const char* targetSubkey,
-                                          const char* customConfigName, BOOL markWelcomeProcessed)
+                                          const char* customConfigName, const char* customLanguage, BOOL markWelcomeProcessed)
 {
     char effectiveName[256];
     effectiveName[0] = 0;
@@ -203,6 +203,10 @@ static void MCDApplyWelcomeTargetMetadata(CSalamanderRegistryExAbstract* registr
         sprintf_s(effectiveName, DetectProductName(targetSubkey), SalamanderConfigurationVersions[0]);
     MCDSetConfigValue(registry, targetSubkey, "ConfigDisplayName", REG_SZ,
                       effectiveName, (DWORD)(strlen(effectiveName) + 1));
+
+    if (customLanguage != NULL && customLanguage[0] != 0)
+        MCDSetConfigValue(registry, targetSubkey, "Language", REG_SZ,
+                          customLanguage, (DWORD)(strlen(customLanguage) + 1));
 
     if (markWelcomeProcessed)
     {
@@ -396,6 +400,7 @@ BOOL MCDReadFileConfigurationInfo(const char* fileName, CFoundConfig& cfg, BOOL 
                 MCDReadRegistryString(sourceReg, cfgKey, "ConfigDisplayName", customName, SizeOf(customName));
                 sourceReg->CloseKey(cfgKey);
             }
+            cfg.IsGeneratedName = customName[0] == 0;
             if (customName[0] != 0)
                 strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
             else
@@ -606,7 +611,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
         BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey, TRUE);
         if (ret)
         {
-            MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, markWelcomeProcessed);
+            MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, dlg.CustomLanguage, markWelcomeProcessed);
             char clearKeyName[MAX_PATH];
             _snprintf_s(clearKeyName, _TRUNCATE, "HKEY_CURRENT_USER\\%s", targetSubkey);
             ret = targetReg->Dump(dlg.RegFilePath, clearKeyName);
@@ -626,7 +631,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
     BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey, FALSE);
     if (ret)
     {
-        MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, markWelcomeProcessed);
+        MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, dlg.CustomLanguage, markWelcomeProcessed);
         loadConfiguration = targetSubkey;
     }
     targetReg->Release();
@@ -1960,10 +1965,12 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             customName[0] = 0;
             if (GetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ, customName, sizeof(customName)) && customName[0] != 0)
             {
+                cfg.IsGeneratedName = FALSE;
                 strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
             }
             else
             {
+                cfg.IsGeneratedName = TRUE;
                 const char* name = DetectProductName(root);
                 sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
             }
@@ -2168,6 +2175,9 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     {
         ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
     }
+
+    if (dlg.DeleteSourceAfterMigration)
+        dlg.DeleteConfigByIndex(dlg.SelectedSourceIndex);
 
     if (loadConfiguration == NULL && DarkModeShouldUseDarkColors())
     {

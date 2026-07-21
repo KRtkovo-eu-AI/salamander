@@ -1204,6 +1204,7 @@ struct CFoundConfig
     BOOL IsCurrentVersion;    // rootIndex == 0
     BOOL IsPortable;          // config.reg file
     BOOL IsCorrupted;
+    BOOL IsGeneratedName;     // TRUE when DisplayName was generated from the product/version
     int RootIndex;            // index do SalamanderConfigurationRoots (-1 = portable)
     char DisplayName[256];    // "Open Salamander 5.0 Samandarin 0.5"
     char Version[64];         // "5.0-samandarin-0.5"
@@ -1238,12 +1239,18 @@ public:
     HFONT HFontBoldItalic;            // tucny + kurziva (vybrany + aktivni)
 
     char CustomConfigName[256];        // vlastni nazev konfigurace z text fieldu
+    char CustomLanguage[50];            // selected target SLG file name
+    BOOL DeleteSourceAfterMigration;    // delete source only after successful target save
+    BOOL SyncNameAttentionActive;       // TRUE while Sync name button attention timer runs
+
+    TDirectArray<CLanguage> LanguageItems;
 
     HWND HToolTip;                     // tooltip control pro aktivni konfiguraci
 
 public:
     CManageConfigsDialog(HWND parent = NULL);
     ~CManageConfigsDialog();
+    BOOL DeleteConfigByIndex(int configIndex);
 
 protected:
     virtual void Transfer(CTransferInfo& ti);
@@ -1255,6 +1262,10 @@ protected:
     void UpdateSourcePanel();
     void UpdateStorageControls();
     void UpdateDeleteButtonState();
+    void InitLanguageCombo();
+    void SelectLanguageInCombo(const char* language);
+    void UpdateSyncNameButton();
+    void OnSyncName();
     void SortConfigs();
     void OnUseAsSource();
     void OnDeleteSelected();

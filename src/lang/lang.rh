@@ -751,6 +751,8 @@
 #define IDC_MCD_LABEL_LOCATION          6252
 #define IDC_MCD_LABEL_CONFIGNAME        6253
 #define IDC_MCD_GROUP_TARGET            6254
+#define IDC_MCD_SYNC_NAME                6255
+#define IDC_MCD_DELETE_SOURCE_AFTER      6256
 
 // Next default values for new objects
 // 
@@ -758,7 +760,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        8201
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6255
+#define _APS_NEXT_CONTROL_VALUE         6257
 #define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

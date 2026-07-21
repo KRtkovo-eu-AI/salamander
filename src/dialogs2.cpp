@@ -1450,7 +1450,7 @@ extern eRPE_ERROR CopyBranch(LPCTSTR branch, CSalamanderRegistryExAbstract* pInR
 extern void ShowFileError(HWND hParent, int errTextID, const char* fileName, DWORD err);
 
 CManageConfigsDialog::CManageConfigsDialog(HWND parent)
-    : CCommonDialog(HLanguage, IDD_MANAGECONFIGS, parent)
+    : CCommonDialog(HLanguage, IDD_MANAGECONFIGS, parent), LanguageItems(5, 5)
 {
     ConfigsCount = 0;
     ZeroMemory(Configs, sizeof(Configs));
@@ -1470,11 +1470,16 @@ CManageConfigsDialog::CManageConfigsDialog(HWND parent)
     HFontItalic = NULL;
     HFontBoldItalic = NULL;
     CustomConfigName[0] = 0;
+    CustomLanguage[0] = 0;
+    DeleteSourceAfterMigration = FALSE;
+    SyncNameAttentionActive = FALSE;
     HToolTip = NULL;
 }
 
 CManageConfigsDialog::~CManageConfigsDialog()
 {
+    for (int i = 0; i < LanguageItems.Count; i++)
+        LanguageItems[i].Free();
     DestroyFonts();
 }
 
@@ -1648,7 +1653,7 @@ void CManageConfigsDialog::UpdateSourcePanel()
         SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, cfgName);
         SetDlgItemText(HWindow, IDC_MCD_SRC_VERSION, cfg.Version);
         SetDlgItemText(HWindow, IDC_MCD_SRC_STORAGE, cfg.StorageTypeStr);
-        SetDlgItemText(HWindow, IDC_MCD_SRC_LANG, cfg.Language);
+        SelectLanguageInCombo(cfg.Language);
         SetDlgItemText(HWindow, IDC_MCD_SRC_LOCATION, cfg.Location);
     }
     else
@@ -1656,9 +1661,10 @@ void CManageConfigsDialog::UpdateSourcePanel()
         SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, "");
         SetDlgItemText(HWindow, IDC_MCD_SRC_VERSION, "");
         SetDlgItemText(HWindow, IDC_MCD_SRC_STORAGE, "");
-        SetDlgItemText(HWindow, IDC_MCD_SRC_LANG, "");
+        SendMessage(GetDlgItem(HWindow, IDC_MCD_SRC_LANG), CB_SETCURSEL, (WPARAM)-1, 0);
         SetDlgItemText(HWindow, IDC_MCD_SRC_LOCATION, "");
     }
+    UpdateSyncNameButton();
 }
 
 void CManageConfigsDialog::UpdateStorageControls()
@@ -1707,6 +1713,114 @@ void CManageConfigsDialog::UpdateDeleteButtonState()
 
     EnableWindow(GetDlgItem(HWindow, IDC_MCD_DELETE_SEL), canDelete);
     EnableWindow(GetDlgItem(HWindow, IDC_MCD_EXPORT), canExport);
+    BOOL canDeleteAfterMigration = canDelete && hasSelection && !Configs[SelectedSourceIndex].IsCurrentVersion;
+    EnableWindow(GetDlgItem(HWindow, IDC_MCD_DELETE_SOURCE_AFTER), !ManageMode && canDeleteAfterMigration);
+    if (ManageMode || !canDeleteAfterMigration)
+        CheckDlgButton(HWindow, IDC_MCD_DELETE_SOURCE_AFTER, BST_UNCHECKED);
+}
+
+
+
+void CManageConfigsDialog::InitLanguageCombo()
+{
+    HWND hCombo = GetDlgItem(HWindow, IDC_MCD_SRC_LANG);
+    SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+    for (int i = 0; i < LanguageItems.Count; i++)
+        LanguageItems[i].Free();
+    LanguageItems.DestroyMembers();
+
+    char path[SAL_MAX_PATH];
+    GetModuleFileName(NULL, path, SAL_MAX_PATH);
+    lstrcpy(strrchr(path, '\\') + 1, "lang\\*.slg");
+
+    WIN32_FIND_DATA file;
+    HANDLE hFind = HANDLES_Q(FindFirstFile(path, &file));
+    if (hFind != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            char* point = strrchr(file.cFileName, '.');
+            if (point != NULL && stricmp(point + 1, "slg") == 0)
+            {
+                CLanguage lang;
+                if (lang.Init(file.cFileName, NULL))
+                {
+                    int itemIndex = LanguageItems.Count;
+                    LanguageItems.Add(lang);
+                    if (!LanguageItems.IsGood())
+                    {
+                        LanguageItems.ResetState();
+                        lang.Free();
+                        break;
+                    }
+                    char name[200];
+                    LanguageItems[itemIndex].GetLanguageName(name, SizeOf(name));
+                    int comboIndex = (int)SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)name);
+                    if (comboIndex != CB_ERR && comboIndex != CB_ERRSPACE)
+                        SendMessage(hCombo, CB_SETITEMDATA, comboIndex, itemIndex);
+                }
+            }
+        } while (FindNextFile(hFind, &file));
+        HANDLES(FindClose(hFind));
+    }
+}
+
+void CManageConfigsDialog::SelectLanguageInCombo(const char* language)
+{
+    HWND hCombo = GetDlgItem(HWindow, IDC_MCD_SRC_LANG);
+    int select = -1;
+    char slgName[100];
+    slgName[0] = 0;
+    if (language != NULL && language[0] != 0 && strcmp(language, "-") != 0)
+    {
+        strncpy_s(slgName, language, _TRUNCATE);
+        if (strrchr(slgName, '.') == NULL)
+            strncat_s(slgName, ".slg", _TRUNCATE);
+    }
+    for (int i = 0; i < (int)SendMessage(hCombo, CB_GETCOUNT, 0, 0); i++)
+    {
+        int langIndex = (int)SendMessage(hCombo, CB_GETITEMDATA, i, 0);
+        if (langIndex >= 0 && langIndex < LanguageItems.Count && _stricmp(LanguageItems[langIndex].FileName, slgName) == 0)
+        {
+            select = i;
+            break;
+        }
+    }
+    SendMessage(hCombo, CB_SETCURSEL, select, 0);
+}
+
+void CManageConfigsDialog::UpdateSyncNameButton()
+{
+    BOOL show = FALSE;
+    if (SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount && Configs[SelectedSourceIndex].Exists)
+    {
+        const CFoundConfig& cfg = Configs[SelectedSourceIndex];
+        show = !MCDIsCleanConfigItem(cfg) && !cfg.IsCurrentVersion && cfg.IsGeneratedName;
+    }
+    HWND hButton = GetDlgItem(HWindow, IDC_MCD_SYNC_NAME);
+    ShowWindow(hButton, show ? SW_SHOW : SW_HIDE);
+    EnableWindow(hButton, show);
+    if (show && !SyncNameAttentionActive)
+    {
+        SyncNameAttentionActive = TRUE;
+        SetTimer(HWindow, 1, 350, NULL);
+    }
+    else if (!show && SyncNameAttentionActive)
+    {
+        KillTimer(HWindow, 1);
+        SyncNameAttentionActive = FALSE;
+    }
+}
+
+void CManageConfigsDialog::OnSyncName()
+{
+    char name[256];
+    sprintf_s(name, DetectProductName(SalamanderConfigurationRoots[0]), SalamanderConfigurationVersions[0]);
+    SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, name);
+    KillTimer(HWindow, 1);
+    SyncNameAttentionActive = FALSE;
+    SetDlgItemText(HWindow, IDC_MCD_SYNC_NAME, LoadStr(IDS_MCD_SYNC_NAME));
+    InvalidateRect(GetDlgItem(HWindow, IDC_MCD_SYNC_NAME), NULL, TRUE);
 }
 
 void CManageConfigsDialog::SortConfigs()
@@ -2217,6 +2331,7 @@ void CManageConfigsDialog::Transfer(CTransferInfo& ti)
         _snprintf_s(buff2, _TRUNCATE, buff, SALAMANDER_TEXT_VERSION);
         SetWindowText(HWindow, buff2);
 
+        InitLanguageCombo();
         InitConfigsList();
         PopulateConfigsList();
 
@@ -2242,7 +2357,12 @@ void CManageConfigsDialog::Transfer(CTransferInfo& ti)
             UpdateDeleteButtonState();
         }
 
+        SetDlgItemText(HWindow, IDC_MCD_SYNC_NAME, LoadStr(IDS_MCD_SYNC_NAME));
+        SetDlgItemText(HWindow, IDC_MCD_DELETE_SOURCE_AFTER, LoadStr(IDS_MCD_DELETE_SOURCE_AFTER));
+        CheckDlgButton(HWindow, IDC_MCD_DELETE_SOURCE_AFTER, DeleteSourceAfterMigration ? BST_CHECKED : BST_UNCHECKED);
+        ShowWindow(GetDlgItem(HWindow, IDC_MCD_DELETE_SOURCE_AFTER), ManageMode ? SW_HIDE : SW_SHOW);
         UpdateStorageControls();
+        UpdateSyncNameButton();
     }
     else
     {
@@ -2272,6 +2392,16 @@ void CManageConfigsDialog::Transfer(CTransferInfo& ti)
         // configuration by the caller after the target storage has been created.
         // Ulozit custom name pro pripadne ulozeni do registrů
         strncpy_s(CustomConfigName, cfgName, _TRUNCATE);
+
+        CustomLanguage[0] = 0;
+        int langSel = (int)SendMessage(GetDlgItem(HWindow, IDC_MCD_SRC_LANG), CB_GETCURSEL, 0, 0);
+        if (langSel != CB_ERR)
+        {
+            int langIndex = (int)SendMessage(GetDlgItem(HWindow, IDC_MCD_SRC_LANG), CB_GETITEMDATA, langSel, 0);
+            if (langIndex >= 0 && langIndex < LanguageItems.Count)
+                strncpy_s(CustomLanguage, LanguageItems[langIndex].FileName, _TRUNCATE);
+        }
+        DeleteSourceAfterMigration = !ManageMode && IsDlgButtonChecked(HWindow, IDC_MCD_DELETE_SOURCE_AFTER) == BST_CHECKED;
     }
 }
 
@@ -2505,6 +2635,14 @@ CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return ret;
     }
 
+    case WM_DESTROY:
+        if (SyncNameAttentionActive)
+        {
+            KillTimer(HWindow, 1);
+            SyncNameAttentionActive = FALSE;
+        }
+        break;
+
     case WM_NOTIFY:
     {
         NMHDR* nmhdr = (NMHDR*)lParam;
@@ -2609,6 +2747,19 @@ CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_TIMER:
+        if (wParam == 1)
+        {
+            static BOOL highlighted = FALSE;
+            highlighted = !highlighted;
+            char syncText[100];
+            _snprintf_s(syncText, _TRUNCATE, highlighted ? ">> %s <<" : "%s", LoadStr(IDS_MCD_SYNC_NAME));
+            SetDlgItemText(HWindow, IDC_MCD_SYNC_NAME, syncText);
+            InvalidateRect(GetDlgItem(HWindow, IDC_MCD_SYNC_NAME), NULL, TRUE);
+            return TRUE;
+        }
+        break;
+
     case WM_COMMAND:
     {
         switch (LOWORD(wParam))
@@ -2627,6 +2778,17 @@ CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDC_MCD_FILE_BROWSE:
             OnBrowseFile();
+            return TRUE;
+
+        case IDC_MCD_SYNC_NAME:
+            if (HIWORD(wParam) == BN_CLICKED)
+                OnSyncName();
+            return TRUE;
+
+        case IDC_MCD_DELETE_SOURCE_AFTER:
+            return TRUE;
+
+        case IDC_MCD_SRC_LANG:
             return TRUE;
 
         case IDC_MCD_REG_RADIO:
