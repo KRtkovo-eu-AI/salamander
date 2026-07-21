@@ -1653,7 +1653,13 @@ void CManageConfigsDialog::UpdateSourcePanel()
         SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, cfgName);
         SetDlgItemText(HWindow, IDC_MCD_SRC_VERSION, cfg.Version);
         SetDlgItemText(HWindow, IDC_MCD_SRC_STORAGE, cfg.StorageTypeStr);
-        SelectLanguageInCombo(cfg.Language);
+        if (MCDIsCleanConfigItem(cfg))
+        {
+            const char* welcomeLanguage = Configuration.LoadedSLGName[0] != 0 ? Configuration.LoadedSLGName : Configuration.SLGName;
+            SelectLanguageInCombo(welcomeLanguage != NULL && welcomeLanguage[0] != 0 ? welcomeLanguage : "english");
+        }
+        else
+            SelectLanguageInCombo(cfg.Language);
         SetDlgItemText(HWindow, IDC_MCD_SRC_LOCATION, cfg.Location);
     }
     else
