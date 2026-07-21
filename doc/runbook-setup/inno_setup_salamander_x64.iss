@@ -250,6 +250,50 @@ romanian.KeepConfigQuestion=A fost găsit un fișier de configurare existent (co
 russian.KeepConfigQuestion=Обнаружен существующий файл конфигурации (configstorage.ini).\n\nОн будет переименован в configstorage.ini.BAK и установлена новая конфигурация по умолчанию.
 slovak.KeepConfigQuestion=Bol nájdený existujúci konfiguračný súbor (configstorage.ini).\n\nBude premenovaný na configstorage.ini.BAK a nainštaluje sa nová predvolená konfigurácia.
 spanish.KeepConfigQuestion=Se encontró un archivo de configuración existente (configstorage.ini).\n\nSerá renombrado a configstorage.ini.BAK y se instalará la nueva configuración predeterminada.
+english.PluginSelectionTitle=Select plugins
+english.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
+english.PluginSelectionSubCaption=Select the plugins to copy to the plugins folder.
+english.PluginColumnHeader=Install    Plugin                         Version
+chinesesimplified.PluginSelectionTitle=选择插件
+chinesesimplified.PluginSelectionDescription=选择要安装或解压的随附插件。
+chinesesimplified.PluginSelectionSubCaption=选择要复制到 plugins 文件夹的插件。
+chinesesimplified.PluginColumnHeader=安装      插件                           版本
+dutch.PluginSelectionTitle=Plug-ins selecteren
+dutch.PluginSelectionDescription=Kies welke meegeleverde plug-ins worden geïnstalleerd of uitgepakt.
+dutch.PluginSelectionSubCaption=Selecteer de plug-ins die naar de map plugins worden gekopieerd.
+dutch.PluginColumnHeader=Install.   Plug-in                        Versie
+french.PluginSelectionTitle=Sélection des modules
+french.PluginSelectionDescription=Choisissez les modules inclus à installer ou extraire.
+french.PluginSelectionSubCaption=Sélectionnez les modules à copier dans le dossier plugins.
+french.PluginColumnHeader=Installer Module                         Version
+german.PluginSelectionTitle=Plugins auswählen
+german.PluginSelectionDescription=Wählen Sie aus, welche mitgelieferten Plugins installiert oder entpackt werden.
+german.PluginSelectionSubCaption=Wählen Sie die Plugins aus, die in den Ordner plugins kopiert werden.
+german.PluginColumnHeader=Install.   Plugin                         Version
+hungarian.PluginSelectionTitle=Bővítmények kiválasztása
+hungarian.PluginSelectionDescription=Válassza ki a telepítendő vagy kicsomagolandó mellékelt bővítményeket.
+hungarian.PluginSelectionSubCaption=Válassza ki a plugins mappába másolandó bővítményeket.
+hungarian.PluginColumnHeader=Telepít.   Bővítmény                      Verzió
+romanian.PluginSelectionTitle=Selectare pluginuri
+romanian.PluginSelectionDescription=Alegeți pluginurile incluse care vor fi instalate sau extrase.
+romanian.PluginSelectionSubCaption=Selectați pluginurile de copiat în folderul plugins.
+romanian.PluginColumnHeader=Instalare  Plugin                         Versiune
+russian.PluginSelectionTitle=Выбор плагинов
+russian.PluginSelectionDescription=Выберите, какие включенные плагины будут установлены или извлечены.
+russian.PluginSelectionSubCaption=Выберите плагины для копирования в папку plugins.
+russian.PluginColumnHeader=Установ.   Плагин                         Версия
+slovak.PluginSelectionTitle=Výber pluginov
+slovak.PluginSelectionDescription=Zvoľte, ktoré pribalené pluginy sa nainštalujú alebo rozbalia.
+slovak.PluginSelectionSubCaption=Vyberte pluginy na skopírovanie do priečinka plugins.
+slovak.PluginColumnHeader=Inštalovať Plugin                        Verzia
+spanish.PluginSelectionTitle=Seleccionar complementos
+spanish.PluginSelectionDescription=Elija qué complementos incluidos se instalarán o extraerán.
+spanish.PluginSelectionSubCaption=Seleccione los complementos que se copiarán en la carpeta plugins.
+spanish.PluginColumnHeader=Instalar   Complemento                    Versión
+czech.PluginSelectionTitle=Výběr pluginů
+czech.PluginSelectionDescription=Zvolte, které přibalené pluginy se nainstalují nebo rozbalí.
+czech.PluginSelectionSubCaption=Vyberte pluginy ke zkopírování do složky plugins.
+czech.PluginColumnHeader=Instalovat Plugin                        Verze
 
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
@@ -308,6 +352,9 @@ Name: "{app}\plugins\renamer"
 Name: "{app}\plugins\renamer\lang"
 Name: "{app}\plugins\samandarin"
 Name: "{app}\plugins\samandarin\lang"
+Name: "{app}\plugins\salamatrix"
+Name: "{app}\plugins\demoplug"
+Name: "{app}\plugins\demoplug\lang"
 Name: "{app}\plugins\serviceexplorer"
 Name: "{app}\plugins\serviceexplorer\lang"
 Name: "{app}\plugins\splitcbn"
@@ -496,818 +543,821 @@ Source: "{#PayloadDir}\lang\russian.slg"; DestDir: "{app}\lang"; Flags: ignoreve
 Source: "{#PayloadDir}\lang\slovak.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\spanish.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\msvcp140.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\7za.dll"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\7zip.spl"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\7zwrapper.dll"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\czech.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\dutch.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\english.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\french.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\german.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\hungarian.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\romanian.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\russian.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\slovak.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\7zip\lang\spanish.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\automation.spl"; DestDir: "{app}\plugins\automation"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\czech.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\dutch.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\english.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\french.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\german.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\hungarian.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\romanian.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\russian.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\slovak.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\lang\spanish.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\scripts\Convert Images.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\scripts\Count Lines.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\scripts\Launch Elevated Command Prompt.vbs"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\scripts\Make Link.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\scripts\Make List (JScript).js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\scripts\Make List (VBScript).vbs"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\automation\scripts\Unpack Multiple Archives.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\dbviewer.spl"; DestDir: "{app}\plugins\dbviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\czech.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\dutch.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\english.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\french.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\german.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\romanian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\russian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\slovak.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\dbviewer\lang\spanish.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\diskmap.spl"; DestDir: "{app}\plugins\diskmap"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\czech.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\dutch.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\english.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\french.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\german.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\hungarian.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\romanian.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\russian.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\slovak.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\diskmap\lang\spanish.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\fcremote.exe"; DestDir: "{app}\plugins\filecomp"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\filecomp.spl"; DestDir: "{app}\plugins\filecomp"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\czech.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\dutch.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\english.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\french.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\german.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\hungarian.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\romanian.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\russian.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\slovak.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\filecomp\lang\spanish.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\folders.spl"; DestDir: "{app}\plugins\folders"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\czech.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\dutch.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\english.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\french.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\german.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\hungarian.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\romanian.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\russian.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\slovak.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\folders\lang\spanish.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\ftp.spl"; DestDir: "{app}\plugins\ftp"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\czech.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\dutch.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\english.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\french.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\german.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\hungarian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\romanian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\russian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\slovak.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ftp\lang\spanish.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\HyperVM.Managed.dll"; DestDir: "{app}\plugins\hypervm"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\hypervm.spl"; DestDir: "{app}\plugins\hypervm"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\czech.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\dutch.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\english.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\french.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\german.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\hungarian.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\romanian.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\russian.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\slovak.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\hypervm\lang\spanish.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\checksum.spl"; DestDir: "{app}\plugins\checksum"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\czech.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\dutch.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\english.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\french.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\german.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\hungarian.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\romanian.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\russian.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\slovak.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\checksum\lang\spanish.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\css\githubmd.css"; DestDir: "{app}\plugins\ieviewer\css"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\ieviewer.spl"; DestDir: "{app}\plugins\ieviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\czech.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\dutch.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\english.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\french.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\german.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\romanian.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\russian.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\slovak.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\ieviewer\lang\spanish.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\DEPENDENCIES.md"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\JsonViewer.Managed.dll"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\jsonviewer.spl"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\czech.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\dutch.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\english.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\french.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\german.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\romanian.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\russian.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\slovak.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\lang\spanish.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\Newtonsoft.Json.dll"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\jsonviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\czech.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\dutch.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\english.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\french.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\german.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\romanian.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\russian.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\slovak.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\lang\spanish.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\mmviewer\mmviewer.spl"; DestDir: "{app}\plugins\mmviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\czech.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\dutch.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\english.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\french.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\german.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\hungarian.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\romanian.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\russian.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\slovak.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\lang\spanish.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\nethood\nethood.spl"; DestDir: "{app}\plugins\nethood"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\czech.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\dutch.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\english.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\french.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\german.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\hungarian.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\romanian.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\russian.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\slovak.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\lang\spanish.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pak\pak.spl"; DestDir: "{app}\plugins\pak"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\czech.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\dutch.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\english.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\french.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\german.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\romanian.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\russian.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\slovak.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\lang\spanish.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\peviewer\peviewer.spl"; DestDir: "{app}\plugins\peviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\exif.dll"; DestDir: "{app}\plugins\pictview"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\czech.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\dutch.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\english.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\french.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\german.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\hungarian.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\romanian.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\russian.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\slovak.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\lang\spanish.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\pictview\pictview.spl"; DestDir: "{app}\plugins\pictview"; Flags: ignoreversion
+Source: "{#PayloadDir}\plugins\7zip\7za.dll"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\7zip.spl"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\7zwrapper.dll"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\czech.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\dutch.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\english.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\french.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\german.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\hungarian.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\romanian.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\russian.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\slovak.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\spanish.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\automation\automation.spl"; DestDir: "{app}\plugins\automation"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\czech.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\dutch.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\english.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\french.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\german.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\hungarian.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\romanian.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\russian.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\slovak.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\spanish.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Convert Images.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Count Lines.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Launch Elevated Command Prompt.vbs"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Make Link.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Make List (JScript).js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Make List (VBScript).vbs"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Unpack Multiple Archives.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\dbviewer\dbviewer.spl"; DestDir: "{app}\plugins\dbviewer"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\czech.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\dutch.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\english.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\french.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\german.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\romanian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\russian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\slovak.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\spanish.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\diskmap\diskmap.spl"; DestDir: "{app}\plugins\diskmap"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\czech.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\dutch.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\english.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\french.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\german.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\hungarian.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\romanian.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\russian.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\slovak.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\spanish.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\filecomp\fcremote.exe"; DestDir: "{app}\plugins\filecomp"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\filecomp.spl"; DestDir: "{app}\plugins\filecomp"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\czech.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\dutch.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\english.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\french.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\german.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\hungarian.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\romanian.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\russian.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\slovak.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\spanish.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\folders\folders.spl"; DestDir: "{app}\plugins\folders"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\czech.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\dutch.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\english.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\french.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\german.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\hungarian.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\romanian.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\russian.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\slovak.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\spanish.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\ftp\ftp.spl"; DestDir: "{app}\plugins\ftp"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\czech.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\dutch.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\english.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\french.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\german.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\hungarian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\romanian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\russian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\slovak.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\spanish.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\hypervm\HyperVM.Managed.dll"; DestDir: "{app}\plugins\hypervm"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\hypervm.spl"; DestDir: "{app}\plugins\hypervm"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\czech.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\dutch.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\english.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\french.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\german.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\hungarian.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\romanian.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\russian.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\slovak.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\spanish.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\checksum\checksum.spl"; DestDir: "{app}\plugins\checksum"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\czech.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\dutch.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\english.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\french.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\german.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\hungarian.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\romanian.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\russian.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\slovak.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\spanish.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\ieviewer\css\githubmd.css"; DestDir: "{app}\plugins\ieviewer\css"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\ieviewer.spl"; DestDir: "{app}\plugins\ieviewer"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\czech.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\dutch.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\english.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\french.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\german.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\romanian.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\russian.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\slovak.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\spanish.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\DEPENDENCIES.md"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\JsonViewer.Managed.dll"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\jsonviewer.spl"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\czech.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\dutch.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\english.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\french.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\german.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\romanian.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\russian.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\slovak.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\spanish.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\Newtonsoft.Json.dll"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\czech.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\dutch.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\english.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\french.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\german.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\romanian.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\russian.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\slovak.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\spanish.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\mmviewer.spl"; DestDir: "{app}\plugins\mmviewer"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\nethood\lang\czech.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\dutch.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\english.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\french.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\german.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\hungarian.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\romanian.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\russian.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\slovak.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\spanish.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\nethood.spl"; DestDir: "{app}\plugins\nethood"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\pak\lang\czech.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\dutch.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\english.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\french.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\german.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\hungarian.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\romanian.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\russian.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\slovak.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\spanish.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\pak.spl"; DestDir: "{app}\plugins\pak"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\peviewer\lang\czech.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\dutch.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\english.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\french.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\german.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\romanian.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\russian.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\slovak.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\spanish.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\peviewer.spl"; DestDir: "{app}\plugins\peviewer"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\pictview\exif.dll"; DestDir: "{app}\plugins\pictview"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\czech.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\dutch.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\english.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\french.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\german.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\hungarian.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\romanian.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\russian.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\slovak.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\spanish.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\pictview.spl"; DestDir: "{app}\plugins\pictview"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\plugins.ver"; DestDir: "{app}\plugins"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\czech.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\dutch.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\english.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\french.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\german.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\hungarian.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\romanian.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\russian.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\slovak.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\lang\spanish.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\portables\portables.spl"; DestDir: "{app}\plugins\portables"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\czech.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\dutch.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\english.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\french.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\german.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\hungarian.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\romanian.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\russian.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\slovak.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\lang\spanish.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\regedt\regedt.spl"; DestDir: "{app}\plugins\regedt"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\czech.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\dutch.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\english.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\french.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\german.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\hungarian.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\romanian.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\russian.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\slovak.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\lang\spanish.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\renamer\renamer.spl"; DestDir: "{app}\plugins\renamer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\czech.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\dutch.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\english.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\french.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\german.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\hungarian.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\romanian.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\russian.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\slovak.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\lang\spanish.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\Samandarin.Managed.dll"; DestDir: "{app}\plugins\samandarin"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\samandarin\samandarin.spl"; DestDir: "{app}\plugins\samandarin"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\czech.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\dutch.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\english.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\french.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\german.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\hungarian.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\romanian.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\russian.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\slovak.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\lang\spanish.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\serviceexplorer\serviceexplorer.spl"; DestDir: "{app}\plugins\serviceexplorer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\czech.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\dutch.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\english.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\french.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\german.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\hungarian.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\romanian.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\russian.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\slovak.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\lang\spanish.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\splitcbn\splitcbn.spl"; DestDir: "{app}\plugins\splitcbn"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\czech.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\dutch.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\english.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\french.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\german.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\hungarian.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\romanian.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\russian.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\slovak.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\lang\spanish.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\tar\tar.spl"; DestDir: "{app}\plugins\tar"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\abap.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\abnf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\actionscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ada.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\agda.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\al.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\antlr4.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\apacheconf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\apex.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\apl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\applescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\aql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\arduino.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\arff.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\asciidoc.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\asm6502.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\asmatmel.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\aspnet.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\autohotkey.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\autoit.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\avisynth.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\avro-idl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\bash.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\basic.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\batch.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\bbcode.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\bicep.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\birb.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\bison.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\bnf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\brainfuck.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\brightscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\bro.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\bsl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\c.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\cfscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\cil.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\clike.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\clojure.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\cmake.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\cobol.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\coffeescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\concurnas.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\coq.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\cpp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\crystal.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\csharp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\cshtml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\csp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\css.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\csv.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\cypher.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\d.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\dart.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\dataweave.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\dax.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\dhall.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\diff.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\django.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\dns-zone-file.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\docker.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\dot.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ebnf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\editorconfig.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\eiffel.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ejs.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\elixir.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\elm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\erb.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\erlang.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\etlua.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\excel-formula.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\factor.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\false.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\firestore-security-rules.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\flow.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\fortran.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\fsharp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ftl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\gap.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\gcode.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\gdscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\gedcom.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\gherkin.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\git.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\glsl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\gml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\gn.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\go-module.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\go.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\graphql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\groovy.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\haml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\handlebars.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\haskell.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\haxe.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\hcl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\hlsl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\hoon.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\hpkp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\hsts.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\http.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\chaiscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\icon.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\icu-message-format.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\idris.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\iecst.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ignore.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ichigojam.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\inform7.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ini.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\io.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\j.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\java.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\javadoc.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\javadoclike.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\javascript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\javastacktrace.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\jexl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\jolie.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\jq.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\jsdoc.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\json.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\json5.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\jsonp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\jsstacktrace.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\jsx.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\julia.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\keepalived.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\keyman.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\kotlin.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\kumir.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\kusto.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\languages.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\latex.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\latte.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\less.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\lilypond.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\liquid.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\lisp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\livescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\llvm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\log.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\lolcode.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\lua.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\magma.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\makefile.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\markdown.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\markup-templating.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\markup.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\matlab.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\maxscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\mel.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\mermaid.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\mizar.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\mongodb.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\monkey.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\moonscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\n1ql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\n4js.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\nand2tetris-hdl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\naniscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\nasm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\neon.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\nevod.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\nginx.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\nim.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\nix.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\nsis.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\objectivec.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ocaml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\opencl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\openqasm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\oz.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\parigp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\parser.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\pascal.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\pascaligo.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\pcaxis.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\peoplecode.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\perl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\php.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\phpdoc.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\plsql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\powerquery.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\powershell.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\processing.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\prolog.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\promql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\properties.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\protobuf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\psl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\pug.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\puppet.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\pure.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\purebasic.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\purescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\python.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\q.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\qml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\qore.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\qsharp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\r.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\racket.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\reason.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\regex.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\rego.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\renpy.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\rest.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\rip.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\roboconf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\robotframework.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\ruby.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\rust.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\sas.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\sass.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\scala.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\scss.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\shell-session.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\scheme.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\smali.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\smalltalk.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\smarty.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\sml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\solidity.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\solution-file.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\soy.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\sparql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\splunk-spl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\sqf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\sql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\squirrel.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\stan.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\stylus.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\swift.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\systemd.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\t4-cs.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\t4-templating.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\t4-vb.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\tap.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\tcl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\textile.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\toml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\tremor.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\tsx.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\tt2.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\turtle.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\twig.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\typescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\typoscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\unrealscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\uri.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\v.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\vala.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\vbnet.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\velocity.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\verilog.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\vhdl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\vim.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\visual-basic.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\warpscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\wasm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\web-idl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\wiki.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\wolfram.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\wren.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\xeora.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\xojo.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\xquery.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\yaml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\yang.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\languages\zig.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\a11y-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\atom-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\base16-ateliersulphurpool.light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\cb.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\coldark-cold.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\coldark-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\coy.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\darcula.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\dracula.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-earth.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-forest.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-sea.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-space.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\funky.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\ghcolors.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\gruvbox-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\gruvbox-light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\holi-theme.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\hopscotch.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\l.txt"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\lucario.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\material-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\material-light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\material-oceanic.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\night-owl.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\nord.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\okaidia.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\one-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\one-light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\pojoaque.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\prism.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\shades-of-purple.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\solarized-dark-atom.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\solarizedlight.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\synthwave84.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\tomorrow.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\twilight.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\vs.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\vsc-dark-plus.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\xonokai.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\data\themes\z-touch.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\DEPENDENCIES.md"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\czech.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\dutch.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\english.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\french.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\german.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\romanian.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\russian.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\slovak.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\lang\spanish.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\Microsoft.Web.WebView2.Core.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\Microsoft.Web.WebView2.WinForms.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\Newtonsoft.Json.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\PrismSharp.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\runtimes\win-arm64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer\runtimes\win-arm64\native"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\runtimes\win-x64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer\runtimes\win-x64\native"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\runtimes\win-x86\native\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer\runtimes\win-x86\native"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\TextViewer.Managed.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\textviewer.spl"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\textviewer\runtimes\win-x64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\czech.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\dutch.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\english.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\french.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\german.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\hungarian.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\romanian.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\russian.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\slovak.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\lang\spanish.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unarj\unarj.spl"; DestDir: "{app}\plugins\unarj"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\czech.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\dutch.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\english.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\french.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\german.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\hungarian.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\romanian.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\russian.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\slovak.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\lang\spanish.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uncab\uncab.spl"; DestDir: "{app}\plugins\uncab"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\czech.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\dutch.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\english.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\french.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\german.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\hungarian.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\romanian.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\russian.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\slovak.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\lang\spanish.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\undelete\undelete.spl"; DestDir: "{app}\plugins\undelete"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\czech.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\dutch.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\english.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\french.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\german.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\hungarian.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\romanian.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\russian.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\slovak.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\lang\spanish.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unfat\unfat.spl"; DestDir: "{app}\plugins\unfat"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\chmlib.dll"; DestDir: "{app}\plugins\unchm"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\czech.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\dutch.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\english.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\french.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\german.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\hungarian.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\romanian.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\russian.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\slovak.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\lang\spanish.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unchm\unchm.spl"; DestDir: "{app}\plugins\unchm"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\czech.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\dutch.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\english.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\french.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\german.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\hungarian.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\romanian.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\russian.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\slovak.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\lang\spanish.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\uniso\uniso.spl"; DestDir: "{app}\plugins\uniso"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\czech.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\dutch.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\english.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\french.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\german.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\hungarian.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\romanian.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\russian.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\slovak.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\lang\spanish.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unlha\unlha.spl"; DestDir: "{app}\plugins\unlha"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\czech.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\dutch.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\english.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\french.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\german.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\hungarian.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\romanian.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\russian.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\slovak.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\lang\spanish.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unmime\unmime.spl"; DestDir: "{app}\plugins\unmime"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\czech.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\dutch.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\english.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\french.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\german.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\hungarian.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\romanian.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\russian.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\slovak.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\lang\spanish.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unole\unole.spl"; DestDir: "{app}\plugins\unole"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\czech.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\dutch.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\english.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\french.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\german.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\hungarian.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\romanian.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\russian.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\slovak.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\lang\spanish.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\unrar.dll"; DestDir: "{app}\plugins\unrar"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\unrar\unrar.spl"; DestDir: "{app}\plugins\unrar"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\DEPENDENCIES.md"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\czech.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\dutch.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\english.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\french.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\german.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\romanian.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\russian.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\slovak.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\spanish.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\Markdig.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\Microsoft.Web.WebView2.Core.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\Microsoft.Web.WebView2.WinForms.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\Microsoft.Web.WebView2.Wpf.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\runtimes\win-arm64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer\runtimes\win-arm64\native"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\runtimes\win-x64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer\runtimes\win-x64\native"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\runtimes\win-x86\native\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer\runtimes\win-x86\native"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Buffers.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Memory.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Numerics.Vectors.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\runtimes\win-x64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\webview2renderviewer\webview2renderviewer.spl"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\czech.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\dutch.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\english.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\french.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\german.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\hungarian.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\romanian.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\russian.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\slovak.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\lang\spanish.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\wmobile\wmobile.spl"; DestDir: "{app}\plugins\wmobile"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\czech.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\dutch.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\english.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\french.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\german.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\hungarian.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\romanian.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\russian.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\slovak.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\lang\spanish.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\zip.spl"; DestDir: "{app}\plugins\zip"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\zip2sfx\readme.txt"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\zip2sfx\sam_cz.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion
+Source: "{#PayloadDir}\plugins\portables\lang\czech.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\dutch.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\english.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\french.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\german.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\hungarian.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\romanian.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\russian.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\slovak.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\spanish.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\portables.spl"; DestDir: "{app}\plugins\portables"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\regedt\lang\czech.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\dutch.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\english.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\french.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\german.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\hungarian.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\romanian.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\russian.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\slovak.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\spanish.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\regedt.spl"; DestDir: "{app}\plugins\regedt"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\renamer\lang\czech.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\dutch.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\english.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\french.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\german.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\hungarian.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\romanian.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\russian.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\slovak.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\spanish.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\renamer.spl"; DestDir: "{app}\plugins\renamer"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\samandarin\lang\czech.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\dutch.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\english.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\french.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\german.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\hungarian.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\romanian.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\russian.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\slovak.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\spanish.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\Samandarin.Managed.dll"; DestDir: "{app}\plugins\samandarin"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\samandarin.spl"; DestDir: "{app}\plugins\samandarin"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\czech.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\dutch.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\english.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\french.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\german.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\hungarian.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\romanian.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\russian.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\slovak.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\spanish.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\serviceexplorer.spl"; DestDir: "{app}\plugins\serviceexplorer"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\czech.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\dutch.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\english.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\french.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\german.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\hungarian.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\romanian.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\russian.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\slovak.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\spanish.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\splitcbn.spl"; DestDir: "{app}\plugins\splitcbn"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\tar\lang\czech.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\dutch.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\english.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\french.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\german.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\hungarian.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\romanian.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\russian.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\slovak.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\spanish.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\tar.spl"; DestDir: "{app}\plugins\tar"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\abap.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\abnf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\actionscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ada.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\agda.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\al.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\antlr4.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\apacheconf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\apex.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\apl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\applescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\aql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\arduino.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\arff.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\asciidoc.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\asm6502.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\asmatmel.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\aspnet.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\autohotkey.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\autoit.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\avisynth.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\avro-idl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\bash.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\basic.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\batch.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\bbcode.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\bicep.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\birb.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\bison.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\bnf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\brainfuck.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\brightscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\bro.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\bsl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\c.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\cfscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\cil.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\clike.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\clojure.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\cmake.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\cobol.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\coffeescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\concurnas.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\coq.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\cpp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\crystal.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\csharp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\cshtml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\csp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\css.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\csv.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\cypher.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\d.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\dart.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\dataweave.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\dax.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\dhall.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\diff.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\django.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\dns-zone-file.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\docker.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\dot.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ebnf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\editorconfig.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\eiffel.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ejs.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\elixir.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\elm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\erb.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\erlang.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\etlua.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\excel-formula.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\factor.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\false.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\firestore-security-rules.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\flow.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\fortran.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\fsharp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ftl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\gap.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\gcode.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\gdscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\gedcom.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\gherkin.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\git.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\glsl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\gml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\gn.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\go-module.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\go.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\graphql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\groovy.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\haml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\handlebars.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\haskell.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\haxe.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\hcl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\hlsl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\hoon.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\hpkp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\hsts.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\http.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\chaiscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\icon.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\icu-message-format.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\idris.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\iecst.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ignore.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ichigojam.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\inform7.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ini.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\io.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\j.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\java.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\javadoc.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\javadoclike.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\javascript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\javastacktrace.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\jexl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\jolie.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\jq.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\jsdoc.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\json.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\json5.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\jsonp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\jsstacktrace.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\jsx.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\julia.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\keepalived.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\keyman.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\kotlin.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\kumir.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\kusto.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\languages.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\latex.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\latte.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\less.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\lilypond.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\liquid.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\lisp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\livescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\llvm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\log.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\lolcode.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\lua.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\magma.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\makefile.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\markdown.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\markup-templating.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\markup.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\matlab.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\maxscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\mel.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\mermaid.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\mizar.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\mongodb.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\monkey.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\moonscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\n1ql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\n4js.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\nand2tetris-hdl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\naniscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\nasm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\neon.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\nevod.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\nginx.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\nim.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\nix.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\nsis.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\objectivec.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ocaml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\opencl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\openqasm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\oz.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\parigp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\parser.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\pascal.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\pascaligo.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\pcaxis.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\peoplecode.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\perl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\php.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\phpdoc.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\plsql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\powerquery.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\powershell.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\processing.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\prolog.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\promql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\properties.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\protobuf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\psl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\pug.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\puppet.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\pure.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\purebasic.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\purescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\python.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\q.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\qml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\qore.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\qsharp.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\r.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\racket.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\reason.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\regex.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\rego.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\renpy.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\rest.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\rip.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\roboconf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\robotframework.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\ruby.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\rust.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\sas.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\sass.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\scala.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\scss.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\shell-session.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\scheme.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\smali.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\smalltalk.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\smarty.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\sml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\solidity.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\solution-file.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\soy.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\sparql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\splunk-spl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\sqf.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\sql.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\squirrel.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\stan.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\stylus.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\swift.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\systemd.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\t4-cs.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\t4-templating.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\t4-vb.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\tap.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\tcl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\textile.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\toml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\tremor.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\tsx.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\tt2.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\turtle.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\twig.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\typescript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\typoscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\unrealscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\uri.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\v.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\vala.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\vbnet.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\velocity.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\verilog.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\vhdl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\vim.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\visual-basic.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\warpscript.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\wasm.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\web-idl.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\wiki.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\wolfram.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\wren.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\xeora.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\xojo.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\xquery.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\yaml.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\yang.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\languages\zig.json"; DestDir: "{app}\plugins\textviewer\data\languages"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\a11y-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\atom-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\base16-ateliersulphurpool.light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\cb.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\coldark-cold.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\coldark-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\coy.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\darcula.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\dracula.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-earth.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-forest.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-sea.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\duotone-space.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\funky.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\ghcolors.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\gruvbox-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\gruvbox-light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\holi-theme.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\hopscotch.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\l.txt"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\lucario.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\material-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\material-light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\material-oceanic.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\night-owl.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\nord.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\okaidia.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\one-dark.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\one-light.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\pojoaque.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\prism.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\shades-of-purple.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\solarized-dark-atom.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\solarizedlight.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\synthwave84.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\tomorrow.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\twilight.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\vs.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\vsc-dark-plus.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\xonokai.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\data\themes\z-touch.json"; DestDir: "{app}\plugins\textviewer\data\themes"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\DEPENDENCIES.md"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\czech.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\dutch.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\english.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\french.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\german.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\romanian.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\russian.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\slovak.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\spanish.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\Microsoft.Web.WebView2.Core.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\Microsoft.Web.WebView2.WinForms.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\Newtonsoft.Json.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\PrismSharp.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\runtimes\win-arm64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer\runtimes\win-arm64\native"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\runtimes\win-x64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer\runtimes\win-x64\native"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\runtimes\win-x86\native\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer\runtimes\win-x86\native"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\TextViewer.Managed.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\textviewer.spl"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\runtimes\win-x64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\unarj\lang\czech.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\dutch.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\english.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\french.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\german.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\hungarian.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\romanian.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\russian.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\slovak.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\spanish.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\unarj.spl"; DestDir: "{app}\plugins\unarj"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\uncab\lang\czech.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\dutch.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\english.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\french.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\german.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\hungarian.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\romanian.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\russian.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\slovak.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\spanish.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\uncab.spl"; DestDir: "{app}\plugins\uncab"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\undelete\lang\czech.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\dutch.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\english.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\french.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\german.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\hungarian.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\romanian.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\russian.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\slovak.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\spanish.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\undelete.spl"; DestDir: "{app}\plugins\undelete"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\unfat\lang\czech.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\dutch.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\english.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\french.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\german.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\hungarian.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\romanian.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\russian.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\slovak.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\spanish.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\unfat.spl"; DestDir: "{app}\plugins\unfat"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unchm\chmlib.dll"; DestDir: "{app}\plugins\unchm"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\czech.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\dutch.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\english.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\french.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\german.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\hungarian.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\romanian.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\russian.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\slovak.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\spanish.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\unchm.spl"; DestDir: "{app}\plugins\unchm"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\uniso\lang\czech.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\dutch.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\english.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\french.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\german.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\hungarian.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\romanian.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\russian.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\slovak.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\spanish.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\uniso.spl"; DestDir: "{app}\plugins\uniso"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\unlha\lang\czech.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\dutch.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\english.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\french.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\german.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\hungarian.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\romanian.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\russian.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\slovak.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\spanish.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\unlha.spl"; DestDir: "{app}\plugins\unlha"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unmime\lang\czech.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\dutch.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\english.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\french.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\german.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\hungarian.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\romanian.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\russian.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\slovak.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\spanish.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\unmime.spl"; DestDir: "{app}\plugins\unmime"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unole\lang\czech.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\dutch.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\english.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\french.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\german.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\hungarian.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\romanian.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\russian.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\slovak.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\spanish.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\unole.spl"; DestDir: "{app}\plugins\unole"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unrar\lang\czech.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\dutch.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\english.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\french.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\german.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\hungarian.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\romanian.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\russian.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\slovak.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\spanish.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\unrar.dll"; DestDir: "{app}\plugins\unrar"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\unrar.spl"; DestDir: "{app}\plugins\unrar"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\DEPENDENCIES.md"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\czech.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\dutch.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\english.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\french.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\german.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\romanian.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\russian.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\slovak.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\spanish.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\Markdig.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\Microsoft.Web.WebView2.Core.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\Microsoft.Web.WebView2.WinForms.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\Microsoft.Web.WebView2.Wpf.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\runtimes\win-arm64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer\runtimes\win-arm64\native"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\runtimes\win-x64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer\runtimes\win-x64\native"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\runtimes\win-x86\native\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer\runtimes\win-x86\native"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Buffers.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Memory.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Numerics.Vectors.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\runtimes\win-x64\native\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\webview2renderviewer.spl"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\wmobile\lang\czech.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\dutch.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\english.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\french.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\german.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\hungarian.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\romanian.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\russian.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\slovak.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\spanish.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\wmobile.spl"; DestDir: "{app}\plugins\wmobile"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\zip\lang\czech.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\dutch.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\english.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\french.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\german.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\hungarian.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\romanian.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\russian.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\slovak.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\spanish.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\zip.spl"; DestDir: "{app}\plugins\zip"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\zip2sfx\readme.txt"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\zip2sfx\sam_cz.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
+Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
+Source: "{#PayloadDir}\plugins\demoplug\lang\*"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
 Source: "{#PayloadDir}\toolbars\Back.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -1579,10 +1629,55 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 
 var
   InstallModePage: TInputOptionWizardPage;
+  PluginSelectionPage: TWizardPage;
+  PluginList: TNewCheckListBox;
+  PluginIds: array of String;
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
   PreviousVersionUninstallKeys: array of String;
+
+
+
+function PadLeft(const Value: String; const Width: Integer): String;
+begin
+  Result := Value;
+  while Length(Result) < Width do
+    Result := ' ' + Result;
+end;
+
+procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
+begin
+  PluginList.AddCheckBox(
+    DisplayName,
+    PadLeft(Version, 12),
+    0,
+    CheckedByDefault,
+    True,
+    False,
+    False,
+    nil);
+  SetArrayLength(PluginIds, GetArrayLength(PluginIds) + 1);
+  PluginIds[GetArrayLength(PluginIds) - 1] := PluginId;
+end;
+
+function IsPluginSelected(const PluginId: String): Boolean;
+var
+  I: Integer;
+begin
+  Result := True;
+  if not Assigned(PluginList) then
+    Exit;
+
+  for I := 0 to GetArrayLength(PluginIds) - 1 do
+  begin
+    if CompareText(PluginIds[I], PluginId) = 0 then
+    begin
+      Result := PluginList.Checked[I];
+      Exit;
+    end;
+  end;
+end;
 
 function IsPortableInstall(): Boolean;
 begin
@@ -1771,6 +1866,78 @@ begin
   InstallModePage.Add(CustomMessage('StandardInstall'));
   InstallModePage.Add(CustomMessage('PortableInstall'));
   InstallModePage.SelectedValueIndex := 0;
+
+  PluginSelectionPage := CreateCustomPage(
+    InstallModePage.ID,
+    CustomMessage('PluginSelectionTitle'),
+    CustomMessage('PluginSelectionDescription'));
+
+  with TNewStaticText.Create(PluginSelectionPage) do
+  begin
+    Parent := PluginSelectionPage.Surface;
+    Left := 0;
+    Top := 0;
+    Width := PluginSelectionPage.SurfaceWidth;
+    AutoSize := False;
+    Caption := CustomMessage('PluginSelectionSubCaption');
+  end;
+
+  with TNewStaticText.Create(PluginSelectionPage) do
+  begin
+    Parent := PluginSelectionPage.Surface;
+    Left := 0;
+    Top := ScaleY(28);
+    Width := PluginSelectionPage.SurfaceWidth;
+    AutoSize := False;
+    Caption := CustomMessage('PluginColumnHeader');
+  end;
+
+  PluginList := TNewCheckListBox.Create(PluginSelectionPage);
+  PluginList.Parent := PluginSelectionPage.Surface;
+  PluginList.Left := 0;
+  PluginList.Top := ScaleY(48);
+  PluginList.Width := PluginSelectionPage.SurfaceWidth;
+  PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top;
+
+  AddPlugin('7zip', '7-Zip', '1.33 (x64)', True);
+  AddPlugin('automation', 'Automation', '2.0 (x64)', True);
+  AddPlugin('checksum', 'Checksum', '2.2 (x64)', True);
+  AddPlugin('dbviewer', 'DB Viewer', '1.25 (x64)', True);
+  AddPlugin('demoplug', 'DemoPlug', '1.96 (x64)', False);
+  AddPlugin('diskmap', 'DiskMap', '1.12 (x64)', True);
+  AddPlugin('filecomp', 'File Comparator', '1.20 (x64)', True);
+  AddPlugin('folders', 'Folders', '0.2 (x64)', True);
+  AddPlugin('ftp', 'FTP Client', '1.36 (x64)', True);
+  AddPlugin('hypervm', 'Hyper-V Manager', '1.07 (x64)', True);
+  AddPlugin('ieviewer', 'IE Viewer', '1.12 (x64)', True);
+  AddPlugin('jsonviewer', 'JSON Viewer', '1.02 (x64)', True);
+  AddPlugin('mmviewer', 'Multimedia Viewer', '1.16 (x64)', True);
+  AddPlugin('nethood', 'Network Neighborhood', '1.09 (x64)', True);
+  AddPlugin('pak', 'PAK', '1.72 (x64)', True);
+  AddPlugin('peviewer', 'PE Viewer', '3.0 (x64)', True);
+  AddPlugin('pictview', 'PictView', '2.24 (x64)', True);
+  AddPlugin('portables', 'Portables', '0.4 (x64)', True);
+  AddPlugin('regedt', 'Registry Editor', '1.15 (x64)', True);
+  AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
+  AddPlugin('samandarin', 'Samandarin', '0.6 (x64)', True);
+  AddPlugin('salamatrix', 'Salamatrix Framework', '0.1 (x64)', True);
+  AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);
+  AddPlugin('splitcbn', 'Split & Combine', '1.11 (x64)', True);
+  AddPlugin('tar', 'TAR', '3.34 (x64)', True);
+  AddPlugin('textviewer', 'Text Viewer', '1.02 (x64)', True);
+  AddPlugin('unarj', 'UnARJ', '1.22 (x64)', True);
+  AddPlugin('uncab', 'UnCAB', '1.28 (x64)', True);
+  AddPlugin('unchm', 'UnCHM', '1.04 (x64)', True);
+  AddPlugin('undelete', 'Undelete', '1.12 (x64)', True);
+  AddPlugin('unfat', 'UnFAT', '1.2 (x64)', True);
+  AddPlugin('uniso', 'UnISO', '1.38 (x64)', True);
+  AddPlugin('unlha', 'UnLHA', '1.14 (x64)', True);
+  AddPlugin('unmime', 'UnMIME', '1.15 (x64)', True);
+  AddPlugin('unole', 'UnOLE', '1.02 (x64)', True);
+  AddPlugin('unrar', 'UnRAR', '3.03 (x64)', True);
+  AddPlugin('webview2renderviewer', 'WebView2 Render Viewer', '1.03 (x64)', True);
+  AddPlugin('wmobile', 'Windows Mobile', '1.09 (x64)', True);
+  AddPlugin('zip', 'ZIP', '1.6 (x64)', True);
 
 end;
 

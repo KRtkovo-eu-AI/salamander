@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 2,
-  "catalogName": "Automation Runtimes",
-  "generatedAt": "2026-06-29T03:07:00Z",
+  "schemaVersion": 3,
+  "catalogName": "Extensions Runtimes",
+  "generatedAt": "2026-07-29T05:07:00Z",
   "plugins": [
     {
       "id": "salamatrix",
@@ -35,7 +35,8 @@
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/automation",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases/latest"
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases/latest",
+      "icon": "plugin"
     }
   ]
 }
