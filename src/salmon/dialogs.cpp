@@ -422,13 +422,10 @@ CMainDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 Minidumping = FALSE;
 
-                // if minidump generation failed, just report the error but continue (some data may have been saved)
-                if (!MinidumpParams.Result)
-                {
-                    char msg[2 * MAX_PATH];
-                    sprintf(msg, LoadStr(IDS_SALMON_BUGREPORT_PROBLEM, HLanguage), MinidumpParams.ErrorMessage);
-                    SalmonMessageBox(HWindow, msg, LoadStr(IDS_SALMON_TITLE, HLanguage), MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
-                }
+                // If minidump generation fails after Salamander has crashed, keep the
+                // reporter UI focused on submitting any remaining crash data. Showing an
+                // additional error message from salmon.exe makes the crash flow look like
+                // the reporter itself failed.
 
                 if (GetBugReportNames() && GetUniqueBugReportCount() > 1)
                 {
