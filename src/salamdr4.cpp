@@ -5,6 +5,7 @@
 #include "precomp.h"
 #include <propsys.h>
 #include <propvarutil.h>
+#undef PathIsPrefix // propsys/shlwapi can define this macro; plugins.h has a method with the same name
 
 #include "cfgdlg.h"
 #include "plugins.h"
