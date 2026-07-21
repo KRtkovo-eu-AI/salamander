@@ -1174,15 +1174,22 @@ MENU_TEMPLATE_ITEM CalculateDialogMenu[] =
             char num[64];
             SalamanderGeneral->NumberToStr(num, FileList[focIndex]->Size);
 
-            rowText = FileList[focIndex]->Name != NULL ? FileList[focIndex]->Name : "";
-            rowText += "\t";
+            rowText = LoadStr(IDS_COLUMN_FILE);
+            rowText += ": ";
+            rowText += FileList[focIndex]->Name != NULL ? FileList[focIndex]->Name : "";
+            rowText += "\r\n";
+
+            rowText += LoadStr(IDS_COLUMN_SIZE);
+            rowText += ": ";
             rowText += num;
 
             for (int hashIndex = 0; hashIndex < HT_COUNT; hashIndex++)
             {
                 if (HashInfo[hashIndex].bCalculate)
                 {
-                    rowText += "\t";
+                    rowText += "\r\n";
+                    rowText += LoadStr(HashInfo[hashIndex].idColumnHeader);
+                    rowText += ": ";
                     if (FileList[focIndex]->Hashes[hashIndex] != NULL)
                         rowText += FileList[focIndex]->Hashes[hashIndex];
                 }
