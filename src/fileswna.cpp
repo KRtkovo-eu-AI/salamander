@@ -53,6 +53,7 @@ static void AppendConfirmDeleteExtInfo(std::wstring& text, const wchar_t* path, 
         pathLine.replace(pathPos, 2, path != NULL ? path : L"");
     text += L"\r\n\r\n";
     text += pathLine;
+    text += L"\r\n\r\n";
 
     std::wstring dirLabel = ConfirmDeleteTextToWide(LoadStr(IDS_CONFIRM_DELETE_EXT_DIR));
     std::wstring fileLabel = ConfirmDeleteTextToWide(LoadStr(IDS_CONFIRM_DELETE_EXT_FILE));

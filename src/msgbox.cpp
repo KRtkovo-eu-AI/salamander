@@ -444,7 +444,31 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetWindowTextUtf8Aware(HWindow, Title);
         if (Text.NeedTruncate())
             Text.TruncateText(GetDlgItem(HWindow, IDS_MSGBOX_TEXT), TRUE);
-        SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_TEXT, Text.Get());
+        std::wstring scrollableLabelText;
+        std::wstring scrollableBodyText;
+        if (scrollableText)
+        {
+            std::wstring fullText = Text.IsWide() ? Text.GetW() : MessageBoxTextToWide(Text.Get());
+            size_t bodyPos = fullText.find(L"\r\n\r\n");
+            size_t bodySkip = 4;
+            if (bodyPos == std::wstring::npos)
+            {
+                bodyPos = fullText.find(L"\n\n");
+                bodySkip = 2;
+            }
+            if (bodyPos != std::wstring::npos)
+            {
+                scrollableLabelText = fullText.substr(0, bodyPos);
+                scrollableBodyText = fullText.substr(bodyPos + bodySkip);
+            }
+            else
+            {
+                scrollableLabelText = fullText;
+            }
+            SetWindowTextW(GetDlgItem(HWindow, IDS_MSGBOX_TEXT), scrollableLabelText.c_str());
+        }
+        else
+            SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_TEXT, Text.Get());
 
         const char* urlText = NULL;
         if (URL != NULL)
@@ -645,7 +669,12 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             maxTextWidth = fontCharWidth * 90;
 
         tR.right = maxTextWidth;
-        DrawText(hDC, Text.Get(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
+        if (scrollableText)
+        {
+            DrawTextW(hDC, scrollableLabelText.c_str(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
+        }
+        else
+            DrawText(hDC, Text.Get(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
 
         if (tR.right > maxTextWidth && !scrollableText)
         {
@@ -677,14 +706,15 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
 
+        int scrollableEditTopMargin = fontCharHeight / 2;
+        int scrollableEditHeight = 0;
         if (scrollableText)
         {
             tR.right = max(tR.right, textR.right);
             if (tR.right > maxTextWidth)
                 tR.right = maxTextWidth;
-            int maxScrollableTextHeight = fontCharHeight * 14;
-            if (tR.bottom - tR.top > maxScrollableTextHeight)
-                tR.bottom = tR.top + maxScrollableTextHeight;
+            scrollableEditHeight = fontCharHeight * 10;
+            tR.bottom += scrollableEditTopMargin + scrollableEditHeight;
         }
 
         // if there's a URL below the text, we add it to the text height for simplicity
@@ -953,17 +983,19 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HWND hText = GetDlgItem(HWindow, IDS_MSGBOX_TEXT);
         if (scrollableText)
         {
-            DestroyWindow(hText);
-            hText = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
-                                   WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL |
-                                       ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
-                                   p.x - iconWidth, p.y, tR.right - tR.left, tR.bottom - tR.top,
-                                   HWindow, (HMENU)(INT_PTR)IDS_MSGBOX_TEXT, HInstance, NULL);
-            SendMessage(hText, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
-            if (Text.IsWide())
-                SetWindowTextW(hText, Text.GetW());
-            else
-                SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_TEXT, Text.Get());
+            int labelHeight = tR.bottom - tR.top - scrollableEditTopMargin - scrollableEditHeight;
+            SetWindowPos(hText, NULL, p.x - iconWidth, p.y,
+                         tR.right - tR.left, labelHeight,
+                         SWP_NOZORDER);
+            HWND hEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+                                         WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | WS_HSCROLL |
+                                             ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
+                                         p.x - iconWidth, p.y + labelHeight + scrollableEditTopMargin,
+                                         tR.right - tR.left, scrollableEditHeight,
+                                         HWindow, (HMENU)(INT_PTR)IDS_MSGBOX_URL, HInstance, NULL);
+            SendMessage(hEdit, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
+            SetWindowTextW(hEdit, scrollableBodyText.c_str());
+            DarkModeApplyWindow(hEdit);
         }
         else
         {
@@ -1129,6 +1161,20 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
     }
 
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            HWND hEdit = GetDlgItem(HWindow, IDS_MSGBOX_URL);
+            if (hEdit != NULL)
+                DarkModeApplyWindow(hEdit);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            InvalidateRect(HWindow, NULL, TRUE);
+        }
+        break;
+    }
+
+    case WM_CTLCOLOREDIT:
     case WM_CTLCOLORSTATIC:
     {
         if (WindowsVistaAndLater)
