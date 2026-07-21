@@ -2867,6 +2867,7 @@ int TlbHdrTooltips[TLBHDR_COUNT] =
         IDS_EDTLB_SORT,
         IDS_EDTLB_UP,
         IDS_EDTLB_DOWN,
+        IDS_EDTLB_FILTER,
 };
 
 CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask)
@@ -2892,6 +2893,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
         {3, "SortByName"},
         {4, "MoveItemUp"},
         {5, "MoveItemDown"},
+        {6, "Filter"},
     };
 
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
@@ -2963,13 +2965,13 @@ void CToolbarHeader::CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled)
 
     // http://stackoverflow.com/questions/2640823/is-it-possible-to-create-a-cimagelist-with-alpha-blending-transparency
     hEnabled = ImageList_Create(iconSize, iconSize,
-                                ILC_COLOR32, TOOLBARHDR_BUTTONS, 1);
+                                ILC_COLOR32, TLBHDR_COUNT, 1);
     hDisabled = ImageList_Create(iconSize, iconSize,
-                                 ILC_COLOR32 /*ILC_COLORDDB */, TOOLBARHDR_BUTTONS, 1);
+                                 ILC_COLOR32 /*ILC_COLORDDB */, TLBHDR_COUNT, 1);
 
     HDC hDC = HANDLES(CreateCompatibleDC(NULL));
 
-    int width = iconSize * TOOLBARHDR_BUTTONS;
+    int width = iconSize * TLBHDR_COUNT;
     int height = iconSize;
 
     BITMAPINFOHEADER bmhdr;
@@ -2986,7 +2988,7 @@ void CToolbarHeader::CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled)
 
     NSVGrasterizer* rast = nsvgCreateRasterizer();
     // JRYFIXME: temporarily reading from a file, switch to a shared storage with toolbars
-    const char* svgNames[] = {"Modify", "New_Insert", "Delete", "SortByName", "MoveItemUp", "MoveItemDown"};
+    const char* svgNames[] = {"Modify", "New_Insert", "Delete", "SortByName", "MoveItemUp", "MoveItemDown", "Filter"};
     for (int j = 0; j < 2; j++)
     {
         DWORD* p = (DWORD*)lpBits;
@@ -2994,7 +2996,7 @@ void CToolbarHeader::CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled)
             *p++ = 0x00000000;
 
         HBITMAP hOldBmp = (HBITMAP)SelectObject(hDC, hBmp);
-        for (int i = 0; i < TOOLBARHDR_BUTTONS; i++)
+        for (int i = 0; i < TLBHDR_COUNT; i++)
             RenderSVGImage(rast, hDC, i * iconSize, 0, svgNames[i], iconSize, RGB(0xff, 0xff, 0xff), j == 0 ? TRUE : FALSE);
         SelectObject(hDC, hOldBmp);
         ImageList_Add(j == 0 ? hEnabled : hDisabled, hBmp, hBmp);

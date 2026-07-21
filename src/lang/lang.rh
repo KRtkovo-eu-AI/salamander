@@ -143,6 +143,7 @@
 #define IDC_VIEW_TEXT7                  335
 #define IDC_VIEW_LEFT_SMARTMODE         336
 #define IDC_VIEW_RIGHT_SMARTMODE        337
+#define IDC_VIEW_COLUMNS_FILTER         338
 #define IDD_CFGPAGE_USERMENU            350
 #define IDL_MENUITEMS                   351
 #define IDE_COMMAND                     352

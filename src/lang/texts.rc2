@@ -788,6 +788,7 @@ STRINGTABLE
  IDS_EDTLB_SORT, "Sort Items Alphabetically"
  IDS_EDTLB_UP, "Move Item Up (Alt + Up Arrow)"
  IDS_EDTLB_DOWN, "Move Item Down (Alt + Down Arrow)"
+ IDS_EDTLB_FILTER, "Filter Items"
 
  // Bottom ToolBar Texts for F1 - F12
  IDS_BTBTEXTS,     "Help,Rename,View,Edit,Copy,Move,MakeDir,Delete,UsrMenu,Menu,Connect,Disconnect"
