@@ -3177,6 +3177,8 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if ((HWND)lParam == ToolBar->HWindow)
             PostMessage(HNotifyWindow, WM_COMMAND,
                         MAKEWPARAM((WORD)(UINT_PTR)GetMenu(HWindow), LOWORD(wParam)), (LPARAM)HWindow);
+        else if (HNotifyWindow != NULL)
+            SendMessage(HNotifyWindow, WM_COMMAND, wParam, lParam);
         break;
     }
 

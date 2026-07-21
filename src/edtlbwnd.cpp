@@ -283,7 +283,7 @@ BOOL CEditListBox::MakeHeader(int ctrlID)
     Header->SetNotifyWindow(HWindow);
     HSearchEdit = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
                                  WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
-                                 0, 0, 0, 0, HDlg,
+                                 0, 0, 0, 0, Header->HWindow,
                                  (HMENU)0, HInstance, NULL);
     if (HSearchEdit != NULL)
     {
@@ -363,9 +363,7 @@ void CEditListBox::LayoutSearchEdit()
         return;
 
     RECT headerRect;
-    GetWindowRect(Header->HWindow, &headerRect);
-    POINT headerTop = {headerRect.left, headerRect.top};
-    ScreenToClient(HDlg, &headerTop);
+    GetClientRect(Header->HWindow, &headerRect);
 
     const int buttonsWidth = 7 * 22 + 4; // Search, Modify, New, Delete, Top, Up, Down in edit-list headers.
     int width = headerRect.right - headerRect.left - buttonsWidth - 4;
@@ -376,7 +374,7 @@ void CEditListBox::LayoutSearchEdit()
     int left = headerRect.right - headerRect.left - buttonsWidth - width;
     if (left < 4)
         left = 4;
-    SetWindowPos(HSearchEdit, HWND_TOP, headerTop.x + left, headerTop.y + 2,
+    SetWindowPos(HSearchEdit, HWND_TOP, left, 2,
                  width, headerRect.bottom - headerRect.top - 4,
                  SearchVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW);
 }
