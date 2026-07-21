@@ -397,6 +397,7 @@ struct CViewTemplate
                               // VIEW_SHOW_xxxx
 
     CColumnConfig Columns[STANDARD_COLUMNS_COUNT]; // stores widths and elasticity of columns
+    BYTE ColumnOrder[STANDARD_COLUMNS_COUNT]; // order of standard columns in detailed views/configuration
 
     BOOL LeftSmartMode;  // smart mode for the left panel (only the elastic Name column: the column narrows so a horizontal scrollbar is not needed)
     BOOL RightSmartMode; // smart mode for the right panel (only the elastic Name column: the column narrows so a horizontal scrollbar is not needed)
@@ -421,6 +422,8 @@ public:
 
     int SaveColumns(CColumnConfig* columns, char* buffer);  // convert the array to a string
     void LoadColumns(CColumnConfig* columns, char* buffer); // and back again
+    int SaveColumnOrder(BYTE* order, char* buffer);        // convert the column order to a string
+    void LoadColumnOrder(BYTE* order, char* buffer);       // and back again
 
     BOOL Save(HKEY hKey); // saves the entire array
     BOOL Load(HKEY hKey); // loads the entire array

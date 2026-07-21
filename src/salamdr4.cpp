@@ -1027,6 +1027,7 @@ BOOL LookForSubTexts(char* text, DWORD* varPlacements, int* varPlacementsCount)
 const char* SALAMANDER_VIEWTEMPLATE_NAME = "Name";
 const char* SALAMANDER_VIEWTEMPLATE_FLAGS = "Flags";
 const char* SALAMANDER_VIEWTEMPLATE_COLUMNS = "Columns";
+const char* SALAMANDER_VIEWTEMPLATE_COLUMNORDER = "Column Order";
 const char* SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE = "Left Smart Mode";
 const char* SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE = "Right Smart Mode";
 
@@ -1045,7 +1046,11 @@ CViewTemplates::CViewTemplates()
     for (i = 7; i < VIEW_TEMPLATES_COUNT; i++)
         Set(i, VIEW_MODE_DETAILED, "", 0, TRUE, TRUE);
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
+    {
         ZeroMemory(Items[i].Columns, sizeof(Items[i].Columns));
+        for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
+            Items[i].ColumnOrder[j] = (BYTE)j;
+    }
 }
 
 void CViewTemplates::Set(DWORD index, const char* name, DWORD flags, BOOL leftSmartMode, BOOL rightSmartMode)
@@ -1165,6 +1170,42 @@ void CViewTemplates::LoadColumns(CColumnConfig* columns, char* buffer)
     }
 }
 
+int CViewTemplates::SaveColumnOrder(BYTE* order, char* buffer)
+{
+    char* s = buffer;
+    for (int i = 0; i < STANDARD_COLUMNS_COUNT; i++)
+    {
+        if (i > 0)
+            *s++ = ',';
+        s += sprintf(s, "%u", (unsigned)order[i]);
+    }
+    *s = 0;
+    return (int)(s - buffer);
+}
+
+void CViewTemplates::LoadColumnOrder(BYTE* order, char* buffer)
+{
+    BOOL used[STANDARD_COLUMNS_COUNT];
+    ZeroMemory(used, sizeof(used));
+    int pos = 0;
+    char* p = strtok(buffer, ",");
+    while (p != NULL && pos < STANDARD_COLUMNS_COUNT)
+    {
+        unsigned int value;
+        if (sscanf(p, "%u", &value) == 1 && value < STANDARD_COLUMNS_COUNT && !used[value])
+        {
+            order[pos++] = (BYTE)value;
+            used[value] = TRUE;
+        }
+        p = strtok(NULL, ",");
+    }
+    for (int value = 0; pos < STANDARD_COLUMNS_COUNT && value < STANDARD_COLUMNS_COUNT; value++)
+    {
+        if (!used[value])
+            order[pos++] = (BYTE)value;
+    }
+}
+
 BOOL CViewTemplates::Save(HKEY hKey)
 {
     char buff[512];
@@ -1179,6 +1220,7 @@ BOOL CViewTemplates::Save(HKEY hKey)
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, Items[i].Name, -1);
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &Items[i].Flags, sizeof(DWORD));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, SaveColumns(Items[i].Columns, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ColumnOrder, buff));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &Items[i].LeftSmartMode, sizeof(DWORD));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &Items[i].RightSmartMode, sizeof(DWORD));
             CloseKey(actKey);
@@ -1214,6 +1256,8 @@ BOOL CViewTemplates::Load(HKEY hKey)
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, 512))
             {
                 LoadColumns(Items[i].Columns, buff);
+                if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, 512))
+                    LoadColumnOrder(Items[i].ColumnOrder, buff);
                 CleanName(name);
 
                 // overwrite file names the user could not change anyway

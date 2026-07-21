@@ -2084,13 +2084,16 @@ BOOL CFilesWindow::BuildColumnsTemplate()
     int i;
     for (i = 0; i < STANDARD_COLUMNS_COUNT; i++)
     {
-        item = GetStdColumn(i, Is(ptDisk));
+        int columnIndex = ViewTemplate->ColumnOrder[i];
+        if (columnIndex < 0 || columnIndex >= STANDARD_COLUMNS_COUNT)
+            columnIndex = i;
+        item = GetStdColumn(columnIndex, Is(ptDisk));
         // the Name column (i==0) is always visible
-        if (i == 0 || ViewTemplate->Flags & item->Flag)
+        if (columnIndex == 0 || ViewTemplate->Flags & item->Flag)
         {
             lstrcpy(column.Name, LoadStr(item->NameResID));
             lstrcpy(column.Description, LoadStr(item->DescResID));
-            if (i == 0) // column "Name"
+            if (columnIndex == 0) // column "Name"
             {
                 if ((ViewTemplate->Flags & VIEW_SHOW_EXTENSION) == 0) // "Ext" is part of the "Name" column, the name and description of the "Ext" column are after the terminating null of the name and description
                 {
@@ -2107,8 +2110,8 @@ BOOL CFilesWindow::BuildColumnsTemplate()
             column.SupportSorting = item->SupportSorting;
             column.LeftAlignment = item->LeftAlignment;
             column.ID = item->ID;
-            column.Width = leftPanel ? colCfg[i].LeftWidth : colCfg[i].RightWidth;
-            column.FixedWidth = leftPanel ? colCfg[i].LeftFixedWidth : colCfg[i].RightFixedWidth;
+            column.Width = leftPanel ? colCfg[columnIndex].LeftWidth : colCfg[columnIndex].RightWidth;
+            column.FixedWidth = leftPanel ? colCfg[columnIndex].LeftFixedWidth : colCfg[columnIndex].RightFixedWidth;
             column.MinWidth = 0; // dummy - will be overwritten when sizing HeaderLine
 
             ColumnsTemplate.Add(column);
