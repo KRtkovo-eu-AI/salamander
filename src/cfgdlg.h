@@ -236,6 +236,7 @@ struct CConfiguration
         QuickRenameSelectAll,   // Quick Rename/Pack selects everything (not just the name) (users disliked the new selection)
         EditNewSelectAll,       // EditNew should select everything (not just the name). users requested a separate option because some always create .TXT (and are fine with overwriting just the name) while others use different extensions and want to overwrite the entire filename
         ShiftForHotPaths,       // use Shift+1..0 for go to hot path?
+        BackspaceAction,        // what Backspace does in panels (0 = parent directory, 1 = back in history)
         IconSpacingVert,        // vertical spacing in points between Icons/Thumbnails in the panel
         IconSpacingHorz,        // horizontal spacing in points between Icons in the panel
         TileSpacingVert,        // vertical spacing in points between Tiles in the panel
@@ -952,6 +953,8 @@ class CCfgPageKeyboard : public CCommonPropSheetPage
 {
 public:
     CCfgPageKeyboard();
+
+    virtual void Transfer(CTransferInfo& ti);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);

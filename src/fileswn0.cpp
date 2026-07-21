@@ -1818,7 +1818,10 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
         {
             if (wParam == VK_BACK && !controlPressed && !altPressed && !shiftPressed) // backspace
             {
-                CtrlPageUpOrBackspace();
+                if (Configuration.BackspaceAction == 1)
+                    PostMessage(MainWindow->HWindow, WM_COMMAND, CM_ACTIVEBACK, 0);
+                else
+                    CtrlPageUpOrBackspace();
                 return TRUE;
             }
         }

@@ -1100,6 +1100,7 @@ const char* CONFIG_SAVEWORKDIRS_REG = "Save Working Dirs";
 const char* CONFIG_WORKDIRS_HISTORY_SCOPE_REG = "Working Dirs History Scope";
 const char* CONFIG_ENABLECMDLINEHISTORY_REG = "Enable CmdLine History";
 const char* CONFIG_SAVECMDLINEHISTORY_REG = "Save CmdLine History";
+const char* CONFIG_BACKSPACEACTION_REG = "Backspace Action";
 //const char *CONFIG_LANTASTICCHECK_REG = "Lantastic Check";
 const char* CONFIG_USESALOPEN_REG = "Use salopen.exe";
 const char* CONFIG_NETWAREFASTDIRMOVE_REG = "Netware Fast Dir Move";
@@ -3094,6 +3095,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.EnableCmdLineHistory, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SAVECMDLINEHISTORY_REG, REG_DWORD,
                          &Configuration.SaveCmdLineHistory, sizeof(DWORD));
+                SetValue(actKey, CONFIG_BACKSPACEACTION_REG, REG_DWORD,
+                         &Configuration.BackspaceAction, sizeof(DWORD));
                 //      SetValue(actKey, CONFIG_LANTASTICCHECK_REG, REG_DWORD,
                 //               &Configuration.LantasticCheck, sizeof(DWORD));
                 SetValue(actKey, CONFIG_ONLYONEINSTANCE_REG, REG_DWORD,
@@ -4970,6 +4973,12 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.EnableCmdLineHistory, sizeof(DWORD));
             GetValue(actKey, CONFIG_SAVECMDLINEHISTORY_REG, REG_DWORD,
                      &Configuration.SaveCmdLineHistory, sizeof(DWORD));
+            if (GetValue(actKey, CONFIG_BACKSPACEACTION_REG, REG_DWORD,
+                         &Configuration.BackspaceAction, sizeof(DWORD)))
+            {
+                if (Configuration.BackspaceAction != 0 && Configuration.BackspaceAction != 1)
+                    Configuration.BackspaceAction = 0;
+            }
             //      GetValue(actKey, CONFIG_LANTASTICCHECK_REG, REG_DWORD,
             //               &Configuration.LantasticCheck, sizeof(DWORD));
             GetValue(actKey, CONFIG_STATUSAREA_REG, REG_DWORD,
