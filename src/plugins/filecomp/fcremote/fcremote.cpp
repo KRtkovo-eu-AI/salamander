@@ -19,6 +19,18 @@ extern "C" void* my_memcpy_compat(void* dst, const void* src, size_t len)
     return dst;
 }
 
+#ifndef _DEBUG
+#undef memcpy
+// ARM64 release builds may lower simple copy loops in other translation units
+// to an out-of-line memcpy call. fcremote links without the CRT, so provide the
+// symbol directly instead of relying only on /alternatename.
+extern "C" void* memcpy(void* dst, const void* src, size_t len)
+{
+    return my_memcpy_compat(dst, src, len);
+}
+#define memcpy my_memcpy
+#endif
+
 #pragma comment(linker, "/alternatename:memcpy=my_memcpy_compat")
 
 #pragma optimize("", off)
