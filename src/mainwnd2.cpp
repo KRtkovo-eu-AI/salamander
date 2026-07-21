@@ -316,6 +316,28 @@ static int MCDRootIndexFromSubkey(const char* subkey)
     return -1;
 }
 
+static BOOL MCDRestartSalamanderAfterWelcome(HWND parent)
+{
+    char exePath[MAX_PATH];
+    GetModuleFileName(NULL, exePath, MAX_PATH);
+
+    char initDir[MAX_PATH];
+    strncpy_s(initDir, exePath, _TRUNCATE);
+    char* slash = strrchr(initDir, '\\');
+    if (slash != NULL)
+        *slash = 0;
+
+    SHELLEXECUTEINFO se;
+    memset(&se, 0, sizeof(se));
+    se.cbSize = sizeof(se);
+    se.nShow = SW_SHOWNORMAL;
+    se.hwnd = parent;
+    se.lpFile = exePath;
+    se.lpDirectory = initDir;
+
+    return ShellExecuteEx(&se);
+}
+
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize)
 {
     if (path == NULL || pathSize <= 0)
@@ -2222,6 +2244,17 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
 
     if (dlg.DeleteSourceAfterMigration)
         dlg.DeleteConfigByIndex(dlg.SelectedSourceIndex);
+
+    if (dlg.CustomLanguage[0] != 0 && _stricmp(dlg.CustomLanguage, Configuration.LoadedSLGName) != 0)
+    {
+        // The first-run Welcome dialog is already localized before the target
+        // configuration exists.  Restart the same way Manage Configurations does
+        // so the selected target language is loaded immediately from the saved
+        // target configuration instead of being overwritten by this process.
+        if (MCDRestartSalamanderAfterWelcome(NULL))
+            return FALSE;
+        SalMessageBox(NULL, LoadStr(IDS_MCD_RESTARTMSG), LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+    }
 
     if (loadConfiguration == NULL && DarkModeShouldUseDarkColors())
     {
