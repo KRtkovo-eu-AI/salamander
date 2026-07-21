@@ -1279,23 +1279,46 @@ static BOOL IsKnownExt(const CFileData* f, const char* const* exts, int count)
     return FALSE;
 }
 
+
+static BOOL AppendMultiBytePathToWide(std::wstring& target, const char* text)
+{
+    if (text == NULL || text[0] == 0)
+        return FALSE;
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (len == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (len <= 1)
+        return FALSE;
+    std::vector<wchar_t> converted(len);
+    if (MultiByteToWideChar(codePage, flags, text, -1, &converted[0], len) <= 0)
+        return FALSE;
+    target.append(&converted[0]);
+    return TRUE;
+}
+
 static BOOL BuildPanelFilePathW(const wchar_t* panelPathW, const char* panelPath, const CFileData* f, std::wstring& pathW)
 {
     pathW.clear();
     if (f == NULL)
         return FALSE;
     if (panelPathW != NULL && panelPathW[0] != 0)
-        pathW = panelPathW;
+        pathW.assign((const wchar_t*)panelPathW);
     else if (panelPath != NULL && panelPath[0] != 0)
-        pathW = SalMultiByteToWidePath(panelPath, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        AppendMultiBytePathToWide(pathW, panelPath);
     if (pathW.empty())
         return FALSE;
     if (pathW[pathW.length() - 1] != L'\\')
-        pathW += L'\\';
+        pathW.append(1, L'\\');
     if (f->UseWideName())
-        pathW += f->NameW;
-    else
-        pathW += SalMultiByteToWidePath(f->Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+        pathW.append((const wchar_t*)f->NameW);
+    else if (!AppendMultiBytePathToWide(pathW, f->Name))
+        return FALSE;
     return TRUE;
 }
 
