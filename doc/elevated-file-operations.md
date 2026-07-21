@@ -60,9 +60,12 @@ should mirror the same behavior locally.
 
 ## Current integration points
 
-The first connected file-operation path is direct file deletion: when `DeleteFile`
-fails in the worker with an elevation-candidate error, Salamander shows the retry
-prompt and routes the confirmed operation through `RunElevatedFileOperation()` with
-the `delete-file` broker verb. Copy, move, directory delete, and attribute changes
-should follow the same helper once their existing retry/skip UI paths are split
-cleanly enough to preserve current progress-dialog semantics.
+The connected worker paths are:
+
+- direct file deletion: `DeleteFile` failures can retry through `delete-file`;
+- target creation during copy: target open/create failures can retry through `copy-file`;
+- move/rename: normal move failures can retry through `move-file`;
+- attribute changes: `SetFileAttributes` failures can retry through `set-attributes`.
+
+Directory delete and security descriptor changes still need dedicated integration so their
+existing recycle-bin, recursive-delete, and permission-copy semantics are preserved.

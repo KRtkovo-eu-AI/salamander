@@ -5395,6 +5395,25 @@ COPY_AGAIN:
                         DWORD err = GetLastError();
                         if (invalidTgtName)
                             err = ERROR_INVALID_NAME;
+                        DWORD elevatedErr;
+                        if (ConfirmAndRunElevatedFileOperation(hProgressDlg, err, op->TargetName, "copy-file",
+                                                                op->SourceName, op->TargetName, 0, FALSE, &elevatedErr))
+                        {
+                            if (elevatedErr == ERROR_SUCCESS)
+                            {
+                                HANDLES(CloseHandle(in));
+                                totalDone += op->Size;
+                                script->AddBytesToTFSandSetProgressSize(op->Size, totalDone);
+                                SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                                return TRUE;
+                            }
+                            if (elevatedErr == ERROR_CANCELLED)
+                            {
+                                HANDLES(CloseHandle(in));
+                                return FALSE;
+                            }
+                            err = elevatedErr;
+                        }
                         BOOL errDeletingFile = FALSE;
                         if (err == ERROR_FILE_EXISTS || // overwrite the file?
                             err == ERROR_ALREADY_EXISTS)
@@ -6301,6 +6320,22 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
                     if (*dlgData.CancelWorker)
                         return FALSE;
+
+                    DWORD elevatedErr;
+                    if (ConfirmAndRunElevatedFileOperation(hProgressDlg, err, op->TargetName, "move-file",
+                                                            op->SourceName, op->TargetName, 0, FALSE, &elevatedErr))
+                    {
+                        if (elevatedErr == ERROR_SUCCESS)
+                        {
+                            totalDone += op->Size;
+                            script->SetProgressSize(totalDone);
+                            SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                            return TRUE;
+                        }
+                        if (elevatedErr == ERROR_CANCELLED)
+                            return FALSE;
+                        err = elevatedErr;
+                    }
 
                     if (dlgData.SkipAllMoveErrors)
                         goto SKIP_MOVE_ERROR;
@@ -8075,6 +8110,21 @@ BOOL DoChangeAttrs(HWND hProgressDlg, char* name, const CQuadWord& size, DWORD a
             WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
                 return FALSE;
+
+            DWORD elevatedErr;
+            if (ConfirmAndRunElevatedFileOperation(hProgressDlg, error, name, "set-attributes",
+                                                    name, NULL, attrs, TRUE, &elevatedErr))
+            {
+                if (elevatedErr == ERROR_SUCCESS)
+                {
+                    totalDone += size;
+                    SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    return TRUE;
+                }
+                if (elevatedErr == ERROR_CANCELLED)
+                    return FALSE;
+                error = elevatedErr;
+            }
 
             if (dlgData.SkipAllChangeAttrs)
                 goto SKIP_ATTRS_ERROR;
