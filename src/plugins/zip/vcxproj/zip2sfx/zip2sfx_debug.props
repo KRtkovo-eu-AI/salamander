@@ -13,7 +13,8 @@
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <RandomizedBaseAddress Condition="'$(Platform)'!='ARM64'">false</RandomizedBaseAddress>
+      <RandomizedBaseAddress Condition="'$(Platform)'=='ARM64'">true</RandomizedBaseAddress>
       <BaseAddress>..\..\..\shared\baseaddr_$(ShortPlatform).txt,$(ProjectName)</BaseAddress>      
     </Link>
     <ResourceCompile>

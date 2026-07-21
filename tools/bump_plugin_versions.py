@@ -137,6 +137,10 @@ def version_at_tag(path: Path, tag: str, plugins_root: Path) -> PluginVersion | 
         tmp.unlink(missing_ok=True)
 
 
+def is_plugin_project_file(path: str) -> bool:
+    return Path(path).suffix.lower() == ".vcxproj"
+
+
 def plugin_changes_since(plugin_root: Path, tag: str | None) -> list[tuple[str, str, str]]:
     if not tag:
         return []
@@ -144,7 +148,7 @@ def plugin_changes_since(plugin_root: Path, tag: str | None) -> list[tuple[str, 
     changes: list[tuple[str, str, str]] = []
     for line in run_git(["diff", "--numstat", tag, "--", rel], check=False).splitlines():
         parts = line.split("\t")
-        if len(parts) >= 3:
+        if len(parts) >= 3 and not is_plugin_project_file(parts[2]):
             changes.append((parts[0], parts[1], parts[2]))
     return changes
 

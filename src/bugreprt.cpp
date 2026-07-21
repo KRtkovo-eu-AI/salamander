@@ -35,6 +35,12 @@ TDirectArray<DWORD> GlobalModulesListTimeStore(50, 20); // x64_OK
 
 BOOL GetProcessorSpeed(DWORD* mhz)
 {
+#if !defined(_M_IX86) && !defined(_M_X64)
+    // __rdtsc is available only on x86/x64 MSVC targets.  On other
+    // architectures the caller can continue without a measured CPU speed.
+    UNREFERENCED_PARAMETER(mhz);
+    return FALSE;
+#else
     __try
     {
         LARGE_INTEGER t1, t2, t3, t4, f;
@@ -83,6 +89,7 @@ BOOL GetProcessorSpeed(DWORD* mhz)
     {
         return FALSE;
     }
+#endif
 }
 
 HANDLE WINAPI GetThreadHandleFromID(DWORD dwThreadID, BOOL bInherit)
@@ -728,7 +735,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
     }
 #endif // CALLSTK_DISABLE
 
-#ifdef _WIN64
+#ifdef _M_X64
     __try
     {
         // output available registers and, if that doesn't throw an exception, also the stack
@@ -875,7 +882,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         PrintLine(param, buf, TRUE);
         PrintLine(param, "", FALSE);
     }
-#else          // _WIN64
+#elif defined(_M_IX86)
     __try
     {
         // output available registers and, if that doesn't throw an exception, also the stack
@@ -1022,7 +1029,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         PrintLine(param, buf, TRUE);
         PrintLine(param, "", FALSE);
     }
-#endif         // _WIN64
+#endif         // _M_X64 || _M_IX86
 
     __try
     {
@@ -2109,15 +2116,26 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                             if (threadWithException)
                                 memcpy(&ctx, Exception->ContextRecord, sizeof(ctx));
                             else
+                            {
+#if defined(_M_ARM64)
+                                ctx.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
+#else
                                 ctx.ContextFlags = CONTEXT_SEGMENTS | CONTEXT_INTEGER | CONTEXT_CONTROL;
+#endif
+                            }
                             if (threadWithException || GetThreadContext(hThread, &ctx))
                             {
-#ifdef _WIN64
+#if defined(_M_X64) || defined(_M_ARM64)
                                 BOOL firstPc = TRUE;
                                 // Unwind until IP is 0, sp is at the stack top, and callee IP is in kernel32.
                                 while (TRUE)
                                 {
-                                    DWORD64 controlPc = ctx.Rip;
+                                    DWORD64 controlPc =
+#if defined(_M_ARM64)
+                                        ctx.Pc;
+#else
+                                        ctx.Rip;
+#endif
 
                                     CModuleInfo* modInfo = ModulesInfo.Find((void*)controlPc);
                                     const char* name;
@@ -2159,7 +2177,12 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                             &EstablisherFrame,
                                             NULL);
 
-                                        DWORD64 mewControlPc = ctx.Rip;
+                                        DWORD64 mewControlPc =
+#if defined(_M_ARM64)
+                                            ctx.Pc;
+#else
+                                            ctx.Rip;
+#endif
                                         if (mewControlPc == 0)
                                             break;
                                     }
@@ -2168,8 +2191,13 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                         // Nested functions that do not use any stack space or nonvolatile
                                         // registers are not required to have unwind info (ex.
                                         // USER32!ZwUserCreateWindowEx).
+#if defined(_M_ARM64)
+                                        ctx.Pc = *(DWORD64*)(ctx.Sp);
+                                        ctx.Sp += sizeof(DWORD64);
+#else
                                         ctx.Rip = *(DWORD64*)(ctx.Rsp);
                                         ctx.Rsp += sizeof(DWORD64);
+#endif
                                     }
                                 }
 #else
@@ -2220,7 +2248,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                 {
                                     PrintLine(param, "(exception)", TRUE);
                                 }
-#endif // _WIN64
+#endif // _M_X64 || _M_ARM64
                             }
                             if (stack->ThreadID != GetCurrentThreadId())
                                 ResumeThread(hThread);
@@ -2257,12 +2285,17 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                     memcpy(&ctx, Exception->ContextRecord, sizeof(ctx));
                     if (TRUE)
                     {
-#ifdef _WIN64
+#if defined(_M_X64) || defined(_M_ARM64)
                         BOOL firstPc = TRUE;
                         // Unwind until IP is 0, sp is at the stack top, and callee IP is in kernel32.
                         while (TRUE)
                         {
-                            DWORD64 controlPc = ctx.Rip;
+                            DWORD64 controlPc =
+#if defined(_M_ARM64)
+                                        ctx.Pc;
+#else
+                                        ctx.Rip;
+#endif
 
                             CModuleInfo* modInfo = ModulesInfo.Find((void*)controlPc);
                             const char* name;
@@ -2304,7 +2337,12 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                     &EstablisherFrame,
                                     NULL);
 
-                                DWORD64 mewControlPc = ctx.Rip;
+                                DWORD64 mewControlPc =
+#if defined(_M_ARM64)
+                                            ctx.Pc;
+#else
+                                            ctx.Rip;
+#endif
                                 if (mewControlPc == 0)
                                     break;
                             }
@@ -2313,8 +2351,13 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                 // Nested functions that do not use any stack space or nonvolatile
                                 // registers are not required to have unwind info (ex.
                                 // USER32!ZwUserCreateWindowEx).
+#if defined(_M_ARM64)
+                                ctx.Pc = *(DWORD64*)(ctx.Sp);
+                                ctx.Sp += sizeof(DWORD64);
+#else
                                 ctx.Rip = *(DWORD64*)(ctx.Rsp);
                                 ctx.Rsp += sizeof(DWORD64);
+#endif
                             }
                         }
 #else
@@ -2365,7 +2408,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                         {
                             PrintLine(param, "(exception)", TRUE);
                         }
-#endif // _WIN64
+#endif // _M_X64 || _M_ARM64
                     }
                 }
             }

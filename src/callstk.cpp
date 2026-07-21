@@ -62,7 +62,7 @@ CCallStack MainThreadStack; // ensure the call-stack object is created before co
 // PreventSetUnhandledExceptionFilter
 //
 
-#if defined _M_X64 || defined _M_IX86
+#if defined _M_X64 || defined _M_IX86 || defined _M_ARM64
 LPTOP_LEVEL_EXCEPTION_FILTER WINAPI
 MyDummySetUnhandledExceptionFilter(
     LPTOP_LEVEL_EXCEPTION_FILTER lpTopLevelExceptionFilter)
@@ -70,11 +70,17 @@ MyDummySetUnhandledExceptionFilter(
     return NULL;
 }
 #else
-#error "This code works only for x86 and x64!"
+#error "This code works only for x86, x64, and ARM64!"
 #endif
 
 BOOL PreventSetUnhandledExceptionFilterAux()
 {
+#ifdef _M_ARM64
+    // The inline patch below emits x86/x64 jump instructions.  ARM64 uses the
+    // default unhandled-exception-filter behavior instead of patching code with
+    // architecture-specific instructions.
+    return TRUE;
+#else
     HMODULE hKernel32 = LoadLibrary(_T("kernel32.dll"));
     if (hKernel32 == NULL)
         return FALSE;
@@ -125,6 +131,7 @@ BOOL PreventSetUnhandledExceptionFilterAux()
         //FlushInstructionCache(GetCurrentProcess(), pOrgEntry, 20);
     }
     return bRet;
+#endif
 }
 
 BOOL PreventSetUnhandledExceptionFilter()

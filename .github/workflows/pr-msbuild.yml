@@ -22,7 +22,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["Win32", "x64"]
+        include:
+          - platform: Win32
+            msvc_arch: x64
+            sftp_triplet: x86-windows
+          - platform: x64
+            msvc_arch: x64
+            sftp_triplet: x64-windows
+          - platform: ARM64
+            msvc_arch: x64_arm64
+            sftp_triplet: arm64-windows
 
     defaults:
       run:
@@ -113,11 +122,11 @@ jobs:
         if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: microsoft/setup-msbuild@v2
 
-      - name: Setup MSVC Developer Command Prompt (x64 toolchain)
+      - name: Setup MSVC Developer Command Prompt (${{ matrix.msvc_arch }} toolchain)
         if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: x64
+          arch: ${{ matrix.msvc_arch }}
 
       - name: Register MSVC problem matcher
         if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
@@ -126,8 +135,7 @@ jobs:
       - name: Install SFTP plugin dependencies
         if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
         run: |
-          $triplet = if ('${{ matrix.platform }}' -eq 'Win32') { 'x86-windows' } else { 'x64-windows' }
-          .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet $triplet
+          .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet '${{ matrix.sftp_triplet }}'
 
       - name: Select changed projects
         if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
@@ -173,7 +181,7 @@ jobs:
 
             foreach ($owner in $owners) {
               if ($env:BUILD_SFTP_PLUGIN -ne 'true' -and $owner.Name -in @('sftp', 'lang_sftp')) { continue }
-              if ('${{ matrix.platform }}' -eq 'x64' -and $owner.Name -eq 'salextx86') { continue }
+              if ('${{ matrix.platform }}' -in @('x64', 'ARM64') -and $owner.Name -eq 'salextx86') { continue }
               if ('${{ matrix.platform }}' -eq 'Win32' -and $owner.Name -eq 'salextx64') { continue }
               if (-not ($selected | Where-Object { $_.Path -eq $owner.Path })) {
                 $selected.Add($owner)

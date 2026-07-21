@@ -3,7 +3,9 @@
 
 #pragma once
 
+#if defined(_M_IX86) || defined(_M_X64)
 #include <xmmintrin.h>
+#endif
 
 // precaution against runtime check failure in the debug version: the original macro casted RGB to WORD,
 // so it reported data loss (RED component)

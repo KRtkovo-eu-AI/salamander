@@ -13,6 +13,13 @@ void my_memcpy(void* dst, const void* src, int len)
         *d++ = *s++;
 }
 
+extern "C" void* my_memcpy_compat(void* dst, const void* src, size_t len)
+{
+    my_memcpy(dst, src, (int)len);
+    return dst;
+}
+
+
 #pragma optimize("", off)
 void my_zeromem(void* dst, int len)
 {
