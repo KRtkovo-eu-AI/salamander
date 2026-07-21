@@ -3,7 +3,7 @@ Open Salamander: Samandarin is a fast and reliable dual-pane file manager for Wi
 
 It evolves the [original project](https://github.com/OpenSalamander/salamander) with enhancements and new features while staying compatible with the upstream code and plugin ecosystem.
 
-<img width="1247" height="845" alt="image" src="https://github.com/user-attachments/assets/441a22e8-3265-432b-af22-23e8d98704ce" />
+<img width="1247" height="845" alt="image" src="https://github.com/user-attachments/assets/8cfedd13-c875-4400-b51c-6b9395a16c8e" />
 
 
 ## Included Features Overview
