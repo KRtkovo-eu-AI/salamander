@@ -5,6 +5,9 @@
 #include "precomp.h"
 
 #include <shlwapi.h>
+#include <propsys.h>
+#include <propkey.h>
+#include <propvarutil.h>
 #undef PathIsPrefix // otherwise collision with CSalamanderGeneral::PathIsPrefix
 
 #include "cfgdlg.h"
@@ -1220,6 +1223,19 @@ void CFilesWindow::OfferArchiveUpdateIfNeeded(HWND parent, int textID, BOOL* arc
 }
 
 
+static void AppendTipText(char* text, int textSize, const char* line)
+{
+    if (line == NULL || line[0] == 0 || text == NULL || textSize <= 0)
+        return;
+    int len = (int)strlen(text);
+    if (len > 0 && len < textSize - 1)
+    {
+        text[len++] = '\n';
+        text[len] = 0;
+    }
+    lstrcpyn(text + len, line, textSize - len);
+}
+
 static void AppendTipLine(char* text, int textSize, int resID, const char* value)
 {
     if (value == NULL || value[0] == 0 || text == NULL || textSize <= 0)
@@ -1250,6 +1266,137 @@ static void FormatTipFileTime(const FILETIME* ft, char* buf, int bufSize)
     }
 }
 
+
+static BOOL IsKnownExt(const CFileData* f, const char* const* exts, int count)
+{
+    if (f == NULL || f->Ext == NULL || f->Ext[0] == 0)
+        return FALSE;
+    for (int i = 0; i < count; i++)
+    {
+        if (StrICmp(f->Ext, exts[i]) == 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL BuildPanelFilePathW(const wchar_t* panelPathW, const char* panelPath, const CFileData* f, std::wstring& pathW)
+{
+    pathW.clear();
+    if (f == NULL)
+        return FALSE;
+    if (panelPathW != NULL && panelPathW[0] != 0)
+        pathW = panelPathW;
+    else if (panelPath != NULL && panelPath[0] != 0)
+        pathW = SalMultiByteToWidePath(panelPath, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    if (pathW.empty())
+        return FALSE;
+    if (pathW[pathW.length() - 1] != L'\\')
+        pathW += L'\\';
+    if (f->UseWideName())
+        pathW += f->NameW;
+    else
+        pathW += SalMultiByteToWidePath(f->Name, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    return TRUE;
+}
+
+static BOOL AppendShellPropertyLine(char* text, int textSize, IPropertyStore* store, REFPROPERTYKEY key)
+{
+    if (store == NULL)
+        return FALSE;
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    BOOL ret = FALSE;
+    if (SUCCEEDED(store->GetValue(key, &value)) && value.vt != VT_EMPTY && value.vt != VT_NULL)
+    {
+        PWSTR display = NULL;
+        if (SUCCEEDED(PSFormatForDisplayAlloc(key, value, PDFF_DEFAULT, &display)) && display != NULL && display[0] != 0)
+        {
+            char valueText[512];
+            if (WideCharToMultiByte(CP_ACP, 0, display, -1, valueText, _countof(valueText), NULL, NULL) > 0 && valueText[0] != 0)
+            {
+                char nameText[128];
+                nameText[0] = 0;
+                IPropertyDescription* desc = NULL;
+                if (SUCCEEDED(PSGetPropertyDescription(key, IID_IPropertyDescription, (void**)&desc)) && desc != NULL)
+                {
+                    LPWSTR name = NULL;
+                    if (SUCCEEDED(desc->GetDisplayName(&name)) && name != NULL)
+                    {
+                        WideCharToMultiByte(CP_ACP, 0, name, -1, nameText, _countof(nameText), NULL, NULL);
+                        CoTaskMemFree(name);
+                    }
+                    desc->Release();
+                }
+                if (nameText[0] != 0)
+                {
+                    char line[700];
+                    _snprintf_s(line, _countof(line), _TRUNCATE, LoadStr(IDS_PANELTIP_SHELLPROP), nameText, valueText);
+                    AppendTipText(text, textSize, line);
+                    ret = TRUE;
+                }
+            }
+            CoTaskMemFree(display);
+        }
+    }
+    PropVariantClear(&value);
+    return ret;
+}
+
+static void AppendKnownFileTypeProperties(char* text, int textSize, const wchar_t* pathW, const CFileData* f)
+{
+    static const char* const executableExts[] = {".exe", ".dll", ".ocx", ".cpl", ".sys", ".scr"};
+    static const char* const imageExts[] = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".heic", ".ico"};
+    static const char* const audioExts[] = {".mp3", ".wav", ".wma", ".flac", ".m4a", ".aac", ".ogg"};
+    static const char* const videoExts[] = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm", ".m4v"};
+    static const char* const documentExts[] = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".txt", ".rtf"};
+
+    PROPERTYKEY keys[10];
+    int count = 0;
+    if (IsKnownExt(f, executableExts, _countof(executableExts)))
+    {
+        keys[count++] = PKEY_FileDescription;
+        keys[count++] = PKEY_Company;
+        keys[count++] = PKEY_FileVersion;
+    }
+    else if (IsKnownExt(f, imageExts, _countof(imageExts)))
+    {
+        keys[count++] = PKEY_Image_Dimensions;
+        keys[count++] = PKEY_Image_HorizontalSize;
+        keys[count++] = PKEY_Image_VerticalSize;
+        keys[count++] = PKEY_Image_BitDepth;
+    }
+    else if (IsKnownExt(f, audioExts, _countof(audioExts)))
+    {
+        keys[count++] = PKEY_Title;
+        keys[count++] = PKEY_Music_Artist;
+        keys[count++] = PKEY_Music_AlbumTitle;
+        keys[count++] = PKEY_Media_Duration;
+        keys[count++] = PKEY_Audio_EncodingBitrate;
+    }
+    else if (IsKnownExt(f, videoExts, _countof(videoExts)))
+    {
+        keys[count++] = PKEY_Video_FrameWidth;
+        keys[count++] = PKEY_Video_FrameHeight;
+        keys[count++] = PKEY_Media_Duration;
+        keys[count++] = PKEY_Video_FrameRate;
+    }
+    else if (IsKnownExt(f, documentExts, _countof(documentExts)))
+    {
+        keys[count++] = PKEY_Title;
+        keys[count++] = PKEY_Author;
+        keys[count++] = PKEY_Document_PageCount;
+    }
+    if (count == 0)
+        return;
+
+    IPropertyStore* store = NULL;
+    if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)
+        return;
+    for (int i = 0; i < count; i++)
+        AppendShellPropertyLine(text, textSize, store, keys[i]);
+    store->Release();
+}
+
 void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::GetPanelItemToolTip(0x%X, , )", id);
@@ -1276,6 +1423,13 @@ void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
         char sizeBuf[100];
         PrintDiskSize(sizeBuf, f->Size, 1);
         AppendTipLine(text, textSize, IDS_PANELTIP_SIZE, sizeBuf);
+    }
+
+    if (!isDir && Is(ptDisk))
+    {
+        std::wstring pathW;
+        if (BuildPanelFilePathW(GetPathW(), GetPath(), f, pathW))
+            AppendKnownFileTypeProperties(text, textSize, pathW.c_str(), f);
     }
 }
 
