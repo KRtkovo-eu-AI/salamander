@@ -2133,7 +2133,26 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     EnableControls();
                 }
                 else if (!(nmhi->uOldState & LVIS_SELECTED) && nmhi->uNewState & LVIS_SELECTED)
-                    LoadControls(); // on column change, load new data to the list and edit line
+                {
+                    int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
+                    int columnIndex = GetAvailableColumnIndex(HListView2, nmhi->iItem);
+                    if (viewIndex >= 2 && columnIndex >= 0)
+                    {
+                        DisableNotification = TRUE;
+                        CTransferInfo ti(HWindow, ttDataToWindow);
+                        int tmp = Config.Items[viewIndex].Columns[columnIndex].LeftFixedWidth;
+                        ti.CheckBox(IDC_VIEW_LEFT_FIXED, tmp);
+                        tmp = Config.Items[viewIndex].Columns[columnIndex].RightFixedWidth;
+                        ti.CheckBox(IDC_VIEW_RIGHT_FIXED, tmp);
+                        tmp = Config.Items[viewIndex].Columns[columnIndex].LeftWidth;
+                        ti.EditLine(IDC_VIEW_LEFT_WIDTH, tmp);
+                        tmp = Config.Items[viewIndex].Columns[columnIndex].RightWidth;
+                        ti.EditLine(IDC_VIEW_RIGHT_WIDTH, tmp);
+                        DisableNotification = FALSE;
+                    }
+                    EnableControls();
+                    EnableHeader();
+                }
                 break;
             }
             }
