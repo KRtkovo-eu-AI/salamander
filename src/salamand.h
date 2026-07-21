@@ -430,8 +430,10 @@ public:
 
     int SaveColumns(CColumnConfig* columns, char* buffer);  // convert the array to a string
     void LoadColumns(CColumnConfig* columns, char* buffer); // and back again
-    int SaveColumnOrder(BYTE* order, char* buffer);        // convert the column order to a string
-    void LoadColumnOrder(BYTE* order, char* buffer);       // and back again
+    int SaveColumnOrder(BYTE* order, char* buffer, int count = STANDARD_COLUMNS_COUNT); // convert the column order to a string
+    void LoadColumnOrder(BYTE* order, char* buffer, int count = STANDARD_COLUMNS_COUNT);  // and back again
+    int SaveExplorerColumnVisible(BYTE* visible, char* buffer);                           // convert Explorer column visibility to a string
+    void LoadExplorerColumnVisible(BYTE* visible, char* buffer);                          // and back again
 
     BOOL Save(HKEY hKey); // saves the entire array
     BOOL Load(HKEY hKey); // loads the entire array

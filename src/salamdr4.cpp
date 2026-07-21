@@ -1031,6 +1031,8 @@ const char* SALAMANDER_VIEWTEMPLATE_NAME = "Name";
 const char* SALAMANDER_VIEWTEMPLATE_FLAGS = "Flags";
 const char* SALAMANDER_VIEWTEMPLATE_COLUMNS = "Columns";
 const char* SALAMANDER_VIEWTEMPLATE_COLUMNORDER = "Column Order";
+const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE = "Explorer Column Visible";
+const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER = "Explorer Column Order";
 const char* SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE = "Left Smart Mode";
 const char* SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE = "Right Smart Mode";
 
@@ -1177,10 +1179,10 @@ void CViewTemplates::LoadColumns(CColumnConfig* columns, char* buffer)
     }
 }
 
-int CViewTemplates::SaveColumnOrder(BYTE* order, char* buffer)
+int CViewTemplates::SaveColumnOrder(BYTE* order, char* buffer, int count)
 {
     char* s = buffer;
-    for (int i = 0; i < STANDARD_COLUMNS_COUNT; i++)
+    for (int i = 0; i < count; i++)
     {
         if (i > 0)
             *s++ = ',';
@@ -1190,32 +1192,60 @@ int CViewTemplates::SaveColumnOrder(BYTE* order, char* buffer)
     return (int)(s - buffer);
 }
 
-void CViewTemplates::LoadColumnOrder(BYTE* order, char* buffer)
+void CViewTemplates::LoadColumnOrder(BYTE* order, char* buffer, int count)
 {
-    BOOL used[STANDARD_COLUMNS_COUNT];
+    BOOL used[EXPLORER_COLUMNS_COUNT];
     ZeroMemory(used, sizeof(used));
     int pos = 0;
     char* p = strtok(buffer, ",");
-    while (p != NULL && pos < STANDARD_COLUMNS_COUNT)
+    while (p != NULL && pos < count)
     {
         unsigned int value;
-        if (sscanf(p, "%u", &value) == 1 && value < STANDARD_COLUMNS_COUNT && !used[value])
+        if (sscanf(p, "%u", &value) == 1 && value < (unsigned int)count && !used[value])
         {
             order[pos++] = (BYTE)value;
             used[value] = TRUE;
         }
         p = strtok(NULL, ",");
     }
-    for (int value = 0; pos < STANDARD_COLUMNS_COUNT && value < STANDARD_COLUMNS_COUNT; value++)
+    for (int value = 0; pos < count && value < count; value++)
     {
         if (!used[value])
             order[pos++] = (BYTE)value;
     }
 }
 
+int CViewTemplates::SaveExplorerColumnVisible(BYTE* visible, char* buffer)
+{
+    char* s = buffer;
+    for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+    {
+        if (i > 0)
+            *s++ = ',';
+        s += sprintf(s, "%u", visible[i] ? 1 : 0);
+    }
+    *s = 0;
+    return (int)(s - buffer);
+}
+
+void CViewTemplates::LoadExplorerColumnVisible(BYTE* visible, char* buffer)
+{
+    ZeroMemory(visible, EXPLORER_COLUMNS_COUNT * sizeof(BYTE));
+    int pos = 0;
+    char* p = strtok(buffer, ",");
+    while (p != NULL && pos < EXPLORER_COLUMNS_COUNT)
+    {
+        unsigned int value;
+        if (sscanf(p, "%u", &value) == 1 && value != 0)
+            visible[pos] = TRUE;
+        pos++;
+        p = strtok(NULL, ",");
+    }
+}
+
 BOOL CViewTemplates::Save(HKEY hKey)
 {
-    char buff[512];
+    char buff[4 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[5];
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
@@ -1228,6 +1258,8 @@ BOOL CViewTemplates::Save(HKEY hKey)
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &Items[i].Flags, sizeof(DWORD));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, SaveColumns(Items[i].Columns, buff));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ColumnOrder, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, SaveExplorerColumnVisible(Items[i].ExplorerColumnVisible, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &Items[i].LeftSmartMode, sizeof(DWORD));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &Items[i].RightSmartMode, sizeof(DWORD));
             CloseKey(actKey);
@@ -1238,7 +1270,7 @@ BOOL CViewTemplates::Save(HKEY hKey)
 
 BOOL CViewTemplates::Load(HKEY hKey)
 {
-    char buff[512];
+    char buff[4 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[5];
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
@@ -1260,11 +1292,15 @@ BOOL CViewTemplates::Load(HKEY hKey)
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &rightSM, sizeof(DWORD));
             if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, name, SAL_MAX_PATH) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &flags, sizeof(DWORD)) &&
-                GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, 512))
+                GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, sizeof(buff)))
             {
                 LoadColumns(Items[i].Columns, buff);
-                if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, 512))
+                if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, sizeof(buff)))
                     LoadColumnOrder(Items[i].ColumnOrder, buff);
+                if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, sizeof(buff)))
+                    LoadExplorerColumnVisible(Items[i].ExplorerColumnVisible, buff);
+                if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, sizeof(buff)))
+                    LoadColumnOrder(Items[i].ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT);
                 CleanName(name);
 
                 // overwrite file names the user could not change anyway
