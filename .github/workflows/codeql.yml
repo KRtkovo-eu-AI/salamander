@@ -14,6 +14,7 @@ permissions:
   contents: read
   security-events: write
   actions: read
+  pull-requests: read
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -34,13 +35,48 @@ jobs:
       LOG_DIRECTORY: build_logs
 
     steps:
+      - name: Check whether C++ files changed
+        id: cpp_changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('has_cpp_header_changes', 'true');
+              core.info('Not a pull_request event; CodeQL analysis will run.');
+              return;
+            }
+
+            const changedFiles = await github.paginate(
+              github.rest.pulls.listFiles,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                per_page: 100,
+              },
+            );
+
+            const relevantFiles = changedFiles
+              .map((file) => file.filename)
+              .filter((filename) => /\.(cpp|h)$/i.test(filename));
+
+            const shouldRun = relevantFiles.length > 0;
+            core.setOutput('has_cpp_header_changes', shouldRun ? 'true' : 'false');
+            core.info(
+              shouldRun
+                ? `CodeQL analysis will run because these files changed: ${relevantFiles.join(', ')}`
+                : 'No .cpp or .h files changed; CodeQL analysis steps will be skipped while the required workflow succeeds.',
+            );
+
       - name: Checkout repository
+        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs['target-ref'] || github.ref }}
           fetch-depth: 2
 
       - name: Initialize CodeQL
+        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
         uses: github/codeql-action/init@v3
         with:
           languages: cpp
@@ -49,17 +85,21 @@ jobs:
           threads: 4
 
       - name: Setup MSBuild in PATH (VS2022)
+        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup MSVC Developer Command Prompt (x64 toolchain)
+        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
       - name: Register MSVC problem matcher
+        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
         uses: ammaraskar/msvc-problem-matcher@master
 
       - name: Build with MSBuild (Release | x64)
+        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
         run: |
           $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -88,12 +128,13 @@ jobs:
           }
 
       - name: Perform CodeQL Analysis
+        if: steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
         uses: github/codeql-action/analyze@v3
         with:
           category: '/language:cpp'
 
       - name: Upload build logs
-        if: always()
+        if: always() && steps.cpp_changes.outputs.has_cpp_header_changes == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: codeql-msbuild-logs

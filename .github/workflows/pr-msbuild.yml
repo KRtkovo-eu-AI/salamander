@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: pr-msbuild-${{ github.ref }}
@@ -37,21 +38,56 @@ jobs:
       LOG_DIRECTORY: build_logs
 
     steps:
+      - name: Check whether build-relevant files changed
+        id: build_changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('has_build_relevant_changes', 'true');
+              core.info('Not a pull_request event; PR build will run.');
+              return;
+            }
+
+            const changedFiles = await github.paginate(
+              github.rest.pulls.listFiles,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                per_page: 100,
+              },
+            );
+
+            const buildRelevantPattern = /\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx|inl|cs|rc|rc2|idl|def|asm|s)$/i;
+            const relevantFiles = changedFiles
+              .map((file) => file.filename)
+              .filter((filename) => buildRelevantPattern.test(filename));
+
+            const shouldRun = relevantFiles.length > 0;
+            core.setOutput('has_build_relevant_changes', shouldRun ? 'true' : 'false');
+            core.info(
+              shouldRun
+                ? `PR build will run because these build-relevant files changed: ${relevantFiles.join(', ')}`
+                : 'No build-relevant source files changed; PR build steps will be skipped while the required workflow succeeds.',
+            );
+
       - name: Checkout
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: actions/checkout@v4
         with:
           path: s
           submodules: recursive
 
       - name: Provide shared plugin files for SFTP submodule
-        if: env.BUILD_SFTP_PLUGIN == 'true'
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
         run: |
           $sftpShared = Join-Path (Get-Location) 'src\plugins\sftp\shared'
           New-Item -ItemType Directory -Force -Path $sftpShared | Out-Null
           Copy-Item -Path '.\src\plugins\shared\*' -Destination $sftpShared -Recurse -Force
 
       - name: Configure SFTP submodule build
-        if: env.BUILD_SFTP_PLUGIN == 'true'
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
         run: |
           $sftpRoot = Join-Path (Get-Location) 'src\plugins\sftp'
           $directoryBuildProps = Join-Path $sftpRoot 'Directory.Build.props'
@@ -73,24 +109,27 @@ jobs:
           }
 
       - name: Setup MSBuild in PATH (VS2022)
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup MSVC Developer Command Prompt (x64 toolchain)
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
       - name: Register MSVC problem matcher
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: ammaraskar/msvc-problem-matcher@master
 
       - name: Install SFTP plugin dependencies
-        if: env.BUILD_SFTP_PLUGIN == 'true'
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
         run: |
           $triplet = if ('${{ matrix.platform }}' -eq 'Win32') { 'x86-windows' } else { 'x64-windows' }
           .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet $triplet
 
       - name: Disable SFTP projects in PR solution
-        if: env.BUILD_SFTP_PLUGIN != 'true'
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN != 'true'
         run: |
           $solutionPath = Join-Path (Get-Location) $env:SOLUTION_PATH
           $solution = Get-Content -LiteralPath $solutionPath
@@ -108,6 +147,7 @@ jobs:
           $solution | Set-Content -LiteralPath $solutionPath -Encoding UTF8
 
       - name: Build via MSBuild (Debug | ${{ matrix.platform }})
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         run: |
           $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -137,7 +177,7 @@ jobs:
           }
 
       - name: Upload build logs
-        if: always()
+        if: always() && steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: msbuild-${{ matrix.platform }}-debug-logs
