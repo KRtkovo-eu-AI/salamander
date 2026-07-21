@@ -16,38 +16,50 @@
 #include "pack.h"
 
 
-static void AppendConfirmDeleteExtInfo(std::string& text, const char* path, int count, CFilesArray* dirs, CFilesArray* files)
+static std::wstring ConfirmDeleteTextToWide(const char* text)
+{
+    std::wstring wide = SalMultiByteToWidePath(text != NULL ? text : "", CP_UTF8);
+    if (wide.empty() && text != NULL && text[0] != 0)
+        wide = SalMultiByteToWidePath(text, CP_ACP);
+    return wide;
+}
+
+static void AppendConfirmDeleteExtInfo(std::wstring& text, const wchar_t* path, int count, CFilesArray* dirs, CFilesArray* files)
 {
     if (count <= 1 || !Configuration.CnfrmConfirmDeleteExtInfo)
         return;
 
-    std::string pathLine(LoadStr(IDS_CONFIRM_DELETE_EXT_PATH));
-    size_t pathPos = pathLine.find("%s");
-    if (pathPos != std::string::npos)
-        pathLine.replace(pathPos, 2, path != NULL ? path : "");
-    text += "\n\n";
+    std::wstring pathLine = ConfirmDeleteTextToWide(LoadStr(IDS_CONFIRM_DELETE_EXT_PATH));
+    size_t pathPos = pathLine.find(L"%s");
+    if (pathPos != std::wstring::npos)
+        pathLine.replace(pathPos, 2, path != NULL ? path : L"");
+    text += L"\r\n\r\n";
     text += pathLine;
 
+    std::wstring dirLabel = ConfirmDeleteTextToWide(LoadStr(IDS_CONFIRM_DELETE_EXT_DIR));
+    std::wstring fileLabel = ConfirmDeleteTextToWide(LoadStr(IDS_CONFIRM_DELETE_EXT_FILE));
     for (int i = 0; i < dirs->Count; i++)
     {
         if (dirs->At(i).Selected)
         {
-            text += "\n";
-            text += dirs->At(i).Name;
-            text += " (";
-            text += LoadStr(IDS_CONFIRM_DELETE_EXT_DIR);
-            text += ")";
+            CFileData* dir = &dirs->At(i);
+            text += L"\r\n";
+            text += dir->UseWideName() ? dir->NameW : ConfirmDeleteTextToWide(dir->Name);
+            text += L" (";
+            text += dirLabel;
+            text += L")";
         }
     }
     for (int i = 0; i < files->Count; i++)
     {
         if (files->At(i).Selected)
         {
-            text += "\n";
-            text += files->At(i).Name;
-            text += " (";
-            text += LoadStr(IDS_CONFIRM_DELETE_EXT_FILE);
-            text += ")";
+            CFileData* file = &files->At(i);
+            text += L"\r\n";
+            text += file->UseWideName() ? file->NameW : ConfirmDeleteTextToWide(file->Name);
+            text += L" (";
+            text += fileLabel;
+            text += L")";
         }
     }
 }
@@ -473,10 +485,14 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
         lstrcpyn(templ, LoadStr(resID), 200);
         RemoveAmpersands(templ);
         sprintf(subject, templ, expanded);
-        std::string messageText(subject);
-        if (type == atDelete)
-            AppendConfirmDeleteExtInfo(messageText, GetPath(), count, Dirs, Files);
-        str.Set(messageText.c_str(), count > 1 ? NULL : formatedFileName);
+        if (type == atDelete && count > 1 && Configuration.CnfrmConfirmDeleteExtInfo)
+        {
+            std::wstring messageText = ConfirmDeleteTextToWide(subject);
+            AppendConfirmDeleteExtInfo(messageText, GetPathW(), count, Dirs, Files);
+            str.SetW(messageText.c_str(), NULL);
+        }
+        else
+            str.Set(subject, count > 1 ? NULL : formatedFileName);
     }
 
     switch (type)
@@ -734,7 +750,8 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
                     {                                                                                                           // ask only if the user wants it
                         HICON hIcon = (HICON)HANDLES(LoadImage(Shell32DLL, MAKEINTRESOURCE(WindowsVistaAndLater ? 16777 : 161), // delete icon
                                                                IMAGE_ICON, 32, 32, IconLRFlags));
-                        int myRes = CMessageBox(HWindow, MSGBOXEX_YESNO | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_SILENT,
+                        int myRes = CMessageBox(HWindow, MSGBOXEX_YESNO | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_SILENT |
+                                            (Configuration.CnfrmConfirmDeleteExtInfo && count > 1 ? MSGBOXEX_SCROLLABLETEXT : 0),
                                                 LoadStr(IDS_CONFIRM_DELETE_TITLE), &str, NULL,
                                                 NULL, hIcon, 0, NULL, NULL, NULL, NULL)
                                         .Execute();

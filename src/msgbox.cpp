@@ -435,6 +435,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DWORD flagsMode = Flags & MSGBOXEX_MODEMASK;
         DWORD flagsMisc = Flags & MSGBOXEX_MISCMASK;
         DWORD flagsEx = Flags & MSGBOXEX_EXMASK;
+        BOOL scrollableText = (flagsEx & MSGBOXEX_SCROLLABLETEXT) != 0;
 
         if (!EscapeEnabled())
             EnableMenuItem(GetSystemMenu(HWindow, FALSE), SC_CLOSE, MF_BYCOMMAND | MF_GRAYED);
@@ -646,7 +647,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         tR.right = maxTextWidth;
         DrawText(hDC, Text.Get(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
 
-        if (tR.right > maxTextWidth)
+        if (tR.right > maxTextWidth && !scrollableText)
         {
             // text width exceeds maxTextWidth limit, so we create a new one
             // text into which we will insert hard line breaks
@@ -659,7 +660,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 free((void*)newText);
             }
         }
-        else
+        else if (!scrollableText)
         {
             // decrease the text width until the lines are optimally filled
             // a bit time-consuming, but there's no need to rush
@@ -673,6 +674,17 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 //        TRACE_I("Iter: right="<<iterRect.right);
             } while (iterRect.bottom == tR.bottom && iterRect.right < goodRight && iterRect.right >= 0);
             tR.right = goodRight;
+        }
+
+
+        if (scrollableText)
+        {
+            tR.right = max(tR.right, textR.right);
+            if (tR.right > maxTextWidth)
+                tR.right = maxTextWidth;
+            int maxScrollableTextHeight = fontCharHeight * 14;
+            if (tR.bottom - tR.top > maxScrollableTextHeight)
+                tR.bottom = tR.top + maxScrollableTextHeight;
         }
 
         // if there's a URL below the text, we add it to the text height for simplicity
@@ -938,9 +950,27 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // but it must not extend above it
         if (p.y < topMargin)
             p.y = topMargin;
-        SetWindowPos(GetDlgItem(HWindow, IDS_MSGBOX_TEXT), NULL, p.x - iconWidth, p.y,
-                     tR.right - tR.left, tR.bottom - tR.top,
-                     SWP_NOZORDER);
+        HWND hText = GetDlgItem(HWindow, IDS_MSGBOX_TEXT);
+        if (scrollableText)
+        {
+            DestroyWindow(hText);
+            hText = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+                                   WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL |
+                                       ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
+                                   p.x - iconWidth, p.y, tR.right - tR.left, tR.bottom - tR.top,
+                                   HWindow, (HMENU)(INT_PTR)IDS_MSGBOX_TEXT, HInstance, NULL);
+            SendMessage(hText, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
+            if (Text.IsWide())
+                SetWindowTextW(hText, Text.GetW());
+            else
+                SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_TEXT, Text.Get());
+        }
+        else
+        {
+            SetWindowPos(hText, NULL, p.x - iconWidth, p.y,
+                         tR.right - tR.left, tR.bottom - tR.top,
+                         SWP_NOZORDER);
+        }
 
         if (urlText != NULL)
         {
