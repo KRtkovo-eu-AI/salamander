@@ -72,6 +72,9 @@ class CEditListBox : public CWindow
 protected:
     CToolbarHeader* Header;
     CEditLBEdit* EditLine;
+    HWND HSearchEdit;
+    BOOL SearchVisible;
+    char SearchText[100];
     HWND HDlg;
     EDTLB_DISPINFO DispInfo;
     char Buffer[MAX_PATH];
@@ -139,6 +142,10 @@ public:
     void OnMoveUp();
     void OnMoveDown();
     void MoveItem(int newIndex);
+    void ToggleSearch();
+    void ApplySearch();
+    void LayoutSearchEdit();
+    BOOL SearchMatches(const char* text);
 
     // returns which commands are enabled (can query the parent)
     BYTE GetEnabler();

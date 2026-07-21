@@ -2895,7 +2895,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
         {4, "MoveItemUp"},
         {5, "MoveItemDown"},
         {6, "MoveItemTop"},
-        {7, "Filter"},
+        {7, "View"},
     };
 
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
@@ -2991,7 +2991,7 @@ void CToolbarHeader::CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled)
 
     NSVGrasterizer* rast = nsvgCreateRasterizer();
     // JRYFIXME: temporarily reading from a file, switch to a shared storage with toolbars
-    const char* svgNames[] = {"Modify", "New", "Delete", "SortByName", "MoveItemUp", "MoveItemDown", "MoveItemTop", "Filter"};
+    const char* svgNames[] = {"Modify", "New", "Delete", "SortByName", "MoveItemUp", "MoveItemDown", "MoveItemTop", "View"};
     for (int j = 0; j < 2; j++)
     {
         DWORD* p = (DWORD*)lpBits;
