@@ -272,27 +272,16 @@ spanish.PluginSelectionTitle=Seleccionar complementos
 spanish.PluginSelectionDescription=Elija qué complementos incluidos se instalarán o extraerán.
 czech.PluginSelectionTitle=Výběr pluginů
 czech.PluginSelectionDescription=Zvolte, které přibalené pluginy se nainstalují nebo rozbalí.
-english.InstallerVersionLabel=installer
 english.InstalledVersionLabel=installed
-chinesesimplified.InstallerVersionLabel=安装程序
 chinesesimplified.InstalledVersionLabel=已安装
-dutch.InstallerVersionLabel=installatieprogramma
 dutch.InstalledVersionLabel=geïnstalleerd
-french.InstallerVersionLabel=installateur
 french.InstalledVersionLabel=installé
-german.InstallerVersionLabel=Installer
 german.InstalledVersionLabel=installiert
-hungarian.InstallerVersionLabel=telepítő
 hungarian.InstalledVersionLabel=telepítve
-romanian.InstallerVersionLabel=instalator
 romanian.InstalledVersionLabel=instalat
-russian.InstallerVersionLabel=установщик
 russian.InstalledVersionLabel=установлено
-slovak.InstallerVersionLabel=inštalátor
 slovak.InstalledVersionLabel=nainštalované
-spanish.InstallerVersionLabel=instalador
 spanish.InstalledVersionLabel=instalado
-czech.InstallerVersionLabel=instalátor
 czech.InstalledVersionLabel=nainstalováno
 
 [Tasks]
@@ -1669,11 +1658,18 @@ begin
   end;
 end;
 
+function EnsureX64Suffix(const Version: String): String;
+begin
+  Result := Version;
+  if Pos('(x64)', Result) = 0 then
+    Result := Result + ' (x64)';
+end;
+
 function FormatPluginVersionText(const InstallerVersion, InstalledVersion: String): String;
 begin
-  Result := CustomMessage('InstallerVersionLabel') + ' ' + InstallerVersion;
+  Result := EnsureX64Suffix(InstallerVersion);
   if InstalledVersion <> '' then
-    Result := Result + '; ' + CustomMessage('InstalledVersionLabel') + ' ' + InstalledVersion;
+    Result := Result + '; ' + CustomMessage('InstalledVersionLabel') + ' ' + EnsureX64Suffix(InstalledVersion);
 end;
 
 procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
@@ -1690,6 +1686,8 @@ begin
     False,
     False,
     nil);
+  if InstalledVersion <> '' then
+    PluginList.SubItemFontStyle[PluginList.Items.Count - 1] := [fsItalic];
   SetArrayLength(PluginIds, GetArrayLength(PluginIds) + 1);
   PluginIds[GetArrayLength(PluginIds) - 1] := PluginId;
 end;
