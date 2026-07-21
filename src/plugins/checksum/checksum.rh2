@@ -25,7 +25,8 @@
 #define IDS_COPYTOCBOARD_SHA1           46
 #define IDS_COPYTOCBOARD_SHA256         47
 #define IDS_COPYTOCBOARD_SHA512         48
-// 49-52 Reserved for other IDS_COPYTOCBOARD_xxx
+#define IDS_COPYALLTOCBOARD             49
+// 50-52 Reserved for other IDS_COPYTOCBOARD_xxx
 #define IDS_REMOVEITEM                  53
 #define IDS_SAVE_OVERWRITE              54
 #define IDS_ERRORCREATINGFILE           55
