@@ -319,10 +319,10 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     {
         if (previousPanel != panel)
         {
-            // Tree-view windows belong to individual left tabs but are children of the main
-            // window. Prepare the incoming tree while it is hidden and keep the outgoing one
-            // alive until the complete new layout is ready; otherwise the main window is
-            // briefly exposed across the reserved tree-view width.
+            // Tree-view windows belong to individual host tabs but are children of their
+            // top-level host window. Prepare the incoming tree while it is hidden and keep
+            // the outgoing one alive until the complete new layout is ready; otherwise the
+            // host window is briefly exposed across the reserved tree-view width.
             if ((side == cpsLeft || (DetachedPanels && side == cpsRight)) && Configuration.TreeViewVisible)
             {
                 panel->TreeViewActive = TRUE;
@@ -342,7 +342,12 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
             if (newToolBar != NULL && newToolBar != previousToolBar)
                 SendMessage(newToolBar, WM_SETREDRAW, FALSE, 0);
         }
-        LayoutWindows();
+        if (DetachedPanels && side == cpsRight)
+            LayoutDetachedPanels();
+        else if (DetachedPanels && side == cpsLeft)
+            LayoutMainWindow();
+        else
+            LayoutWindows();
     }
 
     UpdatePanelTabVisibility(side);

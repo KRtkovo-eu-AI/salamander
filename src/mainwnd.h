@@ -714,6 +714,7 @@ public:
     // returns TRUE if the key was handled
     BOOL HandleCtrlLetter(char c); // Ctrl+letter hotkeys
 
+    void LayoutMainWindow();
     void LayoutWindows();
     BOOL SetPanelsDetached(BOOL detached);
     BOOL TogglePanelsDetached();

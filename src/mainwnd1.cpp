@@ -1830,12 +1830,17 @@ CMainWindow::ReleaseMenuNew()
 }
 */
 
-void CMainWindow::LayoutWindows()
+void CMainWindow::LayoutMainWindow()
 {
     RECT r;
     GetClientRect(HWindow, &r);
     SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
                 MAKELONG(r.right - r.left, r.bottom - r.top));
+}
+
+void CMainWindow::LayoutWindows()
+{
+    LayoutMainWindow();
     LayoutDetachedPanels();
 }
 
@@ -2921,10 +2926,23 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             return 0;
 
         case WM_COMMAND:
+        {
             if (mainWindow->CreatingDetachedChrome)
                 return 0;
-            mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
+            WORD command = LOWORD(wParam);
+            if (side == cpsRight)
+            {
+                if (command == CM_ACTIVEBACK)
+                    command = CM_RBACK;
+                else if (command == CM_ACTIVEFORWARD)
+                    command = CM_RFORWARD;
+            }
+            if (command == LOWORD(wParam))
+                mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
+            else
+                wParam = MAKEWPARAM(command, HIWORD(wParam));
             return SendMessage(mainWindow->HWindow, WM_COMMAND, wParam, lParam);
+        }
 
         case WM_NOTIFY:
             if (mainWindow->CreatingDetachedChrome)
@@ -2962,7 +2980,6 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             DWORD cmd = GET_APPCOMMAND_LPARAM(lParam);
             if (cmd == APPCOMMAND_BROWSER_BACKWARD || cmd == APPCOMMAND_BROWSER_FORWARD)
             {
-                mainWindow->SetActivePanel(side == cpsLeft ? mainWindow->LeftPanel : mainWindow->RightPanel);
                 return SendMessage(mainWindow->HWindow, WM_COMMAND,
                                    cmd == APPCOMMAND_BROWSER_BACKWARD ? CM_RBACK : CM_RFORWARD, 0);
             }

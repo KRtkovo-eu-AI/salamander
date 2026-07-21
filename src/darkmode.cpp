@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include <tchar.h>
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
 #include "salamand.rh"
@@ -2593,12 +2594,18 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
     bool shouldRefresh = (message == WM_THEMECHANGED);
     if (lParam != 0)
     {
-        if (CompareStringOrdinal(reinterpret_cast<LPCWSTR>(lParam), -1, L"ImmersiveColorSet", -1, TRUE) == CSTR_EQUAL)
+        // WM_SETTINGCHANGE delivers lParam in the character format of the
+        // receiving window. Salamander's main window is an ANSI window in the
+        // regular build, so treating the pointer unconditionally as LPCWSTR can
+        // read past the short ANSI buffer when Windows broadcasts accent-color
+        // changes such as "ImmersiveColorSet".
+        LPCTSTR settingName = reinterpret_cast<LPCTSTR>(lParam);
+        if (_tcsicmp(settingName, _T("ImmersiveColorSet")) == 0)
         {
             isColor = true;
             shouldRefresh = true;
         }
-        else if (CompareStringOrdinal(reinterpret_cast<LPCWSTR>(lParam), -1, L"WindowsThemeElement", -1, TRUE) == CSTR_EQUAL)
+        else if (_tcsicmp(settingName, _T("WindowsThemeElement")) == 0)
         {
             isColor = true;
             shouldRefresh = true;

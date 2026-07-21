@@ -1536,8 +1536,24 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
 
     CFilesWindow* old = GetActivePanel();
     SetActivePanel(focus);
-    LeftPanel->UpdateTreeView(TRUE);
-    RightPanel->UpdateTreeView(DetachedPanels);
+    if (DetachedPanels && focus == RightPanel)
+    {
+        // The detached window owns an independent tree-view host. Updating the
+        // main-window tree while focus only moves inside the detached window
+        // causes a visible blink in the main window.
+        RightPanel->UpdateTreeView(TRUE);
+    }
+    else if (DetachedPanels && focus == LeftPanel)
+    {
+        // Symmetrically, main-window focus changes must not relayout the
+        // detached tree-view host.
+        LeftPanel->UpdateTreeView(TRUE);
+    }
+    else
+    {
+        LeftPanel->UpdateTreeView(TRUE);
+        RightPanel->UpdateTreeView(DetachedPanels);
+    }
 
     if (LeftPanel != NULL)
         LeftPanel->SetPanelSide(cpsLeft);

@@ -1096,7 +1096,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         SelectViewTemplate(index, FALSE, FALSE);
         ShowWindow(ListBox->HWindow, SW_SHOW);
-        UpdateTreeView(MainWindow->LeftPanel == this);
+        UpdateTreeView(IsActiveTreeViewHost());
 
         // srovname nastaveni promenne AutomaticRefresh a directory-liny
         SetAutomaticRefresh(AutomaticRefresh, TRUE);

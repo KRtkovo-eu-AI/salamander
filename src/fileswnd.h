@@ -1346,7 +1346,10 @@ public:
     void ToggleDirectoryLine();
     void ToggleHeaderLine();
     BOOL IsTreeViewHost();
+    BOOL IsActiveTreeViewHost();
     CFilesWindow* GetTreeViewSourcePanel();
+    void RefreshHostedTreeViews();
+    void SyncTreeViewStateFromConfiguration();
     int GetTreeViewWidth(int clientWidth);
     int GetTreeViewReservedWidth(int clientWidth);
     int GetTreeViewHeaderHeight();

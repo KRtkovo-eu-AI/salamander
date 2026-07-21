@@ -587,6 +587,44 @@ CFilesWindow* CFilesWindow::GetTreeViewSourcePanel()
     return this;
 }
 
+BOOL CFilesWindow::IsActiveTreeViewHost()
+{
+    return MainWindow != NULL &&
+           (MainWindow->LeftPanel == this ||
+            (MainWindow->DetachedPanels && MainWindow->RightPanel == this));
+}
+
+void CFilesWindow::RefreshHostedTreeViews()
+{
+    if (MainWindow == NULL)
+        return;
+
+    if (MainWindow->LeftPanel != NULL && MainWindow->LeftPanel->GetTreeViewSourcePanel() == this)
+        MainWindow->LeftPanel->RefreshTreeView();
+    if (MainWindow->DetachedPanels && MainWindow->RightPanel != NULL &&
+        MainWindow->RightPanel->GetTreeViewSourcePanel() == this)
+    {
+        MainWindow->RightPanel->RefreshTreeView();
+    }
+}
+
+void CFilesWindow::SyncTreeViewStateFromConfiguration()
+{
+    // The tree-view panel is shared by the top-level window, not by the tab.
+    // Keep every host tab in sync with the window-level configuration before
+    // it creates or lays out its tree-view chrome.
+    if (MainWindow != NULL && MainWindow->DetachedPanels && MainWindow->RightPanel == this)
+    {
+        TreeViewWidth = Configuration.DetachedTreeViewWidth;
+        TreeViewAutoHide = Configuration.DetachedTreeViewAutoHide;
+    }
+    else
+    {
+        TreeViewWidth = Configuration.TreeViewWidth;
+        TreeViewAutoHide = Configuration.TreeViewAutoHide;
+    }
+}
+
 int CFilesWindow::GetTreeViewWidth(int clientWidth)
 {
     return ClampTreeViewWidth(clientWidth, TreeViewWidth);
@@ -2137,6 +2175,7 @@ BOOL CFilesWindow::PrepareCloseCurrentPath(HWND parent, BOOL canForce, BOOL canD
 void CFilesWindow::CreateTreeView()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CreateTreeView()");
+    SyncTreeViewStateFromConfiguration();
     if (!IsTreeViewHost() || HWindow == NULL)
     {
         if (HWindow == NULL)
@@ -2320,6 +2359,7 @@ void CFilesWindow::UpdateTreeView(BOOL active)
     }
     else
     {
+        SyncTreeViewStateFromConfiguration();
         TreeViewActive = active && Configuration.TreeViewVisible;
         if (Configuration.TreeViewVisible)
             CreateTreeView();
@@ -2339,7 +2379,14 @@ void CFilesWindow::UpdateTreeView(BOOL active)
         ShowWindow(HTreeSplit, TreeViewActive && (!TreeViewAutoHide || TreeViewAutoHideExpanded) ? SW_SHOW : SW_HIDE);
 
     if (MainWindow != NULL)
-        MainWindow->LayoutWindows();
+    {
+        if (MainWindow->DetachedPanels && MainWindow->RightPanel == this)
+            MainWindow->LayoutDetachedPanels();
+        else if (MainWindow->DetachedPanels && MainWindow->LeftPanel == this)
+            MainWindow->LayoutMainWindow();
+        else
+            MainWindow->LayoutWindows();
+    }
 }
 
 void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOOL newPathIsTheSame,
@@ -2810,8 +2857,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
             cannotList = !CommonRefresh(parent, suggestedTopIndex, suggestedFocusName, refreshListBox, TRUE, isRefresh);
             // Refresh tree view AFTER file list loads so the file list appears immediately
             // and the tree view update (which may do disk I/O) doesn't block the UI.
-            if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
-                MainWindow->LeftPanel->RefreshTreeView();
+            RefreshHostedTreeViews();
             if (isRefresh && !cannotList && GetMonitorChanges() && !AutomaticRefresh)
             {                                                                                                                // auto-refresh failure; we verify whether the directory displayed in the panel is being deleted (happened to me while deleting through the network from another machine) ... If ignored, the panel will never refresh (because auto-refresh is broken)
                 Sleep(400);                                                                                                  // we take a break, so the deletion can proceed (so the directory becomes deleted enough to become unlistable)
@@ -3852,8 +3898,7 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
                             UpdateDriveIcon(FALSE); // get the icon for the current path from the plugin
                             CommonRefresh(HWindow, suggestedTopIndex, suggestedFocusName, refreshListBox, TRUE, isRefresh);
                             // Refresh tree view after file list loads
-                            if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
-                                MainWindow->LeftPanel->RefreshTreeView();
+                            RefreshHostedTreeViews();
 
                             // notify the FS that it is finally opened
                             GetPluginFS()->Event(FSE_OPENED, GetPanelCode());
