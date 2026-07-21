@@ -1737,7 +1737,7 @@ begin
     Result := PadRight(CustomMessage('InstalledVersionLabel') + ' ' + EnsureX64Suffix(InstalledVersion), 28)
   else
     Result := PadRight('', 28);
-  Result := Result + '🗜 ' + EnsureX64Suffix(InstallerVersion);
+  Result := Result + '🗜︎ ' + EnsureX64Suffix(InstallerVersion);
 end;
 
 procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
