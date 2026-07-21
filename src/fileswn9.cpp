@@ -1398,59 +1398,98 @@ static BOOL AppendShellPropertyLine(char* text, int textSize, IPropertyStore* st
     return ret;
 }
 
-static void AppendKnownFileTypeProperties(char* text, int textSize, const wchar_t* pathW, const CFileData* f)
+enum CPanelTipCategory
+{
+    ptcUnknown,
+    ptcExecutable,
+    ptcImage,
+    ptcAudio,
+    ptcVideo,
+    ptcDocument,
+    ptcArchive
+};
+
+static CPanelTipCategory GetPanelTipCategory(const CFileData* f)
 {
     static const char* const executableExts[] = {".exe", ".dll", ".ocx", ".cpl", ".sys", ".scr"};
     static const char* const imageExts[] = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".heic", ".ico"};
     static const char* const audioExts[] = {".mp3", ".wav", ".wma", ".flac", ".m4a", ".aac", ".ogg"};
     static const char* const videoExts[] = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm", ".m4v"};
     static const char* const documentExts[] = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".txt", ".rtf"};
+    static const char* const archiveExts[] = {".zip", ".7z", ".rar", ".cab", ".tar", ".gz", ".bz2", ".xz", ".iso"};
 
+    if (IsKnownExt(f, executableExts, _countof(executableExts)))
+        return ptcExecutable;
+    if (IsKnownExt(f, imageExts, _countof(imageExts)))
+        return ptcImage;
+    if (IsKnownExt(f, audioExts, _countof(audioExts)))
+        return ptcAudio;
+    if (IsKnownExt(f, videoExts, _countof(videoExts)))
+        return ptcVideo;
+    if (IsKnownExt(f, documentExts, _countof(documentExts)))
+        return ptcDocument;
+    if (IsKnownExt(f, archiveExts, _countof(archiveExts)))
+        return ptcArchive;
+    return ptcUnknown;
+}
+
+static BOOL AppendCategoryProperties(char* text, int textSize, const wchar_t* pathW, CPanelTipCategory category)
+{
     PROPERTYKEY keys[10];
     int count = 0;
-    if (IsKnownExt(f, executableExts, _countof(executableExts)))
+    switch (category)
     {
+    case ptcExecutable:
         keys[count++] = PKEY_FileDescription;
         keys[count++] = PKEY_Company;
         keys[count++] = PKEY_FileVersion;
-    }
-    else if (IsKnownExt(f, imageExts, _countof(imageExts)))
-    {
+        keys[count++] = PKEY_DateCreated;
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcImage:
         keys[count++] = PKEY_Image_Dimensions;
-        keys[count++] = PKEY_Image_HorizontalSize;
-        keys[count++] = PKEY_Image_VerticalSize;
         keys[count++] = PKEY_Image_BitDepth;
-    }
-    else if (IsKnownExt(f, audioExts, _countof(audioExts)))
-    {
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcAudio:
         keys[count++] = PKEY_Title;
         keys[count++] = PKEY_Music_Artist;
         keys[count++] = PKEY_Music_AlbumTitle;
         keys[count++] = PKEY_Media_Duration;
         keys[count++] = PKEY_Audio_EncodingBitrate;
-    }
-    else if (IsKnownExt(f, videoExts, _countof(videoExts)))
-    {
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcVideo:
         keys[count++] = PKEY_Video_FrameWidth;
         keys[count++] = PKEY_Video_FrameHeight;
         keys[count++] = PKEY_Media_Duration;
         keys[count++] = PKEY_Video_FrameRate;
-    }
-    else if (IsKnownExt(f, documentExts, _countof(documentExts)))
-    {
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcDocument:
         keys[count++] = PKEY_Title;
         keys[count++] = PKEY_Author;
         keys[count++] = PKEY_Document_PageCount;
+        keys[count++] = PKEY_DateModified;
+        keys[count++] = PKEY_Size;
+        break;
+    case ptcArchive:
+        keys[count++] = PKEY_ItemTypeText;
+        keys[count++] = PKEY_DateModified;
+        keys[count++] = PKEY_Size;
+        break;
+    default:
+        return FALSE;
     }
-    if (count == 0)
-        return;
 
     IPropertyStore* store = NULL;
     if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)
-        return;
+        return FALSE;
+    BOOL appended = FALSE;
     for (int i = 0; i < count; i++)
-        AppendShellPropertyLine(text, textSize, store, keys[i]);
+        appended |= AppendShellPropertyLine(text, textSize, store, keys[i]);
     store->Release();
+    return appended;
 }
 
 void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
@@ -1472,25 +1511,30 @@ void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
     FormatPanelTipName(f, displayName, _countof(displayName));
     AppendTipLine(text, textSize, IDS_PANELTIP_NAME, displayName);
 
-    const char* type = isDir ? LoadStr(IDS_PANELTIP_KIND_DIRECTORY) : (f->Ext != NULL && f->Ext[0] != 0 ? (f->Ext[0] == '.' ? f->Ext + 1 : f->Ext) : LoadStr(IDS_PANELTIP_KIND_FILE));
-    AppendTipLine(text, textSize, IDS_PANELTIP_TYPE, type);
-
-    char timeBuf[160];
-    FormatTipFileTime(&f->LastWrite, timeBuf, _countof(timeBuf));
-    AppendTipLine(text, textSize, IDS_PANELTIP_MODIFIED, timeBuf);
-
-    if (!isDir || f->SizeValid)
-    {
-        char sizeBuf[100];
-        PrintDiskSize(sizeBuf, f->Size, 1);
-        AppendTipLine(text, textSize, IDS_PANELTIP_SIZE, sizeBuf);
-    }
-
-    if (!isDir && Is(ptDisk))
+    CPanelTipCategory category = isDir ? ptcUnknown : GetPanelTipCategory(f);
+    BOOL categoryAppended = FALSE;
+    if (!isDir && Is(ptDisk) && category != ptcUnknown)
     {
         std::wstring pathW;
         if (BuildPanelFilePathW(GetPathW(), GetPath(), f, pathW))
-            AppendKnownFileTypeProperties(text, textSize, pathW.c_str(), f);
+            categoryAppended = AppendCategoryProperties(text, textSize, pathW.c_str(), category);
+    }
+
+    if (!categoryAppended)
+    {
+        const char* type = isDir ? LoadStr(IDS_PANELTIP_KIND_DIRECTORY) : (f->Ext != NULL && f->Ext[0] != 0 ? (f->Ext[0] == '.' ? f->Ext + 1 : f->Ext) : LoadStr(IDS_PANELTIP_KIND_FILE));
+        AppendTipLine(text, textSize, IDS_PANELTIP_TYPE, type);
+
+        char timeBuf[160];
+        FormatTipFileTime(&f->LastWrite, timeBuf, _countof(timeBuf));
+        AppendTipLine(text, textSize, IDS_PANELTIP_MODIFIED, timeBuf);
+
+        if (!isDir || f->SizeValid)
+        {
+            char sizeBuf[100];
+            PrintDiskSize(sizeBuf, f->Size, 1);
+            AppendTipLine(text, textSize, IDS_PANELTIP_SIZE, sizeBuf);
+        }
     }
 }
 
