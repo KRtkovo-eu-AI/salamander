@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -2382,6 +2382,7 @@ BOOL GetElevationType(TOKEN_ELEVATION_TYPE* elevationType);
 // znamena chybejici elevaci a ne-elevovanemu adminovi lze nabidnout opakovani jako spravce
 BOOL CanOfferElevatedRetryForFileError(DWORD error, const char* path);
 BOOL IsPathInElevatedWriteLocation(const char* path);
+DWORD RunElevatedFileOperation(HWND parent, const char* verb, const char* source, const char* target, DWORD attributes, BOOL useAttributes);
 
 //******************************************************************************
 

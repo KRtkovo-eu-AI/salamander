@@ -1596,6 +1596,74 @@ BOOL CanOfferElevatedRetryForFileError(DWORD error, const char* path)
     return IsPathInElevatedWriteLocation(path);
 }
 
+
+static void AppendQuotedParam(char* params, int paramsSize, const char* name, const char* value)
+{
+    if (value == NULL || *value == 0)
+        return;
+    lstrcat(params, " ");
+    lstrcat(params, name);
+    lstrcat(params, " \"");
+    for (const char* s = value; *s != 0 && (int)strlen(params) < paramsSize - 3; s++)
+    {
+        if (*s == '"')
+            lstrcat(params, "\\");
+        int len = (int)strlen(params);
+        params[len] = *s;
+        params[len + 1] = 0;
+    }
+    lstrcat(params, "\"");
+}
+
+DWORD RunElevatedFileOperation(HWND parent, const char* verb, const char* source, const char* target, DWORD attributes, BOOL useAttributes)
+{
+    if (verb == NULL || *verb == 0)
+        return ERROR_INVALID_PARAMETER;
+
+    char broker[MAX_PATH];
+    if (GetModuleFileName(NULL, broker, MAX_PATH) == 0)
+        return GetLastError();
+    char* slash = strrchr(broker, '\\');
+    if (slash == NULL)
+        return ERROR_BAD_PATHNAME;
+    lstrcpy(slash + 1, "saladmin.exe");
+
+    char params[4 * MAX_PATH];
+    lstrcpy(params, "--protocol 1 --verb ");
+    lstrcat(params, verb);
+    AppendQuotedParam(params, sizeof(params), "--source", source);
+    AppendQuotedParam(params, sizeof(params), "--target", target);
+    if (useAttributes)
+    {
+        char attr[40];
+        wsprintf(attr, " --attributes 0x%08X", attributes);
+        lstrcat(params, attr);
+    }
+
+    SHELLEXECUTEINFO se;
+    memset(&se, 0, sizeof(se));
+    se.cbSize = sizeof(se);
+    se.fMask = SEE_MASK_NOCLOSEPROCESS;
+    se.hwnd = parent;
+    se.lpVerb = "runas";
+    se.lpFile = broker;
+    se.lpParameters = params;
+    se.nShow = SW_SHOWNORMAL;
+
+    if (!ShellExecuteEx(&se))
+        return GetLastError();
+
+    DWORD exitCode = ERROR_SUCCESS;
+    if (se.hProcess != NULL)
+    {
+        WaitForSingleObject(se.hProcess, INFINITE);
+        if (!GetExitCodeProcess(se.hProcess, &exitCode))
+            exitCode = GetLastError();
+        CloseHandle(se.hProcess);
+    }
+    return exitCode;
+}
+
 struct CSrcSecurity // helper structure for keeping security info for MoveFile (the source disappears after the operation, its security info must be stored beforehand)
 {
     PSID SrcOwner;
