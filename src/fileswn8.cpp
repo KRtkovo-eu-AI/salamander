@@ -15,11 +15,29 @@
 #include "mapi.h"
 
 
+static std::wstring ConfirmDeleteTextToWideWithCodePage(const char* text, UINT codePage, DWORD flags)
+{
+    int len = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    if (len <= 0)
+        return std::wstring();
+
+    std::wstring wide;
+    wide.resize(len);
+    int written = MultiByteToWideChar(codePage, flags, text, -1, &wide[0], len);
+    if (written <= 0)
+        return std::wstring();
+    wide.resize(written - 1);
+    return wide;
+}
+
 static std::wstring ConfirmDeleteTextToWide(const char* text)
 {
-    std::wstring wide = SalMultiByteToWidePath(text != NULL ? text : "", CP_UTF8);
-    if (wide.empty() && text != NULL && text[0] != 0)
-        wide = SalMultiByteToWidePath(text, CP_ACP);
+    if (text == NULL || text[0] == 0)
+        return std::wstring();
+
+    std::wstring wide = ConfirmDeleteTextToWideWithCodePage(text, CP_UTF8, MB_ERR_INVALID_CHARS);
+    if (wide.empty())
+        wide = ConfirmDeleteTextToWideWithCodePage(text, CP_ACP, 0);
     return wide;
 }
 
