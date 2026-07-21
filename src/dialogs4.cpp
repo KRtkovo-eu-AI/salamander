@@ -524,6 +524,7 @@ CConfiguration::CConfiguration()
     ConfigurationHeight = 0; // the dialog logic will not allow a smaller dialog than the largest page it contains
     ConfigurationWidth = 0;
     ConfigurationTreeWidth = 0;
+    ConfigurationViewsRightWidth = 0;
     ViewersAndEditorsExpanded = 0;
     PackersAndUnpackersExpanded = 0;
     ClearReadOnly = TRUE;
@@ -1584,6 +1585,8 @@ const int CFGP2ItemsCount = 9;
 const int CFGP2Flags[CFGP2ItemsCount] = {0, VIEW_SHOW_EXTENSION, VIEW_SHOW_DOSNAME, VIEW_SHOW_SIZE, VIEW_SHOW_TYPE, VIEW_SHOW_DATE, VIEW_SHOW_TIME, VIEW_SHOW_ATTRIBUTES, VIEW_SHOW_DESCRIPTION};
 const int CFGP2ResID[CFGP2ItemsCount] = {IDS_COLUMN_CFG_NAME, IDS_COLUMN_CFG_EXT, IDS_COLUMN_CFG_DOSNAME, IDS_COLUMN_CFG_SIZE, IDS_COLUMN_CFG_TYPE, IDS_COLUMN_CFG_DATE, IDS_COLUMN_CFG_TIME, IDS_COLUMN_CFG_ATTR, IDS_COLUMN_CFG_DESC};
 const int CFGP2ExplorerColumnsStart = CFGP2ItemsCount;
+const int CFGP2MinDefinedViewsWidth = 160;
+const int CFGP2MinAvailableColumnsWidth = 120;
 
 static int GetAvailableColumnIndex(HWND listView, int item)
 {
@@ -1670,7 +1673,13 @@ void CCfgPageView::LayoutViewsListControls()
     ScreenToClient(HWindow, &leftTop);
     ScreenToClient(HWindow, &rightTop);
 
-    const int rightLeft = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth;
+    int rightLeft = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth;
+    if (rightLeft < CFGP2MinDefinedViewsWidth)
+        rightLeft = CFGP2MinDefinedViewsWidth;
+    if (rightLeft > client.right - AvailableColumnsRightMargin - CFGP2MinAvailableColumnsWidth)
+        rightLeft = client.right - AvailableColumnsRightMargin - CFGP2MinAvailableColumnsWidth;
+    AvailableColumnsWidth = client.right - AvailableColumnsRightMargin - rightLeft;
+
     int leftWidth = rightLeft - ViewsListGap - leftTop.x;
     if (leftWidth < 20)
         leftWidth = 20;
@@ -2072,6 +2081,8 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         AvailableColumnsWidth = rightBottom.x - rightTop.x;
         AvailableColumnsRightMargin = clientRect.right - rightBottom.x;
         ViewsListGap = rightTop.x - leftBottom.x;
+        if (Configuration.ConfigurationViewsRightWidth != 0)
+            AvailableColumnsWidth = Configuration.ConfigurationViewsRightWidth;
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
@@ -2147,14 +2158,13 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             RECT client;
             GetClientRect(HWindow, &client);
             int x = GET_X_LPARAM(lParam);
-            const int minLeftWidth = 160;
-            const int minRightWidth = 120;
             int rightLeft = x + ViewsListGap / 2;
-            if (rightLeft < minLeftWidth)
-                rightLeft = minLeftWidth;
-            if (rightLeft > client.right - AvailableColumnsRightMargin - minRightWidth)
-                rightLeft = client.right - AvailableColumnsRightMargin - minRightWidth;
+            if (rightLeft < CFGP2MinDefinedViewsWidth)
+                rightLeft = CFGP2MinDefinedViewsWidth;
+            if (rightLeft > client.right - AvailableColumnsRightMargin - CFGP2MinAvailableColumnsWidth)
+                rightLeft = client.right - AvailableColumnsRightMargin - CFGP2MinAvailableColumnsWidth;
             AvailableColumnsWidth = client.right - AvailableColumnsRightMargin - rightLeft;
+            Configuration.ConfigurationViewsRightWidth = AvailableColumnsWidth;
             LayoutViewsListControls();
             SetCursor(LoadCursor(NULL, IDC_SIZEWE));
             return TRUE;

@@ -478,6 +478,7 @@ struct CConfiguration
     DWORD ConfigurationHeight;      // height of the configuration dialog in points
     DWORD ConfigurationWidth;       // width of the configuration dialog in pixels
     DWORD ConfigurationTreeWidth;   // width of the configuration dialog tree in pixels
+    DWORD ConfigurationViewsRightWidth; // width of Available Columns in the Views configuration page
     BOOL ViewersAndEditorsExpanded; // expanded items in the tree
     BOOL PackersAndUnpackersExpanded;
 
