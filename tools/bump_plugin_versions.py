@@ -8,7 +8,23 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+
+def find_repo_root() -> Path:
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=SCRIPT_DIR,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return Path(result.stdout.strip())
+    return SCRIPT_DIR.parent
+
+
+ROOT = find_repo_root()
 DEFAULT_PLUGINS_ROOT = ROOT / "src" / "plugins"
 DEFINE_RE = re.compile(r"^(?P<prefix>\s*#define\s+{name}\s+)(?P<value>\d+)(?P<suffix>\s*)$", re.MULTILINE)
 
