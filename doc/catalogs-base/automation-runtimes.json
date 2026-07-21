@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "catalogName": "Automation Runtimes",
+  "generatedAt": "2026-06-29T03:07:00Z",
+  "plugins": [
+    {
+      "id": "salamatrix",
+      "name": {
+        "english": "Salamatrix Framework",
+        "chinesesimplified": "Salamatrix Framework",
+        "czech": "Salamatrix Framework",
+        "german": "Salamatrix Framework",
+        "dutch": "Salamatrix Framework",
+        "hungarian": "Salamatrix Framework",
+        "russian": "Salamatrix Framework",
+        "french": "Salamatrix Framework",
+        "slovak": "Salamatrix Framework",
+        "romanian": "Salamatrix Framework",
+        "spanish": "Salamatrix Framework"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Salamatrix is automation framework provider for native plugins and script extensions.",
+        "chinesesimplified": "Salamatrix 是一个自动化框架提供商，提供原生插件和脚本扩展。",
+        "czech": "Salamatrix je poskytovatel automatizačního frameworku pro nativní pluginy a skriptová rozšíření.",
+        "german": "Salamatrix ist ein Automatisierungsframework-Anbieter für native Plugins und Skripterweiterungen.",
+        "dutch": "Salamatrix is een automatiseringsframeworkleverancier voor native plugins en scriptextensies.",
+        "hungarian": "Salamatrix egy automatizálási keretrendszer szolgáltató a natív pluginokhoz és szkript kiterjesztésekhez.",
+        "russian": "Salamatrix - поставщик фреймворка автоматизации для нативных плагинов и скриптовых расширений.",
+        "french": "Salamatrix est un fournisseur de framework d'automatisation pour les plugins natifs et les extensions de script.",
+        "slovak": "Salamatrix je poskytovateľ automatizačného frameworku pre natívne pluginy a skriptové rozšírenia.",
+        "romanian": "Salamatrix este un furnizor de framework de automatizare pentru pluginuri native și extensii de script.",
+        "spanish": "Salamatrix es un proveedor de framework de automatización para plugins nativos y extensiones de script."
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/automation",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases/latest"
+    }
+  ]
+}

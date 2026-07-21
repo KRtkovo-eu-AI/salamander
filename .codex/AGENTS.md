@@ -80,3 +80,7 @@ When adding SVG icons to Salamander popup menus, use the same shared toolbar/men
 5. For every `CMenuPopup` that owns icon-bearing items, including nested submenus, call `SetImageList(HGrayToolBarImageList)` and `SetHotImageList(HHotToolBarImageList)`.
 6. Insert menu items with `MENU_MASK_IMAGEINDEX` and the reserved `IDX_TB_*` value. Do not create a private image list for these SVG menu icons unless there is a strong reason.
 7. If the SVG has a non-16x16 viewBox, make sure the common SVG renderer scales and centers it into the requested icon bounds before rasterization.
+
+## Plugin SDK binary compatibility
+
+When changing any plug-in-facing SDK interface, preserve binary compatibility with plug-ins built against older headers. In particular, never insert, remove, reorder, or change the signature of existing `virtual` methods in `*Abstract` interfaces such as `CSalamanderGeneralAbstract`, `CSalamanderGUIAbstract`, `CSalamanderConnectAbstract`, `CPluginInterfaceAbstract`, or related shared headers under `src/plugins/shared/`. New virtual methods must be appended at the end of the relevant interface and mirrored in the concrete implementation class in the same appended order. Before committing SDK/interface changes, compare the virtual method order against the latest released Samandarin tag and verify that all pre-existing methods remain an unchanged prefix of the new interface layout. This is required because older binary plug-ins call methods by vtable slot, so even source-compatible insertions can crash existing plug-ins at runtime.

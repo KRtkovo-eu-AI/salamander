@@ -1560,6 +1560,8 @@
 #define IDS_PLUGINFUNCFILESYSTEM     12096
 // plugins manager/functions: thumbnail loader
 #define IDS_PLUGINFUNCTHUMBLOADER    12109
+// plugins manager/functions: automation framework
+#define IDS_PLUGINFUNCAUTORUNTIME     12117
 // plugins manager/column loaded: yes/no
 #define IDS_PLUGINS_LOADED_YES       12097
 #define IDS_PLUGINS_LOADED_NO        12098

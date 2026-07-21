@@ -58,6 +58,8 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
     bool bExecuted = false;
     bool bRunScript = false;
 
+    g_oAutomationPlugin.RefreshSalamatrixServices();
+
     info.pOperation = salamander;
     info.bEnableDebugger = g_oAutomationPlugin.IsDebuggerEnabled();
 
@@ -121,6 +123,16 @@ DWORD WINAPI CAutomationMenuExtInterface::GetMenuItemState(
     else
     {
         // preloaded script item
+        CScriptInfo* pScript = g_oScriptLookup.LookupScript(id);
+        if (pScript == NULL)
+            return 0;
+
+        if ((eventMask & pScript->GetMenuEventAndMask()) != pScript->GetMenuEventAndMask())
+            return 0;
+
+        if ((eventMask & pScript->GetMenuEventOrMask()) == 0)
+            return 0;
+
         return MENU_ITEM_STATE_ENABLED;
     }
 }
@@ -233,6 +245,9 @@ void CAutomationMenuExtInterface::AddScriptContainerToPopup(
     mii.ImageIndex = PluginIconScript;
     for (pScript = pContainer->FirstScript(); pScript; pScript = pScript->Next(), i++)
     {
+        if (!pScript->ShowInPluginMenu())
+            continue;
+
         mii.ID = pScript->GetId();
 
         StringCchCopy(szDisplayName, _countof(szDisplayName), pScript->GetDisplayName());
@@ -380,6 +395,12 @@ void CAutomationMenuExtInterface::AddScriptContainerToMenu(
     pScript = pContainer->FirstScript();
     while (pScript)
     {
+        if (!pScript->ShowInPluginMenu() && !pScript->ShowInContextMenu())
+        {
+            pScript = pScript->Next();
+            continue;
+        }
+
         StringCchCopy(szDisplayName, _countof(szDisplayName), pScript->GetDisplayName());
         SalamanderGeneral->DuplicateAmpersands(szDisplayName, _countof(szDisplayName));
 
@@ -388,9 +409,9 @@ void CAutomationMenuExtInterface::AddScriptContainerToMenu(
             szDisplayName,
             0,                // hotkey
             pScript->GetId(), // id
-            TRUE,             // callGetState
-            MENU_EVENT_TRUE,  // or-mask
-            MENU_EVENT_TRUE,  // and-mask
+            TRUE,                         // callGetState
+            pScript->GetMenuEventOrMask(),  // or-mask
+            pScript->GetMenuEventAndMask(), // and-mask
             MENU_SKILLLEVEL_ALL);
 
         pScript = pScript->Next();
@@ -449,6 +470,8 @@ void CAutomationPluginInterface::Connect(
     CGUIIconListAbstract* pIcons;
     BOOL bLoaded;
 
+    RefreshSalamatrixServices();
+
     pIcons = SalamanderGUI->CreateIconList();
     _ASSERTE(pIcons);
 
@@ -491,16 +514,27 @@ void CAutomationPluginInterface::Connect(
     }
 }
 
+void CAutomationPluginInterface::RefreshSalamatrixServices()
+{
+    m_oSalamatrix.Refresh(SalamanderGeneral);
+}
+
 void CAutomationPluginInterface::About(HWND parent)
 {
-    TCHAR szMessage[256];
+    TCHAR szMessage[512];
+    TCHAR szSalamatrixStatus[256];
+
+    RefreshSalamatrixServices();
+    m_oSalamatrix.GetStatusText(szSalamatrixStatus, _countof(szSalamatrixStatus));
 
     StringCchPrintf(szMessage, _countof(szMessage),
                     TEXT("%s ") TEXT(VERSINFO_VERSION) TEXT("\n\n")
                         TEXT(VERSINFO_COPYRIGHT) TEXT("\n\n")
-                            TEXT("%s"),
+                            TEXT("%s\n\n")
+                                TEXT("Salamatrix Framework: %s"),
                     SalamanderGeneral->LoadStr(g_hLangInst, IDS_PLUGINNAME),
-                    SalamanderGeneral->LoadStr(g_hLangInst, IDS_DESCRIPTION));
+                    SalamanderGeneral->LoadStr(g_hLangInst, IDS_DESCRIPTION),
+                    szSalamatrixStatus);
 
     SalamanderGeneral->SalMessageBox(
         parent,

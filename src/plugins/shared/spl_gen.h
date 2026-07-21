@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -824,9 +824,25 @@ class CSalamanderBZIP2Abstract;
 
 class CSalamanderCryptAbstract;
 
+
+struct CSalamanderServiceQuery
+{
+    const char* ServiceId;
+    DWORD MinimumVersion;
+    DWORD Flags;
+};
+
+struct CSalamanderServiceResult
+{
+    void* Interface;
+    DWORD Version;
+    const char* ProviderName;
+};
+
 class CSalamanderGeneralAbstract
 {
 public:
+
     // zobrazi message-box se zadanym textem a titulkem, parent message-boxu je HWND
     // vracene metodou GetMsgBoxParent() (viz nize); pouziva SalMessageBox (viz nize)
     // type = MSGBOX_INFO        - informace (ok)
@@ -3451,6 +3467,13 @@ public:
     // pouziva se pri critical shutdown k odblokovani okna/dialogu, nad kterym jsou otevrene
     // modalni dialogy, hrozi-li vice vrstev, je nutne volat opakovane
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0) = 0;
+
+    // Salamatrix/service-provider MVP: register, unregister, and query in-process runtime services.
+    // These must stay at the end of CSalamanderGeneralAbstract to preserve the vtable layout
+    // used by plug-ins built with older SDK headers.
+    virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
+    virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
+    virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
 };
 
 #ifdef _MSC_VER

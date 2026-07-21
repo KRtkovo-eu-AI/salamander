@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.Collections.Generic;
 using System.IO;
@@ -19,7 +20,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
-using Microsoft.Win32;
 using Timer = System.Threading.Timer;
 
 namespace OpenSalamander.Samandarin;
@@ -1030,6 +1030,7 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
     private readonly ContextMenuStrip _listContextMenu;
+    private readonly ImageList _pluginImages;
     private readonly Label _detailNameValue;
     private readonly Label _detailAuthorValue;
     private readonly Label _detailInstalledValue;
@@ -1040,11 +1041,11 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly LinkLabel _detailDownloadValue;
     private readonly TextBox _detailDescriptionValue;
     private ListViewItem? _contextMenuItem;
-    private static readonly int[] ListColumnMinimumWidths = { 120, 180, 90, 90, 120, 110 };
-    private static readonly float[] ListColumnWidthWeights = { 0.16f, 0.30f, 0.12f, 0.12f, 0.17f, 0.13f };
+    private static readonly int[] ListColumnMinimumWidths = { 46, 120, 180, 90, 90, 120, 110 };
+    private static readonly float[] ListColumnWidthWeights = { 0.00f, 0.15f, 0.30f, 0.12f, 0.12f, 0.18f, 0.13f };
     private int _contextMenuSubItemIndex;
     private readonly List<PluginUpdateRow> _rows = new();
-    private int _sortColumn = 1;
+    private int _sortColumn = 2;
     private SortOrder _sortOrder = SortOrder.Ascending;
 
     public PluginUpdatesDialog()
@@ -1084,6 +1085,9 @@ internal sealed class PluginUpdatesDialog : Form
             Scrollable = true,
             View = View.Details,
         };
+        _pluginImages = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new System.Drawing.Size(16, 16) };
+        _listView.SmallImageList = _pluginImages;
+        _listView.Columns.Add(string.Empty, 46);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 140);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnName), 240);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 120);
@@ -1235,6 +1239,7 @@ internal sealed class PluginUpdatesDialog : Form
     {
         using var dialog = new PluginCatalogSourcesDialog();
         ThemeHelper.ApplyTheme(dialog);
+        dialog.Shown += (_, _) => ThemeHelper.ApplyNativeDarkMode(dialog.ListView);
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _ = RefreshAsync();
@@ -1253,7 +1258,8 @@ internal sealed class PluginUpdatesDialog : Form
             _listView.Items.Clear();
             foreach (var row in rows)
             {
-                var item = new ListViewItem(row.Source) { Tag = row };
+                var item = new ListViewItem(row.IconLabel) { Tag = row, ImageKey = EnsurePluginImage(row) };
+                item.SubItems.Add(row.Source);
                 item.SubItems.Add(row.Name);
                 item.SubItems.Add(row.InstalledVersion);
                 item.SubItems.Add(row.LatestVersion);
@@ -1275,6 +1281,35 @@ internal sealed class PluginUpdatesDialog : Form
         NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
         ThemeHelper.ApplyNativeDarkMode(_listView);
         UpdateDetails();
+    }
+
+    private string EnsurePluginImage(PluginUpdateRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.IconPath))
+        {
+            return string.Empty;
+        }
+
+        var key = row.IconPath!;
+        if (_pluginImages.Images.ContainsKey(key))
+        {
+            return key;
+        }
+
+        try
+        {
+            using var icon = Icon.ExtractAssociatedIcon(key);
+            if (icon is not null)
+            {
+                _pluginImages.Images.Add(key, icon);
+                return key;
+            }
+        }
+        catch
+        {
+        }
+
+        return string.Empty;
     }
 
     private void UpdateDetails()
@@ -1418,19 +1453,25 @@ internal sealed class PluginUpdatesDialog : Form
 
         private string GetValue(PluginUpdateRow row) => _column switch
         {
-            1 => row.Name,
-            2 => row.InstalledVersion,
-            3 => row.LatestVersion,
-            4 => row.StatusText,
-            5 => row.Author,
-            _ => row.Source,
+            1 => row.Source,
+            2 => row.Name,
+            3 => row.InstalledVersion,
+            4 => row.LatestVersion,
+            5 => row.StatusText,
+            6 => row.Author,
+            _ => row.IconLabel,
         };
     }
 }
 
 internal sealed class PluginCatalogSourcesDialog : Form
 {
-    private readonly TextBox _sourcesTextBox;
+    private readonly ListView _listView;
+    private readonly List<PluginCatalogSource> _sources;
+    private ListViewItem? _lastCheckedItem;
+    private bool _lastCheckedValue;
+
+    public ListView ListView => _listView;
 
     public PluginCatalogSourcesDialog()
     {
@@ -1440,17 +1481,36 @@ internal sealed class PluginCatalogSourcesDialog : Form
         MaximizeBox = false;
         ShowInTaskbar = false;
         FormBorderStyle = FormBorderStyle.FixedDialog;
-        Width = 620;
-        Height = 300;
+        Width = 680;
+        Height = 400;
+        MinimumSize = new System.Drawing.Size(500, 300);
         Icon = PluginIconLoader.Load();
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSources), AutoSize = true }, 0, 0);
-        _sourcesTextBox = new TextBox { Multiline = true, AcceptsReturn = true, AcceptsTab = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
-        layout.Controls.Add(_sourcesTextBox, 0, 1);
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources) + ":", AutoSize = true, MaximumSize = new System.Drawing.Size(640, 0) }, 0, 0);
+
+        _listView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            FullRowSelect = true,
+            GridLines = true,
+            HideSelection = false,
+            MultiSelect = false,
+            Scrollable = true,
+            View = View.Details,
+            CheckBoxes = true,
+            LabelEdit = true,
+        };
+        _listView.Columns.Add(string.Empty, 630);
+        _listView.ItemCheck += ListViewOnItemCheck;
+        _listView.DoubleClick += ListViewOnDoubleClick;
+        _listView.KeyDown += ListViewOnKeyDown;
+        _listView.AfterLabelEdit += ListViewOnAfterLabelEdit;
+        _listView.ItemChecked += ListViewOnItemChecked;
+        layout.Controls.Add(_listView, 0, 1);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 0, 0), Margin = new Padding(0) };
         var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
@@ -1462,12 +1522,120 @@ internal sealed class PluginCatalogSourcesDialog : Form
 
         Controls.Add(layout);
         CancelButton = closeButton;
-        // Keep Enter available for inserting new catalog source lines in the multiline text box.
+
+        _sources = PluginCatalogSources.Load().Select(s => new PluginCatalogSource { Url = s.Url, Enabled = s.Enabled }).ToList();
+        PopulateList();
+    }
+
+    private void PopulateList()
+    {
+        _listView.BeginUpdate();
+        try
+        {
+            _listView.Items.Clear();
+            foreach (var source in _sources)
+            {
+                var item = new ListViewItem(source.Url) { Tag = source, Checked = source.Enabled };
+                _listView.Items.Add(item);
+            }
+
+            var addItem = new ListViewItem(string.Empty) { Tag = new PluginCatalogSource { Url = string.Empty, Enabled = true } };
+            addItem.Checked = true;
+            _listView.Items.Add(addItem);
+        }
+        finally
+        {
+            _listView.EndUpdate();
+        }
+    }
+
+    private void ListViewOnItemCheck(object? sender, ItemCheckEventArgs e)
+    {
+        var item = _listView.Items[e.Index];
+        _lastCheckedItem = item;
+        _lastCheckedValue = e.CurrentValue == CheckState.Checked;
+    }
+
+    private void ListViewOnDoubleClick(object? sender, EventArgs e)
+    {
+        if (_listView.SelectedItems.Count == 0) return;
+        var item = _listView.SelectedItems[0];
+
+        if (_lastCheckedItem == item && _lastCheckedValue != item.Checked)
+        {
+            item.Checked = _lastCheckedValue;
+        }
+
+        item.BeginEdit();
+    }
+
+    private void ListViewOnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.F2 && _listView.SelectedItems.Count > 0)
+        {
+            _listView.SelectedItems[0].BeginEdit();
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Delete && _listView.SelectedItems.Count > 0)
+        {
+            var item = _listView.SelectedItems[0];
+            var source = item.Tag as PluginCatalogSource;
+            if (source is not null && source.Url.Length > 0)
+            {
+                _sources.Remove(source);
+                _listView.Items.Remove(item);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private void ListViewOnAfterLabelEdit(object? sender, LabelEditEventArgs e)
+    {
+        if (e.Label is null) return;
+        var item = _listView.Items[e.Item];
+        var source = item.Tag as PluginCatalogSource;
+        if (source is null) return;
+
+        var newUrl = e.Label.Trim();
+        if (newUrl.Length == 0)
+        {
+            if (source.Url.Length == 0)
+            {
+                e.CancelEdit = true;
+            }
+
+            return;
+        }
+
+        source.Url = newUrl;
+
+        if (item.Index == _listView.Items.Count - 1 && source.Url.Length > 0)
+        {
+            source.Enabled = true;
+            var addItem = new ListViewItem(string.Empty) { Tag = new PluginCatalogSource { Url = string.Empty, Enabled = true } };
+            addItem.Checked = true;
+            _listView.Items.Add(addItem);
+        }
+    }
+
+    private void ListViewOnItemChecked(object? sender, ItemCheckedEventArgs e)
+    {
+        if (e.Item?.Tag is PluginCatalogSource source)
+        {
+            source.Enabled = e.Item.Checked;
+        }
     }
 
     private void SaveSources()
     {
-        PluginCatalogSources.Save(_sourcesTextBox.Lines.Select(line => line.Trim()).Where(line => line.Length > 0));
+        var last = _sources.Count > 0 ? _sources[_sources.Count - 1] : null;
+        if (last is not null && string.IsNullOrWhiteSpace(last.Url))
+        {
+            _sources.RemoveAt(_sources.Count - 1);
+        }
+
+        PluginCatalogSources.Save(_sources);
         ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginSourcesSaved), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 }
@@ -1572,7 +1740,7 @@ internal static class PluginCatalogService
         var catalog = new List<PluginCatalogEntry>();
         var sourceErrors = new List<string>();
 
-        foreach (var source in PluginCatalogSources.Load())
+        foreach (var source in PluginCatalogSources.LoadEnabledUrls())
         {
             try
             {
@@ -1637,14 +1805,14 @@ internal static class PluginCatalogService
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty);
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
     {
         if (entry is null)
         {
-            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty);
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty);
         }
 
         var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
@@ -1657,7 +1825,7 @@ internal static class PluginCatalogService
         };
 
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -1673,31 +1841,83 @@ internal static class SharedHttpClient
     }
 }
 
+internal sealed class PluginCatalogSource
+{
+    public string Url { get; set; } = string.Empty;
+    public bool Enabled { get; set; } = true;
+}
+
 internal static class PluginCatalogSources
 {
     private const string OfficialDefaultSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
     private const string OfficialExternalSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json";
 
-    public static IReadOnlyList<string> Load()
+    public static IReadOnlyList<PluginCatalogSource> Load()
     {
         var text = NativeConfiguration.LoadOrDefault().PluginCatalogSourcesText;
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new[] { OfficialDefaultSource, OfficialExternalSource };
+            return new[]
+            {
+                new PluginCatalogSource { Url = OfficialDefaultSource, Enabled = true },
+                new PluginCatalogSource { Url = OfficialExternalSource, Enabled = true },
+            };
         }
 
-        var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        return lines.Count == 0 ? new[] { OfficialDefaultSource, OfficialExternalSource } : lines;
+        var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        var sources = new List<PluginCatalogSource>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+
+            bool enabled;
+            string url;
+            int pipeIndex = line.IndexOf('|');
+            if (pipeIndex >= 0)
+            {
+                var prefix = line.Substring(0, pipeIndex).Trim();
+                enabled = prefix == "1";
+                url = line.Substring(pipeIndex + 1).Trim();
+            }
+            else
+            {
+                enabled = true;
+                url = line;
+            }
+
+            if (url.Length == 0 || !seen.Add(url)) continue;
+            sources.Add(new PluginCatalogSource { Url = url, Enabled = enabled });
+        }
+
+        if (sources.Count == 0)
+        {
+            return new[]
+            {
+                new PluginCatalogSource { Url = OfficialDefaultSource, Enabled = true },
+                new PluginCatalogSource { Url = OfficialExternalSource, Enabled = true },
+            };
+        }
+
+        return sources;
     }
 
-    public static void Save(IEnumerable<string> sources)
+    public static IReadOnlyList<string> LoadEnabledUrls()
+    {
+        return Load().Where(s => s.Enabled).Select(s => s.Url).ToList();
+    }
+
+    public static void Save(IEnumerable<PluginCatalogSource> sources)
     {
         var settings = NativeConfiguration.LoadOrDefault();
-        settings.PluginCatalogSourcesText = string.Join("\n", sources.Where(source => !string.IsNullOrWhiteSpace(source)).Select(source => source.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
+        var distinct = sources
+            .Where(s => !string.IsNullOrWhiteSpace(s.Url))
+            .GroupBy(s => s.Url.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+        settings.PluginCatalogSourcesText = string.Join("\n", distinct.Select(s => $"{(s.Enabled ? "1" : "0")}|{s.Url.Trim()}"));
         NativeConfiguration.Save(settings);
     }
 }
@@ -1706,8 +1926,8 @@ internal static class InstalledPluginScanner
 {
     public static IEnumerable<InstalledPlugin> Scan()
     {
-        return PluginConfigurationReader.TryReadConfiguredPlugins(out var configuredPlugins)
-            ? configuredPlugins
+        return NativeInstalledPluginProvider.TryReadInstalledPlugins(out var livePlugins)
+            ? livePlugins
             : ScanPluginDirectory();
     }
 
@@ -1735,216 +1955,102 @@ internal static class InstalledPluginScanner
 
             var relative = file.Substring(pluginsRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var id = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }).FirstOrDefault() ?? Path.GetFileNameWithoutExtension(file);
-            var display = BuildDisplayName(id, file, info);
+            var display = BuildDisplayName(id, file);
             var version = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion! : info.ProductVersion ?? string.Empty;
-            yield return new InstalledPlugin(id, display, version);
+            yield return new InstalledPlugin(id, display, version, file);
         }
     }
 
-    private static string BuildDisplayName(string id, string file, FileVersionInfo info)
+    public static string BuildDisplayName(string id, string file)
     {
-        if (!string.IsNullOrWhiteSpace(info.FileDescription) &&
-            !info.FileDescription!.Equals("Open Salamander", StringComparison.OrdinalIgnoreCase))
-        {
-            return TrimOpenSalamanderSuffix(info.FileDescription!);
-        }
-
         var fileName = Path.GetFileNameWithoutExtension(file);
         return string.IsNullOrWhiteSpace(fileName) ? id : fileName;
     }
+}
 
-    private static string TrimOpenSalamanderSuffix(string name)
+internal static class NativeInstalledPluginProvider
+{
+    [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+    private static extern int Samandarin_ExportInstalledPlugins(StringBuilder? buffer, int cchBuffer);
+
+    public static bool TryReadInstalledPlugins(out IReadOnlyList<InstalledPlugin> plugins)
     {
-        var result = name.Trim();
-        foreach (var suffix in new[] { " plugin for Open Salamander", " for Open Salamander" })
+        plugins = Array.Empty<InstalledPlugin>();
+        try
         {
-            if (result.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            var required = Samandarin_ExportInstalledPlugins(null, 0);
+            if (required <= 1)
             {
-                result = result.Substring(0, result.Length - suffix.Length).TrimEnd();
-                break;
+                return false;
             }
-        }
 
-        return result;
+            var buffer = new StringBuilder(required);
+            var confirmed = Samandarin_ExportInstalledPlugins(buffer, buffer.Capacity);
+            if (confirmed <= 1)
+            {
+                return false;
+            }
+
+            plugins = ParseExport(buffer.ToString()).ToList();
+            return plugins.Count > 0;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private static IEnumerable<InstalledPlugin> ParseExport(string exportText)
+    {
+        foreach (var line in exportText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Split('\t');
+            if (parts.Length < 3 || string.IsNullOrWhiteSpace(parts[0]))
+            {
+                continue;
+            }
+
+            var dllName = parts[0];
+            var id = PluginMetadata.BuildIdFromRegisteredDll(dllName);
+            var displayName = parts[1];
+            var version = parts[2];
+            var resolvedDllPath = PluginMetadata.ResolveRegisteredDllPath(dllName);
+
+            if (string.IsNullOrWhiteSpace(displayName))
+            {
+                displayName = id;
+            }
+
+            yield return new InstalledPlugin(id, displayName!, version ?? string.Empty, resolvedDllPath);
+        }
     }
 }
 
-internal static class PluginConfigurationReader
+internal static class PluginMetadata
 {
-    private const string CurrentConfigurationRoot = @"Software\Open Salamander Samandarin\5.0-samandarin-0.11";
-    private const string PluginsKeyName = "Plugins";
-    private const string PluginNameValue = "Name";
-    private const string PluginDllValue = "DLL";
-    private const string PluginVersionValue = "Version";
-    private const string ConfigurationSection = "Configuration";
-    private const string StorageTypeKey = "StorageType";
-    private const string RegFilePathKey = "RegFilePath";
-    private const string RegFileStorageType = "RegFile";
-    private const string ConfigStorageFileName = "configstorage.ini";
-    private const string DefaultRegFileName = "config.reg";
-
-    private static readonly Regex RegFilePluginSectionRegex = new(
-        @"^HKEY_CURRENT_USER\\" + Regex.Escape(CurrentConfigurationRoot).Replace(@"\\", @"\\") + @"\\" + PluginsKeyName + @"\\([^\\]+)$",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-    public static bool TryReadConfiguredPlugins(out IReadOnlyList<InstalledPlugin> plugins)
+    public static string? ResolveRegisteredDllPath(string dllName)
     {
-        if (TryGetActiveRegFilePath(out var regFilePath))
+        var normalized = dllName.Trim();
+        if (Path.IsPathRooted(normalized))
         {
-            return TryReadRegFilePlugins(regFilePath, out plugins);
+            return normalized;
         }
 
-        return TryReadRegistryPlugins(out plugins);
-    }
-
-    private static bool TryGetActiveRegFilePath(out string regFilePath)
-    {
-        regFilePath = string.Empty;
         var executableDirectory = GetExecutableDirectory();
         if (string.IsNullOrWhiteSpace(executableDirectory))
         {
-            return false;
+            return null;
         }
 
-        var bootstrapPath = Path.Combine(executableDirectory!, ConfigStorageFileName);
-        if (File.Exists(bootstrapPath))
-        {
-            var storageType = ReadIniValue(bootstrapPath, ConfigurationSection, StorageTypeKey);
-            if (string.Equals(storageType, RegFileStorageType, StringComparison.OrdinalIgnoreCase))
-            {
-                regFilePath = ReadIniValue(bootstrapPath, ConfigurationSection, RegFilePathKey) ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(regFilePath))
-                {
-                    regFilePath = Path.Combine(executableDirectory!, DefaultRegFileName);
-                }
-                else if (!Path.IsPathRooted(regFilePath))
-                {
-                    regFilePath = Path.GetFullPath(Path.Combine(executableDirectory!, regFilePath));
-                }
-
-                return true;
-            }
-
-            return false;
-        }
-
-        var defaultRegFilePath = Path.Combine(executableDirectory!, DefaultRegFileName);
-        if (File.Exists(defaultRegFilePath))
-        {
-            regFilePath = defaultRegFilePath;
-            return true;
-        }
-
-        return false;
+        var pluginsRoot = Path.Combine(executableDirectory!, "plugins");
+        return Path.GetFullPath(Path.Combine(pluginsRoot, normalized));
     }
 
-    private static bool TryReadRegistryPlugins(out IReadOnlyList<InstalledPlugin> plugins)
-    {
-        var configuredPlugins = new List<InstalledPlugin>();
-        using var pluginsKey = Registry.CurrentUser.OpenSubKey(CurrentConfigurationRoot + @"\" + PluginsKeyName);
-        if (pluginsKey is null)
-        {
-            plugins = configuredPlugins;
-            return false;
-        }
-
-        foreach (var subKeyName in pluginsKey.GetSubKeyNames().OrderBy(ParsePluginOrder))
-        {
-            using var pluginKey = pluginsKey.OpenSubKey(subKeyName);
-            if (pluginKey is null)
-            {
-                continue;
-            }
-
-            var dllName = ReadString(pluginKey, PluginDllValue);
-            if (string.IsNullOrWhiteSpace(dllName))
-            {
-                continue;
-            }
-
-            configuredPlugins.Add(BuildInstalledPlugin(dllName!, ReadString(pluginKey, PluginNameValue), ReadString(pluginKey, PluginVersionValue)));
-        }
-
-        plugins = configuredPlugins;
-        return true;
-    }
-
-    private static bool TryReadRegFilePlugins(string regFilePath, out IReadOnlyList<InstalledPlugin> plugins)
-    {
-        var configuredPluginsByKey = new Dictionary<string, PluginConfigurationEntry>(StringComparer.OrdinalIgnoreCase);
-        if (!File.Exists(regFilePath))
-        {
-            plugins = Array.Empty<InstalledPlugin>();
-            return true;
-        }
-
-        string? currentPluginKey = null;
-        foreach (var rawLine in File.ReadLines(regFilePath, DetectEncoding(regFilePath)))
-        {
-            var line = rawLine.Trim();
-            if (line.Length == 0 || line.StartsWith(";", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (line.StartsWith("[", StringComparison.Ordinal) && line.EndsWith("]", StringComparison.Ordinal))
-            {
-                var section = line.Substring(1, line.Length - 2);
-                var match = RegFilePluginSectionRegex.Match(section);
-                currentPluginKey = match.Success ? match.Groups[1].Value : null;
-                if (currentPluginKey is not null && !configuredPluginsByKey.ContainsKey(currentPluginKey))
-                {
-                    configuredPluginsByKey.Add(currentPluginKey, new PluginConfigurationEntry());
-                }
-
-                continue;
-            }
-
-            if (currentPluginKey is null || !TryParseRegFileStringValue(line, out var valueName, out var valueText))
-            {
-                continue;
-            }
-
-            var entry = configuredPluginsByKey[currentPluginKey];
-            if (string.Equals(valueName, PluginDllValue, StringComparison.OrdinalIgnoreCase))
-            {
-                entry.DllName = valueText;
-            }
-            else if (string.Equals(valueName, PluginNameValue, StringComparison.OrdinalIgnoreCase))
-            {
-                entry.Name = valueText;
-            }
-            else if (string.Equals(valueName, PluginVersionValue, StringComparison.OrdinalIgnoreCase))
-            {
-                entry.Version = valueText;
-            }
-        }
-
-        plugins = configuredPluginsByKey
-            .OrderBy(pair => ParsePluginOrder(pair.Key))
-            .Select(pair => pair.Value)
-            .Where(entry => !string.IsNullOrWhiteSpace(entry.DllName))
-            .Select(entry => BuildInstalledPlugin(entry.DllName!, entry.Name, entry.Version))
-            .ToList();
-        return true;
-    }
-
-    private static InstalledPlugin BuildInstalledPlugin(string dllName, string? displayName, string? version)
-    {
-        var id = BuildIdFromRegisteredDll(dllName);
-        if (string.IsNullOrWhiteSpace(displayName))
-        {
-            displayName = id;
-        }
-
-        return new InstalledPlugin(id, displayName!, version ?? string.Empty);
-    }
-
-    private static string? ReadString(RegistryKey key, string name) => key.GetValue(name) as string;
-
-    private static int ParsePluginOrder(string subKeyName) => int.TryParse(subKeyName, NumberStyles.Integer, CultureInfo.InvariantCulture, out var order) ? order : int.MaxValue;
-
-    private static string BuildIdFromRegisteredDll(string dllName)
+    public static string BuildIdFromRegisteredDll(string dllName)
     {
         var normalized = dllName.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var fileName = Path.GetFileNameWithoutExtension(normalized);
@@ -1959,132 +2065,10 @@ internal static class PluginConfigurationReader
             : firstSegment!;
     }
 
-    private static string? ReadIniValue(string filePath, string sectionName, string valueName)
-    {
-        var inSection = false;
-        foreach (var rawLine in File.ReadLines(filePath))
-        {
-            var line = rawLine.Trim();
-            if (line.Length == 0 || line.StartsWith(";", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (line.StartsWith("[", StringComparison.Ordinal) && line.EndsWith("]", StringComparison.Ordinal))
-            {
-                inSection = string.Equals(line.Substring(1, line.Length - 2), sectionName, StringComparison.OrdinalIgnoreCase);
-                continue;
-            }
-
-            if (!inSection)
-            {
-                continue;
-            }
-
-            var equalsIndex = line.IndexOf('=');
-            if (equalsIndex < 0)
-            {
-                continue;
-            }
-
-            var key = line.Substring(0, equalsIndex).Trim();
-            if (string.Equals(key, valueName, StringComparison.OrdinalIgnoreCase))
-            {
-                return line.Substring(equalsIndex + 1).Trim().Trim('"');
-            }
-        }
-
-        return null;
-    }
-
-    private static bool TryParseRegFileStringValue(string line, out string valueName, out string valueText)
-    {
-        valueName = string.Empty;
-        valueText = string.Empty;
-        if (!line.StartsWith("\"", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var nameEnd = FindClosingQuote(line, 1);
-        if (nameEnd < 0 || nameEnd + 1 >= line.Length || line[nameEnd + 1] != '=')
-        {
-            return false;
-        }
-
-        var data = line.Substring(nameEnd + 2).TrimStart();
-        if (!data.StartsWith("\"", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var dataEnd = FindClosingQuote(data, 1);
-        if (dataEnd < 0)
-        {
-            return false;
-        }
-
-        valueName = UnescapeRegFileString(line.Substring(1, nameEnd - 1));
-        valueText = UnescapeRegFileString(data.Substring(1, dataEnd - 1));
-        return true;
-    }
-
-    private static int FindClosingQuote(string text, int start)
-    {
-        var backslashCount = 0;
-        for (int i = start; i < text.Length; i++)
-        {
-            if (text[i] == '\\')
-            {
-                backslashCount++;
-                continue;
-            }
-
-            if (text[i] == '"' && backslashCount % 2 == 0)
-            {
-                return i;
-            }
-
-            backslashCount = 0;
-        }
-
-        return -1;
-    }
-
-    private static string UnescapeRegFileString(string text) => text.Replace("\\\\", "\\").Replace("\\\"", "\"");
-
-    private static Encoding DetectEncoding(string filePath)
-    {
-        var bom = new byte[3];
-        using (var stream = File.OpenRead(filePath))
-        {
-            _ = stream.Read(bom, 0, bom.Length);
-        }
-
-        if (bom[0] == 0xFF && bom[1] == 0xFE)
-        {
-            return Encoding.Unicode;
-        }
-
-        if (bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF)
-        {
-            return Encoding.UTF8;
-        }
-
-        return Encoding.Default;
-    }
-
     private static string? GetExecutableDirectory()
     {
         var executablePath = Application.ExecutablePath;
         return string.IsNullOrWhiteSpace(executablePath) ? null : Path.GetDirectoryName(executablePath);
-    }
-
-    private sealed class PluginConfigurationEntry
-    {
-        public string? Name { get; set; }
-        public string? DllName { get; set; }
-        public string? Version { get; set; }
     }
 }
 
@@ -2096,6 +2080,7 @@ internal sealed class PluginCatalogEntry
     public string? author { get; set; }
     public object? description { get; set; }
     public string? latestVersion { get; set; }
+    public string? icon { get; set; }
     public string? versionScheme { get; set; }
     public string? homepageUrl { get; set; }
     public string? downloadPageUrl { get; set; }
@@ -2211,16 +2196,18 @@ internal enum PluginUpdateStatus { Other, UpdateAvailable, NotInCatalog, Catalog
 
 internal sealed class InstalledPlugin
 {
-    public InstalledPlugin(string id, string displayName, string versionText)
+    public InstalledPlugin(string id, string displayName, string versionText, string? iconPath = null)
     {
         Id = id;
         DisplayName = displayName;
         VersionText = InstalledPluginVersionFormatter.WithCurrentPlatform(versionText);
+        IconPath = iconPath ?? string.Empty;
     }
 
     public string Id { get; }
     public string DisplayName { get; }
     public string VersionText { get; }
+    public string IconPath { get; }
 }
 
 internal static class InstalledPluginVersionFormatter
@@ -2250,7 +2237,7 @@ internal static class InstalledPluginVersionFormatter
 
 internal sealed class PluginUpdateRow
 {
-    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description)
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? iconLabel)
     {
         Name = name;
         InstalledVersion = installedVersion;
@@ -2262,6 +2249,8 @@ internal sealed class PluginUpdateRow
         Source = source;
         WebUrl = webUrl;
         Description = description;
+        IconPath = iconPath ?? string.Empty;
+        IconLabel = iconLabel ?? string.Empty;
     }
 
     public string Name { get; }
@@ -2274,8 +2263,10 @@ internal sealed class PluginUpdateRow
     public string Source { get; }
     public string? WebUrl { get; }
     public string Description { get; }
+    public string IconPath { get; }
+    public string IconLabel { get; }
 
-    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty);
+    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty, null, string.Empty);
 }
 
 internal static class VersionComparer
@@ -2297,6 +2288,11 @@ internal static class VersionComparer
             return 1;
         }
 
+        if (TryCompareDecimalVersion(left!, right!, out var decimalComparison))
+        {
+            return decimalComparison;
+        }
+
         var leftTokens = Tokenize(left!);
         var rightTokens = Tokenize(right!);
         int count = Math.Max(leftTokens.Length, rightTokens.Length);
@@ -2313,6 +2309,35 @@ internal static class VersionComparer
 
         return 0;
     }
+
+    private static bool TryCompareDecimalVersion(string left, string right, out int comparison)
+    {
+        comparison = 0;
+        var leftMatch = DecimalVersionRegex.Match(left.Trim());
+        var rightMatch = DecimalVersionRegex.Match(right.Trim());
+        if (!leftMatch.Success || !rightMatch.Success)
+        {
+            return false;
+        }
+
+        var leftMajor = long.Parse(leftMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+        var rightMajor = long.Parse(rightMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+        comparison = leftMajor.CompareTo(rightMajor);
+        if (comparison != 0)
+        {
+            return true;
+        }
+
+        var leftMinor = leftMatch.Groups[2].Value;
+        var rightMinor = rightMatch.Groups[2].Value;
+        var width = Math.Max(leftMinor.Length, rightMinor.Length);
+        var leftFraction = long.Parse(leftMinor.PadRight(width, '0'), CultureInfo.InvariantCulture);
+        var rightFraction = long.Parse(rightMinor.PadRight(width, '0'), CultureInfo.InvariantCulture);
+        comparison = leftFraction.CompareTo(rightFraction);
+        return true;
+    }
+
+    private static readonly Regex DecimalVersionRegex = new(@"^(\d+)\.(\d+)$", RegexOptions.CultureInvariant);
 
     private static VersionToken[] Tokenize(string value)
     {

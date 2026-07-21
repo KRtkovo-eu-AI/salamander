@@ -26,12 +26,15 @@
 #include "scriptinfoaut.h"
 #include "persistence.h"
 #include "abortmodal.h"
+#include "automationplug.h"
+#include "salamatrixaut.h"
 
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern int SalamanderVersion;
 extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CPersistentValueStorage g_oPersistentStorage;
+extern CAutomationPluginInterface g_oAutomationPlugin;
 
 CSalamanderAutomation::CSalamanderAutomation(__in CScriptInfo* pScriptInfo)
 {
@@ -43,6 +46,9 @@ CSalamanderAutomation::CSalamanderAutomation(__in CScriptInfo* pScriptInfo)
     m_pWaitWindow = NULL;
     m_pGui = NULL;
     m_pScriptAut = NULL;
+    m_pUI = NULL;
+    m_pCommands = NULL;
+    m_pFileOperations = NULL;
 }
 
 CSalamanderAutomation::~CSalamanderAutomation()
@@ -365,12 +371,31 @@ void CSalamanderAutomation::SetExecutionInfo(CScriptInfo::EXECUTION_INFO* info)
             m_pScriptAut = NULL;
         }
 
+        if (m_pUI != NULL)
+        {
+            m_pUI->Release();
+            m_pUI = NULL;
+        }
+
+        if (m_pCommands != NULL)
+        {
+            m_pCommands->Release();
+            m_pCommands = NULL;
+        }
+
+        if (m_pFileOperations != NULL)
+        {
+            m_pFileOperations->Release();
+            m_pFileOperations = NULL;
+        }
+
         m_pExecInfo = NULL;
     }
 }
 
 void CSalamanderAutomation::OnBeginExecution()
 {
+    g_oAutomationPlugin.RefreshSalamatrixServices();
 }
 
 void CSalamanderAutomation::OnEndExecution()
@@ -942,4 +967,53 @@ static void CALLBACK ShowQuestionDialogProc(void* pContext)
 HRESULT CSalamanderAutomation::InvokeFilter(__out EXCEPINFO* pExcepInfo)
 {
     return CheckAbort(m_pScriptInfo, pExcepInfo);
+}
+
+/* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderAutomation::get_UI(
+    /* [retval][out] */ ISalamanderUI** ui)
+{
+    if (ui == NULL)
+        return E_POINTER;
+
+    if (m_pUI == NULL)
+    {
+        _ASSERTE(m_pExecInfo);
+        m_pUI = new CSalamanderUINamespaceAutomation(m_pExecInfo != NULL ? m_pExecInfo->pOperation : NULL);
+    }
+
+    *ui = m_pUI;
+    m_pUI->AddRef();
+    return S_OK;
+}
+
+/* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderAutomation::get_Commands(
+    /* [retval][out] */ ISalamanderCommands** commands)
+{
+    if (commands == NULL)
+        return E_POINTER;
+
+    if (m_pCommands == NULL)
+    {
+        m_pCommands = new CSalamanderCommandsAutomation();
+    }
+
+    *commands = m_pCommands;
+    m_pCommands->AddRef();
+    return S_OK;
+}
+
+/* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderAutomation::get_FileOperations(
+    /* [retval][out] */ ISalamanderFileOperations** fileOperations)
+{
+    if (fileOperations == NULL)
+        return E_POINTER;
+
+    if (m_pFileOperations == NULL)
+    {
+        m_pFileOperations = new CSalamanderFileOperationsAutomation();
+    }
+
+    *fileOperations = m_pFileOperations;
+    m_pFileOperations->AddRef();
+    return S_OK;
 }

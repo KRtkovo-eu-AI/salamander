@@ -704,6 +704,14 @@ CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
     salamander->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0, MENU_SKILLLEVEL_ALL); // separator
     salamander->AddMenuItem(-1, "&Controls provided by Open Salamander...", 0, MENUCMD_SHOWCONTROLS, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE,
                             MENU_SKILLLEVEL_BEGINNER | MENU_SKILLLEVEL_INTERMEDIATE | MENU_SKILLLEVEL_ADVANCED);
+    salamander->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0, MENU_SKILLLEVEL_ALL); // separator
+    salamander->AddSubmenuStart(-1, "Salamatrix PoC", 0, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, "Run &All PoC", 0, MENUCMD_SALAMATRIX_RUN_ALL_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, "Run &Progress PoC", 0, MENUCMD_SALAMATRIX_PROGRESS_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, "Run &Quick Rename Command PoC", 0, MENUCMD_SALAMATRIX_QUICKRENAME_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, "Run &Copy Dialog PoC", 0, MENUCMD_SALAMATRIX_COPY_POC, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddSubmenuEnd();
+
     salamander->AddMenuItem(-1, NULL, 0, MENUCMD_SEP, TRUE, 0, 0, MENU_SKILLLEVEL_ADVANCED); // separator
     salamander->AddMenuItem(-1, "Press Shift key when opening menu to hide this item", 0, MENUCMD_HIDDENITEM, TRUE, 0, 0, MENU_SKILLLEVEL_ADVANCED);
 #endif // !defined(ENABLE_DYNAMICMENUEXT)
