@@ -137,16 +137,46 @@ def version_at_tag(path: Path, tag: str, plugins_root: Path) -> PluginVersion | 
         tmp.unlink(missing_ok=True)
 
 
-def plugin_changed_since(plugin_root: Path, tag: str | None) -> bool:
+def plugin_changes_since(plugin_root: Path, tag: str | None) -> list[tuple[str, str, str]]:
     if not tag:
-        return False
+        return []
     rel = plugin_root.relative_to(ROOT).as_posix()
-    return bool(run_git(["diff", "--name-only", tag, "--", rel], check=False).strip())
+    changes: list[tuple[str, str, str]] = []
+    for line in run_git(["diff", "--numstat", tag, "--", rel], check=False).splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 3:
+            changes.append((parts[0], parts[1], parts[2]))
+    return changes
 
 
-def prompt(version: PluginVersion, proposed: PluginVersion, changed: bool, version_changed: bool) -> PluginVersion | None:
+def format_change_count(value: str) -> str:
+    return value if value != "-" else "binary"
+
+
+def print_changes(changes: list[tuple[str, str, str]]) -> None:
+    if not changes:
+        print("  Changed files since selected tag: none")
+        return
+    print(f"  Changed files since selected tag ({len(changes)}):")
+    for added, removed, path in changes:
+        print(f"    +{format_change_count(added)} -{format_change_count(removed)}  {path}")
+
+
+def prompt(
+    version: PluginVersion,
+    previous: PluginVersion | None,
+    proposed: PluginVersion,
+    changes: list[tuple[str, str, str]],
+    version_changed: bool,
+) -> PluginVersion | None:
+    changed = bool(changes)
     marker = "changed without version bump" if changed and not version_changed else "review"
     print(f"\n{version.plugin_id}: {version.display} [{marker}]")
+    if previous:
+        print(f"  Version in selected tag: {previous.display}")
+    else:
+        print("  Version in selected tag: unavailable")
+    print_changes(changes)
     print(f"  VERSINFO_MAJOR  {version.major} -> {proposed.major}")
     print(f"  VERSINFO_MINORA {version.minora} -> {proposed.minora}")
     print(f"  VERSINFO_MINORB {version.minorb} -> {proposed.minorb}")
@@ -174,17 +204,20 @@ def main() -> int:
     tag = choose_tag(args.tag)
     versions = [read_version(path, args.plugins_root) for path in find_versinfo_files(args.plugins_root)]
     applied = 0
-    for version in versions:
-        previous = version_at_tag(version.versinfo, tag, args.plugins_root) if tag else None
-        changed = plugin_changed_since(args.plugins_root / version.plugin_id, tag)
-        version_changed = previous is not None and previous.display != version.display
-        if not args.all and not (changed and not version_changed):
-            continue
-        selected = prompt(version, version.bumped(), changed, version_changed)
-        if selected:
-            applied += 1
-            if not args.dry_run:
-                write_version(selected)
+    try:
+        for version in versions:
+            previous = version_at_tag(version.versinfo, tag, args.plugins_root) if tag else None
+            changes = plugin_changes_since(args.plugins_root / version.plugin_id, tag)
+            version_changed = previous is not None and previous.display != version.display
+            if not args.all and not (changes and not version_changed):
+                continue
+            selected = prompt(version, previous, version.bumped(), changes, version_changed)
+            if selected:
+                applied += 1
+                if not args.dry_run:
+                    write_version(selected)
+    except KeyboardInterrupt:
+        print("\nStopped by user.")
     print(f"Processed {len(versions)} version files; applied {applied} bump(s).")
     return 0
 
