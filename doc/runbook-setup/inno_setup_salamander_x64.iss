@@ -272,6 +272,17 @@ spanish.PluginSelectionTitle=Seleccionar complementos
 spanish.PluginSelectionDescription=Elija qué complementos incluidos se instalarán o extraerán.
 czech.PluginSelectionTitle=Výběr pluginů
 czech.PluginSelectionDescription=Zvolte, které přibalené pluginy se nainstalují nebo rozbalí.
+english.InstalledVersionLabel=installed
+chinesesimplified.InstalledVersionLabel=已安装
+dutch.InstalledVersionLabel=geïnstalleerd
+french.InstalledVersionLabel=installé
+german.InstalledVersionLabel=installiert
+hungarian.InstalledVersionLabel=telepítve
+romanian.InstalledVersionLabel=instalat
+russian.InstalledVersionLabel=установлено
+slovak.InstalledVersionLabel=nainštalované
+spanish.InstalledVersionLabel=instalado
+czech.InstalledVersionLabel=nainstalováno
 
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
@@ -1624,17 +1635,127 @@ begin
     Result := ' ' + Result;
 end;
 
-procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
+function PadRight(const Value: String; const Width: Integer): String;
 begin
+  Result := Value;
+  while Length(Result) < Width do
+    Result := Result + ' ';
+end;
+
+function GetInstalledPluginVersion(const PluginId: String): String;
+var
+  I: Integer;
+  Count: Integer;
+  PluginPath: String;
+  ExpectedPath: String;
+begin
+  Result := '';
+  ExpectedPath := 'plugins/' + PluginId + '/' + PluginId + '.spl';
+  Count := StrToIntDef(GetIniString('InstalledPlugins', 'Count', '0', ExpandConstant('{app}\configstorage.ini')), 0);
+
+  for I := 1 to Count do
+  begin
+    PluginPath := GetIniString('InstalledPlugins', 'Plugin' + IntToStr(I) + 'Path', '', ExpandConstant('{app}\configstorage.ini'));
+    StringChangeEx(PluginPath, '\', '/', True);
+    if CompareText(PluginPath, ExpectedPath) = 0 then
+    begin
+      Result := GetIniString('InstalledPlugins', 'Plugin' + IntToStr(I) + 'Version', '', ExpandConstant('{app}\configstorage.ini'));
+      Exit;
+    end;
+  end;
+end;
+
+function EnsureX64Suffix(const Version: String): String;
+begin
+  Result := Version;
+  if Pos('(x64)', Result) = 0 then
+    Result := Result + ' (x64)';
+end;
+
+function StripX64Suffix(const Version: String): String;
+begin
+  Result := Version;
+  StringChangeEx(Result, '(x64)', '', True);
+  Result := Trim(Result);
+end;
+
+function ExtractNextVersionNumber(var Version: String): Integer;
+var
+  I: Integer;
+  Part: String;
+begin
+  I := Pos('.', Version);
+  if I = 0 then
+  begin
+    Part := Version;
+    Version := '';
+  end
+  else
+  begin
+    Part := Copy(Version, 1, I - 1);
+    Version := Copy(Version, I + 1, Length(Version) - I);
+  end;
+
+  Result := StrToIntDef(Part, 0);
+end;
+
+function ComparePluginVersions(LeftVersion, RightVersion: String): Integer;
+var
+  LeftPart: Integer;
+  RightPart: Integer;
+begin
+  LeftVersion := StripX64Suffix(LeftVersion);
+  RightVersion := StripX64Suffix(RightVersion);
+  Result := 0;
+
+  while (LeftVersion <> '') or (RightVersion <> '') do
+  begin
+    LeftPart := ExtractNextVersionNumber(LeftVersion);
+    RightPart := ExtractNextVersionNumber(RightVersion);
+
+    if LeftPart > RightPart then
+    begin
+      Result := 1;
+      Exit;
+    end
+    else if LeftPart < RightPart then
+    begin
+      Result := -1;
+      Exit;
+    end;
+  end;
+end;
+
+function IsInstallerPluginVersionNewer(const InstallerVersion, InstalledVersion: String): Boolean;
+begin
+  Result := (InstalledVersion <> '') and (ComparePluginVersions(InstallerVersion, InstalledVersion) > 0);
+end;
+
+function FormatPluginVersionText(const InstallerVersion, InstalledVersion: String): String;
+begin
+  if InstalledVersion <> '' then
+    Result := PadRight(CustomMessage('InstalledVersionLabel') + ' ' + EnsureX64Suffix(InstalledVersion), 28)
+  else
+    Result := PadRight('', 28);
+  Result := Result + '🗜︎ ' + EnsureX64Suffix(InstallerVersion);
+end;
+
+procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
+var
+  InstalledVersion: String;
+begin
+  InstalledVersion := GetInstalledPluginVersion(PluginId);
   PluginList.AddCheckBox(
     DisplayName,
-    PadLeft(Version, 12),
+    FormatPluginVersionText(Version, InstalledVersion),
     0,
     CheckedByDefault,
     True,
     False,
     False,
     nil);
+  if IsInstallerPluginVersionNewer(Version, InstalledVersion) then
+    PluginList.SubItemFontStyle[PluginList.Items.Count - 1] := [fsBold];
   SetArrayLength(PluginIds, GetArrayLength(PluginIds) + 1);
   PluginIds[GetArrayLength(PluginIds) - 1] := PluginId;
 end;
@@ -1826,36 +1947,10 @@ begin
   end;
 end;
 
-function InitializeSetup(): Boolean;
+procedure PopulatePluginList();
 begin
-  Result := True;
-  CheckCodePageCompatibility;
-end;
-
-procedure InitializeWizard();
-begin
-  InstallModePage := CreateInputOptionPage(
-    wpLicense,
-    SetupMessage(msgWizardSelectTasks),
-    '',
-    CustomMessage('InstallMode'),
-    True,
-    False);
-  InstallModePage.Add(CustomMessage('StandardInstall'));
-  InstallModePage.Add(CustomMessage('PortableInstall'));
-  InstallModePage.SelectedValueIndex := 0;
-
-  PluginSelectionPage := CreateCustomPage(
-    InstallModePage.ID,
-    CustomMessage('PluginSelectionTitle'),
-    CustomMessage('PluginSelectionDescription'));
-
-  PluginList := TNewCheckListBox.Create(PluginSelectionPage);
-  PluginList.Parent := PluginSelectionPage.Surface;
-  PluginList.Left := 0;
-  PluginList.Top := 0;
-  PluginList.Width := PluginSelectionPage.SurfaceWidth;
-  PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top - ScaleY(8);
+  PluginList.Items.Clear;
+  SetArrayLength(PluginIds, 0);
 
   AddPlugin('7zip', '7-Zip', '1.33 (x64)', True);
   AddPlugin('automation', 'Automation', '2.0 (x64)', True);
@@ -1896,6 +1991,38 @@ begin
   AddPlugin('wmobile', 'Windows Mobile', '1.09 (x64)', True);
   AddPlugin('zip', 'ZIP', '1.6 (x64)', True);
   AddPlugin('demoplug', '[DEV] DemoPlug', '1.96 (x64)', False);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  CheckCodePageCompatibility;
+end;
+
+procedure InitializeWizard();
+begin
+  InstallModePage := CreateInputOptionPage(
+    wpLicense,
+    SetupMessage(msgWizardSelectTasks),
+    '',
+    CustomMessage('InstallMode'),
+    True,
+    False);
+  InstallModePage.Add(CustomMessage('StandardInstall'));
+  InstallModePage.Add(CustomMessage('PortableInstall'));
+  InstallModePage.SelectedValueIndex := 0;
+
+  PluginSelectionPage := CreateCustomPage(
+    wpSelectDir,
+    CustomMessage('PluginSelectionTitle'),
+    CustomMessage('PluginSelectionDescription'));
+
+  PluginList := TNewCheckListBox.Create(PluginSelectionPage);
+  PluginList.Parent := PluginSelectionPage.Surface;
+  PluginList.Left := 0;
+  PluginList.Top := 0;
+  PluginList.Width := PluginSelectionPage.SurfaceWidth;
+  PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top - ScaleY(8);
 
 end;
 
@@ -1994,6 +2121,9 @@ end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
+  if Assigned(PluginSelectionPage) and (CurPageID = PluginSelectionPage.ID) then
+    PopulatePluginList();
+
   { The finished page otherwise shows Inno Setup's default large bitmap on the left. }
   WizardForm.WizardBitmapImage.Visible := CurPageID <> wpFinished;
 end;

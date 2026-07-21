@@ -35,6 +35,53 @@ extern const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT];
 static const char* DetectProductName(const char* root);
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize);
 
+
+static void SaveInstalledPluginVersionsToBootstrap()
+{
+    char fileName[SAL_MAX_PATH];
+    if (!ConfigurationStorage.GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return;
+
+    const char* section = "InstalledPlugins";
+    WritePrivateProfileString(section, NULL, NULL, fileName);
+
+    char key[32];
+    char count[32];
+    int savedCount = 0;
+
+    Plugins.EnterDataCS();
+    int pluginCount = Plugins.GetCount();
+    for (int i = 0; i < pluginCount; i++)
+    {
+        CPluginData* plugin = Plugins.Get(i);
+        if (plugin == NULL || plugin->DLLName == NULL || plugin->Version == NULL)
+            continue;
+
+        char pluginPath[SAL_MAX_PATH];
+        if (PathIsRelative(plugin->DLLName))
+        {
+            _snprintf_s(pluginPath, _TRUNCATE, "plugins/%s", plugin->DLLName);
+            for (char* slash = pluginPath; *slash != 0; slash++)
+            {
+                if (*slash == '\\')
+                    *slash = '/';
+            }
+        }
+        else
+            strcpy_s(pluginPath, plugin->DLLName);
+
+        savedCount++;
+        _snprintf_s(key, _TRUNCATE, "Plugin%dPath", savedCount);
+        WritePrivateProfileString(section, key, pluginPath, fileName);
+        _snprintf_s(key, _TRUNCATE, "Plugin%dVersion", savedCount);
+        WritePrivateProfileString(section, key, plugin->Version, fileName);
+    }
+    Plugins.LeaveDataCS();
+
+    _snprintf_s(count, _TRUNCATE, "%d", savedCount);
+    WritePrivateProfileString(section, "Count", count, fileName);
+}
+
 static const char* MCDSubKeyFromLocation(const char* location)
 {
     static const char prefix[] = "reg:\\HKEY_CURRENT_USER\\";
@@ -3537,6 +3584,7 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD));
 
                 ConfigurationStorage.SaveUseWindowsDarkMode(Configuration.UseWindowsDarkMode);
+                SaveInstalledPluginVersionsToBootstrap();
 
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_NORMAL_REG, UserColors[FOCUS_ACTIVE_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_SELECTED_REG, UserColors[FOCUS_ACTIVE_SELECTED]);
