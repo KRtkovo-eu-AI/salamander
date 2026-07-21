@@ -595,12 +595,16 @@
 #define IDS_EXT_ACE16              10330
 
 // buttons for Edit ListBox ToolBar
+#define IDS_EDTLB_SEARCH           10331
 #define IDS_EDTLB_MODIFY           10334
 #define IDS_EDTLB_NEW              10335
 #define IDS_EDTLB_DELETE           10336
 #define IDS_EDTLB_UP               10337
 #define IDS_EDTLB_DOWN             10338
 #define IDS_EDTLB_SORT             10339
+#define IDS_EDTLB_TOP              10341
+#define IDS_EDTLB_FILTER           10342
+#define IDS_EDTLB_BOTTOM           10332
 
 // name of configuration page Alternative Viewers
 #define IDS_ALTVIEWERS             10340

@@ -2134,7 +2134,7 @@ BOOL CFilesWindow::BuildColumnsTemplate()
             lstrcpyn(column.Name, GetExplorerColumnName(explorerIndex), COLUMN_NAME_MAX);
             lstrcpyn(column.Description, GetExplorerColumnName(explorerIndex), COLUMN_DESCRIPTION_MAX);
             column.GetText = InternalGetExplorerColumn;
-            column.SupportSorting = 0;
+            column.SupportSorting = 1;
             column.LeftAlignment = 1;
             column.ID = COLUMN_ID_CUSTOM;
             column.CustomData = explorerIndex;

@@ -782,12 +782,16 @@ STRINGTABLE
  IDS_FILEDATA_TAB          "TAB"
 
  // buttons for Edit ListBox ToolBar
+ IDS_EDTLB_SEARCH, "Search Items"
  IDS_EDTLB_MODIFY, "Modify (F2)"
  IDS_EDTLB_NEW, "New (Insert)"
  IDS_EDTLB_DELETE, "Delete (Delete)"
  IDS_EDTLB_SORT, "Sort Items Alphabetically"
  IDS_EDTLB_UP, "Move Item Up (Alt + Up Arrow)"
  IDS_EDTLB_DOWN, "Move Item Down (Alt + Down Arrow)"
+ IDS_EDTLB_TOP, "Move Item to Top"
+ IDS_EDTLB_BOTTOM, "Move Item to Bottom"
+ IDS_EDTLB_FILTER, "Filter Items"
 
  // Bottom ToolBar Texts for F1 - F12
  IDS_BTBTEXTS,     "Help,Rename,View,Edit,Copy,Move,MakeDir,Delete,UsrMenu,Menu,Connect,Disconnect"

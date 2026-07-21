@@ -110,6 +110,9 @@ CEditListBox::CEditListBox(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin ori
 {
     HDlg = hDlg;
     Header = NULL;
+    HSearchEdit = NULL;
+    SearchVisible = FALSE;
+    SearchText[0] = 0;
     Flags = flags;
     DeleteAllItems();
     EditLine = NULL;
@@ -274,13 +277,23 @@ BOOL CEditListBox::MakeHeader(int ctrlID)
 {
     Header = new CToolbarHeader(HDlg, ctrlID, HWindow,
                                 TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
-                                    TLBHDRMASK_UP | TLBHDRMASK_DOWN);
+                                    TLBHDRMASK_SEARCH | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM);
     if (Header == NULL)
     {
         TRACE_E(LOW_MEMORY);
         return FALSE;
     }
     Header->SetNotifyWindow(HWindow);
+    HSearchEdit = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
+                                 WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
+                                 0, 0, 0, 0, Header->HWindow,
+                                 (HMENU)0, HInstance, NULL);
+    if (HSearchEdit != NULL)
+    {
+        SendMessage(HSearchEdit, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
+        ShowWindow(HSearchEdit, SW_HIDE);
+    }
+    LayoutSearchEdit();
     return TRUE;
 }
 
@@ -309,10 +322,10 @@ void CEditListBox::CommandParent(UINT code)
                 MAKELPARAM((WORD)(UINT_PTR)GetMenu(HWindow), code), (LPARAM)HWindow);
 }
 
-BYTE CEditListBox::GetEnabler()
+DWORD CEditListBox::GetEnabler()
 {
-    BYTE enabler = TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
-                   TLBHDRMASK_UP | TLBHDRMASK_DOWN;
+    DWORD enabler = TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
+                   TLBHDRMASK_SEARCH | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
     if (Flags & ELB_ENABLECOMMANDS)
     {
         int index = (int)SendMessage(HWindow, LB_GETCURSEL, 0, 0);
@@ -329,19 +342,122 @@ void CEditListBox::OnSelChanged()
     BOOL disableAll = EditLine != NULL;
     int index = (int)SendMessage(HWindow, LB_GETCURSEL, 0, 0);
 
-    BYTE enabler = GetEnabler();
+    DWORD enabler = GetEnabler();
 
     DWORD mask = 0;
     if (!disableAll)
-        mask |= (enabler & TLBHDRMASK_MODIFY) | (enabler & TLBHDRMASK_NEW);
+        mask |= (enabler & (TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_SEARCH));
     if (!disableAll && ItemsCount > 0 && index != ItemsCount)
         mask |= (enabler & TLBHDRMASK_DELETE);
     if (!disableAll && index > 0 && index < ItemsCount)
-        mask |= (enabler & TLBHDRMASK_UP);
+        mask |= (enabler & (TLBHDRMASK_TOP | TLBHDRMASK_UP));
     if (!disableAll && index >= 0 && index < ItemsCount - 1)
-        mask |= (enabler & TLBHDRMASK_DOWN);
+        mask |= (enabler & (TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM));
 
     Header->EnableToolbar(mask);
+    Header->CheckToolbar(SearchVisible ? TLBHDRMASK_SEARCH : 0);
+}
+
+
+
+void CEditListBox::LayoutSearchEdit()
+{
+    if (Header == NULL || HSearchEdit == NULL)
+        return;
+
+    RECT headerRect;
+    GetClientRect(Header->HWindow, &headerRect);
+
+    const int buttonsWidth = 8 * 22 + 4; // Search, Modify, New, Delete, Top, Up, Down, Bottom in edit-list headers.
+    int width = headerRect.right - headerRect.left - buttonsWidth - 4;
+    if (width > 180)
+        width = 180;
+    if (width < 40)
+        width = 40;
+    int left = headerRect.right - headerRect.left - buttonsWidth - width;
+    if (left < 4)
+        left = 4;
+    SetWindowPos(HSearchEdit, HWND_TOP, left, 2,
+                 width, headerRect.bottom - headerRect.top - 4,
+                 SearchVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW);
+}
+
+BOOL CEditListBox::SearchMatches(const char* text)
+{
+    if (!SearchVisible || SearchText[0] == 0)
+        return FALSE;
+    if (text == NULL)
+        return FALSE;
+
+    char needle[100];
+    lstrcpyn(needle, SearchText, _countof(needle));
+    CharLowerBuffA(needle, lstrlen(needle));
+
+    char haystack[MAX_PATH];
+    lstrcpyn(haystack, text, _countof(haystack));
+    CharLowerBuffA(haystack, lstrlen(haystack));
+    return strstr(haystack, needle) != NULL;
+}
+
+void CEditListBox::ApplySearch()
+{
+    if (HSearchEdit != NULL)
+        GetWindowText(HSearchEdit, SearchText, _countof(SearchText));
+
+    if (SearchVisible && SearchText[0] != 0)
+    {
+        for (int i = 0; i < ItemsCount; i++)
+        {
+            DispInfo.ToDo = edtlbGetData;
+            DispInfo.Buffer = Buffer;
+            DispInfo.BufferLen = MAX_PATH;
+            DispInfo.Index = i;
+            DispInfo.ItemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, i, 0);
+            DispInfo.HIcon = NULL;
+            DispInfo.Bold = FALSE;
+            Buffer[0] = 0;
+            NotifyParent(&DispInfo, EDTLBN_GETDISPINFO);
+            if (SearchMatches(Buffer))
+            {
+                SendMessage(HWindow, LB_SETCURSEL, i, 0);
+                CommandParent(LBN_SELCHANGE);
+                break;
+            }
+        }
+    }
+    InvalidateRect(HWindow, NULL, FALSE);
+    OnSelChanged();
+}
+
+void CEditListBox::ToggleSearch()
+{
+    SearchVisible = !SearchVisible;
+    if (!SearchVisible)
+        SearchText[0] = 0;
+
+    if (HSearchEdit != NULL)
+    {
+        SetWindowText(HSearchEdit, SearchText);
+        ShowWindow(HSearchEdit, SearchVisible ? SW_SHOW : SW_HIDE);
+        if (SearchVisible)
+            SetFocus(HSearchEdit);
+    }
+    LayoutSearchEdit();
+    ApplySearch();
+}
+
+void CEditListBox::OnMoveTop()
+{
+    CALL_STACK_MESSAGE1("CEditListBox::OnMoveTop()");
+    int index;
+    if (!GetCurSel(index))
+        return;
+    if (index == ItemsCount || index < 1)
+        return;
+    if ((GetEnabler() & TLBHDRMASK_TOP) == 0)
+        return;
+
+    MoveItem(0);
 }
 
 void CEditListBox::OnMoveUp()
@@ -370,6 +486,20 @@ void CEditListBox::OnMoveDown()
         return;
 
     MoveItem(index + 2);
+}
+
+void CEditListBox::OnMoveBottom()
+{
+    CALL_STACK_MESSAGE1("CEditListBox::OnMoveBottom()");
+    int index;
+    if (!GetCurSel(index))
+        return;
+    if (index >= ItemsCount - 1)
+        return;
+    if ((GetEnabler() & TLBHDRMASK_BOTTOM) == 0)
+        return;
+
+    MoveItem(ItemsCount);
 }
 
 void CEditListBox::MoveItem(int newIndex)
@@ -647,6 +777,8 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                 DispInfo.Bold = FALSE;
                 NotifyParent(&DispInfo, EDTLBN_GETDISPINFO);
                 DispInfo.Buffer[MAX_PATH - 1] = 0;
+                if (SearchMatches(Buffer))
+                    DispInfo.Bold = TRUE;
 
                 if (Flags & ELB_SHOWICON)
                 {
@@ -797,6 +929,8 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (HIWORD(wParam) == EN_KILLFOCUS)
             OnEndEdit();
+        if ((HWND)lParam == HSearchEdit && HIWORD(wParam) == EN_CHANGE)
+            ApplySearch();
 
         if (LOWORD(wParam) == (WORD)(UINT_PTR)GetMenu(Header->HWindow))
         {
@@ -813,16 +947,30 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             case TLBHDR_DELETE:
                 OnDelete();
                 break;
+            case TLBHDR_SEARCH:
+                ToggleSearch();
+                break;
+            case TLBHDR_TOP:
+                OnMoveTop();
+                break;
             case TLBHDR_UP:
                 OnMoveUp();
                 break;
             case TLBHDR_DOWN:
                 OnMoveDown();
                 break;
+            case TLBHDR_BOTTOM:
+                OnMoveBottom();
+                break;
             }
         }
         return 0;
     }
+
+    case WM_SIZE:
+    case WM_WINDOWPOSCHANGED:
+        LayoutSearchEdit();
+        break;
 
     case WM_CHAR:
     {

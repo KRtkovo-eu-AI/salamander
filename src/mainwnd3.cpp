@@ -477,6 +477,7 @@ void CMainWindow::RememberClosedTab(CPanelSide side, CFilesWindow* panel, int in
 
     info.ViewTemplateIndex = panel->GetViewTemplateIndex();
     info.SortType = panel->SortType;
+    info.SortCustomData = panel->SortCustomData;
     info.ReverseSort = panel->ReverseSort;
     info.StatusLineVisible = panel->StatusLineVisible;
     info.DirectoryLineVisible = panel->DirectoryLineVisible;
@@ -1967,7 +1968,10 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
     if (newPanel->IsViewTemplateValid(viewTemplate))
         newPanel->SelectViewTemplate(viewTemplate, TRUE, FALSE);
 
-    newPanel->ChangeSortType(sourcePanel->SortType, sourcePanel->ReverseSort, TRUE);
+    if (sourcePanel->SortType == stCustom)
+        newPanel->ChangeCustomSortType(sourcePanel->SortCustomData, sourcePanel->ReverseSort, TRUE);
+    else
+        newPanel->ChangeSortType(sourcePanel->SortType, sourcePanel->ReverseSort, TRUE);
 
     if ((sourcePanel->DirectoryLine != NULL && sourcePanel->DirectoryLine->HWindow != NULL) !=
         (newPanel->DirectoryLine != NULL && newPanel->DirectoryLine->HWindow != NULL))
@@ -2134,7 +2138,10 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
     if (panel->IsViewTemplateValid(entry.ViewTemplateIndex))
         panel->SelectViewTemplate(entry.ViewTemplateIndex, TRUE, FALSE);
 
-    panel->ChangeSortType(entry.SortType, entry.ReverseSort, TRUE);
+    if (entry.SortType == stCustom)
+        panel->ChangeCustomSortType(entry.SortCustomData, entry.ReverseSort, TRUE);
+    else
+        panel->ChangeSortType(entry.SortType, entry.ReverseSort, TRUE);
 
     if (!!panel->StatusLineVisible != !!entry.StatusLineVisible)
         panel->ToggleStatusLine();

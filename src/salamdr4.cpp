@@ -1056,7 +1056,7 @@ CViewTemplates::CViewTemplates()
         ZeroMemory(Items[i].ExplorerColumns, sizeof(Items[i].ExplorerColumns));
         ZeroMemory(Items[i].ExplorerColumnVisible, sizeof(Items[i].ExplorerColumnVisible));
         for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
-            Items[i].ExplorerColumnOrder[j] = (BYTE)j;
+            Items[i].ExplorerColumnOrder[j] = (WORD)j;
         for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
             Items[i].ColumnOrder[j] = (BYTE)j;
     }
@@ -1192,6 +1192,20 @@ int CViewTemplates::SaveColumnOrder(BYTE* order, char* buffer, int count)
     return (int)(s - buffer);
 }
 
+
+int CViewTemplates::SaveColumnOrder(WORD* order, char* buffer, int count)
+{
+    char* s = buffer;
+    for (int i = 0; i < count; i++)
+    {
+        if (i > 0)
+            *s++ = ',';
+        s += sprintf(s, "%u", (unsigned)order[i]);
+    }
+    *s = 0;
+    return (int)(s - buffer);
+}
+
 void CViewTemplates::LoadColumnOrder(BYTE* order, char* buffer, int count)
 {
     BOOL used[EXPLORER_COLUMNS_COUNT];
@@ -1213,6 +1227,32 @@ void CViewTemplates::LoadColumnOrder(BYTE* order, char* buffer, int count)
         if (!used[value])
             order[pos++] = (BYTE)value;
     }
+}
+
+
+void CViewTemplates::LoadColumnOrder(WORD* order, char* buffer, int count)
+{
+    BOOL* used = (BOOL*)calloc(count, sizeof(BOOL));
+    if (used == NULL)
+        return;
+    int pos = 0;
+    char* p = strtok(buffer, ",");
+    while (p != NULL && pos < count)
+    {
+        unsigned int value;
+        if (sscanf(p, "%u", &value) == 1 && value < (unsigned int)count && !used[value])
+        {
+            order[pos++] = (WORD)value;
+            used[value] = TRUE;
+        }
+        p = strtok(NULL, ",");
+    }
+    for (int value = 0; pos < count && value < count; value++)
+    {
+        if (!used[value])
+            order[pos++] = (WORD)value;
+    }
+    free(used);
 }
 
 int CViewTemplates::SaveExplorerColumnVisible(BYTE* visible, char* buffer)
@@ -1245,7 +1285,7 @@ void CViewTemplates::LoadExplorerColumnVisible(BYTE* visible, char* buffer)
 
 BOOL CViewTemplates::Save(HKEY hKey)
 {
-    char buff[4 * EXPLORER_COLUMNS_COUNT + 1];
+    char buff[6 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[5];
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
@@ -1270,7 +1310,7 @@ BOOL CViewTemplates::Save(HKEY hKey)
 
 BOOL CViewTemplates::Load(HKEY hKey)
 {
-    char buff[4 * EXPLORER_COLUMNS_COUNT + 1];
+    char buff[6 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[5];
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
@@ -1663,6 +1703,8 @@ static void LoadExplorerColumns()
                 propDesc->Release();
             }
         }
+        if (count > EXPLORER_COLUMNS_COUNT && ExplorerColumnsCount >= EXPLORER_COLUMNS_COUNT)
+            TRACE_E("Explorer property column list was truncated at " << EXPLORER_COLUMNS_COUNT << " entries (Windows reported " << count << ").");
     }
     propList->Release();
 }
@@ -1910,30 +1952,32 @@ void WINAPI InternalGetDescr()
     }
 }
 
-void WINAPI InternalGetExplorerColumn()
+BOOL GetExplorerColumnTextForFile(const char* panelPath, const CFileData* fileData, int columnIndex, char* buffer, int bufferSize)
 {
-    TransferLen = 0;
-    if (TransferIsDir == 2 || TransferPanelPath[0] == 0)
-        return;
+    if (buffer == NULL || bufferSize <= 0)
+        return FALSE;
+    buffer[0] = 0;
+    if (panelPath == NULL || panelPath[0] == 0 || fileData == NULL)
+        return FALSE;
 
-    int columnIndex = (int)TransferActCustomData;
     LoadExplorerColumns();
     if (columnIndex < 0 || columnIndex >= ExplorerColumnsCount)
-        return;
+        return FALSE;
 
     char path[SAL_MAX_PATH];
-    lstrcpyn(path, TransferPanelPath, SAL_MAX_PATH);
-    if (!SalPathAppend(path, TransferFileData->Name, SAL_MAX_PATH))
-        return;
+    lstrcpyn(path, panelPath, SAL_MAX_PATH);
+    if (!SalPathAppend(path, fileData->Name, SAL_MAX_PATH))
+        return FALSE;
 
     WCHAR pathW[SAL_MAX_PATH];
     if (MultiByteToWideChar(CP_ACP, 0, path, -1, pathW, SAL_MAX_PATH) <= 0)
-        return;
+        return FALSE;
 
     IPropertyStore* store = NULL;
     if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)
-        return;
+        return FALSE;
 
+    BOOL ret = FALSE;
     PROPVARIANT value;
     PropVariantInit(&value);
     if (SUCCEEDED(store->GetValue(ExplorerColumnKeys[columnIndex], &value)))
@@ -1941,19 +1985,30 @@ void WINAPI InternalGetExplorerColumn()
         PWSTR display = NULL;
         if (SUCCEEDED(PSFormatForDisplayAlloc(ExplorerColumnKeys[columnIndex], value, PDFF_DEFAULT, &display)) && display != NULL)
         {
-            char text[TRANSFER_BUFFER_MAX];
-            if (WideCharToMultiByte(CP_ACP, 0, display, -1, text, TRANSFER_BUFFER_MAX, NULL, NULL) > 0)
-            {
-                TransferLen = (int)strlen(text);
-                if (TransferLen > TRANSFER_BUFFER_MAX)
-                    TransferLen = TRANSFER_BUFFER_MAX;
-                memcpy(TransferBuffer, text, TransferLen);
-            }
+            if (WideCharToMultiByte(CP_ACP, 0, display, -1, buffer, bufferSize, NULL, NULL) > 0)
+                ret = TRUE;
             CoTaskMemFree(display);
         }
     }
     PropVariantClear(&value);
     store->Release();
+    return ret;
+}
+
+void WINAPI InternalGetExplorerColumn()
+{
+    TransferLen = 0;
+    if (TransferIsDir == 2)
+        return;
+
+    char text[TRANSFER_BUFFER_MAX];
+    if (GetExplorerColumnTextForFile(TransferPanelPath, TransferFileData, (int)TransferActCustomData, text, TRANSFER_BUFFER_MAX))
+    {
+        TransferLen = (int)strlen(text);
+        if (TransferLen > TRANSFER_BUFFER_MAX)
+            TransferLen = TRANSFER_BUFFER_MAX;
+        memcpy(TransferBuffer, text, TransferLen);
+    }
 }
 
 

@@ -1401,7 +1401,9 @@ Source: "{#PayloadDir}\toolbars\ChangeCase.svg"; DestDir: "{app}\toolbars"; Flag
 Source: "{#PayloadDir}\toolbars\ChangeDirectory.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Modify.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Move.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\MoveItemBottom.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\MoveItemDown.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\MoveItemTop.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\MoveItemUp.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\New.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\NTFSCompress.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -1518,7 +1520,9 @@ Source: "{#PayloadDir}\toolbars\darkmode\ChangeCase.svg"; DestDir: "{app}\toolba
 Source: "{#PayloadDir}\toolbars\darkmode\ChangeDirectory.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Modify.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Move.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\MoveItemBottom.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\MoveItemDown.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\MoveItemTop.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\MoveItemUp.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\New.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\NTFSCompress.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion

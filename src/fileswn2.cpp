@@ -1303,6 +1303,37 @@ void CFilesWindow::Execute(int index)
     EndStopRefresh();
 }
 
+
+void CFilesWindow::ChangeCustomSortType(DWORD customData, BOOL reverse, BOOL force)
+{
+    CALL_STACK_MESSAGE3("CFilesWindow::ChangeCustomSortType(%u, %d)", customData, reverse);
+    if (!force && SortType == stCustom && SortCustomData == customData && !reverse)
+        return;
+    if (SortType != stCustom || SortCustomData != customData)
+    {
+        SortType = stCustom;
+        SortCustomData = customData;
+        ReverseSort = force ? reverse : FALSE;
+    }
+    else
+    {
+        if (force)
+            ReverseSort = reverse;
+        else if (reverse)
+            ReverseSort = !ReverseSort;
+    }
+
+    MainWindow->CancelPanelsUI();
+
+    int focusIndex = GetCaretIndex();
+    CFileData d1 = {0};
+    if (focusIndex >= 0 && focusIndex < Dirs->Count + Files->Count)
+        d1 = (focusIndex < Dirs->Count) ? Dirs->At(focusIndex) : Files->At(focusIndex - Dirs->Count);
+
+    SortDirectory();
+    RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
+}
+
 void CFilesWindow::ChangeSortType(CSortType newType, BOOL reverse, BOOL force)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::ChangeSortType(%d, %d)", newType, reverse);
@@ -1311,6 +1342,7 @@ void CFilesWindow::ChangeSortType(CSortType newType, BOOL reverse, BOOL force)
     if (SortType != newType)
     {
         SortType = newType;
+        SortCustomData = 0;
         ReverseSort = FALSE;
 
         //    EnumFileNamesChangeSourceUID(HWindow, &EnumFileNamesSourceUID);    // only when sorting changes  // commented out, not sure why it's here: Petr
@@ -1364,6 +1396,9 @@ void CFilesWindow::ChangeSortType(CSortType newType, BOOL reverse, BOOL force)
 
     case stAttr:
         lessDirs = lessFiles = LessAttrNameExt;
+        break;
+    case stCustom:
+        lessDirs = lessFiles = LessNameExt;
         break;
     default: /*stSize*/
         lessDirs = lessFiles = LessSizeNameExt;

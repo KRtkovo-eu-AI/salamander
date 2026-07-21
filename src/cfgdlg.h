@@ -597,6 +597,9 @@ protected:
     HWND HListView;
     CToolbarHeader* Header2;
     HWND HListView2;
+    HWND HAvailableColumnsFilter;
+    BOOL AvailableColumnsFilterVisible;
+    char AvailableColumnsFilterText[100];
     CViewTemplates Config;
     BOOL DisableNotification;
     BOOL LabelEdit;
@@ -620,6 +623,10 @@ public:
     void StoreControls();
     void EnableControls();
     void EnableHeader();
+    void ApplyAvailableColumnsFilter();
+    BOOL IsAvailableColumnsFilterActive();
+    BOOL AvailableColumnMatchesFilter(const char* text);
+    void ToggleAvailableColumnsFilter();
     void LayoutViewsListControls();
     DWORD GetEnabledFunctions();
 

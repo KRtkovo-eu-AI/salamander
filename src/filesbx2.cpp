@@ -265,6 +265,9 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
             sort = TRUE;
         else if (column->ID == COLUMN_ID_ATTRIBUTES && panel->SortType == stAttr)
             sort = TRUE;
+        else if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn &&
+                 panel->SortType == stCustom && panel->SortCustomData == column->CustomData)
+            sort = TRUE;
 
         // arrow indicating sort direction
         GetTextExtentPoint32(ItemBitmap.HMemDC, column->Name, nameLen, &sz);
@@ -770,6 +773,11 @@ CHeaderLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     st = stTime;
                 else if (column->ID == COLUMN_ID_ATTRIBUTES)
                     st = stAttr;
+                else if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn)
+                {
+                    Parent->Parent->ChangeCustomSortType(column->CustomData, TRUE);
+                    return 0;
+                }
                 Parent->Parent->ChangeSortType(st, TRUE);
             }
         }

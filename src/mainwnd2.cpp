@@ -1026,6 +1026,7 @@ const char* SALAMANDER_RIGHTP_REG = "Right Panel";
 const char* PANEL_PATH_REG = "Path";
 const char* PANEL_VIEW_REG = "View Type";
 const char* PANEL_SORT_REG = "Sort Type";
+const char* PANEL_SORT_CUSTOM_DATA_REG = "Sort Custom Data";
 const char* PANEL_REVERSE_REG = "Reverse Sort";
 const char* PANEL_DIRLINE_REG = "Directory Line";
 const char* PANEL_STATUS_REG = "Status Line";
@@ -2389,6 +2390,8 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
     SetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD));
     value = panel->SortType;
     SetValue(key, PANEL_SORT_REG, REG_DWORD, &value, sizeof(DWORD));
+    value = panel->SortCustomData;
+    SetValue(key, PANEL_SORT_CUSTOM_DATA_REG, REG_DWORD, &value, sizeof(DWORD));
     value = panel->ReverseSort;
     SetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD));
     value = (panel->DirectoryLine->HWindow != NULL);
@@ -2459,11 +2462,14 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         }
         if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
             panel->ReverseSort = value;
+        DWORD sortCustomData = 0;
+        BOOL hasSortCustomData = GetValue(key, PANEL_SORT_CUSTOM_DATA_REG, REG_DWORD, &sortCustomData, sizeof(DWORD));
         if (GetValue(key, PANEL_SORT_REG, REG_DWORD, &value, sizeof(DWORD)))
         {
-            if (value > stAttr)
+            if (value > stCustom || (value == stCustom && !hasSortCustomData))
                 value = stName;
             panel->SortType = (CSortType)value;
+            panel->SortCustomData = value == stCustom ? sortCustomData : 0;
         }
         if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
             if ((BOOL)value != (panel->DirectoryLine->HWindow != NULL))

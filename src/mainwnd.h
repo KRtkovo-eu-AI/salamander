@@ -396,6 +396,7 @@ public:
         std::string FallbackPath;
         int ViewTemplateIndex;
         CSortType SortType;
+        DWORD SortCustomData;
         BOOL ReverseSort;
         BOOL StatusLineVisible;
         BOOL DirectoryLineVisible;

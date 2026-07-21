@@ -40,7 +40,7 @@ typedef struct
                   //  BOOL          Up;            // for EDTLBN_MOVEITEM
     HWND HEdit;   // for EDTLBN_CONTEXTMENU
     POINT Point;  // for EDTLBN_CONTEXTMENU
-    BYTE Enable;  // for EDTLBN_ENABLECOMMANDS, contains TLBHDRMASK_xxx
+    DWORD Enable; // for EDTLBN_ENABLECOMMANDS, contains TLBHDRMASK_xxx
     int NewIndex; // for EDTLBN_MOVEITEM2
 } EDTLB_DISPINFO;
 
@@ -72,6 +72,9 @@ class CEditListBox : public CWindow
 protected:
     CToolbarHeader* Header;
     CEditLBEdit* EditLine;
+    HWND HSearchEdit;
+    BOOL SearchVisible;
+    char SearchText[100];
     HWND HDlg;
     EDTLB_DISPINFO DispInfo;
     char Buffer[MAX_PATH];
@@ -135,12 +138,18 @@ public:
 
     void OnNew();
     void OnDelete();
+    void OnMoveTop();
     void OnMoveUp();
     void OnMoveDown();
+    void OnMoveBottom();
     void MoveItem(int newIndex);
+    void ToggleSearch();
+    void ApplySearch();
+    void LayoutSearchEdit();
+    BOOL SearchMatches(const char* text);
 
     // returns which commands are enabled (can query the parent)
-    BYTE GetEnabler();
+    DWORD GetEnabler();
 
     void RedrawFocusedItem();
 

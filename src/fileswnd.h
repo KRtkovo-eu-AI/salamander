@@ -842,6 +842,7 @@ public:
     DWORD ValidFileData; // it determines which CFileData variables are valid, see VALID_DATA_XXX constants; set via SetValidFileData()
 
     CSortType SortType;       // criterion used for sorting
+    DWORD SortCustomData;     // CustomData of the active custom sort column (stCustom)
     BOOL ReverseSort;         // reverse order
     BOOL SortedWithRegSet;    // used to monitor changes of the global variable Configuration.SortUsesLocale
     BOOL SortedWithDetectNum; // used to monitor changes of the global variable Configuration.SortDetectNumbers
@@ -1057,6 +1058,7 @@ public:
                             const POINT* editWithMenuPoint = NULL);
 
     void ChangeSortType(CSortType newType, BOOL reverse, BOOL force = FALSE);
+    void ChangeCustomSortType(DWORD customData, BOOL reverse, BOOL force = FALSE);
 
     // change drive to DefaultDir[drive], optionally offering a drive menu;
     // when 0, a dialog is shown, the change is applied immediately

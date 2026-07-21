@@ -13,7 +13,8 @@ enum CSortType
     stExtension,
     stTime,
     stSize,
-    stAttr
+    stAttr,
+    stCustom
 };
 
 void SortFilesAndDirectories(CFilesArray* files, CFilesArray* dirs,

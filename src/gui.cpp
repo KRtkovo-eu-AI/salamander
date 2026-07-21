@@ -2867,6 +2867,10 @@ int TlbHdrTooltips[TLBHDR_COUNT] =
         IDS_EDTLB_SORT,
         IDS_EDTLB_UP,
         IDS_EDTLB_DOWN,
+        IDS_EDTLB_TOP,
+        IDS_EDTLB_FILTER,
+        IDS_EDTLB_SEARCH,
+        IDS_EDTLB_BOTTOM,
 };
 
 CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask)
@@ -2887,11 +2891,15 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
 
     CSVGIcon svgIcons[TLBHDR_COUNT] = {
         {0, "Modify"},
-        {1, "New_Insert"},
+        {1, "New"},
         {2, "Delete"},
         {3, "SortByName"},
         {4, "MoveItemUp"},
         {5, "MoveItemDown"},
+        {6, "MoveItemTop"},
+        {7, "Filter"},
+        {8, "View"},
+        {9, "MoveItemBottom"},
     };
 
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
@@ -2926,9 +2934,10 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     TLBI_ITEM_INFO2 tii;
     tii.Mask = TLBI_MASK_ID | TLBI_MASK_IMAGEINDEX;
     int buttonsCount = 0;
-    int i;
-    for (i = 0; i < TLBHDR_COUNT; i++)
+    const int buttonOrder[TLBHDR_COUNT] = {8, 0, 1, 2, 3, 6, 4, 5, 9, 7};
+    for (int orderIndex = 0; orderIndex < TLBHDR_COUNT; orderIndex++)
     {
+        int i = buttonOrder[orderIndex];
         if ((1 << i) & ButtonMask)
         {
             tii.ImageIndex = i;
@@ -2963,13 +2972,13 @@ void CToolbarHeader::CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled)
 
     // http://stackoverflow.com/questions/2640823/is-it-possible-to-create-a-cimagelist-with-alpha-blending-transparency
     hEnabled = ImageList_Create(iconSize, iconSize,
-                                ILC_COLOR32, TOOLBARHDR_BUTTONS, 1);
+                                ILC_COLOR32, TLBHDR_COUNT, 1);
     hDisabled = ImageList_Create(iconSize, iconSize,
-                                 ILC_COLOR32 /*ILC_COLORDDB */, TOOLBARHDR_BUTTONS, 1);
+                                 ILC_COLOR32 /*ILC_COLORDDB */, TLBHDR_COUNT, 1);
 
     HDC hDC = HANDLES(CreateCompatibleDC(NULL));
 
-    int width = iconSize * TOOLBARHDR_BUTTONS;
+    int width = iconSize * TLBHDR_COUNT;
     int height = iconSize;
 
     BITMAPINFOHEADER bmhdr;
@@ -2986,7 +2995,7 @@ void CToolbarHeader::CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled)
 
     NSVGrasterizer* rast = nsvgCreateRasterizer();
     // JRYFIXME: temporarily reading from a file, switch to a shared storage with toolbars
-    const char* svgNames[] = {"Modify", "New_Insert", "Delete", "SortByName", "MoveItemUp", "MoveItemDown"};
+    const char* svgNames[] = {"Modify", "New", "Delete", "SortByName", "MoveItemUp", "MoveItemDown", "MoveItemTop", "Filter", "View", "MoveItemBottom"};
     for (int j = 0; j < 2; j++)
     {
         DWORD* p = (DWORD*)lpBits;
@@ -2994,7 +3003,7 @@ void CToolbarHeader::CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled)
             *p++ = 0x00000000;
 
         HBITMAP hOldBmp = (HBITMAP)SelectObject(hDC, hBmp);
-        for (int i = 0; i < TOOLBARHDR_BUTTONS; i++)
+        for (int i = 0; i < TLBHDR_COUNT; i++)
             RenderSVGImage(rast, hDC, i * iconSize, 0, svgNames[i], iconSize, RGB(0xff, 0xff, 0xff), j == 0 ? TRUE : FALSE);
         SelectObject(hDC, hOldBmp);
         ImageList_Add(j == 0 ? hEnabled : hDisabled, hBmp, hBmp);
@@ -3170,6 +3179,8 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if ((HWND)lParam == ToolBar->HWindow)
             PostMessage(HNotifyWindow, WM_COMMAND,
                         MAKEWPARAM((WORD)(UINT_PTR)GetMenu(HWindow), LOWORD(wParam)), (LPARAM)HWindow);
+        else if (HNotifyWindow != NULL)
+            SendMessage(HNotifyWindow, WM_COMMAND, wParam, lParam);
         break;
     }
 
