@@ -1539,14 +1539,20 @@ internal sealed class PluginCatalogSourcesDialog : Form
                 _listView.Items.Add(item);
             }
 
-            var addItem = new ListViewItem(string.Empty) { Tag = new PluginCatalogSource { Url = string.Empty, Enabled = true } };
-            addItem.Checked = true;
-            _listView.Items.Add(addItem);
+            AddEmptySourceRow();
         }
         finally
         {
             _listView.EndUpdate();
         }
+    }
+
+    private void AddEmptySourceRow()
+    {
+        var source = new PluginCatalogSource { Url = string.Empty, Enabled = true };
+        _sources.Add(source);
+        var addItem = new ListViewItem(string.Empty) { Tag = source, Checked = true };
+        _listView.Items.Add(addItem);
     }
 
     private void ListViewOnItemCheck(object? sender, ItemCheckEventArgs e)
@@ -1613,9 +1619,7 @@ internal sealed class PluginCatalogSourcesDialog : Form
         if (item.Index == _listView.Items.Count - 1 && source.Url.Length > 0)
         {
             source.Enabled = true;
-            var addItem = new ListViewItem(string.Empty) { Tag = new PluginCatalogSource { Url = string.Empty, Enabled = true } };
-            addItem.Checked = true;
-            _listView.Items.Add(addItem);
+            AddEmptySourceRow();
         }
     }
 
