@@ -63,9 +63,11 @@ should mirror the same behavior locally.
 The connected worker paths are:
 
 - direct file deletion: `DeleteFile` failures can retry through `delete-file`;
+- directory deletion: direct `RemoveDirectory` failures can retry through `delete-file`;
+- directory creation: `CreateDirectory` failures can retry through `create-dir`;
 - target creation during copy: target open/create failures can retry through `copy-file`;
 - move/rename: normal move failures can retry through `move-file`;
 - attribute changes: `SetFileAttributes` failures can retry through `set-attributes`.
 
-Directory delete and security descriptor changes still need dedicated integration so their
-existing recycle-bin, recursive-delete, and permission-copy semantics are preserved.
+Security descriptor changes still need dedicated integration so permission-copy semantics
+and a constrained descriptor format are preserved.

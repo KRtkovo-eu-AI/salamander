@@ -7117,6 +7117,20 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
             if (*dlgData.CancelWorker)
                 return FALSE;
 
+            DWORD elevatedErr;
+            if (ConfirmAndRunElevatedFileOperation(hProgressDlg, err, name, "create-dir",
+                                                    NULL, name, 0, FALSE, &elevatedErr))
+            {
+                if (elevatedErr == ERROR_SUCCESS)
+                {
+                    script->AddBytesToSpeedMetersAndTFSandPS((DWORD)CREATE_DIR_SIZE.Value, TRUE, 0, NULL, MAX_OP_FILESIZE);
+                    return TRUE;
+                }
+                if (elevatedErr == ERROR_CANCELLED)
+                    return FALSE;
+                err = elevatedErr;
+            }
+
             if (dlgData.SkipAllDirCreateErr)
                 goto SKIP_CREATE_ERROR;
 
@@ -7214,6 +7228,22 @@ BOOL DoDeleteDir(HWND hProgressDlg, char* name, const CQuadWord& size, COperatio
             WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
                 return FALSE;
+
+            DWORD elevatedErr;
+            if (ConfirmAndRunElevatedFileOperation(hProgressDlg, err, nameRmDir, "delete-file",
+                                                    nameRmDir, NULL, 0, FALSE, &elevatedErr))
+            {
+                if (elevatedErr == ERROR_SUCCESS)
+                {
+                    script->AddBytesToSpeedMetersAndTFSandPS((DWORD)size.Value, TRUE, 0, NULL, MAX_OP_FILESIZE);
+                    totalDone += size;
+                    SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    return TRUE;
+                }
+                if (elevatedErr == ERROR_CANCELLED)
+                    return FALSE;
+                err = elevatedErr;
+            }
 
             if (dlgData.SkipAllDeleteErr)
                 goto SKIP_DELETE;
