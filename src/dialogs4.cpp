@@ -1709,14 +1709,27 @@ void CCfgPageView::LayoutViewsListControls()
                                       SWP_NOZORDER));
         if (HAvailableColumnsFilter != NULL)
         {
-            const int filterLeft = rightLeft + 48;
-            int filterWidth = AvailableColumnsWidth - 48 - 4;
+            int listHeaderHeight = header2Height;
+            HWND listHeader = ListView_GetHeader(HListView2);
+            if (listHeader != NULL)
+            {
+                RECT listHeaderRect;
+                GetWindowRect(listHeader, &listHeaderRect);
+                listHeaderHeight = listHeaderRect.bottom - listHeaderRect.top;
+            }
+
+            const int filterLeftOffset = 100;
+            const int filterMargin = 4;
+            int filterWidth = AvailableColumnsWidth - filterLeftOffset - GetSystemMetrics(SM_CXVSCROLL) - filterMargin;
             if (filterWidth < 20)
                 filterWidth = 20;
+            int filterHeight = listHeaderHeight - 4;
+            if (filterHeight < 10)
+                filterHeight = 10;
             hdwp = HANDLES(DeferWindowPos(hdwp, HAvailableColumnsFilter, HWND_TOP,
-                                          filterLeft, rightTop.y - header2Height + 2,
-                                          filterWidth, header2Height - 4,
-                                          SWP_NOZORDER | (AvailableColumnsFilterVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
+                                          rightLeft + filterLeftOffset, rightTop.y + 2,
+                                          filterWidth, filterHeight,
+                                          AvailableColumnsFilterVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
         }
         HANDLES(EndDeferWindowPos(hdwp));
     }
