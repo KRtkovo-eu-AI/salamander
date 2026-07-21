@@ -21,6 +21,7 @@
 #include "gui.h"
 #include "darkmode.h"
 #include <uxtheme.h>
+#include <propsys.h>
 
 #ifndef DARKMODE_TRACE_CTLFLOW
 #define DARKMODE_TRACE_CTLFLOW 0
@@ -1616,6 +1617,65 @@ static void InitColumnOrder(BYTE* order)
     }
 }
 
+
+const int CFGP2ExplorerColumnsMax = 256;
+static char CFGP2ExplorerColumnNames[CFGP2ExplorerColumnsMax][COLUMN_DESCRIPTION_MAX];
+static int CFGP2ExplorerColumnsCount = -1;
+
+static void LoadExplorerPropertyColumns()
+{
+    if (CFGP2ExplorerColumnsCount >= 0)
+        return;
+
+    CFGP2ExplorerColumnsCount = 0;
+    IPropertyDescriptionList* propList = NULL;
+    HRESULT hr = PSEnumeratePropertyDescriptions(PDEF_ALL, IID_IPropertyDescriptionList, (void**)&propList);
+    if (FAILED(hr) || propList == NULL)
+        return;
+
+    UINT count = 0;
+    if (SUCCEEDED(propList->GetCount(&count)))
+    {
+        for (UINT i = 0; i < count && CFGP2ExplorerColumnsCount < CFGP2ExplorerColumnsMax; i++)
+        {
+            IPropertyDescription* propDesc = NULL;
+            if (SUCCEEDED(propList->GetAt(i, IID_IPropertyDescription, (void**)&propDesc)) && propDesc != NULL)
+            {
+                LPWSTR displayName = NULL;
+                if (SUCCEEDED(propDesc->GetDisplayName(&displayName)) && displayName != NULL && displayName[0] != 0)
+                {
+                    char name[COLUMN_DESCRIPTION_MAX];
+                    if (WideCharToMultiByte(CP_ACP, 0, displayName, -1, name, COLUMN_DESCRIPTION_MAX, NULL, NULL) > 0 && name[0] != 0)
+                    {
+                        BOOL duplicate = FALSE;
+                        for (int j = 0; j < CFGP2ItemsCount; j++)
+                        {
+                            if (StrICmp(name, LoadStr(CFGP2ResID[j])) == 0)
+                            {
+                                duplicate = TRUE;
+                                break;
+                            }
+                        }
+                        for (int j = 0; !duplicate && j < CFGP2ExplorerColumnsCount; j++)
+                        {
+                            if (StrICmp(name, CFGP2ExplorerColumnNames[j]) == 0)
+                                duplicate = TRUE;
+                        }
+                        if (!duplicate)
+                        {
+                            lstrcpyn(CFGP2ExplorerColumnNames[CFGP2ExplorerColumnsCount], name, COLUMN_DESCRIPTION_MAX);
+                            CFGP2ExplorerColumnsCount++;
+                        }
+                    }
+                    CoTaskMemFree(displayName);
+                }
+                propDesc->Release();
+            }
+        }
+    }
+    propList->Release();
+}
+
 void CCfgPageView::LayoutViewsListControls()
 {
     if (HListView == NULL || HListView2 == NULL || Header == NULL || Header2 == NULL ||
@@ -1708,6 +1768,18 @@ void CCfgPageView::LoadControls()
             lvi.pszText = LoadStr(CFGP2ResID[columnIndex]);
             ListView_InsertItem(HListView2, &lvi);
         }
+        LoadExplorerPropertyColumns();
+        for (i = 0; i < CFGP2ExplorerColumnsCount; i++)
+        {
+            LVITEM lvi;
+            lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM;
+            lvi.iItem = CFGP2ItemsCount + i;
+            lvi.iSubItem = 0;
+            lvi.state = 0;
+            lvi.lParam = -(i + 1);
+            lvi.pszText = CFGP2ExplorerColumnNames[i];
+            ListView_InsertItem(HListView2, &lvi);
+        }
         ListView_SetItemState(HListView2, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
         SetViewsAvailableColumnsColumnWidth(HListView2);
     }
@@ -1776,7 +1848,8 @@ void CCfgPageView::EnableControls()
         enable = FALSE;
 
     int index2 = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
-    BOOL supportFixedWidth = (index2 != -1 && enable);
+    int selectedColumnIndex = index2 != -1 ? GetAvailableColumnIndex(HListView2, index2) : -1;
+    BOOL supportFixedWidth = (selectedColumnIndex >= 0 && enable);
 
     EnableWindow(HListView2, enable);
     CTransferInfo ti(HWindow, ttDataToWindow);
@@ -1842,10 +1915,14 @@ void CCfgPageView::EnableHeader()
     DWORD mask = 0;
     if (!LabelEdit && viewIndex >= 2 && viewIndex != 3 && viewIndex != 4 && viewIndex != 5 && colIndex != -1)
     {
-        if (colIndex > 1)
-            mask |= TLBHDRMASK_UP;
-        if (colIndex > 0 && colIndex < ListView_GetItemCount(HListView2) - 1)
-            mask |= TLBHDRMASK_DOWN;
+        int selectedColumnIndex = GetAvailableColumnIndex(HListView2, colIndex);
+        if (selectedColumnIndex >= 0)
+        {
+            if (colIndex > 1 && GetAvailableColumnIndex(HListView2, colIndex - 1) >= 0)
+                mask |= TLBHDRMASK_UP;
+            if (colIndex > 0 && colIndex < CFGP2ItemsCount - 1 && GetAvailableColumnIndex(HListView2, colIndex + 1) >= 0)
+                mask |= TLBHDRMASK_DOWN;
+        }
     }
     Header2->EnableToolbar(mask);
 }
@@ -2112,8 +2189,9 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             case LVN_ITEMCHANGING:
             {
                 LPNMLISTVIEW nmhi = (LPNMLISTVIEW)nmh;
-                // disagree :-) beep when attempting to hide the Name column
-                if (nmhi->iItem == 0 && (nmhi->uOldState & 0xF000) != (nmhi->uNewState & 0xF000))
+                // disagree :-) beep when attempting to hide the Name column or check Explorer columns that are not persisted yet
+                int changingColumnIndex = GetAvailableColumnIndex(HListView2, nmhi->iItem);
+                if ((nmhi->iItem == 0 || changingColumnIndex < 0) && (nmhi->uOldState & 0xF000) != (nmhi->uNewState & 0xF000))
                 {
                     MessageBeep(MB_ICONASTERISK);
                     SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
@@ -2315,7 +2393,8 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
                 int item = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
                 int item2 = HIWORD(wParam) == TLBHDR_UP ? item - 1 : item + 1;
-                if (index >= 2 && item > 0 && item2 > 0 && item2 < ListView_GetItemCount(HListView2))
+                if (index >= 2 && item > 0 && item2 > 0 && item2 < CFGP2ItemsCount &&
+                    GetAvailableColumnIndex(HListView2, item) >= 0 && GetAvailableColumnIndex(HListView2, item2) >= 0)
                 {
                     StoreControls();
                     BYTE tmp = Config.Items[index].ColumnOrder[item];
