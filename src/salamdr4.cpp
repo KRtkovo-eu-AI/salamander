@@ -1910,30 +1910,32 @@ void WINAPI InternalGetDescr()
     }
 }
 
-void WINAPI InternalGetExplorerColumn()
+BOOL GetExplorerColumnTextForFile(const char* panelPath, const CFileData* fileData, int columnIndex, char* buffer, int bufferSize)
 {
-    TransferLen = 0;
-    if (TransferIsDir == 2 || TransferPanelPath[0] == 0)
-        return;
+    if (buffer == NULL || bufferSize <= 0)
+        return FALSE;
+    buffer[0] = 0;
+    if (panelPath == NULL || panelPath[0] == 0 || fileData == NULL)
+        return FALSE;
 
-    int columnIndex = (int)TransferActCustomData;
     LoadExplorerColumns();
     if (columnIndex < 0 || columnIndex >= ExplorerColumnsCount)
-        return;
+        return FALSE;
 
     char path[SAL_MAX_PATH];
-    lstrcpyn(path, TransferPanelPath, SAL_MAX_PATH);
-    if (!SalPathAppend(path, TransferFileData->Name, SAL_MAX_PATH))
-        return;
+    lstrcpyn(path, panelPath, SAL_MAX_PATH);
+    if (!SalPathAppend(path, fileData->Name, SAL_MAX_PATH))
+        return FALSE;
 
     WCHAR pathW[SAL_MAX_PATH];
     if (MultiByteToWideChar(CP_ACP, 0, path, -1, pathW, SAL_MAX_PATH) <= 0)
-        return;
+        return FALSE;
 
     IPropertyStore* store = NULL;
     if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)
-        return;
+        return FALSE;
 
+    BOOL ret = FALSE;
     PROPVARIANT value;
     PropVariantInit(&value);
     if (SUCCEEDED(store->GetValue(ExplorerColumnKeys[columnIndex], &value)))
@@ -1941,19 +1943,30 @@ void WINAPI InternalGetExplorerColumn()
         PWSTR display = NULL;
         if (SUCCEEDED(PSFormatForDisplayAlloc(ExplorerColumnKeys[columnIndex], value, PDFF_DEFAULT, &display)) && display != NULL)
         {
-            char text[TRANSFER_BUFFER_MAX];
-            if (WideCharToMultiByte(CP_ACP, 0, display, -1, text, TRANSFER_BUFFER_MAX, NULL, NULL) > 0)
-            {
-                TransferLen = (int)strlen(text);
-                if (TransferLen > TRANSFER_BUFFER_MAX)
-                    TransferLen = TRANSFER_BUFFER_MAX;
-                memcpy(TransferBuffer, text, TransferLen);
-            }
+            if (WideCharToMultiByte(CP_ACP, 0, display, -1, buffer, bufferSize, NULL, NULL) > 0)
+                ret = TRUE;
             CoTaskMemFree(display);
         }
     }
     PropVariantClear(&value);
     store->Release();
+    return ret;
+}
+
+void WINAPI InternalGetExplorerColumn()
+{
+    TransferLen = 0;
+    if (TransferIsDir == 2)
+        return;
+
+    char text[TRANSFER_BUFFER_MAX];
+    if (GetExplorerColumnTextForFile(TransferPanelPath, TransferFileData, (int)TransferActCustomData, text, TRANSFER_BUFFER_MAX))
+    {
+        TransferLen = (int)strlen(text);
+        if (TransferLen > TRANSFER_BUFFER_MAX)
+            TransferLen = TRANSFER_BUFFER_MAX;
+        memcpy(TransferBuffer, text, TransferLen);
+    }
 }
 
 

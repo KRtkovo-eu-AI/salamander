@@ -2412,6 +2412,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     TreeViewSplitOffset = 0;
 
     SortType = stName;
+    SortCustomData = 0;
     ReverseSort = FALSE;
     SortedWithRegSet = FALSE;    // initial state doesn't matter; set in SortDirectory()
     SortedWithDetectNum = FALSE; // initial state doesn't matter; set in SortDirectory()

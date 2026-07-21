@@ -19,6 +19,9 @@
 #include "shiconov.h"
 #include "common/widepath.h"
 
+#include <map>
+#include <string>
+
 namespace
 {
 void CopyFindDataWToA(const WIN32_FIND_DATAW& src, WIN32_FIND_DATA& dst)
@@ -70,6 +73,106 @@ wchar_t* AllocWideNameFromUtf8ACP(const char* name)
         return NULL;
     }
     return wideName;
+}
+
+
+struct CExplorerSortContext
+{
+    std::map<std::string, std::string> Values;
+    BOOL Reverse;
+};
+
+CExplorerSortContext* ExplorerSortContext = NULL;
+
+std::string ExplorerSortKey(const CFileData& file)
+{
+    std::map<std::string, std::string>::const_iterator it = ExplorerSortContext->Values.find(file.Name);
+    if (it != ExplorerSortContext->Values.end())
+        return it->second;
+    return std::string();
+}
+
+BOOL LessExplorerNameExt(const CFileData& f1, const CFileData& f2, BOOL reverse)
+{
+    std::string v1 = ExplorerSortKey(f1);
+    std::string v2 = ExplorerSortKey(f2);
+    BOOL empty1 = v1.empty();
+    BOOL empty2 = v2.empty();
+    if (empty1 != empty2)
+        return reverse ? !empty1 : empty1;
+    if (!empty1)
+    {
+        BOOL numericalyEqual;
+        int res = RegSetStrICmpEx(v1.c_str(), (int)v1.length(), v2.c_str(), (int)v2.length(), &numericalyEqual);
+        if (!numericalyEqual)
+            return reverse ? res > 0 : res < 0;
+        if (res != 0)
+            return reverse ? res > 0 : res < 0;
+    }
+    return LessNameExt(f1, f2, FALSE);
+}
+
+void SortExplorerNameExtAux(CFilesArray& files, int left, int right, BOOL reverse)
+{
+LABEL_SortExplorerNameExtAux:
+    int i = left, j = right;
+    CFileData pivot = files[(i + j) / 2];
+    do
+    {
+        while (LessExplorerNameExt(files[i], pivot, reverse) && i < right)
+            i++;
+        while (LessExplorerNameExt(pivot, files[j], reverse) && j > left)
+            j--;
+        if (i <= j)
+        {
+            CFileData swap = files[i];
+            files[i] = files[j];
+            files[j] = swap;
+            i++;
+            j--;
+        }
+    } while (i <= j);
+    if (left < j)
+    {
+        if (i < right)
+        {
+            if (j - left < right - i)
+            {
+                SortExplorerNameExtAux(files, left, j, reverse);
+                left = i;
+                goto LABEL_SortExplorerNameExtAux;
+            }
+            else
+            {
+                SortExplorerNameExtAux(files, i, right, reverse);
+                right = j;
+                goto LABEL_SortExplorerNameExtAux;
+            }
+        }
+        else
+        {
+            right = j;
+            goto LABEL_SortExplorerNameExtAux;
+        }
+    }
+    else if (i < right)
+    {
+        left = i;
+        goto LABEL_SortExplorerNameExtAux;
+    }
+}
+
+void FillExplorerSortCache(CExplorerSortContext& context, const char* path, CFilesArray* items, int firstIndex, int explorerIndex)
+{
+    char text[TRANSFER_BUFFER_MAX];
+    for (int i = firstIndex; i < items->Count; i++)
+    {
+        CFileData* file = &items->At(i);
+        if (GetExplorerColumnTextForFile(path, file, explorerIndex, text, TRANSFER_BUFFER_MAX))
+            context.Values[file->Name] = text;
+        else
+            context.Values[file->Name] = "";
+    }
 }
 } // namespace
 
@@ -1834,7 +1937,26 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
         files = Files;
     if (dirs == NULL)
         dirs = Dirs;
-    SortFilesAndDirectories(files, dirs, SortType, ReverseSort, Configuration.SortDirsByName);
+    if (SortType == stCustom && Is(ptDisk))
+    {
+        CExplorerSortContext context;
+        context.Reverse = ReverseSort;
+        ExplorerSortContext = &context;
+        BOOL hasRoot = dirs->Count > 0 && dirs->At(0).NameLen == 2 && dirs->At(0).Name[0] == '.' && dirs->At(0).Name[1] == '.';
+        int firstDirIndex = hasRoot ? 1 : 0;
+        FillExplorerSortCache(context, GetPath(), files, 0, (int)SortCustomData);
+        if (!Configuration.SortDirsByName)
+            FillExplorerSortCache(context, GetPath(), dirs, firstDirIndex, (int)SortCustomData);
+        if (!Configuration.SortDirsByName && dirs->Count - firstDirIndex > 1)
+            SortExplorerNameExtAux(*dirs, firstDirIndex, dirs->Count - 1, ReverseSort);
+        else if (dirs->Count - firstDirIndex > 1)
+            SortNameExt(*dirs, firstDirIndex, dirs->Count - 1, FALSE);
+        if (files->Count > 1)
+            SortExplorerNameExtAux(*files, 0, files->Count - 1, ReverseSort);
+        ExplorerSortContext = NULL;
+    }
+    else
+        SortFilesAndDirectories(files, dirs, SortType, ReverseSort, Configuration.SortDirsByName);
 
     // single-purpose monitors for changes of Configuration.SortUsesLocale and Configuration.SortDetectNumbers
     // variables for the method CFilesWindow::RefreshDirectory

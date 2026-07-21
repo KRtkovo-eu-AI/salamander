@@ -329,10 +329,13 @@ void WINAPI InternalGetType();
 void WINAPI InternalGetDate();
 void WINAPI InternalGetDateOnlyForDisk();
 void WINAPI InternalGetTime();
+struct CFileData;
+
 void WINAPI InternalGetTimeOnlyForDisk();
 void WINAPI InternalGetAttr();
 void WINAPI InternalGetDescr();
 void WINAPI InternalGetExplorerColumn();
+BOOL GetExplorerColumnTextForFile(const char* panelPath, const CFileData* fileData, int columnIndex, char* buffer, int bufferSize);
 int GetExplorerColumnCount();
 const char* GetExplorerColumnName(int index);
 
