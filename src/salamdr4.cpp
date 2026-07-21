@@ -1785,7 +1785,15 @@ void WINAPI InternalGetAttr()
 
 void WINAPI InternalGetDescr()
 {
-    TransferLen = 0;
+    if (TransferIsDir)
+    {
+        TransferLen = TransferIsDir == 1 ? FolderTypeNameLen : UpDirTypeNameLen;
+        memcpy(TransferBuffer, TransferIsDir == 1 ? FolderTypeName : UpDirTypeName, TransferLen);
+    }
+    else
+    {
+        InternalGetType();
+    }
 }
 
 //****************************************************************************

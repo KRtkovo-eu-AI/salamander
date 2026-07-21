@@ -2177,8 +2177,8 @@ void CFilesWindow::DeleteColumnsWithoutData(DWORD columnValidMask)
             delColumn = (columnValidMask & VALID_DATA_ATTRIBUTES) == 0;
             break;
         case COLUMN_ID_DESCRIPTION:
-            delColumn = TRUE;
-            break; // description not used yet
+            delColumn = FALSE;
+            break;
         }
         if (delColumn)
         {
