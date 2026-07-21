@@ -999,11 +999,11 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int editHeight = btnY - btnBottomMargin - (p.y + labelHeight + scrollableEditTopMargin);
             if (editHeight < fontCharHeight * 4)
                 editHeight = fontCharHeight * 4;
-            HWND hEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+            HWND hEdit = CreateWindowExW(0, L"EDIT", L"",
                                          WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | WS_HSCROLL |
                                              ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
-                                         p.x - iconWidth, p.y + labelHeight + scrollableEditTopMargin,
-                                         tR.right - tR.left, editHeight,
+                                         p.x - iconWidth + 1, p.y + labelHeight + scrollableEditTopMargin + 1,
+                                         tR.right - tR.left - 2, editHeight - 2,
                                          HWindow, (HMENU)(INT_PTR)IDS_MSGBOX_URL, HInstance, NULL);
             SendMessage(hEdit, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
             SetWindowTextW(hEdit, scrollableBodyText.c_str());
@@ -1174,6 +1174,21 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             else
                 FillRect(hDC, &r, (HBRUSH)(COLOR_BTNFACE + 1));
+
+            HWND hEdit = GetDlgItem(HWindow, IDS_MSGBOX_URL);
+            if (hEdit != NULL)
+            {
+                RECT editR;
+                GetWindowRect(hEdit, &editR);
+                MapWindowPoints(NULL, HWindow, (POINT*)&editR, 2);
+                InflateRect(&editR, 1, 1);
+                HBRUSH borderBrush = CreateSolidBrush(useDark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOWFRAME));
+                if (borderBrush != NULL)
+                {
+                    FrameRect(hDC, &editR, borderBrush);
+                    DeleteObject(borderBrush);
+                }
+            }
             return TRUE;
         }
         else
