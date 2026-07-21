@@ -1408,42 +1408,104 @@ BOOL IsUserAdmin()
 
 */
 
-/* according to http://vcfaq.mvps.org/sdk/21.htm */
-#define BUFF_SIZE 1024
-BOOL IsUserAdmin()
+BOOL IsUserInAdministratorsGroup()
 {
     HANDLE hToken = NULL;
     PSID pAdminSid = NULL;
-    BYTE buffer[BUFF_SIZE];
-    PTOKEN_GROUPS pGroups = (PTOKEN_GROUPS)buffer;
-    DWORD dwSize; // buffer size
-    DWORD i;
-    BOOL bSuccess;
+    PTOKEN_GROUPS pGroups = NULL;
+    DWORD dwSize = 0;
+    BOOL bSuccess = FALSE;
     SID_IDENTIFIER_AUTHORITY siaNtAuth = SECURITY_NT_AUTHORITY;
 
-    // get token handle
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
         return FALSE;
 
-    bSuccess = GetTokenInformation(hToken, TokenGroups, (LPVOID)pGroups, BUFF_SIZE, &dwSize);
-    CloseHandle(hToken);
-    if (!bSuccess)
-        return FALSE;
+    GetTokenInformation(hToken, TokenGroups, NULL, 0, &dwSize);
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || dwSize == 0)
+        goto cleanup;
+
+    pGroups = (PTOKEN_GROUPS)malloc(dwSize);
+    if (pGroups == NULL)
+        goto cleanup;
+
+    if (!GetTokenInformation(hToken, TokenGroups, pGroups, dwSize, &dwSize))
+        goto cleanup;
 
     if (!AllocateAndInitializeSid(&siaNtAuth, 2,
                                   SECURITY_BUILTIN_DOMAIN_RID,
                                   DOMAIN_ALIAS_RID_ADMINS,
                                   0, 0, 0, 0, 0, 0, &pAdminSid))
+        goto cleanup;
+
+    for (DWORD i = 0; i < pGroups->GroupCount; i++)
+    {
+        // Deliberately ignore SE_GROUP_USE_FOR_DENY_ONLY.  A split-token UAC
+        // administrator running non-elevated still owns an Administrators SID in
+        // the filtered token; this helper answers account membership, not whether
+        // this process can currently exercise elevated administrator rights.
+        if (EqualSid(pAdminSid, pGroups->Groups[i].Sid))
+        {
+            bSuccess = TRUE;
+            break;
+        }
+    }
+
+cleanup:
+    if (pAdminSid != NULL)
+        FreeSid(pAdminSid);
+    if (pGroups != NULL)
+        free(pGroups);
+    if (hToken != NULL)
+        CloseHandle(hToken);
+    return bSuccess;
+}
+
+BOOL IsUserAdmin()
+{
+    return IsUserInAdministratorsGroup();
+}
+
+BOOL IsProcessElevated()
+{
+    if (!WindowsVistaAndLater)
+        return IsUserInAdministratorsGroup();
+
+    HANDLE hToken = NULL;
+    TOKEN_ELEVATION elevation;
+    DWORD dwSize = 0;
+    BOOL bElevated = FALSE;
+
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
         return FALSE;
 
-    bSuccess = FALSE;
-    for (i = 0; (i < pGroups->GroupCount) && !bSuccess; i++)
-    {
-        if (EqualSid(pAdminSid, pGroups->Groups[i].Sid))
-            bSuccess = TRUE;
-    }
-    FreeSid(pAdminSid);
+    if (GetTokenInformation(hToken, TokenElevation, &elevation, sizeof(elevation), &dwSize))
+        bElevated = elevation.TokenIsElevated != 0;
 
+    CloseHandle(hToken);
+    return bElevated;
+}
+
+BOOL GetElevationType(TOKEN_ELEVATION_TYPE* elevationType)
+{
+    if (elevationType == NULL)
+        return FALSE;
+
+    if (!WindowsVistaAndLater)
+    {
+        *elevationType = TokenElevationTypeDefault;
+        return TRUE;
+    }
+
+    HANDLE hToken = NULL;
+    DWORD dwSize = 0;
+    BOOL bSuccess = FALSE;
+
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
+        return FALSE;
+
+    bSuccess = GetTokenInformation(hToken, TokenElevationType, elevationType,
+                                   sizeof(*elevationType), &dwSize);
+    CloseHandle(hToken);
     return bSuccess;
 }
 

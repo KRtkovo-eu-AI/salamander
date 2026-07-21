@@ -1886,9 +1886,33 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         // OTHER INFORMATION
         PrintLine(param, "Other Information:", FALSE);
 
-        strcpy(buf, "User is Admin: ");
-        strcat(buf, IsUserAdmin() ? "yes" : "no");
+        strcpy(buf, "User is in Administrators group: ");
+        strcat(buf, IsUserInAdministratorsGroup() ? "yes" : "no");
         PrintLine(param, buf, TRUE);
+
+        strcpy(buf, "Process is elevated: ");
+        strcat(buf, IsProcessElevated() ? "yes" : "no");
+        PrintLine(param, buf, TRUE);
+
+        TOKEN_ELEVATION_TYPE elevationType;
+        if (GetElevationType(&elevationType))
+        {
+            const char* elevationTypeText = "unknown";
+            switch (elevationType)
+            {
+            case TokenElevationTypeDefault:
+                elevationTypeText = "default";
+                break;
+            case TokenElevationTypeFull:
+                elevationTypeText = "full";
+                break;
+            case TokenElevationTypeLimited:
+                elevationTypeText = "limited";
+                break;
+            }
+            sprintf(buf, "Elevation Type: %s", elevationTypeText);
+            PrintLine(param, buf, TRUE);
+        }
 
         DWORD integrityLevel;
         if (GetProcessIntegrityLevel(&integrityLevel))

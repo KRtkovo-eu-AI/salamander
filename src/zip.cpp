@@ -5283,7 +5283,25 @@ void CSalamanderGeneral::RemoveCurrentPathFromHistory(int panel)
 BOOL CSalamanderGeneral::IsUserAdmin()
 {
     CALL_STACK_MESSAGE1("CSalamanderGeneral::IsUserAdmin()");
-    return ::IsUserAdmin();
+    return ::IsUserInAdministratorsGroup();
+}
+
+BOOL CSalamanderGeneral::IsUserInAdministratorsGroup()
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::IsUserInAdministratorsGroup()");
+    return ::IsUserInAdministratorsGroup();
+}
+
+BOOL CSalamanderGeneral::IsProcessElevated()
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::IsProcessElevated()");
+    return ::IsProcessElevated();
+}
+
+BOOL CSalamanderGeneral::GetElevationType(TOKEN_ELEVATION_TYPE* elevationType)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::GetElevationType()");
+    return ::GetElevationType(elevationType);
 }
 
 BOOL CSalamanderGeneral::IsRemoteSession()

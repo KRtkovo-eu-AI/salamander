@@ -3200,7 +3200,8 @@ public:
     // omezeni: hlavni thread
     virtual void WINAPI RemoveCurrentPathFromHistory(int panel) = 0;
 
-    // vracit TRUE, pokud je aktualni uzivatel clenem skupiny Administrators, jinak vraci FALSE
+    // vraci TRUE, pokud je aktualni uzivatel clenem skupiny Administrators, jinak vraci FALSE;
+    // tato zpetne kompatibilni metoda nerika, jestli proces skutecne bezi elevovane
     // mozne volat z libovolneho threadu
     virtual BOOL WINAPI IsUserAdmin() = 0;
 
@@ -3470,11 +3471,24 @@ public:
     virtual void WINAPI CloseAllOwnedEnabledDialogs(HWND parent, DWORD tid = 0) = 0;
 
     // Salamatrix/service-provider MVP: register, unregister, and query in-process runtime services.
-    // These must stay at the end of CSalamanderGeneralAbstract to preserve the vtable layout
-    // used by plug-ins built with older SDK headers.
+    // New virtual methods must stay at the end of CSalamanderGeneralAbstract to preserve the
+    // vtable layout used by plug-ins built with older SDK headers.
     virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
     virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
     virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
+
+    // vraci TRUE, pokud je aktualni uzivatel clenem skupiny Administrators;
+    // odpovida IsUserAdmin(), ale nazev explicitne odlisuje clenstvi od elevace procesu
+    // mozne volat z libovolneho threadu
+    virtual BOOL WINAPI IsUserInAdministratorsGroup() = 0;
+
+    // vraci TRUE, pokud Salamander skutecne bezi s elevovanym tokenem procesu
+    // mozne volat z libovolneho threadu
+    virtual BOOL WINAPI IsProcessElevated() = 0;
+
+    // na Windows Vista+ vraci TokenElevationTypeDefault/Full/Limited aktualniho procesu
+    // mozne volat z libovolneho threadu
+    virtual BOOL WINAPI GetElevationType(TOKEN_ELEVATION_TYPE* elevationType) = 0;
 };
 
 #ifdef _MSC_VER

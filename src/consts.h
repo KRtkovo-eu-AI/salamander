@@ -2364,9 +2364,19 @@ BOOL GetMyDocumentsOrDesktopPath(char* path, int pathLen);
 // application is running on the console.
 BOOL IsRemoteSession(void);
 
-// vraci TRUE, pokud je uzivatel mezi Administratory
-// v pripade chyby vraci FALSE
+// vraci TRUE, pokud je ucet uzivatele clenem skupiny Administrators
+// (i kdyz aktualni proces bezi s omezenym UAC tokenem); v pripade chyby vraci FALSE
+BOOL IsUserInAdministratorsGroup();
+
+// zpetne kompatibilni alias pro IsUserInAdministratorsGroup()
 BOOL IsUserAdmin();
+
+// vraci TRUE, pokud aktualni proces skutecne bezi s elevovanym tokenem
+// (na Windows Vista+ pouziva TokenElevation; na starsich Windows odpovida admin clenstvi)
+BOOL IsProcessElevated();
+
+// na Windows Vista+ vraci TokenElevationTypeDefault/Full/Limited aktualniho procesu
+BOOL GetElevationType(TOKEN_ELEVATION_TYPE* elevationType);
 
 //******************************************************************************
 

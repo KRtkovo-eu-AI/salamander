@@ -2362,6 +2362,9 @@ public:
     virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
     virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
     virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
+    virtual BOOL WINAPI IsUserInAdministratorsGroup();
+    virtual BOOL WINAPI IsProcessElevated();
+    virtual BOOL WINAPI GetElevationType(TOKEN_ELEVATION_TYPE* elevationType);
 };
 
 //
