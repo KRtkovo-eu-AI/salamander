@@ -1313,11 +1313,13 @@ void CFilesWindow::ChangeCustomSortType(DWORD customData, BOOL reverse, BOOL for
     {
         SortType = stCustom;
         SortCustomData = customData;
-        ReverseSort = FALSE;
+        ReverseSort = force ? reverse : FALSE;
     }
     else
     {
-        if (reverse)
+        if (force)
+            ReverseSort = reverse;
+        else if (reverse)
             ReverseSort = !ReverseSort;
     }
 
