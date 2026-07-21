@@ -603,6 +603,7 @@ protected:
     int AvailableColumnsWidth;
     int AvailableColumnsRightMargin;
     int ViewsListGap;
+    BOOL ViewsSplitterDrag;
 
 public:
     CCfgPageView(int index);
