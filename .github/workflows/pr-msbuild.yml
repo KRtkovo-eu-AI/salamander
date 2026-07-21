@@ -148,8 +148,6 @@ jobs:
             $projectRoot = (Split-Path -Parent $repoRelativePath).Replace('\', '/')
             if ($repoRelativePath -match '^src/plugins/([^/]+)/') {
               $projectRoot = "src/plugins/$($Matches[1])"
-            } elseif ($repoRelativePath -match '^src/') {
-              $projectRoot = 'src'
             }
 
             [pscustomobject]@{
@@ -175,6 +173,8 @@ jobs:
 
             foreach ($owner in $owners) {
               if ($env:BUILD_SFTP_PLUGIN -ne 'true' -and $owner.Name -in @('sftp', 'lang_sftp')) { continue }
+              if ('${{ matrix.platform }}' -eq 'x64' -and $owner.Name -eq 'salextx86') { continue }
+              if ('${{ matrix.platform }}' -eq 'Win32' -and $owner.Name -eq 'salextx64') { continue }
               if (-not ($selected | Where-Object { $_.Path -eq $owner.Path })) {
                 $selected.Add($owner)
               }
