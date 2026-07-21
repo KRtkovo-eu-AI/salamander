@@ -1273,7 +1273,6 @@ protected:
     void OnBrowseFile();
     void OnImport();
     void OnStorageRadioChanged();
-    BOOL DeleteConfigByIndex(int configIndex);
     BOOL IsConfigActive(int configIndex);
     HFONT GetConfigFont(int configIndex, UINT itemState);
     void CreateFonts();

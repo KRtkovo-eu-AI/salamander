@@ -1814,9 +1814,7 @@ void CManageConfigsDialog::UpdateSyncNameButton()
 
 void CManageConfigsDialog::OnSyncName()
 {
-    char name[256];
-    sprintf_s(name, DetectProductName(SalamanderConfigurationRoots[0]), SalamanderConfigurationVersions[0]);
-    SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, name);
+    SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, SALAMANDER_TEXT_VERSION);
     KillTimer(HWindow, 1);
     SyncNameAttentionActive = FALSE;
     SetDlgItemText(HWindow, IDC_MCD_SYNC_NAME, LoadStr(IDS_MCD_SYNC_NAME));
