@@ -1190,9 +1190,10 @@ BEGIN
     LTEXT           "You can see a comprehensive list of keyboard shortcuts in",IDC_STATIC_2,2,17,196,8
     LTEXT           "help",IDC_KEYBOARD_SHORTCUTS,198,17,17,8,WS_TABSTOP
     LTEXT           "You can define keyboard shortcuts for the plugins commands:\r  1. From the Plugins menu choose the Plugins Manager command\r  2. Select desired plugin\r  3. Click the Keyboard button",IDC_STATIC_3,2,31,282,32
-    GROUPBOX        "Backspace",IDC_KEYBOARD_BACKSPACE_GROUP,2,72,282,48,WS_GROUP
-    CONTROL         "&Parent Directory",IDC_KEYBOARD_BACKSPACE_PARENT,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,12,86,95,12
-    CONTROL         "&Back in History",IDC_KEYBOARD_BACKSPACE_HISTORY,"Button",BS_AUTORADIOBUTTON,12,101,95,12
+    LTEXT           "Set functions of some keys:",IDC_STATIC,2,76,110,8
+    GROUPBOX        "Backspace key in the Panel",IDC_KEYBOARD_BACKSPACE_GROUP,2,91,282,48,WS_GROUP
+    CONTROL         "&Parent Directory",IDC_KEYBOARD_BACKSPACE_PARENT,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,12,105,95,12
+    CONTROL         "&Back in History",IDC_KEYBOARD_BACKSPACE_HISTORY,"Button",BS_AUTORADIOBUTTON,12,120,95,12
 END
 
 IDD_FILELIST DIALOGEX 61, 53, 304, 136
