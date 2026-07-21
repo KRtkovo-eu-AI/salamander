@@ -604,6 +604,7 @@
 #define IDS_EDTLB_SORT             10339
 #define IDS_EDTLB_TOP              10341
 #define IDS_EDTLB_FILTER           10342
+#define IDS_EDTLB_BOTTOM           10332
 
 // name of configuration page Alternative Viewers
 #define IDS_ALTVIEWERS             10340

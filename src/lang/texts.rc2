@@ -790,6 +790,7 @@ STRINGTABLE
  IDS_EDTLB_UP, "Move Item Up (Alt + Up Arrow)"
  IDS_EDTLB_DOWN, "Move Item Down (Alt + Down Arrow)"
  IDS_EDTLB_TOP, "Move Item to Top"
+ IDS_EDTLB_BOTTOM, "Move Item to Bottom"
  IDS_EDTLB_FILTER, "Filter Items"
 
  // Bottom ToolBar Texts for F1 - F12

@@ -141,6 +141,7 @@ public:
     void OnMoveTop();
     void OnMoveUp();
     void OnMoveDown();
+    void OnMoveBottom();
     void MoveItem(int newIndex);
     void ToggleSearch();
     void ApplySearch();

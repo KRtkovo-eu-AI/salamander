@@ -110,6 +110,9 @@ CEditListBox::CEditListBox(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin ori
 {
     HDlg = hDlg;
     Header = NULL;
+    HSearchEdit = NULL;
+    SearchVisible = FALSE;
+    SearchText[0] = 0;
     Flags = flags;
     DeleteAllItems();
     EditLine = NULL;
@@ -274,7 +277,7 @@ BOOL CEditListBox::MakeHeader(int ctrlID)
 {
     Header = new CToolbarHeader(HDlg, ctrlID, HWindow,
                                 TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
-                                    TLBHDRMASK_SEARCH | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN);
+                                    TLBHDRMASK_SEARCH | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM);
     if (Header == NULL)
     {
         TRACE_E(LOW_MEMORY);
@@ -322,7 +325,7 @@ void CEditListBox::CommandParent(UINT code)
 DWORD CEditListBox::GetEnabler()
 {
     DWORD enabler = TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
-                   TLBHDRMASK_SEARCH | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN;
+                   TLBHDRMASK_SEARCH | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
     if (Flags & ELB_ENABLECOMMANDS)
     {
         int index = (int)SendMessage(HWindow, LB_GETCURSEL, 0, 0);
@@ -349,7 +352,7 @@ void CEditListBox::OnSelChanged()
     if (!disableAll && index > 0 && index < ItemsCount)
         mask |= (enabler & (TLBHDRMASK_TOP | TLBHDRMASK_UP));
     if (!disableAll && index >= 0 && index < ItemsCount - 1)
-        mask |= (enabler & TLBHDRMASK_DOWN);
+        mask |= (enabler & (TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM));
 
     Header->EnableToolbar(mask);
     Header->CheckToolbar(SearchVisible ? TLBHDRMASK_SEARCH : 0);
@@ -365,7 +368,7 @@ void CEditListBox::LayoutSearchEdit()
     RECT headerRect;
     GetClientRect(Header->HWindow, &headerRect);
 
-    const int buttonsWidth = 7 * 22 + 4; // Search, Modify, New, Delete, Top, Up, Down in edit-list headers.
+    const int buttonsWidth = 8 * 22 + 4; // Search, Modify, New, Delete, Top, Up, Down, Bottom in edit-list headers.
     int width = headerRect.right - headerRect.left - buttonsWidth - 4;
     if (width > 180)
         width = 180;
@@ -483,6 +486,20 @@ void CEditListBox::OnMoveDown()
         return;
 
     MoveItem(index + 2);
+}
+
+void CEditListBox::OnMoveBottom()
+{
+    CALL_STACK_MESSAGE1("CEditListBox::OnMoveBottom()");
+    int index;
+    if (!GetCurSel(index))
+        return;
+    if (index >= ItemsCount - 1)
+        return;
+    if ((GetEnabler() & TLBHDRMASK_BOTTOM) == 0)
+        return;
+
+    MoveItem(ItemsCount);
 }
 
 void CEditListBox::MoveItem(int newIndex)
@@ -941,6 +958,9 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 break;
             case TLBHDR_DOWN:
                 OnMoveDown();
+                break;
+            case TLBHDR_BOTTOM:
+                OnMoveBottom();
                 break;
             }
         }
