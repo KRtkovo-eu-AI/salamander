@@ -1278,6 +1278,7 @@ const char* CONFIG_CNFRM_DSTSHIFTSIGNORED = "DST Shifts Ignored";
 const char* CONFIG_CNFRM_DSTSHIFTSOCCURED = "DST Shifts Occured";
 const char* CONFIG_CNFRM_COPYMOVEOPTIONSNS = "Copy Move Options Not Supported";
 const char* CONFIG_CNFRM_CHANGEDIRHISTORYERR = "Change Dir History Error";
+const char* CONFIG_CNFRM_CONFIRMDELETEEXTINFO = "Confirm Delete Extended Info";
 
 const char* SALAMANDER_DRVSPEC_REG = "Drive Special Settings";
 const char* CONFIG_DRVSPEC_FLOPPY_MON = "Floppy Automatic Refresh";
@@ -3340,6 +3341,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                              &Configuration.CnfrmCopyMoveOptionsNS, sizeof(DWORD));
                     SetValue(actSubKey, CONFIG_CNFRM_CHANGEDIRHISTORYERR, REG_DWORD,
                              &Configuration.CnfrmChangeDirHistoryErr, sizeof(DWORD));
+                    SetValue(actSubKey, CONFIG_CNFRM_CONFIRMDELETEEXTINFO, REG_DWORD,
+                             &Configuration.CnfrmConfirmDeleteExtInfo, sizeof(DWORD));
 
                     CloseKey(actSubKey);
                 }
@@ -5308,6 +5311,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                          &Configuration.CnfrmCopyMoveOptionsNS, sizeof(DWORD));
                 GetValue(actSubKey, CONFIG_CNFRM_CHANGEDIRHISTORYERR, REG_DWORD,
                          &Configuration.CnfrmChangeDirHistoryErr, sizeof(DWORD));
+                GetValue(actSubKey, CONFIG_CNFRM_CONFIRMDELETEEXTINFO, REG_DWORD,
+                         &Configuration.CnfrmConfirmDeleteExtInfo, sizeof(DWORD));
 
                 CloseKey(actSubKey);
             }

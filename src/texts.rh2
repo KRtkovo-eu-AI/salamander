@@ -1,4 +1,4 @@
-﻿// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
+// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __TEXTS_RH2
 #define __TEXTS_RH2
 
@@ -2407,6 +2407,14 @@
 #define IDS_CNFRM_CLOSEARCHIVE          13477
 #define IDS_CNFRM_ONCREATEDIR           13478
 #define IDS_CNFRM_CHANGEDIRHISTORYERR    13479
+#define IDS_CNFRM_CONFIRMDELETEEXTINFO   13480
+
+// Confirm Delete extended selection list: path header
+#define IDS_CONFIRM_DELETE_EXT_PATH       13481
+// Confirm Delete extended selection list: file item suffix
+#define IDS_CONFIRM_DELETE_EXT_FILE       13482
+// Confirm Delete extended selection list: directory item suffix
+#define IDS_CONFIRM_DELETE_EXT_DIR        13483
 
 //                        rezervovat do 13550
 #define IDS_CANCLOSESALAMANDER          13551

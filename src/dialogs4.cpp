@@ -616,6 +616,7 @@ CConfiguration::CConfiguration()
     CnfrmDSTShiftsOccured = TRUE;
     CnfrmCopyMoveOptionsNS = TRUE;
     CnfrmChangeDirHistoryErr = TRUE;
+    CnfrmConfirmDeleteExtInfo = FALSE;
     //  PanelTooltip = TRUE;
     KeepPluginsSorted = TRUE;
     ShowSLGIncomplete = TRUE;

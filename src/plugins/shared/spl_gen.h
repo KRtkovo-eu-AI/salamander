@@ -66,6 +66,7 @@ class CPluginDataInterfaceAbstract;
 #define MSGBOXEX_SILENT 0x10000000 // messagebox nevyda pri otevreni zadny zvuk (bit mask)
 // v pripade MB_YESNO messageboxu povoli Escape (generuje IDNO); v MB_ABORTRETRYIGNORE messageboxu
 // povoli Escape (generuje IDCANCEL) (bit mask)
+#define MSGBOXEX_SCROLLABLETEXT 0x08000000 // use a scrollable read-only text area for long message text
 #define MSGBOXEX_ESCAPEENABLED 0x20000000
 #define MSGBOXEX_HINT 0x40000000 // pokud se pouziva CheckBoxText, bude v nem vyhledan oddelovac \t a zobrazen jako hint
 // Vista: defaultni tlacitko bude mit stav "pozaduje elevaci" (zobrazi se elevated icon)
@@ -76,7 +77,7 @@ class CPluginDataInterfaceAbstract;
 #define MSGBOXEX_DEFMASK 0x00000F00  // MB_DEFMASK
 #define MSGBOXEX_MODEMASK 0x00003000 // MB_MODEMASK
 #define MSGBOXEX_MISCMASK 0x0000C000 // MB_MISCMASK
-#define MSGBOXEX_EXMASK 0xF0000000
+#define MSGBOXEX_EXMASK 0xF8000000
 
 // navratove hodnoty message boxu
 #define DIALOG_FAIL 0x00000000 // dialog se nepodarilo otevrit

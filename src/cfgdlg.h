@@ -273,6 +273,7 @@ struct CConfiguration
         CnfrmDSTShiftsOccured,   // Compare Directories: file pairs were found with timestamps differing by exactly one or two hours; show hint that these differences can be ignored?
         CnfrmCopyMoveOptionsNS,  // Copy/Move: some Options are set but the target is FS/archive (options are NotSupported)
         CnfrmChangeDirHistoryErr, // Show error when browsing history and the target path no longer exists
+        CnfrmConfirmDeleteExtInfo, // Show extended file information in Confirm Delete for multi-selection
 
         // Drive specific
         DrvSpecFloppyMon,    // Use automatic refresh

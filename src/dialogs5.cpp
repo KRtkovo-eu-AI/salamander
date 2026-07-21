@@ -1762,6 +1762,13 @@ void CCfgPageConfirmations::Transfer(CTransferInfo& ti)
         }
         else
         {
+            // Read the checkbox state directly from the tree control when applying the page.
+            // This keeps the saved configuration in sync even if the tree-view notification
+            // for a checkbox toggle was not delivered before OK/Apply processing.
+            cnfrm->Checked = ((TreeView_GetItemState(HTreeView, cnfrm->HTreeItem,
+                                                     TVIS_STATEIMAGEMASK) &
+                               TVIS_STATEIMAGEMASK) >>
+                              12) == 2;
             *cnfrm->Variable = cnfrm->Checked;
         }
     }
@@ -1841,6 +1848,7 @@ void CCfgPageConfirmations::InitTree()
     AddItem(HShowMessage, -1, IDS_CNFRM_ONADDTOARCHIVE, &Configuration.CnfrmAddToArchive, 1);
     AddItem(HShowMessage, -1, IDS_CNFRM_ONCREATEDIR, &Configuration.CnfrmCreateDir, 1);
     AddItem(HShowMessage, -1, IDS_CNFRM_COPYMOVEOPTNS, &Configuration.CnfrmCopyMoveOptionsNS, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_CONFIRMDELETEEXTINFO, &Configuration.CnfrmConfirmDeleteExtInfo, 1);
 
     // Errors and Failures (icon: error = 2)
     HErrorsAndFailures = AddItem(NULL, 2, IDS_CNFRM_ERRORSFAILURES, NULL);
