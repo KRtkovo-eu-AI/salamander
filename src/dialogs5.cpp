@@ -1841,6 +1841,7 @@ void CCfgPageConfirmations::InitTree()
     AddItem(HShowMessage, -1, IDS_CNFRM_ONADDTOARCHIVE, &Configuration.CnfrmAddToArchive, 1);
     AddItem(HShowMessage, -1, IDS_CNFRM_ONCREATEDIR, &Configuration.CnfrmCreateDir, 1);
     AddItem(HShowMessage, -1, IDS_CNFRM_COPYMOVEOPTNS, &Configuration.CnfrmCopyMoveOptionsNS, 1);
+    AddItem(HShowMessage, -1, IDS_CNFRM_CONFIRMDELETEEXTINFO, &Configuration.CnfrmConfirmDeleteExtInfo, 1);
 
     // Errors and Failures (icon: error = 2)
     HErrorsAndFailures = AddItem(NULL, 2, IDS_CNFRM_ERRORSFAILURES, NULL);

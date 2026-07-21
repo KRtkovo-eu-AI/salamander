@@ -14,6 +14,43 @@
 #include "pack.h"
 #include "mapi.h"
 
+
+static void AppendConfirmDeleteExtInfo(std::string& text, const char* path, int count, CFilesArray* dirs, CFilesArray* files)
+{
+    if (count <= 1 || !Configuration.CnfrmConfirmDeleteExtInfo)
+        return;
+
+    std::string pathLine(LoadStr(IDS_CONFIRM_DELETE_EXT_PATH));
+    size_t pathPos = pathLine.find("%s");
+    if (pathPos != std::string::npos)
+        pathLine.replace(pathPos, 2, path != NULL ? path : "");
+    text += "\n\n";
+    text += pathLine;
+
+    for (int i = 0; i < dirs->Count; i++)
+    {
+        if (dirs->At(i).Selected)
+        {
+            text += "\n";
+            text += dirs->At(i).Name;
+            text += " (";
+            text += LoadStr(IDS_CONFIRM_DELETE_EXT_DIR);
+            text += ")";
+        }
+    }
+    for (int i = 0; i < files->Count; i++)
+    {
+        if (files->At(i).Selected)
+        {
+            text += "\n";
+            text += files->At(i).Name;
+            text += " (";
+            text += LoadStr(IDS_CONFIRM_DELETE_EXT_FILE);
+            text += ")";
+        }
+    }
+}
+
 //
 // ****************************************************************************
 // CFilesWindow
@@ -432,7 +469,10 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         if (resID != 0)
         {
             sprintf(subject, LoadStr(resID), expanded);
-            str.Set(subject, count > 1 ? NULL : formatedFileName);
+            std::string messageText(subject);
+            if (type == atDelete)
+                AppendConfirmDeleteExtInfo(messageText, GetPath(), count, Dirs, Files);
+            str.Set(messageText.c_str(), count > 1 ? NULL : formatedFileName);
         }
 
         //---
