@@ -1763,10 +1763,9 @@ internal static class PluginCatalogService
             }
         }
 
-        var installedIds = new HashSet<string>(installed.Select(plugin => plugin.Id), StringComparer.OrdinalIgnoreCase);
         var rows = installed.SelectMany(plugin =>
         {
-            var entries = catalog.Where(entry => string.Equals(entry.id, plugin.Id, StringComparison.OrdinalIgnoreCase)).ToList();
+            var entries = catalog.Where(entry => IsCatalogEntryMatch(entry, plugin)).ToList();
             if (entries.Count == 0)
             {
                 return new[] { BuildRow(plugin, null) };
@@ -1775,7 +1774,7 @@ internal static class PluginCatalogService
             return entries.Select(entry => BuildRow(plugin, entry));
         }).ToList();
         rows.AddRange(catalog
-            .Where(entry => entry.id is not null && !installedIds.Contains(entry.id))
+            .Where(entry => entry.id is not null && !installed.Any(plugin => IsCatalogEntryMatch(entry, plugin)))
             .Select(BuildCatalogOnlyRow));
         LastErrors = sourceErrors;
         return rows.OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
@@ -1802,6 +1801,26 @@ internal static class PluginCatalogService
         return new Uri(uri, uri.PathAndQuery + separator + "samandarinRefresh=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture));
     }
 
+    private static bool IsCatalogEntryMatch(PluginCatalogEntry entry, InstalledPlugin plugin)
+    {
+        if (string.Equals(entry.id, plugin.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return IsTotalCommanderProxyCatalogEntry(entry) && IsTotalCommanderProxyInstance(plugin);
+    }
+
+    private static bool IsTotalCommanderProxyCatalogEntry(PluginCatalogEntry entry)
+    {
+        return string.Equals(entry.id, "x-tc-proxy", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsTotalCommanderProxyInstance(InstalledPlugin plugin)
+    {
+        return Regex.IsMatch(plugin.DisplayName, @"^Total Commander Proxy \([^()]+\.(?:wcx|wfx|wlx|wdx)64?\)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
@@ -1825,7 +1844,10 @@ internal static class PluginCatalogService
         };
 
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty);
+        var displayName = IsTotalCommanderProxyCatalogEntry(entry) && IsTotalCommanderProxyInstance(plugin)
+            ? plugin.DisplayName
+            : LocalizedText.Resolve(entry.name) ?? plugin.DisplayName;
+        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
