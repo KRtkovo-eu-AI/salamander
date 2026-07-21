@@ -144,7 +144,7 @@ int GetBestIcoImageSize(const char* path, int maxSize)
     return bestFitSize != 0 ? bestFitSize : smallestOversize;
 }
 
-BOOL LoadIcoThumbnail(const char* path, int thumbnailSize, CSalamanderThumbnailMaker* thumbMaker)
+BOOL LoadIcoThumbnail(const char* path, int thumbnailSize, COLORREF bkgndColor, CSalamanderThumbnailMaker* thumbMaker)
 {
     if (!IsIcoFileName(path) || thumbnailSize <= 0 || thumbMaker == NULL)
         return FALSE;
@@ -176,7 +176,10 @@ BOOL LoadIcoThumbnail(const char* path, int thumbnailSize, CSalamanderThumbnailM
     if (bitmap != NULL && bits != NULL)
     {
         oldBitmap = (HBITMAP)SelectObject(memDC, bitmap);
-        memset(bits, 0, iconSize * iconSize * sizeof(DWORD));
+        DWORD* pixel = (DWORD*)bits;
+        DWORD bkgndPixel = bkgndColor & 0x00ffffff;
+        for (int i = 0; i < iconSize * iconSize; i++)
+            pixel[i] = bkgndPixel;
         if (DrawIconEx(memDC, 0, 0, hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL))
         {
             thumbMaker->Clear(thumbnailSize);
@@ -1876,7 +1879,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             if (strlen(s) + (name - path) < MAX_PATH)
                                             {
                                                 strcpy(name, s);
-                                                if (LoadIcoThumbnail(path, thumbnailSize, &thumbMaker))
+                                                if (LoadIcoThumbnail(path, thumbnailSize, GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), &thumbMaker))
                                                 {
                                                     thumbnailFlag = 5;
                                                     thumbnailLoaded = TRUE;
