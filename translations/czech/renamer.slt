@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\renamer\renamer.atp"
-TEXTVERSION,"1.14 (x64)"
-VERSION,"1,1,4,193"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,1,5,194"
 
 [TRANSLATION]
 LANGID,1029
@@ -259,7 +259,7 @@ COMMENT,"Česká verze"
 1107,1,"Chyba nového názvu: %s"
 1108,0,"<Invalid value in some input field>"
 1109,1,"Chyba regulárního výrazu: %s"
-1110,1,"<Boyer-Moore chyba: %s>"
+1110,1,"<Chyba Boyer-Moore: %s>"
 1111,1,"<Chyba: %s>"
 1112,1,"Žádná chyba."
 1113,1,"Nedostatek paměti."
@@ -280,7 +280,7 @@ COMMENT,"Česká verze"
 1127,1,"Přeplnění zásobníku"
 1128,1,"Požadován zkompilovaný výraz."
 1129,1,"Nelze spustit nové vlákno."
-1130,1,"<Chyba vzoru nahrazení: %s>"
+1130,1,"<Chyba ve vzoru nahrazení: %s>"
 1131,1,"Očekávána uzavírající závorka nebo zadání velikosti písmen ('lower', 'upper', 'mixed', nebo 'stripdia')."
 1132,1,"Očekávána uzavírající závorka."
 1133,1,"Očekávána uzavírající závorka nebo znak ':' následován zadáním velikosti písmen ('lower', 'upper', 'mixed', nebo 'stripdia')."

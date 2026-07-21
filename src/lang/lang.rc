@@ -1520,6 +1520,8 @@ BEGIN
                     LVS_REPORT | LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,
                     12,14,496,144
 
+    CONTROL         "Delete source configuration after migration is done",IDC_MCD_DELETE_SOURCE_AFTER,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,12,162,220,10
     PUSHBUTTON      "Import from File",IDC_MCD_IMPORT,248,161,80,14
     PUSHBUTTON      "Export selected",IDC_MCD_EXPORT,334,161,90,14
     PUSHBUTTON      "Delete selected...",IDC_MCD_DELETE_SEL,430,161,80,14
@@ -1528,13 +1530,14 @@ BEGIN
     LTEXT           "Version",IDC_MCD_LABEL_VERSION,12,196,40,8
     LTEXT           "",IDC_MCD_SRC_VERSION,56,196,100,8
     LTEXT           "Language",IDC_MCD_LABEL_LANGUAGE,160,196,40,8
-    LTEXT           "",IDC_MCD_SRC_LANG,204,196,80,8
+    COMBOBOX        IDC_MCD_SRC_LANG,204,194,80,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Storage",IDC_MCD_LABEL_STORAGE,288,196,40,8
     LTEXT           "",IDC_MCD_SRC_STORAGE,332,196,80,8
     LTEXT           "Location",IDC_MCD_LABEL_LOCATION,12,211,40,8
     LTEXT           "",IDC_MCD_SRC_LOCATION,56,211,456,8
     LTEXT           "Configuration name",IDC_MCD_LABEL_CONFIGNAME,12,226,70,8
     EDITTEXT        IDC_MCD_SRC_NAME,82,224,370,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Sync name",IDC_MCD_SYNC_NAME,458,224,52,14
 
     GROUPBOX        "3. Target configuration storage",IDC_MCD_GROUP_TARGET,6,250,508,46
     CONTROL         "Registry",IDC_MCD_REG_RADIO,"Button",

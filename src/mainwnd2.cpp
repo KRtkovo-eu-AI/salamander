@@ -33,6 +33,7 @@ extern void ShowFileError(HWND hParent, int errTextID, const char* fileName, DWO
 extern const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT];
 
 static const char* DetectProductName(const char* root);
+static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* version, const char* displayName);
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize);
 
 
@@ -193,7 +194,7 @@ static BOOL MCDSetConfigValue(CSalamanderRegistryExAbstract* registry, const cha
 }
 
 static void MCDApplyWelcomeTargetMetadata(CSalamanderRegistryExAbstract* registry, const char* targetSubkey,
-                                          const char* customConfigName, BOOL markWelcomeProcessed)
+                                          const char* customConfigName, const char* customLanguage, BOOL markWelcomeProcessed)
 {
     char effectiveName[256];
     effectiveName[0] = 0;
@@ -203,6 +204,10 @@ static void MCDApplyWelcomeTargetMetadata(CSalamanderRegistryExAbstract* registr
         sprintf_s(effectiveName, DetectProductName(targetSubkey), SalamanderConfigurationVersions[0]);
     MCDSetConfigValue(registry, targetSubkey, "ConfigDisplayName", REG_SZ,
                       effectiveName, (DWORD)(strlen(effectiveName) + 1));
+
+    if (customLanguage != NULL && customLanguage[0] != 0)
+        MCDSetConfigValue(registry, targetSubkey, "Language", REG_SZ,
+                          customLanguage, (DWORD)(strlen(customLanguage) + 1));
 
     if (markWelcomeProcessed)
     {
@@ -311,6 +316,28 @@ static int MCDRootIndexFromSubkey(const char* subkey)
     return -1;
 }
 
+static BOOL MCDRestartSalamanderAfterWelcome(HWND parent)
+{
+    char exePath[MAX_PATH];
+    GetModuleFileName(NULL, exePath, MAX_PATH);
+
+    char initDir[MAX_PATH];
+    strncpy_s(initDir, exePath, _TRUNCATE);
+    char* slash = strrchr(initDir, '\\');
+    if (slash != NULL)
+        *slash = 0;
+
+    SHELLEXECUTEINFO se;
+    memset(&se, 0, sizeof(se));
+    se.cbSize = sizeof(se);
+    se.nShow = SW_SHOWNORMAL;
+    se.hwnd = parent;
+    se.lpFile = exePath;
+    se.lpDirectory = initDir;
+
+    return ShellExecuteEx(&se);
+}
+
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize)
 {
     if (path == NULL || pathSize <= 0)
@@ -400,6 +427,7 @@ BOOL MCDReadFileConfigurationInfo(const char* fileName, CFoundConfig& cfg, BOOL 
                 strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
             else
                 sprintf_s(cfg.DisplayName, DetectProductName(sourceSubkey), SalamanderConfigurationVersions[rootIndex]);
+            cfg.IsGeneratedName = MCDIsGeneratedConfigDisplayName(sourceSubkey, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName);
             MCDReadRegistryConfigLanguage(sourceReg, rootKey, cfg.Language, SizeOf(cfg.Language));
             sourceReg->CloseKey(rootKey);
         }
@@ -606,7 +634,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
         BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey, TRUE);
         if (ret)
         {
-            MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, markWelcomeProcessed);
+            MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, dlg.CustomLanguage, markWelcomeProcessed);
             char clearKeyName[MAX_PATH];
             _snprintf_s(clearKeyName, _TRUNCATE, "HKEY_CURRENT_USER\\%s", targetSubkey);
             ret = targetReg->Dump(dlg.RegFilePath, clearKeyName);
@@ -626,7 +654,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
     BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey, FALSE);
     if (ret)
     {
-        MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, markWelcomeProcessed);
+        MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, dlg.CustomLanguage, markWelcomeProcessed);
         loadConfiguration = targetSubkey;
     }
     targetReg->Release();
@@ -1788,6 +1816,42 @@ static const char* DetectProductName(const char* root)
     return LoadStr(IDS_MCD_SERVANT_SALAMANDER);
 }
 
+static void MCDTrimTrailingSpaces(char* text)
+{
+    if (text == NULL)
+        return;
+    char* end = text + strlen(text);
+    while (end > text && end[-1] == ' ')
+        *--end = 0;
+}
+
+static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* version, const char* displayName)
+{
+    if (root == NULL || version == NULL || displayName == NULL || displayName[0] == 0)
+        return FALSE;
+
+    char actual[256];
+    strncpy_s(actual, displayName, _TRUNCATE);
+    MCDTrimTrailingSpaces(actual);
+
+    char expected[256];
+    _snprintf_s(expected, _TRUNCATE, "%s", DetectProductName(root));
+    MCDTrimTrailingSpaces(expected);
+    if (_stricmp(actual, expected) == 0)
+        return TRUE;
+
+    const char* platforms[] = {"x64", "x86"};
+    for (int i = 0; i < SizeOf(platforms); i++)
+    {
+        char expectedWithPlatform[256];
+        _snprintf_s(expectedWithPlatform, _TRUNCATE, "%s (%s)", expected, platforms[i]);
+        if (_stricmp(actual, expectedWithPlatform) == 0)
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
 // Helper: read language from a registry config
 static BOOL ReadConfigLanguage(HKEY hRootKey, char* language, int languageSize)
 {
@@ -1967,6 +2031,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
                 const char* name = DetectProductName(root);
                 sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
             }
+            cfg.IsGeneratedName = MCDIsGeneratedConfigDisplayName(root, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName);
 
             // Zkontrolovat WelcomeProcessed v tomto klici
             DWORD wpVal = 0;
@@ -2071,7 +2136,13 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         if (StrIStr(cfg.Version, "Samandarin") != NULL)
             for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
         strncpy_s(cfg.StorageTypeStr, "-", _TRUNCATE);
-        strncpy_s(cfg.Language, "-", _TRUNCATE);
+        const char* welcomeLanguage = Configuration.LoadedSLGName[0] != 0 ? Configuration.LoadedSLGName : Configuration.SLGName;
+        strncpy_s(cfg.Language, welcomeLanguage != NULL && welcomeLanguage[0] != 0 ? welcomeLanguage : "english", _TRUNCATE);
+        {
+            char* dot = strrchr(cfg.Language, '.');
+            if (dot != NULL && _stricmp(dot, ".slg") == 0)
+                *dot = 0;
+        }
         strncpy_s(cfg.Location, "-", _TRUNCATE);
         cfg.LastUpdate.dwLowDateTime = 0;
         cfg.LastUpdate.dwHighDateTime = 0;
@@ -2151,6 +2222,8 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         return FALSE;
     if (selectedLoadConfiguration != NULL)
         loadConfiguration = selectedLoadConfiguration;
+    if (dlg.CustomLanguage[0] != 0)
+        strncpy_s(Configuration.SLGName, dlg.CustomLanguage, _TRUNCATE);
     if (dlg.StorageType == cstRegFile && selectedRegFilePath != NULL && selectedRegFilePathSize > 0)
         strncpy_s(selectedRegFilePath, selectedRegFilePathSize, dlg.RegFilePath, _TRUNCATE);
 
@@ -2167,6 +2240,20 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     if (dlg.StorageType == cstRegFile && dlg.RegFilePath[0] != 0)
     {
         ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
+    }
+
+    if (dlg.DeleteSourceAfterMigration)
+        dlg.DeleteConfigByIndex(dlg.SelectedSourceIndex);
+
+    if (dlg.CustomLanguage[0] != 0 && _stricmp(dlg.CustomLanguage, Configuration.LoadedSLGName) != 0)
+    {
+        // The first-run Welcome dialog is already localized before the target
+        // configuration exists.  Restart the same way Manage Configurations does
+        // so the selected target language is loaded immediately from the saved
+        // target configuration instead of being overwritten by this process.
+        if (MCDRestartSalamanderAfterWelcome(NULL))
+            return FALSE;
+        SalMessageBox(NULL, LoadStr(IDS_MCD_RESTARTMSG), LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
     }
 
     if (loadConfiguration == NULL && DarkModeShouldUseDarkColors())
