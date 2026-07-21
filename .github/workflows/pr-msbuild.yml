@@ -66,6 +66,7 @@ jobs:
 
             const shouldRun = relevantFiles.length > 0;
             core.setOutput('has_build_relevant_changes', shouldRun ? 'true' : 'false');
+            core.setOutput('changed_files_json', JSON.stringify(relevantFiles));
             core.info(
               shouldRun
                 ? `PR build will run because these build-relevant files changed: ${relevantFiles.join(', ')}`
@@ -128,26 +129,72 @@ jobs:
           $triplet = if ('${{ matrix.platform }}' -eq 'Win32') { 'x86-windows' } else { 'x64-windows' }
           .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet $triplet
 
-      - name: Disable SFTP projects in PR solution
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN != 'true'
+      - name: Select changed projects
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        id: changed_projects
+        env:
+          CHANGED_FILES_JSON: ${{ steps.build_changes.outputs.changed_files_json }}
         run: |
           $solutionPath = Join-Path (Get-Location) $env:SOLUTION_PATH
-          $solution = Get-Content -LiteralPath $solutionPath
-          $sftpProjectIds = @(
-            '514DA5DF-C9D5-4A39-9BE6-CBCFA6CE0D5A', # sftp
-            '2D3A2ADD-498B-4420-8E08-6A9FC9C09D5E'  # lang_sftp
-          )
+          $solutionDir = Split-Path -Parent $solutionPath
+          $changedFiles = $env:CHANGED_FILES_JSON | ConvertFrom-Json
+          $projectMatches = Select-String -LiteralPath $solutionPath -Pattern '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{([^}]+)\}"'
+          $projects = foreach ($match in $projectMatches) {
+            $relativePath = $match.Matches[0].Groups[2].Value
+            if ($relativePath -notmatch '\.(?:vcxproj|csproj)$') { continue }
 
-          foreach ($projectId in $sftpProjectIds) {
-            $solution = $solution | Where-Object {
-              $_ -notmatch "\{$projectId\}\..*\.Build\.0\s*="
+            $absolutePath = [System.IO.Path]::GetFullPath((Join-Path $solutionDir $relativePath))
+            $repoRelativePath = [System.IO.Path]::GetRelativePath((Get-Location), $absolutePath).Replace('\', '/')
+            $projectRoot = (Split-Path -Parent $repoRelativePath).Replace('\', '/')
+            if ($repoRelativePath -match '^src/plugins/([^/]+)/') {
+              $projectRoot = "src/plugins/$($Matches[1])"
+            } elseif ($repoRelativePath -match '^src/') {
+              $projectRoot = 'src'
+            }
+
+            [pscustomobject]@{
+              Name = $match.Matches[0].Groups[1].Value
+              Path = $repoRelativePath
+              Root = $projectRoot
             }
           }
 
-          $solution | Set-Content -LiteralPath $solutionPath -Encoding UTF8
+          $selected = [System.Collections.Generic.List[object]]::new()
+          foreach ($file in $changedFiles) {
+            $normalizedFile = $file.Replace('\', '/')
+            $owners = @($projects | Where-Object {
+              $normalizedFile -eq $_.Path -or (
+                $normalizedFile.StartsWith($_.Root + '/') -and
+                ($_.Root -ne 'src' -or $normalizedFile -match '^src/(?!plugins/)')
+              )
+            })
 
-      - name: Build via MSBuild (Debug | ${{ matrix.platform }})
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
+            if ($owners.Count -eq 0 -and $normalizedFile -match '^src/(?!plugins/)' ) {
+              $owners = @($projects | Where-Object { $_.Name -in @('salamand', 'lang') })
+            }
+
+            foreach ($owner in $owners) {
+              if ($env:BUILD_SFTP_PLUGIN -ne 'true' -and $owner.Name -in @('sftp', 'lang_sftp')) { continue }
+              if (-not ($selected | Where-Object { $_.Path -eq $owner.Path })) {
+                $selected.Add($owner)
+              }
+            }
+          }
+
+          if ($selected.Count -eq 0) {
+            Write-Host 'No changed files map to projects in the PR solution; build steps will be skipped.'
+          } else {
+            Write-Host 'Changed projects selected for build:'
+            $selected | ForEach-Object { Write-Host " - $($_.Name): $($_.Path)" }
+          }
+
+          $json = $selected.Path | ConvertTo-Json -Compress
+          if ($selected.Count -eq 1) { $json = ConvertTo-Json @($selected[0].Path) -Compress }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "project_paths_json=$json"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "has_changed_projects=$(if ($selected.Count -gt 0) { 'true' } else { 'false' })"
+
+      - name: Build changed projects via MSBuild (Debug | ${{ matrix.platform }})
+        if: steps.changed_projects.outputs.has_changed_projects == 'true'
         run: |
           $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -157,27 +204,31 @@ jobs:
 
           Add-Content -Path $env:GITHUB_ENV -Value "LOG_PATH=$txtLog"
           
-          $arguments = @(
-            $env:SOLUTION_PATH
-            '/m'
-            '/t:Rebuild'
-            "/p:Configuration=$($env:BUILD_CONFIGURATION)"
-            "/p:Platform=${{ matrix.platform }}"
-            '/p:PreferredToolArchitecture=x64'
-            '/warnaserror'
-            '/nr:false'
-            '/v:m'
-          )
+          $projectPaths = '${{ steps.changed_projects.outputs.project_paths_json }}' | ConvertFrom-Json
+          foreach ($projectPath in $projectPaths) {
+            Write-Host "Building changed project: $projectPath"
+            $arguments = @(
+              $projectPath
+              '/m'
+              '/t:Rebuild'
+              "/p:Configuration=$($env:BUILD_CONFIGURATION)"
+              "/p:Platform=${{ matrix.platform }}"
+              '/p:PreferredToolArchitecture=x64'
+              '/warnaserror'
+              '/nr:false'
+              '/v:m'
+            )
 
-          msbuild @arguments 2>&1 | Tee-Object -FilePath $txtLog -Encoding UTF8
+            msbuild @arguments 2>&1 | Tee-Object -FilePath $txtLog -Encoding UTF8 -Append
 
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "MSBuild failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "MSBuild failed with exit code $LASTEXITCODE"
+              exit $LASTEXITCODE
+            }
           }
 
       - name: Upload build logs
-        if: always() && steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        if: always() && steps.changed_projects.outputs.has_changed_projects == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: msbuild-${{ matrix.platform }}-debug-logs
