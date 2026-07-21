@@ -1762,6 +1762,13 @@ void CCfgPageConfirmations::Transfer(CTransferInfo& ti)
         }
         else
         {
+            // Read the checkbox state directly from the tree control when applying the page.
+            // This keeps the saved configuration in sync even if the tree-view notification
+            // for a checkbox toggle was not delivered before OK/Apply processing.
+            cnfrm->Checked = ((TreeView_GetItemState(HTreeView, cnfrm->HTreeItem,
+                                                     TVIS_STATEIMAGEMASK) &
+                               TVIS_STATEIMAGEMASK) >>
+                              12) == 2;
             *cnfrm->Variable = cnfrm->Checked;
         }
     }
