@@ -26,7 +26,7 @@ def find_repo_root() -> Path:
 
 ROOT = find_repo_root()
 DEFAULT_PLUGINS_ROOT = ROOT / "src" / "plugins"
-DEFINE_RE = re.compile(r"^(?P<prefix>\s*#define\s+{name}\s+)(?P<value>\d+)(?P<suffix>\s*)$", re.MULTILINE)
+DEFINE_RE = re.compile(r"^(?P<prefix>\s*#define\s+{name}\s+)(?P<value>\d+)(?P<suffix>.*)$", re.MULTILINE)
 
 
 @dataclass
@@ -84,10 +84,12 @@ def find_versinfo_files(plugins_root: Path) -> list[Path]:
     return sorted(plugins_root.rglob("versinfo.rh2"))
 
 
-def read_macro(text: str, name: str, path: Path) -> int:
+def read_macro(text: str, name: str, path: Path, default: int | None = None) -> int:
     pattern = re.compile(DEFINE_RE.pattern.format(name=re.escape(name)), re.MULTILINE)
     match = pattern.search(text)
     if not match:
+        if default is not None:
+            return default
         raise RuntimeError(f"{path} does not define {name}")
     return int(match.group("value"))
 
@@ -100,13 +102,18 @@ def read_version(path: Path, plugins_root: Path) -> PluginVersion:
         versinfo=path,
         major=read_macro(text, "VERSINFO_MAJOR", path),
         minora=read_macro(text, "VERSINFO_MINORA", path),
-        minorb=read_macro(text, "VERSINFO_MINORB", path),
+        minorb=read_macro(text, "VERSINFO_MINORB", path, default=0),
     )
 
 
 def replace_macro(text: str, name: str, value: int) -> str:
     pattern = re.compile(DEFINE_RE.pattern.format(name=re.escape(name)), re.MULTILINE)
-    return pattern.sub(lambda m: f"{m.group('prefix')}{value}{m.group('suffix')}", text, count=1)
+    if pattern.search(text):
+        return pattern.sub(lambda m: f"{m.group('prefix')}{value}{m.group('suffix')}", text, count=1)
+    if name == "VERSINFO_MINORB":
+        minora_pattern = re.compile(DEFINE_RE.pattern.format(name=re.escape("VERSINFO_MINORA")), re.MULTILINE)
+        return minora_pattern.sub(lambda m: f"{m.group(0)}\n#define VERSINFO_MINORB      {value}", text, count=1)
+    raise RuntimeError(f"Cannot update missing {name}")
 
 
 def write_version(version: PluginVersion) -> None:
