@@ -135,6 +135,7 @@ public:
 
     void OnNew();
     void OnDelete();
+    void OnMoveTop();
     void OnMoveUp();
     void OnMoveDown();
     void MoveItem(int newIndex);

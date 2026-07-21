@@ -274,7 +274,7 @@ BOOL CEditListBox::MakeHeader(int ctrlID)
 {
     Header = new CToolbarHeader(HDlg, ctrlID, HWindow,
                                 TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
-                                    TLBHDRMASK_UP | TLBHDRMASK_DOWN);
+                                    TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN);
     if (Header == NULL)
     {
         TRACE_E(LOW_MEMORY);
@@ -312,7 +312,7 @@ void CEditListBox::CommandParent(UINT code)
 BYTE CEditListBox::GetEnabler()
 {
     BYTE enabler = TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
-                   TLBHDRMASK_UP | TLBHDRMASK_DOWN;
+                   TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN;
     if (Flags & ELB_ENABLECOMMANDS)
     {
         int index = (int)SendMessage(HWindow, LB_GETCURSEL, 0, 0);
@@ -337,11 +337,26 @@ void CEditListBox::OnSelChanged()
     if (!disableAll && ItemsCount > 0 && index != ItemsCount)
         mask |= (enabler & TLBHDRMASK_DELETE);
     if (!disableAll && index > 0 && index < ItemsCount)
-        mask |= (enabler & TLBHDRMASK_UP);
+        mask |= (enabler & (TLBHDRMASK_TOP | TLBHDRMASK_UP));
     if (!disableAll && index >= 0 && index < ItemsCount - 1)
         mask |= (enabler & TLBHDRMASK_DOWN);
 
     Header->EnableToolbar(mask);
+}
+
+
+void CEditListBox::OnMoveTop()
+{
+    CALL_STACK_MESSAGE1("CEditListBox::OnMoveTop()");
+    int index;
+    if (!GetCurSel(index))
+        return;
+    if (index == ItemsCount || index < 1)
+        return;
+    if ((GetEnabler() & TLBHDRMASK_TOP) == 0)
+        return;
+
+    MoveItem(0);
 }
 
 void CEditListBox::OnMoveUp()
@@ -812,6 +827,9 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 break;
             case TLBHDR_DELETE:
                 OnDelete();
+                break;
+            case TLBHDR_TOP:
+                OnMoveTop();
                 break;
             case TLBHDR_UP:
                 OnMoveUp();
