@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -57,6 +57,152 @@ std::wstring PathToWideMirror(const char* path)
 std::string TreeViewWideToText(const wchar_t* text)
 {
     return SalWideToMultiBytePath(text, CP_UTF8);
+}
+
+
+BOOL IsIcoFileName(const char* fileName)
+{
+    if (fileName == NULL)
+        return FALSE;
+
+    const char* slash = strrchr(fileName, '\\');
+    const char* slash2 = strrchr(fileName, '/');
+    if (slash2 != NULL && (slash == NULL || slash2 > slash))
+        slash = slash2;
+
+    const char* dot = strrchr(fileName, '.');
+    return dot != NULL && (slash == NULL || dot > slash) && stricmp(dot + 1, "ico") == 0;
+}
+
+WORD ReadWordLE(const BYTE* data)
+{
+    return (WORD)(data[0] | (data[1] << 8));
+}
+
+DWORD ReadDWordLE(const BYTE* data)
+{
+    return (DWORD)data[0] | ((DWORD)data[1] << 8) | ((DWORD)data[2] << 16) | ((DWORD)data[3] << 24);
+}
+
+int GetBestIcoImageSize(const char* path, int maxSize)
+{
+    HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return 0;
+
+    BYTE header[6];
+    DWORD read = 0;
+    BOOL ok = ReadFile(file, header, sizeof(header), &read, NULL) && read == sizeof(header) &&
+              ReadWordLE(header) == 0 && ReadWordLE(header + 2) == 1;
+    WORD count = ok ? ReadWordLE(header + 4) : 0;
+    if (count > 512) // sanity limit for malformed files
+        ok = FALSE;
+
+    int bestFitSize = 0;
+    int bestFitBpp = -1;
+    DWORD bestFitBytes = 0;
+    int smallestOversize = 0;
+    int smallestOversizeBpp = -1;
+    DWORD smallestOversizeBytes = 0;
+
+    for (WORD i = 0; ok && i < count; i++)
+    {
+        BYTE entry[16];
+        ok = ReadFile(file, entry, sizeof(entry), &read, NULL) && read == sizeof(entry);
+        if (!ok)
+            break;
+
+        int width = entry[0] == 0 ? 256 : entry[0];
+        int height = entry[1] == 0 ? 256 : entry[1];
+        int size = max(width, height);
+        int bpp = ReadWordLE(entry + 6);
+        if (bpp == 0)
+            bpp = entry[2] == 0 ? 256 : entry[2];
+        DWORD bytes = ReadDWordLE(entry + 8);
+
+        if (size <= maxSize)
+        {
+            if (size > bestFitSize ||
+                size == bestFitSize && (bpp > bestFitBpp || bpp == bestFitBpp && bytes > bestFitBytes))
+            {
+                bestFitSize = size;
+                bestFitBpp = bpp;
+                bestFitBytes = bytes;
+            }
+        }
+        else if (smallestOversize == 0 || size < smallestOversize ||
+                 size == smallestOversize && (bpp > smallestOversizeBpp || bpp == smallestOversizeBpp && bytes > smallestOversizeBytes))
+        {
+            smallestOversize = size;
+            smallestOversizeBpp = bpp;
+            smallestOversizeBytes = bytes;
+        }
+    }
+
+    HANDLES(CloseHandle(file));
+    return bestFitSize != 0 ? bestFitSize : smallestOversize;
+}
+
+BOOL LoadIcoThumbnail(const char* path, int thumbnailSize, COLORREF bkgndColor, CSalamanderThumbnailMaker* thumbMaker)
+{
+    if (!IsIcoFileName(path) || thumbnailSize <= 0 || thumbMaker == NULL)
+        return FALSE;
+
+    int iconSize = GetBestIcoImageSize(path, thumbnailSize);
+    if (iconSize <= 0)
+        iconSize = thumbnailSize;
+
+    HICON hIcon = (HICON)HANDLES(LoadImage(NULL, path, IMAGE_ICON, iconSize, iconSize,
+                                           LR_LOADFROMFILE | IconLRFlags));
+    if (hIcon == NULL)
+        return FALSE;
+
+    BITMAPINFO bi;
+    memset(&bi, 0, sizeof(bi));
+    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+    bi.bmiHeader.biWidth = iconSize;
+    bi.bmiHeader.biHeight = -iconSize;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+
+    void* bits = NULL;
+    HDC screenDC = HANDLES(GetDC(NULL));
+    HDC memDC = screenDC != NULL ? HANDLES(CreateCompatibleDC(screenDC)) : NULL;
+    HBITMAP bitmap = memDC != NULL ? HANDLES(CreateDIBSection(memDC, &bi, DIB_RGB_COLORS, &bits, NULL, 0)) : NULL;
+    HBITMAP oldBitmap = NULL;
+    BOOL ret = FALSE;
+    if (bitmap != NULL && bits != NULL)
+    {
+        oldBitmap = (HBITMAP)SelectObject(memDC, bitmap);
+        DWORD* pixel = (DWORD*)bits;
+        DWORD bkgndPixel = bkgndColor & 0x00ffffff;
+        for (int i = 0; i < iconSize * iconSize; i++)
+            pixel[i] = bkgndPixel;
+        if (DrawIconEx(memDC, 0, 0, hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL))
+        {
+            thumbMaker->Clear(thumbnailSize);
+            if (thumbMaker->SetParameters(iconSize, iconSize, 0))
+            {
+                thumbMaker->ProcessBuffer(bits, iconSize);
+                ret = thumbMaker->ThumbnailReady();
+            }
+        }
+        if (oldBitmap != NULL)
+            SelectObject(memDC, oldBitmap);
+    }
+
+    if (!ret)
+        thumbMaker->Clear();
+    if (bitmap != NULL)
+        HANDLES(DeleteObject(bitmap));
+    if (memDC != NULL)
+        HANDLES(DeleteDC(memDC));
+    if (screenDC != NULL)
+        HANDLES(ReleaseDC(NULL, screenDC));
+    HANDLES(DestroyIcon(hIcon));
+    return ret;
 }
 
 std::string BuildDiskThumbnailPathUtf8(CFilesWindow* window, const char* fileName)
@@ -1727,45 +1873,54 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             int len = (int)strlen(s);
                                             int size = len + 4;
                                             size -= (size & 0x3); // size % 4 (alignment to four bytes)
-                                            std::string thumbnailPathUtf8 = BuildDiskThumbnailPathUtf8(window, s);
-                                            const char* thumbnailPath = NULL;
-                                            if (!thumbnailPathUtf8.empty())
-                                            {
-                                                thumbnailPath = thumbnailPathUtf8.c_str();
-                                            }
-                                            else if (strlen(s) + (name - path) < MAX_PATH)
+                                            int thumbnailSize = window->GetThumbnailSize();
+                                            BOOL thumbnailLoaded = FALSE;
+
+                                            if (strlen(s) + (name - path) < MAX_PATH)
                                             {
                                                 strcpy(name, s);
-                                                thumbnailPath = path;
+                                                if (LoadIcoThumbnail(path, thumbnailSize, GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), &thumbMaker))
+                                                {
+                                                    thumbnailFlag = 5;
+                                                    thumbnailLoaded = TRUE;
+                                                }
                                             }
 
-                                            if (thumbnailPath != NULL)
+                                            if (!thumbnailLoaded)
                                             {
-                                                //                          TRACE_I("Load thumbnail for: " << name << "...");
-                                                CPluginInterfaceForThumbLoaderEncapsulation** loader;
-                                                loader = (CPluginInterfaceForThumbLoaderEncapsulation**)(s + size + sizeof(CQuadWord) + sizeof(FILETIME));
-                                                while (*loader != NULL)
+                                                std::string thumbnailPathUtf8 = BuildDiskThumbnailPathUtf8(window, s);
+                                                const char* thumbnailPath = NULL;
+                                                if (!thumbnailPathUtf8.empty())
                                                 {
-                                                    int thumbnailSize = window->GetThumbnailSize();
-                                                    thumbMaker.Clear(thumbnailSize);
-                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::LoadThumbnail(%s, %d)", thumbnailPath, wanted == 4);
-                                                    if ((*loader)->LoadThumbnail(thumbnailPath, thumbnailSize, thumbnailSize, &thumbMaker, wanted == 4))
-                                                    {
-                                                        thumbnailFlag = wanted == 4 /* first thumbnail loading round */ ? (thumbMaker.IsOnlyPreview() ? 6 /* low-quality/smaller */ : 5 /* quality */) : 5 /* in the second round all obtained thumbnails are quality */;
-                                                        thumbMaker.HandleIncompleteImages();
-                                                        break; // the thumbnail may be loaded; do not try another plug-in
-                                                    }
-                                                    loader++; // try the next plug-in in line, it might load the thumbnail
+                                                    thumbnailPath = thumbnailPathUtf8.c_str();
                                                 }
-                                                if (*loader == NULL)
-                                                    thumbMaker.Clear(); // failed thumbnail -> clean it up
-                                                                        //                          TRACE_I("Load thumbnail is done.");
-                                            }
-                                            else
-                                            {
-                                                *name = 0;
-                                                TRACE_I("Too long filename to get thumbnail from: " << path << s);
-                                                thumbMaker.Clear();
+                                                else if (strlen(s) + (name - path) < MAX_PATH)
+                                                {
+                                                    strcpy(name, s);
+                                                    thumbnailPath = path;
+                                                }
+
+                                                if (thumbnailPath != NULL)
+                                                {
+                                                    //                          TRACE_I("Load thumbnail for: " << name << "...");
+                                                    CPluginInterfaceForThumbLoaderEncapsulation** loader;
+                                                    loader = (CPluginInterfaceForThumbLoaderEncapsulation**)(s + size + sizeof(CQuadWord) + sizeof(FILETIME));
+                                                    while (*loader != NULL)
+                                                    {
+                                                        thumbMaker.Clear(thumbnailSize);
+                                                        CALL_STACK_MESSAGE3("IconThreadThreadFBody::LoadThumbnail(%s, %d)", thumbnailPath, wanted == 4);
+                                                        if ((*loader)->LoadThumbnail(thumbnailPath, thumbnailSize, thumbnailSize, &thumbMaker, wanted == 4))
+                                                        {
+                                                            thumbnailFlag = wanted == 4 /* first thumbnail loading round */ ? (thumbMaker.IsOnlyPreview() ? 6 /* low-quality/smaller */ : 5 /* quality */) : 5 /* in the second round all obtained thumbnails are quality */;
+                                                            thumbMaker.HandleIncompleteImages();
+                                                            break; // the thumbnail may be loaded; do not try another plug-in
+                                                        }
+                                                        loader++; // try the next plug-in in line, it might load the thumbnail
+                                                    }
+                                                    if (*loader == NULL)
+                                                        thumbMaker.Clear(); // failed thumbnail -> clean it up
+                                                                            //                          TRACE_I("Load thumbnail is done.");
+                                                }
                                             }
                                         }
                                     }

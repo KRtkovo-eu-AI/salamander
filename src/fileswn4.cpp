@@ -243,7 +243,8 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                     int index;
                     BOOL exceptions = *(DWORD*)lowerExtension == *(DWORD*)"scr" || // icons in the file,
                                       *(DWORD*)lowerExtension == *(DWORD*)"pif" || // even though it isn't visible
-                                      *(DWORD*)lowerExtension == *(DWORD*)"lnk";   // in the Registry
+                                      *(DWORD*)lowerExtension == *(DWORD*)"lnk" || // in the Registry
+                                      iconSize == ICONSIZE_16 && *(DWORD*)lowerExtension == *(DWORD*)"ico"; // each ICO is its own icon source
 
                     if (exceptions || Associations.GetIndex(lowerExtension, index)) // the extension has an icon (association)
                     {

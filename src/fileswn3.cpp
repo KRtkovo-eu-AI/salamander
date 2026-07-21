@@ -783,6 +783,12 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         {
                             file.Association = Associations.IsAssociated(st, addtoIconCache, iconSize);
                             file.Archive = 0;
+                            if (iconSize == ICONSIZE_16 && *(DWORD*)st == *(DWORD*)"ico")
+                            {
+                                // ICO files are their own icon source, so cache them by file name
+                                // instead of sharing one association icon for all *.ico files.
+                                addtoIconCache = TRUE;
+                            }
                             if (*(DWORD*)st == *(DWORD*)"scr" || // few exceptions
                                 *(DWORD*)st == *(DWORD*)"pif")
                             {

@@ -757,7 +757,9 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 *((DWORD*)s1) = 0;
                 int index;
                 CIconSizeEnum iconSize = IconCache->GetIconSize();
-                if (Associations.GetIndex(buf, index) &&             // pripona ma ikonku (asociaci)
+                BOOL icoFileIcon = iconSize == ICONSIZE_16 && *(DWORD*)buf == *(DWORD*)"ico";
+                if (!icoFileIcon &&
+                    Associations.GetIndex(buf, index) &&             // pripona ma ikonku (asociaci)
                     (Associations[index].GetIndex(iconSize) == -1 || // jde o ikonku, ktera se nacita
                      Associations[index].GetIndex(iconSize) == -3))
                 {
