@@ -2200,6 +2200,8 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         return FALSE;
     if (selectedLoadConfiguration != NULL)
         loadConfiguration = selectedLoadConfiguration;
+    if (dlg.CustomLanguage[0] != 0)
+        strncpy_s(Configuration.SLGName, dlg.CustomLanguage, _TRUNCATE);
     if (dlg.StorageType == cstRegFile && selectedRegFilePath != NULL && selectedRegFilePathSize > 0)
         strncpy_s(selectedRegFilePath, selectedRegFilePathSize, dlg.RegFilePath, _TRUNCATE);
 
