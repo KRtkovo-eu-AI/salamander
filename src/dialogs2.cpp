@@ -1822,8 +1822,11 @@ void CManageConfigsDialog::OnSyncName()
     SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, name);
     KillTimer(HWindow, 1);
     SyncNameAttentionActive = FALSE;
+    HWND hButton = GetDlgItem(HWindow, IDC_MCD_SYNC_NAME);
     SetDlgItemText(HWindow, IDC_MCD_SYNC_NAME, LoadStr(IDS_MCD_SYNC_NAME));
-    InvalidateRect(GetDlgItem(HWindow, IDC_MCD_SYNC_NAME), NULL, TRUE);
+    ShowWindow(hButton, SW_HIDE);
+    EnableWindow(hButton, FALSE);
+    InvalidateRect(hButton, NULL, TRUE);
 }
 
 void CManageConfigsDialog::SortConfigs()
