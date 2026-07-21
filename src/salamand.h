@@ -348,7 +348,7 @@ int WINAPI InternalGetPluginIconIndex();
 //
 
 #define STANDARD_COLUMNS_COUNT 9 // number of standard columns for the view
-#define EXPLORER_COLUMNS_COUNT 256 // maximum Windows Explorer property columns shown in the view configuration
+#define EXPLORER_COLUMNS_COUNT 1024 // maximum Windows Explorer property columns shown in the view configuration
 #define VIEW_TEMPLATES_COUNT 10
 #define VIEW_NAME_MAX 100
 // column Name is always visible and if the flag VIEW_SHOW_EXTENSION is not set, it also contains the extension
@@ -407,7 +407,7 @@ struct CViewTemplate
     CColumnConfig Columns[STANDARD_COLUMNS_COUNT]; // stores widths and elasticity of columns
     CColumnConfig ExplorerColumns[EXPLORER_COLUMNS_COUNT]; // stores widths and elasticity of Explorer property columns
     BYTE ExplorerColumnVisible[EXPLORER_COLUMNS_COUNT]; // visible Explorer property columns
-    BYTE ExplorerColumnOrder[EXPLORER_COLUMNS_COUNT]; // order of Explorer property columns
+    WORD ExplorerColumnOrder[EXPLORER_COLUMNS_COUNT]; // order of Explorer property columns
     BYTE ColumnOrder[STANDARD_COLUMNS_COUNT]; // order of standard columns in detailed views/configuration
 
     BOOL LeftSmartMode;  // smart mode for the left panel (only the elastic Name column: the column narrows so a horizontal scrollbar is not needed)
@@ -434,7 +434,9 @@ public:
     int SaveColumns(CColumnConfig* columns, char* buffer);  // convert the array to a string
     void LoadColumns(CColumnConfig* columns, char* buffer); // and back again
     int SaveColumnOrder(BYTE* order, char* buffer, int count = STANDARD_COLUMNS_COUNT); // convert the column order to a string
+    int SaveColumnOrder(WORD* order, char* buffer, int count);
     void LoadColumnOrder(BYTE* order, char* buffer, int count = STANDARD_COLUMNS_COUNT);  // and back again
+    void LoadColumnOrder(WORD* order, char* buffer, int count);
     int SaveExplorerColumnVisible(BYTE* visible, char* buffer);                           // convert Explorer column visibility to a string
     void LoadExplorerColumnVisible(BYTE* visible, char* buffer);                          // and back again
 

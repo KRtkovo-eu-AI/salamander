@@ -1624,7 +1624,7 @@ static void InitColumnOrder(BYTE* order)
     }
 }
 
-static void InitExplorerColumnOrder(BYTE* order)
+static void InitExplorerColumnOrder(WORD* order)
 {
     BOOL used[EXPLORER_COLUMNS_COUNT];
     ZeroMemory(used, sizeof(used));
@@ -1633,18 +1633,18 @@ static void InitExplorerColumnOrder(BYTE* order)
         if (order[i] < EXPLORER_COLUMNS_COUNT && !used[order[i]])
             used[order[i]] = TRUE;
         else
-            order[i] = 0xff;
+            order[i] = 0xffff;
     }
     int next = 0;
     for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
     {
-        if (order[i] == 0xff)
+        if (order[i] == 0xffff)
         {
             while (next < EXPLORER_COLUMNS_COUNT && used[next])
                 next++;
             if (next < EXPLORER_COLUMNS_COUNT)
             {
-                order[i] = (BYTE)next;
+                order[i] = (WORD)next;
                 used[next] = TRUE;
             }
         }
@@ -1920,7 +1920,7 @@ void CCfgPageView::StoreControls()
                 {
                     DWORD state = ListView_GetItemState(HListView2, i, LVIS_STATEIMAGEMASK);
                     Config.Items[index].ExplorerColumnVisible[explorerIndex] = state == INDEXTOSTATEIMAGEMASK(2);
-                    Config.Items[index].ExplorerColumnOrder[i - CFGP2ExplorerColumnsStart] = (BYTE)explorerIndex;
+                    Config.Items[index].ExplorerColumnOrder[i - CFGP2ExplorerColumnsStart] = (WORD)explorerIndex;
                 }
             }
         }
@@ -2613,7 +2613,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         int explorerItem = item - CFGP2ExplorerColumnsStart;
                         int explorerItem2 = item2 - CFGP2ExplorerColumnsStart;
-                        BYTE tmp = Config.Items[index].ExplorerColumnOrder[explorerItem];
+                        WORD tmp = Config.Items[index].ExplorerColumnOrder[explorerItem];
                         Config.Items[index].ExplorerColumnOrder[explorerItem] = Config.Items[index].ExplorerColumnOrder[explorerItem2];
                         Config.Items[index].ExplorerColumnOrder[explorerItem2] = tmp;
                     }

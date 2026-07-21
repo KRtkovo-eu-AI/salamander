@@ -1056,7 +1056,7 @@ CViewTemplates::CViewTemplates()
         ZeroMemory(Items[i].ExplorerColumns, sizeof(Items[i].ExplorerColumns));
         ZeroMemory(Items[i].ExplorerColumnVisible, sizeof(Items[i].ExplorerColumnVisible));
         for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
-            Items[i].ExplorerColumnOrder[j] = (BYTE)j;
+            Items[i].ExplorerColumnOrder[j] = (WORD)j;
         for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
             Items[i].ColumnOrder[j] = (BYTE)j;
     }
@@ -1192,6 +1192,20 @@ int CViewTemplates::SaveColumnOrder(BYTE* order, char* buffer, int count)
     return (int)(s - buffer);
 }
 
+
+int CViewTemplates::SaveColumnOrder(WORD* order, char* buffer, int count)
+{
+    char* s = buffer;
+    for (int i = 0; i < count; i++)
+    {
+        if (i > 0)
+            *s++ = ',';
+        s += sprintf(s, "%u", (unsigned)order[i]);
+    }
+    *s = 0;
+    return (int)(s - buffer);
+}
+
 void CViewTemplates::LoadColumnOrder(BYTE* order, char* buffer, int count)
 {
     BOOL used[EXPLORER_COLUMNS_COUNT];
@@ -1213,6 +1227,32 @@ void CViewTemplates::LoadColumnOrder(BYTE* order, char* buffer, int count)
         if (!used[value])
             order[pos++] = (BYTE)value;
     }
+}
+
+
+void CViewTemplates::LoadColumnOrder(WORD* order, char* buffer, int count)
+{
+    BOOL* used = (BOOL*)calloc(count, sizeof(BOOL));
+    if (used == NULL)
+        return;
+    int pos = 0;
+    char* p = strtok(buffer, ",");
+    while (p != NULL && pos < count)
+    {
+        unsigned int value;
+        if (sscanf(p, "%u", &value) == 1 && value < (unsigned int)count && !used[value])
+        {
+            order[pos++] = (WORD)value;
+            used[value] = TRUE;
+        }
+        p = strtok(NULL, ",");
+    }
+    for (int value = 0; pos < count && value < count; value++)
+    {
+        if (!used[value])
+            order[pos++] = (WORD)value;
+    }
+    free(used);
 }
 
 int CViewTemplates::SaveExplorerColumnVisible(BYTE* visible, char* buffer)
@@ -1245,7 +1285,7 @@ void CViewTemplates::LoadExplorerColumnVisible(BYTE* visible, char* buffer)
 
 BOOL CViewTemplates::Save(HKEY hKey)
 {
-    char buff[4 * EXPLORER_COLUMNS_COUNT + 1];
+    char buff[6 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[5];
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
@@ -1270,7 +1310,7 @@ BOOL CViewTemplates::Save(HKEY hKey)
 
 BOOL CViewTemplates::Load(HKEY hKey)
 {
-    char buff[4 * EXPLORER_COLUMNS_COUNT + 1];
+    char buff[6 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[5];
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
