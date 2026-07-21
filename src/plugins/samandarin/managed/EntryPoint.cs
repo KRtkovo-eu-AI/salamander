@@ -1045,7 +1045,7 @@ internal sealed class PluginUpdatesDialog : Form
     private static readonly float[] ListColumnWidthWeights = { 0.00f, 0.15f, 0.30f, 0.12f, 0.12f, 0.18f, 0.13f };
     private int _contextMenuSubItemIndex;
     private readonly List<PluginUpdateRow> _rows = new();
-    private int _sortColumn = 1;
+    private int _sortColumn = 2;
     private SortOrder _sortOrder = SortOrder.Ascending;
 
     public PluginUpdatesDialog()
@@ -1239,6 +1239,7 @@ internal sealed class PluginUpdatesDialog : Form
     {
         using var dialog = new PluginCatalogSourcesDialog();
         ThemeHelper.ApplyTheme(dialog);
+        dialog.Shown += (_, _) => ThemeHelper.ApplyNativeDarkMode(dialog.ListView);
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _ = RefreshAsync();
@@ -1465,7 +1466,12 @@ internal sealed class PluginUpdatesDialog : Form
 
 internal sealed class PluginCatalogSourcesDialog : Form
 {
-    private readonly TextBox _sourcesTextBox;
+    private readonly ListView _listView;
+    private readonly List<PluginCatalogSource> _sources;
+    private ListViewItem? _lastCheckedItem;
+    private bool _lastCheckedValue;
+
+    public ListView ListView => _listView;
 
     public PluginCatalogSourcesDialog()
     {
@@ -1475,17 +1481,36 @@ internal sealed class PluginCatalogSourcesDialog : Form
         MaximizeBox = false;
         ShowInTaskbar = false;
         FormBorderStyle = FormBorderStyle.FixedDialog;
-        Width = 620;
-        Height = 300;
+        Width = 680;
+        Height = 400;
+        MinimumSize = new System.Drawing.Size(500, 300);
         Icon = PluginIconLoader.Load();
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSources), AutoSize = true }, 0, 0);
-        _sourcesTextBox = new TextBox { Multiline = true, AcceptsReturn = true, AcceptsTab = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
-        layout.Controls.Add(_sourcesTextBox, 0, 1);
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources) + ":", AutoSize = true, MaximumSize = new System.Drawing.Size(640, 0) }, 0, 0);
+
+        _listView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            FullRowSelect = true,
+            GridLines = true,
+            HideSelection = false,
+            MultiSelect = false,
+            Scrollable = true,
+            View = View.Details,
+            CheckBoxes = true,
+            LabelEdit = true,
+        };
+        _listView.Columns.Add(string.Empty, 630);
+        _listView.ItemCheck += ListViewOnItemCheck;
+        _listView.DoubleClick += ListViewOnDoubleClick;
+        _listView.KeyDown += ListViewOnKeyDown;
+        _listView.AfterLabelEdit += ListViewOnAfterLabelEdit;
+        _listView.ItemChecked += ListViewOnItemChecked;
+        layout.Controls.Add(_listView, 0, 1);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 0, 0), Margin = new Padding(0) };
         var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
@@ -1497,12 +1522,120 @@ internal sealed class PluginCatalogSourcesDialog : Form
 
         Controls.Add(layout);
         CancelButton = closeButton;
-        // Keep Enter available for inserting new catalog source lines in the multiline text box.
+
+        _sources = PluginCatalogSources.Load().Select(s => new PluginCatalogSource { Url = s.Url, Enabled = s.Enabled }).ToList();
+        PopulateList();
+    }
+
+    private void PopulateList()
+    {
+        _listView.BeginUpdate();
+        try
+        {
+            _listView.Items.Clear();
+            foreach (var source in _sources)
+            {
+                var item = new ListViewItem(source.Url) { Tag = source, Checked = source.Enabled };
+                _listView.Items.Add(item);
+            }
+
+            var addItem = new ListViewItem(string.Empty) { Tag = new PluginCatalogSource { Url = string.Empty, Enabled = true } };
+            addItem.Checked = true;
+            _listView.Items.Add(addItem);
+        }
+        finally
+        {
+            _listView.EndUpdate();
+        }
+    }
+
+    private void ListViewOnItemCheck(object? sender, ItemCheckEventArgs e)
+    {
+        var item = _listView.Items[e.Index];
+        _lastCheckedItem = item;
+        _lastCheckedValue = e.CurrentValue == CheckState.Checked;
+    }
+
+    private void ListViewOnDoubleClick(object? sender, EventArgs e)
+    {
+        if (_listView.SelectedItems.Count == 0) return;
+        var item = _listView.SelectedItems[0];
+
+        if (_lastCheckedItem == item && _lastCheckedValue != item.Checked)
+        {
+            item.Checked = _lastCheckedValue;
+        }
+
+        item.BeginEdit();
+    }
+
+    private void ListViewOnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.F2 && _listView.SelectedItems.Count > 0)
+        {
+            _listView.SelectedItems[0].BeginEdit();
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Delete && _listView.SelectedItems.Count > 0)
+        {
+            var item = _listView.SelectedItems[0];
+            var source = item.Tag as PluginCatalogSource;
+            if (source is not null && source.Url.Length > 0)
+            {
+                _sources.Remove(source);
+                _listView.Items.Remove(item);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private void ListViewOnAfterLabelEdit(object? sender, LabelEditEventArgs e)
+    {
+        if (e.Label is null) return;
+        var item = _listView.Items[e.Item];
+        var source = item.Tag as PluginCatalogSource;
+        if (source is null) return;
+
+        var newUrl = e.Label.Trim();
+        if (newUrl.Length == 0)
+        {
+            if (source.Url.Length == 0)
+            {
+                e.CancelEdit = true;
+            }
+
+            return;
+        }
+
+        source.Url = newUrl;
+
+        if (item.Index == _listView.Items.Count - 1 && source.Url.Length > 0)
+        {
+            source.Enabled = true;
+            var addItem = new ListViewItem(string.Empty) { Tag = new PluginCatalogSource { Url = string.Empty, Enabled = true } };
+            addItem.Checked = true;
+            _listView.Items.Add(addItem);
+        }
+    }
+
+    private void ListViewOnItemChecked(object? sender, ItemCheckedEventArgs e)
+    {
+        if (e.Item?.Tag is PluginCatalogSource source)
+        {
+            source.Enabled = e.Item.Checked;
+        }
     }
 
     private void SaveSources()
     {
-        PluginCatalogSources.Save(_sourcesTextBox.Lines.Select(line => line.Trim()).Where(line => line.Length > 0));
+        var last = _sources.Count > 0 ? _sources[_sources.Count - 1] : null;
+        if (last is not null && string.IsNullOrWhiteSpace(last.Url))
+        {
+            _sources.RemoveAt(_sources.Count - 1);
+        }
+
+        PluginCatalogSources.Save(_sources);
         ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginSourcesSaved), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 }
@@ -1607,7 +1740,7 @@ internal static class PluginCatalogService
         var catalog = new List<PluginCatalogEntry>();
         var sourceErrors = new List<string>();
 
-        foreach (var source in PluginCatalogSources.Load())
+        foreach (var source in PluginCatalogSources.LoadEnabledUrls())
         {
             try
             {
@@ -1708,31 +1841,83 @@ internal static class SharedHttpClient
     }
 }
 
+internal sealed class PluginCatalogSource
+{
+    public string Url { get; set; } = string.Empty;
+    public bool Enabled { get; set; } = true;
+}
+
 internal static class PluginCatalogSources
 {
     private const string OfficialDefaultSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
     private const string OfficialExternalSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json";
 
-    public static IReadOnlyList<string> Load()
+    public static IReadOnlyList<PluginCatalogSource> Load()
     {
         var text = NativeConfiguration.LoadOrDefault().PluginCatalogSourcesText;
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new[] { OfficialDefaultSource, OfficialExternalSource };
+            return new[]
+            {
+                new PluginCatalogSource { Url = OfficialDefaultSource, Enabled = true },
+                new PluginCatalogSource { Url = OfficialExternalSource, Enabled = true },
+            };
         }
 
-        var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        return lines.Count == 0 ? new[] { OfficialDefaultSource, OfficialExternalSource } : lines;
+        var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        var sources = new List<PluginCatalogSource>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+
+            bool enabled;
+            string url;
+            int pipeIndex = line.IndexOf('|');
+            if (pipeIndex >= 0)
+            {
+                var prefix = line.Substring(0, pipeIndex).Trim();
+                enabled = prefix == "1";
+                url = line.Substring(pipeIndex + 1).Trim();
+            }
+            else
+            {
+                enabled = true;
+                url = line;
+            }
+
+            if (url.Length == 0 || !seen.Add(url)) continue;
+            sources.Add(new PluginCatalogSource { Url = url, Enabled = enabled });
+        }
+
+        if (sources.Count == 0)
+        {
+            return new[]
+            {
+                new PluginCatalogSource { Url = OfficialDefaultSource, Enabled = true },
+                new PluginCatalogSource { Url = OfficialExternalSource, Enabled = true },
+            };
+        }
+
+        return sources;
     }
 
-    public static void Save(IEnumerable<string> sources)
+    public static IReadOnlyList<string> LoadEnabledUrls()
+    {
+        return Load().Where(s => s.Enabled).Select(s => s.Url).ToList();
+    }
+
+    public static void Save(IEnumerable<PluginCatalogSource> sources)
     {
         var settings = NativeConfiguration.LoadOrDefault();
-        settings.PluginCatalogSourcesText = string.Join("\n", sources.Where(source => !string.IsNullOrWhiteSpace(source)).Select(source => source.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
+        var distinct = sources
+            .Where(s => !string.IsNullOrWhiteSpace(s.Url))
+            .GroupBy(s => s.Url.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+        settings.PluginCatalogSourcesText = string.Join("\n", distinct.Select(s => $"{(s.Enabled ? "1" : "0")}|{s.Url.Trim()}"));
         NativeConfiguration.Save(settings);
     }
 }
