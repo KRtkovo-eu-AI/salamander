@@ -1255,8 +1255,6 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                                    NULL, NULL, &si, &pi)))
                         {
                             DWORD err = GetLastError();
-                            if (err == ERROR_CANCELLED)
-                                break;
                             char buff[4 * MAX_PATH];
                             if (strlen(cmdLine) > 2 * MAX_PATH)
                                 strcpy(cmdLine + 2 * MAX_PATH, "..."); // shorten just in case (probably never needed)
