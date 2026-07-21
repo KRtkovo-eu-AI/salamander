@@ -33,6 +33,7 @@ extern void ShowFileError(HWND hParent, int errTextID, const char* fileName, DWO
 extern const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT];
 
 static const char* DetectProductName(const char* root);
+static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* version, const char* displayName);
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize);
 
 
@@ -400,11 +401,11 @@ BOOL MCDReadFileConfigurationInfo(const char* fileName, CFoundConfig& cfg, BOOL 
                 MCDReadRegistryString(sourceReg, cfgKey, "ConfigDisplayName", customName, SizeOf(customName));
                 sourceReg->CloseKey(cfgKey);
             }
-            cfg.IsGeneratedName = customName[0] == 0;
             if (customName[0] != 0)
                 strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
             else
                 sprintf_s(cfg.DisplayName, DetectProductName(sourceSubkey), SalamanderConfigurationVersions[rootIndex]);
+            cfg.IsGeneratedName = MCDIsGeneratedConfigDisplayName(sourceSubkey, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName);
             MCDReadRegistryConfigLanguage(sourceReg, rootKey, cfg.Language, SizeOf(cfg.Language));
             sourceReg->CloseKey(rootKey);
         }
@@ -1793,6 +1794,42 @@ static const char* DetectProductName(const char* root)
     return LoadStr(IDS_MCD_SERVANT_SALAMANDER);
 }
 
+static void MCDTrimTrailingSpaces(char* text)
+{
+    if (text == NULL)
+        return;
+    char* end = text + strlen(text);
+    while (end > text && end[-1] == ' ')
+        *--end = 0;
+}
+
+static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* version, const char* displayName)
+{
+    if (root == NULL || version == NULL || displayName == NULL || displayName[0] == 0)
+        return FALSE;
+
+    char actual[256];
+    strncpy_s(actual, displayName, _TRUNCATE);
+    MCDTrimTrailingSpaces(actual);
+
+    char expected[256];
+    _snprintf_s(expected, _TRUNCATE, DetectProductName(root), version);
+    MCDTrimTrailingSpaces(expected);
+    if (_stricmp(actual, expected) == 0)
+        return TRUE;
+
+    const char* platforms[] = {"x64", "x86"};
+    for (int i = 0; i < SizeOf(platforms); i++)
+    {
+        char expectedWithPlatform[256];
+        _snprintf_s(expectedWithPlatform, _TRUNCATE, "%s (%s)", expected, platforms[i]);
+        if (_stricmp(actual, expectedWithPlatform) == 0)
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
 // Helper: read language from a registry config
 static BOOL ReadConfigLanguage(HKEY hRootKey, char* language, int languageSize)
 {
@@ -1965,15 +2002,14 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             customName[0] = 0;
             if (GetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ, customName, sizeof(customName)) && customName[0] != 0)
             {
-                cfg.IsGeneratedName = FALSE;
                 strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
             }
             else
             {
-                cfg.IsGeneratedName = TRUE;
                 const char* name = DetectProductName(root);
                 sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
             }
+            cfg.IsGeneratedName = MCDIsGeneratedConfigDisplayName(root, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName);
 
             // Zkontrolovat WelcomeProcessed v tomto klici
             DWORD wpVal = 0;

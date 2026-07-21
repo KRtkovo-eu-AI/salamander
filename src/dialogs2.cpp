@@ -1814,7 +1814,12 @@ void CManageConfigsDialog::UpdateSyncNameButton()
 
 void CManageConfigsDialog::OnSyncName()
 {
-    SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, SALAMANDER_TEXT_VERSION);
+    char name[256];
+    strncpy_s(name, SALAMANDER_TEXT_VERSION, _TRUNCATE);
+    char* end = name + strlen(name);
+    while (end > name && end[-1] == ' ')
+        *--end = 0;
+    SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, name);
     KillTimer(HWindow, 1);
     SyncNameAttentionActive = FALSE;
     SetDlgItemText(HWindow, IDC_MCD_SYNC_NAME, LoadStr(IDS_MCD_SYNC_NAME));
