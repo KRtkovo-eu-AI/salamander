@@ -7,6 +7,12 @@
 ; Build example:
 ;   iscc.exe "doc\runbook-setup\inno_setup_salamander_x64.iss" /DPayloadDir="H:\_projects\salamander\output\salamander\Release_x64"
 ;
+; Silent install example:
+;   5.0-samandarin-0.12_win_x64.exe /VERYSILENT /DIR="C:\Path\To\Install" /NORESTART
+;
+; Custom [Code] message boxes are guarded with WizardSilent/UninstallSilent so
+; unattended installs and uninstalls do not block on application prompts.
+;
 ; If /DPayloadDir is not supplied, OPENSAL_BUILD_DIR is used when present; otherwise
 ; the fallback path below is relative to this .iss file.
 
@@ -1816,9 +1822,12 @@ begin
     DeleteFile(BackupPath);
     RenameFile(ConfigPath, BackupPath);
 
-    Msg := CustomMessage('KeepConfigQuestion');
-    StringChangeEx(Msg, '\n', #13#10, True);
-    MsgBox(Msg, mbInformation, MB_OK);
+    if not WizardSilent then
+    begin
+      Msg := CustomMessage('KeepConfigQuestion');
+      StringChangeEx(Msg, '\n', #13#10, True);
+      MsgBox(Msg, mbInformation, MB_OK);
+    end;
   end;
 end;
 
@@ -1996,7 +2005,8 @@ end;
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  CheckCodePageCompatibility;
+  if not WizardSilent then
+    CheckCodePageCompatibility;
 end;
 
 procedure InitializeWizard();
@@ -2072,6 +2082,9 @@ begin
   DeleteUserConfiguration := False;
   DeleteUserConfigurationFilePath := '';
   DeleteUserConfigurationFromFile := IsFileConfigurationStorageSelected();
+
+  if UninstallSilent then
+    Exit;
 
   if DeleteUserConfigurationFromFile then
   begin
