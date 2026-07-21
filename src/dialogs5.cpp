@@ -4676,6 +4676,7 @@ void CCfgPageAppearance::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_PANELCAPTION, Configuration.ShowPanelCaption);
     ti.CheckBox(IDC_PANELZOOM, Configuration.ShowPanelZoom);
     ti.CheckBox(IDC_PANELTREEVIEW, Configuration.TreeViewVisible);
+    ti.CheckBox(IDC_PANELTOOLTIPS, Configuration.PanelTooltips);
     ti.CheckBox(IDC_SINGLECLICK, Configuration.SingleClick);
 
     ti.EditLine(IDC_INFOLINECONTENT, Configuration.InfoLineContent, 200);

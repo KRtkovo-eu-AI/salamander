@@ -314,6 +314,7 @@
 #define IDC_SHIFTFORHOTPATHS            615
 #define IDC_PANELZOOM                   616
 #define IDC_PANELTREEVIEW               617
+#define IDC_PANELTOOLTIPS               618
 #define IDC_CHD_SHOWNET                 619
 #define IDC_THUMBNAILSIZE               620
 #define IDC_THUMBNAILSIZE_UPDOWN        621

@@ -566,6 +566,7 @@ CConfiguration::CConfiguration()
     DriveBarVisible = TRUE;
     DriveBar2Visible = FALSE;
     TreeViewVisible = FALSE;
+    PanelTooltips = FALSE;
     IconSpacingVert = 43;
     IconSpacingHorz = 43;
     TileSpacingVert = 8;

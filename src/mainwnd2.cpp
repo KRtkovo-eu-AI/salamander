@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1129,6 +1129,7 @@ const char* CONFIG_HOTPATHSBARVISIBLE_REG = "Hot Paths Bar";
 const char* CONFIG_DRIVEBARVISIBLE_REG = "Show Drive Bar";
 const char* CONFIG_DRIVEBAR2VISIBLE_REG = "Show Drive Bar2";
 const char* CONFIG_TREEVIEWVISIBLE_REG = "Show Tree View";
+const char* CONFIG_PANELTOOLTIPS_REG = "Show Panel Tooltips";
 const char* CONFIG_BOTTOMTOOLBARVISIBLE_REG = "Show Bottom ToolBar";
 const char* CONFIG_EXPLORERLOOK_REG = "Explorer Look";
 const char* CONFIG_FULLROWSELECT_REG = "Full Row Select";
@@ -3395,6 +3396,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.DriveBar2Visible, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TREEVIEWVISIBLE_REG, REG_DWORD,
                          &Configuration.TreeViewVisible, sizeof(DWORD));
+                SetValue(actKey, CONFIG_PANELTOOLTIPS_REG, REG_DWORD,
+                         &Configuration.PanelTooltips, sizeof(DWORD));
 
                 SetValue(actKey, CONFIG_BOTTOMTOOLBARVISIBLE_REG, REG_DWORD,
                          &Configuration.BottomToolBarVisible, sizeof(DWORD));
@@ -5414,6 +5417,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.DriveBar2Visible, sizeof(DWORD));
             GetValue(actKey, CONFIG_TREEVIEWVISIBLE_REG, REG_DWORD,
                      &Configuration.TreeViewVisible, sizeof(DWORD));
+            GetValue(actKey, CONFIG_PANELTOOLTIPS_REG, REG_DWORD,
+                     &Configuration.PanelTooltips, sizeof(DWORD));
 
             if (ret) // if we return FALSE, everything will be inserted later
             {

@@ -1302,6 +1302,39 @@ static BOOL AppendMultiBytePathToWide(std::wstring& target, const char* text)
     return TRUE;
 }
 
+
+static BOOL FormatPanelTipName(const CFileData* f, char* name, int nameSize)
+{
+    if (name == NULL || nameSize <= 0)
+        return FALSE;
+    name[0] = 0;
+    if (f == NULL)
+        return FALSE;
+
+    const int maxNameChars = 96;
+    std::wstring nameW;
+    if (f->UseWideName())
+        nameW.assign((const wchar_t*)f->NameW);
+    else
+        AppendMultiBytePathToWide(nameW, f->Name);
+    if (!nameW.empty())
+    {
+        if ((int)nameW.length() > maxNameChars)
+        {
+            int cut = maxNameChars - 3;
+            if (cut > 0 && cut < (int)nameW.length() && nameW[cut - 1] >= 0xD800 && nameW[cut - 1] <= 0xDBFF)
+                cut--;
+            nameW.resize(cut);
+            nameW.append(L"...");
+        }
+        if (WideCharToMultiByte(CP_ACP, 0, nameW.c_str(), -1, name, nameSize, NULL, NULL) > 0)
+            return TRUE;
+    }
+
+    lstrcpyn(name, f->Name, nameSize);
+    return name[0] != 0;
+}
+
 static BOOL BuildPanelFilePathW(const wchar_t* panelPathW, const char* panelPath, const CFileData* f, std::wstring& pathW)
 {
     pathW.clear();
@@ -1432,9 +1465,14 @@ void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
 
     BOOL isDir = index < Dirs->Count;
     const CFileData* f = isDir ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
-    AppendTipLine(text, textSize, IDS_PANELTIP_NAME, f->Name);
+    if (f->Name != NULL && strcmp(f->Name, "..") == 0)
+        return;
 
-    const char* type = isDir ? LoadStr(IDS_PANELTIP_KIND_DIRECTORY) : (f->Ext != NULL && f->Ext[0] != 0 ? f->Ext + 1 : LoadStr(IDS_PANELTIP_KIND_FILE));
+    char displayName[256];
+    FormatPanelTipName(f, displayName, _countof(displayName));
+    AppendTipLine(text, textSize, IDS_PANELTIP_NAME, displayName);
+
+    const char* type = isDir ? LoadStr(IDS_PANELTIP_KIND_DIRECTORY) : (f->Ext != NULL && f->Ext[0] != 0 ? (f->Ext[0] == '.' ? f->Ext + 1 : f->Ext) : LoadStr(IDS_PANELTIP_KIND_FILE));
     AppendTipLine(text, textSize, IDS_PANELTIP_TYPE, type);
 
     char timeBuf[160];
@@ -1605,12 +1643,19 @@ BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
         int x = (short)LOWORD(lParam);
         int y = (short)HIWORD(lParam);
         int index = -1;
-        if (x >= ListBox->FilesRect.left && x < ListBox->FilesRect.right &&
+        if (Configuration.PanelTooltips &&
+            x >= ListBox->FilesRect.left && x < ListBox->FilesRect.right &&
             y >= ListBox->FilesRect.top && y < ListBox->FilesRect.bottom)
         {
             index = GetIndex(x, y);
             if (index < 0 || index >= Dirs->Count + Files->Count)
                 index = -1;
+            else
+            {
+                CFileData* f = index < Dirs->Count ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
+                if (f->Name != NULL && strcmp(f->Name, "..") == 0)
+                    index = -1;
+            }
         }
         SetCurrentToolTip(index >= 0 ? GetListBoxHWND() : NULL, index >= 0 ? (DWORD)index + 1 : 0);
     }
