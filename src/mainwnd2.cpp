@@ -1835,7 +1835,7 @@ static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* versio
     MCDTrimTrailingSpaces(actual);
 
     char expected[256];
-    _snprintf_s(expected, _TRUNCATE, DetectProductName(root), version);
+    _snprintf_s(expected, _TRUNCATE, "%s", DetectProductName(root));
     MCDTrimTrailingSpaces(expected);
     if (_stricmp(actual, expected) == 0)
         return TRUE;
