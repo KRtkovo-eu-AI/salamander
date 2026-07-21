@@ -165,6 +165,10 @@
     </ClCompile>
     <ClCompile Include="..\..\fcremote\fcremote.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\fcremote\fcremote_crt.cpp">
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\shared\lukas\messages.h">

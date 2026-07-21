@@ -19,7 +19,6 @@
       <OptimizeReferences>true</OptimizeReferences>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <AdditionalDependencies Condition="'$(Platform)'=='ARM64'">libvcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
