@@ -1192,10 +1192,17 @@ internal static class ViewerHost
                 return new DocumentView(DocumentViewKind.Html, caption, null, html);
             }
 
+            if (FileViewHelper.IsHtmlDocument(extension))
+            {
+                string source = File.ReadAllText(LongPathHelper.ToLongPath(displayPath));
+                string html = HtmlDocumentRenderer.BuildHtml(source, displayPath);
+                return new DocumentView(DocumentViewKind.Html, caption, null, html);
+            }
+
             if (FileViewHelper.IsRasterImage(extension))
             {
-                var imageUri = new Uri(Path.GetFullPath(displayPath));
-                return new DocumentView(DocumentViewKind.Navigate, caption, imageUri, null);
+                string html = RasterImageRenderer.BuildHtml(displayPath, caption);
+                return new DocumentView(DocumentViewKind.Image, caption, null, html);
             }
 
             var uri = new Uri(Path.GetFullPath(displayPath));
@@ -1210,6 +1217,11 @@ internal static class ViewerHost
             "md", "markdown", "mdown", "mkd", "mdx",
         };
 
+        private static readonly HashSet<string> s_htmlExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "html", "htm", "xhtml",
+        };
+
         private static readonly HashSet<string> s_rasterImageExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             "bmp", "dib", "gif", "ico", "jfif", "jpeg", "jpg", "jpe", "png", "tif", "tiff", "webp",
@@ -1220,17 +1232,40 @@ internal static class ViewerHost
             return s_markdownExtensions.Contains(extension);
         }
 
+        public static bool IsHtmlDocument(string extension)
+        {
+            return s_htmlExtensions.Contains(extension);
+        }
+
         public static bool IsRasterImage(string extension)
         {
             return s_rasterImageExtensions.Contains(extension);
+        }
+
+        public static string GetRasterImageMimeType(string extension)
+        {
+            return extension switch
+            {
+                "bmp" or "dib" => "image/bmp",
+                "gif" => "image/gif",
+                "ico" => "image/x-icon",
+                "jfif" or "jpeg" or "jpg" or "jpe" => "image/jpeg",
+                "png" => "image/png",
+                "tif" or "tiff" => "image/tiff",
+                "webp" => "image/webp",
+                _ => "application/octet-stream",
+            };
         }
     }
 
 
     private static class RasterImageRenderer
     {
-        public static string BuildHtml(Uri imageUri, string caption)
+        public static string BuildHtml(string imagePath, string caption)
         {
+            string extension = Path.GetExtension(imagePath)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
+            string mimeType = FileViewHelper.GetRasterImageMimeType(extension);
+            string imageSource = "data:" + mimeType + ";base64," + Convert.ToBase64String(File.ReadAllBytes(LongPathHelper.ToLongPath(imagePath)));
             ThemeHelper.ThemePalette? palette = ThemeHelper.TryGetPalette(out var value) ? value : null;
             Color background = palette?.Background ?? SystemColors.Window;
             Color foreground = palette?.Foreground ?? SystemColors.WindowText;
@@ -1259,9 +1294,73 @@ internal static class ViewerHost
             builder.Append("</head><body><img alt=\"")
                 .Append(WebUtility.HtmlEncode(caption))
                 .Append("\" src=\"")
-                .Append(WebUtility.HtmlEncode(imageUri.AbsoluteUri))
+                .Append(WebUtility.HtmlEncode(imageSource))
                 .Append("\"/></body></html>");
             return builder.ToString();
+        }
+    }
+
+    private static class HtmlDocumentRenderer
+    {
+        public static string BuildHtml(string html, string sourcePath)
+        {
+            string? baseUrl = TryGetBaseUrl(sourcePath);
+            if (string.IsNullOrEmpty(baseUrl) || ContainsBaseElement(html))
+            {
+                return html;
+            }
+
+            string baseElement = "<base href=\"" + WebUtility.HtmlEncode(baseUrl) + "\"/>";
+            int headStart = html.IndexOf("<head", StringComparison.OrdinalIgnoreCase);
+            if (headStart >= 0)
+            {
+                int headTagEnd = html.IndexOf('>', headStart);
+                if (headTagEnd >= 0)
+                {
+                    return html.Insert(headTagEnd + 1, baseElement);
+                }
+            }
+
+            int htmlStart = html.IndexOf("<html", StringComparison.OrdinalIgnoreCase);
+            if (htmlStart >= 0)
+            {
+                int htmlTagEnd = html.IndexOf('>', htmlStart);
+                if (htmlTagEnd >= 0)
+                {
+                    return html.Insert(htmlTagEnd + 1, "<head>" + baseElement + "</head>");
+                }
+            }
+
+            return baseElement + html;
+        }
+
+        private static bool ContainsBaseElement(string html)
+        {
+            return html.IndexOf("<base", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string? TryGetBaseUrl(string sourcePath)
+        {
+            try
+            {
+                var directory = Path.GetDirectoryName(sourcePath);
+                if (string.IsNullOrEmpty(directory))
+                {
+                    return null;
+                }
+
+                var absolute = Path.GetFullPath(directory);
+                if (!absolute.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+                {
+                    absolute += Path.DirectorySeparatorChar;
+                }
+
+                return new Uri(absolute).AbsoluteUri;
+            }
+            catch (UriFormatException)
+            {
+                return null;
+            }
         }
     }
 
