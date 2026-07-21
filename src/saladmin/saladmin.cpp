@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <stdlib.h>
+#include <aclapi.h>
 
 #define SALADMIN_PROTOCOL_VERSION 1
 
@@ -24,7 +25,8 @@ static BOOL IsAllowedVerb(const wchar_t* verb)
             lstrcmpiW(verb, L"move-file") == 0 ||
             lstrcmpiW(verb, L"delete-file") == 0 ||
             lstrcmpiW(verb, L"create-dir") == 0 ||
-            lstrcmpiW(verb, L"set-attributes") == 0);
+            lstrcmpiW(verb, L"set-attributes") == 0 ||
+            lstrcmpiW(verb, L"copy-security") == 0);
 }
 
 static BOOL CanonicalizeArgumentPath(const wchar_t* path, wchar_t* out, DWORD outCount)
@@ -141,6 +143,28 @@ static DWORD ExecuteRequest(const CBrokerRequest* request)
         if (!request->HaveSource || !request->HaveAttributes)
             return ERROR_INVALID_PARAMETER;
         return SetFileAttributesW(request->Source, request->Attributes) ? ERROR_SUCCESS : GetLastError();
+    }
+    if (lstrcmpiW(request->Verb, L"copy-security") == 0)
+    {
+        if (!request->HaveSource || !request->HaveTarget)
+            return ERROR_INVALID_PARAMETER;
+
+        PSECURITY_DESCRIPTOR sd = NULL;
+        PSID owner = NULL;
+        PSID group = NULL;
+        PACL dacl = NULL;
+        DWORD err = GetNamedSecurityInfoW(request->Source, SE_FILE_OBJECT,
+                                          OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+                                          &owner, &group, &dacl, NULL, &sd);
+        if (err == ERROR_SUCCESS)
+        {
+            err = SetNamedSecurityInfoW(request->Target, SE_FILE_OBJECT,
+                                        OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+                                        owner, group, dacl, NULL);
+        }
+        if (sd != NULL)
+            LocalFree(sd);
+        return err;
     }
 
     return ERROR_INVALID_PARAMETER;

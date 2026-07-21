@@ -15,11 +15,11 @@ The central predicate is `CanOfferElevatedRetryForFileError(error, path)`. Once 
 ## Operations in scope
 
 The broker protocol is limited to file operations that Salamander already exposes:
-copy file, move/rename file, delete file/directory, create directory, and set attributes.
-It is intended for copy, move, delete, rename, attribute changes, and writes into
-Program Files or system directories. Owner/group/DACL changes remain out of the
-first executable broker version and must not be routed until a constrained
-security-descriptor format is implemented.
+copy file, move/rename file, delete file/directory, create directory, set attributes, and copy owner/group/DACL from an existing source path to an existing target path.
+It is intended for copy, move, delete, rename, attribute changes, permission-copy,
+and writes into Program Files or system directories. The broker does not accept
+arbitrary security descriptors from the unelevated process; it only copies security
+from a canonicalized source path that the request already names.
 
 ## Broker
 
@@ -34,7 +34,7 @@ Version 1 requests contain:
 
 - protocol version;
 - fixed verb: `copy-file`, `move-file`, `delete-file`, `create-dir`,
-  `set-attributes`;
+  `set-attributes`, or `copy-security`;
 - canonical source and/or target paths;
 - operation flags and attributes specific to the verb;
 - parent Salamander process ID for auditing/lifetime checks.
@@ -67,7 +67,5 @@ The connected worker paths are:
 - directory creation: `CreateDirectory` failures can retry through `create-dir`;
 - target creation during copy: target open/create failures can retry through `copy-file`;
 - move/rename: normal move failures can retry through `move-file`;
-- attribute changes: `SetFileAttributes` failures can retry through `set-attributes`.
-
-Security descriptor changes still need dedicated integration so permission-copy semantics
-and a constrained descriptor format are preserved.
+- attribute changes: `SetFileAttributes` failures can retry through `set-attributes`;
+- security copy: owner/group/DACL copy failures can retry through `copy-security`, which copies security from the canonicalized source path instead of accepting caller-supplied descriptors.

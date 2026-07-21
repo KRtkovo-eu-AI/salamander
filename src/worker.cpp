@@ -5306,11 +5306,24 @@ COPY_AGAIN:
                             if (*dlgData.CancelWorker)
                                 goto COPY_ERROR_2;
 
+                            BOOL elevatedSecurityDone = FALSE;
+                            DWORD elevatedErr;
+                            if (ConfirmAndRunElevatedFileOperation(hProgressDlg, err, op->TargetName, "copy-security",
+                                                                    op->SourceName, op->TargetName, 0, FALSE, &elevatedErr))
+                            {
+                                if (elevatedErr == ERROR_SUCCESS)
+                                    elevatedSecurityDone = TRUE;
+                                else if (elevatedErr == ERROR_CANCELLED)
+                                    goto COPY_ERROR_2;
+                                else
+                                    err = elevatedErr;
+                            }
+
                             int ret;
-                            ret = IDCANCEL;
+                            ret = elevatedSecurityDone ? IDB_IGNORE : IDCANCEL;
                             if (dlgData.IgnoreAllCopyPermErr)
                                 ret = IDB_IGNORE;
-                            else
+                            else if (!elevatedSecurityDone)
                             {
                                 char* data[4];
                                 data[0] = (char*)&ret;
@@ -5974,11 +5987,24 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                         if (*dlgData.CancelWorker)
                             goto MOVE_ERROR_2;
 
+                        BOOL elevatedSecurityDone = FALSE;
+                        DWORD elevatedErr;
+                        if (ConfirmAndRunElevatedFileOperation(hProgressDlg, err, targetNameMvDir, "copy-security",
+                                                                sourceNameMvDir, targetNameMvDir, 0, FALSE, &elevatedErr))
+                        {
+                            if (elevatedErr == ERROR_SUCCESS)
+                                elevatedSecurityDone = TRUE;
+                            else if (elevatedErr == ERROR_CANCELLED)
+                                goto MOVE_ERROR_2;
+                            else
+                                err = elevatedErr;
+                        }
+
                         int ret;
-                        ret = IDCANCEL;
+                        ret = elevatedSecurityDone ? IDB_IGNORE : IDCANCEL;
                         if (dlgData.IgnoreAllCopyPermErr)
                             ret = IDB_IGNORE;
-                        else
+                        else if (!elevatedSecurityDone)
                         {
                             char* data[4];
                             data[0] = (char*)&ret;
@@ -7004,11 +7030,24 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
                         if (*dlgData.CancelWorker)
                             goto CANCEL_CRDIR;
 
+                        BOOL elevatedSecurityDone = FALSE;
+                        DWORD elevatedErr;
+                        if (ConfirmAndRunElevatedFileOperation(hProgressDlg, err2, name, "copy-security",
+                                                                sourceDir, name, 0, FALSE, &elevatedErr))
+                        {
+                            if (elevatedErr == ERROR_SUCCESS)
+                                elevatedSecurityDone = TRUE;
+                            else if (elevatedErr == ERROR_CANCELLED)
+                                goto CANCEL_CRDIR;
+                            else
+                                err2 = elevatedErr;
+                        }
+
                         int ret;
-                        ret = IDCANCEL;
+                        ret = elevatedSecurityDone ? IDB_IGNORE : IDCANCEL;
                         if (dlgData.IgnoreAllCopyPermErr)
                             ret = IDB_IGNORE;
-                        else
+                        else if (!elevatedSecurityDone)
                         {
                             char* data[4];
                             data[0] = (char*)&ret;
