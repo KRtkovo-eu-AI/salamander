@@ -1223,6 +1223,7 @@ const char* CONFIG_PACKEPAND = "Packers And Unpackers Expanded";
 const char* CONFIG_CONFIGURATION_HEIGHT = "Configuration Height";
 const char* CONFIG_CONFIGURATION_WIDTH = "Configuration Width";
 const char* CONFIG_CONFIGURATION_TREE_WIDTH = "Configuration Tree Width";
+const char* CONFIG_CONFIGURATION_VIEWS_RIGHT_WIDTH = "Configuration Views Right Width";
 
 const char* CONFIG_MENUINDEX_REG = "Menu Index";
 const char* CONFIG_MENUBREAK_REG = "Menu Break";
@@ -3413,6 +3414,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.ConfigurationWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CONFIGURATION_TREE_WIDTH, REG_DWORD,
                          &Configuration.ConfigurationTreeWidth, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CONFIGURATION_VIEWS_RIGHT_WIDTH, REG_DWORD,
+                         &Configuration.ConfigurationViewsRightWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_VIEWANDEDITEXPAND, REG_DWORD,
                          &Configuration.ViewersAndEditorsExpanded, sizeof(DWORD));
                 SetValue(actKey, CONFIG_PACKEPAND, REG_DWORD,
@@ -5472,6 +5475,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.ConfigurationWidth, sizeof(DWORD));
             GetValue(actKey, CONFIG_CONFIGURATION_TREE_WIDTH, REG_DWORD,
                      &Configuration.ConfigurationTreeWidth, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CONFIGURATION_VIEWS_RIGHT_WIDTH, REG_DWORD,
+                     &Configuration.ConfigurationViewsRightWidth, sizeof(DWORD));
             GetValue(actKey, CONFIG_VIEWANDEDITEXPAND, REG_DWORD,
                      &Configuration.ViewersAndEditorsExpanded, sizeof(DWORD));
             GetValue(actKey, CONFIG_PACKEPAND, REG_DWORD,

@@ -3,6 +3,9 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include <propsys.h>
+#include <propvarutil.h>
+#undef PathIsPrefix // propsys/shlwapi can define this macro; plugins.h has a method with the same name
 
 #include "cfgdlg.h"
 #include "plugins.h"
@@ -1027,6 +1030,7 @@ BOOL LookForSubTexts(char* text, DWORD* varPlacements, int* varPlacementsCount)
 const char* SALAMANDER_VIEWTEMPLATE_NAME = "Name";
 const char* SALAMANDER_VIEWTEMPLATE_FLAGS = "Flags";
 const char* SALAMANDER_VIEWTEMPLATE_COLUMNS = "Columns";
+const char* SALAMANDER_VIEWTEMPLATE_COLUMNORDER = "Column Order";
 const char* SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE = "Left Smart Mode";
 const char* SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE = "Right Smart Mode";
 
@@ -1045,7 +1049,15 @@ CViewTemplates::CViewTemplates()
     for (i = 7; i < VIEW_TEMPLATES_COUNT; i++)
         Set(i, VIEW_MODE_DETAILED, "", 0, TRUE, TRUE);
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
+    {
         ZeroMemory(Items[i].Columns, sizeof(Items[i].Columns));
+        ZeroMemory(Items[i].ExplorerColumns, sizeof(Items[i].ExplorerColumns));
+        ZeroMemory(Items[i].ExplorerColumnVisible, sizeof(Items[i].ExplorerColumnVisible));
+        for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
+            Items[i].ExplorerColumnOrder[j] = (BYTE)j;
+        for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
+            Items[i].ColumnOrder[j] = (BYTE)j;
+    }
 }
 
 void CViewTemplates::Set(DWORD index, const char* name, DWORD flags, BOOL leftSmartMode, BOOL rightSmartMode)
@@ -1165,6 +1177,42 @@ void CViewTemplates::LoadColumns(CColumnConfig* columns, char* buffer)
     }
 }
 
+int CViewTemplates::SaveColumnOrder(BYTE* order, char* buffer)
+{
+    char* s = buffer;
+    for (int i = 0; i < STANDARD_COLUMNS_COUNT; i++)
+    {
+        if (i > 0)
+            *s++ = ',';
+        s += sprintf(s, "%u", (unsigned)order[i]);
+    }
+    *s = 0;
+    return (int)(s - buffer);
+}
+
+void CViewTemplates::LoadColumnOrder(BYTE* order, char* buffer)
+{
+    BOOL used[STANDARD_COLUMNS_COUNT];
+    ZeroMemory(used, sizeof(used));
+    int pos = 0;
+    char* p = strtok(buffer, ",");
+    while (p != NULL && pos < STANDARD_COLUMNS_COUNT)
+    {
+        unsigned int value;
+        if (sscanf(p, "%u", &value) == 1 && value < STANDARD_COLUMNS_COUNT && !used[value])
+        {
+            order[pos++] = (BYTE)value;
+            used[value] = TRUE;
+        }
+        p = strtok(NULL, ",");
+    }
+    for (int value = 0; pos < STANDARD_COLUMNS_COUNT && value < STANDARD_COLUMNS_COUNT; value++)
+    {
+        if (!used[value])
+            order[pos++] = (BYTE)value;
+    }
+}
+
 BOOL CViewTemplates::Save(HKEY hKey)
 {
     char buff[512];
@@ -1179,6 +1227,7 @@ BOOL CViewTemplates::Save(HKEY hKey)
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, Items[i].Name, -1);
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &Items[i].Flags, sizeof(DWORD));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, SaveColumns(Items[i].Columns, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ColumnOrder, buff));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &Items[i].LeftSmartMode, sizeof(DWORD));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &Items[i].RightSmartMode, sizeof(DWORD));
             CloseKey(actKey);
@@ -1214,6 +1263,8 @@ BOOL CViewTemplates::Load(HKEY hKey)
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, 512))
             {
                 LoadColumns(Items[i].Columns, buff);
+                if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, 512))
+                    LoadColumnOrder(Items[i].ColumnOrder, buff);
                 CleanName(name);
 
                 // overwrite file names the user could not change anyway
@@ -1522,6 +1573,76 @@ BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND 
     return err == ERROR_SUCCESS;
 }
 
+
+// Windows Explorer property columns discovered through the Property System.
+static char ExplorerColumnNames[EXPLORER_COLUMNS_COUNT][COLUMN_DESCRIPTION_MAX];
+static PROPERTYKEY ExplorerColumnKeys[EXPLORER_COLUMNS_COUNT];
+static int ExplorerColumnsCount = -1;
+
+static void LoadExplorerColumns()
+{
+    if (ExplorerColumnsCount >= 0)
+        return;
+
+    ExplorerColumnsCount = 0;
+    IPropertyDescriptionList* propList = NULL;
+    if (FAILED(PSEnumeratePropertyDescriptions(PDEF_ALL, IID_IPropertyDescriptionList, (void**)&propList)) || propList == NULL)
+        return;
+
+    UINT count = 0;
+    if (SUCCEEDED(propList->GetCount(&count)))
+    {
+        for (UINT i = 0; i < count && ExplorerColumnsCount < EXPLORER_COLUMNS_COUNT; i++)
+        {
+            IPropertyDescription* propDesc = NULL;
+            if (SUCCEEDED(propList->GetAt(i, IID_IPropertyDescription, (void**)&propDesc)) && propDesc != NULL)
+            {
+                LPWSTR displayName = NULL;
+                PROPERTYKEY key;
+                if (SUCCEEDED(propDesc->GetDisplayName(&displayName)) && displayName != NULL && displayName[0] != 0 &&
+                    SUCCEEDED(propDesc->GetPropertyKey(&key)))
+                {
+                    char name[COLUMN_DESCRIPTION_MAX];
+                    if (WideCharToMultiByte(CP_ACP, 0, displayName, -1, name, COLUMN_DESCRIPTION_MAX, NULL, NULL) > 0 && name[0] != 0)
+                    {
+                        BOOL duplicate = FALSE;
+                        for (int j = 0; j < ExplorerColumnsCount; j++)
+                        {
+                            if (StrICmp(name, ExplorerColumnNames[j]) == 0)
+                            {
+                                duplicate = TRUE;
+                                break;
+                            }
+                        }
+                        if (!duplicate)
+                        {
+                            lstrcpyn(ExplorerColumnNames[ExplorerColumnsCount], name, COLUMN_DESCRIPTION_MAX);
+                            ExplorerColumnKeys[ExplorerColumnsCount] = key;
+                            ExplorerColumnsCount++;
+                        }
+                    }
+                }
+                if (displayName != NULL)
+                    CoTaskMemFree(displayName);
+                propDesc->Release();
+            }
+        }
+    }
+    propList->Release();
+}
+
+int GetExplorerColumnCount()
+{
+    LoadExplorerColumns();
+    return ExplorerColumnsCount;
+}
+
+const char* GetExplorerColumnName(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnNames[index] : "";
+}
+
 //****************************************************************************
 //
 // Internal functions for retrieving column content
@@ -1531,6 +1652,7 @@ BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND 
 const CFileData* TransferFileData;
 int TransferIsDir;
 char TransferBuffer[TRANSFER_BUFFER_MAX];
+char TransferPanelPath[SAL_MAX_PATH];
 int TransferLen;
 DWORD TransferRowData;
 CPluginDataInterfaceAbstract* TransferPluginDataIface;
@@ -1741,8 +1863,63 @@ void WINAPI InternalGetAttr()
 
 void WINAPI InternalGetDescr()
 {
-    TransferLen = 0;
+    if (TransferIsDir)
+    {
+        TransferLen = TransferIsDir == 1 ? FolderTypeNameLen : UpDirTypeNameLen;
+        memcpy(TransferBuffer, TransferIsDir == 1 ? FolderTypeName : UpDirTypeName, TransferLen);
+    }
+    else
+    {
+        InternalGetType();
+    }
 }
+
+void WINAPI InternalGetExplorerColumn()
+{
+    TransferLen = 0;
+    if (TransferIsDir == 2 || TransferPanelPath[0] == 0)
+        return;
+
+    int columnIndex = (int)TransferActCustomData;
+    LoadExplorerColumns();
+    if (columnIndex < 0 || columnIndex >= ExplorerColumnsCount)
+        return;
+
+    char path[SAL_MAX_PATH];
+    lstrcpyn(path, TransferPanelPath, SAL_MAX_PATH);
+    if (!SalPathAppend(path, TransferFileData->Name, SAL_MAX_PATH))
+        return;
+
+    WCHAR pathW[SAL_MAX_PATH];
+    if (MultiByteToWideChar(CP_ACP, 0, path, -1, pathW, SAL_MAX_PATH) <= 0)
+        return;
+
+    IPropertyStore* store = NULL;
+    if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)
+        return;
+
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    if (SUCCEEDED(store->GetValue(ExplorerColumnKeys[columnIndex], &value)))
+    {
+        PWSTR display = NULL;
+        if (SUCCEEDED(PSFormatForDisplayAlloc(ExplorerColumnKeys[columnIndex], value, PDFF_DEFAULT, &display)) && display != NULL)
+        {
+            char text[TRANSFER_BUFFER_MAX];
+            if (WideCharToMultiByte(CP_ACP, 0, display, -1, text, TRANSFER_BUFFER_MAX, NULL, NULL) > 0)
+            {
+                TransferLen = (int)strlen(text);
+                if (TransferLen > TRANSFER_BUFFER_MAX)
+                    TransferLen = TRANSFER_BUFFER_MAX;
+                memcpy(TransferBuffer, text, TransferLen);
+            }
+            CoTaskMemFree(display);
+        }
+    }
+    PropVariantClear(&value);
+    store->Release();
+}
+
 
 //****************************************************************************
 //

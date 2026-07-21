@@ -524,6 +524,7 @@ CConfiguration::CConfiguration()
     ConfigurationHeight = 0; // the dialog logic will not allow a smaller dialog than the largest page it contains
     ConfigurationWidth = 0;
     ConfigurationTreeWidth = 0;
+    ConfigurationViewsRightWidth = 0;
     ViewersAndEditorsExpanded = 0;
     PackersAndUnpackersExpanded = 0;
     ClearReadOnly = TRUE;
@@ -1499,6 +1500,7 @@ CCfgPageView::CCfgPageView(int index)
     AvailableColumnsWidth = 0;
     AvailableColumnsRightMargin = 0;
     ViewsListGap = 0;
+    ViewsSplitterDrag = FALSE;
     if (index == -1)
         index = MainWindow->GetActivePanel()->GetViewTemplateIndex();
     SelectIndex = index;
@@ -1579,9 +1581,73 @@ void CCfgPageView::Validate(CTransferInfo& ti)
 {
 }
 
-const int CFGP2ItemsCount = 8 /*9*/;
-const int CFGP2Flags[CFGP2ItemsCount] = {0, VIEW_SHOW_EXTENSION, VIEW_SHOW_DOSNAME, VIEW_SHOW_SIZE, VIEW_SHOW_TYPE, VIEW_SHOW_DATE, VIEW_SHOW_TIME, VIEW_SHOW_ATTRIBUTES /*, VIEW_SHOW_DESCRIPTION*/};
-const int CFGP2ResID[CFGP2ItemsCount] = {IDS_COLUMN_CFG_NAME, IDS_COLUMN_CFG_EXT, IDS_COLUMN_CFG_DOSNAME, IDS_COLUMN_CFG_SIZE, IDS_COLUMN_CFG_TYPE, IDS_COLUMN_CFG_DATE, IDS_COLUMN_CFG_TIME, IDS_COLUMN_CFG_ATTR /*,  IDS_COLUMN_CFG_DESC*/};
+const int CFGP2ItemsCount = 9;
+const int CFGP2Flags[CFGP2ItemsCount] = {0, VIEW_SHOW_EXTENSION, VIEW_SHOW_DOSNAME, VIEW_SHOW_SIZE, VIEW_SHOW_TYPE, VIEW_SHOW_DATE, VIEW_SHOW_TIME, VIEW_SHOW_ATTRIBUTES, VIEW_SHOW_DESCRIPTION};
+const int CFGP2ResID[CFGP2ItemsCount] = {IDS_COLUMN_CFG_NAME, IDS_COLUMN_CFG_EXT, IDS_COLUMN_CFG_DOSNAME, IDS_COLUMN_CFG_SIZE, IDS_COLUMN_CFG_TYPE, IDS_COLUMN_CFG_DATE, IDS_COLUMN_CFG_TIME, IDS_COLUMN_CFG_ATTR, IDS_COLUMN_CFG_DESC};
+const int CFGP2ExplorerColumnsStart = CFGP2ItemsCount;
+const int CFGP2MinDefinedViewsWidth = 160;
+const int CFGP2MinAvailableColumnsWidth = 120;
+
+static int GetAvailableColumnIndex(HWND listView, int item)
+{
+    LVITEM lvi;
+    ZeroMemory(&lvi, sizeof(lvi));
+    lvi.mask = LVIF_PARAM;
+    lvi.iItem = item;
+    return ListView_GetItem(listView, &lvi) ? (int)lvi.lParam : -1;
+}
+
+static void InitColumnOrder(BYTE* order)
+{
+    BOOL used[CFGP2ItemsCount];
+    ZeroMemory(used, sizeof(used));
+    for (int i = 0; i < CFGP2ItemsCount; i++)
+    {
+        if (order[i] < CFGP2ItemsCount && !used[order[i]])
+            used[order[i]] = TRUE;
+        else
+            order[i] = 0xff;
+    }
+    int next = 0;
+    for (int i = 0; i < CFGP2ItemsCount; i++)
+    {
+        if (order[i] == 0xff)
+        {
+            while (next < CFGP2ItemsCount && used[next])
+                next++;
+            order[i] = (BYTE)next;
+            used[next] = TRUE;
+        }
+    }
+}
+
+static void InitExplorerColumnOrder(BYTE* order)
+{
+    BOOL used[EXPLORER_COLUMNS_COUNT];
+    ZeroMemory(used, sizeof(used));
+    for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+    {
+        if (order[i] < EXPLORER_COLUMNS_COUNT && !used[order[i]])
+            used[order[i]] = TRUE;
+        else
+            order[i] = 0xff;
+    }
+    int next = 0;
+    for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+    {
+        if (order[i] == 0xff)
+        {
+            while (next < EXPLORER_COLUMNS_COUNT && used[next])
+                next++;
+            if (next < EXPLORER_COLUMNS_COUNT)
+            {
+                order[i] = (BYTE)next;
+                used[next] = TRUE;
+            }
+        }
+    }
+}
+
 
 void CCfgPageView::LayoutViewsListControls()
 {
@@ -1607,7 +1673,13 @@ void CCfgPageView::LayoutViewsListControls()
     ScreenToClient(HWindow, &leftTop);
     ScreenToClient(HWindow, &rightTop);
 
-    const int rightLeft = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth;
+    int rightLeft = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth;
+    if (rightLeft < CFGP2MinDefinedViewsWidth)
+        rightLeft = CFGP2MinDefinedViewsWidth;
+    if (rightLeft > client.right - AvailableColumnsRightMargin - CFGP2MinAvailableColumnsWidth)
+        rightLeft = client.right - AvailableColumnsRightMargin - CFGP2MinAvailableColumnsWidth;
+    AvailableColumnsWidth = client.right - AvailableColumnsRightMargin - rightLeft;
+
     int leftWidth = rightLeft - ViewsListGap - leftTop.x;
     if (leftWidth < 20)
         leftWidth = 20;
@@ -1657,19 +1729,36 @@ void CCfgPageView::LoadControls()
         empty = FALSE;
     }
     DWORD count = ListView_GetItemCount(HListView2);
-    if (empty && count > 0)
+    if (count > 0)
         ListView_DeleteAllItems(HListView2);
-    if (!empty && count == 0)
+    if (!empty)
     {
+        InitColumnOrder(Config.Items[index].ColumnOrder);
         int i;
         for (i = 0; i < CFGP2ItemsCount; i++)
         {
+            int columnIndex = Config.Items[index].ColumnOrder[i];
             LVITEM lvi;
-            lvi.mask = LVIF_TEXT | LVIF_STATE;
+            lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM;
             lvi.iItem = i;
             lvi.iSubItem = 0;
             lvi.state = 0;
-            lvi.pszText = LoadStr(CFGP2ResID[i]);
+            lvi.lParam = columnIndex;
+            lvi.pszText = LoadStr(CFGP2ResID[columnIndex]);
+            ListView_InsertItem(HListView2, &lvi);
+        }
+        InitExplorerColumnOrder(Config.Items[index].ExplorerColumnOrder);
+        int explorerColumnsCount = GetExplorerColumnCount();
+        for (i = 0; i < explorerColumnsCount; i++)
+        {
+            int explorerIndex = Config.Items[index].ExplorerColumnOrder[i];
+            LVITEM lvi;
+            lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM;
+            lvi.iItem = CFGP2ExplorerColumnsStart + i;
+            lvi.iSubItem = 0;
+            lvi.state = 0;
+            lvi.lParam = -(explorerIndex + 1);
+            lvi.pszText = (char*)GetExplorerColumnName(explorerIndex);
             ListView_InsertItem(HListView2, &lvi);
         }
         ListView_SetItemState(HListView2, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
@@ -1679,9 +1768,18 @@ void CCfgPageView::LoadControls()
     if (!empty)
     {
         int i;
-        for (i = 0; i < CFGP2ItemsCount; i++)
+        for (i = 0; i < ListView_GetItemCount(HListView2); i++)
         {
-            UINT state = INDEXTOSTATEIMAGEMASK((checked[i] ? 2 : 1));
+            int columnIndex = GetAvailableColumnIndex(HListView2, i);
+            BOOL isChecked = FALSE;
+            if (columnIndex >= 0)
+                isChecked = checked[columnIndex];
+            else
+            {
+                int explorerIndex = -columnIndex - 1;
+                isChecked = explorerIndex >= 0 && explorerIndex < EXPLORER_COLUMNS_COUNT && Config.Items[index].ExplorerColumnVisible[explorerIndex];
+            }
+            UINT state = INDEXTOSTATEIMAGEMASK((isChecked ? 2 : 1));
             ListView_SetItemState(HListView2, i, state, LVIS_STATEIMAGEMASK);
         }
         CTransferInfo ti(HWindow, ttDataToWindow);
@@ -1692,13 +1790,15 @@ void CCfgPageView::LoadControls()
         index2 = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
         if (index2 != -1)
         {
-            tmp = Config.Items[index].Columns[index2].LeftFixedWidth;
+            int columnIndex = GetAvailableColumnIndex(HListView2, index2);
+            CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[index].Columns[columnIndex] : &Config.Items[index].ExplorerColumns[-columnIndex - 1];
+            tmp = columnConfig->LeftFixedWidth;
             ti.CheckBox(IDC_VIEW_LEFT_FIXED, tmp);
-            tmp = Config.Items[index].Columns[index2].RightFixedWidth;
+            tmp = columnConfig->RightFixedWidth;
             ti.CheckBox(IDC_VIEW_RIGHT_FIXED, tmp);
-            tmp = Config.Items[index].Columns[index2].LeftWidth;
+            tmp = columnConfig->LeftWidth;
             ti.EditLine(IDC_VIEW_LEFT_WIDTH, tmp);
-            tmp = Config.Items[index].Columns[index2].RightWidth;
+            tmp = columnConfig->RightWidth;
             ti.EditLine(IDC_VIEW_RIGHT_WIDTH, tmp);
         }
     }
@@ -1714,11 +1814,32 @@ void CCfgPageView::StoreControls()
     {
         DWORD flags = 0;
         int i;
-        for (i = 1; i < CFGP2ItemsCount; i++)
+        ZeroMemory(Config.Items[index].ExplorerColumnVisible, sizeof(Config.Items[index].ExplorerColumnVisible));
+        for (i = 0; i < CFGP2ItemsCount; i++)
         {
-            DWORD state = ListView_GetItemState(HListView2, i, LVIS_STATEIMAGEMASK);
-            if (state == INDEXTOSTATEIMAGEMASK(2))
-                flags |= CFGP2Flags[i];
+            int columnIndex = GetAvailableColumnIndex(HListView2, i);
+            Config.Items[index].ColumnOrder[i] = (BYTE)columnIndex;
+            if (columnIndex > 0)
+            {
+                DWORD state = ListView_GetItemState(HListView2, i, LVIS_STATEIMAGEMASK);
+                if (state == INDEXTOSTATEIMAGEMASK(2))
+                    flags |= CFGP2Flags[columnIndex];
+            }
+        }
+        int count = ListView_GetItemCount(HListView2);
+        for (i = CFGP2ExplorerColumnsStart; i < count; i++)
+        {
+            int columnIndex = GetAvailableColumnIndex(HListView2, i);
+            if (columnIndex < 0)
+            {
+                int explorerIndex = -columnIndex - 1;
+                if (explorerIndex >= 0 && explorerIndex < EXPLORER_COLUMNS_COUNT)
+                {
+                    DWORD state = ListView_GetItemState(HListView2, i, LVIS_STATEIMAGEMASK);
+                    Config.Items[index].ExplorerColumnVisible[explorerIndex] = state == INDEXTOSTATEIMAGEMASK(2);
+                    Config.Items[index].ExplorerColumnOrder[i - CFGP2ExplorerColumnsStart] = (BYTE)explorerIndex;
+                }
+            }
         }
         Config.Items[index].Flags = flags;
         Dirty = TRUE;
@@ -1781,10 +1902,7 @@ CCfgPageView::GetEnabledFunctions()
             if (lstrlen(Config.Items[index].Name) > 0)
             {
                 mask |= TLBHDRMASK_DELETE;
-                if (index > 7)
-                    mask |= TLBHDRMASK_UP;
-                if (index < VIEW_TEMPLATES_COUNT - 1)
-                    mask |= TLBHDRMASK_DOWN;
+                /* view up/down buttons are intentionally hidden */
             }
         }
     }
@@ -1794,6 +1912,28 @@ CCfgPageView::GetEnabledFunctions()
 void CCfgPageView::EnableHeader()
 {
     Header->EnableToolbar(GetEnabledFunctions());
+    int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
+    int colIndex = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
+    DWORD mask = 0;
+    if (!LabelEdit && viewIndex >= 2 && viewIndex != 3 && viewIndex != 4 && viewIndex != 5 && colIndex != -1)
+    {
+        int selectedColumnIndex = GetAvailableColumnIndex(HListView2, colIndex);
+        if (selectedColumnIndex >= 0)
+        {
+            if (colIndex > 1 && GetAvailableColumnIndex(HListView2, colIndex - 1) >= 0)
+                mask |= TLBHDRMASK_UP;
+            if (colIndex > 0 && colIndex < CFGP2ItemsCount - 1 && GetAvailableColumnIndex(HListView2, colIndex + 1) >= 0)
+                mask |= TLBHDRMASK_DOWN;
+        }
+        else
+        {
+            if (colIndex > CFGP2ExplorerColumnsStart && GetAvailableColumnIndex(HListView2, colIndex - 1) < 0)
+                mask |= TLBHDRMASK_UP;
+            if (colIndex < ListView_GetItemCount(HListView2) - 1 && GetAvailableColumnIndex(HListView2, colIndex + 1) < 0)
+                mask |= TLBHDRMASK_DOWN;
+        }
+    }
+    Header2->EnableToolbar(mask);
 }
 
 void CCfgPageView::OnModify()
@@ -1876,14 +2016,8 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HListView = listView->HWindow;
         HListView2 = GetDlgItem(HWindow, IDC_VIEW_LIST2);
         Header = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER, HListView,
-                                    TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE |
-                                        TLBHDRMASK_UP | TLBHDRMASK_DOWN);
-        if (Header == NULL)
-            TRACE_E(LOW_MEMORY);
-
-        Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2, 0);
-        if (Header2 == NULL)
-            TRACE_E(LOW_MEMORY);
+                                    TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE);
+        Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2, TLBHDRMASK_UP | TLBHDRMASK_DOWN);
 
         DWORD exFlags = LVS_EX_FULLROWSELECT /*| LVS_EX_CHECKBOXES*/;
         DWORD origFlags = ListView_GetExtendedListViewStyle(HListView);
@@ -1942,6 +2076,8 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         AvailableColumnsWidth = rightBottom.x - rightTop.x;
         AvailableColumnsRightMargin = clientRect.right - rightBottom.x;
         ViewsListGap = rightTop.x - leftBottom.x;
+        if (Configuration.ConfigurationViewsRightWidth != 0)
+            AvailableColumnsWidth = Configuration.ConfigurationViewsRightWidth;
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
@@ -1975,6 +2111,71 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
         LayoutViewsListControls();
         return result;
+    }
+
+    case WM_SETCURSOR:
+    {
+        POINT pt;
+        GetCursorPos(&pt);
+        ScreenToClient(HWindow, &pt);
+        RECT client;
+        GetClientRect(HWindow, &client);
+        int splitterX = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth - ViewsListGap / 2;
+        if (abs(pt.x - splitterX) <= 4)
+        {
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_LBUTTONDOWN:
+    {
+        int x = GET_X_LPARAM(lParam);
+        RECT client;
+        GetClientRect(HWindow, &client);
+        int splitterX = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth - ViewsListGap / 2;
+        if (abs(x - splitterX) <= 4)
+        {
+            ViewsSplitterDrag = TRUE;
+            SetCapture(HWindow);
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_MOUSEMOVE:
+    {
+        if (ViewsSplitterDrag)
+        {
+            RECT client;
+            GetClientRect(HWindow, &client);
+            int x = GET_X_LPARAM(lParam);
+            int rightLeft = x + ViewsListGap / 2;
+            if (rightLeft < CFGP2MinDefinedViewsWidth)
+                rightLeft = CFGP2MinDefinedViewsWidth;
+            if (rightLeft > client.right - AvailableColumnsRightMargin - CFGP2MinAvailableColumnsWidth)
+                rightLeft = client.right - AvailableColumnsRightMargin - CFGP2MinAvailableColumnsWidth;
+            AvailableColumnsWidth = client.right - AvailableColumnsRightMargin - rightLeft;
+            Configuration.ConfigurationViewsRightWidth = AvailableColumnsWidth;
+            LayoutViewsListControls();
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_LBUTTONUP:
+    {
+        if (ViewsSplitterDrag)
+        {
+            ViewsSplitterDrag = FALSE;
+            ReleaseCapture();
+            return TRUE;
+        }
+        break;
     }
 
     case WM_SYSCOLORCHANGE:
@@ -2079,7 +2280,27 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     EnableControls();
                 }
                 else if (!(nmhi->uOldState & LVIS_SELECTED) && nmhi->uNewState & LVIS_SELECTED)
-                    LoadControls(); // on column change, load new data to the list and edit line
+                {
+                    int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
+                    int columnIndex = GetAvailableColumnIndex(HListView2, nmhi->iItem);
+                    if (viewIndex >= 2)
+                    {
+                        CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[viewIndex].Columns[columnIndex] : &Config.Items[viewIndex].ExplorerColumns[-columnIndex - 1];
+                        DisableNotification = TRUE;
+                        CTransferInfo ti(HWindow, ttDataToWindow);
+                        int tmp = columnConfig->LeftFixedWidth;
+                        ti.CheckBox(IDC_VIEW_LEFT_FIXED, tmp);
+                        tmp = columnConfig->RightFixedWidth;
+                        ti.CheckBox(IDC_VIEW_RIGHT_FIXED, tmp);
+                        tmp = columnConfig->LeftWidth;
+                        ti.EditLine(IDC_VIEW_LEFT_WIDTH, tmp);
+                        tmp = columnConfig->RightWidth;
+                        ti.EditLine(IDC_VIEW_RIGHT_WIDTH, tmp);
+                        DisableNotification = FALSE;
+                    }
+                    EnableControls();
+                    EnableHeader();
+                }
                 break;
             }
             }
@@ -2184,14 +2405,18 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int index2 = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
                 if (index >= 2 && index2 != -1)
                 {
+                    int columnIndex = GetAvailableColumnIndex(HListView2, index2);
+                    CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[index].Columns[columnIndex] : &Config.Items[index].ExplorerColumns[-columnIndex - 1];
                     BOOL checked = IsDlgButtonChecked(HWindow, LOWORD(wParam)) == BST_CHECKED;
                     switch (LOWORD(wParam))
                     {
                     case IDC_VIEW_LEFT_FIXED:
-                        Config.Items[index].Columns[index2].LeftFixedWidth = checked ? 1 : 0;
+                        if (columnConfig != NULL)
+                            columnConfig->LeftFixedWidth = checked ? 1 : 0;
                         break;
                     case IDC_VIEW_RIGHT_FIXED:
-                        Config.Items[index].Columns[index2].RightFixedWidth = checked ? 1 : 0;
+                        if (columnConfig != NULL)
+                            columnConfig->RightFixedWidth = checked ? 1 : 0;
                         break;
                     case IDC_VIEW_LEFT_SMARTMODE:
                         Config.Items[index].LeftSmartMode = checked;
@@ -2215,21 +2440,65 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int index2 = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
                 if (index >= 2 && index2 != -1)
                 {
+                    int columnIndex = GetAvailableColumnIndex(HListView2, index2);
+                    CColumnConfig* columnConfig = columnIndex >= 0 ? &Config.Items[index].Columns[columnIndex] : &Config.Items[index].ExplorerColumns[-columnIndex - 1];
                     CTransferInfo ti(HWindow, ttDataFromWindow);
                     int tmp;
                     if (LOWORD(wParam) == IDC_VIEW_LEFT_WIDTH)
                     {
                         ti.EditLine(IDC_VIEW_LEFT_WIDTH, tmp);
-                        Config.Items[index].Columns[index2].LeftWidth = tmp;
+                        columnConfig->LeftWidth = tmp;
                     }
                     else
                     {
                         ti.EditLine(IDC_VIEW_RIGHT_WIDTH, tmp);
-                        Config.Items[index].Columns[index2].RightWidth = tmp;
+                        columnConfig->RightWidth = tmp;
                     }
                     Dirty = TRUE;
                 }
             }
+            break;
+        }
+
+        if (LOWORD(wParam) == IDC_VIEWLIST_HEADER2)
+        {
+            if (GetFocus() != HListView2)
+                SetFocus(HListView2);
+            if (HIWORD(wParam) == TLBHDR_UP || HIWORD(wParam) == TLBHDR_DOWN)
+            {
+                int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
+                int item = ListView_GetNextItem(HListView2, -1, LVNI_SELECTED);
+                int item2 = HIWORD(wParam) == TLBHDR_UP ? item - 1 : item + 1;
+                int columnIndex = GetAvailableColumnIndex(HListView2, item);
+                int columnIndex2 = GetAvailableColumnIndex(HListView2, item2);
+                if (index >= 2 && item > 0 && item2 > 0 &&
+                    ((columnIndex >= 0 && columnIndex2 >= 0 && item2 < CFGP2ItemsCount) ||
+                     (columnIndex < 0 && columnIndex2 < 0 && item >= CFGP2ExplorerColumnsStart && item2 >= CFGP2ExplorerColumnsStart)))
+                {
+                    StoreControls();
+                    if (columnIndex >= 0)
+                    {
+                        BYTE tmp = Config.Items[index].ColumnOrder[item];
+                        Config.Items[index].ColumnOrder[item] = Config.Items[index].ColumnOrder[item2];
+                        Config.Items[index].ColumnOrder[item2] = tmp;
+                    }
+                    else
+                    {
+                        int explorerItem = item - CFGP2ExplorerColumnsStart;
+                        int explorerItem2 = item2 - CFGP2ExplorerColumnsStart;
+                        BYTE tmp = Config.Items[index].ExplorerColumnOrder[explorerItem];
+                        Config.Items[index].ExplorerColumnOrder[explorerItem] = Config.Items[index].ExplorerColumnOrder[explorerItem2];
+                        Config.Items[index].ExplorerColumnOrder[explorerItem2] = tmp;
+                    }
+                    ListView_DeleteAllItems(HListView2);
+                    LoadControls();
+                    ListView_SetItemState(HListView2, -1, 0, LVIS_FOCUSED | LVIS_SELECTED);
+                    ListView_SetItemState(HListView2, item2, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+                    ListView_EnsureVisible(HListView2, item2, FALSE);
+                    Dirty = TRUE;
+                }
+            }
+            EnableHeader();
             break;
         }
 

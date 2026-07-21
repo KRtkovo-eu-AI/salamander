@@ -2084,13 +2084,16 @@ BOOL CFilesWindow::BuildColumnsTemplate()
     int i;
     for (i = 0; i < STANDARD_COLUMNS_COUNT; i++)
     {
-        item = GetStdColumn(i, Is(ptDisk));
+        int columnIndex = ViewTemplate->ColumnOrder[i];
+        if (columnIndex < 0 || columnIndex >= STANDARD_COLUMNS_COUNT)
+            columnIndex = i;
+        item = GetStdColumn(columnIndex, Is(ptDisk));
         // the Name column (i==0) is always visible
-        if (i == 0 || ViewTemplate->Flags & item->Flag)
+        if (columnIndex == 0 || ViewTemplate->Flags & item->Flag)
         {
             lstrcpy(column.Name, LoadStr(item->NameResID));
             lstrcpy(column.Description, LoadStr(item->DescResID));
-            if (i == 0) // column "Name"
+            if (columnIndex == 0) // column "Name"
             {
                 if ((ViewTemplate->Flags & VIEW_SHOW_EXTENSION) == 0) // "Ext" is part of the "Name" column, the name and description of the "Ext" column are after the terminating null of the name and description
                 {
@@ -2107,9 +2110,39 @@ BOOL CFilesWindow::BuildColumnsTemplate()
             column.SupportSorting = item->SupportSorting;
             column.LeftAlignment = item->LeftAlignment;
             column.ID = item->ID;
-            column.Width = leftPanel ? colCfg[i].LeftWidth : colCfg[i].RightWidth;
-            column.FixedWidth = leftPanel ? colCfg[i].LeftFixedWidth : colCfg[i].RightFixedWidth;
+            column.Width = leftPanel ? colCfg[columnIndex].LeftWidth : colCfg[columnIndex].RightWidth;
+            column.FixedWidth = leftPanel ? colCfg[columnIndex].LeftFixedWidth : colCfg[columnIndex].RightFixedWidth;
             column.MinWidth = 0; // dummy - will be overwritten when sizing HeaderLine
+
+            ColumnsTemplate.Add(column);
+            if (!ColumnsTemplate.IsGood())
+            {
+                ColumnsTemplate.ResetState();
+                return FALSE;
+            }
+        }
+    }
+
+    int explorerCount = GetExplorerColumnCount();
+    for (i = 0; i < explorerCount && i < EXPLORER_COLUMNS_COUNT; i++)
+    {
+        int explorerIndex = ViewTemplate->ExplorerColumnOrder[i];
+        if (explorerIndex < 0 || explorerIndex >= explorerCount)
+            explorerIndex = i;
+        if (ViewTemplate->ExplorerColumnVisible[explorerIndex])
+        {
+            lstrcpyn(column.Name, GetExplorerColumnName(explorerIndex), COLUMN_NAME_MAX);
+            lstrcpyn(column.Description, GetExplorerColumnName(explorerIndex), COLUMN_DESCRIPTION_MAX);
+            column.GetText = InternalGetExplorerColumn;
+            column.SupportSorting = 0;
+            column.LeftAlignment = 1;
+            column.ID = COLUMN_ID_CUSTOM;
+            column.CustomData = explorerIndex;
+            column.Width = leftPanel ? ViewTemplate->ExplorerColumns[explorerIndex].LeftWidth : ViewTemplate->ExplorerColumns[explorerIndex].RightWidth;
+            if (column.Width == 0)
+                column.Width = 120;
+            column.FixedWidth = leftPanel ? ViewTemplate->ExplorerColumns[explorerIndex].LeftFixedWidth : ViewTemplate->ExplorerColumns[explorerIndex].RightFixedWidth;
+            column.MinWidth = 0;
 
             ColumnsTemplate.Add(column);
             if (!ColumnsTemplate.IsGood())
@@ -2174,8 +2207,8 @@ void CFilesWindow::DeleteColumnsWithoutData(DWORD columnValidMask)
             delColumn = (columnValidMask & VALID_DATA_ATTRIBUTES) == 0;
             break;
         case COLUMN_ID_DESCRIPTION:
-            delColumn = TRUE;
-            break; // description not used yet
+            delColumn = FALSE;
+            break;
         }
         if (delColumn)
         {
