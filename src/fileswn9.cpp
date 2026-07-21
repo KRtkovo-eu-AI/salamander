@@ -1273,11 +1273,16 @@ static BOOL IsKnownExt(const CFileData* f, const char* const* exts, int count)
         return FALSE;
     for (int i = 0; i < count; i++)
     {
-        if (StrICmp(f->Ext, exts[i]) == 0)
+        // Historically CFileData::Ext can be either ".ext" or "ext" depending on source.
+        if (StrICmp(f->Ext, exts[i]) == 0 ||
+            exts[i][0] == '.' && StrICmp(f->Ext, exts[i] + 1) == 0)
+        {
             return TRUE;
+        }
     }
     return FALSE;
 }
+
 
 
 static BOOL AppendMultiBytePathToWide(std::wstring& target, const char* text)
