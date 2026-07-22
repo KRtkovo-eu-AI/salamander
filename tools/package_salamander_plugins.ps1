@@ -166,7 +166,7 @@ if ($pluginDirectories.Count -eq 0) {
 
 foreach ($pluginDirectory in $pluginDirectories) {
     $version = Get-PluginVersion -PluginDirectory $pluginDirectory
-    $archiveName = '{0}_{1}_x64.7z' -f $pluginDirectory.Name, $version
+    $archiveName = 'plugin_5.0_{0}_{1}_x64.7z' -f $pluginDirectory.Name, $version
     $archivePath = Join-Path $outputRoot.FullName $archiveName
 
     if ((Test-Path -LiteralPath $archivePath) -and -not $Force) {
