@@ -1958,18 +1958,16 @@ internal static class PluginCatalogSources
     private const string StablePluginSource = "https://samandarin.krtkovo.eu/catalogs/plugins-stable.json";
     private const string UnofficialExternalSource = "https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json";
     private const string ExtensionRuntimesSource = "https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json";
+    private const string LegacyStablePluginSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
+    private const string LegacyUnofficialExternalSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json";
 
     public static IReadOnlyList<PluginCatalogSource> Load()
     {
-        var text = NativeConfiguration.LoadOrDefault().PluginCatalogSourcesText;
+        var settings = NativeConfiguration.LoadOrDefault();
+        var text = settings.PluginCatalogSourcesText;
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new[]
-            {
-                new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
-                new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
-                new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
-            };
+            return DefaultSources();
         }
 
         var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -2002,12 +2000,13 @@ internal static class PluginCatalogSources
 
         if (sources.Count == 0)
         {
-            return new[]
-            {
-                new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
-                new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
-                new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
-            };
+            return DefaultSources();
+        }
+
+        if (NormalizeDefaultSources(sources))
+        {
+            settings.PluginCatalogSourcesText = Serialize(sources);
+            NativeConfiguration.Save(settings);
         }
 
         return sources;
@@ -2026,9 +2025,72 @@ internal static class PluginCatalogSources
             .GroupBy(s => s.Url.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
-        settings.PluginCatalogSourcesText = string.Join("\n", distinct.Select(s => $"{(s.Enabled ? "1" : "0")}|{s.Url.Trim()}"));
+        settings.PluginCatalogSourcesText = Serialize(distinct);
         NativeConfiguration.Save(settings);
     }
+
+    private static IReadOnlyList<PluginCatalogSource> DefaultSources() => new[]
+    {
+        new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
+        new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
+        new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
+    };
+
+    private static bool NormalizeDefaultSources(List<PluginCatalogSource> sources)
+    {
+        var changed = false;
+        changed |= ReplaceSourceUrl(sources, LegacyStablePluginSource, StablePluginSource);
+        changed |= ReplaceSourceUrl(sources, LegacyUnofficialExternalSource, UnofficialExternalSource);
+        changed |= AddMissingDefaultSource(sources, StablePluginSource);
+        changed |= AddMissingDefaultSource(sources, UnofficialExternalSource);
+        changed |= AddMissingDefaultSource(sources, ExtensionRuntimesSource);
+        changed |= RemoveDuplicateSources(sources);
+        return changed;
+    }
+
+    private static bool ReplaceSourceUrl(IEnumerable<PluginCatalogSource> sources, string oldUrl, string newUrl)
+    {
+        var changed = false;
+        foreach (var source in sources.Where(source => string.Equals(source.Url, oldUrl, StringComparison.OrdinalIgnoreCase)))
+        {
+            source.Url = newUrl;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static bool AddMissingDefaultSource(ICollection<PluginCatalogSource> sources, string url)
+    {
+        if (sources.Any(source => string.Equals(source.Url, url, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        sources.Add(new PluginCatalogSource { Url = url, Enabled = true });
+        return true;
+    }
+
+    private static bool RemoveDuplicateSources(List<PluginCatalogSource> sources)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+        for (int i = 0; i < sources.Count; i++)
+        {
+            if (seen.Add(sources[i].Url.Trim()))
+            {
+                continue;
+            }
+
+            sources.RemoveAt(i);
+            i--;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static string Serialize(IEnumerable<PluginCatalogSource> sources) => string.Join("\n", sources.Select(s => $"{(s.Enabled ? "1" : "0")}|{s.Url.Trim()}"));
 }
 
 internal static class InstalledPluginScanner
