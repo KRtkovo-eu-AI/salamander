@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\checksum\checksum.atp"
-TEXTVERSION,"2.2 (x64)"
-VERSION,"2,2,0,194"
+TEXTVERSION,"2.3 (x64)"
+VERSION,"2,3,0,194"
 
 [TRANSLATION]
 LANGID,1031
@@ -61,6 +61,7 @@ COMMENT,"Deutsche Version"
 
 [STRINGTABLE 2]
 48,1,"Kopiere SHA-&512-Prüfsumme in die Zwischenablage\tStrg+5"
+52,1,"Kopiere &alle Werte in die Zwischenablage"
 53,1,"&Eintrag entfernen\tEntf"
 54,1,"Die Datei '%s' existiert bereits.\nSoll sie überschrieben werden?"
 55,1,"Fehler beim Erstellen der Datei."

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\checksum\checksum.atp"
-TEXTVERSION,"2.2 (x64)"
-VERSION,"2,2,0,194"
+TEXTVERSION,"2.3 (x64)"
+VERSION,"2,3,0,194"
 
 [TRANSLATION]
 LANGID,3082
@@ -61,6 +61,7 @@ COMMENT,"Versión en español"
 
 [STRINGTABLE 2]
 48,1,"Copiar suma SHA-&512 al portapapeles\tCtrl+5"
+52,1,"Copiar &todos los valores al portapapeles"
 53,1,"&Eliminar elemento\tSupr"
 54,1,"El fichero '%s' ya existe.\n¿Desea reemplazarlo?"
 55,1,"Error al crear fichero."

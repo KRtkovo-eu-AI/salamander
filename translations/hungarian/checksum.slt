@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\checksum\checksum.atp"
-TEXTVERSION,"2.2 (x64)"
-VERSION,"2,2,0,194"
+TEXTVERSION,"2.3 (x64)"
+VERSION,"2,3,0,194"
 
 [TRANSLATION]
 LANGID,1038
@@ -61,6 +61,7 @@ COMMENT,"Magyar változat"
 
 [STRINGTABLE 2]
 48,1,"SHA-&512 ellenőrzőösszeg vágólapra másolása\tCtrl+5"
+52,1,"&Összes érték másolása a vágólapra"
 53,1,"Az elem tö&rlése\tTörlés"
 54,1,"A(z) '%s' fájl már létezik.\nFelül akarja írni?"
 55,1,"Fájl létrehozási hiba."
