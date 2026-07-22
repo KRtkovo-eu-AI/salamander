@@ -175,7 +175,7 @@ function Get-KnownPluginDescriptions {
         'filecomp' = 'File Comparator for Open Salamander'
         'folders' = 'Folders plugin for Open Salamander'
         'ftp' = 'FTP Client for Open Salamander'
-        'hypervm' = 'Managed demo plugin for Open Salamander'
+        'hypervm' = 'Show local Hyper-V virtual machines in the panel'
         'ieviewer' = 'Internet Explorer Viewer for Open Salamander'
         'jsonviewer' = 'JSON Viewer .NET plugin for Open Salamander'
         'mmviewer' = 'Multimedia Viewer for Open Salamander'
@@ -200,7 +200,7 @@ function Get-KnownPluginDescriptions {
         'uniso' = 'UnISO plugin for Open Salamander'
         'unlha' = 'UnLHA plugin for Open Salamander'
         'unmime' = 'UnMIME plugin for Open Salamander'
-        'unole' = 'UnOLE plugin for Open Salamander'
+        'unole' = 'UnOLE2 plugin for Open Salamander'
         'unrar' = 'UnRAR plugin for Open Salamander'
         'webview2renderviewer' = 'WebView2 Render Viewer .NET plugin for Open Salamander'
         'wmobile' = 'Windows Mobile plugin for Open Salamander'
@@ -241,8 +241,8 @@ if (-not $PluginDescription) {
 
 $title = 'plugin {0} {1} (x64) for Open Salamander 5.0' -f $PluginName, $PluginVersion
 $body = @"
-# $PluginName $PluginVersion
-$PluginDescription
+## $PluginName $PluginVersion (x64)
+**$PluginDescription**
 
 CRC: $(Get-Crc32 -Path $archive.FullName)
 MD5: $((Get-FileHash -LiteralPath $archive.FullName -Algorithm MD5).Hash)

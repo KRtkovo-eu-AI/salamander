@@ -26,7 +26,7 @@
 #define VERSINFO_COPYRIGHT   "Copyleft 2026 Ondrej Kotas (KRtekTM), KRtkovo.eu"
 #define VERSINFO_COMPANY     "Open Salamander"
 
-#define VERSINFO_DESCRIPTION "Managed demo plugin for Open Salamander"
+#define VERSINFO_DESCRIPTION "Show local Hyper-V virtual machines in the panel"
 
 #ifdef _LANG
 #define VERSINFO_INTERNAL    "ENGLISH"
