@@ -31,3 +31,11 @@
 ## Troubleshooting
 - If activation fails after switching Python versions, rerun `uv sync`.
 - Delete the `.venv` directory inside `tools/` and `uv sync` again to rebuild a broken environment.
+
+## Prefilled plugin release URLs
+- Build plugin archives with `tools/package_salamander_plugins.ps1` first.
+- Generate a GitHub release form URL for one archive with:
+  ```powershell
+  .\tools\new_plugin_release_url.ps1 -ArchivePath .\plugin-packages-x64\plugin_5.0_ftp_5.01_x64.7z
+  ```
+- The generated URL targets `KRtkovo-eu-AI/salamander-plugins` by default and pre-fills the release tag, title, body, plugin description, CRC32, MD5, SHA1, and SHA256. Add `-PluginDescription` only if you need to override the built-in source-code description table. The script opens the URL in a browser by default; add `-NoOpen` if you only want to print it, or `-CopyToClipboard` to copy the URL.
