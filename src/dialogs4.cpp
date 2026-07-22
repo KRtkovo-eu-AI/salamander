@@ -20,6 +20,7 @@
 #include "find.h"
 #include "gui.h"
 #include "darkmode.h"
+#include "svg.h"
 #include <uxtheme.h>
 
 #ifndef DARKMODE_TRACE_CTLFLOW
@@ -33,6 +34,14 @@ static void DarkModeTracePageThemeEvent(const char* pageName, UINT uMsg)
     TRACE_I("[DARKMODE_TRACE] page=%s event=%s", pageName, msg);
 }
 #endif
+
+static void UpdateConfigListViewColors(HWND listView)
+{
+    if (DarkModeShouldUseDarkColors())
+        DarkModeUpdateListViewColors(listView);
+    else
+        DarkModeUpdateListViewColors(listView, GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_WINDOW), false);
+}
 
 static bool DarkModeTryHandleCtlColorForDialogPage(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR& outResult)
 {
@@ -956,6 +965,9 @@ int CConfiguration::GetMainWindowIconIndex()
 // CConfigurationDlg
 //
 
+const int ConfigurationDialogDefaultWidthExtra = 50;
+const int ConfigurationViewsDefaultAvailableColumnsWidthExtra = 50;
+
 CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                                      int mode, int param)
     : CTreePropDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION),
@@ -969,7 +981,8 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                       &Configuration.LastFocusedPage,
                       &Configuration.ConfigurationHeight,
                       &Configuration.ConfigurationWidth,
-                      &Configuration.ConfigurationTreeWidth),
+                      &Configuration.ConfigurationTreeWidth,
+                      ConfigurationDialogDefaultWidthExtra),
       TabsPageVisible(TRUE),
       PageView(mode == 4 ? param : -1), //-1 = active panel
       PageUserMenu(userMenuItems),
@@ -1497,6 +1510,7 @@ CCfgPageView::CCfgPageView(int index)
     HListView = NULL;
     Header2 = NULL;
     HListView2 = NULL;
+    HAvailableColumnsImageList = NULL;
     HAvailableColumnsFilter = NULL;
     AvailableColumnsFilterVisible = FALSE;
     AvailableColumnsFilterText[0] = 0;
@@ -1820,7 +1834,8 @@ void CCfgPageView::LoadControls()
             if (!AvailableColumnMatchesFilter(columnName))
                 continue;
             LVITEM lvi;
-            lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM;
+            lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM | LVIF_IMAGE;
+            lvi.iImage = I_IMAGENONE;
             lvi.iItem = ListView_GetItemCount(HListView2);
             lvi.iSubItem = 0;
             lvi.state = 0;
@@ -1834,7 +1849,8 @@ void CCfgPageView::LoadControls()
         {
             int explorerIndex = Config.Items[index].ExplorerColumnOrder[i];
             LVITEM lvi;
-            lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM;
+            lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM | LVIF_IMAGE;
+            lvi.iImage = 0;
             if (!AvailableColumnMatchesFilter(GetExplorerColumnName(explorerIndex)))
                 continue;
             lvi.iItem = ListView_GetItemCount(HListView2);
@@ -2147,6 +2163,19 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ListView_InsertColumn(HListView, 2, &lvc);
         ListView_SetColumnWidth(HListView, 2, LVSCW_AUTOSIZE_USEHEADER);
 
+        int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+        HAvailableColumnsImageList = ImageList_Create(iconSize, iconSize, ILC_COLOR32, 1, 1);
+        if (HAvailableColumnsImageList != NULL)
+        {
+            HBITMAP hBitmap = NULL;
+            if (RenderSVGIconBitmap("Windows", iconSize, TRUE, &hBitmap))
+            {
+                ImageList_Add(HAvailableColumnsImageList, hBitmap, NULL);
+                DeleteObject(hBitmap);
+                ListView_SetImageList(HListView2, HAvailableColumnsImageList, LVSIL_SMALL);
+            }
+        }
+
         // insert the Name column into the list view with columns
         GetClientRect(HListView2, &r);
         lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_FMT;
@@ -2173,13 +2202,15 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ViewsListGap = rightTop.x - leftBottom.x;
         if (Configuration.ConfigurationViewsRightWidth != 0)
             AvailableColumnsWidth = Configuration.ConfigurationViewsRightWidth;
+        else
+            AvailableColumnsWidth += ConfigurationViewsDefaultAvailableColumnsWidthExtra;
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
         LayoutViewsListControls();
 
-        DarkModeUpdateListViewColors(HListView);
-        DarkModeUpdateListViewColors(HListView2);
+        UpdateConfigListViewColors(HListView);
+        UpdateConfigListViewColors(HListView2);
         RemoveListViewsWhiteClientEdge(HListView, HListView2);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
@@ -2273,10 +2304,21 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_DESTROY:
+    {
+        if (HAvailableColumnsImageList != NULL)
+        {
+            ListView_SetImageList(HListView2, NULL, LVSIL_SMALL);
+            ImageList_Destroy(HAvailableColumnsImageList);
+            HAvailableColumnsImageList = NULL;
+        }
+        break;
+    }
+
     case WM_SYSCOLORCHANGE:
     {
-        DarkModeUpdateListViewColors(HListView);
-        DarkModeUpdateListViewColors(HListView2);
+        UpdateConfigListViewColors(HListView);
+        UpdateConfigListViewColors(HListView2);
         RemoveListViewsWhiteClientEdge(HListView, HListView2);
         break;
     }

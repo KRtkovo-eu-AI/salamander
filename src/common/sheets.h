@@ -201,10 +201,14 @@ protected:
     DWORD* WindowHeight; // aktualni vyska dialogu
     DWORD* WindowWidth;  // aktualni sirka dialogu
     DWORD* WindowTreeWidth; // uzivatelska sirka treeview
+    int PendingWindowHeight; // size to save only if dialog is confirmed with OK
+    int PendingWindowWidth;  // size to save only if dialog is confirmed with OK
+    int DefaultWidthExtra; // extra width used only when no stored window width exists
     int TreeWidth;       // sirka treeview, pocitana na zaklade obsahu
     int MinTreeWidth;    // minimalni sirka treeview
     int MinChildWidth;   // minimalni sirka praveho panelu
     BOOL TreeSplitDragging;
+    BOOL TreeWidthChanged;
     int CaptionHeight;   // vyska titulku
     SIZE ButtonSize;     // rozmery tlacitek na spodni hrane dialogu
     int ButtonMargin;    // mezera mezi tlacitky
@@ -212,7 +216,7 @@ protected:
     SIZE MarginSize;     // vodorovny a svisly okraj
 
 public:
-    CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth);
+    CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth, int defaultWidthExtra = 0);
 
     int ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate);
 
@@ -224,6 +228,7 @@ protected:
     int BuildAndMeasureTree();
     void EnableButtons();
     BOOL SelectPage(int pageIndex);
+    void SaveWindowPlacement();
 
     friend class CTreePropDialog;
 };
@@ -237,9 +242,10 @@ protected:
 public:
     CTreePropDialog(HWND hParent, HINSTANCE hInstance, TCHAR* caption,
                     int startPage, DWORD flags, DWORD* lastPage,
-                    DWORD* windowHeight, DWORD* windowWidth = NULL, DWORD* windowTreeWidth = NULL)
+                    DWORD* windowHeight, DWORD* windowWidth = NULL, DWORD* windowTreeWidth = NULL,
+                    int defaultWidthExtra = 0)
         : CPropertyDialog(hParent, hInstance, caption, startPage, flags, NULL, lastPage),
-          Dialog(hParent, windowHeight, windowWidth, windowTreeWidth)
+          Dialog(hParent, windowHeight, windowWidth, windowTreeWidth, defaultWidthExtra)
     {
         Dialog.TPD = this;
     }

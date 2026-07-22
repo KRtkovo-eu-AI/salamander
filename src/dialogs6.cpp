@@ -2524,6 +2524,103 @@ CDriveSelectErrDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageIconOvrls
 //
 
+static void UpdateIconOverlaysListViewColors(HWND listView)
+{
+    if (DarkModeShouldUseDarkColors())
+        DarkModeUpdateListViewColors(listView);
+    else
+        DarkModeUpdateListViewColors(listView, GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_WINDOW), false);
+}
+
+static const UINT_PTR ICONOVRLS_DISABLED_OVERLAY_SUBCLASS_ID = 1;
+
+static BOOL IsIconOverlaysListDisabled(HWND listView)
+{
+    HWND page = listView != NULL ? GetParent(listView) : NULL;
+    return page != NULL && IsDlgButtonChecked(page, IDC_ICONOVRLS_ENABLE) != BST_CHECKED;
+}
+
+static void DrawIconOverlaysDisabledOverlay(HWND hwnd, HWND listView)
+{
+    if (!IsIconOverlaysListDisabled(listView))
+        return;
+
+    HDC hdc = HANDLES(GetDC(hwnd));
+    if (hdc == NULL)
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    int width = client.right - client.left;
+    int height = client.bottom - client.top;
+    if (width > 0 && height > 0)
+    {
+        HDC memDC = HANDLES(CreateCompatibleDC(hdc));
+        HBITMAP bitmap = HANDLES(CreateCompatibleBitmap(hdc, width, height));
+        if (memDC != NULL && bitmap != NULL)
+        {
+            HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, bitmap);
+            COLORREF overlayColor = DarkModeShouldUseDarkColors() ? RGB(80, 80, 80) : GetSysColor(COLOR_BTNFACE);
+            HBRUSH brush = HANDLES(CreateSolidBrush(overlayColor));
+            if (brush != NULL)
+            {
+                RECT overlayRect = {0, 0, width, height};
+                FillRect(memDC, &overlayRect, brush);
+                DeleteObject(brush);
+
+                BLENDFUNCTION blend = {AC_SRC_OVER, 0, 140, 0};
+                if (!AlphaBlend(hdc, 0, 0, width, height, memDC, 0, 0, width, height, blend))
+                    FillRect(hdc, &client, (HBRUSH)(COLOR_BTNFACE + 1));
+            }
+            SelectObject(memDC, oldBitmap);
+        }
+        if (bitmap != NULL)
+            DeleteObject(bitmap);
+        if (memDC != NULL)
+            DeleteDC(memDC);
+    }
+
+    HANDLES(ReleaseDC(hwnd, hdc));
+}
+
+static LRESULT CALLBACK IconOverlaysDisabledOverlaySubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                                            UINT_PTR subclassId, DWORD_PTR refData)
+{
+    if (msg == WM_NCDESTROY)
+        RemoveWindowSubclass(hwnd, IconOverlaysDisabledOverlaySubclass, subclassId);
+
+    HWND listView = (HWND)refData;
+    if (IsIconOverlaysListDisabled(listView))
+    {
+        switch (msg)
+        {
+        case WM_LBUTTONDOWN:
+        case WM_LBUTTONUP:
+        case WM_LBUTTONDBLCLK:
+        case WM_RBUTTONDOWN:
+        case WM_RBUTTONUP:
+        case WM_RBUTTONDBLCLK:
+        case WM_KEYDOWN:
+        case WM_KEYUP:
+        case WM_CHAR:
+            return 0;
+
+        case WM_SETFOCUS:
+        {
+            HWND page = GetParent(listView);
+            if (hwnd == listView && page != NULL)
+                SetFocus(GetDlgItem(page, IDC_ICONOVRLS_ENABLE));
+            return 0;
+        }
+        }
+    }
+
+    LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+    if (msg == WM_PAINT || msg == WM_PRINTCLIENT)
+        DrawIconOverlaysDisabledOverlay(hwnd, listView);
+    return result;
+}
+
 CCfgPageIconOvrls::CCfgPageIconOvrls()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_ICONOVRLS, IDD_CFGPAGE_ICONOVRLS, PSP_USETITLE, NULL)
 {
@@ -2588,8 +2685,17 @@ void CCfgPageIconOvrls::Transfer(CTransferInfo& ti)
 void CCfgPageIconOvrls::EnableControls()
 {
     BOOL enable = IsDlgButtonChecked(HWindow, IDC_ICONOVRLS_ENABLE) == BST_CHECKED;
-    if ((IsWindowEnabled(HListView) != 0) != enable)
-        EnableWindow(HListView, enable);
+    LONG_PTR style = GetWindowLongPtr(HListView, GWL_STYLE);
+    LONG_PTR newStyle = enable ? (style | WS_TABSTOP) : (style & ~WS_TABSTOP);
+    if (newStyle != style)
+        SetWindowLongPtr(HListView, GWL_STYLE, newStyle);
+    if (!enable && GetFocus() == HListView)
+        SetFocus(GetDlgItem(HWindow, IDC_ICONOVRLS_ENABLE));
+
+    InvalidateRect(HListView, NULL, TRUE);
+    HWND header = ListView_GetHeader(HListView);
+    if (header != NULL)
+        InvalidateRect(header, NULL, TRUE);
 }
 
 INT_PTR
@@ -2622,7 +2728,7 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // dialog elements should stretch depending on its size, set split controls
         ElasticVerticalLayout(1, IDC_ICONOVRLS_LIST);
 
-        DarkModeUpdateListViewColors(HListView);
+        UpdateIconOverlaysListViewColors(HListView);
         RemoveListViewWhiteClientEdge(HListView);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
@@ -2633,6 +2739,13 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DarkModeApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
+
+        SetWindowSubclass(HListView, IconOverlaysDisabledOverlaySubclass,
+                          ICONOVRLS_DISABLED_OVERLAY_SUBCLASS_ID, (DWORD_PTR)HListView);
+        HWND header = ListView_GetHeader(HListView);
+        if (header != NULL)
+            SetWindowSubclass(header, IconOverlaysDisabledOverlaySubclass,
+                              ICONOVRLS_DISABLED_OVERLAY_SUBCLASS_ID, (DWORD_PTR)HListView);
 
         break;
     }
@@ -2654,7 +2767,7 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SYSCOLORCHANGE:
     {
-        DarkModeUpdateListViewColors(HListView);
+        UpdateIconOverlaysListViewColors(HListView);
         RemoveListViewWhiteClientEdge(HListView);
         break;
     }
