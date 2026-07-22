@@ -17,7 +17,7 @@
 ; the fallback path below is relative to this .iss file.
 
 #define AppToInstallName "Open Salamander Samandarin"
-#define SamandarinVersion "0.12"
+#define SamandarinVersion "0.13"
 #define AppToInstallDisplayName "Open Salamander 5.0 Samandarin " + SamandarinVersion + " (x64)"
 #define AppToInstallVersion "5.0-samandarin-" + SamandarinVersion
 #define AppToInstallPublisher "Ondřej Kotas (KRtekTM)"
