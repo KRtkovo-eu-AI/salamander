@@ -8,8 +8,8 @@ an immediate plugins subdirectory. Every immediate child directory under plugins
 packed as a whole directory, so the archive contains e.g. automation\automation.spl
 instead of only automation.spl at the archive root.
 
-Archive names use the plugin directory name, the version read from the first plugin
-binary (*.spl preferred, then *.dll/*.exe), and the x64 suffix:
+Archive names use the plugin directory name, the plugin file version read from
+the first plugin binary (*.spl preferred, then *.dll/*.exe), and the x64 suffix:
   <plugin>_<version>_x64.7z
 
 .PARAMETER SalamanderPath
@@ -105,6 +105,28 @@ function Convert-ToArchiveSafeVersion {
     return $normalized
 }
 
+function Get-VersionStringFromFileVersionInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Diagnostics.FileVersionInfo]$VersionInfo
+    )
+
+    if ($VersionInfo.FileMajorPart -ne 0 -or $VersionInfo.FileMinorPart -ne 0) {
+        $version = '{0}.{1}' -f $VersionInfo.FileMajorPart, $VersionInfo.FileMinorPart
+        if ($VersionInfo.FileBuildPart -ne 0) {
+            $version = '{0}{1}' -f $version, $VersionInfo.FileBuildPart
+        }
+
+        return $version
+    }
+
+    if ($VersionInfo.FileVersion) {
+        return $VersionInfo.FileVersion -replace '\s*\((?:x86|x64)\)\s*$', ''
+    }
+
+    throw 'File version metadata is empty.'
+}
+
 function Get-PluginVersion {
     param(
         [Parameter(Mandatory = $true)]
@@ -121,9 +143,11 @@ function Get-PluginVersion {
     }
 
     $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($binary.FullName)
-    $version = if ($info.ProductVersion) { $info.ProductVersion } else { $info.FileVersion }
-    if (-not $version) {
-        throw "Cannot read version metadata from '$($binary.FullName)'."
+    try {
+        $version = Get-VersionStringFromFileVersionInfo -VersionInfo $info
+    }
+    catch {
+        throw "Cannot read plugin file version from '$($binary.FullName)': $_"
     }
 
     return Convert-ToArchiveSafeVersion -Version $version
