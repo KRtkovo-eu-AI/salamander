@@ -1031,6 +1031,7 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly Label _statusLabel;
     private readonly ContextMenuStrip _listContextMenu;
     private readonly ImageList _pluginImages;
+    private readonly Dictionary<string, string> _catalogImageKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Label _detailNameValue;
     private readonly Label _detailAuthorValue;
     private readonly Label _detailInstalledValue;
@@ -1220,6 +1221,7 @@ internal sealed class PluginUpdatesDialog : Form
             var result = await PluginCatalogService.CheckAsync().ConfigureAwait(true);
             _rows.Clear();
             _rows.AddRange(result);
+            await EnsureCatalogImagesAsync(_rows).ConfigureAwait(true);
             BindRows();
             _statusLabel.Text = PluginCatalogService.LastErrors.Count == 0
                 ? NativeStrings.Get(NativeStringId.PluginUpdatesReady)
@@ -1285,7 +1287,7 @@ internal sealed class PluginUpdatesDialog : Form
 
     private string EnsurePluginImage(PluginUpdateRow row)
     {
-        var catalogIconKey = EnsureCatalogIconImage(row);
+        var catalogIconKey = GetCachedCatalogIconImageKey(row);
         if (!string.IsNullOrEmpty(catalogIconKey))
         {
             return catalogIconKey;
@@ -1318,32 +1320,54 @@ internal sealed class PluginUpdatesDialog : Form
         return string.Empty;
     }
 
-    private string EnsureCatalogIconImage(PluginUpdateRow row)
+    private async Task EnsureCatalogImagesAsync(IEnumerable<PluginUpdateRow> rows)
     {
-        var iconReference = row.CatalogIconReference;
-        if (string.IsNullOrWhiteSpace(iconReference) || string.Equals(iconReference, "plugin", StringComparison.OrdinalIgnoreCase))
+        foreach (var row in rows)
+        {
+            if (!string.IsNullOrEmpty(GetCachedCatalogIconImageKey(row)))
+            {
+                continue;
+            }
+
+            await EnsureCatalogIconImageAsync(row).ConfigureAwait(true);
+        }
+    }
+
+    private string GetCachedCatalogIconImageKey(PluginUpdateRow row)
+    {
+        if (!TryResolveCatalogIconReference(row, out var resolvedIcon))
         {
             return string.Empty;
         }
 
-        var resolvedIcon = ResolveCatalogIconReference(iconReference!, row.CatalogSourceUrl);
-        if (string.IsNullOrWhiteSpace(resolvedIcon))
+        return _catalogImageKeys.TryGetValue(resolvedIcon, out var key) && _pluginImages.Images.ContainsKey(key) ? key : string.Empty;
+    }
+
+    private async Task EnsureCatalogIconImageAsync(PluginUpdateRow row)
+    {
+        if (!TryResolveCatalogIconReference(row, out var resolvedIcon))
         {
-            return string.Empty;
+            return;
         }
 
         var key = "catalog:" + resolvedIcon;
         if (_pluginImages.Images.ContainsKey(key))
         {
-            return key;
+            _catalogImageKeys[resolvedIcon] = key;
+            return;
         }
 
         try
         {
             if (Uri.TryCreate(resolvedIcon, UriKind.Absolute, out var uri) && !uri.IsFile)
             {
-                var bytes = SharedHttpClient.Instance.GetByteArrayAsync(uri).GetAwaiter().GetResult();
-                using var stream = new MemoryStream(bytes);
+                using var request = new HttpRequestMessage(HttpMethod.Get, AddNoCacheQuery(uri));
+                request.Headers.Accept.ParseAdd("image/*");
+                request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true, MaxAge = TimeSpan.Zero };
+                request.Headers.Pragma.ParseAdd("no-cache");
+                using var response = await SharedHttpClient.Instance.SendAsync(request).ConfigureAwait(true);
+                response.EnsureSuccessStatusCode();
+                using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(true);
                 AddCatalogImageFromStream(key, stream, resolvedIcon);
             }
             else
@@ -1353,11 +1377,13 @@ internal sealed class PluginUpdatesDialog : Form
                 AddCatalogImageFromStream(key, stream, path);
             }
 
-            return _pluginImages.Images.ContainsKey(key) ? key : string.Empty;
+            if (_pluginImages.Images.ContainsKey(key))
+            {
+                _catalogImageKeys[resolvedIcon] = key;
+            }
         }
         catch
         {
-            return string.Empty;
         }
     }
 
@@ -1371,8 +1397,39 @@ internal sealed class PluginUpdatesDialog : Form
         }
 
         using var image = Image.FromStream(stream);
-        using var bitmap = new Bitmap(image, _pluginImages.ImageSize);
+        using var bitmap = CreateImageListBitmap(image, _pluginImages.ImageSize);
         _pluginImages.Images.Add(key, bitmap);
+    }
+
+    private static Bitmap CreateImageListBitmap(Image image, System.Drawing.Size size)
+    {
+        var bitmap = new Bitmap(size.Width, size.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.Transparent);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+        var scale = Math.Min((double)size.Width / image.Width, (double)size.Height / image.Height);
+        var width = Math.Max(1, (int)Math.Round(image.Width * scale));
+        var height = Math.Max(1, (int)Math.Round(image.Height * scale));
+        var x = (size.Width - width) / 2;
+        var y = (size.Height - height) / 2;
+        graphics.DrawImage(image, x, y, width, height);
+        return bitmap;
+    }
+
+    private static bool TryResolveCatalogIconReference(PluginUpdateRow row, out string resolvedIcon)
+    {
+        resolvedIcon = string.Empty;
+        var iconReference = row.CatalogIconReference;
+        if (string.IsNullOrWhiteSpace(iconReference) || string.Equals(iconReference, "plugin", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        resolvedIcon = ResolveCatalogIconReference(iconReference!, row.CatalogSourceUrl);
+        return !string.IsNullOrWhiteSpace(resolvedIcon);
     }
 
     private static string ResolveCatalogIconReference(string iconReference, string catalogSourceUrl)
@@ -1389,6 +1446,12 @@ internal sealed class PluginUpdatesDialog : Form
         }
 
         return trimmed;
+    }
+
+    private static Uri AddNoCacheQuery(Uri uri)
+    {
+        var separator = string.IsNullOrEmpty(uri.Query) ? "?" : "&";
+        return new Uri(uri, uri.PathAndQuery + separator + "samandarinRefresh=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture));
     }
 
     private void UpdateDetails()
