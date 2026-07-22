@@ -1258,7 +1258,7 @@ internal sealed class PluginUpdatesDialog : Form
             _listView.Items.Clear();
             foreach (var row in rows)
             {
-                var item = new ListViewItem(row.IconLabel) { Tag = row, ImageKey = EnsurePluginImage(row) };
+                var item = new ListViewItem(string.Empty) { Tag = row, ImageKey = EnsurePluginImage(row) };
                 item.SubItems.Add(row.Source);
                 item.SubItems.Add(row.Name);
                 item.SubItems.Add(row.InstalledVersion);
@@ -1285,6 +1285,12 @@ internal sealed class PluginUpdatesDialog : Form
 
     private string EnsurePluginImage(PluginUpdateRow row)
     {
+        var catalogIconKey = EnsureCatalogIconImage(row);
+        if (!string.IsNullOrEmpty(catalogIconKey))
+        {
+            return catalogIconKey;
+        }
+
         if (string.IsNullOrWhiteSpace(row.IconPath))
         {
             return string.Empty;
@@ -1310,6 +1316,79 @@ internal sealed class PluginUpdatesDialog : Form
         }
 
         return string.Empty;
+    }
+
+    private string EnsureCatalogIconImage(PluginUpdateRow row)
+    {
+        var iconReference = row.CatalogIconReference;
+        if (string.IsNullOrWhiteSpace(iconReference) || string.Equals(iconReference, "plugin", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        var resolvedIcon = ResolveCatalogIconReference(iconReference!, row.CatalogSourceUrl);
+        if (string.IsNullOrWhiteSpace(resolvedIcon))
+        {
+            return string.Empty;
+        }
+
+        var key = "catalog:" + resolvedIcon;
+        if (_pluginImages.Images.ContainsKey(key))
+        {
+            return key;
+        }
+
+        try
+        {
+            if (Uri.TryCreate(resolvedIcon, UriKind.Absolute, out var uri) && !uri.IsFile)
+            {
+                var bytes = SharedHttpClient.Instance.GetByteArrayAsync(uri).GetAwaiter().GetResult();
+                using var stream = new MemoryStream(bytes);
+                AddCatalogImageFromStream(key, stream, resolvedIcon);
+            }
+            else
+            {
+                var path = Uri.TryCreate(resolvedIcon, UriKind.Absolute, out var fileUri) && fileUri.IsFile ? fileUri.LocalPath : resolvedIcon;
+                using var stream = File.OpenRead(path);
+                AddCatalogImageFromStream(key, stream, path);
+            }
+
+            return _pluginImages.Images.ContainsKey(key) ? key : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private void AddCatalogImageFromStream(string key, Stream stream, string source)
+    {
+        if (Path.GetExtension(source).Equals(".ico", StringComparison.OrdinalIgnoreCase))
+        {
+            using var icon = new Icon(stream, _pluginImages.ImageSize);
+            _pluginImages.Images.Add(key, icon);
+            return;
+        }
+
+        using var image = Image.FromStream(stream);
+        using var bitmap = new Bitmap(image, _pluginImages.ImageSize);
+        _pluginImages.Images.Add(key, bitmap);
+    }
+
+    private static string ResolveCatalogIconReference(string iconReference, string catalogSourceUrl)
+    {
+        var trimmed = iconReference.Trim();
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var absoluteUri))
+        {
+            return absoluteUri.ToString();
+        }
+
+        if (!string.IsNullOrWhiteSpace(catalogSourceUrl) && Uri.TryCreate(catalogSourceUrl, UriKind.Absolute, out var catalogUri))
+        {
+            return new Uri(catalogUri, trimmed).ToString();
+        }
+
+        return trimmed;
     }
 
     private void UpdateDetails()
@@ -1459,7 +1538,7 @@ internal sealed class PluginUpdatesDialog : Form
             4 => row.LatestVersion,
             5 => row.StatusText,
             6 => row.Author,
-            _ => row.IconLabel,
+            _ => row.Name,
         };
     }
 }
@@ -1757,6 +1836,7 @@ internal static class PluginCatalogService
 
                 foreach (var entry in manifest.plugins.Where(entry => !string.IsNullOrWhiteSpace(entry.id)))
                 {
+                    entry.sourceUrl = source;
                     entry.source = string.IsNullOrWhiteSpace(manifest.catalogName) ? source : manifest.catalogName;
                     catalog.Add(entry);
                 }
@@ -1828,14 +1908,14 @@ internal static class PluginCatalogService
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty);
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
     {
         if (entry is null)
         {
-            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty);
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty, string.Empty);
         }
 
         var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
@@ -1851,7 +1931,7 @@ internal static class PluginCatalogService
         var displayName = IsTotalCommanderProxyCatalogEntry(entry) && IsTotalCommanderProxyInstance(plugin)
             ? plugin.DisplayName
             : LocalizedText.Resolve(entry.name) ?? plugin.DisplayName;
-        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty);
+        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -2114,6 +2194,7 @@ internal sealed class PluginCatalogEntry
     public string? homepageUrl { get; set; }
     public string? downloadPageUrl { get; set; }
     public string? source { get; set; }
+    public string? sourceUrl { get; set; }
 }
 
 internal static class LocalizedText
@@ -2266,7 +2347,7 @@ internal static class InstalledPluginVersionFormatter
 
 internal sealed class PluginUpdateRow
 {
-    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? iconLabel)
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? catalogIconReference, string? catalogSourceUrl)
     {
         Name = name;
         InstalledVersion = installedVersion;
@@ -2279,7 +2360,8 @@ internal sealed class PluginUpdateRow
         WebUrl = webUrl;
         Description = description;
         IconPath = iconPath ?? string.Empty;
-        IconLabel = iconLabel ?? string.Empty;
+        CatalogIconReference = catalogIconReference ?? string.Empty;
+        CatalogSourceUrl = catalogSourceUrl ?? string.Empty;
     }
 
     public string Name { get; }
@@ -2293,9 +2375,10 @@ internal sealed class PluginUpdateRow
     public string? WebUrl { get; }
     public string Description { get; }
     public string IconPath { get; }
-    public string IconLabel { get; }
+    public string CatalogIconReference { get; }
+    public string CatalogSourceUrl { get; }
 
-    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty, null, string.Empty);
+    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty, null, string.Empty, string.Empty);
 }
 
 internal static class VersionComparer
