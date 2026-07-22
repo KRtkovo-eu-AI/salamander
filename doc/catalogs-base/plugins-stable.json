@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-21T03:38:34Z",
+  "generatedAt": "2026-07-22T03:04:21Z",
   "plugins": [
     {
       "id": "7zip",
@@ -22,7 +22,7 @@
         "romanian": "Creaza, rasfoieste si extrage arhivele 7-Zip.",
         "spanish": "Crear, hojear y extraer archivos 7-Zip."
       },
-      "latestVersion": "1.33 (x64)",
+      "latestVersion": "1.34 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
@@ -127,7 +127,7 @@
         "romanian": "Afiseaza o harta arborescenta a fisierelor de pe disk-ul dumneavoastra.",
         "spanish": "Muestra un mapa con los ficheros del disco."
       },
-      "latestVersion": "1.12 (x64)",
+      "latestVersion": "1.13 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
@@ -302,7 +302,7 @@
         "romanian": "SFV, MD5, SHA-1, SHA-256, si SHA-512 checksum verificator si calculator.",
         "spanish": "Verificador y calculador de sumas SFV, MD5, SHA-1, SHA-256 y SHA-512."
       },
-      "latestVersion": "2.2 (x64)",
+      "latestVersion": "2.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
@@ -922,7 +922,7 @@
       "description": {
         "english": "UnCHM plugin for Open Salamander"
       },
-      "latestVersion": "1.04 (x64)",
+      "latestVersion": "1.05 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",
@@ -1142,7 +1142,7 @@
         "romanian": "Creaza, rasfoieste, si extrage arhivele ZIP.",
         "spanish": "Crear, hojear y extraer archivos ZIP."
       },
-      "latestVersion": "1.6 (x64)",
+      "latestVersion": "1.7 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/download",
       "downloadPageUrl": "https://samandarin.krtkovo.eu/download",

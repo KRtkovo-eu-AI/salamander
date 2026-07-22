@@ -1971,11 +1971,11 @@ begin
   PluginList.Items.Clear;
   SetArrayLength(PluginIds, 0);
 
-  AddPlugin('7zip', '7-Zip', '1.33 (x64)', True);
+  AddPlugin('7zip', '7-Zip', '1.34 (x64)', True);
   AddPlugin('automation', 'Automation', '2.0 (x64)', True);
-  AddPlugin('checksum', 'Checksum', '2.2 (x64)', True);
+  AddPlugin('checksum', 'Checksum', '2.3 (x64)', True);
   AddPlugin('dbviewer', 'DB Viewer', '1.25 (x64)', True);
-  AddPlugin('diskmap', 'DiskMap', '1.12 (x64)', True);
+  AddPlugin('diskmap', 'DiskMap', '1.13 (x64)', True);
   AddPlugin('filecomp', 'File Comparator', '1.20 (x64)', True);
   AddPlugin('folders', 'Folders', '0.2 (x64)', True);
   AddPlugin('ftp', 'FTP Client', '1.36 (x64)', True);
@@ -1998,7 +1998,7 @@ begin
   AddPlugin('textviewer', 'Text Viewer', '1.02 (x64)', True);
   AddPlugin('unarj', 'UnARJ', '1.22 (x64)', True);
   AddPlugin('uncab', 'UnCAB', '1.28 (x64)', True);
-  AddPlugin('unchm', 'UnCHM', '1.04 (x64)', True);
+  AddPlugin('unchm', 'UnCHM', '1.05 (x64)', True);
   AddPlugin('undelete', 'Undelete', '1.12 (x64)', True);
   AddPlugin('unfat', 'UnFAT', '1.2 (x64)', True);
   AddPlugin('uniso', 'UnISO', '1.38 (x64)', True);
@@ -2008,7 +2008,7 @@ begin
   AddPlugin('unrar', 'UnRAR', '3.03 (x64)', True);
   AddPlugin('webview2renderviewer', 'WebView2 Render Viewer', '1.03 (x64)', True);
   AddPlugin('wmobile', 'Windows Mobile', '1.09 (x64)', True);
-  AddPlugin('zip', 'ZIP', '1.6 (x64)', True);
+  AddPlugin('zip', 'ZIP', '1.7 (x64)', True);
   AddPlugin('demoplug', '[DEV] DemoPlug', '1.96 (x64)', False);
 end;
 
