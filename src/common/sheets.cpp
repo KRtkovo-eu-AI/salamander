@@ -1242,7 +1242,7 @@ CTPHGripWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     return CWindow::WindowProc(uMsg, wParam, lParam);
 }
 
-CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth)
+CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth, int defaultWidthExtra)
     : CDialog(NULL, 0, hParent, ooStatic)
 {
     HTreeView = NULL;
@@ -1256,9 +1256,13 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD*
     WindowHeight = windowHeight;
     WindowWidth = windowWidth;
     WindowTreeWidth = windowTreeWidth;
+    PendingWindowHeight = 0;
+    PendingWindowWidth = 0;
+    DefaultWidthExtra = defaultWidthExtra;
     MinTreeWidth = 0;
     MinChildWidth = 0;
     TreeSplitDragging = FALSE;
+    TreeWidthChanged = FALSE;
 }
 
 INT_PTR
@@ -1352,9 +1356,12 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                            ButtonSize.cy + MarginSize.cy + marginH;
 
         // nastavime uzivatelsky rozmer okna a provedeme layout prvku
+        BOOL useDefaultWidthExtra = WindowWidth != NULL && *WindowWidth == 0;
         int width = WindowWidth != NULL ? (int)*WindowWidth : r.right - r.left;
         if (width < MinWindowSize.cx + TreeWidth - MinTreeWidth)
             width = MinWindowSize.cx + TreeWidth - MinTreeWidth;
+        if (useDefaultWidthExtra)
+            width += DefaultWidthExtra;
         int height = (int)*WindowHeight;
         RECT clipR; // nechceme byt vetsi nez vyska obrazovky
         MultiMonGetClipRectByWindow(HWindow, &clipR, NULL);
@@ -1403,6 +1410,12 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return TRUE; // F1 nenechame propadnout do parenta ani pokud nevolame WinLibHelp->OnHelp()
     }
 
+    case WM_CLOSE:
+    {
+        ExitButton = IDCANCEL;
+        return TRUE;
+    }
+
     case WM_COMMAND:
     {
         switch (LOWORD(wParam))
@@ -1436,6 +1449,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     if (!TPD->At(i)->TransferData(ttDataFromWindow))
                         return TRUE;
             wParam = IDOK;
+            SaveWindowPlacement();
         }
         case IDCANCEL:
         {
@@ -1537,10 +1551,8 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         RECT r;
         GetWindowRect(HWindow, &r);
-        if (WindowHeight != NULL)
-            *WindowHeight = r.bottom - r.top;
-        if (WindowWidth != NULL)
-            *WindowWidth = r.right - r.left;
+        PendingWindowHeight = r.bottom - r.top;
+        PendingWindowWidth = r.right - r.left;
         LayoutControls();
         RepaintWindowTree(HWindow);
         break;
@@ -1590,8 +1602,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (newTreeWidth != TreeWidth)
             {
                 TreeWidth = newTreeWidth;
-                if (WindowTreeWidth != NULL)
-                    *WindowTreeWidth = TreeWidth;
+                TreeWidthChanged = TRUE;
                 LayoutControls();
             }
             SetCursor(LoadCursor(NULL, IDC_SIZEWE));
@@ -1807,6 +1818,16 @@ BOOL CTreePropHolderDlg::SelectPage(int pageIndex)
         EnableButtons();
     }
     return TRUE;
+}
+
+void CTreePropHolderDlg::SaveWindowPlacement()
+{
+    if (WindowHeight != NULL)
+        *WindowHeight = PendingWindowHeight;
+    if (WindowWidth != NULL)
+        *WindowWidth = PendingWindowWidth;
+    if (WindowTreeWidth != NULL && TreeWidthChanged)
+        *WindowTreeWidth = TreeWidth;
 }
 
 void CTreePropHolderDlg::OnCtrlTab(BOOL shift)

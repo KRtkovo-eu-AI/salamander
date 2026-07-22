@@ -599,6 +599,7 @@ protected:
     HWND HListView;
     CToolbarHeader* Header2;
     HWND HListView2;
+    HIMAGELIST HAvailableColumnsImageList;
     HWND HAvailableColumnsFilter;
     BOOL AvailableColumnsFilterVisible;
     char AvailableColumnsFilterText[100];

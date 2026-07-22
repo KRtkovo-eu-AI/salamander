@@ -1417,6 +1417,7 @@ Source: "{#PayloadDir}\toolbars\Properties.svg"; DestDir: "{app}\toolbars"; Flag
 Source: "{#PayloadDir}\toolbars\QuickRename.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Refresh.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\RootDirectory.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\Salamand.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Security.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\SharedDirectories.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ShowHiddenNames.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -1437,6 +1438,7 @@ Source: "{#PayloadDir}\toolbars\UserMenu.svg"; DestDir: "{app}\toolbars"; Flags:
 Source: "{#PayloadDir}\toolbars\View.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Views.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\WhatIsThis.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\Windows.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\pictview\Blue.svg"; DestDir: "{app}\toolbars\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\pictview\Copy.svg"; DestDir: "{app}\toolbars\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\pictview\Crop.svg"; DestDir: "{app}\toolbars\pictview"; Flags: ignoreversion
@@ -1520,9 +1522,9 @@ Source: "{#PayloadDir}\toolbars\darkmode\ChangeCase.svg"; DestDir: "{app}\toolba
 Source: "{#PayloadDir}\toolbars\darkmode\ChangeDirectory.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Modify.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Move.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
-Source: "{#PayloadDir}\toolbars\darkmode\MoveItemBottom.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\MoveItemBottom.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\MoveItemDown.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
-Source: "{#PayloadDir}\toolbars\darkmode\MoveItemTop.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\MoveItemTop.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\MoveItemUp.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\New.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\NTFSCompress.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
@@ -1536,6 +1538,7 @@ Source: "{#PayloadDir}\toolbars\darkmode\Properties.svg"; DestDir: "{app}\toolba
 Source: "{#PayloadDir}\toolbars\darkmode\QuickRename.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Refresh.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\RootDirectory.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\Salamand.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Security.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\SharedDirectories.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ShowHiddenNames.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
@@ -1556,6 +1559,7 @@ Source: "{#PayloadDir}\toolbars\darkmode\UserMenu.svg"; DestDir: "{app}\toolbars
 Source: "{#PayloadDir}\toolbars\darkmode\View.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Views.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\WhatIsThis.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\Windows.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\pictview\Blue.svg"; DestDir: "{app}\toolbars\darkmode\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\pictview\Copy.svg"; DestDir: "{app}\toolbars\darkmode\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\pictview\Crop.svg"; DestDir: "{app}\toolbars\darkmode\pictview"; Flags: ignoreversion
