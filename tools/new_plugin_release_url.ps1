@@ -109,7 +109,7 @@ function Get-Crc32 {
         [uint32]$crc = $i
         for ($j = 0; $j -lt 8; $j++) {
             if (($crc -band 1) -ne 0) {
-                $crc = (0xEDB88320 -bxor ($crc -shr 1))
+                $crc = ([uint32]3988292384 -bxor ($crc -shr 1))
             }
             else {
                 $crc = $crc -shr 1
@@ -118,7 +118,7 @@ function Get-Crc32 {
         $table[$i] = $crc
     }
 
-    [uint32]$result = 0xFFFFFFFF
+    [uint32]$result = [uint32]::MaxValue
     $buffer = New-Object byte[] 65536
     $stream = [System.IO.File]::OpenRead($Path)
     try {
@@ -133,7 +133,7 @@ function Get-Crc32 {
         $stream.Dispose()
     }
 
-    return ('{0:X8}' -f (-bnot $result -band 0xFFFFFFFF))
+    return ('{0:X8}' -f ($result -bxor [uint32]::MaxValue))
 }
 
 function Get-ReleaseArchiveMetadata {
