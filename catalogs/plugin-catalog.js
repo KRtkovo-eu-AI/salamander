@@ -13,6 +13,11 @@
       key: "unofficial",
       fallbackName: "Unofficial 3rd party",
       fileName: "plugins-unofficial.json"
+    },
+    {
+      key: "extension-runtimes",
+      fallbackName: "Extension Runtimes",
+      fileName: "extension-runtimes.json"
     }
   ];
 
