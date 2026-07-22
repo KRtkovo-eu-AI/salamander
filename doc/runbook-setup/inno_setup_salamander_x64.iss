@@ -1753,13 +1753,15 @@ end;
 procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
 var
   InstalledVersion: String;
+  Checked: Boolean;
 begin
   InstalledVersion := GetInstalledPluginVersion(PluginId);
+  Checked := CheckedByDefault or (InstalledVersion <> '');
   PluginList.AddCheckBox(
     DisplayName,
     FormatPluginVersionText(Version, InstalledVersion),
     0,
-    CheckedByDefault,
+    Checked,
     True,
     False,
     False,
