@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\checksum\checksum.atp"
-TEXTVERSION,"2.2 (x64)"
-VERSION,"2,2,0,194"
+TEXTVERSION,"2.3 (x64)"
+VERSION,"2,3,0,194"
 
 [TRANSLATION]
 LANGID,1048
@@ -61,6 +61,7 @@ COMMENT,"Versiunea romana"
 
 [STRINGTABLE 2]
 48,1,"Copie SHA-&512 Checksum in Clipboard\tCtrl+5"
+52,1,"Copiaza &Toate valorile in Clipboard"
 53,1,"&Elimina obiect\tSterge"
 54,1,"Fisierul '%s' exista deja.\nDoriti sa-l suprascrieti?"
 55,1,"Eroare la crearea fisierului."

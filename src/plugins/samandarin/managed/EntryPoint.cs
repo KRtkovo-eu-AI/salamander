@@ -1875,8 +1875,9 @@ internal sealed class PluginCatalogSource
 
 internal static class PluginCatalogSources
 {
-    private const string OfficialDefaultSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
-    private const string OfficialExternalSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json";
+    private const string StablePluginSource = "https://samandarin.krtkovo.eu/catalogs/plugins-stable.json";
+    private const string UnofficialExternalSource = "https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json";
+    private const string ExtensionRuntimesSource = "https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json";
 
     public static IReadOnlyList<PluginCatalogSource> Load()
     {
@@ -1885,8 +1886,9 @@ internal static class PluginCatalogSources
         {
             return new[]
             {
-                new PluginCatalogSource { Url = OfficialDefaultSource, Enabled = true },
-                new PluginCatalogSource { Url = OfficialExternalSource, Enabled = true },
+                new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
+                new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
+                new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
             };
         }
 
@@ -1922,8 +1924,9 @@ internal static class PluginCatalogSources
         {
             return new[]
             {
-                new PluginCatalogSource { Url = OfficialDefaultSource, Enabled = true },
-                new PluginCatalogSource { Url = OfficialExternalSource, Enabled = true },
+                new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
+                new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
+                new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
             };
         }
 
