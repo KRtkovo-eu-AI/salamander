@@ -36,7 +36,11 @@ Do not add the tag query parameter.
 Prefill the release form as a prerelease.
 
 .PARAMETER Open
-Open the generated URL in the default browser.
+Open the generated URL in the default browser. The script opens the URL by default;
+this switch is kept for explicit/compatible usage.
+
+.PARAMETER NoOpen
+Only print/copy the generated URL and do not open it in the default browser.
 
 .PARAMETER CopyToClipboard
 Copy the generated URL to the clipboard.
@@ -76,6 +80,8 @@ param(
     [switch]$Prerelease,
 
     [switch]$Open,
+
+    [switch]$NoOpen,
 
     [switch]$CopyToClipboard
 )
@@ -262,6 +268,11 @@ Write-Output $url
 if ($CopyToClipboard) {
     Set-Clipboard -Value $url
 }
-if ($Open) {
-    Start-Process $url
+if ($Open -or -not $NoOpen) {
+    try {
+        Start-Process $url
+    }
+    catch {
+        Write-Warning "Could not open release URL automatically: $_"
+    }
 }
