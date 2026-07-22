@@ -32,6 +32,7 @@ jobs:
     env:
       BUILD_CONFIGURATION: Release
       PROJECT_PATH: '.\\src\\vcxproj\\salamand.vcxproj'
+      SOLUTION_PATH: '.\\src\\vcxproj\\salamand.sln'
       LOG_DIRECTORY: build_logs
 
     steps:
@@ -118,8 +119,11 @@ jobs:
 
           Add-Content -Path $env:GITHUB_ENV -Value "LOG_PATH=$txtLog"
 
+          $buildPath = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { $env:SOLUTION_PATH } else { $env:PROJECT_PATH }
+          Write-Host "Building $buildPath"
+
           $arguments = @(
-            $env:PROJECT_PATH
+            $buildPath
             '/m'
             '/t:Rebuild'
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"

@@ -54,7 +54,8 @@ jobs:
           script: |
             if (context.eventName !== 'pull_request') {
               core.setOutput('has_build_relevant_changes', 'true');
-              core.info('Not a pull_request event; PR build will run.');
+              core.setOutput('changed_files_json', '[]');
+              core.info('Not a pull_request event; PR build will run for the full solution.');
               return;
             }
 
@@ -138,7 +139,7 @@ jobs:
           .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet '${{ matrix.sftp_triplet }}'
 
       - name: Select changed projects
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        if: github.event_name == 'pull_request' && steps.build_changes.outputs.has_build_relevant_changes == 'true'
         id: changed_projects
         env:
           CHANGED_FILES_JSON: ${{ steps.build_changes.outputs.changed_files_json }}
@@ -202,7 +203,7 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "has_changed_projects=$(if ($selected.Count -gt 0) { 'true' } else { 'false' })"
 
       - name: Build changed projects via MSBuild (Debug | ${{ matrix.platform }})
-        if: steps.changed_projects.outputs.has_changed_projects == 'true'
+        if: github.event_name == 'pull_request' && steps.changed_projects.outputs.has_changed_projects == 'true'
         run: |
           $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -235,8 +236,39 @@ jobs:
             }
           }
 
+
+      - name: Build full solution via MSBuild (Debug | ${{ matrix.platform }})
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
+          New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+
+          $suffix = "${{ matrix.platform }}-full-run$($env:GITHUB_RUN_NUMBER)"
+          $txtLog = Join-Path $logDir "msbuild-$($env:BUILD_CONFIGURATION)-$suffix.log"
+
+          Add-Content -Path $env:GITHUB_ENV -Value "LOG_PATH=$txtLog"
+
+          $arguments = @(
+            $env:SOLUTION_PATH
+            '/m'
+            '/t:Rebuild'
+            "/p:Configuration=$($env:BUILD_CONFIGURATION)"
+            "/p:Platform=${{ matrix.platform }}"
+            '/p:PreferredToolArchitecture=x64'
+            '/warnaserror'
+            '/nr:false'
+            '/v:m'
+          )
+
+          msbuild @arguments 2>&1 | Tee-Object -FilePath $txtLog -Encoding UTF8
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "MSBuild failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+
       - name: Upload build logs
-        if: always() && steps.changed_projects.outputs.has_changed_projects == 'true'
+        if: always() && (github.event_name == 'workflow_dispatch' || steps.changed_projects.outputs.has_changed_projects == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: msbuild-${{ matrix.platform }}-debug-logs
