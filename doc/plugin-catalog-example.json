@@ -36,7 +36,7 @@
       "versionScheme": "fileversion | opaque",
       "homepageUrl": "Your plugin homepage URL or repository URL etc.",
       "downloadPageUrl": "Your plugin download page URL",
-      "icon": "plugin"
+      "icon": "plugin | relative/path/to/icon.png | https://example.com/icon.ico"
     }
   ]
 }

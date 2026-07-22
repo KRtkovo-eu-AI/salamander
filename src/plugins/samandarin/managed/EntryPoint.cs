@@ -1031,6 +1031,7 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly Label _statusLabel;
     private readonly ContextMenuStrip _listContextMenu;
     private readonly ImageList _pluginImages;
+    private readonly Dictionary<string, string> _catalogImageKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Label _detailNameValue;
     private readonly Label _detailAuthorValue;
     private readonly Label _detailInstalledValue;
@@ -1220,6 +1221,7 @@ internal sealed class PluginUpdatesDialog : Form
             var result = await PluginCatalogService.CheckAsync().ConfigureAwait(true);
             _rows.Clear();
             _rows.AddRange(result);
+            await EnsureCatalogImagesAsync(_rows).ConfigureAwait(true);
             BindRows();
             _statusLabel.Text = PluginCatalogService.LastErrors.Count == 0
                 ? NativeStrings.Get(NativeStringId.PluginUpdatesReady)
@@ -1258,7 +1260,7 @@ internal sealed class PluginUpdatesDialog : Form
             _listView.Items.Clear();
             foreach (var row in rows)
             {
-                var item = new ListViewItem(row.IconLabel) { Tag = row, ImageKey = EnsurePluginImage(row) };
+                var item = new ListViewItem(string.Empty) { Tag = row, ImageKey = EnsurePluginImage(row) };
                 item.SubItems.Add(row.Source);
                 item.SubItems.Add(row.Name);
                 item.SubItems.Add(row.InstalledVersion);
@@ -1285,6 +1287,12 @@ internal sealed class PluginUpdatesDialog : Form
 
     private string EnsurePluginImage(PluginUpdateRow row)
     {
+        var catalogIconKey = GetCachedCatalogIconImageKey(row);
+        if (!string.IsNullOrEmpty(catalogIconKey))
+        {
+            return catalogIconKey;
+        }
+
         if (string.IsNullOrWhiteSpace(row.IconPath))
         {
             return string.Empty;
@@ -1310,6 +1318,140 @@ internal sealed class PluginUpdatesDialog : Form
         }
 
         return string.Empty;
+    }
+
+    private async Task EnsureCatalogImagesAsync(IEnumerable<PluginUpdateRow> rows)
+    {
+        foreach (var row in rows)
+        {
+            if (!string.IsNullOrEmpty(GetCachedCatalogIconImageKey(row)))
+            {
+                continue;
+            }
+
+            await EnsureCatalogIconImageAsync(row).ConfigureAwait(true);
+        }
+    }
+
+    private string GetCachedCatalogIconImageKey(PluginUpdateRow row)
+    {
+        if (!TryResolveCatalogIconReference(row, out var resolvedIcon))
+        {
+            return string.Empty;
+        }
+
+        return _catalogImageKeys.TryGetValue(resolvedIcon, out var key) && _pluginImages.Images.ContainsKey(key) ? key : string.Empty;
+    }
+
+    private async Task EnsureCatalogIconImageAsync(PluginUpdateRow row)
+    {
+        if (!TryResolveCatalogIconReference(row, out var resolvedIcon))
+        {
+            return;
+        }
+
+        var key = "catalog:" + resolvedIcon;
+        if (_pluginImages.Images.ContainsKey(key))
+        {
+            _catalogImageKeys[resolvedIcon] = key;
+            return;
+        }
+
+        try
+        {
+            if (Uri.TryCreate(resolvedIcon, UriKind.Absolute, out var uri) && !uri.IsFile)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, AddNoCacheQuery(uri));
+                request.Headers.Accept.ParseAdd("image/*");
+                request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true, MaxAge = TimeSpan.Zero };
+                request.Headers.Pragma.ParseAdd("no-cache");
+                using var response = await SharedHttpClient.Instance.SendAsync(request).ConfigureAwait(true);
+                response.EnsureSuccessStatusCode();
+                using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(true);
+                AddCatalogImageFromStream(key, stream, resolvedIcon);
+            }
+            else
+            {
+                var path = Uri.TryCreate(resolvedIcon, UriKind.Absolute, out var fileUri) && fileUri.IsFile ? fileUri.LocalPath : resolvedIcon;
+                using var stream = File.OpenRead(path);
+                AddCatalogImageFromStream(key, stream, path);
+            }
+
+            if (_pluginImages.Images.ContainsKey(key))
+            {
+                _catalogImageKeys[resolvedIcon] = key;
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void AddCatalogImageFromStream(string key, Stream stream, string source)
+    {
+        if (Path.GetExtension(source).Equals(".ico", StringComparison.OrdinalIgnoreCase))
+        {
+            using var icon = new Icon(stream, _pluginImages.ImageSize);
+            _pluginImages.Images.Add(key, icon);
+            return;
+        }
+
+        using var image = Image.FromStream(stream);
+        using var bitmap = CreateImageListBitmap(image, _pluginImages.ImageSize);
+        _pluginImages.Images.Add(key, bitmap);
+    }
+
+    private static Bitmap CreateImageListBitmap(Image image, System.Drawing.Size size)
+    {
+        var bitmap = new Bitmap(size.Width, size.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.Transparent);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+        var scale = Math.Min((double)size.Width / image.Width, (double)size.Height / image.Height);
+        var width = Math.Max(1, (int)Math.Round(image.Width * scale));
+        var height = Math.Max(1, (int)Math.Round(image.Height * scale));
+        var x = (size.Width - width) / 2;
+        var y = (size.Height - height) / 2;
+        graphics.DrawImage(image, x, y, width, height);
+        return bitmap;
+    }
+
+    private static bool TryResolveCatalogIconReference(PluginUpdateRow row, out string resolvedIcon)
+    {
+        resolvedIcon = string.Empty;
+        var iconReference = row.CatalogIconReference;
+        if (string.IsNullOrWhiteSpace(iconReference) || string.Equals(iconReference, "plugin", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        resolvedIcon = ResolveCatalogIconReference(iconReference!, row.CatalogSourceUrl);
+        return !string.IsNullOrWhiteSpace(resolvedIcon);
+    }
+
+    private static string ResolveCatalogIconReference(string iconReference, string catalogSourceUrl)
+    {
+        var trimmed = iconReference.Trim();
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var absoluteUri))
+        {
+            return absoluteUri.ToString();
+        }
+
+        if (!string.IsNullOrWhiteSpace(catalogSourceUrl) && Uri.TryCreate(catalogSourceUrl, UriKind.Absolute, out var catalogUri))
+        {
+            return new Uri(catalogUri, trimmed).ToString();
+        }
+
+        return trimmed;
+    }
+
+    private static Uri AddNoCacheQuery(Uri uri)
+    {
+        var separator = string.IsNullOrEmpty(uri.Query) ? "?" : "&";
+        return new Uri(uri, uri.PathAndQuery + separator + "samandarinRefresh=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture));
     }
 
     private void UpdateDetails()
@@ -1459,7 +1601,7 @@ internal sealed class PluginUpdatesDialog : Form
             4 => row.LatestVersion,
             5 => row.StatusText,
             6 => row.Author,
-            _ => row.IconLabel,
+            _ => row.Name,
         };
     }
 }
@@ -1757,6 +1899,7 @@ internal static class PluginCatalogService
 
                 foreach (var entry in manifest.plugins.Where(entry => !string.IsNullOrWhiteSpace(entry.id)))
                 {
+                    entry.sourceUrl = source;
                     entry.source = string.IsNullOrWhiteSpace(manifest.catalogName) ? source : manifest.catalogName;
                     catalog.Add(entry);
                 }
@@ -1828,14 +1971,14 @@ internal static class PluginCatalogService
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty);
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
     {
         if (entry is null)
         {
-            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty);
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty, string.Empty);
         }
 
         var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
@@ -1851,7 +1994,7 @@ internal static class PluginCatalogService
         var displayName = IsTotalCommanderProxyCatalogEntry(entry) && IsTotalCommanderProxyInstance(plugin)
             ? plugin.DisplayName
             : LocalizedText.Resolve(entry.name) ?? plugin.DisplayName;
-        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty);
+        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -1878,18 +2021,16 @@ internal static class PluginCatalogSources
     private const string StablePluginSource = "https://samandarin.krtkovo.eu/catalogs/plugins-stable.json";
     private const string UnofficialExternalSource = "https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json";
     private const string ExtensionRuntimesSource = "https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json";
+    private const string LegacyStablePluginSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
+    private const string LegacyUnofficialExternalSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json";
 
     public static IReadOnlyList<PluginCatalogSource> Load()
     {
-        var text = NativeConfiguration.LoadOrDefault().PluginCatalogSourcesText;
+        var settings = NativeConfiguration.LoadOrDefault();
+        var text = settings.PluginCatalogSourcesText;
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new[]
-            {
-                new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
-                new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
-                new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
-            };
+            return DefaultSources();
         }
 
         var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1922,12 +2063,13 @@ internal static class PluginCatalogSources
 
         if (sources.Count == 0)
         {
-            return new[]
-            {
-                new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
-                new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
-                new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
-            };
+            return DefaultSources();
+        }
+
+        if (NormalizeDefaultSources(sources))
+        {
+            settings.PluginCatalogSourcesText = Serialize(sources);
+            NativeConfiguration.Save(settings);
         }
 
         return sources;
@@ -1946,9 +2088,72 @@ internal static class PluginCatalogSources
             .GroupBy(s => s.Url.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
-        settings.PluginCatalogSourcesText = string.Join("\n", distinct.Select(s => $"{(s.Enabled ? "1" : "0")}|{s.Url.Trim()}"));
+        settings.PluginCatalogSourcesText = Serialize(distinct);
         NativeConfiguration.Save(settings);
     }
+
+    private static IReadOnlyList<PluginCatalogSource> DefaultSources() => new[]
+    {
+        new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
+        new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
+        new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
+    };
+
+    private static bool NormalizeDefaultSources(List<PluginCatalogSource> sources)
+    {
+        var changed = false;
+        changed |= ReplaceSourceUrl(sources, LegacyStablePluginSource, StablePluginSource);
+        changed |= ReplaceSourceUrl(sources, LegacyUnofficialExternalSource, UnofficialExternalSource);
+        changed |= AddMissingDefaultSource(sources, StablePluginSource);
+        changed |= AddMissingDefaultSource(sources, UnofficialExternalSource);
+        changed |= AddMissingDefaultSource(sources, ExtensionRuntimesSource);
+        changed |= RemoveDuplicateSources(sources);
+        return changed;
+    }
+
+    private static bool ReplaceSourceUrl(IEnumerable<PluginCatalogSource> sources, string oldUrl, string newUrl)
+    {
+        var changed = false;
+        foreach (var source in sources.Where(source => string.Equals(source.Url, oldUrl, StringComparison.OrdinalIgnoreCase)))
+        {
+            source.Url = newUrl;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static bool AddMissingDefaultSource(ICollection<PluginCatalogSource> sources, string url)
+    {
+        if (sources.Any(source => string.Equals(source.Url, url, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        sources.Add(new PluginCatalogSource { Url = url, Enabled = true });
+        return true;
+    }
+
+    private static bool RemoveDuplicateSources(List<PluginCatalogSource> sources)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+        for (int i = 0; i < sources.Count; i++)
+        {
+            if (seen.Add(sources[i].Url.Trim()))
+            {
+                continue;
+            }
+
+            sources.RemoveAt(i);
+            i--;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static string Serialize(IEnumerable<PluginCatalogSource> sources) => string.Join("\n", sources.Select(s => $"{(s.Enabled ? "1" : "0")}|{s.Url.Trim()}"));
 }
 
 internal static class InstalledPluginScanner
@@ -2114,6 +2319,7 @@ internal sealed class PluginCatalogEntry
     public string? homepageUrl { get; set; }
     public string? downloadPageUrl { get; set; }
     public string? source { get; set; }
+    public string? sourceUrl { get; set; }
 }
 
 internal static class LocalizedText
@@ -2266,7 +2472,7 @@ internal static class InstalledPluginVersionFormatter
 
 internal sealed class PluginUpdateRow
 {
-    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? iconLabel)
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? catalogIconReference, string? catalogSourceUrl)
     {
         Name = name;
         InstalledVersion = installedVersion;
@@ -2279,7 +2485,8 @@ internal sealed class PluginUpdateRow
         WebUrl = webUrl;
         Description = description;
         IconPath = iconPath ?? string.Empty;
-        IconLabel = iconLabel ?? string.Empty;
+        CatalogIconReference = catalogIconReference ?? string.Empty;
+        CatalogSourceUrl = catalogSourceUrl ?? string.Empty;
     }
 
     public string Name { get; }
@@ -2293,9 +2500,10 @@ internal sealed class PluginUpdateRow
     public string? WebUrl { get; }
     public string Description { get; }
     public string IconPath { get; }
-    public string IconLabel { get; }
+    public string CatalogIconReference { get; }
+    public string CatalogSourceUrl { get; }
 
-    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty, null, string.Empty);
+    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty, null, string.Empty, string.Empty);
 }
 
 internal static class VersionComparer
