@@ -2164,7 +2164,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ListView_SetColumnWidth(HListView, 2, LVSCW_AUTOSIZE_USEHEADER);
 
         int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
-        HAvailableColumnsImageList = HANDLES(ImageList_Create(iconSize, iconSize, ILC_COLOR32, 1, 1));
+        HAvailableColumnsImageList = ImageList_Create(iconSize, iconSize, ILC_COLOR32, 1, 1);
         if (HAvailableColumnsImageList != NULL)
         {
             HBITMAP hBitmap = NULL;
