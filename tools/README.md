@@ -36,6 +36,6 @@
 - Build plugin archives with `tools/package_salamander_plugins.ps1` first.
 - Generate a GitHub release form URL for one archive with:
   ```powershell
-  .\tools\new_plugin_release_url.ps1 -ArchivePath .\plugin-packages-x64\plugin_5.0_ftp_5.01_x64.7z -PluginDescription 'FTP client plugin for Open Salamander.'
+  .\tools\new_plugin_release_url.ps1 -ArchivePath .\plugin-packages-x64\plugin_5.0_ftp_5.01_x64.7z
   ```
-- The generated URL targets `KRtkovo-eu-AI/salamander-plugins` by default and pre-fills the release tag, title, body, CRC32, MD5, SHA1, and SHA256. Add `-Open` to open it in a browser or `-CopyToClipboard` to copy the URL.
+- The generated URL targets `KRtkovo-eu-AI/salamander-plugins` by default and pre-fills the release tag, title, body, plugin description, CRC32, MD5, SHA1, and SHA256. Add `-PluginDescription` only if you need to override the built-in source-code description table. Add `-Open` to open it in a browser or `-CopyToClipboard` to copy the URL.

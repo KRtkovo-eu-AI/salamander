@@ -14,7 +14,8 @@ Archive names are expected to follow this shape:
 Path to the plugin 7z archive.
 
 .PARAMETER PluginDescription
-English plugin description used in the release body.
+Override the plugin description used in the release body. When omitted, the script
+uses a built-in description table generated from source plugin metadata.
 
 .PARAMETER Repository
 GitHub repository in OWNER/REPOSITORY form. Defaults to KRtkovo-eu-AI/salamander-plugins.
@@ -41,10 +42,10 @@ Open the generated URL in the default browser.
 Copy the generated URL to the clipboard.
 
 .EXAMPLE
-.\tools\new_plugin_release_url.ps1 -ArchivePath .\plugin-packages-x64\plugin_5.0_ftp_5.01_x64.7z -PluginDescription 'FTP client plugin for Open Salamander.'
+.\tools\new_plugin_release_url.ps1 -ArchivePath .\plugin-packages-x64\plugin_5.0_ftp_5.01_x64.7z
 
 .EXAMPLE
-.\tools\new_plugin_release_url.ps1 .\plugin-packages-x64\plugin_5.0_ftp_5.01_x64.7z 'FTP client plugin for Open Salamander.' -Open -CopyToClipboard
+.\tools\new_plugin_release_url.ps1 .\plugin-packages-x64\plugin_5.0_ftp_5.01_x64.7z -Open -CopyToClipboard
 #>
 [CmdletBinding(DefaultParameterSetName = 'WithTag')]
 param(
@@ -52,7 +53,7 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$ArchivePath,
 
-    [Parameter(Mandatory = $true, Position = 1)]
+    [Parameter(Position = 1)]
     [ValidateNotNullOrEmpty()]
     [string]$PluginDescription,
 
@@ -152,6 +153,55 @@ function Get-ReleaseArchiveMetadata {
     }
 }
 
+
+function Get-KnownPluginDescriptions {
+    return @{
+        '7zip' = '7-Zip plugin for Open Salamander'
+        'automation' = 'Automation plugin for Open Salamander'
+        'checksum' = 'Checksum plugin for Open Salamander'
+        'checkver' = 'Check Version plugin for Open Salamander'
+        'csdemo' = 'Managed demo plugin for Open Salamander'
+        'dbviewer' = 'Database Viewer for Open Salamander'
+        'demomenu' = 'Sample plugin for Open Salamander'
+        'demoplug' = 'Sample plugin for Open Salamander'
+        'demoview' = 'Sample plugin for Open Salamander'
+        'diskmap' = 'DiskMap Plugin for Open Salamander'
+        'filecomp' = 'File Comparator for Open Salamander'
+        'folders' = 'Folders plugin for Open Salamander'
+        'ftp' = 'FTP Client for Open Salamander'
+        'hypervm' = 'Managed demo plugin for Open Salamander'
+        'ieviewer' = 'Internet Explorer Viewer for Open Salamander'
+        'jsonviewer' = 'JSON Viewer .NET plugin for Open Salamander'
+        'mmviewer' = 'Multimedia Viewer for Open Salamander'
+        'nethood' = 'Network plugin for Open Salamander'
+        'pak' = 'Quake PAK archiver for Open Salamander'
+        'peviewer' = 'Portable Executable Viewer for Open Salamander'
+        'pictview' = 'Picture Viewer for Open Salamander'
+        'portables' = 'Windows Portable Devices for Open Salamander'
+        'regedt' = 'Registry Editor for Open Salamander'
+        'renamer' = 'Renamer plugin for Open Salamander'
+        'salamatrix' = 'Automation Framework provider for Salamatrix UI, Commands, FileOperations and Automation services.'
+        'samandarin' = 'Samandarin update notification plugin for Open Salamander'
+        'serviceexplorer' = 'Browse and configure services.'
+        'splitcbn' = 'Split & Combine plugin for Open Salamander'
+        'tar' = 'TAR plugin for Open Salamander'
+        'textviewer' = 'PrismSharp Text Viewer .NET plugin for Open Salamander'
+        'unarj' = 'UnARJ plugin for Open Salamander'
+        'uncab' = 'UnCAB plugin for Open Salamander'
+        'unchm' = 'UnCHM plugin for Open Salamander'
+        'undelete' = 'Undelete plugin for Open Salamander'
+        'unfat' = 'UnFAT plugin for Open Salamander'
+        'uniso' = 'UnISO plugin for Open Salamander'
+        'unlha' = 'UnLHA plugin for Open Salamander'
+        'unmime' = 'UnMIME plugin for Open Salamander'
+        'unole' = 'UnOLE plugin for Open Salamander'
+        'unrar' = 'UnRAR plugin for Open Salamander'
+        'webview2renderviewer' = 'WebView2 Render Viewer .NET plugin for Open Salamander'
+        'wmobile' = 'Windows Mobile plugin for Open Salamander'
+        'zip' = 'ZIP plugin for Open Salamander'
+    }
+}
+
 function ConvertTo-GitHubQueryValue {
     param([AllowEmptyString()][string]$Value)
 
@@ -172,6 +222,15 @@ if (-not $PluginVersion) {
 }
 if (-not $Tag -and -not $NoTag) {
     $Tag = [System.IO.Path]::GetFileNameWithoutExtension($archive.Name)
+}
+if (-not $PluginDescription) {
+    $knownDescriptions = Get-KnownPluginDescriptions
+    if ($knownDescriptions.ContainsKey($PluginName)) {
+        $PluginDescription = $knownDescriptions[$PluginName]
+    }
+    else {
+        throw "No built-in description is available for plugin '$PluginName'. Pass -PluginDescription to provide one."
+    }
 }
 
 $title = 'plugin {0} {1} (x64) for Open Salamander 5.0' -f $PluginName, $PluginVersion
