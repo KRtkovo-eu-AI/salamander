@@ -34,9 +34,44 @@
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/automation",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases/latest",
-      "icon": "plugin"
+      "homepageUrl": "https://samandarin.krtkovo.eu/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.1_x64/plugin_5.0_salamatrix_0.1_x64.7z",
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png"
+    },
+    {
+      "id": "demoplug",
+      "name": {
+        "english": "Demo Plugin",
+        "chinesesimplified": "Demo Plugin",
+        "czech": "Demo Plugin",
+        "german": "Demo Plugin",
+        "dutch": "Demo Plugin",
+        "hungarian": "Demo Plugin",
+        "russian": "Demo Plugin",
+        "french": "Demo Plugin",
+        "slovak": "Demo Plugin",
+        "romanian": "Demo Plugin",
+        "spanish": "Demo Plugin"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Demo Plugin for testing purposes.",
+        "chinesesimplified": "用于测试目的的演示插件。",
+        "czech": "Demo Plugin pro testovací účely.",
+        "german": "Demo-Plugin für Testzwecke.",
+        "dutch": "Demo-plugin voor testdoeleinden.",
+        "hungarian": "Demo plugin tesztelési célokra.",
+        "russian": "Демо-плагин для тестирования.",
+        "french": "Plugin de démonstration à des fins de test.",
+        "slovak": "Demo plugin na testovacie účely.",
+        "romanian": "Plugin de demonstrație pentru scopuri de testare.",
+        "spanish": "Plugin de demostración para fines de prueba."
+      },
+      "latestVersion": "1.96 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_1.96_x64/plugin_5.0_demoplug_1.96_x64.7z",
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/demoplug.png"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "catalogName": "Unofficial 3rd party",
-  "generatedAt": "2026-06-29T03:07:00Z",
+  "generatedAt": "2026-07-23T02:00:00Z",
   "plugins": [
     {
       "id": "sftp",
@@ -36,7 +36,7 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin",
       "downloadPageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin/tree/master/bin",
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "tar",
@@ -71,7 +71,7 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/OpenSalamander/salamander/pull/5#issuecomment-3289439303",
       "downloadPageUrl": "https://github.com/user-attachments/files/22319444/tar-plugin-x64.zip",
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "certview",
@@ -106,7 +106,7 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/lejcik/certviewer",
       "downloadPageUrl": "https://github.com/lejcik/certviewer/releases/latest",
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "x-tc-proxy",
@@ -141,7 +141,7 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://forum.altap.cz/viewtopic.php?t=2166",
       "downloadPageUrl": "https://www.manison.cz/products/tcproxy.php?Lang=en",
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "syntax-viewer",
@@ -176,7 +176,7 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/umpalump7/SyntaxView/",
       "downloadPageUrl": "https://github.com/umpalump7/SyntaxView/",
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     }
   ]
 }
