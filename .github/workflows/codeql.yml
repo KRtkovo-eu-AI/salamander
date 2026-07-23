@@ -119,8 +119,33 @@ jobs:
 
           Add-Content -Path $env:GITHUB_ENV -Value "LOG_PATH=$txtLog"
 
-          $buildPath = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { $env:SOLUTION_PATH } else { $env:PROJECT_PATH }
-          Write-Host "Building $buildPath"
+          $buildPath = $env:PROJECT_PATH
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $solutionPath = Join-Path (Get-Location) $env:SOLUTION_PATH
+            $solutionDir = Split-Path -Parent $solutionPath
+            $solutionFilterPath = Join-Path $solutionDir 'salamand-without-sftp.slnf'
+            $projects = Select-String -LiteralPath $solutionPath -Pattern '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{[^}]+\}"' |
+              ForEach-Object {
+                [pscustomobject]@{
+                  Name = $_.Matches[0].Groups[1].Value
+                  Path = $_.Matches[0].Groups[2].Value
+                }
+              } |
+              Where-Object { $_.Path -match '\.(?:vcxproj|csproj)$' -and $_.Name -notin @('sftp', 'lang_sftp') } |
+              ForEach-Object { $_.Path }
+
+            @{
+              solution = @{
+                path = Split-Path -Leaf $solutionPath
+                projects = @($projects)
+              }
+            } | ConvertTo-Json -Depth 4 | Set-Content -Path $solutionFilterPath -Encoding UTF8
+
+            $buildPath = $solutionFilterPath
+            Write-Host "Building full solution without SFTP projects via $buildPath"
+          } else {
+            Write-Host "Building $buildPath"
+          }
 
           $arguments = @(
             $buildPath
