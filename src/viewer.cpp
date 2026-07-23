@@ -1356,12 +1356,18 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                 // disappear even though it was drawn into the memory bitmap.
                 myLine.right = fullLine.right;
 
+                int selLeftPx = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1);
+                int selRightPx = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1 + u2);
                 if (blackEnd)
                 {
+                    // Selection continues past the end of this visual row.
+                    // Fill from the real selected pixel start to the viewport
+                    // edge; using cell counts here leaves holes after wide
+                    // Unicode glyphs.
                     endRect.left = 0;
-                    endRect.right = (int)((u1 + u2 + u3) * CharWidth);
+                    endRect.right = selLeftPx;
                     FillRect(Bitmap.HMemDC, &endRect, BkgndBrush);
-                    endRect.left = endRect.right;
+                    endRect.left = selLeftPx;
                     endRect.right = Width - GetTextLeft();
                     FillRect(Bitmap.HMemDC, &endRect, BkgndBrushSel);
                 }
@@ -1383,8 +1389,8 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                     // as GDI text output.  CJK/full-width glyphs can occupy
                     // more than one average CharWidth, so cell counts alone
                     // make the visual selection shorter than the copied text.
-                    selRect.left = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1);
-                    selRect.right = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1 + u2);
+                    selRect.left = selLeftPx;
+                    selRect.right = selRightPx;
                     FillRect(Bitmap.HMemDC, &selRect, BkgndBrushSel);
 
                     int savedDC = SaveDC(Bitmap.HMemDC);
