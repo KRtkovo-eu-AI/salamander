@@ -7521,14 +7521,46 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             BOOL runAsAdmin = LOWORD(wParam) == CM_DOSSHELLASADMIN;
             if (runAsAdmin)
             {
+                char elevatedCommandLine[SALCMDLINE_MAXLEN + SAL_MAX_PATH];
+                lstrcpyn(elevatedCommandLine, launchInfo.CommandLine, SALCMDLINE_MAXLEN + SAL_MAX_PATH);
+
+                char* elevatedApplication = elevatedCommandLine;
+                char* elevatedArguments = NULL;
+                if (*elevatedApplication == '"')
+                {
+                    elevatedApplication++;
+                    elevatedArguments = strchr(elevatedApplication, '"');
+                    if (elevatedArguments != NULL)
+                    {
+                        *elevatedArguments++ = 0;
+                    }
+                }
+                else
+                {
+                    elevatedArguments = elevatedApplication;
+                    while (*elevatedArguments != 0 && *elevatedArguments != ' ' && *elevatedArguments != '\t')
+                        elevatedArguments++;
+                    if (*elevatedArguments != 0)
+                    {
+                        *elevatedArguments++ = 0;
+                    }
+                }
+                if (elevatedArguments != NULL)
+                {
+                    while (*elevatedArguments == ' ' || *elevatedArguments == '\t')
+                        elevatedArguments++;
+                    if (*elevatedArguments == 0)
+                        elevatedArguments = NULL;
+                }
+
                 SHELLEXECUTEINFO sei;
                 memset(&sei, 0, sizeof(sei));
                 sei.cbSize = sizeof(sei);
                 sei.fMask = SEE_MASK_NOCLOSEPROCESS;
                 sei.hwnd = HWindow;
                 sei.lpVerb = "runas";
-                sei.lpFile = launchInfo.Application;
-                sei.lpParameters = launchInfo.Arguments[0] != 0 ? launchInfo.Arguments : NULL;
+                sei.lpFile = elevatedApplication;
+                sei.lpParameters = elevatedArguments;
                 sei.lpDirectory = (activePanel->Is(ptDisk) || activePanel->Is(ptZIPArchive)) ? activePanel->GetPath() : NULL;
                 sei.nShow = SW_SHOWNORMAL;
 
