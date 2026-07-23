@@ -1030,6 +1030,8 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
+    private readonly Button _refreshButton;
+    private readonly Button _sourcesButton;
     private readonly ContextMenuStrip _listContextMenu;
     private readonly ImageList _pluginImages;
     private readonly Dictionary<string, string> _catalogImageKeys = new(StringComparer.OrdinalIgnoreCase);
@@ -1088,6 +1090,7 @@ internal sealed class PluginUpdatesDialog : Form
             View = View.Details,
             OwnerDraw = true,
         };
+        EnableSmoothListViewPainting(_listView);
         _pluginImages = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new System.Drawing.Size(16, 16) };
         _listView.SmallImageList = _pluginImages;
         _listView.Columns.Add(string.Empty, 46);
@@ -1149,13 +1152,13 @@ internal sealed class PluginUpdatesDialog : Form
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0) };
         var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
-        var refreshButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), AutoSize = true };
-        var sourcesButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources), AutoSize = true };
-        refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
-        sourcesButton.Click += (_, _) => ShowSourcesDialog();
+        _refreshButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), AutoSize = true };
+        _sourcesButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources), AutoSize = true };
+        _refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
+        _sourcesButton.Click += (_, _) => ShowSourcesDialog();
         buttons.Controls.Add(closeButton);
-        buttons.Controls.Add(refreshButton);
-        buttons.Controls.Add(sourcesButton);
+        buttons.Controls.Add(_refreshButton);
+        buttons.Controls.Add(_sourcesButton);
         bottomPanel.Controls.Add(buttons, 1, 0);
         layout.Controls.Add(bottomPanel, 0, 4);
 
@@ -1277,17 +1280,20 @@ internal sealed class PluginUpdatesDialog : Form
 
     private async Task RefreshAsync()
     {
+        SetLoadingState(true);
         _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginUpdatesLoading);
         try
         {
             var result = await PluginCatalogService.CheckAsync().ConfigureAwait(true);
             _rows.Clear();
             _rows.AddRange(result);
-            await EnsureCatalogImagesAsync(_rows).ConfigureAwait(true);
             BindRows();
             _statusLabel.Text = PluginCatalogService.LastErrors.Count == 0
                 ? NativeStrings.Get(NativeStringId.PluginUpdatesReady)
                 : $"{NativeStrings.Get(NativeStringId.PluginUpdatesReady)} {string.Join(" | ", PluginCatalogService.LastErrors)}";
+            SetLoadingState(false);
+            await EnsureCatalogImagesAsync(_rows).ConfigureAwait(true);
+            RefreshCatalogImages();
         }
         catch (Exception ex)
         {
@@ -1295,8 +1301,18 @@ internal sealed class PluginUpdatesDialog : Form
         }
         finally
         {
+            SetLoadingState(false);
             UpdateDetails();
         }
+    }
+
+    private void SetLoadingState(bool isLoading)
+    {
+        _listView.Enabled = !isLoading;
+        _showOnlyUpdates.Enabled = !isLoading;
+        _refreshButton.Enabled = !isLoading;
+        _sourcesButton.Enabled = !isLoading;
+        UseWaitCursor = isLoading;
     }
 
     private void ShowSourcesDialog()
@@ -1308,6 +1324,11 @@ internal sealed class PluginUpdatesDialog : Form
         {
             _ = RefreshAsync();
         }
+    }
+
+    private static void EnableSmoothListViewPainting(ListView listView)
+    {
+        listView.GetType().GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(listView, true, null);
     }
 
     private void BindRows()
@@ -1345,6 +1366,25 @@ internal sealed class PluginUpdatesDialog : Form
         NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
         ThemeHelper.ApplyNativeDarkMode(_listView);
         UpdateDetails();
+    }
+
+    private void RefreshCatalogImages()
+    {
+        _listView.BeginUpdate();
+        try
+        {
+            foreach (ListViewItem item in _listView.Items)
+            {
+                if (item.Tag is PluginUpdateRow row)
+                {
+                    item.ImageKey = EnsurePluginImage(row);
+                }
+            }
+        }
+        finally
+        {
+            _listView.EndUpdate();
+        }
     }
 
     private string EnsurePluginImage(PluginUpdateRow row)
@@ -1948,27 +1988,13 @@ internal static class PluginCatalogService
         var catalog = new List<PluginCatalogEntry>();
         var sourceErrors = new List<string>();
 
-        foreach (var source in PluginCatalogSources.LoadEnabledUrls())
+        var sourceResults = await Task.WhenAll(PluginCatalogSources.LoadEnabledUrls().Select(FetchCatalogSourceAsync)).ConfigureAwait(false);
+        foreach (var sourceResult in sourceResults)
         {
-            try
+            catalog.AddRange(sourceResult.Entries);
+            if (!string.IsNullOrEmpty(sourceResult.Error))
             {
-                var json = await FetchStringAsync(source).ConfigureAwait(false);
-                var manifest = Serializer.Deserialize<PluginCatalogManifest>(json);
-                if (manifest?.plugins is null)
-                {
-                    continue;
-                }
-
-                foreach (var entry in manifest.plugins.Where(entry => !string.IsNullOrWhiteSpace(entry.id)))
-                {
-                    entry.sourceUrl = source;
-                    entry.source = string.IsNullOrWhiteSpace(manifest.catalogName) ? source : manifest.catalogName;
-                    catalog.Add(entry);
-                }
-            }
-            catch (Exception ex)
-            {
-                sourceErrors.Add($"{source}: {ex.Message}");
+                sourceErrors.Add(sourceResult.Error);
             }
         }
 
@@ -1987,6 +2013,32 @@ internal static class PluginCatalogService
             .Select(BuildCatalogOnlyRow));
         LastErrors = sourceErrors;
         return rows.OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+
+    private static async Task<(List<PluginCatalogEntry> Entries, string Error)> FetchCatalogSourceAsync(string source)
+    {
+        try
+        {
+            var json = await FetchStringAsync(source).ConfigureAwait(false);
+            var manifest = Serializer.Deserialize<PluginCatalogManifest>(json);
+            var entries = new List<PluginCatalogEntry>();
+            if (manifest?.plugins is not null)
+            {
+                foreach (var entry in manifest.plugins.Where(entry => !string.IsNullOrWhiteSpace(entry.id)))
+                {
+                    entry.sourceUrl = source;
+                    entry.source = string.IsNullOrWhiteSpace(manifest.catalogName) ? source : manifest.catalogName;
+                    entries.Add(entry);
+                }
+            }
+
+            return (entries, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return (new List<PluginCatalogEntry>(), $"{source}: {ex.Message}");
+        }
     }
 
     private static async Task<string> FetchStringAsync(string source)
