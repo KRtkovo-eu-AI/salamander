@@ -1472,6 +1472,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
     // replay implementation was correct but made opening large Unicode files very slow,
     // because HeightChanged() asks FindSeekBefore(FileSize, visibleLines) during the first
     // paint and that turned into a full-file decode before any content was drawn.
+    UNREFERENCED_PARAMETER(takeLineBegin);
     UNREFERENCED_PARAMETER(addLineIfSeekIsWrap);
 
     fatalErr = FALSE;
@@ -1488,6 +1489,62 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
     {
         if (firstLineCharLen != NULL)
             *firstLineCharLen = 0;
+        return TRUE;
+    }
+
+    if (allowWrap && WrapText && Width > 0 && Height > 0)
+    {
+        // Decoded text uses variable-width byte sequences, so the legacy
+        // byte-scanning wrap correction cannot be reused safely.  Walk the
+        // decoded visual rows forward with the same ReadDecodedTextLine() path
+        // that painting uses, then pick the requested row from the tail.  This
+        // keeps MaxSeekY exact for wrapped Unicode text and also keeps line-up
+        // / mouse-wheel-up movement on real visual row boundaries.
+        int columns = max(1, (Width - GetTextLeft()) / CharWidth);
+        TDirectArray<__int64> visualStarts(256, 256);
+        __int64 rowStart = minSeek;
+        while (rowStart <= seek && rowStart < FileSize)
+        {
+            visualStarts.Add(rowStart);
+
+            Salamander::Unicode::DecodedRun row;
+            __int64 rowEnd = rowStart;
+            __int64 nextRow = rowStart;
+            BOOL eol = FALSE;
+            BOOL wrapped = FALSE;
+            int eolBytes = 0;
+            if (!ReadDecodedTextLine(hFile, rowStart, columns, row, rowEnd, nextRow, eol, wrapped, eolBytes, fatalErr))
+                return FALSE;
+            if (fatalErr)
+                return FALSE;
+            if (nextRow <= rowStart)
+                break;
+            if (nextRow > seek)
+                break;
+            rowStart = nextRow;
+        }
+
+        int lineCount = lines != NULL ? max(1, *lines) : 1;
+        int index = max(0, visualStarts.Count - lineCount);
+        lineBegin = visualStarts.Count > 0 ? visualStarts[index] : minSeek;
+        previousLineEnd = lineBegin;
+        if (lines != NULL)
+            *lines = 0;
+        if (firstLineEndOff != NULL)
+            *firstLineEndOff = lineBegin;
+        if (firstLineCharLen != NULL)
+        {
+            __int64 countEnd = max(lineBegin, min(seek, FileSize));
+            Salamander::Unicode::DecodedRun visual;
+            if (countEnd > lineBegin)
+            {
+                if (!DecodeTextRange(hFile, lineBegin, countEnd, visual, fatalErr))
+                    return FALSE;
+                if (fatalErr)
+                    return FALSE;
+            }
+            *firstLineCharLen = (__int64)visual.CellCount();
+        }
         return TRUE;
     }
 
@@ -1623,91 +1680,6 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
 
     if (firstLineEndOff != NULL)
         *firstLineEndOff = lineBegin > minSeek ? previousLineEnd : lineBegin;
-
-    if (allowWrap && WrapText && Width > 0 && Height > 0)
-    {
-        int columns = max(1, (Width - GetTextLeft()) / CharWidth);
-        __int64 logicalEnd = max(lineBegin, currentEol.LineEnd >= lineBegin ? currentEol.LineEnd : seek);
-        TDirectArray<__int64> wrapStarts(32, 32);
-        wrapStarts.Add(lineBegin);
-
-        __int64 rowStart = lineBegin;
-        while (rowStart < logicalEnd)
-        {
-            Salamander::Unicode::DecodedRun row;
-            __int64 rowEnd = rowStart;
-            __int64 nextRow = rowStart;
-            BOOL eol = FALSE;
-            BOOL wrapped = FALSE;
-            int eolBytes = 0;
-            if (!ReadDecodedTextLine(hFile, rowStart, columns, row, rowEnd, nextRow, eol, wrapped, eolBytes, fatalErr))
-                return FALSE;
-            if (fatalErr)
-                return FALSE;
-            if (!wrapped || nextRow <= rowStart || nextRow >= logicalEnd)
-                break;
-            wrapStarts.Add(nextRow);
-            rowStart = nextRow;
-        }
-
-        int row = 0;
-        for (int i = 1; i < wrapStarts.Count; i++)
-        {
-            if (takeLineBegin ? wrapStarts[i] < seek : wrapStarts[i] <= seek)
-                row = i;
-            else
-                break;
-        }
-
-        if (firstLineEndOff != NULL && row > 0)
-            *firstLineEndOff = wrapStarts[row];
-        if (firstLineCharLen != NULL)
-        {
-            Salamander::Unicode::DecodedRun visual;
-            __int64 countEnd = max(wrapStarts[row], min(seek, logicalEnd));
-            if (countEnd > wrapStarts[row])
-            {
-                if (!DecodeTextRange(hFile, wrapStarts[row], countEnd, visual, fatalErr))
-                    return FALSE;
-                if (fatalErr)
-                    return FALSE;
-            }
-            *firstLineCharLen = (__int64)visual.CellCount();
-        }
-        if (lines != NULL && *lines > 0)
-        {
-            // The row containing 'seek' counts as the first line before seek
-            // (FindSeekBefore(FileSize, 1) must return the last visual row).
-            // Count that row plus all preceding wrapped rows in this logical
-            // line; otherwise wrapped mode stops one row too late and leaves
-            // empty space below the document at the bottom scroll position.
-            int availableRows = row + 1;
-            if (*lines <= availableRows)
-            {
-                int lineIndex = row - *lines + 1;
-                if (takeLineBegin && row + 1 < wrapStarts.Count && seek == wrapStarts[row + 1])
-                {
-                    // At a wrap boundary the caller is already positioned at
-                    // the beginning of the following visual row.  Moving up by
-                    // one line must therefore land on 'row', not skip one more
-                    // row.  This keeps mouse-wheel/line-up working in wrapped
-                    // decoded text.
-                    lineIndex++;
-                }
-                lineBegin = wrapStarts[max(0, lineIndex)];
-                previousLineEnd = lineBegin;
-                *lines = 0;
-                return TRUE;
-            }
-            *lines -= availableRows;
-        }
-        if (row > 0)
-        {
-            lineBegin = wrapStarts[row];
-            previousLineEnd = wrapStarts[row];
-            return TRUE;
-        }
-    }
 
     if (firstLineCharLen != NULL)
     {
