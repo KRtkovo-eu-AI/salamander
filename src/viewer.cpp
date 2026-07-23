@@ -2617,18 +2617,19 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
             for (int i = 0; i + 2 < LineOffset.Count; i += 3)
                 if (StatusOffset >= LineOffset[i] && StatusOffset <= LineOffset[i + 1])
                 {
-                    __int64 lineStart = LineOffset[i];
-                    line = VisibleFirstDocumentLine;
-                    for (int row = 1; row <= i / 3; ++row)
-                        if (LineOffset[row * 3] > LineOffset[row * 3 - 2])
-                            ++line;
+                    __int64 logicalLineStart = 0;
+                    line = GetDocumentLineNumber(StatusOffset, &logicalLineStart);
+                    // LineOffset[i] is the start of the displayed row.  In wrap mode
+                    // continuation rows start after the previous visual segment, but
+                    // the status column must stay relative to the original logical
+                    // line, not restart at the visual wrap.
                     if (HasDecodedTextMode())
                     {
                         const __int64 savedSeek = Seek;
                         const __int64 savedLoaded = Loaded;
                         Salamander::Unicode::DecodedRun visual;
                         BOOL fatalErr = FALSE;
-                        if (DecodeTextRange(NULL, lineStart, StatusOffset, visual, fatalErr, FALSE) && !fatalErr)
+                        if (DecodeTextRange(NULL, logicalLineStart, StatusOffset, visual, fatalErr, FALSE) && !fatalErr)
                             column = (__int64)visual.CellCount() + 1;
                         if (savedLoaded > 0)
                         {
@@ -2637,7 +2638,7 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
                         }
                     }
                     else
-                        column = StatusOffset - lineStart + 1;
+                        column = StatusOffset - logicalLineStart + 1;
                     break;
                 }
         }
