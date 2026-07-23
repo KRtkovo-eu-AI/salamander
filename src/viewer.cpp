@@ -1021,6 +1021,56 @@ BOOL CViewerWindow::ReadDecodedScalar(HANDLE* hFile, __int64 offset, Salamander:
     return TRUE;
 }
 
+__int64 CViewerWindow::PreviousTextOffset(__int64 offset, BOOL& fatalErr)
+{
+    fatalErr = FALSE;
+    if (!HasDecodedTextMode())
+        return max((__int64)0, offset - 1);
+
+    __int64 minSeek = TextStartOffset();
+    offset = max(min(offset, FileSize), minSeek);
+    if (offset <= minSeek)
+        return minSeek;
+
+    if (TextEncoding == Salamander::Unicode::BomEncoding::Utf16Le ||
+        TextEncoding == Salamander::Unicode::BomEncoding::Utf16Be)
+    {
+        __int64 pos = Salamander::Unicode::AlignToCodeUnit(TextEncoding, offset - 1, TextContentOffset);
+        if (pos >= offset)
+            pos -= 2;
+        return max(minSeek, pos);
+    }
+
+    __int64 pos = offset - 1;
+    while (pos > minSeek)
+    {
+        __int64 len = Prepare(NULL, pos, 1, fatalErr);
+        if (fatalErr || len != 1)
+            return minSeek;
+        unsigned char ch = *(Buffer + (pos - Seek));
+        if ((ch & 0xC0) != 0x80)
+            break;
+        pos--;
+    }
+    return max(minSeek, pos);
+}
+
+__int64 CViewerWindow::NextTextOffset(__int64 offset, BOOL& fatalErr)
+{
+    fatalErr = FALSE;
+    if (!HasDecodedTextMode())
+        return min(FileSize, offset + 1);
+
+    offset = max(min(offset, FileSize), TextStartOffset());
+    if (offset >= FileSize)
+        return FileSize;
+
+    Salamander::Unicode::DecodedRun scalar;
+    if (!ReadDecodedScalar(NULL, offset, scalar, fatalErr) || fatalErr || scalar.CellCount() == 0)
+        return offset;
+    return min(FileSize, scalar.RawEnd[0]);
+}
+
 BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int64 maxCells,
                                         Salamander::Unicode::DecodedRun& visualLine, __int64& lineEnd,
                                         __int64& nextLineBegin, BOOL& eol, BOOL& wrapped,
@@ -1283,7 +1333,12 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
             if (i >= clipFirstRow && i <= clipLastRow)
             {
                 RECT myLine = fullLine;
-                myLine.right = min(myLine.right, (int)(len2 + 1) * CharWidth);
+                // Decoded text can contain glyphs that are wider than one
+                // average character cell (for example CJK ideographs).  Do
+                // not clip the blit to the scalar count; otherwise the last
+                // visible glyph can be cut in half or the tail of the line can
+                // disappear even though it was drawn into the memory bitmap.
+                myLine.right = fullLine.right;
 
                 if (blackEnd)
                 {
