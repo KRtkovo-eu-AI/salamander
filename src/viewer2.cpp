@@ -1472,9 +1472,6 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
     // replay implementation was correct but made opening large Unicode files very slow,
     // because HeightChanged() asks FindSeekBefore(FileSize, visibleLines) during the first
     // paint and that turned into a full-file decode before any content was drawn.
-    UNREFERENCED_PARAMETER(allowWrap);
-    UNREFERENCED_PARAMETER(takeLineBegin);
-    UNREFERENCED_PARAMETER(lines);
     UNREFERENCED_PARAMETER(addLineIfSeekIsWrap);
 
     fatalErr = FALSE;
@@ -1626,6 +1623,76 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
 
     if (firstLineEndOff != NULL)
         *firstLineEndOff = lineBegin > minSeek ? previousLineEnd : lineBegin;
+
+    if (allowWrap && WrapText && Width > 0 && Height > 0)
+    {
+        int columns = max(1, (Width - GetTextLeft()) / CharWidth);
+        __int64 logicalEnd = max(lineBegin, currentEol.LineEnd >= lineBegin ? currentEol.LineEnd : seek);
+        TDirectArray<__int64> wrapStarts(32, 32);
+        wrapStarts.Add(lineBegin);
+
+        __int64 rowStart = lineBegin;
+        while (rowStart < logicalEnd)
+        {
+            Salamander::Unicode::DecodedRun row;
+            __int64 rowEnd = rowStart;
+            __int64 nextRow = rowStart;
+            BOOL eol = FALSE;
+            BOOL wrapped = FALSE;
+            int eolBytes = 0;
+            if (!ReadDecodedTextLine(hFile, rowStart, columns, row, rowEnd, nextRow, eol, wrapped, eolBytes, fatalErr))
+                return FALSE;
+            if (fatalErr)
+                return FALSE;
+            if (!wrapped || nextRow <= rowStart || nextRow >= logicalEnd)
+                break;
+            wrapStarts.Add(nextRow);
+            rowStart = nextRow;
+        }
+
+        int row = 0;
+        for (int i = 1; i < wrapStarts.Count; i++)
+        {
+            if (takeLineBegin ? wrapStarts[i] < seek : wrapStarts[i] <= seek)
+                row = i;
+            else
+                break;
+        }
+
+        if (firstLineEndOff != NULL && row > 0)
+            *firstLineEndOff = wrapStarts[row];
+        if (firstLineCharLen != NULL)
+        {
+            Salamander::Unicode::DecodedRun visual;
+            __int64 countEnd = max(wrapStarts[row], min(seek, logicalEnd));
+            if (countEnd > wrapStarts[row])
+            {
+                if (!DecodeTextRange(hFile, wrapStarts[row], countEnd, visual, fatalErr))
+                    return FALSE;
+                if (fatalErr)
+                    return FALSE;
+            }
+            *firstLineCharLen = (__int64)visual.CellCount();
+        }
+        if (lines != NULL && *lines > 0)
+        {
+            int availableRows = row;
+            if (*lines <= availableRows)
+            {
+                lineBegin = wrapStarts[row - *lines];
+                previousLineEnd = lineBegin;
+                *lines = 0;
+                return TRUE;
+            }
+            *lines -= availableRows;
+        }
+        if (row > 0)
+        {
+            lineBegin = wrapStarts[row];
+            previousLineEnd = wrapStarts[row];
+            return TRUE;
+        }
+    }
 
     if (firstLineCharLen != NULL)
     {
