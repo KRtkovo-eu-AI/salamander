@@ -1610,7 +1610,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ kolečka myši.",
       "Optional line numbers for easier navigation in text files.": "Volitelné číslování řádků pro snazší orientaci v textových souborech.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dynamicky načítá profily Windows Terminalu pro rychlý výběr příkazového shellu."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dynamicky načítá profily Windows Terminalu pro rychlý výběr příkazového shellu.",
+      "Columns from Windows Explorer": "Sloupce z Průzkumníka Windows",
+      "For detailed view, you can choose to show any Windows Explorer column.": "V podrobném zobrazení si můžete zvolit zobrazení libovolného sloupce Průzkumníka Windows.",
+      "Windows Explorer column selection in detailed view": "Výběr sloupců Průzkumníka Windows v podrobném zobrazení",
+      "Windows Explorer columns shown in Samandarin panel": "Sloupce Průzkumníka Windows zobrazené v panelu Samandarinu"
     },
     nl: {
       "Internal Viewer": "Interne viewer",
@@ -1620,7 +1624,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ muiswiel.",
       "Optional line numbers for easier navigation in text files.": "Optionele regelnummers voor eenvoudiger navigeren in tekstbestanden.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Laadt Windows Terminal-profielen dynamisch voor snelle selectie van de command shell."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Laadt Windows Terminal-profielen dynamisch voor snelle selectie van de command shell.",
+      "Columns from Windows Explorer": "Kolommen uit Windows Verkenner",
+      "For detailed view, you can choose to show any Windows Explorer column.": "In de detailweergave kunt u elke Windows Verkenner-kolom laten weergeven.",
+      "Windows Explorer column selection in detailed view": "Selectie van Windows Verkenner-kolommen in detailweergave",
+      "Windows Explorer columns shown in Samandarin panel": "Windows Verkenner-kolommen weergegeven in het Samandarin-paneel"
     },
     fr: {
       "Internal Viewer": "Visionneuse interne",
@@ -1630,7 +1638,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ molette de la souris.",
       "Optional line numbers for easier navigation in text files.": "Numéros de ligne facultatifs pour faciliter la navigation dans les fichiers texte.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Charge dynamiquement les profils Windows Terminal pour choisir rapidement le shell de commande."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Charge dynamiquement les profils Windows Terminal pour choisir rapidement le shell de commande.",
+      "Columns from Windows Explorer": "Colonnes de l’Explorateur Windows",
+      "For detailed view, you can choose to show any Windows Explorer column.": "En affichage détaillé, vous pouvez choisir d’afficher n’importe quelle colonne de l’Explorateur Windows.",
+      "Windows Explorer column selection in detailed view": "Sélection des colonnes de l’Explorateur Windows en affichage détaillé",
+      "Windows Explorer columns shown in Samandarin panel": "Colonnes de l’Explorateur Windows affichées dans le panneau Samandarin"
     },
     de: {
       "Internal Viewer": "Interner Viewer",
@@ -1640,7 +1652,11 @@
       "Ctrl": "Strg",
       "+ mouse wheel.": "+ Mausrad.",
       "Optional line numbers for easier navigation in text files.": "Optionale Zeilennummern für eine einfachere Navigation in Textdateien.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Lädt Windows-Terminal-Profile dynamisch für eine schnelle Auswahl der Kommando-Shell."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Lädt Windows-Terminal-Profile dynamisch für eine schnelle Auswahl der Kommando-Shell.",
+      "Columns from Windows Explorer": "Spalten aus dem Windows-Explorer",
+      "For detailed view, you can choose to show any Windows Explorer column.": "In der Detailansicht können Sie jede Windows-Explorer-Spalte zur Anzeige auswählen.",
+      "Windows Explorer column selection in detailed view": "Auswahl von Windows-Explorer-Spalten in der Detailansicht",
+      "Windows Explorer columns shown in Samandarin panel": "Im Samandarin-Panel angezeigte Windows-Explorer-Spalten"
     },
     hu: {
       "Internal Viewer": "Belső megjelenítő",
@@ -1650,7 +1666,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ egérgörgő használatával.",
       "Optional line numbers for easier navigation in text files.": "Opcionális sorszámok a szövegfájlokban való könnyebb navigációhoz.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dinamikusan betölti a Windows Terminal profilokat a parancssori shell gyors kiválasztásához."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dinamikusan betölti a Windows Terminal profilokat a parancssori shell gyors kiválasztásához.",
+      "Columns from Windows Explorer": "Oszlopok a Windows Intézőből",
+      "For detailed view, you can choose to show any Windows Explorer column.": "Részletes nézetben bármelyik Windows Intéző-oszlop megjelenítését kiválaszthatja.",
+      "Windows Explorer column selection in detailed view": "Windows Intéző-oszlopok kiválasztása részletes nézetben",
+      "Windows Explorer columns shown in Samandarin panel": "A Samandarin panelen megjelenő Windows Intéző-oszlopok"
     },
     zhHans: {
       "Internal Viewer": "内部查看器",
@@ -1660,7 +1680,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ 鼠标滚轮缩放文本。",
       "Optional line numbers for easier navigation in text files.": "可选行号，便于在文本文件中导航。",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "动态加载 Windows Terminal 配置文件，便于快速选择命令 shell。"
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "动态加载 Windows Terminal 配置文件，便于快速选择命令 shell。",
+      "Columns from Windows Explorer": "来自 Windows 资源管理器的列",
+      "For detailed view, you can choose to show any Windows Explorer column.": "在详细信息视图中，你可以选择显示任意 Windows 资源管理器列。",
+      "Windows Explorer column selection in detailed view": "详细信息视图中的 Windows 资源管理器列选择",
+      "Windows Explorer columns shown in Samandarin panel": "Samandarin 面板中显示的 Windows 资源管理器列"
     },
     ro: {
       "Internal Viewer": "Vizualizator intern",
@@ -1670,7 +1694,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ rotița mouse-ului.",
       "Optional line numbers for easier navigation in text files.": "Numere de linie opționale pentru navigare mai ușoară în fișiere text.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Încarcă dinamic profilurile Windows Terminal pentru selectarea rapidă a shellului de comandă."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Încarcă dinamic profilurile Windows Terminal pentru selectarea rapidă a shellului de comandă.",
+      "Columns from Windows Explorer": "Coloane din Windows Explorer",
+      "For detailed view, you can choose to show any Windows Explorer column.": "În vizualizarea detaliată, puteți alege să afișați orice coloană din Windows Explorer.",
+      "Windows Explorer column selection in detailed view": "Selectarea coloanelor Windows Explorer în vizualizarea detaliată",
+      "Windows Explorer columns shown in Samandarin panel": "Coloane Windows Explorer afișate în panoul Samandarin"
     },
     ru: {
       "Internal Viewer": "Внутренний просмотрщик",
@@ -1680,7 +1708,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ колесика мыши.",
       "Optional line numbers for easier navigation in text files.": "Необязательные номера строк для более удобной навигации по текстовым файлам.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Динамически загружает профили Windows Terminal для быстрого выбора командной оболочки."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Динамически загружает профили Windows Terminal для быстрого выбора командной оболочки.",
+      "Columns from Windows Explorer": "Столбцы из Проводника Windows",
+      "For detailed view, you can choose to show any Windows Explorer column.": "В подробном представлении можно выбрать отображение любого столбца Проводника Windows.",
+      "Windows Explorer column selection in detailed view": "Выбор столбцов Проводника Windows в подробном представлении",
+      "Windows Explorer columns shown in Samandarin panel": "Столбцы Проводника Windows, отображаемые в панели Samandarin"
     },
     sk: {
       "Internal Viewer": "Interný prehliadač",
@@ -1690,7 +1722,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ kolieska myši.",
       "Optional line numbers for easier navigation in text files.": "Voliteľné číslovanie riadkov pre jednoduchšiu orientáciu v textových súboroch.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dynamicky načítava profily Windows Terminalu pre rýchly výber príkazového shellu."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dynamicky načítava profily Windows Terminalu pre rýchly výber príkazového shellu.",
+      "Columns from Windows Explorer": "Stĺpce z Prieskumníka Windows",
+      "For detailed view, you can choose to show any Windows Explorer column.": "V podrobnom zobrazení si môžete zvoliť zobrazenie ľubovoľného stĺpca Prieskumníka Windows.",
+      "Windows Explorer column selection in detailed view": "Výber stĺpcov Prieskumníka Windows v podrobnom zobrazení",
+      "Windows Explorer columns shown in Samandarin panel": "Stĺpce Prieskumníka Windows zobrazené v paneli Samandarinu"
     },
     es: {
       "Internal Viewer": "Visor interno",
@@ -1700,7 +1736,11 @@
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ rueda del ratón.",
       "Optional line numbers for easier navigation in text files.": "Números de línea opcionales para navegar más fácilmente en archivos de texto.",
-      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Carga dinámicamente perfiles de Windows Terminal para seleccionar rápidamente el shell de comandos."
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Carga dinámicamente perfiles de Windows Terminal para seleccionar rápidamente el shell de comandos.",
+      "Columns from Windows Explorer": "Columnas del Explorador de Windows",
+      "For detailed view, you can choose to show any Windows Explorer column.": "En la vista detallada, puede elegir mostrar cualquier columna del Explorador de Windows.",
+      "Windows Explorer column selection in detailed view": "Selección de columnas del Explorador de Windows en la vista detallada",
+      "Windows Explorer columns shown in Samandarin panel": "Columnas del Explorador de Windows mostradas en el panel de Samandarin"
     }
   };
   Object.entries(viewerAndShellTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
