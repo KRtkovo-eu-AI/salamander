@@ -957,6 +957,22 @@ void DrawDecodedCells(HDC dc, const Salamander::Unicode::DecodedRun& visual, std
         MyTextOutW(dc, xCell * CharWidth, 0, visual.Text.c_str() + textStart, (int)(textEnd - textStart));
 }
 
+int DecodedCellsPixelWidth(HDC dc, const Salamander::Unicode::DecodedRun& visual,
+                           std::size_t cellStart, std::size_t cellEnd)
+{
+    if (cellStart >= cellEnd)
+        return 0;
+    std::size_t textStart = visual.TextIndexForCellEnd(cellStart);
+    std::size_t textEnd = visual.TextIndexForCellEnd(cellEnd);
+    if (textEnd <= textStart)
+        return 0;
+
+    SIZE size = {0, 0};
+    if (GetTextExtentPoint32W(dc, visual.Text.c_str() + textStart, (int)(textEnd - textStart), &size))
+        return size.cx;
+    return (int)(cellEnd - cellStart) * CharWidth;
+}
+
 } // namespace
 
 BOOL CViewerWindow::DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end,
@@ -1019,6 +1035,56 @@ BOOL CViewerWindow::ReadDecodedScalar(HANDLE* hFile, __int64 offset, Salamander:
         return !fatalErr;
     scalar = Salamander::Unicode::DecodeBytes(TextEncoding, Buffer + (offset - Seek), (std::size_t)len, offset, TRUE);
     return TRUE;
+}
+
+__int64 CViewerWindow::PreviousTextOffset(__int64 offset, BOOL& fatalErr)
+{
+    fatalErr = FALSE;
+    if (!HasDecodedTextMode())
+        return max((__int64)0, offset - 1);
+
+    __int64 minSeek = TextStartOffset();
+    offset = max(min(offset, FileSize), minSeek);
+    if (offset <= minSeek)
+        return minSeek;
+
+    if (TextEncoding == Salamander::Unicode::BomEncoding::Utf16Le ||
+        TextEncoding == Salamander::Unicode::BomEncoding::Utf16Be)
+    {
+        __int64 pos = Salamander::Unicode::AlignToCodeUnit(TextEncoding, offset - 1, TextContentOffset);
+        if (pos >= offset)
+            pos -= 2;
+        return max(minSeek, pos);
+    }
+
+    __int64 pos = offset - 1;
+    while (pos > minSeek)
+    {
+        __int64 len = Prepare(NULL, pos, 1, fatalErr);
+        if (fatalErr || len != 1)
+            return minSeek;
+        unsigned char ch = *(Buffer + (pos - Seek));
+        if ((ch & 0xC0) != 0x80)
+            break;
+        pos--;
+    }
+    return max(minSeek, pos);
+}
+
+__int64 CViewerWindow::NextTextOffset(__int64 offset, BOOL& fatalErr)
+{
+    fatalErr = FALSE;
+    if (!HasDecodedTextMode())
+        return min(FileSize, offset + 1);
+
+    offset = max(min(offset, FileSize), TextStartOffset());
+    if (offset >= FileSize)
+        return FileSize;
+
+    Salamander::Unicode::DecodedRun scalar;
+    if (!ReadDecodedScalar(NULL, offset, scalar, fatalErr) || fatalErr || scalar.CellCount() == 0)
+        return offset;
+    return min(FileSize, scalar.RawEnd[0]);
 }
 
 BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int64 maxCells,
@@ -1283,34 +1349,57 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
             if (i >= clipFirstRow && i <= clipLastRow)
             {
                 RECT myLine = fullLine;
-                myLine.right = min(myLine.right, (int)(len2 + 1) * CharWidth);
+                // Decoded text can contain glyphs that are wider than one
+                // average character cell (for example CJK ideographs).  Do
+                // not clip the blit to the scalar count; otherwise the last
+                // visible glyph can be cut in half or the tail of the line can
+                // disappear even though it was drawn into the memory bitmap.
+                myLine.right = fullLine.right;
 
+                int selLeftPx = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1);
+                int selRightPx = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1 + u2);
                 if (blackEnd)
                 {
+                    // Selection continues past the end of this visual row.
+                    // Fill from the real selected pixel start to the viewport
+                    // edge; using cell counts here leaves holes after wide
+                    // Unicode glyphs.
                     endRect.left = 0;
-                    endRect.right = (int)((u1 + u2 + u3) * CharWidth);
+                    endRect.right = selLeftPx;
                     FillRect(Bitmap.HMemDC, &endRect, BkgndBrush);
-                    endRect.left = endRect.right;
+                    endRect.left = selLeftPx;
                     endRect.right = Width - GetTextLeft();
                     FillRect(Bitmap.HMemDC, &endRect, BkgndBrushSel);
                 }
                 else
                     FillRect(Bitmap.HMemDC, &myLine, BkgndBrush);
 
-                if (u3 > 0)
-                    DrawDecodedCells(Bitmap.HMemDC, visual, left + u1 + u2, left + u1 + u2 + u3, (int)(u1 + u2));
+                // Draw the complete visible decoded text run in one piece.
+                // Splitting Unicode text into selected/non-selected substrings
+                // can change shaping or fallback rendering for CJK, Indic, RTL,
+                // emoji sequences, etc.  For the selected part, clip a second
+                // full-run draw to the selection rectangle so glyph context is
+                // preserved while colors still differ.
+                if (u1 + u2 + u3 > 0)
+                    DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1 + u2 + u3, 0);
                 if (u2 > 0)
                 {
-                    SetBkColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_BK_SELECTED]));
+                    RECT selRect = fullLine;
+                    // Selection highlighting must use the same pixel advances
+                    // as GDI text output.  CJK/full-width glyphs can occupy
+                    // more than one average CharWidth, so cell counts alone
+                    // make the visual selection shorter than the copied text.
+                    selRect.left = selLeftPx;
+                    selRect.right = selRightPx;
+                    FillRect(Bitmap.HMemDC, &selRect, BkgndBrushSel);
+
+                    int savedDC = SaveDC(Bitmap.HMemDC);
+                    IntersectClipRect(Bitmap.HMemDC, selRect.left, selRect.top, selRect.right, selRect.bottom);
                     SetTextColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_FG_SELECTED]));
-                    SetBkMode(Bitmap.HMemDC, OPAQUE);
-                    DrawDecodedCells(Bitmap.HMemDC, visual, left + u1, left + u1 + u2, (int)u1);
-                    SetBkMode(Bitmap.HMemDC, TRANSPARENT);
+                    DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1 + u2 + u3, 0);
+                    RestoreDC(Bitmap.HMemDC, savedDC);
                     SetTextColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_FG_NORMAL]));
-                    SetBkColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_BK_NORMAL]));
                 }
-                if (u1 > 0)
-                    DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1, 0);
 
                 BitBlt(dc, GetTextLeft(), CharHeight * i, myLine.right,
                        CharHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);

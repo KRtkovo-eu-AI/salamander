@@ -1472,9 +1472,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
     // replay implementation was correct but made opening large Unicode files very slow,
     // because HeightChanged() asks FindSeekBefore(FileSize, visibleLines) during the first
     // paint and that turned into a full-file decode before any content was drawn.
-    UNREFERENCED_PARAMETER(allowWrap);
     UNREFERENCED_PARAMETER(takeLineBegin);
-    UNREFERENCED_PARAMETER(lines);
     UNREFERENCED_PARAMETER(addLineIfSeekIsWrap);
 
     fatalErr = FALSE;
@@ -1491,6 +1489,67 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
     {
         if (firstLineCharLen != NULL)
             *firstLineCharLen = 0;
+        return TRUE;
+    }
+
+    if (allowWrap && WrapText && Width > 0 && Height > 0)
+    {
+        // Decoded text uses variable-width byte sequences, so the legacy
+        // byte-scanning wrap correction cannot be reused safely.  Walk the
+        // decoded visual rows forward with the same ReadDecodedTextLine() path
+        // that painting uses, then pick the requested row from the tail.  This
+        // keeps MaxSeekY exact for wrapped Unicode text and also keeps line-up
+        // / mouse-wheel-up movement on real visual row boundaries.
+        int columns = max(1, (Width - GetTextLeft()) / CharWidth);
+        TDirectArray<__int64> visualStarts(256, 256);
+        __int64 rowStart = minSeek;
+        while (rowStart <= seek && rowStart < FileSize)
+        {
+            visualStarts.Add(rowStart);
+
+            Salamander::Unicode::DecodedRun row;
+            __int64 rowEnd = rowStart;
+            __int64 nextRow = rowStart;
+            BOOL eol = FALSE;
+            BOOL wrapped = FALSE;
+            int eolBytes = 0;
+            if (!ReadDecodedTextLine(hFile, rowStart, columns, row, rowEnd, nextRow, eol, wrapped, eolBytes, fatalErr))
+                return FALSE;
+            if (fatalErr)
+                return FALSE;
+            if (nextRow <= rowStart)
+                break;
+            if (nextRow > seek)
+                break;
+            rowStart = nextRow;
+        }
+
+        // FindSeekBefore() has already consumed the first requested line in
+        // its while(lines--) loop before passing the remaining count here.
+        // Add it back so callers asking for two lines (for example line-up via
+        // ZeroLineSize()) receive the previous visual row instead of the
+        // current one.
+        int lineCount = lines != NULL ? max(1, *lines + 1) : 1;
+        int index = max(0, visualStarts.Count - lineCount);
+        lineBegin = visualStarts.Count > 0 ? visualStarts[index] : minSeek;
+        previousLineEnd = lineBegin;
+        if (lines != NULL)
+            *lines = 0;
+        if (firstLineEndOff != NULL)
+            *firstLineEndOff = lineBegin;
+        if (firstLineCharLen != NULL)
+        {
+            __int64 countEnd = max(lineBegin, min(seek, FileSize));
+            Salamander::Unicode::DecodedRun visual;
+            if (countEnd > lineBegin)
+            {
+                if (!DecodeTextRange(hFile, lineBegin, countEnd, visual, fatalErr))
+                    return FALSE;
+                if (fatalErr)
+                    return FALSE;
+            }
+            *firstLineCharLen = (__int64)visual.CellCount();
+        }
         return TRUE;
     }
 
@@ -1962,6 +2021,79 @@ BOOL CViewerWindow::GetOffsetOrXAbs(__int64 x, __int64* offset, __int64* offsetX
     return FALSE;
 }
 
+BOOL CViewerWindow::GetDecodedOffsetFromPixel(__int64 pixelX, __int64 originCell, __int64* offset, __int64 lineBegOff,
+                                              __int64 lineEndOff, BOOL& fatalErr)
+{
+    if (offset != NULL)
+        *offset = lineBegOff;
+    fatalErr = FALSE;
+
+    Salamander::Unicode::DecodedRun visual;
+    if (!DecodeTextRange(NULL, lineBegOff, lineEndOff, visual, fatalErr))
+        return FALSE;
+    if (fatalErr)
+        return FALSE;
+    if (visual.CellCount() == 0)
+        return TRUE;
+
+    HDC dc = HANDLES(GetDC(HWindow));
+    if (dc == NULL)
+        return FALSE;
+    HFONT oldFont = (HFONT)SelectObject(dc, ViewerFont);
+
+    UNREFERENCED_PARAMETER(originCell);
+    __int64 targetPixel = pixelX;
+    int currentRight = 0;
+    int visualCell = 0;
+    for (std::size_t i = 0; i < visual.CellCount(); ++i)
+    {
+        int previousRight = currentRight;
+        if (visual.Scalars[i] == L'\t')
+        {
+            int tab = (int)(Configuration.TabSize - (visualCell % Configuration.TabSize));
+            if (tab <= 0)
+                tab = 1;
+            currentRight += tab * CharWidth;
+            visualCell += tab;
+        }
+        else
+        {
+            std::size_t textStart = visual.TextIndexForCellEnd(i);
+            std::size_t textEnd = visual.TextIndexForCellEnd(i + 1);
+            SIZE size = {0, 0};
+            if (textEnd > textStart &&
+                GetTextExtentPoint32W(dc, visual.Text.c_str() + textStart, (int)(textEnd - textStart), &size))
+                currentRight += max(1, size.cx);
+            else
+                currentRight += CharWidth;
+            visualCell++;
+        }
+
+        if (targetPixel < (__int64)((previousRight + currentRight) / 2))
+        {
+            if (offset != NULL)
+                *offset = visual.RawStart[i];
+            SelectObject(dc, oldFont);
+            HANDLES(ReleaseDC(HWindow, dc));
+            return TRUE;
+        }
+        if (targetPixel <= currentRight)
+        {
+            if (offset != NULL)
+                *offset = visual.RawEnd[i];
+            SelectObject(dc, oldFont);
+            HANDLES(ReleaseDC(HWindow, dc));
+            return TRUE;
+        }
+    }
+
+    if (offset != NULL)
+        *offset = lineEndOff;
+    SelectObject(dc, oldFont);
+    HANDLES(ReleaseDC(HWindow, dc));
+    return TRUE;
+}
+
 BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatalErr,
                               BOOL leftMost, BOOL* onHexNum)
 {
@@ -1973,6 +2105,8 @@ BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatal
     {
         // The line-number gutter is chrome, not document text.  Coordinates
         // in the gutter must map to the first text column.
+        __int64 rawX = x;
+        __int64 textPixelX = max((__int64)0, rawX - GetTextLeft());
         if (!leftMost)
             x = (x - GetTextLeft() + CharWidth / 2) / CharWidth;
         else
@@ -1984,6 +2118,11 @@ BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatal
         {
             if (3 * y + 2 < LineOffset.Count)
             {
+                if (HasDecodedTextMode())
+                {
+                    return GetDecodedOffsetFromPixel(textPixelX, OriginX, &offset, LineOffset[(int)(3 * y)],
+                                                     LineOffset[(int)(3 * y + 1)], fatalErr);
+                }
                 return GetOffsetOrXAbs(x + OriginX, &offset, NULL, LineOffset[(int)(3 * y)], LineOffset[(int)(3 * y + 2)],
                                        LineOffset[(int)(3 * y + 1)], fatalErr, onHexNum);
             }
@@ -2008,11 +2147,15 @@ void CViewerWindow::SetScrollBar()
         GetScrollInfo(VScrollBar, SB_CTL, &si);
 
         if (CachedVerticalPageSize < 0)
-            CachedVerticalPageSize = ViewSize;
-        // The thumb coordinate range must end exactly at MaxSeekY plus the
-        // stable page extent. FileSize is not equivalent for text mode
-        // (BOM/EOL and variable visible byte spans), which made drag mapping
-        // lag behind the pointer and prevented reaching the document end.
+        {
+            // HeightChanged() recalculates MaxSeekY from the current viewport
+            // height/font metrics before the window is repainted.  ViewSize is
+            // refreshed later during Paint(), so using it here after resize or
+            // zoom would reuse the previous viewport's page extent and make the
+            // scrollbar range too short.  The last valid origin is MaxSeekY, so
+            // the missing trailing extent is the byte span from MaxSeekY to EOF.
+            CachedVerticalPageSize = max((__int64)1, FileSize - MaxSeekY);
+        }
         __int64 max = MaxSeekY + CachedVerticalPageSize;
         ScrollScaleY = ((double)max) / 20000.0;
         if (ScrollScaleY < 0.00001)

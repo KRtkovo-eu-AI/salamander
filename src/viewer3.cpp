@@ -494,11 +494,22 @@ BOOL CViewerWindow::ScrollViewLineUp(DWORD repeatCmd, BOOL* scrolled, BOOL repai
                 *scrolled = TRUE;
             if (repaint)
             {
-                RECT documentRect = {0, 0, Width, Height};
-                // Keep child scrollbars and status controls fixed while only
-                // the document surface is scrolled.
-                ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
-                               NULL, NULL, SW_INVALIDATE);
+                if (ShowLineNumbers && WrapText)
+                {
+                    // Wrapped continuations can turn a line number into a wrap
+                    // marker (or back) when a new visual row enters the top of
+                    // the viewport, so the gutter cannot be preserved by a raw
+                    // pixel scroll.
+                    InvalidateRect(HWindow, NULL, FALSE);
+                }
+                else
+                {
+                    RECT documentRect = {0, 0, Width, Height};
+                    // Keep child scrollbars and status controls fixed while only
+                    // the document surface is scrolled.
+                    ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
+                                   NULL, NULL, SW_INVALIDATE);
+                }
                 UpdateWindow(HWindow);
                 if (EndSelectionRow != -1)
                     EndSelectionRow++;
@@ -520,11 +531,21 @@ BOOL CViewerWindow::ScrollViewLineDown(BOOL fullRedraw)
         {
             if (!fullRedraw)
             {
-                RECT documentRect = {0, 0, Width, Height};
-                // Keep child scrollbars and status controls fixed while only
-                // the document surface is scrolled.
-                ScrollWindowEx(HWindow, 0, -CharHeight, &documentRect, &documentRect,
-                               NULL, NULL, SW_INVALIDATE);
+                if (ShowLineNumbers && WrapText)
+                {
+                    // Wrapped line-number gutters depend on the new top visual
+                    // row; repaint instead of shifting stale numbers/markers.
+                    fullRedraw = TRUE;
+                    InvalidateRect(HWindow, NULL, FALSE);
+                }
+                else
+                {
+                    RECT documentRect = {0, 0, Width, Height};
+                    // Keep child scrollbars and status controls fixed while only
+                    // the document surface is scrolled.
+                    ScrollWindowEx(HWindow, 0, -CharHeight, &documentRect, &documentRect,
+                                   NULL, NULL, SW_INVALIDATE);
+                }
             }
             UpdateWindow(HWindow);
             if (EndSelectionRow != -1)
@@ -1132,6 +1153,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
             }
+            // WM_SIZE changes the viewport dimensions, and zoom changes the
+            // font metrics before it posts a synthetic WM_SIZE.  In both cases
+            // scrollbar page sizes and ranges must be recalculated even when
+            // the text layout itself did not need to be rebuilt; otherwise the
+            // thumb can keep stale limits and prevent scrolling to the true
+            // document end.
+            SetScrollBar();
             UpdateStatusBar();
             if (HToolTip != NULL)
             {
@@ -1371,12 +1399,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case IDC_VIEWER_ZOOM_RESET:
             SetViewerZoom(100);
+            SetFocus(HWindow);
             return 0;
         case IDC_VIEWER_ZOOM_OUT:
             SetViewerZoom(ZoomPercent - 10);
+            SetFocus(HWindow);
             return 0;
         case IDC_VIEWER_ZOOM_IN:
             SetViewerZoom(ZoomPercent + 10);
+            SetFocus(HWindow);
             return 0;
         case IDC_VIEWER_ZOOM_EDIT:
             if (HIWORD(wParam) == EN_KILLFOCUS)
@@ -2810,7 +2841,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         if (LOWORD(wParam) == CM_EXTSEL_HOME)
                             EndSelection = LineOffset[3 * endSelLineIndex]; // jump to the beginning
                         else
-                            EndSelection--; // move within the line
+                        {
+                            BOOL fatalErr = FALSE;
+                            EndSelection = PreviousTextOffset(EndSelection, fatalErr); // move within the line
+                            if (fatalErr)
+                            {
+                                FatalFileErrorOccured(LOWORD(wParam));
+                                return 0;
+                            }
+                        }
 
                         // wrap mode: handle the end of a forward block at the end of the previous wrapped line specially
                         // (the offset matches the beginning of this line)
@@ -2848,7 +2887,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             // artificially (the upper line is wrapped = we can move one character left on it),
                             // it must be a backward block; otherwise the block would end at the end of the previous line
                             if (WrapText && newEndSel == EndSelection && newEndSel > 0)
-                                newEndSel--; // should always be > 0
+                            {
+                                BOOL fatalErr = FALSE;
+                                newEndSel = PreviousTextOffset(newEndSel, fatalErr); // should move at least one character
+                                if (fatalErr)
+                                {
+                                    FatalFileErrorOccured(LOWORD(wParam));
+                                    return 0;
+                                }
+                            }
                             EndSelection = newEndSel;
 
                             if (!GetXFromOffsetInText(&curX, EndSelection, endSelLineIndex - 1))
@@ -2878,7 +2925,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 // artificially (the top line is wrapped = we can move one character left on it),
                                 // it must be a backward block; otherwise the block would end at the end of the previous line
                                 if (WrapText && newEndSel == EndSelection && newEndSel > 0)
-                                    newEndSel--; // should always be > 0
+                                {
+                                    BOOL fatalErr = FALSE;
+                                    newEndSel = PreviousTextOffset(newEndSel, fatalErr); // should move at least one character
+                                    if (fatalErr)
+                                    {
+                                        FatalFileErrorOccured(LOWORD(wParam));
+                                        return 0;
+                                    }
+                                }
                                 EndSelection = newEndSel;
                             }
 
@@ -2887,7 +2942,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                             BOOL fullRedraw = FALSE; // ensure the new end-of-block position is visible
                             EnsureXVisibleInView(curX, EndSelection > StartSelection, fullRedraw, firstLineCharLen);
-                            if (fullRedraw)
+                            if (fullRedraw || ShowLineNumbers && WrapText)
                                 InvalidateRect(HWindow, NULL, FALSE);
                             else
                             {
@@ -2917,7 +2972,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         if (LOWORD(wParam) == CM_EXTSEL_END)
                             EndSelection = LineOffset[3 * endSelLineIndex + 1];
                         else
-                            EndSelection++; // move within the line
+                        {
+                            BOOL fatalErr = FALSE;
+                            EndSelection = NextTextOffset(EndSelection, fatalErr); // move within the line
+                            if (fatalErr)
+                            {
+                                FatalFileErrorOccured(LOWORD(wParam));
+                                return 0;
+                            }
+                        }
 
                         // wrap mode: handle the end of a backward block at the start of the next wrapped line specially
                         // (the offset matches the end of this line)
@@ -2958,7 +3021,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             // it must be a forward block or else the block would end at the beginning of the next line
                             if (WrapText && newEndSel == EndSelection && newEndSel < LineOffset[3 * (endSelLineIndex + 1) + 1])
                             {
-                                newEndSel++; // should always be < LineOffset[3 * (endSelLineIndex + 1) + 1]
+                                BOOL fatalErr = FALSE;
+                                newEndSel = NextTextOffset(newEndSel, fatalErr); // should move at least one character
+                                if (fatalErr)
+                                {
+                                    FatalFileErrorOccured(LOWORD(wParam));
+                                    return 0;
+                                }
                                 maxRow++;
                             }
                             EndSelection = newEndSel;
@@ -3027,7 +3096,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 BOOL fullRedraw = FALSE; // ensure the new end-of-block position is visible
                                 if (curX != -1)
                                     EnsureXVisibleInView(curX, EndSelection > StartSelection, fullRedraw, firstLineCharLen);
-                                if (fullRedraw)
+                                if (fullRedraw || ShowLineNumbers && WrapText)
                                     InvalidateRect(HWindow, NULL, FALSE);
                                 else
                                 {
