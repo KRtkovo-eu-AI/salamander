@@ -1991,7 +1991,7 @@ begin
   AddPlugin('textviewer', 'PrismSharp Text Viewer .NET', '1.02 (x64)', True);
   AddPlugin('regedt', 'Registry Editor', '1.15 (x64)', True);
   AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
-  AddPlugin('samandarin', 'Samandarin Update Notifier', '0.6 (x64)', True);
+  AddPlugin('samandarin', 'Samandarin Update Notifier', '0.7 (x64)', True);
   AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);
   AddPlugin('splitcbn', 'Split & Combine', '1.11 (x64)', True);
   AddPlugin('tar', 'TAR', '3.34 (x64)', True);
