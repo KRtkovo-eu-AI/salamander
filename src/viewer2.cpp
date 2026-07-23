@@ -1524,7 +1524,12 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
             rowStart = nextRow;
         }
 
-        int lineCount = lines != NULL ? max(1, *lines) : 1;
+        // FindSeekBefore() has already consumed the first requested line in
+        // its while(lines--) loop before passing the remaining count here.
+        // Add it back so callers asking for two lines (for example line-up via
+        // ZeroLineSize()) receive the previous visual row instead of the
+        // current one.
+        int lineCount = lines != NULL ? max(1, *lines + 1) : 1;
         int index = max(0, visualStarts.Count - lineCount);
         lineBegin = visualStarts.Count > 0 ? visualStarts[index] : minSeek;
         previousLineEnd = lineBegin;
