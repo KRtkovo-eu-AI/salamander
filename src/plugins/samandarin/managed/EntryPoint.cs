@@ -1025,6 +1025,54 @@ internal sealed class ConfigurationDialog : Form
 }
 
 
+internal sealed class ThemedBorderPanel : Panel
+{
+    private static readonly Color DarkBorder = Color.FromArgb(56, 56, 56);
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        using var pen = new Pen(IsDarkBackColor ? DarkBorder : SystemColors.ControlDark);
+        e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+    }
+
+    protected override void OnBackColorChanged(EventArgs e)
+    {
+        base.OnBackColorChanged(e);
+        Invalidate();
+    }
+
+    private bool IsDarkBackColor => BackColor.GetBrightness() < 0.5f;
+}
+
+internal sealed class ThemedGroupBox : GroupBox
+{
+    private static readonly Color DarkBorder = Color.FromArgb(56, 56, 56);
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        e.Graphics.Clear(BackColor);
+
+        TextRenderer.DrawText(
+            e.Graphics,
+            Text,
+            Font,
+            new Point(8, 0),
+            ForeColor,
+            TextFormatFlags.Left | TextFormatFlags.NoPrefix);
+
+        var textSize = TextRenderer.MeasureText(Text, Font);
+        var borderTop = Math.Max(Font.Height / 2, 1);
+        using var pen = new Pen(BackColor.GetBrightness() < 0.5f ? DarkBorder : SystemColors.ControlLight);
+
+        e.Graphics.DrawLine(pen, 0, borderTop, 6, borderTop);
+        e.Graphics.DrawLine(pen, 10 + textSize.Width, borderTop, Width - 1, borderTop);
+        e.Graphics.DrawLine(pen, 0, borderTop, 0, Height - 1);
+        e.Graphics.DrawLine(pen, Width - 1, borderTop, Width - 1, Height - 1);
+        e.Graphics.DrawLine(pen, 0, Height - 1, Width - 1, Height - 1);
+    }
+}
+
 internal sealed class PluginUpdatesDialog : Form
 {
     private readonly ListView _listView;
@@ -1089,6 +1137,7 @@ internal sealed class PluginUpdatesDialog : Form
             Scrollable = true,
             View = View.Details,
             OwnerDraw = true,
+            BorderStyle = BorderStyle.None,
         };
         EnableSmoothListViewPainting(_listView);
         _pluginImages = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new System.Drawing.Size(16, 16) };
@@ -1112,13 +1161,15 @@ internal sealed class PluginUpdatesDialog : Form
         _listContextMenu.Items.Add(NativeStrings.Get(NativeStringId.PluginCopyValue), null, (_, _) => CopyContextCellValue());
         _listContextMenu.Items.Add(NativeStrings.Get(NativeStringId.PluginCopyRowWithHeaders), null, (_, _) => CopyContextRowWithHeaders());
         _listView.ContextMenuStrip = _listContextMenu;
-        layout.Controls.Add(_listView, 0, 1);
+        var listFrame = new ThemedBorderPanel { Dock = DockStyle.Fill, Padding = new Padding(1) };
+        listFrame.Controls.Add(_listView);
+        layout.Controls.Add(listFrame, 0, 1);
 
         _showOnlyUpdates = new CheckBox { Text = NativeStrings.Get(NativeStringId.PluginUpdatesShowOnly), AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 6) };
         _showOnlyUpdates.CheckedChanged += (_, _) => BindRows();
         layout.Controls.Add(_showOnlyUpdates, 0, 2);
 
-        var detailGroup = new GroupBox { Text = NativeStrings.Get(NativeStringId.PluginDetails), Dock = DockStyle.Fill, Padding = new Padding(10) };
+        var detailGroup = new ThemedGroupBox { Text = NativeStrings.Get(NativeStringId.PluginDetails), Dock = DockStyle.Fill, Padding = new Padding(10) };
         var detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 5 };
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
@@ -1308,7 +1359,6 @@ internal sealed class PluginUpdatesDialog : Form
 
     private void SetLoadingState(bool isLoading)
     {
-        _listView.Enabled = !isLoading;
         _showOnlyUpdates.Enabled = !isLoading;
         _refreshButton.Enabled = !isLoading;
         _sourcesButton.Enabled = !isLoading;
@@ -1365,7 +1415,17 @@ internal sealed class PluginUpdatesDialog : Form
         AdjustListViewColumns();
         NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
         ThemeHelper.ApplyNativeDarkMode(_listView);
+        EnsureListViewLightModeBackground();
         UpdateDetails();
+    }
+
+    private void EnsureListViewLightModeBackground()
+    {
+        if (BackColor.GetBrightness() >= 0.5f)
+        {
+            _listView.BackColor = Color.White;
+            _listView.ForeColor = SystemColors.WindowText;
+        }
     }
 
     private void RefreshCatalogImages()
