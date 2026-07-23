@@ -17,6 +17,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\shared\ManagedDpi.cs">
+      <Link>ManagedDpi.cs</Link>
+    </Compile>
     <Compile Include="EntryPoint.cs" />
     <Compile Include="ViewerHost.cs" />
     <Compile Include="WindowInterop.cs" />

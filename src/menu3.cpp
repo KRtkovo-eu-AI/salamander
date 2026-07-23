@@ -8,6 +8,7 @@
 #include "bitmap.h"
 #include "menu.h"
 #include "darkmode.h"
+#include "common/winlibdpi.h"
 
 namespace
 {
@@ -111,7 +112,7 @@ CMenuSharedResources::~CMenuSharedResources()
 }
 
 
-static BOOL SystemParametersInfoForPopupMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
+static BOOL SystemParametersInfoForPopupMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni, int dpi)
 {
     typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
     static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
@@ -123,14 +124,13 @@ static BOOL SystemParametersInfoForPopupMenuDPI(UINT action, UINT uiParam, PVOID
             systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
         loaded = TRUE;
     }
-    if (systemParametersInfoForDpi != NULL && systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, GetSystemDPI()))
+    if (systemParametersInfoForDpi != NULL && systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, dpi))
         return TRUE;
     return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
 }
 
-static void ScalePopupMenuFontForCurrentDPI(LOGFONT* lf)
+static void ScalePopupMenuFontForDPI(LOGFONT* lf, int dpi)
 {
-    int dpi = GetSystemDPI();
     if (lf == NULL || lf->lfHeight == 0)
         return;
     int expected = MulDiv(12, dpi, 96);
@@ -166,12 +166,13 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
     }
 
     // generate a copy and a bold version from the menu font
+    int dpi = (int)WinLibDPIGetWindowDPI(HParent);
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
-    SystemParametersInfoForPopupMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    SystemParametersInfoForPopupMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
 
     LOGFONT* lf = &ncm.lfMenuFont;
-    ScalePopupMenuFontForCurrentDPI(lf);
+    ScalePopupMenuFontForDPI(lf, dpi);
     HNormalFont = HANDLES(CreateFontIndirect(lf));
     lf->lfWeight = FW_BOLD;
     HBoldFont = HANDLES(CreateFontIndirect(lf));

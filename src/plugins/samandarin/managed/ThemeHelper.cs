@@ -112,7 +112,7 @@ internal static class ThemeHelper
             return MessageBox.Show(owner, text, caption, buttons, icon);
         }
 
-        using var dialog = new Form
+        using var dialog = new DpiAwareForm
         {
             Text = caption,
             StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.Manual,

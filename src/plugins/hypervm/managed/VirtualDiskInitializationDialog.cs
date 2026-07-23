@@ -10,7 +10,7 @@ using System.Windows.Forms;
 
 namespace OpenSalamander.HyperVM;
 
-internal sealed class VirtualDiskInitializationDialog : Form
+internal sealed class VirtualDiskInitializationDialog : DpiAwareForm
 {
     private readonly string _path;
     private readonly RadioButton _gpt;

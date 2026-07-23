@@ -955,6 +955,8 @@
     </ClInclude>
     <ClInclude Include="..\common\winlib.h">
     </ClInclude>
+    <ClInclude Include="..\common\winlibdpi.h">
+    </ClInclude>
     <ClInclude Include="..\consts.h">
     </ClInclude>
     <ClInclude Include="..\darkmode.h">
@@ -1169,6 +1171,8 @@
     </None>
     <None Include="..\salamand.rc2">
     </None>
+    <None Include="..\salamand.exe.config">
+    </None>
     <None Include="..\salamand.rh">
     </None>
     <None Include="..\texts.rh2">
@@ -1190,4 +1194,9 @@
   </Import>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <Target Name="CopyWinFormsApplicationConfig" AfterTargets="Build">
+    <Copy SourceFiles="$(ProjectDir)..\salamand.exe.config"
+          DestinationFiles="$(TargetPath).config"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

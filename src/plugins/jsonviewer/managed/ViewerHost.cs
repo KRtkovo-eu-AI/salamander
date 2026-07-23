@@ -607,7 +607,7 @@ internal static class ViewerHost
         }
     }
 
-    private sealed class JsonViewerForm : Form
+    private sealed class JsonViewerForm : DpiAwareForm
     {
         private readonly JsonViewerControl _viewer;
         private ViewerSession? _session;

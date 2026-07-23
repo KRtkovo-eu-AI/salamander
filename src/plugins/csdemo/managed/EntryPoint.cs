@@ -45,14 +45,13 @@ public static class EntryPoint
             return;
         }
 
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
+        ManagedApplication.Initialize();
         _visualsEnabled = true;
     }
 
     private static int ShowAbout(IntPtr parent)
     {
-        using var dialog = new Form
+        using var dialog = new DpiAwareForm
         {
             Text = "C# Demo Plugin",
             StartPosition = FormStartPosition.CenterParent,
@@ -92,7 +91,7 @@ public static class EntryPoint
 
     private static int ShowConfiguration(IntPtr parent)
     {
-        using var dialog = new Form
+        using var dialog = new DpiAwareForm
         {
             Text = "C# Demo Configuration",
             StartPosition = FormStartPosition.CenterParent,
@@ -172,7 +171,7 @@ public static class EntryPoint
 
     private static int ShowHello(IntPtr parent, string payload)
     {
-        using var dialog = new Form
+        using var dialog = new DpiAwareForm
         {
             Text = "Managed Window",
             StartPosition = FormStartPosition.CenterParent,
