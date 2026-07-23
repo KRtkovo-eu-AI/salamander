@@ -1684,7 +1684,17 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
             int availableRows = row + 1;
             if (*lines <= availableRows)
             {
-                lineBegin = wrapStarts[row - *lines + 1];
+                int lineIndex = row - *lines + 1;
+                if (takeLineBegin && row + 1 < wrapStarts.Count && seek == wrapStarts[row + 1])
+                {
+                    // At a wrap boundary the caller is already positioned at
+                    // the beginning of the following visual row.  Moving up by
+                    // one line must therefore land on 'row', not skip one more
+                    // row.  This keeps mouse-wheel/line-up working in wrapped
+                    // decoded text.
+                    lineIndex++;
+                }
+                lineBegin = wrapStarts[max(0, lineIndex)];
                 previousLineEnd = lineBegin;
                 *lines = 0;
                 return TRUE;
