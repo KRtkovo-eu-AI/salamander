@@ -41,6 +41,8 @@ struct CWinLibDPIControlLayout
 struct CWinLibDPIDialogLayout
 {
     int Dpi;
+    BOOL HasFont;
+    LOGFONT Font96;
     RECT WindowRect96;
     int ControlsCount;
     CWinLibDPIControlLayout* Controls;
@@ -121,6 +123,23 @@ static BOOL CALLBACK WinLib_DPI_CaptureControlsProc(HWND hwnd, LPARAM lParam)
     return TRUE;
 }
 
+static int WinLib_DPI_GetDialogFontSourceDpi(HWND hwnd, int targetDpi)
+{
+    HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+    LOGFONT lf;
+    memset(&lf, 0, sizeof(lf));
+    if (hFont == NULL || GetObject(hFont, sizeof(lf), &lf) == 0 || lf.lfHeight == 0)
+        return 96;
+
+    int pointSize = _tcsicmp(lf.lfFaceName, _T("Segoe UI")) == 0 ? 9 : 8;
+    int estimatedDpi = MulDiv(abs(lf.lfHeight), 72, pointSize);
+
+    // When the dialog manager already created the template at the monitor DPI,
+    // avoid scaling a second time.  Otherwise treat the resource as the usual
+    // 96-DPI template and let WinLib scale it explicitly.
+    return abs(estimatedDpi - targetDpi) <= 12 ? targetDpi : 96;
+}
+
 static CWinLibDPIDialogLayout* WinLib_DPI_GetDialogLayout(HWND hwnd)
 {
     return (CWinLibDPIDialogLayout*)GetProp(hwnd, WinLib_DPI_DialogLayoutProp);
@@ -143,6 +162,16 @@ static CWinLibDPIDialogLayout* WinLib_DPI_CaptureDialogLayout(HWND hwnd, int dpi
     }
 
     layout->Dpi = dpi;
+    layout->HasFont = FALSE;
+    memset(&layout->Font96, 0, sizeof(layout->Font96));
+    HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+    if (hFont != NULL && GetObject(hFont, sizeof(layout->Font96), &layout->Font96) != 0)
+    {
+        if (layout->Font96.lfHeight != 0)
+            layout->Font96.lfHeight = layout->Font96.lfHeight < 0 ? -WinLib_DPI_Unscale(-layout->Font96.lfHeight, dpi) :
+                                                                    WinLib_DPI_Unscale(layout->Font96.lfHeight, dpi);
+        layout->HasFont = TRUE;
+    }
     layout->ControlsCount = 0;
     GetWindowRect(hwnd, &layout->WindowRect96);
     WinLib_DPI_RectTo96(&layout->WindowRect96, dpi);
@@ -171,11 +200,12 @@ static void WinLib_DPI_UpdateDialogLayoutBase(HWND hwnd, CWinLibDPIDialogLayout*
 
 static HFONT WinLib_DPI_CreateDialogFont(HWND hwnd, int dpi)
 {
-    HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+    CWinLibDPIDialogLayout* layout = WinLib_DPI_GetDialogLayout(hwnd);
     LOGFONT lf;
     memset(&lf, 0, sizeof(lf));
-    if (hFont != NULL && GetObject(hFont, sizeof(lf), &lf) != 0)
+    if (layout != NULL && layout->HasFont)
     {
+        lf = layout->Font96;
         if (lf.lfHeight != 0)
             lf.lfHeight = lf.lfHeight < 0 ? -WinLib_DPI_Scale(-lf.lfHeight, dpi) :
                                             WinLib_DPI_Scale(lf.lfHeight, dpi);
@@ -201,7 +231,7 @@ void WinLib_DPI_ApplyDialogLayout(HWND hwnd, int dpi, const RECT* suggestedRect)
 
     CWinLibDPIDialogLayout* layout = WinLib_DPI_GetDialogLayout(hwnd);
     if (layout == NULL)
-        layout = WinLib_DPI_CaptureDialogLayout(hwnd, 96);
+        layout = WinLib_DPI_CaptureDialogLayout(hwnd, WinLib_DPI_GetDialogFontSourceDpi(hwnd, dpi));
     else if (layout->Dpi != dpi)
         WinLib_DPI_UpdateDialogLayoutBase(hwnd, layout);
     if (layout == NULL)
@@ -210,6 +240,8 @@ void WinLib_DPI_ApplyDialogLayout(HWND hwnd, int dpi, const RECT* suggestedRect)
     HDWP hdwp = BeginDeferWindowPos(layout->ControlsCount + 1);
     for (int i = 0; i < layout->ControlsCount; i++)
     {
+        if (hdwp == NULL)
+            break;
         CWinLibDPIControlLayout* control = layout->Controls + i;
         if (!IsWindow(control->HWindow))
             continue;
