@@ -27,6 +27,14 @@ extern const WCHAR* CWINDOW_CLASSNAMEW;  // jmeno tridy unicodoveho universalnih
 extern const WCHAR* CWINDOW_CLASSNAME2W; // jmeno tridy unicodoveho universalniho okna - nema CS_VREDRAW | CS_HREDRAW
 #endif                                   // _UNICODE
 
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
+#ifndef WM_DPICHANGED_AFTERPARENT
+#define WM_DPICHANGED_AFTERPARENT 0x02E3
+#endif
+
 class CWinLibHelp;
 
 // je potreba zavolat pred pouzitim WinLibu
@@ -547,3 +555,6 @@ extern CWindowsManager WindowsManager;
 
 HANDLE WinLib_DPI_SetThreadPerMonitorV2();
 void WinLib_DPI_RestoreThreadContext(HANDLE oldContext);
+UINT WinLib_DPI_GetDpiForWindow(HWND hwnd);
+void WinLib_DPI_ApplyDialogLayout(HWND hwnd, int dpi, const RECT* suggestedRect);
+void WinLib_DPI_CleanupDialogLayout(HWND hwnd);

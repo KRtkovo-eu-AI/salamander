@@ -809,6 +809,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         DockOverlappingEditButtons(HWindow);
+        WinLib_DPI_ApplyDialogLayout(HWindow, WinLib_DPI_GetDpiForWindow(HWindow), NULL);
         return TRUE; // chci focus od DefDlgProc
     }
 
@@ -938,6 +939,19 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_DPICHANGED:
+    {
+        const RECT* suggestedRect = lParam != 0 ? (const RECT*)lParam : NULL;
+        WinLib_DPI_ApplyDialogLayout(HWindow, HIWORD(wParam), suggestedRect);
+        return TRUE;
+    }
+
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        WinLib_DPI_ApplyDialogLayout(HWindow, WinLib_DPI_GetDpiForWindow(HWindow), NULL);
+        return TRUE;
+    }
+
     case WM_USER_COMMONDLG_DARKMODE_REDRAW:
     {
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_ALLCHILDREN);
@@ -995,6 +1009,7 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
             else
                 dlg->HWindow = NULL; // informace o odpojeni
         }
+        WinLib_DPI_CleanupDialogLayout(hwndDlg);
         return ret;
     }
 
