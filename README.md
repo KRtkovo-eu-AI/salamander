@@ -54,6 +54,12 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - Complete dark mode support for all components, windows, plugins etc.
 <img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/3d124bed-a670-414d-9f21-ea453561bce3" />
 
+### DPI Awareness
+- Sharper interface rendering on high-DPI and mixed-DPI Windows displays.
+- The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.
+<img width="1024" height="708" alt="image" src="https://github.com/user-attachments/assets/d4117eba-bebd-46ba-8b4e-0621e7668977" />
+
+
 ### Configurable Command Shell Application
 <img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/d5109ceb-ec72-43ce-9731-749f3cb13fec" />
 
