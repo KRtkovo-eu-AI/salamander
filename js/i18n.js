@@ -1535,6 +1535,176 @@
   };
   Object.entries(pageTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
 
+
+  const dpiAwarenessTranslations = {
+    cs: {
+      "DPI Awareness": "Podpora DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Ostřejší vykreslování rozhraní na Windows displejích s vysokým DPI a kombinovaným DPI.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Aplikace konzistentněji škáluje dialogy, ovládací prvky, ikony a obsah panelů při přesouvání mezi monitory s různým nastavením měřítka.",
+      "Samandarin DPI Awareness preview": "Náhled DPI Awareness v Samandarinu"
+    },
+    nl: {
+      "DPI Awareness": "DPI-bewustzijn",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Scherpere weergave van de interface op Windows-schermen met hoge DPI en gemengde DPI.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "De toepassing schaalt dialogen, bedieningselementen, pictogrammen en paneelinhoud consistenter bij het verplaatsen tussen monitoren met verschillende schaalinstellingen.",
+      "Samandarin DPI Awareness preview": "Voorbeeld van DPI-bewustzijn in Samandarin"
+    },
+    fr: {
+      "DPI Awareness": "Prise en charge DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Rendu d’interface plus net sur les écrans Windows à DPI élevé ou mixte.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "L’application adapte plus régulièrement les boîtes de dialogue, les contrôles, les icônes et le contenu des panneaux lors du passage entre des moniteurs aux réglages d’échelle différents.",
+      "Samandarin DPI Awareness preview": "Aperçu DPI Awareness de Samandarin"
+    },
+    de: {
+      "DPI Awareness": "DPI-Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Schärfere Darstellung der Oberfläche auf Windows-Bildschirmen mit hoher oder gemischter DPI-Skalierung.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Die Anwendung skaliert Dialoge, Steuerelemente, Symbole und Panel-Inhalte konsistenter beim Wechsel zwischen Monitoren mit unterschiedlichen Skalierungseinstellungen.",
+      "Samandarin DPI Awareness preview": "Samandarin-DPI-Awareness-Vorschau"
+    },
+    hu: {
+      "DPI Awareness": "DPI-tudatosság",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Élesebb felületmegjelenítés nagy DPI-s és vegyes DPI-s Windows-kijelzőkön.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Az alkalmazás következetesebben méretezi a párbeszédablakokat, vezérlőket, ikonokat és paneltartalmakat különböző méretezési beállítású monitorok között mozgatva.",
+      "Samandarin DPI Awareness preview": "Samandarin DPI-tudatosság előnézet"
+    },
+    zhHans: {
+      "DPI Awareness": "DPI 感知",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "在高 DPI 和混合 DPI 的 Windows 显示器上呈现更清晰的界面。",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "在不同缩放设置的显示器之间移动时，应用会更一致地缩放对话框、控件、图标和面板内容。",
+      "Samandarin DPI Awareness preview": "Samandarin DPI 感知预览"
+    },
+    ro: {
+      "DPI Awareness": "Conștientizare DPI",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Redare mai clară a interfeței pe afișaje Windows cu DPI ridicat și DPI mixt.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Aplicația scalează mai consecvent dialogurile, controalele, pictogramele și conținutul panourilor la mutarea între monitoare cu setări de scalare diferite.",
+      "Samandarin DPI Awareness preview": "Previzualizare DPI Awareness Samandarin"
+    },
+    ru: {
+      "DPI Awareness": "Поддержка DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Более четкая отрисовка интерфейса на дисплеях Windows с высоким и смешанным DPI.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Приложение более последовательно масштабирует диалоги, элементы управления, значки и содержимое панелей при переносе между мониторами с разными настройками масштабирования.",
+      "Samandarin DPI Awareness preview": "Предпросмотр DPI Awareness в Samandarin"
+    },
+    sk: {
+      "DPI Awareness": "Podpora DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Ostrejšie vykresľovanie rozhrania na Windows displejoch s vysokým DPI a zmiešaným DPI.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Aplikácia konzistentnejšie škáluje dialógy, ovládacie prvky, ikony a obsah panelov pri presúvaní medzi monitormi s rôznymi nastaveniami mierky.",
+      "Samandarin DPI Awareness preview": "Náhľad DPI Awareness v Samandarine"
+    },
+    es: {
+      "DPI Awareness": "Compatibilidad DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Renderizado de interfaz más nítido en pantallas Windows con DPI alto y DPI mixto.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "La aplicación escala diálogos, controles, iconos y contenido de paneles de forma más coherente al moverse entre monitores con distintas configuraciones de escala.",
+      "Samandarin DPI Awareness preview": "Vista previa de DPI Awareness en Samandarin"
+    }
+  };
+  Object.entries(dpiAwarenessTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
+
+
+  const viewerAndShellTranslations = {
+    cs: {
+      "Internal Viewer": "Interní prohlížeč",
+      "Support for Unicode encoding in text files.": "Podpora Unicode kódování v textových souborech.",
+      "Status bar with useful viewer state and file information.": "Stavový řádek s užitečným stavem prohlížeče a informacemi o souboru.",
+      "Zoom text with": "Přibližování textu pomocí",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ kolečka myši.",
+      "Optional line numbers for easier navigation in text files.": "Volitelné číslování řádků pro snazší orientaci v textových souborech.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dynamicky načítá profily Windows Terminalu pro rychlý výběr příkazového shellu."
+    },
+    nl: {
+      "Internal Viewer": "Interne viewer",
+      "Support for Unicode encoding in text files.": "Ondersteuning voor Unicode-codering in tekstbestanden.",
+      "Status bar with useful viewer state and file information.": "Statusbalk met nuttige viewerstatus en bestandsinformatie.",
+      "Zoom text with": "Zoom tekst met",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ muiswiel.",
+      "Optional line numbers for easier navigation in text files.": "Optionele regelnummers voor eenvoudiger navigeren in tekstbestanden.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Laadt Windows Terminal-profielen dynamisch voor snelle selectie van de command shell."
+    },
+    fr: {
+      "Internal Viewer": "Visionneuse interne",
+      "Support for Unicode encoding in text files.": "Prise en charge de l’encodage Unicode dans les fichiers texte.",
+      "Status bar with useful viewer state and file information.": "Barre d’état avec des informations utiles sur l’état de la visionneuse et le fichier.",
+      "Zoom text with": "Zoom du texte avec",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ molette de la souris.",
+      "Optional line numbers for easier navigation in text files.": "Numéros de ligne facultatifs pour faciliter la navigation dans les fichiers texte.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Charge dynamiquement les profils Windows Terminal pour choisir rapidement le shell de commande."
+    },
+    de: {
+      "Internal Viewer": "Interner Viewer",
+      "Support for Unicode encoding in text files.": "Unterstützung für Unicode-Kodierung in Textdateien.",
+      "Status bar with useful viewer state and file information.": "Statusleiste mit nützlichem Viewer-Status und Dateiinformationen.",
+      "Zoom text with": "Text zoomen mit",
+      "Ctrl": "Strg",
+      "+ mouse wheel.": "+ Mausrad.",
+      "Optional line numbers for easier navigation in text files.": "Optionale Zeilennummern für eine einfachere Navigation in Textdateien.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Lädt Windows-Terminal-Profile dynamisch für eine schnelle Auswahl der Kommando-Shell."
+    },
+    hu: {
+      "Internal Viewer": "Belső megjelenítő",
+      "Support for Unicode encoding in text files.": "Unicode kódolás támogatása szövegfájlokban.",
+      "Status bar with useful viewer state and file information.": "Állapotsor hasznos megjelenítőállapottal és fájlinformációkkal.",
+      "Zoom text with": "Szöveg nagyítása",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ egérgörgő használatával.",
+      "Optional line numbers for easier navigation in text files.": "Opcionális sorszámok a szövegfájlokban való könnyebb navigációhoz.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dinamikusan betölti a Windows Terminal profilokat a parancssori shell gyors kiválasztásához."
+    },
+    zhHans: {
+      "Internal Viewer": "内部查看器",
+      "Support for Unicode encoding in text files.": "支持文本文件中的 Unicode 编码。",
+      "Status bar with useful viewer state and file information.": "状态栏显示有用的查看器状态和文件信息。",
+      "Zoom text with": "使用",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ 鼠标滚轮缩放文本。",
+      "Optional line numbers for easier navigation in text files.": "可选行号，便于在文本文件中导航。",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "动态加载 Windows Terminal 配置文件，便于快速选择命令 shell。"
+    },
+    ro: {
+      "Internal Viewer": "Vizualizator intern",
+      "Support for Unicode encoding in text files.": "Suport pentru codificarea Unicode în fișiere text.",
+      "Status bar with useful viewer state and file information.": "Bară de stare cu informații utile despre starea vizualizatorului și fișier.",
+      "Zoom text with": "Mărește textul cu",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ rotița mouse-ului.",
+      "Optional line numbers for easier navigation in text files.": "Numere de linie opționale pentru navigare mai ușoară în fișiere text.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Încarcă dinamic profilurile Windows Terminal pentru selectarea rapidă a shellului de comandă."
+    },
+    ru: {
+      "Internal Viewer": "Внутренний просмотрщик",
+      "Support for Unicode encoding in text files.": "Поддержка кодировки Unicode в текстовых файлах.",
+      "Status bar with useful viewer state and file information.": "Строка состояния с полезной информацией о состоянии просмотрщика и файле.",
+      "Zoom text with": "Масштабирование текста с помощью",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ колесика мыши.",
+      "Optional line numbers for easier navigation in text files.": "Необязательные номера строк для более удобной навигации по текстовым файлам.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Динамически загружает профили Windows Terminal для быстрого выбора командной оболочки."
+    },
+    sk: {
+      "Internal Viewer": "Interný prehliadač",
+      "Support for Unicode encoding in text files.": "Podpora Unicode kódovania v textových súboroch.",
+      "Status bar with useful viewer state and file information.": "Stavový riadok s užitočným stavom prehliadača a informáciami o súbore.",
+      "Zoom text with": "Približovanie textu pomocou",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ kolieska myši.",
+      "Optional line numbers for easier navigation in text files.": "Voliteľné číslovanie riadkov pre jednoduchšiu orientáciu v textových súboroch.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Dynamicky načítava profily Windows Terminalu pre rýchly výber príkazového shellu."
+    },
+    es: {
+      "Internal Viewer": "Visor interno",
+      "Support for Unicode encoding in text files.": "Compatibilidad con codificación Unicode en archivos de texto.",
+      "Status bar with useful viewer state and file information.": "Barra de estado con información útil del estado del visor y del archivo.",
+      "Zoom text with": "Zoom del texto con",
+      "Ctrl": "Ctrl",
+      "+ mouse wheel.": "+ rueda del ratón.",
+      "Optional line numbers for easier navigation in text files.": "Números de línea opcionales para navegar más fácilmente en archivos de texto.",
+      "Dynamically loads Windows Terminal profiles for quick command shell selection.": "Carga dinámicamente perfiles de Windows Terminal para seleccionar rápidamente el shell de comandos."
+    }
+  };
+  Object.entries(viewerAndShellTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
+
   const translatableTextNodes = [];
   const translatableAttributes = [];
 
