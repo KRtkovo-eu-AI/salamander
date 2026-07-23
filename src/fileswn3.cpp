@@ -2841,6 +2841,13 @@ void CFilesWindow::ChangeDrive(char drive)
             TRACE_E("CFilesWindow::ChangeDrive(): unexpected drive type: drvtOneDriveMenu");
             break;
 
+        case drvtMountPoint:
+        {
+            ChangePathToDisk(HWindow, (const char*)driveTypeParam);
+            free((char*)driveTypeParam);
+            return;
+        }
+
         // is it Network?
         case drvtNeighborhood:
         {

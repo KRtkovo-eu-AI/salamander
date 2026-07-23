@@ -4939,6 +4939,7 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCfgPageChangeDrive::Transfer()");
 
+    ti.CheckBox(IDC_CHD_SHOWMOUNTFOLDERS, Configuration.ChangeDriveShowMountFolders);
     ti.CheckBox(IDC_CHD_SHOWMYDOC, Configuration.ChangeDriveShowMyDoc);
     ti.CheckBox(IDC_CHD_SHOW3DOBJECTS, Configuration.ChangeDriveShow3DObjects);
     ti.CheckBox(IDC_CHD_SHOWDESKTOP, Configuration.ChangeDriveShowDesktop);

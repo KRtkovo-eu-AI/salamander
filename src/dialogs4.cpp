@@ -729,6 +729,7 @@ CConfiguration::CConfiguration()
     GoToOffsetIsHex = TRUE;
 
     // Change drive
+    ChangeDriveShowMountFolders = TRUE;
     ChangeDriveShowMyDoc = TRUE;
     ChangeDriveShow3DObjects = FALSE;
     ChangeDriveShowDesktop = FALSE;
