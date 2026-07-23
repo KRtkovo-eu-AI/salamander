@@ -1165,8 +1165,26 @@ void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
                 if (freeSpace != CQuadWord(-1, -1))
                     PrintDiskSize(freeSpaceText, freeSpace, 0);
 
-                int textLen = 1 + (int)strlen(mountPath) +
-                              (volumeText[0] != 0 ? 2 + (int)strlen(volumeText) : 0) +
+                char displayPath[SAL_MAX_PATH];
+                lstrcpyn(displayPath, mountPath, _countof(displayPath));
+                if (Configuration.ChangeDriveMountFoldersMode == TITLE_BAR_MODE_DIRECTORY)
+                {
+                    const char* lastComponent = strrchr(mountPath, '\\');
+                    if (lastComponent != NULL && lastComponent[1] != 0)
+                        lstrcpyn(displayPath, lastComponent + 1, _countof(displayPath));
+                }
+                else if (Configuration.ChangeDriveMountFoldersMode == TITLE_BAR_MODE_COMPOSITE)
+                {
+                    const char* lastComponent = strrchr(mountPath, '\\');
+                    if (lastComponent != NULL && lastComponent[1] != 0 && lastComponent != mountPath)
+                        _snprintf_s(displayPath, _TRUNCATE, "%.*s...\\%s",
+                                    (int)(lastComponent - mountPath >= 3 ? 3 : lastComponent - mountPath),
+                                    mountPath, lastComponent + 1);
+                }
+                DuplicateAmpersands(displayPath, SAL_MAX_PATH);
+
+                int textLen = 1 + (int)strlen(displayPath) +
+                              (Configuration.ChangeDriveMountFoldersName && volumeText[0] != 0 ? 2 + (int)strlen(volumeText) : 0) +
                               (freeSpaceText[0] != 0 ? 1 + (int)strlen(freeSpaceText) : 0) + 1;
                 drv.DriveText = (char*)malloc(textLen);
                 drv.MountPointPath = DupStr(mountPath);
@@ -1182,8 +1200,8 @@ void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
                     continue;
                 }
                 strcpy(drv.DriveText, "\t");
-                strcat(drv.DriveText, mountPath);
-                if (volumeText[0] != 0)
+                strcat(drv.DriveText, displayPath);
+                if (Configuration.ChangeDriveMountFoldersName && volumeText[0] != 0)
                 {
                     strcat(drv.DriveText, "  ");
                     strcat(drv.DriveText, volumeText);
@@ -2139,7 +2157,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         }
     }
 
-    if (!forDriveBar && Configuration.ChangeDriveShowMountFolders)
+    if ((!forDriveBar || Configuration.ChangeDriveMountFoldersDriveBar) && Configuration.ChangeDriveShowMountFolders)
     {
         int firstMountPointIndex = Drives->Count;
         AddMountedFolderDrives(drv, getGrayIcons);

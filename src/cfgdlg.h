@@ -426,6 +426,9 @@ struct CConfiguration
 
     // Change drive
     int ChangeDriveShowMountFolders; // display volumes mounted into folders
+    int ChangeDriveMountFoldersMode; // TITLE_BAR_MODE_xxx for mounted folder paths
+    int ChangeDriveMountFoldersName; // display mounted volume caption
+    int ChangeDriveMountFoldersDriveBar; // display mounted volumes in Drive Bar
     int ChangeDriveShowMyDoc;     // display Documents item
     int ChangeDriveShow3DObjects; // display 3D Objects item
     int ChangeDriveShowDesktop;   // display Desktop item
