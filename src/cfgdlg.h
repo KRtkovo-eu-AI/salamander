@@ -425,6 +425,7 @@ struct CConfiguration
     WINDOWPLACEMENT DetachedWindowPlacement; // invalid unless DetachedWindowPlacement.length != 0
 
     // Change drive
+    int ChangeDriveShowMountFolders; // display volumes mounted into folders
     int ChangeDriveShowMyDoc;     // display Documents item
     int ChangeDriveShow3DObjects; // display 3D Objects item
     int ChangeDriveShowDesktop;   // display Desktop item

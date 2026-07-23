@@ -1147,6 +1147,7 @@ const char* CONFIG_IFPATHISINACCESSIBLEGOTO_REG = "If Path Is Inaccessible Go To
 const char* CONFIG_HOTPATH_AUTOCONFIG = "Auto Configurate Hot Paths";
 const char* CONFIG_LASTUSEDSPEEDLIM_REG = "Speed Limit";
 const char* CONFIG_QUICKSEARCHENTER_REG = "Quick Search Enter Alt";
+const char* CONFIG_CHD_SHOWMOUNTFOLDERS = "Change Drive Show Mount Folders";
 const char* CONFIG_CHD_SHOWMYDOC = "Change Drive Show My Documents";
 const char* CONFIG_CHD_SHOW3DOBJECTS = "Change Drive Show 3D Objects";
 const char* CONFIG_CHD_SHOWDESKTOP = "Change Drive Show Desktop";
@@ -3145,6 +3146,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.LastUsedSpeedLimit, sizeof(DWORD));
                 SetValue(actKey, CONFIG_QUICKSEARCHENTER_REG, REG_DWORD,
                          &Configuration.QuickSearchEnterAlt, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_SHOWMOUNTFOLDERS, REG_DWORD,
+                         &Configuration.ChangeDriveShowMountFolders, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOWMYDOC, REG_DWORD,
                          &Configuration.ChangeDriveShowMyDoc, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOW3DOBJECTS, REG_DWORD,
@@ -5052,6 +5055,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.LastUsedSpeedLimit, sizeof(DWORD));
             GetValue(actKey, CONFIG_QUICKSEARCHENTER_REG, REG_DWORD,
                      &Configuration.QuickSearchEnterAlt, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_SHOWMOUNTFOLDERS, REG_DWORD,
+                     &Configuration.ChangeDriveShowMountFolders, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOWMYDOC, REG_DWORD,
                      &Configuration.ChangeDriveShowMyDoc, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOW3DOBJECTS, REG_DWORD,

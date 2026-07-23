@@ -1108,6 +1108,110 @@ CDrivesList::OwnGetDriveType(const char* rootPath)
     return ret;
 }
 
+
+void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
+{
+    CALL_STACK_MESSAGE1("CDrivesList::AddMountedFolderDrives()");
+    (void)getGrayIcons;
+
+    char volumeName[MAX_PATH];
+    HANDLE hVolume = FindFirstVolume(volumeName, _countof(volumeName));
+    if (hVolume == INVALID_HANDLE_VALUE)
+        return;
+
+    do
+    {
+        DWORD needed = 0;
+        if ((!GetVolumePathNamesForVolumeName(volumeName, NULL, 0, &needed) &&
+             GetLastError() != ERROR_MORE_DATA) ||
+            needed == 0)
+        {
+            continue;
+        }
+
+        char* paths = (char*)malloc(needed);
+        if (paths == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            continue;
+        }
+
+        if (GetVolumePathNamesForVolumeName(volumeName, paths, needed, &needed))
+        {
+            for (char* path = paths; *path != 0; path += strlen(path) + 1)
+            {
+                // Drive-letter roots are already shown in the normal disks group.
+                if (strlen(path) <= 3 && path[1] == ':' && path[2] == '\\')
+                    continue;
+
+                char mountPath[SAL_MAX_PATH];
+                lstrcpyn(mountPath, path, _countof(mountPath));
+                SalPathRemoveBackslash(mountPath);
+
+                char volumeText[MAX_PATH + 50];
+                DWORD dummy;
+                CQuadWord freeSpace(-1, -1);
+                if (GetVolumeInformation(path, volumeText, MAX_PATH, NULL, &dummy, &dummy, NULL, 0))
+                {
+                    DuplicateAmpersands(volumeText, MAX_PATH);
+                    CQuadWord total;
+                    freeSpace = MyGetDiskFreeSpace(path, &total);
+                }
+                else
+                    volumeText[0] = 0;
+
+                char freeSpaceText[50];
+                freeSpaceText[0] = 0;
+                if (freeSpace != CQuadWord(-1, -1))
+                    PrintDiskSize(freeSpaceText, freeSpace, 0);
+
+                int textLen = 1 + (int)strlen(mountPath) +
+                              (volumeText[0] != 0 ? 2 + (int)strlen(volumeText) : 0) +
+                              (freeSpaceText[0] != 0 ? 1 + (int)strlen(freeSpaceText) : 0) + 1;
+                drv.DriveText = (char*)malloc(textLen);
+                drv.MountPointPath = DupStr(mountPath);
+                if (drv.DriveText == NULL || drv.MountPointPath == NULL)
+                {
+                    if (drv.DriveText != NULL)
+                        free(drv.DriveText);
+                    if (drv.MountPointPath != NULL)
+                        free(drv.MountPointPath);
+                    drv.DriveText = NULL;
+                    drv.MountPointPath = NULL;
+                    TRACE_E(LOW_MEMORY);
+                    continue;
+                }
+                strcpy(drv.DriveText, "\t");
+                strcat(drv.DriveText, mountPath);
+                if (volumeText[0] != 0)
+                {
+                    strcat(drv.DriveText, "  ");
+                    strcat(drv.DriveText, volumeText);
+                }
+                if (freeSpaceText[0] != 0)
+                {
+                    strcat(drv.DriveText, "\t");
+                    strcat(drv.DriveText, freeSpaceText);
+                }
+
+                drv.DriveType = drvtMountPoint;
+                drv.Param = 0;
+                drv.Accessible = TRUE;
+                drv.Shared = FALSE;
+                drv.PluginFS = NULL;
+                drv.DLLName = NULL;
+                drv.DestroyIcon = TRUE;
+                drv.HIcon = GetDriveIcon(NULL, DRIVE_FIXED, TRUE);
+                drv.HGrayIcon = NULL;
+                Drives->Add(drv);
+            }
+        }
+        free(paths);
+    } while (FindNextVolume(hVolume, volumeName, _countof(volumeName)));
+
+    FindVolumeClose(hVolume);
+}
+
 void GetDisplayNameFromSystem(const char* root, char* volumeName, int volumeNameBufSize)
 {
     CALL_STACK_MESSAGE2("GetDisplayNameFromSystem(%s)", root);
@@ -1771,6 +1875,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     drv.DestroyIcon = TRUE; // these icons are allocated
     drv.PluginFS = NULL;    // just for sure
     drv.DLLName = NULL;     // just for sure
+    drv.MountPointPath = NULL; // just for sure
     drv.HGrayIcon = NULL;
 
     CDriveData drvSeparator;
@@ -2034,10 +2139,19 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         }
     }
 
+    if (!forDriveBar && Configuration.ChangeDriveShowMountFolders)
+    {
+        int firstMountPointIndex = Drives->Count;
+        AddMountedFolderDrives(drv, getGrayIcons);
+        if (Drives->Count > firstMountPointIndex && firstMountPointIndex > 0)
+            Drives->Insert(firstMountPointIndex, drvSeparator);
+    }
+
     // we will add disconnected and active FS
     drv.Accessible = FALSE;
     drv.Shared = FALSE;
     drv.DLLName = NULL;
+    drv.MountPointPath = NULL;
     CDetachedFSList* list = MainWindow->DetachedFSList;
     CPluginFSInterfaceEncapsulation** fsList = (CPluginFSInterfaceEncapsulation**)malloc(sizeof(CPluginFSInterfaceEncapsulation*) * (list->Count + 2));
     if (fsList != NULL)
@@ -2130,6 +2244,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     }
     drv.PluginFS = NULL; // just for sure
     drv.DLLName = NULL;  // just for sure
+    drv.MountPointPath = NULL; // just for sure
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
 
     // I will add the separator if it is not the first item and if there is no separator yet
@@ -2418,6 +2533,11 @@ void CDrivesList::DestroyDrives(TDirectArray<CDriveData>* drives)
         {
             if (drives->At(i).DriveText != NULL)
                 free(drives->At(i).DriveText);
+            if (drives->At(i).DriveType == drvtMountPoint && drives->At(i).MountPointPath != NULL)
+            {
+                free(drives->At(i).MountPointPath);
+                drives->At(i).MountPointPath = NULL;
+            }
             if (drives->At(i).DestroyIcon && drives->At(i).HIcon != NULL)
             {
                 HANDLES(DestroyIcon(drives->At(i).HIcon)); // via GetDriveIcon
@@ -2601,6 +2721,29 @@ BOOL CDrivesList::ExecuteItem(int index, HWND hwnd, const RECT* exclude, BOOL* f
                 ret = FALSE;
         }
 
+        break;
+    }
+
+    case drvtMountPoint:
+    {
+        if (item->MountPointPath == NULL)
+            ret = FALSE;
+        else
+        {
+            int len = (int)strlen(item->MountPointPath);
+            char* mountPath = (char*)malloc(len + 2);
+            if (mountPath == NULL)
+            {
+                TRACE_E(LOW_MEMORY);
+                ret = FALSE;
+            }
+            else
+            {
+                strcpy(mountPath, item->MountPointPath);
+                SalPathAddBackslash(mountPath, len + 2);
+                *DriveTypeParam = (DWORD_PTR)mountPath;
+            }
+        }
         break;
     }
 
@@ -2892,6 +3035,13 @@ BOOL CDrivesList::GetDriveBarToolTip(int index, char* text)
         break;
     }
 
+    case drvtMountPoint:
+    {
+        if (item->MountPointPath != NULL)
+            lstrcpyn(text, item->MountPointPath, TOOLTIP_TEXT_MAX);
+        break;
+    }
+
     case drvtMyDocuments:
     case drvt3DObjects:
     case drvtDesktop:
@@ -3013,6 +3163,15 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
         }
         else
             return FALSE; // we can't do the context menu for other types of paths (relative, FS plugin)
+        break;
+    }
+
+    case drvtMountPoint:
+    {
+        if (Drives->At(selectedIndex).MountPointPath == NULL)
+            return FALSE;
+        lstrcpyn(path, Drives->At(selectedIndex).MountPointPath, SAL_MAX_PATH);
+        SalPathAddBackslash(path, SAL_MAX_PATH);
         break;
     }
 

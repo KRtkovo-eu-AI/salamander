@@ -65,6 +65,7 @@ enum CDriveTypeEnum
     drvtRemote,               // The drive is a remote (network) drive
     drvtCDROM,                // The drive is a CD-ROM drive
     drvtRAMDisk,              // The drive is a RAM disk
+    drvtMountPoint,           // The drive is a volume mounted into a folder
     drvtMyDocuments,          // The drive is Documents
     drvt3DObjects,            // The drive is 3D Objects
     drvtDesktop,              // The drive is Desktop
@@ -105,6 +106,9 @@ struct CDriveData
     //  plugin - DLLName is allocated only once; may be invalid, check it); pointer to
     //  CPluginData is not enough, because it would be invalid when adding/removing plugins (array reallocation - see array.h)
     const char* DLLName;
+
+    // for drvtMountPoint only: path to the mounted folder without display columns
+    char* MountPointPath;
 };
 
 class CMenuPopup;
@@ -213,6 +217,8 @@ public:
 
 protected:
     BOOL LoadMenuFromData();
+
+    void AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons);
 
     CDriveTypeEnum OwnGetDriveType(const char* rootPath); // translates system DriveType to our CDriveTypeEnum
 
