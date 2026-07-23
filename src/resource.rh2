@@ -112,6 +112,7 @@
 
 #define CM_COMPAREDIRS      737
 #define CM_DOSSHELL         738
+#define CM_DOSSHELLASADMIN  1199
 #define CM_OCCUPIEDSPACE    739
 #define CM_ACTIVEREFRESH    740
 #define CM_FINDFILE         741
