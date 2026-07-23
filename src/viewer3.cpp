@@ -1132,6 +1132,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
             }
+            // WM_SIZE changes the viewport dimensions, and zoom changes the
+            // font metrics before it posts a synthetic WM_SIZE.  In both cases
+            // scrollbar page sizes and ranges must be recalculated even when
+            // the text layout itself did not need to be rebuilt; otherwise the
+            // thumb can keep stale limits and prevent scrolling to the true
+            // document end.
+            SetScrollBar();
             UpdateStatusBar();
             if (HToolTip != NULL)
             {
