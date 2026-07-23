@@ -29,6 +29,7 @@
 #define AppToInstallDisplayName "Open Salamander 5.0 Samandarin " + SamandarinVersion + " (x64)"
 #define AppToInstallVersion "5.0-samandarin-" + SamandarinVersion
 #define AppToInstallPublisher "Ondřej Kotas (KRtekTM)"
+#define AppToInstallCopyright "© 2026 " + AppToInstallPublisher + " KRtkovo.eu"
 #define AppToInstallURL "https://samandarin.krtkovo.eu/"
 #define AppToInstallExeName "salamand.exe"
 #define AppToInstallRegPath = "'Software\Open Salamander Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
@@ -43,6 +44,7 @@
 
 [Setup]
 AppId=OpenSalamanderSamandarin-x64
+AppCopyright=AppToInstallCopyright
 AppName={#AppToInstallName}
 AppVersion={#AppToInstallVersion}
 AppVerName={#AppToInstallDisplayName}
@@ -50,29 +52,31 @@ AppPublisher={#AppToInstallPublisher}
 AppPublisherURL={#AppToInstallURL}
 AppSupportURL={#AppToInstallURL}
 AppUpdatesURL={#AppToInstallURL}
-DefaultDirName={code:GetDefaultDirName}
 AppendDefaultDirName=no
-UsePreviousAppDir=no
-DisableDirPage=no
-DefaultGroupName={#AppToInstallName}
-DisableProgramGroupPage=yes
-OutputBaseFilename={#AppToInstallVersion}_win_x64
-Compression=lzma2/ultra64
-SolidCompression=yes
-WizardStyle=modern dynamic
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+Compression=lzma2/ultra64
+ChangesAssociations=yes
+CreateUninstallRegKey=yes
+DefaultDirName={code:GetDefaultDirName}
+DefaultGroupName={#AppToInstallName}
+DisableDirPage=no
+DisableProgramGroupPage=yes
+DisableFinishedPage=yes
+OutputBaseFilename={#AppToInstallVersion}_win_x64
 PrivilegesRequired=admin
+SetupArchitecture=x64
+SetupIconFile=..\..\src\res\samandarin.ico
+SolidCompression=yes
+Uninstallable=not IsPortableInstall
 UninstallDisplayName={#AppToInstallDisplayName}
 UninstallDisplayIcon={app}\salamand.exe
-CreateUninstallRegKey=yes
-Uninstallable=not IsPortableInstall
-SetupIconFile=..\..\src\res\samandarin.ico
-DisableFinishedPage=yes
-ChangesAssociations=yes
+UsePreviousAppDir=no
+VersionInfoVersion=5.0.{#SamandarinVersion}
 WizardSmallImageFile={#SourcePath}\setup_img_small.png
 WizardSmallImageFileDynamicDark={#SourcePath}\setup_img_small.png
-VersionInfoVersion=5.0.{#SamandarinVersion}
+WizardStyle=modern dynamic
+
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"; LicenseFile: "{#SourcePath}\license.txt"
@@ -1362,7 +1366,7 @@ Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugi
 Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\plugins\demoplug\lang\*"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
+Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: onlyifdoesntexist; Permissions: users-modify; Check: ShouldInstallConfigStorage
 Source: "{#PayloadDir}\toolbars\Back.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\AzureCloudShell.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\CommandPrompt.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -1914,15 +1918,16 @@ begin
 
   if FileExists(ConfigPath) then
   begin
-    BackupPath := ConfigPath + '.BAK';
-    DeleteFile(BackupPath);
-    RenameFile(ConfigPath, BackupPath);
+    //BackupPath := ConfigPath + '.BAK';
+    //DeleteFile(BackupPath);
+    //RenameFile(ConfigPath, BackupPath);
+    Result := False;
 
     if not WizardSilent then
     begin
-      Msg := CustomMessage('KeepConfigQuestion');
-      StringChangeEx(Msg, '\n', #13#10, True);
-      MsgBox(Msg, mbInformation, MB_OK);
+      //Msg := CustomMessage('KeepConfigQuestion');
+      //StringChangeEx(Msg, '\n', #13#10, True);
+      //MsgBox(Msg, mbInformation, MB_OK);
     end;
   end;
 end;
