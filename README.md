@@ -16,8 +16,13 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 <img width="687" height="492" alt="image" src="https://github.com/user-attachments/assets/5b6e9d73-7cac-4b1b-a40f-7c3c03c1adb4" />
 <img width="687" height="119" alt="image" src="https://github.com/user-attachments/assets/ab04f8a6-fe73-4f0f-8726-12755afdbde7" />
 
-### Internal Viewer support for Unicode encoding in text files
-- Based on [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)) and refined for Samandarin.
+### Internal Viewer
+- Support for Unicode encoding in text files (based on [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)) and refined for Samandarin).
+- Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.
+- Zoom text with Ctrl + mouse wheel or Ctrl + Num +/Num -. Zoom reset with Ctrl + Num 0.
+- Optional line numbers for easier navigation in text files.
+<img width="800" height="637" alt="image" src="https://github.com/user-attachments/assets/66a19715-e1c4-47bc-9613-b050575fa5e6" />
+
 
 ### Portability
 - Save the Configuration into file storage instead of Registry
