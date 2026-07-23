@@ -2533,7 +2533,7 @@ void CDrivesList::DestroyDrives(TDirectArray<CDriveData>* drives)
         {
             if (drives->At(i).DriveText != NULL)
                 free(drives->At(i).DriveText);
-            if (drives->At(i).MountPointPath != NULL)
+            if (drives->At(i).DriveType == drvtMountPoint && drives->At(i).MountPointPath != NULL)
             {
                 free(drives->At(i).MountPointPath);
                 drives->At(i).MountPointPath = NULL;
