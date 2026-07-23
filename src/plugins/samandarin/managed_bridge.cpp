@@ -277,7 +277,18 @@ extern "C" __declspec(dllexport) void __stdcall Samandarin_UpdateListViewDarkMod
 {
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
-    DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
+
+    if (SalamanderGeneral != nullptr)
+    {
+        const COLORREF text = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        const COLORREF background = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+        const bool useCustomColors = text != GetSysColor(COLOR_WINDOWTEXT) ||
+                                     background != GetSysColor(COLOR_WINDOW);
+        DarkModeUpdateListViewColors(hwnd, text, background, useCustomColors);
+        return;
+    }
+
+    DarkModeUpdateListViewColors(hwnd);
 }
 
 

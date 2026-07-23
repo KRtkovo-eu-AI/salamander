@@ -100,6 +100,7 @@ public static class EntryPoint
     private static int ColorsChanged()
     {
         ThemeHelper.InvalidatePalette();
+        ThemeHelper.RefreshOpenForms();
         return 0;
     }
 
@@ -1085,6 +1086,7 @@ internal sealed class PluginUpdatesDialog : Form
             MultiSelect = false,
             Scrollable = true,
             View = View.Details,
+            OwnerDraw = true,
         };
         _pluginImages = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new System.Drawing.Size(16, 16) };
         _listView.SmallImageList = _pluginImages;
@@ -1096,6 +1098,8 @@ internal sealed class PluginUpdatesDialog : Form
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnStatus), 150);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnAuthor), 140);
         _listView.ColumnClick += ListViewOnColumnClick;
+        _listView.DrawColumnHeader += ListViewOnDrawColumnHeader;
+        _listView.DrawSubItem += ListViewOnDrawSubItem;
         _listView.MouseDoubleClick += ListViewOnMouseDoubleClick;
         _listView.MouseDown += ListViewOnMouseDown;
         _listView.Resize += (_, _) => AdjustListViewColumns();
@@ -1163,6 +1167,64 @@ internal sealed class PluginUpdatesDialog : Form
             AdjustListViewColumns();
         };
         UpdateDetails();
+    }
+
+    private void ListViewOnDrawColumnHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
+    {
+        e.DrawDefault = true;
+    }
+
+    private void ListViewOnDrawSubItem(object? sender, DrawListViewSubItemEventArgs e)
+    {
+        bool selected = e.Item.Selected;
+        var background = selected ? SystemColors.Highlight : _listView.BackColor;
+        var foreground = selected ? SystemColors.HighlightText : _listView.ForeColor;
+
+        using (var backgroundBrush = new SolidBrush(background))
+        {
+            e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
+        }
+
+        if (e.ColumnIndex == 0)
+        {
+            DrawListViewImage(e.Graphics, e.Item, e.Bounds);
+        }
+        else
+        {
+            TextRenderer.DrawText(
+                e.Graphics,
+                e.SubItem.Text,
+                _listView.Font,
+                new Rectangle(e.Bounds.Left + 4, e.Bounds.Top, Math.Max(0, e.Bounds.Width - 8), e.Bounds.Height),
+                foreground,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
+        }
+
+        using var gridPen = new Pen(ControlPaint.Dark(_listView.BackColor));
+        e.Graphics.DrawLine(gridPen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+        e.Graphics.DrawLine(gridPen, e.Bounds.Right - 1, e.Bounds.Top, e.Bounds.Right - 1, e.Bounds.Bottom);
+    }
+
+    private void DrawListViewImage(Graphics graphics, ListViewItem item, Rectangle bounds)
+    {
+        Image? image = null;
+        if (!string.IsNullOrEmpty(item.ImageKey) && _pluginImages.Images.ContainsKey(item.ImageKey))
+        {
+            image = _pluginImages.Images[item.ImageKey];
+        }
+        else if (item.ImageIndex >= 0 && item.ImageIndex < _pluginImages.Images.Count)
+        {
+            image = _pluginImages.Images[item.ImageIndex];
+        }
+
+        if (image is null)
+        {
+            return;
+        }
+
+        int x = bounds.Left + Math.Max(0, (bounds.Width - image.Width) / 2);
+        int y = bounds.Top + Math.Max(0, (bounds.Height - image.Height) / 2);
+        graphics.DrawImage(image, x, y, image.Width, image.Height);
     }
 
     private void AdjustListViewColumns()

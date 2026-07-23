@@ -7,6 +7,7 @@ using System;
 using System.Drawing;
 using System.Resources;
 using System.Runtime.InteropServices;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace OpenSalamander.Samandarin;
@@ -69,6 +70,15 @@ internal static class ThemeHelper
     public static void InvalidatePalette()
     {
         s_cachedPalette = null;
+    }
+
+    public static void RefreshOpenForms()
+    {
+        foreach (Form form in Application.OpenForms.Cast<Form>().ToArray())
+        {
+            ApplyTheme(form);
+            form.Invalidate(true);
+        }
     }
 
     public static void CenterDialogOverOwner(Form dialog, IWin32Window? owner)
