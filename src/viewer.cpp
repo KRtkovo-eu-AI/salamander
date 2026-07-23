@@ -957,6 +957,22 @@ void DrawDecodedCells(HDC dc, const Salamander::Unicode::DecodedRun& visual, std
         MyTextOutW(dc, xCell * CharWidth, 0, visual.Text.c_str() + textStart, (int)(textEnd - textStart));
 }
 
+int DecodedCellsPixelWidth(HDC dc, const Salamander::Unicode::DecodedRun& visual,
+                           std::size_t cellStart, std::size_t cellEnd)
+{
+    if (cellStart >= cellEnd)
+        return 0;
+    std::size_t textStart = visual.TextIndexForCellEnd(cellStart);
+    std::size_t textEnd = visual.TextIndexForCellEnd(cellEnd);
+    if (textEnd <= textStart)
+        return 0;
+
+    SIZE size = {0, 0};
+    if (GetTextExtentPoint32W(dc, visual.Text.c_str() + textStart, (int)(textEnd - textStart), &size))
+        return size.cx;
+    return (int)(cellEnd - cellStart) * CharWidth;
+}
+
 } // namespace
 
 BOOL CViewerWindow::DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end,
@@ -1363,8 +1379,12 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                 if (u2 > 0)
                 {
                     RECT selRect = fullLine;
-                    selRect.left = (int)(u1 * CharWidth);
-                    selRect.right = (int)((u1 + u2) * CharWidth);
+                    // Selection highlighting must use the same pixel advances
+                    // as GDI text output.  CJK/full-width glyphs can occupy
+                    // more than one average CharWidth, so cell counts alone
+                    // make the visual selection shorter than the copied text.
+                    selRect.left = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1);
+                    selRect.right = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1 + u2);
                     FillRect(Bitmap.HMemDC, &selRect, BkgndBrushSel);
 
                     int savedDC = SaveDC(Bitmap.HMemDC);
