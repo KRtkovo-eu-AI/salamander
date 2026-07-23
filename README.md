@@ -59,6 +59,10 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.
 <img width="1024" height="708" alt="image" src="https://github.com/user-attachments/assets/d4117eba-bebd-46ba-8b4e-0621e7668977" />
 
+### Columns from Windows Explorer
+- For detailed view, you can choose to show any Windows Explorer column.
+<img width="687" height="719" alt="image" src="https://github.com/user-attachments/assets/e8874721-46db-470b-ab52-84df18abf194" />
+<img width="675" height="316" alt="image" src="https://github.com/user-attachments/assets/c7a4adc9-5105-4696-81a6-6f779775b837" />
 
 ### Configurable Command Shell Application
 <img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/d5109ceb-ec72-43ce-9731-749f3cb13fec" />
