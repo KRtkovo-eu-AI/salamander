@@ -1201,7 +1201,7 @@ void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
                 drv.PluginFS = NULL;
                 drv.DLLName = NULL;
                 drv.DestroyIcon = TRUE;
-                drv.HIcon = GetDriveIcon(path, GetDriveType(path), TRUE);
+                drv.HIcon = GetDriveIcon(NULL, DRIVE_FIXED, TRUE);
                 drv.HGrayIcon = NULL;
                 Drives->Add(drv);
             }
