@@ -1150,12 +1150,23 @@ void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
 
                 char volumeText[MAX_PATH + 50];
                 DWORD dummy;
+                CQuadWord freeSpace(-1, -1);
                 if (GetVolumeInformation(path, volumeText, MAX_PATH, NULL, &dummy, &dummy, NULL, 0))
+                {
                     DuplicateAmpersands(volumeText, MAX_PATH);
+                    CQuadWord total;
+                    freeSpace = MyGetDiskFreeSpace(path, &total);
+                }
                 else
                     volumeText[0] = 0;
 
-                int textLen = 1 + (int)strlen(mountPath) + (volumeText[0] != 0 ? 1 + (int)strlen(volumeText) : 0) + 1;
+                char freeSpaceText[50];
+                freeSpaceText[0] = 0;
+                if (freeSpace != CQuadWord(-1, -1))
+                    PrintDiskSize(freeSpaceText, freeSpace, 0);
+
+                int textLen = 1 + (int)strlen(mountPath) + 1 + (int)strlen(volumeText) +
+                              (freeSpaceText[0] != 0 ? 1 + (int)strlen(freeSpaceText) : 0) + 1;
                 drv.DriveText = (char*)malloc(textLen);
                 if (drv.DriveText == NULL)
                 {
@@ -1164,10 +1175,12 @@ void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
                 }
                 strcpy(drv.DriveText, "\t");
                 strcat(drv.DriveText, mountPath);
-                if (volumeText[0] != 0)
+                strcat(drv.DriveText, "\t");
+                strcat(drv.DriveText, volumeText);
+                if (freeSpaceText[0] != 0)
                 {
                     strcat(drv.DriveText, "\t");
-                    strcat(drv.DriveText, volumeText);
+                    strcat(drv.DriveText, freeSpaceText);
                 }
 
                 drv.DriveType = drvtMountPoint;
