@@ -494,11 +494,22 @@ BOOL CViewerWindow::ScrollViewLineUp(DWORD repeatCmd, BOOL* scrolled, BOOL repai
                 *scrolled = TRUE;
             if (repaint)
             {
-                RECT documentRect = {0, 0, Width, Height};
-                // Keep child scrollbars and status controls fixed while only
-                // the document surface is scrolled.
-                ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
-                               NULL, NULL, SW_INVALIDATE);
+                if (ShowLineNumbers && WrapText)
+                {
+                    // Wrapped continuations can turn a line number into a wrap
+                    // marker (or back) when a new visual row enters the top of
+                    // the viewport, so the gutter cannot be preserved by a raw
+                    // pixel scroll.
+                    InvalidateRect(HWindow, NULL, FALSE);
+                }
+                else
+                {
+                    RECT documentRect = {0, 0, Width, Height};
+                    // Keep child scrollbars and status controls fixed while only
+                    // the document surface is scrolled.
+                    ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
+                                   NULL, NULL, SW_INVALIDATE);
+                }
                 UpdateWindow(HWindow);
                 if (EndSelectionRow != -1)
                     EndSelectionRow++;
@@ -520,11 +531,21 @@ BOOL CViewerWindow::ScrollViewLineDown(BOOL fullRedraw)
         {
             if (!fullRedraw)
             {
-                RECT documentRect = {0, 0, Width, Height};
-                // Keep child scrollbars and status controls fixed while only
-                // the document surface is scrolled.
-                ScrollWindowEx(HWindow, 0, -CharHeight, &documentRect, &documentRect,
-                               NULL, NULL, SW_INVALIDATE);
+                if (ShowLineNumbers && WrapText)
+                {
+                    // Wrapped line-number gutters depend on the new top visual
+                    // row; repaint instead of shifting stale numbers/markers.
+                    fullRedraw = TRUE;
+                    InvalidateRect(HWindow, NULL, FALSE);
+                }
+                else
+                {
+                    RECT documentRect = {0, 0, Width, Height};
+                    // Keep child scrollbars and status controls fixed while only
+                    // the document surface is scrolled.
+                    ScrollWindowEx(HWindow, 0, -CharHeight, &documentRect, &documentRect,
+                                   NULL, NULL, SW_INVALIDATE);
+                }
             }
             UpdateWindow(HWindow);
             if (EndSelectionRow != -1)
@@ -2897,7 +2918,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                             BOOL fullRedraw = FALSE; // ensure the new end-of-block position is visible
                             EnsureXVisibleInView(curX, EndSelection > StartSelection, fullRedraw, firstLineCharLen);
-                            if (fullRedraw)
+                            if (fullRedraw || ShowLineNumbers && WrapText)
                                 InvalidateRect(HWindow, NULL, FALSE);
                             else
                             {
@@ -3037,7 +3058,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 BOOL fullRedraw = FALSE; // ensure the new end-of-block position is visible
                                 if (curX != -1)
                                     EnsureXVisibleInView(curX, EndSelection > StartSelection, fullRedraw, firstLineCharLen);
-                                if (fullRedraw)
+                                if (fullRedraw || ShowLineNumbers && WrapText)
                                     InvalidateRect(HWindow, NULL, FALSE);
                                 else
                                 {
