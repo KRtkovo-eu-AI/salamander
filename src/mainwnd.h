@@ -435,6 +435,7 @@ public:
     BOOL DetachedPanels;      // TRUE = left and right sides are hosted in separate top-level windows
     BOOL CreatingDetachedChrome; // suppress detached-window activation while its child chrome is being built
     BOOL DetachedPanelsSwapFixNeeded; // TRUE after Swap Sides while detached; reattach replays a double swap to refresh layout state
+    BOOL WindowPosSizeUpdatePending; // TRUE when WM_WINDOWPOSCHANGED posted a deferred WM_SIZE
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;

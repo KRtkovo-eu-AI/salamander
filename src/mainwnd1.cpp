@@ -364,6 +364,7 @@ CMainWindow::CMainWindow()
     DetachedPanels = FALSE;
     CreatingDetachedChrome = FALSE;
     DetachedPanelsSwapFixNeeded = FALSE;
+    WindowPosSizeUpdatePending = FALSE;
     //  DrivesControlHWnd = NULL;
     HDisabledKeyboard = NULL;
     CmdShow = SW_SHOWNORMAL;

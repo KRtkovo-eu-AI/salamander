@@ -9203,21 +9203,29 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
         // and the newly exposed part of the main window remains empty.  Treat a changed
         // client size observed in WM_WINDOWPOSCHANGED as authoritative and run the same
-        // sizing path immediately.
-        if (Created && !DetachedPanels)
+        // sizing path after the current position-change notification unwinds.  Running the
+        // layout synchronously from WM_WINDOWPOSCHANGED can re-enter the rebar/control
+        // notification path (WM_SIZE -> WM_NOTIFY -> WM_SIZE -> WM_WINDOWPOSCHANGED) until
+        // the stack overflows on startup with current Windows common controls.
+        if (Created && !DetachedPanels && !WindowPosSizeUpdatePending)
         {
             RECT clientRect;
             GetClientRect(HWindow, &clientRect);
             int clientWidth = clientRect.right - clientRect.left;
             int clientHeight = clientRect.bottom - clientRect.top;
             if (clientWidth != WindowWidth || clientHeight != WindowHeight)
-                SendMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
+            {
+                WindowPosSizeUpdatePending = TRUE;
+                PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
+            }
         }
         break;
     }
 
     case WM_SIZE: // panel size adjustment
     {
+        WindowPosSizeUpdatePending = FALSE;
+
         // at Tonda's, WM_SIZE arrives before WM_CREATE finishes
         // (bug report execution address = 0x004743C3)
         if (!Created)
