@@ -2021,6 +2021,79 @@ BOOL CViewerWindow::GetOffsetOrXAbs(__int64 x, __int64* offset, __int64* offsetX
     return FALSE;
 }
 
+BOOL CViewerWindow::GetDecodedOffsetFromPixel(__int64 pixelX, __int64 originCell, __int64* offset, __int64 lineBegOff,
+                                              __int64 lineEndOff, BOOL& fatalErr)
+{
+    if (offset != NULL)
+        *offset = lineBegOff;
+    fatalErr = FALSE;
+
+    Salamander::Unicode::DecodedRun visual;
+    if (!DecodeTextRange(NULL, lineBegOff, lineEndOff, visual, fatalErr))
+        return FALSE;
+    if (fatalErr)
+        return FALSE;
+    if (visual.CellCount() == 0)
+        return TRUE;
+
+    HDC dc = HANDLES(GetDC(HWindow));
+    if (dc == NULL)
+        return FALSE;
+    HFONT oldFont = (HFONT)SelectObject(dc, ViewerFont);
+
+    UNREFERENCED_PARAMETER(originCell);
+    __int64 targetPixel = pixelX;
+    int currentRight = 0;
+    int visualCell = 0;
+    for (std::size_t i = 0; i < visual.CellCount(); ++i)
+    {
+        int previousRight = currentRight;
+        if (visual.Scalars[i] == L'\t')
+        {
+            int tab = (int)(Configuration.TabSize - (visualCell % Configuration.TabSize));
+            if (tab <= 0)
+                tab = 1;
+            currentRight += tab * CharWidth;
+            visualCell += tab;
+        }
+        else
+        {
+            std::size_t textStart = visual.TextIndexForCellEnd(i);
+            std::size_t textEnd = visual.TextIndexForCellEnd(i + 1);
+            SIZE size = {0, 0};
+            if (textEnd > textStart &&
+                GetTextExtentPoint32W(dc, visual.Text.c_str() + textStart, (int)(textEnd - textStart), &size))
+                currentRight += max(1, size.cx);
+            else
+                currentRight += CharWidth;
+            visualCell++;
+        }
+
+        if (targetPixel < (__int64)((previousRight + currentRight) / 2))
+        {
+            if (offset != NULL)
+                *offset = visual.RawStart[i];
+            SelectObject(dc, oldFont);
+            HANDLES(ReleaseDC(HWindow, dc));
+            return TRUE;
+        }
+        if (targetPixel <= currentRight)
+        {
+            if (offset != NULL)
+                *offset = visual.RawEnd[i];
+            SelectObject(dc, oldFont);
+            HANDLES(ReleaseDC(HWindow, dc));
+            return TRUE;
+        }
+    }
+
+    if (offset != NULL)
+        *offset = lineEndOff;
+    SelectObject(dc, oldFont);
+    HANDLES(ReleaseDC(HWindow, dc));
+    return TRUE;
+}
+
 BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatalErr,
                               BOOL leftMost, BOOL* onHexNum)
 {
@@ -2032,6 +2105,8 @@ BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatal
     {
         // The line-number gutter is chrome, not document text.  Coordinates
         // in the gutter must map to the first text column.
+        __int64 rawX = x;
+        __int64 textPixelX = max((__int64)0, rawX - GetTextLeft());
         if (!leftMost)
             x = (x - GetTextLeft() + CharWidth / 2) / CharWidth;
         else
@@ -2043,6 +2118,11 @@ BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatal
         {
             if (3 * y + 2 < LineOffset.Count)
             {
+                if (HasDecodedTextMode())
+                {
+                    return GetDecodedOffsetFromPixel(textPixelX, OriginX, &offset, LineOffset[(int)(3 * y)],
+                                                     LineOffset[(int)(3 * y + 1)], fatalErr);
+                }
                 return GetOffsetOrXAbs(x + OriginX, &offset, NULL, LineOffset[(int)(3 * y)], LineOffset[(int)(3 * y + 2)],
                                        LineOffset[(int)(3 * y + 1)], fatalErr, onHexNum);
             }

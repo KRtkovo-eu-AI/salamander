@@ -299,6 +299,8 @@ protected:
     BOOL DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end, Salamander::Unicode::DecodedRun& run,
                          BOOL& fatalErr, bool flush = true);
     BOOL ReadDecodedScalar(HANDLE* hFile, __int64 offset, Salamander::Unicode::DecodedRun& scalar, BOOL& fatalErr);
+    BOOL GetDecodedOffsetFromPixel(__int64 pixelX, __int64 originCell, __int64* offset, __int64 lineBegOff,
+                                   __int64 lineEndOff, BOOL& fatalErr);
     __int64 PreviousTextOffset(__int64 offset, BOOL& fatalErr);
     __int64 NextTextOffset(__int64 offset, BOOL& fatalErr);
     BOOL ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int64 maxCells,
