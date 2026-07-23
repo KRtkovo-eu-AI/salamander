@@ -7486,6 +7486,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         case CM_DOSSHELL:
+        case CM_DOSSHELLASADMIN:
         {
             activePanel->UserWorkedOnThisPath = TRUE;
 
@@ -7508,7 +7509,44 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 return 0;
             }
 
+            if (launchInfo.TooLong)
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERROREXECPROMPT),
+                              MB_OK | MB_ICONEXCLAMATION);
+                return 0;
+            }
+
             SetDefaultDirectories();
+
+            BOOL runAsAdmin = LOWORD(wParam) == CM_DOSSHELLASADMIN;
+            if (runAsAdmin)
+            {
+                SHELLEXECUTEINFO sei;
+                memset(&sei, 0, sizeof(sei));
+                sei.cbSize = sizeof(sei);
+                sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+                sei.hwnd = HWindow;
+                sei.lpVerb = "runas";
+                sei.lpFile = launchInfo.Application;
+                sei.lpParameters = launchInfo.Arguments[0] != 0 ? launchInfo.Arguments : NULL;
+                sei.lpDirectory = (activePanel->Is(ptDisk) || activePanel->Is(ptZIPArchive)) ? activePanel->GetPath() : NULL;
+                sei.nShow = SW_SHOWNORMAL;
+
+                if (!ShellExecuteEx(&sei))
+                {
+                    DWORD err = GetLastError();
+                    if (err != ERROR_CANCELLED)
+                    {
+                        SalMessageBox(HWindow, GetErrorText(err), LoadStr(IDS_ERROREXECPROMPT),
+                                      MB_OK | MB_ICONEXCLAMATION);
+                    }
+                }
+                else if (sei.hProcess != NULL)
+                {
+                    HANDLES(CloseHandle(sei.hProcess));
+                }
+                return 0;
+            }
 
             STARTUPINFO si;
             memset(&si, 0, sizeof(STARTUPINFO));
