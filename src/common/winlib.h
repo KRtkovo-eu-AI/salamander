@@ -544,3 +544,6 @@ public:
 // ****************************************************************************
 
 extern CWindowsManager WindowsManager;
+
+HANDLE WinLib_DPI_SetThreadPerMonitorV2();
+void WinLib_DPI_RestoreThreadContext(HANDLE oldContext);

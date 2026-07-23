@@ -86,6 +86,8 @@ internal static class ThemeHelper
             MaximizeBox = false,
             MinimizeBox = false,
             ShowInTaskbar = false,
+            AutoScaleMode = AutoScaleMode.Dpi,
+            Font = SystemFonts.MessageBoxFont,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Padding = new Padding(12),

@@ -1027,6 +1027,7 @@ CPropertyDialog::Execute()
 {
     if (Count > 0)
     {
+        HANDLE oldDpiContext = WinLib_DPI_SetThreadPerMonitorV2();
         PROPSHEETHEADER psh;
         psh.dwSize = sizeof(PROPSHEETHEADER);
         psh.dwFlags = Flags;
@@ -1042,6 +1043,7 @@ CPropertyDialog::Execute()
         if (pages == NULL)
         {
             TRACE_ET(_T("Low memory!"));
+            WinLib_DPI_RestoreThreadContext(oldDpiContext);
             return -1;
         }
         psh.phpage = pages;
@@ -1052,6 +1054,7 @@ CPropertyDialog::Execute()
         }
         psh.pfnCallback = Callback;
         INT_PTR ret = PropertySheet(&psh);
+        WinLib_DPI_RestoreThreadContext(oldDpiContext);
         delete pages;
         return ret;
     }
@@ -1859,8 +1862,10 @@ int CTreePropHolderDlg::ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate)
 {
     HWND hOldFocus = GetFocus();
     EnableWindow(Parent, FALSE);
+    HANDLE oldDpiContext = WinLib_DPI_SetThreadPerMonitorV2();
     CreateDialogIndirectParam(Modul, hDialogTemplate, Parent,
                               (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    WinLib_DPI_RestoreThreadContext(oldDpiContext);
     MSG msg;
     while (ExitButton == -1 && GetMessage(&msg, NULL, 0, 0))
     {

@@ -27,94 +27,7 @@
 #define WM_DPICHANGED 0x02E0
 #endif
 
-static const TCHAR* WinLib_DPI_DialogFontProp = _T("Salamander.WinLib.DPI.DialogFont");
-
-static UINT WinLib_DPI_GetDpiForWindow(HWND hwnd)
-{
-    typedef UINT(WINAPI * FGetDpiForWindow)(HWND hwnd);
-    static FGetDpiForWindow getDpiForWindow = NULL;
-    static BOOL loaded = FALSE;
-    if (!loaded)
-    {
-        HMODULE user32 = GetModuleHandle(_T("user32.dll"));
-        if (user32 != NULL)
-            getDpiForWindow = (FGetDpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
-        loaded = TRUE;
-    }
-    if (getDpiForWindow != NULL && hwnd != NULL)
-    {
-        UINT dpi = getDpiForWindow(hwnd);
-        if (dpi != 0)
-            return dpi;
-    }
-
-    HDC hdc = GetDC(hwnd);
-    UINT dpi = hdc != NULL ? (UINT)GetDeviceCaps(hdc, LOGPIXELSX) : 96;
-    if (hdc != NULL)
-        ReleaseDC(hwnd, hdc);
-    return dpi != 0 ? dpi : 96;
-}
-
-static HFONT WinLib_DPI_CreateMessageFont(UINT dpi)
-{
-    LOGFONT lf;
-    memset(&lf, 0, sizeof(lf));
-
-    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT, UINT, PVOID, UINT, UINT);
-    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
-    static BOOL loaded = FALSE;
-    if (!loaded)
-    {
-        HMODULE user32 = GetModuleHandle(_T("user32.dll"));
-        if (user32 != NULL)
-            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
-        loaded = TRUE;
-    }
-
-    NONCLIENTMETRICS ncm;
-    memset(&ncm, 0, sizeof(ncm));
-    ncm.cbSize = sizeof(ncm);
-    BOOL ok = FALSE;
-    if (systemParametersInfoForDpi != NULL)
-        ok = systemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
-    if (!ok)
-        ok = SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
-    if (ok)
-    {
-        lf = ncm.lfMessageFont;
-        if (systemParametersInfoForDpi == NULL && dpi != 96 && lf.lfHeight != 0)
-            lf.lfHeight = MulDiv(lf.lfHeight, (int)dpi, 96);
-    }
-    else
-    {
-        lf.lfHeight = -MulDiv(9, (int)dpi, 72);
-        lstrcpyn(lf.lfFaceName, _T("Segoe UI"), LF_FACESIZE);
-    }
-
-    return CreateFontIndirect(&lf);
-}
-
-static BOOL CALLBACK WinLib_DPI_SetFontEnumProc(HWND hwnd, LPARAM lParam)
-{
-    SendMessage(hwnd, WM_SETFONT, (WPARAM)lParam, TRUE);
-    return TRUE;
-}
-
-static void WinLib_DPI_ApplyDialogFont(HWND hwnd, UINT dpi)
-{
-    HFONT oldFont = (HFONT)GetProp(hwnd, WinLib_DPI_DialogFontProp);
-    HFONT newFont = WinLib_DPI_CreateMessageFont(dpi);
-    if (newFont == NULL)
-        return;
-
-    SetProp(hwnd, WinLib_DPI_DialogFontProp, newFont);
-    SendMessage(hwnd, WM_SETFONT, (WPARAM)newFont, TRUE);
-    EnumChildWindows(hwnd, WinLib_DPI_SetFontEnumProc, (LPARAM)newFont);
-    if (oldFont != NULL)
-        DeleteObject(oldFont);
-}
-
-static HANDLE WinLib_DPI_SetThreadPerMonitorV2()
+HANDLE WinLib_DPI_SetThreadPerMonitorV2()
 {
     typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE);
     static FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext = NULL;
@@ -129,7 +42,7 @@ static HANDLE WinLib_DPI_SetThreadPerMonitorV2()
     return setThreadDpiAwarenessContext != NULL ? setThreadDpiAwarenessContext((HANDLE)-4) : NULL;
 }
 
-static void WinLib_DPI_RestoreThreadContext(HANDLE oldContext)
+void WinLib_DPI_RestoreThreadContext(HANDLE oldContext)
 {
     if (oldContext == NULL)
         return;
@@ -886,7 +799,6 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        WinLib_DPI_ApplyDialogFont(HWindow, WinLib_DPI_GetDpiForWindow(HWindow));
         TransferData(ttDataToWindow);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
@@ -951,22 +863,6 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         }
         break;
-    }
-
-    case WM_DPICHANGED:
-    {
-        UINT dpi = HIWORD(wParam);
-        if (lParam != 0)
-        {
-            const RECT* suggestedRect = (const RECT*)lParam;
-            SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
-                         suggestedRect->right - suggestedRect->left,
-                         suggestedRect->bottom - suggestedRect->top,
-                         SWP_NOACTIVATE | SWP_NOZORDER);
-        }
-        WinLib_DPI_ApplyDialogFont(HWindow, dpi != 0 ? dpi : WinLib_DPI_GetDpiForWindow(HWindow));
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
-        return TRUE;
     }
 
     case WM_CTLCOLORDLG:
@@ -1067,12 +963,6 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 delete dlg;
             else
                 dlg->HWindow = NULL; // informace o odpojeni
-        }
-        HFONT dpiFont = (HFONT)GetProp(hwndDlg, WinLib_DPI_DialogFontProp);
-        if (dpiFont != NULL)
-        {
-            RemoveProp(hwndDlg, WinLib_DPI_DialogFontProp);
-            DeleteObject(dpiFont);
         }
         return ret;
     }
