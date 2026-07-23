@@ -1378,12 +1378,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case IDC_VIEWER_ZOOM_RESET:
             SetViewerZoom(100);
+            SetFocus(HWindow);
             return 0;
         case IDC_VIEWER_ZOOM_OUT:
             SetViewerZoom(ZoomPercent - 10);
+            SetFocus(HWindow);
             return 0;
         case IDC_VIEWER_ZOOM_IN:
             SetViewerZoom(ZoomPercent + 10);
+            SetFocus(HWindow);
             return 0;
         case IDC_VIEWER_ZOOM_EDIT:
             if (HIWORD(wParam) == EN_KILLFOCUS)
