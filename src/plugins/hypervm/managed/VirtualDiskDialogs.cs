@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 using System;
-using System.Diagnostics;
 using System.IO;
 
 namespace OpenSalamander.HyperVM;
@@ -81,30 +80,187 @@ internal static class Texts
 
 internal static class VirtualDiskManager
 {
+    private static readonly Guid VirtualStorageTypeVendorMicrosoft = new("EC984AEC-A0F9-47E9-901F-71415A66345B");
+
     public static void AttachVhd(string path, bool readOnly)
     {
-        var access = readOnly ? "ReadOnly" : "ReadWrite";
-        RunPowerShell($"Mount-DiskImage -ImagePath {Quote(path)} -Access {access} -ErrorAction Stop");
+        var storageType = GetStorageType(path, null);
+        var accessMask = readOnly ? VirtualDiskAccessMask.AttachReadOnly : VirtualDiskAccessMask.AttachReadWrite;
+        var openParameters = new OpenVirtualDiskParameters { Version = OpenVirtualDiskVersion.Version1 };
+        var result = NativeMethods.OpenVirtualDisk(ref storageType, path, accessMask, OpenVirtualDiskFlags.None, ref openParameters, out var handle);
+        ThrowIfFailed(result, "open", path);
+
+        using (handle)
+        {
+            var attachParameters = new AttachVirtualDiskParameters { Version = AttachVirtualDiskVersion.Version1 };
+            result = NativeMethods.AttachVirtualDisk(handle, IntPtr.Zero, AttachVirtualDiskFlags.PermanentLifetime, 0, ref attachParameters, IntPtr.Zero);
+            ThrowIfFailed(result, "attach", path);
+        }
     }
 
-    public static void DetachVhd(string path) => RunPowerShell($"Dismount-DiskImage -ImagePath {Quote(path)} -ErrorAction Stop");
+    public static void DetachVhd(string path)
+    {
+        var storageType = GetStorageType(path, null);
+        var openParameters = new OpenVirtualDiskParameters { Version = OpenVirtualDiskVersion.Version1 };
+        var result = NativeMethods.OpenVirtualDisk(ref storageType, path, VirtualDiskAccessMask.Detach, OpenVirtualDiskFlags.None, ref openParameters, out var handle);
+        ThrowIfFailed(result, "open", path);
+
+        using (handle)
+        {
+            result = NativeMethods.DetachVirtualDisk(handle, DetachVirtualDiskFlags.None, 0);
+            ThrowIfFailed(result, "detach", path);
+        }
+    }
+
     public static void CreateVhd(string path, ulong sizeBytes, string format, bool fixedSize)
     {
-        var type = fixedSize ? "Fixed" : "Dynamic";
-        RunPowerShell($"New-VHD -Path {Quote(path)} -SizeBytes {sizeBytes} -{type} -ErrorAction Stop");
+        var storageType = GetStorageType(path, format);
+        var parameters = new CreateVirtualDiskParameters
+        {
+            Version = CreateVirtualDiskVersion.Version2,
+            Version2 = new CreateVirtualDiskParametersVersion2
+            {
+                UniqueId = Guid.NewGuid(),
+                MaximumSize = sizeBytes,
+                BlockSizeInBytes = 0,
+                SectorSizeInBytes = 0,
+                ParentPath = null,
+                SourcePath = null,
+                OpenFlags = OpenVirtualDiskFlags.None,
+                ParentVirtualStorageType = new VirtualStorageType(),
+                SourceVirtualStorageType = new VirtualStorageType(),
+                ResiliencyGuid = Guid.Empty
+            }
+        };
+        var flags = fixedSize ? CreateVirtualDiskFlags.FullPhysicalAllocation : CreateVirtualDiskFlags.None;
+        var result = NativeMethods.CreateVirtualDisk(ref storageType, path, VirtualDiskAccessMask.None, IntPtr.Zero, flags, 0, ref parameters, IntPtr.Zero, out var handle);
+        ThrowIfFailed(result, "create", path);
+        handle.Dispose();
     }
-    private static void RunPowerShell(string command)
+
+    private static VirtualStorageType GetStorageType(string path, string? format)
     {
-        var psi = new ProcessStartInfo { FileName = GetPreferredPowerShellPath(), Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; " + command.Replace("\"", "`\"") + "\"", UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
-        using var p = Process.Start(psi) ?? throw new InvalidOperationException("Failed to run PowerShell."); var error = p.StandardError.ReadToEnd(); p.WaitForExit(); if (p.ExitCode != 0) throw new InvalidOperationException(error);
+        var normalizedFormat = !string.IsNullOrWhiteSpace(format) ? format : Path.GetExtension(path).TrimStart('.');
+        var deviceId = normalizedFormat.Equals("vhd", StringComparison.OrdinalIgnoreCase) ? VirtualStorageTypeDevice.Vhd : VirtualStorageTypeDevice.Vhdx;
+        return new VirtualStorageType { DeviceId = deviceId, VendorId = VirtualStorageTypeVendorMicrosoft };
     }
-    private static string Quote(string s) => "'" + s.Replace("'", "''") + "'";
-    private static string GetPreferredPowerShellPath()
+
+    private static void ThrowIfFailed(int error, string operation, string path)
     {
-        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-        var sysnativePath = Path.Combine(windowsDirectory, "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe");
-        if (File.Exists(sysnativePath)) return sysnativePath;
-        var system32Path = Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-        return File.Exists(system32Path) ? system32Path : "powershell.exe";
+        if (error == 0) return;
+        throw new InvalidOperationException($"Failed to {operation} virtual hard disk '{path}'. {new System.ComponentModel.Win32Exception(error).Message} (0x{error:X8})");
+    }
+
+    private enum VirtualStorageTypeDevice : uint
+    {
+        Vhd = 2,
+        Vhdx = 3
+    }
+
+    [Flags]
+    private enum VirtualDiskAccessMask : uint
+    {
+        None = 0,
+        AttachReadOnly = 0x00010000,
+        AttachReadWrite = 0x00020000,
+        Detach = 0x00040000
+    }
+
+    [Flags]
+    private enum CreateVirtualDiskFlags : uint
+    {
+        None = 0,
+        FullPhysicalAllocation = 1
+    }
+
+    [Flags]
+    private enum OpenVirtualDiskFlags : uint
+    {
+        None = 0
+    }
+
+    [Flags]
+    private enum AttachVirtualDiskFlags : uint
+    {
+        PermanentLifetime = 0x00000004
+    }
+
+    [Flags]
+    private enum DetachVirtualDiskFlags : uint
+    {
+        None = 0
+    }
+
+    private enum CreateVirtualDiskVersion
+    {
+        Version2 = 2
+    }
+
+    private enum OpenVirtualDiskVersion
+    {
+        Version1 = 1
+    }
+
+    private enum AttachVirtualDiskVersion
+    {
+        Version1 = 1
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct VirtualStorageType
+    {
+        public VirtualStorageTypeDevice DeviceId;
+        public Guid VendorId;
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct CreateVirtualDiskParameters
+    {
+        public CreateVirtualDiskVersion Version;
+        public CreateVirtualDiskParametersVersion2 Version2;
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private struct CreateVirtualDiskParametersVersion2
+    {
+        public Guid UniqueId;
+        public ulong MaximumSize;
+        public uint BlockSizeInBytes;
+        public uint SectorSizeInBytes;
+        [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] public string? ParentPath;
+        [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] public string? SourcePath;
+        public OpenVirtualDiskFlags OpenFlags;
+        public VirtualStorageType ParentVirtualStorageType;
+        public VirtualStorageType SourceVirtualStorageType;
+        public Guid ResiliencyGuid;
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct OpenVirtualDiskParameters
+    {
+        public OpenVirtualDiskVersion Version;
+        public uint RWDepth;
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct AttachVirtualDiskParameters
+    {
+        public AttachVirtualDiskVersion Version;
+        public uint Reserved;
+    }
+
+    private static class NativeMethods
+    {
+        [System.Runtime.InteropServices.DllImport("virtdisk.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        public static extern int CreateVirtualDisk(ref VirtualStorageType virtualStorageType, string path, VirtualDiskAccessMask virtualDiskAccessMask, IntPtr securityDescriptor, CreateVirtualDiskFlags flags, uint providerSpecificFlags, ref CreateVirtualDiskParameters parameters, IntPtr overlapped, out Microsoft.Win32.SafeHandles.SafeFileHandle handle);
+
+        [System.Runtime.InteropServices.DllImport("virtdisk.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        public static extern int OpenVirtualDisk(ref VirtualStorageType virtualStorageType, string path, VirtualDiskAccessMask virtualDiskAccessMask, OpenVirtualDiskFlags flags, ref OpenVirtualDiskParameters parameters, out Microsoft.Win32.SafeHandles.SafeFileHandle handle);
+
+        [System.Runtime.InteropServices.DllImport("virtdisk.dll")]
+        public static extern int AttachVirtualDisk(Microsoft.Win32.SafeHandles.SafeFileHandle virtualDiskHandle, IntPtr securityDescriptor, AttachVirtualDiskFlags flags, uint providerSpecificFlags, ref AttachVirtualDiskParameters parameters, IntPtr overlapped);
+
+        [System.Runtime.InteropServices.DllImport("virtdisk.dll")]
+        public static extern int DetachVirtualDisk(Microsoft.Win32.SafeHandles.SafeFileHandle virtualDiskHandle, DetachVirtualDiskFlags flags, uint providerSpecificFlags);
     }
 }
