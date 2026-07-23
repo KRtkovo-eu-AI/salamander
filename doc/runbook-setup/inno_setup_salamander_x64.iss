@@ -8,7 +8,15 @@
 ;   iscc.exe "doc\runbook-setup\inno_setup_salamander_x64.iss" /DPayloadDir="H:\_projects\salamander\output\salamander\Release_x64"
 ;
 ; Silent install example:
-;   5.0-samandarin-0.12_win_x64.exe /VERYSILENT /DIR="C:\Path\To\Install" /NORESTART
+;   5.0-samandarin-0.13_win_x64.exe /VERYSILENT /SUPPRESSMSGBOXES /DIR="C:\Path\To\Install" /NORESTART /LANG=czech /INSTALLMODE=install /OVERWRITEDIR=yes /PLUGINS=default /SHORTCUTS=startmenu,desktop
+;
+; Silent automation parameters:
+;   /LANG=<language>                 Inno Setup built-in language selector (for example czech or english).
+;   /INSTALLMODE=<install|portable>  Mirrors the UI installation mode radio buttons.
+;   /OVERWRITEDIR=<yes|no>           Silent answer for an already existing destination directory; no aborts before copying.
+;   /PLUGINS=<default|all|none|id,..> Mirrors the plugin selection page.
+;   /SHORTCUTS=<none|startmenu|desktop|startmenu,desktop> Mirrors the shortcuts tasks; ignored for portable mode.
+;   /RUNAPP=<yes|no>                 Controls launching the app after install; defaults to no during silent setup.
 ;
 ; Custom [Code] message boxes are guarded with WizardSilent/UninstallSilent so
 ; unattended installs and uninstalls do not block on application prompts.
@@ -1615,11 +1623,11 @@ Source: "{#PayloadDir}\utils\sqlite.dll"; DestDir: "{app}\utils"; Flags: ignorev
 Source: "{#PayloadDir}\utils\ssleay32.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\vcruntime140.dll"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
-Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Tasks: desktopicon; Check: not IsPortableInstall
-Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon; Check: not IsPortableInstall
+Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('desktop')
+Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('startmenu')
 
 [Run]
-Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-welcome -language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-welcome -language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall; Check: ShouldRunApplication
 
 
 [UninstallRun]
@@ -1639,8 +1647,67 @@ var
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
   PreviousVersionUninstallKeys: array of String;
+  SilentInstallMode: String;
+  SilentPluginSelection: String;
+  SilentShortcuts: String;
+  SilentOverwriteDir: String;
+  SilentRunApp: String;
 
 
+
+
+function IsPortableInstall(): Boolean; forward;
+
+function GetLowerParam(const Name, Default: String): String;
+begin
+  Result := Lowercase(ExpandConstant('{param:' + Name + '|' + Default + '}'));
+end;
+
+function ListContainsToken(const List, Token: String): Boolean;
+var
+  NormalizedList: String;
+  NormalizedToken: String;
+begin
+  NormalizedList := Lowercase(List);
+  StringChangeEx(NormalizedList, ';', ',', True);
+  StringChangeEx(NormalizedList, ' ', '', True);
+  NormalizedToken := Lowercase(Token);
+  Result := Pos(',' + NormalizedToken + ',', ',' + NormalizedList + ',') > 0;
+end;
+
+function IsDefaultPlugin(const PluginId: String): Boolean;
+begin
+  Result := not (
+    (CompareText(PluginId, 'folders') = 0) or
+    (CompareText(PluginId, 'ieviewer') = 0) or
+    (CompareText(PluginId, 'wmobile') = 0) or
+    (CompareText(PluginId, 'demoplug') = 0));
+end;
+
+function ShouldCreateShortcut(const ShortcutId: String): Boolean;
+begin
+  Result := False;
+  if IsPortableInstall() then
+    Exit;
+
+  if SilentShortcuts <> '' then
+  begin
+    Result := (SilentShortcuts = 'all') or ListContainsToken(SilentShortcuts, ShortcutId);
+    Exit;
+  end;
+
+  if CompareText(ShortcutId, 'desktop') = 0 then
+    Result := IsTaskSelected('desktopicon')
+  else if CompareText(ShortcutId, 'startmenu') = 0 then
+    Result := IsTaskSelected('startmenuicon')
+  else
+    Result := False;
+end;
+
+function ShouldRunApplication(): Boolean;
+begin
+  Result := (not WizardSilent) or (SilentRunApp = 'yes') or (SilentRunApp = 'y') or (SilentRunApp = '1') or (SilentRunApp = 'true');
+end;
 
 function PadLeft(const Value: String; const Width: Integer): String;
 begin
@@ -1780,6 +1847,19 @@ function IsPluginSelected(const PluginId: String): Boolean;
 var
   I: Integer;
 begin
+  if SilentPluginSelection <> '' then
+  begin
+    if SilentPluginSelection = 'all' then
+      Result := True
+    else if SilentPluginSelection = 'none' then
+      Result := False
+    else if SilentPluginSelection = 'default' then
+      Result := IsDefaultPlugin(PluginId)
+    else
+      Result := ListContainsToken(SilentPluginSelection, PluginId);
+    Exit;
+  end;
+
   Result := True;
   if not Assigned(PluginList) then
     Exit;
@@ -1796,6 +1876,12 @@ end;
 
 function IsPortableInstall(): Boolean;
 begin
+  if SilentInstallMode <> '' then
+  begin
+    Result := (SilentInstallMode = 'portable') or (SilentInstallMode = 'extract');
+    Exit;
+  end;
+
   Result := Assigned(InstallModePage) and (InstallModePage.SelectedValueIndex = 1);
 end;
 
@@ -2015,6 +2101,19 @@ end;
 function InitializeSetup(): Boolean;
 begin
   Result := True;
+  SilentInstallMode := GetLowerParam('INSTALLMODE', '');
+  SilentPluginSelection := GetLowerParam('PLUGINS', '');
+  SilentShortcuts := GetLowerParam('SHORTCUTS', '');
+  SilentOverwriteDir := GetLowerParam('OVERWRITEDIR', 'yes');
+  SilentRunApp := GetLowerParam('RUNAPP', 'no');
+
+  if WizardSilent and (SilentOverwriteDir = 'no') and DirExists(ExpandConstant('{app}')) then
+  begin
+    Log('Silent setup aborted because /OVERWRITEDIR=no and the destination directory exists.');
+    Result := False;
+    Exit;
+  end;
+
   if not WizardSilent then
     CheckCodePageCompatibility;
 end;
@@ -2030,7 +2129,10 @@ begin
     False);
   InstallModePage.Add(CustomMessage('StandardInstall'));
   InstallModePage.Add(CustomMessage('PortableInstall'));
-  InstallModePage.SelectedValueIndex := 0;
+  if (SilentInstallMode = 'portable') or (SilentInstallMode = 'extract') then
+    InstallModePage.SelectedValueIndex := 1
+  else
+    InstallModePage.SelectedValueIndex := 0;
 
   PluginSelectionPage := CreateCustomPage(
     wpSelectDir,
