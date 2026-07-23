@@ -1676,10 +1676,15 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
         }
         if (lines != NULL && *lines > 0)
         {
-            int availableRows = row;
+            // The row containing 'seek' counts as the first line before seek
+            // (FindSeekBefore(FileSize, 1) must return the last visual row).
+            // Count that row plus all preceding wrapped rows in this logical
+            // line; otherwise wrapped mode stops one row too late and leaves
+            // empty space below the document at the bottom scroll position.
+            int availableRows = row + 1;
             if (*lines <= availableRows)
             {
-                lineBegin = wrapStarts[row - *lines];
+                lineBegin = wrapStarts[row - *lines + 1];
                 previousLineEnd = lineBegin;
                 *lines = 0;
                 return TRUE;
