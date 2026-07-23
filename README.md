@@ -62,6 +62,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### Configurable Command Shell Application
 <img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/d5109ceb-ec72-43ce-9731-749f3cb13fec" />
+<img width="1055" height="397" alt="image" src="https://github.com/user-attachments/assets/26b86292-327e-4d39-bbff-ff96a649bb0f" />
 
 ### Tree View panel
 - Docked or floating panel with tree view structure of the active disk panel.
