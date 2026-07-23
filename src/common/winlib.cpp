@@ -28,14 +28,6 @@
 #endif
 
 #ifdef INSIDE_SALAMANDER
-extern int UpdateSystemDPIForWindow(HWND hWindow);
-
-static void WinLib_UpdateDPIForWindow(HWND hWindow)
-{
-    if (hWindow != NULL)
-        UpdateSystemDPIForWindow(hWindow);
-}
-
 #define WinLib_DarkMode_ApplyTitleBar DarkModeRefreshTitleBar
 #define WinLib_DarkMode_ApplyListTreeThemeRecursive DarkModeApplyTree
 #define WinLib_DarkMode_ApplyWindow DarkModeApplyWindow
@@ -85,10 +77,6 @@ static BOOL WinLib_DarkMode_OnSettingChange(LPARAM lParam)
     return DarkModeHandleSettingChange(WM_SETTINGCHANGE, lParam) ? TRUE : FALSE;
 }
 #else
-static void WinLib_UpdateDPIForWindow(HWND)
-{
-}
-
 BOOL WinLib_DarkMode_ShouldApplyDialogTree(HWND hwnd)
 {
     UNREFERENCED_PARAMETER(hwnd);
@@ -809,7 +797,6 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        WinLib_UpdateDPIForWindow(HWindow);
         TransferData(ttDataToWindow);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
@@ -899,14 +886,6 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
-        break;
-    }
-
-    case WM_DPICHANGED:
-    case WM_DPICHANGED_AFTERPARENT:
-    {
-        WinLib_UpdateDPIForWindow(HWindow);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
         break;
     }
 
