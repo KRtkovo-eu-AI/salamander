@@ -2008,11 +2008,15 @@ void CViewerWindow::SetScrollBar()
         GetScrollInfo(VScrollBar, SB_CTL, &si);
 
         if (CachedVerticalPageSize < 0)
-            CachedVerticalPageSize = ViewSize;
-        // The thumb coordinate range must end exactly at MaxSeekY plus the
-        // stable page extent. FileSize is not equivalent for text mode
-        // (BOM/EOL and variable visible byte spans), which made drag mapping
-        // lag behind the pointer and prevented reaching the document end.
+        {
+            // HeightChanged() recalculates MaxSeekY from the current viewport
+            // height/font metrics before the window is repainted.  ViewSize is
+            // refreshed later during Paint(), so using it here after resize or
+            // zoom would reuse the previous viewport's page extent and make the
+            // scrollbar range too short.  The last valid origin is MaxSeekY, so
+            // the missing trailing extent is the byte span from MaxSeekY to EOF.
+            CachedVerticalPageSize = max((__int64)1, FileSize - MaxSeekY);
+        }
         __int64 max = MaxSeekY + CachedVerticalPageSize;
         ScrollScaleY = ((double)max) / 20000.0;
         if (ScrollScaleY < 0.00001)
