@@ -1702,9 +1702,9 @@ begin
   end;
 
   if CompareText(ShortcutId, 'desktop') = 0 then
-    Result := IsTaskSelected('desktopicon')
+    Result := WizardIsTaskSelected('desktopicon')
   else if CompareText(ShortcutId, 'startmenu') = 0 then
-    Result := IsTaskSelected('startmenuicon')
+    Result := WizardIsTaskSelected('startmenuicon')
   else
     Result := False;
 end;
