@@ -152,8 +152,8 @@ internal static class VirtualDiskManager
 
     private static VirtualStorageType GetStorageType(string path, string? format)
     {
-        var normalizedFormat = !string.IsNullOrWhiteSpace(format) ? format : (Path.GetExtension(path) ?? string.Empty).TrimStart('.');
-        var deviceId = normalizedFormat.Equals("vhd", StringComparison.OrdinalIgnoreCase) ? VirtualStorageTypeDevice.Vhd : VirtualStorageTypeDevice.Vhdx;
+        var normalizedFormat = !string.IsNullOrWhiteSpace(format) ? format! : (Path.GetExtension(path) ?? string.Empty).TrimStart('.');
+        var deviceId = string.Equals(normalizedFormat, "vhd", StringComparison.OrdinalIgnoreCase) ? VirtualStorageTypeDevice.Vhd : VirtualStorageTypeDevice.Vhdx;
         return new VirtualStorageType { DeviceId = deviceId, VendorId = VirtualStorageTypeVendorMicrosoft };
     }
 
