@@ -45,6 +45,9 @@ public static class EntryPoint
             return;
         }
 
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedMessageHandling", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedHighDpiImprovements", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableWindowsFormsHighDpiAutoResizing", true);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         _visualsEnabled = true;

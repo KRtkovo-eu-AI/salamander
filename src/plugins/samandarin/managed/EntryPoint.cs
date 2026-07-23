@@ -111,6 +111,9 @@ public static class EntryPoint
             return;
         }
 
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedMessageHandling", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedHighDpiImprovements", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableWindowsFormsHighDpiAutoResizing", true);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         _visualsEnabled = true;
@@ -831,6 +834,15 @@ internal class DpiAwareForm : Form
     private const int WmDpiChanged = 0x02E0;
     private int _currentDpi;
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
     protected DpiAwareForm()
     {
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -848,14 +860,21 @@ internal class DpiAwareForm : Form
     {
         if (m.Msg == WmDpiChanged)
         {
-            int newDpi = (m.WParam.ToInt32() >> 16) & 0xffff;
+            int newDpi = m.WParam.ToInt32() & 0xffff;
+            if (m.LParam != IntPtr.Zero)
+            {
+                NativeRect suggested = Marshal.PtrToStructure<NativeRect>(m.LParam);
+                Bounds = Rectangle.FromLTRB(suggested.Left, suggested.Top, suggested.Right, suggested.Bottom);
+            }
             if (newDpi > 0 && _currentDpi > 0 && newDpi != _currentDpi)
             {
                 float factor = (float)newDpi / _currentDpi;
+                SuspendLayout();
                 Scale(new SizeF(factor, factor));
+                Font = SystemFonts.MessageBoxFont;
                 _currentDpi = newDpi;
+                ResumeLayout(true);
             }
-            Font = SystemFonts.MessageBoxFont;
             PerformLayout();
             Invalidate(true);
         }

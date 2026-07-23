@@ -121,6 +121,9 @@ public static class EntryPoint
     private static void EnsureApplicationInitialized()
     {
         if (_visualsEnabled) return;
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedMessageHandling", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedHighDpiImprovements", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableWindowsFormsHighDpiAutoResizing", true);
         Application.EnableVisualStyles();
         _visualsEnabled = true;
     }

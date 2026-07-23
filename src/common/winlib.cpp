@@ -227,11 +227,30 @@ static HFONT WinLib_CreateDialogMessageFont(UINT dpi)
 static const TCHAR* WinLib_DialogDpiFontProp = _T("Salamander.WinLib.DialogDpiFont");
 static const TCHAR* WinLib_DialogDpiValueProp = _T("Salamander.WinLib.DialogDpiValue");
 static int (*WinLib_DPIUpdateWindowProc)(HWND hWindow) = NULL;
+static void (*WinLib_DPISetProc)(int dpi) = NULL;
 static UINT WinLib_LastDialogDPI = 0;
 
 void WinLib_SetDPIUpdateWindowProc(int (*updateWindowDPI)(HWND hWindow))
 {
     WinLib_DPIUpdateWindowProc = updateWindowDPI;
+}
+
+void WinLib_SetDPISetProc(void (*setDPI)(int dpi))
+{
+    WinLib_DPISetProc = setDPI;
+}
+
+int WinLib_UpdateDPIForWindowDPI(HWND hWindow, int dpi)
+{
+    if (dpi <= 0)
+        return WinLib_UpdateDPIForWindow(hWindow);
+
+    WinLib_LastDialogDPI = (UINT)dpi;
+    if (hWindow != NULL)
+        SetProp(hWindow, WinLib_DialogDpiValueProp, (HANDLE)(INT_PTR)dpi);
+    if (WinLib_DPISetProc != NULL)
+        WinLib_DPISetProc(dpi);
+    return dpi;
 }
 
 int WinLib_UpdateDPIForWindow(HWND hWindow)
@@ -251,6 +270,43 @@ int WinLib_UpdateDPIForWindow(HWND hWindow)
     if (hWindow != NULL)
         SetProp(hWindow, WinLib_DialogDpiValueProp, (HANDLE)(INT_PTR)dpi);
     return (int)dpi;
+}
+
+int WinLib_GetWindowDPIValue(HWND hWindow)
+{
+    return (int)(INT_PTR)GetProp(hWindow, WinLib_DialogDpiValueProp);
+}
+
+void WinLib_ScaleDialogControlsForDPI(HWND hWindow, int oldDPI, int newDPI)
+{
+    if (hWindow == NULL || oldDPI <= 0 || newDPI <= 0 || oldDPI == newDPI)
+        return;
+
+    int count = 0;
+    for (HWND hChild = GetWindow(hWindow, GW_CHILD); hChild != NULL; hChild = GetWindow(hChild, GW_HWNDNEXT))
+        count++;
+    if (count == 0)
+        return;
+
+    HDWP hdwp = BeginDeferWindowPos(count);
+    if (hdwp == NULL)
+        return;
+
+    for (HWND hChild = GetWindow(hWindow, GW_CHILD); hChild != NULL; hChild = GetWindow(hChild, GW_HWNDNEXT))
+    {
+        RECT r;
+        GetWindowRect(hChild, &r);
+        MapWindowPoints(NULL, hWindow, (POINT*)&r, 2);
+        hdwp = DeferWindowPos(hdwp, hChild, NULL,
+                              MulDiv(r.left, newDPI, oldDPI),
+                              MulDiv(r.top, newDPI, oldDPI),
+                              MulDiv(r.right - r.left, newDPI, oldDPI),
+                              MulDiv(r.bottom - r.top, newDPI, oldDPI),
+                              SWP_NOZORDER | SWP_NOACTIVATE);
+        if (hdwp == NULL)
+            return;
+    }
+    EndDeferWindowPos(hdwp);
 }
 
 static BOOL CALLBACK WinLib_SetDialogFontProc(HWND hwnd, LPARAM lParam)
@@ -1040,8 +1096,12 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                          suggestedRect->bottom - suggestedRect->top,
                          SWP_NOZORDER | SWP_NOACTIVATE);
         }
-        WinLib_UpdateDPIForWindow(HWindow);
+        int oldDPI = (int)(INT_PTR)GetProp(HWindow, WinLib_DialogDpiValueProp);
+        int dpi = uMsg == WM_DPICHANGED ? LOWORD(wParam) : 0;
+        int newDPI = WinLib_UpdateDPIForWindowDPI(HWindow, dpi);
+        WinLib_ScaleDialogControlsForDPI(HWindow, oldDPI, newDPI);
         WinLib_ApplyDialogDPIFont(HWindow);
+        SendMessage(HWindow, WM_SIZE, 0, 0);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
         break;
     }

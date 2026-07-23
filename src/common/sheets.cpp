@@ -804,13 +804,13 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
         ParentDialog->HWindow = Parent;
+        WinLib_ApplyDialogDPIFont(HWindow);
         TransferData(ttDataToWindow);
         InitHorizontalLayout();
         ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         DockOverlappingEditButtons(HWindow);
-        WinLib_ApplyDialogDPIFont(HWindow);
         return TRUE; // chci focus od DefDlgProc
     }
 
@@ -943,8 +943,15 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DPICHANGED:
     case WM_DPICHANGED_AFTERPARENT:
     {
-        WinLib_UpdateDPIForWindow(HWindow);
+        int oldDPI = WinLib_GetWindowDPIValue(HWindow);
+        int dpi = uMsg == WM_DPICHANGED ? LOWORD(wParam) : 0;
+        int newDPI = WinLib_UpdateDPIForWindowDPI(HWindow, dpi);
+        WinLib_ScaleDialogControlsForDPI(HWindow, oldDPI, newDPI);
         WinLib_ApplyDialogDPIFont(HWindow);
+        ApplyHorizontalLayout();
+        if (ElasticLayout != NULL)
+            ElasticLayout->LayoutCtrls();
+        DockOverlappingEditButtons(HWindow);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
         break;
     }

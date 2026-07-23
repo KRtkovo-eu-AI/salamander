@@ -71,6 +71,9 @@ public static class EntryPoint
 
         EnsureAssemblyResolution();
 
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedMessageHandling", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedHighDpiImprovements", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableWindowsFormsHighDpiAutoResizing", true);
         Application.EnableVisualStyles();
 
         try
