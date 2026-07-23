@@ -15,13 +15,15 @@ public static class EntryPoint
     [STAThread]
     public static int Dispatch(string? argument)
     {
+        var parentHandle = IntPtr.Zero;
+
         try
         {
             EnsureApplicationInitialized();
 
             var parts = (argument ?? string.Empty).Split(new[] { ';' }, 3);
             var command = parts.Length > 0 ? parts[0] : string.Empty;
-            var parentHandle = ParseHandle(parts.Length > 1 ? parts[1] : string.Empty);
+            parentHandle = ParseHandle(parts.Length > 1 ? parts[1] : string.Empty);
             var payload = parts.Length > 2 ? parts[2] : string.Empty;
 
             return command switch
@@ -35,7 +37,8 @@ public static class EntryPoint
         }
         catch (Exception ex)
         {
-            ThemeHelper.ShowMessageBox(null, ex.Message, Texts.PluginName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            var owner = parentHandle == IntPtr.Zero ? null : new WindowHandleWrapper(parentHandle);
+            ThemeHelper.ShowMessageBox(owner, ex.Message, Texts.PluginName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             return -1;
         }
     }
@@ -58,6 +61,7 @@ public static class EntryPoint
         if (parts.Length != 4 || !ulong.TryParse(parts[1], out var sizeBytes)) return 1;
         VirtualDiskManager.CreateVhd(parts[0], sizeBytes, parts[2], parts[3] == "Fixed");
         VirtualDiskManager.AttachVhd(parts[0], false);
+        VirtualDiskInitializationDialog.ShowForNewDisk(new WindowHandleWrapper(parent), parts[0]);
         return 0;
     }
 
@@ -118,7 +122,6 @@ public static class EntryPoint
     {
         if (_visualsEnabled) return;
         Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
         _visualsEnabled = true;
     }
 
