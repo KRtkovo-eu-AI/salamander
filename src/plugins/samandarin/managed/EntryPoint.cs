@@ -828,24 +828,10 @@ internal static class UpdateCoordinator
 
 internal class DpiAwareForm : Form
 {
-    private const int WmDpiChanged = 0x02E0;
-
     protected DpiAwareForm()
     {
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = SystemFonts.MessageBoxFont;
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        if (m.Msg == WmDpiChanged)
-        {
-            Font = SystemFonts.MessageBoxFont;
-            PerformLayout();
-            Invalidate(true);
-        }
-
-        base.WndProc(ref m);
     }
 }
 

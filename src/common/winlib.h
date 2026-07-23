@@ -553,8 +553,5 @@ public:
 
 extern CWindowsManager WindowsManager;
 
-HANDLE WinLib_DPI_SetThreadPerMonitorV2();
-void WinLib_DPI_RestoreThreadContext(HANDLE oldContext);
-UINT WinLib_DPI_GetDpiForWindow(HWND hwnd);
-void WinLib_DPI_ApplyDialogLayout(HWND hwnd, int dpi, const RECT* suggestedRect);
-void WinLib_DPI_CleanupDialogLayout(HWND hwnd);
+HANDLE WinLib_SetThreadDPIAwarenessForDialog();
+void WinLib_RestoreThreadDPIAwarenessForDialog(HANDLE oldContext);

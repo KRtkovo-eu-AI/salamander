@@ -23,316 +23,19 @@
 #include "array.h"
 #include "winlib.h"
 
-#ifndef WM_DPICHANGED
-#define WM_DPICHANGED 0x02E0
-#endif
-
-#ifndef WM_DPICHANGED_AFTERPARENT
-#define WM_DPICHANGED_AFTERPARENT 0x02E3
-#endif
-
-struct CWinLibDPIControlLayout
-{
-    HWND HWindow;
-    HWND HParent;
-    RECT Rect96;
-};
-
-struct CWinLibDPIDialogLayout
-{
-    int Dpi;
-    BOOL HasFont;
-    LOGFONT Font96;
-    RECT WindowRect96;
-    int ControlsCount;
-    CWinLibDPIControlLayout* Controls;
-};
-
-static const TCHAR* WinLib_DPI_DialogLayoutProp = _T("Salamander.WinLib.DPI.DialogLayout");
-static const TCHAR* WinLib_DPI_DialogFontProp = _T("Salamander.WinLib.DPI.DialogFont");
-
-static int WinLib_DPI_Scale(int value, int dpi)
-{
-    return MulDiv(value, dpi > 0 ? dpi : 96, 96);
-}
-
-static int WinLib_DPI_Unscale(int value, int dpi)
-{
-    return MulDiv(value, 96, dpi > 0 ? dpi : 96);
-}
-
-UINT WinLib_DPI_GetDpiForWindow(HWND hwnd)
-{
-    typedef UINT(WINAPI * FGetDpiForWindow)(HWND hwnd);
-    static FGetDpiForWindow getDpiForWindow = NULL;
-    static BOOL loaded = FALSE;
-    if (!loaded)
-    {
-        HMODULE user32 = GetModuleHandle(_T("user32.dll"));
-        if (user32 != NULL)
-            getDpiForWindow = (FGetDpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
-        loaded = TRUE;
-    }
-    if (getDpiForWindow != NULL && hwnd != NULL)
-    {
-        UINT dpi = getDpiForWindow(hwnd);
-        if (dpi != 0)
-            return dpi;
-    }
-
-    HDC hdc = GetDC(hwnd);
-    UINT dpi = hdc != NULL ? (UINT)GetDeviceCaps(hdc, LOGPIXELSX) : 96;
-    if (hdc != NULL)
-        ReleaseDC(hwnd, hdc);
-    return dpi != 0 ? dpi : 96;
-}
-
-static BOOL CALLBACK WinLib_DPI_CountControlsProc(HWND, LPARAM lParam)
-{
-    (*(int*)lParam)++;
-    return TRUE;
-}
-
-static void WinLib_DPI_RectTo96(RECT* rect, int dpi)
-{
-    rect->left = WinLib_DPI_Unscale(rect->left, dpi);
-    rect->top = WinLib_DPI_Unscale(rect->top, dpi);
-    rect->right = WinLib_DPI_Unscale(rect->right, dpi);
-    rect->bottom = WinLib_DPI_Unscale(rect->bottom, dpi);
-}
-
-static RECT WinLib_DPI_RectFrom96(const RECT* rect, int dpi)
-{
-    RECT scaled;
-    scaled.left = WinLib_DPI_Scale(rect->left, dpi);
-    scaled.top = WinLib_DPI_Scale(rect->top, dpi);
-    scaled.right = WinLib_DPI_Scale(rect->right, dpi);
-    scaled.bottom = WinLib_DPI_Scale(rect->bottom, dpi);
-    return scaled;
-}
-
-static BOOL CALLBACK WinLib_DPI_CaptureControlsProc(HWND hwnd, LPARAM lParam)
-{
-    CWinLibDPIDialogLayout* layout = (CWinLibDPIDialogLayout*)lParam;
-    CWinLibDPIControlLayout* control = layout->Controls + layout->ControlsCount++;
-    control->HWindow = hwnd;
-    control->HParent = GetParent(hwnd);
-    GetWindowRect(hwnd, &control->Rect96);
-    MapWindowPoints(NULL, control->HParent, (POINT*)&control->Rect96, 2);
-    WinLib_DPI_RectTo96(&control->Rect96, layout->Dpi);
-    return TRUE;
-}
-
-static int WinLib_DPI_GetDialogFontSourceDpi(HWND hwnd, int targetDpi)
-{
-    HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
-    LOGFONT lf;
-    memset(&lf, 0, sizeof(lf));
-    if (hFont == NULL || GetObject(hFont, sizeof(lf), &lf) == 0 || lf.lfHeight == 0)
-        return 96;
-
-    int pointSize = _tcsicmp(lf.lfFaceName, _T("Segoe UI")) == 0 ? 9 : 8;
-    int estimatedDpi = MulDiv(abs(lf.lfHeight), 72, pointSize);
-
-    // When the dialog manager already created the template at the monitor DPI,
-    // avoid scaling a second time.  Otherwise treat the resource as the usual
-    // 96-DPI template and let WinLib scale it explicitly.
-    return abs(estimatedDpi - targetDpi) <= 12 ? targetDpi : 96;
-}
-
-static CWinLibDPIDialogLayout* WinLib_DPI_GetDialogLayout(HWND hwnd)
-{
-    return (CWinLibDPIDialogLayout*)GetProp(hwnd, WinLib_DPI_DialogLayoutProp);
-}
-
-static CWinLibDPIDialogLayout* WinLib_DPI_CaptureDialogLayout(HWND hwnd, int dpi)
-{
-    int controlsCount = 0;
-    EnumChildWindows(hwnd, WinLib_DPI_CountControlsProc, (LPARAM)&controlsCount);
-
-    CWinLibDPIDialogLayout* layout = new CWinLibDPIDialogLayout;
-    if (layout == NULL)
-        return NULL;
-
-    layout->Controls = controlsCount > 0 ? new CWinLibDPIControlLayout[controlsCount] : NULL;
-    if (controlsCount > 0 && layout->Controls == NULL)
-    {
-        delete layout;
-        return NULL;
-    }
-
-    layout->Dpi = dpi;
-    layout->HasFont = FALSE;
-    memset(&layout->Font96, 0, sizeof(layout->Font96));
-    HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
-    if (hFont != NULL && GetObject(hFont, sizeof(layout->Font96), &layout->Font96) != 0)
-    {
-        if (layout->Font96.lfHeight != 0)
-            layout->Font96.lfHeight = layout->Font96.lfHeight < 0 ? -WinLib_DPI_Unscale(-layout->Font96.lfHeight, dpi) :
-                                                                    WinLib_DPI_Unscale(layout->Font96.lfHeight, dpi);
-        layout->HasFont = TRUE;
-    }
-    layout->ControlsCount = 0;
-    GetWindowRect(hwnd, &layout->WindowRect96);
-    WinLib_DPI_RectTo96(&layout->WindowRect96, dpi);
-    EnumChildWindows(hwnd, WinLib_DPI_CaptureControlsProc, (LPARAM)layout);
-    SetProp(hwnd, WinLib_DPI_DialogLayoutProp, layout);
-    return layout;
-}
-
-static void WinLib_DPI_UpdateDialogLayoutBase(HWND hwnd, CWinLibDPIDialogLayout* layout)
-{
-    if (layout == NULL)
-        return;
-
-    GetWindowRect(hwnd, &layout->WindowRect96);
-    WinLib_DPI_RectTo96(&layout->WindowRect96, layout->Dpi);
-    for (int i = 0; i < layout->ControlsCount; i++)
-    {
-        CWinLibDPIControlLayout* control = layout->Controls + i;
-        if (!IsWindow(control->HWindow))
-            continue;
-        GetWindowRect(control->HWindow, &control->Rect96);
-        MapWindowPoints(NULL, control->HParent, (POINT*)&control->Rect96, 2);
-        WinLib_DPI_RectTo96(&control->Rect96, layout->Dpi);
-    }
-}
-
-static HFONT WinLib_DPI_CreateDialogFont(HWND hwnd, int dpi)
-{
-    CWinLibDPIDialogLayout* layout = WinLib_DPI_GetDialogLayout(hwnd);
-    LOGFONT lf;
-    memset(&lf, 0, sizeof(lf));
-    if (layout != NULL && layout->HasFont)
-    {
-        lf = layout->Font96;
-        if (lf.lfHeight != 0)
-            lf.lfHeight = lf.lfHeight < 0 ? -WinLib_DPI_Scale(-lf.lfHeight, dpi) :
-                                            WinLib_DPI_Scale(lf.lfHeight, dpi);
-    }
-    else
-    {
-        lf.lfHeight = -MulDiv(8, dpi, 72);
-        lstrcpyn(lf.lfFaceName, _T("MS Shell Dlg 2"), LF_FACESIZE);
-    }
-    return CreateFontIndirect(&lf);
-}
-
-static BOOL CALLBACK WinLib_DPI_SetFontProc(HWND hwnd, LPARAM lParam)
-{
-    SendMessage(hwnd, WM_SETFONT, (WPARAM)lParam, TRUE);
-    return TRUE;
-}
-
-void WinLib_DPI_ApplyDialogLayout(HWND hwnd, int dpi, const RECT* suggestedRect)
-{
-    if (hwnd == NULL)
-        return;
-
-    CWinLibDPIDialogLayout* layout = WinLib_DPI_GetDialogLayout(hwnd);
-    if (layout == NULL)
-        layout = WinLib_DPI_CaptureDialogLayout(hwnd, WinLib_DPI_GetDialogFontSourceDpi(hwnd, dpi));
-    else if (layout->Dpi != dpi)
-        WinLib_DPI_UpdateDialogLayoutBase(hwnd, layout);
-    if (layout == NULL)
-        return;
-
-    HDWP hdwp = BeginDeferWindowPos(layout->ControlsCount + 1);
-    for (int i = 0; i < layout->ControlsCount; i++)
-    {
-        if (hdwp == NULL)
-            break;
-        CWinLibDPIControlLayout* control = layout->Controls + i;
-        if (!IsWindow(control->HWindow))
-            continue;
-        RECT r = WinLib_DPI_RectFrom96(&control->Rect96, dpi);
-        hdwp = DeferWindowPos(hdwp, control->HWindow, NULL, r.left, r.top,
-                              r.right - r.left, r.bottom - r.top,
-                              SWP_NOZORDER | SWP_NOACTIVATE);
-    }
-    if (hdwp != NULL)
-        EndDeferWindowPos(hdwp);
-
-    if (suggestedRect != NULL)
-    {
-        SetWindowPos(hwnd, NULL, suggestedRect->left, suggestedRect->top,
-                     suggestedRect->right - suggestedRect->left,
-                     suggestedRect->bottom - suggestedRect->top,
-                     SWP_NOZORDER | SWP_NOACTIVATE);
-    }
-    else
-    {
-        RECT r = WinLib_DPI_RectFrom96(&layout->WindowRect96, dpi);
-        RECT currentRect;
-        GetWindowRect(hwnd, &currentRect);
-        SetWindowPos(hwnd, NULL, currentRect.left, currentRect.top, r.right - r.left, r.bottom - r.top,
-                     SWP_NOZORDER | SWP_NOACTIVATE);
-    }
-
-    HFONT oldFont = (HFONT)GetProp(hwnd, WinLib_DPI_DialogFontProp);
-    HFONT newFont = WinLib_DPI_CreateDialogFont(hwnd, dpi);
-    if (newFont != NULL)
-    {
-        SetProp(hwnd, WinLib_DPI_DialogFontProp, newFont);
-        SendMessage(hwnd, WM_SETFONT, (WPARAM)newFont, TRUE);
-        EnumChildWindows(hwnd, WinLib_DPI_SetFontProc, (LPARAM)newFont);
-        if (oldFont != NULL)
-            DeleteObject(oldFont);
-    }
-
-    layout->Dpi = dpi;
-    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
-}
-
-void WinLib_DPI_CleanupDialogLayout(HWND hwnd)
-{
-    CWinLibDPIDialogLayout* layout = WinLib_DPI_GetDialogLayout(hwnd);
-    if (layout != NULL)
-    {
-        RemoveProp(hwnd, WinLib_DPI_DialogLayoutProp);
-        delete[] layout->Controls;
-        delete layout;
-    }
-    HFONT font = (HFONT)GetProp(hwnd, WinLib_DPI_DialogFontProp);
-    if (font != NULL)
-    {
-        RemoveProp(hwnd, WinLib_DPI_DialogFontProp);
-        DeleteObject(font);
-    }
-}
-
-HANDLE WinLib_DPI_SetThreadPerMonitorV2()
-{
-    typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE);
-    static FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext = NULL;
-    static BOOL loaded = FALSE;
-    if (!loaded)
-    {
-        HMODULE user32 = GetModuleHandle(_T("user32.dll"));
-        if (user32 != NULL)
-            setThreadDpiAwarenessContext = (FSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext");
-        loaded = TRUE;
-    }
-    return setThreadDpiAwarenessContext != NULL ? setThreadDpiAwarenessContext((HANDLE)-4) : NULL;
-}
-
-void WinLib_DPI_RestoreThreadContext(HANDLE oldContext)
-{
-    if (oldContext == NULL)
-        return;
-    typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE);
-    HMODULE user32 = GetModuleHandle(_T("user32.dll"));
-    FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext =
-        user32 != NULL ? (FSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext") : NULL;
-    if (setThreadDpiAwarenessContext != NULL)
-        setThreadDpiAwarenessContext(oldContext);
-}
-
 #ifdef INSIDE_SALAMANDER
 #include "../darkmode.h"
 #endif
 
 #ifdef INSIDE_SALAMANDER
+extern int UpdateSystemDPIForWindow(HWND hWindow);
+
+static void WinLib_UpdateDPIForWindow(HWND hWindow)
+{
+    if (hWindow != NULL)
+        UpdateSystemDPIForWindow(hWindow);
+}
+
 #define WinLib_DarkMode_ApplyTitleBar DarkModeRefreshTitleBar
 #define WinLib_DarkMode_ApplyListTreeThemeRecursive DarkModeApplyTree
 #define WinLib_DarkMode_ApplyWindow DarkModeApplyWindow
@@ -382,6 +85,10 @@ static BOOL WinLib_DarkMode_OnSettingChange(LPARAM lParam)
     return DarkModeHandleSettingChange(WM_SETTINGCHANGE, lParam) ? TRUE : FALSE;
 }
 #else
+static void WinLib_UpdateDPIForWindow(HWND)
+{
+}
+
 BOOL WinLib_DarkMode_ShouldApplyDialogTree(HWND hwnd)
 {
     UNREFERENCED_PARAMETER(hwnd);
@@ -429,6 +136,35 @@ static void WinLib_DarkMode_ApplyStaticTextColors(HWND hwndParent, HWND specific
     UNREFERENCED_PARAMETER(specificCtrl);
 }
 #endif
+
+HANDLE WinLib_SetThreadDPIAwarenessForDialog()
+{
+    typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE dpiContext);
+    static FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandle(_T("user32.dll"));
+        if (user32 != NULL)
+            setThreadDpiAwarenessContext = (FSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext");
+        loaded = TRUE;
+    }
+    if (setThreadDpiAwarenessContext != NULL)
+        return setThreadDpiAwarenessContext((HANDLE)-4 /* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 */);
+    return NULL;
+}
+
+void WinLib_RestoreThreadDPIAwarenessForDialog(HANDLE oldContext)
+{
+    if (oldContext == NULL)
+        return;
+    typedef HANDLE(WINAPI * FSetThreadDpiAwarenessContext)(HANDLE dpiContext);
+    HMODULE user32 = GetModuleHandle(_T("user32.dll"));
+    FSetThreadDpiAwarenessContext setThreadDpiAwarenessContext =
+        user32 != NULL ? (FSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext") : NULL;
+    if (setThreadDpiAwarenessContext != NULL)
+        setThreadDpiAwarenessContext(oldContext);
+}
 
 // opatreni proti runtime check failure v debug verzi: puvodni verze makra pretypovava rgb na WORD,
 // takze hlasi ztratu dat (RED slozky)
@@ -1029,40 +765,40 @@ INT_PTR
 CDialog::Execute()
 {
     Modal = TRUE;
-    HANDLE oldDpiContext = WinLib_DPI_SetThreadPerMonitorV2();
+    HANDLE oldDpiContext = WinLib_SetThreadDPIAwarenessForDialog();
     INT_PTR result;
 #ifndef _UNICODE
     if (UnicodeWnd)
     {
         result = DialogBoxParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
                                  (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
-        WinLib_DPI_RestoreThreadContext(oldDpiContext);
+        WinLib_RestoreThreadDPIAwarenessForDialog(oldDpiContext);
         return result;
     }
 #endif // _UNICODE
     result = DialogBoxParam(Modul, MAKEINTRESOURCE(ResID), Parent,
                             (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
-    WinLib_DPI_RestoreThreadContext(oldDpiContext);
+    WinLib_RestoreThreadDPIAwarenessForDialog(oldDpiContext);
     return result;
 }
 
 HWND CDialog::Create()
 {
     Modal = FALSE;
-    HANDLE oldDpiContext = WinLib_DPI_SetThreadPerMonitorV2();
+    HANDLE oldDpiContext = WinLib_SetThreadDPIAwarenessForDialog();
     HWND hwnd;
 #ifndef _UNICODE
     if (UnicodeWnd)
     {
         hwnd = CreateDialogParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
                                   (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
-        WinLib_DPI_RestoreThreadContext(oldDpiContext);
+        WinLib_RestoreThreadDPIAwarenessForDialog(oldDpiContext);
         return hwnd;
     }
 #endif // _UNICODE
     hwnd = CreateDialogParam(Modul, MAKEINTRESOURCE(ResID), Parent,
                              (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
-    WinLib_DPI_RestoreThreadContext(oldDpiContext);
+    WinLib_RestoreThreadDPIAwarenessForDialog(oldDpiContext);
     return hwnd;
 }
 
@@ -1073,6 +809,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        WinLib_UpdateDPIForWindow(HWindow);
         TransferData(ttDataToWindow);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
@@ -1081,7 +818,6 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
-        WinLib_DPI_ApplyDialogLayout(HWindow, WinLib_DPI_GetDpiForWindow(HWindow), NULL);
         return TRUE; // let DefDlgProc set the focus
     }
 
@@ -1140,19 +876,6 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_DPICHANGED:
-    {
-        const RECT* suggestedRect = lParam != 0 ? (const RECT*)lParam : NULL;
-        WinLib_DPI_ApplyDialogLayout(HWindow, HIWORD(wParam), suggestedRect);
-        return TRUE;
-    }
-
-    case WM_DPICHANGED_AFTERPARENT:
-    {
-        WinLib_DPI_ApplyDialogLayout(HWindow, WinLib_DPI_GetDpiForWindow(HWindow), NULL);
-        return TRUE;
-    }
-
     case WM_CTLCOLORDLG:
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
@@ -1176,6 +899,14 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
+        break;
+    }
+
+    case WM_DPICHANGED:
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        WinLib_UpdateDPIForWindow(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
         break;
     }
 
@@ -1252,7 +983,6 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             else
                 dlg->HWindow = NULL; // informace o odpojeni
         }
-        WinLib_DPI_CleanupDialogLayout(hwndDlg);
         return ret;
     }
 

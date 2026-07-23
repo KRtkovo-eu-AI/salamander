@@ -26,6 +26,7 @@
 #include "sheets.h"
 
 extern CWinLibHelp* WinLibHelp;
+extern int UpdateSystemDPIForWindow(HWND hWindow);
 
 namespace
 {
@@ -797,6 +798,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        UpdateSystemDPIForWindow(HWindow);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
@@ -809,7 +811,6 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         DockOverlappingEditButtons(HWindow);
-        WinLib_DPI_ApplyDialogLayout(HWindow, WinLib_DPI_GetDpiForWindow(HWindow), NULL);
         return TRUE; // chci focus od DefDlgProc
     }
 
@@ -940,16 +941,11 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_DPICHANGED:
-    {
-        const RECT* suggestedRect = lParam != 0 ? (const RECT*)lParam : NULL;
-        WinLib_DPI_ApplyDialogLayout(HWindow, HIWORD(wParam), suggestedRect);
-        return TRUE;
-    }
-
     case WM_DPICHANGED_AFTERPARENT:
     {
-        WinLib_DPI_ApplyDialogLayout(HWindow, WinLib_DPI_GetDpiForWindow(HWindow), NULL);
-        return TRUE;
+        UpdateSystemDPIForWindow(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+        break;
     }
 
     case WM_USER_COMMONDLG_DARKMODE_REDRAW:
@@ -1009,7 +1005,6 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
             else
                 dlg->HWindow = NULL; // informace o odpojeni
         }
-        WinLib_DPI_CleanupDialogLayout(hwndDlg);
         return ret;
     }
 
@@ -1042,7 +1037,7 @@ CPropertyDialog::Execute()
 {
     if (Count > 0)
     {
-        HANDLE oldDpiContext = WinLib_DPI_SetThreadPerMonitorV2();
+        HANDLE oldDpiContext = WinLib_SetThreadDPIAwarenessForDialog();
         PROPSHEETHEADER psh;
         psh.dwSize = sizeof(PROPSHEETHEADER);
         psh.dwFlags = Flags;
@@ -1058,7 +1053,7 @@ CPropertyDialog::Execute()
         if (pages == NULL)
         {
             TRACE_ET(_T("Low memory!"));
-            WinLib_DPI_RestoreThreadContext(oldDpiContext);
+            WinLib_RestoreThreadDPIAwarenessForDialog(oldDpiContext);
             return -1;
         }
         psh.phpage = pages;
@@ -1069,7 +1064,7 @@ CPropertyDialog::Execute()
         }
         psh.pfnCallback = Callback;
         INT_PTR ret = PropertySheet(&psh);
-        WinLib_DPI_RestoreThreadContext(oldDpiContext);
+        WinLib_RestoreThreadDPIAwarenessForDialog(oldDpiContext);
         delete pages;
         return ret;
     }
@@ -1877,10 +1872,10 @@ int CTreePropHolderDlg::ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate)
 {
     HWND hOldFocus = GetFocus();
     EnableWindow(Parent, FALSE);
-    HANDLE oldDpiContext = WinLib_DPI_SetThreadPerMonitorV2();
+    HANDLE oldDpiContext = WinLib_SetThreadDPIAwarenessForDialog();
     CreateDialogIndirectParam(Modul, hDialogTemplate, Parent,
                               (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
-    WinLib_DPI_RestoreThreadContext(oldDpiContext);
+    WinLib_RestoreThreadDPIAwarenessForDialog(oldDpiContext);
     MSG msg;
     while (ExitButton == -1 && GetMessage(&msg, NULL, 0, 0))
     {
