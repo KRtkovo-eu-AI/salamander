@@ -121,7 +121,7 @@ public static class EntryPoint
     private static void EnsureApplicationInitialized()
     {
         if (_visualsEnabled) return;
-        Application.EnableVisualStyles();
+        ManagedApplication.Initialize();
         _visualsEnabled = true;
     }
 

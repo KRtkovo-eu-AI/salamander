@@ -10,6 +10,10 @@
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Include="..\..\shared\ManagedDpi.cs" Link="ManagedDpi.cs" />
+  </ItemGroup>
+
   <Target Name="EnsureRestoreBeforeBuild"
           BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
           Condition="'$(RestoreDuringBuild)' != 'true' and '$(ProjectAssetsFile)' != '' and !Exists('$(ProjectAssetsFile)')">

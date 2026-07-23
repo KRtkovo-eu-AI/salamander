@@ -34,6 +34,7 @@
 #endif // ENABLE_PROPERTYDIALOG
 
 #include "winliblt.h"
+#include "../../common/winlibdpi.h"
 
 #ifdef USE_DARKMODELIB
 #include "spl_gen.h"
@@ -300,6 +301,7 @@ HWND CWindow::CreateEx(DWORD dwExStyle,        // extended window style
                        HINSTANCE hinst,        // handle of application instance
                        LPVOID lpvParam)        // ukazatel na objekt vytvareneho okna
 {
+    CWinLibDPIContext dpiContext;
     HWND hWnd = CreateWindowEx(dwExStyle,
                                lpszClassName,
                                lpszWindowName,
@@ -408,6 +410,13 @@ CWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_DPICHANGED:
+    {
+        if (WinLibDPIApplySuggestedRect(HWindow, uMsg, lParam))
+            return 0;
+        break;
+    }
+
     case WM_HELP:
     {
         if (WinLibLTHelpCallback != NULL && HelpID != -1 &&
@@ -597,6 +606,7 @@ INT_PTR
 CDialog::Execute()
 {
     Modal = TRUE;
+    CWinLibDPIContext dpiContext;
     return DialogBoxParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
                            (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
 }
@@ -604,6 +614,7 @@ CDialog::Execute()
 HWND CDialog::Create()
 {
     Modal = FALSE;
+    CWinLibDPIContext dpiContext;
     return CreateDialogParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
                               (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
 }
@@ -1075,6 +1086,7 @@ CPropertyDialog::Execute()
 {
     if (Count > 0)
     {
+        CWinLibDPIContext dpiContext;
         PROPSHEETHEADER psh;
         psh.dwSize = sizeof(PROPSHEETHEADER);
         psh.dwFlags = Flags;

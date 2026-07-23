@@ -7,6 +7,7 @@
 #include "menu.h"
 #include "mainwnd.h"
 #include "darkmode.h"
+#include "common/winlibdpi.h"
 
 //*****************************************************************************
 //
@@ -18,9 +19,8 @@
 
 
 
-static void ScaleSmallMenuLogFontForCurrentDPI(LOGFONT* lf)
+static void ScaleSmallMenuLogFontForDPI(LOGFONT* lf, int dpi)
 {
-    int dpi = GetSystemDPI();
     if (lf == NULL || lf->lfHeight == 0)
         return;
 
@@ -30,7 +30,7 @@ static void ScaleSmallMenuLogFontForCurrentDPI(LOGFONT* lf)
         lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
 }
 
-static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
+static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni, int dpi)
 {
     typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
     static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
@@ -43,9 +43,40 @@ static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvPa
         loaded = TRUE;
     }
     if (systemParametersInfoForDpi != NULL &&
-        systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, GetSystemDPI()))
+        systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, dpi))
         return TRUE;
     return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
+}
+
+static void UpdateMenuBarRebarBand(HWND hMenuBar, int minWidth, int minHeight)
+{
+    if (hMenuBar == NULL)
+        return;
+
+    HWND hRebar = GetParent(hMenuBar);
+    char className[64];
+    if (hRebar == NULL || GetClassName(hRebar, className, _countof(className)) == 0 ||
+        lstrcmpi(className, REBARCLASSNAME) != 0)
+    {
+        return;
+    }
+
+    int count = (int)SendMessage(hRebar, RB_GETBANDCOUNT, 0, 0);
+    for (int i = 0; i < count; i++)
+    {
+        REBARBANDINFO band;
+        ZeroMemory(&band, sizeof(band));
+        band.cbSize = sizeof(band);
+        band.fMask = RBBIM_CHILD;
+        if (SendMessage(hRebar, RB_GETBANDINFO, i, (LPARAM)&band) && band.hwndChild == hMenuBar)
+        {
+            band.fMask = RBBIM_CHILDSIZE;
+            band.cxMinChild = minWidth;
+            band.cyMinChild = minHeight;
+            SendMessage(hRebar, RB_SETBANDINFO, i, (LPARAM)&band);
+            break;
+        }
+    }
 }
 
 static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
@@ -150,12 +181,14 @@ BOOL CMenuBar::CreateWnd(HWND hParent)
 void CMenuBar::SetFont()
 {
     CALL_STACK_MESSAGE1("CMenuBar::SetFont()");
+    HWND hDPIWindow = HWindow != NULL ? HWindow : HNotifyWindow;
+    int dpi = (int)WinLibDPIGetWindowDPI(hDPIWindow);
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
-    SystemParametersInfoForMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    SystemParametersInfoForMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
 
     LOGFONT* lf = &ncm.lfMenuFont;
-    ScaleSmallMenuLogFontForCurrentDPI(lf);
+    ScaleSmallMenuLogFontForDPI(lf, dpi);
     if (HFont != NULL)
         HANDLES(DeleteObject(HFont));
     HFont = HANDLES(CreateFontIndirect(lf));
@@ -170,6 +203,7 @@ void CMenuBar::SetFont()
     RefreshMinWidths();
     if (HWindow != NULL)
     {
+        UpdateMenuBarRebarBand(HWindow, GetNeededWidth(), GetNeededHeight());
         InvalidateRect(HWindow, NULL, TRUE);
         UpdateWindow(HWindow);
     }
@@ -884,6 +918,14 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMenuBar::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        // PMv2 resizes the child HWND. Recreate our owner-drawn font from this
+        // window's DPI and update the containing rebar band to avoid clipping.
+        SetFont();
+        return 0;
+    }
+
     case WM_USER_CLOSEMENU:
     {
         //      TRACE_I("WM_USER_CLOSEMENU");

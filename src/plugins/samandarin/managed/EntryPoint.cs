@@ -111,8 +111,7 @@ public static class EntryPoint
             return;
         }
 
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
+        ManagedApplication.Initialize();
         _visualsEnabled = true;
     }
 
@@ -826,7 +825,7 @@ internal static class UpdateCoordinator
     }
 }
 
-internal sealed class ConfigurationDialog : Form
+internal sealed class ConfigurationDialog : DpiAwareForm
 {
     private readonly CheckBox _checkOnStartup;
     private readonly ComboBox _frequency;
@@ -1073,7 +1072,7 @@ internal sealed class ThemedGroupBox : GroupBox
     }
 }
 
-internal sealed class PluginUpdatesDialog : Form
+internal sealed class PluginUpdatesDialog : DpiAwareForm
 {
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
@@ -1768,7 +1767,7 @@ internal sealed class PluginUpdatesDialog : Form
     }
 }
 
-internal sealed class PluginCatalogSourcesDialog : Form
+internal sealed class PluginCatalogSourcesDialog : DpiAwareForm
 {
     private readonly ListView _listView;
     private readonly List<PluginCatalogSource> _sources;

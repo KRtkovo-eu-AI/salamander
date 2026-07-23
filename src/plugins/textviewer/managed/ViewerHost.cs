@@ -462,7 +462,7 @@ internal static class ViewerHost
         }
     }
 
-    private sealed class TextViewerForm : Form
+    private sealed class TextViewerForm : DpiAwareForm
     {
         private const int WM_THEMECHANGED = 0x031A;
         private const int WM_SETTINGCHANGE = 0x001A;
@@ -488,7 +488,6 @@ internal static class ViewerHost
             MinimizeBox = true;
             MaximizeBox = true;
             KeyPreview = true;
-            AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(800, 600);
             Icon = ViewerResources.ViewerIcon;
 

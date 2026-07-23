@@ -22,6 +22,7 @@
 #include "handles.h"
 #include "array.h"
 #include "winlib.h"
+#include "winlibdpi.h"
 
 #ifdef INSIDE_SALAMANDER
 #include "../darkmode.h"
@@ -230,6 +231,7 @@ HWND CWindow::CreateEx(DWORD dwExStyle,        // extended window style
                        HINSTANCE hinst,        // handle of application instance
                        LPVOID lpvParam)        // ukazatel na objekt vytvareneho okna
 {
+    CWinLibDPIContext dpiContext;
     HWND hWnd = CreateWindowEx(dwExStyle,
                                lpszClassName,
                                lpszWindowName,
@@ -291,6 +293,7 @@ HWND CWindow::CreateExW(DWORD dwExStyle,        // extended window style
                         HINSTANCE hinst,        // handle of application instance
                         LPVOID lpvParam)        // ukazatel na objekt vytvareneho okna
 {
+    CWinLibDPIContext dpiContext;
     HWND hWnd = CreateWindowExW(dwExStyle,
                                 lpszClassName,
                                 lpszWindowName,
@@ -420,6 +423,13 @@ CWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_DPICHANGED:
+    {
+        if (WinLibDPIApplySuggestedRect(HWindow, uMsg, lParam))
+            return 0;
+        break;
+    }
+
     case WM_HELP:
     {
         if (WinLibHelp != NULL && HelpID != -1)
@@ -724,6 +734,7 @@ INT_PTR
 CDialog::Execute()
 {
     Modal = TRUE;
+    CWinLibDPIContext dpiContext;
 #ifndef _UNICODE
     if (UnicodeWnd)
     {
@@ -738,6 +749,7 @@ CDialog::Execute()
 HWND CDialog::Create()
 {
     Modal = FALSE;
+    CWinLibDPIContext dpiContext;
 #ifndef _UNICODE
     if (UnicodeWnd)
     {

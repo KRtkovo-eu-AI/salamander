@@ -22,6 +22,7 @@
 #include "handles.h"
 #include "array.h"
 #include "winlib.h"
+#include "winlibdpi.h"
 #include "multimon.h"
 #include "sheets.h"
 
@@ -172,15 +173,16 @@ void CElasticLayout::AddResizeCtrl(int resID)
         // pokud je spodni hrana prvku vetsi nez SplitY, posuneme SplitY hranici
         POINT p = {r.right, r.bottom};
         ScreenToClient(HWindow, &p);
-        if (p.y > SplitY)
-            SplitY = p.y;
+        int logicalBottom = WinLibDPIToLogical(HWindow, p.y);
+        if (logicalBottom > SplitY)
+            SplitY = logicalBottom;
 
         RECT cR;
         GetClientRect(HWindow, &cR);
 
         CElasticLayoutCtrl ctrl;
         ctrl.HCtrl = hChild;
-        ctrl.Pos.x = cR.right - p.x; // distance from the original right edge of the control to the dialog right edge
+        ctrl.Pos.x = WinLibDPIToLogical(HWindow, cR.right - p.x); // logical distance from the original right edge of the control to the dialog right edge
         ctrl.Pos.y = 0;
         ResizeCtrls.Add(ctrl);
     }
@@ -207,7 +209,7 @@ void CElasticLayout::AddResizeRightCtrl(int resID)
 
         CElasticLayoutCtrl ctrl;
         ctrl.HCtrl = hChild;
-        ctrl.Pos.x = cR.right - p.x; // distance from the original right edge of the control to the dialog right edge
+        ctrl.Pos.x = WinLibDPIToLogical(HWindow, cR.right - p.x); // logical distance from the original right edge of the control to the dialog right edge
         ctrl.Pos.y = 0;
         ResizeRightCtrls.Add(ctrl);
     }
@@ -232,7 +234,7 @@ void CElasticLayout::AddMoveRightCtrl(int resID)
 
         CElasticLayoutCtrl ctrl;
         ctrl.HCtrl = hChild;
-        ctrl.Pos.x = cR.right - p.x; // keep the original distance from the dialog right edge
+        ctrl.Pos.x = WinLibDPIToLogical(HWindow, cR.right - p.x); // keep the original logical distance from the dialog right edge
         ctrl.Pos.y = 0;
         MoveRightCtrls.Add(ctrl);
     }
@@ -249,11 +251,13 @@ void CElasticLayout::AddMoveCtrl(HWND hChild)
     GetWindowRect(hChild, &r);
     POINT p = {r.left, r.top};
     ScreenToClient(HWindow, &p);
-    if (p.y >= SplitY)
+    POINT logical = {WinLibDPIToLogical(HWindow, p.x),
+                     WinLibDPIToLogical(HWindow, p.y)};
+    if (logical.y >= SplitY)
     {
         CElasticLayoutCtrl mc;
         mc.HCtrl = hChild;
-        mc.Pos = p;
+        mc.Pos = logical;
         MoveCtrls.Add(mc);
     }
 }
@@ -295,7 +299,7 @@ void CElasticLayout::FindMoveCtrls()
     }
     POINT p = {rEnvelope.right, rEnvelope.bottom};
     ScreenToClient(HWindow, &p);
-    int envelopeBottom = p.y;
+    int envelopeBottom = WinLibDPIToLogical(HWindow, p.y);
     // souradnice 'MoveCtrlsY' budou vztazene od spodni hrany obalky
     for (int i = 0; i < MoveCtrls.Count; i++)
         MoveCtrls[i].Pos.y = envelopeBottom - MoveCtrls[i].Pos.y;
@@ -307,7 +311,7 @@ void CElasticLayout::FindMoveCtrls()
         {
             RECT r;
             GetWindowRect(ResizeCtrls[i].HCtrl, &r);
-            ResizeCtrls[i].Pos.y = max(0, rEnvelope.bottom - r.bottom);
+            ResizeCtrls[i].Pos.y = WinLibDPIToLogical(HWindow, max(0, rEnvelope.bottom - r.bottom));
         }
     }
 }
@@ -336,7 +340,8 @@ void CElasticLayout::LayoutCtrls()
             ScreenToClient(HWindow, &p);
             hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
                                            0, 0,
-                                           cR.right - p.x - ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
+                                           cR.right - p.x - WinLibDPIFromLogical(HWindow, ResizeCtrls[i].Pos.x),
+                                           cR.bottom - p.y - WinLibDPIFromLogical(HWindow, ResizeCtrls[i].Pos.y),
                                            SWP_NOMOVE | SWP_NOZORDER));
         }
         for (int i = 0; i < ResizeRightCtrls.Count; i++)
@@ -348,23 +353,24 @@ void CElasticLayout::LayoutCtrls()
             ScreenToClient(HWindow, &p);
             hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
                                            0, 0,
-                                           cR.right - p.x - ResizeRightCtrls[i].Pos.x, r.bottom - r.top,
+                                           cR.right - p.x - WinLibDPIFromLogical(HWindow, ResizeRightCtrls[i].Pos.x),
+                                           r.bottom - r.top,
                                            SWP_NOMOVE | SWP_NOZORDER));
         }
         for (int i = 0; i < MoveCtrls.Count; i++)
         {
             HWND hCtrl = MoveCtrls[i].HCtrl;
-            int x = MoveCtrls[i].Pos.x;
+            int x = WinLibDPIFromLogical(HWindow, MoveCtrls[i].Pos.x);
             for (int j = 0; j < MoveRightCtrls.Count; j++)
             {
                 if (MoveRightCtrls[j].HCtrl == hCtrl)
                 {
-                    x = cR.right - MoveRightCtrls[j].Pos.x;
+                    x = cR.right - WinLibDPIFromLogical(HWindow, MoveRightCtrls[j].Pos.x);
                     break;
                 }
             }
             hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                           x, cR.bottom - MoveCtrls[i].Pos.y,
+                                           x, cR.bottom - WinLibDPIFromLogical(HWindow, MoveCtrls[i].Pos.y),
                                            0, 0,
                                            SWP_NOSIZE | SWP_NOZORDER));
         }
@@ -560,7 +566,10 @@ static BOOL HasOverlappingControlToRight(HWND hParent, HWND hCtrl, const RECT* c
             POINT p2 = {wR.right, wR.bottom};
             ScreenToClient(hParent, &p1);
             ScreenToClient(hParent, &p2);
-            RECT r = {p1.x, p1.y, p2.x, p2.y};
+            RECT r = {WinLibDPIToLogical(hParent, p1.x),
+                      WinLibDPIToLogical(hParent, p1.y),
+                      WinLibDPIToLogical(hParent, p2.x),
+                      WinLibDPIToLogical(hParent, p2.y)};
             if (r.left > ctrlRect->left && r.top < ctrlRect->bottom && r.bottom > ctrlRect->top)
                 return TRUE;
         }
@@ -613,8 +622,9 @@ void CPropSheetPage::InitHorizontalLayout()
         GetWindowRect(hChild, &wR);
         POINT p = {wR.right, wR.bottom};
         ScreenToClient(HWindow, &p);
-        if (p.x > maxChildRight)
-            maxChildRight = p.x;
+        int logicalRight = WinLibDPIToLogical(HWindow, p.x);
+        if (logicalRight > maxChildRight)
+            maxChildRight = logicalRight;
         hChild = GetWindow(hChild, GW_HWNDNEXT);
     }
 
@@ -622,8 +632,8 @@ void CPropSheetPage::InitHorizontalLayout()
     // final (larger) holder size while child controls are still at resource
     // coordinates. Use the controls' right edge as the design width in that
     // case; otherwise small right-edge buttons are not recognized as docked.
-    HorizontalLayoutWidth = cR.right;
-    if (maxChildRight > 0 && cR.right - maxChildRight >= 40)
+    HorizontalLayoutWidth = WinLibDPIToLogical(HWindow, cR.right);
+    if (maxChildRight > 0 && HorizontalLayoutWidth - maxChildRight >= 40)
         HorizontalLayoutWidth = maxChildRight;
 
     hChild = GetWindow(HWindow, GW_CHILD);
@@ -639,7 +649,10 @@ void CPropSheetPage::InitHorizontalLayout()
         POINT p2 = {wR.right, wR.bottom};
         ScreenToClient(HWindow, &p1);
         ScreenToClient(HWindow, &p2);
-        RECT r = {p1.x, p1.y, p2.x, p2.y};
+        RECT r = {WinLibDPIToLogical(HWindow, p1.x),
+                  WinLibDPIToLogical(HWindow, p1.y),
+                  WinLibDPIToLogical(HWindow, p2.x),
+                  WinLibDPIToLogical(HWindow, p2.y)};
 
         int mode = 0;
         BOOL resizeRight = FALSE;
@@ -691,7 +704,10 @@ void CPropSheetPage::InitHorizontalLayout()
                         POINT s2 = {sWR.right, sWR.bottom};
                         ScreenToClient(HWindow, &s1);
                         ScreenToClient(HWindow, &s2);
-                        RECT sR = {s1.x, s1.y, s2.x, s2.y};
+                        RECT sR = {WinLibDPIToLogical(HWindow, s1.x),
+                                   WinLibDPIToLogical(HWindow, s1.y),
+                                   WinLibDPIToLogical(HWindow, s2.x),
+                                   WinLibDPIToLogical(HWindow, s2.y)};
 
                         if (sR.left >= r.right && sR.left - r.right <= 8 &&
                             sR.top < r.bottom && sR.bottom > r.top &&
@@ -713,6 +729,8 @@ void CPropSheetPage::InitHorizontalLayout()
 
 static void DockOverlappingEditButtons(HWND hWindow)
 {
+    int maxButtonWidth = WinLibDPIFromLogical(hWindow, 40);
+    int buttonGap = WinLibDPIFromLogical(hWindow, 4);
     HWND hEdit = GetWindow(hWindow, GW_CHILD);
     while (hEdit != NULL)
     {
@@ -743,10 +761,10 @@ static void DockOverlappingEditButtons(HWND hWindow)
                     RECT cR = {c1.x, c1.y, c2.x, c2.y};
                     int cW = cR.right - cR.left;
 
-                    if (cW <= 40 && cR.left > eR.left && cR.left < eR.right &&
+                    if (cW <= maxButtonWidth && cR.left > eR.left && cR.left < eR.right &&
                         cR.top < eR.bottom && cR.bottom > eR.top)
                     {
-                        SetWindowPos(hChild, NULL, eR.right + 4, cR.top, 0, 0,
+                        SetWindowPos(hChild, NULL, eR.right + buttonGap, cR.top, 0, 0,
                                      SWP_NOSIZE | SWP_NOZORDER);
                     }
                 }
@@ -764,7 +782,8 @@ void CPropSheetPage::ApplyHorizontalLayout()
 
     RECT cR;
     GetClientRect(HWindow, &cR);
-    int dx = cR.right - HorizontalLayoutWidth;
+    int logicalWidth = WinLibDPIToLogical(HWindow, cR.right);
+    int dx = logicalWidth - HorizontalLayoutWidth;
     if (dx < 0)
         dx = 0;
 
@@ -783,7 +802,10 @@ void CPropSheetPage::ApplyHorizontalLayout()
                 r.right += dx;
             }
             HANDLES(DeferWindowPos(hdwp, ctrl->HCtrl, NULL,
-                                   r.left, r.top, r.right - r.left, r.bottom - r.top,
+                                   WinLibDPIFromLogical(HWindow, r.left),
+                                   WinLibDPIFromLogical(HWindow, r.top),
+                                   WinLibDPIFromLogical(HWindow, r.right - r.left),
+                                   WinLibDPIFromLogical(HWindow, r.bottom - r.top),
                                    SWP_NOZORDER));
         }
         HANDLES(EndDeferWindowPos(hdwp));
@@ -818,6 +840,19 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         DockOverlappingEditButtons(HWindow);
+        break;
+    }
+
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        // The PMv2 dialog manager has already scaled the page and its direct
+        // controls. Reapply only Salamander's anchor/elastic rules, whose
+        // baselines are stored in 96-DPI logical units.
+        ApplyHorizontalLayout();
+        if (ElasticLayout != NULL)
+            ElasticLayout->LayoutCtrls();
+        DockOverlappingEditButtons(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
         break;
     }
 
@@ -1027,6 +1062,7 @@ CPropertyDialog::Execute()
 {
     if (Count > 0)
     {
+        CWinLibDPIContext dpiContext;
         PROPSHEETHEADER psh;
         psh.dwSize = sizeof(PROPSHEETHEADER);
         psh.dwFlags = Flags;
@@ -1859,6 +1895,7 @@ int CTreePropHolderDlg::ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate)
 {
     HWND hOldFocus = GetFocus();
     EnableWindow(Parent, FALSE);
+    CWinLibDPIContext dpiContext;
     CreateDialogIndirectParam(Modul, hDialogTemplate, Parent,
                               (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
     MSG msg;

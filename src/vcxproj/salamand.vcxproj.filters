@@ -775,6 +775,9 @@
     <ClInclude Include="..\common\winlib.h">
       <Filter>common</Filter>
     </ClInclude>
+    <ClInclude Include="..\common\winlibdpi.h">
+      <Filter>common</Filter>
+    </ClInclude>
     <ClInclude Include="..\common\dep\bzip2\bzlib.h">
       <Filter>bzip2</Filter>
     </ClInclude>
@@ -903,6 +906,9 @@
       <Filter>rc</Filter>
     </None>
     <None Include="..\salamand.rc2">
+      <Filter>rc</Filter>
+    </None>
+    <None Include="..\salamand.exe.config">
       <Filter>rc</Filter>
     </None>
     <None Include="..\salamand.rh">
