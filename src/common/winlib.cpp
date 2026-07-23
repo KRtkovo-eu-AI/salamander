@@ -180,6 +180,17 @@ static UINT WinLib_GetDPIForDialog(HWND hWindow)
     return dpi != 0 ? dpi : 96;
 }
 
+static void WinLib_ScaleDialogMessageFontForDPI(LOGFONT* lf, UINT dpi)
+{
+    if (lf == NULL || lf->lfHeight == 0 || dpi == 0)
+        return;
+
+    int expected = MulDiv(12, dpi, 96);
+    int height = abs(lf->lfHeight);
+    if (height < expected - 1 || height > expected + 2)
+        lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
+}
+
 static HFONT WinLib_CreateDialogMessageFont(UINT dpi)
 {
     NONCLIENTMETRICS ncm;
@@ -209,21 +220,37 @@ static HFONT WinLib_CreateDialogMessageFont(UINT dpi)
         ncm.lfMessageFont.lfHeight = -MulDiv(9, dpi, 72);
         lstrcpyn(ncm.lfMessageFont.lfFaceName, _T("Segoe UI"), LF_FACESIZE);
     }
+    WinLib_ScaleDialogMessageFontForDPI(&ncm.lfMessageFont, dpi);
     return CreateFontIndirect(&ncm.lfMessageFont);
 }
 
 static const TCHAR* WinLib_DialogDpiFontProp = _T("Salamander.WinLib.DialogDpiFont");
+static const TCHAR* WinLib_DialogDpiValueProp = _T("Salamander.WinLib.DialogDpiValue");
 static int (*WinLib_DPIUpdateWindowProc)(HWND hWindow) = NULL;
+static UINT WinLib_LastDialogDPI = 0;
 
 void WinLib_SetDPIUpdateWindowProc(int (*updateWindowDPI)(HWND hWindow))
 {
     WinLib_DPIUpdateWindowProc = updateWindowDPI;
 }
 
-void WinLib_UpdateDPIForWindow(HWND hWindow)
+int WinLib_UpdateDPIForWindow(HWND hWindow)
 {
     if (WinLib_DPIUpdateWindowProc != NULL && hWindow != NULL)
-        WinLib_DPIUpdateWindowProc(hWindow);
+    {
+        int dpi = WinLib_DPIUpdateWindowProc(hWindow);
+        if (dpi > 0)
+        {
+            WinLib_LastDialogDPI = (UINT)dpi;
+            SetProp(hWindow, WinLib_DialogDpiValueProp, (HANDLE)(INT_PTR)dpi);
+            return dpi;
+        }
+    }
+    UINT dpi = WinLib_GetDPIForDialog(hWindow);
+    WinLib_LastDialogDPI = dpi;
+    if (hWindow != NULL)
+        SetProp(hWindow, WinLib_DialogDpiValueProp, (HANDLE)(INT_PTR)dpi);
+    return (int)dpi;
 }
 
 static BOOL CALLBACK WinLib_SetDialogFontProc(HWND hwnd, LPARAM lParam)
@@ -237,7 +264,10 @@ void WinLib_ApplyDialogDPIFont(HWND hWindow)
     if (hWindow == NULL)
         return;
 
-    HFONT newFont = WinLib_CreateDialogMessageFont(WinLib_GetDPIForDialog(hWindow));
+    UINT dpi = (UINT)(INT_PTR)GetProp(hWindow, WinLib_DialogDpiValueProp);
+    if (dpi == 0)
+        dpi = WinLib_LastDialogDPI != 0 ? WinLib_LastDialogDPI : WinLib_GetDPIForDialog(hWindow);
+    HFONT newFont = WinLib_CreateDialogMessageFont(dpi);
     if (newFont == NULL)
         return;
 
@@ -257,6 +287,7 @@ void WinLib_CleanupDialogDPIFont(HWND hWindow)
         RemoveProp(hWindow, WinLib_DialogDpiFontProp);
         DeleteObject(oldFont);
     }
+    RemoveProp(hWindow, WinLib_DialogDpiValueProp);
 }
 
 // opatreni proti runtime check failure v debug verzi: puvodni verze makra pretypovava rgb na WORD,
@@ -1001,6 +1032,14 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DPICHANGED:
     case WM_DPICHANGED_AFTERPARENT:
     {
+        if (uMsg == WM_DPICHANGED && lParam != 0)
+        {
+            RECT* suggestedRect = (RECT*)lParam;
+            SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                         suggestedRect->right - suggestedRect->left,
+                         suggestedRect->bottom - suggestedRect->top,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        }
         WinLib_UpdateDPIForWindow(HWindow);
         WinLib_ApplyDialogDPIFont(HWindow);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);

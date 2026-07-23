@@ -556,6 +556,6 @@ extern CWindowsManager WindowsManager;
 HANDLE WinLib_SetThreadDPIAwarenessForDialog();
 void WinLib_RestoreThreadDPIAwarenessForDialog(HANDLE oldContext);
 void WinLib_SetDPIUpdateWindowProc(int (*updateWindowDPI)(HWND hWindow));
-void WinLib_UpdateDPIForWindow(HWND hWindow);
+int WinLib_UpdateDPIForWindow(HWND hWindow);
 void WinLib_ApplyDialogDPIFont(HWND hWindow);
 void WinLib_CleanupDialogDPIFont(HWND hWindow);
