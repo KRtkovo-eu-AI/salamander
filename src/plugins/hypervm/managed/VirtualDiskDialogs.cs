@@ -80,13 +80,15 @@ internal static class Texts
 
 internal static class VirtualDiskManager
 {
+    private const uint OpenVirtualDiskRwDepthDefault = 1;
+
     private static readonly Guid VirtualStorageTypeVendorMicrosoft = new("EC984AEC-A0F9-47E9-901F-71415A66345B");
 
     public static void AttachVhd(string path, bool readOnly)
     {
         var storageType = GetStorageType(path, null);
         var accessMask = readOnly ? VirtualDiskAccessMask.AttachReadOnly : VirtualDiskAccessMask.AttachReadWrite;
-        var openParameters = new OpenVirtualDiskParameters { Version = OpenVirtualDiskVersion.Version1 };
+        var openParameters = new OpenVirtualDiskParameters { Version = OpenVirtualDiskVersion.Version1, RWDepth = OpenVirtualDiskRwDepthDefault };
         var result = NativeMethods.OpenVirtualDisk(ref storageType, path, accessMask, OpenVirtualDiskFlags.None, ref openParameters, out var handle);
         ThrowIfFailed(result, "open", path);
 
@@ -101,7 +103,7 @@ internal static class VirtualDiskManager
     public static void DetachVhd(string path)
     {
         var storageType = GetStorageType(path, null);
-        var openParameters = new OpenVirtualDiskParameters { Version = OpenVirtualDiskVersion.Version1 };
+        var openParameters = new OpenVirtualDiskParameters { Version = OpenVirtualDiskVersion.Version1, RWDepth = OpenVirtualDiskRwDepthDefault };
         var result = NativeMethods.OpenVirtualDisk(ref storageType, path, VirtualDiskAccessMask.Detach, OpenVirtualDiskFlags.None, ref openParameters, out var handle);
         ThrowIfFailed(result, "open", path);
 
