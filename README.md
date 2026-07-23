@@ -81,10 +81,21 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - Support for file operations between plugin-FS and archives (for example between FTP and archives, between different FTP servers, different archives, etc).
 <img width="687" height="427" alt="salam_plug_arch" src="https://github.com/user-attachments/assets/4e4fc13c-e6f7-485c-b0d6-623378e1719b" />
 
-### Autocomplete path in Copy/Move/Quick Rename/Create Folder dialog
+### Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog
 - Paths are suggested when typing in the path field.
 <img width="687" height="89" alt="image" src="https://github.com/user-attachments/assets/59a7cff2-0db2-4866-8d6a-74ccd2f4376f" />
 <img width="397" height="185" alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a" />
+
+### Extended Confirm Delete
+- Show the table with filenames of selected files to delete.
+<img width="606" height="293" alt="image" src="https://github.com/user-attachments/assets/cf2ee640-c3a8-4a8f-8b6f-db0bd0f6edf2" />
+<img width="721" height="513" alt="image" src="https://github.com/user-attachments/assets/30be4ad5-5876-4d5b-919a-d50e0a1275e0" />
+
+### Panel item info tooltip
+- Shows the tooltip with summary info about directory or file.
+- For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).
+<img width="456" height="552" alt="image" src="https://github.com/user-attachments/assets/0aefd5f8-fd8c-4c6f-b770-bbb0dfc14803" />
+<img width="456" height="552" alt="image" src="https://github.com/user-attachments/assets/5a94121c-af71-4d9f-a8c8-564eb6e6da92" />
 
 ### Plugin Updates in Samandarin plugin
 > [!NOTE]
@@ -92,7 +103,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 > - Stable: https://samandarin.krtkovo.eu/catalogs/plugins-stable.json
 > - Unofficial 3rd party: https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json
 > - Extension Runtimes: https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json
-<img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/c1088472-335b-4421-82bb-fea8531beb92" />
+<img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/54f2a2fe-f5e0-4de3-b5d4-e3a96c71c4d4" />
 
 ### Digitally signed
 - All binary files including installer are digitally signed
