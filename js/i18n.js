@@ -1745,6 +1745,143 @@
   };
   Object.entries(viewerAndShellTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
 
+
+
+  const extendedFeatureTranslations = {
+    cs: {
+      "Extended Confirm Delete": "Rozšířené potvrzení smazání",
+      "Show the table with filenames of selected files to delete.": "Zobrazí tabulku s názvy vybraných souborů ke smazání.",
+      "Extended Confirm Delete dialog with selected filenames": "Dialog rozšířeného potvrzení smazání s názvy vybraných souborů",
+      "Extended Confirm Delete dialog with multiple selected files": "Dialog rozšířeného potvrzení smazání s více vybranými soubory",
+      "Panel item info tooltip": "Informační tooltip položky panelu",
+      "Shows the tooltip with summary info about directory or file.": "Zobrazuje tooltip se souhrnnými informacemi o složce nebo souboru.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "U známých typů souborů zobrazuje informace, které mohou uživatele zajímat (u obrázků rozměry nebo barevnou hloubku, u hudebních souborů délku nebo autora atd.).",
+      "Panel item info tooltip with file details": "Informační tooltip položky panelu s detaily souboru",
+      "Panel item info tooltip with media details": "Informační tooltip položky panelu s detaily médií",
+      "Autocomplete path": "Našeptávání cesty",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Našeptávání cesty v dialogu Kopírovat/Přesunout/Rychle přejmenovat/Vytvořit složku/Změnit adresář."
+    },
+    nl: {
+      "Extended Confirm Delete": "Uitgebreid verwijderen bevestigen",
+      "Show the table with filenames of selected files to delete.": "Toont de tabel met bestandsnamen van geselecteerde bestanden die worden verwijderd.",
+      "Extended Confirm Delete dialog with selected filenames": "Dialoog Uitgebreid verwijderen bevestigen met geselecteerde bestandsnamen",
+      "Extended Confirm Delete dialog with multiple selected files": "Dialoog Uitgebreid verwijderen bevestigen met meerdere geselecteerde bestanden",
+      "Panel item info tooltip": "Infotooltip voor paneelitem",
+      "Shows the tooltip with summary info about directory or file.": "Toont een tooltip met samenvattende informatie over map of bestand.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "Voor bekende bestandstypen wordt informatie getoond die gebruikers kan interesseren (bij afbeeldingen formaat of kleurdiepte, bij muziek lengte of auteur, enz.).",
+      "Panel item info tooltip with file details": "Infotooltip voor paneelitem met bestandsdetails",
+      "Panel item info tooltip with media details": "Infotooltip voor paneelitem met mediadetails",
+      "Autocomplete path": "Pad automatisch aanvullen",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Pad automatisch aanvullen in de dialogen Kopiëren/Verplaatsen/Snel hernoemen/Map maken/Map wijzigen."
+    },
+    fr: {
+      "Extended Confirm Delete": "Confirmation de suppression étendue",
+      "Show the table with filenames of selected files to delete.": "Affiche le tableau avec les noms des fichiers sélectionnés à supprimer.",
+      "Extended Confirm Delete dialog with selected filenames": "Boîte de confirmation de suppression étendue avec noms de fichiers sélectionnés",
+      "Extended Confirm Delete dialog with multiple selected files": "Boîte de confirmation de suppression étendue avec plusieurs fichiers sélectionnés",
+      "Panel item info tooltip": "Infobulle d’information d’élément de panneau",
+      "Shows the tooltip with summary info about directory or file.": "Affiche une infobulle avec un résumé sur le dossier ou le fichier.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "Pour les types de fichiers connus, affiche des informations utiles aux utilisateurs (dimensions ou profondeur de couleur des images, durée ou auteur des fichiers musicaux, etc.).",
+      "Panel item info tooltip with file details": "Infobulle d’élément de panneau avec détails du fichier",
+      "Panel item info tooltip with media details": "Infobulle d’élément de panneau avec détails média",
+      "Autocomplete path": "Saisie semi-automatique du chemin",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Saisie semi-automatique du chemin dans les boîtes Copier/Déplacer/Renommage rapide/Créer un dossier/Changer de dossier."
+    },
+    de: {
+      "Extended Confirm Delete": "Erweiterte Löschbestätigung",
+      "Show the table with filenames of selected files to delete.": "Zeigt die Tabelle mit Dateinamen der ausgewählten zu löschenden Dateien.",
+      "Extended Confirm Delete dialog with selected filenames": "Dialog der erweiterten Löschbestätigung mit ausgewählten Dateinamen",
+      "Extended Confirm Delete dialog with multiple selected files": "Dialog der erweiterten Löschbestätigung mit mehreren ausgewählten Dateien",
+      "Panel item info tooltip": "Info-Tooltip für Panel-Elemente",
+      "Shows the tooltip with summary info about directory or file.": "Zeigt einen Tooltip mit Zusammenfassungsinformationen zu Ordner oder Datei.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "Für bekannte Dateitypen werden interessante Informationen angezeigt (bei Bildern Größe oder Farbtiefe, bei Musik Länge oder Autor usw.).",
+      "Panel item info tooltip with file details": "Info-Tooltip für Panel-Elemente mit Dateidetails",
+      "Panel item info tooltip with media details": "Info-Tooltip für Panel-Elemente mit Mediendetails",
+      "Autocomplete path": "Pfad automatisch vervollständigen",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Pfad automatisch vervollständigen in den Dialogen Kopieren/Verschieben/Schnell umbenennen/Ordner erstellen/Verzeichnis wechseln."
+    },
+    hu: {
+      "Extended Confirm Delete": "Bővített törlésmegerősítés",
+      "Show the table with filenames of selected files to delete.": "Megjeleníti a törlésre kijelölt fájlok neveit tartalmazó táblázatot.",
+      "Extended Confirm Delete dialog with selected filenames": "Bővített törlésmegerősítő párbeszédablak kijelölt fájlnevekkel",
+      "Extended Confirm Delete dialog with multiple selected files": "Bővített törlésmegerősítő párbeszédablak több kijelölt fájllal",
+      "Panel item info tooltip": "Panelelem információs tooltipje",
+      "Shows the tooltip with summary info about directory or file.": "Tooltipet jelenít meg a mappa vagy fájl összefoglaló adataival.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "Ismert fájltípusoknál a felhasználókat érdeklő adatok jelennek meg (képeknél méret vagy színmélység, zenéknél hossz vagy szerző stb.).",
+      "Panel item info tooltip with file details": "Panelelem információs tooltipje fájlrészletekkel",
+      "Panel item info tooltip with media details": "Panelelem információs tooltipje médiarészletekkel",
+      "Autocomplete path": "Elérési út automatikus kiegészítése",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Elérési út automatikus kiegészítése a Másolás/Áthelyezés/Gyors átnevezés/Mappa létrehozása/Könyvtárváltás párbeszédablakban."
+    },
+    zhHans: {
+      "Extended Confirm Delete": "扩展删除确认",
+      "Show the table with filenames of selected files to delete.": "显示包含所选待删除文件名的表格。",
+      "Extended Confirm Delete dialog with selected filenames": "带有所选文件名的扩展删除确认对话框",
+      "Extended Confirm Delete dialog with multiple selected files": "带有多个所选文件的扩展删除确认对话框",
+      "Panel item info tooltip": "面板项目信息提示",
+      "Shows the tooltip with summary info about directory or file.": "显示包含目录或文件摘要信息的提示。",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "对于已知文件类型，会显示用户可能感兴趣的信息（例如图片的尺寸或色深，音乐文件的时长或作者等）。",
+      "Panel item info tooltip with file details": "包含文件详细信息的面板项目提示",
+      "Panel item info tooltip with media details": "包含媒体详细信息的面板项目提示",
+      "Autocomplete path": "自动完成路径",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "在复制/移动/快速重命名/创建文件夹/更改目录对话框中自动完成路径。"
+    },
+    ro: {
+      "Extended Confirm Delete": "Confirmare extinsă pentru ștergere",
+      "Show the table with filenames of selected files to delete.": "Afișează tabelul cu numele fișierelor selectate pentru ștergere.",
+      "Extended Confirm Delete dialog with selected filenames": "Dialog de confirmare extinsă pentru ștergere cu nume de fișiere selectate",
+      "Extended Confirm Delete dialog with multiple selected files": "Dialog de confirmare extinsă pentru ștergere cu mai multe fișiere selectate",
+      "Panel item info tooltip": "Tooltip informativ pentru elementul din panou",
+      "Shows the tooltip with summary info about directory or file.": "Afișează un tooltip cu informații sumare despre director sau fișier.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "Pentru tipurile de fișiere cunoscute sunt afișate informații utile utilizatorilor (pentru imagini dimensiunea sau adâncimea de culoare, pentru muzică durata sau autorul etc.).",
+      "Panel item info tooltip with file details": "Tooltip informativ pentru elementul din panou cu detalii despre fișier",
+      "Panel item info tooltip with media details": "Tooltip informativ pentru elementul din panou cu detalii media",
+      "Autocomplete path": "Completare automată cale",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Completare automată cale în dialogurile Copiere/Mutare/Redenumire rapidă/Creare folder/Schimbare director."
+    },
+    ru: {
+      "Extended Confirm Delete": "Расширенное подтверждение удаления",
+      "Show the table with filenames of selected files to delete.": "Показывает таблицу с именами выбранных для удаления файлов.",
+      "Extended Confirm Delete dialog with selected filenames": "Диалог расширенного подтверждения удаления с именами выбранных файлов",
+      "Extended Confirm Delete dialog with multiple selected files": "Диалог расширенного подтверждения удаления с несколькими выбранными файлами",
+      "Panel item info tooltip": "Информационная подсказка элемента панели",
+      "Shows the tooltip with summary info about directory or file.": "Показывает подсказку со сводной информацией о папке или файле.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "Для известных типов файлов отображается интересная пользователям информация (для изображений размер или глубина цвета, для музыки длительность или автор и т. д.).",
+      "Panel item info tooltip with file details": "Информационная подсказка элемента панели с деталями файла",
+      "Panel item info tooltip with media details": "Информационная подсказка элемента панели с деталями медиа",
+      "Autocomplete path": "Автозаполнение пути",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Автозаполнение пути в диалогах копирования/перемещения/быстрого переименования/создания папки/смены каталога."
+    },
+    sk: {
+      "Extended Confirm Delete": "Rozšírené potvrdenie vymazania",
+      "Show the table with filenames of selected files to delete.": "Zobrazí tabuľku s názvami vybraných súborov na vymazanie.",
+      "Extended Confirm Delete dialog with selected filenames": "Dialóg rozšíreného potvrdenia vymazania s názvami vybraných súborov",
+      "Extended Confirm Delete dialog with multiple selected files": "Dialóg rozšíreného potvrdenia vymazania s viacerými vybranými súbormi",
+      "Panel item info tooltip": "Informačný tooltip položky panela",
+      "Shows the tooltip with summary info about directory or file.": "Zobrazuje tooltip so súhrnnými informáciami o priečinku alebo súbore.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "Pri známych typoch súborov zobrazuje informácie, ktoré môžu používateľov zaujímať (pri obrázkoch rozmery alebo farebnú hĺbku, pri hudbe dĺžku alebo autora atď.).",
+      "Panel item info tooltip with file details": "Informačný tooltip položky panela s detailmi súboru",
+      "Panel item info tooltip with media details": "Informačný tooltip položky panela s detailmi médií",
+      "Autocomplete path": "Automatické dopĺňanie cesty",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Automatické dopĺňanie cesty v dialógu Kopírovať/Presunúť/Rýchlo premenovať/Vytvoriť priečinok/Zmeniť adresár."
+    },
+    es: {
+      "Extended Confirm Delete": "Confirmación de eliminación extendida",
+      "Show the table with filenames of selected files to delete.": "Muestra la tabla con los nombres de los archivos seleccionados para eliminar.",
+      "Extended Confirm Delete dialog with selected filenames": "Cuadro de confirmación de eliminación extendida con nombres de archivos seleccionados",
+      "Extended Confirm Delete dialog with multiple selected files": "Cuadro de confirmación de eliminación extendida con varios archivos seleccionados",
+      "Panel item info tooltip": "Tooltip informativo del elemento del panel",
+      "Shows the tooltip with summary info about directory or file.": "Muestra un tooltip con información resumida sobre el directorio o archivo.",
+      "For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).": "Para tipos de archivo conocidos se muestra información que puede interesar a los usuarios (en imágenes, tamaño o profundidad de color; en música, duración o autor, etc.).",
+      "Panel item info tooltip with file details": "Tooltip informativo del elemento del panel con detalles del archivo",
+      "Panel item info tooltip with media details": "Tooltip informativo del elemento del panel con detalles multimedia",
+      "Autocomplete path": "Autocompletar ruta",
+      "Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.": "Autocompletar ruta en los cuadros Copiar/Mover/Renombrado rápido/Crear carpeta/Cambiar directorio."
+    }
+  };
+  Object.entries(extendedFeatureTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
+
+
   const translatableTextNodes = [];
   const translatableAttributes = [];
 
