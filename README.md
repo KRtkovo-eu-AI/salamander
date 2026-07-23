@@ -61,7 +61,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### Columns from Windows Explorer
 - For detailed view, you can choose to show any Windows Explorer column.
-<img width="687" height="719" alt="image" src="https://github.com/user-attachments/assets/e8874721-46db-470b-ab52-84df18abf194" />
+<img width="685" height="717" alt="image" src="https://github.com/user-attachments/assets/dacf844c-8b4e-48e0-a8de-fd407ea68449" />
 <img width="675" height="316" alt="image" src="https://github.com/user-attachments/assets/c7a4adc9-5105-4696-81a6-6f779775b837" />
 
 ### Configurable Command Shell Application
