@@ -94,7 +94,8 @@ blockquote { margin: 18px 0; padding: 16px; }
 .content-grid { width: 100%; margin: 0; }
 .content-grid h3 + ul { margin-top: 0; }
 code { padding: .15em .35em; background: #171717; border: 1px solid var(--sam-border-muted); border-radius: 4px; font-family: var(--sam-mono); }
-img:not([id="header-logo"]) { display: block; max-width: 100%; height: auto; margin: 14px auto; background: var(--sam-canvas-inset); border: 1px solid var(--sam-border); border-radius: 4px; box-shadow: 0 8px 20px rgba(0,0,0,.22); }
+img:not([id="header-logo"]):not([aria="noblock"]) { display: block; }
+img:not([id="header-logo"]) { max-width: 100%; height: auto; margin: 14px auto; background: var(--sam-canvas-inset); border: 1px solid var(--sam-border); border-radius: 4px; box-shadow: 0 8px 20px rgba(0,0,0,.22); }
 .hero-panel__visual img { margin: 0; }
 a[aria="button"] { display: inline-block; margin: 4px 4px 4px 0; padding: 7px 13px; color: #1b1100; background: linear-gradient(#ffd761, #f49b08); border: 1px solid #ffbf2f; border-radius: 4px; font-weight: 700; text-decoration: none; }
 a[aria="button"]:hover { color: #000; background: linear-gradient(#ffe58a, #ffad22); text-decoration: none; }
@@ -102,5 +103,6 @@ a[aria="button"]:hover { color: #000; background: linear-gradient(#ffe58a, #ffad
 .back-to-top--visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
 .back-to-top:hover,
 .back-to-top:focus { color: #000; background: linear-gradient(#ffe58a, #ffad22); text-decoration: none; }
+.textCenter { text-align: center; }
 
 @media (max-width: 860px) { :root { --site-header-height: 172px; } [id] { scroll-margin-top: 0; } body { margin: 0; border-radius: 0; padding: 0 16px 20px; } .site-header { position: static; width: auto; min-height: 0; margin: 0 -16px 22px; padding-inline: 16px; background: linear-gradient(#f4f7fb10, transparent); border: 0; border-bottom: 1px solid #171717; border-radius: 0; box-shadow: none; transform: none; transition: none; } main { padding-top: 0; } .site-header__row, .hero-panel { display: block; } .hero-panel { padding: 18px; } .hero-panel h2 { font-size: 1.8rem; } .section-nav a { flex: 1 1 auto; text-align: center; } .section-nav__item { flex: 1 1 auto; } .section-nav__submenu { left: 50%; transform: translateX(-50%); } .site-branding #description-text { margin: 6px 0 0; } }
