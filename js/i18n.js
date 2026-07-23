@@ -1606,6 +1606,7 @@
       "Internal Viewer": "Interní prohlížeč",
       "Support for Unicode encoding in text files.": "Podpora Unicode kódování v textových souborech.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Volitelný stavový řádek s číslem řádku/sloupce, počítáním vybraných znaků a řádků a nastavením přiblížení.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Přibližování textu pomocí <code>Ctrl + kolečka myši</code> nebo <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Obnovení přiblížení pomocí <code>Ctrl + Num 0</code>.",
       "Zoom text with": "Přibližování textu pomocí",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ kolečka myši.",
@@ -1623,6 +1624,7 @@
       "Internal Viewer": "Interne viewer",
       "Support for Unicode encoding in text files.": "Ondersteuning voor Unicode-codering in tekstbestanden.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Optionele statusbalk met regel-/kolomnummer, telling van geselecteerde tekens en regels en zoominstellingen.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Zoom tekst met <code>Ctrl + muiswiel</code> of <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom resetten met <code>Ctrl + Num 0</code>.",
       "Zoom text with": "Zoom tekst met",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ muiswiel.",
@@ -1640,6 +1642,7 @@
       "Internal Viewer": "Visionneuse interne",
       "Support for Unicode encoding in text files.": "Prise en charge de l’encodage Unicode dans les fichiers texte.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Barre d’état facultative avec numéro de ligne/colonne, comptage des caractères et lignes sélectionnés, et réglages de zoom.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Zoom du texte avec <code>Ctrl + molette de la souris</code> ou <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Réinitialisation du zoom avec <code>Ctrl + Num 0</code>.",
       "Zoom text with": "Zoom du texte avec",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ molette de la souris.",
@@ -1657,6 +1660,7 @@
       "Internal Viewer": "Interner Viewer",
       "Support for Unicode encoding in text files.": "Unterstützung für Unicode-Kodierung in Textdateien.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Optionale Statusleiste mit Zeilen-/Spaltennummer, Zählung ausgewählter Zeichen und Zeilen sowie Zoomeinstellungen.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Text zoomen mit <code>Strg + Mausrad</code> oder <code>Strg + Num +</code>/<code>Strg + Num -</code>. Zoom zurücksetzen mit <code>Strg + Num 0</code>.",
       "Zoom text with": "Text zoomen mit",
       "Ctrl": "Strg",
       "+ mouse wheel.": "+ Mausrad.",
@@ -1674,6 +1678,7 @@
       "Internal Viewer": "Belső megjelenítő",
       "Support for Unicode encoding in text files.": "Unicode kódolás támogatása szövegfájlokban.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Opcionális állapotsor sor-/oszlopszámmal, a kijelölt karakterek és sorok számával, valamint nagyítási beállításokkal.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Szöveg nagyítása <code>Ctrl + egérgörgővel</code> vagy <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Nagyítás visszaállítása <code>Ctrl + Num 0</code>.",
       "Zoom text with": "Szöveg nagyítása",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ egérgörgő használatával.",
@@ -1691,6 +1696,7 @@
       "Internal Viewer": "内部查看器",
       "Support for Unicode encoding in text files.": "支持文本文件中的 Unicode 编码。",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "可选状态栏，可显示行/列编号、所选字符和行数以及缩放设置。",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "使用 <code>Ctrl + 鼠标滚轮</code> 或 <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code> 缩放文本。使用 <code>Ctrl + Num 0</code> 重置缩放。",
       "Zoom text with": "使用",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ 鼠标滚轮缩放文本。",
@@ -1708,6 +1714,7 @@
       "Internal Viewer": "Vizualizator intern",
       "Support for Unicode encoding in text files.": "Suport pentru codificarea Unicode în fișiere text.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Bară de stare opțională cu numărul liniei/coloanei, numărarea caracterelor și liniilor selectate și setări de zoom.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Mărește textul cu <code>Ctrl + rotița mouse-ului</code> sau <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Resetare zoom cu <code>Ctrl + Num 0</code>.",
       "Zoom text with": "Mărește textul cu",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ rotița mouse-ului.",
@@ -1725,6 +1732,7 @@
       "Internal Viewer": "Внутренний просмотрщик",
       "Support for Unicode encoding in text files.": "Поддержка кодировки Unicode в текстовых файлах.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Необязательная строка состояния с номером строки/столбца, подсчетом выбранных символов и строк, а также настройками масштаба.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Масштабирование текста с помощью <code>Ctrl + колесика мыши</code> или <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Сброс масштаба с помощью <code>Ctrl + Num 0</code>.",
       "Zoom text with": "Масштабирование текста с помощью",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ колесика мыши.",
@@ -1742,6 +1750,7 @@
       "Internal Viewer": "Interný prehliadač",
       "Support for Unicode encoding in text files.": "Podpora Unicode kódovania v textových súboroch.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Voliteľný stavový riadok s číslom riadka/stĺpca, počítaním vybraných znakov a riadkov a nastaveniami priblíženia.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Približovanie textu pomocou <code>Ctrl + kolieska myši</code> alebo <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Obnovenie priblíženia pomocou <code>Ctrl + Num 0</code>.",
       "Zoom text with": "Približovanie textu pomocou",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ kolieska myši.",
@@ -1759,6 +1768,7 @@
       "Internal Viewer": "Visor interno",
       "Support for Unicode encoding in text files.": "Compatibilidad con codificación Unicode en archivos de texto.",
       "Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.": "Barra de estado opcional con número de línea/columna, recuento de caracteres y líneas seleccionados y ajustes de zoom.",
+      "Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.": "Zoom del texto con <code>Ctrl + rueda del ratón</code> o <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Restablecer zoom con <code>Ctrl + Num 0</code>.",
       "Zoom text with": "Zoom del texto con",
       "Ctrl": "Ctrl",
       "+ mouse wheel.": "+ rueda del ratón.",
@@ -1914,6 +1924,7 @@
 
   const translatableTextNodes = [];
   const translatableAttributes = [];
+  const translatableHtmlElements = [];
 
   const rememberOriginalAttributes = (root = document.body) => {
     for (const element of root.querySelectorAll("[alt], [title], [aria-label]")) {
@@ -1971,6 +1982,10 @@
       element.textContent = translateText(source, selected).trim();
     }
 
+    for (const element of translatableHtmlElements) {
+      element.innerHTML = translateText(element.dataset.i18nHtmlSource, selected).trim();
+    }
+
     for (const element of document.querySelectorAll("[data-i18n-attr]")) {
       for (const mapping of element.dataset.i18nAttr.split(",")) {
         const [attr, source] = mapping.split(":").map((part) => part.trim());
@@ -1985,6 +2000,11 @@
   const setupSelector = () => {
     for (const element of document.querySelectorAll("[data-i18n]")) {
       element.dataset.i18nSource = element.textContent.trim();
+    }
+
+    for (const element of document.querySelectorAll("[data-i18n-html]")) {
+      element.dataset.i18nHtmlSource = element.innerHTML.trim();
+      translatableHtmlElements.push(element);
     }
 
     const selector = document.getElementById("language-select");
