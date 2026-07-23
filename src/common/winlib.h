@@ -555,3 +555,5 @@ extern CWindowsManager WindowsManager;
 
 HANDLE WinLib_SetThreadDPIAwarenessForDialog();
 void WinLib_RestoreThreadDPIAwarenessForDialog(HANDLE oldContext);
+void WinLib_ApplyDialogDPIFont(HWND hWindow);
+void WinLib_CleanupDialogDPIFont(HWND hWindow);

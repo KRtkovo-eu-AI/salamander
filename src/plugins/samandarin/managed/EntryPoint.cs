@@ -828,10 +828,38 @@ internal static class UpdateCoordinator
 
 internal class DpiAwareForm : Form
 {
+    private const int WmDpiChanged = 0x02E0;
+    private int _currentDpi;
+
     protected DpiAwareForm()
     {
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = SystemFonts.MessageBoxFont;
+        _currentDpi = DeviceDpi;
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        _currentDpi = DeviceDpi;
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WmDpiChanged)
+        {
+            int newDpi = (m.WParam.ToInt32() >> 16) & 0xffff;
+            if (newDpi > 0 && _currentDpi > 0 && newDpi != _currentDpi)
+            {
+                float factor = (float)newDpi / _currentDpi;
+                Scale(new SizeF(factor, factor));
+                _currentDpi = newDpi;
+            }
+            Font = SystemFonts.MessageBoxFont;
+            PerformLayout();
+            Invalidate(true);
+        }
+        base.WndProc(ref m);
     }
 }
 

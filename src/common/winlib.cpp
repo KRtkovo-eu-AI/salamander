@@ -154,6 +154,99 @@ void WinLib_RestoreThreadDPIAwarenessForDialog(HANDLE oldContext)
         setThreadDpiAwarenessContext(oldContext);
 }
 
+static UINT WinLib_GetDPIForDialog(HWND hWindow)
+{
+    typedef UINT(WINAPI * FGetDpiForWindow)(HWND hwnd);
+    static FGetDpiForWindow getDpiForWindow = NULL;
+    static BOOL loadedGetDpi = FALSE;
+    if (!loadedGetDpi)
+    {
+        HMODULE user32 = GetModuleHandle(_T("user32.dll"));
+        if (user32 != NULL)
+            getDpiForWindow = (FGetDpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
+        loadedGetDpi = TRUE;
+    }
+    if (getDpiForWindow != NULL && hWindow != NULL)
+    {
+        UINT dpi = getDpiForWindow(hWindow);
+        if (dpi != 0)
+            return dpi;
+    }
+
+    HDC hdc = GetDC(hWindow);
+    UINT dpi = hdc != NULL ? (UINT)GetDeviceCaps(hdc, LOGPIXELSX) : 96;
+    if (hdc != NULL)
+        ReleaseDC(hWindow, hdc);
+    return dpi != 0 ? dpi : 96;
+}
+
+static HFONT WinLib_CreateDialogMessageFont(UINT dpi)
+{
+    NONCLIENTMETRICS ncm;
+    memset(&ncm, 0, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+
+    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT, UINT, PVOID, UINT, UINT);
+    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
+    static BOOL loadedSpi = FALSE;
+    if (!loadedSpi)
+    {
+        HMODULE user32 = GetModuleHandle(_T("user32.dll"));
+        if (user32 != NULL)
+            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
+        loadedSpi = TRUE;
+    }
+
+    BOOL ok = FALSE;
+    if (systemParametersInfoForDpi != NULL)
+        ok = systemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
+    if (!ok)
+        ok = SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+
+    if (!ok)
+    {
+        memset(&ncm.lfMessageFont, 0, sizeof(ncm.lfMessageFont));
+        ncm.lfMessageFont.lfHeight = -MulDiv(9, dpi, 72);
+        lstrcpyn(ncm.lfMessageFont.lfFaceName, _T("Segoe UI"), LF_FACESIZE);
+    }
+    return CreateFontIndirect(&ncm.lfMessageFont);
+}
+
+static const TCHAR* WinLib_DialogDpiFontProp = _T("Salamander.WinLib.DialogDpiFont");
+
+static BOOL CALLBACK WinLib_SetDialogFontProc(HWND hwnd, LPARAM lParam)
+{
+    SendMessage(hwnd, WM_SETFONT, (WPARAM)lParam, TRUE);
+    return TRUE;
+}
+
+void WinLib_ApplyDialogDPIFont(HWND hWindow)
+{
+    if (hWindow == NULL)
+        return;
+
+    HFONT newFont = WinLib_CreateDialogMessageFont(WinLib_GetDPIForDialog(hWindow));
+    if (newFont == NULL)
+        return;
+
+    HFONT oldFont = (HFONT)GetProp(hWindow, WinLib_DialogDpiFontProp);
+    SetProp(hWindow, WinLib_DialogDpiFontProp, newFont);
+    SendMessage(hWindow, WM_SETFONT, (WPARAM)newFont, TRUE);
+    EnumChildWindows(hWindow, WinLib_SetDialogFontProc, (LPARAM)newFont);
+    if (oldFont != NULL)
+        DeleteObject(oldFont);
+}
+
+void WinLib_CleanupDialogDPIFont(HWND hWindow)
+{
+    HFONT oldFont = (HFONT)GetProp(hWindow, WinLib_DialogDpiFontProp);
+    if (oldFont != NULL)
+    {
+        RemoveProp(hWindow, WinLib_DialogDpiFontProp);
+        DeleteObject(oldFont);
+    }
+}
+
 // opatreni proti runtime check failure v debug verzi: puvodni verze makra pretypovava rgb na WORD,
 // takze hlasi ztratu dat (RED slozky)
 #undef GetGValue
@@ -797,6 +890,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        WinLib_ApplyDialogDPIFont(HWindow);
         TransferData(ttDataToWindow);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
@@ -889,6 +983,14 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_DPICHANGED:
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        WinLib_ApplyDialogDPIFont(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+        break;
+    }
+
     case WM_SETTINGCHANGE:
     {
         if (WinLib_DarkMode_OnSettingChange(lParam) &&
@@ -962,6 +1064,7 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             else
                 dlg->HWindow = NULL; // informace o odpojeni
         }
+        WinLib_CleanupDialogDPIFont(hwndDlg);
         return ret;
     }
 
