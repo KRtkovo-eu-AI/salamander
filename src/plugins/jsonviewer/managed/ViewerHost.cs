@@ -624,6 +624,8 @@ internal static class ViewerHost
             MinimizeBox = true;
             MaximizeBox = true;
             KeyPreview = true;
+            AutoScaleMode = AutoScaleMode.Dpi;
+            Font = SystemFonts.MessageBoxFont;
             Icon = JsonViewerResources.JsonViewerIcon;
 
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);

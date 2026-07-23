@@ -489,6 +489,7 @@ internal static class ViewerHost
             MaximizeBox = true;
             KeyPreview = true;
             AutoScaleMode = AutoScaleMode.Dpi;
+            Font = SystemFonts.MessageBoxFont;
             ClientSize = new Size(800, 600);
             Icon = ViewerResources.ViewerIcon;
 

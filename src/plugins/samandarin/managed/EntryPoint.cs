@@ -826,7 +826,30 @@ internal static class UpdateCoordinator
     }
 }
 
-internal sealed class ConfigurationDialog : Form
+internal class DpiAwareForm : Form
+{
+    private const int WmDpiChanged = 0x02E0;
+
+    protected DpiAwareForm()
+    {
+        AutoScaleMode = AutoScaleMode.Dpi;
+        Font = SystemFonts.MessageBoxFont;
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WmDpiChanged)
+        {
+            Font = SystemFonts.MessageBoxFont;
+            PerformLayout();
+            Invalidate(true);
+        }
+
+        base.WndProc(ref m);
+    }
+}
+
+internal sealed class ConfigurationDialog : DpiAwareForm
 {
     private readonly CheckBox _checkOnStartup;
     private readonly ComboBox _frequency;
@@ -1073,7 +1096,7 @@ internal sealed class ThemedGroupBox : GroupBox
     }
 }
 
-internal sealed class PluginUpdatesDialog : Form
+internal sealed class PluginUpdatesDialog : DpiAwareForm
 {
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
@@ -1768,7 +1791,7 @@ internal sealed class PluginUpdatesDialog : Form
     }
 }
 
-internal sealed class PluginCatalogSourcesDialog : Form
+internal sealed class PluginCatalogSourcesDialog : DpiAwareForm
 {
     private readonly ListView _listView;
     private readonly List<PluginCatalogSource> _sources;

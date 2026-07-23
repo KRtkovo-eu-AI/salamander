@@ -28,6 +28,8 @@ internal sealed class VirtualDiskInitializationDialog : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        Font = SystemFonts.MessageBoxFont;
         ClientSize = new Size(520, 330);
 
         var intro = new Label
