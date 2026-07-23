@@ -4895,10 +4895,17 @@ FIND_NEW_SLG_FILE:
                                          WasRestrictedFileStorageImported();
     Configuration.StorageType = storageType;
 
-    // Read UseWindowsDarkMode from configstorage.ini for splash screen theme
+    // Read UseWindowsDarkMode from configstorage.ini for splash screen theme.
+    // If the bootstrap value is missing, follow the current system dark-mode
+    // preference so the splash screen does not always fall back to light mode.
     BOOL useDarkFromConfig;
     if (ConfigurationStorage.LoadUseWindowsDarkMode(useDarkFromConfig))
         Configuration.UseWindowsDarkMode = useDarkFromConfig;
+    else
+    {
+        DarkModeDetectAndEnableSystemDarkMode();
+        Configuration.UseWindowsDarkMode = DarkModeShouldUseDarkColors() ? TRUE : FALSE;
+    }
 
     // Compute forceWelcomeDialog early so we can skip the splash screen on first run
     static char portableConfigPath[SAL_MAX_PATH];
