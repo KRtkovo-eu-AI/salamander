@@ -4,7 +4,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Management;
 
 namespace OpenSalamander.HyperVM;
 
@@ -82,15 +81,13 @@ internal static class Texts
 
 internal static class VirtualDiskManager
 {
-    public static void AttachVhd(string path, bool readOnly) => InvokeDiskImage(path, "Attach", readOnly);
-    public static void DetachVhd(string path) => InvokeDiskImage(path, "Detach", false);
-    private static void InvokeDiskImage(string path, string method, bool readOnly)
+    public static void AttachVhd(string path, bool readOnly)
     {
-        using var image = new ManagementObject(@"root\Microsoft\Windows\Storage", $"MSFT_DiskImage.ImagePath='{path.Replace("\\", "\\\\").Replace("'", "\\'")}'", null);
-        var inParams = image.GetMethodParameters(method);
-        if (method == "Attach") inParams["Access"] = readOnly ? 1U : 0U;
-        image.InvokeMethod(method, inParams, null);
+        var access = readOnly ? "ReadOnly" : "ReadWrite";
+        RunPowerShell($"Mount-DiskImage -ImagePath {Quote(path)} -Access {access} -ErrorAction Stop");
     }
+
+    public static void DetachVhd(string path) => RunPowerShell($"Dismount-DiskImage -ImagePath {Quote(path)} -ErrorAction Stop");
     public static void CreateVhd(string path, ulong sizeBytes, string format, bool fixedSize)
     {
         var type = fixedSize ? "Fixed" : "Dynamic";
