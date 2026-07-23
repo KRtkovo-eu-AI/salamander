@@ -436,13 +436,13 @@ internal static class ThemeHelper
     {
         public ThemePalette(Color background, Color foreground, Color highlightBackground, Color highlightForeground, Color accent)
         {
-            Background = background;
-            Foreground = foreground;
+            IsDark = ComputeLuminance(background) < 128;
+            Background = IsDark ? background : SystemColors.Control;
+            Foreground = IsDark ? foreground : SystemColors.ControlText;
             HighlightBackground = highlightBackground;
             HighlightForeground = highlightForeground;
             Accent = accent;
 
-            IsDark = ComputeLuminance(background) < 128;
             ControlBackground = IsDark ? Lighten(background, 0.08) : SystemColors.Control;
             ControlBorder = IsDark ? Lighten(background, 0.16) : SystemColors.ControlDark;
             InputBackground = IsDark ? Lighten(background, 0.12) : SystemColors.Window;
