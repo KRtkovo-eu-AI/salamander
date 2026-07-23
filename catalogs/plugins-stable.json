@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-22T03:04:21Z",
+  "generatedAt": "2026-07-23T00:18:13Z",
   "plugins": [
     {
       "id": "7zip",
@@ -687,7 +687,7 @@
         "romanian": "Verifică lansările GitHub și oferă să deschidă cea mai recentă versiune Samandarin.",
         "spanish": "Comprueba las versiones de GitHub y ofrece abrir la última compilación de Samandarin."
       },
-      "latestVersion": "0.6 (x64)",
+      "latestVersion": "0.7 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_samandarin_0.6_x64/plugin_5.0_samandarin_0.6_x64.7z",
