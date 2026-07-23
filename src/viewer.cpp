@@ -1352,20 +1352,28 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                 else
                     FillRect(Bitmap.HMemDC, &myLine, BkgndBrush);
 
-                if (u3 > 0)
-                    DrawDecodedCells(Bitmap.HMemDC, visual, left + u1 + u2, left + u1 + u2 + u3, (int)(u1 + u2));
+                // Draw the complete visible decoded text run in one piece.
+                // Splitting Unicode text into selected/non-selected substrings
+                // can change shaping or fallback rendering for CJK, Indic, RTL,
+                // emoji sequences, etc.  For the selected part, clip a second
+                // full-run draw to the selection rectangle so glyph context is
+                // preserved while colors still differ.
+                if (u1 + u2 + u3 > 0)
+                    DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1 + u2 + u3, 0);
                 if (u2 > 0)
                 {
-                    SetBkColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_BK_SELECTED]));
+                    RECT selRect = fullLine;
+                    selRect.left = (int)(u1 * CharWidth);
+                    selRect.right = (int)((u1 + u2) * CharWidth);
+                    FillRect(Bitmap.HMemDC, &selRect, BkgndBrushSel);
+
+                    int savedDC = SaveDC(Bitmap.HMemDC);
+                    IntersectClipRect(Bitmap.HMemDC, selRect.left, selRect.top, selRect.right, selRect.bottom);
                     SetTextColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_FG_SELECTED]));
-                    SetBkMode(Bitmap.HMemDC, OPAQUE);
-                    DrawDecodedCells(Bitmap.HMemDC, visual, left + u1, left + u1 + u2, (int)u1);
-                    SetBkMode(Bitmap.HMemDC, TRANSPARENT);
+                    DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1 + u2 + u3, 0);
+                    RestoreDC(Bitmap.HMemDC, savedDC);
                     SetTextColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_FG_NORMAL]));
-                    SetBkColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_BK_NORMAL]));
                 }
-                if (u1 > 0)
-                    DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1, 0);
 
                 BitBlt(dc, GetTextLeft(), CharHeight * i, myLine.right,
                        CharHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);
