@@ -213,6 +213,18 @@ static HFONT WinLib_CreateDialogMessageFont(UINT dpi)
 }
 
 static const TCHAR* WinLib_DialogDpiFontProp = _T("Salamander.WinLib.DialogDpiFont");
+static int (*WinLib_DPIUpdateWindowProc)(HWND hWindow) = NULL;
+
+void WinLib_SetDPIUpdateWindowProc(int (*updateWindowDPI)(HWND hWindow))
+{
+    WinLib_DPIUpdateWindowProc = updateWindowDPI;
+}
+
+void WinLib_UpdateDPIForWindow(HWND hWindow)
+{
+    if (WinLib_DPIUpdateWindowProc != NULL && hWindow != NULL)
+        WinLib_DPIUpdateWindowProc(hWindow);
+}
 
 static BOOL CALLBACK WinLib_SetDialogFontProc(HWND hwnd, LPARAM lParam)
 {
@@ -846,6 +858,7 @@ INT_PTR
 CDialog::Execute()
 {
     Modal = TRUE;
+    WinLib_UpdateDPIForWindow(Parent);
     HANDLE oldDpiContext = WinLib_SetThreadDPIAwarenessForDialog();
     INT_PTR result;
 #ifndef _UNICODE
@@ -866,6 +879,7 @@ CDialog::Execute()
 HWND CDialog::Create()
 {
     Modal = FALSE;
+    WinLib_UpdateDPIForWindow(Parent);
     HANDLE oldDpiContext = WinLib_SetThreadDPIAwarenessForDialog();
     HWND hwnd;
 #ifndef _UNICODE
@@ -890,6 +904,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        WinLib_UpdateDPIForWindow(HWindow);
         WinLib_ApplyDialogDPIFont(HWindow);
         TransferData(ttDataToWindow);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
@@ -986,6 +1001,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DPICHANGED:
     case WM_DPICHANGED_AFTERPARENT:
     {
+        WinLib_UpdateDPIForWindow(HWindow);
         WinLib_ApplyDialogDPIFont(HWindow);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
         break;

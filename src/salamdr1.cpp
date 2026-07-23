@@ -4953,6 +4953,7 @@ FIND_NEW_SLG_FILE:
     }
 
     SetWinLibStrings(LoadStr(IDS_INVALIDNUMBER), MAINWINDOW_NAME); // j.r. - posunout na spravne misto
+    WinLib_SetDPIUpdateWindowProc(UpdateSystemDPIForWindow);
 
     // inicializace pakovacu; drive provadeno v konstruktorech; ted presunuto sem,
     // kdy uz je rozhodnuto o jazykovem DLL

@@ -26,7 +26,6 @@
 #include "sheets.h"
 
 extern CWinLibHelp* WinLibHelp;
-extern int UpdateSystemDPIForWindow(HWND hWindow);
 
 namespace
 {
@@ -798,7 +797,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        UpdateSystemDPIForWindow(HWindow);
+        WinLib_UpdateDPIForWindow(HWindow);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
@@ -944,7 +943,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DPICHANGED:
     case WM_DPICHANGED_AFTERPARENT:
     {
-        UpdateSystemDPIForWindow(HWindow);
+        WinLib_UpdateDPIForWindow(HWindow);
         WinLib_ApplyDialogDPIFont(HWindow);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
         break;
@@ -1040,6 +1039,7 @@ CPropertyDialog::Execute()
 {
     if (Count > 0)
     {
+        WinLib_UpdateDPIForWindow(Parent);
         HANDLE oldDpiContext = WinLib_SetThreadDPIAwarenessForDialog();
         PROPSHEETHEADER psh;
         psh.dwSize = sizeof(PROPSHEETHEADER);
@@ -1875,6 +1875,7 @@ int CTreePropHolderDlg::ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate)
 {
     HWND hOldFocus = GetFocus();
     EnableWindow(Parent, FALSE);
+    WinLib_UpdateDPIForWindow(Parent);
     HANDLE oldDpiContext = WinLib_SetThreadDPIAwarenessForDialog();
     CreateDialogIndirectParam(Modul, hDialogTemplate, Parent,
                               (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
