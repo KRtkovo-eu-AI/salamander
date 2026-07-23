@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 using System;
+using System.Diagnostics;
 using System.IO;
+using System.Security.Principal;
 
 namespace OpenSalamander.HyperVM;
 
@@ -80,6 +82,7 @@ internal static class Texts
 
 internal static class VirtualDiskManager
 {
+    private const int ErrorPrivilegeNotHeld = 1314;
     private const uint OpenVirtualDiskRwDepthDefault = 1;
 
     private static readonly Guid VirtualStorageTypeVendorMicrosoft = new("EC984AEC-A0F9-47E9-901F-71415A66345B");
@@ -96,8 +99,15 @@ internal static class VirtualDiskManager
         {
             var attachParameters = new AttachVirtualDiskParameters { Version = AttachVirtualDiskVersion.Version1 };
             result = NativeMethods.AttachVirtualDisk(handle, IntPtr.Zero, AttachVirtualDiskFlags.PermanentLifetime, 0, ref attachParameters, IntPtr.Zero);
-            ThrowIfFailed(result, "attach", path);
         }
+
+        if (result == ErrorPrivilegeNotHeld && !IsAdministrator())
+        {
+            RunElevatedPowerShell($"Mount-DiskImage -ImagePath {Quote(path)} -Access {(readOnly ? "ReadOnly" : "ReadWrite")} -ErrorAction Stop");
+            return;
+        }
+
+        ThrowIfFailed(result, "attach", path);
     }
 
     public static void DetachVhd(string path)
@@ -145,6 +155,38 @@ internal static class VirtualDiskManager
         var normalizedFormat = !string.IsNullOrWhiteSpace(format) ? format : Path.GetExtension(path).TrimStart('.');
         var deviceId = normalizedFormat.Equals("vhd", StringComparison.OrdinalIgnoreCase) ? VirtualStorageTypeDevice.Vhd : VirtualStorageTypeDevice.Vhdx;
         return new VirtualStorageType { DeviceId = deviceId, VendorId = VirtualStorageTypeVendorMicrosoft };
+    }
+
+    private static void RunElevatedPowerShell(string command)
+    {
+        var script = "$ErrorActionPreference='Stop'; " + command;
+        var psi = new ProcessStartInfo
+        {
+            FileName = GetPreferredPowerShellPath(),
+            Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"" + script.Replace("\"", "`\"") + "\"",
+            UseShellExecute = true,
+            Verb = "runas"
+        };
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start elevated PowerShell.");
+        process.WaitForExit();
+        if (process.ExitCode != 0) throw new InvalidOperationException("Elevated virtual hard disk operation failed or was canceled.");
+    }
+
+    private static bool IsAdministrator()
+    {
+        using var identity = WindowsIdentity.GetCurrent();
+        return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+    }
+
+    private static string Quote(string s) => "'" + s.Replace("'", "''") + "'";
+
+    private static string GetPreferredPowerShellPath()
+    {
+        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        var sysnativePath = Path.Combine(windowsDirectory, "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe");
+        if (File.Exists(sysnativePath)) return sysnativePath;
+        var system32Path = Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+        return File.Exists(system32Path) ? system32Path : "powershell.exe";
     }
 
     private static void ThrowIfFailed(int error, string operation, string path)

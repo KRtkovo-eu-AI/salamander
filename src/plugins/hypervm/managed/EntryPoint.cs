@@ -61,6 +61,7 @@ public static class EntryPoint
         if (parts.Length != 4 || !ulong.TryParse(parts[1], out var sizeBytes)) return 1;
         VirtualDiskManager.CreateVhd(parts[0], sizeBytes, parts[2], parts[3] == "Fixed");
         VirtualDiskManager.AttachVhd(parts[0], false);
+        VirtualDiskInitializationDialog.ShowForNewDisk(new WindowHandleWrapper(parent), parts[0]);
         return 0;
     }
 
