@@ -1535,6 +1535,71 @@
   };
   Object.entries(pageTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
 
+
+  const dpiAwarenessTranslations = {
+    cs: {
+      "DPI Awareness": "Podpora DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Ostřejší vykreslování rozhraní na Windows displejích s vysokým DPI a kombinovaným DPI.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Aplikace konzistentněji škáluje dialogy, ovládací prvky, ikony a obsah panelů při přesouvání mezi monitory s různým nastavením měřítka.",
+      "Samandarin DPI Awareness preview": "Náhled DPI Awareness v Samandarinu"
+    },
+    nl: {
+      "DPI Awareness": "DPI-bewustzijn",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Scherpere weergave van de interface op Windows-schermen met hoge DPI en gemengde DPI.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "De toepassing schaalt dialogen, bedieningselementen, pictogrammen en paneelinhoud consistenter bij het verplaatsen tussen monitoren met verschillende schaalinstellingen.",
+      "Samandarin DPI Awareness preview": "Voorbeeld van DPI-bewustzijn in Samandarin"
+    },
+    fr: {
+      "DPI Awareness": "Prise en charge DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Rendu d’interface plus net sur les écrans Windows à DPI élevé ou mixte.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "L’application adapte plus régulièrement les boîtes de dialogue, les contrôles, les icônes et le contenu des panneaux lors du passage entre des moniteurs aux réglages d’échelle différents.",
+      "Samandarin DPI Awareness preview": "Aperçu DPI Awareness de Samandarin"
+    },
+    de: {
+      "DPI Awareness": "DPI-Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Schärfere Darstellung der Oberfläche auf Windows-Bildschirmen mit hoher oder gemischter DPI-Skalierung.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Die Anwendung skaliert Dialoge, Steuerelemente, Symbole und Panel-Inhalte konsistenter beim Wechsel zwischen Monitoren mit unterschiedlichen Skalierungseinstellungen.",
+      "Samandarin DPI Awareness preview": "Samandarin-DPI-Awareness-Vorschau"
+    },
+    hu: {
+      "DPI Awareness": "DPI-tudatosság",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Élesebb felületmegjelenítés nagy DPI-s és vegyes DPI-s Windows-kijelzőkön.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Az alkalmazás következetesebben méretezi a párbeszédablakokat, vezérlőket, ikonokat és paneltartalmakat különböző méretezési beállítású monitorok között mozgatva.",
+      "Samandarin DPI Awareness preview": "Samandarin DPI-tudatosság előnézet"
+    },
+    zhHans: {
+      "DPI Awareness": "DPI 感知",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "在高 DPI 和混合 DPI 的 Windows 显示器上呈现更清晰的界面。",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "在不同缩放设置的显示器之间移动时，应用会更一致地缩放对话框、控件、图标和面板内容。",
+      "Samandarin DPI Awareness preview": "Samandarin DPI 感知预览"
+    },
+    ro: {
+      "DPI Awareness": "Conștientizare DPI",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Redare mai clară a interfeței pe afișaje Windows cu DPI ridicat și DPI mixt.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Aplicația scalează mai consecvent dialogurile, controalele, pictogramele și conținutul panourilor la mutarea între monitoare cu setări de scalare diferite.",
+      "Samandarin DPI Awareness preview": "Previzualizare DPI Awareness Samandarin"
+    },
+    ru: {
+      "DPI Awareness": "Поддержка DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Более четкая отрисовка интерфейса на дисплеях Windows с высоким и смешанным DPI.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Приложение более последовательно масштабирует диалоги, элементы управления, значки и содержимое панелей при переносе между мониторами с разными настройками масштабирования.",
+      "Samandarin DPI Awareness preview": "Предпросмотр DPI Awareness в Samandarin"
+    },
+    sk: {
+      "DPI Awareness": "Podpora DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Ostrejšie vykresľovanie rozhrania na Windows displejoch s vysokým DPI a zmiešaným DPI.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "Aplikácia konzistentnejšie škáluje dialógy, ovládacie prvky, ikony a obsah panelov pri presúvaní medzi monitormi s rôznymi nastaveniami mierky.",
+      "Samandarin DPI Awareness preview": "Náhľad DPI Awareness v Samandarine"
+    },
+    es: {
+      "DPI Awareness": "Compatibilidad DPI Awareness",
+      "Sharper interface rendering on high-DPI and mixed-DPI Windows displays.": "Renderizado de interfaz más nítido en pantallas Windows con DPI alto y DPI mixto.",
+      "The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.": "La aplicación escala diálogos, controles, iconos y contenido de paneles de forma más coherente al moverse entre monitores con distintas configuraciones de escala.",
+      "Samandarin DPI Awareness preview": "Vista previa de DPI Awareness en Samandarin"
+    }
+  };
+  Object.entries(dpiAwarenessTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
+
   const translatableTextNodes = [];
   const translatableAttributes = [];
 
