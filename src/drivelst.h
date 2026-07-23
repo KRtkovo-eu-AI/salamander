@@ -106,6 +106,9 @@ struct CDriveData
     //  plugin - DLLName is allocated only once; may be invalid, check it); pointer to
     //  CPluginData is not enough, because it would be invalid when adding/removing plugins (array reallocation - see array.h)
     const char* DLLName;
+
+    // for drvtMountPoint only: path to the mounted folder without display columns
+    char* MountPointPath;
 };
 
 class CMenuPopup;
