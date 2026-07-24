@@ -328,9 +328,18 @@ bool RunDialog(HWND parent, bool create)
         title = create ? L"Create and Attach Virtual Hard Disk" : L"Attach Virtual Hard Disk";
         titleA = create ? "Create and Attach Virtual Hard Disk" : "Attach Virtual Hard Disk";
     }
-    HWND hwnd = CreateWindowExA(WS_EX_DLGMODALFRAME, wc.lpszClassName, titleA.c_str(),
-                                WS_CAPTION | WS_SYSMENU | WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT,
-                                windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, parent, nullptr, DLLInstance, &s);
+    HWND hwnd = nullptr;
+    {
+        // This window bypasses WinLib's normal top-level creation path. CLR
+        // calls made by the plugin can leave the callback thread in a legacy
+        // DPI context, which would permanently make this HWND SystemAware and
+        // keep its controls at 96 DPI. Capture PMv2 explicitly at creation.
+        CWinLibDPIContext dpiContext;
+        hwnd = CreateWindowExA(WS_EX_DLGMODALFRAME, wc.lpszClassName, titleA.c_str(),
+                               WS_CAPTION | WS_SYSMENU | WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT,
+                               windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
+                               parent, nullptr, DLLInstance, &s);
+    }
     SetWindowTextW(hwnd, title.c_str());
     if (!titleA.empty())
     {

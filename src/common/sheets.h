@@ -226,9 +226,9 @@ protected:
     SIZE LogicalButtonSize;
     int LogicalButtonMargin;
     SIZE LogicalMarginSize;
+    SIZE LogicalWindowSize;
     BOOL DPIChangeInProgress;
     BOOL DPILayoutPosted;
-    HFONT TreeFont;
 
 public:
     CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth, int defaultWidthExtra = 0);

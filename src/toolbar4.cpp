@@ -782,6 +782,7 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
     int iconCount = 0;
     int baseIconCount = 0;
     int iconCountWithoutShell = 0;
+    int sourceIconSize = 0;
 
     // Windows XP a novejsi pouzivaji transparentni ikony; protoze je pomoci masky
     // zobrazime do teto docasne bitmapy a zajistime, aby pod pruhlednou casti byla
@@ -829,7 +830,17 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
                 tbbe_BMPCOUNT++;
     }
 
-    baseIconCount = bi.bmiHeader.biWidth / iconSize;
+    // The resource strip is stored at its design size (normally 16 px high),
+    // while iconSize is the per-window destination size. Dividing the source
+    // width by the destination size at 150/200 % drops cells and then
+    // StretchBlt squeezes several source icons into one distorted cell.
+    sourceIconSize = abs(bi.bmiHeader.biHeight);
+    if (sourceIconSize <= 0 || bi.bmiHeader.biWidth % sourceIconSize != 0)
+    {
+        TRACE_E("Invalid toolbar bitmap strip dimensions for resID " << resID);
+        goto exitus;
+    }
+    baseIconCount = bi.bmiHeader.biWidth / sourceIconSize;
     iconCountWithoutShell = baseIconCount;
     if (svgIcons != NULL)
     {

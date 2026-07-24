@@ -104,7 +104,7 @@ BOOL CMainWindow::Init()
     Height = r.bottom;
     Width = r.right;
     PrevSplitProp = SplitProp = 0.5;
-    HeaderHeight = EnvFontHeight + 4;
+    HeaderHeight = EnvFontHeight + WinLibDPIFromLogical(HWindow, 4);
 
     TBBUTTON buttons[7];
     int i;
@@ -1191,6 +1191,11 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DPICHANGED:
     {
+        // Apply the new monitor rectangle first. All following font, bitmap and
+        // metric helpers then query the new DPI from this viewer instead of
+        // accidentally rebuilding another 96-DPI set before CWindow handles
+        // the message.
+        WinLibDPIApplySuggestedRect(HWindow, uMsg, lParam);
         if (CreateEnvFont(HWindow))
         {
             HeaderHeight = EnvFontHeight + WinLibDPIFromLogical(HWindow, 4);
@@ -1210,7 +1215,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             RedrawWindow(HWindow, NULL, NULL,
                          RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
         }
-        break; // WinLib applies the suggested top-level rectangle.
+        return 0;
     }
 
     case WM_PAINT:
