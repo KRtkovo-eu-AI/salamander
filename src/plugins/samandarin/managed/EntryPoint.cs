@@ -782,6 +782,7 @@ internal static class UpdateCoordinator
 
     private static void UiThreadLoop(BlockingCollection<Action> queue)
     {
+        ManagedApplication.EnsurePerMonitorThread();
         foreach (var action in queue.GetConsumingEnumerable())
         {
             try

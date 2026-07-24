@@ -1367,7 +1367,7 @@ Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\d
 Source: "{#PayloadDir}\plugins\demoplug\lang\*"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\salamand.exe.config"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: onlyifdoesntexist; Permissions: users-modify; Check: ShouldInstallConfigStorage
+Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
 Source: "{#PayloadDir}\toolbars\Back.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\AzureCloudShell.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\CommandPrompt.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -1919,16 +1919,16 @@ begin
 
   if FileExists(ConfigPath) then
   begin
-    //BackupPath := ConfigPath + '.BAK';
-    //DeleteFile(BackupPath);
-    //RenameFile(ConfigPath, BackupPath);
+    BackupPath := ConfigPath + '.BAK';
+    DeleteFile(BackupPath);
+    RenameFile(ConfigPath, BackupPath);
     Result := False;
 
     if not WizardSilent then
     begin
-      //Msg := CustomMessage('KeepConfigQuestion');
-      //StringChangeEx(Msg, '\n', #13#10, True);
-      //MsgBox(Msg, mbInformation, MB_OK);
+      Msg := CustomMessage('KeepConfigQuestion');
+      StringChangeEx(Msg, '\n', #13#10, True);
+      MsgBox(Msg, mbInformation, MB_OK);
     end;
   end;
 end;

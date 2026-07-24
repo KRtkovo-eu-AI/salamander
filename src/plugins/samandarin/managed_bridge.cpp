@@ -4,6 +4,7 @@
 #include "precomp.h"
 #include "managed_bridge.h"
 #include "../../darkmode.h"
+#include "../../common/winlibdpi.h"
 
 #include <metahost.h>
 #include <mscoree.h>
@@ -74,6 +75,7 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
     HWND owner = ResolveOwnerWindow(parent);
     DWORD returnValue = 0;
     std::wstring argument = BuildArgument(command, owner, payload);
+    CWinLibDPIContext dpiContext;
     HRESULT hr = gRuntimeHost->ExecuteInDefaultAppDomain(gAssemblyPath.c_str(), kManagedType, kManagedMethod,
                                                          argument.c_str(), &returnValue);
     if (FAILED(hr))

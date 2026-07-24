@@ -50,6 +50,29 @@ void ApplyFileCompMainWindowChrome(HWND hwnd, HWND toolbar, HWND rebar)
     DarkModeApplyMenuBar(hwnd);
     DrawMenuBar(hwnd);
 }
+
+int MeasureRebarHeaderWidth(const char* text, UINT dpi)
+{
+    if (text == NULL)
+        return 0;
+
+    char buffer[512];
+    lstrcpyn(buffer, text, SizeOf(buffer));
+    char* prefix = strchr(buffer, '&');
+    if (prefix != NULL)
+        memmove(prefix, prefix + 1, strlen(prefix));
+
+    HDC hdc = GetDC(NULL);
+    if (hdc == NULL)
+        return MulDiv(13, dpi, USER_DEFAULT_SCREEN_DPI);
+
+    HFONT oldFont = (HFONT)SelectObject(hdc, EnvFont);
+    SIZE size = {0, 0};
+    GetTextExtentPoint32(hdc, buffer, (int)strlen(buffer), &size);
+    SelectObject(hdc, oldFont);
+    ReleaseDC(NULL, hdc);
+    return size.cx + MulDiv(13, dpi, USER_DEFAULT_SCREEN_DPI);
+}
 }
 
 CMainWindow::CMainWindow(char* path1, char* path2, CCompareOptions* options, UINT showCmd)
@@ -468,10 +491,11 @@ void CMainWindow::UpdateRebarDpiMetrics(UINT dpi)
         REBARBANDINFO info;
         ZeroMemory(&info, sizeof(info));
         info.cbSize = sizeof(info);
-        info.fMask = RBBIM_CHILDSIZE;
+        info.fMask = RBBIM_CHILDSIZE | RBBIM_HEADERSIZE;
         if (SendMessage(Rebar->HWindow, RB_GETBANDINFO, band, (LPARAM)&info))
         {
             info.cyMinChild = EnvFontHeight + MulDiv(8, dpi, USER_DEFAULT_SCREEN_DPI);
+            info.cxHeader = MeasureRebarHeaderWidth(LoadStr(IDS_DIFFERENCES), dpi);
             SendMessage(Rebar->HWindow, RB_SETBANDINFO, band, (LPARAM)&info);
         }
     }
