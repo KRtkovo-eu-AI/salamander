@@ -45,6 +45,7 @@ CIconList::CIconList()
     ImageFlags = NULL;
 
     BkColor = RGB(255, 255, 255);
+    ContentVersion = 0;
 
     //  Dump = FALSE;
 }
@@ -521,6 +522,7 @@ BOOL CIconList::ReplaceIcon(int index, HICON hIcon)
     //    DumpToTrace(index);
 
     ImageFlags[index] = ApplyMaskToImage(index, ii.hbmColor == NULL);
+    InterlockedIncrement(&ContentVersion);
 
     SelectObject(hSrcDC, hOldSrcBmp);
     HANDLES(DeleteDC(hSrcDC));
@@ -1190,6 +1192,7 @@ BOOL CIconList::Copy(int dstIndex, CIconList* srcIL, int srcIndex)
         }
     }
     ImageFlags[dstIndex] = srcIL->ImageFlags[srcIndex];
+    InterlockedIncrement(&ContentVersion);
     HANDLES(LeaveCriticalSection(&CriticalSection));
 
     // verze kopirovani pomoci BitBlt

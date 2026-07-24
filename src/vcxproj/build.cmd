@@ -31,6 +31,12 @@ if "%OPENSAL_BUILD_DIR%"=="" (
   goto :eof
 )
 
+:: link.exe can fail with LNK1000 when the solution starts dozens of
+:: resource-only language DLL links at once. Keep a conservative default,
+:: while allowing build agents to choose another value explicitly.
+set "BUILD_JOBS=%OPENSAL_BUILD_JOBS%"
+if not defined BUILD_JOBS set "BUILD_JOBS=8"
+
 :: Default values for build_config and build_arch
 set build_config=Debug
 set build_arch=x64
@@ -46,7 +52,7 @@ goto :eof
 :build
   echo Building %~1/%2
   if exist %3 del /q %3
-  "%MSB%" salamand.sln /t:build "/p:Configuration=%~1" /p:Platform=%2 /m:%NUMBER_OF_PROCESSORS%
+  "%MSB%" salamand.sln /t:build "/p:Configuration=%~1" /p:Platform=%2 /m:%BUILD_JOBS%
   exit /b
 
 :resolve_msbuild

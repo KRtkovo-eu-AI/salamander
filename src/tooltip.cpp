@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include "tooltip.h"
 #include "mainwnd.h"
@@ -33,6 +34,8 @@ CToolTip::CToolTip(CObjectOrigin origin)
     IsModal = FALSE;
     ExitASAP = FALSE;
     TimerID = 0;
+    WindowFont = NULL;
+    WindowDPI = 0;
 
     LastCursorPos.x = -1;
     LastCursorPos.y = -1;
@@ -51,6 +54,8 @@ CToolTip::~CToolTip()
         // prekrocime hranici threadu a zhazneme tooltip v threadu, ve kterem byl otevren
         SendMessage(HWindow, WM_USER_HIDETOOLTIP, 0, 0);
     }
+    if (WindowFont != NULL)
+        HANDLES(DeleteObject(WindowFont));
 }
 
 void CToolTip::SuppressToolTipOnCurrentMousePos()
@@ -314,18 +319,56 @@ BOOL CToolTip::GetText()
 void CToolTip::GetNeededWindowSize(SIZE* sz)
 {
     HDC hDC = HANDLES(GetDC(HWindow));
-    SelectObject(hDC, TooltipFont);
+    HFONT hFont = WindowFont != NULL ? WindowFont : TooltipFont;
+    HFONT hOldFont = (HFONT)SelectObject(hDC, hFont);
     RECT tR;
     tR.left = 0;
     tR.top = 0;
     tR.right = 0;
     tR.bottom = 0;
     DrawText(hDC, Text, TextLen, &tR, DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_EXPANDTABS);
+    SelectObject(hDC, hOldFont);
     HANDLES(ReleaseDC(HWindow, hDC));
     sz->cx = tR.right - tR.left;
     sz->cy = tR.bottom - tR.top;
-    sz->cx += 3 + 3;
-    sz->cy += 2 + 2;
+    UINT dpi = WindowDPI != 0 ? WindowDPI : USER_DEFAULT_SCREEN_DPI;
+    sz->cx += MulDiv(3 + 3, (int)dpi, USER_DEFAULT_SCREEN_DPI);
+    sz->cy += MulDiv(2 + 2, (int)dpi, USER_DEFAULT_SCREEN_DPI);
+}
+
+BOOL CToolTip::UpdateFontForDPI(UINT dpi)
+{
+    if (dpi == 0)
+        dpi = USER_DEFAULT_SCREEN_DPI;
+    if (WindowFont != NULL && WindowDPI == dpi)
+        return TRUE;
+
+    NONCLIENTMETRICS metrics;
+    if (!WinLibDPIGetNonClientMetricsForDPI(dpi, &metrics))
+        return FALSE;
+
+    LOGFONT lf = metrics.lfStatusFont;
+    if (lf.lfHeight != 0)
+    {
+        int height = abs(lf.lfHeight);
+        int expectedHeight = MulDiv(12, (int)dpi, USER_DEFAULT_SCREEN_DPI);
+        if (height < expectedHeight - 1 || height > expectedHeight + 2)
+            lf.lfHeight = lf.lfHeight < 0 ? -expectedHeight : expectedHeight;
+    }
+
+    HFONT font = HANDLES(CreateFontIndirect(&lf));
+    if (font == NULL)
+        return FALSE;
+    if (WindowFont != NULL)
+        HANDLES(DeleteObject(WindowFont));
+    WindowFont = font;
+    WindowDPI = dpi;
+    return TRUE;
+}
+
+BOOL CToolTip::UpdateFontForWindow(HWND hWindow)
+{
+    return UpdateFontForDPI(WinLibDPIGetWindowDPI(hWindow));
 }
 
 BOOL CToolTip::Show(int x, int y, BOOL considerCursor, BOOL modal, HWND hParent)
@@ -337,6 +380,8 @@ BOOL CToolTip::Show(int x, int y, BOOL considerCursor, BOOL modal, HWND hParent)
 
     if (GetText())
     {
+        UpdateFontForWindow(hParent);
+
         // merime text
         SIZE sz;
         GetNeededWindowSize(&sz);
@@ -611,11 +656,39 @@ CToolTip::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         lParam);
     switch (uMsg)
     {
+    case WM_DPICHANGED:
+    {
+        UINT dpi = HIWORD(wParam);
+        UpdateFontForDPI(dpi);
+        SIZE sz;
+        GetNeededWindowSize(&sz);
+        int x = 0;
+        int y = 0;
+        if (lParam != 0)
+        {
+            const RECT* suggested = (const RECT*)lParam;
+            x = suggested->left;
+            y = suggested->top;
+        }
+        else
+        {
+            RECT r;
+            GetWindowRect(HWindow, &r);
+            x = r.left;
+            y = r.top;
+        }
+        SetWindowPos(HWindow, NULL, x, y, sz.cx, sz.cy,
+                     SWP_NOACTIVATE | SWP_NOZORDER);
+        InvalidateRect(HWindow, NULL, TRUE);
+        return 0;
+    }
+
     case WM_USER_REFRESHTOOLTIP:
     {
         // musime zachovat stavajici okenko -- pouze ho natahnem pro novy text
         if (GetText())
         {
+            UpdateFontForWindow(HNotifyWindow);
             SIZE sz;
             GetNeededWindowSize(&sz); // kaslem na osetreni vylezeni z obrazovky
             SetWindowPos(HWindow, NULL, 0, 0, sz.cx, sz.cy, SWP_NOACTIVATE | SWP_NOMOVE);
@@ -632,11 +705,13 @@ CToolTip::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RECT r;
         GetClientRect(HWindow, &r);
         FillRect(hDC, &r, (HBRUSH)(COLOR_INFOBK + 1));
-        HFONT hOldFont = (HFONT)SelectObject(hDC, TooltipFont);
+        HFONT hOldFont = (HFONT)SelectObject(
+            hDC, WindowFont != NULL ? WindowFont : TooltipFont);
         COLORREF oldTextColor = SetTextColor(hDC, GetSysColor(COLOR_INFOTEXT));
         int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-        r.left += 2;
-        r.top += 1;
+        UINT dpi = WindowDPI != 0 ? WindowDPI : USER_DEFAULT_SCREEN_DPI;
+        r.left += MulDiv(2, (int)dpi, USER_DEFAULT_SCREEN_DPI);
+        r.top += MulDiv(1, (int)dpi, USER_DEFAULT_SCREEN_DPI);
         DrawText(hDC, Text, TextLen, &r, DT_LEFT | DT_NOPREFIX | DT_NOCLIP | DT_EXPANDTABS);
         SetBkMode(hDC, oldBkMode);
         SetTextColor(hDC, oldTextColor);

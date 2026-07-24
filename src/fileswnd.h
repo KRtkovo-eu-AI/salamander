@@ -834,6 +834,7 @@ public:
         CIconList* Source;
         int SourceIndex;
         int PixelSize;
+        LONG SourceVersion;
         CIconList* Copy;
     };
     std::vector<CDPIIconListEntry> WindowDPIIconLists;
