@@ -18,6 +18,6 @@
              Importance="High" />
     <MSBuild Projects="$(MSBuildProjectFullPath)"
              Targets="Restore"
-             Properties="RestoreDuringBuild=true" />
+             Properties="RestoreDuringBuild=true;RestoreFallbackFolders=$(RestoreFallbackFolders)" />
   </Target>
 </Project>
