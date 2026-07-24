@@ -232,3 +232,7 @@ out/
 /.localbuild/salamander/Release_x64
 
 src/plugins/hypervm/help/hypervm.chm
+
+# .NET build outputs
+/src/plugins/**/managed*/bin/
+/src/plugins/**/managed*/obj/
