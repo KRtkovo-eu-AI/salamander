@@ -368,6 +368,7 @@ CMainWindow::CMainWindow()
     WindowPosSizeUpdatePending = FALSE;
     LayoutWindowsInProgress = FALSE;
     DetachedDPIRefreshInProgress = FALSE;
+    DetachedDPIRefreshPosted = FALSE;
     //  DrivesControlHWnd = NULL;
     HDisabledKeyboard = NULL;
     CmdShow = SW_SHOWNORMAL;
@@ -2056,6 +2057,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
         DETACHED_CHROME_FAIL();
     if (DetachedMenuBar->HWindow == NULL && !DetachedMenuBar->CreateWnd(HDetachedTopRebar))
         DETACHED_CHROME_FAIL();
+    DetachedMenuBar->SetFont();
     if ((int)SendMessage(HDetachedTopRebar, RB_IDTOINDEX, BANDID_MENU, 0) == -1)
         InsertDetachedBand(HDetachedTopRebar, DetachedMenuBar->HWindow, BANDID_MENU,
                            Configuration.MenuIndex, Configuration.MenuWidth,
@@ -2775,9 +2777,9 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
             if (tabPanel != NULL && tabPanel->HWindow != NULL)
             {
                 SetParent(tabPanel->HWindow, HRightDetachedWindow);
-                int hostDPI = (int)WinLibDPIGetWindowDPI(HRightDetachedWindow);
-                if (tabPanel->GetWindowDPI() != hostDPI)
-                    SendMessage(tabPanel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
+                // Rebind per-host image lists even if both hosts happen to use
+                // the same numeric DPI.
+                SendMessage(tabPanel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
             }
         }
 
@@ -2830,9 +2832,10 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
             if (tabPanel != NULL && tabPanel->HWindow != NULL)
             {
                 SetParent(tabPanel->HWindow, HWindow);
-                int hostDPI = (int)WinLibDPIGetWindowDPI(HWindow);
-                if (tabPanel->GetWindowDPI() != hostDPI)
-                    SendMessage(tabPanel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
+                // The directory/status toolbars must stop referencing private
+                // detached image lists before DestroyDetachedChrome destroys
+                // them, even on a same-DPI reattach.
+                SendMessage(tabPanel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
             }
         }
 
@@ -2858,6 +2861,12 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         DestroyDetachedChrome();
         if (HRightDetachedWindow != NULL)
             ShowWindow(HRightDetachedWindow, SW_HIDE);
+        // The detached menu used a different DPI and shared menu item metrics.
+        // Re-measure the main menu before the rebar negotiates its bands again;
+        // otherwise the old cxMinChild clips item captions on their right edge.
+        if (MenuBar != NULL)
+            MenuBar->SetFont();
+        UpdateRebarVisuals();
         RebuildPanelTabs(cpsLeft);
         RebuildPanelTabs(cpsRight);
         RefreshPanelTabLayout();
@@ -3032,6 +3041,7 @@ BOOL CMainWindow::ConfirmDetachedWindowClose(HWND hWndDetached, BOOL* closeSalam
 
 LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+#define WM_USER_REFRESH_DETACHED_DPI (WM_APP + 0x3C2)
     LONG_PTR data = GetWindowLongPtr(hWnd, GWLP_USERDATA);
     CMainWindow* mainWindow = (CMainWindow*)(data & ~(LONG_PTR)1);
     CPanelSide side = (data & 1) ? cpsRight : cpsLeft;
@@ -3045,11 +3055,6 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         {
         case WM_DPICHANGED:
         {
-            if (mainWindow->DetachedDPIRefreshInProgress)
-                return 0;
-
-            mainWindow->DetachedDPIRefreshInProgress = TRUE;
-            int dpi = LOWORD(wParam);
             if (lParam != 0)
             {
                 const RECT* suggested = (const RECT*)lParam;
@@ -3059,27 +3064,47 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
                              SWP_NOACTIVATE | SWP_NOZORDER);
             }
 
-            if (side == cpsRight)
+            // Do not destroy controls/image lists while PMv2 is walking the
+            // child hierarchy. Rebuild once, after all AFTERPARENT messages.
+            if (side == cpsRight && !mainWindow->DetachedDPIRefreshPosted)
             {
-                // Chrome owns native pixel resources (toolbar strips, fonts,
-                // rebar band heights). Recreate only this window's copies;
-                // never call SetSystemDPI here, because the main window can be
-                // visible on a different monitor at the same time.
-                mainWindow->DestroyDetachedChrome();
-                mainWindow->RebuildDetachedToolbarImageLists(dpi);
-                mainWindow->EnsureDetachedChrome();
-
-                if (mainWindow->RightPanel != NULL &&
-                    mainWindow->RightPanel->GetWindowDPI() != dpi)
-                {
-                    SendMessage(mainWindow->RightPanel->HWindow,
-                                WM_DPICHANGED_AFTERPARENT, 0, 0);
-                }
-                mainWindow->LayoutDetachedPanels();
-                RedrawWindow(hWnd, NULL, NULL,
-                             RDW_INVALIDATE | RDW_ERASE | RDW_FRAME |
-                                 RDW_ALLCHILDREN | RDW_UPDATENOW);
+                mainWindow->DetachedDPIRefreshPosted = TRUE;
+                PostMessage(hWnd, WM_USER_REFRESH_DETACHED_DPI, 0, 0);
             }
+            return 0;
+        }
+
+        case WM_USER_REFRESH_DETACHED_DPI:
+        {
+            mainWindow->DetachedDPIRefreshPosted = FALSE;
+            if (side != cpsRight || mainWindow->DetachedDPIRefreshInProgress)
+                return 0;
+
+            mainWindow->DetachedDPIRefreshInProgress = TRUE;
+            int dpi = (int)WinLibDPIGetWindowDPI(hWnd);
+
+            // Chrome owns native pixel resources (toolbar strips, fonts and
+            // rebar band heights). Recreate only this top-level's copies.
+            mainWindow->DestroyDetachedChrome();
+            mainWindow->RebuildDetachedToolbarImageLists(dpi);
+            mainWindow->EnsureDetachedChrome();
+
+            if (mainWindow->RightTabWindow != NULL &&
+                mainWindow->RightTabWindow->HWindow != NULL)
+            {
+                mainWindow->RightTabWindow->RefreshDPIResources();
+            }
+            for (int i = 0; i < mainWindow->RightPanelTabs.Count; ++i)
+            {
+                CFilesWindow* panel = mainWindow->RightPanelTabs[i];
+                if (panel != NULL && panel->HWindow != NULL)
+                    SendMessage(panel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
+            }
+
+            mainWindow->LayoutDetachedPanels();
+            RedrawWindow(hWnd, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_FRAME |
+                             RDW_ALLCHILDREN | RDW_UPDATENOW);
             mainWindow->DetachedDPIRefreshInProgress = FALSE;
             return 0;
         }
@@ -3225,6 +3250,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
     }
 
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
+#undef WM_USER_REFRESH_DETACHED_DPI
 }
 
 void CMainWindow::AddTrayIcon(BOOL updateIcon)

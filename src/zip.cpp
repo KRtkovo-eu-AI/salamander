@@ -752,7 +752,11 @@ HWND CSalamanderGeneral::GetMsgBoxParent()
     if (MainThreadID != GetCurrentThreadId()) // Petr: just close; I do not have the energy to track down every wrong call
         TRACE_E("You can call CSalamanderGeneral::GetMsgBoxParent() only from main thread!");
     // if the following code should change, it must also be updated in EnterPlugin - so the check keeps working
-    return PluginProgressDialog != NULL ? PluginProgressDialog : PluginMsgBoxParent;
+    if (PluginProgressDialog != NULL)
+        return PluginProgressDialog;
+    if (MainWindow != NULL)
+        return MainWindow->GetDetachedAwareDialogParent(PluginMsgBoxParent);
+    return PluginMsgBoxParent;
 }
 
 int DialogError(HWND parent, DWORD flags, const char* fileName,

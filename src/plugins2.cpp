@@ -14,6 +14,7 @@
 #include "zip.h"
 #include "pack.h"
 #include "dialogs.h"
+#include "common/winlibdpi.h"
 
 // header for saving a DIB to the registry
 
@@ -991,9 +992,11 @@ BOOL CPlugins::HelpForMenuItem(HWND parent, int suid)
 }
 
 HIMAGELIST
-CPlugins::CreateIconsList(BOOL gray)
+CPlugins::CreateIconsList(BOOL gray, HWND dpiWindow)
 {
-    int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+    int iconSize = dpiWindow != NULL
+                       ? MulDiv(16, (int)WinLibDPIGetWindowDPI(dpiWindow), USER_DEFAULT_SCREEN_DPI)
+                       : GetIconSizeForSystemDPI(ICONSIZE_16);
     HIMAGELIST hIL = ImageList_Create(iconSize, iconSize, GetImageListColorFlags() | ILC_MASK, 0, 1);
     if (hIL != NULL)
     {

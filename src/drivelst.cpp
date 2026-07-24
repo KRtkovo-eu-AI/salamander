@@ -15,6 +15,7 @@
 #include "shellib.h"
 #include "toolbar.h"
 #include "shiconov.h"
+#include "common/winlibdpi.h"
 
 CNBWNetAC3Thread NBWNetAC3Thread;
 
@@ -2870,7 +2871,11 @@ BOOL IncludeDriveInDriveBar(CDriveTypeEnum dt)
 BOOL CDrivesList::FillDriveBar(CDriveBar* driveBar, BOOL bar2)
 {
     driveBar->DestroyImageLists();
-    int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+    HWND dpiWindow = driveBar->GetHWND();
+    int iconSize = dpiWindow != NULL
+                       ? MulDiv(16, (int)WinLibDPIGetWindowDPI(dpiWindow),
+                                USER_DEFAULT_SCREEN_DPI)
+                       : GetIconSizeForSystemDPI(ICONSIZE_16);
     driveBar->HDrivesIcons = ImageList_Create(iconSize, iconSize, GetImageListColorFlags() | ILC_MASK, 0, 1);
     driveBar->HDrivesIconsGray = ImageList_Create(iconSize, iconSize, GetImageListColorFlags() | ILC_MASK, 0, 1);
 

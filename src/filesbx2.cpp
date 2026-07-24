@@ -14,6 +14,7 @@
 #include "shellib.h"
 #include "snooper.h"
 #include "darkmode.h"
+#include "common/winlibdpi.h"
 
 static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
 {
@@ -50,7 +51,7 @@ void CBottomBar::LayoutChilds()
         GetClientRect(HWindow, &cR);
 
         if (VertScrollSpace)
-            cR.right -= GetSystemMetrics(SM_CXVSCROLL);
+            cR.right -= WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
         SetWindowPos(HScrollBar, NULL, 0, 0, cR.right, cR.bottom, SWP_NOZORDER | SWP_NOACTIVATE);
     }
 }
@@ -67,7 +68,7 @@ CBottomBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
       {
         RECT r;
         GetClientRect(HWindow, &r);
-        r.left = r.right - GetSystemMetrics(SM_CXVSCROLL);
+        r.left = r.right - WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
         FillRect((HDC)wParam, &r, DialogBrush);
       }
       return TRUE;

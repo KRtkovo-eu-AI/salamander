@@ -65,6 +65,7 @@ protected:
     LONG RebarHeight; // height of the rebar plus the gap below it
     CComboBox* ComboBox;
     HWND HToolbar;
+    HIMAGELIST HToolbarImages;
     CIntIndexes LinesToChanges;
     CIntIndexes ChangesToLines[2]; // fvmStandard, fvmOnlyDifferences
     CIntIndexes ChangesLengths;
@@ -114,6 +115,8 @@ public:
     void ResetComboBox(BOOL* cancel = NULL);
     void SaveRebarLayout();
     void RestoreRebarLayout();
+    BOOL RebuildToolbarImages();
+    void UpdateRebarDpiMetrics();
     //void UpdateSelection();
     void SpawnWorker(const char* path1, const char* path2, BOOL recompare,
                      const CCompareOptions& options);

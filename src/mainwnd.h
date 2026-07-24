@@ -438,6 +438,7 @@ public:
     BOOL WindowPosSizeUpdatePending; // TRUE when WM_WINDOWPOSCHANGED posted a deferred WM_SIZE
     BOOL LayoutWindowsInProgress; // blocks synchronous rebar/layout notification recursion
     BOOL DetachedDPIRefreshInProgress;
+    BOOL DetachedDPIRefreshPosted;
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;
@@ -907,9 +908,21 @@ public:
     HWND GetRightDetachedWindowHWND() const { return HRightDetachedWindow; }
     HWND GetDetachedAwareDialogParent(HWND parent)
     {
-        if (parent == HWindow && DetachedPanels && GetActivePanel() == RightPanel &&
+        if (parent == HWindow && DetachedPanels &&
             HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
-            return HRightDetachedWindow;
+        {
+            // The active panel is shared process state and can change while a
+            // menu command is being forwarded. Prefer the top-level window
+            // from which the user actually invoked the command.
+            HWND foreground = GetForegroundWindow();
+            HWND root = foreground != NULL ? GetAncestor(foreground, GA_ROOT) : NULL;
+            if (root == HRightDetachedWindow)
+                return HRightDetachedWindow;
+            if (root == HWindow)
+                return HWindow;
+            if (GetActivePanel() == RightPanel)
+                return HRightDetachedWindow;
+        }
         return parent;
     }
 

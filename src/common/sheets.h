@@ -103,6 +103,8 @@ protected:
 
     TDirectArray<CPageHorizontalLayoutCtrl>* HorizontalLayoutCtrls;
     int HorizontalLayoutWidth;
+    BOOL DPIChangeInProgress;
+    BOOL DPILayoutPosted;
     void InitHorizontalLayout();
     void ApplyHorizontalLayout();
 
@@ -168,6 +170,7 @@ public:
     ~CTPHCaptionWindow();
 
     void SetText(const TCHAR* text);
+    HWND GetHWND() const { return HWindow; }
 
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -215,9 +218,21 @@ protected:
     SIZE GripSize;       // rozmery resize gripu v pravem spodnim rohu dialogu
     SIZE MarginSize;     // vodorovny a svisly okraj
     int CurrentDPI;
+    SIZE LogicalMinWindowSize;
+    int LogicalTreeWidth;
+    int LogicalMinTreeWidth;
+    int LogicalMinChildWidth;
+    int LogicalCaptionHeight;
+    SIZE LogicalButtonSize;
+    int LogicalButtonMargin;
+    SIZE LogicalMarginSize;
+    BOOL DPIChangeInProgress;
+    BOOL DPILayoutPosted;
+    HFONT TreeFont;
 
 public:
     CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth, int defaultWidthExtra = 0);
+    ~CTreePropHolderDlg();
 
     int ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate);
 
@@ -230,6 +245,9 @@ protected:
     void EnableButtons();
     BOOL SelectPage(int pageIndex);
     void SaveWindowPlacement();
+    void CaptureLogicalDpiMetrics();
+    void ApplyLogicalDpiMetrics(int dpi);
+    void UpdateTreeFontAndMetrics();
 
     friend class CTreePropDialog;
 };
