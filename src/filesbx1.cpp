@@ -14,6 +14,7 @@
 #include "shellib.h"
 #include "snooper.h"
 #include "darkmode.h"
+#include "common/winlibdpi.h"
 
 const char* CFILESBOX_CLASSNAME = "SalamanderItemsBox";
 
@@ -2488,7 +2489,7 @@ void CFilesBox::LayoutChilds(BOOL updateAndCheck)
 
         if (HHScrollBar != NULL)
         {
-            int scrollH = GetSystemMetrics(SM_CYHSCROLL);
+            int scrollH = WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL);
 
             // place the horizontal scrollbar
             BottomBarRect.left = 0;
@@ -2504,7 +2505,7 @@ void CFilesBox::LayoutChilds(BOOL updateAndCheck)
         // place the vertical scrollbar
         if (HVScrollBar != NULL)
         {
-            int scrollW = GetSystemMetrics(SM_CXVSCROLL);
+            int scrollW = WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
             VScrollRect.left = FilesRect.right - scrollW;
             VScrollRect.top = 0;
             VScrollRect.right = FilesRect.right;
@@ -2518,7 +2519,8 @@ void CFilesBox::LayoutChilds(BOOL updateAndCheck)
         if (HeaderLine.HWindow != NULL)
         {
             HeaderRect = FilesRect;
-            HeaderRect.bottom = HeaderRect.top + Parent->GetPanelFontHeight() + 4;
+            HeaderRect.bottom = HeaderRect.top + Parent->GetPanelFontHeight() +
+                                WinLibDPIFromLogical(HWindow, 4);
             FilesRect.top = HeaderRect.bottom;
             deferCount++;
         }

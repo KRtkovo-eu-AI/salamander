@@ -15,6 +15,7 @@ extern "C"
 #include "shexreg.h"
 }
 #include "salshlib.h"
+#include "common/winlibdpi.h"
 
 //****************************************************************************
 //
@@ -589,7 +590,8 @@ int CUserMenuBar::GetNeededHeight()
     CALL_STACK_MESSAGE_NONE
     // i v pripade, ze nedrzime zadnou ikonu budeem vracet spravnou vysku
     int height = CToolBar::GetNeededHeight();
-    int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+    int iconSize = MulDiv(16, (int)WinLibDPIGetWindowDPI(HWindow),
+                          USER_DEFAULT_SCREEN_DPI);
     int minH = 3 + iconSize + 3;
     if (height < minH)
         height = minH;

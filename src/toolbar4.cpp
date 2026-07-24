@@ -10,6 +10,7 @@
 #include "cfgdlg.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "common/winlibdpi.h"
 
 #include "nanosvg\nanosvg.h"
 #include "nanosvg\nanosvgrast.h"
@@ -1485,7 +1486,10 @@ BOOL CBottomToolBar::SetMaxItemWidths()
             if (r.right > maxWidth)
                 maxWidth = (WORD)r.right;
         }
-        maxWidth = 3 + BOTTOMBAR_CX + 1 + maxWidth + 3;
+        const int dpi = WinLibDPIGetWindowDPI(HWindow);
+        const int imageWidth = ImageWidth > 0 ? ImageWidth : MulDiv(BOTTOMBAR_CX, dpi, 96);
+        maxWidth = MulDiv(3, dpi, 96) + imageWidth + MulDiv(1, dpi, 96) +
+                   maxWidth + MulDiv(3, dpi, 96);
         TLBI_ITEM_INFO2 tii;
         tii.Mask = TLBI_MASK_WIDTH;
         tii.Width = maxWidth;

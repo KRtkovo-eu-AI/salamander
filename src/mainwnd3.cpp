@@ -5528,7 +5528,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_HELP_ABOUT:
         {
-            CAboutDialog dlg(HWindow);
+            CAboutDialog dlg(GetDetachedAwareDialogParent(HWindow));
             dlg.Execute();
             return 0;
         }

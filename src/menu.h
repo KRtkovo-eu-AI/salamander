@@ -477,6 +477,9 @@ protected:
     int Height;
     HFONT HFont;
     int FontHeight;
+    int HorizontalMargin;
+    int VerticalMargin;
+    TDirectArray<int> ItemMinWidths; // per menu-bar instance; main and detached can use different DPI
     int HotIndex;       // polozka, ktera je bud vysunuta nebo zamackla (zadna = -1)
     HWND HNotifyWindow; // kam budeme dorucovat notifikace
     BOOL MenuLoop;      // jsou rozbalovana submenu
@@ -536,6 +539,7 @@ protected:
     void DrawItem(HDC hDC, int index, int x);
     void DrawAllItems(HDC hDC);
     void RefreshMinWidths(); // obehne vsechny polozky a napocit si k nim 'MinWidth'
+    int GetItemMinWidth(int index);
 
     void TrackHotIndex();                                                  // zamackne HotIndex a zavola TrackPopup; vrati se po jeho zavreni
     void EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse); // byMouse rika, zda jde o otevreni pres mys nebo klavesnici

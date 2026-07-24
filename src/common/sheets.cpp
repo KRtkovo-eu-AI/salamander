@@ -420,6 +420,8 @@ void CPropSheetPage::Init(const TCHAR* title, HINSTANCE modul, int resID,
     ElasticLayout = NULL;
     HorizontalLayoutCtrls = NULL;
     HorizontalLayoutWidth = 0;
+    DPIChangeInProgress = FALSE;
+    DPILayoutPosted = FALSE;
 }
 
 CPropSheetPage::~CPropSheetPage()
@@ -836,18 +838,42 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
-        ApplyHorizontalLayout();
-        if (ElasticLayout != NULL)
-            ElasticLayout->LayoutCtrls();
-        DockOverlappingEditButtons(HWindow);
+        // PMv2 sends WM_SIZE while it is still scaling the page's direct
+        // children. Running our anchor layout in the middle of that cascade
+        // makes the currently visible page get scaled twice.
+        if (!DPIChangeInProgress)
+        {
+            ApplyHorizontalLayout();
+            if (ElasticLayout != NULL)
+                ElasticLayout->LayoutCtrls();
+            DockOverlappingEditButtons(HWindow);
+        }
+        break;
+    }
+
+    case WM_DPICHANGED_BEFOREPARENT:
+    {
+        DPIChangeInProgress = TRUE;
         break;
     }
 
     case WM_DPICHANGED_AFTERPARENT:
     {
-        // The PMv2 dialog manager has already scaled the page and its direct
-        // controls. Reapply only Salamander's anchor/elastic rules, whose
-        // baselines are stored in 96-DPI logical units.
+        // Queue exactly one layout after the complete PMv2 child cascade. The
+        // baselines are stored in 96-DPI logical units, so this also restores
+        // exact positions after any intermediate dialog-manager rounding.
+        if (!DPILayoutPosted)
+        {
+            DPILayoutPosted = TRUE;
+            PostMessage(HWindow, WM_APP + 0x3A8, 0, 0);
+        }
+        break;
+    }
+
+    case WM_APP + 0x3A8:
+    {
+        DPIChangeInProgress = FALSE;
+        DPILayoutPosted = FALSE;
         ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
@@ -1117,6 +1143,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_IDC_RECT 4
 #define _TPD_IDC_OK 5
 #define _TPD_WM_POST_INIT_REDRAW (WM_APP + 0x3A7)
+#define _TPD_WM_POST_DPI_LAYOUT (WM_APP + 0x3A8)
 // dimensions in dialog units
 #define _TPD_LEFTMARGIN 4  // TreeView and caption left margin
 #define _TPD_TOPMARGIN 4   // TreeView and caption top margin
@@ -1230,13 +1257,10 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             int oldBkMode = SetBkMode(hdc, TRANSPARENT);
 
-            HFONT hFont = NULL;
             HFONT hOldFont = NULL;
-            LOGFONT srcLF;
-            HFONT hSrcFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
-            GetObject(hSrcFont, sizeof(srcLF), &srcLF);
-            srcLF.lfHeight = (int)(srcLF.lfHeight * 1.2);
-            hFont = CreateFontIndirect(&srcLF);
+            HFONT hFont = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
+            if (hFont == NULL)
+                hFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
             hOldFont = (HFONT)SelectObject(hdc, hFont);
 
             COLORREF textColor;
@@ -1253,8 +1277,6 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SelectObject(hdc, hOldFont);
             SetBkMode(hdc, oldBkMode);
 
-            if (hFont != NULL)
-                DeleteObject(hFont);
         }
         EndPaint(HWindow, &ps);
         break;
@@ -1300,6 +1322,26 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD*
     TreeSplitDragging = FALSE;
     TreeWidthChanged = FALSE;
     CurrentDPI = USER_DEFAULT_SCREEN_DPI;
+    LogicalMinWindowSize.cx = 0;
+    LogicalMinWindowSize.cy = 0;
+    LogicalTreeWidth = 0;
+    LogicalMinTreeWidth = 0;
+    LogicalMinChildWidth = 0;
+    LogicalCaptionHeight = 0;
+    LogicalButtonSize.cx = 0;
+    LogicalButtonSize.cy = 0;
+    LogicalButtonMargin = 0;
+    LogicalMarginSize.cx = 0;
+    LogicalMarginSize.cy = 0;
+    DPIChangeInProgress = FALSE;
+    DPILayoutPosted = FALSE;
+    TreeFont = NULL;
+}
+
+CTreePropHolderDlg::~CTreePropHolderDlg()
+{
+    if (TreeFont != NULL)
+        HANDLES(DeleteObject(TreeFont));
 }
 
 INT_PTR
@@ -1328,6 +1370,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DestroyWindow(hwnd);
         HTreeView = GetDlgItem(HWindow, _TPD_IDC_TREE);
         SetWindowSubclass(HTreeView, TreeViewRedrawSubclassProc, TREE_PROP_TREE_REDRAW_SUBCLASS_ID, 0);
+        UpdateTreeFontAndMetrics();
         BOOL appIsThemed = IsAppThemed();
         ApplyTreeViewColors(HTreeView);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
@@ -1361,6 +1404,8 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CaptionWindow = new CTPHCaptionWindow(HWindow, _TPD_IDC_CAPTION);
         if (CaptionWindow == NULL)
             TRACE_ET(_T("Low memory!"));
+        else if (TreeFont != NULL)
+            SendMessage(CaptionWindow->GetHWND(), WM_SETFONT, (WPARAM)TreeFont, TRUE);
         MinTreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 +
                        WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
         TreeWidth = MinTreeWidth;
@@ -1393,6 +1438,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                            ChildDialogRect.bottom - ChildDialogRect.top +
                            MarginSize.cy + 1 + MarginSize.cy +
                            ButtonSize.cy + MarginSize.cy + marginH;
+        CaptureLogicalDpiMetrics();
 
         // nastavime uzivatelsky rozmer okna a provedeme layout prvku
         BOOL useDefaultWidthExtra = WindowWidth != NULL && *WindowWidth == 0;
@@ -1427,21 +1473,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case _TPD_WM_POST_INIT_REDRAW:
     {
-        HFONT dialogFont = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
-        if (HTreeView != NULL && dialogFont != NULL)
-        {
-            SendMessage(HTreeView, WM_SETFONT, (WPARAM)dialogFont, TRUE);
-            HDC dc = HANDLES(GetDC(HTreeView));
-            if (dc != NULL)
-            {
-                TEXTMETRIC tm;
-                HFONT oldFont = (HFONT)SelectObject(dc, dialogFont);
-                if (GetTextMetrics(dc, &tm))
-                    TreeView_SetItemHeight(HTreeView, tm.tmHeight + MulDiv(4, CurrentDPI, USER_DEFAULT_SCREEN_DPI));
-                SelectObject(dc, oldFont);
-                HANDLES(ReleaseDC(HTreeView, dc));
-            }
-        }
+        UpdateTreeFontAndMetrics();
         ApplyTreeViewColors(HTreeView);
         LayoutControls();
         if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
@@ -1458,31 +1490,31 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         int newDPI = LOWORD(wParam);
         if (newDPI > 0 && CurrentDPI > 0 && newDPI != CurrentDPI)
         {
-#define SCALE_TPD_VALUE(value) value = MulDiv(value, newDPI, CurrentDPI)
-            SCALE_TPD_VALUE(MinWindowSize.cx);
-            SCALE_TPD_VALUE(MinWindowSize.cy);
-            SCALE_TPD_VALUE(TreeWidth);
-            SCALE_TPD_VALUE(MinTreeWidth);
-            SCALE_TPD_VALUE(MinChildWidth);
-            SCALE_TPD_VALUE(CaptionHeight);
-            SCALE_TPD_VALUE(ButtonSize.cx);
-            SCALE_TPD_VALUE(ButtonSize.cy);
-            SCALE_TPD_VALUE(ButtonMargin);
-            SCALE_TPD_VALUE(GripSize.cx);
-            SCALE_TPD_VALUE(GripSize.cy);
-            SCALE_TPD_VALUE(MarginSize.cx);
-            SCALE_TPD_VALUE(MarginSize.cy);
-            SCALE_TPD_VALUE(ChildDialogRect.left);
-            SCALE_TPD_VALUE(ChildDialogRect.top);
-            SCALE_TPD_VALUE(ChildDialogRect.right);
-            SCALE_TPD_VALUE(ChildDialogRect.bottom);
-#undef SCALE_TPD_VALUE
+            DPIChangeInProgress = TRUE;
+            ApplyLogicalDpiMetrics(newDPI);
             CurrentDPI = newDPI;
-            PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+            if (!DPILayoutPosted)
+            {
+                DPILayoutPosted = TRUE;
+                PostMessage(HWindow, _TPD_WM_POST_DPI_LAYOUT, 0, 0);
+            }
         }
         // Return through CDialog so DefDlgProc can perform the PMv2 dialog and
         // child-control scaling exactly once.
         break;
+    }
+
+    case _TPD_WM_POST_DPI_LAYOUT:
+    {
+        DPIChangeInProgress = FALSE;
+        DPILayoutPosted = FALSE;
+        UpdateTreeFontAndMetrics();
+        ApplyTreeViewColors(HTreeView);
+        LayoutControls();
+        if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
+            RepaintWindowTree(ChildDialog->HWindow);
+        RepaintWindowTree(HWindow);
+        return TRUE;
     }
 
     case WM_HELP:
@@ -1639,8 +1671,11 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetWindowRect(HWindow, &r);
         PendingWindowHeight = r.bottom - r.top;
         PendingWindowWidth = r.right - r.left;
-        LayoutControls();
-        RepaintWindowTree(HWindow);
+        if (!DPIChangeInProgress)
+        {
+            LayoutControls();
+            RepaintWindowTree(HWindow);
+        }
         break;
     }
 
@@ -1688,6 +1723,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (newTreeWidth != TreeWidth)
             {
                 TreeWidth = newTreeWidth;
+                LogicalTreeWidth = WinLibDPIToLogical(HWindow, TreeWidth);
                 TreeWidthChanged = TRUE;
                 LayoutControls();
             }
@@ -1719,6 +1755,70 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);
+}
+
+void CTreePropHolderDlg::CaptureLogicalDpiMetrics()
+{
+    LogicalMinWindowSize.cx = WinLibDPIToLogical(HWindow, MinWindowSize.cx);
+    LogicalMinWindowSize.cy = WinLibDPIToLogical(HWindow, MinWindowSize.cy);
+    LogicalTreeWidth = WinLibDPIToLogical(HWindow, TreeWidth);
+    LogicalMinTreeWidth = WinLibDPIToLogical(HWindow, MinTreeWidth);
+    LogicalMinChildWidth = WinLibDPIToLogical(HWindow, MinChildWidth);
+    LogicalCaptionHeight = WinLibDPIToLogical(HWindow, CaptionHeight);
+    LogicalButtonSize.cx = WinLibDPIToLogical(HWindow, ButtonSize.cx);
+    LogicalButtonSize.cy = WinLibDPIToLogical(HWindow, ButtonSize.cy);
+    LogicalButtonMargin = WinLibDPIToLogical(HWindow, ButtonMargin);
+    LogicalMarginSize.cx = WinLibDPIToLogical(HWindow, MarginSize.cx);
+    LogicalMarginSize.cy = WinLibDPIToLogical(HWindow, MarginSize.cy);
+}
+
+void CTreePropHolderDlg::ApplyLogicalDpiMetrics(int dpi)
+{
+#define TPD_FROM_LOGICAL(value) MulDiv(value, dpi, USER_DEFAULT_SCREEN_DPI)
+    MinWindowSize.cx = TPD_FROM_LOGICAL(LogicalMinWindowSize.cx);
+    MinWindowSize.cy = TPD_FROM_LOGICAL(LogicalMinWindowSize.cy);
+    TreeWidth = TPD_FROM_LOGICAL(LogicalTreeWidth);
+    MinTreeWidth = TPD_FROM_LOGICAL(LogicalMinTreeWidth);
+    MinChildWidth = TPD_FROM_LOGICAL(LogicalMinChildWidth);
+    CaptionHeight = TPD_FROM_LOGICAL(LogicalCaptionHeight);
+    ButtonSize.cx = TPD_FROM_LOGICAL(LogicalButtonSize.cx);
+    ButtonSize.cy = TPD_FROM_LOGICAL(LogicalButtonSize.cy);
+    ButtonMargin = TPD_FROM_LOGICAL(LogicalButtonMargin);
+    MarginSize.cx = TPD_FROM_LOGICAL(LogicalMarginSize.cx);
+    MarginSize.cy = TPD_FROM_LOGICAL(LogicalMarginSize.cy);
+#undef TPD_FROM_LOGICAL
+}
+
+void CTreePropHolderDlg::UpdateTreeFontAndMetrics()
+{
+    if (HTreeView == NULL)
+        return;
+
+    HFONT newFont = WinLibDPICreateMessageFont(HWindow);
+    if (newFont != NULL)
+    {
+        HFONT oldFont = TreeFont;
+        TreeFont = newFont;
+        SendMessage(HTreeView, WM_SETFONT, (WPARAM)TreeFont, TRUE);
+        if (CaptionWindow != NULL)
+            SendMessage(CaptionWindow->GetHWND(), WM_SETFONT, (WPARAM)TreeFont, TRUE);
+        if (oldFont != NULL)
+            HANDLES(DeleteObject(oldFont));
+    }
+
+    if (TreeFont != NULL)
+    {
+        HDC dc = HANDLES(GetDC(HTreeView));
+        if (dc != NULL)
+        {
+            TEXTMETRIC tm;
+            HFONT oldFont = (HFONT)SelectObject(dc, TreeFont);
+            if (GetTextMetrics(dc, &tm))
+                TreeView_SetItemHeight(HTreeView, tm.tmHeight + MulDiv(4, CurrentDPI, USER_DEFAULT_SCREEN_DPI));
+            SelectObject(dc, oldFont);
+            HANDLES(ReleaseDC(HTreeView, dc));
+        }
+    }
 }
 
 void CTreePropHolderDlg::LayoutControls()

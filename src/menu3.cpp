@@ -7,6 +7,7 @@
 #include "gui.h"
 #include "bitmap.h"
 #include "menu.h"
+#include "mainwnd.h"
 #include "darkmode.h"
 #include "common/winlibdpi.h"
 
@@ -166,7 +167,10 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
     }
 
     // generate a copy and a bold version from the menu font
-    int dpi = (int)WinLibDPIGetWindowDPI(HParent);
+    HWND dpiWindow = HParent;
+    if (MainWindow != NULL)
+        dpiWindow = MainWindow->GetDetachedAwareDialogParent(HParent);
+    int dpi = (int)WinLibDPIGetWindowDPI(dpiWindow);
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
     SystemParametersInfoForPopupMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);

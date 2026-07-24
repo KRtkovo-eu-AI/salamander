@@ -76,6 +76,7 @@ CMainWindow::CMainWindow(char* path1, char* path2, CCompareOptions* options, UIN
     OutOfRange = FALSE; // Used only in binary/hex view
     ShowCmd = showCmd;
     bOptionsChangedBeingHandled = FALSE;
+    HToolbarImages = NULL;
 }
 
 CMainWindow::~CMainWindow()
@@ -84,6 +85,11 @@ CMainWindow::~CMainWindow()
     DataValid = FALSE;
     if (WorkerEvent)
         CloseHandle(WorkerEvent);
+    if (HToolbarImages != NULL)
+    {
+        ImageList_Destroy(HToolbarImages);
+        HToolbarImages = NULL;
+    }
     MainWindowQueue.Remove(HWindow);
     ::Configuration.ViewMode = ViewMode;
     ::Configuration.ShowWhiteSpace = ShowWhiteSpace;
@@ -128,30 +134,29 @@ BOOL CMainWindow::Init()
         buttons[i].fsState = TBSTATE_ENABLED;
         buttons[i].iString = 0;
     }
-    COLORMAP cm;
-    cm.from = 0x00FF00FF;
-    cm.to = DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
     HToolbar = CreateToolbarEx(HWindow,
                                WS_VISIBLE | WS_CHILD |
                                    WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
                                    CCS_NORESIZE | CCS_NODIVIDER | CCS_NOPARENTALIGN |
                                    TBSTYLE_FLAT | TBSTYLE_TOOLTIPS,
                                IDC_TOOLBAR,
-                               8,
-                               0, //DLLInstance,
-                               (UINT_PTR)CreateMappedBitmap(DLLInstance, IDB_TOOLBAR, 0, &cm, 1),
+                               0,
+                               NULL,
+                               0,
                                buttons,
                                SizeOf(buttons),
-                               16,
-                               16,
-                               16,
-                               16,
+                               WinLibDPIFromLogical(HWindow, 16),
+                               WinLibDPIFromLogical(HWindow, 16),
+                               WinLibDPIFromLogical(HWindow, 23),
+                               WinLibDPIFromLogical(HWindow, 22),
                                sizeof(TBBUTTON));
     if (!HToolbar)
     {
         TRACE_E("CreateToolbarEx has failed; last error: " << GetLastError());
         return FALSE;
     }
+    if (!RebuildToolbarImages())
+        return FALSE;
 
     ComboBox = new CComboBox();
     if (!ComboBox)
@@ -363,6 +368,112 @@ BOOL CMainWindow::Init()
     PostMessage(HWindow, WM_USER_ACTIVATEWINDOW, 0, 0);
 
     return TRUE;
+}
+
+BOOL CMainWindow::RebuildToolbarImages()
+{
+    HBITMAP maskBitmap = NULL;
+    HBITMAP grayBitmap = NULL;
+    HBITMAP colorBitmap = NULL;
+    COLORREF background = DarkModeShouldUseDarkColors()
+                              ? DarkModeGetDialogBackgroundColor()
+                              : GetSysColor(COLOR_BTNFACE);
+
+    if (!SalGUI->CreateToolbarBitmapsForWindow(
+            HWindow, DLLInstance, IDB_TOOLBAR, RGB(255, 0, 255), background,
+            maskBitmap, grayBitmap, colorBitmap, NULL, 0))
+    {
+        COLORMAP cm;
+        cm.from = RGB(255, 0, 255);
+        cm.to = background;
+        colorBitmap = CreateMappedBitmap(DLLInstance, IDB_TOOLBAR, 0, &cm, 1);
+        if (colorBitmap != NULL)
+            SalGUI->CreateGrayscaleAndMaskBitmaps(
+                colorBitmap, RGB(255, 0, 255), grayBitmap, maskBitmap);
+    }
+
+    if (colorBitmap == NULL || maskBitmap == NULL)
+    {
+        if (maskBitmap != NULL)
+            DeleteObject(maskBitmap);
+        if (grayBitmap != NULL)
+            DeleteObject(grayBitmap);
+        if (colorBitmap != NULL)
+            DeleteObject(colorBitmap);
+        return FALSE;
+    }
+
+    BITMAP bitmap;
+    ZeroMemory(&bitmap, sizeof(bitmap));
+    GetObject(colorBitmap, sizeof(bitmap), &bitmap);
+    int iconSize = bitmap.bmHeight > 0
+                       ? bitmap.bmHeight
+                       : WinLibDPIFromLogical(HWindow, 16);
+    HIMAGELIST newImages = ImageList_Create(
+        iconSize, iconSize, ILC_MASK | ILC_COLORDDB, 6, 1);
+    if (newImages != NULL)
+        ImageList_Add(newImages, colorBitmap, maskBitmap);
+
+    DeleteObject(maskBitmap);
+    if (grayBitmap != NULL)
+        DeleteObject(grayBitmap);
+    DeleteObject(colorBitmap);
+
+    if (newImages == NULL)
+        return FALSE;
+
+    HIMAGELIST oldImages = HToolbarImages;
+    HToolbarImages = newImages;
+    SendMessage(HToolbar, TB_SETIMAGELIST, 0, (LPARAM)HToolbarImages);
+    SendMessage(HToolbar, TB_SETBITMAPSIZE, 0, MAKELPARAM(iconSize, iconSize));
+    SendMessage(HToolbar, TB_SETBUTTONSIZE, 0,
+                MAKELPARAM(iconSize + WinLibDPIFromLogical(HWindow, 7),
+                           iconSize + WinLibDPIFromLogical(HWindow, 6)));
+    SendMessage(HToolbar, TB_AUTOSIZE, 0, 0);
+    if (oldImages != NULL)
+        ImageList_Destroy(oldImages);
+    return TRUE;
+}
+
+void CMainWindow::UpdateRebarDpiMetrics()
+{
+    if (Rebar == NULL || Rebar->HWindow == NULL)
+        return;
+
+    int band = (int)SendMessage(Rebar->HWindow, RB_IDTOINDEX, IDC_TOOLBAR, 0);
+    if (band >= 0)
+    {
+        REBARBANDINFO info;
+        ZeroMemory(&info, sizeof(info));
+        info.cbSize = sizeof(info);
+        info.fMask = RBBIM_CHILDSIZE;
+        if (SendMessage(Rebar->HWindow, RB_GETBANDINFO, band, (LPARAM)&info))
+        {
+            info.cyMinChild = HIWORD(SendMessage(HToolbar, TB_GETBUTTONSIZE, 0, 0));
+            SendMessage(Rebar->HWindow, RB_SETBANDINFO, band, (LPARAM)&info);
+        }
+    }
+
+    band = (int)SendMessage(Rebar->HWindow, RB_IDTOINDEX, IDC_DIFFLIST, 0);
+    if (band >= 0)
+    {
+        REBARBANDINFO info;
+        ZeroMemory(&info, sizeof(info));
+        info.cbSize = sizeof(info);
+        info.fMask = RBBIM_CHILDSIZE;
+        if (SendMessage(Rebar->HWindow, RB_GETBANDINFO, band, (LPARAM)&info))
+        {
+            info.cyMinChild = EnvFontHeight + WinLibDPIFromLogical(HWindow, 8);
+            SendMessage(Rebar->HWindow, RB_SETBANDINFO, band, (LPARAM)&info);
+        }
+    }
+
+    RECT rebarRect;
+    GetClientRect(Rebar->HWindow, &rebarRect);
+    SendMessage(Rebar->HWindow, WM_SIZE, SIZE_RESTORED,
+                MAKELPARAM(rebarRect.right, rebarRect.bottom));
+    RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) +
+                  REBAR_BORDER;
 }
 
 void CMainWindow::EnableInput(BOOL enable)
@@ -1083,6 +1194,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (CreateEnvFont(HWindow))
         {
             HeaderHeight = EnvFontHeight + WinLibDPIFromLogical(HWindow, 4);
+            RebuildToolbarImages();
             if (ComboBox != NULL && ComboBox->HWindow != NULL)
             {
                 SendMessage(ComboBox->HWindow, WM_SETFONT, (WPARAM)EnvFont, TRUE);
@@ -1093,33 +1205,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 FileView[fviLeft]->ReloadConfiguration(CC_FONT, FALSE);
             if (FileView[fviRight] != NULL)
                 FileView[fviRight]->ReloadConfiguration(CC_FONT, FALSE);
-            if (Rebar != NULL && Rebar->HWindow != NULL)
-            {
-                int band = (int)SendMessage(Rebar->HWindow, RB_IDTOINDEX,
-                                            IDC_DIFFLIST, 0);
-                if (band >= 0)
-                {
-                    REBARBANDINFO info;
-                    ZeroMemory(&info, sizeof(info));
-                    info.cbSize = sizeof(info);
-                    info.fMask = RBBIM_CHILDSIZE;
-                    if (SendMessage(Rebar->HWindow, RB_GETBANDINFO, band,
-                                    (LPARAM)&info))
-                    {
-                        info.cyMinChild =
-                            EnvFontHeight + WinLibDPIFromLogical(HWindow, 8);
-                        SendMessage(Rebar->HWindow, RB_SETBANDINFO, band,
-                                    (LPARAM)&info);
-                    }
-                }
-                RECT rebarRect;
-                GetClientRect(Rebar->HWindow, &rebarRect);
-                SendMessage(Rebar->HWindow, WM_SIZE, SIZE_RESTORED,
-                            MAKELPARAM(rebarRect.right, rebarRect.bottom));
-                RebarHeight =
-                    LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) +
-                    REBAR_BORDER;
-            }
+            UpdateRebarDpiMetrics();
             LayoutChilds();
             RedrawWindow(HWindow, NULL, NULL,
                          RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
