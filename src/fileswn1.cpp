@@ -3257,6 +3257,24 @@ void CFilesWindow::SetAutomaticRefresh(BOOL value, BOOL force)
     }
 }
 
+BOOL CFilesWindow::ConfirmUnlockTabForPathChange()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::ConfirmUnlockTabForPathChange()");
+
+    if (!IsTabLocked())
+        return TRUE;
+
+    if (MainWindow == NULL || MainWindow->HWindow == NULL || !IsWindowVisible(MainWindow->HWindow))
+        return FALSE;
+
+    if (SalMessageBox(HWindow, LoadStr(IDS_LOCKEDTAB_CHANGEPATH), LoadStr(IDS_LOCKEDTAB_TITLE),
+                      MB_YESNO | MB_ICONQUESTION) != IDYES)
+        return FALSE;
+
+    MainWindow->CommandUnlockTab(this);
+    return TRUE;
+}
+
 void CFilesWindow::GotoRoot()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::GotoRoot()");

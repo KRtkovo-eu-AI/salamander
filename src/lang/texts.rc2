@@ -605,6 +605,8 @@ STRINGTABLE
  IDS_FILEALREADYEXIST, "File ""%s"" already exists.\n\nDo you want to replace it?"
 
  IDS_PASTE_CHANGE_DIRECTORY, "Change Directory"
+ IDS_LOCKEDTAB_TITLE, "Locked Tab"
+ IDS_LOCKEDTAB_CHANGEPATH, "This tab is locked to prevent changing the content displayed in it. Do you want to unlock the tab and open the requested location?"
 
  IDS_ALWAYSONTOP, "Always on &Top"
  IDS_WANTALWAYSONTOP, "Always on Top prevents other application windows from open above Open Salamander windows. You will not be able to open these windows on top until you turn off Always on Top."
