@@ -1162,9 +1162,6 @@ internal sealed class ThemedGroupBox : GroupBox
 
 internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 {
-    // The native viewer API already supplies an outer rectangle in
-    // physical screen pixels. Scale the contents, not that rectangle.
-    protected override bool ScaleInitialWindowBounds => false;
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
@@ -1193,7 +1190,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private SortOrder _sortOrder = SortOrder.Ascending;
 
     private static readonly System.Drawing.Size LogicalMinimumWindowSize =
-        new(870, 650);
+        new(940, 650);
 
     protected override System.Drawing.Size LogicalWindowSize =>
         new(980, 650);
@@ -1209,16 +1206,20 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         Width = 980;
         Height = 640;
         MinimumSize = LogicalMinimumWindowSize;
-        AutoScroll = true;
+        AutoScroll = false;
         Icon = PluginIconLoader.Load();
 
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
+            AutoSize = false,
             ColumnCount = 1,
             RowCount = 5,
+            GrowStyle = TableLayoutPanelGrowStyle.FixedSize,
             Padding = new Padding(12, 12, 12, 6),
         };
+        layout.ColumnStyles.Add(
+            new ColumnStyle(SizeType.Percent, 100f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 58f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -1348,20 +1349,6 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         UpdateDetails();
     }
 
-    protected override void OnShown(EventArgs e)
-    {
-        // ShowDialog can restore the pre-Load outer size/constraints after the
-        // initial deterministic DPI pass. Reassert both from their immutable
-        // logical values before Shown handlers center and populate the dialog.
-        MinimumSize = new System.Drawing.Size(
-            ScaleLogical(LogicalMinimumWindowSize.Width),
-            ScaleLogical(LogicalMinimumWindowSize.Height));
-        Size = new System.Drawing.Size(
-            ScaleLogical(LogicalWindowSize.Width),
-            ScaleLogical(LogicalWindowSize.Height));
-        base.OnShown(e);
-    }
-
     protected override void OnDeterministicDpiChanged(
         int oldDpi, int newDpi)
     {
@@ -1477,9 +1464,16 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         int minimumWidth = scaledMinimumWidths.Sum();
         if (availableWidth <= minimumWidth)
         {
+            int constrainedAssignedWidth = 0;
             for (int i = 0; i < scaledMinimumWidths.Length; i++)
             {
-                _listView.Columns[i].Width = scaledMinimumWidths[i];
+                int width = i == scaledMinimumWidths.Length - 1
+                    ? availableWidth - constrainedAssignedWidth
+                    : (int)((long)scaledMinimumWidths[i] *
+                            availableWidth / minimumWidth);
+                _listView.Columns[i].Width = Math.Max(0, width);
+                constrainedAssignedWidth +=
+                    _listView.Columns[i].Width;
             }
 
             return;
@@ -1491,8 +1485,9 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         {
             int width = i == scaledMinimumWidths.Length - 1
                 ? availableWidth - assignedWidth
-                : scaledMinimumWidths[i] + (int)Math.Round(extraWidth * ListColumnWidthWeights[i]);
-            _listView.Columns[i].Width = Math.Max(scaledMinimumWidths[i], width);
+                : scaledMinimumWidths[i] +
+                  (int)(extraWidth * ListColumnWidthWeights[i]);
+            _listView.Columns[i].Width = Math.Max(0, width);
             assignedWidth += _listView.Columns[i].Width;
         }
     }
@@ -2057,7 +2052,9 @@ internal sealed class PluginCatalogSourcesDialog : DpiAwareForm
         if (_listView.Columns.Count != 0)
         {
             _listView.Columns[0].Width =
-                Math.Max(ScaleLogical(300), _listView.ClientSize.Width - ScaleLogical(4));
+                Math.Max(
+                    0,
+                    _listView.ClientSize.Width - ScaleLogical(4));
         }
     }
 
