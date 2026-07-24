@@ -2163,6 +2163,9 @@ BOOL AddWin64RedirectedDir(const char* path, CFilesArray* dirs, WIN32_FIND_DATA*
 BOOL CFilesWindow::ChangeDir(const char* newDir, int suggestedTopIndex, const char* suggestedFocusName,
                              int mode, int* failReason, BOOL convertFSPathToInternal, BOOL showNewDirPathInErrBoxes)
 {
+    if (!ConfirmUnlockTabForPathChange())
+        return FALSE;
+
     CALL_STACK_MESSAGE7("CFilesWindow::ChangeDir(%s, %d, %s, %d, , %d, %d)", newDir, suggestedTopIndex,
                         suggestedFocusName, mode, convertFSPathToInternal, showNewDirPathInErrBoxes);
 
@@ -2790,6 +2793,9 @@ BOOL CFilesWindow::ChangePathToDrvType(HWND parent, int driveType, const char* d
 
 void CFilesWindow::ChangeDrive(char drive)
 {
+    if (!ConfirmUnlockTabForPathChange())
+        return;
+
     CALL_STACK_MESSAGE2("CFilesWindow::ChangeDrive(%u)", drive);
     //--- DefaultDire refresh
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() != this);
