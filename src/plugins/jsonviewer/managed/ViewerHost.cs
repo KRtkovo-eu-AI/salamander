@@ -634,8 +634,6 @@ internal static class ViewerHost
             DoubleBuffered = true;
 
             ThemeHelper.InitializeNativeDarkMode();
-            _ = Handle;
-            ThemeHelper.ApplyNativeDarkMode(this);
 
             _viewer = new JsonViewerControl
             {

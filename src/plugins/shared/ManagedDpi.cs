@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -80,15 +82,17 @@ internal static class ManagedApplication
 // design baseline; WinForms performs the single dynamic scaling pass.
 internal class DpiAwareForm : Form
 {
+    // Keep every replacement alive until all controls have been destroyed.
+    // Disposing the previous Form font immediately is unsafe because children
+    // which inherit it can still ask WinForms to create an HFONT from it.
+    private readonly List<Font> _ownedDpiFonts = new List<Font>();
+
     internal DpiAwareForm()
     {
         ManagedApplication.EnsurePerMonitorThread();
         AutoScaleDimensions = new SizeF(96.0F, 96.0F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        // SystemFonts owns this instance. WinForms PMv2 recreates the native
-        // HFONT as part of its own DPI pass; cloning and disposing fonts here
-        // can invalidate an ambient Font still referenced by child controls.
-        Font = SystemFonts.MessageBoxFont;
+        Font = OwnClone(SystemFonts.MessageBoxFont);
     }
 
     protected override void CreateHandle()
@@ -98,6 +102,15 @@ internal class DpiAwareForm : Form
         // top-level HWND captures its DPI awareness.
         ManagedApplication.EnsurePerMonitorThread();
         base.CreateHandle();
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        // SystemFonts can have been cached while the native host was on a
+        // different monitor. Reassign point fonts after the HWND has captured
+        // its real DPI so WinForms creates the corresponding native HFONT.
+        RefreshExplicitFonts(this);
     }
 
     protected int ScaleLogical(int logicalPixels)
@@ -115,6 +128,7 @@ internal class DpiAwareForm : Form
         {
             // WinForms owns the single bounds and font autoscale pass.
             base.OnDpiChanged(e);
+            RefreshExplicitFonts(this);
             OnPerMonitorDpiChanged(oldDpi, newDpi);
             PerformLayout();
         }
@@ -128,5 +142,44 @@ internal class DpiAwareForm : Form
 
     protected virtual void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
     {
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (!disposing)
+        {
+            return;
+        }
+
+        foreach (Font font in _ownedDpiFonts)
+        {
+            font.Dispose();
+        }
+        _ownedDpiFonts.Clear();
+    }
+
+    private void RefreshExplicitFonts(Control root)
+    {
+        var fontProperty = TypeDescriptor.GetProperties(root)["Font"];
+        bool hasExplicitFont = ReferenceEquals(root, this) ||
+                               (fontProperty != null && fontProperty.ShouldSerializeValue(root));
+        if (hasExplicitFont && root.Font != null)
+        {
+            root.Font = OwnClone(root.Font);
+        }
+
+        foreach (Control child in root.Controls)
+        {
+            RefreshExplicitFonts(child);
+        }
+    }
+
+    private Font OwnClone(Font source)
+    {
+        var clone = new Font(source.FontFamily, source.Size, source.Style, source.Unit,
+                             source.GdiCharSet, source.GdiVerticalFont);
+        _ownedDpiFonts.Add(clone);
+        return clone;
     }
 }

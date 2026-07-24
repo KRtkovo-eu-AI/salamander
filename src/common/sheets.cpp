@@ -419,6 +419,7 @@ void CPropSheetPage::Init(const TCHAR* title, HINSTANCE modul, int resID,
     Expanded = NULL;
     ElasticLayout = NULL;
     HorizontalLayoutCtrls = NULL;
+    DPIControlLayouts = NULL;
     HorizontalLayoutWidth = 0;
     DPIChangeInProgress = FALSE;
     DPILayoutPosted = FALSE;
@@ -432,6 +433,8 @@ CPropSheetPage::~CPropSheetPage()
         delete ElasticLayout;
     if (HorizontalLayoutCtrls != NULL)
         delete HorizontalLayoutCtrls;
+    if (DPIControlLayouts != NULL)
+        delete DPIControlLayouts;
 }
 
 BOOL CPropSheetPage::ValidateData()
@@ -814,6 +817,74 @@ void CPropSheetPage::ApplyHorizontalLayout()
     }
 }
 
+void CPropSheetPage::CaptureDPIControlLayouts()
+{
+    if (DPIControlLayouts != NULL)
+        delete DPIControlLayouts;
+    DPIControlLayouts = new TDirectArray<CPageDPIControlLayout>(20, 20);
+    if (DPIControlLayouts == NULL)
+    {
+        TRACE_E("Low memory!");
+        return;
+    }
+
+    HWND child = GetWindow(HWindow, GW_CHILD);
+    while (child != NULL)
+    {
+        RECT windowRect;
+        if (GetWindowRect(child, &windowRect))
+        {
+            POINT topLeft = {windowRect.left, windowRect.top};
+            POINT bottomRight = {windowRect.right, windowRect.bottom};
+            ScreenToClient(HWindow, &topLeft);
+            ScreenToClient(HWindow, &bottomRight);
+
+            CPageDPIControlLayout layout;
+            layout.HCtrl = child;
+            layout.LogicalRect.left = WinLibDPIToLogical(HWindow, topLeft.x);
+            layout.LogicalRect.top = WinLibDPIToLogical(HWindow, topLeft.y);
+            layout.LogicalRect.right = WinLibDPIToLogical(HWindow, bottomRight.x);
+            layout.LogicalRect.bottom = WinLibDPIToLogical(HWindow, bottomRight.y);
+            DPIControlLayouts->Add(layout);
+        }
+        child = GetWindow(child, GW_HWNDNEXT);
+    }
+}
+
+void CPropSheetPage::RestoreDPIControlLayouts()
+{
+    if (DPIControlLayouts == NULL)
+        return;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(DPIControlLayouts->Count));
+    if (hdwp == NULL)
+        return;
+
+    for (int i = 0; i < DPIControlLayouts->Count; i++)
+    {
+        CPageDPIControlLayout* layout = &(*DPIControlLayouts)[i];
+        if (!IsWindow(layout->HCtrl) || ::GetParent(layout->HCtrl) != HWindow)
+            continue;
+
+        const RECT& r = layout->LogicalRect;
+        HDWP next = HANDLES(DeferWindowPos(
+            hdwp, layout->HCtrl, NULL,
+            WinLibDPIFromLogical(HWindow, r.left),
+            WinLibDPIFromLogical(HWindow, r.top),
+            WinLibDPIFromLogical(HWindow, r.right - r.left),
+            WinLibDPIFromLogical(HWindow, r.bottom - r.top),
+            SWP_NOACTIVATE | SWP_NOZORDER));
+        if (next == NULL)
+        {
+            hdwp = NULL;
+            break;
+        }
+        hdwp = next;
+    }
+    if (hdwp != NULL)
+        HANDLES(EndDeferWindowPos(hdwp));
+}
+
 INT_PTR
 CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -833,6 +904,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         DockOverlappingEditButtons(HWindow);
+        CaptureDPIControlLayouts();
         return TRUE; // chci focus od DefDlgProc
     }
 
@@ -874,6 +946,10 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         DPIChangeInProgress = FALSE;
         DPILayoutPosted = FALSE;
+        // Discard every intermediate rectangle produced by the PMv2 child
+        // cascade. Restore one immutable 96-DPI baseline and apply Salamander's
+        // resizing rules exactly once for the final page size.
+        RestoreDPIControlLayouts();
         ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
@@ -1337,10 +1413,13 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD*
     LogicalWindowSize.cy = 0;
     DPIChangeInProgress = FALSE;
     DPILayoutPosted = FALSE;
+    TreeFont = NULL;
 }
 
 CTreePropHolderDlg::~CTreePropHolderDlg()
 {
+    if (TreeFont != NULL)
+        HANDLES(DeleteObject(TreeFont));
 }
 
 INT_PTR
@@ -1510,24 +1589,29 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_GETDPISCALEDSIZE:
+    {
+        SIZE* scaledSize = reinterpret_cast<SIZE*>(lParam);
+        int newDPI = static_cast<int>(wParam);
+        if (scaledSize != NULL && newDPI > 0 &&
+            LogicalWindowSize.cx > 0 && LogicalWindowSize.cy > 0)
+        {
+            // Supply an exact size derived from the persistent 96-DPI
+            // baseline. This prevents Windows from feeding a rounded previous
+            // monitor size back into the next 100% <-> 150% transition.
+            scaledSize->cx = MulDiv(LogicalWindowSize.cx, newDPI, USER_DEFAULT_SCREEN_DPI);
+            scaledSize->cy = MulDiv(LogicalWindowSize.cy, newDPI, USER_DEFAULT_SCREEN_DPI);
+            DPIChangeInProgress = TRUE;
+            if (ChildDialog != NULL)
+                ChildDialog->DPIChangeInProgress = TRUE;
+            return TRUE;
+        }
+        break;
+    }
+
     case _TPD_WM_POST_DPI_LAYOUT:
     {
         DPILayoutPosted = FALSE;
-        // Keep one immutable 96-DPI outer size. Repeatedly accepting rounded
-        // suggested rectangles can otherwise make a resizable dialog grow a
-        // few pixels on every 100 % <-> 150 % round trip.
-        if (LogicalWindowSize.cx > 0 && LogicalWindowSize.cy > 0 &&
-            !IsZoomed(HWindow))
-        {
-            RECT windowRect;
-            if (GetWindowRect(HWindow, &windowRect))
-            {
-                int width = MulDiv(LogicalWindowSize.cx, CurrentDPI, USER_DEFAULT_SCREEN_DPI);
-                int height = MulDiv(LogicalWindowSize.cy, CurrentDPI, USER_DEFAULT_SCREEN_DPI);
-                SetWindowPos(HWindow, NULL, windowRect.left, windowRect.top,
-                             width, height, SWP_NOACTIVATE | SWP_NOZORDER);
-            }
-        }
         UpdateTreeFontAndMetrics();
         ApplyTreeViewColors(HTreeView);
         LayoutControls();
@@ -1826,18 +1910,35 @@ void CTreePropHolderDlg::UpdateTreeFontAndMetrics()
     if (HTreeView == NULL)
         return;
 
-    // The holder template and all of its children are PMv2 dialog controls.
-    // DefDlgProc supplies the correct per-monitor dialog font. Overriding the
-    // tree and caption with a separately queried message font races the
-    // initial DS_CENTER placement and can pin both controls to 96 DPI.
-    HFONT treeFont = (HFONT)SendMessage(HTreeView, WM_GETFONT, 0, 0);
-    if (treeFont != NULL)
+    // The dialog manager does not reliably replace an already assigned HFONT
+    // for the subclassed caption/tree during a PMv2 transition. Build the
+    // template's 9-point Segoe UI font from the explicit notification DPI.
+    LOGFONT lf;
+    ZeroMemory(&lf, sizeof(lf));
+    lf.lfHeight = -MulDiv(9, CurrentDPI, 72);
+    lf.lfWeight = FW_NORMAL;
+    lf.lfCharSet = ANSI_CHARSET;
+    lf.lfQuality = CLEARTYPE_QUALITY;
+    _tcscpy_s(lf.lfFaceName, _T("Segoe UI"));
+    HFONT newFont = HANDLES(CreateFontIndirect(&lf));
+    if (newFont != NULL)
+    {
+        HFONT oldFont = TreeFont;
+        TreeFont = newFont;
+        SendMessage(HTreeView, WM_SETFONT, (WPARAM)TreeFont, TRUE);
+        if (CaptionWindow != NULL)
+            SendMessage(CaptionWindow->GetHWND(), WM_SETFONT, (WPARAM)TreeFont, TRUE);
+        if (oldFont != NULL)
+            HANDLES(DeleteObject(oldFont));
+    }
+
+    if (TreeFont != NULL)
     {
         HDC dc = HANDLES(GetDC(HTreeView));
         if (dc != NULL)
         {
             TEXTMETRIC tm;
-            HFONT oldFont = (HFONT)SelectObject(dc, treeFont);
+            HFONT oldFont = (HFONT)SelectObject(dc, TreeFont);
             if (GetTextMetrics(dc, &tm))
                 TreeView_SetItemHeight(HTreeView, tm.tmHeight + MulDiv(4, CurrentDPI, USER_DEFAULT_SCREEN_DPI));
             SelectObject(dc, oldFont);

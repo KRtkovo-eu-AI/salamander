@@ -297,7 +297,7 @@
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if not exist "$(SamandarinPluginDir)" mkdir "$(SamandarinPluginDir)"&#x0D;&#x0A;if exist "$(ProjectDir)..\managed\bin\$(Configuration)\Samandarin.Managed.dll" copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\Samandarin.Managed.dll" "$(SamandarinPluginDir)Samandarin.Managed.dll"</Command>
+      <Command>if not exist "$(SamandarinPluginDir)" mkdir "$(SamandarinPluginDir)"&#x0D;&#x0A;set "MANAGED_DIR=$(ProjectDir)..\managed\bin\$(Platform)\$(Configuration)\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%Samandarin.Managed.dll" set "MANAGED_DIR=$(ProjectDir)..\managed\bin\$(Configuration)\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%Samandarin.Managed.dll" (&#x0D;&#x0A;  echo Samandarin.Managed.dll was not found in the managed build output.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;copy /Y "%MANAGED_DIR%Samandarin.Managed.dll" "$(SamandarinPluginDir)Samandarin.Managed.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">

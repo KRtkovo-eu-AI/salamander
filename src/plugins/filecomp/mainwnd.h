@@ -26,6 +26,7 @@
 #define BI_LASTDIFF 5
 
 #define REBAR_BORDER 0 // no legacy gap below the rebar in dark mode
+#define WM_FILECOMP_APPLY_DPI (WM_APP + 0x4F1)
 
 // flags for CMainWindow::UpdateToolbarButtons()
 #define UTB_DIFFSSELECTION 0x01
@@ -92,6 +93,7 @@ protected:
     BOOL CalculatingDetailedDifferences;
     BOOL Recompare;
     BOOL bOptionsChangedBeingHandled; // Simple semaphore
+    BOOL DpiUpdatePending;
 
     // for the binary comparator
     CBinaryChanges Changes;

@@ -21,6 +21,12 @@ struct CPageHorizontalLayoutCtrl
     int Mode;
 };
 
+struct CPageDPIControlLayout
+{
+    HWND HCtrl;
+    RECT LogicalRect;
+};
+
 // pomocna trida slouzici pro layout prvku dialogu na zaklade jeho velikosti
 class CElasticLayout
 {
@@ -102,11 +108,14 @@ protected:
     CElasticLayout* ElasticLayout;
 
     TDirectArray<CPageHorizontalLayoutCtrl>* HorizontalLayoutCtrls;
+    TDirectArray<CPageDPIControlLayout>* DPIControlLayouts;
     int HorizontalLayoutWidth;
     BOOL DPIChangeInProgress;
     BOOL DPILayoutPosted;
     void InitHorizontalLayout();
     void ApplyHorizontalLayout();
+    void CaptureDPIControlLayouts();
+    void RestoreDPIControlLayouts();
 
     friend class CPropertyDialog;
     friend class CTreePropDialog;
@@ -229,6 +238,7 @@ protected:
     SIZE LogicalWindowSize;
     BOOL DPIChangeInProgress;
     BOOL DPILayoutPosted;
+    HFONT TreeFont;
 
 public:
     CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth, int defaultWidthExtra = 0);
