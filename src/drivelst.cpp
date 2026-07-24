@@ -2878,6 +2878,7 @@ BOOL IncludeDriveInDriveBar(CDriveTypeEnum dt)
     case drvtOneDrive:
     case drvtOneDriveBus:
     case drvtOneDriveMenu:
+    case drvtMountPoint:
     case drvtNeighborhood:
     case drvtPluginCmd:
         return TRUE;
@@ -2921,7 +2922,8 @@ BOOL CDrivesList::FillDriveBar(CDriveBar* driveBar, BOOL bar2)
         if (!IsChangeDriveUserFolder(item->DriveType) && item->DriveType != drvtNeighborhood &&
             item->DriveType != drvtPluginCmd && item->DriveType != drvtGoogleDrive &&
             item->DriveType != drvtDropbox && item->DriveType != drvtOneDrive &&
-            item->DriveType != drvtOneDriveBus && item->DriveType != drvtOneDriveMenu)
+            item->DriveType != drvtOneDriveBus && item->DriveType != drvtOneDriveMenu &&
+            item->DriveType != drvtMountPoint)
         {
             tii.Mask |= TLBI_MASK_TEXT;
             tii.Style |= TLBI_STYLE_SHOWTEXT;

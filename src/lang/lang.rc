@@ -1927,7 +1927,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,106,46,50,14
 END
 
-IDD_CFGPAGE_CHANGEDRIVE DIALOGEX 64, 22, 299, 244
+IDD_CFGPAGE_CHANGEDRIVE DIALOGEX 64, 22, 299, 258
 STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Change Drive Menu and Drive Bar"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -1947,7 +1947,7 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,126,125,12
     CONTROL         "Display mounted Volumes in &Drive bar",IDC_CHD_MOUNTFOLDERS_DRIVEBAR,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,139,137,12
-    GROUPBOX        " Additional items ",IDC_STATIC_9,1,164,294,52,WS_GROUP
+    GROUPBOX        " Additional items ",IDC_STATIC_9,1,164,294,68,WS_GROUP
     CONTROL         "&Documents",IDC_CHD_SHOWMYDOC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,176,55,12
     CONTROL         "&3D Objects",IDC_CHD_SHOW3DOBJECTS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,189,62,12
     CONTROL         "Des&ktop",IDC_CHD_SHOWDESKTOP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,103,189,55,12
@@ -1960,11 +1960,11 @@ BEGIN
     CONTROL         "&Network",IDC_CHD_SHOWNET,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,103,215,44,12
     CONTROL         "As &Other Panel (only in Change Drive menu)",IDC_CHD_SHOWANOTHER,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,197,215,95,12
-    LTEXT           "How to change visibility of ",IDC_STATIC_6,1,225,91,8
-    LTEXT           "Hot Path",IDS_CHD_HOTPATHS,92,225,30,8,WS_TABSTOP
-    LTEXT           "and",IDC_STATIC_7,125,225,15,8
-    LTEXT           "Plugin FS",IDS_CHD_PLUGINS,142,225,33,8,WS_TABSTOP
-    LTEXT           "items.",IDC_STATIC_8,175,225,22,8
+    LTEXT           "How to change visibility of ",IDC_STATIC_6,1,241,91,8
+    LTEXT           "Hot Path",IDS_CHD_HOTPATHS,92,241,30,8,WS_TABSTOP
+    LTEXT           "and",IDC_STATIC_7,125,241,15,8
+    LTEXT           "Plugin FS",IDS_CHD_PLUGINS,142,241,33,8,WS_TABSTOP
+    LTEXT           "items.",IDC_STATIC_8,175,241,22,8
 END
 
 IDD_CFGPAGE_PANELS DIALOGEX 64, 22, 299, 243

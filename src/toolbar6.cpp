@@ -197,6 +197,15 @@ void CDriveBar::Execute(DWORD id)
                 return;
             }
 
+            case drvtMountPoint:
+            {
+                char* mountPath = (char*)DriveTypeParam;
+                panel->ChangePathToDisk(HWindow, mountPath, -1, NULL,
+                                        NULL, TRUE, FALSE, FALSE, NULL, FALSE);
+                free(mountPath);
+                return;
+            }
+
             case drvtPluginCmd:
             {
                 // kod prevzaty z fileswn3.cpp, CFilesWindow::ChangeDrive()

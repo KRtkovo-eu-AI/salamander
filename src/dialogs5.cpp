@@ -4939,6 +4939,11 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCfgPageChangeDrive::Transfer()");
 
+    int oldChangeDriveShowMountFolders = Configuration.ChangeDriveShowMountFolders;
+    int oldChangeDriveMountFoldersMode = Configuration.ChangeDriveMountFoldersMode;
+    int oldChangeDriveMountFoldersName = Configuration.ChangeDriveMountFoldersName;
+    int oldChangeDriveMountFoldersDriveBar = Configuration.ChangeDriveMountFoldersDriveBar;
+
     ti.CheckBox(IDC_CHD_SHOWMOUNTFOLDERS, Configuration.ChangeDriveShowMountFolders);
     ti.CheckBox(IDC_CHD_MOUNTFOLDERS_VOLUMENAME, Configuration.ChangeDriveMountFoldersName);
     ti.CheckBox(IDC_CHD_MOUNTFOLDERS_DRIVEBAR, Configuration.ChangeDriveMountFoldersDriveBar);
@@ -4987,6 +4992,13 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
         int index = (int)SendDlgItemMessage(HWindow, IDC_CHD_MOUNTFOLDERS_MODE, CB_GETCURSEL, 0, 0);
         int modes[3] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH};
         Configuration.ChangeDriveMountFoldersMode = index >= 0 && index < 3 ? modes[index] : TITLE_BAR_MODE_DIRECTORY;
+        if (oldChangeDriveShowMountFolders != Configuration.ChangeDriveShowMountFolders ||
+            oldChangeDriveMountFoldersMode != Configuration.ChangeDriveMountFoldersMode ||
+            oldChangeDriveMountFoldersName != Configuration.ChangeDriveMountFoldersName ||
+            oldChangeDriveMountFoldersDriveBar != Configuration.ChangeDriveMountFoldersDriveBar)
+        {
+            PostMessage(MainWindow->HWindow, WM_USER_DRIVES_CHANGE, 0, 0);
+        }
         Configuration.VisibleDrives = GetDrivesFromListbox(IDL_CHD_DRIVES);
         Configuration.SeparatedDrives = GetDrivesFromListbox(IDL_CHD_SEPARATORS);
     }
