@@ -133,6 +133,12 @@ jobs:
         if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: ammaraskar/msvc-problem-matcher@master
 
+      - name: Ensure NuGet fallback package folder exists
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        run: |
+          $fallbackPackageFolder = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Shared\NuGetPackages'
+          New-Item -ItemType Directory -Force -Path $fallbackPackageFolder | Out-Null
+
       - name: Install SFTP plugin dependencies
         if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
         run: |
@@ -223,6 +229,7 @@ jobs:
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
             '/p:PreferredToolArchitecture=x64'
+            '/p:RestoreFallbackFolders='
             '/warnaserror'
             '/nr:false'
             '/v:m'
@@ -277,6 +284,7 @@ jobs:
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
             '/p:PreferredToolArchitecture=x64'
+            '/p:RestoreFallbackFolders='
             '/warnaserror'
             '/nr:false'
             '/v:m'
