@@ -19,6 +19,8 @@
 
 CPlugins Plugins;
 
+static BOOL IsSamandarinPlugin(const char* dllName);
+
 // global "time" (counter) for obtaining the FS creation "time"
 DWORD CPluginFSInterfaceEncapsulation::PluginFSTime = 1; // zero is used as the "uninitialized time"
 
@@ -2658,9 +2660,17 @@ BOOL CPluginData::Remove(HWND parent, int index, BOOL canDelPluginRegKey)
             // the plugin may unload: let it delete any remaining temp files from the disk cache
             CPluginInterfaceAbstract* unloadedPlugin = PluginIface.GetInterface();
             DeleteManager.PluginMayBeUnloaded(parent, this);
+            BOOL skipSamandarinShutdown = UnloadingPluginsForMainWindowClose && IsSamandarinPlugin(DLLName);
 
-            // the plugin is no longer used by Salamander; it can be unloaded
-            if (PluginIface.Release(parent, FALSE))
+            if (skipSamandarinShutdown)
+            {
+                // skip Samandarin shutdown callbacks while uninstalling the plugin
+                // (fast path used when uninstalling from plugin manager);
+                // process continues and plugin unloading is completed without managed callback.
+                TRACE_I("Skipping Samandarin shutdown callbacks during remove: " << DLLName);
+                unloaded = TRUE;
+            }
+            else if (PluginIface.Release(parent, FALSE))
                 unloaded = TRUE; // will be unloaded and can be removed
             else
             {
@@ -2672,6 +2682,7 @@ BOOL CPluginData::Remove(HWND parent, int index, BOOL canDelPluginRegKey)
                     unloaded = TRUE; // will be unloaded and can be removed
                 }
             }
+
             if (unloaded)
             {
                 // unload SPL+SLG and clean up the interfaces

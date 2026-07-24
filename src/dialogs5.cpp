@@ -960,7 +960,10 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (SalMessageBox(HWindow, buf, LoadStr(IDS_QUESTION),
                                   MB_YESNO | MB_ICONQUESTION) == IDYES)
                 {
+                    BOOL oldUnloadingPluginsForMainWindowClose = UnloadingPluginsForMainWindowClose;
+                    UnloadingPluginsForMainWindowClose = TRUE;
                     Plugins.Remove(HWindow, index, TRUE);
+                    UnloadingPluginsForMainWindowClose = oldUnloadingPluginsForMainWindowClose;
                     RefreshListView(FALSE, lvIndex); // a DLL was removed, we have fresher data ...
                 }
             }
