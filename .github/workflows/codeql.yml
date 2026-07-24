@@ -31,6 +31,9 @@ jobs:
 
     env:
       BUILD_CONFIGURATION: Release
+      # SFTP is not part of CodeQL coverage; keep this off so the workflow does
+      # not prepare the SFTP plugin or install its vcpkg dependencies.
+      BUILD_SFTP_PLUGIN: 'false'
       PROJECT_PATH: '.\\src\\vcxproj\\salamand.vcxproj'
       SOLUTION_PATH: '.\\src\\vcxproj\\salamand.sln'
       LOG_DIRECTORY: build_logs
