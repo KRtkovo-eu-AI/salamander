@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -3262,6 +3262,12 @@ BOOL CFilesWindow::ConfirmUnlockTabForPathChange()
     CALL_STACK_MESSAGE1("CFilesWindow::ConfirmUnlockTabForPathChange()");
 
     if (!IsTabLocked())
+        return TRUE;
+
+    if (MainWindow == NULL || MainWindow->GetPanelTabIndex(GetPanelSide(), this) <= 0)
+        return TRUE;
+
+    if (MainWindow->HWindow == NULL || !IsWindowVisible(MainWindow->HWindow) || GetPath()[0] == 0)
         return TRUE;
 
     if (SalMessageBox(HWindow, LoadStr(IDS_LOCKEDTAB_CHANGEPATH), LoadStr(IDS_LOCKEDTAB_TITLE),
