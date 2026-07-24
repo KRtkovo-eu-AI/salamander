@@ -1579,6 +1579,25 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 ChildDialog->DPIChangeInProgress = TRUE;
             ApplyLogicalDpiMetrics(newDPI);
             CurrentDPI = newDPI;
+
+            // CWindow applies this rectangle after the derived dialog
+            // procedure returns. Replace only its size with an exact value
+            // calculated from the immutable 96-DPI baseline. This keeps the
+            // monitor-selected position supplied by Windows, avoids a second
+            // SetWindowPos and prevents rounded physical sizes from feeding
+            // back into subsequent 100% <-> 150% moves.
+            RECT* suggested = reinterpret_cast<RECT*>(lParam);
+            if (suggested != NULL &&
+                LogicalWindowSize.cx > 0 && LogicalWindowSize.cy > 0)
+            {
+                suggested->right = suggested->left +
+                                   MulDiv(LogicalWindowSize.cx, newDPI,
+                                          USER_DEFAULT_SCREEN_DPI);
+                suggested->bottom = suggested->top +
+                                    MulDiv(LogicalWindowSize.cy, newDPI,
+                                           USER_DEFAULT_SCREEN_DPI);
+            }
+
             if (!DPILayoutPosted)
             {
                 DPILayoutPosted = TRUE;

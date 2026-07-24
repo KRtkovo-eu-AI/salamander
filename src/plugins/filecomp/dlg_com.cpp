@@ -435,15 +435,23 @@ BOOL CreateEnvFont(HWND dpiWindow)
 BOOL CreateEnvFontForDPI(UINT dpi)
 {
     CALL_STACK_MESSAGE2("CreateEnvFontForDPI(%u)", dpi);
+    if (dpi == 0)
+        dpi = USER_DEFAULT_SCREEN_DPI;
+
+    // Always start from the 96-DPI logical system font and scale it ourselves.
+    // SystemParametersInfoForDpi can fall back to the thread/system metrics on
+    // RDP DPI changes, leaving the rebar caption, difference combo and file
+    // headers at 100% while the rest of the window is already at 150%.
     NONCLIENTMETRICS ncm;
-    if (!WinLibDPIGetNonClientMetricsForDPI(
-            dpi != 0 ? dpi : USER_DEFAULT_SCREEN_DPI, &ncm))
+    if (!WinLibDPIGetNonClientMetricsForDPI(USER_DEFAULT_SCREEN_DPI, &ncm))
         return FALSE;
-    LOGFONT* lf = &ncm.lfMenuFont;
+    LOGFONT lf = ncm.lfMenuFont;
+    lf.lfHeight = MulDiv(lf.lfHeight, dpi, USER_DEFAULT_SCREEN_DPI);
+    lf.lfWidth = MulDiv(lf.lfWidth, dpi, USER_DEFAULT_SCREEN_DPI);
 
     if (EnvFont != NULL)
         DeleteObject(EnvFont);
-    EnvFont = CreateFontIndirect(lf);
+    EnvFont = CreateFontIndirect(&lf);
     if (EnvFont == NULL)
     {
         TRACE_E("Failed to create the font.");

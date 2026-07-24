@@ -250,6 +250,7 @@ internal static class UpdateCoordinator
 
     private static UpdateSettings Settings;
     private static string CurrentVersion = string.Empty;
+    private static IntPtr OwnerWindow;
     private static Timer? UpdateTimer;
     private static BlockingCollection<Action>? UiQueue;
     private static Thread? UiThread;
@@ -279,6 +280,10 @@ internal static class UpdateCoordinator
         lock (SyncRoot)
         {
             CurrentVersion = (currentVersion ?? string.Empty).Trim();
+            if (parent != IntPtr.Zero)
+            {
+                OwnerWindow = parent;
+            }
             ScheduleTimer_NoLock();
         }
 
@@ -308,6 +313,14 @@ internal static class UpdateCoordinator
 
     public static async Task CheckForUpdatesAsync(IntPtr parent, bool userInitiated, bool showIfCurrent)
     {
+        if (parent != IntPtr.Zero)
+        {
+            lock (SyncRoot)
+            {
+                OwnerWindow = parent;
+            }
+        }
+
         await CheckSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -626,7 +639,12 @@ internal static class UpdateCoordinator
 
     private static void TimerCallback()
     {
-        _ = CheckForUpdatesAsync(IntPtr.Zero, userInitiated: false, showIfCurrent: false);
+        IntPtr owner;
+        lock (SyncRoot)
+        {
+            owner = OwnerWindow;
+        }
+        _ = CheckForUpdatesAsync(owner, userInitiated: false, showIfCurrent: false);
     }
 
     private static async Task ShowUpdateAvailableAsync(IntPtr parent, string latestVersion)

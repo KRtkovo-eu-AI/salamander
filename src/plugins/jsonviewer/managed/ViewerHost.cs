@@ -764,6 +764,15 @@ internal static class ViewerHost
             var bounds = payload.Bounds;
             if (bounds.Width > 0 && bounds.Height > 0)
             {
+                // The viewer rectangle is already expressed in physical
+                // screen pixels by the native viewer API. Put the not-yet
+                // created form on the target monitor first, so WinForms
+                // performs its initial control/font autoscale for that
+                // monitor. Reapply the physical rectangle only after the HWND
+                // exists; otherwise WinForms also scales the saved outer
+                // bounds and the window opens too large.
+                Location = bounds.Location;
+                _ = Handle;
                 Bounds = bounds;
             }
             else
