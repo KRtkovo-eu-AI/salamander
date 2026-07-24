@@ -19,6 +19,11 @@ internal static class ManagedApplication
 
     public static void Initialize()
     {
+        // Initialize can run on a native plugin callback thread. The process is
+        // PMv2-aware, but an HWND captures the awareness of its creating
+        // thread, so select PMv2 before WinForms creates any hidden windows.
+        EnsurePerMonitorThread();
+
         lock (typeof(Application))
         {
             if (AppDomain.CurrentDomain.GetData(InitializedKey) is bool initialized && initialized)
@@ -26,6 +31,11 @@ internal static class ManagedApplication
                 return;
             }
 
+            // These switches must be selected before the first WinForms HWND.
+            // Without them .NET Framework loaded by a native executable can
+            // remain on its legacy SystemAware (96-DPI) scaling path.
+            AppContext.SetSwitch("Switch.System.Windows.Forms.DoNotSupportDpiChanges", false);
+            AppContext.SetSwitch("Switch.System.Windows.Forms.EnableWindowsFormsHighDpiAutoResizing", true);
             Application.EnableVisualStyles();
             try
             {
@@ -75,10 +85,20 @@ internal class DpiAwareForm : Form
 
     internal DpiAwareForm()
     {
+        ManagedApplication.EnsurePerMonitorThread();
         AutoScaleDimensions = new SizeF(96.0F, 96.0F);
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = CloneFont(SystemFonts.MessageBoxFont);
         _dpiFonts[this] = Font;
+    }
+
+    protected override void CreateHandle()
+    {
+        // This is the decisive point at which the top-level HWND captures the
+        // thread DPI context. Repeat it here because constructors and native
+        // callbacks can run under a temporarily changed context.
+        ManagedApplication.EnsurePerMonitorThread();
+        base.CreateHandle();
     }
 
     protected int ScaleLogical(int logicalPixels)

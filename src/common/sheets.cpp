@@ -1580,22 +1580,24 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ApplyLogicalDpiMetrics(newDPI);
             CurrentDPI = newDPI;
 
-            // CWindow applies this rectangle after the derived dialog
-            // procedure returns. Replace only its size with an exact value
-            // calculated from the immutable 96-DPI baseline. This keeps the
-            // monitor-selected position supplied by Windows, avoids a second
-            // SetWindowPos and prevents rounded physical sizes from feeding
-            // back into subsequent 100% <-> 150% moves.
+            // CDialog does not pass through CWindow::WindowProc, so it cannot
+            // rely on WinLibDPIApplySuggestedRect. Apply the monitor-selected
+            // position and the exact size from our immutable 96-DPI baseline
+            // here, once. Otherwise DefDlgProc may retain a rounded previous
+            // size and feed it into the next 100% <-> 150% transition.
             RECT* suggested = reinterpret_cast<RECT*>(lParam);
             if (suggested != NULL &&
                 LogicalWindowSize.cx > 0 && LogicalWindowSize.cy > 0)
             {
-                suggested->right = suggested->left +
-                                   MulDiv(LogicalWindowSize.cx, newDPI,
-                                          USER_DEFAULT_SCREEN_DPI);
-                suggested->bottom = suggested->top +
-                                    MulDiv(LogicalWindowSize.cy, newDPI,
-                                           USER_DEFAULT_SCREEN_DPI);
+                int exactWidth = MulDiv(LogicalWindowSize.cx, newDPI,
+                                        USER_DEFAULT_SCREEN_DPI);
+                int exactHeight = MulDiv(LogicalWindowSize.cy, newDPI,
+                                         USER_DEFAULT_SCREEN_DPI);
+                suggested->right = suggested->left + exactWidth;
+                suggested->bottom = suggested->top + exactHeight;
+                SetWindowPos(HWindow, NULL, suggested->left, suggested->top,
+                             exactWidth, exactHeight,
+                             SWP_NOACTIVATE | SWP_NOZORDER);
             }
 
             if (!DPILayoutPosted)
@@ -1604,8 +1606,8 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 PostMessage(HWindow, _TPD_WM_POST_DPI_LAYOUT, 0, 0);
             }
         }
-        // Return through CDialog so DefDlgProc can perform the PMv2 dialog and
-        // child-control scaling exactly once.
+        // Return FALSE through CDialog so DefDlgProc can perform the standard
+        // PMv2 child/dialog scaling using the same exact rectangle.
         break;
     }
 
@@ -1814,21 +1816,18 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_SYSCOMMAND:
+    case WM_ENTERSIZEMOVE:
     {
-        UINT command = (UINT)(wParam & 0xFFF0);
-        if (command == SC_SIZE)
-            UserSizing = TRUE;
-        else if (command == SC_MOVE)
-            UserSizing = FALSE;
+        // A move and a resize both enter this modal loop. WM_SIZING is the
+        // reliable discriminator; reset first so a pure cross-monitor move
+        // can never replace the persistent logical-size baseline.
+        UserSizing = FALSE;
         break;
     }
 
-    case WM_ENTERSIZEMOVE:
+    case WM_SIZING:
     {
-        // WM_ENTERSIZEMOVE covers both moving and sizing. UserSizing was
-        // selected by the preceding SC_MOVE/SC_SIZE command; a pure move
-        // across monitors must never replace the persistent 96-DPI baseline.
+        UserSizing = TRUE;
         break;
     }
 
