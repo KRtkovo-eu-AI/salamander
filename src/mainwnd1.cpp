@@ -367,6 +367,7 @@ CMainWindow::CMainWindow()
     DetachedPanelsSwapFixNeeded = FALSE;
     WindowPosSizeUpdatePending = FALSE;
     LayoutWindowsInProgress = FALSE;
+    MainWindowSizeInProgress = FALSE;
     DetachedDPIRefreshInProgress = FALSE;
     DetachedDPIRefreshPosted = FALSE;
     //  DrivesControlHWnd = NULL;

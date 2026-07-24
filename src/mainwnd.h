@@ -437,6 +437,7 @@ public:
     BOOL DetachedPanelsSwapFixNeeded; // TRUE after Swap Sides while detached; reattach replays a double swap to refresh layout state
     BOOL WindowPosSizeUpdatePending; // TRUE when WM_WINDOWPOSCHANGED posted a deferred WM_SIZE
     BOOL LayoutWindowsInProgress; // blocks synchronous rebar/layout notification recursion
+    BOOL MainWindowSizeInProgress; // blocks a reentrant WM_SIZE while child controls are being laid out
     BOOL DetachedDPIRefreshInProgress;
     BOOL DetachedDPIRefreshPosted;
 

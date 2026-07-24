@@ -31,11 +31,12 @@ if "%OPENSAL_BUILD_DIR%"=="" (
   goto :eof
 )
 
-:: link.exe can fail with LNK1000 when the solution starts dozens of
-:: resource-only language DLL links at once. Keep a conservative default,
-:: while allowing build agents to choose another value explicitly.
+:: link.exe can fail with LNK1000 even with only a few resource-only
+:: language DLL links running concurrently. Serialize solution projects by
+:: default; individual C++ projects still use the compiler's /MP parallelism.
+:: Build agents can explicitly opt into solution-level parallelism.
 set "BUILD_JOBS=%OPENSAL_BUILD_JOBS%"
-if not defined BUILD_JOBS set "BUILD_JOBS=8"
+if not defined BUILD_JOBS set "BUILD_JOBS=1"
 
 :: Default values for build_config and build_arch
 set build_config=Debug
