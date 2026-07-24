@@ -223,7 +223,6 @@ jobs:
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
             '/p:PreferredToolArchitecture=x64'
-            '/p:RestoreFallbackFolders='
             '/warnaserror'
             '/nr:false'
             '/v:m'
@@ -278,7 +277,6 @@ jobs:
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
             '/p:PreferredToolArchitecture=x64'
-            '/p:RestoreFallbackFolders='
             '/warnaserror'
             '/nr:false'
             '/v:m'
