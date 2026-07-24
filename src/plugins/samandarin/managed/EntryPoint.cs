@@ -1189,6 +1189,9 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private int _sortColumn = 2;
     private SortOrder _sortOrder = SortOrder.Ascending;
 
+    private static readonly System.Drawing.Size LogicalMinimumWindowSize =
+        new(870, 650);
+
     protected override System.Drawing.Size LogicalWindowSize =>
         new(980, 650);
 
@@ -1202,7 +1205,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         ShowInTaskbar = false;
         Width = 980;
         Height = 640;
-        MinimumSize = new System.Drawing.Size(870, 650);
+        MinimumSize = LogicalMinimumWindowSize;
         AutoScroll = true;
         Icon = PluginIconLoader.Load();
 
@@ -1321,6 +1324,20 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             AdjustListViewColumns();
         };
         UpdateDetails();
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        // ShowDialog can restore the pre-Load outer size/constraints after the
+        // initial deterministic DPI pass. Reassert both from their immutable
+        // logical values before Shown handlers center and populate the dialog.
+        MinimumSize = new System.Drawing.Size(
+            ScaleLogical(LogicalMinimumWindowSize.Width),
+            ScaleLogical(LogicalMinimumWindowSize.Height));
+        Size = new System.Drawing.Size(
+            ScaleLogical(LogicalWindowSize.Width),
+            ScaleLogical(LogicalWindowSize.Height));
+        base.OnShown(e);
     }
 
     protected override void OnDeterministicDpiChanged(
