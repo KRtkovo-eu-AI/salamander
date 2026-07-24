@@ -18,6 +18,10 @@
 #define WM_DPICHANGED_AFTERPARENT 0x02E3
 #endif
 
+#ifndef WM_GETDPISCALEDSIZE
+#define WM_GETDPISCALEDSIZE 0x02E4
+#endif
+
 #ifndef USER_DEFAULT_SCREEN_DPI
 #define USER_DEFAULT_SCREEN_DPI 96
 #endif
@@ -126,7 +130,7 @@ inline int WinLibDPIGetSystemMetric(HWND hwnd, int index)
     return GetSystemMetrics(index);
 }
 
-inline BOOL WinLibDPIGetNonClientMetrics(HWND hwnd, NONCLIENTMETRICS* metrics)
+inline BOOL WinLibDPIGetNonClientMetricsForDPI(UINT dpi, NONCLIENTMETRICS* metrics)
 {
     if (metrics == NULL)
         return FALSE;
@@ -145,11 +149,16 @@ inline BOOL WinLibDPIGetNonClientMetrics(HWND hwnd, NONCLIENTMETRICS* metrics)
     metrics->cbSize = sizeof(*metrics);
     if (systemParametersInfoForDpi != NULL &&
         systemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, metrics->cbSize, metrics, 0,
-                                   WinLibDPIGetWindowDPI(hwnd)))
+                                   dpi != 0 ? dpi : USER_DEFAULT_SCREEN_DPI))
     {
         return TRUE;
     }
     return SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics->cbSize, metrics, 0);
+}
+
+inline BOOL WinLibDPIGetNonClientMetrics(HWND hwnd, NONCLIENTMETRICS* metrics)
+{
+    return WinLibDPIGetNonClientMetricsForDPI(WinLibDPIGetWindowDPI(hwnd), metrics);
 }
 
 inline BOOL WinLibDPIGetIconTitleLogFont(HWND hwnd, LOGFONT* font)
@@ -197,6 +206,14 @@ inline HFONT WinLibDPICreateMessageFont(HWND hwnd)
 {
     NONCLIENTMETRICS metrics;
     if (!WinLibDPIGetNonClientMetrics(hwnd, &metrics))
+        return NULL;
+    return CreateFontIndirect(&metrics.lfMessageFont);
+}
+
+inline HFONT WinLibDPICreateMessageFontForDPI(UINT dpi)
+{
+    NONCLIENTMETRICS metrics;
+    if (!WinLibDPIGetNonClientMetricsForDPI(dpi, &metrics))
         return NULL;
     return CreateFontIndirect(&metrics.lfMessageFont);
 }

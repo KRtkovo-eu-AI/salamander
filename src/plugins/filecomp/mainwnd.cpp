@@ -77,6 +77,7 @@ CMainWindow::CMainWindow(char* path1, char* path2, CCompareOptions* options, UIN
     ShowCmd = showCmd;
     bOptionsChangedBeingHandled = FALSE;
     HToolbarImages = NULL;
+    DpiUpdatePending = FALSE;
 }
 
 CMainWindow::~CMainWindow()
@@ -1191,11 +1192,22 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DPICHANGED:
     {
-        // Apply the new monitor rectangle first. All following font, bitmap and
-        // metric helpers then query the new DPI from this viewer instead of
-        // accidentally rebuilding another 96-DPI set before CWindow handles
-        // the message.
-        WinLibDPIApplySuggestedRect(HWindow, uMsg, lParam);
+        // GetDpiForWindow still reports the old value while WM_DPICHANGED is
+        // being dispatched. Rebuilding fonts and bitmap strips here therefore
+        // recreates the 96-DPI chrome even though the file views later receive
+        // their new child-DPI notifications. Let CWindow apply the suggested
+        // rectangle and rebuild after the message has completely returned.
+        if (!DpiUpdatePending)
+        {
+            DpiUpdatePending = TRUE;
+            PostMessage(HWindow, WM_FILECOMP_APPLY_DPI, 0, 0);
+        }
+        break;
+    }
+
+    case WM_FILECOMP_APPLY_DPI:
+    {
+        DpiUpdatePending = FALSE;
         if (CreateEnvFont(HWindow))
         {
             HeaderHeight = EnvFontHeight + WinLibDPIFromLogical(HWindow, 4);
@@ -1203,6 +1215,9 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (ComboBox != NULL && ComboBox->HWindow != NULL)
             {
                 SendMessage(ComboBox->HWindow, WM_SETFONT, (WPARAM)EnvFont, TRUE);
+                HWND edit = GetWindow(ComboBox->HWindow, GW_CHILD);
+                if (edit != NULL)
+                    SendMessage(edit, WM_SETFONT, (WPARAM)EnvFont, TRUE);
                 SendMessage(ComboBox->HWindow, CB_SETITEMHEIGHT, (WPARAM)-1,
                             EnvFontHeight + WinLibDPIFromLogical(HWindow, 6));
             }

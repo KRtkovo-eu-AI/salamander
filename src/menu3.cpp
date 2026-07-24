@@ -41,6 +41,9 @@ static void PatBltWithColor(HDC hDC, int left, int top, int width, int height, C
 
 #define COLUMN_L1_L2_MARGIN 5 // space between column L1 and L2
 #define STANDARD_BITMAP_SIZE 17
+#ifndef ILD_SCALE
+#define ILD_SCALE 0x2000
+#endif
 
 //*****************************************************************************
 //
@@ -866,7 +869,7 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
         else
             ImageList_DrawEx(hImageList, imageIndex, SharedRes->MonoBitmap->HMemDC,
                              0, 0, targetBmpW, targetBmpH,
-                             CLR_NONE, CLR_NONE, ILD_TRANSPARENT);
+                             CLR_NONE, CLR_NONE, ILD_TRANSPARENT | ILD_SCALE);
         if (item->HOverlay != NULL)
             DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HOverlay,
                        targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
@@ -904,7 +907,7 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
             ImageList_DrawEx(hImageList, imageIndex, SharedRes->CacheBitmap->HMemDC,
                              /*1 + */ xO + 1, myYOffset + /*1 + */ yO + 1,
                              targetBmpW, targetBmpH, CLR_NONE, CLR_NONE,
-                             checked ? ILD_TRANSPARENT : ILD_NORMAL);
+                             (checked ? ILD_TRANSPARENT : ILD_NORMAL) | ILD_SCALE);
         if (item->HOverlay != NULL)
             DrawIconEx(SharedRes->CacheBitmap->HMemDC, /*1 + */ xO + 1, myYOffset + /*1 + */ yO + 1,
                        item->HOverlay, targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);

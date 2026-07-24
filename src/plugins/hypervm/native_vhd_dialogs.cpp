@@ -142,7 +142,10 @@ void ApplyDialogDPI(CVhdDialogState* s, UINT newDpi, const RECT* suggestedRect)
         }
     }
 
-    HFONT newFont = WinLibDPICreateMessageFont(s->Window);
+    // GetDpiForWindow can still report the previous monitor while the
+    // WM_DPICHANGED notification is being dispatched. Use the DPI carried by
+    // the notification so the new HFONT is never recreated at 96 DPI.
+    HFONT newFont = WinLibDPICreateMessageFontForDPI(newDpi);
     if (newFont != nullptr)
     {
         for (HWND child = GetWindow(s->Window, GW_CHILD); child != nullptr;
@@ -328,6 +331,25 @@ bool RunDialog(HWND parent, bool create)
         title = create ? L"Create and Attach Virtual Hard Disk" : L"Attach Virtual Hard Disk";
         titleA = create ? "Create and Attach Virtual Hard Disk" : "Attach Virtual Hard Disk";
     }
+
+    int windowWidth = windowRect.right - windowRect.left;
+    int windowHeight = windowRect.bottom - windowRect.top;
+    int windowX = CW_USEDEFAULT;
+    int windowY = CW_USEDEFAULT;
+    RECT parentRect;
+    MONITORINFO monitorInfo = {sizeof(monitorInfo)};
+    HMONITOR monitor = MonitorFromWindow(parent, MONITOR_DEFAULTTONEAREST);
+    if (GetWindowRect(parent, &parentRect) &&
+        monitor != NULL && GetMonitorInfo(monitor, &monitorInfo))
+    {
+        windowX = parentRect.left + ((parentRect.right - parentRect.left) - windowWidth) / 2;
+        windowY = parentRect.top + ((parentRect.bottom - parentRect.top) - windowHeight) / 2;
+        windowX = max(monitorInfo.rcWork.left,
+                      min(windowX, monitorInfo.rcWork.right - windowWidth));
+        windowY = max(monitorInfo.rcWork.top,
+                      min(windowY, monitorInfo.rcWork.bottom - windowHeight));
+    }
+
     HWND hwnd = nullptr;
     {
         // This window bypasses WinLib's normal top-level creation path. CLR
@@ -336,8 +358,8 @@ bool RunDialog(HWND parent, bool create)
         // keep its controls at 96 DPI. Capture PMv2 explicitly at creation.
         CWinLibDPIContext dpiContext;
         hwnd = CreateWindowExA(WS_EX_DLGMODALFRAME, wc.lpszClassName, titleA.c_str(),
-                               WS_CAPTION | WS_SYSMENU | WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT,
-                               windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
+                               WS_CAPTION | WS_SYSMENU | WS_POPUP, windowX, windowY,
+                               windowWidth, windowHeight,
                                parent, nullptr, DLLInstance, &s);
     }
     SetWindowTextW(hwnd, title.c_str());
@@ -388,7 +410,6 @@ bool RunDialog(HWND parent, bool create)
         DarkModeApplyTree(hwnd);
         DarkModeRefreshTitleBar(hwnd);
     }
-    SalamanderGeneral->MultiMonCenterWindow(hwnd, parent, TRUE);
     EnableWindow(parent, FALSE);
     ShowWindow(hwnd, SW_SHOW);
     SetWindowTextW(hwnd, title.c_str());
