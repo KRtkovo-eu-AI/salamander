@@ -216,17 +216,18 @@ jobs:
           $projectPaths = '${{ steps.changed_projects.outputs.project_paths_json }}' | ConvertFrom-Json
           foreach ($projectPath in $projectPaths) {
             Write-Host "Building changed project: $projectPath"
-            $arguments = @(
-              $projectPath
-              '/m'
-              '/t:Rebuild'
-              "/p:Configuration=$($env:BUILD_CONFIGURATION)"
-              "/p:Platform=${{ matrix.platform }}"
-              '/p:PreferredToolArchitecture=x64'
-              '/warnaserror'
-              '/nr:false'
-              '/v:m'
-            )
+          $arguments = @(
+            $projectPath
+            '/m'
+            '/t:Rebuild'
+            "/p:Configuration=$($env:BUILD_CONFIGURATION)"
+            "/p:Platform=${{ matrix.platform }}"
+            '/p:PreferredToolArchitecture=x64'
+            '/p:RestoreFallbackFolders='
+            '/warnaserror'
+            '/nr:false'
+            '/v:m'
+          )
 
             msbuild @arguments 2>&1 | Tee-Object -FilePath $txtLog -Encoding UTF8 -Append
 
@@ -277,6 +278,7 @@ jobs:
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
             '/p:PreferredToolArchitecture=x64'
+            '/p:RestoreFallbackFolders='
             '/warnaserror'
             '/nr:false'
             '/v:m'
