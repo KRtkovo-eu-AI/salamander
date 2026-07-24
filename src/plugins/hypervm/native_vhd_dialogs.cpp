@@ -369,7 +369,11 @@ bool RunDialog(HWND parent, bool create)
     }
     s.Window = hwnd;
     s.Dpi = WinLibDPIGetWindowDPI(hwnd);
-    s.Font = WinLibDPICreateMessageFont(hwnd);
+    // Use the explicit HWND DPI here as well as in WM_DPICHANGED. In remote
+    // sessions the generic SPI path can return a legacy 96-DPI message font
+    // even though this PMv2 window and all of its geometry are already at
+    // 150%.
+    s.Font = WinLibDPICreateMessageFontForDPI(s.Dpi);
     HFONT font = s.Font != nullptr ? s.Font : (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 
     AddControl(hwnd, L"STATIC", WStr(create ? IDS_VHD_CREATE_INTRO : IDS_VHD_ATTACH_INTRO), 0, 12, 12, 350, 18, -1, font);
