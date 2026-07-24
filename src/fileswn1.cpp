@@ -2333,6 +2333,8 @@ DWORD WINAPI IconThreadThreadF(void* param)
 CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
+    static ULONGLONG nextPanelTabId = 0;
+
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
     NarrowedNameColumn = FALSE;
     FullWidthOfNameCol = 0;
@@ -2382,6 +2384,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
 
     Parent = parent;
     PanelSide = side;
+    PanelTabId = ++nextPanelTabId;
+    if (PanelTabId == 0)
+        PanelTabId = ++nextPanelTabId;
     CustomTabColorValid = false;
     CustomTabColor = RGB(0, 0, 0);
     CustomTabPrefixValid = false;

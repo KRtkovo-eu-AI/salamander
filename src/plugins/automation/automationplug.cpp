@@ -545,6 +545,8 @@ void CAutomationPluginInterface::About(HWND parent)
 
 BOOL WINAPI CAutomationPluginInterface::Release(HWND parent, BOOL force)
 {
+    g_oScriptLookup.UnpublishSalamatrixExtensions();
+    m_oSalamatrix.Reset();
     ReleaseWinLib(g_hInstance);
     UninitializeAbortableModalDialogWrapper();
 
@@ -645,6 +647,8 @@ void WINAPI CAutomationPluginInterface::LoadConfiguration(
     {
         g_oScriptLookup.Load(NULL, registry);
     }
+
+    g_oScriptLookup.PublishSalamatrixExtensions();
 
     if (hKey)
     {

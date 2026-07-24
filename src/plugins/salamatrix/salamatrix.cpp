@@ -106,6 +106,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
     }
 
+    SalamatrixRuntime->Events()->PublishLifecycle(
+        Salamatrix::Events::EventKindHostStartup);
+
     return &PluginInterface;
 }
 
@@ -115,10 +118,12 @@ void WINAPI CPluginInterface::About(HWND parent)
     _snprintf_s(buf, _TRUNCATE,
                 "Salamatrix Framework 0.1\n\n"
                 "Registered services: %s\n"
-                "Service count: %d\n\n"
-                "Provides Salamatrix.UI, Salamatrix.Commands, Salamatrix.FileOperations and the Automation adapter.",
+                "Service count: %d\n"
+                "Runtime adapters: %d\n\n"
+                "Provides Salamatrix.UI, Salamatrix.Commands, Salamatrix.FileOperations, Salamatrix.Runtime, Salamatrix.Sides, Salamatrix.Events, Salamatrix.Extensions, Salamatrix.Storage and the Automation adapter.",
                 SalamatrixRuntime != NULL && SalamatrixRuntime->IsHostRegistered() ? "yes" : "no",
-                SalamatrixRuntime != NULL ? SalamatrixRuntime->Services()->GetCount() : 0);
+                SalamatrixRuntime != NULL ? SalamatrixRuntime->Services()->GetCount() : 0,
+                SalamatrixRuntime != NULL ? SalamatrixRuntime->Runtimes()->GetAdapterCount() : 0);
     SalamanderGeneral->SalMessageBox(parent, buf, PluginNameEN, MB_OK | MB_ICONINFORMATION);
 }
 
@@ -152,8 +157,37 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     }
 }
 
+void WINAPI CPluginInterface::LoadConfiguration(
+    HWND parent,
+    HKEY regKey,
+    CSalamanderRegistryAbstract* registry)
+{
+    UNREFERENCED_PARAMETER(parent);
+    if (SalamatrixRuntime != NULL)
+        SalamatrixRuntime->Storage()->LoadConfiguration(regKey, registry);
+}
+
+void WINAPI CPluginInterface::SaveConfiguration(
+    HWND parent,
+    HKEY regKey,
+    CSalamanderRegistryAbstract* registry)
+{
+    UNREFERENCED_PARAMETER(parent);
+    if (SalamatrixRuntime != NULL)
+        SalamatrixRuntime->Storage()->SaveConfiguration(regKey, registry);
+}
+
+void WINAPI CPluginInterface::Event(int event, DWORD param)
+{
+    if (SalamatrixRuntime != NULL)
+        SalamatrixRuntime->Events()->PublishHostEvent(event, param);
+}
+
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
+    if (SalamatrixRuntime != NULL)
+        SalamatrixRuntime->Events()->PublishLifecycle(
+            Salamatrix::Events::EventKindHostShutdown);
     DestroyRuntimeServices();
     SalamanderGeneral = NULL;
     SalamanderGUI = NULL;

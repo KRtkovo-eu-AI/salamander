@@ -43,6 +43,7 @@ Salamatrix
 ├── Salamatrix.FileOperations
 ├── Salamatrix.Runtime
 ├── Salamatrix.Events
+├── Salamatrix.Extensions
 ├── Salamatrix.Storage
 └── Salamatrix.SDK
 ```
@@ -53,6 +54,10 @@ For the MVP, only these names should be treated as active design targets:
 - `Salamatrix.Commands`
 - `Salamatrix.FileOperations`
 - `Salamatrix.Runtime`
+- `Salamatrix.Sides`
+- `Salamatrix.Events`
+- `Salamatrix.Extensions`
+- `Salamatrix.Storage`
 
 ### Native naming
 
@@ -76,6 +81,8 @@ Scripts should normally see the existing product concept as their root object:
 Salamander.UI.progress(...)
 Salamander.Commands.execute(...)
 Salamander.FileOperations.copy_interactive(...)
+Salamander.Sides.Source.ActiveTab.Path
+Salamander.Storage.get("lastPath")
 ```
 
 In this model, **Salamatrix** is the platform and SDK name, while
@@ -96,6 +103,10 @@ Salamatrix.Commands
 Salamatrix.FileOperations
 Salamatrix.Runtime
 Salamatrix.Automation
+Salamatrix.Sides
+Salamatrix.Events
+Salamatrix.Extensions
+Salamatrix.Storage
 ```
 
 Implemented C-style constants in the Salamatrix headers:
@@ -106,16 +117,218 @@ Implemented C-style constants in the Salamatrix headers:
 #define SALAMATRIX_SERVICE_FILEOPERATIONS  "Salamatrix.FileOperations"
 #define SALAMATRIX_SERVICE_RUNTIME         "Salamatrix.Runtime"
 #define SALAMATRIX_SERVICE_AUTOMATION_ADAPTER "Salamatrix.Automation"
+#define SALAMATRIX_SERVICE_SIDES           "Salamatrix.Sides"
+#define SALAMATRIX_SERVICE_EVENTS         "Salamatrix.Events"
+#define SALAMATRIX_SERVICE_EXTENSIONS     "Salamatrix.Extensions"
+#define SALAMATRIX_SERVICE_STORAGE         "Salamatrix.Storage"
 
 #define SALAMATRIX_UI_VERSION_1_0             0x00010000
 #define SALAMATRIX_COMMANDS_VERSION_1_0       0x00010000
 #define SALAMATRIX_FILEOPERATIONS_VERSION_1_0 0x00010000
 #define SALAMATRIX_AUTOMATION_VERSION_1_0     0x00010000
+#define SALAMATRIX_RUNTIME_VERSION_1_0        0x00010000
+#define SALAMATRIX_SIDES_VERSION_1_0          0x00010000
+#define SALAMATRIX_EVENTS_VERSION_1_0         0x00010000
+#define SALAMATRIX_EXTENSIONS_VERSION_1_0     0x00010000
+#define SALAMATRIX_STORAGE_VERSION_1_0        0x00010000
 ```
 
-The `Salamatrix.Runtime` service id is reserved for compatibility/provider metadata; `SALAMATRIX.SPL` itself is an Automation Framework provider. The current
-host registration publishes the UI, Commands, FileOperations, and Automation
-adapter services.
+`SALAMATRIX.SPL` itself is an Automation Framework provider. The current host
+registration publishes the UI, Commands, FileOperations, Runtime broker, and
+Automation adapter, Sides, Events, Extensions, and Storage services. The event service is
+fed by the host's plugin event callback and is also available to native runtime
+adapters.
+
+## Salamatrix.Runtime broker and execution contract
+
+The first runtime broker contract is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_runtime_api.h
+```
+
+`IRuntimeService` owns the process-local catalog of language runtime adapters.
+Adapters publish a stable runtime id, display/language metadata, supported entry
+point extensions, a runtime version, and flags describing in-process,
+out-of-process, bundled, compatibility, and persistent-extension capabilities.
+The broker supports registration, unregistration, enumeration, lookup by
+runtime id/version, and fallback lookup by entry point. `IRuntimeAdapter` also
+receives a versioned `RuntimeExecutionRequest` and returns a structured
+`RuntimeExecutionResult` with succeeded, failed, or cancelled status, HRESULT,
+process/exit information, a bounded UTF-16 output capture, and an adapter-owned
+error message. Requests carry an explicit working directory and a default
+two-minute timeout (clamped to one hour).
+
+The Automation consumer bridge is the first adapter provider. It advertises the
+legacy Active Scripting engines that are actually available:
+
+- `Automation.JScript` for `.js`;
+- `Automation.VBScript` for `.vbs`;
+- `Automation.ActivePython` for `.pys`, when the legacy ActivePython COM engine
+  is installed;
+- `Automation.PHPScript` for `.phps`, when the legacy PHPScript COM engine is
+  installed.
+
+These adapters are explicitly marked as in-process compatibility adapters. In
+addition, Automation registers optional out-of-process CLI adapters when the
+interpreter is discoverable through `PATH` or an explicit environment variable:
+
+- `Python.CPython` for `.py` (`SALAMATRIX_PYTHON`, then `python.exe`/`python3.exe`);
+- `PowerShell` for `.ps1` (`SALAMATRIX_POWERSHELL`, then `pwsh.exe`/
+  `powershell.exe`);
+- `PHP.CLI` for `.php` (`SALAMATRIX_PHP`, then `php.exe`).
+
+The process adapter uses a non-shell `CreateProcessW` invocation, passes the
+entry point as a quoted file argument, drains a combined stdout/stderr pipe,
+limits captured output to 1 MiB, terminates timed-out children, and returns the
+exit code. This makes Python/PowerShell/PHP real selectable runtimes today;
+they intentionally do not yet expose Salamander objects to the child process
+or keep a persistent interpreter alive. The next step is a persistent worker
+protocol (JSON-RPC-style messages over stdio) that maps the same UI, commands,
+sides, events, and storage services without sharing native pointers.
+
+The first worker-transport slice is declared in
+`src/plugins/salamatrix/salamatrix_runtime_protocol.h`. It provides a bounded,
+incremental `SMX1` line codec with typed message kinds (`hello`, `ready`, `call`,
+`result`, `event`, `shutdown`, `error`), decimal request ids, and compact JSON
+payloads. The codec rejects embedded newlines, malformed ids, and frames over
+1 MiB, and is intentionally independent of any language's JSON library. A
+persistent process/session and host-side method dispatcher still need to be
+built on top of this transport.
+
+Runtime registration is tied to the Automation bridge refresh/release lifecycle.
+Before unregistering, the bridge verifies that the same broker is still
+published by the host so a provider unload cannot turn cleanup into a call
+through a stale service pointer.
+
+The framework's host-service registration is transactional. If any of the nine
+services cannot be registered, services registered earlier in the attempt are
+rolled back in reverse order instead of leaving dangling partial registrations.
+
+## Salamatrix.Sides and panel-tab snapshots
+
+The runtime-neutral side and tab contract is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_sides.h
+```
+
+`ISidesService` resolves the logical Left, Right, Source, and Target references
+to physical sides. It exposes tab counts, active-tab snapshots, lookup by a
+stable process-local tab id, path reads, tab activation, and active-tab path
+changes. Snapshots include physical side, index, path type, and flags for
+active-on-side, source, target, locked, and detached state.
+
+The core SDK additions in `CSalamanderGeneralAbstract` expose only value
+snapshots and opaque ids. They do not leak `CFilesWindow` or tab-array pointers
+across the plugin boundary. Each `CFilesWindow` receives a nonzero monotonically
+increasing id for its lifetime. Callers must therefore re-read a tab by id
+before each operation and treat a failed lookup as a stale handle.
+
+Automation publishes the same model under the `Salamander.Sides` root:
+
+```javascript
+var source = Salamander.Sides.Source;
+var tab = source.ActiveTab;
+Salamander.TraceI(
+    source.Name + ": " + tab.Path + " (" + tab.Id + ")");
+tab.Activate(true);
+Salamander.Sides.Target.Path = "C:\\Temp";
+```
+
+The tab id is exposed to scripts as a decimal string, not a JavaScript number,
+so a 64-bit native id cannot lose precision in legacy JScript. The current
+service deliberately stops at tab identity, state, path, and activation.
+Focused/selected item snapshots, view settings, refresh, and tab lifecycle
+events remain follow-up work.
+
+## Salamatrix.Storage per-extension persistence
+
+The runtime-neutral persistent storage contract is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_storage.h
+```
+
+`IStorageService` accepts a validated manifest extension id and a key, keeping
+each extension in a separate namespace. Version 1 supports UTF-8 strings up to
+16 KiB, signed 64-bit integers, booleans, deletion, and clearing one namespace.
+The service is synchronized so future worker-process/runtime bridges do not need
+to share Automation's old global `VARIANT` container.
+
+`SALAMATRIX.SPL` owns the storage and persists all namespaces as one bounded,
+versioned binary configuration blob through `CSalamanderRegistryAbstract`.
+Loading validates the complete header, entry count, lengths, identifiers, types,
+payload sizes, embedded NULs, and duplicate records before accepting values.
+Unchanged data is not rewritten.
+
+Manifest-based Automation extensions use the same service through:
+
+```javascript
+var previous = Salamander.Storage.get("lastPath", "(first run)");
+Salamander.Storage.set("lastPath", Salamander.Sides.Source.Path);
+Salamander.TraceI(Salamander.Storage.Namespace + ": " + previous);
+```
+
+`Salamander.Storage` is deliberately unavailable to loose legacy scripts with
+no manifest id, because silently returning to one shared global namespace would
+break the isolation guarantee. The older `SetPersistentVal` and
+`GetPersistentVal` methods remain as compatibility APIs. Future package
+management still needs quotas, migration hooks, settings schemas, and an
+uninstall retention/deletion policy.
+
+## Salamatrix.Events host subscriptions
+
+The event contract is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_events.h
+```
+
+`IEventsService` provides versioned subscribe/unsubscribe with opaque 64-bit
+subscription ids. Dispatch snapshots matching subscribers under a short lock,
+releases the lock before invoking callbacks, and therefore permits a callback
+to unsubscribe itself safely. The current payload contains the event name,
+host parameter, active physical panel, active tab id, path type, and a copied
+path. The initial host mapping covers startup/shutdown, settings and
+configuration changes, color changes, panel swaps, and active-panel changes.
+
+The Automation facade is:
+
+```javascript
+var subscription = Salamander.Events.subscribe(
+    "activePanelChanged",
+    function (name, parameter, path, activeTabId) {
+        Salamander.TraceI(name + ": " + path);
+    });
+Salamander.Events.unsubscribe(subscription);
+```
+
+Callbacks are owned by the subscribing extension object and are automatically
+unsubscribed when that object is released. Persistent extension instances and
+worker-runtime dispatch queues still need to be added; one-shot legacy scripts
+cannot receive an event after their execution has ended.
+
+## Salamatrix.Extensions lifecycle registry
+
+The lifecycle registry is declared in:
+
+```text
+src/plugins/salamatrix/salamatrix_extensions.h
+```
+
+`IExtensionsService` keeps a bounded, owner-aware catalog of valid extension
+descriptors. Entries have explicit `discovered`, `activating`, `active`,
+`deactivating`, `inactive`, and `failed` states and can be activated or
+deactivated through a callback that runs outside the registry lock. Automation
+registers valid manifest-backed scripts during initial load and refresh, using
+the `CScriptInfo` address as the owner; removed scripts are unregistered before
+their objects are deleted. Duplicate ids from another owner are rejected.
+
+This is the lifecycle foundation, not yet a persistent interpreter: current
+Automation registrations have no activation callback and remain one-shot
+compatibility scripts. Persistent runtime instances, command ownership, and
+unload leases will build on this registry in the next slice.
 
 ## Service lookup API
 
@@ -153,8 +366,9 @@ from DemoPlug command handlers.
 
 The core-facing MVP is now implemented on `CSalamanderGeneralAbstract` and backed
 by a process-local registry in `CSalamanderGeneral`. `Runtime::RuntimeServices`
-registers the PoC UI, Commands, FileOperations, and Automation services with both
-its local registry and the host registry while the runtime object is alive.
+registers the PoC UI, Commands, FileOperations, Runtime broker, Automation,
+Sides, Events, Extensions, and Storage services with both its local registry and the host registry
+while the runtime object is alive.
 
 ### Provider registration
 
@@ -460,9 +674,9 @@ lives in `src/plugins/salamatrix/`, has a standalone Visual Studio project in
 `src/plugins/salamatrix/vcxproj/`, and exports `SALAMATRIX.SPL`; on plugin entry
 it creates a persistent `Runtime::RuntimeServices` instance and registers
 `Salamatrix.UI`, `Salamatrix.Commands`, `Salamatrix.FileOperations`, and the
-Automation adapter in Salamander's core-facing `CSalamanderGeneralAbstract`
-service registry. DemoPlug remains only a consumer/sample and no longer needs to
-act as the long-lived provider.
+Runtime broker, Automation adapter, Sides, Events, Extensions, and Storage services in Salamander's
+core-facing `CSalamanderGeneralAbstract` service registry. DemoPlug remains
+only a consumer/sample and no longer needs to act as the long-lived provider.
 
 - `Runtime::ServiceRegistry` provides a minimal fixed-size local
   `RegisterService`/`QueryService` implementation, while `CSalamanderGeneral`
@@ -471,9 +685,10 @@ act as the long-lived provider.
   and destroying `Salamatrix::UI::ProgressDialog` objects over the existing
   `CSalamanderForOperationsAbstract` progress API.
 - `Runtime::RuntimeServices` wires one in-process UI service, command service,
-  file-operation service, script root adapter, and service registry together.
-  The Salamatrix runtime plugin owns one persistent instance and unregisters the
-  host services when the plugin is released.
+  file-operation service, runtime broker, script root adapter, Sides, Events,
+  Extensions, Storage, and service registry together. The Salamatrix runtime plugin
+  owns one persistent instance and unregisters the host services when the plugin
+  is released.
 - `RunProgressDialogPoc(...)` opens a native Salamatrix progress dialog, sets a
   total, adds text, steps progress, detects Cancel, disables Cancel for cleanup,
   and closes the dialog.
@@ -499,18 +714,23 @@ is missing, the PoC keeps a local fallback so the demo remains runnable.
 The Automation plugin is the first non-demo consumer bridge. Its
 `CAutomationSalamatrixBridge` queries `CSalamanderGeneral::QueryService` for the
 framework-provided `Salamatrix.Automation`, `Salamatrix.UI`,
-`Salamatrix.Commands`, and `Salamatrix.FileOperations` services when the plugin
-connects and immediately before script execution. It does not create a local
-fallback framework provider, so the Automation layer remains an adapter/consumer of
+`Salamatrix.Commands`, `Salamatrix.FileOperations`, `Salamatrix.Runtime`, and
+`Salamatrix.Sides`, `Salamatrix.Events`, `Salamatrix.Extensions`, and
+`Salamatrix.Storage` services when
+the plugin connects and immediately before script execution. It does not create a local fallback
+framework provider, so the Automation layer remains an adapter/consumer of
 `SALAMATRIX.SPL` rather than another provider of duplicated UI or command logic.
 
 
-Automation 2.0 starts exposing that bridge to scripts through `Salamander.UI`,
-`Salamander.Commands`, and `Salamander.FileOperations`. The first script-facing
-UI object is `Salamander.UI.progress(...)`, returning the existing progress
-Automation interface backed by `Salamatrix.UI`. Commands and interactive file
-operations return textual MVP results: `ok`, `cancel`, `not_available`, or
-`error`.
+Automation 2.0 exposes that bridge to scripts through `Salamander.UI`,
+`Salamander.Commands`, `Salamander.FileOperations`, `Salamander.Sides`,
+`Salamander.Events`, and `Salamander.Storage`. The first script-facing UI object is
+`Salamander.UI.progress(...)`, returning the existing progress Automation
+interface backed by `Salamatrix.UI`. Commands and interactive file operations
+return textual MVP results: `ok`, `cancel`, `not_available`, or `error`. Sides
+and tabs are COM/IDispatch wrappers over the same runtime-neutral snapshots and
+opaque ids used by native callers; Storage is bound to the executing manifest's
+extension id.
 
 
 The initial command catalog is deliberately small and stable: `QuickRename`,
@@ -532,8 +752,8 @@ Inline script metadata remains supported for tiny single-file samples:
 // Salamatrix.CommandRequires: file
 ```
 
-The manifest-based MVP uses an `extension.json` file next to the script entry
-point:
+Manifest-based extensions use an `extension.json` file in the extension root.
+The entry point may be next to it or in a safe relative subdirectory:
 
 ```json
 {
@@ -553,13 +773,27 @@ point:
 }
 ```
 
-The current manifest reader intentionally remains a simple MVP parser. It supports
-the package-level fields `id`, `name`/`title`, `runtime`, and `entryPoint`, plus
-command placement fields `menu`/`placement`, `contextMenu`, and `requires`. The
-script is still executed by the existing Automation script command workflow; the
-manifest sets the stable Salamatrix command id, overrides the menu caption when
-`entryPoint` matches the discovered script file, and controls whether the command
-appears in the plugin menu, context menu, both, or neither.
+The reader is a strict UTF-8 JSON parser rather than a scalar text scanner. It
+rejects malformed JSON, duplicate members, invalid UTF-8 and Unicode surrogate
+pairs, unsafe absolute or traversing entry points, unsupported schema versions,
+invalid field types, duplicate command ids, and unsupported placement/context
+values. Manifests are limited to 1 MiB and nesting depth 64.
+
+Schema version 1 supports:
+
+- package `id`, `name`/`title`, `version`, `description`, and `entryPoint`;
+- a runtime string or `{ "id", "minimumVersion" }` object;
+- a validated string array of declared `capabilities`;
+- up to 64 command records with `id`, `title`, `handler`, `menu`/`placement`,
+  `contextMenu`, and `requires`.
+
+Automation currently contributes the first parsed command to its legacy native
+menu surface; preserving all parsed commands for dynamic command contribution
+is the next command-service step. Unlike the old scanner, discovery is not
+limited to extensions with an `IActiveScript` file association. A valid manifest
+entry point is discovered first, then execution resolves the exact runtime id
+and minimum version through `Salamatrix.Runtime`. Missing or incompatible
+runtimes produce an explicit error instead of silently failing engine lookup.
 
 MVP `requires` values map to Salamander menu event masks as follows:
 
@@ -577,7 +811,9 @@ The platform skeleton is ready when:
    `src/plugins/salamatrix/`.
 2. The active MVP subsystem names are defined as `Salamatrix.UI`,
    `Salamatrix.Commands`, `Salamatrix.FileOperations`, and
-   `Salamatrix.Runtime`.
+   `Salamatrix.Runtime`, `Salamatrix.Sides`, `Salamatrix.Events`,
+   `Salamatrix.Extensions`, and
+   `Salamatrix.Storage`.
 3. A versioned `QueryService`/`RegisterService` ABI shape is documented.
 4. Missing-runtime behavior is defined for native plugins, scripts, and UI.
 5. The intended integration point with existing plugin registration and plugin
@@ -588,13 +824,14 @@ The platform skeleton is ready when:
    exist and route their MVP interactive behavior through existing Salamander
    command/workflow entry points.
 8. The first `Salamatrix.Automation` adapter contract exposes script-shaped
-   wrappers over the native UI, Commands, and FileOperations MVP services.
+   wrappers over the native UI, Commands, FileOperations, Sides, Events, and Storage
+   MVP services.
 9. The generic form-builder model is reserved as adapter contracts only; no
    duplicate Automation UI implementation is introduced outside `Salamatrix.UI`.
-10. The in-process Salamatrix PoC wires UI, Commands, FileOperations,
-   Automation adapters, a local service registry, and the core-facing
-   `CSalamanderGeneral` service registry together and is exposed as a DemoPlug
-   `Salamatrix PoC` menu sample.
+10. The in-process Salamatrix PoC wires UI, Commands, FileOperations, Runtime,
+   Sides, Events, Extensions, Storage, Automation adapters, a local service registry, and the
+   core-facing `CSalamanderGeneral` service registry together and is exposed as
+   a DemoPlug `Salamatrix PoC` menu sample.
 11. `SALAMATRIX.SPL` exists as the first Automation Framework provider plugin, creates the
    persistent `Runtime::RuntimeServices` aggregate, registers the MVP services
    with `CSalamanderGeneral`, and unregisters them during plugin release.
@@ -607,3 +844,43 @@ The platform skeleton is ready when:
    minimal `extension.json` manifest for the sample scripted extension.
 15. Scripted-extension command placement controls plugin-menu vs context-menu
    visibility and applies MVP `requires` context masks to Automation menu items.
+16. `Salamatrix.Runtime` is a registered broker service with versioned adapter
+    descriptors, registration, enumeration, and lookup.
+17. Automation advertises available legacy Active Scripting engines as
+    compatibility runtime adapters and unregisters them during release.
+18. Partial host-service registration is rolled back transactionally.
+19. Runtime adapters expose structured execution requests/results; manifest
+    execution is selected by runtime id and minimum version through the broker.
+20. `extension.json` is parsed as strict UTF-8 JSON with schema, path, runtime,
+    capability, and command validation.
+21. Manifest entry points are discovered independently of legacy ActiveScript
+    file associations.
+22. `Salamatrix.Sides` exposes Left, Right, Source, and Target resolution plus
+    safe panel-tab snapshots, opaque ids, paths, activation, and active-tab path
+    changes without leaking core implementation pointers.
+23. Automation exposes the same model through `Salamander.Sides`, including
+    precision-safe string tab ids and stale-handle checks.
+24. The plugin SDK version is raised to 105 for the appended service-registry
+    and panel-tab virtual methods.
+25. `Salamatrix.Storage` provides synchronized per-extension namespaces for
+    UTF-8 strings, signed 64-bit integers, and booleans, with versioned
+    configuration persistence.
+26. Automation exposes the current manifest namespace through
+    `Salamander.Storage`; loose scripts without an extension id cannot enter a
+    shared fallback namespace.
+27. Standalone `/W4 /WX` tests cover namespace isolation, types, limits,
+    mutation, configuration round-trip, unchanged-save behavior, and corrupt
+    blob rejection.
+28. `Salamatrix.Events` provides unsubscribe-safe host subscriptions for the
+    initial lifecycle, settings, configuration, color, panel-swap, and active
+    panel events; Automation exposes the same subscription contract.
+29. `Salamatrix.Extensions` provides an owner-aware manifest registry with
+    explicit lifecycle states and safe activate/deactivate transitions;
+    Automation publishes and removes manifest descriptors during script-list
+    load and refresh.
+30. Automation registers optional `Python.CPython`, `PowerShell`, and `PHP.CLI`
+    out-of-process adapters when their interpreters are discoverable, with
+    bounded output capture, timeout termination, and structured exit results.
+31. `salamatrix_runtime_protocol.h` provides bounded incremental `SMX1` worker
+    framing with typed lifecycle/call/event messages and standalone limit and
+    malformed-frame tests.

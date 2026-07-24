@@ -18,8 +18,8 @@ public:
     virtual void WINAPI About(HWND parent);
     virtual BOOL WINAPI Release(HWND parent, BOOL force);
 
-    virtual void WINAPI LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry) {}
-    virtual void WINAPI SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry) {}
+    virtual void WINAPI LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry);
+    virtual void WINAPI SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry);
     virtual void WINAPI Configuration(HWND parent) {}
 
     virtual void WINAPI Connect(HWND parent, CSalamanderConnectAbstract* salamander);
@@ -32,7 +32,7 @@ public:
     virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS() { return NULL; }
     virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() { return NULL; }
 
-    virtual void WINAPI Event(int event, DWORD param) {}
+    virtual void WINAPI Event(int event, DWORD param);
     virtual void WINAPI ClearHistory(HWND parent) {}
     virtual void WINAPI AcceptChangeOnPathNotification(const char* path, BOOL includingSubdirs) {}
 

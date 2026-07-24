@@ -22,6 +22,11 @@ interface ISalamanderScriptInfo;
 interface ISalamanderUI;
 interface ISalamanderCommands;
 interface ISalamanderFileOperations;
+interface ISalamanderSides;
+interface ISalamanderSide;
+interface ISalamanderTab;
+interface ISalamanderStorage;
+interface ISalamanderEvents;
 
 
 /// \brief Salamander Object
@@ -747,6 +752,21 @@ interface ISalamander : IUnknown
 	[id(29), propget]
 	HRESULT FileOperations(
 		[out, retval] ISalamanderFileOperations **fileOperations);
+
+	/// \brief Gets modern left/right/source/target side and tab access.
+	[id(30), propget]
+	HRESULT Sides(
+		[out, retval] ISalamanderSides **sides);
+
+	/// \brief Gets isolated persistent storage for the current extension.
+	[id(31), propget]
+	HRESULT Storage(
+		[out, retval] ISalamanderStorage **storage);
+
+	/// \brief Gets the runtime-neutral host event subscription facade.
+	[id(32), propget]
+	HRESULT Events(
+		[out, retval] ISalamanderEvents **events);
 };
 
 
@@ -813,6 +833,176 @@ interface ISalamanderFileOperations : IUnknown
 	[id(3)]
 	HRESULT move_interactive(
 		[out, retval] BSTR *result);
+};
+
+
+/// \brief Modern Salamander side namespace.
+[
+	object,
+	uuid(27E21923-E0B7-4BF1-85A5-A7CDE770D021),
+	dual,
+	pointer_default(unique),
+	oleautomation,
+	nonextensible
+]
+interface ISalamanderSides : IUnknown
+{
+	[id(1), propget]
+	HRESULT Left([out, retval] ISalamanderSide **side);
+
+	[id(2), propget]
+	HRESULT Right([out, retval] ISalamanderSide **side);
+
+	[id(3), propget]
+	HRESULT Source([out, retval] ISalamanderSide **side);
+
+	[id(4), propget]
+	HRESULT Target([out, retval] ISalamanderSide **side);
+};
+
+
+/// \brief One physical or source/target-resolved Salamander side.
+[
+	object,
+	uuid(05E0A56B-519F-401D-A5B0-E9A1AA959B45),
+	dual,
+	pointer_default(unique),
+	oleautomation,
+	nonextensible
+]
+interface ISalamanderSide : IUnknown
+{
+	[id(1), propget]
+	HRESULT Name([out, retval] BSTR *name);
+
+	[id(2), propget]
+	HRESULT TabCount([out, retval] long *count);
+
+	[id(3), propget]
+	HRESULT ActiveTab([out, retval] ISalamanderTab **tab);
+
+	[id(4)]
+	HRESULT tab(
+		[in] long index,
+		[out, retval] ISalamanderTab **tab);
+
+	[id(5), propget]
+	HRESULT Path([out, retval] BSTR *path);
+
+	[id(5), propput]
+	HRESULT Path([in] BSTR path);
+};
+
+
+/// \brief Stable snapshot handle for one Salamander panel tab.
+[
+	object,
+	uuid(9E8B6607-C39B-4AB3-8A69-B1A91B45EB0C),
+	dual,
+	pointer_default(unique),
+	oleautomation,
+	nonextensible
+]
+interface ISalamanderTab : IUnknown
+{
+	/// Opaque decimal string; a string avoids JavaScript's 53-bit integer limit.
+	[id(1), propget]
+	HRESULT Id([out, retval] BSTR *id);
+
+	[id(2), propget]
+	HRESULT Index([out, retval] long *index);
+
+	[id(3), propget]
+	HRESULT Path([out, retval] BSTR *path);
+
+	[id(4), propget]
+	HRESULT PathType([out, retval] long *pathType);
+
+	[id(5), propget]
+	HRESULT IsActive([out, retval] VARIANT_BOOL *value);
+
+	[id(6), propget]
+	HRESULT IsSource([out, retval] VARIANT_BOOL *value);
+
+	[id(7), propget]
+	HRESULT IsTarget([out, retval] VARIANT_BOOL *value);
+
+	[id(8), propget]
+	HRESULT IsLocked([out, retval] VARIANT_BOOL *value);
+
+	[id(9), propget]
+	HRESULT IsDetached([out, retval] VARIANT_BOOL *value);
+
+	[id(10)]
+	HRESULT Activate([in, optional] VARIANT *focus);
+};
+
+
+/// \brief Isolated persistent values for the current manifest extension.
+[
+	object,
+	uuid(8E42D41C-C9D9-42C8-AF2A-CA3B3F8F535C),
+	dual,
+	pointer_default(unique),
+	oleautomation,
+	nonextensible
+]
+interface ISalamanderStorage : IUnknown
+{
+	[id(1), propget]
+	HRESULT Namespace([out, retval] BSTR *extensionId);
+
+	[id(2)]
+	HRESULT has(
+		[in] BSTR key,
+		[out, retval] VARIANT_BOOL *value);
+
+	[id(3)]
+	HRESULT get(
+		[in] BSTR key,
+		[in, optional] VARIANT *defaultValue,
+		[out, retval] VARIANT *value);
+
+	[id(4)]
+	HRESULT set(
+		[in] BSTR key,
+		[in] VARIANT *value);
+
+	[id(5)]
+	HRESULT remove(
+		[in] BSTR key,
+		[out, retval] VARIANT_BOOL *removed);
+
+	[id(6)]
+	HRESULT clear();
+};
+
+
+/// \brief Host events for the current extension instance.
+[
+	object,
+	uuid(ABF0EA18-5D04-4A5C-9A3C-6C0A7FA4E8F8),
+	dual,
+	pointer_default(unique),
+	oleautomation,
+	nonextensible
+]
+interface ISalamanderEvents : IUnknown
+{
+	/// Callback signature: function(name, parameter, path, activeTabId).
+	[id(1)]
+	HRESULT subscribe(
+		[in] BSTR eventName,
+		[in] IDispatch *callback,
+		[out, retval] BSTR *subscriptionId);
+
+	[id(2)]
+	HRESULT unsubscribe(
+		[in] BSTR subscriptionId);
+
+	[id(3), propget]
+	HRESULT SubscriptionCount(
+		[out, retval] long *count);
 };
 
 
@@ -1725,6 +1915,56 @@ library SalamanderLib
 	coclass SalamanderFileOperations
 	{
 		[default] interface ISalamanderFileOperations;
+	};
+
+
+	[
+		uuid(D497347F-261F-471D-BD9C-D7236DFD9BD4),
+		noncreatable
+	]
+	coclass SalamanderSides
+	{
+		[default] interface ISalamanderSides;
+	};
+
+
+	[
+		uuid(5BC64402-5038-40A7-88FA-816050D495E9),
+		noncreatable
+	]
+	coclass SalamanderSide
+	{
+		[default] interface ISalamanderSide;
+	};
+
+
+	[
+		uuid(0CD49E16-405A-47B4-B0BE-331779E695E9),
+		noncreatable
+	]
+	coclass SalamanderTab
+	{
+		[default] interface ISalamanderTab;
+	};
+
+
+	[
+		uuid(5BCA5908-3D35-444D-8970-4C972A9EB037),
+		noncreatable
+	]
+	coclass SalamanderStorage
+	{
+		[default] interface ISalamanderStorage;
+	};
+
+
+	[
+		uuid(14D04E73-67AF-4A89-9AA7-6F5CEB60EF0C),
+		noncreatable
+	]
+	coclass SalamanderEvents
+	{
+		[default] interface ISalamanderEvents;
 	};
 
 

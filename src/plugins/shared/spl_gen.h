@@ -840,6 +840,25 @@ struct CSalamanderServiceResult
     const char* ProviderName;
 };
 
+// Snapshot flags returned by GetPanelTabInfo(). No core panel pointer crosses
+// the plugin ABI; TabId is opaque and remains valid only for this process
+// lifetime and while the tab exists.
+#define PANEL_TAB_FLAG_ACTIVE_ON_SIDE 0x00000001
+#define PANEL_TAB_FLAG_SOURCE 0x00000002
+#define PANEL_TAB_FLAG_TARGET 0x00000004
+#define PANEL_TAB_FLAG_LOCKED 0x00000008
+#define PANEL_TAB_FLAG_DETACHED 0x00000010
+
+struct CSalamanderPanelTabInfo
+{
+    DWORD StructSize;
+    ULONGLONG TabId;
+    int Side; // PANEL_LEFT or PANEL_RIGHT
+    int Index;
+    int PathType; // PATH_TYPE_XXX
+    DWORD Flags;  // PANEL_TAB_FLAG_XXX
+};
+
 class CSalamanderGeneralAbstract
 {
 public:
@@ -3475,6 +3494,13 @@ public:
     virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
     virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
     virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
+
+    // Panel-tab snapshot API. These methods are main-thread only and deliberately
+    // expose opaque ids plus copied data instead of CFilesWindow pointers.
+    virtual int WINAPI GetPanelTabCount(int side) = 0;
+    virtual BOOL WINAPI GetPanelTabInfo(int side, int index, CSalamanderPanelTabInfo* info) = 0;
+    virtual BOOL WINAPI GetPanelTabPath(ULONGLONG tabId, char* buffer, int bufferSize, int* pathType) = 0;
+    virtual BOOL WINAPI ActivatePanelTab(ULONGLONG tabId, BOOL focus) = 0;
 };
 
 #ifdef _MSC_VER

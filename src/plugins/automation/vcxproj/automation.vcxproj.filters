@@ -42,6 +42,9 @@
     <ClCompile Include="..\entry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\extensionmanifest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\fileinfo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -170,6 +173,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\engassoc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extensionmanifest.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\fileinfo.h">

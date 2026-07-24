@@ -11,14 +11,16 @@
 #pragma once
 
 #include "salamatrix_automation.h"
+#include "salamatrix_events.h"
+#include "salamatrix_extensions.h"
+#include "salamatrix_runtime_api.h"
+#include "salamatrix_sides.h"
+#include "salamatrix_storage.h"
 
 namespace Salamatrix
 {
 namespace Runtime
 {
-
-#define SALAMATRIX_SERVICE_RUNTIME "Salamatrix.Runtime"
-#define SALAMATRIX_RUNTIME_VERSION_1_0 0x00010000
 
 struct ServiceQuery
 {
@@ -176,6 +178,128 @@ public:
     }
 };
 
+class RuntimeService : public IRuntimeService
+{
+private:
+    enum
+    {
+        MaxAdapters = 32
+    };
+
+    IRuntimeAdapter* Adapters[MaxAdapters];
+    int AdapterCount;
+
+    static BOOL WINAPI SameRuntimeId(const char* left, const char* right)
+    {
+        if (left == NULL || right == NULL)
+            return FALSE;
+        return _stricmp(left, right) == 0;
+    }
+
+public:
+    RuntimeService()
+        : AdapterCount(0)
+    {
+        memset(Adapters, 0, sizeof(Adapters));
+    }
+
+    virtual DWORD WINAPI GetVersion() const
+    {
+        return SALAMATRIX_RUNTIME_VERSION_1_0;
+    }
+
+    virtual BOOL WINAPI RegisterAdapter(IRuntimeAdapter* adapter)
+    {
+        if (adapter == NULL || AdapterCount >= MaxAdapters)
+            return FALSE;
+
+        const RuntimeAdapterDescriptor* descriptor = adapter->GetDescriptor();
+        if (descriptor == NULL ||
+            descriptor->StructSize < sizeof(RuntimeAdapterDescriptor) ||
+            descriptor->RuntimeId == NULL ||
+            descriptor->RuntimeId[0] == 0 ||
+            descriptor->RuntimeVersion == 0)
+        {
+            return FALSE;
+        }
+
+        for (int i = 0; i < AdapterCount; ++i)
+        {
+            if (Adapters[i] == adapter)
+                return TRUE;
+
+            const RuntimeAdapterDescriptor* existing = Adapters[i]->GetDescriptor();
+            if (existing != NULL && SameRuntimeId(existing->RuntimeId, descriptor->RuntimeId))
+                return FALSE;
+        }
+
+        Adapters[AdapterCount++] = adapter;
+        return TRUE;
+    }
+
+    virtual BOOL WINAPI UnregisterAdapter(IRuntimeAdapter* adapter)
+    {
+        if (adapter == NULL)
+            return FALSE;
+
+        for (int i = 0; i < AdapterCount; ++i)
+        {
+            if (Adapters[i] == adapter)
+            {
+                for (int j = i; j + 1 < AdapterCount; ++j)
+                    Adapters[j] = Adapters[j + 1];
+                Adapters[--AdapterCount] = NULL;
+                return TRUE;
+            }
+        }
+        return FALSE;
+    }
+
+    virtual int WINAPI GetAdapterCount() const
+    {
+        return AdapterCount;
+    }
+
+    virtual IRuntimeAdapter* WINAPI GetAdapter(int index) const
+    {
+        if (index < 0 || index >= AdapterCount)
+            return NULL;
+        return Adapters[index];
+    }
+
+    virtual IRuntimeAdapter* WINAPI FindAdapter(const char* runtimeId, DWORD minimumRuntimeVersion) const
+    {
+        if (runtimeId == NULL)
+            return NULL;
+
+        for (int i = 0; i < AdapterCount; ++i)
+        {
+            const RuntimeAdapterDescriptor* descriptor = Adapters[i]->GetDescriptor();
+            if (descriptor != NULL &&
+                SameRuntimeId(descriptor->RuntimeId, runtimeId) &&
+                descriptor->RuntimeVersion >= minimumRuntimeVersion &&
+                Adapters[i]->IsAvailable())
+            {
+                return Adapters[i];
+            }
+        }
+        return NULL;
+    }
+
+    virtual IRuntimeAdapter* WINAPI FindAdapterForEntryPoint(const char* entryPoint) const
+    {
+        if (entryPoint == NULL)
+            return NULL;
+
+        for (int i = 0; i < AdapterCount; ++i)
+        {
+            if (Adapters[i]->IsAvailable() && Adapters[i]->SupportsEntryPoint(entryPoint))
+                return Adapters[i];
+        }
+        return NULL;
+    }
+};
+
 class RuntimeServices
 {
 private:
@@ -183,13 +307,63 @@ private:
     Commands::CommandService CommandService;
     FileOperations::FileOperationsService FileOperationsService;
     Automation::ScriptRootAdapter ScriptRoot;
+    RuntimeService RuntimeBroker;
+    Sides::SidesService SidesService;
+    Events::EventService EventService;
+    Extensions::ExtensionsService ExtensionsService;
+    Storage::StorageService StorageService;
     ServiceRegistry Registry;
     CSalamanderGeneralAbstract* General;
     BOOL Registered;
     BOOL HostRegistered;
+    BOOL HostUIRegistered;
+    BOOL HostCommandsRegistered;
+    BOOL HostFileOperationsRegistered;
+    BOOL HostAutomationRegistered;
+    BOOL HostRuntimeRegistered;
+    BOOL HostSidesRegistered;
+    BOOL HostEventsRegistered;
+    BOOL HostExtensionsRegistered;
+    BOOL HostStorageRegistered;
 
     RuntimeServices(const RuntimeServices&);
     RuntimeServices& operator=(const RuntimeServices&);
+
+    void UnregisterHostServices()
+    {
+        if (General != NULL)
+        {
+            if (HostStorageRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_STORAGE, &StorageService);
+            if (HostExtensionsRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_EXTENSIONS, &ExtensionsService);
+            if (HostEventsRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_EVENTS, &EventService);
+            if (HostSidesRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_SIDES, &SidesService);
+            if (HostRuntimeRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_RUNTIME, &RuntimeBroker);
+            if (HostAutomationRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, &ScriptRoot);
+            if (HostFileOperationsRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, &FileOperationsService);
+            if (HostCommandsRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_COMMANDS, &CommandService);
+            if (HostUIRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_UI, &UIService);
+        }
+
+        HostRuntimeRegistered = FALSE;
+        HostSidesRegistered = FALSE;
+        HostEventsRegistered = FALSE;
+        HostExtensionsRegistered = FALSE;
+        HostStorageRegistered = FALSE;
+        HostAutomationRegistered = FALSE;
+        HostFileOperationsRegistered = FALSE;
+        HostCommandsRegistered = FALSE;
+        HostUIRegistered = FALSE;
+        HostRegistered = FALSE;
+    }
 
 public:
     explicit RuntimeServices(CSalamanderGeneralAbstract* general, BOOL registerHostServices = TRUE)
@@ -197,36 +371,73 @@ public:
           CommandService(general),
           FileOperationsService(&CommandService),
           ScriptRoot(&UIService, &CommandService, &FileOperationsService),
+          RuntimeBroker(),
+          SidesService(general),
+          EventService(&SidesService),
+          ExtensionsService(),
+          StorageService(),
           Registry(),
           General(general),
           Registered(FALSE),
-          HostRegistered(FALSE)
+          HostRegistered(FALSE),
+          HostUIRegistered(FALSE),
+          HostCommandsRegistered(FALSE),
+          HostFileOperationsRegistered(FALSE),
+          HostAutomationRegistered(FALSE),
+          HostRuntimeRegistered(FALSE),
+          HostSidesRegistered(FALSE),
+          HostEventsRegistered(FALSE),
+          HostExtensionsRegistered(FALSE),
+          HostStorageRegistered(FALSE)
     {
         Registered = TRUE;
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework");
 
         if (General != NULL && registerHostServices)
         {
-            HostRegistered = TRUE;
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
-            HostRegistered &= General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
+            HostUIRegistered = General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
+            if (HostUIRegistered)
+                HostCommandsRegistered = General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
+            if (HostCommandsRegistered)
+                HostFileOperationsRegistered = General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
+            if (HostFileOperationsRegistered)
+                HostAutomationRegistered = General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
+            if (HostAutomationRegistered)
+                HostRuntimeRegistered = General->RegisterService(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework");
+            if (HostRuntimeRegistered)
+                HostSidesRegistered = General->RegisterService(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework");
+            if (HostSidesRegistered)
+                HostEventsRegistered = General->RegisterService(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework");
+            if (HostEventsRegistered)
+                HostExtensionsRegistered = General->RegisterService(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework");
+            if (HostExtensionsRegistered)
+                HostStorageRegistered = General->RegisterService(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework");
+
+            HostRegistered = HostUIRegistered &&
+                             HostCommandsRegistered &&
+                             HostFileOperationsRegistered &&
+                             HostAutomationRegistered &&
+                             HostRuntimeRegistered &&
+                             HostSidesRegistered &&
+                             HostEventsRegistered &&
+                             HostExtensionsRegistered &&
+                             HostStorageRegistered;
+            if (!HostRegistered)
+                UnregisterHostServices();
         }
     }
 
     ~RuntimeServices()
     {
-        if (General != NULL && HostRegistered)
-        {
-            General->UnregisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, &ScriptRoot);
-            General->UnregisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, &FileOperationsService);
-            General->UnregisterService(SALAMATRIX_SERVICE_COMMANDS, &CommandService);
-            General->UnregisterService(SALAMATRIX_SERVICE_UI, &UIService);
-        }
+        UnregisterHostServices();
     }
 
     BOOL WINAPI IsRegistered() const
@@ -262,6 +473,31 @@ public:
     Automation::ScriptRootAdapter* WINAPI Script()
     {
         return &ScriptRoot;
+    }
+
+    IRuntimeService* WINAPI Runtimes()
+    {
+        return &RuntimeBroker;
+    }
+
+    Sides::ISidesService* WINAPI Sides()
+    {
+        return &SidesService;
+    }
+
+    Events::EventService* WINAPI Events()
+    {
+        return &EventService;
+    }
+
+    Extensions::ExtensionsService* WINAPI Extensions()
+    {
+        return &ExtensionsService;
+    }
+
+    Storage::StorageService* WINAPI Storage()
+    {
+        return &StorageService;
     }
 };
 

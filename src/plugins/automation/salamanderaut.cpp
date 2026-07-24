@@ -49,6 +49,9 @@ CSalamanderAutomation::CSalamanderAutomation(__in CScriptInfo* pScriptInfo)
     m_pUI = NULL;
     m_pCommands = NULL;
     m_pFileOperations = NULL;
+    m_pSides = NULL;
+    m_pStorage = NULL;
+    m_pEvents = NULL;
 }
 
 CSalamanderAutomation::~CSalamanderAutomation()
@@ -387,6 +390,24 @@ void CSalamanderAutomation::SetExecutionInfo(CScriptInfo::EXECUTION_INFO* info)
         {
             m_pFileOperations->Release();
             m_pFileOperations = NULL;
+        }
+
+        if (m_pSides != NULL)
+        {
+            m_pSides->Release();
+            m_pSides = NULL;
+        }
+
+        if (m_pStorage != NULL)
+        {
+            m_pStorage->Release();
+            m_pStorage = NULL;
+        }
+
+        if (m_pEvents != NULL)
+        {
+            m_pEvents->Release();
+            m_pEvents = NULL;
         }
 
         m_pExecInfo = NULL;
@@ -1015,5 +1036,60 @@ HRESULT CSalamanderAutomation::InvokeFilter(__out EXCEPINFO* pExcepInfo)
 
     *fileOperations = m_pFileOperations;
     m_pFileOperations->AddRef();
+    return S_OK;
+}
+
+/* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderAutomation::get_Sides(
+    /* [retval][out] */ ISalamanderSides** sides)
+{
+    if (sides == NULL)
+        return E_POINTER;
+
+    if (m_pSides == NULL)
+        m_pSides = new CSalamanderSidesAutomation();
+
+    *sides = m_pSides;
+    m_pSides->AddRef();
+    return S_OK;
+}
+
+/* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderAutomation::get_Storage(
+    /* [retval][out] */ ISalamanderStorage** storage)
+{
+    if (storage == NULL)
+        return E_POINTER;
+    *storage = NULL;
+
+    const char* extensionId =
+        m_pScriptInfo != NULL
+            ? m_pScriptInfo->GetSalamatrixExtensionId()
+            : NULL;
+    if (extensionId == NULL || extensionId[0] == 0)
+    {
+        ::RaiseError(
+            L"Salamander.Storage is available only to extensions with a valid extension.json id.",
+            __uuidof(ISalamanderStorage),
+            L"Salamander.Storage");
+        return E_ACCESSDENIED;
+    }
+
+    if (m_pStorage == NULL)
+        m_pStorage =
+            new CSalamanderStorageAutomation(extensionId);
+
+    *storage = m_pStorage;
+    m_pStorage->AddRef();
+    return S_OK;
+}
+
+/* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderAutomation::get_Events(
+    /* [retval][out] */ ISalamanderEvents** events)
+{
+    if (events == NULL)
+        return E_POINTER;
+    if (m_pEvents == NULL)
+        m_pEvents = new CSalamanderEventsAutomation();
+    *events = m_pEvents;
+    m_pEvents->AddRef();
     return S_OK;
 }

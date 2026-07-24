@@ -1,0 +1,231 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+/*
+    Salamatrix Framework for Open Salamander
+
+    salamatrix_runtime_protocol.h
+    Versioned line framing for out-of-process runtime workers.
+*/
+
+#pragma once
+
+#include <windows.h>
+
+#include <string>
+
+namespace Salamatrix
+{
+namespace Runtime
+{
+namespace Protocol
+{
+
+static const DWORD ProtocolVersion1 = 1;
+static const size_t MaxFrameBytes = 1024 * 1024;
+
+enum MessageType
+{
+    MessageHello,
+    MessageReady,
+    MessageCall,
+    MessageResult,
+    MessageEvent,
+    MessageShutdown,
+    MessageError
+};
+
+struct Frame
+{
+    MessageType Type;
+    ULONGLONG Id;
+    std::string PayloadJson;
+
+    Frame()
+        : Type(MessageError),
+          Id(0)
+    {
+    }
+};
+
+/// A deliberately dumb envelope around JSON payloads. Keeping framing
+/// independent from JSON parsing lets Python, PowerShell, PHP, and a future
+/// JavaScript worker use their native JSON libraries while the host enforces
+/// protocol version, message type, request id, line boundaries, and a hard
+/// memory limit. The wire format is:
+///
+///   SMX1<TAB><type><TAB><decimal-id><TAB><compact-json><LF>
+///
+/// Payloads may not contain literal CR/LF; JSON strings must use escapes.
+class LineCodec
+{
+private:
+    std::string Pending;
+
+    static const char* TypeName(MessageType type)
+    {
+        switch (type)
+        {
+        case MessageHello:
+            return "hello";
+        case MessageReady:
+            return "ready";
+        case MessageCall:
+            return "call";
+        case MessageResult:
+            return "result";
+        case MessageEvent:
+            return "event";
+        case MessageShutdown:
+            return "shutdown";
+        default:
+            return "error";
+        }
+    }
+
+    static BOOL ParseType(const std::string& name, MessageType* type)
+    {
+        if (name == "hello")
+            *type = MessageHello;
+        else if (name == "ready")
+            *type = MessageReady;
+        else if (name == "call")
+            *type = MessageCall;
+        else if (name == "result")
+            *type = MessageResult;
+        else if (name == "event")
+            *type = MessageEvent;
+        else if (name == "shutdown")
+            *type = MessageShutdown;
+        else if (name == "error")
+            *type = MessageError;
+        else
+            return FALSE;
+        return TRUE;
+    }
+
+    static BOOL ParseUnsigned(const std::string& value, ULONGLONG* result)
+    {
+        if (value.empty() || result == NULL)
+            return FALSE;
+        ULONGLONG parsed = 0;
+        for (size_t index = 0; index < value.size(); ++index)
+        {
+            char digit = value[index];
+            if (digit < '0' || digit > '9')
+                return FALSE;
+            ULONGLONG next = parsed * 10 +
+                             static_cast<ULONGLONG>(digit - '0');
+            if (next < parsed)
+                return FALSE;
+            parsed = next;
+        }
+        *result = parsed;
+        return TRUE;
+    }
+
+public:
+    static BOOL Encode(
+        MessageType type,
+        ULONGLONG id,
+        const std::string& payloadJson,
+        std::string* line)
+    {
+        if (line == NULL || payloadJson.empty() ||
+            payloadJson.find('\r') != std::string::npos ||
+            payloadJson.find('\n') != std::string::npos ||
+            payloadJson.size() > MaxFrameBytes)
+        {
+            return FALSE;
+        }
+
+        char idText[32];
+        _ui64toa_s(id, idText, _countof(idText), 10);
+        line->assign("SMX1\t");
+        line->append(TypeName(type));
+        line->push_back('\t');
+        line->append(idText);
+        line->push_back('\t');
+        line->append(payloadJson);
+        line->push_back('\n');
+        return line->size() <= MaxFrameBytes;
+    }
+
+    /// Appends arbitrary bytes and extracts at most one complete frame. The
+    /// caller can invoke it repeatedly until it returns FALSE with `complete`
+    /// set to FALSE. A malformed/oversized frame clears the buffer and returns
+    /// FALSE with `complete` set to TRUE, allowing the caller to fail closed.
+    BOOL Append(
+        const char* bytes,
+        size_t count,
+        Frame* frame,
+        BOOL* complete)
+    {
+        if (complete != NULL)
+            *complete = FALSE;
+        if (bytes == NULL || count == 0 || frame == NULL || complete == NULL)
+            return FALSE;
+        if (Pending.size() + count > MaxFrameBytes)
+        {
+            Pending.clear();
+            *complete = TRUE;
+            return FALSE;
+        }
+        Pending.append(bytes, count);
+        std::string::size_type newline = Pending.find('\n');
+        if (newline == std::string::npos)
+            return TRUE;
+
+        std::string line = Pending.substr(0, newline);
+        Pending.erase(0, newline + 1);
+        *complete = TRUE;
+
+        std::string::size_type firstTab = line.find('\t');
+        std::string::size_type secondTab =
+            firstTab == std::string::npos ? std::string::npos
+                                          : line.find('\t', firstTab + 1);
+        std::string::size_type thirdTab =
+            secondTab == std::string::npos ? std::string::npos
+                                           : line.find('\t', secondTab + 1);
+        if (firstTab != 4 || secondTab == std::string::npos ||
+            thirdTab == std::string::npos || line.compare(0, 4, "SMX1") != 0)
+        {
+            return FALSE;
+        }
+
+        MessageType type;
+        ULONGLONG id = 0;
+        if (!ParseType(line.substr(firstTab + 1, secondTab - firstTab - 1), &type) ||
+            !ParseUnsigned(
+                line.substr(secondTab + 1, thirdTab - secondTab - 1), &id))
+        {
+            return FALSE;
+        }
+
+        std::string payload = line.substr(thirdTab + 1);
+        if (payload.empty() || payload.size() > MaxFrameBytes)
+            return FALSE;
+        frame->Type = type;
+        frame->Id = id;
+        frame->PayloadJson.swap(payload);
+        return TRUE;
+    }
+
+    size_t PendingBytes() const
+    {
+        return Pending.size();
+    }
+};
+
+// Stable method names used in payload JSON. They are intentionally namespaced
+// strings rather than C++ class names so every runtime can implement them.
+static const char HostHelloMethod[] = "host.hello";
+static const char HostCallMethod[] = "host.call";
+static const char HostEventMethod[] = "host.event";
+static const char HostShutdownMethod[] = "host.shutdown";
+static const char RuntimeReadyMethod[] = "runtime.ready";
+static const char RuntimeResultMethod[] = "runtime.result";
+
+} // namespace Protocol
+} // namespace Runtime
+} // namespace Salamatrix

@@ -13,6 +13,9 @@
 
 #pragma once
 
+#include "../salamatrix/salamatrix_runtime_api.h"
+#include "../salamatrix/salamatrix_extensions.h"
+
 class CScriptInfo
 {
 public:
@@ -56,8 +59,11 @@ public:
 
 private:
     TCHAR m_szFileName[MAX_PATH];
-    TCHAR m_szDisplayName[64];
-    TCHAR m_szSalamatrixCommandId[64];
+    TCHAR m_szDisplayName[256];
+    TCHAR m_szSalamatrixCommandId[128];
+    char m_szSalamatrixExtensionId[128];
+    char m_szSalamatrixRuntimeId[128];
+    DWORD m_dwSalamatrixMinimumRuntimeVersion;
     bool m_bShowInPluginMenu;
     bool m_bShowInContextMenu;
     DWORD m_dwMenuEventOrMask;
@@ -82,6 +88,11 @@ private:
     LONG m_cExecuted;
 
     bool EnsureEngineAssociation();
+    bool ExecuteThroughRuntime(__inout EXECUTION_INFO& info);
+    bool ExecuteLegacy(__inout EXECUTION_INFO& info);
+    static BOOL WINAPI ExecuteCompatibilityRuntime(
+        void* context,
+        Salamatrix::Runtime::RuntimeExecutionResult* result);
 
     bool CreateEngine(EXECUTION_INFO* info);
 
@@ -141,6 +152,16 @@ public:
     PCTSTR GetSalamatrixCommandId() const
     {
         return m_szSalamatrixCommandId;
+    }
+
+    const char* GetSalamatrixRuntimeId() const
+    {
+        return m_szSalamatrixRuntimeId;
+    }
+
+    const char* GetSalamatrixExtensionId() const
+    {
+        return m_szSalamatrixExtensionId;
     }
 
     bool ShowInPluginMenu() const
@@ -435,6 +456,12 @@ public:
     bool Save(HKEY hKey, CSalamanderRegistryAbstract* registry);
 
     bool Refresh(bool bForce = false);
+
+    /// Publishes manifest-backed scripts into Salamatrix.Extensions.
+    void PublishSalamatrixExtensions();
+
+    /// Removes manifest-backed scripts from Salamatrix.Extensions.
+    void UnpublishSalamatrixExtensions();
 
     CScriptInfo* LookupScript(int nId);
 

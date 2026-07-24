@@ -2366,6 +2366,10 @@ public:
     virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
     virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
     virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
+    virtual int WINAPI GetPanelTabCount(int side);
+    virtual BOOL WINAPI GetPanelTabInfo(int side, int index, CSalamanderPanelTabInfo* info);
+    virtual BOOL WINAPI GetPanelTabPath(ULONGLONG tabId, char* buffer, int bufferSize, int* pathType);
+    virtual BOOL WINAPI ActivatePanelTab(ULONGLONG tabId, BOOL focus);
 };
 
 //

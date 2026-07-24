@@ -236,6 +236,9 @@
     </ClCompile>
     <ClCompile Include="..\entry.cpp">
     </ClCompile>
+    <ClCompile Include="..\extensionmanifest.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\fileinfo.cpp">
     </ClCompile>
     <ClCompile Include="..\generated\salamander_i.c">
@@ -333,6 +336,8 @@
     <ClInclude Include="..\dispimpl.h">
     </ClInclude>
     <ClInclude Include="..\engassoc.h">
+    </ClInclude>
+    <ClInclude Include="..\extensionmanifest.h">
     </ClInclude>
     <ClInclude Include="..\fileinfo.h">
     </ClInclude>

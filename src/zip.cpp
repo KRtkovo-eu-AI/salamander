@@ -641,6 +641,141 @@ BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSal
 
 namespace
 {
+CFilesWindow* FindPanelTabById(ULONGLONG tabId, int* side = NULL, int* index = NULL)
+{
+    if (MainWindow == NULL || tabId == 0)
+        return NULL;
+
+    const CPanelSide sides[] = {cpsLeft, cpsRight};
+    for (int sideIndex = 0; sideIndex < _countof(sides); ++sideIndex)
+    {
+        int count = MainWindow->GetPanelTabCount(sides[sideIndex]);
+        for (int tabIndex = 0; tabIndex < count; ++tabIndex)
+        {
+            CFilesWindow* panel = MainWindow->GetPanelTabAt(sides[sideIndex], tabIndex);
+            if (panel != NULL && panel->GetPanelTabId() == tabId)
+            {
+                if (side != NULL)
+                    *side = sides[sideIndex] == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;
+                if (index != NULL)
+                    *index = tabIndex;
+                return panel;
+            }
+        }
+    }
+    return NULL;
+}
+
+int GetPanelPathType(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return 0;
+    if (panel->Is(ptDisk))
+        return PATH_TYPE_WINDOWS;
+    if (panel->Is(ptZIPArchive))
+        return PATH_TYPE_ARCHIVE;
+    if (panel->Is(ptPluginFS))
+        return PATH_TYPE_FS;
+    return 0;
+}
+}
+
+int CSalamanderGeneral::GetPanelTabCount(int side)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::GetPanelTabCount(%d)", side);
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return 0;
+    if (side != PANEL_LEFT && side != PANEL_RIGHT)
+        return 0;
+    return MainWindow->GetPanelTabCount(side == PANEL_LEFT ? cpsLeft : cpsRight);
+}
+
+BOOL CSalamanderGeneral::GetPanelTabInfo(
+    int side,
+    int index,
+    CSalamanderPanelTabInfo* info)
+{
+    CALL_STACK_MESSAGE3("CSalamanderGeneral::GetPanelTabInfo(%d, %d,)", side, index);
+    if (info == NULL || info->StructSize < sizeof(*info) ||
+        MainThreadID != GetCurrentThreadId() || MainWindow == NULL ||
+        (side != PANEL_LEFT && side != PANEL_RIGHT))
+    {
+        return FALSE;
+    }
+
+    CPanelSide panelSide = side == PANEL_LEFT ? cpsLeft : cpsRight;
+    CFilesWindow* panel = MainWindow->GetPanelTabAt(panelSide, index);
+    if (panel == NULL)
+        return FALSE;
+
+    CFilesWindow* activeOnSide =
+        side == PANEL_LEFT ? MainWindow->LeftPanel : MainWindow->RightPanel;
+    CFilesWindow* source = MainWindow->GetActivePanel();
+    CFilesWindow* target = MainWindow->GetNonActivePanel();
+
+    info->TabId = panel->GetPanelTabId();
+    info->Side = side;
+    info->Index = index;
+    info->PathType = GetPanelPathType(panel);
+    info->Flags = 0;
+    if (panel == activeOnSide)
+        info->Flags |= PANEL_TAB_FLAG_ACTIVE_ON_SIDE;
+    if (panel == source)
+        info->Flags |= PANEL_TAB_FLAG_SOURCE;
+    if (panel == target)
+        info->Flags |= PANEL_TAB_FLAG_TARGET;
+    if (panel->IsTabLocked() || index == 0)
+        info->Flags |= PANEL_TAB_FLAG_LOCKED;
+    if (MainWindow->DetachedPanels && side == PANEL_RIGHT)
+        info->Flags |= PANEL_TAB_FLAG_DETACHED;
+    return TRUE;
+}
+
+BOOL CSalamanderGeneral::GetPanelTabPath(
+    ULONGLONG tabId,
+    char* buffer,
+    int bufferSize,
+    int* pathType)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::GetPanelTabPath()");
+    if (pathType != NULL)
+        *pathType = 0;
+    if (buffer != NULL && bufferSize > 0)
+        buffer[0] = 0;
+    if (MainThreadID != GetCurrentThreadId() ||
+        buffer == NULL || bufferSize <= 0)
+    {
+        return FALSE;
+    }
+
+    CFilesWindow* panel = FindPanelTabById(tabId);
+    if (panel == NULL)
+        return FALSE;
+    if (pathType != NULL)
+        *pathType = GetPanelPathType(panel);
+    return panel->GetGeneralPath(buffer, bufferSize, TRUE);
+}
+
+BOOL CSalamanderGeneral::ActivatePanelTab(ULONGLONG tabId, BOOL focus)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::ActivatePanelTab()");
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return FALSE;
+
+    CFilesWindow* panel = FindPanelTabById(tabId);
+    if (panel == NULL)
+        return FALSE;
+
+    MainWindow->SwitchPanelTab(panel);
+    if (focus)
+        MainWindow->FocusPanel(panel);
+    return MainWindow->GetPanelTabAt(
+               panel->GetPanelSide(),
+               MainWindow->GetPanelTabIndex(panel->GetPanelSide(), panel)) == panel;
+}
+
+namespace
+{
 void AppendEscapedInstalledPluginField(std::string& output, const char* text)
 {
     if (text == NULL)
