@@ -2500,6 +2500,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
         }
 
+        case CM_LOGVIEWMODE:
+        {
+            SetLogViewMode(!LogViewMode);
+            return 0;
+        }
+
         case CM_VIEWERHLP_KEYBOARD:
         {
             OpenHtmlHelp(NULL, HWindow, HHCDisplayContext, IDH_VIEWERKEYBOARD, FALSE);
@@ -3567,6 +3573,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
         }
 
+        if (wParam == IDT_LOGVIEWREFRESH)
+        {
+            RefreshLogView();
+            return 0;
+        }
+
         if (wParam != IDT_AUTOSCROLL)
             break;
         POINT p;
@@ -3841,6 +3853,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     EnableMenuItem(othFilesMenu, CM_FIRSTFILE, MF_BYCOMMAND | (firstLastFile ? MF_ENABLED : MF_GRAYED));
                     EnableMenuItem(othFilesMenu, CM_LASTFILE, MF_BYCOMMAND | (firstLastFile ? MF_ENABLED : MF_GRAYED));
                 }
+                CheckMenuItem(subMenu, CM_LOGVIEWMODE, MF_BYCOMMAND | (LogViewMode ? MF_CHECKED : MF_UNCHECKED));
+                EnableMenuItem(subMenu, CM_LOGVIEWMODE, MF_BYCOMMAND | (FileName != NULL ? MF_ENABLED : MF_GRAYED));
             }
             subMenu = GetSubMenu(main, VIEW_MENU_INDEX);
             if (subMenu != NULL)
@@ -4202,6 +4216,7 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
 
     case WM_DESTROY:
     {
+        KillTimer(HWindow, IDT_LOGVIEWREFRESH);
         // The scrollbar hook stores HWNDs.  Remove this entry before Windows
         // can recycle the handle for an unrelated top-level dialog.
         DarkModeDisallowDarkScrollbars(HWindow);

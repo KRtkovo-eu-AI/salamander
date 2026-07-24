@@ -721,6 +721,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     WrapText = Configuration.WrapText;
     ShowLineNumbers = Configuration.ViewerShowLineNumbers;
     ShowStatusBar = Configuration.ViewerShowStatusBar;
+    LogViewMode = FALSE;
     LineNumberDigits = 1;
     CodePageAutoSelect = Configuration.CodePageAutoSelect;
     strcpy(DefaultConvert, Configuration.DefaultConvert);
