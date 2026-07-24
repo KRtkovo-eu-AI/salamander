@@ -518,6 +518,7 @@ internal class DeterministicDpiForm : Form
         new Dictionary<Control, LogicalControl>();
     private readonly List<Font> _baselineFonts = new List<Font>();
     private readonly List<Font> _appliedFonts = new List<Font>();
+    private readonly List<Font> _retiredDpiFonts = new List<Font>();
     private bool _baselineCaptured;
     private bool _applyingDpi;
     private bool _dpiVerificationPending;
@@ -621,7 +622,8 @@ internal class DeterministicDpiForm : Form
                 CaptureDpiBaseline();
             }
 
-            if (!_baselineCaptured)
+            if (!_baselineCaptured ||
+                !TryInitializeFixedLogicalWindowSize())
             {
                 base.WndProc(ref m);
                 return;
@@ -650,7 +652,8 @@ internal class DeterministicDpiForm : Form
                 CaptureDpiBaseline();
             }
 
-            if (!_baselineCaptured)
+            if (!_baselineCaptured ||
+                !TryInitializeFixedLogicalWindowSize())
             {
                 base.WndProc(ref m);
                 return;
@@ -715,10 +718,12 @@ internal class DeterministicDpiForm : Form
                 BoundsSpecified.All);
             OnDeterministicDpiChanged(oldDpi, newDpi);
 
-            foreach (Font font in previousFonts)
-            {
-                font.Dispose();
-            }
+            // FontChanged/layout notifications are delivered while the
+            // suspended tree is resumed below. Descendants may still expose
+            // the formerly inherited Font until then, so disposing it here
+            // can make a concurrent/reentrant paint call Font.Height on an
+            // invalid GDI+ object. Retire it with the form instead.
+            _retiredDpiFonts.AddRange(previousFonts);
         }
         finally
         {
@@ -743,6 +748,27 @@ internal class DeterministicDpiForm : Form
         }
         _dpiVerificationPending = true;
         BeginInvoke(new Action(VerifyWindowDpi));
+    }
+
+    private bool TryInitializeFixedLogicalWindowSize()
+    {
+        if (!_logicalWindowSize.IsEmpty)
+        {
+            return true;
+        }
+
+        Size fixedLogicalSize = LogicalWindowSize;
+        if (fixedLogicalSize.IsEmpty)
+        {
+            // Windows can send the message after CreateHandle but before
+            // OnLoad has derived a logical size from externally supplied
+            // physical bounds (JsonViewer detached windows). Let WinForms
+            // handle that early message rather than returning 1x1.
+            return false;
+        }
+
+        _logicalWindowSize = fixedLogicalSize;
+        return true;
     }
 
     private void VerifyWindowDpi()
@@ -843,6 +869,11 @@ internal class DeterministicDpiForm : Form
                 font.Dispose();
             }
             _appliedFonts.Clear();
+            foreach (Font font in _retiredDpiFonts)
+            {
+                font.Dispose();
+            }
+            _retiredDpiFonts.Clear();
             foreach (Font font in _baselineFonts)
             {
                 font.Dispose();
