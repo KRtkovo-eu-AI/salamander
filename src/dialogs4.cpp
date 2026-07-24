@@ -663,6 +663,7 @@ CConfiguration::CConfiguration()
     IfPathIsInaccessibleGoTo[0] = 0;
 
     SpaceSelCalcSpace = TRUE;
+    CountSizeStayOnFileSystem = FALSE;
 
     UseTimeResolution = TRUE;
     TimeResolution = 2;
@@ -730,6 +731,9 @@ CConfiguration::CConfiguration()
 
     // Change drive
     ChangeDriveShowMountFolders = TRUE;
+    ChangeDriveMountFoldersMode = TITLE_BAR_MODE_DIRECTORY;
+    ChangeDriveMountFoldersName = TRUE;
+    ChangeDriveMountFoldersDriveBar = FALSE;
     ChangeDriveShowMyDoc = TRUE;
     ChangeDriveShow3DObjects = FALSE;
     ChangeDriveShowDesktop = FALSE;

@@ -101,6 +101,7 @@
 #define IDS_DISKUTILIZATION             267
 #define IDC_EST_SIZE                    268
 #define IDC_EST_UTIL                    269
+#define IDC_STAYONFILESYSTEM            270
 #define IDD_ABOUT                       270
 #define IDS_ABOUT_SALAMANDER            271
 #define IDC_ABOUT_WWW                   272
@@ -420,6 +421,10 @@
 #define IDC_CHD_SHOWPICTURES            1096
 #define IDC_CHD_SHOWVIDEOS              1097
 #define IDC_CHD_SHOWMOUNTFOLDERS        1098
+#define IDC_CHD_MOUNTFOLDERS_MODE       1099
+#define IDC_CHD_MOUNTFOLDERS_VOLUMENAME 1100
+#define IDC_CHD_MOUNTFOLDERS_DRIVEBAR   1101
+#define IDC_CHD_MOUNTFOLDERS_LABEL      1102
 #define IDD_CFGPAGE_PANELS              1105
 #define IDD_CFGPAGE_TABS                1106
 #define IDD_CFGPAGE_KEYBOARD            1110

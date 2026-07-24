@@ -1148,6 +1148,9 @@ const char* CONFIG_HOTPATH_AUTOCONFIG = "Auto Configurate Hot Paths";
 const char* CONFIG_LASTUSEDSPEEDLIM_REG = "Speed Limit";
 const char* CONFIG_QUICKSEARCHENTER_REG = "Quick Search Enter Alt";
 const char* CONFIG_CHD_SHOWMOUNTFOLDERS = "Change Drive Show Mount Folders";
+const char* CONFIG_CHD_MOUNTFOLDERS_MODE = "Change Drive Mount Folders Mode";
+const char* CONFIG_CHD_MOUNTFOLDERS_NAME = "Change Drive Mount Folders Name";
+const char* CONFIG_CHD_MOUNTFOLDERS_DRIVEBAR = "Change Drive Mount Folders Drive Bar";
 const char* CONFIG_CHD_SHOWMYDOC = "Change Drive Show My Documents";
 const char* CONFIG_CHD_SHOW3DOBJECTS = "Change Drive Show 3D Objects";
 const char* CONFIG_CHD_SHOWDESKTOP = "Change Drive Show Desktop";
@@ -1215,6 +1218,7 @@ const char* CONFIG_EDITNEWFILE_USEDEFAULT_REG = "Edit New File Use Default";
 const char* CONFIG_EDITNEWFILE_DEFAULT_REG = "Edit New File Default";
 
 //const char *CONFIG_SPACESELCALCSPACE = "Space Selecting";
+const char* CONFIG_COUNTSIZESTAYONFILESYSTEM = "Count Size Stay On File System";
 const char* CONFIG_USETIMERESOLUTION = "Use Time Resolution";
 const char* CONFIG_TIMERESOLUTION = "Time Resolution";
 const char* CONFIG_IGNOREDSTSHIFTS = "Ignore DST Shifts";
@@ -3148,6 +3152,12 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.QuickSearchEnterAlt, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOWMOUNTFOLDERS, REG_DWORD,
                          &Configuration.ChangeDriveShowMountFolders, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_MOUNTFOLDERS_MODE, REG_DWORD,
+                         &Configuration.ChangeDriveMountFoldersMode, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_MOUNTFOLDERS_NAME, REG_DWORD,
+                         &Configuration.ChangeDriveMountFoldersName, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_MOUNTFOLDERS_DRIVEBAR, REG_DWORD,
+                         &Configuration.ChangeDriveMountFoldersDriveBar, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOWMYDOC, REG_DWORD,
                          &Configuration.ChangeDriveShowMyDoc, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOW3DOBJECTS, REG_DWORD,
@@ -3413,6 +3423,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 
                 //      SetValue(actKey, CONFIG_SPACESELCALCSPACE, REG_DWORD,
                 //               &Configuration.SpaceSelCalcSpace, sizeof(DWORD));
+                SetValue(actKey, CONFIG_COUNTSIZESTAYONFILESYSTEM, REG_DWORD,
+                         &Configuration.CountSizeStayOnFileSystem, sizeof(DWORD));
                 SetValue(actKey, CONFIG_USETIMERESOLUTION, REG_DWORD,
                          &Configuration.UseTimeResolution, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TIMERESOLUTION, REG_DWORD,
@@ -5057,6 +5069,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.QuickSearchEnterAlt, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOWMOUNTFOLDERS, REG_DWORD,
                      &Configuration.ChangeDriveShowMountFolders, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_MOUNTFOLDERS_MODE, REG_DWORD,
+                     &Configuration.ChangeDriveMountFoldersMode, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_MOUNTFOLDERS_NAME, REG_DWORD,
+                     &Configuration.ChangeDriveMountFoldersName, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_MOUNTFOLDERS_DRIVEBAR, REG_DWORD,
+                     &Configuration.ChangeDriveMountFoldersDriveBar, sizeof(DWORD));
+            if (Configuration.ChangeDriveMountFoldersMode < TITLE_BAR_MODE_DIRECTORY ||
+                Configuration.ChangeDriveMountFoldersMode > TITLE_BAR_MODE_FULLPATH)
+                Configuration.ChangeDriveMountFoldersMode = TITLE_BAR_MODE_DIRECTORY;
             GetValue(actKey, CONFIG_CHD_SHOWMYDOC, REG_DWORD,
                      &Configuration.ChangeDriveShowMyDoc, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOW3DOBJECTS, REG_DWORD,
@@ -5478,6 +5499,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
             //      GetValue(actKey, CONFIG_SPACESELCALCSPACE, REG_DWORD,
             //               &Configuration.SpaceSelCalcSpace, sizeof(DWORD));
+            GetValue(actKey, CONFIG_COUNTSIZESTAYONFILESYSTEM, REG_DWORD,
+                     &Configuration.CountSizeStayOnFileSystem, sizeof(DWORD));
             GetValue(actKey, CONFIG_USETIMERESOLUTION, REG_DWORD,
                      &Configuration.UseTimeResolution, sizeof(DWORD));
             GetValue(actKey, CONFIG_TIMERESOLUTION, REG_DWORD,

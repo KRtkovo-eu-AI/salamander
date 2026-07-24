@@ -329,6 +329,7 @@ struct CConfiguration
     int SizeFormat; // how to display values in the Size column: SIZE_FORMAT_xxx
 
     int SpaceSelCalcSpace; // when selecting with Space, calculate occupied space
+    int CountSizeStayOnFileSystem; // do not follow directory links/reparse points when calculating occupied space
 
     int UseTimeResolution; // compare directories: use time resolution
     int TimeResolution;    // compare directories: time resolution <0..3600>s
@@ -426,6 +427,9 @@ struct CConfiguration
 
     // Change drive
     int ChangeDriveShowMountFolders; // display volumes mounted into folders
+    int ChangeDriveMountFoldersMode; // TITLE_BAR_MODE_xxx for mounted folder paths
+    int ChangeDriveMountFoldersName; // display mounted volume caption
+    int ChangeDriveMountFoldersDriveBar; // display mounted volumes in Drive Bar
     int ChangeDriveShowMyDoc;     // display Documents item
     int ChangeDriveShow3DObjects; // display 3D Objects item
     int ChangeDriveShowDesktop;   // display Desktop item

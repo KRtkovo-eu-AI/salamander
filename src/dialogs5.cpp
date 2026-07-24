@@ -4939,7 +4939,14 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCfgPageChangeDrive::Transfer()");
 
+    int oldChangeDriveShowMountFolders = Configuration.ChangeDriveShowMountFolders;
+    int oldChangeDriveMountFoldersMode = Configuration.ChangeDriveMountFoldersMode;
+    int oldChangeDriveMountFoldersName = Configuration.ChangeDriveMountFoldersName;
+    int oldChangeDriveMountFoldersDriveBar = Configuration.ChangeDriveMountFoldersDriveBar;
+
     ti.CheckBox(IDC_CHD_SHOWMOUNTFOLDERS, Configuration.ChangeDriveShowMountFolders);
+    ti.CheckBox(IDC_CHD_MOUNTFOLDERS_VOLUMENAME, Configuration.ChangeDriveMountFoldersName);
+    ti.CheckBox(IDC_CHD_MOUNTFOLDERS_DRIVEBAR, Configuration.ChangeDriveMountFoldersDriveBar);
     ti.CheckBox(IDC_CHD_SHOWMYDOC, Configuration.ChangeDriveShowMyDoc);
     ti.CheckBox(IDC_CHD_SHOW3DOBJECTS, Configuration.ChangeDriveShow3DObjects);
     ti.CheckBox(IDC_CHD_SHOWDESKTOP, Configuration.ChangeDriveShowDesktop);
@@ -4953,6 +4960,28 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
 
     if (ti.Type == ttDataToWindow)
     {
+        const int MODE_ITEMS = 3;
+        int modes[MODE_ITEMS] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH};
+        int resIDs[MODE_ITEMS] = {IDS_TITLEBAR_DIRECTORY, IDS_TITLEBAR_COMPOSITE, IDS_TITLEBAR_FULLPATH};
+        SendDlgItemMessage(HWindow, IDC_CHD_MOUNTFOLDERS_MODE, CB_RESETCONTENT, 0, 0);
+        BOOL selected = FALSE;
+        for (int i = 0; i < MODE_ITEMS; i++)
+        {
+            SendDlgItemMessage(HWindow, IDC_CHD_MOUNTFOLDERS_MODE, CB_ADDSTRING, 0, (LPARAM)LoadStr(resIDs[i]));
+            if (!selected && Configuration.ChangeDriveMountFoldersMode == modes[i])
+            {
+                SendDlgItemMessage(HWindow, IDC_CHD_MOUNTFOLDERS_MODE, CB_SETCURSEL, i, 0);
+                selected = TRUE;
+            }
+        }
+        if (!selected)
+            SendDlgItemMessage(HWindow, IDC_CHD_MOUNTFOLDERS_MODE, CB_SETCURSEL, 0, 0);
+        BOOL enableMountFolders = Configuration.ChangeDriveShowMountFolders;
+        EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_LABEL), enableMountFolders);
+        EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_MODE), enableMountFolders);
+        EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_VOLUMENAME), enableMountFolders);
+        EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_DRIVEBAR), enableMountFolders);
+
         SetDrivesToListbox(IDL_CHD_DRIVES, Configuration.VisibleDrives);
         SetDrivesToListbox(IDL_CHD_SEPARATORS, Configuration.SeparatedDrives);
         if (Plugins.GetFirstNethoodPluginFSName())
@@ -4960,6 +4989,16 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
     }
     else
     {
+        int index = (int)SendDlgItemMessage(HWindow, IDC_CHD_MOUNTFOLDERS_MODE, CB_GETCURSEL, 0, 0);
+        int modes[3] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH};
+        Configuration.ChangeDriveMountFoldersMode = index >= 0 && index < 3 ? modes[index] : TITLE_BAR_MODE_DIRECTORY;
+        if (oldChangeDriveShowMountFolders != Configuration.ChangeDriveShowMountFolders ||
+            oldChangeDriveMountFoldersMode != Configuration.ChangeDriveMountFoldersMode ||
+            oldChangeDriveMountFoldersName != Configuration.ChangeDriveMountFoldersName ||
+            oldChangeDriveMountFoldersDriveBar != Configuration.ChangeDriveMountFoldersDriveBar)
+        {
+            PostMessage(MainWindow->HWindow, WM_USER_DRIVES_CHANGE, 0, 0);
+        }
         Configuration.VisibleDrives = GetDrivesFromListbox(IDL_CHD_DRIVES);
         Configuration.SeparatedDrives = GetDrivesFromListbox(IDL_CHD_SEPARATORS);
     }
@@ -4983,6 +5022,27 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_COMMAND:
+    {
+        if (LOWORD(wParam) == IDC_CHD_SHOWMOUNTFOLDERS && HIWORD(wParam) == BN_CLICKED)
+        {
+            BOOL enableMountFolders = IsDlgButtonChecked(HWindow, IDC_CHD_SHOWMOUNTFOLDERS) == BST_CHECKED;
+            EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_LABEL), enableMountFolders);
+            EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_MODE), enableMountFolders);
+            EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_VOLUMENAME), enableMountFolders);
+            EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_DRIVEBAR), enableMountFolders);
+        }
+        if (LOWORD(wParam) == IDL_CHD_DRIVES || LOWORD(wParam) == IDL_CHD_SEPARATORS)
+        {
+            if (HIWORD(wParam) == LBN_SETFOCUS || HIWORD(wParam) == LBN_KILLFOCUS)
+            {
+                InvalidateRect((HWND)lParam, NULL, TRUE);
+                return 0;
+            }
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         int staticsArr[] = {IDC_STATIC_6, IDS_CHD_HOTPATHS, IDC_STATIC_7, IDS_CHD_PLUGINS, IDC_STATIC_8, 0};
@@ -5094,19 +5154,6 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL selected = (BOOL)SendMessage(hList, LB_GETSEL, index, 0);
         SendMessage(hList, LB_SETSEL, !selected, index);
         return -1;
-    }
-
-    case WM_COMMAND:
-    {
-        if (LOWORD(wParam) == IDL_CHD_DRIVES || LOWORD(wParam) == IDL_CHD_SEPARATORS)
-        {
-            if (HIWORD(wParam) == LBN_SETFOCUS || HIWORD(wParam) == LBN_KILLFOCUS)
-            {
-                InvalidateRect((HWND)lParam, NULL, TRUE);
-                return 0;
-            }
-        }
-        break;
     }
     }
     return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
