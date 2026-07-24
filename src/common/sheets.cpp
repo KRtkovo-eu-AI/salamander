@@ -1613,28 +1613,10 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case _TPD_WM_POST_DPI_LAYOUT:
     {
         DPILayoutPosted = FALSE;
-        // Never accept a rounded/intermediate outer size from the dialog
-        // manager. Reapply the exact physical size calculated from the stable
-        // 96-DPI baseline after the complete PMv2 cascade.
-        if (LogicalWindowSize.cx > 0 && LogicalWindowSize.cy > 0)
-        {
-            RECT currentRect;
-            if (GetWindowRect(HWindow, &currentRect))
-            {
-                int exactWidth = MulDiv(
-                    LogicalWindowSize.cx, CurrentDPI, USER_DEFAULT_SCREEN_DPI);
-                int exactHeight = MulDiv(
-                    LogicalWindowSize.cy, CurrentDPI, USER_DEFAULT_SCREEN_DPI);
-                if (currentRect.right - currentRect.left != exactWidth ||
-                    currentRect.bottom - currentRect.top != exactHeight)
-                {
-                    SetWindowPos(
-                        HWindow, NULL, currentRect.left, currentRect.top,
-                        exactWidth, exactHeight,
-                        SWP_NOACTIVATE | SWP_NOZORDER);
-                }
-            }
-        }
+        // WM_GETDPISCALEDSIZE already supplied the exact outer size from the
+        // stable 96-DPI baseline. Do not fight the PMv2 dialog manager here;
+        // a second SetWindowPos during the same monitor transition can feed a
+        // rounded physical size back into later move cycles.
         UpdateTreeFontAndMetrics();
         ApplyTreeViewColors(HTreeView);
         LayoutControls();
