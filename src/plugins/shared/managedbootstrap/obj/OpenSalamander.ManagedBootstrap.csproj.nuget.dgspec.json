@@ -1,0 +1,57 @@
+{
+  "format": 1,
+  "restore": {
+    "H:\\_projects\\salamander\\src\\plugins\\shared\\managedbootstrap\\OpenSalamander.ManagedBootstrap.csproj": {}
+  },
+  "projects": {
+    "H:\\_projects\\salamander\\src\\plugins\\shared\\managedbootstrap\\OpenSalamander.ManagedBootstrap.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "H:\\_projects\\salamander\\src\\plugins\\shared\\managedbootstrap\\OpenSalamander.ManagedBootstrap.csproj",
+        "projectName": "OpenSalamander.ManagedBootstrap",
+        "projectPath": "H:\\_projects\\salamander\\src\\plugins\\shared\\managedbootstrap\\OpenSalamander.ManagedBootstrap.csproj",
+        "packagesPath": "C:\\Users\\ok\\.nuget\\packages\\",
+        "outputPath": "H:\\_projects\\salamander\\src\\plugins\\shared\\managedbootstrap\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "D:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\ok\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net48"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net48": {
+            "targetAlias": "net48",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net48": {
+          "targetAlias": "net48",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305\\RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

@@ -1492,6 +1492,7 @@ extern HIMAGELIST HHotToolBarImageList;  // toolbar a menu v barevnem provedeni
 extern int ToolBarLockImageIndex;        // index ikony zamku v toolbarovych imagelistech
 extern HIMAGELIST HBottomTBImageList;    // bottom toolbar (F1 - F12)
 extern HIMAGELIST HHotBottomTBImageList; // bottom toolbar (F1 - F12)
+BOOL CreateBottomToolbarImageLists(int dpi, HIMAGELIST* normal, HIMAGELIST* hot);
 
 extern HPEN HActiveNormalPen; // pera pro ramecek kolem polozky
 extern HPEN HActiveSelectedPen;

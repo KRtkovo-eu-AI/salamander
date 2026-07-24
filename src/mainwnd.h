@@ -537,6 +537,8 @@ protected:
     CEditWindow* DetachedEditWindow;
     HIMAGELIST HDetachedGrayToolBarImageList;
     HIMAGELIST HDetachedHotToolBarImageList;
+    HIMAGELIST HDetachedBottomTBImageList;
+    HIMAGELIST HDetachedHotBottomTBImageList;
     int DetachedWindowDPI;
 
     BOOL FirstActivateApp; // WM_ACTIVATEAPP uses this variable during startup

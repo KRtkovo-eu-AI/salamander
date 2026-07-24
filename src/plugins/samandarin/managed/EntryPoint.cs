@@ -85,10 +85,57 @@ public static class EntryPoint
 
     private static int ShowPluginUpdates(IntPtr parent)
     {
-        using var dialog = new PluginUpdatesDialog();
-        ThemeHelper.ApplyTheme(dialog);
-        ShowDialog(dialog, parent);
+        // This control tree uses Salamander's deterministic 96-DPI baseline.
+        // Keep both construction and all HWND creation out of the WinForms
+        // PMv2 child-scaling cascade.
+        using (ManagedApplication.EnterPerMonitorV1())
+        {
+            using var dialog = new PluginUpdatesDialog();
+            IntPtr resolvedParent = ResolveParentWindow(parent);
+            if (resolvedParent != IntPtr.Zero)
+            {
+                dialog.InitialDpi = GetInitialDpiForWindow(resolvedParent);
+            }
+            ThemeHelper.ApplyTheme(dialog);
+            dialog.CaptureDpiBaseline();
+            IWin32Window? owner =
+                resolvedParent != IntPtr.Zero
+                    ? new WindowHandleWrapper(resolvedParent)
+                    : null;
+            ThemeHelper.CenterDialogOverOwner(dialog, owner);
+            if (owner is null)
+            {
+                dialog.ShowDialog();
+            }
+            else
+            {
+                dialog.ShowDialog(owner);
+            }
+        }
         return 0;
+    }
+
+    private static int GetInitialDpiForWindow(IntPtr parentWindow)
+    {
+        int dpi = ManagedApplication.GetEffectiveDpiForWindow(parentWindow);
+        return dpi > 0 ? dpi : 96;
+    }
+
+    private static IntPtr ResolveParentWindow(IntPtr requestedParent)
+    {
+        if (requestedParent != IntPtr.Zero)
+        {
+            return requestedParent;
+        }
+
+        IntPtr foregroundWindow = GetForegroundWindow();
+        if (foregroundWindow == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        GetWindowThreadProcessId(foregroundWindow, out uint processId);
+        return processId == (uint)Process.GetCurrentProcess().Id ? foregroundWindow : IntPtr.Zero;
     }
 
     private static int Shutdown()
@@ -119,7 +166,10 @@ public static class EntryPoint
     {
         IWin32Window? owner = parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null;
         ThemeHelper.CenterDialogOverOwner(dialog, owner);
-        return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
+        using (ManagedApplication.EnterPerMonitorV2())
+        {
+            return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
+        }
     }
 
     private static IntPtr ParseHandle(string text)
@@ -138,6 +188,12 @@ public static class EntryPoint
         var message = $"{caption}{Environment.NewLine}{ex.Message}";
         ThemeHelper.ShowMessageBox(owner, message, NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 }
 
 internal enum NativeStringId
@@ -800,16 +856,18 @@ internal static class UpdateCoordinator
 
     private static void UiThreadLoop(BlockingCollection<Action> queue)
     {
-        ManagedApplication.EnsurePerMonitorThread();
-        foreach (var action in queue.GetConsumingEnumerable())
+        using (ManagedApplication.EnterPerMonitorV2())
         {
-            try
+            foreach (var action in queue.GetConsumingEnumerable())
             {
-                action();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Samandarin UI thread action failed: {ex}");
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Samandarin UI thread action failed: {ex}");
+                }
             }
         }
     }
@@ -1091,7 +1149,7 @@ internal sealed class ThemedGroupBox : GroupBox
     }
 }
 
-internal sealed class PluginUpdatesDialog : DpiAwareForm
+internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 {
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
@@ -1100,6 +1158,8 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
     private readonly Button _sourcesButton;
     private readonly ContextMenuStrip _listContextMenu;
     private readonly ImageList _pluginImages;
+    private readonly Dictionary<string, Image> _pluginImageSources =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _catalogImageKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Label _detailNameValue;
     private readonly Label _detailAuthorValue;
@@ -1117,6 +1177,11 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
     private readonly List<PluginUpdateRow> _rows = new();
     private int _sortColumn = 2;
     private SortOrder _sortOrder = SortOrder.Ascending;
+
+    protected override System.Drawing.Size LogicalWindowSize =>
+        new(980, 650);
+
+    protected override bool VerifyDpiAfterPositionChange => true;
 
     public PluginUpdatesDialog()
     {
@@ -1242,12 +1307,17 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
         UpdateDetails();
     }
 
-    protected override void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
+    protected override void OnDeterministicDpiChanged(
+        int oldDpi, int newDpi)
     {
-        base.OnPerMonitorDpiChanged(oldDpi, newDpi);
         UpdateDpiResources();
         AdjustListViewColumns();
         _listView.Invalidate(true);
+        if (_listView.IsHandleCreated && _listView.Items.Count > 0)
+        {
+            _listView.RedrawItems(0, _listView.Items.Count - 1, true);
+        }
+        _listView.Update();
     }
 
     private void UpdateDpiResources()
@@ -1255,7 +1325,16 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
         var imageSize = new System.Drawing.Size(ScaleLogical(16), ScaleLogical(16));
         if (_pluginImages.ImageSize != imageSize)
         {
+            _listView.SmallImageList = null;
+            _pluginImages.Images.Clear();
             _pluginImages.ImageSize = imageSize;
+            foreach (var pair in _pluginImageSources)
+            {
+                using var bitmap =
+                    CreateImageListBitmap(pair.Value, imageSize);
+                _pluginImages.Images.Add(pair.Key, bitmap);
+            }
+            _listView.SmallImageList = _pluginImages;
         }
     }
 
@@ -1510,7 +1589,8 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
             using var icon = Icon.ExtractAssociatedIcon(key);
             if (icon is not null)
             {
-                _pluginImages.Images.Add(key, icon);
+                using var bitmap = icon.ToBitmap();
+                AddPluginImage(key, bitmap);
                 return key;
             }
         }
@@ -1592,14 +1672,42 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
     {
         if (Path.GetExtension(source).Equals(".ico", StringComparison.OrdinalIgnoreCase))
         {
-            using var icon = new Icon(stream, _pluginImages.ImageSize);
-            _pluginImages.Images.Add(key, icon);
+            using var icon = new Icon(stream);
+            using var bitmap = icon.ToBitmap();
+            AddPluginImage(key, bitmap);
             return;
         }
 
         using var image = Image.FromStream(stream);
-        using var bitmap = CreateImageListBitmap(image, _pluginImages.ImageSize);
+        AddPluginImage(key, image);
+    }
+
+    private void AddPluginImage(string key, Image image)
+    {
+        if (_pluginImageSources.ContainsKey(key))
+        {
+            return;
+        }
+
+        var source = new Bitmap(image);
+        _pluginImageSources.Add(key, source);
+        using var bitmap =
+            CreateImageListBitmap(source, _pluginImages.ImageSize);
         _pluginImages.Images.Add(key, bitmap);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            foreach (Image image in _pluginImageSources.Values)
+            {
+                image.Dispose();
+            }
+            _pluginImageSources.Clear();
+        }
+
+        base.Dispose(disposing);
     }
 
     private static Bitmap CreateImageListBitmap(Image image, System.Drawing.Size size)

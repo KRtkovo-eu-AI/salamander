@@ -249,11 +249,13 @@ internal static class ViewerHost
                 // JsonViewer owns a private STA thread and creates the hidden
                 // dispatcher HWND before its first DpiAwareForm. Select PMv2
                 // before either of those handles captures the thread context.
-                ManagedApplication.EnsurePerMonitorThread();
-                using var context = new JsonViewerApplicationContext();
-                _context = context;
-                _ready.Set();
-                Application.Run(context);
+                using (ManagedApplication.EnterPerMonitorV2())
+                {
+                    using var context = new JsonViewerApplicationContext();
+                    _context = context;
+                    _ready.Set();
+                    Application.Run(context);
+                }
             }
             finally
             {
@@ -611,7 +613,7 @@ internal static class ViewerHost
         }
     }
 
-    private sealed class JsonViewerForm : DpiAwareForm
+    private sealed class JsonViewerForm : DeterministicDpiForm
     {
         private readonly JsonViewerControl _viewer;
         private ViewerSession? _session;
@@ -619,6 +621,10 @@ internal static class ViewerHost
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
         private bool _ownerAttached;
+
+        // The native viewer API already supplies an outer rectangle in
+        // physical screen pixels. Scale the contents, not that rectangle.
+        protected override bool ScaleInitialWindowBounds => false;
 
         public JsonViewerForm()
         {
@@ -717,12 +723,9 @@ internal static class ViewerHost
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
-        protected override void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
+        protected override void OnDeterministicDpiChanged(
+            int oldDpi, int newDpi)
         {
-            base.OnPerMonitorDpiChanged(oldDpi, newDpi);
-            _viewer.PerformLayout();
-            _viewer.ApplyCurrentTheme();
-            ThemeHelper.ApplyNativeDarkMode(_viewer);
             _viewer.Invalidate(true);
         }
 
