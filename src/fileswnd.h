@@ -8,6 +8,7 @@ class CFilesWindow;
 
 #include "plugins.h"
 #include <string>
+#include <vector>
 
 #ifndef SAL_MAX_PATH
 #define SAL_MAX_PATH 32768
@@ -828,6 +829,14 @@ public:
     int WindowTextEllipsisWidth;
     int WindowTextEllipsisWidthEnv;
     int WindowIconSizes[ICONSIZE_COUNT];
+    struct CDPIIconListEntry
+    {
+        CIconList* Source;
+        int SourceIndex;
+        int PixelSize;
+        CIconList* Copy;
+    };
+    std::vector<CDPIIconListEntry> WindowDPIIconLists;
     BOOL TreeViewAutoHideExpanded;
     DWORD TreeViewAutoHideCollapseStart;
     int TreeViewWidth;
@@ -994,6 +1003,9 @@ public:
     ~CFilesWindow();
 
     BOOL RefreshDPIResources(BOOL force = FALSE);
+    CIconList* GetIndependentIconList(CIconList* source, int sourceIndex,
+                                      CIconSizeEnum iconSize, int* copyIndex);
+    void ClearIndependentIconLists();
     int GetWindowDPI() const { return WindowDPI > 0 ? WindowDPI : GetSystemDPI(); }
     HFONT GetPanelFont() const { return WindowPanelFont != NULL ? WindowPanelFont : Font; }
     HFONT GetPanelFontUL() const { return WindowPanelFontUL != NULL ? WindowPanelFontUL : FontUL; }

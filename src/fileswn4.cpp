@@ -217,6 +217,7 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
         {
             CIconList* iconList = NULL;
             int iconListIndex = -1; // close it if not set
+            BOOL sharedIconList = FALSE;
             char fileName[MAX_PATH + 4];
 
             if (GetPluginIconsType() != pitFromPlugin || !Is(ptPluginFS))
@@ -236,6 +237,8 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                             iconList = NULL;
                             drawSimpleSymbol = TRUE;
                         }
+                        else
+                            sharedIconList = TRUE;
                     }
                 }
                 else // it's a file
@@ -275,6 +278,8 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                                     iconList = NULL;
                                     drawSimpleSymbol = TRUE;
                                 }
+                                else
+                                    sharedIconList = TRUE;
                             }
                             index = -2; // a dynamic icon will be displayed
                         }
@@ -305,6 +310,8 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                             iconList = NULL;
                             drawSimpleSymbol = TRUE;
                         }
+                        else if (!drawSimpleSymbol)
+                            sharedIconList = TRUE;
                     }
                 }
             }
@@ -324,11 +331,15 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
 
                     iconList = SimplePluginIcons;
                     iconListIndex = GetPluginIconIndex();
+                    sharedIconList = TRUE;
                 }
             }
 
             if (iconList != NULL && !drawSimpleSymbol)
             {
+                if (sharedIconList)
+                    iconList = GetIndependentIconList(iconList, iconListIndex,
+                                                      iconSize, &iconListIndex);
                 BOOL leaveSection;
                 if (!IconCacheValid)
                 {
@@ -357,7 +368,11 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
 
     if (drawSimpleSymbol)
     { // simple symbols
-        StateImageList_Draw(SimpleIconLists[iconSize], symbolIndex, hDC, x, y, iconState, iconSize,
+        int independentIndex = symbolIndex;
+        CIconList* independentIcons =
+            GetIndependentIconList(SimpleIconLists[iconSize], symbolIndex,
+                                   iconSize, &independentIndex);
+        StateImageList_Draw(independentIcons, independentIndex, hDC, x, y, iconState, iconSize,
                             f->IconOverlayIndex, overlayRect, (drawFlags & DRAWFLAG_OVERLAY_ONLY) != 0,
                             iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays,
                             GetWindowDPI());

@@ -2526,6 +2526,8 @@ CFilesWindow::~CFilesWindow()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::~CFilesWindow()");
 
+    ClearIndependentIconLists();
+
     if (DeviceNotification != NULL)
         TRACE_E("CFilesWindow::~CFilesWindow(): unexpected situation: DeviceNotification != NULL");
 
@@ -2611,6 +2613,8 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
         dpi = USER_DEFAULT_SCREEN_DPI;
     if (!force && WindowDPI == dpi && WindowPanelFont != NULL && WindowEnvFont != NULL)
         return TRUE;
+
+    ClearIndependentIconLists();
 
     LOGFONT envLF;
     if (!WinLibDPIGetIconTitleLogFont(dpiWindow, &envLF))
@@ -2713,6 +2717,61 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
     WindowIconSizes[ICONSIZE_32] = MulDiv(32, dpi, USER_DEFAULT_SCREEN_DPI);
     WindowIconSizes[ICONSIZE_48] = MulDiv(48, dpi, USER_DEFAULT_SCREEN_DPI);
     return TRUE;
+}
+
+CIconList* CFilesWindow::GetIndependentIconList(CIconList* source, int sourceIndex,
+                                                 CIconSizeEnum iconSize, int* copyIndex)
+{
+    if (copyIndex != NULL)
+        *copyIndex = sourceIndex;
+    if (source == NULL || sourceIndex < 0)
+        return source;
+
+    int pixelSize = GetIconSize(iconSize);
+    for (size_t i = 0; i < WindowDPIIconLists.size(); ++i)
+    {
+        CDPIIconListEntry& entry = WindowDPIIconLists[i];
+        if (entry.Source == source && entry.SourceIndex == sourceIndex &&
+            entry.PixelSize == pixelSize)
+        {
+            if (copyIndex != NULL)
+                *copyIndex = 0;
+            return entry.Copy;
+        }
+    }
+
+    HICON icon = source->GetIcon(sourceIndex);
+    if (icon == NULL)
+        return source;
+
+    CIconList* copy = new CIconList();
+    if (copy == NULL || !copy->Create(pixelSize, pixelSize, 1) ||
+        !copy->ReplaceIcon(0, icon))
+    {
+        if (copy != NULL)
+            delete copy;
+        HANDLES(DestroyIcon(icon));
+        return source;
+    }
+    HANDLES(DestroyIcon(icon));
+    copy->SetBkColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
+
+    CDPIIconListEntry entry;
+    entry.Source = source;
+    entry.SourceIndex = sourceIndex;
+    entry.PixelSize = pixelSize;
+    entry.Copy = copy;
+    WindowDPIIconLists.push_back(entry);
+    if (copyIndex != NULL)
+        *copyIndex = 0;
+    return copy;
+}
+
+void CFilesWindow::ClearIndependentIconLists()
+{
+    for (size_t i = 0; i < WindowDPIIconLists.size(); ++i)
+        delete WindowDPIIconLists[i].Copy;
+    WindowDPIIconLists.clear();
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()
