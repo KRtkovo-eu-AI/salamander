@@ -94,6 +94,7 @@ protected:
     BOOL Recompare;
     BOOL bOptionsChangedBeingHandled; // Simple semaphore
     BOOL DpiUpdatePending;
+    UINT DpiUpdateValue;
 
     // for the binary comparator
     CBinaryChanges Changes;
@@ -118,7 +119,7 @@ public:
     void SaveRebarLayout();
     void RestoreRebarLayout();
     BOOL RebuildToolbarImages();
-    void UpdateRebarDpiMetrics();
+    void UpdateRebarDpiMetrics(UINT dpi = 0);
     //void UpdateSelection();
     void SpawnWorker(const char* path1, const char* path2, BOOL recompare,
                      const CCompareOptions& options);

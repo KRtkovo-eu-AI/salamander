@@ -78,6 +78,7 @@ CMainWindow::CMainWindow(char* path1, char* path2, CCompareOptions* options, UIN
     bOptionsChangedBeingHandled = FALSE;
     HToolbarImages = NULL;
     DpiUpdatePending = FALSE;
+    DpiUpdateValue = USER_DEFAULT_SCREEN_DPI;
 }
 
 CMainWindow::~CMainWindow()
@@ -436,10 +437,16 @@ BOOL CMainWindow::RebuildToolbarImages()
     return TRUE;
 }
 
-void CMainWindow::UpdateRebarDpiMetrics()
+void CMainWindow::UpdateRebarDpiMetrics(UINT dpi)
 {
     if (Rebar == NULL || Rebar->HWindow == NULL)
         return;
+    if (dpi == 0)
+        dpi = WinLibDPIGetWindowDPI(HWindow);
+
+    // The "Difference" caption is painted by the rebar itself, not by the
+    // combo box. It therefore needs the same per-monitor font explicitly.
+    SendMessage(Rebar->HWindow, WM_SETFONT, (WPARAM)EnvFont, TRUE);
 
     int band = (int)SendMessage(Rebar->HWindow, RB_IDTOINDEX, IDC_TOOLBAR, 0);
     if (band >= 0)
@@ -464,7 +471,7 @@ void CMainWindow::UpdateRebarDpiMetrics()
         info.fMask = RBBIM_CHILDSIZE;
         if (SendMessage(Rebar->HWindow, RB_GETBANDINFO, band, (LPARAM)&info))
         {
-            info.cyMinChild = EnvFontHeight + WinLibDPIFromLogical(HWindow, 8);
+            info.cyMinChild = EnvFontHeight + MulDiv(8, dpi, USER_DEFAULT_SCREEN_DPI);
             SendMessage(Rebar->HWindow, RB_SETBANDINFO, band, (LPARAM)&info);
         }
     }
@@ -1197,6 +1204,9 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // recreates the 96-DPI chrome even though the file views later receive
         // their new child-DPI notifications. Let CWindow apply the suggested
         // rectangle and rebuild after the message has completely returned.
+        UINT newDpi = LOWORD(wParam);
+        if (newDpi != 0)
+            DpiUpdateValue = newDpi;
         if (!DpiUpdatePending)
         {
             DpiUpdatePending = TRUE;
@@ -1208,9 +1218,10 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_FILECOMP_APPLY_DPI:
     {
         DpiUpdatePending = FALSE;
-        if (CreateEnvFont(HWindow))
+        UINT dpi = DpiUpdateValue != 0 ? DpiUpdateValue : USER_DEFAULT_SCREEN_DPI;
+        if (CreateEnvFontForDPI(dpi))
         {
-            HeaderHeight = EnvFontHeight + WinLibDPIFromLogical(HWindow, 4);
+            HeaderHeight = EnvFontHeight + MulDiv(4, dpi, USER_DEFAULT_SCREEN_DPI);
             RebuildToolbarImages();
             if (ComboBox != NULL && ComboBox->HWindow != NULL)
             {
@@ -1219,13 +1230,13 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (edit != NULL)
                     SendMessage(edit, WM_SETFONT, (WPARAM)EnvFont, TRUE);
                 SendMessage(ComboBox->HWindow, CB_SETITEMHEIGHT, (WPARAM)-1,
-                            EnvFontHeight + WinLibDPIFromLogical(HWindow, 6));
+                            EnvFontHeight + MulDiv(6, dpi, USER_DEFAULT_SCREEN_DPI));
             }
             if (FileView[fviLeft] != NULL)
                 FileView[fviLeft]->ReloadConfiguration(CC_FONT, FALSE);
             if (FileView[fviRight] != NULL)
                 FileView[fviRight]->ReloadConfiguration(CC_FONT, FALSE);
-            UpdateRebarDpiMetrics();
+            UpdateRebarDpiMetrics(dpi);
             LayoutChilds();
             RedrawWindow(HWindow, NULL, NULL,
                          RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);

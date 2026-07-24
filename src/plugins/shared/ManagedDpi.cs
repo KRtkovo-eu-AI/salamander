@@ -19,11 +19,6 @@ internal static class ManagedApplication
 
     public static void Initialize()
     {
-        // Initialize can be called from more than one native/plugin thread.
-        // Process-wide WinForms defaults are shared, but DPI awareness is a
-        // property of the actual thread which is about to create an HWND.
-        EnsurePerMonitorThread();
-
         lock (typeof(Application))
         {
             if (AppDomain.CurrentDomain.GetData(InitializedKey) is bool initialized && initialized)
@@ -31,12 +26,6 @@ internal static class ManagedApplication
                 return;
             }
 
-            // These switches must be set before the first WinForms HWND is
-            // created. The native host is PMv2-aware, but .NET Framework 4.8
-            // otherwise keeps its legacy SystemAware control-scaling path
-            // when WinForms is loaded from a native executable.
-            AppContext.SetSwitch("Switch.System.Windows.Forms.DoNotSupportDpiChanges", false);
-            AppContext.SetSwitch("Switch.System.Windows.Forms.EnableWindowsFormsHighDpiAutoResizing", true);
             Application.EnableVisualStyles();
             try
             {
@@ -57,16 +46,13 @@ internal static class ManagedApplication
     {
         try
         {
-            // Managed plugin windows are often constructed on private UI
-            // threads. A thread does not reliably inherit the native caller's
-            // temporary DPI context, so set PMv2 on the actual WinForms thread
-            // before its first top-level HWND is created.
+            // JSON Viewer owns a private UI thread. Select PMv2 there before
+            // its hidden dispatcher or first top-level HWND is created.
             SetThreadDpiAwarenessContext(new IntPtr(-4));
         }
         catch (EntryPointNotFoundException)
         {
-            // Windows versions without per-monitor-v2 support keep the
-            // process-level fallback selected by the native host.
+            // Older Windows versions keep the process-level fallback.
         }
         catch (DllNotFoundException)
         {
@@ -77,45 +63,33 @@ internal static class ManagedApplication
     private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
 }
 
-// The host executable opts WinForms into its .NET Framework 4.7+ PMv2 path.
-// AutoScaleMode.Dpi gives programmatically constructed forms a stable 96-DPI
-// design baseline; WinForms performs the single dynamic scaling pass.
+// AutoScaleMode.Dpi and the standard WinForms PMv2 path are deliberately kept
+// identical to commit f1c8c579, where HyperV was verified at 150%. WinForms
+// owns the one bounds/font scaling pass; this class only recreates explicitly
+// assigned fonts after the HWND has acquired its monitor DPI.
 internal class DpiAwareForm : Form
 {
-    // Keep every replacement alive until all controls have been destroyed.
-    // Disposing the previous Form font immediately is unsafe because children
-    // which inherit it can still ask WinForms to create an HFONT from it.
-    private readonly List<Font> _ownedDpiFonts = new List<Font>();
+    private readonly Dictionary<Control, Font> _dpiFonts =
+        new Dictionary<Control, Font>();
+    private readonly List<Font> _retiredDpiFonts = new List<Font>();
 
     internal DpiAwareForm()
     {
-        ManagedApplication.EnsurePerMonitorThread();
         AutoScaleDimensions = new SizeF(96.0F, 96.0F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        Font = OwnClone(SystemFonts.MessageBoxFont);
-    }
-
-    protected override void CreateHandle()
-    {
-        // The constructor body runs after the base Form constructor. Repeat
-        // the context selection at the decisive point immediately before the
-        // top-level HWND captures its DPI awareness.
-        ManagedApplication.EnsurePerMonitorThread();
-        base.CreateHandle();
-    }
-
-    protected override void OnHandleCreated(EventArgs e)
-    {
-        base.OnHandleCreated(e);
-        // SystemFonts can have been cached while the native host was on a
-        // different monitor. Reassign point fonts after the HWND has captured
-        // its real DPI so WinForms creates the corresponding native HFONT.
-        RefreshExplicitFonts(this);
+        Font = CloneFont(SystemFonts.MessageBoxFont);
+        _dpiFonts[this] = Font;
     }
 
     protected int ScaleLogical(int logicalPixels)
     {
         return Math.Max(1, logicalPixels * DeviceDpi / 96);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        RefreshExplicitFonts(this);
     }
 
     protected override void OnDpiChanged(DpiChangedEventArgs e)
@@ -126,7 +100,6 @@ internal class DpiAwareForm : Form
         SuspendLayout();
         try
         {
-            // WinForms owns the single bounds and font autoscale pass.
             base.OnDpiChanged(e);
             RefreshExplicitFonts(this);
             OnPerMonitorDpiChanged(oldDpi, newDpi);
@@ -146,27 +119,47 @@ internal class DpiAwareForm : Form
 
     protected override void Dispose(bool disposing)
     {
+        // Destroy every child HWND before releasing any managed Font from
+        // which WinForms may still need to create an HFONT. This fixes the
+        // Font.ToLogFont "Parameter is not valid" crash without changing the
+        // scaling behavior that was known to work for HyperV.
         base.Dispose(disposing);
         if (!disposing)
         {
             return;
         }
 
-        foreach (Font font in _ownedDpiFonts)
+        foreach (Font font in _retiredDpiFonts)
         {
             font.Dispose();
         }
-        _ownedDpiFonts.Clear();
+        _retiredDpiFonts.Clear();
+
+        foreach (Font font in _dpiFonts.Values)
+        {
+            font.Dispose();
+        }
+        _dpiFonts.Clear();
     }
 
     private void RefreshExplicitFonts(Control root)
     {
-        var fontProperty = TypeDescriptor.GetProperties(root)["Font"];
+        PropertyDescriptor fontProperty = TypeDescriptor.GetProperties(root)["Font"];
         bool hasExplicitFont = ReferenceEquals(root, this) ||
                                (fontProperty != null && fontProperty.ShouldSerializeValue(root));
         if (hasExplicitFont && root.Font != null)
         {
-            root.Font = OwnClone(root.Font);
+            Font replacement = CloneFont(root.Font);
+            Font previous;
+            if (_dpiFonts.TryGetValue(root, out previous) &&
+                !ReferenceEquals(previous, replacement))
+            {
+                // Do not dispose it here. Descendants can still inherit the
+                // old Font until the complete native DPI cascade has returned.
+                _retiredDpiFonts.Add(previous);
+            }
+            root.Font = replacement;
+            _dpiFonts[root] = replacement;
         }
 
         foreach (Control child in root.Controls)
@@ -175,11 +168,9 @@ internal class DpiAwareForm : Form
         }
     }
 
-    private Font OwnClone(Font source)
+    private static Font CloneFont(Font source)
     {
-        var clone = new Font(source.FontFamily, source.Size, source.Style, source.Unit,
-                             source.GdiCharSet, source.GdiVerticalFont);
-        _ownedDpiFonts.Add(clone);
-        return clone;
+        return new Font(source.FontFamily, source.Size, source.Style, source.Unit,
+                        source.GdiCharSet, source.GdiVerticalFont);
     }
 }

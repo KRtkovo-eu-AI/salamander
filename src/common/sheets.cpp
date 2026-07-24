@@ -1413,6 +1413,7 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD*
     LogicalWindowSize.cy = 0;
     DPIChangeInProgress = FALSE;
     DPILayoutPosted = FALSE;
+    UserSizing = FALSE;
     TreeFont = NULL;
 }
 
@@ -1612,6 +1613,28 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case _TPD_WM_POST_DPI_LAYOUT:
     {
         DPILayoutPosted = FALSE;
+        // Never accept a rounded/intermediate outer size from the dialog
+        // manager. Reapply the exact physical size calculated from the stable
+        // 96-DPI baseline after the complete PMv2 cascade.
+        if (LogicalWindowSize.cx > 0 && LogicalWindowSize.cy > 0)
+        {
+            RECT currentRect;
+            if (GetWindowRect(HWindow, &currentRect))
+            {
+                int exactWidth = MulDiv(
+                    LogicalWindowSize.cx, CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+                int exactHeight = MulDiv(
+                    LogicalWindowSize.cy, CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+                if (currentRect.right - currentRect.left != exactWidth ||
+                    currentRect.bottom - currentRect.top != exactHeight)
+                {
+                    SetWindowPos(
+                        HWindow, NULL, currentRect.left, currentRect.top,
+                        exactWidth, exactHeight,
+                        SWP_NOACTIVATE | SWP_NOZORDER);
+                }
+            }
+        }
         UpdateTreeFontAndMetrics();
         ApplyTreeViewColors(HTreeView);
         LayoutControls();
@@ -1784,14 +1807,50 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             GetWindowRect(HWindow, &r);
             PendingWindowHeight = r.bottom - r.top;
             PendingWindowWidth = r.right - r.left;
-            if (CurrentDPI > 0 && wParam != SIZE_MINIMIZED)
-            {
-                LogicalWindowSize.cx = MulDiv(PendingWindowWidth, USER_DEFAULT_SCREEN_DPI, CurrentDPI);
-                LogicalWindowSize.cy = MulDiv(PendingWindowHeight, USER_DEFAULT_SCREEN_DPI, CurrentDPI);
-            }
             LayoutControls();
             RepaintWindowTree(HWindow);
         }
+        break;
+    }
+
+    case WM_SYSCOMMAND:
+    {
+        UINT command = (UINT)(wParam & 0xFFF0);
+        if (command == SC_SIZE)
+            UserSizing = TRUE;
+        else if (command == SC_MOVE)
+            UserSizing = FALSE;
+        break;
+    }
+
+    case WM_ENTERSIZEMOVE:
+    {
+        // WM_ENTERSIZEMOVE covers both moving and sizing. UserSizing was
+        // selected by the preceding SC_MOVE/SC_SIZE command; a pure move
+        // across monitors must never replace the persistent 96-DPI baseline.
+        break;
+    }
+
+    case WM_EXITSIZEMOVE:
+    {
+        if (UserSizing)
+        {
+            UserSizing = FALSE;
+            RECT r;
+            if (GetWindowRect(HWindow, &r))
+            {
+                PendingWindowWidth = r.right - r.left;
+                PendingWindowHeight = r.bottom - r.top;
+                if (CurrentDPI > 0)
+                {
+                    LogicalWindowSize.cx = MulDiv(
+                        PendingWindowWidth, USER_DEFAULT_SCREEN_DPI, CurrentDPI);
+                    LogicalWindowSize.cy = MulDiv(
+                        PendingWindowHeight, USER_DEFAULT_SCREEN_DPI, CurrentDPI);
+                }
+            }
+        }
+        UserSizing = FALSE;
         break;
     }
 
