@@ -3264,8 +3264,11 @@ BOOL CFilesWindow::ConfirmUnlockTabForPathChange()
     if (!IsTabLocked())
         return TRUE;
 
-    if (MainWindow == NULL || MainWindow->HWindow == NULL || !IsWindowVisible(MainWindow->HWindow))
-        return FALSE;
+    if (MainWindow == NULL || MainWindow->GetPanelTabIndex(GetPanelSide(), this) <= 0)
+        return TRUE;
+
+    if (MainWindow->HWindow == NULL || !IsWindowVisible(MainWindow->HWindow) || GetPath()[0] == 0)
+        return TRUE;
 
     if (SalMessageBox(HWindow, LoadStr(IDS_LOCKEDTAB_CHANGEPATH), LoadStr(IDS_LOCKEDTAB_TITLE),
                       MB_YESNO | MB_ICONQUESTION) != IDYES)
