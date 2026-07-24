@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\unrar\unrar.atp"
 TEXTVERSION,"3.03 (x64)"
-VERSION,"3,0,3,194"
+VERSION,"3,0,3,195"
 
 [TRANSLATION]
 LANGID,1043
@@ -30,8 +30,8 @@ COMMENT,"Nederlandse versie"
 
 [DIALOG 106]
 220,115,1,"UnRAR Configuratie"
-107,12,10,212,12,1,"&Automatisch bestanden uit vorige volumes overslaan tijdens"
-116,12,32,229,12,1,"A&ttentie niet weergeven wanneer de hele inhoud van het archief"
+107,12,10,219,12,1,"&Automatisch bestanden uit vorige volumes overslaan tijdens"
+116,12,32,234,12,1,"A&ttentie niet weergeven wanneer de hele inhoud van het archief"
 300,23,22,154,8,1,"uitpakken."
 301,23,44,111,8,1,"niet opgesomd kan worden."
 302,6,60,208,1,1,""
@@ -43,10 +43,10 @@ COMMENT,"Nederlandse versie"
 [DIALOG 108]
 350,80,1,"Wachtwoord invoer"
 113,18,18,18,20,1,""
-300,57,10,233,8,1,"Dit bestand is gecodeerd. Voer het wachtwoord in om te decoderen."
+300,57,10,237,8,1,"Dit bestand is gecodeerd. Voer het wachtwoord in om te decoderen."
 301,57,25,32,8,1,"Bestand:"
 104,97,25,240,8,1,""
-302,57,38,47,8,1,"&Wachtwoord:"
+302,57,38,49,8,1,"&Wachtwoord:"
 110,97,36,157,12,1,""
 1,30,58,50,14,1,"&OK"
 112,90,58,50,14,1,"&Alle"

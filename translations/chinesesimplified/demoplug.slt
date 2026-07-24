@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\demoplug\demoplug.atp"
 TEXTVERSION,"1.96 (x64)"
-VERSION,"1,9,6,194"
+VERSION,"1,9,6,195"
 
 [TRANSLATION]
 LANGID,2052
@@ -17,7 +17,7 @@ COMMENT,"English version"
 
 [DIALOG 500]
 205,84,1,"第一页"
-3000,7,10,50,8,1,"测试字符串："
+3000,7,10,51,8,1,"测试字符串："
 501,53,8,144,12,1,""
 3001,7,25,44,8,1,"测试数字："
 502,53,23,54,12,1,""
@@ -74,7 +74,7 @@ COMMENT,"English version"
 3006,14,66,75,8,1,"STF_END_ELLIPSIS"
 556,102,66,152,8,1,"长长长长长长长长长长的字符串。"
 3007,14,76,75,8,1,"STF_PATH_ELLIPSIS"
-555,102,76,216,8,1,"C:\\Program Files\\Some Application With Long Path\\example.exe"
+555,102,76,220,8,1,"C:\\Program Files\\Some Application With Long Path\\example.exe"
 3008,14,87,75,8,1,"STF_PATH_ELLIPSIS"
 564,102,87,160,8,1,"ftp://ftp.altap.cz/pub/salamander/example.exe"
 3009,151,97,103,8,1,"拖动文本以更改其大小。"
@@ -93,13 +93,13 @@ COMMENT,"English version"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
 557,365,17,47,8,1,"www.altap.cz"
-3016,277,27,81,8,1,"SetActionPostCommand"
+3016,277,27,85,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"说点什么！"
-3017,277,37,81,8,1,"SetActionPostCommand"
+3017,277,37,85,8,1,"SetActionPostCommand"
 569,365,37,40,8,1,"mask hints"
 3018,269,59,185,31,1,"SetCurrentToolTip"
 567,278,73,130,8,1,"将鼠标指针悬停在此文本上。"
-2510,269,102,96,8,1,"CGUIToolbarHeaderAbstract"
+2510,269,102,98,8,1,"CGUIToolbarHeaderAbstract"
 2511,269,113,185,50,1,""
 1,403,213,50,14,1,"关闭"
 

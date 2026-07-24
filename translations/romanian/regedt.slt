@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\regedt\regedt.atp"
 TEXTVERSION,"1.15 (x64)"
-VERSION,"1,1,5,194"
+VERSION,"1,1,5,195"
 
 [TRANSLATION]
 LANGID,1048
@@ -57,7 +57,7 @@ COMMENT,"Versiunea romana"
 701,6,27,41,8,1,"&Uita-te in:"
 137,61,25,202,132,1,""
 9,268,24,50,14,1,"&Help"
-139,258,42,63,12,1,"Arata &Optiunile"
+139,258,42,66,12,1,"Arata &Optiunile"
 140,61,42,86,12,1,"Include su&bcheile"
 141,6,60,41,8,1,"Uita-te la:"
 142,61,58,55,12,1,"&Chei"
@@ -66,7 +66,7 @@ COMMENT,"Versiunea romana"
 154,6,76,41,8,1,"Optiuni:"
 147,61,74,60,12,1,"HE&X-mode"
 143,139,74,118,12,1,"&Sensibil la litere (mari sau mici)"
-144,61,87,67,12,1,"Cuvintele i&ntregi"
+144,61,87,70,12,1,"Cuvintele i&ntregi"
 150,139,87,75,12,1,"Expresie &regulata"
 155,61,105,76,8,1,"&Mai nou sau egal cu:"
 152,139,103,80,12,1,""
@@ -90,7 +90,7 @@ COMMENT,"Versiunea romana"
 
 [DIALOG 166]
 280,102,1,"Configurare Editor Registri"
-700,10,10,271,8,1,"Setari editor extern. Editorul extern este folosit pentru editare valori registri raw."
+700,10,10,277,8,1,"Setari editor extern. Editorul extern este folosit pentru editare valori registri raw."
 701,20,27,55,8,1,"&Comanda:"
 172,77,25,176,12,1,""
 171,257,25,13,12,1,""

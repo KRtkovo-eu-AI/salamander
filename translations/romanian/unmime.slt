@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\unmime\unmime.atp"
 TEXTVERSION,"1.15 (x64)"
-VERSION,"1,1,5,194"
+VERSION,"1,1,5,195"
 
 [TRANSLATION]
 LANGID,1048
@@ -11,11 +11,11 @@ COMMENT,"Versiunea romana"
 
 [DIALOG 101]
 251,111,1,"Configurare UnMIME"
-2000,7,7,42,8,1,"Lista optiuni"
+2000,7,7,45,8,1,"Lista optiuni"
 2001,49,11,196,1,1,""
 1000,18,20,74,10,1,"&Lista mail headers"
 1001,18,35,80,10,1,"Lista mesaje &corpuri"
-1003,31,50,210,10,1,"A&dauga charset info la nume fisier de e diferit de US-ASCII"
+1003,31,50,212,10,1,"A&dauga charset info la nume fisier de e diferit de US-ASCII"
 1002,18,65,82,10,1,"Listeaza &atasamente"
 2002,6,82,239,1,1,""
 1,137,90,50,14,1,"OK"

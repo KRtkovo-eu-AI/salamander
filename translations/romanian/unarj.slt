@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\unarj\unarj.atp"
 TEXTVERSION,"1.22 (x64)"
-VERSION,"1,2,2,194"
+VERSION,"1,2,2,195"
 
 [TRANSLATION]
 LANGID,1048
@@ -12,9 +12,9 @@ COMMENT,"Versiunea romana"
 [DIALOG 100]
 194,110,1,"Urmatorul volum arhiva"
 300,12,9,170,32,1,"Introdu discul cu urmatorul volum arhiva sau localizeaza fisierul potrivit pe disc.\n\nApasa OK cand sunteti gata."
-301,12,48,68,8,1,"Volumul precedent:"
+301,12,48,69,8,1,"Volumul precedent:"
 103,73,48,109,12,1,""
-302,12,62,61,8,1,"&Volumul urmator:"
+302,12,62,62,8,1,"&Volumul urmator:"
 101,12,72,155,12,1,""
 102,170,72,13,12,1,"..."
 1,39,91,50,14,1,"OK"

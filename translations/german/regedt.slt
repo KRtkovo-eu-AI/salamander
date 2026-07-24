@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\regedt\regedt.atp"
 TEXTVERSION,"1.15 (x64)"
-VERSION,"1,1,5,194"
+VERSION,"1,1,5,195"
 
 [TRANSLATION]
 LANGID,1031
@@ -51,23 +51,23 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 135]
 333,240,1,"Windows-Registrierung durchsuchen"
-700,6,10,49,8,1,"&Suchen nach:"
+700,6,10,48,8,1,"&Suchen nach:"
 136,61,8,202,132,1,""
 1,268,7,50,14,1,"&Jetzt suchen"
 701,6,27,41,8,1,"S&uchen in:"
 137,61,25,202,132,1,""
 9,268,24,50,14,1,"&Hilfe"
-139,258,42,75,12,1,"&Optionen anzeigen"
-140,61,42,108,12,1,"&Einschließlich Unterschlüssel"
+139,258,42,80,12,1,"&Optionen anzeigen"
+140,61,42,111,12,1,"&Einschließlich Unterschlüssel"
 141,6,60,41,8,1,"Suchen in:"
 142,61,58,55,12,1,"Sch&lüsseln"
 145,139,58,55,12,1,"&Werten"
 146,217,58,55,12,1,"&Daten"
 154,6,76,41,8,1,"Optionen:"
 147,61,74,60,12,1,"HEX-&Modus"
-143,139,74,87,12,1,"Groß-/&Kleinschreibung"
+143,139,74,90,12,1,"Groß-/&Kleinschreibung"
 144,61,87,60,12,1,"&Ganze Wörter"
-150,139,87,78,12,1,"&Regulärer Ausdruck"
+150,139,87,80,12,1,"&Regulärer Ausdruck"
 155,61,105,76,8,1,"&Neuer oder gleich:"
 152,139,103,80,12,1,""
 157,225,105,81,8,1,"hh:mm:ss dd.mm.yyyy"
@@ -90,7 +90,7 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 166]
 280,102,1,"Registrierungs-Editor - Konfiguration"
-700,10,10,397,8,1,"Konfiguration des externen Editors der für die freie Bearbeitung von Registrierungs-Einträgen verwendet werden soll."
+700,10,10,406,8,1,"Konfiguration des externen Editors der für die freie Bearbeitung von Registrierungs-Einträgen verwendet werden soll."
 701,20,27,55,8,1,"&Befehl:"
 172,77,25,176,12,1,""
 171,257,25,13,12,1,""

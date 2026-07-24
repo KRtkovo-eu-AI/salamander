@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\automation\automation.atp"
 TEXTVERSION,"2.0 (x64)"
-VERSION,"2,0,0,194"
+VERSION,"2,0,0,195"
 
 [TRANSLATION]
 LANGID,1036
@@ -18,9 +18,9 @@ COMMENT,"Version française"
 
 [DIALOG 101]
 332,143,1,"Configuration de l'automatisation"
-375,8,9,81,8,1,"Répertoires des &scripts:"
+375,8,9,82,8,1,"Répertoires des &scripts:"
 371,8,19,316,73,1,""
-1001,8,102,110,10,1,"Activer le &débogage de script"
+1001,8,102,113,10,1,"Activer le &débogage de script"
 1,75,121,50,14,1,"OK"
 2,141,121,50,14,1,"Annuler"
 9,207,121,50,14,1,"&Aide"

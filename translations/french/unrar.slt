@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\unrar\unrar.atp"
 TEXTVERSION,"3.03 (x64)"
-VERSION,"3,0,3,194"
+VERSION,"3,0,3,195"
 
 [TRANSLATION]
 LANGID,1036
@@ -30,12 +30,12 @@ COMMENT,"Version française"
 
 [DIALOG 106]
 220,115,1,"Configuration de UnRAR"
-107,12,10,259,12,1,"&Ignorer automatiquement les fichiers issus d'un volume précédent lors de"
-116,12,32,263,12,1,"&Ne pas afficher d'avertissement lorsque l'ensemble du contenu de l'archive"
+107,12,10,265,12,1,"&Ignorer automatiquement les fichiers issus d'un volume précédent lors de"
+116,12,32,269,12,1,"&Ne pas afficher d'avertissement lorsque l'ensemble du contenu de l'archive"
 300,23,22,154,8,1,"la décompression."
 301,23,44,111,8,1,"ne peut être listé."
 302,6,60,208,1,1,""
-117,12,70,230,12,1,"Afficher la colonne "&Compressé" en listant le contenu de l'archive"
+117,12,70,236,12,1,"Afficher la colonne "&Compressé" en listant le contenu de l'archive"
 303,6,90,208,1,1,""
 1,57,96,50,14,1,"OK"
 2,112,96,50,14,1,"Annuler"
@@ -43,7 +43,7 @@ COMMENT,"Version française"
 [DIALOG 108]
 350,80,1,"Saisir le mot de passe"
 113,18,18,18,20,1,""
-300,57,10,312,8,1,"Le fichier est protégé par un mot de passe. Veuillez saisir le mot de passe pour le déchiffrer."
+300,57,10,315,8,1,"Le fichier est protégé par un mot de passe. Veuillez saisir le mot de passe pour le déchiffrer."
 301,57,25,27,8,1,"Fichier:"
 104,97,25,240,8,1,""
 302,57,38,50,8,1,"Mot de &passe:"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\demoview\demoview.atp"
 TEXTVERSION,"1.02 (x64)"
-VERSION,"1,0,2,194"
+VERSION,"1,0,2,195"
 
 [TRANSLATION]
 LANGID,1036
@@ -12,8 +12,8 @@ COMMENT,"English version"
 [DIALOG 490]
 205,61,1,"Visionneuse"
 3000,4,6,199,41,1,"Position de la fenêtre"
-491,11,17,99,12,1,"&Enregistrer à la fermeture"
-492,11,29,181,12,1,"R&égler sur la position de la fenêtre de Salamander"
+491,11,17,100,12,1,"&Enregistrer à la fermeture"
+492,11,29,184,12,1,"R&égler sur la position de la fenêtre de Salamander"
 
 [STRINGTABLE 0]
 46,1,"DemoView"

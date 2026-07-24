@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\demoview\demoview.atp"
 TEXTVERSION,"1.02 (x64)"
-VERSION,"1,0,2,194"
+VERSION,"1,0,2,195"
 
 [TRANSLATION]
 LANGID,1031
@@ -12,8 +12,8 @@ COMMENT,"English version"
 [DIALOG 490]
 205,61,1,"Ansicht"
 3000,4,6,199,41,1,"Fensterposition"
-491,11,17,99,12,1,"&Speichern beim Schließen"
-492,11,29,178,12,1,"S&et auf die Position des Fensters von Salamander"
+491,11,17,100,12,1,"&Speichern beim Schließen"
+492,11,29,181,12,1,"S&et auf die Position des Fensters von Salamander"
 
 [STRINGTABLE 0]
 46,1,"DemoView"

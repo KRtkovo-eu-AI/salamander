@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\checksum\checksum.atp"
 TEXTVERSION,"2.3 (x64)"
-VERSION,"2,3,0,194"
+VERSION,"2,3,0,195"
 
 [TRANSLATION]
 LANGID,1048
@@ -17,7 +17,7 @@ COMMENT,"Versiunea romana"
 1002,162,65,55,14,1,"Con&figureaza..."
 1003,223,65,55,14,1,"&Salveaza..."
 1004,284,65,55,14,1,"S&top"
-1005,5,68,57,8,1,"indiciu clipboard"
+1005,5,68,60,8,1,"indiciu clipboard"
 
 [DIALOG 1001]
 189,109,1,"Configurare Checksum"
@@ -34,7 +34,7 @@ COMMENT,"Versiunea romana"
 [DIALOG 2000]
 260,84,1,""
 1001,5,5,250,54,1,"List1"
-1007,5,68,37,8,1,"Verificare:"
+1007,5,68,36,8,1,"Verificare:"
 1006,42,68,101,8,1,"Progres1"
 2002,5,68,140,8,1,""
 2001,149,65,50,14,1,"&Focus"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\unrar\unrar.atp"
 TEXTVERSION,"3.03 (x64)"
-VERSION,"3,0,3,194"
+VERSION,"3,0,3,195"
 
 [TRANSLATION]
 LANGID,3082
@@ -31,7 +31,7 @@ COMMENT,"Versión en español"
 [DIALOG 106]
 220,115,1,"Configuración de UnRAR"
 107,12,10,200,12,1,"&Automáticamente saltar ficheros que continúan desde"
-116,12,32,197,12,1,"&No mostrar aviso cuando todo el contenido del archivo"
+116,12,32,202,12,1,"&No mostrar aviso cuando todo el contenido del archivo"
 300,23,22,154,8,1,"volúmenes anteriores al desempaquetar."
 301,23,44,111,8,1,"no pueda ser listado."
 302,6,60,208,1,1,""
@@ -43,10 +43,10 @@ COMMENT,"Versión en español"
 [DIALOG 108]
 350,80,1,"Escriba la contraseña"
 113,18,18,18,20,1,""
-300,57,10,256,8,1,"Este fichero está encriptado. Escriba la contraseña para su desencriptación."
+300,57,10,260,8,1,"Este fichero está encriptado. Escriba la contraseña para su desencriptación."
 301,57,25,30,8,1,"Fichero:"
 104,97,25,240,8,1,""
-302,57,38,43,8,1,"&Contraseña:"
+302,57,38,44,8,1,"&Contraseña:"
 110,97,36,157,12,1,""
 1,30,58,50,14,1,"C&orrecto"
 112,90,58,50,14,1,"&Todos"

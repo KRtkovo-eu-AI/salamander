@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\splitcbn\splitcbn.atp"
 TEXTVERSION,"1.11 (x64)"
-VERSION,"1,1,1,194"
+VERSION,"1,1,1,195"
 
 [TRANSLATION]
 LANGID,1036
@@ -11,11 +11,11 @@ COMMENT,"Version française"
 
 [DIALOG 101]
 210,102,1,"Configuration de Scinder & Combiner"
-1010,10,6,210,10,1,"&Inclure l'extension originale aux noms de fichiers résultants"
-1011,10,19,156,10,1,"Créer un fichier &batch pour la combinaison"
-1012,10,32,109,10,1,"Scinder vers l'&autre panneau"
-1014,10,45,211,10,1,"Scinder vers le &sous-répertoire nommé par le fichier source"
-1013,10,58,116,10,1,"&Combiner vers l'autre panneau"
+1010,10,6,216,10,1,"&Inclure l'extension originale aux noms de fichiers résultants"
+1011,10,19,160,10,1,"Créer un fichier &batch pour la combinaison"
+1012,10,32,110,10,1,"Scinder vers l'&autre panneau"
+1014,10,45,213,10,1,"Scinder vers le &sous-répertoire nommé par le fichier source"
+1013,10,58,118,10,1,"&Combiner vers l'autre panneau"
 3000,4,76,202,1,1,""
 1,38,83,50,14,1,"OK"
 2,95,83,50,14,1,"Annuler"
@@ -28,7 +28,7 @@ COMMENT,"Version française"
 1000,35,19,188,14,1,""
 1001,227,19,14,14,1,"..."
 1002,35,43,92,10,1,"&Taille de chaque partie:"
-1004,35,60,78,10,1,"&Nombre de parties:"
+1004,35,60,80,10,1,"&Nombre de parties:"
 1003,110,42,132,83,1,""
 1006,110,59,60,14,1,""
 3000,47,79,93,8,1,"Taille de la dernière partie:"
@@ -41,7 +41,7 @@ COMMENT,"Version française"
 
 [DIALOG 103]
 270,194,1,"Combiner"
-3000,7,9,57,8,1,"Fichiers &partiels:"
+3000,7,9,58,8,1,"Fichiers &partiels:"
 1011,7,19,200,108,1,""
 1001,214,20,50,14,1,"&Monter"
 1002,214,43,50,14,1,"&Descendre"

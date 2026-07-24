@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\pak\pak.atp"
 TEXTVERSION,"1.72 (x64)"
-VERSION,"1,7,2,194"
+VERSION,"1,7,2,195"
 
 [TRANSLATION]
 LANGID,1038
@@ -11,9 +11,9 @@ COMMENT,"Magyar változat"
 
 [DIALOG 100]
 194,73,1,"PAK archívum optimalizálása"
-300,8,9,72,8,1,"Érvényes adatméret:"
+300,8,9,71,8,1,"Érvényes adatméret:"
 101,64,9,118,8,1,""
-301,8,20,57,8,1,"Teljes fájlméret:"
+301,8,20,55,8,1,"Teljes fájlméret:"
 102,64,20,118,8,1,""
 302,8,31,52,8,1,"Pazarolt hely:"
 103,64,31,118,8,1,""

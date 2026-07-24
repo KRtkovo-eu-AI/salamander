@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\pak\pak.atp"
 TEXTVERSION,"1.72 (x64)"
-VERSION,"1,7,2,194"
+VERSION,"1,7,2,195"
 
 [TRANSLATION]
 LANGID,1048
@@ -13,9 +13,9 @@ COMMENT,"Versiunea romana"
 194,73,1,"Optimizeaza Arhiva PAK"
 300,8,9,69,8,1,"Marime valida data:"
 101,64,9,118,8,1,""
-301,8,20,73,8,1,"Marimea totala fisier:"
+301,8,20,74,8,1,"Marimea totala fisier:"
 102,64,20,118,8,1,""
-302,8,31,52,8,1,"Spatiu pierdut:"
+302,8,31,54,8,1,"Spatiu pierdut:"
 103,64,31,118,8,1,""
 303,8,44,178,1,1,""
 1,41,53,50,14,1,"Optimizeaza"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\unarj\unarj.atp"
 TEXTVERSION,"1.22 (x64)"
-VERSION,"1,2,2,194"
+VERSION,"1,2,2,195"
 
 [TRANSLATION]
 LANGID,1029
@@ -12,7 +12,7 @@ COMMENT,"Česká verze"
 [DIALOG 100]
 194,110,1,"Další svazek archivu"
 300,12,9,170,32,1,"Prosím vložte disketu s dalším svazkem archivu nebo najděte příslušný soubor na disku.\n\nKlikněte na OK, pokud je připraven."
-301,12,48,60,8,1,"Předchozí svazek:"
+301,12,48,62,8,1,"Předchozí svazek:"
 103,73,48,109,12,1,""
 302,12,62,49,8,1,"&Další svazek:"
 101,12,72,155,12,1,""
@@ -33,9 +33,9 @@ COMMENT,"Česká verze"
 [DIALOG 106]
 220,85,1,"UnARJ - Konfigurace"
 300,23,22,154,8,1,"z předchozího svazku."
-107,12,10,203,12,1,"&Při extrahování automaticky přeskočit soubory pokračující"
+107,12,10,210,12,1,"&Při extrahování automaticky přeskočit soubory pokračující"
 301,23,44,111,8,1,"obsah archivu."
-116,12,32,205,12,1,"&Nezobrazovat upozornění, pokud nemůže být vypsán celý"
+116,12,32,210,12,1,"&Nezobrazovat upozornění, pokud nemůže být vypsán celý"
 302,6,60,208,1,1,""
 1,57,66,50,14,1,"OK"
 2,112,66,50,14,1,"Storno"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\undelete\undelete.atp"
 TEXTVERSION,"1.12 (x64)"
-VERSION,"1,1,2,194"
+VERSION,"1,1,2,195"
 
 [TRANSLATION]
 LANGID,1029
@@ -20,7 +20,7 @@ COMMENT,"Česká verze"
 443,285,1,"Obnovení souborů a adresářů"
 3000,6,7,430,193,1,"Výběr &disku k analýze"
 1103,14,21,414,139,1,""
-1104,14,166,51,10,1,"&Obraz disku"
+1104,14,166,54,10,1,"&Obraz disku"
 1105,14,178,361,14,1,""
 1402,379,178,50,14,1,"&Procházet..."
 1101,7,208,184,10,1,"&Skenovat prázdné clustery na FAT oddílech"
@@ -55,12 +55,12 @@ COMMENT,"Česká verze"
 
 [DIALOG 1400]
 257,100,1,"Obnovení souborů a adresářů - Konfigurace"
-3000,7,7,186,8,1,"Alternativní &dočasný adresář pro zobrazované soubory:"
+3000,7,7,190,8,1,"Alternativní &dočasný adresář pro zobrazované soubory:"
 1401,7,17,222,14,1,""
 1402,235,17,16,14,1,"..."
-1403,7,39,214,10,1,"&Vždy použít předchozí cluster skenovaných informací na FAT"
-1404,7,50,226,10,1,"Nezobrazit upozornění při obnovení do &stejného logického disku"
-1405,7,61,269,10,1,"Nezobrazit upozornění při obnovení š&ifrovaného souboru na FAT nebo exFAT"
+1403,7,39,218,10,1,"&Vždy použít předchozí cluster skenovaných informací na FAT"
+1404,7,50,238,10,1,"Nezobrazit upozornění při obnovení do &stejného logického disku"
+1405,7,61,276,10,1,"Nezobrazit upozornění při obnovení š&ifrovaného souboru na FAT nebo exFAT"
 1,91,80,50,14,1,"OK"
 2,146,80,50,14,1,"Storno"
 9,201,80,50,14,1,"Nápověda"

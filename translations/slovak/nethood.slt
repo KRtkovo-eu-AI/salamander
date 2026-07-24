@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\nethood\nethood.atp"
 TEXTVERSION,"1.09 (x64)"
-VERSION,"1,0,9,194"
+VERSION,"1,0,9,195"
 
 [TRANSLATION]
 LANGID,1051
@@ -11,12 +11,12 @@ COMMENT,"Slovenská verzia"
 
 [DIALOG 102]
 220,127,1,"Network - Konfigurácia"
-1201,7,7,122,10,1,"Zobraziť &administračné zdieľania"
-1203,13,22,185,10,1,"Zobraziť administračné zdieľania ako s&kryté položky"
-1202,7,37,216,10,1,"Zobraziť položky z &Miesta v sieti na najvyššej úrovni adresára"
-1204,7,52,195,10,1,"Zobraziť sieťové počítače na &najvyššej úrovni adresára"
-1206,7,67,166,10,1,"Zobraziť &disky pripojené cez Vzdialenú plochu"
-1205,7,82,167,10,1,"&Skenovať sieť pri spustení Open Salamandera"
+1201,7,7,124,10,1,"Zobraziť &administračné zdieľania"
+1203,13,22,190,10,1,"Zobraziť administračné zdieľania ako s&kryté položky"
+1202,7,37,220,10,1,"Zobraziť položky z &Miesta v sieti na najvyššej úrovni adresára"
+1204,7,52,197,10,1,"Zobraziť sieťové počítače na &najvyššej úrovni adresára"
+1206,7,67,171,10,1,"Zobraziť &disky pripojené cez Vzdialenú plochu"
+1205,7,82,170,10,1,"&Skenovať sieť pri spustení Open Salamandera"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
 2,85,106,50,14,1,"Zrušiť"

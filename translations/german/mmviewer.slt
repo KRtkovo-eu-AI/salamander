@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.16 (x64)"
-VERSION,"1,1,6,194"
+VERSION,"1,1,6,195"
 
 [TRANSLATION]
 LANGID,1031
@@ -17,9 +17,9 @@ COMMENT,"Deutsche Version"
 10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
 13000,46,41,238,8,1,"MPEG, ID3 Tag Version 1 und 2, OGG, WMA, VQF und Tracker-Parser"
-13001,46,51,62,8,1,"sind lizensiert von"
+13001,46,51,64,8,1,"sind lizensiert von"
 10504,107,51,200,8,1,"Disk Explorer Professional"
-13002,46,67,86,8,1,"Copyright 2003-2016 von"
+13002,46,67,88,8,1,"Copyright 2003-2016 von"
 13003,128,67,60,8,1,"Tomas Jelinek"
 13004,46,78,30,8,1,"E-Mail:"
 10502,128,78,119,8,1,"tomas@tjelinek.com"

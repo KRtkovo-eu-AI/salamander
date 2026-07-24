@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\checksum\checksum.atp"
 TEXTVERSION,"2.3 (x64)"
-VERSION,"2,3,0,194"
+VERSION,"2,3,0,195"
 
 [TRANSLATION]
 LANGID,1043
@@ -17,7 +17,7 @@ COMMENT,"Nederlandse versie"
 1002,162,65,55,14,1,"Con&figureren..."
 1003,223,65,55,14,1,"&Opslaan..."
 1004,284,65,55,14,1,"&Stoppen"
-1005,5,68,48,8,1,"klembord hint"
+1005,5,68,51,8,1,"klembord hint"
 
 [DIALOG 1001]
 189,109,1,"Controlesom configuratie"
@@ -34,7 +34,7 @@ COMMENT,"Nederlandse versie"
 [DIALOG 2000]
 260,84,1,""
 1001,5,5,250,54,1,"Lijst1"
-1007,5,68,58,8,1,"Controleren van:"
+1007,5,68,60,8,1,"Controleren van:"
 1006,42,68,101,8,1,"Voortgang1"
 2002,5,68,140,8,1,""
 2001,149,65,50,14,1,"&Selectie"

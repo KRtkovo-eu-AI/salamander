@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\nethood\nethood.atp"
 TEXTVERSION,"1.09 (x64)"
-VERSION,"1,0,9,194"
+VERSION,"1,0,9,195"
 
 [TRANSLATION]
 LANGID,1043
@@ -11,12 +11,12 @@ COMMENT,"Nederlandse versie"
 
 [DIALOG 102]
 220,127,1,"Network configuratie"
-1201,7,7,119,10,1,"Toon &gedeelde netwerkmappen"
-1203,13,22,187,10,1,"Toon gedeelde netwerkmappen als &verborgen items"
+1201,7,7,122,10,1,"Toon &gedeelde netwerkmappen"
+1203,13,22,191,10,1,"Toon gedeelde netwerkmappen als &verborgen items"
 1202,7,37,204,10,1,"Toon items van &Mijn netwerklocaties op de hoofdmap"
-1204,7,52,176,10,1,"Toon &computers in het netwerk op de hoofdmap"
-1206,7,67,177,10,1,"&Toon schijven aangesloten via extern bureaublad"
-1205,7,82,200,10,1,"&Scan het netwerk tijdens het opstarten van Salamander"
+1204,7,52,180,10,1,"Toon &computers in het netwerk op de hoofdmap"
+1206,7,67,181,10,1,"&Toon schijven aangesloten via extern bureaublad"
+1205,7,82,202,10,1,"&Scan het netwerk tijdens het opstarten van Salamander"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
 2,85,106,50,14,1,"Annuleren"
