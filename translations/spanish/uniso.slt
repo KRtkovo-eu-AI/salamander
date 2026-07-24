@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\uniso\uniso.atp"
 TEXTVERSION,"1.38 (x64)"
-VERSION,"1,3,8,194"
+VERSION,"1,3,8,195"
 
 [TRANSLATION]
 LANGID,3082
@@ -11,9 +11,9 @@ COMMENT,"Versión en español"
 
 [DIALOG 1200]
 220,83,1,"Configuración UnISO"
-1201,8,11,192,10,1,"&Borrar atributo de sólo lectura al copiar desde archivo"
-1202,8,23,243,10,1,"&Mostrar sesión como directorio (permitir acceso a todas las sesiones)"
-1203,8,35,170,10,1,"&Ver imagen de disco de arranque como fichero"
+1201,8,11,197,10,1,"&Borrar atributo de sólo lectura al copiar desde archivo"
+1202,8,23,248,10,1,"&Mostrar sesión como directorio (permitir acceso a todas las sesiones)"
+1203,8,35,173,10,1,"&Ver imagen de disco de arranque como fichero"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"Aceptar"
 2,163,64,50,14,1,"Cancelar"

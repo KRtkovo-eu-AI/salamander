@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\pak\pak.atp"
 TEXTVERSION,"1.72 (x64)"
-VERSION,"1,7,2,194"
+VERSION,"1,7,2,195"
 
 [TRANSLATION]
 LANGID,2052
@@ -11,7 +11,7 @@ COMMENT,"简体中文版"
 
 [DIALOG 100]
 194,73,1,"优化 PAK 压缩包"
-300,8,9,57,8,1,"有效数据大小:"
+300,8,9,56,8,1,"有效数据大小:"
 101,64,9,118,8,1,""
 301,8,20,49,8,1,"总文件大小:"
 102,64,20,118,8,1,""

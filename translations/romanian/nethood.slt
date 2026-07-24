@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\nethood\nethood.atp"
 TEXTVERSION,"1.09 (x64)"
-VERSION,"1,0,9,194"
+VERSION,"1,0,9,195"
 
 [TRANSLATION]
 LANGID,1048
@@ -11,12 +11,12 @@ COMMENT,"Versiunea romana"
 
 [DIALOG 102]
 220,127,1,"Configurare Retea"
-1201,7,7,111,10,1,"Arata partajari &administrative"
-1203,13,22,176,10,1,"Arata partajari administrative ca obiecte asc&unse"
+1201,7,7,112,10,1,"Arata partajari &administrative"
+1203,13,22,178,10,1,"Arata partajari administrative ca obiecte asc&unse"
 1202,7,37,204,10,1,"Arata obiectele &My Network Places in directorul de sus"
 1204,7,52,168,10,1,"Arata retea &computere in directorul de sus"
-1206,7,67,165,10,1,"Arata &disk-uri conectate prin Remote Desktop"
-1205,7,82,153,10,1,"&Scaneaza reteaua la pornirea Salamander"
+1206,7,67,169,10,1,"Arata &disk-uri conectate prin Remote Desktop"
+1205,7,82,154,10,1,"&Scaneaza reteaua la pornirea Salamander"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
 2,85,106,50,14,1,"Anuleaza"

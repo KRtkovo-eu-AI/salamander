@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\peviewer\peviewer.atp"
 TEXTVERSION,"3.0 (x64)"
-VERSION,"3,0,0,194"
+VERSION,"3,0,0,195"
 
 [TRANSLATION]
 LANGID,1048
@@ -11,7 +11,7 @@ COMMENT,"Versiunea romana"
 
 [DIALOG 8501]
 346,154,1,"Configurare Vizualizator Executabil Portabil"
-1300,7,7,69,8,1,"Sectiuni dispon&ibile:"
+1300,7,7,72,8,1,"Sectiuni dispon&ibile:"
 8700,7,17,105,130,1,""
 8702,119,17,50,14,1,"&Adauga ->"
 8703,119,35,50,14,1,"<- &Elimina"

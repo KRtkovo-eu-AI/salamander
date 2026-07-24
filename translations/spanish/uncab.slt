@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\uncab\uncab.atp"
 TEXTVERSION,"1.28 (x64)"
-VERSION,"1,2,8,194"
+VERSION,"1,2,8,195"
 
 [TRANSLATION]
 LANGID,3082
@@ -12,11 +12,11 @@ COMMENT,"Versión en español"
 [DIALOG 100]
 221,122,1,"Siguiente volumen cabinet"
 112,12,9,198,32,1,""
-300,12,48,64,8,1,"Nombre del disco:"
+300,12,48,65,8,1,"Nombre del disco:"
 110,54,48,156,8,1,""
-301,12,59,60,8,1,"Nombre del CAB:"
+301,12,59,61,8,1,"Nombre del CAB:"
 111,54,59,156,8,1,""
-302,12,70,21,8,1,"&Ruta:"
+302,12,70,19,8,1,"&Ruta:"
 101,12,80,182,12,1,""
 102,197,80,13,12,1,"..."
 1,106,103,50,14,1,"Aceptar"
@@ -37,9 +37,9 @@ COMMENT,"Versión en español"
 [DIALOG 106]
 220,85,1,"Configuración desCAB"
 300,23,22,154,8,1,"cuando se desempaquete."
-107,12,10,238,12,1,"&Automáticamente saltar ficheros continuados desde volumen previo"
+107,12,10,246,12,1,"&Automáticamente saltar ficheros continuados desde volumen previo"
 301,23,44,111,8,1,"no pueda ser listado."
-116,12,32,207,12,1,"&No mostrar atención cuando todo el contenido del archivo"
+116,12,32,214,12,1,"&No mostrar atención cuando todo el contenido del archivo"
 302,6,60,208,1,1,""
 1,57,66,50,14,1,"Aceptar"
 2,112,66,50,14,1,"Cancelar"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\pak\pak.atp"
 TEXTVERSION,"1.72 (x64)"
-VERSION,"1,7,2,194"
+VERSION,"1,7,2,195"
 
 [TRANSLATION]
 LANGID,1036
@@ -11,9 +11,9 @@ COMMENT,"Version française"
 
 [DIALOG 100]
 194,73,1,"Optimisation d'une archive PAK"
-300,8,9,92,8,1,"Taille des données valides:"
+300,8,9,93,8,1,"Taille des données valides:"
 101,64,9,118,8,1,""
-301,8,20,77,8,1,"Taille totale du fichier:"
+301,8,20,78,8,1,"Taille totale du fichier:"
 102,64,20,118,8,1,""
 302,8,31,52,8,1,"Espace perdu:"
 103,64,31,118,8,1,""

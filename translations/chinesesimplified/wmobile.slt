@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\wmobile\wmobile.atp"
 TEXTVERSION,"1.09 (x64)"
-VERSION,"1,0,9,194"
+VERSION,"1,0,9,195"
 
 [TRANSLATION]
 LANGID,2052
@@ -23,7 +23,7 @@ COMMENT,"简体中文版"
 502,43,11,305,8,1,""
 511,8,23,32,8,1,""
 512,43,23,305,8,1,""
-900,18,41,22,8,1,"文件:"
+900,19,41,21,8,1,"文件:"
 513,43,40,297,12,1,""
 901,16,56,24,8,1,"总数:"
 503,43,55,297,12,1,""

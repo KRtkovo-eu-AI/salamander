@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\unmime\unmime.atp"
 TEXTVERSION,"1.15 (x64)"
-VERSION,"1,1,5,194"
+VERSION,"1,1,5,195"
 
 [TRANSLATION]
 LANGID,1031
@@ -11,12 +11,12 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 101]
 251,111,1,"UnMIME - Konfiguration"
-2000,7,7,69,8,1,"Auflisten - Optionen"
+2000,7,7,73,8,1,"Auflisten - Optionen"
 2001,49,11,196,1,1,""
-1000,18,20,98,10,1,"&Nachrichtenkopf auflisten"
-1001,18,35,100,10,1,"Nachrichten&texte auflisten"
-1003,31,50,228,10,1,"&Zeichensatzinfo zum Dateinamen hinzufügen falls kein US-ASCII"
-1002,18,65,73,10,1,"&Anhänge auflisten"
+1000,18,20,102,10,1,"&Nachrichtenkopf auflisten"
+1001,18,35,103,10,1,"Nachrichten&texte auflisten"
+1003,31,50,232,10,1,"&Zeichensatzinfo zum Dateinamen hinzufügen falls kein US-ASCII"
+1002,18,65,76,10,1,"&Anhänge auflisten"
 2002,6,82,239,1,1,""
 1,137,90,50,14,1,"OK"
 2,194,90,50,14,1,"Abbrechen"

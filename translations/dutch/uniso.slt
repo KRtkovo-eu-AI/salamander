@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\uniso\uniso.atp"
 TEXTVERSION,"1.38 (x64)"
-VERSION,"1,3,8,194"
+VERSION,"1,3,8,195"
 
 [TRANSLATION]
 LANGID,1043
@@ -11,9 +11,9 @@ COMMENT,"Nederlandse versie"
 
 [DIALOG 1200]
 220,83,1,"UnISO Configuratie"
-1201,8,11,286,10,1,"&Verwijder het alleen lezen attribuut wanneer er gekopieerd wordt van een archief"
-1202,8,23,202,10,1,"&Toon sessie als map (toegang tot all sessies toegestaan)"
-1203,8,35,125,10,1,"T&oon boot image disk als bestand"
+1201,8,11,292,10,1,"&Verwijder het alleen lezen attribuut wanneer er gekopieerd wordt van een archief"
+1202,8,23,204,10,1,"&Toon sessie als map (toegang tot all sessies toegestaan)"
+1203,8,35,129,10,1,"T&oon boot image disk als bestand"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"OK"
 2,163,64,50,14,1,"Annuleren"

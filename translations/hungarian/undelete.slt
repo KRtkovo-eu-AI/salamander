@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\undelete\undelete.atp"
 TEXTVERSION,"1.12 (x64)"
-VERSION,"1,1,2,194"
+VERSION,"1,1,2,195"
 
 [TRANSLATION]
 LANGID,1038
@@ -14,7 +14,7 @@ COMMENT,"Magyar változat"
 1001,12,12,323,8,1,""
 1002,35,32,292,12,1,""
 2,144,54,50,14,1,"Mégse"
-3000,12,33,25,8,1,"Teljes:"
+3000,12,33,22,8,1,"Teljes:"
 
 [DIALOG 1100]
 443,285,1,"Visszaállítás"
@@ -55,11 +55,11 @@ COMMENT,"Magyar változat"
 
 [DIALOG 1400]
 257,100,1,"Visszaállítási beállítás"
-3000,7,7,169,8,1,"Al&ternatív ideiglenes mappa fájlok megnézéséhez:"
+3000,7,7,173,8,1,"Al&ternatív ideiglenes mappa fájlok megnézéséhez:"
 1401,7,17,222,14,1,""
 1402,235,17,16,14,1,"..."
-1403,7,39,230,10,1,"Mindig használja az előző klaszte&rből szerzett információt FAT-on"
-1404,7,50,221,10,1,"Ne &szóljon, ugyanarra a logikai lemezre történő visszaállításkor"
+1403,7,39,236,10,1,"Mindig használja az előző klaszte&rből szerzett információt FAT-on"
+1404,7,50,228,10,1,"Ne &szóljon, ugyanarra a logikai lemezre történő visszaállításkor"
 1405,7,61,240,10,1,"N&e szóljon titkosított fájlok visszaállítása előtt FAT-ra vagy exFAT-ra"
 1,91,80,50,14,1,"OK"
 2,146,80,50,14,1,"Mégse"

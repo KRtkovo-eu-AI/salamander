@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\nethood\nethood.atp"
 TEXTVERSION,"1.09 (x64)"
-VERSION,"1,0,9,194"
+VERSION,"1,0,9,195"
 
 [TRANSLATION]
 LANGID,1031
@@ -11,12 +11,12 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 102]
 220,127,1,"Netzwerk - Konfiguration"
-1201,7,7,128,10,1,"&Administrative Freigaben anzeigen"
-1203,13,22,209,10,1,"Administrative Freigaben als &versteckte Elemente anzeigen"
-1202,7,37,232,10,1,"Elemente der &Netzwerkumgebung im Stammverzeichnis anzeigen"
-1204,7,52,180,10,1,"Netzwerk&computer im Stammverzeichnis anzeigen"
-1206,7,67,218,10,1,"&Laufwerke die über Remotedesktop verbunden sind anzeigen"
-1205,7,82,206,10,1,"Netzwerk beim &Start des Open Salamanders durchsuchen"
+1201,7,7,132,10,1,"&Administrative Freigaben anzeigen"
+1203,13,22,212,10,1,"Administrative Freigaben als &versteckte Elemente anzeigen"
+1202,7,37,236,10,1,"Elemente der &Netzwerkumgebung im Stammverzeichnis anzeigen"
+1204,7,52,184,10,1,"Netzwerk&computer im Stammverzeichnis anzeigen"
+1206,7,67,224,10,1,"&Laufwerke die über Remotedesktop verbunden sind anzeigen"
+1205,7,82,209,10,1,"Netzwerk beim &Start des Open Salamanders durchsuchen"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
 2,85,106,50,14,1,"Abbrechen"

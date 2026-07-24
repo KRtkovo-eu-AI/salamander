@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-23T00:18:13Z",
+  "generatedAt": "2026-07-24T17:26:49Z",
   "plugins": [
     {
       "id": "7zip",
@@ -92,7 +92,7 @@
         "romanian": "Afiseaza fisiere baza de date tip dBase, FoxPro si CSV.",
         "spanish": "Ficheros de bases de datos Display dBase, FoxPro y CSV."
       },
-      "latestVersion": "1.25 (x64)",
+      "latestVersion": "1.26 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_dbviewer_1.25_x64/plugin_5.0_dbviewer_1.25_x64.7z",
@@ -162,7 +162,7 @@
         "romanian": "Comparator de fișiere pentru Open Salamander",
         "spanish": "Comparador de archivos para Open Salamander"
       },
-      "latestVersion": "1.20 (x64)",
+      "latestVersion": "1.21 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_filecomp_1.20_x64/plugin_5.0_filecomp_1.20_x64.7z",
@@ -267,7 +267,7 @@
         "romanian": "Afișează mașinile virtuale Hyper-V locale în panou.",
         "spanish": "Mostrar las máquinas virtuales locales de Hyper-V en el panel."
       },
-      "latestVersion": "1.07 (x64)",
+      "latestVersion": "1.08 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_hypervm_1.07_x64/plugin_5.0_hypervm_1.07_x64.7z",
@@ -372,7 +372,7 @@
         "romanian": "Vizualizator intern care afișează documente JSON utilizând o interfață WinForms gestionată.",
         "spanish": "Visor interno que muestra documentos JSON mediante una interfaz de usuario de WinForms administrada."
       },
-      "latestVersion": "1.02 (x64)",
+      "latestVersion": "1.03 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_jsonviewer_1.02_x64/plugin_5.0_jsonviewer_1.02_x64.7z",
@@ -547,7 +547,7 @@
         "romanian": "Vizualizator rapid de imagini si convertor.",
         "spanish": "Visor y consersor rápido de imágenes."
       },
-      "latestVersion": "2.24 (x64)",
+      "latestVersion": "2.25 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pictview_2.24_x64/plugin_5.0_pictview_2.24_x64.7z",
@@ -687,7 +687,7 @@
         "romanian": "Verifică lansările GitHub și oferă să deschidă cea mai recentă versiune Samandarin.",
         "spanish": "Comprueba las versiones de GitHub y ofrece abrir la última compilación de Samandarin."
       },
-      "latestVersion": "0.7 (x64)",
+      "latestVersion": "0.8 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_samandarin_0.7_x64/plugin_5.0_samandarin_0.7_x64.7z",
@@ -827,7 +827,7 @@
         "romanian": "Vizualizator intern care redă fișiere text cu evidențiere sintactică gestionată.",
         "spanish": "Visor interno que muestra archivos de texto con resaltado de sintaxis administrado."
       },
-      "latestVersion": "1.02 (x64)",
+      "latestVersion": "1.03 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_textviewer_1.02_x64/plugin_5.0_textviewer_1.02_x64.7z",
@@ -1072,7 +1072,7 @@
         "romanian": "Vizualizator care afișează HTML redat, Markdown și documente web utilizând WebView2.",
         "spanish": "Visor que muestra HTML, Markdown y documentos web renderizados mediante WebView2."
       },
-      "latestVersion": "1.03 (x64)",
+      "latestVersion": "1.04 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_webview2renderviewer_1.03_x64/plugin_5.0_webview2renderviewer_1.03_x64.7z",

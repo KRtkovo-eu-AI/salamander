@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\splitcbn\splitcbn.atp"
 TEXTVERSION,"1.11 (x64)"
-VERSION,"1,1,1,194"
+VERSION,"1,1,1,195"
 
 [TRANSLATION]
 LANGID,1048
@@ -11,10 +11,10 @@ COMMENT,"Versiunea romana"
 
 [DIALOG 101]
 210,102,1,"Configurare Imparte & Combina"
-1010,10,6,170,10,1,"&Include extensia originala in nume fisiere iesire"
-1011,10,19,138,10,1,"Creaza grup fisiere pentru com&binare"
+1010,10,6,174,10,1,"&Include extensia originala in nume fisiere iesire"
+1011,10,19,140,10,1,"Creaza grup fisiere pentru com&binare"
 1012,10,32,90,10,1,"Imparte in alt pan&ou"
-1014,10,45,172,10,1,"Imparte in &subdirector denumit de fisierul sursa"
+1014,10,45,176,10,1,"Imparte in &subdirector denumit de fisierul sursa"
 1013,10,58,104,10,1,"&Combina in alt panou"
 3000,4,76,202,1,1,""
 1,38,83,50,14,1,"OK"
@@ -31,7 +31,7 @@ COMMENT,"Versiunea romana"
 1004,35,60,70,10,1,"&Numar de parti:"
 1003,110,42,132,83,1,""
 1006,110,59,60,14,1,""
-3000,47,79,76,8,1,"Marimea ultimei parti:"
+3000,47,79,77,8,1,"Marimea ultimei parti:"
 1005,108,79,133,12,1,""
 3001,7,97,235,1,1,""
 1007,7,105,50,14,1,"&Configurare..."

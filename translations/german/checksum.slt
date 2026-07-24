@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\checksum\checksum.atp"
 TEXTVERSION,"2.3 (x64)"
-VERSION,"2,3,0,194"
+VERSION,"2,3,0,195"
 
 [TRANSLATION]
 LANGID,1031
@@ -17,7 +17,7 @@ COMMENT,"Deutsche Version"
 1002,162,65,55,14,1,"&Konfigurieren..."
 1003,223,65,55,14,1,"&Speichern..."
 1004,284,65,55,14,1,"&Beenden"
-1005,5,68,84,8,1,"Hinweis Zwischenablage"
+1005,5,68,87,8,1,"Hinweis Zwischenablage"
 
 [DIALOG 1001]
 189,109,1,"Prüfsummen - Konfiguration"

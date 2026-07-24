@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\pak\pak.atp"
 TEXTVERSION,"1.72 (x64)"
-VERSION,"1,7,2,194"
+VERSION,"1,7,2,195"
 
 [TRANSLATION]
 LANGID,1043
@@ -11,9 +11,9 @@ COMMENT,"Nederlandse versie"
 
 [DIALOG 100]
 194,73,1,"Optimaliseren PAK archief"
-300,8,9,91,8,1,"Geldige gegevens grootte:"
+300,8,9,94,8,1,"Geldige gegevens grootte:"
 101,64,9,118,8,1,""
-301,8,20,82,8,1,"Totale bestandsgrootte:"
+301,8,20,84,8,1,"Totale bestandsgrootte:"
 102,64,20,118,8,1,""
 302,8,31,60,8,1,"Verspilde ruimte:"
 103,64,31,118,8,1,""

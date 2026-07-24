@@ -1,4 +1,4 @@
-﻿// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
+// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __PICTVIEW_VERSINFO_RH2
 #define __PICTVIEW_VERSINFO_RH2
 
@@ -11,7 +11,7 @@
 
 #define VERSINFO_MAJOR       2
 #define VERSINFO_MINORA      2
-#define VERSINFO_MINORB      4
+#define VERSINFO_MINORB      5
 
 #include "spl_vers.h" // get version & build numbers
 

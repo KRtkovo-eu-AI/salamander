@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\unmime\unmime.atp"
 TEXTVERSION,"1.15 (x64)"
-VERSION,"1,1,5,194"
+VERSION,"1,1,5,195"
 
 [TRANSLATION]
 LANGID,1051
@@ -11,9 +11,9 @@ COMMENT,"Slovenská verzia"
 
 [DIALOG 101]
 251,111,1,"UnMIME - Konfigurácia"
-2000,7,7,54,8,1,"Možnosti výpisu"
+2000,7,7,58,8,1,"Možnosti výpisu"
 2001,49,11,196,1,1,""
-1000,18,20,84,10,1,"Výpis e-mail &hlavičiek"
+1000,18,20,86,10,1,"Výpis e-mail &hlavičiek"
 1001,18,35,80,10,1,"Výpis &tiel správ"
 1003,31,50,210,10,1,"Pridať info o &znakovej sada, ak je iná ako US-ASCII"
 1002,18,65,69,10,1,"Výpis &príloh"

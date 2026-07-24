@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\unarj\unarj.atp"
 TEXTVERSION,"1.22 (x64)"
-VERSION,"1,2,2,194"
+VERSION,"1,2,2,195"
 
 [TRANSLATION]
 LANGID,1043
@@ -14,7 +14,7 @@ COMMENT,"Nederlandse versie"
 300,12,9,170,32,1,"Plaats diskette die het volgende archief volume bevat of zoek naar het desbetreffende bestand in de hardeschijf.\n\nDruk op OK indien gereed."
 301,12,48,60,8,1,"Vorige volume:"
 103,73,48,109,12,1,""
-302,12,62,63,8,1,"&Volgende volume:"
+302,12,62,64,8,1,"&Volgende volume:"
 101,12,72,155,12,1,""
 102,170,72,13,12,1,"..."
 1,39,91,50,14,1,"OK"
@@ -33,9 +33,9 @@ COMMENT,"Nederlandse versie"
 [DIALOG 106]
 220,85,1,"UnARJ Configuratie"
 300,23,22,154,8,1,"uitpakken."
-107,12,10,212,12,1,"&Automatisch bestanden uit vorige volumes overslaan tijdens"
+107,12,10,219,12,1,"&Automatisch bestanden uit vorige volumes overslaan tijdens"
 301,23,44,111,8,1,"niet opgesomd kan worden."
-116,12,32,229,12,1,"A&ttentie niet weergeven wanneer de hele inhoud van het archief"
+116,12,32,234,12,1,"A&ttentie niet weergeven wanneer de hele inhoud van het archief"
 302,6,60,208,1,1,""
 1,57,66,50,14,1,"OK"
 2,112,66,50,14,1,"Annuleren"

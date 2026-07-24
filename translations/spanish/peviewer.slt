@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\peviewer\peviewer.atp"
 TEXTVERSION,"3.0 (x64)"
-VERSION,"3,0,0,194"
+VERSION,"3,0,0,195"
 
 [TRANSLATION]
 LANGID,3082
@@ -11,7 +11,7 @@ COMMENT,"Versión en español"
 
 [DIALOG 8501]
 346,154,1,"Configuración del visor de ejecutable portátil"
-1300,7,7,77,8,1,"Secciones disponi&bles:"
+1300,7,7,80,8,1,"Secciones disponi&bles:"
 8700,7,17,105,130,1,""
 8702,119,17,50,14,1,"&Añadir ->"
 8703,119,35,50,14,1,"<- &Quitar"

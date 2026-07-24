@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\splitcbn\splitcbn.atp"
 TEXTVERSION,"1.11 (x64)"
-VERSION,"1,1,1,194"
+VERSION,"1,1,1,195"
 
 [TRANSLATION]
 LANGID,1031
@@ -11,11 +11,11 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 101]
 210,102,1,"Teilen & Zusammenfügen - Konfiguration"
-1010,10,6,207,10,1,"Ursprüngliche &Erweiterung in neuen Dateinamen erhalten"
-1011,10,19,162,10,1,"&Batchdatei für das Zusammenfügen anlegen"
-1012,10,32,123,10,1,"In das &andere Dateifenster teilen"
-1014,10,45,192,10,1,"In nach &Quelldatei benanntem Unterverzeichnis teilen"
-1013,10,58,160,10,1,"In das andere &Dateifenster zusammenfügen"
+1010,10,6,212,10,1,"Ursprüngliche &Erweiterung in neuen Dateinamen erhalten"
+1011,10,19,164,10,1,"&Batchdatei für das Zusammenfügen anlegen"
+1012,10,32,125,10,1,"In das &andere Dateifenster teilen"
+1014,10,45,197,10,1,"In nach &Quelldatei benanntem Unterverzeichnis teilen"
+1013,10,58,162,10,1,"In das andere &Dateifenster zusammenfügen"
 3000,4,76,202,1,1,""
 1,38,83,50,14,1,"OK"
 2,95,83,50,14,1,"Abbrechen"
@@ -27,7 +27,7 @@ COMMENT,"Deutsche Version"
 1009,35,9,201,8,1,""
 1000,35,19,188,14,1,""
 1001,227,19,14,14,1,"..."
-1002,35,43,101,10,1,"&Größe der einzelnen Teile:"
+1002,35,43,102,10,1,"&Größe der einzelnen Teile:"
 1004,35,60,70,10,1,"&Anzahl der Teile:"
 1003,110,42,132,83,1,""
 1006,110,59,60,14,1,""
