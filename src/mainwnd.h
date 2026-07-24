@@ -436,6 +436,8 @@ public:
     BOOL CreatingDetachedChrome; // suppress detached-window activation while its child chrome is being built
     BOOL DetachedPanelsSwapFixNeeded; // TRUE after Swap Sides while detached; reattach replays a double swap to refresh layout state
     BOOL WindowPosSizeUpdatePending; // TRUE when WM_WINDOWPOSCHANGED posted a deferred WM_SIZE
+    BOOL LayoutWindowsInProgress; // blocks synchronous rebar/layout notification recursion
+    BOOL DetachedDPIRefreshInProgress;
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;
@@ -532,6 +534,9 @@ protected:
     CDriveBar* DetachedDriveBar2;
     CBottomToolBar* DetachedBottomToolBar;
     CEditWindow* DetachedEditWindow;
+    HIMAGELIST HDetachedGrayToolBarImageList;
+    HIMAGELIST HDetachedHotToolBarImageList;
+    int DetachedWindowDPI;
 
     BOOL FirstActivateApp; // WM_ACTIVATEAPP uses this variable during startup
 
@@ -722,6 +727,8 @@ public:
     BOOL TogglePanelsDetached();
     BOOL EnsureDetachedChrome();
     void DestroyDetachedChrome();
+    BOOL RebuildDetachedToolbarImageLists(int dpi);
+    HIMAGELIST GetToolbarImageListForWindow(HWND child, BOOL hot) const;
     void UpdateDetachedCommandLine();
     void LayoutDetachedPanelWindow(CPanelSide side, int width, int height);
     void LayoutDetachedPanels();

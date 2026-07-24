@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include <string>
 
@@ -958,11 +959,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                    0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_EDIT, HInstance, NULL);
         HZoomIn = CreateWindowEx(0, "BUTTON", "+", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
                                  0, 0, 0, 0, HWindow, (HMENU)IDC_VIEWER_ZOOM_IN, HInstance, NULL);
-        HFONT statusFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        SendMessage(HZoomReset, WM_SETFONT, (WPARAM)statusFont, FALSE);
-        SendMessage(HZoomOut, WM_SETFONT, (WPARAM)statusFont, FALSE);
-        SendMessage(HZoomEdit, WM_SETFONT, (WPARAM)statusFont, FALSE);
-        SendMessage(HZoomIn, WM_SETFONT, (WPARAM)statusFont, FALSE);
+        RefreshStatusBarDPI();
         SetWindowSubclass(HZoomReset, ViewerZoomControlSubclass, 1, 0);
         SetWindowSubclass(HZoomOut, ViewerZoomControlSubclass, 1, 0);
         SetWindowSubclass(HZoomEdit, ViewerZoomControlSubclass, 1, 0);
@@ -1057,9 +1054,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LayoutStatusBar();
         }
         Paint(ps.hdc);
-        RECT corner = {Width, Height,
-                       Width + GetSystemMetrics(SM_CXVSCROLL),
-                       Height + GetSystemMetrics(SM_CYHSCROLL)};
+        RECT corner = {
+            Width, Height,
+            Width + WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL),
+            Height + WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL)};
         if (ShowStatusBar)
         {
             // The child scrollbars leave one intersection cell above the
@@ -1100,6 +1098,22 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
     }
 
+    case WM_DPICHANGED:
+    {
+        // The viewer document font has its own zoom setting, but all native
+        // chrome must follow the monitor. Recreate the status/zoom font before
+        // calculating their pixel rectangles for the new DPI.
+        RefreshStatusBarDPI();
+        LayoutStatusBar();
+        RECT rc;
+        GetClientRect(HWindow, &rc);
+        SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
+                    MAKELPARAM(rc.right - rc.left, rc.bottom - rc.top));
+        RedrawWindow(HWindow, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+        break; // CWindow applies the rectangle supplied by WM_DPICHANGED.
+    }
+
     case WM_SIZE:
     {
         LayoutNeeded = TRUE;
@@ -1108,14 +1122,16 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (IsWindowVisible(HWindow)) // the last WM_SIZE arrives when closing the window; we do not care (error dialogs without the viewer window are highly undesirable)
         {
             SetToolTipOffset(-1);
-            int clientWidth = LOWORD(lParam) - GetSystemMetrics(SM_CXVSCROLL);
-            int clientHeight = HIWORD(lParam) - GetSystemMetrics(SM_CYHSCROLL);
+            int clientWidth = LOWORD(lParam) -
+                              WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
+            int clientHeight = HIWORD(lParam) -
+                               WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL);
             BOOL widthChanged = (Width != clientWidth);
             Width = clientWidth;
             Bitmap.Enlarge(Width, CharHeight);
             if (Width < 0)
                 Width = 0;
-            int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
+            int scrollHeight = WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL);
             int viewHeight = max(0, clientHeight - StatusBarHeight);
             if (Height != viewHeight ||
                 widthChanged && Type == vtText && WrapText)

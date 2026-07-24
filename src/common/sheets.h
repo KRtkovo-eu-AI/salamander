@@ -214,6 +214,7 @@ protected:
     int ButtonMargin;    // mezera mezi tlacitky
     SIZE GripSize;       // rozmery resize gripu v pravem spodnim rohu dialogu
     SIZE MarginSize;     // vodorovny a svisly okraj
+    int CurrentDPI;
 
 public:
     CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth, int defaultWidthExtra = 0);

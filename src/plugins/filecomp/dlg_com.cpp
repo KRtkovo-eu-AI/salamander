@@ -425,12 +425,12 @@ void UpdateDefaultColors(SALCOLOR* colors, HPALETTE& palette)
 
 // ****************************************************************************
 
-BOOL CreateEnvFont()
+BOOL CreateEnvFont(HWND dpiWindow)
 {
-    CALL_STACK_MESSAGE1("CreateEnvFont()");
+    CALL_STACK_MESSAGE2("CreateEnvFont(%p)", dpiWindow);
     NONCLIENTMETRICS ncm;
-    ncm.cbSize = sizeof(ncm);
-    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    if (!WinLibDPIGetNonClientMetrics(dpiWindow, &ncm))
+        return FALSE;
     LOGFONT* lf = &ncm.lfMenuFont;
 
     if (EnvFont != NULL)

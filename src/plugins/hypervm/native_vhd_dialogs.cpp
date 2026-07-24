@@ -5,6 +5,7 @@
 #include "hypervm.h"
 #include "managed_bridge.h"
 #include "../../darkmode.h"
+#include "../../common/winlibdpi.h"
 
 #include <commdlg.h>
 #include <strsafe.h>
@@ -39,6 +40,8 @@ struct CVhdDialogState
     HWND ReadOnly;
     bool Dark;
     HBRUSH BackgroundBrush;
+    HFONT Font;
+    UINT Dpi;
 };
 
 bool ShouldUseDarkMode(COLORREF background)
@@ -99,9 +102,62 @@ void SetFont(HWND child, HFONT font)
 
 HWND AddControl(HWND parent, const wchar_t* cls, const wchar_t* text, DWORD style, int x, int y, int w, int height, int id, HFONT font)
 {
-    HWND control = CreateWindowExW(0, cls, text, WS_CHILD | WS_VISIBLE | style, x, y, w, height, parent, (HMENU)(INT_PTR)id, DLLInstance, nullptr);
+    HWND control = CreateWindowExW(
+        0, cls, text, WS_CHILD | WS_VISIBLE | style,
+        WinLibDPIFromLogical(parent, x), WinLibDPIFromLogical(parent, y),
+        WinLibDPIFromLogical(parent, w), WinLibDPIFromLogical(parent, height),
+        parent, (HMENU)(INT_PTR)id, DLLInstance, nullptr);
     SetFont(control, font);
     return control;
+}
+
+void ApplyDialogDPI(CVhdDialogState* s, UINT newDpi, const RECT* suggestedRect)
+{
+    if (s == nullptr || s->Window == nullptr || newDpi == 0)
+        return;
+
+    UINT oldDpi = s->Dpi != 0 ? s->Dpi : USER_DEFAULT_SCREEN_DPI;
+    if (suggestedRect != nullptr)
+    {
+        SetWindowPos(s->Window, nullptr, suggestedRect->left, suggestedRect->top,
+                     suggestedRect->right - suggestedRect->left,
+                     suggestedRect->bottom - suggestedRect->top,
+                     SWP_NOACTIVATE | SWP_NOZORDER);
+    }
+
+    if (oldDpi != newDpi)
+    {
+        for (HWND child = GetWindow(s->Window, GW_CHILD); child != nullptr;
+             child = GetWindow(child, GW_HWNDNEXT))
+        {
+            RECT rect;
+            GetWindowRect(child, &rect);
+            MapWindowPoints(nullptr, s->Window, reinterpret_cast<POINT*>(&rect), 2);
+            SetWindowPos(child, nullptr,
+                         MulDiv(rect.left, newDpi, oldDpi),
+                         MulDiv(rect.top, newDpi, oldDpi),
+                         MulDiv(rect.right - rect.left, newDpi, oldDpi),
+                         MulDiv(rect.bottom - rect.top, newDpi, oldDpi),
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
+    }
+
+    HFONT newFont = WinLibDPICreateMessageFont(s->Window);
+    if (newFont != nullptr)
+    {
+        for (HWND child = GetWindow(s->Window, GW_CHILD); child != nullptr;
+             child = GetWindow(child, GW_HWNDNEXT))
+        {
+            SendMessage(child, WM_SETFONT, reinterpret_cast<WPARAM>(newFont), TRUE);
+        }
+        HFONT oldFont = s->Font;
+        s->Font = newFont;
+        if (oldFont != nullptr)
+            DeleteObject(oldFont);
+    }
+    s->Dpi = newDpi;
+    RedrawWindow(s->Window, nullptr, nullptr,
+                 RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
 }
 
 void EnableOk(CVhdDialogState* s)
@@ -170,6 +226,13 @@ LRESULT CALLBACK VhdWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_CREATE:
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)((CREATESTRUCT*)lp)->lpCreateParams);
         return 0;
+    case WM_DPICHANGED:
+        if (s != nullptr)
+        {
+            ApplyDialogDPI(s, LOWORD(wp), reinterpret_cast<const RECT*>(lp));
+            return 0;
+        }
+        break;
     case WM_COMMAND:
         if (!s) break;
         if (LOWORD(wp) == IDC_VHD_PATH && HIWORD(wp) == EN_CHANGE) EnableOk(s);
@@ -183,6 +246,13 @@ LRESULT CALLBACK VhdWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
     case WM_CLOSE:
         if (s) Finish(s, false);
+        return 0;
+    case WM_DESTROY:
+        if (s != nullptr && s->Font != nullptr)
+        {
+            DeleteObject(s->Font);
+            s->Font = nullptr;
+        }
         return 0;
     case WM_ERASEBKGND:
         if (s != nullptr && s->Dark && s->BackgroundBrush != nullptr)
@@ -233,10 +303,23 @@ bool RunDialog(HWND parent, bool create)
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     RegisterClassA(&wc);
 
-    int width = 380;
-    int height = create ? 440 : 157;
+    UINT initialDpi = WinLibDPIGetWindowDPI(parent);
+    int width = MulDiv(380, initialDpi, USER_DEFAULT_SCREEN_DPI);
+    int height = MulDiv(create ? 440 : 157, initialDpi, USER_DEFAULT_SCREEN_DPI);
     RECT windowRect = {0, 0, width, height};
-    AdjustWindowRectEx(&windowRect, WS_CAPTION | WS_SYSMENU | WS_POPUP, FALSE, WS_EX_DLGMODALFRAME);
+    typedef BOOL(WINAPI * FAdjustWindowRectExForDpi)(LPRECT, DWORD, BOOL, DWORD, UINT);
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    FAdjustWindowRectExForDpi adjustForDpi =
+        user32 != nullptr
+            ? reinterpret_cast<FAdjustWindowRectExForDpi>(
+                  GetProcAddress(user32, "AdjustWindowRectExForDpi"))
+            : nullptr;
+    if (adjustForDpi != nullptr)
+        adjustForDpi(&windowRect, WS_CAPTION | WS_SYSMENU | WS_POPUP, FALSE,
+                     WS_EX_DLGMODALFRAME, initialDpi);
+    else
+        AdjustWindowRectEx(&windowRect, WS_CAPTION | WS_SYSMENU | WS_POPUP,
+                           FALSE, WS_EX_DLGMODALFRAME);
     int titleId = create ? IDS_CREATE_VHD_DLG_TITLE : IDS_ATTACH_VHD_DLG_TITLE;
     std::wstring title = WStr(titleId);
     std::string titleA = AStr(titleId);
@@ -254,7 +337,9 @@ bool RunDialog(HWND parent, bool create)
         SetWindowTextA(hwnd, titleA.c_str());
     }
     s.Window = hwnd;
-    HFONT font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    s.Dpi = WinLibDPIGetWindowDPI(hwnd);
+    s.Font = WinLibDPICreateMessageFont(hwnd);
+    HFONT font = s.Font != nullptr ? s.Font : (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 
     AddControl(hwnd, L"STATIC", WStr(create ? IDS_VHD_CREATE_INTRO : IDS_VHD_ATTACH_INTRO), 0, 12, 12, 350, 18, -1, font);
     AddControl(hwnd, L"STATIC", WStr(IDS_VHD_LOCATION), 0, 12, 43, 100, 18, -1, font);

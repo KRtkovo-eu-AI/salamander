@@ -715,6 +715,15 @@ internal static class ViewerHost
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
+        protected override void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
+        {
+            base.OnPerMonitorDpiChanged(oldDpi, newDpi);
+            _viewer.PerformLayout();
+            _viewer.ApplyCurrentTheme();
+            ThemeHelper.ApplyNativeDarkMode(_viewer);
+            _viewer.Invalidate(true);
+        }
+
         private void OnHandleCreated(object? sender, EventArgs e)
         {
             ApplyOwner(_session?.Parent ?? IntPtr.Zero);

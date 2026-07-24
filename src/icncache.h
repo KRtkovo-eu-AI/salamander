@@ -84,6 +84,7 @@ protected:
     TIndirectArray<CIconList> IconsCache; // pole bitmap slouzici jako cache na ikonky
     int IconsCount;                       // pocet zaplnenych mist v bitmapach (ikon)
     CIconSizeEnum IconSize;               // jakou velikost ikonek drzime?
+    int IconPixelSize;                    // pixel size for the owning panel's monitor
 
     //
     // Thumbnails
@@ -153,7 +154,7 @@ public:
     // 'index' (vracena z AllocThumbnail);
     BOOL GetThumbnail(int index, CThumbnailData** thumbnailData);
 
-    void SetIconSize(CIconSizeEnum iconSize);
+    void SetIconSize(CIconSizeEnum iconSize, int iconPixelSize = 0);
     CIconSizeEnum GetIconSize() { return IconSize; }
 
 protected:

@@ -763,7 +763,7 @@ void RenderSVGImages(HDC hDC, int iconSize, COLORREF bkColor, const CSVGIcon* sv
 
 BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
                           HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap, BOOL appendIcons,
-                          const CSVGIcon* svgIcons, int svgIconsCount)
+                          const CSVGIcon* svgIcons, int svgIconsCount, int dpi)
 {
     CALL_STACK_MESSAGE5("CreateToolbarBitmaps(%p, %d, %x, %x, , , )", hInstance, resID, transparent, bkColorForAlpha);
     BOOL ret = FALSE;
@@ -776,7 +776,8 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
     hGrayBitmap = NULL;
     hColorBitmap = NULL;
 
-    int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16); // small icon size
+    int iconSize = dpi > 0 ? MulDiv(16, dpi, 96)
+                           : GetIconSizeForSystemDPI(ICONSIZE_16); // small icon size
     int iconCount = 0;
     int baseIconCount = 0;
     int iconCountWithoutShell = 0;

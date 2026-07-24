@@ -36,6 +36,7 @@
 #include "mhandles.h"
 #include "arraylt.h"
 #include "winliblt.h"
+#include "../../common/winlibdpi.h"
 
 #include "const.h"
 

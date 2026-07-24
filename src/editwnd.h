@@ -80,6 +80,8 @@ protected:
     CInnerText* Text;
     BOOL Enabled;
     BOOL Tracking;
+    HFONT HDPIFont;
+    int DPIFontHeight;
 
     char* LastText; // when the window was temporarily hidden, its contents were stored here
     // the following two variables are relevant only when LastText != NULL

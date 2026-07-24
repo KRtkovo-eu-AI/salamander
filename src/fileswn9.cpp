@@ -1988,7 +1988,7 @@ CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyH
         }
         if (GetViewMode() == vmBrief || GetViewMode() == vmDetailed)
         {
-            iconWidth = 1 + IconSizes[ICONSIZE_16] + 1 + 2;
+            iconWidth = 1 + GetIconSize(ICONSIZE_16) + 1 + 2;
             CFileData* f = (itemIndex < Dirs->Count) ? &Dirs->At(itemIndex) : &Files->At(itemIndex - Dirs->Count);
             AlterFileName(buff, f->Name, -1, Configuration.FileNameFormat, 0, itemIndex < Dirs->Count);
             trimWidth = TRUE;
@@ -2006,7 +2006,7 @@ CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyH
     int height = ListBox->ItemHeight;
     HDC hDC = HANDLES(CreateCompatibleDC(NULL));
     ;
-    HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
+    HFONT hOldFont = (HFONT)SelectObject(hDC, GetPanelFont());
     SIZE sz;
     GetTextExtentPoint32(hDC, buff, buffLen, &sz);
     width = iconWidth + sz.cx;
@@ -2056,7 +2056,7 @@ CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyH
         DrawText(hDC, buff, buffLen, &r, DT_LEFT | DT_SINGLELINE | DT_TOP | DT_NOPREFIX);
         SetTextColor(hDC, oldTextColor);
         SelectObject(hDC, hOldFont);
-        hOldFont = (HFONT)SelectObject(hMaskDC, Font);
+        hOldFont = (HFONT)SelectObject(hMaskDC, GetPanelFont());
         SetTextColor(hMaskDC, RGB(0, 0, 0));
         SetBkColor(hMaskDC, RGB(0, 0, 0));
         DrawText(hMaskDC, buff, buffLen, &r, DT_LEFT | DT_SINGLELINE | DT_TOP | DT_NOPREFIX);

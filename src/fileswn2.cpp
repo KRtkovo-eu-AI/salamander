@@ -353,7 +353,7 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
                 contentLeft += iconSize + 4;
             }
             logical.left = contentLeft;
-            HFONT oldFont = (HFONT)SelectObject(hdc, EnvFont);
+            HFONT oldFont = (HFONT)SelectObject(hdc, panel->GetEnvFont());
             int oldBkMode = SetBkMode(hdc, TRANSPARENT);
             COLORREF oldTextColor = SetTextColor(hdc, textColor);
             DrawText(hdc, LoadStr(IDS_TREEVIEW_PANEL_TITLE), -1, &logical,
@@ -403,7 +403,7 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
         RECT textRect = r;
         textRect.left = contentLeft;
         textRect.right = pinRect.left - 3;
-        HFONT oldFont = (HFONT)SelectObject(hdc, EnvFont);
+        HFONT oldFont = (HFONT)SelectObject(hdc, panel->GetEnvFont());
         int oldBkMode = SetBkMode(hdc, TRANSPARENT);
         COLORREF oldTextColor = SetTextColor(hdc, textColor);
         DrawText(hdc, LoadStr(IDS_TREEVIEW_PANEL_TITLE), -1, &textRect,
@@ -641,10 +641,10 @@ int CFilesWindow::GetTreeViewReservedWidth(int clientWidth)
 
 int CFilesWindow::GetTreeViewHeaderHeight()
 {
-    int verticalPadding = EnvFontCharHeight / 8;
+    int verticalPadding = GetEnvFontHeight() / 8;
     if (verticalPadding < 2)
         verticalPadding = 2;
-    return EnvFontCharHeight + 2 * verticalPadding;
+    return GetEnvFontHeight() + 2 * verticalPadding;
 }
 
 COLORREF CFilesWindow::GetTreeViewTextColor()
@@ -2240,12 +2240,7 @@ void CFilesWindow::CreateTreeView()
         DarkModeApplyWindow(HTreeView);
         DarkModePreserveCustomTreeView(HTreeView);
 
-        SHFILEINFO sfi;
-        memset(&sfi, 0, sizeof(sfi));
-        HIMAGELIST hImageList = (HIMAGELIST)SHGetFileInfo("C:\\", FILE_ATTRIBUTE_DIRECTORY, &sfi, sizeof(sfi),
-                                                          SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
-        if (hImageList != NULL)
-            TreeView_SetImageList(HTreeView, hImageList, TVSIL_NORMAL);
+        RefreshTreeViewDPI();
         UpdateTreeViewColors();
     }
 
@@ -2262,7 +2257,7 @@ void CFilesWindow::CreateTreeView()
             TRACE_E("Unable to create tree-view header.");
             return;
         }
-        SendMessage(HTreeHeader, WM_SETFONT, (WPARAM)EnvFont, FALSE);
+        SendMessage(HTreeHeader, WM_SETFONT, (WPARAM)GetEnvFont(), FALSE);
         if (!SetWindowSubclass(HTreeHeader, TreeViewHeaderSubclassProc, TREEVIEW_HEADER_SUBCLASS_ID, (DWORD_PTR)this))
         {
             TRACE_E("Unable to subclass tree-view header.");
@@ -2324,9 +2319,74 @@ void CFilesWindow::CreateTreeView()
     }
 }
 
+void CFilesWindow::RefreshTreeViewDPI()
+{
+    if (HTreeView != NULL)
+    {
+        // Shell's shared small system image list can keep the primary/high-DPI
+        // pixel size even when this window moves back to a 96-DPI monitor.
+        // Preserve its indices but copy the icons into a list owned by this
+        // panel at the exact per-window size.
+        TreeView_SetImageList(HTreeView, NULL, TVSIL_NORMAL);
+        SHFILEINFO sfi;
+        memset(&sfi, 0, sizeof(sfi));
+        HIMAGELIST systemImageList = (HIMAGELIST)SHGetFileInfo(
+            "C:\\", FILE_ATTRIBUTE_DIRECTORY, &sfi, sizeof(sfi),
+            SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
+        HIMAGELIST newImageList = NULL;
+        if (systemImageList != NULL)
+        {
+            int iconSize = GetIconSize(ICONSIZE_16);
+            int count = ImageList_GetImageCount(systemImageList);
+            newImageList = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK,
+                                            max(count, 1), 32);
+            if (newImageList != NULL)
+            {
+                ImageList_SetBkColor(newImageList, CLR_NONE);
+                for (int i = 0; i < count; ++i)
+                {
+                    HICON icon = ImageList_GetIcon(systemImageList, i, ILD_TRANSPARENT);
+                    if (icon != NULL)
+                    {
+                        ImageList_AddIcon(newImageList, icon);
+                        DestroyIcon(icon);
+                    }
+                    else
+                        ImageList_SetImageCount(newImageList, i + 1);
+                }
+            }
+        }
+        if (newImageList != NULL)
+            TreeView_SetImageList(HTreeView, newImageList, TVSIL_NORMAL);
+        else if (systemImageList != NULL)
+            TreeView_SetImageList(HTreeView, systemImageList, TVSIL_NORMAL);
+        if (HTreeDPIImageList != NULL)
+            ImageList_Destroy(HTreeDPIImageList);
+        HTreeDPIImageList = newImageList;
+
+        SendMessage(HTreeView, WM_SETFONT, (WPARAM)GetEnvFont(), TRUE);
+        int rowHeight = max(GetIconSize(ICONSIZE_16) + 2,
+                            GetEnvFontHeight() + 4);
+        SendMessage(HTreeView, TVM_SETITEMHEIGHT, rowHeight, 0);
+        InvalidateRect(HTreeView, NULL, TRUE);
+    }
+    if (HTreeHeader != NULL)
+        SendMessage(HTreeHeader, WM_SETFONT, (WPARAM)GetEnvFont(), TRUE);
+    if (HTreeHeaderToolTip != NULL)
+        SendMessage(HTreeHeaderToolTip, WM_SETFONT, (WPARAM)GetEnvFont(), TRUE);
+}
+
 void CFilesWindow::DestroyTreeView()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::DestroyTreeView()");
+
+    if (HTreeView != NULL)
+        TreeView_SetImageList(HTreeView, NULL, TVSIL_NORMAL);
+    if (HTreeDPIImageList != NULL)
+    {
+        ImageList_Destroy(HTreeDPIImageList);
+        HTreeDPIImageList = NULL;
+    }
 
     // Cancel any pending async tree view load
     if (TreeViewAsyncLoadThread != NULL)
@@ -4627,7 +4687,7 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
     WidthOfMostOfNames = 0;
 
     HDC dc = HANDLES(GetDC(GetListBoxHWND()));
-    HFONT of = (HFONT)SelectObject(dc, Font);
+    HFONT of = (HFONT)SelectObject(dc, GetPanelFont());
     SIZE act;
 
     char formatedFileName[MAX_PATH];
@@ -4660,22 +4720,22 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
         max.cy = act.cy;
         CaretHeight = (short)act.cy;
 
-        max.cx += 2 * IconSizes[ICONSIZE_16];
+        max.cx += 2 * GetIconSize(ICONSIZE_16);
         // minimal width (e.g., for an empty panel) so the user can hit UpDir
-        if (max.cx < 4 * IconSizes[ICONSIZE_16])
-            max.cx = 4 * IconSizes[ICONSIZE_16];
+        if (max.cx < 4 * GetIconSize(ICONSIZE_16))
+            max.cx = 4 * GetIconSize(ICONSIZE_16);
         Columns[0].Width = max.cx; // width of the 'Name' column
         max.cy += 4;
-        if (max.cy < IconSizes[ICONSIZE_16] + 1)
-            max.cy = IconSizes[ICONSIZE_16] + 1;
+        if (max.cy < GetIconSize(ICONSIZE_16) + 1)
+            max.cy = GetIconSize(ICONSIZE_16) + 1;
         ListBox->SetItemWidthHeight(max.cx, max.cy);
         break;
     }
 
     case vmIcons:
     {
-        int w = IconSizes[ICONSIZE_32];
-        int h = IconSizes[ICONSIZE_32];
+        int w = GetIconSize(ICONSIZE_32);
+        int h = GetIconSize(ICONSIZE_32);
         w += Configuration.IconSpacingHorz;
         h += Configuration.IconSpacingVert;
         ListBox->SetItemWidthHeight(w, h);
@@ -4694,13 +4754,13 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
 
     case vmTiles:
     {
-        int w = IconSizes[ICONSIZE_48];
-        int h = IconSizes[ICONSIZE_48];
+        int w = GetIconSize(ICONSIZE_48);
+        int h = GetIconSize(ICONSIZE_48);
         if (w < 48)
             w = 48; // for 32x32 the width was insufficient
         w += (int)(2.5 * (double)w);
         h += Configuration.TileSpacingVert;
-        int textH = 3 * FontCharHeight + 4;
+        int textH = 3 * GetPanelFontHeight() + 4;
         ListBox->SetItemWidthHeight(w, max(textH, h));
         break;
     }
@@ -4834,7 +4894,7 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
                     nameLen = extIsInExtColumn ? (int)(f->Ext - f->Name - 1) : f->NameLen;
 
                     GetTextExtentPoint32(dc, formatedFileName, nameLen, &act);
-                    act.cx += 1 + IconSizes[ICONSIZE_16] + 1 + 2 + SPACE_WIDTH;
+                    act.cx += 1 + GetIconSize(ICONSIZE_16) + 1 + 2 + SPACE_WIDTH;
                     if (columnWidthName < act.cx)
                         columnWidthName = act.cx;
                     if (nameColWidths != NULL)
@@ -5159,11 +5219,11 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
             }
         }
 
-        CaretHeight = (short)FontCharHeight;
+        CaretHeight = (short)GetPanelFontHeight();
 
-        int cy = FontCharHeight + 4;
-        if (cy < IconSizes[ICONSIZE_16] + 1)
-            cy = IconSizes[ICONSIZE_16] + 1;
+        int cy = GetPanelFontHeight() + 4;
+        if (cy < GetIconSize(ICONSIZE_16) + 1)
+            cy = GetIconSize(ICONSIZE_16) + 1;
         ListBox->SetItemWidthHeight(totalWidth, cy);
         break;
     }

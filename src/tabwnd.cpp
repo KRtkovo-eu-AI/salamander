@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include <commctrl.h>
 #include <algorithm>
@@ -114,24 +115,25 @@ namespace
         if (hdc != NULL)
         {
             HFONT oldFont = NULL;
-            if (EnvFont != NULL)
-                oldFont = (HFONT)SelectObject(hdc, EnvFont);
+            HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+            if (font != NULL)
+                oldFont = (HFONT)SelectObject(hdc, font);
             SIZE size = {0, 0};
             if (GetTextExtentPoint32W(hdc, kNewTabButtonText, _countof(kNewTabButtonText) - 1, &size))
                 minWidth = size.cx;
+            TEXTMETRIC tm;
+            int fontHeight = GetTextMetrics(hdc, &tm) ? tm.tmHeight : EnvFontCharHeight;
             if (oldFont != NULL)
                 SelectObject(hdc, oldFont);
             ReleaseDC(hwnd, hdc);
+            if (minWidth <= 0)
+                minWidth = fontHeight;
+            int padding = fontHeight / 2;
+            if (padding < 4)
+                padding = 4;
+            return minWidth + padding;
         }
-
-        if (minWidth <= 0)
-            minWidth = EnvFontCharHeight;
-
-        int padding = EnvFontCharHeight / 2;
-        if (padding < 4)
-            padding = 4;
-
-        return minWidth + padding;
+        return EnvFontCharHeight + max(4, EnvFontCharHeight / 2);
     }
 
     void TrimTabWidthPadding(std::wstring& text)
@@ -267,12 +269,19 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     TabTipHoverIndex = -1;
     TabTipTracking = false;
     CloseButtonHoverIndex = -1;
+    HDPIFont = NULL;
+    HDPIFontBold = NULL;
+    DPIFontHeight = 0;
 }
 
 CTabWindow::~CTabWindow()
 {
     CALL_STACK_MESSAGE1("CTabWindow::~CTabWindow()");
     DestroyWindow();
+    if (HDPIFont != NULL)
+        HANDLES(DeleteObject(HDPIFont));
+    if (HDPIFontBold != NULL)
+        HANDLES(DeleteObject(HDPIFontBold));
 }
 
 BOOL CTabWindow::Create(HWND parent, int controlID)
@@ -290,7 +299,7 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
     if (hwnd == NULL)
         return FALSE;
     DarkModePreserveCustomTabControl(HWindow);
-    SendMessage(HWindow, WM_SETFONT, (WPARAM)EnvFont, FALSE);
+    RefreshDPIResources();
 
     EnsureNewTabButton();
     return TRUE;
@@ -317,10 +326,52 @@ void CTabWindow::DestroyWindow()
 int CTabWindow::GetNeededHeight() const
 {
     CALL_STACK_MESSAGE_NONE
-    int verticalPadding = EnvFontCharHeight / 8;
+    int fontHeight = DPIFontHeight > 0 ? DPIFontHeight : EnvFontCharHeight;
+    int verticalPadding = fontHeight / 8;
     if (verticalPadding < 2)
         verticalPadding = 2;
-    return EnvFontCharHeight + 2 * verticalPadding;
+    return fontHeight + 2 * verticalPadding;
+}
+
+void CTabWindow::RefreshDPIResources()
+{
+    LOGFONT lf;
+    HFONT font = WinLibDPIGetIconTitleLogFont(HWindow, &lf)
+                     ? HANDLES(CreateFontIndirect(&lf))
+                     : NULL;
+    if (font == NULL)
+        return;
+
+    lf.lfWeight = FW_BOLD;
+    HFONT bold = HANDLES(CreateFontIndirect(&lf));
+    if (bold == NULL)
+    {
+        HANDLES(DeleteObject(font));
+        return;
+    }
+
+    HDC dc = HANDLES(GetDC(HWindow));
+    TEXTMETRIC tm;
+    if (dc != NULL)
+    {
+        HFONT oldFont = (HFONT)SelectObject(dc, font);
+        GetTextMetrics(dc, &tm);
+        SelectObject(dc, oldFont);
+        HANDLES(ReleaseDC(HWindow, dc));
+    }
+    else
+        tm.tmHeight = EnvFontCharHeight;
+
+    SendMessage(HWindow, WM_SETFONT, (WPARAM)font, FALSE);
+    if (HDPIFont != NULL)
+        HANDLES(DeleteObject(HDPIFont));
+    if (HDPIFontBold != NULL)
+        HANDLES(DeleteObject(HDPIFontBold));
+    HDPIFont = font;
+    HDPIFontBold = bold;
+    DPIFontHeight = tm.tmHeight;
+    RefreshLayout();
+    InvalidateRect(HWindow, NULL, TRUE);
 }
 
 int CTabWindow::AddTab(int index, const wchar_t* text, LPARAM data)
@@ -435,7 +486,8 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     }
     HFONT oldFont = NULL;
     bool selected = (index == TabCtrl_GetCurSel(HWindow));
-    HFONT fontToUse = (selected && EnvFontBold != NULL) ? EnvFontBold : EnvFont;
+    HFONT fontToUse = (selected && HDPIFontBold != NULL) ? HDPIFontBold :
+                      (HDPIFont != NULL ? HDPIFont : EnvFont);
     if (fontToUse != NULL)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
 
@@ -1281,13 +1333,13 @@ void CTabWindow::UpdateInsertMarkRect()
         {
             RECT indicatorRect = itemRect;
 
-            int verticalOversize = EnvFontCharHeight / 3;
+            int verticalOversize = (DPIFontHeight > 0 ? DPIFontHeight : EnvFontCharHeight) / 3;
             if (verticalOversize < 4)
                 verticalOversize = 4;
             indicatorRect.top -= verticalOversize;
             indicatorRect.bottom += verticalOversize;
 
-            int indicatorWidth = EnvFontCharHeight / 4;
+            int indicatorWidth = (DPIFontHeight > 0 ? DPIFontHeight : EnvFontCharHeight) / 4;
             if (indicatorWidth < 4)
                 indicatorWidth = 4;
             if (indicatorWidth > 12)
@@ -1547,10 +1599,11 @@ bool CTabWindow::ComputeExternalDropTarget(POINT screenPt, int& targetIndex, int
     if (!GetClientRect(HWindow, &clientRect))
         return false;
 
-    int verticalMargin = EnvFontCharHeight / 2;
+    int fontHeight = DPIFontHeight > 0 ? DPIFontHeight : EnvFontCharHeight;
+    int verticalMargin = fontHeight / 2;
     if (verticalMargin < 6)
         verticalMargin = 6;
-    int horizontalMargin = EnvFontCharHeight;
+    int horizontalMargin = fontHeight;
     if (horizontalMargin < 12)
         horizontalMargin = 12;
     InflateRect(&clientRect, horizontalMargin, verticalMargin);
@@ -2198,16 +2251,17 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         textRect.right = fillRect.right;
     }
 
-    int topPadding = EnvFontCharHeight / 12;
+    int fontHeight = DPIFontHeight > 0 ? DPIFontHeight : EnvFontCharHeight;
+    int topPadding = fontHeight / 12;
     if (topPadding < 1)
         topPadding = 1;
-    int verticalLift = EnvFontCharHeight / 6;
+    int verticalLift = fontHeight / 6;
     if (verticalLift < 2)
         verticalLift = 2;
     ++verticalLift;
     if (selected && Configuration.TabActiveBorder)
     {
-        int activeBorderTextLift = EnvFontCharHeight / 8;
+        int activeBorderTextLift = fontHeight / 8;
         if (activeBorderTextLift < 2)
             activeBorderTextLift = 2;
         verticalLift += activeBorderTextLift;
@@ -2234,7 +2288,8 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     }
 
     HFONT oldFont = NULL;
-    HFONT fontToUse = (selected && EnvFontBold != NULL) ? EnvFontBold : EnvFont;
+    HFONT fontToUse = (selected && HDPIFontBold != NULL) ? HDPIFontBold :
+                      (HDPIFont != NULL ? HDPIFont : EnvFont);
     if (fontToUse != NULL)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
@@ -2364,6 +2419,10 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CTabWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_DPICHANGED_AFTERPARENT:
+        RefreshDPIResources();
+        return 0;
+
     case WM_SIZE:
     case WM_THEMECHANGED:
         DarkModePreserveCustomTabControl(HWindow);

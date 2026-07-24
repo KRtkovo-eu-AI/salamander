@@ -1673,7 +1673,7 @@ int SalMessageBoxEx(const MSGBOXEX_PARAMS* params);
 BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst, int yDst,
                          DWORD state, CIconSizeEnum iconSize, DWORD iconOverlayIndex,
                          const RECT* overlayRect, BOOL overlayOnly, BOOL iconOverlayFromPlugin,
-                         int pluginIconOverlaysCount, HICON* pluginIconOverlays);
+                         int pluginIconOverlaysCount, HICON* pluginIconOverlays, int dpi = 0);
 DWORD GetImageListColorFlags(); // vrati ILC_COLOR??? podle verzi Windows - odladene pro pouziti imagelistu v listviewech
 
 // API GetOpenFileName/GetSaveFileName v pripade ze cesta k souboru (OPENFILENAME::lpstrFile)
@@ -1861,7 +1861,7 @@ struct CSVGIcon
 
 BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
                           HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap, BOOL appendIcons,
-                          const CSVGIcon* svgIcons, int svgIconsCount);
+                          const CSVGIcon* svgIcons, int svgIconsCount, int dpi = 0);
 
 //****************************************************************************
 //

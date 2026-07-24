@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include "cfgdlg.h"
 #include "menu.h"
@@ -160,6 +161,41 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         break;
+    }
+
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        if (RefreshDPIResources())
+        {
+            if (IconCache != NULL)
+            {
+                SleepIconCacheThread();
+                IconCache->Destroy();
+                CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
+                IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
+                IconCacheValid = FALSE;
+                EndOfIconReadingTime = GetTickCount() - 10000;
+                UseThumbnails = FALSE;
+            }
+            SetFont();
+            RefreshTreeViewDPI();
+            if (ListBox != NULL && ListBox->HWindow != NULL)
+                RedrawWindow(ListBox->HWindow, NULL, NULL,
+                             RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            RECT r;
+            GetClientRect(HWindow, &r);
+            SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
+                        MAKELONG(r.right - r.left, r.bottom - r.top));
+            // Do not re-enter directory enumeration, icon workers and their
+            // child-window notifications while PMv2 is still walking the
+            // WM_DPICHANGED_AFTERPARENT tree. Queue the normal refresh after
+            // the DPI message cascade has unwound.
+            HANDLES(EnterCriticalSection(&TimeCounterSection));
+            int refreshTime = MyTimeCounter++;
+            HANDLES(LeaveCriticalSection(&TimeCounterSection));
+            PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, refreshTime);
+        }
+        return 0;
     }
 
     case WM_ERASEBKGND:
@@ -1037,6 +1073,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CREATE:
     {
+        RefreshDPIResources(TRUE);
+
         //---  pridani tohoto panelu do pole zdroju pro enumeraci souboru ve viewerech
         EnumFileNamesAddSourceUID(HWindow, &EnumFileNamesSourceUID);
 

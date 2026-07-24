@@ -1216,10 +1216,28 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
         CancelButton = closeButton;
         Shown += async (_, _) =>
         {
+            UpdateDpiResources();
             await RefreshAsync().ConfigureAwait(true);
             AdjustListViewColumns();
         };
         UpdateDetails();
+    }
+
+    protected override void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
+    {
+        base.OnPerMonitorDpiChanged(oldDpi, newDpi);
+        UpdateDpiResources();
+        AdjustListViewColumns();
+        _listView.Invalidate(true);
+    }
+
+    private void UpdateDpiResources()
+    {
+        var imageSize = new System.Drawing.Size(ScaleLogical(16), ScaleLogical(16));
+        if (_pluginImages.ImageSize != imageSize)
+        {
+            _pluginImages.ImageSize = imageSize;
+        }
     }
 
     private void ListViewOnDrawColumnHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
@@ -1287,13 +1305,16 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
             return;
         }
 
-        int availableWidth = Math.Max(0, _listView.ClientSize.Width - 4);
-        int minimumWidth = ListColumnMinimumWidths.Sum();
+        UpdateDpiResources();
+        int availableWidth = Math.Max(0, _listView.ClientSize.Width - ScaleLogical(4));
+        int[] scaledMinimumWidths =
+            ListColumnMinimumWidths.Select(ScaleLogical).ToArray();
+        int minimumWidth = scaledMinimumWidths.Sum();
         if (availableWidth <= minimumWidth)
         {
-            for (int i = 0; i < ListColumnMinimumWidths.Length; i++)
+            for (int i = 0; i < scaledMinimumWidths.Length; i++)
             {
-                _listView.Columns[i].Width = ListColumnMinimumWidths[i];
+                _listView.Columns[i].Width = scaledMinimumWidths[i];
             }
 
             return;
@@ -1301,12 +1322,12 @@ internal sealed class PluginUpdatesDialog : DpiAwareForm
 
         int extraWidth = availableWidth - minimumWidth;
         int assignedWidth = 0;
-        for (int i = 0; i < ListColumnMinimumWidths.Length; i++)
+        for (int i = 0; i < scaledMinimumWidths.Length; i++)
         {
-            int width = i == ListColumnMinimumWidths.Length - 1
+            int width = i == scaledMinimumWidths.Length - 1
                 ? availableWidth - assignedWidth
-                : ListColumnMinimumWidths[i] + (int)Math.Round(extraWidth * ListColumnWidthWeights[i]);
-            _listView.Columns[i].Width = Math.Max(ListColumnMinimumWidths[i], width);
+                : scaledMinimumWidths[i] + (int)Math.Round(extraWidth * ListColumnWidthWeights[i]);
+            _listView.Columns[i].Width = Math.Max(scaledMinimumWidths[i], width);
             assignedWidth += _listView.Columns[i].Width;
         }
     }
@@ -1808,6 +1829,7 @@ internal sealed class PluginCatalogSourcesDialog : DpiAwareForm
             LabelEdit = true,
         };
         _listView.Columns.Add(string.Empty, 630);
+        _listView.Resize += (_, _) => AdjustColumnWidth();
         _listView.ItemCheck += ListViewOnItemCheck;
         _listView.DoubleClick += ListViewOnDoubleClick;
         _listView.KeyDown += ListViewOnKeyDown;
@@ -1828,6 +1850,21 @@ internal sealed class PluginCatalogSourcesDialog : DpiAwareForm
 
         _sources = PluginCatalogSources.Load().Select(s => new PluginCatalogSource { Url = s.Url, Enabled = s.Enabled }).ToList();
         PopulateList();
+    }
+
+    protected override void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
+    {
+        base.OnPerMonitorDpiChanged(oldDpi, newDpi);
+        AdjustColumnWidth();
+    }
+
+    private void AdjustColumnWidth()
+    {
+        if (_listView.Columns.Count != 0)
+        {
+            _listView.Columns[0].Width =
+                Math.Max(ScaleLogical(300), _listView.ClientSize.Width - ScaleLogical(4));
+        }
     }
 
     private void PopulateList()

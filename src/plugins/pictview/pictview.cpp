@@ -2827,19 +2827,25 @@ BOOL CViewerWindow::InitializeGraphics()
     HBITMAP hTmpGrayBitmap;
     HBITMAP hTmpColorBitmap;
 
-    if (!SalamanderGUI->CreateToolbarBitmaps(DLLInstance,
-                                             SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16,
-                                             RGB(255, 0, 255),
-                                             PictViewShouldUseWindowsDarkMode() ? RGB(0x2F, 0x34, 0x3A) : GetSysColor(COLOR_BTNFACE),
-                                             hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap,
-                                             PictViewSVGIcons, _countof(PictViewSVGIcons)))
+    if (!SalamanderGUI->CreateToolbarBitmapsForWindow(
+            HWindow, DLLInstance,
+            SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16,
+            RGB(255, 0, 255),
+            PictViewShouldUseWindowsDarkMode() ? RGB(0x2F, 0x34, 0x3A) : GetSysColor(COLOR_BTNFACE),
+            hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap,
+            PictViewSVGIcons, _countof(PictViewSVGIcons)))
     {
         hTmpColorBitmap = LoadBitmap(DLLInstance, MAKEINTRESOURCE(SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16));
         SalamanderGUI->CreateGrayscaleAndMaskBitmaps(hTmpColorBitmap, RGB(255, 0, 255),
                                                      hTmpGrayBitmap, hTmpMaskBitmap);
     }
-    HHotToolBarImageList = ImageList_Create(16, 16, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
-    HGrayToolBarImageList = ImageList_Create(16, 16, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
+    BITMAP bitmap;
+    ZeroMemory(&bitmap, sizeof(bitmap));
+    GetObject(hTmpColorBitmap, sizeof(bitmap), &bitmap);
+    int iconSize = bitmap.bmHeight > 0 ? bitmap.bmHeight
+                                       : MulDiv(16, (int)WinLibDPIGetWindowDPI(HWindow), 96);
+    HHotToolBarImageList = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
+    HGrayToolBarImageList = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
     ImageList_Add(HHotToolBarImageList, hTmpColorBitmap, hTmpMaskBitmap);
     ImageList_Add(HGrayToolBarImageList, hTmpGrayBitmap, hTmpMaskBitmap);
     DeleteObject(hTmpMaskBitmap);
@@ -2851,9 +2857,15 @@ BOOL CViewerWindow::InitializeGraphics()
 BOOL CViewerWindow::ReleaseGraphics()
 {
     if (HHotToolBarImageList != NULL)
+    {
         ImageList_Destroy(HHotToolBarImageList);
+        HHotToolBarImageList = NULL;
+    }
     if (HGrayToolBarImageList != NULL)
+    {
         ImageList_Destroy(HGrayToolBarImageList);
+        HGrayToolBarImageList = NULL;
+    }
     return TRUE;
 }
 
@@ -3771,6 +3783,56 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (HHistogramWindow != NULL)
             SendMessage(HHistogramWindow, WM_USER_SETTINGCHANGE, wParam, lParam);
         return 0;
+    }
+
+    case WM_DPICHANGED:
+    {
+        // Graphics created by the host are pixel resources, not logical
+        // controls. Rebuild them for this viewer's new monitor; otherwise a
+        // 24 px strip is interpreted as 16 px cells (or remains oversized
+        // after returning to 100% DPI).
+        ReleaseGraphics();
+        InitializeGraphics();
+        if (MainMenu != NULL)
+        {
+            MainMenu->SetImageList(HGrayToolBarImageList, TRUE);
+            MainMenu->SetHotImageList(HHotToolBarImageList, TRUE);
+        }
+        if (MenuBar != NULL)
+            MenuBar->SetFont();
+        if (ToolBar != NULL)
+        {
+            ToolBar->SetImageList(HGrayToolBarImageList);
+            ToolBar->SetHotImageList(HHotToolBarImageList);
+            ToolBar->SetFont();
+        }
+        if (HRebar != NULL)
+        {
+            REBARBANDINFO band;
+            ZeroMemory(&band, sizeof(band));
+            band.cbSize = sizeof(band);
+            band.fMask = RBBIM_CHILDSIZE;
+            int index = (int)SendMessage(HRebar, RB_IDTOINDEX, BANDID_MENU, 0);
+            if (index >= 0 && MenuBar != NULL)
+            {
+                band.cxMinChild = MenuBar->GetNeededWidth();
+                band.cyMinChild = MenuBar->GetNeededHeight();
+                SendMessage(HRebar, RB_SETBANDINFO, index, (LPARAM)&band);
+            }
+            index = (int)SendMessage(HRebar, RB_IDTOINDEX, BANDID_TOOLBAR, 0);
+            if (index >= 0 && ToolBar != NULL)
+            {
+                band.cxMinChild = ToolBar->GetNeededWidth();
+                band.cyMinChild = ToolBar->GetNeededHeight();
+                SendMessage(HRebar, RB_SETBANDINFO, index, (LPARAM)&band);
+            }
+            RECT rebarRect;
+            GetClientRect(HRebar, &rebarRect);
+            SendMessage(HRebar, WM_SIZE, SIZE_RESTORED,
+                        MAKELPARAM(rebarRect.right, rebarRect.bottom));
+        }
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        break; // CWindow applies the suggested top-level rectangle.
     }
 
     case WM_USER_TBGETTOOLTIP:

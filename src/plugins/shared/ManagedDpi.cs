@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -45,10 +47,96 @@ internal static class ManagedApplication
 // design baseline; WinForms performs the single dynamic scaling pass.
 internal class DpiAwareForm : Form
 {
+    private readonly Dictionary<Control, Font> _dpiFonts = new Dictionary<Control, Font>();
+
     internal DpiAwareForm()
     {
         AutoScaleDimensions = new SizeF(96.0F, 96.0F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        Font = SystemFonts.MessageBoxFont;
+        Font = CloneFont(SystemFonts.MessageBoxFont);
+        _dpiFonts[this] = Font;
+    }
+
+    protected int ScaleLogical(int logicalPixels)
+    {
+        return Math.Max(1, logicalPixels * DeviceDpi / 96);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        RefreshExplicitFonts(this);
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        int oldDpi = e.DeviceDpiOld;
+        int newDpi = e.DeviceDpiNew;
+
+        SuspendLayout();
+        try
+        {
+            // WinForms owns the single bounds/autoscale pass. Afterwards force
+            // every explicitly assigned point font to recreate its native
+            // HFONT for the new monitor. This covers third-party controls whose
+            // designer font prevents them from inheriting the Form font.
+            base.OnDpiChanged(e);
+            RefreshExplicitFonts(this);
+            OnPerMonitorDpiChanged(oldDpi, newDpi);
+            PerformLayout();
+        }
+        finally
+        {
+            ResumeLayout(true);
+        }
+
+        Invalidate(true);
+    }
+
+    protected virtual void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
+    {
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing)
+        {
+            foreach (Font font in _dpiFonts.Values)
+            {
+                font.Dispose();
+            }
+            _dpiFonts.Clear();
+        }
+    }
+
+    private void RefreshExplicitFonts(Control root)
+    {
+        PropertyDescriptor fontProperty = TypeDescriptor.GetProperties(root)["Font"];
+        bool hasExplicitFont = ReferenceEquals(root, this) ||
+                               (fontProperty != null && fontProperty.ShouldSerializeValue(root));
+        if (hasExplicitFont && root.Font != null)
+        {
+            Font replacement = CloneFont(root.Font);
+            Font previous;
+            _dpiFonts.TryGetValue(root, out previous);
+            root.Font = replacement;
+            _dpiFonts[root] = replacement;
+            if (previous != null && !ReferenceEquals(previous, replacement))
+            {
+                previous.Dispose();
+            }
+        }
+
+        foreach (Control child in root.Controls)
+        {
+            RefreshExplicitFonts(child);
+        }
+    }
+
+    private static Font CloneFont(Font source)
+    {
+        return new Font(source.FontFamily, source.Size, source.Style, source.Unit,
+                        source.GdiCharSet, source.GdiVerticalFont);
     }
 }

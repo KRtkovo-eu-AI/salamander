@@ -51,12 +51,12 @@ void CFilesWindow::SetFontAndColors(HDC hDC, CHighlightMasksItem* highlightMasks
 
     if (TrackingSingleClick && SingleClickIndex == itemIndex)
     {
-        SelectObject(hDC, FontUL);
+        SelectObject(hDC, GetPanelFontUL());
         SetTextColor(hDC, GetCOLORREF(CurrentColors[HOT_PANEL]));
     }
     else
     {
-        SelectObject(hDC, Font);
+        SelectObject(hDC, GetPanelFont());
         // text color
         SALCOLOR* fgColor;
         if (highlightMasksItem == NULL)
@@ -340,7 +340,8 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
 
                 StateImageList_Draw(iconList, iconListIndex, hDC, x, y, iconState, iconSize,
                                     f->IconOverlayIndex, overlayRect, (drawFlags & DRAWFLAG_OVERLAY_ONLY) != 0,
-                                    iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays);
+                                    iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays,
+                                    GetWindowDPI());
 
                 if (leaveSection)
                 {
@@ -358,7 +359,8 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
     { // simple symbols
         StateImageList_Draw(SimpleIconLists[iconSize], symbolIndex, hDC, x, y, iconState, iconSize,
                             f->IconOverlayIndex, overlayRect, (drawFlags & DRAWFLAG_OVERLAY_ONLY) != 0,
-                            iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays);
+                            iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays,
+                            GetWindowDPI());
     }
 
     // I don't understand why, but the current bitmap drawing doesn't flicker.
@@ -566,15 +568,15 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
     //
 
     RECT iconRect = rect;
-    iconRect.right = iconRect.left + 1 + IconSizes[ICONSIZE_16] + 1;
+    iconRect.right = iconRect.left + 1 + GetIconSize(ICONSIZE_16) + 1;
 
     if (drawFlags & DRAWFLAG_SKIP_VISTEST || RectVisible(hDC, &iconRect))
     {
         RECT innerRect;
         innerRect.left = iconRect.left + 1;                                                           // iconX
-        innerRect.top = iconRect.top + (iconRect.bottom - iconRect.top - IconSizes[ICONSIZE_16]) / 2; // iconY
-        innerRect.right = innerRect.left + IconSizes[ICONSIZE_16];
-        innerRect.bottom = innerRect.top + IconSizes[ICONSIZE_16];
+        innerRect.top = iconRect.top + (iconRect.bottom - iconRect.top - GetIconSize(ICONSIZE_16)) / 2; // iconY
+        innerRect.right = innerRect.left + GetIconSize(ICONSIZE_16);
+        innerRect.bottom = innerRect.top + GetIconSize(ICONSIZE_16);
 
         // clear the area around the icon
         if ((drawFlags & DRAWFLAG_MASK) == 0) // when drawing the mask (b&w), the background color must not be painted
@@ -593,7 +595,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                  innerRect.left, innerRect.top, ICONSIZE_16, NULL, drawFlags);
 
         if (drawFlags & DRAWFLAG_SELFOC_CHANGE)
-            cacheValidWidth += 1 + IconSizes[ICONSIZE_16] + 1;
+            cacheValidWidth += 1 + GetIconSize(ICONSIZE_16) + 1;
     }
 
     BOOL showCaret = FALSE;
@@ -615,7 +617,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
 
         RECT r = rect;
         int x = r.left;
-        int y = (r.top + r.bottom - FontCharHeight) / 2;
+        int y = (r.top + r.bottom - GetPanelFontHeight()) / 2;
 
         BOOL fileNameFormated = FALSE;
         SIZE textSize;
@@ -633,7 +635,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
 
         int nameWidth = Columns[0].Width;
 
-        r.left = x + 1 + IconSizes[ICONSIZE_16] + 1;
+        r.left = x + 1 + GetIconSize(ICONSIZE_16) + 1;
         r.right = x + nameWidth;
 
         // if the item is framed, draw only its interior
@@ -708,10 +710,10 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                 // measure the actual text length
                 if (GetViewMode() == vmDetailed && (column->FixedWidth == 1 || NarrowedNameColumn))
                 {
-                    textWidth = nameWidth - 1 - IconSizes[ICONSIZE_16] - 1 - 2 - SPACE_WIDTH;
+                    textWidth = nameWidth - 1 - GetIconSize(ICONSIZE_16) - 1 - 2 - SPACE_WIDTH;
                     GetTextExtentExPoint(hDC, TransferBuffer, nameLen, textWidth,
                                          &fitChars, DrawItemAlpDx, &fnSZ);
-                    int newWidth = 1 + IconSizes[ICONSIZE_16] + 1 + 2 + fnSZ.cx + 3;
+                    int newWidth = 1 + GetIconSize(ICONSIZE_16) + 1 + 2 + fnSZ.cx + 3;
                     if (newWidth > nameWidth)
                         newWidth = nameWidth;
                     adjR.right = r.right = rect.left + newWidth;
@@ -719,7 +721,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                 else
                 {
                     GetTextExtentPoint32(hDC, TransferBuffer, nameLen, &fnSZ);
-                    adjR.right = r.right = rect.left + 1 + IconSizes[ICONSIZE_16] + 1 + 2 + fnSZ.cx + 3;
+                    adjR.right = r.right = rect.left + 1 + GetIconSize(ICONSIZE_16) + 1 + 2 + fnSZ.cx + 3;
                 }
 
                 // focus will also be shorter
@@ -732,14 +734,14 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                 {
                     // no width measured yet - let's measure it now
                     // the string may be longer than the available space and must end with "..."
-                    textWidth = nameWidth - 1 - IconSizes[ICONSIZE_16] - 1 - 2 - SPACE_WIDTH;
+                    textWidth = nameWidth - 1 - GetIconSize(ICONSIZE_16) - 1 - 2 - SPACE_WIDTH;
                     GetTextExtentExPoint(hDC, TransferBuffer, nameLen, textWidth,
                                          &fitChars, DrawItemAlpDx, &fnSZ);
                 }
                 if (fitChars < nameLen)
                 {
                     // search from the end for the character after which we can copy "..." and it fits in the column
-                    while (fitChars > 0 && DrawItemAlpDx[fitChars - 1] + TextEllipsisWidth > textWidth)
+                    while (fitChars > 0 && DrawItemAlpDx[fitChars - 1] + GetTextEllipsisWidth() > textWidth)
                         fitChars--;
                     // copy a part of the original string to another buffer
                     int totalCount;
@@ -802,7 +804,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             if (!Configuration.FullRowSelect)
             {
                 if (TrackingSingleClick && SingleClickIndex == itemIndex)
-                    SelectObject(hDC, Font); // return to the normal font
+                    SelectObject(hDC, GetPanelFont()); // return to the normal font
                 if (forFrameAdjusted)
                 {
                     adjR.top--;
@@ -883,7 +885,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                             if (fitChars < TransferLen)
                             {
                                 // search from the end for the character after which we can copy "..." and it fits in the column
-                                while (fitChars > 0 && DrawItemAlpDx[fitChars - 1] + TextEllipsisWidth > textWidth)
+                                while (fitChars > 0 && DrawItemAlpDx[fitChars - 1] + GetTextEllipsisWidth() > textWidth)
                                     fitChars--;
                                 // copy part of the original string to another buffer
                                 int totalCount;
@@ -973,7 +975,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             (Configuration.FullRowSelect || focusFrameRightValid))
         {
             r = rect;
-            r.left += 1 + IconSizes[ICONSIZE_16] + 1;
+            r.left += 1 + GetIconSize(ICONSIZE_16) + 1;
             r.right = x;
             if (focusFrameRightValid)
                 r.right = focusFrameRight;
@@ -1025,7 +1027,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
 
 void SplitText(HDC hDC, const char* text, int textLen, int* maxWidth,
                char* out1, int* out1Len, int* out1Width,
-               char* out2, int* out2Len, int* out2Width)
+               char* out2, int* out2Len, int* out2Width, int ellipsisWidth)
 {
     SIZE sz;
     // measure the width of every character
@@ -1079,12 +1081,12 @@ void SplitText(HDC hDC, const char* text, int textLen, int* maxWidth,
 
             // append "..." at the end of the string
             int backTrackIndex = index - 1;
-            while (DrawItemAlpDx[backTrackIndex] + TextEllipsisWidth > maxW && backTrackIndex > 0)
+            while (DrawItemAlpDx[backTrackIndex] + ellipsisWidth > maxW && backTrackIndex > 0)
                 backTrackIndex--;
 
             int out1CopyLen = Utf8SafeDrawPrefixLen(text, backTrackIndex);
             *out1Len = min(*out1Len, out1CopyLen + 3);
-            *out1Width = backTrackIndex > 0 ? DrawItemAlpDx[backTrackIndex - 1] + TextEllipsisWidth : TextEllipsisWidth;
+            *out1Width = backTrackIndex > 0 ? DrawItemAlpDx[backTrackIndex - 1] + ellipsisWidth : ellipsisWidth;
             memmove(out1, text, *out1Len - 3);
             if (*out1Len >= 3)
                 memmove(out1 + *out1Len - 3, "...", 3);
@@ -1120,13 +1122,13 @@ void SplitText(HDC hDC, const char* text, int textLen, int* maxWidth,
             {
                 // the second line didn't fit completely; append an ellipsis
                 int backTrackIndex = index - 1;
-                while (DrawItemAlpDx[backTrackIndex] - offsetX + TextEllipsisWidth > maxW &&
+                while (DrawItemAlpDx[backTrackIndex] - offsetX + ellipsisWidth > maxW &&
                        backTrackIndex > oldIndex)
                     backTrackIndex--;
 
                 int out2CopyLen = Utf8SafeDrawPrefixLen(text + oldIndex, backTrackIndex - oldIndex);
                 *out2Len = min(*out2Len, out2CopyLen + 3);
-                *out2Width = DrawItemAlpDx[backTrackIndex - 1] - offsetX + TextEllipsisWidth;
+                *out2Width = DrawItemAlpDx[backTrackIndex - 1] - offsetX + ellipsisWidth;
                 memmove(out2, text + oldIndex, *out2Len - 3);
                 if (*out2Len >= 3)
                     memmove(out2 + *out2Len - 3, "...", 3);
@@ -1257,8 +1259,8 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
     if (drawFlags & DRAWFLAG_SKIP_VISTEST || RectVisible(hDC, &rect))
     {
         // icon/thumbnail size
-        int iconW = IconSizes[iconSize];
-        int iconH = IconSizes[iconSize];
+        int iconW = GetIconSize(iconSize);
+        int iconH = GetIconSize(iconSize);
 
         HBITMAP hScaled = NULL; // if not NULL, draw the thumbnail; otherwise draw the icon
         if (GetViewMode() == vmThumbnails)
@@ -1449,7 +1451,7 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
     if (!(drawFlags & DRAWFLAG_ICON_ONLY))
     {
         // select the appropriate font
-        SelectObject(hDC, Font);
+        SelectObject(hDC, GetPanelFont());
 
         // will we later draw a frame around the item?
         BOOL drawFocusFrame = (itemIndex == DropTargetIndex || isItemFocusedOrEditMode) &&
@@ -1488,7 +1490,7 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
         int out2Width;
         SplitText(hDC, TransferBuffer, nameLen, &maxWidth,
                   out1, &out1Len, &out1Width,
-                  out2, &out2Len, &out2Width);
+                  out2, &out2Len, &out2Width, GetTextEllipsisWidth());
 
         if (isItemUpDir)
         {
@@ -1510,7 +1512,7 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
         }
         else
         {
-            outerRect.top += 2 + IconSizes[ICONSIZE_32];
+            outerRect.top += 2 + GetIconSize(ICONSIZE_32);
             y = outerRect.top + 4;
         }
 
@@ -1519,9 +1521,9 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
         r.left = rect.left + (itemWidth - maxWidth) / 2 - 2;
         r.top = y - 2;
         r.right = r.left + maxWidth + 4;
-        r.bottom = y + FontCharHeight + 2;
+        r.bottom = y + GetPanelFontHeight() + 2;
         if (out2Len > 0)
-            r.bottom += FontCharHeight;
+            r.bottom += GetPanelFontHeight();
 
         // clear the background around the text
         if ((drawFlags & DRAWFLAG_MASK) == 0) // when drawing the mask (b&w), the background color must not be painted
@@ -1541,7 +1543,7 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
         if (out2Len > 0)
         {
             // DRAWFLAG_MASK: hack, under XP some stuff is added in font of the text in the mask while drawing short texts; not an issue if text is not drawn
-            ExtTextOut(hDC, rect.left + (itemWidth - out2Width) / 2, y += FontCharHeight,
+            ExtTextOut(hDC, rect.left + (itemWidth - out2Width) / 2, y += GetPanelFontHeight(),
                        0, NULL, out2, (drawFlags & DRAWFLAG_MASK) ? 0 : out2Len, NULL);
         }
 
@@ -1569,7 +1571,8 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
 // Draws an item in Tiles mode
 //
 
-void TruncateSringToFitWidth(HDC hDC, char* buffer, int* bufferLen, int maxTextWidth, int* widthNeeded)
+void TruncateSringToFitWidth(HDC hDC, char* buffer, int* bufferLen, int maxTextWidth,
+                            int ellipsisWidth, int* widthNeeded)
 {
     if (*bufferLen == 0)
         return;
@@ -1583,7 +1586,7 @@ void TruncateSringToFitWidth(HDC hDC, char* buffer, int* bufferLen, int maxTextW
         if (*widthNeeded < maxTextWidth)
             *widthNeeded = maxTextWidth;
         // search from the end for the character after which we can copy "..." and it fits in the column
-        while (fitChars > 0 && DrawItemAlpDx[fitChars - 1] + TextEllipsisWidth > maxTextWidth)
+        while (fitChars > 0 && DrawItemAlpDx[fitChars - 1] + ellipsisWidth > maxTextWidth)
             fitChars--;
         // copy part of the original string to another buffer
         if (fitChars > 0)
@@ -1610,7 +1613,7 @@ void TruncateSringToFitWidth(HDC hDC, char* buffer, int* bufferLen, int maxTextW
 }
 
 void GetTileTexts(CFileData* f, int isDir,
-                  HDC hDC, int maxTextWidth, int* widthNeeded,
+                  HDC hDC, int maxTextWidth, int ellipsisWidth, int* widthNeeded,
                   char* out0, int* out0Len,
                   char* out1, int* out1Len,
                   char* out2, int* out2Len, DWORD validFileData,
@@ -1623,7 +1626,7 @@ void GetTileTexts(CFileData* f, int isDir,
     *out0Len = f->NameLen;
     // the string may be longer than available space and may need to be shortened with "..."
     *widthNeeded = 0;
-    TruncateSringToFitWidth(hDC, out0, out0Len, maxTextWidth, widthNeeded);
+    TruncateSringToFitWidth(hDC, out0, out0Len, maxTextWidth, ellipsisWidth, widthNeeded);
 
     // 2nd line: SIZE (if known)
     CQuadWord plSize;
@@ -1640,7 +1643,7 @@ void GetTileTexts(CFileData* f, int isDir,
         PrintDiskSize(out1, plSizeValid ? plSize : f->Size, 0);
     *out1Len = (int)strlen(out1);
     // the string may be longer than available space and may need to be shortened with "..."
-    TruncateSringToFitWidth(hDC, out1, out1Len, maxTextWidth, widthNeeded);
+    TruncateSringToFitWidth(hDC, out1, out1Len, maxTextWidth, ellipsisWidth, widthNeeded);
 
     // 3rd line DATE TIME (if known)
     SYSTEMTIME st;
@@ -1730,7 +1733,7 @@ void GetTileTexts(CFileData* f, int isDir,
     }
     *out2Len = out2LenA + out2LenB;
     // the string may be longer than available space and may need to be shortened with "..."
-    TruncateSringToFitWidth(hDC, out2, out2Len, maxTextWidth, widthNeeded);
+    TruncateSringToFitWidth(hDC, out2, out2Len, maxTextWidth, ellipsisWidth, widthNeeded);
 }
 
 void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD drawFlags,
@@ -1796,8 +1799,8 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
     if (drawFlags & DRAWFLAG_SKIP_VISTEST || RectVisible(hDC, &rect))
     {
         // icon size
-        int iconW = IconSizes[iconSize];
-        int iconH = IconSizes[iconSize];
+        int iconW = GetIconSize(iconSize);
+        int iconH = GetIconSize(iconSize);
 
         // icon position
         int iconX = rect.left + TILE_LEFT_MARGIN;
@@ -1832,7 +1835,7 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
     if (!(drawFlags & DRAWFLAG_ICON_ONLY))
     {
         // select the appropriate font
-        SelectObject(hDC, Font);
+        SelectObject(hDC, GetPanelFont());
 
         // will we later draw a frame around the item?
         BOOL drawFocusFrame = (itemIndex == DropTargetIndex || isItemFocusedOrEditMode) &&
@@ -1859,7 +1862,7 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
         int itemWidth = rect.right - rect.left; // item width
 
         // texts must not exceed this length in pixels
-        int maxTextWidth = itemWidth - TILE_LEFT_MARGIN - IconSizes[iconSize] - TILE_LEFT_MARGIN - 4;
+        int maxTextWidth = itemWidth - TILE_LEFT_MARGIN - GetIconSize(iconSize) - TILE_LEFT_MARGIN - 4;
         int widthNeeded = 0;
 
         char* out0 = TransferBuffer;
@@ -1868,7 +1871,8 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
         int out1Len;
         char* out2 = DrawItemBuff + 512;
         int out2Len;
-        GetTileTexts(f, isDir ? (isItemUpDir ? 2 /* UP-DIR */ : 1) : 0, hDC, maxTextWidth, &widthNeeded,
+        GetTileTexts(f, isDir ? (isItemUpDir ? 2 /* UP-DIR */ : 1) : 0, hDC, maxTextWidth,
+                     GetTextEllipsisWidth(), &widthNeeded,
                      out0, &out0Len, out1, &out1Len, out2, &out2Len,
                      ValidFileData, &PluginData, Is(ptDisk));
 
@@ -1879,7 +1883,7 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
 
         // vnejsi obdelnik, od ktereho mazu smerem k vnitrnimu
         RECT outerRect = rect;
-        outerRect.left += TILE_LEFT_MARGIN + IconSizes[iconSize];
+        outerRect.left += TILE_LEFT_MARGIN + GetIconSize(iconSize);
 
         //int oldRTop = r.top;
 
@@ -1893,7 +1897,7 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
             visibleLines++;
         if (out2[0] != 0)
             visibleLines++;
-        int textH = visibleLines * FontCharHeight + 4;
+        int textH = visibleLines * GetPanelFontHeight() + 4;
         int textX = r.left + 2;
         int textY = rect.top + (rect.bottom - rect.top - textH) / 2; // centrujeme
 
@@ -1918,7 +1922,7 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
         //      InflateRect(&r, -1, -1);
 
         // display the first line and also clear the background of the area above it
-        r.bottom = textY + FontCharHeight;
+        r.bottom = textY + GetPanelFontHeight();
         if (out1[0] == 0 && out2[0] == 0) // if this is the last line, clear the background of the area below it
         {
             r.bottom += 2;
@@ -1931,9 +1935,9 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
         // display the second line
         if (out1[0] != 0)
         {
-            textY += FontCharHeight;
+            textY += GetPanelFontHeight();
             r.top = r.bottom;
-            r.bottom = r.top + FontCharHeight;
+            r.bottom = r.top + GetPanelFontHeight();
             if (out2[0] == 0) // if this is the last line, clear the background of the area below it
             {
                 r.bottom += 2;
@@ -1947,10 +1951,10 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
         if (out2[0] != 0)
         {
             r.top = r.bottom;
-            r.bottom = r.top + FontCharHeight + 2;
+            r.bottom = r.top + GetPanelFontHeight() + 2;
             if (drawFocusFrame)
                 r.bottom--;
-            textY += FontCharHeight;
+            textY += GetPanelFontHeight();
             // DRAWFLAG_MASK: hack, under XP some stuff is added in font of the text in the mask while drawing short texts; not an issue if text is not drawn
             ExtTextOut(hDC, textX, textY, ETO_OPAQUE, &r, out2, (drawFlags & DRAWFLAG_MASK) ? 0 : out2Len, NULL);
         }
@@ -1974,7 +1978,7 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
 BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst, int yDst,
                          DWORD state, CIconSizeEnum iconSize, DWORD iconOverlayIndex,
                          const RECT* overlayRect, BOOL overlayOnly, BOOL iconOverlayFromPlugin,
-                         int pluginIconOverlaysCount, HICON* pluginIconOverlays)
+                         int pluginIconOverlaysCount, HICON* pluginIconOverlays, int dpi)
 {
     COLORREF rgbFg = CLR_DEFAULT;
     BOOL blend = FALSE;
@@ -2014,8 +2018,11 @@ BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst,
         yOverlayDst += 48 - 32;
     }
 
-    int iconW = IconSizes[iconSize];
-    int iconH = IconSizes[iconSize];
+    if (dpi <= 0)
+        dpi = GetSystemDPI();
+    static const int logicalIconSizes[ICONSIZE_COUNT] = {16, 32, 48};
+    int iconW = MulDiv(logicalIconSizes[iconSize], dpi, 96);
+    int iconH = iconW;
 
     // for a thumbnail overlayRect != NULL and we move the overlay to its lower left corner
     if (overlayRect != NULL)
