@@ -61,7 +61,7 @@ END
 IDD_CHANGEDISK DIALOGEX 6, 15, 194, 110
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Next archive volume"
-FONT 9, "Segoe UI", 400, 0, 0x1
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     LTEXT           "Please insert disk with the next archive volume or locate appropriate file on the disk.\n\nPress OK when ready.",IDC_STATIC_1,12,9,170,32
     LTEXT           "Previous volume:",IDC_STATIC_2,12,48,60,8
@@ -76,7 +76,7 @@ END
 IDD_ERROR DIALOGEX 15, 34, 352, 85
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Error"
-FONT 9, "Segoe UI", 400, 0, 0x1
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     RTEXT           "Name:",IDC_STATIC_1,6,10,26,8
     LTEXT           "",IDS_FILENAME,36,10,309,8,SS_NOPREFIX | NOT WS_GROUP
@@ -91,7 +91,7 @@ END
 IDD_CONFIG DIALOGEX 22, 38, 220, 85
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "UnARJ Configuration"
-FONT 9, "Segoe UI", 400, 0, 0x1
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     LTEXT           "when unpacking.",IDC_STATIC_1,23,22,154,8
     CONTROL         "&Automatically skip files continued from previous volume",IDC_SKIPCONTINUED,
@@ -107,7 +107,7 @@ END
 IDD_WARNING DIALOGEX 6, 15, 213, 107
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "UnARJ - Attention"
-FONT 9, "Segoe UI", 400, 0, 0x1
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     LTEXT           "Not all files in the multi-volume archive can be listed (and seen in the panel), because some of archive volumes cannot be found.",IDC_STATIC_1,11,10,194,24
     LTEXT           "To list whole archive content copy all archive volumes to the same directory.",IDC_STATIC_2,11,41,192,16

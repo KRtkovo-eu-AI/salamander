@@ -61,7 +61,7 @@ END
 IDD_MAIN DIALOGEX 30, 30, 338, 238
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU
 CAPTION "Check for New Versions"
-FONT 9, "Segoe UI", 400, 0, 0x1
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "Check &Now",IDC_MAIN_CHECK,161,220,50,14
     PUSHBUTTON      "C&lose",IDCANCEL,220,220,50,14
@@ -73,7 +73,7 @@ END
 IDD_CONFIGURATION DIALOGEX 15, 39, 357, 245
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Configuration of Check Version"
-FONT 9, "Segoe UI", 400, 0, 0x1
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     LTEXT           "Internet Connection Settings:",IDC_STATIC_1,5,7,101,8
     LTEXT           "",IDC_CFG_INTERNET,107,7,190,8
@@ -109,7 +109,7 @@ END
 IDD_INTERNET DIALOGEX 50, 20, 258, 200
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "CheckVer Internet Connection Settings"
-FONT 9, "Segoe UI", 400, 0, 0x1
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     ICON            "",IDC_INTERNET_ICON,8,8,20,20,WS_GROUP
     LTEXT           "CheckVer plugin lets you know about the latest versions of Open Salamander and plugins. Internet connection is needed for reading new versions information.",IDC_STATIC_1,39,7,202,24
