@@ -313,6 +313,7 @@ internal static class UpdateCoordinator
     private static Timer? UpdateTimer;
     private static BlockingCollection<Action>? UiQueue;
     private static Thread? UiThread;
+    private static readonly CancellationTokenSource ShutdownCancellation = new();
 
     static UpdateCoordinator()
     {
@@ -389,6 +390,18 @@ internal static class UpdateCoordinator
         }
 
         await CheckSemaphore.WaitAsync().ConfigureAwait(false);
+        var shutdownToken = ShutdownCancellation.Token;
+        if (shutdownToken.IsCancellationRequested)
+            return;
+
+        try
+        {
+            await CheckSemaphore.WaitAsync(shutdownToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
         try
         {
             string? latestVersion = null;
@@ -397,7 +410,11 @@ internal static class UpdateCoordinator
 
             try
             {
-                (latestVersion, noPublishedReleases) = await FetchLatestVersionAsync().ConfigureAwait(false);
+                (latestVersion, noPublishedReleases) = await FetchLatestVersionAsync(shutdownToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (shutdownToken.IsCancellationRequested)
+            {
+                return;
             }
             catch (Exception ex)
             {
@@ -481,8 +498,11 @@ internal static class UpdateCoordinator
             UpdateTimer = null;
         }
 
-        CheckSemaphore.Wait();
-        CheckSemaphore.Release();
+        ShutdownCancellation.Cancel();
+
+        // during shutdown, do not block UI close on a pending check/network request
+        if (CheckSemaphore.Wait(200))
+            CheckSemaphore.Release();
 
         StopUiThread();
     }
@@ -505,10 +525,10 @@ internal static class UpdateCoordinator
         }
     }
 
-    private static async Task<(string? Version, bool NoPublishedReleases)> FetchLatestVersionAsync()
+    private static async Task<(string? Version, bool NoPublishedReleases)> FetchLatestVersionAsync(CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, ReleasesUri);
-        using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+        using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         var finalUri = response.RequestMessage?.RequestUri ?? ReleasesUri;
