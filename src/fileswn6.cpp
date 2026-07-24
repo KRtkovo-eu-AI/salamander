@@ -1728,6 +1728,16 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             return TRUE;
     }
     //---
+    if (type == atCountSize && Configuration.CountSizeStayOnFileSystem &&
+        (sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT))
+    {
+        *sourceEnd = 0; // restoring sourcePath
+        if (targetEnd != NULL)
+            *targetEnd = 0; // restoring targetPath
+        return TRUE; // do not follow directory links/reparse points while calculating occupied space
+    }
+
+    //---
     if (type == atDelete && Configuration.CnfrmSHDirDel &&
         (sourceDirAttr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
     {

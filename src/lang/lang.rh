@@ -101,6 +101,7 @@
 #define IDS_DISKUTILIZATION             267
 #define IDC_EST_SIZE                    268
 #define IDC_EST_UTIL                    269
+#define IDC_STAYONFILESYSTEM            270
 #define IDD_ABOUT                       270
 #define IDS_ABOUT_SALAMANDER            271
 #define IDC_ABOUT_WWW                   272

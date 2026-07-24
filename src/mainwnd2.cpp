@@ -1218,6 +1218,7 @@ const char* CONFIG_EDITNEWFILE_USEDEFAULT_REG = "Edit New File Use Default";
 const char* CONFIG_EDITNEWFILE_DEFAULT_REG = "Edit New File Default";
 
 //const char *CONFIG_SPACESELCALCSPACE = "Space Selecting";
+const char* CONFIG_COUNTSIZESTAYONFILESYSTEM = "Count Size Stay On File System";
 const char* CONFIG_USETIMERESOLUTION = "Use Time Resolution";
 const char* CONFIG_TIMERESOLUTION = "Time Resolution";
 const char* CONFIG_IGNOREDSTSHIFTS = "Ignore DST Shifts";
@@ -3422,6 +3423,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 
                 //      SetValue(actKey, CONFIG_SPACESELCALCSPACE, REG_DWORD,
                 //               &Configuration.SpaceSelCalcSpace, sizeof(DWORD));
+                SetValue(actKey, CONFIG_COUNTSIZESTAYONFILESYSTEM, REG_DWORD,
+                         &Configuration.CountSizeStayOnFileSystem, sizeof(DWORD));
                 SetValue(actKey, CONFIG_USETIMERESOLUTION, REG_DWORD,
                          &Configuration.UseTimeResolution, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TIMERESOLUTION, REG_DWORD,
@@ -5496,6 +5499,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
             //      GetValue(actKey, CONFIG_SPACESELCALCSPACE, REG_DWORD,
             //               &Configuration.SpaceSelCalcSpace, sizeof(DWORD));
+            GetValue(actKey, CONFIG_COUNTSIZESTAYONFILESYSTEM, REG_DWORD,
+                     &Configuration.CountSizeStayOnFileSystem, sizeof(DWORD));
             GetValue(actKey, CONFIG_USETIMERESOLUTION, REG_DWORD,
                      &Configuration.UseTimeResolution, sizeof(DWORD));
             GetValue(actKey, CONFIG_TIMERESOLUTION, REG_DWORD,

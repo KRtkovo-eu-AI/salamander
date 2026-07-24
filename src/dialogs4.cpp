@@ -663,6 +663,7 @@ CConfiguration::CConfiguration()
     IfPathIsInaccessibleGoTo[0] = 0;
 
     SpaceSelCalcSpace = TRUE;
+    CountSizeStayOnFileSystem = FALSE;
 
     UseTimeResolution = TRUE;
     TimeResolution = 2;

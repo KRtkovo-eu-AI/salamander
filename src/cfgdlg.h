@@ -329,6 +329,7 @@ struct CConfiguration
     int SizeFormat; // how to display values in the Size column: SIZE_FORMAT_xxx
 
     int SpaceSelCalcSpace; // when selecting with Space, calculate occupied space
+    int CountSizeStayOnFileSystem; // do not follow directory links/reparse points when calculating occupied space
 
     int UseTimeResolution; // compare directories: use time resolution
     int TimeResolution;    // compare directories: time resolution <0..3600>s

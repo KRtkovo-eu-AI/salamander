@@ -556,6 +556,8 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (Sizes == NULL || !Sizes->IsGood())
             EnableWindow(hCombo, FALSE);
 
+        CheckDlgButton(HWindow, IDC_STAYONFILESYSTEM, Configuration.CountSizeStayOnFileSystem ? BST_CHECKED : BST_UNCHECKED);
+
         UpdateEstimate();
 
         break;
@@ -570,6 +572,10 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (HIWORD(wParam) == CBN_EDITCHANGE)
         {
             UpdateEstimate();
+        }
+        if (LOWORD(wParam) == IDOK)
+        {
+            Configuration.CountSizeStayOnFileSystem = IsDlgButtonChecked(HWindow, IDC_STAYONFILESYSTEM) == BST_CHECKED;
         }
         break;
     }
