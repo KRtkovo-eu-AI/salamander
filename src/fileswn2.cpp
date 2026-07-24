@@ -2729,6 +2729,9 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                                     BOOL refreshListBox, BOOL canForce, BOOL isRefresh, int* failReason,
                                     BOOL shorterPathWarning, int tryCloseReason)
 {
+    if (!isRefresh && !ConfirmUnlockTabForPathChange())
+        return FALSE;
+
     CALL_STACK_MESSAGE9("CFilesWindow::ChangePathToDisk(, %s, %d, %s, , %d, %d, %d, , %d, %d)", path,
                         suggestedTopIndex, suggestedFocusName, refreshListBox, canForce, isRefresh,
                         shorterPathWarning, tryCloseReason);
@@ -3096,6 +3099,9 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                                        int* failReason, BOOL isRefresh, BOOL canFocusFileName,
                                        BOOL isHistory)
 {
+    if (!isRefresh && !ConfirmUnlockTabForPathChange())
+        return FALSE;
+
     CALL_STACK_MESSAGE10("CFilesWindow::ChangePathToArchive(%s, %s, %d, %s, %d, , %d, , %d, %d, %d)",
                          archive, archivePath, suggestedTopIndex, suggestedFocusName,
                          forceUpdate, refreshListBox, isRefresh, canFocusFileName, isHistory);
@@ -3790,6 +3796,9 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
                                         BOOL* noChange, BOOL refreshListBox, int* failReason, BOOL isRefresh,
                                         BOOL canFocusFileName, BOOL convertPathToInternal)
 {
+    if (!isRefresh && !ConfirmUnlockTabForPathChange())
+        return FALSE;
+
     CALL_STACK_MESSAGE11("CFilesWindow::ChangePathToPluginFS(%s, %s, %d, %s, %d, %d, , %d, , %d, %d, %d)",
                          fsName, fsUserPart, suggestedTopIndex, suggestedFocusName, forceUpdate,
                          mode, refreshListBox, isRefresh, canFocusFileName, convertPathToInternal);

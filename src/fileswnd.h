@@ -995,6 +995,7 @@ public:
     void ClearCustomTabPrefix();
     bool IsTabLocked() const { return TabLocked; }
     void SetTabLocked(bool locked) { TabLocked = locked; }
+    BOOL ConfirmUnlockTabForPathChange();
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&
