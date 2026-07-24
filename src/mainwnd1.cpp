@@ -5534,15 +5534,19 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
     ArchivePanelMenu.SetImageList(HGrayToolBarImageList, TRUE);
     ArchivePanelMenu.SetHotImageList(HHotToolBarImageList, TRUE);
 
-    // left/right panel
-    if (LeftPanel != NULL)
+    // Every tab can own DPI-specific icon copies for a different top-level
+    // window. Global icon sources have just been recreated, so invalidate
+    // all tab copies rather than only the two currently active panels.
+    for (int i = 0; i < LeftPanelTabs.Count; ++i)
     {
-        LeftPanel->OnColorsChanged();
+        if (LeftPanelTabs[i] != NULL)
+            LeftPanelTabs[i]->OnColorsChanged();
     }
 
-    if (RightPanel != NULL)
+    for (int i = 0; i < RightPanelTabs.Count; ++i)
     {
-        RightPanel->OnColorsChanged();
+        if (RightPanelTabs[i] != NULL)
+            RightPanelTabs[i]->OnColorsChanged();
     }
 
     if (EditWindow != NULL && EditWindow->HWindow != NULL)

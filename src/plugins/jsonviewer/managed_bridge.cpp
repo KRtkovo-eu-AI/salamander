@@ -46,6 +46,54 @@ HWND ResolveOwnerWindow(HWND parent)
     return parent;
 }
 
+RECT ResolvePlacementForOwner(HWND parent, HWND owner, const RECT& placement)
+{
+    RECT resolved = placement;
+    int width = placement.right - placement.left;
+    int height = placement.bottom - placement.top;
+    if (owner == nullptr || owner == parent || width <= 0 || height <= 0)
+    {
+        return resolved;
+    }
+
+    RECT ownerRect;
+    if (!GetWindowRect(owner, &ownerRect))
+    {
+        return resolved;
+    }
+
+    resolved.left = ownerRect.left +
+                    ((ownerRect.right - ownerRect.left) - width) / 2;
+    resolved.top = ownerRect.top +
+                   ((ownerRect.bottom - ownerRect.top) - height) / 2;
+    resolved.right = resolved.left + width;
+    resolved.bottom = resolved.top + height;
+
+    HMONITOR monitor = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO monitorInfo;
+    monitorInfo.cbSize = sizeof(monitorInfo);
+    if (monitor != nullptr && GetMonitorInfo(monitor, &monitorInfo))
+    {
+        const RECT& work = monitorInfo.rcWork;
+        if (width <= work.right - work.left)
+        {
+            if (resolved.left < work.left)
+                OffsetRect(&resolved, work.left - resolved.left, 0);
+            else if (resolved.right > work.right)
+                OffsetRect(&resolved, work.right - resolved.right, 0);
+        }
+        if (height <= work.bottom - work.top)
+        {
+            if (resolved.top < work.top)
+                OffsetRect(&resolved, 0, work.top - resolved.top);
+            else if (resolved.bottom > work.bottom)
+                OffsetRect(&resolved, 0, work.bottom - resolved.bottom);
+        }
+    }
+
+    return resolved;
+}
+
 std::wstring BuildArgument(const wchar_t* command, HWND parent, const wchar_t* payload)
 {
     std::wstring argument = command;
@@ -342,6 +390,7 @@ bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& p
                                 UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous)
 {
     HWND owner = ResolveOwnerWindow(parent);
+    RECT ownerPlacement = ResolvePlacementForOwner(parent, owner, placement);
     if (!ManagedBridge_EnsureInitialized(owner))
     {
         return false;
@@ -376,10 +425,10 @@ bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& p
     std::wstring payload;
     AppendKeyValue(payload, L"path", encodedPath.c_str());
     AppendKeyValue(payload, L"caption", encodedCaption.c_str());
-    AppendInt(payload, L"left", placement.left);
-    AppendInt(payload, L"top", placement.top);
-    AppendInt(payload, L"width", placement.right - placement.left);
-    AppendInt(payload, L"height", placement.bottom - placement.top);
+    AppendInt(payload, L"left", ownerPlacement.left);
+    AppendInt(payload, L"top", ownerPlacement.top);
+    AppendInt(payload, L"width", ownerPlacement.right - ownerPlacement.left);
+    AppendInt(payload, L"height", ownerPlacement.bottom - ownerPlacement.top);
     AppendUInt(payload, L"show", showCmd);
     AppendKeyValue(payload, L"ontop", alwaysOnTop ? L"1" : L"0");
     AppendHandle(payload, L"close", fileLock);

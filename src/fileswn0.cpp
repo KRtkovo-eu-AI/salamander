@@ -3487,10 +3487,14 @@ void CFilesWindow::RefreshForConfig()
 // for toolbars and they need to be assigned to the controls that use them
 void CFilesWindow::OnColorsChanged()
 {
+    ClearIndependentIconLists();
+
     if (DirectoryLine != NULL && DirectoryLine->ToolBar != NULL)
     {
-        DirectoryLine->ToolBar->SetImageList(HGrayToolBarImageList);
-        DirectoryLine->ToolBar->SetHotImageList(HHotToolBarImageList);
+        DirectoryLine->ToolBar->SetImageList(
+            Parent->GetToolbarImageListForWindow(DirectoryLine->HWindow, FALSE));
+        DirectoryLine->ToolBar->SetHotImageList(
+            Parent->GetToolbarImageListForWindow(DirectoryLine->HWindow, TRUE));
         DirectoryLine->OnColorsChanged();
         // we need to put the disk icon into the new toolbar
         UpdateDriveIcon(FALSE);
