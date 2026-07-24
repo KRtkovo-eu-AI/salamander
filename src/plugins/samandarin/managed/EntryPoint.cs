@@ -1162,6 +1162,9 @@ internal sealed class ThemedGroupBox : GroupBox
 
 internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 {
+    // The native viewer API already supplies an outer rectangle in
+    // physical screen pixels. Scale the contents, not that rectangle.
+    protected override bool ScaleInitialWindowBounds => false;
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
