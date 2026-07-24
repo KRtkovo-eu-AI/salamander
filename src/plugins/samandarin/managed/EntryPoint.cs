@@ -1214,7 +1214,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 5,
-            Padding = new Padding(12),
+            Padding = new Padding(12, 12, 12, 6),
         };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 58f));
@@ -1292,21 +1292,40 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         detailGroup.Controls.Add(detailLayout);
         layout.Controls.Add(detailGroup, 0, 3);
 
-        var bottomPanel = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 10, 0, 0) };
+        var bottomPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = false,
+            ColumnCount = 2,
+            Height = 34,
+            Padding = new Padding(0, 6, 0, 0),
+        };
         bottomPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         bottomPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _statusLabel = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 28, Padding = new Padding(0, 6, 8, 0) };
         bottomPanel.Controls.Add(_statusLabel, 0, 0);
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0) };
+        var buttons = new FlowLayoutPanel
+        {
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            AutoSize = false,
+            WrapContents = false,
+            FlowDirection = FlowDirection.RightToLeft,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+            Size = new System.Drawing.Size(275, 27),
+        };
         var closeButton = CreateDialogButton(
             NativeStrings.Get(NativeStringId.PluginUpdatesClose), 75);
         closeButton.DialogResult = DialogResult.Cancel;
+        closeButton.Margin = Padding.Empty;
         _refreshButton = CreateDialogButton(
             NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), 75);
+        _refreshButton.Margin = new Padding(0, 0, 4, 0);
         _sourcesButton = CreateDialogButton(
             NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources),
             116);
+        _sourcesButton.Margin = new Padding(0, 0, 4, 0);
         _refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
         _sourcesButton.Click += (_, _) => ShowSourcesDialog();
         buttons.Controls.Add(closeButton);
