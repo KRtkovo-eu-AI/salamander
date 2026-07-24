@@ -238,6 +238,7 @@ protected:
     SIZE LogicalWindowSize;
     BOOL DPIChangeInProgress;
     BOOL DPILayoutPosted;
+    BOOL UserSizing;
     HFONT TreeFont;
 
 public:
