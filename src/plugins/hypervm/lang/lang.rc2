@@ -38,7 +38,7 @@ STRINGTABLE
  IDS_VHD_FORMAT, "Virtual hard disk format"
  IDS_VHD_TYPE, "Virtual hard disk type"
  IDS_VHD_VHD_HELP, "Supports virtual disks up to 2040 GB in size."
- IDS_VHD_VHDX_HELP, "Supports virtual disks larger than 2040 GB in size (Supported maximum of 64 TB) and is resilient to power failure events. This format is not supported in operating systems earlier than Windows 8 or Windows Server 2012."
+ IDS_VHD_VHDX_HELP, "Supports virtual disks larger than 2040 GB in size (Supported maximum of 64 TB) and is resilient to power failure events."
  IDS_VHD_FIXED, "Fixed size (Recommended)"
  IDS_VHD_DYNAMIC, "Dynamically expanding"
  IDS_VHD_FIXED_HELP, "The virtual hard disk file is allocated to its maximum size when the virtual hard disk is created."

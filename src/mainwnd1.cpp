@@ -394,6 +394,8 @@ CMainWindow::CMainWindow()
     DetachedEditWindow = NULL;
     HDetachedGrayToolBarImageList = NULL;
     HDetachedHotToolBarImageList = NULL;
+    HDetachedBottomTBImageList = NULL;
+    HDetachedHotBottomTBImageList = NULL;
     DetachedWindowDPI = 0;
 
     PanelConfigPathsRestoredLeft = FALSE;
@@ -1930,7 +1932,8 @@ BOOL CMainWindow::RebuildDetachedToolbarImageLists(int dpi)
     if (dpi <= 0)
         dpi = USER_DEFAULT_SCREEN_DPI;
     if (DetachedWindowDPI == dpi &&
-        HDetachedGrayToolBarImageList != NULL && HDetachedHotToolBarImageList != NULL)
+        HDetachedGrayToolBarImageList != NULL && HDetachedHotToolBarImageList != NULL &&
+        HDetachedBottomTBImageList != NULL && HDetachedHotBottomTBImageList != NULL)
     {
         return TRUE;
     }
@@ -1974,6 +1977,16 @@ BOOL CMainWindow::RebuildDetachedToolbarImageLists(int dpi)
         return FALSE;
     }
 
+    HIMAGELIST newBottom = NULL;
+    HIMAGELIST newHotBottom = NULL;
+    if (!CreateBottomToolbarImageLists(
+            dpi, &newBottom, &newHotBottom))
+    {
+        ImageList_Destroy(newHot);
+        ImageList_Destroy(newGray);
+        return FALSE;
+    }
+
     ImageList_SetBkColor(newHot, toolbarFace);
     ImageList_SetBkColor(newGray, toolbarFace);
 
@@ -1997,8 +2010,14 @@ BOOL CMainWindow::RebuildDetachedToolbarImageLists(int dpi)
         ImageList_Destroy(HDetachedHotToolBarImageList);
     if (HDetachedGrayToolBarImageList != NULL)
         ImageList_Destroy(HDetachedGrayToolBarImageList);
+    if (HDetachedBottomTBImageList != NULL)
+        ImageList_Destroy(HDetachedBottomTBImageList);
+    if (HDetachedHotBottomTBImageList != NULL)
+        ImageList_Destroy(HDetachedHotBottomTBImageList);
     HDetachedHotToolBarImageList = newHot;
     HDetachedGrayToolBarImageList = newGray;
+    HDetachedBottomTBImageList = newBottom;
+    HDetachedHotBottomTBImageList = newHotBottom;
     DetachedWindowDPI = dpi;
     return TRUE;
 }
@@ -2196,8 +2215,14 @@ BOOL CMainWindow::EnsureDetachedChrome()
             DetachedBottomToolBar = new CBottomToolBar(HWindow, ooStatic);
             if (DetachedBottomToolBar != NULL)
             {
-                DetachedBottomToolBar->SetImageList(HBottomTBImageList);
-                DetachedBottomToolBar->SetHotImageList(HHotBottomTBImageList);
+                DetachedBottomToolBar->SetImageList(
+                    HDetachedBottomTBImageList != NULL
+                        ? HDetachedBottomTBImageList
+                        : HBottomTBImageList);
+                DetachedBottomToolBar->SetHotImageList(
+                    HDetachedHotBottomTBImageList != NULL
+                        ? HDetachedHotBottomTBImageList
+                        : HHotBottomTBImageList);
             }
         }
         if (DetachedBottomToolBar == NULL)
@@ -2314,6 +2339,16 @@ void CMainWindow::DestroyDetachedChrome()
     {
         ImageList_Destroy(HDetachedGrayToolBarImageList);
         HDetachedGrayToolBarImageList = NULL;
+    }
+    if (HDetachedHotBottomTBImageList != NULL)
+    {
+        ImageList_Destroy(HDetachedHotBottomTBImageList);
+        HDetachedHotBottomTBImageList = NULL;
+    }
+    if (HDetachedBottomTBImageList != NULL)
+    {
+        ImageList_Destroy(HDetachedBottomTBImageList);
+        HDetachedBottomTBImageList = NULL;
     }
     DetachedWindowDPI = 0;
 }

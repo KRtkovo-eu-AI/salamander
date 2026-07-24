@@ -40,8 +40,6 @@
 </compatibility>
 <asmv3:application xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
   <asmv3:windowsSettings>
-    <ws2005:dpiAware xmlns:ws2005="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</ws2005:dpiAware>
-    <ws2016:dpiAwareness xmlns:ws2016="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</ws2016:dpiAwareness>
     <ws2019:activeCodePage xmlns:ws2019="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</ws2019:activeCodePage>
     <ws2016:longPathAware xmlns:ws2016="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</ws2016:longPathAware>
   </asmv3:windowsSettings>

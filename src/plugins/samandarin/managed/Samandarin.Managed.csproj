@@ -12,6 +12,8 @@
 
   <ItemGroup>
     <Compile Include="..\..\shared\ManagedDpi.cs" Link="ManagedDpi.cs" />
+    <Compile Include="..\..\shared\ManagedDpiModuleInitializer.cs"
+             Link="ManagedDpiModuleInitializer.cs" />
   </ItemGroup>
 
   <Target Name="EnsureRestoreBeforeBuild"

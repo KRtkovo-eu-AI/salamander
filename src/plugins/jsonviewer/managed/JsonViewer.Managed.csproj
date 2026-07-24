@@ -20,6 +20,9 @@
     <Compile Include="..\..\shared\ManagedDpi.cs">
       <Link>ManagedDpi.cs</Link>
     </Compile>
+    <Compile Include="..\..\shared\ManagedDpiModuleInitializer.cs">
+      <Link>ManagedDpiModuleInitializer.cs</Link>
+    </Compile>
     <Compile Include="EntryPoint.cs" />
     <Compile Include="ViewerHost.cs" />
     <Compile Include="WindowInterop.cs" />
