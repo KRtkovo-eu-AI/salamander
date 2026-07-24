@@ -23,6 +23,29 @@ std::wstring gAssemblyPath;
 const wchar_t* const kManagedType = L"OpenSalamander.JsonViewer.EntryPoint";
 const wchar_t* const kManagedMethod = L"Dispatch";
 
+HWND ResolveOwnerWindow(HWND parent)
+{
+    HWND foreground = GetForegroundWindow();
+    if (foreground != nullptr)
+    {
+        HWND root = GetAncestor(foreground, GA_ROOT);
+        if (root != nullptr)
+        {
+            foreground = root;
+        }
+
+        DWORD windowProcessId = 0;
+        GetWindowThreadProcessId(foreground, &windowProcessId);
+        if (windowProcessId == GetCurrentProcessId() &&
+            IsWindowVisible(foreground) && !IsIconic(foreground))
+        {
+            return foreground;
+        }
+    }
+
+    return parent;
+}
+
 std::wstring BuildArgument(const wchar_t* command, HWND parent, const wchar_t* payload)
 {
     std::wstring argument = command;
@@ -318,7 +341,8 @@ bool ManagedBridge_RequestShutdown(HWND parent, bool forceClose)
 bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& placement,
                                 UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous)
 {
-    if (!ManagedBridge_EnsureInitialized(parent))
+    HWND owner = ResolveOwnerWindow(parent);
+    if (!ManagedBridge_EnsureInitialized(owner))
     {
         return false;
     }
@@ -333,7 +357,7 @@ bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& p
 
     if (encodedPath.empty())
     {
-        ShowLoadError(parent, L"Unable to prepare parameters for the JSON viewer.");
+        ShowLoadError(owner, L"Unable to prepare parameters for the JSON viewer.");
         return false;
     }
 
@@ -362,7 +386,7 @@ bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& p
     AppendKeyValue(payload, L"async", asynchronous ? L"1" : L"0");
 
     const wchar_t* command = asynchronous ? L"View" : L"ViewSync";
-    return ExecuteCommand(command, parent, payload.c_str());
+    return ExecuteCommand(command, owner, payload.c_str());
 }
 
 extern "C" __declspec(dllexport) UINT32 __stdcall JsonViewer_GetCurrentColor(int color)
