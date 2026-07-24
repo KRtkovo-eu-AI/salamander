@@ -5020,6 +5020,14 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_VOLUMENAME), enableMountFolders);
             EnableWindow(GetDlgItem(HWindow, IDC_CHD_MOUNTFOLDERS_DRIVEBAR), enableMountFolders);
         }
+        if (LOWORD(wParam) == IDL_CHD_DRIVES || LOWORD(wParam) == IDL_CHD_SEPARATORS)
+        {
+            if (HIWORD(wParam) == LBN_SETFOCUS || HIWORD(wParam) == LBN_KILLFOCUS)
+            {
+                InvalidateRect((HWND)lParam, NULL, TRUE);
+                return 0;
+            }
+        }
         break;
     }
 
@@ -5134,19 +5142,6 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL selected = (BOOL)SendMessage(hList, LB_GETSEL, index, 0);
         SendMessage(hList, LB_SETSEL, !selected, index);
         return -1;
-    }
-
-    case WM_COMMAND:
-    {
-        if (LOWORD(wParam) == IDL_CHD_DRIVES || LOWORD(wParam) == IDL_CHD_SEPARATORS)
-        {
-            if (HIWORD(wParam) == LBN_SETFOCUS || HIWORD(wParam) == LBN_KILLFOCUS)
-            {
-                InvalidateRect((HWND)lParam, NULL, TRUE);
-                return 0;
-            }
-        }
-        break;
     }
     }
     return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
