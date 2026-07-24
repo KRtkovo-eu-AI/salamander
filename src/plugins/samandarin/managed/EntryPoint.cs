@@ -85,19 +85,22 @@ public static class EntryPoint
 
     private static int ShowPluginUpdates(IntPtr parent)
     {
-        // This control tree uses Salamander's deterministic 96-DPI baseline.
-        // Keep both construction and all HWND creation out of the WinForms
-        // PMv2 child-scaling cascade.
-        using (ManagedApplication.EnterPerMonitorV1())
+        // Match JsonViewer's working model: keep the managed UI thread PMv2
+        // while DeterministicDpiForm creates its top-level HWND as PMv1 and
+        // performs the only control/layout scaling pass.
+        using (ManagedApplication.EnterPerMonitorV2())
         {
             using var dialog = new PluginUpdatesDialog();
             IntPtr resolvedParent = ResolveParentWindow(parent);
-            if (resolvedParent != IntPtr.Zero)
-            {
-                dialog.InitialDpi = GetInitialDpiForWindow(resolvedParent);
-            }
             ThemeHelper.ApplyTheme(dialog);
+
+            // Theme application changes logical properties, so capture after
+            // it, but before positioning or ShowDialog can create any HWND.
+            // Do not set InitialDpi from the owner: after an on-the-fly display
+            // scale change its HWND can still report the old DPI. OnLoad reads
+            // the effective DPI from the newly created dialog instead.
             dialog.CaptureDpiBaseline();
+
             IWin32Window? owner =
                 resolvedParent != IntPtr.Zero
                     ? new WindowHandleWrapper(resolvedParent)
@@ -115,17 +118,17 @@ public static class EntryPoint
         return 0;
     }
 
-    private static int GetInitialDpiForWindow(IntPtr parentWindow)
-    {
-        int dpi = ManagedApplication.GetEffectiveDpiForWindow(parentWindow);
-        return dpi > 0 ? dpi : 96;
-    }
-
     private static IntPtr ResolveParentWindow(IntPtr requestedParent)
     {
         if (requestedParent != IntPtr.Zero)
         {
             return requestedParent;
+        }
+
+        IntPtr coordinatorParent = UpdateCoordinator.GetLastOwnerWindow();
+        if (coordinatorParent != IntPtr.Zero)
+        {
+            return coordinatorParent;
         }
 
         IntPtr foregroundWindow = GetForegroundWindow();
@@ -364,6 +367,14 @@ internal static class UpdateCoordinator
         lock (SyncRoot)
         {
             return new UpdateSnapshot(Settings.Clone(), CurrentVersion);
+        }
+    }
+
+    public static IntPtr GetLastOwnerWindow()
+    {
+        lock (SyncRoot)
+        {
+            return OwnerWindow;
         }
     }
 
@@ -1285,9 +1296,14 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         bottomPanel.Controls.Add(_statusLabel, 0, 0);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0) };
-        var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
-        _refreshButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), AutoSize = true };
-        _sourcesButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources), AutoSize = true };
+        var closeButton = CreateDialogButton(
+            NativeStrings.Get(NativeStringId.PluginUpdatesClose), 75);
+        closeButton.DialogResult = DialogResult.Cancel;
+        _refreshButton = CreateDialogButton(
+            NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), 75);
+        _sourcesButton = CreateDialogButton(
+            NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources),
+            116);
         _refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
         _sourcesButton.Click += (_, _) => ShowSourcesDialog();
         buttons.Controls.Add(closeButton);
@@ -1318,6 +1334,18 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             _listView.RedrawItems(0, _listView.Items.Count - 1, true);
         }
         _listView.Update();
+    }
+
+    private static Button CreateDialogButton(
+        string text, int logicalWidth)
+    {
+        return new Button
+        {
+            Text = text,
+            AutoSize = false,
+            AutoEllipsis = true,
+            Size = new System.Drawing.Size(logicalWidth, 27),
+        };
     }
 
     private void UpdateDpiResources()
