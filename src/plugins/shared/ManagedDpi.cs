@@ -24,6 +24,16 @@ internal static class ManagedApplication
         // thread, so select PMv2 before WinForms creates any hidden windows.
         EnsurePerMonitorThread();
 
+        // Set every .NET Framework 4.7+ dynamic-DPI opt-in before even
+        // touching typeof(Application). Salamander is a native PMv2 host, so
+        // System.Windows.Forms can be loaded after the process awareness was
+        // fixed by the EXE manifest and otherwise cache its legacy
+        // SystemAware behavior before the WinForms config section is read.
+        AppContext.SetSwitch("Switch.System.Windows.Forms.DoNotSupportDpiChanges", false);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedMessageHandling", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableDpiChangedHighDpiImprovements", true);
+        AppContext.SetSwitch("Switch.System.Windows.Forms.EnableWindowsFormsHighDpiAutoResizing", false);
+
         lock (typeof(Application))
         {
             if (AppDomain.CurrentDomain.GetData(InitializedKey) is bool initialized && initialized)
@@ -31,11 +41,6 @@ internal static class ManagedApplication
                 return;
             }
 
-            // These switches must be selected before the first WinForms HWND.
-            // Without them .NET Framework loaded by a native executable can
-            // remain on its legacy SystemAware (96-DPI) scaling path.
-            AppContext.SetSwitch("Switch.System.Windows.Forms.DoNotSupportDpiChanges", false);
-            AppContext.SetSwitch("Switch.System.Windows.Forms.EnableWindowsFormsHighDpiAutoResizing", true);
             Application.EnableVisualStyles();
             try
             {
@@ -73,119 +78,387 @@ internal static class ManagedApplication
     private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
 }
 
-// AutoScaleMode.Dpi and the standard WinForms PMv2 path are deliberately kept
-// identical to commit f1c8c579, where HyperV was verified at 150%. WinForms
-// owns the one bounds/font scaling pass; this class only recreates explicitly
-// assigned fonts after the HWND has acquired its monitor DPI.
+// The native host receives transient DPI messages while a window straddles
+// two monitors. Never multiply the current layout: capture one immutable
+// 96-DPI snapshot and restore exact values from it after coalescing messages.
 internal class DpiAwareForm : Form
 {
-    private readonly Dictionary<Control, Font> _dpiFonts =
-        new Dictionary<Control, Font>();
-    private readonly List<Font> _retiredDpiFonts = new List<Font>();
+    private const int WmSize = 0x0005;
+    private const int WmEnterSizeMove = 0x0231;
+    private const int WmExitSizeMove = 0x0232;
+    private const int WmDpiChanged = 0x02E0;
+    private const int SizeMinimized = 1;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    private sealed class ControlSnapshot
+    {
+        public Rectangle Bounds96;
+        public Padding Margin96;
+        public Padding Padding96;
+        public Size MinimumSize96;
+        public Size MaximumSize96;
+        public Font FontTemplate = null!;
+    }
+
+    private readonly Dictionary<Control, ControlSnapshot> _snapshots =
+        new Dictionary<Control, ControlSnapshot>();
+    private readonly List<Font> _activeFonts = new List<Font>();
+    private Size _logicalWindowSize;
+    private int _currentDpi = 96;
+    private int _pendingDpi;
+    private Rectangle _pendingSuggested;
+    private bool _baselineCaptured;
+    private bool _dpiApplyPosted;
+    private bool _applyingDpi;
+    private bool _inSizeMove;
+    private readonly Timer _dpiSettleTimer;
 
     internal DpiAwareForm()
     {
         ManagedApplication.EnsurePerMonitorThread();
         AutoScaleDimensions = new SizeF(96.0F, 96.0F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        Font = CloneFont(SystemFonts.MessageBoxFont);
-        _dpiFonts[this] = Font;
+        Font initialFont = CloneFont(SystemFonts.MessageBoxFont);
+        _activeFonts.Add(initialFont);
+        Font = initialFont;
+        _dpiSettleTimer = new Timer { Interval = 75 };
+        _dpiSettleTimer.Tick += (_, _) =>
+        {
+            _dpiSettleTimer.Stop();
+            if (!_inSizeMove)
+            {
+                ApplyPendingDpiChange();
+            }
+        };
     }
 
     protected override void CreateHandle()
     {
-        // This is the decisive point at which the top-level HWND captures the
-        // thread DPI context. Repeat it here because constructors and native
-        // callbacks can run under a temporarily changed context.
         ManagedApplication.EnsurePerMonitorThread();
+        if (!_baselineCaptured)
+        {
+            DisableNestedAutoScaling(this);
+            CaptureSubtree(this, 96);
+            _logicalWindowSize = Size;
+            _baselineCaptured = true;
+        }
         base.CreateHandle();
     }
 
     protected int ScaleLogical(int logicalPixels)
     {
-        return Math.Max(1, logicalPixels * DeviceDpi / 96);
+        return Math.Max(1, ScaleValue(logicalPixels, _currentDpi));
     }
 
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        RefreshExplicitFonts(this);
+        int handleDpi = DeviceDpi > 0 ? DeviceDpi : 96;
+        ApplySnapshot(handleDpi, Rectangle.Empty);
     }
 
-    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    protected override void WndProc(ref Message m)
     {
-        int oldDpi = e.DeviceDpiOld;
-        int newDpi = e.DeviceDpiNew;
-
-        SuspendLayout();
-        try
+        if (m.Msg == WmEnterSizeMove)
         {
-            base.OnDpiChanged(e);
-            RefreshExplicitFonts(this);
-            OnPerMonitorDpiChanged(oldDpi, newDpi);
-            PerformLayout();
-        }
-        finally
-        {
-            ResumeLayout(true);
+            _inSizeMove = true;
+            _dpiSettleTimer.Stop();
+            base.WndProc(ref m);
+            return;
         }
 
-        Invalidate(true);
+        if (m.Msg == WmDpiChanged)
+        {
+            int newDpi = unchecked((int)(m.WParam.ToInt64() & 0xffff));
+            Rectangle suggested = Rectangle.Empty;
+            if (m.LParam != IntPtr.Zero)
+            {
+                NativeRect native = Marshal.PtrToStructure<NativeRect>(m.LParam);
+                suggested = Rectangle.FromLTRB(
+                    native.Left, native.Top, native.Right, native.Bottom);
+            }
+
+            QueueDpiChange(newDpi, suggested);
+            // We own dynamic scaling for these native-hosted WinForms. Do not
+            // let DefWndProc/WinForms apply the suggested rectangle while the
+            // mouse is still moving the window across the monitor boundary.
+            m.Result = IntPtr.Zero;
+            return;
+        }
+
+        if (m.Msg == WmExitSizeMove)
+        {
+            base.WndProc(ref m);
+            _inSizeMove = false;
+            if (_dpiApplyPosted)
+            {
+                _dpiSettleTimer.Stop();
+                _dpiSettleTimer.Start();
+            }
+            return;
+        }
+
+        base.WndProc(ref m);
+
+        if (m.Msg == WmSize && !_applyingDpi && !_dpiApplyPosted &&
+            m.WParam.ToInt32() != SizeMinimized && _baselineCaptured)
+        {
+            _logicalWindowSize = ToLogical(Size, _currentDpi);
+        }
     }
 
     protected virtual void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
     {
     }
 
+    private void QueueDpiChange(int dpi, Rectangle suggested)
+    {
+        if (dpi <= 0 || IsDisposed)
+        {
+            return;
+        }
+
+        _pendingDpi = dpi;
+        _pendingSuggested = suggested;
+        _dpiApplyPosted = true;
+        if (!IsHandleCreated || _inSizeMove)
+        {
+            return;
+        }
+
+        _dpiSettleTimer.Stop();
+        _dpiSettleTimer.Start();
+    }
+
+    private void ApplyPendingDpiChange()
+    {
+        if (IsDisposed || !IsHandleCreated)
+        {
+            _dpiApplyPosted = false;
+            return;
+        }
+
+        int requestedDpi = _pendingDpi;
+        Rectangle suggested = _pendingSuggested;
+        _dpiApplyPosted = false;
+
+        uint windowDpi = GetDpiForWindow(Handle);
+        int finalDpi = windowDpi > 0 ? (int)windowDpi : requestedDpi;
+        if (finalDpi == _currentDpi)
+        {
+            return;
+        }
+
+        // A newer transition won the race. Do not apply an obsolete rectangle
+        // belonging to the other monitor.
+        if (finalDpi != requestedDpi)
+        {
+            suggested = Rectangle.Empty;
+        }
+        ApplySnapshot(finalDpi, suggested);
+    }
+
+    private void ApplySnapshot(int dpi, Rectangle suggested)
+    {
+        if (_applyingDpi || dpi <= 0 || !_baselineCaptured)
+        {
+            return;
+        }
+
+        int oldDpi = _currentDpi;
+        _applyingDpi = true;
+        _currentDpi = dpi;
+        SuspendTree(this);
+        try
+        {
+            DisableNestedAutoScaling(this);
+            RestoreSubtree(this, dpi);
+            AutoScaleDimensions = new SizeF(dpi, dpi);
+
+            Size exactSize = ScaleSize(_logicalWindowSize, dpi);
+            Point location = suggested.IsEmpty ? Location : suggested.Location;
+            Bounds = new Rectangle(location, exactSize);
+
+            OnPerMonitorDpiChanged(oldDpi, dpi);
+        }
+        finally
+        {
+            ResumeTree(this);
+            _applyingDpi = false;
+        }
+
+        PerformLayout();
+        Invalidate(true);
+    }
+
+    private void CaptureSubtree(Control root, int sourceDpi)
+    {
+        if (!_snapshots.ContainsKey(root))
+        {
+            PropertyDescriptor fontProperty = TypeDescriptor.GetProperties(root)["Font"];
+            bool explicitFont = ReferenceEquals(root, this) ||
+                                (fontProperty != null && fontProperty.ShouldSerializeValue(root));
+            _snapshots.Add(root, new ControlSnapshot
+            {
+                Bounds96 = ToLogical(root.Bounds, sourceDpi),
+                Margin96 = ToLogical(root.Margin, sourceDpi),
+                Padding96 = ToLogical(root.Padding, sourceDpi),
+                MinimumSize96 = ToLogical(root.MinimumSize, sourceDpi),
+                MaximumSize96 = ToLogical(root.MaximumSize, sourceDpi),
+                FontTemplate = explicitFont && root.Font != null
+                    ? CloneFont(root.Font)
+                    : null!,
+            });
+            root.ControlAdded += OnDescendantControlAdded;
+        }
+
+        foreach (Control child in root.Controls)
+        {
+            CaptureSubtree(child, sourceDpi);
+        }
+    }
+
+    private void OnDescendantControlAdded(object sender, ControlEventArgs e)
+    {
+        DisableNestedAutoScaling(e.Control);
+        CaptureSubtree(e.Control, Math.Max(1, _currentDpi));
+    }
+
+    private void RestoreSubtree(Control root, int dpi)
+    {
+        ControlSnapshot snapshot;
+        if (_snapshots.TryGetValue(root, out snapshot))
+        {
+            root.Margin = ScalePadding(snapshot.Margin96, dpi);
+            root.Padding = ScalePadding(snapshot.Padding96, dpi);
+            root.MinimumSize = ScaleSize(snapshot.MinimumSize96, dpi);
+            root.MaximumSize = ScaleSize(snapshot.MaximumSize96, dpi);
+            if (!ReferenceEquals(root, this))
+            {
+                root.Bounds = ScaleRectangle(snapshot.Bounds96, dpi);
+            }
+            if (snapshot.FontTemplate != null)
+            {
+                Font font = CloneFont(snapshot.FontTemplate);
+                _activeFonts.Add(font);
+                root.Font = font;
+            }
+        }
+
+        foreach (Control child in root.Controls)
+        {
+            RestoreSubtree(child, dpi);
+        }
+    }
+
+    private static void DisableNestedAutoScaling(Control root)
+    {
+        foreach (Control child in root.Controls)
+        {
+            if (child is ContainerControl container)
+            {
+                container.AutoScaleMode = AutoScaleMode.None;
+            }
+            DisableNestedAutoScaling(child);
+        }
+    }
+
+    private static void SuspendTree(Control root)
+    {
+        root.SuspendLayout();
+        foreach (Control child in root.Controls)
+        {
+            SuspendTree(child);
+        }
+    }
+
+    private static void ResumeTree(Control root)
+    {
+        foreach (Control child in root.Controls)
+        {
+            ResumeTree(child);
+        }
+        root.ResumeLayout(false);
+    }
+
     protected override void Dispose(bool disposing)
     {
-        // Destroy every child HWND before releasing any managed Font from
-        // which WinForms may still need to create an HFONT. This fixes the
-        // Font.ToLogFont "Parameter is not valid" crash without changing the
-        // scaling behavior that was known to work for HyperV.
         base.Dispose(disposing);
         if (!disposing)
         {
             return;
         }
 
-        foreach (Font font in _retiredDpiFonts)
+        foreach (ControlSnapshot snapshot in _snapshots.Values)
         {
-            font.Dispose();
+            snapshot.FontTemplate?.Dispose();
         }
-        _retiredDpiFonts.Clear();
+        _snapshots.Clear();
 
-        foreach (Font font in _dpiFonts.Values)
+        foreach (Font font in _activeFonts)
         {
             font.Dispose();
         }
-        _dpiFonts.Clear();
+        _activeFonts.Clear();
+        _dpiSettleTimer.Dispose();
     }
 
-    private void RefreshExplicitFonts(Control root)
+    private static int ScaleValue(int value, int dpi)
     {
-        PropertyDescriptor fontProperty = TypeDescriptor.GetProperties(root)["Font"];
-        bool hasExplicitFont = ReferenceEquals(root, this) ||
-                               (fontProperty != null && fontProperty.ShouldSerializeValue(root));
-        if (hasExplicitFont && root.Font != null)
-        {
-            Font replacement = CloneFont(root.Font);
-            Font previous;
-            if (_dpiFonts.TryGetValue(root, out previous) &&
-                !ReferenceEquals(previous, replacement))
-            {
-                // Do not dispose it here. Descendants can still inherit the
-                // old Font until the complete native DPI cascade has returned.
-                _retiredDpiFonts.Add(previous);
-            }
-            root.Font = replacement;
-            _dpiFonts[root] = replacement;
-        }
+        return (int)Math.Round(value * dpi / 96.0);
+    }
 
-        foreach (Control child in root.Controls)
-        {
-            RefreshExplicitFonts(child);
-        }
+    private static Rectangle ScaleRectangle(Rectangle value, int dpi)
+    {
+        return new Rectangle(
+            ScaleValue(value.X, dpi), ScaleValue(value.Y, dpi),
+            ScaleValue(value.Width, dpi), ScaleValue(value.Height, dpi));
+    }
+
+    private static Size ScaleSize(Size value, int dpi)
+    {
+        return new Size(
+            value.Width == 0 ? 0 : Math.Max(1, ScaleValue(value.Width, dpi)),
+            value.Height == 0 ? 0 : Math.Max(1, ScaleValue(value.Height, dpi)));
+    }
+
+    private static Padding ScalePadding(Padding value, int dpi)
+    {
+        return new Padding(
+            ScaleValue(value.Left, dpi), ScaleValue(value.Top, dpi),
+            ScaleValue(value.Right, dpi), ScaleValue(value.Bottom, dpi));
+    }
+
+    private static Rectangle ToLogical(Rectangle value, int dpi)
+    {
+        return new Rectangle(
+            ToLogical(value.X, dpi), ToLogical(value.Y, dpi),
+            ToLogical(value.Width, dpi), ToLogical(value.Height, dpi));
+    }
+
+    private static Size ToLogical(Size value, int dpi)
+    {
+        return new Size(ToLogical(value.Width, dpi), ToLogical(value.Height, dpi));
+    }
+
+    private static Padding ToLogical(Padding value, int dpi)
+    {
+        return new Padding(
+            ToLogical(value.Left, dpi), ToLogical(value.Top, dpi),
+            ToLogical(value.Right, dpi), ToLogical(value.Bottom, dpi));
+    }
+
+    private static int ToLogical(int value, int dpi)
+    {
+        return (int)Math.Round(value * 96.0 / Math.Max(1, dpi));
     }
 
     private static Font CloneFont(Font source)
@@ -193,4 +466,7 @@ internal class DpiAwareForm : Form
         return new Font(source.FontFamily, source.Size, source.Style, source.Unit,
                         source.GdiCharSet, source.GdiVerticalFont);
     }
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
 }
