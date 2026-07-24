@@ -123,25 +123,51 @@ jobs:
           if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
             $solutionPath = Join-Path (Get-Location) $env:SOLUTION_PATH
             $solutionDir = Split-Path -Parent $solutionPath
-            $solutionFilterPath = Join-Path $solutionDir 'salamand-without-sftp.slnf'
-            $projects = Select-String -LiteralPath $solutionPath -Pattern '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{[^}]+\}"' |
-              ForEach-Object {
-                [pscustomobject]@{
-                  Name = $_.Matches[0].Groups[1].Value
-                  Path = $_.Matches[0].Groups[2].Value
+            $solutionBuildPath = Join-Path $solutionDir 'salamand-codeql-without-sftp.sln'
+            $excludedProjects = @{
+              '514DA5DF-C9D5-4A39-9BE6-CBCFA6CE0D5A' = 'sftp'
+              '2D3A2ADD-498B-4420-8E08-6A9FC9C09D5E' = 'lang_sftp'
+            }
+            $excludedProjectGuids = $excludedProjects.Keys | ForEach-Object { $_.ToUpperInvariant() }
+            $projectHeaderPattern = '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{([^}]+)\}"'
+            $lines = Get-Content -LiteralPath $solutionPath
+            $filteredLines = New-Object System.Collections.Generic.List[string]
+            $skipProjectBlock = $false
+
+            foreach ($line in $lines) {
+              if ($line -match $projectHeaderPattern) {
+                $projectName = $Matches[1]
+                $projectGuid = $Matches[3].ToUpperInvariant()
+                $skipProjectBlock = $excludedProjectGuids -contains $projectGuid
+
+                if ($skipProjectBlock) {
+                  Write-Host "Excluding CodeQL project from solution build: $projectName ($($excludedProjects[$projectGuid]))"
+                  continue
                 }
-              } |
-              Where-Object { $_.Path -match '\.(?:vcxproj|csproj)$' -and $_.Name -notin @('sftp', 'lang_sftp') } |
-              ForEach-Object { $_.Path }
-
-            @{
-              solution = @{
-                path = Split-Path -Leaf $solutionPath
-                projects = @($projects)
               }
-            } | ConvertTo-Json -Depth 4 | Set-Content -Path $solutionFilterPath -Encoding UTF8
 
-            $buildPath = $solutionFilterPath
+              if ($skipProjectBlock) {
+                if ($line -eq 'EndProject') {
+                  $skipProjectBlock = $false
+                }
+                continue
+              }
+
+              $referencesExcludedProject = $false
+              foreach ($projectGuid in $excludedProjectGuids) {
+                if ($line -match [regex]::Escape("{$projectGuid}")) {
+                  $referencesExcludedProject = $true
+                  break
+                }
+              }
+
+              if (-not $referencesExcludedProject) {
+                $filteredLines.Add($line)
+              }
+            }
+
+            $filteredLines | Set-Content -Path $solutionBuildPath -Encoding UTF8
+            $buildPath = $solutionBuildPath
             Write-Host "Building full solution without SFTP projects via $buildPath"
           } else {
             Write-Host "Building $buildPath"
