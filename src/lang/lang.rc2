@@ -33,6 +33,7 @@ IDM_VIEWERMENU MENU
  {
   MENUITEM "&Open...\tCtrl+O", CM_OPENFILE
   MENUITEM "&Refresh\tCtrl+R", CM_REREADFILE
+  MENUITEM "&Log View Mode", CM_LOGVIEWMODE
   MENUITEM SEPARATOR
   
 // POZOR: pokud se zmeni index tohoto submenu, je potreba zmenit VIEWER_FILE_MENU_OTHFILESINDEX

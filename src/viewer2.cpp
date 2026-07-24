@@ -328,6 +328,51 @@ void CViewerWindow::ConfigHasChanged()
     InvalidateRect(HWindow, NULL, FALSE);
 }
 
+void CViewerWindow::SetLogViewMode(BOOL enable)
+{
+    if (LogViewMode == enable)
+        return;
+
+    LogViewMode = enable;
+    if (LogViewMode)
+    {
+        SetTimer(HWindow, IDT_LOGVIEWREFRESH, 1000, NULL);
+        RefreshLogView();
+    }
+    else
+        KillTimer(HWindow, IDT_LOGVIEWREFRESH);
+}
+
+void CViewerWindow::RefreshLogView()
+{
+    if (MouseDrag || FileName == NULL)
+        return;
+
+    ExitTextMode = FALSE;
+    ForceTextMode = FALSE;
+
+    BOOL fatalErr = FALSE;
+    FileChanged(NULL, FALSE, fatalErr, FALSE);
+    if (fatalErr)
+        FatalFileErrorOccured();
+    if (fatalErr || ExitTextMode)
+        return;
+
+    GoToEnd();
+    if (Type == vtText)
+    {
+        SeekY = FindBegin(SeekY, fatalErr);
+        if (fatalErr)
+            FatalFileErrorOccured();
+        if (fatalErr || ExitTextMode)
+            return;
+    }
+
+    ResetFindOffsetOnNextPaint = TRUE;
+    InvalidateRect(HWindow, NULL, FALSE);
+    UpdateWindow(HWindow);
+}
+
 __int64
 CViewerWindow::Prepare(HANDLE* hFile, __int64 offset, __int64 bytes, BOOL& fatalErr)
 {

@@ -325,6 +325,8 @@ protected:
     void SetViewerZoom(int percent);
     void LayoutStatusBar();
     void UpdateStatusBar(__int64 offset = -1);
+    void SetLogViewMode(BOOL enable);
+    void RefreshLogView();
     int GetTextLeft() const;
     __int64 GetDocumentLineNumber(__int64 offset, __int64* lineStart = NULL);
 
@@ -398,6 +400,7 @@ protected:
     BOOL WrapText; // local copy of Configuration.WrapText
     BOOL ShowLineNumbers;
     BOOL ShowStatusBar;
+    BOOL LogViewMode;
     int LineNumberDigits;
 
     BOOL CodePageAutoSelect;  // local copy of Configuration.CodePageAutoSelect
