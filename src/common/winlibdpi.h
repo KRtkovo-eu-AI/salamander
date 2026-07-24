@@ -216,19 +216,17 @@ inline HFONT WinLibDPICreateMessageFontForDPI(UINT dpi)
     if (!WinLibDPIGetNonClientMetricsForDPI(dpi, &metrics))
         return NULL;
 
-    // Some themes/remote sessions return the legacy 96-DPI message-font
-    // height even from SystemParametersInfoForDpi. Geometry is then scaled
-    // correctly while all dialog text remains visibly at 100%. Normalize only
-    // an obviously unscaled result and preserve custom accessibility fonts.
-    if (dpi != 0 && dpi != USER_DEFAULT_SCREEN_DPI &&
-        metrics.lfMessageFont.lfHeight != 0)
+    // Remote sessions can return the font for the DPI at which the process
+    // started instead of the explicitly requested DPI. This happens in both
+    // directions: 12px can be returned for 144 DPI, and 18px can be returned
+    // for 96 DPI. Geometry is already correct in that case, so normalize the
+    // obviously mismatched height symmetrically around the standard 9pt
+    // message font.
+    if (dpi != 0 && metrics.lfMessageFont.lfHeight != 0)
     {
         int height = abs(metrics.lfMessageFont.lfHeight);
-        int legacyHeight = MulDiv(height, USER_DEFAULT_SCREEN_DPI, (int)dpi);
         int expectedHeight = MulDiv(12, (int)dpi, USER_DEFAULT_SCREEN_DPI);
-        if (height >= 10 && height <= 14 &&
-            legacyHeight < 10 &&
-            expectedHeight > height)
+        if (height < expectedHeight - 1 || height > expectedHeight + 2)
         {
             metrics.lfMessageFont.lfHeight =
                 metrics.lfMessageFont.lfHeight < 0 ? -expectedHeight : expectedHeight;
