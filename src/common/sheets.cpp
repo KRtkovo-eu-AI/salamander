@@ -1333,15 +1333,14 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD*
     LogicalButtonMargin = 0;
     LogicalMarginSize.cx = 0;
     LogicalMarginSize.cy = 0;
+    LogicalWindowSize.cx = 0;
+    LogicalWindowSize.cy = 0;
     DPIChangeInProgress = FALSE;
     DPILayoutPosted = FALSE;
-    TreeFont = NULL;
 }
 
 CTreePropHolderDlg::~CTreePropHolderDlg()
 {
-    if (TreeFont != NULL)
-        HANDLES(DeleteObject(TreeFont));
 }
 
 INT_PTR
@@ -1404,8 +1403,6 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CaptionWindow = new CTPHCaptionWindow(HWindow, _TPD_IDC_CAPTION);
         if (CaptionWindow == NULL)
             TRACE_ET(_T("Low memory!"));
-        else if (TreeFont != NULL)
-            SendMessage(CaptionWindow->GetHWND(), WM_SETFONT, (WPARAM)TreeFont, TRUE);
         MinTreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 +
                        WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
         TreeWidth = MinTreeWidth;
@@ -1456,6 +1453,9 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             height = MinWindowSize.cy;
         SetWindowPos(HWindow, NULL, 0, 0, width, height,
                      SWP_NOZORDER | SWP_NOMOVE);
+        GetWindowRect(HWindow, &r);
+        LogicalWindowSize.cx = MulDiv(r.right - r.left, USER_DEFAULT_SCREEN_DPI, CurrentDPI);
+        LogicalWindowSize.cy = MulDiv(r.bottom - r.top, USER_DEFAULT_SCREEN_DPI, CurrentDPI);
 
         LayoutControls();
         TreeView_EnsureVisible(HTreeView, TPD->At(TPD->StartPage)->HTreeItem);
@@ -1491,6 +1491,12 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (newDPI > 0 && CurrentDPI > 0 && newDPI != CurrentDPI)
         {
             DPIChangeInProgress = TRUE;
+            // Arm the visible page before DefDlgProc starts the PMv2 child
+            // cascade. WM_SIZE can arrive before
+            // WM_DPICHANGED_BEFOREPARENT, and its anchor layout would
+            // otherwise move controls while Windows is still scaling them.
+            if (ChildDialog != NULL)
+                ChildDialog->DPIChangeInProgress = TRUE;
             ApplyLogicalDpiMetrics(newDPI);
             CurrentDPI = newDPI;
             if (!DPILayoutPosted)
@@ -1506,11 +1512,32 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case _TPD_WM_POST_DPI_LAYOUT:
     {
-        DPIChangeInProgress = FALSE;
         DPILayoutPosted = FALSE;
+        // Keep one immutable 96-DPI outer size. Repeatedly accepting rounded
+        // suggested rectangles can otherwise make a resizable dialog grow a
+        // few pixels on every 100 % <-> 150 % round trip.
+        if (LogicalWindowSize.cx > 0 && LogicalWindowSize.cy > 0 &&
+            !IsZoomed(HWindow))
+        {
+            RECT windowRect;
+            if (GetWindowRect(HWindow, &windowRect))
+            {
+                int width = MulDiv(LogicalWindowSize.cx, CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+                int height = MulDiv(LogicalWindowSize.cy, CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+                SetWindowPos(HWindow, NULL, windowRect.left, windowRect.top,
+                             width, height, SWP_NOACTIVATE | SWP_NOZORDER);
+            }
+        }
         UpdateTreeFontAndMetrics();
         ApplyTreeViewColors(HTreeView);
         LayoutControls();
+        DPIChangeInProgress = FALSE;
+        RECT windowRect;
+        if (GetWindowRect(HWindow, &windowRect))
+        {
+            PendingWindowWidth = windowRect.right - windowRect.left;
+            PendingWindowHeight = windowRect.bottom - windowRect.top;
+        }
         if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
             RepaintWindowTree(ChildDialog->HWindow);
         RepaintWindowTree(HWindow);
@@ -1667,12 +1694,17 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
-        RECT r;
-        GetWindowRect(HWindow, &r);
-        PendingWindowHeight = r.bottom - r.top;
-        PendingWindowWidth = r.right - r.left;
         if (!DPIChangeInProgress)
         {
+            RECT r;
+            GetWindowRect(HWindow, &r);
+            PendingWindowHeight = r.bottom - r.top;
+            PendingWindowWidth = r.right - r.left;
+            if (CurrentDPI > 0 && wParam != SIZE_MINIMIZED)
+            {
+                LogicalWindowSize.cx = MulDiv(PendingWindowWidth, USER_DEFAULT_SCREEN_DPI, CurrentDPI);
+                LogicalWindowSize.cy = MulDiv(PendingWindowHeight, USER_DEFAULT_SCREEN_DPI, CurrentDPI);
+            }
             LayoutControls();
             RepaintWindowTree(HWindow);
         }
@@ -1794,25 +1826,18 @@ void CTreePropHolderDlg::UpdateTreeFontAndMetrics()
     if (HTreeView == NULL)
         return;
 
-    HFONT newFont = WinLibDPICreateMessageFont(HWindow);
-    if (newFont != NULL)
-    {
-        HFONT oldFont = TreeFont;
-        TreeFont = newFont;
-        SendMessage(HTreeView, WM_SETFONT, (WPARAM)TreeFont, TRUE);
-        if (CaptionWindow != NULL)
-            SendMessage(CaptionWindow->GetHWND(), WM_SETFONT, (WPARAM)TreeFont, TRUE);
-        if (oldFont != NULL)
-            HANDLES(DeleteObject(oldFont));
-    }
-
-    if (TreeFont != NULL)
+    // The holder template and all of its children are PMv2 dialog controls.
+    // DefDlgProc supplies the correct per-monitor dialog font. Overriding the
+    // tree and caption with a separately queried message font races the
+    // initial DS_CENTER placement and can pin both controls to 96 DPI.
+    HFONT treeFont = (HFONT)SendMessage(HTreeView, WM_GETFONT, 0, 0);
+    if (treeFont != NULL)
     {
         HDC dc = HANDLES(GetDC(HTreeView));
         if (dc != NULL)
         {
             TEXTMETRIC tm;
-            HFONT oldFont = (HFONT)SelectObject(dc, TreeFont);
+            HFONT oldFont = (HFONT)SelectObject(dc, treeFont);
             if (GetTextMetrics(dc, &tm))
                 TreeView_SetItemHeight(HTreeView, tm.tmHeight + MulDiv(4, CurrentDPI, USER_DEFAULT_SCREEN_DPI));
             SelectObject(dc, oldFont);

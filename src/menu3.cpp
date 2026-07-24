@@ -231,7 +231,7 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
 
     // monochrome bitmap for masks
     MonoBitmap = new CBitmap();
-    int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+    int iconSize = MulDiv(16, dpi, USER_DEFAULT_SCREEN_DPI);
     int bwWidth = max(MenuBitmapWidth, iconSize); // small icons must fit inside it
     MonoBitmap->CreateBmpBW(bwWidth, bwWidth);
 
@@ -784,14 +784,13 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
     if (item->Height > SharedRes->TextItemHeight)
         myYOffset += (item->Height - SharedRes->TextItemHeight) / 2;
 
-    int targetBmpW = ImageWidth; // final width
-    int targetBmpH = ImageHeight;
-    if (item->HIcon != NULL)
-    {
-        int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
-        targetBmpW = iconSize;
-        targetBmpH = iconSize;
-    }
+    // Menu models are shared by the main and detached windows, but their
+    // pixel image lists are normally built for the main-window DPI. Draw into
+    // a per-popup target cell so a 24 px main-window icon becomes 16 px in a
+    // 100 % detached menu (and vice versa) instead of changing the row size.
+    const int menuIconSize = WinLibDPIFromLogical(HWindow, 16);
+    int targetBmpW = menuIconSize;
+    int targetBmpH = menuIconSize;
 
     BOOL checked = (item->State & MENU_STATE_CHECKED) != 0;
 
@@ -847,9 +846,8 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
     {
         hImageList = HMenuMarkImageList;
         imageIndex = item->Type & MENU_TYPE_RADIOCHECK ? 1 : 0;
-        int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
-        targetBmpW = iconSize; // dimensions of HMenuMarkImageList
-        targetBmpH = iconSize;
+        targetBmpW = menuIconSize; // draw the shared mark list at this popup's DPI
+        targetBmpH = menuIconSize;
     }
 
     int itemHeight = SharedRes->TextItemHeight - 2;
@@ -861,15 +859,17 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
         // the whole bitmap will be white (background)
         PatBlt(SharedRes->MonoBitmap->HMemDC, 0, 0, targetBmpW, targetBmpH, WHITENESS);
 
-        int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
-
         // transfer a monochrome version of the icon into it (white will remain white)
         if (item->HIcon != NULL)
-            DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+            DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HIcon,
+                       targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
         else
-            ImageList_Draw(hImageList, imageIndex, SharedRes->MonoBitmap->HMemDC, 0, 0, ILD_TRANSPARENT);
+            ImageList_DrawEx(hImageList, imageIndex, SharedRes->MonoBitmap->HMemDC,
+                             0, 0, targetBmpW, targetBmpH,
+                             CLR_NONE, CLR_NONE, ILD_TRANSPARENT);
         if (item->HOverlay != NULL)
-            DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HOverlay, iconSize, iconSize, 0, NULL, DI_NORMAL);
+            DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HOverlay,
+                       targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
 
         // and then redirect that as the input
         HDC hSourceDC = SharedRes->MonoBitmap->HMemDC;
@@ -879,10 +879,10 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
         int oldTextColor = SetTextColor(SharedRes->CacheBitmap->HMemDC, RGB(0, 0, 0));
         HBRUSH hOldBrush2 = (HBRUSH)SelectObject(SharedRes->CacheBitmap->HMemDC, HMenuHilightBrush);
         StretchBlt(SharedRes->CacheBitmap->HMemDC, 1 + xO + 1, myYOffset + 1 + yO + 1, targetBmpW, targetBmpH,
-                   hSourceDC, 0, 0, iconSize, iconSize, ROP_PSDPxax);
+                   hSourceDC, 0, 0, targetBmpW, targetBmpH, ROP_PSDPxax);
         SelectObject(SharedRes->CacheBitmap->HMemDC, HMenuGrayTextBrush);
         StretchBlt(SharedRes->CacheBitmap->HMemDC, 1 + xO, myYOffset + 1 + yO, targetBmpW, targetBmpH,
-                   hSourceDC, 0, 0, iconSize, iconSize, ROP_PSDPxax);
+                   hSourceDC, 0, 0, targetBmpW, targetBmpH, ROP_PSDPxax);
         SelectObject(SharedRes->CacheBitmap->HMemDC, hOldBrush2);
         SetTextColor(SharedRes->CacheBitmap->HMemDC, oldTextColor);
         SetBkColor(SharedRes->CacheBitmap->HMemDC, oldBkColor);
@@ -897,18 +897,17 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
         yO++;
         //    }
 
-        int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
-
         if (item->HIcon != NULL)
             DrawIconEx(SharedRes->CacheBitmap->HMemDC, /*1 + */ xO + 1, myYOffset + /*1 + */ yO + 1,
-                       item->HIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+                       item->HIcon, targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
         else
-            ImageList_Draw(hImageList, imageIndex, SharedRes->CacheBitmap->HMemDC,
-                           /*1 + */ xO + 1, myYOffset + /*1 + */ yO + 1,
-                           checked ? ILD_TRANSPARENT : ILD_NORMAL);
+            ImageList_DrawEx(hImageList, imageIndex, SharedRes->CacheBitmap->HMemDC,
+                             /*1 + */ xO + 1, myYOffset + /*1 + */ yO + 1,
+                             targetBmpW, targetBmpH, CLR_NONE, CLR_NONE,
+                             checked ? ILD_TRANSPARENT : ILD_NORMAL);
         if (item->HOverlay != NULL)
             DrawIconEx(SharedRes->CacheBitmap->HMemDC, /*1 + */ xO + 1, myYOffset + /*1 + */ yO + 1,
-                       item->HOverlay, iconSize, iconSize, 0, NULL, DI_NORMAL);
+                       item->HOverlay, targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
     }
 
     BitBlt(hDC, 0, yOffset, SharedRes->TextItemHeight + 1, item->Height,

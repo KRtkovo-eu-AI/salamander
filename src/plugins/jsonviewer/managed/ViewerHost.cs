@@ -246,6 +246,10 @@ internal static class ViewerHost
         {
             try
             {
+                // JsonViewer owns a private STA thread and creates the hidden
+                // dispatcher HWND before its first DpiAwareForm. Select PMv2
+                // before either of those handles captures the thread context.
+                ManagedApplication.EnsurePerMonitorThread();
                 using var context = new JsonViewerApplicationContext();
                 _context = context;
                 _ready.Set();
