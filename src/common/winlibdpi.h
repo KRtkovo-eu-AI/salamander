@@ -24,6 +24,8 @@
 
 typedef HANDLE(WINAPI* CWinLibSetThreadDpiAwarenessContext)(HANDLE dpiContext);
 typedef UINT(WINAPI* CWinLibGetDpiForWindow)(HWND hwnd);
+typedef int(WINAPI* CWinLibGetSystemMetricsForDpi)(int index, UINT dpi);
+typedef BOOL(WINAPI* CWinLibSystemParametersInfoForDpi)(UINT action, UINT param, PVOID data, UINT flags, UINT dpi);
 
 inline CWinLibSetThreadDpiAwarenessContext WinLibDPIGetSetThreadContext()
 {
@@ -106,6 +108,106 @@ inline int WinLibDPIToLogical(HWND hwnd, int pixels)
 inline int WinLibDPIFromLogical(HWND hwnd, int logical)
 {
     return MulDiv(logical, (int)WinLibDPIGetWindowDPI(hwnd), USER_DEFAULT_SCREEN_DPI);
+}
+
+inline int WinLibDPIGetSystemMetric(HWND hwnd, int index)
+{
+    static CWinLibGetSystemMetricsForDpi getSystemMetricsForDpi = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandleA("user32.dll");
+        if (user32 != NULL)
+            getSystemMetricsForDpi = (CWinLibGetSystemMetricsForDpi)GetProcAddress(user32, "GetSystemMetricsForDpi");
+        loaded = TRUE;
+    }
+    if (getSystemMetricsForDpi != NULL)
+        return getSystemMetricsForDpi(index, WinLibDPIGetWindowDPI(hwnd));
+    return GetSystemMetrics(index);
+}
+
+inline BOOL WinLibDPIGetNonClientMetrics(HWND hwnd, NONCLIENTMETRICS* metrics)
+{
+    if (metrics == NULL)
+        return FALSE;
+
+    static CWinLibSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandleA("user32.dll");
+        if (user32 != NULL)
+            systemParametersInfoForDpi = (CWinLibSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
+        loaded = TRUE;
+    }
+
+    memset(metrics, 0, sizeof(*metrics));
+    metrics->cbSize = sizeof(*metrics);
+    if (systemParametersInfoForDpi != NULL &&
+        systemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, metrics->cbSize, metrics, 0,
+                                   WinLibDPIGetWindowDPI(hwnd)))
+    {
+        return TRUE;
+    }
+    return SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics->cbSize, metrics, 0);
+}
+
+inline BOOL WinLibDPIGetIconTitleLogFont(HWND hwnd, LOGFONT* font)
+{
+    if (font == NULL)
+        return FALSE;
+
+    static CWinLibSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE user32 = GetModuleHandleA("user32.dll");
+        if (user32 != NULL)
+            systemParametersInfoForDpi = (CWinLibSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
+        loaded = TRUE;
+    }
+
+    UINT dpi = WinLibDPIGetWindowDPI(hwnd);
+    BOOL result = systemParametersInfoForDpi != NULL &&
+                  systemParametersInfoForDpi(SPI_GETICONTITLELOGFONT, sizeof(*font),
+                                             font, 0, dpi);
+    if (!result)
+        result = SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(*font), font, 0);
+    if (!result)
+    {
+        NONCLIENTMETRICS metrics;
+        if (!WinLibDPIGetNonClientMetrics(hwnd, &metrics))
+            return FALSE;
+        *font = metrics.lfMessageFont;
+    }
+
+    // Match the normalization used by the main window for old themes whose
+    // icon-title font can be returned at an unscaled legacy height.
+    if (font->lfHeight != 0)
+    {
+        int height = abs(font->lfHeight);
+        int expected = MulDiv(12, (int)dpi, USER_DEFAULT_SCREEN_DPI);
+        if (height < expected - 1 || height > expected + 2)
+            font->lfHeight = font->lfHeight < 0 ? -expected : expected;
+    }
+    return TRUE;
+}
+
+inline HFONT WinLibDPICreateMessageFont(HWND hwnd)
+{
+    NONCLIENTMETRICS metrics;
+    if (!WinLibDPIGetNonClientMetrics(hwnd, &metrics))
+        return NULL;
+    return CreateFontIndirect(&metrics.lfMessageFont);
+}
+
+inline void WinLibDPIScaleLogFont(HWND hwnd, LOGFONT* font)
+{
+    if (font == NULL)
+        return;
+    UINT dpi = WinLibDPIGetWindowDPI(hwnd);
+    font->lfHeight = MulDiv(font->lfHeight, (int)dpi, USER_DEFAULT_SCREEN_DPI);
+    font->lfWidth = MulDiv(font->lfWidth, (int)dpi, USER_DEFAULT_SCREEN_DPI);
 }
 
 // Unlike dialogs, ordinary top-level windows are not automatically moved to

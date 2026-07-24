@@ -335,6 +335,7 @@ protected:
 #ifdef TOOLBARHDR_USE_SVG
     void CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled);
 #endif
+    void RebuildImageLists();
 
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 

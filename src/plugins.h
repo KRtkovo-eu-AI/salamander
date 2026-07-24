@@ -1835,6 +1835,10 @@ public:
                                              HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
                                              const CSVGIcon* svgIcons, int svgIconsCount);
     virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize);
+    virtual BOOL WINAPI CreateToolbarBitmapsForWindow(HWND dpiWindow, HINSTANCE hInstance, int resID,
+                                                      COLORREF transparent, COLORREF bkColorForAlpha,
+                                                      HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
+                                                      const CSVGIcon* svgIcons, int svgIconsCount);
 
 protected:
     // helper function: checks whether 'control' was successfully allocated and attached;

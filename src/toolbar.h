@@ -73,6 +73,7 @@ protected:
     int Width; // rozmery celeho okna
     int Height;
     HFONT HFont;
+    HFONT HOwnedDPIFont;
     int FontHeight;
     HWND HNotifyWindow; // kam budeme dorucovat notifikace
     HIMAGELIST HImageList;

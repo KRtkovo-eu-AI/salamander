@@ -816,6 +816,18 @@ public:
     HWND HTreeHeader;
     HWND HTreeHeaderToolTip;
     HWND HTreeSplit;
+    HIMAGELIST HTreeDPIImageList;
+    int WindowDPI;
+    HFONT WindowPanelFont;
+    HFONT WindowPanelFontUL;
+    HFONT WindowEnvFont;
+    HFONT WindowEnvFontBold;
+    HFONT WindowEnvFontUL;
+    int WindowPanelFontHeight;
+    int WindowEnvFontHeight;
+    int WindowTextEllipsisWidth;
+    int WindowTextEllipsisWidthEnv;
+    int WindowIconSizes[ICONSIZE_COUNT];
     BOOL TreeViewAutoHideExpanded;
     DWORD TreeViewAutoHideCollapseStart;
     int TreeViewWidth;
@@ -980,6 +992,24 @@ public:
 public:
     CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
+
+    BOOL RefreshDPIResources(BOOL force = FALSE);
+    int GetWindowDPI() const { return WindowDPI > 0 ? WindowDPI : GetSystemDPI(); }
+    HFONT GetPanelFont() const { return WindowPanelFont != NULL ? WindowPanelFont : Font; }
+    HFONT GetPanelFontUL() const { return WindowPanelFontUL != NULL ? WindowPanelFontUL : FontUL; }
+    HFONT GetEnvFont() const { return WindowEnvFont != NULL ? WindowEnvFont : EnvFont; }
+    HFONT GetEnvFontBold() const { return WindowEnvFontBold != NULL ? WindowEnvFontBold : EnvFontBold; }
+    HFONT GetEnvFontUL() const { return WindowEnvFontUL != NULL ? WindowEnvFontUL : EnvFontUL; }
+    int GetPanelFontHeight() const { return WindowPanelFontHeight > 0 ? WindowPanelFontHeight : FontCharHeight; }
+    int GetEnvFontHeight() const { return WindowEnvFontHeight > 0 ? WindowEnvFontHeight : EnvFontCharHeight; }
+    int GetTextEllipsisWidth() const { return WindowTextEllipsisWidth > 0 ? WindowTextEllipsisWidth : TextEllipsisWidth; }
+    int GetTextEllipsisWidthEnv() const { return WindowTextEllipsisWidthEnv > 0 ? WindowTextEllipsisWidthEnv : TextEllipsisWidthEnv; }
+    int GetIconSize(int size) const
+    {
+        return size >= 0 && size < ICONSIZE_COUNT && WindowIconSizes[size] > 0
+                   ? WindowIconSizes[size]
+                   : IconSizes[size];
+    }
 
     CPanelSide GetPanelSide() const { return PanelSide; }
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
@@ -1367,6 +1397,7 @@ public:
     void UpdateTreeViewColors();
     void CreateTreeView();
     void DestroyTreeView();
+    void RefreshTreeViewDPI();
     void UpdateTreeView(BOOL active);
     void RefreshTreeView(BOOL forceRefresh = FALSE);
     BOOL PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh = FALSE, BOOL async = FALSE);
@@ -1830,7 +1861,7 @@ const char* WINAPI PanelSalEnumSelection(HWND parent, int enumFiles, BOOL* isDir
 
 void SplitText(HDC hDC, const char* text, int textLen, int* maxWidth,
                char* out1, int* out1Len, int* out1Width,
-               char* out2, int* out2Len, int* out2Width);
+               char* out2, int* out2Len, int* out2Width, int ellipsisWidth);
 
 //
 // Copies the UNC form of a path to the clipboard.
@@ -1849,7 +1880,7 @@ BOOL CopyUNCPathToClipboard(const char* path, const char* name, BOOL isDir, HWND
 // From the file/directory 'f' creates three lines of text and fills out0/out0Len to out2/out2Len;
 // 'validFileData' specifies which parts of 'f' are valid
 void GetTileTexts(CFileData* f, int isDir,
-                  HDC hDC, int maxTextWidth, int* widthNeeded,
+                  HDC hDC, int maxTextWidth, int ellipsisWidth, int* widthNeeded,
                   char* out0, int* out0Len,
                   char* out1, int* out1Len,
                   char* out2, int* out2Len,

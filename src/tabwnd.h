@@ -44,6 +44,7 @@ public:
     CPanelSide GetSide() const { return Side; }
 
     void RefreshLayout();
+    void RefreshDPIResources();
 
     HWND GetTabToolTip() const { return HTabTipWnd; }
 
@@ -128,6 +129,9 @@ private:
     bool TabTipTracking;
 
     int CloseButtonHoverIndex;
+    HFONT HDPIFont;
+    HFONT HDPIFontBold;
+    int DPIFontHeight;
 
     static RECT GetTabCloseButtonRect(const RECT& tabRect);
     bool ShouldShowCloseButton(int tabIndex, int selectedIndex) const;

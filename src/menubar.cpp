@@ -48,7 +48,7 @@ static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvPa
     return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
 }
 
-static void UpdateMenuBarRebarBand(HWND hMenuBar, int minWidth, int minHeight)
+static void UpdateMenuBarRebarBandHeight(HWND hMenuBar, int minHeight)
 {
     if (hMenuBar == NULL)
         return;
@@ -70,8 +70,12 @@ static void UpdateMenuBarRebarBand(HWND hMenuBar, int minWidth, int minHeight)
         band.fMask = RBBIM_CHILD;
         if (SendMessage(hRebar, RB_GETBANDINFO, i, (LPARAM)&band) && band.hwndChild == hMenuBar)
         {
+            // Preserve the band's horizontal sizing policy. Both the main and
+            // detached menu bands intentionally use a very small cxMinChild so
+            // the rebar can negotiate their width with the other bands. Making
+            // the measured menu width a hard minimum corrupts the rebar layout
+            // after detach/reattach and can leave individual menu items clipped.
             band.fMask = RBBIM_CHILDSIZE;
-            band.cxMinChild = minWidth;
             band.cyMinChild = minHeight;
             SendMessage(hRebar, RB_SETBANDINFO, i, (LPARAM)&band);
             break;
@@ -203,7 +207,7 @@ void CMenuBar::SetFont()
     RefreshMinWidths();
     if (HWindow != NULL)
     {
-        UpdateMenuBarRebarBand(HWindow, GetNeededWidth(), GetNeededHeight());
+        UpdateMenuBarRebarBandHeight(HWindow, GetNeededHeight());
         InvalidateRect(HWindow, NULL, TRUE);
         UpdateWindow(HWindow);
     }

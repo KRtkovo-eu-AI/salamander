@@ -408,7 +408,7 @@ void CFilesBox::PaintAllItems(HRGN hUpdateRgn, DWORD drawFlags)
             lstrcpyn(textBuf, LoadStr(IDS_NOITEMSINPANEL), 300);
         }
         RECT textR = FilesRect;
-        textR.bottom = textR.top + FontCharHeight + 4;
+        textR.bottom = textR.top + Parent->GetPanelFontHeight() + 4;
         BOOL focused = (Parent->FocusVisible || Parent->Parent->EditMode && Parent->Parent->GetActivePanel() == Parent);
         COLORREF newColor;
         if (focused)
@@ -425,7 +425,7 @@ void CFilesBox::PaintAllItems(HRGN hUpdateRgn, DWORD drawFlags)
         }
         int oldBkMode = SetBkMode(HPrivateDC, TRANSPARENT);
         int oldTextColor = SetTextColor(HPrivateDC, newColor);
-        HFONT hOldFont = (HFONT)SelectObject(HPrivateDC, Font);
+        HFONT hOldFont = (HFONT)SelectObject(HPrivateDC, Parent->GetPanelFont());
         // if it flickers we can measure the text and use ExtTextOut
         DrawText(HPrivateDC, textBuf, -1,
                  &textR, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
@@ -1907,8 +1907,8 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
 
         labelR.top = itemY * ItemHeight;
         labelR.bottom = labelR.top + ItemHeight;
-        labelR.left = (x / ItemWidth) * ItemWidth + IconSizes[ICONSIZE_16] + 2 - XOffset;
-        labelR.right = labelR.left + ItemWidth - 10 - IconSizes[ICONSIZE_16] - 2;
+        labelR.left = (x / ItemWidth) * ItemWidth + Parent->GetIconSize(ICONSIZE_16) + 2 - XOffset;
+        labelR.right = labelR.left + ItemWidth - 10 - Parent->GetIconSize(ICONSIZE_16) - 2;
         break;
     }
 
@@ -1920,8 +1920,8 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
 
         labelR.top = itemY * ItemHeight;
         labelR.bottom = labelR.top + ItemHeight;
-        labelR.left = IconSizes[ICONSIZE_16] + 2 - XOffset;
-        labelR.right = labelR.left + ItemWidth - IconSizes[ICONSIZE_16] - 2;
+        labelR.left = Parent->GetIconSize(ICONSIZE_16) + 2 - XOffset;
+        labelR.right = labelR.left + ItemWidth - Parent->GetIconSize(ICONSIZE_16) - 2;
         break;
     }
 
@@ -1964,7 +1964,7 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
 
             const char* s = formatedFileName;
 
-            int width = IconSizes[ICONSIZE_16] + 2;
+            int width = Parent->GetIconSize(ICONSIZE_16) + 2;
 
             SIZE sz;
             int len;
@@ -1991,7 +1991,7 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
             HDC dc;
             HFONT hOldFont;
             dc = HANDLES(GetDC(HWindow));
-            hOldFont = (HFONT)SelectObject(dc, Font);
+            hOldFont = (HFONT)SelectObject(dc, Parent->GetPanelFont());
 
             GetTextExtentPoint32(dc, s, len, &sz);
             width += 2 + sz.cx + 3;
@@ -2003,7 +2003,7 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
             HANDLES(ReleaseDC(HWindow, dc));
         SKIP_MES:
 
-            labelR.right = labelR.left + width - IconSizes[ICONSIZE_16] - 2;
+            labelR.right = labelR.left + width - Parent->GetIconSize(ICONSIZE_16) - 2;
 
             int xPos = x;
             if (ViewMode == vmBrief)
@@ -2062,10 +2062,10 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
             int out2Len = 512;
             int out2Width;
             HDC hDC = ItemBitmap.HMemDC;
-            HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
+            HFONT hOldFont = (HFONT)SelectObject(hDC, Parent->GetPanelFont());
             SplitText(hDC, formatedFileName, f->NameLen, &maxWidth,
                       out1, &out1Len, &out1Width,
-                      out2, &out2Len, &out2Width);
+                      out2, &out2Len, &out2Width, Parent->GetTextEllipsisWidth());
             SelectObject(hDC, hOldFont);
             maxWidth += 4;
 
@@ -2078,9 +2078,9 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
             rect.left = (ItemWidth - maxWidth) / 2;
             rect.right = rect.left + maxWidth;
             rect.top = rect.bottom;
-            rect.bottom = rect.top + 3 + 2 + FontCharHeight + 2;
+            rect.bottom = rect.top + 3 + 2 + Parent->GetPanelFontHeight() + 2;
             if (out2Len > 0)
-                rect.bottom += FontCharHeight;
+                rect.bottom += Parent->GetPanelFontHeight();
             BOOL hitText = PtInRect(&rect, pt);
 
             labelR = rect;
@@ -2104,8 +2104,8 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
             pt.x = x % ItemWidth;
             pt.y = (y + TopIndex) % ItemHeight;
 
-            int iconW = IconSizes[ICONSIZE_48];
-            int iconH = IconSizes[ICONSIZE_48];
+            int iconW = Parent->GetIconSize(ICONSIZE_48);
+            int iconH = Parent->GetIconSize(ICONSIZE_48);
 
             // detect a click on the icon
             rect.top = (ItemHeight - iconH) / 2;
@@ -2125,7 +2125,7 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
                 f = &Parent->Files->At(itemIndex - Parent->Dirs->Count);
 
             int itemWidth = rect.right - rect.left; // item width
-            int maxTextWidth = ItemWidth - TILE_LEFT_MARGIN - IconSizes[ICONSIZE_48] - TILE_LEFT_MARGIN - 4;
+            int maxTextWidth = ItemWidth - TILE_LEFT_MARGIN - Parent->GetIconSize(ICONSIZE_48) - TILE_LEFT_MARGIN - 4;
             int widthNeeded = 0;
 
             char buff[3 * 512]; // destination buffer for strings
@@ -2136,8 +2136,9 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
             char* out2 = buff + 1024;
             int out2Len;
             HDC hDC = ItemBitmap.HMemDC;
-            HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
-            GetTileTexts(f, isDir, hDC, maxTextWidth, &widthNeeded,
+            HFONT hOldFont = (HFONT)SelectObject(hDC, Parent->GetPanelFont());
+            GetTileTexts(f, isDir, hDC, maxTextWidth,
+                         Parent->GetTextEllipsisWidth(), &widthNeeded,
                          out0, &out0Len, out1, &out1Len, out2, &out2Len,
                          Parent->ValidFileData, &Parent->PluginData,
                          Parent->Is(ptDisk));
@@ -2149,7 +2150,7 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
                 visibleLines++;
             if (out2[0] != 0)
                 visibleLines++;
-            int textH = visibleLines * FontCharHeight + 4;
+            int textH = visibleLines * Parent->GetPanelFontHeight() + 4;
 
             // rectangle of text
             labelR.left = rect.right + 2;
@@ -2517,7 +2518,7 @@ void CFilesBox::LayoutChilds(BOOL updateAndCheck)
         if (HeaderLine.HWindow != NULL)
         {
             HeaderRect = FilesRect;
-            HeaderRect.bottom = HeaderRect.top + FontCharHeight + 4;
+            HeaderRect.bottom = HeaderRect.top + Parent->GetPanelFontHeight() + 4;
             FilesRect.top = HeaderRect.bottom;
             deferCount++;
         }

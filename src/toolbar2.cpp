@@ -9,6 +9,7 @@
 #include "toolbar.h"
 #include "svg.h"
 #include "darkmode.h"
+#include "common/winlibdpi.h"
 
 //*****************************************************************************
 //
@@ -83,15 +84,30 @@ void CToolBar::SetFont()
 
     if (Style & TLB_STYLE_TEXT)
     {
-        HFont = EnvFont;
+        LOGFONT lf;
+        HFONT newFont = WinLibDPIGetIconTitleLogFont(HWindow, &lf)
+                            ? HANDLES(CreateFontIndirect(&lf))
+                            : NULL;
+        if (newFont != NULL)
+        {
+            if (HOwnedDPIFont != NULL)
+                HANDLES(DeleteObject(HOwnedDPIFont));
+            HOwnedDPIFont = newFont;
+            HFont = HOwnedDPIFont;
+        }
+        else
+            HFont = EnvFont;
 
-        HDC hDC = HANDLES(GetDC(NULL));
-        TEXTMETRIC tm;
-        HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
-        GetTextMetrics(hDC, &tm);
-        FontHeight = tm.tmHeight;
-        SelectObject(hDC, hOldFont);
-        HANDLES(ReleaseDC(NULL, hDC));
+        HDC hDC = HANDLES(GetDC(HWindow));
+        if (hDC != NULL)
+        {
+            TEXTMETRIC tm;
+            HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
+            GetTextMetrics(hDC, &tm);
+            FontHeight = tm.tmHeight;
+            SelectObject(hDC, hOldFont);
+            HANDLES(ReleaseDC(HWindow, hDC));
+        }
 
         changed = TRUE;
     }

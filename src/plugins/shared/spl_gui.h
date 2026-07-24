@@ -2225,6 +2225,10 @@ public:
                                              HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
                                              const CSVGIcon* svgIcons, int svgIconsCount) = 0;
     virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize) = 0;
+    virtual BOOL WINAPI CreateToolbarBitmapsForWindow(HWND dpiWindow, HINSTANCE hInstance, int resID,
+                                                      COLORREF transparent, COLORREF bkColorForAlpha,
+                                                      HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
+                                                      const CSVGIcon* svgIcons, int svgIconsCount) = 0;
 };
 
 #ifdef _MSC_VER

@@ -1299,6 +1299,7 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD*
     MinChildWidth = 0;
     TreeSplitDragging = FALSE;
     TreeWidthChanged = FALSE;
+    CurrentDPI = USER_DEFAULT_SCREEN_DPI;
 }
 
 INT_PTR
@@ -1311,6 +1312,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        CurrentDPI = (int)WinLibDPIGetWindowDPI(HWindow);
         HWND hwnd = GetDlgItem(HWindow, _TPD_IDC_RECT);
         GetWindowRect(hwnd, &ChildDialogRect);
         POINT p;
@@ -1359,7 +1361,8 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CaptionWindow = new CTPHCaptionWindow(HWindow, _TPD_IDC_CAPTION);
         if (CaptionWindow == NULL)
             TRACE_ET(_T("Low memory!"));
-        MinTreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 + GetSystemMetrics(SM_CXVSCROLL);
+        MinTreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 +
+                       WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
         TreeWidth = MinTreeWidth;
         // Cap TreeView width so the dialog doesn't grow with longer translations (e.g. French vs English).
         {
@@ -1424,6 +1427,21 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case _TPD_WM_POST_INIT_REDRAW:
     {
+        HFONT dialogFont = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
+        if (HTreeView != NULL && dialogFont != NULL)
+        {
+            SendMessage(HTreeView, WM_SETFONT, (WPARAM)dialogFont, TRUE);
+            HDC dc = HANDLES(GetDC(HTreeView));
+            if (dc != NULL)
+            {
+                TEXTMETRIC tm;
+                HFONT oldFont = (HFONT)SelectObject(dc, dialogFont);
+                if (GetTextMetrics(dc, &tm))
+                    TreeView_SetItemHeight(HTreeView, tm.tmHeight + MulDiv(4, CurrentDPI, USER_DEFAULT_SCREEN_DPI));
+                SelectObject(dc, oldFont);
+                HANDLES(ReleaseDC(HTreeView, dc));
+            }
+        }
         ApplyTreeViewColors(HTreeView);
         LayoutControls();
         if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
@@ -1433,6 +1451,38 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         RepaintWindowTree(HWindow);
         return TRUE;
+    }
+
+    case WM_DPICHANGED:
+    {
+        int newDPI = LOWORD(wParam);
+        if (newDPI > 0 && CurrentDPI > 0 && newDPI != CurrentDPI)
+        {
+#define SCALE_TPD_VALUE(value) value = MulDiv(value, newDPI, CurrentDPI)
+            SCALE_TPD_VALUE(MinWindowSize.cx);
+            SCALE_TPD_VALUE(MinWindowSize.cy);
+            SCALE_TPD_VALUE(TreeWidth);
+            SCALE_TPD_VALUE(MinTreeWidth);
+            SCALE_TPD_VALUE(MinChildWidth);
+            SCALE_TPD_VALUE(CaptionHeight);
+            SCALE_TPD_VALUE(ButtonSize.cx);
+            SCALE_TPD_VALUE(ButtonSize.cy);
+            SCALE_TPD_VALUE(ButtonMargin);
+            SCALE_TPD_VALUE(GripSize.cx);
+            SCALE_TPD_VALUE(GripSize.cy);
+            SCALE_TPD_VALUE(MarginSize.cx);
+            SCALE_TPD_VALUE(MarginSize.cy);
+            SCALE_TPD_VALUE(ChildDialogRect.left);
+            SCALE_TPD_VALUE(ChildDialogRect.top);
+            SCALE_TPD_VALUE(ChildDialogRect.right);
+            SCALE_TPD_VALUE(ChildDialogRect.bottom);
+#undef SCALE_TPD_VALUE
+            CurrentDPI = newDPI;
+            PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+        }
+        // Return through CDialog so DefDlgProc can perform the PMv2 dialog and
+        // child-control scaling exactly once.
+        break;
     }
 
     case WM_HELP:
@@ -1681,8 +1731,8 @@ void CTreePropHolderDlg::LayoutControls()
 
     int sepY = cRect.bottom - MarginSize.cy - ButtonSize.cy - MarginSize.cy - 1;
 
-    GripSize.cx = GetSystemMetrics(SM_CXVSCROLL);
-    GripSize.cy = GetSystemMetrics(SM_CYHSCROLL);
+    GripSize.cx = WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
+    GripSize.cy = WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL);
 
     HDWP hdwp = HANDLES(BeginDeferWindowPos(8));
     if (hdwp != NULL)
@@ -2083,7 +2133,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         lpw += 2;
         // style
         *(DWORD*)lpw = WS_VISIBLE | WS_POPUP | WS_BORDER | WS_SYSMENU | WS_CAPTION |
-                       DS_SETFONT | DS_MODALFRAME | DS_CENTER | DS_FIXEDSYS | WS_SIZEBOX;
+                       DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_SIZEBOX;
         lpw += 2;
         *lpw++ = 8; // cDlgItems (number of controls)
         *lpw++ = 0; // x
@@ -2094,13 +2144,13 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         *lpw++ = 0; // predefined dialog box class (by default)
         lpwsz = (LPWSTR)lpw;
         lpw += WinLibCopyText(lpwsz, Caption, 100); // title
-        *lpw++ = 8;                                 // velikost fontu
+        *lpw++ = 9;                                 // font size, kept in sync with resource property pages
         *lpw++ = FW_NORMAL;                         // font weight
         *(BYTE*)lpw = FALSE;                        // is font italic?
         *((BYTE*)lpw + 1) = ANSI_CHARSET;           // font charset
         lpw++;
         lpwsz = (LPWSTR)lpw; // font typeface
-        lpw += WinLibCopyText(lpwsz, _T("MS Shell Dlg 2"), 50);
+        lpw += WinLibCopyText(lpwsz, _T("Segoe UI"), 50);
 
         BOOL appIsThemed = IsAppThemed();
 

@@ -1066,6 +1066,8 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
+        if (!CreateEnvFont(HWindow))
+            return -1;
         if (!Init())
             return -1;
         return 0;
@@ -1074,6 +1076,55 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_ERASEBKGND:
     {
         return 1;
+    }
+
+    case WM_DPICHANGED:
+    {
+        if (CreateEnvFont(HWindow))
+        {
+            HeaderHeight = EnvFontHeight + WinLibDPIFromLogical(HWindow, 4);
+            if (ComboBox != NULL && ComboBox->HWindow != NULL)
+            {
+                SendMessage(ComboBox->HWindow, WM_SETFONT, (WPARAM)EnvFont, TRUE);
+                SendMessage(ComboBox->HWindow, CB_SETITEMHEIGHT, (WPARAM)-1,
+                            EnvFontHeight + WinLibDPIFromLogical(HWindow, 6));
+            }
+            if (FileView[fviLeft] != NULL)
+                FileView[fviLeft]->ReloadConfiguration(CC_FONT, FALSE);
+            if (FileView[fviRight] != NULL)
+                FileView[fviRight]->ReloadConfiguration(CC_FONT, FALSE);
+            if (Rebar != NULL && Rebar->HWindow != NULL)
+            {
+                int band = (int)SendMessage(Rebar->HWindow, RB_IDTOINDEX,
+                                            IDC_DIFFLIST, 0);
+                if (band >= 0)
+                {
+                    REBARBANDINFO info;
+                    ZeroMemory(&info, sizeof(info));
+                    info.cbSize = sizeof(info);
+                    info.fMask = RBBIM_CHILDSIZE;
+                    if (SendMessage(Rebar->HWindow, RB_GETBANDINFO, band,
+                                    (LPARAM)&info))
+                    {
+                        info.cyMinChild =
+                            EnvFontHeight + WinLibDPIFromLogical(HWindow, 8);
+                        SendMessage(Rebar->HWindow, RB_SETBANDINFO, band,
+                                    (LPARAM)&info);
+                    }
+                }
+                RECT rebarRect;
+                GetClientRect(Rebar->HWindow, &rebarRect);
+                SendMessage(Rebar->HWindow, WM_SIZE, SIZE_RESTORED,
+                            MAKELPARAM(rebarRect.right, rebarRect.bottom));
+                RebarHeight =
+                    LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) +
+                    REBAR_BORDER;
+            }
+            LayoutChilds();
+            RedrawWindow(HWindow, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+        }
+        break; // WinLib applies the suggested top-level rectangle.
     }
 
     case WM_PAINT:

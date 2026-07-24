@@ -217,8 +217,9 @@
 //   101 - 4.0 beta 1 (DB177)
 //   102 - 4.0
 //   103 - 5.0
+//   104 - 5.0 per-monitor DPI window graphics
 
-#define LAST_VERSION_OF_SALAMANDER 103
+#define LAST_VERSION_OF_SALAMANDER 104
 #define REQUIRE_LAST_VERSION_OF_SALAMANDER "This plugin requires Open Salamander 5.0 (" SAL_VER_PLATFORM ") or later."
 
 #endif // __SPL_VERS_H

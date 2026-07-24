@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include "svg.h"
 #include "gui.h"
@@ -1036,6 +1037,40 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CStaticText::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_SETFONT:
+    {
+        // CStaticText paints with its cached HFont instead of asking the
+        // underlying STATIC control on every paint.  Keep that cache in sync
+        // when PMv2 dialog scaling installs a new per-monitor font.
+        HFONT baseFont = (HFONT)wParam;
+        HFONT newFont = baseFont;
+        BOOL destroyNewFont = FALSE;
+        if (baseFont != NULL && (Flags & (STF_BOLD | STF_UNDERLINE)) != 0)
+        {
+            LOGFONT lf;
+            if (GetObject(baseFont, sizeof(lf), &lf) == sizeof(lf))
+            {
+                if (Flags & STF_BOLD)
+                    lf.lfWeight = FW_BOLD;
+                if (Flags & STF_UNDERLINE)
+                    lf.lfUnderline = TRUE;
+                newFont = HANDLES(CreateFontIndirect(&lf));
+                destroyNewFont = newFont != NULL;
+                if (newFont == NULL)
+                    newFont = baseFont;
+            }
+        }
+
+        LRESULT ret = CWindow::WindowProc(uMsg, wParam, lParam);
+        if (HFont != NULL && DestroyFont)
+            HANDLES(DeleteObject(HFont));
+        HFont = newFont;
+        DestroyFont = destroyNewFont;
+        PrepareForPaint();
+        InvalidateRect(HWindow, NULL, FALSE);
+        return ret;
+    }
+
     case WM_SIZE:
     {
         Width = LOWORD(lParam);
@@ -2884,11 +2919,16 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     ToolBar->CreateWnd(HWindow);
 
 #ifdef TOOLBARHDR_USE_SVG
-    CreateImageLists(&HEnabledImageList, &HDisabledImageList);
-    ToolBar->SetImageList(HDisabledImageList);
-    ToolBar->SetHotImageList(HEnabledImageList);
+    HEnabledImageList = NULL;
+    HDisabledImageList = NULL;
 #else
+    HHotImageList = NULL;
+    HGrayImageList = NULL;
+#endif
+    RebuildImageLists();
 
+#ifndef TOOLBARHDR_USE_SVG
+/*
     CSVGIcon svgIcons[TLBHDR_COUNT] = {
         {0, "Modify"},
         {1, "New"},
@@ -2927,6 +2967,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     //ImageList_AddMasked(HImageList, hbmp, RGB(255, 0, 255));
     //HANDLES(DeleteObject(hbmp));
     //ToolBar->SetImageList(HImageList);
+*/
 #endif
 
     UIState = (WORD)SendMessage(HWindow, WM_QUERYUISTATE, 0, 0);
@@ -2961,6 +3002,97 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     ScreenToClient(hDlg, &p);
     SetWindowPos(HWindow, 0, p.x, p.y, width, height, SWP_NOZORDER);
     SetWindowPos(ToolBar->HWindow, HWND_TOP, width - sz.cx - 1, 1, sz.cx, sz.cy, SWP_SHOWWINDOW);
+}
+
+void CToolbarHeader::RebuildImageLists()
+{
+#ifdef TOOLBARHDR_USE_SVG
+    HIMAGELIST enabled = NULL;
+    HIMAGELIST disabled = NULL;
+    CreateImageLists(&enabled, &disabled);
+    if (enabled == NULL || disabled == NULL)
+    {
+        if (enabled != NULL)
+            ImageList_Destroy(enabled);
+        if (disabled != NULL)
+            ImageList_Destroy(disabled);
+        return;
+    }
+
+    HIMAGELIST oldEnabled = HEnabledImageList;
+    HIMAGELIST oldDisabled = HDisabledImageList;
+    HEnabledImageList = enabled;
+    HDisabledImageList = disabled;
+    ToolBar->SetImageList(HDisabledImageList);
+    ToolBar->SetHotImageList(HEnabledImageList);
+    if (oldEnabled != NULL)
+        ImageList_Destroy(oldEnabled);
+    if (oldDisabled != NULL)
+        ImageList_Destroy(oldDisabled);
+#else
+    CSVGIcon svgIcons[TLBHDR_COUNT] = {
+        {0, "Modify"},
+        {1, "New"},
+        {2, "Delete"},
+        {3, "SortByName"},
+        {4, "MoveItemUp"},
+        {5, "MoveItemDown"},
+        {6, "MoveItemTop"},
+        {7, "Filter"},
+        {8, "View"},
+        {9, "MoveItemBottom"},
+    };
+
+    HBITMAP maskBitmap = NULL;
+    HBITMAP grayBitmap = NULL;
+    HBITMAP colorBitmap = NULL;
+    COLORREF toolbarBkColor =
+        (Configuration.UseWindowsDarkMode && DarkModeShouldUseDarkColors())
+            ? RGB(32, 32, 32)
+            : GetSysColor(COLOR_BTNFACE);
+    int dpi = GetDPIForWindow(HWindow);
+    if (!CreateToolbarBitmaps(HInstance, IDB_EDTLBTB, RGB(255, 0, 255),
+                              toolbarBkColor, maskBitmap, grayBitmap, colorBitmap,
+                              FALSE, svgIcons, TLBHDR_COUNT, dpi))
+    {
+        return;
+    }
+
+    BITMAP bitmap;
+    ZeroMemory(&bitmap, sizeof(bitmap));
+    GetObject(colorBitmap, sizeof(bitmap), &bitmap);
+    int iconSize = bitmap.bmHeight > 0 ? bitmap.bmHeight : MulDiv(16, dpi, 96);
+    HIMAGELIST hot = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
+                                      TLBHDR_COUNT, 1);
+    HIMAGELIST gray = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
+                                       TLBHDR_COUNT, 1);
+    if (hot != NULL)
+        ImageList_Add(hot, colorBitmap, maskBitmap);
+    if (gray != NULL)
+        ImageList_Add(gray, grayBitmap, maskBitmap);
+    HANDLES(DeleteObject(maskBitmap));
+    HANDLES(DeleteObject(grayBitmap));
+    HANDLES(DeleteObject(colorBitmap));
+    if (hot == NULL || gray == NULL)
+    {
+        if (hot != NULL)
+            ImageList_Destroy(hot);
+        if (gray != NULL)
+            ImageList_Destroy(gray);
+        return;
+    }
+
+    HIMAGELIST oldHot = HHotImageList;
+    HIMAGELIST oldGray = HGrayImageList;
+    HHotImageList = hot;
+    HGrayImageList = gray;
+    ToolBar->SetImageList(HGrayImageList);
+    ToolBar->SetHotImageList(HHotImageList);
+    if (oldHot != NULL)
+        ImageList_Destroy(oldHot);
+    if (oldGray != NULL)
+        ImageList_Destroy(oldGray);
+#endif
 }
 
 #ifdef TOOLBARHDR_USE_SVG
@@ -3110,6 +3242,20 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CToolbarHeader::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        RebuildImageLists();
+        if (ToolBar != NULL)
+            ToolBar->SetFont();
+        RECT r;
+        GetClientRect(HWindow, &r);
+        SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
+                    MAKELPARAM(r.right - r.left, r.bottom - r.top));
+        RedrawWindow(HWindow, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return 0;
+    }
+
     case WM_DESTROY:
     {
         RemoveProp(HWindow, _T("SalamanderToolbarHeader"));

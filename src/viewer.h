@@ -323,6 +323,7 @@ protected:
     void ReleaseViewerBrushs();
     void SetViewerFont();
     void SetViewerZoom(int percent);
+    void RefreshStatusBarDPI();
     void LayoutStatusBar();
     void UpdateStatusBar(__int64 offset = -1);
     int GetTextLeft() const;
@@ -438,6 +439,7 @@ protected:
 
     CBitmap Bitmap;
     HFONT ViewerFont;
+    HFONT StatusFont;
 
     HWND HStatusBar;
     HWND HScrollBar;

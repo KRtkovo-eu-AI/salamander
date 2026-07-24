@@ -46,6 +46,7 @@ CFileViewWindow::CFileViewWindow(CFileViewID id, CFileViewType type)
     Type = type;
     DataValid = FALSE;
     HFont = NULL;
+    ZeroMemory(&CurrentLogFont, sizeof(CurrentLogFont));
     FontWidth = 0;
     LineNumDigits = 0;
     LineNumWidth = (LineNumDigits + 1) * FontWidth + BORDER_WIDTH;
@@ -132,7 +133,9 @@ void CFileViewWindow::ReloadConfiguration(DWORD flags, BOOL updateWindow)
         HDC hdc = GetDC(NULL);
         if (HFont)
             DeleteObject(HFont);
-        HFont = CreateFontIndirect(&Configuration.FileViewLogFont);
+        CurrentLogFont = Configuration.FileViewLogFont;
+        WinLibDPIScaleLogFont(HWindow, &CurrentLogFont);
+        HFont = CreateFontIndirect(&CurrentLogFont);
         HFONT oldFont = (HFONT)SelectObject(hdc, HFont);
         TEXTMETRIC tm;
         GetTextMetrics(hdc, &tm);
@@ -141,7 +144,7 @@ void CFileViewWindow::ReloadConfiguration(DWORD flags, BOOL updateWindow)
         SelectObject(hdc, oldFont);
         ReleaseDC(NULL, hdc);
 
-        MappedASCII8TextOut.FontHasChanged(&Configuration.FileViewLogFont, HFont, FontWidth, FontHeight);
+        MappedASCII8TextOut.FontHasChanged(&CurrentLogFont, HFont, FontWidth, FontHeight);
 
         LineNumWidth = (LineNumDigits + 1) * FontWidth + BORDER_WIDTH;
 

@@ -3080,7 +3080,7 @@ void CFilesWindow::AdjustQuickRenameRect(const char* text, RECT* r)
 {
     // measure the length of the text
     HDC hDC = HANDLES(GetDC(ListBox->HWindow));
-    HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
+    HFONT hOldFont = (HFONT)SelectObject(hDC, GetPanelFont());
     SIZE sz;
     GetTextExtentPoint32(hDC, text, (int)strlen(text), &sz);
     TEXTMETRIC tm;
@@ -3111,7 +3111,7 @@ void CFilesWindow::AdjustQuickRenameRect(const char* text, RECT* r)
 void CFilesWindow::AdjustQuickRenameRectW(const wchar_t* text, RECT* r)
 {
     HDC hDC = HANDLES(GetDC(ListBox->HWindow));
-    HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
+    HFONT hOldFont = (HFONT)SelectObject(hDC, GetPanelFont());
     SIZE sz;
     GetTextExtentPoint32W(hDC, text, (int)wcslen(text), &sz);
     TEXTMETRIC tm;
@@ -3323,7 +3323,7 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     BeginSuspendMode(TRUE); // snooper takes a break
 
     // font the same as the panel
-    SendMessage(hWnd, WM_SETFONT, (WPARAM)Font, 0);
+    SendMessage(hWnd, WM_SETFONT, (WPARAM)GetPanelFont(), 0);
     int leftMargin = LOWORD(SendMessage(hWnd, EM_GETMARGINS, 0, 0));
     if (leftMargin < 2)
         SendMessage(hWnd, EM_SETMARGINS, EC_LEFTMARGIN, 2);

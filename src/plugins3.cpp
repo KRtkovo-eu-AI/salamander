@@ -431,6 +431,24 @@ BOOL CSalamanderGUI::CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORR
     return ret;
 }
 
+BOOL CSalamanderGUI::CreateToolbarBitmapsForWindow(HWND dpiWindow, HINSTANCE hInstance, int resID,
+                                                   COLORREF transparent, COLORREF bkColorForAlpha,
+                                                   HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
+                                                   const CSVGIcon* svgIcons, int svgIconsCount)
+{
+    BOOL ret = ::CreateToolbarBitmaps(hInstance, resID, transparent, bkColorForAlpha,
+                                      hMaskBitmap, hGrayBitmap, hColorBitmap,
+                                      FALSE, svgIcons, svgIconsCount,
+                                      GetDPIForWindow(dpiWindow));
+    if (ret)
+    {
+        HANDLES_REMOVE(hMaskBitmap, __htHandle_comp_with_DeleteObject, "DeleteObject");
+        HANDLES_REMOVE(hGrayBitmap, __htHandle_comp_with_DeleteObject, "DeleteObject");
+        HANDLES_REMOVE(hColorBitmap, __htHandle_comp_with_DeleteObject, "DeleteObject");
+    }
+    return ret;
+}
+
 
 HICON CSalamanderGUI::CreateSVGIcon(const char* svgName, int iconSize)
 {

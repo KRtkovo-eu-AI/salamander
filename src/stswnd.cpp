@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include "toolbar.h"
 #include "cfgdlg.h"
@@ -261,7 +262,7 @@ void CStatusWindow::BuildHotTrackItems()
     CALL_STACK_MESSAGE1("CStatusWindow::BuildHotTrackItems()");
 
     HDC dc = HANDLES(GetDC(HWindow));
-    HFONT oldFont = (HFONT)SelectObject(dc, EnvFont);
+    HFONT oldFont = (HFONT)SelectObject(dc, FilesWindow->GetEnvFont());
 
     HotItem = NULL;
     LastHotItem = NULL;
@@ -589,12 +590,13 @@ void CStatusWindow::InvalidateIfNeeded()
 int CStatusWindow::GetNeededHeight()
 {
     CALL_STACK_MESSAGE_NONE
-    int height = 2 + EnvFontCharHeight + 2;
+    int height = 2 + FilesWindow->GetEnvFontHeight() + 2;
     if (Border & blTop)
     {
         height += 2 + 2;
-        //    int needed = ToolBar->GetNeededHeight();
-        int needed = 3 + 16 + 3;
+        int needed = ToolBar != NULL && ToolBar->HWindow != NULL
+                         ? ToolBar->GetNeededHeight()
+                         : 3 + GetIconSizeForSystemDPI(ICONSIZE_16) + 3;
         if (height < needed)
             height = needed;
     }
@@ -736,7 +738,7 @@ BOOL CStatusWindow::FindHotTrackItem(int xPos, int& index)
 
         // pokud je za root slozkou vypustka, musime o ni posunout xPos
         if (i == 1 && EllipsedWidth != -1)
-            xPos += EllipsedWidth - TextEllipsisWidthEnv;
+            xPos += EllipsedWidth - FilesWindow->GetTextEllipsisWidthEnv();
 
         if (xPos >= item->PixelsOffset && xPos < item->PixelsOffset + item->Pixels)
         {
@@ -960,7 +962,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         int visibleChars = 0;
 
         SetBkMode(dc, TRANSPARENT);
-        HFONT oldFont = (HFONT)SelectObject(dc, EnvFont);
+        HFONT oldFont = (HFONT)SelectObject(dc, FilesWindow->GetEnvFont());
 
         SIZE s;
         RECT tmpR;
@@ -1054,7 +1056,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             }
         }
 
-        if (tmpR.right > tmpR.left + TextEllipsisWidthEnv)
+        if (tmpR.right > tmpR.left + FilesWindow->GetTextEllipsisWidthEnv())
         {
             visibleChars = TextLen;
             int textWidth = tmpR.right - tmpR.left;
@@ -1062,7 +1064,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             {
                 // text se do pozadovane sirky nevejde cely -> musime zkracovat
                 if (isDirectoryLine && HotTrackItems.Count > 1 &&
-                    HotTrackItems[0].Pixels + TextEllipsisWidthEnv <= textWidth)
+                    HotTrackItems[0].Pixels + FilesWindow->GetTextEllipsisWidthEnv() <= textWidth)
                 {
                     // pro horni directory line budeme zkracovat za root slozkou cesty
                     EllipsedChars = 0;
@@ -1070,7 +1072,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
 
                     int len = AlpDX[TextLen - 1];
                     int iter = HotTrackItems[0].Chars;
-                    while (len > textWidth - TextEllipsisWidthEnv && iter < TextLen)
+                    while (len > textWidth - FilesWindow->GetTextEllipsisWidthEnv() && iter < TextLen)
                     {
                         int charLen = Utf8CharLen((unsigned char)Text[iter]);
                         if (iter + charLen > TextLen)
@@ -1090,7 +1092,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     // pro spodni infoline budeme hledat zezadu znak,
                     // za ktery lze nakopirovat "..."
                     while (visibleChars > 0 &&
-                           AlpDX[visibleChars - 1] + TextEllipsisWidthEnv > textWidth)
+                           AlpDX[visibleChars - 1] + FilesWindow->GetTextEllipsisWidthEnv() > textWidth)
                     {
                         visibleChars = MoveToPrevUtf8CharStart(Text, visibleChars);
                     }
@@ -1104,7 +1106,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             {
                 realWidth = AlpDX[TextLen - 1];
                 if (EllipsedWidth != -1)
-                    realWidth = realWidth - EllipsedWidth + TextEllipsisWidthEnv;
+                    realWidth = realWidth - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv();
             }
             TextRect.left = tmpR.left;
             TextRect.right = TextRect.left + realWidth;
@@ -1139,7 +1141,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         int myYOffset = 0;
         if (isDirectoryLine && !Configuration.ShowPanelCaption)
             myYOffset = 1;
-        int textY = (tmpR.top + tmpR.bottom - EnvFontCharHeight + myYOffset) / 2;
+        int textY = (tmpR.top + tmpR.bottom - FilesWindow->GetEnvFontHeight() + myYOffset) / 2;
 
         // vypis hlavniho textu, pokud na nej mame nejaky prostor
         if (TextRect.right > TextRect.left)
@@ -1197,7 +1199,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     // "..."
                     ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1], textY, 0, NULL, "...", 3, NULL);
                     // zbytek
-                    ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1] + TextEllipsisWidthEnv,
+                    ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(),
                                textY, 0, NULL, Text + TextLen - visibleChars, visibleChars, NULL);
                 }
             }
@@ -1231,7 +1233,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     if (firstChar < rootChars + EllipsedChars) // je potreba preskocit pripadne zpetne lomitko, ktere by lezlo do vypustky
                         firstChar = rootChars + EllipsedChars;
                 }
-                ExtTextOut(dc, TextRect.left + AlpDX[firstChar - 1] - EllipsedWidth + TextEllipsisWidthEnv,
+                ExtTextOut(dc, TextRect.left + AlpDX[firstChar - 1] - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv(),
                            textY, 0, NULL, Text + firstChar, TextLen - firstChar, NULL);
             }
 
@@ -1252,7 +1254,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 }
                 HFONT hOldFont = NULL;
                 if (Configuration.SingleClick && HotItem != NULL)
-                    hOldFont = (HFONT)SelectObject(dc, EnvFontUL);
+                    hOldFont = (HFONT)SelectObject(dc, FilesWindow->GetEnvFontUL());
 
                 if (truncateEnd)
                 { // bez zkraceni nebo ustrizen konec
@@ -1282,7 +1284,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                         if (showChars - rootChars - EllipsedChars > 0)
                         {
                             // zbytek
-                            ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1] + TextEllipsisWidthEnv,
+                            ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(),
                                        textY, 0, NULL, Text + rootChars + EllipsedChars, showChars - rootChars - EllipsedChars, NULL);
                         }
                     }
@@ -1350,7 +1352,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
 
             HFONT hOldFont = NULL;
             if (Configuration.SingleClick && HotSize)
-                hOldFont = (HFONT)SelectObject(dc, EnvFontUL);
+                hOldFont = (HFONT)SelectObject(dc, FilesWindow->GetEnvFontUL());
             ExtTextOut(dc, SizeRect.left, textY, 0, NULL, Size, (UINT)strlen(Size), NULL);
             if (hOldFont != NULL)
                 SelectObject(dc, hOldFont);
@@ -1858,6 +1860,16 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         break;
+    }
+
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        // PMv2 has already resized this child. Refresh the toolbar's cached
+        // font/image dimensions before asking the panel to lay the row out;
+        // otherwise GetNeededWidth() can keep the previous monitor's values
+        // and hide the last directory-line button after an upscale.
+        SetFont();
+        return 0;
     }
 
     case WM_USER_TTGETTEXT:
@@ -2426,7 +2438,7 @@ CStatusWindow::CreateDragImage(const char* text, int& dxHotspot, int& dyHotspot,
                         text, dxHotspot, dyHotspot, imgWidth, imgHeight);
     int textLen = lstrlen(text);
     HDC hDC = ItemBitmap.HMemDC;
-    HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
+    HFONT hOldFont = (HFONT)SelectObject(hDC, FilesWindow->GetPanelFont());
     SIZE sz;
     GetTextExtentPoint32(hDC, text, textLen, &sz);
     ItemBitmap.Enlarge(sz.cx, sz.cy); // alokace bitmapy v ItemBitmap.HMemDC
@@ -2505,6 +2517,20 @@ void CStatusWindow::OnColorsChanged()
 
 void CStatusWindow::SetFont()
 {
+    // The main toolbar image lists are recreated when DPI changes. Reattach
+    // their new handles and invalidate all cached item extents before layout.
+    if (ToolBar != NULL && ToolBar->HWindow != NULL)
+    {
+        ToolBar->SetImageList(MainWindow->GetToolbarImageListForWindow(HWindow, FALSE));
+        ToolBar->SetHotImageList(MainWindow->GetToolbarImageListForWindow(HWindow, TRUE));
+        ToolBar->SetFont();
+    }
+
+    RECT r;
+    if (HWindow != NULL && GetClientRect(HWindow, &r))
+        SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
+                    MAKELONG(r.right - r.left, r.bottom - r.top));
+
     // mohlo dojit ke zmene velikosti fontu
     InvalidateRect(HWindow, NULL, TRUE);
     BuildHotTrackItems();

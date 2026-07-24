@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include <vector>
 #include <string>
@@ -636,6 +637,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     BkgndBrushSel = NULL;
     LineNumberBrush = NULL;
     ViewerFont = NULL;
+    StatusFont = NULL;
     HStatusBar = HScrollBar = VScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
     StatusBarHeight = 0;
     ZoomPercent = Configuration.ViewerZoomPercent;
@@ -746,6 +748,8 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
 
 CViewerWindow::~CViewerWindow()
 {
+    if (StatusFont != NULL)
+        HANDLES(DeleteObject(StatusFont));
     if (ViewerFont != NULL)
         HANDLES(DeleteObject(ViewerFont));
     ReleaseViewerBrushs();
@@ -2641,6 +2645,29 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
     return line;
 }
 
+void CViewerWindow::RefreshStatusBarDPI()
+{
+    HFONT newFont = WinLibDPICreateMessageFont(HWindow);
+    if (newFont == NULL)
+        return;
+
+    if (HStatusBar != NULL)
+        SendMessage(HStatusBar, WM_SETFONT, (WPARAM)newFont, TRUE);
+    if (HZoomReset != NULL)
+        SendMessage(HZoomReset, WM_SETFONT, (WPARAM)newFont, TRUE);
+    if (HZoomOut != NULL)
+        SendMessage(HZoomOut, WM_SETFONT, (WPARAM)newFont, TRUE);
+    if (HZoomEdit != NULL)
+        SendMessage(HZoomEdit, WM_SETFONT, (WPARAM)newFont, TRUE);
+    if (HZoomIn != NULL)
+        SendMessage(HZoomIn, WM_SETFONT, (WPARAM)newFont, TRUE);
+
+    HFONT oldFont = StatusFont;
+    StatusFont = newFont;
+    if (oldFont != NULL)
+        HANDLES(DeleteObject(oldFont));
+}
+
 void CViewerWindow::LayoutStatusBar()
 {
     if (HStatusBar == NULL)
@@ -2649,9 +2676,25 @@ void CViewerWindow::LayoutStatusBar()
     GetClientRect(HWindow, &rc);
     // The status bar and its controls are window chrome.  Their dimensions
     // must not follow the document font zoom.
-    StatusBarHeight = ShowStatusBar ? max(20, GetSystemMetrics(SM_CYSMICON) + 4) : 0;
-    int scrollWidth = GetSystemMetrics(SM_CXVSCROLL);
-    int scrollHeight = GetSystemMetrics(SM_CYHSCROLL);
+    int fontHeight = 0;
+    if (StatusFont != NULL)
+    {
+        HDC dc = HANDLES(GetDC(HWindow));
+        HFONT oldFont = (HFONT)SelectObject(dc, StatusFont);
+        TEXTMETRIC metrics;
+        if (GetTextMetrics(dc, &metrics))
+            fontHeight = metrics.tmHeight + metrics.tmExternalLeading;
+        SelectObject(dc, oldFont);
+        HANDLES(ReleaseDC(HWindow, dc));
+    }
+    StatusBarHeight = ShowStatusBar
+                          ? max(WinLibDPIFromLogical(HWindow, 20),
+                                max(WinLibDPIGetSystemMetric(HWindow, SM_CYSMICON) +
+                                        WinLibDPIFromLogical(HWindow, 4),
+                                    fontHeight + WinLibDPIFromLogical(HWindow, 6)))
+                          : 0;
+    int scrollWidth = WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
+    int scrollHeight = WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL);
     int gripWidth = (GetWindowLong(HStatusBar, GWL_STYLE) & SBARS_SIZEGRIP) ? scrollWidth : 0;
     ShowWindow(HStatusBar, ShowStatusBar ? SW_SHOW : SW_HIDE);
     ShowWindow(HZoomReset, ShowStatusBar ? SW_SHOW : SW_HIDE);
@@ -2672,14 +2715,25 @@ void CViewerWindow::LayoutStatusBar()
     // grip at the window edge, while the zoom controls must extend right up
     // to it instead of leaving an unused scrollbar-width gap.
     int x = rc.right - gripWidth;
-    x -= 22;
-    SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
-    x -= 54;
-    SetWindowPos(HZoomEdit, HWND_TOP, x, rc.bottom - StatusBarHeight + 3, 54, StatusBarHeight - 6, SWP_NOACTIVATE);
-    x -= 22;
-    SetWindowPos(HZoomOut, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 22, StatusBarHeight - 4, SWP_NOACTIVATE);
-    x -= 42;
-    SetWindowPos(HZoomReset, HWND_TOP, x, rc.bottom - StatusBarHeight + 2, 42, StatusBarHeight - 4, SWP_NOACTIVATE);
+    int buttonWidth = WinLibDPIFromLogical(HWindow, 22);
+    int editWidth = WinLibDPIFromLogical(HWindow, 54);
+    int resetWidth = WinLibDPIFromLogical(HWindow, 42);
+    int edge2 = WinLibDPIFromLogical(HWindow, 2);
+    int edge3 = WinLibDPIFromLogical(HWindow, 3);
+    int edge4 = WinLibDPIFromLogical(HWindow, 4);
+    int edge6 = WinLibDPIFromLogical(HWindow, 6);
+    x -= buttonWidth;
+    SetWindowPos(HZoomIn, HWND_TOP, x, rc.bottom - StatusBarHeight + edge2,
+                 buttonWidth, StatusBarHeight - edge4, SWP_NOACTIVATE);
+    x -= editWidth;
+    SetWindowPos(HZoomEdit, HWND_TOP, x, rc.bottom - StatusBarHeight + edge3,
+                 editWidth, StatusBarHeight - edge6, SWP_NOACTIVATE);
+    x -= buttonWidth;
+    SetWindowPos(HZoomOut, HWND_TOP, x, rc.bottom - StatusBarHeight + edge2,
+                 buttonWidth, StatusBarHeight - edge4, SWP_NOACTIVATE);
+    x -= resetWidth;
+    SetWindowPos(HZoomReset, HWND_TOP, x, rc.bottom - StatusBarHeight + edge2,
+                 resetWidth, StatusBarHeight - edge4, SWP_NOACTIVATE);
     InvalidateRect(HWindow, NULL, FALSE);
     InvalidateRect(HScrollBar, NULL, FALSE);
     InvalidateRect(VScrollBar, NULL, FALSE);
