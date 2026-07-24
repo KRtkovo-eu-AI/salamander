@@ -50,15 +50,26 @@ CSplashScreen::CSplashScreen()
     GradientY = 0;
     Width = 0;
     Height = 0;
+}
 
-    // create a font
-    LOGFONT lf;
-    //  GetSystemGUIFont(&lf);
-    //  lf.lfWeight = FW_NORMAL;
+void CSplashScreen::RecreateFontsForDPI(int dpi)
+{
+    if (HNormalFont != NULL)
+    {
+        HANDLES(DeleteObject(HNormalFont));
+        HNormalFont = NULL;
+    }
+    if (HBoldFont != NULL)
+    {
+        HANDLES(DeleteObject(HBoldFont));
+        HBoldFont = NULL;
+    }
 
-    HDC hDC2 = HANDLES(GetDC(NULL));
-    lf.lfHeight = -MulDiv(8, GetDeviceCaps(hDC2, LOGPIXELSY), 72);
-    HANDLES(ReleaseDC(NULL, hDC2));
+    if (dpi <= 0)
+        dpi = USER_DEFAULT_SCREEN_DPI;
+
+    LOGFONT lf = {};
+    lf.lfHeight = -MulDiv(8, dpi, 72);
     lf.lfWidth = 0;
     lf.lfEscapement = 0;
     lf.lfOrientation = 0;
@@ -74,7 +85,6 @@ CSplashScreen::CSplashScreen()
     strcpy(lf.lfFaceName, "MS Shell Dlg 2");
 
     HNormalFont = HANDLES(CreateFontIndirect(&lf));
-    // create the bold variant
     lf.lfWeight = FW_BOLD;
     HBoldFont = HANDLES(CreateFontIndirect(&lf));
 }
@@ -249,6 +259,12 @@ CSplashScreen::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        // The splash object is constructed before its HWND exists. Creating
+        // these fonts in the constructor therefore used the desktop/primary
+        // DPI and left small text inside an otherwise DPI-scaled bitmap.
+        // Build them only after the splash has its final monitor DPI.
+        RecreateFontsForDPI(GetDPIForWindow(HWindow));
+
         RECT r;
         GetClientRect(HWindow, &r);
         Width = r.right - r.left;

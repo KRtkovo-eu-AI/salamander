@@ -683,15 +683,16 @@ void CRendererWindow::CreateGraphics()
         lf = CfgLogFont;
     else
         GetDefaultLogFont(&lf);
+    WinLibDPIScaleLogFont(HWindow, &lf);
     HFont = CreateFontIndirect(&lf);
 
     HDC hDC = GetDC(NULL);
     HFONT oldFont = (HFONT)SelectObject(hDC, HFont);
     TEXTMETRIC tm;
     GetTextMetrics(hDC, &tm);
-    RowHeight = tm.tmHeight + 4;
-    TopTextMargin = 2;
-    LeftTextMargin = 3;
+    RowHeight = tm.tmHeight + WinLibDPIFromLogical(HWindow, 4);
+    TopTextMargin = WinLibDPIFromLogical(HWindow, 2);
+    LeftTextMargin = WinLibDPIFromLogical(HWindow, 3);
 
     SIZE sz;
     GetTextExtentPoint32(hDC, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",

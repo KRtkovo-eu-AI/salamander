@@ -291,7 +291,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     {
         // setting icon size for IconCache
         CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
-        IconCache->SetIconSize(iconSize);
+        IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
 
         BOOL readThumbnails = (GetViewMode() == vmThumbnails);
 
@@ -1226,7 +1226,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
             // setting of icon size for IconCache
             CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
-            IconCache->SetIconSize(iconSize);
+            IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
 
             CFilesArray* ZIPFiles = GetArchiveDirFiles();
             CFilesArray* ZIPDirs = GetArchiveDirDirs();
@@ -1490,7 +1490,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
                 // setting of icon size for IconCache
                 CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
-                IconCache->SetIconSize(iconSize);
+                IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
 
                 CFilesArray* FSFiles = GetFSFiles();
                 CFilesArray* FSDirs = GetFSDirs();
@@ -1852,7 +1852,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 DirectoryLine->SetHidden(HiddenFilesCount, HiddenDirsCount);
                 // setting of icon size for IconCache
                 CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
-                IconCache->SetIconSize(iconSize);
+                IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
                 //        TRACE_I("ReadDirectory: end");
                 return FALSE;
             }
@@ -3002,7 +3002,7 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
         {
             if (DirectoryLine->HWindow != NULL)
             {
-                HICON hIcon = LoadArchiveIcon(IconSizes[ICONSIZE_16], IconSizes[ICONSIZE_16], IconLRFlags);
+                HICON hIcon = LoadArchiveIcon(GetIconSize(ICONSIZE_16), GetIconSize(ICONSIZE_16), IconLRFlags);
                 DirectoryLine->SetDriveIcon(hIcon);
                 HANDLES(DestroyIcon(hIcon));
             }
@@ -3023,7 +3023,7 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
                     }
                     else // standard
                     {
-                        icon = SalLoadIcon(HInstance, IDI_PLUGINFS, IconSizes[ICONSIZE_16]);
+                        icon = SalLoadIcon(HInstance, IDI_PLUGINFS, GetIconSize(ICONSIZE_16));
                         DirectoryLine->SetDriveIcon(icon);
                         HANDLES(DestroyIcon(icon));
                     }

@@ -10,7 +10,7 @@ using System.Windows.Forms;
 
 namespace OpenSalamander.HyperVM;
 
-internal sealed class VirtualDiskInitializationDialog : Form
+internal sealed class VirtualDiskInitializationDialog : DpiAwareForm
 {
     private readonly string _path;
     private readonly RadioButton _gpt;
@@ -78,6 +78,7 @@ internal sealed class VirtualDiskInitializationDialog : Form
     public static void ShowForNewDisk(IWin32Window owner, string path)
     {
         using var dialog = new VirtualDiskInitializationDialog(path);
+        ThemeHelper.CenterDialogOverOwner(dialog, owner);
         if (dialog.ShowDialog(owner) != DialogResult.OK) return;
         RunElevatedPowerShell(dialog.BuildScript());
     }
@@ -140,6 +141,8 @@ internal sealed class VirtualDiskInitializationDialog : Form
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            int Scale(int logicalPixels) => Math.Max(1, logicalPixels * DeviceDpi / 96);
+
             using var border = new Pen(ForeColor);
             using var background = new SolidBrush(BackColor);
             using var text = new SolidBrush(ForeColor);
@@ -147,10 +150,12 @@ internal sealed class VirtualDiskInitializationDialog : Form
             using var primary = new SolidBrush(Color.Navy);
             e.Graphics.FillRectangle(background, ClientRectangle);
             e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
-            e.Graphics.FillRectangle(unallocated, 10, 10, Width - 20, 18);
-            e.Graphics.DrawString("Unallocated", Font, text, 10, 34);
-            e.Graphics.FillRectangle(primary, 110, 48, 12, 12);
-            e.Graphics.DrawString("Primary partition will use maximum size", Font, text, 128, 46);
+            e.Graphics.FillRectangle(unallocated, Scale(10), Scale(10),
+                Width - Scale(20), Scale(18));
+            e.Graphics.DrawString("Unallocated", Font, text, Scale(10), Scale(34));
+            e.Graphics.FillRectangle(primary, Scale(110), Scale(48), Scale(12), Scale(12));
+            e.Graphics.DrawString("Primary partition will use maximum size", Font, text,
+                Scale(128), Scale(46));
         }
     }
 }

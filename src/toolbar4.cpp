@@ -10,6 +10,7 @@
 #include "cfgdlg.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "common/winlibdpi.h"
 
 #include "nanosvg\nanosvg.h"
 #include "nanosvg\nanosvgrast.h"
@@ -763,7 +764,7 @@ void RenderSVGImages(HDC hDC, int iconSize, COLORREF bkColor, const CSVGIcon* sv
 
 BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
                           HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap, BOOL appendIcons,
-                          const CSVGIcon* svgIcons, int svgIconsCount)
+                          const CSVGIcon* svgIcons, int svgIconsCount, int dpi)
 {
     CALL_STACK_MESSAGE5("CreateToolbarBitmaps(%p, %d, %x, %x, , , )", hInstance, resID, transparent, bkColorForAlpha);
     BOOL ret = FALSE;
@@ -776,10 +777,12 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
     hGrayBitmap = NULL;
     hColorBitmap = NULL;
 
-    int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16); // small icon size
+    int iconSize = dpi > 0 ? MulDiv(16, dpi, 96)
+                           : GetIconSizeForSystemDPI(ICONSIZE_16); // small icon size
     int iconCount = 0;
     int baseIconCount = 0;
     int iconCountWithoutShell = 0;
+    int sourceIconSize = 0;
 
     // Windows XP a novejsi pouzivaji transparentni ikony; protoze je pomoci masky
     // zobrazime do teto docasne bitmapy a zajistime, aby pod pruhlednou casti byla
@@ -827,7 +830,17 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
                 tbbe_BMPCOUNT++;
     }
 
-    baseIconCount = bi.bmiHeader.biWidth / iconSize;
+    // The resource strip is stored at its design size (normally 16 px high),
+    // while iconSize is the per-window destination size. Dividing the source
+    // width by the destination size at 150/200 % drops cells and then
+    // StretchBlt squeezes several source icons into one distorted cell.
+    sourceIconSize = abs(bi.bmiHeader.biHeight);
+    if (sourceIconSize <= 0 || bi.bmiHeader.biWidth % sourceIconSize != 0)
+    {
+        TRACE_E("Invalid toolbar bitmap strip dimensions for resID " << resID);
+        goto exitus;
+    }
+    baseIconCount = bi.bmiHeader.biWidth / sourceIconSize;
     iconCountWithoutShell = baseIconCount;
     if (svgIcons != NULL)
     {
@@ -1484,7 +1497,10 @@ BOOL CBottomToolBar::SetMaxItemWidths()
             if (r.right > maxWidth)
                 maxWidth = (WORD)r.right;
         }
-        maxWidth = 3 + BOTTOMBAR_CX + 1 + maxWidth + 3;
+        const int dpi = WinLibDPIGetWindowDPI(HWindow);
+        const int imageWidth = ImageWidth > 0 ? ImageWidth : MulDiv(BOTTOMBAR_CX, dpi, 96);
+        maxWidth = MulDiv(3, dpi, 96) + imageWidth + MulDiv(1, dpi, 96) +
+                   maxWidth + MulDiv(3, dpi, 96);
         TLBI_ITEM_INFO2 tii;
         tii.Mask = TLBI_MASK_WIDTH;
         tii.Width = maxWidth;

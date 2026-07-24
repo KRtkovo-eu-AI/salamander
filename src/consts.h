@@ -1492,6 +1492,7 @@ extern HIMAGELIST HHotToolBarImageList;  // toolbar a menu v barevnem provedeni
 extern int ToolBarLockImageIndex;        // index ikony zamku v toolbarovych imagelistech
 extern HIMAGELIST HBottomTBImageList;    // bottom toolbar (F1 - F12)
 extern HIMAGELIST HHotBottomTBImageList; // bottom toolbar (F1 - F12)
+BOOL CreateBottomToolbarImageLists(int dpi, HIMAGELIST* normal, HIMAGELIST* hot);
 
 extern HPEN HActiveNormalPen; // pera pro ramecek kolem polozky
 extern HPEN HActiveSelectedPen;
@@ -1673,7 +1674,7 @@ int SalMessageBoxEx(const MSGBOXEX_PARAMS* params);
 BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst, int yDst,
                          DWORD state, CIconSizeEnum iconSize, DWORD iconOverlayIndex,
                          const RECT* overlayRect, BOOL overlayOnly, BOOL iconOverlayFromPlugin,
-                         int pluginIconOverlaysCount, HICON* pluginIconOverlays);
+                         int pluginIconOverlaysCount, HICON* pluginIconOverlays, int dpi = 0);
 DWORD GetImageListColorFlags(); // vrati ILC_COLOR??? podle verzi Windows - odladene pro pouziti imagelistu v listviewech
 
 // API GetOpenFileName/GetSaveFileName v pripade ze cesta k souboru (OPENFILENAME::lpstrFile)
@@ -1708,6 +1709,7 @@ extern DWORD LastSalamanderIdleTime; // GetTickCount() z okamziku, kdy Salamande
 extern int PasteLinkIsRunning; // pokud je vetsi nez nula, probiha prave Past Shortcuts prikaz v jednom z panelu
 
 extern BOOL CannotCloseSalMainWnd; // TRUE = nesmi dojit k zavreni hlavniho okna
+extern BOOL UnloadingPluginsForMainWindowClose; // TRUE = unloaduje se plugin při zavirani Salamandera
 
 extern const char* DirColumnStr;      // LoadStr(IDS_DIRCOLUMN) - pouziva se prilis casto, cachujeme
 extern int DirColumnStrLen;           // delka retezce
@@ -1861,7 +1863,7 @@ struct CSVGIcon
 
 BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, COLORREF bkColorForAlpha,
                           HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap, BOOL appendIcons,
-                          const CSVGIcon* svgIcons, int svgIconsCount);
+                          const CSVGIcon* svgIcons, int svgIconsCount, int dpi = 0);
 
 //****************************************************************************
 //

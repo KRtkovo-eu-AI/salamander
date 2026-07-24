@@ -26,6 +26,7 @@
 #define BI_LASTDIFF 5
 
 #define REBAR_BORDER 0 // no legacy gap below the rebar in dark mode
+#define WM_FILECOMP_APPLY_DPI (WM_APP + 0x4F1)
 
 // flags for CMainWindow::UpdateToolbarButtons()
 #define UTB_DIFFSSELECTION 0x01
@@ -65,6 +66,7 @@ protected:
     LONG RebarHeight; // height of the rebar plus the gap below it
     CComboBox* ComboBox;
     HWND HToolbar;
+    HIMAGELIST HToolbarImages;
     CIntIndexes LinesToChanges;
     CIntIndexes ChangesToLines[2]; // fvmStandard, fvmOnlyDifferences
     CIntIndexes ChangesLengths;
@@ -91,6 +93,8 @@ protected:
     BOOL CalculatingDetailedDifferences;
     BOOL Recompare;
     BOOL bOptionsChangedBeingHandled; // Simple semaphore
+    BOOL DpiUpdatePending;
+    UINT DpiUpdateValue;
 
     // for the binary comparator
     CBinaryChanges Changes;
@@ -114,6 +118,8 @@ public:
     void ResetComboBox(BOOL* cancel = NULL);
     void SaveRebarLayout();
     void RestoreRebarLayout();
+    BOOL RebuildToolbarImages();
+    void UpdateRebarDpiMetrics(UINT dpi = 0);
     //void UpdateSelection();
     void SpawnWorker(const char* path1, const char* path2, BOOL recompare,
                      const CCompareOptions& options);

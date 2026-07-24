@@ -51,7 +51,7 @@ void TTextFileViewWindow<CChar>::ReloadConfiguration(DWORD flags, BOOL updateWin
 
     if (flags & CC_FONT)
     {
-        MappedTextOut.FontHasChanged(&Configuration.FileViewLogFont, HFont, FontWidth, FontHeight);
+        MappedTextOut.FontHasChanged(&CurrentLogFont, HFont, FontWidth, FontHeight);
     }
 
     if (updateWindow)

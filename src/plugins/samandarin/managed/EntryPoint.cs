@@ -85,10 +85,60 @@ public static class EntryPoint
 
     private static int ShowPluginUpdates(IntPtr parent)
     {
-        using var dialog = new PluginUpdatesDialog();
-        ThemeHelper.ApplyTheme(dialog);
-        ShowDialog(dialog, parent);
+        // Match JsonViewer's working model: keep the managed UI thread PMv2
+        // while DeterministicDpiForm creates its top-level HWND as PMv1 and
+        // performs the only control/layout scaling pass.
+        using (ManagedApplication.EnterPerMonitorV2())
+        {
+            using var dialog = new PluginUpdatesDialog();
+            IntPtr resolvedParent = ResolveParentWindow(parent);
+            ThemeHelper.ApplyTheme(dialog);
+
+            // Theme application changes logical properties, so capture after
+            // it, but before positioning or ShowDialog can create any HWND.
+            // Do not set InitialDpi from the owner: after an on-the-fly display
+            // scale change its HWND can still report the old DPI. OnLoad reads
+            // the effective DPI from the newly created dialog instead.
+            dialog.CaptureDpiBaseline();
+
+            IWin32Window? owner =
+                resolvedParent != IntPtr.Zero
+                    ? new WindowHandleWrapper(resolvedParent)
+                    : null;
+            ThemeHelper.CenterDialogOverOwner(dialog, owner);
+            if (owner is null)
+            {
+                dialog.ShowDialog();
+            }
+            else
+            {
+                dialog.ShowDialog(owner);
+            }
+        }
         return 0;
+    }
+
+    private static IntPtr ResolveParentWindow(IntPtr requestedParent)
+    {
+        if (requestedParent != IntPtr.Zero)
+        {
+            return requestedParent;
+        }
+
+        IntPtr coordinatorParent = UpdateCoordinator.GetLastOwnerWindow();
+        if (coordinatorParent != IntPtr.Zero)
+        {
+            return coordinatorParent;
+        }
+
+        IntPtr foregroundWindow = GetForegroundWindow();
+        if (foregroundWindow == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        GetWindowThreadProcessId(foregroundWindow, out uint processId);
+        return processId == (uint)Process.GetCurrentProcess().Id ? foregroundWindow : IntPtr.Zero;
     }
 
     private static int Shutdown()
@@ -111,8 +161,7 @@ public static class EntryPoint
             return;
         }
 
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
+        ManagedApplication.Initialize();
         _visualsEnabled = true;
     }
 
@@ -120,7 +169,10 @@ public static class EntryPoint
     {
         IWin32Window? owner = parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null;
         ThemeHelper.CenterDialogOverOwner(dialog, owner);
-        return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
+        using (ManagedApplication.EnterPerMonitorV2())
+        {
+            return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
+        }
     }
 
     private static IntPtr ParseHandle(string text)
@@ -139,6 +191,12 @@ public static class EntryPoint
         var message = $"{caption}{Environment.NewLine}{ex.Message}";
         ThemeHelper.ShowMessageBox(owner, message, NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 }
 
 internal enum NativeStringId
@@ -251,9 +309,11 @@ internal static class UpdateCoordinator
 
     private static UpdateSettings Settings;
     private static string CurrentVersion = string.Empty;
+    private static IntPtr OwnerWindow;
     private static Timer? UpdateTimer;
     private static BlockingCollection<Action>? UiQueue;
     private static Thread? UiThread;
+    private static readonly CancellationTokenSource ShutdownCancellation = new();
 
     static UpdateCoordinator()
     {
@@ -280,6 +340,10 @@ internal static class UpdateCoordinator
         lock (SyncRoot)
         {
             CurrentVersion = (currentVersion ?? string.Empty).Trim();
+            if (parent != IntPtr.Zero)
+            {
+                OwnerWindow = parent;
+            }
             ScheduleTimer_NoLock();
         }
 
@@ -307,9 +371,37 @@ internal static class UpdateCoordinator
         }
     }
 
+    public static IntPtr GetLastOwnerWindow()
+    {
+        lock (SyncRoot)
+        {
+            return OwnerWindow;
+        }
+    }
+
     public static async Task CheckForUpdatesAsync(IntPtr parent, bool userInitiated, bool showIfCurrent)
     {
+        if (parent != IntPtr.Zero)
+        {
+            lock (SyncRoot)
+            {
+                OwnerWindow = parent;
+            }
+        }
+
         await CheckSemaphore.WaitAsync().ConfigureAwait(false);
+        var shutdownToken = ShutdownCancellation.Token;
+        if (shutdownToken.IsCancellationRequested)
+            return;
+
+        try
+        {
+            await CheckSemaphore.WaitAsync(shutdownToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
         try
         {
             string? latestVersion = null;
@@ -318,7 +410,11 @@ internal static class UpdateCoordinator
 
             try
             {
-                (latestVersion, noPublishedReleases) = await FetchLatestVersionAsync().ConfigureAwait(false);
+                (latestVersion, noPublishedReleases) = await FetchLatestVersionAsync(shutdownToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (shutdownToken.IsCancellationRequested)
+            {
+                return;
             }
             catch (Exception ex)
             {
@@ -402,8 +498,11 @@ internal static class UpdateCoordinator
             UpdateTimer = null;
         }
 
-        CheckSemaphore.Wait();
-        CheckSemaphore.Release();
+        ShutdownCancellation.Cancel();
+
+        // during shutdown, do not block UI close on a pending check/network request
+        if (CheckSemaphore.Wait(200))
+            CheckSemaphore.Release();
 
         StopUiThread();
     }
@@ -426,10 +525,10 @@ internal static class UpdateCoordinator
         }
     }
 
-    private static async Task<(string? Version, bool NoPublishedReleases)> FetchLatestVersionAsync()
+    private static async Task<(string? Version, bool NoPublishedReleases)> FetchLatestVersionAsync(CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, ReleasesUri);
-        using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+        using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         var finalUri = response.RequestMessage?.RequestUri ?? ReleasesUri;
@@ -627,7 +726,12 @@ internal static class UpdateCoordinator
 
     private static void TimerCallback()
     {
-        _ = CheckForUpdatesAsync(IntPtr.Zero, userInitiated: false, showIfCurrent: false);
+        IntPtr owner;
+        lock (SyncRoot)
+        {
+            owner = OwnerWindow;
+        }
+        _ = CheckForUpdatesAsync(owner, userInitiated: false, showIfCurrent: false);
     }
 
     private static async Task ShowUpdateAvailableAsync(IntPtr parent, string latestVersion)
@@ -783,15 +887,18 @@ internal static class UpdateCoordinator
 
     private static void UiThreadLoop(BlockingCollection<Action> queue)
     {
-        foreach (var action in queue.GetConsumingEnumerable())
+        using (ManagedApplication.EnterPerMonitorV2())
         {
-            try
+            foreach (var action in queue.GetConsumingEnumerable())
             {
-                action();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Samandarin UI thread action failed: {ex}");
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Samandarin UI thread action failed: {ex}");
+                }
             }
         }
     }
@@ -826,7 +933,7 @@ internal static class UpdateCoordinator
     }
 }
 
-internal sealed class ConfigurationDialog : Form
+internal sealed class ConfigurationDialog : DpiAwareForm
 {
     private readonly CheckBox _checkOnStartup;
     private readonly ComboBox _frequency;
@@ -1073,7 +1180,7 @@ internal sealed class ThemedGroupBox : GroupBox
     }
 }
 
-internal sealed class PluginUpdatesDialog : Form
+internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 {
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
@@ -1082,6 +1189,8 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly Button _sourcesButton;
     private readonly ContextMenuStrip _listContextMenu;
     private readonly ImageList _pluginImages;
+    private readonly Dictionary<string, Image> _pluginImageSources =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _catalogImageKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Label _detailNameValue;
     private readonly Label _detailAuthorValue;
@@ -1100,6 +1209,14 @@ internal sealed class PluginUpdatesDialog : Form
     private int _sortColumn = 2;
     private SortOrder _sortOrder = SortOrder.Ascending;
 
+    private static readonly System.Drawing.Size LogicalMinimumWindowSize =
+        new(940, 650);
+
+    protected override System.Drawing.Size LogicalWindowSize =>
+        new(980, 650);
+
+    protected override bool VerifyDpiAfterPositionChange => true;
+
     public PluginUpdatesDialog()
     {
         Text = NativeStrings.Get(NativeStringId.PluginUpdatesTitle);
@@ -1108,17 +1225,21 @@ internal sealed class PluginUpdatesDialog : Form
         ShowInTaskbar = false;
         Width = 980;
         Height = 640;
-        MinimumSize = new System.Drawing.Size(870, 650);
-        AutoScroll = true;
+        MinimumSize = LogicalMinimumWindowSize;
+        AutoScroll = false;
         Icon = PluginIconLoader.Load();
 
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
+            AutoSize = false,
             ColumnCount = 1,
             RowCount = 5,
-            Padding = new Padding(12),
+            GrowStyle = TableLayoutPanelGrowStyle.FixedSize,
+            Padding = new Padding(12, 12, 12, 6),
         };
+        layout.ColumnStyles.Add(
+            new ColumnStyle(SizeType.Percent, 100f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 58f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -1195,16 +1316,40 @@ internal sealed class PluginUpdatesDialog : Form
         detailGroup.Controls.Add(detailLayout);
         layout.Controls.Add(detailGroup, 0, 3);
 
-        var bottomPanel = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 10, 0, 0) };
+        var bottomPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = false,
+            ColumnCount = 2,
+            Height = 34,
+            Padding = new Padding(0, 6, 0, 0),
+        };
         bottomPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         bottomPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _statusLabel = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 28, Padding = new Padding(0, 6, 8, 0) };
         bottomPanel.Controls.Add(_statusLabel, 0, 0);
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0) };
-        var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
-        _refreshButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), AutoSize = true };
-        _sourcesButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources), AutoSize = true };
+        var buttons = new FlowLayoutPanel
+        {
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            AutoSize = false,
+            WrapContents = false,
+            FlowDirection = FlowDirection.RightToLeft,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+            Size = new System.Drawing.Size(275, 27),
+        };
+        var closeButton = CreateDialogButton(
+            NativeStrings.Get(NativeStringId.PluginUpdatesClose), 75);
+        closeButton.DialogResult = DialogResult.Cancel;
+        closeButton.Margin = Padding.Empty;
+        _refreshButton = CreateDialogButton(
+            NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), 75);
+        _refreshButton.Margin = new Padding(0, 0, 4, 0);
+        _sourcesButton = CreateDialogButton(
+            NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources),
+            116);
+        _sourcesButton.Margin = new Padding(0, 0, 4, 0);
         _refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
         _sourcesButton.Click += (_, _) => ShowSourcesDialog();
         buttons.Controls.Add(closeButton);
@@ -1217,10 +1362,54 @@ internal sealed class PluginUpdatesDialog : Form
         CancelButton = closeButton;
         Shown += async (_, _) =>
         {
+            UpdateDpiResources();
             await RefreshAsync().ConfigureAwait(true);
             AdjustListViewColumns();
         };
         UpdateDetails();
+    }
+
+    protected override void OnDeterministicDpiChanged(
+        int oldDpi, int newDpi)
+    {
+        UpdateDpiResources();
+        AdjustListViewColumns();
+        _listView.Invalidate(true);
+        if (_listView.IsHandleCreated && _listView.Items.Count > 0)
+        {
+            _listView.RedrawItems(0, _listView.Items.Count - 1, true);
+        }
+        _listView.Update();
+    }
+
+    private static Button CreateDialogButton(
+        string text, int logicalWidth)
+    {
+        return new Button
+        {
+            Text = text,
+            AutoSize = false,
+            AutoEllipsis = true,
+            Size = new System.Drawing.Size(logicalWidth, 27),
+        };
+    }
+
+    private void UpdateDpiResources()
+    {
+        var imageSize = new System.Drawing.Size(ScaleLogical(16), ScaleLogical(16));
+        if (_pluginImages.ImageSize != imageSize)
+        {
+            _listView.SmallImageList = null;
+            _pluginImages.Images.Clear();
+            _pluginImages.ImageSize = imageSize;
+            foreach (var pair in _pluginImageSources)
+            {
+                using var bitmap =
+                    CreateImageListBitmap(pair.Value, imageSize);
+                _pluginImages.Images.Add(pair.Key, bitmap);
+            }
+            _listView.SmallImageList = _pluginImages;
+        }
     }
 
     private void ListViewOnDrawColumnHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
@@ -1288,13 +1477,23 @@ internal sealed class PluginUpdatesDialog : Form
             return;
         }
 
-        int availableWidth = Math.Max(0, _listView.ClientSize.Width - 4);
-        int minimumWidth = ListColumnMinimumWidths.Sum();
+        UpdateDpiResources();
+        int availableWidth = Math.Max(0, _listView.ClientSize.Width - ScaleLogical(4));
+        int[] scaledMinimumWidths =
+            ListColumnMinimumWidths.Select(ScaleLogical).ToArray();
+        int minimumWidth = scaledMinimumWidths.Sum();
         if (availableWidth <= minimumWidth)
         {
-            for (int i = 0; i < ListColumnMinimumWidths.Length; i++)
+            int constrainedAssignedWidth = 0;
+            for (int i = 0; i < scaledMinimumWidths.Length; i++)
             {
-                _listView.Columns[i].Width = ListColumnMinimumWidths[i];
+                int width = i == scaledMinimumWidths.Length - 1
+                    ? availableWidth - constrainedAssignedWidth
+                    : (int)((long)scaledMinimumWidths[i] *
+                            availableWidth / minimumWidth);
+                _listView.Columns[i].Width = Math.Max(0, width);
+                constrainedAssignedWidth +=
+                    _listView.Columns[i].Width;
             }
 
             return;
@@ -1302,12 +1501,13 @@ internal sealed class PluginUpdatesDialog : Form
 
         int extraWidth = availableWidth - minimumWidth;
         int assignedWidth = 0;
-        for (int i = 0; i < ListColumnMinimumWidths.Length; i++)
+        for (int i = 0; i < scaledMinimumWidths.Length; i++)
         {
-            int width = i == ListColumnMinimumWidths.Length - 1
+            int width = i == scaledMinimumWidths.Length - 1
                 ? availableWidth - assignedWidth
-                : ListColumnMinimumWidths[i] + (int)Math.Round(extraWidth * ListColumnWidthWeights[i]);
-            _listView.Columns[i].Width = Math.Max(ListColumnMinimumWidths[i], width);
+                : scaledMinimumWidths[i] +
+                  (int)(extraWidth * ListColumnWidthWeights[i]);
+            _listView.Columns[i].Width = Math.Max(0, width);
             assignedWidth += _listView.Columns[i].Width;
         }
     }
@@ -1471,7 +1671,8 @@ internal sealed class PluginUpdatesDialog : Form
             using var icon = Icon.ExtractAssociatedIcon(key);
             if (icon is not null)
             {
-                _pluginImages.Images.Add(key, icon);
+                using var bitmap = icon.ToBitmap();
+                AddPluginImage(key, bitmap);
                 return key;
             }
         }
@@ -1553,14 +1754,42 @@ internal sealed class PluginUpdatesDialog : Form
     {
         if (Path.GetExtension(source).Equals(".ico", StringComparison.OrdinalIgnoreCase))
         {
-            using var icon = new Icon(stream, _pluginImages.ImageSize);
-            _pluginImages.Images.Add(key, icon);
+            using var icon = new Icon(stream);
+            using var bitmap = icon.ToBitmap();
+            AddPluginImage(key, bitmap);
             return;
         }
 
         using var image = Image.FromStream(stream);
-        using var bitmap = CreateImageListBitmap(image, _pluginImages.ImageSize);
+        AddPluginImage(key, image);
+    }
+
+    private void AddPluginImage(string key, Image image)
+    {
+        if (_pluginImageSources.ContainsKey(key))
+        {
+            return;
+        }
+
+        var source = new Bitmap(image);
+        _pluginImageSources.Add(key, source);
+        using var bitmap =
+            CreateImageListBitmap(source, _pluginImages.ImageSize);
         _pluginImages.Images.Add(key, bitmap);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            foreach (Image image in _pluginImageSources.Values)
+            {
+                image.Dispose();
+            }
+            _pluginImageSources.Clear();
+        }
+
+        base.Dispose(disposing);
     }
 
     private static Bitmap CreateImageListBitmap(Image image, System.Drawing.Size size)
@@ -1768,7 +1997,7 @@ internal sealed class PluginUpdatesDialog : Form
     }
 }
 
-internal sealed class PluginCatalogSourcesDialog : Form
+internal sealed class PluginCatalogSourcesDialog : DpiAwareForm
 {
     private readonly ListView _listView;
     private readonly List<PluginCatalogSource> _sources;
@@ -1809,6 +2038,7 @@ internal sealed class PluginCatalogSourcesDialog : Form
             LabelEdit = true,
         };
         _listView.Columns.Add(string.Empty, 630);
+        _listView.Resize += (_, _) => AdjustColumnWidth();
         _listView.ItemCheck += ListViewOnItemCheck;
         _listView.DoubleClick += ListViewOnDoubleClick;
         _listView.KeyDown += ListViewOnKeyDown;
@@ -1829,6 +2059,23 @@ internal sealed class PluginCatalogSourcesDialog : Form
 
         _sources = PluginCatalogSources.Load().Select(s => new PluginCatalogSource { Url = s.Url, Enabled = s.Enabled }).ToList();
         PopulateList();
+    }
+
+    protected override void OnPerMonitorDpiChanged(int oldDpi, int newDpi)
+    {
+        base.OnPerMonitorDpiChanged(oldDpi, newDpi);
+        AdjustColumnWidth();
+    }
+
+    private void AdjustColumnWidth()
+    {
+        if (_listView.Columns.Count != 0)
+        {
+            _listView.Columns[0].Width =
+                Math.Max(
+                    0,
+                    _listView.ClientSize.Width - ScaleLogical(4));
+        }
     }
 
     private void PopulateList()

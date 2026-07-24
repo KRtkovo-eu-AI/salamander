@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include "cfgdlg.h"
 #include "dialogs.h"
@@ -1448,8 +1449,8 @@ unsigned IconThreadThreadFBody(void* parameter)
                 window->ICWorking = TRUE;
 
                 CIconSizeEnum iconSize = window->GetIconSizeForCurrentViewMode();
-                int iconPixelSize = IconSizes[iconSize];
-                int iconDPI = GetSystemDPI();
+                int iconPixelSize = window->GetIconSize(iconSize);
+                int iconDPI = window->GetWindowDPI();
 
                 CIconList* iconList;
                 int iconListIndex;
@@ -1830,8 +1831,8 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             {
                                                 // load the icon from the file (ExtractIcons retrieves it by index);
                                                 // the icon reader may go to sleep mode while loading
-                                                CALL_STACK_MESSAGE4("IconThreadThreadFBody::ExtractIcons(%s, %d, %d, ...)", path, index, IconSizes[iconSize]);
-                                                if (ExtractIcons(path, index, IconSizes[iconSize], IconSizes[iconSize], &shi.hIcon, NULL, 1, IconLRFlags) != 1)
+                                                CALL_STACK_MESSAGE4("IconThreadThreadFBody::ExtractIcons(%s, %d, %d, ...)", path, index, window->GetIconSize(iconSize));
+                                                if (ExtractIcons(path, index, window->GetIconSize(iconSize), window->GetIconSize(iconSize), &shi.hIcon, NULL, 1, IconLRFlags) != 1)
                                                 {
                                                     TRACE_I("Unable to get icon from: " << path << ", " << index);
                                                     shi.hIcon = NULL;
@@ -1845,15 +1846,15 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                 {
                                                     // load the icon from a file (likely .ico); the icon reader can switch to sleep mode during loading
                                                     CALL_STACK_MESSAGE2("IconThreadThreadFBody::LoadImage(%s)", path);
-                                                    shi.hIcon = (HICON)NOHANDLES(LoadImage(NULL, path, IMAGE_ICON, IconSizes[iconSize], IconSizes[iconSize],
+                                                    shi.hIcon = (HICON)NOHANDLES(LoadImage(NULL, path, IMAGE_ICON, window->GetIconSize(iconSize), window->GetIconSize(iconSize),
                                                                                            LR_LOADFROMFILE | IconLRFlags));
                                                     //                            TRACE_I("LoadImage " << (shi.hIcon == NULL ? "has failed, now trying ExtractIcons..." : "is done."));
                                                 }
                                                 if (shi.hIcon == NULL) // LoadImage failed; trying ExtractIcons as well (e.g., an icon without index from zipfldr.dll on XP: a .zip archive packed in a .7z archive)
                                                 {
                                                     // let the first icon load from the file; the icon reader may enter sleep mode while loading
-                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::ExtractIcons(%s, (0), %d, ...)", path, IconSizes[iconSize]);
-                                                    if (ExtractIcons(path, 0, IconSizes[iconSize], IconSizes[iconSize], &shi.hIcon, NULL, 1, IconLRFlags) != 1)
+                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::ExtractIcons(%s, (0), %d, ...)", path, window->GetIconSize(iconSize));
+                                                    if (ExtractIcons(path, 0, window->GetIconSize(iconSize), window->GetIconSize(iconSize), &shi.hIcon, NULL, 1, IconLRFlags) != 1)
                                                     {
                                                         TRACE_I("Unable to get first icon from: " << path);
                                                         shi.hIcon = NULL;
@@ -1941,7 +1942,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                     {
                                         if (shi.hIcon == NULL)
                                             failed = TRUE;
-                                        else if (iconPixelSize != IconSizes[iconSize] || iconDPI != GetSystemDPI())
+                                        else if (iconPixelSize != window->GetIconSize(iconSize) || iconDPI != window->GetWindowDPI())
                                         {
                                             // The icon was extracted while the panel was still using an old DPI.
                                             // Do not let a delayed 24px read populate a freshly rebuilt 16px cache
@@ -2396,6 +2397,19 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     HTreeHeader = NULL;
     HTreeHeaderToolTip = NULL;
     HTreeSplit = NULL;
+    HTreeDPIImageList = NULL;
+    WindowDPI = 0;
+    WindowPanelFont = NULL;
+    WindowPanelFontUL = NULL;
+    WindowEnvFont = NULL;
+    WindowEnvFontBold = NULL;
+    WindowEnvFontUL = NULL;
+    WindowPanelFontHeight = 0;
+    WindowEnvFontHeight = 0;
+    WindowTextEllipsisWidth = 0;
+    WindowTextEllipsisWidthEnv = 0;
+    for (int dpiIconIndex = 0; dpiIconIndex < ICONSIZE_COUNT; ++dpiIconIndex)
+        WindowIconSizes[dpiIconIndex] = 0;
     TreeViewAutoHideExpanded = FALSE;
     TreeViewAutoHideCollapseStart = 0;
     TreeViewWidth = Configuration.TreeViewWidth;
@@ -2512,8 +2526,21 @@ CFilesWindow::~CFilesWindow()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::~CFilesWindow()");
 
+    ClearIndependentIconLists();
+
     if (DeviceNotification != NULL)
         TRACE_E("CFilesWindow::~CFilesWindow(): unexpected situation: DeviceNotification != NULL");
+
+    if (WindowPanelFont != NULL)
+        HANDLES(DeleteObject(WindowPanelFont));
+    if (WindowPanelFontUL != NULL)
+        HANDLES(DeleteObject(WindowPanelFontUL));
+    if (WindowEnvFont != NULL)
+        HANDLES(DeleteObject(WindowEnvFont));
+    if (WindowEnvFontBold != NULL)
+        HANDLES(DeleteObject(WindowEnvFontBold));
+    if (WindowEnvFontUL != NULL)
+        HANDLES(DeleteObject(WindowEnvFontUL));
 
     ClearHistory();
 
@@ -2576,6 +2603,175 @@ CFilesWindow::~CFilesWindow()
         delete ContextSubmenuNew;
     if (ExecuteAssocEvent != NULL)
         HANDLES(CloseHandle(ExecuteAssocEvent));
+}
+
+BOOL CFilesWindow::RefreshDPIResources(BOOL force)
+{
+    HWND dpiWindow = HWindow != NULL ? HWindow : (Parent != NULL ? Parent->HWindow : NULL);
+    int dpi = (int)WinLibDPIGetWindowDPI(dpiWindow);
+    if (dpi <= 0)
+        dpi = USER_DEFAULT_SCREEN_DPI;
+    if (!force && WindowDPI == dpi && WindowPanelFont != NULL && WindowEnvFont != NULL)
+        return TRUE;
+
+    ClearIndependentIconLists();
+
+    LOGFONT envLF;
+    if (!WinLibDPIGetIconTitleLogFont(dpiWindow, &envLF))
+        return FALSE;
+
+    LOGFONT panelLF;
+    if (UseCustomPanelFont)
+    {
+        panelLF = LogFont;
+        int sourceDPI = GetSystemDPI();
+        if (sourceDPI <= 0)
+            sourceDPI = USER_DEFAULT_SCREEN_DPI;
+        panelLF.lfHeight = MulDiv(panelLF.lfHeight, dpi, sourceDPI);
+        panelLF.lfWidth = MulDiv(panelLF.lfWidth, dpi, sourceDPI);
+    }
+    else
+        panelLF = envLF;
+
+    LOGFONT panelULLF = panelLF;
+    panelULLF.lfUnderline = TRUE;
+    envLF.lfWeight = FW_NORMAL;
+    LOGFONT envBoldLF = envLF;
+    envBoldLF.lfWeight = FW_BOLD;
+    LOGFONT envULLF = envLF;
+    envULLF.lfUnderline = TRUE;
+
+    HFONT panelFont = HANDLES(CreateFontIndirect(&panelLF));
+    HFONT panelFontUL = HANDLES(CreateFontIndirect(&panelULLF));
+    HFONT envFont = HANDLES(CreateFontIndirect(&envLF));
+    HFONT envFontBold = HANDLES(CreateFontIndirect(&envBoldLF));
+    HFONT envFontUL = HANDLES(CreateFontIndirect(&envULLF));
+    if (panelFont == NULL || panelFontUL == NULL || envFont == NULL ||
+        envFontBold == NULL || envFontUL == NULL)
+    {
+        if (panelFont != NULL)
+            HANDLES(DeleteObject(panelFont));
+        if (panelFontUL != NULL)
+            HANDLES(DeleteObject(panelFontUL));
+        if (envFont != NULL)
+            HANDLES(DeleteObject(envFont));
+        if (envFontBold != NULL)
+            HANDLES(DeleteObject(envFontBold));
+        if (envFontUL != NULL)
+            HANDLES(DeleteObject(envFontUL));
+        return FALSE;
+    }
+
+    HWND dcWindow = dpiWindow;
+    HDC dc = HANDLES(GetDC(dcWindow));
+    if (dc == NULL)
+    {
+        dcWindow = NULL;
+        dc = HANDLES(GetDC(NULL));
+    }
+    if (dc == NULL)
+    {
+        HANDLES(DeleteObject(panelFont));
+        HANDLES(DeleteObject(panelFontUL));
+        HANDLES(DeleteObject(envFont));
+        HANDLES(DeleteObject(envFontBold));
+        HANDLES(DeleteObject(envFontUL));
+        return FALSE;
+    }
+    TEXTMETRIC tm;
+    SIZE ellipsis;
+    HFONT oldFont = (HFONT)SelectObject(dc, panelFont);
+    GetTextMetrics(dc, &tm);
+    int panelHeight = tm.tmHeight;
+    GetTextExtentPoint32(dc, "...", 3, &ellipsis);
+    int panelEllipsis = ellipsis.cx;
+    SelectObject(dc, envFont);
+    GetTextMetrics(dc, &tm);
+    int envHeight = tm.tmHeight;
+    GetTextExtentPoint32(dc, "...", 3, &ellipsis);
+    int envEllipsis = ellipsis.cx;
+    SelectObject(dc, oldFont);
+    HANDLES(ReleaseDC(dcWindow, dc));
+
+    if (WindowPanelFont != NULL)
+        HANDLES(DeleteObject(WindowPanelFont));
+    if (WindowPanelFontUL != NULL)
+        HANDLES(DeleteObject(WindowPanelFontUL));
+    if (WindowEnvFont != NULL)
+        HANDLES(DeleteObject(WindowEnvFont));
+    if (WindowEnvFontBold != NULL)
+        HANDLES(DeleteObject(WindowEnvFontBold));
+    if (WindowEnvFontUL != NULL)
+        HANDLES(DeleteObject(WindowEnvFontUL));
+    WindowPanelFont = panelFont;
+    WindowPanelFontUL = panelFontUL;
+    WindowEnvFont = envFont;
+    WindowEnvFontBold = envFontBold;
+    WindowEnvFontUL = envFontUL;
+    WindowPanelFontHeight = panelHeight;
+    WindowEnvFontHeight = envHeight;
+    WindowTextEllipsisWidth = panelEllipsis;
+    WindowTextEllipsisWidthEnv = envEllipsis;
+    WindowDPI = dpi;
+    WindowIconSizes[ICONSIZE_16] = MulDiv(16, dpi, USER_DEFAULT_SCREEN_DPI);
+    WindowIconSizes[ICONSIZE_32] = MulDiv(32, dpi, USER_DEFAULT_SCREEN_DPI);
+    WindowIconSizes[ICONSIZE_48] = MulDiv(48, dpi, USER_DEFAULT_SCREEN_DPI);
+    return TRUE;
+}
+
+CIconList* CFilesWindow::GetIndependentIconList(CIconList* source, int sourceIndex,
+                                                 CIconSizeEnum iconSize, int* copyIndex)
+{
+    if (copyIndex != NULL)
+        *copyIndex = sourceIndex;
+    if (source == NULL || sourceIndex < 0)
+        return source;
+
+    int pixelSize = GetIconSize(iconSize);
+    for (size_t i = 0; i < WindowDPIIconLists.size(); ++i)
+    {
+        CDPIIconListEntry& entry = WindowDPIIconLists[i];
+        if (entry.Source == source && entry.SourceIndex == sourceIndex &&
+            entry.PixelSize == pixelSize)
+        {
+            if (copyIndex != NULL)
+                *copyIndex = 0;
+            return entry.Copy;
+        }
+    }
+
+    HICON icon = source->GetIcon(sourceIndex);
+    if (icon == NULL)
+        return source;
+
+    CIconList* copy = new CIconList();
+    if (copy == NULL || !copy->Create(pixelSize, pixelSize, 1) ||
+        !copy->ReplaceIcon(0, icon))
+    {
+        if (copy != NULL)
+            delete copy;
+        HANDLES(DestroyIcon(icon));
+        return source;
+    }
+    HANDLES(DestroyIcon(icon));
+    copy->SetBkColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
+
+    CDPIIconListEntry entry;
+    entry.Source = source;
+    entry.SourceIndex = sourceIndex;
+    entry.PixelSize = pixelSize;
+    entry.Copy = copy;
+    WindowDPIIconLists.push_back(entry);
+    if (copyIndex != NULL)
+        *copyIndex = 0;
+    return copy;
+}
+
+void CFilesWindow::ClearIndependentIconLists()
+{
+    for (size_t i = 0; i < WindowDPIIconLists.size(); ++i)
+        delete WindowDPIIconLists[i].Copy;
+    WindowDPIIconLists.clear();
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()

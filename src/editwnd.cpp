@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "common/winlibdpi.h"
 
 #include "cfgdlg.h"
 #include "mainwnd.h"
@@ -1844,7 +1845,7 @@ CInnerText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             else
                 backgroundBrush = (HBRUSH)(UINT_PTR)(EditWindow->Enabled ? COLOR_WINDOW + 1 : COLOR_BTNFACE + 1);
             int oldColor = SetTextColor(dc, textColor);
-            HFONT oldFont = (HFONT)SelectObject(dc, EnvFont);
+            HFONT oldFont = (HFONT)SelectObject(dc, EditWindow->HDPIFont != NULL ? EditWindow->HDPIFont : EnvFont);
             RECT r;
             GetClientRect(HWindow, &r);
             FillRect(dc, &r, backgroundBrush);
@@ -1931,7 +1932,7 @@ int CInnerText::GetNeededWidth()
     HDC dc = HANDLES(GetDC(NULL));
     if (dc != NULL)
     {
-        HFONT old = (HFONT)SelectObject(dc, EnvFont);
+        HFONT old = (HFONT)SelectObject(dc, EditWindow->HDPIFont != NULL ? EditWindow->HDPIFont : EnvFont);
         SIZE s;
         GetTextExtentPoint32(dc, Message, (int)strlen(Message), &s);
         SelectObject(dc, old);
@@ -1958,6 +1959,8 @@ CEditWindow::CEditWindow()
     LastText = NULL;
     Enabled = TRUE;
     Tracking = FALSE;
+    HDPIFont = NULL;
+    DPIFontHeight = 0;
 }
 
 CEditWindow::~CEditWindow()
@@ -1966,6 +1969,8 @@ CEditWindow::~CEditWindow()
         delete EditLine;
     if (Text != NULL)
         delete Text;
+    if (HDPIFont != NULL)
+        HANDLES(DeleteObject(HDPIFont));
     ResetStoredContent();
 }
 
@@ -2089,7 +2094,29 @@ void CEditWindow::SetFont()
     if (EditLine != NULL && EditLine->HWindow != NULL &&
         Text != NULL && Text->HWindow != NULL)
     {
-        SendMessage(HWindow, WM_SETFONT, (WPARAM)EnvFont, 0);
+        LOGFONT lf;
+        HFONT newFont = WinLibDPIGetIconTitleLogFont(HWindow, &lf)
+                            ? HANDLES(CreateFontIndirect(&lf))
+                            : NULL;
+        if (newFont != NULL)
+        {
+            HDC dc = HANDLES(GetDC(HWindow));
+            TEXTMETRIC tm;
+            if (dc != NULL)
+            {
+                HFONT oldFont = (HFONT)SelectObject(dc, newFont);
+                GetTextMetrics(dc, &tm);
+                SelectObject(dc, oldFont);
+                HANDLES(ReleaseDC(HWindow, dc));
+            }
+            else
+                tm.tmHeight = EnvFontCharHeight;
+            if (HDPIFont != NULL)
+                HANDLES(DeleteObject(HDPIFont));
+            HDPIFont = newFont;
+            DPIFontHeight = tm.tmHeight;
+        }
+        SendMessage(HWindow, WM_SETFONT, (WPARAM)(HDPIFont != NULL ? HDPIFont : EnvFont), 0);
         SendMessage(EditLine->HWindow, EM_SETMARGINS, (WPARAM)EC_LEFTMARGIN | EC_RIGHTMARGIN, 0);
 
         RECT r;
@@ -2119,7 +2146,7 @@ void CEditWindow::SetDirectory(const char* dir)
 
 int CEditWindow::GetNeededHeight()
 {
-    return 2 * (EL_YBORDER + 3) + EnvFontCharHeight;
+    return 2 * (EL_YBORDER + 3) + (DPIFontHeight > 0 ? DPIFontHeight : EnvFontCharHeight);
 }
 
 void CEditWindow::ResizeChilds(int cx, int cy, BOOL repaint)
@@ -2132,15 +2159,15 @@ void CEditWindow::ResizeChilds(int cx, int cy, BOOL repaint)
         if (textWidth > pulka)
             textWidth = pulka;
         MoveWindow(Text->HWindow, EL_XBORDER, 4, textWidth,
-                   EnvFontCharHeight, repaint);
+                   DPIFontHeight > 0 ? DPIFontHeight : EnvFontCharHeight, repaint);
     }
     else
         textWidth = 0;
 
     if (EditLine != NULL && EditLine->HWindow != NULL)
         MoveWindow(EditLine->HWindow, EL_XBORDER + textWidth, 4,
-                   cx - 2 * EL_XBORDER - textWidth + 1 - GetSystemMetrics(SM_CXVSCROLL),
-                   EnvFontCharHeight, repaint);
+                   cx - 2 * EL_XBORDER - textWidth + 1 - WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL),
+                   DPIFontHeight > 0 ? DPIFontHeight : EnvFontCharHeight, repaint);
 }
 
 LRESULT
@@ -2149,6 +2176,10 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CEditWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_DPICHANGED_AFTERPARENT:
+        SetFont();
+        return 0;
+
     case WM_SIZE:
     {
         LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);

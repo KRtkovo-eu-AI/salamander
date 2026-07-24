@@ -219,5 +219,7 @@ BOOL CheckMouseWheelMsg(HWND window, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 void UpdateDefaultColors(SALCOLOR* colors, HPALETTE& palette);
 
+BOOL CreateEnvFont(HWND dpiWindow = NULL);
+BOOL CreateEnvFontForDPI(UINT dpi);
 BOOL InitDialogs();
 void ReleaseDialogs();

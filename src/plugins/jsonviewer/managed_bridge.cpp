@@ -4,6 +4,7 @@
 #include "precomp.h"
 #include "managed_bridge.h"
 #include "../../darkmode.h"
+#include "../../common/winlibdpi.h"
 
 #include <metahost.h>
 #include <mscoree.h>
@@ -21,6 +22,77 @@ ICLRRuntimeHost* gRuntimeHost = nullptr;
 std::wstring gAssemblyPath;
 const wchar_t* const kManagedType = L"OpenSalamander.JsonViewer.EntryPoint";
 const wchar_t* const kManagedMethod = L"Dispatch";
+
+HWND ResolveOwnerWindow(HWND parent)
+{
+    HWND foreground = GetForegroundWindow();
+    if (foreground != nullptr)
+    {
+        HWND root = GetAncestor(foreground, GA_ROOT);
+        if (root != nullptr)
+        {
+            foreground = root;
+        }
+
+        DWORD windowProcessId = 0;
+        GetWindowThreadProcessId(foreground, &windowProcessId);
+        if (windowProcessId == GetCurrentProcessId() &&
+            IsWindowVisible(foreground) && !IsIconic(foreground))
+        {
+            return foreground;
+        }
+    }
+
+    return parent;
+}
+
+RECT ResolvePlacementForOwner(HWND parent, HWND owner, const RECT& placement)
+{
+    RECT resolved = placement;
+    int width = placement.right - placement.left;
+    int height = placement.bottom - placement.top;
+    if (owner == nullptr || owner == parent || width <= 0 || height <= 0)
+    {
+        return resolved;
+    }
+
+    RECT ownerRect;
+    if (!GetWindowRect(owner, &ownerRect))
+    {
+        return resolved;
+    }
+
+    resolved.left = ownerRect.left +
+                    ((ownerRect.right - ownerRect.left) - width) / 2;
+    resolved.top = ownerRect.top +
+                   ((ownerRect.bottom - ownerRect.top) - height) / 2;
+    resolved.right = resolved.left + width;
+    resolved.bottom = resolved.top + height;
+
+    HMONITOR monitor = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO monitorInfo;
+    monitorInfo.cbSize = sizeof(monitorInfo);
+    if (monitor != nullptr && GetMonitorInfo(monitor, &monitorInfo))
+    {
+        const RECT& work = monitorInfo.rcWork;
+        if (width <= work.right - work.left)
+        {
+            if (resolved.left < work.left)
+                OffsetRect(&resolved, work.left - resolved.left, 0);
+            else if (resolved.right > work.right)
+                OffsetRect(&resolved, work.right - resolved.right, 0);
+        }
+        if (height <= work.bottom - work.top)
+        {
+            if (resolved.top < work.top)
+                OffsetRect(&resolved, 0, work.top - resolved.top);
+            else if (resolved.bottom > work.bottom)
+                OffsetRect(&resolved, 0, work.bottom - resolved.bottom);
+        }
+    }
+
+    return resolved;
+}
 
 std::wstring BuildArgument(const wchar_t* command, HWND parent, const wchar_t* payload)
 {
@@ -201,6 +273,7 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
 
     DWORD returnValue = 0;
     std::wstring argument = BuildArgument(command, parent, payload);
+    CWinLibDPIContext dpiContext;
     HRESULT hr = gRuntimeHost->ExecuteInDefaultAppDomain(gAssemblyPath.c_str(), kManagedType, kManagedMethod,
                                                          argument.c_str(), &returnValue);
     if (FAILED(hr))
@@ -316,7 +389,9 @@ bool ManagedBridge_RequestShutdown(HWND parent, bool forceClose)
 bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& placement,
                                 UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous)
 {
-    if (!ManagedBridge_EnsureInitialized(parent))
+    HWND owner = ResolveOwnerWindow(parent);
+    RECT ownerPlacement = ResolvePlacementForOwner(parent, owner, placement);
+    if (!ManagedBridge_EnsureInitialized(owner))
     {
         return false;
     }
@@ -331,7 +406,7 @@ bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& p
 
     if (encodedPath.empty())
     {
-        ShowLoadError(parent, L"Unable to prepare parameters for the JSON viewer.");
+        ShowLoadError(owner, L"Unable to prepare parameters for the JSON viewer.");
         return false;
     }
 
@@ -350,17 +425,17 @@ bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& p
     std::wstring payload;
     AppendKeyValue(payload, L"path", encodedPath.c_str());
     AppendKeyValue(payload, L"caption", encodedCaption.c_str());
-    AppendInt(payload, L"left", placement.left);
-    AppendInt(payload, L"top", placement.top);
-    AppendInt(payload, L"width", placement.right - placement.left);
-    AppendInt(payload, L"height", placement.bottom - placement.top);
+    AppendInt(payload, L"left", ownerPlacement.left);
+    AppendInt(payload, L"top", ownerPlacement.top);
+    AppendInt(payload, L"width", ownerPlacement.right - ownerPlacement.left);
+    AppendInt(payload, L"height", ownerPlacement.bottom - ownerPlacement.top);
     AppendUInt(payload, L"show", showCmd);
     AppendKeyValue(payload, L"ontop", alwaysOnTop ? L"1" : L"0");
     AppendHandle(payload, L"close", fileLock);
     AppendKeyValue(payload, L"async", asynchronous ? L"1" : L"0");
 
     const wchar_t* command = asynchronous ? L"View" : L"ViewSync";
-    return ExecuteCommand(command, parent, payload.c_str());
+    return ExecuteCommand(command, owner, payload.c_str());
 }
 
 extern "C" __declspec(dllexport) UINT32 __stdcall JsonViewer_GetCurrentColor(int color)

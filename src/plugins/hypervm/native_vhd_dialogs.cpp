@@ -5,6 +5,7 @@
 #include "hypervm.h"
 #include "managed_bridge.h"
 #include "../../darkmode.h"
+#include "../../common/winlibdpi.h"
 
 #include <commdlg.h>
 #include <strsafe.h>
@@ -39,6 +40,8 @@ struct CVhdDialogState
     HWND ReadOnly;
     bool Dark;
     HBRUSH BackgroundBrush;
+    HFONT Font;
+    UINT Dpi;
 };
 
 bool ShouldUseDarkMode(COLORREF background)
@@ -99,9 +102,65 @@ void SetFont(HWND child, HFONT font)
 
 HWND AddControl(HWND parent, const wchar_t* cls, const wchar_t* text, DWORD style, int x, int y, int w, int height, int id, HFONT font)
 {
-    HWND control = CreateWindowExW(0, cls, text, WS_CHILD | WS_VISIBLE | style, x, y, w, height, parent, (HMENU)(INT_PTR)id, DLLInstance, nullptr);
+    HWND control = CreateWindowExW(
+        0, cls, text, WS_CHILD | WS_VISIBLE | style,
+        WinLibDPIFromLogical(parent, x), WinLibDPIFromLogical(parent, y),
+        WinLibDPIFromLogical(parent, w), WinLibDPIFromLogical(parent, height),
+        parent, (HMENU)(INT_PTR)id, DLLInstance, nullptr);
     SetFont(control, font);
     return control;
+}
+
+void ApplyDialogDPI(CVhdDialogState* s, UINT newDpi, const RECT* suggestedRect)
+{
+    if (s == nullptr || s->Window == nullptr || newDpi == 0)
+        return;
+
+    UINT oldDpi = s->Dpi != 0 ? s->Dpi : USER_DEFAULT_SCREEN_DPI;
+    if (suggestedRect != nullptr)
+    {
+        SetWindowPos(s->Window, nullptr, suggestedRect->left, suggestedRect->top,
+                     suggestedRect->right - suggestedRect->left,
+                     suggestedRect->bottom - suggestedRect->top,
+                     SWP_NOACTIVATE | SWP_NOZORDER);
+    }
+
+    if (oldDpi != newDpi)
+    {
+        for (HWND child = GetWindow(s->Window, GW_CHILD); child != nullptr;
+             child = GetWindow(child, GW_HWNDNEXT))
+        {
+            RECT rect;
+            GetWindowRect(child, &rect);
+            MapWindowPoints(nullptr, s->Window, reinterpret_cast<POINT*>(&rect), 2);
+            SetWindowPos(child, nullptr,
+                         MulDiv(rect.left, newDpi, oldDpi),
+                         MulDiv(rect.top, newDpi, oldDpi),
+                         MulDiv(rect.right - rect.left, newDpi, oldDpi),
+                         MulDiv(rect.bottom - rect.top, newDpi, oldDpi),
+                         SWP_NOACTIVATE | SWP_NOZORDER);
+        }
+    }
+
+    // GetDpiForWindow can still report the previous monitor while the
+    // WM_DPICHANGED notification is being dispatched. Use the DPI carried by
+    // the notification so the new HFONT is never recreated at 96 DPI.
+    HFONT newFont = WinLibDPICreateMessageFontForDPI(newDpi);
+    if (newFont != nullptr)
+    {
+        for (HWND child = GetWindow(s->Window, GW_CHILD); child != nullptr;
+             child = GetWindow(child, GW_HWNDNEXT))
+        {
+            SendMessage(child, WM_SETFONT, reinterpret_cast<WPARAM>(newFont), TRUE);
+        }
+        HFONT oldFont = s->Font;
+        s->Font = newFont;
+        if (oldFont != nullptr)
+            DeleteObject(oldFont);
+    }
+    s->Dpi = newDpi;
+    RedrawWindow(s->Window, nullptr, nullptr,
+                 RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
 }
 
 void EnableOk(CVhdDialogState* s)
@@ -170,6 +229,13 @@ LRESULT CALLBACK VhdWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_CREATE:
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)((CREATESTRUCT*)lp)->lpCreateParams);
         return 0;
+    case WM_DPICHANGED:
+        if (s != nullptr)
+        {
+            ApplyDialogDPI(s, LOWORD(wp), reinterpret_cast<const RECT*>(lp));
+            return 0;
+        }
+        break;
     case WM_COMMAND:
         if (!s) break;
         if (LOWORD(wp) == IDC_VHD_PATH && HIWORD(wp) == EN_CHANGE) EnableOk(s);
@@ -183,6 +249,13 @@ LRESULT CALLBACK VhdWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
     case WM_CLOSE:
         if (s) Finish(s, false);
+        return 0;
+    case WM_DESTROY:
+        if (s != nullptr && s->Font != nullptr)
+        {
+            DeleteObject(s->Font);
+            s->Font = nullptr;
+        }
         return 0;
     case WM_ERASEBKGND:
         if (s != nullptr && s->Dark && s->BackgroundBrush != nullptr)
@@ -233,10 +306,23 @@ bool RunDialog(HWND parent, bool create)
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     RegisterClassA(&wc);
 
-    int width = 380;
-    int height = create ? 440 : 157;
+    UINT initialDpi = WinLibDPIGetWindowDPI(parent);
+    int width = MulDiv(380, initialDpi, USER_DEFAULT_SCREEN_DPI);
+    int height = MulDiv(create ? 440 : 157, initialDpi, USER_DEFAULT_SCREEN_DPI);
     RECT windowRect = {0, 0, width, height};
-    AdjustWindowRectEx(&windowRect, WS_CAPTION | WS_SYSMENU | WS_POPUP, FALSE, WS_EX_DLGMODALFRAME);
+    typedef BOOL(WINAPI * FAdjustWindowRectExForDpi)(LPRECT, DWORD, BOOL, DWORD, UINT);
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    FAdjustWindowRectExForDpi adjustForDpi =
+        user32 != nullptr
+            ? reinterpret_cast<FAdjustWindowRectExForDpi>(
+                  GetProcAddress(user32, "AdjustWindowRectExForDpi"))
+            : nullptr;
+    if (adjustForDpi != nullptr)
+        adjustForDpi(&windowRect, WS_CAPTION | WS_SYSMENU | WS_POPUP, FALSE,
+                     WS_EX_DLGMODALFRAME, initialDpi);
+    else
+        AdjustWindowRectEx(&windowRect, WS_CAPTION | WS_SYSMENU | WS_POPUP,
+                           FALSE, WS_EX_DLGMODALFRAME);
     int titleId = create ? IDS_CREATE_VHD_DLG_TITLE : IDS_ATTACH_VHD_DLG_TITLE;
     std::wstring title = WStr(titleId);
     std::string titleA = AStr(titleId);
@@ -245,16 +331,50 @@ bool RunDialog(HWND parent, bool create)
         title = create ? L"Create and Attach Virtual Hard Disk" : L"Attach Virtual Hard Disk";
         titleA = create ? "Create and Attach Virtual Hard Disk" : "Attach Virtual Hard Disk";
     }
-    HWND hwnd = CreateWindowExA(WS_EX_DLGMODALFRAME, wc.lpszClassName, titleA.c_str(),
-                                WS_CAPTION | WS_SYSMENU | WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT,
-                                windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, parent, nullptr, DLLInstance, &s);
+
+    int windowWidth = windowRect.right - windowRect.left;
+    int windowHeight = windowRect.bottom - windowRect.top;
+    int windowX = CW_USEDEFAULT;
+    int windowY = CW_USEDEFAULT;
+    RECT parentRect;
+    MONITORINFO monitorInfo = {sizeof(monitorInfo)};
+    HMONITOR monitor = MonitorFromWindow(parent, MONITOR_DEFAULTTONEAREST);
+    if (GetWindowRect(parent, &parentRect) &&
+        monitor != NULL && GetMonitorInfo(monitor, &monitorInfo))
+    {
+        windowX = parentRect.left + ((parentRect.right - parentRect.left) - windowWidth) / 2;
+        windowY = parentRect.top + ((parentRect.bottom - parentRect.top) - windowHeight) / 2;
+        windowX = max(monitorInfo.rcWork.left,
+                      min(windowX, monitorInfo.rcWork.right - windowWidth));
+        windowY = max(monitorInfo.rcWork.top,
+                      min(windowY, monitorInfo.rcWork.bottom - windowHeight));
+    }
+
+    HWND hwnd = nullptr;
+    {
+        // This window bypasses WinLib's normal top-level creation path. CLR
+        // calls made by the plugin can leave the callback thread in a legacy
+        // DPI context, which would permanently make this HWND SystemAware and
+        // keep its controls at 96 DPI. Capture PMv2 explicitly at creation.
+        CWinLibDPIContext dpiContext;
+        hwnd = CreateWindowExA(WS_EX_DLGMODALFRAME, wc.lpszClassName, titleA.c_str(),
+                               WS_CAPTION | WS_SYSMENU | WS_POPUP, windowX, windowY,
+                               windowWidth, windowHeight,
+                               parent, nullptr, DLLInstance, &s);
+    }
     SetWindowTextW(hwnd, title.c_str());
     if (!titleA.empty())
     {
         SetWindowTextA(hwnd, titleA.c_str());
     }
     s.Window = hwnd;
-    HFONT font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    s.Dpi = WinLibDPIGetWindowDPI(hwnd);
+    // Use the explicit HWND DPI here as well as in WM_DPICHANGED. In remote
+    // sessions the generic SPI path can return a legacy 96-DPI message font
+    // even though this PMv2 window and all of its geometry are already at
+    // 150%.
+    s.Font = WinLibDPICreateMessageFontForDPI(s.Dpi);
+    HFONT font = s.Font != nullptr ? s.Font : (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 
     AddControl(hwnd, L"STATIC", WStr(create ? IDS_VHD_CREATE_INTRO : IDS_VHD_ATTACH_INTRO), 0, 12, 12, 350, 18, -1, font);
     AddControl(hwnd, L"STATIC", WStr(IDS_VHD_LOCATION), 0, 12, 43, 100, 18, -1, font);
@@ -294,7 +414,6 @@ bool RunDialog(HWND parent, bool create)
         DarkModeApplyTree(hwnd);
         DarkModeRefreshTitleBar(hwnd);
     }
-    SalamanderGeneral->MultiMonCenterWindow(hwnd, parent, TRUE);
     EnableWindow(parent, FALSE);
     ShowWindow(hwnd, SW_SHOW);
     SetWindowTextW(hwnd, title.c_str());

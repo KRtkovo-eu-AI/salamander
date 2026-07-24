@@ -7,6 +7,7 @@
 #include "toolbar.h"
 #include "darkmode.h"
 #include "cfgdlg.h"
+#include "common/winlibdpi.h"
 
 //*****************************************************************************
 //
@@ -82,6 +83,7 @@ CToolBar::CToolBar(HWND hNotifyWindow, CObjectOrigin origin)
     Width = 0;
     Height = 0;
     HFont = NULL;
+    HOwnedDPIFont = NULL;
     FontHeight = 0;
     HNotifyWindow = hNotifyWindow;
     HImageList = NULL;
@@ -128,6 +130,11 @@ CToolBar::~CToolBar()
     {
         delete MonoBitmap;
         MonoBitmap = NULL;
+    }
+    if (HOwnedDPIFont != NULL)
+    {
+        HANDLES(DeleteObject(HOwnedDPIFont));
+        HOwnedDPIFont = NULL;
     }
 }
 
@@ -189,7 +196,7 @@ int CToolBar::GetNeededWidth()
                 width = max(width, Padding.IconLeft + ImageWidth + Padding.IconRight);
             if (HasIcon)
             {
-                int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+                int iconSize = MulDiv(16, (int)WinLibDPIGetWindowDPI(HWindow), USER_DEFAULT_SCREEN_DPI);
                 width = max(width, Padding.IconLeft + iconSize + Padding.IconRight);
             }
         }
@@ -252,7 +259,9 @@ int CToolBar::GetNeededHeight()
             if (HImageList != NULL)
                 height = max(height, 3 + ImageHeight + 3);
             if (HasIcon)
-                height = max(height, 3 + GetIconSizeForSystemDPI(ICONSIZE_16) + 3);
+                height = max(height, 3 + MulDiv(16, (int)WinLibDPIGetWindowDPI(HWindow),
+                                               USER_DEFAULT_SCREEN_DPI) +
+                                         3);
         }
 
         height += 2 * Padding.ToolBarVertical;
@@ -842,6 +851,16 @@ CToolBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CToolBar::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        // All text toolbars own an HFONT tied to their actual child window.
+        // Refresh it even when the containing dialog/plugin has no specialized
+        // DPI handler; owners that also rebuild pixel image lists may call
+        // SetFont again safely afterwards.
+        SetFont();
+        return 0;
+    }
+
     case WM_DESTROY:
     {
         // destrukce je jeste v destruktoru

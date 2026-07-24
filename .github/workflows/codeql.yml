@@ -124,6 +124,7 @@ jobs:
             $solutionPath = Join-Path (Get-Location) $env:SOLUTION_PATH
             $solutionDir = Split-Path -Parent $solutionPath
             $solutionFilterPath = Join-Path $solutionDir 'salamand-without-sftp.slnf'
+            $excludedProjects = @('sftp', 'lang_sftp', 'zip2sfx')
             $projects = Select-String -LiteralPath $solutionPath -Pattern '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{[^}]+\}"' |
               ForEach-Object {
                 [pscustomobject]@{
@@ -131,7 +132,7 @@ jobs:
                   Path = $_.Matches[0].Groups[2].Value
                 }
               } |
-              Where-Object { $_.Path -match '\.(?:vcxproj|csproj)$' -and $_.Name -notin @('sftp', 'lang_sftp') } |
+              Where-Object { $_.Path -match '\.(?:vcxproj|csproj)$' -and $_.Name -notin $excludedProjects } |
               ForEach-Object { $_.Path }
 
             @{

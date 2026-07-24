@@ -828,6 +828,7 @@ public:
 
     BOOL PrepareBitmap();
     void DestroyBitmap();
+    void RecreateFontsForDPI(int dpi);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);

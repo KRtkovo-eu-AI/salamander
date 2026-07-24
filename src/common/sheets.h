@@ -21,6 +21,12 @@ struct CPageHorizontalLayoutCtrl
     int Mode;
 };
 
+struct CPageDPIControlLayout
+{
+    HWND HCtrl;
+    RECT LogicalRect;
+};
+
 // pomocna trida slouzici pro layout prvku dialogu na zaklade jeho velikosti
 class CElasticLayout
 {
@@ -102,9 +108,14 @@ protected:
     CElasticLayout* ElasticLayout;
 
     TDirectArray<CPageHorizontalLayoutCtrl>* HorizontalLayoutCtrls;
+    TDirectArray<CPageDPIControlLayout>* DPIControlLayouts;
     int HorizontalLayoutWidth;
+    BOOL DPIChangeInProgress;
+    BOOL DPILayoutPosted;
     void InitHorizontalLayout();
     void ApplyHorizontalLayout();
+    void CaptureDPIControlLayouts();
+    void RestoreDPIControlLayouts();
 
     friend class CPropertyDialog;
     friend class CTreePropDialog;
@@ -168,6 +179,7 @@ public:
     ~CTPHCaptionWindow();
 
     void SetText(const TCHAR* text);
+    HWND GetHWND() const { return HWindow; }
 
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -214,9 +226,24 @@ protected:
     int ButtonMargin;    // mezera mezi tlacitky
     SIZE GripSize;       // rozmery resize gripu v pravem spodnim rohu dialogu
     SIZE MarginSize;     // vodorovny a svisly okraj
+    int CurrentDPI;
+    SIZE LogicalMinWindowSize;
+    int LogicalTreeWidth;
+    int LogicalMinTreeWidth;
+    int LogicalMinChildWidth;
+    int LogicalCaptionHeight;
+    SIZE LogicalButtonSize;
+    int LogicalButtonMargin;
+    SIZE LogicalMarginSize;
+    SIZE LogicalWindowSize;
+    BOOL DPIChangeInProgress;
+    BOOL DPILayoutPosted;
+    BOOL UserSizing;
+    HFONT TreeFont;
 
 public:
     CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth, int defaultWidthExtra = 0);
+    ~CTreePropHolderDlg();
 
     int ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate);
 
@@ -229,6 +256,9 @@ protected:
     void EnableButtons();
     BOOL SelectPage(int pageIndex);
     void SaveWindowPlacement();
+    void CaptureLogicalDpiMetrics();
+    void ApplyLogicalDpiMetrics(int dpi);
+    void UpdateTreeFontAndMetrics();
 
     friend class CTreePropDialog;
 };

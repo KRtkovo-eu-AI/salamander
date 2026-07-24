@@ -61,7 +61,7 @@ END
 IDD_EXPACKOPTIONS DIALOGEX 41, 41, 308, 201
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Extended Pack Options"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "Archive:",IDC_STATIC_1,17,9,30,8
     CONTROL         "",IDC_ARCHIVE,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,50,9,250,8
@@ -96,7 +96,7 @@ END
 IDD_CONFIG DIALOGEX 50, 37, 312, 277
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "ZIP Configuration"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "Unpacking",IDC_STATIC_1,7,6,38,8
     LTEXT           "",IDC_STATIC_2,46,10,261,1,SS_ETCHEDHORZ | WS_GROUP
@@ -141,7 +141,7 @@ END
 IDD_PASSWORD DIALOGEX 6, 15, 271, 74
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Enter ZIP Password"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     ICON            "",IDC_LOCK,21,10,18,20
     LTEXT           "This file is encrypted. Please enter password for decryption.",IDC_STATIC_1,57,10,202,8
@@ -158,7 +158,7 @@ END
 IDD_LOWFREESPACE DIALOGEX 13, 54, 355, 94
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Low Disk Free Space"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "Warning: Free space on the disk is smaller than the volume size you have specified.",IDC_TEXT,58,9,283,8
     RTEXT           "Path:",IDC_STATIC_1,6,26,47,8
@@ -176,7 +176,7 @@ END
 IDD_CHANGEDISK DIALOGEX 24, 40, 199, 77
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Change Disk"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "",IDC_CHDISKTEXT,13,8,173,24
     LTEXT           "Press OK when ready.",IDC_STATIC_1,13,39,173,8
@@ -187,7 +187,7 @@ END
 IDD_OVERWRITE DIALOGEX 6, 15, 350, 79
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Confirm File Overwrite"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     RTEXT           "Overwrite file:",IDC_STATIC_1,6,14,50,8
     LTEXT           "",IDC_FILE,61,14,269,8
@@ -202,7 +202,7 @@ END
 IDD_CHANGEDISK2 DIALOGEX 24, 40, 210, 108
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "ZIP"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "This file is either a part of the multi-volume archive or is corrupted.",IDC_STATIC_1,13,8,184,16
     LTEXT           "If you believe, it should be a multi-volume archive, please insert a disk with the last part of the archive or locate the file on the fixed disk. Press OK when ready.",IDC_STATIC_2,13,31,184,24
@@ -216,7 +216,7 @@ END
 IDD_CHANGEDISK3 DIALOGEX 24, 40, 210, 132
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Change Disk"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "",IDC_CHDISKTEXT,13,8,184,16
     LTEXT           "Press OK when ready.",IDC_STATIC_1,13,31,184,8
@@ -234,7 +234,7 @@ END
 IDD_ADVANCEDSE DIALOGEX 37, 14, 305, 303
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Self-Extractor Settings"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "",IDC_STATIC_1,0,0,305,1,SS_ETCHEDHORZ | WS_GROUP
     GROUPBOX        "Directory to extract files to",IDC_STATIC_2,7,7,292,89,WS_GROUP
@@ -274,7 +274,7 @@ END
 IDD_OVERWRITE2 DIALOGEX 6, 15, 350, 79
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Confirm File Overwrite"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     RTEXT           "Overwrite file:",IDC_STATIC_1,6,14,50,8
     LTEXT           "",IDC_FILE,61,14,269,8
@@ -288,7 +288,7 @@ END
 IDD_RENAMEFAVSET DIALOGEX 100, 37, 194, 99
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "New Favorite Settings"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "&Name:",IDC_STATIC_1,14,8,60,8
     EDITTEXT        IDC_NAME,14,18,164,12,ES_AUTOHSCROLL
@@ -301,7 +301,7 @@ END
 IDD_CREATESFX DIALOGEX 6, 15, 204, 113
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Create Self-Extracting Archive"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "&Create a self-extracting archive from the archive:",IDC_SOURCE,16,11,167,8
     EDITTEXT        IDC_ARCHIVE,16,21,172,12,ES_AUTOHSCROLL
@@ -318,7 +318,7 @@ IDD_COMMENT DIALOGEX 9, 34, 340, 180
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "ZIP Archive Comment"
 MENU IDM_COMMENTMENU
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     EDITTEXT        IDC_COMMENT,0,0,340,180,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_WANTRETURN | WS_VSCROLL | WS_HSCROLL
 END
@@ -326,7 +326,7 @@ END
 IDD_SFXTEXTS DIALOGEX 94, 18, 260, 352
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Self-Extractor Texts"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     GROUPBOX        "Message Box ",IDC_STATIC_1,8,5,245,158
     LTEXT           "This message box is displayed before the main dialog box and before unpacking begins.",IDC_STATIC_2,20,18,221,16,NOT WS_GROUP
@@ -359,7 +359,7 @@ END
 IDD_MANFAVS DIALOGEX 59, 61, 220, 123
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Manage Favorites"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "&Favorites:",IDC_STATIC_1,9,4,60,8
     LISTBOX         IDC_FAVORITIES,9,14,142,100,LBS_HASSTRINGS | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP
@@ -372,7 +372,7 @@ END
 IDD_WAITFOR DIALOGEX 15, 24, 227, 147
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Wait For"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "This option enables you to wait for another process than the process you specified in the field 'Command'. After this process is finished the self-extractor remove temporary files and finish itself.",IDC_STATIC_1,12,9,200,32
     LTEXT           "It is necessary only if the installation program launch another executable which continues installation while the original installation program is finished.\nIn this manner behaves e.g some versions of Install Shield.",IDC_STATIC_2,12,49,200,32
@@ -387,7 +387,7 @@ END
 IDD_CHANGELANG DIALOGEX 6, 15, 248, 114
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Change Self-Extractor Texts"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "You have changed the self-extractor language, do you wish the custom texts you entered in the 'Self-Extractor Texts' dialog box to be changed to their default values corresponding with the language you selected?",IDC_STATIC_1,11,8,214,32
     DEFPUSHBUTTON   "Yes",IDOK,40,48,50,14

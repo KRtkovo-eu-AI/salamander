@@ -7,6 +7,7 @@
 #include "menu.h"
 #include "mainwnd.h"
 #include "darkmode.h"
+#include "common/winlibdpi.h"
 
 //*****************************************************************************
 //
@@ -18,9 +19,8 @@
 
 
 
-static void ScaleSmallMenuLogFontForCurrentDPI(LOGFONT* lf)
+static void ScaleSmallMenuLogFontForDPI(LOGFONT* lf, int dpi)
 {
-    int dpi = GetSystemDPI();
     if (lf == NULL || lf->lfHeight == 0)
         return;
 
@@ -30,7 +30,7 @@ static void ScaleSmallMenuLogFontForCurrentDPI(LOGFONT* lf)
         lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
 }
 
-static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni)
+static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni, int dpi)
 {
     typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
     static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
@@ -43,9 +43,40 @@ static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvPa
         loaded = TRUE;
     }
     if (systemParametersInfoForDpi != NULL &&
-        systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, GetSystemDPI()))
+        systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, dpi))
         return TRUE;
     return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
+}
+
+static void UpdateMenuBarRebarBandSize(HWND hMenuBar, int minWidth, int minHeight)
+{
+    if (hMenuBar == NULL)
+        return;
+
+    HWND hRebar = GetParent(hMenuBar);
+    char className[64];
+    if (hRebar == NULL || GetClassName(hRebar, className, _countof(className)) == 0 ||
+        lstrcmpi(className, REBARCLASSNAME) != 0)
+    {
+        return;
+    }
+
+    int count = (int)SendMessage(hRebar, RB_GETBANDCOUNT, 0, 0);
+    for (int i = 0; i < count; i++)
+    {
+        REBARBANDINFO band;
+        ZeroMemory(&band, sizeof(band));
+        band.cbSize = sizeof(band);
+        band.fMask = RBBIM_CHILD;
+        if (SendMessage(hRebar, RB_GETBANDINFO, i, (LPARAM)&band) && band.hwndChild == hMenuBar)
+        {
+            band.fMask = RBBIM_CHILDSIZE;
+            band.cxMinChild = minWidth;
+            band.cyMinChild = minHeight;
+            SendMessage(hRebar, RB_SETBANDINFO, i, (LPARAM)&band);
+            break;
+        }
+    }
 }
 
 static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
@@ -72,7 +103,7 @@ static COLORREF GetMenuBarTextColor(BOOL hot)
 }
 
 CMenuBar::CMenuBar(CMenuPopup* menu, HWND hNotifyWindow, CObjectOrigin origin)
-    : CWindow(origin)
+    : CWindow(origin), ItemMinWidths(10, 10)
 {
     CALL_STACK_MESSAGE_NONE
     Menu = menu;
@@ -81,6 +112,8 @@ CMenuBar::CMenuBar(CMenuPopup* menu, HWND hNotifyWindow, CObjectOrigin origin)
     Height = 0;
     HFont = NULL;
     FontHeight = 0;
+    HorizontalMargin = MENUBAR_LR_MARGIN;
+    VerticalMargin = MENUBAR_TB_MARGIN;
     HotIndex = -1;
     MenuLoop = FALSE;
     RetValue = 0;
@@ -150,12 +183,16 @@ BOOL CMenuBar::CreateWnd(HWND hParent)
 void CMenuBar::SetFont()
 {
     CALL_STACK_MESSAGE1("CMenuBar::SetFont()");
+    HWND hDPIWindow = HWindow != NULL ? HWindow : HNotifyWindow;
+    int dpi = (int)WinLibDPIGetWindowDPI(hDPIWindow);
+    HorizontalMargin = MulDiv(MENUBAR_LR_MARGIN, dpi, USER_DEFAULT_SCREEN_DPI);
+    VerticalMargin = MulDiv(MENUBAR_TB_MARGIN, dpi, USER_DEFAULT_SCREEN_DPI);
     NONCLIENTMETRICS ncm;
     ncm.cbSize = sizeof(ncm);
-    SystemParametersInfoForMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+    SystemParametersInfoForMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
 
     LOGFONT* lf = &ncm.lfMenuFont;
-    ScaleSmallMenuLogFontForCurrentDPI(lf);
+    ScaleSmallMenuLogFontForDPI(lf, dpi);
     if (HFont != NULL)
         HANDLES(DeleteObject(HFont));
     HFont = HANDLES(CreateFontIndirect(lf));
@@ -170,6 +207,7 @@ void CMenuBar::SetFont()
     RefreshMinWidths();
     if (HWindow != NULL)
     {
+        UpdateMenuBarRebarBandSize(HWindow, GetNeededWidth(), GetNeededHeight());
         InvalidateRect(HWindow, NULL, TRUE);
         UpdateWindow(HWindow);
     }
@@ -181,14 +219,14 @@ int CMenuBar::GetNeededWidth()
     int width = 0;
     int i;
     for (i = 0; i < Menu->Items.Count; i++)
-        width += MENUBAR_LR_MARGIN + Menu->Items[i]->MinWidth + MENUBAR_LR_MARGIN;
+        width += HorizontalMargin + GetItemMinWidth(i) + HorizontalMargin;
     return width;
 }
 
 int CMenuBar::GetNeededHeight()
 {
     CALL_STACK_MESSAGE_NONE
-    return MENUBAR_TB_MARGIN + FontHeight + MENUBAR_TB_MARGIN;
+    return VerticalMargin + FontHeight + VerticalMargin;
 }
 
 BOOL CMenuBar::GetItemRect(int index, RECT& r)
@@ -203,8 +241,8 @@ BOOL CMenuBar::GetItemRect(int index, RECT& r)
     int i;
     for (i = 0; i < index; i++)
     {
-        int textWidth = Menu->Items[i]->MinWidth;
-        x += MENUBAR_LR_MARGIN + textWidth + MENUBAR_LR_MARGIN;
+        int textWidth = GetItemMinWidth(i);
+        x += HorizontalMargin + textWidth + HorizontalMargin;
     }
     POINT p;
     p.x = 0;
@@ -212,7 +250,7 @@ BOOL CMenuBar::GetItemRect(int index, RECT& r)
     ClientToScreen(HWindow, &p);
     r.left = p.x + x;
     r.top = p.y + 1;
-    r.right = p.x + x + MENUBAR_LR_MARGIN + Menu->Items[index]->MinWidth + MENUBAR_LR_MARGIN;
+    r.right = p.x + x + HorizontalMargin + GetItemMinWidth(index) + HorizontalMargin;
     r.bottom = p.y + Height - 1;
     return TRUE;
 }
@@ -224,7 +262,7 @@ void CMenuBar::DrawItem(HDC hDC, int index, int x)
 
     RECT r;
     r.left = x;
-    r.right = x + MENUBAR_LR_MARGIN + item->MinWidth + MENUBAR_LR_MARGIN;
+    r.right = x + HorizontalMargin + GetItemMinWidth(index) + HorizontalMargin;
     r.top = 1;
     r.bottom = Height - 1;
 
@@ -244,8 +282,8 @@ void CMenuBar::DrawItem(HDC hDC, int index, int x)
 
     FillRect(hDC, &r, hot ? HMenuSelectedBkBrush : HDialogBrush);
 
-    r.top += MENUBAR_TB_MARGIN - 1;
-    r.left += MENUBAR_LR_MARGIN;
+    r.top += VerticalMargin - 1;
+    r.left += HorizontalMargin;
     const bool useDark = DarkModeShouldUseDarkColors();
     const COLORREF defaultText = useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
     const COLORREF textColor = hot ? GetSysColor(COLOR_HIGHLIGHTTEXT) : defaultText;
@@ -276,7 +314,7 @@ void CMenuBar::DrawItem(int index)
     int x = 0;
     int i;
     for (i = 0; i < index; i++)
-        x += MENUBAR_LR_MARGIN + Menu->Items[i]->MinWidth + MENUBAR_LR_MARGIN;
+        x += HorizontalMargin + GetItemMinWidth(i) + HorizontalMargin;
     DrawItem(hDC, index, x);
     SetTextColor(hDC, oldTextColor);
     SetBkMode(hDC, oldBkMode);
@@ -296,9 +334,9 @@ void CMenuBar::DrawAllItems(HDC hDC)
     int i;
     for (i = 0; i < Menu->Items.Count; i++)
     {
-        int textWidth = Menu->Items[i]->MinWidth;
+        int textWidth = GetItemMinWidth(i);
         DrawItem(hDC, i, x);
-        x += MENUBAR_LR_MARGIN + textWidth + MENUBAR_LR_MARGIN;
+        x += HorizontalMargin + textWidth + HorizontalMargin;
     }
     SetTextColor(hDC, oldTextColor);
     SetBkMode(hDC, oldBkMode);
@@ -317,6 +355,7 @@ void CMenuBar::RefreshMinWidths()
     HDC hDC = HANDLES(GetDC(HWindow));
     HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
     RECT r;
+    ItemMinWidths.DestroyMembers();
     int i;
     for (i = 0; i < Menu->Items.Count; i++)
     {
@@ -327,10 +366,17 @@ void CMenuBar::RefreshMinWidths()
         r.bottom = 0;
         DrawText(hDC, item->String, item->ColumnL1Len,
                  &r, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_CALCRECT);
-        item->MinWidth = r.right;
+        ItemMinWidths.Add(r.right);
     }
     SelectObject(hDC, hOldFont);
     HANDLES(ReleaseDC(HWindow, hDC));
+}
+
+int CMenuBar::GetItemMinWidth(int index)
+{
+    if (index >= 0 && index < ItemMinWidths.Count)
+        return ItemMinWidths[index];
+    return index >= 0 && index < Menu->Items.Count ? Menu->Items[index]->MinWidth : 0;
 }
 
 BOOL CMenuBar::HitTest(int xPos, int yPos, int& index)
@@ -343,7 +389,7 @@ BOOL CMenuBar::HitTest(int xPos, int yPos, int& index)
         int i;
         for (i = 0; i < Menu->Items.Count; i++)
         {
-            right = left + MENUBAR_LR_MARGIN + Menu->Items[i]->MinWidth + MENUBAR_LR_MARGIN;
+            right = left + HorizontalMargin + GetItemMinWidth(i) + HorizontalMargin;
             if (xPos >= left && xPos < right)
             {
                 index = i;
@@ -884,6 +930,14 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMenuBar::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_DPICHANGED_AFTERPARENT:
+    {
+        // PMv2 resizes the child HWND. Recreate our owner-drawn font from this
+        // window's DPI and update the containing rebar band to avoid clipping.
+        SetFont();
+        return 0;
+    }
+
     case WM_USER_CLOSEMENU:
     {
         //      TRACE_I("WM_USER_CLOSEMENU");

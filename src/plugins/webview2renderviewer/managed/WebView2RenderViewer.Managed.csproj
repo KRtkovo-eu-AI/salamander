@@ -20,6 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\shared\ManagedDpi.cs" Link="ManagedDpi.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="..\\msedge.ico" Link="Resources\\msedge.ico" />
   </ItemGroup>
 

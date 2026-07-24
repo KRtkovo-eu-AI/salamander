@@ -14,6 +14,7 @@
 #include "shellib.h"
 #include "snooper.h"
 #include "darkmode.h"
+#include "common/winlibdpi.h"
 
 static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
 {
@@ -50,7 +51,7 @@ void CBottomBar::LayoutChilds()
         GetClientRect(HWindow, &cR);
 
         if (VertScrollSpace)
-            cR.right -= GetSystemMetrics(SM_CXVSCROLL);
+            cR.right -= WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
         SetWindowPos(HScrollBar, NULL, 0, 0, cR.right, cR.bottom, SWP_NOZORDER | SWP_NOACTIVATE);
     }
 }
@@ -67,7 +68,7 @@ CBottomBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
       {
         RECT r;
         GetClientRect(HWindow, &r);
-        r.left = r.right - GetSystemMetrics(SM_CXVSCROLL);
+        r.left = r.right - WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
         FillRect((HDC)wParam, &r, DialogBrush);
       }
       return TRUE;
@@ -241,14 +242,19 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
         BOOL hot2 = HotIndex == index && index == 0 && HotExt;
 
         // column name
-        HFONT hOldFont = (HFONT)SelectObject(ItemBitmap.HMemDC, hot1 && Configuration.SingleClick ? FontUL : Font);
+        HFONT hOldFont = (HFONT)SelectObject(ItemBitmap.HMemDC,
+                                             hot1 && Configuration.SingleClick
+                                                 ? Parent->Parent->GetPanelFontUL()
+                                                 : Parent->Parent->GetPanelFont());
         int oldMode = SetBkMode(ItemBitmap.HMemDC, TRANSPARENT);
         COLORREF defaultText = DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
                                                              : GetSysColor(COLOR_BTNTEXT);
         COLORREF hotText = GetCOLORREF(CurrentColors[HOT_PANEL]);
         COLORREF oldColor = SetTextColor(ItemBitmap.HMemDC, hot1 ? hotText : defaultText);
         int nameLen = lstrlen(column->Name);
-        TextOut(ItemBitmap.HMemDC, r.left + 3, (r.bottom - FontCharHeight) / 2, column->Name, nameLen);
+        TextOut(ItemBitmap.HMemDC, r.left + 3,
+                (r.bottom - Parent->Parent->GetPanelFontHeight()) / 2,
+                column->Name, nameLen);
 
         SIZE sz;
         sz.cx = 0;
@@ -287,11 +293,15 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
             int textLeft = r.left + 3 + sz.cx + 3 * SORT_BITMAP_W;
             if (sz.cx == 0) // measure now if we have no size yet
                 GetTextExtentPoint32(ItemBitmap.HMemDC, column->Name, nameLen, &sz);
-            SelectObject(ItemBitmap.HMemDC, hot2 && Configuration.SingleClick ? FontUL : Font);
+            SelectObject(ItemBitmap.HMemDC,
+                         hot2 && Configuration.SingleClick
+                             ? Parent->Parent->GetPanelFontUL()
+                             : Parent->Parent->GetPanelFont());
             SetTextColor(ItemBitmap.HMemDC, hot2 ? hotText : defaultText);
             char* colExtStr = column->Name + nameLen + 1; // the text "Ext" is stored after the name (in the same buffer)
             int colExtStrLen = (int)strlen(colExtStr);
-            TextOut(ItemBitmap.HMemDC, textLeft, (r.bottom - FontCharHeight) / 2,
+            TextOut(ItemBitmap.HMemDC, textLeft,
+                    (r.bottom - Parent->Parent->GetPanelFontHeight()) / 2,
                     colExtStr, colExtStrLen);
             if (panel->SortType == stExtension)
             {
@@ -388,7 +398,7 @@ void CHeaderLine::SetMinWidths()
     int columnsCount = Columns->Count;
 
     HDC hDC = Parent->HPrivateDC;
-    HFONT hOldFont = (HFONT)SelectObject(hDC, Font);
+    HFONT hOldFont = (HFONT)SelectObject(hDC, Parent->Parent->GetPanelFont());
 
     SIZE sz;
     int i;
@@ -451,7 +461,8 @@ CHeaderLine::HitTest(int xPos, int yPos, int& index, BOOL& extInName)
             {
                 // measure the base text
                 SIZE sz;
-                HFONT hOldFont = (HFONT)SelectObject(ItemBitmap.HMemDC, Font);
+                HFONT hOldFont = (HFONT)SelectObject(ItemBitmap.HMemDC,
+                                                     Parent->Parent->GetPanelFont());
                 GetTextExtentPoint32(ItemBitmap.HMemDC, column->Name, lstrlen(column->Name), &sz);
                 SelectObject(ItemBitmap.HMemDC, hOldFont);
                 if (xPos - left >= 1 + 3 + sz.cx + 3 * SORT_BITMAP_W)

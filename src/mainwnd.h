@@ -436,6 +436,9 @@ public:
     BOOL CreatingDetachedChrome; // suppress detached-window activation while its child chrome is being built
     BOOL DetachedPanelsSwapFixNeeded; // TRUE after Swap Sides while detached; reattach replays a double swap to refresh layout state
     BOOL WindowPosSizeUpdatePending; // TRUE when WM_WINDOWPOSCHANGED posted a deferred WM_SIZE
+    BOOL LayoutWindowsInProgress; // blocks synchronous rebar/layout notification recursion
+    BOOL DetachedDPIRefreshInProgress;
+    BOOL DetachedDPIRefreshPosted;
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;
@@ -532,6 +535,11 @@ protected:
     CDriveBar* DetachedDriveBar2;
     CBottomToolBar* DetachedBottomToolBar;
     CEditWindow* DetachedEditWindow;
+    HIMAGELIST HDetachedGrayToolBarImageList;
+    HIMAGELIST HDetachedHotToolBarImageList;
+    HIMAGELIST HDetachedBottomTBImageList;
+    HIMAGELIST HDetachedHotBottomTBImageList;
+    int DetachedWindowDPI;
 
     BOOL FirstActivateApp; // WM_ACTIVATEAPP uses this variable during startup
 
@@ -722,6 +730,8 @@ public:
     BOOL TogglePanelsDetached();
     BOOL EnsureDetachedChrome();
     void DestroyDetachedChrome();
+    BOOL RebuildDetachedToolbarImageLists(int dpi);
+    HIMAGELIST GetToolbarImageListForWindow(HWND child, BOOL hot) const;
     void UpdateDetachedCommandLine();
     void LayoutDetachedPanelWindow(CPanelSide side, int width, int height);
     void LayoutDetachedPanels();
@@ -900,9 +910,21 @@ public:
     HWND GetRightDetachedWindowHWND() const { return HRightDetachedWindow; }
     HWND GetDetachedAwareDialogParent(HWND parent)
     {
-        if (parent == HWindow && DetachedPanels && GetActivePanel() == RightPanel &&
+        if (parent == HWindow && DetachedPanels &&
             HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
-            return HRightDetachedWindow;
+        {
+            // The active panel is shared process state and can change while a
+            // menu command is being forwarded. Prefer the top-level window
+            // from which the user actually invoked the command.
+            HWND foreground = GetForegroundWindow();
+            HWND root = foreground != NULL ? GetAncestor(foreground, GA_ROOT) : NULL;
+            if (root == HRightDetachedWindow)
+                return HRightDetachedWindow;
+            if (root == HWindow)
+                return HWindow;
+            if (GetActivePanel() == RightPanel)
+                return HRightDetachedWindow;
+        }
         return parent;
     }
 

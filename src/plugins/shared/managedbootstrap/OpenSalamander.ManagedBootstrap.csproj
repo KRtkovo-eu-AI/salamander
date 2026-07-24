@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>OpenSalamander.ManagedBootstrap</AssemblyName>
+    <RootNamespace>OpenSalamander.ManagedBootstrap</RootNamespace>
+    <LangVersion>10.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <ProjectGuid>{0D11429A-8289-4BC2-B0CE-FCBD66A9F271}</ProjectGuid>
+  </PropertyGroup>
+
+  <Target Name="EnsureRestoreBeforeBuild"
+          BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
+          Condition="'$(RestoreDuringBuild)' != 'true' and !Exists('$(MSBuildProjectDirectory)\obj\project.assets.json')">
+    <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(MSBuildProjectDirectory)\obj\project.assets.json)."
+             Importance="High" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore"
+             Properties="RestoreDuringBuild=true;RestoreFallbackFolders=$(RestoreFallbackFolders)" />
+  </Target>
+</Project>

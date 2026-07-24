@@ -65,6 +65,7 @@ protected:
     int LineNumDigits;
     int LineNumWidth;
     HFONT HFont;
+    LOGFONT CurrentLogFont; // actual per-window font used by HFont
     LONG FontHeight;
     LONG FontWidth;
     CLineColors LineColors[3];

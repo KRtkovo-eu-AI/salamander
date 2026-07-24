@@ -1835,6 +1835,10 @@ public:
                                              HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
                                              const CSVGIcon* svgIcons, int svgIconsCount);
     virtual HICON WINAPI CreateSVGIcon(const char* svgName, int iconSize);
+    virtual BOOL WINAPI CreateToolbarBitmapsForWindow(HWND dpiWindow, HINSTANCE hInstance, int resID,
+                                                      COLORREF transparent, COLORREF bkColorForAlpha,
+                                                      HBITMAP& hMaskBitmap, HBITMAP& hGrayBitmap, HBITMAP& hColorBitmap,
+                                                      const CSVGIcon* svgIcons, int svgIconsCount);
 
 protected:
     // helper function: checks whether 'control' was successfully allocated and attached;
@@ -3008,7 +3012,7 @@ public:
     // creates an image list (colorful, if gray == FALSE, otherwise grayscale)
     // each plugin is represented by a single icon in the imagelist
     // a default plug icon (plug symbol) is used when the plugin lacks its own icon
-    HIMAGELIST CreateIconsList(BOOL gray);
+    HIMAGELIST CreateIconsList(BOOL gray, HWND dpiWindow = NULL);
 
     // adds all plugin names to the list view; if setOnly is TRUE, only thevalues are set;
     // 'numOfLoaded' returns the number of loaded plugins

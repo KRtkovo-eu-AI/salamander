@@ -5528,7 +5528,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_HELP_ABOUT:
         {
-            CAboutDialog dlg(HWindow);
+            CAboutDialog dlg(GetDetachedAwareDialogParent(HWindow));
             dlg.Execute();
             return 0;
         }
@@ -10695,14 +10695,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         // unload all plugins (paths in panels may point to fixed drives)
         SetDoNotLoadAnyPlugins(TRUE); // for now due to thumbnails
+        UnloadingPluginsForMainWindowClose = TRUE;
         if (!Plugins.UnloadAll(shutdown ? analysing.HWindow : HWindow))
         {
+            UnloadingPluginsForMainWindowClose = FALSE;
             SetDoNotLoadAnyPlugins(FALSE);
 
             if (uMsg == WM_QUERYENDSESSION)
                 TRACE_I("WM_QUERYENDSESSION: cancelling shutdown: unable to unload all plugins");
 
         EXIT_WM_USER_CLOSE_MAINWND:
+            UnloadingPluginsForMainWindowClose = FALSE;
             if (shutdown)
             {
                 GlobalSaveWaitWindow = NULL;
@@ -10732,6 +10735,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 return 0;                 // application exit
             }
         }
+        UnloadingPluginsForMainWindowClose = FALSE;
 
         // if CShellExecuteWnd windows exist, offer to abort closing or send a bug report and terminate
         char reason[BUG_REPORT_REASON_MAX]; // problem reason + list of windows (multiline)

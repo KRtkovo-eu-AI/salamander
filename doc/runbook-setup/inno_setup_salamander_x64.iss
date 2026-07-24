@@ -29,6 +29,7 @@
 #define AppToInstallDisplayName "Open Salamander 5.0 Samandarin " + SamandarinVersion + " (x64)"
 #define AppToInstallVersion "5.0-samandarin-" + SamandarinVersion
 #define AppToInstallPublisher "Ondřej Kotas (KRtekTM)"
+#define AppToInstallCopyright "© 2026 " + AppToInstallPublisher + " KRtkovo.eu"
 #define AppToInstallURL "https://samandarin.krtkovo.eu/"
 #define AppToInstallExeName "salamand.exe"
 #define AppToInstallRegPath = "'Software\Open Salamander Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
@@ -43,6 +44,7 @@
 
 [Setup]
 AppId=OpenSalamanderSamandarin-x64
+AppCopyright=AppToInstallCopyright
 AppName={#AppToInstallName}
 AppVersion={#AppToInstallVersion}
 AppVerName={#AppToInstallDisplayName}
@@ -50,29 +52,31 @@ AppPublisher={#AppToInstallPublisher}
 AppPublisherURL={#AppToInstallURL}
 AppSupportURL={#AppToInstallURL}
 AppUpdatesURL={#AppToInstallURL}
-DefaultDirName={code:GetDefaultDirName}
 AppendDefaultDirName=no
-UsePreviousAppDir=no
-DisableDirPage=no
-DefaultGroupName={#AppToInstallName}
-DisableProgramGroupPage=yes
-OutputBaseFilename={#AppToInstallVersion}_win_x64
-Compression=lzma2/ultra64
-SolidCompression=yes
-WizardStyle=modern dynamic
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+Compression=lzma2/ultra64
+ChangesAssociations=yes
+CreateUninstallRegKey=yes
+DefaultDirName={code:GetDefaultDirName}
+DefaultGroupName={#AppToInstallName}
+DisableDirPage=no
+DisableProgramGroupPage=yes
+DisableFinishedPage=yes
+OutputBaseFilename={#AppToInstallVersion}_win_x64
 PrivilegesRequired=admin
+SetupArchitecture=x64
+SetupIconFile=..\..\src\res\samandarin.ico
+SolidCompression=yes
+Uninstallable=not IsPortableInstall
 UninstallDisplayName={#AppToInstallDisplayName}
 UninstallDisplayIcon={app}\salamand.exe
-CreateUninstallRegKey=yes
-Uninstallable=not IsPortableInstall
-SetupIconFile=..\..\src\res\samandarin.ico
-DisableFinishedPage=yes
-ChangesAssociations=yes
+UsePreviousAppDir=no
+VersionInfoVersion=5.0.{#SamandarinVersion}
 WizardSmallImageFile={#SourcePath}\setup_img_small.png
 WizardSmallImageFileDynamicDark={#SourcePath}\setup_img_small.png
-VersionInfoVersion=5.0.{#SamandarinVersion}
+WizardStyle=modern dynamic
+
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"; LicenseFile: "{#SourcePath}\license.txt"
@@ -693,6 +697,7 @@ Source: "{#PayloadDir}\plugins\jsonviewer\lang\russian.slg"; DestDir: "{app}\plu
 Source: "{#PayloadDir}\plugins\jsonviewer\lang\slovak.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\jsonviewer\lang\spanish.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\jsonviewer\Newtonsoft.Json.dll"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\OpenSalamander.ManagedBootstrap.dll"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\jsonviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\jsonviewer"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\mmviewer\lang\czech.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
 Source: "{#PayloadDir}\plugins\mmviewer\lang\dutch.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
@@ -805,6 +810,7 @@ Source: "{#PayloadDir}\plugins\samandarin\lang\slovak.slg"; DestDir: "{app}\plug
 Source: "{#PayloadDir}\plugins\samandarin\lang\spanish.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
 Source: "{#PayloadDir}\plugins\samandarin\Samandarin.Managed.dll"; DestDir: "{app}\plugins\samandarin"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
 Source: "{#PayloadDir}\plugins\samandarin\samandarin.spl"; DestDir: "{app}\plugins\samandarin"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\OpenSalamander.ManagedBootstrap.dll"; DestDir: "{app}\plugins\samandarin"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\czech.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\dutch.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\english.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
@@ -1362,6 +1368,7 @@ Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugi
 Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\plugins\demoplug\lang\*"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PayloadDir}\salamand.exe.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
 Source: "{#PayloadDir}\toolbars\Back.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\AzureCloudShell.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -1697,9 +1704,9 @@ begin
   end;
 
   if CompareText(ShortcutId, 'desktop') = 0 then
-    Result := IsTaskSelected('desktopicon')
+    Result := WizardIsTaskSelected('desktopicon')
   else if CompareText(ShortcutId, 'startmenu') = 0 then
-    Result := IsTaskSelected('startmenuicon')
+    Result := WizardIsTaskSelected('startmenuicon')
   else
     Result := False;
 end;
@@ -1917,6 +1924,7 @@ begin
     BackupPath := ConfigPath + '.BAK';
     DeleteFile(BackupPath);
     RenameFile(ConfigPath, BackupPath);
+    Result := False;
 
     if not WizardSilent then
     begin

@@ -26,6 +26,7 @@ CIconCache::CIconCache()
 {
     IconsCount = 0;
     IconSize = ICONSIZE_COUNT; // zatim nenastaveno; pokus o pridani ikonky bez predchoziho volani SetIconSize() zpusobi TRACE_E
+    IconPixelSize = 0;
     DataIfaceForFS = NULL;
 }
 
@@ -368,7 +369,7 @@ int CIconCache::AllocIcon(CIconList** iconList, int* iconListIndex)
         if (IconSize == ICONSIZE_COUNT)
             TRACE_E("CIconCache::AllocIcon() IconSize == ICONSIZE_COUNT, you must call SetIconSize() first!");
         else
-            iconWidth = IconSizes[IconSize];
+            iconWidth = IconPixelSize > 0 ? IconPixelSize : IconSizes[IconSize];
 
         CIconList* il = new CIconList();
         if (il == NULL)
@@ -472,6 +473,16 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
     CALL_STACK_MESSAGE1("CIconCache::GetIconsAndThumbsFrom()");
     int index1 = 0;
     int index2 = 0;
+    int targetIconPixels =
+        IconPixelSize > 0
+            ? IconPixelSize
+            : (IconSize < ICONSIZE_COUNT ? IconSizes[IconSize] : 0);
+    int sourceIconPixels =
+        icons->IconPixelSize > 0
+            ? icons->IconPixelSize
+            : (icons->IconSize < ICONSIZE_COUNT ? IconSizes[icons->IconSize] : 0);
+    BOOL compatibleIconPixels =
+        targetIconPixels > 0 && targetIconPixels == sourceIconPixels;
 
     if (dataIface != NULL) // jde o pitFromPlugin: nechame plugin, aby polozky porovnal sam (musi jit o porovnani
     {                      // beze shod zadnych dvou polozek listingu)
@@ -518,7 +529,8 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
 
                 DWORD flag = icons->At(index2).GetFlag();
 
-                if ((flag == 1 || flag == 2) &&  // platna nebo stara ikona
+                if (compatibleIconPixels &&
+                    (flag == 1 || flag == 2) &&  // platna nebo stara ikona
                     At(index1).GetFlag() == 0 && // zajima nas ikona (pokud doslo k prepnuti na thumbnail, starou ikonu nepotrebujeme)
                     GetIcon(At(index1).GetIndex(), &dstIconList, &dstIconListIndex) &&
                     icons->GetIcon(icons->At(index2).GetIndex(), &srcIconList, &srcIconListIndex))
@@ -594,7 +606,8 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
 
                 DWORD flag = icons->At(index2).GetFlag();
 
-                if ((flag == 1 || flag == 2) &&  // platna nebo stara ikona
+                if (compatibleIconPixels &&
+                    (flag == 1 || flag == 2) &&  // platna nebo stara ikona
                     At(index1).GetFlag() == 0 && // zajima nas ikona (pokud doslo k prepnuti na thumbnail, starou ikonu nepotrebujeme)
                     GetIcon(At(index1).GetIndex(), &dstIconList, &dstIconListIndex) &&
                     icons->GetIcon(icons->At(index2).GetIndex(), &srcIconList, &srcIconListIndex))
@@ -664,14 +677,16 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
     }
 }
 
-void CIconCache::SetIconSize(CIconSizeEnum iconSize)
+void CIconCache::SetIconSize(CIconSizeEnum iconSize, int iconPixelSize)
 {
     if (iconSize == ICONSIZE_COUNT)
     {
         TRACE_E("CIconCache::SetIconSize() unexpected iconSize==ICONSIZE_COUNT");
         return;
     }
-    if (iconSize == IconSize) // pokud se nemeni velikost, neni co resit
+    if (iconPixelSize <= 0)
+        iconPixelSize = IconSizes[iconSize];
+    if (iconSize == IconSize && iconPixelSize == IconPixelSize) // pokud se nemeni velikost, neni co resit
         return;
 
     // zahodime soucasne ikonky
@@ -686,6 +701,7 @@ void CIconCache::SetIconSize(CIconSizeEnum iconSize)
     IconsCount = 0;
 
     IconSize = iconSize;
+    IconPixelSize = iconPixelSize;
 }
 
 //

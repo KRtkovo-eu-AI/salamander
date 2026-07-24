@@ -29,6 +29,7 @@
 #include "darkmode.h"
 #include "titlebar_builder.h"
 #include "common/widepath.h"
+#include "common/winlibdpi.h"
 
 #include "versinfo.rh2"
 
@@ -365,6 +366,9 @@ CMainWindow::CMainWindow()
     CreatingDetachedChrome = FALSE;
     DetachedPanelsSwapFixNeeded = FALSE;
     WindowPosSizeUpdatePending = FALSE;
+    LayoutWindowsInProgress = FALSE;
+    DetachedDPIRefreshInProgress = FALSE;
+    DetachedDPIRefreshPosted = FALSE;
     //  DrivesControlHWnd = NULL;
     HDisabledKeyboard = NULL;
     CmdShow = SW_SHOWNORMAL;
@@ -388,6 +392,11 @@ CMainWindow::CMainWindow()
     DetachedDriveBar2 = NULL;
     DetachedBottomToolBar = NULL;
     DetachedEditWindow = NULL;
+    HDetachedGrayToolBarImageList = NULL;
+    HDetachedHotToolBarImageList = NULL;
+    HDetachedBottomTBImageList = NULL;
+    HDetachedHotBottomTBImageList = NULL;
+    DetachedWindowDPI = 0;
 
     PanelConfigPathsRestoredLeft = FALSE;
     PanelConfigPathsRestoredRight = FALSE;
@@ -1610,6 +1619,30 @@ void CMainWindow::SetFont()
 
     CreatePanelFont();
 
+    // Each panel can live under a different PMv2 top-level window. Keep its
+    // drawing fonts and icon metrics tied to that window instead of copying
+    // the main window's process-global DPI.
+    for (int i = 0; i < LeftPanelTabs.Count; ++i)
+    {
+        CFilesWindow* panel = LeftPanelTabs[i];
+        if (panel != NULL)
+        {
+            panel->RefreshDPIResources(TRUE);
+            panel->SetFont();
+            panel->RefreshTreeViewDPI();
+        }
+    }
+    for (int i = 0; i < RightPanelTabs.Count; ++i)
+    {
+        CFilesWindow* panel = RightPanelTabs[i];
+        if (panel != NULL)
+        {
+            panel->RefreshDPIResources(TRUE);
+            panel->SetFont();
+            panel->RefreshTreeViewDPI();
+        }
+    }
+
     if (IsWindowVisible(HWindow))
     {
         RECT r;
@@ -1841,8 +1874,17 @@ void CMainWindow::LayoutMainWindow()
 
 void CMainWindow::LayoutWindows()
 {
+    // Moving/resizing a rebar can synchronously send RBN_AUTOSIZE back to the
+    // main window. That notification calls LayoutWindows() as well. During a
+    // DPI transition this used to recurse through WM_SIZE and CEditWindow's
+    // child layout until the process exhausted its stack.
+    if (LayoutWindowsInProgress)
+        return;
+
+    LayoutWindowsInProgress = TRUE;
     LayoutMainWindow();
     LayoutDetachedPanels();
+    LayoutWindowsInProgress = FALSE;
 }
 
 HWND CMainWindow::GetDetachedPanelWindow(CPanelSide side)
@@ -1885,6 +1927,116 @@ static BOOL InsertDetachedBand(HWND rebar, HWND child, int bandID, int index, in
     return SendMessage(rebar, RB_INSERTBAND, (WPARAM)index, (LPARAM)&rbbi) != 0;
 }
 
+BOOL CMainWindow::RebuildDetachedToolbarImageLists(int dpi)
+{
+    if (dpi <= 0)
+        dpi = USER_DEFAULT_SCREEN_DPI;
+    if (DetachedWindowDPI == dpi &&
+        HDetachedGrayToolBarImageList != NULL && HDetachedHotToolBarImageList != NULL &&
+        HDetachedBottomTBImageList != NULL && HDetachedHotBottomTBImageList != NULL)
+    {
+        return TRUE;
+    }
+
+    COLORREF toolbarFace = Configuration.UseWindowsDarkMode && DarkModeShouldUseDarkColors()
+                               ? RGB(32, 32, 32)
+                               : GetSysColor(COLOR_BTNFACE);
+    HBITMAP mask = NULL;
+    HBITMAP gray = NULL;
+    HBITMAP color = NULL;
+    CSVGIcon* svgIcons = NULL;
+    int svgIconsCount = 0;
+    GetSVGIconsMainToolbar(&svgIcons, &svgIconsCount);
+    if (!CreateToolbarBitmaps(HInstance,
+                              Use256ColorsBitmap() ? IDB_TOOLBAR_256 : IDB_TOOLBAR_16,
+                              RGB(255, 0, 255), toolbarFace,
+                              mask, gray, color, TRUE, svgIcons, svgIconsCount, dpi))
+    {
+        return FALSE;
+    }
+
+    int iconSize = MulDiv(16, dpi, USER_DEFAULT_SCREEN_DPI);
+    HIMAGELIST newHot = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
+                                         IDX_TB_COUNT + 1, 1);
+    HIMAGELIST newGray = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
+                                          IDX_TB_COUNT + 1, 1);
+    if (newHot != NULL)
+        ImageList_Add(newHot, color, mask);
+    if (newGray != NULL)
+        ImageList_Add(newGray, gray, mask);
+    HANDLES(DeleteObject(mask));
+    HANDLES(DeleteObject(gray));
+    HANDLES(DeleteObject(color));
+
+    if (newHot == NULL || newGray == NULL)
+    {
+        if (newHot != NULL)
+            ImageList_Destroy(newHot);
+        if (newGray != NULL)
+            ImageList_Destroy(newGray);
+        return FALSE;
+    }
+
+    HIMAGELIST newBottom = NULL;
+    HIMAGELIST newHotBottom = NULL;
+    if (!CreateBottomToolbarImageLists(
+            dpi, &newBottom, &newHotBottom))
+    {
+        ImageList_Destroy(newHot);
+        ImageList_Destroy(newGray);
+        return FALSE;
+    }
+
+    ImageList_SetBkColor(newHot, toolbarFace);
+    ImageList_SetBkColor(newGray, toolbarFace);
+
+    // Keep the process-global lock index valid in the private list as well.
+    if (ToolBarLockImageIndex >= 0 && LockFrames != NULL)
+    {
+        HICON lock = LockFrames->GetIcon(0);
+        if (lock != NULL)
+        {
+            while (ImageList_GetImageCount(newHot) <= ToolBarLockImageIndex)
+                ImageList_SetImageCount(newHot, ImageList_GetImageCount(newHot) + 1);
+            while (ImageList_GetImageCount(newGray) <= ToolBarLockImageIndex)
+                ImageList_SetImageCount(newGray, ImageList_GetImageCount(newGray) + 1);
+            ImageList_ReplaceIcon(newHot, ToolBarLockImageIndex, lock);
+            ImageList_ReplaceIcon(newGray, ToolBarLockImageIndex, lock);
+            DestroyIcon(lock);
+        }
+    }
+
+    if (HDetachedHotToolBarImageList != NULL)
+        ImageList_Destroy(HDetachedHotToolBarImageList);
+    if (HDetachedGrayToolBarImageList != NULL)
+        ImageList_Destroy(HDetachedGrayToolBarImageList);
+    if (HDetachedBottomTBImageList != NULL)
+        ImageList_Destroy(HDetachedBottomTBImageList);
+    if (HDetachedHotBottomTBImageList != NULL)
+        ImageList_Destroy(HDetachedHotBottomTBImageList);
+    HDetachedHotToolBarImageList = newHot;
+    HDetachedGrayToolBarImageList = newGray;
+    HDetachedBottomTBImageList = newBottom;
+    HDetachedHotBottomTBImageList = newHotBottom;
+    DetachedWindowDPI = dpi;
+    return TRUE;
+}
+
+HIMAGELIST CMainWindow::GetToolbarImageListForWindow(HWND child, BOOL hot) const
+{
+    BOOL detached = HRightDetachedWindow != NULL &&
+                    (child == HRightDetachedWindow ||
+                     (child != NULL && IsChild(HRightDetachedWindow, child)));
+    if (detached)
+    {
+        HIMAGELIST imageList = hot ? HDetachedHotToolBarImageList
+                                   : HDetachedGrayToolBarImageList;
+        if (imageList != NULL)
+            return imageList;
+    }
+    return hot ? HHotToolBarImageList : HGrayToolBarImageList;
+}
+
 BOOL CMainWindow::EnsureDetachedChrome()
 {
     CALL_STACK_MESSAGE1("CMainWindow::EnsureDetachedChrome()");
@@ -1899,6 +2051,9 @@ BOOL CMainWindow::EnsureDetachedChrome()
     } while (0)
 
     CreatingDetachedChrome = TRUE;
+
+    int detachedDPI = (int)WinLibDPIGetWindowDPI(HRightDetachedWindow);
+    RebuildDetachedToolbarImageLists(detachedDPI);
 
     if (HDetachedTopRebar == NULL)
     {
@@ -1921,6 +2076,7 @@ BOOL CMainWindow::EnsureDetachedChrome()
         DETACHED_CHROME_FAIL();
     if (DetachedMenuBar->HWindow == NULL && !DetachedMenuBar->CreateWnd(HDetachedTopRebar))
         DETACHED_CHROME_FAIL();
+    DetachedMenuBar->SetFont();
     if ((int)SendMessage(HDetachedTopRebar, RB_IDTOINDEX, BANDID_MENU, 0) == -1)
         InsertDetachedBand(HDetachedTopRebar, DetachedMenuBar->HWindow, BANDID_MENU,
                            Configuration.MenuIndex, Configuration.MenuWidth,
@@ -1933,8 +2089,12 @@ BOOL CMainWindow::EnsureDetachedChrome()
             DetachedTopToolBar = new CMainToolBar(HWindow, mtbtTop, ooStatic);
             if (DetachedTopToolBar != NULL)
             {
-                DetachedTopToolBar->SetImageList(HGrayToolBarImageList);
-                DetachedTopToolBar->SetHotImageList(HHotToolBarImageList);
+                DetachedTopToolBar->SetImageList(HDetachedGrayToolBarImageList != NULL
+                                                     ? HDetachedGrayToolBarImageList
+                                                     : HGrayToolBarImageList);
+                DetachedTopToolBar->SetHotImageList(HDetachedHotToolBarImageList != NULL
+                                                        ? HDetachedHotToolBarImageList
+                                                        : HHotToolBarImageList);
                 DetachedTopToolBar->SetStyle(TLB_STYLE_IMAGE | TLB_STYLE_ADJUSTABLE);
                 TOOLBAR_PADDING padding;
                 DetachedTopToolBar->GetPadding(&padding);
@@ -2055,8 +2215,14 @@ BOOL CMainWindow::EnsureDetachedChrome()
             DetachedBottomToolBar = new CBottomToolBar(HWindow, ooStatic);
             if (DetachedBottomToolBar != NULL)
             {
-                DetachedBottomToolBar->SetImageList(HBottomTBImageList);
-                DetachedBottomToolBar->SetHotImageList(HHotBottomTBImageList);
+                DetachedBottomToolBar->SetImageList(
+                    HDetachedBottomTBImageList != NULL
+                        ? HDetachedBottomTBImageList
+                        : HBottomTBImageList);
+                DetachedBottomToolBar->SetHotImageList(
+                    HDetachedHotBottomTBImageList != NULL
+                        ? HDetachedHotBottomTBImageList
+                        : HHotBottomTBImageList);
             }
         }
         if (DetachedBottomToolBar == NULL)
@@ -2164,6 +2330,27 @@ void CMainWindow::DestroyDetachedChrome()
         DestroyWindow(HDetachedTopRebar);
         HDetachedTopRebar = NULL;
     }
+    if (HDetachedHotToolBarImageList != NULL)
+    {
+        ImageList_Destroy(HDetachedHotToolBarImageList);
+        HDetachedHotToolBarImageList = NULL;
+    }
+    if (HDetachedGrayToolBarImageList != NULL)
+    {
+        ImageList_Destroy(HDetachedGrayToolBarImageList);
+        HDetachedGrayToolBarImageList = NULL;
+    }
+    if (HDetachedHotBottomTBImageList != NULL)
+    {
+        ImageList_Destroy(HDetachedHotBottomTBImageList);
+        HDetachedHotBottomTBImageList = NULL;
+    }
+    if (HDetachedBottomTBImageList != NULL)
+    {
+        ImageList_Destroy(HDetachedBottomTBImageList);
+        HDetachedBottomTBImageList = NULL;
+    }
+    DetachedWindowDPI = 0;
 }
 
 void CMainWindow::UpdateDetachedCommandLine()
@@ -2615,12 +2802,20 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
             return FALSE;
 
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+        {
             SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
+            RightTabWindow->RefreshDPIResources();
+        }
         for (int i = 0; i < RightPanelTabs.Count; ++i)
         {
             CFilesWindow* tabPanel = RightPanelTabs[i];
             if (tabPanel != NULL && tabPanel->HWindow != NULL)
+            {
                 SetParent(tabPanel->HWindow, HRightDetachedWindow);
+                // Rebind per-host image lists even if both hosts happen to use
+                // the same numeric DPI.
+                SendMessage(tabPanel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
+            }
         }
 
         DetachedPanels = TRUE;
@@ -2662,12 +2857,21 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         }
 
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+        {
             SetParent(RightTabWindow->HWindow, HWindow);
+            RightTabWindow->RefreshDPIResources();
+        }
         for (int i = 0; i < RightPanelTabs.Count; ++i)
         {
             CFilesWindow* tabPanel = RightPanelTabs[i];
             if (tabPanel != NULL && tabPanel->HWindow != NULL)
+            {
                 SetParent(tabPanel->HWindow, HWindow);
+                // The directory/status toolbars must stop referencing private
+                // detached image lists before DestroyDetachedChrome destroys
+                // them, even on a same-DPI reattach.
+                SendMessage(tabPanel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
+            }
         }
 
         if (HRightDetachedWindow != NULL)
@@ -2692,6 +2896,12 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         DestroyDetachedChrome();
         if (HRightDetachedWindow != NULL)
             ShowWindow(HRightDetachedWindow, SW_HIDE);
+        // The detached menu used a different DPI and shared menu item metrics.
+        // Re-measure the main menu before the rebar negotiates its bands again;
+        // otherwise the old cxMinChild clips item captions on their right edge.
+        if (MenuBar != NULL)
+            MenuBar->SetFont();
+        UpdateRebarVisuals();
         RebuildPanelTabs(cpsLeft);
         RebuildPanelTabs(cpsRight);
         RefreshPanelTabLayout();
@@ -2866,6 +3076,7 @@ BOOL CMainWindow::ConfirmDetachedWindowClose(HWND hWndDetached, BOOL* closeSalam
 
 LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+#define WM_USER_REFRESH_DETACHED_DPI (WM_APP + 0x3C2)
     LONG_PTR data = GetWindowLongPtr(hWnd, GWLP_USERDATA);
     CMainWindow* mainWindow = (CMainWindow*)(data & ~(LONG_PTR)1);
     CPanelSide side = (data & 1) ? cpsRight : cpsLeft;
@@ -2877,6 +3088,62 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
     {
         switch (uMsg)
         {
+        case WM_DPICHANGED:
+        {
+            if (lParam != 0)
+            {
+                const RECT* suggested = (const RECT*)lParam;
+                SetWindowPos(hWnd, NULL, suggested->left, suggested->top,
+                             suggested->right - suggested->left,
+                             suggested->bottom - suggested->top,
+                             SWP_NOACTIVATE | SWP_NOZORDER);
+            }
+
+            // Do not destroy controls/image lists while PMv2 is walking the
+            // child hierarchy. Rebuild once, after all AFTERPARENT messages.
+            if (side == cpsRight && !mainWindow->DetachedDPIRefreshPosted)
+            {
+                mainWindow->DetachedDPIRefreshPosted = TRUE;
+                PostMessage(hWnd, WM_USER_REFRESH_DETACHED_DPI, 0, 0);
+            }
+            return 0;
+        }
+
+        case WM_USER_REFRESH_DETACHED_DPI:
+        {
+            mainWindow->DetachedDPIRefreshPosted = FALSE;
+            if (side != cpsRight || mainWindow->DetachedDPIRefreshInProgress)
+                return 0;
+
+            mainWindow->DetachedDPIRefreshInProgress = TRUE;
+            int dpi = (int)WinLibDPIGetWindowDPI(hWnd);
+
+            // Chrome owns native pixel resources (toolbar strips, fonts and
+            // rebar band heights). Recreate only this top-level's copies.
+            mainWindow->DestroyDetachedChrome();
+            mainWindow->RebuildDetachedToolbarImageLists(dpi);
+            mainWindow->EnsureDetachedChrome();
+
+            if (mainWindow->RightTabWindow != NULL &&
+                mainWindow->RightTabWindow->HWindow != NULL)
+            {
+                mainWindow->RightTabWindow->RefreshDPIResources();
+            }
+            for (int i = 0; i < mainWindow->RightPanelTabs.Count; ++i)
+            {
+                CFilesWindow* panel = mainWindow->RightPanelTabs[i];
+                if (panel != NULL && panel->HWindow != NULL)
+                    SendMessage(panel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
+            }
+
+            mainWindow->LayoutDetachedPanels();
+            RedrawWindow(hWnd, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_FRAME |
+                             RDW_ALLCHILDREN | RDW_UPDATENOW);
+            mainWindow->DetachedDPIRefreshInProgress = FALSE;
+            return 0;
+        }
+
         case WM_SIZE:
             mainWindow->LayoutDetachedPanelWindow(side, LOWORD(lParam), HIWORD(lParam));
             return 0;
@@ -3018,6 +3285,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
     }
 
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
+#undef WM_USER_REFRESH_DETACHED_DPI
 }
 
 void CMainWindow::AddTrayIcon(BOOL updateIcon)
@@ -5266,15 +5534,19 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
     ArchivePanelMenu.SetImageList(HGrayToolBarImageList, TRUE);
     ArchivePanelMenu.SetHotImageList(HHotToolBarImageList, TRUE);
 
-    // left/right panel
-    if (LeftPanel != NULL)
+    // Every tab can own DPI-specific icon copies for a different top-level
+    // window. Global icon sources have just been recreated, so invalidate
+    // all tab copies rather than only the two currently active panels.
+    for (int i = 0; i < LeftPanelTabs.Count; ++i)
     {
-        LeftPanel->OnColorsChanged();
+        if (LeftPanelTabs[i] != NULL)
+            LeftPanelTabs[i]->OnColorsChanged();
     }
 
-    if (RightPanel != NULL)
+    for (int i = 0; i < RightPanelTabs.Count; ++i)
     {
-        RightPanel->OnColorsChanged();
+        if (RightPanelTabs[i] != NULL)
+            RightPanelTabs[i]->OnColorsChanged();
     }
 
     if (EditWindow != NULL && EditWindow->HWindow != NULL)

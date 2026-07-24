@@ -782,6 +782,7 @@ HWND PluginProgressDialog = NULL;
 HWND PluginMsgBoxParent = NULL;
 
 BOOL CriticalShutdown = FALSE;
+BOOL UnloadingPluginsForMainWindowClose = FALSE;
 
 HANDLE SalOpenFileMapping = NULL;
 void* SalOpenSharedMem = NULL;
@@ -2795,6 +2796,134 @@ void GetSystemDPI(HDC hDC)
         ReleaseDC(NULL, hTmpDC);
 }
 
+static HBITMAP ScaleBottomToolbarBitmap(HBITMAP source, int width, int height)
+{
+    if (source == NULL)
+        return NULL;
+
+    BITMAP sourceInfo;
+    if (GetObject(source, sizeof(sourceInfo), &sourceInfo) == 0)
+        return NULL;
+    if (sourceInfo.bmWidth == width && sourceInfo.bmHeight == height)
+        return (HBITMAP)HANDLES(CopyImage(source, IMAGE_BITMAP, 0, 0,
+                                         LR_CREATEDIBSECTION));
+
+    HDC screen = HANDLES(GetDC(NULL));
+    HDC sourceDC = HANDLES(CreateCompatibleDC(screen));
+    HDC targetDC = HANDLES(CreateCompatibleDC(screen));
+    HBITMAP target = HANDLES(CreateCompatibleBitmap(screen, width, height));
+    if (sourceDC != NULL && targetDC != NULL && target != NULL)
+    {
+        HBITMAP oldSource = (HBITMAP)SelectObject(sourceDC, source);
+        HBITMAP oldTarget = (HBITMAP)SelectObject(targetDC, target);
+        SetStretchBltMode(targetDC, COLORONCOLOR);
+        if (!StretchBlt(targetDC, 0, 0, width, height,
+                        sourceDC, 0, 0,
+                        sourceInfo.bmWidth, sourceInfo.bmHeight, SRCCOPY))
+        {
+            SelectObject(sourceDC, oldSource);
+            SelectObject(targetDC, oldTarget);
+            HANDLES(DeleteObject(target));
+            target = NULL;
+        }
+        else
+        {
+            SelectObject(sourceDC, oldSource);
+            SelectObject(targetDC, oldTarget);
+        }
+    }
+    if (sourceDC != NULL)
+        HANDLES(DeleteDC(sourceDC));
+    if (targetDC != NULL)
+        HANDLES(DeleteDC(targetDC));
+    if (screen != NULL)
+        HANDLES(ReleaseDC(NULL, screen));
+    return target;
+}
+
+BOOL CreateBottomToolbarImageLists(int dpi, HIMAGELIST* normal, HIMAGELIST* hot)
+{
+    if (normal == NULL || hot == NULL)
+        return FALSE;
+    *normal = NULL;
+    *hot = NULL;
+    if (dpi <= 0)
+        dpi = USER_DEFAULT_SCREEN_DPI;
+
+    bool useDark = Configuration.UseWindowsDarkMode &&
+                   DarkModeShouldUseDarkColors();
+    COLORREF toolbarFace =
+        useDark ? RGB(32, 32, 32) : GetSysColor(COLOR_BTNFACE);
+    COLORREF toolbarShadow =
+        useDark ? DarkenColor(toolbarFace, 40) : GetSysColor(COLOR_BTNSHADOW);
+
+    COLORMAP clrMap[3];
+    clrMap[0].from = RGB(128, 128, 128);
+    clrMap[0].to = toolbarShadow;
+    clrMap[1].from = RGB(0, 0, 0);
+    clrMap[1].to = useDark
+                       ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
+                       : GetSysColor(COLOR_BTNTEXT);
+    clrMap[2].from = RGB(255, 255, 255);
+    clrMap[2].to = RGB(255, 0, 255);
+    HBITMAP sourceNormal = HANDLES(CreateMappedBitmap(
+        HInstance, IDB_BOTTOMTOOLBAR, 0, clrMap, 3));
+
+    BOOL remapWhite = FALSE;
+    if (useDark)
+    {
+        clrMap[2].to = LightenColorSimple(toolbarFace, 24);
+        remapWhite = TRUE;
+    }
+    else if (GetCurrentBPP() > 8)
+    {
+        clrMap[2].to = RGB(235, 235, 235);
+        remapWhite = TRUE;
+    }
+    HBITMAP sourceHot = HANDLES(CreateMappedBitmap(
+        HInstance, IDB_BOTTOMTOOLBAR, 0, clrMap, remapWhite ? 3 : 2));
+
+    int imageWidth = max(1, MulDiv(BOTTOMBAR_CX, dpi, USER_DEFAULT_SCREEN_DPI));
+    int imageHeight = max(1, MulDiv(BOTTOMBAR_CY, dpi, USER_DEFAULT_SCREEN_DPI));
+    HBITMAP scaledNormal =
+        ScaleBottomToolbarBitmap(sourceNormal, imageWidth * 12, imageHeight);
+    HBITMAP scaledHot =
+        ScaleBottomToolbarBitmap(sourceHot, imageWidth * 12, imageHeight);
+    if (sourceNormal != NULL)
+        HANDLES(DeleteObject(sourceNormal));
+    if (sourceHot != NULL)
+        HANDLES(DeleteObject(sourceHot));
+
+    HIMAGELIST newNormal = ImageList_Create(
+        imageWidth, imageHeight, ILC_MASK | ILC_COLORDDB, 12, 0);
+    HIMAGELIST newHot = ImageList_Create(
+        imageWidth, imageHeight, ILC_MASK | ILC_COLORDDB, 12, 0);
+    BOOL ok = scaledNormal != NULL && scaledHot != NULL &&
+              newNormal != NULL && newHot != NULL &&
+              ImageList_AddMasked(
+                  newNormal, scaledNormal, RGB(255, 0, 255)) != -1 &&
+              ImageList_AddMasked(
+                  newHot, scaledHot, RGB(255, 0, 255)) != -1;
+    if (scaledNormal != NULL)
+        HANDLES(DeleteObject(scaledNormal));
+    if (scaledHot != NULL)
+        HANDLES(DeleteObject(scaledHot));
+    if (!ok)
+    {
+        if (newNormal != NULL)
+            ImageList_Destroy(newNormal);
+        if (newHot != NULL)
+            ImageList_Destroy(newHot);
+        return FALSE;
+    }
+
+    ImageList_SetBkColor(newNormal, toolbarFace);
+    ImageList_SetBkColor(newHot, toolbarFace);
+    *normal = newNormal;
+    *hot = newHot;
+    return TRUE;
+}
+
 BOOL InitializeGraphics(BOOL colorsOnly)
 {
     bool useDark = Configuration.UseWindowsDarkMode && DarkModeShouldUseDarkColors();
@@ -3029,14 +3158,6 @@ BOOL InitializeGraphics(BOOL colorsOnly)
             }
         }
 
-        HBottomTBImageList = ImageList_Create(BOTTOMBAR_CX, BOTTOMBAR_CY, ILC_MASK | ILC_COLORDDB, 12, 0);
-        HHotBottomTBImageList = ImageList_Create(BOTTOMBAR_CX, BOTTOMBAR_CY, ILC_MASK | ILC_COLORDDB, 12, 0);
-        if (HBottomTBImageList == NULL || HHotBottomTBImageList == NULL)
-        {
-            TRACE_E("Unable to create image list.");
-            return FALSE;
-        }
-
         // vytahnu z shell 32 ikony:
         int indexes[] = {symbolsExecutable, symbolsDirectory, symbolsNonAssociated, symbolsAssociated, -1};
         int resID[] = {3, 4, 1, 2, -1};
@@ -3200,36 +3321,17 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         return FALSE;
     }
 
-    clrMap[0].from = RGB(128, 128, 128); // gray -> COLOR_BTNSHADOW
-    clrMap[0].to = toolbarShadow;
-    clrMap[1].from = RGB(0, 0, 0); // black -> COLOR_BTNTEXT
-    clrMap[1].to = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_BTNTEXT);
-    clrMap[2].from = RGB(255, 255, 255); // white -> transparent
-    clrMap[2].to = RGB(255, 0, 255);
-    HBITMAP hBottomTB = HANDLES(CreateMappedBitmap(HInstance, IDB_BOTTOMTOOLBAR, 0, clrMap, 3));
-    BOOL remapWhite = FALSE;
-    if (useDark)
-    {
-        clrMap[2].from = RGB(255, 255, 255);
-        clrMap[2].to = LightenColorSimple(toolbarFace, 24);
-        remapWhite = TRUE;
-    }
-    else if (GetCurrentBPP() > 8)
-    {
-        clrMap[2].from = RGB(255, 255, 255); // bila -> svetle sedivou (at to tak nerve)
-        clrMap[2].to = RGB(235, 235, 235);
-        remapWhite = TRUE;
-    }
-    HBITMAP hHotBottomTB = HANDLES(CreateMappedBitmap(HInstance, IDB_BOTTOMTOOLBAR, 0, clrMap, remapWhite ? 3 : 2));
-    ImageList_RemoveAll(HBottomTBImageList);
-    ImageList_AddMasked(HBottomTBImageList, hBottomTB, RGB(255, 0, 255));
-    ImageList_RemoveAll(HHotBottomTBImageList);
-    ImageList_AddMasked(HHotBottomTBImageList, hHotBottomTB, RGB(255, 0, 255));
-    HANDLES(DeleteObject(hBottomTB));
-    HANDLES(DeleteObject(hHotBottomTB));
-    COLORREF bottomToolbarFace = toolbarFace;
-    ImageList_SetBkColor(HBottomTBImageList, bottomToolbarFace);
-    ImageList_SetBkColor(HHotBottomTBImageList, bottomToolbarFace);
+    HIMAGELIST newBottom = NULL;
+    HIMAGELIST newHotBottom = NULL;
+    if (!CreateBottomToolbarImageLists(
+            GetSystemDPI(), &newBottom, &newHotBottom))
+        return FALSE;
+    if (HBottomTBImageList != NULL)
+        ImageList_Destroy(HBottomTBImageList);
+    if (HHotBottomTBImageList != NULL)
+        ImageList_Destroy(HHotBottomTBImageList);
+    HBottomTBImageList = newBottom;
+    HHotBottomTBImageList = newHotBottom;
     return TRUE;
 }
 
@@ -5912,9 +6014,10 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
 
 static void InitializeProcessDPIAwareness()
 {
-    // The manifest is the primary declaration, but make the per-monitor-v2
-    // DPI context explicit as early as possible so Windows does not bitmap-scale
-    // the main window text.
+    // Select PMv2 before any HWND is created. DPI awareness deliberately is
+    // not duplicated in the manifest: a manifest DPI declaration overrides
+    // the .NET Framework WinForms PerMonitorV2 configuration used by managed
+    // plugins loaded later in this native process.
     typedef BOOL(WINAPI * FSetProcessDpiAwarenessContext)(HANDLE dpiContext);
     HMODULE user32 = GetModuleHandle("user32.dll");
     if (user32 != NULL)

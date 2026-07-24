@@ -3331,7 +3331,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
     {
         ss = formatedFileName + preLen;
         qsLen -= preLen;
-        offset = Columns[0].Width + 4 - (3 + IconSizes[ICONSIZE_16]);
+        offset = Columns[0].Width + 4 - (3 + GetIconSize(ICONSIZE_16));
         ext = TRUE;
     }
     else
@@ -3342,9 +3342,9 @@ void CFilesWindow::SetQuickSearchCaretPos()
     HDC hDC = ListBox->HPrivateDC;
     HFONT hOldFont;
     if (TrackingSingleClick && SingleClickIndex == FocusedIndex)
-        hOldFont = (HFONT)SelectObject(hDC, FontUL);
+        hOldFont = (HFONT)SelectObject(hDC, GetPanelFontUL());
     else
-        hOldFont = (HFONT)SelectObject(hDC, Font);
+        hOldFont = (HFONT)SelectObject(hDC, GetPanelFont());
 
     if (UseWideQuickSearch())
     {
@@ -3365,7 +3365,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
         case vmBrief:
         case vmDetailed:
         {
-            x = r.left + 3 + IconSizes[ICONSIZE_16] + s.cx + offset;
+            x = r.left + 3 + GetIconSize(ICONSIZE_16) + s.cx + offset;
             y = r.top + 2;
             // if the column width is manually limited, we ensure that
             // the caret doesn't go beyond the limit; otherwise, it would spill into other columns
@@ -3397,7 +3397,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
             int out2Width;
             SplitText(hDC, formatedFileName, file->NameLen, &maxWidth,
                       out1, &out1Len, &out1Width,
-                      out2, &out2Len, &out2Width);
+                      out2, &out2Len, &out2Width, GetTextEllipsisWidth());
             //maxWidth += 4;
 
             if (s.cx > out1Width)
@@ -3411,7 +3411,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
         {
             // ATTENTION: keep in sync with CFilesBox::GetIndex, see call to GetTileTexts
             //        int itemWidth = rect.right - rect.left; // item width
-            int maxTextWidth = ListBox->ItemWidth - TILE_LEFT_MARGIN - IconSizes[ICONSIZE_48] - TILE_LEFT_MARGIN - 4;
+            int maxTextWidth = ListBox->ItemWidth - TILE_LEFT_MARGIN - GetIconSize(ICONSIZE_48) - TILE_LEFT_MARGIN - 4;
             int widthNeeded = 0;
 
             char buff[3 * 512]; // target buffer for strings
@@ -3422,8 +3422,9 @@ void CFilesWindow::SetQuickSearchCaretPos()
             char* out2 = buff + 1024;
             int out2Len;
             HDC hDC2 = ItemBitmap.HMemDC;
-            HFONT hOldFont2 = (HFONT)SelectObject(hDC2, Font);
-            GetTileTexts(file, isDir, hDC2, maxTextWidth, &widthNeeded,
+            HFONT hOldFont2 = (HFONT)SelectObject(hDC2, GetPanelFont());
+            GetTileTexts(file, isDir, hDC2, maxTextWidth,
+                         GetTextEllipsisWidth(), &widthNeeded,
                          out0, &out0Len, out1, &out1Len, out2, &out2Len,
                          ValidFileData, &PluginData, Is(ptDisk));
             SelectObject(hDC2, hOldFont2);
@@ -3434,10 +3435,10 @@ void CFilesWindow::SetQuickSearchCaretPos()
                 visibleLines++;
             if (out2[0] != 0)
                 visibleLines++;
-            int textH = visibleLines * FontCharHeight + 4;
+            int textH = visibleLines * GetPanelFontHeight() + 4;
 
-            int iconW = IconSizes[ICONSIZE_48];
-            int iconH = IconSizes[ICONSIZE_48];
+            int iconW = GetIconSize(ICONSIZE_48);
+            int iconH = GetIconSize(ICONSIZE_48);
 
             if (s.cx > maxTextWidth)
                 s.cx = maxTextWidth;
@@ -3486,10 +3487,14 @@ void CFilesWindow::RefreshForConfig()
 // for toolbars and they need to be assigned to the controls that use them
 void CFilesWindow::OnColorsChanged()
 {
+    ClearIndependentIconLists();
+
     if (DirectoryLine != NULL && DirectoryLine->ToolBar != NULL)
     {
-        DirectoryLine->ToolBar->SetImageList(HGrayToolBarImageList);
-        DirectoryLine->ToolBar->SetHotImageList(HHotToolBarImageList);
+        DirectoryLine->ToolBar->SetImageList(
+            Parent->GetToolbarImageListForWindow(DirectoryLine->HWindow, FALSE));
+        DirectoryLine->ToolBar->SetHotImageList(
+            Parent->GetToolbarImageListForWindow(DirectoryLine->HWindow, TRUE));
         DirectoryLine->OnColorsChanged();
         // we need to put the disk icon into the new toolbar
         UpdateDriveIcon(FALSE);

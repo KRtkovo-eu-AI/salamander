@@ -246,10 +246,16 @@ internal static class ViewerHost
         {
             try
             {
-                using var context = new JsonViewerApplicationContext();
-                _context = context;
-                _ready.Set();
-                Application.Run(context);
+                // JsonViewer owns a private STA thread and creates the hidden
+                // dispatcher HWND before its first DpiAwareForm. Select PMv2
+                // before either of those handles captures the thread context.
+                using (ManagedApplication.EnterPerMonitorV2())
+                {
+                    using var context = new JsonViewerApplicationContext();
+                    _context = context;
+                    _ready.Set();
+                    Application.Run(context);
+                }
             }
             finally
             {
@@ -607,7 +613,7 @@ internal static class ViewerHost
         }
     }
 
-    private sealed class JsonViewerForm : Form
+    private sealed class JsonViewerForm : DeterministicDpiForm
     {
         private readonly JsonViewerControl _viewer;
         private ViewerSession? _session;
@@ -615,6 +621,10 @@ internal static class ViewerHost
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
         private bool _ownerAttached;
+
+        // The native viewer API already supplies an outer rectangle in
+        // physical screen pixels. Scale the contents, not that rectangle.
+        protected override bool ScaleInitialWindowBounds => false;
 
         public JsonViewerForm()
         {
@@ -630,8 +640,6 @@ internal static class ViewerHost
             DoubleBuffered = true;
 
             ThemeHelper.InitializeNativeDarkMode();
-            _ = Handle;
-            ThemeHelper.ApplyNativeDarkMode(this);
 
             _viewer = new JsonViewerControl
             {
@@ -715,6 +723,12 @@ internal static class ViewerHost
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
+        protected override void OnDeterministicDpiChanged(
+            int oldDpi, int newDpi)
+        {
+            _viewer.Invalidate(true);
+        }
+
         private void OnHandleCreated(object? sender, EventArgs e)
         {
             ApplyOwner(_session?.Parent ?? IntPtr.Zero);
@@ -753,6 +767,15 @@ internal static class ViewerHost
             var bounds = payload.Bounds;
             if (bounds.Width > 0 && bounds.Height > 0)
             {
+                // The viewer rectangle is already expressed in physical
+                // screen pixels by the native viewer API. Put the not-yet
+                // created form on the target monitor first, so WinForms
+                // performs its initial control/font autoscale for that
+                // monitor. Reapply the physical rectangle only after the HWND
+                // exists; otherwise WinForms also scales the saved outer
+                // bounds and the window opens too large.
+                Location = bounds.Location;
+                _ = Handle;
                 Bounds = bounds;
             }
             else

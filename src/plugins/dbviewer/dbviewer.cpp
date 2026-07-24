@@ -786,11 +786,29 @@ BOOL CViewerWindow::InitializeGraphics()
     HBITMAP hTmpGrayBitmap;
     HBITMAP hTmpColorBitmap;
 
-    hTmpColorBitmap = LoadBitmap(DLLInstance, MAKEINTRESOURCE(SalGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16));
-    SalamanderGUI->CreateGrayscaleAndMaskBitmaps(hTmpColorBitmap, RGB(255, 0, 255),
-                                                 hTmpGrayBitmap, hTmpMaskBitmap);
-    HHotToolBarImageList = ImageList_Create(16, 16, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
-    HGrayToolBarImageList = ImageList_Create(16, 16, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
+    if (!SalamanderGUI->CreateToolbarBitmapsForWindow(
+            HWindow, DLLInstance,
+            SalGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16,
+            RGB(255, 0, 255), GetSysColor(COLOR_BTNFACE),
+            hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap, NULL, 0))
+    {
+        hTmpColorBitmap = LoadBitmap(
+            DLLInstance,
+            MAKEINTRESOURCE(SalGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256
+                                                                 : IDB_TOOLBAR16));
+        SalamanderGUI->CreateGrayscaleAndMaskBitmaps(
+            hTmpColorBitmap, RGB(255, 0, 255), hTmpGrayBitmap, hTmpMaskBitmap);
+    }
+    BITMAP bitmap;
+    ZeroMemory(&bitmap, sizeof(bitmap));
+    GetObject(hTmpColorBitmap, sizeof(bitmap), &bitmap);
+    int iconSize = bitmap.bmHeight > 0
+                       ? bitmap.bmHeight
+                       : WinLibDPIFromLogical(HWindow, 16);
+    HHotToolBarImageList = ImageList_Create(iconSize, iconSize,
+                                            ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
+    HGrayToolBarImageList = ImageList_Create(iconSize, iconSize,
+                                             ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);
     ImageList_Add(HHotToolBarImageList, hTmpColorBitmap, hTmpMaskBitmap);
     ImageList_Add(HGrayToolBarImageList, hTmpGrayBitmap, hTmpMaskBitmap);
     DeleteObject(hTmpMaskBitmap);
@@ -802,9 +820,15 @@ BOOL CViewerWindow::InitializeGraphics()
 BOOL CViewerWindow::ReleaseGraphics()
 {
     if (HHotToolBarImageList != NULL)
+    {
         ImageList_Destroy(HHotToolBarImageList);
+        HHotToolBarImageList = NULL;
+    }
     if (HGrayToolBarImageList != NULL)
+    {
         ImageList_Destroy(HGrayToolBarImageList);
+        HGrayToolBarImageList = NULL;
+    }
     return TRUE;
 }
 
@@ -1248,6 +1272,37 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    }
+
+    case WM_DPICHANGED:
+    {
+        ReleaseGraphics();
+        InitializeGraphics();
+        if (MainMenu != NULL)
+        {
+            MainMenu->SetImageList(HGrayToolBarImageList, TRUE);
+            MainMenu->SetHotImageList(HHotToolBarImageList, TRUE);
+        }
+        if (MenuBar != NULL)
+            MenuBar->SetFont();
+        if (ToolBar != NULL)
+        {
+            ToolBar->SetImageList(HGrayToolBarImageList);
+            ToolBar->SetHotImageList(HHotToolBarImageList);
+            ToolBar->SetFont();
+        }
+        Renderer.RebuildGraphics();
+        Renderer.SetupScrollBars();
+        if (HRebar != NULL)
+        {
+            RECT rebarRect;
+            GetClientRect(HRebar, &rebarRect);
+            SendMessage(HRebar, WM_SIZE, SIZE_RESTORED,
+                        MAKELPARAM(rebarRect.right, rebarRect.bottom));
+        }
+        RedrawWindow(HWindow, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+        break; // WinLib applies the suggested top-level rectangle.
     }
 
     case WM_KEYDOWN:

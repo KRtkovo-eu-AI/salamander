@@ -224,12 +224,15 @@ output/
 out/
 .localbuild/
 /src/plugins/hypervm/managed/obj
-/src/plugins/hypervm/managed/bin/Release
+/src/plugins/hypervm/managed/bin/
 /src/plugins/csdemo/managed/bin/Release
 /.localbuild/ salamander/Release_x86
 /.localbuild/salamander/Debug_x64
 /src/plugins/csdemo/managed/bin/Debug
-/src/plugins/hypervm/managed/bin/Debug
 /.localbuild/salamander/Release_x64
 
 src/plugins/hypervm/help/hypervm.chm
+
+# .NET build outputs
+/src/plugins/**/managed*/bin/
+/src/plugins/**/managed*/obj/

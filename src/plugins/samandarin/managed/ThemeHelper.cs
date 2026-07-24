@@ -89,20 +89,31 @@ internal static class ThemeHelper
         }
 
         dialog.StartPosition = FormStartPosition.Manual;
+        // Select the owner's monitor before ShowDialog creates the HWND.
+        // Moving for the first time from the Shown event creates the form at
+        // the primary monitor's DPI and is too late for initial WinForms
+        // autoscaling.
+        PositionDialogOverOwner(dialog, owner.Handle);
         dialog.Shown += (_, _) =>
         {
-            if (!NativeMethods.TryGetWindowRectangle(owner.Handle, out var ownerBounds))
-            {
-                return;
-            }
-
-            var workingArea = Screen.FromHandle(owner.Handle).WorkingArea;
-            int x = ownerBounds.Left + (ownerBounds.Width - dialog.Width) / 2;
-            int y = ownerBounds.Top + (ownerBounds.Height - dialog.Height) / 2;
-            x = Math.Max(workingArea.Left, Math.Min(x, workingArea.Right - dialog.Width));
-            y = Math.Max(workingArea.Top, Math.Min(y, workingArea.Bottom - dialog.Height));
-            dialog.Location = new Point(x, y);
+            // Recenter once more with the final DPI-scaled size.
+            PositionDialogOverOwner(dialog, owner.Handle);
         };
+    }
+
+    private static void PositionDialogOverOwner(Form dialog, IntPtr owner)
+    {
+        if (!NativeMethods.TryGetWindowRectangle(owner, out var ownerBounds))
+        {
+            return;
+        }
+
+        var workingArea = Screen.FromHandle(owner).WorkingArea;
+        int x = ownerBounds.Left + (ownerBounds.Width - dialog.Width) / 2;
+        int y = ownerBounds.Top + (ownerBounds.Height - dialog.Height) / 2;
+        x = Math.Max(workingArea.Left, Math.Min(x, workingArea.Right - dialog.Width));
+        y = Math.Max(workingArea.Top, Math.Min(y, workingArea.Bottom - dialog.Height));
+        dialog.Location = new Point(x, y);
     }
 
     public static DialogResult ShowMessageBox(IWin32Window? owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
@@ -112,7 +123,7 @@ internal static class ThemeHelper
             return MessageBox.Show(owner, text, caption, buttons, icon);
         }
 
-        using var dialog = new Form
+        using var dialog = new DpiAwareForm
         {
             Text = caption,
             StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.Manual,
