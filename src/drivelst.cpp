@@ -2922,13 +2922,29 @@ BOOL CDrivesList::FillDriveBar(CDriveBar* driveBar, BOOL bar2)
         if (!IsChangeDriveUserFolder(item->DriveType) && item->DriveType != drvtNeighborhood &&
             item->DriveType != drvtPluginCmd && item->DriveType != drvtGoogleDrive &&
             item->DriveType != drvtDropbox && item->DriveType != drvtOneDrive &&
-            item->DriveType != drvtOneDriveBus && item->DriveType != drvtOneDriveMenu &&
-            item->DriveType != drvtMountPoint)
+            item->DriveType != drvtOneDriveBus && item->DriveType != drvtOneDriveMenu)
         {
             tii.Mask |= TLBI_MASK_TEXT;
             tii.Style |= TLBI_STYLE_SHOWTEXT;
-            buff[0] = item->DriveText[0];
-            buff[1] = 0;
+            if (item->DriveType == drvtMountPoint)
+            {
+                const char* text = item->DriveText;
+                if (*text == '\t')
+                    text++;
+                lstrcpyn(buff, text, _countof(buff));
+                char* freeSpace = strchr(buff, '\t');
+                if (freeSpace != NULL)
+                    *freeSpace = 0;
+                char* volumeName = strstr(buff, "  ");
+                if (volumeName != NULL)
+                    *volumeName = 0;
+                RemoveAmpersands(buff);
+            }
+            else
+            {
+                buff[0] = item->DriveText[0];
+                buff[1] = 0;
+            }
             tii.Text = buff;
         }
         ImageList_AddIcon(driveBar->HDrivesIcons, item->HIcon);
