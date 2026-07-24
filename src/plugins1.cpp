@@ -3074,6 +3074,15 @@ static BOOL IsTotalCommanderProxyPlugin(const char* dllName)
     return fileName != NULL && StrICmp(fileName, "tcproxy.spl") == 0;
 }
 
+static BOOL IsSamandarinPlugin(const char* dllName)
+{
+    if (dllName == NULL)
+        return FALSE;
+
+    const char* fileName = SalPathFindFileName(dllName);
+    return fileName != NULL && StrNICmp(fileName, "samandarin", 10) == 0;
+}
+
 BOOL CPluginData::Unload(HWND parent, BOOL ask)
 {
     CALL_STACK_MESSAGE5("CPluginData::Unload(0x%p, %d) (%s v. %s)", parent, ask, DLLName, Version);
@@ -3085,6 +3094,7 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
             char buf[MAX_PATH + 300];
             BOOL skipUnload = FALSE;
             BOOL skipTCProxyShutdownCallbacks = !ask && IsTotalCommanderProxyPlugin(DLLName);
+            BOOL skipSamandarinShutdown = UnloadingPluginsForMainWindowClose && IsSamandarinPlugin(DLLName);
             if (SupportLoadSave && ::Configuration.AutoSave && !skipTCProxyShutdownCallbacks)
             { // ask if the user wants to save configuration when "save on exit" is on
                 sprintf(buf, LoadStr(IDS_PLUGINSAVECONFIG), Name);
@@ -3156,13 +3166,16 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
                 CPluginInterfaceAbstract* unloadedPlugin = PluginIface.GetInterface();
                 DeleteManager.PluginMayBeUnloaded(parent, this);
 
-                if (skipTCProxyShutdownCallbacks)
+                if (skipTCProxyShutdownCallbacks || skipSamandarinShutdown)
                 {
                     // Total Commander proxy builds can crash in shutdown callbacks after their
                     // FS has already been closed.  The process is exiting, so skip plug-in
                     // SaveConfiguration/Release/DllMain-detach calls and let process teardown
                     // reclaim the proxy module.
-                    TRACE_I("Skipping Total Commander proxy shutdown callbacks: " << DLLName);
+                    if (skipTCProxyShutdownCallbacks)
+                        TRACE_I("Skipping Total Commander proxy shutdown callbacks: " << DLLName);
+                    if (skipSamandarinShutdown)
+                        TRACE_I("Skipping Samandarin shutdown callbacks during close: " << DLLName);
                     ret = TRUE;
                 }
                 else if (PluginIface.Release(parent, CriticalShutdown) || CriticalShutdown)
@@ -3181,7 +3194,7 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
                 {
                     // unload SPL+SLG and clean up the interfaces
                     SalamanderGeneral.Clear();
-                    if (DLL != NULL && !skipTCProxyShutdownCallbacks)
+                    if (DLL != NULL && (!skipTCProxyShutdownCallbacks || skipSamandarinShutdown))
                         HANDLES(FreeLibrary(DLL));
                     DLL = NULL;
                     BuiltForVersion = 0;

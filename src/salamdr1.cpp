@@ -782,6 +782,7 @@ HWND PluginProgressDialog = NULL;
 HWND PluginMsgBoxParent = NULL;
 
 BOOL CriticalShutdown = FALSE;
+BOOL UnloadingPluginsForMainWindowClose = FALSE;
 
 HANDLE SalOpenFileMapping = NULL;
 void* SalOpenSharedMem = NULL;

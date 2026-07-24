@@ -13,8 +13,8 @@
 
   <Target Name="EnsureRestoreBeforeBuild"
           BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
-          Condition="'$(RestoreDuringBuild)' != 'true' and '$(ProjectAssetsFile)' != '' and !Exists('$(ProjectAssetsFile)')">
-    <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(ProjectAssetsFile))."
+          Condition="'$(RestoreDuringBuild)' != 'true' and !Exists('$(MSBuildProjectDirectory)\obj\project.assets.json')">
+    <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(MSBuildProjectDirectory)\obj\project.assets.json)."
              Importance="High" />
     <MSBuild Projects="$(MSBuildProjectFullPath)"
              Targets="Restore"

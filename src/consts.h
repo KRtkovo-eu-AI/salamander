@@ -1709,6 +1709,7 @@ extern DWORD LastSalamanderIdleTime; // GetTickCount() z okamziku, kdy Salamande
 extern int PasteLinkIsRunning; // pokud je vetsi nez nula, probiha prave Past Shortcuts prikaz v jednom z panelu
 
 extern BOOL CannotCloseSalMainWnd; // TRUE = nesmi dojit k zavreni hlavniho okna
+extern BOOL UnloadingPluginsForMainWindowClose; // TRUE = unloaduje se plugin při zavirani Salamandera
 
 extern const char* DirColumnStr;      // LoadStr(IDS_DIRCOLUMN) - pouziva se prilis casto, cachujeme
 extern int DirColumnStrLen;           // delka retezce
