@@ -9305,13 +9305,25 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
+        // Moving the top-level window to a monitor with another DPI resizes the
+        // rebar and command-line combo synchronously. Common controls can send
+        // RBN_AUTOSIZE from inside that operation; its LayoutWindows() call
+        // sends another WM_SIZE to this window. Do not enter the same child
+        // layout again while the outer WM_SIZE still owns its HDWP chain.
+        if (MainWindowSizeInProgress)
+            return 0;
+        MainWindowSizeInProgress = TRUE;
+
         WindowWidth = LOWORD(lParam);
         WindowHeight = HIWORD(lParam);
 
         if (DetachedPanels)
         {
             LayoutMainWindowDetachedPanel(WindowWidth, WindowHeight);
-            LayoutDetachedPanels();
+            // The other top-level window can be on a monitor with a different
+            // DPI. Its children are laid out by its own WM_SIZE/WM_DPICHANGED;
+            // resizing the main window must not synchronously relayout it.
+            MainWindowSizeInProgress = FALSE;
             break;
         }
 
@@ -9610,6 +9622,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             index = (int)SendMessage(HTopRebar, RB_IDTOINDEX, BANDID_DRIVEBAR, 0);
             SendMessage(HTopRebar, RB_SETBANDINFO, index, (LPARAM)&rbi);
         }
+        MainWindowSizeInProgress = FALSE;
         break;
     }
 

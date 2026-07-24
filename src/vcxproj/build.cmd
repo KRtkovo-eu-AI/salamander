@@ -31,6 +31,13 @@ if "%OPENSAL_BUILD_DIR%"=="" (
   goto :eof
 )
 
+:: link.exe can fail with LNK1000 even with only a few resource-only
+:: language DLL links running concurrently. Serialize solution projects by
+:: default; individual C++ projects still use the compiler's /MP parallelism.
+:: Build agents can explicitly opt into solution-level parallelism.
+set "BUILD_JOBS=%OPENSAL_BUILD_JOBS%"
+if not defined BUILD_JOBS set "BUILD_JOBS=1"
+
 :: Default values for build_config and build_arch
 set build_config=Debug
 set build_arch=x64
@@ -46,7 +53,7 @@ goto :eof
 :build
   echo Building %~1/%2
   if exist %3 del /q %3
-  "%MSB%" salamand.sln /t:build "/p:Configuration=%~1" /p:Platform=%2 /m:%NUMBER_OF_PROCESSORS%
+  "%MSB%" salamand.sln /t:build "/p:Configuration=%~1" /p:Platform=%2 /m:%BUILD_JOBS%
   exit /b
 
 :resolve_msbuild

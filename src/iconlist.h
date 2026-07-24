@@ -104,6 +104,7 @@ private:
     BYTE* ImageFlags; // pole o poctu prvku 'imageCount'; (IL_TYPE_xxx)
 
     COLORREF BkColor; // aktualni barva pozadi (body kde je Alfa==0x00)
+    volatile LONG ContentVersion; // incremented whenever an image is replaced
 
     // sdilene promenne pres vsechny imagelisty -- setrime pameti
     static HDC HMemDC;                       // sdilene mem dc
@@ -160,6 +161,10 @@ public:
 
     virtual BOOL WINAPI SetBkColor(COLORREF bkColor);
     virtual COLORREF WINAPI GetBkColor();
+
+    int GetImageWidth() const { return ImageWidth; }
+    int GetImageHeight() const { return ImageHeight; }
+    LONG GetContentVersion() const { return ContentVersion; }
 
 private:
     // pokud neexistuje, vytvori HTmpImage

@@ -23,6 +23,13 @@ if "%OPENSAL_BUILD_DIR%"=="" (
   exit /b
 )
 
+:: link.exe can fail with LNK1000 even with only a few resource-only
+:: language DLL links running concurrently. Serialize solution projects by
+:: default; individual C++ projects still use the compiler's /MP parallelism.
+:: Build agents can explicitly opt into solution-level parallelism.
+set "BUILD_JOBS=%OPENSAL_BUILD_JOBS%"
+if not defined BUILD_JOBS set "BUILD_JOBS=1"
+
 echo Rebuild Menu:
 echo.
 echo 3 - rebuild all targets
@@ -130,7 +137,7 @@ exit /b
 
 :rebuild <target> <platform> <logfile>
 echo Building %~1/%2
-"%MSB%" salamand.sln /t:rebuild "/p:Configuration=%~1" /p:Platform=%2 /l:FileLogger,Microsoft.Build.Engine;logfile=%3;append=false;verbosity=normal;encoding=windows-1250 /flp1:logfile=%3.err;errorsonly /flp2:logfile=%3.wrn;warningsonly /m:%NUMBER_OF_PROCESSORS%
+"%MSB%" salamand.sln /t:rebuild "/p:Configuration=%~1" /p:Platform=%2 /l:FileLogger,Microsoft.Build.Engine;logfile=%3;append=false;verbosity=normal;encoding=windows-1250 /flp1:logfile=%3.err;errorsonly /flp2:logfile=%3.wrn;warningsonly /m:%BUILD_JOBS%
 call ..\..\tools\duration.cmd "%BUILDSTART%" "%time%" "%~1/%2: Build Duration: " >>%TIMESLOG%
 call :remove_file_if_empty %3.wrn
 call :remove_file_if_empty %3.err

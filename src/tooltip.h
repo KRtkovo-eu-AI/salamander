@@ -56,6 +56,8 @@ protected:
     BOOL IsModal;     // je prave vykonvana nase message loop?
     BOOL ExitASAP;    // zavri se co nejdriv a prestan byt modalni
     UINT_PTR TimerID; // vracene ze SetTimer, potrebujeme pro KillTimer
+    HFONT WindowFont; // font matching the monitor of the tooltip owner
+    UINT WindowDPI;
 
 public:
     CToolTip(CObjectOrigin origin = ooStatic);
@@ -103,6 +105,8 @@ protected:
 
     BOOL GetText();
     void GetNeededWindowSize(SIZE* sz);
+    BOOL UpdateFontForDPI(UINT dpi);
+    BOOL UpdateFontForWindow(HWND hWindow);
 
     void MessageLoop(); // pro modalni variantu tooltipu
 

@@ -2728,12 +2728,34 @@ CIconList* CFilesWindow::GetIndependentIconList(CIconList* source, int sourceInd
         return source;
 
     int pixelSize = GetIconSize(iconSize);
+    if (source->GetImageWidth() == pixelSize &&
+        source->GetImageHeight() == pixelSize)
+    {
+        // Preserve the original pixels and mask whenever no scaling is needed.
+        // Apart from being cheaper, this avoids degrading legacy mask-based
+        // 16px icons by round-tripping them through an HICON.
+        return source;
+    }
+
+    LONG sourceVersion = source->GetContentVersion();
     for (size_t i = 0; i < WindowDPIIconLists.size(); ++i)
     {
         CDPIIconListEntry& entry = WindowDPIIconLists[i];
         if (entry.Source == source && entry.SourceIndex == sourceIndex &&
             entry.PixelSize == pixelSize)
         {
+            if (entry.SourceVersion != sourceVersion)
+            {
+                // Association icons are populated asynchronously. Refresh a
+                // scaled copy after the source placeholder has been replaced.
+                HICON icon = source->GetIcon(sourceIndex);
+                if (icon != NULL)
+                {
+                    if (entry.Copy->ReplaceIcon(0, icon))
+                        entry.SourceVersion = sourceVersion;
+                    HANDLES(DestroyIcon(icon));
+                }
+            }
             if (copyIndex != NULL)
                 *copyIndex = 0;
             return entry.Copy;
@@ -2760,6 +2782,7 @@ CIconList* CFilesWindow::GetIndependentIconList(CIconList* source, int sourceInd
     entry.Source = source;
     entry.SourceIndex = sourceIndex;
     entry.PixelSize = pixelSize;
+    entry.SourceVersion = sourceVersion;
     entry.Copy = copy;
     WindowDPIIconLists.push_back(entry);
     if (copyIndex != NULL)
