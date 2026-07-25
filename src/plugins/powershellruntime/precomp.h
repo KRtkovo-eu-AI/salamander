@@ -15,9 +15,8 @@
 #include "../shared/spl_base.h"
 #include "../shared/spl_gen.h"
 #include "../shared/spl_gui.h"
-#include "../shared/spl_vers.h"
+#include "versinfo.rh2"
 #include "../salamatrix/salamatrix_runtime_api.h"
 #include "powershellruntime.h"
-
 
 

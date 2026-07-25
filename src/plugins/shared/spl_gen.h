@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <commdlg.h>
+
 #ifdef _MSC_VER
 #pragma pack(push, enter_include_spl_gen) // aby byly struktury nezavisle na nastavenem zarovnavani
 #pragma pack(4)

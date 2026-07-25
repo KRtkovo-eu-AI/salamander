@@ -64,9 +64,9 @@ static HANDLE OpenReadFilePath(PCTSTR path)
         else
             widePath = L"\\\\?\\" + widePath;
     }
-    return HANDLES_Q(CreateFileW(
+    return ::CreateFileW(
         widePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
-        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 }
 
 static BOOL Utf8ToWideText(const std::string& value, std::wstring& output)
@@ -210,6 +210,33 @@ static BOOL NativeToUtf8(PCTSTR value, char* output, int outputCount)
     if (converted == 0)
         output[0] = '\0';
     return converted != 0;
+#endif
+}
+
+// SalamanderGeneral exposes the historical path helpers in UTF-8/ANSI form,
+// while Automation is built in either ANSI or Unicode mode.  Keep the public
+// call in one place and perform an explicit UTF-8 conversion for Unicode
+// builds, without truncating the SAL_MAX_PATH buffer.
+static BOOL AppendSalPath(PTSTR path, PCTSTR name, int pathCapacity)
+{
+    if (path == NULL || name == NULL || pathCapacity <= 0 ||
+        SalamanderGeneral == NULL)
+        return FALSE;
+
+#ifdef UNICODE
+    const size_t utf8Capacity = static_cast<size_t>(pathCapacity) * 3u;
+    std::vector<char> pathUtf8(utf8Capacity);
+    std::vector<char> nameUtf8(utf8Capacity);
+    if (!NativeToUtf8(path, &pathUtf8[0], static_cast<int>(pathUtf8.size())) ||
+        !NativeToUtf8(name, &nameUtf8[0], static_cast<int>(nameUtf8.size())))
+        return FALSE;
+    if (!SalamanderGeneral->SalPathAppend(
+            &pathUtf8[0], &nameUtf8[0], static_cast<int>(pathUtf8.size())))
+        return FALSE;
+    return Utf8ToNative(
+        std::string(&pathUtf8[0]), path, pathCapacity);
+#else
+    return SalamanderGeneral->SalPathAppend(path, name, pathCapacity);
 #endif
 }
 
@@ -420,7 +447,7 @@ static BOOL LoadManifestForEntryPoint(
     {
         std::vector<TCHAR> manifestPath(SAL_MAX_PATH);
         StringCchCopy(&manifestPath[0], manifestPath.size(), &directory[0]);
-        if (!SalamanderGeneral->SalPathAppend(
+        if (!AppendSalPath(
                 &manifestPath[0], _T("extension.json"),
                 static_cast<int>(manifestPath.size())))
         {
@@ -444,7 +471,7 @@ static BOOL LoadManifestForEntryPoint(
                     StringCchCopy(
                         &resolvedEntryPoint[0], resolvedEntryPoint.size(),
                         &directory[0]);
-                    if (SalamanderGeneral->SalPathAppend(
+                    if (AppendSalPath(
                             &resolvedEntryPoint[0], &nativeEntryPoint[0],
                             static_cast<int>(resolvedEntryPoint.size())) &&
                         PathsEqual(&resolvedEntryPoint[0], entryPointPath))
@@ -1316,7 +1343,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             Salamatrix::UI::DialogOptions options;
             options.Title = title.c_str();
             options.Parent = SalamanderGeneral->GetMsgBoxParent();
-            Salamatrix::UI::IDialog* dialog = ui->CreateDialog(options);
+            Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
             if (dialog != NULL)
             {
                 Salamatrix::UI::ControlOptions promptOptions;
@@ -1465,7 +1492,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             Salamatrix::UI::DialogOptions options;
             options.Title = title.c_str();
             options.Parent = SalamanderGeneral->GetMsgBoxParent();
-            Salamatrix::UI::IDialog* dialog = ui->CreateDialog(options);
+            Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
             if (dialog == NULL)
                 return FALSE;
             ULONGLONG id = script->m_nextRuntimeDialogId++;
@@ -2861,10 +2888,10 @@ CScriptContainer::CScriptContainer(
     {
         _ASSERTE(pParent);
         StringCchCopy(m_szPath, _countof(m_szPath), pParent->m_szPath);
-        SalamanderGeneral->SalPathAppend(m_szPath, pszPath, _countof(m_szPath));
+        AppendSalPath(m_szPath, pszPath, _countof(m_szPath));
     }
 
-    SalamanderGeneral->SalPathRemoveBackslash(m_szPath);
+    PathRemoveBackslash(m_szPath);
     m_pszName = PathFindFileName(m_szPath);
 }
 
@@ -2893,7 +2920,7 @@ CScriptContainer* CScriptContainer::FirstChild(
     else
     {
         StringCchCopy(&szFullPath[0], szFullPath.size(), m_szPath);
-        SalamanderGeneral->SalPathAppend(
+        AppendSalPath(
             &szFullPath[0], pszPath, static_cast<int>(szFullPath.size()));
     }
 
@@ -3103,15 +3130,15 @@ int CScriptLookup::FillContainer(
 {
     HANDLE hFind;
     std::vector<TCHAR> szPattern(SAL_MAX_PATH);
-    WIN32_FIND_DATAW fd;
+    WIN32_FIND_DATA fd;
     int cScripts = 0;
 
     g_oAutomationPlugin.ExpandPath(
         pContainer->GetPath(), &szPattern[0], static_cast<int>(szPattern.size()));
-    SalamanderGeneral->SalPathAppend(
+    AppendSalPath(
         &szPattern[0], _T("*"), static_cast<int>(szPattern.size()));
 
-    hFind = FindFirstFileW(&szPattern[0], &fd);
+    hFind = FindFirstFile(&szPattern[0], &fd);
     if (hFind == INVALID_HANDLE_VALUE)
     {
         return 0;
@@ -3162,7 +3189,7 @@ int CScriptLookup::FillContainer(
                 std::vector<TCHAR> szFullPath(SAL_MAX_PATH);
                 StringCchCopy(
                     &szFullPath[0], szFullPath.size(), pContainer->GetPath());
-                SalamanderGeneral->SalPathAppend(
+                AppendSalPath(
                     &szFullPath[0], fd.cFileName,
                     static_cast<int>(szFullPath.size()));
 
@@ -3197,7 +3224,7 @@ int CScriptLookup::FillContainer(
                 }
             }
         }
-    } while (FindNextFileW(hFind, &fd));
+    } while (FindNextFile(hFind, &fd));
 
     FindClose(hFind);
 

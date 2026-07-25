@@ -74,6 +74,37 @@ static std::string LoadAssistantString(UINT resourceId)
 #endif
 }
 
+static BOOL AppendFocusedItemName(PTSTR path, int pathCapacity,
+                                  const CFileData* file)
+{
+    if (path == NULL || pathCapacity <= 0 || file == NULL)
+        return FALSE;
+#ifdef UNICODE
+    std::vector<wchar_t> name;
+    if (file->NameW != NULL && file->NameW[0] != L'\0')
+    {
+        name.assign(file->NameW, file->NameW + wcslen(file->NameW) + 1);
+    }
+    else if (file->Name != NULL)
+    {
+        int length = MultiByteToWideChar(CP_ACP, 0, file->Name, -1, NULL, 0);
+        if (length <= 0)
+            return FALSE;
+        name.resize(static_cast<size_t>(length));
+        if (MultiByteToWideChar(CP_ACP, 0, file->Name, -1,
+                                &name[0], length) <= 0)
+            return FALSE;
+    }
+    else
+    {
+        return FALSE;
+    }
+    return PathAppendW(path, &name[0]);
+#else
+    return file->Name != NULL && PathAppendA(path, file->Name);
+#endif
+}
+
 static std::string BuildAssistantPanelContext(
     Salamatrix::Sides::ISidesService* sides)
 {
@@ -245,7 +276,7 @@ static BOOL CreateAssistantTemporaryScript(
     std::vector<wchar_t> uniquePath(SAL_MAX_PATH);
     if (GetTempFileNameW(
             &tempRoot[0], L"smx", 0,
-            &uniquePath[0], static_cast<UINT>(uniquePath.size())) == 0)
+            &uniquePath[0]) == 0)
         return FALSE;
     DeleteFileW(&uniquePath[0]);
     if (!CreateDirectoryW(&uniquePath[0], NULL))
@@ -570,8 +601,8 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
         SalamanderGeneral->GetPanelPath(
             PANEL_SOURCE, &szFullName[0], static_cast<int>(szFullName.size()), NULL, NULL);
         pFocusedFile = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-        SalamanderGeneral->SalPathAppend(
-            &szFullName[0], pFocusedFile->Name, static_cast<int>(szFullName.size()));
+        AppendFocusedItemName(
+            &szFullName[0], static_cast<int>(szFullName.size()), pFocusedFile);
 
         CScriptInfo scriptInfo(&szFullName[0], NULL);
         bExecuted = scriptInfo.Execute(info);

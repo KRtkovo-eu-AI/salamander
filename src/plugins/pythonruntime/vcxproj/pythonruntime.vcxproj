@@ -65,6 +65,7 @@
     <Import Project="pythonruntime.props" />
   </ImportGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\shared\sal_safe_memcpy.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="..\pythonruntime.cpp" />
     <ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>
   </ItemGroup>

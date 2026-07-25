@@ -336,7 +336,7 @@ public:
         if (!ValidateResponse(response))
         {
             response->Status = AssistantStatusInvalidResponse;
-            response->ErrorCode = E_INVALIDDATA;
+            response->ErrorCode = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
             response->Summary.ContractValid = FALSE;
             return FALSE;
         }

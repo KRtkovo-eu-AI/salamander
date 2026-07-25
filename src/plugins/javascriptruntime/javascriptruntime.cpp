@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "javascriptruntime.h"
+#include "versinfo.rh2"
 #include <strsafe.h>
 #include <vector>
 
@@ -431,7 +432,8 @@ CJavaScriptRuntimeAdapter::CJavaScriptRuntimeAdapter(
     m_oDescriptor.LanguageId = languageId;
     m_oDescriptor.FileExtensions = fileExtension;
     m_oDescriptor.RuntimeVersion = 0x00010000;
-    m_oDescriptor.Flags = Salamatrix::Runtime::RuntimeAdapterFlagOutOfProcess;
+    m_oDescriptor.Flags = Salamatrix::Runtime::RuntimeAdapterFlagOutOfProcess |
+                          Salamatrix::Runtime::RuntimeAdapterFlagPersistentExtensions;
 }
 
 static BOOL ResolveWorkerBootstrapPath(
@@ -1025,8 +1027,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
     CSalamanderServiceResult serviceResult;
     memset(&query, 0, sizeof(query));
     memset(&serviceResult, 0, sizeof(serviceResult));
-    query.ServiceId = Salamatrix::Runtime::SALAMATRIX_SERVICE_RUNTIME;
-    query.MinimumVersion = Salamatrix::Runtime::SALAMATRIX_RUNTIME_VERSION_1_0;
+    query.ServiceId = SALAMATRIX_SERVICE_RUNTIME;
+    query.MinimumVersion = SALAMATRIX_RUNTIME_VERSION_1_0;
     if (!SalamanderGeneral->QueryService(&query, &serviceResult) ||
         serviceResult.Interface == NULL)
         return NULL;
@@ -1063,4 +1065,3 @@ void WINAPI CPluginInterface::LoadConfiguration(HWND, HKEY, CSalamanderRegistryA
 void WINAPI CPluginInterface::SaveConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
 void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*) {}
 void WINAPI CPluginInterface::Event(int, DWORD) {}
-

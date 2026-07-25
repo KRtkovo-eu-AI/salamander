@@ -44,7 +44,7 @@ The intended packages are:
 | `PythonRuntime.SPL` | `Python.CPython` | `SALAMATRIX_PYTHON`, `python.exe`, `python3.exe` |
 | `PowerShellRuntime.SPL` | `PowerShell` | `SALAMATRIX_POWERSHELL`, `pwsh.exe`, `powershell.exe` |
 | `PHPRuntime.SPL` | `PHP.CLI` | `SALAMATRIX_PHP`, `php.exe` |
-| `JavaScriptRuntime.SPL` | `JavaScript.Node` or future QuickJS id | `SALAMATRIX_NODE`, `node.exe`, `node` |
+| `JavaScriptRuntime.SPL` | `JavaScript.Node` | `SALAMATRIX_NODE`, `node.exe`, `node` |
 
 Automation keeps its legacy JScript/VBScript ActiveScript adapters. It becomes
 just another broker consumer for the providers above; installing or loading a
@@ -55,6 +55,7 @@ clear unavailable-runtime result.
 The current branch has the broker contract, worker protocol, and provider
 lifecycle helper. `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
 `PHPRuntime.SPL`, and `JavaScriptRuntime.SPL` now have their own projects,
-adapters, worker assets, and load/unload registration paths; they still need a
-Windows toolchain build and integration test before they are release-ready.
+adapters, worker assets, and load/unload registration paths. Debug x64 builds
+now produce all four standalone `.SPL` binaries; release packaging and
+end-to-end runtime integration remain release work.
 No provider should be made a dependency of Automation.

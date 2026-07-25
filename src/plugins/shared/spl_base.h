@@ -11,6 +11,12 @@
 
 #pragma once
 
+// The plug-in SDK is also consumed by projects that do not include the core
+// Salamander headers.  Keep the SDK path contract available to those builds.
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 #ifdef _MSC_VER
 #pragma pack(push, enter_include_spl_base) // aby byly struktury nezavisle na nastavenem zarovnavani
 #pragma pack(4)

@@ -10,6 +10,12 @@
 
 #pragma once
 
+#ifdef DialogBox
+#pragma push_macro("DialogBox")
+#undef DialogBox
+#define SALAMATRIX_RESTORE_DIALOG_BOX 1
+#endif
+
 #include "salamatrix_commands.h"
 #include "salamatrix_ui.h"
 
@@ -287,14 +293,14 @@ public:
         }
     };
 
-    Dialog* WINAPI DialogBox(const char* title, HWND parent)
+    Dialog* WINAPI ShowDialog(const char* title, HWND parent)
     {
         if (UIService == NULL)
             return NULL;
         UI::DialogOptions options;
         options.Title = title;
         options.Parent = parent;
-        UI::IDialog* dialog = UIService->CreateDialog(options);
+        UI::IDialog* dialog = UIService->CreateSalamatrixDialog(options);
         return dialog != NULL ? new Dialog(UIService, dialog) : NULL;
     }
 
@@ -465,3 +471,8 @@ public:
 
 } // namespace Automation
 } // namespace Salamatrix
+
+#ifdef SALAMATRIX_RESTORE_DIALOG_BOX
+#pragma pop_macro("DialogBox")
+#undef SALAMATRIX_RESTORE_DIALOG_BOX
+#endif

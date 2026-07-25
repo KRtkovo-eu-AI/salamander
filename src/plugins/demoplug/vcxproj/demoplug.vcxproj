@@ -223,6 +223,9 @@
     </ClCompile>
     <ClCompile Include="..\demoplug.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\salamatrix\salamatrix_ui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\dialogs.cpp">
     </ClCompile>
     <ClCompile Include="..\fs1.cpp">

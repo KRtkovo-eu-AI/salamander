@@ -10,6 +10,12 @@
 
 #pragma once
 
+#ifdef CreateDialog
+#pragma push_macro("CreateDialog")
+#undef CreateDialog
+#define SALAMATRIX_RESTORE_CREATE_DIALOG 1
+#endif
+
 #include <string>
 
 #include "../shared/spl_com.h"
@@ -471,7 +477,7 @@ public:
 
     /// Optional in the original 1.0 contract; providers that do not expose
     /// native dialogs can keep the default NULL implementation.
-    virtual IDialog* WINAPI CreateDialog(const DialogOptions& options)
+    virtual IDialog* WINAPI CreateSalamatrixDialog(const DialogOptions& options)
     {
         (void)options;
         return NULL;
@@ -557,3 +563,8 @@ protected:
 
 } // namespace UI
 } // namespace Salamatrix
+
+#ifdef SALAMATRIX_RESTORE_CREATE_DIALOG
+#pragma pop_macro("CreateDialog")
+#undef SALAMATRIX_RESTORE_CREATE_DIALOG
+#endif

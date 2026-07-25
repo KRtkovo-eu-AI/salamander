@@ -10,6 +10,10 @@
 
 #pragma once
 
+#ifndef SAL_MAX_PATH
+#define SAL_MAX_PATH 32768
+#endif
+
 #include <stddef.h>
 #include <string>
 #include <vector>

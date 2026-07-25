@@ -10,6 +10,12 @@
 
 #pragma once
 
+#ifdef CreateDialog
+#pragma push_macro("CreateDialog")
+#undef CreateDialog
+#define SALAMATRIX_RESTORE_CREATE_DIALOG 1
+#endif
+
 #include <combaseapi.h>
 #include <shlobj.h>
 #include <vector>
@@ -408,7 +414,7 @@ public:
         return WideToUtf8(&path[0], result, resultCapacity);
     }
 
-    virtual UI::IDialog* WINAPI CreateDialog(const UI::DialogOptions& options)
+    virtual UI::IDialog* WINAPI CreateSalamatrixDialog(const UI::DialogOptions& options)
     {
         return new UI::NativeDialog(options);
     }
@@ -761,3 +767,8 @@ public:
 
 } // namespace Runtime
 } // namespace Salamatrix
+
+#ifdef SALAMATRIX_RESTORE_CREATE_DIALOG
+#pragma pop_macro("CreateDialog")
+#undef SALAMATRIX_RESTORE_CREATE_DIALOG
+#endif

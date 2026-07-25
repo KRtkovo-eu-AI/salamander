@@ -840,7 +840,7 @@ BOOL WINAPI CAutomationLocalAssistantProvider::Generate(
         !IsStructuredJson(output))
     {
         SetAssistantFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse,
-                            E_INVALIDDATA,
+                            HRESULT_FROM_WIN32(ERROR_INVALID_DATA),
                             L"The local assistant did not return structured JSON.");
         return FALSE;
     }

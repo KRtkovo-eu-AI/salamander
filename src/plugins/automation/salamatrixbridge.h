@@ -69,9 +69,9 @@ public:
 /// Executes a script through a deliberately small, out-of-process CLI
 /// contract. The host owns process creation, timeout, exit status, and bounded
 /// stdout/stderr capture; the runtime itself never receives raw Salamander
-/// pointers. This is the first real adapter seam for CPython, PowerShell, and
-/// PHP and can later be replaced by a persistent JSON-RPC worker without
-/// changing manifest/runtime selection.
+/// pointers. This transitional implementation remains for compatibility tests;
+/// standalone Python, PowerShell, PHP, and JavaScript provider plugins own the
+/// modern broker registrations.
 class CAutomationProcessRuntimeAdapter : public Salamatrix::Runtime::IRuntimeAdapter
 {
 public:

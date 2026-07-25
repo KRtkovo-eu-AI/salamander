@@ -172,9 +172,10 @@ legacy Active Scripting engines that are actually available:
 - `Automation.PHPScript` for `.phps`, when the legacy PHPScript COM engine is
   installed.
 
-These adapters are explicitly marked as in-process compatibility adapters. In
-addition, Automation registers optional out-of-process CLI adapters when the
-interpreter is discoverable through `PATH` or an explicit environment variable:
+These adapters are explicitly marked as in-process compatibility adapters.
+Independent runtime provider plugins register the optional out-of-process CLI
+adapters when the interpreter is discoverable through `PATH` or an explicit
+environment variable:
 
 - `Python.CPython` for `.py` (`SALAMATRIX_PYTHON`, then `python.exe`/`python3.exe`);
 - `PowerShell` for `.ps1` (`SALAMATRIX_POWERSHELL`, then `pwsh.exe`/
@@ -209,15 +210,16 @@ modern process adapters share the standard worker bootstrap; richer value
 bindings, queued callbacks, and unload-safe leases remain.
 
 Process adapters can now opt into the common worker bootstrap with
-`RuntimeExecutionFlagUseWorkerBootstrap`. Automation ships standard-library
-bootstraps for Python, PowerShell, and PHP under `runtime\`; they perform the
-SMX1 handshake, expose the same logical `Salamander` object model, route host
-calls, and keep an event loop alive after the extension entry point returns.
-`SALAMATRIX_WORKER_ROOT` is an explicit deployment/test override; the normal
-plugin build copies the scripts beside the Automation binary.
+`RuntimeExecutionFlagUseWorkerBootstrap`. The standalone runtime providers ship
+the Python, PowerShell, PHP, and Node bootstraps beside their own `.SPL`; they
+perform the SMX1 handshake, expose the same logical `Salamander` object model,
+route host calls, and keep an event loop alive after the extension entry point
+returns. `SALAMATRIX_WORKER_ROOT` is an explicit deployment/test override; each
+provider build copies its worker beside that provider binary.
 Workers can query the same broker without a runtime-specific host extension:
 `Salamander.runtimes.list()` in Python, `Salamander.runtimes.List()` in
-PowerShell, and `Salamander->runtimes->list()` in PHP call
+PowerShell, `Salamander->runtimes->list()` in PHP, and
+`Salamander.runtimes.list()` in Node call
 `salamander.runtimes.list`. The response contains each adapter's id, display
 name, language, entry-point extensions, version, and current availability, so
 an extension or the AI assistant can explain a missing interpreter before it
@@ -999,16 +1001,16 @@ The platform skeleton is ready when:
 35. The dispatcher supports event subscriptions with pushed `event` frames and
     a parented `salamander.ui.messageBox` call; subscriptions are removed before
     the worker session is stopped.
-36. Python, PowerShell, and PHP process adapters can start the shared worker
-    bootstraps; the Python integration test exercises handshake, commands,
-    storage, event subscription, and shutdown end to end.
+36. Python, PowerShell, PHP, and Node process adapters can start their shared
+    worker bootstraps; the Python integration test exercises handshake,
+    commands, storage, event subscription, and shutdown end to end.
 37. `Salamatrix.AI` exposes provider registration and Automation supplies an
     optional bounded local command provider selected by `SALAMATRIX_AI_COMMAND`.
 38. The shared worker object model exposes `Salamander.ui.input_box(...)` and
     the host renders it as a parented native Windows dialog with an editable
     value; `message_box(...)` and `input_box(...)` are routed through the
     shared `Salamatrix.UI` service and the same SMX1 host calls are available
-    to Python, PowerShell, and PHP.
+    to Python, PowerShell, PHP, and Node.
 39. `Salamatrix.UI` now publishes a reusable native `IDialog`/`IControl`
     contract and `NativeDialog` implementation for labels, text boxes,
     check/radio buttons, combo boxes, buttons, ListView, TreeView, and TabControl;
@@ -1020,13 +1022,13 @@ The platform skeleton is ready when:
 40. The command catalog covers the available core `SALCMD_*` operations and
     `IFileOperationsService` exposes interactive rename/copy/move/delete,
     create-directory, refresh, and properties wrappers to native callers and
-    all three modern worker runtimes.
+    all four modern worker runtimes.
 41. Workers can create native dialogs, add all currently supported control
     kinds (including item/node/tab binding), show them modally, read control state, and destroy them through the
     same `Salamatrix.UI` service; the bounded process-runtime tests exercise
-    this path in Python, PowerShell, and PHP.
+    this path in Python, PowerShell, PHP, and Node.
 42. The same shared UI service now exposes UTF-8 open/save file pickers and a
-    native folder picker; Python, PowerShell, and PHP workers call
+    native folder picker; Python, PowerShell, PHP, and Node workers call
     `Salamander.ui.pick_file()` / `PickFile()` / `pickFile()` or
     `pick_folder()` / `PickFolder()` / `pickFolder()` and receive a structured
     selected/path result.
