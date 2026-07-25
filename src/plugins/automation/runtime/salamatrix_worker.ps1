@@ -131,12 +131,12 @@ $ui | Add-Member ScriptMethod PickFolder {
     Invoke-Host -Method 'salamander.ui.pickFolder' -Arguments @{ title = $Title; initial = $Initial }
 }
 $ui | Add-Member ScriptMethod Dialog {
-    param([string]$Title = 'Salamander')
-    $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title }
+    param([string]$Title = 'Salamander', [int]$Width = 320, [int]$Height = 180)
+    $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title; width = $Width; height = $Height }
     $dialog = [pscustomobject]@{ DialogId = [string]$created.dialogId }
     $dialog | Add-Member ScriptMethod AddControl {
-        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null)
-        $arguments = @{ dialogId = $this.DialogId; kind = $Kind; controlId = $Id; text = $Text; readOnly = $ReadOnly; checked = $Checked; dialogResult = $DialogResult }
+        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null, [bool]$KeepOpen = $false, [bool]$Multiline = $false)
+        $arguments = @{ dialogId = $this.DialogId; kind = $Kind; controlId = $Id; text = $Text; readOnly = $ReadOnly; checked = $Checked; dialogResult = $DialogResult; keepOpen = $KeepOpen; multiline = $Multiline }
         if ($null -ne $Layout) {
             foreach ($name in @('x', 'y', 'width', 'height')) {
                 if ($Layout.ContainsKey($name)) { $arguments[$name] = [int]$Layout[$name] }
@@ -171,7 +171,7 @@ $ui | Add-Member ScriptMethod Dialog {
         $global:SalamatrixEventHandlers.Remove($EventName)
     }
     $dialog | Add-Member ScriptMethod AddLabel { param([string]$Id, [string]$Text) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'label'; controlId = $Id; text = $Text }) }
-    $dialog | Add-Member ScriptMethod AddTextBox { param([string]$Id, [string]$Text = '', [bool]$ReadOnly = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'textbox'; controlId = $Id; text = $Text; readOnly = $ReadOnly }) }
+    $dialog | Add-Member ScriptMethod AddTextBox { param([string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Multiline = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'textbox'; controlId = $Id; text = $Text; readOnly = $ReadOnly; multiline = $Multiline }) }
     $dialog | Add-Member ScriptMethod AddCheckBox { param([string]$Id, [string]$Text, [bool]$Checked = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'checkbox'; controlId = $Id; text = $Text; checked = $Checked }) }
     $dialog | Add-Member ScriptMethod AddRadioButton { param([string]$Id, [string]$Text, [bool]$Checked = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'radio'; controlId = $Id; text = $Text; checked = $Checked }) }
     $dialog | Add-Member ScriptMethod AddComboBox { param([string]$Id, [string]$Text = '') [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'combobox'; controlId = $Id; text = $Text }) }
@@ -180,7 +180,7 @@ $ui | Add-Member ScriptMethod Dialog {
     $dialog | Add-Member ScriptMethod AddTabControl { param([string]$Id) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'tabcontrol'; controlId = $Id }) }
     $dialog | Add-Member ScriptMethod AddItem { param([string]$ControlId, [string]$Text, [int]$ParentIndex = -1) (Invoke-Host -Method 'salamander.ui.dialog.item' -Arguments @{ dialogId = $this.DialogId; controlId = $ControlId; text = $Text; parentIndex = $ParentIndex }).itemCount }
     $dialog | Add-Member ScriptMethod ClearItems { param([string]$ControlId) [void](Invoke-Host -Method 'salamander.ui.dialog.clearItems' -Arguments @{ dialogId = $this.DialogId; controlId = $ControlId }) }
-    $dialog | Add-Member ScriptMethod AddButton { param([string]$Id, [string]$Text, [int]$DialogResult = 1) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'button'; controlId = $Id; text = $Text; dialogResult = $DialogResult }) }
+    $dialog | Add-Member ScriptMethod AddButton { param([string]$Id, [string]$Text, [int]$DialogResult = 1, [bool]$KeepOpen = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'button'; controlId = $Id; text = $Text; dialogResult = $DialogResult; keepOpen = $KeepOpen }) }
     $dialog | Add-Member ScriptMethod Show { (Invoke-Host -Method 'salamander.ui.dialog.show' -Arguments @{ dialogId = $this.DialogId }).result }
     $dialog | Add-Member ScriptMethod Get { param([string]$Id) Invoke-Host -Method 'salamander.ui.dialog.get' -Arguments @{ dialogId = $this.DialogId; controlId = $Id } }
     $dialog | Add-Member ScriptMethod Close { [void](Invoke-Host -Method 'salamander.ui.dialog.destroy' -Arguments @{ dialogId = $this.DialogId }) }
@@ -244,7 +244,10 @@ $Salamander = [pscustomobject]@{
     runtimes = $runtimes
 }
 
-& $EntryPoint
+# Extension return values must never leak onto stdout: stdout is the SMX1
+# transport.  Scripts are free to leave method results unassigned (as native
+# PowerShell scripts commonly do), so discard the invocation pipeline here.
+& $EntryPoint | Out-Null
 if ($OneShot) { exit 0 }
 while ($true) {
     $frame = Read-Frame

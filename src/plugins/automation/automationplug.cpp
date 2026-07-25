@@ -13,6 +13,7 @@
 
 #include "precomp.h"
 #include "automationplug.h"
+#include "salamatrixrunner.h"
 #include "scriptlist.h"
 #include "extensionmanifest.h"
 #include "automation.rh2"
@@ -34,6 +35,7 @@ extern CSalamanderGUIAbstract* SalamanderGUI;
 extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CAutomationPluginInterface g_oAutomationPlugin;
+extern CGeneratedScriptRunner g_oGeneratedScriptRunner;
 CWindowQueue AbortPaletteWindowQueue("Automation Abort Palette Window");
 
 static std::string EscapeAssistantContext(const char* value)
@@ -1207,7 +1209,7 @@ void CAutomationMenuExtInterface::AddScriptContainerToMenu(
                 pMenuBuilder->AddMenuItem(
                     PluginIconScript,
                     szDisplayName,
-                    0,
+                    command->HotKey,
                     command->MenuId,
                     TRUE,
                     command->MenuEventOrMask,
@@ -1367,6 +1369,11 @@ void CAutomationPluginInterface::About(HWND parent)
 
 BOOL WINAPI CAutomationPluginInterface::Release(HWND parent, BOOL force)
 {
+    if (SalamanderGeneral != NULL)
+        SalamanderGeneral->UnregisterServiceOwned(
+            SALAMATRIX_SERVICE_SCRIPT_RUNNER,
+            &g_oGeneratedScriptRunner,
+            &g_oGeneratedScriptRunner);
     g_oScriptLookup.UnpublishSalamatrixExtensions();
     m_oSalamatrix.Reset();
     ReleaseWinLib(g_hInstance);
@@ -1594,6 +1601,13 @@ void CAutomationPluginInterface::Event(int event, DWORD param)
 {
     switch (event)
     {
+    case PLUGINEVENT_CONFIGURATIONCHANGED:
+        // A runtime provider may be added after Automation. Re-publish and
+        // activate manifest extensions so providers installed later become
+        // usable without requiring a process restart.
+        RefreshSalamatrixServices();
+        g_oScriptLookup.PublishSalamatrixExtensions();
+        break;
     case PLUGINEVENT_SETTINGCHANGE:
     {
         AbortPaletteWindowQueue.BroadcastMessage(CScriptAbortPaletteWindow::WM_USER_SETTINGCHANGE, 0, 0);

@@ -366,6 +366,8 @@ void CPluginsDlg::OnSelChanged()
                                    StrICmp(p->RegKeyName, "PHP.RUNTIME") == 0 ||
                                    StrICmp(p->RegKeyName, "POWERSHELL.RUNTIME") == 0 ||
                                    StrICmp(p->RegKeyName, "PYTHON.RUNTIME") == 0);
+        BOOL isExtensionHelper = p->RegKeyName != NULL &&
+                                 StrICmp(p->RegKeyName, "SALAMATRIX.AI") == 0;
         buf[0] = 0;
         if (p->SupportPanelView)
             strcat(buf, LoadStr(IDS_PLUGINFUNCVIEW));
@@ -398,7 +400,7 @@ void CPluginsDlg::OnSelChanged()
                 strcat(buf, ",\n");
             strcat(buf, LoadStr(IDS_PLUGINFUNCFILEVIEWER));
         }
-        if (p->MenuItems.Count > 0 || p->SupportDynMenuExt)
+        if ((p->MenuItems.Count > 0 || p->SupportDynMenuExt) && !isExtensionHelper)
         {
             if (p->SupportViewer)
                 strcat(buf, ", "); // viewer text is shorter - same line
@@ -437,6 +439,8 @@ void CPluginsDlg::OnSelChanged()
                     ? IDS_PLUGINFUNCEXTENSIONFRAMEWORK
                     : isExtensionRuntime
                           ? IDS_PLUGINFUNCEXTENSIONRUNTIME
+                          : isExtensionHelper
+                                ? IDS_PLUGINFUNCEXTENSIONHELPER
                           : IDS_PLUGINFUNCAUTORUNTIME));
         }
 

@@ -108,10 +108,12 @@ class _Commands:
         ).get("result", "error")
 
     def register(self, command_id: str, title: str,
-                 plugin_menu: bool = True, context_menu: bool = False) -> bool:
+                 plugin_menu: bool = True, context_menu: bool = False,
+                 hot_key: int = 0) -> bool:
         result = self._transport.call(
             "salamander.commands.register", commandId=command_id,
-            title=title, pluginMenu=plugin_menu, contextMenu=context_menu
+            title=title, pluginMenu=plugin_menu, contextMenu=context_menu,
+            hotKey=int(hot_key)
         )
         return bool(result.get("registered", False))
 
@@ -132,6 +134,16 @@ class _Storage:
 
     def set(self, key: str, value: str) -> None:
         self._transport.call("salamander.storage.set", key=key, value=value)
+
+    def remove(self, key: str) -> bool:
+        return bool(self._transport.call(
+            "salamander.storage.remove", key=key
+        ).get("removed", False))
+
+    def clear(self) -> bool:
+        return bool(self._transport.call(
+            "salamander.storage.clear"
+        ).get("ok", False))
 
 
 class _FileOperations:
@@ -234,8 +246,12 @@ class _UI:
         )
         return _Progress(self._transport, str(result["progressId"]))
 
-    def dialog(self, title: str = "Salamander") -> "_Dialog":
-        result = self._transport.call("salamander.ui.dialog.create", title=title)
+    def dialog(self, title: str = "Salamander", width: int = 320,
+               height: int = 180) -> "_Dialog":
+        result = self._transport.call(
+            "salamander.ui.dialog.create", title=title,
+            width=int(width), height=int(height)
+        )
         return _Dialog(self._transport, str(result["dialogId"]))
 
 
@@ -341,11 +357,15 @@ class _Dialog:
     def add_control(self, kind: str, control_id: str, text: str = "",
                     read_only: bool = False, checked: bool = False,
                     dialog_result: int = 0,
-                    layout: Optional[dict] = None) -> None:
+                    layout: Optional[dict] = None,
+                    keep_open: bool = False,
+                    multiline: bool = False) -> None:
         arguments: dict = {
             "readOnly": read_only,
             "checked": checked,
             "dialogResult": dialog_result,
+            "keepOpen": keep_open,
+            "multiline": multiline,
         }
         if layout is not None:
             for name in ("x", "y", "width", "height"):
@@ -381,8 +401,9 @@ class _Dialog:
         self._add("label", control_id, text)
 
     def add_textbox(self, control_id: str, text: str = "",
-                    read_only: bool = False) -> None:
-        self._add("textbox", control_id, text, readOnly=read_only)
+                    read_only: bool = False, multiline: bool = False) -> None:
+        self._add("textbox", control_id, text, readOnly=read_only,
+                  multiline=multiline)
 
     def add_checkbox(self, control_id: str, text: str,
                      checked: bool = False) -> None:
@@ -433,8 +454,9 @@ class _Dialog:
         )
 
     def add_button(self, control_id: str, text: str,
-                   dialog_result: int = 1) -> None:
-        self._add("button", control_id, text, dialogResult=dialog_result)
+                   dialog_result: int = 1, keep_open: bool = False) -> None:
+        self._add("button", control_id, text, dialogResult=dialog_result,
+                  keepOpen=keep_open)
 
     def show(self) -> int:
         return int(self._transport.call(
@@ -445,6 +467,12 @@ class _Dialog:
         return self._transport.call(
             "salamander.ui.dialog.get", dialogId=self.dialog_id,
             controlId=control_id
+        )
+
+    def set(self, control_id: str, value: str) -> None:
+        self._transport.call(
+            "salamander.ui.dialog.set", dialogId=self.dialog_id,
+            controlId=control_id, value=value
         )
 
     def close(self) -> None:
@@ -473,6 +501,13 @@ class _AI:
         if feedback is not None:
             arguments["feedback"] = feedback
         return self._transport.call("salamander.ai.generate", **arguments)
+
+    def api(self, topic: Optional[str] = None) -> dict:
+        arguments = {} if topic is None else {"topic": topic}
+        return self._transport.call("salamander.ai.api", **arguments)
+
+    def api_description(self, topic: Optional[str] = None) -> dict:
+        return self.api(topic)
 
     def preview(self, prompt: str, context: Optional[dict] = None,
                 provider: Optional[str] = None, runtime: Optional[str] = None,

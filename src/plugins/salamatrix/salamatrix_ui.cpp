@@ -136,6 +136,9 @@ struct NativeDialog::Impl
         BOOL ReadOnly;
         BOOL Checked;
         int DialogResult;
+        BOOL KeepOpen;
+        BOOL Multiline;
+        HWND WindowHandle;
         BOOL Required;
         std::string ValidationMessage;
         BOOL HasBounds;
@@ -161,6 +164,9 @@ struct NativeDialog::Impl
               ReadOnly(options.ReadOnly),
               Checked(options.Checked),
               DialogResult(options.DialogResult),
+              KeepOpen(options.KeepOpen),
+              Multiline(options.Multiline),
+              WindowHandle(NULL),
               Required(FALSE),
               ValidationMessage(),
               HasBounds(layout.HasBounds),
@@ -193,6 +199,12 @@ struct NativeDialog::Impl
             if (value == NULL)
                 return FALSE;
             Text.assign(value);
+            if (WindowHandle != NULL)
+            {
+                std::wstring wide;
+                if (Utf8ToWide(Text.c_str(), wide))
+                    SetWindowTextW(WindowHandle, wide.c_str());
+            }
             return TRUE;
         }
 
@@ -220,6 +232,20 @@ struct NativeDialog::Impl
                 return FALSE;
             Items.push_back(value);
             ItemParents.push_back(parentIndex);
+            if (WindowHandle != NULL && Kind == ControlKindListView)
+            {
+                std::wstring wide;
+                if (Utf8ToWide(value, wide))
+                {
+                    LVITEMW item;
+                    memset(&item, 0, sizeof(item));
+                    item.mask = LVIF_TEXT;
+                    item.iItem = static_cast<int>(Items.size()) - 1;
+                    item.pszText = const_cast<wchar_t*>(wide.c_str());
+                    SendMessageW(WindowHandle, LVM_INSERTITEMW, 0,
+                                 reinterpret_cast<LPARAM>(&item));
+                }
+            }
             return TRUE;
         }
 
@@ -227,6 +253,8 @@ struct NativeDialog::Impl
         {
             Items.clear();
             ItemParents.clear();
+            if (WindowHandle != NULL && Kind == ControlKindListView)
+                SendMessage(WindowHandle, LVM_DELETEALLITEMS, 0, 0);
             return TRUE;
         }
 
@@ -259,6 +287,12 @@ struct NativeDialog::Impl
                 index < -1 || index >= static_cast<int>(Items.size()))
                 return FALSE;
             SelectedIndex = index;
+            if (index >= 0 && index < static_cast<int>(Items.size()))
+            {
+                Text = Items[index];
+                if (WindowHandle != NULL && Kind == ControlKindComboBox)
+                    SendMessage(WindowHandle, CB_SETCURSEL, index, 0);
+            }
             return TRUE;
         }
 
@@ -467,7 +501,11 @@ int WINAPI NativeDialog::ShowModal()
         if (control->Kind == ControlKindTextBox)
         {
             classOrdinal = 0x0081; // EDIT
-            style |= WS_BORDER | ES_AUTOHSCROLL;
+            style |= WS_BORDER;
+            if (control->Multiline)
+                style |= ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL;
+            else
+                style |= ES_AUTOHSCROLL;
             if (control->ReadOnly)
                 style |= ES_READONLY;
             height = 18;
@@ -585,6 +623,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             HWND child = GetDlgItem(hwnd, control->NumericId);
             if (child == NULL)
                 continue;
+            control->WindowHandle = child;
             std::wstring text;
             if (Utf8ToWide(control->Text.c_str(), text))
                 SetWindowTextW(child, text.c_str());
@@ -795,6 +834,9 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                 return TRUE;
             }
         }
+        dialog->m_pImpl->NotifyChanged(control);
+        if (control->KeepOpen)
+            return TRUE;
         dialog->m_pImpl->Result = control->DialogResult != 0
                                       ? control->DialogResult
                                       : IDOK;

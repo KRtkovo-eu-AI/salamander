@@ -104,6 +104,26 @@ public:
         const char* extensionId,
         ExtensionInfo* info) const = 0;
 
+    /// Optional unload lease appended to the lifecycle ABI. A host callback
+    /// acquires a short borrowed lease before touching extension state; unload
+    /// waits until all such callbacks have returned.
+    virtual BOOL WINAPI AcquireExtension(
+        const char* extensionId,
+        void* owner)
+    {
+        (void)extensionId;
+        (void)owner;
+        return FALSE;
+    }
+
+    virtual void WINAPI ReleaseExtension(
+        const char* extensionId,
+        void* owner)
+    {
+        (void)extensionId;
+        (void)owner;
+    }
+
 protected:
     virtual ~IExtensionsService() {}
 };
@@ -121,10 +141,12 @@ private:
         ExtensionInfo Info;
         ExtensionLifecycleCallback Callback;
         void* Context;
+        LONG ActiveLeases;
 
         Record()
             : Callback(NULL),
-              Context(NULL)
+              Context(NULL),
+              ActiveLeases(0)
         {
         }
     };
@@ -132,6 +154,7 @@ private:
     Record Records[MaxExtensions];
     int RecordCount;
     mutable CRITICAL_SECTION Lock;
+    CONDITION_VARIABLE LeaseChanged;
 
     ExtensionsService(const ExtensionsService&);
     ExtensionsService& operator=(const ExtensionsService&);
@@ -246,6 +269,7 @@ public:
         : RecordCount(0)
     {
         InitializeCriticalSection(&Lock);
+        InitializeConditionVariable(&LeaseChanged);
     }
 
     virtual ~ExtensionsService()
@@ -310,6 +334,40 @@ public:
             LeaveCriticalSection(&Lock);
             return FALSE;
         }
+        LeaveCriticalSection(&Lock);
+
+        // A registered extension may own a persistent worker, event
+        // subscriptions, or native UI handles. Give it the same lifecycle
+        // boundary as an explicit DeactivateExtension before deleting its
+        // record; otherwise its callback context could become dangling.
+        if (!RunAction(extensionId, ExtensionActionDeactivate))
+            return FALSE;
+
+        // The lifecycle callback stops persistent workers, but a host call may
+        // already be inside RuntimeHostDispatch. Wait for those borrowed
+        // leases before deleting the record and its owner pointer.
+        EnterCriticalSection(&Lock);
+        for (;;)
+        {
+            index = FindIndex(extensionId);
+            if (index < 0 ||
+                (context != NULL && Records[index].Context != context))
+            {
+                LeaveCriticalSection(&Lock);
+                return FALSE;
+            }
+            if (Records[index].ActiveLeases == 0)
+                break;
+            SleepConditionVariableCS(&LeaseChanged, &Lock, INFINITE);
+        }
+
+        index = FindIndex(extensionId);
+        if (index < 0 ||
+            (context != NULL && Records[index].Context != context))
+        {
+            LeaveCriticalSection(&Lock);
+            return FALSE;
+        }
         for (int move = index; move + 1 < RecordCount; ++move)
             Records[move] = Records[move + 1];
         Records[--RecordCount] = Record();
@@ -321,19 +379,34 @@ public:
     {
         if (context == NULL)
             return 0;
-        EnterCriticalSection(&Lock);
         int removed = 0;
-        for (int index = RecordCount - 1; index >= 0; --index)
+        for (;;)
         {
-            if (Records[index].Context == context)
+            char extensionId[sizeof(Records[0].Info.Descriptor.Id)];
+            extensionId[0] = '\0';
+            EnterCriticalSection(&Lock);
+            for (int index = RecordCount - 1; index >= 0; --index)
             {
-                for (int move = index; move + 1 < RecordCount; ++move)
-                    Records[move] = Records[move + 1];
-                Records[--RecordCount] = Record();
-                ++removed;
+                if (Records[index].Context == context)
+                {
+                    StringCchCopyA(
+                        extensionId,
+                        _countof(extensionId),
+                        Records[index].Info.Descriptor.Id);
+                    break;
+                }
             }
+            LeaveCriticalSection(&Lock);
+            if (extensionId[0] == '\0')
+                break;
+
+            // UnregisterExtension performs the deactivation outside the
+            // registry lock and verifies the owner again before removal.
+            if (UnregisterExtension(extensionId, context))
+                ++removed;
+            else
+                break;
         }
-        LeaveCriticalSection(&Lock);
         return removed;
     }
 
@@ -388,6 +461,42 @@ public:
         CopyInfo(Records[index], info);
         LeaveCriticalSection(&Lock);
         return TRUE;
+    }
+
+    virtual BOOL WINAPI AcquireExtension(
+        const char* extensionId,
+        void* owner)
+    {
+        EnterCriticalSection(&Lock);
+        int index = FindIndex(extensionId);
+        if (index < 0 ||
+            (owner != NULL && Records[index].Context != owner) ||
+            (Records[index].Info.State != ExtensionStateActive &&
+             Records[index].Info.State != ExtensionStateActivating))
+        {
+            LeaveCriticalSection(&Lock);
+            return FALSE;
+        }
+        ++Records[index].ActiveLeases;
+        LeaveCriticalSection(&Lock);
+        return TRUE;
+    }
+
+    virtual void WINAPI ReleaseExtension(
+        const char* extensionId,
+        void* owner)
+    {
+        EnterCriticalSection(&Lock);
+        int index = FindIndex(extensionId);
+        if (index >= 0 &&
+            (owner == NULL || Records[index].Context == owner) &&
+            Records[index].ActiveLeases > 0)
+        {
+            --Records[index].ActiveLeases;
+            if (Records[index].ActiveLeases == 0)
+                WakeAllConditionVariable(&LeaseChanged);
+        }
+        LeaveCriticalSection(&Lock);
     }
 };
 

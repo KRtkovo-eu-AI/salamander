@@ -103,18 +103,45 @@ private:
         DWORD Version;
         void* Interface;
         const char* ProviderName;
+        void* ProviderOwner;
+        LONG ActiveLeases;
+        BOOL Unloading;
 
         ServiceRecord()
             : ServiceId(NULL),
               Version(0),
               Interface(NULL),
-              ProviderName(NULL)
+              ProviderName(NULL),
+              ProviderOwner(NULL),
+              ActiveLeases(0),
+              Unloading(FALSE)
         {
         }
     };
 
+    struct ServiceLease
+    {
+        const char* ServiceId;
+        void* Interface;
+        void* ConsumerOwner;
+
+        ServiceLease()
+            : ServiceId(NULL),
+              Interface(NULL),
+              ConsumerOwner(NULL)
+        {
+        }
+    };
+
+    enum
+    {
+        MaxLeases = 64
+    };
+
     ServiceRecord Services[MaxServices];
     int Count;
+    ServiceLease Leases[MaxLeases];
+    int LeaseCount;
 
     static BOOL WINAPI SameServiceId(const char* left, const char* right)
     {
@@ -123,13 +150,32 @@ private:
         return strcmp(left, right) == 0;
     }
 
+    int FindService(const char* serviceId, void* serviceInterface = NULL) const
+    {
+        for (int i = 0; i < Count; ++i)
+        {
+            if (SameServiceId(Services[i].ServiceId, serviceId) &&
+                (serviceInterface == NULL || Services[i].Interface == serviceInterface))
+                return i;
+        }
+        return -1;
+    }
+
 public:
     ServiceRegistry()
-        : Count(0)
+        : Count(0),
+          LeaseCount(0)
     {
     }
 
     BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName)
+    {
+        return RegisterServiceOwned(serviceId, version, serviceInterface, providerName, NULL);
+    }
+
+    BOOL WINAPI RegisterServiceOwned(const char* serviceId, DWORD version,
+                                     void* serviceInterface, const char* providerName,
+                                     void* providerOwner)
     {
         if (serviceId == NULL || serviceInterface == NULL || version == 0)
             return FALSE;
@@ -147,8 +193,66 @@ public:
         Services[Count].Version = version;
         Services[Count].Interface = serviceInterface;
         Services[Count].ProviderName = providerName;
+        Services[Count].ProviderOwner = providerOwner;
         ++Count;
         return TRUE;
+    }
+
+    BOOL WINAPI UnregisterServiceOwned(const char* serviceId, void* serviceInterface,
+                                       void* providerOwner)
+    {
+        int index = FindService(serviceId, serviceInterface);
+        if (index < 0 || Services[index].ProviderOwner != providerOwner ||
+            Services[index].ActiveLeases != 0)
+            return FALSE;
+        Services[index].Unloading = TRUE;
+        for (int i = index; i + 1 < Count; ++i)
+            Services[i] = Services[i + 1];
+        --Count;
+        Services[Count] = ServiceRecord();
+        return TRUE;
+    }
+
+    BOOL WINAPI AcquireService(const char* serviceId, void* serviceInterface,
+                               void* consumerOwner)
+    {
+        if (serviceId == NULL || serviceInterface == NULL || consumerOwner == NULL ||
+            LeaseCount >= MaxLeases)
+            return FALSE;
+        int index = FindService(serviceId, serviceInterface);
+        if (index < 0 || Services[index].Unloading)
+            return FALSE;
+        Leases[LeaseCount].ServiceId = Services[index].ServiceId;
+        Leases[LeaseCount].Interface = serviceInterface;
+        Leases[LeaseCount].ConsumerOwner = consumerOwner;
+        ++LeaseCount;
+        ++Services[index].ActiveLeases;
+        return TRUE;
+    }
+
+    BOOL WINAPI ReleaseService(const char* serviceId, void* serviceInterface,
+                               void* consumerOwner)
+    {
+        if (serviceId == NULL || serviceInterface == NULL || consumerOwner == NULL)
+            return FALSE;
+        int index = FindService(serviceId, serviceInterface);
+        if (index < 0 || Services[index].ActiveLeases <= 0)
+            return FALSE;
+        for (int i = 0; i < LeaseCount; ++i)
+        {
+            if (SameServiceId(Leases[i].ServiceId, serviceId) &&
+                Leases[i].Interface == serviceInterface &&
+                Leases[i].ConsumerOwner == consumerOwner)
+            {
+                for (int j = i; j + 1 < LeaseCount; ++j)
+                    Leases[j] = Leases[j + 1];
+                --LeaseCount;
+                Leases[LeaseCount] = ServiceLease();
+                --Services[index].ActiveLeases;
+                return TRUE;
+            }
+        }
+        return FALSE;
     }
 
     BOOL WINAPI QueryService(const ServiceQuery& query, ServiceResult* result) const
@@ -584,25 +688,25 @@ private:
         if (General != NULL)
         {
             if (HostStorageRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_STORAGE, &StorageService);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_STORAGE, &StorageService, this);
             if (HostAIRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_AI, &AIService);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_AI, &AIService, this);
             if (HostExtensionsRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_EXTENSIONS, &ExtensionsService);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, &ExtensionsService, this);
             if (HostEventsRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_EVENTS, &EventService);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, &EventService, this);
             if (HostSidesRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_SIDES, &SidesService);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_SIDES, &SidesService, this);
             if (HostRuntimeRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_RUNTIME, &RuntimeBroker);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_RUNTIME, &RuntimeBroker, this);
             if (HostAutomationRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, &ScriptRoot);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, &ScriptRoot, this);
             if (HostFileOperationsRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, &FileOperationsService);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_FILEOPERATIONS, &FileOperationsService, this);
             if (HostCommandsRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_COMMANDS, &CommandService);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, &CommandService, this);
             if (HostUIRegistered)
-                General->UnregisterService(SALAMATRIX_SERVICE_UI, &UIService);
+                General->UnregisterServiceOwned(SALAMATRIX_SERVICE_UI, &UIService, this);
         }
 
         HostRuntimeRegistered = FALSE;
@@ -646,38 +750,38 @@ public:
           HostStorageRegistered(FALSE)
     {
         Registered = TRUE;
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework");
-        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework");
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework", this);
 
         if (General != NULL && registerHostServices)
         {
-            HostUIRegistered = General->RegisterService(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework");
+            HostUIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework", this);
             if (HostUIRegistered)
-                HostCommandsRegistered = General->RegisterService(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework");
+                HostCommandsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);
             if (HostCommandsRegistered)
-                HostFileOperationsRegistered = General->RegisterService(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework");
+                HostFileOperationsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework", this);
             if (HostFileOperationsRegistered)
-                HostAutomationRegistered = General->RegisterService(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework");
+                HostAutomationRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework", this);
             if (HostAutomationRegistered)
-                HostRuntimeRegistered = General->RegisterService(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework");
+                HostRuntimeRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework", this);
             if (HostRuntimeRegistered)
-                HostSidesRegistered = General->RegisterService(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework");
+                HostSidesRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework", this);
             if (HostSidesRegistered)
-                HostEventsRegistered = General->RegisterService(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework");
+                HostEventsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework", this);
             if (HostEventsRegistered)
-                HostExtensionsRegistered = General->RegisterService(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework");
+                HostExtensionsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework", this);
             if (HostExtensionsRegistered)
-                HostAIRegistered = General->RegisterService(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework");
+                HostAIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework", this);
             if (HostAIRegistered)
-                HostStorageRegistered = General->RegisterService(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework");
+                HostStorageRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework", this);
 
             HostRegistered = HostUIRegistered &&
                              HostCommandsRegistered &&

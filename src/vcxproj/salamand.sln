@@ -28,6 +28,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "phpruntime", "..\plugins\ph
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "javascriptruntime", "..\plugins\javascriptruntime\vcxproj\javascriptruntime.vcxproj", "{6B7C2D5E-3A91-4F20-8C6D-9E1B4A7F0D35}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "salamatrixai", "..\plugins\salamatrixai\vcxproj\salamatrixai.vcxproj", "{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_automation", "..\plugins\automation\vcxproj\lang_automation.vcxproj", "{90D0933D-53EC-4FB1-973E-1FD6FA13BDA6}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "diskmap", "..\plugins\diskmap\vcxproj\diskmap.vcxproj", "{456EF980-3BB8-4719-8E3B-19152A0BC38E}"
@@ -530,6 +532,14 @@ Global
 		{6B7C2D5E-3A91-4F20-8C6D-9E1B4A7F0D35}.Utils (Release)|ARM64.ActiveCfg = Release|ARM64
 		{6B7C2D5E-3A91-4F20-8C6D-9E1B4A7F0D35}.Utils (Release)|Win32.ActiveCfg = Release|Win32
 		{6B7C2D5E-3A91-4F20-8C6D-9E1B4A7F0D35}.Utils (Release)|x64.ActiveCfg = Release|x64
+		{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}.Debug|Any CPU.Build.0 = Debug|x64
+		{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}.Debug|x64.ActiveCfg = Debug|x64
+		{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}.Debug|x64.Build.0 = Debug|x64
+		{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}.Release|Any CPU.ActiveCfg = Release|x64
+		{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}.Release|Any CPU.Build.0 = Release|x64
+		{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}.Release|x64.ActiveCfg = Release|x64
+		{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}.Release|x64.Build.0 = Release|x64
 		{90D0933D-53EC-4FB1-973E-1FD6FA13BDA6}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{90D0933D-53EC-4FB1-973E-1FD6FA13BDA6}.Debug|Any CPU.Build.0 = Debug|x64
 		{90D0933D-53EC-4FB1-973E-1FD6FA13BDA6}.Debug|ARM64.ActiveCfg = Debug|ARM64

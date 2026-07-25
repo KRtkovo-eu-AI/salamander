@@ -111,6 +111,9 @@
     <ClCompile Include="..\salamatrixbridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\salamatrixrunner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\saltypelib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -251,6 +254,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\salamatrixbridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\salamatrixrunner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\saltypelib.h">

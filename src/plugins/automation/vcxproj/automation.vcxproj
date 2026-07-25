@@ -301,6 +301,8 @@
     </ClCompile>
     <ClCompile Include="..\salamatrixbridge.cpp">
     </ClCompile>
+    <ClCompile Include="..\salamatrixrunner.cpp">
+    </ClCompile>
     <ClCompile Include="..\saltypelib.cpp">
     </ClCompile>
     <ClCompile Include="..\scriptinfoaut.cpp">
@@ -388,6 +390,8 @@
     <ClInclude Include="..\salamatrixaut.h">
     </ClInclude>
     <ClInclude Include="..\salamatrixbridge.h">
+    </ClInclude>
+    <ClInclude Include="..\salamatrixrunner.h">
     </ClInclude>
     <ClInclude Include="..\saltypelib.h">
     </ClInclude>

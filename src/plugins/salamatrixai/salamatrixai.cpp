@@ -1,0 +1,936 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "precomp.h"
+#include "salamatrixai.h"
+#include <strsafe.h>
+#include <algorithm>
+#include <winhttp.h>
+
+HINSTANCE DLLInstance = NULL;
+CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
+CSalamanderGUIAbstract* SalamanderGUI = NULL;
+CSalamanderDebugAbstract* SalamanderDebug = NULL;
+int SalamanderVersion = 0;
+CPluginInterface PluginInterface;
+
+namespace
+{
+CAIPluginMenuExt g_menu;
+CLocalAssistantProvider g_provider;
+CLocalHttpAssistantProvider g_httpProvider;
+Salamatrix::AI::IAssistantService* g_ai = NULL;
+Salamatrix::UI::IUIService* g_ui = NULL;
+Salamatrix::Runtime::IRuntimeService* g_runtime = NULL;
+Salamatrix::Automation::IScriptRunner* g_runner = NULL;
+
+static std::string EscapeJson(const char* value)
+{
+    std::string result;
+    if (value == NULL) return result;
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(value); *p; ++p)
+    {
+        switch (*p)
+        {
+        case '\\': result += "\\\\"; break;
+        case '"': result += "\\\""; break;
+        case '\n': result += "\\n"; break;
+        case '\r': result += "\\r"; break;
+        case '\t': result += "\\t"; break;
+        default: result.push_back(static_cast<char>(*p)); break;
+        }
+    }
+    return result;
+}
+
+static void AssistantFailure(Salamatrix::AI::AssistantResponse* response,
+                             Salamatrix::AI::AssistantStatus status,
+                             HRESULT code, const wchar_t* message)
+{
+    response->Status = status;
+    response->ErrorCode = code;
+    response->OutputLength = 0;
+    response->ResponseJson[0] = '\0';
+    StringCchCopyW(response->Message, _countof(response->Message), message);
+}
+
+static bool StructuredJson(const std::string& value)
+{
+    size_t first = value.find_first_not_of(" \t\r\n");
+    size_t last = value.find_last_not_of(" \t\r\n");
+    return first != std::string::npos && last > first &&
+           ((value[first] == '{' && value[last] == '}') ||
+            (value[first] == '[' && value[last] == ']'));
+}
+
+static bool ReadEnvironmentString(const wchar_t* name, std::wstring& value)
+{
+    value.clear();
+    wchar_t buffer[4096];
+    DWORD length = GetEnvironmentVariableW(name, buffer, _countof(buffer));
+    if (length == 0 || length >= _countof(buffer))
+        return false;
+    value.assign(buffer, length);
+    return !value.empty();
+}
+
+static std::string WideToUtf8String(const std::wstring& value)
+{
+    if (value.empty())
+        return std::string();
+    int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+                                    value.c_str(), -1, NULL, 0, NULL, NULL);
+    if (length <= 1)
+        return std::string();
+    std::vector<char> buffer(static_cast<size_t>(length));
+    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+                            value.c_str(), -1, buffer.data(), length,
+                            NULL, NULL) <= 0)
+        return std::string();
+    return std::string(buffer.data());
+}
+
+static bool HttpGenerateRequest(
+    const std::wstring& url,
+    const std::wstring& model,
+    const std::string& body,
+    DWORD timeoutMs,
+    std::string& responseBody)
+{
+    responseBody.clear();
+    if (url.empty() || model.empty() || body.empty())
+        return false;
+
+    URL_COMPONENTS components;
+    memset(&components, 0, sizeof(components));
+    components.dwStructSize = sizeof(components);
+    // Use heap-backed bounds rather than MAX_PATH-sized URL scratch buffers.
+    std::vector<wchar_t> host(4096, L'\0');
+    std::vector<wchar_t> path(32768, L'\0');
+    std::vector<wchar_t> extra(8192, L'\0');
+    components.lpszHostName = host.data();
+    components.dwHostNameLength = static_cast<DWORD>(host.size() - 1);
+    components.lpszUrlPath = path.data();
+    components.dwUrlPathLength = static_cast<DWORD>(path.size() - 1);
+    components.lpszExtraInfo = extra.data();
+    components.dwExtraInfoLength = static_cast<DWORD>(extra.size() - 1);
+    if (!WinHttpCrackUrl(url.c_str(), 0, 0, &components))
+        return false;
+
+    std::wstring requestPath(path.data(), components.dwUrlPathLength);
+    requestPath.append(extra.data(), components.dwExtraInfoLength);
+    if (requestPath.empty() || requestPath == L"/")
+        requestPath = L"/api/generate";
+    HINTERNET session = WinHttpOpen(
+        L"Open Salamander Salamatrix AI/1.0",
+        WINHTTP_ACCESS_TYPE_NO_PROXY,
+        WINHTTP_NO_PROXY_NAME,
+        WINHTTP_NO_PROXY_BYPASS,
+        0);
+    if (session == NULL)
+        return false;
+    DWORD boundedTimeout = timeoutMs == 0 ? 120000 :
+        (timeoutMs > 120000 ? 120000 : timeoutMs);
+    WinHttpSetTimeouts(session, boundedTimeout, boundedTimeout,
+                       boundedTimeout, boundedTimeout);
+    HINTERNET connection = WinHttpConnect(
+        session, host.data(), components.nPort, 0);
+    if (connection == NULL)
+    {
+        WinHttpCloseHandle(session);
+        return false;
+    }
+    DWORD flags = components.nScheme == INTERNET_SCHEME_HTTPS
+                      ? WINHTTP_FLAG_SECURE
+                      : 0;
+    HINTERNET request = WinHttpOpenRequest(
+        connection, L"POST", requestPath.c_str(), NULL,
+        WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
+    if (request == NULL)
+    {
+        WinHttpCloseHandle(connection);
+        WinHttpCloseHandle(session);
+        return false;
+    }
+    const wchar_t headers[] = L"Content-Type: application/json\r\n";
+    BOOL sent = WinHttpSendRequest(
+        request, headers, static_cast<DWORD>(-1L),
+        const_cast<char*>(body.data()), static_cast<DWORD>(body.size()),
+        static_cast<DWORD>(body.size()), 0) && WinHttpReceiveResponse(
+        request, NULL);
+    DWORD status = 0;
+    DWORD statusSize = sizeof(status);
+    if (sent)
+        WinHttpQueryHeaders(request,
+                            WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                            WINHTTP_HEADER_NAME_BY_INDEX,
+                            &status, &statusSize, WINHTTP_NO_HEADER_INDEX);
+
+    bool ok = sent && status >= 200 && status < 300;
+    while (ok)
+    {
+        DWORD available = 0;
+        if (!WinHttpQueryDataAvailable(request, &available))
+        {
+            ok = false;
+            break;
+        }
+        if (available == 0)
+            break;
+        if (responseBody.size() >= 1024 * 1024)
+        {
+            ok = false;
+            break;
+        }
+        DWORD take = available;
+        size_t remaining = 1024 * 1024 - responseBody.size();
+        if (take > remaining)
+            take = static_cast<DWORD>(remaining);
+        std::vector<char> chunk(take);
+        DWORD read = 0;
+        if (!WinHttpReadData(request, chunk.data(), take, &read))
+        {
+            ok = false;
+            break;
+        }
+        responseBody.append(chunk.data(), read);
+    }
+    WinHttpCloseHandle(request);
+    WinHttpCloseHandle(connection);
+    WinHttpCloseHandle(session);
+    return ok;
+}
+
+static void* Query(const char* id, DWORD version)
+{
+    if (SalamanderGeneral == NULL) return NULL;
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = id;
+    query.MinimumVersion = version;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    return SalamanderGeneral->QueryService(&query, &result) ? result.Interface : NULL;
+}
+
+static void EnsureServices()
+{
+    if (g_ai == NULL)
+        g_ai = static_cast<Salamatrix::AI::IAssistantService*>(Query(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0));
+    if (g_ui == NULL)
+        g_ui = static_cast<Salamatrix::UI::IUIService*>(Query(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0));
+    if (g_runtime == NULL)
+        g_runtime = static_cast<Salamatrix::Runtime::IRuntimeService*>(Query(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0));
+    if (g_runner == NULL)
+        g_runner = static_cast<Salamatrix::Automation::IScriptRunner*>(Query(
+            SALAMATRIX_SERVICE_SCRIPT_RUNNER,
+            SALAMATRIX_SCRIPT_RUNNER_VERSION_1_0));
+    if (g_ai != NULL)
+    {
+        // Register descriptors even when their backend is currently
+        // unavailable.  Generate() still skips unavailable providers, while
+        // the chat can report what needs configuration or what is offline.
+        g_ai->RegisterProvider(&g_provider);
+        g_ai->RegisterProvider(&g_httpProvider);
+    }
+}
+
+struct ChatContext
+{
+    Salamatrix::AI::IAssistantService* Ai;
+    Salamatrix::Runtime::IRuntimeService* Runtime;
+    Salamatrix::Automation::IScriptRunner* Runner;
+    Salamatrix::UI::IDialog* Dialog;
+    Salamatrix::UI::IControl* History;
+    Salamatrix::UI::IControl* Prompt;
+    Salamatrix::UI::IControl* RuntimeChoice;
+    Salamatrix::UI::IControl* ProviderChoice;
+    CSalamanderForOperationsAbstract* Operation;
+    HWND Parent;
+    Salamatrix::AI::AssistantResponse LastResponse;
+    BOOL HasResponse;
+    std::wstring LastSavedPath;
+};
+
+static bool Utf8ToWideString(const char* value, std::wstring& result)
+{
+    result.clear();
+    if (value == NULL) return false;
+    int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1, NULL, 0);
+    if (length <= 0) return false;
+    std::vector<wchar_t> buffer(static_cast<size_t>(length));
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1,
+                            buffer.data(), length) <= 0)
+        return false;
+    result.assign(buffer.data());
+    return true;
+}
+
+static std::wstring Win32Path(const std::wstring& value)
+{
+    if (value.size() < MAX_PATH || value.compare(0, 4, L"\\\\?\\") == 0)
+        return value;
+    if (value.size() >= 2 && value[0] == L'\\' && value[1] == L'\\')
+        return L"\\\\?\\UNC\\" + value.substr(2);
+    return L"\\\\?\\" + value;
+}
+
+static bool WriteUtf8File(const std::wstring& path, const char* text)
+{
+    HANDLE file = CreateFileW(Win32Path(path).c_str(), GENERIC_WRITE, 0, NULL,
+                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    DWORD written = 0;
+    const char bom[] = "\xEF\xBB\xBF";
+    BOOL ok = WriteFile(file, bom, 3, &written, NULL) && written == 3;
+    size_t length = text != NULL ? strlen(text) : 0;
+    if (ok && length != 0)
+        ok = WriteFile(file, text, static_cast<DWORD>(length), &written, NULL) &&
+             written == length;
+    CloseHandle(file);
+    return ok != FALSE;
+}
+
+static bool SaveResponseScript(ChatContext* chat)
+{
+    if (chat == NULL || !chat->HasResponse || chat->LastResponse.Summary.Script[0] == '\0')
+        return false;
+    std::vector<char> path(32768, '\0');
+    const char filter[] = "JavaScript|*.js;*.mjs|Python|*.py|PowerShell|*.ps1|PHP|*.php|All files|*.*";
+    if (g_ui == NULL || !g_ui->PickFile(chat->Parent, TRUE, "Save generated script",
+                                        filter, "", path.data(), static_cast<DWORD>(path.size())))
+        return false;
+    std::wstring widePath;
+    if (!Utf8ToWideString(path.data(), widePath) ||
+        !WriteUtf8File(widePath, chat->LastResponse.Summary.Script))
+        return false;
+    chat->LastSavedPath = widePath;
+    return true;
+}
+
+static const char* RuntimeIdFromChoice(ChatContext* chat)
+{
+    static char id[128];
+    id[0] = '\0';
+    if (chat == NULL || chat->RuntimeChoice == NULL)
+        return id;
+    chat->RuntimeChoice->GetText(id, sizeof(id));
+    return id;
+}
+
+static const char* ProviderIdFromChoice(ChatContext* chat)
+{
+    static char id[128];
+    id[0] = '\0';
+    if (chat == NULL || chat->ProviderChoice == NULL ||
+        !chat->ProviderChoice->GetText(id, sizeof(id)) ||
+        id[0] == '\0' || _stricmp(id, "auto") == 0)
+        return NULL;
+    return id;
+}
+
+static const char* ConfiguredProviderId()
+{
+    static char provider[128];
+    DWORD length = GetEnvironmentVariableA(
+        "SALAMATRIX_AI_PROVIDER", provider, _countof(provider));
+    if (length == 0 || length >= _countof(provider))
+    {
+        provider[0] = '\0';
+        return NULL;
+    }
+    return provider;
+}
+
+static bool RunResponseScript(ChatContext* chat)
+{
+    if (chat == NULL || !chat->HasResponse)
+        return false;
+    // Keep the chat window's Run action behind the same conservative effect
+    // gate as Automation's preview flow.  The assistant may still preview or
+    // save scripts that delete files, launch processes, or use the network,
+    // but those scripts must not be executed directly from the helper.
+    if (!Salamatrix::AI::IsSafeToRun(chat->LastResponse.Summary))
+        return false;
+    if (chat->LastSavedPath.empty() && !SaveResponseScript(chat))
+        return false;
+    const char* runtimeId = RuntimeIdFromChoice(chat);
+    if (chat->Runner != NULL)
+    {
+        Salamatrix::Automation::GeneratedScriptRequest request;
+        request.EntryPoint = chat->LastSavedPath.c_str();
+        request.RuntimeId = runtimeId;
+        request.ExtensionId = "salamatrix.ai.chat";
+        request.ParentWindow = chat->Parent;
+        request.Operation = chat->Operation;
+        request.TimeoutMs = 120000;
+        Salamatrix::Automation::GeneratedScriptResult result;
+        return chat->Runner->ExecuteGenerated(&request, &result) &&
+               result.Succeeded != FALSE;
+    }
+    if (chat->Runtime == NULL)
+        return false;
+    Salamatrix::Runtime::IRuntimeAdapter* adapter =
+        chat->Runtime->FindAdapter(runtimeId, 0);
+    if (adapter == NULL)
+    {
+        std::string extension;
+        const std::wstring& path = chat->LastSavedPath;
+        size_t dot = path.find_last_of(L'.');
+        if (dot != std::wstring::npos)
+        {
+            std::wstring suffix = path.substr(dot);
+            int length = WideCharToMultiByte(CP_UTF8, 0, suffix.c_str(), -1, NULL, 0, NULL, NULL);
+            if (length > 0)
+            {
+                std::vector<char> converted(static_cast<size_t>(length));
+                WideCharToMultiByte(CP_UTF8, 0, suffix.c_str(), -1, converted.data(), length, NULL, NULL);
+                extension.assign(converted.data());
+            }
+        }
+        adapter = chat->Runtime->FindAdapterForEntryPoint(extension.c_str());
+    }
+    if (adapter == NULL) return false;
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.ExtensionId = "salamatrix.ai.chat";
+    request.CommandId = "generated";
+    request.ParentWindow = chat->Parent;
+    request.TimeoutMs = 120000;
+    request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
+                    Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;
+    request.EntryPoint = chat->LastSavedPath.c_str();
+    Salamatrix::Runtime::RuntimeExecutionResult result;
+    return adapter->Execute(&request, &result) &&
+           result.Status == Salamatrix::Runtime::RuntimeExecutionStatusSucceeded;
+}
+
+static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* event)
+{
+    ChatContext* chat = static_cast<ChatContext*>(context);
+    if (chat == NULL || event == NULL || event->ControlId[0] == '\0')
+        return TRUE;
+    if (strcmp(event->ControlId, "preview") == 0)
+    {
+        if (chat->HasResponse && g_ui != NULL)
+        {
+            std::string preview = std::string(chat->LastResponse.Summary.Title) +
+                "\n\n" + chat->LastResponse.Summary.Description +
+                "\n\n" + chat->LastResponse.Summary.Script;
+            g_ui->ShowMessageBox(chat->Parent, preview.c_str(), "AI Preview",
+                                 MB_OK | MB_ICONINFORMATION);
+        }
+        return TRUE;
+    }
+    if (strcmp(event->ControlId, "save") == 0)
+    {
+        const bool saved = SaveResponseScript(chat);
+        if (g_ui != NULL)
+            g_ui->ShowMessageBox(chat->Parent, saved ? "Script saved." : "Script was not saved.",
+                                 "Salamatrix AI", MB_OK | (saved ? MB_ICONINFORMATION : MB_ICONWARNING));
+        return TRUE;
+    }
+    if (strcmp(event->ControlId, "run") == 0)
+    {
+        const bool ran = RunResponseScript(chat);
+        if (g_ui != NULL)
+            g_ui->ShowMessageBox(chat->Parent, ran ? "Script completed." : "Script failed or no runtime is available.",
+                                 "Salamatrix AI", MB_OK | (ran ? MB_ICONINFORMATION : MB_ICONWARNING));
+        return TRUE;
+    }
+    if (strcmp(event->ControlId, "ask") != 0 ||
+        chat->Prompt == NULL || chat->History == NULL || chat->Ai == NULL)
+        return TRUE;
+    char prompt[4096];
+    if (!chat->Prompt->GetText(prompt, sizeof(prompt)) || prompt[0] == '\0')
+        return TRUE;
+    std::string line = std::string("You: ") + prompt;
+    chat->History->AddItem(line.c_str());
+
+    Salamatrix::AI::AssistantRequest request;
+    request.Prompt = prompt;
+    request.ContextJson = "{\"source\":\"Salamatrix AI chat\"}";
+    request.RuntimeId = "";
+    if (chat->HasResponse && chat->LastResponse.Summary.Script[0] != '\0')
+    {
+        request.ExistingScript = chat->LastResponse.Summary.Script;
+        request.Feedback = prompt;
+    }
+    request.MaxOutputBytes = 65536;
+    Salamatrix::AI::AssistantResponse response;
+    request.RuntimeId = RuntimeIdFromChoice(chat);
+    const char* selectedProvider = ProviderIdFromChoice(chat);
+    if (selectedProvider == NULL)
+        selectedProvider = ConfiguredProviderId();
+    if (!chat->Ai->Generate(selectedProvider, &request, &response) ||
+        response.Status != Salamatrix::AI::AssistantStatusSucceeded)
+    {
+        char message[512] = "Assistant unavailable.";
+        WideCharToMultiByte(CP_UTF8, 0, response.Message, -1, message,
+                            static_cast<int>(sizeof(message)), NULL, NULL);
+        chat->History->AddItem((std::string("AI: ") + message).c_str());
+    }
+    else
+    {
+        std::string answer = response.Summary.Description[0] != '\0'
+                                 ? response.Summary.Description
+                                 : response.ResponseJson;
+        chat->History->AddItem((std::string("AI: ") + answer).c_str());
+        chat->LastResponse = response;
+        chat->HasResponse = TRUE;
+    }
+    chat->Prompt->SetText("");
+    return TRUE;
+}
+
+static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
+{
+    EnsureServices();
+    if (g_ai == NULL || g_ui == NULL)
+    {
+        if (SalamanderGeneral != NULL)
+            SalamanderGeneral->SalMessageBox(parent,
+                "Salamatrix Framework is not loaded.", "Salamatrix AI",
+                MB_OK | MB_ICONWARNING);
+        return;
+    }
+    Salamatrix::UI::DialogOptions options;
+    options.Title = "Salamatrix AI";
+    options.Parent = parent;
+    options.Width = 760;
+    options.Height = 560;
+    Salamatrix::UI::IDialog* dialog = g_ui->CreateSalamatrixDialog(options);
+    if (dialog == NULL) return;
+    Salamatrix::UI::ControlLayout historyLayout;
+    historyLayout.HasBounds = TRUE;
+    historyLayout.X = 8; historyLayout.Y = 8; historyLayout.Width = 744; historyLayout.Height = 330;
+    Salamatrix::UI::ControlOptions historyOptions;
+    historyOptions.Id = "history";
+    Salamatrix::UI::IControl* history = dialog->AddControlEx(
+        Salamatrix::UI::ControlKindListView, historyOptions, historyLayout);
+    Salamatrix::UI::ControlLayout promptLayout;
+    promptLayout.HasBounds = TRUE;
+    promptLayout.X = 8; promptLayout.Y = 345; promptLayout.Width = 548; promptLayout.Height = 76;
+    Salamatrix::UI::ControlOptions promptOptions;
+    promptOptions.Id = "prompt";
+    promptOptions.Multiline = TRUE;
+    Salamatrix::UI::IControl* prompt = dialog->AddControlEx(
+        Salamatrix::UI::ControlKindTextBox, promptOptions, promptLayout);
+    Salamatrix::UI::ControlLayout runtimeLayout;
+    runtimeLayout.HasBounds = TRUE;
+    runtimeLayout.X = 568; runtimeLayout.Y = 345; runtimeLayout.Width = 184; runtimeLayout.Height = 24;
+    Salamatrix::UI::ControlOptions runtimeOptions;
+    runtimeOptions.Id = "runtime";
+    Salamatrix::UI::IControl* runtimeChoice = dialog->AddControlEx(
+        Salamatrix::UI::ControlKindComboBox, runtimeOptions, runtimeLayout);
+
+    Salamatrix::UI::ControlLayout providerLayout;
+    providerLayout.HasBounds = TRUE;
+    providerLayout.X = 568; providerLayout.Y = 375; providerLayout.Width = 184; providerLayout.Height = 24;
+    Salamatrix::UI::ControlOptions providerOptions;
+    providerOptions.Id = "provider";
+    Salamatrix::UI::IControl* providerChoice = dialog->AddControlEx(
+        Salamatrix::UI::ControlKindComboBox, providerOptions, providerLayout);
+    if (providerChoice != NULL)
+    {
+        providerChoice->AddItem("auto");
+        const char* configured = ConfiguredProviderId();
+        int configuredIndex = 0;
+        for (int index = 0; index < g_ai->GetProviderCount(); ++index)
+        {
+            Salamatrix::AI::IAssistantProvider* provider = g_ai->GetProvider(index);
+            const Salamatrix::AI::AssistantProviderDescriptor* descriptor =
+                provider != NULL ? provider->GetDescriptor() : NULL;
+            if (descriptor == NULL || descriptor->ProviderId == NULL ||
+                !provider->IsAvailable())
+                continue;
+            providerChoice->AddItem(descriptor->ProviderId);
+            if (configured != NULL &&
+                _stricmp(configured, descriptor->ProviderId) == 0)
+                configuredIndex = providerChoice->GetItemCount() - 1;
+        }
+        providerChoice->SetSelectedIndex(configuredIndex);
+    }
+    std::string providerStatus = "Providers: ";
+    for (int index = 0; index < g_ai->GetProviderCount(); ++index)
+    {
+        Salamatrix::AI::IAssistantProvider* provider = g_ai->GetProvider(index);
+        const Salamatrix::AI::AssistantProviderDescriptor* descriptor =
+            provider != NULL ? provider->GetDescriptor() : NULL;
+        if (descriptor == NULL || descriptor->ProviderId == NULL)
+            continue;
+        if (providerStatus.size() > strlen("Providers: "))
+            providerStatus += ", ";
+        providerStatus += descriptor->ProviderId;
+        providerStatus += provider->IsAvailable() ? " (ready)" : " (unavailable)";
+    }
+    Salamatrix::UI::ControlLayout statusLayout;
+    statusLayout.HasBounds = TRUE;
+    statusLayout.X = 568; statusLayout.Y = 465; statusLayout.Width = 184; statusLayout.Height = 38;
+    Salamatrix::UI::ControlOptions statusOptions;
+    statusOptions.Id = "provider-status";
+    statusOptions.Text = providerStatus.c_str();
+    statusOptions.ReadOnly = TRUE;
+    statusOptions.Multiline = TRUE;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindTextBox, statusOptions, statusLayout);
+    if (runtimeChoice != NULL && g_runtime != NULL)
+    {
+        for (int index = 0; index < g_runtime->GetAdapterCount(); ++index)
+        {
+            Salamatrix::Runtime::IRuntimeAdapter* adapter = g_runtime->GetAdapter(index);
+            const Salamatrix::Runtime::RuntimeAdapterDescriptor* descriptor =
+                adapter != NULL ? adapter->GetDescriptor() : NULL;
+            if (descriptor != NULL && descriptor->RuntimeId != NULL)
+                runtimeChoice->AddItem(descriptor->RuntimeId);
+        }
+        if (runtimeChoice->GetItemCount() > 0)
+            runtimeChoice->SetSelectedIndex(0);
+    }
+    Salamatrix::UI::ControlLayout askLayout;
+    askLayout.HasBounds = TRUE;
+    askLayout.X = 568; askLayout.Y = 405; askLayout.Width = 86; askLayout.Height = 24;
+    Salamatrix::UI::ControlOptions askOptions;
+    askOptions.Id = "ask";
+    askOptions.Text = "Ask";
+    askOptions.KeepOpen = TRUE;
+    askOptions.DialogResult = 0;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindButton, askOptions, askLayout);
+    Salamatrix::UI::ControlOptions previewOptions;
+    previewOptions.Id = "preview"; previewOptions.Text = "Preview"; previewOptions.KeepOpen = TRUE;
+    Salamatrix::UI::ControlLayout previewLayout;
+    previewLayout.HasBounds = TRUE; previewLayout.X = 660; previewLayout.Y = 405; previewLayout.Width = 92; previewLayout.Height = 24;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindButton, previewOptions, previewLayout);
+    Salamatrix::UI::ControlOptions saveOptions;
+    saveOptions.Id = "save"; saveOptions.Text = "Save"; saveOptions.KeepOpen = TRUE;
+    Salamatrix::UI::ControlLayout saveLayout;
+    saveLayout.HasBounds = TRUE; saveLayout.X = 568; saveLayout.Y = 435; saveLayout.Width = 86; saveLayout.Height = 24;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindButton, saveOptions, saveLayout);
+    Salamatrix::UI::ControlOptions runOptions;
+    runOptions.Id = "run"; runOptions.Text = "Run"; runOptions.KeepOpen = TRUE;
+    Salamatrix::UI::ControlLayout runLayout;
+    runLayout.HasBounds = TRUE; runLayout.X = 660; runLayout.Y = 435; runLayout.Width = 92; runLayout.Height = 24;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindButton, runOptions, runLayout);
+    if (history != NULL) history->AddColumn("Conversation", 700);
+    ChatContext chat = { g_ai, g_runtime, g_runner, dialog, history, prompt, runtimeChoice, providerChoice,
+                         operation, parent, Salamatrix::AI::AssistantResponse(), FALSE, std::wstring() };
+    dialog->SetEventCallback(ChatEvent, &chat);
+    dialog->ShowModal();
+    dialog->Release();
+}
+} // namespace
+
+CLocalAssistantProvider::CLocalAssistantProvider()
+{
+    m_descriptor.ProviderId = "local.command";
+    m_descriptor.DisplayName = "Local command assistant";
+    m_descriptor.ProviderVersion = 0x00010000;
+    m_descriptor.Flags = 0;
+}
+
+void CLocalAssistantProvider::ResolveCommand() const
+{
+    wchar_t value[4096];
+    DWORD length = GetEnvironmentVariableW(L"SALAMATRIX_AI_COMMAND", value, _countof(value));
+    if (length == 0 || length >= _countof(value)) m_commandLine.clear();
+    else m_commandLine.assign(value, length);
+}
+
+const Salamatrix::AI::AssistantProviderDescriptor* WINAPI
+CLocalAssistantProvider::GetDescriptor() const { return &m_descriptor; }
+
+BOOL WINAPI CLocalAssistantProvider::IsAvailable() const
+{
+    ResolveCommand();
+    return m_commandLine.empty() ? FALSE : TRUE;
+}
+
+BOOL WINAPI CLocalAssistantProvider::Generate(
+    const Salamatrix::AI::AssistantRequest* request,
+    Salamatrix::AI::AssistantResponse* response)
+{
+    if (response == NULL || response->StructSize < sizeof(*response)) return FALSE;
+    *response = Salamatrix::AI::AssistantResponse();
+    if (request == NULL || request->StructSize < sizeof(*request))
+    {
+        AssistantFailure(response, Salamatrix::AI::AssistantStatusFailed, E_INVALIDARG,
+                         L"The assistant request is invalid.");
+        return FALSE;
+    }
+    if (!IsAvailable())
+    {
+        AssistantFailure(response, Salamatrix::AI::AssistantStatusUnavailable,
+                         HRESULT_FROM_WIN32(ERROR_NOT_FOUND),
+                         L"Set SALAMATRIX_AI_COMMAND to a local assistant wrapper.");
+        return FALSE;
+    }
+    std::string json = std::string("{\"apiVersion\":\"") +
+        EscapeJson(request->ApiVersion != NULL ? request->ApiVersion : "1.0") +
+        "\",\"prompt\":\"" + EscapeJson(request->Prompt != NULL ? request->Prompt : "") +
+        "\",\"context\":" + (request->ContextJson != NULL ? request->ContextJson : "{}") +
+        ",\"runtime\":\"" + EscapeJson(request->RuntimeId != NULL ? request->RuntimeId : "") +
+        "\",\"existingScript\":\"" + EscapeJson(request->ExistingScript != NULL ? request->ExistingScript : "") +
+        "\",\"feedback\":\"" + EscapeJson(request->Feedback != NULL ? request->Feedback : "") +
+        "\",\"maxOutputBytes\":" + std::to_string(request->MaxOutputBytes ? request->MaxOutputBytes : 65536) + "}\n";
+    SECURITY_ATTRIBUTES security = { sizeof(security), NULL, TRUE };
+    HANDLE childIn = NULL, parentIn = NULL, childOut = NULL, parentOut = NULL;
+    if (!CreatePipe(&parentIn, &childIn, &security, 0) || !SetHandleInformation(parentIn, HANDLE_FLAG_INHERIT, 0) ||
+        !CreatePipe(&parentOut, &childOut, &security, 0) || !SetHandleInformation(parentOut, HANDLE_FLAG_INHERIT, 0))
+    {
+        if (parentIn) CloseHandle(parentIn); if (childIn) CloseHandle(childIn);
+        if (parentOut) CloseHandle(parentOut); if (childOut) CloseHandle(childOut);
+        AssistantFailure(response, Salamatrix::AI::AssistantStatusFailed, HRESULT_FROM_WIN32(GetLastError()),
+                         L"Unable to create assistant pipes.");
+        return FALSE;
+    }
+    STARTUPINFOW startup = {}; PROCESS_INFORMATION process = {};
+    startup.cb = sizeof(startup); startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.hStdInput = childIn; startup.hStdOutput = childOut; startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    std::vector<wchar_t> command(m_commandLine.begin(), m_commandLine.end()); command.push_back(L'\0');
+    BOOL created = CreateProcessW(NULL, command.data(), NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &startup, &process);
+    CloseHandle(childIn); CloseHandle(childOut);
+    if (!created)
+    {
+        CloseHandle(parentIn); CloseHandle(parentOut);
+        AssistantFailure(response, Salamatrix::AI::AssistantStatusFailed, HRESULT_FROM_WIN32(GetLastError()),
+                         L"Unable to start the local assistant command.");
+        return FALSE;
+    }
+    DWORD written = 0;
+    if (!WriteFile(parentIn, json.data(), static_cast<DWORD>(json.size()), &written, NULL) || written != json.size())
+        TerminateProcess(process.hProcess, 1);
+    CloseHandle(parentIn);
+    std::string output; ULONGLONG start = GetTickCount64();
+    DWORD timeout = request->TimeoutMs > 120000 ? 120000 : (request->TimeoutMs ? request->TimeoutMs : 120000);
+    bool timedOut = false;
+    for (;;)
+    {
+        DWORD available = 0;
+        while (PeekNamedPipe(parentOut, NULL, 0, NULL, &available, NULL) && available)
+        {
+            char buffer[4096]; DWORD count = 0, take = available < sizeof(buffer) ? available : sizeof(buffer);
+            if (!ReadFile(parentOut, buffer, take, &count, NULL) || !count) break;
+            if (output.size() < 1024 * 1024) output.append(buffer, buffer + (count < 1024 * 1024 - output.size() ? count : 1024 * 1024 - output.size()));
+        }
+        if (WaitForSingleObject(process.hProcess, 10) == WAIT_OBJECT_0) break;
+        if (GetTickCount64() - start >= timeout) { timedOut = true; TerminateProcess(process.hProcess, 1); break; }
+    }
+    WaitForSingleObject(process.hProcess, 1000);
+    for (;;)
+    {
+        DWORD available = 0;
+        if (!PeekNamedPipe(parentOut, NULL, 0, NULL, &available, NULL) || !available)
+            break;
+        char buffer[4096]; DWORD count = 0;
+        DWORD take = available < sizeof(buffer) ? available : sizeof(buffer);
+        if (!ReadFile(parentOut, buffer, take, &count, NULL) || !count)
+            break;
+        if (output.size() < 1024 * 1024)
+        {
+            size_t remaining = 1024 * 1024 - output.size();
+            output.append(buffer, buffer + (count < remaining ? count : remaining));
+        }
+    }
+    DWORD exitCode = 1; GetExitCodeProcess(process.hProcess, &exitCode);
+    CloseHandle(process.hThread); CloseHandle(process.hProcess); CloseHandle(parentOut);
+    if (timedOut) { AssistantFailure(response, Salamatrix::AI::AssistantStatusCancelled, HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"The assistant timed out."); return FALSE; }
+    if (exitCode != 0) { AssistantFailure(response, Salamatrix::AI::AssistantStatusFailed, HRESULT_FROM_WIN32(exitCode), L"The assistant command failed."); return FALSE; }
+    size_t first = output.find_first_not_of(" \t\r\n"), last = output.find_last_not_of(" \t\r\n");
+    if (first == std::string::npos || last <= first || last - first + 1 >= sizeof(response->ResponseJson) || !StructuredJson(output))
+    { AssistantFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse, HRESULT_FROM_WIN32(ERROR_INVALID_DATA), L"The assistant returned invalid JSON."); return FALSE; }
+    size_t length = last - first + 1; memcpy(response->ResponseJson, output.data() + first, length); response->ResponseJson[length] = '\0';
+    response->OutputLength = static_cast<DWORD>(length); response->Status = Salamatrix::AI::AssistantStatusSucceeded; response->ErrorCode = S_OK; return TRUE;
+}
+
+CLocalHttpAssistantProvider::CLocalHttpAssistantProvider()
+{
+    m_descriptor.ProviderId = "local.ollama";
+    m_descriptor.DisplayName = "Local Ollama model";
+    m_descriptor.ProviderVersion = 0x00010000;
+    m_descriptor.Flags = 0;
+}
+
+void CLocalHttpAssistantProvider::ResolveConfiguration() const
+{
+    m_url.clear();
+    m_model.clear();
+    ReadEnvironmentString(L"SALAMATRIX_AI_OLLAMA_URL", m_url);
+    if (m_url.empty())
+        ReadEnvironmentString(L"SALAMATRIX_AI_HTTP_URL", m_url);
+    ReadEnvironmentString(L"SALAMATRIX_AI_MODEL", m_model);
+    if (m_model.empty())
+        ReadEnvironmentString(L"SALAMATRIX_AI_OLLAMA_MODEL", m_model);
+    // Do not advertise an unreachable provider by default.  Setting only a
+    // model opts into the conventional local Ollama endpoint.
+    if (m_url.empty() && !m_model.empty())
+        m_url = L"http://127.0.0.1:11434/api/generate";
+    if (!m_url.empty() && m_model.empty())
+        m_model = L"llama3.2";
+}
+
+const Salamatrix::AI::AssistantProviderDescriptor* WINAPI
+CLocalHttpAssistantProvider::GetDescriptor() const
+{
+    return &m_descriptor;
+}
+
+BOOL WINAPI CLocalHttpAssistantProvider::IsAvailable() const
+{
+    ResolveConfiguration();
+    return (!m_url.empty() && !m_model.empty()) ? TRUE : FALSE;
+}
+
+BOOL WINAPI CLocalHttpAssistantProvider::Generate(
+    const Salamatrix::AI::AssistantRequest* request,
+    Salamatrix::AI::AssistantResponse* response)
+{
+    if (response == NULL || response->StructSize < sizeof(*response))
+        return FALSE;
+    *response = Salamatrix::AI::AssistantResponse();
+    if (request == NULL || request->StructSize < sizeof(*request))
+    {
+        AssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                         E_INVALIDARG, L"The assistant request is invalid.");
+        return FALSE;
+    }
+    ResolveConfiguration();
+    if (m_url.empty() || m_model.empty())
+    {
+        AssistantFailure(response, Salamatrix::AI::AssistantStatusUnavailable,
+                         HRESULT_FROM_WIN32(ERROR_NOT_FOUND),
+                         L"Configure SALAMATRIX_AI_MODEL or SALAMATRIX_AI_OLLAMA_URL.");
+        return FALSE;
+    }
+
+    std::string api = g_ai != NULL ? g_ai->GetApiDescriptionSlice("all") : "{}";
+    std::string prompt = request->Prompt != NULL ? request->Prompt : "";
+    if (request->ExistingScript != NULL && request->ExistingScript[0] != '\0')
+    {
+        prompt += "\n\nExisting script to repair or extend:\n";
+        prompt += request->ExistingScript;
+    }
+    if (request->Feedback != NULL && request->Feedback[0] != '\0')
+    {
+        prompt += "\n\nUser feedback on the previous result:\n";
+        prompt += request->Feedback;
+    }
+    if (request->ContextJson != NULL && request->ContextJson[0] != '\0')
+    {
+        prompt += "\n\nCurrent Salamander context (JSON):\n";
+        prompt += request->ContextJson;
+    }
+    std::string system =
+        "You are the local Open Salamander script assistant. Return only one "
+        "JSON object with title, description, capabilities (array), "
+        "estimatedEffects (object), and script. The script must use the "
+        "Salamander API described below; do not invent privileged APIs. "
+        "API description: " + api;
+    std::string body = std::string("{\"model\":\"") +
+        EscapeJson(WideToUtf8String(m_model).c_str()) +
+        "\",\"system\":\"" + EscapeJson(system.c_str()) +
+        "\",\"prompt\":\"" + EscapeJson(prompt.c_str()) +
+        "\",\"stream\":false,\"format\":\"json\"}";
+
+    std::string transportResponse;
+    if (!HttpGenerateRequest(m_url, m_model, body, request->TimeoutMs,
+                             transportResponse))
+    {
+        AssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                         HRESULT_FROM_WIN32(ERROR_BAD_NET_RESP),
+                         L"The local model endpoint did not return a response.");
+        return FALSE;
+    }
+
+    std::string generated;
+    if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            transportResponse.c_str(), "response", &generated))
+        generated = transportResponse;
+    size_t first = generated.find_first_not_of(" \t\r\n");
+    size_t last = generated.find_last_not_of(" \t\r\n");
+    if (first == std::string::npos || last < first ||
+        last - first + 1 >= sizeof(response->ResponseJson) ||
+        !StructuredJson(generated))
+    {
+        AssistantFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse,
+                         HRESULT_FROM_WIN32(ERROR_INVALID_DATA),
+                         L"The local model returned invalid structured JSON.");
+        return FALSE;
+    }
+    size_t length = last - first + 1;
+    memcpy(response->ResponseJson, generated.data() + first, length);
+    response->ResponseJson[length] = '\0';
+    response->OutputLength = static_cast<DWORD>(length);
+    response->Status = Salamatrix::AI::AssistantStatusSucceeded;
+    response->ErrorCode = S_OK;
+    return TRUE;
+}
+
+DWORD WINAPI CAIPluginMenuExt::GetMenuItemState(int id, DWORD eventMask)
+{
+    UNREFERENCED_PARAMETER(eventMask);
+    EnsureServices();
+    return id == CmdOpenAssistant && g_ai != NULL && g_ui != NULL ? MENU_ITEM_STATE_ENABLED : 0;
+}
+
+BOOL WINAPI CAIPluginMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent, int id, DWORD eventMask)
+{
+    UNREFERENCED_PARAMETER(eventMask);
+    if (id == CmdOpenAssistant) { ShowChat(parent, salamander); return TRUE; }
+    return FALSE;
+}
+
+BOOL WINAPI CAIPluginMenuExt::HelpForMenuItem(HWND parent, int id)
+{ UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(id); return FALSE; }
+
+void WINAPI CAIPluginMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander)
+{
+    UNREFERENCED_PARAMETER(parent);
+    if (salamander != NULL) salamander->AddMenuItem(-1, "AI Assistant...", 0, CmdOpenAssistant, TRUE, 0, 0, MENU_LEVEL_BEGINNER);
+}
+
+void WINAPI CPluginInterface::About(HWND parent)
+{ SalamanderGeneral->SalMessageBox(parent, "Standalone local assistant and Salamatrix chat window.", "Salamatrix AI", MB_OK | MB_ICONINFORMATION); }
+BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
+{
+    UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(force);
+    if (g_ai != NULL)
+    {
+        g_ai->UnregisterProvider(&g_httpProvider);
+        g_ai->UnregisterProvider(&g_provider);
+    }
+    return TRUE;
+}
+void WINAPI CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry)
+{ UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(regKey); UNREFERENCED_PARAMETER(registry); }
+void WINAPI CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry)
+{ UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(regKey); UNREFERENCED_PARAMETER(registry); }
+void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
+{ UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); }
+void WINAPI CPluginInterface::Event(int event, DWORD param)
+{
+    UNREFERENCED_PARAMETER(event); UNREFERENCED_PARAMETER(param);
+    EnsureServices();
+}
+CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenuExt() { return &g_menu; }
+
+BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
+{
+    UNREFERENCED_PARAMETER(reserved);
+    if (reason == DLL_PROCESS_ATTACH) { DLLInstance = instance; DisableThreadLibraryCalls(instance); }
+    return TRUE;
+}
+
+int WINAPI SalamanderPluginGetReqVer() { return LAST_VERSION_OF_SALAMANDER; }
+
+CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbstract* salamander)
+{
+    SalamanderDebug = salamander->GetSalamanderDebug();
+    SalamanderVersion = salamander->GetVersion();
+    SalamanderGeneral = salamander->GetSalamanderGeneral();
+    if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER) return NULL;
+    salamander->SetBasicPluginData("Salamatrix AI",
+        FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_DYNAMICMENUEXT,
+        "0.1", "Open Salamander Authors",
+        "Standalone local AI helper for extension scripts",
+        "SALAMATRIX.AI", NULL, NULL);
+    PluginInterface.Event(0, 0);
+    return &PluginInterface;
+}

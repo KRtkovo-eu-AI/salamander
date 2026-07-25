@@ -44,28 +44,6 @@ public:
         Salamatrix::Runtime::RuntimeExecutionResult* result);
 };
 
-/// Optional local assistant provider. The configured command receives one
-/// UTF-8 JSON request on stdin and must return one structured JSON response
-/// on stdout. No network or model-specific API is assumed here; llama.cpp,
-/// Ollama wrappers, or a small user script can all implement this contract.
-class CAutomationLocalAssistantProvider : public Salamatrix::AI::IAssistantProvider
-{
-private:
-    Salamatrix::AI::AssistantProviderDescriptor m_oDescriptor;
-    mutable std::wstring m_commandLine;
-
-    void ResolveCommand() const;
-
-public:
-    CAutomationLocalAssistantProvider();
-
-    virtual const Salamatrix::AI::AssistantProviderDescriptor* WINAPI GetDescriptor() const;
-    virtual BOOL WINAPI IsAvailable() const;
-    virtual BOOL WINAPI Generate(
-        const Salamatrix::AI::AssistantRequest* request,
-        Salamatrix::AI::AssistantResponse* response);
-};
-
 /// Executes a script through a deliberately small, out-of-process CLI
 /// contract. The host owns process creation, timeout, exit status, and bounded
 /// stdout/stderr capture; the runtime itself never receives raw Salamander
@@ -156,9 +134,7 @@ private:
     CAutomationProcessRuntimeAdapter m_oCPythonRuntime;
     CAutomationProcessRuntimeAdapter m_oPowerShellRuntime;
     CAutomationProcessRuntimeAdapter m_oPHPCliRuntime;
-    CAutomationLocalAssistantProvider m_oLocalAssistantProvider;
     bool m_bRuntimeAdaptersRegistered;
-    bool m_bAssistantProviderRegistered;
 
     static void* QueryService(
         CSalamanderGeneralAbstract* salamander,
@@ -167,8 +143,6 @@ private:
         DWORD* actualVersion);
     void RegisterRuntimeAdapters();
     void UnregisterRuntimeAdapters();
-    void RegisterAssistantProvider();
-    void UnregisterAssistantProvider();
 
 public:
     CAutomationSalamatrixBridge();

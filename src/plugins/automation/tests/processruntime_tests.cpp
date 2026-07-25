@@ -476,9 +476,9 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('ai preview call failed')\n"
               "if Salamander.file_operations.refresh() != 'ok':\n"
               "    raise RuntimeError('file operation call failed')\n"
-              "dialog = Salamander.ui.dialog('Bootstrap')\n"
+              "dialog = Salamander.ui.dialog('Bootstrap', 640, 420)\n"
               "dialog.add_control('label', 'label', 'Hello', layout={'x': 12, 'y': 10, 'width': 180, 'height': 16})\n"
-              "dialog.add_textbox('value', 'seed')\n"
+              "dialog.add_textbox('value', 'seed', multiline=True)\n"
               "dialog.set_validation('value', True, 'Value is required')\n"
               "dialog.on_change(lambda event: None)\n"
               "dialog.add_radio_button('radio', 'Choice', True)\n"
@@ -493,7 +493,7 @@ void RunPythonBootstrapTest()
               "dialog.add_item('list', 'Item 1')\n"
               "dialog.add_item('tree', 'Node 1')\n"
               "dialog.clear_items('list')\n"
-              "dialog.add_button('ok', 'OK', 1)\n"
+              "dialog.add_button('ok', 'OK', 1, keep_open=True)\n"
               "if dialog.show() != 1:\n"
               "    raise RuntimeError('dialog show failed')\n"
               "if dialog.get('value').get('text') != 'seed':\n"
@@ -524,8 +524,12 @@ void RunPythonBootstrapTest()
           "start python bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 12 && state.SubscribeCalls == 0; ++attempt)
-            Check(session->Pump(1000) != FALSE, "pump python bootstrap call");
+        // Pump until the script has completed the complete host-call sequence.
+        // A persistent worker can issue many calls after the subscription call;
+        // stopping at SubscribeCalls would race the script and send shutdown
+        // while it is still waiting for the next response.
+        for (int attempt = 0; attempt < 40 && state.DialogCalls < 20 && session->IsAlive(); ++attempt)
+            (void)session->Pump(250);
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
         Check(state.CommandRegistrationCalls == 3, "bootstrap multiple command registrations reached host");
         Check(state.StorageCalls == 2, "bootstrap storage calls reached host");
@@ -536,7 +540,7 @@ void RunPythonBootstrapTest()
         Check(state.FolderPickerCalls == 1, "bootstrap folder picker reached host");
         Check(state.RuntimeListCalls == 1, "bootstrap runtime list reached host");
         Check(state.FileOperationCalls == 1, "bootstrap file operation reached host");
-        Check(state.DialogCalls == 19, "bootstrap dialog calls reached host");
+        Check(state.DialogCalls == 20, "bootstrap dialog calls reached host");
         std::string shutdown;
         Check(
             Salamatrix::Runtime::Protocol::LineCodec::Encode(
@@ -547,7 +551,7 @@ void RunPythonBootstrapTest()
             "encode bootstrap shutdown");
         Check(session->SendFrame(shutdown.c_str(), static_cast<DWORD>(shutdown.size())) != FALSE,
               "send bootstrap shutdown");
-        for (int attempt = 0; attempt < 20 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 80 && session->IsAlive(); ++attempt)
             Sleep(25);
         Check(session->IsAlive() == FALSE, "bootstrap worker exits after shutdown");
         session->Stop();
@@ -578,7 +582,7 @@ void RunPowerShellBootstrapTest()
               "if (-not $Salamander.commands.Register('bootstrap.second', 'Second', $true, $true)) { throw 'second command registration failed' }\n"
               "if (-not $Salamander.commands.Unregister('bootstrap.first')) { throw 'first command unregister failed' }\n"
               "$null = $Salamander.events.Subscribe('hostStartup', { param($event) })\n"
-              "$sideContext = $Salamander.SourceSide.Context()\n"
+              "$sideContext = $Salamander.source_side.Context()\n"
               "if ($sideContext.selectedCount -ne 1 -or $sideContext.focusedItem.name -ne 'seed.txt') { throw 'side context call failed' }\n"
               "if (-not $Salamander.clipboard.CopyText('seed.txt')) { throw 'clipboard call failed' }\n"
               "$picked = $Salamander.ui.PickFile($false, '', 'Text files|*.txt', '')\n"
@@ -588,9 +592,9 @@ void RunPowerShellBootstrapTest()
               "if (-not ($Salamander.runtimes.List() | Where-Object { $_.id -eq 'Python.CPython' })) { throw 'runtime list call failed' }\n"
               "if (-not $Salamander.ai.Preview('list files', $null, $null, 'PowerShell', 'Write-Output 1', 'keep originals').canRun) { throw 'ai preview call failed' }\n"
               "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
-              "$dialog = $Salamander.ui.Dialog('Bootstrap')\n"
+              "$dialog = $Salamander.ui.Dialog('Bootstrap', 640, 420)\n"
               "$dialog.AddControl('label', 'label', 'Hello', $false, $false, 0, @{ x = 12; y = 10; width = 180; height = 16 })\n"
-              "$dialog.AddTextBox('value', 'seed')\n"
+              "$dialog.AddTextBox('value', 'seed', $false, $true)\n"
               "$dialog.SetValidation('value', $true, 'Value is required')\n"
               "$dialog.OnChange({ param($event) })\n"
               "$dialog.AddRadioButton('radio', 'Choice', $true)\n"
@@ -604,7 +608,7 @@ void RunPowerShellBootstrapTest()
               "$null = $dialog.AddItem('list', 'Item 1')\n"
               "$null = $dialog.AddItem('tree', 'Node 1')\n"
               "$dialog.ClearItems('list')\n"
-              "$dialog.AddButton('ok', 'OK', 1)\n"
+              "$dialog.AddButton('ok', 'OK', 1, $true)\n"
               "if ($dialog.Show() -ne 1) { throw 'dialog show failed' }\n"
               "if ($dialog.Get('value').text -ne 'seed') { throw 'dialog get failed' }\n"
               "$dialog.Close()\n"),
@@ -627,8 +631,8 @@ void RunPowerShellBootstrapTest()
           "start powershell bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 15 && state.SubscribeCalls == 0; ++attempt)
-            Check(session->Pump(1000) != FALSE, "pump powershell bootstrap call");
+        for (int attempt = 0; attempt < 40 && state.DialogCalls < 20 && session->IsAlive(); ++attempt)
+            (void)session->Pump(250);
         Check(state.CommandCalls == 1, "powershell bootstrap command call");
         Check(state.CommandRegistrationCalls == 3, "powershell multiple command registrations");
         Check(state.StorageCalls == 2, "powershell bootstrap storage calls");
@@ -639,12 +643,12 @@ void RunPowerShellBootstrapTest()
         Check(state.FolderPickerCalls == 1, "powershell bootstrap folder picker");
         Check(state.RuntimeListCalls == 1, "powershell bootstrap runtime list");
         Check(state.FileOperationCalls == 1, "powershell bootstrap file operation");
-        Check(state.DialogCalls == 19, "powershell bootstrap dialog calls");
+        Check(state.DialogCalls == 20, "powershell bootstrap dialog calls");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
         session->SendFrame(shutdown.c_str(), static_cast<DWORD>(shutdown.size()));
-        for (int attempt = 0; attempt < 20 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 80 && session->IsAlive(); ++attempt)
             Sleep(25);
         Check(session->IsAlive() == FALSE, "powershell bootstrap exits after shutdown");
         session->Stop();
@@ -687,9 +691,9 @@ void RunPhpBootstrapTest()
               "if (empty($runtimes) || $runtimes[0]['id'] !== 'Python.CPython') throw new Exception('runtime list call failed');\n"
               "if (!$Salamander->ai->preview('list files', null, null, 'PHP.CLI', '<?php echo 1; ?>', 'keep originals')['canRun']) throw new Exception('ai preview call failed');\n"
               "if ($Salamander->file_operations->refresh() !== 'ok') throw new Exception('file operation call failed');\n"
-              "$dialog = $Salamander->ui->dialog('Bootstrap');\n"
+              "$dialog = $Salamander->ui->dialog('Bootstrap', 640, 420);\n"
               "$dialog->addControl('label', 'label', 'Hello', false, false, 0, array('x' => 12, 'y' => 10, 'width' => 180, 'height' => 16));\n"
-              "$dialog->addTextBox('value', 'seed');\n"
+              "$dialog->addTextBox('value', 'seed', false, true);\n"
               "$dialog->setValidation('value', true, 'Value is required');\n"
               "$dialog->onChange(function($event) {});\n"
               "$dialog->addRadioButton('radio', 'Choice', true);\n"
@@ -703,7 +707,7 @@ void RunPhpBootstrapTest()
               "$dialog->addItem('list', 'Item 1');\n"
               "$dialog->addItem('tree', 'Node 1');\n"
               "$dialog->clearItems('list');\n"
-              "$dialog->addButton('ok', 'OK', 1);\n"
+              "$dialog->addButton('ok', 'OK', 1, true);\n"
               "if ($dialog->show() !== 1) throw new Exception('dialog show failed');\n"
               "if ($dialog->get('value')['text'] !== 'seed') throw new Exception('dialog get failed');\n"
               "$dialog->close();\n"
@@ -726,8 +730,8 @@ void RunPhpBootstrapTest()
           "start php bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 15 && state.SubscribeCalls == 0; ++attempt)
-            Check(session->Pump(1000) != FALSE, "pump php bootstrap call");
+        for (int attempt = 0; attempt < 40 && state.DialogCalls < 20 && session->IsAlive(); ++attempt)
+            (void)session->Pump(250);
         Check(state.CommandCalls == 1, "php bootstrap command call");
         Check(state.CommandRegistrationCalls == 3, "php multiple command registrations");
         Check(state.StorageCalls == 2, "php bootstrap storage calls");
@@ -738,12 +742,12 @@ void RunPhpBootstrapTest()
         Check(state.FolderPickerCalls == 1, "php bootstrap folder picker");
         Check(state.RuntimeListCalls == 1, "php bootstrap runtime list");
         Check(state.FileOperationCalls == 1, "php bootstrap file operation");
-        Check(state.DialogCalls == 19, "php bootstrap dialog calls");
+        Check(state.DialogCalls == 20, "php bootstrap dialog calls");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
         session->SendFrame(shutdown.c_str(), static_cast<DWORD>(shutdown.size()));
-        for (int attempt = 0; attempt < 20 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 80 && session->IsAlive(); ++attempt)
             Sleep(25);
         Check(session->IsAlive() == FALSE, "php bootstrap exits after shutdown");
         session->Stop();

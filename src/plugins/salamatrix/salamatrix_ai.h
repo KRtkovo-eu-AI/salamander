@@ -159,6 +159,22 @@ public:
         const AssistantRequest* request,
         AssistantResponse* response) = 0;
     virtual const char* WINAPI GetApiDescription() const = 0;
+    /// Returns a compact API description for the requested topic.  This is
+    /// appended to the ABI so older providers remain source/binary compatible.
+    /// A null/empty topic returns the complete description.
+    virtual const char* WINAPI GetApiDescriptionSlice(const char* topic) const
+    {
+        (void)topic;
+        return GetApiDescription();
+    }
+
+    /// Optional provider enumeration appended to the ABI. Older services
+    /// keep returning NULL, while native clients can build a provider picker.
+    virtual IAssistantProvider* WINAPI GetProvider(int index) const
+    {
+        (void)index;
+        return NULL;
+    }
 
 protected:
     virtual ~IAssistantService() {}
@@ -305,6 +321,11 @@ public:
         return NULL;
     }
 
+    virtual IAssistantProvider* WINAPI GetProvider(int index) const
+    {
+        return index >= 0 && index < ProviderCount ? Providers[index] : NULL;
+    }
+
     virtual BOOL WINAPI Generate(
         const char* providerId,
         const AssistantRequest* request,
@@ -313,52 +334,95 @@ public:
         if (response == NULL || response->StructSize < sizeof(*response) ||
             request == NULL || request->StructSize < sizeof(*request))
             return FALSE;
-        IAssistantProvider* provider = FindProvider(providerId);
-        if (provider == NULL && providerId == NULL)
+        // An explicit provider id is a strict request.  Automatic selection,
+        // however, should be resilient: a configured local endpoint may be
+        // temporarily offline while another provider (for example the
+        // command wrapper) is available.
+        if (providerId != NULL)
         {
-            for (int index = 0; index < ProviderCount; ++index)
+            IAssistantProvider* provider = FindProvider(providerId);
+            if (provider == NULL || !provider->IsAvailable())
             {
-                if (Providers[index]->IsAvailable())
-                {
-                    provider = Providers[index];
-                    break;
-                }
+                response->Status = AssistantStatusUnavailable;
+                response->ErrorCode = HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
+                return FALSE;
             }
+            if (!provider->Generate(request, response))
+                return FALSE;
+            if (!ValidateResponse(response))
+            {
+                response->Status = AssistantStatusInvalidResponse;
+                response->ErrorCode = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
+                response->Summary.ContractValid = FALSE;
+                return FALSE;
+            }
+            return TRUE;
         }
-        if (provider == NULL || !provider->IsAvailable())
+
+        for (int index = 0; index < ProviderCount; ++index)
         {
-            response->Status = AssistantStatusUnavailable;
-            response->ErrorCode = HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
-            return FALSE;
-        }
-        if (!provider->Generate(request, response))
-            return FALSE;
-        if (!ValidateResponse(response))
-        {
+            IAssistantProvider* provider = Providers[index];
+            if (provider == NULL || !provider->IsAvailable())
+                continue;
+            *response = AssistantResponse();
+            if (!provider->Generate(request, response))
+                continue;
+            if (ValidateResponse(response))
+                return TRUE;
             response->Status = AssistantStatusInvalidResponse;
             response->ErrorCode = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
             response->Summary.ContractValid = FALSE;
-            return FALSE;
         }
-        return TRUE;
+        response->Status = AssistantStatusUnavailable;
+        response->ErrorCode = HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
+        return FALSE;
     }
 
     virtual const char* WINAPI GetApiDescription() const
     {
         return
             "{\"version\":\"1.0\",\"objects\":{" 
-            "\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"]},"
+            "\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"],\"registerFields\":[\"commandId\",\"title\",\"pluginMenu\",\"contextMenu\",\"hotKey\"]},"
             "\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]},"
-            "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"]},"
-            "\"Salamander.storage\":{\"methods\":[\"get\",\"set\"]},"
+            "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]},"
+            "\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]},"
             "\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]},"
-            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.addControl\",\"dialog.setValidation\",\"dialog.onChange\",\"dialog.addTabControl\",\"dialog.addItem\",\"dialog.addColumn\",\"dialog.setSelectedIndex\",\"dialog.clearItems\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true},"
+            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\",\"setValidation\",\"onChange\",\"addColumn\",\"setSelectedIndex\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true},"
+            "\"Salamander.uiOptions\":{\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"]},"
+            "\"Salamander.uiDialogOptions\":{\"fields\":[\"title\",\"width\",\"height\"]},"
             "\"Salamander.clipboard\":{\"methods\":[\"copyText\"]},"
-            "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\"],"
+            "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],"
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","
             "\"runtime\",\"existingScript\",\"feedback\"]}},"
             "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"],\"optional\":[\"runtime\"]}}";
+    }
+
+    virtual const char* WINAPI GetApiDescriptionSlice(const char* topic) const
+    {
+        if (topic == NULL || topic[0] == '\0' || strcmp(topic, "all") == 0)
+            return GetApiDescription();
+        if (strcmp(topic, "commands") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"commands\",\"objects\":{\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"],\"registerFields\":[\"commandId\",\"title\",\"pluginMenu\",\"contextMenu\",\"hotKey\"]}}}";
+        if (strcmp(topic, "fileOperations") == 0 || strcmp(topic, "file_operations") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"fileOperations\",\"objects\":{\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]}}}";
+        if (strcmp(topic, "sides") == 0 || strcmp(topic, "panels") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"sides\",\"objects\":{\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}}}";
+        if (strcmp(topic, "ui") == 0 || strcmp(topic, "dialogs") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"ui\",\"objects\":{\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true}}}";
+        if (strcmp(topic, "uiOptions") == 0 || strcmp(topic, "ui_options") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"uiOptions\",\"objects\":{\"Salamander.ui\":{\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"]}}}";
+        if (strcmp(topic, "uiDialogOptions") == 0 || strcmp(topic, "ui_dialog_options") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"uiDialogOptions\",\"objects\":{\"Salamander.ui\":{\"dialogOptions\":[\"title\",\"width\",\"height\"]}}}";
+        if (strcmp(topic, "storage") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"storage\",\"objects\":{\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"]}}}";
+        if (strcmp(topic, "events") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"events\",\"objects\":{\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]}}}";
+        if (strcmp(topic, "runtimes") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"runtimes\",\"objects\":{\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]}}}";
+        if (strcmp(topic, "ai") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"ai\",\"objects\":{\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],\"requestFields\":[\"prompt\",\"context\",\"provider\",\"runtime\",\"existingScript\",\"feedback\",\"topic\"]}}}";
+        return "{\"version\":\"1.0\",\"topic\":\"unknown\",\"objects\":{}}";
     }
 };
 

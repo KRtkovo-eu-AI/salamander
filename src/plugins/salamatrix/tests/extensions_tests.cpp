@@ -126,12 +126,42 @@ void TestValidation()
           "reject undersized info");
     delete extensions;
 }
+
+void TestUnregisterDeactivatesActiveExtension()
+{
+    Salamatrix::Extensions::ExtensionsService* extensions =
+        new Salamatrix::Extensions::ExtensionsService();
+    CallbackState callback;
+    Salamatrix::Extensions::ExtensionDescriptor descriptor =
+        MakeDescriptor("active.extension");
+    Check(extensions->RegisterExtension(
+              &descriptor, LifecycleCallback, &callback) != FALSE,
+          "register active extension");
+    Check(extensions->ActivateExtension("active.extension") != FALSE,
+          "activate extension before unregister");
+    Check(extensions->AcquireExtension("active.extension", &callback) != FALSE,
+          "acquire active extension unload lease");
+    Check(extensions->AcquireExtension("active.extension", extensions) == FALSE,
+          "reject unload lease from a different owner");
+    extensions->ReleaseExtension("active.extension", &callback);
+    Check(extensions->UnregisterExtension(
+              "active.extension", &callback) != FALSE,
+          "unregister active extension");
+    Check(callback.Count == 2 &&
+              callback.LastAction ==
+                  Salamatrix::Extensions::ExtensionActionDeactivate,
+          "unregister deactivates active extension");
+    Check(extensions->GetExtensionCount() == 0,
+          "active extension removed after deactivation");
+    delete extensions;
+}
 } // namespace
 
 int main()
 {
     TestRegistrationAndLifecycle();
     TestValidation();
+    TestUnregisterDeactivatesActiveExtension();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d Salamatrix extension test(s) failed.\n", Failures);

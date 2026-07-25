@@ -216,8 +216,12 @@ class _UI:
             "salamander.ui.pickFolder", title=title, initial=initial
         )
 
-    def dialog(self, title: str = "Salamander") -> "_Dialog":
-        result = self._transport.call("salamander.ui.dialog.create", title=title)
+    def dialog(self, title: str = "Salamander", width: int = 320,
+               height: int = 180) -> "_Dialog":
+        result = self._transport.call(
+            "salamander.ui.dialog.create", title=title,
+            width=int(width), height=int(height)
+        )
         return _Dialog(self._transport, str(result["dialogId"]))
 
 

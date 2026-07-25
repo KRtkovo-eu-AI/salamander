@@ -88,7 +88,7 @@ class SalamatrixUi {
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }
     public function pickFolder($title = '', $initial = '') { return $this->client->call('salamander.ui.pickFolder', array('title' => $title, 'initial' => $initial)); }
-    public function dialog($title = 'Salamander') { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
+    public function dialog($title = 'Salamander', $width = 320, $height = 180) { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title, 'width' => (int)$width, 'height' => (int)$height)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
 }
 class SalamatrixClipboard {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -97,9 +97,9 @@ class SalamatrixClipboard {
 class SalamatrixDialog {
     private $client; private $id;
     public function __construct($client, $id) { $this->client = $client; $this->id = $id; }
-    private function add($kind, $controlId, $text, $extra = array()) { $args = array('dialogId' => $this->id, 'kind' => $kind, 'controlId' => $controlId, 'text' => $text); foreach ($extra as $key => $value) $args[$key] = $value; $this->client->call('salamander.ui.dialog.add', $args); }
-    public function addControl($kind, $id, $text = '', $readOnly = false, $checked = false, $dialogResult = 0, $layout = array()) {
-        $extra = array('readOnly' => (bool)$readOnly, 'checked' => (bool)$checked, 'dialogResult' => (int)$dialogResult);
+    private function add($kind, $controlId, $text = '', $extra = array()) { $args = array('dialogId' => $this->id, 'kind' => $kind, 'controlId' => $controlId, 'text' => $text); foreach ($extra as $key => $value) $args[$key] = $value; $this->client->call('salamander.ui.dialog.add', $args); }
+    public function addControl($kind, $id, $text = '', $readOnly = false, $checked = false, $dialogResult = 0, $layout = array(), $keepOpen = false, $multiline = false) {
+        $extra = array('readOnly' => (bool)$readOnly, 'checked' => (bool)$checked, 'dialogResult' => (int)$dialogResult, 'keepOpen' => (bool)$keepOpen, 'multiline' => (bool)$multiline);
         foreach (array('x', 'y', 'width', 'height') as $name) if (is_array($layout) && array_key_exists($name, $layout)) $extra[$name] = (int)$layout[$name];
         $this->add($kind, $id, $text, $extra);
     }
@@ -117,7 +117,7 @@ class SalamatrixDialog {
         unset($this->client->handlers[$event]);
     }
     public function addLabel($id, $text) { $this->add('label', $id, $text); }
-    public function addTextBox($id, $text = '', $readOnly = false) { $this->add('textbox', $id, $text, array('readOnly' => $readOnly)); }
+    public function addTextBox($id, $text = '', $readOnly = false, $multiline = false) { $this->add('textbox', $id, $text, array('readOnly' => $readOnly, 'multiline' => (bool)$multiline)); }
     public function addCheckBox($id, $text, $checked = false) { $this->add('checkbox', $id, $text, array('checked' => $checked)); }
     public function addRadioButton($id, $text, $checked = false) { $this->add('radio', $id, $text, array('checked' => $checked)); }
     public function addComboBox($id, $text = '') { $this->add('combobox', $id, $text); }
@@ -128,7 +128,7 @@ class SalamatrixDialog {
     public function addColumn($controlId, $title, $width = 180) { $this->client->call('salamander.ui.dialog.column', array('dialogId' => $this->id, 'controlId' => $controlId, 'title' => $title, 'width' => (int)$width)); }
     public function setSelectedIndex($controlId, $index = -1) { $r = $this->client->call('salamander.ui.dialog.selection', array('dialogId' => $this->id, 'controlId' => $controlId, 'index' => (int)$index)); return isset($r['selectedIndex']) ? $r['selectedIndex'] : -1; }
     public function clearItems($controlId) { $this->client->call('salamander.ui.dialog.clearItems', array('dialogId' => $this->id, 'controlId' => $controlId)); }
-    public function addButton($id, $text, $dialogResult = 1) { $this->add('button', $id, $text, array('dialogResult' => $dialogResult)); }
+    public function addButton($id, $text, $dialogResult = 1, $keepOpen = false) { $this->add('button', $id, $text, array('dialogResult' => $dialogResult, 'keepOpen' => (bool)$keepOpen)); }
     public function show() { $r = $this->client->call('salamander.ui.dialog.show', array('dialogId' => $this->id)); return isset($r['result']) ? $r['result'] : 0; }
     public function get($id) { return $this->client->call('salamander.ui.dialog.get', array('dialogId' => $this->id, 'controlId' => $id)); }
     public function close() { $this->client->call('salamander.ui.dialog.destroy', array('dialogId' => $this->id)); }

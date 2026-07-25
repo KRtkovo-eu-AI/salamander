@@ -51,6 +51,33 @@ public:
     }
 };
 
+class FailingAssistantProvider : public Salamatrix::AI::IAssistantProvider
+{
+private:
+    Salamatrix::AI::AssistantProviderDescriptor Descriptor;
+
+public:
+    FailingAssistantProvider()
+    {
+        Descriptor.ProviderId = "failing";
+        Descriptor.DisplayName = "Failing test provider";
+        Descriptor.ProviderVersion = 0x00010000;
+        Descriptor.Flags = 0;
+    }
+
+    virtual const Salamatrix::AI::AssistantProviderDescriptor* WINAPI
+    GetDescriptor() const { return &Descriptor; }
+    virtual BOOL WINAPI IsAvailable() const { return TRUE; }
+    virtual BOOL WINAPI Generate(
+        const Salamatrix::AI::AssistantRequest*,
+        Salamatrix::AI::AssistantResponse* response)
+    {
+        response->Status = Salamatrix::AI::AssistantStatusFailed;
+        response->ErrorCode = E_FAIL;
+        return FALSE;
+    }
+};
+
 class TestRuntimeAdapter : public Salamatrix::Runtime::IRuntimeAdapter
 {
 private:
@@ -90,7 +117,7 @@ public:
 
     virtual DWORD WINAPI GetVersion() const
     {
-        return Salamatrix::Runtime::SALAMATRIX_RUNTIME_VERSION_1_0;
+        return SALAMATRIX_RUNTIME_VERSION_1_0;
     }
 
     virtual BOOL WINAPI RegisterAdapter(
@@ -246,20 +273,53 @@ void TestRuntimeProviderRegistration()
           "runtime provider unregisters during release");
 }
 
+void TestOwnedServiceRegistry()
+{
+    Salamatrix::Runtime::ServiceRegistry registry;
+    int service = 0;
+    int provider = 0;
+    int consumer = 0;
+    int wrongOwner = 0;
+    Check(registry.RegisterServiceOwned(
+              "test.owned", 1, &service, "Owned test service", &provider) != FALSE,
+          "owned service registration succeeds");
+    Check(registry.AcquireService("test.owned", &service, &consumer) != FALSE,
+          "consumer can acquire an active owned service");
+    Check(registry.ReleaseService("test.owned", &service, &wrongOwner) == FALSE,
+          "service lease cannot be released by a different consumer");
+    Check(registry.UnregisterServiceOwned("test.owned", &service, &provider) == FALSE,
+          "provider cannot unregister while a consumer lease is active");
+    Check(registry.ReleaseService("test.owned", &service, &consumer) != FALSE,
+          "consumer releases its service lease");
+    Check(registry.UnregisterServiceOwned("test.owned", &service, &wrongOwner) == FALSE,
+          "different provider cannot unregister an owned service");
+    Check(registry.UnregisterServiceOwned("test.owned", &service, &provider) != FALSE,
+          "provider unregisters after all leases are released");
+    Check(registry.GetCount() == 0, "owned service registry removes released service");
+}
+
 void TestAssistantService()
 {
     Salamatrix::AI::AssistantService service;
+    FailingAssistantProvider failing;
     TestAssistantProvider provider;
     Salamatrix::AI::AssistantRequest request;
     Salamatrix::AI::AssistantResponse response;
+    Check(service.RegisterProvider(&failing) != FALSE,
+          "register failing assistant provider");
     Check(service.RegisterProvider(&provider) != FALSE,
           "register assistant provider");
     Check(service.RegisterProvider(&provider) == FALSE,
           "reject duplicate assistant provider");
+    Check(service.GetProviderCount() == 2 &&
+              service.GetProvider(0) == &failing &&
+              service.GetProvider(1) == &provider &&
+              service.GetProvider(2) == NULL,
+          "enumerate registered assistant providers for native UI");
     Check(service.Generate(NULL, &request, &response) != FALSE &&
               response.Status == Salamatrix::AI::AssistantStatusSucceeded &&
               response.OutputLength != 0,
-          "generate through default assistant provider");
+          "generate falls back to the next available provider");
     std::string runtime;
     Check(
         Salamatrix::Runtime::Protocol::Json::FindStringMember(
@@ -287,11 +347,31 @@ void TestAssistantService()
           "assistant API description advertises ListView columns");
     Check(strstr(service.GetApiDescription(), "setSelectedIndex") != NULL,
           "assistant API description advertises control selection");
+    Check(strstr(service.GetApiDescription(), "keepOpen") != NULL &&
+              strstr(service.GetApiDescription(), "multiline") != NULL,
+          "assistant API description advertises shared dialog options");
     Check(strstr(service.GetApiDescription(), "feedback") != NULL,
           "assistant API description advertises repair feedback");
     Check(strstr(service.GetApiDescription(), "Salamander.runtimes") != NULL &&
               strstr(service.GetApiDescription(), "\"list\"") != NULL,
           "assistant API description advertises runtime discovery");
+    const char* uiSlice = service.GetApiDescriptionSlice("ui");
+    Check(uiSlice != NULL && strstr(uiSlice, "\"topic\":\"ui\"") != NULL &&
+              strstr(uiSlice, "dialog.validation") != NULL,
+          "assistant API description exposes a focused UI slice");
+    const char* uiOptionsSlice = service.GetApiDescriptionSlice("uiOptions");
+    Check(uiOptionsSlice != NULL && strstr(uiOptionsSlice, "keepOpen") != NULL,
+          "assistant API description exposes shared control options");
+    const char* commandSlice = service.GetApiDescriptionSlice("commands");
+    Check(commandSlice != NULL && strstr(commandSlice, "hotKey") != NULL,
+          "assistant API description exposes a focused command slice");
+    const char* sidesSlice = service.GetApiDescriptionSlice("sides");
+    Check(sidesSlice != NULL && strstr(sidesSlice, "lastWriteUtc") != NULL &&
+              strstr(sidesSlice, "sizeValid") != NULL,
+          "assistant API description exposes item metadata");
+    Check(strstr(service.GetApiDescriptionSlice("unknown"),
+                 "\"objects\":{}") != NULL,
+          "assistant API description handles unknown slices safely");
 }
 
 void TestCommandCatalog()
@@ -309,6 +389,7 @@ void TestCommandCatalog()
 int main()
 {
     TestRuntimeProviderRegistration();
+    TestOwnedServiceRegistry();
     TestRoundTrip();
     TestValidationAndLimits();
     TestJsonMemberExtraction();

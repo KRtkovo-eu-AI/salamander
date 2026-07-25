@@ -68,8 +68,8 @@ $commands | Add-Member ScriptMethod Execute {
     (Invoke-Host -Method 'salamander.commands.execute' -Arguments @{ commandId = $CommandId }).result
 }
 $commands | Add-Member ScriptMethod Register {
-    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false)
-    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu }).registered
+    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false, [int]$HotKey = 0)
+    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu; hotKey = $HotKey }).registered
 }
 $commands | Add-Member ScriptMethod Unregister {
     param([string]$CommandId)
@@ -85,6 +85,13 @@ $storage | Add-Member ScriptMethod Get {
 $storage | Add-Member ScriptMethod Set {
     param([string]$Key, [string]$Value)
     [void](Invoke-Host -Method 'salamander.storage.set' -Arguments @{ key = $Key; value = $Value })
+}
+$storage | Add-Member ScriptMethod Remove {
+    param([string]$Key)
+    (Invoke-Host -Method 'salamander.storage.remove' -Arguments @{ key = $Key }).removed
+}
+$storage | Add-Member ScriptMethod Clear {
+    (Invoke-Host -Method 'salamander.storage.clear' -Arguments @{}).ok
 }
 $fileOperations = [pscustomobject]@{}
 $fileOperations | Add-Member ScriptMethod Rename { (Invoke-Host -Method 'salamander.fileOperations.rename' -Arguments @{}).result }
@@ -176,12 +183,12 @@ $ui | Add-Member ScriptMethod Progress {
     return $progress
 }
 $ui | Add-Member ScriptMethod Dialog {
-    param([string]$Title = 'Salamander')
-    $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title }
+    param([string]$Title = 'Salamander', [int]$Width = 320, [int]$Height = 180)
+    $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title; width = $Width; height = $Height }
     $dialog = [pscustomobject]@{ DialogId = [string]$created.dialogId }
     $dialog | Add-Member ScriptMethod AddControl {
-        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null)
-        $arguments = @{ dialogId = $this.DialogId; kind = $Kind; controlId = $Id; text = $Text; readOnly = $ReadOnly; checked = $Checked; dialogResult = $DialogResult }
+        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null, [bool]$KeepOpen = $false, [bool]$Multiline = $false)
+        $arguments = @{ dialogId = $this.DialogId; kind = $Kind; controlId = $Id; text = $Text; readOnly = $ReadOnly; checked = $Checked; dialogResult = $DialogResult; keepOpen = $KeepOpen; multiline = $Multiline }
         if ($null -ne $Layout) {
             foreach ($name in @('x', 'y', 'width', 'height')) {
                 if ($Layout.ContainsKey($name)) { $arguments[$name] = [int]$Layout[$name] }
@@ -216,7 +223,7 @@ $ui | Add-Member ScriptMethod Dialog {
         $global:SalamatrixEventHandlers.Remove($EventName)
     }
     $dialog | Add-Member ScriptMethod AddLabel { param([string]$Id, [string]$Text) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'label'; controlId = $Id; text = $Text }) }
-    $dialog | Add-Member ScriptMethod AddTextBox { param([string]$Id, [string]$Text = '', [bool]$ReadOnly = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'textbox'; controlId = $Id; text = $Text; readOnly = $ReadOnly }) }
+    $dialog | Add-Member ScriptMethod AddTextBox { param([string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Multiline = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'textbox'; controlId = $Id; text = $Text; readOnly = $ReadOnly; multiline = $Multiline }) }
     $dialog | Add-Member ScriptMethod AddCheckBox { param([string]$Id, [string]$Text, [bool]$Checked = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'checkbox'; controlId = $Id; text = $Text; checked = $Checked }) }
     $dialog | Add-Member ScriptMethod AddRadioButton { param([string]$Id, [string]$Text, [bool]$Checked = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'radio'; controlId = $Id; text = $Text; checked = $Checked }) }
     $dialog | Add-Member ScriptMethod AddComboBox { param([string]$Id, [string]$Text = '') [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'combobox'; controlId = $Id; text = $Text }) }
@@ -225,9 +232,10 @@ $ui | Add-Member ScriptMethod Dialog {
     $dialog | Add-Member ScriptMethod AddTabControl { param([string]$Id) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'tabcontrol'; controlId = $Id }) }
     $dialog | Add-Member ScriptMethod AddItem { param([string]$ControlId, [string]$Text, [int]$ParentIndex = -1) (Invoke-Host -Method 'salamander.ui.dialog.item' -Arguments @{ dialogId = $this.DialogId; controlId = $ControlId; text = $Text; parentIndex = $ParentIndex }).itemCount }
     $dialog | Add-Member ScriptMethod ClearItems { param([string]$ControlId) [void](Invoke-Host -Method 'salamander.ui.dialog.clearItems' -Arguments @{ dialogId = $this.DialogId; controlId = $ControlId }) }
-    $dialog | Add-Member ScriptMethod AddButton { param([string]$Id, [string]$Text, [int]$DialogResult = 1) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'button'; controlId = $Id; text = $Text; dialogResult = $DialogResult }) }
+    $dialog | Add-Member ScriptMethod AddButton { param([string]$Id, [string]$Text, [int]$DialogResult = 1, [bool]$KeepOpen = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'button'; controlId = $Id; text = $Text; dialogResult = $DialogResult; keepOpen = $KeepOpen }) }
     $dialog | Add-Member ScriptMethod Show { (Invoke-Host -Method 'salamander.ui.dialog.show' -Arguments @{ dialogId = $this.DialogId }).result }
     $dialog | Add-Member ScriptMethod Get { param([string]$Id) Invoke-Host -Method 'salamander.ui.dialog.get' -Arguments @{ dialogId = $this.DialogId; controlId = $Id } }
+    $dialog | Add-Member ScriptMethod Set { param([string]$Id, [string]$Value) [void](Invoke-Host -Method 'salamander.ui.dialog.set' -Arguments @{ dialogId = $this.DialogId; controlId = $Id; value = $Value }) }
     $dialog | Add-Member ScriptMethod Close { [void](Invoke-Host -Method 'salamander.ui.dialog.destroy' -Arguments @{ dialogId = $this.DialogId }) }
     return $dialog
 }
@@ -237,6 +245,16 @@ $clipboard | Add-Member ScriptMethod CopyText {
     (Invoke-Host -Method 'salamander.clipboard.copyText' -Arguments @{ text = $Text; showEcho = $ShowEcho }).copied
 }
 $ai = [pscustomobject]@{}
+$ai | Add-Member ScriptMethod Api {
+    param([string]$Topic = $null)
+    $arguments = @{}
+    if (-not [string]::IsNullOrEmpty($Topic)) { $arguments['topic'] = $Topic }
+    Invoke-Host -Method 'salamander.ai.api' -Arguments $arguments
+}
+$ai | Add-Member ScriptMethod ApiDescription {
+    param([string]$Topic = $null)
+    $this.Api($Topic)
+}
 $ai | Add-Member ScriptMethod Generate {
     param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null, [string]$Runtime = $null, [string]$ExistingScript = $null, [string]$Feedback = $null)
     $arguments = @{ prompt = $Prompt }
@@ -289,7 +307,9 @@ $Salamander = [pscustomobject]@{
     runtimes = $runtimes
 }
 
-& $EntryPoint
+# stdout is reserved for SMX1 frames; discard unassigned PowerShell return
+# values from extension scripts so they cannot corrupt the transport.
+& $EntryPoint | Out-Null
 if ($OneShot) { exit 0 }
 while ($true) {
     $frame = Read-Frame

@@ -251,13 +251,21 @@ struct ControlOptions
     BOOL ReadOnly;
     BOOL Checked;
     int DialogResult;
+    /// Keep a button dialog open after dispatching its event callback.
+    /// Appended for ABI compatibility with the original control contract.
+    BOOL KeepOpen;
+    /// Use a multiline edit control with vertical scrolling.
+    /// Appended for ABI compatibility with the original control contract.
+    BOOL Multiline;
 
     ControlOptions()
         : Id(NULL),
           Text(NULL),
           ReadOnly(FALSE),
           Checked(FALSE),
-          DialogResult(0)
+          DialogResult(0),
+          KeepOpen(FALSE),
+          Multiline(FALSE)
     {
     }
 };

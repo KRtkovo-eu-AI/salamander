@@ -20,6 +20,7 @@
 #include "../salamatrix/salamatrix_ui.h"
 #include "../salamatrix/salamatrix_extensions.h"
 #include "../salamatrix/salamatrix_events.h"
+#include "../salamatrix/salamatrix_script_runner.h"
 
 BOOL ShowRuntimeInputBox(
     HWND parent,
@@ -39,6 +40,7 @@ public:
         TCHAR Title[256];
         bool PluginMenu;
         bool ContextMenu;
+        DWORD HotKey;
         DWORD MenuEventOrMask;
         DWORD MenuEventAndMask;
 
@@ -46,6 +48,7 @@ public:
             : MenuId(0),
               PluginMenu(false),
               ContextMenu(false),
+              HotKey(0),
               MenuEventOrMask(MENU_EVENT_TRUE),
               MenuEventAndMask(MENU_EVENT_TRUE)
         {
@@ -201,6 +204,7 @@ private:
         const char* title,
         bool pluginMenu,
         bool contextMenu,
+        DWORD hotKey,
         DWORD menuEventOrMask,
         DWORD menuEventAndMask);
     bool UnregisterRuntimeCommand(const char* commandId);
@@ -261,6 +265,11 @@ public:
         result->ErrorCode = succeeded ? S_OK : E_FAIL;
         return succeeded ? TRUE : FALSE;
     }
+
+    /// Configures a temporary generated-script instance to use the modern
+    /// runtime worker and the regular capability-aware host dispatcher.
+    BOOL ConfigureGeneratedRuntime(const char* runtimeId,
+                                   const char* extensionId);
 
     CScriptInfo(
         PCTSTR pszFileName,

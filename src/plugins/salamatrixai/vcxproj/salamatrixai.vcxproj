@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ <ItemGroup Label="ProjectConfigurations">
+  <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+ </ItemGroup>
+ <PropertyGroup Label="Globals"><VCProjectVersion>16.0</VCProjectVersion><ProjectGuid>{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}</ProjectGuid><RootNamespace>salamatrixai</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
+ <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+ <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
+ <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
+ <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+ <ImportGroup Condition="'$(Configuration)'=='Debug'" Label="PropertySheets"><Import Project="..\..\shared\vcxproj\x64.props" /><Import Project="..\..\shared\vcxproj\plugin_base.props" /><Import Project="..\..\shared\vcxproj\plugin_debug.props" /><Import Project="salamatrixai.props" /></ImportGroup>
+ <ImportGroup Condition="'$(Configuration)'=='Release'" Label="PropertySheets"><Import Project="..\..\shared\vcxproj\x64.props" /><Import Project="..\..\shared\vcxproj\plugin_base.props" /><Import Project="..\..\shared\vcxproj\plugin_release.props" /><Import Project="salamatrixai.props" /></ImportGroup>
+ <ItemDefinitionGroup><ClCompile><AdditionalIncludeDirectories>..\..\;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PrecompiledHeader>Use</PrecompiledHeader><WarningLevel>Level3</WarningLevel><PreprocessorDefinitions>WIN32;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile><ResourceCompile><AdditionalIncludeDirectories>..\..\;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ResourceCompile><Link><AdditionalDependencies>winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies></Link></ItemDefinitionGroup>
+ <ItemGroup><ClCompile Include="..\..\shared\sal_safe_memcpy.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile><ClCompile Include="..\salamatrixai.cpp" /><ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile></ItemGroup>
+ <ItemGroup><ClInclude Include="..\salamatrixai.h" /><ClInclude Include="..\precomp.h" /></ItemGroup>
+ <ItemGroup><None Include="..\salamatrixai.def" /><None Include="..\salamatrixai.rc2" /></ItemGroup>
+ <ItemGroup><ResourceCompile Include="..\salamatrixai.rc" /></ItemGroup>
+ <ItemGroup><RuntimeProviderAsset Include="..\..\automation\runtime\salamatrix_ai_local.py" /></ItemGroup>
+ <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+ <Target Name="CopySalamatrixAIProviderAssets" AfterTargets="Build">
+  <MakeDir Directories="$(OutDir)runtime" />
+  <Copy SourceFiles="@(RuntimeProviderAsset)"
+        DestinationFiles="@(RuntimeProviderAsset->'$(OutDir)runtime\%(Filename)%(Extension)')"
+        SkipUnchangedFiles="true" />
+ </Target>
+</Project>

@@ -1,5 +1,9 @@
 # Optional local AI command provider
 
+The provider is supplied by the separately installable `SalamatrixAI.SPL`
+plugin. Automation only consumes the shared `Salamatrix.AI` service for its
+legacy Ask-AI compatibility flow.
+
 `salamatrix_ai_local.py` is an opt-in adapter for the provider-neutral
 `Salamatrix.AI` command contract. It reads one UTF-8 JSON request from stdin and
 writes one JSON response to stdout, so it can be selected with the existing
@@ -25,7 +29,8 @@ SALAMATRIX_AI_MODEL=local-model
 
 The wrapper is not launched, and it does not make a network request, unless
 `SALAMATRIX_AI_COMMAND` explicitly selects it. Its endpoint timeout is capped
-at 110 seconds; the Automation host applies its own two-minute provider limit.
+at 110 seconds; the standalone AI plugin applies its own two-minute provider
+limit.
 The host still validates the returned script, capabilities, and effect flags
 before it can be previewed, run, or saved as an extension package.
 

@@ -11,6 +11,7 @@
 #pragma once
 
 #include <strsafe.h>
+#include <stddef.h>
 
 #include "../shared/spl_gen.h"
 
@@ -71,16 +72,38 @@ namespace Salamatrix
             DWORD Attributes;
             BOOL IsDirectory;
 
+            // Appended metadata keeps the original snapshot layout intact
+            // for clients compiled against the first 1.0 contract.
+            char Extension[64];
+            FILETIME LastWriteUtc;
+            BOOL SizeValid;
+            BOOL Hidden;
+            BOOL IsLink;
+            BOOL IsOffline;
+
             ItemInfo()
                 : StructSize(sizeof(ItemInfo)),
                   Size(0, 0),
                   Attributes(0),
-                  IsDirectory(FALSE)
+                  IsDirectory(FALSE),
+                  SizeValid(FALSE),
+                  Hidden(FALSE),
+                  IsLink(FALSE),
+                  IsOffline(FALSE)
             {
                 Name[0] = '\0';
                 Path[0] = '\0';
+                Extension[0] = '\0';
+                LastWriteUtc.dwLowDateTime = 0;
+                LastWriteUtc.dwHighDateTime = 0;
             }
         };
+
+        // The prefix is the original 1.0 snapshot contract. New providers
+        // accept that prefix and only write appended fields when the caller
+        // advertises the full structure size.
+        static const DWORD ITEM_INFO_V1_SIZE =
+            static_cast<DWORD>(offsetof(ItemInfo, Extension));
 
         class ISidesService
         {
@@ -353,6 +376,19 @@ namespace Salamatrix
                 info->Size = file->Size;
                 info->Attributes = file->Attr;
                 info->IsDirectory = isDirectory;
+                if (info->StructSize >= sizeof(ItemInfo) && file->Ext != NULL)
+                    StringCchCopyA(
+                        info->Extension,
+                        _countof(info->Extension),
+                        file->Ext);
+                if (info->StructSize >= sizeof(ItemInfo))
+                {
+                    info->LastWriteUtc = file->LastWrite;
+                    info->SizeValid = file->SizeValid;
+                    info->Hidden = file->Hidden;
+                    info->IsLink = file->IsLink;
+                    info->IsOffline = file->IsOffline;
+                }
                 return TRUE;
             }
 
@@ -361,7 +397,8 @@ namespace Salamatrix
                 int index,
                 ItemInfo* info) const
             {
-                if (index < 0 || info == NULL)
+                if (index < 0 || info == NULL ||
+                    info->StructSize < ITEM_INFO_V1_SIZE)
                     return FALSE;
                 int panel = ResolvePanel(side);
                 if (General == NULL || panel == 0)
@@ -384,7 +421,7 @@ namespace Salamatrix
                 SideReference side,
                 ItemInfo* info) const
             {
-                if (info == NULL)
+                if (info == NULL || info->StructSize < ITEM_INFO_V1_SIZE)
                     return FALSE;
                 int panel = ResolvePanel(side);
                 if (General == NULL || panel == 0)

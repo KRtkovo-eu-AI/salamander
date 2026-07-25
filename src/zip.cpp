@@ -538,6 +538,9 @@ struct CRegisteredServiceRecord
     DWORD Version;
     void* Interface;
     const char* ProviderName;
+    void* ProviderOwner;
+    LONG ActiveLeases;
+    BOOL Unloading;
 
     CRegisteredServiceRecord()
     {
@@ -545,16 +548,55 @@ struct CRegisteredServiceRecord
         Version = 0;
         Interface = NULL;
         ProviderName = NULL;
+        ProviderOwner = NULL;
+        ActiveLeases = 0;
+        Unloading = FALSE;
+    }
+};
+
+struct CServiceLeaseRecord
+{
+    const char* ServiceId;
+    void* Interface;
+    void* ConsumerOwner;
+
+    CServiceLeaseRecord()
+    {
+        ServiceId = NULL;
+        Interface = NULL;
+        ConsumerOwner = NULL;
     }
 };
 
 enum
 {
-    SALAMANDER_SERVICE_REGISTRY_MAX = 64
+    SALAMANDER_SERVICE_REGISTRY_MAX = 64,
+    SALAMANDER_SERVICE_LEASE_MAX = 256
 };
 
 CRegisteredServiceRecord SalamanderServiceRegistry[SALAMANDER_SERVICE_REGISTRY_MAX];
 int SalamanderServiceRegistryCount = 0;
+CServiceLeaseRecord SalamanderServiceLeases[SALAMANDER_SERVICE_LEASE_MAX];
+int SalamanderServiceLeaseCount = 0;
+CRITICAL_SECTION SalamanderServiceRegistryLock;
+CONDITION_VARIABLE SalamanderServiceLeaseChanged;
+
+class CServiceRegistryInitializer
+{
+public:
+    CServiceRegistryInitializer()
+    {
+        InitializeCriticalSection(&SalamanderServiceRegistryLock);
+        InitializeConditionVariable(&SalamanderServiceLeaseChanged);
+    }
+
+    ~CServiceRegistryInitializer()
+    {
+        DeleteCriticalSection(&SalamanderServiceRegistryLock);
+    }
+};
+
+CServiceRegistryInitializer SalamanderServiceRegistryInitializer;
 
 BOOL SameServiceId(const char* left, const char* right)
 {
@@ -562,51 +604,113 @@ BOOL SameServiceId(const char* left, const char* right)
         return FALSE;
     return strcmp(left, right) == 0;
 }
+
+int FindServiceIndexLocked(const char* serviceId, void* serviceInterface)
+{
+    for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
+    {
+        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId) &&
+            (serviceInterface == NULL || SalamanderServiceRegistry[i].Interface == serviceInterface))
+            return i;
+    }
+    return -1;
+}
+
+void RemoveLeaseAtLocked(int index)
+{
+    for (int i = index; i + 1 < SalamanderServiceLeaseCount; ++i)
+        SalamanderServiceLeases[i] = SalamanderServiceLeases[i + 1];
+    --SalamanderServiceLeaseCount;
+    SalamanderServiceLeases[SalamanderServiceLeaseCount] = CServiceLeaseRecord();
+}
+
+BOOL UnregisterServiceInternal(const char* serviceId, void* serviceInterface,
+                               void* providerOwner, BOOL enforceOwner)
+{
+    if (serviceId == NULL || serviceInterface == NULL)
+        return FALSE;
+
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
+    int index = FindServiceIndexLocked(serviceId, serviceInterface);
+    if (index < 0 ||
+        (enforceOwner && SalamanderServiceRegistry[index].ProviderOwner != providerOwner))
+    {
+        LeaveCriticalSection(&SalamanderServiceRegistryLock);
+        return FALSE;
+    }
+
+    // Stop new acquisitions first, then wait until every consumer has left
+    // its short critical section.  This is the point that makes unloading a
+    // provider deterministic instead of leaving a dangling interface pointer.
+    SalamanderServiceRegistry[index].Unloading = TRUE;
+    while (SalamanderServiceRegistry[index].ActiveLeases != 0)
+    {
+        SleepConditionVariableCS(&SalamanderServiceLeaseChanged,
+                                 &SalamanderServiceRegistryLock, INFINITE);
+    }
+
+    for (int i = index; i + 1 < SalamanderServiceRegistryCount; ++i)
+        SalamanderServiceRegistry[i] = SalamanderServiceRegistry[i + 1];
+    --SalamanderServiceRegistryCount;
+    SalamanderServiceRegistry[SalamanderServiceRegistryCount] = CRegisteredServiceRecord();
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
+    return TRUE;
+}
 }
 
 BOOL CSalamanderGeneral::RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName)
 {
     CALL_STACK_MESSAGE2("CSalamanderGeneral::RegisterService(%s, , ,)", serviceId);
+    return RegisterServiceOwned(serviceId, version, serviceInterface, providerName, NULL);
+}
+
+BOOL CSalamanderGeneral::RegisterServiceOwned(const char* serviceId, DWORD version,
+                                              void* serviceInterface,
+                                              const char* providerName,
+                                              void* providerOwner)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::RegisterServiceOwned(%s, , , ,)", serviceId);
     if (serviceId == NULL || serviceInterface == NULL || version == 0)
         return FALSE;
 
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
     for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
     {
         if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId))
+        {
+            LeaveCriticalSection(&SalamanderServiceRegistryLock);
             return FALSE;
+        }
     }
 
     if (SalamanderServiceRegistryCount >= SALAMANDER_SERVICE_REGISTRY_MAX)
+    {
+        LeaveCriticalSection(&SalamanderServiceRegistryLock);
         return FALSE;
+    }
 
     SalamanderServiceRegistry[SalamanderServiceRegistryCount].ServiceId = serviceId;
     SalamanderServiceRegistry[SalamanderServiceRegistryCount].Version = version;
     SalamanderServiceRegistry[SalamanderServiceRegistryCount].Interface = serviceInterface;
     SalamanderServiceRegistry[SalamanderServiceRegistryCount].ProviderName = providerName;
+    SalamanderServiceRegistry[SalamanderServiceRegistryCount].ProviderOwner = providerOwner;
     ++SalamanderServiceRegistryCount;
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
     return TRUE;
 }
 
 BOOL CSalamanderGeneral::UnregisterService(const char* serviceId, void* serviceInterface)
 {
     CALL_STACK_MESSAGE2("CSalamanderGeneral::UnregisterService(%s, ,)", serviceId);
-    if (serviceId == NULL || serviceInterface == NULL)
-        return FALSE;
+    return UnregisterServiceInternal(serviceId, serviceInterface, NULL, FALSE);
+}
 
-    for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
-    {
-        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId) &&
-            SalamanderServiceRegistry[i].Interface == serviceInterface)
-        {
-            for (int j = i; j + 1 < SalamanderServiceRegistryCount; ++j)
-                SalamanderServiceRegistry[j] = SalamanderServiceRegistry[j + 1];
-            --SalamanderServiceRegistryCount;
-            SalamanderServiceRegistry[SalamanderServiceRegistryCount] = CRegisteredServiceRecord();
-            return TRUE;
-        }
-    }
-
-    return FALSE;
+BOOL CSalamanderGeneral::UnregisterServiceOwned(const char* serviceId,
+                                                void* serviceInterface,
+                                                void* providerOwner)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::UnregisterServiceOwned(%s, ,)", serviceId);
+    return UnregisterServiceInternal(serviceId, serviceInterface, providerOwner, TRUE);
 }
 
 BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result)
@@ -621,6 +725,7 @@ BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSal
     if (query == NULL || query->ServiceId == NULL)
         return FALSE;
 
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
     for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
     {
         if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, query->ServiceId) &&
@@ -632,10 +737,69 @@ BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSal
                 result->Version = SalamanderServiceRegistry[i].Version;
                 result->ProviderName = SalamanderServiceRegistry[i].ProviderName;
             }
+            LeaveCriticalSection(&SalamanderServiceRegistryLock);
             return TRUE;
         }
     }
 
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
+    return FALSE;
+}
+
+BOOL CSalamanderGeneral::AcquireService(const char* serviceId, void* serviceInterface,
+                                        void* consumerOwner)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::AcquireService(%s,)", serviceId);
+    if (serviceId == NULL || serviceInterface == NULL || consumerOwner == NULL)
+        return FALSE;
+
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
+    int serviceIndex = FindServiceIndexLocked(serviceId, serviceInterface);
+    if (serviceIndex < 0 || SalamanderServiceRegistry[serviceIndex].Unloading ||
+        SalamanderServiceLeaseCount >= SALAMANDER_SERVICE_LEASE_MAX)
+    {
+        LeaveCriticalSection(&SalamanderServiceRegistryLock);
+        return FALSE;
+    }
+
+    CServiceLeaseRecord& lease = SalamanderServiceLeases[SalamanderServiceLeaseCount++];
+    lease.ServiceId = SalamanderServiceRegistry[serviceIndex].ServiceId;
+    lease.Interface = serviceInterface;
+    lease.ConsumerOwner = consumerOwner;
+    ++SalamanderServiceRegistry[serviceIndex].ActiveLeases;
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
+    return TRUE;
+}
+
+BOOL CSalamanderGeneral::ReleaseService(const char* serviceId, void* serviceInterface,
+                                        void* consumerOwner)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::ReleaseService(%s,)", serviceId);
+    if (serviceId == NULL || serviceInterface == NULL || consumerOwner == NULL)
+        return FALSE;
+
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
+    for (int i = 0; i < SalamanderServiceLeaseCount; ++i)
+    {
+        if (SameServiceId(SalamanderServiceLeases[i].ServiceId, serviceId) &&
+            SalamanderServiceLeases[i].Interface == serviceInterface &&
+            SalamanderServiceLeases[i].ConsumerOwner == consumerOwner)
+        {
+            int serviceIndex = FindServiceIndexLocked(serviceId, serviceInterface);
+            if (serviceIndex < 0 || SalamanderServiceRegistry[serviceIndex].ActiveLeases <= 0)
+            {
+                LeaveCriticalSection(&SalamanderServiceRegistryLock);
+                return FALSE;
+            }
+            --SalamanderServiceRegistry[serviceIndex].ActiveLeases;
+            RemoveLeaseAtLocked(i);
+            WakeAllConditionVariable(&SalamanderServiceLeaseChanged);
+            LeaveCriticalSection(&SalamanderServiceRegistryLock);
+            return TRUE;
+        }
+    }
+
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
     return FALSE;
 }
 

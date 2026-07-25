@@ -42,7 +42,7 @@ function parseFrame(line) {
 }
 
 function dispatchEvent(payload) {
-  const name = payload?.name;
+  const name = payload?.event || payload?.name;
   const handlers = eventHandlers.get(name) || [];
   for (const handler of [...handlers]) {
     try {
@@ -106,49 +106,92 @@ class Dialog {
   async create() {
     const result = await hostCall("salamander.ui.dialog.create", {
       title: this.title,
-      options: this.options,
+      width: Number(this.options.width ?? 320),
+      height: Number(this.options.height ?? 180),
     });
     this.id = result.dialogId;
     return this;
   }
 
   async addControl(kind, controlId, text = "", layout = null, options = {}) {
-    return hostCall("salamander.ui.dialog.addControl", {
+    const payload = {
       dialogId: this.id,
       kind,
       controlId,
       text,
-      layout,
-      options,
-    });
+      readOnly: Boolean(options.readOnly),
+      checked: Boolean(options.checked),
+      dialogResult: Number(options.dialogResult || 0),
+      keepOpen: Boolean(options.keepOpen),
+      multiline: Boolean(options.multiline),
+    };
+    if (layout) {
+      for (const name of ["x", "y", "width", "height"]) {
+        if (layout[name] !== undefined && layout[name] !== null)
+          payload[name] = Number(layout[name]);
+      }
+    }
+    return hostCall("salamander.ui.dialog.add", payload);
   }
 
-  async addItem(controlId, text, value = "") {
-    return hostCall("salamander.ui.dialog.addItem", {
-      dialogId: this.id,
-      controlId,
-      text,
-      value,
-    });
+  // Convenience methods mirror the Python, PowerShell, and PHP worker
+  // facades. They all go through the same native Salamatrix.UI control
+  // contract; addControl remains available for generated/dynamic UIs.
+  async addLabel(controlId, text, layout = null) {
+    return this.addControl("label", controlId, text, layout);
   }
 
-  async addNode(controlId, text, parentIndex = -1, value = "") {
-    return hostCall("salamander.ui.dialog.addNode", {
+  async addTextBox(controlId, text = "", readOnly = false,
+                   multiline = false, layout = null) {
+    return this.addControl("textbox", controlId, text, layout,
+      { readOnly, multiline });
+  }
+
+  async addCheckBox(controlId, text, checked = false, layout = null) {
+    return this.addControl("checkbox", controlId, text, layout, { checked });
+  }
+
+  async addRadioButton(controlId, text, checked = false, layout = null) {
+    return this.addControl("radio", controlId, text, layout, { checked });
+  }
+
+  async addComboBox(controlId, text = "", layout = null) {
+    return this.addControl("combobox", controlId, text, layout);
+  }
+
+  async addListView(controlId, layout = null) {
+    return this.addControl("listview", controlId, "", layout);
+  }
+
+  async addTreeView(controlId, layout = null) {
+    return this.addControl("treeview", controlId, "", layout);
+  }
+
+  async addTabControl(controlId, layout = null) {
+    return this.addControl("tabcontrol", controlId, "", layout);
+  }
+
+  async addButton(controlId, text, dialogResult = 1,
+                  keepOpen = false, layout = null) {
+    return this.addControl("button", controlId, text, layout,
+      { dialogResult, keepOpen });
+  }
+
+  async addItem(controlId, text, parentIndex = -1) {
+    return hostCall("salamander.ui.dialog.item", {
       dialogId: this.id,
       controlId,
       text,
       parentIndex,
-      value,
     });
   }
 
-  async addTab(controlId, text, value = "") {
-    return hostCall("salamander.ui.dialog.addTab", {
-      dialogId: this.id,
-      controlId,
-      text,
-      value,
-    });
+  async addNode(controlId, text, parentIndex = -1) {
+    return this.addItem(controlId, text, parentIndex);
+  }
+
+  async addTab(controlId, text) {
+    return this.addItem(controlId, text, -1);
   }
 
   async addColumn(controlId, title, width = 120) {
@@ -178,25 +221,32 @@ class Dialog {
   }
 
   onChange(handler) {
+    const event = `salamander.ui.dialog.${this.id}.changed`;
+    const handlers = eventHandlers.get(event) || [];
+    if (typeof handler === "function") handlers.push(handler);
+    eventHandlers.set(event, handlers);
     this.changeHandlers.push(handler);
-    return this;
+    return hostCall("salamander.ui.dialog.events", {
+      dialogId: this.id,
+      enabled: true,
+      event,
+    }).then(() => this);
   }
 
   async showModal() {
-    const result = await hostCall("salamander.ui.dialog.showModal", { dialogId: this.id });
+    const result = await hostCall("salamander.ui.dialog.show", { dialogId: this.id });
     return result.result ?? result;
   }
 
   async getValue(controlId) {
-    const result = await hostCall("salamander.ui.dialog.getValue", {
+    return hostCall("salamander.ui.dialog.get", {
       dialogId: this.id,
       controlId,
     });
-    return result.value;
   }
 
   async setValue(controlId, value) {
-    return hostCall("salamander.ui.dialog.setValue", {
+    return hostCall("salamander.ui.dialog.set", {
       dialogId: this.id,
       controlId,
       value,
@@ -207,6 +257,17 @@ class Dialog {
     if (this.id === null) return;
     await hostCall("salamander.ui.dialog.destroy", { dialogId: this.id });
     this.id = null;
+  }
+
+  async offChange() {
+    const event = `salamander.ui.dialog.${this.id}.changed`;
+    await hostCall("salamander.ui.dialog.events", {
+      dialogId: this.id,
+      enabled: false,
+      event,
+    });
+    this.changeHandlers.length = 0;
+    eventHandlers.delete(event);
   }
 }
 
@@ -310,33 +371,102 @@ const ui = {
   dialog: (title, options = {}) => new Dialog(title, options),
 };
 
+class Side {
+  constructor(name) {
+    this.name = name;
+  }
+
+  activeTab() {
+    return hostCall("salamander.sides.activeTab", { side: this.name });
+  }
+
+  context() {
+    return hostCall("salamander.sides.context", { side: this.name });
+  }
+}
+
+const fileOperations = {};
+for (const operation of ["rename", "copy", "move", "delete",
+                         "createDirectory", "refresh", "properties"]) {
+  fileOperations[operation] = () =>
+    hostCall(`salamander.fileOperations.${operation}`).then(
+      (result) => result.result || "error");
+}
+
+const subscriptions = new Map();
+const events = {
+  async subscribe(name, handler) {
+    const handlers = eventHandlers.get(name) || [];
+    if (typeof handler === "function") handlers.push(handler);
+    eventHandlers.set(name, handlers);
+    const result = await hostCall("salamander.events.subscribe", { event: name });
+    subscriptions.set(String(result.subscriptionId), name);
+    return String(result.subscriptionId);
+  },
+  async unsubscribe(subscriptionId) {
+    const id = String(subscriptionId);
+    await hostCall("salamander.events.unsubscribe", { subscriptionId: id });
+    const name = subscriptions.get(id);
+    subscriptions.delete(id);
+    if (name) eventHandlers.delete(name);
+  },
+};
+
 const Salamander = {
   ui,
   commands: {
-    execute: (command, args = {}) => hostCall("salamander.commands.execute", { command, args }),
+    execute: (commandId) => hostCall(
+      "salamander.commands.execute", { commandId }
+    ).then((result) => result.result || "error"),
+    register: (commandId, title, pluginMenu = true, contextMenu = false,
+               hotKey = 0) =>
+      hostCall("salamander.commands.register", {
+        commandId, title, pluginMenu, contextMenu, hotKey: Number(hotKey),
+      }).then((result) => result.registered === true),
+    unregister: (commandId) => hostCall("salamander.commands.unregister", {
+      commandId,
+    }).then((result) => result.unregistered === true),
   },
+  fileOperations,
+  file_operations: fileOperations,
+  sides: {
+    activeTab: (side = "source") =>
+      hostCall("salamander.sides.activeTab", { side }),
+    context: (side = "source") =>
+      hostCall("salamander.sides.context", { side }),
+  },
+  leftSide: new Side("left"),
+  rightSide: new Side("right"),
+  sourceSide: new Side("source"),
+  targetSide: new Side("target"),
+  left_side: new Side("left"),
+  right_side: new Side("right"),
+  source_side: new Side("source"),
+  target_side: new Side("target"),
   storage: {
     get: (key) => hostCall("salamander.storage.get", { key }),
     set: (key, value) => hostCall("salamander.storage.set", { key, value }),
     remove: (key) => hostCall("salamander.storage.remove", { key }),
+    clear: () => hostCall("salamander.storage.clear"),
+  },
+  clipboard: {
+    copyText: (text, showEcho = false) => hostCall(
+      "salamander.clipboard.copyText", { text, showEcho }
+    ).then((result) => result.copied === true),
   },
   runtimes: {
     list: async () => (await hostCall("salamander.runtimes.list")).runtimes || [],
   },
-  events: {
-    subscribe(name, handler) {
-      const handlers = eventHandlers.get(name) || [];
-      handlers.push(handler);
-      eventHandlers.set(name, handlers);
-      return hostCall("salamander.events.subscribe", { name });
-    },
-    unsubscribe: (name) => hostCall("salamander.events.unsubscribe", { name }),
-  },
+  events,
   ai: {
-    generate: (prompt, runtime = "", feedback = "") =>
-      hostCall("salamander.ai.generate", { prompt, runtime, feedback }),
-    preview: (prompt, runtime = "", feedback = "") =>
-      hostCall("salamander.ai.preview", { prompt, runtime, feedback }),
+    api: (topic = null) => hostCall("salamander.ai.api", topic ? { topic } : {}),
+    apiDescription: (topic = null) => hostCall("salamander.ai.api", topic ? { topic } : {}),
+    generate: (prompt, options = {}) => hostCall("salamander.ai.generate", {
+      prompt, ...options,
+    }),
+    preview: (prompt, options = {}) => hostCall("salamander.ai.preview", {
+      prompt, ...options,
+    }),
   },
 };
 

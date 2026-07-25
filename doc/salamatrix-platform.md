@@ -207,7 +207,8 @@ payloads. The codec rejects embedded newlines, malformed ids, and frames over
 1 MiB, and is intentionally independent of any language's JSON library. The
 Automation bridge now answers the first host calls through this transport;
 modern process adapters share the standard worker bootstrap; richer value
-bindings, queued callbacks, and unload-safe leases remain.
+bindings and queued callback/reentrancy policy remain. Host callbacks for
+registered extensions are protected by owner-aware unload leases.
 
 Process adapters can now opt into the common worker bootstrap with
 `RuntimeExecutionFlagUseWorkerBootstrap`. The standalone runtime providers ship
@@ -375,7 +376,9 @@ session is retained by the owning `CScriptInfo` and is stopped before that
 script is removed. Legacy ActiveScript adapters deliberately reject persistent
 activation, while the new CLI adapters require a worker-compatible entry point
 and fail activation if the child exits immediately. Command ownership, host
-call dispatch, and unload leases still build on this seam.
+call dispatch, and owner-aware unload leases build on this seam. A runtime host
+callback acquires a short lease while it touches the extension; unregister waits
+for those leases after deactivation and rejects new calls once unloading starts.
 
 ## Service lookup API
 
@@ -517,18 +520,20 @@ Salamatrix should register its services after step 4 and before returning the
 plugin interface. Consumers should query services after their own basic startup
 checks have completed.
 
-The most natural place for the service registry itself is the core plugin
-manager layer, near the code that tracks loaded plugins and their metadata. That
-keeps service ownership tied to the same objects that already control plugin
-lifetime and unload checks.
+The core plugin manager now owns the service registry near the code that tracks
+loaded plugins and their metadata. Each provider can register an opaque owner;
+consumers acquire a short lease around calls through the borrowed interface.
+Unregister marks the service as unloading, rejects new acquisitions, waits for
+active leases, and only then removes the record. This keeps service ownership
+tied to the same objects that already control plugin lifetime and unload checks.
 
 Recommended implementation direction:
 
-- add service registry storage to the core plugin manager implementation,
-- expose `RegisterService` to plugin providers through a host interface,
-- expose `QueryService` to consumers through `CSalamanderGeneralAbstract` or a
-  dedicated service-manager interface,
-- make unload checks fail while exported services are still registered or held,
+- service registry storage and synchronization live in the core plugin manager,
+- `RegisterServiceOwned`/`UnregisterServiceOwned` expose provider ownership,
+- `QueryService` plus `AcquireService`/`ReleaseService` expose borrowed services
+  with an explicit consumer lease through `CSalamanderGeneralAbstract`,
+- unload blocks removal while exported services are still held,
 - persist only plugin installation metadata, not live service pointers.
 
 ## Salamatrix.UI progress dialog MVP
@@ -725,11 +730,23 @@ remain a follow-up.
 ## Salamatrix.AI provider seam
 
 `src/plugins/salamatrix/salamatrix_ai.h` defines a provider-neutral assistant
-contract. Automation registers `local.command` when `SALAMATRIX_AI_COMMAND` is
-configured. The command receives one UTF-8 JSON request on standard input and
+contract. The separately installable `SalamatrixAI.SPL` registers
+`local.command` when `SALAMATRIX_AI_COMMAND` is configured and can also
+register a native `local.ollama` provider when `SALAMATRIX_AI_MODEL` and an
+Ollama-compatible endpoint are configured; Automation remains a
+consumer of the service. The command receives one UTF-8 JSON request on standard input and
 returns one JSON object/array on standard output; the bridge bounds output to
-1 MiB and clamps generation to a two-minute timeout. This makes a local
-llama.cpp/Ollama wrapper usable without coupling Salamander to a model vendor.
+1 MiB and clamps generation to a two-minute timeout. The native provider uses
+the same structured contract over WinHTTP, so a local model can be used
+without shipping a model SDK or coupling Salamander to a vendor.
+The chat automatically uses the first available provider, or an explicit
+`SALAMATRIX_AI_PROVIDER` such as `local.ollama`/`local.command` when set.
+The standalone chat also enumerates currently available providers and lets the
+user choose one explicitly; `auto` retains resilient fallback behavior.
+When the chat is opened from a Salamander operation menu, its Run action also
+passes that borrowed operation context through `Salamatrix.ScriptRunner`, so
+generated workers can create and update the same host-owned progress dialog as
+ordinary extensions; a standalone chat has no implicit operation context.
 The shared service validates the structured assistant contract (`title`,
 `description`, `capabilities`, `estimatedEffects`, and `script`) and exposes
 the parsed effect flags to callers. Workers expose both `ai.generate(...)` and
@@ -776,9 +793,9 @@ Runtime broker, Automation adapter, Sides, Events, Extensions, AI, and Storage s
 core-facing `CSalamanderGeneralAbstract` service registry. DemoPlug remains
 only a consumer/sample and no longer needs to act as the long-lived provider.
 
-- `Runtime::ServiceRegistry` provides a minimal fixed-size local
-  `RegisterService`/`QueryService` implementation, while `CSalamanderGeneral`
-  provides the core-facing registry used by plugin consumers.
+- `Runtime::ServiceRegistry` provides a fixed-size local registry with owned
+  providers and consumer leases, while `CSalamanderGeneral` provides the
+  synchronized core-facing registry used by plugin consumers.
 - `Runtime::LocalUIService` implements `Salamatrix::UI::IUIService` by creating
   and destroying `Salamatrix::UI::ProgressDialog` objects over the existing
   `CSalamanderForOperationsAbstract` progress API.
@@ -934,19 +951,21 @@ The platform skeleton is ready when:
 9. The generic form-builder model is reserved as adapter contracts only; no
    duplicate Automation UI implementation is introduced outside `Salamatrix.UI`.
 10. The in-process Salamatrix PoC wires UI, Commands, FileOperations, Runtime,
-   Sides, Events, Extensions, Storage, Automation adapters, a local service registry, and the
-   core-facing `CSalamanderGeneral` service registry together and is exposed as
+ Sides, Events, Extensions, Storage, Automation adapters, an owned local service
+ registry, and the core-facing leased `CSalamanderGeneral` service registry together and is exposed as
    a DemoPlug `Salamatrix PoC` menu sample.
 11. `SALAMATRIX.SPL` exists as the first Automation Framework provider plugin, creates the
    persistent `Runtime::RuntimeServices` aggregate, registers the MVP services
-   with `CSalamanderGeneral`, and unregisters them during plugin release.
+   with `CSalamanderGeneral` under its owner token, and unregisters them during
+   plugin release after active service leases drain.
 12. The Automation plugin contains a consumer-only bridge that refreshes and
    caches host-registered Salamatrix services instead of instantiating a local
    duplicate runtime.
 13. Automation 2.0 exposes `Salamander.UI`, `Salamander.Commands`, and
    `Salamander.FileOperations` backed by the Salamatrix runtime bridge.
-14. Script discovery supports the first command-registration metadata and a
-   minimal `extension.json` manifest for the sample scripted extension.
+14. Script discovery supports command-registration metadata for multiple
+   commands and a minimal `extension.json` manifest for the sample scripted
+   extension; the Automation menu publishes every registered command.
 15. Scripted-extension command placement controls plugin-menu vs context-menu
    visibility and applies MVP `requires` context masks to Automation menu items.
 16. `Salamatrix.Runtime` is a registered broker service with versioned adapter
@@ -1002,10 +1021,20 @@ The platform skeleton is ready when:
     a parented `salamander.ui.messageBox` call; subscriptions are removed before
     the worker session is stopped.
 36. Python, PowerShell, PHP, and Node process adapters can start their shared
-    worker bootstraps; the Python integration test exercises handshake,
-    commands, storage, event subscription, and shutdown end to end.
-37. `Salamatrix.AI` exposes provider registration and Automation supplies an
-    optional bounded local command provider selected by `SALAMATRIX_AI_COMMAND`.
+    worker bootstraps; the process-runtime integration test exercises
+    handshake, commands, storage, event subscription, shared dialogs, and
+    shutdown end to end for Python, PowerShell, and PHP.
+37. `Salamatrix.AI` exposes provider registration; the separately installable
+    `SalamatrixAI.SPL` supplies the optional bounded local command provider
+    selected by `SALAMATRIX_AI_COMMAND`, a native Ollama HTTP provider
+    selected by `SALAMATRIX_AI_MODEL`, and its native
+    Ask/Preview/Run/Save chat with an Auto/explicit provider picker and
+    ready/unavailable provider status. When Automation is loaded, it also publishes
+    `Salamatrix.ScriptRunner`, so
+    the AI Run action uses the same capability-aware SMX1 host dispatcher as a
+    regular scripted extension instead of a privileged AI-only execution path,
+    including the borrowed operation context required by host progress dialogs
+    when the chat was opened from an operation menu.
 38. The shared worker object model exposes `Salamander.ui.input_box(...)` and
     the host renders it as a parented native Windows dialog with an editable
     value; `message_box(...)` and `input_box(...)` are routed through the
@@ -1015,6 +1044,9 @@ The platform skeleton is ready when:
     contract and `NativeDialog` implementation for labels, text boxes,
     check/radio buttons, combo boxes, buttons, ListView, TreeView, and TabControl;
     workers can use `dialog.addControl(..., layout)` for explicit control bounds
+    and the common `readOnly`, `checked`, `dialogResult`, `keepOpen`, and
+    `multiline` control options; worker `dialog(...)` facades also pass
+    explicit native `width`/`height` through the same contract;
     and `dialog.setValidation(...)` for required-field checks; `dialog.onChange(...)`
     receives control-change events through the same SMX1 event channel,
     and the worker input-box path goes through this service rather than owning a
@@ -1038,3 +1070,7 @@ The platform skeleton is ready when:
 44. The optional `runtime/salamatrix_ai_local.py` command wrapper translates
     the provider-neutral AI request into Ollama or OpenAI-compatible local
     endpoint calls while preserving the host's bounded JSON contract.
+45. `SalamatrixAI.SPL` also exposes `local.ollama` directly over WinHTTP when
+    `SALAMATRIX_AI_MODEL` and `SALAMATRIX_AI_OLLAMA_URL` (or
+    `SALAMATRIX_AI_HTTP_URL`) are configured; the command wrapper remains
+    available for OpenAI-compatible endpoints and custom model adapters.

@@ -119,3 +119,8 @@ sftp            0x000001002a500000
 lang_sftp       0x000001003a500000
 
 salamatrix      0x000001002a600000
+javascriptruntime 0x000001002a700000
+pythonruntime    0x000001002a800000
+powershellruntime 0x000001002a900000
+phpruntime       0x000001002aa00000
+salamatrixai       0x000001002ab00000

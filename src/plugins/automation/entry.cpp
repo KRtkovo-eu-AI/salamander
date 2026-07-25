@@ -13,6 +13,7 @@
 
 #include "precomp.h"
 #include "automationplug.h"
+#include "salamatrixrunner.h"
 #include "automation.rh2"
 #include "lang\lang.rh"
 #include "versinfo.rh2"
@@ -37,6 +38,7 @@ CSalamanderGUIAbstract* SalamanderGUI;
 
 /// Instance of our plugin.
 CAutomationPluginInterface g_oAutomationPlugin;
+CGeneratedScriptRunner g_oGeneratedScriptRunner;
 
 /// Caption for the dialog boxes before we load the language module.
 _TCHAR MSGBOX_CAPTION[] = _T("Automation");
@@ -128,6 +130,13 @@ CPluginInterfaceAbstract*
 
     // Setup plugin home page.
     salamander->SetPluginHomePageURL("www.altap.cz");
+
+    SalamanderGeneral->RegisterServiceOwned(
+        SALAMATRIX_SERVICE_SCRIPT_RUNNER,
+        SALAMATRIX_SCRIPT_RUNNER_VERSION_1_0,
+        &g_oGeneratedScriptRunner,
+        SalamanderGeneral->LoadStr(g_hLangInst, IDS_PLUGINNAME),
+        &g_oGeneratedScriptRunner);
 
     return &g_oAutomationPlugin;
 }

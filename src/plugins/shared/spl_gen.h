@@ -3503,6 +3503,26 @@ public:
     virtual BOOL WINAPI GetPanelTabInfo(int side, int index, CSalamanderPanelTabInfo* info) = 0;
     virtual BOOL WINAPI GetPanelTabPath(ULONGLONG tabId, char* buffer, int bufferSize, int* pathType) = 0;
     virtual BOOL WINAPI ActivatePanelTab(ULONGLONG tabId, BOOL focus) = 0;
+
+    // Owner-aware service lifecycle API.  These methods are appended after
+    // the existing panel API so the vtable offsets of every previously
+    // published method remain unchanged.  RegisterService/QueryService stay
+    // available for older providers; new providers should use the owned form
+    // and consumers should hold a short lease while calling a borrowed
+    // service interface.
+    virtual BOOL WINAPI RegisterServiceOwned(const char* serviceId, DWORD version,
+                                             void* serviceInterface,
+                                             const char* providerName,
+                                             void* providerOwner) = 0;
+    virtual BOOL WINAPI UnregisterServiceOwned(const char* serviceId,
+                                               void* serviceInterface,
+                                               void* providerOwner) = 0;
+    virtual BOOL WINAPI AcquireService(const char* serviceId,
+                                       void* serviceInterface,
+                                       void* consumerOwner) = 0;
+    virtual BOOL WINAPI ReleaseService(const char* serviceId,
+                                       void* serviceInterface,
+                                       void* consumerOwner) = 0;
 };
 
 #ifdef _MSC_VER

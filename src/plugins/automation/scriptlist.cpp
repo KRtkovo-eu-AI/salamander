@@ -1068,6 +1068,9 @@ static std::string RuntimeItemInfoJson(
     std::string path(item.Path);
     if (path.size() > 2048)
         path.resize(2048);
+    ULARGE_INTEGER lastWrite;
+    lastWrite.LowPart = item.LastWriteUtc.dwLowDateTime;
+    lastWrite.HighPart = item.LastWriteUtc.dwHighDateTime;
     return std::string("{\"name\":\"") +
            JsonEscapeRuntimeText(item.Name) +
            "\",\"path\":\"" + JsonEscapeRuntimeText(path.c_str()) +
@@ -1075,7 +1078,38 @@ static std::string RuntimeItemInfoJson(
            std::to_string(static_cast<unsigned long long>(item.Size.Value)) +
            "\",\"attributes\":" + std::to_string(item.Attributes) +
            ",\"isDirectory\":" +
-           (item.IsDirectory ? "true" : "false") + "}";
+           (item.IsDirectory ? "true" : "false") +
+           ",\"extension\":\"" +
+           JsonEscapeRuntimeText(item.Extension) +
+           "\",\"lastWriteUtc\":\"" +
+           std::to_string(static_cast<unsigned long long>(lastWrite.QuadPart)) +
+           "\",\"sizeValid\":" +
+           (item.SizeValid ? "true" : "false") +
+           ",\"hidden\":" + (item.Hidden ? "true" : "false") +
+           ",\"link\":" + (item.IsLink ? "true" : "false") +
+           ",\"offline\":" + (item.IsOffline ? "true" : "false") + "}";
+}
+
+BOOL CScriptInfo::ConfigureGeneratedRuntime(
+    const char* runtimeId,
+    const char* extensionId)
+{
+    if (runtimeId == NULL || runtimeId[0] == '\0' ||
+        extensionId == NULL || extensionId[0] == '\0')
+        return FALSE;
+    if (StringCchCopyA(m_szSalamatrixRuntimeId,
+                       _countof(m_szSalamatrixRuntimeId), runtimeId) != S_OK ||
+        StringCchCopyA(m_szSalamatrixExtensionId,
+                       _countof(m_szSalamatrixExtensionId), extensionId) != S_OK)
+        return FALSE;
+    m_dwSalamatrixMinimumRuntimeVersion = 0;
+    m_salamatrixCapabilities.clear();
+    m_salamatrixCapabilities.push_back("*");
+    m_szSalamatrixCommandId[0] = _T('\0');
+    m_szRuntimeCommandId[0] = '\0';
+    m_bShowInPluginMenu = false;
+    m_bShowInContextMenu = false;
+    return TRUE;
 }
 
 static BOOL FindRuntimeQuadWord(
@@ -1212,6 +1246,111 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     if (!bridge->WasQueried())
         g_oAutomationPlugin.RefreshSalamatrixServices();
 
+    class CSalamatrixServiceLeaseGuard
+    {
+    private:
+        CSalamanderGeneralAbstract* m_pGeneral;
+        const char* m_pServiceId;
+        void* m_pInterface;
+        void* m_pConsumer;
+        BOOL m_bAcquired;
+
+    public:
+        CSalamatrixServiceLeaseGuard(
+            CSalamanderGeneralAbstract* general,
+            const char* serviceId,
+            void* serviceInterface,
+            void* consumer)
+            : m_pGeneral(general),
+              m_pServiceId(serviceId),
+              m_pInterface(serviceInterface),
+              m_pConsumer(consumer),
+              m_bAcquired(FALSE)
+        {
+            if (m_pGeneral != NULL && m_pServiceId != NULL &&
+                m_pInterface != NULL && m_pConsumer != NULL)
+                m_bAcquired = m_pGeneral->AcquireService(
+                    m_pServiceId, m_pInterface, m_pConsumer);
+        }
+
+        ~CSalamatrixServiceLeaseGuard()
+        {
+            if (m_bAcquired)
+                m_pGeneral->ReleaseService(
+                    m_pServiceId, m_pInterface, m_pConsumer);
+        }
+
+        BOOL IsBlocked() const
+        {
+            return m_pInterface != NULL && !m_bAcquired;
+        }
+    };
+
+    // The extension catalog itself is a shared provider service. Acquire its
+    // lease before asking it for the extension callback lease below.
+    CSalamatrixServiceLeaseGuard extensionServiceLease(
+        SalamanderGeneral,
+        SALAMATRIX_SERVICE_EXTENSIONS,
+        bridge->GetExtensionsService(),
+        script);
+    if (extensionServiceLease.IsBlocked())
+        return CopyRuntimeHostResult(
+            "{\"ok\":false,\"error\":\"service is unloading\"}",
+            resultJson, resultCapacity, resultLength);
+
+    class CExtensionLeaseGuard
+    {
+    private:
+        Salamatrix::Extensions::IExtensionsService* m_pService;
+        const char* m_pExtensionId;
+        void* m_pOwner;
+        BOOL m_bRegistered;
+        BOOL m_bAcquired;
+
+    public:
+        CExtensionLeaseGuard(
+            Salamatrix::Extensions::IExtensionsService* service,
+            const char* extensionId,
+            void* owner)
+            : m_pService(service),
+              m_pExtensionId(extensionId),
+              m_pOwner(owner),
+              m_bRegistered(FALSE),
+              m_bAcquired(FALSE)
+        {
+            if (m_pService != NULL && m_pExtensionId != NULL &&
+                m_pExtensionId[0] != '\0')
+            {
+                Salamatrix::Extensions::ExtensionInfo info;
+                m_bRegistered = m_pService->FindExtension(
+                    m_pExtensionId, &info);
+                if (m_bRegistered)
+                    m_bAcquired = m_pService->AcquireExtension(
+                        m_pExtensionId, m_pOwner);
+            }
+        }
+
+        ~CExtensionLeaseGuard()
+        {
+            if (m_bAcquired)
+                m_pService->ReleaseExtension(m_pExtensionId, m_pOwner);
+        }
+
+        BOOL IsBlocked() const
+        {
+            return m_bRegistered && !m_bAcquired;
+        }
+    };
+
+    CExtensionLeaseGuard lease(
+        bridge->GetExtensionsService(),
+        script->m_szSalamatrixExtensionId,
+        script);
+    if (lease.IsBlocked())
+        return CopyRuntimeHostResult(
+            "{\"ok\":false,\"error\":\"extension is unloading\"}",
+            resultJson, resultCapacity, resultLength);
+
     if (type == Salamatrix::Runtime::Protocol::MessageHello)
     {
         std::string response =
@@ -1242,6 +1381,56 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
     }
+
+    const char* leasedServiceId = NULL;
+    void* leasedService = NULL;
+    if (method == "salamander.clipboard.copyText" ||
+        method.find("salamander.ui.") == 0)
+    {
+        leasedServiceId = SALAMATRIX_SERVICE_UI;
+        leasedService = bridge->GetUIService();
+    }
+    else if (method.find("salamander.commands.") == 0)
+    {
+        leasedServiceId = SALAMATRIX_SERVICE_COMMANDS;
+        leasedService = bridge->GetCommandService();
+    }
+    else if (method.find("salamander.fileOperations.") == 0)
+    {
+        leasedServiceId = SALAMATRIX_SERVICE_FILEOPERATIONS;
+        leasedService = bridge->GetFileOperationsService();
+    }
+    else if (method.find("salamander.sides.") == 0)
+    {
+        leasedServiceId = SALAMATRIX_SERVICE_SIDES;
+        leasedService = bridge->GetSidesService();
+    }
+    else if (method.find("salamander.events.") == 0)
+    {
+        leasedServiceId = SALAMATRIX_SERVICE_EVENTS;
+        leasedService = bridge->GetEventsService();
+    }
+    else if (method.find("salamander.storage.") == 0)
+    {
+        leasedServiceId = SALAMATRIX_SERVICE_STORAGE;
+        leasedService = bridge->GetStorageService();
+    }
+    else if (method.find("salamander.ai.") == 0)
+    {
+        leasedServiceId = SALAMATRIX_SERVICE_AI;
+        leasedService = bridge->GetAssistantService();
+    }
+    else if (method == "salamander.runtimes.list")
+    {
+        leasedServiceId = SALAMATRIX_SERVICE_RUNTIME;
+        leasedService = bridge->GetRuntimeService();
+    }
+    CSalamatrixServiceLeaseGuard serviceLease(
+        SalamanderGeneral, leasedServiceId, leasedService, script);
+    if (serviceLease.IsBlocked())
+        return CopyRuntimeHostResult(
+            "{\"ok\":false,\"error\":\"service is unloading\"}",
+            resultJson, resultCapacity, resultLength);
 
     if (method == "salamander.runtimes.list")
     {
@@ -1702,6 +1891,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         method == "salamander.ui.dialog.events" ||
         method == "salamander.ui.dialog.show" ||
         method == "salamander.ui.dialog.get" ||
+        method == "salamander.ui.dialog.set" ||
         method == "salamander.ui.dialog.close" ||
         method == "salamander.ui.dialog.destroy")
     {
@@ -1715,13 +1905,21 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 static_cast<int>(_countof(script->m_runtimeDialogs)))
                 return FALSE;
             std::string title;
+            int width = 320;
+            int height = 180;
             Salamatrix::Runtime::Protocol::Json::FindStringMember(
                 payloadJson, "title", &title);
             if (title.empty())
                 title = "Salamatrix";
+            Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                payloadJson, "width", &width);
+            Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                payloadJson, "height", &height);
             Salamatrix::UI::DialogOptions options;
             options.Title = title.c_str();
             options.Parent = SalamanderGeneral->GetMsgBoxParent();
+            options.Width = static_cast<short>(width < 160 ? 160 : (width > 1200 ? 1200 : width));
+            options.Height = static_cast<short>(height < 100 ? 100 : (height > 900 ? 900 : height));
             Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
             if (dialog == NULL)
                 return FALSE;
@@ -1773,6 +1971,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             std::string text;
             BOOL readOnly = FALSE;
             BOOL checked = FALSE;
+            BOOL keepOpen = FALSE;
+            BOOL multiline = FALSE;
             int dialogResult = 0;
             int x = 0;
             int y = 0;
@@ -1790,6 +1990,10 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 payloadJson, "readOnly", &readOnly);
             Salamatrix::Runtime::Protocol::Json::FindBoolMember(
                 payloadJson, "checked", &checked);
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "keepOpen", &keepOpen);
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "multiline", &multiline);
             std::string rawCoordinate;
             if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
                     payloadJson, "x", &rawCoordinate))
@@ -1859,6 +2063,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             options.ReadOnly = readOnly;
             options.Checked = checked;
             options.DialogResult = dialogResult;
+            options.KeepOpen = keepOpen;
+            options.Multiline = multiline;
             Salamatrix::UI::ControlLayout layout;
             layout.HasBounds = hasBounds;
             layout.X = x;
@@ -2055,6 +2261,23 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 response, resultJson, resultCapacity, resultLength);
         }
 
+        if (method == "salamander.ui.dialog.set")
+        {
+            std::string controlId;
+            std::string value;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "controlId", &controlId) ||
+                !Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "value", &value))
+                return FALSE;
+            Salamatrix::UI::IControl* control =
+                dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetText(value.c_str()))
+                return FALSE;
+            return CopyRuntimeHostResult(
+                "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+
         dialog->SetEventCallback(NULL, NULL);
         ui->DestroyDialog(dialog);
         for (int move = dialogIndex; move + 1 < script->m_nRuntimeDialogs; ++move)
@@ -2067,6 +2290,27 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         script->m_runtimeDialogs[script->m_nRuntimeDialogs].EventName[0] = '\0';
         return CopyRuntimeHostResult(
             "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.ai.api" ||
+        method == "salamander.ai.apiDescription")
+    {
+        std::string topic;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "topic", &topic);
+        Salamatrix::AI::IAssistantService* assistant =
+            bridge->GetAssistantService();
+        if (assistant == NULL)
+            return FALSE;
+        const char* description = assistant->GetApiDescriptionSlice(
+            topic.empty() ? NULL : topic.c_str());
+        if (description == NULL)
+            return FALSE;
+        std::string response =
+            std::string("{\"ok\":true,\"description\":") +
+            description + "}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
     }
 
     if (method == "salamander.ai.generate" ||
@@ -2232,6 +2476,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         std::string title;
         BOOL pluginMenu = TRUE;
         BOOL contextMenu = FALSE;
+        int hotKeyValue = 0;
         if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
                 payloadJson, "commandId", &commandId) || commandId.empty())
             return FALSE;
@@ -2243,6 +2488,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             payloadJson, "pluginMenu", &pluginMenu);
         Salamatrix::Runtime::Protocol::Json::FindBoolMember(
             payloadJson, "contextMenu", &contextMenu);
+        Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+            payloadJson, "hotKey", &hotKeyValue);
         if (!script->m_bRuntimeCommandOwned &&
             script->m_szSalamatrixCommandId[0] != _T('\0'))
             return FALSE;
@@ -2251,6 +2498,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 title.c_str(),
                 pluginMenu != FALSE,
                 contextMenu != FALSE,
+                static_cast<DWORD>(hotKeyValue),
                 script->m_dwMenuEventOrMask,
                 script->m_dwMenuEventAndMask))
             return FALSE;
@@ -2447,16 +2695,39 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     }
 
     if (method == "salamander.storage.get" ||
-        method == "salamander.storage.set")
+        method == "salamander.storage.set" ||
+        method == "salamander.storage.remove" ||
+        method == "salamander.storage.clear")
     {
-        std::string key;
-        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
-                payloadJson, "key", &key))
-            return FALSE;
         Salamatrix::Storage::IStorageService* storage =
             bridge->GetStorageService();
         if (storage == NULL || script->m_szSalamatrixExtensionId[0] == '\0')
             return FALSE;
+        if (method == "salamander.storage.clear")
+        {
+            BOOL cleared = storage->ClearExtension(
+                script->m_szSalamatrixExtensionId);
+            return CopyRuntimeHostResult(
+                std::string("{\"ok\":") + (cleared ? "true}" : "false}"),
+                resultJson,
+                resultCapacity,
+                resultLength);
+        }
+        std::string key;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "key", &key))
+            return FALSE;
+        if (method == "salamander.storage.remove")
+        {
+            BOOL removed = storage->DeleteValue(
+                script->m_szSalamatrixExtensionId, key.c_str());
+            return CopyRuntimeHostResult(
+                std::string("{\"ok\":true,\"removed\":") +
+                    (removed ? "true}" : "false}"),
+                resultJson,
+                resultCapacity,
+                resultLength);
+        }
         if (method == "salamander.storage.set")
         {
             std::string value;
@@ -3891,6 +4162,7 @@ bool CScriptInfo::RegisterRuntimeCommand(
     const char* title,
     bool pluginMenu,
     bool contextMenu,
+    DWORD hotKey,
     DWORD menuEventOrMask,
     DWORD menuEventAndMask)
 {
@@ -3924,6 +4196,7 @@ bool CScriptInfo::RegisterRuntimeCommand(
     command.MenuId = static_cast<int>(menuId);
     command.PluginMenu = pluginMenu;
     command.ContextMenu = contextMenu;
+    command.HotKey = hotKey;
     command.MenuEventOrMask = menuEventOrMask;
     command.MenuEventAndMask = menuEventAndMask;
     ++m_nRuntimeCommands;
@@ -4086,11 +4359,18 @@ void CScriptLookup::PublishSalamatrixExtensions()
             // A failed registration (for example a duplicate manifest id)
             // is intentionally ignored here. The host registry remains
             // authoritative and malformed/duplicate entries never become
-            // executable by accident.
-            service->RegisterExtension(
-                &descriptor,
-                CScriptInfo::RuntimeLifecycleCallback,
-                pScript);
+            // executable by accident. Newly registered manifest extensions
+            // are activated immediately so their persistent worker can
+            // publish commands, subscriptions, and UI contributions. If a
+            // runtime is not installed yet, activation fails safely and is
+            // retried on the next configuration/plugin refresh.
+            if (service->RegisterExtension(
+                    &descriptor,
+                    CScriptInfo::RuntimeLifecycleCallback,
+                    pScript))
+            {
+                service->ActivateExtension(extensionId);
+            }
         }
     }
 }

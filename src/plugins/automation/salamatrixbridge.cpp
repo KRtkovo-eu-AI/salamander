@@ -136,62 +136,6 @@ static void SetRuntimeFailure(
     StringCchCopyW(result->Message, _countof(result->Message), message);
 }
 
-static std::string EscapeAssistantJson(const char* value)
-{
-    std::string escaped;
-    if (value == NULL)
-        return escaped;
-    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(value);
-         *p != '\0'; ++p)
-    {
-        switch (*p)
-        {
-        case '\\': escaped.append("\\\\"); break;
-        case '"': escaped.append("\\\""); break;
-        case '\b': escaped.append("\\b"); break;
-        case '\f': escaped.append("\\f"); break;
-        case '\n': escaped.append("\\n"); break;
-        case '\r': escaped.append("\\r"); break;
-        case '\t': escaped.append("\\t"); break;
-        default:
-            if (*p < 0x20)
-            {
-                char hex[7];
-                sprintf_s(hex, _countof(hex), "\\u%04x", *p);
-                escaped.append(hex);
-            }
-            else
-                escaped.push_back(static_cast<char>(*p));
-            break;
-        }
-    }
-    return escaped;
-}
-
-static void SetAssistantFailure(
-    Salamatrix::AI::AssistantResponse* response,
-    Salamatrix::AI::AssistantStatus status,
-    HRESULT errorCode,
-    const wchar_t* message)
-{
-    response->Status = status;
-    response->ErrorCode = errorCode;
-    response->OutputLength = 0;
-    response->ResponseJson[0] = '\0';
-    StringCchCopyW(response->Message, _countof(response->Message), message);
-}
-
-static bool IsStructuredJson(const std::string& value)
-{
-    size_t first = value.find_first_not_of(" \t\r\n");
-    size_t last = value.find_last_not_of(" \t\r\n");
-    if (first == std::string::npos || last <= first)
-        return false;
-    char opening = value[first];
-    char closing = value[last];
-    return (opening == '{' && closing == '}') ||
-           (opening == '[' && closing == ']');
-}
 } // namespace
 
 class CAutomationProcessRuntimeSession : public Salamatrix::Runtime::IRuntimeSession
@@ -530,9 +474,7 @@ CAutomationSalamatrixBridge::CAutomationSalamatrixBridge()
           L"php.exe",
           NULL,
           CAutomationProcessRuntimeAdapter::ProcessKindPhp),
-      m_oLocalAssistantProvider(),
-      m_bRuntimeAdaptersRegistered(false),
-      m_bAssistantProviderRegistered(false)
+      m_bRuntimeAdaptersRegistered(false)
 {
     Reset();
 }
@@ -619,6 +561,7 @@ BOOL WINAPI CAutomationActiveScriptRuntimeAdapter::Execute(
     return executed;
 }
 
+#if 0 // Local assistant ownership moved to the standalone Salamatrix AI plugin.
 CAutomationLocalAssistantProvider::CAutomationLocalAssistantProvider()
 {
     m_oDescriptor.ProviderId = "local.command";
@@ -853,6 +796,8 @@ BOOL WINAPI CAutomationLocalAssistantProvider::Generate(
     response->Message[0] = L'\0';
     return TRUE;
 }
+
+#endif
 
 CAutomationProcessRuntimeAdapter::CAutomationProcessRuntimeAdapter(
     const char* runtimeId,
@@ -1404,7 +1349,6 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::StartPersistent(
 void CAutomationSalamatrixBridge::Reset()
 {
     UnregisterRuntimeAdapters();
-    UnregisterAssistantProvider();
     m_bQueried = false;
     m_pGeneral = NULL;
     m_pScriptRoot = NULL;
@@ -1428,7 +1372,6 @@ void CAutomationSalamatrixBridge::Reset()
     m_dwStorageVersion = 0;
     m_dwAssistantVersion = 0;
     m_bRuntimeAdaptersRegistered = false;
-    m_bAssistantProviderRegistered = false;
 }
 
 void CAutomationSalamatrixBridge::RegisterRuntimeAdapters()
@@ -1463,22 +1406,6 @@ void CAutomationSalamatrixBridge::UnregisterRuntimeAdapters()
     m_pRuntimeService->UnregisterAdapter(&m_oVBScriptRuntime);
     m_pRuntimeService->UnregisterAdapter(&m_oJScriptRuntime);
     m_bRuntimeAdaptersRegistered = false;
-}
-
-void CAutomationSalamatrixBridge::RegisterAssistantProvider()
-{
-    if (m_pAssistantService == NULL || m_bAssistantProviderRegistered)
-        return;
-    if (m_oLocalAssistantProvider.IsAvailable())
-        m_bAssistantProviderRegistered =
-            m_pAssistantService->RegisterProvider(&m_oLocalAssistantProvider) != FALSE;
-}
-
-void CAutomationSalamatrixBridge::UnregisterAssistantProvider()
-{
-    if (m_pAssistantService != NULL && m_bAssistantProviderRegistered)
-        m_pAssistantService->UnregisterProvider(&m_oLocalAssistantProvider);
-    m_bAssistantProviderRegistered = false;
 }
 
 void* CAutomationSalamatrixBridge::QueryService(
@@ -1563,7 +1490,6 @@ void CAutomationSalamatrixBridge::Refresh(CSalamanderGeneralAbstract* salamander
         QueryService(salamander, SALAMATRIX_SERVICE_AI,
                      SALAMATRIX_AI_VERSION_1_0, &m_dwAssistantVersion));
     RegisterRuntimeAdapters();
-    RegisterAssistantProvider();
 }
 
 void CAutomationSalamatrixBridge::GetStatusText(PTSTR buffer, int cchBuffer) const
