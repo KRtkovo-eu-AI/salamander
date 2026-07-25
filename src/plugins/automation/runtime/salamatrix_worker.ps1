@@ -66,6 +66,14 @@ $commands | Add-Member ScriptMethod Execute {
     param([string]$CommandId)
     (Invoke-Host -Method 'salamander.commands.execute' -Arguments @{ commandId = $CommandId }).result
 }
+$commands | Add-Member ScriptMethod Register {
+    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false)
+    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu }).registered
+}
+$commands | Add-Member ScriptMethod Unregister {
+    param([string]$CommandId)
+    (Invoke-Host -Method 'salamander.commands.unregister' -Arguments @{ commandId = $CommandId }).unregistered
+}
 $storage = [pscustomobject]@{}
 $storage | Add-Member ScriptMethod Get {
     param([string]$Key, [object]$Default = $null)
@@ -86,6 +94,18 @@ $ui = [pscustomobject]@{}
 $ui | Add-Member ScriptMethod MessageBox {
     param([string]$Message, [string]$Title = 'Salamander')
     (Invoke-Host -Method 'salamander.ui.messageBox' -Arguments @{ message = $Message; title = $Title }).result
+}
+$ui | Add-Member ScriptMethod InputBox {
+    param([string]$Prompt, [string]$Title = 'Salamander', [string]$Initial = '')
+    Invoke-Host -Method 'salamander.ui.inputBox' -Arguments @{ prompt = $Prompt; title = $Title; initial = $Initial }
+}
+$ai = [pscustomobject]@{}
+$ai | Add-Member ScriptMethod Generate {
+    param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null)
+    $arguments = @{ prompt = $Prompt }
+    if ($null -ne $Context) { $arguments['context'] = $Context }
+    if (-not [string]::IsNullOrEmpty($Provider)) { $arguments['provider'] = $Provider }
+    Invoke-Host -Method 'salamander.ai.generate' -Arguments $arguments
 }
 $events = [pscustomobject]@{}
 $events | Add-Member ScriptMethod Subscribe {
@@ -108,6 +128,7 @@ $Salamander = [pscustomobject]@{
     source_side = $sides
     target_side = $sides
     ui = $ui
+    ai = $ai
     events = $events
 }
 

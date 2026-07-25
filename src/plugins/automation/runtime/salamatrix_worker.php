@@ -52,6 +52,8 @@ class SalamatrixClient {
 class SalamatrixCommands {
     private $client; public function __construct($client) { $this->client = $client; }
     public function execute($id) { $r = $this->client->call('salamander.commands.execute', array('commandId' => $id)); return isset($r['result']) ? $r['result'] : 'error'; }
+    public function register($id, $title, $pluginMenu = true, $contextMenu = false) { $r = $this->client->call('salamander.commands.register', array('commandId' => $id, 'title' => $title, 'pluginMenu' => $pluginMenu, 'contextMenu' => $contextMenu)); return !empty($r['registered']); }
+    public function unregister($id) { $r = $this->client->call('salamander.commands.unregister', array('commandId' => $id)); return !empty($r['unregistered']); }
 }
 class SalamatrixStorage {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -65,6 +67,16 @@ class SalamatrixSides {
 class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }
     public function messageBox($message, $title = 'Salamander') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title)); return isset($r['result']) ? $r['result'] : 0; }
+    public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
+}
+class SalamatrixAi {
+    private $client; public function __construct($client) { $this->client = $client; }
+    public function generate($prompt, $context = null, $provider = null) {
+        $arguments = array('prompt' => $prompt);
+        if ($context !== null) $arguments['context'] = $context;
+        if ($provider !== null) $arguments['provider'] = $provider;
+        return $this->client->call('salamander.ai.generate', $arguments);
+    }
 }
 class SalamatrixEvents {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -96,6 +108,7 @@ $Salamander->right_side = $Salamander->sides;
 $Salamander->source_side = $Salamander->sides;
 $Salamander->target_side = $Salamander->sides;
 $Salamander->ui = new SalamatrixUi($client);
+$Salamander->ai = new SalamatrixAi($client);
 $Salamander->events = new SalamatrixEvents($client);
 include $entry;
 

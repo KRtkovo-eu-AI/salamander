@@ -199,6 +199,76 @@ inline BOOL FindStringMember(
         SkipWhitespace(json, &position);
     }
 }
+
+/// Returns the raw JSON value for an object member. This is intentionally
+/// small and bounded like FindStringMember, but preserves nested objects and
+/// arrays so host calls can carry runtime-neutral context without converting
+/// it through a language-specific string representation.
+inline BOOL FindRawMember(
+    const char* jsonText,
+    const char* member,
+    std::string* value)
+{
+    if (jsonText == NULL || member == NULL || value == NULL)
+        return FALSE;
+    std::string json(jsonText);
+    size_t position = 0;
+    SkipWhitespace(json, &position);
+    if (position >= json.size() || json[position] != '{')
+        return FALSE;
+    ++position;
+    SkipWhitespace(json, &position);
+    if (position < json.size() && json[position] == '}')
+        return FALSE;
+    for (;;)
+    {
+        std::string key;
+        if (!ReadString(json, &position, &key))
+            return FALSE;
+        SkipWhitespace(json, &position);
+        if (position >= json.size() || json[position] != ':')
+            return FALSE;
+        ++position;
+        SkipWhitespace(json, &position);
+        size_t valueStart = position;
+        if (!SkipValue(json, &position))
+            return FALSE;
+        if (key == member)
+        {
+            value->assign(json, valueStart, position - valueStart);
+            return TRUE;
+        }
+        SkipWhitespace(json, &position);
+        if (position >= json.size() || json[position] == '}' ||
+            json[position] != ',')
+            return FALSE;
+        ++position;
+        SkipWhitespace(json, &position);
+    }
+}
+
+inline BOOL FindBoolMember(
+    const char* jsonText,
+    const char* member,
+    BOOL* value)
+{
+    if (jsonText == NULL || member == NULL || value == NULL)
+        return FALSE;
+    std::string raw;
+    if (!FindRawMember(jsonText, member, &raw))
+        return FALSE;
+    if (raw == "true")
+    {
+        *value = TRUE;
+        return TRUE;
+    }
+    if (raw == "false")
+    {
+        *value = FALSE;
+        return TRUE;
+    }
+    return FALSE;
+}
 } // namespace Json
 
 enum MessageType

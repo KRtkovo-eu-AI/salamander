@@ -112,6 +112,7 @@
     <ClCompile Include="..\..\shared\dbg.cpp" />
     <ClCompile Include="..\..\shared\mhandles.cpp" />
     <ClCompile Include="..\salamatrix.cpp" />
+    <ClCompile Include="..\salamatrix_ui.cpp" />
     <ClCompile Include="..\precomp.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -134,6 +135,7 @@
     <ClInclude Include="..\salamatrix.rh" />
     <ClInclude Include="..\versinfo.rh2" />
     <ClInclude Include="..\salamatrix_automation.h" />
+    <ClInclude Include="..\salamatrix_ai.h" />
     <ClInclude Include="..\salamatrix_commands.h" />
     <ClInclude Include="..\salamatrix_poc.h" />
     <ClInclude Include="..\salamatrix_runtime.h" />

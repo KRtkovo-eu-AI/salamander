@@ -8,6 +8,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\salamatrix.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\salamatrix_ui.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\precomp.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\..\shared\mhandles.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -16,6 +17,7 @@
     <ClInclude Include="..\salamatrix.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix.rh"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_automation.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_ai.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_commands.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_poc.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_runtime.h"><Filter>Header Files</Filter></ClInclude>

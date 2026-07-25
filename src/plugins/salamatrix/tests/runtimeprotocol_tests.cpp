@@ -3,11 +3,51 @@
 #include <cstdio>
 
 #include "../precomp.h"
+#include "../salamatrix_ai.h"
 #include "../salamatrix_runtime_protocol.h"
 
 namespace
 {
 int Failures = 0;
+
+class TestAssistantProvider : public Salamatrix::AI::IAssistantProvider
+{
+private:
+    Salamatrix::AI::AssistantProviderDescriptor Descriptor;
+
+public:
+    TestAssistantProvider()
+    {
+        Descriptor.ProviderId = "test";
+        Descriptor.DisplayName = "Test";
+        Descriptor.ProviderVersion = 0x00010000;
+        Descriptor.Flags = 0;
+    }
+
+    virtual const Salamatrix::AI::AssistantProviderDescriptor* WINAPI GetDescriptor() const
+    {
+        return &Descriptor;
+    }
+
+    virtual BOOL WINAPI IsAvailable() const
+    {
+        return TRUE;
+    }
+
+    virtual BOOL WINAPI Generate(
+        const Salamatrix::AI::AssistantRequest*,
+        Salamatrix::AI::AssistantResponse* response)
+    {
+        const char result[] =
+            "{\"title\":\"Test\",\"description\":\"Test script\","
+            "\"capabilities\":[],\"estimatedEffects\":{},"
+            "\"script\":\"pass\"}";
+        memcpy(response->ResponseJson, result, sizeof(result));
+        response->OutputLength = sizeof(result) - 1;
+        response->Status = Salamatrix::AI::AssistantStatusSucceeded;
+        return TRUE;
+    }
+};
 
 void Check(bool condition, const char* message)
 {
@@ -87,6 +127,30 @@ void TestJsonMemberExtraction()
         Salamatrix::Runtime::Protocol::Json::FindStringMember(
             "{\"method\":42}", "method", &value) == FALSE,
         "reject non-string member");
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindRawMember(
+            "{\"context\":{\"capabilities\":[\"rename\"]},\"prompt\":\"x\"}",
+            "context", &value) != FALSE &&
+            value == "{\"capabilities\":[\"rename\"]}",
+        "extract nested raw context member");
+}
+
+void TestAssistantService()
+{
+    Salamatrix::AI::AssistantService service;
+    TestAssistantProvider provider;
+    Salamatrix::AI::AssistantRequest request;
+    Salamatrix::AI::AssistantResponse response;
+    Check(service.RegisterProvider(&provider) != FALSE,
+          "register assistant provider");
+    Check(service.RegisterProvider(&provider) == FALSE,
+          "reject duplicate assistant provider");
+    Check(service.Generate(NULL, &request, &response) != FALSE &&
+              response.Status == Salamatrix::AI::AssistantStatusSucceeded &&
+              response.OutputLength != 0,
+          "generate through default assistant provider");
+    Check(strstr(service.GetApiDescription(), "Salamander.ai") != NULL,
+          "assistant API description advertises AI object");
 }
 } // namespace
 
@@ -95,6 +159,7 @@ int main()
     TestRoundTrip();
     TestValidationAndLimits();
     TestJsonMemberExtraction();
+    TestAssistantService();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d runtime protocol test(s) failed.\n", Failures);

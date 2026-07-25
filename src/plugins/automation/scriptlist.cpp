@@ -150,6 +150,184 @@ static BOOL NativeToUtf8(PCTSTR value, char* output, int outputCount)
 #endif
 }
 
+struct RuntimeInputBoxContext
+{
+    std::wstring Title;
+    std::wstring Prompt;
+    std::wstring Initial;
+    char* Output;
+    DWORD OutputCapacity;
+    BOOL Accepted;
+
+    RuntimeInputBoxContext()
+        : Output(NULL),
+          OutputCapacity(0),
+          Accepted(FALSE)
+    {
+    }
+};
+
+static void AppendDialogWord(std::vector<BYTE>& bytes, WORD value)
+{
+    bytes.push_back(static_cast<BYTE>(value & 0xff));
+    bytes.push_back(static_cast<BYTE>((value >> 8) & 0xff));
+}
+
+static void AppendDialogString(std::vector<BYTE>& bytes, const wchar_t* value)
+{
+    if (value != NULL)
+    {
+        while (*value != L'\0')
+        {
+            AppendDialogWord(bytes, static_cast<WORD>(*value));
+            ++value;
+        }
+    }
+    AppendDialogWord(bytes, 0);
+}
+
+static void AlignDialogTemplate(std::vector<BYTE>& bytes)
+{
+    while ((bytes.size() & 3) != 0)
+        bytes.push_back(0);
+}
+
+static void AppendDialogItem(
+    std::vector<BYTE>& bytes,
+    short x,
+    short y,
+    short width,
+    short height,
+    WORD id,
+    DWORD style,
+    WORD classOrdinal,
+    const wchar_t* title)
+{
+    AlignDialogTemplate(bytes);
+    size_t offset = bytes.size();
+    bytes.resize(offset + sizeof(DLGITEMTEMPLATE), 0);
+    DLGITEMTEMPLATE* item =
+        reinterpret_cast<DLGITEMTEMPLATE*>(&bytes[offset]);
+    item->x = x;
+    item->y = y;
+    item->cx = width;
+    item->cy = height;
+    item->id = id;
+    item->style = style;
+    item->dwExtendedStyle = 0;
+    AppendDialogWord(bytes, 0xffff);
+    AppendDialogWord(bytes, classOrdinal);
+    AppendDialogString(bytes, title);
+    AppendDialogWord(bytes, 0);
+}
+
+static INT_PTR CALLBACK RuntimeInputBoxProc(
+    HWND hwnd,
+    UINT message,
+    WPARAM wParam,
+    LPARAM lParam)
+{
+    RuntimeInputBoxContext* context =
+        reinterpret_cast<RuntimeInputBoxContext*>(
+            GetWindowLongPtr(hwnd, DWLP_USER));
+    if (message == WM_INITDIALOG)
+    {
+        context = reinterpret_cast<RuntimeInputBoxContext*>(lParam);
+        SetWindowLongPtr(hwnd, DWLP_USER, lParam);
+        SetWindowTextW(hwnd, context->Title.c_str());
+        SetDlgItemTextW(hwnd, 1000, context->Prompt.c_str());
+        SetDlgItemTextW(hwnd, 1001, context->Initial.c_str());
+        SetFocus(GetDlgItem(hwnd, 1001));
+        SendDlgItemMessage(hwnd, 1001, EM_SETSEL, 0, -1);
+        return FALSE;
+    }
+    if (message != WM_COMMAND || context == NULL)
+        return FALSE;
+    WORD command = LOWORD(wParam);
+    if (command != IDOK && command != IDCANCEL)
+        return FALSE;
+    if (command == IDOK && context->Output != NULL &&
+        context->OutputCapacity != 0)
+    {
+        wchar_t value[4096];
+        GetDlgItemTextW(hwnd, 1001, value, _countof(value));
+#ifdef UNICODE
+        NativeToUtf8(value, context->Output,
+                     static_cast<int>(context->OutputCapacity));
+#else
+        WideCharToMultiByte(CP_UTF8, 0, value, -1, context->Output,
+                            static_cast<int>(context->OutputCapacity), NULL, NULL);
+#endif
+        context->Accepted = TRUE;
+    }
+    EndDialog(hwnd, command);
+    return TRUE;
+}
+
+static BOOL ShowRuntimeInputBox(
+    HWND parent,
+    const std::string& title,
+    const std::string& prompt,
+    const std::string& initial,
+    char* output,
+    DWORD outputCapacity)
+{
+    if (output == NULL || outputCapacity == 0)
+        return FALSE;
+    output[0] = '\0';
+    RuntimeInputBoxContext context;
+    wchar_t titleBuffer[512];
+    wchar_t promptBuffer[2048];
+    wchar_t initialBuffer[4096];
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, title.c_str(), -1,
+                            titleBuffer, _countof(titleBuffer)) == 0 ||
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, prompt.c_str(), -1,
+                            promptBuffer, _countof(promptBuffer)) == 0 ||
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, initial.c_str(), -1,
+                            initialBuffer, _countof(initialBuffer)) == 0)
+        return FALSE;
+    context.Title.assign(titleBuffer);
+    context.Prompt.assign(promptBuffer);
+    context.Initial.assign(initialBuffer);
+    context.Output = output;
+    context.OutputCapacity = outputCapacity;
+
+    std::vector<BYTE> dialog;
+    dialog.resize(sizeof(DLGTEMPLATE), 0);
+    DLGTEMPLATE* header = reinterpret_cast<DLGTEMPLATE*>(&dialog[0]);
+    header->style = WS_POPUP | WS_BORDER | WS_SYSMENU | WS_CAPTION |
+                    DS_MODALFRAME | DS_SETFONT;
+    header->dwExtendedStyle = 0;
+    header->cdit = 4;
+    header->x = 10;
+    header->y = 10;
+    header->cx = 260;
+    header->cy = 92;
+    AppendDialogWord(dialog, 0); // no menu
+    AppendDialogWord(dialog, 0); // default dialog class
+    AppendDialogString(dialog, context.Title.c_str());
+    AppendDialogWord(dialog, 8); // point size
+    AppendDialogString(dialog, L"MS Shell Dlg");
+    AppendDialogItem(dialog, 8, 8, 244, 12, 1000,
+                     WS_CHILD | WS_VISIBLE, 0x0082, context.Prompt.c_str());
+    AppendDialogItem(dialog, 8, 24, 244, 14, 1001,
+                     WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
+                     0x0081, context.Initial.c_str());
+    AppendDialogItem(dialog, 142, 60, 52, 14, IDOK,
+                     WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON,
+                     0x0080, L"OK");
+    AppendDialogItem(dialog, 200, 60, 52, 14, IDCANCEL,
+                     WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                     0x0080, L"Cancel");
+    DialogBoxIndirectParamW(
+        g_hLangInst,
+        reinterpret_cast<DLGTEMPLATE*>(&dialog[0]),
+        parent,
+        RuntimeInputBoxProc,
+        reinterpret_cast<LPARAM>(&context));
+    return context.Accepted;
+}
+
 static BOOL PathsEqual(PCTSTR first, PCTSTR second)
 {
     TCHAR firstFull[MAX_PATH];
@@ -227,11 +405,13 @@ CScriptInfo::CScriptInfo(
     pszNameEnd = PathFindExtension(pszNameStart);
     StringCchCopyN(m_szDisplayName, _countof(m_szDisplayName), pszNameStart, pszNameEnd - pszNameStart);
     m_szSalamatrixCommandId[0] = _T('\0');
+    m_szRuntimeCommandId[0] = '\0';
     m_szSalamatrixExtensionId[0] = '\0';
     m_szSalamatrixRuntimeId[0] = '\0';
     m_dwSalamatrixMinimumRuntimeVersion = 0;
     m_bShowInPluginMenu = true;
     m_bShowInContextMenu = false;
+    m_bRuntimeCommandOwned = false;
     m_dwMenuEventOrMask = MENU_EVENT_TRUE;
     m_dwMenuEventAndMask = MENU_EVENT_TRUE;
     LoadSalamatrixMetadata();
@@ -764,7 +944,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         std::string response =
             "{\"ok\":true,\"protocol\":1,\"extensionId\":\"" +
             JsonEscapeRuntimeText(script->m_szSalamatrixExtensionId) +
-            "\",\"services\":[\"commands\",\"sides\",\"storage\"]}";
+            "\",\"services\":[\"commands\",\"sides\",\"storage\",\"ui\",\"ai\"]}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
     }
@@ -805,6 +985,123 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             MB_OK | MB_ICONINFORMATION);
         std::string response =
             "{\"ok\":true,\"result\":" + std::to_string(result) + "}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.ui.inputBox")
+    {
+        std::string prompt;
+        std::string title;
+        std::string initial;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "prompt", &prompt))
+            return FALSE;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "title", &title);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "initial", &initial);
+        if (title.empty())
+            title = "Salamatrix";
+        char value[4096];
+        value[0] = '\0';
+        BOOL accepted = FALSE;
+        Salamatrix::UI::IUIService* ui = bridge->GetUIService();
+        if (ui != NULL)
+        {
+            Salamatrix::UI::DialogOptions options;
+            options.Title = title.c_str();
+            options.Parent = SalamanderGeneral->GetMsgBoxParent();
+            Salamatrix::UI::IDialog* dialog = ui->CreateDialog(options);
+            if (dialog != NULL)
+            {
+                Salamatrix::UI::ControlOptions promptOptions;
+                promptOptions.Id = "prompt";
+                promptOptions.Text = prompt.c_str();
+                dialog->AddControl(
+                    Salamatrix::UI::ControlKindLabel, promptOptions);
+                Salamatrix::UI::ControlOptions valueOptions;
+                valueOptions.Id = "value";
+                valueOptions.Text = initial.c_str();
+                Salamatrix::UI::IControl* valueControl = dialog->AddControl(
+                    Salamatrix::UI::ControlKindTextBox, valueOptions);
+                Salamatrix::UI::ControlOptions okOptions;
+                okOptions.Id = "ok";
+                okOptions.Text = "OK";
+                okOptions.DialogResult = IDOK;
+                dialog->AddControl(
+                    Salamatrix::UI::ControlKindButton, okOptions);
+                Salamatrix::UI::ControlOptions cancelOptions;
+                cancelOptions.Id = "cancel";
+                cancelOptions.Text = "Cancel";
+                cancelOptions.DialogResult = IDCANCEL;
+                dialog->AddControl(
+                    Salamatrix::UI::ControlKindButton, cancelOptions);
+                accepted = dialog->ShowModal() == IDOK;
+                if (accepted && valueControl != NULL)
+                    valueControl->GetText(value, _countof(value));
+                ui->DestroyDialog(dialog);
+            }
+        }
+        else
+        {
+            accepted = ShowRuntimeInputBox(
+                SalamanderGeneral->GetMsgBoxParent(),
+                title,
+                prompt,
+                initial,
+                value,
+                _countof(value));
+        }
+        std::string response =
+            std::string("{\"ok\":true,\"accepted\":") +
+            (accepted ? "true" : "false") +
+            ",\"value\":\"" + JsonEscapeRuntimeText(value) + "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.ai.generate")
+    {
+        std::string prompt;
+        std::string provider;
+        std::string contextJson;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "prompt", &prompt))
+            return FALSE;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "provider", &provider);
+        if (!Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                payloadJson, "context", &contextJson))
+            contextJson = "{}";
+
+        Salamatrix::AI::IAssistantService* assistant =
+            bridge->GetAssistantService();
+        if (assistant == NULL)
+            return FALSE;
+        Salamatrix::AI::AssistantRequest request;
+        request.Prompt = prompt.c_str();
+        request.ContextJson = contextJson.c_str();
+        Salamatrix::AI::AssistantResponse responseData;
+        BOOL generated = assistant->Generate(
+            provider.empty() ? NULL : provider.c_str(),
+            &request,
+            &responseData);
+        const char* status =
+            responseData.Status == Salamatrix::AI::AssistantStatusSucceeded
+                ? "succeeded"
+                : responseData.Status == Salamatrix::AI::AssistantStatusUnavailable
+                      ? "unavailable"
+                      : responseData.Status == Salamatrix::AI::AssistantStatusCancelled
+                            ? "cancelled"
+                            : responseData.Status == Salamatrix::AI::AssistantStatusInvalidResponse
+                                  ? "invalid_response"
+                                  : "failed";
+        std::string response =
+            std::string("{\"ok\":") + (generated ? "true" : "false") +
+            ",\"status\":\"" + status + "\",\"response\":" +
+            (responseData.OutputLength != 0 ? responseData.ResponseJson : "null") +
+            "}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
     }
@@ -899,6 +1196,81 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             ",\"result\":\"" + resultName + "\"}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.commands.register")
+    {
+        std::string commandId;
+        std::string title;
+        BOOL pluginMenu = TRUE;
+        BOOL contextMenu = FALSE;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "commandId", &commandId) || commandId.empty())
+            return FALSE;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "title", &title);
+        if (title.empty())
+            title = commandId;
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "pluginMenu", &pluginMenu);
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "contextMenu", &contextMenu);
+        if (script->m_bRuntimeCommandOwned &&
+            _stricmp(script->m_szRuntimeCommandId, commandId.c_str()) != 0)
+            return FALSE;
+        if (!script->m_bRuntimeCommandOwned &&
+            script->m_szSalamatrixCommandId[0] != _T('\0'))
+            return FALSE;
+#ifdef UNICODE
+        wchar_t nativeCommandId[128];
+        wchar_t nativeTitle[256];
+        if (!Utf8ToNative(commandId, nativeCommandId, _countof(nativeCommandId)) ||
+            !Utf8ToNative(title, nativeTitle, _countof(nativeTitle)))
+            return FALSE;
+        if (StringCchCopy(script->m_szSalamatrixCommandId,
+                          _countof(script->m_szSalamatrixCommandId),
+                          nativeCommandId) != S_OK ||
+            StringCchCopy(script->m_szDisplayName,
+                          _countof(script->m_szDisplayName),
+                          nativeTitle) != S_OK)
+            return FALSE;
+#else
+        if (StringCchCopyA(script->m_szSalamatrixCommandId,
+                           _countof(script->m_szSalamatrixCommandId),
+                           commandId.c_str()) != S_OK ||
+            StringCchCopyA(script->m_szDisplayName,
+                           _countof(script->m_szDisplayName),
+                           title.c_str()) != S_OK)
+            return FALSE;
+#endif
+        StringCchCopyA(script->m_szRuntimeCommandId,
+                       _countof(script->m_szRuntimeCommandId),
+                       commandId.c_str());
+        script->m_bShowInPluginMenu = pluginMenu != FALSE;
+        script->m_bShowInContextMenu = contextMenu != FALSE;
+        script->m_bRuntimeCommandOwned = true;
+        SalamanderGeneral->PostPluginMenuChanged();
+        return CopyRuntimeHostResult(
+            "{\"ok\":true,\"registered\":true}",
+            resultJson,
+            resultCapacity,
+            resultLength);
+    }
+
+    if (method == "salamander.commands.unregister")
+    {
+        std::string commandId;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "commandId", &commandId) ||
+            !script->m_bRuntimeCommandOwned ||
+            _stricmp(script->m_szRuntimeCommandId, commandId.c_str()) != 0)
+            return FALSE;
+        script->ReleaseRuntimeCommand();
+        return CopyRuntimeHostResult(
+            "{\"ok\":true,\"unregistered\":true}",
+            resultJson,
+            resultCapacity,
+            resultLength);
     }
 
     if (method == "salamander.sides.activeTab")
@@ -2351,15 +2723,34 @@ void CScriptInfo::ReleaseRuntimeEventSubscriptions()
     m_nRuntimeEventSubscriptions = 0;
 }
 
+void CScriptInfo::ReleaseRuntimeCommand()
+{
+    if (!m_bRuntimeCommandOwned)
+        return;
+    m_szSalamatrixCommandId[0] = _T('\0');
+    m_szRuntimeCommandId[0] = '\0';
+    m_bShowInPluginMenu = false;
+    m_bShowInContextMenu = false;
+    m_bRuntimeCommandOwned = false;
+    if (SalamanderGeneral != NULL)
+        SalamanderGeneral->PostPluginMenuChanged();
+}
+
 void CScriptInfo::ReleaseRuntimeSession()
 {
+    ReleaseRuntimeCommand();
     if (m_pRuntimeSession == NULL)
         return;
     ReleaseRuntimeEventSubscriptions();
     m_pRuntimeSession->Stop();
     if (m_hRuntimePumpThread != NULL)
     {
-        WaitForSingleObject(m_hRuntimePumpThread, INFINITE);
+        // A host callback may be blocked in a modal UI call. Never let
+        // extension teardown wait forever; Stop() has already terminated the
+        // child process, so the thread is safe to terminate as a last resort.
+        DWORD wait = WaitForSingleObject(m_hRuntimePumpThread, 5000);
+        if (wait == WAIT_TIMEOUT)
+            TerminateThread(m_hRuntimePumpThread, 1);
         CloseHandle(m_hRuntimePumpThread);
         m_hRuntimePumpThread = NULL;
     }

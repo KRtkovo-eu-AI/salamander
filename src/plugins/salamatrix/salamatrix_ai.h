@@ -10,7 +10,10 @@
 
 #pragma once
 
+#include <string>
 #include <string.h>
+
+#include "salamatrix_runtime_protocol.h"
 
 namespace Salamatrix
 {
@@ -28,6 +31,37 @@ enum AssistantStatus
     AssistantStatusInvalidResponse = 3,
     AssistantStatusFailed = 4,
     AssistantStatusCancelled = 5
+};
+
+enum AssistantEffectFlags
+{
+    AssistantEffectNone = 0,
+    AssistantEffectReadSelection = 0x00000001,
+    AssistantEffectReadMetadata = 0x00000002,
+    AssistantEffectRenameFiles = 0x00000004,
+    AssistantEffectMoveFiles = 0x00000008,
+    AssistantEffectDeleteFiles = 0x00000010,
+    AssistantEffectModifyContents = 0x00000020,
+    AssistantEffectExecuteExternal = 0x00000040,
+    AssistantEffectNetwork = 0x00000080
+};
+
+struct AssistantOutputSummary
+{
+    char Title[256];
+    char Description[1024];
+    char Script[32768];
+    DWORD EffectFlags;
+    BOOL ContractValid;
+
+    AssistantOutputSummary()
+        : EffectFlags(AssistantEffectNone),
+          ContractValid(FALSE)
+    {
+        Title[0] = '\0';
+        Description[0] = '\0';
+        Script[0] = '\0';
+    }
 };
 
 struct AssistantProviderDescriptor
@@ -66,6 +100,7 @@ struct AssistantResponse
     DWORD OutputLength;
     char ResponseJson[65536];
     wchar_t Message[256];
+    AssistantOutputSummary Summary;
 
     AssistantResponse()
         : StructSize(sizeof(AssistantResponse)),
@@ -118,6 +153,77 @@ private:
 
     AssistantService(const AssistantService&);
     AssistantService& operator=(const AssistantService&);
+
+    static BOOL CopySummaryString(
+        const std::string& value,
+        char* destination,
+        size_t capacity)
+    {
+        if (destination == NULL || capacity == 0 || value.size() >= capacity)
+            return FALSE;
+        memcpy(destination, value.c_str(), value.size() + 1);
+        return TRUE;
+    }
+
+    static BOOL ValidateResponse(AssistantResponse* response)
+    {
+        if (response == NULL || response->OutputLength == 0 ||
+            response->ResponseJson[0] == '\0')
+            return FALSE;
+        std::string title;
+        std::string description;
+        std::string script;
+        std::string capabilities;
+        std::string effects;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                response->ResponseJson, "title", &title) ||
+            !Runtime::Protocol::Json::FindStringMember(
+                response->ResponseJson, "description", &description) ||
+            !Runtime::Protocol::Json::FindStringMember(
+                response->ResponseJson, "script", &script) ||
+            !Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "capabilities", &capabilities) ||
+            !Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "estimatedEffects", &effects) ||
+            capabilities.size() < 2 || capabilities[0] != '[' ||
+            capabilities[capabilities.size() - 1] != ']' ||
+            effects.size() < 2 || effects[0] != '{' ||
+            effects[effects.size() - 1] != '}' ||
+            !CopySummaryString(title, response->Summary.Title,
+                               _countof(response->Summary.Title)) ||
+            !CopySummaryString(description, response->Summary.Description,
+                               _countof(response->Summary.Description)) ||
+            !CopySummaryString(script, response->Summary.Script,
+                               _countof(response->Summary.Script)))
+            return FALSE;
+
+        response->Summary.EffectFlags = AssistantEffectNone;
+        const struct EffectName
+        {
+            const char* Name;
+            DWORD Flag;
+        } effectsToFlags[] = {
+            {"readSelection", AssistantEffectReadSelection},
+            {"readMetadata", AssistantEffectReadMetadata},
+            {"renameFiles", AssistantEffectRenameFiles},
+            {"moveFiles", AssistantEffectMoveFiles},
+            {"deleteFiles", AssistantEffectDeleteFiles},
+            {"modifyContents", AssistantEffectModifyContents},
+            {"executeExternal", AssistantEffectExecuteExternal},
+            {"network", AssistantEffectNetwork}};
+        for (int index = 0; index < _countof(effectsToFlags); ++index)
+        {
+            std::string marker = std::string("\"") +
+                                 effectsToFlags[index].Name + "\":";
+            size_t position = effects.find(marker);
+            if (position != std::string::npos &&
+                effects.find("true", position + marker.size()) ==
+                    position + marker.size())
+                response->Summary.EffectFlags |= effectsToFlags[index].Flag;
+        }
+        response->Summary.ContractValid = TRUE;
+        return TRUE;
+    }
 
 public:
     AssistantService()
@@ -205,18 +311,28 @@ public:
             response->ErrorCode = HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
             return FALSE;
         }
-        return provider->Generate(request, response);
+        if (!provider->Generate(request, response))
+            return FALSE;
+        if (!ValidateResponse(response))
+        {
+            response->Status = AssistantStatusInvalidResponse;
+            response->ErrorCode = E_INVALIDDATA;
+            response->Summary.ContractValid = FALSE;
+            return FALSE;
+        }
+        return TRUE;
     }
 
     virtual const char* WINAPI GetApiDescription() const
     {
         return
             "{\"version\":\"1.0\",\"objects\":{" 
-            "\"Salamander.commands\":{\"methods\":[\"execute\"]},"
+            "\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"]},"
             "\"Salamander.sides\":{\"methods\":[\"activeTab\"]},"
             "\"Salamander.storage\":{\"methods\":[\"get\",\"set\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]},"
-            "\"Salamander.ui\":{\"methods\":[\"messageBox\"]}},"
+            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\"]},"
+            "\"Salamander.ai\":{\"methods\":[\"generate\"]}},"
             "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"]}}";
     }
 };

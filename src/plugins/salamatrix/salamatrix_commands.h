@@ -48,10 +48,28 @@ struct CommandCatalogEntry
 };
 
 static const CommandCatalogEntry CommandCatalog[] = {
+    {"View", "view", SALCMD_VIEW, TRUE, TRUE},
+    {"AltView", "alt_view", SALCMD_ALTVIEW, TRUE, TRUE},
+    {"ViewWith", "view_with", SALCMD_VIEWWITH, TRUE, TRUE},
+    {"Edit", "edit", SALCMD_EDIT, TRUE, TRUE},
+    {"EditWith", "edit_with", SALCMD_EDITWITH, TRUE, TRUE},
+    {"Open", "open", SALCMD_OPEN, TRUE, TRUE},
     {"QuickRename", "quick_rename", SALCMD_QUICKRENAME, TRUE, TRUE},
     {"Copy", "copy", SALCMD_COPY, TRUE, TRUE},
     {"Move", "move", SALCMD_MOVE, TRUE, TRUE},
     {"MoveRename", "move_rename", SALCMD_MOVE, TRUE, TRUE},
+    {"Email", "email", SALCMD_EMAIL, TRUE, TRUE},
+    {"Delete", "delete", SALCMD_DELETE, TRUE, TRUE},
+    {"Properties", "properties", SALCMD_PROPERTIES, TRUE, TRUE},
+    {"ChangeCase", "change_case", SALCMD_CHANGECASE, TRUE, TRUE},
+    {"ChangeAttributes", "change_attributes", SALCMD_CHANGEATTRS, TRUE, TRUE},
+    {"OccupiedSpace", "occupied_space", SALCMD_OCCUPIEDSPACE, TRUE, TRUE},
+    {"EditNewFile", "edit_new_file", SALCMD_EDITNEWFILE, TRUE, FALSE},
+    {"Refresh", "refresh", SALCMD_REFRESH, TRUE, FALSE},
+    {"CreateDirectory", "create_directory", SALCMD_CREATEDIRECTORY, TRUE, FALSE},
+    {"DriveInfo", "drive_info", SALCMD_DRIVEINFO, TRUE, FALSE},
+    {"CalculateDirectorySizes", "calculate_directory_sizes", SALCMD_CALCDIRSIZES, TRUE, FALSE},
+    {"Disconnect", "disconnect", SALCMD_DISCONNECT, TRUE, FALSE},
 };
 
 inline const CommandCatalogEntry* WINAPI FindCommandCatalogEntry(const char* commandId)
@@ -166,6 +184,10 @@ public:
     virtual Runtime::OperationResult WINAPI RenameInteractive(const InteractiveOptions& options) = 0;
     virtual Runtime::OperationResult WINAPI CopyInteractive(const InteractiveOptions& options) = 0;
     virtual Runtime::OperationResult WINAPI MoveInteractive(const InteractiveOptions& options) = 0;
+    virtual Runtime::OperationResult WINAPI DeleteInteractive(const InteractiveOptions& options) = 0;
+    virtual Runtime::OperationResult WINAPI CreateDirectoryInteractive(const InteractiveOptions& options) = 0;
+    virtual Runtime::OperationResult WINAPI Refresh(const InteractiveOptions& options) = 0;
+    virtual Runtime::OperationResult WINAPI ShowProperties(const InteractiveOptions& options) = 0;
 
 protected:
     virtual ~IFileOperationsService() {}
@@ -211,6 +233,26 @@ public:
     virtual Runtime::OperationResult WINAPI MoveInteractive(const InteractiveOptions& options)
     {
         return ExecuteExistingCommand(SALCMD_MOVE, options);
+    }
+
+    virtual Runtime::OperationResult WINAPI DeleteInteractive(const InteractiveOptions& options)
+    {
+        return ExecuteExistingCommand(SALCMD_DELETE, options);
+    }
+
+    virtual Runtime::OperationResult WINAPI CreateDirectoryInteractive(const InteractiveOptions& options)
+    {
+        return ExecuteExistingCommand(SALCMD_CREATEDIRECTORY, options);
+    }
+
+    virtual Runtime::OperationResult WINAPI Refresh(const InteractiveOptions& options)
+    {
+        return ExecuteExistingCommand(SALCMD_REFRESH, options);
+    }
+
+    virtual Runtime::OperationResult WINAPI ShowProperties(const InteractiveOptions& options)
+    {
+        return ExecuteExistingCommand(SALCMD_PROPERTIES, options);
     }
 };
 

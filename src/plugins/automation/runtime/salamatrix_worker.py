@@ -107,6 +107,20 @@ class _Commands:
             "salamander.commands.execute", commandId=command_id
         ).get("result", "error")
 
+    def register(self, command_id: str, title: str,
+                 plugin_menu: bool = True, context_menu: bool = False) -> bool:
+        result = self._transport.call(
+            "salamander.commands.register", commandId=command_id,
+            title=title, pluginMenu=plugin_menu, contextMenu=context_menu
+        )
+        return bool(result.get("registered", False))
+
+    def unregister(self, command_id: str) -> bool:
+        result = self._transport.call(
+            "salamander.commands.unregister", commandId=command_id
+        )
+        return bool(result.get("unregistered", False))
+
 
 class _Storage:
     def __init__(self, transport: _Transport) -> None:
@@ -136,6 +150,27 @@ class _UI:
         return int(self._transport.call(
             "salamander.ui.messageBox", message=message, title=title
         ).get("result", 0))
+
+    def input_box(self, prompt: str, title: str = "Salamander",
+                  initial: str = "") -> dict:
+        return self._transport.call(
+            "salamander.ui.inputBox", prompt=prompt, title=title,
+            initial=initial
+        )
+
+
+class _AI:
+    def __init__(self, transport: _Transport) -> None:
+        self._transport = transport
+
+    def generate(self, prompt: str, context: Optional[dict] = None,
+                 provider: Optional[str] = None) -> dict:
+        arguments = {"prompt": prompt}
+        if context is not None:
+            arguments["context"] = context
+        if provider is not None:
+            arguments["provider"] = provider
+        return self._transport.call("salamander.ai.generate", **arguments)
 
 
 class _Events:
@@ -168,6 +203,7 @@ class _Salamander:
         self.storage = _Storage(transport)
         self.sides = _Sides(transport)
         self.ui = _UI(transport)
+        self.ai = _AI(transport)
         self.events = _Events(transport)
         self.left_side = self.sides
         self.right_side = self.sides

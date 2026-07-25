@@ -135,7 +135,7 @@ Implemented C-style constants in the Salamatrix headers:
 
 `SALAMATRIX.SPL` itself is an Automation Framework provider. The current host
 registration publishes the UI, Commands, FileOperations, Runtime broker, and
-Automation adapter, Sides, Events, Extensions, and Storage services. The event service is
+Automation adapter, Sides, Events, Extensions, AI, and Storage services. The event service is
 fed by the host's plugin event callback and is also available to native runtime
 adapters.
 
@@ -214,7 +214,7 @@ Before unregistering, the bridge verifies that the same broker is still
 published by the host so a provider unload cannot turn cleanup into a call
 through a stale service pointer.
 
-The framework's host-service registration is transactional. If any of the nine
+The framework's host-service registration is transactional. If any of the ten
 services cannot be registered, services registered earlier in the attempt are
 rolled back in reverse order instead of leaving dangling partial registrations.
 
@@ -383,7 +383,7 @@ from DemoPlug command handlers.
 The core-facing MVP is now implemented on `CSalamanderGeneralAbstract` and backed
 by a process-local registry in `CSalamanderGeneral`. `Runtime::RuntimeServices`
 registers the PoC UI, Commands, FileOperations, Runtime broker, Automation,
-Sides, Events, Extensions, and Storage services with both its local registry and the host registry
+Sides, Events, Extensions, AI, and Storage services with both its local registry and the host registry
 while the runtime object is alive.
 
 ### Provider registration
@@ -658,9 +658,9 @@ existing Salamander command handlers. `ScriptFileOperationsAdapter` delegates
 `IFileOperationsService`, which in the MVP routes to the existing Quick Rename,
 Copy, and Move workflows.
 
-The generic form builder is intentionally not part of this MVP. The adapter file
-only reserves the minimal future object model needed to connect the existing
-Automation GUI component approach to the native `Salamatrix.UI` core:
+The shared UI contract now includes a native dialog/control model in
+`salamatrix_ui.h/.cpp`. It is intentionally small but real: native plugins and
+Automation workers use the same dialog object and control state:
 
 - `Dialog` -> `IDialogAdapter`
 - `Container` -> `IContainerAdapter`
@@ -669,12 +669,26 @@ Automation GUI component approach to the native `Salamatrix.UI` core:
 - `CheckBox` -> `ControlKindCheckBox`
 - `ComboBox` -> `ControlKindComboBox`
 - `Button` -> `ControlKindButton`
-- `ListView` -> `ControlKindListView`
+- `ListView` -> `ControlKindListView` (declarative in the first native version)
 
-The current Automation GUI layer already separates component state, containers,
-window creation, and individual control implementations. The Salamatrix direction
-is to move the native control model into `Salamatrix.UI` and leave Automation
-classes as COM/IDispatch wrappers over those native objects.
+The current Automation GUI layer can now be migrated incrementally to these
+interfaces instead of creating a second runtime-specific UI. The native
+implementation currently renders labels, text boxes, check/radio buttons,
+combo boxes, and buttons; list/tree controls retain a declarative placeholder
+until their model and virtualized data binding are added.
+
+## Salamatrix.AI provider seam
+
+`src/plugins/salamatrix/salamatrix_ai.h` defines a provider-neutral assistant
+contract. Automation registers `local.command` when `SALAMATRIX_AI_COMMAND` is
+configured. The command receives one UTF-8 JSON request on standard input and
+returns one JSON object/array on standard output; the bridge bounds output to
+1 MiB and clamps generation to a five-minute timeout. This makes a local
+llama.cpp/Ollama wrapper usable without coupling Salamander to a model vendor.
+The shared service validates the structured assistant contract (`title`,
+`description`, `capabilities`, `estimatedEffects`, and `script`) and exposes
+the parsed effect flags to callers. The preview and save-as-extension UI remain
+follow-up work; no llama.cpp binary or model is bundled yet.
 
 ## Salamatrix PoC runtime wiring
 
@@ -690,7 +704,7 @@ lives in `src/plugins/salamatrix/`, has a standalone Visual Studio project in
 `src/plugins/salamatrix/vcxproj/`, and exports `SALAMATRIX.SPL`; on plugin entry
 it creates a persistent `Runtime::RuntimeServices` instance and registers
 `Salamatrix.UI`, `Salamatrix.Commands`, `Salamatrix.FileOperations`, and the
-Runtime broker, Automation adapter, Sides, Events, Extensions, and Storage services in Salamander's
+Runtime broker, Automation adapter, Sides, Events, Extensions, AI, and Storage services in Salamander's
 core-facing `CSalamanderGeneralAbstract` service registry. DemoPlug remains
 only a consumer/sample and no longer needs to act as the long-lived provider.
 
@@ -913,3 +927,12 @@ The platform skeleton is ready when:
 36. Python, PowerShell, and PHP process adapters can start the shared worker
     bootstraps; the Python integration test exercises handshake, commands,
     storage, event subscription, and shutdown end to end.
+37. `Salamatrix.AI` exposes provider registration and Automation supplies an
+    optional bounded local command provider selected by `SALAMATRIX_AI_COMMAND`.
+38. The shared worker object model exposes `Salamander.ui.input_box(...)` and
+    the host renders it as a parented native Windows dialog with an editable
+    value; the same SMX1 host call is available to Python, PowerShell, and PHP.
+39. `Salamatrix.UI` now publishes a reusable native `IDialog`/`IControl`
+    contract and `NativeDialog` implementation for labels, text boxes,
+    check/radio buttons, combo boxes, and buttons; the worker input-box path
+    goes through this service rather than owning a second dialog backend.

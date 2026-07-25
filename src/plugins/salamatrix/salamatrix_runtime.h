@@ -11,6 +11,7 @@
 #pragma once
 
 #include "salamatrix_automation.h"
+#include "salamatrix_ai.h"
 #include "salamatrix_events.h"
 #include "salamatrix_extensions.h"
 #include "salamatrix_runtime_api.h"
@@ -176,6 +177,17 @@ public:
     {
         delete static_cast<UI::ProgressDialog*>(dialog);
     }
+
+    virtual UI::IDialog* WINAPI CreateDialog(const UI::DialogOptions& options)
+    {
+        return new UI::NativeDialog(options);
+    }
+
+    virtual void WINAPI DestroyDialog(UI::IDialog* dialog)
+    {
+        if (dialog != NULL)
+            dialog->Release();
+    }
 };
 
 class RuntimeService : public IRuntimeService
@@ -311,6 +323,7 @@ private:
     Sides::SidesService SidesService;
     Events::EventService EventService;
     Extensions::ExtensionsService ExtensionsService;
+    AI::AssistantService AIService;
     Storage::StorageService StorageService;
     ServiceRegistry Registry;
     CSalamanderGeneralAbstract* General;
@@ -324,6 +337,7 @@ private:
     BOOL HostSidesRegistered;
     BOOL HostEventsRegistered;
     BOOL HostExtensionsRegistered;
+    BOOL HostAIRegistered;
     BOOL HostStorageRegistered;
 
     RuntimeServices(const RuntimeServices&);
@@ -335,6 +349,8 @@ private:
         {
             if (HostStorageRegistered)
                 General->UnregisterService(SALAMATRIX_SERVICE_STORAGE, &StorageService);
+            if (HostAIRegistered)
+                General->UnregisterService(SALAMATRIX_SERVICE_AI, &AIService);
             if (HostExtensionsRegistered)
                 General->UnregisterService(SALAMATRIX_SERVICE_EXTENSIONS, &ExtensionsService);
             if (HostEventsRegistered)
@@ -357,6 +373,7 @@ private:
         HostSidesRegistered = FALSE;
         HostEventsRegistered = FALSE;
         HostExtensionsRegistered = FALSE;
+        HostAIRegistered = FALSE;
         HostStorageRegistered = FALSE;
         HostAutomationRegistered = FALSE;
         HostFileOperationsRegistered = FALSE;
@@ -375,6 +392,7 @@ public:
           SidesService(general),
           EventService(&SidesService),
           ExtensionsService(),
+          AIService(),
           StorageService(),
           Registry(),
           General(general),
@@ -388,6 +406,7 @@ public:
           HostSidesRegistered(FALSE),
           HostEventsRegistered(FALSE),
           HostExtensionsRegistered(FALSE),
+          HostAIRegistered(FALSE),
           HostStorageRegistered(FALSE)
     {
         Registered = TRUE;
@@ -399,6 +418,7 @@ public:
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework");
+        Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework");
         Registered &= Registry.RegisterService(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework");
 
         if (General != NULL && registerHostServices)
@@ -419,6 +439,8 @@ public:
             if (HostEventsRegistered)
                 HostExtensionsRegistered = General->RegisterService(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework");
             if (HostExtensionsRegistered)
+                HostAIRegistered = General->RegisterService(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework");
+            if (HostAIRegistered)
                 HostStorageRegistered = General->RegisterService(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework");
 
             HostRegistered = HostUIRegistered &&
@@ -429,6 +451,7 @@ public:
                              HostSidesRegistered &&
                              HostEventsRegistered &&
                              HostExtensionsRegistered &&
+                             HostAIRegistered &&
                              HostStorageRegistered;
             if (!HostRegistered)
                 UnregisterHostServices();
@@ -493,6 +516,11 @@ public:
     Extensions::ExtensionsService* WINAPI Extensions()
     {
         return &ExtensionsService;
+    }
+
+    AI::IAssistantService* WINAPI AI()
+    {
+        return &AIService;
     }
 
     Storage::StorageService* WINAPI Storage()

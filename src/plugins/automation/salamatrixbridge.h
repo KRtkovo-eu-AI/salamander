@@ -13,6 +13,7 @@
 #include <string>
 
 #include "../salamatrix/salamatrix_automation.h"
+#include "../salamatrix/salamatrix_ai.h"
 #include "../salamatrix/salamatrix_events.h"
 #include "../salamatrix/salamatrix_extensions.h"
 #include "../salamatrix/salamatrix_runtime_api.h"
@@ -41,6 +42,28 @@ public:
     virtual BOOL WINAPI Execute(
         const Salamatrix::Runtime::RuntimeExecutionRequest* request,
         Salamatrix::Runtime::RuntimeExecutionResult* result);
+};
+
+/// Optional local assistant provider. The configured command receives one
+/// UTF-8 JSON request on stdin and must return one structured JSON response
+/// on stdout. No network or model-specific API is assumed here; llama.cpp,
+/// Ollama wrappers, or a small user script can all implement this contract.
+class CAutomationLocalAssistantProvider : public Salamatrix::AI::IAssistantProvider
+{
+private:
+    Salamatrix::AI::AssistantProviderDescriptor m_oDescriptor;
+    mutable std::wstring m_commandLine;
+
+    void ResolveCommand() const;
+
+public:
+    CAutomationLocalAssistantProvider();
+
+    virtual const Salamatrix::AI::AssistantProviderDescriptor* WINAPI GetDescriptor() const;
+    virtual BOOL WINAPI IsAvailable() const;
+    virtual BOOL WINAPI Generate(
+        const Salamatrix::AI::AssistantRequest* request,
+        Salamatrix::AI::AssistantResponse* response);
 };
 
 /// Executes a script through a deliberately small, out-of-process CLI
@@ -113,6 +136,7 @@ private:
     Salamatrix::Events::IEventsService* m_pEventsService;
     Salamatrix::Extensions::IExtensionsService* m_pExtensionsService;
     Salamatrix::Storage::IStorageService* m_pStorageService;
+    Salamatrix::AI::IAssistantService* m_pAssistantService;
     DWORD m_dwAutomationVersion;
     DWORD m_dwUIVersion;
     DWORD m_dwCommandsVersion;
@@ -122,6 +146,7 @@ private:
     DWORD m_dwEventsVersion;
     DWORD m_dwExtensionsVersion;
     DWORD m_dwStorageVersion;
+    DWORD m_dwAssistantVersion;
     CAutomationActiveScriptRuntimeAdapter m_oJScriptRuntime;
     CAutomationActiveScriptRuntimeAdapter m_oVBScriptRuntime;
     CAutomationActiveScriptRuntimeAdapter m_oPythonRuntime;
@@ -129,7 +154,9 @@ private:
     CAutomationProcessRuntimeAdapter m_oCPythonRuntime;
     CAutomationProcessRuntimeAdapter m_oPowerShellRuntime;
     CAutomationProcessRuntimeAdapter m_oPHPCliRuntime;
+    CAutomationLocalAssistantProvider m_oLocalAssistantProvider;
     bool m_bRuntimeAdaptersRegistered;
+    bool m_bAssistantProviderRegistered;
 
     static void* QueryService(
         CSalamanderGeneralAbstract* salamander,
@@ -138,6 +165,8 @@ private:
         DWORD* actualVersion);
     void RegisterRuntimeAdapters();
     void UnregisterRuntimeAdapters();
+    void RegisterAssistantProvider();
+    void UnregisterAssistantProvider();
 
 public:
     CAutomationSalamatrixBridge();
@@ -155,6 +184,7 @@ public:
     bool HasEvents() const { return m_pEventsService != NULL; }
     bool HasExtensions() const { return m_pExtensionsService != NULL; }
     bool HasStorage() const { return m_pStorageService != NULL; }
+    bool HasAssistant() const { return m_pAssistantService != NULL; }
 
     Salamatrix::Automation::ScriptRootAdapter* GetScriptRoot() const { return m_pScriptRoot; }
     Salamatrix::UI::IUIService* GetUIService() const { return m_pUIService; }
@@ -165,6 +195,7 @@ public:
     Salamatrix::Events::IEventsService* GetEventsService() const { return m_pEventsService; }
     Salamatrix::Extensions::IExtensionsService* GetExtensionsService() const { return m_pExtensionsService; }
     Salamatrix::Storage::IStorageService* GetStorageService() const { return m_pStorageService; }
+    Salamatrix::AI::IAssistantService* GetAssistantService() const { return m_pAssistantService; }
 
     void GetStatusText(PTSTR buffer, int cchBuffer) const;
 };

@@ -62,11 +62,13 @@ private:
     TCHAR m_szFileName[MAX_PATH];
     TCHAR m_szDisplayName[256];
     TCHAR m_szSalamatrixCommandId[128];
+    char m_szRuntimeCommandId[128];
     char m_szSalamatrixExtensionId[128];
     char m_szSalamatrixRuntimeId[128];
     DWORD m_dwSalamatrixMinimumRuntimeVersion;
     bool m_bShowInPluginMenu;
     bool m_bShowInContextMenu;
+    bool m_bRuntimeCommandOwned;
     DWORD m_dwMenuEventOrMask;
     DWORD m_dwMenuEventAndMask;
     CLSID m_clsidEngine;
@@ -132,6 +134,7 @@ private:
         void* context,
         const Salamatrix::Events::EventPayload* payload);
     void ReleaseRuntimeEventSubscriptions();
+    void ReleaseRuntimeCommand();
     static BOOL WINAPI RuntimeLifecycleCallback(
         void* context,
         Salamatrix::Extensions::ExtensionAction action,

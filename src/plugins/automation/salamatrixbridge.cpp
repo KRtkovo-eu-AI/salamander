@@ -65,6 +65,63 @@ static void SetRuntimeFailure(
     result->Output[0] = L'\0';
     StringCchCopyW(result->Message, _countof(result->Message), message);
 }
+
+static std::string EscapeAssistantJson(const char* value)
+{
+    std::string escaped;
+    if (value == NULL)
+        return escaped;
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(value);
+         *p != '\0'; ++p)
+    {
+        switch (*p)
+        {
+        case '\\': escaped.append("\\\\"); break;
+        case '"': escaped.append("\\\""); break;
+        case '\b': escaped.append("\\b"); break;
+        case '\f': escaped.append("\\f"); break;
+        case '\n': escaped.append("\\n"); break;
+        case '\r': escaped.append("\\r"); break;
+        case '\t': escaped.append("\\t"); break;
+        default:
+            if (*p < 0x20)
+            {
+                char hex[7];
+                sprintf_s(hex, _countof(hex), "\\u%04x", *p);
+                escaped.append(hex);
+            }
+            else
+                escaped.push_back(static_cast<char>(*p));
+            break;
+        }
+    }
+    return escaped;
+}
+
+static void SetAssistantFailure(
+    Salamatrix::AI::AssistantResponse* response,
+    Salamatrix::AI::AssistantStatus status,
+    HRESULT errorCode,
+    const wchar_t* message)
+{
+    response->Status = status;
+    response->ErrorCode = errorCode;
+    response->OutputLength = 0;
+    response->ResponseJson[0] = '\0';
+    StringCchCopyW(response->Message, _countof(response->Message), message);
+}
+
+static bool IsStructuredJson(const std::string& value)
+{
+    size_t first = value.find_first_not_of(" \t\r\n");
+    size_t last = value.find_last_not_of(" \t\r\n");
+    if (first == std::string::npos || last <= first)
+        return false;
+    char opening = value[first];
+    char closing = value[last];
+    return (opening == '{' && closing == '}') ||
+           (opening == '[' && closing == ']');
+}
 } // namespace
 
 class CAutomationProcessRuntimeSession : public Salamatrix::Runtime::IRuntimeSession
@@ -344,6 +401,7 @@ CAutomationSalamatrixBridge::CAutomationSalamatrixBridge()
       m_pEventsService(NULL),
       m_pExtensionsService(NULL),
       m_pStorageService(NULL),
+      m_pAssistantService(NULL),
       m_dwAutomationVersion(0),
       m_dwUIVersion(0),
       m_dwCommandsVersion(0),
@@ -353,6 +411,7 @@ CAutomationSalamatrixBridge::CAutomationSalamatrixBridge()
       m_dwEventsVersion(0),
       m_dwExtensionsVersion(0),
       m_dwStorageVersion(0),
+      m_dwAssistantVersion(0),
       m_oJScriptRuntime("Automation.JScript", "Legacy Windows JScript", "javascript", ".js", _T(".js"), CLSID_JScript),
       m_oVBScriptRuntime("Automation.VBScript", "Legacy Windows VBScript", "vbscript", ".vbs", _T(".vbs"), CLSID_VBScript),
       m_oPythonRuntime("Automation.ActivePython", "Legacy ActivePython", "python", ".pys", _T(".pys"), CLSID_Python),
@@ -384,7 +443,9 @@ CAutomationSalamatrixBridge::CAutomationSalamatrixBridge()
           L"php.exe",
           NULL,
           CAutomationProcessRuntimeAdapter::ProcessKindPhp),
-      m_bRuntimeAdaptersRegistered(false)
+      m_oLocalAssistantProvider(),
+      m_bRuntimeAdaptersRegistered(false),
+      m_bAssistantProviderRegistered(false)
 {
     Reset();
 }
@@ -469,6 +530,232 @@ BOOL WINAPI CAutomationActiveScriptRuntimeAdapter::Execute(
     else if (!executed && result->Status == Salamatrix::Runtime::RuntimeExecutionStatusNotStarted)
         result->Status = Salamatrix::Runtime::RuntimeExecutionStatusFailed;
     return executed;
+}
+
+CAutomationLocalAssistantProvider::CAutomationLocalAssistantProvider()
+{
+    m_oDescriptor.ProviderId = "local.command";
+    m_oDescriptor.DisplayName = "Local command assistant";
+    m_oDescriptor.ProviderVersion = 0x00010000;
+    m_oDescriptor.Flags = 0;
+}
+
+void CAutomationLocalAssistantProvider::ResolveCommand() const
+{
+    wchar_t value[4096];
+    DWORD length = GetEnvironmentVariableW(
+        L"SALAMATRIX_AI_COMMAND", value, _countof(value));
+    if (length == 0 || length >= _countof(value))
+    {
+        m_commandLine.clear();
+        return;
+    }
+    m_commandLine.assign(value, length);
+}
+
+const Salamatrix::AI::AssistantProviderDescriptor* WINAPI
+CAutomationLocalAssistantProvider::GetDescriptor() const
+{
+    return &m_oDescriptor;
+}
+
+BOOL WINAPI CAutomationLocalAssistantProvider::IsAvailable() const
+{
+    ResolveCommand();
+    return m_commandLine.empty() ? FALSE : TRUE;
+}
+
+BOOL WINAPI CAutomationLocalAssistantProvider::Generate(
+    const Salamatrix::AI::AssistantRequest* request,
+    Salamatrix::AI::AssistantResponse* response)
+{
+    if (response == NULL || response->StructSize < sizeof(*response))
+        return FALSE;
+    *response = Salamatrix::AI::AssistantResponse();
+    if (request == NULL || request->StructSize < sizeof(*request))
+    {
+        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                            E_INVALIDARG, L"The assistant request is invalid.");
+        return FALSE;
+    }
+    if (!IsAvailable())
+    {
+        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusUnavailable,
+                            HRESULT_FROM_WIN32(ERROR_NOT_FOUND),
+                            L"No local assistant command is configured.");
+        return FALSE;
+    }
+
+    std::string requestJson =
+        std::string("{\"apiVersion\":\"") +
+        EscapeAssistantJson(request->ApiVersion != NULL ? request->ApiVersion : "1.0") +
+        "\",\"prompt\":\"" +
+        EscapeAssistantJson(request->Prompt != NULL ? request->Prompt : "") +
+        "\",\"context\":" +
+        (request->ContextJson != NULL && request->ContextJson[0] != '\0'
+             ? request->ContextJson
+             : "{}") +
+        ",\"maxOutputBytes\":" +
+        std::to_string(request->MaxOutputBytes == 0 ? 65535 : request->MaxOutputBytes) +
+        "}\n";
+
+    SECURITY_ATTRIBUTES security;
+    memset(&security, 0, sizeof(security));
+    security.nLength = sizeof(security);
+    security.bInheritHandle = TRUE;
+    HANDLE childInput = NULL;
+    HANDLE parentInput = NULL;
+    HANDLE childOutput = NULL;
+    HANDLE parentOutput = NULL;
+    if (!CreatePipe(&parentInput, &childInput, &security, 0) ||
+        !SetHandleInformation(parentInput, HANDLE_FLAG_INHERIT, 0) ||
+        !CreatePipe(&parentOutput, &childOutput, &security, 0) ||
+        !SetHandleInformation(parentOutput, HANDLE_FLAG_INHERIT, 0))
+    {
+        if (parentInput != NULL) CloseHandle(parentInput);
+        if (childInput != NULL) CloseHandle(childInput);
+        if (parentOutput != NULL) CloseHandle(parentOutput);
+        if (childOutput != NULL) CloseHandle(childOutput);
+        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                            HRESULT_FROM_WIN32(GetLastError()),
+                            L"Unable to create local assistant pipes.");
+        return FALSE;
+    }
+
+    HANDLE errorHandle = CreateFileW(
+        L"NUL", GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        &security, OPEN_EXISTING, 0, NULL);
+    if (errorHandle == INVALID_HANDLE_VALUE)
+        errorHandle = NULL;
+
+    STARTUPINFOW startup;
+    PROCESS_INFORMATION process;
+    memset(&startup, 0, sizeof(startup));
+    memset(&process, 0, sizeof(process));
+    startup.cb = sizeof(startup);
+    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.hStdInput = childInput;
+    startup.hStdOutput = childOutput;
+    startup.hStdError = errorHandle;
+    std::vector<wchar_t> commandLine(m_commandLine.begin(), m_commandLine.end());
+    commandLine.push_back(L'\0');
+    BOOL created = CreateProcessW(
+        NULL, &commandLine[0], NULL, NULL, TRUE, CREATE_NO_WINDOW,
+        NULL, NULL, &startup, &process);
+    CloseHandle(childInput);
+    CloseHandle(childOutput);
+    if (errorHandle != NULL)
+        CloseHandle(errorHandle);
+    if (!created)
+    {
+        CloseHandle(parentInput);
+        CloseHandle(parentOutput);
+        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                            HRESULT_FROM_WIN32(GetLastError()),
+                            L"Unable to start the local assistant command.");
+        return FALSE;
+    }
+
+    DWORD written = 0;
+    BOOL writeOk = WriteFile(parentInput, requestJson.data(),
+                             static_cast<DWORD>(requestJson.size()), &written, NULL);
+    CloseHandle(parentInput);
+    parentInput = NULL;
+    if (!writeOk || written != requestJson.size())
+        TerminateProcess(process.hProcess, 1);
+
+    std::string output;
+    const size_t maxOutput = 1024 * 1024;
+    bool timedOut = false;
+    ULONGLONG startedAt = GetTickCount64();
+    DWORD timeout = request->TimeoutMs == 0 ? 120000 : request->TimeoutMs;
+    if (timeout > 300000)
+        timeout = 300000;
+    for (;;)
+    {
+        DWORD available = 0;
+        while (PeekNamedPipe(parentOutput, NULL, 0, NULL, &available, NULL) &&
+               available != 0)
+        {
+            char buffer[4096];
+            DWORD toRead = available < sizeof(buffer) ? available : sizeof(buffer);
+            DWORD read = 0;
+            if (!ReadFile(parentOutput, buffer, toRead, &read, NULL) || read == 0)
+                break;
+            size_t remaining = output.size() < maxOutput ? maxOutput - output.size() : 0;
+            if (remaining != 0)
+                output.append(buffer, buffer + (read < remaining ? read : remaining));
+        }
+        DWORD wait = WaitForSingleObject(process.hProcess, 10);
+        if (wait == WAIT_OBJECT_0)
+            break;
+        if (wait == WAIT_FAILED)
+        {
+            TerminateProcess(process.hProcess, 1);
+            break;
+        }
+        if (GetTickCount64() - startedAt >= timeout)
+        {
+            timedOut = true;
+            TerminateProcess(process.hProcess, 1);
+            WaitForSingleObject(process.hProcess, 1000);
+            break;
+        }
+    }
+    for (;;)
+    {
+        DWORD available = 0;
+        if (!PeekNamedPipe(parentOutput, NULL, 0, NULL, &available, NULL) ||
+            available == 0)
+            break;
+        char buffer[4096];
+        DWORD toRead = available < sizeof(buffer) ? available : sizeof(buffer);
+        DWORD read = 0;
+        if (!ReadFile(parentOutput, buffer, toRead, &read, NULL) || read == 0)
+            break;
+        size_t remaining = output.size() < maxOutput ? maxOutput - output.size() : 0;
+        if (remaining != 0)
+            output.append(buffer, buffer + (read < remaining ? read : remaining));
+    }
+    DWORD exitCode = 1;
+    GetExitCodeProcess(process.hProcess, &exitCode);
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    CloseHandle(parentOutput);
+
+    if (timedOut)
+    {
+        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusCancelled,
+                            HRESULT_FROM_WIN32(ERROR_TIMEOUT),
+                            L"The local assistant exceeded its execution timeout.");
+        return FALSE;
+    }
+    if (exitCode != 0)
+    {
+        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                            HRESULT_FROM_WIN32(exitCode),
+                            L"The local assistant command failed.");
+        return FALSE;
+    }
+    size_t first = output.find_first_not_of(" \t\r\n");
+    size_t last = output.find_last_not_of(" \t\r\n");
+    if (first == std::string::npos || last < first ||
+        last - first + 1 >= _countof(response->ResponseJson) ||
+        !IsStructuredJson(output))
+    {
+        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse,
+                            E_INVALIDDATA,
+                            L"The local assistant did not return structured JSON.");
+        return FALSE;
+    }
+    size_t length = last - first + 1;
+    memcpy(response->ResponseJson, output.data() + first, length);
+    response->ResponseJson[length] = '\0';
+    response->OutputLength = static_cast<DWORD>(length);
+    response->Status = Salamatrix::AI::AssistantStatusSucceeded;
+    response->ErrorCode = S_OK;
+    response->Message[0] = L'\0';
+    return TRUE;
 }
 
 CAutomationProcessRuntimeAdapter::CAutomationProcessRuntimeAdapter(
@@ -1027,6 +1314,7 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::StartPersistent(
 void CAutomationSalamatrixBridge::Reset()
 {
     UnregisterRuntimeAdapters();
+    UnregisterAssistantProvider();
     m_bQueried = false;
     m_pGeneral = NULL;
     m_pScriptRoot = NULL;
@@ -1038,6 +1326,7 @@ void CAutomationSalamatrixBridge::Reset()
     m_pEventsService = NULL;
     m_pExtensionsService = NULL;
     m_pStorageService = NULL;
+    m_pAssistantService = NULL;
     m_dwAutomationVersion = 0;
     m_dwUIVersion = 0;
     m_dwCommandsVersion = 0;
@@ -1047,7 +1336,9 @@ void CAutomationSalamatrixBridge::Reset()
     m_dwEventsVersion = 0;
     m_dwExtensionsVersion = 0;
     m_dwStorageVersion = 0;
+    m_dwAssistantVersion = 0;
     m_bRuntimeAdaptersRegistered = false;
+    m_bAssistantProviderRegistered = false;
 }
 
 void CAutomationSalamatrixBridge::RegisterRuntimeAdapters()
@@ -1092,6 +1383,22 @@ void CAutomationSalamatrixBridge::UnregisterRuntimeAdapters()
     m_pRuntimeService->UnregisterAdapter(&m_oPowerShellRuntime);
     m_pRuntimeService->UnregisterAdapter(&m_oCPythonRuntime);
     m_bRuntimeAdaptersRegistered = false;
+}
+
+void CAutomationSalamatrixBridge::RegisterAssistantProvider()
+{
+    if (m_pAssistantService == NULL || m_bAssistantProviderRegistered)
+        return;
+    if (m_oLocalAssistantProvider.IsAvailable())
+        m_bAssistantProviderRegistered =
+            m_pAssistantService->RegisterProvider(&m_oLocalAssistantProvider) != FALSE;
+}
+
+void CAutomationSalamatrixBridge::UnregisterAssistantProvider()
+{
+    if (m_pAssistantService != NULL && m_bAssistantProviderRegistered)
+        m_pAssistantService->UnregisterProvider(&m_oLocalAssistantProvider);
+    m_bAssistantProviderRegistered = false;
 }
 
 void* CAutomationSalamatrixBridge::QueryService(
@@ -1172,7 +1479,11 @@ void CAutomationSalamatrixBridge::Refresh(CSalamanderGeneralAbstract* salamander
     m_pStorageService = static_cast<Salamatrix::Storage::IStorageService*>(
         QueryService(salamander, SALAMATRIX_SERVICE_STORAGE,
                      SALAMATRIX_STORAGE_VERSION_1_0, &m_dwStorageVersion));
+    m_pAssistantService = static_cast<Salamatrix::AI::IAssistantService*>(
+        QueryService(salamander, SALAMATRIX_SERVICE_AI,
+                     SALAMATRIX_AI_VERSION_1_0, &m_dwAssistantVersion));
     RegisterRuntimeAdapters();
+    RegisterAssistantProvider();
 }
 
 void CAutomationSalamatrixBridge::GetStatusText(PTSTR buffer, int cchBuffer) const
@@ -1195,7 +1506,7 @@ void CAutomationSalamatrixBridge::GetStatusText(PTSTR buffer, int cchBuffer) con
     }
 
     StringCchPrintf(buffer, cchBuffer,
-                    TEXT("available (UI: %s, Commands: %s, FileOperations: %s, Sides: %s, Events: %s, Extensions: %s, Storage: %s, Runtime broker: %s, adapters: %d)"),
+                    TEXT("available (UI: %s, Commands: %s, FileOperations: %s, Sides: %s, Events: %s, Extensions: %s, Storage: %s, AI: %s, Runtime broker: %s, adapters: %d)"),
                     HasUI() ? TEXT("yes") : TEXT("no"),
                     HasCommands() ? TEXT("yes") : TEXT("no"),
                     HasFileOperations() ? TEXT("yes") : TEXT("no"),
@@ -1203,6 +1514,7 @@ void CAutomationSalamatrixBridge::GetStatusText(PTSTR buffer, int cchBuffer) con
                     HasEvents() ? TEXT("yes") : TEXT("no"),
                     HasExtensions() ? TEXT("yes") : TEXT("no"),
                     HasStorage() ? TEXT("yes") : TEXT("no"),
+                    HasAssistant() ? TEXT("yes") : TEXT("no"),
                     HasRuntimeBroker() ? TEXT("yes") : TEXT("no"),
                     HasRuntimeBroker() ? m_pRuntimeService->GetAdapterCount() : 0);
 }

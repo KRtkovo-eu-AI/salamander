@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "../shared/spl_com.h"
 
 namespace Salamatrix
@@ -207,12 +209,130 @@ public:
     }
 };
 
+enum ControlKind
+{
+    ControlKindLabel = 0,
+    ControlKindTextBox = 1,
+    ControlKindCheckBox = 2,
+    ControlKindComboBox = 3,
+    ControlKindRadioButton = 4,
+    ControlKindButton = 5,
+    ControlKindListView = 6,
+    ControlKindTreeView = 7
+};
+
+struct DialogOptions
+{
+    const char* Title;
+    HWND Parent;
+    short Width;
+    short Height;
+
+    DialogOptions()
+        : Title("Salamander"),
+          Parent(NULL),
+          Width(320),
+          Height(180)
+    {
+    }
+};
+
+struct ControlOptions
+{
+    const char* Id;
+    const char* Text;
+    BOOL ReadOnly;
+    BOOL Checked;
+    int DialogResult;
+
+    ControlOptions()
+        : Id(NULL),
+          Text(NULL),
+          ReadOnly(FALSE),
+          Checked(FALSE),
+          DialogResult(0)
+    {
+    }
+};
+
+class IControl
+{
+public:
+    virtual ControlKind WINAPI GetKind() const = 0;
+    virtual const char* WINAPI GetId() const = 0;
+    virtual BOOL WINAPI GetText(char* buffer, DWORD capacity) const = 0;
+    virtual BOOL WINAPI SetText(const char* value) = 0;
+    virtual BOOL WINAPI GetChecked() const = 0;
+    virtual BOOL WINAPI SetChecked(BOOL checked) = 0;
+    virtual int WINAPI GetDialogResult() const = 0;
+
+protected:
+    virtual ~IControl() {}
+};
+
+class IDialog
+{
+public:
+    virtual DWORD WINAPI GetVersion() const = 0;
+    virtual IControl* WINAPI AddControl(
+        ControlKind kind,
+        const ControlOptions& options) = 0;
+    virtual IControl* WINAPI FindControl(const char* id) = 0;
+    virtual int WINAPI ShowModal() = 0;
+    virtual void WINAPI Close() = 0;
+    virtual void WINAPI Release() = 0;
+
+protected:
+    virtual ~IDialog() {}
+};
+
+/// Native dialog implementation shared by the runtime plugin and all
+/// adapters. The implementation lives in salamatrix_ui.cpp; keeping the
+/// interface here lets native plugins use the same controls as workers.
+class NativeDialog : public IDialog
+{
+private:
+    struct Impl;
+    Impl* m_pImpl;
+    static INT_PTR CALLBACK DialogProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+    NativeDialog(const NativeDialog&);
+    NativeDialog& operator=(const NativeDialog&);
+
+public:
+    explicit NativeDialog(const DialogOptions& options);
+    virtual ~NativeDialog();
+
+    virtual DWORD WINAPI GetVersion() const;
+    virtual IControl* WINAPI AddControl(
+        ControlKind kind,
+        const ControlOptions& options);
+    virtual IControl* WINAPI FindControl(const char* id);
+    virtual int WINAPI ShowModal();
+    virtual void WINAPI Close();
+    virtual void WINAPI Release();
+};
+
 class IUIService
 {
 public:
     virtual DWORD WINAPI GetVersion() const = 0;
     virtual IProgressDialog* WINAPI CreateProgressDialog(CSalamanderForOperationsAbstract* operations) = 0;
     virtual void WINAPI DestroyProgressDialog(IProgressDialog* dialog) = 0;
+
+    /// Optional in the original 1.0 contract; providers that do not expose
+    /// native dialogs can keep the default NULL implementation.
+    virtual IDialog* WINAPI CreateDialog(const DialogOptions& options)
+    {
+        (void)options;
+        return NULL;
+    }
+
+    virtual void WINAPI DestroyDialog(IDialog* dialog)
+    {
+        if (dialog != NULL)
+            dialog->Release();
+    }
 
 protected:
     virtual ~IUIService() {}
