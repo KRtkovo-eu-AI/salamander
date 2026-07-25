@@ -1971,14 +1971,14 @@ void CTreePropHolderDlg::UpdateTreeFontAndMetrics()
 
     // The dialog manager does not reliably replace an already assigned HFONT
     // for the subclassed caption/tree during a PMv2 transition. Build the
-    // template's 9-point Segoe UI font from the explicit notification DPI.
+    // template's 8-point MS Shell Dlg 2 font from the explicit notification DPI.
     LOGFONT lf;
     ZeroMemory(&lf, sizeof(lf));
-    lf.lfHeight = -MulDiv(9, CurrentDPI, 72);
+    lf.lfHeight = -MulDiv(8, CurrentDPI, 72);
     lf.lfWeight = FW_NORMAL;
     lf.lfCharSet = ANSI_CHARSET;
     lf.lfQuality = CLEARTYPE_QUALITY;
-    _tcscpy_s(lf.lfFaceName, _T("Segoe UI"));
+    _tcscpy_s(lf.lfFaceName, _T("MS Shell Dlg 2"));
     HFONT newFont = HANDLES(CreateFontIndirect(&lf));
     if (newFont != NULL)
     {
@@ -2418,7 +2418,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         lpw += 2;
         // style
         *(DWORD*)lpw = WS_VISIBLE | WS_POPUP | WS_BORDER | WS_SYSMENU | WS_CAPTION |
-                       DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_SIZEBOX;
+                       DS_SETFONT | DS_MODALFRAME | DS_CENTER | DS_FIXEDSYS | WS_SIZEBOX;
         lpw += 2;
         *lpw++ = 8; // cDlgItems (number of controls)
         *lpw++ = 0; // x
@@ -2429,13 +2429,13 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         *lpw++ = 0; // predefined dialog box class (by default)
         lpwsz = (LPWSTR)lpw;
         lpw += WinLibCopyText(lpwsz, Caption, 100); // title
-        *lpw++ = 9;                                 // font size, kept in sync with resource property pages
+        *lpw++ = 8;                                 // MS Shell Dlg 2 font size used by the dynamic template
         *lpw++ = FW_NORMAL;                         // font weight
         *(BYTE*)lpw = FALSE;                        // is font italic?
         *((BYTE*)lpw + 1) = ANSI_CHARSET;           // font charset
         lpw++;
         lpwsz = (LPWSTR)lpw; // font typeface
-        lpw += WinLibCopyText(lpwsz, _T("Segoe UI"), 50);
+        lpw += WinLibCopyText(lpwsz, _T("MS Shell Dlg 2"), 50);
 
         BOOL appIsThemed = IsAppThemed();
 
