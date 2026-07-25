@@ -21,6 +21,8 @@ struct BootstrapDispatchState
     int SideContextCalls;
     int ClipboardCalls;
     int PickerCalls;
+    int FolderPickerCalls;
+    int RuntimeListCalls;
     int CommandRegistrationCalls;
 
     BootstrapDispatchState()
@@ -32,6 +34,8 @@ struct BootstrapDispatchState
           SideContextCalls(0),
           ClipboardCalls(0),
           PickerCalls(0),
+          FolderPickerCalls(0),
+          RuntimeListCalls(0),
           CommandRegistrationCalls(0)
     {
     }
@@ -137,6 +141,20 @@ BOOL WINAPI WorkerHostDispatch(
         response =
             "{\"ok\":true,\"selected\":true,\"path\":\"C:\\\\Temp\\\\chosen.txt\"}";
     }
+    else if (strstr(payloadJson, "salamander.ui.pickFolder") != NULL)
+    {
+        if (state != NULL)
+            ++state->FolderPickerCalls;
+        response =
+            "{\"ok\":true,\"selected\":true,\"path\":\"C:\\\\Temp\\\\chosen-folder\"}";
+    }
+    else if (strstr(payloadJson, "salamander.runtimes.list") != NULL)
+    {
+        if (state != NULL)
+            ++state->RuntimeListCalls;
+        response =
+            "{\"ok\":true,\"runtimes\":[{\"id\":\"Python.CPython\",\"name\":\"CPython\",\"language\":\"python\",\"extensions\":\".py\",\"version\":65536,\"available\":true}]}";
+    }
     else if (strstr(payloadJson, "salamander.ai.preview") != NULL)
     {
         response =
@@ -151,9 +169,23 @@ BOOL WINAPI WorkerHostDispatch(
             ++state->DialogCalls;
         response = "{\"ok\":true,\"dialogId\":\"7\"}";
     }
+    else if (strstr(payloadJson, "salamander.ui.dialog.column") != NULL)
+    {
+        if (state != NULL)
+            ++state->DialogCalls;
+        response = "{\"ok\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.dialog.selection") != NULL)
+    {
+        if (state != NULL)
+            ++state->DialogCalls;
+        response = "{\"ok\":true,\"selectedIndex\":0}";
+    }
     else if (strstr(payloadJson, "salamander.ui.dialog.add") != NULL ||
              strstr(payloadJson, "salamander.ui.dialog.item") != NULL ||
              strstr(payloadJson, "salamander.ui.dialog.clearItems") != NULL ||
+             strstr(payloadJson, "salamander.ui.dialog.validation") != NULL ||
+             strstr(payloadJson, "salamander.ui.dialog.events") != NULL ||
              strstr(payloadJson, "salamander.ui.dialog.show") != NULL ||
              strstr(payloadJson, "salamander.ui.dialog.destroy") != NULL)
     {
@@ -435,16 +467,26 @@ void RunPythonBootstrapTest()
               "picked = Salamander.ui.pick_file(filter='Text files|*.txt')\n"
               "if not picked.get('selected') or not picked.get('path', '').endswith('chosen.txt'):\n"
               "    raise RuntimeError('file picker call failed')\n"
-              "if not Salamander.ai.preview('list files', runtime='Python.CPython', existing_script='print(1)').get('canRun'):\n"
+              "folder = Salamander.ui.pick_folder()\n"
+              "if not folder.get('selected') or not folder.get('path', '').endswith('chosen-folder'):\n"
+              "    raise RuntimeError('folder picker call failed')\n"
+              "if not any(item.get('id') == 'Python.CPython' for item in Salamander.runtimes.list()):\n"
+              "    raise RuntimeError('runtime list call failed')\n"
+              "if not Salamander.ai.preview('list files', runtime='Python.CPython', existing_script='print(1)', feedback='keep originals').get('canRun'):\n"
               "    raise RuntimeError('ai preview call failed')\n"
               "if Salamander.file_operations.refresh() != 'ok':\n"
               "    raise RuntimeError('file operation call failed')\n"
               "dialog = Salamander.ui.dialog('Bootstrap')\n"
-              "dialog.add_label('label', 'Hello')\n"
+              "dialog.add_control('label', 'label', 'Hello', layout={'x': 12, 'y': 10, 'width': 180, 'height': 16})\n"
               "dialog.add_textbox('value', 'seed')\n"
+              "dialog.set_validation('value', True, 'Value is required')\n"
+              "dialog.on_change(lambda event: None)\n"
               "dialog.add_radio_button('radio', 'Choice', True)\n"
               "dialog.add_combo_box('combo', 'Option')\n"
               "dialog.add_list_view('list')\n"
+              "dialog.add_column('list', 'Name', 220)\n"
+              "dialog.add_item('list', 'entry')\n"
+              "dialog.set_selected_index('list', 0)\n"
               "dialog.add_tree_view('tree')\n"
               "if dialog.add_item('combo', 'Option 2') != 1:\n"
               "    raise RuntimeError('dialog item call failed')\n"
@@ -491,8 +533,10 @@ void RunPythonBootstrapTest()
         Check(state.SideContextCalls == 1, "bootstrap side context reached host");
         Check(state.ClipboardCalls == 1, "bootstrap clipboard reached host");
         Check(state.PickerCalls == 1, "bootstrap file picker reached host");
+        Check(state.FolderPickerCalls == 1, "bootstrap folder picker reached host");
+        Check(state.RuntimeListCalls == 1, "bootstrap runtime list reached host");
         Check(state.FileOperationCalls == 1, "bootstrap file operation reached host");
-        Check(state.DialogCalls == 15, "bootstrap dialog calls reached host");
+        Check(state.DialogCalls == 19, "bootstrap dialog calls reached host");
         std::string shutdown;
         Check(
             Salamatrix::Runtime::Protocol::LineCodec::Encode(
@@ -539,14 +583,22 @@ void RunPowerShellBootstrapTest()
               "if (-not $Salamander.clipboard.CopyText('seed.txt')) { throw 'clipboard call failed' }\n"
               "$picked = $Salamander.ui.PickFile($false, '', 'Text files|*.txt', '')\n"
               "if (-not $picked.selected -or -not $picked.path.EndsWith('chosen.txt')) { throw 'file picker call failed' }\n"
-              "if (-not $Salamander.ai.Preview('list files', $null, $null, 'PowerShell', 'Write-Output 1').canRun) { throw 'ai preview call failed' }\n"
+              "$folder = $Salamander.ui.PickFolder('', '')\n"
+              "if (-not $folder.selected -or -not $folder.path.EndsWith('chosen-folder')) { throw 'folder picker call failed' }\n"
+              "if (-not ($Salamander.runtimes.List() | Where-Object { $_.id -eq 'Python.CPython' })) { throw 'runtime list call failed' }\n"
+              "if (-not $Salamander.ai.Preview('list files', $null, $null, 'PowerShell', 'Write-Output 1', 'keep originals').canRun) { throw 'ai preview call failed' }\n"
               "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
               "$dialog = $Salamander.ui.Dialog('Bootstrap')\n"
-              "$dialog.AddLabel('label', 'Hello')\n"
+              "$dialog.AddControl('label', 'label', 'Hello', $false, $false, 0, @{ x = 12; y = 10; width = 180; height = 16 })\n"
               "$dialog.AddTextBox('value', 'seed')\n"
+              "$dialog.SetValidation('value', $true, 'Value is required')\n"
+              "$dialog.OnChange({ param($event) })\n"
               "$dialog.AddRadioButton('radio', 'Choice', $true)\n"
               "$dialog.AddComboBox('combo', 'Option')\n"
               "$dialog.AddListView('list')\n"
+              "$dialog.AddColumn('list', 'Name', 220)\n"
+              "$dialog.AddItem('list', 'entry')\n"
+              "$dialog.SetSelectedIndex('list', 0)\n"
               "$dialog.AddTreeView('tree')\n"
               "if ($dialog.AddItem('combo', 'Option 2') -ne 1) { throw 'dialog item call failed' }\n"
               "$null = $dialog.AddItem('list', 'Item 1')\n"
@@ -584,8 +636,10 @@ void RunPowerShellBootstrapTest()
         Check(state.SideContextCalls == 1, "powershell bootstrap side context");
         Check(state.ClipboardCalls == 1, "powershell bootstrap clipboard");
         Check(state.PickerCalls == 1, "powershell bootstrap file picker");
+        Check(state.FolderPickerCalls == 1, "powershell bootstrap folder picker");
+        Check(state.RuntimeListCalls == 1, "powershell bootstrap runtime list");
         Check(state.FileOperationCalls == 1, "powershell bootstrap file operation");
-        Check(state.DialogCalls == 15, "powershell bootstrap dialog calls");
+        Check(state.DialogCalls == 19, "powershell bootstrap dialog calls");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
@@ -627,14 +681,23 @@ void RunPhpBootstrapTest()
               "if (!$Salamander->clipboard->copyText('seed.txt')) throw new Exception('clipboard call failed');\n"
               "$picked = $Salamander->ui->pickFile(false, '', 'Text files|*.txt', '');\n"
               "if (empty($picked['selected']) || substr($picked['path'], -10) !== 'chosen.txt') throw new Exception('file picker call failed');\n"
-              "if (!$Salamander->ai->preview('list files', null, null, 'PHP.CLI', '<?php echo 1; ?>')['canRun']) throw new Exception('ai preview call failed');\n"
+              "$folder = $Salamander->ui->pickFolder('', '');\n"
+              "if (empty($folder['selected']) || substr($folder['path'], -13) !== 'chosen-folder') throw new Exception('folder picker call failed');\n"
+              "$runtimes = $Salamander->runtimes->list();\n"
+              "if (empty($runtimes) || $runtimes[0]['id'] !== 'Python.CPython') throw new Exception('runtime list call failed');\n"
+              "if (!$Salamander->ai->preview('list files', null, null, 'PHP.CLI', '<?php echo 1; ?>', 'keep originals')['canRun']) throw new Exception('ai preview call failed');\n"
               "if ($Salamander->file_operations->refresh() !== 'ok') throw new Exception('file operation call failed');\n"
               "$dialog = $Salamander->ui->dialog('Bootstrap');\n"
-              "$dialog->addLabel('label', 'Hello');\n"
+              "$dialog->addControl('label', 'label', 'Hello', false, false, 0, array('x' => 12, 'y' => 10, 'width' => 180, 'height' => 16));\n"
               "$dialog->addTextBox('value', 'seed');\n"
+              "$dialog->setValidation('value', true, 'Value is required');\n"
+              "$dialog->onChange(function($event) {});\n"
               "$dialog->addRadioButton('radio', 'Choice', true);\n"
               "$dialog->addComboBox('combo', 'Option');\n"
               "$dialog->addListView('list');\n"
+              "$dialog->addColumn('list', 'Name', 220);\n"
+              "$dialog->addItem('list', 'entry');\n"
+              "$dialog->setSelectedIndex('list', 0);\n"
               "$dialog->addTreeView('tree');\n"
               "if ($dialog->addItem('combo', 'Option 2') !== 1) throw new Exception('dialog item call failed');\n"
               "$dialog->addItem('list', 'Item 1');\n"
@@ -672,8 +735,10 @@ void RunPhpBootstrapTest()
         Check(state.SideContextCalls == 1, "php bootstrap side context");
         Check(state.ClipboardCalls == 1, "php bootstrap clipboard");
         Check(state.PickerCalls == 1, "php bootstrap file picker");
+        Check(state.FolderPickerCalls == 1, "php bootstrap folder picker");
+        Check(state.RuntimeListCalls == 1, "php bootstrap runtime list");
         Check(state.FileOperationCalls == 1, "php bootstrap file operation");
-        Check(state.DialogCalls == 15, "php bootstrap dialog calls");
+        Check(state.DialogCalls == 19, "php bootstrap dialog calls");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);

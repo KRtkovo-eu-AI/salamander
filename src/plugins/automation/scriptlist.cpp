@@ -1093,6 +1093,42 @@ BOOL WINAPI CScriptInfo::RuntimeEventCallback(
         frame.c_str(), static_cast<DWORD>(frame.size()));
 }
 
+BOOL WINAPI CScriptInfo::RuntimeDialogEventCallback(
+    void* context,
+    const Salamatrix::UI::DialogEvent* event)
+{
+    RUNTIME_DIALOG* binding = static_cast<RUNTIME_DIALOG*>(context);
+    if (binding == NULL || binding->Owner == NULL || event == NULL ||
+        !binding->EventsEnabled || binding->EventName[0] == '\0' ||
+        binding->Owner->m_pRuntimeSession == NULL)
+        return FALSE;
+
+    char dialogId[32];
+    _ui64toa_s(binding->Id, dialogId, _countof(dialogId), 10);
+    std::string eventJson =
+        std::string("{\"event\":\"") +
+        JsonEscapeRuntimeText(binding->EventName) +
+        "\",\"dialogId\":\"" + dialogId +
+        "\",\"controlId\":\"" +
+        JsonEscapeRuntimeText(event->ControlId) +
+        "\",\"kind\":" +
+        std::to_string(static_cast<int>(event->Control)) +
+        ",\"text\":\"" + JsonEscapeRuntimeText(event->Text) +
+        "\",\"checked\":" +
+        (event->Checked ? "true" : "false") +
+        ",\"selectedIndex\":" +
+        std::to_string(event->SelectedIndex) + "}";
+    std::string frame;
+    if (!Salamatrix::Runtime::Protocol::LineCodec::Encode(
+            Salamatrix::Runtime::Protocol::MessageEvent,
+            0,
+            eventJson,
+            &frame))
+        return FALSE;
+    return binding->Owner->m_pRuntimeSession->SendFrame(
+        frame.c_str(), static_cast<DWORD>(frame.size()));
+}
+
 BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     void* context,
     Salamatrix::Runtime::Protocol::MessageType type,
@@ -1118,7 +1154,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         std::string response =
             "{\"ok\":true,\"protocol\":1,\"extensionId\":\"" +
             JsonEscapeRuntimeText(script->m_szSalamatrixExtensionId) +
-            "\",\"services\":[\"commands\",\"fileOperations\",\"sides\",\"storage\",\"ui\",\"ai\"]}";
+            "\",\"services\":[\"commands\",\"fileOperations\",\"sides\",\"storage\",\"ui\",\"ai\",\"runtimes\"]}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
     }
@@ -1140,6 +1176,48 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         std::string response =
             std::string("{\"ok\":false,\"error\":\"capability denied\",\"capability\":\"") +
             JsonEscapeRuntimeText(requiredCapability) + "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.runtimes.list")
+    {
+        Salamatrix::Runtime::IRuntimeService* runtimes =
+            bridge->GetRuntimeService();
+        if (runtimes == NULL)
+            return FALSE;
+        std::string response = "{\"ok\":true,\"runtimes\":[";
+        for (int index = 0; index < runtimes->GetAdapterCount(); ++index)
+        {
+            Salamatrix::Runtime::IRuntimeAdapter* adapter =
+                runtimes->GetAdapter(index);
+            const Salamatrix::Runtime::RuntimeAdapterDescriptor* descriptor =
+                adapter != NULL ? adapter->GetDescriptor() : NULL;
+            if (descriptor == NULL || descriptor->RuntimeId == NULL)
+                continue;
+            if (response[response.size() - 1] != '[')
+                response += ",";
+            response +=
+                std::string("{\"id\":\"") +
+                JsonEscapeRuntimeText(descriptor->RuntimeId) +
+                "\",\"name\":\"" +
+                JsonEscapeRuntimeText(descriptor->DisplayName != NULL
+                                          ? descriptor->DisplayName
+                                          : "") +
+                "\",\"language\":\"" +
+                JsonEscapeRuntimeText(descriptor->LanguageId != NULL
+                                          ? descriptor->LanguageId
+                                          : "") +
+                "\",\"extensions\":\"" +
+                JsonEscapeRuntimeText(descriptor->FileExtensions != NULL
+                                          ? descriptor->FileExtensions
+                                          : "") +
+                "\",\"version\":" +
+                std::to_string(descriptor->RuntimeVersion) +
+                ",\"available\":" +
+                (adapter->IsAvailable() ? "true}" : "false}");
+        }
+        response += "]}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
     }
@@ -1326,10 +1404,45 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             response, resultJson, resultCapacity, resultLength);
     }
 
+    if (method == "salamander.ui.pickFolder")
+    {
+        std::string title;
+        std::string initialPath;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "title", &title);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "initial", &initialPath);
+        if (title.empty())
+            title = "Select folder";
+
+        std::vector<char> selectedPath(SAL_MAX_PATH * 3);
+        Salamatrix::UI::IUIService* ui = bridge->GetUIService();
+        if (ui == NULL)
+            return FALSE;
+        BOOL selected = ui->PickFolder(
+            SalamanderGeneral->GetMsgBoxParent(),
+            title.c_str(),
+            initialPath.c_str(),
+            &selectedPath[0],
+            static_cast<DWORD>(selectedPath.size()));
+        std::string response =
+            std::string("{\"ok\":true,\"selected\":") +
+            (selected ? "true" : "false") +
+            ",\"path\":\"" +
+            JsonEscapeRuntimeText(selected ? &selectedPath[0] : "") +
+            "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
     if (method == "salamander.ui.dialog.create" ||
         method == "salamander.ui.dialog.add" ||
         method == "salamander.ui.dialog.item" ||
+        method == "salamander.ui.dialog.column" ||
+        method == "salamander.ui.dialog.selection" ||
         method == "salamander.ui.dialog.clearItems" ||
+        method == "salamander.ui.dialog.validation" ||
+        method == "salamander.ui.dialog.events" ||
         method == "salamander.ui.dialog.show" ||
         method == "salamander.ui.dialog.get" ||
         method == "salamander.ui.dialog.close" ||
@@ -1358,8 +1471,13 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             ULONGLONG id = script->m_nextRuntimeDialogId++;
             if (id == 0)
                 id = script->m_nextRuntimeDialogId++;
-            script->m_runtimeDialogs[script->m_nRuntimeDialogs].Id = id;
-            script->m_runtimeDialogs[script->m_nRuntimeDialogs].Dialog = dialog;
+            CScriptInfo::RUNTIME_DIALOG& runtimeDialog =
+                script->m_runtimeDialogs[script->m_nRuntimeDialogs];
+            runtimeDialog.Owner = script;
+            runtimeDialog.Id = id;
+            runtimeDialog.Dialog = dialog;
+            runtimeDialog.EventsEnabled = FALSE;
+            runtimeDialog.EventName[0] = '\0';
             ++script->m_nRuntimeDialogs;
             char idText[32];
             _ui64toa_s(id, idText, _countof(idText), 10);
@@ -1399,6 +1517,11 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             BOOL readOnly = FALSE;
             BOOL checked = FALSE;
             int dialogResult = 0;
+            int x = 0;
+            int y = 0;
+            int width = 0;
+            int height = 0;
+            BOOL hasBounds = FALSE;
             if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
                     payloadJson, "kind", &kindName) ||
                 !Salamatrix::Runtime::Protocol::Json::FindStringMember(
@@ -1410,6 +1533,39 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 payloadJson, "readOnly", &readOnly);
             Salamatrix::Runtime::Protocol::Json::FindBoolMember(
                 payloadJson, "checked", &checked);
+            std::string rawCoordinate;
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "x", &rawCoordinate))
+            {
+                if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "x", &x))
+                    return FALSE;
+                hasBounds = TRUE;
+            }
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "y", &rawCoordinate))
+            {
+                if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "y", &y))
+                    return FALSE;
+                hasBounds = TRUE;
+            }
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "width", &rawCoordinate))
+            {
+                if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "width", &width))
+                    return FALSE;
+                hasBounds = TRUE;
+            }
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "height", &rawCoordinate))
+            {
+                if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "height", &height))
+                    return FALSE;
+                hasBounds = TRUE;
+            }
             std::string rawResult;
             if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
                     payloadJson, "dialogResult", &rawResult))
@@ -1446,11 +1602,78 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             options.ReadOnly = readOnly;
             options.Checked = checked;
             options.DialogResult = dialogResult;
-            Salamatrix::UI::IControl* control = dialog->AddControl(kind, options);
+            Salamatrix::UI::ControlLayout layout;
+            layout.HasBounds = hasBounds;
+            layout.X = x;
+            layout.Y = y;
+            layout.Width = width;
+            layout.Height = height;
+            Salamatrix::UI::IControl* control = dialog->AddControlEx(
+                kind, options, layout);
             if (control == NULL)
                 return FALSE;
             return CopyRuntimeHostResult(
                 "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+
+        if (method == "salamander.ui.dialog.validation")
+        {
+            std::string controlId;
+            std::string message;
+            BOOL required = FALSE;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "controlId", &controlId))
+                return FALSE;
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "required", &required);
+            Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "message", &message);
+            Salamatrix::UI::IControl* control =
+                dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetRequired(required) ||
+                !control->SetValidationMessage(message.c_str()))
+                return FALSE;
+            return CopyRuntimeHostResult(
+                "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+
+        if (method == "salamander.ui.dialog.events")
+        {
+            BOOL enabled = FALSE;
+            std::string eventName;
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "enabled", &enabled);
+            Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "event", &eventName);
+            CScriptInfo::RUNTIME_DIALOG& binding =
+                script->m_runtimeDialogs[dialogIndex];
+            if (enabled)
+            {
+                if (eventName.empty() ||
+                    eventName.size() >= _countof(binding.EventName) ||
+                    StringCchCopyA(
+                        binding.EventName,
+                        _countof(binding.EventName),
+                        eventName.c_str()) != S_OK ||
+                    !dialog->SetEventCallback(
+                        CScriptInfo::RuntimeDialogEventCallback,
+                        &binding))
+                    return FALSE;
+                binding.EventsEnabled = TRUE;
+            }
+            else
+            {
+                if (!dialog->SetEventCallback(NULL, NULL))
+                    return FALSE;
+                binding.EventsEnabled = FALSE;
+                binding.EventName[0] = '\0';
+            }
+            return CopyRuntimeHostResult(
+                std::string("{\"ok\":true,\"enabled\":") +
+                    (enabled ? "true}" : "false}"),
+                resultJson,
+                resultCapacity,
+                resultLength);
         }
 
         if (method == "salamander.ui.dialog.item")
@@ -1479,6 +1702,47 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             return CopyRuntimeHostResult(
                 std::string("{\"ok\":true,\"itemCount\":") +
                     std::to_string(control->GetItemCount()) + "}",
+                resultJson,
+                resultCapacity,
+                resultLength);
+        }
+
+        if (method == "salamander.ui.dialog.column")
+        {
+            std::string controlId;
+            std::string title;
+            int width = 180;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "controlId", &controlId) ||
+                !Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "title", &title))
+                return FALSE;
+            Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                payloadJson, "width", &width);
+            Salamatrix::UI::IControl* control =
+                dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->AddColumn(title.c_str(), width))
+                return FALSE;
+            return CopyRuntimeHostResult(
+                "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+
+        if (method == "salamander.ui.dialog.selection")
+        {
+            std::string controlId;
+            int index = -1;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "controlId", &controlId) ||
+                !Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "index", &index))
+                return FALSE;
+            Salamatrix::UI::IControl* control =
+                dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetSelectedIndex(index))
+                return FALSE;
+            return CopyRuntimeHostResult(
+                std::string("{\"ok\":true,\"selectedIndex\":") +
+                    std::to_string(control->GetSelectedIndex()) + "}",
                 resultJson,
                 resultCapacity,
                 resultLength);
@@ -1527,17 +1791,23 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 "\",\"checked\":" +
                 (control->GetChecked() ? "true" : "false") +
                 ",\"itemCount\":" +
-                std::to_string(control->GetItemCount()) + "}";
+                std::to_string(control->GetItemCount()) +
+                ",\"selectedIndex\":" +
+                std::to_string(control->GetSelectedIndex()) + "}";
             return CopyRuntimeHostResult(
                 response, resultJson, resultCapacity, resultLength);
         }
 
+        dialog->SetEventCallback(NULL, NULL);
         ui->DestroyDialog(dialog);
         for (int move = dialogIndex; move + 1 < script->m_nRuntimeDialogs; ++move)
             script->m_runtimeDialogs[move] = script->m_runtimeDialogs[move + 1];
         --script->m_nRuntimeDialogs;
+        script->m_runtimeDialogs[script->m_nRuntimeDialogs].Owner = NULL;
         script->m_runtimeDialogs[script->m_nRuntimeDialogs].Id = 0;
         script->m_runtimeDialogs[script->m_nRuntimeDialogs].Dialog = NULL;
+        script->m_runtimeDialogs[script->m_nRuntimeDialogs].EventsEnabled = FALSE;
+        script->m_runtimeDialogs[script->m_nRuntimeDialogs].EventName[0] = '\0';
         return CopyRuntimeHostResult(
             "{\"ok\":true}", resultJson, resultCapacity, resultLength);
     }
@@ -1550,6 +1820,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         std::string contextJson;
         std::string runtimeId;
         std::string existingScript;
+        std::string feedback;
         if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
                 payloadJson, "prompt", &prompt))
             return FALSE;
@@ -1562,6 +1833,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             payloadJson, "runtime", &runtimeId);
         Salamatrix::Runtime::Protocol::Json::FindStringMember(
             payloadJson, "existingScript", &existingScript);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "feedback", &feedback);
 
         Salamatrix::AI::IAssistantService* assistant =
             bridge->GetAssistantService();
@@ -1573,6 +1846,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         request.RuntimeId = runtimeId.empty() ? NULL : runtimeId.c_str();
         request.ExistingScript =
             existingScript.empty() ? NULL : existingScript.c_str();
+        request.Feedback = feedback.empty() ? NULL : feedback.c_str();
         Salamatrix::AI::AssistantResponse responseData;
         BOOL generated = assistant->Generate(
             provider.empty() ? NULL : provider.c_str(),
@@ -3456,6 +3730,7 @@ void CScriptInfo::ReleaseRuntimeDialogs()
     {
         if (m_runtimeDialogs[index].Dialog == NULL)
             continue;
+        m_runtimeDialogs[index].Dialog->SetEventCallback(NULL, NULL);
         if (ui != NULL)
             ui->DestroyDialog(m_runtimeDialogs[index].Dialog);
         else

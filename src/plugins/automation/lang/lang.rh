@@ -32,6 +32,12 @@
 #define IDS_AIRUNSUCCEEDED              312
 #define IDS_AIRUNFAILED                 313
 #define IDS_AIRUNTIME                   314
+#define IDS_AIEXTQUESTION               315
+#define IDS_AIEXTSUCCEEDED              316
+#define IDS_AIEXTFAILED                 317
+#define IDS_AIEXTINVALID                318
+#define IDS_AIREFINEQUESTION            319
+#define IDS_AIREFINEPROMPT              320
 #define IDS_MENUEMPTY                   137
 #define IDS_LOADERRFMT                  138
 #define IDS_UNKERROR                    139

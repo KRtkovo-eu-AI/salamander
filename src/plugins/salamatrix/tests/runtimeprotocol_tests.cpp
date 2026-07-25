@@ -134,6 +134,16 @@ void TestJsonMemberExtraction()
             "context", &value) != FALSE &&
             value == "{\"capabilities\":[\"rename\"]}",
         "extract nested raw context member");
+    int coordinate = 0;
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+            "{\"x\":-12,\"width\":240}", "x", &coordinate) != FALSE &&
+            coordinate == -12,
+        "extract signed integer member");
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+            "{\"width\":2147483648}", "width", &coordinate) == FALSE,
+        "reject overflowing integer member");
 }
 
 void TestAssistantService()
@@ -167,6 +177,21 @@ void TestAssistantService()
           "assistant API description advertises optional runtime output");
     Check(strstr(service.GetApiDescription(), "pickFile") != NULL,
           "assistant API description advertises shared file picker");
+    Check(strstr(service.GetApiDescription(), "pickFolder") != NULL,
+          "assistant API description advertises shared folder picker");
+    Check(strstr(service.GetApiDescription(), "setValidation") != NULL,
+          "assistant API description advertises dialog validation");
+    Check(strstr(service.GetApiDescription(), "onChange") != NULL,
+          "assistant API description advertises dialog change events");
+    Check(strstr(service.GetApiDescription(), "addColumn") != NULL,
+          "assistant API description advertises ListView columns");
+    Check(strstr(service.GetApiDescription(), "setSelectedIndex") != NULL,
+          "assistant API description advertises control selection");
+    Check(strstr(service.GetApiDescription(), "feedback") != NULL,
+          "assistant API description advertises repair feedback");
+    Check(strstr(service.GetApiDescription(), "Salamander.runtimes") != NULL &&
+              strstr(service.GetApiDescription(), "\"list\"") != NULL,
+          "assistant API description advertises runtime discovery");
 }
 
 void TestCommandCatalog()

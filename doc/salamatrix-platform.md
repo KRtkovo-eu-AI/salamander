@@ -213,6 +213,13 @@ SMX1 handshake, expose the same logical `Salamander` object model, route host
 calls, and keep an event loop alive after the extension entry point returns.
 `SALAMATRIX_WORKER_ROOT` is an explicit deployment/test override; the normal
 plugin build copies the scripts beside the Automation binary.
+Workers can query the same broker without a runtime-specific host extension:
+`Salamander.runtimes.list()` in Python, `Salamander.runtimes.List()` in
+PowerShell, and `Salamander->runtimes->list()` in PHP call
+`salamander.runtimes.list`. The response contains each adapter's id, display
+name, language, entry-point extensions, version, and current availability, so
+an extension or the AI assistant can explain a missing interpreter before it
+tries to execute or package a script.
 
 Runtime registration is tied to the Automation bridge refresh/release lifecycle.
 Before unregistering, the bridge verifies that the same broker is still
@@ -693,8 +700,9 @@ interfaces instead of creating a second runtime-specific UI. The native
 implementation renders labels, text boxes, check/radio buttons, combo boxes,
 buttons, and the native ListView/TreeView/TabControl common-control surfaces. Runtime
 workers can add and clear items before showing a dialog; TreeView items accept a
-parent index. Column models, selection notifications, and virtualized data
-binding remain a follow-up.
+parent index, while ListView columns and selected indexes are exposed through the
+same dialog object. Richer selection notifications and virtualized data binding
+remain a follow-up.
 
 ## Salamatrix.AI provider seam
 
@@ -702,7 +710,7 @@ binding remain a follow-up.
 contract. Automation registers `local.command` when `SALAMATRIX_AI_COMMAND` is
 configured. The command receives one UTF-8 JSON request on standard input and
 returns one JSON object/array on standard output; the bridge bounds output to
-1 MiB and clamps generation to a five-minute timeout. This makes a local
+1 MiB and clamps generation to a two-minute timeout. This makes a local
 llama.cpp/Ollama wrapper usable without coupling Salamander to a model vendor.
 The shared service validates the structured assistant contract (`title`,
 `description`, `capabilities`, `estimatedEffects`, and `script`) and exposes
@@ -713,12 +721,15 @@ includes an Ask-AI menu action that gathers
 source-panel context, shows a native preview summary, copies the generated
 script for explicit review, offers an explicit Run only after user
 confirmation when the response names an available runtime, and offers an
-explicit Save As file picker. Save-as-extension packaging remains follow-up
-work; no llama.cpp binary or
-model is bundled yet. Both calls accept an optional runtime
-hint and existing script, so a configured local model can target Python,
-PowerShell, PHP, or another registered adapter and repair an existing script
-without a second provider-specific API.
+explicit Save As file picker. When a supported runtime is present, the same
+workflow can also create a manifest-validated `extension.json` plus entry-point
+package under a user-selected folder. Both calls accept an optional runtime
+hint, existing script, and repair feedback, so a configured local model can
+target Python, PowerShell, PHP, or another registered adapter and continue a
+bounded conversation without a second provider-specific API. The native
+Ask-AI action offers at most three generation iterations before the final
+preview, keeping the repair loop bounded. No llama.cpp binary or model is
+bundled yet.
 
 ## Salamatrix PoC runtime wiring
 
@@ -973,9 +984,12 @@ The platform skeleton is ready when:
     to Python, PowerShell, and PHP.
 39. `Salamatrix.UI` now publishes a reusable native `IDialog`/`IControl`
     contract and `NativeDialog` implementation for labels, text boxes,
-    check/radio buttons, combo boxes, buttons, ListView, TreeView, and TabControl; the
-    worker input-box path goes through this service rather than owning a second
-    dialog backend.
+    check/radio buttons, combo boxes, buttons, ListView, TreeView, and TabControl;
+    workers can use `dialog.addControl(..., layout)` for explicit control bounds
+    and `dialog.setValidation(...)` for required-field checks; `dialog.onChange(...)`
+    receives control-change events through the same SMX1 event channel,
+    and the worker input-box path goes through this service rather than owning a
+    second dialog backend.
 40. The command catalog covers the available core `SALCMD_*` operations and
     `IFileOperationsService` exposes interactive rename/copy/move/delete,
     create-directory, refresh, and properties wrappers to native callers and
@@ -984,6 +998,11 @@ The platform skeleton is ready when:
     kinds (including item/node/tab binding), show them modally, read control state, and destroy them through the
     same `Salamatrix.UI` service; the bounded process-runtime tests exercise
     this path in Python, PowerShell, and PHP.
-42. The same shared UI service now exposes UTF-8 open/save file pickers;
-    Python, PowerShell, and PHP workers call `Salamander.ui.pick_file()` /
-    `PickFile()` / `pickFile()` and receive a structured selected/path result.
+42. The same shared UI service now exposes UTF-8 open/save file pickers and a
+    native folder picker; Python, PowerShell, and PHP workers call
+    `Salamander.ui.pick_file()` / `PickFile()` / `pickFile()` or
+    `pick_folder()` / `PickFolder()` / `pickFolder()` and receive a structured
+    selected/path result.
+43. The shared worker facade exposes runtime discovery through
+    `Salamander.runtimes.list()` / `List()` / `list()`; the host returns each
+    adapter's id, language, entry-point extensions, version, and availability.

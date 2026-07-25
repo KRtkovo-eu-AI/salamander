@@ -95,6 +95,8 @@ struct AssistantRequest
     const char* RuntimeId;
     /// Optional existing script to repair or extend during generation.
     const char* ExistingScript;
+    /// Optional feedback from the previous preview/run iteration.
+    const char* Feedback;
 
     AssistantRequest()
         : StructSize(sizeof(AssistantRequest)),
@@ -104,7 +106,8 @@ struct AssistantRequest
           TimeoutMs(120000),
           MaxOutputBytes(65536),
           RuntimeId(NULL),
-          ExistingScript(NULL)
+          ExistingScript(NULL),
+          Feedback(NULL)
     {
     }
 };
@@ -349,11 +352,12 @@ public:
             "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"]},"
             "\"Salamander.storage\":{\"methods\":[\"get\",\"set\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]},"
-            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"dialog\",\"dialog.addTabControl\",\"dialog.addItem\",\"dialog.clearItems\"]},"
+            "\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]},"
+            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"dialog\",\"dialog.addControl\",\"dialog.setValidation\",\"dialog.onChange\",\"dialog.addTabControl\",\"dialog.addItem\",\"dialog.addColumn\",\"dialog.setSelectedIndex\",\"dialog.clearItems\"],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true},"
             "\"Salamander.clipboard\":{\"methods\":[\"copyText\"]},"
             "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\"],"
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","
-            "\"runtime\",\"existingScript\"]}},"
+            "\"runtime\",\"existingScript\",\"feedback\"]}},"
             "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"],\"optional\":[\"runtime\"]}}";
     }
 };

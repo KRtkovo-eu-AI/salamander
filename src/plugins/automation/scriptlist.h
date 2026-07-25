@@ -129,8 +129,11 @@ private:
     int m_nRuntimeEventSubscriptions;
     struct RUNTIME_DIALOG
     {
+        CScriptInfo* Owner;
         ULONGLONG Id;
         Salamatrix::UI::IDialog* Dialog;
+        BOOL EventsEnabled;
+        char EventName[128];
     };
     RUNTIME_DIALOG m_runtimeDialogs[8];
     int m_nRuntimeDialogs;
@@ -178,6 +181,9 @@ private:
     static BOOL WINAPI RuntimeEventCallback(
         void* context,
         const Salamatrix::Events::EventPayload* payload);
+    static BOOL WINAPI RuntimeDialogEventCallback(
+        void* context,
+        const Salamatrix::UI::DialogEvent* event);
     void ReleaseRuntimeEventSubscriptions();
     void ReleaseRuntimeDialogs();
     void ReleaseRuntimeCommand();

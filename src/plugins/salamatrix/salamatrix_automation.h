@@ -196,6 +196,25 @@ public:
             return Add(UI::ControlKindTabControl, id, NULL, FALSE, FALSE, 0);
         }
 
+        UI::IControl* WINAPI AddControl(
+            UI::ControlKind kind,
+            const UI::ControlOptions& options,
+            const UI::ControlLayout& layout)
+        {
+            return NativeDialog != NULL
+                       ? NativeDialog->AddControlEx(kind, options, layout)
+                       : NULL;
+        }
+
+        BOOL WINAPI SetEventCallback(
+            UI::DialogEventCallback callback,
+            void* context)
+        {
+            return NativeDialog != NULL
+                       ? NativeDialog->SetEventCallback(callback, context)
+                       : FALSE;
+        }
+
         BOOL WINAPI AddItem(
             const char* controlId,
             const char* text,
@@ -203,6 +222,21 @@ public:
         {
             UI::IControl* control = FindControl(controlId);
             return control != NULL ? control->AddItem(text, parentIndex) : FALSE;
+        }
+
+        BOOL WINAPI AddColumn(
+            const char* controlId,
+            const char* title,
+            int width = 180)
+        {
+            UI::IControl* control = FindControl(controlId);
+            return control != NULL ? control->AddColumn(title, width) : FALSE;
+        }
+
+        BOOL WINAPI SetSelectedIndex(const char* controlId, int index)
+        {
+            UI::IControl* control = FindControl(controlId);
+            return control != NULL ? control->SetSelectedIndex(index) : FALSE;
         }
 
         UI::IControl* WINAPI AddButton(

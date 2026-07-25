@@ -14,6 +14,7 @@
 #include "precomp.h"
 #include "automationplug.h"
 #include "scriptlist.h"
+#include "extensionmanifest.h"
 #include "automation.rh2"
 #include "lang\lang.rh"
 #include "engassoc.h"
@@ -290,6 +291,159 @@ static BOOL GetAssistantRuntimeExtension(
     return extension.size() >= 2 && extension[0] == '.';
 }
 
+static std::string MakeAssistantExtensionId(const char* title)
+{
+    std::string id;
+    if (title != NULL)
+    {
+        for (const unsigned char* p =
+                 reinterpret_cast<const unsigned char*>(title);
+             *p != '\0' && id.size() < 96; ++p)
+        {
+            if ((*p >= 'A' && *p <= 'Z') ||
+                (*p >= 'a' && *p <= 'z') ||
+                (*p >= '0' && *p <= '9'))
+            {
+                char value = static_cast<char>(*p);
+                if (value >= 'A' && value <= 'Z')
+                    value = static_cast<char>(value - 'A' + 'a');
+                id.push_back(value);
+            }
+            else if (!id.empty() && id[id.size() - 1] != '-')
+            {
+                id.push_back('-');
+            }
+        }
+    }
+    while (!id.empty() && id[id.size() - 1] == '-')
+        id.erase(id.size() - 1);
+    if (id.empty())
+        id = "generated-extension";
+    if (id[0] >= '0' && id[0] <= '9')
+        id = "generated-" + id;
+    return id;
+}
+
+static BOOL AssistantUtf8ToWide(
+    const char* value,
+    std::wstring& result)
+{
+    result.clear();
+    const char* safeValue = value != NULL ? value : "";
+    int length = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, safeValue, -1, NULL, 0);
+    if (length <= 0)
+        return FALSE;
+    std::vector<wchar_t> buffer(static_cast<size_t>(length));
+    if (MultiByteToWideChar(
+            CP_UTF8, MB_ERR_INVALID_CHARS, safeValue, -1,
+            &buffer[0], length) <= 0)
+        return FALSE;
+    result.assign(&buffer[0]);
+    return TRUE;
+}
+
+static BOOL SaveAssistantExtensionPackage(
+    HWND parent,
+    CAutomationSalamatrixBridge* bridge,
+    Salamatrix::UI::IUIService* ui,
+    const char* runtimeId,
+    const Salamatrix::AI::AssistantResponse& response)
+{
+    if (bridge == NULL || ui == NULL || runtimeId == NULL ||
+        runtimeId[0] == '\0' || response.Summary.Script[0] == '\0')
+        return FALSE;
+
+    Salamatrix::Runtime::IRuntimeService* runtime =
+        bridge->GetRuntimeService();
+    Salamatrix::Runtime::IRuntimeAdapter* adapter =
+        runtime != NULL ? runtime->FindAdapter(runtimeId, 0) : NULL;
+    if (adapter == NULL || !adapter->IsAvailable())
+        return FALSE;
+    std::string extension;
+    if (!GetAssistantRuntimeExtension(adapter, extension))
+        return FALSE;
+
+    std::vector<char> selectedFolder(SAL_MAX_PATH * 3);
+    if (!ui->PickFolder(
+            parent,
+            "Choose a directory for the extension package",
+            "",
+            &selectedFolder[0],
+            static_cast<DWORD>(selectedFolder.size())))
+        return FALSE;
+
+    std::wstring parentWide;
+    std::wstring idWide;
+    std::wstring extensionWide;
+    if (!AssistantUtf8ToWide(
+            &selectedFolder[0], parentWide) ||
+        !AssistantUtf8ToWide(
+            MakeAssistantExtensionId(response.Summary.Title).c_str(), idWide) ||
+        !AssistantUtf8ToWide(extension.c_str(), extensionWide))
+        return FALSE;
+
+    std::string extensionId =
+        MakeAssistantExtensionId(response.Summary.Title);
+    std::wstring packagePath = parentWide;
+    if (!packagePath.empty() && packagePath[packagePath.size() - 1] != L'\\')
+        packagePath.push_back(L'\\');
+    packagePath += idWide;
+    packagePath = AssistantWin32Path(packagePath);
+    DWORD attributes = GetFileAttributesW(packagePath.c_str());
+    if (attributes != INVALID_FILE_ATTRIBUTES)
+        return FALSE;
+    if (!CreateDirectoryW(packagePath.c_str(), NULL))
+        return FALSE;
+
+    std::string capabilities = "[]";
+    Salamatrix::Runtime::Protocol::Json::FindRawMember(
+        response.ResponseJson, "capabilities", &capabilities);
+    if (capabilities.size() < 2 || capabilities[0] != '[' ||
+        capabilities[capabilities.size() - 1] != ']')
+        capabilities = "[]";
+
+    std::string entryPoint = "main" + extension;
+    std::string manifest =
+        std::string("{\n  \"schemaVersion\": 1,\n") +
+        "  \"id\": \"" + EscapeAssistantContext(extensionId.c_str()) +
+        "\",\n  \"name\": \"" +
+        EscapeAssistantContext(response.Summary.Title) +
+        "\",\n  \"version\": \"1.0.0\",\n  \"description\": \"" +
+        EscapeAssistantContext(response.Summary.Description) +
+        "\",\n  \"runtime\": \"" +
+        EscapeAssistantContext(runtimeId) +
+        "\",\n  \"entryPoint\": \"" +
+        EscapeAssistantContext(entryPoint.c_str()) +
+        "\",\n  \"capabilities\": " + capabilities +
+        ",\n  \"commands\": [{\"id\": \"" +
+        EscapeAssistantContext(extensionId.c_str()) +
+        "\", \"title\": \"" +
+        EscapeAssistantContext(response.Summary.Title) +
+        "\", \"handler\": \"main\", \"menu\": \"plugin\", \"requires\": \"any\"}]\n}\n";
+
+    CExtensionManifest parsedManifest;
+    CExtensionManifestError manifestError;
+    if (!parsedManifest.Parse(
+            manifest.c_str(), manifest.size(), manifestError))
+    {
+        RemoveDirectoryW(packagePath.c_str());
+        return FALSE;
+    }
+
+    std::wstring manifestPath = packagePath + L"\\extension.json";
+    std::wstring scriptPath = packagePath + L"\\main" + extensionWide;
+    if (!WriteAssistantUtf8File(manifestPath, manifest.c_str()) ||
+        !WriteAssistantUtf8File(scriptPath, response.Summary.Script))
+    {
+        DeleteFileW(manifestPath.c_str());
+        DeleteFileW(scriptPath.c_str());
+        RemoveDirectoryW(packagePath.c_str());
+        return FALSE;
+    }
+    return TRUE;
+}
+
 static BOOL RunAssistantScript(
     CAutomationSalamatrixBridge* bridge,
     const char* runtimeId,
@@ -444,6 +598,10 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
         const std::string aiPrompt = LoadAssistantString(IDS_AIPROMPT);
         const std::string aiGenerateFailed =
             LoadAssistantString(IDS_AIGENERATEFAILED);
+        const std::string aiRefineQuestion =
+            LoadAssistantString(IDS_AIREFINEQUESTION);
+        const std::string aiRefinePrompt =
+            LoadAssistantString(IDS_AIREFINEPROMPT);
         char prompt[4096];
         if (assistant == NULL || ui == NULL ||
             !ShowRuntimeInputBox(
@@ -460,11 +618,50 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
         request.Prompt = prompt;
         request.ContextJson = context.c_str();
         Salamatrix::AI::AssistantResponse response;
-        BOOL generated = assistant->Generate(NULL, &request, &response);
         std::string generatedRuntime;
-        if (generated && response.ResponseJson[0] != '\0')
-            Salamatrix::Runtime::Protocol::Json::FindStringMember(
-                response.ResponseJson, "runtime", &generatedRuntime);
+        std::string existingScript;
+        std::string feedback;
+        BOOL generated = FALSE;
+        for (int iteration = 0; iteration < 3; ++iteration)
+        {
+            request.ExistingScript =
+                existingScript.empty() ? NULL : existingScript.c_str();
+            request.Feedback = feedback.empty() ? NULL : feedback.c_str();
+            Salamatrix::AI::AssistantResponse candidate;
+            BOOL attempt = assistant->Generate(NULL, &request, &candidate);
+            if (!attempt)
+            {
+                generated = iteration != 0;
+                break;
+            }
+            response = candidate;
+            generated = TRUE;
+            generatedRuntime.clear();
+            if (generated && response.ResponseJson[0] != '\0')
+                Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    response.ResponseJson, "runtime", &generatedRuntime);
+            if (!generated || iteration == 2)
+                break;
+
+            int refineChoice = ui->ShowMessageBox(
+                parent,
+                aiRefineQuestion.c_str(),
+                aiTitle.c_str(),
+                MB_YESNO | MB_ICONQUESTION);
+            if (refineChoice != IDYES)
+                break;
+            char refinement[4096];
+            if (!ShowRuntimeInputBox(
+                    parent,
+                    aiTitle.c_str(),
+                    aiRefinePrompt.c_str(),
+                    "",
+                    refinement,
+                    _countof(refinement)))
+                break;
+            existingScript.assign(response.Summary.Script);
+            feedback.assign(refinement);
+        }
         if (!generated)
         {
             ui->ShowMessageBox(
@@ -493,6 +690,12 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
         const std::string saveSucceeded =
             LoadAssistantString(IDS_AISAVESUCCEEDED);
         const std::string saveFailed = LoadAssistantString(IDS_AISAVEFAILED);
+        const std::string extensionQuestion =
+            LoadAssistantString(IDS_AIEXTQUESTION);
+        const std::string extensionSucceeded =
+            LoadAssistantString(IDS_AIEXTSUCCEEDED);
+        const std::string extensionFailed =
+            LoadAssistantString(IDS_AIEXTFAILED);
         ui->CopyTextToClipboard(response.Summary.Script, TRUE, parent);
         ui->ShowMessageBox(
             parent,
@@ -553,6 +756,31 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
                     saveFailed.c_str(),
                     aiTitle.c_str(),
                     MB_OK | MB_ICONWARNING);
+            }
+        }
+        if (!generatedRuntime.empty())
+        {
+            int extensionChoice = ui->ShowMessageBox(
+                parent,
+                extensionQuestion.c_str(),
+                aiTitle.c_str(),
+                MB_YESNO | MB_ICONQUESTION);
+            if (extensionChoice == IDYES)
+            {
+                const BOOL packaged = SaveAssistantExtensionPackage(
+                    parent,
+                    bridge,
+                    ui,
+                    generatedRuntime.c_str(),
+                    response);
+                if (packaged)
+                    g_oScriptLookup.Refresh(TRUE);
+                ui->ShowMessageBox(
+                    parent,
+                    (packaged ? extensionSucceeded : extensionFailed).c_str(),
+                    aiTitle.c_str(),
+                    packaged ? (MB_OK | MB_ICONINFORMATION)
+                             : (MB_OK | MB_ICONWARNING));
             }
         }
         return FALSE;

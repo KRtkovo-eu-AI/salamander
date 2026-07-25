@@ -269,6 +269,58 @@ inline BOOL FindBoolMember(
     }
     return FALSE;
 }
+
+inline BOOL FindIntegerMember(
+    const char* jsonText,
+    const char* member,
+    int* value)
+{
+    if (jsonText == NULL || member == NULL || value == NULL)
+        return FALSE;
+    std::string raw;
+    if (!FindRawMember(jsonText, member, &raw) || raw.empty())
+        return FALSE;
+    size_t first = 0;
+    while (first < raw.size() &&
+           (raw[first] == ' ' || raw[first] == '\t' ||
+            raw[first] == '\r' || raw[first] == '\n'))
+        ++first;
+    size_t last = raw.size();
+    while (last > first &&
+           (raw[last - 1] == ' ' || raw[last - 1] == '\t' ||
+            raw[last - 1] == '\r' || raw[last - 1] == '\n'))
+        --last;
+    if (first != 0 || last != raw.size())
+        raw = raw.substr(first, last - first);
+    if (raw.empty())
+        return FALSE;
+    size_t index = 0;
+    BOOL negative = FALSE;
+    if (raw[index] == '-')
+    {
+        negative = TRUE;
+        ++index;
+    }
+    if (index >= raw.size())
+        return FALSE;
+    long long parsed = 0;
+    const long long limit = negative ? 2147483648LL : 2147483647LL;
+    for (; index < raw.size(); ++index)
+    {
+        if (raw[index] < '0' || raw[index] > '9')
+            return FALSE;
+        const long long digit = raw[index] - '0';
+        if (parsed > (limit - digit) / 10)
+            return FALSE;
+        parsed = parsed * 10 + digit;
+    }
+    if (negative && parsed == 2147483648LL)
+        *value = (-2147483647 - 1);
+    else
+        *value = negative ? -static_cast<int>(parsed)
+                          : static_cast<int>(parsed);
+    return TRUE;
+}
 } // namespace Json
 
 enum MessageType

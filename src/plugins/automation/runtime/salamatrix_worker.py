@@ -211,6 +211,11 @@ class _UI:
             filter=filter, initial=initial
         )
 
+    def pick_folder(self, title: str = "", initial: str = "") -> dict:
+        return self._transport.call(
+            "salamander.ui.pickFolder", title=title, initial=initial
+        )
+
     def dialog(self, title: str = "Salamander") -> "_Dialog":
         result = self._transport.call("salamander.ui.dialog.create", title=title)
         return _Dialog(self._transport, str(result["dialogId"]))
@@ -237,6 +242,45 @@ class _Dialog:
             "salamander.ui.dialog.add", dialogId=self.dialog_id,
             kind=kind, controlId=control_id, text=text, **kwargs
         )
+
+    def add_control(self, kind: str, control_id: str, text: str = "",
+                    read_only: bool = False, checked: bool = False,
+                    dialog_result: int = 0,
+                    layout: Optional[dict] = None) -> None:
+        arguments: dict = {
+            "readOnly": read_only,
+            "checked": checked,
+            "dialogResult": dialog_result,
+        }
+        if layout is not None:
+            for name in ("x", "y", "width", "height"):
+                if name in layout:
+                    arguments[name] = int(layout[name])
+        self._add(kind, control_id, text, **arguments)
+
+    def set_validation(self, control_id: str, required: bool = False,
+                       message: str = "") -> None:
+        self._transport.call(
+            "salamander.ui.dialog.validation", dialogId=self.dialog_id,
+            controlId=control_id, required=required, message=message
+        )
+
+    def on_change(self, callback: Callable[[dict], None]) -> str:
+        event_name = f"salamander.ui.dialog.{self.dialog_id}.changed"
+        self._transport.call(
+            "salamander.ui.dialog.events", dialogId=self.dialog_id,
+            enabled=True, event=event_name
+        )
+        self._transport._event_handlers.setdefault(event_name, []).append(callback)
+        return event_name
+
+    def off_change(self, event_name: str = "") -> None:
+        name = event_name or f"salamander.ui.dialog.{self.dialog_id}.changed"
+        self._transport.call(
+            "salamander.ui.dialog.events", dialogId=self.dialog_id,
+            enabled=False, event=name
+        )
+        self._transport._event_handlers.pop(name, None)
 
     def add_label(self, control_id: str, text: str) -> None:
         self._add("label", control_id, text)
@@ -273,6 +317,20 @@ class _Dialog:
         )
         return int(result.get("itemCount", 0))
 
+    def add_column(self, control_id: str, title: str,
+                   width: int = 180) -> None:
+        self._transport.call(
+            "salamander.ui.dialog.column", dialogId=self.dialog_id,
+            controlId=control_id, title=title, width=int(width)
+        )
+
+    def set_selected_index(self, control_id: str, index: int) -> int:
+        result = self._transport.call(
+            "salamander.ui.dialog.selection", dialogId=self.dialog_id,
+            controlId=control_id, index=int(index)
+        )
+        return int(result.get("selectedIndex", -1))
+
     def clear_items(self, control_id: str) -> None:
         self._transport.call(
             "salamander.ui.dialog.clearItems", dialogId=self.dialog_id,
@@ -306,7 +364,8 @@ class _AI:
 
     def generate(self, prompt: str, context: Optional[dict] = None,
                  provider: Optional[str] = None, runtime: Optional[str] = None,
-                 existing_script: Optional[str] = None) -> dict:
+                 existing_script: Optional[str] = None,
+                 feedback: Optional[str] = None) -> dict:
         arguments = {"prompt": prompt}
         if context is not None:
             arguments["context"] = context
@@ -316,11 +375,14 @@ class _AI:
             arguments["runtime"] = runtime
         if existing_script is not None:
             arguments["existingScript"] = existing_script
+        if feedback is not None:
+            arguments["feedback"] = feedback
         return self._transport.call("salamander.ai.generate", **arguments)
 
     def preview(self, prompt: str, context: Optional[dict] = None,
                 provider: Optional[str] = None, runtime: Optional[str] = None,
-                existing_script: Optional[str] = None) -> dict:
+                existing_script: Optional[str] = None,
+                feedback: Optional[str] = None) -> dict:
         arguments = {"prompt": prompt}
         if context is not None:
             arguments["context"] = context
@@ -330,6 +392,8 @@ class _AI:
             arguments["runtime"] = runtime
         if existing_script is not None:
             arguments["existingScript"] = existing_script
+        if feedback is not None:
+            arguments["feedback"] = feedback
         return self._transport.call("salamander.ai.preview", **arguments)
 
 
@@ -357,6 +421,16 @@ class _Events:
                 self._transport._event_handlers.pop(event, None)
 
 
+class _Runtimes:
+    def __init__(self, transport: _Transport) -> None:
+        self._transport = transport
+
+    def list(self) -> list:
+        return self._transport.call("salamander.runtimes.list").get(
+            "runtimes", []
+        )
+
+
 class _Salamander:
     def __init__(self, transport: _Transport) -> None:
         self.commands = _Commands(transport)
@@ -367,6 +441,7 @@ class _Salamander:
         self.clipboard = _Clipboard(transport)
         self.ai = _AI(transport)
         self.events = _Events(transport)
+        self.runtimes = _Runtimes(transport)
         self.left_side = _Side(self.sides, "left")
         self.right_side = _Side(self.sides, "right")
         self.source_side = _Side(self.sides, "source")

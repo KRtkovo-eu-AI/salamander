@@ -87,6 +87,7 @@ class SalamatrixUi {
     public function messageBox($message, $title = 'Salamander') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title)); return isset($r['result']) ? $r['result'] : 0; }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }
+    public function pickFolder($title = '', $initial = '') { return $this->client->call('salamander.ui.pickFolder', array('title' => $title, 'initial' => $initial)); }
     public function dialog($title = 'Salamander') { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
 }
 class SalamatrixClipboard {
@@ -97,6 +98,24 @@ class SalamatrixDialog {
     private $client; private $id;
     public function __construct($client, $id) { $this->client = $client; $this->id = $id; }
     private function add($kind, $controlId, $text, $extra = array()) { $args = array('dialogId' => $this->id, 'kind' => $kind, 'controlId' => $controlId, 'text' => $text); foreach ($extra as $key => $value) $args[$key] = $value; $this->client->call('salamander.ui.dialog.add', $args); }
+    public function addControl($kind, $id, $text = '', $readOnly = false, $checked = false, $dialogResult = 0, $layout = array()) {
+        $extra = array('readOnly' => (bool)$readOnly, 'checked' => (bool)$checked, 'dialogResult' => (int)$dialogResult);
+        foreach (array('x', 'y', 'width', 'height') as $name) if (is_array($layout) && array_key_exists($name, $layout)) $extra[$name] = (int)$layout[$name];
+        $this->add($kind, $id, $text, $extra);
+    }
+    public function setValidation($id, $required = false, $message = '') { $this->client->call('salamander.ui.dialog.validation', array('dialogId' => $this->id, 'controlId' => $id, 'required' => (bool)$required, 'message' => $message)); }
+    public function onChange($handler) {
+        $event = 'salamander.ui.dialog.' . $this->id . '.changed';
+        $this->client->call('salamander.ui.dialog.events', array('dialogId' => $this->id, 'enabled' => true, 'event' => $event));
+        if (!isset($this->client->handlers[$event])) $this->client->handlers[$event] = array();
+        $this->client->handlers[$event][] = $handler;
+        return $event;
+    }
+    public function offChange($event = '') {
+        if ($event === '') $event = 'salamander.ui.dialog.' . $this->id . '.changed';
+        $this->client->call('salamander.ui.dialog.events', array('dialogId' => $this->id, 'enabled' => false, 'event' => $event));
+        unset($this->client->handlers[$event]);
+    }
     public function addLabel($id, $text) { $this->add('label', $id, $text); }
     public function addTextBox($id, $text = '', $readOnly = false) { $this->add('textbox', $id, $text, array('readOnly' => $readOnly)); }
     public function addCheckBox($id, $text, $checked = false) { $this->add('checkbox', $id, $text, array('checked' => $checked)); }
@@ -106,6 +125,8 @@ class SalamatrixDialog {
     public function addTreeView($id) { $this->add('treeview', $id); }
     public function addTabControl($id) { $this->add('tabcontrol', $id); }
     public function addItem($controlId, $text, $parentIndex = -1) { $r = $this->client->call('salamander.ui.dialog.item', array('dialogId' => $this->id, 'controlId' => $controlId, 'text' => $text, 'parentIndex' => $parentIndex)); return isset($r['itemCount']) ? $r['itemCount'] : 0; }
+    public function addColumn($controlId, $title, $width = 180) { $this->client->call('salamander.ui.dialog.column', array('dialogId' => $this->id, 'controlId' => $controlId, 'title' => $title, 'width' => (int)$width)); }
+    public function setSelectedIndex($controlId, $index = -1) { $r = $this->client->call('salamander.ui.dialog.selection', array('dialogId' => $this->id, 'controlId' => $controlId, 'index' => (int)$index)); return isset($r['selectedIndex']) ? $r['selectedIndex'] : -1; }
     public function clearItems($controlId) { $this->client->call('salamander.ui.dialog.clearItems', array('dialogId' => $this->id, 'controlId' => $controlId)); }
     public function addButton($id, $text, $dialogResult = 1) { $this->add('button', $id, $text, array('dialogResult' => $dialogResult)); }
     public function show() { $r = $this->client->call('salamander.ui.dialog.show', array('dialogId' => $this->id)); return isset($r['result']) ? $r['result'] : 0; }
@@ -114,20 +135,22 @@ class SalamatrixDialog {
 }
 class SalamatrixAi {
     private $client; public function __construct($client) { $this->client = $client; }
-    public function generate($prompt, $context = null, $provider = null, $runtime = null, $existingScript = null) {
+    public function generate($prompt, $context = null, $provider = null, $runtime = null, $existingScript = null, $feedback = null) {
         $arguments = array('prompt' => $prompt);
         if ($context !== null) $arguments['context'] = $context;
         if ($provider !== null) $arguments['provider'] = $provider;
         if ($runtime !== null) $arguments['runtime'] = $runtime;
         if ($existingScript !== null) $arguments['existingScript'] = $existingScript;
+        if ($feedback !== null) $arguments['feedback'] = $feedback;
         return $this->client->call('salamander.ai.generate', $arguments);
     }
-    public function preview($prompt, $context = null, $provider = null, $runtime = null, $existingScript = null) {
+    public function preview($prompt, $context = null, $provider = null, $runtime = null, $existingScript = null, $feedback = null) {
         $arguments = array('prompt' => $prompt);
         if ($context !== null) $arguments['context'] = $context;
         if ($provider !== null) $arguments['provider'] = $provider;
         if ($runtime !== null) $arguments['runtime'] = $runtime;
         if ($existingScript !== null) $arguments['existingScript'] = $existingScript;
+        if ($feedback !== null) $arguments['feedback'] = $feedback;
         return $this->client->call('salamander.ai.preview', $arguments);
     }
 }
@@ -150,6 +173,10 @@ for ($i = 1; $i < count($argv); ++$i) {
     if ($argv[$i] === '--entry' && isset($argv[$i + 1])) $entry = $argv[++$i];
     elseif ($argv[$i] === '--one-shot') $oneShot = true;
 }
+class SalamatrixRuntimes {
+    private $client; public function __construct($client) { $this->client = $client; }
+    public function list() { $r = $this->client->call('salamander.runtimes.list', array()); return isset($r['runtimes']) ? $r['runtimes'] : array(); }
+}
 if ($entry === null) throw new RuntimeException('Missing --entry');
 $client = new SalamatrixClient();
 smx_send('hello', 0, array('protocol' => 1, 'runtime' => 'php'));
@@ -169,6 +196,7 @@ $Salamander->ui = new SalamatrixUi($client);
 $Salamander->clipboard = new SalamatrixClipboard($client);
 $Salamander->ai = new SalamatrixAi($client);
 $Salamander->events = new SalamatrixEvents($client);
+$Salamander->runtimes = new SalamatrixRuntimes($client);
 include $entry;
 
 if ($oneShot) exit(0);

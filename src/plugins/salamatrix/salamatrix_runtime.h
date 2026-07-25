@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <combaseapi.h>
+#include <shlobj.h>
 #include <vector>
 
 #include "salamatrix_automation.h"
@@ -193,6 +195,26 @@ class LocalUIService : public UI::IUIService
 private:
     CSalamanderGeneralAbstract* General;
 
+    static int CALLBACK BrowseFolderCallback(
+        HWND window,
+        UINT message,
+        LPARAM,
+        LPARAM data)
+    {
+        if (message == BFFM_INITIALIZED && data != 0)
+        {
+            const std::wstring* initial =
+                reinterpret_cast<const std::wstring*>(data);
+            if (initial != NULL && !initial->empty())
+                SendMessageW(
+                    window,
+                    BFFM_SETSELECTIONW,
+                    TRUE,
+                    reinterpret_cast<LPARAM>(initial->c_str()));
+        }
+        return 0;
+    }
+
     static BOOL Utf8ToWide(
         const char* value,
         std::wstring& result)
@@ -346,6 +368,42 @@ public:
             selected = save ? GetSaveFileNameW(&dialog)
                             : GetOpenFileNameW(&dialog);
         if (!selected)
+            return FALSE;
+        return WideToUtf8(&path[0], result, resultCapacity);
+    }
+
+    virtual BOOL WINAPI PickFolder(
+        HWND parent,
+        const char* title,
+        const char* initialPath,
+        char* result,
+        DWORD resultCapacity)
+    {
+        if (result == NULL || resultCapacity == 0)
+            return FALSE;
+        result[0] = '\0';
+
+        std::wstring titleWide;
+        std::wstring initialWide;
+        if (!Utf8ToWide(title != NULL ? title : "Select folder", titleWide) ||
+            !Utf8ToWide(initialPath != NULL ? initialPath : "", initialWide))
+            return FALSE;
+
+        BROWSEINFOW browse;
+        memset(&browse, 0, sizeof(browse));
+        browse.hwndOwner = parent;
+        browse.lpszTitle = titleWide.c_str();
+        browse.lpfn = BrowseFolderCallback;
+        browse.lParam = reinterpret_cast<LPARAM>(&initialWide);
+        browse.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+        LPITEMIDLIST item = SHBrowseForFolderW(&browse);
+        if (item == NULL)
+            return FALSE;
+
+        std::vector<wchar_t> path(SAL_MAX_PATH * 3);
+        BOOL resolved = SHGetPathFromIDListW(item, &path[0]) != FALSE;
+        CoTaskMemFree(item);
+        if (!resolved || path[0] == L'\0')
             return FALSE;
         return WideToUtf8(&path[0], result, resultCapacity);
     }

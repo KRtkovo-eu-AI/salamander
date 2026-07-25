@@ -256,6 +256,55 @@ struct ControlOptions
     }
 };
 
+struct ControlLayout
+{
+    BOOL HasBounds;
+    int X;
+    int Y;
+    int Width;
+    int Height;
+
+    ControlLayout()
+        : HasBounds(FALSE),
+          X(0),
+          Y(0),
+          Width(0),
+          Height(0)
+    {
+    }
+};
+
+enum DialogEventKind
+{
+    DialogEventControlChanged = 1
+};
+
+struct DialogEvent
+{
+    DWORD StructSize;
+    DialogEventKind Kind;
+    ControlKind Control;
+    char ControlId[128];
+    char Text[4096];
+    BOOL Checked;
+    int SelectedIndex;
+
+    DialogEvent()
+        : StructSize(sizeof(DialogEvent)),
+          Kind(DialogEventControlChanged),
+          Control(ControlKindLabel),
+          Checked(FALSE),
+          SelectedIndex(-1)
+    {
+        ControlId[0] = '\0';
+        Text[0] = '\0';
+    }
+};
+
+typedef BOOL(WINAPI* DialogEventCallback)(
+    void* context,
+    const DialogEvent* event);
+
 class IControl
 {
 public:
@@ -289,6 +338,53 @@ public:
         return 0;
     }
 
+    /// Optional validation state appended after the original control surface.
+    virtual BOOL WINAPI SetRequired(BOOL required)
+    {
+        (void)required;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI IsRequired() const
+    {
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetValidationMessage(const char* message)
+    {
+        (void)message;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI GetValidationMessage(
+        char* buffer,
+        DWORD capacity) const
+    {
+        if (buffer != NULL && capacity != 0)
+            buffer[0] = '\0';
+        return FALSE;
+    }
+
+    /// Optional ListView column and selection surface appended to the
+    /// control contract. Other control kinds return FALSE/-1.
+    virtual BOOL WINAPI AddColumn(const char* title, int width)
+    {
+        (void)title;
+        (void)width;
+        return FALSE;
+    }
+
+    virtual int WINAPI GetSelectedIndex() const
+    {
+        return -1;
+    }
+
+    virtual BOOL WINAPI SetSelectedIndex(int index)
+    {
+        (void)index;
+        return FALSE;
+    }
+
 protected:
     virtual ~IControl() {}
 };
@@ -300,10 +396,33 @@ public:
     virtual IControl* WINAPI AddControl(
         ControlKind kind,
         const ControlOptions& options) = 0;
+
     virtual IControl* WINAPI FindControl(const char* id) = 0;
     virtual int WINAPI ShowModal() = 0;
     virtual void WINAPI Close() = 0;
     virtual void WINAPI Release() = 0;
+
+    /// ABI-safe extension for explicit control bounds. Older providers use
+    /// the original AddControl implementation and simply ignore the layout.
+    virtual IControl* WINAPI AddControlEx(
+        ControlKind kind,
+        const ControlOptions& options,
+        const ControlLayout& layout)
+    {
+        (void)layout;
+        return AddControl(kind, options);
+    }
+
+    /// Appended callback surface for control changes while a modal dialog is
+    /// running. The event payload is valid only for the duration of callback.
+    virtual BOOL WINAPI SetEventCallback(
+        DialogEventCallback callback,
+        void* context)
+    {
+        (void)callback;
+        (void)context;
+        return FALSE;
+    }
 
 protected:
     virtual ~IDialog() {}
@@ -334,6 +453,13 @@ public:
     virtual int WINAPI ShowModal();
     virtual void WINAPI Close();
     virtual void WINAPI Release();
+    virtual IControl* WINAPI AddControlEx(
+        ControlKind kind,
+        const ControlOptions& options,
+        const ControlLayout& layout);
+    virtual BOOL WINAPI SetEventCallback(
+        DialogEventCallback callback,
+        void* context);
 };
 
 class IUIService
@@ -401,6 +527,24 @@ public:
         (void)save;
         (void)title;
         (void)filter;
+        (void)initialPath;
+        (void)result;
+        (void)resultCapacity;
+        return FALSE;
+    }
+
+    /// Opens a native folder picker. The selected directory is returned as
+    /// UTF-8. This method is appended after the original picker contract so
+    /// existing UI providers keep their vtable layout.
+    virtual BOOL WINAPI PickFolder(
+        HWND parent,
+        const char* title,
+        const char* initialPath,
+        char* result,
+        DWORD resultCapacity)
+    {
+        (void)parent;
+        (void)title;
         (void)initialPath;
         (void)result;
         (void)resultCapacity;

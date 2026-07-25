@@ -126,10 +126,50 @@ $ui | Add-Member ScriptMethod PickFile {
     param([bool]$Save = $false, [string]$Title = '', [string]$Filter = '', [string]$Initial = '')
     Invoke-Host -Method 'salamander.ui.pickFile' -Arguments @{ save = $Save; title = $Title; filter = $Filter; initial = $Initial }
 }
+$ui | Add-Member ScriptMethod PickFolder {
+    param([string]$Title = '', [string]$Initial = '')
+    Invoke-Host -Method 'salamander.ui.pickFolder' -Arguments @{ title = $Title; initial = $Initial }
+}
 $ui | Add-Member ScriptMethod Dialog {
     param([string]$Title = 'Salamander')
     $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title }
     $dialog = [pscustomobject]@{ DialogId = [string]$created.dialogId }
+    $dialog | Add-Member ScriptMethod AddControl {
+        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null)
+        $arguments = @{ dialogId = $this.DialogId; kind = $Kind; controlId = $Id; text = $Text; readOnly = $ReadOnly; checked = $Checked; dialogResult = $DialogResult }
+        if ($null -ne $Layout) {
+            foreach ($name in @('x', 'y', 'width', 'height')) {
+                if ($Layout.ContainsKey($name)) { $arguments[$name] = [int]$Layout[$name] }
+            }
+        }
+        [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments $arguments)
+    }
+    $dialog | Add-Member ScriptMethod SetValidation {
+        param([string]$Id, [bool]$Required = $false, [string]$Message = '')
+        [void](Invoke-Host -Method 'salamander.ui.dialog.validation' -Arguments @{ dialogId = $this.DialogId; controlId = $Id; required = $Required; message = $Message })
+    }
+    $dialog | Add-Member ScriptMethod OnChange {
+        param([scriptblock]$Handler)
+        $eventName = "salamander.ui.dialog.$($this.DialogId).changed"
+        if (-not $global:SalamatrixEventHandlers.ContainsKey($eventName)) { $global:SalamatrixEventHandlers[$eventName] = @() }
+        $global:SalamatrixEventHandlers[$eventName] += $Handler
+        [void](Invoke-Host -Method 'salamander.ui.dialog.events' -Arguments @{ dialogId = $this.DialogId; enabled = $true; event = $eventName })
+        return $eventName
+    }
+    $dialog | Add-Member ScriptMethod AddColumn {
+        param([string]$ControlId, [string]$Title, [int]$Width = 180)
+        [void](Invoke-Host -Method 'salamander.ui.dialog.column' -Arguments @{ dialogId = $this.DialogId; controlId = $ControlId; title = $Title; width = $Width })
+    }
+    $dialog | Add-Member ScriptMethod SetSelectedIndex {
+        param([string]$ControlId, [int]$Index = -1)
+        (Invoke-Host -Method 'salamander.ui.dialog.selection' -Arguments @{ dialogId = $this.DialogId; controlId = $ControlId; index = $Index }).selectedIndex
+    }
+    $dialog | Add-Member ScriptMethod OffChange {
+        param([string]$EventName = '')
+        if ([string]::IsNullOrEmpty($EventName)) { $EventName = "salamander.ui.dialog.$($this.DialogId).changed" }
+        [void](Invoke-Host -Method 'salamander.ui.dialog.events' -Arguments @{ dialogId = $this.DialogId; enabled = $false; event = $EventName })
+        $global:SalamatrixEventHandlers.Remove($EventName)
+    }
     $dialog | Add-Member ScriptMethod AddLabel { param([string]$Id, [string]$Text) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'label'; controlId = $Id; text = $Text }) }
     $dialog | Add-Member ScriptMethod AddTextBox { param([string]$Id, [string]$Text = '', [bool]$ReadOnly = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'textbox'; controlId = $Id; text = $Text; readOnly = $ReadOnly }) }
     $dialog | Add-Member ScriptMethod AddCheckBox { param([string]$Id, [string]$Text, [bool]$Checked = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'checkbox'; controlId = $Id; text = $Text; checked = $Checked }) }
@@ -153,21 +193,23 @@ $clipboard | Add-Member ScriptMethod CopyText {
 }
 $ai = [pscustomobject]@{}
 $ai | Add-Member ScriptMethod Generate {
-    param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null, [string]$Runtime = $null, [string]$ExistingScript = $null)
+    param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null, [string]$Runtime = $null, [string]$ExistingScript = $null, [string]$Feedback = $null)
     $arguments = @{ prompt = $Prompt }
     if ($null -ne $Context) { $arguments['context'] = $Context }
     if (-not [string]::IsNullOrEmpty($Provider)) { $arguments['provider'] = $Provider }
     if (-not [string]::IsNullOrEmpty($Runtime)) { $arguments['runtime'] = $Runtime }
     if ($null -ne $ExistingScript) { $arguments['existingScript'] = $ExistingScript }
+    if ($null -ne $Feedback) { $arguments['feedback'] = $Feedback }
     Invoke-Host -Method 'salamander.ai.generate' -Arguments $arguments
 }
 $ai | Add-Member ScriptMethod Preview {
-    param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null, [string]$Runtime = $null, [string]$ExistingScript = $null)
+    param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null, [string]$Runtime = $null, [string]$ExistingScript = $null, [string]$Feedback = $null)
     $arguments = @{ prompt = $Prompt }
     if ($null -ne $Context) { $arguments['context'] = $Context }
     if (-not [string]::IsNullOrEmpty($Provider)) { $arguments['provider'] = $Provider }
     if (-not [string]::IsNullOrEmpty($Runtime)) { $arguments['runtime'] = $Runtime }
     if ($null -ne $ExistingScript) { $arguments['existingScript'] = $ExistingScript }
+    if ($null -ne $Feedback) { $arguments['feedback'] = $Feedback }
     Invoke-Host -Method 'salamander.ai.preview' -Arguments $arguments
 }
 $events = [pscustomobject]@{}
@@ -180,6 +222,10 @@ $events | Add-Member ScriptMethod Subscribe {
 $events | Add-Member ScriptMethod Unsubscribe {
     param([string]$SubscriptionId)
     [void](Invoke-Host -Method 'salamander.events.unsubscribe' -Arguments @{ subscriptionId = $SubscriptionId })
+}
+$runtimes = [pscustomobject]@{}
+$runtimes | Add-Member ScriptMethod List {
+    (Invoke-Host -Method 'salamander.runtimes.list' -Arguments @{}).runtimes
 }
 
 $Salamander = [pscustomobject]@{
@@ -195,6 +241,7 @@ $Salamander = [pscustomobject]@{
     clipboard = $clipboard
     ai = $ai
     events = $events
+    runtimes = $runtimes
 }
 
 & $EntryPoint

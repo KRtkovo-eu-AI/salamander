@@ -686,6 +686,8 @@ BOOL WINAPI CAutomationLocalAssistantProvider::Generate(
         EscapeAssistantJson(request->RuntimeId != NULL ? request->RuntimeId : "") +
         "\",\"existingScript\":\"" +
         EscapeAssistantJson(request->ExistingScript != NULL ? request->ExistingScript : "") +
+        "\",\"feedback\":\"" +
+        EscapeAssistantJson(request->Feedback != NULL ? request->Feedback : "") +
         "\",\"maxOutputBytes\":" +
         std::to_string(request->MaxOutputBytes == 0 ? 65535 : request->MaxOutputBytes) +
         "}\n";
@@ -759,9 +761,12 @@ BOOL WINAPI CAutomationLocalAssistantProvider::Generate(
     const size_t maxOutput = 1024 * 1024;
     bool timedOut = false;
     ULONGLONG startedAt = GetTickCount64();
+    // Keep the local assistant bounded to the same two-minute ceiling used by
+    // the public request default. A provider must never turn a malformed or
+    // untrusted request into an unbounded child process.
     DWORD timeout = request->TimeoutMs == 0 ? 120000 : request->TimeoutMs;
-    if (timeout > 300000)
-        timeout = 300000;
+    if (timeout > 120000)
+        timeout = 120000;
     for (;;)
     {
         DWORD available = 0;

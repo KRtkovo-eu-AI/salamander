@@ -100,6 +100,30 @@ static void AppendItem(
     AppendString(bytes, text);
     AppendWord(bytes, 0);
 }
+
+static short ClampDialogCoordinate(int value)
+{
+    if (value < -32768)
+        return -32768;
+    if (value > 32767)
+        return 32767;
+    return static_cast<short>(value);
+}
+
+static void CopyEventText(
+    char* destination,
+    size_t capacity,
+    const std::string& value)
+{
+    if (destination == NULL || capacity == 0)
+        return;
+    size_t length = value.size();
+    if (length >= capacity)
+        length = capacity - 1;
+    if (length != 0)
+        memcpy(destination, value.data(), length);
+    destination[length] = '\0';
+}
 } // namespace
 
 struct NativeDialog::Impl
@@ -112,17 +136,39 @@ struct NativeDialog::Impl
         BOOL ReadOnly;
         BOOL Checked;
         int DialogResult;
+        BOOL Required;
+        std::string ValidationMessage;
+        BOOL HasBounds;
+        int X;
+        int Y;
+        int Width;
+        int Height;
+        int SelectedIndex;
         WORD NumericId;
         std::vector<std::string> Items;
         std::vector<int> ItemParents;
+        std::vector<std::string> ColumnTitles;
+        std::vector<int> ColumnWidths;
 
-        Control(ControlKind kind, const ControlOptions& options, WORD numericId)
+        Control(
+            ControlKind kind,
+            const ControlOptions& options,
+            const ControlLayout& layout,
+            WORD numericId)
             : Kind(kind),
               Id(options.Id != NULL ? options.Id : ""),
               Text(options.Text != NULL ? options.Text : ""),
               ReadOnly(options.ReadOnly),
               Checked(options.Checked),
               DialogResult(options.DialogResult),
+              Required(FALSE),
+              ValidationMessage(),
+              HasBounds(layout.HasBounds),
+              X(layout.X),
+              Y(layout.Y),
+              Width(layout.Width),
+              Height(layout.Height),
+              SelectedIndex(-1),
               NumericId(numericId)
         {
         }
@@ -188,6 +234,66 @@ struct NativeDialog::Impl
         {
             return static_cast<int>(Items.size());
         }
+
+        virtual BOOL WINAPI AddColumn(const char* title, int width)
+        {
+            if (Kind != ControlKindListView || title == NULL ||
+                title[0] == '\0' || width <= 0 ||
+                ColumnTitles.size() >= 64)
+                return FALSE;
+            ColumnTitles.push_back(title);
+            ColumnWidths.push_back(width);
+            return TRUE;
+        }
+
+        virtual int WINAPI GetSelectedIndex() const
+        {
+            return SelectedIndex;
+        }
+
+        virtual BOOL WINAPI SetSelectedIndex(int index)
+        {
+            if ((Kind != ControlKindListView &&
+                 Kind != ControlKindComboBox &&
+                 Kind != ControlKindTabControl) ||
+                index < -1 || index >= static_cast<int>(Items.size()))
+                return FALSE;
+            SelectedIndex = index;
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetRequired(BOOL required)
+        {
+            Required = required;
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI IsRequired() const
+        {
+            return Required;
+        }
+
+        virtual BOOL WINAPI SetValidationMessage(const char* message)
+        {
+            ValidationMessage.assign(message != NULL ? message : "");
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI GetValidationMessage(
+            char* buffer,
+            DWORD capacity) const
+        {
+            if (buffer == NULL || capacity == 0 ||
+                ValidationMessage.size() >= capacity)
+            {
+                if (buffer != NULL && capacity != 0)
+                    buffer[0] = '\0';
+                return FALSE;
+            }
+            memcpy(buffer, ValidationMessage.c_str(),
+                   ValidationMessage.size() + 1);
+            return TRUE;
+        }
     };
 
     DialogOptions Options;
@@ -196,13 +302,17 @@ struct NativeDialog::Impl
     HWND Window;
     int Result;
     BOOL Running;
+    DialogEventCallback EventCallback;
+    void* EventContext;
 
     explicit Impl(const DialogOptions& options)
         : Options(options),
           Title(options.Title != NULL ? options.Title : "Salamander"),
           Window(NULL),
           Result(0),
-          Running(FALSE)
+          Running(FALSE),
+          EventCallback(NULL),
+          EventContext(NULL)
     {
     }
 
@@ -233,6 +343,34 @@ struct NativeDialog::Impl
         }
         return NULL;
     }
+
+    Control* FindInvalid() const
+    {
+        for (size_t index = 0; index < Controls.size(); ++index)
+        {
+            Control* control = Controls[index];
+            if (control->Required &&
+                (control->Kind == ControlKindTextBox ||
+                 control->Kind == ControlKindComboBox) &&
+                control->Text.empty())
+                return control;
+        }
+        return NULL;
+    }
+
+    void NotifyChanged(Control* control)
+    {
+        if (control == NULL || EventCallback == NULL)
+            return;
+        DialogEvent event;
+        event.Control = control->Kind;
+        CopyEventText(
+            event.ControlId, _countof(event.ControlId), control->Id);
+        CopyEventText(event.Text, _countof(event.Text), control->Text);
+        event.Checked = control->Checked;
+        event.SelectedIndex = control->SelectedIndex;
+        EventCallback(EventContext, &event);
+    }
 };
 
 NativeDialog::NativeDialog(const DialogOptions& options)
@@ -256,13 +394,33 @@ IControl* WINAPI NativeDialog::AddControl(
     ControlKind kind,
     const ControlOptions& options)
 {
+    ControlLayout layout;
+    return AddControlEx(kind, options, layout);
+}
+
+IControl* WINAPI NativeDialog::AddControlEx(
+    ControlKind kind,
+    const ControlOptions& options,
+    const ControlLayout& layout)
+{
     if (m_pImpl == NULL || m_pImpl->Running || m_pImpl->Controls.size() >= 64 ||
         (options.Id != NULL && m_pImpl->Find(options.Id) != NULL))
         return NULL;
     WORD numericId = static_cast<WORD>(2000 + m_pImpl->Controls.size());
-    Impl::Control* control = new Impl::Control(kind, options, numericId);
+    Impl::Control* control = new Impl::Control(kind, options, layout, numericId);
     m_pImpl->Controls.push_back(control);
     return control;
+}
+
+BOOL WINAPI NativeDialog::SetEventCallback(
+    DialogEventCallback callback,
+    void* context)
+{
+    if (m_pImpl == NULL)
+        return FALSE;
+    m_pImpl->EventCallback = callback;
+    m_pImpl->EventContext = context;
+    return TRUE;
 }
 
 IControl* WINAPI NativeDialog::FindControl(const char* id)
@@ -363,11 +521,22 @@ int WINAPI NativeDialog::ShowModal()
             style |= TCS_TABS | TCS_SINGLELINE;
         }
         short x = 8;
+        short itemY = y;
         if (control->Kind == ControlKindButton)
             x = static_cast<short>(m_pImpl->Options.Width - 78);
-        AppendItem(dialog, x, y, width, height, control->NumericId,
+        if (control->HasBounds)
+        {
+            x = ClampDialogCoordinate(control->X);
+            itemY = ClampDialogCoordinate(control->Y);
+            if (control->Width > 0)
+                width = ClampDialogCoordinate(control->Width);
+            if (control->Height > 0)
+                height = ClampDialogCoordinate(control->Height);
+        }
+        AppendItem(dialog, x, itemY, width, height, control->NumericId,
                    style, classOrdinal, text, className);
-        y = static_cast<short>(y + (control->Kind == ControlKindComboBox ? 24 : 22));
+        if (!control->HasBounds)
+            y = static_cast<short>(y + (control->Kind == ControlKindComboBox ? 24 : 22));
     }
 
     m_pImpl->Running = TRUE;
@@ -436,13 +605,35 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             }
             else if (control->Kind == ControlKindListView)
             {
-                LVCOLUMNW column;
-                memset(&column, 0, sizeof(column));
-                column.mask = LVCF_TEXT | LVCF_WIDTH;
-                column.cx = 220;
-                column.pszText = const_cast<wchar_t*>(L"Item");
-                SendMessageW(child, LVM_INSERTCOLUMNW, 0,
-                             reinterpret_cast<LPARAM>(&column));
+                const size_t columnCount = control->ColumnTitles.empty()
+                                                ? 1
+                                                : control->ColumnTitles.size();
+                for (size_t columnIndex = 0;
+                     columnIndex < columnCount; ++columnIndex)
+                {
+                    std::wstring columnText;
+                    int columnWidth = 220;
+                    if (!control->ColumnTitles.empty())
+                    {
+                        if (!Utf8ToWide(
+                                control->ColumnTitles[columnIndex].c_str(),
+                                columnText))
+                            continue;
+                        columnWidth = control->ColumnWidths[columnIndex];
+                    }
+                    LVCOLUMNW column;
+                    memset(&column, 0, sizeof(column));
+                    column.mask = LVCF_TEXT | LVCF_WIDTH;
+                    column.cx = columnWidth;
+                    column.pszText = control->ColumnTitles.empty()
+                                         ? const_cast<wchar_t*>(L"Item")
+                                         : const_cast<wchar_t*>(columnText.c_str());
+                    SendMessageW(
+                        child,
+                        LVM_INSERTCOLUMNW,
+                        static_cast<WPARAM>(columnIndex),
+                        reinterpret_cast<LPARAM>(&column));
+                }
                 for (size_t itemIndex = 0;
                      itemIndex < control->Items.size(); ++itemIndex)
                 {
@@ -456,6 +647,19 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                     item.pszText = const_cast<wchar_t*>(itemText.c_str());
                     SendMessageW(child, LVM_INSERTITEMW, 0,
                                  reinterpret_cast<LPARAM>(&item));
+                }
+                if (control->SelectedIndex >= 0 &&
+                    control->SelectedIndex < static_cast<int>(control->Items.size()))
+                {
+                    LVITEMW selected;
+                    memset(&selected, 0, sizeof(selected));
+                    selected.stateMask = LVIS_SELECTED | LVIS_FOCUSED;
+                    selected.state = LVIS_SELECTED | LVIS_FOCUSED;
+                    SendMessageW(
+                        child,
+                        LVM_SETITEMSTATE,
+                        static_cast<WPARAM>(control->SelectedIndex),
+                        reinterpret_cast<LPARAM>(&selected));
                 }
             }
             else if (control->Kind == ControlKindTreeView)
@@ -521,6 +725,46 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         }
         return FALSE;
     }
+    if (message == WM_NOTIFY)
+    {
+        NMHDR* header = reinterpret_cast<NMHDR*>(lParam);
+        if (header == NULL)
+            return FALSE;
+        Impl::Control* notifyControl =
+            dialog->m_pImpl->Find(static_cast<WORD>(header->idFrom));
+        if (notifyControl == NULL)
+            return FALSE;
+        if (notifyControl->Kind == ControlKindListView &&
+            header->code == LVN_ITEMCHANGED)
+        {
+            NMLISTVIEW* change = reinterpret_cast<NMLISTVIEW*>(lParam);
+            if ((change->uNewState & LVIS_SELECTED) != 0)
+            {
+                notifyControl->SelectedIndex = change->iItem;
+                dialog->m_pImpl->NotifyChanged(notifyControl);
+            }
+            else if ((change->uOldState & LVIS_SELECTED) != 0 &&
+                     notifyControl->SelectedIndex == change->iItem)
+            {
+                notifyControl->SelectedIndex = -1;
+                dialog->m_pImpl->NotifyChanged(notifyControl);
+            }
+        }
+        else if (notifyControl->Kind == ControlKindTreeView &&
+                 (header->code == TVN_SELCHANGEDW ||
+                  header->code == TVN_SELCHANGEDA))
+        {
+            notifyControl->SelectedIndex = -1;
+            dialog->m_pImpl->NotifyChanged(notifyControl);
+        }
+        else if (notifyControl->Kind == ControlKindTabControl &&
+                 header->code == TCN_SELCHANGE)
+        {
+            notifyControl->SelectedIndex = TabCtrl_GetCurSel(header->hwndFrom);
+            dialog->m_pImpl->NotifyChanged(notifyControl);
+        }
+        return TRUE;
+    }
     if (message != WM_COMMAND)
         return FALSE;
     Impl::Control* control = dialog->m_pImpl->Find(LOWORD(wParam));
@@ -528,6 +772,29 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         return FALSE;
     if (control->Kind == ControlKindButton)
     {
+        if (control->DialogResult != IDCANCEL)
+        {
+            Impl::Control* invalid = dialog->m_pImpl->FindInvalid();
+            if (invalid != NULL)
+            {
+                std::string message = invalid->ValidationMessage.empty()
+                                          ? "This field is required."
+                                          : invalid->ValidationMessage;
+                std::wstring messageWide;
+                std::wstring titleWide;
+                if (!Utf8ToWide(message.c_str(), messageWide))
+                    messageWide = L"This field is required.";
+                if (!Utf8ToWide(dialog->m_pImpl->Title.c_str(), titleWide))
+                    titleWide = L"Salamander";
+                MessageBoxW(
+                    hwnd,
+                    messageWide.c_str(),
+                    titleWide.c_str(),
+                    MB_OK | MB_ICONWARNING);
+                SetFocus(GetDlgItem(hwnd, invalid->NumericId));
+                return TRUE;
+            }
+        }
         dialog->m_pImpl->Result = control->DialogResult != 0
                                       ? control->DialogResult
                                       : IDOK;
@@ -539,6 +806,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
     {
         control->Checked = SendMessage(
             GetDlgItem(hwnd, control->NumericId), BM_GETCHECK, 0, 0) == BST_CHECKED;
+        dialog->m_pImpl->NotifyChanged(control);
     }
     if (control->Kind == ControlKindTextBox &&
         HIWORD(wParam) == EN_CHANGE)
@@ -546,6 +814,18 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         wchar_t value[4096];
         GetWindowTextW(GetDlgItem(hwnd, control->NumericId), value, _countof(value));
         WideToUtf8(value, control->Text);
+        dialog->m_pImpl->NotifyChanged(control);
+    }
+    if (control->Kind == ControlKindComboBox &&
+        HIWORD(wParam) == CBN_SELCHANGE)
+    {
+        HWND combo = GetDlgItem(hwnd, control->NumericId);
+        control->SelectedIndex = static_cast<int>(
+            SendMessage(combo, CB_GETCURSEL, 0, 0));
+        if (control->SelectedIndex >= 0 &&
+            control->SelectedIndex < static_cast<int>(control->Items.size()))
+            control->Text = control->Items[control->SelectedIndex];
+        dialog->m_pImpl->NotifyChanged(control);
     }
     return TRUE;
 }

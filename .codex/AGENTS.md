@@ -2,9 +2,12 @@
 
 These rules apply to all future agentic development in this repository.
 
-## Commands and timeouts
-- Run all commands as escalated.
-- Timeout for command is 2 minutes maximum!!!! (Never ever let commands run for longer - I just saw you run some bullshit command for 10 hours just because you didn't have timeout. So NEVER!)
+## Hard command timeout
+- Every command must run with escalation.
+- Never allow any command or approval wait to exceed 120 seconds.
+- If a command returns a session/cell, terminate it before 120 seconds.
+- Never leave a command running while waiting for output.
+- If escalation approval hangs, cancel the tool call; do not wait or retry.
 
 ## Windows paths and buffer sizes
 
