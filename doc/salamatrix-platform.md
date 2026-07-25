@@ -730,6 +730,15 @@ bounded conversation without a second provider-specific API. The native
 Ask-AI action offers at most three generation iterations before the final
 preview, keeping the repair loop bounded. No llama.cpp binary or model is
 bundled yet.
+For a local model without a custom provider implementation, the repository also
+ships the optional `runtime/salamatrix_ai_local.py` command wrapper. It speaks
+Ollama's local `/api/generate` protocol by default and can switch to an
+OpenAI/llama.cpp-compatible `/v1/chat/completions` endpoint with
+`SALAMATRIX_AI_PROTOCOL=chat-completions`; `SALAMATRIX_AI_ENDPOINT`,
+`SALAMATRIX_AI_MODEL`, and `SALAMATRIX_AI_LOCAL_TIMEOUT` remain explicit
+configuration. The wrapper is never launched unless it is selected through
+`SALAMATRIX_AI_COMMAND`, and its own timeout is capped below the host's
+two-minute provider limit.
 
 ## Salamatrix PoC runtime wiring
 
@@ -1006,3 +1015,6 @@ The platform skeleton is ready when:
 43. The shared worker facade exposes runtime discovery through
     `Salamander.runtimes.list()` / `List()` / `list()`; the host returns each
     adapter's id, language, entry-point extensions, version, and availability.
+44. The optional `runtime/salamatrix_ai_local.py` command wrapper translates
+    the provider-neutral AI request into Ollama or OpenAI-compatible local
+    endpoint calls while preserving the host's bounded JSON contract.
