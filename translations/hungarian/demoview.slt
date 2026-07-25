@@ -12,7 +12,7 @@ COMMENT,"English version"
 [DIALOG 490]
 205,61,1,"Néző"
 3000,4,6,199,41,1,"Ablak helye"
-491,11,17,78,12,1,"&Mentés bezáráskor"
+491,11,17,76,12,1,"&Mentés bezáráskor"
 492,11,29,156,12,1,"A Salamander ablak helyének b&eállítása"
 
 [STRINGTABLE 0]

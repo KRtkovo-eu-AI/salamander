@@ -31,7 +31,7 @@ COMMENT,"Magyar változat"
 [DIALOG 106]
 220,115,1,"UnRAR beállítás"
 107,12,10,200,12,1,"&Automatikusan hagyja ki az előző kötetekből"
-116,12,32,202,12,1,"&Ne figyelmeztessen, ha az archívum teljes tartalma nem"
+116,12,32,199,12,1,"&Ne figyelmeztessen, ha az archívum teljes tartalma nem"
 300,23,22,154,8,1,"folytatandó fájlokat."
 301,23,44,111,8,1,"listázható ki."
 302,6,60,208,1,1,""

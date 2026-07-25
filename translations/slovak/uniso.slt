@@ -11,9 +11,9 @@ COMMENT,"Slovenská verzia"
 
 [DIALOG 1200]
 220,83,1,"UnISO - Konfigurácia"
-1201,8,11,203,10,1,"&Odstrániť atribút Len na čítanie pri kopírovaní z archívu"
-1202,8,23,228,10,1,"Zobraziť &sekcie ako adresár (povolí prístup ku všetkým sekciám)"
-1203,8,35,140,10,1,"Zobraziť &boot image disku ako súbor"
+1201,8,11,198,10,1,"&Odstrániť atribút Len na čítanie pri kopírovaní z archívu"
+1202,8,23,226,10,1,"Zobraziť &sekcie ako adresár (povolí prístup ku všetkým sekciám)"
+1203,8,35,135,10,1,"Zobraziť &boot image disku ako súbor"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"OK"
 2,163,64,50,14,1,"Zrušiť"

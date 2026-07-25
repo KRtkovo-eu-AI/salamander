@@ -18,9 +18,9 @@ COMMENT,"Versión en español"
 
 [DIALOG 101]
 332,143,1,"Configuración de automatización"
-375,8,9,75,8,1,"Directorios del &script:"
+375,8,9,74,8,1,"Directorios del &script:"
 371,8,19,316,73,1,""
-1001,8,102,118,10,1,"Habilitar &depuración de scripts"
+1001,8,102,114,10,1,"Habilitar &depuración de scripts"
 1,75,121,50,14,1,"Aceptar"
 2,141,121,50,14,1,"Cancelar"
 9,207,121,50,14,1,"&Ayuda"

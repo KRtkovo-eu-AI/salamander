@@ -11,9 +11,9 @@ COMMENT,"Česká verze"
 
 [DIALOG 101]
 251,111,1,"UnMIME - Konfigurace"
-2000,7,7,58,8,1,"Možnosti výpisu"
+2000,7,7,54,8,1,"Možnosti výpisu"
 2001,49,11,196,1,1,""
-1000,18,20,84,10,1,"Výpis e-mail &hlaviček"
+1000,18,20,82,10,1,"Výpis e-mail &hlaviček"
 1001,18,35,80,10,1,"Výpis &těl zpráv"
 1003,31,50,210,10,1,"Přidat info o &znakové sadě, pokud je jiná než US-ASCII"
 1002,18,65,69,10,1,"Výpis &příloh"

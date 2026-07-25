@@ -12,7 +12,7 @@ COMMENT,"English version"
 [DIALOG 490]
 205,61,1,"Prohlížeč"
 3000,4,6,199,41,1,"Pozice okna"
-491,11,17,70,12,1,"&Uložit při zavření"
+491,11,17,69,12,1,"&Uložit při zavření"
 492,11,29,156,12,1,"N&astavit na pozici okna Salamander"
 
 [STRINGTABLE 0]

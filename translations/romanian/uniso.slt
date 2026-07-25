@@ -11,9 +11,9 @@ COMMENT,"Versiunea romana"
 
 [DIALOG 1200]
 220,83,1,"Configurare UnISO"
-1201,8,11,206,10,1,"&Sterge atributul de mod doar-citire cand copii din arhiva"
+1201,8,11,201,10,1,"&Sterge atributul de mod doar-citire cand copii din arhiva"
 1202,8,23,213,10,1,"&Arata sesiunea ca director (permite acces la toate sesiunile)"
-1203,8,35,127,10,1,"A&rata imaginea disk boot ca fisier"
+1203,8,35,124,10,1,"A&rata imaginea disk boot ca fisier"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"OK"
 2,163,64,50,14,1,"Anuleaza"

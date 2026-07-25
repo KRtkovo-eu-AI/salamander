@@ -12,8 +12,8 @@ COMMENT,"English version"
 [DIALOG 490]
 205,61,1,"Viewer"
 3000,4,6,199,41,1,"Vensterpositie"
-491,11,17,78,12,1,"&Opslaan bij sluiten"
-492,11,29,177,12,1,"S&et naar positie van het venster van Salamander"
+491,11,17,74,12,1,"&Opslaan bij sluiten"
+492,11,29,176,12,1,"S&et naar positie van het venster van Salamander"
 
 [STRINGTABLE 0]
 46,1,"DemoView"

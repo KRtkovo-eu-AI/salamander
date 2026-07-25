@@ -17,7 +17,7 @@ COMMENT,"Version française"
 1002,162,65,55,14,1,"Con&figurer..."
 1003,223,65,55,14,1,"&Sauvegarder..."
 1004,284,65,55,14,1,"&Arrêter"
-1005,5,68,73,8,1,"astuce presse-papier"
+1005,5,68,72,8,1,"astuce presse-papier"
 
 [DIALOG 1001]
 189,109,1,"Configuration du Checksum"
@@ -34,7 +34,7 @@ COMMENT,"Version française"
 [DIALOG 2000]
 260,84,1,""
 1001,5,5,250,54,1,"List1"
-1007,5,68,43,8,1,"Vérification:"
+1007,5,68,42,8,1,"Vérification:"
 1006,42,68,101,8,1,"Progress1"
 2002,5,68,140,8,1,""
 2001,149,65,50,14,1,"&Cibler"

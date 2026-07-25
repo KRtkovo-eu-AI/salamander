@@ -18,9 +18,9 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 101]
 332,143,1,"Automation Konfiguration"
-375,8,9,69,8,1,"&Skriptverzeichnisse:"
+375,8,9,67,8,1,"&Skriptverzeichnisse:"
 371,8,19,316,73,1,""
-1001,8,102,114,10,1,"Skript&debuggen ermöglichen"
+1001,8,102,110,10,1,"Skript&debuggen ermöglichen"
 1,75,121,50,14,1,"OK"
 2,141,121,50,14,1,"Abbrechen"
 9,207,121,50,14,1,"&Hilfe"
