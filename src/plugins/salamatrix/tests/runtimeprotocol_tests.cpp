@@ -4,6 +4,7 @@
 
 #include "../precomp.h"
 #include "../salamatrix_ai.h"
+#include "../salamatrix_commands.h"
 #include "../salamatrix_runtime_protocol.h"
 
 namespace
@@ -152,6 +153,17 @@ void TestAssistantService()
     Check(strstr(service.GetApiDescription(), "Salamander.ai") != NULL,
           "assistant API description advertises AI object");
 }
+
+void TestCommandCatalog()
+{
+    const Salamatrix::Commands::CommandCatalogEntry* entry =
+        Salamatrix::Commands::FindCommandCatalogEntry("delete");
+    Check(entry != NULL && entry->SalamanderCommandId == SALCMD_DELETE,
+          "command catalog exposes delete");
+    entry = Salamatrix::Commands::FindCommandCatalogEntry("calculate_directory_sizes");
+    Check(entry != NULL && entry->SalamanderCommandId == SALCMD_CALCDIRSIZES,
+          "command catalog exposes directory sizes");
+}
 } // namespace
 
 int main()
@@ -160,6 +172,7 @@ int main()
     TestValidationAndLimits();
     TestJsonMemberExtraction();
     TestAssistantService();
+    TestCommandCatalog();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d runtime protocol test(s) failed.\n", Failures);

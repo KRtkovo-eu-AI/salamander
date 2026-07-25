@@ -14,6 +14,7 @@
 #pragma once
 
 #include "../salamatrix/salamatrix_runtime_api.h"
+#include "../salamatrix/salamatrix_ui.h"
 #include "../salamatrix/salamatrix_extensions.h"
 #include "../salamatrix/salamatrix_events.h"
 
@@ -90,6 +91,14 @@ private:
     HANDLE m_hRuntimePumpThread;
     ULONGLONG m_runtimeEventSubscriptions[8];
     int m_nRuntimeEventSubscriptions;
+    struct RUNTIME_DIALOG
+    {
+        ULONGLONG Id;
+        Salamatrix::UI::IDialog* Dialog;
+    };
+    RUNTIME_DIALOG m_runtimeDialogs[8];
+    int m_nRuntimeDialogs;
+    ULONGLONG m_nextRuntimeDialogId;
 
     // statistics stuff
     LONG m_cExecuted;
@@ -134,6 +143,7 @@ private:
         void* context,
         const Salamatrix::Events::EventPayload* payload);
     void ReleaseRuntimeEventSubscriptions();
+    void ReleaseRuntimeDialogs();
     void ReleaseRuntimeCommand();
     static BOOL WINAPI RuntimeLifecycleCallback(
         void* context,

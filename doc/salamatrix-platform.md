@@ -640,8 +640,11 @@ MVP script facade mapping:
 
 ```text
 Salamander.UI.progress(...)              -> Salamatrix::Automation::ScriptUIAdapter
+Salamander.UI.dialog(...)                -> Salamatrix::Automation::ScriptUIAdapter::Dialog
 Salamander.Commands.execute(...)         -> Salamatrix::Automation::ScriptCommandsAdapter
 Salamander.FileOperations.*_interactive  -> Salamatrix::Automation::ScriptFileOperationsAdapter
+Salamander.FileOperations.delete/create_directory/refresh/properties
+                                           -> same native service
 ```
 
 `ScriptProgressDialog` creates a native `Salamatrix::UI::IProgressDialog` through
@@ -651,12 +654,17 @@ progress object when the script wrapper is destroyed. Existing Automation
 `Salamander.ProgressDialog` can remain as a compatibility facade and later be
 implemented on top of the same `IUIService`.
 
+`ScriptUIAdapter::Dialog` creates the shared `Salamatrix::UI::IDialog`, adds
+native controls, shows it modally, and exposes the same control state to the
+caller. This is the in-process counterpart of the SMX1 worker dialog calls.
+
 `ScriptCommandsAdapter::Execute(...)` delegates to `ICommandService::Execute(...)`
 so script calls such as `Salamander.Commands.execute("QuickRename")` still use the
 existing Salamander command handlers. `ScriptFileOperationsAdapter` delegates
-`rename_interactive`, `copy_interactive`, and `move_interactive` to
-`IFileOperationsService`, which in the MVP routes to the existing Quick Rename,
-Copy, and Move workflows.
+`rename_interactive`, `copy_interactive`, `move_interactive`, `delete`,
+`create_directory`, `refresh`, and `properties` to `IFileOperationsService`,
+which posts the corresponding existing Salamander command and preserves its
+normal native dialogs and enablement rules.
 
 The shared UI contract now includes a native dialog/control model in
 `salamatrix_ui.h/.cpp`. It is intentionally small but real: native plugins and
@@ -936,3 +944,9 @@ The platform skeleton is ready when:
     contract and `NativeDialog` implementation for labels, text boxes,
     check/radio buttons, combo boxes, and buttons; the worker input-box path
     goes through this service rather than owning a second dialog backend.
+40. The command catalog covers the available core `SALCMD_*` operations and
+    `IFileOperationsService` exposes interactive rename/copy/move/delete,
+    create-directory, refresh, and properties wrappers to native callers and
+    all three modern worker runtimes.
+41. Workers can create native dialogs, add controls, show them modally, read
+    control state, and destroy them through the same `Salamatrix.UI` service.

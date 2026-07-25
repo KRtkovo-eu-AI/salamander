@@ -60,6 +60,17 @@ class SalamatrixStorage {
     public function get($key, $default = null) { $r = $this->client->call('salamander.storage.get', array('key' => $key)); return isset($r['type']) && $r['type'] === 'string' ? $r['value'] : $default; }
     public function set($key, $value) { $this->client->call('salamander.storage.set', array('key' => $key, 'value' => $value)); }
 }
+class SalamatrixFileOperations {
+    private $client; public function __construct($client) { $this->client = $client; }
+    private function run($operation) { $r = $this->client->call('salamander.fileOperations.' . $operation, array()); return isset($r['result']) ? $r['result'] : 'error'; }
+    public function rename() { return $this->run('rename'); }
+    public function copy() { return $this->run('copy'); }
+    public function move() { return $this->run('move'); }
+    public function delete() { return $this->run('delete'); }
+    public function createDirectory() { return $this->run('createDirectory'); }
+    public function refresh() { return $this->run('refresh'); }
+    public function properties() { return $this->run('properties'); }
+}
 class SalamatrixSides {
     private $client; public function __construct($client) { $this->client = $client; }
     public function activeTab($side = 'source') { return $this->client->call('salamander.sides.activeTab', array('side' => $side)); }
@@ -68,6 +79,19 @@ class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }
     public function messageBox($message, $title = 'Salamander') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title)); return isset($r['result']) ? $r['result'] : 0; }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
+    public function dialog($title = 'Salamander') { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
+}
+class SalamatrixDialog {
+    private $client; private $id;
+    public function __construct($client, $id) { $this->client = $client; $this->id = $id; }
+    private function add($kind, $controlId, $text, $extra = array()) { $args = array('dialogId' => $this->id, 'kind' => $kind, 'controlId' => $controlId, 'text' => $text); foreach ($extra as $key => $value) $args[$key] = $value; $this->client->call('salamander.ui.dialog.add', $args); }
+    public function addLabel($id, $text) { $this->add('label', $id, $text); }
+    public function addTextBox($id, $text = '', $readOnly = false) { $this->add('textbox', $id, $text, array('readOnly' => $readOnly)); }
+    public function addCheckBox($id, $text, $checked = false) { $this->add('checkbox', $id, $text, array('checked' => $checked)); }
+    public function addButton($id, $text, $dialogResult = 1) { $this->add('button', $id, $text, array('dialogResult' => $dialogResult)); }
+    public function show() { $r = $this->client->call('salamander.ui.dialog.show', array('dialogId' => $this->id)); return isset($r['result']) ? $r['result'] : 0; }
+    public function get($id) { return $this->client->call('salamander.ui.dialog.get', array('dialogId' => $this->id, 'controlId' => $id)); }
+    public function close() { $this->client->call('salamander.ui.dialog.destroy', array('dialogId' => $this->id)); }
 }
 class SalamatrixAi {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -102,6 +126,7 @@ if (isset($hello['payload']['ok']) && !$hello['payload']['ok']) throw new Runtim
 $Salamander = new stdClass();
 $Salamander->commands = new SalamatrixCommands($client);
 $Salamander->storage = new SalamatrixStorage($client);
+$Salamander->file_operations = new SalamatrixFileOperations($client);
 $Salamander->sides = new SalamatrixSides($client);
 $Salamander->left_side = $Salamander->sides;
 $Salamander->right_side = $Salamander->sides;

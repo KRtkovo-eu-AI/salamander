@@ -125,6 +125,112 @@ public:
     {
         delete progress;
     }
+
+    class Dialog
+    {
+    private:
+        UI::IUIService* UIService;
+        UI::IDialog* NativeDialog;
+
+        Dialog(const Dialog&);
+        Dialog& operator=(const Dialog&);
+
+    public:
+        Dialog(UI::IUIService* uiService, UI::IDialog* dialog)
+            : UIService(uiService),
+              NativeDialog(dialog)
+        {
+        }
+
+        ~Dialog()
+        {
+            Close();
+        }
+
+        UI::IControl* WINAPI AddLabel(const char* id, const char* text)
+        {
+            return Add(UI::ControlKindLabel, id, text, FALSE, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddTextBox(
+            const char* id,
+            const char* text,
+            BOOL readOnly)
+        {
+            return Add(UI::ControlKindTextBox, id, text, readOnly, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddCheckBox(
+            const char* id,
+            const char* text,
+            BOOL checked)
+        {
+            return Add(UI::ControlKindCheckBox, id, text, FALSE, checked, 0);
+        }
+
+        UI::IControl* WINAPI AddButton(
+            const char* id,
+            const char* text,
+            int dialogResult)
+        {
+            return Add(UI::ControlKindButton, id, text, FALSE, FALSE, dialogResult);
+        }
+
+        int WINAPI ShowModal()
+        {
+            return NativeDialog != NULL ? NativeDialog->ShowModal() : 0;
+        }
+
+        UI::IControl* WINAPI FindControl(const char* id)
+        {
+            return NativeDialog != NULL ? NativeDialog->FindControl(id) : NULL;
+        }
+
+        void WINAPI Close()
+        {
+            if (UIService != NULL && NativeDialog != NULL)
+            {
+                UIService->DestroyDialog(NativeDialog);
+                NativeDialog = NULL;
+            }
+        }
+
+    private:
+        UI::IControl* Add(
+            UI::ControlKind kind,
+            const char* id,
+            const char* text,
+            BOOL readOnly,
+            BOOL checked,
+            int dialogResult)
+        {
+            if (NativeDialog == NULL)
+                return NULL;
+            UI::ControlOptions options;
+            options.Id = id;
+            options.Text = text;
+            options.ReadOnly = readOnly;
+            options.Checked = checked;
+            options.DialogResult = dialogResult;
+            return NativeDialog->AddControl(kind, options);
+        }
+    };
+
+    Dialog* WINAPI DialogBox(const char* title, HWND parent)
+    {
+        if (UIService == NULL)
+            return NULL;
+        UI::DialogOptions options;
+        options.Title = title;
+        options.Parent = parent;
+        UI::IDialog* dialog = UIService->CreateDialog(options);
+        return dialog != NULL ? new Dialog(UIService, dialog) : NULL;
+    }
+
+    void WINAPI DestroyDialog(Dialog* dialog)
+    {
+        delete dialog;
+    }
 };
 
 class ScriptCommandsAdapter
@@ -184,6 +290,38 @@ public:
 
         FileOperations::InteractiveOptions options;
         return FileOperationsService->MoveInteractive(options);
+    }
+
+    Runtime::OperationResult WINAPI DeleteInteractive()
+    {
+        if (FileOperationsService == NULL)
+            return Runtime::OperationResultError;
+        FileOperations::InteractiveOptions options;
+        return FileOperationsService->DeleteInteractive(options);
+    }
+
+    Runtime::OperationResult WINAPI CreateDirectoryInteractive()
+    {
+        if (FileOperationsService == NULL)
+            return Runtime::OperationResultError;
+        FileOperations::InteractiveOptions options;
+        return FileOperationsService->CreateDirectoryInteractive(options);
+    }
+
+    Runtime::OperationResult WINAPI Refresh()
+    {
+        if (FileOperationsService == NULL)
+            return Runtime::OperationResultError;
+        FileOperations::InteractiveOptions options;
+        return FileOperationsService->Refresh(options);
+    }
+
+    Runtime::OperationResult WINAPI ShowProperties()
+    {
+        if (FileOperationsService == NULL)
+            return Runtime::OperationResultError;
+        FileOperations::InteractiveOptions options;
+        return FileOperationsService->ShowProperties(options);
     }
 };
 

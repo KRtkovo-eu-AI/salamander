@@ -134,6 +134,37 @@ class _Storage:
         self._transport.call("salamander.storage.set", key=key, value=value)
 
 
+class _FileOperations:
+    def __init__(self, transport: _Transport) -> None:
+        self._transport = transport
+
+    def _run(self, operation: str) -> str:
+        return self._transport.call(
+            f"salamander.fileOperations.{operation}"
+        ).get("result", "error")
+
+    def rename(self) -> str:
+        return self._run("rename")
+
+    def copy(self) -> str:
+        return self._run("copy")
+
+    def move(self) -> str:
+        return self._run("move")
+
+    def delete(self) -> str:
+        return self._run("delete")
+
+    def create_directory(self) -> str:
+        return self._run("createDirectory")
+
+    def refresh(self) -> str:
+        return self._run("refresh")
+
+    def properties(self) -> str:
+        return self._run("properties")
+
+
 class _Sides:
     def __init__(self, transport: _Transport) -> None:
         self._transport = transport
@@ -156,6 +187,53 @@ class _UI:
         return self._transport.call(
             "salamander.ui.inputBox", prompt=prompt, title=title,
             initial=initial
+        )
+
+    def dialog(self, title: str = "Salamander") -> "_Dialog":
+        result = self._transport.call("salamander.ui.dialog.create", title=title)
+        return _Dialog(self._transport, str(result["dialogId"]))
+
+
+class _Dialog:
+    def __init__(self, transport: _Transport, dialog_id: str) -> None:
+        self._transport = transport
+        self.dialog_id = dialog_id
+
+    def _add(self, kind: str, control_id: str, text: str = "", **kwargs) -> None:
+        self._transport.call(
+            "salamander.ui.dialog.add", dialogId=self.dialog_id,
+            kind=kind, controlId=control_id, text=text, **kwargs
+        )
+
+    def add_label(self, control_id: str, text: str) -> None:
+        self._add("label", control_id, text)
+
+    def add_textbox(self, control_id: str, text: str = "",
+                    read_only: bool = False) -> None:
+        self._add("textbox", control_id, text, readOnly=read_only)
+
+    def add_checkbox(self, control_id: str, text: str,
+                     checked: bool = False) -> None:
+        self._add("checkbox", control_id, text, checked=checked)
+
+    def add_button(self, control_id: str, text: str,
+                   dialog_result: int = 1) -> None:
+        self._add("button", control_id, text, dialogResult=dialog_result)
+
+    def show(self) -> int:
+        return int(self._transport.call(
+            "salamander.ui.dialog.show", dialogId=self.dialog_id
+        ).get("result", 0))
+
+    def get(self, control_id: str) -> dict:
+        return self._transport.call(
+            "salamander.ui.dialog.get", dialogId=self.dialog_id,
+            controlId=control_id
+        )
+
+    def close(self) -> None:
+        self._transport.call(
+            "salamander.ui.dialog.destroy", dialogId=self.dialog_id
         )
 
 
@@ -201,6 +279,7 @@ class _Salamander:
     def __init__(self, transport: _Transport) -> None:
         self.commands = _Commands(transport)
         self.storage = _Storage(transport)
+        self.file_operations = _FileOperations(transport)
         self.sides = _Sides(transport)
         self.ui = _UI(transport)
         self.ai = _AI(transport)

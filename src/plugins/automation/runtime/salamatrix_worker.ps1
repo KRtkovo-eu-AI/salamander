@@ -85,6 +85,14 @@ $storage | Add-Member ScriptMethod Set {
     param([string]$Key, [string]$Value)
     [void](Invoke-Host -Method 'salamander.storage.set' -Arguments @{ key = $Key; value = $Value })
 }
+$fileOperations = [pscustomobject]@{}
+$fileOperations | Add-Member ScriptMethod Rename { (Invoke-Host -Method 'salamander.fileOperations.rename' -Arguments @{}).result }
+$fileOperations | Add-Member ScriptMethod Copy { (Invoke-Host -Method 'salamander.fileOperations.copy' -Arguments @{}).result }
+$fileOperations | Add-Member ScriptMethod Move { (Invoke-Host -Method 'salamander.fileOperations.move' -Arguments @{}).result }
+$fileOperations | Add-Member ScriptMethod Delete { (Invoke-Host -Method 'salamander.fileOperations.delete' -Arguments @{}).result }
+$fileOperations | Add-Member ScriptMethod CreateDirectory { (Invoke-Host -Method 'salamander.fileOperations.createDirectory' -Arguments @{}).result }
+$fileOperations | Add-Member ScriptMethod Refresh { (Invoke-Host -Method 'salamander.fileOperations.refresh' -Arguments @{}).result }
+$fileOperations | Add-Member ScriptMethod Properties { (Invoke-Host -Method 'salamander.fileOperations.properties' -Arguments @{}).result }
 $sides = [pscustomobject]@{}
 $sides | Add-Member ScriptMethod ActiveTab {
     param([string]$Side = 'source')
@@ -98,6 +106,19 @@ $ui | Add-Member ScriptMethod MessageBox {
 $ui | Add-Member ScriptMethod InputBox {
     param([string]$Prompt, [string]$Title = 'Salamander', [string]$Initial = '')
     Invoke-Host -Method 'salamander.ui.inputBox' -Arguments @{ prompt = $Prompt; title = $Title; initial = $Initial }
+}
+$ui | Add-Member ScriptMethod Dialog {
+    param([string]$Title = 'Salamander')
+    $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title }
+    $dialog = [pscustomobject]@{ DialogId = [string]$created.dialogId }
+    $dialog | Add-Member ScriptMethod AddLabel { param([string]$Id, [string]$Text) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'label'; controlId = $Id; text = $Text }) }
+    $dialog | Add-Member ScriptMethod AddTextBox { param([string]$Id, [string]$Text = '', [bool]$ReadOnly = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'textbox'; controlId = $Id; text = $Text; readOnly = $ReadOnly }) }
+    $dialog | Add-Member ScriptMethod AddCheckBox { param([string]$Id, [string]$Text, [bool]$Checked = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'checkbox'; controlId = $Id; text = $Text; checked = $Checked }) }
+    $dialog | Add-Member ScriptMethod AddButton { param([string]$Id, [string]$Text, [int]$DialogResult = 1) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'button'; controlId = $Id; text = $Text; dialogResult = $DialogResult }) }
+    $dialog | Add-Member ScriptMethod Show { (Invoke-Host -Method 'salamander.ui.dialog.show' -Arguments @{ dialogId = $this.DialogId }).result }
+    $dialog | Add-Member ScriptMethod Get { param([string]$Id) Invoke-Host -Method 'salamander.ui.dialog.get' -Arguments @{ dialogId = $this.DialogId; controlId = $Id } }
+    $dialog | Add-Member ScriptMethod Close { [void](Invoke-Host -Method 'salamander.ui.dialog.destroy' -Arguments @{ dialogId = $this.DialogId }) }
+    return $dialog
 }
 $ai = [pscustomobject]@{}
 $ai | Add-Member ScriptMethod Generate {
@@ -122,6 +143,7 @@ $events | Add-Member ScriptMethod Unsubscribe {
 $Salamander = [pscustomobject]@{
     commands = $commands
     storage = $storage
+    file_operations = $fileOperations
     sides = $sides
     left_side = $sides
     right_side = $sides

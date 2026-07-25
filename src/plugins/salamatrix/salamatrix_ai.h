@@ -328,10 +328,11 @@ public:
         return
             "{\"version\":\"1.0\",\"objects\":{" 
             "\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"]},"
+            "\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]},"
             "\"Salamander.sides\":{\"methods\":[\"activeTab\"]},"
             "\"Salamander.storage\":{\"methods\":[\"get\",\"set\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]},"
-            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\"]},"
+            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"dialog\"]},"
             "\"Salamander.ai\":{\"methods\":[\"generate\"]}},"
             "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"]}}";
     }
