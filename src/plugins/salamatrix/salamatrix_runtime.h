@@ -333,8 +333,18 @@ public:
         if (save)
             dialog.Flags |= OFN_OVERWRITEPROMPT;
 
-        BOOL selected = save ? GetSaveFileNameW(&dialog)
-                             : GetOpenFileNameW(&dialog);
+        BOOL selected = FALSE;
+#ifdef UNICODE
+        if (General != NULL)
+            selected = save
+                           ? General->SafeGetSaveFileName(
+                                 reinterpret_cast<LPOPENFILENAME>(&dialog))
+                           : General->SafeGetOpenFileName(
+                                 reinterpret_cast<LPOPENFILENAME>(&dialog));
+        else
+#endif
+            selected = save ? GetSaveFileNameW(&dialog)
+                            : GetOpenFileNameW(&dialog);
         if (!selected)
             return FALSE;
         return WideToUtf8(&path[0], result, resultCapacity);

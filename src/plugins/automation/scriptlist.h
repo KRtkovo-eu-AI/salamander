@@ -14,6 +14,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "../salamatrix/salamatrix_runtime_api.h"
 #include "../salamatrix/salamatrix_ui.h"
@@ -99,6 +100,7 @@ private:
     char m_szSalamatrixExtensionId[128];
     char m_szSalamatrixRuntimeId[128];
     DWORD m_dwSalamatrixMinimumRuntimeVersion;
+    std::vector<std::string> m_salamatrixCapabilities;
     bool m_bShowInPluginMenu;
     bool m_bShowInContextMenu;
     bool m_bRuntimeCommandOwned;
@@ -281,6 +283,25 @@ public:
     const char* GetSalamatrixExtensionId() const
     {
         return m_szSalamatrixExtensionId;
+    }
+
+    bool HasDeclaredSalamatrixCapabilities() const
+    {
+        return !m_salamatrixCapabilities.empty();
+    }
+
+    bool HasSalamatrixCapability(const char* capability) const
+    {
+        if (capability == NULL || capability[0] == '\0')
+            return FALSE;
+        for (size_t index = 0; index < m_salamatrixCapabilities.size(); ++index)
+        {
+            const std::string& declared = m_salamatrixCapabilities[index];
+            if (declared == "*" || _stricmp(declared.c_str(), "all") == 0 ||
+                _stricmp(declared.c_str(), capability) == 0)
+                return TRUE;
+        }
+        return FALSE;
     }
 
     bool ShowInPluginMenu() const

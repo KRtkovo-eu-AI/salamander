@@ -165,6 +165,8 @@ void TestAssistantService()
           "assistant API description advertises AI object");
     Check(strstr(service.GetApiDescription(), "optional") != NULL,
           "assistant API description advertises optional runtime output");
+    Check(strstr(service.GetApiDescription(), "pickFile") != NULL,
+          "assistant API description advertises shared file picker");
 }
 
 void TestCommandCatalog()

@@ -863,6 +863,13 @@ MVP `requires` values map to Salamander menu event masks as follows:
 - `file`: requires a focused file or selected files on disk.
 - `selection`: requires selected files or directories on disk.
 
+When a manifest declares a non-empty `capabilities` array, Automation also
+enforces the list at the persistent SMX1 host boundary. Calls are grouped into
+`panels.read`, `ui.dialogs`, `commands`, `file-operations`, `storage`,
+`events`, and `ai`; a denied call returns a structured `capability denied`
+error. Scripts without a declared list retain legacy compatibility until the
+user-facing grant/revocation policy is available.
+
 ## MVP acceptance criteria
 
 The platform skeleton is ready when:
@@ -977,3 +984,6 @@ The platform skeleton is ready when:
     kinds (including item/node/tab binding), show them modally, read control state, and destroy them through the
     same `Salamatrix.UI` service; the bounded process-runtime tests exercise
     this path in Python, PowerShell, and PHP.
+42. The same shared UI service now exposes UTF-8 open/save file pickers;
+    Python, PowerShell, and PHP workers call `Salamander.ui.pick_file()` /
+    `PickFile()` / `pickFile()` and receive a structured selected/path result.

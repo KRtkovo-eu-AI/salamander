@@ -680,6 +680,7 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         _countof(m_szSalamatrixRuntimeId),
         manifest.RuntimeId.c_str());
     m_dwSalamatrixMinimumRuntimeVersion = manifest.MinimumRuntimeVersion;
+    m_salamatrixCapabilities = manifest.Capabilities;
 
     if (manifest.Commands.empty())
         return;
@@ -1040,6 +1041,27 @@ static std::string RuntimeItemInfoJson(
            (item.IsDirectory ? "true" : "false") + "}";
 }
 
+static const char* RuntimeCapabilityForMethod(
+    const std::string& method)
+{
+    if (method.compare(0, 16, "salamander.sides.") == 0)
+        return "panels.read";
+    if (method.compare(0, 13, "salamander.ui.") == 0 ||
+        method == "salamander.clipboard.copyText")
+        return "ui.dialogs";
+    if (method.compare(0, 19, "salamander.commands.") == 0)
+        return "commands";
+    if (method.compare(0, 25, "salamander.fileOperations.") == 0)
+        return "file-operations";
+    if (method.compare(0, 18, "salamander.storage.") == 0)
+        return "storage";
+    if (method.compare(0, 17, "salamander.events.") == 0)
+        return "events";
+    if (method.compare(0, 13, "salamander.ai.") == 0)
+        return "ai";
+    return NULL;
+}
+
 BOOL WINAPI CScriptInfo::RuntimeEventCallback(
     void* context,
     const Salamatrix::Events::EventPayload* payload)
@@ -1109,6 +1131,18 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
             payloadJson, "method", &method))
         return FALSE;
+
+    const char* requiredCapability = RuntimeCapabilityForMethod(method);
+    if (requiredCapability != NULL &&
+        script->HasDeclaredSalamatrixCapabilities() &&
+        !script->HasSalamatrixCapability(requiredCapability))
+    {
+        std::string response =
+            std::string("{\"ok\":false,\"error\":\"capability denied\",\"capability\":\"") +
+            JsonEscapeRuntimeText(requiredCapability) + "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
 
     if (method == "runtime.ready")
     {

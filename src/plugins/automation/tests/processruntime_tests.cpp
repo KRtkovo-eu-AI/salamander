@@ -20,6 +20,7 @@ struct BootstrapDispatchState
     int DialogCalls;
     int SideContextCalls;
     int ClipboardCalls;
+    int PickerCalls;
     int CommandRegistrationCalls;
 
     BootstrapDispatchState()
@@ -30,6 +31,7 @@ struct BootstrapDispatchState
           DialogCalls(0),
           SideContextCalls(0),
           ClipboardCalls(0),
+          PickerCalls(0),
           CommandRegistrationCalls(0)
     {
     }
@@ -127,6 +129,13 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->ClipboardCalls;
         response = "{\"ok\":true,\"copied\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.pickFile") != NULL)
+    {
+        if (state != NULL)
+            ++state->PickerCalls;
+        response =
+            "{\"ok\":true,\"selected\":true,\"path\":\"C:\\\\Temp\\\\chosen.txt\"}";
     }
     else if (strstr(payloadJson, "salamander.ai.preview") != NULL)
     {
@@ -423,6 +432,9 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('side context call failed')\n"
               "if not Salamander.clipboard.copy_text('seed.txt'):\n"
               "    raise RuntimeError('clipboard call failed')\n"
+              "picked = Salamander.ui.pick_file(filter='Text files|*.txt')\n"
+              "if not picked.get('selected') or not picked.get('path', '').endswith('chosen.txt'):\n"
+              "    raise RuntimeError('file picker call failed')\n"
               "if not Salamander.ai.preview('list files', runtime='Python.CPython', existing_script='print(1)').get('canRun'):\n"
               "    raise RuntimeError('ai preview call failed')\n"
               "if Salamander.file_operations.refresh() != 'ok':\n"
@@ -478,6 +490,7 @@ void RunPythonBootstrapTest()
         Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
         Check(state.SideContextCalls == 1, "bootstrap side context reached host");
         Check(state.ClipboardCalls == 1, "bootstrap clipboard reached host");
+        Check(state.PickerCalls == 1, "bootstrap file picker reached host");
         Check(state.FileOperationCalls == 1, "bootstrap file operation reached host");
         Check(state.DialogCalls == 15, "bootstrap dialog calls reached host");
         std::string shutdown;
@@ -524,6 +537,8 @@ void RunPowerShellBootstrapTest()
               "$sideContext = $Salamander.SourceSide.Context()\n"
               "if ($sideContext.selectedCount -ne 1 -or $sideContext.focusedItem.name -ne 'seed.txt') { throw 'side context call failed' }\n"
               "if (-not $Salamander.clipboard.CopyText('seed.txt')) { throw 'clipboard call failed' }\n"
+              "$picked = $Salamander.ui.PickFile($false, '', 'Text files|*.txt', '')\n"
+              "if (-not $picked.selected -or -not $picked.path.EndsWith('chosen.txt')) { throw 'file picker call failed' }\n"
               "if (-not $Salamander.ai.Preview('list files', $null, $null, 'PowerShell', 'Write-Output 1').canRun) { throw 'ai preview call failed' }\n"
               "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
               "$dialog = $Salamander.ui.Dialog('Bootstrap')\n"
@@ -568,6 +583,7 @@ void RunPowerShellBootstrapTest()
         Check(state.SubscribeCalls == 1, "powershell bootstrap event subscription");
         Check(state.SideContextCalls == 1, "powershell bootstrap side context");
         Check(state.ClipboardCalls == 1, "powershell bootstrap clipboard");
+        Check(state.PickerCalls == 1, "powershell bootstrap file picker");
         Check(state.FileOperationCalls == 1, "powershell bootstrap file operation");
         Check(state.DialogCalls == 15, "powershell bootstrap dialog calls");
         std::string shutdown;
@@ -609,6 +625,8 @@ void RunPhpBootstrapTest()
               "$sideContext = $Salamander->source_side->context();\n"
               "if ($sideContext['selectedCount'] !== 1 || $sideContext['focusedItem']['name'] !== 'seed.txt') throw new Exception('side context call failed');\n"
               "if (!$Salamander->clipboard->copyText('seed.txt')) throw new Exception('clipboard call failed');\n"
+              "$picked = $Salamander->ui->pickFile(false, '', 'Text files|*.txt', '');\n"
+              "if (empty($picked['selected']) || substr($picked['path'], -10) !== 'chosen.txt') throw new Exception('file picker call failed');\n"
               "if (!$Salamander->ai->preview('list files', null, null, 'PHP.CLI', '<?php echo 1; ?>')['canRun']) throw new Exception('ai preview call failed');\n"
               "if ($Salamander->file_operations->refresh() !== 'ok') throw new Exception('file operation call failed');\n"
               "$dialog = $Salamander->ui->dialog('Bootstrap');\n"
@@ -653,6 +671,7 @@ void RunPhpBootstrapTest()
         Check(state.SubscribeCalls == 1, "php bootstrap event subscription");
         Check(state.SideContextCalls == 1, "php bootstrap side context");
         Check(state.ClipboardCalls == 1, "php bootstrap clipboard");
+        Check(state.PickerCalls == 1, "php bootstrap file picker");
         Check(state.FileOperationCalls == 1, "php bootstrap file operation");
         Check(state.DialogCalls == 15, "php bootstrap dialog calls");
         std::string shutdown;
