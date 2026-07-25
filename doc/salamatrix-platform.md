@@ -180,12 +180,13 @@ interpreter is discoverable through `PATH` or an explicit environment variable:
 - `PowerShell` for `.ps1` (`SALAMATRIX_POWERSHELL`, then `pwsh.exe`/
   `powershell.exe`);
 - `PHP.CLI` for `.php` (`SALAMATRIX_PHP`, then `php.exe`);
-- `JavaScript.Node` for `.mjs` (`SALAMATRIX_NODE`, then `node.exe`/`node`).
+- `JavaScript.Node` for `.js`/`.mjs` (`SALAMATRIX_NODE`, then `node.exe`/`node`),
+  with legacy Windows JScript remaining the compatibility fallback for `.js`.
 
 The process adapter uses a non-shell `CreateProcessW` invocation, passes the
 entry point as a quoted file argument, drains a combined stdout/stderr pipe,
 limits captured output to 1 MiB, terminates timed-out children, and returns the
-exit code. This makes Python/PowerShell/PHP real selectable runtimes today;
+exit code. This makes Python/PowerShell/PHP/Node real selectable runtimes today;
 the shared worker bootstrap exposes the common Salamander object model to the
 modern process adapters.
 The persistent session seam is now present, and manifest activation starts a
@@ -224,8 +225,8 @@ tries to execute or package a script.
 
 The legacy ActiveScript registrations remain tied to the Automation bridge
 refresh/release lifecycle. New language runtimes are intended to be separate
-provider plugins instead: a `Python.Runtime.SPL`, `PowerShell.Runtime.SPL`,
-`PHP.Runtime.SPL`, or `JavaScript.Runtime.SPL` queries the already registered
+provider plugins instead: a `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
+`PHPRuntime.SPL`, or `JavaScriptRuntime.SPL` queries the already registered
 `Salamatrix.Runtime` service during `SalamanderPluginEntry`, registers only its
 own adapter objects, and unregisters those exact objects during `Release`.
 The provider plugin contains the interpreter discovery policy and worker
@@ -235,11 +236,11 @@ the same broker. Before unregistering, each provider verifies that the same
 broker is still published by the host so unload cannot turn cleanup into a call
 through a stale service pointer.
 
-The current branch still keeps the CPython, PowerShell, and PHP CLI adapters in
-Automation as an MVP compatibility path. Extracting them into the provider
-plugin shape above is the remaining packaging/refactoring step; the public
-`IRuntimeService::RegisterAdapter`/`UnregisterAdapter` contract already permits
-that split without changing consumers.
+Automation now registers only its legacy ActiveScript adapters. The separate
+`PythonRuntime.SPL`, `PowerShellRuntime.SPL`, `PHPRuntime.SPL`, and
+`JavaScriptRuntime.SPL` own their adapters and worker assets. The public
+`IRuntimeService::RegisterAdapter`/`UnregisterAdapter` contract already
+permits that split without changing consumers.
 
 The framework's host-service registration is transactional. If any of the ten
 services cannot be registered, services registered earlier in the attempt are
@@ -980,10 +981,11 @@ The platform skeleton is ready when:
     explicit lifecycle states and safe activate/deactivate transitions;
     Automation publishes and removes manifest descriptors during script-list
     load and refresh.
-30. Automation registers optional `Python.CPython`, `PowerShell`, `PHP.CLI`, and
-    `JavaScript.Node` out-of-process adapters when their interpreters are
-    discoverable, with bounded output capture, timeout termination, and
-    structured exit results.
+30. Independent runtime `.spl` providers register `Python.CPython`, `PowerShell`,
+    `PHP.CLI`, and eventually `JavaScript.Node` out-of-process adapters when
+    their interpreters are discoverable, with bounded output capture, timeout
+    termination, and structured exit results; Automation consumes the broker
+    without owning these modern registrations.
 31. `salamatrix_runtime_protocol.h` provides bounded incremental `SMX1` worker
     framing with typed lifecycle/call/event messages and standalone limit and
     malformed-frame tests.

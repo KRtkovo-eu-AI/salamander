@@ -3,13 +3,11 @@
 
 #include "precomp.h"
 #include "pythonruntime.h"
-#include "../salamatrix/salamatrix_ai.h"
 #include <strsafe.h>
 #include <vector>
 
 namespace
 {
-
 static bool GetEnvironmentString(
     const wchar_t* name,
     std::wstring& value)
@@ -129,62 +127,6 @@ static void SetRuntimeFailure(
     StringCchCopyW(result->Message, _countof(result->Message), message);
 }
 
-static std::string EscapeAssistantJson(const char* value)
-{
-    std::string escaped;
-    if (value == NULL)
-        return escaped;
-    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(value);
-         *p != '\0'; ++p)
-    {
-        switch (*p)
-        {
-        case '\\': escaped.append("\\\\"); break;
-        case '"': escaped.append("\\\""); break;
-        case '\b': escaped.append("\\b"); break;
-        case '\f': escaped.append("\\f"); break;
-        case '\n': escaped.append("\\n"); break;
-        case '\r': escaped.append("\\r"); break;
-        case '\t': escaped.append("\\t"); break;
-        default:
-            if (*p < 0x20)
-            {
-                char hex[7];
-                sprintf_s(hex, _countof(hex), "\\u%04x", *p);
-                escaped.append(hex);
-            }
-            else
-                escaped.push_back(static_cast<char>(*p));
-            break;
-        }
-    }
-    return escaped;
-}
-
-static void SetAssistantFailure(
-    Salamatrix::AI::AssistantResponse* response,
-    Salamatrix::AI::AssistantStatus status,
-    HRESULT errorCode,
-    const wchar_t* message)
-{
-    response->Status = status;
-    response->ErrorCode = errorCode;
-    response->OutputLength = 0;
-    response->ResponseJson[0] = '\0';
-    StringCchCopyW(response->Message, _countof(response->Message), message);
-}
-
-static bool IsStructuredJson(const std::string& value)
-{
-    size_t first = value.find_first_not_of(" \t\r\n");
-    size_t last = value.find_last_not_of(" \t\r\n");
-    if (first == std::string::npos || last <= first)
-        return false;
-    char opening = value[first];
-    char closing = value[last];
-    return (opening == '{' && closing == '}') ||
-           (opening == '[' && closing == ']');
-}
 } // namespace
 
 class CPythonRuntimeSession : public Salamatrix::Runtime::IRuntimeSession
@@ -459,16 +401,15 @@ public:
         {
             CloseHandle(m_hOutput);
             m_hOutput = NULL;
+        }
+        LeaveCriticalSection(&m_lock);
+    }
 
-    size_t length = last - first + 1;
-    memcpy(response->ResponseJson, output.data() + first, length);
-    response->ResponseJson[length] = '\0';
-    response->OutputLength = static_cast<DWORD>(length);
-    response->Status = Salamatrix::AI::AssistantStatusSucceeded;
-    response->ErrorCode = S_OK;
-    response->Message[0] = L'\0';
-    return TRUE;
-}
+    virtual void WINAPI Release()
+    {
+        delete this;
+    }
+};
 
 CPythonRuntimeAdapter::CPythonRuntimeAdapter(
     const char* runtimeId,
@@ -742,8 +683,8 @@ BOOL WINAPI CPythonRuntimeAdapter::Execute(
     bool timedOut = false;
     ULONGLONG startedAt = GetTickCount64();
     DWORD timeout = request->TimeoutMs == 0 ? 120000 : request->TimeoutMs;
-    if (timeout > 3600000)
-        timeout = 3600000;
+    if (timeout > 120000)
+        timeout = 120000;
 
     for (;;)
     {
@@ -1018,7 +959,6 @@ BOOL WINAPI CPythonRuntimeAdapter::StartPersistent(
 }
 
 
- 
 CPluginInterface PluginInterface;
 HINSTANCE DLLInstance = NULL;
 HINSTANCE HLanguage = NULL;
@@ -1086,19 +1026,13 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
 void WINAPI CPluginInterface::About(HWND parent)
 {
     char text[512];
-    _snprintf_s(
-        text,
-        _countof(text),
-        _TRUNCATE,
+    _snprintf_s(text, _countof(text), _TRUNCATE,
         "Python Runtime provider\\n\\nRegistered: %s\\nInterpreter available: %s",
         PythonRegistration.IsRegistered() ? "yes" : "no",
         PythonRuntime.IsAvailable() ? "yes" : "no");
     if (SalamanderGeneral != NULL)
-        SalamanderGeneral->SalMessageBox(
-            parent,
-            text,
-            "Python Runtime",
-            MB_OK | MB_ICONINFORMATION);
+        SalamanderGeneral->SalMessageBox(parent, text, "Python Runtime",
+                                         MB_OK | MB_ICONINFORMATION);
 }
 
 BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
@@ -1108,20 +1042,7 @@ BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
     return TRUE;
 }
 
-void WINAPI CPluginInterface::LoadConfiguration(
-    HWND, HKEY, CSalamanderRegistryAbstract*)
-{
-}
-
-void WINAPI CPluginInterface::SaveConfiguration(
-    HWND, HKEY, CSalamanderRegistryAbstract*)
-{
-}
-
-void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*)
-{
-}
-
-void WINAPI CPluginInterface::Event(int, DWORD)
-{
-}
+void WINAPI CPluginInterface::LoadConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
+void WINAPI CPluginInterface::SaveConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
+void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*) {}
+void WINAPI CPluginInterface::Event(int, DWORD) {}

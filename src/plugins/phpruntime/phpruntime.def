@@ -1,0 +1,7 @@
+LIBRARY PHP.RUNTIME.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer
+
+
+

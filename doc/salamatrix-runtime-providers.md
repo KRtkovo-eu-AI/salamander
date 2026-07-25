@@ -53,7 +53,8 @@ version select the provider through the broker, while a missing provider is a
 clear unavailable-runtime result.
 
 The current branch has the broker contract, worker protocol, and provider
-lifecycle helper. The CPython/PowerShell/PHP process implementations still
-live in Automation and are the next extraction targets; no separate runtime
-`.SPL` is claimed until its project, adapter, worker assets, load/unload path,
-and integration test exist.
+lifecycle helper. `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
+`PHPRuntime.SPL`, and `JavaScriptRuntime.SPL` now have their own projects,
+adapters, worker assets, and load/unload registration paths; they still need a
+Windows toolchain build and integration test before they are release-ready.
+No provider should be made a dependency of Automation.

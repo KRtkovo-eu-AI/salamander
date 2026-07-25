@@ -1,0 +1,7 @@
+LIBRARY POWERSHELL.RUNTIME.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer
+
+
+

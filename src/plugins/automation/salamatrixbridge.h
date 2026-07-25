@@ -151,6 +151,8 @@ private:
     CAutomationActiveScriptRuntimeAdapter m_oVBScriptRuntime;
     CAutomationActiveScriptRuntimeAdapter m_oPythonRuntime;
     CAutomationActiveScriptRuntimeAdapter m_oPHPRuntime;
+    // Transitional implementations retained for direct process-runtime tests;
+    // modern adapters are registered by standalone runtime .SPL providers.
     CAutomationProcessRuntimeAdapter m_oCPythonRuntime;
     CAutomationProcessRuntimeAdapter m_oPowerShellRuntime;
     CAutomationProcessRuntimeAdapter m_oPHPCliRuntime;

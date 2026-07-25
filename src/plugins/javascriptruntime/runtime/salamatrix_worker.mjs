@@ -4,7 +4,8 @@
  * This file deliberately has no third-party dependency.  It implements the
  * same bounded SMX1 line transport used by the Python, PowerShell, and PHP
  * workers and exposes the shared Salamander object model.  Registration of a
- * JavaScript.Node adapter remains a host-side deployment decision.
+ * JavaScriptRuntime.SPL owns this worker and registers JavaScript.Node with
+ * the Salamatrix runtime broker.
  */
 
 import readline from "node:readline";
@@ -278,3 +279,4 @@ if (entryPoint) {
       if (oneShot) process.exit(1);
     });
 }
+

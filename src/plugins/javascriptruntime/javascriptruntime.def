@@ -1,0 +1,7 @@
+LIBRARY JAVASCRIPT.RUNTIME.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer
+
+
+

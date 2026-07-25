@@ -1,18 +1,9 @@
-﻿// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-/*
-    Automation Plugin for Open Salamander
-
-    salamatrixbridge.cpp
-    Thin Automation-side consumer bridge for the Salamatrix runtime plugin.
-*/
-
 #include "precomp.h"
-#include "salamatrixbridge.h"
-#include "engassoc.h"
-#include "knownengines.h"
-
+#include "phpruntime.h"
+#include <strsafe.h>
 #include <vector>
 
 namespace
@@ -136,65 +127,9 @@ static void SetRuntimeFailure(
     StringCchCopyW(result->Message, _countof(result->Message), message);
 }
 
-static std::string EscapeAssistantJson(const char* value)
-{
-    std::string escaped;
-    if (value == NULL)
-        return escaped;
-    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(value);
-         *p != '\0'; ++p)
-    {
-        switch (*p)
-        {
-        case '\\': escaped.append("\\\\"); break;
-        case '"': escaped.append("\\\""); break;
-        case '\b': escaped.append("\\b"); break;
-        case '\f': escaped.append("\\f"); break;
-        case '\n': escaped.append("\\n"); break;
-        case '\r': escaped.append("\\r"); break;
-        case '\t': escaped.append("\\t"); break;
-        default:
-            if (*p < 0x20)
-            {
-                char hex[7];
-                sprintf_s(hex, _countof(hex), "\\u%04x", *p);
-                escaped.append(hex);
-            }
-            else
-                escaped.push_back(static_cast<char>(*p));
-            break;
-        }
-    }
-    return escaped;
-}
-
-static void SetAssistantFailure(
-    Salamatrix::AI::AssistantResponse* response,
-    Salamatrix::AI::AssistantStatus status,
-    HRESULT errorCode,
-    const wchar_t* message)
-{
-    response->Status = status;
-    response->ErrorCode = errorCode;
-    response->OutputLength = 0;
-    response->ResponseJson[0] = '\0';
-    StringCchCopyW(response->Message, _countof(response->Message), message);
-}
-
-static bool IsStructuredJson(const std::string& value)
-{
-    size_t first = value.find_first_not_of(" \t\r\n");
-    size_t last = value.find_last_not_of(" \t\r\n");
-    if (first == std::string::npos || last <= first)
-        return false;
-    char opening = value[first];
-    char closing = value[last];
-    return (opening == '{' && closing == '}') ||
-           (opening == '[' && closing == ']');
-}
 } // namespace
 
-class CAutomationProcessRuntimeSession : public Salamatrix::Runtime::IRuntimeSession
+class CPHPRuntimeSession : public Salamatrix::Runtime::IRuntimeSession
 {
 private:
     HANDLE m_hProcess;
@@ -207,7 +142,7 @@ private:
     mutable CRITICAL_SECTION m_lock;
     std::string m_pending;
 
-    CAutomationProcessRuntimeSession(
+    CPHPRuntimeSession(
         HANDLE process,
         HANDLE thread,
         HANDLE input,
@@ -246,7 +181,7 @@ private:
     }
 
 public:
-    static CAutomationProcessRuntimeSession* Create(
+    static CPHPRuntimeSession* Create(
         HANDLE process,
         HANDLE thread,
         HANDLE input,
@@ -255,7 +190,7 @@ public:
             hostDispatch,
         void* hostDispatchContext)
     {
-        return new CAutomationProcessRuntimeSession(
+        return new CPHPRuntimeSession(
             process,
             thread,
             input,
@@ -264,7 +199,7 @@ public:
             hostDispatchContext);
     }
 
-    virtual ~CAutomationProcessRuntimeSession()
+    virtual ~CPHPRuntimeSession()
     {
         Stop();
         DeleteCriticalSection(&m_lock);
@@ -476,385 +411,7 @@ public:
     }
 };
 
-CAutomationSalamatrixBridge::CAutomationSalamatrixBridge()
-    : m_bQueried(false),
-      m_pGeneral(NULL),
-      m_pScriptRoot(NULL),
-      m_pUIService(NULL),
-      m_pCommandService(NULL),
-      m_pFileOperationsService(NULL),
-      m_pRuntimeService(NULL),
-      m_pSidesService(NULL),
-      m_pEventsService(NULL),
-      m_pExtensionsService(NULL),
-      m_pStorageService(NULL),
-      m_pAssistantService(NULL),
-      m_dwAutomationVersion(0),
-      m_dwUIVersion(0),
-      m_dwCommandsVersion(0),
-      m_dwFileOperationsVersion(0),
-      m_dwRuntimeVersion(0),
-      m_dwSidesVersion(0),
-      m_dwEventsVersion(0),
-      m_dwExtensionsVersion(0),
-      m_dwStorageVersion(0),
-      m_dwAssistantVersion(0),
-      m_oJScriptRuntime("Automation.JScript", "Legacy Windows JScript", "javascript", ".js", _T(".js"), CLSID_JScript),
-      m_oVBScriptRuntime("Automation.VBScript", "Legacy Windows VBScript", "vbscript", ".vbs", _T(".vbs"), CLSID_VBScript),
-      m_oPythonRuntime("Automation.ActivePython", "Legacy ActivePython", "python", ".pys", _T(".pys"), CLSID_Python),
-      m_oPHPRuntime("Automation.PHPScript", "Legacy PHPScript", "php", ".phps", _T(".phps"), CLSID_PHPScript),
-      m_oCPythonRuntime(
-          "Python.CPython",
-          "CPython process runtime",
-          "python",
-          ".py",
-          L"SALAMATRIX_PYTHON",
-          L"python.exe",
-          L"python3.exe",
-          CAutomationProcessRuntimeAdapter::ProcessKindPython),
-      m_oPowerShellRuntime(
-          "PowerShell",
-          "PowerShell process runtime",
-          "powershell",
-          ".ps1",
-          L"SALAMATRIX_POWERSHELL",
-          L"pwsh.exe",
-          L"powershell.exe",
-          CAutomationProcessRuntimeAdapter::ProcessKindPowerShell),
-      m_oPHPCliRuntime(
-          "PHP.CLI",
-          "PHP CLI process runtime",
-          "php",
-          ".php",
-          L"SALAMATRIX_PHP",
-          L"php.exe",
-          NULL,
-          CAutomationProcessRuntimeAdapter::ProcessKindPhp),
-      m_oLocalAssistantProvider(),
-      m_bRuntimeAdaptersRegistered(false),
-      m_bAssistantProviderRegistered(false)
-{
-    Reset();
-}
-
-CAutomationActiveScriptRuntimeAdapter::CAutomationActiveScriptRuntimeAdapter(
-    const char* runtimeId,
-    const char* displayName,
-    const char* languageId,
-    const char* fileExtension,
-    PCTSTR nativeFileExtension,
-    const CLSID& engineClsid)
-    : m_pszFileExtension(nativeFileExtension),
-      m_clsidEngine(engineClsid)
-{
-    m_oDescriptor.RuntimeId = runtimeId;
-    m_oDescriptor.DisplayName = displayName;
-    m_oDescriptor.LanguageId = languageId;
-    m_oDescriptor.FileExtensions = fileExtension;
-    m_oDescriptor.RuntimeVersion = 0x00010000;
-    m_oDescriptor.Flags = Salamatrix::Runtime::RuntimeAdapterFlagInProcess |
-                          Salamatrix::Runtime::RuntimeAdapterFlagCompatibility;
-}
-
-const Salamatrix::Runtime::RuntimeAdapterDescriptor* WINAPI
-CAutomationActiveScriptRuntimeAdapter::GetDescriptor() const
-{
-    return &m_oDescriptor;
-}
-
-BOOL WINAPI CAutomationActiveScriptRuntimeAdapter::IsAvailable() const
-{
-    CLSID associatedEngine = CLSID_NULL;
-    return g_oScriptAssociations.FindEngineByExt(m_pszFileExtension, &associatedEngine) &&
-           IsEqualCLSID(associatedEngine, m_clsidEngine);
-}
-
-BOOL WINAPI CAutomationActiveScriptRuntimeAdapter::SupportsEntryPoint(const char* entryPoint) const
-{
-    if (entryPoint == NULL)
-        return FALSE;
-
-    const char* extension = strrchr(entryPoint, '.');
-    if (extension == NULL)
-        return FALSE;
-
-#ifdef UNICODE
-    wchar_t nativeExtension[16];
-    if (MultiByteToWideChar(CP_UTF8, 0, extension, -1, nativeExtension, _countof(nativeExtension)) == 0 &&
-        MultiByteToWideChar(CP_ACP, 0, extension, -1, nativeExtension, _countof(nativeExtension)) == 0)
-    {
-        return FALSE;
-    }
-#else
-    const char* nativeExtension = extension;
-#endif
-
-    return _tcsicmp(nativeExtension, m_pszFileExtension) == 0 && IsAvailable();
-}
-
-BOOL WINAPI CAutomationActiveScriptRuntimeAdapter::Execute(
-    const Salamatrix::Runtime::RuntimeExecutionRequest* request,
-    Salamatrix::Runtime::RuntimeExecutionResult* result)
-{
-    if (result == NULL || result->StructSize < sizeof(*result))
-        return FALSE;
-
-    result->Status = Salamatrix::Runtime::RuntimeExecutionStatusFailed;
-    result->ErrorCode = E_INVALIDARG;
-    result->Message[0] = L'\0';
-
-    if (request == NULL || request->StructSize < sizeof(*request) ||
-        request->EntryPoint == NULL || request->CompatibilityExecute == NULL)
-    {
-        StringCchCopyW(result->Message, _countof(result->Message),
-                       L"The ActiveScript compatibility adapter requires a host execution callback.");
-        return FALSE;
-    }
-
-    BOOL executed = request->CompatibilityExecute(request->CompatibilityContext, result);
-    if (executed && result->Status == Salamatrix::Runtime::RuntimeExecutionStatusNotStarted)
-        result->Status = Salamatrix::Runtime::RuntimeExecutionStatusSucceeded;
-    else if (!executed && result->Status == Salamatrix::Runtime::RuntimeExecutionStatusNotStarted)
-        result->Status = Salamatrix::Runtime::RuntimeExecutionStatusFailed;
-    return executed;
-}
-
-CAutomationLocalAssistantProvider::CAutomationLocalAssistantProvider()
-{
-    m_oDescriptor.ProviderId = "local.command";
-    m_oDescriptor.DisplayName = "Local command assistant";
-    m_oDescriptor.ProviderVersion = 0x00010000;
-    m_oDescriptor.Flags = 0;
-}
-
-void CAutomationLocalAssistantProvider::ResolveCommand() const
-{
-    wchar_t value[4096];
-    DWORD length = GetEnvironmentVariableW(
-        L"SALAMATRIX_AI_COMMAND", value, _countof(value));
-    if (length == 0 || length >= _countof(value))
-    {
-        m_commandLine.clear();
-        return;
-    }
-    m_commandLine.assign(value, length);
-}
-
-const Salamatrix::AI::AssistantProviderDescriptor* WINAPI
-CAutomationLocalAssistantProvider::GetDescriptor() const
-{
-    return &m_oDescriptor;
-}
-
-BOOL WINAPI CAutomationLocalAssistantProvider::IsAvailable() const
-{
-    ResolveCommand();
-    return m_commandLine.empty() ? FALSE : TRUE;
-}
-
-BOOL WINAPI CAutomationLocalAssistantProvider::Generate(
-    const Salamatrix::AI::AssistantRequest* request,
-    Salamatrix::AI::AssistantResponse* response)
-{
-    if (response == NULL || response->StructSize < sizeof(*response))
-        return FALSE;
-    *response = Salamatrix::AI::AssistantResponse();
-    if (request == NULL || request->StructSize < sizeof(*request))
-    {
-        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
-                            E_INVALIDARG, L"The assistant request is invalid.");
-        return FALSE;
-    }
-    if (!IsAvailable())
-    {
-        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusUnavailable,
-                            HRESULT_FROM_WIN32(ERROR_NOT_FOUND),
-                            L"No local assistant command is configured.");
-        return FALSE;
-    }
-
-    std::string requestJson =
-        std::string("{\"apiVersion\":\"") +
-        EscapeAssistantJson(request->ApiVersion != NULL ? request->ApiVersion : "1.0") +
-        "\",\"prompt\":\"" +
-        EscapeAssistantJson(request->Prompt != NULL ? request->Prompt : "") +
-        "\",\"context\":" +
-        (request->ContextJson != NULL && request->ContextJson[0] != '\0'
-             ? request->ContextJson
-             : "{}") +
-        ",\"runtime\":\"" +
-        EscapeAssistantJson(request->RuntimeId != NULL ? request->RuntimeId : "") +
-        "\",\"existingScript\":\"" +
-        EscapeAssistantJson(request->ExistingScript != NULL ? request->ExistingScript : "") +
-        "\",\"feedback\":\"" +
-        EscapeAssistantJson(request->Feedback != NULL ? request->Feedback : "") +
-        "\",\"maxOutputBytes\":" +
-        std::to_string(request->MaxOutputBytes == 0 ? 65535 : request->MaxOutputBytes) +
-        "}\n";
-
-    SECURITY_ATTRIBUTES security;
-    memset(&security, 0, sizeof(security));
-    security.nLength = sizeof(security);
-    security.bInheritHandle = TRUE;
-    HANDLE childInput = NULL;
-    HANDLE parentInput = NULL;
-    HANDLE childOutput = NULL;
-    HANDLE parentOutput = NULL;
-    if (!CreatePipe(&parentInput, &childInput, &security, 0) ||
-        !SetHandleInformation(parentInput, HANDLE_FLAG_INHERIT, 0) ||
-        !CreatePipe(&parentOutput, &childOutput, &security, 0) ||
-        !SetHandleInformation(parentOutput, HANDLE_FLAG_INHERIT, 0))
-    {
-        if (parentInput != NULL) CloseHandle(parentInput);
-        if (childInput != NULL) CloseHandle(childInput);
-        if (parentOutput != NULL) CloseHandle(parentOutput);
-        if (childOutput != NULL) CloseHandle(childOutput);
-        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
-                            HRESULT_FROM_WIN32(GetLastError()),
-                            L"Unable to create local assistant pipes.");
-        return FALSE;
-    }
-
-    HANDLE errorHandle = CreateFileW(
-        L"NUL", GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
-        &security, OPEN_EXISTING, 0, NULL);
-    if (errorHandle == INVALID_HANDLE_VALUE)
-        errorHandle = NULL;
-
-    STARTUPINFOW startup;
-    PROCESS_INFORMATION process;
-    memset(&startup, 0, sizeof(startup));
-    memset(&process, 0, sizeof(process));
-    startup.cb = sizeof(startup);
-    startup.dwFlags = STARTF_USESTDHANDLES;
-    startup.hStdInput = childInput;
-    startup.hStdOutput = childOutput;
-    startup.hStdError = errorHandle;
-    std::vector<wchar_t> commandLine(m_commandLine.begin(), m_commandLine.end());
-    commandLine.push_back(L'\0');
-    BOOL created = CreateProcessW(
-        NULL, &commandLine[0], NULL, NULL, TRUE, CREATE_NO_WINDOW,
-        NULL, NULL, &startup, &process);
-    CloseHandle(childInput);
-    CloseHandle(childOutput);
-    if (errorHandle != NULL)
-        CloseHandle(errorHandle);
-    if (!created)
-    {
-        CloseHandle(parentInput);
-        CloseHandle(parentOutput);
-        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
-                            HRESULT_FROM_WIN32(GetLastError()),
-                            L"Unable to start the local assistant command.");
-        return FALSE;
-    }
-
-    DWORD written = 0;
-    BOOL writeOk = WriteFile(parentInput, requestJson.data(),
-                             static_cast<DWORD>(requestJson.size()), &written, NULL);
-    CloseHandle(parentInput);
-    parentInput = NULL;
-    if (!writeOk || written != requestJson.size())
-        TerminateProcess(process.hProcess, 1);
-
-    std::string output;
-    const size_t maxOutput = 1024 * 1024;
-    bool timedOut = false;
-    ULONGLONG startedAt = GetTickCount64();
-    // Keep the local assistant bounded to the same two-minute ceiling used by
-    // the public request default. A provider must never turn a malformed or
-    // untrusted request into an unbounded child process.
-    DWORD timeout = request->TimeoutMs == 0 ? 120000 : request->TimeoutMs;
-    if (timeout > 120000)
-        timeout = 120000;
-    for (;;)
-    {
-        DWORD available = 0;
-        while (PeekNamedPipe(parentOutput, NULL, 0, NULL, &available, NULL) &&
-               available != 0)
-        {
-            char buffer[4096];
-            DWORD toRead = available < sizeof(buffer) ? available : sizeof(buffer);
-            DWORD read = 0;
-            if (!ReadFile(parentOutput, buffer, toRead, &read, NULL) || read == 0)
-                break;
-            size_t remaining = output.size() < maxOutput ? maxOutput - output.size() : 0;
-            if (remaining != 0)
-                output.append(buffer, buffer + (read < remaining ? read : remaining));
-        }
-        DWORD wait = WaitForSingleObject(process.hProcess, 10);
-        if (wait == WAIT_OBJECT_0)
-            break;
-        if (wait == WAIT_FAILED)
-        {
-            TerminateProcess(process.hProcess, 1);
-            break;
-        }
-        if (GetTickCount64() - startedAt >= timeout)
-        {
-            timedOut = true;
-            TerminateProcess(process.hProcess, 1);
-            WaitForSingleObject(process.hProcess, 1000);
-            break;
-        }
-    }
-    for (;;)
-    {
-        DWORD available = 0;
-        if (!PeekNamedPipe(parentOutput, NULL, 0, NULL, &available, NULL) ||
-            available == 0)
-            break;
-        char buffer[4096];
-        DWORD toRead = available < sizeof(buffer) ? available : sizeof(buffer);
-        DWORD read = 0;
-        if (!ReadFile(parentOutput, buffer, toRead, &read, NULL) || read == 0)
-            break;
-        size_t remaining = output.size() < maxOutput ? maxOutput - output.size() : 0;
-        if (remaining != 0)
-            output.append(buffer, buffer + (read < remaining ? read : remaining));
-    }
-    DWORD exitCode = 1;
-    GetExitCodeProcess(process.hProcess, &exitCode);
-    CloseHandle(process.hThread);
-    CloseHandle(process.hProcess);
-    CloseHandle(parentOutput);
-
-    if (timedOut)
-    {
-        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusCancelled,
-                            HRESULT_FROM_WIN32(ERROR_TIMEOUT),
-                            L"The local assistant exceeded its execution timeout.");
-        return FALSE;
-    }
-    if (exitCode != 0)
-    {
-        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
-                            HRESULT_FROM_WIN32(exitCode),
-                            L"The local assistant command failed.");
-        return FALSE;
-    }
-    size_t first = output.find_first_not_of(" \t\r\n");
-    size_t last = output.find_last_not_of(" \t\r\n");
-    if (first == std::string::npos || last < first ||
-        last - first + 1 >= _countof(response->ResponseJson) ||
-        !IsStructuredJson(output))
-    {
-        SetAssistantFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse,
-                            E_INVALIDDATA,
-                            L"The local assistant did not return structured JSON.");
-        return FALSE;
-    }
-    size_t length = last - first + 1;
-    memcpy(response->ResponseJson, output.data() + first, length);
-    response->ResponseJson[length] = '\0';
-    response->OutputLength = static_cast<DWORD>(length);
-    response->Status = Salamatrix::AI::AssistantStatusSucceeded;
-    response->ErrorCode = S_OK;
-    response->Message[0] = L'\0';
-    return TRUE;
-}
-
-CAutomationProcessRuntimeAdapter::CAutomationProcessRuntimeAdapter(
+CPHPRuntimeAdapter::CPHPRuntimeAdapter(
     const char* runtimeId,
     const char* displayName,
     const char* languageId,
@@ -878,7 +435,7 @@ CAutomationProcessRuntimeAdapter::CAutomationProcessRuntimeAdapter(
 }
 
 static BOOL ResolveWorkerBootstrapPath(
-    CAutomationProcessRuntimeAdapter::ProcessKind kind,
+    CPHPRuntimeAdapter::ProcessKind kind,
     std::wstring* path)
 {
     if (path == NULL)
@@ -887,13 +444,13 @@ static BOOL ResolveWorkerBootstrapPath(
     const wchar_t* fileName = NULL;
     switch (kind)
     {
-    case CAutomationProcessRuntimeAdapter::ProcessKindPython:
+    case CPHPRuntimeAdapter::ProcessKindPython:
         fileName = L"salamatrix_worker.py";
         break;
-    case CAutomationProcessRuntimeAdapter::ProcessKindPowerShell:
+    case CPHPRuntimeAdapter::ProcessKindPowerShell:
         fileName = L"salamatrix_worker.ps1";
         break;
-    case CAutomationProcessRuntimeAdapter::ProcessKindPhp:
+    case CPHPRuntimeAdapter::ProcessKindPhp:
         fileName = L"salamatrix_worker.php";
         break;
     default:
@@ -929,7 +486,7 @@ static BOOL ResolveWorkerBootstrapPath(
            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
-void CAutomationProcessRuntimeAdapter::ResolveInterpreter() const
+void CPHPRuntimeAdapter::ResolveInterpreter() const
 {
     if (!m_executablePath.empty())
         return;
@@ -969,18 +526,18 @@ void CAutomationProcessRuntimeAdapter::ResolveInterpreter() const
 }
 
 const Salamatrix::Runtime::RuntimeAdapterDescriptor* WINAPI
-CAutomationProcessRuntimeAdapter::GetDescriptor() const
+CPHPRuntimeAdapter::GetDescriptor() const
 {
     return &m_oDescriptor;
 }
 
-BOOL WINAPI CAutomationProcessRuntimeAdapter::IsAvailable() const
+BOOL WINAPI CPHPRuntimeAdapter::IsAvailable() const
 {
     ResolveInterpreter();
     return m_executablePath.empty() ? FALSE : TRUE;
 }
 
-BOOL WINAPI CAutomationProcessRuntimeAdapter::SupportsEntryPoint(
+BOOL WINAPI CPHPRuntimeAdapter::SupportsEntryPoint(
     const char* entryPoint) const
 {
     if (entryPoint == NULL || !IsAvailable())
@@ -989,7 +546,7 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::SupportsEntryPoint(
     return extension != NULL && _stricmp(extension, m_pszExtension) == 0;
 }
 
-BOOL WINAPI CAutomationProcessRuntimeAdapter::Execute(
+BOOL WINAPI CPHPRuntimeAdapter::Execute(
     const Salamatrix::Runtime::RuntimeExecutionRequest* request,
     Salamatrix::Runtime::RuntimeExecutionResult* result)
 {
@@ -1126,8 +683,8 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::Execute(
     bool timedOut = false;
     ULONGLONG startedAt = GetTickCount64();
     DWORD timeout = request->TimeoutMs == 0 ? 120000 : request->TimeoutMs;
-    if (timeout > 3600000)
-        timeout = 3600000;
+    if (timeout > 120000)
+        timeout = 120000;
 
     for (;;)
     {
@@ -1225,7 +782,7 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::Execute(
     return TRUE;
 }
 
-BOOL WINAPI CAutomationProcessRuntimeAdapter::StartPersistent(
+BOOL WINAPI CPHPRuntimeAdapter::StartPersistent(
     const Salamatrix::Runtime::RuntimeExecutionRequest* request,
     Salamatrix::Runtime::IRuntimeSession** session)
 {
@@ -1382,7 +939,7 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::StartPersistent(
         return FALSE;
     }
 
-    *session = CAutomationProcessRuntimeSession::Create(
+    *session = CPHPRuntimeSession::Create(
         process.hProcess,
         process.hThread,
         parentInput,
@@ -1401,200 +958,91 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::StartPersistent(
     return TRUE;
 }
 
-void CAutomationSalamatrixBridge::Reset()
+
+CPluginInterface PluginInterface;
+HINSTANCE DLLInstance = NULL;
+HINSTANCE HLanguage = NULL;
+CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
+static CPHPRuntimeAdapter PHPRuntime(
+    "PHP.CLI",
+    "PHP CLI runtime provider",
+    "php",
+    ".php",
+    L"SALAMATRIX_PHP",
+    L"php.exe",
+    NULL,
+    CPHPRuntimeAdapter::ProcessKindPhp);
+static Salamatrix::Runtime::RuntimeProviderRegistration PHPRegistration;
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID)
 {
-    UnregisterRuntimeAdapters();
-    UnregisterAssistantProvider();
-    m_bQueried = false;
-    m_pGeneral = NULL;
-    m_pScriptRoot = NULL;
-    m_pUIService = NULL;
-    m_pCommandService = NULL;
-    m_pFileOperationsService = NULL;
-    m_pRuntimeService = NULL;
-    m_pSidesService = NULL;
-    m_pEventsService = NULL;
-    m_pExtensionsService = NULL;
-    m_pStorageService = NULL;
-    m_pAssistantService = NULL;
-    m_dwAutomationVersion = 0;
-    m_dwUIVersion = 0;
-    m_dwCommandsVersion = 0;
-    m_dwFileOperationsVersion = 0;
-    m_dwRuntimeVersion = 0;
-    m_dwSidesVersion = 0;
-    m_dwEventsVersion = 0;
-    m_dwExtensionsVersion = 0;
-    m_dwStorageVersion = 0;
-    m_dwAssistantVersion = 0;
-    m_bRuntimeAdaptersRegistered = false;
-    m_bAssistantProviderRegistered = false;
+    if (fdwReason == DLL_PROCESS_ATTACH)
+        DLLInstance = hinstDLL;
+    return TRUE;
 }
 
-void CAutomationSalamatrixBridge::RegisterRuntimeAdapters()
+int WINAPI SalamanderPluginGetReqVer()
 {
-    if (m_pRuntimeService == NULL || m_bRuntimeAdaptersRegistered)
-        return;
-
-    bool registeredAny = false;
-    if (m_oJScriptRuntime.IsAvailable())
-        registeredAny |= m_pRuntimeService->RegisterAdapter(&m_oJScriptRuntime) != FALSE;
-    if (m_oVBScriptRuntime.IsAvailable())
-        registeredAny |= m_pRuntimeService->RegisterAdapter(&m_oVBScriptRuntime) != FALSE;
-    if (m_oPythonRuntime.IsAvailable())
-        registeredAny |= m_pRuntimeService->RegisterAdapter(&m_oPythonRuntime) != FALSE;
-    if (m_oPHPRuntime.IsAvailable())
-        registeredAny |= m_pRuntimeService->RegisterAdapter(&m_oPHPRuntime) != FALSE;
-    m_bRuntimeAdaptersRegistered = registeredAny;
+    return LAST_VERSION_OF_SALAMANDER;
 }
 
-void CAutomationSalamatrixBridge::UnregisterRuntimeAdapters()
+CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
+    CSalamanderPluginEntryAbstract* salamander)
 {
-    if (m_pRuntimeService == NULL || m_pGeneral == NULL)
-        return;
-
-    void* currentService = QueryService(m_pGeneral, SALAMATRIX_SERVICE_RUNTIME,
-                                        SALAMATRIX_RUNTIME_VERSION_1_0, NULL);
-    if (currentService != m_pRuntimeService)
-        return;
-
-    m_pRuntimeService->UnregisterAdapter(&m_oPHPRuntime);
-    m_pRuntimeService->UnregisterAdapter(&m_oPythonRuntime);
-    m_pRuntimeService->UnregisterAdapter(&m_oVBScriptRuntime);
-    m_pRuntimeService->UnregisterAdapter(&m_oJScriptRuntime);
-    m_bRuntimeAdaptersRegistered = false;
-}
-
-void CAutomationSalamatrixBridge::RegisterAssistantProvider()
-{
-    if (m_pAssistantService == NULL || m_bAssistantProviderRegistered)
-        return;
-    if (m_oLocalAssistantProvider.IsAvailable())
-        m_bAssistantProviderRegistered =
-            m_pAssistantService->RegisterProvider(&m_oLocalAssistantProvider) != FALSE;
-}
-
-void CAutomationSalamatrixBridge::UnregisterAssistantProvider()
-{
-    if (m_pAssistantService != NULL && m_bAssistantProviderRegistered)
-        m_pAssistantService->UnregisterProvider(&m_oLocalAssistantProvider);
-    m_bAssistantProviderRegistered = false;
-}
-
-void* CAutomationSalamatrixBridge::QueryService(
-    CSalamanderGeneralAbstract* salamander,
-    const char* serviceName,
-    DWORD minVersion,
-    DWORD* actualVersion)
-{
-    if (actualVersion != NULL)
-    {
-        *actualVersion = 0;
-    }
-
-    if (salamander == NULL || serviceName == NULL)
-    {
+    if (salamander == NULL ||
+        salamander->GetVersion() < LAST_VERSION_OF_SALAMANDER)
         return NULL;
-    }
-
+    SalamanderGeneral = salamander->GetSalamanderGeneral();
+    if (SalamanderGeneral == NULL)
+        return NULL;
+    salamander->SetBasicPluginData(
+        "PHP Runtime",
+        FUNCTION_AUTOMATIONFRAMEWORK,
+        VERSINFO_VERSION_NO_PLATFORM,
+        VERSINFO_COPYRIGHT,
+        VERSINFO_DESCRIPTION,
+        "PHP.RUNTIME",
+        NULL,
+        NULL);
     CSalamanderServiceQuery query;
+    CSalamanderServiceResult serviceResult;
     memset(&query, 0, sizeof(query));
-    query.ServiceId = serviceName;
-    query.MinimumVersion = minVersion;
-
-    CSalamanderServiceResult result;
-    memset(&result, 0, sizeof(result));
-
-    if (!salamander->QueryService(&query, &result))
-    {
+    memset(&serviceResult, 0, sizeof(serviceResult));
+    query.ServiceId = Salamatrix::Runtime::SALAMATRIX_SERVICE_RUNTIME;
+    query.MinimumVersion = Salamatrix::Runtime::SALAMATRIX_RUNTIME_VERSION_1_0;
+    if (!SalamanderGeneral->QueryService(&query, &serviceResult) ||
+        serviceResult.Interface == NULL)
         return NULL;
-    }
-
-    if (actualVersion != NULL)
-    {
-        *actualVersion = result.Version;
-    }
-
-    return result.Interface;
+    Salamatrix::Runtime::IRuntimeService* runtime =
+        static_cast<Salamatrix::Runtime::IRuntimeService*>(
+            serviceResult.Interface);
+    if (runtime->FindAdapter("PHP.CLI", 0) != NULL)
+        return NULL;
+    if (!PHPRegistration.Register(runtime, &PHPRuntime))
+        return NULL;
+    return &PluginInterface;
 }
 
-void CAutomationSalamatrixBridge::Refresh(CSalamanderGeneralAbstract* salamander)
+void WINAPI CPluginInterface::About(HWND parent)
 {
-    Reset();
-    m_bQueried = true;
-    m_pGeneral = salamander;
-
-    m_pScriptRoot = static_cast<Salamatrix::Automation::ScriptRootAdapter*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_AUTOMATION_ADAPTER,
-                     SALAMATRIX_AUTOMATION_VERSION_1_0, &m_dwAutomationVersion));
-
-    m_pUIService = static_cast<Salamatrix::UI::IUIService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_UI,
-                     SALAMATRIX_UI_VERSION_1_0, &m_dwUIVersion));
-
-    m_pCommandService = static_cast<Salamatrix::Commands::ICommandService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_COMMANDS,
-                     SALAMATRIX_COMMANDS_VERSION_1_0, &m_dwCommandsVersion));
-
-    m_pFileOperationsService = static_cast<Salamatrix::FileOperations::IFileOperationsService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_FILEOPERATIONS,
-                     SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &m_dwFileOperationsVersion));
-
-    m_pRuntimeService = static_cast<Salamatrix::Runtime::IRuntimeService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_RUNTIME,
-                     SALAMATRIX_RUNTIME_VERSION_1_0, &m_dwRuntimeVersion));
-
-    m_pSidesService = static_cast<Salamatrix::Sides::ISidesService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_SIDES,
-                     SALAMATRIX_SIDES_VERSION_1_0, &m_dwSidesVersion));
-
-    m_pEventsService = static_cast<Salamatrix::Events::IEventsService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_EVENTS,
-                     SALAMATRIX_EVENTS_VERSION_1_0, &m_dwEventsVersion));
-
-    m_pExtensionsService = static_cast<Salamatrix::Extensions::IExtensionsService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_EXTENSIONS,
-                     SALAMATRIX_EXTENSIONS_VERSION_1_0, &m_dwExtensionsVersion));
-
-    m_pStorageService = static_cast<Salamatrix::Storage::IStorageService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_STORAGE,
-                     SALAMATRIX_STORAGE_VERSION_1_0, &m_dwStorageVersion));
-    m_pAssistantService = static_cast<Salamatrix::AI::IAssistantService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_AI,
-                     SALAMATRIX_AI_VERSION_1_0, &m_dwAssistantVersion));
-    RegisterRuntimeAdapters();
-    RegisterAssistantProvider();
+    char text[512];
+    _snprintf_s(text, _countof(text), _TRUNCATE,
+        "PHP Runtime provider\\n\\nRegistered: %s\\nInterpreter available: %s",
+        PHPRegistration.IsRegistered() ? "yes" : "no",
+        PHPRuntime.IsAvailable() ? "yes" : "no");
+    if (SalamanderGeneral != NULL)
+        SalamanderGeneral->SalMessageBox(parent, text, "PHP Runtime",
+                                         MB_OK | MB_ICONINFORMATION);
 }
 
-void CAutomationSalamatrixBridge::GetStatusText(PTSTR buffer, int cchBuffer) const
+BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
 {
-    if (buffer == NULL || cchBuffer <= 0)
-    {
-        return;
-    }
-
-    if (!m_bQueried)
-    {
-        StringCchCopy(buffer, cchBuffer, TEXT("not queried yet"));
-        return;
-    }
-
-    if (!IsAvailable())
-    {
-        StringCchCopy(buffer, cchBuffer, TEXT("not available (install/load Salamatrix Framework)"));
-        return;
-    }
-
-    StringCchPrintf(buffer, cchBuffer,
-                    TEXT("available (UI: %s, Commands: %s, FileOperations: %s, Sides: %s, Events: %s, Extensions: %s, Storage: %s, AI: %s, Runtime broker: %s, adapters: %d)"),
-                    HasUI() ? TEXT("yes") : TEXT("no"),
-                    HasCommands() ? TEXT("yes") : TEXT("no"),
-                    HasFileOperations() ? TEXT("yes") : TEXT("no"),
-                    HasSides() ? TEXT("yes") : TEXT("no"),
-                    HasEvents() ? TEXT("yes") : TEXT("no"),
-                    HasExtensions() ? TEXT("yes") : TEXT("no"),
-                    HasStorage() ? TEXT("yes") : TEXT("no"),
-                    HasAssistant() ? TEXT("yes") : TEXT("no"),
-                    HasRuntimeBroker() ? TEXT("yes") : TEXT("no"),
-                    HasRuntimeBroker() ? m_pRuntimeService->GetAdapterCount() : 0);
+    PHPRegistration.Unregister();
+    SalamanderGeneral = NULL;
+    return TRUE;
 }
+
+void WINAPI CPluginInterface::LoadConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
+void WINAPI CPluginInterface::SaveConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
+void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*) {}
+void WINAPI CPluginInterface::Event(int, DWORD) {}

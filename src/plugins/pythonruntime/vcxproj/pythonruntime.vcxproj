@@ -22,7 +22,48 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="PropertySheets"><Import Project="pythonruntime.props" /></ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="pythonruntime.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="pythonruntime.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="pythonruntime.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="pythonruntime.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\arm64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="pythonruntime.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\arm64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="pythonruntime.props" />
+  </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\pythonruntime.cpp" />
     <ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>
@@ -39,7 +80,18 @@
     <None Include="..\pythonruntime.def" />
     <None Include="..\pythonruntime.rc2" />
   </ItemGroup>
-  <ItemGroup><ResourceCompile Include="..\pythonruntime.rc" /></ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\pythonruntime.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeBootstrap Include="..\runtime\salamatrix_worker.py" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyPythonRuntimeWorkerBootstrap" AfterTargets="Build">
+    <MakeDir Directories="$(OutDir)runtime" />
+    <Copy SourceFiles="@(RuntimeBootstrap)"
+          DestinationFiles="@(RuntimeBootstrap->'$(OutDir)runtime\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
   <ImportGroup Label="ExtensionTargets" />
 </Project>
