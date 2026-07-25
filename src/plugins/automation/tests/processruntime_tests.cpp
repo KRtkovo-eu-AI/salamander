@@ -339,6 +339,51 @@ void RunPowerShellTest()
     DeleteFileW(&script[0]);
 }
 
+void RunPythonOneShotBootstrapTest()
+{
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(
+            L"python.exe", &interpreter[0], static_cast<int>(interpreter.size())))
+        return;
+    SetEnvironmentVariableW(L"SALAMATRIX_PYTHON", &interpreter[0]);
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L"-oneshot.py", &script[0], static_cast<int>(script.size()));
+    Check(WriteScript(
+              &script[0],
+              "if Salamander.commands.execute('Copy') != 'ok':\n"
+              "    raise RuntimeError('one-shot host call failed')\n"),
+          "write one-shot python worker");
+
+    CAutomationProcessRuntimeAdapter adapter(
+        "Python.CPython", "CPython", "python", ".py",
+        L"SALAMATRIX_PYTHON", L"python.exe", L"python3.exe",
+        CAutomationProcessRuntimeAdapter::ProcessKindPython);
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.EntryPoint = &script[0];
+    request.Flags =
+        Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
+        Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;
+    request.TimeoutMs = 5000;
+    BootstrapDispatchState state;
+    request.HostDispatch = WorkerHostDispatch;
+    request.HostDispatchContext = &state;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    Check(adapter.StartPersistent(&request, &session) != FALSE && session != NULL,
+          "start one-shot python worker");
+    if (session != NULL)
+    {
+        for (int attempt = 0; attempt < 30 && session->IsAlive(); ++attempt)
+            session->Pump(250);
+        DWORD exitCode = 1;
+        Check(session->GetExitCode(&exitCode) != FALSE && exitCode == 0,
+              "one-shot python worker exits successfully");
+        Check(state.CommandCalls == 1, "one-shot worker host call reached host");
+        session->Stop();
+        session->Release();
+    }
+    DeleteFileW(&script[0]);
+}
+
 void RunPythonBootstrapTest()
 {
     std::vector<wchar_t> workerRoot(SAL_MAX_PATH);
@@ -660,6 +705,7 @@ void RunPhpTest()
 int main()
 {
     RunPythonTests();
+    RunPythonOneShotBootstrapTest();
     RunPythonBootstrapTest();
     RunPowerShellBootstrapTest();
     RunPhpBootstrapTest();

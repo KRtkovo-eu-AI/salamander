@@ -42,7 +42,7 @@ public:
         const char result[] =
             "{\"title\":\"Test\",\"description\":\"Test script\","
             "\"capabilities\":[],\"estimatedEffects\":{},"
-            "\"script\":\"pass\"}";
+            "\"script\":\"pass\",\"runtime\":\"Python.CPython\"}";
         memcpy(response->ResponseJson, result, sizeof(result));
         response->OutputLength = sizeof(result) - 1;
         response->Status = Salamatrix::AI::AssistantStatusSucceeded;
@@ -150,6 +150,12 @@ void TestAssistantService()
               response.Status == Salamatrix::AI::AssistantStatusSucceeded &&
               response.OutputLength != 0,
           "generate through default assistant provider");
+    std::string runtime;
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            response.ResponseJson, "runtime", &runtime) != FALSE &&
+            runtime == "Python.CPython",
+        "assistant output carries optional runtime hint");
     Check(Salamatrix::AI::IsSafeToRun(response.Summary) != FALSE,
           "read-only assistant output passes safety gate");
     response.Summary.EffectFlags |= Salamatrix::AI::AssistantEffectNetwork;
@@ -157,6 +163,8 @@ void TestAssistantService()
           "network assistant output is blocked by safety gate");
     Check(strstr(service.GetApiDescription(), "Salamander.ai") != NULL,
           "assistant API description advertises AI object");
+    Check(strstr(service.GetApiDescription(), "optional") != NULL,
+          "assistant API description advertises optional runtime output");
 }
 
 void TestCommandCatalog()

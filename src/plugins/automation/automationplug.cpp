@@ -169,6 +169,215 @@ static BOOL SaveAssistantScript(
     return result;
 }
 
+struct AssistantTemporaryScript
+{
+    std::wstring Directory;
+    std::wstring ScriptPath;
+
+    void Cleanup()
+    {
+        if (!ScriptPath.empty())
+            DeleteFileW(ScriptPath.c_str());
+        if (!Directory.empty())
+            RemoveDirectoryW(Directory.c_str());
+        ScriptPath.clear();
+        Directory.clear();
+    }
+};
+
+static std::wstring AssistantWin32Path(const std::wstring& value)
+{
+    if (value.size() < MAX_PATH || value.compare(0, 4, L"\\\\?\\") == 0)
+        return value;
+    if (value.size() >= 2 && value[0] == L'\\' && value[1] == L'\\')
+        return L"\\\\?\\UNC\\" + value.substr(2);
+    return L"\\\\?\\" + value;
+}
+
+static BOOL WriteAssistantUtf8File(
+    const std::wstring& path,
+    const char* text)
+{
+    if (text == NULL)
+        return FALSE;
+    std::wstring win32Path = AssistantWin32Path(path);
+    HANDLE file = CreateFileW(
+        win32Path.c_str(),
+        GENERIC_WRITE,
+        0,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_TEMPORARY,
+        NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    const size_t length = strlen(text);
+    BOOL result = length <= MAXDWORD;
+    DWORD written = 0;
+    if (result)
+        result = WriteFile(
+            file,
+            text,
+            static_cast<DWORD>(length),
+            &written,
+            NULL) &&
+            written == static_cast<DWORD>(length);
+    CloseHandle(file);
+    return result;
+}
+
+static BOOL CreateAssistantTemporaryScript(
+    const char* script,
+    const char* extension,
+    AssistantTemporaryScript& temporary)
+{
+    temporary.Cleanup();
+    if (script == NULL || extension == NULL || extension[0] != '.')
+        return FALSE;
+
+    std::vector<wchar_t> tempRoot(SAL_MAX_PATH);
+    DWORD rootLength = GetTempPathW(
+        static_cast<DWORD>(tempRoot.size()), &tempRoot[0]);
+    if (rootLength == 0 || rootLength >= tempRoot.size())
+        return FALSE;
+
+    std::vector<wchar_t> uniquePath(SAL_MAX_PATH);
+    if (GetTempFileNameW(
+            &tempRoot[0], L"smx", 0,
+            &uniquePath[0], static_cast<UINT>(uniquePath.size())) == 0)
+        return FALSE;
+    DeleteFileW(&uniquePath[0]);
+    if (!CreateDirectoryW(&uniquePath[0], NULL))
+        return FALSE;
+
+    temporary.Directory.assign(&uniquePath[0]);
+    temporary.ScriptPath = temporary.Directory + L"\\generated";
+    int extensionLength = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, extension, -1, NULL, 0);
+    if (extensionLength <= 0)
+    {
+        temporary.Cleanup();
+        return FALSE;
+    }
+    std::vector<wchar_t> extensionWide(static_cast<size_t>(extensionLength));
+    if (MultiByteToWideChar(
+            CP_UTF8, MB_ERR_INVALID_CHARS, extension, -1,
+            &extensionWide[0], extensionLength) <= 0)
+    {
+        temporary.Cleanup();
+        return FALSE;
+    }
+    temporary.ScriptPath.append(&extensionWide[0]);
+    if (!WriteAssistantUtf8File(temporary.ScriptPath, script))
+    {
+        temporary.Cleanup();
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL GetAssistantRuntimeExtension(
+    const Salamatrix::Runtime::IRuntimeAdapter* adapter,
+    std::string& extension)
+{
+    extension.clear();
+    if (adapter == NULL || adapter->GetDescriptor() == NULL ||
+        adapter->GetDescriptor()->FileExtensions == NULL)
+        return FALSE;
+    const char* value = adapter->GetDescriptor()->FileExtensions;
+    const char* end = strchr(value, ';');
+    extension.assign(value, end != NULL ? end - value : strlen(value));
+    return extension.size() >= 2 && extension[0] == '.';
+}
+
+static BOOL RunAssistantScript(
+    CAutomationSalamatrixBridge* bridge,
+    const char* runtimeId,
+    const char* script,
+    HWND parent)
+{
+    if (bridge == NULL || runtimeId == NULL || runtimeId[0] == '\0' ||
+        script == NULL)
+        return FALSE;
+    Salamatrix::Runtime::IRuntimeService* runtime =
+        bridge->GetRuntimeService();
+    Salamatrix::Runtime::IRuntimeAdapter* adapter =
+        runtime != NULL ? runtime->FindAdapter(runtimeId, 0) : NULL;
+    if (adapter == NULL || !adapter->IsAvailable())
+        return FALSE;
+
+    std::string extension;
+    if (!GetAssistantRuntimeExtension(adapter, extension))
+        return FALSE;
+    AssistantTemporaryScript temporary;
+    if (!CreateAssistantTemporaryScript(script, extension.c_str(), temporary))
+        return FALSE;
+
+#ifdef UNICODE
+    CScriptInfo hostScript(temporary.ScriptPath.c_str(), NULL);
+#else
+    int nativeLength = WideCharToMultiByte(
+        CP_ACP, 0, temporary.ScriptPath.c_str(), -1, NULL, 0, NULL, NULL);
+    if (nativeLength <= 0)
+    {
+        temporary.Cleanup();
+        return FALSE;
+    }
+    std::vector<TCHAR> nativePath(static_cast<size_t>(nativeLength));
+    if (WideCharToMultiByte(
+            CP_ACP, 0, temporary.ScriptPath.c_str(), -1,
+            &nativePath[0], nativeLength, NULL, NULL) <= 0)
+    {
+        temporary.Cleanup();
+        return FALSE;
+    }
+    CScriptInfo hostScript(&nativePath[0], NULL);
+#endif
+
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.ExtensionId = "org.opensalamander.ai.generated";
+    request.CommandId = "run";
+    request.EntryPoint = temporary.ScriptPath.c_str();
+    request.ParentWindow = parent;
+    request.TimeoutMs = 120000;
+    request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
+                    Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;
+    request.CompatibilityExecute =
+        CScriptInfo::DispatchCompatibilityRuntimeForScript;
+    request.CompatibilityContext = &hostScript;
+    request.HostDispatch = CScriptInfo::DispatchRuntimeHostCall;
+    request.HostDispatchContext = &hostScript;
+
+    BOOL executed = FALSE;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    if (adapter->StartPersistent(&request, &session) && session != NULL)
+    {
+        const ULONGLONG startedAt = GetTickCount64();
+        while (session->IsAlive())
+        {
+            if (GetTickCount64() - startedAt >= request.TimeoutMs)
+                break;
+            session->Pump(250);
+        }
+        DWORD exitCode = 1;
+        executed = session->GetExitCode(&exitCode) && exitCode == 0;
+        if (session->IsAlive())
+            session->Stop();
+        session->Release();
+    }
+    else if (adapter->GetDescriptor() != NULL &&
+             adapter->GetDescriptor()->RuntimeId != NULL &&
+             _strnicmp(adapter->GetDescriptor()->RuntimeId,
+                       "Automation.", 10) == 0)
+    {
+        request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagNone;
+        Salamatrix::Runtime::RuntimeExecutionResult result;
+        executed = adapter->Execute(&request, &result);
+    }
+    temporary.Cleanup();
+    return executed;
+}
+
 static const TCHAR CONFIG_VERSION[] = TEXT("Version");
 static const UINT CURRENT_CONFIG_VERSION = 1;
 static const TCHAR CONFIG_ENABLEDEBUGGER[] = TEXT("EnableDebugger");
@@ -252,6 +461,10 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
         request.ContextJson = context.c_str();
         Salamatrix::AI::AssistantResponse response;
         BOOL generated = assistant->Generate(NULL, &request, &response);
+        std::string generatedRuntime;
+        if (generated && response.ResponseJson[0] != '\0')
+            Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                response.ResponseJson, "runtime", &generatedRuntime);
         if (!generated)
         {
             ui->ShowMessageBox(
@@ -269,6 +482,10 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
             summary += LoadAssistantString(IDS_AIEFFECTSREADONLY);
         else
             summary += LoadAssistantString(IDS_AIEFFECTSREVIEW);
+        if (generatedRuntime.empty())
+        {
+            summary += "\n\n" + LoadAssistantString(IDS_AIRUNTIME);
+        }
         const std::string previewTitle =
             LoadAssistantString(IDS_AIPREVIEWTITLE);
         const std::string saveQuestion =
@@ -282,6 +499,33 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
             summary.c_str(),
             previewTitle.c_str(),
             MB_OK | MB_ICONINFORMATION);
+        if (!generatedRuntime.empty() &&
+            Salamatrix::AI::IsSafeToRun(response.Summary))
+        {
+            const std::string runQuestion =
+                LoadAssistantString(IDS_AIRUNQUESTION);
+            int runChoice = ui->ShowMessageBox(
+                parent,
+                runQuestion.c_str(),
+                aiTitle.c_str(),
+                MB_YESNO | MB_ICONQUESTION);
+            if (runChoice == IDYES)
+            {
+                const BOOL ran = RunAssistantScript(
+                    bridge,
+                    generatedRuntime.c_str(),
+                    response.Summary.Script,
+                    parent);
+                const std::string runMessage = LoadAssistantString(
+                    ran ? IDS_AIRUNSUCCEEDED : IDS_AIRUNFAILED);
+                ui->ShowMessageBox(
+                    parent,
+                    runMessage.c_str(),
+                    aiTitle.c_str(),
+                    ran ? (MB_OK | MB_ICONINFORMATION)
+                        : (MB_OK | MB_ICONWARNING));
+            }
+        }
         int saveChoice = ui->ShowMessageBox(
             parent,
             saveQuestion.c_str(),

@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "salamatrix_automation.h"
 #include "salamatrix_ai.h"
 #include "salamatrix_events.h"
@@ -188,7 +190,69 @@ public:
 
 class LocalUIService : public UI::IUIService
 {
+private:
+    CSalamanderGeneralAbstract* General;
+
+    static BOOL Utf8ToWide(
+        const char* value,
+        std::wstring& result)
+    {
+        result.clear();
+        const char* safeValue = value != NULL ? value : "";
+        int length = MultiByteToWideChar(
+            CP_UTF8, MB_ERR_INVALID_CHARS, safeValue, -1, NULL, 0);
+        if (length <= 0)
+            return FALSE;
+        result.resize(static_cast<size_t>(length));
+        return MultiByteToWideChar(
+                   CP_UTF8, MB_ERR_INVALID_CHARS, safeValue, -1,
+                   &result[0], length) > 0;
+    }
+
+    static BOOL WideToUtf8(
+        const wchar_t* value,
+        char* result,
+        DWORD resultCapacity)
+    {
+        if (value == NULL || result == NULL || resultCapacity == 0)
+            return FALSE;
+        int length = WideCharToMultiByte(
+            CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, NULL, 0, NULL, NULL);
+        if (length <= 0 || static_cast<DWORD>(length) > resultCapacity)
+            return FALSE;
+        return WideCharToMultiByte(
+                   CP_UTF8, WC_ERR_INVALID_CHARS, value, -1,
+                   result, static_cast<int>(resultCapacity), NULL, NULL) > 0;
+    }
+
+    static BOOL BuildFilter(
+        const char* filter,
+        std::vector<wchar_t>& result)
+    {
+        const char* source = filter != NULL && filter[0] != '\0'
+                                 ? filter
+                                 : "All files (*.*)|*.*";
+        std::wstring wide;
+        if (!Utf8ToWide(source, wide))
+            return FALSE;
+        for (size_t index = 0; index < wide.size(); ++index)
+        {
+            if (wide[index] == L'|')
+                wide[index] = L'\0';
+        }
+        if (wide.empty() || wide[wide.size() - 1] != L'\0')
+            wide.push_back(L'\0');
+        wide.push_back(L'\0');
+        result.assign(wide.begin(), wide.end());
+        return TRUE;
+    }
+
 public:
+    explicit LocalUIService(CSalamanderGeneralAbstract* general = NULL)
+        : General(general)
+    {
+    }
+
     virtual DWORD WINAPI GetVersion() const
     {
         return SALAMATRIX_UI_VERSION_1_0;
@@ -224,6 +288,56 @@ public:
                    ? General->CopyTextToClipboard(
                          text, -1, showEcho, echoParent)
                    : FALSE;
+    }
+
+    virtual BOOL WINAPI PickFile(
+        HWND parent,
+        BOOL save,
+        const char* title,
+        const char* filter,
+        const char* initialPath,
+        char* result,
+        DWORD resultCapacity)
+    {
+        if (result == NULL || resultCapacity == 0)
+            return FALSE;
+        result[0] = '\0';
+
+        std::wstring titleWide;
+        std::wstring initialWide;
+        std::vector<wchar_t> filterWide;
+        if (!Utf8ToWide(title != NULL ? title : "Salamander", titleWide) ||
+            !Utf8ToWide(initialPath != NULL ? initialPath : "", initialWide) ||
+            !BuildFilter(filter, filterWide))
+            return FALSE;
+
+        std::vector<wchar_t> path(SAL_MAX_PATH);
+        if (!initialWide.empty())
+        {
+            if (initialWide.size() >= path.size())
+                return FALSE;
+            memcpy(&path[0], initialWide.c_str(),
+                   initialWide.size() * sizeof(wchar_t));
+            path[initialWide.size()] = L'\0';
+        }
+
+        OPENFILENAMEW dialog;
+        memset(&dialog, 0, sizeof(dialog));
+        dialog.lStructSize = sizeof(dialog);
+        dialog.hwndOwner = parent;
+        dialog.lpstrFilter = &filterWide[0];
+        dialog.lpstrFile = &path[0];
+        dialog.nMaxFile = static_cast<DWORD>(path.size());
+        dialog.lpstrTitle = titleWide.c_str();
+        dialog.Flags = OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
+        if (save)
+            dialog.Flags |= OFN_OVERWRITEPROMPT;
+
+        BOOL selected = save ? GetSaveFileNameW(&dialog)
+                             : GetOpenFileNameW(&dialog);
+        if (!selected)
+            return FALSE;
+        return WideToUtf8(&path[0], result, resultCapacity);
     }
 
     virtual UI::IDialog* WINAPI CreateDialog(const UI::DialogOptions& options)
@@ -432,7 +546,7 @@ private:
 
 public:
     explicit RuntimeServices(CSalamanderGeneralAbstract* general, BOOL registerHostServices = TRUE)
-        : UIService(),
+        : UIService(general),
           CommandService(general),
           FileOperationsService(&CommandService),
           ScriptRoot(&UIService, &CommandService, &FileOperationsService),

@@ -40,8 +40,9 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 
 - Automation advertises and executes available legacy Active Scripting engines
   through the broker. Modern adapters, dependency environments, cancellation
-  transport, persistent runtime lifecycle, and the first host-call binding are
-  now present; worker bootstrap, UI/event bindings, and richer values remain.
+  transport, persistent runtime lifecycle, worker bootstrap, and the first
+  host-call/UI bindings are now present; richer values and long-lived event
+  queues remain.
 - JavaScript is legacy Windows JScript through `IActiveScript`, not a modern
   bundled JavaScript runtime. Python, PHP, Lua, and Ruby still depend on old
   third-party Active Scripting engines unless the new CPython/PHP CLI adapters
@@ -50,8 +51,9 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 - The first modern side/tab model is exposed through the native SDK,
   Salamatrix, and Automation without raw core pointers. Item collections, view
   settings, refresh, tab creation/closing, and change events are still missing.
-- Scripted extensions are still executed as one-shot Automation scripts. They
-  cannot remain alive, subscribe to events, or register commands dynamically.
+- Modern manifest-backed scripts can run through the shared worker bootstrap and
+  persistent extensions can subscribe/register dynamically; one-shot scripts
+  still cannot remain alive after their execution ends.
 - The strict schema-1 manifest parser validates package/runtime identity,
   minimum runtime version, safe entry points, capabilities, and multiple command
   records. Dependencies, icons, localization, settings/storage declarations,
@@ -93,7 +95,7 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | PHP runtime | Process MVP | Legacy PHPScript remains; `PHP.CLI` discovers `php.exe` or `SALAMATRIX_PHP`, runs `.php` entries out of process, and ships the same SMX1 worker bootstrap/API shape including multiple command registration. | Richer UI/value bindings, dependency policy, and support decision/bundled runtime. |
 | Extension management | Partial | Plugin Manager supports sources and the Extension Runtimes catalog; `Salamatrix.Extensions` tracks manifest descriptors and lifecycle state. | Scripted-extension package type, installed-state model, enable/disable/configure/remove, dependency prompts, runtime status. |
 | Permissions/capabilities | Missing | `requires` only controls whether a menu command is enabled in the current panel context. | Declared/granted capabilities, effect preview, runtime enforcement boundaries, network/process/filesystem policies, audit trail. |
-| AI automation assistant | Partial | `Salamatrix.AI` exposes provider registration, structured generation validation, parsed effect flags, runtime/existing-script hints, and a safe `generate`/`preview` worker seam; Automation supplies an optional bounded local command provider selected by `SALAMATRIX_AI_COMMAND` plus an Ask-AI menu action that gathers source-panel context, shows a preview summary, copies the script for review, and offers an explicit Save As file picker. Preview marks destructive/external/network effects as not directly runnable. | Repair loop, direct runtime Run, save-as-extension packaging, bundled llama.cpp inference, and optional remote providers. |
+| AI automation assistant | Partial | `Salamatrix.AI` exposes provider registration, structured generation validation, parsed effect flags, runtime/existing-script hints, and a safe `generate`/`preview` worker seam; Automation supplies an optional bounded local command provider selected by `SALAMATRIX_AI_COMMAND` plus an Ask-AI menu action that gathers source-panel context, shows a preview summary, copies the script for review, offers an explicit Run when the response names a safe runtime, and offers Save As. | Repair/conversation loop, save-as-extension packaging, bundled llama.cpp inference, and optional remote providers. |
 | Testing | Initial | Standalone `/W4 /WX` tests cover the strict manifest parser, Storage persistence, Events subscribe/publish/self-unsubscribe/capacity/payload validation, Extensions registration/lifecycle/ownership, runtime raw-JSON context and AI service contracts, and an integration test for Python/PowerShell/PHP process execution, output capture, and timeout. Worker syntax checks cover Python, PowerShell, and PHP. | Core registry and runtime contract tests, native UI tests, extension fixtures, lifecycle/unload tests, and end-to-end Salamander API adapter tests. |
 
 ## Existing implementation evidence

@@ -185,14 +185,16 @@ The process adapter uses a non-shell `CreateProcessW` invocation, passes the
 entry point as a quoted file argument, drains a combined stdout/stderr pipe,
 limits captured output to 1 MiB, terminates timed-out children, and returns the
 exit code. This makes Python/PowerShell/PHP real selectable runtimes today;
-they intentionally do not yet expose Salamander objects to the child process.
+the shared worker bootstrap exposes the common Salamander object model to the
+modern process adapters.
 The persistent session seam is now present, and manifest activation starts a
 bounded host pump thread so worker stdout is processed during normal plugin
 operation. The Automation host dispatcher also
 handles the first language-neutral calls (`runtime.ready`, command execution,
 active-tab snapshots, string storage, event subscribe/unsubscribe, and a
 message-box dialog) without sharing native pointers. Richer UI/value bindings
-and a worker bootstrap/library remain to be added on top of this boundary.
+and queued long-lived worker lifecycle rules remain to be added on top of this
+boundary.
 
 The first worker-transport slice is declared in
 `src/plugins/salamatrix/salamatrix_runtime_protocol.h`. It provides a bounded,
@@ -201,8 +203,8 @@ incremental `SMX1` line codec with typed message kinds (`hello`, `ready`, `call`
 payloads. The codec rejects embedded newlines, malformed ids, and frames over
 1 MiB, and is intentionally independent of any language's JSON library. The
 Automation bridge now answers the first host calls through this transport;
-the remaining work is a worker bootstrap/library plus UI, event, and richer
-value bindings.
+modern process adapters share the standard worker bootstrap; richer value
+bindings, queued callbacks, and unload-safe leases remain.
 
 Process adapters can now opt into the common worker bootstrap with
 `RuntimeExecutionFlagUseWorkerBootstrap`. Automation ships standard-library
@@ -706,12 +708,13 @@ The shared service validates the structured assistant contract (`title`,
 `description`, `capabilities`, `estimatedEffects`, and `script`) and exposes
 the parsed effect flags to callers. Workers expose both `ai.generate(...)` and
 `ai.preview(...)`; preview adds a conservative `canRun` safety result (shared
-by native clients through `Salamatrix::AI::IsSafeToRun`) and never executes the
-returned script. Automation now includes an Ask-AI menu action that gathers
+by native clients through `Salamatrix::AI::IsSafeToRun`). Automation now
+includes an Ask-AI menu action that gathers
 source-panel context, shows a native preview summary, copies the generated
-script for explicit review, and offers an explicit Save As file picker; it
-never executes the script automatically. Runtime Run and save-as-extension
-packaging remain follow-up work; no llama.cpp binary or
+script for explicit review, offers an explicit Run only after user
+confirmation when the response names an available runtime, and offers an
+explicit Save As file picker. Save-as-extension packaging remains follow-up
+work; no llama.cpp binary or
 model is bundled yet. Both calls accept an optional runtime
 hint and existing script, so a configured local model can target Python,
 PowerShell, PHP, or another registered adapter and repair an existing script

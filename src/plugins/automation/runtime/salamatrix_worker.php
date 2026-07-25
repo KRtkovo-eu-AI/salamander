@@ -86,6 +86,7 @@ class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }
     public function messageBox($message, $title = 'Salamander') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title)); return isset($r['result']) ? $r['result'] : 0; }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
+    public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }
     public function dialog($title = 'Salamander') { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
 }
 class SalamatrixClipboard {
@@ -144,7 +145,11 @@ class SalamatrixEvents {
 }
 
 $entry = null;
-for ($i = 1; $i < count($argv); ++$i) if ($argv[$i] === '--entry' && isset($argv[$i + 1])) $entry = $argv[++$i];
+$oneShot = false;
+for ($i = 1; $i < count($argv); ++$i) {
+    if ($argv[$i] === '--entry' && isset($argv[$i + 1])) $entry = $argv[++$i];
+    elseif ($argv[$i] === '--one-shot') $oneShot = true;
+}
 if ($entry === null) throw new RuntimeException('Missing --entry');
 $client = new SalamatrixClient();
 smx_send('hello', 0, array('protocol' => 1, 'runtime' => 'php'));
@@ -165,6 +170,8 @@ $Salamander->clipboard = new SalamatrixClipboard($client);
 $Salamander->ai = new SalamatrixAi($client);
 $Salamander->events = new SalamatrixEvents($client);
 include $entry;
+
+if ($oneShot) exit(0);
 
 while (true) {
     $frame = smx_read();

@@ -70,7 +70,10 @@ namespace Salamatrix
             /// Ask a process adapter to start its common Salamatrix worker
             /// bootstrap before loading EntryPoint. Raw persistent sessions
             /// may omit this bit for transport-level tests.
-            RuntimeExecutionFlagUseWorkerBootstrap = 0x00000002
+            RuntimeExecutionFlagUseWorkerBootstrap = 0x00000002,
+            /// The worker exits after the entry point returns instead of
+            /// waiting for long-lived event callbacks.
+            RuntimeExecutionFlagOneShotWorker = 0x00000004
         };
 
         struct RuntimeExecutionResult
@@ -163,6 +166,15 @@ namespace Salamatrix
             virtual BOOL WINAPI Pump(DWORD timeoutMs) = 0;
             virtual void WINAPI Stop() = 0;
             virtual void WINAPI Release() = 0;
+
+            /// Optional exit-code query for bounded one-shot workers.
+            /// Older session providers may keep the default FALSE result.
+            virtual BOOL WINAPI GetExitCode(DWORD* exitCode) const
+            {
+                if (exitCode != NULL)
+                    *exitCode = 0;
+                return FALSE;
+            }
 
         protected:
             virtual ~IRuntimeSession() {}

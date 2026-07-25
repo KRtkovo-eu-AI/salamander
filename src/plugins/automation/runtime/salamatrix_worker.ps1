@@ -4,7 +4,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$EntryPoint
+    [string]$EntryPoint,
+    [switch]$OneShot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -121,6 +122,10 @@ $ui | Add-Member ScriptMethod InputBox {
     param([string]$Prompt, [string]$Title = 'Salamander', [string]$Initial = '')
     Invoke-Host -Method 'salamander.ui.inputBox' -Arguments @{ prompt = $Prompt; title = $Title; initial = $Initial }
 }
+$ui | Add-Member ScriptMethod PickFile {
+    param([bool]$Save = $false, [string]$Title = '', [string]$Filter = '', [string]$Initial = '')
+    Invoke-Host -Method 'salamander.ui.pickFile' -Arguments @{ save = $Save; title = $Title; filter = $Filter; initial = $Initial }
+}
 $ui | Add-Member ScriptMethod Dialog {
     param([string]$Title = 'Salamander')
     $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title }
@@ -193,6 +198,7 @@ $Salamander = [pscustomobject]@{
 }
 
 & $EntryPoint
+if ($OneShot) { exit 0 }
 while ($true) {
     $frame = Read-Frame
     if ($frame.Kind -eq 'event') { Invoke-Event $frame.Payload; continue }

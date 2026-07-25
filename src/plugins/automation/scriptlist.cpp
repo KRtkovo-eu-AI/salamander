@@ -840,14 +840,51 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     request.CommandId = m_szSalamatrixCommandId;
     request.EntryPoint = &entryPointWide[0];
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
-    request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
+    request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
+                    Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;
     request.HostDispatch = CScriptInfo::RuntimeHostDispatch;
     request.HostDispatchContext = this;
     request.CompatibilityExecute = ExecuteCompatibilityRuntime;
     request.CompatibilityContext = &compatibilityContext;
 
     Salamatrix::Runtime::RuntimeExecutionResult result;
-    BOOL executed = adapter->Execute(&request, &result);
+    BOOL executed = FALSE;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    if (adapter->StartPersistent(&request, &session) && session != NULL)
+    {
+        const ULONGLONG startedAt = GetTickCount64();
+        while (session->IsAlive())
+        {
+            if (GetTickCount64() - startedAt >= request.TimeoutMs)
+                break;
+            session->Pump(250);
+        }
+        DWORD exitCode = 1;
+        executed = session->GetExitCode(&exitCode) && exitCode == 0;
+        result.ExitCode = exitCode;
+        result.Status = executed
+                            ? Salamatrix::Runtime::RuntimeExecutionStatusSucceeded
+                            : Salamatrix::Runtime::RuntimeExecutionStatusFailed;
+        result.ErrorCode = executed ? S_OK : E_FAIL;
+        if (session->IsAlive())
+            session->Stop();
+        session->Release();
+    }
+    else if (m_szSalamatrixRuntimeId[0] != '\0' &&
+             _strnicmp(m_szSalamatrixRuntimeId, "Automation.", 10) == 0)
+    {
+        request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagNone;
+        executed = adapter->Execute(&request, &result);
+    }
+    else
+    {
+        result.Status = Salamatrix::Runtime::RuntimeExecutionStatusFailed;
+        result.ErrorCode = E_FAIL;
+        StringCchCopyW(
+            result.Message,
+            _countof(result.Message),
+            L"The runtime worker could not be started.");
+    }
     if (!executed &&
         result.Status != Salamatrix::Runtime::RuntimeExecutionStatusCancelled &&
         result.Message[0] != L'\0')
@@ -1212,6 +1249,45 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             std::string("{\"ok\":true,\"accepted\":") +
             (accepted ? "true" : "false") +
             ",\"value\":\"" + JsonEscapeRuntimeText(value) + "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.ui.pickFile")
+    {
+        BOOL save = FALSE;
+        std::string title;
+        std::string filter;
+        std::string initialPath;
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "save", &save);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "title", &title);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "filter", &filter);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "initial", &initialPath);
+        if (title.empty())
+            title = save ? "Save file" : "Open file";
+
+        std::vector<char> selectedPath(SAL_MAX_PATH * 3);
+        Salamatrix::UI::IUIService* ui = bridge->GetUIService();
+        if (ui == NULL)
+            return FALSE;
+        BOOL selected = ui->PickFile(
+            SalamanderGeneral->GetMsgBoxParent(),
+            save,
+            title.c_str(),
+            filter.c_str(),
+            initialPath.c_str(),
+            &selectedPath[0],
+            static_cast<DWORD>(selectedPath.size()));
+        std::string response =
+            std::string("{\"ok\":true,\"selected\":") +
+            (selected ? "true" : "false") +
+            ",\"path\":\"" +
+            JsonEscapeRuntimeText(selected ? &selectedPath[0] : "") +
+            "\"}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
     }

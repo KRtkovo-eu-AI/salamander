@@ -279,6 +279,23 @@ public:
         return alive;
     }
 
+    virtual BOOL WINAPI GetExitCode(DWORD* exitCode) const
+    {
+        if (exitCode == NULL)
+            return FALSE;
+        *exitCode = 0;
+        EnterCriticalSection(&m_lock);
+        if (m_hProcess == NULL ||
+            WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT)
+        {
+            LeaveCriticalSection(&m_lock);
+            return FALSE;
+        }
+        BOOL result = GetExitCodeProcess(m_hProcess, exitCode);
+        LeaveCriticalSection(&m_lock);
+        return result;
+    }
+
     virtual BOOL WINAPI SendFrame(const char* bytes, DWORD count)
     {
         if (bytes == NULL || count == 0 ||
@@ -1264,6 +1281,16 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::StartPersistent(
     }
     if (!AppendQuotedArgument(command, request->EntryPoint))
         return FALSE;
+    if ((request->Flags &
+         Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker) != 0 &&
+        (request->Flags &
+         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap) != 0)
+    {
+        if (m_kind == ProcessKindPowerShell)
+            command.append(L" -OneShot");
+        else
+            command.append(L" --one-shot");
+    }
 
     SECURITY_ATTRIBUTES security;
     memset(&security, 0, sizeof(security));

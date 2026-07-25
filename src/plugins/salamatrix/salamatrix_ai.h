@@ -349,12 +349,12 @@ public:
             "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"]},"
             "\"Salamander.storage\":{\"methods\":[\"get\",\"set\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]},"
-            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"dialog\",\"dialog.addTabControl\",\"dialog.addItem\",\"dialog.clearItems\"]},"
+            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"dialog\",\"dialog.addTabControl\",\"dialog.addItem\",\"dialog.clearItems\"]},"
             "\"Salamander.clipboard\":{\"methods\":[\"copyText\"]},"
             "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\"],"
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","
             "\"runtime\",\"existingScript\"]}},"
-            "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"]}}";
+            "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"],\"optional\":[\"runtime\"]}}";
     }
 };
 

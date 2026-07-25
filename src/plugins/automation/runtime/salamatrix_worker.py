@@ -204,6 +204,13 @@ class _UI:
             initial=initial
         )
 
+    def pick_file(self, save: bool = False, title: str = "",
+                  filter: str = "", initial: str = "") -> dict:
+        return self._transport.call(
+            "salamander.ui.pickFile", save=save, title=title,
+            filter=filter, initial=initial
+        )
+
     def dialog(self, title: str = "Salamander") -> "_Dialog":
         result = self._transport.call("salamander.ui.dialog.create", title=title)
         return _Dialog(self._transport, str(result["dialogId"]))
@@ -369,11 +376,14 @@ class _Salamander:
 def main() -> int:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--entry", required=True)
+    parser.add_argument("--one-shot", action="store_true")
     args = parser.parse_args()
     transport = _Transport()
     transport.handshake()
     globals_for_script = {"Salamander": _Salamander(transport)}
     runpy.run_path(args.entry, init_globals=globals_for_script, run_name="__main__")
+    if args.one_shot:
+        return 0
     transport.run_event_loop()
     return 0
 

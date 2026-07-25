@@ -385,6 +385,28 @@ public:
         return FALSE;
     }
 
+    /// Opens a native file picker. `filter` is UTF-8 text in the form
+    /// "Description|pattern|Description|pattern"; an empty filter means
+    /// all files. The selected path is returned as UTF-8.
+    virtual BOOL WINAPI PickFile(
+        HWND parent,
+        BOOL save,
+        const char* title,
+        const char* filter,
+        const char* initialPath,
+        char* result,
+        DWORD resultCapacity)
+    {
+        (void)parent;
+        (void)save;
+        (void)title;
+        (void)filter;
+        (void)initialPath;
+        (void)result;
+        (void)resultCapacity;
+        return FALSE;
+    }
+
 protected:
     virtual ~IUIService() {}
 };

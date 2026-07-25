@@ -229,6 +229,22 @@ public:
         return ExecuteCompatibilityRuntime(context, result);
     }
 
+    static BOOL WINAPI DispatchCompatibilityRuntimeForScript(
+        void* context,
+        Salamatrix::Runtime::RuntimeExecutionResult* result)
+    {
+        CScriptInfo* script = static_cast<CScriptInfo*>(context);
+        if (script == NULL || result == NULL)
+            return FALSE;
+        EXECUTION_INFO info;
+        bool succeeded = script->ExecuteLegacy(info);
+        result->Status = succeeded
+                             ? Salamatrix::Runtime::RuntimeExecutionStatusSucceeded
+                             : Salamatrix::Runtime::RuntimeExecutionStatusFailed;
+        result->ErrorCode = succeeded ? S_OK : E_FAIL;
+        return succeeded ? TRUE : FALSE;
+    }
+
     CScriptInfo(
         PCTSTR pszFileName,
         CScriptContainer* pContainer);
