@@ -12,7 +12,7 @@ COMMENT,"English version"
 [DIALOG 490]
 205,61,1,"Zobrazuječ"
 3000,4,6,199,41,1,"Pozícia okna"
-491,11,17,78,12,1,"&Uložiť pri zatvorení"
+491,11,17,76,12,1,"&Uložiť pri zatvorení"
 492,11,29,156,12,1,"S&et to position of Salamander's window"
 
 [STRINGTABLE 0]

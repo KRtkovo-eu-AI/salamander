@@ -1229,6 +1229,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_BUTTON_W 50   // button width
 #define _TPD_BUTTON_H 14   // button height
 #define _TPD_BUTTON_MARG 4 // button spacing
+#define _TPD_MIN_PAGE_H 245 // tallest Configuration page before the DPI-awareness changes
 
 CTPHCaptionWindow::CTPHCaptionWindow(HWND hDlg, int ctrlID)
     : CWindow(hDlg, ctrlID, ooAllocated)
@@ -1415,12 +1416,15 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD*
     DPILayoutPosted = FALSE;
     UserSizing = FALSE;
     TreeFont = NULL;
+    CaptionFont = NULL;
 }
 
 CTreePropHolderDlg::~CTreePropHolderDlg()
 {
     if (TreeFont != NULL)
         HANDLES(DeleteObject(TreeFont));
+    if (CaptionFont != NULL)
+        HANDLES(DeleteObject(CaptionFont));
 }
 
 INT_PTR
@@ -1511,8 +1515,16 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (WindowTreeWidth != NULL && (int)*WindowTreeWidth > TreeWidth)
             TreeWidth = (int)*WindowTreeWidth;
         MinWindowSize.cx = MinTreeWidth + MinChildWidth + 3 * MarginSize.cx + marginW;
+        // A newly added, unusually tall page may choose the holder's initial
+        // template height, but it must not permanently raise the manual
+        // resizing limit of every tree property dialog. Keep the compact
+        // Configuration minimum used before the DPI-awareness work.
+        RECT minPageRect = {0, 0, 0, _TPD_MIN_PAGE_H};
+        MapDialogRect(HWindow, &minPageRect);
+        int minChildHeight = min(ChildDialogRect.bottom - ChildDialogRect.top,
+                                 minPageRect.bottom);
         MinWindowSize.cy = MarginSize.cy + CaptionHeight + MarginSize.cy +
-                           ChildDialogRect.bottom - ChildDialogRect.top +
+                           minChildHeight +
                            MarginSize.cy + 1 + MarginSize.cy +
                            ButtonSize.cy + MarginSize.cy + marginH;
         CaptureLogicalDpiMetrics();
@@ -1970,25 +1982,47 @@ void CTreePropHolderDlg::UpdateTreeFontAndMetrics()
         return;
 
     // The dialog manager does not reliably replace an already assigned HFONT
-    // for the subclassed caption/tree during a PMv2 transition. Build the
-    // template's 9-point Segoe UI font from the explicit notification DPI.
+    // for the tree during a PMv2 transition. Build the dynamic template's
+    // 8-point MS Shell Dlg 2 font from the explicit notification DPI.
     LOGFONT lf;
     ZeroMemory(&lf, sizeof(lf));
-    lf.lfHeight = -MulDiv(9, CurrentDPI, 72);
+    lf.lfHeight = -MulDiv(8, CurrentDPI, 72);
     lf.lfWeight = FW_NORMAL;
     lf.lfCharSet = ANSI_CHARSET;
     lf.lfQuality = CLEARTYPE_QUALITY;
-    _tcscpy_s(lf.lfFaceName, _T("Segoe UI"));
+    _tcscpy_s(lf.lfFaceName, _T("MS Shell Dlg 2"));
     HFONT newFont = HANDLES(CreateFontIndirect(&lf));
     if (newFont != NULL)
     {
         HFONT oldFont = TreeFont;
         TreeFont = newFont;
         SendMessage(HTreeView, WM_SETFONT, (WPARAM)TreeFont, TRUE);
-        if (CaptionWindow != NULL)
-            SendMessage(CaptionWindow->GetHWND(), WM_SETFONT, (WPARAM)TreeFont, TRUE);
         if (oldFont != NULL)
             HANDLES(DeleteObject(oldFont));
+    }
+
+    // Historically the hand-painted page heading did not inherit the dialog
+    // font: it used DEFAULT_GUI_FONT enlarged by 20 percent. Recreate that
+    // exact 96-DPI metric and then scale it for the destination monitor.
+    LOGFONT captionLF;
+    HFONT defaultGuiFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
+    if (GetObject(defaultGuiFont, sizeof(captionLF), &captionLF) == sizeof(captionLF))
+    {
+        captionLF.lfHeight = MulDiv((int)(captionLF.lfHeight * 1.2),
+                                    CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+        captionLF.lfWidth = MulDiv(captionLF.lfWidth,
+                                   CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+        HFONT newCaptionFont = HANDLES(CreateFontIndirect(&captionLF));
+        if (newCaptionFont != NULL)
+        {
+            HFONT oldCaptionFont = CaptionFont;
+            CaptionFont = newCaptionFont;
+            if (CaptionWindow != NULL)
+                SendMessage(CaptionWindow->GetHWND(), WM_SETFONT,
+                            (WPARAM)CaptionFont, TRUE);
+            if (oldCaptionFont != NULL)
+                HANDLES(DeleteObject(oldCaptionFont));
+        }
     }
 
     if (TreeFont != NULL)
@@ -2418,7 +2452,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         lpw += 2;
         // style
         *(DWORD*)lpw = WS_VISIBLE | WS_POPUP | WS_BORDER | WS_SYSMENU | WS_CAPTION |
-                       DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_SIZEBOX;
+                       DS_SETFONT | DS_MODALFRAME | DS_CENTER | DS_FIXEDSYS | WS_SIZEBOX;
         lpw += 2;
         *lpw++ = 8; // cDlgItems (number of controls)
         *lpw++ = 0; // x
@@ -2429,13 +2463,13 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         *lpw++ = 0; // predefined dialog box class (by default)
         lpwsz = (LPWSTR)lpw;
         lpw += WinLibCopyText(lpwsz, Caption, 100); // title
-        *lpw++ = 9;                                 // font size, kept in sync with resource property pages
+        *lpw++ = 8;                                 // MS Shell Dlg 2 font size used by the dynamic template
         *lpw++ = FW_NORMAL;                         // font weight
         *(BYTE*)lpw = FALSE;                        // is font italic?
         *((BYTE*)lpw + 1) = ANSI_CHARSET;           // font charset
         lpw++;
         lpwsz = (LPWSTR)lpw; // font typeface
-        lpw += WinLibCopyText(lpwsz, _T("Segoe UI"), 50);
+        lpw += WinLibCopyText(lpwsz, _T("MS Shell Dlg 2"), 50);
 
         BOOL appIsThemed = IsAppThemed();
 

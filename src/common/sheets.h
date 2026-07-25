@@ -240,6 +240,7 @@ protected:
     BOOL DPILayoutPosted;
     BOOL UserSizing;
     HFONT TreeFont;
+    HFONT CaptionFont;
 
 public:
     CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth, int defaultWidthExtra = 0);

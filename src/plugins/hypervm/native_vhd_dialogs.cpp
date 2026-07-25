@@ -100,6 +100,17 @@ void SetFont(HWND child, HFONT font)
     SendMessage(child, WM_SETFONT, (WPARAM)font, TRUE);
 }
 
+HFONT CreateDefaultGuiFontForDPI(UINT dpi)
+{
+    LOGFONT lf;
+    HFONT stockFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    if (GetObject(stockFont, sizeof(lf), &lf) != sizeof(lf))
+        return nullptr;
+    lf.lfHeight = MulDiv(lf.lfHeight, dpi, USER_DEFAULT_SCREEN_DPI);
+    lf.lfWidth = MulDiv(lf.lfWidth, dpi, USER_DEFAULT_SCREEN_DPI);
+    return CreateFontIndirect(&lf);
+}
+
 HWND AddControl(HWND parent, const wchar_t* cls, const wchar_t* text, DWORD style, int x, int y, int w, int height, int id, HFONT font)
 {
     HWND control = CreateWindowExW(
@@ -142,10 +153,9 @@ void ApplyDialogDPI(CVhdDialogState* s, UINT newDpi, const RECT* suggestedRect)
         }
     }
 
-    // GetDpiForWindow can still report the previous monitor while the
-    // WM_DPICHANGED notification is being dispatched. Use the DPI carried by
-    // the notification so the new HFONT is never recreated at 96 DPI.
-    HFONT newFont = WinLibDPICreateMessageFontForDPI(newDpi);
+    // These controls historically used DEFAULT_GUI_FONT rather than the
+    // system message font. Preserve that metric at the notification DPI.
+    HFONT newFont = CreateDefaultGuiFontForDPI(newDpi);
     if (newFont != nullptr)
     {
         for (HWND child = GetWindow(s->Window, GW_CHILD); child != nullptr;
@@ -369,11 +379,10 @@ bool RunDialog(HWND parent, bool create)
     }
     s.Window = hwnd;
     s.Dpi = WinLibDPIGetWindowDPI(hwnd);
-    // Use the explicit HWND DPI here as well as in WM_DPICHANGED. In remote
-    // sessions the generic SPI path can return a legacy 96-DPI message font
-    // even though this PMv2 window and all of its geometry are already at
-    // 150%.
-    s.Font = WinLibDPICreateMessageFontForDPI(s.Dpi);
+    // Before PMv2 these manually created controls used DEFAULT_GUI_FONT.
+    // Recreate that font at the explicit HWND DPI instead of changing their
+    // content metrics to NONCLIENTMETRICS::lfMessageFont.
+    s.Font = CreateDefaultGuiFontForDPI(s.Dpi);
     HFONT font = s.Font != nullptr ? s.Font : (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 
     AddControl(hwnd, L"STATIC", WStr(create ? IDS_VHD_CREATE_INTRO : IDS_VHD_ATTACH_INTRO), 0, 12, 12, 350, 18, -1, font);

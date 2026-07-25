@@ -11,9 +11,9 @@ COMMENT,"Česká verze"
 
 [DIALOG 1200]
 220,83,1,"UnISO - Konfigurace"
-1201,8,11,199,10,1,"&Odstranit atribut Jen pro čtení při kopírování z archivu"
-1202,8,23,213,10,1,"Zobrazit &sekce jako adresář (povolí přístup ke všem sekcím)"
-1203,8,35,146,10,1,"Zobrazit &boot image disku jako soubor"
+1201,8,11,193,10,1,"&Odstranit atribut Jen pro čtení při kopírování z archivu"
+1202,8,23,211,10,1,"Zobrazit &sekce jako adresář (povolí přístup ke všem sekcím)"
+1203,8,35,140,10,1,"Zobrazit &boot image disku jako soubor"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"OK"
 2,163,64,50,14,1,"Storno"

@@ -55,10 +55,10 @@ COMMENT,"Versiunea romana"
 
 [DIALOG 1400]
 257,100,1,"Configurare Recuperare ce ai sters"
-3000,7,7,184,8,1,"Director &temporar alternativ pentru vizualizare fisiere:"
+3000,7,7,181,8,1,"Director &temporar alternativ pentru vizualizare fisiere:"
 1401,7,17,222,14,1,""
 1402,235,17,16,14,1,"..."
-1403,7,39,248,10,1,"Tot timpul &refoloseste informatii din scanari anterioare cluster pe FAT"
+1403,7,39,244,10,1,"Tot timpul &refoloseste informatii din scanari anterioare cluster pe FAT"
 1404,7,50,193,10,1,"Nu atentiona cand recuperezi de pe acela&si disc logic"
 1405,7,61,243,10,1,"Nu atentiona inainte de recuperare fisiere criptat&e pe FAT sau exFAT"
 1,91,80,50,14,1,"OK"

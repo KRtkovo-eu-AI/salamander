@@ -11,9 +11,9 @@ COMMENT,"Version française"
 
 [DIALOG 1200]
 220,83,1,"Configuration de UnISO"
-1201,8,11,294,10,1,"&Supprimer l'attribut Lecture seule lorsqu'une copie est réalisée à partir de l'archive"
-1202,8,23,288,10,1,"&Afficher une session en tant que dossier (permet d'accéder à toutes les sessions)"
-1203,8,35,206,10,1,"A&fficher l'image disque de démarrage en tant que fichier"
+1201,8,11,288,10,1,"&Supprimer l'attribut Lecture seule lorsqu'une copie est réalisée à partir de l'archive"
+1202,8,23,283,10,1,"&Afficher une session en tant que dossier (permet d'accéder à toutes les sessions)"
+1203,8,35,203,10,1,"A&fficher l'image disque de démarrage en tant que fichier"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"OK"
 2,163,64,50,14,1,"Annuler"
