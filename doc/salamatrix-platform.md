@@ -670,14 +670,16 @@ The shared UI contract now includes a native dialog/control model in
 `salamatrix_ui.h/.cpp`. It is intentionally small but real: native plugins and
 Automation workers use the same dialog object and control state:
 
-- `Dialog` -> `IDialogAdapter`
-- `Container` -> `IContainerAdapter`
+- `Dialog` -> shared `Salamatrix::UI::IDialog` (legacy `IDialogAdapter` remains a compatibility shape)
+- `Container` -> `IContainerAdapter`/shared dialog control collection
 - `Label` -> `ControlKindLabel`
 - `TextBox` -> `ControlKindTextBox`
 - `CheckBox` -> `ControlKindCheckBox`
 - `ComboBox` -> `ControlKindComboBox`
 - `Button` -> `ControlKindButton`
-- `ListView` -> `ControlKindListView` (declarative in the first native version)
+- `RadioButton` -> `ControlKindRadioButton`
+- `ListView` -> `ControlKindListView` (native common-control surface; item/column binding is next)
+- `TreeView` -> `ControlKindTreeView` (native common-control surface; node binding is next)
 
 The current Automation GUI layer can now be migrated incrementally to these
 interfaces instead of creating a second runtime-specific UI. The native
@@ -939,14 +941,19 @@ The platform skeleton is ready when:
     optional bounded local command provider selected by `SALAMATRIX_AI_COMMAND`.
 38. The shared worker object model exposes `Salamander.ui.input_box(...)` and
     the host renders it as a parented native Windows dialog with an editable
-    value; the same SMX1 host call is available to Python, PowerShell, and PHP.
+    value; `message_box(...)` and `input_box(...)` are routed through the
+    shared `Salamatrix.UI` service and the same SMX1 host calls are available
+    to Python, PowerShell, and PHP.
 39. `Salamatrix.UI` now publishes a reusable native `IDialog`/`IControl`
     contract and `NativeDialog` implementation for labels, text boxes,
-    check/radio buttons, combo boxes, and buttons; the worker input-box path
-    goes through this service rather than owning a second dialog backend.
+    check/radio buttons, combo boxes, buttons, ListView, and TreeView; the
+    worker input-box path goes through this service rather than owning a second
+    dialog backend.
 40. The command catalog covers the available core `SALCMD_*` operations and
     `IFileOperationsService` exposes interactive rename/copy/move/delete,
     create-directory, refresh, and properties wrappers to native callers and
     all three modern worker runtimes.
-41. Workers can create native dialogs, add controls, show them modally, read
-    control state, and destroy them through the same `Salamatrix.UI` service.
+41. Workers can create native dialogs, add all currently supported control
+    kinds, show them modally, read control state, and destroy them through the
+    same `Salamatrix.UI` service; the bounded process-runtime tests exercise
+    this path in Python, PowerShell, and PHP.

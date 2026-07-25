@@ -334,6 +334,21 @@ public:
             dialog->Release();
     }
 
+    /// Optional message-box entry point appended after the original 1.0
+    /// methods so older providers keep their existing vtable order.
+    virtual int WINAPI ShowMessageBox(
+        HWND parent,
+        const char* message,
+        const char* title,
+        UINT flags)
+    {
+        (void)parent;
+        (void)message;
+        (void)title;
+        (void)flags;
+        return 0;
+    }
+
 protected:
     virtual ~IUIService() {}
 };

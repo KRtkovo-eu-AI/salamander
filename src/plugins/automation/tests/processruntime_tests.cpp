@@ -15,11 +15,15 @@ struct BootstrapDispatchState
     int CommandCalls;
     int StorageCalls;
     int SubscribeCalls;
+    int FileOperationCalls;
+    int DialogCalls;
 
     BootstrapDispatchState()
         : CommandCalls(0),
           StorageCalls(0),
-          SubscribeCalls(0)
+          SubscribeCalls(0),
+          FileOperationCalls(0),
+          DialogCalls(0)
     {
     }
 };
@@ -79,6 +83,34 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->SubscribeCalls;
         response = "{\"ok\":true,\"subscriptionId\":\"41\"}";
+    }
+    else if (strstr(payloadJson, "salamander.fileOperations.") != NULL)
+    {
+        if (state != NULL)
+            ++state->FileOperationCalls;
+        response = "{\"ok\":true,\"result\":\"ok\"}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.dialog.create") != NULL)
+    {
+        if (state != NULL)
+            ++state->DialogCalls;
+        response = "{\"ok\":true,\"dialogId\":\"7\"}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.dialog.add") != NULL ||
+             strstr(payloadJson, "salamander.ui.dialog.show") != NULL ||
+             strstr(payloadJson, "salamander.ui.dialog.destroy") != NULL)
+    {
+        if (state != NULL)
+            ++state->DialogCalls;
+        response = strstr(payloadJson, "salamander.ui.dialog.show") != NULL
+                       ? "{\"ok\":true,\"result\":1}"
+                       : "{\"ok\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.dialog.get") != NULL)
+    {
+        if (state != NULL)
+            ++state->DialogCalls;
+        response = "{\"ok\":true,\"text\":\"seed\",\"checked\":false}";
     }
     DWORD responseSize = static_cast<DWORD>(strlen(response));
     if (resultCapacity <= responseSize)
@@ -284,7 +316,22 @@ void RunPythonBootstrapTest()
               "Salamander.storage.set('bootstrap', 'ok')\n"
               "if Salamander.storage.get('bootstrap') != 'ok':\n"
               "    raise RuntimeError('storage call failed')\n"
-              "Salamander.events.subscribe('hostStartup', lambda event: None)\n"),
+              "Salamander.events.subscribe('hostStartup', lambda event: None)\n"
+              "if Salamander.file_operations.refresh() != 'ok':\n"
+              "    raise RuntimeError('file operation call failed')\n"
+              "dialog = Salamander.ui.dialog('Bootstrap')\n"
+              "dialog.add_label('label', 'Hello')\n"
+              "dialog.add_textbox('value', 'seed')\n"
+              "dialog.add_radio_button('radio', 'Choice', True)\n"
+              "dialog.add_combo_box('combo', 'Option')\n"
+              "dialog.add_list_view('list')\n"
+              "dialog.add_tree_view('tree')\n"
+              "dialog.add_button('ok', 'OK', 1)\n"
+              "if dialog.show() != 1:\n"
+              "    raise RuntimeError('dialog show failed')\n"
+              "if dialog.get('value').get('text') != 'seed':\n"
+              "    raise RuntimeError('dialog get failed')\n"
+              "dialog.close()\n"),
           "write python bootstrap worker");
 
     CAutomationProcessRuntimeAdapter adapter(
@@ -315,6 +362,8 @@ void RunPythonBootstrapTest()
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
         Check(state.StorageCalls == 2, "bootstrap storage calls reached host");
         Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
+        Check(state.FileOperationCalls == 1, "bootstrap file operation reached host");
+        Check(state.DialogCalls == 11, "bootstrap dialog calls reached host");
         std::string shutdown;
         Check(
             Salamatrix::Runtime::Protocol::LineCodec::Encode(
@@ -352,7 +401,19 @@ void RunPowerShellBootstrapTest()
               "if ($Salamander.commands.Execute('Copy') -ne 'ok') { throw 'command call failed' }\n"
               "$Salamander.storage.Set('bootstrap', 'ok')\n"
               "if ($Salamander.storage.Get('bootstrap') -ne 'ok') { throw 'storage call failed' }\n"
-              "$null = $Salamander.events.Subscribe('hostStartup', { param($event) })\n"),
+              "$null = $Salamander.events.Subscribe('hostStartup', { param($event) })\n"
+              "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
+              "$dialog = $Salamander.ui.Dialog('Bootstrap')\n"
+              "$dialog.AddLabel('label', 'Hello')\n"
+              "$dialog.AddTextBox('value', 'seed')\n"
+              "$dialog.AddRadioButton('radio', 'Choice', $true)\n"
+              "$dialog.AddComboBox('combo', 'Option')\n"
+              "$dialog.AddListView('list')\n"
+              "$dialog.AddTreeView('tree')\n"
+              "$dialog.AddButton('ok', 'OK', 1)\n"
+              "if ($dialog.Show() -ne 1) { throw 'dialog show failed' }\n"
+              "if ($dialog.Get('value').text -ne 'seed') { throw 'dialog get failed' }\n"
+              "$dialog.Close()\n"),
           "write powershell bootstrap worker");
     CAutomationProcessRuntimeAdapter adapter(
         "PowerShell", "PowerShell", "powershell", ".ps1",
@@ -377,6 +438,8 @@ void RunPowerShellBootstrapTest()
         Check(state.CommandCalls == 1, "powershell bootstrap command call");
         Check(state.StorageCalls == 2, "powershell bootstrap storage calls");
         Check(state.SubscribeCalls == 1, "powershell bootstrap event subscription");
+        Check(state.FileOperationCalls == 1, "powershell bootstrap file operation");
+        Check(state.DialogCalls == 11, "powershell bootstrap dialog calls");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
@@ -410,6 +473,18 @@ void RunPhpBootstrapTest()
               "$Salamander->storage->set('bootstrap', 'ok');\n"
               "if ($Salamander->storage->get('bootstrap') !== 'ok') throw new Exception('storage call failed');\n"
               "$Salamander->events->subscribe('hostStartup', function($event) {});\n"
+              "if ($Salamander->file_operations->refresh() !== 'ok') throw new Exception('file operation call failed');\n"
+              "$dialog = $Salamander->ui->dialog('Bootstrap');\n"
+              "$dialog->addLabel('label', 'Hello');\n"
+              "$dialog->addTextBox('value', 'seed');\n"
+              "$dialog->addRadioButton('radio', 'Choice', true);\n"
+              "$dialog->addComboBox('combo', 'Option');\n"
+              "$dialog->addListView('list');\n"
+              "$dialog->addTreeView('tree');\n"
+              "$dialog->addButton('ok', 'OK', 1);\n"
+              "if ($dialog->show() !== 1) throw new Exception('dialog show failed');\n"
+              "if ($dialog->get('value')['text'] !== 'seed') throw new Exception('dialog get failed');\n"
+              "$dialog->close();\n"
               "?>\n"),
           "write php bootstrap worker");
     CAutomationProcessRuntimeAdapter adapter(
@@ -434,6 +509,8 @@ void RunPhpBootstrapTest()
         Check(state.CommandCalls == 1, "php bootstrap command call");
         Check(state.StorageCalls == 2, "php bootstrap storage calls");
         Check(state.SubscribeCalls == 1, "php bootstrap event subscription");
+        Check(state.FileOperationCalls == 1, "php bootstrap file operation");
+        Check(state.DialogCalls == 11, "php bootstrap dialog calls");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);

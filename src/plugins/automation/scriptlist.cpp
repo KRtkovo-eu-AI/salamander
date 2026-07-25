@@ -981,11 +981,18 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             payloadJson, "title", &title);
         if (title.empty())
             title = "Salamatrix";
-        int result = MessageBoxA(
-            SalamanderGeneral->GetMsgBoxParent(),
-            message.c_str(),
-            title.c_str(),
-            MB_OK | MB_ICONINFORMATION);
+        Salamatrix::UI::IUIService* ui = bridge->GetUIService();
+        int result = ui != NULL
+                         ? ui->ShowMessageBox(
+                               SalamanderGeneral->GetMsgBoxParent(),
+                               message.c_str(),
+                               title.c_str(),
+                               MB_OK | MB_ICONINFORMATION)
+                         : MessageBoxA(
+                               SalamanderGeneral->GetMsgBoxParent(),
+                               message.c_str(),
+                               title.c_str(),
+                               MB_OK | MB_ICONINFORMATION);
         std::string response =
             "{\"ok\":true,\"result\":" + std::to_string(result) + "}";
         return CopyRuntimeHostResult(
@@ -1168,6 +1175,10 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 kind = Salamatrix::UI::ControlKindComboBox;
             else if (_stricmp(kindName.c_str(), "button") == 0)
                 kind = Salamatrix::UI::ControlKindButton;
+            else if (_stricmp(kindName.c_str(), "listview") == 0)
+                kind = Salamatrix::UI::ControlKindListView;
+            else if (_stricmp(kindName.c_str(), "treeview") == 0)
+                kind = Salamatrix::UI::ControlKindTreeView;
             else
                 return FALSE;
             Salamatrix::UI::ControlOptions options;

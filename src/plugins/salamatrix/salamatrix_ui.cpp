@@ -75,7 +75,8 @@ static void AppendItem(
     WORD id,
     DWORD style,
     WORD classOrdinal,
-    const std::wstring& text)
+    const std::wstring& text,
+    const wchar_t* className)
 {
     AlignTemplate(bytes);
     size_t offset = bytes.size();
@@ -89,8 +90,13 @@ static void AppendItem(
     item->id = id;
     item->style = style;
     item->dwExtendedStyle = 0;
-    AppendWord(bytes, 0xffff);
-    AppendWord(bytes, classOrdinal);
+    if (className != NULL)
+        AppendString(bytes, std::wstring(className));
+    else
+    {
+        AppendWord(bytes, 0xffff);
+        AppendWord(bytes, classOrdinal);
+    }
     AppendString(bytes, text);
     AppendWord(bytes, 0);
 }
@@ -302,15 +308,28 @@ int WINAPI NativeDialog::ShowModal()
         else if (control->Kind == ControlKindListView ||
                  control->Kind == ControlKindTreeView)
         {
-            // The first shared version keeps these controls declarative and
-            // reserves their native class mapping for the next UI version.
-            classOrdinal = 0x0082;
+            classOrdinal = 0;
+            style |= WS_BORDER;
+            height = static_cast<short>(m_pImpl->Options.Height > 64
+                                            ? m_pImpl->Options.Height - 48
+                                            : 64);
+        }
+        const wchar_t* className = NULL;
+        if (control->Kind == ControlKindListView)
+        {
+            className = L"SysListView32";
+            style |= LVS_REPORT | LVS_SINGLESEL;
+        }
+        else if (control->Kind == ControlKindTreeView)
+        {
+            className = L"SysTreeView32";
+            style |= TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS;
         }
         short x = 8;
         if (control->Kind == ControlKindButton)
             x = static_cast<short>(m_pImpl->Options.Width - 78);
         AppendItem(dialog, x, y, width, height, control->NumericId,
-                   style, classOrdinal, text);
+                   style, classOrdinal, text, className);
         y = static_cast<short>(y + (control->Kind == ControlKindComboBox ? 24 : 22));
     }
 

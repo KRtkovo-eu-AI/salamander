@@ -168,6 +168,29 @@ public:
             return Add(UI::ControlKindCheckBox, id, text, FALSE, checked, 0);
         }
 
+        UI::IControl* WINAPI AddRadioButton(
+            const char* id,
+            const char* text,
+            BOOL checked)
+        {
+            return Add(UI::ControlKindRadioButton, id, text, FALSE, checked, 0);
+        }
+
+        UI::IControl* WINAPI AddComboBox(const char* id, const char* text)
+        {
+            return Add(UI::ControlKindComboBox, id, text, FALSE, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddListView(const char* id)
+        {
+            return Add(UI::ControlKindListView, id, NULL, FALSE, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddTreeView(const char* id)
+        {
+            return Add(UI::ControlKindTreeView, id, NULL, FALSE, FALSE, 0);
+        }
+
         UI::IControl* WINAPI AddButton(
             const char* id,
             const char* text,

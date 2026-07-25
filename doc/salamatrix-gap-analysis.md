@@ -56,11 +56,11 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   minimum runtime version, safe entry points, capabilities, and multiple command
   records. Dependencies, icons, localization, settings/storage declarations,
   and dynamic publication of all handlers are still missing.
-- The shared native UI service exposes progress plus a bounded native input-box
-  host call for modern workers. The older
-  Automation-only Forms implementation has Form, Label, TextBox, CheckBox, and
-  Button, but it has not been moved under `Salamatrix.UI`. ComboBox and ListView
-  are enum placeholders only.
+- The shared native UI service exposes progress, input-box, and a reusable
+  `IDialog`/`IControl` contract for modern workers and native plugins. The
+  native implementation now creates Label, TextBox, CheckBox, RadioButton,
+  ComboBox, Button, ListView, and TreeView controls; item/column binding,
+  layout, notifications, validation, and the legacy Forms migration remain.
 - `Salamatrix.AI` now has a provider-neutral contract and Automation registers
   an optional local command provider through `SALAMATRIX_AI_COMMAND`. The
   provider exchanges one bounded JSON request/response and enforces a timeout.
@@ -82,7 +82,7 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | Toolbar and shortcuts | Missing | Normal native plugin menu items can participate in existing hotkey handling. | Manifest/API contributions, user assignment, icons, persistence, conflict handling. |
 | Events | MVP | `Salamatrix.Events` maps host lifecycle/settings/configuration/color/panel events to unsubscribe-safe native callbacks; Automation exposes `subscribe/unsubscribe` with copied payloads. | Persistent extension instances, worker queues, UI-thread marshalling, coalescing, event replay, and unload-safe leases across modern runtimes. |
 | Per-extension storage | MVP | `Salamatrix.Storage` persists isolated manifest-id namespaces with UTF-8 strings, signed 64-bit integers, booleans, delete/clear, validation, and synchronized access. Automation exposes `has/get/set/remove/clear`; legacy global persistence remains for compatibility. | Settings schemas/files, enumeration, quotas, migrations, transactional batches, package uninstall retention/deletion policy, and bindings in modern runtimes. |
-| Shared UI framework | Partial | `Salamatrix.UI` now provides a reusable native `IDialog`/`IControl` model and `NativeDialog` implementation for labels, text boxes, check/radio buttons, combo boxes, and buttons; workers expose generic dialog creation plus `inputBox`. | Pickers, ListView/TreeView data binding, TabControl, notifications, validation/events, layout, DPI/theme/accessibility, and migration of the legacy Automation Forms wrappers. |
+| Shared UI framework | Partial | `Salamatrix.UI` now provides a reusable native `IDialog`/`IControl` model and `NativeDialog` implementation for labels, text boxes, check/radio buttons, combo boxes, buttons, and native ListView/TreeView surfaces; all workers expose generic dialog creation plus `inputBox`. | ListView/TreeView item binding, pickers, TabControl, notifications, validation/events, layout, DPI/theme/accessibility, and migration of the legacy Automation Forms wrappers. |
 | Manifest/package | Partial | Strict UTF-8 JSON parsing validates schema 1, package/runtime identity and minimum version, safe entry point, capabilities, and up to 64 command records. | Expose every parsed command, then add dependencies, icons, locales, settings, events, package install/uninstall, and richer diagnostics. |
 | Runtime adapters | Partial | `Salamatrix.Runtime` registers/enumerates versioned adapters and executes manifest entry points through structured requests/results. Automation advertises legacy ActiveScript compatibility adapters plus optional out-of-process CPython, PowerShell, and PHP CLI adapters with timeout, exit-code, bounded output, `IRuntimeSession` persistent-worker support, and host calls for commands, sides, storage, events, AI generation, input-box UI, and event subscriptions. | Rich UI/full value binding, cancellation plumbing beyond process termination, debugging, dependency environments, and bundled modern JavaScript. |
 | JavaScript runtime | Legacy only | Windows JScript is the hard-coded fallback for `.js`. | Supported bundled modern engine and compatibility adapter for existing JScript/VBScript scripts. |
@@ -239,10 +239,10 @@ same logical contract.
 
 ### Phase 4: shared UI
 
-Move the native control implementation under `Salamatrix.UI`, then keep the old
-Automation Forms classes as compatibility wrappers. Build controls in this
-order: dialog/layout, Label, TextBox, CheckBox, Button, ComboBox, pickers,
-ListView, TreeView, RadioButton, TabControl, notifications. All controls need
+Extend the existing `Salamatrix.UI` native control implementation, then keep
+the old Automation Forms classes as compatibility wrappers. Build the remaining
+surface in this order: item/column binding, layout, pickers, TabControl,
+notifications, validation/events. All controls need
 dark-mode, DPI, localization, keyboard, accessibility, validation, and event
 tests.
 

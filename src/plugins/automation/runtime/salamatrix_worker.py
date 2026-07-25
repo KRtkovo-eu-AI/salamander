@@ -216,6 +216,19 @@ class _Dialog:
                      checked: bool = False) -> None:
         self._add("checkbox", control_id, text, checked=checked)
 
+    def add_radio_button(self, control_id: str, text: str,
+                         checked: bool = False) -> None:
+        self._add("radio", control_id, text, checked=checked)
+
+    def add_combo_box(self, control_id: str, text: str = "") -> None:
+        self._add("combobox", control_id, text)
+
+    def add_list_view(self, control_id: str) -> None:
+        self._add("listview", control_id)
+
+    def add_tree_view(self, control_id: str) -> None:
+        self._add("treeview", control_id)
+
     def add_button(self, control_id: str, text: str,
                    dialog_result: int = 1) -> None:
         self._add("button", control_id, text, dialogResult=dialog_result)

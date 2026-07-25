@@ -178,6 +178,19 @@ public:
         delete static_cast<UI::ProgressDialog*>(dialog);
     }
 
+    virtual int WINAPI ShowMessageBox(
+        HWND parent,
+        const char* message,
+        const char* title,
+        UINT flags)
+    {
+        return MessageBoxA(
+            parent,
+            message != NULL ? message : "",
+            title != NULL ? title : "Salamander",
+            flags != 0 ? flags : (MB_OK | MB_ICONINFORMATION));
+    }
+
     virtual UI::IDialog* WINAPI CreateDialog(const UI::DialogOptions& options)
     {
         return new UI::NativeDialog(options);

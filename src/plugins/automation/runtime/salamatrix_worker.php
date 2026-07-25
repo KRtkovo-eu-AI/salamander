@@ -88,6 +88,10 @@ class SalamatrixDialog {
     public function addLabel($id, $text) { $this->add('label', $id, $text); }
     public function addTextBox($id, $text = '', $readOnly = false) { $this->add('textbox', $id, $text, array('readOnly' => $readOnly)); }
     public function addCheckBox($id, $text, $checked = false) { $this->add('checkbox', $id, $text, array('checked' => $checked)); }
+    public function addRadioButton($id, $text, $checked = false) { $this->add('radio', $id, $text, array('checked' => $checked)); }
+    public function addComboBox($id, $text = '') { $this->add('combobox', $id, $text); }
+    public function addListView($id) { $this->add('listview', $id); }
+    public function addTreeView($id) { $this->add('treeview', $id); }
     public function addButton($id, $text, $dialogResult = 1) { $this->add('button', $id, $text, array('dialogResult' => $dialogResult)); }
     public function show() { $r = $this->client->call('salamander.ui.dialog.show', array('dialogId' => $this->id)); return isset($r['result']) ? $r['result'] : 0; }
     public function get($id) { return $this->client->call('salamander.ui.dialog.get', array('dialogId' => $this->id, 'controlId' => $id)); }
