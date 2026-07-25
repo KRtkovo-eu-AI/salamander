@@ -87,6 +87,9 @@ public:
     virtual BOOL WINAPI Execute(
         const Salamatrix::Runtime::RuntimeExecutionRequest* request,
         Salamatrix::Runtime::RuntimeExecutionResult* result);
+    virtual BOOL WINAPI StartPersistent(
+        const Salamatrix::Runtime::RuntimeExecutionRequest* request,
+        Salamatrix::Runtime::IRuntimeSession** session);
 };
 
 /// Caches host-registered Salamatrix services for the Automation plugin.

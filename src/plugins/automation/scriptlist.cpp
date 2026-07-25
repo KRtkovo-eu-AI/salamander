@@ -250,6 +250,10 @@ CScriptInfo::CScriptInfo(
     m_bAbortPending = false;
     m_hAbortEvent = NULL;
     m_hwndAbortTarget = NULL;
+    m_pRuntimeSession = NULL;
+    m_hRuntimePumpThread = NULL;
+    memset(m_runtimeEventSubscriptions, 0, sizeof(m_runtimeEventSubscriptions));
+    m_nRuntimeEventSubscriptions = 0;
 
     m_pNext = NULL;
     m_pNextHash = NULL;
@@ -263,6 +267,7 @@ CScriptInfo::CScriptInfo(
 
 CScriptInfo::~CScriptInfo()
 {
+    ReleaseRuntimeSession();
     if (m_pScript != NULL)
     {
         m_pScript->Release();
@@ -596,6 +601,471 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     }
     return executed != FALSE &&
            result.Status == Salamatrix::Runtime::RuntimeExecutionStatusSucceeded;
+}
+
+static std::string JsonEscapeRuntimeText(const char* value)
+{
+    std::string escaped;
+    if (value == NULL)
+        return escaped;
+    for (const unsigned char* character =
+             reinterpret_cast<const unsigned char*>(value);
+         *character != 0;
+         ++character)
+    {
+        switch (*character)
+        {
+        case '"':
+            escaped.append("\\\"");
+            break;
+        case '\\':
+            escaped.append("\\\\");
+            break;
+        case '\b':
+            escaped.append("\\b");
+            break;
+        case '\f':
+            escaped.append("\\f");
+            break;
+        case '\n':
+            escaped.append("\\n");
+            break;
+        case '\r':
+            escaped.append("\\r");
+            break;
+        case '\t':
+            escaped.append("\\t");
+            break;
+        default:
+            if (*character < 0x20)
+                escaped.push_back(' ');
+            else
+                escaped.push_back(static_cast<char>(*character));
+            break;
+        }
+    }
+    return escaped;
+}
+
+static BOOL CopyRuntimeHostResult(
+    const std::string& value,
+    char* output,
+    DWORD outputCapacity,
+    DWORD* outputLength)
+{
+    if (output == NULL || outputLength == NULL ||
+        value.size() + 1 > outputCapacity)
+        return FALSE;
+    memcpy(output, value.c_str(), value.size());
+    output[value.size()] = '\0';
+    *outputLength = static_cast<DWORD>(value.size());
+    return TRUE;
+}
+
+static const char* RuntimeEventName(
+    Salamatrix::Events::EventKind kind)
+{
+    switch (kind)
+    {
+    case Salamatrix::Events::EventKindHostStartup:
+        return "hostStartup";
+    case Salamatrix::Events::EventKindHostShutdown:
+        return "hostShutdown";
+    case Salamatrix::Events::EventKindSettingsChanged:
+        return "settingsChanged";
+    case Salamatrix::Events::EventKindConfigurationChanged:
+        return "configurationChanged";
+    case Salamatrix::Events::EventKindColorsChanged:
+        return "colorsChanged";
+    case Salamatrix::Events::EventKindPanelsSwapped:
+        return "panelsSwapped";
+    case Salamatrix::Events::EventKindActivePanelChanged:
+        return "activePanelChanged";
+    default:
+        return NULL;
+    }
+}
+
+static BOOL RuntimeEventKindFromName(
+    const std::string& name,
+    Salamatrix::Events::EventKind* kind)
+{
+    if (kind == NULL)
+        return FALSE;
+    for (int value = Salamatrix::Events::EventKindHostStartup;
+         value <= Salamatrix::Events::EventKindActivePanelChanged;
+         ++value)
+    {
+        Salamatrix::Events::EventKind candidate =
+            static_cast<Salamatrix::Events::EventKind>(value);
+        const char* candidateName = RuntimeEventName(candidate);
+        if (candidateName != NULL && _stricmp(name.c_str(), candidateName) == 0)
+        {
+            *kind = candidate;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+BOOL WINAPI CScriptInfo::RuntimeEventCallback(
+    void* context,
+    const Salamatrix::Events::EventPayload* payload)
+{
+    CScriptInfo* script = static_cast<CScriptInfo*>(context);
+    if (script == NULL || payload == NULL || script->m_pRuntimeSession == NULL)
+        return FALSE;
+
+    const char* name = RuntimeEventName(payload->Kind);
+    if (name == NULL)
+        return FALSE;
+    char tabId[32];
+    _ui64toa_s(payload->ActiveTabId, tabId, _countof(tabId), 10);
+    std::string eventJson =
+        std::string("{\"event\":\"") + name +
+        "\",\"parameter\":" + std::to_string(payload->Parameter) +
+        ",\"activePanel\":" + std::to_string(payload->ActivePanel) +
+        ",\"tabId\":\"" + tabId +
+        "\",\"pathType\":" + std::to_string(payload->PathType) +
+        ",\"path\":\"" + JsonEscapeRuntimeText(payload->Path) + "\"}";
+    std::string frame;
+    if (!Salamatrix::Runtime::Protocol::LineCodec::Encode(
+            Salamatrix::Runtime::Protocol::MessageEvent,
+            0,
+            eventJson,
+            &frame))
+        return FALSE;
+    return script->m_pRuntimeSession->SendFrame(
+        frame.c_str(), static_cast<DWORD>(frame.size()));
+}
+
+BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
+    void* context,
+    Salamatrix::Runtime::Protocol::MessageType type,
+    ULONGLONG requestId,
+    const char* payloadJson,
+    char* resultJson,
+    DWORD resultCapacity,
+    DWORD* resultLength)
+{
+    (void)requestId;
+    CScriptInfo* script = static_cast<CScriptInfo*>(context);
+    if (script == NULL || resultJson == NULL || resultLength == NULL)
+        return FALSE;
+    *resultLength = 0;
+
+    CAutomationSalamatrixBridge* bridge =
+        g_oAutomationPlugin.GetSalamatrixBridge();
+    if (!bridge->WasQueried())
+        g_oAutomationPlugin.RefreshSalamatrixServices();
+
+    if (type == Salamatrix::Runtime::Protocol::MessageHello)
+    {
+        std::string response =
+            "{\"ok\":true,\"protocol\":1,\"extensionId\":\"" +
+            JsonEscapeRuntimeText(script->m_szSalamatrixExtensionId) +
+            "\",\"services\":[\"commands\",\"sides\",\"storage\"]}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (type != Salamatrix::Runtime::Protocol::MessageCall ||
+        payloadJson == NULL)
+        return FALSE;
+
+    std::string method;
+    if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "method", &method))
+        return FALSE;
+
+    if (method == "runtime.ready")
+    {
+        return CopyRuntimeHostResult(
+            "{\"ok\":true,\"ready\":true}",
+            resultJson,
+            resultCapacity,
+            resultLength);
+    }
+
+    if (method == "salamander.ui.messageBox")
+    {
+        std::string message;
+        std::string title;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "message", &message))
+            return FALSE;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "title", &title);
+        if (title.empty())
+            title = "Salamatrix";
+        int result = MessageBoxA(
+            SalamanderGeneral->GetMsgBoxParent(),
+            message.c_str(),
+            title.c_str(),
+            MB_OK | MB_ICONINFORMATION);
+        std::string response =
+            "{\"ok\":true,\"result\":" + std::to_string(result) + "}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.events.subscribe")
+    {
+        std::string eventName;
+        Salamatrix::Events::EventKind kind;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "event", &eventName) ||
+            !RuntimeEventKindFromName(eventName, &kind) ||
+            script->m_nRuntimeEventSubscriptions >=
+                static_cast<int>(_countof(script->m_runtimeEventSubscriptions)))
+            return FALSE;
+        Salamatrix::Events::IEventsService* events = bridge->GetEventsService();
+        if (events == NULL)
+            return FALSE;
+        ULONGLONG subscriptionId = 0;
+        if (!events->Subscribe(
+                kind,
+                CScriptInfo::RuntimeEventCallback,
+                script,
+                &subscriptionId))
+            return FALSE;
+        script->m_runtimeEventSubscriptions[
+            script->m_nRuntimeEventSubscriptions++] = subscriptionId;
+        char id[32];
+        _ui64toa_s(subscriptionId, id, _countof(id), 10);
+        std::string response =
+            std::string("{\"ok\":true,\"subscriptionId\":\"") + id + "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.events.unsubscribe")
+    {
+        std::string idText;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "subscriptionId", &idText))
+            return FALSE;
+        char* end = NULL;
+        ULONGLONG subscriptionId = _strtoui64(idText.c_str(), &end, 10);
+        if (end == idText.c_str() || *end != '\0')
+            return FALSE;
+        Salamatrix::Events::IEventsService* events = bridge->GetEventsService();
+        if (events == NULL || !events->Unsubscribe(subscriptionId))
+            return FALSE;
+        for (int index = 0; index < script->m_nRuntimeEventSubscriptions; ++index)
+        {
+            if (script->m_runtimeEventSubscriptions[index] == subscriptionId)
+            {
+                for (int move = index;
+                     move + 1 < script->m_nRuntimeEventSubscriptions;
+                     ++move)
+                {
+                    script->m_runtimeEventSubscriptions[move] =
+                        script->m_runtimeEventSubscriptions[move + 1];
+                }
+                --script->m_nRuntimeEventSubscriptions;
+                break;
+            }
+        }
+        return CopyRuntimeHostResult(
+            "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.commands.execute")
+    {
+        std::string commandId;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "commandId", &commandId))
+            return FALSE;
+        Salamatrix::Commands::ICommandService* commands =
+            bridge->GetCommandService();
+        if (commands == NULL)
+            return FALSE;
+        Salamatrix::Commands::ExecuteOptions options;
+        options.Parent = SalamanderGeneral->GetMsgBoxParent();
+        Salamatrix::Runtime::OperationResult operation =
+            commands->Execute(commandId.c_str(), options);
+        const char* resultName =
+            operation == Salamatrix::Runtime::OperationResultOk
+                ? "ok"
+                : operation == Salamatrix::Runtime::OperationResultNotAvailable
+                      ? "not_available"
+                      : "error";
+        std::string response =
+            "{\"ok\":" +
+            std::string(operation == Salamatrix::Runtime::OperationResultOk
+                            ? "true"
+                            : "false") +
+            ",\"result\":\"" + resultName + "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.sides.activeTab")
+    {
+        std::string sideName;
+        Salamatrix::Sides::SideReference side =
+            Salamatrix::Sides::SideReferenceSource;
+        if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "side", &sideName))
+        {
+            if (_stricmp(sideName.c_str(), "left") == 0)
+                side = Salamatrix::Sides::SideReferenceLeft;
+            else if (_stricmp(sideName.c_str(), "right") == 0)
+                side = Salamatrix::Sides::SideReferenceRight;
+            else if (_stricmp(sideName.c_str(), "target") == 0)
+                side = Salamatrix::Sides::SideReferenceTarget;
+        }
+        Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
+        if (sides == NULL)
+            return FALSE;
+        Salamatrix::Sides::TabInfo info;
+        if (!sides->GetActiveTabInfo(side, &info))
+            return FALSE;
+        char path[32768];
+        int pathType = info.PathType;
+        if (!sides->GetTabPath(info.TabId, path, _countof(path), &pathType))
+            path[0] = '\0';
+        char id[32];
+        _ui64toa_s(info.TabId, id, _countof(id), 10);
+        std::string response =
+            std::string("{\"ok\":true,\"id\":\"") + id +
+            "\",\"index\":" + std::to_string(info.Index) +
+            ",\"pathType\":" + std::to_string(pathType) +
+            ",\"path\":\"" + JsonEscapeRuntimeText(path) + "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.storage.get" ||
+        method == "salamander.storage.set")
+    {
+        std::string key;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "key", &key))
+            return FALSE;
+        Salamatrix::Storage::IStorageService* storage =
+            bridge->GetStorageService();
+        if (storage == NULL || script->m_szSalamatrixExtensionId[0] == '\0')
+            return FALSE;
+        if (method == "salamander.storage.set")
+        {
+            std::string value;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "value", &value) ||
+                !storage->SetString(
+                    script->m_szSalamatrixExtensionId,
+                    key.c_str(),
+                    value.c_str()))
+                return FALSE;
+            return CopyRuntimeHostResult(
+                "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        char value[16385];
+        int required = 0;
+        if (storage->GetString(
+                script->m_szSalamatrixExtensionId,
+                key.c_str(),
+                value,
+                _countof(value),
+                &required))
+        {
+            std::string response =
+                "{\"ok\":true,\"type\":\"string\",\"value\":\"" +
+                JsonEscapeRuntimeText(value) + "\"}";
+            return CopyRuntimeHostResult(
+                response, resultJson, resultCapacity, resultLength);
+        }
+        return CopyRuntimeHostResult(
+            "{\"ok\":true,\"type\":\"missing\"}",
+            resultJson,
+            resultCapacity,
+            resultLength);
+    }
+
+    return FALSE;
+}
+
+BOOL WINAPI CScriptInfo::RuntimeLifecycleCallback(
+    void* context,
+    Salamatrix::Extensions::ExtensionAction action,
+    const Salamatrix::Extensions::ExtensionInfo* info)
+{
+    CScriptInfo* script = static_cast<CScriptInfo*>(context);
+    if (script == NULL || info == NULL)
+        return FALSE;
+
+    if (action == Salamatrix::Extensions::ExtensionActionDeactivate)
+    {
+        script->ReleaseRuntimeSession();
+        return TRUE;
+    }
+
+    if (action != Salamatrix::Extensions::ExtensionActionActivate)
+        return FALSE;
+    if (script->m_pRuntimeSession != NULL)
+    {
+        if (script->m_pRuntimeSession->IsAlive())
+            return TRUE;
+        script->ReleaseRuntimeSession();
+    }
+
+    CAutomationSalamatrixBridge* bridge =
+        g_oAutomationPlugin.GetSalamatrixBridge();
+    if (!bridge->HasRuntimeBroker())
+    {
+        g_oAutomationPlugin.RefreshSalamatrixServices();
+        bridge = g_oAutomationPlugin.GetSalamatrixBridge();
+    }
+    Salamatrix::Runtime::IRuntimeService* runtime =
+        bridge->GetRuntimeService();
+    Salamatrix::Runtime::IRuntimeAdapter* adapter =
+        runtime != NULL
+            ? runtime->FindAdapter(
+                  script->m_szSalamatrixRuntimeId,
+                  script->m_dwSalamatrixMinimumRuntimeVersion)
+            : NULL;
+    if (adapter == NULL)
+        return FALSE;
+
+    wchar_t entryPoint[MAX_PATH];
+#ifdef UNICODE
+    if (StringCchCopyW(entryPoint, _countof(entryPoint), script->m_szFileName) != S_OK)
+        return FALSE;
+#else
+    if (MultiByteToWideChar(
+            CP_ACP, 0, script->m_szFileName, -1,
+            entryPoint, _countof(entryPoint)) == 0)
+        return FALSE;
+#endif
+
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.ExtensionId = script->m_szSalamatrixExtensionId;
+    request.EntryPoint = entryPoint;
+    request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
+    request.Flags =
+        Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
+        Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
+    request.HostDispatch = CScriptInfo::RuntimeHostDispatch;
+    request.HostDispatchContext = script;
+
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    if (!adapter->StartPersistent(&request, &session) || session == NULL)
+        return FALSE;
+    if (!session->IsAlive())
+    {
+        session->Release();
+        return FALSE;
+    }
+    script->m_pRuntimeSession = session;
+    script->m_hRuntimePumpThread = CreateThread(
+        NULL, 0, CScriptInfo::RuntimePumpProc, script, 0, NULL);
+    if (script->m_hRuntimePumpThread == NULL)
+    {
+        script->ReleaseRuntimeSession();
+        return FALSE;
+    }
+    return TRUE;
 }
 
 bool CScriptInfo::EnsureEngineAssociation()
@@ -1846,6 +2316,57 @@ void CScriptLookup::UnpublishSalamatrixExtensions()
     }
 }
 
+DWORD WINAPI CScriptInfo::RuntimePumpProc(void* arg)
+{
+    CScriptInfo* script = static_cast<CScriptInfo*>(arg);
+    if (script == NULL)
+        return 0;
+
+    Salamatrix::Runtime::IRuntimeSession* session = script->m_pRuntimeSession;
+    if (session == NULL)
+        return 0;
+
+    while (session->IsAlive())
+    {
+        if (!session->Pump(250) && !session->IsAlive())
+            break;
+    }
+    return 0;
+}
+
+void CScriptInfo::ReleaseRuntimeEventSubscriptions()
+{
+    if (m_nRuntimeEventSubscriptions <= 0)
+        return;
+    CAutomationSalamatrixBridge* bridge =
+        g_oAutomationPlugin.GetSalamatrixBridge();
+    Salamatrix::Events::IEventsService* events =
+        bridge != NULL ? bridge->GetEventsService() : NULL;
+    if (events != NULL)
+    {
+        for (int index = 0; index < m_nRuntimeEventSubscriptions; ++index)
+            events->Unsubscribe(m_runtimeEventSubscriptions[index]);
+    }
+    memset(m_runtimeEventSubscriptions, 0, sizeof(m_runtimeEventSubscriptions));
+    m_nRuntimeEventSubscriptions = 0;
+}
+
+void CScriptInfo::ReleaseRuntimeSession()
+{
+    if (m_pRuntimeSession == NULL)
+        return;
+    ReleaseRuntimeEventSubscriptions();
+    m_pRuntimeSession->Stop();
+    if (m_hRuntimePumpThread != NULL)
+    {
+        WaitForSingleObject(m_hRuntimePumpThread, INFINITE);
+        CloseHandle(m_hRuntimePumpThread);
+        m_hRuntimePumpThread = NULL;
+    }
+    m_pRuntimeSession->Release();
+    m_pRuntimeSession = NULL;
+}
+
 void CScriptLookup::PublishSalamatrixExtensions()
 {
     CAutomationSalamatrixBridge* bridge =
@@ -1888,13 +2409,17 @@ void CScriptLookup::PublishSalamatrixExtensions()
                 pScript->GetFileName(),
                 descriptor.EntryPoint,
                 _countof(descriptor.EntryPoint));
-            descriptor.Flags = Salamatrix::Extensions::ExtensionFlagManifest;
+            descriptor.Flags = Salamatrix::Extensions::ExtensionFlagManifest |
+                               Salamatrix::Extensions::ExtensionFlagPersistent;
 
             // A failed registration (for example a duplicate manifest id)
             // is intentionally ignored here. The host registry remains
             // authoritative and malformed/duplicate entries never become
             // executable by accident.
-            service->RegisterExtension(&descriptor, NULL, pScript);
+            service->RegisterExtension(
+                &descriptor,
+                CScriptInfo::RuntimeLifecycleCallback,
+                pScript);
         }
     }
 }

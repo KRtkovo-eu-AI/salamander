@@ -63,6 +63,16 @@ namespace Salamatrix
             RuntimeExecutionStatusCancelled = 3
         };
 
+        enum RuntimeExecutionFlags
+        {
+            RuntimeExecutionFlagNone = 0x00000000,
+            RuntimeExecutionFlagPersistentWorker = 0x00000001,
+            /// Ask a process adapter to start its common Salamatrix worker
+            /// bootstrap before loading EntryPoint. Raw persistent sessions
+            /// may omit this bit for transport-level tests.
+            RuntimeExecutionFlagUseWorkerBootstrap = 0x00000002
+        };
+
         struct RuntimeExecutionResult
         {
             DWORD StructSize;
@@ -106,6 +116,16 @@ namespace Salamatrix
             DWORD Flags;
             RuntimeCompatibilityExecuteProc CompatibilityExecute;
             void* CompatibilityContext;
+            typedef BOOL(WINAPI* RuntimeHostDispatchProc)(
+                void* context,
+                Protocol::MessageType type,
+                ULONGLONG requestId,
+                const char* payloadJson,
+                char* resultJson,
+                DWORD resultCapacity,
+                DWORD* resultLength);
+            RuntimeHostDispatchProc HostDispatch;
+            void* HostDispatchContext;
 
             RuntimeExecutionRequest()
                 : StructSize(sizeof(RuntimeExecutionRequest)),
@@ -117,9 +137,35 @@ namespace Salamatrix
                   TimeoutMs(120000),
                   Flags(0),
                   CompatibilityExecute(NULL),
-                  CompatibilityContext(NULL)
+                  CompatibilityContext(NULL),
+                  HostDispatch(NULL),
+                  HostDispatchContext(NULL)
             {
             }
+        };
+
+        /// Bidirectional stdio session used by persistent runtime workers.
+        /// Frames are encoded by Protocol::LineCodec and include their trailing
+        /// newline. The interface intentionally exposes bytes, not C++ strings,
+        /// so Python/PowerShell/PHP bindings can share the same wire contract.
+        class IRuntimeSession
+        {
+        public:
+            virtual BOOL WINAPI IsAlive() const = 0;
+            virtual BOOL WINAPI SendFrame(
+                const char* bytes,
+                DWORD count) = 0;
+            virtual BOOL WINAPI ReceiveFrame(
+                char* bytes,
+                DWORD capacity,
+                DWORD timeoutMs,
+                DWORD* received) = 0;
+            virtual BOOL WINAPI Pump(DWORD timeoutMs) = 0;
+            virtual void WINAPI Stop() = 0;
+            virtual void WINAPI Release() = 0;
+
+        protected:
+            virtual ~IRuntimeSession() {}
         };
 
         class IRuntimeAdapter
@@ -131,6 +177,19 @@ namespace Salamatrix
             virtual BOOL WINAPI Execute(
                 const RuntimeExecutionRequest* request,
                 RuntimeExecutionResult* result) = 0;
+
+            /// Starts a long-lived worker when the adapter supports it. The
+            /// default keeps existing one-shot/compatibility adapters source
+            /// compatible while modern process adapters opt in explicitly.
+            virtual BOOL WINAPI StartPersistent(
+                const RuntimeExecutionRequest* request,
+                IRuntimeSession** session)
+            {
+                if (session != NULL)
+                    *session = NULL;
+                (void)request;
+                return FALSE;
+            }
 
         protected:
             virtual ~IRuntimeAdapter() {}

@@ -10,6 +10,20 @@ namespace
 {
 int Failures = 0;
 
+struct BootstrapDispatchState
+{
+    int CommandCalls;
+    int StorageCalls;
+    int SubscribeCalls;
+
+    BootstrapDispatchState()
+        : CommandCalls(0),
+          StorageCalls(0),
+          SubscribeCalls(0)
+    {
+    }
+};
+
 void Check(bool condition, const char* message)
 {
     if (!condition)
@@ -17,6 +31,61 @@ void Check(bool condition, const char* message)
         std::fprintf(stderr, "FAILED: %s\n", message);
         ++Failures;
     }
+}
+
+BOOL WINAPI WorkerHostDispatch(
+    void* context,
+    Salamatrix::Runtime::Protocol::MessageType type,
+    ULONGLONG requestId,
+    const char* payloadJson,
+    char* resultJson,
+    DWORD resultCapacity,
+    DWORD* resultLength)
+{
+    (void)requestId;
+    if (payloadJson == NULL || resultJson == NULL || resultLength == NULL)
+        return FALSE;
+    BootstrapDispatchState* state =
+        static_cast<BootstrapDispatchState*>(context);
+    const char* response = "{\"ok\":true,\"method\":\"host.call\"}";
+    if (type == Salamatrix::Runtime::Protocol::MessageHello)
+    {
+        response = "{\"ok\":true,\"protocol\":1}";
+    }
+    else if (type != Salamatrix::Runtime::Protocol::MessageCall)
+    {
+        return FALSE;
+    }
+    else if (strstr(payloadJson, "salamander.commands.execute") != NULL)
+    {
+        if (state != NULL)
+            ++state->CommandCalls;
+        response = "{\"ok\":true,\"result\":\"ok\"}";
+    }
+    else if (strstr(payloadJson, "salamander.storage.set") != NULL)
+    {
+        if (state != NULL)
+            ++state->StorageCalls;
+        response = "{\"ok\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.storage.get") != NULL)
+    {
+        if (state != NULL)
+            ++state->StorageCalls;
+        response = "{\"ok\":true,\"type\":\"string\",\"value\":\"ok\"}";
+    }
+    else if (strstr(payloadJson, "salamander.events.subscribe") != NULL)
+    {
+        if (state != NULL)
+            ++state->SubscribeCalls;
+        response = "{\"ok\":true,\"subscriptionId\":\"41\"}";
+    }
+    DWORD responseSize = static_cast<DWORD>(strlen(response));
+    if (resultCapacity <= responseSize)
+        return FALSE;
+    memcpy(resultJson, response, responseSize);
+    *resultLength = responseSize;
+    return TRUE;
 }
 
 bool FindProgram(const wchar_t* name, wchar_t* path, int pathCount)
@@ -107,6 +176,51 @@ void RunPythonTests()
     Check(adapter.Execute(&request, &result) == FALSE, "python timeout returns false");
     Check(result.Status == Salamatrix::Runtime::RuntimeExecutionStatusCancelled,
           "python timeout status");
+
+    Check(WriteScript(
+              script,
+              "import sys\n"
+              "for line in sys.stdin:\n"
+              "    sys.stdout.write(line)\n"
+              "    sys.stdout.flush()\n"),
+          "write persistent python worker");
+    request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker;
+    request.HostDispatch = WorkerHostDispatch;
+    request.HostDispatchContext = NULL;
+    request.TimeoutMs = 5000;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    Check(adapter.StartPersistent(&request, &session) != FALSE && session != NULL,
+          "start persistent python worker");
+    if (session != NULL)
+    {
+        std::string frame;
+        Check(
+            Salamatrix::Runtime::Protocol::LineCodec::Encode(
+                Salamatrix::Runtime::Protocol::MessageCall,
+                7,
+                "{\"method\":\"host.call\"}",
+                &frame) != FALSE,
+            "encode persistent worker frame");
+        Check(session->SendFrame(frame.c_str(), static_cast<DWORD>(frame.size())) != FALSE,
+              "send persistent worker frame");
+        Check(session->Pump(5000) != FALSE, "pump host dispatch frame");
+        char received[4096];
+        DWORD receivedLength = 0;
+        Check(session->ReceiveFrame(received, _countof(received), 5000, &receivedLength) != FALSE,
+              "receive persistent worker frame");
+        Salamatrix::Runtime::Protocol::LineCodec decoder;
+        Salamatrix::Runtime::Protocol::Frame receivedFrame;
+        BOOL complete = FALSE;
+        Check(
+                decoder.Append(received, receivedLength, &receivedFrame, &complete) != FALSE &&
+                complete != FALSE && receivedFrame.Type ==
+                    Salamatrix::Runtime::Protocol::MessageResult &&
+                receivedFrame.Id == 7,
+            "persistent worker echoes frame");
+        session->Stop();
+        session->Release();
+    }
+    request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagNone;
     DeleteFileW(script);
 }
 
@@ -140,6 +254,196 @@ void RunPowerShellTest()
     Check(adapter.Execute(&request, &result) != FALSE, "powershell execution succeeds");
     Check(wcsstr(result.Output, L"salamatrix-powershell-ok") != NULL,
           "powershell output captured");
+    DeleteFileW(script);
+}
+
+void RunPythonBootstrapTest()
+{
+    wchar_t workerRoot[MAX_PATH * 4];
+    DWORD rootLength = GetEnvironmentVariableW(
+        L"SALAMATRIX_WORKER_ROOT", workerRoot, _countof(workerRoot));
+    if (rootLength == 0 || rootLength >= _countof(workerRoot))
+    {
+        std::fprintf(stderr, "SKIPPED: SALAMATRIX_WORKER_ROOT was not set.\n");
+        return;
+    }
+
+    wchar_t interpreter[MAX_PATH * 4];
+    if (!FindProgram(L"python.exe", interpreter, _countof(interpreter)))
+    {
+        std::fprintf(stderr, "SKIPPED: python.exe was not found.\n");
+        return;
+    }
+    SetEnvironmentVariableW(L"SALAMATRIX_PYTHON", interpreter);
+    wchar_t script[MAX_PATH];
+    MakePath(L"-bootstrap.py", script, _countof(script));
+    Check(WriteScript(
+              script,
+              "if Salamander.commands.execute('Copy') != 'ok':\n"
+              "    raise RuntimeError('command call failed')\n"
+              "Salamander.storage.set('bootstrap', 'ok')\n"
+              "if Salamander.storage.get('bootstrap') != 'ok':\n"
+              "    raise RuntimeError('storage call failed')\n"
+              "Salamander.events.subscribe('hostStartup', lambda event: None)\n"),
+          "write python bootstrap worker");
+
+    CAutomationProcessRuntimeAdapter adapter(
+        "Python.CPython",
+        "CPython",
+        "python",
+        ".py",
+        L"SALAMATRIX_PYTHON",
+        L"python.exe",
+        L"python3.exe",
+        CAutomationProcessRuntimeAdapter::ProcessKindPython);
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.EntryPoint = script;
+    request.Flags =
+        Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
+        Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
+    request.TimeoutMs = 5000;
+    BootstrapDispatchState state;
+    request.HostDispatch = WorkerHostDispatch;
+    request.HostDispatchContext = &state;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    Check(adapter.StartPersistent(&request, &session) != FALSE && session != NULL,
+          "start python bootstrap worker");
+    if (session != NULL)
+    {
+        for (int attempt = 0; attempt < 12 && state.SubscribeCalls == 0; ++attempt)
+            Check(session->Pump(1000) != FALSE, "pump python bootstrap call");
+        Check(state.CommandCalls == 1, "bootstrap command call reached host");
+        Check(state.StorageCalls == 2, "bootstrap storage calls reached host");
+        Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
+        std::string shutdown;
+        Check(
+            Salamatrix::Runtime::Protocol::LineCodec::Encode(
+                Salamatrix::Runtime::Protocol::MessageShutdown,
+                0,
+                "{}",
+                &shutdown) != FALSE,
+            "encode bootstrap shutdown");
+        Check(session->SendFrame(shutdown.c_str(), static_cast<DWORD>(shutdown.size())) != FALSE,
+              "send bootstrap shutdown");
+        for (int attempt = 0; attempt < 20 && session->IsAlive(); ++attempt)
+            Sleep(25);
+        Check(session->IsAlive() == FALSE, "bootstrap worker exits after shutdown");
+        session->Stop();
+        session->Release();
+    }
+    DeleteFileW(script);
+}
+
+void RunPowerShellBootstrapTest()
+{
+    wchar_t workerRoot[MAX_PATH * 4];
+    DWORD rootLength = GetEnvironmentVariableW(
+        L"SALAMATRIX_WORKER_ROOT", workerRoot, _countof(workerRoot));
+    if (rootLength == 0 || rootLength >= _countof(workerRoot))
+        return;
+    wchar_t interpreter[MAX_PATH * 4];
+    if (!FindProgram(L"pwsh.exe", interpreter, _countof(interpreter)))
+        return;
+    SetEnvironmentVariableW(L"SALAMATRIX_POWERSHELL", interpreter);
+    wchar_t script[MAX_PATH];
+    MakePath(L"-bootstrap.ps1", script, _countof(script));
+    Check(WriteScript(
+              script,
+              "if ($Salamander.commands.Execute('Copy') -ne 'ok') { throw 'command call failed' }\n"
+              "$Salamander.storage.Set('bootstrap', 'ok')\n"
+              "if ($Salamander.storage.Get('bootstrap') -ne 'ok') { throw 'storage call failed' }\n"
+              "$null = $Salamander.events.Subscribe('hostStartup', { param($event) })\n"),
+          "write powershell bootstrap worker");
+    CAutomationProcessRuntimeAdapter adapter(
+        "PowerShell", "PowerShell", "powershell", ".ps1",
+        L"SALAMATRIX_POWERSHELL", L"pwsh.exe", L"powershell.exe",
+        CAutomationProcessRuntimeAdapter::ProcessKindPowerShell);
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.EntryPoint = script;
+    request.Flags =
+        Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
+        Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
+    request.TimeoutMs = 5000;
+    BootstrapDispatchState state;
+    request.HostDispatch = WorkerHostDispatch;
+    request.HostDispatchContext = &state;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    Check(adapter.StartPersistent(&request, &session) != FALSE && session != NULL,
+          "start powershell bootstrap worker");
+    if (session != NULL)
+    {
+        for (int attempt = 0; attempt < 15 && state.SubscribeCalls == 0; ++attempt)
+            Check(session->Pump(1000) != FALSE, "pump powershell bootstrap call");
+        Check(state.CommandCalls == 1, "powershell bootstrap command call");
+        Check(state.StorageCalls == 2, "powershell bootstrap storage calls");
+        Check(state.SubscribeCalls == 1, "powershell bootstrap event subscription");
+        std::string shutdown;
+        Salamatrix::Runtime::Protocol::LineCodec::Encode(
+            Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
+        session->SendFrame(shutdown.c_str(), static_cast<DWORD>(shutdown.size()));
+        for (int attempt = 0; attempt < 20 && session->IsAlive(); ++attempt)
+            Sleep(25);
+        Check(session->IsAlive() == FALSE, "powershell bootstrap exits after shutdown");
+        session->Stop();
+        session->Release();
+    }
+    DeleteFileW(script);
+}
+
+void RunPhpBootstrapTest()
+{
+    wchar_t workerRoot[MAX_PATH * 4];
+    DWORD rootLength = GetEnvironmentVariableW(
+        L"SALAMATRIX_WORKER_ROOT", workerRoot, _countof(workerRoot));
+    if (rootLength == 0 || rootLength >= _countof(workerRoot))
+        return;
+    wchar_t interpreter[MAX_PATH * 4];
+    if (!FindProgram(L"php.exe", interpreter, _countof(interpreter)))
+        return;
+    SetEnvironmentVariableW(L"SALAMATRIX_PHP", interpreter);
+    wchar_t script[MAX_PATH];
+    MakePath(L"-bootstrap.php", script, _countof(script));
+    Check(WriteScript(
+              script,
+              "<?php\n"
+              "if ($Salamander->commands->execute('Copy') !== 'ok') throw new Exception('command call failed');\n"
+              "$Salamander->storage->set('bootstrap', 'ok');\n"
+              "if ($Salamander->storage->get('bootstrap') !== 'ok') throw new Exception('storage call failed');\n"
+              "$Salamander->events->subscribe('hostStartup', function($event) {});\n"
+              "?>\n"),
+          "write php bootstrap worker");
+    CAutomationProcessRuntimeAdapter adapter(
+        "PHP.CLI", "PHP", "php", ".php", L"SALAMATRIX_PHP", L"php.exe", NULL,
+        CAutomationProcessRuntimeAdapter::ProcessKindPhp);
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.EntryPoint = script;
+    request.Flags =
+        Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
+        Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
+    request.TimeoutMs = 5000;
+    BootstrapDispatchState state;
+    request.HostDispatch = WorkerHostDispatch;
+    request.HostDispatchContext = &state;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    Check(adapter.StartPersistent(&request, &session) != FALSE && session != NULL,
+          "start php bootstrap worker");
+    if (session != NULL)
+    {
+        for (int attempt = 0; attempt < 15 && state.SubscribeCalls == 0; ++attempt)
+            Check(session->Pump(1000) != FALSE, "pump php bootstrap call");
+        Check(state.CommandCalls == 1, "php bootstrap command call");
+        Check(state.StorageCalls == 2, "php bootstrap storage calls");
+        Check(state.SubscribeCalls == 1, "php bootstrap event subscription");
+        std::string shutdown;
+        Salamatrix::Runtime::Protocol::LineCodec::Encode(
+            Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
+        session->SendFrame(shutdown.c_str(), static_cast<DWORD>(shutdown.size()));
+        for (int attempt = 0; attempt < 20 && session->IsAlive(); ++attempt)
+            Sleep(25);
+        Check(session->IsAlive() == FALSE, "php bootstrap exits after shutdown");
+        session->Stop();
+        session->Release();
+    }
     DeleteFileW(script);
 }
 
@@ -180,6 +484,9 @@ void RunPhpTest()
 int main()
 {
     RunPythonTests();
+    RunPythonBootstrapTest();
+    RunPowerShellBootstrapTest();
+    RunPhpBootstrapTest();
     RunPowerShellTest();
     RunPhpTest();
     if (Failures != 0)

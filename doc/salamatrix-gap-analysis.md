@@ -40,7 +40,8 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 
 - Automation advertises and executes available legacy Active Scripting engines
   through the broker. Modern adapters, dependency environments, cancellation
-  transport, and persistent runtime lifecycle are still missing.
+  transport, persistent runtime lifecycle, and the first host-call binding are
+  now present; worker bootstrap, UI/event bindings, and richer values remain.
 - JavaScript is legacy Windows JScript through `IActiveScript`, not a modern
   bundled JavaScript runtime. Python, PHP, Lua, and Ruby still depend on old
   third-party Active Scripting engines unless the new CPython/PHP CLI adapters
@@ -67,7 +68,7 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 
 | Vision area | Status | Current implementation | Missing work |
 | --- | --- | --- | --- |
-| Three extensibility levels | Partial | Native plugins and one-shot Automation scripts exist; manifest descriptors are now registered in an owner-aware lifecycle catalog. | Persistent runtime instances, activation callbacks, command ownership, and unload leases. |
+| Three extensibility levels | Partial | Native plugins and one-shot Automation scripts exist; manifest descriptors are now registered in an owner-aware lifecycle catalog, activation retains a persistent runtime session, and the host-call dispatcher binds commands, sides, storage, event subscriptions, and a message-box UI call. | Richer UI/value bindings, command ownership, worker bootstrap/library, and unload leases. |
 | Shared cross-runtime API | Partial | The Salamatrix service layer and Automation bridge are real. | Runtime-neutral values/calls, complete object model, error model, threading rules, and bindings for every runtime. |
 | Left/Right/Source/Target sides | MVP | `Salamatrix.Sides` and `Salamander.Sides` resolve all four references and expose each side's active tab and path. | Focused/selected item collections, view mode/tree state, refresh, clipboard, and change events. |
 | Tabs and detached windows | MVP | SDK snapshots and opaque process-local ids expose tab count, index, path/type, active/source/target/locked/detached flags, activation, and stale-handle-safe lookup without raw core pointers. | Create/close/reorder/detach APIs, colors, lifecycle events, richer detached-window operations, and persistence semantics. |
@@ -80,11 +81,11 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | Per-extension storage | MVP | `Salamatrix.Storage` persists isolated manifest-id namespaces with UTF-8 strings, signed 64-bit integers, booleans, delete/clear, validation, and synchronized access. Automation exposes `has/get/set/remove/clear`; legacy global persistence remains for compatibility. | Settings schemas/files, enumeration, quotas, migrations, transactional batches, package uninstall retention/deletion policy, and bindings in modern runtimes. |
 | Shared UI framework | MVP | Native Salamatrix progress and legacy Automation Forms/basic dialogs exist. | One native dialog/control model used by native plugins and all runtimes; pickers, ComboBox, RadioButton, ListView, TreeView, TabControl, notifications, validation, events, layout, DPI/theme/accessibility. |
 | Manifest/package | Partial | Strict UTF-8 JSON parsing validates schema 1, package/runtime identity and minimum version, safe entry point, capabilities, and up to 64 command records. | Expose every parsed command, then add dependencies, icons, locales, settings, events, package install/uninstall, and richer diagnostics. |
-| Runtime adapters | Partial | `Salamatrix.Runtime` registers/enumerates versioned adapters and executes manifest entry points through structured requests/results. Automation advertises legacy ActiveScript compatibility adapters plus optional out-of-process CPython, PowerShell, and PHP CLI adapters with timeout, exit-code, and bounded output handling. | Persistent worker lifecycle, Salamander object RPC, cancellation plumbing beyond process termination, debugging, dependency environments, and bundled modern JavaScript. |
+| Runtime adapters | Partial | `Salamatrix.Runtime` registers/enumerates versioned adapters and executes manifest entry points through structured requests/results. Automation advertises legacy ActiveScript compatibility adapters plus optional out-of-process CPython, PowerShell, and PHP CLI adapters with timeout, exit-code, bounded output, `IRuntimeSession` persistent-worker support, and host calls for commands, sides, storage, events, and a message box. | Rich UI/full value binding, cancellation plumbing beyond process termination, debugging, dependency environments, and bundled modern JavaScript. |
 | JavaScript runtime | Legacy only | Windows JScript is the hard-coded fallback for `.js`. | Supported bundled modern engine and compatibility adapter for existing JScript/VBScript scripts. |
-| Python runtime | Process MVP | ActivePython COM compatibility remains; `Python.CPython` discovers `python.exe`/`python3.exe` or `SALAMATRIX_PYTHON` and runs `.py` entries out of process. | Persistent worker, Salamander API binding, environment/dependency policy, bundled runtime. |
-| PowerShell runtime | Process MVP | `PowerShell` discovers `pwsh.exe`/`powershell.exe` or `SALAMATRIX_POWERSHELL` and runs `.ps1` entries out of process. | Persistent runspace/worker, object binding, environment policy, cancellation/error mapping, bundled runtime. |
-| PHP runtime | Process MVP | Legacy PHPScript remains; `PHP.CLI` discovers `php.exe` or `SALAMATRIX_PHP` and runs `.php` entries out of process. | Persistent worker, Salamander API binding, dependency policy, support decision and bundled runtime. |
+| Python runtime | Process MVP | ActivePython COM compatibility remains; `Python.CPython` discovers `python.exe`/`python3.exe` or `SALAMATRIX_PYTHON`, runs `.py` entries out of process, and the optional worker bootstrap exposes the shared SMX1 `Salamander` API. | Richer UI/value bindings, environment/dependency policy, bundled runtime, and command/menu registration. |
+| PowerShell runtime | Process MVP | `PowerShell` discovers `pwsh.exe`/`powershell.exe` or `SALAMATRIX_POWERSHELL`, runs `.ps1` entries out of process, and ships the same SMX1 worker bootstrap/API shape. | Richer UI/value bindings, environment policy, cancellation/error mapping, bundled runtime, and command/menu registration. |
+| PHP runtime | Process MVP | Legacy PHPScript remains; `PHP.CLI` discovers `php.exe` or `SALAMATRIX_PHP`, runs `.php` entries out of process, and ships the same SMX1 worker bootstrap/API shape. | Richer UI/value bindings, dependency policy, support decision/bundled runtime, and command/menu registration. |
 | Extension management | Partial | Plugin Manager supports sources and the Extension Runtimes catalog; `Salamatrix.Extensions` tracks manifest descriptors and lifecycle state. | Scripted-extension package type, installed-state model, enable/disable/configure/remove, dependency prompts, runtime status. |
 | Permissions/capabilities | Missing | `requires` only controls whether a menu command is enabled in the current panel context. | Declared/granted capabilities, effect preview, runtime enforcement boundaries, network/process/filesystem policies, audit trail. |
 | AI automation assistant | Missing | No implementation found. | Provider API, API schema/context selection, generation UI, validation/repair, effect preview, run/save flow, local and optional remote providers. |
@@ -119,8 +120,10 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   out-of-process CPython, PowerShell, and PHP CLI adapters and their interpreter
   discovery policy.
 - `src/plugins/salamatrix/salamatrix_runtime_protocol.h` defines the bounded
-  incremental `SMX1` worker framing and its message vocabulary; a persistent
-  session/dispatcher is the next runtime slice.
+  incremental `SMX1` worker framing and its message vocabulary; the Automation
+  bridge now supplies the first host-call dispatcher over that boundary.
+- `src/plugins/automation/scriptlist.cpp` owns the lifecycle callback and the
+  initial `runtime.ready`, commands, sides, and string-storage dispatch.
 - `src/plugins/automation/salamatrixbridge.cpp` is a consumer-only bridge.
 - `src/plugins/automation/salamatrixaut.cpp` implements the COM/Automation
   wrappers.
@@ -206,8 +209,9 @@ The new platform should preserve these working capabilities:
 ### Phase 2: make extensions persistent
 
 1. Extension instances and lifecycle: discover, load, activate, deactivate,
-   unload. **The owner-aware `Salamatrix.Extensions` registry foundation is
-   implemented; persistent interpreter activation remains.**
+   unload. **The owner-aware `Salamatrix.Extensions` registry and persistent
+   `IRuntimeSession` activation seam are implemented; host dispatch and
+   worker bindings remain.**
 2. Command contribution service independent of menu/toolbar/hotkey placement.
 3. Event service with a small first set: startup/shutdown, active side/tab,
    path, selection, tab create/close. **Implemented for host lifecycle,
@@ -322,11 +326,13 @@ The sixth code slice is also implemented:
   states and invoke lifecycle callbacks outside the registry lock;
 - register valid manifest-backed Automation scripts at load/refresh and remove
   them before their `CScriptInfo` owners are deleted;
+- retain and stop a persistent `IRuntimeSession` from the owning script during
+  activate/deactivate and destruction;
 - add `/W4 /WX` tests for registration, duplicate-owner rules, lifecycle state
   transitions, validation, and owner cleanup.
 
-This slice intentionally stops before persistent interpreter activation. The
-registry is the stable seam for the next runtime-host work.
+This slice intentionally stops before host API dispatch. The registry and
+session are the stable seam for the next runtime-host work.
 
 The seventh code slice is now implemented:
 
@@ -342,7 +348,30 @@ The seventh code slice is now implemented:
 The transport foundation is covered by a standalone `/W4 /WX` test for partial
 frames, round trips, malformed ids, newline rejection, and the 1 MiB limit.
 
+The eighth code slice is now implemented:
+
+- add `IRuntimeSession` and optional `IRuntimeAdapter::StartPersistent()`;
+- implement bidirectional persistent process sessions with bounded frame reads,
+  CRLF-tolerant worker output, safe stop/Release cleanup, and timeout-aware
+  liveness checks;
+- connect manifest lifecycle activation/deactivation to session ownership;
+- start and join a bounded host pump thread so worker frames are processed in
+  normal plugin operation;
+- verify a Python echo worker end to end through `SMX1` frames.
+
 This does not pretend that modern Python or PowerShell support is complete. It
 creates the contract those adapters need and removes the current architectural
 assumption that every script file must map directly to an `IActiveScript` COM
 CLSID.
+
+The ninth code slice is now implemented:
+
+- add a host-dispatch callback to the persistent runtime request;
+- bind `runtime.ready`, `salamander.commands.execute`,
+  `salamander.sides.activeTab`, and string `salamander.storage.get/set` calls;
+- bind event subscribe/unsubscribe and push matching `event` frames, plus a
+  parented message-box call;
+- ship language-specific bootstrap scripts that expose the same `Salamander`
+  object model and route calls/events over SMX1;
+- add bounded JSON string-member extraction tests and verify the Automation
+  plugin plus the Python worker round trip.

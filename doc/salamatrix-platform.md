@@ -182,19 +182,32 @@ The process adapter uses a non-shell `CreateProcessW` invocation, passes the
 entry point as a quoted file argument, drains a combined stdout/stderr pipe,
 limits captured output to 1 MiB, terminates timed-out children, and returns the
 exit code. This makes Python/PowerShell/PHP real selectable runtimes today;
-they intentionally do not yet expose Salamander objects to the child process
-or keep a persistent interpreter alive. The next step is a persistent worker
-protocol (JSON-RPC-style messages over stdio) that maps the same UI, commands,
-sides, events, and storage services without sharing native pointers.
+they intentionally do not yet expose Salamander objects to the child process.
+The persistent session seam is now present, and manifest activation starts a
+bounded host pump thread so worker stdout is processed during normal plugin
+operation. The Automation host dispatcher also
+handles the first language-neutral calls (`runtime.ready`, command execution,
+active-tab snapshots, string storage, event subscribe/unsubscribe, and a
+message-box dialog) without sharing native pointers. Richer UI/value bindings
+and a worker bootstrap/library remain to be added on top of this boundary.
 
 The first worker-transport slice is declared in
 `src/plugins/salamatrix/salamatrix_runtime_protocol.h`. It provides a bounded,
 incremental `SMX1` line codec with typed message kinds (`hello`, `ready`, `call`,
 `result`, `event`, `shutdown`, `error`), decimal request ids, and compact JSON
 payloads. The codec rejects embedded newlines, malformed ids, and frames over
-1 MiB, and is intentionally independent of any language's JSON library. A
-persistent process/session and host-side method dispatcher still need to be
-built on top of this transport.
+1 MiB, and is intentionally independent of any language's JSON library. The
+Automation bridge now answers the first host calls through this transport;
+the remaining work is a worker bootstrap/library plus UI, event, and richer
+value bindings.
+
+Process adapters can now opt into the common worker bootstrap with
+`RuntimeExecutionFlagUseWorkerBootstrap`. Automation ships standard-library
+bootstraps for Python, PowerShell, and PHP under `runtime\`; they perform the
+SMX1 handshake, expose the same logical `Salamander` object model, route host
+calls, and keep an event loop alive after the extension entry point returns.
+`SALAMATRIX_WORKER_ROOT` is an explicit deployment/test override; the normal
+plugin build copies the scripts beside the Automation binary.
 
 Runtime registration is tied to the Automation bridge refresh/release lifecycle.
 Before unregistering, the bridge verifies that the same broker is still
@@ -325,10 +338,13 @@ registers valid manifest-backed scripts during initial load and refresh, using
 the `CScriptInfo` address as the owner; removed scripts are unregistered before
 their objects are deleted. Duplicate ids from another owner are rejected.
 
-This is the lifecycle foundation, not yet a persistent interpreter: current
-Automation registrations have no activation callback and remain one-shot
-compatibility scripts. Persistent runtime instances, command ownership, and
-unload leases will build on this registry in the next slice.
+Automation registrations carry a lifecycle callback. Activating a manifest
+looks up its selected runtime adapter and starts an `IRuntimeSession`; the
+session is retained by the owning `CScriptInfo` and is stopped before that
+script is removed. Legacy ActiveScript adapters deliberately reject persistent
+activation, while the new CLI adapters require a worker-compatible entry point
+and fail activation if the child exits immediately. Command ownership, host
+call dispatch, and unload leases still build on this seam.
 
 ## Service lookup API
 
@@ -884,3 +900,16 @@ The platform skeleton is ready when:
 31. `salamatrix_runtime_protocol.h` provides bounded incremental `SMX1` worker
     framing with typed lifecycle/call/event messages and standalone limit and
     malformed-frame tests.
+32. `IRuntimeSession` and `StartPersistent()` provide bidirectional persistent
+    process sessions; manifest lifecycle activation owns and releases sessions,
+    and a Python echo-worker integration test verifies round-trip framing.
+33. The Automation host dispatcher answers `runtime.ready`, command execution,
+    active-tab snapshots, and per-extension string storage calls over `SMX1`.
+34. Manifest activation starts and joins a host pump thread for each persistent
+    worker, so the dispatcher is active outside of tests as well.
+35. The dispatcher supports event subscriptions with pushed `event` frames and
+    a parented `salamander.ui.messageBox` call; subscriptions are removed before
+    the worker session is stopped.
+36. Python, PowerShell, and PHP process adapters can start the shared worker
+    bootstraps; the Python integration test exercises handshake, commands,
+    storage, event subscription, and shutdown end to end.

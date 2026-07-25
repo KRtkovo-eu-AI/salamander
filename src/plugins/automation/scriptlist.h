@@ -15,6 +15,7 @@
 
 #include "../salamatrix/salamatrix_runtime_api.h"
 #include "../salamatrix/salamatrix_extensions.h"
+#include "../salamatrix/salamatrix_events.h"
 
 class CScriptInfo
 {
@@ -83,6 +84,10 @@ private:
     class CScriptEngineShim* m_pShim;
     HANDLE m_hAbortEvent; ///< Manually reset event signaled when the user requested abort.
     HWND m_hwndAbortTarget;
+    Salamatrix::Runtime::IRuntimeSession* m_pRuntimeSession;
+    HANDLE m_hRuntimePumpThread;
+    ULONGLONG m_runtimeEventSubscriptions[8];
+    int m_nRuntimeEventSubscriptions;
 
     // statistics stuff
     LONG m_cExecuted;
@@ -121,6 +126,24 @@ private:
 
     void ScriptEnter();
     void ScriptLeave();
+    void ReleaseRuntimeSession();
+    static DWORD WINAPI RuntimePumpProc(void* arg);
+    static BOOL WINAPI RuntimeEventCallback(
+        void* context,
+        const Salamatrix::Events::EventPayload* payload);
+    void ReleaseRuntimeEventSubscriptions();
+    static BOOL WINAPI RuntimeLifecycleCallback(
+        void* context,
+        Salamatrix::Extensions::ExtensionAction action,
+        const Salamatrix::Extensions::ExtensionInfo* info);
+    static BOOL WINAPI RuntimeHostDispatch(
+        void* context,
+        Salamatrix::Runtime::Protocol::MessageType type,
+        ULONGLONG requestId,
+        const char* payloadJson,
+        char* resultJson,
+        DWORD resultCapacity,
+        DWORD* resultLength);
 
     friend class CScriptLookup;
     friend class CScriptEngineShim;

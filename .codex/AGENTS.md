@@ -2,6 +2,10 @@
 
 These rules apply to all future agentic development in this repository.
 
+## Commands and timeouts
+- Run all commands as escalated.
+- Timeout for command is 2 minutes maximum!!!! (Never ever let commands run for longer - I just saw you run some bullshit command for 10 hours just because you didn't have timeout. So NEVER!)
+
 ## Windows paths and buffer sizes
 
 - Do not introduce new `MAX_PATH`-sized buffers for file names, directory names, command lines, viewer/editor arguments, or paths.

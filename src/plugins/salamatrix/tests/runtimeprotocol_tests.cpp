@@ -67,12 +67,34 @@ void TestValidationAndLimits()
               complete != FALSE,
           "reject oversized frame");
 }
+
+void TestJsonMemberExtraction()
+{
+    std::string value;
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            "{\"params\":{\"ignored\":1},\"method\":\"salamander.storage.get\",\"key\":\"last\\\"Path\"}",
+            "method",
+            &value) != FALSE && value == "salamander.storage.get",
+        "extract method from nested JSON object");
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            "{\"params\":{\"ignored\":1},\"method\":\"salamander.storage.get\",\"key\":\"last\\\"Path\"}",
+            "key",
+            &value) != FALSE && value == "last\"Path",
+        "decode JSON string escapes");
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            "{\"method\":42}", "method", &value) == FALSE,
+        "reject non-string member");
+}
 } // namespace
 
 int main()
 {
     TestRoundTrip();
     TestValidationAndLimits();
+    TestJsonMemberExtraction();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d runtime protocol test(s) failed.\n", Failures);

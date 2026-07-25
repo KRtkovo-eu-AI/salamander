@@ -423,6 +423,11 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <RuntimeBootstrap Include="..\runtime\salamatrix_worker.py" />
+    <RuntimeBootstrap Include="..\runtime\salamatrix_worker.ps1" />
+    <RuntimeBootstrap Include="..\runtime\salamatrix_worker.php" />
+  </ItemGroup>
+  <ItemGroup>
     <Image Include="..\res\automation.ico">
     </Image>
     <Image Include="..\res\automation_strip.png">
@@ -440,6 +445,12 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
   </Import>
+  <Target Name="CopySalamatrixWorkerBootstraps" AfterTargets="Build">
+    <MakeDir Directories="$(OutDir)runtime" />
+    <Copy SourceFiles="@(RuntimeBootstrap)"
+          DestinationFiles="@(RuntimeBootstrap->'$(OutDir)runtime\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
