@@ -3,6 +3,7 @@
 #include "../precomp.h"
 #include <strsafe.h>
 #include <cstdio>
+#include <vector>
 
 #include "../salamatrixbridge.h"
 
@@ -199,9 +200,9 @@ bool WriteScript(const wchar_t* path, const char* text)
 
 void MakePath(const wchar_t* extension, wchar_t* path, int pathCount)
 {
-    wchar_t tempPath[MAX_PATH];
-    DWORD length = GetTempPathW(_countof(tempPath), tempPath);
-    if (length == 0 || length >= _countof(tempPath))
+    std::vector<wchar_t> tempPath(SAL_MAX_PATH);
+    DWORD length = GetTempPathW(static_cast<DWORD>(tempPath.size()), &tempPath[0]);
+    if (length == 0 || length >= tempPath.size())
     {
         path[0] = L'\0';
         return;
@@ -210,24 +211,24 @@ void MakePath(const wchar_t* extension, wchar_t* path, int pathCount)
         path,
         pathCount,
         L"%ssalamatrix-runtime-%lu%s",
-        tempPath,
+        &tempPath[0],
         GetCurrentProcessId(),
         extension);
 }
 
 void RunPythonTests()
 {
-    wchar_t interpreter[MAX_PATH * 4];
-    if (!FindProgram(L"python.exe", interpreter, _countof(interpreter)))
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(L"python.exe", &interpreter[0], static_cast<int>(interpreter.size())))
     {
         std::fprintf(stderr, "SKIPPED: python.exe was not found.\n");
         return;
     }
-    SetEnvironmentVariableW(L"SALAMATRIX_PYTHON", interpreter);
+    SetEnvironmentVariableW(L"SALAMATRIX_PYTHON", &interpreter[0]);
 
-    wchar_t script[MAX_PATH];
-    MakePath(L".py", script, _countof(script));
-    Check(WriteScript(script, "print('salamatrix-python-ok')\n"), "write python script");
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L".py", &script[0], static_cast<int>(script.size()));
+    Check(WriteScript(&script[0], "print('salamatrix-python-ok')\n"), "write python script");
 
     CAutomationProcessRuntimeAdapter adapter(
         "Python.CPython",
@@ -242,7 +243,7 @@ void RunPythonTests()
     Check(adapter.SupportsEntryPoint("sample.py") != FALSE, "python extension support");
 
     Salamatrix::Runtime::RuntimeExecutionRequest request;
-    request.EntryPoint = script;
+    request.EntryPoint = &script[0];
     request.TimeoutMs = 5000;
     Salamatrix::Runtime::RuntimeExecutionResult result;
     Check(adapter.Execute(&request, &result) != FALSE, "python execution succeeds");
@@ -251,7 +252,7 @@ void RunPythonTests()
     Check(wcsstr(result.Output, L"salamatrix-python-ok") != NULL,
           "python output captured");
 
-    Check(WriteScript(script, "import time\ntime.sleep(2)\n"), "write timeout script");
+    Check(WriteScript(&script[0], "import time\ntime.sleep(2)\n"), "write timeout script");
     request.TimeoutMs = 100;
     result = Salamatrix::Runtime::RuntimeExecutionResult();
     Check(adapter.Execute(&request, &result) == FALSE, "python timeout returns false");
@@ -259,7 +260,7 @@ void RunPythonTests()
           "python timeout status");
 
     Check(WriteScript(
-              script,
+              &script[0],
               "import sys\n"
               "for line in sys.stdin:\n"
               "    sys.stdout.write(line)\n"
@@ -302,21 +303,21 @@ void RunPythonTests()
         session->Release();
     }
     request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagNone;
-    DeleteFileW(script);
+    DeleteFileW(&script[0]);
 }
 
 void RunPowerShellTest()
 {
-    wchar_t interpreter[MAX_PATH * 4];
-    if (!FindProgram(L"pwsh.exe", interpreter, _countof(interpreter)))
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(L"pwsh.exe", &interpreter[0], static_cast<int>(interpreter.size())))
     {
         std::fprintf(stderr, "SKIPPED: pwsh.exe was not found.\n");
         return;
     }
-    SetEnvironmentVariableW(L"SALAMATRIX_POWERSHELL", interpreter);
-    wchar_t script[MAX_PATH];
-    MakePath(L".ps1", script, _countof(script));
-    Check(WriteScript(script, "Write-Output 'salamatrix-powershell-ok'\n"),
+    SetEnvironmentVariableW(L"SALAMATRIX_POWERSHELL", &interpreter[0]);
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L".ps1", &script[0], static_cast<int>(script.size()));
+    Check(WriteScript(&script[0], "Write-Output 'salamatrix-powershell-ok'\n"),
           "write powershell script");
     CAutomationProcessRuntimeAdapter adapter(
         "PowerShell",
@@ -329,37 +330,37 @@ void RunPowerShellTest()
         CAutomationProcessRuntimeAdapter::ProcessKindPowerShell);
     Check(adapter.IsAvailable() != FALSE, "powershell adapter available");
     Salamatrix::Runtime::RuntimeExecutionRequest request;
-    request.EntryPoint = script;
+    request.EntryPoint = &script[0];
     request.TimeoutMs = 5000;
     Salamatrix::Runtime::RuntimeExecutionResult result;
     Check(adapter.Execute(&request, &result) != FALSE, "powershell execution succeeds");
     Check(wcsstr(result.Output, L"salamatrix-powershell-ok") != NULL,
           "powershell output captured");
-    DeleteFileW(script);
+    DeleteFileW(&script[0]);
 }
 
 void RunPythonBootstrapTest()
 {
-    wchar_t workerRoot[MAX_PATH * 4];
+    std::vector<wchar_t> workerRoot(SAL_MAX_PATH);
     DWORD rootLength = GetEnvironmentVariableW(
-        L"SALAMATRIX_WORKER_ROOT", workerRoot, _countof(workerRoot));
-    if (rootLength == 0 || rootLength >= _countof(workerRoot))
+        L"SALAMATRIX_WORKER_ROOT", &workerRoot[0], static_cast<DWORD>(workerRoot.size()));
+    if (rootLength == 0 || rootLength >= workerRoot.size())
     {
         std::fprintf(stderr, "SKIPPED: SALAMATRIX_WORKER_ROOT was not set.\n");
         return;
     }
 
-    wchar_t interpreter[MAX_PATH * 4];
-    if (!FindProgram(L"python.exe", interpreter, _countof(interpreter)))
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(L"python.exe", &interpreter[0], static_cast<int>(interpreter.size())))
     {
         std::fprintf(stderr, "SKIPPED: python.exe was not found.\n");
         return;
     }
-    SetEnvironmentVariableW(L"SALAMATRIX_PYTHON", interpreter);
-    wchar_t script[MAX_PATH];
-    MakePath(L"-bootstrap.py", script, _countof(script));
+    SetEnvironmentVariableW(L"SALAMATRIX_PYTHON", &interpreter[0]);
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L"-bootstrap.py", &script[0], static_cast<int>(script.size()));
     Check(WriteScript(
-              script,
+              &script[0],
               "if Salamander.commands.execute('Copy') != 'ok':\n"
               "    raise RuntimeError('command call failed')\n"
               "Salamander.storage.set('bootstrap', 'ok')\n"
@@ -411,7 +412,7 @@ void RunPythonBootstrapTest()
         L"python3.exe",
         CAutomationProcessRuntimeAdapter::ProcessKindPython);
     Salamatrix::Runtime::RuntimeExecutionRequest request;
-    request.EntryPoint = script;
+    request.EntryPoint = &script[0];
     request.Flags =
         Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
@@ -450,24 +451,24 @@ void RunPythonBootstrapTest()
         session->Stop();
         session->Release();
     }
-    DeleteFileW(script);
+    DeleteFileW(&script[0]);
 }
 
 void RunPowerShellBootstrapTest()
 {
-    wchar_t workerRoot[MAX_PATH * 4];
+    std::vector<wchar_t> workerRoot(SAL_MAX_PATH);
     DWORD rootLength = GetEnvironmentVariableW(
-        L"SALAMATRIX_WORKER_ROOT", workerRoot, _countof(workerRoot));
-    if (rootLength == 0 || rootLength >= _countof(workerRoot))
+        L"SALAMATRIX_WORKER_ROOT", &workerRoot[0], static_cast<DWORD>(workerRoot.size()));
+    if (rootLength == 0 || rootLength >= workerRoot.size())
         return;
-    wchar_t interpreter[MAX_PATH * 4];
-    if (!FindProgram(L"pwsh.exe", interpreter, _countof(interpreter)))
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(L"pwsh.exe", &interpreter[0], static_cast<int>(interpreter.size())))
         return;
-    SetEnvironmentVariableW(L"SALAMATRIX_POWERSHELL", interpreter);
-    wchar_t script[MAX_PATH];
-    MakePath(L"-bootstrap.ps1", script, _countof(script));
+    SetEnvironmentVariableW(L"SALAMATRIX_POWERSHELL", &interpreter[0]);
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L"-bootstrap.ps1", &script[0], static_cast<int>(script.size()));
     Check(WriteScript(
-              script,
+              &script[0],
               "if ($Salamander.commands.Execute('Copy') -ne 'ok') { throw 'command call failed' }\n"
               "$Salamander.storage.Set('bootstrap', 'ok')\n"
               "if ($Salamander.storage.Get('bootstrap') -ne 'ok') { throw 'storage call failed' }\n"
@@ -501,7 +502,7 @@ void RunPowerShellBootstrapTest()
         L"SALAMATRIX_POWERSHELL", L"pwsh.exe", L"powershell.exe",
         CAutomationProcessRuntimeAdapter::ProcessKindPowerShell);
     Salamatrix::Runtime::RuntimeExecutionRequest request;
-    request.EntryPoint = script;
+    request.EntryPoint = &script[0];
     request.Flags =
         Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
@@ -534,24 +535,24 @@ void RunPowerShellBootstrapTest()
         session->Stop();
         session->Release();
     }
-    DeleteFileW(script);
+    DeleteFileW(&script[0]);
 }
 
 void RunPhpBootstrapTest()
 {
-    wchar_t workerRoot[MAX_PATH * 4];
+    std::vector<wchar_t> workerRoot(SAL_MAX_PATH);
     DWORD rootLength = GetEnvironmentVariableW(
-        L"SALAMATRIX_WORKER_ROOT", workerRoot, _countof(workerRoot));
-    if (rootLength == 0 || rootLength >= _countof(workerRoot))
+        L"SALAMATRIX_WORKER_ROOT", &workerRoot[0], static_cast<DWORD>(workerRoot.size()));
+    if (rootLength == 0 || rootLength >= workerRoot.size())
         return;
-    wchar_t interpreter[MAX_PATH * 4];
-    if (!FindProgram(L"php.exe", interpreter, _countof(interpreter)))
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(L"php.exe", &interpreter[0], static_cast<int>(interpreter.size())))
         return;
-    SetEnvironmentVariableW(L"SALAMATRIX_PHP", interpreter);
-    wchar_t script[MAX_PATH];
-    MakePath(L"-bootstrap.php", script, _countof(script));
+    SetEnvironmentVariableW(L"SALAMATRIX_PHP", &interpreter[0]);
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L"-bootstrap.php", &script[0], static_cast<int>(script.size()));
     Check(WriteScript(
-              script,
+              &script[0],
               "<?php\n"
               "if ($Salamander->commands->execute('Copy') !== 'ok') throw new Exception('command call failed');\n"
               "$Salamander->storage->set('bootstrap', 'ok');\n"
@@ -586,7 +587,7 @@ void RunPhpBootstrapTest()
         "PHP.CLI", "PHP", "php", ".php", L"SALAMATRIX_PHP", L"php.exe", NULL,
         CAutomationProcessRuntimeAdapter::ProcessKindPhp);
     Salamatrix::Runtime::RuntimeExecutionRequest request;
-    request.EntryPoint = script;
+    request.EntryPoint = &script[0];
     request.Flags =
         Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
@@ -619,21 +620,21 @@ void RunPhpBootstrapTest()
         session->Stop();
         session->Release();
     }
-    DeleteFileW(script);
+    DeleteFileW(&script[0]);
 }
 
 void RunPhpTest()
 {
-    wchar_t interpreter[MAX_PATH * 4];
-    if (!FindProgram(L"php.exe", interpreter, _countof(interpreter)))
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(L"php.exe", &interpreter[0], static_cast<int>(interpreter.size())))
     {
         std::fprintf(stderr, "SKIPPED: php.exe was not found.\n");
         return;
     }
-    SetEnvironmentVariableW(L"SALAMATRIX_PHP", interpreter);
-    wchar_t script[MAX_PATH];
-    MakePath(L".php", script, _countof(script));
-    Check(WriteScript(script, "<?php echo 'salamatrix-php-ok\\n'; ?>\n"),
+    SetEnvironmentVariableW(L"SALAMATRIX_PHP", &interpreter[0]);
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L".php", &script[0], static_cast<int>(script.size()));
+    Check(WriteScript(&script[0], "<?php echo 'salamatrix-php-ok\\n'; ?>\n"),
           "write php script");
     CAutomationProcessRuntimeAdapter adapter(
         "PHP.CLI",
@@ -646,13 +647,13 @@ void RunPhpTest()
         CAutomationProcessRuntimeAdapter::ProcessKindPhp);
     Check(adapter.IsAvailable() != FALSE, "php adapter available");
     Salamatrix::Runtime::RuntimeExecutionRequest request;
-    request.EntryPoint = script;
+    request.EntryPoint = &script[0];
     request.TimeoutMs = 5000;
     Salamatrix::Runtime::RuntimeExecutionResult result;
     Check(adapter.Execute(&request, &result) != FALSE, "php execution succeeds");
     Check(wcsstr(result.Output, L"salamatrix-php-ok") != NULL,
           "php output captured");
-    DeleteFileW(script);
+    DeleteFileW(&script[0]);
 }
 } // namespace
 

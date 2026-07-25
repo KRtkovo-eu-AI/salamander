@@ -684,11 +684,12 @@ Automation workers use the same dialog object and control state:
 - `RadioButton` -> `ControlKindRadioButton`
 - `ListView` -> `ControlKindListView` (native common-control surface with item binding)
 - `TreeView` -> `ControlKindTreeView` (native common-control surface with node/parent binding)
+- `TabControl` -> `ControlKindTabControl` (native common-control surface with tab item binding)
 
 The current Automation GUI layer can now be migrated incrementally to these
 interfaces instead of creating a second runtime-specific UI. The native
 implementation renders labels, text boxes, check/radio buttons, combo boxes,
-buttons, and the native ListView/TreeView common-control surfaces. Runtime
+buttons, and the native ListView/TreeView/TabControl common-control surfaces. Runtime
 workers can add and clear items before showing a dialog; TreeView items accept a
 parent index. Column models, selection notifications, and virtualized data
 binding remain a follow-up.
@@ -962,7 +963,7 @@ The platform skeleton is ready when:
     to Python, PowerShell, and PHP.
 39. `Salamatrix.UI` now publishes a reusable native `IDialog`/`IControl`
     contract and `NativeDialog` implementation for labels, text boxes,
-    check/radio buttons, combo boxes, buttons, ListView, and TreeView; the
+    check/radio buttons, combo boxes, buttons, ListView, TreeView, and TabControl; the
     worker input-box path goes through this service rather than owning a second
     dialog backend.
 40. The command catalog covers the available core `SALCMD_*` operations and
@@ -970,6 +971,6 @@ The platform skeleton is ready when:
     create-directory, refresh, and properties wrappers to native callers and
     all three modern worker runtimes.
 41. Workers can create native dialogs, add all currently supported control
-    kinds, show them modally, read control state, and destroy them through the
+    kinds (including item/node/tab binding), show them modally, read control state, and destroy them through the
     same `Salamatrix.UI` service; the bounded process-runtime tests exercise
     this path in Python, PowerShell, and PHP.

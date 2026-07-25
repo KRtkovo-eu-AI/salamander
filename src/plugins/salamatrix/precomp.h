@@ -31,6 +31,7 @@
 #include "../shared/spl_gui.h"
 #include "../shared/dbg.h"
 #include "../shared/mhandles.h"
+#include "../../darkmode.h"
 
 #include "salamatrix.h"
 #include "salamatrix.rh"

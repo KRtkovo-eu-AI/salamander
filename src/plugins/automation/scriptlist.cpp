@@ -28,12 +28,74 @@ extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 
+static HANDLE OpenReadFilePath(PCTSTR path)
+{
+    if (path == NULL)
+        return INVALID_HANDLE_VALUE;
+    std::wstring widePath;
+#ifdef UNICODE
+    widePath.assign(path);
+#else
+    int required = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    if (required <= 0)
+    {
+        required = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
+        codePage = CP_ACP;
+    }
+    if (required <= 0)
+        return INVALID_HANDLE_VALUE;
+    std::vector<wchar_t> converted(static_cast<size_t>(required));
+    if (MultiByteToWideChar(
+            codePage,
+            codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0,
+            path,
+            -1,
+            &converted[0],
+            required) <= 0)
+        return INVALID_HANDLE_VALUE;
+    widePath.assign(&converted[0]);
+#endif
+    if (widePath.size() >= MAX_PATH && widePath.compare(0, 4, L"\\\\?\\") != 0)
+    {
+        if (widePath.size() >= 2 && widePath[0] == L'\\' && widePath[1] == L'\\')
+            widePath = L"\\\\?\\UNC\\" + widePath.substr(2);
+        else
+            widePath = L"\\\\?\\" + widePath;
+    }
+    return HANDLES_Q(CreateFileW(
+        widePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+}
+
+static BOOL Utf8ToWideText(const std::string& value, std::wstring& output)
+{
+    int required = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, value.c_str(), -1, NULL, 0);
+    if (required <= 0)
+    {
+        output.clear();
+        return FALSE;
+    }
+    std::vector<wchar_t> buffer(static_cast<size_t>(required));
+    if (MultiByteToWideChar(
+            CP_UTF8, MB_ERR_INVALID_CHARS, value.c_str(), -1,
+            &buffer[0], required) <= 0)
+    {
+        output.clear();
+        return FALSE;
+    }
+    output.assign(&buffer[0]);
+    return TRUE;
+}
+
 static volatile LONG g_nextRuntimeCommandMenuId = 0x60000000;
 extern CAutomationPluginInterface g_oAutomationPlugin;
 
 static BOOL ReadSmallTextFile(PCTSTR path, char* buffer, DWORD bufferSize)
 {
-    HANDLE hFile = HANDLES_Q(CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL));
+    HANDLE hFile = OpenReadFilePath(path);
     if (hFile == INVALID_HANDLE_VALUE)
         return FALSE;
 
@@ -50,8 +112,7 @@ static BOOL ReadSmallTextFile(PCTSTR path, char* buffer, DWORD bufferSize)
 
 static BOOL ReadManifestTextFile(PCTSTR path, std::string& text)
 {
-    HANDLE hFile = HANDLES_Q(CreateFile(
-        path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL));
+    HANDLE hFile = OpenReadFilePath(path);
     if (hFile == INVALID_HANDLE_VALUE)
         return FALSE;
 
@@ -779,6 +840,9 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     request.CommandId = m_szSalamatrixCommandId;
     request.EntryPoint = &entryPointWide[0];
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
+    request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
+    request.HostDispatch = CScriptInfo::RuntimeHostDispatch;
+    request.HostDispatchContext = this;
     request.CompatibilityExecute = ExecuteCompatibilityRuntime;
     request.CompatibilityContext = &compatibilityContext;
 
@@ -1052,17 +1116,28 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         if (title.empty())
             title = "Salamatrix";
         Salamatrix::UI::IUIService* ui = bridge->GetUIService();
-        int result = ui != NULL
-                         ? ui->ShowMessageBox(
-                               SalamanderGeneral->GetMsgBoxParent(),
-                               message.c_str(),
-                               title.c_str(),
-                               MB_OK | MB_ICONINFORMATION)
-                         : MessageBoxA(
-                               SalamanderGeneral->GetMsgBoxParent(),
-                               message.c_str(),
-                               title.c_str(),
-                               MB_OK | MB_ICONINFORMATION);
+        int result;
+        if (ui != NULL)
+        {
+            result = ui->ShowMessageBox(
+                SalamanderGeneral->GetMsgBoxParent(),
+                message.c_str(),
+                title.c_str(),
+                MB_OK | MB_ICONINFORMATION);
+        }
+        else
+        {
+            std::wstring messageWide;
+            std::wstring titleWide;
+            if (!Utf8ToWideText(message, messageWide) ||
+                !Utf8ToWideText(title, titleWide))
+                return FALSE;
+            result = MessageBoxW(
+                SalamanderGeneral->GetMsgBoxParent(),
+                messageWide.c_str(),
+                titleWide.c_str(),
+                MB_OK | MB_ICONINFORMATION);
+        }
         std::string response =
             "{\"ok\":true,\"result\":" + std::to_string(result) + "}";
         return CopyRuntimeHostResult(
@@ -2035,7 +2110,7 @@ HRESULT CScriptInfo::LoadOleStringFromFile(PCTSTR pszFileName, __out LPOLESTR& s
     HRESULT hr;
     int cchRequired, cchConverted;
 
-    hFile = CreateFile(pszFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    hFile = OpenReadFilePath(pszFileName);
     if (hFile == INVALID_HANDLE_VALUE)
     {
         return HRESULT_FROM_WIN32(GetLastError());
@@ -2644,7 +2719,7 @@ int CScriptLookup::FillContainer(
 {
     HANDLE hFind;
     std::vector<TCHAR> szPattern(SAL_MAX_PATH);
-    WIN32_FIND_DATA fd;
+    WIN32_FIND_DATAW fd;
     int cScripts = 0;
 
     g_oAutomationPlugin.ExpandPath(
@@ -2652,7 +2727,7 @@ int CScriptLookup::FillContainer(
     SalamanderGeneral->SalPathAppend(
         &szPattern[0], _T("*"), static_cast<int>(szPattern.size()));
 
-    hFind = FindFirstFile(&szPattern[0], &fd);
+    hFind = FindFirstFileW(&szPattern[0], &fd);
     if (hFind == INVALID_HANDLE_VALUE)
     {
         return 0;
@@ -2738,7 +2813,7 @@ int CScriptLookup::FillContainer(
                 }
             }
         }
-    } while (FindNextFile(hFind, &fd));
+    } while (FindNextFileW(hFind, &fd));
 
     FindClose(hFind);
 

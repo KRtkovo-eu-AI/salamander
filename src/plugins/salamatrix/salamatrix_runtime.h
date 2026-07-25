@@ -23,6 +23,34 @@ namespace Salamatrix
 namespace Runtime
 {
 
+static int ShowUtf8MessageBox(
+    HWND parent,
+    const char* message,
+    const char* title,
+    UINT flags)
+{
+    const char* safeMessage = message != NULL ? message : "";
+    const char* safeTitle = title != NULL ? title : "Salamander";
+    int messageLength = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, safeMessage, -1, NULL, 0);
+    int titleLength = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, safeTitle, -1, NULL, 0);
+    if (messageLength <= 0 || titleLength <= 0)
+        return 0;
+    std::wstring messageWide(static_cast<size_t>(messageLength), L'\0');
+    std::wstring titleWide(static_cast<size_t>(titleLength), L'\0');
+    if (MultiByteToWideChar(
+            CP_UTF8, MB_ERR_INVALID_CHARS, safeMessage, -1,
+            &messageWide[0], messageLength) <= 0 ||
+        MultiByteToWideChar(
+            CP_UTF8, MB_ERR_INVALID_CHARS, safeTitle, -1,
+            &titleWide[0], titleLength) <= 0)
+        return 0;
+    return MessageBoxW(
+        parent, messageWide.c_str(), titleWide.c_str(),
+        flags != 0 ? flags : (MB_OK | MB_ICONINFORMATION));
+}
+
 struct ServiceQuery
 {
     const char* ServiceId;
@@ -184,11 +212,7 @@ public:
         const char* title,
         UINT flags)
     {
-        return MessageBoxA(
-            parent,
-            message != NULL ? message : "",
-            title != NULL ? title : "Salamander",
-            flags != 0 ? flags : (MB_OK | MB_ICONINFORMATION));
+        return ShowUtf8MessageBox(parent, message, title, flags);
     }
 
     virtual BOOL WINAPI CopyTextToClipboard(

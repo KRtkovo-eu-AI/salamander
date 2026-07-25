@@ -80,7 +80,7 @@ static bool SearchPathString(
 
 static std::wstring ToWin32Path(const std::wstring& value)
 {
-    if (value.size() < MAX_PATH || value.compare(0, 4, L"\\\\?\") == 0)
+    if (value.size() < MAX_PATH || value.compare(0, 4, L"\\\\?\\") == 0)
         return value;
     if (value.size() >= 2 && value[0] == L'\\' && value[1] == L'\\')
         return L"\\\\?\\UNC\\" + value.substr(2);

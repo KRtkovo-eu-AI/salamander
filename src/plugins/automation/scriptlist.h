@@ -206,6 +206,29 @@ private:
     friend class CScriptEngineShim;
 
 public:
+    // Public bridge entry points used by the Salamatrix AI runner. They keep
+    // generated scripts on the same host-dispatch path as regular extensions.
+    static BOOL WINAPI DispatchRuntimeHostCall(
+        void* context,
+        Salamatrix::Runtime::Protocol::MessageType type,
+        ULONGLONG requestId,
+        const char* payloadJson,
+        char* resultJson,
+        DWORD resultCapacity,
+        DWORD* resultLength)
+    {
+        return RuntimeHostDispatch(
+            context, type, requestId, payloadJson, resultJson,
+            resultCapacity, resultLength);
+    }
+
+    static BOOL WINAPI DispatchCompatibilityRuntime(
+        void* context,
+        Salamatrix::Runtime::RuntimeExecutionResult* result)
+    {
+        return ExecuteCompatibilityRuntime(context, result);
+    }
+
     CScriptInfo(
         PCTSTR pszFileName,
         CScriptContainer* pContainer);

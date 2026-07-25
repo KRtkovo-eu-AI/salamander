@@ -52,6 +52,27 @@ static std::string EscapeAssistantContext(const char* value)
     return escaped;
 }
 
+static std::string LoadAssistantString(UINT resourceId)
+{
+    PCTSTR value = SalamanderGeneral->LoadStr(g_hLangInst, resourceId);
+    if (value == NULL)
+        return std::string();
+#ifdef UNICODE
+    int length = WideCharToMultiByte(
+        CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, NULL, 0, NULL, NULL);
+    if (length <= 0)
+        return std::string();
+    std::vector<char> buffer(static_cast<size_t>(length));
+    if (WideCharToMultiByte(
+            CP_UTF8, WC_ERR_INVALID_CHARS, value, -1,
+            &buffer[0], length, NULL, NULL) <= 0)
+        return std::string();
+    return std::string(&buffer[0]);
+#else
+    return std::string(value);
+#endif
+}
+
 static std::string BuildAssistantPanelContext(
     Salamatrix::Sides::ISidesService* sides)
 {
@@ -180,14 +201,16 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
 
     if (id == CmdRunFocusedScript)
     {
-        TCHAR szFullName[MAX_PATH];
+        std::vector<TCHAR> szFullName(SAL_MAX_PATH);
         const CFileData* pFocusedFile;
 
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, szFullName, _countof(szFullName), NULL, NULL);
+        SalamanderGeneral->GetPanelPath(
+            PANEL_SOURCE, &szFullName[0], static_cast<int>(szFullName.size()), NULL, NULL);
         pFocusedFile = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-        SalamanderGeneral->SalPathAppend(szFullName, pFocusedFile->Name, _countof(szFullName));
+        SalamanderGeneral->SalPathAppend(
+            &szFullName[0], pFocusedFile->Name, static_cast<int>(szFullName.size()));
 
-        CScriptInfo scriptInfo(szFullName, NULL);
+        CScriptInfo scriptInfo(&szFullName[0], NULL);
         bExecuted = scriptInfo.Execute(info);
     }
     else if (id == CmdScriptPopupMenu)
@@ -208,12 +231,16 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
             bridge != NULL ? bridge->GetAssistantService() : NULL;
         Salamatrix::UI::IUIService* ui =
             bridge != NULL ? bridge->GetUIService() : NULL;
+        const std::string aiTitle = LoadAssistantString(IDS_AITITLE);
+        const std::string aiPrompt = LoadAssistantString(IDS_AIPROMPT);
+        const std::string aiGenerateFailed =
+            LoadAssistantString(IDS_AIGENERATEFAILED);
         char prompt[4096];
         if (assistant == NULL || ui == NULL ||
             !ShowRuntimeInputBox(
                 parent,
-                "Salamatrix AI",
-                "What should the generated script do?",
+                aiTitle.c_str(),
+                aiPrompt.c_str(),
                 "",
                 prompt,
                 _countof(prompt)))
@@ -229,29 +256,36 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
         {
             ui->ShowMessageBox(
                 parent,
-                "The local assistant did not return a valid script.",
-                "Salamatrix AI",
+                aiGenerateFailed.c_str(),
+                aiTitle.c_str(),
                 MB_OK | MB_ICONWARNING);
             return FALSE;
         }
         std::string summary =
             std::string(response.Summary.Title) + "\n\n" +
             response.Summary.Description +
-            "\n\nThe generated script is ready for review.\n";
+            "\n\n" + LoadAssistantString(IDS_AIPREVIEWSUMMARY) + "\n";
         if (Salamatrix::AI::IsSafeToRun(response.Summary))
-            summary += "Declared effects are read-only; no script was run automatically.";
+            summary += LoadAssistantString(IDS_AIEFFECTSREADONLY);
         else
-            summary += "The declared effects require explicit review; no script was run.";
+            summary += LoadAssistantString(IDS_AIEFFECTSREVIEW);
+        const std::string previewTitle =
+            LoadAssistantString(IDS_AIPREVIEWTITLE);
+        const std::string saveQuestion =
+            LoadAssistantString(IDS_AISAVEQUESTION);
+        const std::string saveSucceeded =
+            LoadAssistantString(IDS_AISAVESUCCEEDED);
+        const std::string saveFailed = LoadAssistantString(IDS_AISAVEFAILED);
         ui->CopyTextToClipboard(response.Summary.Script, TRUE, parent);
         ui->ShowMessageBox(
             parent,
             summary.c_str(),
-            "Salamatrix AI preview (script copied to clipboard)",
+            previewTitle.c_str(),
             MB_OK | MB_ICONINFORMATION);
         int saveChoice = ui->ShowMessageBox(
             parent,
-            "Save the generated script to a file now?",
-            "Salamatrix AI",
+            saveQuestion.c_str(),
+            aiTitle.c_str(),
             MB_YESNO | MB_ICONQUESTION);
         if (saveChoice == IDYES)
         {
@@ -264,16 +298,16 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
             {
                 ui->ShowMessageBox(
                     parent,
-                    "The generated script was saved.",
-                    "Salamatrix AI",
+                    saveSucceeded.c_str(),
+                    aiTitle.c_str(),
                     MB_OK | MB_ICONINFORMATION);
             }
             else
             {
                 ui->ShowMessageBox(
                     parent,
-                    "The generated script could not be saved.",
-                    "Salamatrix AI",
+                    saveFailed.c_str(),
+                    aiTitle.c_str(),
                     MB_OK | MB_ICONWARNING);
             }
         }
@@ -558,7 +592,7 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
 
     salamander->AddMenuItem(
         PluginIconRun,
-        "Ask Salamatrix AI...",
+        SalamanderGeneral->LoadStr(g_hLangInst, IDS_ASKASSISTANT),
         0,
         CAutomationMenuExtInterface::CmdAskAssistant,
         TRUE,

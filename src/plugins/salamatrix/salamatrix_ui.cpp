@@ -166,8 +166,9 @@ struct NativeDialog::Impl
                  (Kind != ControlKindComboBox &&
                   Kind != ControlKindListView &&
                  Kind != ControlKindTreeView &&
-                 Kind != ControlKindTabControl) ||
+                Kind != ControlKindTabControl) ||
                 Items.size() >= 256 ||
+                parentIndex < -1 ||
                 (Kind == ControlKindTreeView &&
                  parentIndex >= static_cast<int>(Items.size())))
                 return FALSE;
@@ -406,6 +407,9 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         dialog = reinterpret_cast<NativeDialog*>(lParam);
         SetWindowLongPtr(hwnd, DWLP_USER, lParam);
         dialog->m_pImpl->Window = hwnd;
+        DarkModeApplyTree(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyStaticTextColors(hwnd, NULL);
         for (size_t index = 0; index < dialog->m_pImpl->Controls.size(); ++index)
         {
             Impl::Control* control = dialog->m_pImpl->Controls[index];
@@ -506,6 +510,16 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         dialog->m_pImpl->Result = 0;
         EndDialog(hwnd, 0);
         return TRUE;
+    }
+    if (message == WM_SETTINGCHANGE)
+    {
+        if (DarkModeHandleSettingChange(message, lParam))
+        {
+            DarkModeApplyTree(hwnd);
+            DarkModeRefreshTitleBar(hwnd);
+            DarkModeApplyStaticTextColors(hwnd, NULL);
+        }
+        return FALSE;
     }
     if (message != WM_COMMAND)
         return FALSE;

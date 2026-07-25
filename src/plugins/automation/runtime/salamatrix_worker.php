@@ -103,6 +103,7 @@ class SalamatrixDialog {
     public function addComboBox($id, $text = '') { $this->add('combobox', $id, $text); }
     public function addListView($id) { $this->add('listview', $id); }
     public function addTreeView($id) { $this->add('treeview', $id); }
+    public function addTabControl($id) { $this->add('tabcontrol', $id); }
     public function addItem($controlId, $text, $parentIndex = -1) { $r = $this->client->call('salamander.ui.dialog.item', array('dialogId' => $this->id, 'controlId' => $controlId, 'text' => $text, 'parentIndex' => $parentIndex)); return isset($r['itemCount']) ? $r['itemCount'] : 0; }
     public function clearItems($controlId) { $this->client->call('salamander.ui.dialog.clearItems', array('dialogId' => $this->id, 'controlId' => $controlId)); }
     public function addButton($id, $text, $dialogResult = 1) { $this->add('button', $id, $text, array('dialogResult' => $dialogResult)); }
