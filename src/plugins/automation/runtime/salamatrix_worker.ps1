@@ -98,6 +98,20 @@ $sides | Add-Member ScriptMethod ActiveTab {
     param([string]$Side = 'source')
     Invoke-Host -Method 'salamander.sides.activeTab' -Arguments @{ side = $Side }
 }
+$sides | Add-Member ScriptMethod Context {
+    param([string]$Side = 'source')
+    Invoke-Host -Method 'salamander.sides.context' -Arguments @{ side = $Side }
+}
+function New-SalamatrixSideView([string]$SideName) {
+    $view = [pscustomobject]@{ Side = $SideName }
+    $view | Add-Member ScriptMethod ActiveTab { Invoke-Host -Method 'salamander.sides.activeTab' -Arguments @{ side = $this.Side } }
+    $view | Add-Member ScriptMethod Context { Invoke-Host -Method 'salamander.sides.context' -Arguments @{ side = $this.Side } }
+    return $view
+}
+$leftSide = New-SalamatrixSideView 'left'
+$rightSide = New-SalamatrixSideView 'right'
+$sourceSide = New-SalamatrixSideView 'source'
+$targetSide = New-SalamatrixSideView 'target'
 $ui = [pscustomobject]@{}
 $ui | Add-Member ScriptMethod MessageBox {
     param([string]$Message, [string]$Title = 'Salamander')
@@ -149,10 +163,10 @@ $Salamander = [pscustomobject]@{
     storage = $storage
     file_operations = $fileOperations
     sides = $sides
-    left_side = $sides
-    right_side = $sides
-    source_side = $sides
-    target_side = $sides
+    left_side = $leftSide
+    right_side = $rightSide
+    source_side = $sourceSide
+    target_side = $targetSide
     ui = $ui
     ai = $ai
     events = $events

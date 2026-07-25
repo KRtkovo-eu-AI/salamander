@@ -74,6 +74,13 @@ class SalamatrixFileOperations {
 class SalamatrixSides {
     private $client; public function __construct($client) { $this->client = $client; }
     public function activeTab($side = 'source') { return $this->client->call('salamander.sides.activeTab', array('side' => $side)); }
+    public function context($side = 'source') { return $this->client->call('salamander.sides.context', array('side' => $side)); }
+}
+class SalamatrixSideView {
+    private $sides; private $name;
+    public function __construct($sides, $name) { $this->sides = $sides; $this->name = $name; }
+    public function activeTab() { return $this->sides->activeTab($this->name); }
+    public function context() { return $this->sides->context($this->name); }
 }
 class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -132,10 +139,10 @@ $Salamander->commands = new SalamatrixCommands($client);
 $Salamander->storage = new SalamatrixStorage($client);
 $Salamander->file_operations = new SalamatrixFileOperations($client);
 $Salamander->sides = new SalamatrixSides($client);
-$Salamander->left_side = $Salamander->sides;
-$Salamander->right_side = $Salamander->sides;
-$Salamander->source_side = $Salamander->sides;
-$Salamander->target_side = $Salamander->sides;
+$Salamander->left_side = new SalamatrixSideView($Salamander->sides, 'left');
+$Salamander->right_side = new SalamatrixSideView($Salamander->sides, 'right');
+$Salamander->source_side = new SalamatrixSideView($Salamander->sides, 'source');
+$Salamander->target_side = new SalamatrixSideView($Salamander->sides, 'target');
 $Salamander->ui = new SalamatrixUi($client);
 $Salamander->ai = new SalamatrixAi($client);
 $Salamander->events = new SalamatrixEvents($client);

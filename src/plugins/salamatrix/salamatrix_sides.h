@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <strsafe.h>
+
 #include "../shared/spl_gen.h"
 
 namespace Salamatrix
@@ -19,6 +21,8 @@ namespace Salamatrix
 
 #define SALAMATRIX_SERVICE_SIDES "Salamatrix.Sides"
 #define SALAMATRIX_SIDES_VERSION_1_0 0x00010000
+#define SALAMATRIX_SIDE_ITEM_NAME_CAPACITY 512
+#define SALAMATRIX_SIDE_ITEM_PATH_CAPACITY 32768
 
         enum SideReference
         {
@@ -58,6 +62,26 @@ namespace Salamatrix
             }
         };
 
+        struct ItemInfo
+        {
+            DWORD StructSize;
+            char Name[SALAMATRIX_SIDE_ITEM_NAME_CAPACITY];
+            char Path[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
+            CQuadWord Size;
+            DWORD Attributes;
+            BOOL IsDirectory;
+
+            ItemInfo()
+                : StructSize(sizeof(ItemInfo)),
+                  Size(0, 0),
+                  Attributes(0),
+                  IsDirectory(FALSE)
+            {
+                Name[0] = '\0';
+                Path[0] = '\0';
+            }
+        };
+
         class ISidesService
         {
         public:
@@ -77,6 +101,19 @@ namespace Salamatrix
                 SideReference side,
                 const char* path,
                 int* failReason) = 0;
+            virtual BOOL WINAPI GetPath(
+                SideReference side,
+                char* buffer,
+                int bufferSize,
+                int* pathType) const = 0;
+            virtual int WINAPI GetSelectedItemCount(SideReference side) const = 0;
+            virtual BOOL WINAPI GetSelectedItem(
+                SideReference side,
+                int index,
+                ItemInfo* info) const = 0;
+            virtual BOOL WINAPI GetFocusedItem(
+                SideReference side,
+                ItemInfo* info) const = 0;
 
         protected:
             virtual ~ISidesService() {}
@@ -248,6 +285,115 @@ namespace Salamatrix
                 return General != NULL && panel != 0 && path != NULL
                            ? General->ChangePanelPath(panel, path, failReason)
                            : FALSE;
+            }
+
+            virtual BOOL WINAPI GetPath(
+                SideReference side,
+                char* buffer,
+                int bufferSize,
+                int* pathType) const
+            {
+                int panel = ResolvePanel(side);
+                return General != NULL && panel != 0 && buffer != NULL &&
+                               bufferSize > 0
+                           ? General->GetPanelPath(
+                                 panel, buffer, bufferSize, pathType, NULL)
+                           : FALSE;
+            }
+
+            virtual int WINAPI GetSelectedItemCount(SideReference side) const
+            {
+                int panel = ResolvePanel(side);
+                int files = 0;
+                int directories = 0;
+                if (General == NULL || panel == 0 ||
+                    !General->GetPanelSelection(
+                        panel, &files, &directories))
+                    return 0;
+                return files + directories;
+            }
+
+            static BOOL CopyItemInfo(
+                int panel,
+                const CFileData* file,
+                BOOL isDirectory,
+                CSalamanderGeneralAbstract* general,
+                ItemInfo* info)
+            {
+                if (general == NULL || file == NULL || info == NULL ||
+                    info->StructSize < sizeof(*info) || file->Name == NULL)
+                    return FALSE;
+                char panelPath[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
+                panelPath[0] = '\0';
+                if (!general->GetPanelPath(
+                        panel,
+                        panelPath,
+                        _countof(panelPath),
+                        NULL,
+                        NULL))
+                    return FALSE;
+                if (FAILED(StringCchCopyA(
+                        info->Name,
+                        _countof(info->Name),
+                        file->Name)))
+                    return FALSE;
+                if (FAILED(StringCchCopyA(
+                        info->Path,
+                        _countof(info->Path),
+                        panelPath)))
+                    return FALSE;
+                size_t length = strlen(info->Path);
+                if (length != 0 && info->Path[length - 1] != '\\' &&
+                    FAILED(StringCchCatA(
+                        info->Path, _countof(info->Path), "\\")))
+                    return FALSE;
+                if (FAILED(StringCchCatA(
+                        info->Path, _countof(info->Path), info->Name)))
+                    return FALSE;
+                info->Size = file->Size;
+                info->Attributes = file->Attr;
+                info->IsDirectory = isDirectory;
+                return TRUE;
+            }
+
+            virtual BOOL WINAPI GetSelectedItem(
+                SideReference side,
+                int index,
+                ItemInfo* info) const
+            {
+                if (index < 0 || info == NULL)
+                    return FALSE;
+                int panel = ResolvePanel(side);
+                if (General == NULL || panel == 0)
+                    return FALSE;
+                int cursor = 0;
+                BOOL isDirectory = FALSE;
+                const CFileData* file = NULL;
+                for (int current = 0; current <= index; ++current)
+                {
+                    file = General->GetPanelSelectedItem(
+                        panel, &cursor, &isDirectory);
+                    if (file == NULL)
+                        return FALSE;
+                }
+                return CopyItemInfo(
+                    panel, file, isDirectory, General, info);
+            }
+
+            virtual BOOL WINAPI GetFocusedItem(
+                SideReference side,
+                ItemInfo* info) const
+            {
+                if (info == NULL)
+                    return FALSE;
+                int panel = ResolvePanel(side);
+                if (General == NULL || panel == 0)
+                    return FALSE;
+                BOOL isDirectory = FALSE;
+                const CFileData* file = General->GetPanelFocusedItem(
+                    panel, &isDirectory);
+                return CopyItemInfo(
+                    panel, file, isDirectory, General, info);
             }
         };
 

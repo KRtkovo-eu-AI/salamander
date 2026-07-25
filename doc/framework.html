@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<!-- saved from url=(0011)about:blank -->
+<html data-theme="dark" style="color-scheme: dark;"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="file:///G:/Dokumenty/_2026/notes/">--><base href="."><meta name="color-scheme" content="dark light"><title>salamander-extensions.md</title><script>(function(){if(window.chrome&&window.chrome.webview&&document){document.addEventListener('keydown',function(ev){if(ev&&ev.key==='Escape'){ev.preventDefault();try{window.chrome.webview.postMessage('escape');}catch(e){}}});}})();</script><style>html,body{margin:0;padding:16px;font-family:'Segoe UI',SegoeUI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;background-color:#202020;color:#DCDCDC;}h1,h2,h3,h4,h5,h6{color:#DCDCDC;margin-top:1.2em;}a{color:#0078D7;text-decoration:none;}a:hover{text-decoration:underline;}code{font-family:'Consolas','Courier New',monospace;background-color:#313131;padding:2px 4px;border-radius:4px;}pre{overflow:auto;padding:12px;border-radius:6px;background-color:#313131;border:1px solid #434343;}table{border-collapse:collapse;margin:1em 0;width:100%;}th,td{border:1px solid #434343;padding:8px;text-align:left;}blockquote{border-left:4px solid #0078D7;margin:1em 0;padding:0.5em 1em;color:#494949;background-color:#8F8F8F;}img,video,iframe{max-width:100%;height:auto;display:block;margin:0.5em 0;}hr{border:0;border-top:1px solid #434343;margin:2em 0;}ul,ol{margin:0 0 1em 1.5em;}</style></head><body><p><strong>Úterý 14.07.2026 06:06</strong></p>
+<p>Představuju si to jako <strong>novou vrstvu rozšiřitelnosti Salamanderu mezi dnešním Automation skriptem a plnohodnotným nativním C++ pluginem</strong>.</p>
+<p>Dnes už Automation obsahuje dobrý základ: skript může pracovat přes objektový model Salamanderu, přistupovat k panelům a jejich položkám, vytvářet formuláře a používat pomocné funkce pro práci s cestami. Skripty mohou být napsané v libovolném jazyce, pro který je dostupný Windows Script Host engine; nativně tedy JScript a VBScript, přes dodatečné enginy například i Python a další. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander/?utm_source=chatgpt.com" title="Salamander Object">altap.cz</a>)</p>
+<p>Já bych ale udělal krok dál:</p>
+<blockquote>
+<p><strong>Salamander by neposkytoval jen možnost „spustit skript“, ale obecný framework, pomocí kterého lze psát lehká skriptovaná rozšíření integrovaná do aplikace.</strong></p>
+</blockquote>
+<p>A to je docela zásadní rozdíl.</p>
+<hr>
+<h2 id="tri-urovne-rozsiritelnosti">1. Tři úrovně rozšiřitelnosti</h2>
+<p>Viděl bych to takhle:</p>
+<pre><code class="language-text">-¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¬
+-           Full native plugin                 -
+-                                              -
+-  C++ / DLL / Plugin SDK                      -
+-  Maximální možnosti                          -
+-  Filesystem plugin, viewer, archiver...      -
+L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
+                       ^
+                       -
+-¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¬
+-       Lightweight scripted extension         -
+-                                              -
+-  Python / PowerShell / JavaScript / ...      -
+-  Commands, menus, buttons, events, dialogs   -
+-  Dlouhodobá integrace se Salamanderem        -
+L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
+                       ^
+                       -
+-¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¬
+-             Simple automation script         -
+-                                              -
+-  Spustit › něco udělat › skončit             -
+L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
+</code></pre>
+<p>Současný Automation je nejblíž spodní vrstvě, přestože původní stránky Salamanderu ho už popisují jako jednodušší cestu pro vytváření rozšíření a jeho object model byl zamýšlen k dalšímu rozšiřování. (<a href="https://forum.altap.cz/viewtopic.php?t=3639&amp;utm_source=chatgpt.com" title="Automation Plugin">forum.altap.cz</a>)</p>
+<p>Ten nový framework by vytvořil hlavně tu <strong>prostřední vrstvu</strong>.</p>
+<hr>
+<h1 id="co-by-byl-obycejny-skript">2. Co by byl obyčejný skript</h1>
+<p>Například:</p>
+<pre><code class="language-text">Calculate Checksums.py
+</code></pre>
+<p>Uživatel označí deset souborů a spustí skript.</p>
+<p>Skript:</p>
+<ol>
+<li>získá označené položky ze zdrojové strany,</li>
+<li>spočítá SHA-256,</li>
+<li>zobrazí progress,</li>
+<li>uloží <code>checksums.sha256</code>,</li>
+<li>obnoví panel,</li>
+<li>skončí.</li>
+</ol>
+<p>To je klasická automatizace:</p>
+<pre><code class="language-text">start
+  ˇ
+execute
+  ˇ
+finish
+</code></pre>
+<p>Žádný persistentně běžící komponent, žádné události, žádný vlastní příkaz integrovaný trvale do UI.</p>
+<p>Například hypoteticky v Pythonu:</p>
+<pre><code class="language-python">files = Salamander.source_side.selected_items
+
+with Salamander.ui.progress("Calculating checksums") as progress:
+    for index, file in enumerate(files):
+        hash = calculate_sha256(file.path)
+        progress.update(index + 1, len(files), file.name)
+
+Salamander.panels.refresh()
+</code></pre>
+<p>Tohle je jen ilustrace API, které si představuju, ne existující syntaxe.</p>
+<hr>
+<h1 id="co-by-bylo-skriptovane-rozsireni">3. Co by bylo skriptované rozšíření</h1>
+<p>Tady je ten zajímavější rozdíl.</p>
+<p>Mohl bys mít třeba:</p>
+<pre><code class="language-text">extensions/
+L¦¦ GitTools/
+    +¦¦ extension.json
+    +¦¦ main.py
+    +¦¦ icon.svg
+    L¦¦ README.md
+</code></pre>
+<p><code>extension.json</code>:</p>
+<pre><code class="language-json">{
+    "id": "org.opensalamander.git-tools",
+    "name": "Git Tools",
+    "version": "1.2.0",
+    "runtime": "python",
+    "entryPoint": "main.py",
+    "minimumSalamanderVersion": "5.1"
+}
+</code></pre>
+<p>Salamander při startu rozšíření objeví, načte manifest a <code>main.py</code> může například zaregistrovat:</p>
+<ul>
+<li>příkazy,</li>
+<li>položky menu,</li>
+<li>položky kontextového menu,</li>
+<li>toolbarová tlačítka,</li>
+<li>klávesové zkratky,</li>
+<li>handlery různých událostí.</li>
+</ul>
+<p>Takže například:</p>
+<pre><code class="language-text">Plugins
+L¦¦ Git Tools
+    +¦¦ Open Repository on GitHub
+    +¦¦ Copy Current Branch Name
+    +¦¦ Show Changed Files
+    +¦¦ Create Release Archive
+    L¦¦ Repository Information...
+</code></pre>
+<p>A po pravém kliknutí na adresář:</p>
+<pre><code class="language-text">Open
+Explore
+¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
+Git Tools
+    Open Repository on GitHub
+    Copy Repository URL
+    Show Status
+¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
+Properties
+</code></pre>
+<p>To už není obyčejný skript. <strong>Rozšíření skutečně žije uvnitř Salamanderu.</strong></p>
+<hr>
+<h1 id="spolecne-salamander-api">4. Společné Salamander API</h1>
+<p>Tohle bych považoval za úplný střed celé koncepce.</p>
+<p>Nedělal bych:</p>
+<pre><code class="language-text">Python API
+PowerShell API
+JavaScript API
+</code></pre>
+<p>ale:</p>
+<pre><code class="language-text">                         -¦¦¦¦¦¦¦¦¦¦¦¦¬
+                         - Python     -
+                         +¦¦¦¦¦¦¦¦¦¦¦¦+
+                         - PowerShell -
+                         +¦¦¦¦¦¦¦¦¦¦¦¦+
+                         - JavaScript -
+                         +¦¦¦¦¦¦¦¦¦¦¦¦+
+                         - VBScript   -
+                         L¦¦¦¦¦T¦¦¦¦¦¦-
+                               -
+                               ˇ
+                -¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¬
+                -   Salamander Script API  -
+                L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
+                               -
+                               ˇ
+                -¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¬
+                -      Salamander Core     -
+                L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
+</code></pre>
+<p>Každý podporovaný jazyk by dostával stejný logický object model.</p>
+<p>Třeba:</p>
+<pre><code class="language-text">Salamander
+-
++¦¦ Application
++¦¦ Window
++¦¦ Commands
++¦¦ LeftSide
++¦¦ RightSide
++¦¦ ActiveSide
++¦¦ SourceSide
++¦¦ TargetSide
++¦¦ FileOperations
++¦¦ UI
++¦¦ Events
++¦¦ Storage
+L¦¦ Environment
+</code></pre>
+<p>A teď podrobněji.</p>
+<hr>
+<h2 id="leftside-a-rightside">5. <code>LeftSide</code> a <code>RightSide</code></h2>
+<p>Ve forku Samandarin jsem provedl mnoho změn ve „stranách“ Salamanderu a tabech, proto bych nové API už nestavěl jen kolem staré abstrakce <code>LeftPanel</code> a <code>RightPanel</code>, ale kolem <strong>stran</strong>, které mohou obsahovat více tabů:</p>
+<pre><code class="language-text">Salamander.LeftSide
+-
++¦¦ ActiveTab
++¦¦ Tabs
++¦¦ Path
++¦¦ Items
++¦¦ SelectedItems
++¦¦ FocusedItem
++¦¦ TreeView
+L¦¦ ViewMode
+</code></pre>
+<p>Například:</p>
+<pre><code class="language-python">left = Salamander.left_side
+
+print(left.active_tab.path)
+
+for tab in left.tabs:
+    print(tab.path)
+</code></pre>
+<p>Nebo:</p>
+<pre><code class="language-powershell">$activeTab = $Salamander.RightSide.ActiveTab
+$activeTab.Path = "C:\Repositories\Salamander"
+</code></pre>
+<p>To je podle mě důležitá modernizace object modelu, protože současný Automation historicky pracuje s objekty jako <code>LeftPanel</code>, <code>RightPanel</code>, <code>SourcePanel</code> a <code>TargetPanel</code>. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander/?utm_source=chatgpt.com" title="Salamander Object">altap.cz</a>)</p>
+<p>V moderním Salamanderu s taby bych spíš chtěl:</p>
+<pre><code class="language-text">LeftSide/MainSide
+    Tab 1
+    Tab 2
+    Tab 3
+
+RightSide/DetachedSide
+    Tab 1
+    Tab 2
+</code></pre>
+<p>A stále současně:</p>
+<pre><code class="language-text">SourceSide
+TargetSide
+</code></pre>
+<p>podle toho, která strana je právě aktivní.</p>
+<hr>
+<h1 id="pristup-k-internim-prikazum-salamanderu">6. Přístup k interním příkazům Salamanderu</h1>
+<p>Tady bych viděl jednu z největších přidaných hodnot.</p>
+<p>Skript by neměl muset sám znovu implementovat kopírování, mazání, archivaci nebo přejmenování, když už tyto věci umí Salamander.</p>
+<p>Takže například:</p>
+<pre><code class="language-python">Salamander.commands.execute("Copy")
+</code></pre>
+<p>nebo konkrétněji:</p>
+<pre><code class="language-python">Salamander.file_operations.copy(
+    sources=Salamander.source_side.selected_items,
+    target=Salamander.target_side.path
+)
+</code></pre>
+<p>Nebo:</p>
+<pre><code class="language-python">Salamander.commands.execute("CreateDirectory")
+Salamander.commands.execute("Pack")
+Salamander.commands.execute("CalculateDirectorySizes")
+Salamander.commands.execute("CompareDirectories")
+</code></pre>
+<p>Dávalo by mi smysl rozlišovat dvě úrovně.</p>
+<h3 id="vysokourovnove-prikazy">Vysokoúrovňové příkazy</h3>
+<pre><code class="language-python">Salamander.commands.execute("Copy")
+</code></pre>
+<p>Chovají se stejně, jako kdyby uživatel stiskl F5. Tedy případně otevřou standardní Salamander dialog a pokračují existujícím workflow.</p>
+<h3 id="programove-api">Programové API</h3>
+<pre><code class="language-python">Salamander.file_operations.copy(
+    source=["C:\\foo.txt"],
+    destination="D:\\Backup",
+    overwrite="ask"
+)
+</code></pre>
+<p>To dovoluje mnohem jemnější automatizaci.</p>
+<p>A právě tady by podle mě bylo možné velmi dobře využít existující implementaci Salamanderu namísto jejího opakování v každém skriptu.</p>
+<hr>
+<h1 id="registrace-vlastnich-prikazu">7. Registrace vlastních příkazů</h1>
+<p>Rozšíření by mohlo při inicializaci říct:</p>
+<pre><code class="language-python">Salamander.commands.register(
+    id="git.openOnGitHub",
+    title="Open Repository on GitHub",
+    handler=open_on_github
+)
+</code></pre>
+<p>Tím by vznikl příkaz uvnitř Salamanderu.</p>
+<p>A ten samý příkaz by potom mohl být umístěn:</p>
+<pre><code class="language-text">Plugins menu
+Toolbar
+Hotkey
+Context menu
+Command palette – pokud by někdy vznikla
+</code></pre>
+<p>Důležité je, že <strong>funkce a její umístění v UI by nebyly totéž</strong>.</p>
+<p>Jednou zaregistruješ:</p>
+<pre><code class="language-text">git.openOnGitHub
+</code></pre>
+<p>a potom můžeš říct:</p>
+<pre><code class="language-python">Salamander.ui.menu.add(
+    location="plugins",
+    command="git.openOnGitHub"
+)
+
+Salamander.ui.context_menu.add(
+    context="directory",
+    command="git.openOnGitHub"
+)
+</code></pre>
+<p>To mi přijde podstatně čistší než nutit autora extensionu implementovat každou integraci zvlášť.</p>
+<hr>
+<h1 id="udalosti-tady-se-z-automation-stava-skutecny-framework">8. Události — tady se z Automation stává skutečný framework</h1>
+<p>Tohle je podle mě možná úplně největší rozdíl mezi skriptem a extensionem.</p>
+<p>Obyčejný skript:</p>
+<pre><code class="language-text">uživatel ho spustí
+    ˇ
+něco udělá
+    ˇ
+skončí
+</code></pre>
+<p>Extension může reagovat:</p>
+<pre><code class="language-text">něco se v Salamanderu stane
+    ˇ
+framework vyvolá event
+    ˇ
+extension na něj reaguje
+</code></pre>
+<p>Například:</p>
+<pre><code class="language-text">OnStartup
+OnShutdown
+
+OnActiveSideChanged
+OnActiveTabChanged
+OnPathChanged
+OnSelectionChanged
+
+OnBeforeFileOperation
+OnFileOperationCompleted
+
+OnFileCreated
+OnFileRenamed
+OnFileDeleted
+
+OnTabCreated
+OnTabClosed
+
+OnWindowDetached
+OnWindowAttached
+</code></pre>
+<p>Například Python extension:</p>
+<pre><code class="language-python">def on_path_changed(event):
+    if is_git_repository(event.new_path):
+        update_git_toolbar_state(event.side)
+
+Salamander.events.path_changed += on_path_changed
+</code></pre>
+<p>Nebo:</p>
+<pre><code class="language-python">def on_selection_changed(event):
+    total_size = sum(item.size for item in event.selected_items)
+    update_status(total_size)
+</code></pre>
+<p>Tady už se opravdu otevírá prostor pro funkce, které dnes vyžadují nativní plugin nebo zásah přímo do core.</p>
+<hr>
+<h1 id="extension-by-mohla-mit-vlastni-stav">9. Extension by mohla mít vlastní stav</h1>
+<p>Dnešní Automation už má mechanismus pro persistentní ukládání hodnot. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander/?utm_source=chatgpt.com" title="Salamander Object">altap.cz</a>)</p>
+<p>V novém frameworku bych to formalizoval třeba takto:</p>
+<pre><code class="language-python">settings = Salamander.storage.for_extension()
+
+settings["repositoryUrl"] = "https://..."
+settings["autoRefresh"] = True
+</code></pre>
+<p>A framework se postará o:</p>
+<ul>
+<li>ukládání,</li>
+<li>načítání,</li>
+<li>oddělení dat jednotlivých extensionů,</li>
+<li>případně migraci mezi verzemi.</li>
+</ul>
+<p>Například:</p>
+<pre><code class="language-text">Configuration/
+L¦¦ Extensions/
+    L¦¦ org.opensalamander.git-tools/
+        L¦¦ settings.json
+</code></pre>
+<p>Autor extensionu nemusí řešit registry ani hledat, kam si má ukládat konfiguraci.</p>
+<hr>
+<h1 id="vlastni-dialogy-a-ui">10. Vlastní dialogy a UI</h1>
+<p>Současná Automation už umí runtime-created forms a několik dialogových metod, takže ani toto by nezačínalo na zelené louce. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander_overwritedialog/?utm_source=chatgpt.com" title="Altap Salamander Help: OverwriteDialog Method">altap.cz</a>)</p>
+<p>Novější framework by mohl nabídnout například:</p>
+<pre><code class="language-python">form = Salamander.ui.create_dialog(
+    title="Git Repository Information",
+    width=500,
+    height=300
+)
+
+form.add_textbox(
+    id="branch",
+    label="Current branch:",
+    readonly=True
+)
+
+form.add_button(
+    id="refresh",
+    text="Refresh"
+)
+
+form.show()
+</code></pre>
+<p>A vizuálně by se vytvořil standardní nativní Salamander dialog.</p>
+<p>To považuju za důležité: <strong>nenutil bych autory extensionů vozit s sebou Qt, Tkinter, Electron ani jiné UI frameworky.</strong> Pro běžné použití by měli dostat jednoduché nativní Salamander UI API.</p>
+<p>Třeba:</p>
+<pre><code class="language-text">MessageBox
+InputBox
+SelectFile
+SelectDirectory
+ProgressDialog
+Form
+ListView
+TreeView
+TextBox
+ComboBox
+CheckBox
+RadioButton
+Button
+TabControl
+</code></pre>
+<p>A pro Python extension by to byl pořád jen objektový model:</p>
+<pre><code class="language-python">dialog = Salamander.ui.dialog("Find Duplicates")
+
+path = dialog.add_path_picker("Search in:")
+recursive = dialog.add_checkbox("Include subdirectories", checked=True)
+
+if dialog.show() == "ok":
+    find_duplicates(path.value, recursive.checked)
+</code></pre>
+<hr>
+<h1 id="extension-manifest">11. Extension manifest</h1>
+<p>Každá složitější extension by podle mě měla manifest.</p>
+<p>Například:</p>
+<pre><code class="language-json">{
+    "id": "org.opensalamander.image-tools",
+    "name": "Image Tools",
+    "description": "Simple image processing commands",
+    "version": "2.1.0",
+    "author": "Example Developer",
+
+    "runtime": {
+        "type": "python",
+        "version": "&gt;=3.12"
+    },
+
+    "entryPoint": "main.py",
+
+    "commands": [
+        "resize",
+        "convert",
+        "stripMetadata"
+    ]
+}
+</code></pre>
+<p>Uživatel pak nemusí řešit:</p>
+<blockquote>
+<p>Kam mám ten <code>.py</code> dát? Jak ho Salamander pozná? Jak se objeví v menu? Jak mu nastavím ikonu?</p>
+</blockquote>
+<p>Prostě:</p>
+<pre><code class="language-text">ImageTools.salamander-extension
+</code></pre>
+<p>nebo ZIP:</p>
+<pre><code class="language-text">ImageTools/
++¦¦ extension.json
++¦¦ main.py
++¦¦ icon.svg
+L¦¦ locales/
+    +¦¦ en.json
+    L¦¦ cs.json
+</code></pre>
+<p>A Salamander:</p>
+<pre><code class="language-text">Plugins › Extensions › Install Extension...
+</code></pre>
+<p>Rozbalí ji do správné složky a načte.</p>
+<hr>
+<h1 id="co-s-pythonem-a-jeho-runtime">12. Co s Pythonem a jeho runtime</h1>
+<p>Tady existuje několik možných modelů.</p>
+<h2 id="varianta-a-uzivatel-si-runtime-instaluje-sam">Varianta A: uživatel si runtime instaluje sám</h2>
+<p>Extension řekne:</p>
+<pre><code class="language-json">"runtime": "python"
+</code></pre>
+<p>a Salamander hledá dostupný Python.</p>
+<p>Výhoda:</p>
+<ul>
+<li>Salamander nemusí balit Python.</li>
+</ul>
+<p>Nevýhoda:</p>
+<ul>
+<li>uživatel ho nemusí mít,</li>
+<li>může mít špatnou verzi,</li>
+<li>problémy s dependencies.</li>
+</ul>
+<hr>
+<h2 id="varianta-b-runtime-adapter-jako-samostatny-plugin">Varianta B: runtime adaptér jako samostatný plugin</h2>
+<p>Tohle se mi líbí víc:</p>
+<pre><code class="language-text">Automation Framework
+-
++¦¦ JavaScript Runtime
++¦¦ Python Runtime
++¦¦ PowerShell Runtime
+L¦¦ Legacy WSH Runtime
+</code></pre>
+<p>Každý runtime by byl samostatná komponenta.</p>
+<p>Takže třeba:</p>
+<pre><code class="language-text">Plugins
+L¦¦ Automation
+    +¦¦ JavaScript Runtime    ?
+    +¦¦ PowerShell Runtime    ?
+    L¦¦ Python Runtime        Not installed
+</code></pre>
+<p>Když nainstaluju Python extension:</p>
+<pre><code class="language-text">This extension requires the Python runtime,
+which is not currently installed.
+
+[ Install Runtime ] [ Cancel ]
+</code></pre>
+<p>To by umožnilo oddělit samotný <strong>Salamander Extension API</strong> od jednotlivých jazyků.</p>
+<p>A to je podle mě správná architektura:</p>
+<pre><code class="language-text">Python ?
+          \
+PowerShell ¦› Runtime adapters › Common Extension API › Salamander
+          /
+JavaScript ?
+</code></pre>
+<hr>
+<h1 id="python-extension-by-presto-mohla-pouzivat-normalni-python-knihovny">13. Python extension by přesto mohla používat normální Python knihovny</h1>
+<p>Představme si třeba extension:</p>
+<pre><code class="language-text">Exif Metadata Tools
+</code></pre>
+<p>V Pythonu:</p>
+<pre><code class="language-python">from PIL import Image
+from PIL.ExifTags import TAGS
+
+selected = Salamander.source_side.selected_items
+
+for item in selected:
+    image = Image.open(item.path)
+    print(image.getexif())
+</code></pre>
+<p>Samotný Salamander by poskytoval:</p>
+<pre><code class="language-text">které soubory jsou vybrané
+kde se nacházejí
+progress dialog
+refresh panelu
+vlastní menu command
+</code></pre>
+<p>A Python poskytne svůj ekosystém.</p>
+<p>To je jedna z věcí, která by podle mě takový framework dělala velmi silným: <strong>Salamander nemusí implementovat všechno. Poskytne integraci a runtime udělá zbytek.</strong></p>
+<hr>
+<h1 id="powershell-extension-by-mohla-delat-uplne-jine-veci">14. PowerShell extension by mohla dělat úplně jiné věci</h1>
+<p>Například:</p>
+<pre><code class="language-text">Windows Administration Tools
+</code></pre>
+<p>Při pravém kliknutí:</p>
+<pre><code class="language-text">Windows Administration
++¦¦ Show File Owner
++¦¦ Show Effective Permissions
++¦¦ Take Ownership
++¦¦ Show Open Handles
+L¦¦ Show Authenticode Signature
+</code></pre>
+<p>PowerShell:</p>
+<pre><code class="language-powershell">$item = $Salamander.SourceSide.FocusedItem
+Get-Acl $item.Path
+</code></pre>
+<p>Nebo:</p>
+<pre><code class="language-powershell">Get-AuthenticodeSignature $item.Path
+</code></pre>
+<p>Díky Salamander API by ale extension nemusela řešit:</p>
+<ul>
+<li>který panel je aktivní,</li>
+<li>co je vybrané,</li>
+<li>jak otevřít dialog,</li>
+<li>jak zobrazit progress,</li>
+<li>jak aktualizovat panel.</li>
+</ul>
+<p>To poskytne framework.</p>
+<hr>
+<h1 id="javascript-muze-byt-nejlehci-vestavena-cesta">15. JavaScript může být nejlehčí vestavěná cesta</h1>
+<p>Například:</p>
+<pre><code class="language-javascript">const selected = Salamander.sourceSide.selectedItems;
+
+for (const item of selected) {
+    Salamander.log.info(item.path);
+}
+</code></pre>
+<p>Takový runtime by mohl být velmi malý a třeba přímo distribuovaný se Salamanderem.</p>
+<p>A zde bych osobně zachoval i zpětnou kompatibilitu s existujícím Automation pluginem a jeho skripty, protože dnešní plugin má stále reálné uživatele a ještě v roce 2025 se na fóru objevovalo praktické používání VBScript automatizace. (<a href="https://forum.altap.cz/viewtopic.php?t=45491&amp;utm_source=chatgpt.com" title="Pomoc s vylepšením VBSkriptu pre premenovanie súborov">forum.altap.cz</a>)</p>
+<hr>
+<h1 id="extension-manager">16. Extension Manager</h1>
+<p>Tady bych to pro uživatele dotáhl ještě dál:</p>
+<pre><code class="language-text">Plugins › Extensions...
+</code></pre>
+<p>A otevře se:</p>
+<pre><code class="language-text">-¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¬
+- Extensions                                                   -
++¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦+
+- ? Git Tools                        1.2.0       Python        -
+- ? Image Tools                      2.1.0       Python        -
+- ? Windows Admin                    1.4.2       PowerShell    -
+- ? Rename Collection                1.0.0       JavaScript    -
+- ? Old Backup Tool                  0.8.0       JavaScript    -
++¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦+
+- [ Install... ] [ Remove ] [ Enable/Disable ] [ Configure ]  -
+L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
+</code></pre>
+<p>Tím se scripted extensions stávají skutečnou prvotřídní součástí Salamanderu.</p>
+<p>Ne:</p>
+<blockquote>
+<p>„někam jsem nakopíroval <code>.vbs</code> a doufám, že ho Automation najde“.</p>
+</blockquote>
+<p>Ale skutečně:</p>
+<blockquote>
+<p><strong>Mám nainstalovaná tato rozšíření Salamanderu.</strong></p>
+</blockquote>
+<hr>
+<h1 id="mohla-by-existovat-jednoducha-extension-bez-manifestu">17. Mohla by existovat jednoduchá extension bez manifestu</h1>
+<p>Zároveň bych z toho ale nedělal těžkopádný systém.</p>
+<p>Pro jednoduché skripty:</p>
+<pre><code class="language-text">scripts/
++¦¦ Calculate Hashes.py
++¦¦ Rename from Clipboard.js
+L¦¦ Create Backup.ps1
+</code></pre>
+<p>Ty se automaticky objeví:</p>
+<pre><code class="language-text">Plugins
+L¦¦ Automation
+    +¦¦ Calculate Hashes
+    +¦¦ Rename from Clipboard
+    L¦¦ Create Backup
+</code></pre>
+<p>Jakmile chce autor víc:</p>
+<pre><code class="language-text">vlastní ikonu
+více příkazů
+eventy
+konfiguraci
+lokalizaci
+dependencies
+</code></pre>
+<p>udělá z toho extension package s manifestem.</p>
+<p>Takže:</p>
+<pre><code class="language-text">one file script
+        ˇ
+simple extension package
+        ˇ
+complex scripted extension
+        ˇ
+native C++ plugin
+</code></pre>
+<p>A žádný z těch stupňů není nutně „správnější“ než jiný.</p>
+<hr>
+<h1 id="prakticky-priklad-folder-watcher">18. Praktický příklad: „Folder Watcher“</h1>
+<p>Představ si extension napsanou v Pythonu:</p>
+<pre><code class="language-text">Folder Watcher
+</code></pre>
+<p>Uživatel otevře:</p>
+<pre><code class="language-text">Plugins › Folder Watcher › Add Current Directory
+</code></pre>
+<p>Extension si uloží:</p>
+<pre><code class="language-text">C:\Builds\Output
+</code></pre>
+<p>Pak se registruje na události.</p>
+<p>Když v adresáři přibude nový <code>.zip</code>:</p>
+<pre><code class="language-text">OnFileCreated
+    ˇ
+extension zjistí .zip
+    ˇ
+zobrazí notification
+    ˇ
+případně zvýrazní tab
+</code></pre>
+<p>Například:</p>
+<pre><code class="language-python">def on_file_created(event):
+    if event.path.endswith(".zip"):
+        Salamander.ui.notify(
+            title="New build available",
+            message=event.name
+        )
+</code></pre>
+<p>Tohle už není typická jednorázová automatizace. Je to malé funkční rozšíření, ale stále kvůli němu nemusíš psát nativní DLL.</p>
+<hr>
+<h1 id="jiny-priklad-vlastni-prikaz-nad-panely">19. Jiný příklad: vlastní příkaz nad panely</h1>
+<p>Třeba:</p>
+<pre><code class="language-text">Copy Relative Paths
+</code></pre>
+<p>Uživatel označí:</p>
+<pre><code class="language-text">C:\Repositories\Salamander\src\core\main.cpp
+C:\Repositories\Salamander\src\core\panel.cpp
+</code></pre>
+<p>Spustí:</p>
+<pre><code class="language-text">Copy Paths Relative to Repository Root
+</code></pre>
+<p>A do clipboardu dostane:</p>
+<pre><code class="language-text">src/core/main.cpp
+src/core/panel.cpp
+</code></pre>
+<p>Taková funkce by byla deset, dvacet, třicet řádků Pythonu nebo JavaScriptu.</p>
+<p>Kvůli něčemu takovému je C++ plugin nesmyslně těžký. Ale právě pro scripted extension je to ideální.</p>
+<hr>
+<h1 id="jeste-silnejsi-priklad-vlastni-panel-informaci">20. Ještě silnější příklad: vlastní panel informací</h1>
+<p>Pozdější verze frameworku by teoreticky mohla dovolit jednoduché UI integrace.</p>
+<p>Například extension:</p>
+<pre><code class="language-text">Git Status
+</code></pre>
+<p>A při práci v Git repozitáři:</p>
+<pre><code class="language-text">-¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¬
+- Files                                 -
++¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦+
+- main.cpp                              -
+- panel.cpp                             -
+- dialogs.cpp                           -
++¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦+
+- Git Status                            -
++¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦+
+- Branch: feature/dark-mode             -
+-                                       -
+- M  src/main.cpp                       -
+- M  src/panel.cpp                      -
+- ?  test.txt                           -
+L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
+</code></pre>
+<p>Tady už bych byl opatrný, protože obecné custom UI může dramaticky zvýšit složitost frameworku. Ale jako dlouhodobý směr si to představit umím.</p>
+<p>První verzi bych určitě omezil na:</p>
+<ul>
+<li>commands,</li>
+<li>menus,</li>
+<li>toolbars,</li>
+<li>keyboard shortcuts,</li>
+<li>context menu,</li>
+<li>dialogs,</li>
+<li>progress,</li>
+<li>events.</li>
+</ul>
+<p>Custom dockable panes až později.</p>
+<hr>
+<h1 id="co-bych-naopak-nedelal">21. Co bych naopak <strong>nedělal</strong></h1>
+<p>Nechtěl bych vytvořit druhé kompletní Plugin SDK.</p>
+<p>Tedy ne:</p>
+<pre><code class="language-text">„V Pythonu můžeš úplně všechno, co v C++ pluginu.“
+</code></pre>
+<p>To by podle mě skončilo obrovským a obtížně udržovatelným API.</p>
+<p>Spíš bych jasně stanovil hranici:</p>
+<h3 id="scripted-extension-je-vhodna-pro">Scripted extension je vhodná pro:</h3>
+<ul>
+<li>automatizaci,</li>
+<li>příkazy,</li>
+<li>manipulaci se soubory,</li>
+<li>práci s panelem a taby,</li>
+<li>vlastní dialogy,</li>
+<li>reakce na události,</li>
+<li>integraci externích nástrojů a knihoven.</li>
+</ul>
+<h3 id="native-plugin-zustava-potreba-pro">Native plugin zůstává potřeba pro:</h3>
+<ul>
+<li>nový virtuální filesystem,</li>
+<li>komplexní viewer,</li>
+<li>packer/unpacker na nízké úrovni,</li>
+<li>vlastní architekturu panelu,</li>
+<li>extrémně těsnou integraci do core,</li>
+<li>výkonově kritické operace.</li>
+</ul>
+<p>To zachovává rozumnou hranici.</p>
+<hr>
+<h1 id="jak-bych-videl-prvni-realistickou-verzi">22. Jak bych viděl první realistickou verzi</h1>
+<p>Kdybych to měl navrhnout postupně, nešel bych hned do deseti runtimeů, package manageru a custom panelů.</p>
+<h3 id="prvni-verze">První verze:</h3>
+<pre><code class="language-text">1. Společné modernizované Salamander Automation API
+
+2. JavaScript runtime
+
+3. Registrace vlastních příkazů
+
+4. Přístup k:
+   - left/right side
+   - tabs
+   - paths
+   - items
+   - selection
+   - clipboard
+
+5. Spouštění interních Salamander příkazů
+
+6. Dialogy a progress
+
+7. Několik základních events
+
+8. Jednoduché per-extension storage
+</code></pre>
+<p>Pak:</p>
+<pre><code class="language-text">9. PowerShell adapter
+10. Python adapter
+11. Extension manifests
+12. Extension Manager
+13. Kontextová menu
+14. Toolbar buttons
+15. Více events
+16. Pokročilejší UI
+</code></pre>
+<p>Takhle by to nebylo nutné implementovat jako jeden gigantický projekt.</p>
+<hr>
+<h1 id="a-uplne-nejpodstatnejsi-myslenka">A úplně nejpodstatnější myšlenka</h1>
+<p>Já bych to formuloval asi takto:</p>
+<blockquote>
+<p><strong>Dnes má Salamander Plugin SDK pro plnohodnotné nativní pluginy a Automation plugin pro spouštění skriptů. Mezi těmito dvěma úrovněmi ale existuje velký prostor pro lehká skriptovaná rozšíření, která se mohou dlouhodobě integrovat do Salamanderu, registrovat vlastní příkazy a UI prvky, reagovat na události a používat společné Salamander API z různých programovacích jazyků.</strong></p>
+</blockquote>
+<p>A přesně v tom podle mě spočívá největší potenciál toho nápadu.</p>
+<p>Nejde vlastně primárně o:</p>
+<blockquote>
+<p><strong>„Přidejme Python do Automation pluginu.“</strong></p>
+</blockquote>
+<p>Ale spíš o:</p>
+<blockquote>
+<p><strong>„Udělejme ze Salamander Automation obecnou platformu pro tvorbu jednoduchých a středně složitých rozšíření bez nutnosti psát a kompilovat plnohodnotný nativní plugin.“</strong></p>
+</blockquote>
+<p>A u open-source Salamanderu mi to přijde obzvlášť zajímavé. Zdrojový kód byl zveřejněn pod GPLv2 jako Open Salamander 5.0 a vývoj probíhá na veřejném GitHub repozitáři; právě snížení vstupní bariéry z „musím znát starší rozsáhlý WinAPI C++ codebase“ na „můžu napsat sto řádků Pythonu, PowerShellu nebo JavaScriptu“ by podle mě mohlo výrazně rozšířit okruh lidí schopných vytvořit pro Salamander praktickou funkcionalitu. To poslední je moje inference, ale vychází přímo z rozdílu mezi stávajícím nativním Plugin SDK a jednodušší Automation cestou, kterou samotný projekt již historicky nabízí. (<a href="https://github.com/OpenSalamander/salamander?utm_source=chatgpt.com" title="OpenSalamander/salamander: Open ...">GitHub</a>)</p>
+<p>A upřímně: <strong>já bych ten původní ticket vůbec nepojmenoval „Support more languages in Automation plugin“</strong>, protože to by tu myšlenku dost zmenšovalo — zejména když Automation už historicky přes WSH další jazyky podporovat umí. Viděl bych to spíš jako <strong>„Extend Automation into a general-purpose scripting and lightweight extension framework“</strong>.</p>
+
+<hr>
+<p>A tady se mi začínají spojovat <strong>tři původně oddělené myšlenky do jedné docela elegantní architektury</strong>:</p>
+<ol>
+<li><strong>Společné UI API pro celý Salamander</strong> — použitelné jak nativními pluginy, tak scripted extensions.</li>
+<li><strong>Automation Framework</strong>, který abstrahuje jednotlivé runtimy a poskytuje společné Salamander API.</li>
+<li><strong>AI-assisted automation</strong>, kde uživatel vůbec nemusí umět programovat: popíše, co právě potřebuje udělat, AI vytvoří jednorázový skript proti známému Automation API a Salamander ho provede.</li>
+</ol>
+<p>A právě ten třetí bod mi přijde mimořádně zajímavý, protože by to nebyl žádný obecný „AI chat přilepený k file manageru“. Byl by to <strong>účelově omezený programátor Salamanderu na vyžádání</strong>.</p>
+<h2 id="predstava-z-pohledu-uzivatele">Představa z pohledu uživatele</h2>
+<p>Uživatel má například v levé straně:</p>
+<pre><code class="language-text">IMG_20250713_194501.jpg
+IMG_20250713_194530.jpg
+IMG_20250714_082012.jpg
+IMG_20250714_082144.jpg
+</code></pre>
+<p>A napíše:</p>
+<blockquote>
+<p>Přejmenuj označené fotografie podle data jejich pořízení na <code>YYYY-MM-DD_HH-MM-SS</code>, a pokud dvě fotografie mají stejný čas, přidej <code>_2</code>, <code>_3</code> atd.</p>
+</blockquote>
+<p>AI dostane:</p>
+<ul>
+<li>popis úkolu,</li>
+<li>dokumentaci aktuální verze Salamander Automation API,</li>
+<li>informace o současném kontextu — třeba že source side je levá, které položky jsou označené a jaké mají základní metadata,</li>
+<li>případně možnost přečíst další metadata prostřednictvím jasně definovaných API.</li>
+</ul>
+<p>Vygeneruje třeba JavaScript:</p>
+<pre><code class="language-javascript">const items = Salamander.SourceSide.SelectedItems;
+
+for (const item of items) {
+    const dateTaken = item.Metadata.DateTaken;
+    const newName = formatDate(dateTaken);
+
+    Salamander.FileOperations.Rename(item, newName, {
+        ResolveCollisions: "AppendNumber"
+    });
+}
+</code></pre>
+<p>A Salamander zobrazí něco jako:</p>
+<pre><code class="language-text">┌──────────────────────────────────────────────────────────────┐
+│ AI Automation                                                │
+├──────────────────────────────────────────────────────────────┤
+│ You asked:                                                   │
+│                                                              │
+│ Rename selected photos according to their Date Taken value,  │
+│ resolving duplicate names by adding a numeric suffix.        │
+│                                                              │
+│ This automation will:                                        │
+│                                                              │
+│   Rename 27 files                                            │
+│   Modify no file contents                                    │
+│   Delete no files                                            │
+│                                                              │
+│ [ Show Script ]   [ Run ]   [ Save as Script... ]            │
+└──────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>A tohle bych považoval za ideální základ.</p>
+<hr>
+<h1 id="ai-by-podle-me-nemela-klikat-na-salamander">AI by podle mě neměla „klikat na Salamander“</h1>
+<p>Tohle je důležitý architektonický bod.</p>
+<p>Nedělal bych systém:</p>
+<pre><code class="language-text">AI
+ ↓
+simuluje klávesy
+ ↓
+kliká na menu
+ ↓
+nějak se pokouší ovládat UI
+</code></pre>
+<p>To je křehké a zbytečné.</p>
+<p>Místo toho:</p>
+<pre><code class="language-text">                        User request
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │    AI model     │
+                    └────────┬────────┘
+                             │
+                         generates
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │ Automation code │
+                    └────────┬────────┘
+                             │
+                        executes via
+                             │
+                             ▼
+              ┌───────────────────────────────┐
+              │  Salamander Automation API   │
+              └───────────────┬───────────────┘
+                              │
+                              ▼
+                      Salamander Core
+</code></pre>
+<p>Takže AI <strong>nemá své vlastní speciální privilegované API</strong>.</p>
+<p>Používá úplně stejný framework jako člověk, který píše skript ručně.</p>
+<p>To má podle mě několik krásných důsledků:</p>
+<ul>
+<li>každé rozšíření Automation API automaticky rozšiřuje schopnosti AI,</li>
+<li>dokumentace pro vývojáře zároveň slouží jako dokumentace pro model,</li>
+<li>AI-generated skript lze zobrazit, upravit a uložit,</li>
+<li>jednorázový AI požadavek lze okamžitě proměnit v trvalou automatizaci,</li>
+<li>není potřeba udržovat zvláštní „AI command layer“ paralelně s Automation API.</li>
+</ul>
+<p>A hlavně: <strong>AI je jen další autor skriptu</strong>.</p>
+<p>To mi přijde koncepčně velmi čisté.</p>
+<hr>
+<h1 id="muj-oblibeny-workflow-ask-preview-run-save">Můj oblíbený workflow: Ask → Preview → Run → Save</h1>
+<p>Představoval bych si například příkaz:</p>
+<pre><code class="language-text">Commands
+└── Automate with AI...
+</code></pre>
+<p>Nebo klávesovou zkratku.</p>
+<p>Otevře se:</p>
+<pre><code class="language-text">┌──────────────────────────────────────────────────────────────┐
+│ Automate with AI                                             │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│ What would you like to do?                                   │
+│                                                              │
+│ ┌──────────────────────────────────────────────────────────┐ │
+│ │ Find all duplicate files in the current directory and    │ │
+│ │ its subdirectories according to SHA-256. Show me a       │ │
+│ │ dialog with the duplicate groups, but don't delete       │ │
+│ │ anything automatically.                                  │ │
+│ └──────────────────────────────────────────────────────────┘ │
+│                                                              │
+│ Context:                                                     │
+│ Source: C:\Photos                                            │
+│ Selected: 0 items                                            │
+│                                                              │
+│                                      [ Generate Automation ] │
+└──────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>AI vytvoří script.</p>
+<p>Pak třeba:</p>
+<pre><code class="language-text">┌──────────────────────────────────────────────────────────────┐
+│ Generated Automation                                         │
+├──────────────────────────────────────────────────────────────┤
+│ Find duplicate files                                         │
+│                                                              │
+│ The automation will:                                         │
+│                                                              │
+│ • Recursively enumerate C:\Photos                            │
+│ • Calculate SHA-256 hashes                                   │
+│ • Group identical files                                      │
+│ • Display the results in a dialog                            │
+│ • Make no filesystem changes                                 │
+│                                                              │
+│ Estimated scope: 4,281 files                                 │
+│                                                              │
+│ [ Show Script ] [ Modify Request... ] [ Run ] [ Save... ]    │
+└──────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>Po spuštění použije normální UI API:</p>
+<pre><code class="language-text">┌──────────────────────────────────────────────────────────────┐
+│ Duplicate Files                                              │
+├──────────────────────────────────────────────────────────────┤
+│ ▼ Group 1                                      8.4 MB         │
+│   C:\Photos\2024\holiday.jpg                                 │
+│   C:\Photos\Backup\holiday-copy.jpg                          │
+│                                                              │
+│ ▼ Group 2                                      125 MB         │
+│   C:\Videos\clip.mp4                                         │
+│   C:\Videos\Old\clip.mp4                                     │
+│                                                              │
+│ [ Close ]                          [ Export Results... ]      │
+└──────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>A pak:</p>
+<blockquote>
+<p>„Tohle používám často.“</p>
+</blockquote>
+<p>Klikneš na:</p>
+<pre><code class="language-text">Save as Script...
+</code></pre>
+<p>a najednou se jednorázová AI automatizace stane normálním uloženým skriptem:</p>
+<pre><code class="language-text">Plugins
+└── Automation
+    └── Find Duplicate Files
+</code></pre>
+<p>Tohle propojení <strong>jednorázového přirozeného jazyka → skriptu → trvalé funkce</strong> mi přijde asi nejsilnější část celého konceptu.</p>
+<hr>
+<h1 id="a-jeste-lepsi-pokracujici-konverzace-nad-skriptem">A ještě lepší: pokračující konverzace nad skriptem</h1>
+<p>Nemuselo by skončit u jednoho promptu.</p>
+<p>Uživatel:</p>
+<blockquote>
+<p>Najdi ve vybraných souborech všechny obrázky větší než 4K a převeď je na maximálně 3840×2160.</p>
+</blockquote>
+<p>AI vygeneruje automation.</p>
+<p>Uživatel pak řekne:</p>
+<blockquote>
+<p>Ale zachovej poměr stran a nepřepisuj originály.</p>
+</blockquote>
+<p>AI skript upraví.</p>
+<p>Pak:</p>
+<blockquote>
+<p>Výsledné soubory dej do nové podsložky <code>Resized</code>.</p>
+</blockquote>
+<p>Znovu upraví.</p>
+<p>Pak:</p>
+<blockquote>
+<p>A ukaž progress bar s náhledem aktuálního souboru.</p>
+</blockquote>
+<p>A pokud to UI API umožňuje, znovu upraví.</p>
+<p>Takže:</p>
+<pre><code class="language-text">Natural language request
+        ↓
+Generated automation v1
+        ↓
+"Don't overwrite originals"
+        ↓
+Generated automation v2
+        ↓
+"Put results into Resized"
+        ↓
+Generated automation v3
+        ↓
+"Save this permanently"
+        ↓
+MyResizer extension/script
+</code></pre>
+<p>Uživatel tak vlastně <strong>interaktivně programuje Salamander, aniž by nutně psal kód</strong>.</p>
+<hr>
+<h1 id="a-prave-tady-ziskava-ui-api-obrovsky-vyznam">A právě tady získává UI API obrovský význam</h1>
+<p>Tím, že podobné obecné UI API chybí i klasickým pluginům, byla by škoda vytvořit:</p>
+<pre><code class="language-text">Automation.UI
+</code></pre>
+<p>jako speciální věc dostupnou jen skriptům.</p>
+<p>Já bych spíš viděl:</p>
+<pre><code class="language-text">                    Salamander UI Framework
+                            │
+              ┌─────────────┴─────────────┐
+              │                           │
+        Native Plugin API          Automation API
+              │                           │
+          C++ plugin             JS / Python / PS
+</code></pre>
+<p>Takže například společné koncepty:</p>
+<pre><code class="language-text">UI.MessageBox
+UI.InputBox
+UI.ProgressDialog
+UI.Dialog
+UI.Form
+UI.FilePicker
+UI.FolderPicker
+UI.ListView
+UI.TreeView
+UI.TextBox
+UI.ComboBox
+UI.CheckBox
+UI.RadioButton
+UI.Button
+UI.TabControl
+</code></pre>
+<p>Nativní plugin by třeba dostal C++ interface:</p>
+<pre><code class="language-cpp">auto dialog = Salamander-&gt;UI()-&gt;CreateDialog(...);
+</code></pre>
+<p>Python:</p>
+<pre><code class="language-python">dialog = Salamander.ui.create_dialog(...)
+</code></pre>
+<p>JavaScript:</p>
+<pre><code class="language-javascript">const dialog = Salamander.ui.createDialog(...);
+</code></pre>
+<p>PowerShell:</p>
+<pre><code class="language-powershell">$dialog = $Salamander.UI.CreateDialog(...)
+</code></pre>
+<p>Ale všechny čtyři cesty používají <strong>stejný Salamander UI framework a stejnou nativní vizuální podobu</strong>.</p>
+<p>To by podle mě bylo hodnotné samo o sobě, i bez AI.</p>
+<p>A pro AI je to mimořádně důležité, protože model pak nemusí generovat WinAPI, HTML, Tkinter nebo něco podobného. Stačí, že zná jednoduchou sadu komponent:</p>
+<pre><code class="language-text">CreateDialog
+AddLabel
+AddTextBox
+AddListView
+AddButton
+ShowModal
+</code></pre>
+<p>To dramaticky snižuje prostor pro chyby.</p>
+<hr>
+<h1 id="automation-framework-jako-prostrednik-pro-runtimy">Automation Framework jako prostředník pro runtimy</h1>
+<p><strong>Automation framework se postará o runtimy.</strong> Představuju si to zhruba takto:</p>
+<pre><code class="language-text">                           Scripts / Extensions
+                                    │
+           ┌────────────────────────┼────────────────────────┐
+           │                        │                        │
+      JavaScript                 Python                 PowerShell
+           │                        │                        │
+           ▼                        ▼                        ▼
+      JS Runtime              Python Runtime           PS Runtime
+           └────────────────────────┼────────────────────────┘
+                                    │
+                                    ▼
+                       ┌────────────────────────┐
+                       │  Automation Framework  │
+                       ├────────────────────────┤
+                       │ Common object model    │
+                       │ Events                 │
+                       │ Commands               │
+                       │ UI API                 │
+                       │ Storage                │
+                       │ Permissions/context    │
+                       │ Runtime management     │
+                       └────────────┬───────────┘
+                                    │
+                                    ▼
+                            Salamander Core
+</code></pre>
+<p>A jednotlivé runtimy nemusí být nutně součástí základní instalace.</p>
+<p>Například:</p>
+<pre><code class="language-text">Plugin Manager
+
+Installed
+─────────
+✓ Automation Framework
+✓ JavaScript Runtime
+✓ PowerShell Runtime
+
+Available
+─────────
+○ Python Runtime
+○ Lua Runtime
+</code></pre>
+<p>V případě forku Samandarin, <strong>žádný nový Extensions Manager není potřeba</strong>. Když už Salamander má Plugin Manager se sources, tak scripted extensions mohou být jednoduše další source nebo další typ položek v existující infrastruktuře:</p>
+<pre><code class="language-text">Sources:
+
+✓ Official Plugins
+✓ Community Plugins
+✓ Automation Extensions
+✓ Runtime Components
+</code></pre>
+<p>Případně jedna source může obsahovat různé typy balíčků a Plugin Manager je jen označí:</p>
+<pre><code class="language-text">Git Tools                  Scripted Extension    Python
+Image Resizer              Scripted Extension    JavaScript
+Python Runtime             Runtime Component
+7-Zip                      Native Plugin
+</code></pre>
+<p>To mi přijde mnohem lepší než paralelně stavět druhý manager.</p>
+<hr>
+<h1 id="a-co-presne-s-tim-free-ai-modelem">A co přesně s tím free AI modelem?</h1>
+<p>Tady bych rozlišoval <strong>AI integration</strong> a <strong>AI model</strong>.</p>
+<p>Neudělal bych framework závislý na jednom konkrétním modelu:</p>
+<pre><code class="language-text">Salamander AI
+     │
+     └── some-model.gguf
+</code></pre>
+<p>Spíš:</p>
+<pre><code class="language-text">                          AI Automation Assistant
+                                   │
+                            Model Provider API
+                                   │
+              ┌────────────────────┼─────────────────────┐
+              │                    │                     │
+        Built-in Local       External Local         Remote API
+           Runtime              Provider             Provider
+              │                    │                     │
+         local model          Ollama etc.          optional
+</code></pre>
+<p>Pro skutečně samostatnou bezplatnou instalaci mi připadá zajímavá možnost použít jako inference backend něco na způsob <code>llama.cpp</code>: jde o C/C++ inference knihovnu, kterou lze přímo integrovat, a podporuje také serverové API a gramatiky omezující výstup modelu na definovaný formát. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander/?utm_source=chatgpt.com" title="Salamander Object">GitHub</a>)</p>
+<p>Zároveň by bylo možné připojit externí lokální backend. Například Ollama dnes poskytuje jak <strong>structured outputs podle JSON Schema</strong>, tak <strong>tool calling</strong>, což je přesně typ mechanismu použitelný pro komunikaci mezi AI modelem a pevně definovaným Automation API. (<a href="https://forum.altap.cz/viewtopic.php?t=3639&amp;utm_source=chatgpt.com" title="Automation Plugin">Ollama</a>)</p>
+<p>Ale osobně bych pro Salamander první AI vrstvu navrhl tak, aby model <strong>nemusel mít přímý tool calling vůbec</strong>.</p>
+<p>Proč? Protože úkol je velmi přesně definovaný:</p>
+<blockquote>
+<p><strong>Vygeneruj program proti této verzi Salamander Automation API.</strong></p>
+</blockquote>
+<p>To je menší a kontrolovatelnější problém než obecný autonomní agent.</p>
+<hr>
+<h1 id="jeste-bych-ai-poskytoval-strojove-citelny-popis-api">Ještě bych AI poskytoval strojově čitelný popis API</h1>
+<p>Například framework má:</p>
+<pre><code class="language-text">Automation API v3
+</code></pre>
+<p>A spolu s ním existuje něco jako:</p>
+<pre><code class="language-json">{
+    "version": "3.0",
+    "objects": {
+        "Salamander.SourceSide": {
+            "properties": {
+                "Path": "string",
+                "SelectedItems": "ItemCollection",
+                "FocusedItem": "Item|null"
+            }
+        },
+        "Salamander.FileOperations": {
+            "methods": {
+                "Rename": {
+                    "parameters": [
+                        "item",
+                        "newName",
+                        "options"
+                    ]
+                }
+            }
+        }
+    }
+}
+</code></pre>
+<p>Nemusí to být přesně JSON; jde o princip.</p>
+<p>AI při každém požadavku nedostane sto tisíc tokenů textové dokumentace. Framework vybere jen relevantní části:</p>
+<pre><code class="language-text">Uživatel chce přejmenovávat soubory.
+
+Relevantní API:
+- SourceSide.SelectedItems
+- Item.Name
+- Item.Path
+- Item.Metadata
+- FileOperations.Rename
+- UI.ProgressDialog
+</code></pre>
+<p>A model generuje proti <strong>přesné verzi skutečně dostupného API</strong>.</p>
+<p>To je mimochodem velmi důležité proti halucinování metod typu:</p>
+<pre><code class="language-javascript">Salamander.SuperMagicRenameEverything()
+</code></pre>
+<p>která neexistuje. 😄</p>
+<p>Structured output nebo formální gramatika může navíc vynutit, aby model vracel přesně požadovanou strukturu, například oddělený popis akce, potřebné capabilities a samotný skript. Takovou formu omezeného výstupu podporují například llama.cpp přes GBNF gramatiky i Ollama přes JSON Schema structured outputs. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander/?utm_source=chatgpt.com" title="Salamander Object">GitHub</a>)</p>
+<hr>
+<h1 id="ja-bych-mozna-nechal-ai-vracet-vic-nez-jen-skript">Já bych možná nechal AI vracet víc než jen skript</h1>
+<p>Například:</p>
+<pre><code class="language-json">{
+    "title": "Rename photos by Date Taken",
+    "description": "Renames the selected JPEG files according to EXIF Date Taken.",
+    "capabilities": [
+        "read-selection",
+        "read-file-metadata",
+        "rename-files"
+    ],
+    "estimatedEffects": {
+        "renameFiles": true,
+        "modifyContents": false,
+        "deleteFiles": false
+    },
+    "script": "..."
+}
+</code></pre>
+<p>Pak Salamander nemusí hádat, co skript dělá.</p>
+<p>Může zobrazit:</p>
+<pre><code class="language-text">This automation requests:
+
+✓ Read current selection
+✓ Read image metadata
+✓ Rename files
+
+It does not request:
+
+— Delete files
+— Modify file contents
+— Execute external programs
+— Access network
+</code></pre>
+<p>A zde bych neviděl „permissions“ jen jako bezpečnostní mechanismus. Má to velkou hodnotu i čistě UXově: <strong>uživatel na první pohled vidí rozsah automatizace</strong>.</p>
+<hr>
+<h1 id="dve-urovne-ai-automatizace">Dvě úrovně AI automatizace</h1>
+<p>Já bych dokonce rozlišoval:</p>
+<h2 id="generate-script">1. Generate script</h2>
+<p>AI pouze vytvoří skript:</p>
+<pre><code class="language-text">Request → Generate → Preview script
+</code></pre>
+<p>Uživatel si ho může prohlédnout, editovat, spustit nebo uložit.</p>
+<h2 id="do-it-for-me">2. Do it for me</h2>
+<p>Uživatel napíše:</p>
+<blockquote>
+<p>V levém panelu vyber všechny <code>.dll</code>, které nemají platný digitální podpis, a přesuň je do <code>Unsigned</code>.</p>
+</blockquote>
+<p>Salamander:</p>
+<pre><code class="language-text">Understanding request...
+Generating automation...
+</code></pre>
+<p>Zobrazí:</p>
+<pre><code class="language-text">The automation will:
+
+• Check Authenticode signatures of 143 DLL files
+• Create the directory "Unsigned" if it does not exist
+• Move files without a valid signature into it
+
+[ Show details ]                       [ Run ]
+</code></pre>
+<p>A provede ji.</p>
+<p>Tady přesně dostáváme to, co byla moje prvotní myšlenka:</p>
+<blockquote>
+<p><strong>Teď potřebuju řešení na tohle a tohle, tak mi to proveď.</strong></p>
+</blockquote>
+<p>Neinstaluju plugin.</p>
+<p>Nehledám utilitu.</p>
+<p>Nehledám na Googlu PowerShell command.</p>
+<p>Nepíšu skript.</p>
+<p>Prostě řeknu Salamanderu, <strong>co potřebuji udělat s právě otevřenými soubory</strong>.</p>
+<hr>
+<h1 id="a-pritom-se-z-toho-muze-stat-nova-funkce-salamanderu">A přitom se z toho může stát „nová funkce Salamanderu“</h1>
+<p>Třeba zjistíš, že pořád používáš AI požadavek:</p>
+<blockquote>
+<p>Z označených souborů vytvoř Markdown tabulku s názvem, velikostí, SHA-256 a relativní cestou a zkopíruj ji do clipboardu.</p>
+</blockquote>
+<p>Poprvé:</p>
+<pre><code class="language-text">AI → vygeneruje → provede
+</code></pre>
+<p>Podruhé:</p>
+<pre><code class="language-text">AI → vygeneruje → provede
+</code></pre>
+<p>Pak řekneš:</p>
+<pre><code class="language-text">Save as automation...
+</code></pre>
+<p>A máš:</p>
+<pre><code class="language-text">Plugins
+└── Automation
+    └── Copy selected files as Markdown table
+</code></pre>
+<p>Můžeš mu přiřadit:</p>
+<pre><code class="language-text">Hotkey: Ctrl+Shift+M
+</code></pre>
+<p>Nebo toolbar button.</p>
+<p>A pokud bys šel ještě dál:</p>
+<pre><code class="language-text">Convert to Extension...
+</code></pre>
+<p>vytvoří se základní extension package:</p>
+<pre><code class="language-text">MarkdownFileTable/
+├── extension.json
+├── main.js
+└── icon.svg
+</code></pre>
+<p>Takže mezi jednotlivými vrstvami je přirozená cesta:</p>
+<pre><code class="language-text">Natural-language request
+          ↓
+One-shot generated script
+          ↓
+Saved automation
+          ↓
+Scripted extension
+          ↓
+Native plugin, only if really necessary
+</code></pre>
+<p><strong>Tohle mi přijde fantasticky soudržné.</strong> Nejsou to čtyři nesouvisející technologie. Jsou to čtyři stupně téže věci.</p>
+<hr>
+<h1 id="a-napada-me-jeste-jedna-zasadni-vlastnost-ai-sama-muze-objevit-omezeni-api">A napadá mě ještě jedna zásadní vlastnost: AI sama může objevit omezení API</h1>
+<p>Příklad:</p>
+<blockquote>
+<p>Přidej ke každému PDF první stránku jako thumbnail přímo do sloupce v panelu.</p>
+</blockquote>
+<p>Model dostane dokumentaci API a zjistí:</p>
+<pre><code class="language-text">Automation API currently cannot:
+- register custom panel columns
+- provide thumbnails
+</code></pre>
+<p>Pak nemá halucinovat řešení.</p>
+<p>Měl by vrátit:</p>
+<pre><code class="language-text">This cannot currently be implemented through the Automation API.
+
+Missing capabilities:
+• Register custom panel column
+• Provide thumbnail image for a file item
+</code></pre>
+<p>A to je pro vývoj Salamanderu překvapivě cenné.</p>
+<p>Protože po určité době můžeme zjistit:</p>
+<pre><code class="language-text">Most commonly requested unavailable Automation capabilities:
+
+1. Register panel column         238 requests
+2. Add file overlay icon         191 requests
+3. Access archive API            174 requests
+4. Create dockable UI pane       91 requests
+</code></pre>
+<p>Najednou samotné AI použití může ukazovat, <strong>co uživatelé chtějí automatizovat, ale současné API jim v tom brání</strong>.</p>
+<hr>
+<h1 id="jak-velky-ai-model-vlastne-potrebujes">Jak velký AI model je vlastně potřeba?</h1>
+<p>Upřímně si myslím, že právě tady nemusí být potřeba obrovský obecný model.</p>
+<p>Úloha je omezená:</p>
+<pre><code class="language-text">Input:
+- uživatelská instrukce,
+- přesně definované API,
+- pár příkladů,
+- aktuální kontext.
+
+Output:
+- krátký script používající toto API.
+</code></pre>
+<p>To je výrazně užší problém než být všeobecný ChatGPT.</p>
+<p>Navíc Salamander může modelu dodat:</p>
+<ul>
+<li>přesnou API dokumentaci,</li>
+<li>examples,</li>
+<li>type definitions,</li>
+<li>aktuální data,</li>
+<li>validační chyby.</li>
+</ul>
+<p>Takže může fungovat opravná smyčka:</p>
+<pre><code class="language-text">AI generates script
+        ↓
+Static validation
+        ↓
+Unknown method:
+Salamander.File.Rename()
+        ↓
+Framework tells AI:
+Use Salamander.FileOperations.Rename()
+        ↓
+AI fixes script
+        ↓
+Valid
+</code></pre>
+<p>A protože lokální inference dnes může být integrována například přes nativní C/C++ knihovnu llama.cpp nebo obsluhována přes externí lokální model server, není nutné uživatele vázat na jedinou cloudovou službu. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander_overwritedialog/?utm_source=chatgpt.com" title="Altap Salamander Help: OverwriteDialog Method">GitHub</a>)</p>
+<hr>
+<h2 id="za-me-by-tedy-vysledny-celek-vypadal-takto">Za mě by tedy výsledný celek vypadal takto</h2>
+<pre><code class="language-text">┌───────────────────────────────────────────────────────────────────────┐
+│                              Salamander                               │
+│                                                                       │
+│   ┌───────────────────────────────────────────────────────────────┐   │
+│   │                Shared Salamander Services                     │   │
+│   │                                                               │   │
+│   │  File Operations │ Commands │ UI │ Panels │ Tabs │ Events    │   │
+│   └───────────────────────────────┬───────────────────────────────┘   │
+│                                   │                                   │
+│             ┌─────────────────────┴─────────────────────┐             │
+│             │                                           │             │
+│             ▼                                           ▼             │
+│    ┌─────────────────────┐                   ┌─────────────────────┐  │
+│    │  Native Plugin API  │                   │ Automation Framework│  │
+│    │                     │                   │                     │  │
+│    │       C++           │                   │ Common Script API   │  │
+│    └─────────────────────┘                   └──────────┬──────────┘  │
+│                                                       │             │
+│                            ┌─────────────┬─────────────┼──────────┐  │
+│                            ▼             ▼             ▼          ▼  │
+│                      JavaScript       Python      PowerShell    ...  │
+│                                                                       │
+│   ┌───────────────────────────────────────────────────────────────┐   │
+│   │                  AI Automation Assistant                      │   │
+│   │                                                               │   │
+│   │ Natural language → Generate script → Preview → Run → Save    │   │
+│   │                                                               │   │
+│   │       Local model │ External local provider │ Optional API    │   │
+│   └───────────────────────────────────────────────────────────────┘   │
+│                                                                       │
+│                         Existing Plugin Manager                       │
+│                  Plugins │ Runtimes │ Scripted Extensions             │
+└───────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>A upřímně: <strong>mně se tohle jako celek líbí ještě víc než původní nápad „rozšiřme Automation o Python a PowerShell“.</strong> Protože tady už vzniká skutečný systém:</p>
+<blockquote>
+<p>Salamander má jednotné aplikační a UI API. Nativní pluginy i skriptovaná rozšíření ho mohou používat. Automation Framework poskytuje různé jazykové runtimy. A nad nejjednodušší vrstvou automatizace může sedět AI, která uživateli na požádání vytvoří přesně ten jednorázový nástroj, který v daném okamžiku potřebuje — a pokud se osvědčí, může ho uložit jako trvalou součást svého Salamanderu.</p>
+</blockquote>
+<p>Tohle je podle mě <strong>velmi silná vize moderního Salamanderu</strong>, aniž by přestal být Salamanderem. AI není přilepený chatbot, Python není alternativní Plugin SDK a scripted extensions nejsou druhotřídní pluginy. Všechno vyrůstá z jednoho společného API a liší se jen úrovní permanence a složitosti.</p>
+</body></html>

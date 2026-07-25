@@ -891,6 +891,34 @@ static BOOL RuntimeEventKindFromName(
     return FALSE;
 }
 
+static Salamatrix::Sides::SideReference RuntimeSideFromName(
+    const std::string& name)
+{
+    if (_stricmp(name.c_str(), "left") == 0)
+        return Salamatrix::Sides::SideReferenceLeft;
+    if (_stricmp(name.c_str(), "right") == 0)
+        return Salamatrix::Sides::SideReferenceRight;
+    if (_stricmp(name.c_str(), "target") == 0)
+        return Salamatrix::Sides::SideReferenceTarget;
+    return Salamatrix::Sides::SideReferenceSource;
+}
+
+static std::string RuntimeItemInfoJson(
+    const Salamatrix::Sides::ItemInfo& item)
+{
+    std::string path(item.Path);
+    if (path.size() > 2048)
+        path.resize(2048);
+    return std::string("{\"name\":\"") +
+           JsonEscapeRuntimeText(item.Name) +
+           "\",\"path\":\"" + JsonEscapeRuntimeText(path.c_str()) +
+           "\",\"size\":\"" +
+           std::to_string(static_cast<unsigned long long>(item.Size.Value)) +
+           "\",\"attributes\":" + std::to_string(item.Attributes) +
+           ",\"isDirectory\":" +
+           (item.IsDirectory ? "true" : "false") + "}";
+}
+
 BOOL WINAPI CScriptInfo::RuntimeEventCallback(
     void* context,
     const Salamatrix::Events::EventPayload* payload)
@@ -1490,6 +1518,55 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             std::string("{\"ok\":") +
             (operation == Salamatrix::Runtime::OperationResultOk ? "true" : "false") +
             ",\"result\":\"" + name + "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.sides.context")
+    {
+        std::string sideName;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        Salamatrix::Sides::SideReference side =
+            RuntimeSideFromName(sideName);
+        Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
+        if (sides == NULL)
+            return FALSE;
+        char panelPath[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
+        panelPath[0] = '\0';
+        int pathType = 0;
+        if (!sides->GetPath(
+                side,
+                panelPath,
+                _countof(panelPath),
+                &pathType))
+            return FALSE;
+        int selectedCount = sides->GetSelectedItemCount(side);
+        if (selectedCount < 0)
+            selectedCount = 0;
+        int returnedCount = selectedCount > 64 ? 64 : selectedCount;
+        std::string response =
+            std::string("{\"ok\":true,\"path\":\"") +
+            JsonEscapeRuntimeText(panelPath) +
+            "\",\"pathType\":" + std::to_string(pathType) +
+            ",\"selectedCount\":" + std::to_string(selectedCount) +
+            ",\"selectedItems\":[";
+        for (int index = 0; index < returnedCount; ++index)
+        {
+            Salamatrix::Sides::ItemInfo item;
+            if (!sides->GetSelectedItem(side, index, &item))
+                continue;
+            if (response[response.size() - 1] != '[')
+                response.push_back(',');
+            response += RuntimeItemInfoJson(item);
+        }
+        response += "],\"focusedItem\":";
+        Salamatrix::Sides::ItemInfo focused;
+        if (sides->GetFocusedItem(side, &focused))
+            response += RuntimeItemInfoJson(focused);
+        else
+            response += "null";
+        response += "}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
     }

@@ -17,13 +17,15 @@ struct BootstrapDispatchState
     int SubscribeCalls;
     int FileOperationCalls;
     int DialogCalls;
+    int SideContextCalls;
 
     BootstrapDispatchState()
         : CommandCalls(0),
           StorageCalls(0),
           SubscribeCalls(0),
           FileOperationCalls(0),
-          DialogCalls(0)
+          DialogCalls(0),
+          SideContextCalls(0)
     {
     }
 };
@@ -89,6 +91,19 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->FileOperationCalls;
         response = "{\"ok\":true,\"result\":\"ok\"}";
+    }
+    else if (strstr(payloadJson, "salamander.sides.context") != NULL)
+    {
+        if (state != NULL)
+            ++state->SideContextCalls;
+        response =
+            "{\"ok\":true,\"path\":\"C:\\\\Temp\",\"pathType\":0,"
+            "\"selectedCount\":1,\"selectedItems\":[{\"name\":\"seed.txt\","
+            "\"path\":\"C:\\\\Temp\\\\seed.txt\",\"size\":\"4\","
+            "\"attributes\":32,\"isDirectory\":false}],"
+            "\"focusedItem\":{\"name\":\"seed.txt\","
+            "\"path\":\"C:\\\\Temp\\\\seed.txt\",\"size\":\"4\","
+            "\"attributes\":32,\"isDirectory\":false}}";
     }
     else if (strstr(payloadJson, "salamander.ui.dialog.create") != NULL)
     {
@@ -317,6 +332,9 @@ void RunPythonBootstrapTest()
               "if Salamander.storage.get('bootstrap') != 'ok':\n"
               "    raise RuntimeError('storage call failed')\n"
               "Salamander.events.subscribe('hostStartup', lambda event: None)\n"
+              "side_context = Salamander.source_side.context()\n"
+              "if side_context.get('selectedCount') != 1 or side_context.get('focusedItem', {}).get('name') != 'seed.txt':\n"
+              "    raise RuntimeError('side context call failed')\n"
               "if Salamander.file_operations.refresh() != 'ok':\n"
               "    raise RuntimeError('file operation call failed')\n"
               "dialog = Salamander.ui.dialog('Bootstrap')\n"
@@ -362,6 +380,7 @@ void RunPythonBootstrapTest()
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
         Check(state.StorageCalls == 2, "bootstrap storage calls reached host");
         Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
+        Check(state.SideContextCalls == 1, "bootstrap side context reached host");
         Check(state.FileOperationCalls == 1, "bootstrap file operation reached host");
         Check(state.DialogCalls == 11, "bootstrap dialog calls reached host");
         std::string shutdown;
@@ -402,6 +421,8 @@ void RunPowerShellBootstrapTest()
               "$Salamander.storage.Set('bootstrap', 'ok')\n"
               "if ($Salamander.storage.Get('bootstrap') -ne 'ok') { throw 'storage call failed' }\n"
               "$null = $Salamander.events.Subscribe('hostStartup', { param($event) })\n"
+              "$sideContext = $Salamander.SourceSide.Context()\n"
+              "if ($sideContext.selectedCount -ne 1 -or $sideContext.focusedItem.name -ne 'seed.txt') { throw 'side context call failed' }\n"
               "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
               "$dialog = $Salamander.ui.Dialog('Bootstrap')\n"
               "$dialog.AddLabel('label', 'Hello')\n"
@@ -438,6 +459,7 @@ void RunPowerShellBootstrapTest()
         Check(state.CommandCalls == 1, "powershell bootstrap command call");
         Check(state.StorageCalls == 2, "powershell bootstrap storage calls");
         Check(state.SubscribeCalls == 1, "powershell bootstrap event subscription");
+        Check(state.SideContextCalls == 1, "powershell bootstrap side context");
         Check(state.FileOperationCalls == 1, "powershell bootstrap file operation");
         Check(state.DialogCalls == 11, "powershell bootstrap dialog calls");
         std::string shutdown;
@@ -473,6 +495,8 @@ void RunPhpBootstrapTest()
               "$Salamander->storage->set('bootstrap', 'ok');\n"
               "if ($Salamander->storage->get('bootstrap') !== 'ok') throw new Exception('storage call failed');\n"
               "$Salamander->events->subscribe('hostStartup', function($event) {});\n"
+              "$sideContext = $Salamander->source_side->context();\n"
+              "if ($sideContext['selectedCount'] !== 1 || $sideContext['focusedItem']['name'] !== 'seed.txt') throw new Exception('side context call failed');\n"
               "if ($Salamander->file_operations->refresh() !== 'ok') throw new Exception('file operation call failed');\n"
               "$dialog = $Salamander->ui->dialog('Bootstrap');\n"
               "$dialog->addLabel('label', 'Hello');\n"
@@ -509,6 +533,7 @@ void RunPhpBootstrapTest()
         Check(state.CommandCalls == 1, "php bootstrap command call");
         Check(state.StorageCalls == 2, "php bootstrap storage calls");
         Check(state.SubscribeCalls == 1, "php bootstrap event subscription");
+        Check(state.SideContextCalls == 1, "php bootstrap side context");
         Check(state.FileOperationCalls == 1, "php bootstrap file operation");
         Check(state.DialogCalls == 11, "php bootstrap dialog calls");
         std::string shutdown;

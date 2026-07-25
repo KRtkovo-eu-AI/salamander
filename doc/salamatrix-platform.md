@@ -82,6 +82,8 @@ Salamander.UI.progress(...)
 Salamander.Commands.execute(...)
 Salamander.FileOperations.copy_interactive(...)
 Salamander.Sides.Source.ActiveTab.Path
+Salamander.SourceSide.Context().SelectedItems
+Salamander.SourceSide.Context().FocusedItem
 Salamander.Storage.get("lastPath")
 ```
 
@@ -683,9 +685,9 @@ Automation workers use the same dialog object and control state:
 
 The current Automation GUI layer can now be migrated incrementally to these
 interfaces instead of creating a second runtime-specific UI. The native
-implementation currently renders labels, text boxes, check/radio buttons,
-combo boxes, and buttons; list/tree controls retain a declarative placeholder
-until their model and virtualized data binding are added.
+implementation renders labels, text boxes, check/radio buttons, combo boxes,
+buttons, and the native ListView/TreeView common-control surfaces; item/column
+models and virtualized data binding remain a follow-up.
 
 ## Salamatrix.AI provider seam
 

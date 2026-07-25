@@ -172,6 +172,21 @@ class _Sides:
     def active_tab(self, side: str = "source") -> dict:
         return self._transport.call("salamander.sides.activeTab", side=side)
 
+    def context(self, side: str = "source") -> dict:
+        return self._transport.call("salamander.sides.context", side=side)
+
+
+class _Side:
+    def __init__(self, sides: _Sides, name: str) -> None:
+        self._sides = sides
+        self._name = name
+
+    def active_tab(self, side: Optional[str] = None) -> dict:
+        return self._sides.active_tab(self._name if side is None else side)
+
+    def context(self, side: Optional[str] = None) -> dict:
+        return self._sides.context(self._name if side is None else side)
+
 
 class _UI:
     def __init__(self, transport: _Transport) -> None:
@@ -297,10 +312,10 @@ class _Salamander:
         self.ui = _UI(transport)
         self.ai = _AI(transport)
         self.events = _Events(transport)
-        self.left_side = self.sides
-        self.right_side = self.sides
-        self.source_side = self.sides
-        self.target_side = self.sides
+        self.left_side = _Side(self.sides, "left")
+        self.right_side = _Side(self.sides, "right")
+        self.source_side = _Side(self.sides, "source")
+        self.target_side = _Side(self.sides, "target")
 
 
 def main() -> int:
