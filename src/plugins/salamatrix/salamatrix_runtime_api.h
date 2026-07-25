@@ -222,5 +222,49 @@ namespace Salamatrix
             virtual ~IRuntimeService() {}
         };
 
+        /// Small header-only lifecycle helper for standalone runtime-provider
+        /// plugins. A provider owns its adapter object; this helper only keeps
+        /// the exact broker/adapter pair so Release can unregister the same
+        /// pointer without depending on Automation.
+        class RuntimeProviderRegistration
+        {
+        private:
+            IRuntimeService* m_pService;
+            IRuntimeAdapter* m_pAdapter;
+            BOOL m_bRegistered;
+
+        public:
+            RuntimeProviderRegistration()
+                : m_pService(NULL),
+                  m_pAdapter(NULL),
+                  m_bRegistered(FALSE)
+            {
+            }
+
+            BOOL Register(IRuntimeService* service, IRuntimeAdapter* adapter)
+            {
+                if (m_bRegistered || service == NULL || adapter == NULL)
+                    return FALSE;
+                if (!service->RegisterAdapter(adapter))
+                    return FALSE;
+                m_pService = service;
+                m_pAdapter = adapter;
+                m_bRegistered = TRUE;
+                return TRUE;
+            }
+
+            void Unregister()
+            {
+                if (m_bRegistered && m_pService != NULL && m_pAdapter != NULL)
+                    m_pService->UnregisterAdapter(m_pAdapter);
+                m_pService = NULL;
+                m_pAdapter = NULL;
+                m_bRegistered = FALSE;
+            }
+
+            BOOL IsRegistered() const { return m_bRegistered; }
+            IRuntimeService* GetService() const { return m_pService; }
+        };
+
     } // namespace Runtime
 } // namespace Salamatrix

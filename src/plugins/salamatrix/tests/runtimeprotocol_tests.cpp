@@ -5,6 +5,7 @@
 #include "../precomp.h"
 #include "../salamatrix_ai.h"
 #include "../salamatrix_commands.h"
+#include "../salamatrix_runtime_api.h"
 #include "../salamatrix_runtime_protocol.h"
 
 namespace
@@ -47,6 +48,89 @@ public:
         response->OutputLength = sizeof(result) - 1;
         response->Status = Salamatrix::AI::AssistantStatusSucceeded;
         return TRUE;
+    }
+};
+
+class TestRuntimeAdapter : public Salamatrix::Runtime::IRuntimeAdapter
+{
+private:
+    Salamatrix::Runtime::RuntimeAdapterDescriptor Descriptor;
+
+public:
+    TestRuntimeAdapter()
+    {
+        Descriptor.RuntimeId = "Test.Runtime";
+        Descriptor.DisplayName = "Test runtime";
+        Descriptor.LanguageId = "test";
+        Descriptor.FileExtensions = ".test";
+    }
+
+    virtual const Salamatrix::Runtime::RuntimeAdapterDescriptor* WINAPI
+    GetDescriptor() const
+    {
+        return &Descriptor;
+    }
+
+    virtual BOOL WINAPI IsAvailable() const { return TRUE; }
+    virtual BOOL WINAPI SupportsEntryPoint(const char*) const { return TRUE; }
+    virtual BOOL WINAPI Execute(
+        const Salamatrix::Runtime::RuntimeExecutionRequest*,
+        Salamatrix::Runtime::RuntimeExecutionResult*)
+    {
+        return FALSE;
+    }
+};
+
+class TestRuntimeService : public Salamatrix::Runtime::IRuntimeService
+{
+public:
+    Salamatrix::Runtime::IRuntimeAdapter* Registered;
+
+    TestRuntimeService() : Registered(NULL) {}
+
+    virtual DWORD WINAPI GetVersion() const
+    {
+        return Salamatrix::Runtime::SALAMATRIX_RUNTIME_VERSION_1_0;
+    }
+
+    virtual BOOL WINAPI RegisterAdapter(
+        Salamatrix::Runtime::IRuntimeAdapter* adapter)
+    {
+        if (Registered != NULL || adapter == NULL)
+            return FALSE;
+        Registered = adapter;
+        return TRUE;
+    }
+
+    virtual BOOL WINAPI UnregisterAdapter(
+        Salamatrix::Runtime::IRuntimeAdapter* adapter)
+    {
+        if (Registered != adapter)
+            return FALSE;
+        Registered = NULL;
+        return TRUE;
+    }
+
+    virtual int WINAPI GetAdapterCount() const
+    {
+        return Registered == NULL ? 0 : 1;
+    }
+
+    virtual Salamatrix::Runtime::IRuntimeAdapter* WINAPI GetAdapter(int index) const
+    {
+        return index == 0 ? Registered : NULL;
+    }
+
+    virtual Salamatrix::Runtime::IRuntimeAdapter* WINAPI FindAdapter(
+        const char*, DWORD) const
+    {
+        return Registered;
+    }
+
+    virtual Salamatrix::Runtime::IRuntimeAdapter* WINAPI FindAdapterForEntryPoint(
+        const char*) const
+    {
+        return Registered;
     }
 };
 
@@ -146,6 +230,22 @@ void TestJsonMemberExtraction()
         "reject overflowing integer member");
 }
 
+void TestRuntimeProviderRegistration()
+{
+    TestRuntimeService service;
+    TestRuntimeAdapter adapter;
+    Salamatrix::Runtime::RuntimeProviderRegistration registration;
+    Check(registration.Register(&service, &adapter) != FALSE,
+          "runtime provider registration succeeds");
+    Check(registration.IsRegistered() != FALSE && service.Registered == &adapter,
+          "runtime provider retains exact broker and adapter");
+    Check(registration.Register(&service, &adapter) == FALSE,
+          "runtime provider rejects duplicate registration");
+    registration.Unregister();
+    Check(registration.IsRegistered() == FALSE && service.Registered == NULL,
+          "runtime provider unregisters during release");
+}
+
 void TestAssistantService()
 {
     Salamatrix::AI::AssistantService service;
@@ -208,6 +308,7 @@ void TestCommandCatalog()
 
 int main()
 {
+    TestRuntimeProviderRegistration();
     TestRoundTrip();
     TestValidationAndLimits();
     TestJsonMemberExtraction();
