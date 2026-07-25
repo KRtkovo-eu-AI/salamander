@@ -113,6 +113,8 @@ struct NativeDialog::Impl
         BOOL Checked;
         int DialogResult;
         WORD NumericId;
+        std::vector<std::string> Items;
+        std::vector<int> ItemParents;
 
         Control(ControlKind kind, const ControlOptions& options, WORD numericId)
             : Kind(kind),
@@ -157,6 +159,34 @@ struct NativeDialog::Impl
         }
 
         virtual int WINAPI GetDialogResult() const { return DialogResult; }
+
+        virtual BOOL WINAPI AddItem(const char* value, int parentIndex)
+        {
+            if (value == NULL ||
+                 (Kind != ControlKindComboBox &&
+                  Kind != ControlKindListView &&
+                 Kind != ControlKindTreeView &&
+                 Kind != ControlKindTabControl) ||
+                Items.size() >= 256 ||
+                (Kind == ControlKindTreeView &&
+                 parentIndex >= static_cast<int>(Items.size())))
+                return FALSE;
+            Items.push_back(value);
+            ItemParents.push_back(parentIndex);
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI ClearItems()
+        {
+            Items.clear();
+            ItemParents.clear();
+            return TRUE;
+        }
+
+        virtual int WINAPI GetItemCount() const
+        {
+            return static_cast<int>(Items.size());
+        }
     };
 
     DialogOptions Options;
@@ -306,7 +336,8 @@ int WINAPI NativeDialog::ShowModal()
             height = 80;
         }
         else if (control->Kind == ControlKindListView ||
-                 control->Kind == ControlKindTreeView)
+                 control->Kind == ControlKindTreeView ||
+                 control->Kind == ControlKindTabControl)
         {
             classOrdinal = 0;
             style |= WS_BORDER;
@@ -324,6 +355,11 @@ int WINAPI NativeDialog::ShowModal()
         {
             className = L"SysTreeView32";
             style |= TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS;
+        }
+        else if (control->Kind == ControlKindTabControl)
+        {
+            className = L"SysTabControl32";
+            style |= TCS_TABS | TCS_SINGLELINE;
         }
         short x = 8;
         if (control->Kind == ControlKindButton)
@@ -383,6 +419,83 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                 control->Kind == ControlKindRadioButton)
                 SendMessage(child, BM_SETCHECK,
                             control->Checked ? BST_CHECKED : BST_UNCHECKED, 0);
+            if (control->Kind == ControlKindComboBox)
+            {
+                for (size_t itemIndex = 0;
+                     itemIndex < control->Items.size(); ++itemIndex)
+                {
+                    std::wstring itemText;
+                    if (Utf8ToWide(control->Items[itemIndex].c_str(), itemText))
+                        SendMessageW(child, CB_ADDSTRING, 0,
+                                     reinterpret_cast<LPARAM>(itemText.c_str()));
+                }
+            }
+            else if (control->Kind == ControlKindListView)
+            {
+                LVCOLUMNW column;
+                memset(&column, 0, sizeof(column));
+                column.mask = LVCF_TEXT | LVCF_WIDTH;
+                column.cx = 220;
+                column.pszText = const_cast<wchar_t*>(L"Item");
+                SendMessageW(child, LVM_INSERTCOLUMNW, 0,
+                             reinterpret_cast<LPARAM>(&column));
+                for (size_t itemIndex = 0;
+                     itemIndex < control->Items.size(); ++itemIndex)
+                {
+                    std::wstring itemText;
+                    if (!Utf8ToWide(control->Items[itemIndex].c_str(), itemText))
+                        continue;
+                    LVITEMW item;
+                    memset(&item, 0, sizeof(item));
+                    item.mask = LVIF_TEXT;
+                    item.iItem = static_cast<int>(itemIndex);
+                    item.pszText = const_cast<wchar_t*>(itemText.c_str());
+                    SendMessageW(child, LVM_INSERTITEMW, 0,
+                                 reinterpret_cast<LPARAM>(&item));
+                }
+            }
+            else if (control->Kind == ControlKindTreeView)
+            {
+                std::vector<HTREEITEM> treeItems;
+                for (size_t itemIndex = 0;
+                     itemIndex < control->Items.size(); ++itemIndex)
+                {
+                    std::wstring itemText;
+                    if (!Utf8ToWide(control->Items[itemIndex].c_str(), itemText))
+                        continue;
+                    TVINSERTSTRUCTW item;
+                    memset(&item, 0, sizeof(item));
+                    int parentIndex = control->ItemParents[itemIndex];
+                    item.hParent = parentIndex >= 0 &&
+                                           parentIndex < static_cast<int>(treeItems.size())
+                                       ? treeItems[parentIndex]
+                                       : TVI_ROOT;
+                    item.hInsertAfter = TVI_LAST;
+                    item.item.mask = TVIF_TEXT;
+                    item.item.pszText = const_cast<wchar_t*>(itemText.c_str());
+                    HTREEITEM inserted = reinterpret_cast<HTREEITEM>(
+                        SendMessageW(child, TVM_INSERTITEMW, 0,
+                                     reinterpret_cast<LPARAM>(&item)));
+                    treeItems.push_back(inserted);
+                }
+            }
+            else if (control->Kind == ControlKindTabControl)
+            {
+                for (size_t itemIndex = 0;
+                     itemIndex < control->Items.size(); ++itemIndex)
+                {
+                    std::wstring itemText;
+                    if (!Utf8ToWide(control->Items[itemIndex].c_str(), itemText))
+                        continue;
+                    TCITEMW item;
+                    memset(&item, 0, sizeof(item));
+                    item.mask = TCIF_TEXT;
+                    item.pszText = const_cast<wchar_t*>(itemText.c_str());
+                    SendMessageW(child, TCM_INSERTITEMW,
+                                 static_cast<WPARAM>(itemIndex),
+                                 reinterpret_cast<LPARAM>(&item));
+                }
+            }
         }
         return TRUE;
     }

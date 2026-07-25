@@ -18,6 +18,8 @@ struct BootstrapDispatchState
     int FileOperationCalls;
     int DialogCalls;
     int SideContextCalls;
+    int ClipboardCalls;
+    int CommandRegistrationCalls;
 
     BootstrapDispatchState()
         : CommandCalls(0),
@@ -25,7 +27,9 @@ struct BootstrapDispatchState
           SubscribeCalls(0),
           FileOperationCalls(0),
           DialogCalls(0),
-          SideContextCalls(0)
+          SideContextCalls(0),
+          ClipboardCalls(0),
+          CommandRegistrationCalls(0)
     {
     }
 };
@@ -68,6 +72,18 @@ BOOL WINAPI WorkerHostDispatch(
             ++state->CommandCalls;
         response = "{\"ok\":true,\"result\":\"ok\"}";
     }
+    else if (strstr(payloadJson, "salamander.commands.register") != NULL)
+    {
+        if (state != NULL)
+            ++state->CommandRegistrationCalls;
+        response = "{\"ok\":true,\"registered\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.commands.unregister") != NULL)
+    {
+        if (state != NULL)
+            ++state->CommandRegistrationCalls;
+        response = "{\"ok\":true,\"unregistered\":true}";
+    }
     else if (strstr(payloadJson, "salamander.storage.set") != NULL)
     {
         if (state != NULL)
@@ -105,6 +121,20 @@ BOOL WINAPI WorkerHostDispatch(
             "\"path\":\"C:\\\\Temp\\\\seed.txt\",\"size\":\"4\","
             "\"attributes\":32,\"isDirectory\":false}}";
     }
+    else if (strstr(payloadJson, "salamander.clipboard.copyText") != NULL)
+    {
+        if (state != NULL)
+            ++state->ClipboardCalls;
+        response = "{\"ok\":true,\"copied\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.ai.preview") != NULL)
+    {
+        response =
+            "{\"ok\":true,\"status\":\"succeeded\",\"preview\":true,"
+            "\"canRun\":true,\"response\":{\"title\":\"Preview\","
+            "\"description\":\"Generated\",\"capabilities\":[],"
+            "\"estimatedEffects\":{},\"script\":\"print(1)\"}}";
+    }
     else if (strstr(payloadJson, "salamander.ui.dialog.create") != NULL)
     {
         if (state != NULL)
@@ -112,6 +142,8 @@ BOOL WINAPI WorkerHostDispatch(
         response = "{\"ok\":true,\"dialogId\":\"7\"}";
     }
     else if (strstr(payloadJson, "salamander.ui.dialog.add") != NULL ||
+             strstr(payloadJson, "salamander.ui.dialog.item") != NULL ||
+             strstr(payloadJson, "salamander.ui.dialog.clearItems") != NULL ||
              strstr(payloadJson, "salamander.ui.dialog.show") != NULL ||
              strstr(payloadJson, "salamander.ui.dialog.destroy") != NULL)
     {
@@ -119,7 +151,9 @@ BOOL WINAPI WorkerHostDispatch(
             ++state->DialogCalls;
         response = strstr(payloadJson, "salamander.ui.dialog.show") != NULL
                        ? "{\"ok\":true,\"result\":1}"
-                       : "{\"ok\":true}";
+                       : strstr(payloadJson, "salamander.ui.dialog.item") != NULL
+                             ? "{\"ok\":true,\"itemCount\":1}"
+                             : "{\"ok\":true}";
     }
     else if (strstr(payloadJson, "salamander.ui.dialog.get") != NULL)
     {
@@ -331,10 +365,20 @@ void RunPythonBootstrapTest()
               "Salamander.storage.set('bootstrap', 'ok')\n"
               "if Salamander.storage.get('bootstrap') != 'ok':\n"
               "    raise RuntimeError('storage call failed')\n"
+              "if not Salamander.commands.register('bootstrap.first', 'First', True, False):\n"
+              "    raise RuntimeError('first command registration failed')\n"
+              "if not Salamander.commands.register('bootstrap.second', 'Second', True, True):\n"
+              "    raise RuntimeError('second command registration failed')\n"
+              "if not Salamander.commands.unregister('bootstrap.first'):\n"
+              "    raise RuntimeError('first command unregister failed')\n"
               "Salamander.events.subscribe('hostStartup', lambda event: None)\n"
               "side_context = Salamander.source_side.context()\n"
               "if side_context.get('selectedCount') != 1 or side_context.get('focusedItem', {}).get('name') != 'seed.txt':\n"
               "    raise RuntimeError('side context call failed')\n"
+              "if not Salamander.clipboard.copy_text('seed.txt'):\n"
+              "    raise RuntimeError('clipboard call failed')\n"
+              "if not Salamander.ai.preview('list files', runtime='Python.CPython', existing_script='print(1)').get('canRun'):\n"
+              "    raise RuntimeError('ai preview call failed')\n"
               "if Salamander.file_operations.refresh() != 'ok':\n"
               "    raise RuntimeError('file operation call failed')\n"
               "dialog = Salamander.ui.dialog('Bootstrap')\n"
@@ -344,6 +388,11 @@ void RunPythonBootstrapTest()
               "dialog.add_combo_box('combo', 'Option')\n"
               "dialog.add_list_view('list')\n"
               "dialog.add_tree_view('tree')\n"
+              "if dialog.add_item('combo', 'Option 2') != 1:\n"
+              "    raise RuntimeError('dialog item call failed')\n"
+              "dialog.add_item('list', 'Item 1')\n"
+              "dialog.add_item('tree', 'Node 1')\n"
+              "dialog.clear_items('list')\n"
               "dialog.add_button('ok', 'OK', 1)\n"
               "if dialog.show() != 1:\n"
               "    raise RuntimeError('dialog show failed')\n"
@@ -378,11 +427,13 @@ void RunPythonBootstrapTest()
         for (int attempt = 0; attempt < 12 && state.SubscribeCalls == 0; ++attempt)
             Check(session->Pump(1000) != FALSE, "pump python bootstrap call");
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
+        Check(state.CommandRegistrationCalls == 3, "bootstrap multiple command registrations reached host");
         Check(state.StorageCalls == 2, "bootstrap storage calls reached host");
         Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
         Check(state.SideContextCalls == 1, "bootstrap side context reached host");
+        Check(state.ClipboardCalls == 1, "bootstrap clipboard reached host");
         Check(state.FileOperationCalls == 1, "bootstrap file operation reached host");
-        Check(state.DialogCalls == 11, "bootstrap dialog calls reached host");
+        Check(state.DialogCalls == 15, "bootstrap dialog calls reached host");
         std::string shutdown;
         Check(
             Salamatrix::Runtime::Protocol::LineCodec::Encode(
@@ -420,9 +471,14 @@ void RunPowerShellBootstrapTest()
               "if ($Salamander.commands.Execute('Copy') -ne 'ok') { throw 'command call failed' }\n"
               "$Salamander.storage.Set('bootstrap', 'ok')\n"
               "if ($Salamander.storage.Get('bootstrap') -ne 'ok') { throw 'storage call failed' }\n"
+              "if (-not $Salamander.commands.Register('bootstrap.first', 'First', $true, $false)) { throw 'first command registration failed' }\n"
+              "if (-not $Salamander.commands.Register('bootstrap.second', 'Second', $true, $true)) { throw 'second command registration failed' }\n"
+              "if (-not $Salamander.commands.Unregister('bootstrap.first')) { throw 'first command unregister failed' }\n"
               "$null = $Salamander.events.Subscribe('hostStartup', { param($event) })\n"
               "$sideContext = $Salamander.SourceSide.Context()\n"
               "if ($sideContext.selectedCount -ne 1 -or $sideContext.focusedItem.name -ne 'seed.txt') { throw 'side context call failed' }\n"
+              "if (-not $Salamander.clipboard.CopyText('seed.txt')) { throw 'clipboard call failed' }\n"
+              "if (-not $Salamander.ai.Preview('list files', $null, $null, 'PowerShell', 'Write-Output 1').canRun) { throw 'ai preview call failed' }\n"
               "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
               "$dialog = $Salamander.ui.Dialog('Bootstrap')\n"
               "$dialog.AddLabel('label', 'Hello')\n"
@@ -431,6 +487,10 @@ void RunPowerShellBootstrapTest()
               "$dialog.AddComboBox('combo', 'Option')\n"
               "$dialog.AddListView('list')\n"
               "$dialog.AddTreeView('tree')\n"
+              "if ($dialog.AddItem('combo', 'Option 2') -ne 1) { throw 'dialog item call failed' }\n"
+              "$null = $dialog.AddItem('list', 'Item 1')\n"
+              "$null = $dialog.AddItem('tree', 'Node 1')\n"
+              "$dialog.ClearItems('list')\n"
               "$dialog.AddButton('ok', 'OK', 1)\n"
               "if ($dialog.Show() -ne 1) { throw 'dialog show failed' }\n"
               "if ($dialog.Get('value').text -ne 'seed') { throw 'dialog get failed' }\n"
@@ -457,11 +517,13 @@ void RunPowerShellBootstrapTest()
         for (int attempt = 0; attempt < 15 && state.SubscribeCalls == 0; ++attempt)
             Check(session->Pump(1000) != FALSE, "pump powershell bootstrap call");
         Check(state.CommandCalls == 1, "powershell bootstrap command call");
+        Check(state.CommandRegistrationCalls == 3, "powershell multiple command registrations");
         Check(state.StorageCalls == 2, "powershell bootstrap storage calls");
         Check(state.SubscribeCalls == 1, "powershell bootstrap event subscription");
         Check(state.SideContextCalls == 1, "powershell bootstrap side context");
+        Check(state.ClipboardCalls == 1, "powershell bootstrap clipboard");
         Check(state.FileOperationCalls == 1, "powershell bootstrap file operation");
-        Check(state.DialogCalls == 11, "powershell bootstrap dialog calls");
+        Check(state.DialogCalls == 15, "powershell bootstrap dialog calls");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
@@ -494,9 +556,14 @@ void RunPhpBootstrapTest()
               "if ($Salamander->commands->execute('Copy') !== 'ok') throw new Exception('command call failed');\n"
               "$Salamander->storage->set('bootstrap', 'ok');\n"
               "if ($Salamander->storage->get('bootstrap') !== 'ok') throw new Exception('storage call failed');\n"
+              "if (!$Salamander->commands->register('bootstrap.first', 'First', true, false)) throw new Exception('first command registration failed');\n"
+              "if (!$Salamander->commands->register('bootstrap.second', 'Second', true, true)) throw new Exception('second command registration failed');\n"
+              "if (!$Salamander->commands->unregister('bootstrap.first')) throw new Exception('first command unregister failed');\n"
               "$Salamander->events->subscribe('hostStartup', function($event) {});\n"
               "$sideContext = $Salamander->source_side->context();\n"
               "if ($sideContext['selectedCount'] !== 1 || $sideContext['focusedItem']['name'] !== 'seed.txt') throw new Exception('side context call failed');\n"
+              "if (!$Salamander->clipboard->copyText('seed.txt')) throw new Exception('clipboard call failed');\n"
+              "if (!$Salamander->ai->preview('list files', null, null, 'PHP.CLI', '<?php echo 1; ?>')['canRun']) throw new Exception('ai preview call failed');\n"
               "if ($Salamander->file_operations->refresh() !== 'ok') throw new Exception('file operation call failed');\n"
               "$dialog = $Salamander->ui->dialog('Bootstrap');\n"
               "$dialog->addLabel('label', 'Hello');\n"
@@ -505,6 +572,10 @@ void RunPhpBootstrapTest()
               "$dialog->addComboBox('combo', 'Option');\n"
               "$dialog->addListView('list');\n"
               "$dialog->addTreeView('tree');\n"
+              "if ($dialog->addItem('combo', 'Option 2') !== 1) throw new Exception('dialog item call failed');\n"
+              "$dialog->addItem('list', 'Item 1');\n"
+              "$dialog->addItem('tree', 'Node 1');\n"
+              "$dialog->clearItems('list');\n"
               "$dialog->addButton('ok', 'OK', 1);\n"
               "if ($dialog->show() !== 1) throw new Exception('dialog show failed');\n"
               "if ($dialog->get('value')['text'] !== 'seed') throw new Exception('dialog get failed');\n"
@@ -531,11 +602,13 @@ void RunPhpBootstrapTest()
         for (int attempt = 0; attempt < 15 && state.SubscribeCalls == 0; ++attempt)
             Check(session->Pump(1000) != FALSE, "pump php bootstrap call");
         Check(state.CommandCalls == 1, "php bootstrap command call");
+        Check(state.CommandRegistrationCalls == 3, "php multiple command registrations");
         Check(state.StorageCalls == 2, "php bootstrap storage calls");
         Check(state.SubscribeCalls == 1, "php bootstrap event subscription");
         Check(state.SideContextCalls == 1, "php bootstrap side context");
+        Check(state.ClipboardCalls == 1, "php bootstrap clipboard");
         Check(state.FileOperationCalls == 1, "php bootstrap file operation");
-        Check(state.DialogCalls == 11, "php bootstrap dialog calls");
+        Check(state.DialogCalls == 15, "php bootstrap dialog calls");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);

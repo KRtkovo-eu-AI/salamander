@@ -209,6 +209,17 @@ class _UI:
         return _Dialog(self._transport, str(result["dialogId"]))
 
 
+class _Clipboard:
+    def __init__(self, transport: _Transport) -> None:
+        self._transport = transport
+
+    def copy_text(self, text: str, show_echo: bool = False) -> bool:
+        return bool(self._transport.call(
+            "salamander.clipboard.copyText", text=text,
+            showEcho=show_echo
+        ).get("copied", False))
+
+
 class _Dialog:
     def __init__(self, transport: _Transport, dialog_id: str) -> None:
         self._transport = transport
@@ -244,6 +255,23 @@ class _Dialog:
     def add_tree_view(self, control_id: str) -> None:
         self._add("treeview", control_id)
 
+    def add_tab_control(self, control_id: str) -> None:
+        self._add("tabcontrol", control_id)
+
+    def add_item(self, control_id: str, text: str,
+                 parent_index: int = -1) -> int:
+        result = self._transport.call(
+            "salamander.ui.dialog.item", dialogId=self.dialog_id,
+            controlId=control_id, text=text, parentIndex=parent_index
+        )
+        return int(result.get("itemCount", 0))
+
+    def clear_items(self, control_id: str) -> None:
+        self._transport.call(
+            "salamander.ui.dialog.clearItems", dialogId=self.dialog_id,
+            controlId=control_id
+        )
+
     def add_button(self, control_id: str, text: str,
                    dialog_result: int = 1) -> None:
         self._add("button", control_id, text, dialogResult=dialog_result)
@@ -270,13 +298,32 @@ class _AI:
         self._transport = transport
 
     def generate(self, prompt: str, context: Optional[dict] = None,
-                 provider: Optional[str] = None) -> dict:
+                 provider: Optional[str] = None, runtime: Optional[str] = None,
+                 existing_script: Optional[str] = None) -> dict:
         arguments = {"prompt": prompt}
         if context is not None:
             arguments["context"] = context
         if provider is not None:
             arguments["provider"] = provider
+        if runtime is not None:
+            arguments["runtime"] = runtime
+        if existing_script is not None:
+            arguments["existingScript"] = existing_script
         return self._transport.call("salamander.ai.generate", **arguments)
+
+    def preview(self, prompt: str, context: Optional[dict] = None,
+                provider: Optional[str] = None, runtime: Optional[str] = None,
+                existing_script: Optional[str] = None) -> dict:
+        arguments = {"prompt": prompt}
+        if context is not None:
+            arguments["context"] = context
+        if provider is not None:
+            arguments["provider"] = provider
+        if runtime is not None:
+            arguments["runtime"] = runtime
+        if existing_script is not None:
+            arguments["existingScript"] = existing_script
+        return self._transport.call("salamander.ai.preview", **arguments)
 
 
 class _Events:
@@ -310,6 +357,7 @@ class _Salamander:
         self.file_operations = _FileOperations(transport)
         self.sides = _Sides(transport)
         self.ui = _UI(transport)
+        self.clipboard = _Clipboard(transport)
         self.ai = _AI(transport)
         self.events = _Events(transport)
         self.left_side = _Side(self.sides, "left")

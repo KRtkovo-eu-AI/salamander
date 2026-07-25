@@ -88,6 +88,10 @@ class SalamatrixUi {
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function dialog($title = 'Salamander') { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
 }
+class SalamatrixClipboard {
+    private $client; public function __construct($client) { $this->client = $client; }
+    public function copyText($text, $showEcho = false) { $r = $this->client->call('salamander.clipboard.copyText', array('text' => $text, 'showEcho' => $showEcho)); return !empty($r['copied']); }
+}
 class SalamatrixDialog {
     private $client; private $id;
     public function __construct($client, $id) { $this->client = $client; $this->id = $id; }
@@ -99,6 +103,8 @@ class SalamatrixDialog {
     public function addComboBox($id, $text = '') { $this->add('combobox', $id, $text); }
     public function addListView($id) { $this->add('listview', $id); }
     public function addTreeView($id) { $this->add('treeview', $id); }
+    public function addItem($controlId, $text, $parentIndex = -1) { $r = $this->client->call('salamander.ui.dialog.item', array('dialogId' => $this->id, 'controlId' => $controlId, 'text' => $text, 'parentIndex' => $parentIndex)); return isset($r['itemCount']) ? $r['itemCount'] : 0; }
+    public function clearItems($controlId) { $this->client->call('salamander.ui.dialog.clearItems', array('dialogId' => $this->id, 'controlId' => $controlId)); }
     public function addButton($id, $text, $dialogResult = 1) { $this->add('button', $id, $text, array('dialogResult' => $dialogResult)); }
     public function show() { $r = $this->client->call('salamander.ui.dialog.show', array('dialogId' => $this->id)); return isset($r['result']) ? $r['result'] : 0; }
     public function get($id) { return $this->client->call('salamander.ui.dialog.get', array('dialogId' => $this->id, 'controlId' => $id)); }
@@ -106,11 +112,21 @@ class SalamatrixDialog {
 }
 class SalamatrixAi {
     private $client; public function __construct($client) { $this->client = $client; }
-    public function generate($prompt, $context = null, $provider = null) {
+    public function generate($prompt, $context = null, $provider = null, $runtime = null, $existingScript = null) {
         $arguments = array('prompt' => $prompt);
         if ($context !== null) $arguments['context'] = $context;
         if ($provider !== null) $arguments['provider'] = $provider;
+        if ($runtime !== null) $arguments['runtime'] = $runtime;
+        if ($existingScript !== null) $arguments['existingScript'] = $existingScript;
         return $this->client->call('salamander.ai.generate', $arguments);
+    }
+    public function preview($prompt, $context = null, $provider = null, $runtime = null, $existingScript = null) {
+        $arguments = array('prompt' => $prompt);
+        if ($context !== null) $arguments['context'] = $context;
+        if ($provider !== null) $arguments['provider'] = $provider;
+        if ($runtime !== null) $arguments['runtime'] = $runtime;
+        if ($existingScript !== null) $arguments['existingScript'] = $existingScript;
+        return $this->client->call('salamander.ai.preview', $arguments);
     }
 }
 class SalamatrixEvents {
@@ -144,6 +160,7 @@ $Salamander->right_side = new SalamatrixSideView($Salamander->sides, 'right');
 $Salamander->source_side = new SalamatrixSideView($Salamander->sides, 'source');
 $Salamander->target_side = new SalamatrixSideView($Salamander->sides, 'target');
 $Salamander->ui = new SalamatrixUi($client);
+$Salamander->clipboard = new SalamatrixClipboard($client);
 $Salamander->ai = new SalamatrixAi($client);
 $Salamander->events = new SalamatrixEvents($client);
 include $entry;

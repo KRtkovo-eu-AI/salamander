@@ -191,6 +191,17 @@ public:
             flags != 0 ? flags : (MB_OK | MB_ICONINFORMATION));
     }
 
+    virtual BOOL WINAPI CopyTextToClipboard(
+        const char* text,
+        BOOL showEcho,
+        HWND echoParent)
+    {
+        return General != NULL && text != NULL
+                   ? General->CopyTextToClipboard(
+                         text, -1, showEcho, echoParent)
+                   : FALSE;
+    }
+
     virtual UI::IDialog* WINAPI CreateDialog(const UI::DialogOptions& options)
     {
         return new UI::NativeDialog(options);

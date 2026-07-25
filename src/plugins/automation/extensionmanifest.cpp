@@ -702,7 +702,7 @@ void CExtensionManifest::Clear()
 
 bool CExtensionManifest::IsSafeRelativeEntryPoint(const std::string& entryPoint)
 {
-    if (entryPoint.empty() || entryPoint.size() >= MAX_PATH ||
+    if (entryPoint.empty() || entryPoint.size() >= SAL_MAX_PATH ||
         entryPoint[0] == '/' || entryPoint[0] == '\\' ||
         entryPoint.find(':') != std::string::npos)
     {

@@ -191,6 +191,20 @@ public:
             return Add(UI::ControlKindTreeView, id, NULL, FALSE, FALSE, 0);
         }
 
+        UI::IControl* WINAPI AddTabControl(const char* id)
+        {
+            return Add(UI::ControlKindTabControl, id, NULL, FALSE, FALSE, 0);
+        }
+
+        BOOL WINAPI AddItem(
+            const char* controlId,
+            const char* text,
+            int parentIndex = -1)
+        {
+            UI::IControl* control = FindControl(controlId);
+            return control != NULL ? control->AddItem(text, parentIndex) : FALSE;
+        }
+
         UI::IControl* WINAPI AddButton(
             const char* id,
             const char* text,

@@ -58,6 +58,9 @@ public:
         /// Actually open script menu.
         CmdOpenPopupMenu = 3,
 
+        /// Ask the configured local assistant for a script preview.
+        CmdAskAssistant = 4,
+
         /// First script from the repository.
         CmdRunLoadedScriptBase = 1000,
     };

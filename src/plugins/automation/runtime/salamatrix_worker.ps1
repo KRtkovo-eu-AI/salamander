@@ -132,19 +132,37 @@ $ui | Add-Member ScriptMethod Dialog {
     $dialog | Add-Member ScriptMethod AddComboBox { param([string]$Id, [string]$Text = '') [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'combobox'; controlId = $Id; text = $Text }) }
     $dialog | Add-Member ScriptMethod AddListView { param([string]$Id) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'listview'; controlId = $Id }) }
     $dialog | Add-Member ScriptMethod AddTreeView { param([string]$Id) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'treeview'; controlId = $Id }) }
+    $dialog | Add-Member ScriptMethod AddItem { param([string]$ControlId, [string]$Text, [int]$ParentIndex = -1) (Invoke-Host -Method 'salamander.ui.dialog.item' -Arguments @{ dialogId = $this.DialogId; controlId = $ControlId; text = $Text; parentIndex = $ParentIndex }).itemCount }
+    $dialog | Add-Member ScriptMethod ClearItems { param([string]$ControlId) [void](Invoke-Host -Method 'salamander.ui.dialog.clearItems' -Arguments @{ dialogId = $this.DialogId; controlId = $ControlId }) }
     $dialog | Add-Member ScriptMethod AddButton { param([string]$Id, [string]$Text, [int]$DialogResult = 1) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'button'; controlId = $Id; text = $Text; dialogResult = $DialogResult }) }
     $dialog | Add-Member ScriptMethod Show { (Invoke-Host -Method 'salamander.ui.dialog.show' -Arguments @{ dialogId = $this.DialogId }).result }
     $dialog | Add-Member ScriptMethod Get { param([string]$Id) Invoke-Host -Method 'salamander.ui.dialog.get' -Arguments @{ dialogId = $this.DialogId; controlId = $Id } }
     $dialog | Add-Member ScriptMethod Close { [void](Invoke-Host -Method 'salamander.ui.dialog.destroy' -Arguments @{ dialogId = $this.DialogId }) }
     return $dialog
 }
+$clipboard = [pscustomobject]@{}
+$clipboard | Add-Member ScriptMethod CopyText {
+    param([string]$Text, [bool]$ShowEcho = $false)
+    (Invoke-Host -Method 'salamander.clipboard.copyText' -Arguments @{ text = $Text; showEcho = $ShowEcho }).copied
+}
 $ai = [pscustomobject]@{}
 $ai | Add-Member ScriptMethod Generate {
-    param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null)
+    param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null, [string]$Runtime = $null, [string]$ExistingScript = $null)
     $arguments = @{ prompt = $Prompt }
     if ($null -ne $Context) { $arguments['context'] = $Context }
     if (-not [string]::IsNullOrEmpty($Provider)) { $arguments['provider'] = $Provider }
+    if (-not [string]::IsNullOrEmpty($Runtime)) { $arguments['runtime'] = $Runtime }
+    if ($null -ne $ExistingScript) { $arguments['existingScript'] = $ExistingScript }
     Invoke-Host -Method 'salamander.ai.generate' -Arguments $arguments
+}
+$ai | Add-Member ScriptMethod Preview {
+    param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null, [string]$Runtime = $null, [string]$ExistingScript = $null)
+    $arguments = @{ prompt = $Prompt }
+    if ($null -ne $Context) { $arguments['context'] = $Context }
+    if (-not [string]::IsNullOrEmpty($Provider)) { $arguments['provider'] = $Provider }
+    if (-not [string]::IsNullOrEmpty($Runtime)) { $arguments['runtime'] = $Runtime }
+    if ($null -ne $ExistingScript) { $arguments['existingScript'] = $ExistingScript }
+    Invoke-Host -Method 'salamander.ai.preview' -Arguments $arguments
 }
 $events = [pscustomobject]@{}
 $events | Add-Member ScriptMethod Subscribe {
@@ -168,6 +186,7 @@ $Salamander = [pscustomobject]@{
     source_side = $sourceSide
     target_side = $targetSide
     ui = $ui
+    clipboard = $clipboard
     ai = $ai
     events = $events
 }

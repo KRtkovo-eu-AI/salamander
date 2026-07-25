@@ -150,6 +150,11 @@ void TestAssistantService()
               response.Status == Salamatrix::AI::AssistantStatusSucceeded &&
               response.OutputLength != 0,
           "generate through default assistant provider");
+    Check(Salamatrix::AI::IsSafeToRun(response.Summary) != FALSE,
+          "read-only assistant output passes safety gate");
+    response.Summary.EffectFlags |= Salamatrix::AI::AssistantEffectNetwork;
+    Check(Salamatrix::AI::IsSafeToRun(response.Summary) == FALSE,
+          "network assistant output is blocked by safety gate");
     Check(strstr(service.GetApiDescription(), "Salamander.ai") != NULL,
           "assistant API description advertises AI object");
 }

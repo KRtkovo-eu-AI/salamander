@@ -13,14 +13,46 @@
 
 #pragma once
 
+#include <string>
+
 #include "../salamatrix/salamatrix_runtime_api.h"
 #include "../salamatrix/salamatrix_ui.h"
 #include "../salamatrix/salamatrix_extensions.h"
 #include "../salamatrix/salamatrix_events.h"
 
+BOOL ShowRuntimeInputBox(
+    HWND parent,
+    const std::string& title,
+    const std::string& prompt,
+    const std::string& initial,
+    char* output,
+    DWORD outputCapacity);
+
 class CScriptInfo
 {
 public:
+    struct RUNTIME_COMMAND_INFO
+    {
+        int MenuId;
+        char Id[128];
+        TCHAR Title[256];
+        bool PluginMenu;
+        bool ContextMenu;
+        DWORD MenuEventOrMask;
+        DWORD MenuEventAndMask;
+
+        RUNTIME_COMMAND_INFO()
+            : MenuId(0),
+              PluginMenu(false),
+              ContextMenu(false),
+              MenuEventOrMask(MENU_EVENT_TRUE),
+              MenuEventAndMask(MENU_EVENT_TRUE)
+        {
+            Id[0] = '\0';
+            Title[0] = _T('\0');
+        }
+    };
+
     struct DEBUG_INFO
     {
         IProcessDebugManager* pProcDbgMgr;
@@ -60,7 +92,7 @@ public:
     };
 
 private:
-    TCHAR m_szFileName[MAX_PATH];
+    TCHAR m_szFileName[SAL_MAX_PATH];
     TCHAR m_szDisplayName[256];
     TCHAR m_szSalamatrixCommandId[128];
     char m_szRuntimeCommandId[128];
@@ -70,6 +102,8 @@ private:
     bool m_bShowInPluginMenu;
     bool m_bShowInContextMenu;
     bool m_bRuntimeCommandOwned;
+    RUNTIME_COMMAND_INFO m_runtimeCommands[16];
+    int m_nRuntimeCommands;
     DWORD m_dwMenuEventOrMask;
     DWORD m_dwMenuEventAndMask;
     CLSID m_clsidEngine;
@@ -145,6 +179,16 @@ private:
     void ReleaseRuntimeEventSubscriptions();
     void ReleaseRuntimeDialogs();
     void ReleaseRuntimeCommand();
+    bool RegisterRuntimeCommand(
+        const char* commandId,
+        const char* title,
+        bool pluginMenu,
+        bool contextMenu,
+        DWORD menuEventOrMask,
+        DWORD menuEventAndMask);
+    bool UnregisterRuntimeCommand(const char* commandId);
+    void ReleaseRuntimeCommands();
+    int FindRuntimeCommandIndexByMenuId(int menuId) const;
     static BOOL WINAPI RuntimeLifecycleCallback(
         void* context,
         Salamatrix::Extensions::ExtensionAction action,
@@ -256,6 +300,23 @@ public:
         return m_nId;
     }
 
+    int GetRuntimeCommandCount() const
+    {
+        return m_nRuntimeCommands;
+    }
+
+    const RUNTIME_COMMAND_INFO* GetRuntimeCommand(int index) const
+    {
+        return index >= 0 && index < m_nRuntimeCommands
+                   ? &m_runtimeCommands[index]
+                   : NULL;
+    }
+
+    int GetRuntimeCommandIndexByMenuId(int menuId) const
+    {
+        return FindRuntimeCommandIndexByMenuId(menuId);
+    }
+
     const CScriptInfo* Next() const
     {
         return m_pNext;
@@ -319,7 +380,7 @@ private:
     CScriptContainer* m_pChild;
     CScriptContainer* m_pParent;
     CScriptInfo* m_pScripts;
-    TCHAR m_szPath[MAX_PATH];
+    TCHAR m_szPath[SAL_MAX_PATH];
     PTSTR m_pszName;
 
     friend class CScriptLookup;
@@ -500,6 +561,7 @@ public:
     void UnpublishSalamatrixExtensions();
 
     CScriptInfo* LookupScript(int nId);
+    CScriptInfo* LookupRuntimeCommand(int menuId);
 
     int GetCount() const
     {

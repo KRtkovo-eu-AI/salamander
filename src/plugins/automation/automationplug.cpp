@@ -23,6 +23,8 @@
 #include "persistence.h"
 #include "abortmodal.h"
 
+#include <vector>
+
 #pragma comment(lib, "UxTheme.lib")
 
 CAutomationMenuExtInterface g_oMenuExtInterface;
@@ -32,6 +34,119 @@ extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CAutomationPluginInterface g_oAutomationPlugin;
 CWindowQueue AbortPaletteWindowQueue("Automation Abort Palette Window");
+
+static std::string EscapeAssistantContext(const char* value)
+{
+    std::string escaped;
+    if (value == NULL)
+        return escaped;
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(value);
+         *p != '\0'; ++p)
+    {
+        if (*p == '\\') escaped.append("\\\\");
+        else if (*p == '"') escaped.append("\\\"");
+        else if (*p == '\n') escaped.append("\\n");
+        else if (*p == '\r') escaped.append("\\r");
+        else escaped.push_back(static_cast<char>(*p));
+    }
+    return escaped;
+}
+
+static std::string BuildAssistantPanelContext(
+    Salamatrix::Sides::ISidesService* sides)
+{
+    if (sides == NULL)
+        return "{}";
+    const Salamatrix::Sides::SideReference side =
+        Salamatrix::Sides::SideReferenceSource;
+    std::vector<char> path(SALAMATRIX_SIDE_ITEM_PATH_CAPACITY);
+    int pathType = 0;
+    sides->GetPath(side, &path[0], static_cast<int>(path.size()), &pathType);
+    std::string result =
+        std::string("{\"source\":{\"path\":\"") +
+        EscapeAssistantContext(&path[0]) + "\",\"pathType\":" +
+        std::to_string(pathType) + ",\"selectedItems\":[";
+    int selectedCount = sides->GetSelectedItemCount(side);
+    int emitted = selectedCount < 32 ? selectedCount : 32;
+    std::vector<Salamatrix::Sides::ItemInfo> itemBuffer(1);
+    for (int index = 0; index < emitted; ++index)
+    {
+        Salamatrix::Sides::ItemInfo& item = itemBuffer[0];
+        if (!sides->GetSelectedItem(side, index, &item))
+            continue;
+        if (index != 0)
+            result.append(",");
+        result += std::string("{\"name\":\"") +
+                  EscapeAssistantContext(item.Name) + "\",\"path\":\"" +
+                  EscapeAssistantContext(item.Path) + "\",\"isDirectory\":" +
+                  (item.IsDirectory ? "true" : "false") + "}";
+    }
+    result += "]}}";
+    return result;
+}
+
+static BOOL SaveAssistantScript(
+    HWND parent,
+    const char* script,
+    TCHAR* savedPath,
+    int savedPathCapacity)
+{
+    if (script == NULL || savedPath == NULL || savedPathCapacity <= 0)
+        return FALSE;
+    StringCchCopy(savedPath, savedPathCapacity, _T("salamatrix-script"));
+    static const TCHAR filter[] =
+        _T("Script files\0*.js;*.py;*.ps1;*.php\0All files\0*.*\0");
+    OPENFILENAME ofn;
+    memset(&ofn, 0, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = parent;
+    ofn.lpstrFilter = filter;
+    ofn.lpstrFile = savedPath;
+    ofn.nMaxFile = savedPathCapacity;
+    ofn.lpstrDefExt = _T("js");
+    ofn.Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+    if (!SalamanderGeneral->SafeGetSaveFileName(&ofn))
+        return FALSE;
+    std::wstring widePath;
+#ifdef UNICODE
+    widePath.assign(savedPath);
+#else
+    int wideLength = MultiByteToWideChar(
+        CP_ACP, 0, savedPath, -1, NULL, 0);
+    if (wideLength <= 0)
+        return FALSE;
+    std::vector<wchar_t> converted(static_cast<size_t>(wideLength));
+    if (MultiByteToWideChar(
+            CP_ACP, 0, savedPath, -1, &converted[0], wideLength) <= 0)
+        return FALSE;
+    widePath.assign(&converted[0]);
+#endif
+    if (widePath.size() >= MAX_PATH &&
+        widePath.compare(0, 4, L"\\\\?\\") != 0)
+    {
+        if (widePath.size() >= 2 && widePath[0] == L'\\' &&
+            widePath[1] == L'\\')
+            widePath = L"\\\\?\\UNC\\" + widePath.substr(2);
+        else
+            widePath = L"\\\\?\\" + widePath;
+    }
+    HANDLE file = CreateFileW(
+        widePath.c_str(),
+        GENERIC_WRITE,
+        0,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    DWORD length = static_cast<DWORD>(strlen(script));
+    DWORD written = 0;
+    BOOL result = WriteFile(file, script, length, &written, NULL) &&
+                  written == length;
+    CloseHandle(file);
+    return result;
+}
 
 static const TCHAR CONFIG_VERSION[] = TEXT("Version");
 static const UINT CURRENT_CONFIG_VERSION = 1;
@@ -85,6 +200,85 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
         id = ExecuteScriptMenu();
         return ExecuteMenuItem(salamander, parent, id, eventMask);
     }
+    else if (id == CmdAskAssistant)
+    {
+        CAutomationSalamatrixBridge* bridge =
+            g_oAutomationPlugin.GetSalamatrixBridge();
+        Salamatrix::AI::IAssistantService* assistant =
+            bridge != NULL ? bridge->GetAssistantService() : NULL;
+        Salamatrix::UI::IUIService* ui =
+            bridge != NULL ? bridge->GetUIService() : NULL;
+        char prompt[4096];
+        if (assistant == NULL || ui == NULL ||
+            !ShowRuntimeInputBox(
+                parent,
+                "Salamatrix AI",
+                "What should the generated script do?",
+                "",
+                prompt,
+                _countof(prompt)))
+            return FALSE;
+        std::string context = BuildAssistantPanelContext(
+            bridge->GetSidesService());
+        Salamatrix::AI::AssistantRequest request;
+        request.Prompt = prompt;
+        request.ContextJson = context.c_str();
+        Salamatrix::AI::AssistantResponse response;
+        BOOL generated = assistant->Generate(NULL, &request, &response);
+        if (!generated)
+        {
+            ui->ShowMessageBox(
+                parent,
+                "The local assistant did not return a valid script.",
+                "Salamatrix AI",
+                MB_OK | MB_ICONWARNING);
+            return FALSE;
+        }
+        std::string summary =
+            std::string(response.Summary.Title) + "\n\n" +
+            response.Summary.Description +
+            "\n\nThe generated script is ready for review.\n";
+        if (Salamatrix::AI::IsSafeToRun(response.Summary))
+            summary += "Declared effects are read-only; no script was run automatically.";
+        else
+            summary += "The declared effects require explicit review; no script was run.";
+        ui->CopyTextToClipboard(response.Summary.Script, TRUE, parent);
+        ui->ShowMessageBox(
+            parent,
+            summary.c_str(),
+            "Salamatrix AI preview (script copied to clipboard)",
+            MB_OK | MB_ICONINFORMATION);
+        int saveChoice = ui->ShowMessageBox(
+            parent,
+            "Save the generated script to a file now?",
+            "Salamatrix AI",
+            MB_YESNO | MB_ICONQUESTION);
+        if (saveChoice == IDYES)
+        {
+            std::vector<TCHAR> savedPath(SAL_MAX_PATH);
+            if (SaveAssistantScript(
+                    parent,
+                    response.Summary.Script,
+                    &savedPath[0],
+                    static_cast<int>(savedPath.size())))
+            {
+                ui->ShowMessageBox(
+                    parent,
+                    "The generated script was saved.",
+                    "Salamatrix AI",
+                    MB_OK | MB_ICONINFORMATION);
+            }
+            else
+            {
+                ui->ShowMessageBox(
+                    parent,
+                    "The generated script could not be saved.",
+                    "Salamatrix AI",
+                    MB_OK | MB_ICONWARNING);
+            }
+        }
+        return FALSE;
+    }
     else
     {
         bRunScript = true;
@@ -93,6 +287,8 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
     if (bRunScript)
     {
         CScriptInfo* pScript = g_oScriptLookup.LookupScript(id);
+        if (pScript == NULL)
+            pScript = g_oScriptLookup.LookupRuntimeCommand(id);
         if (pScript)
         {
             bExecuted = pScript->Execute(info);
@@ -120,12 +316,36 @@ DWORD WINAPI CAutomationMenuExtInterface::GetMenuItemState(
     {
         return MENU_ITEM_STATE_ENABLED;
     }
+    else if (id == CmdAskAssistant)
+    {
+        g_oAutomationPlugin.RefreshSalamatrixServices();
+        const CAutomationSalamatrixBridge* bridge =
+            g_oAutomationPlugin.GetSalamatrixBridge();
+        return bridge != NULL && bridge->HasAssistant() && bridge->HasUI()
+                   ? MENU_ITEM_STATE_ENABLED
+                   : 0;
+    }
     else
     {
         // preloaded script item
         CScriptInfo* pScript = g_oScriptLookup.LookupScript(id);
         if (pScript == NULL)
+            pScript = g_oScriptLookup.LookupRuntimeCommand(id);
+        if (pScript == NULL)
             return 0;
+
+        int runtimeIndex = pScript->GetRuntimeCommandIndexByMenuId(id);
+        if (runtimeIndex >= 0)
+        {
+            const CScriptInfo::RUNTIME_COMMAND_INFO* command =
+                pScript->GetRuntimeCommand(runtimeIndex);
+            if (command == NULL ||
+                (eventMask & command->MenuEventAndMask) !=
+                    command->MenuEventAndMask ||
+                (eventMask & command->MenuEventOrMask) == 0)
+                return 0;
+            return MENU_ITEM_STATE_ENABLED;
+        }
 
         if ((eventMask & pScript->GetMenuEventAndMask()) != pScript->GetMenuEventAndMask())
             return 0;
@@ -245,6 +465,31 @@ void CAutomationMenuExtInterface::AddScriptContainerToPopup(
     mii.ImageIndex = PluginIconScript;
     for (pScript = pContainer->FirstScript(); pScript; pScript = pScript->Next(), i++)
     {
+        if (pScript->GetRuntimeCommandCount() > 0)
+        {
+            for (int commandIndex = 0;
+                 commandIndex < pScript->GetRuntimeCommandCount();
+                 ++commandIndex)
+            {
+                const CScriptInfo::RUNTIME_COMMAND_INFO* command =
+                    pScript->GetRuntimeCommand(commandIndex);
+                if (command == NULL || !command->PluginMenu)
+                    continue;
+                mii.ID = command->MenuId;
+                StringCchCopy(
+                    szDisplayName,
+                    _countof(szDisplayName),
+                    command->Title);
+                SalamanderGeneral->DuplicateAmpersands(
+                    szDisplayName, _countof(szDisplayName));
+                mii.String = szDisplayName;
+                if (pSubMenu != NULL)
+                    pSubMenu->InsertItem(INT_MAX, TRUE, &mii);
+                else
+                    pMenu->InsertItem(INT_MAX, TRUE, &mii);
+            }
+            continue;
+        }
         if (!pScript->ShowInPluginMenu())
             continue;
 
@@ -306,6 +551,16 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
         SalamanderGeneral->LoadStr(g_hLangInst, IDS_SCRIPTPOPUPMENU),
         SALHOTKEY('A', HOTKEYF_CONTROL | HOTKEYF_SHIFT),
         CAutomationMenuExtInterface::CmdScriptPopupMenu,
+        TRUE,
+        0,
+        0,
+        MENU_SKILLLEVEL_ALL);
+
+    salamander->AddMenuItem(
+        PluginIconRun,
+        "Ask Salamatrix AI...",
+        0,
+        CAutomationMenuExtInterface::CmdAskAssistant,
         TRUE,
         0,
         0,
@@ -395,6 +650,36 @@ void CAutomationMenuExtInterface::AddScriptContainerToMenu(
     pScript = pContainer->FirstScript();
     while (pScript)
     {
+        if (pScript->GetRuntimeCommandCount() > 0)
+        {
+            for (int commandIndex = 0;
+                 commandIndex < pScript->GetRuntimeCommandCount();
+                 ++commandIndex)
+            {
+                const CScriptInfo::RUNTIME_COMMAND_INFO* command =
+                    pScript->GetRuntimeCommand(commandIndex);
+                if (command == NULL ||
+                    (!command->PluginMenu && !command->ContextMenu))
+                    continue;
+                StringCchCopy(
+                    szDisplayName,
+                    _countof(szDisplayName),
+                    command->Title);
+                SalamanderGeneral->DuplicateAmpersands(
+                    szDisplayName, _countof(szDisplayName));
+                pMenuBuilder->AddMenuItem(
+                    PluginIconScript,
+                    szDisplayName,
+                    0,
+                    command->MenuId,
+                    TRUE,
+                    command->MenuEventOrMask,
+                    command->MenuEventAndMask,
+                    MENU_SKILLLEVEL_ALL);
+            }
+            pScript = pScript->Next();
+            continue;
+        }
         if (!pScript->ShowInPluginMenu() && !pScript->ShowInContextMenu())
         {
             pScript = pScript->Next();

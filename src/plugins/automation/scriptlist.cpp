@@ -27,6 +27,8 @@
 extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
+
+static volatile LONG g_nextRuntimeCommandMenuId = 0x60000000;
 extern CAutomationPluginInterface g_oAutomationPlugin;
 
 static BOOL ReadSmallTextFile(PCTSTR path, char* buffer, DWORD bufferSize)
@@ -264,7 +266,7 @@ static INT_PTR CALLBACK RuntimeInputBoxProc(
     return TRUE;
 }
 
-static BOOL ShowRuntimeInputBox(
+BOOL ShowRuntimeInputBox(
     HWND parent,
     const std::string& title,
     const std::string& prompt,
@@ -330,52 +332,61 @@ static BOOL ShowRuntimeInputBox(
 
 static BOOL PathsEqual(PCTSTR first, PCTSTR second)
 {
-    TCHAR firstFull[MAX_PATH];
-    TCHAR secondFull[MAX_PATH];
-    DWORD firstLength = GetFullPathName(first, _countof(firstFull), firstFull, NULL);
-    DWORD secondLength = GetFullPathName(second, _countof(secondFull), secondFull, NULL);
-    if (firstLength == 0 || firstLength >= _countof(firstFull) ||
-        secondLength == 0 || secondLength >= _countof(secondFull))
+    std::vector<TCHAR> firstFull(SAL_MAX_PATH);
+    std::vector<TCHAR> secondFull(SAL_MAX_PATH);
+    DWORD firstLength = GetFullPathName(
+        first, static_cast<DWORD>(firstFull.size()), &firstFull[0], NULL);
+    DWORD secondLength = GetFullPathName(
+        second, static_cast<DWORD>(secondFull.size()), &secondFull[0], NULL);
+    if (firstLength == 0 || firstLength >= firstFull.size() ||
+        secondLength == 0 || secondLength >= secondFull.size())
     {
         return FALSE;
     }
-    return _tcsicmp(firstFull, secondFull) == 0;
+    return _tcsicmp(&firstFull[0], &secondFull[0]) == 0;
 }
 
 static BOOL LoadManifestForEntryPoint(
     PCTSTR entryPointPath,
     CExtensionManifest& manifest)
 {
-    TCHAR directory[MAX_PATH];
-    StringCchCopy(directory, _countof(directory), entryPointPath);
-    if (!PathRemoveFileSpec(directory))
+    std::vector<TCHAR> directory(SAL_MAX_PATH);
+    StringCchCopy(&directory[0], directory.size(), entryPointPath);
+    if (!PathRemoveFileSpec(&directory[0]))
         return FALSE;
 
     for (int level = 0; level < 32; ++level)
     {
-        TCHAR manifestPath[MAX_PATH];
-        StringCchCopy(manifestPath, _countof(manifestPath), directory);
+        std::vector<TCHAR> manifestPath(SAL_MAX_PATH);
+        StringCchCopy(&manifestPath[0], manifestPath.size(), &directory[0]);
         if (!SalamanderGeneral->SalPathAppend(
-                manifestPath, _T("extension.json"), _countof(manifestPath)))
+                &manifestPath[0], _T("extension.json"),
+                static_cast<int>(manifestPath.size())))
         {
             return FALSE;
         }
 
         std::string json;
-        if (ReadManifestTextFile(manifestPath, json))
+        if (ReadManifestTextFile(&manifestPath[0], json))
         {
             CExtensionManifest candidate;
             CExtensionManifestError error;
             if (candidate.Parse(json.data(), json.size(), error))
             {
-                TCHAR nativeEntryPoint[MAX_PATH];
-                if (Utf8ToNative(candidate.EntryPoint, nativeEntryPoint, _countof(nativeEntryPoint)))
+                std::vector<TCHAR> nativeEntryPoint(SAL_MAX_PATH);
+                if (Utf8ToNative(
+                        candidate.EntryPoint,
+                        &nativeEntryPoint[0],
+                        static_cast<int>(nativeEntryPoint.size())))
                 {
-                    TCHAR resolvedEntryPoint[MAX_PATH];
-                    StringCchCopy(resolvedEntryPoint, _countof(resolvedEntryPoint), directory);
+                    std::vector<TCHAR> resolvedEntryPoint(SAL_MAX_PATH);
+                    StringCchCopy(
+                        &resolvedEntryPoint[0], resolvedEntryPoint.size(),
+                        &directory[0]);
                     if (SalamanderGeneral->SalPathAppend(
-                            resolvedEntryPoint, nativeEntryPoint, _countof(resolvedEntryPoint)) &&
-                        PathsEqual(resolvedEntryPoint, entryPointPath))
+                            &resolvedEntryPoint[0], &nativeEntryPoint[0],
+                            static_cast<int>(resolvedEntryPoint.size())) &&
+                        PathsEqual(&resolvedEntryPoint[0], entryPointPath))
                     {
                         manifest = candidate;
                         return TRUE;
@@ -384,11 +395,12 @@ static BOOL LoadManifestForEntryPoint(
             }
         }
 
-        TCHAR parent[MAX_PATH];
-        StringCchCopy(parent, _countof(parent), directory);
-        if (!PathRemoveFileSpec(parent) || _tcsicmp(parent, directory) == 0)
+        std::vector<TCHAR> parent(SAL_MAX_PATH);
+        StringCchCopy(&parent[0], parent.size(), &directory[0]);
+        if (!PathRemoveFileSpec(&parent[0]) ||
+            _tcsicmp(&parent[0], &directory[0]) == 0)
             break;
-        StringCchCopy(directory, _countof(directory), parent);
+        StringCchCopy(&directory[0], directory.size(), &parent[0]);
     }
     return FALSE;
 }
@@ -412,6 +424,8 @@ CScriptInfo::CScriptInfo(
     m_bShowInPluginMenu = true;
     m_bShowInContextMenu = false;
     m_bRuntimeCommandOwned = false;
+    memset(m_runtimeCommands, 0, sizeof(m_runtimeCommands));
+    m_nRuntimeCommands = 0;
     m_dwMenuEventOrMask = MENU_EVENT_TRUE;
     m_dwMenuEventAndMask = MENU_EVENT_TRUE;
     LoadSalamatrixMetadata();
@@ -720,11 +734,14 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
                   m_dwSalamatrixMinimumRuntimeVersion)
             : NULL;
 
-    char entryPointUtf8[MAX_PATH * 3];
+    std::vector<char> entryPointUtf8(SAL_MAX_PATH * 3);
     if (adapter == NULL ||
-        !NativeToUtf8(m_szFileName, entryPointUtf8, _countof(entryPointUtf8)) ||
+        !NativeToUtf8(
+            m_szFileName,
+            &entryPointUtf8[0],
+            static_cast<int>(entryPointUtf8.size())) ||
         !adapter->IsAvailable() ||
-        !adapter->SupportsEntryPoint(entryPointUtf8))
+        !adapter->SupportsEntryPoint(&entryPointUtf8[0]))
     {
         TCHAR message[512];
         TCHAR runtimeId[128];
@@ -742,12 +759,15 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
         return false;
     }
 
-    wchar_t entryPointWide[MAX_PATH];
+    std::vector<wchar_t> entryPointWide(SAL_MAX_PATH);
 #ifdef UNICODE
-    StringCchCopyW(entryPointWide, _countof(entryPointWide), m_szFileName);
+    if (StringCchCopyW(
+            &entryPointWide[0], entryPointWide.size(), m_szFileName) != S_OK)
+        return false;
 #else
     if (MultiByteToWideChar(
-            CP_ACP, 0, m_szFileName, -1, entryPointWide, _countof(entryPointWide)) == 0)
+            CP_ACP, 0, m_szFileName, -1,
+            &entryPointWide[0], static_cast<int>(entryPointWide.size())) == 0)
     {
         return false;
     }
@@ -757,7 +777,7 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     Salamatrix::Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = m_szSalamatrixExtensionId;
     request.CommandId = m_szSalamatrixCommandId;
-    request.EntryPoint = entryPointWide;
+    request.EntryPoint = &entryPointWide[0];
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
     request.CompatibilityExecute = ExecuteCompatibilityRuntime;
     request.CompatibilityContext = &compatibilityContext;
@@ -998,6 +1018,28 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             resultLength);
     }
 
+    if (method == "salamander.clipboard.copyText")
+    {
+        std::string text;
+        BOOL showEcho = FALSE;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "text", &text))
+            return FALSE;
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "showEcho", &showEcho);
+        Salamatrix::UI::IUIService* ui = bridge->GetUIService();
+        if (ui == NULL || !ui->CopyTextToClipboard(
+                              text.c_str(),
+                              showEcho,
+                              SalamanderGeneral->GetMsgBoxParent()))
+            return FALSE;
+        return CopyRuntimeHostResult(
+            "{\"ok\":true,\"copied\":true}",
+            resultJson,
+            resultCapacity,
+            resultLength);
+    }
+
     if (method == "salamander.ui.messageBox")
     {
         std::string message;
@@ -1101,6 +1143,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
 
     if (method == "salamander.ui.dialog.create" ||
         method == "salamander.ui.dialog.add" ||
+        method == "salamander.ui.dialog.item" ||
+        method == "salamander.ui.dialog.clearItems" ||
         method == "salamander.ui.dialog.show" ||
         method == "salamander.ui.dialog.get" ||
         method == "salamander.ui.dialog.close" ||
@@ -1207,6 +1251,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 kind = Salamatrix::UI::ControlKindListView;
             else if (_stricmp(kindName.c_str(), "treeview") == 0)
                 kind = Salamatrix::UI::ControlKindTreeView;
+            else if (_stricmp(kindName.c_str(), "tabcontrol") == 0)
+                kind = Salamatrix::UI::ControlKindTabControl;
             else
                 return FALSE;
             Salamatrix::UI::ControlOptions options;
@@ -1217,6 +1263,51 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             options.DialogResult = dialogResult;
             Salamatrix::UI::IControl* control = dialog->AddControl(kind, options);
             if (control == NULL)
+                return FALSE;
+            return CopyRuntimeHostResult(
+                "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+
+        if (method == "salamander.ui.dialog.item")
+        {
+            std::string controlId;
+            std::string text;
+            int parentIndex = -1;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "controlId", &controlId) ||
+                !Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "text", &text))
+                return FALSE;
+            std::string rawParent;
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "parentIndex", &rawParent))
+            {
+                char* parentEnd = NULL;
+                long parsedParent = strtol(rawParent.c_str(), &parentEnd, 10);
+                if (parentEnd != rawParent.c_str() && *parentEnd == '\0')
+                    parentIndex = static_cast<int>(parsedParent);
+            }
+            Salamatrix::UI::IControl* control =
+                dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->AddItem(text.c_str(), parentIndex))
+                return FALSE;
+            return CopyRuntimeHostResult(
+                std::string("{\"ok\":true,\"itemCount\":") +
+                    std::to_string(control->GetItemCount()) + "}",
+                resultJson,
+                resultCapacity,
+                resultLength);
+        }
+
+        if (method == "salamander.ui.dialog.clearItems")
+        {
+            std::string controlId;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "controlId", &controlId))
+                return FALSE;
+            Salamatrix::UI::IControl* control =
+                dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->ClearItems())
                 return FALSE;
             return CopyRuntimeHostResult(
                 "{\"ok\":true}", resultJson, resultCapacity, resultLength);
@@ -1249,7 +1340,9 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 std::string("{\"ok\":true,\"text\":\"") +
                 JsonEscapeRuntimeText(value) +
                 "\",\"checked\":" +
-                (control->GetChecked() ? "true" : "false") + "}";
+                (control->GetChecked() ? "true" : "false") +
+                ",\"itemCount\":" +
+                std::to_string(control->GetItemCount()) + "}";
             return CopyRuntimeHostResult(
                 response, resultJson, resultCapacity, resultLength);
         }
@@ -1264,11 +1357,14 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             "{\"ok\":true}", resultJson, resultCapacity, resultLength);
     }
 
-    if (method == "salamander.ai.generate")
+    if (method == "salamander.ai.generate" ||
+        method == "salamander.ai.preview")
     {
         std::string prompt;
         std::string provider;
         std::string contextJson;
+        std::string runtimeId;
+        std::string existingScript;
         if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
                 payloadJson, "prompt", &prompt))
             return FALSE;
@@ -1277,6 +1373,10 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         if (!Salamatrix::Runtime::Protocol::Json::FindRawMember(
                 payloadJson, "context", &contextJson))
             contextJson = "{}";
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "runtime", &runtimeId);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "existingScript", &existingScript);
 
         Salamatrix::AI::IAssistantService* assistant =
             bridge->GetAssistantService();
@@ -1285,6 +1385,9 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         Salamatrix::AI::AssistantRequest request;
         request.Prompt = prompt.c_str();
         request.ContextJson = contextJson.c_str();
+        request.RuntimeId = runtimeId.empty() ? NULL : runtimeId.c_str();
+        request.ExistingScript =
+            existingScript.empty() ? NULL : existingScript.c_str();
         Salamatrix::AI::AssistantResponse responseData;
         BOOL generated = assistant->Generate(
             provider.empty() ? NULL : provider.c_str(),
@@ -1300,10 +1403,16 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                             : responseData.Status == Salamatrix::AI::AssistantStatusInvalidResponse
                                   ? "invalid_response"
                                   : "failed";
+        bool preview = method == "salamander.ai.preview";
+        bool canRun = generated &&
+                      Salamatrix::AI::IsSafeToRun(responseData.Summary);
         std::string response =
             std::string("{\"ok\":") + (generated ? "true" : "false") +
             ",\"status\":\"" + status + "\",\"response\":" +
             (responseData.OutputLength != 0 ? responseData.ResponseJson : "null") +
+            (preview ? std::string(",\"preview\":true,\"canRun\":") +
+                           (canRun ? "true" : "false")
+                     : std::string()) +
             "}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
@@ -1418,39 +1527,52 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             payloadJson, "pluginMenu", &pluginMenu);
         Salamatrix::Runtime::Protocol::Json::FindBoolMember(
             payloadJson, "contextMenu", &contextMenu);
-        if (script->m_bRuntimeCommandOwned &&
-            _stricmp(script->m_szRuntimeCommandId, commandId.c_str()) != 0)
-            return FALSE;
         if (!script->m_bRuntimeCommandOwned &&
             script->m_szSalamatrixCommandId[0] != _T('\0'))
             return FALSE;
+        if (!script->RegisterRuntimeCommand(
+                commandId.c_str(),
+                title.c_str(),
+                pluginMenu != FALSE,
+                contextMenu != FALSE,
+                script->m_dwMenuEventOrMask,
+                script->m_dwMenuEventAndMask))
+            return FALSE;
+        if (!script->m_bRuntimeCommandOwned)
+        {
 #ifdef UNICODE
-        wchar_t nativeCommandId[128];
-        wchar_t nativeTitle[256];
-        if (!Utf8ToNative(commandId, nativeCommandId, _countof(nativeCommandId)) ||
-            !Utf8ToNative(title, nativeTitle, _countof(nativeTitle)))
-            return FALSE;
-        if (StringCchCopy(script->m_szSalamatrixCommandId,
-                          _countof(script->m_szSalamatrixCommandId),
-                          nativeCommandId) != S_OK ||
-            StringCchCopy(script->m_szDisplayName,
-                          _countof(script->m_szDisplayName),
-                          nativeTitle) != S_OK)
-            return FALSE;
+            wchar_t nativeCommandId[128];
+            wchar_t nativeTitle[256];
+            if (!Utf8ToNative(commandId, nativeCommandId, _countof(nativeCommandId)) ||
+                !Utf8ToNative(title, nativeTitle, _countof(nativeTitle)) ||
+                StringCchCopy(script->m_szSalamatrixCommandId,
+                              _countof(script->m_szSalamatrixCommandId),
+                              nativeCommandId) != S_OK ||
+                StringCchCopy(script->m_szDisplayName,
+                              _countof(script->m_szDisplayName),
+                              nativeTitle) != S_OK)
+            {
+                script->UnregisterRuntimeCommand(commandId.c_str());
+                return FALSE;
+            }
 #else
-        if (StringCchCopyA(script->m_szSalamatrixCommandId,
-                           _countof(script->m_szSalamatrixCommandId),
-                           commandId.c_str()) != S_OK ||
-            StringCchCopyA(script->m_szDisplayName,
-                           _countof(script->m_szDisplayName),
-                           title.c_str()) != S_OK)
-            return FALSE;
+            if (StringCchCopyA(script->m_szSalamatrixCommandId,
+                               _countof(script->m_szSalamatrixCommandId),
+                               commandId.c_str()) != S_OK ||
+                StringCchCopyA(script->m_szDisplayName,
+                               _countof(script->m_szDisplayName),
+                               title.c_str()) != S_OK)
+            {
+                script->UnregisterRuntimeCommand(commandId.c_str());
+                return FALSE;
+            }
 #endif
-        StringCchCopyA(script->m_szRuntimeCommandId,
-                       _countof(script->m_szRuntimeCommandId),
-                       commandId.c_str());
-        script->m_bShowInPluginMenu = pluginMenu != FALSE;
-        script->m_bShowInContextMenu = contextMenu != FALSE;
+            StringCchCopyA(script->m_szRuntimeCommandId,
+                           _countof(script->m_szRuntimeCommandId),
+                           commandId.c_str());
+        }
+        script->m_bShowInPluginMenu = true;
+        script->m_bShowInContextMenu = true;
         script->m_bRuntimeCommandOwned = true;
         SalamanderGeneral->PostPluginMenuChanged();
         return CopyRuntimeHostResult(
@@ -1466,9 +1588,10 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
             payloadJson, "commandId", &commandId) ||
             !script->m_bRuntimeCommandOwned ||
-            _stricmp(script->m_szRuntimeCommandId, commandId.c_str()) != 0)
+            !script->UnregisterRuntimeCommand(commandId.c_str()))
             return FALSE;
-        script->ReleaseRuntimeCommand();
+        if (script->m_nRuntimeCommands == 0)
+            script->ReleaseRuntimeCommand();
         return CopyRuntimeHostResult(
             "{\"ok\":true,\"unregistered\":true}",
             resultJson,
@@ -1698,20 +1821,21 @@ BOOL WINAPI CScriptInfo::RuntimeLifecycleCallback(
     if (adapter == NULL)
         return FALSE;
 
-    wchar_t entryPoint[MAX_PATH];
+    std::vector<wchar_t> entryPoint(SAL_MAX_PATH);
 #ifdef UNICODE
-    if (StringCchCopyW(entryPoint, _countof(entryPoint), script->m_szFileName) != S_OK)
+    if (StringCchCopyW(
+            &entryPoint[0], entryPoint.size(), script->m_szFileName) != S_OK)
         return FALSE;
 #else
     if (MultiByteToWideChar(
             CP_ACP, 0, script->m_szFileName, -1,
-            entryPoint, _countof(entryPoint)) == 0)
+            &entryPoint[0], static_cast<int>(entryPoint.size())) == 0)
         return FALSE;
 #endif
 
     Salamatrix::Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = script->m_szSalamatrixExtensionId;
-    request.EntryPoint = entryPoint;
+    request.EntryPoint = &entryPoint[0];
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
     request.Flags =
         Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
@@ -1844,15 +1968,15 @@ HRESULT CScriptInfo::LoadScript(IActiveScriptParse* pParse, EXECUTION_INFO* info
     LPOLESTR pszCode;
     EXCEPINFO ei;
     ULONG cch;
-    TCHAR szExpanded[MAX_PATH];
+    std::vector<TCHAR> szExpanded(SAL_MAX_PATH);
 
-    if (!g_oAutomationPlugin.ExpandPath(m_szFileName, szExpanded,
-                                        _countof(szExpanded)))
+    if (!g_oAutomationPlugin.ExpandPath(
+            m_szFileName, &szExpanded[0], static_cast<int>(szExpanded.size())))
     {
         return HRESULT_FROM_WIN32(ERROR_ENVVAR_NOT_FOUND);
     }
 
-    hr = LoadOleStringFromFile(szExpanded, pszCode, &cch);
+    hr = LoadOleStringFromFile(&szExpanded[0], pszCode, &cch);
     if (FAILED(hr))
     {
         TCHAR szMessage[256];
@@ -2143,15 +2267,16 @@ void CScriptInfo::InitializeDebugger(DEBUG_INFO* dbgInfo)
     if (FAILED(hr))
         return;
 
-    OLECHAR szUrl[2 * MAX_PATH];
-    DWORD cchUrl = _countof(szUrl);
+    std::vector<OLECHAR> szUrl(SAL_MAX_PATH * 2);
+    DWORD cchUrl = static_cast<DWORD>(szUrl.size());
     A2OLE sFileNameW(m_szFileName);
-    if (FAILED(UrlCreateFromPathW(A2OLE(sFileNameW), szUrl, &cchUrl, 0)))
+    if (FAILED(UrlCreateFromPathW(
+            A2OLE(sFileNameW), &szUrl[0], &cchUrl, 0)))
     {
-        StringCchCopyW(szUrl, _countof(szUrl), sFileNameW);
+        StringCchCopyW(&szUrl[0], szUrl.size(), sFileNameW);
     }
     hr = dbgInfo->pDbgDocHelper->Init(dbgInfo->pDbgApp,
-                                      A2OLE(GetDisplayName()), szUrl, TEXT_DOC_ATTR_READONLY);
+                                      A2OLE(GetDisplayName()), &szUrl[0], TEXT_DOC_ATTR_READONLY);
     if (FAILED(hr))
         return;
 
@@ -2293,7 +2418,7 @@ CScriptContainer* CScriptContainer::FirstChild(
     bool bFullPath)
 {
     CScriptContainer* pIter;
-    TCHAR szFullPath[MAX_PATH];
+    std::vector<TCHAR> szFullPath(SAL_MAX_PATH);
 
     if (m_pChild == NULL)
     {
@@ -2304,17 +2429,18 @@ CScriptContainer* CScriptContainer::FirstChild(
 
     if (bFullPath)
     {
-        StringCchCopy(szFullPath, _countof(szFullPath), pszPath);
+        StringCchCopy(&szFullPath[0], szFullPath.size(), pszPath);
     }
     else
     {
-        StringCchCopy(szFullPath, _countof(szFullPath), m_szPath);
-        SalamanderGeneral->SalPathAppend(szFullPath, pszPath, _countof(szFullPath));
+        StringCchCopy(&szFullPath[0], szFullPath.size(), m_szPath);
+        SalamanderGeneral->SalPathAppend(
+            &szFullPath[0], pszPath, static_cast<int>(szFullPath.size()));
     }
 
     while (pIter)
     {
-        if (_tcsicmp(pIter->m_szPath, szFullPath) == 0)
+        if (_tcsicmp(pIter->m_szPath, &szFullPath[0]) == 0)
         {
             return pIter;
         }
@@ -2496,20 +2622,37 @@ CScriptInfo* CScriptLookup::LookupScript(int nId)
     return NULL;
 }
 
+CScriptInfo* CScriptLookup::LookupRuntimeCommand(int menuId)
+{
+    for (int bin = 0; bin < _countof(m_apHashBins); ++bin)
+    {
+        CScriptInfo* script = m_apHashBins[bin];
+        while (script != NULL)
+        {
+            if (script->FindRuntimeCommandIndexByMenuId(menuId) >= 0)
+                return script;
+            script = script->m_pNextHash;
+        }
+    }
+    return NULL;
+}
+
 int CScriptLookup::FillContainer(
     CScriptContainer* pContainer,
     HKEY hKey,
     CSalamanderRegistryAbstract* registry)
 {
     HANDLE hFind;
-    TCHAR szPattern[MAX_PATH];
+    std::vector<TCHAR> szPattern(SAL_MAX_PATH);
     WIN32_FIND_DATA fd;
     int cScripts = 0;
 
-    g_oAutomationPlugin.ExpandPath(pContainer->GetPath(), szPattern, _countof(szPattern));
-    SalamanderGeneral->SalPathAppend(szPattern, _T("*"), _countof(szPattern));
+    g_oAutomationPlugin.ExpandPath(
+        pContainer->GetPath(), &szPattern[0], static_cast<int>(szPattern.size()));
+    SalamanderGeneral->SalPathAppend(
+        &szPattern[0], _T("*"), static_cast<int>(szPattern.size()));
 
-    hFind = FindFirstFile(szPattern, &fd);
+    hFind = FindFirstFile(&szPattern[0], &fd);
     if (hFind == INVALID_HANDLE_VALUE)
     {
         return 0;
@@ -2557,15 +2700,19 @@ int CScriptLookup::FillContainer(
             PTSTR pszExt = PathFindExtension(fd.cFileName);
             if (pszExt && *pszExt)
             {
-                TCHAR szFullPath[MAX_PATH];
-                StringCchCopy(szFullPath, _countof(szFullPath), pContainer->GetPath());
-                SalamanderGeneral->SalPathAppend(szFullPath, fd.cFileName, _countof(szFullPath));
+                std::vector<TCHAR> szFullPath(SAL_MAX_PATH);
+                StringCchCopy(
+                    &szFullPath[0], szFullPath.size(), pContainer->GetPath());
+                SalamanderGeneral->SalPathAppend(
+                    &szFullPath[0], fd.cFileName,
+                    static_cast<int>(szFullPath.size()));
 
                 bool supported = g_oScriptAssociations.FindEngineByExt(pszExt);
                 if (!supported)
                 {
                     CExtensionManifest manifest;
-                    supported = LoadManifestForEntryPoint(szFullPath, manifest) != FALSE;
+                    supported = LoadManifestForEntryPoint(
+                        &szFullPath[0], manifest) != FALSE;
                 }
                 if (!supported)
                 {
@@ -2573,16 +2720,18 @@ int CScriptLookup::FillContainer(
                         g_oAutomationPlugin.GetSalamatrixBridge();
                     Salamatrix::Runtime::IRuntimeService* runtimes =
                         bridge->GetRuntimeService();
-                    char entryPointUtf8[MAX_PATH * 3];
+                    std::vector<char> entryPointUtf8(SAL_MAX_PATH * 3);
                     supported =
                         runtimes != NULL &&
                         NativeToUtf8(
-                            szFullPath, entryPointUtf8, _countof(entryPointUtf8)) &&
-                        runtimes->FindAdapterForEntryPoint(entryPointUtf8) != NULL;
+                            &szFullPath[0], &entryPointUtf8[0],
+                            static_cast<int>(entryPointUtf8.size())) &&
+                        runtimes->FindAdapterForEntryPoint(&entryPointUtf8[0]) != NULL;
                 }
 
                 if (supported &&
-                    AddScriptFromFile(pContainer, szFullPath, hKey, registry))
+                    AddScriptFromFile(
+                        pContainer, &szFullPath[0], hKey, registry))
                 {
                     ++cScripts;
                     ++m_cScriptsTotal;
@@ -2817,15 +2966,15 @@ int CScriptLookup::GetUniquier(
         DWORD dwIndex = 0;
         DWORD cchName;
         DWORD dwType;
-        TCHAR szPathRead[MAX_PATH];
+        std::vector<TCHAR> szPathRead(SAL_MAX_PATH);
         DWORD cbData;
 
         for (; res == NO_ERROR; dwIndex++)
         {
             cchName = _countof(szName);
-            cbData = sizeof(szPathRead);
+            cbData = static_cast<DWORD>(szPathRead.size() * sizeof(TCHAR));
             res = RegEnumValue(hkSub, dwIndex, szName, &cchName,
-                               NULL, &dwType, (LPBYTE)szPathRead, &cbData);
+                               NULL, &dwType, (LPBYTE)&szPathRead[0], &cbData);
             if (res == NO_ERROR && dwType == REG_SZ)
             {
                 nUniquier = _tcstol(szName, NULL, 16);
@@ -2833,7 +2982,7 @@ int CScriptLookup::GetUniquier(
                 // mark this uniquier as used in the free bitmap
                 bitmap.MarkBusy(nUniquier);
 
-                if (_tcsicmp(pszPath, szPathRead) == 0)
+                if (_tcsicmp(pszPath, &szPathRead[0]) == 0)
                 {
                     // we found exact uniquier for this script
                     registry->CloseKey(hkSub);
@@ -2887,11 +3036,11 @@ int CScriptLookup::GetUniquier(
 UINT CScriptLookup::HashPath(__in_z PCTSTR pszPath)
 {
     UINT nHash;
-    TCHAR szCanonicalPath[MAX_PATH];
+    std::vector<TCHAR> szCanonicalPath(SAL_MAX_PATH);
 
-    StringCchCopy(szCanonicalPath, _countof(szCanonicalPath), pszPath);
-    CharLower(szCanonicalPath);
-    nHash = HashString(szCanonicalPath);
+    StringCchCopy(&szCanonicalPath[0], szCanonicalPath.size(), pszPath);
+    CharLower(&szCanonicalPath[0]);
+    nHash = HashString(&szCanonicalPath[0]);
     if (nHash == 0)
     {
         nHash = ~0u;
@@ -3021,10 +3170,88 @@ void CScriptInfo::ReleaseRuntimeEventSubscriptions()
     m_nRuntimeEventSubscriptions = 0;
 }
 
+bool CScriptInfo::RegisterRuntimeCommand(
+    const char* commandId,
+    const char* title,
+    bool pluginMenu,
+    bool contextMenu,
+    DWORD menuEventOrMask,
+    DWORD menuEventAndMask)
+{
+    if (commandId == NULL || commandId[0] == '\0')
+        return false;
+    for (int index = 0; index < m_nRuntimeCommands; ++index)
+    {
+        if (_stricmp(m_runtimeCommands[index].Id, commandId) == 0)
+            return true;
+    }
+    if (m_nRuntimeCommands >= _countof(m_runtimeCommands))
+        return false;
+    RUNTIME_COMMAND_INFO& command = m_runtimeCommands[m_nRuntimeCommands];
+    if (StringCchCopyA(command.Id, _countof(command.Id), commandId) != S_OK)
+        return false;
+    char fallbackTitle[256];
+    if (title == NULL || title[0] == '\0')
+        title = commandId;
+    if (StringCchCopyA(fallbackTitle, _countof(fallbackTitle), title) != S_OK)
+        return false;
+#ifdef UNICODE
+    if (!Utf8ToNative(std::string(fallbackTitle), command.Title, _countof(command.Title)))
+        return false;
+#else
+    if (StringCchCopyA(command.Title, _countof(command.Title), fallbackTitle) != S_OK)
+        return false;
+#endif
+    LONG menuId = InterlockedIncrement(&g_nextRuntimeCommandMenuId);
+    if (menuId <= 0)
+        return false;
+    command.MenuId = static_cast<int>(menuId);
+    command.PluginMenu = pluginMenu;
+    command.ContextMenu = contextMenu;
+    command.MenuEventOrMask = menuEventOrMask;
+    command.MenuEventAndMask = menuEventAndMask;
+    ++m_nRuntimeCommands;
+    return true;
+}
+
+bool CScriptInfo::UnregisterRuntimeCommand(const char* commandId)
+{
+    if (commandId == NULL)
+        return false;
+    for (int index = 0; index < m_nRuntimeCommands; ++index)
+    {
+        if (_stricmp(m_runtimeCommands[index].Id, commandId) != 0)
+            continue;
+        for (int move = index; move + 1 < m_nRuntimeCommands; ++move)
+            m_runtimeCommands[move] = m_runtimeCommands[move + 1];
+        m_runtimeCommands[m_nRuntimeCommands - 1] = RUNTIME_COMMAND_INFO();
+        --m_nRuntimeCommands;
+        return true;
+    }
+    return false;
+}
+
+void CScriptInfo::ReleaseRuntimeCommands()
+{
+    memset(m_runtimeCommands, 0, sizeof(m_runtimeCommands));
+    m_nRuntimeCommands = 0;
+}
+
+int CScriptInfo::FindRuntimeCommandIndexByMenuId(int menuId) const
+{
+    for (int index = 0; index < m_nRuntimeCommands; ++index)
+    {
+        if (m_runtimeCommands[index].MenuId == menuId)
+            return index;
+    }
+    return -1;
+}
+
 void CScriptInfo::ReleaseRuntimeCommand()
 {
     if (!m_bRuntimeCommandOwned)
         return;
+    ReleaseRuntimeCommands();
     m_szSalamatrixCommandId[0] = _T('\0');
     m_szRuntimeCommandId[0] = '\0';
     m_bShowInPluginMenu = false;

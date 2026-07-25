@@ -17,6 +17,76 @@
 
 namespace
 {
+static bool GetEnvironmentString(
+    const wchar_t* name,
+    std::wstring& value)
+{
+    value.clear();
+    DWORD required = GetEnvironmentVariableW(name, NULL, 0);
+    if (required == 0)
+        return false;
+    std::vector<wchar_t> buffer(static_cast<size_t>(required));
+    DWORD length = GetEnvironmentVariableW(
+        name, &buffer[0], required);
+    if (length == 0 || length >= required)
+        return false;
+    value.assign(&buffer[0], length);
+    return true;
+}
+
+static bool GetModulePathString(HMODULE module, std::wstring& value)
+{
+    value.clear();
+    DWORD capacity = SAL_MAX_PATH;
+    for (int attempt = 0; attempt < 8; ++attempt)
+    {
+        std::vector<wchar_t> buffer(static_cast<size_t>(capacity));
+        DWORD length = GetModuleFileNameW(
+            module, &buffer[0], capacity);
+        if (length == 0)
+            return false;
+        if (length < capacity - 1)
+        {
+            value.assign(&buffer[0], length);
+            return true;
+        }
+        capacity *= 2;
+    }
+    return false;
+}
+
+static bool SearchPathString(
+    const wchar_t* fileName,
+    std::wstring& value)
+{
+    value.clear();
+    DWORD capacity = SAL_MAX_PATH;
+    for (int attempt = 0; attempt < 8; ++attempt)
+    {
+        std::vector<wchar_t> buffer(static_cast<size_t>(capacity));
+        DWORD length = SearchPathW(
+            NULL, fileName, NULL, capacity, &buffer[0], NULL);
+        if (length == 0)
+            return false;
+        if (length < capacity)
+        {
+            value.assign(&buffer[0], length);
+            return true;
+        }
+        capacity = length + 1;
+    }
+    return false;
+}
+
+static std::wstring ToWin32Path(const std::wstring& value)
+{
+    if (value.size() < MAX_PATH || value.compare(0, 4, L"\\\\?\") == 0)
+        return value;
+    if (value.size() >= 2 && value[0] == L'\\' && value[1] == L'\\')
+        return L"\\\\?\\UNC\\" + value.substr(2);
+    return L"\\\\?\\" + value;
+}
+
 static bool AppendQuotedArgument(std::wstring& command, const wchar_t* value)
 {
     if (value == NULL || wcschr(value, L'"') != NULL)
@@ -595,7 +665,11 @@ BOOL WINAPI CAutomationLocalAssistantProvider::Generate(
         (request->ContextJson != NULL && request->ContextJson[0] != '\0'
              ? request->ContextJson
              : "{}") +
-        ",\"maxOutputBytes\":" +
+        ",\"runtime\":\"" +
+        EscapeAssistantJson(request->RuntimeId != NULL ? request->RuntimeId : "") +
+        "\",\"existingScript\":\"" +
+        EscapeAssistantJson(request->ExistingScript != NULL ? request->ExistingScript : "") +
+        "\",\"maxOutputBytes\":" +
         std::to_string(request->MaxOutputBytes == 0 ? 65535 : request->MaxOutputBytes) +
         "}\n";
 
@@ -804,10 +878,8 @@ static BOOL ResolveWorkerBootstrapPath(
         return FALSE;
     }
 
-    wchar_t root[MAX_PATH * 4];
-    DWORD length = GetEnvironmentVariableW(
-        L"SALAMATRIX_WORKER_ROOT", root, _countof(root));
-    if (length == 0 || length >= _countof(root))
+    std::wstring root;
+    if (!GetEnvironmentString(L"SALAMATRIX_WORKER_ROOT", root))
     {
         HMODULE module = NULL;
         if (!GetModuleHandleExW(
@@ -816,23 +888,21 @@ static BOOL ResolveWorkerBootstrapPath(
                 reinterpret_cast<LPCWSTR>(&ResolveWorkerBootstrapPath),
                 &module))
             return FALSE;
-        length = GetModuleFileNameW(module, root, _countof(root));
-        if (length == 0 || length >= _countof(root))
+        if (!GetModulePathString(module, root))
             return FALSE;
-        wchar_t* slash = wcsrchr(root, L'\\');
-        if (slash == NULL)
-            slash = wcsrchr(root, L'/');
-        if (slash == NULL)
+        std::wstring::size_type slash = root.find_last_of(L"\\/");
+        if (slash == std::wstring::npos)
             return FALSE;
-        *slash = L'\0';
-        StringCchCatW(root, _countof(root), L"\\runtime");
+        root.resize(slash);
+        root.append(L"\\runtime");
     }
 
     path->assign(root);
     if (!path->empty() && path->back() != L'\\' && path->back() != L'/')
         path->push_back(L'\\');
     path->append(fileName);
-    DWORD attributes = GetFileAttributesW(path->c_str());
+    std::wstring filePath = ToWin32Path(*path);
+    DWORD attributes = GetFileAttributesW(filePath.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES &&
            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
@@ -842,14 +912,11 @@ void CAutomationProcessRuntimeAdapter::ResolveInterpreter() const
     if (!m_executablePath.empty())
         return;
 
-    wchar_t configured[MAX_PATH * 4];
-    DWORD configuredLength = GetEnvironmentVariableW(
-        m_pszEnvironmentVariable,
-        configured,
-        _countof(configured));
-    if (configuredLength != 0 && configuredLength < _countof(configured))
+    std::wstring configured;
+    if (GetEnvironmentString(m_pszEnvironmentVariable, configured))
     {
-        DWORD attributes = GetFileAttributesW(configured);
+        std::wstring configuredPath = ToWin32Path(configured);
+        DWORD attributes = GetFileAttributesW(configuredPath.c_str());
         if (attributes != INVALID_FILE_ATTRIBUTES &&
             (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
         {
@@ -857,10 +924,8 @@ void CAutomationProcessRuntimeAdapter::ResolveInterpreter() const
             return;
         }
 
-        wchar_t resolved[MAX_PATH * 4];
-        DWORD resolvedLength = SearchPathW(
-            NULL, configured, NULL, _countof(resolved), resolved, NULL);
-        if (resolvedLength != 0 && resolvedLength < _countof(resolved))
+        std::wstring resolved;
+        if (SearchPathString(configured.c_str(), resolved))
         {
             m_executablePath.assign(resolved);
             return;
@@ -872,15 +937,8 @@ void CAutomationProcessRuntimeAdapter::ResolveInterpreter() const
     {
         if (candidates[index] == NULL)
             continue;
-        wchar_t resolved[MAX_PATH * 4];
-        DWORD resolvedLength = SearchPathW(
-            NULL,
-            candidates[index],
-            NULL,
-            _countof(resolved),
-            resolved,
-            NULL);
-        if (resolvedLength != 0 && resolvedLength < _countof(resolved))
+        std::wstring resolved;
+        if (SearchPathString(candidates[index], resolved))
         {
             m_executablePath.assign(resolved);
             return;

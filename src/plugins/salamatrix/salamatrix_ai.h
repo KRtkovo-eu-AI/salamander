@@ -64,6 +64,17 @@ struct AssistantOutputSummary
     }
 };
 
+/// Conservative gate used by preview clients before offering a direct Run
+/// action. Providers may declare additional effects; only clearly read-only
+/// output is considered immediately runnable.
+inline BOOL WINAPI IsSafeToRun(const AssistantOutputSummary& summary)
+{
+    const DWORD unsafe = AssistantEffectDeleteFiles |
+                         AssistantEffectExecuteExternal |
+                         AssistantEffectNetwork;
+    return summary.ContractValid && (summary.EffectFlags & unsafe) == 0;
+}
+
 struct AssistantProviderDescriptor
 {
     const char* ProviderId;
@@ -80,6 +91,10 @@ struct AssistantRequest
     const char* ApiVersion;
     DWORD TimeoutMs;
     DWORD MaxOutputBytes;
+    /// Optional target runtime hint, e.g. "Python.CPython" or "PowerShell".
+    const char* RuntimeId;
+    /// Optional existing script to repair or extend during generation.
+    const char* ExistingScript;
 
     AssistantRequest()
         : StructSize(sizeof(AssistantRequest)),
@@ -87,7 +102,9 @@ struct AssistantRequest
           ContextJson(NULL),
           ApiVersion("1.0"),
           TimeoutMs(120000),
-          MaxOutputBytes(65536)
+          MaxOutputBytes(65536),
+          RuntimeId(NULL),
+          ExistingScript(NULL)
     {
     }
 };
@@ -332,8 +349,11 @@ public:
             "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"]},"
             "\"Salamander.storage\":{\"methods\":[\"get\",\"set\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]},"
-            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"dialog\"]},"
-            "\"Salamander.ai\":{\"methods\":[\"generate\"]}},"
+            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"dialog\",\"dialog.addItem\",\"dialog.clearItems\"]},"
+            "\"Salamander.clipboard\":{\"methods\":[\"copyText\"]},"
+            "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\"],"
+            "\"requestFields\":[\"prompt\",\"context\",\"provider\","
+            "\"runtime\",\"existingScript\"]}},"
             "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"]}}";
     }
 };

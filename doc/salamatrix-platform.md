@@ -85,6 +85,7 @@ Salamander.Sides.Source.ActiveTab.Path
 Salamander.SourceSide.Context().SelectedItems
 Salamander.SourceSide.Context().FocusedItem
 Salamander.Storage.get("lastPath")
+Salamander.Clipboard.copy_text("generated output")
 ```
 
 In this model, **Salamatrix** is the platform and SDK name, while
@@ -230,9 +231,10 @@ src/plugins/salamatrix/salamatrix_sides.h
 
 `ISidesService` resolves the logical Left, Right, Source, and Target references
 to physical sides. It exposes tab counts, active-tab snapshots, lookup by a
-stable process-local tab id, path reads, tab activation, and active-tab path
-changes. Snapshots include physical side, index, path type, and flags for
-active-on-side, source, target, locked, and detached state.
+stable process-local tab id, path reads, tab activation, active-tab path
+changes, and bounded item-context snapshots (`Path`, `SelectedItems`, and
+`FocusedItem`). Tab snapshots include physical side, index, path type, and
+flags for active-on-side, source, target, locked, and detached state.
 
 The core SDK additions in `CSalamanderGeneralAbstract` expose only value
 snapshots and opaque ids. They do not leak `CFilesWindow` or tab-array pointers
@@ -680,14 +682,16 @@ Automation workers use the same dialog object and control state:
 - `ComboBox` -> `ControlKindComboBox`
 - `Button` -> `ControlKindButton`
 - `RadioButton` -> `ControlKindRadioButton`
-- `ListView` -> `ControlKindListView` (native common-control surface; item/column binding is next)
-- `TreeView` -> `ControlKindTreeView` (native common-control surface; node binding is next)
+- `ListView` -> `ControlKindListView` (native common-control surface with item binding)
+- `TreeView` -> `ControlKindTreeView` (native common-control surface with node/parent binding)
 
 The current Automation GUI layer can now be migrated incrementally to these
 interfaces instead of creating a second runtime-specific UI. The native
 implementation renders labels, text boxes, check/radio buttons, combo boxes,
-buttons, and the native ListView/TreeView common-control surfaces; item/column
-models and virtualized data binding remain a follow-up.
+buttons, and the native ListView/TreeView common-control surfaces. Runtime
+workers can add and clear items before showing a dialog; TreeView items accept a
+parent index. Column models, selection notifications, and virtualized data
+binding remain a follow-up.
 
 ## Salamatrix.AI provider seam
 
@@ -699,8 +703,18 @@ returns one JSON object/array on standard output; the bridge bounds output to
 llama.cpp/Ollama wrapper usable without coupling Salamander to a model vendor.
 The shared service validates the structured assistant contract (`title`,
 `description`, `capabilities`, `estimatedEffects`, and `script`) and exposes
-the parsed effect flags to callers. The preview and save-as-extension UI remain
-follow-up work; no llama.cpp binary or model is bundled yet.
+the parsed effect flags to callers. Workers expose both `ai.generate(...)` and
+`ai.preview(...)`; preview adds a conservative `canRun` safety result (shared
+by native clients through `Salamatrix::AI::IsSafeToRun`) and never executes the
+returned script. Automation now includes an Ask-AI menu action that gathers
+source-panel context, shows a native preview summary, copies the generated
+script for explicit review, and offers an explicit Save As file picker; it
+never executes the script automatically. Runtime Run and save-as-extension
+packaging remain follow-up work; no llama.cpp binary or
+model is bundled yet. Both calls accept an optional runtime
+hint and existing script, so a configured local model can target Python,
+PowerShell, PHP, or another registered adapter and repair an existing script
+without a second provider-specific API.
 
 ## Salamatrix PoC runtime wiring
 

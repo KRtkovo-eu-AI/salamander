@@ -218,7 +218,8 @@ enum ControlKind
     ControlKindRadioButton = 4,
     ControlKindButton = 5,
     ControlKindListView = 6,
-    ControlKindTreeView = 7
+    ControlKindTreeView = 7,
+    ControlKindTabControl = 8
 };
 
 struct DialogOptions
@@ -265,6 +266,28 @@ public:
     virtual BOOL WINAPI GetChecked() const = 0;
     virtual BOOL WINAPI SetChecked(BOOL checked) = 0;
     virtual int WINAPI GetDialogResult() const = 0;
+
+    /// Adds one item to a ComboBox, ListView, or TreeView. For TreeView,
+    /// parentIndex is the zero-based index of the parent item, or -1 for root.
+    /// Optional so older UI providers can keep the original control surface.
+    virtual BOOL WINAPI AddItem(
+        const char* text,
+        int parentIndex = -1)
+    {
+        (void)text;
+        (void)parentIndex;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI ClearItems()
+    {
+        return FALSE;
+    }
+
+    virtual int WINAPI GetItemCount() const
+    {
+        return 0;
+    }
 
 protected:
     virtual ~IControl() {}
@@ -347,6 +370,19 @@ public:
         (void)title;
         (void)flags;
         return 0;
+    }
+
+    /// Clipboard is part of the shared application UI surface for scripts
+    /// that need to publish generated text without reimplementing Win32.
+    virtual BOOL WINAPI CopyTextToClipboard(
+        const char* text,
+        BOOL showEcho,
+        HWND echoParent)
+    {
+        (void)text;
+        (void)showEcho;
+        (void)echoParent;
+        return FALSE;
     }
 
 protected:
