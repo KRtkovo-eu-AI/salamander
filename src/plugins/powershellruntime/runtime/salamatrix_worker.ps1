@@ -130,6 +130,51 @@ $ui | Add-Member ScriptMethod PickFolder {
     param([string]$Title = '', [string]$Initial = '')
     Invoke-Host -Method 'salamander.ui.pickFolder' -Arguments @{ title = $Title; initial = $Initial }
 }
+$ui | Add-Member ScriptMethod Progress {
+    param([string]$Title = 'Salamatrix', [int]$Total = 0, [bool]$TwoProgressBars = $false, [bool]$FileProgress = $false, [bool]$CancelEnabled = $true, [int]$Total2 = -1)
+    $arguments = @{ title = $Title; total = $Total; twoProgressBars = $TwoProgressBars; fileProgress = $FileProgress; cancelEnabled = $CancelEnabled }
+    if ($Total2 -ge 0) { $arguments['total2'] = $Total2 }
+    $created = Invoke-Host -Method 'salamander.ui.progress.create' -Arguments $arguments
+    $progress = [pscustomobject]@{ ProgressId = [string]$created.progressId; Closed = $false }
+    $progress | Add-Member ScriptMethod Update {
+        param([int]$Position, [int]$Total = -1, [string]$Text = '', [bool]$DelayedPaint = $true, [int]$Position2 = -1, [int]$Total2 = -1)
+        $arguments = @{ progressId = $this.ProgressId; position = $Position; text = $Text; delayedPaint = $DelayedPaint }
+        if ($Total -ge 0) { $arguments['total'] = $Total }
+        if ($Position2 -ge 0) { $arguments['position2'] = $Position2 }
+        if ($Total2 -ge 0) { $arguments['total2'] = $Total2 }
+        (Invoke-Host -Method 'salamander.ui.progress.update' -Arguments $arguments).continued
+    }
+    $progress | Add-Member ScriptMethod Step {
+        param([int]$Amount = 1, [bool]$DelayedPaint = $true)
+        (Invoke-Host -Method 'salamander.ui.progress.step' -Arguments @{ progressId = $this.ProgressId; amount = $Amount; delayedPaint = $DelayedPaint }).continued
+    }
+    $progress | Add-Member ScriptMethod SetTotals {
+        param([int]$Total, [int]$Total2)
+        [void](Invoke-Host -Method 'salamander.ui.progress.setTotals' -Arguments @{ progressId = $this.ProgressId; total = $Total; total2 = $Total2 })
+    }
+    $progress | Add-Member ScriptMethod SetPositions {
+        param([int]$Position, [int]$Position2, [bool]$DelayedPaint = $true)
+        (Invoke-Host -Method 'salamander.ui.progress.setPositions' -Arguments @{ progressId = $this.ProgressId; position = $Position; position2 = $Position2; delayedPaint = $DelayedPaint }).continued
+    }
+    $progress | Add-Member ScriptMethod SetTitle {
+        param([string]$Title)
+        [void](Invoke-Host -Method 'salamander.ui.progress.setTitle' -Arguments @{ progressId = $this.ProgressId; title = $Title })
+    }
+    $progress | Add-Member ScriptMethod SetCancelEnabled {
+        param([bool]$Enabled)
+        [void](Invoke-Host -Method 'salamander.ui.progress.setCancelEnabled' -Arguments @{ progressId = $this.ProgressId; enabled = $Enabled })
+    }
+    $progress | Add-Member ScriptMethod IsCancelled {
+        (Invoke-Host -Method 'salamander.ui.progress.cancelled' -Arguments @{ progressId = $this.ProgressId }).cancelled
+    }
+    $progress | Add-Member ScriptMethod Close {
+        if (-not $this.Closed) {
+            [void](Invoke-Host -Method 'salamander.ui.progress.close' -Arguments @{ progressId = $this.ProgressId })
+            $this.Closed = $true
+        }
+    }
+    return $progress
+}
 $ui | Add-Member ScriptMethod Dialog {
     param([string]$Title = 'Salamander')
     $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title }
@@ -251,5 +296,3 @@ while ($true) {
     if ($frame.Kind -eq 'event') { Invoke-Event $frame.Payload; continue }
     if ($frame.Kind -eq 'shutdown') { break }
 }
-
-

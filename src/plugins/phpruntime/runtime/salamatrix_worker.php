@@ -88,7 +88,38 @@ class SalamatrixUi {
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }
     public function pickFolder($title = '', $initial = '') { return $this->client->call('salamander.ui.pickFolder', array('title' => $title, 'initial' => $initial)); }
+    public function progress($title = 'Salamatrix', $total = 0, $twoProgressBars = false, $fileProgress = false, $cancelEnabled = true, $total2 = null) {
+        $args = array('title' => $title, 'total' => (int)$total, 'twoProgressBars' => (bool)$twoProgressBars, 'fileProgress' => (bool)$fileProgress, 'cancelEnabled' => (bool)$cancelEnabled);
+        if ($total2 !== null) $args['total2'] = (int)$total2;
+        $r = $this->client->call('salamander.ui.progress.create', $args);
+        return new SalamatrixProgress($this->client, (string)$r['progressId']);
+    }
     public function dialog($title = 'Salamander') { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
+}
+class SalamatrixProgress {
+    private $client; private $id; private $closed = false;
+    public function __construct($client, $id) { $this->client = $client; $this->id = $id; }
+    public function update($position, $total = null, $text = '', $delayedPaint = true, $position2 = null, $total2 = null) {
+        $args = array('progressId' => $this->id, 'position' => (int)$position, 'text' => $text, 'delayedPaint' => (bool)$delayedPaint);
+        if ($total !== null) $args['total'] = (int)$total;
+        if ($position2 !== null) $args['position2'] = (int)$position2;
+        if ($total2 !== null) $args['total2'] = (int)$total2;
+        $r = $this->client->call('salamander.ui.progress.update', $args);
+        return !isset($r['continued']) || !empty($r['continued']);
+    }
+    public function step($amount = 1, $delayedPaint = true) {
+        $r = $this->client->call('salamander.ui.progress.step', array('progressId' => $this->id, 'amount' => (int)$amount, 'delayedPaint' => (bool)$delayedPaint));
+        return !isset($r['continued']) || !empty($r['continued']);
+    }
+    public function setTotals($total, $total2) { $this->client->call('salamander.ui.progress.setTotals', array('progressId' => $this->id, 'total' => (int)$total, 'total2' => (int)$total2)); }
+    public function setPositions($position, $position2, $delayedPaint = true) {
+        $r = $this->client->call('salamander.ui.progress.setPositions', array('progressId' => $this->id, 'position' => (int)$position, 'position2' => (int)$position2, 'delayedPaint' => (bool)$delayedPaint));
+        return !isset($r['continued']) || !empty($r['continued']);
+    }
+    public function setTitle($title) { $this->client->call('salamander.ui.progress.setTitle', array('progressId' => $this->id, 'title' => $title)); }
+    public function setCancelEnabled($enabled) { $this->client->call('salamander.ui.progress.setCancelEnabled', array('progressId' => $this->id, 'enabled' => (bool)$enabled)); }
+    public function isCancelled() { $r = $this->client->call('salamander.ui.progress.cancelled', array('progressId' => $this->id)); return !empty($r['cancelled']); }
+    public function close() { if (!$this->closed) { $this->client->call('salamander.ui.progress.close', array('progressId' => $this->id)); $this->closed = true; } }
 }
 class SalamatrixClipboard {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -206,5 +237,3 @@ while (true) {
     if ($frame['kind'] === 'event') { $client->dispatchEvent($frame['payload']); continue; }
     if ($frame['kind'] === 'shutdown') break;
 }
-
-

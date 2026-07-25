@@ -210,8 +210,97 @@ class Dialog {
   }
 }
 
+class Progress {
+  constructor(title = "Salamatrix", total = 0, options = {}) {
+    this.title = title;
+    this.total = total;
+    this.options = options;
+    this.id = null;
+  }
+
+  async create() {
+    const result = await hostCall("salamander.ui.progress.create", {
+      title: this.title,
+      total: this.total,
+      ...this.options,
+    });
+    this.id = result.progressId;
+    return this;
+  }
+
+  async update(position, total = undefined, text = "", delayedPaint = true,
+               position2 = undefined, total2 = undefined) {
+    const payload = {
+      progressId: this.id,
+      position,
+      text,
+      delayedPaint,
+    };
+    if (total !== undefined && total !== null) payload.total = total;
+    if (position2 !== undefined && position2 !== null) payload.position2 = position2;
+    if (total2 !== undefined && total2 !== null) payload.total2 = total2;
+    const result = await hostCall("salamander.ui.progress.update", payload);
+    return result.continued !== false;
+  }
+
+  async step(amount = 1, delayedPaint = true) {
+    const result = await hostCall("salamander.ui.progress.step", {
+      progressId: this.id,
+      amount,
+      delayedPaint,
+    });
+    return result.continued !== false;
+  }
+
+  async setTotals(total, total2) {
+    return hostCall("salamander.ui.progress.setTotals", {
+      progressId: this.id,
+      total,
+      total2,
+    });
+  }
+
+  async setPositions(position, position2, delayedPaint = true) {
+    const result = await hostCall("salamander.ui.progress.setPositions", {
+      progressId: this.id,
+      position,
+      position2,
+      delayedPaint,
+    });
+    return result.continued !== false;
+  }
+
+  async setTitle(title) {
+    return hostCall("salamander.ui.progress.setTitle", {
+      progressId: this.id,
+      title,
+    });
+  }
+
+  async setCancelEnabled(enabled) {
+    return hostCall("salamander.ui.progress.setCancelEnabled", {
+      progressId: this.id,
+      enabled,
+    });
+  }
+
+  async isCancelled() {
+    const result = await hostCall("salamander.ui.progress.cancelled", {
+      progressId: this.id,
+    });
+    return result.cancelled === true;
+  }
+
+  async close() {
+    if (this.id === null) return;
+    await hostCall("salamander.ui.progress.close", { progressId: this.id });
+    this.id = null;
+  }
+}
+
 const ui = {
-  progress: (title, total = 0) => hostCall("salamander.ui.progress", { title, total }),
+  progress: async (title = "Salamatrix", total = 0, options = {}) =>
+    new Progress(title, total, options).create(),
   messageBox: (message, title = "Salamatrix") =>
     hostCall("salamander.ui.messageBox", { message, title }),
   inputBox: (prompt, initialValue = "", title = "Salamatrix") =>
@@ -279,4 +368,3 @@ if (entryPoint) {
       if (oneShot) process.exit(1);
     });
 }
-

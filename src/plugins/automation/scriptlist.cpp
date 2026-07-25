@@ -539,6 +539,8 @@ CScriptInfo::CScriptInfo(
     memset(m_runtimeDialogs, 0, sizeof(m_runtimeDialogs));
     m_nRuntimeDialogs = 0;
     m_nextRuntimeDialogId = 1;
+    memset(&m_runtimeProgress, 0, sizeof(m_runtimeProgress));
+    m_nextRuntimeProgressId = 1;
 
     m_pNext = NULL;
     m_pNextHash = NULL;
@@ -875,6 +877,12 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     request.CompatibilityExecute = ExecuteCompatibilityRuntime;
     request.CompatibilityContext = &compatibilityContext;
 
+    // Modern workers may use Salamander.UI progress dialogs. Keep the
+    // operation context valid for the complete worker lifetime; persistent
+    // extensions activated without an execution context receive a clear
+    // "unavailable" response from RuntimeHostDispatch instead.
+    m_pExecInfo = &info;
+
     Salamatrix::Runtime::RuntimeExecutionResult result;
     BOOL executed = FALSE;
     Salamatrix::Runtime::IRuntimeSession* session = NULL;
@@ -931,6 +939,8 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
             SalamanderGeneral->LoadStr(g_hLangInst, IDS_PLUGINNAME),
             MB_OK | MB_ICONERROR);
     }
+    ReleaseRuntimeProgress();
+    m_pExecInfo = NULL;
     return executed != FALSE &&
            result.Status == Salamatrix::Runtime::RuntimeExecutionStatusSucceeded;
 }
@@ -1066,6 +1076,32 @@ static std::string RuntimeItemInfoJson(
            "\",\"attributes\":" + std::to_string(item.Attributes) +
            ",\"isDirectory\":" +
            (item.IsDirectory ? "true" : "false") + "}";
+}
+
+static BOOL FindRuntimeQuadWord(
+    const char* jsonText,
+    const char* member,
+    CQuadWord* value)
+{
+    if (value == NULL)
+        return FALSE;
+    std::string raw;
+    if (!Salamatrix::Runtime::Protocol::Json::FindRawMember(
+            jsonText, member, &raw) || raw.empty())
+        return FALSE;
+    const char* begin = raw.c_str();
+    while (*begin == ' ' || *begin == '\t' || *begin == '\r' || *begin == '\n')
+        ++begin;
+    if (*begin == '-' || *begin == '\0')
+        return FALSE;
+    char* end = NULL;
+    unsigned __int64 parsed = _strtoui64(begin, &end, 10);
+    while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')
+        ++end;
+    if (end == begin || *end != '\0')
+        return FALSE;
+    value->SetUI64(parsed);
+    return TRUE;
 }
 
 static const char* RuntimeCapabilityForMethod(
@@ -1458,6 +1494,200 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             ",\"path\":\"" +
             JsonEscapeRuntimeText(selected ? &selectedPath[0] : "") +
             "\"}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.ui.progress.create" ||
+        method == "salamander.ui.progress.update" ||
+        method == "salamander.ui.progress.step" ||
+        method == "salamander.ui.progress.setTotals" ||
+        method == "salamander.ui.progress.setPositions" ||
+        method == "salamander.ui.progress.setTitle" ||
+        method == "salamander.ui.progress.setCancelEnabled" ||
+        method == "salamander.ui.progress.cancelled" ||
+        method == "salamander.ui.progress.close")
+    {
+        Salamatrix::UI::IUIService* ui = bridge->GetUIService();
+        if (ui == NULL)
+            return FALSE;
+
+        if (method == "salamander.ui.progress.create")
+        {
+            if (script->m_pExecInfo == NULL ||
+                script->m_pExecInfo->pOperation == NULL)
+            {
+                return CopyRuntimeHostResult(
+                    "{\"ok\":false,\"error\":\"progress requires an execution operation context\"}",
+                    resultJson, resultCapacity, resultLength);
+            }
+            script->ReleaseRuntimeProgress();
+            std::string title;
+            CQuadWord total;
+            CQuadWord total2;
+            BOOL hasTotal = FALSE;
+            BOOL hasTotal2 = FALSE;
+            BOOL twoProgressBars = FALSE;
+            BOOL fileProgress = FALSE;
+            BOOL cancelEnabled = TRUE;
+            Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "title", &title);
+            hasTotal = FindRuntimeQuadWord(payloadJson, "total", &total);
+            hasTotal2 = FindRuntimeQuadWord(payloadJson, "total2", &total2);
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "twoProgressBars", &twoProgressBars);
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "fileProgress", &fileProgress);
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "cancelEnabled", &cancelEnabled);
+            Salamatrix::UI::ProgressDialogOptions options;
+            options.Title = title.empty() ? "Salamatrix" : title.c_str();
+            options.Parent = SalamanderGeneral->GetMsgBoxParent();
+            options.TwoProgressBars = twoProgressBars;
+            options.FileProgress = fileProgress;
+            options.CancelEnabled = cancelEnabled;
+            Salamatrix::UI::IProgressDialog* progress =
+                ui->CreateProgressDialog(script->m_pExecInfo->pOperation);
+            if (progress == NULL)
+                return CopyRuntimeHostResult(
+                    "{\"ok\":false,\"error\":\"progress dialog unavailable\"}",
+                    resultJson, resultCapacity, resultLength);
+            progress->Open(options);
+            if (hasTotal && hasTotal2)
+                progress->SetTotals(total, total2);
+            else if (hasTotal)
+                progress->SetTotal(total);
+            ULONGLONG id = script->m_nextRuntimeProgressId++;
+            if (id == 0)
+                id = script->m_nextRuntimeProgressId++;
+            script->m_runtimeProgress.Owner = script;
+            script->m_runtimeProgress.Id = id;
+            script->m_runtimeProgress.Dialog = progress;
+            char idText[32];
+            _ui64toa_s(id, idText, _countof(idText), 10);
+            std::string response =
+                std::string("{\"ok\":true,\"progressId\":\"") +
+                idText + "\"}";
+            return CopyRuntimeHostResult(
+                response, resultJson, resultCapacity, resultLength);
+        }
+
+        std::string idText;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "progressId", &idText))
+            return FALSE;
+        char* idEnd = NULL;
+        ULONGLONG progressId = _strtoui64(idText.c_str(), &idEnd, 10);
+        if (idEnd == idText.c_str() || *idEnd != '\0' ||
+            script->m_runtimeProgress.Dialog == NULL ||
+            script->m_runtimeProgress.Id != progressId)
+            return FALSE;
+        Salamatrix::UI::IProgressDialog* progress =
+            script->m_runtimeProgress.Dialog;
+        if (method == "salamander.ui.progress.close")
+        {
+            script->ReleaseRuntimeProgress();
+            return CopyRuntimeHostResult(
+                "{\"ok\":true,\"closed\":true}",
+                resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.progress.cancelled")
+        {
+            std::string response =
+                std::string("{\"ok\":true,\"cancelled\":") +
+                (progress->IsCancelled() ? "true}" : "false}");
+            return CopyRuntimeHostResult(
+                response, resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.progress.setTitle")
+        {
+            std::string title;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "title", &title))
+                return FALSE;
+            progress->SetTitle(title.c_str());
+            return CopyRuntimeHostResult(
+                "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.progress.setCancelEnabled")
+        {
+            BOOL enabled = TRUE;
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "enabled", &enabled);
+            progress->SetCancelEnabled(enabled);
+            return CopyRuntimeHostResult(
+                "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.progress.setTotals")
+        {
+            CQuadWord firstTotal;
+            CQuadWord secondTotal;
+            if (!FindRuntimeQuadWord(payloadJson, "total", &firstTotal) ||
+                !FindRuntimeQuadWord(payloadJson, "total2", &secondTotal))
+                return FALSE;
+            progress->SetTotals(firstTotal, secondTotal);
+            return CopyRuntimeHostResult(
+                "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.progress.setPositions")
+        {
+            CQuadWord firstPosition;
+            CQuadWord secondPosition;
+            if (!FindRuntimeQuadWord(payloadJson, "position", &firstPosition) ||
+                !FindRuntimeQuadWord(payloadJson, "position2", &secondPosition))
+                return FALSE;
+            BOOL delayedPaint = TRUE;
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "delayedPaint", &delayedPaint);
+            BOOL continued = progress->SetPositions(
+                firstPosition, secondPosition, delayedPaint);
+            std::string response =
+                std::string("{\"ok\":true,\"continued\":") +
+                (continued && !progress->IsCancelled() ? "true}" : "false}");
+            return CopyRuntimeHostResult(
+                response, resultJson, resultCapacity, resultLength);
+        }
+        BOOL delayedPaint = TRUE;
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "delayedPaint", &delayedPaint);
+        BOOL continued = TRUE;
+        if (method == "salamander.ui.progress.step")
+        {
+            int amount = 1;
+            Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                payloadJson, "amount", &amount);
+            continued = progress->Step(amount, delayedPaint);
+        }
+        else
+        {
+            CQuadWord position;
+            CQuadWord total;
+            CQuadWord position2;
+            CQuadWord total2;
+            std::string text;
+            if (!FindRuntimeQuadWord(payloadJson, "position", &position))
+                return FALSE;
+            BOOL hasTotal = FindRuntimeQuadWord(payloadJson, "total", &total);
+            BOOL hasPosition2 = FindRuntimeQuadWord(
+                payloadJson, "position2", &position2);
+            BOOL hasTotal2 = FindRuntimeQuadWord(
+                payloadJson, "total2", &total2);
+            Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "text", &text);
+            if (hasTotal && hasTotal2)
+                progress->SetTotals(total, total2);
+            else if (hasTotal)
+                progress->SetTotal(total);
+            if (!text.empty())
+                progress->AddText(text.c_str(), delayedPaint);
+            continued = hasPosition2
+                            ? progress->SetPositions(
+                                  position, position2, delayedPaint)
+                            : progress->SetPosition(position, delayedPaint);
+        }
+        std::string response =
+            std::string("{\"ok\":true,\"continued\":") +
+            (continued && !progress->IsCancelled() ? "true}" : "false}");
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
     }
@@ -3769,10 +3999,26 @@ void CScriptInfo::ReleaseRuntimeDialogs()
     m_nRuntimeDialogs = 0;
 }
 
+void CScriptInfo::ReleaseRuntimeProgress()
+{
+    if (m_runtimeProgress.Dialog == NULL)
+        return;
+    CAutomationSalamatrixBridge* bridge =
+        g_oAutomationPlugin.GetSalamatrixBridge();
+    Salamatrix::UI::IUIService* ui =
+        bridge != NULL ? bridge->GetUIService() : NULL;
+    if (ui != NULL)
+        ui->DestroyProgressDialog(m_runtimeProgress.Dialog);
+    else
+        m_runtimeProgress.Dialog->Close();
+    memset(&m_runtimeProgress, 0, sizeof(m_runtimeProgress));
+}
+
 void CScriptInfo::ReleaseRuntimeSession()
 {
     ReleaseRuntimeCommand();
     ReleaseRuntimeDialogs();
+    ReleaseRuntimeProgress();
     if (m_pRuntimeSession == NULL)
         return;
     ReleaseRuntimeEventSubscriptions();

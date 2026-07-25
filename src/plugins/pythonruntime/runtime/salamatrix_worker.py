@@ -216,9 +216,104 @@ class _UI:
             "salamander.ui.pickFolder", title=title, initial=initial
         )
 
+    def progress(self, title: str = "Salamatrix", total: int = 0,
+                 two_progress_bars: bool = False,
+                 file_progress: bool = False,
+                 cancel_enabled: bool = True,
+                 total2: Optional[int] = None) -> "_Progress":
+        arguments: dict = {
+            "title": title, "total": int(total),
+            "twoProgressBars": two_progress_bars,
+            "fileProgress": file_progress,
+            "cancelEnabled": cancel_enabled,
+        }
+        if total2 is not None:
+            arguments["total2"] = int(total2)
+        result = self._transport.call(
+            "salamander.ui.progress.create", **arguments
+        )
+        return _Progress(self._transport, str(result["progressId"]))
+
     def dialog(self, title: str = "Salamander") -> "_Dialog":
         result = self._transport.call("salamander.ui.dialog.create", title=title)
         return _Dialog(self._transport, str(result["dialogId"]))
+
+
+class _Progress:
+    def __init__(self, transport: _Transport, progress_id: str) -> None:
+        self._transport = transport
+        self.progress_id = progress_id
+        self._closed = False
+
+    def update(self, position: int, total: Optional[int] = None,
+               text: str = "", delayed_paint: bool = True,
+               position2: Optional[int] = None,
+               total2: Optional[int] = None) -> bool:
+        arguments: dict = {
+            "progressId": self.progress_id,
+            "position": int(position),
+            "text": text,
+            "delayedPaint": delayed_paint,
+        }
+        if total is not None:
+            arguments["total"] = int(total)
+        if position2 is not None:
+            arguments["position2"] = int(position2)
+        if total2 is not None:
+            arguments["total2"] = int(total2)
+        return bool(self._transport.call(
+            "salamander.ui.progress.update", **arguments
+        ).get("continued", True))
+
+    def set_totals(self, total: int, total2: int) -> None:
+        self._transport.call(
+            "salamander.ui.progress.setTotals", progressId=self.progress_id,
+            total=int(total), total2=int(total2)
+        )
+
+    def set_positions(self, position: int, position2: int,
+                      delayed_paint: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.progress.setPositions", progressId=self.progress_id,
+            position=int(position), position2=int(position2),
+            delayedPaint=delayed_paint
+        ).get("continued", True))
+
+    def set_title(self, title: str) -> None:
+        self._transport.call(
+            "salamander.ui.progress.setTitle", progressId=self.progress_id,
+            title=title
+        )
+
+    def set_cancel_enabled(self, enabled: bool) -> None:
+        self._transport.call(
+            "salamander.ui.progress.setCancelEnabled",
+            progressId=self.progress_id, enabled=enabled
+        )
+
+    def step(self, amount: int = 1, delayed_paint: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.progress.step", progressId=self.progress_id,
+            amount=int(amount), delayedPaint=delayed_paint
+        ).get("continued", True))
+
+    def is_cancelled(self) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.progress.cancelled", progressId=self.progress_id
+        ).get("cancelled", False))
+
+    def close(self) -> None:
+        if not self._closed:
+            self._transport.call(
+                "salamander.ui.progress.close", progressId=self.progress_id
+            )
+            self._closed = True
+
+    def __enter__(self) -> "_Progress":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
 
 
 class _Clipboard:
@@ -471,5 +566,3 @@ if __name__ == "__main__":
     except Exception as exc:  # keep worker failures visible to a CLI caller
         print(f"Salamatrix worker failed: {exc}", file=sys.stderr)
         raise SystemExit(1)
-
-

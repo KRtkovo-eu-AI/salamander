@@ -359,6 +359,13 @@ void CPluginsDlg::OnSelChanged()
         // Preserve older configurations; identify Salamatrix by its stable registry key too.
         BOOL supportAutomationFramework = p->SupportAutomationFramework ||
                                         (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
+        BOOL isSalamatrixProvider = p->RegKeyName != NULL &&
+                                    StrICmp(p->RegKeyName, "SALAMATRIX") == 0;
+        BOOL isExtensionRuntime = p->RegKeyName != NULL &&
+                                  (StrICmp(p->RegKeyName, "JAVASCRIPT.RUNTIME") == 0 ||
+                                   StrICmp(p->RegKeyName, "PHP.RUNTIME") == 0 ||
+                                   StrICmp(p->RegKeyName, "POWERSHELL.RUNTIME") == 0 ||
+                                   StrICmp(p->RegKeyName, "PYTHON.RUNTIME") == 0);
         buf[0] = 0;
         if (p->SupportPanelView)
             strcat(buf, LoadStr(IDS_PLUGINFUNCVIEW));
@@ -425,7 +432,12 @@ void CPluginsDlg::OnSelChanged()
                 if (buf[0] != 0)
                     strcat(buf, ",\n");
             }
-            strcat(buf, LoadStr(IDS_PLUGINFUNCAUTORUNTIME));
+            strcat(buf, LoadStr(
+                isSalamatrixProvider
+                    ? IDS_PLUGINFUNCEXTENSIONFRAMEWORK
+                    : isExtensionRuntime
+                          ? IDS_PLUGINFUNCEXTENSIONRUNTIME
+                          : IDS_PLUGINFUNCAUTORUNTIME));
         }
 
         // Thumbnails

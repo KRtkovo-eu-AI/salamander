@@ -353,7 +353,7 @@ public:
             "\"Salamander.storage\":{\"methods\":[\"get\",\"set\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]},"
             "\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]},"
-            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"dialog\",\"dialog.addControl\",\"dialog.setValidation\",\"dialog.onChange\",\"dialog.addTabControl\",\"dialog.addItem\",\"dialog.addColumn\",\"dialog.setSelectedIndex\",\"dialog.clearItems\"],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true},"
+            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.addControl\",\"dialog.setValidation\",\"dialog.onChange\",\"dialog.addTabControl\",\"dialog.addItem\",\"dialog.addColumn\",\"dialog.setSelectedIndex\",\"dialog.clearItems\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true},"
             "\"Salamander.clipboard\":{\"methods\":[\"copyText\"]},"
             "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\"],"
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","

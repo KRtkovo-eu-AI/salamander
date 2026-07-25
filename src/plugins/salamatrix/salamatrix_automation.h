@@ -55,6 +55,19 @@ public:
         }
     }
 
+    ScriptProgressDialog(UI::IUIService* uiService,
+                         CSalamanderForOperationsAbstract* operations,
+                         const UI::ProgressDialogOptions& options)
+        : UIService(uiService),
+          Progress(NULL)
+    {
+        if (UIService == NULL)
+            return;
+        Progress = UIService->CreateProgressDialog(operations);
+        if (Progress != NULL)
+            Progress->Open(options);
+    }
+
     ~ScriptProgressDialog()
     {
         Close();
@@ -82,6 +95,31 @@ public:
             Progress->SetTotal(total);
     }
 
+    void WINAPI SetTotals(const CQuadWord& firstTotal,
+                          const CQuadWord& secondTotal)
+    {
+        if (Progress != NULL)
+            Progress->SetTotals(firstTotal, secondTotal);
+    }
+
+    BOOL WINAPI SetPosition(const CQuadWord& position,
+                            BOOL delayedPaint = FALSE)
+    {
+        return Progress != NULL
+                   ? Progress->SetPosition(position, delayedPaint)
+                   : FALSE;
+    }
+
+    BOOL WINAPI SetPositions(const CQuadWord& firstPosition,
+                             const CQuadWord& secondPosition,
+                             BOOL delayedPaint = FALSE)
+    {
+        return Progress != NULL
+                   ? Progress->SetPositions(
+                         firstPosition, secondPosition, delayedPaint)
+                   : FALSE;
+    }
+
     void WINAPI AddText(const char* text)
     {
         if (Progress != NULL)
@@ -107,6 +145,17 @@ public:
         if (Progress != NULL)
             Progress->SetCancelEnabled(enabled);
     }
+
+    void WINAPI SetTitle(const char* title)
+    {
+        if (Progress != NULL)
+            Progress->SetTitle(title);
+    }
+
+    HWND WINAPI GetHWND()
+    {
+        return Progress != NULL ? Progress->GetHWND() : NULL;
+    }
 };
 
 class ScriptUIAdapter
@@ -125,6 +174,15 @@ public:
         if (UIService == NULL)
             return NULL;
         return new ScriptProgressDialog(UIService, operations, title);
+    }
+
+    ScriptProgressDialog* WINAPI ProgressWithOptions(
+        CSalamanderForOperationsAbstract* operations,
+        const UI::ProgressDialogOptions& options)
+    {
+        if (UIService == NULL)
+            return NULL;
+        return new ScriptProgressDialog(UIService, operations, options);
     }
 
     void WINAPI DestroyProgress(ScriptProgressDialog* progress)

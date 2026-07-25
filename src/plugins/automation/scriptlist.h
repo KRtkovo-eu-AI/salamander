@@ -138,6 +138,14 @@ private:
     RUNTIME_DIALOG m_runtimeDialogs[8];
     int m_nRuntimeDialogs;
     ULONGLONG m_nextRuntimeDialogId;
+    struct RUNTIME_PROGRESS
+    {
+        CScriptInfo* Owner;
+        ULONGLONG Id;
+        Salamatrix::UI::IProgressDialog* Dialog;
+    };
+    RUNTIME_PROGRESS m_runtimeProgress;
+    ULONGLONG m_nextRuntimeProgressId;
 
     // statistics stuff
     LONG m_cExecuted;
@@ -177,6 +185,7 @@ private:
     void ScriptEnter();
     void ScriptLeave();
     void ReleaseRuntimeSession();
+    void ReleaseRuntimeProgress();
     static DWORD WINAPI RuntimePumpProc(void* arg);
     static BOOL WINAPI RuntimeEventCallback(
         void* context,

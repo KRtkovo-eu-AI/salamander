@@ -15,11 +15,9 @@ void WINAPI SalamanderPluginEntry(...)
         SalamanderGeneral,
         SALAMATRIX_SERVICE_RUNTIME,
         SALAMATRIX_RUNTIME_VERSION_1_0);
-    if (broker == NULL)
-        return NULL; // Salamatrix.SPL must be loaded first.
-
-    if (!providerRegistration.Register(broker, &pythonAdapter))
-        return NULL;
+    // If Salamatrix.SPL is not loaded yet, keep the plugin valid and retry
+    // from Connect/Event after the framework provider appears.
+    TryRegisterProvider();
     return &PluginInterface;
 }
 
@@ -55,7 +53,7 @@ clear unavailable-runtime result.
 The current branch has the broker contract, worker protocol, and provider
 lifecycle helper. `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
 `PHPRuntime.SPL`, and `JavaScriptRuntime.SPL` now have their own projects,
-adapters, worker assets, and load/unload registration paths. Debug x64 builds
-now produce all four standalone `.SPL` binaries; release packaging and
-end-to-end runtime integration remain release work.
+adapters, worker assets, and load/unload registration paths. Debug and Release
+x64 builds now produce all four standalone `.SPL` binaries; provider
+registration is deferred safely when Salamatrix is loaded later.
 No provider should be made a dependency of Automation.

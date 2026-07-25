@@ -1377,6 +1377,8 @@ STRINGTABLE
  IDS_PLUGINFUNCFILESYSTEM, "File System (FS)"
  IDS_PLUGINFUNCTHUMBLOADER, "Thumbnail Loader"
  IDS_PLUGINFUNCAUTORUNTIME, "Automation Framework"
+ IDS_PLUGINFUNCEXTENSIONRUNTIME, "Extension Runtime"
+ IDS_PLUGINFUNCEXTENSIONFRAMEWORK, "Extension Framework Provider"
  IDS_PLUGINADDTITLE, "Add Plugins"
  IDS_PLUGINTESTOK, "%s plugin seems to work correctly."
  IDS_PLUGINTESTALLOK, "All plugins seem to work correctly."

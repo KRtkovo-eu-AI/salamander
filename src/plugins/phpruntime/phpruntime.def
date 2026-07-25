@@ -1,7 +1,5 @@
-LIBRARY PHP.RUNTIME.SPL
-
-EXPORTS SalamanderPluginEntry
-EXPORTS SalamanderPluginGetReqVer
-
+EXPORTS
+    SalamanderPluginEntry @1 PRIVATE
+    SalamanderPluginGetReqVer @2 PRIVATE
 
 

@@ -993,6 +993,31 @@ static CJavaScriptRuntimeAdapter JavaScriptRuntime(
     CJavaScriptRuntimeAdapter::ProcessKindJavaScript);
 static Salamatrix::Runtime::RuntimeProviderRegistration JavaScriptRegistration;
 
+static BOOL TryRegisterJavaScriptRuntime()
+{
+    if (JavaScriptRegistration.IsRegistered())
+        return TRUE;
+    if (SalamanderGeneral == NULL)
+        return FALSE;
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult serviceResult;
+    memset(&query, 0, sizeof(query));
+    memset(&serviceResult, 0, sizeof(serviceResult));
+    query.ServiceId = SALAMATRIX_SERVICE_RUNTIME;
+    query.MinimumVersion = SALAMATRIX_RUNTIME_VERSION_1_0;
+    if (!SalamanderGeneral->QueryService(&query, &serviceResult) ||
+        serviceResult.Interface == NULL)
+        return FALSE;
+    Salamatrix::Runtime::IRuntimeService* runtime =
+        static_cast<Salamatrix::Runtime::IRuntimeService*>(
+            serviceResult.Interface);
+    if (runtime->FindAdapter("JavaScript.Node", 0) != NULL)
+        return TRUE;
+    return JavaScriptRegistration.Register(runtime, &JavaScriptRuntime)
+               ? TRUE
+               : FALSE;
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)
@@ -1023,22 +1048,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         "JAVASCRIPT.RUNTIME",
         NULL,
         NULL);
-    CSalamanderServiceQuery query;
-    CSalamanderServiceResult serviceResult;
-    memset(&query, 0, sizeof(query));
-    memset(&serviceResult, 0, sizeof(serviceResult));
-    query.ServiceId = SALAMATRIX_SERVICE_RUNTIME;
-    query.MinimumVersion = SALAMATRIX_RUNTIME_VERSION_1_0;
-    if (!SalamanderGeneral->QueryService(&query, &serviceResult) ||
-        serviceResult.Interface == NULL)
-        return NULL;
-    Salamatrix::Runtime::IRuntimeService* runtime =
-        static_cast<Salamatrix::Runtime::IRuntimeService*>(
-            serviceResult.Interface);
-    if (runtime->FindAdapter("JavaScript.Node", 0) != NULL)
-        return NULL;
-    if (!JavaScriptRegistration.Register(runtime, &JavaScriptRuntime))
-        return NULL;
+    // Salamatrix may be loaded later by the Plugin Manager. Keep this plugin
+    // valid and retry registration from Event() instead of rejecting it.
+    TryRegisterJavaScriptRuntime();
     return &PluginInterface;
 }
 
@@ -1063,5 +1075,11 @@ BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
 
 void WINAPI CPluginInterface::LoadConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
 void WINAPI CPluginInterface::SaveConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
-void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*) {}
-void WINAPI CPluginInterface::Event(int, DWORD) {}
+void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*)
+{
+    TryRegisterJavaScriptRuntime();
+}
+void WINAPI CPluginInterface::Event(int, DWORD)
+{
+    TryRegisterJavaScriptRuntime();
+}
