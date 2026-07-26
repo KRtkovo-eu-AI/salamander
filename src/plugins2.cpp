@@ -1382,7 +1382,11 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 if (!loadOnStart &&
                     (StrICmp(dllName, "automation.spl") == 0 ||
                      StrICmp(dllName, "salamatrixai.spl") == 0 ||
-                     StrICmp(dllName, "salamatrixailocalllama.spl") == 0))
+                     StrICmp(dllName, "salamatrixailocalllama.spl") == 0 ||
+                     StrICmp(dllName, "javascriptruntime.spl") == 0 ||
+                     StrICmp(dllName, "pythonruntime.spl") == 0 ||
+                     StrICmp(dllName, "phpruntime.spl") == 0 ||
+                     StrICmp(dllName, "powershellruntime.spl") == 0))
                 {
                     loadOnStart = TRUE;
                 }
