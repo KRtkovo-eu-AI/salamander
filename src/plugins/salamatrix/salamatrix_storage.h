@@ -65,6 +65,32 @@ namespace Salamatrix
                 const char* extensionId,
                 const char* key) = 0;
             virtual BOOL WINAPI ClearExtension(const char* extensionId) = 0;
+            // Enumeration order is unspecified and may change between calls.
+            // Keys are UTF-8; requiredKeySize includes the terminating NUL.
+            // Callers must tolerate the collection changing between calls.
+            virtual int WINAPI GetKeyCount(const char* extensionId) const
+            {
+                UNREFERENCED_PARAMETER(extensionId);
+                return -1;
+            }
+            virtual BOOL WINAPI GetKeyAt(
+                const char* extensionId,
+                int index,
+                char* keyBuffer,
+                int keyBufferSize,
+                int* requiredKeySize,
+                StorageValueType* type) const
+            {
+                UNREFERENCED_PARAMETER(extensionId);
+                UNREFERENCED_PARAMETER(index);
+                if (keyBuffer != NULL && keyBufferSize > 0)
+                    keyBuffer[0] = 0;
+                if (requiredKeySize != NULL)
+                    *requiredKeySize = 0;
+                if (type != NULL)
+                    *type = StorageValueMissing;
+                return FALSE;
+            }
 
         protected:
             virtual ~IStorageService() {}
@@ -559,7 +585,7 @@ namespace Salamatrix
 
             const char* GetApiSchema() const
             {
-                return "{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"],\"valueTypes\":[\"string\",\"integer\",\"boolean\"]}";
+                return "{\"methods\":[\"get\",\"set\",\"remove\",\"clear\",\"keys\"],\"valueTypes\":[\"string\",\"integer\",\"boolean\"]}";
             }
 
             virtual StorageValueType WINAPI GetValueType(
@@ -764,6 +790,67 @@ namespace Salamatrix
                 }
                 if (removed)
                     Modified = TRUE;
+                return TRUE;
+            }
+
+            virtual int WINAPI GetKeyCount(const char* extensionId) const
+            {
+                if (!IsValidExtensionId(extensionId))
+                    return -1;
+                ScopedLock lock(&Lock);
+                int count = 0;
+                for (int index = 0; index < EntryCount; ++index)
+                {
+                    if (_stricmp(Entries[index]->ExtensionId, extensionId) == 0)
+                        ++count;
+                }
+                return count;
+            }
+
+            virtual BOOL WINAPI GetKeyAt(
+                const char* extensionId,
+                int index,
+                char* keyBuffer,
+                int keyBufferSize,
+                int* requiredKeySize,
+                StorageValueType* type) const
+            {
+                if (keyBuffer != NULL && keyBufferSize > 0)
+                    keyBuffer[0] = 0;
+                if (requiredKeySize != NULL)
+                    *requiredKeySize = 0;
+                if (type != NULL)
+                    *type = StorageValueMissing;
+                if (!IsValidExtensionId(extensionId) || index < 0)
+                    return FALSE;
+
+                ScopedLock lock(&Lock);
+                int match = 0;
+                Entry* found = NULL;
+                for (int entryIndex = 0;
+                     entryIndex < EntryCount;
+                     ++entryIndex)
+                {
+                    if (_stricmp(
+                            Entries[entryIndex]->ExtensionId,
+                            extensionId) != 0)
+                        continue;
+                    if (match++ == index)
+                    {
+                        found = Entries[entryIndex];
+                        break;
+                    }
+                }
+                if (found == NULL || !IsValidKey(found->Key))
+                    return FALSE;
+                int required = static_cast<int>(strlen(found->Key)) + 1;
+                if (requiredKeySize != NULL)
+                    *requiredKeySize = required;
+                if (type != NULL)
+                    *type = found->Type;
+                if (keyBuffer == NULL || keyBufferSize < required)
+                    return FALSE;
+                strcpy_s(keyBuffer, keyBufferSize, found->Key);
                 return TRUE;
             }
 

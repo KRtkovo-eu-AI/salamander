@@ -236,6 +236,51 @@ namespace
             "clear extension namespace");
     }
 
+    void TestKeyEnumeration()
+    {
+        Salamatrix::Storage::StorageService storage;
+        Check(storage.SetString("Enumerate.Id", "zeta", "text") != FALSE,
+              "enumeration string");
+        Check(storage.SetInteger("Enumerate.Id", "number", 7) != FALSE,
+              "enumeration integer");
+        Check(storage.SetBoolean("Enumerate.Id", "flag", TRUE) != FALSE,
+              "enumeration boolean");
+        Check(storage.GetKeyCount("Enumerate.Id") == 3,
+              "enumeration count");
+        char key[32];
+        int required = 0;
+        Salamatrix::Storage::StorageValueType type =
+            Salamatrix::Storage::StorageValueMissing;
+        Check(storage.GetKeyAt("Enumerate.Id", 0, key, sizeof(key),
+                               &required, &type) != FALSE &&
+                  required == static_cast<int>(strlen(key)) + 1 &&
+                  type == Salamatrix::Storage::StorageValueString &&
+                  strcmp(key, "zeta") == 0,
+              "enumeration key and type");
+        Check(storage.GetKeyAt("Enumerate.Id", 1, key, sizeof(key),
+                               &required, &type) != FALSE &&
+                  type == Salamatrix::Storage::StorageValueInteger &&
+                  strcmp(key, "number") == 0,
+              "enumeration integer type");
+        Check(storage.GetKeyAt("Enumerate.Id", 2, key, sizeof(key),
+                               &required, &type) != FALSE &&
+                  type == Salamatrix::Storage::StorageValueBoolean &&
+                  strcmp(key, "flag") == 0,
+              "enumeration boolean type");
+        Check(storage.GetKeyAt("Enumerate.Id", 0, key, 1, &required, &type) == FALSE &&
+                  required > 1 && key[0] == 0,
+              "enumeration required-size failure");
+        Check(storage.GetKeyAt("Enumerate.Id", 99, key, sizeof(key),
+                               &required, &type) == FALSE,
+              "enumeration invalid index");
+        Check(storage.DeleteValue("Enumerate.Id", "flag") != FALSE &&
+                  storage.GetKeyCount("Enumerate.Id") == 2,
+              "enumeration after delete");
+        Check(storage.ClearExtension("Enumerate.Id") != FALSE &&
+                  storage.GetKeyCount("Enumerate.Id") == 0,
+              "enumeration after clear");
+    }
+
     void TestConfigurationRoundTrip()
     {
         const HKEY root = reinterpret_cast<HKEY>(1);
@@ -293,6 +338,7 @@ int main()
 {
     TestTypesAndIsolation();
     TestValidationAndMutation();
+    TestKeyEnumeration();
     TestConfigurationRoundTrip();
 
     if (Failures != 0)

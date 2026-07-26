@@ -25,6 +25,8 @@
 #include "abortmodal.h"
 #include "lang\lang.rh"
 
+#include <algorithm>
+
 extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
@@ -3561,12 +3563,79 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         method == "salamander.storage.set" ||
         method == "salamander.storage.remove" ||
         method == "salamander.storage.clear" ||
-        method == "salamander.storage.schema")
+        method == "salamander.storage.schema" ||
+        method == "salamander.storage.keys")
     {
         Salamatrix::Storage::IStorageService* storage =
             bridge->GetStorageService();
         if (storage == NULL || script->m_szSalamatrixExtensionId[0] == '\0')
             return FALSE;
+        if (method == "salamander.storage.keys")
+        {
+            int count = storage->GetKeyCount(
+                script->m_szSalamatrixExtensionId);
+            if (count < 0 || count > 1024)
+                return CopyRuntimeHostResult(
+                    "{\"ok\":false,\"error\":\"storage enumeration failed\"}",
+                    resultJson, resultCapacity, resultLength);
+            struct KeyRecord
+            {
+                std::string Key;
+                Salamatrix::Storage::StorageValueType Type;
+            };
+            std::vector<KeyRecord> records;
+            records.reserve(static_cast<size_t>(count));
+            for (int index = 0; index < count; ++index)
+            {
+                char key[256];
+                int required = 0;
+                Salamatrix::Storage::StorageValueType type =
+                    Salamatrix::Storage::StorageValueMissing;
+                if (!storage->GetKeyAt(
+                        script->m_szSalamatrixExtensionId,
+                        index, key, _countof(key), &required, &type) ||
+                    required <= 0 || required > static_cast<int>(_countof(key)) ||
+                    type < Salamatrix::Storage::StorageValueString ||
+                    type > Salamatrix::Storage::StorageValueBoolean ||
+                    key[required - 1] != '\0')
+                    return CopyRuntimeHostResult(
+                        "{\"ok\":false,\"error\":\"storage enumeration changed\"}",
+                        resultJson, resultCapacity, resultLength);
+                KeyRecord record;
+                record.Key.assign(key);
+                record.Type = type;
+                records.push_back(record);
+            }
+            std::sort(
+                records.begin(), records.end(),
+                [](const KeyRecord& left, const KeyRecord& right) {
+                    int comparison = _stricmp(
+                        left.Key.c_str(), right.Key.c_str());
+                    return comparison != 0
+                        ? comparison < 0
+                        : left.Key < right.Key;
+                });
+            std::string response = "{\"ok\":true,\"keys\":[";
+            for (size_t index = 0; index < records.size(); ++index)
+            {
+                if (index != 0)
+                    response += ",";
+                response += "{\"key\":\"" +
+                    JsonEscapeRuntimeText(records[index].Key.c_str()) +
+                    "\",\"type\":\"";
+                response += records[index].Type ==
+                    Salamatrix::Storage::StorageValueInteger
+                    ? "integer"
+                    : records[index].Type ==
+                        Salamatrix::Storage::StorageValueBoolean
+                        ? "boolean"
+                        : "string";
+                response += "\"}";
+            }
+            response += "]}";
+            return CopyRuntimeHostResult(
+                response, resultJson, resultCapacity, resultLength);
+        }
         if (method == "salamander.storage.schema")
         {
             std::string response = "{\"ok\":true,\"settings\":[";
