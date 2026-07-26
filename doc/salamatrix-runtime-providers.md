@@ -132,6 +132,14 @@ The file-picker option slice was additionally rebuilt into
 verified `filter` and `save=true` for Python, PowerShell, and PHP without
 starting or controlling Salamander.
 
+The Plugin Manager/AI integration slice was verified separately in
+`build\verification\regressions`: the core Debug x64 build and standalone
+`SalamatrixAI.SPL` Debug x64 build both passed, and the source-contract test
+verified the four runtime labels, the localized AI chat command, and the
+framework-first unload guard. The AI helper does not add a runtime dependency
+or installer; it continues to consume the shared Salamatrix services. No
+Salamander process was started or controlled.
+
 `RuntimeSessionDiagnostic` is a bounded value snapshot. It reports lifecycle
 state, process id, exit code, and a host/provider error code without exposing a
 process handle or provider-owned string. Current process providers additionally

@@ -23,6 +23,28 @@ Salamatrix::AI::IAssistantService* g_ai = NULL;
 Salamatrix::UI::IUIService* g_ui = NULL;
 Salamatrix::Runtime::IRuntimeService* g_runtime = NULL;
 Salamatrix::Automation::IScriptRunner* g_runner = NULL;
+bool g_released = false;
+
+static bool IsCurrentService(const char* serviceId, DWORD minimumVersion, const void* expected)
+{
+    if (g_released || SalamanderGeneral == NULL || serviceId == NULL || expected == NULL)
+        return false;
+
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = serviceId;
+    query.MinimumVersion = minimumVersion;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    return SalamanderGeneral->QueryService(&query, &result) && result.Interface == expected;
+}
+
+static const char* GetAssistantMenuCaption()
+{
+    if (SalamanderGeneral == NULL || DLLInstance == NULL)
+        return "";
+    return SalamanderGeneral->LoadStr(DLLInstance, IDS_AI_ASSISTANT_MENU);
+}
 
 static std::string EscapeJson(const char* value)
 {
@@ -257,6 +279,7 @@ static void* Query(const char* id, DWORD version)
 
 static void EnsureServices()
 {
+    if (g_released) return;
     if (g_ai == NULL)
         g_ai = static_cast<Salamatrix::AI::IAssistantService*>(Query(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0));
     if (g_ui == NULL)
@@ -970,7 +993,8 @@ BOOL WINAPI CAIPluginMenuExt::HelpForMenuItem(HWND parent, int id)
 void WINAPI CAIPluginMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander)
 {
     UNREFERENCED_PARAMETER(parent);
-    if (salamander != NULL) salamander->AddMenuItem(-1, "AI Assistant...", 0, CmdOpenAssistant, TRUE, 0, 0, MENU_LEVEL_BEGINNER);
+    if (!g_released && salamander != NULL)
+        salamander->AddMenuItem(-1, GetAssistantMenuCaption(), 0, CmdOpenAssistant, TRUE, 0, 0, MENU_LEVEL_BEGINNER);
 }
 
 void WINAPI CPluginInterface::About(HWND parent)
@@ -978,11 +1002,16 @@ void WINAPI CPluginInterface::About(HWND parent)
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
     UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(force);
-    if (g_ai != NULL)
+    if (!g_released && IsCurrentService(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, g_ai))
     {
         g_ai->UnregisterProvider(&g_httpProvider);
         g_ai->UnregisterProvider(&g_provider);
     }
+    g_released = true;
+    g_ai = NULL;
+    g_ui = NULL;
+    g_runtime = NULL;
+    g_runner = NULL;
     return TRUE;
 }
 void WINAPI CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry)

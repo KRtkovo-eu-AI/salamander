@@ -12,6 +12,8 @@
 extern HINSTANCE DLLInstance;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 
+#define IDS_AI_ASSISTANT_MENU 1000
+
 class CLocalAssistantProvider : public Salamatrix::AI::IAssistantProvider
 {
 private:

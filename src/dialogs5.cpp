@@ -31,6 +31,23 @@ static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // after reopening Plugin
 
 namespace
 {
+BOOL HasStablePluginKey(const char* value, const char* stableKey)
+{
+    if (value == NULL || stableKey == NULL)
+        return FALSE;
+
+    int stableKeyLength = (int)strlen(stableKey);
+    if ((int)strlen(value) < stableKeyLength)
+        return FALSE;
+    return StrNICmp(value, stableKey, stableKeyLength) == 0 &&
+           (value[stableKeyLength] == 0 || value[stableKeyLength] == '-' || value[stableKeyLength] == '_');
+}
+
+BOOL IsPluginName(const char* value, const char* name)
+{
+    return value != NULL && name != NULL && StrICmp(value, name) == 0;
+}
+
 bool ShouldUsePluginsDarkPalette()
 {
     return DarkModeShouldUseDarkColors();
@@ -821,17 +838,23 @@ void CPluginsDlg::OnSelChanged()
         // Functions
         // Salamatrix may already be installed in user configurations saved before
         // Preserve older configurations; identify Salamatrix by its stable registry key too.
-        BOOL supportAutomationFramework = p->SupportAutomationFramework ||
-                                        (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
-        BOOL isSalamatrixProvider = p->RegKeyName != NULL &&
-                                    StrICmp(p->RegKeyName, "SALAMATRIX") == 0;
-        BOOL isExtensionRuntime = p->RegKeyName != NULL &&
-                                  (StrICmp(p->RegKeyName, "JAVASCRIPT.RUNTIME") == 0 ||
-                                   StrICmp(p->RegKeyName, "PHP.RUNTIME") == 0 ||
-                                   StrICmp(p->RegKeyName, "POWERSHELL.RUNTIME") == 0 ||
-                                   StrICmp(p->RegKeyName, "PYTHON.RUNTIME") == 0);
-        BOOL isExtensionHelper = p->RegKeyName != NULL &&
-                                 StrICmp(p->RegKeyName, "SALAMATRIX.AI") == 0;
+        BOOL isSalamatrixProvider =
+            HasStablePluginKey(p->RegKeyName, "SALAMATRIX") ||
+            IsPluginName(p->Name, "Salamatrix Framework");
+        BOOL isExtensionRuntime =
+            HasStablePluginKey(p->RegKeyName, "JAVASCRIPT.RUNTIME") ||
+            HasStablePluginKey(p->RegKeyName, "PHP.RUNTIME") ||
+            HasStablePluginKey(p->RegKeyName, "POWERSHELL.RUNTIME") ||
+            HasStablePluginKey(p->RegKeyName, "PYTHON.RUNTIME") ||
+            IsPluginName(p->Name, "JavaScript Runtime") ||
+            IsPluginName(p->Name, "PHP Runtime") ||
+            IsPluginName(p->Name, "PowerShell Runtime") ||
+            IsPluginName(p->Name, "Python Runtime");
+        BOOL isExtensionHelper =
+            HasStablePluginKey(p->RegKeyName, "SALAMATRIX.AI") ||
+            IsPluginName(p->Name, "Salamatrix AI");
+        BOOL supportAutomationFramework = p->SupportAutomationFramework || isSalamatrixProvider ||
+                                          isExtensionRuntime || isExtensionHelper;
         buf[0] = 0;
         if (p->SupportPanelView)
             strcat(buf, LoadStr(IDS_PLUGINFUNCVIEW));
@@ -864,7 +887,7 @@ void CPluginsDlg::OnSelChanged()
                 strcat(buf, ",\n");
             strcat(buf, LoadStr(IDS_PLUGINFUNCFILEVIEWER));
         }
-        if ((p->MenuItems.Count > 0 || p->SupportDynMenuExt) && !isExtensionHelper)
+        if (p->MenuItems.Count > 0 || p->SupportDynMenuExt)
         {
             if (p->SupportViewer)
                 strcat(buf, ", "); // viewer text is shorter - same line

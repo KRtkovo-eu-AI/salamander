@@ -1,1 +1,8 @@
 IDI_PLUGINICON ICON "..\\..\\res\\sal_r.ico"
+
+#define IDS_AI_ASSISTANT_MENU 1000
+
+STRINGTABLE
+BEGIN
+    IDS_AI_ASSISTANT_MENU "AI Assistant..."
+END
