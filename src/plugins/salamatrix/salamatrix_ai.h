@@ -231,6 +231,17 @@ protected:
     virtual ~IAssistantService() {}
 };
 
+// Optional semantic response fields are read from JSON rather than appended
+// to AssistantResponse, preserving its ABI layout.
+inline BOOL WINAPI AssistantCanImplement(const AssistantResponse& response)
+{
+    std::string raw;
+    if (!Runtime::Protocol::Json::FindRawMember(
+            response.ResponseJson, "canImplement", &raw))
+        return TRUE;
+    return raw != "false" ? TRUE : FALSE;
+}
+
 // Keep prompts for small local models bounded by selecting the contract slices
 // that match the user's request. This is a client-side helper and does not
 // change the provider/service ABI.
@@ -475,6 +486,41 @@ private:
         }
     }
 
+    static BOOL ValidateStringArray(
+        const std::string& raw,
+        AssistantValidationResult* validation)
+    {
+        size_t position = 0;
+        Runtime::Protocol::Json::SkipWhitespace(raw, &position);
+        if (position >= raw.size() || raw[position++] != '[')
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueCapability,
+                                        "missingCapabilities must be a JSON array");
+        Runtime::Protocol::Json::SkipWhitespace(raw, &position);
+        if (position < raw.size() && raw[position] == ']')
+            return TRUE;
+        for (;;)
+        {
+            Runtime::Protocol::Json::SkipWhitespace(raw, &position);
+            std::string value;
+            if (!Runtime::Protocol::Json::ReadString(raw, &position, &value))
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueCapability,
+                                            "missingCapabilities must contain strings");
+            Runtime::Protocol::Json::SkipWhitespace(raw, &position);
+            if (position >= raw.size())
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueCapability,
+                                            "missingCapabilities array is unterminated");
+            if (raw[position] == ']')
+                return TRUE;
+            if (raw[position++] != ',')
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueCapability,
+                                            "missingCapabilities must contain strings");
+        }
+    }
+
     static BOOL ValidateOutput(
         const AssistantRequest* request,
         AssistantResponse* response,
@@ -486,6 +532,19 @@ private:
             return SetValidationFailure(validation,
                                         AssistantValidationIssueShape,
                                         "assistant output does not match the Salamatrix response contract");
+
+        std::string canImplement;
+        if (Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "canImplement", &canImplement) &&
+            canImplement != "true" && canImplement != "false")
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueShape,
+                                        "canImplement must be a boolean");
+        std::string missingCapabilities;
+        if (Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "missingCapabilities", &missingCapabilities) &&
+            !ValidateStringArray(missingCapabilities, validation))
+            return FALSE;
 
         std::string capabilities;
         std::string effects;
@@ -685,8 +744,10 @@ public:
                 previousScript.assign(candidate.Summary.Script);
             repairFeedback =
                 "The previous response failed static Salamatrix validation. "
-                "Return corrected JSON and declare every external or network "
-                "operation in estimatedEffects.";
+                "Return corrected JSON, declare every external or network "
+                "operation in estimatedEffects, or set canImplement to false "
+                "and list missingCapabilities when the installed API cannot "
+                "perform the requested task.";
         }
         return FALSE;
     }
@@ -830,7 +891,7 @@ public:
             "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],"
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","
             "\"runtime\",\"existingScript\",\"feedback\"]}},"
-            "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"],\"optional\":[\"runtime\"]}}";
+            "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"],\"optional\":[\"runtime\",\"canImplement\",\"missingCapabilities\"]}}";
     }
 
 private:
@@ -953,7 +1014,7 @@ public:
         if (strcmp(topic, "runtimes") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"runtimes\",\"objects\":{\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]}}}";
         if (strcmp(topic, "ai") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"ai\",\"objects\":{\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],\"requestFields\":[\"prompt\",\"context\",\"provider\",\"runtime\",\"existingScript\",\"feedback\",\"topic\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"ai\",\"objects\":{\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],\"requestFields\":[\"prompt\",\"context\",\"provider\",\"runtime\",\"existingScript\",\"feedback\",\"topic\"],\"responseOptionalFields\":[\"runtime\",\"canImplement\",\"missingCapabilities\"]}}}";
         return "{\"version\":\"1.0\",\"topic\":\"unknown\",\"objects\":{}}";
     }
 };

@@ -108,6 +108,10 @@ def main() -> int:
             "bundled local AI provider declaration is missing")
     require(ai_contract, r"BuildRelevantApiDescription",
             "AI prompt API slicing helper is missing")
+    require(ai_contract, r"AssistantCanImplement",
+            "AI unsupported-capability response helper is missing")
+    require(ai_contract, r"missingCapabilities",
+            "AI contract does not describe missing capabilities")
     require(bundled, r'm_descriptor\.ProviderId\s*=\s*"local\.bundled"',
             "bundled local AI provider id is missing")
     require(bundled, r'SALAMATRIX_AI_BUNDLED_COMMAND.*?llama-cli\.exe',
@@ -125,6 +129,8 @@ def main() -> int:
             "bundled provider is not unregistered during release")
     require(ai, r'Ask is deliberately preview-only',
             "AI Ask action still performs implicit Run/Save/Export actions")
+    require(ai, r'No executable automation was generated',
+            "AI preview does not explain unsupported requests")
     require(ai, r'LastRuntimeId.*?RunAssistantScript\(runtimeId',
             "AI dialog does not retain the generated response runtime for explicit Run")
     for symbol in (

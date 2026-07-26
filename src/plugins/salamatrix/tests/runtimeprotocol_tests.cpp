@@ -376,8 +376,33 @@ void TestAssistantService()
               (validation.IssueFlags &
                    Salamatrix::AI::AssistantValidationIssueCapability) != 0,
           "assistant rejects unknown capabilities");
+    Salamatrix::AI::AssistantResponse unsupported;
+    const char unsupportedJson[] =
+        "{\"title\":\"Unsupported\",\"description\":\"The installed API cannot do this.\","
+        "\"capabilities\":[],\"estimatedEffects\":{},\"script\":\"\","
+        "\"canImplement\":false,\"missingCapabilities\":[\"panel columns\",\"thumbnails\"]}";
+    memcpy(unsupported.ResponseJson, unsupportedJson, sizeof(unsupportedJson));
+    unsupported.OutputLength = sizeof(unsupportedJson) - 1;
+    Check(service.Validate(&request, &unsupported, &validation) != FALSE &&
+              validation.Valid != FALSE &&
+              Salamatrix::AI::AssistantCanImplement(unsupported) == FALSE,
+          "assistant accepts an explicit unsupported-capability response");
+    Salamatrix::AI::AssistantResponse malformedMissing;
+    const char malformedMissingJson[] =
+        "{\"title\":\"Invalid\",\"description\":\"test\","
+        "\"capabilities\":[],\"estimatedEffects\":{},\"script\":\"pass\","
+        "\"missingCapabilities\":\"panel columns\"}";
+    memcpy(malformedMissing.ResponseJson, malformedMissingJson,
+           sizeof(malformedMissingJson));
+    malformedMissing.OutputLength = sizeof(malformedMissingJson) - 1;
+    Check(service.Validate(&request, &malformedMissing, &validation) == FALSE &&
+              (validation.IssueFlags &
+                   Salamatrix::AI::AssistantValidationIssueCapability) != 0,
+          "assistant rejects malformed missing capabilities");
     Check(strstr(service.GetApiDescription(), "Salamander.ai") != NULL,
           "assistant API description advertises AI object");
+    Check(strstr(service.GetApiDescription(), "missingCapabilities") != NULL,
+          "assistant API description advertises unsupported-capability output");
     Check(strstr(service.GetApiDescription(), "command_id") != NULL,
           "assistant API description advertises invocation command context");
     Check(strstr(service.GetApiDescription(), "contractVersions") != NULL &&

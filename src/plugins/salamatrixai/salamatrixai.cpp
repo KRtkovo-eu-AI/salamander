@@ -891,6 +891,8 @@ static bool RunResponseScript(ChatContext* chat)
 {
     if (chat == NULL || !chat->HasResponse || chat->LastResponse.Summary.Script[0] == '\0')
         return false;
+    if (!Salamatrix::AI::AssistantCanImplement(chat->LastResponse))
+        return false;
     if (!Salamatrix::AI::IsSafeToRun(chat->LastResponse.Summary))
         return false;
     if (chat->LastSavedPath.empty() && !SaveResponseScript(chat))
@@ -1097,9 +1099,18 @@ static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* e
         std::string(response.Summary.Title) + "\n\n" +
         response.Summary.Description + "\n\n" +
         LoadAssistantString(IDS_AI_PREVIEW_SUMMARY) + "\n";
-    if (Salamatrix::AI::IsSafeToRun(response.Summary))
+    if (!Salamatrix::AI::AssistantCanImplement(response))
+    {
+        std::string missing;
+        if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                response.ResponseJson, "missingCapabilities", &missing))
+            summary += "\nMissing capabilities: " + missing + "\n";
+        summary += "\nNo executable automation was generated.\n";
+    }
+    if (Salamatrix::AI::AssistantCanImplement(response) &&
+        Salamatrix::AI::IsSafeToRun(response.Summary))
         summary += LoadAssistantString(IDS_AI_EFFECTS_READONLY);
-    else
+    else if (Salamatrix::AI::AssistantCanImplement(response))
         summary += LoadAssistantString(IDS_AI_EFFECTS_REVIEW);
     chat->History->AddItem((std::string("AI: ") + summary).c_str());
 
@@ -1485,7 +1496,9 @@ BOOL WINAPI CLocalHttpAssistantProvider::Generate(
     std::string system =
         "You are the local Open Salamander script assistant. Return only one "
         "JSON object with title, description, capabilities (array), "
-        "estimatedEffects (object), and script. The script must use the "
+        "estimatedEffects (object), and script. You may set canImplement "
+        "to false and return missingCapabilities when the API lacks a "
+        "required feature. The script must use the "
         "Salamander API described below; do not invent privileged APIs. "
         "API description: " + api;
     const bool chatCompletions = IsChatCompletionsProtocol(m_protocol);

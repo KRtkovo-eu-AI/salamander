@@ -151,7 +151,9 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
 
     std::string prompt =
         "Return only one JSON object with title, description, capabilities, "
-        "estimatedEffects, script, and runtime. Generate a Salamander script "
+        "estimatedEffects, and script. Include runtime when known. You may "
+        "set canImplement to false and list missingCapabilities when the "
+        "installed API cannot perform the task. Generate a Salamander script "
         "using only the installed Salamander API described here: " +
         InstalledApiDescription(request->Prompt) + "\nTask: ";
     prompt += (request->Prompt != NULL ? request->Prompt : "");

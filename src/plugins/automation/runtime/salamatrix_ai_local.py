@@ -39,7 +39,7 @@ def _prompt(request: dict) -> str:
     feedback = request.get("feedback") or ""
     context = request.get("context")
     parts = [
-        "Return only one JSON object with keys title, description, capabilities, estimatedEffects, script, and optional runtime.",
+        "Return one JSON object with title, description, capabilities, estimatedEffects, script, and optional runtime. If the installed API cannot perform the task, set canImplement to false and list missingCapabilities instead of inventing an API.",
         "Do not wrap the JSON in Markdown fences.",
         "Generate a Salamander extension script, not prose.",
         f"Requested runtime: {runtime or 'choose a registered runtime'}",
