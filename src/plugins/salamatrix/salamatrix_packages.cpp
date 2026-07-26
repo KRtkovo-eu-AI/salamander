@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "salamatrix_packages.h"
+#include "darkmode.h"
 
 #include <algorithm>
 #include <memory>
@@ -192,10 +193,19 @@ public:
                 {
                     iconIndex = imageIndex++;
                     const std::string& iconPath = package->CommandIconPaths[c];
+                    const bool usesPackageIcon = command.Icon.empty();
+                    const bool useDarkPackageIcon =
+                        DarkModeIsWindowsDarkSchemeSelected() &&
+                        usesPackageIcon && !package->IconDarkPath.empty();
+                    const char* preferredPath = useDarkPackageIcon
+                                                    ? package->IconDarkPath.c_str()
+                                                    : iconPath.c_str();
                     HICON icon = iconPath.empty()
                                      ? NULL
                                      : SalamanderGUI->CreateSVGIcon(
-                                           iconPath.c_str(), 16);
+                                           preferredPath, 16);
+                    if (icon == NULL && useDarkPackageIcon)
+                        icon = SalamanderGUI->CreateSVGIcon(iconPath.c_str(), 16);
                     if (icon != NULL)
                     {
                         icons->ReplaceIcon(iconIndex, icon);

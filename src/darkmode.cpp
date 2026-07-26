@@ -2057,7 +2057,7 @@ bool ShouldUseDarkColorsInternal()
     return gShouldAppsUseDarkMode() && !IsHighContrast();
 }
 
-static bool DarkModeIsWindowsDarkSchemeSelected()
+bool DarkModeIsWindowsDarkSchemeSelected()
 {
     return gWindowsDarkSchemeSelected;
 }
