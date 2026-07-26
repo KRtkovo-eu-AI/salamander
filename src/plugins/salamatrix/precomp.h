@@ -36,3 +36,4 @@
 #include "salamatrix.h"
 #include "salamatrix.rh"
 #include "salamatrix_runtime.h"
+#include "salamatrix_packages.h"

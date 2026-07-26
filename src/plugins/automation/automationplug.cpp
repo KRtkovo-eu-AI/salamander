@@ -681,7 +681,6 @@ BOOL WINAPI CAutomationPluginInterface::Release(HWND parent, BOOL force)
             SALAMATRIX_SERVICE_SCRIPT_RUNNER,
             &g_oGeneratedScriptRunner,
             &g_oGeneratedScriptRunner);
-    g_oScriptLookup.UnpublishSalamatrixExtensions();
     m_oSalamatrix.Reset();
     ReleaseWinLib(g_hInstance);
     UninitializeAbortableModalDialogWrapper();
@@ -768,13 +767,6 @@ void WINAPI CAutomationPluginInterface::LoadConfiguration(
 
     }
 
-    // Salamatrix extension packages live in the framework-owned root,
-    // outside Automation's legacy script directory. Keep this root available
-    // even when the user already has a saved legacy script-directory list;
-    // Automation only supplies the runtime bridge when a package is activated.
-    dir.Set(_T("$(SalDir)\\extensions"));
-    m_aDirectories.Add(dir);
-
     bool bLookupLoaded = false;
     if (hKey)
     {
@@ -791,8 +783,6 @@ void WINAPI CAutomationPluginInterface::LoadConfiguration(
     {
         g_oScriptLookup.Load(NULL, registry);
     }
-
-    g_oScriptLookup.PublishSalamatrixExtensions();
 
     if (hKey)
     {
@@ -917,11 +907,9 @@ void CAutomationPluginInterface::Event(int event, DWORD param)
     switch (event)
     {
     case PLUGINEVENT_CONFIGURATIONCHANGED:
-        // A runtime provider may be added after Automation. Re-publish and
-        // activate manifest extensions so providers installed later become
-        // usable without requiring a process restart.
+        // Runtime adapter registration is independent of manifest package
+        // discovery. Salamatrix owns package refresh and lifecycle.
         RefreshSalamatrixServices();
-        g_oScriptLookup.PublishSalamatrixExtensions();
         break;
     case PLUGINEVENT_SETTINGCHANGE:
     {

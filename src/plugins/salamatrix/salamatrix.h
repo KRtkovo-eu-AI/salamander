@@ -28,7 +28,7 @@ public:
 
     virtual CPluginInterfaceForArchiverAbstract* WINAPI GetInterfaceForArchiver() { return NULL; }
     virtual CPluginInterfaceForViewerAbstract* WINAPI GetInterfaceForViewer() { return NULL; }
-    virtual CPluginInterfaceForMenuExtAbstract* WINAPI GetInterfaceForMenuExt() { return NULL; }
+    virtual CPluginInterfaceForMenuExtAbstract* WINAPI GetInterfaceForMenuExt();
     virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS() { return NULL; }
     virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() { return NULL; }
 

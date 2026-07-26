@@ -5140,11 +5140,6 @@ bool CScriptLookup::Refresh(bool bForce)
         return true;
     }
 
-    // Keep the lifecycle registry in sync with the objects that are about to
-    // be replaced by the refresh. Ownership is the CScriptInfo address, so
-    // unregister before RemoveDirtyScripts deletes anything.
-    UnpublishSalamatrixExtensions();
-
     // assume all existing scripts dirty
     MarkAllScriptsDirty();
 
@@ -5155,8 +5150,6 @@ bool CScriptLookup::Refresh(bool bForce)
 
     // remove containers that remained empty
     RemoveEmptyContainers(m_pRootContainer);
-
-    PublishSalamatrixExtensions();
 
     return res;
 }

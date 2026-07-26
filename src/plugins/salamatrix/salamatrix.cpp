@@ -26,6 +26,7 @@ CSalamanderDebugAbstract* SalamanderDebug = NULL;
 int SalamanderVersion = 0;
 
 static Salamatrix::Runtime::RuntimeServices* SalamatrixRuntime = NULL;
+static Salamatrix::Packages::PackageManager* SalamatrixPackages = NULL;
 
 static void DestroyRuntimeServices()
 {
@@ -39,6 +40,20 @@ static BOOL CreateRuntimeServices()
     SalamatrixRuntime = new Salamatrix::Runtime::RuntimeServices(SalamanderGeneral, TRUE);
     if (SalamatrixRuntime == NULL || !SalamatrixRuntime->IsRegistered() || !SalamatrixRuntime->IsHostRegistered())
     {
+        DestroyRuntimeServices();
+        return FALSE;
+    }
+    SalamatrixPackages = new Salamatrix::Packages::PackageManager();
+    if (SalamatrixPackages == NULL ||
+        !SalamatrixPackages->Initialize(
+            SalamanderGeneral,
+            SalamatrixRuntime->Runtimes(),
+            SalamatrixRuntime->Extensions(),
+            SalamatrixRuntime->Storage(),
+            SalamatrixRuntime->UI()))
+    {
+        delete SalamatrixPackages;
+        SalamatrixPackages = NULL;
         DestroyRuntimeServices();
         return FALSE;
     }
@@ -92,7 +107,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     SalamanderGUI = salamander->GetSalamanderGUI();
     Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
-    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK, VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
+    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_DYNAMICMENUEXT, VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    VERSINFO_DESCRIPTION,
                                    PluginNameShort, NULL, NULL);
     salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
@@ -166,6 +181,11 @@ void WINAPI CPluginInterface::LoadConfiguration(
     UNREFERENCED_PARAMETER(parent);
     if (SalamatrixRuntime != NULL)
         SalamatrixRuntime->Storage()->LoadConfiguration(regKey, registry);
+    if (SalamatrixPackages != NULL)
+    {
+        SalamatrixPackages->LoadConfiguration(regKey, registry);
+        SalamatrixPackages->Refresh();
+    }
 }
 
 void WINAPI CPluginInterface::SaveConfiguration(
@@ -176,12 +196,16 @@ void WINAPI CPluginInterface::SaveConfiguration(
     UNREFERENCED_PARAMETER(parent);
     if (SalamatrixRuntime != NULL)
         SalamatrixRuntime->Storage()->SaveConfiguration(regKey, registry);
+    if (SalamatrixPackages != NULL)
+        SalamatrixPackages->SaveConfiguration(regKey, registry);
 }
 
 void WINAPI CPluginInterface::Event(int event, DWORD param)
 {
     if (SalamatrixRuntime != NULL)
         SalamatrixRuntime->Events()->PublishHostEvent(event, param);
+    if (event == PLUGINEVENT_CONFIGURATIONCHANGED && SalamatrixPackages != NULL)
+        SalamatrixPackages->Refresh();
 }
 
 void WINAPI CPluginInterface::AcceptChangeOnPathNotification(
@@ -198,8 +222,15 @@ BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
     if (SalamatrixRuntime != NULL)
         SalamatrixRuntime->Events()->PublishLifecycle(
             Salamatrix::Events::EventKindHostShutdown);
+    delete SalamatrixPackages;
+    SalamatrixPackages = NULL;
     DestroyRuntimeServices();
     SalamanderGeneral = NULL;
     SalamanderGUI = NULL;
     return TRUE;
+}
+
+CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenuExt()
+{
+    return SalamatrixPackages != NULL ? SalamatrixPackages->GetMenuExtension() : NULL;
 }

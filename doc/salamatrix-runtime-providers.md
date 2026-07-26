@@ -49,13 +49,15 @@ other runtime providers resolve the same descriptor through `IRuntimeService`.
 ## Package split
 
 Extension packages are framework-owned directories, not Automation scripts.
-The default installed package root is `$(SalDir)\extensions`; each package
-contains `extension.json`, one runtime entry point, and optional package-owned
-SVG assets. The native Plugin Manager consumes the shared
+The default installed package root is `$(SalDir)\extensions`; additional roots
+are configured by Salamatrix under `ExtensionRoots`. Each package contains
+`extension.json`, one runtime entry point, and optional package-owned SVG
+assets. Salamatrix owns recursive discovery, validation, publication and
+worker lifecycle. The native Plugin Manager consumes the shared
 `Salamatrix.Extensions` catalog: it shows the package row and icon, activates
 or deactivates the worker, and exposes declared commands in the Plugin menu,
-panel context menu, and toolbar. Automation remains only the host-side bridge
-that starts the selected runtime adapter and dispatches calls.
+panel context menu, and toolbar. Automation is not required for package
+discovery or activation.
 
 Four complete package fixtures live in `src/extensions/demos`: Node.js,
 CPython, PowerShell, and PHP CLI. Their `run` commands demonstrate the common
@@ -175,8 +177,8 @@ framework-first unload guard. The AI helper does not add a runtime dependency
 or installer; it continues to consume the shared Salamatrix services. No
 Salamander process was started or controlled.
 
-Manifest settings migrations are intentionally host-side: the Automation
-discovery layer applies the bounded typed rename/remove chain before publishing
+Manifest settings migrations are intentionally host-side: the Salamatrix
+package manager applies the bounded typed rename/remove chain before publishing
 the shared `storage.schema()` view. All four provider workers therefore keep
 the same storage wire contract and receive already-migrated values without a
 runtime-specific migration implementation. The same workers expose
@@ -257,11 +259,11 @@ flow. The package writer emits the manifest and runtime entry script for the
 existing Plugin Manager discovery path.
 
 The Automation plugin remains an independent legacy JavaScript/VBScript host
-and shared Salamatrix runtime client. It no longer contains the assistant
-command or its interactive workflow, but continues to provide the shared
-`Salamatrix.AI` and `Salamatrix.ScriptRunner` services used by compatible
-clients. `IScriptRunner::RefreshExtensions` is append-only and lets the AI
-helper request manifest discovery without coupling to Automation internals.
+and shared Salamatrix runtime client. It no longer contains package discovery,
+package lifecycle, or the assistant command workflow. It continues to provide
+the shared `Salamatrix.AI` and `Salamatrix.ScriptRunner` services used by
+compatible clients. `IScriptRunner::RefreshExtensions` remains an append-only
+compatibility seam for helper clients.
 
 The ownership restoration was verified by the source-contract test and
 isolated Debug x64 builds in `build\verification\ai-restored-logic-final` and

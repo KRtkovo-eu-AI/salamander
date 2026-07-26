@@ -161,6 +161,7 @@
     <ClCompile Include="..\salamatrix_manifest.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\salamatrix_packages.cpp" />
     <ClCompile Include="..\salamatrix_ui.cpp" />
     <ClCompile Include="..\precomp.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -182,6 +183,7 @@
     <ClInclude Include="..\..\shared\spl_vers.h" />
     <ClInclude Include="..\salamatrix.h" />
     <ClInclude Include="..\salamatrix_manifest.h" />
+    <ClInclude Include="..\salamatrix_packages.h" />
     <ClInclude Include="..\salamatrix.rh" />
     <ClInclude Include="..\versinfo.rh2" />
     <ClInclude Include="..\salamatrix_automation.h" />

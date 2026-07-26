@@ -1,0 +1,87 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma once
+
+#include <string>
+#include <vector>
+
+#include "salamatrix_manifest.h"
+#include "salamatrix_runtime_api.h"
+#include "salamatrix_extensions.h"
+#include "salamatrix_storage.h"
+#include "salamatrix_ui.h"
+
+namespace Salamatrix
+{
+namespace Packages
+{
+
+class PackageManager
+{
+private:
+    struct Package;
+    class MenuExtension;
+
+    CSalamanderGeneralAbstract* General;
+    Runtime::IRuntimeService* Runtimes;
+    Extensions::IExtensionsService* Extensions;
+    Storage::IStorageService* Storage;
+    UI::IUIService* UI;
+    std::vector<std::wstring> Roots;
+    std::vector<Package*> Packages;
+    MenuExtension* Menu;
+
+    PackageManager(const PackageManager&);
+    PackageManager& operator=(const PackageManager&);
+
+public:
+    PackageManager();
+    ~PackageManager();
+
+    BOOL Initialize(
+        CSalamanderGeneralAbstract* general,
+        Runtime::IRuntimeService* runtimes,
+        Extensions::IExtensionsService* extensions,
+        Storage::IStorageService* storage,
+        UI::IUIService* ui);
+    void Shutdown();
+    void LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* registry);
+    void SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* registry);
+    void Refresh();
+
+    CPluginInterfaceForMenuExtAbstract* GetMenuExtension();
+
+private:
+    static BOOL WINAPI LifecycleCallback(
+        void* context,
+        Extensions::ExtensionAction action,
+        const Extensions::ExtensionInfo* info);
+    static DWORD WINAPI PumpThreadProc(void* context);
+    static BOOL WINAPI HostDispatch(
+        void* context,
+        Runtime::Protocol::MessageType type,
+        ULONGLONG requestId,
+        const char* payloadJson,
+        char* resultJson,
+        DWORD resultCapacity,
+        DWORD* resultLength);
+
+    void DiscoverRoot(const std::wstring& root);
+    void DiscoverDirectory(const std::wstring& directory);
+    void RemovePackages();
+    BOOL Activate(Package* package);
+    BOOL Deactivate(Package* package);
+    BOOL ExecuteCommand(Package* package, const char* commandId, const char* handler);
+    void RegisterToolbarButtons();
+    void UnregisterToolbarButtons();
+
+    static std::wstring ExpandRoot(const std::wstring& root);
+    static BOOL ReadUtf8File(const std::wstring& path, std::string* text);
+    static BOOL ToUtf8(const std::wstring& value, std::string* result);
+    static BOOL ToWide(const std::string& value, std::wstring* result);
+    static BOOL CopyResult(const std::string& value, char* result, DWORD capacity, DWORD* length);
+};
+
+} // namespace Packages
+} // namespace Salamatrix

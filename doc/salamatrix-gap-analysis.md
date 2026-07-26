@@ -40,8 +40,9 @@ The repository already contains a real Salamatrix foundation, not only a design:
 - `Salamatrix.Storage` and `Salamander.Storage` provide typed, synchronized,
   persistent namespaces isolated by manifest extension id.
 - `Salamatrix.Extensions` now provides an owner-aware lifecycle registry, and
-  Automation publishes/removes manifest descriptors during script-list load and
-  refresh.
+  the Salamatrix package manager owns extension roots, recursive manifest
+  discovery, publication and worker lifecycle. Automation no longer publishes
+  manifest packages.
 - The Plugin Manager has an enabled Extension Runtimes catalog source and
   Salamatrix has a distinct Automation Framework capability flag.
 - Manifest extensions carry their package SVG identity icon (plus an optional
