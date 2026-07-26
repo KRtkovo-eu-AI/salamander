@@ -280,3 +280,12 @@ Salamatrix Framework and SalamatrixAI plugins. The four standalone runtime
 providers do not define a custom plugin icon resource and therefore keep the
 standard Plugin Manager fallback icon. SalamatrixAI registers resource ID
 1030 through its normal GUI icon-list callbacks during `Connect`.
+
+The standalone SalamatrixAI provider initializes its borrowed
+`CSalamanderGUIAbstract` pointer during `SalamanderPluginEntry`, before
+`Connect()` is reached. Its dynamic `Ask Salamatrix AI...` command is added
+with `MENU_SKILLLEVEL_ALL` and remains enabled while the shared Framework
+services are resolved lazily. Selecting the menu item or its Plugin Manager
+keyboard shortcut therefore reaches the same `ExecuteMenuItem()` path;
+`ShowChat()` still reports the existing Framework-not-loaded warning when the
+optional services are unavailable.

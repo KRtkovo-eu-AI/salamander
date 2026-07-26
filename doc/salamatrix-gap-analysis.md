@@ -1012,3 +1012,21 @@ The forty-fourth code slice is implemented and verified:
   four runtimes into isolated `build\verification\icon-scope-*` outputs.
   The test and all five builds passed; no Salamander process was started or
   controlled.
+
+The forty-fifth code slice is implemented and verified:
+
+- initialize `SalamanderGUI` from `CSalamanderPluginEntryAbstract` in
+  `SalamatrixAI.SPL` before the normal Plugin Manager connect lifecycle; the
+  existing `Connect()` icon-list registration can therefore publish
+  `src/res/sal_r.ico` instead of silently taking the null-GUI path;
+- make the standalone AI dynamic menu command use the public
+  `MENU_SKILLLEVEL_ALL` contract and report `CmdOpenAssistant` as enabled even
+  while the optional Salamatrix Framework services are still being resolved;
+  execution retains lazy service lookup and the existing user-facing fallback
+  when the Framework is unavailable, so Plugin Manager keyboard shortcuts
+  dispatch the same command as the menu item;
+- extend the source-contract regression test for entry GUI initialization,
+  all-skill-level menu insertion, and enabled command state; rebuild the
+  `SalamatrixAI.SPL` Debug x64 artifact in isolated
+  `build\verification\ai-menu-icon-fix` output. The regression test and
+  build passed; no Salamander process was started or controlled.

@@ -87,12 +87,16 @@ def main() -> int:
             "AI SetBasicPluginData does not use versinfo macros")
     require(ai, r'SetPluginHomePageURL\("https://samandarin\.krtkovo\.eu/"\)', "AI homepage URL is not set")
     require(ai, r"SalamanderGeneral->LoadStr\(DLLInstance, IDS_AI_ASSISTANT_MENU", "AI menu caption does not use Salamander localization")
+    require(ai, r'SalamanderPluginEntry\(.*?SalamanderGUI\s*=\s*salamander->GetSalamanderGUI\(\)', "AI plugin entry does not initialize SalamanderGUI")
     require(ai, r'caption\s*==\s*NULL.*\?\s*"Ask Salamatrix AI\.\.\."\s*:\s*caption',
             "AI menu caption fallback to Ask Salamatrix AI... is missing or unstable")
     require(ai, r'BuildMenu.*?salamander->AddMenuItem\(-1,\s*GetAssistantMenuCaption\(\),\s*0,\s*CmdOpenAssistant',
             "AI BuildMenu does not add fully specified assistant command")
     require(ai, r"BuildMenu.*?GetAssistantMenuCaption\(\).*?CmdOpenAssistant", "AI BuildMenu does not add the resource-backed command")
+    require(ai, r"BuildMenu.*?MENU_SKILLLEVEL_ALL", "AI BuildMenu does not use MENU_SKILLLEVEL_ALL")
     require(ai, r"CPluginInterface::Connect.*?CreateIconList\(\).*?ReplaceIcon\(0.*?SetIconListForGUI.*?SetPluginIcon\(0\).*?SetPluginMenuAndToolbarIcon\(0\)", "AI plugin does not register sal_r.ico in the Plugin Manager icon list")
+    require(ai, r"GetMenuItemState\(int id,\s*DWORD eventMask\).*?return .*?CmdOpenAssistant.*MENU_ITEM_STATE_ENABLED",
+            "AI menu command is not always exposed as enabled")
     require(ai, r"IsCurrentService\(SALAMATRIX_SERVICE_AI.*?g_ai\).*?UnregisterProvider",
             "AI Release lacks current-service pointer validation")
     for symbol in (

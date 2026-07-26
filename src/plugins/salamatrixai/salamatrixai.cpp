@@ -1588,8 +1588,7 @@ BOOL WINAPI CLocalHttpAssistantProvider::Generate(
 DWORD WINAPI CAIPluginMenuExt::GetMenuItemState(int id, DWORD eventMask)
 {
     UNREFERENCED_PARAMETER(eventMask);
-    EnsureServices();
-    return id == CmdOpenAssistant && g_ai != NULL && g_ui != NULL ? MENU_ITEM_STATE_ENABLED : 0;
+    return id == CmdOpenAssistant ? MENU_ITEM_STATE_ENABLED : 0;
 }
 
 BOOL WINAPI CAIPluginMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent, int id, DWORD eventMask)
@@ -1606,7 +1605,7 @@ void WINAPI CAIPluginMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstrac
 {
     UNREFERENCED_PARAMETER(parent);
     if (!g_released && salamander != NULL)
-        salamander->AddMenuItem(-1, GetAssistantMenuCaption(), 0, CmdOpenAssistant, TRUE, 0, 0, MENU_LEVEL_BEGINNER);
+        salamander->AddMenuItem(-1, GetAssistantMenuCaption(), 0, CmdOpenAssistant, TRUE, 0, 0, MENU_SKILLLEVEL_ALL);
 }
 
 void WINAPI CPluginInterface::About(HWND parent)
@@ -1680,6 +1679,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderDebug = salamander->GetSalamanderDebug();
     SalamanderVersion = salamander->GetVersion();
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    SalamanderGUI = salamander->GetSalamanderGUI();
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER) return NULL;
     salamander->SetBasicPluginData("Salamatrix AI",
         FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_DYNAMICMENUEXT,
