@@ -56,15 +56,70 @@ static std::wstring RuntimeAsset(const wchar_t* name)
 static std::wstring Quote(const std::wstring& value)
 {
     std::wstring result = L"\"";
+    size_t backslashes = 0;
     for (size_t i = 0; i < value.size(); ++i)
     {
         if (value[i] == L'\"')
-            result += L"\\\"";
+        {
+            result.append(backslashes * 2 + 1, L'\\');
+            result += L'\"';
+            backslashes = 0;
+        }
+        else if (value[i] == L'\\')
+            ++backslashes;
         else
+        {
+            result.append(backslashes, L'\\');
             result += value[i];
+            backslashes = 0;
+        }
     }
+    result.append(backslashes * 2, L'\\');
     result += L"\"";
     return result;
+}
+
+static bool CreateUtf8PromptFile(const std::string& prompt, std::wstring* path)
+{
+    if (path == NULL)
+        return false;
+    path->clear();
+    std::vector<wchar_t> tempRoot(SAL_MAX_PATH, L'\0');
+    DWORD rootLength = GetTempPathW(static_cast<DWORD>(tempRoot.size()), tempRoot.data());
+    if (rootLength == 0 || rootLength >= tempRoot.size())
+        return false;
+    std::vector<wchar_t> tempName(SAL_MAX_PATH, L'\0');
+    if (GetTempFileNameW(tempRoot.data(), L"smx", 0, tempName.data()) == 0)
+        return false;
+    HANDLE file = CreateFileW(tempName.data(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                              FILE_ATTRIBUTE_TEMPORARY, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        DeleteFileW(tempName.data());
+        return false;
+    }
+    bool written = prompt.size() <= MAXDWORD;
+    DWORD count = 0;
+    if (written && !prompt.empty())
+        written = WriteFile(file, prompt.data(), static_cast<DWORD>(prompt.size()), &count, NULL) &&
+                  count == prompt.size();
+    CloseHandle(file);
+    if (!written)
+    {
+        DeleteFileW(tempName.data());
+        return false;
+    }
+    *path = tempName.data();
+    return true;
+}
+
+static bool ExtractJsonObject(const std::string& value, size_t* first, size_t* last)
+{
+    if (first == NULL || last == NULL)
+        return false;
+    *first = value.find('{');
+    *last = value.find_last_of('}');
+    return *first != std::string::npos && *last > *first;
 }
 
 static bool IsJsonObject(const std::string& value)
@@ -190,6 +245,15 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     if (request->Feedback != NULL && request->Feedback[0] != '\0')
         prompt += "\nRepair feedback:\n" + std::string(request->Feedback);
 
+    std::wstring promptFile;
+    if (!CreateUtf8PromptFile(prompt, &promptFile))
+    {
+        BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                       HRESULT_FROM_WIN32(ERROR_WRITE_FAULT),
+                       L"Unable to create the bundled model prompt file.");
+        return FALSE;
+    }
+
     SECURITY_ATTRIBUTES security = { sizeof(security), NULL, TRUE };
     HANDLE parentIn = NULL, childIn = NULL, parentOut = NULL, childOut = NULL;
     if (!CreatePipe(&parentIn, &childIn, &security, 0) ||
@@ -199,12 +263,15 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     {
         if (parentIn) CloseHandle(parentIn); if (childIn) CloseHandle(childIn);
         if (parentOut) CloseHandle(parentOut); if (childOut) CloseHandle(childOut);
+        DeleteFileW(promptFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(GetLastError()), L"Unable to create bundled model pipes.");
         return FALSE;
     }
     std::wstring command = Quote(m_command) + L" -m " + Quote(m_model) +
-                           L" --simple-io --no-display-prompt -n 4096";
+                           L" -f " + Quote(promptFile) +
+                           L" --single-turn --conversation --simple-io"
+                           L" --no-display-prompt --no-perf -n 4096";
     std::vector<wchar_t> commandLine(command.begin(), command.end());
     commandLine.push_back(L'\0');
     STARTUPINFOW startup = {}; PROCESS_INFORMATION process = {};
@@ -217,14 +284,11 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     if (!created)
     {
         CloseHandle(parentIn); CloseHandle(parentOut);
+        DeleteFileW(promptFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(GetLastError()), L"Unable to start bundled llama.cpp.");
         return FALSE;
     }
-    DWORD written = 0;
-    if (!WriteFile(parentIn, prompt.data(), static_cast<DWORD>(prompt.size()), &written, NULL) ||
-        written != prompt.size())
-        TerminateProcess(process.hProcess, 1);
     CloseHandle(parentIn);
 
     std::string output;
@@ -259,15 +323,18 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     }
     DWORD exitCode = 1; GetExitCodeProcess(process.hProcess, &exitCode);
     CloseHandle(process.hThread); CloseHandle(process.hProcess); CloseHandle(parentOut);
-    const size_t first = output.find_first_not_of(" \t\r\n");
-    const size_t last = output.find_last_not_of(" \t\r\n");
+    DeleteFileW(promptFile.c_str());
+    size_t first = std::string::npos, last = std::string::npos;
+    const bool hasJsonObject = ExtractJsonObject(output, &first, &last);
     if (timedOut)
     { BundledFailure(response, Salamatrix::AI::AssistantStatusCancelled, HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"The bundled model timed out."); return FALSE; }
-    if (exitCode != 0 || first == std::string::npos || last <= first ||
-        last - first + 1 >= sizeof(response->ResponseJson) || !IsJsonObject(output))
+    if (exitCode != 0 || !hasJsonObject || last - first + 1 >= sizeof(response->ResponseJson))
     { BundledFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse, HRESULT_FROM_WIN32(ERROR_INVALID_DATA), L"The bundled model returned invalid structured JSON."); return FALSE; }
-    const size_t length = last - first + 1;
-    memcpy(response->ResponseJson, output.data() + first, length);
+    const std::string json = output.substr(first, last - first + 1);
+    if (!IsJsonObject(json))
+    { BundledFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse, HRESULT_FROM_WIN32(ERROR_INVALID_DATA), L"The bundled model returned invalid structured JSON."); return FALSE; }
+    const size_t length = json.size();
+    memcpy(response->ResponseJson, json.data(), length);
     response->ResponseJson[length] = '\0'; response->OutputLength = static_cast<DWORD>(length);
     response->Status = Salamatrix::AI::AssistantStatusSucceeded;
     response->ErrorCode = S_OK;

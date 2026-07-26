@@ -137,6 +137,9 @@ def main() -> int:
     require(bundled, r'ResolveBundledAsset.*?legacyRoots.*?salamatrixai',
             "bundled provider does not support the legacy companion asset layout")
     require(bundled, r'120000', "bundled provider timeout is not capped at two minutes")
+    require(bundled, r'CreateUtf8PromptFile', "bundled provider does not pass the prompt through a UTF-8 file")
+    require(bundled, r'--single-turn.*--conversation', "bundled provider does not request one-shot conversation mode")
+    require(bundled, r'ExtractJsonObject', "bundled provider does not tolerate llama-cli diagnostic output around JSON")
     require(local_llama_header, r'class CLocalBundledAssistantProvider',
             "optional local llama provider declaration is missing")
     require(local_llama, r'g_ai->RegisterProvider\(&g_provider\)',
