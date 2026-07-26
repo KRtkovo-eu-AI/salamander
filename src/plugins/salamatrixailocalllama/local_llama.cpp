@@ -7,7 +7,9 @@
 // The provider implementation is shared source with the former in-process
 // prototype, but is linked only by this optional companion plug-in. The main
 // SalamatrixAI plug-in therefore remains model-free and can be installed alone.
+#define SALAMATRIXAI_BUNDLED_PROVIDER_HAS_PRECOMP
 #include "../salamatrixai/bundledprovider.cpp"
+#undef SALAMATRIXAI_BUNDLED_PROVIDER_HAS_PRECOMP
 
 HINSTANCE DLLInstance = NULL;
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
