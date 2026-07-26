@@ -26,7 +26,8 @@ enum ExtensionState
     ExtensionStateDeactivating = 4,
     ExtensionStateInactive = 5,
     ExtensionStateFailed = 6,
-    ExtensionStateWaitingForRuntime = 7
+    ExtensionStateWaitingForRuntime = 7,
+    ExtensionStateWaitingForDependency = 8
 };
 
 enum ExtensionAction
@@ -41,7 +42,8 @@ enum ExtensionFlags
     ExtensionFlagManifest = 0x00000001,
     ExtensionFlagPersistent = 0x00000002,
     ExtensionFlagCompatibility = 0x00000004,
-    ExtensionFlagRuntimeUnavailable = 0x00000008
+    ExtensionFlagRuntimeUnavailable = 0x00000008,
+    ExtensionFlagDependencyUnavailable = 0x00000010
 };
 
 struct ExtensionDescriptor
@@ -243,13 +245,21 @@ private:
                 LeaveCriticalSection(&Lock);
                 return TRUE;
             }
+            if (record.Info.State == ExtensionStateWaitingForDependency &&
+                (record.Info.Descriptor.Flags &
+                 ExtensionFlagDependencyUnavailable) != 0)
+            {
+                LeaveCriticalSection(&Lock);
+                return TRUE;
+            }
             record.Info.State = ExtensionStateActivating;
         }
         else
         {
             if (record.Info.State == ExtensionStateInactive ||
                 record.Info.State == ExtensionStateDiscovered ||
-                record.Info.State == ExtensionStateWaitingForRuntime)
+                record.Info.State == ExtensionStateWaitingForRuntime ||
+                record.Info.State == ExtensionStateWaitingForDependency)
             {
                 LeaveCriticalSection(&Lock);
                 return TRUE;
@@ -269,7 +279,7 @@ private:
         index = FindIndex(extensionId);
         if (index >= 0)
         {
-            Records[index].Info.State = succeeded
+                Records[index].Info.State = succeeded
                                             ? (action == ExtensionActionActivate
                                                    ? ExtensionStateActive
                                                    : ExtensionStateInactive)
@@ -277,7 +287,11 @@ private:
                                                 (Records[index].Info.Descriptor.Flags &
                                                  ExtensionFlagRuntimeUnavailable) != 0)
                                                    ? ExtensionStateWaitingForRuntime
-                                                   : ExtensionStateFailed);
+                                                   : ((action == ExtensionActionActivate &&
+                                                       (Records[index].Info.Descriptor.Flags &
+                                                        ExtensionFlagDependencyUnavailable) != 0)
+                                                          ? ExtensionStateWaitingForDependency
+                                                          : ExtensionStateFailed));
         }
         LeaveCriticalSection(&Lock);
         return succeeded;
@@ -303,7 +317,7 @@ public:
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\"]}";
+        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\",\"waitingForDependency\"]}";
     }
 
     virtual BOOL WINAPI RegisterExtension(
@@ -335,7 +349,17 @@ public:
                     Records[existing].Info.State != ExtensionStateActivating)
                     Records[existing].Info.State = ExtensionStateWaitingForRuntime;
             }
+            else if ((descriptor->Flags & ExtensionFlagDependencyUnavailable) != 0)
+            {
+                if (Records[existing].Info.State != ExtensionStateActive &&
+                    Records[existing].Info.State != ExtensionStateActivating)
+                    Records[existing].Info.State = ExtensionStateWaitingForDependency;
+            }
             else if (Records[existing].Info.State == ExtensionStateWaitingForRuntime)
+            {
+                Records[existing].Info.State = ExtensionStateDiscovered;
+            }
+            else if (Records[existing].Info.State == ExtensionStateWaitingForDependency)
             {
                 Records[existing].Info.State = ExtensionStateDiscovered;
             }
@@ -352,6 +376,8 @@ public:
         record.Info.Descriptor = *descriptor;
         if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
             record.Info.State = ExtensionStateWaitingForRuntime;
+        else if ((descriptor->Flags & ExtensionFlagDependencyUnavailable) != 0)
+            record.Info.State = ExtensionStateWaitingForDependency;
         record.Callback = callback;
         record.Context = context;
         LeaveCriticalSection(&Lock);

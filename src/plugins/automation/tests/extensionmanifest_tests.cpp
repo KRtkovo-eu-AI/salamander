@@ -38,6 +38,7 @@ static void TestCompleteManifest()
         "\"entryPoint\":\"scripts/main.py\","
         "\"icon\":\"assets/icon.svg\",\"iconDark\":\"assets/icon-dark.svg\","
         "\"capabilities\":[\"panels.read\",\"ui.dialogs\"],"
+        "\"dependencies\":[\"org.opensalamander.Core\",\"org.opensalamander.Shared\"],"
         "\"settings\":["
         "{\"key\":\"repositoryUrl\",\"type\":\"string\",\"default\":\"https://example.test\"},"
         "{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"default\":true},"
@@ -64,6 +65,8 @@ static void TestCompleteManifest()
     CHECK(manifest.Icon == "assets/icon.svg");
     CHECK(manifest.IconDark == "assets/icon-dark.svg");
     CHECK(manifest.Capabilities.size() == 2);
+    CHECK(manifest.Dependencies.size() == 2);
+    CHECK(manifest.Dependencies[0] == "org.opensalamander.Core");
     CHECK(manifest.Settings.size() == 3);
     CHECK(manifest.Settings[0].Key == "repositoryUrl");
     CHECK(manifest.Settings[0].Type == ExtensionManifestSettingString);
@@ -127,6 +130,10 @@ static void TestInvalidDocuments()
         "\"settings\":[{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"default\":\"yes\"}]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"settings\":[{\"key\":\"same\",\"type\":\"string\"},{\"key\":\"SAME\",\"type\":\"string\"}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"dependencies\":[\"org.good\",\"ORG.GOOD\"]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"dependencies\":[\"../unsafe\"]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"name\":\"unterminated}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","

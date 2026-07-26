@@ -114,6 +114,7 @@ private:
     char m_szSalamatrixRuntimeId[128];
     DWORD m_dwSalamatrixMinimumRuntimeVersion;
     std::vector<std::string> m_salamatrixCapabilities;
+    std::vector<std::string> m_salamatrixDependencies;
     std::vector<CExtensionManifestSetting> m_salamatrixSettings;
     bool m_bSalamatrixEventsDeclared;
     std::vector<std::string> m_salamatrixEvents;

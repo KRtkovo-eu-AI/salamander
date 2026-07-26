@@ -93,6 +93,9 @@ public:
     std::string Icon;
     std::string IconDark;
     std::vector<std::string> Capabilities;
+    // Optional ids of other manifest extensions that must be registered before
+    // this package can activate. Runtime adapters remain described by runtime.
+    std::vector<std::string> Dependencies;
     // Optional typed settings declarations.  Declarations are metadata only;
     // values remain isolated in Salamatrix.Storage under the manifest id.
     std::vector<CExtensionManifestSetting> Settings;

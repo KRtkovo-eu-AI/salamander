@@ -186,6 +186,39 @@ void TestRuntimeAvailabilityState()
           "available runtime activates extension");
     delete extensions;
 }
+
+void TestDependencyAvailabilityState()
+{
+    Salamatrix::Extensions::ExtensionsService* extensions =
+        new Salamatrix::Extensions::ExtensionsService();
+    CallbackState callback;
+    Salamatrix::Extensions::ExtensionDescriptor descriptor =
+        MakeDescriptor("dependency.waiting");
+    descriptor.Flags |=
+        Salamatrix::Extensions::ExtensionFlagDependencyUnavailable;
+    Check(extensions->RegisterExtension(
+              &descriptor, LifecycleCallback, &callback) != FALSE,
+          "register extension with missing dependency");
+    Salamatrix::Extensions::ExtensionInfo info;
+    Check(extensions->FindExtension("dependency.waiting", &info) != FALSE &&
+              info.State == Salamatrix::Extensions::ExtensionStateWaitingForDependency,
+          "missing dependency is exposed as waiting state");
+    Check(extensions->ActivateExtension("dependency.waiting") != FALSE,
+          "dependency-waiting activation is a safe no-op");
+    Check(callback.Count == 0, "dependency-waiting extension does not start");
+    descriptor.Flags &=
+        ~Salamatrix::Extensions::ExtensionFlagDependencyUnavailable;
+    Check(extensions->RegisterExtension(
+              &descriptor, LifecycleCallback, &callback) != FALSE,
+          "refresh extension after dependency becomes available");
+    Check(extensions->FindExtension("dependency.waiting", &info) != FALSE &&
+              info.State == Salamatrix::Extensions::ExtensionStateDiscovered,
+          "dependency availability refresh returns extension to discovered state");
+    Check(extensions->ActivateExtension("dependency.waiting") != FALSE &&
+              callback.Count == 1,
+          "available dependency activates extension");
+    delete extensions;
+}
 } // namespace
 
 int main()
@@ -194,6 +227,7 @@ int main()
     TestValidation();
     TestUnregisterDeactivatesActiveExtension();
     TestRuntimeAvailabilityState();
+    TestDependencyAvailabilityState();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d Salamatrix extension test(s) failed.\n", Failures);

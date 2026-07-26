@@ -710,6 +710,12 @@ void CPluginsDlg::OnSelChanged()
             extension->Descriptor.Id);
         SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINWWW), "");
         Url->SetActionOpen("");
+        const BOOL dependencyUnavailable =
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagDependencyUnavailable) != 0;
+        const BOOL runtimeUnavailable =
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0;
         char runtimeText[256];
         _snprintf_s(
             runtimeText,
@@ -717,9 +723,10 @@ void CPluginsDlg::OnSelChanged()
             _TRUNCATE,
             "%s%s",
             extension->Descriptor.RuntimeId,
-            (extension->Descriptor.Flags &
-                     Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0
+            runtimeUnavailable
                 ? " (runtime unavailable)"
+                : dependencyUnavailable
+                      ? " (dependency unavailable)"
                 : "");
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINEXTENSIONS), runtimeText);
@@ -729,10 +736,11 @@ void CPluginsDlg::OnSelChanged()
             LoadStr(IDS_PLUGINTHUMBNONE));
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS),
-            (extension->Descriptor.Flags &
-                     Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0
-                ? "Extension (runtime unavailable)"
-                : "Extension");
+            dependencyUnavailable
+                ? LoadStr(IDS_PLUGINEXTWAITINGDEPENDENCY)
+                : runtimeUnavailable
+                      ? LoadStr(IDS_PLUGINEXTWAITINGRUNTIME)
+                      : "Extension");
 
         ShowWindow(showInBar, SW_HIDE);
         ShowWindow(showInChDrv, SW_HIDE);

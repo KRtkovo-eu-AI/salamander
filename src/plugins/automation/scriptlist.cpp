@@ -556,6 +556,7 @@ CScriptInfo::CScriptInfo(
     m_szSalamatrixRuntimeId[0] = '\0';
     m_dwSalamatrixMinimumRuntimeVersion = 0;
     m_bSalamatrixEventsDeclared = false;
+    m_salamatrixDependencies.clear();
     m_salamatrixSettings.clear();
     m_salamatrixEvents.clear();
     m_salamatrixManifestCommands.clear();
@@ -764,6 +765,7 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         manifest.RuntimeId.c_str());
     m_dwSalamatrixMinimumRuntimeVersion = manifest.MinimumRuntimeVersion;
     m_salamatrixCapabilities = manifest.Capabilities;
+    m_salamatrixDependencies = manifest.Dependencies;
     m_salamatrixSettings = manifest.Settings;
     m_bSalamatrixEventsDeclared = manifest.EventsDeclared;
     m_salamatrixEvents = manifest.Events;
@@ -5094,6 +5096,28 @@ void CScriptLookup::PublishSalamatrixExtensions()
                 descriptor.Flags |=
                     Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable;
 
+            BOOL missingDependency = FALSE;
+            for (size_t dependencyIndex = 0;
+                 dependencyIndex < pScript->m_salamatrixDependencies.size();
+                 ++dependencyIndex)
+            {
+                Salamatrix::Extensions::ExtensionInfo dependencyInfo;
+                if (!service->FindExtension(
+                        pScript->m_salamatrixDependencies[dependencyIndex].c_str(),
+                        &dependencyInfo) ||
+                    (dependencyInfo.State !=
+                         Salamatrix::Extensions::ExtensionStateActive &&
+                     dependencyInfo.State !=
+                         Salamatrix::Extensions::ExtensionStateActivating))
+                {
+                    missingDependency = TRUE;
+                    break;
+                }
+            }
+            if (missingDependency)
+                descriptor.Flags |=
+                    Salamatrix::Extensions::ExtensionFlagDependencyUnavailable;
+
             // Materialize declared defaults before activation. Existing user
             // values always win, so re-discovery never resets an extension's
             // settings.
@@ -5102,19 +5126,92 @@ void CScriptLookup::PublishSalamatrixExtensions()
             // A failed registration (for example a duplicate manifest id)
             // is intentionally ignored here. The host registry remains
             // authoritative and malformed/duplicate entries never become
-            // executable by accident. Newly registered manifest extensions
-            // are activated immediately so their persistent worker can
-            // publish commands, subscriptions, and UI contributions. If a
-            // runtime is not installed yet, activation fails safely and is
-            // retried on the next configuration/plugin refresh.
-            if (service->RegisterExtension(
-                    &descriptor,
-                    CScriptInfo::RuntimeLifecycleCallback,
-                    pScript))
+            // executable by accident. Activation is performed in the
+            // dependency-resolution pass below, after every manifest in this
+            // refresh is visible. Missing runtimes and dependencies remain
+            // explicit waiting states and are retried on the next refresh.
+            service->RegisterExtension(
+                &descriptor,
+                CScriptInfo::RuntimeLifecycleCallback,
+                pScript);
+            // Activation is deferred until every manifest has been
+            // registered, allowing dependencies that appear later in the
+            // discovery order to resolve in the same refresh.
+        }
+    }
+
+    // Resolve dependency chains after the complete registry is visible. A
+    // bounded number of passes is sufficient for the registry's 256-entry
+    // capacity and prevents malformed cycles from spinning forever.
+    for (int pass = 0; pass < 256; ++pass)
+    {
+        BOOL changed = FALSE;
+        for (int iBin = 0; iBin < _countof(m_apHashBins); iBin++)
+        {
+            for (CScriptInfo* pScript = m_apHashBins[iBin];
+                 pScript != NULL;
+                 pScript = pScript->m_pNextHash)
             {
-                service->ActivateExtension(extensionId);
+                const char* extensionId =
+                    pScript->GetSalamatrixExtensionId();
+                if (extensionId[0] == '\0')
+                    continue;
+
+                Salamatrix::Extensions::ExtensionInfo info;
+                if (!service->FindExtension(extensionId, &info))
+                    continue;
+                BOOL missingDependency = FALSE;
+                for (size_t dependencyIndex = 0;
+                     dependencyIndex < pScript->m_salamatrixDependencies.size();
+                     ++dependencyIndex)
+                {
+                    Salamatrix::Extensions::ExtensionInfo dependencyInfo;
+                    if (!service->FindExtension(
+                            pScript->m_salamatrixDependencies[dependencyIndex].c_str(),
+                            &dependencyInfo) ||
+                        (dependencyInfo.State !=
+                             Salamatrix::Extensions::ExtensionStateActive &&
+                         dependencyInfo.State !=
+                             Salamatrix::Extensions::ExtensionStateActivating))
+                    {
+                        missingDependency = TRUE;
+                        break;
+                    }
+                }
+                if (missingDependency)
+                    continue;
+
+                if ((info.Descriptor.Flags &
+                     Salamatrix::Extensions::ExtensionFlagDependencyUnavailable) != 0)
+                {
+                    Salamatrix::Extensions::ExtensionDescriptor refreshed =
+                        info.Descriptor;
+                    refreshed.Flags &=
+                        ~Salamatrix::Extensions::ExtensionFlagDependencyUnavailable;
+                    if (service->RegisterExtension(
+                            &refreshed,
+                            CScriptInfo::RuntimeLifecycleCallback,
+                            pScript))
+                        changed = TRUE;
+                }
+                if (info.State != Salamatrix::Extensions::ExtensionStateActive &&
+                    info.State != Salamatrix::Extensions::ExtensionStateActivating &&
+                    info.State != Salamatrix::Extensions::ExtensionStateWaitingForRuntime)
+                {
+                    Salamatrix::Extensions::ExtensionState stateBefore =
+                        info.State;
+                    if (service->ActivateExtension(extensionId))
+                    {
+                        Salamatrix::Extensions::ExtensionInfo after;
+                        if (service->FindExtension(extensionId, &after) &&
+                            after.State != stateBefore)
+                            changed = TRUE;
+                    }
+                }
             }
         }
+        if (!changed)
+            break;
     }
 }
 

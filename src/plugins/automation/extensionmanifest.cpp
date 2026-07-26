@@ -706,6 +706,7 @@ void CExtensionManifest::Clear()
     Icon.clear();
     IconDark.clear();
     Capabilities.clear();
+    Dependencies.clear();
     Settings.clear();
     EventsDeclared = false;
     Events.clear();
@@ -847,6 +848,31 @@ bool CExtensionManifest::Parse(
                 return SetValidationError(error, "Every capability must be a valid string identifier");
             }
             Capabilities.push_back(capabilities->Array[i].String);
+        }
+    }
+
+    const JsonValue* dependencies = root.Find("dependencies");
+    if (dependencies != NULL)
+    {
+        if (dependencies->Type != JsonArray)
+            return SetValidationError(error, "dependencies must be an array");
+        if (dependencies->Array.size() > 32)
+            return SetValidationError(error, "Manifest contains more than 32 dependencies");
+        for (size_t i = 0; i < dependencies->Array.size(); ++i)
+        {
+            if (dependencies->Array[i].Type != JsonString ||
+                !IsIdentifier(dependencies->Array[i].String))
+                return SetValidationError(
+                    error, "Every dependency must be a valid extension id");
+            for (size_t existing = 0; existing < Dependencies.size(); ++existing)
+            {
+                if (_stricmp(
+                        Dependencies[existing].c_str(),
+                        dependencies->Array[i].String.c_str()) == 0)
+                    return SetValidationError(
+                        error, "Dependency ids must be unique inside one manifest");
+            }
+            Dependencies.push_back(dependencies->Array[i].String);
         }
     }
 
