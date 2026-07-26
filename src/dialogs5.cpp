@@ -168,16 +168,38 @@ void CPluginsDlg::LoadExtensionImages(HIMAGELIST imageList)
             continue;
 
         HBITMAP bitmap = NULL;
-        if (!RenderSVGIconBitmapFromFile(preferredPath, iconWidth, TRUE, &bitmap) &&
-            preferredPath != iconPath)
+        BOOL generatedDarkFallback =
+            darkMode && preferredPath == iconPath;
+        BOOL rendered = RenderSVGIconBitmapFromFile(
+            preferredPath, iconWidth, TRUE, &bitmap);
+        if (!rendered && preferredPath != iconPath)
         {
             if (bitmap != NULL)
                 HANDLES(DeleteObject(bitmap));
             bitmap = NULL;
-            RenderSVGIconBitmapFromFile(iconPath, iconWidth, TRUE, &bitmap);
+            rendered = RenderSVGIconBitmapFromFile(
+                iconPath, iconWidth, TRUE, &bitmap);
+            generatedDarkFallback = darkMode;
         }
-        if (bitmap == NULL)
+        if (!rendered || bitmap == NULL)
             continue;
+
+        // Prefer a package-supplied dark SVG.  If it is absent or invalid,
+        // keep the extension visible in dark mode by deriving a dark-friendly
+        // bitmap from the normal artwork, just like toolbar contributions do.
+        if (generatedDarkFallback)
+        {
+            HBITMAP darkBitmap = NULL;
+            if (CreateDarkModeIconBitmap(bitmap, &darkBitmap))
+            {
+                HANDLES(DeleteObject(bitmap));
+                bitmap = darkBitmap;
+            }
+            else if (darkBitmap != NULL)
+            {
+                HANDLES(DeleteObject(darkBitmap));
+            }
+        }
         int imageIndex = ImageList_Add(imageList, bitmap, NULL);
         HANDLES(DeleteObject(bitmap));
         if (imageIndex >= 0)
