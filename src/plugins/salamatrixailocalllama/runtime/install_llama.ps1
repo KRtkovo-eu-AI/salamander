@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $llamaUrl = 'https://github.com/ggml-org/llama.cpp/releases/download/b10107/llama-b10107-bin-win-cpu-x64.zip'
-$llamaSha256 = '52133A0A5A8F6035B1BDD2F89C3425EA8B742413D9BDB9A2DEE30E3A1681B18'
+$llamaSha256 = '52133A0A5A8F6035B1BDD2F89C3425EA8B742413D9BDB9A2DEE30E3A1681B18C'
 $modelUrl = 'https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf?download=true'
 $modelSha256 = '1D9614638D18024D0FBB36575A15F1302A3ADF044DF10345688EC4F6E1C4FF32'
 $modelLicenseUrl = 'https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/LICENSE'
@@ -34,16 +34,50 @@ function Download-VerifiedFile {
     )
 
     $normalizedExpected = $ExpectedHash.Trim().ToUpperInvariant()
+    $partPath = "$Path.part"
     $lastActualHash = '<download failed>'
     for ($attempt = 1; $attempt -le 3; $attempt++) {
-        if (Test-Path -LiteralPath $Path) {
-            Remove-Item -LiteralPath $Path -Force
-        }
+        Remove-Item -LiteralPath $Path, $partPath -Force -ErrorAction SilentlyContinue
 
         try {
-            Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Path
+            $ProgressPreference = 'SilentlyContinue'
+            $head = Invoke-WebRequest -UseBasicParsing -Method Head -Uri $Uri
+            $contentLength = [int64]$head.Headers['Content-Length']
+            if ($contentLength -le 0) {
+                throw "The server did not provide a valid Content-Length for $Description."
+            }
+
+            $chunkSize = 8MB
+            $offset = [int64]0
+            while ($offset -lt $contentLength) {
+                $end = [Math]::Min($offset + $chunkSize - 1, $contentLength - 1)
+                Remove-Item -LiteralPath $partPath -Force -ErrorAction SilentlyContinue
+                Invoke-WebRequest -UseBasicParsing -Uri $Uri `
+                    -Headers @{ Range = "bytes=$offset-$end" } -OutFile $partPath
+
+                $chunkLength = (Get-Item -LiteralPath $partPath).Length
+                $expectedChunkLength = $end - $offset + 1
+                if ($chunkLength -ne $expectedChunkLength) {
+                    throw ("The server returned {0} bytes for range {1}-{2}; expected {3}." -f
+                        $chunkLength, $offset, $end, $expectedChunkLength)
+                }
+
+                $sourceStream = [System.IO.File]::OpenRead($partPath)
+                try {
+                    $output = [System.IO.File]::Open($Path,
+                        [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write,
+                        [System.IO.FileShare]::None)
+                    try { $sourceStream.CopyTo($output) }
+                    finally { $output.Dispose() }
+                }
+                finally { $sourceStream.Dispose() }
+
+                $offset = $end + 1
+            }
+
             $lastActualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.Trim().ToUpperInvariant()
             if ($lastActualHash -ceq $normalizedExpected) {
+                Remove-Item -LiteralPath $partPath -Force -ErrorAction SilentlyContinue
                 return
             }
 
@@ -53,6 +87,9 @@ function Download-VerifiedFile {
         catch {
             Write-Warning ("{0} download attempt {1}/3 failed: {2}" -f
                 $Description, $attempt, $_.Exception.Message)
+        }
+        finally {
+            Remove-Item -LiteralPath $partPath -Force -ErrorAction SilentlyContinue
         }
     }
 
