@@ -50,6 +50,12 @@ def main() -> int:
     pythonruntime_rc = read("src/plugins/pythonruntime/pythonruntime.rc")
     powershellruntime_rc = read("src/plugins/powershellruntime/powershellruntime.rc")
     phpruntime_rc = read("src/plugins/phpruntime/phpruntime.rc")
+    runtime_provider_sources = (
+        pythonruntime,
+        powershellruntime,
+        javascriptruntime,
+        phpruntime,
+    )
     salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
     salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
@@ -207,6 +213,10 @@ def main() -> int:
         ("PHP", phpruntime_rc),
     ):
         require_absent(runtime_resource, r"sal_r\.ico", f"{name} runtime must use the default Plugin Manager icon")
+    for name, runtime in zip(
+        ("Python", "PowerShell", "JavaScript", "PHP"), runtime_provider_sources):
+        require(runtime, r"SetFlagLoadOnSalamanderStart\(TRUE\)",
+                f"{name} runtime provider is not loaded on Salamander startup")
 
     require(salamatrix_props, r"USE_DARKMODELIB=1", "Salamatrix Framework is not built with win32-darkmodelib")
     require(salamatrix, r"ApplyHostDarkModePolicy\(SalamanderGeneral", "Salamatrix host dark-mode policy is not initialized")
@@ -220,6 +230,8 @@ def main() -> int:
             "extension package runtime usability is not derived from provider availability")
     require(packages, r"InvokeOnMainThread\(\s*HostDispatchOnMainThread",
             "extension host calls are not marshaled to Salamander's UI thread")
+    require(packages, r"MessageHello\).*?CopyResult\(\"\{\\\"ok\\\":true\}\"",
+            "extension host does not acknowledge the runtime worker handshake")
     require(packages, r"if \(!package->RuntimeUsable\)\s+continue;.*?BuildMenu",
             "unavailable extension packages are not filtered from the menu")
     require(packages, r"void PackageManager::RegisterToolbarButtons\(\).*?if \(!package->RuntimeUsable\)\s+continue;",

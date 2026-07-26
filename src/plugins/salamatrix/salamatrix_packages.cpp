@@ -584,10 +584,14 @@ BOOL WINAPI PackageManager::HostDispatch(
     const char* payloadJson, char* resultJson, DWORD resultCapacity, DWORD* resultLength)
 {
     UNREFERENCED_PARAMETER(requestId);
-    if (type != Runtime::Protocol::MessageCall || context == NULL || payloadJson == NULL)
+    if (context == NULL || payloadJson == NULL)
         return FALSE;
     Package* package = static_cast<Package*>(context);
     PackageManager* owner = package->Owner;
+    if (type == Runtime::Protocol::MessageHello)
+        return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+    if (type != Runtime::Protocol::MessageCall)
+        return FALSE;
     if (CurrentMainThreadDispatch == NULL && owner->General != NULL)
     {
         MainThreadDispatch call = {
