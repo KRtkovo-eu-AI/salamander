@@ -28,16 +28,17 @@ public:
                                  Salamatrix::AI::AssistantResponse* response);
 };
 
-// Optional dependency-free local model provider.  It speaks the Ollama
-// /api/generate JSON protocol over WinHTTP, so the AI plugin does not need to
-// ship a model runtime or a second scripting API.  The endpoint and model are
-// selected through SALAMATRIX_AI_OLLAMA_URL/SALAMATRIX_AI_MODEL.
+// Optional dependency-free local model provider. It speaks either Ollama's
+// /api/generate protocol or an OpenAI-compatible chat-completions protocol
+// (including llama.cpp's local server) over WinHTTP. The endpoint, protocol,
+// and model are selected through SALAMATRIX_AI_* environment settings.
 class CLocalHttpAssistantProvider : public Salamatrix::AI::IAssistantProvider
 {
 private:
     Salamatrix::AI::AssistantProviderDescriptor m_descriptor;
     mutable std::wstring m_url;
     mutable std::wstring m_model;
+    mutable std::wstring m_protocol;
 
     void ResolveConfiguration() const;
 

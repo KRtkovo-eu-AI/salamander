@@ -63,6 +63,45 @@ static bool StructuredJson(const std::string& value)
             (value[first] == '[' && value[last] == ']'));
 }
 
+static bool IsChatCompletionsProtocol(const std::wstring& protocol)
+{
+    return _wcsicmp(protocol.c_str(), L"chat") == 0 ||
+           _wcsicmp(protocol.c_str(), L"chat-completions") == 0 ||
+           _wcsicmp(protocol.c_str(), L"openai") == 0 ||
+           _wcsicmp(protocol.c_str(), L"llama.cpp") == 0;
+}
+
+static bool ExtractChatCompletionContent(
+    const std::string& response,
+    std::string& content)
+{
+    std::string choices;
+    if (!Salamatrix::Runtime::Protocol::Json::FindRawMember(
+            response.c_str(), "choices", &choices))
+        return false;
+
+    size_t position = 0;
+    Salamatrix::Runtime::Protocol::Json::SkipWhitespace(choices, &position);
+    if (position >= choices.size() || choices[position] != '[')
+        return false;
+    ++position;
+    Salamatrix::Runtime::Protocol::Json::SkipWhitespace(choices, &position);
+    if (position >= choices.size() || choices[position] == ']')
+        return false;
+    size_t objectStart = position;
+    if (!Salamatrix::Runtime::Protocol::Json::SkipValue(
+            choices, &position) || position <= objectStart)
+        return false;
+    std::string choice = choices.substr(objectStart, position - objectStart);
+    std::string message;
+    if (!Salamatrix::Runtime::Protocol::Json::FindRawMember(
+            choice.c_str(), "message", &message) ||
+        !Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            message.c_str(), "content", &content))
+        return false;
+    return true;
+}
+
 static bool ReadEnvironmentString(const wchar_t* name, std::wstring& value)
 {
     value.clear();
@@ -94,6 +133,7 @@ static bool HttpGenerateRequest(
     const std::wstring& url,
     const std::wstring& model,
     const std::string& body,
+    bool chatCompletions,
     DWORD timeoutMs,
     std::string& responseBody)
 {
@@ -120,7 +160,9 @@ static bool HttpGenerateRequest(
     std::wstring requestPath(path.data(), components.dwUrlPathLength);
     requestPath.append(extra.data(), components.dwExtraInfoLength);
     if (requestPath.empty() || requestPath == L"/")
-        requestPath = L"/api/generate";
+        requestPath = chatCompletions
+                          ? L"/v1/chat/completions"
+                          : L"/api/generate";
     HINTERNET session = WinHttpOpen(
         L"Open Salamander Salamatrix AI/1.0",
         WINHTTP_ACCESS_TYPE_NO_PROXY,
@@ -743,7 +785,7 @@ BOOL WINAPI CLocalAssistantProvider::Generate(
 CLocalHttpAssistantProvider::CLocalHttpAssistantProvider()
 {
     m_descriptor.ProviderId = "local.ollama";
-    m_descriptor.DisplayName = "Local Ollama model";
+    m_descriptor.DisplayName = "Local model endpoint";
     m_descriptor.ProviderVersion = 0x00010000;
     m_descriptor.Flags = 0;
 }
@@ -752,18 +794,37 @@ void CLocalHttpAssistantProvider::ResolveConfiguration() const
 {
     m_url.clear();
     m_model.clear();
+    m_protocol = L"ollama";
+    std::wstring configuredProtocol;
+    const bool protocolConfigured =
+        ReadEnvironmentString(L"SALAMATRIX_AI_PROTOCOL", configuredProtocol);
+    if (protocolConfigured)
+        m_protocol = configuredProtocol;
     ReadEnvironmentString(L"SALAMATRIX_AI_OLLAMA_URL", m_url);
     if (m_url.empty())
         ReadEnvironmentString(L"SALAMATRIX_AI_HTTP_URL", m_url);
+    std::wstring llamaUrl;
+    if (ReadEnvironmentString(L"SALAMATRIX_AI_LLAMA_URL", llamaUrl))
+    {
+        m_url = llamaUrl;
+        if (!protocolConfigured)
+            m_protocol = L"chat-completions";
+    }
     ReadEnvironmentString(L"SALAMATRIX_AI_MODEL", m_model);
     if (m_model.empty())
         ReadEnvironmentString(L"SALAMATRIX_AI_OLLAMA_MODEL", m_model);
     // Do not advertise an unreachable provider by default.  Setting only a
     // model opts into the conventional local Ollama endpoint.
     if (m_url.empty() && !m_model.empty())
-        m_url = L"http://127.0.0.1:11434/api/generate";
+    {
+        m_url = IsChatCompletionsProtocol(m_protocol)
+                    ? L"http://127.0.0.1:8080/v1/chat/completions"
+                    : L"http://127.0.0.1:11434/api/generate";
+    }
     if (!m_url.empty() && m_model.empty())
-        m_model = L"llama3.2";
+        m_model = IsChatCompletionsProtocol(m_protocol)
+                      ? L"local-model"
+                      : L"llama3.2";
 }
 
 const Salamatrix::AI::AssistantProviderDescriptor* WINAPI
@@ -796,7 +857,7 @@ BOOL WINAPI CLocalHttpAssistantProvider::Generate(
     {
         AssistantFailure(response, Salamatrix::AI::AssistantStatusUnavailable,
                          HRESULT_FROM_WIN32(ERROR_NOT_FOUND),
-                         L"Configure SALAMATRIX_AI_MODEL or SALAMATRIX_AI_OLLAMA_URL.");
+                         L"Configure SALAMATRIX_AI_MODEL and a local endpoint (SALAMATRIX_AI_OLLAMA_URL or SALAMATRIX_AI_LLAMA_URL).");
         return FALSE;
     }
 
@@ -823,14 +884,30 @@ BOOL WINAPI CLocalHttpAssistantProvider::Generate(
         "estimatedEffects (object), and script. The script must use the "
         "Salamander API described below; do not invent privileged APIs. "
         "API description: " + api;
-    std::string body = std::string("{\"model\":\"") +
-        EscapeJson(WideToUtf8String(m_model).c_str()) +
-        "\",\"system\":\"" + EscapeJson(system.c_str()) +
-        "\",\"prompt\":\"" + EscapeJson(prompt.c_str()) +
-        "\",\"stream\":false,\"format\":\"json\"}";
+    const bool chatCompletions = IsChatCompletionsProtocol(m_protocol);
+    std::string body;
+    if (chatCompletions)
+    {
+        body = std::string("{\"model\":\"") +
+               EscapeJson(WideToUtf8String(m_model).c_str()) +
+               "\",\"messages\":[{\"role\":\"system\",\"content\":\"" +
+               EscapeJson(system.c_str()) +
+               "\"},{\"role\":\"user\",\"content\":\"" +
+               EscapeJson(prompt.c_str()) +
+               "\"}],\"temperature\":0.2,\"response_format\":{\"type\":\"json_object\"}}";
+    }
+    else
+    {
+        body = std::string("{\"model\":\"") +
+               EscapeJson(WideToUtf8String(m_model).c_str()) +
+               "\",\"system\":\"" + EscapeJson(system.c_str()) +
+               "\",\"prompt\":\"" + EscapeJson(prompt.c_str()) +
+               "\",\"stream\":false,\"format\":\"json\"}";
+    }
 
     std::string transportResponse;
-    if (!HttpGenerateRequest(m_url, m_model, body, request->TimeoutMs,
+    if (!HttpGenerateRequest(m_url, m_model, body, chatCompletions,
+                             request->TimeoutMs,
                              transportResponse))
     {
         AssistantFailure(response, Salamatrix::AI::AssistantStatusFailed,
@@ -840,8 +917,18 @@ BOOL WINAPI CLocalHttpAssistantProvider::Generate(
     }
 
     std::string generated;
-    if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
-            transportResponse.c_str(), "response", &generated))
+    if (chatCompletions)
+    {
+        if (!ExtractChatCompletionContent(transportResponse, generated))
+        {
+            AssistantFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse,
+                             HRESULT_FROM_WIN32(ERROR_INVALID_DATA),
+                             L"The local chat-completions endpoint returned no message content.");
+            return FALSE;
+        }
+    }
+    else if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                 transportResponse.c_str(), "response", &generated))
         generated = transportResponse;
     size_t first = generated.find_first_not_of(" \t\r\n");
     size_t last = generated.find_last_not_of(" \t\r\n");

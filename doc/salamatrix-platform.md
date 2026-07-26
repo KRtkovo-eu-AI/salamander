@@ -745,8 +745,8 @@ remain a follow-up.
 `src/plugins/salamatrix/salamatrix_ai.h` defines a provider-neutral assistant
 contract. The separately installable `SalamatrixAI.SPL` registers
 `local.command` when `SALAMATRIX_AI_COMMAND` is configured and can also
-register a native `local.ollama` provider when `SALAMATRIX_AI_MODEL` and an
-Ollama-compatible endpoint are configured; Automation remains a
+register a native `local.ollama` provider when `SALAMATRIX_AI_MODEL` and a
+local endpoint are configured; Automation remains a
 consumer of the service. The command receives one UTF-8 JSON request on standard input and
 returns one JSON object/array on standard output; the bridge bounds output to
 1 MiB and clamps generation to a two-minute timeout. The native provider uses
@@ -779,14 +779,18 @@ Ask-AI action offers at most three generation iterations before the final
 preview, keeping the repair loop bounded. No llama.cpp binary or model is
 bundled yet.
 For a local model without a custom provider implementation, the repository also
-ships the optional `runtime/salamatrix_ai_local.py` command wrapper. It speaks
+ships the optional `src/plugins/automation/runtime/salamatrix_ai_local.py`
+command wrapper. It speaks
 Ollama's local `/api/generate` protocol by default and can switch to an
 OpenAI/llama.cpp-compatible `/v1/chat/completions` endpoint with
-`SALAMATRIX_AI_PROTOCOL=chat-completions`; `SALAMATRIX_AI_ENDPOINT`,
-`SALAMATRIX_AI_MODEL`, and `SALAMATRIX_AI_LOCAL_TIMEOUT` remain explicit
-configuration. The wrapper is never launched unless it is selected through
-`SALAMATRIX_AI_COMMAND`, and its own timeout is capped below the host's
-two-minute provider limit.
+`SALAMATRIX_AI_PROTOCOL=chat-completions`. The native provider accepts
+`SALAMATRIX_AI_OLLAMA_URL` (or the compatibility alias
+`SALAMATRIX_AI_HTTP_URL`) for Ollama, and `SALAMATRIX_AI_LLAMA_URL` for a
+llama.cpp/OpenAI-compatible endpoint; a bare host URL automatically receives
+the matching default path. `SALAMATRIX_AI_MODEL` (or
+`SALAMATRIX_AI_OLLAMA_MODEL`) selects the model. The wrapper is never launched
+unless it is selected through `SALAMATRIX_AI_COMMAND`, and its own timeout is
+capped below the host's two-minute provider limit.
 
 ## Salamatrix PoC runtime wiring
 
@@ -1087,5 +1091,7 @@ The platform skeleton is ready when:
     endpoint calls while preserving the host's bounded JSON contract.
 45. `SalamatrixAI.SPL` also exposes `local.ollama` directly over WinHTTP when
     `SALAMATRIX_AI_MODEL` and `SALAMATRIX_AI_OLLAMA_URL` (or
-    `SALAMATRIX_AI_HTTP_URL`) are configured; the command wrapper remains
-    available for OpenAI-compatible endpoints and custom model adapters.
+    `SALAMATRIX_AI_HTTP_URL`) are configured; setting
+    `SALAMATRIX_AI_LLAMA_URL` selects the OpenAI/llama.cpp-compatible
+    `/v1/chat/completions` protocol unless `SALAMATRIX_AI_PROTOCOL` overrides
+    it. The command wrapper remains available for custom model adapters.
