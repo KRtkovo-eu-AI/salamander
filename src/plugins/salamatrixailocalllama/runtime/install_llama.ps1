@@ -34,50 +34,20 @@ function Download-VerifiedFile {
     )
 
     $normalizedExpected = $ExpectedHash.Trim().ToUpperInvariant()
-    $partPath = "$Path.part"
     $lastActualHash = '<download failed>'
     for ($attempt = 1; $attempt -le 3; $attempt++) {
-        Remove-Item -LiteralPath $Path, $partPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
 
         try {
-            $ProgressPreference = 'SilentlyContinue'
-            $head = Invoke-WebRequest -UseBasicParsing -Method Head -Uri $Uri
-            $contentLength = [int64]$head.Headers['Content-Length']
-            if ($contentLength -le 0) {
-                throw "The server did not provide a valid Content-Length for $Description."
+            if ($null -eq (Get-Command Start-BitsTransfer -ErrorAction SilentlyContinue)) {
+                throw 'Windows BITS is not available; cannot reliably download large runtime files.'
             }
 
-            $chunkSize = 8MB
-            $offset = [int64]0
-            while ($offset -lt $contentLength) {
-                $end = [Math]::Min($offset + $chunkSize - 1, $contentLength - 1)
-                Remove-Item -LiteralPath $partPath -Force -ErrorAction SilentlyContinue
-                Invoke-WebRequest -UseBasicParsing -Uri $Uri `
-                    -Headers @{ Range = "bytes=$offset-$end" } -OutFile $partPath
-
-                $chunkLength = (Get-Item -LiteralPath $partPath).Length
-                $expectedChunkLength = $end - $offset + 1
-                if ($chunkLength -ne $expectedChunkLength) {
-                    throw ("The server returned {0} bytes for range {1}-{2}; expected {3}." -f
-                        $chunkLength, $offset, $end, $expectedChunkLength)
-                }
-
-                $sourceStream = [System.IO.File]::OpenRead($partPath)
-                try {
-                    $output = [System.IO.File]::Open($Path,
-                        [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write,
-                        [System.IO.FileShare]::None)
-                    try { $sourceStream.CopyTo($output) }
-                    finally { $output.Dispose() }
-                }
-                finally { $sourceStream.Dispose() }
-
-                $offset = $end + 1
-            }
+            Start-BitsTransfer -Source $Uri -Destination $Path `
+                -DisplayName "Salamatrix: $Description" -Priority Foreground
 
             $lastActualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.Trim().ToUpperInvariant()
             if ($lastActualHash -ceq $normalizedExpected) {
-                Remove-Item -LiteralPath $partPath -Force -ErrorAction SilentlyContinue
                 return
             }
 
@@ -87,9 +57,6 @@ function Download-VerifiedFile {
         catch {
             Write-Warning ("{0} download attempt {1}/3 failed: {2}" -f
                 $Description, $attempt, $_.Exception.Message)
-        }
-        finally {
-            Remove-Item -LiteralPath $partPath -Force -ErrorAction SilentlyContinue
         }
     }
 
