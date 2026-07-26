@@ -2486,6 +2486,27 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 kind = Salamatrix::UI::ControlKindFilePicker;
             else
                 return FALSE;
+            std::string fileFilter;
+            BOOL fileSave = FALSE;
+            if (kind == Salamatrix::UI::ControlKindFilePicker)
+            {
+                std::string rawFileFilter;
+                if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                        payloadJson, "filter", &rawFileFilter))
+                {
+                    if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                            payloadJson, "filter", &fileFilter))
+                        return FALSE;
+                }
+                std::string rawFileSave;
+                if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                        payloadJson, "save", &rawFileSave))
+                {
+                    if (!Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                            payloadJson, "save", &fileSave))
+                        return FALSE;
+                }
+            }
             Salamatrix::UI::ControlOptions options;
             options.Id = controlId.c_str();
             options.Text = text.c_str();
@@ -2494,6 +2515,11 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             options.DialogResult = dialogResult;
             options.KeepOpen = keepOpen;
             options.Multiline = multiline;
+            if (kind == Salamatrix::UI::ControlKindFilePicker)
+            {
+                options.FileFilter = fileFilter.c_str();
+                options.FileSave = fileSave;
+            }
             Salamatrix::UI::ControlLayout layout;
             layout.HasBounds = hasBounds;
             layout.X = x;

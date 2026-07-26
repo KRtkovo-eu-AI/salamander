@@ -433,7 +433,9 @@ void TestAssistantService()
               strstr(uiSlice, "dialog.validation") != NULL,
           "assistant API description exposes a focused UI slice");
     const char* uiOptionsSlice = service.GetApiDescriptionSlice("uiOptions");
-    Check(uiOptionsSlice != NULL && strstr(uiOptionsSlice, "keepOpen") != NULL,
+    Check(uiOptionsSlice != NULL && strstr(uiOptionsSlice, "keepOpen") != NULL &&
+              strstr(uiOptionsSlice, "filter") != NULL &&
+              strstr(uiOptionsSlice, "save") != NULL,
           "assistant API description exposes shared control options");
     const char* commandSlice = service.GetApiDescriptionSlice("commands");
     Check(commandSlice != NULL && strstr(commandSlice, "hotKey") != NULL &&
@@ -456,6 +458,9 @@ void TestAssistantService()
               strstr(sidesSlice, "focusItem") != NULL &&
               strstr(sidesSlice, "\"version\":\"1.2\"") != NULL,
           "assistant API description exposes tab and selection operations");
+    Check(strstr(service.GetApiDescription(), "\"filter\"") != NULL &&
+              strstr(service.GetApiDescription(), "\"save\"") != NULL,
+          "assistant API description schema exposes filter/save names");
     Check(strstr(service.GetApiDescriptionSlice("unknown"),
                  "\"objects\":{}") != NULL,
           "assistant API description handles unknown slices safely");

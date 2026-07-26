@@ -13,6 +13,30 @@ namespace UI
 {
 namespace
 {
+static BOOL Utf8ToWide(const char* value, std::wstring& result);
+
+static BOOL BuildFilePickerFilter(
+    const char* filter,
+    std::vector<wchar_t>& wideFilter)
+{
+    const char* source = filter != NULL && filter[0] != '\0'
+                             ? filter
+                             : "All files (*.*)|*.*";
+    std::wstring wide;
+    if (!Utf8ToWide(source, wide))
+        return FALSE;
+    for (size_t index = 0; index < wide.size(); ++index)
+    {
+        if (wide[index] == L'|')
+            wide[index] = L'\0';
+    }
+    if (wide.empty() || wide[wide.size() - 1] != L'\0')
+        wide.push_back(L'\0');
+    wide.push_back(L'\0');
+    wideFilter.assign(wide.begin(), wide.end());
+    return TRUE;
+}
+
 static BOOL Utf8ToWide(const char* value, std::wstring& result)
 {
     result.clear();
@@ -77,6 +101,8 @@ static BOOL PickEditableFilePath(
     HWND parent,
     const char* title,
     const char* initialPath,
+    const char* fileFilter,
+    BOOL fileSave,
     std::string& result)
 {
     result.clear();
@@ -96,18 +122,29 @@ static BOOL PickEditableFilePath(
         memcpy(&path[0], initialWide.c_str(),
                initialWide.size() * sizeof(wchar_t));
 
-    const wchar_t filter[] = L"All files (*.*)\0*.*\0\0";
+    std::vector<wchar_t> filter;
+    if (!BuildFilePickerFilter(fileFilter, filter) ||
+        filter.empty())
+        return FALSE;
     OPENFILENAMEW dialog;
     memset(&dialog, 0, sizeof(dialog));
     dialog.lStructSize = sizeof(dialog);
     dialog.hwndOwner = parent;
-    dialog.lpstrFilter = filter;
+    dialog.lpstrFilter = &filter[0];
     dialog.lpstrFile = &path[0];
     dialog.nMaxFile = static_cast<DWORD>(path.size());
     dialog.lpstrTitle = titleWide.c_str();
     dialog.Flags = OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
-    if (!GetOpenFileNameW(&dialog))
+    if (fileSave)
+    {
+        dialog.Flags |= OFN_OVERWRITEPROMPT;
+        if (!GetSaveFileNameW(&dialog))
+            return FALSE;
+    }
+    else if (!GetOpenFileNameW(&dialog))
+    {
         return FALSE;
+    }
     return WideToUtf8(&path[0], result) && !result.empty();
 }
 
@@ -420,6 +457,8 @@ struct NativeDialog::Impl
         int DialogResult;
         BOOL KeepOpen;
         BOOL Multiline;
+        std::string FileFilter;
+        BOOL FileSave;
         HWND WindowHandle;
         HWND BrowseWindowHandle;
         WORD BrowseNumericId;
@@ -450,6 +489,8 @@ struct NativeDialog::Impl
               DialogResult(options.DialogResult),
               KeepOpen(options.KeepOpen),
               Multiline(options.Multiline),
+              FileFilter(options.FileFilter != NULL ? options.FileFilter : ""),
+              FileSave(options.FileSave),
               WindowHandle(NULL),
               BrowseWindowHandle(NULL),
               BrowseNumericId(0),
@@ -1212,7 +1253,10 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
     {
         std::string selectedPath;
         if (PickEditableFilePath(
-                hwnd, dialog->m_pImpl->Title.c_str(), control->Text.c_str(),
+                hwnd, dialog->m_pImpl->Title.c_str(),
+                control->Text.c_str(),
+                control->FileFilter.c_str(),
+                control->FileSave,
                 selectedPath))
         {
             control->Text = selectedPath;

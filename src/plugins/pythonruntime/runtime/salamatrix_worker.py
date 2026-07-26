@@ -457,7 +457,9 @@ class _Dialog:
                     dialog_result: int = 0,
                     layout: Optional[dict] = None,
                     keep_open: bool = False,
-                    multiline: bool = False) -> None:
+                    multiline: bool = False,
+                    filter: str = "",
+                    save: bool = False) -> None:
         arguments: dict = {
             "readOnly": read_only,
             "checked": checked,
@@ -469,6 +471,9 @@ class _Dialog:
             for name in ("x", "y", "width", "height"):
                 if name in layout:
                     arguments[name] = int(layout[name])
+        if kind == "filepicker":
+            arguments["filter"] = filter
+            arguments["save"] = save
         self._add(kind, control_id, text, **arguments)
 
     def set_validation(self, control_id: str, required: bool = False,
@@ -507,8 +512,10 @@ class _Dialog:
         self._add("folderpicker", control_id, path)
 
     def add_file_picker(self, control_id: str, path: str = "",
-                        layout: Optional[dict] = None) -> None:
-        self.add_control("filepicker", control_id, path, layout=layout)
+                        layout: Optional[dict] = None, filter: str = "",
+                        save: bool = False) -> None:
+        self.add_control("filepicker", control_id, path, layout=layout,
+                         filter=filter, save=save)
 
     def add_checkbox(self, control_id: str, text: str,
                      checked: bool = False) -> None:

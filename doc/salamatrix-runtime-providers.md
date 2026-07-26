@@ -80,6 +80,21 @@ same four workers additionally expose `add_file_picker`/
 editable native edit control, and places a separate wide Win32 browse button
 next to it.
 
+The editable file picker accepts optional filter and save-mode values. The SMX1
+payload stays flat and appends `filter` (UTF-8 pipe-separated description/pattern
+pairs) and `save` (boolean) to the existing dialog-add payload:
+
+| Runtime | Dialog method |
+| --- | --- |
+| Python | `dialog.add_file_picker(id, path="", layout=None, filter="", save=False)` |
+| PowerShell | `$dialog.AddFilePicker(id, path, filter, save)` |
+| PHP | `$dialog->addFilePicker(id, path, filter, save)` |
+| Node | `await dialog.addFilePicker(id, path, layout=null, filter="", save=false)` |
+
+An omitted or empty filter uses the all-files fallback. `save=true` selects the
+native save dialog and enables overwrite prompting; the selected UTF-8 path
+continues to use the normal dialog control-text/get contract.
+
 ## Command state
 
 All four workers accept optional `enabled` and `visible` fields when registering
@@ -111,6 +126,11 @@ host stop, clean exit, and nonzero failed exit, including cached process id,
 exit code, error code, and bounded message. The provider projects contain the
 same diagnostic behavior even though the process-runtime executable exercises
 the Automation-side adapter. No Salamander process was started or controlled.
+
+The file-picker option slice was additionally rebuilt into
+`build\verification\file-picker-options`. The explicit worker-root run
+verified `filter` and `save=true` for Python, PowerShell, and PHP without
+starting or controlling Salamander.
 
 `RuntimeSessionDiagnostic` is a bounded value snapshot. It reports lifecycle
 state, process id, exit code, and a host/provider error code without exposing a

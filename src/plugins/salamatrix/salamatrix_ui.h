@@ -264,6 +264,12 @@ struct ControlOptions
     /// Use a multiline edit control with vertical scrolling.
     /// Appended for ABI compatibility with the original control contract.
     BOOL Multiline;
+    /// File filter in Salamatrix pipe syntax, for file-picker controls only.
+    /// Appended for ABI compatibility with the original control contract.
+    const char* FileFilter;
+    /// File picker should use save-mode (GetSaveFileNameW) when TRUE.
+    /// Appended for ABI compatibility with the original control contract.
+    BOOL FileSave;
 
     ControlOptions()
         : Id(NULL),
@@ -272,7 +278,9 @@ struct ControlOptions
           Checked(FALSE),
           DialogResult(0),
           KeepOpen(FALSE),
-          Multiline(FALSE)
+          Multiline(FALSE),
+          FileFilter(NULL),
+          FileSave(FALSE)
     {
     }
 };

@@ -163,7 +163,7 @@ class SalamatrixDialog {
     public function addLabel($id, $text) { $this->add('label', $id, $text); }
     public function addTextBox($id, $text = '', $readOnly = false, $multiline = false) { $this->add('textbox', $id, $text, array('readOnly' => $readOnly, 'multiline' => (bool)$multiline)); }
     public function addFolderPicker($id, $path = '') { $this->add('folderpicker', $id, $path); }
-    public function addFilePicker($id, $path = '') { $this->add('filepicker', $id, $path); }
+    public function addFilePicker($id, $path = '', $filter = '', $save = false) { $this->add('filepicker', $id, $path, array('filter' => (string)$filter, 'save' => (bool)$save)); }
     public function addCheckBox($id, $text, $checked = false) { $this->add('checkbox', $id, $text, array('checked' => $checked)); }
     public function addRadioButton($id, $text, $checked = false) { $this->add('radio', $id, $text, array('checked' => $checked)); }
     public function addComboBox($id, $text = '') { $this->add('combobox', $id, $text); }

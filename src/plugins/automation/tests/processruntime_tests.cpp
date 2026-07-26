@@ -13,6 +13,9 @@ int Failures = 0;
 
 struct BootstrapDispatchState
 {
+    int FilePickerOptionsPayloadCalls;
+    int FilePickerOptionsPayloadFilterCalls;
+    int FilePickerOptionsPayloadSaveTrueCalls;
     int CommandCalls;
     int StorageCalls;
     int SubscribeCalls;
@@ -34,7 +37,10 @@ struct BootstrapDispatchState
     int NotificationCalls;
 
     BootstrapDispatchState()
-        : CommandCalls(0),
+        : FilePickerOptionsPayloadCalls(0),
+          FilePickerOptionsPayloadFilterCalls(0),
+          FilePickerOptionsPayloadSaveTrueCalls(0),
+          CommandCalls(0),
           StorageCalls(0),
           SubscribeCalls(0),
           FileOperationCalls(0),
@@ -248,7 +254,26 @@ BOOL WINAPI WorkerHostDispatch(
             if (strstr(payloadJson, "folderpicker") != NULL)
                 ++state->FolderPickerControlCalls;
             if (strstr(payloadJson, "filepicker") != NULL)
+            {
                 ++state->FilePickerControlCalls;
+                std::string kind;
+                if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                        payloadJson, "kind", &kind) != FALSE &&
+                    kind == "filepicker")
+                {
+                    ++state->FilePickerOptionsPayloadCalls;
+                    std::string filter;
+                    BOOL save = FALSE;
+                    if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                            payloadJson, "filter", &filter) != FALSE &&
+                        filter == "Text files|*.txt|All files|*.*")
+                        ++state->FilePickerOptionsPayloadFilterCalls;
+                    if (Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                            payloadJson, "save", &save) != FALSE &&
+                        save != FALSE)
+                        ++state->FilePickerOptionsPayloadSaveTrueCalls;
+                }
+            }
         }
         response = strstr(payloadJson, "salamander.ui.dialog.show") != NULL
                        ? "{\"ok\":true,\"result\":1}"
@@ -612,7 +637,7 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('side context call failed')\n"
               "if not Salamander.clipboard.copy_text('seed.txt'):\n"
               "    raise RuntimeError('clipboard call failed')\n"
-              "picked = Salamander.ui.pick_file(filter='Text files|*.txt')\n"
+              "picked = Salamander.ui.pick_file(save=True, filter='Text files|*.txt|All files|*.*')\n"
               "if not picked.get('selected') or not picked.get('path', '').endswith('chosen.txt'):\n"
               "    raise RuntimeError('file picker call failed')\n"
               "folder = Salamander.ui.pick_folder()\n"
@@ -628,7 +653,7 @@ void RunPythonBootstrapTest()
               "dialog.add_control('label', 'label', 'Hello', layout={'x': 12, 'y': 10, 'width': 180, 'height': 16})\n"
               "dialog.add_textbox('value', 'seed', multiline=True)\n"
               "dialog.add_folder_picker('folder', 'C:\\\\Temp')\n"
-              "dialog.add_file_picker('file', 'C:\\\\Temp\\\\seed.txt')\n"
+              "dialog.add_file_picker('file', 'C:\\\\Temp\\\\seed.txt', filter='Text files|*.txt|All files|*.*', save=True)\n"
               "dialog.set_validation('value', True, 'Value is required')\n"
               "dialog.on_change(lambda event: None)\n"
               "dialog.add_radio_button('radio', 'Choice', True)\n"
@@ -699,6 +724,12 @@ void RunPythonBootstrapTest()
         Check(state.DialogCalls == 22, "bootstrap dialog calls reached host");
         Check(state.FolderPickerControlCalls == 1, "bootstrap folder picker control reached host");
         Check(state.FilePickerControlCalls == 1, "bootstrap editable file picker control reached host");
+        Check(state.FilePickerOptionsPayloadCalls == 1,
+              "bootstrap filepicker options payload reached host");
+        Check(state.FilePickerOptionsPayloadFilterCalls == 1,
+              "bootstrap filepicker options payload includes filter");
+        Check(state.FilePickerOptionsPayloadSaveTrueCalls == 1,
+              "bootstrap filepicker options payload includes save=true");
         std::string shutdown;
         Check(
             Salamatrix::Runtime::Protocol::LineCodec::Encode(
@@ -750,7 +781,7 @@ void RunPowerShellBootstrapTest()
               "$sideContext = $Salamander.source_side.Context()\n"
               "if ($sideContext.selectedCount -ne 1 -or $sideContext.focusedItem.name -ne 'seed.txt') { throw 'side context call failed' }\n"
               "if (-not $Salamander.clipboard.CopyText('seed.txt')) { throw 'clipboard call failed' }\n"
-              "$picked = $Salamander.ui.PickFile($false, '', 'Text files|*.txt', '')\n"
+              "$picked = $Salamander.ui.PickFile($true, '', 'Text files|*.txt|All files|*.*', '')\n"
               "if (-not $picked.selected -or -not $picked.path.EndsWith('chosen.txt')) { throw 'file picker call failed' }\n"
               "$folder = $Salamander.ui.PickFolder('', '')\n"
               "if (-not $folder.selected -or -not $folder.path.EndsWith('chosen-folder')) { throw 'folder picker call failed' }\n"
@@ -761,7 +792,7 @@ void RunPowerShellBootstrapTest()
               "$dialog.AddControl('label', 'label', 'Hello', $false, $false, 0, @{ x = 12; y = 10; width = 180; height = 16 })\n"
               "$dialog.AddTextBox('value', 'seed', $false, $true)\n"
               "$dialog.AddFolderPicker('folder', 'C:\\Temp')\n"
-              "$dialog.AddFilePicker('file', 'C:\\Temp\\seed.txt')\n"
+              "$dialog.AddFilePicker('file', 'C:\\Temp\\seed.txt', 'Text files|*.txt|All files|*.*', $true)\n"
               "$dialog.SetValidation('value', $true, 'Value is required')\n"
               "$dialog.OnChange({ param($event) })\n"
               "$dialog.AddRadioButton('radio', 'Choice', $true)\n"
@@ -817,6 +848,12 @@ void RunPowerShellBootstrapTest()
         Check(state.DialogCalls == 22, "powershell bootstrap dialog calls");
         Check(state.FolderPickerControlCalls == 1, "powershell folder picker control");
         Check(state.FilePickerControlCalls == 1, "powershell editable file picker control");
+        Check(state.FilePickerOptionsPayloadCalls == 1,
+              "powershell filepicker options payload reached host");
+        Check(state.FilePickerOptionsPayloadFilterCalls == 1,
+              "powershell filepicker options payload includes filter");
+        Check(state.FilePickerOptionsPayloadSaveTrueCalls == 1,
+              "powershell filepicker options payload includes save=true");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
@@ -864,7 +901,7 @@ void RunPhpBootstrapTest()
               "$sideContext = $Salamander->source_side->context();\n"
               "if ($sideContext['selectedCount'] !== 1 || $sideContext['focusedItem']['name'] !== 'seed.txt') throw new Exception('side context call failed');\n"
               "if (!$Salamander->clipboard->copyText('seed.txt')) throw new Exception('clipboard call failed');\n"
-              "$picked = $Salamander->ui->pickFile(false, '', 'Text files|*.txt', '');\n"
+              "$picked = $Salamander->ui->pickFile(true, '', 'Text files|*.txt|All files|*.*', '');\n"
               "if (empty($picked['selected']) || substr($picked['path'], -10) !== 'chosen.txt') throw new Exception('file picker call failed');\n"
               "$folder = $Salamander->ui->pickFolder('', '');\n"
               "if (empty($folder['selected']) || substr($folder['path'], -13) !== 'chosen-folder') throw new Exception('folder picker call failed');\n"
@@ -876,7 +913,7 @@ void RunPhpBootstrapTest()
               "$dialog->addControl('label', 'label', 'Hello', false, false, 0, array('x' => 12, 'y' => 10, 'width' => 180, 'height' => 16));\n"
               "$dialog->addTextBox('value', 'seed', false, true);\n"
               "$dialog->addFolderPicker('folder', 'C:\\\\Temp');\n"
-              "$dialog->addFilePicker('file', 'C:\\\\Temp\\\\seed.txt');\n"
+              "$dialog->addFilePicker('file', 'C:\\\\Temp\\\\seed.txt', 'Text files|*.txt|All files|*.*', true);\n"
               "$dialog->setValidation('value', true, 'Value is required');\n"
               "$dialog->onChange(function($event) {});\n"
               "$dialog->addRadioButton('radio', 'Choice', true);\n"
@@ -932,6 +969,12 @@ void RunPhpBootstrapTest()
         Check(state.DialogCalls == 22, "php bootstrap dialog calls");
         Check(state.FolderPickerControlCalls == 1, "php folder picker control");
         Check(state.FilePickerControlCalls == 1, "php editable file picker control");
+        Check(state.FilePickerOptionsPayloadCalls == 1,
+              "php filepicker options payload reached host");
+        Check(state.FilePickerOptionsPayloadFilterCalls == 1,
+              "php filepicker options payload includes filter");
+        Check(state.FilePickerOptionsPayloadSaveTrueCalls == 1,
+              "php filepicker options payload includes save=true");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
