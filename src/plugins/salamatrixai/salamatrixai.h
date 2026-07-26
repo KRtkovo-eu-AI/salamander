@@ -13,6 +13,7 @@
 extern HINSTANCE DLLInstance;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 
+#define IDI_PLUGINICON 1030
 #define IDS_AI_ASSISTANT_MENU 1000
 #define IDS_AI_PROMPT 1001
 #define IDS_AI_PREVIEW_TITLE 1002

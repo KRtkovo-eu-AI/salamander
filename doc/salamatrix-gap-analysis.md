@@ -997,3 +997,18 @@ The forty-third code slice is implemented and verified:
 - rebuild the `demoplug` Debug x64 plugin into isolated
   `build\verification\demoplug-darkmode-header`; compilation and linking
   passed. No Salamander process was started or controlled.
+
+The forty-fourth code slice is implemented and verified:
+
+- wire SalamatrixAI's existing `IDI_PLUGINICON` resource to numeric ID 1030,
+  load it during `CPluginInterface::Connect`, and publish it through the
+  normal Plugin Manager icon-list callbacks;
+- keep the shared `src/res/sal_r.ico` icon for Salamatrix Framework and
+  SalamatrixAI only; remove it from the JavaScript, Python, PowerShell, and
+  PHP runtime resource scripts so those providers retain the default Plugin
+  Manager icon;
+- extend the source-contract test for numeric icon identity, AI icon-list
+  registration, and default runtime icon scope; rebuild SalamatrixAI and all
+  four runtimes into isolated `build\verification\icon-scope-*` outputs.
+  The test and all five builds passed; no Salamander process was started or
+  controlled.

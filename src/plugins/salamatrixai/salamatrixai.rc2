@@ -1,3 +1,4 @@
+#define IDI_PLUGINICON 1030
 IDI_PLUGINICON ICON "..\\..\\res\\sal_r.ico"
 
 #define IDS_AI_ASSISTANT_MENU 1000

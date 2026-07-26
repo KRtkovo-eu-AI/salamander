@@ -274,3 +274,9 @@ depending on a provider-specific precompiled header to expose dark-mode
 declarations. This keeps `Salamatrix.Poc` consumers such as `demoplug`
 self-contained while retaining each project's existing `USE_DARKMODELIB`
 configuration. The isolated `demoplug` Debug x64 verification build passed.
+
+The shared `src/res/sal_r.ico` artwork is intentionally used only by the
+Salamatrix Framework and SalamatrixAI plugins. The four standalone runtime
+providers do not define a custom plugin icon resource and therefore keep the
+standard Plugin Manager fallback icon. SalamatrixAI registers resource ID
+1030 through its normal GUI icon-list callbacks during `Connect`.

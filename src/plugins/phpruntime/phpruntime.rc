@@ -8,11 +8,8 @@
 
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
-IDI_PLUGINICON ICON "..\\..\\res\\sal_r.ico"
-
 #ifndef APSTUDIO_INVOKED
 #include "phpruntime.rc2"
 #endif
-
 
 

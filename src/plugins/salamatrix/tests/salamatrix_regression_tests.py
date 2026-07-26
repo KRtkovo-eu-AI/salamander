@@ -41,6 +41,10 @@ def main() -> int:
     pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
     powershellruntime = read("src/plugins/powershellruntime/powershellruntime.cpp")
     phpruntime = read("src/plugins/phpruntime/phpruntime.cpp")
+    javascriptruntime_rc = read("src/plugins/javascriptruntime/javascriptruntime.rc")
+    pythonruntime_rc = read("src/plugins/pythonruntime/pythonruntime.rc")
+    powershellruntime_rc = read("src/plugins/powershellruntime/powershellruntime.rc")
+    phpruntime_rc = read("src/plugins/phpruntime/phpruntime.rc")
     salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
     salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
@@ -72,6 +76,8 @@ def main() -> int:
     require(ai, r"\bCmdOpenAssistant\b", "AI command symbol is missing")
     require(ai, r"ExecuteMenuItem.*?id == CmdOpenAssistant.*?ShowChat", "AI menu command does not open chat")
     require(ai_rc2, r'IDS_AI_ASSISTANT_MENU\s+1000', "AI menu resource id is missing")
+    require(ai_header, r'#define IDI_PLUGINICON\s+1030', "AI plugin icon resource id is missing")
+    require(ai_rc2, r'#define IDI_PLUGINICON\s+1030', "AI resource icon id is missing")
     require(ai_rc2, r'IDI_PLUGINICON\s+ICON\s+"[.][.]\\\\[.][.]\\\\res\\\\sal_r\.ico"', "AI menu icon is not sal_r.ico")
     require(ai_rc2, r'IDS_AI_ASSISTANT_MENU\s+"Ask Salamatrix AI\.\.\."', "AI menu resource text is not exact")
     require(ai, r'#include\s+"versinfo\.rh2"', "AI implementation does not include versinfo.rh2")
@@ -86,6 +92,7 @@ def main() -> int:
     require(ai, r'BuildMenu.*?salamander->AddMenuItem\(-1,\s*GetAssistantMenuCaption\(\),\s*0,\s*CmdOpenAssistant',
             "AI BuildMenu does not add fully specified assistant command")
     require(ai, r"BuildMenu.*?GetAssistantMenuCaption\(\).*?CmdOpenAssistant", "AI BuildMenu does not add the resource-backed command")
+    require(ai, r"CPluginInterface::Connect.*?CreateIconList\(\).*?ReplaceIcon\(0.*?SetIconListForGUI.*?SetPluginIcon\(0\).*?SetPluginMenuAndToolbarIcon\(0\)", "AI plugin does not register sal_r.ico in the Plugin Manager icon list")
     require(ai, r"IsCurrentService\(SALAMATRIX_SERVICE_AI.*?g_ai\).*?UnregisterProvider",
             "AI Release lacks current-service pointer validation")
     for symbol in (
@@ -147,6 +154,14 @@ def main() -> int:
                 f"{name} runtime release guard does not clear local registration state")
         require(runtime, rf"UnregisterRuntimeProvider\(\s*{re.escape(registration_var)}\s*\)",
                 f"{name} runtime Release does not call safe registration unregister")
+
+    for name, runtime_resource in (
+        ("JavaScript", javascriptruntime_rc),
+        ("Python", pythonruntime_rc),
+        ("PowerShell", powershellruntime_rc),
+        ("PHP", phpruntime_rc),
+    ):
+        require_absent(runtime_resource, r"sal_r\.ico", f"{name} runtime must use the default Plugin Manager icon")
 
     require(salamatrix_props, r"USE_DARKMODELIB=1", "Salamatrix Framework is not built with win32-darkmodelib")
     require(salamatrix, r"ApplyHostDarkModePolicy\(SalamanderGeneral", "Salamatrix host dark-mode policy is not initialized")

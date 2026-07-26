@@ -8,9 +8,6 @@
 
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
-IDI_PLUGINICON ICON "..\\..\\res\\sal_r.ico"
-
 #ifndef APSTUDIO_INVOKED
 #include "pythonruntime.rc2"
 #endif
-

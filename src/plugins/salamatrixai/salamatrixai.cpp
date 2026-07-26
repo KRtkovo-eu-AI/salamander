@@ -1631,7 +1631,34 @@ void WINAPI CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalam
 void WINAPI CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry)
 { UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(regKey); UNREFERENCED_PARAMETER(registry); }
 void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
-{ UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); }
+{
+    UNREFERENCED_PARAMETER(parent);
+
+    if (SalamanderGUI != NULL)
+    {
+        CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
+        if (iconList != NULL)
+        {
+            if (iconList->Create(16, 16, 1))
+            {
+                UINT loadFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags() : LR_DEFAULTCOLOR;
+                HICON hIcon = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON, 16, 16, loadFlags);
+                if (hIcon != NULL)
+                {
+                    iconList->ReplaceIcon(0, hIcon);
+                    DestroyIcon(hIcon);
+                    salamander->SetIconListForGUI(iconList);
+                    salamander->SetPluginIcon(0);
+                    salamander->SetPluginMenuAndToolbarIcon(0);
+                    iconList = NULL;
+                }
+            }
+
+            if (iconList != NULL)
+                SalamanderGUI->DestroyIconList(iconList);
+        }
+    }
+}
 void WINAPI CPluginInterface::Event(int event, DWORD param)
 {
     UNREFERENCED_PARAMETER(event); UNREFERENCED_PARAMETER(param);
