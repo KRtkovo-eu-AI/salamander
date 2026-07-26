@@ -605,8 +605,8 @@ BOOL PackageManager::ExecuteCommand(
         CSalamanderServiceResult serviceResult;
         memset(&query, 0, sizeof(query));
         memset(&serviceResult, 0, sizeof(serviceResult));
-        query.ServiceId = Automation::SALAMATRIX_SERVICE_SCRIPT_RUNNER;
-        query.MinimumVersion = Automation::SALAMATRIX_SCRIPT_RUNNER_VERSION_1_0;
+        query.ServiceId = SALAMATRIX_SERVICE_SCRIPT_RUNNER;
+        query.MinimumVersion = SALAMATRIX_SCRIPT_RUNNER_VERSION_1_0;
         Automation::IScriptRunner* scriptRunner = NULL;
         if (General->QueryService(&query, &serviceResult) &&
             serviceResult.Interface != NULL)
