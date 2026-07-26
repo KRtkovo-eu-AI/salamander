@@ -17,6 +17,7 @@ namespace Extensions
 
 #define SALAMATRIX_SERVICE_EXTENSIONS "Salamatrix.Extensions"
 #define SALAMATRIX_EXTENSIONS_VERSION_1_0 0x00010000
+#define SALAMATRIX_EXTENSIONS_VERSION_1_1 0x00010001
 
 enum ExtensionState
 {
@@ -27,7 +28,8 @@ enum ExtensionState
     ExtensionStateInactive = 5,
     ExtensionStateFailed = 6,
     ExtensionStateWaitingForRuntime = 7,
-    ExtensionStateWaitingForDependency = 8
+    ExtensionStateWaitingForDependency = 8,
+    ExtensionStateDisabled = 9
 };
 
 enum ExtensionAction
@@ -43,7 +45,10 @@ enum ExtensionFlags
     ExtensionFlagPersistent = 0x00000002,
     ExtensionFlagCompatibility = 0x00000004,
     ExtensionFlagRuntimeUnavailable = 0x00000008,
-    ExtensionFlagDependencyUnavailable = 0x00000010
+    ExtensionFlagDependencyUnavailable = 0x00000010,
+    // User-controlled persistent disabled state. This is separate from a
+    // missing runtime/dependency so Plugin Manager can explain the reason.
+    ExtensionFlagDisabled = 0x00000020
 };
 
 struct ExtensionDescriptor
@@ -131,6 +136,17 @@ public:
     {
         (void)extensionId;
         (void)owner;
+    }
+
+    /// Appended in 1.1. Changes the runtime registry state only; the owning
+    /// discovery layer persists the user's choice in Salamatrix.Storage.
+    virtual BOOL WINAPI SetExtensionDisabled(
+        const char* extensionId,
+        BOOL disabled)
+    {
+        (void)extensionId;
+        (void)disabled;
+        return FALSE;
     }
 
 protected:
@@ -238,6 +254,12 @@ private:
                 LeaveCriticalSection(&Lock);
                 return TRUE;
             }
+            if (record.Info.State == ExtensionStateDisabled &&
+                (record.Info.Descriptor.Flags & ExtensionFlagDisabled) != 0)
+            {
+                LeaveCriticalSection(&Lock);
+                return TRUE;
+            }
             if (record.Info.State == ExtensionStateWaitingForRuntime &&
                 (record.Info.Descriptor.Flags &
                  ExtensionFlagRuntimeUnavailable) != 0)
@@ -259,7 +281,8 @@ private:
             if (record.Info.State == ExtensionStateInactive ||
                 record.Info.State == ExtensionStateDiscovered ||
                 record.Info.State == ExtensionStateWaitingForRuntime ||
-                record.Info.State == ExtensionStateWaitingForDependency)
+                record.Info.State == ExtensionStateWaitingForDependency ||
+                record.Info.State == ExtensionStateDisabled)
             {
                 LeaveCriticalSection(&Lock);
                 return TRUE;
@@ -312,12 +335,12 @@ public:
 
     virtual DWORD WINAPI GetVersion() const
     {
-        return SALAMATRIX_EXTENSIONS_VERSION_1_0;
+        return SALAMATRIX_EXTENSIONS_VERSION_1_1;
     }
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\",\"waitingForDependency\"]}";
+        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"setDisabled\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\",\"waitingForDependency\",\"disabled\"]}";
     }
 
     virtual BOOL WINAPI RegisterExtension(
@@ -343,7 +366,13 @@ public:
             }
             Records[existing].Info.Descriptor = *descriptor;
             Records[existing].Callback = callback;
-            if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
+            if ((descriptor->Flags & ExtensionFlagDisabled) != 0)
+            {
+                if (Records[existing].Info.State != ExtensionStateActive &&
+                    Records[existing].Info.State != ExtensionStateActivating)
+                    Records[existing].Info.State = ExtensionStateDisabled;
+            }
+            else if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
             {
                 if (Records[existing].Info.State != ExtensionStateActive &&
                     Records[existing].Info.State != ExtensionStateActivating)
@@ -355,7 +384,8 @@ public:
                     Records[existing].Info.State != ExtensionStateActivating)
                     Records[existing].Info.State = ExtensionStateWaitingForDependency;
             }
-            else if (Records[existing].Info.State == ExtensionStateWaitingForRuntime)
+            else if (Records[existing].Info.State == ExtensionStateDisabled ||
+                     Records[existing].Info.State == ExtensionStateWaitingForRuntime)
             {
                 Records[existing].Info.State = ExtensionStateDiscovered;
             }
@@ -374,7 +404,9 @@ public:
         Record& record = Records[RecordCount++];
         record.Info = ExtensionInfo();
         record.Info.Descriptor = *descriptor;
-        if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
+        if ((descriptor->Flags & ExtensionFlagDisabled) != 0)
+            record.Info.State = ExtensionStateDisabled;
+        else if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
             record.Info.State = ExtensionStateWaitingForRuntime;
         else if ((descriptor->Flags & ExtensionFlagDependencyUnavailable) != 0)
             record.Info.State = ExtensionStateWaitingForDependency;
@@ -522,6 +554,42 @@ public:
             return FALSE;
         }
         CopyInfo(Records[index], info);
+        LeaveCriticalSection(&Lock);
+        return TRUE;
+    }
+
+    virtual BOOL WINAPI SetExtensionDisabled(
+        const char* extensionId,
+        BOOL disabled)
+    {
+        if (extensionId == NULL || extensionId[0] == 0)
+            return FALSE;
+        EnterCriticalSection(&Lock);
+        const int index = FindIndex(extensionId);
+        if (index < 0 ||
+            Records[index].Info.State == ExtensionStateActivating ||
+            Records[index].Info.State == ExtensionStateDeactivating)
+        {
+            LeaveCriticalSection(&Lock);
+            return FALSE;
+        }
+        Record& record = Records[index];
+        if (disabled)
+        {
+            if (record.Info.State == ExtensionStateActive)
+            {
+                LeaveCriticalSection(&Lock);
+                return FALSE;
+            }
+            record.Info.Descriptor.Flags |= ExtensionFlagDisabled;
+            record.Info.State = ExtensionStateDisabled;
+        }
+        else
+        {
+            record.Info.Descriptor.Flags &= ~ExtensionFlagDisabled;
+            if (record.Info.State == ExtensionStateDisabled)
+                record.Info.State = ExtensionStateDiscovered;
+        }
         LeaveCriticalSection(&Lock);
         return TRUE;
     }

@@ -219,6 +219,42 @@ void TestDependencyAvailabilityState()
           "available dependency activates extension");
     delete extensions;
 }
+
+void TestDisabledState()
+{
+    Salamatrix::Extensions::ExtensionsService* extensions =
+        new Salamatrix::Extensions::ExtensionsService();
+    CallbackState callback;
+    Salamatrix::Extensions::ExtensionDescriptor descriptor =
+        MakeDescriptor("disabled.extension");
+    descriptor.Flags |= Salamatrix::Extensions::ExtensionFlagDisabled;
+    Check(extensions->RegisterExtension(
+              &descriptor, LifecycleCallback, &callback) != FALSE,
+          "register disabled extension");
+    Salamatrix::Extensions::ExtensionInfo info;
+    Check(extensions->FindExtension("disabled.extension", &info) != FALSE &&
+              info.State == Salamatrix::Extensions::ExtensionStateDisabled,
+          "disabled extension state is exposed");
+    Check(extensions->ActivateExtension("disabled.extension") != FALSE,
+          "disabled extension activation is a safe no-op");
+    Check(callback.Count == 0, "disabled extension does not start");
+    Check(extensions->SetExtensionDisabled("disabled.extension", FALSE) != FALSE,
+          "clear disabled state");
+    Check(extensions->FindExtension("disabled.extension", &info) != FALSE &&
+              info.State == Salamatrix::Extensions::ExtensionStateDiscovered,
+          "cleared disabled state returns extension to discovered");
+    Check(extensions->ActivateExtension("disabled.extension") != FALSE &&
+              callback.Count == 1,
+          "re-enabled extension activates");
+    Check(extensions->DeactivateExtension("disabled.extension") != FALSE,
+          "active extension deactivates before disabling");
+    Check(extensions->SetExtensionDisabled("disabled.extension", TRUE) != FALSE,
+          "set disabled state after deactivation");
+    Check(extensions->FindExtension("disabled.extension", &info) != FALSE &&
+              info.State == Salamatrix::Extensions::ExtensionStateDisabled,
+          "disabled state persists in registry");
+    delete extensions;
+}
 } // namespace
 
 int main()
@@ -228,6 +264,7 @@ int main()
     TestUnregisterDeactivatesActiveExtension();
     TestRuntimeAvailabilityState();
     TestDependencyAvailabilityState();
+    TestDisabledState();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d Salamatrix extension test(s) failed.\n", Failures);

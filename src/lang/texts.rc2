@@ -1384,6 +1384,7 @@ STRINGTABLE
  IDS_PLUGINEXTDEACTIVATE, "&Deactivate"
  IDS_PLUGINEXTWAITINGRUNTIME, "Extension (runtime unavailable)"
  IDS_PLUGINEXTWAITINGDEPENDENCY, "Extension (dependency unavailable)"
+ IDS_PLUGINEXTDISABLED, "Extension (disabled)"
  IDS_PLUGINADDTITLE, "Add Plugins"
  IDS_PLUGINTESTOK, "%s plugin seems to work correctly."
  IDS_PLUGINTESTALLOK, "All plugins seem to work correctly."

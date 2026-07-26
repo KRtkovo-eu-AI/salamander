@@ -23,6 +23,7 @@
 #include "consts.h"
 #include "darkmode.h"
 #include "svg.h"
+#include "plugins/salamatrix/salamatrix_storage.h"
 #include "third_party/darkmodelib/include/Darkmodelib.h"
 
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // after reopening Plugins Manager, select the last chosen plugin
@@ -98,12 +99,25 @@ Salamatrix::Extensions::IExtensionsService* QueryExtensionService()
     CSalamanderServiceQuery query;
     memset(&query, 0, sizeof(query));
     query.ServiceId = SALAMATRIX_SERVICE_EXTENSIONS;
-    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_0;
+    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_1;
     CSalamanderServiceResult result;
     memset(&result, 0, sizeof(result));
     if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
         return NULL;
     return static_cast<Salamatrix::Extensions::IExtensionsService*>(result.Interface);
+}
+
+Salamatrix::Storage::IStorageService* QueryExtensionStorageService()
+{
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = SALAMATRIX_SERVICE_STORAGE;
+    query.MinimumVersion = SALAMATRIX_STORAGE_VERSION_1_0;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
+        return NULL;
+    return static_cast<Salamatrix::Storage::IStorageService*>(result.Interface);
 }
 }
 
@@ -713,6 +727,9 @@ void CPluginsDlg::OnSelChanged()
         const BOOL dependencyUnavailable =
             (extension->Descriptor.Flags &
              Salamatrix::Extensions::ExtensionFlagDependencyUnavailable) != 0;
+        const BOOL disabled =
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagDisabled) != 0;
         const BOOL runtimeUnavailable =
             (extension->Descriptor.Flags &
              Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0;
@@ -723,7 +740,9 @@ void CPluginsDlg::OnSelChanged()
             _TRUNCATE,
             "%s%s",
             extension->Descriptor.RuntimeId,
-            runtimeUnavailable
+            disabled
+                ? " (disabled)"
+                : runtimeUnavailable
                 ? " (runtime unavailable)"
                 : dependencyUnavailable
                       ? " (dependency unavailable)"
@@ -736,7 +755,9 @@ void CPluginsDlg::OnSelChanged()
             LoadStr(IDS_PLUGINTHUMBNONE));
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS),
-            dependencyUnavailable
+            disabled
+                ? LoadStr(IDS_PLUGINEXTDISABLED)
+                : dependencyUnavailable
                 ? LoadStr(IDS_PLUGINEXTWAITINGDEPENDENCY)
                 : runtimeUnavailable
                       ? LoadStr(IDS_PLUGINEXTWAITINGRUNTIME)
@@ -1264,8 +1285,41 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     const BOOL active =
                         extension->State == Salamatrix::Extensions::ExtensionStateActive;
+                    const BOOL disabled =
+                        (extension->Descriptor.Flags &
+                         Salamatrix::Extensions::ExtensionFlagDisabled) != 0;
+                    Salamatrix::Storage::IStorageService* storage =
+                        QueryExtensionStorageService();
                     if (active)
-                        service->DeactivateExtension(extension->Descriptor.Id);
+                    {
+                        // The existing Deactivate action is also the user
+                        // facing persistent disable control for manifest
+                        // packages. Do not mark it disabled until its worker
+                        // has stopped successfully.
+                        if (service->DeactivateExtension(
+                                extension->Descriptor.Id) &&
+                            (storage == NULL || storage->SetBoolean(
+                                extension->Descriptor.Id,
+                                "salamatrix.enabled", FALSE)))
+                        {
+                            service->SetExtensionDisabled(
+                                extension->Descriptor.Id, TRUE);
+                        }
+                    }
+                    else if (disabled)
+                    {
+                        if (storage == NULL || storage->SetBoolean(
+                                extension->Descriptor.Id,
+                                "salamatrix.enabled", TRUE))
+                        {
+                            if (service->SetExtensionDisabled(
+                                    extension->Descriptor.Id, FALSE))
+                            {
+                                service->ActivateExtension(
+                                    extension->Descriptor.Id);
+                            }
+                        }
+                    }
                     else
                         service->ActivateExtension(extension->Descriptor.Id);
                     RefreshListView(TRUE, listIndex);

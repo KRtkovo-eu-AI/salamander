@@ -5256,6 +5256,24 @@ void CScriptLookup::PublishSalamatrixExtensions()
             // settings.
             pScript->InitializeSalamatrixSettings(storage);
 
+            // Plugin Manager persists the user's enabled/disabled choice in
+            // the extension's isolated namespace. Absence deliberately means
+            // enabled so existing packages keep their current behaviour.
+            if (storage != NULL &&
+                storage->GetValueType(
+                    extensionId, "salamatrix.enabled") ==
+                    Salamatrix::Storage::StorageValueBoolean)
+            {
+                BOOL enabled = TRUE;
+                if (storage->GetBoolean(
+                        extensionId, "salamatrix.enabled", &enabled) &&
+                    !enabled)
+                {
+                    descriptor.Flags |=
+                        Salamatrix::Extensions::ExtensionFlagDisabled;
+                }
+            }
+
             // A failed registration (for example a duplicate manifest id)
             // is intentionally ignored here. The host registry remains
             // authoritative and malformed/duplicate entries never become
