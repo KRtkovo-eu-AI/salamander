@@ -436,7 +436,9 @@ void TestAssistantService()
     Check(uiOptionsSlice != NULL && strstr(uiOptionsSlice, "keepOpen") != NULL,
           "assistant API description exposes shared control options");
     const char* commandSlice = service.GetApiDescriptionSlice("commands");
-    Check(commandSlice != NULL && strstr(commandSlice, "hotKey") != NULL,
+    Check(commandSlice != NULL && strstr(commandSlice, "hotKey") != NULL &&
+              strstr(commandSlice, "setState") != NULL &&
+              strstr(commandSlice, "visible") != NULL,
           "assistant API description exposes a focused command slice");
     const char* executionSlice = service.GetApiDescriptionSlice("execution");
     Check(executionSlice != NULL && strstr(executionSlice, "command_id") != NULL,

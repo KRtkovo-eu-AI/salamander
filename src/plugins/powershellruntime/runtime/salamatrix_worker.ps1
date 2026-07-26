@@ -70,12 +70,19 @@ $commands | Add-Member ScriptMethod Execute {
     (Invoke-Host -Method 'salamander.commands.execute' -Arguments @{ commandId = $CommandId }).result
 }
 $commands | Add-Member ScriptMethod Register {
-    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false, [int]$HotKey = 0, [bool]$Toolbar = $false, [string]$Handler = '')
-    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu; hotKey = $HotKey; toolbar = $Toolbar; handler = $Handler }).registered
+    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false, [int]$HotKey = 0, [bool]$Toolbar = $false, [string]$Handler = '', [bool]$Enabled = $true, [bool]$Visible = $true)
+    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu; hotKey = $HotKey; toolbar = $Toolbar; handler = $Handler; enabled = $Enabled; visible = $Visible }).registered
 }
 $commands | Add-Member ScriptMethod Unregister {
     param([string]$CommandId)
     (Invoke-Host -Method 'salamander.commands.unregister' -Arguments @{ commandId = $CommandId }).unregistered
+}
+$commands | Add-Member ScriptMethod SetState {
+    param([string]$CommandId, [Nullable[bool]]$Enabled = $null, [Nullable[bool]]$Visible = $null)
+    $arguments = @{ commandId = $CommandId }
+    if ($null -ne $Enabled) { $arguments.enabled = [bool]$Enabled }
+    if ($null -ne $Visible) { $arguments.visible = [bool]$Visible }
+    (Invoke-Host -Method 'salamander.commands.setState' -Arguments $arguments).updated
 }
 $storage = [pscustomobject]@{}
 $storage | Add-Member ScriptMethod Get {

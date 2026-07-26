@@ -51,8 +51,10 @@ static void TestCompleteManifest()
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
         "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\","
-        "\"icon\":\"assets/first.svg\",\"iconDark\":\"assets/first-dark.svg\"},"
-        "{\"id\":\"Example.Second\",\"title\":\"Second\",\"placement\":\"context\"}"
+        "\"icon\":\"assets/first.svg\",\"iconDark\":\"assets/first-dark.svg\","
+        "\"enabled\":false,\"visible\":true},"
+        "{\"id\":\"Example.Second\",\"title\":\"Second\",\"placement\":\"context\","
+        "\"visible\":false}"
         "]"
         "}";
 
@@ -99,7 +101,10 @@ static void TestCompleteManifest()
     CHECK(manifest.Commands[0].Toolbar);
     CHECK(manifest.Commands[0].Icon == "assets/first.svg");
     CHECK(manifest.Commands[0].IconDark == "assets/first-dark.svg");
+    CHECK(!manifest.Commands[0].Enabled);
+    CHECK(manifest.Commands[0].Visible);
     CHECK(manifest.Commands[1].Menu == "context");
+    CHECK(!manifest.Commands[1].Visible);
 }
 
 static void TestDefaults()
@@ -177,6 +182,8 @@ static void TestInvalidDocuments()
         "{\"id\":\"Bad space\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"commands\":[{\"menu\":\"somewhere\"}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"commands\":[{\"enabled\":\"sometimes\"}]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"events\":[\"unknownEvent\"]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","

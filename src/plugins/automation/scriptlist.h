@@ -47,6 +47,8 @@ public:
         DWORD HotKey;
         DWORD MenuEventOrMask;
         DWORD MenuEventAndMask;
+        LONG Enabled;
+        LONG Visible;
 
         RUNTIME_COMMAND_INFO()
             : MenuId(0),
@@ -55,7 +57,9 @@ public:
               Toolbar(false),
               HotKey(0),
               MenuEventOrMask(MENU_EVENT_TRUE),
-              MenuEventAndMask(MENU_EVENT_TRUE)
+              MenuEventAndMask(MENU_EVENT_TRUE),
+              Enabled(TRUE),
+              Visible(TRUE)
         {
             Id[0] = '\0';
             Handler[0] = '\0';
@@ -129,12 +133,16 @@ private:
         std::string IconDarkPath;
         bool ContextMenu;
         bool Toolbar;
+        bool Enabled;
+        bool Visible;
         DWORD MenuEventOrMask;
         DWORD MenuEventAndMask;
 
         SALAMATRIX_MANIFEST_COMMAND()
             : ContextMenu(false),
               Toolbar(false),
+              Enabled(true),
+              Visible(true),
               MenuEventOrMask(MENU_EVENT_TRUE),
               MenuEventAndMask(MENU_EVENT_TRUE)
         {
@@ -255,8 +263,16 @@ private:
         DWORD menuEventOrMask,
         DWORD menuEventAndMask,
         const char* iconPath = NULL,
-        const char* iconDarkPath = NULL);
+        const char* iconDarkPath = NULL,
+        bool enabled = true,
+        bool visible = true);
     bool UnregisterRuntimeCommand(const char* commandId);
+    bool SetRuntimeCommandState(
+        const char* commandId,
+        bool hasEnabled,
+        bool enabled,
+        bool hasVisible,
+        bool visible);
     void ReleaseRuntimeCommands();
     int FindRuntimeCommandIndexByMenuId(int menuId) const;
     static BOOL WINAPI RuntimeLifecycleCallback(
@@ -472,6 +488,22 @@ public:
         return index >= 0 && index < m_nRuntimeCommands
                    ? &m_runtimeCommands[index]
                    : NULL;
+    }
+
+    bool IsRuntimeCommandEnabled(int index) const
+    {
+        return index >= 0 && index < m_nRuntimeCommands &&
+               InterlockedCompareExchange(
+                   const_cast<LONG*>(&m_runtimeCommands[index].Enabled),
+                   0, 0) != 0;
+    }
+
+    bool IsRuntimeCommandVisible(int index) const
+    {
+        return index >= 0 && index < m_nRuntimeCommands &&
+               InterlockedCompareExchange(
+                   const_cast<LONG*>(&m_runtimeCommands[index].Visible),
+                   0, 0) != 0;
     }
 
     int GetRuntimeCommandIndexByMenuId(int menuId) const

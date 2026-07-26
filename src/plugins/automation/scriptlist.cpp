@@ -966,6 +966,8 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
             published.IconDarkPath);
         published.ContextMenu = command.ContextMenu;
         published.Toolbar = command.Toolbar;
+        published.Enabled = command.Enabled;
+        published.Visible = command.Visible;
 
         const bool firstCommand = m_salamatrixManifestCommands.empty();
         if (firstCommand)
@@ -2907,6 +2909,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         BOOL pluginMenu = TRUE;
         BOOL contextMenu = FALSE;
         BOOL toolbar = script->m_bManifestToolbar ? TRUE : FALSE;
+        BOOL enabled = TRUE;
+        BOOL visible = TRUE;
         int hotKeyValue = 0;
         if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
                 payloadJson, "commandId", &commandId) || commandId.empty())
@@ -2923,6 +2927,10 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             payloadJson, "contextMenu", &contextMenu);
         Salamatrix::Runtime::Protocol::Json::FindBoolMember(
             payloadJson, "toolbar", &toolbar);
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "enabled", &enabled);
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "visible", &visible);
         Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
             payloadJson, "hotKey", &hotKeyValue);
         if (!script->m_bRuntimeCommandOwned &&
@@ -2938,7 +2946,11 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 toolbar != FALSE,
                 static_cast<DWORD>(hotKeyValue),
                 script->m_dwMenuEventOrMask,
-                script->m_dwMenuEventAndMask))
+                script->m_dwMenuEventAndMask,
+                NULL,
+                NULL,
+                enabled != FALSE,
+                visible != FALSE))
             return FALSE;
         if (!script->m_bRuntimeCommandOwned &&
             script->m_salamatrixManifestCommands.empty())
@@ -2980,6 +2992,36 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         SalamanderGeneral->PostPluginMenuChanged();
         return CopyRuntimeHostResult(
             "{\"ok\":true,\"registered\":true}",
+            resultJson,
+            resultCapacity,
+            resultLength);
+    }
+
+    if (method == "salamander.commands.setState")
+    {
+        std::string commandId;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "commandId", &commandId) || commandId.empty())
+            return FALSE;
+        BOOL enabled = FALSE;
+        BOOL visible = FALSE;
+        const BOOL hasEnabled =
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "enabled", &enabled);
+        const BOOL hasVisible =
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "visible", &visible);
+        if (!script->SetRuntimeCommandState(
+                commandId.c_str(),
+                hasEnabled != FALSE,
+                enabled != FALSE,
+                hasVisible != FALSE,
+                visible != FALSE))
+            return FALSE;
+        if (SalamanderGeneral != NULL)
+            SalamanderGeneral->PostPluginMenuChanged();
+        return CopyRuntimeHostResult(
+            "{\"ok\":true,\"updated\":true}",
             resultJson,
             resultCapacity,
             resultLength);
@@ -4947,7 +4989,9 @@ bool CScriptInfo::RegisterRuntimeCommand(
     DWORD menuEventOrMask,
     DWORD menuEventAndMask,
     const char* iconPath,
-    const char* iconDarkPath)
+    const char* iconDarkPath,
+    bool enabled,
+    bool visible)
 {
     if (commandId == NULL || commandId[0] == '\0')
         return false;
@@ -4986,6 +5030,8 @@ bool CScriptInfo::RegisterRuntimeCommand(
     command.HotKey = hotKey;
     command.MenuEventOrMask = menuEventOrMask;
     command.MenuEventAndMask = menuEventAndMask;
+    InterlockedExchange(&command.Enabled, enabled ? TRUE : FALSE);
+    InterlockedExchange(&command.Visible, visible ? TRUE : FALSE);
     if (toolbar)
     {
         CSalamanderToolbarButton toolbarButton;
@@ -5058,7 +5104,9 @@ bool CScriptInfo::PublishSalamatrixManifestCommands()
                     : manifestCommand.IconPath.c_str(),
                 manifestCommand.IconDarkPath.empty()
                     ? NULL
-                    : manifestCommand.IconDarkPath.c_str()))
+                    : manifestCommand.IconDarkPath.c_str(),
+                manifestCommand.Enabled,
+                manifestCommand.Visible))
         {
             ReleaseRuntimeCommands();
             return false;
@@ -5108,6 +5156,33 @@ bool CScriptInfo::UnregisterRuntimeCommand(const char* commandId)
             m_runtimeCommands[move] = m_runtimeCommands[move + 1];
         m_runtimeCommands[m_nRuntimeCommands - 1] = RUNTIME_COMMAND_INFO();
         --m_nRuntimeCommands;
+        return true;
+    }
+    return false;
+}
+
+bool CScriptInfo::SetRuntimeCommandState(
+    const char* commandId,
+    bool hasEnabled,
+    bool enabled,
+    bool hasVisible,
+    bool visible)
+{
+    if (commandId == NULL || commandId[0] == '\0' ||
+        (!hasEnabled && !hasVisible))
+        return false;
+    for (int index = 0; index < m_nRuntimeCommands; ++index)
+    {
+        if (_stricmp(m_runtimeCommands[index].Id, commandId) != 0)
+            continue;
+        if (hasEnabled)
+            InterlockedExchange(
+                &m_runtimeCommands[index].Enabled,
+                enabled ? TRUE : FALSE);
+        if (hasVisible)
+            InterlockedExchange(
+                &m_runtimeCommands[index].Visible,
+                visible ? TRUE : FALSE);
         return true;
     }
     return false;

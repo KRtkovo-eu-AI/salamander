@@ -46,12 +46,18 @@ struct CExtensionManifestCommand
     std::string IconDark;
     bool ContextMenu;
     bool Toolbar;
+    // Initial menu state. Persistent workers may update it later through the
+    // command state host call without changing the command identity.
+    bool Enabled;
+    bool Visible;
 
     CExtensionManifestCommand()
         : Menu("plugin"),
           Requires("any"),
           ContextMenu(false),
-          Toolbar(false)
+          Toolbar(false),
+          Enabled(true),
+          Visible(true)
     {
     }
 };

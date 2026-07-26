@@ -52,8 +52,9 @@ class SalamatrixClient {
 class SalamatrixCommands {
     private $client; public function __construct($client) { $this->client = $client; }
     public function execute($id) { $r = $this->client->call('salamander.commands.execute', array('commandId' => $id)); return isset($r['result']) ? $r['result'] : 'error'; }
-    public function register($id, $title, $pluginMenu = true, $contextMenu = false, $hotKey = 0, $toolbar = false, $handler = '') { $r = $this->client->call('salamander.commands.register', array('commandId' => $id, 'title' => $title, 'pluginMenu' => $pluginMenu, 'contextMenu' => $contextMenu, 'hotKey' => (int)$hotKey, 'toolbar' => $toolbar, 'handler' => $handler)); return !empty($r['registered']); }
+    public function register($id, $title, $pluginMenu = true, $contextMenu = false, $hotKey = 0, $toolbar = false, $handler = '', $enabled = true, $visible = true) { $r = $this->client->call('salamander.commands.register', array('commandId' => $id, 'title' => $title, 'pluginMenu' => $pluginMenu, 'contextMenu' => $contextMenu, 'hotKey' => (int)$hotKey, 'toolbar' => $toolbar, 'handler' => $handler, 'enabled' => (bool)$enabled, 'visible' => (bool)$visible)); return !empty($r['registered']); }
     public function unregister($id) { $r = $this->client->call('salamander.commands.unregister', array('commandId' => $id)); return !empty($r['unregistered']); }
+    public function setState($id, $enabled = null, $visible = null) { $arguments = array('commandId' => $id); if ($enabled !== null) $arguments['enabled'] = (bool)$enabled; if ($visible !== null) $arguments['visible'] = (bool)$visible; $r = $this->client->call('salamander.commands.setState', $arguments); return !empty($r['updated']); }
 }
 class SalamatrixStorage {
     private $client; public function __construct($client) { $this->client = $client; }

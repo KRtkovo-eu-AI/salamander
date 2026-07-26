@@ -80,20 +80,34 @@ same four workers additionally expose `add_file_picker`/
 editable native edit control, and places a separate wide Win32 browse button
 next to it.
 
+## Command state
+
+All four workers accept optional `enabled` and `visible` fields when registering
+commands. They also expose the same append-only state update operation:
+
+| Runtime | Registration | State update |
+| --- | --- | --- |
+| Python | `commands.register(..., enabled=True, visible=True)` | `commands.set_state(id, enabled=None, visible=None)` |
+| PowerShell | `$Salamander.Commands.Register(..., $Enabled, $Visible)` | `$Salamander.Commands.SetState(id, $Enabled, $Visible)` |
+| PHP | `$Salamander->commands->register(..., $enabled, $visible)` | `$Salamander->commands->setState($id, $enabled, $visible)` |
+| Node | `commands.register(..., enabled, visible)` | `commands.setState(id, enabled, visible)` |
+
+The host applies these values to the existing Automation command record and
+posts the normal Plugin Manager/menu refresh. Hidden commands are omitted from
+the native menu and disabled commands remain visible but non-invokable. This
+does not add a public vtable method or require a separate Extension Manager.
+
 Verification at the current pause point: all four provider Debug x64 projects
 build successfully and their worker files pass available Python, PowerShell,
 PHP, and Node syntax checks. The isolated process-runtime integration run now
 also passes with the standalone provider worker assets: with
 `SALAMATRIX_WORKER_ROOT` explicitly set to
-`build\verification\runtime-diagnostics\worker-root`, the Python/PowerShell/PHP
+`build\verification\command-state\worker-root`, the Python/PowerShell/PHP
 process test executable returned exit code 0 and completed the SMX1 host-call,
-persistent-session, UI, storage, event, picker, shutdown, output-capture, and
-timeout scenarios, including the editable `filepicker` control for each
-runtime. The lifecycle assertions verify the append-only
-`IRuntimeSession::GetDiagnostic` contract for running/exited state and exit
-code. This verification caught stale typed-storage/schema methods in the
-standalone Python worker; the worker was updated before the passing rerun.
-No Salamander process was started or controlled.
+persistent-session, UI, storage, event, picker, command-state, shutdown,
+output-capture, and timeout scenarios. The lifecycle assertions verify the
+append-only `IRuntimeSession::GetDiagnostic` contract for running/exited state
+and exit code. No Salamander process was started or controlled.
 
 `RuntimeSessionDiagnostic` is a bounded value snapshot. It reports lifecycle
 state, process id when a provider supplies it, exit code, and a host/provider

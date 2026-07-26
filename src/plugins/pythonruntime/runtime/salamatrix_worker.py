@@ -110,11 +110,13 @@ class _Commands:
     def register(self, command_id: str, title: str,
                  plugin_menu: bool = True, context_menu: bool = False,
                  hot_key: int = 0, toolbar: bool = False,
-                 handler: str = "") -> bool:
+                 handler: str = "", enabled: bool = True,
+                 visible: bool = True) -> bool:
         result = self._transport.call(
             "salamander.commands.register", commandId=command_id,
             title=title, pluginMenu=plugin_menu, contextMenu=context_menu,
-            hotKey=int(hot_key), toolbar=toolbar, handler=handler
+            hotKey=int(hot_key), toolbar=toolbar, handler=handler,
+            enabled=bool(enabled), visible=bool(visible)
         )
         return bool(result.get("registered", False))
 
@@ -123,6 +125,18 @@ class _Commands:
             "salamander.commands.unregister", commandId=command_id
         )
         return bool(result.get("unregistered", False))
+
+    def set_state(self, command_id: str, enabled: Optional[bool] = None,
+                  visible: Optional[bool] = None) -> bool:
+        arguments: Dict[str, Any] = {"commandId": command_id}
+        if enabled is not None:
+            arguments["enabled"] = bool(enabled)
+        if visible is not None:
+            arguments["visible"] = bool(visible)
+        result = self._transport.call(
+            "salamander.commands.setState", **arguments
+        )
+        return bool(result.get("updated", False))
 
 
 class _Storage:

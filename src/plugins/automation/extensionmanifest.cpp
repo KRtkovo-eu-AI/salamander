@@ -1107,7 +1107,9 @@ bool CExtensionManifest::Parse(
                 !ReadString(commandValue, "icon", false, command.Icon, error) ||
                 !ReadString(commandValue, "iconDark", false, command.IconDark, error) ||
                 !ReadBoolean(commandValue, "contextMenu", false, command.ContextMenu, error) ||
-                !ReadBoolean(commandValue, "toolbar", false, command.Toolbar, error))
+                !ReadBoolean(commandValue, "toolbar", false, command.Toolbar, error) ||
+                !ReadBoolean(commandValue, "enabled", true, command.Enabled, error) ||
+                !ReadBoolean(commandValue, "visible", true, command.Visible, error))
             {
                 return false;
             }

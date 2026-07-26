@@ -476,14 +476,22 @@ const Salamander = {
       "salamander.commands.execute", { commandId }
     ).then((result) => result.result || "error"),
     register: (commandId, title, pluginMenu = true, contextMenu = false,
-               hotKey = 0, toolbar = false, handler = "") =>
+               hotKey = 0, toolbar = false, handler = "", enabled = true,
+               visible = true) =>
       hostCall("salamander.commands.register", {
         commandId, title, pluginMenu, contextMenu, hotKey: Number(hotKey),
-        toolbar, handler,
+        toolbar, handler, enabled: Boolean(enabled), visible: Boolean(visible),
       }).then((result) => result.registered === true),
     unregister: (commandId) => hostCall("salamander.commands.unregister", {
       commandId,
     }).then((result) => result.unregistered === true),
+    setState: (commandId, enabled = undefined, visible = undefined) => {
+      const payload = { commandId };
+      if (enabled !== undefined) payload.enabled = Boolean(enabled);
+      if (visible !== undefined) payload.visible = Boolean(visible);
+      return hostCall("salamander.commands.setState", payload)
+        .then((result) => result.updated === true);
+    },
   },
   fileOperations,
   file_operations: fileOperations,

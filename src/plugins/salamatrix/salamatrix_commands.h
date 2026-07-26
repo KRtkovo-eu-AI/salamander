@@ -134,7 +134,7 @@ public:
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"execute\",\"register\",\"unregister\"],\"registerFields\":[\"commandId\",\"title\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\"]}";
+        return "{\"methods\":[\"execute\",\"register\",\"unregister\",\"setState\"],\"registerFields\":[\"commandId\",\"title\",\"handler\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\",\"enabled\",\"visible\"],\"stateFields\":[\"commandId\",\"enabled\",\"visible\"]}";
     }
 
     virtual Runtime::OperationResult WINAPI Execute(int salamanderCommandId, const ExecuteOptions& options)

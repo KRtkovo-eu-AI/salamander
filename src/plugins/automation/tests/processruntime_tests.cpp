@@ -26,6 +26,7 @@ struct BootstrapDispatchState
     int FolderPickerCalls;
     int RuntimeListCalls;
     int CommandRegistrationCalls;
+    int CommandStateCalls;
     int SchemaCalls;
     bool HandlerRegistrationSeen;
     bool BooleanStorageSeen;
@@ -46,6 +47,7 @@ struct BootstrapDispatchState
           FolderPickerCalls(0),
           RuntimeListCalls(0),
           CommandRegistrationCalls(0),
+          CommandStateCalls(0),
           SchemaCalls(0),
           HandlerRegistrationSeen(false),
           BooleanStorageSeen(false),
@@ -115,6 +117,12 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->CommandRegistrationCalls;
         response = "{\"ok\":true,\"unregistered\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.commands.setState") != NULL)
+    {
+        if (state != NULL)
+            ++state->CommandStateCalls;
+        response = "{\"ok\":true,\"updated\":true}";
     }
     else if (strstr(payloadJson, "salamander.storage.schema") != NULL)
     {
@@ -535,6 +543,10 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('first command registration failed')\n"
               "if not Salamander.commands.register('bootstrap.second', 'Second', True, True):\n"
               "    raise RuntimeError('second command registration failed')\n"
+              "if not Salamander.commands.set_state('bootstrap.second', enabled=False):\n"
+              "    raise RuntimeError('command disable failed')\n"
+              "if not Salamander.commands.set_state('bootstrap.second', visible=False):\n"
+              "    raise RuntimeError('command visibility update failed')\n"
               "if not Salamander.commands.unregister('bootstrap.first'):\n"
               "    raise RuntimeError('first command unregister failed')\n"
               "Salamander.events.subscribe('hostStartup', lambda event: None)\n"
@@ -614,6 +626,7 @@ void RunPythonBootstrapTest()
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
         Check(state.NotificationCalls == 1, "bootstrap notification call reached host");
         Check(state.CommandRegistrationCalls == 3, "bootstrap multiple command registrations reached host");
+        Check(state.CommandStateCalls == 2, "bootstrap command state updates reached host");
         Check(state.HandlerRegistrationSeen, "bootstrap command handler reached host");
         Check(state.StorageCalls == 6, "bootstrap storage calls reached host");
         Check(state.BooleanStorageSeen, "bootstrap boolean storage reached host");
@@ -673,6 +686,8 @@ void RunPowerShellBootstrapTest()
               "if (-not ($Salamander.storage.Schema() | Where-Object { $_.key -eq 'autoRefresh' -and $_.type -eq 'boolean' })) { throw 'storage schema call failed' }\n"
               "if (-not $Salamander.commands.Register('bootstrap.first', 'First', $true, $false)) { throw 'first command registration failed' }\n"
               "if (-not $Salamander.commands.Register('bootstrap.second', 'Second', $true, $true)) { throw 'second command registration failed' }\n"
+              "if (-not $Salamander.commands.SetState('bootstrap.second', $false, $null)) { throw 'command disable failed' }\n"
+              "if (-not $Salamander.commands.SetState('bootstrap.second', $null, $false)) { throw 'command visibility update failed' }\n"
               "if (-not $Salamander.commands.Unregister('bootstrap.first')) { throw 'first command unregister failed' }\n"
               "$null = $Salamander.events.Subscribe('hostStartup', { param($event) })\n"
               "$sideContext = $Salamander.source_side.Context()\n"
@@ -730,6 +745,7 @@ void RunPowerShellBootstrapTest()
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "powershell bootstrap command call");
         Check(state.CommandRegistrationCalls == 3, "powershell multiple command registrations");
+        Check(state.CommandStateCalls == 2, "powershell command state updates");
         Check(state.StorageCalls == 6, "powershell typed storage calls");
         Check(state.BooleanStorageSeen, "powershell boolean storage reached host");
         Check(state.IntegerStorageSeen, "powershell integer storage reached host");
@@ -784,6 +800,8 @@ void RunPhpBootstrapTest()
               "if (empty(array_filter($schema, function($item) { return $item['key'] === 'autoRefresh' && $item['type'] === 'boolean'; }))) throw new Exception('storage schema call failed');\n"
               "if (!$Salamander->commands->register('bootstrap.first', 'First', true, false)) throw new Exception('first command registration failed');\n"
               "if (!$Salamander->commands->register('bootstrap.second', 'Second', true, true)) throw new Exception('second command registration failed');\n"
+              "if (!$Salamander->commands->setState('bootstrap.second', false, null)) throw new Exception('command disable failed');\n"
+              "if (!$Salamander->commands->setState('bootstrap.second', null, false)) throw new Exception('command visibility update failed');\n"
               "if (!$Salamander->commands->unregister('bootstrap.first')) throw new Exception('first command unregister failed');\n"
               "$Salamander->events->subscribe('hostStartup', function($event) {});\n"
               "$sideContext = $Salamander->source_side->context();\n"
@@ -842,6 +860,7 @@ void RunPhpBootstrapTest()
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "php bootstrap command call");
         Check(state.CommandRegistrationCalls == 3, "php multiple command registrations");
+        Check(state.CommandStateCalls == 2, "php command state updates");
         Check(state.StorageCalls == 6, "php typed storage calls");
         Check(state.BooleanStorageSeen, "php boolean storage reached host");
         Check(state.IntegerStorageSeen, "php integer storage reached host");

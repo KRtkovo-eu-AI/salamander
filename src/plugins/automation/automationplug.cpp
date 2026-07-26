@@ -892,7 +892,9 @@ DWORD WINAPI CAutomationMenuExtInterface::GetMenuItemState(
         {
             const CScriptInfo::RUNTIME_COMMAND_INFO* command =
                 pScript->GetRuntimeCommand(runtimeIndex);
-            if (command == NULL ||
+            if (command == NULL || !pScript->IsRuntimeCommandVisible(runtimeIndex))
+                return MENU_ITEM_STATE_HIDDEN;
+            if (!pScript->IsRuntimeCommandEnabled(runtimeIndex) ||
                 (eventMask & command->MenuEventAndMask) !=
                     command->MenuEventAndMask ||
                 (eventMask & command->MenuEventOrMask) == 0)
@@ -1018,6 +1020,7 @@ void CAutomationMenuExtInterface::AddScriptContainerToPopup(
     mii.ImageIndex = PluginIconScript;
     for (pScript = pContainer->FirstScript(); pScript; pScript = pScript->Next(), i++)
     {
+        mii.State = 0;
         if (pScript->GetRuntimeCommandCount() > 0)
         {
             for (int commandIndex = 0;
@@ -1026,9 +1029,13 @@ void CAutomationMenuExtInterface::AddScriptContainerToPopup(
             {
                 const CScriptInfo::RUNTIME_COMMAND_INFO* command =
                     pScript->GetRuntimeCommand(commandIndex);
-                if (command == NULL || !command->PluginMenu)
+                if (command == NULL || !command->PluginMenu ||
+                    !pScript->IsRuntimeCommandVisible(commandIndex))
                     continue;
                 mii.ID = command->MenuId;
+                mii.State = pScript->IsRuntimeCommandEnabled(commandIndex)
+                                ? 0
+                                : MENU_STATE_GRAYED;
                 StringCchCopy(
                     szDisplayName,
                     _countof(szDisplayName),
