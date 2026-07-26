@@ -408,6 +408,8 @@ void TestAssistantService()
           "assistant API description advertises shared file picker");
     Check(strstr(service.GetApiDescription(), "pickFolder") != NULL,
           "assistant API description advertises shared folder picker");
+    Check(strstr(service.GetApiDescription(), "folderpicker") != NULL,
+          "assistant API description advertises dialog folder picker control");
     Check(strstr(service.GetApiDescription(), "setValidation") != NULL,
           "assistant API description advertises dialog validation");
     Check(strstr(service.GetApiDescription(), "onChange") != NULL,

@@ -18,6 +18,7 @@ struct BootstrapDispatchState
     int SubscribeCalls;
     int FileOperationCalls;
     int DialogCalls;
+    int FolderPickerControlCalls;
     int SideContextCalls;
     int ClipboardCalls;
     int PickerCalls;
@@ -36,6 +37,7 @@ struct BootstrapDispatchState
           SubscribeCalls(0),
           FileOperationCalls(0),
           DialogCalls(0),
+          FolderPickerControlCalls(0),
           SideContextCalls(0),
           ClipboardCalls(0),
           PickerCalls(0),
@@ -231,7 +233,11 @@ BOOL WINAPI WorkerHostDispatch(
              strstr(payloadJson, "salamander.ui.dialog.destroy") != NULL)
     {
         if (state != NULL)
+        {
             ++state->DialogCalls;
+            if (strstr(payloadJson, "folderpicker") != NULL)
+                ++state->FolderPickerControlCalls;
+        }
         response = strstr(payloadJson, "salamander.ui.dialog.show") != NULL
                        ? "{\"ok\":true,\"result\":1}"
                        : strstr(payloadJson, "salamander.ui.dialog.item") != NULL
@@ -536,6 +542,7 @@ void RunPythonBootstrapTest()
               "dialog = Salamander.ui.dialog('Bootstrap', 640, 420)\n"
               "dialog.add_control('label', 'label', 'Hello', layout={'x': 12, 'y': 10, 'width': 180, 'height': 16})\n"
               "dialog.add_textbox('value', 'seed', multiline=True)\n"
+              "dialog.add_folder_picker('folder', 'C:\\\\Temp')\n"
               "dialog.set_validation('value', True, 'Value is required')\n"
               "dialog.on_change(lambda event: None)\n"
               "dialog.add_radio_button('radio', 'Choice', True)\n"
@@ -585,7 +592,7 @@ void RunPythonBootstrapTest()
         // A persistent worker can issue many calls after the subscription call;
         // stopping at SubscribeCalls would race the script and send shutdown
         // while it is still waiting for the next response.
-        for (int attempt = 0; attempt < 60 && state.DialogCalls < 20 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 60 && state.DialogCalls < 21 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
         Check(state.NotificationCalls == 1, "bootstrap notification call reached host");
@@ -602,7 +609,8 @@ void RunPythonBootstrapTest()
         Check(state.FolderPickerCalls == 1, "bootstrap folder picker reached host");
         Check(state.RuntimeListCalls == 1, "bootstrap runtime list reached host");
         Check(state.FileOperationCalls == 1, "bootstrap file operation reached host");
-        Check(state.DialogCalls == 20, "bootstrap dialog calls reached host");
+        Check(state.DialogCalls == 21, "bootstrap dialog calls reached host");
+        Check(state.FolderPickerControlCalls == 1, "bootstrap folder picker control reached host");
         std::string shutdown;
         Check(
             Salamatrix::Runtime::Protocol::LineCodec::Encode(
@@ -662,6 +670,7 @@ void RunPowerShellBootstrapTest()
               "$dialog = $Salamander.ui.Dialog('Bootstrap', 640, 420)\n"
               "$dialog.AddControl('label', 'label', 'Hello', $false, $false, 0, @{ x = 12; y = 10; width = 180; height = 16 })\n"
               "$dialog.AddTextBox('value', 'seed', $false, $true)\n"
+              "$dialog.AddFolderPicker('folder', 'C:\\Temp')\n"
               "$dialog.SetValidation('value', $true, 'Value is required')\n"
               "$dialog.OnChange({ param($event) })\n"
               "$dialog.AddRadioButton('radio', 'Choice', $true)\n"
@@ -698,7 +707,7 @@ void RunPowerShellBootstrapTest()
           "start powershell bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 60 && state.DialogCalls < 20 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 60 && state.DialogCalls < 21 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "powershell bootstrap command call");
         Check(state.CommandRegistrationCalls == 3, "powershell multiple command registrations");
@@ -713,7 +722,8 @@ void RunPowerShellBootstrapTest()
         Check(state.FolderPickerCalls == 1, "powershell bootstrap folder picker");
         Check(state.RuntimeListCalls == 1, "powershell bootstrap runtime list");
         Check(state.FileOperationCalls == 1, "powershell bootstrap file operation");
-        Check(state.DialogCalls == 20, "powershell bootstrap dialog calls");
+        Check(state.DialogCalls == 21, "powershell bootstrap dialog calls");
+        Check(state.FolderPickerControlCalls == 1, "powershell folder picker control");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);
@@ -770,6 +780,7 @@ void RunPhpBootstrapTest()
               "$dialog = $Salamander->ui->dialog('Bootstrap', 640, 420);\n"
               "$dialog->addControl('label', 'label', 'Hello', false, false, 0, array('x' => 12, 'y' => 10, 'width' => 180, 'height' => 16));\n"
               "$dialog->addTextBox('value', 'seed', false, true);\n"
+              "$dialog->addFolderPicker('folder', 'C:\\\\Temp');\n"
               "$dialog->setValidation('value', true, 'Value is required');\n"
               "$dialog->onChange(function($event) {});\n"
               "$dialog->addRadioButton('radio', 'Choice', true);\n"
@@ -806,7 +817,7 @@ void RunPhpBootstrapTest()
           "start php bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 60 && state.DialogCalls < 20 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 60 && state.DialogCalls < 21 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "php bootstrap command call");
         Check(state.CommandRegistrationCalls == 3, "php multiple command registrations");
@@ -821,7 +832,8 @@ void RunPhpBootstrapTest()
         Check(state.FolderPickerCalls == 1, "php bootstrap folder picker");
         Check(state.RuntimeListCalls == 1, "php bootstrap runtime list");
         Check(state.FileOperationCalls == 1, "php bootstrap file operation");
-        Check(state.DialogCalls == 20, "php bootstrap dialog calls");
+        Check(state.DialogCalls == 21, "php bootstrap dialog calls");
+        Check(state.FolderPickerControlCalls == 1, "php folder picker control");
         std::string shutdown;
         Salamatrix::Runtime::Protocol::LineCodec::Encode(
             Salamatrix::Runtime::Protocol::MessageShutdown, 0, "{}", &shutdown);

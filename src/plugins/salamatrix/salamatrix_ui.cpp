@@ -47,6 +47,30 @@ static BOOL WideToUtf8(const wchar_t* value, std::string& result)
     return TRUE;
 }
 
+static BOOL PickFolderPath(HWND parent, const char* title, std::string& result)
+{
+    result.clear();
+    std::wstring titleWide;
+    if (!Utf8ToWide(title != NULL ? title : "Select folder", titleWide))
+        return FALSE;
+    BROWSEINFOW browse;
+    memset(&browse, 0, sizeof(browse));
+    browse.hwndOwner = parent;
+    browse.lpszTitle = titleWide.c_str();
+    browse.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+    LPITEMIDLIST item = SHBrowseForFolderW(&browse);
+    if (item == NULL)
+        return FALSE;
+    PWSTR path = NULL;
+    HRESULT status = SHGetNameFromIDList(item, SIGDN_FILESYSPATH, &path);
+    CoTaskMemFree(item);
+    if (FAILED(status) || path == NULL)
+        return FALSE;
+    BOOL converted = WideToUtf8(path, result);
+    CoTaskMemFree(path);
+    return converted && !result.empty();
+}
+
 struct NotificationData
 {
     std::wstring Title;
@@ -597,6 +621,7 @@ struct NativeDialog::Impl
             Control* control = Controls[index];
             if (control->Required &&
                 (control->Kind == ControlKindTextBox ||
+                 control->Kind == ControlKindFolderPicker ||
                  control->Kind == ControlKindComboBox) &&
                 control->Text.empty())
                 return control;
@@ -720,6 +745,12 @@ int WINAPI NativeDialog::ShowModal()
                 style |= ES_AUTOHSCROLL;
             if (control->ReadOnly)
                 style |= ES_READONLY;
+            height = 18;
+        }
+        else if (control->Kind == ControlKindFolderPicker)
+        {
+            classOrdinal = 0x0080; // BUTTON
+            style |= BS_PUSHBUTTON | BS_LEFT;
             height = 18;
         }
         else if (control->Kind == ControlKindCheckBox)
@@ -1021,6 +1052,20 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
     Impl::Control* control = dialog->m_pImpl->Find(LOWORD(wParam));
     if (control == NULL)
         return FALSE;
+    if (control->Kind == ControlKindFolderPicker)
+    {
+        std::string selectedPath;
+        if (PickFolderPath(
+                hwnd, dialog->m_pImpl->Title.c_str(), selectedPath))
+        {
+            control->Text = selectedPath;
+            std::wstring selectedWide;
+            if (Utf8ToWide(control->Text.c_str(), selectedWide))
+                SetWindowTextW(GetDlgItem(hwnd, control->NumericId), selectedWide.c_str());
+            dialog->m_pImpl->NotifyChanged(control);
+        }
+        return TRUE;
+    }
     if (control->Kind == ControlKindButton)
     {
         if (control->DialogResult != IDCANCEL)

@@ -392,7 +392,7 @@ public:
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true,\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"]}";
+        return "{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"controlKinds\":[\"label\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true,\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"]}";
     }
 
     virtual UI::IProgressDialog* WINAPI CreateProgressDialog(CSalamanderForOperationsAbstract* operations)

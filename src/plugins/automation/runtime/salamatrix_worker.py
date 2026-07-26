@@ -488,6 +488,9 @@ class _Dialog:
         self._add("textbox", control_id, text, readOnly=read_only,
                   multiline=multiline)
 
+    def add_folder_picker(self, control_id: str, path: str = "") -> None:
+        self._add("folderpicker", control_id, path)
+
     def add_checkbox(self, control_id: str, text: str,
                      checked: bool = False) -> None:
         self._add("checkbox", control_id, text, checked=checked)

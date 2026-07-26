@@ -2446,6 +2446,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 kind = Salamatrix::UI::ControlKindTreeView;
             else if (_stricmp(kindName.c_str(), "tabcontrol") == 0)
                 kind = Salamatrix::UI::ControlKindTabControl;
+            else if (_stricmp(kindName.c_str(), "folderpicker") == 0)
+                kind = Salamatrix::UI::ControlKindFolderPicker;
             else
                 return FALSE;
             Salamatrix::UI::ControlOptions options;
