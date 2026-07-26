@@ -1374,7 +1374,7 @@ Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugi
 Source: "{#PayloadDir}\plugins\salamatrixai\salamatrixai.spl"; DestDir: "{app}\plugins\salamatrixai"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixai')
 Source: "{#PayloadDir}\plugins\salamatrixai\runtime\salamatrix_ai_local.py"; DestDir: "{app}\plugins\salamatrixai\runtime"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixai')
 Source: "{#PayloadDir}\plugins\salamatrixailocalllama\salamatrixailocalllama.spl"; DestDir: "{app}\plugins\salamatrixailocalllama"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixailocalllama')
-Source: "{#PayloadDir}\plugins\salamatrixailocalllama\runtime\*"; DestDir: "{app}\plugins\salamatrixailocalllama\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrixailocalllama')
+Source: "{#PayloadDir}\plugins\salamatrixailocalllama\runtime\install_llama.ps1"; DestDir: "{app}\plugins\salamatrixailocalllama\runtime"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixailocalllama')
 Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\plugins\demoplug\lang\*"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion

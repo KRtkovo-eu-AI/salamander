@@ -113,11 +113,12 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   scripting/runtime role without owning an AI menu or chat flow. The provider
   exchanges one bounded JSON request/response and enforces the two-minute
   ceiling; the optional `Salamatrix AI Local Llama.SPL` companion registers a
-  server-free `local.bundled` provider and launches its colocated llama.cpp
-  CLI/model assets. The main `SalamatrixAI.SPL` remains model-free, so users
-  can install only another provider. A pinned downloader stages the official
-  CPU x64 llama.cpp release and lightweight Qwen GGUF model into the companion
-  package, with SHA-256 checks and third-party license files.
+  server-free `local.bundled` provider and launches its separately installed
+  llama.cpp CLI/model assets. The main `SalamatrixAI.SPL` remains model-free,
+  so users can install only another provider. The Local Llama Configuration
+  page launches a pinned downloader for the official CPU x64 llama.cpp release
+  and lightweight Qwen GGUF model, with SHA-256 checks and third-party license
+  files; the binary and model are no longer staged into the plugin package.
   Its response contract now also permits an explicit `canImplement:false` plus
   a validated `missingCapabilities` list, so unsupported requests can be
   explained instead of being forced into invented API calls.
@@ -160,9 +161,10 @@ directories; the user's locally running Salamander process was never started,
 stopped, or otherwise controlled by this work.
 
 The current implementation separates the optional `Salamatrix AI Local
-Llama.SPL` companion from the model-free `SalamatrixAI.SPL`. Its asset
+Llama.SPL` companion from the model-free `SalamatrixAI.SPL`. Its configuration
 downloader is syntax-checked and pins the official llama.cpp CPU x64 archive
-and Qwen GGUF model by SHA-256. A live model download was intentionally
+and Qwen GGUF model by SHA-256; the plugin build contains only the downloader
+script, not the binary or model. A live model download was intentionally
 stopped at the 120-second command limit in this environment; no Salamander
 process was started or controlled.
 

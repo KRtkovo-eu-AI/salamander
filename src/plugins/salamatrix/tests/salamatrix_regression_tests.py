@@ -146,8 +146,14 @@ def main() -> int:
             "optional local llama provider is not registered with Salamatrix.AI")
     require(local_llama, r'g_ai->UnregisterProvider\(&g_provider\)',
             "optional local llama provider is not unregistered during release")
-    require(local_llama_project, r'SalamatrixAIAssetRoot.*libs\\salamatrixai',
-            "optional local llama project does not consume staged assets")
+    require(local_llama, r'FUNCTION_CONFIGURATION',
+            "optional local llama provider does not expose configuration")
+    require(local_llama, r'install_llama\.ps1|LaunchInstaller',
+            "optional local llama provider has no downloader integration")
+    require(local_llama_project, r'CopySalamatrixAILocalLlamaInstaller',
+            "optional local llama project does not stage the downloader script")
+    require_absent(local_llama_project, r'SalamatrixAIAssetRoot|SalamatrixAIBundledAsset',
+                   "optional local llama project still packages model assets")
     require(ai, r'Ask is deliberately preview-only',
             "AI Ask action still performs implicit Run/Save/Export actions")
     require(ai, r'No executable automation was generated',

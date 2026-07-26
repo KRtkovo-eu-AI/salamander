@@ -11,13 +11,11 @@
  <ItemDefinitionGroup><ClCompile><AdditionalIncludeDirectories>..\..;..\..\shared;..\salamatrixai;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PrecompiledHeader>Use</PrecompiledHeader><PreprocessorDefinitions>WIN32;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile><ResourceCompile><AdditionalIncludeDirectories>..\..;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ResourceCompile></ItemDefinitionGroup>
  <ItemGroup><ClCompile Include="..\..\shared\sal_safe_memcpy.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile><ClCompile Include="..\local_llama.cpp" /><ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile></ItemGroup>
  <ItemGroup><ClInclude Include="..\local_llama.h" /><ClInclude Include="..\precomp.h" /><ClInclude Include="..\versinfo.rh2" /><ClInclude Include="..\..\salamatrixai\salamatrixai.h" /></ItemGroup>
- <ItemGroup><None Include="..\local_llama.def" /><None Include="..\local_llama.rc2" /></ItemGroup>
+ <ItemGroup><None Include="..\local_llama.def" /><None Include="..\local_llama.rc2" /><None Include="..\runtime\install_llama.ps1" /></ItemGroup>
  <ItemGroup><ResourceCompile Include="..\local_llama.rc" /></ItemGroup>
- <PropertyGroup><SalamatrixAIAssetRoot Condition="'$(SalamatrixAIAssetRoot)'==''">$(OPENSAL_BUILD_DIR)libs\salamatrixai\</SalamatrixAIAssetRoot></PropertyGroup>
- <ItemGroup><SalamatrixAIBundledAsset Include="$(SalamatrixAIAssetRoot)*.*" /></ItemGroup>
  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
- <Target Name="CopySalamatrixAILocalLlamaAssets" AfterTargets="Build">
+ <Target Name="CopySalamatrixAILocalLlamaInstaller" AfterTargets="Build">
   <MakeDir Directories="$(OutDir)runtime" />
-  <Copy SourceFiles="@(SalamatrixAIBundledAsset)" DestinationFiles="@(SalamatrixAIBundledAsset->'$(OutDir)runtime\%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  <Copy SourceFiles="..\runtime\install_llama.ps1" DestinationFiles="$(OutDir)runtime\install_llama.ps1" SkipUnchangedFiles="true" />
  </Target>
 </Project>

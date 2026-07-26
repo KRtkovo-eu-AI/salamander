@@ -32,7 +32,7 @@ public:
                                           CSalamanderRegistryAbstract* registry);
     virtual void WINAPI SaveConfiguration(HWND parent, HKEY regKey,
                                           CSalamanderRegistryAbstract* registry);
-    virtual void WINAPI Configuration(HWND parent) { UNREFERENCED_PARAMETER(parent); }
+    virtual void WINAPI Configuration(HWND parent);
     virtual void WINAPI Connect(HWND parent, CSalamanderConnectAbstract* salamander);
     virtual void WINAPI ReleasePluginDataInterface(CPluginDataInterfaceAbstract*) {}
     virtual CPluginInterfaceForArchiverAbstract* WINAPI GetInterfaceForArchiver() { return NULL; }
