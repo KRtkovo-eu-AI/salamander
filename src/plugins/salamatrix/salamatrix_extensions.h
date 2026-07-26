@@ -389,10 +389,10 @@ public:
             {
                 if (Records[index].Context == context)
                 {
-                    StringCchCopyA(
+                    lstrcpynA(
                         extensionId,
-                        _countof(extensionId),
-                        Records[index].Info.Descriptor.Id);
+                        Records[index].Info.Descriptor.Id,
+                        _countof(extensionId));
                     break;
                 }
             }

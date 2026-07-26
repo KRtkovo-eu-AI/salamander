@@ -1095,3 +1095,8 @@ The platform skeleton is ready when:
     `SALAMATRIX_AI_LLAMA_URL` selects the OpenAI/llama.cpp-compatible
     `/v1/chat/completions` protocol unless `SALAMATRIX_AI_PROTOCOL` overrides
     it. The command wrapper remains available for custom model adapters.
+46. The existing core Plugin Manager queries `Salamatrix.Extensions` and
+    displays manifest-backed extensions alongside `.SPL` plugins. These rows
+    expose the manifest name, state, version, runtime, entry point, and ID
+    without pretending that a script package is a loadable native plugin; a
+    separate Extension Manager is intentionally not introduced.

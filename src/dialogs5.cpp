@@ -113,6 +113,67 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     InstalledPluginsText[0] = 0;
 }
 
+void CPluginsDlg::RefreshExtensionRows()
+{
+    ExtensionRows.clear();
+
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = SALAMATRIX_SERVICE_EXTENSIONS;
+    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_0;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
+        return;
+
+    Salamatrix::Extensions::IExtensionsService* service =
+        static_cast<Salamatrix::Extensions::IExtensionsService*>(result.Interface);
+    int count = service->GetExtensionCount();
+    for (int index = 0; index < count; ++index)
+    {
+        Salamatrix::Extensions::ExtensionInfo info;
+        if (service->GetExtensionInfo(index, &info))
+            ExtensionRows.push_back(info);
+    }
+}
+
+void CPluginsDlg::AppendExtensionRows(BOOL setOnly)
+{
+    const int pluginCount = Plugins.GetCount();
+    for (int index = 0; index < static_cast<int>(ExtensionRows.size()); ++index)
+    {
+        const int listIndex = pluginCount + index;
+        const Salamatrix::Extensions::ExtensionInfo& extension = ExtensionRows[index];
+        if (!setOnly)
+        {
+            LVITEM item;
+            memset(&item, 0, sizeof(item));
+            item.mask = LVIF_TEXT | LVIF_PARAM;
+            item.iItem = listIndex;
+            char emptyText[] = "";
+            item.pszText = emptyText;
+            // Negative values identify rows that are not CPluginData records.
+            item.lParam = -static_cast<LPARAM>(index + 1);
+            ListView_InsertItem(HListView, &item);
+        }
+
+        ListView_SetItemText(
+            HListView, listIndex, 0,
+            const_cast<char*>(extension.Descriptor.Name));
+        ListView_SetItemText(
+            HListView, listIndex, 1,
+            LoadStr(extension.State == Salamatrix::Extensions::ExtensionStateActive
+                         ? IDS_PLUGINS_LOADED_YES
+                         : IDS_PLUGINS_LOADED_NO));
+        ListView_SetItemText(
+            HListView, listIndex, 2,
+            const_cast<char*>(extension.Descriptor.Version));
+        ListView_SetItemText(
+            HListView, listIndex, 3,
+            const_cast<char*>(extension.Descriptor.EntryPoint));
+    }
+}
+
 void CPluginsDlg::ApplyTheme()
 {
     if (HListView == NULL)
@@ -194,6 +255,13 @@ void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData*
 {
     SendMessage(HListView, WM_SETREDRAW, FALSE, 0);
 
+    const int previousExtensionCount = static_cast<int>(ExtensionRows.size());
+    RefreshExtensionRows();
+    // A changed extension count changes the list-view row layout, so rebuild
+    // the rows instead of attempting an in-place update with stale indexes.
+    if (setOnly && previousExtensionCount != static_cast<int>(ExtensionRows.size()))
+        setOnly = FALSE;
+
     HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE); // destruction is handled by the listview
     HIMAGELIST hOldIcons = ListView_SetImageList(HListView, hIcons, LVSIL_SMALL);
     if (hOldIcons != NULL)
@@ -201,11 +269,18 @@ void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData*
 
     int numOfLoaded = 0;
     Plugins.AddNamesToListView(HListView, setOnly, &numOfLoaded);
+    AppendExtensionRows(setOnly);
+
+    for (size_t index = 0; index < ExtensionRows.size(); ++index)
+        if (ExtensionRows[index].State == Salamatrix::Extensions::ExtensionStateActive)
+            ++numOfLoaded;
 
     if (Header != NULL)
     {
         char buf[300];
-        sprintf(buf, InstalledPluginsText, Plugins.GetCount(), numOfLoaded);
+        sprintf(buf, InstalledPluginsText,
+                Plugins.GetCount() + static_cast<int>(ExtensionRows.size()),
+                numOfLoaded);
         SendMessage(Header->HWindow, WM_SETREDRAW, FALSE, 0);
         SetWindowText(Header->HWindow, buf);
         SendMessage(Header->HWindow, WM_SETREDRAW, TRUE, 0);
@@ -316,6 +391,8 @@ void CPluginsDlg::EnableHeader()
 void CPluginsDlg::OnSelChanged()
 {
     CPluginData* p = GetSelectedPlugin();
+    Salamatrix::Extensions::ExtensionInfo* extension =
+        p == NULL ? GetSelectedExtension() : NULL;
     HWND showInBar = GetDlgItem(HWindow, IDC_PLUGINSHOWINBAR);
     HWND showInChDrv = GetDlgItem(HWindow, IDC_PLUGINSHOWINCHDRV);
     if (p != NULL)
@@ -517,6 +594,36 @@ void CPluginsDlg::OnSelChanged()
 
         EnableButtons(p);
     }
+    else if (extension != NULL)
+    {
+        // Manifest extensions are informational rows in Plugin Manager. They
+        // are not CPluginData records, so load/unload/configuration actions
+        // remain disabled and no fake .SPL path is presented to the user.
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION),
+            "Manifest extension");
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINCOPYRIGHT),
+            extension->Descriptor.Id);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINWWW), "");
+        Url->SetActionOpen("");
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINEXTENSIONS),
+            extension->Descriptor.RuntimeId);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINFSNAME), "");
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS),
+            LoadStr(IDS_PLUGINTHUMBNONE));
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS),
+            "Extension");
+
+        ShowWindow(showInBar, SW_HIDE);
+        ShowWindow(showInChDrv, SW_HIDE);
+        EnableWindow(showInBar, FALSE);
+        EnableWindow(showInChDrv, FALSE);
+        EnableButtons(NULL);
+    }
     else
     {
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION), "");
@@ -540,6 +647,9 @@ CPluginsDlg::GetSelectedPlugin(int* index, int* lvIndex)
     if (i == -1)
         return NULL;
 
+    if (i >= Plugins.GetCount())
+        return NULL;
+
     int orderIndex = Plugins.GetIndexByOrder(i);
     CPluginData* plugin = Plugins.Get(orderIndex);
     if (plugin != NULL && index != NULL)
@@ -549,6 +659,17 @@ CPluginsDlg::GetSelectedPlugin(int* index, int* lvIndex)
             *lvIndex = i;
     }
     return plugin;
+}
+
+Salamatrix::Extensions::ExtensionInfo*
+CPluginsDlg::GetSelectedExtension()
+{
+    int listIndex = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
+    int extensionIndex = listIndex - Plugins.GetCount();
+    if (listIndex < 0 || extensionIndex < 0 ||
+        extensionIndex >= static_cast<int>(ExtensionRows.size()))
+        return NULL;
+    return &ExtensionRows[extensionIndex];
 }
 
 void CPluginsDlg::OnContextMenu(int x, int y)
@@ -580,6 +701,8 @@ void CPluginsDlg::OnContextMenu(int x, int y)
 void CPluginsDlg::OnMove(BOOL up)
 {
     int index = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
+    if (index < 0 || index >= Plugins.GetCount())
+        return; // manifest-extension rows have no persisted plugin order
     int newIndex = up ? index - 1 : index + 1;
     if (Plugins.ChangePluginsOrder(index, newIndex))
     {
@@ -770,6 +893,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDC_PLUGINSHOWINBAR:
         {
+            if (GetSelectedPlugin() == NULL)
+                break;
             int index = Plugins.GetIndexByOrder(ListView_GetNextItem(HListView, -1, LVIS_FOCUSED));
             if (index != -1)
             {
@@ -781,6 +906,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDC_PLUGINSHOWINCHDRV:
         {
+            if (GetSelectedPlugin() == NULL)
+                break;
             int index = Plugins.GetIndexByOrder(ListView_GetNextItem(HListView, -1, LVIS_FOCUSED));
             if (index != -1)
             {

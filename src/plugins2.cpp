@@ -2459,6 +2459,26 @@ BOOL CPlugins::AddPlugin(const char* name, const char* dllName, BOOL supportPane
     return ret;
 }
 
+BOOL CPlugins::QueryService(const CSalamanderServiceQuery* query,
+                            CSalamanderServiceResult* result)
+{
+    // CSalamanderGeneral::QueryService is a process-wide registry lookup. A
+    // plugin-owned general object is sufficient to reach it; keeping this
+    // small core wrapper avoids making Plugin Manager pretend that a
+    // manifest extension is a loadable .SPL module.
+    if (Data.Count == 0)
+    {
+        if (result != NULL)
+        {
+            result->Interface = NULL;
+            result->Version = 0;
+            result->ProviderName = NULL;
+        }
+        return FALSE;
+    }
+    return Data[0]->SalamanderGeneral.QueryService(query, result);
+}
+
 void CPlugins::FindViewEdit(const char* extensions, int exclude, BOOL& viewFound, int& view,
                             BOOL& editFound, int& edit)
 {

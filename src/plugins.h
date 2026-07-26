@@ -2994,6 +2994,12 @@ public:
     // returns the number of plugins
     int GetCount() { return Data.Count; }
 
+    // Queries the process-wide Salamander service registry for core UI
+    // consumers that do not own a plugin interface (for example Plugin
+    // Manager's manifest-extension view).
+    BOOL QueryService(const CSalamanderServiceQuery* query,
+                      CSalamanderServiceResult* result);
+
     // returns plugin data from the given index
     // NOTE: the pointer is valid only until the number of plugins changes (the array expands or shrinks)
     CPluginData* Get(int index)

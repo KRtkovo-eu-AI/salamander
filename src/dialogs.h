@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <vector>
+
+#include "plugins/salamatrix/salamatrix_extensions.h"
+
 //
 // ****************************************************************************
 
@@ -977,6 +981,7 @@ protected:
     char ShowInBarText[200];        // text taken from the checkbox when the dialog opens
     char ShowInChDrvText[200];      // text taken from the checkbox when the dialog opens
     char InstalledPluginsText[200]; // text taken from the listview caption when the dialog opens
+    std::vector<Salamatrix::Extensions::ExtensionInfo> ExtensionRows;
 
 public:
     CPluginsDlg(HWND hParent);
@@ -992,8 +997,11 @@ protected:
     void InitColumns();     // add columns to the listview
     void SetColumnWidths(); // set optimal column widths
     void RefreshListView(BOOL setOnly = TRUE, int selIndex = -1, const CPluginData* selectPlugin = NULL, BOOL setColumnWidths = FALSE);
+    void RefreshExtensionRows();
+    void AppendExtensionRows(BOOL setOnly);
     void OnSelChanged();                                                    // selected item in the listview changed
     CPluginData* GetSelectedPlugin(int* index = NULL, int* lvIndex = NULL); // returns NULL if no item is selected; index returns index to the Plugins array; lvIndex returns index within listview, can be NULL
+    Salamatrix::Extensions::ExtensionInfo* GetSelectedExtension();
     void EnableButtons(CPluginData* plugin);
     void OnContextMenu(int x, int y); // show the context menu for the selected item at coordinates x, y
     void OnMove(BOOL up);
