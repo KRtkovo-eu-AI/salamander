@@ -172,16 +172,18 @@ void PackageManager::LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* re
     if (key == NULL || registry == NULL)
         return;
     HKEY rootsKey = NULL;
-    if (!registry->OpenKey(key, _T("ExtensionRoots"), rootsKey))
+    if (!registry->OpenKey(key, "ExtensionRoots", rootsKey))
         return;
-    TCHAR name[16];
-    TCHAR path[SAL_MAX_PATH];
+    char name[16];
+    char path[SAL_MAX_PATH];
     for (int index = 1;; ++index)
     {
-        _itot_s(index, name, _countof(name), 10);
+        _snprintf_s(name, _countof(name), _TRUNCATE, "%d", index);
         if (!registry->GetValue(rootsKey, name, REG_SZ, path, _countof(path)))
             break;
-        std::wstring root(path);
+        std::wstring root;
+        if (!ToWide(path, &root))
+            continue;
         if (root != ExpandRoot(L"$(SalDir)\\extensions"))
             Roots.push_back(ExpandRoot(root));
     }
@@ -193,14 +195,16 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
     if (key == NULL || registry == NULL)
         return;
     HKEY rootsKey = NULL;
-    if (!registry->CreateKey(key, _T("ExtensionRoots"), rootsKey))
+    if (!registry->CreateKey(key, "ExtensionRoots", rootsKey))
         return;
     registry->ClearKey(rootsKey);
-    TCHAR name[16];
+    char name[16];
     for (size_t index = 0; index < Roots.size(); ++index)
     {
-        _itot_s(static_cast<int>(index + 1), name, _countof(name), 10);
-        registry->SetValue(rootsKey, name, REG_SZ, Roots[index].c_str(), -1);
+        _snprintf_s(name, _countof(name), _TRUNCATE, "%d", static_cast<int>(index + 1));
+        std::string root;
+        if (ToUtf8(Roots[index], &root))
+            registry->SetValue(rootsKey, name, REG_SZ, root.c_str(), -1);
     }
     registry->CloseKey(rootsKey);
 }
