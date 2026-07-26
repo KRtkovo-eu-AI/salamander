@@ -81,6 +81,9 @@ class SalamatrixSides {
     public function activateTab($tabId, $focus = true) { $r = $this->client->call('salamander.sides.activateTab', array('tabId' => (string)$tabId, 'focus' => (bool)$focus)); return !empty($r['activated']); }
     public function changePath($path, $side = 'source') { return $this->client->call('salamander.sides.changePath', array('side' => $side, 'path' => $path)); }
     public function refresh($side = 'source', $force = false, $focusFirstNewItem = false) { $r = $this->client->call('salamander.sides.refresh', array('side' => $side, 'force' => (bool)$force, 'focusFirstNewItem' => (bool)$focusFirstNewItem)); return !empty($r['ok']); }
+    public function selectItem($index, $select = true, $side = 'source', $repaint = true) { $r = $this->client->call('salamander.sides.selectItem', array('side' => $side, 'index' => (int)$index, 'select' => (bool)$select, 'repaint' => (bool)$repaint)); return !empty($r['changed']); }
+    public function selectAll($select = true, $side = 'source', $repaint = true) { $r = $this->client->call('salamander.sides.selectAll', array('side' => $side, 'select' => (bool)$select, 'repaint' => (bool)$repaint)); return !empty($r['changed']); }
+    public function focusItem($index, $side = 'source', $partVisible = true) { $r = $this->client->call('salamander.sides.focusItem', array('side' => $side, 'index' => (int)$index, 'partVisible' => (bool)$partVisible)); return !empty($r['changed']); }
 }
 class SalamatrixSideView {
     private $sides; private $name;
@@ -91,6 +94,9 @@ class SalamatrixSideView {
     public function activateTab($tabId, $focus = true) { return $this->sides->activateTab($tabId, $focus); }
     public function changePath($path) { return $this->sides->changePath($path, $this->name); }
     public function refresh($force = false, $focusFirstNewItem = false) { return $this->sides->refresh($this->name, $force, $focusFirstNewItem); }
+    public function selectItem($index, $select = true, $repaint = true) { return $this->sides->selectItem($index, $select, $this->name, $repaint); }
+    public function selectAll($select = true, $repaint = true) { return $this->sides->selectAll($select, $this->name, $repaint); }
+    public function focusItem($index, $partVisible = true) { return $this->sides->focusItem($index, $this->name, $partVisible); }
 }
 class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }

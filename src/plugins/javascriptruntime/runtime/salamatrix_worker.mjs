@@ -406,6 +406,24 @@ class Side {
       side: this.name, force, focusFirstNewItem,
     }).then((result) => result.ok === true);
   }
+
+  selectItem(index, select = true, repaint = true) {
+    return hostCall("salamander.sides.selectItem", {
+      side: this.name, index: Number(index), select, repaint,
+    }).then((result) => result.changed === true);
+  }
+
+  selectAll(select = true, repaint = true) {
+    return hostCall("salamander.sides.selectAll", {
+      side: this.name, select, repaint,
+    }).then((result) => result.changed === true);
+  }
+
+  focusItem(index, partVisible = true) {
+    return hostCall("salamander.sides.focusItem", {
+      side: this.name, index: Number(index), partVisible,
+    }).then((result) => result.changed === true);
+  }
 }
 
 const fileOperations = {};
@@ -471,6 +489,18 @@ const Salamander = {
       hostCall("salamander.sides.refresh", {
         side, force, focusFirstNewItem,
       }).then((result) => result.ok === true),
+    selectItem: (index, select = true, side = "source", repaint = true) =>
+      hostCall("salamander.sides.selectItem", {
+        side, index: Number(index), select, repaint,
+      }).then((result) => result.changed === true),
+    selectAll: (select = true, side = "source", repaint = true) =>
+      hostCall("salamander.sides.selectAll", {
+        side, select, repaint,
+      }).then((result) => result.changed === true),
+    focusItem: (index, side = "source", partVisible = true) =>
+      hostCall("salamander.sides.focusItem", {
+        side, index: Number(index), partVisible,
+      }).then((result) => result.changed === true),
   },
   leftSide: new Side("left"),
   rightSide: new Side("right"),

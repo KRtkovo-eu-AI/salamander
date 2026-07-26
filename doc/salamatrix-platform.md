@@ -925,9 +925,11 @@ MVP `requires` values map to Salamander menu event masks as follows:
 
 When a manifest declares a non-empty `capabilities` array, Automation also
 enforces the list at the persistent SMX1 host boundary. Calls are grouped into
-`panels.read`, `ui.dialogs`, `commands`, `file-operations`, `storage`,
+`panels.read`, `panels.write`, `ui.dialogs`, `commands`, `file-operations`, `storage`,
 `events`, and `ai`; a denied call returns a structured `capability denied`
-error. Scripts without a declared list retain legacy compatibility until the
+error. Persistent runtime event frames use a bounded session queue so host
+callbacks do not synchronously block the Salamander UI on a worker pipe.
+Scripts without a declared list retain legacy compatibility until the
 user-facing grant/revocation policy is available.
 
 ## MVP acceptance criteria

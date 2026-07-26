@@ -108,10 +108,12 @@ class _Commands:
         ).get("result", "error")
 
     def register(self, command_id: str, title: str,
-                 plugin_menu: bool = True, context_menu: bool = False) -> bool:
+                 plugin_menu: bool = True, context_menu: bool = False,
+                 hot_key: int = 0) -> bool:
         result = self._transport.call(
             "salamander.commands.register", commandId=command_id,
-            title=title, pluginMenu=plugin_menu, contextMenu=context_menu
+            title=title, pluginMenu=plugin_menu, contextMenu=context_menu,
+            hotKey=int(hot_key)
         )
         return bool(result.get("registered", False))
 
@@ -132,6 +134,16 @@ class _Storage:
 
     def set(self, key: str, value: str) -> None:
         self._transport.call("salamander.storage.set", key=key, value=value)
+
+    def remove(self, key: str) -> bool:
+        return bool(self._transport.call(
+            "salamander.storage.remove", key=key
+        ).get("removed", False))
+
+    def clear(self) -> bool:
+        return bool(self._transport.call(
+            "salamander.storage.clear"
+        ).get("ok", False))
 
 
 class _FileOperations:
@@ -197,6 +209,27 @@ class _Sides:
             focusFirstNewItem=focus_first_new_item
         ).get("ok", False))
 
+    def select_item(self, index: int, select: bool = True,
+                    side: str = "source", repaint: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.selectItem", side=side, index=int(index),
+            select=select, repaint=repaint
+        ).get("changed", False))
+
+    def select_all(self, select: bool = True, side: str = "source",
+                   repaint: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.selectAll", side=side, select=select,
+            repaint=repaint
+        ).get("changed", False))
+
+    def focus_item(self, index: int, side: str = "source",
+                   part_visible: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.focusItem", side=side, index=int(index),
+            partVisible=part_visible
+        ).get("changed", False))
+
 
 class _Side:
     def __init__(self, sides: _Sides, name: str) -> None:
@@ -223,6 +256,16 @@ class _Side:
         return self._sides.refresh(
             self._name, force, focus_first_new_item
         )
+
+    def select_item(self, index: int, select: bool = True,
+                    repaint: bool = True) -> bool:
+        return self._sides.select_item(index, select, self._name, repaint)
+
+    def select_all(self, select: bool = True, repaint: bool = True) -> bool:
+        return self._sides.select_all(select, self._name, repaint)
+
+    def focus_item(self, index: int, part_visible: bool = True) -> bool:
+        return self._sides.focus_item(index, self._name, part_visible)
 
 
 class _UI:
@@ -253,6 +296,24 @@ class _UI:
             "salamander.ui.pickFolder", title=title, initial=initial
         )
 
+    def progress(self, title: str = "Salamatrix", total: int = 0,
+                 two_progress_bars: bool = False,
+                 file_progress: bool = False,
+                 cancel_enabled: bool = True,
+                 total2: Optional[int] = None) -> "_Progress":
+        arguments: dict = {
+            "title": title, "total": int(total),
+            "twoProgressBars": two_progress_bars,
+            "fileProgress": file_progress,
+            "cancelEnabled": cancel_enabled,
+        }
+        if total2 is not None:
+            arguments["total2"] = int(total2)
+        result = self._transport.call(
+            "salamander.ui.progress.create", **arguments
+        )
+        return _Progress(self._transport, str(result["progressId"]))
+
     def dialog(self, title: str = "Salamander", width: int = 320,
                height: int = 180) -> "_Dialog":
         result = self._transport.call(
@@ -260,6 +321,82 @@ class _UI:
             width=int(width), height=int(height)
         )
         return _Dialog(self._transport, str(result["dialogId"]))
+
+
+class _Progress:
+    def __init__(self, transport: _Transport, progress_id: str) -> None:
+        self._transport = transport
+        self.progress_id = progress_id
+        self._closed = False
+
+    def update(self, position: int, total: Optional[int] = None,
+               text: str = "", delayed_paint: bool = True,
+               position2: Optional[int] = None,
+               total2: Optional[int] = None) -> bool:
+        arguments: dict = {
+            "progressId": self.progress_id,
+            "position": int(position), "text": text,
+            "delayedPaint": delayed_paint,
+        }
+        if total is not None:
+            arguments["total"] = int(total)
+        if position2 is not None:
+            arguments["position2"] = int(position2)
+        if total2 is not None:
+            arguments["total2"] = int(total2)
+        return bool(self._transport.call(
+            "salamander.ui.progress.update", **arguments
+        ).get("continued", True))
+
+    def set_totals(self, total: int, total2: int) -> None:
+        self._transport.call(
+            "salamander.ui.progress.setTotals", progressId=self.progress_id,
+            total=int(total), total2=int(total2)
+        )
+
+    def set_positions(self, position: int, position2: int,
+                      delayed_paint: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.progress.setPositions", progressId=self.progress_id,
+            position=int(position), position2=int(position2),
+            delayedPaint=delayed_paint
+        ).get("continued", True))
+
+    def set_title(self, title: str) -> None:
+        self._transport.call(
+            "salamander.ui.progress.setTitle", progressId=self.progress_id,
+            title=title
+        )
+
+    def set_cancel_enabled(self, enabled: bool) -> None:
+        self._transport.call(
+            "salamander.ui.progress.setCancelEnabled",
+            progressId=self.progress_id, enabled=enabled
+        )
+
+    def step(self, amount: int = 1, delayed_paint: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.progress.step", progressId=self.progress_id,
+            amount=int(amount), delayedPaint=delayed_paint
+        ).get("continued", True))
+
+    def is_cancelled(self) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.progress.cancelled", progressId=self.progress_id
+        ).get("cancelled", False))
+
+    def close(self) -> None:
+        if not self._closed:
+            self._transport.call(
+                "salamander.ui.progress.close", progressId=self.progress_id
+            )
+            self._closed = True
+
+    def __enter__(self) -> "_Progress":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
 
 
 class _Clipboard:
@@ -287,11 +424,15 @@ class _Dialog:
     def add_control(self, kind: str, control_id: str, text: str = "",
                     read_only: bool = False, checked: bool = False,
                     dialog_result: int = 0,
-                    layout: Optional[dict] = None) -> None:
+                    layout: Optional[dict] = None,
+                    keep_open: bool = False,
+                    multiline: bool = False) -> None:
         arguments: dict = {
             "readOnly": read_only,
             "checked": checked,
             "dialogResult": dialog_result,
+            "keepOpen": keep_open,
+            "multiline": multiline,
         }
         if layout is not None:
             for name in ("x", "y", "width", "height"):
@@ -327,8 +468,9 @@ class _Dialog:
         self._add("label", control_id, text)
 
     def add_textbox(self, control_id: str, text: str = "",
-                    read_only: bool = False) -> None:
-        self._add("textbox", control_id, text, readOnly=read_only)
+                    read_only: bool = False, multiline: bool = False) -> None:
+        self._add("textbox", control_id, text, readOnly=read_only,
+                  multiline=multiline)
 
     def add_checkbox(self, control_id: str, text: str,
                      checked: bool = False) -> None:
@@ -379,8 +521,9 @@ class _Dialog:
         )
 
     def add_button(self, control_id: str, text: str,
-                   dialog_result: int = 1) -> None:
-        self._add("button", control_id, text, dialogResult=dialog_result)
+                   dialog_result: int = 1, keep_open: bool = False) -> None:
+        self._add("button", control_id, text, dialogResult=dialog_result,
+                  keepOpen=keep_open)
 
     def show(self) -> int:
         return int(self._transport.call(
@@ -391,6 +534,12 @@ class _Dialog:
         return self._transport.call(
             "salamander.ui.dialog.get", dialogId=self.dialog_id,
             controlId=control_id
+        )
+
+    def set(self, control_id: str, value: str) -> None:
+        self._transport.call(
+            "salamander.ui.dialog.set", dialogId=self.dialog_id,
+            controlId=control_id, value=value
         )
 
     def close(self) -> None:
@@ -419,6 +568,13 @@ class _AI:
         if feedback is not None:
             arguments["feedback"] = feedback
         return self._transport.call("salamander.ai.generate", **arguments)
+
+    def api(self, topic: Optional[str] = None) -> dict:
+        arguments = {} if topic is None else {"topic": topic}
+        return self._transport.call("salamander.ai.api", **arguments)
+
+    def api_description(self, topic: Optional[str] = None) -> dict:
+        return self.api(topic)
 
     def preview(self, prompt: str, context: Optional[dict] = None,
                 provider: Optional[str] = None, runtime: Optional[str] = None,

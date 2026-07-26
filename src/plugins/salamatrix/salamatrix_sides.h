@@ -23,6 +23,7 @@ namespace Salamatrix
 #define SALAMATRIX_SERVICE_SIDES "Salamatrix.Sides"
 #define SALAMATRIX_SIDES_VERSION_1_0 0x00010000
 #define SALAMATRIX_SIDES_VERSION_1_1 0x00010001
+#define SALAMATRIX_SIDES_VERSION_1_2 0x00010002
 #define SALAMATRIX_SIDE_ITEM_NAME_CAPACITY 512
 #define SALAMATRIX_SIDE_ITEM_PATH_CAPACITY 32768
 
@@ -145,6 +146,23 @@ namespace Salamatrix
                 BOOL forceRefresh,
                 BOOL focusFirstNewItem) = 0;
 
+            // Appended in 1.2: expose the legacy selection/focus operations
+            // without leaking CFileData pointers across the runtime boundary.
+            // Item indexes use Salamander's directory-then-file panel order.
+            virtual BOOL WINAPI SetItemSelected(
+                SideReference side,
+                int index,
+                BOOL select,
+                BOOL repaint) = 0;
+            virtual BOOL WINAPI SelectAll(
+                SideReference side,
+                BOOL select,
+                BOOL repaint) = 0;
+            virtual BOOL WINAPI FocusItem(
+                SideReference side,
+                int index,
+                BOOL partVisible) = 0;
+
         protected:
             virtual ~ISidesService() {}
         };
@@ -193,7 +211,7 @@ namespace Salamatrix
 
             virtual DWORD WINAPI GetVersion() const
             {
-                return SALAMATRIX_SIDES_VERSION_1_1;
+                return SALAMATRIX_SIDES_VERSION_1_2;
             }
 
             virtual SideReference WINAPI ResolveSide(SideReference side) const
@@ -450,6 +468,59 @@ namespace Salamatrix
                     return FALSE;
                 General->RefreshPanelPath(
                     panel, forceRefresh, focusFirstNewItem);
+                return TRUE;
+            }
+
+            virtual BOOL WINAPI SetItemSelected(
+                SideReference side,
+                int index,
+                BOOL select,
+                BOOL repaint)
+            {
+                if (General == NULL || index < 0)
+                    return FALSE;
+                int panel = ResolvePanel(side);
+                int cursor = index;
+                BOOL isDirectory = FALSE;
+                const CFileData* item = General->GetPanelItem(
+                    panel, &cursor, &isDirectory);
+                if (item == NULL)
+                    return FALSE;
+                General->SelectPanelItem(panel, item, select);
+                if (repaint)
+                    General->RepaintChangedItems(panel);
+                return TRUE;
+            }
+
+            virtual BOOL WINAPI SelectAll(
+                SideReference side,
+                BOOL select,
+                BOOL repaint)
+            {
+                if (General == NULL)
+                    return FALSE;
+                int panel = ResolvePanel(side);
+                if (panel == 0)
+                    return FALSE;
+                General->SelectAllPanelItems(panel, select, repaint);
+                return TRUE;
+            }
+
+            virtual BOOL WINAPI FocusItem(
+                SideReference side,
+                int index,
+                BOOL partVisible)
+            {
+                if (General == NULL || index < 0)
+                    return FALSE;
+                int panel = ResolvePanel(side);
+                int cursor = index;
+                BOOL isDirectory = FALSE;
+                const CFileData* item = General->GetPanelItem(
+                    panel, &cursor, &isDirectory);
+                if (item == NULL)
+                    return FALSE;
+                General->SetPanelFocusedItem(panel, item, partVisible);
                 return TRUE;
             }
         };

@@ -68,8 +68,8 @@ $commands | Add-Member ScriptMethod Execute {
     (Invoke-Host -Method 'salamander.commands.execute' -Arguments @{ commandId = $CommandId }).result
 }
 $commands | Add-Member ScriptMethod Register {
-    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false)
-    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu }).registered
+    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false, [int]$HotKey = 0)
+    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu; hotKey = $HotKey }).registered
 }
 $commands | Add-Member ScriptMethod Unregister {
     param([string]$CommandId)
@@ -85,6 +85,13 @@ $storage | Add-Member ScriptMethod Get {
 $storage | Add-Member ScriptMethod Set {
     param([string]$Key, [string]$Value)
     [void](Invoke-Host -Method 'salamander.storage.set' -Arguments @{ key = $Key; value = $Value })
+}
+$storage | Add-Member ScriptMethod Remove {
+    param([string]$Key)
+    (Invoke-Host -Method 'salamander.storage.remove' -Arguments @{ key = $Key }).removed
+}
+$storage | Add-Member ScriptMethod Clear {
+    (Invoke-Host -Method 'salamander.storage.clear' -Arguments @{}).ok
 }
 $fileOperations = [pscustomobject]@{}
 $fileOperations | Add-Member ScriptMethod Rename { (Invoke-Host -Method 'salamander.fileOperations.rename' -Arguments @{}).result }
@@ -119,6 +126,18 @@ $sides | Add-Member ScriptMethod Refresh {
     param([string]$Side = 'source', [bool]$Force = $false, [bool]$FocusFirstNewItem = $false)
     (Invoke-Host -Method 'salamander.sides.refresh' -Arguments @{ side = $Side; force = $Force; focusFirstNewItem = $FocusFirstNewItem }).ok
 }
+$sides | Add-Member ScriptMethod SelectItem {
+    param([int]$Index, [bool]$Select = $true, [string]$Side = 'source', [bool]$Repaint = $true)
+    (Invoke-Host -Method 'salamander.sides.selectItem' -Arguments @{ side = $Side; index = $Index; select = $Select; repaint = $Repaint }).changed
+}
+$sides | Add-Member ScriptMethod SelectAll {
+    param([bool]$Select = $true, [string]$Side = 'source', [bool]$Repaint = $true)
+    (Invoke-Host -Method 'salamander.sides.selectAll' -Arguments @{ side = $Side; select = $Select; repaint = $Repaint }).changed
+}
+$sides | Add-Member ScriptMethod FocusItem {
+    param([int]$Index, [string]$Side = 'source', [bool]$PartVisible = $true)
+    (Invoke-Host -Method 'salamander.sides.focusItem' -Arguments @{ side = $Side; index = $Index; partVisible = $PartVisible }).changed
+}
 function New-SalamatrixSideView([string]$SideName) {
     $view = [pscustomobject]@{ Side = $SideName }
     $view | Add-Member ScriptMethod ActiveTab { Invoke-Host -Method 'salamander.sides.activeTab' -Arguments @{ side = $this.Side } }
@@ -127,6 +146,9 @@ function New-SalamatrixSideView([string]$SideName) {
     $view | Add-Member ScriptMethod ActivateTab { param([string]$TabId, [bool]$Focus = $true); (Invoke-Host -Method 'salamander.sides.activateTab' -Arguments @{ tabId = $TabId; focus = $Focus }).activated }
     $view | Add-Member ScriptMethod ChangePath { param([string]$Path); Invoke-Host -Method 'salamander.sides.changePath' -Arguments @{ side = $this.Side; path = $Path } }
     $view | Add-Member ScriptMethod Refresh { param([bool]$Force = $false, [bool]$FocusFirstNewItem = $false); (Invoke-Host -Method 'salamander.sides.refresh' -Arguments @{ side = $this.Side; force = $Force; focusFirstNewItem = $FocusFirstNewItem }).ok }
+    $view | Add-Member ScriptMethod SelectItem { param([int]$Index, [bool]$Select = $true, [bool]$Repaint = $true); (Invoke-Host -Method 'salamander.sides.selectItem' -Arguments @{ side = $this.Side; index = $Index; select = $Select; repaint = $Repaint }).changed }
+    $view | Add-Member ScriptMethod SelectAll { param([bool]$Select = $true, [bool]$Repaint = $true); (Invoke-Host -Method 'salamander.sides.selectAll' -Arguments @{ side = $this.Side; select = $Select; repaint = $Repaint }).changed }
+    $view | Add-Member ScriptMethod FocusItem { param([int]$Index, [bool]$PartVisible = $true); (Invoke-Host -Method 'salamander.sides.focusItem' -Arguments @{ side = $this.Side; index = $Index; partVisible = $PartVisible }).changed }
     return $view
 }
 $leftSide = New-SalamatrixSideView 'left'
@@ -149,6 +171,51 @@ $ui | Add-Member ScriptMethod PickFile {
 $ui | Add-Member ScriptMethod PickFolder {
     param([string]$Title = '', [string]$Initial = '')
     Invoke-Host -Method 'salamander.ui.pickFolder' -Arguments @{ title = $Title; initial = $Initial }
+}
+$ui | Add-Member ScriptMethod Progress {
+    param([string]$Title = 'Salamatrix', [int]$Total = 0, [bool]$TwoProgressBars = $false, [bool]$FileProgress = $false, [bool]$CancelEnabled = $true, [int]$Total2 = -1)
+    $arguments = @{ title = $Title; total = $Total; twoProgressBars = $TwoProgressBars; fileProgress = $FileProgress; cancelEnabled = $CancelEnabled }
+    if ($Total2 -ge 0) { $arguments['total2'] = $Total2 }
+    $created = Invoke-Host -Method 'salamander.ui.progress.create' -Arguments $arguments
+    $progress = [pscustomobject]@{ ProgressId = [string]$created.progressId; Closed = $false }
+    $progress | Add-Member ScriptMethod Update {
+        param([int]$Position, [int]$Total = -1, [string]$Text = '', [bool]$DelayedPaint = $true, [int]$Position2 = -1, [int]$Total2 = -1)
+        $arguments = @{ progressId = $this.ProgressId; position = $Position; text = $Text; delayedPaint = $DelayedPaint }
+        if ($Total -ge 0) { $arguments['total'] = $Total }
+        if ($Position2 -ge 0) { $arguments['position2'] = $Position2 }
+        if ($Total2 -ge 0) { $arguments['total2'] = $Total2 }
+        (Invoke-Host -Method 'salamander.ui.progress.update' -Arguments $arguments).continued
+    }
+    $progress | Add-Member ScriptMethod Step {
+        param([int]$Amount = 1, [bool]$DelayedPaint = $true)
+        (Invoke-Host -Method 'salamander.ui.progress.step' -Arguments @{ progressId = $this.ProgressId; amount = $Amount; delayedPaint = $DelayedPaint }).continued
+    }
+    $progress | Add-Member ScriptMethod SetTotals {
+        param([int]$Total, [int]$Total2)
+        [void](Invoke-Host -Method 'salamander.ui.progress.setTotals' -Arguments @{ progressId = $this.ProgressId; total = $Total; total2 = $Total2 })
+    }
+    $progress | Add-Member ScriptMethod SetPositions {
+        param([int]$Position, [int]$Position2, [bool]$DelayedPaint = $true)
+        (Invoke-Host -Method 'salamander.ui.progress.setPositions' -Arguments @{ progressId = $this.ProgressId; position = $Position; position2 = $Position2; delayedPaint = $DelayedPaint }).continued
+    }
+    $progress | Add-Member ScriptMethod SetTitle {
+        param([string]$Title)
+        [void](Invoke-Host -Method 'salamander.ui.progress.setTitle' -Arguments @{ progressId = $this.ProgressId; title = $Title })
+    }
+    $progress | Add-Member ScriptMethod SetCancelEnabled {
+        param([bool]$Enabled)
+        [void](Invoke-Host -Method 'salamander.ui.progress.setCancelEnabled' -Arguments @{ progressId = $this.ProgressId; enabled = $Enabled })
+    }
+    $progress | Add-Member ScriptMethod IsCancelled {
+        (Invoke-Host -Method 'salamander.ui.progress.cancelled' -Arguments @{ progressId = $this.ProgressId }).cancelled
+    }
+    $progress | Add-Member ScriptMethod Close {
+        if (-not $this.Closed) {
+            [void](Invoke-Host -Method 'salamander.ui.progress.close' -Arguments @{ progressId = $this.ProgressId })
+            $this.Closed = $true
+        }
+    }
+    return $progress
 }
 $ui | Add-Member ScriptMethod Dialog {
     param([string]$Title = 'Salamander', [int]$Width = 320, [int]$Height = 180)
@@ -203,6 +270,7 @@ $ui | Add-Member ScriptMethod Dialog {
     $dialog | Add-Member ScriptMethod AddButton { param([string]$Id, [string]$Text, [int]$DialogResult = 1, [bool]$KeepOpen = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'button'; controlId = $Id; text = $Text; dialogResult = $DialogResult; keepOpen = $KeepOpen }) }
     $dialog | Add-Member ScriptMethod Show { (Invoke-Host -Method 'salamander.ui.dialog.show' -Arguments @{ dialogId = $this.DialogId }).result }
     $dialog | Add-Member ScriptMethod Get { param([string]$Id) Invoke-Host -Method 'salamander.ui.dialog.get' -Arguments @{ dialogId = $this.DialogId; controlId = $Id } }
+    $dialog | Add-Member ScriptMethod Set { param([string]$Id, [string]$Value) [void](Invoke-Host -Method 'salamander.ui.dialog.set' -Arguments @{ dialogId = $this.DialogId; controlId = $Id; value = $Value }) }
     $dialog | Add-Member ScriptMethod Close { [void](Invoke-Host -Method 'salamander.ui.dialog.destroy' -Arguments @{ dialogId = $this.DialogId }) }
     return $dialog
 }
@@ -212,6 +280,16 @@ $clipboard | Add-Member ScriptMethod CopyText {
     (Invoke-Host -Method 'salamander.clipboard.copyText' -Arguments @{ text = $Text; showEcho = $ShowEcho }).copied
 }
 $ai = [pscustomobject]@{}
+$ai | Add-Member ScriptMethod Api {
+    param([string]$Topic = $null)
+    $arguments = @{}
+    if (-not [string]::IsNullOrEmpty($Topic)) { $arguments['topic'] = $Topic }
+    Invoke-Host -Method 'salamander.ai.api' -Arguments $arguments
+}
+$ai | Add-Member ScriptMethod ApiDescription {
+    param([string]$Topic = $null)
+    $this.Api($Topic)
+}
 $ai | Add-Member ScriptMethod Generate {
     param([string]$Prompt, [object]$Context = $null, [string]$Provider = $null, [string]$Runtime = $null, [string]$ExistingScript = $null, [string]$Feedback = $null)
     $arguments = @{ prompt = $Prompt }

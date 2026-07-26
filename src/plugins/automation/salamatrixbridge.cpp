@@ -13,6 +13,7 @@
 #include "engassoc.h"
 #include "knownengines.h"
 
+#include <deque>
 #include <vector>
 
 namespace
@@ -150,6 +151,8 @@ private:
     void* m_pHostDispatchContext;
     mutable CRITICAL_SECTION m_lock;
     std::string m_pending;
+    std::deque<std::string> m_queuedFrames;
+    enum { MaxQueuedFrames = 128 };
 
     CAutomationProcessRuntimeSession(
         HANDLE process,
@@ -223,6 +226,25 @@ public:
         return alive;
     }
 
+    BOOL FlushQueuedFrames()
+    {
+        for (;;)
+        {
+            std::string frame;
+            EnterCriticalSection(&m_lock);
+            if (m_queuedFrames.empty())
+            {
+                LeaveCriticalSection(&m_lock);
+                return TRUE;
+            }
+            frame.swap(m_queuedFrames.front());
+            m_queuedFrames.pop_front();
+            LeaveCriticalSection(&m_lock);
+            if (!SendFrame(frame.c_str(), static_cast<DWORD>(frame.size())))
+                return FALSE;
+        }
+    }
+
     virtual BOOL WINAPI GetExitCode(DWORD* exitCode) const
     {
         if (exitCode == NULL)
@@ -269,6 +291,24 @@ public:
         }
         LeaveCriticalSection(&m_lock);
         return result;
+    }
+
+    virtual BOOL WINAPI QueueFrame(const char* bytes, DWORD count)
+    {
+        if (bytes == NULL || count == 0 ||
+            count > Salamatrix::Runtime::Protocol::MaxFrameBytes)
+            return FALSE;
+        EnterCriticalSection(&m_lock);
+        if (m_hInput == NULL || m_hProcess == NULL ||
+            WaitForSingleObject(m_hProcess, 0) != WAIT_TIMEOUT ||
+            m_queuedFrames.size() >= MaxQueuedFrames)
+        {
+            LeaveCriticalSection(&m_lock);
+            return FALSE;
+        }
+        m_queuedFrames.push_back(std::string(bytes, count));
+        LeaveCriticalSection(&m_lock);
+        return TRUE;
     }
 
     virtual BOOL WINAPI ReceiveFrame(
@@ -323,6 +363,9 @@ public:
     virtual BOOL WINAPI Pump(DWORD timeoutMs)
     {
         if (m_pHostDispatch == NULL)
+            return FALSE;
+
+        if (!FlushQueuedFrames())
             return FALSE;
 
         std::vector<char> frameBytes(Salamatrix::Runtime::Protocol::MaxFrameBytes);

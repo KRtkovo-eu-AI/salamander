@@ -126,6 +126,18 @@ $sides | Add-Member ScriptMethod Refresh {
     param([string]$Side = 'source', [bool]$Force = $false, [bool]$FocusFirstNewItem = $false)
     (Invoke-Host -Method 'salamander.sides.refresh' -Arguments @{ side = $Side; force = $Force; focusFirstNewItem = $FocusFirstNewItem }).ok
 }
+$sides | Add-Member ScriptMethod SelectItem {
+    param([int]$Index, [bool]$Select = $true, [string]$Side = 'source', [bool]$Repaint = $true)
+    (Invoke-Host -Method 'salamander.sides.selectItem' -Arguments @{ side = $Side; index = $Index; select = $Select; repaint = $Repaint }).changed
+}
+$sides | Add-Member ScriptMethod SelectAll {
+    param([bool]$Select = $true, [string]$Side = 'source', [bool]$Repaint = $true)
+    (Invoke-Host -Method 'salamander.sides.selectAll' -Arguments @{ side = $Side; select = $Select; repaint = $Repaint }).changed
+}
+$sides | Add-Member ScriptMethod FocusItem {
+    param([int]$Index, [string]$Side = 'source', [bool]$PartVisible = $true)
+    (Invoke-Host -Method 'salamander.sides.focusItem' -Arguments @{ side = $Side; index = $Index; partVisible = $PartVisible }).changed
+}
 function New-SalamatrixSideView([string]$SideName) {
     $view = [pscustomobject]@{ Side = $SideName }
     $view | Add-Member ScriptMethod ActiveTab { Invoke-Host -Method 'salamander.sides.activeTab' -Arguments @{ side = $this.Side } }
@@ -134,6 +146,9 @@ function New-SalamatrixSideView([string]$SideName) {
     $view | Add-Member ScriptMethod ActivateTab { param([string]$TabId, [bool]$Focus = $true); (Invoke-Host -Method 'salamander.sides.activateTab' -Arguments @{ tabId = $TabId; focus = $Focus }).activated }
     $view | Add-Member ScriptMethod ChangePath { param([string]$Path); Invoke-Host -Method 'salamander.sides.changePath' -Arguments @{ side = $this.Side; path = $Path } }
     $view | Add-Member ScriptMethod Refresh { param([bool]$Force = $false, [bool]$FocusFirstNewItem = $false); (Invoke-Host -Method 'salamander.sides.refresh' -Arguments @{ side = $this.Side; force = $Force; focusFirstNewItem = $FocusFirstNewItem }).ok }
+    $view | Add-Member ScriptMethod SelectItem { param([int]$Index, [bool]$Select = $true, [bool]$Repaint = $true); (Invoke-Host -Method 'salamander.sides.selectItem' -Arguments @{ side = $this.Side; index = $Index; select = $Select; repaint = $Repaint }).changed }
+    $view | Add-Member ScriptMethod SelectAll { param([bool]$Select = $true, [bool]$Repaint = $true); (Invoke-Host -Method 'salamander.sides.selectAll' -Arguments @{ side = $this.Side; select = $Select; repaint = $Repaint }).changed }
+    $view | Add-Member ScriptMethod FocusItem { param([int]$Index, [bool]$PartVisible = $true); (Invoke-Host -Method 'salamander.sides.focusItem' -Arguments @{ side = $this.Side; index = $Index; partVisible = $PartVisible }).changed }
     return $view
 }
 $leftSide = New-SalamatrixSideView 'left'

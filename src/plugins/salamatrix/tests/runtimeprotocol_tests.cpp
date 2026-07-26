@@ -372,8 +372,12 @@ void TestAssistantService()
     Check(strstr(sidesSlice, "tabs") != NULL &&
               strstr(sidesSlice, "activateTab") != NULL &&
               strstr(sidesSlice, "changePath") != NULL &&
-              strstr(sidesSlice, "refresh") != NULL,
-          "assistant API description exposes tab operations");
+              strstr(sidesSlice, "refresh") != NULL &&
+              strstr(sidesSlice, "selectItem") != NULL &&
+              strstr(sidesSlice, "selectAll") != NULL &&
+              strstr(sidesSlice, "focusItem") != NULL &&
+              strstr(sidesSlice, "\"version\":\"1.2\"") != NULL,
+          "assistant API description exposes tab and selection operations");
     Check(strstr(service.GetApiDescriptionSlice("unknown"),
                  "\"objects\":{}") != NULL,
           "assistant API description handles unknown slices safely");

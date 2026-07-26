@@ -209,6 +209,27 @@ class _Sides:
             focusFirstNewItem=focus_first_new_item
         ).get("ok", False))
 
+    def select_item(self, index: int, select: bool = True,
+                    side: str = "source", repaint: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.selectItem", side=side, index=int(index),
+            select=select, repaint=repaint
+        ).get("changed", False))
+
+    def select_all(self, select: bool = True, side: str = "source",
+                   repaint: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.selectAll", side=side, select=select,
+            repaint=repaint
+        ).get("changed", False))
+
+    def focus_item(self, index: int, side: str = "source",
+                   part_visible: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.focusItem", side=side, index=int(index),
+            partVisible=part_visible
+        ).get("changed", False))
+
 
 class _Side:
     def __init__(self, sides: _Sides, name: str) -> None:
@@ -235,6 +256,16 @@ class _Side:
         return self._sides.refresh(
             self._name, force, focus_first_new_item
         )
+
+    def select_item(self, index: int, select: bool = True,
+                    repaint: bool = True) -> bool:
+        return self._sides.select_item(index, select, self._name, repaint)
+
+    def select_all(self, select: bool = True, repaint: bool = True) -> bool:
+        return self._sides.select_all(select, self._name, repaint)
+
+    def focus_item(self, index: int, part_visible: bool = True) -> bool:
+        return self._sides.focus_item(index, self._name, part_visible)
 
 
 class _UI:

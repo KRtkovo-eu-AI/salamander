@@ -176,6 +176,14 @@ namespace Salamatrix
                 return FALSE;
             }
 
+            /// Queue an asynchronous event frame without making the caller
+            /// wait for a potentially back-pressured worker pipe. Providers
+            /// that do not need a queue may keep the compatibility default.
+            virtual BOOL WINAPI QueueFrame(const char* bytes, DWORD count)
+            {
+                return SendFrame(bytes, count);
+            }
+
         protected:
             virtual ~IRuntimeSession() {}
         };

@@ -1141,6 +1141,12 @@ static BOOL FindRuntimeQuadWord(
 static const char* RuntimeCapabilityForMethod(
     const std::string& method)
 {
+    if (method == "salamander.sides.changePath" ||
+        method == "salamander.sides.refresh" ||
+        method == "salamander.sides.selectItem" ||
+        method == "salamander.sides.selectAll" ||
+        method == "salamander.sides.focusItem")
+        return "panels.write";
     if (method.compare(0, 16, "salamander.sides.") == 0)
         return "panels.read";
     if (method.compare(0, 13, "salamander.ui.") == 0 ||
@@ -1186,7 +1192,7 @@ BOOL WINAPI CScriptInfo::RuntimeEventCallback(
             eventJson,
             &frame))
         return FALSE;
-    return script->m_pRuntimeSession->SendFrame(
+    return script->m_pRuntimeSession->QueueFrame(
         frame.c_str(), static_cast<DWORD>(frame.size()));
 }
 
@@ -1222,7 +1228,7 @@ BOOL WINAPI CScriptInfo::RuntimeDialogEventCallback(
             eventJson,
             &frame))
         return FALSE;
-    return binding->Owner->m_pRuntimeSession->SendFrame(
+    return binding->Owner->m_pRuntimeSession->QueueFrame(
         frame.c_str(), static_cast<DWORD>(frame.size()));
 }
 
@@ -2857,6 +2863,53 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         return CopyRuntimeHostResult(
             std::string("{\"ok\":") +
                 (refreshed ? "true}" : "false}"),
+            resultJson,
+            resultCapacity,
+            resultLength);
+    }
+
+    if (method == "salamander.sides.selectItem" ||
+        method == "salamander.sides.selectAll" ||
+        method == "salamander.sides.focusItem")
+    {
+        std::string sideName;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
+        if (sides == NULL)
+            return FALSE;
+        BOOL select = TRUE;
+        BOOL repaint = TRUE;
+        BOOL partVisible = TRUE;
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "select", &select);
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "repaint", &repaint);
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "partVisible", &partVisible);
+
+        BOOL changed = FALSE;
+        if (method == "salamander.sides.selectAll")
+        {
+            changed = sides->SelectAll(
+                RuntimeSideFromName(sideName), select, repaint);
+        }
+        else
+        {
+            int index = -1;
+            if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "index", &index) || index < 0)
+                return FALSE;
+            if (method == "salamander.sides.selectItem")
+                changed = sides->SetItemSelected(
+                    RuntimeSideFromName(sideName), index, select, repaint);
+            else
+                changed = sides->FocusItem(
+                    RuntimeSideFromName(sideName), index, partVisible);
+        }
+        return CopyRuntimeHostResult(
+            std::string("{\"ok\":") + (changed ? "true" : "false") +
+                ",\"changed\":" + (changed ? "true}" : "false}"),
             resultJson,
             resultCapacity,
             resultLength);
