@@ -36,7 +36,8 @@ before it can be previewed, run, or saved as an extension package.
 
 ## Bundled server-free provider
 
-`SalamatrixAI.SPL` also exposes `local.bundled`. It starts the colocated
+The optional `SalamatrixAI Local Llama.SPL` companion exposes `local.bundled`.
+It starts its colocated
 `runtime\\llama-cli.exe` with `runtime\\salamatrix.gguf`, or the paths supplied
 by `SALAMATRIX_AI_BUNDLED_COMMAND` and `SALAMATRIX_AI_BUNDLED_MODEL`.
 The provider is unavailable until both regular files exist; it never starts a

@@ -362,6 +362,8 @@ Name: "{app}\plugins\samandarin\lang"
 Name: "{app}\plugins\salamatrix"
 Name: "{app}\plugins\salamatrixai"
 Name: "{app}\plugins\salamatrixai\runtime"
+Name: "{app}\plugins\salamatrixailocalllama"
+Name: "{app}\plugins\salamatrixailocalllama\runtime"
 Name: "{app}\plugins\demoplug"
 Name: "{app}\plugins\demoplug\lang"
 Name: "{app}\plugins\serviceexplorer"
@@ -1369,6 +1371,8 @@ Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrixai\salamatrixai.spl"; DestDir: "{app}\plugins\salamatrixai"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixai')
 Source: "{#PayloadDir}\plugins\salamatrixai\runtime\salamatrix_ai_local.py"; DestDir: "{app}\plugins\salamatrixai\runtime"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixai')
+Source: "{#PayloadDir}\plugins\salamatrixailocalllama\salamatrixailocalllama.spl"; DestDir: "{app}\plugins\salamatrixailocalllama"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixailocalllama')
+Source: "{#PayloadDir}\plugins\salamatrixailocalllama\runtime\*"; DestDir: "{app}\plugins\salamatrixailocalllama\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrixailocalllama')
 Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\plugins\demoplug\lang\*"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -2109,6 +2113,7 @@ begin
   AddPlugin('demoplug', '[DEV] DemoPlug', '1.96 (x64)', False);
   AddPlugin('salamatrix', '[DEV] Salamatrix Framework', '0.1 (x64)', True);
   AddPlugin('salamatrixai', '[DEV] Salamatrix AI Helper', '0.1 (x64)', True);
+  AddPlugin('salamatrixailocalllama', '[DEV] SalamatrixAI Local Llama', '0.1 (x64)', False);
 end;
 
 function InitializeSetup(): Boolean;

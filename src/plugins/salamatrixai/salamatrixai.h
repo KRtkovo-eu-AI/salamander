@@ -83,25 +83,6 @@ public:
                                  Salamatrix::AI::AssistantResponse* response);
 };
 
-// Server-free local provider backed by the colocated llama.cpp CLI and GGUF
-// model. The model remains replaceable and is selected through environment
-// variables, so the provider does not hard-code a model family.
-class CLocalBundledAssistantProvider : public Salamatrix::AI::IAssistantProvider
-{
-private:
-    Salamatrix::AI::AssistantProviderDescriptor m_descriptor;
-    mutable std::wstring m_command;
-    mutable std::wstring m_model;
-    void ResolveConfiguration() const;
-
-public:
-    CLocalBundledAssistantProvider();
-    virtual const Salamatrix::AI::AssistantProviderDescriptor* WINAPI GetDescriptor() const;
-    virtual BOOL WINAPI IsAvailable() const;
-    virtual BOOL WINAPI Generate(const Salamatrix::AI::AssistantRequest* request,
-                                 Salamatrix::AI::AssistantResponse* response);
-};
-
 class CAIPluginMenuExt : public CPluginInterfaceForMenuExtAbstract
 {
 public:

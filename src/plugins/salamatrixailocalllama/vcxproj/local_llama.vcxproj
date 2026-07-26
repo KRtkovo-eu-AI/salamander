@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ <ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration><ProjectConfiguration Include="Release clean|x64"><Configuration>Release clean</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+ <PropertyGroup Label="Globals"><VCProjectVersion>16.0</VCProjectVersion><ProjectGuid>{F01B4D09-7B84-455D-8AC3-327FBC7EB2B2}</ProjectGuid><RootNamespace>salamatrixailocalllama</RootNamespace><ProjectName>salamatrixailocalllama</ProjectName><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
+ <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+ <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
+ <PropertyGroup Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
+ <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+ <ImportGroup Condition="'$(Configuration)'=='Debug'" Label="PropertySheets"><Import Project="..\..\shared\vcxproj\x64.props" /><Import Project="..\..\shared\vcxproj\plugin_base.props" /><Import Project="..\..\shared\vcxproj\plugin_debug.props" /><Import Project="local_llama.props" /></ImportGroup>
+ <ImportGroup Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean'" Label="PropertySheets"><Import Project="..\..\shared\vcxproj\x64.props" /><Import Project="..\..\shared\vcxproj\plugin_base.props" /><Import Project="..\..\shared\vcxproj\plugin_release.props" /><Import Project="local_llama.props" /></ImportGroup>
+ <ItemDefinitionGroup><ClCompile><AdditionalIncludeDirectories>..\..;..\..\shared;..\salamatrixai;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PrecompiledHeader>Use</PrecompiledHeader><PreprocessorDefinitions>WIN32;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile><ResourceCompile><AdditionalIncludeDirectories>..\..;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ResourceCompile></ItemDefinitionGroup>
+ <ItemGroup><ClCompile Include="..\..\shared\sal_safe_memcpy.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile><ClCompile Include="..\local_llama.cpp" /><ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile></ItemGroup>
+ <ItemGroup><ClInclude Include="..\local_llama.h" /><ClInclude Include="..\precomp.h" /><ClInclude Include="..\versinfo.rh2" /><ClInclude Include="..\..\salamatrixai\salamatrixai.h" /></ItemGroup>
+ <ItemGroup><None Include="..\local_llama.def" /><None Include="..\local_llama.rc2" /></ItemGroup>
+ <ItemGroup><ResourceCompile Include="..\local_llama.rc" /></ItemGroup>
+ <PropertyGroup><SalamatrixAIAssetRoot Condition="'$(SalamatrixAIAssetRoot)'==''">$(OPENSAL_BUILD_DIR)libs\salamatrixai\</SalamatrixAIAssetRoot></PropertyGroup>
+ <ItemGroup><SalamatrixAIBundledAsset Include="$(SalamatrixAIAssetRoot)*.*" /></ItemGroup>
+ <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+ <Target Name="CopySalamatrixAILocalLlamaAssets" AfterTargets="Build">
+  <MakeDir Directories="$(OutDir)runtime" />
+  <Copy SourceFiles="@(SalamatrixAIBundledAsset)" DestinationFiles="@(SalamatrixAIBundledAsset->'$(OutDir)runtime\%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+ </Target>
+</Project>

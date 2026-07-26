@@ -34,6 +34,9 @@ def main() -> int:
     ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
     bundled = read("src/plugins/salamatrixai/bundledprovider.cpp")
+    local_llama = read("src/plugins/salamatrixailocalllama/local_llama.cpp")
+    local_llama_header = read("src/plugins/salamatrixailocalllama/local_llama.h")
+    local_llama_project = read("src/plugins/salamatrixailocalllama/vcxproj/local_llama.vcxproj")
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
@@ -104,8 +107,8 @@ def main() -> int:
             "AI menu command is not always exposed as enabled")
     require(ai, r"IsCurrentService\(SALAMATRIX_SERVICE_AI.*?g_ai\).*?UnregisterProvider",
             "AI Release lacks current-service pointer validation")
-    require(ai_header, r"class CLocalBundledAssistantProvider",
-            "bundled local AI provider declaration is missing")
+    require_absent(ai_header, r"class CLocalBundledAssistantProvider",
+                   "bundled local provider must not be part of the mandatory AI helper")
     require(ai_contract, r"BuildRelevantApiDescription",
             "AI prompt API slicing helper is missing")
     require(ai_contract, r"AssistantCanImplement",
@@ -123,10 +126,14 @@ def main() -> int:
     require(bundled, r'CreateProcessW\(NULL, commandLine\.data\(\).*?TerminateProcess\(process\.hProcess, 1\)',
             "bundled provider does not isolate and bound the llama.cpp process")
     require(bundled, r'120000', "bundled provider timeout is not capped at two minutes")
-    require(ai, r'g_ai->RegisterProvider\(&g_bundledProvider\)',
-            "bundled provider is not registered with Salamatrix.AI")
-    require(ai, r'g_ai->UnregisterProvider\(&g_bundledProvider\)',
-            "bundled provider is not unregistered during release")
+    require(local_llama_header, r'class CLocalBundledAssistantProvider',
+            "optional local llama provider declaration is missing")
+    require(local_llama, r'g_ai->RegisterProvider\(&g_provider\)',
+            "optional local llama provider is not registered with Salamatrix.AI")
+    require(local_llama, r'g_ai->UnregisterProvider\(&g_provider\)',
+            "optional local llama provider is not unregistered during release")
+    require(local_llama_project, r'SalamatrixAIAssetRoot.*libs\\salamatrixai',
+            "optional local llama project does not consume staged assets")
     require(ai, r'Ask is deliberately preview-only',
             "AI Ask action still performs implicit Run/Save/Export actions")
     require(ai, r'No executable automation was generated',

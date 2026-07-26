@@ -152,7 +152,8 @@ $expected = @(
     [pscustomobject]@{ Name = 'pythonruntime'; Bootstrap = 'runtime\salamatrix_worker.py' },
     [pscustomobject]@{ Name = 'powershellruntime'; Bootstrap = 'runtime\salamatrix_worker.ps1' },
     [pscustomobject]@{ Name = 'phpruntime'; Bootstrap = 'runtime\salamatrix_worker.php' },
-    [pscustomobject]@{ Name = 'salamatrixai'; Bootstrap = 'runtime\salamatrix_ai_local.py' }
+    [pscustomobject]@{ Name = 'salamatrixai'; Bootstrap = 'runtime\salamatrix_ai_local.py' },
+    [pscustomobject]@{ Name = 'salamatrixailocalllama'; Bootstrap = 'runtime\llama-cli.exe' }
 )
 
 $root = Resolve-ExistingDirectory -Path $SalamanderPath -Description 'Salamander path'
@@ -186,6 +187,20 @@ foreach ($item in $expected) {
     if (-not (Test-Path -LiteralPath $bootstrapPath -PathType Leaf)) {
         $failures.Add("$($item.Name): missing bootstrap $bootstrapPath")
     }
+
+    if ($item.Name -eq 'salamatrixailocalllama') {
+        foreach ($asset in @('llama-cli.exe', 'salamatrix.gguf')) {
+            $assetPath = Join-Path $pluginRoot ('runtime\' + $asset)
+            if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+                $failures.Add("$($item.Name): missing bundled asset $assetPath")
+            }
+        }
+        $dllCount = @(Get-ChildItem -LiteralPath (Join-Path $pluginRoot 'runtime') -File -Filter '*.dll' -ErrorAction SilentlyContinue).Count
+        if ($dllCount -eq 0) {
+            $failures.Add("$($item.Name): bundled llama.cpp DLLs are missing")
+        }
+    }
+
 }
 
 if ($failures.Count -gt 0) {
