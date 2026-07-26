@@ -1375,6 +1375,17 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                     loadOnStart = loadOnStartDWORD != 0;
                 }
 
+                // Salamatrix extension packages may use Automation's legacy
+                // ActiveScript provider before any Automation menu command is
+                // invoked. Keep existing installations compatible with that
+                // contract even when they predate Automation's persisted
+                // load-on-start flag.
+                if (!loadOnStart &&
+                    StrICmp(dllName, "automation.spl") == 0)
+                {
+                    loadOnStart = TRUE;
+                }
+
                 // these values don't have to be loaded (they may be missing in the configuration)
                 GetValue(itemKey, SALAMANDER_PLUGINS_LASTSLGNAME, REG_SZ, lastSLGName, MAX_PATH);
                 GetValue(itemKey, SALAMANDER_PLUGINS_HOMEPAGE, REG_SZ, pluginHomePageURL, MAX_PATH);
