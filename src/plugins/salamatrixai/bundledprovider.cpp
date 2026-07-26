@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#ifndef SALAMATRIXAI_BUNDLED_PROVIDER_HAS_PRECOMP
 #include "precomp.h"
+#endif
 #include "salamatrixai.h"
 #include <strsafe.h>
 
