@@ -18,6 +18,7 @@ namespace Extensions
 #define SALAMATRIX_SERVICE_EXTENSIONS "Salamatrix.Extensions"
 #define SALAMATRIX_EXTENSIONS_VERSION_1_0 0x00010000
 #define SALAMATRIX_EXTENSIONS_VERSION_1_1 0x00010001
+#define SALAMATRIX_EXTENSIONS_VERSION_1_2 0x00010002
 
 enum ExtensionState
 {
@@ -36,6 +37,13 @@ enum ExtensionAction
 {
     ExtensionActionActivate = 1,
     ExtensionActionDeactivate = 2
+};
+
+enum ExtensionSettingType
+{
+    ExtensionSettingString = 1,
+    ExtensionSettingInteger = 2,
+    ExtensionSettingBoolean = 3
 };
 
 enum ExtensionFlags
@@ -88,6 +96,22 @@ struct ExtensionInfo
         : StructSize(sizeof(ExtensionInfo)),
           State(ExtensionStateDiscovered)
     {
+    }
+};
+
+// Data-only schema. Values remain in Salamatrix.Storage; native callers use
+// this only to render the same configuration UI for every runtime.
+struct ExtensionSettingInfo
+{
+    DWORD StructSize;
+    char Key[128];
+    ExtensionSettingType Type;
+
+    ExtensionSettingInfo()
+        : StructSize(sizeof(ExtensionSettingInfo)),
+          Type(ExtensionSettingString)
+    {
+        Key[0] = 0;
     }
 };
 
@@ -149,6 +173,36 @@ public:
         return FALSE;
     }
 
+    /// Appended in 1.2. Owners replace their data-only setting schema;
+    /// consumers retrieve it for shared configuration UI.
+    virtual BOOL WINAPI SetExtensionSettingsSchema(
+        const char* extensionId,
+        const ExtensionSettingInfo* settings,
+        int settingCount)
+    {
+        (void)extensionId;
+        (void)settings;
+        (void)settingCount;
+        return FALSE;
+    }
+
+    virtual int WINAPI GetExtensionSettingCount(const char* extensionId) const
+    {
+        (void)extensionId;
+        return 0;
+    }
+
+    virtual BOOL WINAPI GetExtensionSettingInfo(
+        const char* extensionId,
+        int index,
+        ExtensionSettingInfo* setting) const
+    {
+        (void)extensionId;
+        (void)index;
+        (void)setting;
+        return FALSE;
+    }
+
 protected:
     virtual ~IExtensionsService() {}
 };
@@ -163,15 +217,22 @@ private:
 
     struct Record
     {
+        enum
+        {
+            MaxSettings = 64
+        };
         ExtensionInfo Info;
         ExtensionLifecycleCallback Callback;
         void* Context;
         LONG ActiveLeases;
+        ExtensionSettingInfo Settings[MaxSettings];
+        int SettingCount;
 
         Record()
             : Callback(NULL),
               Context(NULL),
-              ActiveLeases(0)
+              ActiveLeases(0),
+              SettingCount(0)
         {
         }
     };
@@ -335,12 +396,12 @@ public:
 
     virtual DWORD WINAPI GetVersion() const
     {
-        return SALAMATRIX_EXTENSIONS_VERSION_1_1;
+        return SALAMATRIX_EXTENSIONS_VERSION_1_2;
     }
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"setDisabled\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\",\"waitingForDependency\",\"disabled\"]}";
+        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"setDisabled\",\"setSettingsSchema\",\"getSettingsSchema\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\",\"waitingForDependency\",\"disabled\"]}";
     }
 
     virtual BOOL WINAPI RegisterExtension(
@@ -590,6 +651,88 @@ public:
             if (record.Info.State == ExtensionStateDisabled)
                 record.Info.State = ExtensionStateDiscovered;
         }
+        LeaveCriticalSection(&Lock);
+        return TRUE;
+    }
+
+    virtual BOOL WINAPI SetExtensionSettingsSchema(
+        const char* extensionId,
+        const ExtensionSettingInfo* settings,
+        int settingCount)
+    {
+        if (extensionId == NULL || settingCount < 0 ||
+            settingCount > Record::MaxSettings ||
+            (settingCount != 0 && settings == NULL))
+        {
+            return FALSE;
+        }
+        EnterCriticalSection(&Lock);
+        const int index = FindIndex(extensionId);
+        if (index < 0)
+        {
+            LeaveCriticalSection(&Lock);
+            return FALSE;
+        }
+        Record& record = Records[index];
+        for (int settingIndex = 0; settingIndex < settingCount; ++settingIndex)
+        {
+            const ExtensionSettingInfo& setting = settings[settingIndex];
+            if (setting.StructSize < sizeof(ExtensionSettingInfo) ||
+                !IsValidId(setting.Key) ||
+                (setting.Type != ExtensionSettingString &&
+                 setting.Type != ExtensionSettingInteger &&
+                 setting.Type != ExtensionSettingBoolean))
+            {
+                LeaveCriticalSection(&Lock);
+                return FALSE;
+            }
+            for (int existing = 0; existing < settingIndex; ++existing)
+            {
+                if (_stricmp(settings[existing].Key, setting.Key) == 0)
+                {
+                    LeaveCriticalSection(&Lock);
+                    return FALSE;
+                }
+            }
+        }
+        for (int settingIndex = 0; settingIndex < settingCount; ++settingIndex)
+            record.Settings[settingIndex] = settings[settingIndex];
+        for (int settingIndex = settingCount;
+             settingIndex < record.SettingCount;
+             ++settingIndex)
+        {
+            record.Settings[settingIndex] = ExtensionSettingInfo();
+        }
+        record.SettingCount = settingCount;
+        LeaveCriticalSection(&Lock);
+        return TRUE;
+    }
+
+    virtual int WINAPI GetExtensionSettingCount(const char* extensionId) const
+    {
+        EnterCriticalSection(&Lock);
+        const int index = FindIndex(extensionId);
+        const int count = index >= 0 ? Records[index].SettingCount : 0;
+        LeaveCriticalSection(&Lock);
+        return count;
+    }
+
+    virtual BOOL WINAPI GetExtensionSettingInfo(
+        const char* extensionId,
+        int index,
+        ExtensionSettingInfo* setting) const
+    {
+        if (setting == NULL || setting->StructSize < sizeof(ExtensionSettingInfo))
+            return FALSE;
+        EnterCriticalSection(&Lock);
+        const int recordIndex = FindIndex(extensionId);
+        if (recordIndex < 0 || index < 0 ||
+            index >= Records[recordIndex].SettingCount)
+        {
+            LeaveCriticalSection(&Lock);
+            return FALSE;
+        }
+        *setting = Records[recordIndex].Settings[index];
         LeaveCriticalSection(&Lock);
         return TRUE;
     }

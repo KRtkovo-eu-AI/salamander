@@ -5274,6 +5274,28 @@ void CScriptLookup::PublishSalamatrixExtensions()
                 }
             }
 
+            Salamatrix::Extensions::ExtensionSettingInfo settingSchema[64];
+            int settingCount = 0;
+            for (size_t settingIndex = 0;
+                 settingIndex < pScript->m_salamatrixSettings.size() &&
+                 settingCount < _countof(settingSchema);
+                 ++settingIndex)
+            {
+                const CExtensionManifestSetting& setting =
+                    pScript->m_salamatrixSettings[settingIndex];
+                Salamatrix::Extensions::ExtensionSettingInfo& published =
+                    settingSchema[settingCount++];
+                StringCchCopyA(
+                    published.Key, _countof(published.Key),
+                    setting.Key.c_str());
+                published.Type =
+                    setting.Type == ExtensionManifestSettingInteger
+                        ? Salamatrix::Extensions::ExtensionSettingInteger
+                        : setting.Type == ExtensionManifestSettingBoolean
+                              ? Salamatrix::Extensions::ExtensionSettingBoolean
+                              : Salamatrix::Extensions::ExtensionSettingString;
+            }
+
             // A failed registration (for example a duplicate manifest id)
             // is intentionally ignored here. The host registry remains
             // authoritative and malformed/duplicate entries never become
@@ -5281,10 +5303,14 @@ void CScriptLookup::PublishSalamatrixExtensions()
             // dependency-resolution pass below, after every manifest in this
             // refresh is visible. Missing runtimes and dependencies remain
             // explicit waiting states and are retried on the next refresh.
-            service->RegisterExtension(
-                &descriptor,
-                CScriptInfo::RuntimeLifecycleCallback,
-                pScript);
+            if (service->RegisterExtension(
+                    &descriptor,
+                    CScriptInfo::RuntimeLifecycleCallback,
+                    pScript))
+            {
+                service->SetExtensionSettingsSchema(
+                    extensionId, settingSchema, settingCount);
+            }
             // Activation is deferred until every manifest has been
             // registered, allowing dependencies that appear later in the
             // discovery order to resolve in the same refresh.

@@ -255,6 +255,39 @@ void TestDisabledState()
           "disabled state persists in registry");
     delete extensions;
 }
+
+void TestSettingsSchema()
+{
+    Salamatrix::Extensions::ExtensionsService* extensions =
+        new Salamatrix::Extensions::ExtensionsService();
+    CallbackState callback;
+    Salamatrix::Extensions::ExtensionDescriptor descriptor =
+        MakeDescriptor("settings.extension");
+    Check(extensions->RegisterExtension(
+              &descriptor, LifecycleCallback, &callback) != FALSE,
+          "register extension for settings schema");
+    Salamatrix::Extensions::ExtensionSettingInfo settings[2];
+    strcpy_s(settings[0].Key, _countof(settings[0].Key), "repositoryUrl");
+    settings[0].Type = Salamatrix::Extensions::ExtensionSettingString;
+    strcpy_s(settings[1].Key, _countof(settings[1].Key), "autoRefresh");
+    settings[1].Type = Salamatrix::Extensions::ExtensionSettingBoolean;
+    Check(extensions->SetExtensionSettingsSchema(
+              "settings.extension", settings, _countof(settings)) != FALSE,
+          "publish extension settings schema");
+    Check(extensions->GetExtensionSettingCount("settings.extension") == 2,
+          "published settings schema count");
+    Salamatrix::Extensions::ExtensionSettingInfo returned;
+    Check(extensions->GetExtensionSettingInfo(
+              "settings.extension", 1, &returned) != FALSE &&
+              strcmp(returned.Key, "autoRefresh") == 0 &&
+              returned.Type == Salamatrix::Extensions::ExtensionSettingBoolean,
+          "published settings schema item");
+    strcpy_s(settings[1].Key, _countof(settings[1].Key), "repositoryUrl");
+    Check(extensions->SetExtensionSettingsSchema(
+              "settings.extension", settings, _countof(settings)) == FALSE,
+          "reject duplicate settings schema keys");
+    delete extensions;
+}
 } // namespace
 
 int main()
@@ -265,6 +298,7 @@ int main()
     TestRuntimeAvailabilityState();
     TestDependencyAvailabilityState();
     TestDisabledState();
+    TestSettingsSchema();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d Salamatrix extension test(s) failed.\n", Failures);
