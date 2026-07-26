@@ -130,11 +130,13 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 
 ## Current verification snapshot
 
-The newest implementation commits are `a6a8cedc8` (Plugin Manager settings
-configuration), `9aa3cbf84` (per-command SVG toolbar artwork), and
-`6e1711cd8` (dialog `FolderPicker`). They were compiled into isolated Debug
-x64 output directories; the user's locally running Salamander process was
-never started, stopped, or otherwise controlled by this work.
+The newest implementation commits are `4a380ef3c` (editable native
+`FilePicker` and standalone worker parity), `89a1d4fbf` (isolated process
+runtime verification), `a6a8cedc8` (Plugin Manager settings configuration),
+`9aa3cbf84` (per-command SVG toolbar artwork), and `6e1711cd8` (dialog
+`FolderPicker`). They were compiled into isolated Debug x64 output
+directories; the user's locally running Salamander process was never started,
+stopped, or otherwise controlled by this work.
 
 - `a6a8cedc8`: Automation, Salamatrix, the core Salamander executable, and
   Extensions native tests passed.
@@ -155,9 +157,10 @@ never started, stopped, or otherwise controlled by this work.
   dialog controls, shutdown, output capture, and timeout coverage without
   starting or controlling Salamander.
 
-At this pause point the only worktree artifacts outside commits are two
-untracked Python `__pycache__` directories produced by the worker syntax
-check: `src/plugins/automation/runtime/__pycache__/` and
+At this pause point all Salamatrix source and documentation changes are
+committed. The pre-existing worktree-only `.gitignore` change keeps the two
+syntax-check artifacts out of source control:
+`src/plugins/automation/runtime/__pycache__/` and
 `src/plugins/pythonruntime/runtime/__pycache__/`. They are not source changes
 and are not staged.
 
