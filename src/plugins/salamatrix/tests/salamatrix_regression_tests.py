@@ -130,13 +130,23 @@ def main() -> int:
         r"EscapeAssistantContext|LoadAssistantString|BuildAssistantPanelContext|SaveAssistantScript|AssistantTemporaryScript|AssistantWin32Path|WriteAssistantUtf8File|CreateAssistantTemporaryScript|GetAssistantRuntimeExtension|MakeAssistantExtensionId|AssistantUtf8ToWide|SaveAssistantExtensionPackage|RunAssistantScript",
         "Automation still contains removed AI assistant helpers")
 
-    for name, runtime in (
-        ("JavaScript", javascriptruntime),
-        ("Python", pythonruntime),
-        ("PowerShell", powershellruntime),
-        ("PHP", phpruntime),
+    for name, runtime, registration_var in (
+        ("JavaScript", javascriptruntime, "JavaScriptRegistration"),
+        ("Python", pythonruntime, "PythonRegistration"),
+        ("PowerShell", powershellruntime, "PowerShellRegistration"),
+        ("PHP", phpruntime, "PHPRegistration"),
     ):
         require(runtime, r"SetPluginHomePageURL\(\"https://samandarin\.krtkovo\.eu/\"\)", f"{name} runtime homepage URL is not set")
+        require(runtime, r"static void UnregisterRuntimeProvider\(",
+                f"{name} runtime release guard helper is missing")
+        require(runtime, r"SalamanderGeneral->QueryService\(&query, &serviceResult\)",
+                f"{name} runtime release guard does not query SALAMATRIX_SERVICE_RUNTIME")
+        require(runtime, r"runtimeService\s*!=\s*registration\.GetService\(\)",
+                f"{name} runtime release guard does not compare against registration.GetService()")
+        require(runtime, r"registration = Salamatrix::Runtime::RuntimeProviderRegistration\(\)",
+                f"{name} runtime release guard does not clear local registration state")
+        require(runtime, rf"UnregisterRuntimeProvider\(\s*{re.escape(registration_var)}\s*\)",
+                f"{name} runtime Release does not call safe registration unregister")
 
     require(salamatrix_props, r"USE_DARKMODELIB=1", "Salamatrix Framework is not built with win32-darkmodelib")
     require(salamatrix, r"ApplyHostDarkModePolicy\(SalamanderGeneral", "Salamatrix host dark-mode policy is not initialized")

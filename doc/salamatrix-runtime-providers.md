@@ -253,3 +253,18 @@ The ownership restoration was verified by the source-contract test and
 isolated Debug x64 builds in `build\verification\ai-restored-logic-final` and
 `build\verification\automation-restored-logic-final`; no Salamander process
 was started or controlled.
+
+## Shutdown and unload safety
+
+The runtime providers borrow the `Salamatrix.Runtime` broker; they do not own
+it. During application shutdown the Framework provider can therefore be
+unloaded before a standalone runtime provider. Each provider now validates the
+currently published `SALAMATRIX_SERVICE_RUNTIME` pointer before unregistering
+its adapter. A missing or replaced broker causes only the provider's local
+registration state to be reset; `UnregisterAdapter` is called only while the
+original broker is still live.
+
+This prevents the stale-broker virtual call reported by the JavaScript runtime
+shutdown crash. The four providers were rebuilt in the isolated
+`build\verification\shutdown-guard-*` directories and the source regression
+test passed. No Salamander process was started or controlled.

@@ -970,3 +970,19 @@ The forty-first code slice is implemented and verified:
   `build\verification\automation-restored-logic-final` outputs. The source
   regression test and both builds passed; no Salamander process was started
   or controlled.
+
+The forty-second code slice is implemented and verified:
+
+- diagnose the shutdown crash from `ACE187E9236B11B2-AS50SAM0.13X64-260726-101224.TXT`:
+  a runtime provider called `UnregisterAdapter` through a stale borrowed
+  `Salamatrix.Runtime` broker after the Framework provider had already been
+  unloaded;
+- add an unload guard to all four standalone runtime providers. Each provider
+  queries the current `SALAMATRIX_SERVICE_RUNTIME`, compares it with the
+  registration's original service pointer, and only then calls
+  `Unregister()`. If the service is gone or replaced, it clears local
+  registration state without dereferencing the stale broker;
+- extend the source-contract regression test for JavaScript, Python,
+  PowerShell, and PHP and rebuild all four Debug x64 `.SPL` providers into
+  isolated `build\verification\shutdown-guard-*` outputs. The regression test
+  and all four builds passed; no Salamander process was started or controlled.

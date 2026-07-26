@@ -1141,6 +1141,39 @@ static CJavaScriptRuntimeAdapter JavaScriptRuntime(
     CJavaScriptRuntimeAdapter::ProcessKindJavaScript);
 static Salamatrix::Runtime::RuntimeProviderRegistration JavaScriptRegistration;
 
+static void UnregisterRuntimeProvider(
+    Salamatrix::Runtime::RuntimeProviderRegistration& registration)
+{
+    if (!registration.IsRegistered())
+        return;
+
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult serviceResult;
+    memset(&query, 0, sizeof(query));
+    memset(&serviceResult, 0, sizeof(serviceResult));
+    query.ServiceId = SALAMATRIX_SERVICE_RUNTIME;
+    query.MinimumVersion = SALAMATRIX_RUNTIME_VERSION_1_0;
+
+    if (SalamanderGeneral == NULL ||
+        !SalamanderGeneral->QueryService(&query, &serviceResult) ||
+        serviceResult.Interface == NULL)
+    {
+        registration = Salamatrix::Runtime::RuntimeProviderRegistration();
+        return;
+    }
+
+    Salamatrix::Runtime::IRuntimeService* runtimeService =
+        static_cast<Salamatrix::Runtime::IRuntimeService*>(
+            serviceResult.Interface);
+    if (runtimeService != registration.GetService())
+    {
+        registration = Salamatrix::Runtime::RuntimeProviderRegistration();
+        return;
+    }
+
+    registration.Unregister();
+}
+
 static BOOL TryRegisterJavaScriptRuntime()
 {
     if (JavaScriptRegistration.IsRegistered())
@@ -1217,7 +1250,7 @@ void WINAPI CPluginInterface::About(HWND parent)
 
 BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
 {
-    JavaScriptRegistration.Unregister();
+    UnregisterRuntimeProvider(JavaScriptRegistration);
     SalamanderGeneral = NULL;
     return TRUE;
 }
