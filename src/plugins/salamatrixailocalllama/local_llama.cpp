@@ -151,6 +151,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         VERSINFO_INTERNAL,
         NULL,
         NULL);
+    SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
     salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
     LocalLlamaPluginInterface.Event(0, 0);
     return &LocalLlamaPluginInterface;

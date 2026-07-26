@@ -1381,7 +1381,8 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 // predate the persisted load-on-start flags.
                 if (!loadOnStart &&
                     (StrICmp(dllName, "automation.spl") == 0 ||
-                     StrICmp(dllName, "salamatrixai.spl") == 0))
+                     StrICmp(dllName, "salamatrixai.spl") == 0 ||
+                     StrICmp(dllName, "salamatrixailocalllama.spl") == 0))
                 {
                     loadOnStart = TRUE;
                 }
@@ -3415,6 +3416,11 @@ void CPlugins::HandleLoadOnStartFlag(HWND parent)
     }
 
     LoadInfoBase &= ~LOADINFO_LOADONSTART;
+
+    // Some service providers can be initialized before their Salamatrix
+    // broker. Give all already loaded plug-ins one deterministic retry point
+    // after the complete load-on-start pass.
+    Event(PLUGINEVENT_STARTUPCOMPLETE, 0);
 }
 
 void CPlugins::GetCmdAndUnloadMarkedPlugins(HWND parent, int* cmd, CPluginData** data)

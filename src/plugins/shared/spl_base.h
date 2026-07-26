@@ -476,6 +476,11 @@ public:
 #define PLUGINEVENT_SELECTIONCHANGED 6
 #define PLUGINEVENT_TABCHANGED 7
 
+// All plug-ins with the load-on-start flag have been initialized. This lets
+// service providers retry registration after their broker was loaded later in
+// the startup sequence.
+#define PLUGINEVENT_STARTUPCOMPLETE 8
+
 // kody udalosti v Password Manageru, prijima metoda CPluginInterfaceAbstract::PasswordManagerEvent():
 #define PME_MASTERPASSWORDCREATED 1 // uzivatel vytvoril master password (je potreba zasifrovat hesla)
 #define PME_MASTERPASSWORDCHANGED 2 // uzivatel zmenil master password (je potreba desifrovat a nasledne znovu zasifrovat hesla)

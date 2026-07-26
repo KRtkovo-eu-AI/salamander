@@ -211,7 +211,8 @@ void WINAPI CPluginInterface::Event(int event, DWORD param)
 {
     if (SalamatrixRuntime != NULL)
         SalamatrixRuntime->Events()->PublishHostEvent(event, param);
-    if (event == PLUGINEVENT_CONFIGURATIONCHANGED && SalamatrixPackages != NULL)
+    if ((event == PLUGINEVENT_CONFIGURATIONCHANGED ||
+         event == PLUGINEVENT_STARTUPCOMPLETE) && SalamatrixPackages != NULL)
         SalamatrixPackages->Refresh();
 }
 
