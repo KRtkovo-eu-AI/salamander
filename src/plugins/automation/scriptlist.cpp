@@ -539,6 +539,109 @@ static BOOL ResolveManifestAssetPath(
     return TRUE;
 }
 
+static std::string GetPreferredManifestLocale()
+{
+    WCHAR localeName[LOCALE_NAME_MAX_LENGTH];
+    if (GetUserDefaultLocaleName(localeName, _countof(localeName)) == 0)
+        return std::string();
+    int length = WideCharToMultiByte(
+        CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
+    if (length <= 1)
+        return std::string();
+    std::vector<char> utf8(static_cast<size_t>(length));
+    if (WideCharToMultiByte(
+            CP_UTF8, 0, localeName, -1, &utf8[0], length, NULL, NULL) == 0)
+    {
+        return std::string();
+    }
+    return std::string(&utf8[0]);
+}
+
+static int GetManifestLocaleMatchScore(
+    const std::string& available,
+    const std::string& preferred)
+{
+    const size_t availableSeparator = available.find('-');
+    const std::string availablePrimary = available.substr(0, availableSeparator);
+    if (preferred.empty())
+        return _stricmp(availablePrimary.c_str(), "en") == 0 ? 1 : 0;
+    if (_stricmp(available.c_str(), preferred.c_str()) == 0)
+        return 4;
+
+    const size_t preferredSeparator = preferred.find('-');
+    const std::string preferredPrimary = preferred.substr(0, preferredSeparator);
+    if (_stricmp(availablePrimary.c_str(), preferredPrimary.c_str()) == 0)
+    {
+        // Prefer the neutral language over a different regional variant.
+        return availableSeparator == std::string::npos ? 3 : 2;
+    }
+    return _stricmp(availablePrimary.c_str(), "en") == 0 ? 1 : 0;
+}
+
+static BOOL LoadManifestLocaleText(
+    PCTSTR entryPointPath,
+    const CExtensionManifest& manifest,
+    CExtensionManifestLocaleText& localized)
+{
+    if (manifest.Locales.empty())
+        return FALSE;
+
+    const std::string preferred = GetPreferredManifestLocale();
+    int selected = -1;
+    int bestScore = 0;
+    for (size_t index = 0; index < manifest.Locales.size(); ++index)
+    {
+        const int score = GetManifestLocaleMatchScore(
+            manifest.Locales[index].Language, preferred);
+        if (score > bestScore)
+        {
+            bestScore = score;
+            selected = static_cast<int>(index);
+        }
+    }
+    if (selected < 0)
+        return FALSE;
+
+    std::string resolvedPath;
+    if (!ResolveManifestAssetPath(
+            entryPointPath, manifest.EntryPoint,
+            manifest.Locales[selected].File, resolvedPath))
+    {
+        return FALSE;
+    }
+    std::vector<TCHAR> nativePath(resolvedPath.size() * 2 + 2);
+    if (!Utf8ToNative(
+            resolvedPath, &nativePath[0],
+            static_cast<int>(nativePath.size())))
+    {
+        return FALSE;
+    }
+    std::string json;
+    if (!ReadManifestTextFile(&nativePath[0], json))
+        return FALSE;
+    CExtensionManifestError error;
+    return CExtensionManifest::ParseLocaleText(
+               json.data(), json.size(), localized, error)
+               ? TRUE
+               : FALSE;
+}
+
+static const char* FindLocalizedManifestCommandTitle(
+    const CExtensionManifestLocaleText& localized,
+    const std::string& commandId)
+{
+    for (size_t index = 0; index < localized.Commands.size(); ++index)
+    {
+        if (_stricmp(
+                localized.Commands[index].Id.c_str(),
+                commandId.c_str()) == 0)
+        {
+            return localized.Commands[index].Title.c_str();
+        }
+    }
+    return NULL;
+}
+
 CScriptInfo::CScriptInfo(
     PCTSTR pszFileName,
     CScriptContainer* pContainer)
@@ -754,6 +857,36 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
     CExtensionManifest manifest;
     if (!LoadManifestForEntryPoint(m_szFileName, manifest))
         return;
+
+    // Locale resources are package data, resolved only through a manifest
+    // entry whose safe path was validated above. A broken optional translation
+    // never prevents the base manifest from being discovered.
+    const std::string baseManifestName = manifest.Name;
+    CExtensionManifestLocaleText localized;
+    if (LoadManifestLocaleText(m_szFileName, manifest, localized))
+    {
+        if (!localized.Name.empty())
+            manifest.Name = localized.Name;
+        for (size_t commandIndex = 0;
+             commandIndex < manifest.Commands.size();
+             ++commandIndex)
+        {
+            const char* title = FindLocalizedManifestCommandTitle(
+                localized, manifest.Commands[commandIndex].Id);
+            if (title != NULL)
+            {
+                manifest.Commands[commandIndex].Title = title;
+            }
+            else if (manifest.Commands[commandIndex].Title == baseManifestName)
+            {
+                // The default command title follows a translated extension
+                // name even when the locale file does not list it separately.
+                manifest.Commands[commandIndex].Title = manifest.Name;
+            }
+        }
+    }
+
+    ApplySalamatrixManifestValue("title", manifest.Name.c_str());
 
     StringCchCopyA(
         m_szSalamatrixExtensionId,

@@ -77,6 +77,26 @@ struct CExtensionManifestSetting
     }
 };
 
+struct CExtensionManifestLocale
+{
+    // BCP-47 language tag (for example "cs" or "en-US") and a package-owned
+    // UTF-8 JSON resource path.
+    std::string Language;
+    std::string File;
+};
+
+struct CExtensionManifestLocalizedCommand
+{
+    std::string Id;
+    std::string Title;
+};
+
+struct CExtensionManifestLocaleText
+{
+    std::string Name;
+    std::vector<CExtensionManifestLocalizedCommand> Commands;
+};
+
 class CExtensionManifest
 {
 public:
@@ -96,6 +116,9 @@ public:
     // Optional ids of other manifest extensions that must be registered before
     // this package can activate. Runtime adapters remain described by runtime.
     std::vector<std::string> Dependencies;
+    // Optional package-owned BCP-47 locale table. The selected JSON resource
+    // can provide a name and command-title translations.
+    std::vector<CExtensionManifestLocale> Locales;
     // Optional typed settings declarations.  Declarations are metadata only;
     // values remain isolated in Salamatrix.Storage under the manifest id.
     std::vector<CExtensionManifestSetting> Settings;
@@ -115,4 +138,12 @@ public:
 
     /// Entry points must stay inside the extension directory.
     static bool IsSafeRelativeEntryPoint(const std::string& entryPoint);
+
+    /// Parses one UTF-8 locale resource declared by `locales`. Locale files
+    /// are deliberately data-only; they cannot add capabilities or commands.
+    static bool ParseLocaleText(
+        const char* json,
+        size_t length,
+        CExtensionManifestLocaleText& localized,
+        CExtensionManifestError& error);
 };

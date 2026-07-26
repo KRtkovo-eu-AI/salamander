@@ -686,6 +686,29 @@ namespace
         return dot != std::string::npos &&
                _stricmp(path.substr(dot).c_str(), ".svg") == 0;
     }
+
+    static bool IsJsonAssetPath(const std::string& path)
+    {
+        size_t dot = path.find_last_of('.');
+        return dot != std::string::npos &&
+               _stricmp(path.substr(dot).c_str(), ".json") == 0;
+    }
+
+    static bool IsLocaleTag(const std::string& language)
+    {
+        if (language.empty() || language.size() > 31 ||
+            language[0] == '-' || language[language.size() - 1] == '-')
+        {
+            return false;
+        }
+        for (size_t i = 0; i < language.size(); ++i)
+        {
+            unsigned char value = static_cast<unsigned char>(language[i]);
+            if (!isalnum(value) && value != '-')
+                return false;
+        }
+        return true;
+    }
 } // namespace
 
 CExtensionManifest::CExtensionManifest()
@@ -707,6 +730,7 @@ void CExtensionManifest::Clear()
     IconDark.clear();
     Capabilities.clear();
     Dependencies.clear();
+    Locales.clear();
     Settings.clear();
     EventsDeclared = false;
     Events.clear();
@@ -873,6 +897,38 @@ bool CExtensionManifest::Parse(
                         error, "Dependency ids must be unique inside one manifest");
             }
             Dependencies.push_back(dependencies->Array[i].String);
+        }
+    }
+
+    const JsonValue* locales = root.Find("locales");
+    if (locales != NULL)
+    {
+        if (locales->Type != JsonObject)
+            return SetValidationError(error, "locales must be an object mapping language tags to JSON files");
+        if (locales->Object.size() > 32)
+            return SetValidationError(error, "Manifest contains more than 32 locales");
+        for (size_t i = 0; i < locales->Object.size(); ++i)
+        {
+            const std::string& language = locales->Object[i].first;
+            const JsonValue& fileValue = locales->Object[i].second;
+            if (!IsLocaleTag(language) || fileValue.Type != JsonString ||
+                !IsSafeRelativeEntryPoint(fileValue.String) ||
+                !IsJsonAssetPath(fileValue.String))
+            {
+                return SetValidationError(
+                    error,
+                    "Every locale must map a valid language tag to a safe JSON file");
+            }
+            for (size_t existing = 0; existing < Locales.size(); ++existing)
+            {
+                if (_stricmp(Locales[existing].Language.c_str(), language.c_str()) == 0)
+                    return SetValidationError(
+                        error, "Locale language tags must be unique inside one manifest");
+            }
+            CExtensionManifestLocale locale;
+            locale.Language = language;
+            locale.File = fileValue.String;
+            Locales.push_back(locale);
         }
     }
 
@@ -1054,6 +1110,56 @@ bool CExtensionManifest::Parse(
         defaultCommand.Id = Id;
         defaultCommand.Title = Name;
         Commands.push_back(defaultCommand);
+    }
+    return true;
+}
+
+bool CExtensionManifest::ParseLocaleText(
+    const char* json,
+    size_t length,
+    CExtensionManifestLocaleText& localized,
+    CExtensionManifestError& error)
+{
+    localized = CExtensionManifestLocaleText();
+    error = CExtensionManifestError();
+    if (json == NULL || length == 0)
+        return SetValidationError(error, "Locale resource is empty");
+    if (length > 1024 * 1024)
+        return SetValidationError(error, "Locale resource is larger than 1 MiB");
+
+    JsonValue root;
+    JsonParser parser(json, length, error);
+    if (!parser.Parse(root))
+        return false;
+    if (root.Type != JsonObject)
+        return SetValidationError(error, "Locale resource root must be a JSON object");
+    if (!ReadString(root, "name", false, localized.Name, error))
+    {
+        return false;
+    }
+
+    const JsonValue* commands = root.Find("commands");
+    if (commands == NULL)
+        return true;
+    if (commands->Type != JsonObject)
+        return SetValidationError(error, "Locale commands must be an object mapping command ids to titles");
+    if (commands->Object.size() > 64)
+        return SetValidationError(error, "Locale resource contains more than 64 command titles");
+    for (size_t i = 0; i < commands->Object.size(); ++i)
+    {
+        const std::string& id = commands->Object[i].first;
+        const JsonValue& title = commands->Object[i].second;
+        if (!IsIdentifier(id) || title.Type != JsonString)
+            return SetValidationError(error, "Locale command ids must be valid and titles must be strings");
+        for (size_t existing = 0; existing < localized.Commands.size(); ++existing)
+        {
+            if (_stricmp(localized.Commands[existing].Id.c_str(), id.c_str()) == 0)
+                return SetValidationError(error, "Locale command ids must be unique");
+        }
+        CExtensionManifestLocalizedCommand command;
+        command.Id = id;
+        command.Title = title.String;
+        localized.Commands.push_back(command);
     }
     return true;
 }

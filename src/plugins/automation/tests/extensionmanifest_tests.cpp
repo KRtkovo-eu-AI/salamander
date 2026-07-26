@@ -39,6 +39,7 @@ static void TestCompleteManifest()
         "\"icon\":\"assets/icon.svg\",\"iconDark\":\"assets/icon-dark.svg\","
         "\"capabilities\":[\"panels.read\",\"ui.dialogs\"],"
         "\"dependencies\":[\"org.opensalamander.Core\",\"org.opensalamander.Shared\"],"
+        "\"locales\":{\"en\":\"locales/en.json\",\"cs-CZ\":\"locales/cs-CZ.json\"},"
         "\"settings\":["
         "{\"key\":\"repositoryUrl\",\"type\":\"string\",\"default\":\"https://example.test\"},"
         "{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"default\":true},"
@@ -67,6 +68,9 @@ static void TestCompleteManifest()
     CHECK(manifest.Capabilities.size() == 2);
     CHECK(manifest.Dependencies.size() == 2);
     CHECK(manifest.Dependencies[0] == "org.opensalamander.Core");
+    CHECK(manifest.Locales.size() == 2);
+    CHECK(manifest.Locales[1].Language == "cs-CZ");
+    CHECK(manifest.Locales[1].File == "locales/cs-CZ.json");
     CHECK(manifest.Settings.size() == 3);
     CHECK(manifest.Settings[0].Key == "repositoryUrl");
     CHECK(manifest.Settings[0].Type == ExtensionManifestSettingString);
@@ -105,6 +109,26 @@ static void TestDefaults()
     CHECK(!manifest.EventsDeclared);
 }
 
+static void TestLocaleText()
+{
+    const char* json =
+        "{\"name\":\"Obr\\u00e1zkov\\u00e9 n\\u00e1stroje\","
+        "\"commands\":{\"Example.Resize\":\"Zm\\u011bnit velikost\"}}";
+    CExtensionManifestLocaleText localized;
+    CExtensionManifestError error;
+    CHECK(CExtensionManifest::ParseLocaleText(
+        json, strlen(json), localized, error));
+    CHECK(localized.Name == "Obr\xc3\xa1zkov\xc3\xa9 n\xc3\xa1stroje");
+    CHECK(localized.Commands.size() == 1);
+    CHECK(localized.Commands[0].Id == "Example.Resize");
+    CHECK(localized.Commands[0].Title == "Zm\xc4\x9bnit velikost");
+
+    const char* invalid = "{\"commands\":{\"bad id\":42}}";
+    CHECK(!CExtensionManifest::ParseLocaleText(
+        invalid, strlen(invalid), localized, error));
+    CHECK(!error.Message.empty());
+}
+
 static void TestInvalidDocuments()
 {
     const char* invalid[] = {
@@ -135,6 +159,10 @@ static void TestInvalidDocuments()
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"dependencies\":[\"../unsafe\"]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"locales\":{\"cs\":\"locales/cs.txt\"}}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"locales\":{\"cs_CZ\":\"locales/cs.json\"}}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"name\":\"unterminated}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"name\":\"\xc0\xaf\"}"};
@@ -152,6 +180,7 @@ int main()
 {
     TestCompleteManifest();
     TestDefaults();
+    TestLocaleText();
     TestInvalidDocuments();
 
     if (g_failures != 0)
