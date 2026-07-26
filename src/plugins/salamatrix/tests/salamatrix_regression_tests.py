@@ -49,6 +49,9 @@ def main() -> int:
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
     salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
+    packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
+    python_demo = read("src/extensions/demos/python/main.py")
+    powershell_demo = read("src/extensions/demos/powershell/main.ps1")
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
@@ -173,6 +176,20 @@ def main() -> int:
     require(salamatrix_runtime, r"DarkModeMessageBoxW", "Salamatrix runtime message boxes do not use the Unicode dark-mode path")
     require(salamatrix_ui, r"WM_SETTINGCHANGE \|\| message == WM_THEMECHANGED", "Salamatrix dialog theme-change handling is missing")
     require(salamatrix_ui, r"DarkModeRefreshTitleBar\(hwnd\)", "Salamatrix dialog title bar dark-mode refresh is missing")
+
+    require(packages, r"BOOL RuntimeUsable;", "extension package runtime usability state is missing")
+    require(packages, r"package->RuntimeUsable = registeredRuntime && availableRuntime",
+            "extension package runtime usability is not derived from provider availability")
+    require(packages, r"InvokeOnMainThread\(\s*HostDispatchOnMainThread",
+            "extension host calls are not marshaled to Salamander's UI thread")
+    require(packages, r"if \(!package->RuntimeUsable\)\s+continue;.*?BuildMenu",
+            "unavailable extension packages are not filtered from the menu")
+    require(packages, r"void PackageManager::RegisterToolbarButtons\(\).*?if \(!package->RuntimeUsable\)\s+continue;",
+            "unavailable extension packages are not filtered from the toolbar")
+    require(python_demo, r"Salamander\.ui\.notify", "Python demo does not show a non-blocking result")
+    require_absent(python_demo, r"message_box", "Python demo must not block Salamander with a modal UI call")
+    require(powershell_demo, r"\$Salamander\.ui\.Notify", "PowerShell demo does not show a non-blocking result")
+    require_absent(powershell_demo, r"MessageBox", "PowerShell demo must not block Salamander with a modal UI call")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")

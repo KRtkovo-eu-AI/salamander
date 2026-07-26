@@ -12,6 +12,22 @@ namespace Salamatrix
 namespace Packages
 {
 
+namespace
+{
+struct MainThreadDispatch
+{
+    void* Context;
+    Runtime::Protocol::MessageType Type;
+    ULONGLONG RequestId;
+    const char* PayloadJson;
+    char* ResultJson;
+    DWORD ResultCapacity;
+    DWORD* ResultLength;
+};
+
+static __declspec(thread) MainThreadDispatch* CurrentMainThreadDispatch = NULL;
+}
+
 struct PackageManager::Package
 {
     PackageManager* Owner;
@@ -22,6 +38,7 @@ struct PackageManager::Package
     std::string EntryPointUtf8;
     std::string IconPath;
     std::string IconDarkPath;
+    BOOL RuntimeUsable;
     std::vector<int> CommandIds;
     std::vector<std::string> CommandIconPaths;
     std::vector<int> MenuIconIndices;
@@ -30,6 +47,7 @@ struct PackageManager::Package
 
     Package(PackageManager* owner)
         : Owner(owner),
+          RuntimeUsable(FALSE),
           Session(NULL),
           PumpThread(NULL)
     {
@@ -52,6 +70,8 @@ public:
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
         {
             Package* package = Owner->Packages[p];
+            if (!package->RuntimeUsable)
+                continue;
             for (size_t c = 0; c < package->CommandIds.size(); ++c)
             {
                 if (package->CommandIds[c] == id)
@@ -75,6 +95,8 @@ public:
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
         {
             Package* package = Owner->Packages[p];
+            if (!package->RuntimeUsable)
+                continue;
             for (size_t c = 0; c < package->CommandIds.size(); ++c)
             {
                 if (package->CommandIds[c] == id &&
@@ -104,10 +126,14 @@ public:
             return;
         int iconCount = 0;
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
+        {
+            if (!Owner->Packages[p]->RuntimeUsable)
+                continue;
             for (size_t c = 0; c < Owner->Packages[p]->Manifest.Commands.size(); ++c)
                 if (Owner->Packages[p]->Manifest.Commands[c].Menu == "plugin" ||
                     Owner->Packages[p]->Manifest.Commands[c].Menu == "both")
                     ++iconCount;
+        }
 
         CGUIIconListAbstract* icons = NULL;
         if (SalamanderGUI != NULL && iconCount > 0)
@@ -127,6 +153,8 @@ public:
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
         {
             Package* package = Owner->Packages[p];
+            if (!package->RuntimeUsable)
+                continue;
             package->MenuIconIndices.clear();
             for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
             {
@@ -357,6 +385,7 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                         descriptor.Flags |= Extensions::ExtensionFlagRuntimeUnavailable;
                     else if (!availableRuntime)
                         descriptor.Flags |= Extensions::ExtensionFlagRuntimeExecutableUnavailable;
+                    package->RuntimeUsable = registeredRuntime && availableRuntime;
                     if (Extensions->RegisterExtension(&descriptor, LifecycleCallback, package))
                     {
                         std::vector<Extensions::ExtensionSettingInfo> settings;
@@ -559,6 +588,14 @@ BOOL WINAPI PackageManager::HostDispatch(
         return FALSE;
     Package* package = static_cast<Package*>(context);
     PackageManager* owner = package->Owner;
+    if (CurrentMainThreadDispatch == NULL && owner->General != NULL)
+    {
+        MainThreadDispatch call = {
+            context, type, requestId, payloadJson,
+            resultJson, resultCapacity, resultLength};
+        return owner->General->InvokeOnMainThread(
+            HostDispatchOnMainThread, &call, 120000);
+    }
     std::string method;
     if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "method", &method))
         return FALSE;
@@ -634,6 +671,20 @@ BOOL WINAPI PackageManager::HostDispatch(
                       resultJson, resultCapacity, resultLength);
 }
 
+BOOL WINAPI PackageManager::HostDispatchOnMainThread(void* context)
+{
+    MainThreadDispatch* call = static_cast<MainThreadDispatch*>(context);
+    if (call == NULL)
+        return FALSE;
+    MainThreadDispatch* previous = CurrentMainThreadDispatch;
+    CurrentMainThreadDispatch = call;
+    BOOL result = HostDispatch(
+        call->Context, call->Type, call->RequestId, call->PayloadJson,
+        call->ResultJson, call->ResultCapacity, call->ResultLength);
+    CurrentMainThreadDispatch = previous;
+    return result;
+}
+
 void PackageManager::RegisterToolbarButtons()
 {
     if (General == NULL)
@@ -641,6 +692,8 @@ void PackageManager::RegisterToolbarButtons()
     for (size_t p = 0; p < Packages.size(); ++p)
     {
         Package* package = Packages[p];
+        if (!package->RuntimeUsable)
+            continue;
         for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
         {
             const CExtensionManifestCommand& command = package->Manifest.Commands[c];

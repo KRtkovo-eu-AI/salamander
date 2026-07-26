@@ -67,6 +67,7 @@ private:
         char* resultJson,
         DWORD resultCapacity,
         DWORD* resultLength);
+    static BOOL WINAPI HostDispatchOnMainThread(void* context);
 
     void DiscoverRoot(const std::wstring& root);
     void DiscoverDirectory(const std::wstring& directory);
