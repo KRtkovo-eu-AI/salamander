@@ -749,6 +749,17 @@ public:
           HostAIRegistered(FALSE),
           HostStorageRegistered(FALSE)
     {
+        AIService.SetRuntimeService(&RuntimeBroker);
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_UI, UIService.GetVersion());
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_COMMANDS, CommandService.GetVersion());
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_FILEOPERATIONS, FileOperationsService.GetVersion());
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0);
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_RUNTIME, RuntimeBroker.GetVersion());
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_SIDES, SidesService.GetVersion());
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_EVENTS, EventService.GetVersion());
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_EXTENSIONS, ExtensionsService.GetVersion());
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_AI, AIService.GetVersion());
+        AIService.SetContractVersion(SALAMATRIX_SERVICE_STORAGE, StorageService.GetVersion());
         Registered = TRUE;
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);

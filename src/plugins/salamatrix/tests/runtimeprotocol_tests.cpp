@@ -301,6 +301,9 @@ void TestOwnedServiceRegistry()
 void TestAssistantService()
 {
     Salamatrix::AI::AssistantService service;
+    Check(service.SetContractVersion("Salamatrix.UI", 0x00010000) != FALSE &&
+              service.SetContractVersion("Salamatrix.Commands", SALAMATRIX_COMMANDS_VERSION_1_0) != FALSE,
+          "register native contract versions for assistant schema");
     FailingAssistantProvider failing;
     TestAssistantProvider provider;
     Salamatrix::AI::AssistantRequest request;
@@ -333,6 +336,22 @@ void TestAssistantService()
           "network assistant output is blocked by safety gate");
     Check(strstr(service.GetApiDescription(), "Salamander.ai") != NULL,
           "assistant API description advertises AI object");
+    Check(strstr(service.GetApiDescription(), "contractVersions") != NULL &&
+              strstr(service.GetApiDescription(), "Salamatrix.UI") != NULL &&
+              strstr(service.GetApiDescription(), "1.0") != NULL,
+          "assistant API description includes live native contract versions");
+    Check(strstr(service.GetApiDescription(), "runtimeAdapters") != NULL,
+          "assistant API description includes runtime adapter inventory");
+    std::string contractVersions;
+    std::string runtimeAdapters;
+    Check(Salamatrix::Runtime::Protocol::Json::FindRawMember(
+              service.GetApiDescription(), "contractVersions", &contractVersions) != FALSE &&
+              contractVersions.size() >= 2 && contractVersions[0] == '{',
+          "assistant schema contract versions form a JSON object");
+    Check(Salamatrix::Runtime::Protocol::Json::FindRawMember(
+              service.GetApiDescription(), "runtimeAdapters", &runtimeAdapters) != FALSE &&
+              runtimeAdapters.size() >= 2 && runtimeAdapters[0] == '[',
+          "assistant schema runtime inventory forms a JSON array");
     Check(strstr(service.GetApiDescription(), "optional") != NULL,
           "assistant API description advertises optional runtime output");
     Check(strstr(service.GetApiDescription(), "pickFile") != NULL,

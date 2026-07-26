@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "salamatrix_runtime_protocol.h"
+#include "salamatrix_runtime_api.h"
 
 namespace Salamatrix
 {
@@ -184,8 +185,25 @@ class AssistantService : public IAssistantService
 {
 private:
     enum { MaxProviders = 8 };
+    enum { MaxContractVersions = 16 };
+    struct ContractVersion
+    {
+        char ServiceId[128];
+        DWORD Version;
+
+        ContractVersion()
+            : Version(0)
+        {
+            ServiceId[0] = '\0';
+        }
+    };
+
     IAssistantProvider* Providers[MaxProviders];
     int ProviderCount;
+    ContractVersion ContractVersions[MaxContractVersions];
+    int ContractVersionCount;
+    Runtime::IRuntimeService* RuntimeService;
+    mutable std::string ApiDescriptionCache;
 
     AssistantService(const AssistantService&);
     AssistantService& operator=(const AssistantService&);
@@ -263,9 +281,40 @@ private:
 
 public:
     AssistantService()
-        : ProviderCount(0)
+        : ProviderCount(0),
+          ContractVersionCount(0),
+          RuntimeService(NULL)
     {
         memset(Providers, 0, sizeof(Providers));
+    }
+
+    void SetRuntimeService(Runtime::IRuntimeService* service)
+    {
+        RuntimeService = service;
+        ApiDescriptionCache.clear();
+    }
+
+    BOOL SetContractVersion(const char* serviceId, DWORD version)
+    {
+        if (serviceId == NULL || serviceId[0] == '\0')
+            return FALSE;
+        for (int index = 0; index < ContractVersionCount; ++index)
+        {
+            if (_stricmp(ContractVersions[index].ServiceId, serviceId) == 0)
+            {
+                ContractVersions[index].Version = version;
+                ApiDescriptionCache.clear();
+                return TRUE;
+            }
+        }
+        if (ContractVersionCount >= MaxContractVersions ||
+            strlen(serviceId) >= _countof(ContractVersions[0].ServiceId))
+            return FALSE;
+        memcpy(ContractVersions[ContractVersionCount].ServiceId,
+               serviceId, strlen(serviceId) + 1);
+        ContractVersions[ContractVersionCount++].Version = version;
+        ApiDescriptionCache.clear();
+        return TRUE;
     }
 
     virtual DWORD WINAPI GetVersion() const
@@ -378,7 +427,7 @@ public:
         return FALSE;
     }
 
-    virtual const char* WINAPI GetApiDescription() const
+    static const char* GetStaticApiDescription()
     {
         return
             "{\"version\":\"1.0\",\"objects\":{" 
@@ -396,6 +445,92 @@ public:
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","
             "\"runtime\",\"existingScript\",\"feedback\"]}},"
             "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"],\"optional\":[\"runtime\"]}}";
+    }
+
+private:
+    static void AppendJsonString(std::string& output, const char* value)
+    {
+        output.push_back('"');
+        const char* text = value != NULL ? value : "";
+        for (const char* cursor = text; *cursor != '\0'; ++cursor)
+        {
+            switch (*cursor)
+            {
+            case '\\': output += "\\\\"; break;
+            case '"': output += "\\\""; break;
+            case '\r': output += "\\r"; break;
+            case '\n': output += "\\n"; break;
+            case '\t': output += "\\t"; break;
+            default: output.push_back(*cursor); break;
+            }
+        }
+        output.push_back('"');
+    }
+
+    void BuildApiDescription() const
+    {
+        ApiDescriptionCache = GetStaticApiDescription();
+        if (ApiDescriptionCache.empty())
+            return;
+
+        const size_t rootBrace = ApiDescriptionCache.size() - 1;
+        std::string generated;
+        generated += ",\"contractVersions\":{";
+        for (int index = 0; index < ContractVersionCount; ++index)
+        {
+            if (index != 0)
+                generated.push_back(',');
+            AppendJsonString(generated, ContractVersions[index].ServiceId);
+            generated += ":";
+            char version[32];
+            _snprintf_s(version, _countof(version), _TRUNCATE, "%lu.%lu",
+                        ContractVersions[index].Version >> 16,
+                        ContractVersions[index].Version & 0xffff);
+            AppendJsonString(generated, version);
+        }
+        generated += "},\"runtimeAdapters\":[";
+        if (RuntimeService != NULL)
+        {
+            for (int index = 0; index < RuntimeService->GetAdapterCount(); ++index)
+            {
+                Runtime::IRuntimeAdapter* adapter = RuntimeService->GetAdapter(index);
+                const Runtime::RuntimeAdapterDescriptor* descriptor =
+                    adapter != NULL ? adapter->GetDescriptor() : NULL;
+                if (descriptor == NULL || descriptor->RuntimeId == NULL)
+                    continue;
+                if (generated[generated.size() - 1] != '[')
+                    generated.push_back(',');
+                generated += "{\"id\":";
+                AppendJsonString(generated, descriptor->RuntimeId);
+                generated += ",\"name\":";
+                AppendJsonString(generated, descriptor->DisplayName);
+                generated += ",\"language\":";
+                AppendJsonString(generated, descriptor->LanguageId);
+                generated += ",\"extensions\":";
+                AppendJsonString(generated, descriptor->FileExtensions);
+                generated += ",\"version\":";
+                char version[32];
+                _snprintf_s(version, _countof(version), _TRUNCATE, "%lu.%lu",
+                            descriptor->RuntimeVersion >> 16,
+                            descriptor->RuntimeVersion & 0xffff);
+                AppendJsonString(generated, version);
+                generated += ",\"available\":";
+                generated += adapter->IsAvailable() ? "true" : "false";
+                generated += "}";
+            }
+        }
+        generated += "]";
+        ApiDescriptionCache.insert(rootBrace, generated);
+    }
+
+public:
+    virtual const char* WINAPI GetApiDescription() const
+    {
+        // Runtime providers can load after the framework plugin, so refresh
+        // the generated inventory whenever a live broker is attached.
+        if (ApiDescriptionCache.empty() || RuntimeService != NULL)
+            BuildApiDescription();
+        return ApiDescriptionCache.c_str();
     }
 
     virtual const char* WINAPI GetApiDescriptionSlice(const char* topic) const
