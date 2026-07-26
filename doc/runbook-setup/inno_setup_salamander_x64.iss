@@ -360,10 +360,6 @@ Name: "{app}\plugins\renamer\lang"
 Name: "{app}\plugins\samandarin"
 Name: "{app}\plugins\samandarin\lang"
 Name: "{app}\plugins\salamatrix"
-Name: "{app}\plugins\salamatrixai"
-Name: "{app}\plugins\salamatrixai\runtime"
-Name: "{app}\plugins\salamatrixailocalllama"
-Name: "{app}\plugins\salamatrixailocalllama\runtime"
 Name: "{app}\plugins\demoplug"
 Name: "{app}\plugins\demoplug\lang"
 Name: "{app}\plugins\serviceexplorer"
@@ -1371,10 +1367,6 @@ Source: "{#PayloadDir}\plugins\zip\zip2sfx\sam_cz.set"; DestDir: "{app}\plugins\
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
-Source: "{#PayloadDir}\plugins\salamatrixai\salamatrixai.spl"; DestDir: "{app}\plugins\salamatrixai"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixai')
-Source: "{#PayloadDir}\plugins\salamatrixai\runtime\salamatrix_ai_local.py"; DestDir: "{app}\plugins\salamatrixai\runtime"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixai')
-Source: "{#PayloadDir}\plugins\salamatrixailocalllama\salamatrixailocalllama.spl"; DestDir: "{app}\plugins\salamatrixailocalllama"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixailocalllama')
-Source: "{#PayloadDir}\plugins\salamatrixailocalllama\runtime\install_llama.ps1"; DestDir: "{app}\plugins\salamatrixailocalllama\runtime"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixailocalllama')
 Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\plugins\demoplug\lang\*"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -2076,7 +2068,7 @@ begin
   SetArrayLength(PluginIds, 0);
 
   AddPlugin('7zip', '7-Zip', '1.34 (x64)', True);
-  AddPlugin('automation', 'Automation', '2.0 (x64)', True);
+  AddPlugin('automation', 'Automation', '2.1 (x64)', True);
   AddPlugin('checksum', 'Checksum', '2.3 (x64)', True);
   AddPlugin('dbviewer', 'Database Viewer', '1.26 (x64)', True);
   AddPlugin('diskmap', 'DiskMap', '1.13 (x64)', True);
@@ -2113,9 +2105,7 @@ begin
   AddPlugin('wmobile', 'Windows Mobile', '1.09 (x64)', False);
   AddPlugin('zip', 'ZIP', '1.7 (x64)', True);
   AddPlugin('demoplug', '[DEV] DemoPlug', '1.96 (x64)', False);
-  AddPlugin('salamatrix', '[DEV] Salamatrix Framework', '0.1 (x64)', True);
-  AddPlugin('salamatrixai', '[DEV] Salamatrix AI Helper', '0.1 (x64)', True);
-  AddPlugin('salamatrixailocalllama', '[DEV] Salamatrix AI Local Llama', '0.1 (x64)', False);
+  AddPlugin('salamatrix', '[DEV] Salamatrix Framework', '0.2 (x64)', True);
 end;
 
 function InitializeSetup(): Boolean;
