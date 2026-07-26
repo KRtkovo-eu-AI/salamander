@@ -587,6 +587,8 @@ Source: "{#PayloadDir}\plugins\automation\scripts\Make Link.js"; DestDir: "{app}
 Source: "{#PayloadDir}\plugins\automation\scripts\Make List (JScript).js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\scripts\Make List (VBScript).vbs"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\scripts\Unpack Multiple Archives.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\extension.json"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\main.js"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\dbviewer\dbviewer.spl"; DestDir: "{app}\plugins\dbviewer"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\czech.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\dutch.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')

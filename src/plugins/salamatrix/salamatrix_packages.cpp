@@ -39,6 +39,9 @@ struct PackageManager::Package
     std::string IconPath;
     std::string IconDarkPath;
     BOOL RuntimeUsable;
+    CSalamanderForOperationsAbstract* Operations;
+    UI::IProgressDialog* Progress;
+    ULONGLONG ProgressId;
     std::vector<int> CommandIds;
     std::vector<std::string> CommandIconPaths;
     std::vector<int> MenuIconIndices;
@@ -48,6 +51,9 @@ struct PackageManager::Package
     Package(PackageManager* owner)
         : Owner(owner),
           RuntimeUsable(FALSE),
+          Operations(NULL),
+          Progress(NULL),
+          ProgressId(0),
           Session(NULL),
           PumpThread(NULL)
     {
@@ -105,7 +111,8 @@ public:
                     const CExtensionManifestCommand& command =
                         package->Manifest.Commands[c];
                     return Owner->ExecuteCommand(
-                        package, command.Id.c_str(), command.Handler.c_str());
+                        package, salamander,
+                        command.Id.c_str(), command.Handler.c_str());
                 }
             }
         }
@@ -244,6 +251,7 @@ void PackageManager::LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 {
     Roots.clear();
     Roots.push_back(ExpandRoot(L"$(SalDir)\\extensions"));
+    Roots.push_back(ExpandRoot(L"$(SalDir)\\plugins\\automation\\scripts"));
     if (key == NULL || registry == NULL)
         return;
     HKEY rootsKey = NULL;
@@ -259,7 +267,8 @@ void PackageManager::LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* re
         std::wstring root;
         if (!ToWide(path, &root))
             continue;
-        if (root != ExpandRoot(L"$(SalDir)\\extensions"))
+        if (root != ExpandRoot(L"$(SalDir)\\extensions") &&
+            root != ExpandRoot(L"$(SalDir)\\plugins\\automation\\scripts"))
             Roots.push_back(ExpandRoot(root));
     }
     registry->CloseKey(rootsKey);
@@ -456,6 +465,7 @@ void PackageManager::RemovePackages()
             }
             package->Session->Release();
         }
+        ReleaseProgress(package);
         delete package;
     }
     Packages.clear();
@@ -545,7 +555,22 @@ BOOL PackageManager::Deactivate(Package* package)
     return TRUE;
 }
 
-BOOL PackageManager::ExecuteCommand(Package* package, const char* commandId, const char* handler)
+void PackageManager::ReleaseProgress(Package* package)
+{
+    if (package == NULL || package->Progress == NULL)
+        return;
+    package->Progress->Close();
+    if (UI != NULL)
+        UI->DestroyProgressDialog(package->Progress);
+    package->Progress = NULL;
+    package->ProgressId = 0;
+}
+
+BOOL PackageManager::ExecuteCommand(
+    Package* package,
+    CSalamanderForOperationsAbstract* operations,
+    const char* commandId,
+    const char* handler)
 {
     if (package == NULL || commandId == NULL || Runtimes == NULL)
         return FALSE;
@@ -563,9 +588,50 @@ BOOL PackageManager::ExecuteCommand(Package* package, const char* commandId, con
                     Runtime::RuntimeExecutionFlagOneShotWorker;
     request.HostDispatch = HostDispatch;
     request.HostDispatchContext = package;
+    package->Operations = operations;
+    ReleaseProgress(package);
     Runtime::IRuntimeSession* session = NULL;
     if (!adapter->StartPersistent(&request, &session) || session == NULL)
+    {
+        const Runtime::RuntimeAdapterDescriptor* adapterDescriptor =
+            adapter->GetDescriptor();
+        if (adapterDescriptor == NULL ||
+            (adapterDescriptor->Flags & Runtime::RuntimeAdapterFlagCompatibility) == 0)
+        {
+            package->Operations = NULL;
+            return FALSE;
+        }
+        CSalamanderServiceQuery query;
+        CSalamanderServiceResult serviceResult;
+        memset(&query, 0, sizeof(query));
+        memset(&serviceResult, 0, sizeof(serviceResult));
+        query.ServiceId = Automation::SALAMATRIX_SERVICE_SCRIPT_RUNNER;
+        query.MinimumVersion = Automation::SALAMATRIX_SCRIPT_RUNNER_VERSION_1_0;
+        Automation::IScriptRunner* scriptRunner = NULL;
+        if (General->QueryService(&query, &serviceResult) &&
+            serviceResult.Interface != NULL)
+        {
+            scriptRunner = static_cast<Automation::IScriptRunner*>(
+                serviceResult.Interface);
+        }
+        if (scriptRunner != NULL)
+        {
+            Automation::GeneratedScriptRequest compatibilityRequest;
+            compatibilityRequest.EntryPoint = request.EntryPoint;
+            compatibilityRequest.RuntimeId = package->Manifest.RuntimeId.c_str();
+            compatibilityRequest.ExtensionId = package->Id.c_str();
+            compatibilityRequest.ParentWindow = request.ParentWindow;
+            compatibilityRequest.TimeoutMs = request.TimeoutMs;
+            compatibilityRequest.Operation = operations;
+            Automation::GeneratedScriptResult compatibilityResult;
+            BOOL executed = scriptRunner->ExecuteGenerated(
+                &compatibilityRequest, &compatibilityResult);
+            package->Operations = NULL;
+            return executed;
+        }
+        package->Operations = NULL;
         return FALSE;
+    }
 
     const ULONGLONG startedAt = GetTickCount64();
     while (session->IsAlive() && GetTickCount64() - startedAt < request.TimeoutMs)
@@ -576,6 +642,8 @@ BOOL PackageManager::ExecuteCommand(Package* package, const char* commandId, con
     DWORD exitCode = 1;
     BOOL succeeded = session->GetExitCode(&exitCode) && exitCode == 0;
     session->Release();
+    ReleaseProgress(package);
+    package->Operations = NULL;
     return succeeded;
 }
 
@@ -613,7 +681,8 @@ BOOL WINAPI PackageManager::HostDispatch(
         BOOL shown = owner->UI != NULL && owner->UI->ShowNotification(
             owner->General->GetMsgBoxParent(), title.c_str(), message.c_str(),
             static_cast<DWORD>(timeout > 0 ? timeout : 2500));
-        return CopyResult(std::string("{\"ok\":") + (shown ? "true}" : "false}"),
+        return CopyResult(std::string("{\"ok\":true,\"shown\":") +
+                              (shown ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.ui.messageBox")
@@ -630,6 +699,182 @@ BOOL WINAPI PackageManager::HostDispatch(
         return CopyResult(
             std::string("{\"ok\":true,\"result\":") +
                 std::to_string(result) + "}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.ui.progress.create" ||
+        method == "salamander.ui.progress.update" ||
+        method == "salamander.ui.progress.step" ||
+        method == "salamander.ui.progress.setTotals" ||
+        method == "salamander.ui.progress.setPositions" ||
+        method == "salamander.ui.progress.setTitle" ||
+        method == "salamander.ui.progress.setCancelEnabled" ||
+        method == "salamander.ui.progress.cancelled" ||
+        method == "salamander.ui.progress.close")
+    {
+        if (owner->UI == NULL)
+            return CopyResult(
+                "{\"ok\":false,\"error\":\"progress service unavailable\"}",
+                resultJson, resultCapacity, resultLength);
+
+        if (method == "salamander.ui.progress.create")
+        {
+            if (package->Operations == NULL)
+                return CopyResult(
+                    "{\"ok\":false,\"error\":\"progress requires an operation context\"}",
+                    resultJson, resultCapacity, resultLength);
+            owner->ReleaseProgress(package);
+            std::string title;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
+            BOOL twoProgressBars = FALSE;
+            BOOL fileProgress = FALSE;
+            BOOL cancelEnabled = TRUE;
+            Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "twoProgressBars", &twoProgressBars);
+            Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "fileProgress", &fileProgress);
+            Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "cancelEnabled", &cancelEnabled);
+            UI::ProgressDialogOptions options;
+            options.Title = title.empty() ? "Salamatrix" : title.c_str();
+            options.Parent = owner->General->GetMsgBoxParent();
+            options.TwoProgressBars = twoProgressBars;
+            options.FileProgress = fileProgress;
+            options.CancelEnabled = cancelEnabled;
+            package->Progress = owner->UI->CreateProgressDialog(package->Operations);
+            if (package->Progress == NULL)
+                return CopyResult(
+                    "{\"ok\":false,\"error\":\"progress dialog unavailable\"}",
+                    resultJson, resultCapacity, resultLength);
+            package->Progress->Open(options);
+            LONGLONG total = 0;
+            if (Runtime::Protocol::Json::FindInteger64Member(
+                    payloadJson, "total", &total) && total >= 0)
+            {
+                LONGLONG total2 = 0;
+                if (Runtime::Protocol::Json::FindInteger64Member(
+                        payloadJson, "total2", &total2) && total2 >= 0)
+                {
+                    CQuadWord first;
+                    CQuadWord second;
+                    first.SetUI64(static_cast<unsigned __int64>(total));
+                    second.SetUI64(static_cast<unsigned __int64>(total2));
+                    package->Progress->SetTotals(first, second);
+                }
+                else
+                {
+                    CQuadWord first;
+                    first.SetUI64(static_cast<unsigned __int64>(total));
+                    package->Progress->SetTotal(first);
+                }
+            }
+            package->ProgressId = package->ProgressId == static_cast<ULONGLONG>(-1)
+                                      ? 1
+                                      : package->ProgressId + 1;
+            if (package->ProgressId == 0)
+                package->ProgressId = 1;
+            char idText[32];
+            _ui64toa_s(package->ProgressId, idText, _countof(idText), 10);
+            return CopyResult(
+                std::string("{\"ok\":true,\"progressId\":\"") +
+                    idText + "\"}",
+                resultJson, resultCapacity, resultLength);
+        }
+
+        std::string idText;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "progressId", &idText))
+            return FALSE;
+        char* idEnd = NULL;
+        ULONGLONG progressId = _strtoui64(idText.c_str(), &idEnd, 10);
+        if (idEnd == idText.c_str() || *idEnd != '\0' ||
+            package->Progress == NULL || package->ProgressId != progressId)
+            return FALSE;
+        UI::IProgressDialog* progress = package->Progress;
+        if (method == "salamander.ui.progress.close")
+        {
+            owner->ReleaseProgress(package);
+            return CopyResult(
+                "{\"ok\":true,\"closed\":true}",
+                resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.progress.cancelled")
+            return CopyResult(
+                std::string("{\"ok\":true,\"cancelled\":") +
+                    (progress->IsCancelled() ? "true}" : "false}"),
+                resultJson, resultCapacity, resultLength);
+        if (method == "salamander.ui.progress.setTitle")
+        {
+            std::string title;
+            if (!Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "title", &title))
+                return FALSE;
+            progress->SetTitle(title.c_str());
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.progress.setCancelEnabled")
+        {
+            BOOL enabled = TRUE;
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "enabled", &enabled);
+            progress->SetCancelEnabled(enabled);
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.progress.setTotals")
+        {
+            LONGLONG total = 0;
+            LONGLONG total2 = 0;
+            if (!Runtime::Protocol::Json::FindInteger64Member(payloadJson, "total", &total) ||
+                !Runtime::Protocol::Json::FindInteger64Member(payloadJson, "total2", &total2) ||
+                total < 0 || total2 < 0)
+                return FALSE;
+            CQuadWord first;
+            CQuadWord second;
+            first.SetUI64(static_cast<unsigned __int64>(total));
+            second.SetUI64(static_cast<unsigned __int64>(total2));
+            progress->SetTotals(first, second);
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+
+        BOOL delayedPaint = TRUE;
+        Runtime::Protocol::Json::FindBoolMember(payloadJson, "delayedPaint", &delayedPaint);
+        BOOL continued = TRUE;
+        if (method == "salamander.ui.progress.step")
+        {
+            int amount = 1;
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "amount", &amount);
+            continued = progress->Step(amount, delayedPaint);
+        }
+        else
+        {
+            LONGLONG position = 0;
+            if (!Runtime::Protocol::Json::FindInteger64Member(payloadJson, "position", &position) ||
+                position < 0)
+                return FALSE;
+            CQuadWord first;
+            first.SetUI64(static_cast<unsigned __int64>(position));
+            LONGLONG total = 0;
+            if (Runtime::Protocol::Json::FindInteger64Member(payloadJson, "total", &total) && total >= 0)
+            {
+                CQuadWord value;
+                value.SetUI64(static_cast<unsigned __int64>(total));
+                progress->SetTotal(value);
+            }
+            std::string text;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "text", &text);
+            if (!text.empty())
+                progress->AddText(text.c_str(), delayedPaint);
+            LONGLONG position2 = 0;
+            if (Runtime::Protocol::Json::FindInteger64Member(payloadJson, "position2", &position2) && position2 >= 0)
+            {
+                CQuadWord second;
+                second.SetUI64(static_cast<unsigned __int64>(position2));
+                continued = progress->SetPositions(first, second, delayedPaint);
+            }
+            else
+                continued = progress->SetPosition(first, delayedPaint);
+        }
+        return CopyResult(
+            std::string("{\"ok\":true,\"continued\":") +
+                (continued && !progress->IsCancelled() ? "true}" : "false}"),
             resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.storage.set")

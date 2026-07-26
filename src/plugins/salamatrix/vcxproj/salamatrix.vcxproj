@@ -210,12 +210,17 @@
   </ItemGroup>
   <ItemGroup>
     <DemoPackageFiles Include="..\..\..\extensions\demos\**\*.*" />
+    <AutomationProgressDemoFiles Include="..\..\automation\sample-scripts\Salamatrix Progress Demo\**\*.*" />
   </ItemGroup>
   <Target Name="CopySalamatrixDemoPackages" AfterTargets="Build"
           Condition="'$(Configuration)' == 'Debug' Or '$(Configuration)' == 'Release'">
     <MakeDir Directories="$(OutDir)..\..\extensions\demos" />
     <Copy SourceFiles="@(DemoPackageFiles)"
           DestinationFiles="@(DemoPackageFiles->'$(OutDir)..\..\extensions\demos\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)..\..\plugins\automation\scripts\Salamatrix Progress Demo" />
+    <Copy SourceFiles="@(AutomationProgressDemoFiles)"
+          DestinationFiles="@(AutomationProgressDemoFiles->'$(OutDir)..\..\plugins\automation\scripts\Salamatrix Progress Demo\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

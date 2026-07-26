@@ -40,6 +40,7 @@ def main() -> int:
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
+    automation_entry = read("src/plugins/automation/entry.cpp")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
     javascriptruntime = read("src/plugins/javascriptruntime/javascriptruntime.cpp")
@@ -181,6 +182,8 @@ def main() -> int:
                    "Automation enum still contains CmdAskAssistant")
     require_absent(automation, r"\bCmdAskAssistant\b",
                    "Automation command dispatch still contains CmdAskAssistant")
+    require(automation_entry, r"SetFlagLoadOnSalamanderStart\(TRUE\)",
+            "Automation legacy runtime provider is not loaded on startup")
     require_absent(automation, r"IDS_ASKASSISTANT",
                    "Automation menu still references IDS_ASKASSISTANT")
     require_absent(automation, r"AddMenuItem\([^\n]*IDS_ASKASSISTANT",
@@ -230,6 +233,10 @@ def main() -> int:
     require(salamatrix_ui, r"DarkModeRefreshTitleBar\(hwnd\)", "Salamatrix dialog title bar dark-mode refresh is missing")
 
     require(packages, r"BOOL RuntimeUsable;", "extension package runtime usability state is missing")
+    require(packages, r"plugins.*automation.*scripts", "Automation sample-script extension root is missing")
+    require(packages, r"salamander\.ui\.progress\.create", "framework progress host dispatch is missing")
+    require(packages, r"SALAMATRIX_SERVICE_SCRIPT_RUNNER", "legacy compatibility script runner fallback is missing")
+    require(packages, r"RuntimeAdapterFlagCompatibility", "legacy fallback is not limited to compatibility adapters")
     require(packages, r"package->RuntimeUsable = registeredRuntime && availableRuntime",
             "extension package runtime usability is not derived from provider availability")
     require(packages, r"InvokeOnMainThread\(\s*HostDispatchOnMainThread",

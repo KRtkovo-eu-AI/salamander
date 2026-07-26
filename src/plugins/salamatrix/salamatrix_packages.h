@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "salamatrix_manifest.h"
+#include "salamatrix_script_runner.h"
 #include "salamatrix_runtime_api.h"
 #include "salamatrix_extensions.h"
 #include "salamatrix_storage.h"
@@ -74,7 +75,12 @@ private:
     void RemovePackages();
     BOOL Activate(Package* package);
     BOOL Deactivate(Package* package);
-    BOOL ExecuteCommand(Package* package, const char* commandId, const char* handler);
+    void ReleaseProgress(Package* package);
+    BOOL ExecuteCommand(
+        Package* package,
+        CSalamanderForOperationsAbstract* operations,
+        const char* commandId,
+        const char* handler);
     void RegisterToolbarButtons();
     void UnregisterToolbarButtons();
 

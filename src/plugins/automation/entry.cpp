@@ -127,6 +127,7 @@ CPluginInterfaceAbstract*
         MSGBOX_CAPTION,
         NULL,
         NULL);
+    SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
 
     // Setup plugin home page.
     salamander->SetPluginHomePageURL("www.altap.cz");

@@ -7,7 +7,7 @@
   "runtime": "JavaScript.Node",
   "entryPoint": "main.mjs",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "storage"],
+  "capabilities": ["ui.notify", "ui.progress", "storage"],
   "commands": [{
     "id": "Salamatrix.Demo.JavaScriptNode.run",
     "title": "Run Node demo",

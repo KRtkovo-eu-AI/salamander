@@ -7,6 +7,6 @@
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "storage"],
+  "capabilities": ["ui.notify", "ui.progress", "storage"],
   "commands": [{"id":"Salamatrix.Demo.PowerShell.run","title":"Run PowerShell demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
 }

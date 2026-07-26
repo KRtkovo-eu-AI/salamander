@@ -7,6 +7,6 @@
   "runtime": "Python.CPython",
   "entryPoint": "main.py",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "storage"],
+  "capabilities": ["ui.notify", "ui.progress", "storage"],
   "commands": [{"id":"Salamatrix.Demo.Python.run","title":"Run Python demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
 }
