@@ -32,6 +32,7 @@ def main() -> int:
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
+    bundled = read("src/plugins/salamatrixai/bundledprovider.cpp")
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
@@ -102,6 +103,23 @@ def main() -> int:
             "AI menu command is not always exposed as enabled")
     require(ai, r"IsCurrentService\(SALAMATRIX_SERVICE_AI.*?g_ai\).*?UnregisterProvider",
             "AI Release lacks current-service pointer validation")
+    require(ai_header, r"class CLocalBundledAssistantProvider",
+            "bundled local AI provider declaration is missing")
+    require(bundled, r'm_descriptor\.ProviderId\s*=\s*"local\.bundled"',
+            "bundled local AI provider id is missing")
+    require(bundled, r'SALAMATRIX_AI_BUNDLED_COMMAND.*?llama-cli\.exe',
+            "bundled provider does not support the colocated llama.cpp executable")
+    require(bundled, r'SALAMATRIX_AI_BUNDLED_MODEL.*?salamatrix\.gguf',
+            "bundled provider does not support the colocated GGUF model")
+    require(bundled, r'IsRegularFile\(m_command\).*?IsRegularFile\(m_model\)',
+            "bundled provider availability does not require both runtime assets")
+    require(bundled, r'CreateProcessW\(NULL, commandLine\.data\(\).*?TerminateProcess\(process\.hProcess, 1\)',
+            "bundled provider does not isolate and bound the llama.cpp process")
+    require(bundled, r'120000', "bundled provider timeout is not capped at two minutes")
+    require(ai, r'g_ai->RegisterProvider\(&g_bundledProvider\)',
+            "bundled provider is not registered with Salamatrix.AI")
+    require(ai, r'g_ai->UnregisterProvider\(&g_bundledProvider\)',
+            "bundled provider is not unregistered during release")
     for symbol in (
         "EscapeAssistantContext",
         "LoadAssistantString",

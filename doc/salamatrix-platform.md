@@ -751,7 +751,12 @@ consumer of the service. The command receives one UTF-8 JSON request on standard
 returns one JSON object/array on standard output; the bridge bounds output to
 1 MiB and clamps generation to a two-minute timeout. The native provider uses
 the same structured contract over WinHTTP, so a local model can be used
-without shipping a model SDK or coupling Salamander to a vendor.
+without shipping a model SDK or coupling Salamander to a vendor. The plugin
+also registers `local.bundled`, a server-free provider that starts the
+colocated `runtime\\llama-cli.exe` against `runtime\\salamatrix.gguf`.
+Both assets can be overridden with `SALAMATRIX_AI_BUNDLED_COMMAND` and
+`SALAMATRIX_AI_BUNDLED_MODEL`; the provider is advertised as ready only when
+both files exist.
 The chat automatically uses the first available provider, or an explicit
 `SALAMATRIX_AI_PROVIDER` such as `local.ollama`/`local.command` when set.
 The standalone chat also enumerates currently available providers and lets the

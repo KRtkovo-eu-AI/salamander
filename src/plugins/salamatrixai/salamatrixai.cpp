@@ -20,6 +20,7 @@ namespace
 CAIPluginMenuExt g_menu;
 CLocalAssistantProvider g_provider;
 CLocalHttpAssistantProvider g_httpProvider;
+CLocalBundledAssistantProvider g_bundledProvider;
 Salamatrix::AI::IAssistantService* g_ai = NULL;
 Salamatrix::UI::IUIService* g_ui = NULL;
 Salamatrix::Runtime::IRuntimeService* g_runtime = NULL;
@@ -562,6 +563,7 @@ static void EnsureServices()
         // the chat can report what needs configuration or what is offline.
         g_ai->RegisterProvider(&g_provider);
         g_ai->RegisterProvider(&g_httpProvider);
+        g_ai->RegisterProvider(&g_bundledProvider);
     }
 }
 
@@ -1616,6 +1618,7 @@ BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
     if (!g_released && IsCurrentService(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, g_ai))
     {
         g_ai->UnregisterProvider(&g_httpProvider);
+        g_ai->UnregisterProvider(&g_bundledProvider);
         g_ai->UnregisterProvider(&g_provider);
     }
     g_released = true;
