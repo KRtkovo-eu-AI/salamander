@@ -132,6 +132,11 @@ public:
         return SALAMATRIX_COMMANDS_VERSION_1_0;
     }
 
+    const char* GetApiSchema() const
+    {
+        return "{\"methods\":[\"execute\",\"register\",\"unregister\"],\"registerFields\":[\"commandId\",\"title\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\"]}";
+    }
+
     virtual Runtime::OperationResult WINAPI Execute(int salamanderCommandId, const ExecuteOptions& options)
     {
         if (General == NULL || salamanderCommandId < 0)
@@ -218,6 +223,11 @@ public:
     virtual DWORD WINAPI GetVersion() const
     {
         return SALAMATRIX_FILEOPERATIONS_VERSION_1_0;
+    }
+
+    const char* GetApiSchema() const
+    {
+        return "{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]}";
     }
 
     virtual Runtime::OperationResult WINAPI RenameInteractive(const InteractiveOptions& options)

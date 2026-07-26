@@ -287,6 +287,11 @@ public:
         return SALAMATRIX_EXTENSIONS_VERSION_1_0;
     }
 
+    const char* GetApiSchema() const
+    {
+        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\"]}";
+    }
+
     virtual BOOL WINAPI RegisterExtension(
         const ExtensionDescriptor* descriptor,
         ExtensionLifecycleCallback callback,

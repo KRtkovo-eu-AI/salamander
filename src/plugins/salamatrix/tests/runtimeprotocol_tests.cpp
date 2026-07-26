@@ -304,6 +304,10 @@ void TestAssistantService()
     Check(service.SetContractVersion("Salamatrix.UI", 0x00010000) != FALSE &&
               service.SetContractVersion("Salamatrix.Commands", SALAMATRIX_COMMANDS_VERSION_1_0) != FALSE,
           "register native contract versions for assistant schema");
+    Check(service.SetContractSchema(
+              "Salamatrix.Commands",
+              "{\"methods\":[\"execute\"]}") != FALSE,
+          "register native contract schema fragment for assistant");
     FailingAssistantProvider failing;
     TestAssistantProvider provider;
     Salamatrix::AI::AssistantRequest request;
@@ -344,6 +348,7 @@ void TestAssistantService()
           "assistant API description includes runtime adapter inventory");
     std::string contractVersions;
     std::string runtimeAdapters;
+    std::string nativeContracts;
     Check(Salamatrix::Runtime::Protocol::Json::FindRawMember(
               service.GetApiDescription(), "contractVersions", &contractVersions) != FALSE &&
               contractVersions.size() >= 2 && contractVersions[0] == '{',
@@ -352,6 +357,11 @@ void TestAssistantService()
               service.GetApiDescription(), "runtimeAdapters", &runtimeAdapters) != FALSE &&
               runtimeAdapters.size() >= 2 && runtimeAdapters[0] == '[',
           "assistant schema runtime inventory forms a JSON array");
+    Check(Salamatrix::Runtime::Protocol::Json::FindRawMember(
+              service.GetApiDescription(), "nativeContracts", &nativeContracts) != FALSE &&
+              nativeContracts.find("Salamatrix.Commands") != std::string::npos &&
+              nativeContracts.find("execute") != std::string::npos,
+          "assistant schema includes contract-owned method fragments");
     Check(strstr(service.GetApiDescription(), "optional") != NULL,
           "assistant API description advertises optional runtime output");
     Check(strstr(service.GetApiDescription(), "pickFile") != NULL,

@@ -390,6 +390,11 @@ public:
         return SALAMATRIX_UI_VERSION_1_0;
     }
 
+    const char* GetApiSchema() const
+    {
+        return "{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"]}";
+    }
+
     virtual UI::IProgressDialog* WINAPI CreateProgressDialog(CSalamanderForOperationsAbstract* operations)
     {
         if (operations == NULL)
@@ -558,6 +563,11 @@ public:
     virtual DWORD WINAPI GetVersion() const
     {
         return SALAMATRIX_RUNTIME_VERSION_1_0;
+    }
+
+    const char* GetApiSchema() const
+    {
+        return "{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]}";
     }
 
     virtual BOOL WINAPI RegisterAdapter(IRuntimeAdapter* adapter)
@@ -760,6 +770,14 @@ public:
         AIService.SetContractVersion(SALAMATRIX_SERVICE_EXTENSIONS, ExtensionsService.GetVersion());
         AIService.SetContractVersion(SALAMATRIX_SERVICE_AI, AIService.GetVersion());
         AIService.SetContractVersion(SALAMATRIX_SERVICE_STORAGE, StorageService.GetVersion());
+        AIService.SetContractSchema(SALAMATRIX_SERVICE_UI, UIService.GetApiSchema());
+        AIService.SetContractSchema(SALAMATRIX_SERVICE_COMMANDS, CommandService.GetApiSchema());
+        AIService.SetContractSchema(SALAMATRIX_SERVICE_FILEOPERATIONS, FileOperationsService.GetApiSchema());
+        AIService.SetContractSchema(SALAMATRIX_SERVICE_RUNTIME, RuntimeBroker.GetApiSchema());
+        AIService.SetContractSchema(SALAMATRIX_SERVICE_SIDES, SidesService.GetApiSchema());
+        AIService.SetContractSchema(SALAMATRIX_SERVICE_EVENTS, EventService.GetApiSchema());
+        AIService.SetContractSchema(SALAMATRIX_SERVICE_EXTENSIONS, ExtensionsService.GetApiSchema());
+        AIService.SetContractSchema(SALAMATRIX_SERVICE_STORAGE, StorageService.GetApiSchema());
         Registered = TRUE;
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);

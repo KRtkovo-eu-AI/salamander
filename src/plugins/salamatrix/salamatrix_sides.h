@@ -214,6 +214,11 @@ namespace Salamatrix
                 return SALAMATRIX_SIDES_VERSION_1_2;
             }
 
+            const char* GetApiSchema() const
+            {
+                return "{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\",\"selectItem\",\"selectAll\",\"focusItem\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}";
+            }
+
             virtual SideReference WINAPI ResolveSide(SideReference side) const
             {
                 return ResolvePanel(side) == PANEL_RIGHT

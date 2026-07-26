@@ -557,6 +557,11 @@ namespace Salamatrix
                 return SALAMATRIX_STORAGE_VERSION_1_0;
             }
 
+            const char* GetApiSchema() const
+            {
+                return "{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"],\"valueTypes\":[\"string\",\"integer\",\"boolean\"]}";
+            }
+
             virtual StorageValueType WINAPI GetValueType(
                 const char* extensionId,
                 const char* key) const

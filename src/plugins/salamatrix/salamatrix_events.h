@@ -188,6 +188,11 @@ public:
         return SALAMATRIX_EVENTS_VERSION_1_0;
     }
 
+    const char* GetApiSchema() const
+    {
+        return "{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\"]}";
+    }
+
     virtual BOOL WINAPI Subscribe(
         EventKind kind,
         EventCallback callback,

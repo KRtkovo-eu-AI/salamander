@@ -186,6 +186,7 @@ class AssistantService : public IAssistantService
 private:
     enum { MaxProviders = 8 };
     enum { MaxContractVersions = 16 };
+    enum { MaxContractSchemas = 16 };
     struct ContractVersion
     {
         char ServiceId[128];
@@ -202,6 +203,19 @@ private:
     int ProviderCount;
     ContractVersion ContractVersions[MaxContractVersions];
     int ContractVersionCount;
+    struct ContractSchema
+    {
+        char ServiceId[128];
+        char ObjectJson[8192];
+
+        ContractSchema()
+        {
+            ServiceId[0] = '\0';
+            ObjectJson[0] = '\0';
+        }
+    };
+    ContractSchema ContractSchemas[MaxContractSchemas];
+    int ContractSchemaCount;
     Runtime::IRuntimeService* RuntimeService;
     mutable std::string ApiDescriptionCache;
 
@@ -283,6 +297,7 @@ public:
     AssistantService()
         : ProviderCount(0),
           ContractVersionCount(0),
+          ContractSchemaCount(0),
           RuntimeService(NULL)
     {
         memset(Providers, 0, sizeof(Providers));
@@ -313,6 +328,39 @@ public:
         memcpy(ContractVersions[ContractVersionCount].ServiceId,
                serviceId, strlen(serviceId) + 1);
         ContractVersions[ContractVersionCount++].Version = version;
+        ApiDescriptionCache.clear();
+        return TRUE;
+    }
+
+    BOOL SetContractSchema(const char* serviceId, const char* objectJson)
+    {
+        if (serviceId == NULL || serviceId[0] == '\0' ||
+            objectJson == NULL || objectJson[0] != '{')
+            return FALSE;
+        const size_t serviceLength = strlen(serviceId);
+        const size_t objectLength = strlen(objectJson);
+        if (serviceLength >= _countof(ContractSchemas[0].ServiceId) ||
+            objectLength < 2 ||
+            objectLength >= _countof(ContractSchemas[0].ObjectJson) ||
+            objectJson[objectLength - 1] != '}')
+            return FALSE;
+        for (int index = 0; index < ContractSchemaCount; ++index)
+        {
+            if (_stricmp(ContractSchemas[index].ServiceId, serviceId) == 0)
+            {
+                memcpy(ContractSchemas[index].ObjectJson,
+                       objectJson, objectLength + 1);
+                ApiDescriptionCache.clear();
+                return TRUE;
+            }
+        }
+        if (ContractSchemaCount >= MaxContractSchemas)
+            return FALSE;
+        memcpy(ContractSchemas[ContractSchemaCount].ServiceId,
+               serviceId, serviceLength + 1);
+        memcpy(ContractSchemas[ContractSchemaCount].ObjectJson,
+               objectJson, objectLength + 1);
+        ++ContractSchemaCount;
         ApiDescriptionCache.clear();
         return TRUE;
     }
@@ -519,7 +567,16 @@ private:
                 generated += "}";
             }
         }
-        generated += "]";
+        generated += "],\"nativeContracts\":{";
+        for (int index = 0; index < ContractSchemaCount; ++index)
+        {
+            if (index != 0)
+                generated.push_back(',');
+            AppendJsonString(generated, ContractSchemas[index].ServiceId);
+            generated += ":";
+            generated += ContractSchemas[index].ObjectJson;
+        }
+        generated += "}";
         ApiDescriptionCache.insert(rootBrace, generated);
     }
 
