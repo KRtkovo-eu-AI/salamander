@@ -63,6 +63,7 @@ class SalamatrixStorage {
     public function remove($key) { $r = $this->client->call('salamander.storage.remove', array('key' => $key)); return !empty($r['removed']); }
     public function clear() { $r = $this->client->call('salamander.storage.clear', array()); return !empty($r['ok']); }
     public function schema() { $r = $this->client->call('salamander.storage.schema', array()); return isset($r['settings']) ? $r['settings'] : array(); }
+    public function keys() { $r = $this->client->call('salamander.storage.keys', array()); return isset($r['keys']) && is_array($r['keys']) ? $r['keys'] : array(); }
 }
 class SalamatrixFileOperations {
     private $client; public function __construct($client) { $this->client = $client; }

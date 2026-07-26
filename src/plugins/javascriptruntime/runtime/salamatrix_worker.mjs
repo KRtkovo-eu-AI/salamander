@@ -596,6 +596,9 @@ const Salamander = {
     schema: () => hostCall("salamander.storage.schema", {}).then(
       (result) => result.settings || []
     ),
+    keys: () => hostCall("salamander.storage.keys", {}).then(
+      (result) => Array.isArray(result?.keys) ? result.keys : []
+    ),
   },
   clipboard: {
     copyText: (text, showEcho = false) => hostCall(

@@ -168,6 +168,11 @@ class _Storage:
             "salamander.storage.schema"
         ).get("settings", []))
 
+    def keys(self) -> list[dict[str, Any]]:
+        result = self._transport.call("salamander.storage.keys")
+        keys = result.get("keys") if isinstance(result, dict) else None
+        return keys if isinstance(keys, list) else []
+
 
 class _FileOperations:
     def __init__(self, transport: _Transport) -> None:
