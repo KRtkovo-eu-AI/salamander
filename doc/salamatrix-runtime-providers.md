@@ -50,6 +50,12 @@ provider must not require Automation. A manifest's runtime id and minimum
 version select the provider through the broker, while a missing provider is a
 clear unavailable-runtime result.
 
+The standalone `SalamatrixAI.SPL` is likewise separate from Automation. It owns
+the local assistant provider, chat window, and localized `Ask Salamatrix AI...`
+menu command. Automation does not publish a duplicate AI menu item or own the
+chat flow; it retains only the shared `Salamatrix.AI` host/API bridge needed by
+runtime scripts and the `Salamatrix.ScriptRunner` compatibility service.
+
 The current branch has the broker contract, worker protocol, and provider
 lifecycle helper. `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
 `PHPRuntime.SPL`, and `JavaScriptRuntime.SPL` now have their own projects,

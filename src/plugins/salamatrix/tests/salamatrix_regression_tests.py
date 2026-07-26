@@ -22,11 +22,18 @@ def require(text: str, pattern: str, message: str) -> None:
         raise AssertionError(message)
 
 
+def require_absent(text: str, pattern: str, message: str) -> None:
+    if re.search(pattern, text, re.MULTILINE | re.DOTALL):
+        raise AssertionError(message)
+
+
 def main() -> int:
     dialogs = read("src/dialogs5.cpp")
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
+    automation_header = read("src/plugins/automation/automationplug.h")
+    automation = read("src/plugins/automation/automationplug.cpp")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
 
@@ -53,6 +60,7 @@ def main() -> int:
 
     require(ai_header, r"enum\s*\{\s*CmdOpenAssistant\s*=\s*1\s*\}",
             "AI command id 1 is missing")
+    require(ai, r"\bCmdOpenAssistant\b", "AI command symbol is missing")
     require(ai, r"ExecuteMenuItem.*?id == CmdOpenAssistant.*?ShowChat", "AI menu command does not open chat")
     require(ai, r"SalamanderGeneral->LoadStr\(DLLInstance, IDS_AI_ASSISTANT_MENU", "AI menu caption does not use Salamander localization")
     require(ai, r"BuildMenu.*?GetAssistantMenuCaption\(\).*?CmdOpenAssistant", "AI BuildMenu does not add the resource-backed command")
@@ -61,6 +69,20 @@ def main() -> int:
     require(ai, r"result\.Interface == expected", "AI Release does not compare service pointer identity")
     for global_name in ("g_ai", "g_ui", "g_runtime", "g_runner"):
         require(ai, rf"{re.escape(global_name)}\s*=\s*NULL", f"AI Release does not clear {global_name}")
+    require_absent(automation_header, r"\bCmdAskAssistant\b",
+                   "Automation enum still contains CmdAskAssistant")
+    require_absent(automation, r"\bCmdAskAssistant\b",
+                   "Automation command dispatch still contains CmdAskAssistant")
+    require_absent(automation, r"IDS_ASKASSISTANT",
+                   "Automation menu still references IDS_ASKASSISTANT")
+    require_absent(automation, r"AddMenuItem\([^\n]*IDS_ASKASSISTANT",
+                   "Automation BuildMenu still adds Ask AI menu item")
+    require(automation, r"AppendFocusedItemName",
+            "AppendFocusedItemName was removed")
+    require_absent(
+        automation,
+        r"EscapeAssistantContext|LoadAssistantString|BuildAssistantPanelContext|SaveAssistantScript|AssistantTemporaryScript|AssistantWin32Path|WriteAssistantUtf8File|CreateAssistantTemporaryScript|GetAssistantRuntimeExtension|MakeAssistantExtensionId|AssistantUtf8ToWide|SaveAssistantExtensionPackage|RunAssistantScript",
+        "Automation still contains removed AI assistant helpers")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")
