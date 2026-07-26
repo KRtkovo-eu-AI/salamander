@@ -383,6 +383,29 @@ class Side {
   context() {
     return hostCall("salamander.sides.context", { side: this.name });
   }
+
+  tabs() {
+    return hostCall("salamander.sides.tabs", { side: this.name })
+      .then((result) => result.tabs || []);
+  }
+
+  activateTab(tabId, focus = true) {
+    return hostCall("salamander.sides.activateTab", {
+      tabId: String(tabId), focus,
+    }).then((result) => result.activated === true);
+  }
+
+  changePath(path) {
+    return hostCall("salamander.sides.changePath", {
+      side: this.name, path,
+    });
+  }
+
+  refresh(force = false, focusFirstNewItem = false) {
+    return hostCall("salamander.sides.refresh", {
+      side: this.name, force, focusFirstNewItem,
+    }).then((result) => result.ok === true);
+  }
 }
 
 const fileOperations = {};
@@ -434,6 +457,20 @@ const Salamander = {
       hostCall("salamander.sides.activeTab", { side }),
     context: (side = "source") =>
       hostCall("salamander.sides.context", { side }),
+    tabs: (side = "source") =>
+      hostCall("salamander.sides.tabs", { side })
+        .then((result) => result.tabs || []),
+    activateTab: (tabId, focus = true) =>
+      hostCall("salamander.sides.activateTab", {
+        tabId: String(tabId), focus,
+      }).then((result) => result.activated === true),
+    changePath: (path, side = "source") =>
+      hostCall("salamander.sides.changePath", { side, path }),
+    refresh: (side = "source", force = false,
+              focusFirstNewItem = false) =>
+      hostCall("salamander.sides.refresh", {
+        side, force, focusFirstNewItem,
+      }).then((result) => result.ok === true),
   },
   leftSide: new Side("left"),
   rightSide: new Side("right"),

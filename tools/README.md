@@ -39,3 +39,17 @@
   .\tools\new_plugin_release_url.ps1 -ArchivePath .\plugin-packages-x64\plugin_5.0_ftp_5.01_x64.7z
   ```
 - The generated URL targets `KRtkovo-eu-AI/salamander-plugins` by default and pre-fills the release tag, title, body, plugin description, CRC32, MD5, SHA1, and SHA256. Add `-PluginDescription` only if you need to override the built-in source-code description table. The script opens the URL in a browser by default; add `-NoOpen` if you only want to print it, or `-CopyToClipboard` to copy the URL.
+
+## Runtime package verification
+
+Before transferring a build to the target machine, validate the standalone
+runtime/helper packages without starting Salamander:
+
+```powershell
+.\tools\verify_runtime_packages.ps1 -SalamanderPath .\build\salamander\Release_x64
+```
+
+The check verifies the expected `.spl` files, PE architecture, mandatory
+`SalamanderPluginEntry`/`SalamanderPluginGetReqVer` exports, and each shipped
+runtime bootstrap file. It does not load plugins, modify the registry, or
+replace target-machine GUI validation.

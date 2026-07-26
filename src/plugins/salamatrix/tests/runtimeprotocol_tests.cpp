@@ -369,6 +369,11 @@ void TestAssistantService()
     Check(sidesSlice != NULL && strstr(sidesSlice, "lastWriteUtc") != NULL &&
               strstr(sidesSlice, "sizeValid") != NULL,
           "assistant API description exposes item metadata");
+    Check(strstr(sidesSlice, "tabs") != NULL &&
+              strstr(sidesSlice, "activateTab") != NULL &&
+              strstr(sidesSlice, "changePath") != NULL &&
+              strstr(sidesSlice, "refresh") != NULL,
+          "assistant API description exposes tab operations");
     Check(strstr(service.GetApiDescriptionSlice("unknown"),
                  "\"objects\":{}") != NULL,
           "assistant API description handles unknown slices safely");

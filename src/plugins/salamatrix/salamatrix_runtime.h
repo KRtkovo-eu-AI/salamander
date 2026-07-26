@@ -755,7 +755,7 @@ public:
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework", this);
-        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_1, &SidesService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_0, &ExtensionsService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework", this);
@@ -773,7 +773,7 @@ public:
             if (HostAutomationRegistered)
                 HostRuntimeRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework", this);
             if (HostRuntimeRegistered)
-                HostSidesRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_0, &SidesService, "Salamatrix Framework", this);
+                HostSidesRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_1, &SidesService, "Salamatrix Framework", this);
             if (HostSidesRegistered)
                 HostEventsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework", this);
             if (HostEventsRegistered)

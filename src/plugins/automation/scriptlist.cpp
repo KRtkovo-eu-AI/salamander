@@ -2694,6 +2694,121 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             response, resultJson, resultCapacity, resultLength);
     }
 
+    if (method == "salamander.sides.tabs")
+    {
+        std::string sideName;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        Salamatrix::Sides::SideReference side =
+            RuntimeSideFromName(sideName);
+        Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
+        if (sides == NULL)
+            return FALSE;
+
+        int tabCount = sides->GetTabCount(side);
+        if (tabCount < 0)
+            tabCount = 0;
+        // Keep a single response bounded even if a future core exposes many
+        // detached tabs; callers can request another side explicitly.
+        int returnedCount = tabCount > 128 ? 128 : tabCount;
+        std::string response = "{\"ok\":true,\"tabs\":[";
+        for (int index = 0; index < returnedCount; ++index)
+        {
+            Salamatrix::Sides::TabInfo info;
+            if (!sides->GetTabInfo(side, index, &info))
+                continue;
+            char tabId[32];
+            _ui64toa_s(info.TabId, tabId, _countof(tabId), 10);
+            char path[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
+            path[0] = '\0';
+            int pathType = info.PathType;
+            if (!sides->GetTabPath(
+                    info.TabId, path, _countof(path), &pathType))
+                path[0] = '\0';
+            if (response[response.size() - 1] != '[')
+                response.push_back(',');
+            response += std::string("{\"id\":\"") + tabId +
+                        "\",\"index\":" + std::to_string(info.Index) +
+                        ",\"side\":" +
+                        std::to_string(static_cast<int>(info.PhysicalSide)) +
+                        ",\"pathType\":" + std::to_string(pathType) +
+                        ",\"flags\":" + std::to_string(info.Flags) +
+                        ",\"path\":\"" +
+                        JsonEscapeRuntimeText(path) + "\"}";
+        }
+        response += "]}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.sides.activateTab")
+    {
+        CQuadWord tabId;
+        if (!FindRuntimeQuadWord(payloadJson, "tabId", &tabId))
+            return FALSE;
+        BOOL focus = TRUE;
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "focus", &focus);
+        Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
+        if (sides == NULL)
+            return FALSE;
+        BOOL activated = sides->ActivateTab(tabId.Value, focus);
+        std::string response =
+            std::string("{\"ok\":") +
+            (activated ? "true" : "false") +
+            ",\"activated\":" + (activated ? "true" : "false") + "}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.sides.changePath")
+    {
+        std::string sideName;
+        std::string path;
+        if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "path", &path) || path.empty())
+            return FALSE;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
+        if (sides == NULL)
+            return FALSE;
+        int failReason = 0;
+        BOOL changed = sides->ChangeActiveTabPath(
+            RuntimeSideFromName(sideName), path.c_str(), &failReason);
+        std::string response =
+            std::string("{\"ok\":") +
+            (changed ? "true" : "false") +
+            ",\"changed\":" + (changed ? "true" : "false") +
+            ",\"failReason\":" + std::to_string(failReason) + "}";
+        return CopyRuntimeHostResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.sides.refresh")
+    {
+        std::string sideName;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        BOOL forceRefresh = FALSE;
+        BOOL focusFirstNewItem = FALSE;
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "force", &forceRefresh);
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "focusFirstNewItem", &focusFirstNewItem);
+        Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
+        if (sides == NULL)
+            return FALSE;
+        BOOL refreshed = sides->Refresh(
+            RuntimeSideFromName(sideName), forceRefresh, focusFirstNewItem);
+        return CopyRuntimeHostResult(
+            std::string("{\"ok\":") +
+                (refreshed ? "true}" : "false}"),
+            resultJson,
+            resultCapacity,
+            resultLength);
+    }
+
     if (method == "salamander.storage.get" ||
         method == "salamander.storage.set" ||
         method == "salamander.storage.remove" ||

@@ -110,10 +110,30 @@ $sides | Add-Member ScriptMethod Context {
     param([string]$Side = 'source')
     Invoke-Host -Method 'salamander.sides.context' -Arguments @{ side = $Side }
 }
+$sides | Add-Member ScriptMethod Tabs {
+    param([string]$Side = 'source')
+    (Invoke-Host -Method 'salamander.sides.tabs' -Arguments @{ side = $Side }).tabs
+}
+$sides | Add-Member ScriptMethod ActivateTab {
+    param([string]$TabId, [bool]$Focus = $true)
+    (Invoke-Host -Method 'salamander.sides.activateTab' -Arguments @{ tabId = $TabId; focus = $Focus }).activated
+}
+$sides | Add-Member ScriptMethod ChangePath {
+    param([string]$Path, [string]$Side = 'source')
+    Invoke-Host -Method 'salamander.sides.changePath' -Arguments @{ side = $Side; path = $Path }
+}
+$sides | Add-Member ScriptMethod Refresh {
+    param([string]$Side = 'source', [bool]$Force = $false, [bool]$FocusFirstNewItem = $false)
+    (Invoke-Host -Method 'salamander.sides.refresh' -Arguments @{ side = $Side; force = $Force; focusFirstNewItem = $FocusFirstNewItem }).ok
+}
 function New-SalamatrixSideView([string]$SideName) {
     $view = [pscustomobject]@{ Side = $SideName }
     $view | Add-Member ScriptMethod ActiveTab { Invoke-Host -Method 'salamander.sides.activeTab' -Arguments @{ side = $this.Side } }
     $view | Add-Member ScriptMethod Context { Invoke-Host -Method 'salamander.sides.context' -Arguments @{ side = $this.Side } }
+    $view | Add-Member ScriptMethod Tabs { (Invoke-Host -Method 'salamander.sides.tabs' -Arguments @{ side = $this.Side }).tabs }
+    $view | Add-Member ScriptMethod ActivateTab { param([string]$TabId, [bool]$Focus = $true); (Invoke-Host -Method 'salamander.sides.activateTab' -Arguments @{ tabId = $TabId; focus = $Focus }).activated }
+    $view | Add-Member ScriptMethod ChangePath { param([string]$Path); Invoke-Host -Method 'salamander.sides.changePath' -Arguments @{ side = $this.Side; path = $Path } }
+    $view | Add-Member ScriptMethod Refresh { param([bool]$Force = $false, [bool]$FocusFirstNewItem = $false); (Invoke-Host -Method 'salamander.sides.refresh' -Arguments @{ side = $this.Side; force = $Force; focusFirstNewItem = $FocusFirstNewItem }).ok }
     return $view
 }
 $leftSide = New-SalamatrixSideView 'left'

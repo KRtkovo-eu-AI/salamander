@@ -84,8 +84,8 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | --- | --- | --- | --- |
 | Three extensibility levels | MVP | Native plugins, one-shot Automation scripts, and persistent manifest-backed workers now share an owner-aware lifecycle catalog; registration activates persistent workers and the host-call dispatcher binds commands, sides, storage, event subscriptions, and UI calls. Extension host callbacks now hold owner-aware unload leases. | Richer UI/value bindings and formal lifecycle diagnostics; no separate Extension Manager is planned. |
 | Shared cross-runtime API | MVP | The Salamatrix service layer, versioned ABI, SMX1 transport, and Python/PowerShell/PHP/JavaScript worker facades use the same host method vocabulary, including commands, sides, file operations, storage, events, clipboard, UI, and AI. | Runtime-neutral value model, complete object model, and formal error/threading rules. |
-| Left/Right/Source/Target sides | MVP | `Salamatrix.Sides` and all modern workers resolve all four references and expose active tabs, bounded path/type, selected-item snapshots, focused-item metadata, item name/path/extension/size/attributes/UTC write time and hidden/link/offline/size-valid flags, and active/source/target/locked/detached flags without raw core pointers. | View mode/tree state, refresh, item change events, and main-thread marshaling for long-lived snapshots. |
-| Tabs and detached windows | MVP | SDK snapshots and opaque process-local ids expose tab count, index, path/type, active/source/target/locked/detached flags, activation, and stale-handle-safe lookup without raw core pointers. | Create/close/reorder/detach APIs, colors, lifecycle events, richer detached-window operations, and persistence semantics. |
+| Left/Right/Source/Target sides | MVP | `Salamatrix.Sides` and all modern workers resolve all four references and expose active tabs, bounded path/type, selected-item snapshots, focused-item metadata, item name/path/extension/size/attributes/UTC write time and hidden/link/offline/size-valid flags, and active/source/target/locked/detached flags without raw core pointers. Modern workers now also enumerate tabs, activate a tab, change the active-side path, and request a side refresh. | View mode/tree state, item change events, and main-thread marshaling for long-lived snapshots. |
+| Tabs and detached windows | MVP | SDK snapshots and opaque process-local ids expose tab count, index, path/type, active/source/target/locked/detached flags, activation, path changes, and refresh, with stale-handle-safe lookup and worker facades for all four runtimes. | Create/close/reorder/detach APIs, colors, lifecycle events, richer detached-window operations, and persistence semantics. |
 | Existing Salamander commands | MVP | The stable catalog now covers view/edit/open, rename, copy/move, email/delete/properties, case/attribute/space operations, refresh, directory creation, drive info, directory sizes, and disconnect; execution still uses Salamander's normal enablement and dialogs. | Parameterized command calls, richer synchronous/modal results, state/change notifications, and non-modal operation handles. |
 | Programmatic file operations | MVP | `IFileOperationsService` and all modern worker bindings expose interactive rename/copy/move/delete/create-directory/refresh/properties workflows. | Typed source/target values, progress/cancellation handles, and final structured results without requiring the native dialog. |
 | Extension command registration | MVP | Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, and native menu hotkeys; removal triggers a menu rebuild. | Enable/visible callbacks, icons, toolbar binding, and richer ownership/unload leases. |
@@ -136,9 +136,11 @@ objects from any loaded plugin, and runtime descriptors are enumerated through
 the same service by native callers and workers. The standalone
 `PythonRuntime.SPL`, `PowerShellRuntime.SPL`, `PHPRuntime.SPL`, and
 `JavaScriptRuntime.SPL` projects now own their provider adapters, interpreter
-discovery, and worker bootstrap. Their Windows build and integration packaging
-still needs verification; Automation retains only its legacy ActiveScript
-engines and consumes the broker like every other plugin.
+discovery, and worker bootstrap. Their standalone Windows projects pass
+isolated Debug x64 builds, and the worker package gate verifies their
+bootstrap/export boundary without launching Salamander. Final loading and GUI
+behavior still require the target machine; Automation retains only its legacy
+ActiveScript engines and consumes the broker like every other plugin.
 
 ### Shared services already working
 
@@ -196,7 +198,8 @@ The new platform should preserve these working capabilities:
 1. The core service registry still exposes borrowed interface pointers to
    callers, but provider ownership and short consumer leases now prevent new
    acquisitions during unload and wait for active calls before removal. The
-   extension lifecycle registry has the same owner-aware callback behavior.
+   extension lifecycle registry has the same owner-aware callback behavior;
+   unload diagnostics are still minimal.
 2. Runtime provider registration is still an explicit plugin-lifetime contract;
    unload diagnostics and a user-facing dependency view remain.
 3. Posted Commands/FileOperations report `ok` when a command was accepted, not
@@ -224,8 +227,8 @@ The new platform should preserve these working capabilities:
 1. Route extension discovery and execution through the existing
    `Salamatrix.Runtime` broker. **Implemented.**
 2. Add provider ownership/leases, diagnostics, and lifecycle rules to runtime
-   and core services. **Extension callback leases implemented; general service
-   provider ownership and diagnostics remain.**
+   and core services. **Provider ownership and short leases are implemented;
+   richer diagnostics remain.**
 3. Replace the manifest text scanner with a real parser and validate a versioned
    schema.
 
@@ -235,8 +238,8 @@ The new platform should preserve these working capabilities:
    **Implemented.**
 2. Add side and tab snapshots/handles: path, active tab, tabs, focused/selected
    items, view mode, tree visibility, detached state. **Implemented for tab
-   identity, path, active/source/target/locked/detached state, and activation;
-   item/view details remain.**
+   identity, enumeration, path, activation, active/source/target/locked/
+   detached state, side path changes, and refresh; item/view details remain.**
 3. Add clipboard and panel refresh.
 4. Expand stable Commands and implement synchronous, programmatic file
    operations.

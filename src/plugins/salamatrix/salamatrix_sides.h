@@ -22,6 +22,7 @@ namespace Salamatrix
 
 #define SALAMATRIX_SERVICE_SIDES "Salamatrix.Sides"
 #define SALAMATRIX_SIDES_VERSION_1_0 0x00010000
+#define SALAMATRIX_SIDES_VERSION_1_1 0x00010001
 #define SALAMATRIX_SIDE_ITEM_NAME_CAPACITY 512
 #define SALAMATRIX_SIDE_ITEM_PATH_CAPACITY 32768
 
@@ -138,6 +139,12 @@ namespace Salamatrix
                 SideReference side,
                 ItemInfo* info) const = 0;
 
+            // Appended in 1.1: keep the original service vtable prefix intact.
+            virtual BOOL WINAPI Refresh(
+                SideReference side,
+                BOOL forceRefresh,
+                BOOL focusFirstNewItem) = 0;
+
         protected:
             virtual ~ISidesService() {}
         };
@@ -186,7 +193,7 @@ namespace Salamatrix
 
             virtual DWORD WINAPI GetVersion() const
             {
-                return SALAMATRIX_SIDES_VERSION_1_0;
+                return SALAMATRIX_SIDES_VERSION_1_1;
             }
 
             virtual SideReference WINAPI ResolveSide(SideReference side) const
@@ -431,6 +438,19 @@ namespace Salamatrix
                     panel, &isDirectory);
                 return CopyItemInfo(
                     panel, file, isDirectory, General, info);
+            }
+
+            virtual BOOL WINAPI Refresh(
+                SideReference side,
+                BOOL forceRefresh,
+                BOOL focusFirstNewItem)
+            {
+                int panel = ResolvePanel(side);
+                if (General == NULL || panel == 0)
+                    return FALSE;
+                General->RefreshPanelPath(
+                    panel, forceRefresh, focusFirstNewItem);
+                return TRUE;
             }
         };
 

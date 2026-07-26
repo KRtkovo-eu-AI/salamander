@@ -384,7 +384,7 @@ public:
             "{\"version\":\"1.0\",\"objects\":{" 
             "\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"],\"registerFields\":[\"commandId\",\"title\",\"pluginMenu\",\"contextMenu\",\"hotKey\"]},"
             "\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]},"
-            "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]},"
+            "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]},"
             "\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"]},"
             "\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]},"
@@ -407,7 +407,7 @@ public:
         if (strcmp(topic, "fileOperations") == 0 || strcmp(topic, "file_operations") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"fileOperations\",\"objects\":{\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]}}}";
         if (strcmp(topic, "sides") == 0 || strcmp(topic, "panels") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"sides\",\"objects\":{\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}}}";
+            return "{\"version\":\"1.1\",\"topic\":\"sides\",\"objects\":{\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}}}";
         if (strcmp(topic, "ui") == 0 || strcmp(topic, "dialogs") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"ui\",\"objects\":{\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true}}}";
         if (strcmp(topic, "uiOptions") == 0 || strcmp(topic, "ui_options") == 0)

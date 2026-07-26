@@ -77,12 +77,20 @@ class SalamatrixSides {
     private $client; public function __construct($client) { $this->client = $client; }
     public function activeTab($side = 'source') { return $this->client->call('salamander.sides.activeTab', array('side' => $side)); }
     public function context($side = 'source') { return $this->client->call('salamander.sides.context', array('side' => $side)); }
+    public function tabs($side = 'source') { $r = $this->client->call('salamander.sides.tabs', array('side' => $side)); return isset($r['tabs']) ? $r['tabs'] : array(); }
+    public function activateTab($tabId, $focus = true) { $r = $this->client->call('salamander.sides.activateTab', array('tabId' => (string)$tabId, 'focus' => (bool)$focus)); return !empty($r['activated']); }
+    public function changePath($path, $side = 'source') { return $this->client->call('salamander.sides.changePath', array('side' => $side, 'path' => $path)); }
+    public function refresh($side = 'source', $force = false, $focusFirstNewItem = false) { $r = $this->client->call('salamander.sides.refresh', array('side' => $side, 'force' => (bool)$force, 'focusFirstNewItem' => (bool)$focusFirstNewItem)); return !empty($r['ok']); }
 }
 class SalamatrixSideView {
     private $sides; private $name;
     public function __construct($sides, $name) { $this->sides = $sides; $this->name = $name; }
     public function activeTab() { return $this->sides->activeTab($this->name); }
     public function context() { return $this->sides->context($this->name); }
+    public function tabs() { return $this->sides->tabs($this->name); }
+    public function activateTab($tabId, $focus = true) { return $this->sides->activateTab($tabId, $focus); }
+    public function changePath($path) { return $this->sides->changePath($path, $this->name); }
+    public function refresh($force = false, $focusFirstNewItem = false) { return $this->sides->refresh($this->name, $force, $focusFirstNewItem); }
 }
 class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }

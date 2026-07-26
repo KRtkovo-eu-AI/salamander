@@ -187,6 +187,28 @@ class _Sides:
     def context(self, side: str = "source") -> dict:
         return self._transport.call("salamander.sides.context", side=side)
 
+    def tabs(self, side: str = "source") -> list[dict]:
+        return self._transport.call("salamander.sides.tabs", side=side).get(
+            "tabs", []
+        )
+
+    def activate_tab(self, tab_id: str, focus: bool = True) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.activateTab", tabId=str(tab_id), focus=focus
+        ).get("activated", False))
+
+    def change_path(self, path: str, side: str = "source") -> dict:
+        return self._transport.call(
+            "salamander.sides.changePath", side=side, path=path
+        )
+
+    def refresh(self, side: str = "source", force: bool = False,
+                focus_first_new_item: bool = False) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.refresh", side=side, force=force,
+            focusFirstNewItem=focus_first_new_item
+        ).get("ok", False))
+
 
 class _Side:
     def __init__(self, sides: _Sides, name: str) -> None:
@@ -198,6 +220,21 @@ class _Side:
 
     def context(self, side: Optional[str] = None) -> dict:
         return self._sides.context(self._name if side is None else side)
+
+    def tabs(self) -> list[dict]:
+        return self._sides.tabs(self._name)
+
+    def activate_tab(self, tab_id: str, focus: bool = True) -> bool:
+        return self._sides.activate_tab(tab_id, focus)
+
+    def change_path(self, path: str) -> dict:
+        return self._sides.change_path(path, self._name)
+
+    def refresh(self, force: bool = False,
+                focus_first_new_item: bool = False) -> bool:
+        return self._sides.refresh(
+            self._name, force, focus_first_new_item
+        )
 
 
 class _UI:

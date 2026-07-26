@@ -350,15 +350,18 @@ public:
             return FALSE;
         }
 
-        char response[8192];
+        // Keep host responses comfortably above the original small JSON
+        // buffer; tab enumeration and UI snapshots can legitimately contain
+        // several paths. The vector avoids a large stack allocation.
+        std::vector<char> response(65536);
         DWORD responseLength = 0;
         BOOL dispatched = m_pHostDispatch(
             m_pHostDispatchContext,
             frame.Type,
             frame.Id,
             frame.PayloadJson.c_str(),
-            response,
-            _countof(response),
+            &response[0],
+            static_cast<DWORD>(response.size()),
             &responseLength);
         if (responseLength == 0)
         {
@@ -366,7 +369,7 @@ public:
                 dispatched ? "{\"ok\":true}" :
                              "{\"ok\":false,\"error\":\"host_dispatch_failed\"}";
             responseLength = static_cast<DWORD>(strlen(fallback));
-            memcpy(response, fallback, responseLength);
+            memcpy(&response[0], fallback, responseLength);
         }
 
         std::string encoded;
@@ -375,7 +378,7 @@ public:
                     ? Salamatrix::Runtime::Protocol::MessageResult
                     : Salamatrix::Runtime::Protocol::MessageError,
                 frame.Id,
-                std::string(response, responseLength),
+                std::string(&response[0], responseLength),
                 &encoded))
         {
             return FALSE;
