@@ -40,6 +40,10 @@ struct CExtensionManifestCommand
     std::string Handler;
     std::string Menu;
     std::string Requires;
+    // Optional command-specific toolbar artwork. When absent, the package
+    // icon is used so existing manifests retain their current appearance.
+    std::string Icon;
+    std::string IconDark;
     bool ContextMenu;
     bool Toolbar;
 

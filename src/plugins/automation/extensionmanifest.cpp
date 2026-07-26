@@ -1065,6 +1065,8 @@ bool CExtensionManifest::Parse(
                 !ReadString(commandValue, "handler", false, command.Handler, error) ||
                 !ReadString(commandValue, "menu", false, command.Menu, error) ||
                 !ReadString(commandValue, "requires", false, command.Requires, error) ||
+                !ReadString(commandValue, "icon", false, command.Icon, error) ||
+                !ReadString(commandValue, "iconDark", false, command.IconDark, error) ||
                 !ReadBoolean(commandValue, "contextMenu", false, command.ContextMenu, error) ||
                 !ReadBoolean(commandValue, "toolbar", false, command.Toolbar, error))
             {
@@ -1087,6 +1089,13 @@ bool CExtensionManifest::Parse(
                 command.Title = Name;
             if (!IsIdentifier(command.Id))
                 return SetValidationError(error, "Command id contains unsupported characters or is too long");
+            if ((!command.Icon.empty() && !IsSafeRelativeEntryPoint(command.Icon)) ||
+                (!command.IconDark.empty() && !IsSafeRelativeEntryPoint(command.IconDark)) ||
+                (!command.Icon.empty() && !IsSvgAssetPath(command.Icon)) ||
+                (!command.IconDark.empty() && !IsSvgAssetPath(command.IconDark)))
+            {
+                return SetValidationError(error, "Command icon and iconDark must be safe relative SVG paths inside the extension");
+            }
             if (!ValidateEnum(command.Menu, menus, _countof(menus), "menu", error) ||
                 !ValidateEnum(command.Requires, requirements, _countof(requirements), "requires", error))
             {

@@ -926,6 +926,12 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         published.Title = command.Title.empty() ? command.Id : command.Title;
         published.Menu = command.Menu.empty() ? "plugin" : command.Menu;
         published.Requires = command.Requires.empty() ? "any" : command.Requires;
+        ResolveManifestAssetPath(
+            m_szFileName, manifest.EntryPoint, command.Icon,
+            published.IconPath);
+        ResolveManifestAssetPath(
+            m_szFileName, manifest.EntryPoint, command.IconDark,
+            published.IconDarkPath);
         published.ContextMenu = command.ContextMenu;
         published.Toolbar = command.Toolbar;
 
@@ -4893,7 +4899,9 @@ bool CScriptInfo::RegisterRuntimeCommand(
     bool toolbar,
     DWORD hotKey,
     DWORD menuEventOrMask,
-    DWORD menuEventAndMask)
+    DWORD menuEventAndMask,
+    const char* iconPath,
+    const char* iconDarkPath)
 {
     if (commandId == NULL || commandId[0] == '\0')
         return false;
@@ -4937,12 +4945,16 @@ bool CScriptInfo::RegisterRuntimeCommand(
         CSalamanderToolbarButton toolbarButton;
         toolbarButton.CommandId = command.MenuId;
         toolbarButton.Title = fallbackTitle;
-        toolbarButton.IconPath = m_salamatrixIconPath.empty()
-                                     ? NULL
-                                     : m_salamatrixIconPath.c_str();
-        toolbarButton.IconDarkPath = m_salamatrixIconDarkPath.empty()
-                                         ? NULL
-                                         : m_salamatrixIconDarkPath.c_str();
+        toolbarButton.IconPath = iconPath != NULL && iconPath[0] != '\0'
+                                     ? iconPath
+                                     : (m_salamatrixIconPath.empty()
+                                            ? NULL
+                                            : m_salamatrixIconPath.c_str());
+        toolbarButton.IconDarkPath = iconDarkPath != NULL && iconDarkPath[0] != '\0'
+                                         ? iconDarkPath
+                                         : (m_salamatrixIconDarkPath.empty()
+                                                ? NULL
+                                                : m_salamatrixIconDarkPath.c_str());
         char stableId[512];
         stableId[0] = '\0';
         if (m_szSalamatrixExtensionId[0] != '\0')
@@ -4994,7 +5006,13 @@ bool CScriptInfo::PublishSalamatrixManifestCommands()
                 manifestCommand.Toolbar,
                 0,
                 manifestCommand.MenuEventOrMask,
-                manifestCommand.MenuEventAndMask))
+                manifestCommand.MenuEventAndMask,
+                manifestCommand.IconPath.empty()
+                    ? NULL
+                    : manifestCommand.IconPath.c_str(),
+                manifestCommand.IconDarkPath.empty()
+                    ? NULL
+                    : manifestCommand.IconDarkPath.c_str()))
         {
             ReleaseRuntimeCommands();
             return false;

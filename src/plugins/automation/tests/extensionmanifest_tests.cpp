@@ -48,7 +48,8 @@ static void TestCompleteManifest()
         "\"events\":[\"pathChanged\",\"selectionChanged\",\"fileChanged\"],"
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
-        "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\"},"
+        "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\","
+        "\"icon\":\"assets/first.svg\",\"iconDark\":\"assets/first-dark.svg\"},"
         "{\"id\":\"Example.Second\",\"title\":\"Second\",\"placement\":\"context\"}"
         "]"
         "}";
@@ -88,6 +89,8 @@ static void TestCompleteManifest()
     CHECK(manifest.Commands[0].Menu == "both");
     CHECK(manifest.Commands[0].ContextMenu);
     CHECK(manifest.Commands[0].Toolbar);
+    CHECK(manifest.Commands[0].Icon == "assets/first.svg");
+    CHECK(manifest.Commands[0].IconDark == "assets/first-dark.svg");
     CHECK(manifest.Commands[1].Menu == "context");
 }
 
@@ -140,6 +143,10 @@ static void TestInvalidDocuments()
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"commands\":["
         "{\"id\":\"Same\"},{\"id\":\"Same\"}]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"icon\":\"icon.png\"}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"commands\":[{\"icon\":\"icon.png\"}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"commands\":[{\"iconDark\":\"../icon.svg\"}]}",
         "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
         "{\"id\":\"Bad\",\"runtime\":{\"id\":\"JS\",\"minimumVersion\":\"1.x\"},"
         "\"entryPoint\":\"main.js\"}",

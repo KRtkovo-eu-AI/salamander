@@ -125,6 +125,8 @@ private:
         std::string Title;
         std::string Menu;
         std::string Requires;
+        std::string IconPath;
+        std::string IconDarkPath;
         bool ContextMenu;
         bool Toolbar;
         DWORD MenuEventOrMask;
@@ -251,7 +253,9 @@ private:
         bool toolbar,
         DWORD hotKey,
         DWORD menuEventOrMask,
-        DWORD menuEventAndMask);
+        DWORD menuEventAndMask,
+        const char* iconPath = NULL,
+        const char* iconDarkPath = NULL);
     bool UnregisterRuntimeCommand(const char* commandId);
     void ReleaseRuntimeCommands();
     int FindRuntimeCommandIndexByMenuId(int menuId) const;
