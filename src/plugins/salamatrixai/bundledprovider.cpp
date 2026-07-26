@@ -81,6 +81,30 @@ static bool IsRegularFile(const std::wstring& path)
            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
+static std::wstring ResolveBundledAsset(const wchar_t* name)
+{
+    std::wstring primary = RuntimeAsset(name);
+    if (IsRegularFile(primary))
+        return primary;
+
+    // Keep installations produced by the first companion-plugin packaging
+    // layout working while the next build moves assets below its own runtime
+    // directory. Environment overrides still take precedence in the caller.
+    const wchar_t* legacyRoots[] = {
+        L"..\\salamatrixai\\runtime\\",
+        L"..\\salamatrixai\\"
+    };
+    for (size_t index = 0; index < _countof(legacyRoots); ++index)
+    {
+        std::wstring relative = legacyRoots[index];
+        relative += name;
+        std::wstring legacy = RuntimeAsset(relative.c_str());
+        if (IsRegularFile(legacy))
+            return legacy;
+    }
+    return primary;
+}
+
 static std::string InstalledApiDescription(const char* prompt)
 {
     if (SalamanderGeneral == NULL)
@@ -109,10 +133,10 @@ void CLocalBundledAssistantProvider::ResolveConfiguration() const
 {
     m_command = EnvironmentPath(L"SALAMATRIX_AI_BUNDLED_COMMAND");
     if (m_command.empty())
-        m_command = RuntimeAsset(L"llama-cli.exe");
+        m_command = ResolveBundledAsset(L"llama-cli.exe");
     m_model = EnvironmentPath(L"SALAMATRIX_AI_BUNDLED_MODEL");
     if (m_model.empty())
-        m_model = RuntimeAsset(L"salamatrix.gguf");
+        m_model = ResolveBundledAsset(L"salamatrix.gguf");
 }
 
 const Salamatrix::AI::AssistantProviderDescriptor* WINAPI
