@@ -560,6 +560,18 @@ private:
             return SetValidationFailure(validation,
                                         AssistantValidationIssueCapability,
                                         "missingCapabilities is required when canImplement is false");
+        if (canImplement == "true")
+        {
+            std::string script(response->Summary.Script);
+            size_t first = script.find_first_not_of(" \t\r\n");
+            size_t last = script.find_last_not_of(" \t\r\n");
+            if (first == std::string::npos ||
+                (last == first + 2 && script.compare(first, 3, "...") == 0))
+                return SetValidationFailure(
+                    validation,
+                    AssistantValidationIssueShape,
+                    "script must contain executable source code, not a placeholder");
+        }
 
         std::string capabilities;
         std::string effects;
@@ -1045,7 +1057,7 @@ public:
         if (strcmp(topic, "runtimes") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"runtimes\",\"objects\":{\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]}}}";
         if (strcmp(topic, "ai") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"ai\",\"objects\":{\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],\"requestFields\":[\"prompt\",\"context\",\"provider\",\"runtime\",\"existingScript\",\"feedback\",\"topic\"],\"responseOptionalFields\":[\"runtime\",\"canImplement\",\"missingCapabilities\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"ai\",\"objects\":{\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],\"requestFields\":[\"prompt\",\"context\",\"provider\",\"runtime\",\"existingScript\",\"feedback\",\"topic\"],\"responseRequiredFields\":[\"title\",\"description\",\"capabilities\",\"estimatedEffects\",\"canImplement\",\"script\"],\"responseOptionalFields\":[\"runtime\",\"missingCapabilities\"]}}}";
         return "{\"version\":\"1.0\",\"topic\":\"unknown\",\"objects\":{}}";
     }
 };

@@ -113,6 +113,29 @@ static std::wstring Quote(const std::wstring& value)
     return result;
 }
 
+static std::string JsonString(const char* value)
+{
+    std::string result = "\"";
+    const unsigned char* cursor = reinterpret_cast<const unsigned char*>(
+        value != NULL ? value : "");
+    for (; *cursor != '\0'; ++cursor)
+    {
+        switch (*cursor)
+        {
+        case '\\': result += "\\\\"; break;
+        case '"': result += "\\\""; break;
+        case '\b': result += "\\b"; break;
+        case '\f': result += "\\f"; break;
+        case '\n': result += "\\n"; break;
+        case '\r': result += "\\r"; break;
+        case '\t': result += "\\t"; break;
+        default: result.push_back(static_cast<char>(*cursor)); break;
+        }
+    }
+    result += "\"";
+    return result;
+}
+
 static bool CreateUtf8PromptFile(const std::string& prompt, std::wstring* path)
 {
     if (path == NULL)
@@ -376,21 +399,24 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         "the top level. The script field must still be present. Always include "
         "canImplement and all eight estimatedEffects keys: readSelection, "
         "readMetadata, renameFiles, moveFiles, deleteFiles, modifyContents, "
-        "executeExternal, network.\n"
-        "Use this exact shape (values are examples only): "
-        "{\"title\":\"...\",\"description\":\"...\","
-        "\"capabilities\":[\"panels.read\"],"
-        "\"estimatedEffects\":{\"readSelection\":true,\"readMetadata\":false,"
-        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
-        "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
-        "\"runtime\":\"PowerShell\",\"canImplement\":true,"
-        "\"missingCapabilities\":[],\"script\":\"...\"}.\n"
-        "Never invent an API object, method, property, capability, runtime, or "
-        "command. Use only identifiers present in the installed reference. "
-        "Do not generate Win32, cmd.exe, or PowerShell as a substitute for a "
-        "missing Salamander API operation. If the reference cannot perform the "
-        "task, return canImplement=false, name the missing API capability, and "
-        "do not pretend that a workaround implements the requested task.";
+        "executeExternal, network. The runtime field must exactly equal the "
+        "Target runtime value above. When canImplement is true, script must be "
+        "complete executable source code; it must never be empty, an ellipsis, "
+        "a placeholder, or a prose description.\n"
+        "Do not invent a Salamander API object, method, property, event, or "
+        "option: every Salamander identifier must exist in the installed "
+        "reference. You may and should use normal syntax, built-in features, "
+        "standard-library functions, and third-party libraries in the selected "
+        "runtime when they are appropriate for the task. The user is responsible "
+        "for installing or configuring such language libraries; their possible "
+        "absence is not a missing Salamander capability and must not by itself "
+        "cause canImplement=false. If the Salamander reference does not provide "
+        "a required framework operation, return canImplement=false, describe the "
+        "missing Salamander capability in missingCapabilities, and do not pretend "
+        "that an invented Salamander API implements it. Any filesystem, "
+        "external-process, or network operation performed by the generated "
+        "language code must be declared by the corresponding estimatedEffects "
+        "boolean.";
 
     std::wstring promptFile;
     if (!CreateUtf8PromptFile(prompt, &promptFile))
@@ -398,6 +424,50 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(ERROR_WRITE_FAULT),
                        L"Unable to create the bundled model prompt file.");
+        return FALSE;
+    }
+    std::string outputSchema =
+        "{"
+        "\"type\":\"object\","
+        "\"additionalProperties\":false,"
+        "\"required\":[\"title\",\"description\",\"capabilities\","
+        "\"estimatedEffects\",\"runtime\",\"canImplement\","
+        "\"missingCapabilities\",\"script\"],"
+        "\"properties\":{"
+        "\"title\":{\"type\":\"string\",\"minLength\":1},"
+        "\"description\":{\"type\":\"string\",\"minLength\":1},"
+        "\"capabilities\":{\"type\":\"array\",\"maxItems\":10,\"items\":{"
+        "\"type\":\"string\",\"enum\":[\"panels.read\",\"panels.write\","
+        "\"ui.dialogs\",\"commands\",\"file-operations\",\"storage\","
+        "\"events\",\"ai\",\"clipboard\",\"runtimes\"]}},"
+        "\"estimatedEffects\":{\"type\":\"object\",\"additionalProperties\":false,"
+        "\"required\":[\"readSelection\",\"readMetadata\",\"renameFiles\","
+        "\"moveFiles\",\"deleteFiles\",\"modifyContents\",\"executeExternal\","
+        "\"network\"],\"properties\":{"
+        "\"readSelection\":{\"type\":\"boolean\"},"
+        "\"readMetadata\":{\"type\":\"boolean\"},"
+        "\"renameFiles\":{\"type\":\"boolean\"},"
+        "\"moveFiles\":{\"type\":\"boolean\"},"
+        "\"deleteFiles\":{\"type\":\"boolean\"},"
+        "\"modifyContents\":{\"type\":\"boolean\"},"
+        "\"executeExternal\":{\"type\":\"boolean\"},"
+        "\"network\":{\"type\":\"boolean\"}}},"
+        "\"runtime\":{\"type\":\"string\",\"minLength\":1";
+    if (request->RuntimeId != NULL && request->RuntimeId[0] != '\0')
+        outputSchema += ",\"const\":" + JsonString(request->RuntimeId);
+    outputSchema += "},"
+        "\"canImplement\":{\"type\":\"boolean\"},"
+        "\"missingCapabilities\":{\"type\":\"array\",\"maxItems\":16,"
+        "\"items\":{\"type\":\"string\"}},"
+        "\"script\":{\"type\":\"string\"}"
+        "}}";
+    std::wstring schemaFile;
+    if (!CreateUtf8PromptFile(outputSchema, &schemaFile))
+    {
+        DeleteFileW(promptFile.c_str());
+        BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                       HRESULT_FROM_WIN32(ERROR_WRITE_FAULT),
+                       L"Unable to create the bundled model output schema.");
         return FALSE;
     }
 
@@ -415,14 +485,17 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         if (parentOut) CloseHandle(parentOut); if (childOut) CloseHandle(childOut);
         if (parentErr) CloseHandle(parentErr); if (childErr) CloseHandle(childErr);
         DeleteFileW(promptFile.c_str());
+        DeleteFileW(schemaFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(GetLastError()), L"Unable to create bundled model pipes.");
         return FALSE;
     }
     std::wstring command = Quote(m_command) + L" -m " + Quote(m_model) +
                            L" -f " + Quote(promptFile) +
-                           L" --single-turn --conversation --simple-io"
-                           L" --no-display-prompt --no-perf -n 4096";
+                           L" --json-schema-file " + Quote(schemaFile) +
+                           L" --single-turn --no-conversation --no-jinja --simple-io"
+                           L" --no-display-prompt --no-perf"
+                           L" --temp 0 --top-k 1 --seed 0 -n 4096";
     std::vector<wchar_t> commandLine(command.begin(), command.end());
     commandLine.push_back(L'\0');
     STARTUPINFOW startup = {}; PROCESS_INFORMATION process = {};
@@ -439,6 +512,7 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     {
         CloseHandle(parentIn); CloseHandle(parentOut); CloseHandle(parentErr);
         DeleteFileW(promptFile.c_str());
+        DeleteFileW(schemaFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(GetLastError()), L"Unable to start bundled llama.cpp.");
         return FALSE;
@@ -456,19 +530,20 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     bool timedOut = false;
     for (;;)
     {
-        ReadAvailablePipe(parentOut, output, NULL, NULL);
+        ReadAvailablePipe(parentOut, output, outputCallback, outputContext);
         ReadAvailablePipe(parentErr, diagnostics, outputCallback, outputContext);
         if (WaitForSingleObject(process.hProcess, 10) == WAIT_OBJECT_0) break;
         if (GetTickCount64() - start >= timeout)
         { timedOut = true; TerminateProcess(process.hProcess, 1); break; }
     }
     WaitForSingleObject(process.hProcess, 1000);
-    ReadAvailablePipe(parentOut, output, NULL, NULL);
+    ReadAvailablePipe(parentOut, output, outputCallback, outputContext);
     ReadAvailablePipe(parentErr, diagnostics, outputCallback, outputContext);
     DWORD exitCode = 1; GetExitCodeProcess(process.hProcess, &exitCode);
     CloseHandle(process.hThread); CloseHandle(process.hProcess);
     CloseHandle(parentOut); CloseHandle(parentErr);
     DeleteFileW(promptFile.c_str());
+    DeleteFileW(schemaFile.c_str());
     std::string failureOutput;
     size_t first = std::string::npos, last = std::string::npos;
     const bool hasJsonObject = ExtractJsonObject(output, &first, &last);

@@ -14,6 +14,7 @@ namespace UI
 namespace
 {
 static const UINT WM_SALAMATRIX_APPLY_DARK_SCROLLBARS = WM_APP + 0x3A1;
+static const UINT WM_SALAMATRIX_SPLITTER_MOVED = WM_APP + 0x3A2;
 
 static BOOL Utf8ToWide(const char* value, std::wstring& result);
 
@@ -565,6 +566,13 @@ struct NativeDialog::Impl
                 if (Utf8ToWide(Text.c_str(), wide))
                 {
                     SetWindowTextW(WindowHandle, wide.c_str());
+                    if (Multiline)
+                    {
+                        SendMessage(WindowHandle, EM_SETSEL,
+                                    static_cast<WPARAM>(-1),
+                                    static_cast<LPARAM>(-1));
+                        SendMessage(WindowHandle, EM_SCROLLCARET, 0, 0);
+                    }
                     UpdateWindow(WindowHandle);
                 }
             }
@@ -709,6 +717,16 @@ struct NativeDialog::Impl
             X = x; Y = y; Width = width; Height = height; HasBounds = TRUE;
             SetWindowPos(WindowHandle, NULL, x, y, width, height,
                          SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+            if (Kind == ControlKindListView)
+            {
+                HWND header = ListView_GetHeader(WindowHandle);
+                if (header != NULL && Header_GetItemCount(header) == 1)
+                {
+                    const int columnWidth = width - GetSystemMetrics(SM_CXVSCROLL) - 4;
+                    ListView_SetColumnWidth(WindowHandle, 0,
+                                            columnWidth > 32 ? columnWidth : 32);
+                }
+            }
             if (BrowseWindowHandle != NULL)
             {
                 FilePickerLayoutMetrics metrics =
@@ -720,6 +738,44 @@ struct NativeDialog::Impl
             return TRUE;
         }
     };
+
+    static LRESULT CALLBACK SplitterSubclassProc(
+        HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+        UINT_PTR subclassId, DWORD_PTR reference)
+    {
+        Control* control = reinterpret_cast<Control*>(reference);
+        switch (message)
+        {
+        case WM_SETCURSOR:
+            SetCursor(LoadCursor(NULL, IDC_SIZENS));
+            return TRUE;
+        case WM_LBUTTONDOWN:
+            SetCapture(hwnd);
+            SetCursor(LoadCursor(NULL, IDC_SIZENS));
+            return 0;
+        case WM_MOUSEMOVE:
+            if (GetCapture() == hwnd && (wParam & MK_LBUTTON) != 0 &&
+                control != NULL)
+            {
+                POINT point = {
+                    static_cast<short>(LOWORD(lParam)),
+                    static_cast<short>(HIWORD(lParam))};
+                MapWindowPoints(hwnd, GetParent(hwnd), &point, 1);
+                SendMessage(GetParent(hwnd), WM_SALAMATRIX_SPLITTER_MOVED,
+                            control->NumericId, point.y);
+                return 0;
+            }
+            break;
+        case WM_LBUTTONUP:
+            if (GetCapture() == hwnd)
+                ReleaseCapture();
+            return 0;
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, SplitterSubclassProc, subclassId);
+            break;
+        }
+        return DefSubclassProc(hwnd, message, wParam, lParam);
+    }
 
     DialogOptions Options;
     std::string Title;
@@ -985,12 +1041,18 @@ int WINAPI NativeDialog::ShowModal()
         if (!Utf8ToWide(control->Text.c_str(), text))
             text.clear();
         DWORD style = WS_CHILD | WS_VISIBLE;
-        if (control->Kind != ControlKindLabel)
+        if (control->Kind != ControlKindLabel &&
+            control->Kind != ControlKindSplitter)
             style |= WS_TABSTOP;
         WORD classOrdinal = 0x0082; // STATIC
         short height = 14;
         short width = static_cast<short>(m_pImpl->Options.Width - 16);
-        if (control->Kind == ControlKindTextBox ||
+        if (control->Kind == ControlKindSplitter)
+        {
+            style |= SS_NOTIFY | SS_ETCHEDHORZ;
+            height = 4;
+        }
+        else if (control->Kind == ControlKindTextBox ||
             control->Kind == ControlKindFilePicker)
         {
             classOrdinal = 0x0081; // EDIT
@@ -1109,6 +1171,11 @@ int WINAPI NativeDialog::ShowModal()
             if (m_pImpl->Options.LargeIcon != NULL)
                 SendMessage(window, WM_SETICON, ICON_BIG,
                             reinterpret_cast<LPARAM>(m_pImpl->Options.LargeIcon));
+            RECT clientRect;
+            if (GetClientRect(window, &clientRect))
+                SendMessage(window, WM_SIZE, SIZE_RESTORED,
+                            MAKELPARAM(clientRect.right - clientRect.left,
+                                      clientRect.bottom - clientRect.top));
             ShowWindow(window, SW_SHOWNORMAL);
             UpdateWindow(window);
         }
@@ -1185,8 +1252,15 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             if (child == NULL)
                 continue;
             control->WindowHandle = child;
-            if (initialFocus == NULL && control->Kind != ControlKindLabel)
+            if (initialFocus == NULL &&
+                control->Kind != ControlKindLabel &&
+                control->Kind != ControlKindSplitter)
                 initialFocus = child;
+            if (control->Kind == ControlKindSplitter)
+                SetWindowSubclass(
+                    child, Impl::SplitterSubclassProc,
+                    control->NumericId,
+                    reinterpret_cast<DWORD_PTR>(control));
             if (control->Kind == ControlKindFilePicker)
                 control->BrowseWindowHandle =
                     GetDlgItem(hwnd, control->BrowseNumericId);
@@ -1216,6 +1290,10 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                         SendMessageW(child, CB_ADDSTRING, 0,
                                      reinterpret_cast<LPARAM>(itemText.c_str()));
                 }
+                if (control->SelectedIndex >= 0 &&
+                    control->SelectedIndex < static_cast<int>(control->Items.size()))
+                    SendMessage(child, CB_SETCURSEL,
+                                static_cast<WPARAM>(control->SelectedIndex), 0);
             }
             else if (control->Kind == ControlKindListView)
             {
@@ -1372,13 +1450,27 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             DarkModeShouldUseDarkColors() ? TRUE : FALSE);
         return TRUE;
     }
+    if (message == WM_SALAMATRIX_SPLITTER_MOVED)
+    {
+        Impl::Control* control =
+            dialog->m_pImpl->Find(static_cast<WORD>(wParam));
+        if (control != NULL && control->Kind == ControlKindSplitter)
+        {
+            char position[32];
+            _snprintf_s(position, _countof(position), _TRUNCATE,
+                        "%ld", static_cast<long>(lParam));
+            control->Text.assign(position);
+            dialog->m_pImpl->NotifyChanged(control);
+        }
+        return TRUE;
+    }
     if (message == WM_GETMINMAXINFO && dialog->m_pImpl->Options.Resizable)
     {
         MINMAXINFO* limits = reinterpret_cast<MINMAXINFO*>(lParam);
         if (limits != NULL)
         {
-            limits->ptMinTrackSize.x = 760;
-            limits->ptMinTrackSize.y = 560;
+            limits->ptMinTrackSize.x = 640;
+            limits->ptMinTrackSize.y = 460;
         }
         return TRUE;
     }

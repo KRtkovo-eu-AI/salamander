@@ -232,7 +232,10 @@ enum ControlKind
     ControlKindFolderPicker = 9,
     // An editable UTF-8 file path with an adjacent native browse button.
     // Appended so existing control-kind values remain stable.
-    ControlKindFilePicker = 10
+    ControlKindFilePicker = 10,
+    // A draggable horizontal separator. Movement is reported through the
+    // normal dialog event callback with the parent-client Y coordinate in Text.
+    ControlKindSplitter = 11
 };
 
 struct DialogOptions
