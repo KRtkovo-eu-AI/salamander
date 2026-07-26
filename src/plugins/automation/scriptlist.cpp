@@ -557,6 +557,8 @@ CScriptInfo::CScriptInfo(
     m_dwSalamatrixMinimumRuntimeVersion = 0;
     m_bSalamatrixEventsDeclared = false;
     m_salamatrixEvents.clear();
+    m_salamatrixManifestCommands.clear();
+    m_bSalamatrixManifestCommandsPublished = false;
     m_bShowInPluginMenu = true;
     m_bShowInContextMenu = false;
     m_bManifestToolbar = false;
@@ -770,16 +772,50 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         m_szFileName, manifest.EntryPoint, manifest.IconDark,
         m_salamatrixIconDarkPath);
 
-    if (manifest.Commands.empty())
-        return;
+    m_salamatrixManifestCommands.clear();
+    const size_t maxManifestCommands = 16;
+    for (size_t index = 0;
+         index < manifest.Commands.size() &&
+         m_salamatrixManifestCommands.size() < maxManifestCommands;
+         ++index)
+    {
+        const CExtensionManifestCommand& command = manifest.Commands[index];
+        if (command.Id.empty())
+            continue;
 
-    const CExtensionManifestCommand& command = manifest.Commands[0];
-    ApplySalamatrixManifestValue("id", command.Id.c_str());
-    ApplySalamatrixManifestValue("title", command.Title.c_str());
-    ApplySalamatrixManifestValue("menu", command.Menu.c_str());
-    ApplySalamatrixContextMenu(command.ContextMenu);
-    ApplySalamatrixManifestValue("requires", command.Requires.c_str());
-    m_bManifestToolbar = command.Toolbar;
+        SALAMATRIX_MANIFEST_COMMAND published;
+        published.Id = command.Id;
+        published.Handler = command.Handler;
+        published.Title = command.Title.empty() ? command.Id : command.Title;
+        published.Menu = command.Menu.empty() ? "plugin" : command.Menu;
+        published.Requires = command.Requires.empty() ? "any" : command.Requires;
+        published.ContextMenu = command.ContextMenu;
+        published.Toolbar = command.Toolbar;
+
+        const bool firstCommand = m_salamatrixManifestCommands.empty();
+        if (firstCommand)
+        {
+            ApplySalamatrixManifestValue("id", command.Id.c_str());
+            ApplySalamatrixManifestValue("title", published.Title.c_str());
+            ApplySalamatrixManifestValue("menu", published.Menu.c_str());
+            ApplySalamatrixContextMenu(command.ContextMenu);
+            ApplySalamatrixManifestValue("requires", published.Requires.c_str());
+            m_bManifestToolbar = command.Toolbar;
+            published.MenuEventOrMask = m_dwMenuEventOrMask;
+            published.MenuEventAndMask = m_dwMenuEventAndMask;
+        }
+        else
+        {
+            DWORD savedOrMask = m_dwMenuEventOrMask;
+            DWORD savedAndMask = m_dwMenuEventAndMask;
+            ApplySalamatrixManifestValue("requires", published.Requires.c_str());
+            published.MenuEventOrMask = m_dwMenuEventOrMask;
+            published.MenuEventAndMask = m_dwMenuEventAndMask;
+            m_dwMenuEventOrMask = savedOrMask;
+            m_dwMenuEventAndMask = savedAndMask;
+        }
+        m_salamatrixManifestCommands.push_back(published);
+    }
 }
 
 void CScriptInfo::LoadSalamatrixMetadata()
@@ -2633,6 +2669,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
             payloadJson, "hotKey", &hotKeyValue);
         if (!script->m_bRuntimeCommandOwned &&
+            script->m_salamatrixManifestCommands.empty() &&
             script->m_szSalamatrixCommandId[0] != _T('\0'))
             return FALSE;
         if (!script->RegisterRuntimeCommand(
@@ -2645,7 +2682,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 script->m_dwMenuEventOrMask,
                 script->m_dwMenuEventAndMask))
             return FALSE;
-        if (!script->m_bRuntimeCommandOwned)
+        if (!script->m_bRuntimeCommandOwned &&
+            script->m_salamatrixManifestCommands.empty())
         {
 #ifdef UNICODE
             wchar_t nativeCommandId[128];
@@ -3154,6 +3192,12 @@ BOOL WINAPI CScriptInfo::RuntimeLifecycleCallback(
     if (adapter == NULL)
         return FALSE;
 
+    if (!script->PublishSalamatrixManifestCommands())
+    {
+        script->ReleaseRuntimeCommand();
+        return FALSE;
+    }
+
     std::vector<wchar_t> entryPoint(SAL_MAX_PATH);
 #ifdef UNICODE
     if (StringCchCopyW(
@@ -3178,10 +3222,14 @@ BOOL WINAPI CScriptInfo::RuntimeLifecycleCallback(
 
     Salamatrix::Runtime::IRuntimeSession* session = NULL;
     if (!adapter->StartPersistent(&request, &session) || session == NULL)
+    {
+        script->ReleaseRuntimeCommand();
         return FALSE;
+    }
     if (!session->IsAlive())
     {
         session->Release();
+        script->ReleaseRuntimeCommand();
         return FALSE;
     }
     script->m_pRuntimeSession = session;
@@ -4573,6 +4621,51 @@ bool CScriptInfo::RegisterRuntimeCommand(
     return true;
 }
 
+bool CScriptInfo::PublishSalamatrixManifestCommands()
+{
+    if (m_bSalamatrixManifestCommandsPublished)
+        return true;
+    if (m_salamatrixManifestCommands.empty())
+        return true;
+
+    for (size_t index = 0;
+         index < m_salamatrixManifestCommands.size();
+         ++index)
+    {
+        const SALAMATRIX_MANIFEST_COMMAND& manifestCommand =
+            m_salamatrixManifestCommands[index];
+        bool pluginMenu =
+            _stricmp(manifestCommand.Menu.c_str(), "plugin") == 0 ||
+            _stricmp(manifestCommand.Menu.c_str(), "both") == 0;
+        bool contextMenu =
+            _stricmp(manifestCommand.Menu.c_str(), "context") == 0 ||
+            _stricmp(manifestCommand.Menu.c_str(), "both") == 0 ||
+            manifestCommand.ContextMenu;
+        if (_stricmp(manifestCommand.Menu.c_str(), "none") == 0)
+        {
+            pluginMenu = false;
+            contextMenu = false;
+        }
+        if (!RegisterRuntimeCommand(
+                manifestCommand.Id.c_str(),
+                manifestCommand.Title.c_str(),
+                pluginMenu,
+                contextMenu,
+                manifestCommand.Toolbar,
+                0,
+                manifestCommand.MenuEventOrMask,
+                manifestCommand.MenuEventAndMask))
+        {
+            ReleaseRuntimeCommands();
+            return false;
+        }
+    }
+    m_bSalamatrixManifestCommandsPublished = true;
+    if (SalamanderGeneral != NULL)
+        SalamanderGeneral->PostPluginMenuChanged();
+    return true;
+}
+
 bool CScriptInfo::UnregisterRuntimeCommand(const char* commandId)
 {
     if (commandId == NULL)
@@ -4620,13 +4713,23 @@ int CScriptInfo::FindRuntimeCommandIndexByMenuId(int menuId) const
 
 void CScriptInfo::ReleaseRuntimeCommand()
 {
-    if (!m_bRuntimeCommandOwned)
+    if (!m_bRuntimeCommandOwned && !m_bSalamatrixManifestCommandsPublished)
         return;
     ReleaseRuntimeCommands();
-    m_szSalamatrixCommandId[0] = _T('\0');
     m_szRuntimeCommandId[0] = '\0';
-    m_bShowInPluginMenu = false;
-    m_bShowInContextMenu = false;
+    m_bSalamatrixManifestCommandsPublished = false;
+    if (!m_salamatrixManifestCommands.empty())
+    {
+        // Restore the manifest's default command metadata after a persistent
+        // worker (which may have added dynamic commands) is torn down.
+        LoadSalamatrixManifestMetadata();
+    }
+    else
+    {
+        m_szSalamatrixCommandId[0] = _T('\0');
+        m_bShowInPluginMenu = false;
+        m_bShowInContextMenu = false;
+    }
     m_bRuntimeCommandOwned = false;
     if (SalamanderGeneral != NULL)
         SalamanderGeneral->PostPluginMenuChanged();

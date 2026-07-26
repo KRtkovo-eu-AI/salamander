@@ -112,6 +112,28 @@ private:
     std::vector<std::string> m_salamatrixCapabilities;
     bool m_bSalamatrixEventsDeclared;
     std::vector<std::string> m_salamatrixEvents;
+    struct SALAMATRIX_MANIFEST_COMMAND
+    {
+        std::string Id;
+        std::string Handler;
+        std::string Title;
+        std::string Menu;
+        std::string Requires;
+        bool ContextMenu;
+        bool Toolbar;
+        DWORD MenuEventOrMask;
+        DWORD MenuEventAndMask;
+
+        SALAMATRIX_MANIFEST_COMMAND()
+            : ContextMenu(false),
+              Toolbar(false),
+              MenuEventOrMask(MENU_EVENT_TRUE),
+              MenuEventAndMask(MENU_EVENT_TRUE)
+        {
+        }
+    };
+    std::vector<SALAMATRIX_MANIFEST_COMMAND> m_salamatrixManifestCommands;
+    bool m_bSalamatrixManifestCommandsPublished;
     std::string m_salamatrixIconPath;
     std::string m_salamatrixIconDarkPath;
     bool m_bShowInPluginMenu;
@@ -195,6 +217,7 @@ private:
     void ApplySalamatrixPlacement(PCTSTR pszValue);
     void ApplySalamatrixRequires(PCTSTR pszValue);
     void ApplySalamatrixContextMenu(bool value);
+    bool PublishSalamatrixManifestCommands();
 
     void ScriptEnter();
     void ScriptLeave();
