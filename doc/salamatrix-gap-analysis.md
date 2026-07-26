@@ -67,9 +67,9 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   scripts still cannot remain alive after their execution ends.
 - The strict schema-1 manifest parser validates package/runtime identity,
   minimum runtime version, safe entry points, package-owned `icon` and optional
-  `iconDark` SVG paths, capabilities, and multiple command records. Dependencies,
-  localization, settings/storage declarations, and dynamic publication of all
-  handlers are still missing.
+  `iconDark` SVG paths, capabilities, an optional event allow-list, and multiple
+  command records. Dependencies, localization, settings/storage declarations,
+  and dynamic publication of all handlers are still missing.
 - The shared native UI service exposes progress, input-box, and a reusable
   `IDialog`/`IControl` contract for modern workers and native plugins. The
   native implementation now creates Label, TextBox, CheckBox, RadioButton,
@@ -96,7 +96,7 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | Extension command registration | MVP | Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, native menu hotkeys, and toolbar contributions; removal triggers a menu/toolbar rebuild. | Enable/visible callbacks, command palette integration, and richer ownership/unload leases. |
 | Plugin and context menu placement | MVP | Metadata booleans and context masks are applied to Automation menu items and persistent registrations. | Independent placement contributions, icons, and dynamic menu APIs beyond the current MVP surface. |
 | Toolbar and shortcuts | Partial | Dynamically registered extension commands now pass Salamander hotkeys through the normal menu-extension path and can contribute toolbar buttons. Native/runtime registrations use core-owned DPI-aware image lists; manifest packages may provide an SVG `icon` and optional dark-mode `iconDark`. If `iconDark` is missing or invalid, the core generates a dark-friendly raster variant from `icon` and also creates the disabled/gray image. Dynamic placement is now serialized with stable extension/plugin keys instead of transient runtime ids. | Explicit placement/conflict UX, command palette integration, and richer per-command enablement. |
-| Events | MVP | `Salamatrix.Events` maps host lifecycle/settings/configuration/color/panel events, successful shared-Sides path/selection/tab/refresh operations, and core path/selection/tab notifications to unsubscribe-safe native callbacks; Automation exposes `subscribe/unsubscribe` with copied payloads. Persistent worker sessions now enqueue bounded event frames instead of writing from the core callback directly into a potentially back-pressured pipe. | Persistent extension instances, UI-thread marshalling for richer event payloads, coalescing, event replay, richer file-operation/window lifecycle hooks, and unload-safe leases across modern runtimes. |
+| Events | MVP | `Salamatrix.Events` maps host lifecycle/settings/configuration/color/panel events, successful shared-Sides path/selection/tab/refresh operations, and core path/selection/tab notifications to unsubscribe-safe native callbacks; Automation exposes `subscribe/unsubscribe` with copied payloads. Manifest-backed extensions may declare an event allow-list, which the host enforces before creating a subscription. Persistent worker sessions now enqueue bounded event frames instead of writing from the core callback directly into a potentially back-pressured pipe. | Persistent extension instances, UI-thread marshalling for richer event payloads, coalescing, event replay, richer file-operation/window lifecycle hooks, and unload-safe leases across modern runtimes. |
 | Per-extension storage | Implemented | `Salamatrix.Storage` persists isolated manifest-id namespaces with UTF-8 strings, signed 64-bit integers, booleans, delete/clear, validation, and synchronized access. Automation exposes `has/get/set/remove/clear`; legacy global persistence remains for compatibility. | Settings schemas/files, enumeration, quotas, migrations, transactional batches, and uninstall retention/deletion policy. |
 | Shared UI framework | MVP | `Salamatrix.UI` provides a reusable native `IDialog`/`IControl` model and `NativeDialog` implementation for labels, text boxes, check/radio buttons, combo boxes, buttons, native ListView/TreeView/TabControl controls with item binding, explicit bounds, dialog width/height, columns and selection, required validation, control-change events, common `readOnly`/`checked`/`dialogResult`/`keepOpen`/`multiline` options across native and Python/PowerShell/PHP/Node workers, message/input boxes, UTF-8 file/folder pickers, clipboard copy, dark-mode initialization, and localized Automation prompts. Progress covers Salamander's one-bar/file-progress and two-bar modes, totals/positions, stepping, text, cancellation, and cleanup; all workers expose the same calls. | Richer notifications/virtualized data, reentrancy policy, DPI/accessibility, and migration of legacy Forms wrappers. |
 | Manifest/package | MVP | Strict UTF-8 JSON parsing validates schema 1, package/runtime identity and minimum version, safe entry point, package-owned SVG `icon`/`iconDark` assets, capabilities, and up to 64 command records; Ask-AI can save a validated package and refresh discovery. | Dependencies, locales, settings/events declarations, installed-state management, uninstall, and richer diagnostics. |
@@ -471,3 +471,13 @@ The thirteenth code slice is now implemented:
   chat and both Automation AI consumers;
 - cover valid, unsupported-capability, and unsafe-script responses in the
   runtime protocol tests.
+
+The fourteenth code slice is now implemented:
+
+- extend schema-1 manifests with an optional `events` declaration;
+- validate event names and reject duplicates during strict manifest parsing;
+- enforce the declared allow-list at the persistent worker host boundary while
+  preserving unrestricted event subscriptions for legacy manifests and
+  generated one-shot AI scripts;
+- cover declared, absent, unknown, and duplicate event declarations in the
+  manifest parser tests.

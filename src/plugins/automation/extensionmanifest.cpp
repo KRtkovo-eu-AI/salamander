@@ -706,6 +706,8 @@ void CExtensionManifest::Clear()
     Icon.clear();
     IconDark.clear();
     Capabilities.clear();
+    EventsDeclared = false;
+    Events.clear();
     Commands.clear();
 }
 
@@ -844,6 +846,37 @@ bool CExtensionManifest::Parse(
                 return SetValidationError(error, "Every capability must be a valid string identifier");
             }
             Capabilities.push_back(capabilities->Array[i].String);
+        }
+    }
+
+    const JsonValue* events = root.Find("events");
+    if (events != NULL)
+    {
+        EventsDeclared = true;
+        if (events->Type != JsonArray)
+            return SetValidationError(error, "events must be an array");
+        static const char* const eventNames[] = {
+            "hostStartup", "hostShutdown", "settingsChanged",
+            "configurationChanged", "colorsChanged", "panelsSwapped",
+            "activePanelChanged", "sidePathChanged",
+            "sideSelectionChanged", "sideTabChanged", "sideRefreshed",
+            "pathChanged", "selectionChanged", "tabChanged"};
+        for (size_t i = 0; i < events->Array.size(); ++i)
+        {
+            if (events->Array[i].Type != JsonString)
+                return SetValidationError(error, "Every event declaration must be a string");
+            if (!ValidateEnum(events->Array[i].String,
+                              eventNames, _countof(eventNames),
+                              "events", error))
+                return false;
+            for (size_t existing = 0; existing < Events.size(); ++existing)
+            {
+                if (_stricmp(Events[existing].c_str(),
+                             events->Array[i].String.c_str()) == 0)
+                    return SetValidationError(error,
+                                              "Event declarations must be unique");
+            }
+            Events.push_back(events->Array[i].String);
         }
     }
 

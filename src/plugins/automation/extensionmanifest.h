@@ -68,6 +68,11 @@ public:
     std::string Icon;
     std::string IconDark;
     std::vector<std::string> Capabilities;
+    // Optional event allow-list.  When EventsDeclared is true, a runtime may
+    // subscribe only to names listed here; an absent member keeps legacy
+    // manifests compatible and allows the complete event surface.
+    bool EventsDeclared;
+    std::vector<std::string> Events;
     std::vector<CExtensionManifestCommand> Commands;
 
     CExtensionManifest();

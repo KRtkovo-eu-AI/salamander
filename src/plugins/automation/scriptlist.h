@@ -106,6 +106,8 @@ private:
     char m_szSalamatrixRuntimeId[128];
     DWORD m_dwSalamatrixMinimumRuntimeVersion;
     std::vector<std::string> m_salamatrixCapabilities;
+    bool m_bSalamatrixEventsDeclared;
+    std::vector<std::string> m_salamatrixEvents;
     std::string m_salamatrixIconPath;
     std::string m_salamatrixIconDarkPath;
     bool m_bShowInPluginMenu;
@@ -328,6 +330,20 @@ public:
     bool HasDeclaredSalamatrixCapabilities() const
     {
         return !m_salamatrixCapabilities.empty();
+    }
+
+    bool AllowsSalamatrixEvent(const char* eventName) const
+    {
+        if (eventName == NULL || eventName[0] == '\0')
+            return FALSE;
+        if (!m_bSalamatrixEventsDeclared)
+            return TRUE;
+        for (size_t index = 0; index < m_salamatrixEvents.size(); ++index)
+        {
+            if (_stricmp(m_salamatrixEvents[index].c_str(), eventName) == 0)
+                return TRUE;
+        }
+        return FALSE;
     }
 
     bool HasSalamatrixCapability(const char* capability) const

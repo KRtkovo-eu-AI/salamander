@@ -38,6 +38,7 @@ static void TestCompleteManifest()
         "\"entryPoint\":\"scripts/main.py\","
         "\"icon\":\"assets/icon.svg\",\"iconDark\":\"assets/icon-dark.svg\","
         "\"capabilities\":[\"panels.read\",\"ui.dialogs\"],"
+        "\"events\":[\"pathChanged\",\"selectionChanged\"],"
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
         "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\"},"
@@ -58,6 +59,9 @@ static void TestCompleteManifest()
     CHECK(manifest.Icon == "assets/icon.svg");
     CHECK(manifest.IconDark == "assets/icon-dark.svg");
     CHECK(manifest.Capabilities.size() == 2);
+    CHECK(manifest.EventsDeclared);
+    CHECK(manifest.Events.size() == 2);
+    CHECK(manifest.Events[0] == "pathChanged");
     CHECK(manifest.Commands.size() == 2);
     CHECK(manifest.Commands[0].Id == "Example.First");
     CHECK(manifest.Commands[0].Menu == "both");
@@ -81,6 +85,7 @@ static void TestDefaults()
     CHECK(manifest.Commands[0].Title == "Example.Default");
     CHECK(manifest.Commands[0].Menu == "plugin");
     CHECK(manifest.Commands[0].Requires == "any");
+    CHECK(!manifest.EventsDeclared);
 }
 
 static void TestInvalidDocuments()
@@ -100,6 +105,10 @@ static void TestInvalidDocuments()
         "{\"id\":\"Bad space\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"commands\":[{\"menu\":\"somewhere\"}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"events\":[\"unknownEvent\"]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"events\":[\"pathChanged\",\"pathChanged\"]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"name\":\"unterminated}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","

@@ -555,6 +555,8 @@ CScriptInfo::CScriptInfo(
     m_szSalamatrixExtensionId[0] = '\0';
     m_szSalamatrixRuntimeId[0] = '\0';
     m_dwSalamatrixMinimumRuntimeVersion = 0;
+    m_bSalamatrixEventsDeclared = false;
+    m_salamatrixEvents.clear();
     m_bShowInPluginMenu = true;
     m_bShowInContextMenu = false;
     m_bManifestToolbar = false;
@@ -759,6 +761,8 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         manifest.RuntimeId.c_str());
     m_dwSalamatrixMinimumRuntimeVersion = manifest.MinimumRuntimeVersion;
     m_salamatrixCapabilities = manifest.Capabilities;
+    m_bSalamatrixEventsDeclared = manifest.EventsDeclared;
+    m_salamatrixEvents = manifest.Events;
     ResolveManifestAssetPath(
         m_szFileName, manifest.EntryPoint, manifest.Icon,
         m_salamatrixIconPath);
@@ -1175,6 +1179,8 @@ BOOL CScriptInfo::ConfigureGeneratedRuntime(
     m_dwSalamatrixMinimumRuntimeVersion = 0;
     m_salamatrixCapabilities.clear();
     m_salamatrixCapabilities.push_back("*");
+    m_bSalamatrixEventsDeclared = false;
+    m_salamatrixEvents.clear();
     m_szSalamatrixCommandId[0] = _T('\0');
     m_szRuntimeCommandId[0] = '\0';
     m_bShowInPluginMenu = false;
@@ -2515,6 +2521,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
                 payloadJson, "event", &eventName) ||
             !RuntimeEventKindFromName(eventName, &kind) ||
+            !script->AllowsSalamatrixEvent(eventName.c_str()) ||
             script->m_nRuntimeEventSubscriptions >=
                 static_cast<int>(_countof(script->m_runtimeEventSubscriptions)))
             return FALSE;
