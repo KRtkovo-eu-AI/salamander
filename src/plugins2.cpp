@@ -2656,6 +2656,7 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
 
         HBITMAP hotBitmap = NULL;
         HBITMAP grayBitmap = NULL;
+        BOOL generatedDarkFallback = darkMode && preferred == source;
         BOOL rendered = RenderSVGIconBitmapFromFile(
                             preferred, iconSize, TRUE, &hotBitmap) &&
                         RenderSVGIconBitmapFromFile(
@@ -2668,6 +2669,7 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
                 HANDLES(DeleteObject(grayBitmap));
             hotBitmap = NULL;
             grayBitmap = NULL;
+            generatedDarkFallback = darkMode;
             rendered = RenderSVGIconBitmapFromFile(
                            source, iconSize, TRUE, &hotBitmap) &&
                        RenderSVGIconBitmapFromFile(
@@ -2680,6 +2682,21 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
             if (grayBitmap != NULL)
                 HANDLES(DeleteObject(grayBitmap));
             continue;
+        }
+
+        if (generatedDarkFallback)
+        {
+            HBITMAP darkHotBitmap = NULL;
+            if (CreateDarkModeIconBitmap(hotBitmap, &darkHotBitmap))
+            {
+                HANDLES(DeleteObject(hotBitmap));
+                hotBitmap = darkHotBitmap;
+            }
+            else
+            {
+                if (darkHotBitmap != NULL)
+                    HANDLES(DeleteObject(darkHotBitmap));
+            }
         }
 
         int hotIndex = ImageList_Add(hotImageList, hotBitmap, NULL);

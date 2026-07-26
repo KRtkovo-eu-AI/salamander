@@ -11,6 +11,9 @@ BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMA
 // Renders an extension-owned SVG file using the same DPI-aware NanoSVG path
 // as built-in toolbar icons. The caller owns the returned bitmap.
 BOOL RenderSVGIconBitmapFromFile(const char* svgFile, int iconSize, BOOL enabled, HBITMAP* hBitmap);
+// Creates a dark-mode-friendly variant of a rendered extension icon. The
+// source bitmap is left untouched; the caller owns the returned bitmap.
+BOOL CreateDarkModeIconBitmap(HBITMAP hSource, HBITMAP* hBitmap);
 
 // returns SysColor in the format for the SVG library (BGR instead of Win32 RGB)
 DWORD GetSVGSysColor(int index);

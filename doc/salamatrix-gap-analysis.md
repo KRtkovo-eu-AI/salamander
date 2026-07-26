@@ -95,7 +95,7 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | Programmatic file operations | MVP | `IFileOperationsService` and all modern worker bindings expose interactive rename/copy/move/delete/create-directory/refresh/properties workflows. | Typed source/target values, progress/cancellation handles, and final structured results without requiring the native dialog. |
 | Extension command registration | MVP | Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, native menu hotkeys, and toolbar contributions; removal triggers a menu/toolbar rebuild. | Enable/visible callbacks, command palette integration, and richer ownership/unload leases. |
 | Plugin and context menu placement | MVP | Metadata booleans and context masks are applied to Automation menu items and persistent registrations. | Independent placement contributions, icons, and dynamic menu APIs beyond the current MVP surface. |
-| Toolbar and shortcuts | Partial | Dynamically registered extension commands now pass Salamander hotkeys through the normal menu-extension path and can contribute toolbar buttons. Native/runtime registrations use core-owned DPI-aware image lists; manifest packages may provide an SVG `icon` and optional dark-mode `iconDark`, with a generated gray fallback when the dark asset is absent. Dynamic placement is now serialized with stable extension/plugin keys instead of transient runtime ids. | Explicit placement/conflict UX, command palette integration, and richer per-command enablement. |
+| Toolbar and shortcuts | Partial | Dynamically registered extension commands now pass Salamander hotkeys through the normal menu-extension path and can contribute toolbar buttons. Native/runtime registrations use core-owned DPI-aware image lists; manifest packages may provide an SVG `icon` and optional dark-mode `iconDark`. If `iconDark` is missing or invalid, the core generates a dark-friendly raster variant from `icon` and also creates the disabled/gray image. Dynamic placement is now serialized with stable extension/plugin keys instead of transient runtime ids. | Explicit placement/conflict UX, command palette integration, and richer per-command enablement. |
 | Events | MVP | `Salamatrix.Events` maps host lifecycle/settings/configuration/color/panel events, successful shared-Sides path/selection/tab/refresh operations, and core path/selection/tab notifications to unsubscribe-safe native callbacks; Automation exposes `subscribe/unsubscribe` with copied payloads. Persistent worker sessions now enqueue bounded event frames instead of writing from the core callback directly into a potentially back-pressured pipe. | Persistent extension instances, UI-thread marshalling for richer event payloads, coalescing, event replay, richer file-operation/window lifecycle hooks, and unload-safe leases across modern runtimes. |
 | Per-extension storage | Implemented | `Salamatrix.Storage` persists isolated manifest-id namespaces with UTF-8 strings, signed 64-bit integers, booleans, delete/clear, validation, and synchronized access. Automation exposes `has/get/set/remove/clear`; legacy global persistence remains for compatibility. | Settings schemas/files, enumeration, quotas, migrations, transactional batches, and uninstall retention/deletion policy. |
 | Shared UI framework | MVP | `Salamatrix.UI` provides a reusable native `IDialog`/`IControl` model and `NativeDialog` implementation for labels, text boxes, check/radio buttons, combo boxes, buttons, native ListView/TreeView/TabControl controls with item binding, explicit bounds, dialog width/height, columns and selection, required validation, control-change events, common `readOnly`/`checked`/`dialogResult`/`keepOpen`/`multiline` options across native and Python/PowerShell/PHP/Node workers, message/input boxes, UTF-8 file/folder pickers, clipboard copy, dark-mode initialization, and localized Automation prompts. Progress covers Salamander's one-bar/file-progress and two-bar modes, totals/positions, stepping, text, cancellation, and cleanup; all workers expose the same calls. | Richer notifications/virtualized data, reentrancy policy, DPI/accessibility, and migration of legacy Forms wrappers. |
@@ -119,7 +119,9 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   register/unregister/acquire/release methods. Its appended toolbar contract
   accepts package-owned SVG paths (normal plus optional dark-mode variant),
   while the core renders those files through NanoSVG into the shared toolbar
-  image lists.
+  image lists. When the optional dark asset is absent, the core derives a
+  dark-friendly bitmap from the normal SVG while preserving alpha and color
+  information.
 - `src/zip.cpp` contains the fixed-size process registry, its critical-section
   guard, lease table, unload gate, and condition-variable wait for active
   consumers.
@@ -436,5 +438,7 @@ The tenth code slice is now implemented:
   while retaining automatic defaults for older configurations;
 - resolve persisted entries by manifest/plugin identity rather than transient
   process-local command ids;
+- derive a dark-mode bitmap from the normal extension SVG when an extension
+  does not ship a separate `iconDark` asset.
 - keep icon rendering and placement shared between native plugins and all
   runtime-backed extensions.
