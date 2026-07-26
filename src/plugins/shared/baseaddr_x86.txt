@@ -124,3 +124,4 @@ pythonruntime    0x2a800000
 powershellruntime 0x2a900000
 phpruntime       0x2aa00000
 salamatrixai     0x2ab00000
+salamatrixailocalllama 0x2ac00000
