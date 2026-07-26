@@ -205,7 +205,11 @@ static bool IsJsonObject(const std::string& value)
     return first != std::string::npos && last > first && value[first] == '{' && value[last] == '}';
 }
 
-static void ReadAvailablePipe(HANDLE parentOut, std::string& output)
+static void ReadAvailablePipe(
+    HANDLE parentOut,
+    std::string& output,
+    Salamatrix::AI::AssistantOutputCallback callback,
+    void* callbackContext)
 {
     DWORD available = 0;
     while (PeekNamedPipe(parentOut, NULL, 0, NULL, &available, NULL) && available)
@@ -215,10 +219,26 @@ static void ReadAvailablePipe(HANDLE parentOut, std::string& output)
         const DWORD take = available < sizeof(buffer) ? available : sizeof(buffer);
         if (!ReadFile(parentOut, buffer, take, &count, NULL) || !count)
             break;
+        if (callback != NULL)
+            callback(callbackContext, buffer, count);
         if (output.size() < 1024 * 1024)
             output.append(buffer, buffer +
                 (count < 1024 * 1024 - output.size() ? count : 1024 * 1024 - output.size()));
     }
+}
+
+static Salamatrix::AI::AssistantOutputCallback GetOutputCallback(
+    const Salamatrix::AI::AssistantRequest* request,
+    void** context)
+{
+    if (context != NULL)
+        *context = NULL;
+    if (request == NULL || request->StructSize <
+        offsetof(Salamatrix::AI::AssistantRequest, OutputContext) + sizeof(void*))
+        return NULL;
+    if (context != NULL)
+        *context = request->OutputContext;
+    return request->OutputCallback;
 }
 
 static bool IsRegularFile(const std::wstring& path)
@@ -401,21 +421,24 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
 
     std::string output;
     std::string diagnostics;
+    void* outputContext = NULL;
+    const Salamatrix::AI::AssistantOutputCallback outputCallback =
+        GetOutputCallback(request, &outputContext);
     const DWORD timeout = request->TimeoutMs == 0 ? 120000 :
         (request->TimeoutMs > 120000 ? 120000 : request->TimeoutMs);
     const ULONGLONG start = GetTickCount64();
     bool timedOut = false;
     for (;;)
     {
-        ReadAvailablePipe(parentOut, output);
-        ReadAvailablePipe(parentErr, diagnostics);
+        ReadAvailablePipe(parentOut, output, outputCallback, outputContext);
+        ReadAvailablePipe(parentErr, diagnostics, outputCallback, outputContext);
         if (WaitForSingleObject(process.hProcess, 10) == WAIT_OBJECT_0) break;
         if (GetTickCount64() - start >= timeout)
         { timedOut = true; TerminateProcess(process.hProcess, 1); break; }
     }
     WaitForSingleObject(process.hProcess, 1000);
-    ReadAvailablePipe(parentOut, output);
-    ReadAvailablePipe(parentErr, diagnostics);
+    ReadAvailablePipe(parentOut, output, outputCallback, outputContext);
+    ReadAvailablePipe(parentErr, diagnostics, outputCallback, outputContext);
     DWORD exitCode = 1; GetExitCodeProcess(process.hProcess, &exitCode);
     CloseHandle(process.hThread); CloseHandle(process.hProcess);
     CloseHandle(parentOut); CloseHandle(parentErr);

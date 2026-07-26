@@ -84,6 +84,11 @@ struct AssistantProviderDescriptor
     DWORD Flags;
 };
 
+typedef void(WINAPI* AssistantOutputCallback)(
+    void* context,
+    const char* output,
+    DWORD outputLength);
+
 struct AssistantRequest
 {
     DWORD StructSize;
@@ -98,6 +103,10 @@ struct AssistantRequest
     const char* ExistingScript;
     /// Optional feedback from the previous preview/run iteration.
     const char* Feedback;
+    /// Optional live provider console output callback. Appended to preserve
+    /// the layout prefix used by older providers.
+    AssistantOutputCallback OutputCallback;
+    void* OutputContext;
 
     AssistantRequest()
         : StructSize(sizeof(AssistantRequest)),
@@ -108,7 +117,9 @@ struct AssistantRequest
           MaxOutputBytes(65536),
           RuntimeId(NULL),
           ExistingScript(NULL),
-          Feedback(NULL)
+          Feedback(NULL),
+          OutputCallback(NULL),
+          OutputContext(NULL)
     {
     }
 };

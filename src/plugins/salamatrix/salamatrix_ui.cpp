@@ -549,7 +549,10 @@ struct NativeDialog::Impl
             {
                 std::wstring wide;
                 if (Utf8ToWide(Text.c_str(), wide))
+                {
                     SetWindowTextW(WindowHandle, wide.c_str());
+                    UpdateWindow(WindowHandle);
+                }
             }
             return TRUE;
         }

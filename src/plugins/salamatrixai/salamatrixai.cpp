@@ -600,11 +600,24 @@ struct ChatContext
     Salamatrix::UI::IControl* ProviderChoice;
     CSalamanderForOperationsAbstract* Operation;
     HWND Parent;
+    Salamatrix::UI::IControl* ConsoleLog;
+    std::string ConsoleOutput;
     Salamatrix::AI::AssistantResponse LastResponse;
     BOOL HasResponse;
     std::wstring LastSavedPath;
     std::string LastRuntimeId;
 };
+
+static void WINAPI AssistantOutput(void* context, const char* output, DWORD outputLength)
+{
+    ChatContext* chat = static_cast<ChatContext*>(context);
+    if (chat == NULL || chat->ConsoleLog == NULL || output == NULL || outputLength == 0)
+        return;
+    chat->ConsoleOutput.append(output, outputLength);
+    if (chat->ConsoleOutput.size() > 512 * 1024)
+        chat->ConsoleOutput.erase(0, chat->ConsoleOutput.size() - 512 * 1024);
+    chat->ConsoleLog->SetText(chat->ConsoleOutput.c_str());
+}
 
 static bool SaveAssistantScript(
     HWND parent,
@@ -1059,6 +1072,9 @@ static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* e
     const std::string panelContext = BuildAssistantPanelContext(g_sides);
     std::string existingScript;
     std::string feedback;
+    chat->ConsoleOutput.clear();
+    if (chat->ConsoleLog != NULL)
+        chat->ConsoleLog->SetText("");
     if (chat->HasResponse && chat->LastResponse.Summary.Script[0] != '\0')
     {
         existingScript.assign(chat->LastResponse.Summary.Script);
@@ -1075,6 +1091,8 @@ static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* e
         request.ExistingScript = existingScript.empty() ? NULL : existingScript.c_str();
         request.Feedback = feedback.empty() ? NULL : feedback.c_str();
         request.MaxOutputBytes = 65536;
+        request.OutputCallback = AssistantOutput;
+        request.OutputContext = chat;
         if (!chat->Ai->GenerateWithRepair(selectedProvider, &request, &response, 2) ||
             response.Status != Salamatrix::AI::AssistantStatusSucceeded)
         {
@@ -1290,8 +1308,18 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, exportOptions, exportLayout);
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, runOptions, runLayout);
     if (history != NULL) history->AddColumn("Conversation", 700);
+    Salamatrix::UI::ControlLayout consoleLayout;
+    consoleLayout.HasBounds = TRUE;
+    consoleLayout.X = 8; consoleLayout.Y = 430; consoleLayout.Width = 548; consoleLayout.Height = 115;
+    Salamatrix::UI::ControlOptions consoleOptions;
+    consoleOptions.Id = "console-output";
+    consoleOptions.ReadOnly = TRUE;
+    consoleOptions.Multiline = TRUE;
+    Salamatrix::UI::IControl* consoleLog = dialog->AddControlEx(
+        Salamatrix::UI::ControlKindTextBox, consoleOptions, consoleLayout);
     ChatContext chat = { g_ai, g_runtime, g_runner, dialog, history, prompt, runtimeChoice, providerChoice,
-                         operation, parent, Salamatrix::AI::AssistantResponse(), FALSE, std::wstring(), std::string() };
+                         operation, parent, consoleLog, std::string(),
+                         Salamatrix::AI::AssistantResponse(), FALSE, std::wstring(), std::string() };
     dialog->SetEventCallback(ChatEvent, &chat);
     dialog->ShowModal();
     dialog->Release();
