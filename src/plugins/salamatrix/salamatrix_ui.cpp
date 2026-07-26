@@ -459,6 +459,9 @@ struct NativeDialog::Impl
         BOOL Multiline;
         std::string FileFilter;
         BOOL FileSave;
+        std::string AccessibleName;
+        std::string AccessibleDescription;
+        std::wstring AccessibleTooltipText;
         HWND WindowHandle;
         HWND BrowseWindowHandle;
         WORD BrowseNumericId;
@@ -491,6 +494,8 @@ struct NativeDialog::Impl
               Multiline(options.Multiline),
               FileFilter(options.FileFilter != NULL ? options.FileFilter : ""),
               FileSave(options.FileSave),
+              AccessibleName(options.AccessibleName != NULL ? options.AccessibleName : ""),
+              AccessibleDescription(options.AccessibleDescription != NULL ? options.AccessibleDescription : ""),
               WindowHandle(NULL),
               BrowseWindowHandle(NULL),
               BrowseNumericId(0),
@@ -544,6 +549,16 @@ struct NativeDialog::Impl
         }
 
         virtual int WINAPI GetDialogResult() const { return DialogResult; }
+
+        virtual const char* WINAPI GetAccessibleName() const
+        {
+            return AccessibleName.c_str();
+        }
+
+        virtual const char* WINAPI GetAccessibleDescription() const
+        {
+            return AccessibleDescription.c_str();
+        }
 
         virtual BOOL WINAPI AddItem(const char* value, int parentIndex)
         {
@@ -661,6 +676,7 @@ struct NativeDialog::Impl
     std::string Title;
     std::vector<Control*> Controls;
     HWND Window;
+    HWND AccessibilityTooltip;
     int Result;
     BOOL Running;
     UINT CurrentDpi;
@@ -671,6 +687,7 @@ struct NativeDialog::Impl
         : Options(options),
           Title(options.Title != NULL ? options.Title : "Salamander"),
           Window(NULL),
+          AccessibilityTooltip(NULL),
           Result(0),
           Running(FALSE),
           CurrentDpi(96),
@@ -681,6 +698,8 @@ struct NativeDialog::Impl
 
     ~Impl()
     {
+        if (AccessibilityTooltip != NULL)
+            DestroyWindow(AccessibilityTooltip);
         for (size_t index = 0; index < Controls.size(); ++index)
             delete Controls[index];
     }
@@ -738,6 +757,33 @@ struct NativeDialog::Impl
         EventCallback(EventContext, &event);
     }
 };
+
+static void AddAccessibilityTooltip(
+    HWND tooltip,
+    HWND target,
+    NativeDialog::Impl::Control* control)
+{
+    if (tooltip == NULL || target == NULL || control == NULL ||
+        (control->AccessibleName.empty() &&
+         control->AccessibleDescription.empty()))
+        return;
+    const std::string& text = control->AccessibleDescription.empty()
+                                  ? control->AccessibleName
+                                  : control->AccessibleDescription;
+    if (!Utf8ToWide(text.c_str(), control->AccessibleTooltipText) ||
+        control->AccessibleTooltipText.empty())
+        return;
+    TOOLINFOW tool;
+    memset(&tool, 0, sizeof(tool));
+    tool.cbSize = sizeof(tool);
+    tool.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+    tool.hwnd = GetParent(target);
+    tool.uId = reinterpret_cast<UINT_PTR>(target);
+    tool.lpszText = const_cast<wchar_t*>(
+        control->AccessibleTooltipText.c_str());
+    SendMessageW(tooltip, TTM_DELTOOLW, 0, reinterpret_cast<LPARAM>(&tool));
+    SendMessageW(tooltip, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&tool));
+}
 
 NativeDialog::NativeDialog(const DialogOptions& options)
     : m_pImpl(new Impl(options))
@@ -988,6 +1034,19 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         DarkModeApplyTree(hwnd);
         DarkModeRefreshTitleBar(hwnd);
         DarkModeApplyStaticTextColors(hwnd, NULL);
+        dialog->m_pImpl->AccessibilityTooltip = CreateWindowExW(
+            WS_EX_TRANSPARENT,
+            TOOLTIPS_CLASSW,
+            NULL,
+            WS_POPUP | TTS_ALWAYSTIP,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            hwnd,
+            NULL,
+            GetModuleHandle(NULL),
+            NULL);
         HWND initialFocus = NULL;
         for (size_t index = 0; index < dialog->m_pImpl->Controls.size(); ++index)
         {
@@ -1001,6 +1060,15 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             if (control->Kind == ControlKindFilePicker)
                 control->BrowseWindowHandle =
                     GetDlgItem(hwnd, control->BrowseNumericId);
+            AddAccessibilityTooltip(
+                dialog->m_pImpl->AccessibilityTooltip,
+                child,
+                control);
+            if (control->Kind == ControlKindFilePicker)
+                AddAccessibilityTooltip(
+                    dialog->m_pImpl->AccessibilityTooltip,
+                    control->BrowseWindowHandle,
+                    control);
             std::wstring text;
             if (Utf8ToWide(control->Text.c_str(), text))
                 SetWindowTextW(child, text.c_str());
@@ -1133,6 +1201,11 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
     if (message == WM_CLOSE)
     {
         dialog->m_pImpl->Result = 0;
+        if (dialog->m_pImpl->AccessibilityTooltip != NULL)
+        {
+            DestroyWindow(dialog->m_pImpl->AccessibilityTooltip);
+            dialog->m_pImpl->AccessibilityTooltip = NULL;
+        }
         EndDialog(hwnd, 0);
         return TRUE;
     }

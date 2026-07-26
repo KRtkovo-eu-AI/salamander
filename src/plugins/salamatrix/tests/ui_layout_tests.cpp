@@ -2,7 +2,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstdio>
+#include <cstring>
+#include <windows.h>
+#include <commctrl.h>
 
+#pragma warning(push)
+#pragma warning(disable:4201 4121 4245)
+#include "../salamatrix_ui.h"
+#pragma warning(pop)
 #include "../salamatrix_ui_layout.h"
 
 namespace
@@ -17,10 +24,75 @@ void Check(bool condition, const char* message)
         ++Failures;
     }
 }
+
+class AccessibilityTestControl : public Salamatrix::UI::IControl
+{
+public:
+    virtual Salamatrix::UI::ControlKind WINAPI GetKind() const
+    {
+        return Salamatrix::UI::ControlKindLabel;
+    }
+
+    virtual const char* WINAPI GetId() const
+    {
+        return "test";
+    }
+
+    virtual BOOL WINAPI GetText(char* buffer, DWORD capacity) const
+    {
+        if (buffer != NULL && capacity != 0)
+            buffer[0] = '\0';
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetText(const char* value)
+    {
+        (void)value;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI GetChecked() const
+    {
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetChecked(BOOL checked)
+    {
+        (void)checked;
+        return FALSE;
+    }
+
+    virtual int WINAPI GetDialogResult() const
+    {
+        return 0;
+    }
+};
 }
 
 int main()
 {
+    Salamatrix::UI::ControlOptions defaults;
+    Check(defaults.AccessibleName == NULL,
+          "default accessible name is null");
+    Check(defaults.AccessibleDescription == NULL,
+          "default accessible description is null");
+
+    Salamatrix::UI::ControlOptions explicitValues;
+    explicitValues.AccessibleName = "N\xc3\xa1" "zev ovl\xc3\xa1" "dac\xc3\xADho prvku";
+    explicitValues.AccessibleDescription = "Popis \xc5\xbe\xc3\xa1" "dosti";
+    Check(std::strcmp(explicitValues.AccessibleName,
+                      "N\xc3\xa1" "zev ovl\xc3\xa1" "dac\xc3\xADho prvku") == 0,
+          "explicit UTF-8 accessible name is retained");
+    Check(std::strcmp(explicitValues.AccessibleDescription,
+                      "Popis \xc5\xbe\xc3\xa1" "dosti") == 0,
+          "explicit UTF-8 accessible description is retained");
+
+    AccessibilityTestControl control;
+    Check(std::strcmp(control.GetAccessibleName(), "") == 0,
+          "default accessible name accessor is empty");
+    Check(std::strcmp(control.GetAccessibleDescription(), "") == 0,
+          "default accessible description accessor is empty");
+
     Salamatrix::UI::FilePickerLayoutMetrics metrics =
         Salamatrix::UI::ComputeFilePickerLayout(8, 120);
     Check(metrics.EditWidth == 92, "file picker edit width");

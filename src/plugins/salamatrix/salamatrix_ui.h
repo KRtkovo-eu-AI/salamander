@@ -270,6 +270,12 @@ struct ControlOptions
     /// File picker should use save-mode (GetSaveFileNameW) when TRUE.
     /// Appended for ABI compatibility with the original control contract.
     BOOL FileSave;
+    /// Accessible name exposed by the native control fallback.
+    /// Appended for ABI compatibility with the original control contract.
+    const char* AccessibleName;
+    /// Accessible description exposed by the native control fallback.
+    /// Appended for ABI compatibility with the original control contract.
+    const char* AccessibleDescription;
 
     ControlOptions()
         : Id(NULL),
@@ -280,7 +286,9 @@ struct ControlOptions
           KeepOpen(FALSE),
           Multiline(FALSE),
           FileFilter(NULL),
-          FileSave(FALSE)
+          FileSave(FALSE),
+          AccessibleName(NULL),
+          AccessibleDescription(NULL)
     {
     }
 };
@@ -412,6 +420,18 @@ public:
     {
         (void)index;
         return FALSE;
+    }
+
+    /// Optional bounded accessibility metadata appended to the control
+    /// contract. Older providers receive empty strings by default.
+    virtual const char* WINAPI GetAccessibleName() const
+    {
+        return "";
+    }
+
+    virtual const char* WINAPI GetAccessibleDescription() const
+    {
+        return "";
     }
 
 protected:

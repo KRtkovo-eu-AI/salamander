@@ -866,3 +866,12 @@ The thirty-fifth code slice is implemented and verified:
   plugin into isolated `build\verification\manifest-migrations-current`,
   `build\verification\settings-migrations-current`, and
   `build\verification\automation-migrations-current` outputs; all passed.
+
+The thirty-sixth code slice is implemented and verified:
+
+- add standalone, non-GUI assertions for Salamatrix.UI accessibility metadata:
+  default `ControlOptions` values remain null, explicit UTF-8 values are
+  retained, and the append-only `IControl` default accessors return empty
+  strings for older control implementations;
+- rebuild and run the UI layout/DPI test executable in isolated
+  `build\verification\ui-accessibility-tests` output; all assertions passed.
