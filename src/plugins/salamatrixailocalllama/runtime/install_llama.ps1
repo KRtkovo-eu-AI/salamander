@@ -43,7 +43,7 @@ try {
     Invoke-WebRequest -UseBasicParsing -Uri $modelLicenseUrl -OutFile (Join-Path $runtime 'Qwen2.5-Coder.LICENSE.txt')
     Get-ChildItem -LiteralPath $llamaExe.DirectoryName -File -Filter '*LICENSE*' |
         Copy-Item -Destination $runtime -Force
-    Write-Host 'Salamatrix Local Llama installation completed.'
+    Write-Host 'Salamatrix Local LLaMA installation completed.'
 }
 finally {
     if (Test-Path -LiteralPath $temp) {

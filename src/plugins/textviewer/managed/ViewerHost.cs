@@ -546,7 +546,7 @@ internal static class ViewerHost
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
-        private void EnsureBrowser()
+        private async void EnsureBrowser()
         {
             if (_browser is not null)
             {
@@ -582,7 +582,7 @@ internal static class ViewerHost
 
             try
             {
-                _ = viewer.EnsureCoreWebView2Async();
+                await viewer.EnsureCoreWebView2Async();
             }
             catch (Exception ex)
             {

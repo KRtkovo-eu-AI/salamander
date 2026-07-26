@@ -155,11 +155,11 @@ static void ShowConfiguration(HWND parent)
     if (ui == NULL)
     {
         SalamanderGeneral->SalMessageBox(parent, "Salamatrix UI service is not available.",
-                                         "Salamatrix AI Local Llama", MB_OK | MB_ICONWARNING);
+                                         "Salamatrix AI Local LLaMA", MB_OK | MB_ICONWARNING);
         return;
     }
     Salamatrix::UI::DialogOptions options;
-    options.Title = "Salamatrix AI Local Llama configuration";
+    options.Title = "Salamatrix AI Local LLaMA configuration";
     options.Parent = parent;
     options.Width = 360;
     options.Height = 82;
@@ -225,7 +225,7 @@ void WINAPI CLocalLlamaPluginInterface::About(HWND parent)
     SalamanderGeneral->SalMessageBox(
         parent,
         "Optional server-free llama.cpp model provider for Salamatrix AI.",
-        "Salamatrix AI Local Llama",
+        "Salamatrix AI Local LLaMA",
         MB_OK | MB_ICONINFORMATION);
 }
 
@@ -323,7 +323,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER)
         return NULL;
     salamander->SetBasicPluginData(
-        "Salamatrix AI Local Llama",
+        "Salamatrix AI Local LLaMA",
         FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_CONFIGURATION,
         VERSINFO_VERSION_NO_PLATFORM,
         VERSINFO_COPYRIGHT,
