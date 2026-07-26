@@ -143,9 +143,16 @@ never started, stopped, or otherwise controlled by this work.
   provider Debug x64 projects passed; runtime-protocol tests passed; Python,
   PowerShell, PHP, and Node worker syntax checks passed.
 - The Python/PowerShell/PHP process-runtime integration executable built, but
-  its invocation was skipped because this environment does not set
-  `SALAMATRIX_WORKER_ROOT`. It is therefore not evidence of current end-to-end
-  runtime execution on this machine.
+  its invocation was previously skipped because this environment did not set
+  `SALAMATRIX_WORKER_ROOT`. That gap is now closed: on 2026-07-26 the
+  `build\verification\folder-picker\process-tests\processruntime_tests.exe`
+  executable passed with exit code 0 when `SALAMATRIX_WORKER_ROOT` pointed to
+  the isolated `build\verification\process-runtime-worker-root` containing
+  only copied Python, PowerShell, and PHP bootstrap files. The run exercised
+  interpreter discovery, one-shot and persistent SMX1 sessions, host calls,
+  typed storage, commands, events, clipboard, file/folder pickers, native
+  dialog controls, shutdown, output capture, and timeout coverage without
+  starting or controlling Salamander.
 
 At this pause point the only worktree artifacts outside commits are two
 untracked Python `__pycache__` directories produced by the worker syntax

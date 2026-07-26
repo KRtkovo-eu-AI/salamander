@@ -79,6 +79,10 @@ not yet an editable text field with a separate browse button.
 
 Verification at the current pause point: all four provider Debug x64 projects
 build successfully and their worker files pass available Python, PowerShell,
-PHP, and Node syntax checks. The end-to-end process runtime test binary also
-builds, but cannot run in this environment until `SALAMATRIX_WORKER_ROOT` is
-configured.
+PHP, and Node syntax checks. The isolated process-runtime integration run now
+also passes: with `SALAMATRIX_WORKER_ROOT` explicitly set to
+`build\verification\process-runtime-worker-root`, the Python/PowerShell/PHP
+process test executable returned exit code 0 and completed the SMX1 host-call,
+persistent-session, UI, storage, event, picker, shutdown, output-capture, and
+timeout scenarios. The root contained only test copies of the three bootstrap
+files; no Salamander process was started or controlled.
