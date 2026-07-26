@@ -268,3 +268,9 @@ This prevents the stale-broker virtual call reported by the JavaScript runtime
 shutdown crash. The four providers were rebuilt in the isolated
 `build\verification\shutdown-guard-*` directories and the source regression
 test passed. No Salamander process was started or controlled.
+
+The shared runtime header includes `src/darkmode.h` directly instead of
+depending on a provider-specific precompiled header to expose dark-mode
+declarations. This keeps `Salamatrix.Poc` consumers such as `demoplug`
+self-contained while retaining each project's existing `USE_DARKMODELIB`
+configuration. The isolated `demoplug` Debug x64 verification build passed.

@@ -16,10 +16,15 @@
 #define SALAMATRIX_RESTORE_CREATE_DIALOG 1
 #endif
 
+#ifndef USE_DARKMODELIB
+#define USE_DARKMODELIB 0
+#endif
+
 #include <combaseapi.h>
 #include <shlobj.h>
 #include <vector>
 
+#include "../../darkmode.h"
 #include "salamatrix_automation.h"
 #include "salamatrix_ai.h"
 #include "salamatrix_events.h"

@@ -986,3 +986,14 @@ The forty-second code slice is implemented and verified:
   PowerShell, and PHP and rebuild all four Debug x64 `.SPL` providers into
   isolated `build\verification\shutdown-guard-*` outputs. The regression test
   and all four builds passed; no Salamander process was started or controlled.
+
+The forty-third code slice is implemented and verified:
+
+- make `salamatrix_runtime.h` self-contained for its dark-mode API calls by
+  including the shared `darkmode.h` declarations directly;
+- preserve projects that define `USE_DARKMODELIB=1` and provide a fallback of
+  `0` for consumers that only use the header and do not inherit Salamatrix's
+  precompiled header;
+- rebuild the `demoplug` Debug x64 plugin into isolated
+  `build\verification\demoplug-darkmode-header`; compilation and linking
+  passed. No Salamander process was started or controlled.
