@@ -1,0 +1,37 @@
+<Project>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release clean'">
+    <OpenSalamanderReleaseClean>true</OpenSalamanderReleaseClean>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(OpenSalamanderReleaseClean)' == 'true'">
+    <ClCompile>
+      <DebugInformationFormat>None</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <ProgramDatabaseFile></ProgramDatabaseFile>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <Target Name="OpenSalamanderReleaseCleanCleanup"
+          AfterTargets="Build"
+          Condition="'$(OpenSalamanderReleaseClean)' == 'true'">
+    <RemoveDir Directories="$(IntDir)"
+               Condition="'$(IntDir)' != '' and Exists('$(IntDir)')" />
+    <RemoveDir Directories="$(IntermediateOutputPath)"
+               Condition="'$(IntermediateOutputPath)' != '' and Exists('$(IntermediateOutputPath)')" />
+    <ItemGroup>
+      <OpenSalamanderReleaseCleanPdb Include="$(OutDir)**\*.pdb" />
+      <OpenSalamanderReleaseCleanPdb Include="$(TargetDir)**\*.pdb" />
+      <OpenSalamanderReleaseCleanLinkArtifacts Include="$(TargetDir)$(TargetName).lib" />
+      <OpenSalamanderReleaseCleanLinkArtifacts Include="$(TargetDir)$(TargetName).exp" />
+      <OpenSalamanderReleaseCleanLinkArtifacts Include="$(TargetDir)$(TargetName).ilk" />
+    </ItemGroup>
+    <Delete Files="@(OpenSalamanderReleaseCleanPdb)"
+            Condition="'@(OpenSalamanderReleaseCleanPdb)' != ''" />
+    <Delete Files="@(OpenSalamanderReleaseCleanLinkArtifacts)"
+            Condition="'@(OpenSalamanderReleaseCleanLinkArtifacts)' != ''" />
+  </Target>
+</Project>
