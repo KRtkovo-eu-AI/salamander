@@ -29,6 +29,7 @@ private:
     const wchar_t* m_pszCandidateTwo;
     ProcessKind m_kind;
     mutable std::wstring m_executablePath;
+    mutable bool m_bInterpreterResolved;
 
     void ResolveInterpreter() const;
 

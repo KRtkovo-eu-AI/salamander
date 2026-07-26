@@ -556,7 +556,8 @@ CPowerShellRuntimeAdapter::CPowerShellRuntimeAdapter(
       m_pszEnvironmentVariable(environmentVariable),
       m_pszCandidateOne(candidateOne),
       m_pszCandidateTwo(candidateTwo),
-      m_kind(kind)
+      m_kind(kind),
+      m_bInterpreterResolved(false)
 {
     m_oDescriptor.RuntimeId = runtimeId;
     m_oDescriptor.DisplayName = displayName;
@@ -621,8 +622,9 @@ static BOOL ResolveWorkerBootstrapPath(
 
 void CPowerShellRuntimeAdapter::ResolveInterpreter() const
 {
-    if (!m_executablePath.empty())
+    if (m_bInterpreterResolved)
         return;
+    m_bInterpreterResolved = true;
 
     std::wstring configured;
     if (GetEnvironmentString(m_pszEnvironmentVariable, configured))
