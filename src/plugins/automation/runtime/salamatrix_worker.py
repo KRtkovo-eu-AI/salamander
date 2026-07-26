@@ -129,11 +129,14 @@ class _Storage:
     def __init__(self, transport: _Transport) -> None:
         self._transport = transport
 
-    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, default: Any = None) -> Any:
         result = self._transport.call("salamander.storage.get", key=key)
-        return result.get("value", default) if result.get("type") == "string" else default
+        value_type = result.get("type")
+        if value_type in ("string", "integer", "boolean"):
+            return result.get("value", default)
+        return default
 
-    def set(self, key: str, value: str) -> None:
+    def set(self, key: str, value: Any) -> None:
         self._transport.call("salamander.storage.set", key=key, value=value)
 
     def remove(self, key: str) -> bool:

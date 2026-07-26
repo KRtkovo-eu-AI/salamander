@@ -81,11 +81,11 @@ $storage = [pscustomobject]@{}
 $storage | Add-Member ScriptMethod Get {
     param([string]$Key, [object]$Default = $null)
     $result = Invoke-Host -Method 'salamander.storage.get' -Arguments @{ key = $Key }
-    if ($result.type -eq 'string') { return $result.value }
+    if ($result.type -eq 'string' -or $result.type -eq 'integer' -or $result.type -eq 'boolean') { return $result.value }
     return $Default
 }
 $storage | Add-Member ScriptMethod Set {
-    param([string]$Key, [string]$Value)
+    param([string]$Key, [object]$Value)
     [void](Invoke-Host -Method 'salamander.storage.set' -Arguments @{ key = $Key; value = $Value })
 }
 $storage | Add-Member ScriptMethod Remove {

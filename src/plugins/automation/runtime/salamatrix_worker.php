@@ -57,7 +57,7 @@ class SalamatrixCommands {
 }
 class SalamatrixStorage {
     private $client; public function __construct($client) { $this->client = $client; }
-    public function get($key, $default = null) { $r = $this->client->call('salamander.storage.get', array('key' => $key)); return isset($r['type']) && $r['type'] === 'string' ? $r['value'] : $default; }
+    public function get($key, $default = null) { $r = $this->client->call('salamander.storage.get', array('key' => $key)); return isset($r['type']) && in_array($r['type'], array('string', 'integer', 'boolean'), true) ? $r['value'] : $default; }
     public function set($key, $value) { $this->client->call('salamander.storage.set', array('key' => $key, 'value' => $value)); }
     public function remove($key) { $r = $this->client->call('salamander.storage.remove', array('key' => $key)); return !empty($r['removed']); }
     public function clear() { $r = $this->client->call('salamander.storage.clear', array()); return !empty($r['ok']); }

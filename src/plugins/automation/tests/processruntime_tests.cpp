@@ -25,6 +25,8 @@ struct BootstrapDispatchState
     int RuntimeListCalls;
     int CommandRegistrationCalls;
     bool HandlerRegistrationSeen;
+    bool BooleanStorageSeen;
+    bool IntegerStorageSeen;
     int NotificationCalls;
 
     BootstrapDispatchState()
@@ -40,6 +42,8 @@ struct BootstrapDispatchState
           RuntimeListCalls(0),
           CommandRegistrationCalls(0),
           HandlerRegistrationSeen(false),
+          BooleanStorageSeen(false),
+          IntegerStorageSeen(false),
           NotificationCalls(0)
     {
     }
@@ -109,14 +113,25 @@ BOOL WINAPI WorkerHostDispatch(
     else if (strstr(payloadJson, "salamander.storage.set") != NULL)
     {
         if (state != NULL)
+        {
             ++state->StorageCalls;
+            if (strstr(payloadJson, "\"value\":true") != NULL)
+                state->BooleanStorageSeen = true;
+            if (strstr(payloadJson, "\"value\":42") != NULL)
+                state->IntegerStorageSeen = true;
+        }
         response = "{\"ok\":true}";
     }
     else if (strstr(payloadJson, "salamander.storage.get") != NULL)
     {
         if (state != NULL)
             ++state->StorageCalls;
-        response = "{\"ok\":true,\"type\":\"string\",\"value\":\"ok\"}";
+        if (strstr(payloadJson, "\"key\":\"autoRefresh\"") != NULL)
+            response = "{\"ok\":true,\"type\":\"boolean\",\"value\":true}";
+        else if (strstr(payloadJson, "\"key\":\"maxItems\"") != NULL)
+            response = "{\"ok\":true,\"type\":\"integer\",\"value\":42}";
+        else
+            response = "{\"ok\":true,\"type\":\"string\",\"value\":\"ok\"}";
     }
     else if (strstr(payloadJson, "salamander.events.subscribe") != NULL)
     {
@@ -475,6 +490,12 @@ void RunPythonBootstrapTest()
               "Salamander.storage.set('bootstrap', 'ok')\n"
               "if Salamander.storage.get('bootstrap') != 'ok':\n"
               "    raise RuntimeError('storage call failed')\n"
+              "Salamander.storage.set('autoRefresh', True)\n"
+              "if Salamander.storage.get('autoRefresh') is not True:\n"
+              "    raise RuntimeError('boolean storage call failed')\n"
+              "Salamander.storage.set('maxItems', 42)\n"
+              "if Salamander.storage.get('maxItems') != 42:\n"
+              "    raise RuntimeError('integer storage call failed')\n"
               "if not Salamander.commands.register('bootstrap.first', 'First', True, False, 0, False, 'first_handler'):\n"
               "    raise RuntimeError('first command registration failed')\n"
               "if not Salamander.commands.register('bootstrap.second', 'Second', True, True):\n"
@@ -557,7 +578,9 @@ void RunPythonBootstrapTest()
         Check(state.NotificationCalls == 1, "bootstrap notification call reached host");
         Check(state.CommandRegistrationCalls == 3, "bootstrap multiple command registrations reached host");
         Check(state.HandlerRegistrationSeen, "bootstrap command handler reached host");
-        Check(state.StorageCalls == 2, "bootstrap storage calls reached host");
+        Check(state.StorageCalls == 6, "bootstrap storage calls reached host");
+        Check(state.BooleanStorageSeen, "bootstrap boolean storage reached host");
+        Check(state.IntegerStorageSeen, "bootstrap integer storage reached host");
         Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
         Check(state.SideContextCalls == 1, "bootstrap side context reached host");
         Check(state.ClipboardCalls == 1, "bootstrap clipboard reached host");
@@ -603,6 +626,10 @@ void RunPowerShellBootstrapTest()
               "if ($Salamander.commands.Execute('Copy') -ne 'ok') { throw 'command call failed' }\n"
               "$Salamander.storage.Set('bootstrap', 'ok')\n"
               "if ($Salamander.storage.Get('bootstrap') -ne 'ok') { throw 'storage call failed' }\n"
+              "$Salamander.storage.Set('autoRefresh', $true)\n"
+              "if ($Salamander.storage.Get('autoRefresh') -ne $true) { throw 'boolean storage call failed' }\n"
+              "$Salamander.storage.Set('maxItems', 42)\n"
+              "if ($Salamander.storage.Get('maxItems') -ne 42) { throw 'integer storage call failed' }\n"
               "if (-not $Salamander.commands.Register('bootstrap.first', 'First', $true, $false)) { throw 'first command registration failed' }\n"
               "if (-not $Salamander.commands.Register('bootstrap.second', 'Second', $true, $true)) { throw 'second command registration failed' }\n"
               "if (-not $Salamander.commands.Unregister('bootstrap.first')) { throw 'first command unregister failed' }\n"
@@ -660,7 +687,9 @@ void RunPowerShellBootstrapTest()
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "powershell bootstrap command call");
         Check(state.CommandRegistrationCalls == 3, "powershell multiple command registrations");
-        Check(state.StorageCalls == 2, "powershell bootstrap storage calls");
+        Check(state.StorageCalls == 6, "powershell typed storage calls");
+        Check(state.BooleanStorageSeen, "powershell boolean storage reached host");
+        Check(state.IntegerStorageSeen, "powershell integer storage reached host");
         Check(state.SubscribeCalls == 1, "powershell bootstrap event subscription");
         Check(state.SideContextCalls == 1, "powershell bootstrap side context");
         Check(state.ClipboardCalls == 1, "powershell bootstrap clipboard");
@@ -701,6 +730,10 @@ void RunPhpBootstrapTest()
               "if ($Salamander->commands->execute('Copy') !== 'ok') throw new Exception('command call failed');\n"
               "$Salamander->storage->set('bootstrap', 'ok');\n"
               "if ($Salamander->storage->get('bootstrap') !== 'ok') throw new Exception('storage call failed');\n"
+              "$Salamander->storage->set('autoRefresh', true);\n"
+              "if ($Salamander->storage->get('autoRefresh') !== true) throw new Exception('boolean storage call failed');\n"
+              "$Salamander->storage->set('maxItems', 42);\n"
+              "if ($Salamander->storage->get('maxItems') !== 42) throw new Exception('integer storage call failed');\n"
               "if (!$Salamander->commands->register('bootstrap.first', 'First', true, false)) throw new Exception('first command registration failed');\n"
               "if (!$Salamander->commands->register('bootstrap.second', 'Second', true, true)) throw new Exception('second command registration failed');\n"
               "if (!$Salamander->commands->unregister('bootstrap.first')) throw new Exception('first command unregister failed');\n"
@@ -759,7 +792,9 @@ void RunPhpBootstrapTest()
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "php bootstrap command call");
         Check(state.CommandRegistrationCalls == 3, "php multiple command registrations");
-        Check(state.StorageCalls == 2, "php bootstrap storage calls");
+        Check(state.StorageCalls == 6, "php typed storage calls");
+        Check(state.BooleanStorageSeen, "php boolean storage reached host");
+        Check(state.IntegerStorageSeen, "php integer storage reached host");
         Check(state.SubscribeCalls == 1, "php bootstrap event subscription");
         Check(state.SideContextCalls == 1, "php bootstrap side context");
         Check(state.ClipboardCalls == 1, "php bootstrap clipboard");

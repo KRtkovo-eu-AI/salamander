@@ -255,6 +255,16 @@ void TestJsonMemberExtraction()
         Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
             "{\"width\":2147483648}", "width", &coordinate) == FALSE,
         "reject overflowing integer member");
+    LONGLONG largeValue = 0;
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindInteger64Member(
+            "{\"value\":9223372036854770000}", "value", &largeValue) != FALSE &&
+            largeValue == 9223372036854770000LL,
+        "extract signed 64-bit integer member");
+    Check(
+        Salamatrix::Runtime::Protocol::Json::FindInteger64Member(
+            "{\"value\":9223372036854775808}", "value", &largeValue) == FALSE,
+        "reject overflowing 64-bit integer member");
 }
 
 void TestRuntimeProviderRegistration()

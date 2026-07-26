@@ -756,7 +756,7 @@ public:
             "\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"],\"registerFields\":[\"commandId\",\"title\",\"handler\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\"]},"
             "\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]},"
             "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\",\"selectItem\",\"selectAll\",\"focusItem\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]},"
-            "\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"]},"
+            "\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"],\"valueTypes\":[\"string\",\"integer\",\"boolean\"],\"getResultFields\":[\"type\",\"value\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"fileChanged\"]},"
             "\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]},"
             "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\",\"setValidation\",\"onChange\",\"addColumn\",\"setSelectedIndex\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true},"
@@ -883,7 +883,7 @@ public:
         if (strcmp(topic, "uiDialogOptions") == 0 || strcmp(topic, "ui_dialog_options") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"uiDialogOptions\",\"objects\":{\"Salamander.ui\":{\"dialogOptions\":[\"title\",\"width\",\"height\"]}}}";
         if (strcmp(topic, "storage") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"storage\",\"objects\":{\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"storage\",\"objects\":{\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\"],\"valueTypes\":[\"string\",\"integer\",\"boolean\"],\"getResultFields\":[\"type\",\"value\"]}}}";
         if (strcmp(topic, "events") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"events\",\"objects\":{\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"fileChanged\"]}}}";
         if (strcmp(topic, "runtimes") == 0)

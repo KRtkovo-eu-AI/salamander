@@ -520,7 +520,14 @@ const Salamander = {
   source_side: new Side("source"),
   target_side: new Side("target"),
   storage: {
-    get: (key) => hostCall("salamander.storage.get", { key }),
+    get: (key, defaultValue = null) => hostCall(
+      "salamander.storage.get", { key }
+    ).then((result) => {
+      const type = result?.type;
+      return type === "string" || type === "integer" || type === "boolean"
+        ? result.value
+        : defaultValue;
+    }),
     set: (key, value) => hostCall("salamander.storage.set", { key, value }),
     remove: (key) => hostCall("salamander.storage.remove", { key }),
     clear: () => hostCall("salamander.storage.clear"),

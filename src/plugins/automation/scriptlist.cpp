@@ -3152,29 +3152,95 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         }
         if (method == "salamander.storage.set")
         {
-            std::string value;
-            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
-                    payloadJson, "value", &value) ||
-                !storage->SetString(
-                    script->m_szSalamatrixExtensionId,
-                    key.c_str(),
-                    value.c_str()))
+            std::string rawValue;
+            if (!Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "value", &rawValue))
+                return FALSE;
+
+            BOOL stored = FALSE;
+            if (!rawValue.empty() && rawValue[0] == '"')
+            {
+                std::string value;
+                stored =
+                    Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                        payloadJson, "value", &value) &&
+                    storage->SetString(
+                        script->m_szSalamatrixExtensionId,
+                        key.c_str(),
+                        value.c_str());
+            }
+            else if (rawValue == "true" || rawValue == "false")
+            {
+                BOOL value = FALSE;
+                stored =
+                    Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                        payloadJson, "value", &value) &&
+                    storage->SetBoolean(
+                        script->m_szSalamatrixExtensionId,
+                        key.c_str(),
+                        value);
+            }
+            else
+            {
+                LONGLONG value = 0;
+                stored =
+                    Salamatrix::Runtime::Protocol::Json::FindInteger64Member(
+                        payloadJson, "value", &value) &&
+                    storage->SetInteger(
+                        script->m_szSalamatrixExtensionId,
+                        key.c_str(),
+                        value);
+            }
+            if (!stored)
                 return FALSE;
             return CopyRuntimeHostResult(
                 "{\"ok\":true}", resultJson, resultCapacity, resultLength);
         }
-        char value[16385];
-        int required = 0;
-        if (storage->GetString(
-                script->m_szSalamatrixExtensionId,
-                key.c_str(),
-                value,
-                _countof(value),
-                &required))
+        Salamatrix::Storage::StorageValueType valueType =
+            storage->GetValueType(
+                script->m_szSalamatrixExtensionId, key.c_str());
+        if (valueType == Salamatrix::Storage::StorageValueString)
         {
+            std::vector<char> value(16385);
+            int required = 0;
+            if (!storage->GetString(
+                    script->m_szSalamatrixExtensionId,
+                    key.c_str(),
+                    &value[0],
+                    static_cast<int>(value.size()),
+                    &required))
+                return FALSE;
             std::string response =
                 "{\"ok\":true,\"type\":\"string\",\"value\":\"" +
-                JsonEscapeRuntimeText(value) + "\"}";
+                JsonEscapeRuntimeText(&value[0]) + "\"}";
+            return CopyRuntimeHostResult(
+                response, resultJson, resultCapacity, resultLength);
+        }
+        if (valueType == Salamatrix::Storage::StorageValueInteger)
+        {
+            LONGLONG value = 0;
+            if (!storage->GetInteger(
+                    script->m_szSalamatrixExtensionId,
+                    key.c_str(),
+                    &value))
+                return FALSE;
+            std::string response =
+                "{\"ok\":true,\"type\":\"integer\",\"value\":" +
+                std::to_string(static_cast<long long>(value)) + "}";
+            return CopyRuntimeHostResult(
+                response, resultJson, resultCapacity, resultLength);
+        }
+        if (valueType == Salamatrix::Storage::StorageValueBoolean)
+        {
+            BOOL value = FALSE;
+            if (!storage->GetBoolean(
+                    script->m_szSalamatrixExtensionId,
+                    key.c_str(),
+                    &value))
+                return FALSE;
+            std::string response =
+                std::string("{\"ok\":true,\"type\":\"boolean\",\"value\":") +
+                (value ? "true}" : "false}");
             return CopyRuntimeHostResult(
                 response, resultJson, resultCapacity, resultLength);
         }

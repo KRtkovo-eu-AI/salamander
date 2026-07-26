@@ -12,6 +12,8 @@
 
 #include <windows.h>
 
+#include <errno.h>
+#include <stdlib.h>
 #include <string>
 
 namespace Salamatrix
@@ -319,6 +321,44 @@ inline BOOL FindIntegerMember(
     else
         *value = negative ? -static_cast<int>(parsed)
                           : static_cast<int>(parsed);
+    return TRUE;
+}
+
+// Runtime storage values use signed 64-bit integers.  Keep this parser
+// separate from FindIntegerMember, whose historic contract intentionally
+// limits results to a Win32 int for UI/control parameters.
+inline BOOL FindInteger64Member(
+    const char* jsonText,
+    const char* member,
+    LONGLONG* value)
+{
+    if (jsonText == NULL || member == NULL || value == NULL)
+        return FALSE;
+    std::string raw;
+    if (!FindRawMember(jsonText, member, &raw) || raw.empty())
+        return FALSE;
+
+    size_t first = 0;
+    while (first < raw.size() &&
+           (raw[first] == ' ' || raw[first] == '\t' ||
+            raw[first] == '\r' || raw[first] == '\n'))
+        ++first;
+    size_t last = raw.size();
+    while (last > first &&
+           (raw[last - 1] == ' ' || raw[last - 1] == '\t' ||
+            raw[last - 1] == '\r' || raw[last - 1] == '\n'))
+        --last;
+    if (first != 0 || last != raw.size())
+        raw = raw.substr(first, last - first);
+    if (raw.empty())
+        return FALSE;
+
+    errno = 0;
+    char* end = NULL;
+    long long parsed = _strtoi64(raw.c_str(), &end, 10);
+    if (end == raw.c_str() || *end != '\0' || errno == ERANGE)
+        return FALSE;
+    *value = static_cast<LONGLONG>(parsed);
     return TRUE;
 }
 } // namespace Json
