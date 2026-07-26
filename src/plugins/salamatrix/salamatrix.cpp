@@ -26,6 +26,7 @@ CSalamanderDebugAbstract* SalamanderDebug = NULL;
 int SalamanderVersion = 0;
 
 static Salamatrix::Runtime::RuntimeServices* SalamatrixRuntime = NULL;
+static Salamatrix::Packages::PackageManager* SalamatrixPackages = NULL;
 
 static void DestroyRuntimeServices()
 {
@@ -39,6 +40,20 @@ static BOOL CreateRuntimeServices()
     SalamatrixRuntime = new Salamatrix::Runtime::RuntimeServices(SalamanderGeneral, TRUE);
     if (SalamatrixRuntime == NULL || !SalamatrixRuntime->IsRegistered() || !SalamatrixRuntime->IsHostRegistered())
     {
+        DestroyRuntimeServices();
+        return FALSE;
+    }
+    SalamatrixPackages = new Salamatrix::Packages::PackageManager();
+    if (SalamatrixPackages == NULL ||
+        !SalamatrixPackages->Initialize(
+            SalamanderGeneral,
+            SalamatrixRuntime->Runtimes(),
+            SalamatrixRuntime->Extensions(),
+            SalamatrixRuntime->Storage(),
+            SalamatrixRuntime->UI()))
+    {
+        delete SalamatrixPackages;
+        SalamatrixPackages = NULL;
         DestroyRuntimeServices();
         return FALSE;
     }
@@ -91,7 +106,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     SalamanderGUI = salamander->GetSalamanderGUI();
-    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK, VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
+    Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
+    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_DYNAMICMENUEXT, VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    VERSINFO_DESCRIPTION,
                                    PluginNameShort, NULL, NULL);
     salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
@@ -106,6 +122,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
     }
 
+    SalamatrixRuntime->Events()->PublishLifecycle(
+        Salamatrix::Events::EventKindHostStartup);
+
     return &PluginInterface;
 }
 
@@ -115,16 +134,25 @@ void WINAPI CPluginInterface::About(HWND parent)
     _snprintf_s(buf, _TRUNCATE,
                 "Salamatrix Framework 0.1\n\n"
                 "Registered services: %s\n"
-                "Service count: %d\n\n"
-                "Provides Salamatrix.UI, Salamatrix.Commands, Salamatrix.FileOperations and the Automation adapter.",
+                "Service count: %d\n"
+                "Runtime adapters: %d\n\n"
+                "Provides Salamatrix.UI, Salamatrix.Commands, Salamatrix.FileOperations, Salamatrix.Runtime, Salamatrix.Sides, Salamatrix.Events, Salamatrix.Extensions, Salamatrix.Storage and the Automation adapter.",
                 SalamatrixRuntime != NULL && SalamatrixRuntime->IsHostRegistered() ? "yes" : "no",
-                SalamatrixRuntime != NULL ? SalamatrixRuntime->Services()->GetCount() : 0);
+                SalamatrixRuntime != NULL ? SalamatrixRuntime->Services()->GetCount() : 0,
+                SalamatrixRuntime != NULL ? SalamatrixRuntime->Runtimes()->GetAdapterCount() : 0);
     SalamanderGeneral->SalMessageBox(parent, buf, PluginNameEN, MB_OK | MB_ICONINFORMATION);
 }
 
 void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,) - Salamatrix Framework");
+
+    // Runtime provider plug-ins can connect before or after the framework.
+    // Re-evaluate package runtime states once the framework itself is fully
+    // connected, so Plugin Manager does not retain an early waiting-for-runtime
+    // classification from a provider-order race.
+    if (SalamatrixPackages != NULL)
+        SalamatrixPackages->Refresh();
 
     if (SalamanderGUI != NULL)
     {
@@ -152,10 +180,65 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     }
 }
 
+void WINAPI CPluginInterface::LoadConfiguration(
+    HWND parent,
+    HKEY regKey,
+    CSalamanderRegistryAbstract* registry)
+{
+    UNREFERENCED_PARAMETER(parent);
+    if (SalamatrixRuntime != NULL)
+        SalamatrixRuntime->Storage()->LoadConfiguration(regKey, registry);
+    if (SalamatrixPackages != NULL)
+    {
+        SalamatrixPackages->LoadConfiguration(regKey, registry);
+        SalamatrixPackages->Refresh();
+    }
+}
+
+void WINAPI CPluginInterface::SaveConfiguration(
+    HWND parent,
+    HKEY regKey,
+    CSalamanderRegistryAbstract* registry)
+{
+    UNREFERENCED_PARAMETER(parent);
+    if (SalamatrixRuntime != NULL)
+        SalamatrixRuntime->Storage()->SaveConfiguration(regKey, registry);
+    if (SalamatrixPackages != NULL)
+        SalamatrixPackages->SaveConfiguration(regKey, registry);
+}
+
+void WINAPI CPluginInterface::Event(int event, DWORD param)
+{
+    if (SalamatrixRuntime != NULL)
+        SalamatrixRuntime->Events()->PublishHostEvent(event, param);
+    if ((event == PLUGINEVENT_CONFIGURATIONCHANGED ||
+         event == PLUGINEVENT_STARTUPCOMPLETE) && SalamatrixPackages != NULL)
+        SalamatrixPackages->Refresh();
+}
+
+void WINAPI CPluginInterface::AcceptChangeOnPathNotification(
+    const char* path,
+    BOOL includingSubdirs)
+{
+    if (SalamatrixRuntime != NULL)
+        Salamatrix::Events::PublishFileSystemChange(
+            SalamatrixRuntime->Events(), path, includingSubdirs);
+}
+
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
+    if (SalamatrixRuntime != NULL)
+        SalamatrixRuntime->Events()->PublishLifecycle(
+            Salamatrix::Events::EventKindHostShutdown);
+    delete SalamatrixPackages;
+    SalamatrixPackages = NULL;
     DestroyRuntimeServices();
     SalamanderGeneral = NULL;
     SalamanderGUI = NULL;
     return TRUE;
+}
+
+CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenuExt()
+{
+    return SalamatrixPackages != NULL ? SalamatrixPackages->GetMenuExtension() : NULL;
 }

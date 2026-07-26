@@ -75,6 +75,10 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
 // the native MessageBox for unsupported/light configurations.
 int DarkModeMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType);
 
+// Wide-character variant for ANSI plugin translation units. Keeps UTF-8
+// service text Unicode-safe while using the same darkmodelib implementation.
+int DarkModeMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType);
+
 #if USE_DARKMODELIB
 #define DARKMODE_RETURN_IF_HANDLED(handled, brushResult) \
     do                                                    \

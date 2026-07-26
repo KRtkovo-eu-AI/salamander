@@ -625,6 +625,10 @@
 #define CM_EDITWITH_MIN       7501     // interval vyhrazeny pro prikazy edit-with
 #define CM_EDITWITH_MAX       7800
 
+// extension toolbar contributions (low-word command ids used by CToolBar)
+#define CM_EXTTOOLBAR_MIN     7801
+#define CM_EXTTOOLBAR_MAX     7999
+
 //#define CM_INTERNALVIEWER_MIN      6000     // interval vyhrazeny pro internal viewer
 //#define CM_INTERNALVIEWER_MAX      6300
 

@@ -1,0 +1,45 @@
+<Project>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release clean'">
+    <OpenSalamanderReleaseClean>true</OpenSalamanderReleaseClean>
+    <OpenSalamanderCopyPdb></OpenSalamanderCopyPdb>
+    <IntDir>$(OPENSAL_BUILD_DIR)salamander\ReleaseCleanIntermediate\$(ProjectName)\</IntDir>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(OpenSalamanderReleaseClean)' != 'true'">
+    <OpenSalamanderCopyPdb>copy_pdb</OpenSalamanderCopyPdb>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(OpenSalamanderReleaseClean)' == 'true'">
+    <ClCompile>
+      <DebugInformationFormat>None</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <ProgramDatabaseFile></ProgramDatabaseFile>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <Target Name="OpenSalamanderReleaseCleanCleanup"
+          AfterTargets="Build"
+          Condition="'$(OpenSalamanderReleaseClean)' == 'true'">
+    <RemoveDir Directories="$(IntDir)"
+               Condition="'$(IntDir)' != '' and Exists('$(IntDir)')"
+               ContinueOnError="WarnAndContinue" />
+    <RemoveDir Directories="$(IntermediateOutputPath)"
+               Condition="'$(IntermediateOutputPath)' != '' and Exists('$(IntermediateOutputPath)')"
+               ContinueOnError="WarnAndContinue" />
+    <ItemGroup>
+      <OpenSalamanderReleaseCleanPdb Include="$(OutDir)**\*.pdb" />
+      <OpenSalamanderReleaseCleanPdb Include="$(TargetDir)**\*.pdb" />
+      <OpenSalamanderReleaseCleanLinkArtifacts Include="$(TargetDir)$(TargetName).lib" />
+      <OpenSalamanderReleaseCleanLinkArtifacts Include="$(TargetDir)$(TargetName).exp" />
+      <OpenSalamanderReleaseCleanLinkArtifacts Include="$(TargetDir)$(TargetName).ilk" />
+    </ItemGroup>
+    <Delete Files="@(OpenSalamanderReleaseCleanPdb)"
+            Condition="'@(OpenSalamanderReleaseCleanPdb)' != ''" />
+    <Delete Files="@(OpenSalamanderReleaseCleanLinkArtifacts)"
+            Condition="'@(OpenSalamanderReleaseCleanLinkArtifacts)' != ''" />
+  </Target>
+</Project>

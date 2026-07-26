@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <commdlg.h>
+
 #ifdef _MSC_VER
 #pragma pack(push, enter_include_spl_gen) // aby byly struktury nezavisle na nastavenem zarovnavani
 #pragma pack(4)
@@ -21,6 +23,29 @@
 
 struct CFileData;
 class CPluginDataInterfaceAbstract;
+
+// Synchronous bridge for provider worker threads that need to call the
+// Salamander UI/panel API.  The callback is executed on the main window
+// thread and must return TRUE on success.
+typedef BOOL(WINAPI* SalamanderMainThreadCallback)(void* context);
+
+struct CSalamanderMainThreadCall
+{
+    DWORD StructSize;
+    SalamanderMainThreadCallback Callback;
+    void* Context;
+
+    CSalamanderMainThreadCall()
+        : StructSize(sizeof(CSalamanderMainThreadCall)),
+          Callback(NULL),
+          Context(NULL)
+    {
+    }
+};
+
+#ifndef WM_USER_SALAMANDER_MAIN_THREAD
+#define WM_USER_SALAMANDER_MAIN_THREAD (WM_APP + 421)
+#endif
 
 //
 // ****************************************************************************
@@ -838,6 +863,54 @@ struct CSalamanderServiceResult
     void* Interface;
     DWORD Version;
     const char* ProviderName;
+};
+
+// Snapshot flags returned by GetPanelTabInfo(). No core panel pointer crosses
+// the plugin ABI; TabId is opaque and remains valid only for this process
+// lifetime and while the tab exists.
+#define PANEL_TAB_FLAG_ACTIVE_ON_SIDE 0x00000001
+#define PANEL_TAB_FLAG_SOURCE 0x00000002
+#define PANEL_TAB_FLAG_TARGET 0x00000004
+#define PANEL_TAB_FLAG_LOCKED 0x00000008
+#define PANEL_TAB_FLAG_DETACHED 0x00000010
+
+struct CSalamanderPanelTabInfo
+{
+    DWORD StructSize;
+    ULONGLONG TabId;
+    int Side; // PANEL_LEFT or PANEL_RIGHT
+    int Index;
+    int PathType; // PATH_TYPE_XXX
+    DWORD Flags;  // PANEL_TAB_FLAG_XXX
+};
+
+// A command contributed by a plug-in to Salamander's configurable main
+// toolbar.  The command id is the plug-in's own menu-extension command id;
+// Salamander assigns the low-word toolbar id internally.
+struct CSalamanderToolbarButton
+{
+    DWORD StructSize;
+    int CommandId;
+    const char* Title;
+    // Optional SVG assets owned by the plug-in/extension package.  Paths are
+    // UTF-8 and remain valid only for the duration of RegisterToolbarButton.
+    // IconDarkPath is preferred when Salamander runs in dark mode; when it is
+    // missing, the core derives the normal/gray image from IconPath.
+    const char* IconPath;
+    const char* IconDarkPath;
+    // Optional stable configuration key. It must not contain a comma and is
+    // used for toolbar placement persistence across Salamander restarts.
+    const char* StableId;
+
+    CSalamanderToolbarButton()
+        : StructSize(sizeof(CSalamanderToolbarButton)),
+          CommandId(0),
+          Title(NULL),
+          IconPath(NULL),
+          IconDarkPath(NULL),
+          StableId(NULL)
+    {
+    }
 };
 
 class CSalamanderGeneralAbstract
@@ -3475,6 +3548,53 @@ public:
     virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName) = 0;
     virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface) = 0;
     virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) = 0;
+
+    // Panel-tab snapshot API. These methods are main-thread only and deliberately
+    // expose opaque ids plus copied data instead of CFilesWindow pointers.
+    virtual int WINAPI GetPanelTabCount(int side) = 0;
+    virtual BOOL WINAPI GetPanelTabInfo(int side, int index, CSalamanderPanelTabInfo* info) = 0;
+    virtual BOOL WINAPI GetPanelTabPath(ULONGLONG tabId, char* buffer, int bufferSize, int* pathType) = 0;
+    virtual BOOL WINAPI ActivatePanelTab(ULONGLONG tabId, BOOL focus) = 0;
+
+    // Owner-aware service lifecycle API.  These methods are appended after
+    // the existing panel API so the vtable offsets of every previously
+    // published method remain unchanged.  RegisterService/QueryService stay
+    // available for older providers; new providers should use the owned form
+    // and consumers should hold a short lease while calling a borrowed
+    // service interface.
+    virtual BOOL WINAPI RegisterServiceOwned(const char* serviceId, DWORD version,
+                                             void* serviceInterface,
+                                             const char* providerName,
+                                             void* providerOwner) = 0;
+    virtual BOOL WINAPI UnregisterServiceOwned(const char* serviceId,
+                                               void* serviceInterface,
+                                               void* providerOwner) = 0;
+    virtual BOOL WINAPI AcquireService(const char* serviceId,
+                                       void* serviceInterface,
+                                       void* consumerOwner) = 0;
+    virtual BOOL WINAPI ReleaseService(const char* serviceId,
+                                       void* serviceInterface,
+                                       void* consumerOwner) = 0;
+
+    // Synchronously execute a callback on Salamander's main/UI thread.
+    // Appended to preserve the published SDK vtable prefix.
+    virtual BOOL WINAPI InvokeOnMainThread(
+        SalamanderMainThreadCallback callback,
+        void* context,
+        DWORD timeoutMs) = 0;
+
+    // Dynamic toolbar contributions.  Appended to preserve the published
+    // SDK vtable prefix used by older plug-ins.
+    virtual BOOL WINAPI RegisterToolbarButton(
+        const CSalamanderToolbarButton* button) = 0;
+    virtual BOOL WINAPI UnregisterToolbarButton(int commandId) = 0;
+
+    virtual BOOL WINAPI CreatePanelTab(int side, const char* path, int insertIndex,
+                                       ULONGLONG* tabId) = 0;
+    virtual BOOL WINAPI ClosePanelTabById(ULONGLONG tabId) = 0;
+    virtual BOOL WINAPI ReorderPanelTab(ULONGLONG tabId, int newIndex) = 0;
+    virtual BOOL WINAPI MovePanelTab(ULONGLONG tabId, int targetSide, int targetIndex) = 0;
+    virtual BOOL WINAPI SetPanelsDetached(BOOL detached) = 0;
 };
 
 #ifdef _MSC_VER

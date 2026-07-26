@@ -88,6 +88,14 @@ bool CScriptEngineAssociations::FindEngineByExt(
             RegCloseKey(hkFileType);
         }
 
+        // Windows may temporarily have no class association during startup
+        // (or on installations where .js is not registered). JScript has a
+        // stable system CLSID, so do not cache a transient registry miss as
+        // permanent runtime unavailability.
+        if (FAILED(hr))
+            hr = QueryHardcodedScriptEngineAssociation(
+                pszExt, &sNewAssoc.clsidEngine);
+
         if (SUCCEEDED(hr))
         {
             if (clsidEngine != NULL)

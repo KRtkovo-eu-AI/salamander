@@ -79,6 +79,24 @@ utils\ssleay32.dll
 utils\dbghelp.dll
 ```
 
+### Salamatrix AI local model assets
+
+The optional `Salamatrix AI Local Llama` companion plug-in uses a pinned
+official CPU x64 llama.cpp release and a lightweight Qwen2.5-Coder GGUF model.
+Stage these assets before building that companion plug-in:
+
+```powershell
+.\tools\vcpkg\build-salamatrixai-assets.ps1
+msbuild .\src\plugins\salamatrixailocalllama\vcxproj\local_llama.vcxproj /p:Configuration=Debug /p:Platform=x64
+```
+
+The downloader verifies SHA-256 hashes, writes the assets to
+`build\libs\salamatrixai`, and never starts Salamander. The plug-in build then
+copies the executable, its llama.cpp DLLs, the model, and the accompanying
+license/manifest files to `plugins\salamatrixailocalllama\runtime`. The model is not a
+vcpkg library dependency: vcpkg can build llama.cpp, but it does not provide
+the model weights or their redistribution terms.
+
 With `-SftpPlugin`, the following are also installed into
 `build\vcpkg_installed_sftp\`. Use `-OnlySftpPlugin` when you only need
 these SFTP dependencies and want to skip the legacy third-party DLL manifest:

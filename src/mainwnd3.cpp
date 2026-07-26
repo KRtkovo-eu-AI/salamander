@@ -134,6 +134,130 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
     return panel;
 }
 
+BOOL CMainWindow::CreatePanelTab(CPanelSide side, const char* path, int insertIndex,
+                                 ULONGLONG* tabId)
+{
+    if (!Configuration.UsePanelTabs || (side != cpsLeft && side != cpsRight) ||
+        tabId == NULL || insertIndex < -1 || insertIndex == 0)
+        return FALSE;
+
+    *tabId = 0;
+    CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
+    CFilesWindow* panel = AddPanelTab(side, insertIndex);
+    if (panel == NULL)
+        return FALSE;
+
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    {
+        int index = GetPanelTabIndex(side, panel);
+        TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+        if (index >= 0)
+        {
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->RemoveTab(index);
+            tabs.Delete(index);
+        }
+        delete panel;
+        if (previous != NULL)
+            SwitchPanelTab(previous);
+        else
+            UpdatePanelTabVisibility(side);
+        return FALSE;
+    }
+
+    const char* targetPath = path != NULL && path[0] != 0 ? path :
+                             (previous != NULL ? previous->GetPath() : panel->GetPath());
+    if (targetPath != NULL && targetPath[0] != 0 && !panel->ChangeDir(targetPath))
+    {
+        ClosePanelTab(panel, false);
+        if (previous != NULL)
+            SwitchPanelTab(previous);
+        return FALSE;
+    }
+
+    UpdatePanelTabTitle(panel);
+    SwitchPanelTab(panel);
+    *tabId = panel->GetPanelTabId();
+    Plugins.Event(PLUGINEVENT_TABCHANGED, side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
+    return *tabId != 0;
+}
+
+BOOL CMainWindow::ClosePanelTabById(ULONGLONG tabId)
+{
+    if (!Configuration.UsePanelTabs || tabId == 0)
+        return FALSE;
+    const CPanelSide sides[] = {cpsLeft, cpsRight};
+    for (int i = 0; i < _countof(sides); ++i)
+    {
+        int count = GetPanelTabCount(sides[i]);
+        for (int index = 1; index < count; ++index)
+        {
+            CFilesWindow* panel = GetPanelTabAt(sides[i], index);
+            if (panel != NULL && panel->GetPanelTabId() == tabId)
+            {
+                if (panel->IsTabLocked())
+                    return FALSE;
+                ClosePanelTab(panel);
+                return GetPanelTabAt(sides[i], index) != panel;
+            }
+        }
+    }
+    return FALSE;
+}
+
+BOOL CMainWindow::ReorderPanelTab(ULONGLONG tabId, int newIndex)
+{
+    if (!Configuration.UsePanelTabs || tabId == 0)
+        return FALSE;
+    const CPanelSide sides[] = {cpsLeft, cpsRight};
+    for (int i = 0; i < _countof(sides); ++i)
+    {
+        CPanelSide side = sides[i];
+        int count = GetPanelTabCount(side);
+        for (int index = 1; index < count; ++index)
+        {
+            CFilesWindow* panel = GetPanelTabAt(side, index);
+            if (panel == NULL || panel->GetPanelTabId() != tabId)
+                continue;
+            if (panel->IsTabLocked() || newIndex <= 0 || newIndex >= count || newIndex == index)
+                return FALSE;
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->MoveTab(index, newIndex);
+            else
+                OnPanelTabReordered(side, index, newIndex);
+            return GetPanelTabAt(side, newIndex) == panel;
+        }
+    }
+    return FALSE;
+}
+
+BOOL CMainWindow::MovePanelTab(ULONGLONG tabId, CPanelSide targetSide, int targetIndex)
+{
+    if (!Configuration.UsePanelTabs || tabId == 0 || (targetSide != cpsLeft && targetSide != cpsRight))
+        return FALSE;
+    const CPanelSide sides[] = {cpsLeft, cpsRight};
+    for (int i = 0; i < _countof(sides); ++i)
+    {
+        CPanelSide sourceSide = sides[i];
+        int count = GetPanelTabCount(sourceSide);
+        for (int index = 1; index < count; ++index)
+        {
+            CFilesWindow* panel = GetPanelTabAt(sourceSide, index);
+            if (panel == NULL || panel->GetPanelTabId() != tabId)
+                continue;
+            if (panel->IsTabLocked())
+                return FALSE;
+            if (sourceSide == targetSide)
+                return ReorderPanelTab(tabId, targetIndex);
+            return CommandMoveTabToOtherSide(sourceSide, panel, targetIndex) >= 0;
+        }
+    }
+    return FALSE;
+}
+
 bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState)
 {
     if (panel == NULL)
@@ -410,6 +534,9 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
             DestroyWindow(panelWindow);
         else
             delete panel;
+        Plugins.Event(
+            PLUGINEVENT_TABCHANGED,
+            side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
         if (Created)
             RefreshCommandStates();
         return;
@@ -445,6 +572,9 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
         if (activePanel != NULL)
             EnsurePanelRefreshAndRequest(activePanel, true, true);
     }
+    Plugins.Event(
+        PLUGINEVENT_TABCHANGED,
+        side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
 }
 
 bool CMainWindow::HasClosedTab(CPanelSide side) const
@@ -1266,6 +1396,7 @@ void CMainWindow::OnPanelTabReordered(CPanelSide side, int from, int to)
     if (to > tabs.Count)
         to = tabs.Count;
     tabs.Insert(to, panel);
+    Plugins.Event(PLUGINEVENT_TABCHANGED, side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
 }
 
 void CMainWindow::OnPanelTabDragStarted(CPanelSide side, int index)
@@ -1608,6 +1739,9 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 
     UpdatePanelTabTitle(panel);
     SwitchPanelTab(panel);
+    Plugins.Event(
+        PLUGINEVENT_TABCHANGED,
+        side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
 }
 
 void CMainWindow::CommandCloseTab(CPanelSide side)
@@ -2307,6 +2441,8 @@ int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targe
     else
         UpdateDirectoryLineHistoryState(panel);
     SwitchPanelTab(panel);
+    Plugins.Event(PLUGINEVENT_TABCHANGED, side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
+    Plugins.Event(PLUGINEVENT_TABCHANGED, targetSide == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
     return insertIndex;
 }
 
@@ -3700,6 +3836,16 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_USER_SALAMANDER_MAIN_THREAD:
+    {
+        CSalamanderMainThreadCall* call =
+            reinterpret_cast<CSalamanderMainThreadCall*>(lParam);
+        if (call == NULL || call->StructSize < sizeof(CSalamanderMainThreadCall) ||
+            call->Callback == NULL)
+            return 0;
+        return call->Callback(call->Context) ? 1 : 0;
+    }
+
     case WM_NCCREATE:
     {
         EnableNonClientDPIScalingIfAvailable(HWindow);
@@ -5011,6 +5157,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (LOWORD(wParam) >= CM_PLUGINCFG_MIN && LOWORD(wParam) <= CM_PLUGINCFG_MAX)
         {
             Plugins.OnPluginConfiguration(HWindow, LOWORD(wParam) - CM_PLUGINCFG_MIN);
+            return 0;
+        }
+
+        if (LOWORD(wParam) >= CM_EXTTOOLBAR_MIN &&
+            LOWORD(wParam) <= CM_EXTTOOLBAR_MAX)
+        {
+            BOOL unselect = FALSE;
+            if (Plugins.ExecuteToolbarButton(activePanel, HWindow,
+                                              LOWORD(wParam), unselect) &&
+                unselect)
+            {
+                activePanel->StoreSelection();
+                activePanel->SetSel(FALSE, -1, TRUE);
+                PostMessage(activePanel->HWindow, WM_USER_SELCHANGED, 0, 0);
+            }
+            UpdateWindow(HWindow);
             return 0;
         }
 

@@ -23,12 +23,31 @@
 #include "consts.h"
 #include "darkmode.h"
 #include "svg.h"
+#include "plugins/salamatrix/salamatrix_storage.h"
+#include "plugins/salamatrix/salamatrix_ui.h"
 #include "third_party/darkmodelib/include/Darkmodelib.h"
 
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // after reopening Plugins Manager, select the last chosen plugin
 
 namespace
 {
+BOOL HasStablePluginKey(const char* value, const char* stableKey)
+{
+    if (value == NULL || stableKey == NULL)
+        return FALSE;
+
+    int stableKeyLength = (int)strlen(stableKey);
+    if ((int)strlen(value) < stableKeyLength)
+        return FALSE;
+    return StrNICmp(value, stableKey, stableKeyLength) == 0 &&
+           (value[stableKeyLength] == 0 || value[stableKeyLength] == '-' || value[stableKeyLength] == '_');
+}
+
+BOOL IsPluginName(const char* value, const char* name)
+{
+    return value != NULL && name != NULL && StrICmp(value, name) == 0;
+}
+
 bool ShouldUsePluginsDarkPalette()
 {
     return DarkModeShouldUseDarkColors();
@@ -92,12 +111,297 @@ void SetPluginManagerText(HWND ctrl, const char* text)
 
     SetWindowText(ctrl, text);
 }
+
+Salamatrix::Extensions::IExtensionsService* QueryExtensionService()
+{
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = SALAMATRIX_SERVICE_EXTENSIONS;
+    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_2;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
+        return NULL;
+    return static_cast<Salamatrix::Extensions::IExtensionsService*>(result.Interface);
+}
+
+Salamatrix::Storage::IStorageService* QueryExtensionStorageService()
+{
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = SALAMATRIX_SERVICE_STORAGE;
+    query.MinimumVersion = SALAMATRIX_STORAGE_VERSION_1_0;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
+        return NULL;
+    return static_cast<Salamatrix::Storage::IStorageService*>(result.Interface);
+}
+
+Salamatrix::UI::IUIService* QueryExtensionUIService()
+{
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = SALAMATRIX_SERVICE_UI;
+    query.MinimumVersion = SALAMATRIX_UI_VERSION_1_0;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
+        return NULL;
+    return static_cast<Salamatrix::UI::IUIService*>(result.Interface);
+}
 }
 
 //
 // ****************************************************************************
 // CPluginsDlg
 //
+
+namespace
+{
+enum
+{
+    MaxPluginManagerExtensionSettings = 24
+};
+
+struct CExtensionSettingsControl
+{
+    Salamatrix::Extensions::ExtensionSettingInfo Setting;
+    Salamatrix::UI::IControl* Control;
+};
+
+BOOL ConfigureManifestExtensionSettings(
+    HWND parent,
+    const Salamatrix::Extensions::ExtensionInfo& extension,
+    Salamatrix::Extensions::IExtensionsService* extensions,
+    Salamatrix::Storage::IStorageService* storage,
+    Salamatrix::UI::IUIService* ui)
+{
+    if (extensions == NULL || storage == NULL || ui == NULL)
+        return FALSE;
+    const int settingCount = extensions->GetExtensionSettingCount(
+        extension.Descriptor.Id);
+    if (settingCount <= 0)
+        return FALSE;
+    if (settingCount > MaxPluginManagerExtensionSettings)
+    {
+        SalMessageBox(
+            parent, LoadStr(IDS_PLUGINEXTCONFIGTOOMANY),
+            LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+
+    std::vector<Salamatrix::Extensions::ExtensionSettingInfo> settings(settingCount);
+    int contentHeight = 12;
+    for (int index = 0; index < settingCount; ++index)
+    {
+        if (!extensions->GetExtensionSettingInfo(
+                extension.Descriptor.Id, index, &settings[index]))
+            return FALSE;
+        contentHeight += settings[index].Multiline ? 64 : 28;
+    }
+
+    Salamatrix::UI::DialogOptions options;
+    options.Title = extension.Descriptor.Name;
+    options.Parent = parent;
+    options.Width = 440;
+    options.Height = static_cast<short>(72 + contentHeight);
+    Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
+    if (dialog == NULL)
+        return FALSE;
+
+    std::vector<CExtensionSettingsControl> controls;
+    BOOL valid = TRUE;
+    for (int index = 0; index < settingCount && valid; ++index)
+    {
+        CExtensionSettingsControl entry;
+        entry.Control = NULL;
+        entry.Setting = settings[index];
+
+        const char* label = entry.Setting.Label[0] != 0
+                                ? entry.Setting.Label
+                                : entry.Setting.Key;
+        std::string displayLabel;
+        if (entry.Setting.Group[0] != 0)
+        {
+            displayLabel = entry.Setting.Group;
+            displayLabel += ": ";
+        }
+        displayLabel += label;
+
+        Salamatrix::UI::ControlOptions controlOptions;
+        Salamatrix::UI::ControlLayout layout;
+        layout.HasBounds = TRUE;
+        layout.X = 12;
+        layout.Y = 12;
+        for (int previous = 0; previous < index; ++previous)
+            layout.Y += settings[previous].Multiline ? 64 : 28;
+        layout.Width = 408;
+        layout.Height = entry.Setting.Multiline ? 54 : 18;
+        if (entry.Setting.Type == Salamatrix::Extensions::ExtensionSettingBoolean)
+        {
+            controlOptions.Id = entry.Setting.Key;
+            controlOptions.Text = displayLabel.c_str();
+            BOOL checked = FALSE;
+            if (storage->GetValueType(
+                    extension.Descriptor.Id, entry.Setting.Key) ==
+                Salamatrix::Storage::StorageValueBoolean)
+            {
+                storage->GetBoolean(
+                    extension.Descriptor.Id, entry.Setting.Key, &checked);
+            }
+            controlOptions.Checked = checked;
+            entry.Control = dialog->AddControlEx(
+                Salamatrix::UI::ControlKindCheckBox, controlOptions, layout);
+        }
+        else
+        {
+            Salamatrix::UI::ControlOptions labelOptions;
+            char labelId[140];
+            _snprintf_s(
+                labelId, _countof(labelId), _TRUNCATE,
+                "label.%s", entry.Setting.Key);
+            labelOptions.Id = labelId;
+            labelOptions.Text = displayLabel.c_str();
+            Salamatrix::UI::ControlLayout labelLayout = layout;
+            labelLayout.Width = 150;
+            if (dialog->AddControlEx(
+                    Salamatrix::UI::ControlKindLabel,
+                    labelOptions, labelLayout) == NULL)
+            {
+                valid = FALSE;
+                break;
+            }
+            controlOptions.Id = entry.Setting.Key;
+            std::vector<char> value(16385, 0);
+            if (entry.Setting.Type == Salamatrix::Extensions::ExtensionSettingInteger)
+            {
+                LONGLONG integerValue = 0;
+                if (storage->GetValueType(
+                        extension.Descriptor.Id, entry.Setting.Key) ==
+                    Salamatrix::Storage::StorageValueInteger)
+                {
+                    storage->GetInteger(
+                        extension.Descriptor.Id, entry.Setting.Key, &integerValue);
+                }
+                _snprintf_s(
+                    &value[0], value.size(), _TRUNCATE, "%lld", integerValue);
+            }
+            else if (storage->GetValueType(
+                         extension.Descriptor.Id, entry.Setting.Key) ==
+                     Salamatrix::Storage::StorageValueString)
+            {
+                storage->GetString(
+                    extension.Descriptor.Id, entry.Setting.Key,
+                    &value[0], static_cast<int>(value.size()), NULL);
+            }
+            controlOptions.Text = &value[0];
+            controlOptions.Multiline = entry.Setting.Multiline;
+            layout.X = 170;
+            layout.Width = entry.Setting.Width;
+            if (layout.Width < 120)
+                layout.Width = 120;
+            if (layout.Width > options.Width - layout.X - 12)
+                layout.Width = options.Width - layout.X - 12;
+            entry.Control = dialog->AddControlEx(
+                Salamatrix::UI::ControlKindTextBox, controlOptions, layout);
+        }
+        if (entry.Control == NULL)
+            valid = FALSE;
+        else
+            controls.push_back(entry);
+    }
+
+    Salamatrix::UI::ControlOptions okOptions;
+    okOptions.Id = "ok";
+    okOptions.Text = LoadStr(IDS_BUTTON_OK);
+    okOptions.DialogResult = IDOK;
+    Salamatrix::UI::ControlLayout okLayout;
+    okLayout.HasBounds = TRUE;
+    okLayout.X = 280;
+    okLayout.Y = options.Height - 30;
+    okLayout.Width = 65;
+    okLayout.Height = 18;
+    Salamatrix::UI::ControlOptions cancelOptions;
+    cancelOptions.Id = "cancel";
+    cancelOptions.Text = LoadStr(IDS_BUTTON_CANCEL);
+    cancelOptions.DialogResult = IDCANCEL;
+    Salamatrix::UI::ControlLayout cancelLayout = okLayout;
+    cancelLayout.X = 355;
+    if (dialog->AddControlEx(
+            Salamatrix::UI::ControlKindButton, okOptions, okLayout) == NULL ||
+        dialog->AddControlEx(
+            Salamatrix::UI::ControlKindButton, cancelOptions, cancelLayout) == NULL)
+    {
+        valid = FALSE;
+    }
+
+    const int result = valid ? dialog->ShowModal() : IDCANCEL;
+    if (result != IDOK)
+    {
+        ui->DestroyDialog(dialog);
+        return FALSE;
+    }
+
+    for (size_t index = 0; index < controls.size(); ++index)
+    {
+        CExtensionSettingsControl& entry = controls[index];
+        BOOL saved = FALSE;
+        if (entry.Setting.Type == Salamatrix::Extensions::ExtensionSettingBoolean)
+        {
+            saved = storage->SetBoolean(
+                extension.Descriptor.Id, entry.Setting.Key,
+                entry.Control->GetChecked());
+        }
+        else
+        {
+            std::vector<char> value(16385, 0);
+            if (!entry.Control->GetText(&value[0], static_cast<DWORD>(value.size())))
+            {
+                ui->DestroyDialog(dialog);
+                return FALSE;
+            }
+            if (entry.Setting.Type == Salamatrix::Extensions::ExtensionSettingInteger)
+            {
+                char* end = NULL;
+                errno = 0;
+                const LONGLONG integerValue = _strtoi64(&value[0], &end, 10);
+                while (end != NULL && (*end == ' ' || *end == '\t'))
+                    ++end;
+                if (errno != 0 || end == &value[0] || (end != NULL && *end != 0))
+                {
+                    char message[512];
+                    _snprintf_s(
+                        message, _countof(message), _TRUNCATE,
+                        LoadStr(IDS_PLUGINEXTCONFIGINTEGER), entry.Setting.Key);
+                    SalMessageBox(
+                        parent, message, LoadStr(IDS_ERRORTITLE),
+                        MB_OK | MB_ICONEXCLAMATION);
+                    ui->DestroyDialog(dialog);
+                    return FALSE;
+                }
+                saved = storage->SetInteger(
+                    extension.Descriptor.Id, entry.Setting.Key, integerValue);
+            }
+            else
+            {
+                saved = storage->SetString(
+                    extension.Descriptor.Id, entry.Setting.Key, &value[0]);
+            }
+        }
+        if (!saved)
+        {
+            SalMessageBox(
+                parent, LoadStr(IDS_PLUGINEXTCONFIGSAVEFAILED),
+                LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            ui->DestroyDialog(dialog);
+            return FALSE;
+        }
+    }
+    ui->DestroyDialog(dialog);
+    return TRUE;
+}
+} // namespace
 
 CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, IDD_PLUGINS, hParent)
 {
@@ -111,6 +415,137 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     ShowInBarText[0] = 0;
     ShowInChDrvText[0] = 0;
     InstalledPluginsText[0] = 0;
+    PluginTestText[0] = 0;
+}
+
+void CPluginsDlg::RefreshExtensionRows()
+{
+    ExtensionRows.clear();
+
+    Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
+    if (service == NULL)
+        return;
+    int count = service->GetExtensionCount();
+    for (int index = 0; index < count; ++index)
+    {
+        Salamatrix::Extensions::ExtensionInfo info;
+        if (service->GetExtensionInfo(index, &info))
+            ExtensionRows.push_back(info);
+    }
+}
+
+void CPluginsDlg::LoadExtensionImages(HIMAGELIST imageList)
+{
+    ExtensionImageIndices.assign(ExtensionRows.size(), -1);
+    if (imageList == NULL)
+        return;
+
+    int iconWidth = 0;
+    int iconHeight = 0;
+    if (!ImageList_GetIconSize(imageList, &iconWidth, &iconHeight) ||
+        iconWidth <= 0 || iconWidth != iconHeight)
+        return;
+
+    const BOOL darkMode = DarkModeShouldUseDarkColors();
+    for (size_t index = 0; index < ExtensionRows.size(); ++index)
+    {
+        const Salamatrix::Extensions::ExtensionDescriptor& descriptor =
+            ExtensionRows[index].Descriptor;
+        const char* iconPath = descriptor.IconPath;
+        const char* preferredPath = darkMode && descriptor.IconDarkPath[0] != 0
+                                        ? descriptor.IconDarkPath
+                                        : descriptor.IconPath;
+        if (iconPath == NULL || iconPath[0] == 0)
+            continue;
+
+        HBITMAP bitmap = NULL;
+        BOOL generatedDarkFallback =
+            darkMode && preferredPath == iconPath;
+        BOOL rendered = RenderSVGIconBitmapFromFile(
+            preferredPath, iconWidth, TRUE, &bitmap);
+        if (!rendered && preferredPath != iconPath)
+        {
+            if (bitmap != NULL)
+                HANDLES(DeleteObject(bitmap));
+            bitmap = NULL;
+            rendered = RenderSVGIconBitmapFromFile(
+                iconPath, iconWidth, TRUE, &bitmap);
+            generatedDarkFallback = darkMode;
+        }
+        if (!rendered || bitmap == NULL)
+            continue;
+
+        // Prefer a package-supplied dark SVG.  If it is absent or invalid,
+        // keep the extension visible in dark mode by deriving a dark-friendly
+        // bitmap from the normal artwork, just like toolbar contributions do.
+        if (generatedDarkFallback)
+        {
+            HBITMAP darkBitmap = NULL;
+            if (CreateDarkModeIconBitmap(bitmap, &darkBitmap))
+            {
+                HANDLES(DeleteObject(bitmap));
+                bitmap = darkBitmap;
+            }
+            else if (darkBitmap != NULL)
+            {
+                HANDLES(DeleteObject(darkBitmap));
+            }
+        }
+        int imageIndex = ImageList_Add(imageList, bitmap, NULL);
+        HANDLES(DeleteObject(bitmap));
+        if (imageIndex >= 0)
+            ExtensionImageIndices[index] = imageIndex;
+    }
+}
+
+void CPluginsDlg::AppendExtensionRows(BOOL setOnly)
+{
+    const int pluginCount = Plugins.GetCount();
+    for (int index = 0; index < static_cast<int>(ExtensionRows.size()); ++index)
+    {
+        const int listIndex = pluginCount + index;
+        const Salamatrix::Extensions::ExtensionInfo& extension = ExtensionRows[index];
+        if (!setOnly)
+        {
+            LVITEM item;
+            memset(&item, 0, sizeof(item));
+            item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
+            item.iItem = listIndex;
+            item.iImage = index < static_cast<int>(ExtensionImageIndices.size())
+                              ? ExtensionImageIndices[index]
+                              : -1;
+            char emptyText[] = "";
+            item.pszText = emptyText;
+            // Negative values identify rows that are not CPluginData records.
+            item.lParam = -static_cast<LPARAM>(index + 1);
+            ListView_InsertItem(HListView, &item);
+        }
+
+        if (index < static_cast<int>(ExtensionImageIndices.size()))
+        {
+            LVITEM imageItem;
+            memset(&imageItem, 0, sizeof(imageItem));
+            imageItem.mask = LVIF_IMAGE;
+            imageItem.iItem = listIndex;
+            imageItem.iImage = ExtensionImageIndices[index];
+            ListView_SetItem(HListView, &imageItem);
+        }
+
+        ListView_SetItemText(
+            HListView, listIndex, 0,
+            const_cast<char*>(extension.Descriptor.Name));
+        ListView_SetItemText(
+            HListView, listIndex, 1,
+            LoadStr(extension.State == Salamatrix::Extensions::ExtensionStateActive
+                         ? IDS_PLUGINS_LOADED_YES
+                         : IDS_PLUGINS_LOADED_NO));
+        ListView_SetItemText(
+            HListView, listIndex, 2,
+            const_cast<char*>(extension.Descriptor.Version));
+        ListView_SetItemText(
+            HListView, listIndex, 3,
+            const_cast<char*>(extension.Descriptor.EntryPoint));
+    }
 }
 
 void CPluginsDlg::ApplyTheme()
@@ -194,18 +629,33 @@ void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData*
 {
     SendMessage(HListView, WM_SETREDRAW, FALSE, 0);
 
+    const int previousExtensionCount = static_cast<int>(ExtensionRows.size());
+    RefreshExtensionRows();
+    // A changed extension count changes the list-view row layout, so rebuild
+    // the rows instead of attempting an in-place update with stale indexes.
+    if (setOnly && previousExtensionCount != static_cast<int>(ExtensionRows.size()))
+        setOnly = FALSE;
+
     HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE); // destruction is handled by the listview
     HIMAGELIST hOldIcons = ListView_SetImageList(HListView, hIcons, LVSIL_SMALL);
     if (hOldIcons != NULL)
         ImageList_Destroy(hOldIcons);
+    LoadExtensionImages(hIcons);
 
     int numOfLoaded = 0;
     Plugins.AddNamesToListView(HListView, setOnly, &numOfLoaded);
+    AppendExtensionRows(setOnly);
+
+    for (size_t index = 0; index < ExtensionRows.size(); ++index)
+        if (ExtensionRows[index].State == Salamatrix::Extensions::ExtensionStateActive)
+            ++numOfLoaded;
 
     if (Header != NULL)
     {
         char buf[300];
-        sprintf(buf, InstalledPluginsText, Plugins.GetCount(), numOfLoaded);
+        sprintf(buf, InstalledPluginsText,
+                Plugins.GetCount() + static_cast<int>(ExtensionRows.size()),
+                numOfLoaded);
         SendMessage(Header->HWindow, WM_SETREDRAW, FALSE, 0);
         SetWindowText(Header->HWindow, buf);
         SendMessage(Header->HWindow, WM_SETREDRAW, TRUE, 0);
@@ -255,14 +705,39 @@ void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData*
 
 void CPluginsDlg::EnableButtons(CPluginData* plugin)
 {
+    Salamatrix::Extensions::ExtensionInfo* extension =
+        plugin == NULL ? GetSelectedExtension() : NULL;
+    const BOOL extensionActionable =
+        extension != NULL &&
+        extension->State != Salamatrix::Extensions::ExtensionStateActivating &&
+        extension->State != Salamatrix::Extensions::ExtensionStateDeactivating;
+    Salamatrix::Extensions::IExtensionsService* extensionService =
+        extension != NULL ? QueryExtensionService() : NULL;
+    const BOOL extensionConfigurable =
+        extension != NULL && extensionService != NULL &&
+        extensionService->GetExtensionSettingCount(
+            extension->Descriptor.Id) > 0;
+
+    if (extension != NULL)
+    {
+        SetWindowText(
+            GetDlgItem(HWindow, IDB_PLUGINTEST),
+            LoadStr(extension->State == Salamatrix::Extensions::ExtensionStateActive
+                        ? IDS_PLUGINEXTDEACTIVATE
+                        : IDS_PLUGINEXTACTIVATE));
+    }
+    else if (PluginTestText[0] != 0)
+        SetWindowText(GetDlgItem(HWindow, IDB_PLUGINTEST), PluginTestText);
+
     HWND focus = GetFocus();
     BOOL changeFocus = FALSE;
     if (GetDlgItem(HWindow, IDB_PLUGINREMOVE) == focus && plugin == NULL)
         changeFocus = TRUE;
     EnableWindow(GetDlgItem(HWindow, IDB_PLUGINREMOVE), plugin != NULL);
-    if (GetDlgItem(HWindow, IDB_PLUGINTEST) == focus && plugin == NULL)
+    if (GetDlgItem(HWindow, IDB_PLUGINTEST) == focus &&
+        plugin == NULL && !extensionActionable)
         changeFocus = TRUE;
-    EnableWindow(GetDlgItem(HWindow, IDB_PLUGINTEST), plugin != NULL);
+    EnableWindow(GetDlgItem(HWindow, IDB_PLUGINTEST), plugin != NULL || extensionActionable);
     if (GetDlgItem(HWindow, IDB_PLUGINTESTALL) == focus && plugin == NULL)
         changeFocus = TRUE;
     EnableWindow(GetDlgItem(HWindow, IDB_PLUGINTESTALL), plugin != NULL);
@@ -277,9 +752,13 @@ void CPluginsDlg::EnableButtons(CPluginData* plugin)
         changeFocus = TRUE;
     EnableWindow(GetDlgItem(HWindow, IDB_PLUGINUNLOAD), plugin != NULL && plugin->GetLoaded());
     if (GetDlgItem(HWindow, IDB_PLUGINCONFIG) == focus &&
-        (plugin == NULL || !plugin->SupportConfiguration))
+        ((plugin != NULL && !plugin->SupportConfiguration) ||
+         (plugin == NULL && !extensionConfigurable)))
         changeFocus = TRUE;
-    EnableWindow(GetDlgItem(HWindow, IDB_PLUGINCONFIG), plugin != NULL && plugin->SupportConfiguration);
+    EnableWindow(
+        GetDlgItem(HWindow, IDB_PLUGINCONFIG),
+        (plugin != NULL && plugin->SupportConfiguration) ||
+            extensionConfigurable);
     if (GetDlgItem(HWindow, IDB_PLUGINKEYS) == focus &&
         (plugin == NULL || plugin->MenuItems.Count == 0 && !plugin->SupportDynMenuExt))
         changeFocus = TRUE;
@@ -316,6 +795,8 @@ void CPluginsDlg::EnableHeader()
 void CPluginsDlg::OnSelChanged()
 {
     CPluginData* p = GetSelectedPlugin();
+    Salamatrix::Extensions::ExtensionInfo* extension =
+        p == NULL ? GetSelectedExtension() : NULL;
     HWND showInBar = GetDlgItem(HWindow, IDC_PLUGINSHOWINBAR);
     HWND showInChDrv = GetDlgItem(HWindow, IDC_PLUGINSHOWINCHDRV);
     if (p != NULL)
@@ -357,8 +838,25 @@ void CPluginsDlg::OnSelChanged()
         // Functions
         // Salamatrix may already be installed in user configurations saved before
         // Preserve older configurations; identify Salamatrix by its stable registry key too.
-        BOOL supportAutomationFramework = p->SupportAutomationFramework ||
-                                        (p->RegKeyName != NULL && StrICmp(p->RegKeyName, "SALAMATRIX") == 0);
+        BOOL isSalamatrixProvider =
+            HasStablePluginKey(p->RegKeyName, "SALAMATRIX") ||
+            IsPluginName(p->Name, "Salamatrix Framework");
+        BOOL isExtensionRuntime =
+            HasStablePluginKey(p->RegKeyName, "JAVASCRIPT.RUNTIME") ||
+            HasStablePluginKey(p->RegKeyName, "PHP.RUNTIME") ||
+            HasStablePluginKey(p->RegKeyName, "POWERSHELL.RUNTIME") ||
+            HasStablePluginKey(p->RegKeyName, "PYTHON.RUNTIME") ||
+            IsPluginName(p->Name, "JavaScript Runtime") ||
+            IsPluginName(p->Name, "PHP Runtime") ||
+            IsPluginName(p->Name, "PowerShell Runtime") ||
+            IsPluginName(p->Name, "Python Runtime");
+        BOOL isExtensionHelper =
+            HasStablePluginKey(p->RegKeyName, "SALAMATRIX.AI") ||
+            IsPluginName(p->Name, "Salamatrix AI");
+        BOOL isLocalAIModel =
+            IsPluginName(p->Name, "Salamatrix AI Local Llama");
+        BOOL supportAutomationFramework = p->SupportAutomationFramework || isSalamatrixProvider ||
+                                          isExtensionRuntime || isExtensionHelper;
         buf[0] = 0;
         if (p->SupportPanelView)
             strcat(buf, LoadStr(IDS_PLUGINFUNCVIEW));
@@ -425,7 +923,16 @@ void CPluginsDlg::OnSelChanged()
                 if (buf[0] != 0)
                     strcat(buf, ",\n");
             }
-            strcat(buf, LoadStr(IDS_PLUGINFUNCAUTORUNTIME));
+            strcat(buf, LoadStr(
+                isSalamatrixProvider
+                    ? IDS_PLUGINFUNCEXTENSIONFRAMEWORK
+                    : isLocalAIModel
+                          ? IDS_PLUGINFUNCLOCALAIMODEL
+                    : isExtensionRuntime
+                          ? IDS_PLUGINFUNCEXTENSIONRUNTIME
+                          : isExtensionHelper
+                                ? IDS_PLUGINFUNCEXTENSIONHELPER
+                          : IDS_PLUGINFUNCAUTORUNTIME));
         }
 
         // Thumbnails
@@ -501,6 +1008,74 @@ void CPluginsDlg::OnSelChanged()
 
         EnableButtons(p);
     }
+    else if (extension != NULL)
+    {
+        // Manifest extensions are informational rows in Plugin Manager. They
+        // are not CPluginData records, so load/unload/configuration actions
+        // remain disabled and no fake .SPL path is presented to the user.
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION),
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagPackage) != 0
+                ? "Salamatrix extension package"
+                : "Manifest extension");
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINCOPYRIGHT),
+            extension->Descriptor.Id);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINWWW), "");
+        Url->SetActionOpen("");
+        const BOOL dependencyUnavailable =
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagDependencyUnavailable) != 0;
+        const BOOL disabled =
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagDisabled) != 0;
+        const BOOL runtimeUnavailable =
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0;
+        const BOOL runtimeExecutableUnavailable =
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagRuntimeExecutableUnavailable) != 0;
+        char runtimeText[256];
+        _snprintf_s(
+            runtimeText,
+            _countof(runtimeText),
+            _TRUNCATE,
+            "%s%s",
+            extension->Descriptor.RuntimeId,
+            disabled
+                ? " (disabled)"
+                : runtimeUnavailable
+                ? " (runtime unavailable)"
+                : runtimeExecutableUnavailable
+                ? " (runtime executable unavailable)"
+                : dependencyUnavailable
+                      ? " (dependency unavailable)"
+                : "");
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINEXTENSIONS), runtimeText);
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINFSNAME), "");
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS),
+            LoadStr(IDS_PLUGINTHUMBNONE));
+        SetPluginManagerText(
+            GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS),
+            disabled
+                ? LoadStr(IDS_PLUGINEXTDISABLED)
+                : dependencyUnavailable
+                ? LoadStr(IDS_PLUGINEXTWAITINGDEPENDENCY)
+                : runtimeUnavailable
+                ? LoadStr(IDS_PLUGINEXTWAITINGRUNTIME)
+                : runtimeExecutableUnavailable
+                      ? LoadStr(IDS_PLUGINEXTWAITINGEXECUTABLE)
+                : "Extension");
+
+        ShowWindow(showInBar, SW_HIDE);
+        ShowWindow(showInChDrv, SW_HIDE);
+        EnableWindow(showInBar, FALSE);
+        EnableWindow(showInChDrv, FALSE);
+        EnableButtons(NULL);
+    }
     else
     {
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION), "");
@@ -524,6 +1099,9 @@ CPluginsDlg::GetSelectedPlugin(int* index, int* lvIndex)
     if (i == -1)
         return NULL;
 
+    if (i >= Plugins.GetCount())
+        return NULL;
+
     int orderIndex = Plugins.GetIndexByOrder(i);
     CPluginData* plugin = Plugins.Get(orderIndex);
     if (plugin != NULL && index != NULL)
@@ -533,6 +1111,17 @@ CPluginsDlg::GetSelectedPlugin(int* index, int* lvIndex)
             *lvIndex = i;
     }
     return plugin;
+}
+
+Salamatrix::Extensions::ExtensionInfo*
+CPluginsDlg::GetSelectedExtension()
+{
+    int listIndex = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
+    int extensionIndex = listIndex - Plugins.GetCount();
+    if (listIndex < 0 || extensionIndex < 0 ||
+        extensionIndex >= static_cast<int>(ExtensionRows.size()))
+        return NULL;
+    return &ExtensionRows[extensionIndex];
 }
 
 void CPluginsDlg::OnContextMenu(int x, int y)
@@ -564,6 +1153,8 @@ void CPluginsDlg::OnContextMenu(int x, int y)
 void CPluginsDlg::OnMove(BOOL up)
 {
     int index = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
+    if (index < 0 || index >= Plugins.GetCount())
+        return; // manifest-extension rows have no persisted plugin order
     int newIndex = up ? index - 1 : index + 1;
     if (Plugins.ChangePluginsOrder(index, newIndex))
     {
@@ -614,6 +1205,10 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         // copy the Show In Bar checkbox text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINSHOWINBAR, ShowInBarText, 200);
+
+        // The same button is reused as Activate/Deactivate for manifest
+        // extensions; keep the localized native-plugin label for restoration.
+        GetDlgItemText(HWindow, IDB_PLUGINTEST, PluginTestText, sizeof(PluginTestText));
 
         // copy the Show In Change Drive Menu checkbox text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINSHOWINCHDRV, ShowInChDrvText, 200);
@@ -754,6 +1349,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDC_PLUGINSHOWINBAR:
         {
+            if (GetSelectedPlugin() == NULL)
+                break;
             int index = Plugins.GetIndexByOrder(ListView_GetNextItem(HListView, -1, LVIS_FOCUSED));
             if (index != -1)
             {
@@ -765,6 +1362,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDC_PLUGINSHOWINCHDRV:
         {
+            if (GetSelectedPlugin() == NULL)
+                break;
             int index = Plugins.GetIndexByOrder(ListView_GetNextItem(HListView, -1, LVIS_FOCUSED));
             if (index != -1)
             {
@@ -795,6 +1394,23 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 p->Configuration(HWindow);
                 RefreshListView(); // a DLL was loaded, we have fresher data ...
+            }
+            else
+            {
+                Salamatrix::Extensions::ExtensionInfo* extension =
+                    GetSelectedExtension();
+                Salamatrix::Extensions::IExtensionsService* extensions =
+                    QueryExtensionService();
+                Salamatrix::Storage::IStorageService* storage =
+                    QueryExtensionStorageService();
+                Salamatrix::UI::IUIService* ui = QueryExtensionUIService();
+                if (extension != NULL && extensions != NULL &&
+                    extensions->GetExtensionSettingCount(
+                        extension->Descriptor.Id) > 0)
+                {
+                    ConfigureManifestExtensionSettings(
+                        HWindow, *extension, extensions, storage, ui);
+                }
             }
             return 0;
         }
@@ -983,6 +1599,55 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SalMessageBox(HWindow, buf, LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
                 }
                 RefreshListView(); // a DLL was loaded, we have fresher data ...
+            }
+            else
+            {
+                int listIndex = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
+                Salamatrix::Extensions::ExtensionInfo* extension = GetSelectedExtension();
+                Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
+                if (extension != NULL && service != NULL)
+                {
+                    const BOOL active =
+                        extension->State == Salamatrix::Extensions::ExtensionStateActive;
+                    const BOOL disabled =
+                        (extension->Descriptor.Flags &
+                         Salamatrix::Extensions::ExtensionFlagDisabled) != 0;
+                    Salamatrix::Storage::IStorageService* storage =
+                        QueryExtensionStorageService();
+                    if (active)
+                    {
+                        // The existing Deactivate action is also the user
+                        // facing persistent disable control for manifest
+                        // packages. Do not mark it disabled until its worker
+                        // has stopped successfully.
+                        if (service->DeactivateExtension(
+                                extension->Descriptor.Id) &&
+                            (storage == NULL || storage->SetBoolean(
+                                extension->Descriptor.Id,
+                                "salamatrix.enabled", FALSE)))
+                        {
+                            service->SetExtensionDisabled(
+                                extension->Descriptor.Id, TRUE);
+                        }
+                    }
+                    else if (disabled)
+                    {
+                        if (storage == NULL || storage->SetBoolean(
+                                extension->Descriptor.Id,
+                                "salamatrix.enabled", TRUE))
+                        {
+                            if (service->SetExtensionDisabled(
+                                    extension->Descriptor.Id, FALSE))
+                            {
+                                service->ActivateExtension(
+                                    extension->Descriptor.Id);
+                            }
+                        }
+                    }
+                    else
+                        service->ActivateExtension(extension->Descriptor.Id);
+                    RefreshListView(TRUE, listIndex);
+                }
             }
             return 0;
         }

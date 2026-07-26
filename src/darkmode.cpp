@@ -3186,6 +3186,26 @@ int DarkModeMessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
     return MessageBox(hWnd, lpText, lpCaption, uType);
 }
 
+int DarkModeMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType)
+{
+#if USE_DARKMODELIB
+    if (DarkModeShouldUseDarkColors())
+    {
+        static bool dmlibInitialized = false;
+        if (!dmlibInitialized)
+        {
+            dmlib::initDarkMode();
+            dmlibInitialized = true;
+        }
+        dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
+        dmlib::setDefaultColors(true);
+        return static_cast<int>(dmlib::darkMessageBoxW(
+            hWnd, lpText != NULL ? lpText : L"", lpCaption != NULL ? lpCaption : L"", uType));
+    }
+#endif
+    return MessageBoxW(hWnd, lpText, lpCaption, uType);
+}
+
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
 {
     EnsureInitialized();

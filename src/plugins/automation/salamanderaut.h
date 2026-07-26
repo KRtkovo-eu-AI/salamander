@@ -29,6 +29,9 @@ private:
     class CSalamanderUINamespaceAutomation* m_pUI;
     class CSalamanderCommandsAutomation* m_pCommands;
     class CSalamanderFileOperationsAutomation* m_pFileOperations;
+    class CSalamanderSidesAutomation* m_pSides;
+    class CSalamanderStorageAutomation* m_pStorage;
+    class CSalamanderEventsAutomation* m_pEvents;
 
     HRESULT GetPanel(int nPanel, ISalamanderPanel** ppPanel);
 
@@ -166,4 +169,13 @@ public:
 
     virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_FileOperations(
         /* [retval][out] */ ISalamanderFileOperations** fileOperations);
+
+    virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Sides(
+        /* [retval][out] */ ISalamanderSides** sides);
+
+    virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Storage(
+        /* [retval][out] */ ISalamanderStorage** storage);
+
+    virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Events(
+        /* [retval][out] */ ISalamanderEvents** events);
 };

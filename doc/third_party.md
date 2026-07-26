@@ -17,6 +17,9 @@ making their work available.
 | LibTomCrypt | Checksum plugin cryptographic primitives | LibTomCrypt is public domain. As Tom St Denis wrote: "As should all quality software be." |
 | LGPL libraries | Shared third-party libraries | Licensed under the GNU Library General Public License. A copy of the license is included with this software. |
 | Unicode and Win32 Long Paths | Filename handling portions | Samandarin includes filename handling code and implementation work derived from, or substantially informed by, fork [Sally](https://github.com/0xeb/sally) by [Elias Bachaalany (0xeb)](https://github.com/0xeb). Licensed under the GNU Library General Public License. |
+| win32-darkmodelib | Native Windows dark-mode support for shared and Salamatrix dialogs | Vendored from [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib), commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`. Copyright (c) 2025-2026 ozone10. Licensed under the Mozilla Public License 2.0, with portions under the MIT License; see `src/third_party/darkmodelib/LICENSE.md` and `LICENSE-MIT.md`. |
+| llama.cpp | On-demand CPU inference executable for SalamatrixAI | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), pinned release `b10107`. MIT License; the configuration downloader retrieves the runtime and its license notice directly for the user. |
+| Qwen2.5-Coder 0.5B Instruct GGUF | Default lightweight local SalamatrixAI model | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), pinned `q4_k_m` file. Apache License 2.0; the configuration downloader retrieves the model and license notice directly for the user. |
 
 ## Archiving, Compression, and Disk Image Plugins
 

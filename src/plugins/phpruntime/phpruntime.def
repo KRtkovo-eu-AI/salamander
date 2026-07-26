@@ -1,0 +1,5 @@
+EXPORTS
+    SalamanderPluginEntry @1 PRIVATE
+    SalamanderPluginGetReqVer @2 PRIVATE
+
+

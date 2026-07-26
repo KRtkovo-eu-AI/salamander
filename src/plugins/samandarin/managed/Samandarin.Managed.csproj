@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <Configurations>Debug;Release;Release clean</Configurations>
+    <Platforms>AnyCPU;x64</Platforms>
     <TargetFramework>net48</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>Samandarin.Managed</AssemblyName>

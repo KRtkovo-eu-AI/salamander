@@ -11,6 +11,7 @@
 #include "fileswnd.h"
 #include "mainwnd.h"
 #include "toolbar.h"
+#include "svg.h"
 #include "zip.h"
 #include "pack.h"
 #include "dialogs.h"
@@ -1374,6 +1375,22 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                     loadOnStart = loadOnStartDWORD != 0;
                 }
 
+                // Salamatrix packages and AI providers must be initialized
+                // before any menu command is invoked. Keep existing
+                // installations compatible with that contract even when they
+                // predate the persisted load-on-start flags.
+                if (!loadOnStart &&
+                    (StrICmp(dllName, "automation.spl") == 0 ||
+                     StrICmp(dllName, "salamatrixai.spl") == 0 ||
+                     StrICmp(dllName, "salamatrixailocalllama.spl") == 0 ||
+                     StrICmp(dllName, "javascriptruntime.spl") == 0 ||
+                     StrICmp(dllName, "pythonruntime.spl") == 0 ||
+                     StrICmp(dllName, "phpruntime.spl") == 0 ||
+                     StrICmp(dllName, "powershellruntime.spl") == 0))
+                {
+                    loadOnStart = TRUE;
+                }
+
                 // these values don't have to be loaded (they may be missing in the configuration)
                 GetValue(itemKey, SALAMANDER_PLUGINS_LASTSLGNAME, REG_SZ, lastSLGName, MAX_PATH);
                 GetValue(itemKey, SALAMANDER_PLUGINS_HOMEPAGE, REG_SZ, pluginHomePageURL, MAX_PATH);
@@ -2459,6 +2476,286 @@ BOOL CPlugins::AddPlugin(const char* name, const char* dllName, BOOL supportPane
     return ret;
 }
 
+BOOL CPlugins::QueryService(const CSalamanderServiceQuery* query,
+                            CSalamanderServiceResult* result)
+{
+    // CSalamanderGeneral::QueryService is a process-wide registry lookup. A
+    // plugin-owned general object is sufficient to reach it; keeping this
+    // small core wrapper avoids making Plugin Manager pretend that a
+    // manifest extension is a loadable .SPL module.
+    if (Data.Count == 0)
+    {
+        if (result != NULL)
+        {
+            result->Interface = NULL;
+            result->Version = 0;
+            result->ProviderName = NULL;
+        }
+        return FALSE;
+    }
+    return Data[0]->SalamanderGeneral.QueryService(query, result);
+}
+
+BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
+                                     const CSalamanderToolbarButton* button)
+{
+    if (owner == NULL || button == NULL || button->Title == NULL ||
+        button->Title[0] == 0 || button->StructSize < sizeof(DWORD) + sizeof(int) + sizeof(const char*))
+        return FALSE;
+
+    const char* stableId = NULL;
+    const DWORD stableIdEnd = static_cast<DWORD>(offsetof(
+        CSalamanderToolbarButton, StableId) + sizeof(const char*));
+    if (button->StructSize >= stableIdEnd && button->StableId != NULL &&
+        button->StableId[0] != 0 && strchr(button->StableId, ',') == NULL)
+    {
+        if (strlen(button->StableId) < 512)
+            stableId = button->StableId;
+    }
+
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        CPluginToolbarButton& item = ToolbarButtons[index];
+        if (item.Owner == owner && item.CommandId == button->CommandId)
+        {
+            lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
+            item.SetIcons(button->IconPath, button->IconDarkPath);
+            if (stableId != NULL)
+                lstrcpynA(item.StableId, stableId, ARRAYSIZE(item.StableId));
+            if (MainWindow != NULL)
+                MainWindow->RefreshExtensionToolbars();
+            return TRUE;
+        }
+    }
+
+    if (NextToolbarButtonId > CM_EXTTOOLBAR_MAX)
+        return FALSE;
+
+    CPluginToolbarButton item;
+    item.Owner = owner;
+    item.ToolbarId = NextToolbarButtonId++;
+    item.CommandId = button->CommandId;
+    lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
+    item.SetIcons(button->IconPath, button->IconDarkPath);
+    if (stableId != NULL)
+        lstrcpynA(item.StableId, stableId, ARRAYSIZE(item.StableId));
+    else
+    {
+        int pluginIndex = GetIndex(owner);
+        if (pluginIndex >= 0 && Data[pluginIndex] != NULL)
+        {
+            _snprintf_s(item.StableId, ARRAYSIZE(item.StableId), _TRUNCATE,
+                        "plugin:%s:%d", Data[pluginIndex]->DLLName,
+                        button->CommandId);
+            if (strchr(item.StableId, ',') != NULL)
+                item.StableId[0] = 0;
+        }
+    }
+    int index = ToolbarButtons.Add(item);
+    if (index < 0 || !ToolbarButtons.IsGood())
+    {
+        ToolbarButtons.ResetState();
+        return FALSE;
+    }
+
+    if (MainWindow != NULL)
+        MainWindow->RefreshExtensionToolbars();
+    return TRUE;
+}
+
+BOOL CPlugins::UnregisterToolbarButton(CPluginInterfaceAbstract* owner,
+                                       int commandId)
+{
+    if (owner == NULL)
+        return FALSE;
+
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        if (ToolbarButtons[index].Owner == owner &&
+            ToolbarButtons[index].CommandId == commandId)
+        {
+            ToolbarButtons.Delete(index);
+            if (MainWindow != NULL)
+                MainWindow->RefreshExtensionToolbars();
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+void CPlugins::UnregisterToolbarButtons(CPluginInterfaceAbstract* owner)
+{
+    if (owner == NULL)
+        return;
+
+    BOOL changed = FALSE;
+    for (int index = ToolbarButtons.Count - 1; index >= 0; --index)
+    {
+        if (ToolbarButtons[index].Owner == owner)
+        {
+            ToolbarButtons.Delete(index);
+            changed = TRUE;
+        }
+    }
+    if (changed && MainWindow != NULL)
+        MainWindow->RefreshExtensionToolbars();
+}
+
+BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
+                                    const char** title, int* imageIndex)
+{
+    if (index < 0 || index >= ToolbarButtons.Count ||
+        toolbarId == NULL || title == NULL || imageIndex == NULL)
+        return FALSE;
+    *toolbarId = ToolbarButtons[index].ToolbarId;
+    *title = ToolbarButtons[index].Title;
+    *imageIndex = ToolbarButtons[index].ImageIndex;
+    return TRUE;
+}
+
+BOOL CPlugins::GetToolbarButtonConfigKey(int index, char* key, int keySize)
+{
+    if (index < 0 || index >= ToolbarButtons.Count || key == NULL || keySize <= 0)
+        return FALSE;
+    key[0] = 0;
+    if (ToolbarButtons[index].StableId[0] == 0)
+        return FALSE;
+    if (static_cast<int>(strlen(ToolbarButtons[index].StableId)) >= keySize)
+        return FALSE;
+    lstrcpyA(key, ToolbarButtons[index].StableId);
+    return TRUE;
+}
+
+int CPlugins::FindToolbarButtonByConfigKey(const char* key)
+{
+    if (key == NULL || key[0] == 0)
+        return -1;
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        if (strcmp(ToolbarButtons[index].StableId, key) == 0)
+            return index;
+    }
+    return -1;
+}
+
+BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
+                                         HIMAGELIST grayImageList)
+{
+    if (hotImageList == NULL || grayImageList == NULL)
+        return FALSE;
+
+    int hotCount = ImageList_GetImageCount(hotImageList);
+    int grayCount = ImageList_GetImageCount(grayImageList);
+    if (hotCount != grayCount)
+        return FALSE;
+
+    int iconWidth = 0;
+    int iconHeight = 0;
+    if (!ImageList_GetIconSize(hotImageList, &iconWidth, &iconHeight) ||
+        iconWidth <= 0 || iconHeight <= 0 || iconWidth != iconHeight)
+        return FALSE;
+    const int iconSize = iconWidth;
+    const BOOL darkMode = DarkModeShouldUseDarkColors();
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        CPluginToolbarButton& item = ToolbarButtons[index];
+        if (item.ImageIndex >= 0 && item.ImageIndex < hotCount)
+            continue;
+
+        const char* source = item.IconPath;
+        const char* preferred = darkMode && item.IconDarkPath != NULL &&
+                                        item.IconDarkPath[0] != 0
+                                    ? item.IconDarkPath
+                                    : item.IconPath;
+        if (source == NULL || source[0] == 0)
+            continue;
+
+        HBITMAP hotBitmap = NULL;
+        HBITMAP grayBitmap = NULL;
+        BOOL generatedDarkFallback = darkMode && preferred == source;
+        BOOL rendered = RenderSVGIconBitmapFromFile(
+                            preferred, iconSize, TRUE, &hotBitmap) &&
+                        RenderSVGIconBitmapFromFile(
+                            preferred, iconSize, FALSE, &grayBitmap);
+        if (!rendered && preferred != source)
+        {
+            if (hotBitmap != NULL)
+                HANDLES(DeleteObject(hotBitmap));
+            if (grayBitmap != NULL)
+                HANDLES(DeleteObject(grayBitmap));
+            hotBitmap = NULL;
+            grayBitmap = NULL;
+            generatedDarkFallback = darkMode;
+            rendered = RenderSVGIconBitmapFromFile(
+                           source, iconSize, TRUE, &hotBitmap) &&
+                       RenderSVGIconBitmapFromFile(
+                           source, iconSize, FALSE, &grayBitmap);
+        }
+        if (!rendered)
+        {
+            if (hotBitmap != NULL)
+                HANDLES(DeleteObject(hotBitmap));
+            if (grayBitmap != NULL)
+                HANDLES(DeleteObject(grayBitmap));
+            continue;
+        }
+
+        if (generatedDarkFallback)
+        {
+            HBITMAP darkHotBitmap = NULL;
+            if (CreateDarkModeIconBitmap(hotBitmap, &darkHotBitmap))
+            {
+                HANDLES(DeleteObject(hotBitmap));
+                hotBitmap = darkHotBitmap;
+            }
+            else
+            {
+                if (darkHotBitmap != NULL)
+                    HANDLES(DeleteObject(darkHotBitmap));
+            }
+        }
+
+        int hotIndex = ImageList_Add(hotImageList, hotBitmap, NULL);
+        int grayIndex = ImageList_Add(grayImageList, grayBitmap, NULL);
+        HANDLES(DeleteObject(hotBitmap));
+        HANDLES(DeleteObject(grayBitmap));
+        if (hotIndex < 0 || grayIndex < 0 || hotIndex != grayIndex)
+        {
+            if (hotIndex >= 0)
+                ImageList_Remove(hotImageList, hotIndex);
+            if (grayIndex >= 0)
+                ImageList_Remove(grayImageList, grayIndex);
+            continue;
+        }
+        item.ImageIndex = hotIndex;
+        hotCount = ImageList_GetImageCount(hotImageList);
+        grayCount = ImageList_GetImageCount(grayImageList);
+    }
+    return TRUE;
+}
+
+BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
+                                    DWORD toolbarId, BOOL& unselect)
+{
+    unselect = FALSE;
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        CPluginToolbarButton& item = ToolbarButtons[index];
+        if (item.ToolbarId != toolbarId)
+            continue;
+
+        int pluginIndex = GetIndex(item.Owner);
+        CPluginData* plugin = pluginIndex >= 0 ? Get(pluginIndex) : NULL;
+        if (plugin == NULL || !plugin->GetLoaded())
+            return TRUE;
+
+        plugin->ExecuteMenuItem2(panel, parent, pluginIndex,
+                                 item.CommandId, unselect);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 void CPlugins::FindViewEdit(const char* extensions, int exclude, BOOL& viewFound, int& view,
                             BOOL& editFound, int& edit)
 {
@@ -3123,6 +3420,11 @@ void CPlugins::HandleLoadOnStartFlag(HWND parent)
     }
 
     LoadInfoBase &= ~LOADINFO_LOADONSTART;
+
+    // Some service providers can be initialized before their Salamatrix
+    // broker. Give all already loaded plug-ins one deterministic retry point
+    // after the complete load-on-start pass.
+    Event(PLUGINEVENT_STARTUPCOMPLETE, 0);
 }
 
 void CPlugins::GetCmdAndUnloadMarkedPlugins(HWND parent, int* cmd, CPluginData** data)

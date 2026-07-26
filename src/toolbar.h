@@ -287,12 +287,17 @@ public:
     // uzivatel stisknul reset v konfiguracnim dialogu - nalejeme default sestavu
     void OnReset();
 
+    // Rebuilds the toolbar from its persisted native layout and appends
+    // currently registered extension contributions.
+    void ReloadExtensionButtons(const char* data) { Load(data); }
+
     void SetType(CMainToolBarType type);
 
 protected:
     // do 'tii' naplni data pro poozku 'tbbeIndex' a vrati TRUE
     // pokud polozka neni uplna (zruseny prikaz), vrati FALSE
     BOOL FillTII(int tbbeIndex, TLBI_ITEM_INFO2* tii, BOOL fillName); // 'buttonIndex' je z rodiny TBBE_xxxx; -1 = separator
+    BOOL FillExtensionTII(int extensionIndex, TLBI_ITEM_INFO2* tii, BOOL fillName);
 };
 
 //*****************************************************************************

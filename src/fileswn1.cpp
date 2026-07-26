@@ -908,6 +908,7 @@ BOOL CFilesWindowAncestor::GetGeneralPath(char* buf, int bufSize, BOOL convertFS
 void CFilesWindowAncestor::SetPath(const char* path)
 {
     CALL_STACK_MESSAGE2("CFilesWindowAncestor::SetPath(%s)", path);
+    BOOL pathChanged = Path[0] == '\0' || !IsTheSamePath(path, Path);
     if (SuppressAutoRefresh && (!Is(ptDisk) || !IsTheSamePath(path, Path)))
         SuppressAutoRefresh = FALSE;
     DetachDirectory((CFilesWindow*)this);
@@ -915,7 +916,15 @@ void CFilesWindowAncestor::SetPath(const char* path)
     PathW = PathToWideMirror(path);
 
     if (MainWindow != NULL)
+    {
         MainWindow->UpdatePanelTabTitle((CFilesWindow*)this);
+        if (pathChanged)
+            Plugins.Event(
+                PLUGINEVENT_PATHCHANGED,
+                ((CFilesWindow*)this)->GetPanelSide() == cpsRight
+                    ? PANEL_RIGHT
+                    : PANEL_LEFT);
+    }
 
     //--- zjisteni file-based komprese/sifrovani a FAT32
     DWORD dummy1, flags;
@@ -2333,6 +2342,8 @@ DWORD WINAPI IconThreadThreadF(void* param)
 CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
+    static ULONGLONG nextPanelTabId = 0;
+
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
     NarrowedNameColumn = FALSE;
     FullWidthOfNameCol = 0;
@@ -2382,6 +2393,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
 
     Parent = parent;
     PanelSide = side;
+    PanelTabId = ++nextPanelTabId;
+    if (PanelTabId == 0)
+        PanelTabId = ++nextPanelTabId;
     CustomTabColorValid = false;
     CustomTabColor = RGB(0, 0, 0);
     CustomTabPrefixValid = false;

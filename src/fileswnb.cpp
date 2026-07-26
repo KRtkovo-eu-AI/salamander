@@ -986,6 +986,9 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_SELCHANGED:
     {
+        Plugins.Event(
+            PLUGINEVENT_SELECTIONCHANGED,
+            GetPanelSide() == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
         int count = GetSelCount();
         if (count != 0)
         {

@@ -13,9 +13,60 @@
 
 #pragma once
 
+#include <string>
+#include <vector>
+
+#include "../salamatrix/salamatrix_manifest.h"
+#include "../salamatrix/salamatrix_runtime_api.h"
+#include "../salamatrix/salamatrix_ui.h"
+#include "../salamatrix/salamatrix_extensions.h"
+#include "../salamatrix/salamatrix_events.h"
+#include "../salamatrix/salamatrix_storage.h"
+#include "../salamatrix/salamatrix_script_runner.h"
+
+BOOL ShowRuntimeInputBox(
+    HWND parent,
+    const std::string& title,
+    const std::string& prompt,
+    const std::string& initial,
+    char* output,
+    DWORD outputCapacity);
+
 class CScriptInfo
 {
 public:
+    struct RUNTIME_COMMAND_INFO
+    {
+        int MenuId;
+        char Id[128];
+        char Handler[128];
+        TCHAR Title[256];
+        bool PluginMenu;
+        bool ContextMenu;
+        bool Toolbar;
+        DWORD HotKey;
+        DWORD MenuEventOrMask;
+        DWORD MenuEventAndMask;
+        LONG Enabled;
+        LONG Visible;
+
+        RUNTIME_COMMAND_INFO()
+            : MenuId(0),
+              PluginMenu(false),
+              ContextMenu(false),
+              Toolbar(false),
+              HotKey(0),
+              MenuEventOrMask(MENU_EVENT_TRUE),
+              MenuEventAndMask(MENU_EVENT_TRUE),
+              Enabled(TRUE),
+              Visible(TRUE)
+        {
+            Id[0] = '\0';
+            Handler[0] = '\0';
+            Title[0] = _T('\0');
+        }
+    };
+
     struct DEBUG_INFO
     {
         IProcessDebugManager* pProcDbgMgr;
@@ -43,6 +94,10 @@ public:
         // Internal members, do not touch.
         void* pInstance;
         bool bAsyncResult;
+        // The native menu command that started this invocation. Persistent
+        // extensions may register more than one command; this keeps the
+        // selected command distinct from the manifest's default command.
+        char SalamatrixCommandId[128];
         DEBUG_INFO dbgInfo;
 
         class CScriptAbortPalette* pAbortPalette;
@@ -55,11 +110,56 @@ public:
     };
 
 private:
-    TCHAR m_szFileName[MAX_PATH];
-    TCHAR m_szDisplayName[64];
-    TCHAR m_szSalamatrixCommandId[64];
+    TCHAR m_szFileName[SAL_MAX_PATH];
+    TCHAR m_szDisplayName[256];
+    TCHAR m_szSalamatrixCommandId[128];
+    char m_szRuntimeCommandId[128];
+    char m_szSalamatrixExtensionId[128];
+    char m_szSalamatrixRuntimeId[128];
+    DWORD m_dwSalamatrixMinimumRuntimeVersion;
+    std::vector<std::string> m_salamatrixCapabilities;
+    std::vector<std::string> m_salamatrixDependencies;
+    std::vector<CExtensionManifestSetting> m_salamatrixSettings;
+    unsigned int m_salamatrixSettingsVersion;
+    std::vector<CExtensionManifestSettingMigration> m_salamatrixSettingsMigrations;
+    bool m_bSalamatrixEventsDeclared;
+    std::vector<std::string> m_salamatrixEvents;
+    struct SALAMATRIX_MANIFEST_COMMAND
+    {
+        std::string Id;
+        std::string Handler;
+        std::string Title;
+        std::string Menu;
+        std::string Requires;
+        std::string IconPath;
+        std::string IconDarkPath;
+        bool ContextMenu;
+        bool Toolbar;
+        bool Enabled;
+        bool Visible;
+        DWORD MenuEventOrMask;
+        DWORD MenuEventAndMask;
+
+        SALAMATRIX_MANIFEST_COMMAND()
+            : ContextMenu(false),
+              Toolbar(false),
+              Enabled(true),
+              Visible(true),
+              MenuEventOrMask(MENU_EVENT_TRUE),
+              MenuEventAndMask(MENU_EVENT_TRUE)
+        {
+        }
+    };
+    std::vector<SALAMATRIX_MANIFEST_COMMAND> m_salamatrixManifestCommands;
+    bool m_bSalamatrixManifestCommandsPublished;
+    std::string m_salamatrixIconPath;
+    std::string m_salamatrixIconDarkPath;
     bool m_bShowInPluginMenu;
     bool m_bShowInContextMenu;
+    bool m_bManifestToolbar;
+    bool m_bRuntimeCommandOwned;
+    RUNTIME_COMMAND_INFO m_runtimeCommands[16];
+    int m_nRuntimeCommands;
     DWORD m_dwMenuEventOrMask;
     DWORD m_dwMenuEventAndMask;
     CLSID m_clsidEngine;
@@ -77,11 +177,39 @@ private:
     class CScriptEngineShim* m_pShim;
     HANDLE m_hAbortEvent; ///< Manually reset event signaled when the user requested abort.
     HWND m_hwndAbortTarget;
+    Salamatrix::Runtime::IRuntimeSession* m_pRuntimeSession;
+    HANDLE m_hRuntimePumpThread;
+    ULONGLONG m_runtimeEventSubscriptions[8];
+    int m_nRuntimeEventSubscriptions;
+    struct RUNTIME_DIALOG
+    {
+        CScriptInfo* Owner;
+        ULONGLONG Id;
+        Salamatrix::UI::IDialog* Dialog;
+        BOOL EventsEnabled;
+        char EventName[128];
+    };
+    RUNTIME_DIALOG m_runtimeDialogs[8];
+    int m_nRuntimeDialogs;
+    ULONGLONG m_nextRuntimeDialogId;
+    struct RUNTIME_PROGRESS
+    {
+        CScriptInfo* Owner;
+        ULONGLONG Id;
+        Salamatrix::UI::IProgressDialog* Dialog;
+    };
+    RUNTIME_PROGRESS m_runtimeProgress;
+    ULONGLONG m_nextRuntimeProgressId;
 
     // statistics stuff
     LONG m_cExecuted;
 
     bool EnsureEngineAssociation();
+    bool ExecuteThroughRuntime(__inout EXECUTION_INFO& info);
+    bool ExecuteLegacy(__inout EXECUTION_INFO& info);
+    static BOOL WINAPI ExecuteCompatibilityRuntime(
+        void* context,
+        Salamatrix::Runtime::RuntimeExecutionResult* result);
 
     bool CreateEngine(EXECUTION_INFO* info);
 
@@ -102,19 +230,114 @@ private:
     void UninitializeDebugger(DEBUG_INFO* dbgInfo);
     void LoadSalamatrixMetadata();
     void LoadSalamatrixManifestMetadata();
+    void InitializeSalamatrixSettings(
+        Salamatrix::Storage::IStorageService* storage);
     void ApplySalamatrixMetadataLine(PCTSTR pszLine);
     void ApplySalamatrixManifestValue(const char* key, const char* value);
     void ApplySalamatrixPlacement(PCTSTR pszValue);
     void ApplySalamatrixRequires(PCTSTR pszValue);
     void ApplySalamatrixContextMenu(bool value);
+    bool PublishSalamatrixManifestCommands();
+    const char* FindRuntimeCommandHandler(const char* commandId) const;
 
     void ScriptEnter();
     void ScriptLeave();
+    void ReleaseRuntimeSession();
+    void ReleaseRuntimeProgress();
+    static DWORD WINAPI RuntimePumpProc(void* arg);
+    static BOOL WINAPI RuntimeEventCallback(
+        void* context,
+        const Salamatrix::Events::EventPayload* payload);
+    static BOOL WINAPI RuntimeDialogEventCallback(
+        void* context,
+        const Salamatrix::UI::DialogEvent* event);
+    void ReleaseRuntimeEventSubscriptions();
+    void ReleaseRuntimeDialogs();
+    void ReleaseRuntimeCommand();
+    bool RegisterRuntimeCommand(
+        const char* commandId,
+        const char* title,
+        const char* handler,
+        bool pluginMenu,
+        bool contextMenu,
+        bool toolbar,
+        DWORD hotKey,
+        DWORD menuEventOrMask,
+        DWORD menuEventAndMask,
+        const char* iconPath = NULL,
+        const char* iconDarkPath = NULL,
+        bool enabled = true,
+        bool visible = true);
+    bool UnregisterRuntimeCommand(const char* commandId);
+    bool SetRuntimeCommandState(
+        const char* commandId,
+        bool hasEnabled,
+        bool enabled,
+        bool hasVisible,
+        bool visible);
+    void ReleaseRuntimeCommands();
+    int FindRuntimeCommandIndexByMenuId(int menuId) const;
+    static BOOL WINAPI RuntimeLifecycleCallback(
+        void* context,
+        Salamatrix::Extensions::ExtensionAction action,
+        const Salamatrix::Extensions::ExtensionInfo* info);
+    static BOOL WINAPI RuntimeHostDispatch(
+        void* context,
+        Salamatrix::Runtime::Protocol::MessageType type,
+        ULONGLONG requestId,
+        const char* payloadJson,
+        char* resultJson,
+        DWORD resultCapacity,
+        DWORD* resultLength);
 
     friend class CScriptLookup;
     friend class CScriptEngineShim;
 
 public:
+    // Public bridge entry points used by the Salamatrix AI runner. They keep
+    // generated scripts on the same host-dispatch path as regular extensions.
+    static BOOL WINAPI DispatchRuntimeHostCall(
+        void* context,
+        Salamatrix::Runtime::Protocol::MessageType type,
+        ULONGLONG requestId,
+        const char* payloadJson,
+        char* resultJson,
+        DWORD resultCapacity,
+        DWORD* resultLength)
+    {
+        return RuntimeHostDispatch(
+            context, type, requestId, payloadJson, resultJson,
+            resultCapacity, resultLength);
+    }
+
+    static BOOL WINAPI DispatchCompatibilityRuntime(
+        void* context,
+        Salamatrix::Runtime::RuntimeExecutionResult* result)
+    {
+        return ExecuteCompatibilityRuntime(context, result);
+    }
+
+    static BOOL WINAPI DispatchCompatibilityRuntimeForScript(
+        void* context,
+        Salamatrix::Runtime::RuntimeExecutionResult* result)
+    {
+        CScriptInfo* script = static_cast<CScriptInfo*>(context);
+        if (script == NULL || result == NULL)
+            return FALSE;
+        EXECUTION_INFO info;
+        bool succeeded = script->ExecuteLegacy(info);
+        result->Status = succeeded
+                             ? Salamatrix::Runtime::RuntimeExecutionStatusSucceeded
+                             : Salamatrix::Runtime::RuntimeExecutionStatusFailed;
+        result->ErrorCode = succeeded ? S_OK : E_FAIL;
+        return succeeded ? TRUE : FALSE;
+    }
+
+    /// Configures a temporary generated-script instance to use the modern
+    /// runtime worker and the regular capability-aware host dispatcher.
+    BOOL ConfigureGeneratedRuntime(const char* runtimeId,
+                                   const char* extensionId);
+
     CScriptInfo(
         PCTSTR pszFileName,
         CScriptContainer* pContainer);
@@ -141,6 +364,73 @@ public:
     PCTSTR GetSalamatrixCommandId() const
     {
         return m_szSalamatrixCommandId;
+    }
+
+    const char* GetSalamatrixRuntimeId() const
+    {
+        return m_szSalamatrixRuntimeId;
+    }
+
+    DWORD GetSalamatrixMinimumRuntimeVersion() const
+    {
+        return m_dwSalamatrixMinimumRuntimeVersion;
+    }
+
+    const char* GetSalamatrixExtensionId() const
+    {
+        return m_szSalamatrixExtensionId;
+    }
+
+    // Legacy Automation can execute a script after the package discovery
+    // surface has been refreshed. Ensure Storage sees the manifest identity
+    // even when the CScriptInfo instance predates that refresh.
+    void EnsureSalamatrixManifestMetadata()
+    {
+        if (m_szSalamatrixExtensionId[0] == '\0')
+            LoadSalamatrixManifestMetadata();
+    }
+
+    const char* GetSalamatrixIconPath() const
+    {
+        return m_salamatrixIconPath.c_str();
+    }
+
+    const char* GetSalamatrixIconDarkPath() const
+    {
+        return m_salamatrixIconDarkPath.c_str();
+    }
+
+    bool HasDeclaredSalamatrixCapabilities() const
+    {
+        return !m_salamatrixCapabilities.empty();
+    }
+
+    bool AllowsSalamatrixEvent(const char* eventName) const
+    {
+        if (eventName == NULL || eventName[0] == '\0')
+            return FALSE;
+        if (!m_bSalamatrixEventsDeclared)
+            return TRUE;
+        for (size_t index = 0; index < m_salamatrixEvents.size(); ++index)
+        {
+            if (_stricmp(m_salamatrixEvents[index].c_str(), eventName) == 0)
+                return TRUE;
+        }
+        return FALSE;
+    }
+
+    bool HasSalamatrixCapability(const char* capability) const
+    {
+        if (capability == NULL || capability[0] == '\0')
+            return FALSE;
+        for (size_t index = 0; index < m_salamatrixCapabilities.size(); ++index)
+        {
+            const std::string& declared = m_salamatrixCapabilities[index];
+            if (declared == "*" || _stricmp(declared.c_str(), "all") == 0 ||
+                _stricmp(declared.c_str(), capability) == 0)
+                return TRUE;
+        }
+        return FALSE;
     }
 
     bool ShowInPluginMenu() const
@@ -197,6 +487,39 @@ public:
     int GetId() const
     {
         return m_nId;
+    }
+
+    int GetRuntimeCommandCount() const
+    {
+        return m_nRuntimeCommands;
+    }
+
+    const RUNTIME_COMMAND_INFO* GetRuntimeCommand(int index) const
+    {
+        return index >= 0 && index < m_nRuntimeCommands
+                   ? &m_runtimeCommands[index]
+                   : NULL;
+    }
+
+    bool IsRuntimeCommandEnabled(int index) const
+    {
+        return index >= 0 && index < m_nRuntimeCommands &&
+               InterlockedCompareExchange(
+                   const_cast<LONG*>(&m_runtimeCommands[index].Enabled),
+                   0, 0) != 0;
+    }
+
+    bool IsRuntimeCommandVisible(int index) const
+    {
+        return index >= 0 && index < m_nRuntimeCommands &&
+               InterlockedCompareExchange(
+                   const_cast<LONG*>(&m_runtimeCommands[index].Visible),
+                   0, 0) != 0;
+    }
+
+    int GetRuntimeCommandIndexByMenuId(int menuId) const
+    {
+        return FindRuntimeCommandIndexByMenuId(menuId);
     }
 
     const CScriptInfo* Next() const
@@ -262,7 +585,7 @@ private:
     CScriptContainer* m_pChild;
     CScriptContainer* m_pParent;
     CScriptInfo* m_pScripts;
-    TCHAR m_szPath[MAX_PATH];
+    TCHAR m_szPath[SAL_MAX_PATH];
     PTSTR m_pszName;
 
     friend class CScriptLookup;
@@ -436,7 +759,14 @@ public:
 
     bool Refresh(bool bForce = false);
 
+    /// Publishes manifest-backed scripts into Salamatrix.Extensions.
+    void PublishSalamatrixExtensions();
+
+    /// Removes manifest-backed scripts from Salamatrix.Extensions.
+    void UnpublishSalamatrixExtensions();
+
     CScriptInfo* LookupScript(int nId);
+    CScriptInfo* LookupRuntimeCommand(int menuId);
 
     int GetCount() const
     {

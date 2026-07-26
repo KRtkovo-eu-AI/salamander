@@ -538,6 +538,9 @@ struct CRegisteredServiceRecord
     DWORD Version;
     void* Interface;
     const char* ProviderName;
+    void* ProviderOwner;
+    LONG ActiveLeases;
+    BOOL Unloading;
 
     CRegisteredServiceRecord()
     {
@@ -545,16 +548,55 @@ struct CRegisteredServiceRecord
         Version = 0;
         Interface = NULL;
         ProviderName = NULL;
+        ProviderOwner = NULL;
+        ActiveLeases = 0;
+        Unloading = FALSE;
+    }
+};
+
+struct CServiceLeaseRecord
+{
+    const char* ServiceId;
+    void* Interface;
+    void* ConsumerOwner;
+
+    CServiceLeaseRecord()
+    {
+        ServiceId = NULL;
+        Interface = NULL;
+        ConsumerOwner = NULL;
     }
 };
 
 enum
 {
-    SALAMANDER_SERVICE_REGISTRY_MAX = 64
+    SALAMANDER_SERVICE_REGISTRY_MAX = 64,
+    SALAMANDER_SERVICE_LEASE_MAX = 256
 };
 
 CRegisteredServiceRecord SalamanderServiceRegistry[SALAMANDER_SERVICE_REGISTRY_MAX];
 int SalamanderServiceRegistryCount = 0;
+CServiceLeaseRecord SalamanderServiceLeases[SALAMANDER_SERVICE_LEASE_MAX];
+int SalamanderServiceLeaseCount = 0;
+CRITICAL_SECTION SalamanderServiceRegistryLock;
+CONDITION_VARIABLE SalamanderServiceLeaseChanged;
+
+class CServiceRegistryInitializer
+{
+public:
+    CServiceRegistryInitializer()
+    {
+        InitializeCriticalSection(&SalamanderServiceRegistryLock);
+        InitializeConditionVariable(&SalamanderServiceLeaseChanged);
+    }
+
+    ~CServiceRegistryInitializer()
+    {
+        DeleteCriticalSection(&SalamanderServiceRegistryLock);
+    }
+};
+
+CServiceRegistryInitializer SalamanderServiceRegistryInitializer;
 
 BOOL SameServiceId(const char* left, const char* right)
 {
@@ -562,51 +604,113 @@ BOOL SameServiceId(const char* left, const char* right)
         return FALSE;
     return strcmp(left, right) == 0;
 }
+
+int FindServiceIndexLocked(const char* serviceId, void* serviceInterface)
+{
+    for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
+    {
+        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId) &&
+            (serviceInterface == NULL || SalamanderServiceRegistry[i].Interface == serviceInterface))
+            return i;
+    }
+    return -1;
+}
+
+void RemoveLeaseAtLocked(int index)
+{
+    for (int i = index; i + 1 < SalamanderServiceLeaseCount; ++i)
+        SalamanderServiceLeases[i] = SalamanderServiceLeases[i + 1];
+    --SalamanderServiceLeaseCount;
+    SalamanderServiceLeases[SalamanderServiceLeaseCount] = CServiceLeaseRecord();
+}
+
+BOOL UnregisterServiceInternal(const char* serviceId, void* serviceInterface,
+                               void* providerOwner, BOOL enforceOwner)
+{
+    if (serviceId == NULL || serviceInterface == NULL)
+        return FALSE;
+
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
+    int index = FindServiceIndexLocked(serviceId, serviceInterface);
+    if (index < 0 ||
+        (enforceOwner && SalamanderServiceRegistry[index].ProviderOwner != providerOwner))
+    {
+        LeaveCriticalSection(&SalamanderServiceRegistryLock);
+        return FALSE;
+    }
+
+    // Stop new acquisitions first, then wait until every consumer has left
+    // its short critical section.  This is the point that makes unloading a
+    // provider deterministic instead of leaving a dangling interface pointer.
+    SalamanderServiceRegistry[index].Unloading = TRUE;
+    while (SalamanderServiceRegistry[index].ActiveLeases != 0)
+    {
+        SleepConditionVariableCS(&SalamanderServiceLeaseChanged,
+                                 &SalamanderServiceRegistryLock, INFINITE);
+    }
+
+    for (int i = index; i + 1 < SalamanderServiceRegistryCount; ++i)
+        SalamanderServiceRegistry[i] = SalamanderServiceRegistry[i + 1];
+    --SalamanderServiceRegistryCount;
+    SalamanderServiceRegistry[SalamanderServiceRegistryCount] = CRegisteredServiceRecord();
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
+    return TRUE;
+}
 }
 
 BOOL CSalamanderGeneral::RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName)
 {
     CALL_STACK_MESSAGE2("CSalamanderGeneral::RegisterService(%s, , ,)", serviceId);
+    return RegisterServiceOwned(serviceId, version, serviceInterface, providerName, NULL);
+}
+
+BOOL CSalamanderGeneral::RegisterServiceOwned(const char* serviceId, DWORD version,
+                                              void* serviceInterface,
+                                              const char* providerName,
+                                              void* providerOwner)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::RegisterServiceOwned(%s, , , ,)", serviceId);
     if (serviceId == NULL || serviceInterface == NULL || version == 0)
         return FALSE;
 
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
     for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
     {
         if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId))
+        {
+            LeaveCriticalSection(&SalamanderServiceRegistryLock);
             return FALSE;
+        }
     }
 
     if (SalamanderServiceRegistryCount >= SALAMANDER_SERVICE_REGISTRY_MAX)
+    {
+        LeaveCriticalSection(&SalamanderServiceRegistryLock);
         return FALSE;
+    }
 
     SalamanderServiceRegistry[SalamanderServiceRegistryCount].ServiceId = serviceId;
     SalamanderServiceRegistry[SalamanderServiceRegistryCount].Version = version;
     SalamanderServiceRegistry[SalamanderServiceRegistryCount].Interface = serviceInterface;
     SalamanderServiceRegistry[SalamanderServiceRegistryCount].ProviderName = providerName;
+    SalamanderServiceRegistry[SalamanderServiceRegistryCount].ProviderOwner = providerOwner;
     ++SalamanderServiceRegistryCount;
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
     return TRUE;
 }
 
 BOOL CSalamanderGeneral::UnregisterService(const char* serviceId, void* serviceInterface)
 {
     CALL_STACK_MESSAGE2("CSalamanderGeneral::UnregisterService(%s, ,)", serviceId);
-    if (serviceId == NULL || serviceInterface == NULL)
-        return FALSE;
+    return UnregisterServiceInternal(serviceId, serviceInterface, NULL, FALSE);
+}
 
-    for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
-    {
-        if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, serviceId) &&
-            SalamanderServiceRegistry[i].Interface == serviceInterface)
-        {
-            for (int j = i; j + 1 < SalamanderServiceRegistryCount; ++j)
-                SalamanderServiceRegistry[j] = SalamanderServiceRegistry[j + 1];
-            --SalamanderServiceRegistryCount;
-            SalamanderServiceRegistry[SalamanderServiceRegistryCount] = CRegisteredServiceRecord();
-            return TRUE;
-        }
-    }
-
-    return FALSE;
+BOOL CSalamanderGeneral::UnregisterServiceOwned(const char* serviceId,
+                                                void* serviceInterface,
+                                                void* providerOwner)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::UnregisterServiceOwned(%s, ,)", serviceId);
+    return UnregisterServiceInternal(serviceId, serviceInterface, providerOwner, TRUE);
 }
 
 BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result)
@@ -621,6 +725,7 @@ BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSal
     if (query == NULL || query->ServiceId == NULL)
         return FALSE;
 
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
     for (int i = 0; i < SalamanderServiceRegistryCount; ++i)
     {
         if (SameServiceId(SalamanderServiceRegistry[i].ServiceId, query->ServiceId) &&
@@ -632,11 +737,293 @@ BOOL CSalamanderGeneral::QueryService(const CSalamanderServiceQuery* query, CSal
                 result->Version = SalamanderServiceRegistry[i].Version;
                 result->ProviderName = SalamanderServiceRegistry[i].ProviderName;
             }
+            LeaveCriticalSection(&SalamanderServiceRegistryLock);
             return TRUE;
         }
     }
 
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
     return FALSE;
+}
+
+BOOL CSalamanderGeneral::AcquireService(const char* serviceId, void* serviceInterface,
+                                        void* consumerOwner)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::AcquireService(%s,)", serviceId);
+    if (serviceId == NULL || serviceInterface == NULL || consumerOwner == NULL)
+        return FALSE;
+
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
+    int serviceIndex = FindServiceIndexLocked(serviceId, serviceInterface);
+    if (serviceIndex < 0 || SalamanderServiceRegistry[serviceIndex].Unloading ||
+        SalamanderServiceLeaseCount >= SALAMANDER_SERVICE_LEASE_MAX)
+    {
+        LeaveCriticalSection(&SalamanderServiceRegistryLock);
+        return FALSE;
+    }
+
+    CServiceLeaseRecord& lease = SalamanderServiceLeases[SalamanderServiceLeaseCount++];
+    lease.ServiceId = SalamanderServiceRegistry[serviceIndex].ServiceId;
+    lease.Interface = serviceInterface;
+    lease.ConsumerOwner = consumerOwner;
+    ++SalamanderServiceRegistry[serviceIndex].ActiveLeases;
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
+    return TRUE;
+}
+
+BOOL CSalamanderGeneral::ReleaseService(const char* serviceId, void* serviceInterface,
+                                        void* consumerOwner)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::ReleaseService(%s,)", serviceId);
+    if (serviceId == NULL || serviceInterface == NULL || consumerOwner == NULL)
+        return FALSE;
+
+    EnterCriticalSection(&SalamanderServiceRegistryLock);
+    for (int i = 0; i < SalamanderServiceLeaseCount; ++i)
+    {
+        if (SameServiceId(SalamanderServiceLeases[i].ServiceId, serviceId) &&
+            SalamanderServiceLeases[i].Interface == serviceInterface &&
+            SalamanderServiceLeases[i].ConsumerOwner == consumerOwner)
+        {
+            int serviceIndex = FindServiceIndexLocked(serviceId, serviceInterface);
+            if (serviceIndex < 0 || SalamanderServiceRegistry[serviceIndex].ActiveLeases <= 0)
+            {
+                LeaveCriticalSection(&SalamanderServiceRegistryLock);
+                return FALSE;
+            }
+            --SalamanderServiceRegistry[serviceIndex].ActiveLeases;
+            RemoveLeaseAtLocked(i);
+            WakeAllConditionVariable(&SalamanderServiceLeaseChanged);
+            LeaveCriticalSection(&SalamanderServiceRegistryLock);
+            return TRUE;
+        }
+    }
+
+    LeaveCriticalSection(&SalamanderServiceRegistryLock);
+    return FALSE;
+}
+
+BOOL CSalamanderGeneral::InvokeOnMainThread(
+    SalamanderMainThreadCallback callback,
+    void* context,
+    DWORD timeoutMs)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::InvokeOnMainThread()");
+    UNREFERENCED_PARAMETER(timeoutMs);
+    if (callback == NULL)
+        return FALSE;
+    if (MainThreadID == GetCurrentThreadId())
+        return callback(context);
+    if (MainWindow == NULL || MainWindow->HWindow == NULL)
+        return FALSE;
+
+    CSalamanderMainThreadCall call;
+    call.Callback = callback;
+    call.Context = context;
+    // SendMessage is intentional: the caller owns the stack context until
+    // the callback returns, so no asynchronous lifetime hand-off is needed.
+    return SendMessage(MainWindow->HWindow,
+                       WM_USER_SALAMANDER_MAIN_THREAD,
+                       0,
+                       reinterpret_cast<LPARAM>(&call)) != 0;
+}
+
+BOOL CSalamanderGeneral::RegisterToolbarButton(
+    const CSalamanderToolbarButton* button)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::RegisterToolbarButton()");
+    if (Plugin == NULL || button == NULL)
+        return FALSE;
+    return Plugins.RegisterToolbarButton(Plugin, button);
+}
+
+BOOL CSalamanderGeneral::UnregisterToolbarButton(int commandId)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::UnregisterToolbarButton(%d)", commandId);
+    if (Plugin == NULL)
+        return FALSE;
+    return Plugins.UnregisterToolbarButton(Plugin, commandId);
+}
+
+namespace
+{
+CFilesWindow* FindPanelTabById(ULONGLONG tabId, int* side = NULL, int* index = NULL)
+{
+    if (MainWindow == NULL || tabId == 0)
+        return NULL;
+
+    const CPanelSide sides[] = {cpsLeft, cpsRight};
+    for (int sideIndex = 0; sideIndex < _countof(sides); ++sideIndex)
+    {
+        int count = MainWindow->GetPanelTabCount(sides[sideIndex]);
+        for (int tabIndex = 0; tabIndex < count; ++tabIndex)
+        {
+            CFilesWindow* panel = MainWindow->GetPanelTabAt(sides[sideIndex], tabIndex);
+            if (panel != NULL && panel->GetPanelTabId() == tabId)
+            {
+                if (side != NULL)
+                    *side = sides[sideIndex] == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;
+                if (index != NULL)
+                    *index = tabIndex;
+                return panel;
+            }
+        }
+    }
+    return NULL;
+}
+
+int GetPanelPathType(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return 0;
+    if (panel->Is(ptDisk))
+        return PATH_TYPE_WINDOWS;
+    if (panel->Is(ptZIPArchive))
+        return PATH_TYPE_ARCHIVE;
+    if (panel->Is(ptPluginFS))
+        return PATH_TYPE_FS;
+    return 0;
+}
+}
+
+int CSalamanderGeneral::GetPanelTabCount(int side)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::GetPanelTabCount(%d)", side);
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return 0;
+    if (side != PANEL_LEFT && side != PANEL_RIGHT)
+        return 0;
+    return MainWindow->GetPanelTabCount(side == PANEL_LEFT ? cpsLeft : cpsRight);
+}
+
+BOOL CSalamanderGeneral::GetPanelTabInfo(
+    int side,
+    int index,
+    CSalamanderPanelTabInfo* info)
+{
+    CALL_STACK_MESSAGE3("CSalamanderGeneral::GetPanelTabInfo(%d, %d,)", side, index);
+    if (info == NULL || info->StructSize < sizeof(*info) ||
+        MainThreadID != GetCurrentThreadId() || MainWindow == NULL ||
+        (side != PANEL_LEFT && side != PANEL_RIGHT))
+    {
+        return FALSE;
+    }
+
+    CPanelSide panelSide = side == PANEL_LEFT ? cpsLeft : cpsRight;
+    CFilesWindow* panel = MainWindow->GetPanelTabAt(panelSide, index);
+    if (panel == NULL)
+        return FALSE;
+
+    CFilesWindow* activeOnSide =
+        side == PANEL_LEFT ? MainWindow->LeftPanel : MainWindow->RightPanel;
+    CFilesWindow* source = MainWindow->GetActivePanel();
+    CFilesWindow* target = MainWindow->GetNonActivePanel();
+
+    info->TabId = panel->GetPanelTabId();
+    info->Side = side;
+    info->Index = index;
+    info->PathType = GetPanelPathType(panel);
+    info->Flags = 0;
+    if (panel == activeOnSide)
+        info->Flags |= PANEL_TAB_FLAG_ACTIVE_ON_SIDE;
+    if (panel == source)
+        info->Flags |= PANEL_TAB_FLAG_SOURCE;
+    if (panel == target)
+        info->Flags |= PANEL_TAB_FLAG_TARGET;
+    if (panel->IsTabLocked() || index == 0)
+        info->Flags |= PANEL_TAB_FLAG_LOCKED;
+    if (MainWindow->DetachedPanels && side == PANEL_RIGHT)
+        info->Flags |= PANEL_TAB_FLAG_DETACHED;
+    return TRUE;
+}
+
+BOOL CSalamanderGeneral::GetPanelTabPath(
+    ULONGLONG tabId,
+    char* buffer,
+    int bufferSize,
+    int* pathType)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::GetPanelTabPath()");
+    if (pathType != NULL)
+        *pathType = 0;
+    if (buffer != NULL && bufferSize > 0)
+        buffer[0] = 0;
+    if (MainThreadID != GetCurrentThreadId() ||
+        buffer == NULL || bufferSize <= 0)
+    {
+        return FALSE;
+    }
+
+    CFilesWindow* panel = FindPanelTabById(tabId);
+    if (panel == NULL)
+        return FALSE;
+    if (pathType != NULL)
+        *pathType = GetPanelPathType(panel);
+    return panel->GetGeneralPath(buffer, bufferSize, TRUE);
+}
+
+BOOL CSalamanderGeneral::ActivatePanelTab(ULONGLONG tabId, BOOL focus)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::ActivatePanelTab()");
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return FALSE;
+
+    CFilesWindow* panel = FindPanelTabById(tabId);
+    if (panel == NULL)
+        return FALSE;
+
+    MainWindow->SwitchPanelTab(panel);
+    if (focus)
+        MainWindow->FocusPanel(panel);
+    return MainWindow->GetPanelTabAt(
+               panel->GetPanelSide(),
+               MainWindow->GetPanelTabIndex(panel->GetPanelSide(), panel)) == panel;
+}
+
+BOOL CSalamanderGeneral::CreatePanelTab(int side, const char* path, int insertIndex,
+                                        ULONGLONG* tabId)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::CreatePanelTab()");
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL ||
+        (side != PANEL_LEFT && side != PANEL_RIGHT))
+        return FALSE;
+    return MainWindow->CreatePanelTab(side == PANEL_LEFT ? cpsLeft : cpsRight,
+                                      path, insertIndex, tabId);
+}
+
+BOOL CSalamanderGeneral::ClosePanelTabById(ULONGLONG tabId)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::ClosePanelTabById()");
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return FALSE;
+    return MainWindow->ClosePanelTabById(tabId);
+}
+
+BOOL CSalamanderGeneral::ReorderPanelTab(ULONGLONG tabId, int newIndex)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::ReorderPanelTab(%d)", newIndex);
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return FALSE;
+    return MainWindow->ReorderPanelTab(tabId, newIndex);
+}
+
+BOOL CSalamanderGeneral::MovePanelTab(ULONGLONG tabId, int targetSide, int targetIndex)
+{
+    CALL_STACK_MESSAGE3("CSalamanderGeneral::MovePanelTab(%d, %d)", targetSide, targetIndex);
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL ||
+        (targetSide != PANEL_LEFT && targetSide != PANEL_RIGHT))
+        return FALSE;
+    return MainWindow->MovePanelTab(tabId,
+                                    targetSide == PANEL_LEFT ? cpsLeft : cpsRight,
+                                    targetIndex);
+}
+
+BOOL CSalamanderGeneral::SetPanelsDetached(BOOL detached)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::SetPanelsDetached(%d)", detached);
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return FALSE;
+    return MainWindow->SetPanelsDetached(detached);
 }
 
 namespace

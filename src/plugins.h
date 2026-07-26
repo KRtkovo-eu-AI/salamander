@@ -2366,6 +2366,37 @@ public:
     virtual BOOL WINAPI RegisterService(const char* serviceId, DWORD version, void* serviceInterface, const char* providerName);
     virtual BOOL WINAPI UnregisterService(const char* serviceId, void* serviceInterface);
     virtual BOOL WINAPI QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result);
+    virtual int WINAPI GetPanelTabCount(int side);
+    virtual BOOL WINAPI GetPanelTabInfo(int side, int index, CSalamanderPanelTabInfo* info);
+    virtual BOOL WINAPI GetPanelTabPath(ULONGLONG tabId, char* buffer, int bufferSize, int* pathType);
+    virtual BOOL WINAPI ActivatePanelTab(ULONGLONG tabId, BOOL focus);
+
+    virtual BOOL WINAPI RegisterServiceOwned(const char* serviceId, DWORD version,
+                                             void* serviceInterface,
+                                             const char* providerName,
+                                             void* providerOwner);
+    virtual BOOL WINAPI UnregisterServiceOwned(const char* serviceId,
+                                               void* serviceInterface,
+                                               void* providerOwner);
+    virtual BOOL WINAPI AcquireService(const char* serviceId,
+                                       void* serviceInterface,
+                                       void* consumerOwner);
+    virtual BOOL WINAPI ReleaseService(const char* serviceId,
+                                       void* serviceInterface,
+                                       void* consumerOwner);
+    virtual BOOL WINAPI InvokeOnMainThread(
+        SalamanderMainThreadCallback callback,
+        void* context,
+        DWORD timeoutMs);
+    virtual BOOL WINAPI RegisterToolbarButton(
+        const CSalamanderToolbarButton* button);
+    virtual BOOL WINAPI UnregisterToolbarButton(int commandId);
+    virtual BOOL WINAPI CreatePanelTab(int side, const char* path, int insertIndex,
+                                       ULONGLONG* tabId);
+    virtual BOOL WINAPI ClosePanelTabById(ULONGLONG tabId);
+    virtual BOOL WINAPI ReorderPanelTab(ULONGLONG tabId, int newIndex);
+    virtual BOOL WINAPI MovePanelTab(ULONGLONG tabId, int targetSide, int targetIndex);
+    virtual BOOL WINAPI SetPanelsDetached(BOOL detached);
 };
 
 //
@@ -2817,6 +2848,75 @@ struct CPluginFSTimer
     }
 };
 
+struct CPluginToolbarButton
+{
+    CPluginInterfaceAbstract* Owner;
+    DWORD ToolbarId;
+    int CommandId;
+    char Title[256];
+    char* IconPath;
+    char* IconDarkPath;
+    char StableId[512];
+    int ImageIndex;
+
+    CPluginToolbarButton()
+        : Owner(NULL),
+          ToolbarId(0),
+          CommandId(0),
+          IconPath(NULL),
+          IconDarkPath(NULL),
+          ImageIndex(-1)
+    {
+        Title[0] = 0;
+        StableId[0] = 0;
+    }
+
+    CPluginToolbarButton(const CPluginToolbarButton& other)
+        : Owner(other.Owner),
+          ToolbarId(other.ToolbarId),
+          CommandId(other.CommandId),
+          IconPath(other.IconPath != NULL ? _strdup(other.IconPath) : NULL),
+          IconDarkPath(other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL),
+          ImageIndex(other.ImageIndex)
+    {
+        memcpy(Title, other.Title, sizeof(Title));
+        memcpy(StableId, other.StableId, sizeof(StableId));
+    }
+
+    CPluginToolbarButton& operator=(const CPluginToolbarButton& other)
+    {
+        if (this != &other)
+        {
+            free(IconPath);
+            free(IconDarkPath);
+            Owner = other.Owner;
+            ToolbarId = other.ToolbarId;
+            CommandId = other.CommandId;
+            IconPath = other.IconPath != NULL ? _strdup(other.IconPath) : NULL;
+            IconDarkPath = other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL;
+            ImageIndex = other.ImageIndex;
+            memcpy(Title, other.Title, sizeof(Title));
+            memcpy(StableId, other.StableId, sizeof(StableId));
+        }
+        return *this;
+    }
+
+    ~CPluginToolbarButton()
+    {
+        free(IconPath);
+        free(IconDarkPath);
+    }
+
+    void SetIcons(const char* path, const char* darkPath)
+    {
+        free(IconPath);
+        free(IconDarkPath);
+        IconPath = path != NULL && path[0] != 0 ? _strdup(path) : NULL;
+        IconDarkPath = darkPath != NULL && darkPath[0] != 0 ? _strdup(darkPath) : NULL;
+        ImageIndex = -1;
+    }
+};
+
 class CPlugins
 {
 protected:
@@ -2824,6 +2924,8 @@ protected:
     CRITICAL_SECTION DataCS; // critical section used only to synchronize data accessed by GetIndex() method
 
     TDirectArray<CPluginOrder> Order; // order in which plugins are displayed
+    TDirectArray<CPluginToolbarButton> ToolbarButtons;
+    DWORD NextToolbarButtonId;
 
     BOOL DefaultConfiguration; // TRUE => ZIP+TAR+PAK; allows recoding of old archiver data
 
@@ -2846,7 +2948,7 @@ public:                     // helper variables for handling menu items coming f
     DWORD LoadInfoBase; // base for creating flag returned via CSalamanderPluginEntry::GetLoadInformation()
 
 public:
-    CPlugins() : Data(30, 10), Order(30, 10), PluginFSTimers(10, 50)
+    CPlugins() : Data(30, 10), Order(30, 10), ToolbarButtons(200, 0), PluginFSTimers(10, 50)
     {
         LastSUID = -1;
         RootMenuItemsCount = -1;
@@ -2860,6 +2962,7 @@ public:
         TimerTimeCounter = 0;
         StopTimerHandlerRecursion = FALSE;
         WorkingPluginFS = NULL;
+        NextToolbarButtonId = CM_EXTTOOLBAR_MIN;
     }
     ~CPlugins();
 
@@ -2971,6 +3074,27 @@ public:
 
     // returns the number of plugins
     int GetCount() { return Data.Count; }
+
+    // Queries the process-wide Salamander service registry for core UI
+    // consumers that do not own a plugin interface (for example Plugin
+    // Manager's manifest-extension view).
+    BOOL QueryService(const CSalamanderServiceQuery* query,
+                      CSalamanderServiceResult* result);
+
+    BOOL RegisterToolbarButton(CPluginInterfaceAbstract* owner,
+                               const CSalamanderToolbarButton* button);
+    BOOL UnregisterToolbarButton(CPluginInterfaceAbstract* owner,
+                                 int commandId);
+    int GetToolbarButtonCount() const { return ToolbarButtons.Count; }
+    BOOL GetToolbarButtonInfo(int index, DWORD* toolbarId,
+                              const char** title, int* imageIndex);
+    BOOL GetToolbarButtonConfigKey(int index, char* key, int keySize);
+    int FindToolbarButtonByConfigKey(const char* key);
+    BOOL EnsureToolbarButtonImages(HIMAGELIST hotImageList,
+                                   HIMAGELIST grayImageList);
+    BOOL ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
+                              DWORD toolbarId, BOOL& unselect);
+    void UnregisterToolbarButtons(CPluginInterfaceAbstract* owner);
 
     // returns plugin data from the given index
     // NOTE: the pointer is valid only until the number of plugins changes (the array expands or shrinks)

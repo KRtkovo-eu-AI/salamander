@@ -1,0 +1,17 @@
+#pragma once
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <commctrl.h>
+#include <string>
+#include <vector>
+#include <string.h>
+#include <stdio.h>
+#include "../shared/spl_com.h"
+#include "../shared/spl_base.h"
+#include "../shared/spl_gen.h"
+#include "../shared/spl_gui.h"
+#include "../shared/spl_menu.h"
+#include "versinfo.rh2"
+#include "../salamatrix/salamatrix_ai.h"
+#include "../salamatrix/salamatrix_ui.h"
+#include "salamatrixai.h"

@@ -236,3 +236,7 @@ src/plugins/hypervm/help/hypervm.chm
 # .NET build outputs
 /src/plugins/**/managed*/bin/
 /src/plugins/**/managed*/obj/
+
+src/plugins/pythonruntime/runtime/__pycache__/
+
+src/plugins/automation/runtime/__pycache__/

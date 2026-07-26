@@ -844,6 +844,7 @@ public:
     BOOL TreeViewAutoHide;
 
     CPanelSide PanelSide;
+    ULONGLONG PanelTabId;
     bool CustomTabColorValid;
     COLORREF CustomTabColor;
     bool CustomTabPrefixValid;
@@ -1025,6 +1026,7 @@ public:
     }
 
     CPanelSide GetPanelSide() const { return PanelSide; }
+    ULONGLONG GetPanelTabId() const { return PanelTabId; }
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
     BOOL IsRightPanel() const { return PanelSide == cpsRight; }
     void SetPanelSide(CPanelSide side);

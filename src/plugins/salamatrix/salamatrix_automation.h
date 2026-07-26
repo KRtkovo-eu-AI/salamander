@@ -10,6 +10,12 @@
 
 #pragma once
 
+#ifdef DialogBox
+#pragma push_macro("DialogBox")
+#undef DialogBox
+#define SALAMATRIX_RESTORE_DIALOG_BOX 1
+#endif
+
 #include "salamatrix_commands.h"
 #include "salamatrix_ui.h"
 
@@ -49,6 +55,19 @@ public:
         }
     }
 
+    ScriptProgressDialog(UI::IUIService* uiService,
+                         CSalamanderForOperationsAbstract* operations,
+                         const UI::ProgressDialogOptions& options)
+        : UIService(uiService),
+          Progress(NULL)
+    {
+        if (UIService == NULL)
+            return;
+        Progress = UIService->CreateProgressDialog(operations);
+        if (Progress != NULL)
+            Progress->Open(options);
+    }
+
     ~ScriptProgressDialog()
     {
         Close();
@@ -76,6 +95,31 @@ public:
             Progress->SetTotal(total);
     }
 
+    void WINAPI SetTotals(const CQuadWord& firstTotal,
+                          const CQuadWord& secondTotal)
+    {
+        if (Progress != NULL)
+            Progress->SetTotals(firstTotal, secondTotal);
+    }
+
+    BOOL WINAPI SetPosition(const CQuadWord& position,
+                            BOOL delayedPaint = FALSE)
+    {
+        return Progress != NULL
+                   ? Progress->SetPosition(position, delayedPaint)
+                   : FALSE;
+    }
+
+    BOOL WINAPI SetPositions(const CQuadWord& firstPosition,
+                             const CQuadWord& secondPosition,
+                             BOOL delayedPaint = FALSE)
+    {
+        return Progress != NULL
+                   ? Progress->SetPositions(
+                         firstPosition, secondPosition, delayedPaint)
+                   : FALSE;
+    }
+
     void WINAPI AddText(const char* text)
     {
         if (Progress != NULL)
@@ -101,6 +145,17 @@ public:
         if (Progress != NULL)
             Progress->SetCancelEnabled(enabled);
     }
+
+    void WINAPI SetTitle(const char* title)
+    {
+        if (Progress != NULL)
+            Progress->SetTitle(title);
+    }
+
+    HWND WINAPI GetHWND()
+    {
+        return Progress != NULL ? Progress->GetHWND() : NULL;
+    }
 };
 
 class ScriptUIAdapter
@@ -121,9 +176,208 @@ public:
         return new ScriptProgressDialog(UIService, operations, title);
     }
 
+    ScriptProgressDialog* WINAPI ProgressWithOptions(
+        CSalamanderForOperationsAbstract* operations,
+        const UI::ProgressDialogOptions& options)
+    {
+        if (UIService == NULL)
+            return NULL;
+        return new ScriptProgressDialog(UIService, operations, options);
+    }
+
     void WINAPI DestroyProgress(ScriptProgressDialog* progress)
     {
         delete progress;
+    }
+
+    BOOL WINAPI Notify(
+        HWND parent,
+        const char* title,
+        const char* message,
+        DWORD timeoutMs)
+    {
+        return UIService != NULL &&
+                       UIService->GetVersion() >= SALAMATRIX_UI_VERSION_1_1
+                   ? UIService->ShowNotification(
+                         parent, title, message, timeoutMs)
+                   : FALSE;
+    }
+
+    class Dialog
+    {
+    private:
+        UI::IUIService* UIService;
+        UI::IDialog* NativeDialog;
+
+        Dialog(const Dialog&);
+        Dialog& operator=(const Dialog&);
+
+    public:
+        Dialog(UI::IUIService* uiService, UI::IDialog* dialog)
+            : UIService(uiService),
+              NativeDialog(dialog)
+        {
+        }
+
+        ~Dialog()
+        {
+            Close();
+        }
+
+        UI::IControl* WINAPI AddLabel(const char* id, const char* text)
+        {
+            return Add(UI::ControlKindLabel, id, text, FALSE, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddTextBox(
+            const char* id,
+            const char* text,
+            BOOL readOnly)
+        {
+            return Add(UI::ControlKindTextBox, id, text, readOnly, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddCheckBox(
+            const char* id,
+            const char* text,
+            BOOL checked)
+        {
+            return Add(UI::ControlKindCheckBox, id, text, FALSE, checked, 0);
+        }
+
+        UI::IControl* WINAPI AddRadioButton(
+            const char* id,
+            const char* text,
+            BOOL checked)
+        {
+            return Add(UI::ControlKindRadioButton, id, text, FALSE, checked, 0);
+        }
+
+        UI::IControl* WINAPI AddComboBox(const char* id, const char* text)
+        {
+            return Add(UI::ControlKindComboBox, id, text, FALSE, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddListView(const char* id)
+        {
+            return Add(UI::ControlKindListView, id, NULL, FALSE, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddTreeView(const char* id)
+        {
+            return Add(UI::ControlKindTreeView, id, NULL, FALSE, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddTabControl(const char* id)
+        {
+            return Add(UI::ControlKindTabControl, id, NULL, FALSE, FALSE, 0);
+        }
+
+        UI::IControl* WINAPI AddControl(
+            UI::ControlKind kind,
+            const UI::ControlOptions& options,
+            const UI::ControlLayout& layout)
+        {
+            return NativeDialog != NULL
+                       ? NativeDialog->AddControlEx(kind, options, layout)
+                       : NULL;
+        }
+
+        BOOL WINAPI SetEventCallback(
+            UI::DialogEventCallback callback,
+            void* context)
+        {
+            return NativeDialog != NULL
+                       ? NativeDialog->SetEventCallback(callback, context)
+                       : FALSE;
+        }
+
+        BOOL WINAPI AddItem(
+            const char* controlId,
+            const char* text,
+            int parentIndex = -1)
+        {
+            UI::IControl* control = FindControl(controlId);
+            return control != NULL ? control->AddItem(text, parentIndex) : FALSE;
+        }
+
+        BOOL WINAPI AddColumn(
+            const char* controlId,
+            const char* title,
+            int width = 180)
+        {
+            UI::IControl* control = FindControl(controlId);
+            return control != NULL ? control->AddColumn(title, width) : FALSE;
+        }
+
+        BOOL WINAPI SetSelectedIndex(const char* controlId, int index)
+        {
+            UI::IControl* control = FindControl(controlId);
+            return control != NULL ? control->SetSelectedIndex(index) : FALSE;
+        }
+
+        UI::IControl* WINAPI AddButton(
+            const char* id,
+            const char* text,
+            int dialogResult)
+        {
+            return Add(UI::ControlKindButton, id, text, FALSE, FALSE, dialogResult);
+        }
+
+        int WINAPI ShowModal()
+        {
+            return NativeDialog != NULL ? NativeDialog->ShowModal() : 0;
+        }
+
+        UI::IControl* WINAPI FindControl(const char* id)
+        {
+            return NativeDialog != NULL ? NativeDialog->FindControl(id) : NULL;
+        }
+
+        void WINAPI Close()
+        {
+            if (UIService != NULL && NativeDialog != NULL)
+            {
+                UIService->DestroyDialog(NativeDialog);
+                NativeDialog = NULL;
+            }
+        }
+
+    private:
+        UI::IControl* Add(
+            UI::ControlKind kind,
+            const char* id,
+            const char* text,
+            BOOL readOnly,
+            BOOL checked,
+            int dialogResult)
+        {
+            if (NativeDialog == NULL)
+                return NULL;
+            UI::ControlOptions options;
+            options.Id = id;
+            options.Text = text;
+            options.ReadOnly = readOnly;
+            options.Checked = checked;
+            options.DialogResult = dialogResult;
+            return NativeDialog->AddControl(kind, options);
+        }
+    };
+
+    Dialog* WINAPI ShowDialog(const char* title, HWND parent)
+    {
+        if (UIService == NULL)
+            return NULL;
+        UI::DialogOptions options;
+        options.Title = title;
+        options.Parent = parent;
+        UI::IDialog* dialog = UIService->CreateSalamatrixDialog(options);
+        return dialog != NULL ? new Dialog(UIService, dialog) : NULL;
+    }
+
+    void WINAPI DestroyDialog(Dialog* dialog)
+    {
+        delete dialog;
     }
 };
 
@@ -184,6 +438,38 @@ public:
 
         FileOperations::InteractiveOptions options;
         return FileOperationsService->MoveInteractive(options);
+    }
+
+    Runtime::OperationResult WINAPI DeleteInteractive()
+    {
+        if (FileOperationsService == NULL)
+            return Runtime::OperationResultError;
+        FileOperations::InteractiveOptions options;
+        return FileOperationsService->DeleteInteractive(options);
+    }
+
+    Runtime::OperationResult WINAPI CreateDirectoryInteractive()
+    {
+        if (FileOperationsService == NULL)
+            return Runtime::OperationResultError;
+        FileOperations::InteractiveOptions options;
+        return FileOperationsService->CreateDirectoryInteractive(options);
+    }
+
+    Runtime::OperationResult WINAPI Refresh()
+    {
+        if (FileOperationsService == NULL)
+            return Runtime::OperationResultError;
+        FileOperations::InteractiveOptions options;
+        return FileOperationsService->Refresh(options);
+    }
+
+    Runtime::OperationResult WINAPI ShowProperties()
+    {
+        if (FileOperationsService == NULL)
+            return Runtime::OperationResultError;
+        FileOperations::InteractiveOptions options;
+        return FileOperationsService->ShowProperties(options);
     }
 };
 
@@ -256,3 +542,8 @@ public:
 
 } // namespace Automation
 } // namespace Salamatrix
+
+#ifdef SALAMATRIX_RESTORE_DIALOG_BOX
+#pragma pop_macro("DialogBox")
+#undef SALAMATRIX_RESTORE_DIALOG_BOX
+#endif

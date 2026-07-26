@@ -1,0 +1,7 @@
+sandbox_mode = "danger-full-access"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 4
+default_subagent_reasoning_effort = "medium"
+default_subagent_model = "gpt-5.3-codex-spark"

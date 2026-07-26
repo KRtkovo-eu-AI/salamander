@@ -3204,6 +3204,7 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
                 if (ret)
                 {
                     // unload SPL+SLG and clean up the interfaces
+                    Plugins.UnregisterToolbarButtons(unloadedPlugin);
                     SalamanderGeneral.Clear();
                     if (DLL != NULL && (!skipTCProxyShutdownCallbacks || skipSamandarinShutdown))
                         HANDLES(FreeLibrary(DLL));

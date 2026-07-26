@@ -10,6 +10,14 @@
 
 #pragma once
 
+#ifdef CreateDialog
+#pragma push_macro("CreateDialog")
+#undef CreateDialog
+#define SALAMATRIX_RESTORE_CREATE_DIALOG 1
+#endif
+
+#include <string>
+
 #include "../shared/spl_com.h"
 
 namespace Salamatrix
@@ -19,6 +27,7 @@ namespace UI
 
 #define SALAMATRIX_SERVICE_UI "Salamatrix.UI"
 #define SALAMATRIX_UI_VERSION_1_0 0x00010000
+#define SALAMATRIX_UI_VERSION_1_1 0x00010001
 
 struct ProgressDialogOptions
 {
@@ -207,6 +216,310 @@ public:
     }
 };
 
+enum ControlKind
+{
+    ControlKindLabel = 0,
+    ControlKindTextBox = 1,
+    ControlKindCheckBox = 2,
+    ControlKindComboBox = 3,
+    ControlKindRadioButton = 4,
+    ControlKindButton = 5,
+    ControlKindListView = 6,
+    ControlKindTreeView = 7,
+    ControlKindTabControl = 8,
+    // A native folder chooser embedded in a dialog. Its text value is the
+    // selected path and is available through the normal IControl accessors.
+    ControlKindFolderPicker = 9,
+    // An editable UTF-8 file path with an adjacent native browse button.
+    // Appended so existing control-kind values remain stable.
+    ControlKindFilePicker = 10
+};
+
+struct DialogOptions
+{
+    const char* Title;
+    HWND Parent;
+    short Width;
+    short Height;
+
+    DialogOptions()
+        : Title("Salamander"),
+          Parent(NULL),
+          Width(320),
+          Height(180)
+    {
+    }
+};
+
+struct ControlOptions
+{
+    const char* Id;
+    const char* Text;
+    BOOL ReadOnly;
+    BOOL Checked;
+    int DialogResult;
+    /// Keep a button dialog open after dispatching its event callback.
+    /// Appended for ABI compatibility with the original control contract.
+    BOOL KeepOpen;
+    /// Use a multiline edit control with vertical scrolling.
+    /// Appended for ABI compatibility with the original control contract.
+    BOOL Multiline;
+    /// File filter in Salamatrix pipe syntax, for file-picker controls only.
+    /// Appended for ABI compatibility with the original control contract.
+    const char* FileFilter;
+    /// File picker should use save-mode (GetSaveFileNameW) when TRUE.
+    /// Appended for ABI compatibility with the original control contract.
+    BOOL FileSave;
+    /// Accessible name exposed by the native control fallback.
+    /// Appended for ABI compatibility with the original control contract.
+    const char* AccessibleName;
+    /// Accessible description exposed by the native control fallback.
+    /// Appended for ABI compatibility with the original control contract.
+    const char* AccessibleDescription;
+
+    ControlOptions()
+        : Id(NULL),
+          Text(NULL),
+          ReadOnly(FALSE),
+          Checked(FALSE),
+          DialogResult(0),
+          KeepOpen(FALSE),
+          Multiline(FALSE),
+          FileFilter(NULL),
+          FileSave(FALSE),
+          AccessibleName(NULL),
+          AccessibleDescription(NULL)
+    {
+    }
+};
+
+struct ControlLayout
+{
+    BOOL HasBounds;
+    int X;
+    int Y;
+    int Width;
+    int Height;
+
+    ControlLayout()
+        : HasBounds(FALSE),
+          X(0),
+          Y(0),
+          Width(0),
+          Height(0)
+    {
+    }
+};
+
+enum DialogEventKind
+{
+    DialogEventControlChanged = 1
+};
+
+struct DialogEvent
+{
+    DWORD StructSize;
+    DialogEventKind Kind;
+    ControlKind Control;
+    char ControlId[128];
+    char Text[4096];
+    BOOL Checked;
+    int SelectedIndex;
+
+    DialogEvent()
+        : StructSize(sizeof(DialogEvent)),
+          Kind(DialogEventControlChanged),
+          Control(ControlKindLabel),
+          Checked(FALSE),
+          SelectedIndex(-1)
+    {
+        ControlId[0] = '\0';
+        Text[0] = '\0';
+    }
+};
+
+typedef BOOL(WINAPI* DialogEventCallback)(
+    void* context,
+    const DialogEvent* event);
+
+class IControl
+{
+public:
+    virtual ControlKind WINAPI GetKind() const = 0;
+    virtual const char* WINAPI GetId() const = 0;
+    virtual BOOL WINAPI GetText(char* buffer, DWORD capacity) const = 0;
+    virtual BOOL WINAPI SetText(const char* value) = 0;
+    virtual BOOL WINAPI GetChecked() const = 0;
+    virtual BOOL WINAPI SetChecked(BOOL checked) = 0;
+    virtual int WINAPI GetDialogResult() const = 0;
+
+    /// Adds one item to a ComboBox, ListView, or TreeView. For TreeView,
+    /// parentIndex is the zero-based index of the parent item, or -1 for root.
+    /// Optional so older UI providers can keep the original control surface.
+    virtual BOOL WINAPI AddItem(
+        const char* text,
+        int parentIndex = -1)
+    {
+        (void)text;
+        (void)parentIndex;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI ClearItems()
+    {
+        return FALSE;
+    }
+
+    virtual int WINAPI GetItemCount() const
+    {
+        return 0;
+    }
+
+    /// Optional validation state appended after the original control surface.
+    virtual BOOL WINAPI SetRequired(BOOL required)
+    {
+        (void)required;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI IsRequired() const
+    {
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetValidationMessage(const char* message)
+    {
+        (void)message;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI GetValidationMessage(
+        char* buffer,
+        DWORD capacity) const
+    {
+        if (buffer != NULL && capacity != 0)
+            buffer[0] = '\0';
+        return FALSE;
+    }
+
+    /// Optional ListView column and selection surface appended to the
+    /// control contract. Other control kinds return FALSE/-1.
+    virtual BOOL WINAPI AddColumn(const char* title, int width)
+    {
+        (void)title;
+        (void)width;
+        return FALSE;
+    }
+
+    virtual int WINAPI GetSelectedIndex() const
+    {
+        return -1;
+    }
+
+    virtual BOOL WINAPI SetSelectedIndex(int index)
+    {
+        (void)index;
+        return FALSE;
+    }
+
+    /// Optional bounded accessibility metadata appended to the control
+    /// contract. Older providers receive empty strings by default.
+    virtual const char* WINAPI GetAccessibleName() const
+    {
+        return "";
+    }
+
+    virtual const char* WINAPI GetAccessibleDescription() const
+    {
+        return "";
+    }
+
+protected:
+    virtual ~IControl() {}
+};
+
+class IDialog
+{
+public:
+    virtual DWORD WINAPI GetVersion() const = 0;
+    virtual IControl* WINAPI AddControl(
+        ControlKind kind,
+        const ControlOptions& options) = 0;
+
+    virtual IControl* WINAPI FindControl(const char* id) = 0;
+    virtual int WINAPI ShowModal() = 0;
+    virtual void WINAPI Close() = 0;
+    virtual void WINAPI Release() = 0;
+
+    /// ABI-safe extension for explicit control bounds. Older providers use
+    /// the original AddControl implementation and simply ignore the layout.
+    virtual IControl* WINAPI AddControlEx(
+        ControlKind kind,
+        const ControlOptions& options,
+        const ControlLayout& layout)
+    {
+        (void)layout;
+        return AddControl(kind, options);
+    }
+
+    /// Appended callback surface for control changes while a modal dialog is
+    /// running. The event payload is valid only for the duration of callback.
+    virtual BOOL WINAPI SetEventCallback(
+        DialogEventCallback callback,
+        void* context)
+    {
+        (void)callback;
+        (void)context;
+        return FALSE;
+    }
+
+protected:
+    virtual ~IDialog() {}
+};
+
+/// Native dialog implementation shared by the runtime plugin and all
+/// adapters. The implementation lives in salamatrix_ui.cpp; keeping the
+/// interface here lets native plugins use the same controls as workers.
+class NativeDialog : public IDialog
+{
+private:
+    struct Impl;
+    Impl* m_pImpl;
+    static INT_PTR CALLBACK DialogProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+    NativeDialog(const NativeDialog&);
+    NativeDialog& operator=(const NativeDialog&);
+
+public:
+    explicit NativeDialog(const DialogOptions& options);
+    virtual ~NativeDialog();
+
+    virtual DWORD WINAPI GetVersion() const;
+    virtual IControl* WINAPI AddControl(
+        ControlKind kind,
+        const ControlOptions& options);
+    virtual IControl* WINAPI FindControl(const char* id);
+    virtual int WINAPI ShowModal();
+    virtual void WINAPI Close();
+    virtual void WINAPI Release();
+    virtual IControl* WINAPI AddControlEx(
+        ControlKind kind,
+        const ControlOptions& options,
+        const ControlLayout& layout);
+    virtual BOOL WINAPI SetEventCallback(
+        DialogEventCallback callback,
+        void* context);
+};
+
+// Implemented by the Salamatrix native UI provider and used by its local
+// service implementation. It is intentionally a free function so the
+// IUIService vtable can keep its append-only ABI contract.
+BOOL WINAPI ShowNativeNotification(
+    HWND parent,
+    const char* title,
+    const char* message,
+    DWORD timeoutMs);
+
 class IUIService
 {
 public:
@@ -214,9 +527,112 @@ public:
     virtual IProgressDialog* WINAPI CreateProgressDialog(CSalamanderForOperationsAbstract* operations) = 0;
     virtual void WINAPI DestroyProgressDialog(IProgressDialog* dialog) = 0;
 
+    /// Optional in the original 1.0 contract; providers that do not expose
+    /// native dialogs can keep the default NULL implementation.
+    virtual IDialog* WINAPI CreateSalamatrixDialog(const DialogOptions& options)
+    {
+        (void)options;
+        return NULL;
+    }
+
+    virtual void WINAPI DestroyDialog(IDialog* dialog)
+    {
+        if (dialog != NULL)
+            dialog->Release();
+    }
+
+    /// Optional message-box entry point appended after the original 1.0
+    /// methods so older providers keep their existing vtable order.
+    virtual int WINAPI ShowMessageBox(
+        HWND parent,
+        const char* message,
+        const char* title,
+        UINT flags)
+    {
+        (void)parent;
+        (void)message;
+        (void)title;
+        (void)flags;
+        return 0;
+    }
+
+    /// Clipboard is part of the shared application UI surface for scripts
+    /// that need to publish generated text without reimplementing Win32.
+    virtual BOOL WINAPI CopyTextToClipboard(
+        const char* text,
+        BOOL showEcho,
+        HWND echoParent)
+    {
+        (void)text;
+        (void)showEcho;
+        (void)echoParent;
+        return FALSE;
+    }
+
+    /// Opens a native file picker. `filter` is UTF-8 text in the form
+    /// "Description|pattern|Description|pattern"; an empty filter means
+    /// all files. The selected path is returned as UTF-8.
+    virtual BOOL WINAPI PickFile(
+        HWND parent,
+        BOOL save,
+        const char* title,
+        const char* filter,
+        const char* initialPath,
+        char* result,
+        DWORD resultCapacity)
+    {
+        (void)parent;
+        (void)save;
+        (void)title;
+        (void)filter;
+        (void)initialPath;
+        (void)result;
+        (void)resultCapacity;
+        return FALSE;
+    }
+
+    /// Opens a native folder picker. The selected directory is returned as
+    /// UTF-8. This method is appended after the original picker contract so
+    /// existing UI providers keep their vtable layout.
+    virtual BOOL WINAPI PickFolder(
+        HWND parent,
+        const char* title,
+        const char* initialPath,
+        char* result,
+        DWORD resultCapacity)
+    {
+        (void)parent;
+        (void)title;
+        (void)initialPath;
+        (void)result;
+        (void)resultCapacity;
+        return FALSE;
+    }
+
+    /// Non-modal, auto-dismissing native notification appended after the
+    /// original UI contract. Providers without a notification surface may
+    /// keep the default FALSE implementation.
+    virtual BOOL WINAPI ShowNotification(
+        HWND parent,
+        const char* title,
+        const char* message,
+        DWORD timeoutMs)
+    {
+        (void)parent;
+        (void)title;
+        (void)message;
+        (void)timeoutMs;
+        return FALSE;
+    }
+
 protected:
     virtual ~IUIService() {}
 };
 
 } // namespace UI
 } // namespace Salamatrix
+
+#ifdef SALAMATRIX_RESTORE_CREATE_DIALOG
+#pragma pop_macro("CreateDialog")
+#undef SALAMATRIX_RESTORE_CREATE_DIALOG
+#endif

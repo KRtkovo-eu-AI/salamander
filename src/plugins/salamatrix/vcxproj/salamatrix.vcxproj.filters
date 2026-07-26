@@ -8,6 +8,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\salamatrix.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\salamatrix_packages.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\salamatrix_ui.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\precomp.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\..\shared\mhandles.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -16,10 +18,19 @@
     <ClInclude Include="..\salamatrix.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix.rh"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_automation.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_ai.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_commands.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_poc.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_runtime.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_runtime_api.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_runtime_protocol.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_sides.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_events.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_extensions.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_packages.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_storage.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_ui.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\salamatrix_ui_layout.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\versinfo.rh2"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\precomp.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>

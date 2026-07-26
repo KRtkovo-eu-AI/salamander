@@ -3235,6 +3235,11 @@ BOOL InitializeGraphics(BOOL colorsOnly)
 
     ImageList_SetBkColor(HHotToolBarImageList, toolbarFace);
     ImageList_SetBkColor(HGrayToolBarImageList, toolbarFace);
+    // Manifest/native extensions may have registered toolbar buttons before
+    // the main image lists were created. Append their SVG assets now so the
+    // first toolbar load gets real image indices as well.
+    Plugins.EnsureToolbarButtonImages(HHotToolBarImageList,
+                                      HGrayToolBarImageList);
 
     int arrowIconSize = IconSizes[ICONSIZE_16];
     SVGArrowRight.Load(IDV_ARROW_RIGHT, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);

@@ -2,6 +2,13 @@
 
 These rules apply to all future agentic development in this repository.
 
+## Hard command timeout
+- Every command must run with escalation.
+- Never allow any command or approval wait to exceed 120 seconds.
+- If a command returns a session/cell, terminate it before 120 seconds.
+- Never leave a command running while waiting for output.
+- If escalation approval hangs, cancel the tool call; do not wait or retry.
+
 ## Windows paths and buffer sizes
 
 - Do not introduce new `MAX_PATH`-sized buffers for file names, directory names, command lines, viewer/editor arguments, or paths.

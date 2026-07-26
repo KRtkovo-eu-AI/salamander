@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "Salamatrix.Demo.JavaScriptNode",
+  "name": "Salamatrix Node Demo",
+  "version": "1.0.0",
+  "description": "Demonstrates a Node.js Salamatrix extension package.",
+  "runtime": "JavaScript.Node",
+  "entryPoint": "main.mjs",
+  "icon": "icon.svg",
+  "capabilities": ["ui.notify", "ui.progress", "storage"],
+  "commands": [{
+    "id": "Salamatrix.Demo.JavaScriptNode.run",
+    "title": "Run Node demo",
+    "handler": "run",
+    "menu": "both",
+    "contextMenu": true,
+    "toolbar": true,
+    "requires": "any"
+  }]
+}

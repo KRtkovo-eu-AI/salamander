@@ -1,0 +1,15 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma code_page(65001)
+
+#include "powershellruntime.rh"
+#include "winresrc.h"
+
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+
+#ifndef APSTUDIO_INVOKED
+#include "powershellruntime.rc2"
+#endif
+
+

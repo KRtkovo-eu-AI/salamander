@@ -13,6 +13,7 @@
 
 #include "precomp.h"
 #include "automationplug.h"
+#include "salamatrixrunner.h"
 #include "scriptlist.h"
 #include "automation.rh2"
 #include "lang\lang.rh"
@@ -23,6 +24,8 @@
 #include "persistence.h"
 #include "abortmodal.h"
 
+#include <vector>
+
 #pragma comment(lib, "UxTheme.lib")
 
 CAutomationMenuExtInterface g_oMenuExtInterface;
@@ -31,7 +34,40 @@ extern CSalamanderGUIAbstract* SalamanderGUI;
 extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CAutomationPluginInterface g_oAutomationPlugin;
+extern CGeneratedScriptRunner g_oGeneratedScriptRunner;
 CWindowQueue AbortPaletteWindowQueue("Automation Abort Palette Window");
+
+static BOOL AppendFocusedItemName(PTSTR path, int pathCapacity,
+                                  const CFileData* file)
+{
+    if (path == NULL || pathCapacity <= 0 || file == NULL)
+        return FALSE;
+#ifdef UNICODE
+    std::vector<wchar_t> name;
+    if (file->NameW != NULL && file->NameW[0] != L'\0')
+    {
+        name.assign(file->NameW, file->NameW + wcslen(file->NameW) + 1);
+    }
+    else if (file->Name != NULL)
+    {
+        int length = MultiByteToWideChar(CP_ACP, 0, file->Name, -1, NULL, 0);
+        if (length <= 0)
+            return FALSE;
+        name.resize(static_cast<size_t>(length));
+        if (MultiByteToWideChar(CP_ACP, 0, file->Name, -1,
+                                &name[0], length) <= 0)
+            return FALSE;
+    }
+    else
+    {
+        return FALSE;
+    }
+    return PathAppendW(path, &name[0]);
+#else
+    return file->Name != NULL && PathAppendA(path, file->Name);
+#endif
+}
+
 
 static const TCHAR CONFIG_VERSION[] = TEXT("Version");
 static const UINT CURRENT_CONFIG_VERSION = 1;
@@ -65,14 +101,16 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
 
     if (id == CmdRunFocusedScript)
     {
-        TCHAR szFullName[MAX_PATH];
+        std::vector<TCHAR> szFullName(SAL_MAX_PATH);
         const CFileData* pFocusedFile;
 
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, szFullName, _countof(szFullName), NULL, NULL);
+        SalamanderGeneral->GetPanelPath(
+            PANEL_SOURCE, &szFullName[0], static_cast<int>(szFullName.size()), NULL, NULL);
         pFocusedFile = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-        SalamanderGeneral->SalPathAppend(szFullName, pFocusedFile->Name, _countof(szFullName));
+        AppendFocusedItemName(
+            &szFullName[0], static_cast<int>(szFullName.size()), pFocusedFile);
 
-        CScriptInfo scriptInfo(szFullName, NULL);
+        CScriptInfo scriptInfo(&szFullName[0], NULL);
         bExecuted = scriptInfo.Execute(info);
     }
     else if (id == CmdScriptPopupMenu)
@@ -93,8 +131,24 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
     if (bRunScript)
     {
         CScriptInfo* pScript = g_oScriptLookup.LookupScript(id);
+        if (pScript == NULL)
+            pScript = g_oScriptLookup.LookupRuntimeCommand(id);
         if (pScript)
         {
+            int runtimeCommandIndex =
+                pScript->GetRuntimeCommandIndexByMenuId(id);
+            if (runtimeCommandIndex >= 0)
+            {
+                const CScriptInfo::RUNTIME_COMMAND_INFO* runtimeCommand =
+                    pScript->GetRuntimeCommand(runtimeCommandIndex);
+                if (runtimeCommand != NULL)
+                {
+                    StringCchCopyA(
+                        info.SalamatrixCommandId,
+                        _countof(info.SalamatrixCommandId),
+                        runtimeCommand->Id);
+                }
+            }
             bExecuted = pScript->Execute(info);
         }
     }
@@ -125,7 +179,24 @@ DWORD WINAPI CAutomationMenuExtInterface::GetMenuItemState(
         // preloaded script item
         CScriptInfo* pScript = g_oScriptLookup.LookupScript(id);
         if (pScript == NULL)
+            pScript = g_oScriptLookup.LookupRuntimeCommand(id);
+        if (pScript == NULL)
             return 0;
+
+        int runtimeIndex = pScript->GetRuntimeCommandIndexByMenuId(id);
+        if (runtimeIndex >= 0)
+        {
+            const CScriptInfo::RUNTIME_COMMAND_INFO* command =
+                pScript->GetRuntimeCommand(runtimeIndex);
+            if (command == NULL || !pScript->IsRuntimeCommandVisible(runtimeIndex))
+                return MENU_ITEM_STATE_HIDDEN;
+            if (!pScript->IsRuntimeCommandEnabled(runtimeIndex) ||
+                (eventMask & command->MenuEventAndMask) !=
+                    command->MenuEventAndMask ||
+                (eventMask & command->MenuEventOrMask) == 0)
+                return 0;
+            return MENU_ITEM_STATE_ENABLED;
+        }
 
         if ((eventMask & pScript->GetMenuEventAndMask()) != pScript->GetMenuEventAndMask())
             return 0;
@@ -245,6 +316,36 @@ void CAutomationMenuExtInterface::AddScriptContainerToPopup(
     mii.ImageIndex = PluginIconScript;
     for (pScript = pContainer->FirstScript(); pScript; pScript = pScript->Next(), i++)
     {
+        mii.State = 0;
+        if (pScript->GetRuntimeCommandCount() > 0)
+        {
+            for (int commandIndex = 0;
+                 commandIndex < pScript->GetRuntimeCommandCount();
+                 ++commandIndex)
+            {
+                const CScriptInfo::RUNTIME_COMMAND_INFO* command =
+                    pScript->GetRuntimeCommand(commandIndex);
+                if (command == NULL || !command->PluginMenu ||
+                    !pScript->IsRuntimeCommandVisible(commandIndex))
+                    continue;
+                mii.ID = command->MenuId;
+                mii.State = pScript->IsRuntimeCommandEnabled(commandIndex)
+                                ? 0
+                                : MENU_STATE_GRAYED;
+                StringCchCopy(
+                    szDisplayName,
+                    _countof(szDisplayName),
+                    command->Title);
+                SalamanderGeneral->DuplicateAmpersands(
+                    szDisplayName, _countof(szDisplayName));
+                mii.String = szDisplayName;
+                if (pSubMenu != NULL)
+                    pSubMenu->InsertItem(INT_MAX, TRUE, &mii);
+                else
+                    pMenu->InsertItem(INT_MAX, TRUE, &mii);
+            }
+            continue;
+        }
         if (!pScript->ShowInPluginMenu())
             continue;
 
@@ -395,6 +496,36 @@ void CAutomationMenuExtInterface::AddScriptContainerToMenu(
     pScript = pContainer->FirstScript();
     while (pScript)
     {
+        if (pScript->GetRuntimeCommandCount() > 0)
+        {
+            for (int commandIndex = 0;
+                 commandIndex < pScript->GetRuntimeCommandCount();
+                 ++commandIndex)
+            {
+                const CScriptInfo::RUNTIME_COMMAND_INFO* command =
+                    pScript->GetRuntimeCommand(commandIndex);
+                if (command == NULL ||
+                    (!command->PluginMenu && !command->ContextMenu))
+                    continue;
+                StringCchCopy(
+                    szDisplayName,
+                    _countof(szDisplayName),
+                    command->Title);
+                SalamanderGeneral->DuplicateAmpersands(
+                    szDisplayName, _countof(szDisplayName));
+                pMenuBuilder->AddMenuItem(
+                    PluginIconScript,
+                    szDisplayName,
+                    command->HotKey,
+                    command->MenuId,
+                    TRUE,
+                    command->MenuEventOrMask,
+                    command->MenuEventAndMask,
+                    MENU_SKILLLEVEL_ALL);
+            }
+            pScript = pScript->Next();
+            continue;
+        }
         if (!pScript->ShowInPluginMenu() && !pScript->ShowInContextMenu())
         {
             pScript = pScript->Next();
@@ -545,6 +676,12 @@ void CAutomationPluginInterface::About(HWND parent)
 
 BOOL WINAPI CAutomationPluginInterface::Release(HWND parent, BOOL force)
 {
+    if (SalamanderGeneral != NULL)
+        SalamanderGeneral->UnregisterServiceOwned(
+            SALAMATRIX_SERVICE_SCRIPT_RUNNER,
+            &g_oGeneratedScriptRunner,
+            &g_oGeneratedScriptRunner);
+    m_oSalamatrix.Reset();
     ReleaseWinLib(g_hInstance);
     UninitializeAbortableModalDialogWrapper();
 
@@ -627,6 +764,7 @@ void WINAPI CAutomationPluginInterface::LoadConfiguration(
 
         dir.Set(_T("$(SalDir)\\plugins\\automation\\scripts"));
         m_aDirectories.Add(dir);
+
     }
 
     bool bLookupLoaded = false;
@@ -768,6 +906,11 @@ void CAutomationPluginInterface::Event(int event, DWORD param)
 {
     switch (event)
     {
+    case PLUGINEVENT_CONFIGURATIONCHANGED:
+        // Runtime adapter registration is independent of manifest package
+        // discovery. Salamatrix owns package refresh and lifecycle.
+        RefreshSalamatrixServices();
+        break;
     case PLUGINEVENT_SETTINGCHANGE:
     {
         AbortPaletteWindowQueue.BroadcastMessage(CScriptAbortPaletteWindow::WM_USER_SETTINGCHANGE, 0, 0);

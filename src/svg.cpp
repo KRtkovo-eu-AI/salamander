@@ -99,6 +99,15 @@ char* ReadSVGFile(const char* fileName)
 // Renders icons for which we have an SVG representation
 static char* LoadToolbarSVG(const char* svgName)
 {
+    // Dynamic package contributions pass an absolute UTF-8 SVG path. Keep
+    // the historic toolbar-name lookup for built-in icons, but allow the
+    // shared GUI API to render package-owned artwork as well.
+    if (svgName != NULL &&
+        (strchr(svgName, ':') != NULL || svgName[0] == '\\' || svgName[0] == '/'))
+    {
+        return ReadSVGFile(svgName);
+    }
+
     char svgFile[2 * MAX_PATH];
     GetModuleFileName(NULL, svgFile, _countof(svgFile));
     char* s = strrchr(svgFile, '\\');
@@ -192,12 +201,11 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
 }
 
 
-BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITMAP* hBitmap)
 {
     if (hBitmap == NULL)
         return FALSE;
     *hBitmap = NULL;
-    char* svg = LoadToolbarSVG(svgName);
     if (svg == NULL)
         return FALSE;
 
@@ -267,8 +275,133 @@ BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMA
     if (hMemBmp != NULL)
         HANDLES(DeleteObject(hMemBmp));
     HANDLES(DeleteDC(hMemDC));
-    free(svg);
     return *hBitmap != NULL;
+}
+
+BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+{
+    char* svg = LoadToolbarSVG(svgName);
+    if (svg == NULL)
+    {
+        if (hBitmap != NULL)
+            *hBitmap = NULL;
+        return FALSE;
+    }
+    BOOL result = RenderSVGIconBitmapText(svg, iconSize, enabled, hBitmap);
+    free(svg);
+    return result;
+}
+
+BOOL RenderSVGIconBitmapFromFile(const char* svgFile, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+{
+    char* svg = svgFile != NULL ? ReadSVGFile(svgFile) : NULL;
+    if (svg == NULL)
+    {
+        if (hBitmap != NULL)
+            *hBitmap = NULL;
+        return FALSE;
+    }
+    BOOL result = RenderSVGIconBitmapText(svg, iconSize, enabled, hBitmap);
+    free(svg);
+    return result;
+}
+
+BOOL CreateDarkModeIconBitmap(HBITMAP hSource, HBITMAP* hBitmap)
+{
+    if (hBitmap == NULL)
+        return FALSE;
+    *hBitmap = NULL;
+    if (hSource == NULL)
+        return FALSE;
+
+    BITMAP sourceInfo;
+    if (GetObject(hSource, sizeof(sourceInfo), &sourceInfo) != sizeof(sourceInfo) ||
+        sourceInfo.bmWidth <= 0 || sourceInfo.bmHeight <= 0)
+        return FALSE;
+
+    const size_t pixelCount = static_cast<size_t>(sourceInfo.bmWidth) *
+                              static_cast<size_t>(sourceInfo.bmHeight);
+    if (pixelCount > static_cast<size_t>(0xFFFFFFFF) / 4)
+        return FALSE;
+    const size_t bufferSize = pixelCount * 4;
+    DWORD* pixels = static_cast<DWORD*>(malloc(bufferSize));
+    if (pixels == NULL)
+        return FALSE;
+
+    HDC hDC = HANDLES(GetDC(NULL));
+    BITMAPINFO info;
+    memset(&info, 0, sizeof(info));
+    info.bmiHeader.biSize = sizeof(info.bmiHeader);
+    info.bmiHeader.biWidth = sourceInfo.bmWidth;
+    info.bmiHeader.biHeight = -sourceInfo.bmHeight;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    BOOL result = FALSE;
+    if (hDC != NULL && GetDIBits(hDC, hSource, 0, sourceInfo.bmHeight,
+                                 pixels, &info, DIB_RGB_COLORS) != 0)
+    {
+        for (size_t i = 0; i < pixelCount; ++i)
+        {
+            DWORD pixel = pixels[i];
+            BYTE alpha = static_cast<BYTE>(pixel >> 24);
+            if (alpha == 0)
+                continue;
+            BYTE red = static_cast<BYTE>(pixel & 0xff);
+            BYTE green = static_cast<BYTE>((pixel >> 8) & 0xff);
+            BYTE blue = static_cast<BYTE>((pixel >> 16) & 0xff);
+            int unpremultipliedRed = min(255, (red * 255 + alpha / 2) / alpha);
+            int unpremultipliedGreen = min(255, (green * 255 + alpha / 2) / alpha);
+            int unpremultipliedBlue = min(255, (blue * 255 + alpha / 2) / alpha);
+            int luminance = (unpremultipliedRed * 54 +
+                             unpremultipliedGreen * 183 +
+                             unpremultipliedBlue * 19) / 256;
+            if (luminance < 160)
+            {
+                const int targetLuminance = 230;
+                if (luminance == 0)
+                {
+                    unpremultipliedRed = targetLuminance;
+                    unpremultipliedGreen = targetLuminance;
+                    unpremultipliedBlue = targetLuminance;
+                }
+                else
+                {
+                    unpremultipliedRed = min(255, unpremultipliedRed * targetLuminance / luminance);
+                    unpremultipliedGreen = min(255, unpremultipliedGreen * targetLuminance / luminance);
+                    unpremultipliedBlue = min(255, unpremultipliedBlue * targetLuminance / luminance);
+                }
+                red = static_cast<BYTE>((unpremultipliedRed * alpha + 127) / 255);
+                green = static_cast<BYTE>((unpremultipliedGreen * alpha + 127) / 255);
+                blue = static_cast<BYTE>((unpremultipliedBlue * alpha + 127) / 255);
+                pixels[i] = (static_cast<DWORD>(alpha) << 24) |
+                            (static_cast<DWORD>(blue) << 16) |
+                            (static_cast<DWORD>(green) << 8) | red;
+            }
+        }
+
+        HDC destinationDC = HANDLES(CreateCompatibleDC(NULL));
+        if (destinationDC != NULL)
+        {
+            void* destinationBits = NULL;
+            HBITMAP resultBitmap = HANDLES(CreateDIBSection(destinationDC, &info,
+                                                              DIB_RGB_COLORS,
+                                                              &destinationBits, NULL, 0));
+            if (resultBitmap != NULL && destinationBits != NULL)
+            {
+                memcpy(destinationBits, pixels, bufferSize);
+                *hBitmap = resultBitmap;
+                result = TRUE;
+            }
+            if (!result && resultBitmap != NULL)
+                HANDLES(DeleteObject(resultBitmap));
+            HANDLES(DeleteDC(destinationDC));
+        }
+    }
+    if (hDC != NULL)
+        HANDLES(ReleaseDC(NULL, hDC));
+    free(pixels);
+    return result;
 }
 
 //*****************************************************************************

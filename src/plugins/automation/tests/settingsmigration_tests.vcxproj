@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release clean|x64"><Configuration>Release clean</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{1C7C0B51-5F2C-4A6D-9F1E-2B9B65C0B2D0}</ProjectGuid>
+    <RootNamespace>settingsmigrationtests</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\</OutDir>
+    <IntDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\SettingsMigrationIntermediate\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile><PrecompiledHeader>NotUsing</PrecompiledHeader><LanguageStandard>stdcpp17</LanguageStandard><AdditionalIncludeDirectories>..\..\shared;..\..\salamatrix;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><DisableSpecificWarnings>4100;4121;4201;4245;%(DisableSpecificWarnings)</DisableSpecificWarnings><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError></ClCompile>
+    <Link><AdditionalDependencies>kernel32.lib;advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="settingsmigration_tests.cpp" />
+    <ClCompile Include="..\salamatrixsettings.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
