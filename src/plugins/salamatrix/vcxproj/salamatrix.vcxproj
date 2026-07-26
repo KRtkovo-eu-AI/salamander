@@ -209,7 +209,8 @@
   <ItemGroup>
     <DemoPackageFiles Include="..\..\..\extensions\demos\**\*.*" />
   </ItemGroup>
-  <Target Name="CopySalamatrixDemoPackages" AfterTargets="Build">
+  <Target Name="CopySalamatrixDemoPackages" AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Debug' Or '$(Configuration)' == 'Release'">
     <MakeDir Directories="$(OutDir)..\..\extensions\demos" />
     <Copy SourceFiles="@(DemoPackageFiles)"
           DestinationFiles="@(DemoPackageFiles->'$(OutDir)..\..\extensions\demos\%(RecursiveDir)%(Filename)%(Extension)')"
