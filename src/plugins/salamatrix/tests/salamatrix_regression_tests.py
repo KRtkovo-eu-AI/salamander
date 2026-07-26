@@ -131,6 +131,8 @@ def main() -> int:
             "bundled provider availability does not require both runtime assets")
     require(bundled, r'CreateProcessW\(NULL, commandLine\.data\(\).*?TerminateProcess\(process\.hProcess, 1\)',
             "bundled provider does not isolate and bound the llama.cpp process")
+    require(bundled, r'PeekNamedPipe\(parentOut, NULL, 0, NULL, &available, NULL\)',
+            "bundled provider uses the complete PeekNamedPipe signature")
     require(bundled, r'120000', "bundled provider timeout is not capped at two minutes")
     require(local_llama_header, r'class CLocalBundledAssistantProvider',
             "optional local llama provider declaration is missing")

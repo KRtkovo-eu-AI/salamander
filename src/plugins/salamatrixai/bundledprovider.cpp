@@ -225,7 +225,7 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     }
     WaitForSingleObject(process.hProcess, 1000);
     DWORD available = 0;
-    while (PeekNamedPipe(parentOut, NULL, 0, NULL, &available) && available)
+    while (PeekNamedPipe(parentOut, NULL, 0, NULL, &available, NULL) && available)
     {
         char buffer[4096]; DWORD count = 0;
         const DWORD take = available < sizeof(buffer) ? available : sizeof(buffer);
