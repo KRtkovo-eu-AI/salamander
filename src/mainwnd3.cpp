@@ -3700,6 +3700,16 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_USER_SALAMANDER_MAIN_THREAD:
+    {
+        CSalamanderMainThreadCall* call =
+            reinterpret_cast<CSalamanderMainThreadCall*>(lParam);
+        if (call == NULL || call->StructSize < sizeof(CSalamanderMainThreadCall) ||
+            call->Callback == NULL)
+            return 0;
+        return call->Callback(call->Context) ? 1 : 0;
+    }
+
     case WM_NCCREATE:
     {
         EnableNonClientDPIScalingIfAvailable(HWindow);

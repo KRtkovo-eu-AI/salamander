@@ -803,6 +803,31 @@ BOOL CSalamanderGeneral::ReleaseService(const char* serviceId, void* serviceInte
     return FALSE;
 }
 
+BOOL CSalamanderGeneral::InvokeOnMainThread(
+    SalamanderMainThreadCallback callback,
+    void* context,
+    DWORD timeoutMs)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::InvokeOnMainThread()");
+    UNREFERENCED_PARAMETER(timeoutMs);
+    if (callback == NULL)
+        return FALSE;
+    if (MainThreadID == GetCurrentThreadId())
+        return callback(context);
+    if (MainWindow == NULL || MainWindow->HWindow == NULL)
+        return FALSE;
+
+    CSalamanderMainThreadCall call;
+    call.Callback = callback;
+    call.Context = context;
+    // SendMessage is intentional: the caller owns the stack context until
+    // the callback returns, so no asynchronous lifetime hand-off is needed.
+    return SendMessage(MainWindow->HWindow,
+                       WM_USER_SALAMANDER_MAIN_THREAD,
+                       0,
+                       reinterpret_cast<LPARAM>(&call)) != 0;
+}
+
 namespace
 {
 CFilesWindow* FindPanelTabById(ULONGLONG tabId, int* side = NULL, int* index = NULL)

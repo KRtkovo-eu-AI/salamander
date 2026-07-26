@@ -24,6 +24,29 @@
 struct CFileData;
 class CPluginDataInterfaceAbstract;
 
+// Synchronous bridge for provider worker threads that need to call the
+// Salamander UI/panel API.  The callback is executed on the main window
+// thread and must return TRUE on success.
+typedef BOOL(WINAPI* SalamanderMainThreadCallback)(void* context);
+
+struct CSalamanderMainThreadCall
+{
+    DWORD StructSize;
+    SalamanderMainThreadCallback Callback;
+    void* Context;
+
+    CSalamanderMainThreadCall()
+        : StructSize(sizeof(CSalamanderMainThreadCall)),
+          Callback(NULL),
+          Context(NULL)
+    {
+    }
+};
+
+#ifndef WM_USER_SALAMANDER_MAIN_THREAD
+#define WM_USER_SALAMANDER_MAIN_THREAD (WM_APP + 421)
+#endif
+
 //
 // ****************************************************************************
 // CSalamanderGeneralAbstract
@@ -3523,6 +3546,13 @@ public:
     virtual BOOL WINAPI ReleaseService(const char* serviceId,
                                        void* serviceInterface,
                                        void* consumerOwner) = 0;
+
+    // Synchronously execute a callback on Salamander's main/UI thread.
+    // Appended to preserve the published SDK vtable prefix.
+    virtual BOOL WINAPI InvokeOnMainThread(
+        SalamanderMainThreadCallback callback,
+        void* context,
+        DWORD timeoutMs) = 0;
 };
 
 #ifdef _MSC_VER

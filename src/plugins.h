@@ -2384,6 +2384,10 @@ public:
     virtual BOOL WINAPI ReleaseService(const char* serviceId,
                                        void* serviceInterface,
                                        void* consumerOwner);
+    virtual BOOL WINAPI InvokeOnMainThread(
+        SalamanderMainThreadCallback callback,
+        void* context,
+        DWORD timeoutMs);
 };
 
 //

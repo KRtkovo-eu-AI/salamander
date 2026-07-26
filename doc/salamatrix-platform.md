@@ -196,8 +196,13 @@ operation. The Automation host dispatcher also
 handles the first language-neutral calls (`runtime.ready`, command execution,
 active-tab snapshots, string storage, event subscribe/unsubscribe, and a
 message-box dialog) without sharing native pointers. Richer UI/value bindings
-and queued long-lived worker lifecycle rules remain to be added on top of this
-boundary.
+are implemented on top of the same boundary, including the shared dialog and
+control model, progress variants, panel-tab activation/path/refresh, and
+clipboard/file-picker helpers. Because the worker pump is not Salamander's UI
+thread, the host dispatch now synchronously marshals calls through
+`CSalamanderGeneralAbstract::InvokeOnMainThread`; the callback context remains
+valid until the main-thread operation completes. Queued long-lived worker
+lifecycle rules and richer value bindings remain future extensions.
 
 The first worker-transport slice is declared in
 `src/plugins/salamatrix/salamatrix_runtime_protocol.h`. It provides a bounded,

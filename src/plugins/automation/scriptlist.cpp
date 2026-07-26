@@ -1226,6 +1226,38 @@ BOOL WINAPI CScriptInfo::RuntimeDialogEventCallback(
         frame.c_str(), static_cast<DWORD>(frame.size()));
 }
 
+namespace
+{
+struct RuntimeMainThreadDispatch
+{
+    void* Context;
+    Salamatrix::Runtime::Protocol::MessageType Type;
+    ULONGLONG RequestId;
+    const char* PayloadJson;
+    char* ResultJson;
+    DWORD ResultCapacity;
+    DWORD* ResultLength;
+};
+
+static __declspec(thread) RuntimeMainThreadDispatch*
+    g_runtimeHostDispatchMainCall = NULL;
+
+BOOL WINAPI DispatchRuntimeHostOnMain(void* raw)
+{
+    RuntimeMainThreadDispatch* call =
+        static_cast<RuntimeMainThreadDispatch*>(raw);
+    if (call == NULL)
+        return FALSE;
+    RuntimeMainThreadDispatch* previous = g_runtimeHostDispatchMainCall;
+    g_runtimeHostDispatchMainCall = call;
+    BOOL result = CScriptInfo::DispatchRuntimeHostCall(
+        call->Context, call->Type, call->RequestId, call->PayloadJson,
+        call->ResultJson, call->ResultCapacity, call->ResultLength);
+    g_runtimeHostDispatchMainCall = previous;
+    return result;
+}
+}
+
 BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     void* context,
     Salamatrix::Runtime::Protocol::MessageType type,
@@ -1239,6 +1271,27 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     CScriptInfo* script = static_cast<CScriptInfo*>(context);
     if (script == NULL || resultJson == NULL || resultLength == NULL)
         return FALSE;
+
+    // Persistent runtime workers receive requests on their own pump thread,
+    // while Salamander's panel/UI services are main-thread-only. Marshal the
+    // complete dispatch synchronously; the callback marker lets the main-thread
+    // invocation enter the real implementation without recursing back into
+    // SendMessage (TLS is per thread, so the marker is set by the callback).
+    if (g_runtimeHostDispatchMainCall == NULL && SalamanderGeneral != NULL)
+    {
+        RuntimeMainThreadDispatch call = {
+            context,
+            type,
+            requestId,
+            payloadJson,
+            resultJson,
+            resultCapacity,
+            resultLength};
+        BOOL dispatched = SalamanderGeneral->InvokeOnMainThread(
+            DispatchRuntimeHostOnMain, &call, 120000);
+        return dispatched;
+    }
+
     *resultLength = 0;
 
     CAutomationSalamatrixBridge* bridge =
