@@ -534,9 +534,20 @@ BOOL PackageManager::ExecuteCommand(Package* package, const char* commandId, con
                     Runtime::RuntimeExecutionFlagOneShotWorker;
     request.HostDispatch = HostDispatch;
     request.HostDispatchContext = package;
-    Runtime::RuntimeExecutionResult result;
-    return adapter->Execute(&request, &result) &&
-           result.Status == Runtime::RuntimeExecutionStatusSucceeded;
+    Runtime::IRuntimeSession* session = NULL;
+    if (!adapter->StartPersistent(&request, &session) || session == NULL)
+        return FALSE;
+
+    const ULONGLONG startedAt = GetTickCount64();
+    while (session->IsAlive() && GetTickCount64() - startedAt < request.TimeoutMs)
+        session->Pump(250);
+
+    if (session->IsAlive())
+        session->Stop();
+    DWORD exitCode = 1;
+    BOOL succeeded = session->GetExitCode(&exitCode) && exitCode == 0;
+    session->Release();
+    return succeeded;
 }
 
 BOOL WINAPI PackageManager::HostDispatch(
@@ -563,6 +574,22 @@ BOOL WINAPI PackageManager::HostDispatch(
             static_cast<DWORD>(timeout > 0 ? timeout : 2500));
         return CopyResult(std::string("{\"ok\":") + (shown ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.ui.messageBox")
+    {
+        std::string title, message;
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "message", &message);
+        int result = owner->UI != NULL
+                         ? owner->UI->ShowMessageBox(
+                               owner->General->GetMsgBoxParent(),
+                               message.c_str(), title.c_str(),
+                               MB_OK | MB_ICONINFORMATION)
+                         : 0;
+        return CopyResult(
+            std::string("{\"ok\":true,\"result\":") +
+                std::to_string(result) + "}",
+            resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.storage.set")
     {
