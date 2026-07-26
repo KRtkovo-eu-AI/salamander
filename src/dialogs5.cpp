@@ -853,6 +853,8 @@ void CPluginsDlg::OnSelChanged()
         BOOL isExtensionHelper =
             HasStablePluginKey(p->RegKeyName, "SALAMATRIX.AI") ||
             IsPluginName(p->Name, "Salamatrix AI");
+        BOOL isLocalAIModel =
+            IsPluginName(p->Name, "Salamatrix AI Local Llama");
         BOOL supportAutomationFramework = p->SupportAutomationFramework || isSalamatrixProvider ||
                                           isExtensionRuntime || isExtensionHelper;
         buf[0] = 0;
@@ -924,6 +926,8 @@ void CPluginsDlg::OnSelChanged()
             strcat(buf, LoadStr(
                 isSalamatrixProvider
                     ? IDS_PLUGINFUNCEXTENSIONFRAMEWORK
+                    : isLocalAIModel
+                          ? IDS_PLUGINFUNCLOCALAIMODEL
                     : isExtensionRuntime
                           ? IDS_PLUGINFUNCEXTENSIONRUNTIME
                           : isExtensionHelper
