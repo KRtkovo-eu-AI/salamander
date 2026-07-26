@@ -5033,6 +5033,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        if (LOWORD(wParam) >= CM_EXTTOOLBAR_MIN &&
+            LOWORD(wParam) <= CM_EXTTOOLBAR_MAX)
+        {
+            BOOL unselect = FALSE;
+            if (Plugins.ExecuteToolbarButton(activePanel, HWindow,
+                                              LOWORD(wParam), unselect) &&
+                unselect)
+            {
+                activePanel->StoreSelection();
+                activePanel->SetSel(FALSE, -1, TRUE);
+                PostMessage(activePanel->HWindow, WM_USER_SELCHANGED, 0, 0);
+            }
+            UpdateWindow(HWindow);
+            return 0;
+        }
+
         if (LOWORD(wParam) >= CM_PLUGINCMD_MIN && LOWORD(wParam) <= CM_PLUGINCMD_MAX)
         { // command from a plugin menu
             // lower the thread priority to "normal" (so operations don't burden the system)

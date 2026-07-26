@@ -39,7 +39,7 @@ static void TestCompleteManifest()
         "\"capabilities\":[\"panels.read\",\"ui.dialogs\"],"
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
-        "\"contextMenu\":true,\"requires\":\"selection\",\"handler\":\"first\"},"
+        "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\"},"
         "{\"id\":\"Example.Second\",\"title\":\"Second\",\"placement\":\"context\"}"
         "]"
         "}";
@@ -59,6 +59,7 @@ static void TestCompleteManifest()
     CHECK(manifest.Commands[0].Id == "Example.First");
     CHECK(manifest.Commands[0].Menu == "both");
     CHECK(manifest.Commands[0].ContextMenu);
+    CHECK(manifest.Commands[0].Toolbar);
     CHECK(manifest.Commands[1].Menu == "context");
 }
 

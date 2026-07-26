@@ -460,9 +460,9 @@ const Salamander = {
       "salamander.commands.execute", { commandId }
     ).then((result) => result.result || "error"),
     register: (commandId, title, pluginMenu = true, contextMenu = false,
-               hotKey = 0) =>
+               hotKey = 0, toolbar = false) =>
       hostCall("salamander.commands.register", {
-        commandId, title, pluginMenu, contextMenu, hotKey: Number(hotKey),
+        commandId, title, pluginMenu, contextMenu, hotKey: Number(hotKey), toolbar,
       }).then((result) => result.registered === true),
     unregister: (commandId) => hostCall("salamander.commands.unregister", {
       commandId,

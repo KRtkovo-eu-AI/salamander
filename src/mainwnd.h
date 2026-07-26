@@ -727,6 +727,7 @@ public:
 
     void LayoutMainWindow();
     void LayoutWindows();
+    void RefreshExtensionToolbars();
     BOOL SetPanelsDetached(BOOL detached);
     BOOL TogglePanelsDetached();
     BOOL EnsureDetachedChrome();

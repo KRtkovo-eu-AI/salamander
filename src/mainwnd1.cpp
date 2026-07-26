@@ -628,6 +628,21 @@ BOOL CMainWindow::ToggleTopToolBar(BOOL storePos)
     return TRUE;
 }
 
+void CMainWindow::RefreshExtensionToolbars()
+{
+    // Toolbar contributions are rebuilt from the persisted native-toolbar
+    // layout.  Dynamic entries are appended by CMainToolBar::Load(), so they
+    // never become stale configuration records when a runtime unloads.
+    if (TopToolBar != NULL && TopToolBar->HWindow != NULL)
+        TopToolBar->Load(Configuration.TopToolBar);
+    if (MiddleToolBar != NULL && MiddleToolBar->HWindow != NULL)
+        MiddleToolBar->Load(Configuration.MiddleToolBar);
+    if (DetachedTopToolBar != NULL && DetachedTopToolBar->HWindow != NULL)
+        DetachedTopToolBar->Load(Configuration.TopToolBar);
+
+    LayoutWindows();
+}
+
 BOOL CMainWindow::TogglePluginsBar(BOOL storePos)
 {
     CALL_STACK_MESSAGE2("CMainWindow::TogglePluginsBar(%d)", storePos);

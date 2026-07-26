@@ -40,6 +40,7 @@ public:
         TCHAR Title[256];
         bool PluginMenu;
         bool ContextMenu;
+        bool Toolbar;
         DWORD HotKey;
         DWORD MenuEventOrMask;
         DWORD MenuEventAndMask;
@@ -48,6 +49,7 @@ public:
             : MenuId(0),
               PluginMenu(false),
               ContextMenu(false),
+              Toolbar(false),
               HotKey(0),
               MenuEventOrMask(MENU_EVENT_TRUE),
               MenuEventAndMask(MENU_EVENT_TRUE)
@@ -106,6 +108,7 @@ private:
     std::vector<std::string> m_salamatrixCapabilities;
     bool m_bShowInPluginMenu;
     bool m_bShowInContextMenu;
+    bool m_bManifestToolbar;
     bool m_bRuntimeCommandOwned;
     RUNTIME_COMMAND_INFO m_runtimeCommands[16];
     int m_nRuntimeCommands;
@@ -204,6 +207,7 @@ private:
         const char* title,
         bool pluginMenu,
         bool contextMenu,
+        bool toolbar,
         DWORD hotKey,
         DWORD menuEventOrMask,
         DWORD menuEventAndMask);

@@ -884,6 +884,23 @@ struct CSalamanderPanelTabInfo
     DWORD Flags;  // PANEL_TAB_FLAG_XXX
 };
 
+// A command contributed by a plug-in to Salamander's configurable main
+// toolbar.  The command id is the plug-in's own menu-extension command id;
+// Salamander assigns the low-word toolbar id internally.
+struct CSalamanderToolbarButton
+{
+    DWORD StructSize;
+    int CommandId;
+    const char* Title;
+
+    CSalamanderToolbarButton()
+        : StructSize(sizeof(CSalamanderToolbarButton)),
+          CommandId(0),
+          Title(NULL)
+    {
+    }
+};
+
 class CSalamanderGeneralAbstract
 {
 public:
@@ -3553,6 +3570,12 @@ public:
         SalamanderMainThreadCallback callback,
         void* context,
         DWORD timeoutMs) = 0;
+
+    // Dynamic toolbar contributions.  Appended to preserve the published
+    // SDK vtable prefix used by older plug-ins.
+    virtual BOOL WINAPI RegisterToolbarButton(
+        const CSalamanderToolbarButton* button) = 0;
+    virtual BOOL WINAPI UnregisterToolbarButton(int commandId) = 0;
 };
 
 #ifdef _MSC_VER

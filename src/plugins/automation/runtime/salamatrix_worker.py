@@ -109,11 +109,11 @@ class _Commands:
 
     def register(self, command_id: str, title: str,
                  plugin_menu: bool = True, context_menu: bool = False,
-                 hot_key: int = 0) -> bool:
+                 hot_key: int = 0, toolbar: bool = False) -> bool:
         result = self._transport.call(
             "salamander.commands.register", commandId=command_id,
             title=title, pluginMenu=plugin_menu, contextMenu=context_menu,
-            hotKey=int(hot_key)
+            hotKey=int(hot_key), toolbar=toolbar
         )
         return bool(result.get("registered", False))
 

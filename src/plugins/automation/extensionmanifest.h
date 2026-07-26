@@ -41,11 +41,13 @@ struct CExtensionManifestCommand
     std::string Menu;
     std::string Requires;
     bool ContextMenu;
+    bool Toolbar;
 
     CExtensionManifestCommand()
         : Menu("plugin"),
           Requires("any"),
-          ContextMenu(false)
+          ContextMenu(false),
+          Toolbar(false)
     {
     }
 };

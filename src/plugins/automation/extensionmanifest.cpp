@@ -844,7 +844,8 @@ bool CExtensionManifest::Parse(
                 !ReadString(commandValue, "handler", false, command.Handler, error) ||
                 !ReadString(commandValue, "menu", false, command.Menu, error) ||
                 !ReadString(commandValue, "requires", false, command.Requires, error) ||
-                !ReadBoolean(commandValue, "contextMenu", false, command.ContextMenu, error))
+                !ReadBoolean(commandValue, "contextMenu", false, command.ContextMenu, error) ||
+                !ReadBoolean(commandValue, "toolbar", false, command.Toolbar, error))
             {
                 return false;
             }

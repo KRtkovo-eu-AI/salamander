@@ -828,6 +828,23 @@ BOOL CSalamanderGeneral::InvokeOnMainThread(
                        reinterpret_cast<LPARAM>(&call)) != 0;
 }
 
+BOOL CSalamanderGeneral::RegisterToolbarButton(
+    const CSalamanderToolbarButton* button)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::RegisterToolbarButton()");
+    if (Plugin == NULL || button == NULL)
+        return FALSE;
+    return Plugins.RegisterToolbarButton(Plugin, button);
+}
+
+BOOL CSalamanderGeneral::UnregisterToolbarButton(int commandId)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::UnregisterToolbarButton(%d)", commandId);
+    if (Plugin == NULL)
+        return FALSE;
+    return Plugins.UnregisterToolbarButton(Plugin, commandId);
+}
+
 namespace
 {
 CFilesWindow* FindPanelTabById(ULONGLONG tabId, int* side = NULL, int* index = NULL)

@@ -2479,6 +2479,116 @@ BOOL CPlugins::QueryService(const CSalamanderServiceQuery* query,
     return Data[0]->SalamanderGeneral.QueryService(query, result);
 }
 
+BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
+                                     const CSalamanderToolbarButton* button)
+{
+    if (owner == NULL || button == NULL || button->Title == NULL ||
+        button->Title[0] == 0 || button->StructSize < sizeof(DWORD) + sizeof(int) + sizeof(const char*))
+        return FALSE;
+
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        CPluginToolbarButton& item = ToolbarButtons[index];
+        if (item.Owner == owner && item.CommandId == button->CommandId)
+        {
+            lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
+            if (MainWindow != NULL)
+                MainWindow->RefreshExtensionToolbars();
+            return TRUE;
+        }
+    }
+
+    if (NextToolbarButtonId > CM_EXTTOOLBAR_MAX)
+        return FALSE;
+
+    CPluginToolbarButton item;
+    item.Owner = owner;
+    item.ToolbarId = NextToolbarButtonId++;
+    item.CommandId = button->CommandId;
+    lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
+    int index = ToolbarButtons.Add(item);
+    if (index < 0 || !ToolbarButtons.IsGood())
+    {
+        ToolbarButtons.ResetState();
+        return FALSE;
+    }
+
+    if (MainWindow != NULL)
+        MainWindow->RefreshExtensionToolbars();
+    return TRUE;
+}
+
+BOOL CPlugins::UnregisterToolbarButton(CPluginInterfaceAbstract* owner,
+                                       int commandId)
+{
+    if (owner == NULL)
+        return FALSE;
+
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        if (ToolbarButtons[index].Owner == owner &&
+            ToolbarButtons[index].CommandId == commandId)
+        {
+            ToolbarButtons.Delete(index);
+            if (MainWindow != NULL)
+                MainWindow->RefreshExtensionToolbars();
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+void CPlugins::UnregisterToolbarButtons(CPluginInterfaceAbstract* owner)
+{
+    if (owner == NULL)
+        return;
+
+    BOOL changed = FALSE;
+    for (int index = ToolbarButtons.Count - 1; index >= 0; --index)
+    {
+        if (ToolbarButtons[index].Owner == owner)
+        {
+            ToolbarButtons.Delete(index);
+            changed = TRUE;
+        }
+    }
+    if (changed && MainWindow != NULL)
+        MainWindow->RefreshExtensionToolbars();
+}
+
+BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
+                                    const char** title)
+{
+    if (index < 0 || index >= ToolbarButtons.Count ||
+        toolbarId == NULL || title == NULL)
+        return FALSE;
+    *toolbarId = ToolbarButtons[index].ToolbarId;
+    *title = ToolbarButtons[index].Title;
+    return TRUE;
+}
+
+BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
+                                    DWORD toolbarId, BOOL& unselect)
+{
+    unselect = FALSE;
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        CPluginToolbarButton& item = ToolbarButtons[index];
+        if (item.ToolbarId != toolbarId)
+            continue;
+
+        int pluginIndex = GetIndex(item.Owner);
+        CPluginData* plugin = pluginIndex >= 0 ? Get(pluginIndex) : NULL;
+        if (plugin == NULL || !plugin->GetLoaded())
+            return TRUE;
+
+        plugin->ExecuteMenuItem2(panel, parent, pluginIndex,
+                                 item.CommandId, unselect);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 void CPlugins::FindViewEdit(const char* extensions, int exclude, BOOL& viewFound, int& view,
                             BOOL& editFound, int& edit)
 {

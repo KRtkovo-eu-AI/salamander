@@ -52,7 +52,7 @@ class SalamatrixClient {
 class SalamatrixCommands {
     private $client; public function __construct($client) { $this->client = $client; }
     public function execute($id) { $r = $this->client->call('salamander.commands.execute', array('commandId' => $id)); return isset($r['result']) ? $r['result'] : 'error'; }
-    public function register($id, $title, $pluginMenu = true, $contextMenu = false, $hotKey = 0) { $r = $this->client->call('salamander.commands.register', array('commandId' => $id, 'title' => $title, 'pluginMenu' => $pluginMenu, 'contextMenu' => $contextMenu, 'hotKey' => (int)$hotKey)); return !empty($r['registered']); }
+    public function register($id, $title, $pluginMenu = true, $contextMenu = false, $hotKey = 0, $toolbar = false) { $r = $this->client->call('salamander.commands.register', array('commandId' => $id, 'title' => $title, 'pluginMenu' => $pluginMenu, 'contextMenu' => $contextMenu, 'hotKey' => (int)$hotKey, 'toolbar' => $toolbar)); return !empty($r['registered']); }
     public function unregister($id) { $r = $this->client->call('salamander.commands.unregister', array('commandId' => $id)); return !empty($r['unregistered']); }
 }
 class SalamatrixStorage {

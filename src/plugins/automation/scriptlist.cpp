@@ -511,6 +511,7 @@ CScriptInfo::CScriptInfo(
     m_dwSalamatrixMinimumRuntimeVersion = 0;
     m_bShowInPluginMenu = true;
     m_bShowInContextMenu = false;
+    m_bManifestToolbar = false;
     m_bRuntimeCommandOwned = false;
     memset(m_runtimeCommands, 0, sizeof(m_runtimeCommands));
     m_nRuntimeCommands = 0;
@@ -720,6 +721,7 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
     ApplySalamatrixManifestValue("menu", command.Menu.c_str());
     ApplySalamatrixContextMenu(command.ContextMenu);
     ApplySalamatrixManifestValue("requires", command.Requires.c_str());
+    m_bManifestToolbar = command.Toolbar;
 }
 
 void CScriptInfo::LoadSalamatrixMetadata()
@@ -2549,6 +2551,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         std::string title;
         BOOL pluginMenu = TRUE;
         BOOL contextMenu = FALSE;
+        BOOL toolbar = script->m_bManifestToolbar ? TRUE : FALSE;
         int hotKeyValue = 0;
         if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
                 payloadJson, "commandId", &commandId) || commandId.empty())
@@ -2561,6 +2564,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             payloadJson, "pluginMenu", &pluginMenu);
         Salamatrix::Runtime::Protocol::Json::FindBoolMember(
             payloadJson, "contextMenu", &contextMenu);
+        Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "toolbar", &toolbar);
         Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
             payloadJson, "hotKey", &hotKeyValue);
         if (!script->m_bRuntimeCommandOwned &&
@@ -2571,6 +2576,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 title.c_str(),
                 pluginMenu != FALSE,
                 contextMenu != FALSE,
+                toolbar != FALSE,
                 static_cast<DWORD>(hotKeyValue),
                 script->m_dwMenuEventOrMask,
                 script->m_dwMenuEventAndMask))
@@ -4438,6 +4444,7 @@ bool CScriptInfo::RegisterRuntimeCommand(
     const char* title,
     bool pluginMenu,
     bool contextMenu,
+    bool toolbar,
     DWORD hotKey,
     DWORD menuEventOrMask,
     DWORD menuEventAndMask)
@@ -4472,9 +4479,19 @@ bool CScriptInfo::RegisterRuntimeCommand(
     command.MenuId = static_cast<int>(menuId);
     command.PluginMenu = pluginMenu;
     command.ContextMenu = contextMenu;
+    command.Toolbar = toolbar;
     command.HotKey = hotKey;
     command.MenuEventOrMask = menuEventOrMask;
     command.MenuEventAndMask = menuEventAndMask;
+    if (toolbar)
+    {
+        CSalamanderToolbarButton toolbarButton;
+        toolbarButton.CommandId = command.MenuId;
+        toolbarButton.Title = fallbackTitle;
+        if (SalamanderGeneral == NULL ||
+            !SalamanderGeneral->RegisterToolbarButton(&toolbarButton))
+            return false;
+    }
     ++m_nRuntimeCommands;
     return true;
 }
@@ -4498,6 +4515,15 @@ bool CScriptInfo::UnregisterRuntimeCommand(const char* commandId)
 
 void CScriptInfo::ReleaseRuntimeCommands()
 {
+    if (SalamanderGeneral != NULL)
+    {
+        for (int index = 0; index < m_nRuntimeCommands; ++index)
+        {
+            if (m_runtimeCommands[index].Toolbar)
+                SalamanderGeneral->UnregisterToolbarButton(
+                    m_runtimeCommands[index].MenuId);
+        }
+    }
     memset(m_runtimeCommands, 0, sizeof(m_runtimeCommands));
     m_nRuntimeCommands = 0;
 }
