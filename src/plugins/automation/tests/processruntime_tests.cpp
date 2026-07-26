@@ -18,6 +18,7 @@ struct BootstrapDispatchState
     int FilePickerOptionsPayloadSaveTrueCalls;
     int CommandCalls;
     int StorageCalls;
+    int StorageKeysCalls;
     int SubscribeCalls;
     int FileOperationCalls;
     int DialogCalls;
@@ -47,6 +48,7 @@ struct BootstrapDispatchState
           FilePickerOptionsPayloadSaveTrueCalls(0),
           CommandCalls(0),
           StorageCalls(0),
+          StorageKeysCalls(0),
           SubscribeCalls(0),
           FileOperationCalls(0),
           DialogCalls(0),
@@ -148,6 +150,16 @@ BOOL WINAPI WorkerHostDispatch(
             "{\"ok\":true,\"settings\":["
             "{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"hasDefault\":true,\"default\":true},"
             "{\"key\":\"maxItems\",\"type\":\"integer\",\"hasDefault\":true,\"default\":42}]}";
+    }
+    else if (strstr(payloadJson, "salamander.storage.keys") != NULL)
+    {
+        if (state != NULL)
+            ++state->StorageKeysCalls;
+        response =
+            "{\"ok\":true,\"keys\":["
+            "{\"key\":\"bootstrap\",\"type\":\"string\"},"
+            "{\"key\":\"autoRefresh\",\"type\":\"boolean\"},"
+            "{\"key\":\"maxItems\",\"type\":\"integer\"}]}";
     }
     else if (strstr(payloadJson, "salamander.storage.set") != NULL)
     {
@@ -661,6 +673,9 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('integer storage call failed')\n"
               "if not any(item.get('key') == 'autoRefresh' and item.get('type') == 'boolean' for item in Salamander.storage.schema()):\n"
               "    raise RuntimeError('storage schema call failed')\n"
+              "storage_keys = Salamander.storage.keys()\n"
+              "if not all(any(item.get('key') == key and item.get('type') == value for item in storage_keys) for key, value in [('bootstrap', 'string'), ('autoRefresh', 'boolean'), ('maxItems', 'integer')]):\n"
+              "    raise RuntimeError('storage keys call failed')\n"
               "if not Salamander.commands.register('bootstrap.first', 'First', True, False, 0, False, 'first_handler'):\n"
               "    raise RuntimeError('first command registration failed')\n"
               "if not Salamander.commands.register('bootstrap.second', 'Second', True, True):\n"
@@ -765,6 +780,7 @@ void RunPythonBootstrapTest()
         Check(state.BooleanStorageSeen, "bootstrap boolean storage reached host");
         Check(state.IntegerStorageSeen, "bootstrap integer storage reached host");
         Check(state.SchemaCalls == 1, "bootstrap storage schema reached host");
+        Check(state.StorageKeysCalls == 1, "bootstrap storage keys reached host");
         Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
         Check(state.SideContextCalls == 1, "bootstrap side context reached host");
         Check(state.CreateTabCalls == 1, "bootstrap createTab reached host once");
@@ -828,6 +844,8 @@ void RunPowerShellBootstrapTest()
               "$Salamander.storage.Set('maxItems', 42)\n"
               "if ($Salamander.storage.Get('maxItems') -ne 42) { throw 'integer storage call failed' }\n"
               "if (-not ($Salamander.storage.Schema() | Where-Object { $_.key -eq 'autoRefresh' -and $_.type -eq 'boolean' })) { throw 'storage schema call failed' }\n"
+              "$storageKeys = @($Salamander.storage.Keys())\n"
+              "foreach ($expected in @(@{ key = 'bootstrap'; type = 'string' }, @{ key = 'autoRefresh'; type = 'boolean' }, @{ key = 'maxItems'; type = 'integer' })) { if (-not ($storageKeys | Where-Object { $_.key -eq $expected.key -and $_.type -eq $expected.type })) { throw 'storage keys call failed' } }\n"
               "if (-not $Salamander.commands.Register('bootstrap.first', 'First', $true, $false)) { throw 'first command registration failed' }\n"
               "if (-not $Salamander.commands.Register('bootstrap.second', 'Second', $true, $true)) { throw 'second command registration failed' }\n"
               "if (-not $Salamander.commands.SetState('bootstrap.second', $false, $null)) { throw 'command disable failed' }\n"
@@ -894,6 +912,7 @@ void RunPowerShellBootstrapTest()
         Check(state.BooleanStorageSeen, "powershell boolean storage reached host");
         Check(state.IntegerStorageSeen, "powershell integer storage reached host");
         Check(state.SchemaCalls == 1, "powershell storage schema reached host");
+        Check(state.StorageKeysCalls == 1, "powershell storage keys reached host");
         Check(state.SubscribeCalls == 1, "powershell bootstrap event subscription");
         Check(state.SideContextCalls == 1, "powershell bootstrap side context");
         Check(state.ClipboardCalls == 1, "powershell bootstrap clipboard");
@@ -948,6 +967,8 @@ void RunPhpBootstrapTest()
               "if ($Salamander->storage->get('maxItems') !== 42) throw new Exception('integer storage call failed');\n"
               "$schema = $Salamander->storage->schema();\n"
               "if (empty(array_filter($schema, function($item) { return $item['key'] === 'autoRefresh' && $item['type'] === 'boolean'; }))) throw new Exception('storage schema call failed');\n"
+              "$storageKeys = $Salamander->storage->keys();\n"
+              "foreach (array('bootstrap' => 'string', 'autoRefresh' => 'boolean', 'maxItems' => 'integer') as $key => $type) { if (empty(array_filter($storageKeys, function($item) use ($key, $type) { return $item['key'] === $key && $item['type'] === $type; }))) throw new Exception('storage keys call failed'); }\n"
               "if (!$Salamander->commands->register('bootstrap.first', 'First', true, false)) throw new Exception('first command registration failed');\n"
               "if (!$Salamander->commands->register('bootstrap.second', 'Second', true, true)) throw new Exception('second command registration failed');\n"
               "if (!$Salamander->commands->setState('bootstrap.second', false, null)) throw new Exception('command disable failed');\n"
@@ -1015,6 +1036,7 @@ void RunPhpBootstrapTest()
         Check(state.BooleanStorageSeen, "php boolean storage reached host");
         Check(state.IntegerStorageSeen, "php integer storage reached host");
         Check(state.SchemaCalls == 1, "php storage schema reached host");
+        Check(state.StorageKeysCalls == 1, "php storage keys reached host");
         Check(state.SubscribeCalls == 1, "php bootstrap event subscription");
         Check(state.SideContextCalls == 1, "php bootstrap side context");
         Check(state.ClipboardCalls == 1, "php bootstrap clipboard");

@@ -144,7 +144,10 @@ Manifest settings migrations are intentionally host-side: the Automation
 discovery layer applies the bounded typed rename/remove chain before publishing
 the shared `storage.schema()` view. All four provider workers therefore keep
 the same storage wire contract and receive already-migrated values without a
-runtime-specific migration implementation.
+runtime-specific migration implementation. The same workers expose
+`storage.keys()` (Python), `Storage.Keys()` (PowerShell), `storage->keys()` (PHP),
+and `Storage.keys()` (Node); the host returns typed UTF-8 key records in
+deterministic case-insensitive order.
 
 `RuntimeSessionDiagnostic` is a bounded value snapshot. It reports lifecycle
 state, process id, exit code, and a host/provider error code without exposing a

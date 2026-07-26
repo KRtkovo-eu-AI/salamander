@@ -114,7 +114,7 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | Vision area | Status | Current implementation | Missing work |
 | --- | --- | --- | --- |
 | Three extensibility levels | MVP | Native plugins, one-shot Automation scripts, and persistent manifest-backed workers now share an owner-aware lifecycle catalog; registration activates persistent workers and the host-call dispatcher binds commands, sides, storage, event subscriptions, and UI calls. Extension host callbacks now hold owner-aware unload leases. The append-only `IRuntimeSession::GetDiagnostic` contract reports bounded running/stopped/exited/failed lifecycle state, cached process id/exit code, and diagnostic text without exposing process handles. | Provider-specific startup failure capture, unload timelines, and richer host-facing lifecycle diagnostics; no separate Extension Manager is planned. |
-| Shared cross-runtime API | MVP | The Salamatrix service layer, versioned ABI, SMX1 transport, and Python/PowerShell/PHP/JavaScript worker facades use the same host method vocabulary, including commands, sides, file operations, storage, events, clipboard, UI, and AI. Storage now preserves string, boolean, and signed 64-bit integer values across the host boundary. | Broader runtime-neutral value model, complete object model, and formal error/threading rules. |
+| Shared cross-runtime API | MVP | The Salamatrix service layer, versioned ABI, SMX1 transport, and Python/PowerShell/PHP/JavaScript worker facades use the same host method vocabulary, including commands, sides, file operations, storage, events, clipboard, UI, and AI. Storage now preserves string, boolean, and signed 64-bit integer values across the host boundary and exposes typed `storage.keys()` enumeration with deterministic JSON ordering. | Broader runtime-neutral value model, complete object model, and formal error/threading rules. |
 | Left/Right/Source/Target sides | MVP | `Salamatrix.Sides` and all modern workers resolve all four references and expose active tabs, bounded path/type, selected-item snapshots, focused-item metadata, item name/path/extension/size/attributes/UTC write time and hidden/link/offline/size-valid flags, and active/source/target/locked/detached flags without raw core pointers. Modern workers now also enumerate tabs, activate a tab, change the active-side path, request a side refresh, select individual/all items, and move focus by stable panel index. | View mode/tree state and item change events. |
 | Tabs and detached windows | MVP | SDK snapshots and opaque process-local ids expose tab count, index, path/type, active/source/target/locked/detached flags, activation, path changes, refresh, selection/focus, and snapshot-derived lifecycle events. Sides schema 1.3 now publishes append-only create/close/reorder/move/detach methods, the host bridge validates decimal tab ids and side/index inputs, and all four worker facades expose the same contract. Isolated process-runtime coverage uses an explicit SALAMATRIX_WORKER_ROOT built from provider workers. | Direct core load/version negotiation, colors, richer detached-window operations, and persistence semantics. |
 | Existing Salamander commands | MVP | The stable catalog now covers view/edit/open, rename, copy/move, email/delete/properties, case/attribute/space operations, refresh, directory creation, drive info, directory sizes, and disconnect; execution still uses Salamander's normal enablement and dialogs. | Parameterized command calls, richer synchronous/modal results, state/change notifications, and non-modal operation handles. |
@@ -878,3 +878,23 @@ The thirty-sixth code slice is implemented and verified:
 - rebuild `Salamatrix.SPL` itself in isolated
   `build\verification\salamatrix-accessibility-final2` output after fixing the
   helper's private-implementation scope; the Debug x64 build passed.
+
+The thirty-seventh code slice is implemented and verified:
+
+- add ABI-safe `GetKeyCount`/`GetKeyAt` storage enumeration with typed UTF-8
+  key metadata and the `salamander.storage.keys` host method;
+- add `storage.keys()`/`Storage.Keys()`/`storage->keys()`/`Storage.keys()` to
+  the Python, PowerShell, PHP, and Node worker facades;
+- add direct storage unit coverage and persistent Python/PowerShell/PHP
+  bootstrap assertions for string, boolean, and integer key types;
+- rebuild storage, Automation, and process-runtime tests in isolated
+  `build\verification\storage-enumeration-final`,
+  `build\verification\storage-enumeration-automation-final`, and
+  `build\verification\storage-keys-process-teststests` outputs; all passed;
+- rerun the process-runtime executable with explicit
+  `SALAMATRIX_WORKER_ROOT=build\verification\storage-keys-worker-root`; all
+  process runtime tests passed without starting Salamander.
+
+The previous storage-table note that listed key enumeration as missing is
+superseded by this thirty-seventh slice. Remaining storage gaps are settings
+files, quotas, transactional batches, and uninstall retention/deletion policy.
