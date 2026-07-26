@@ -11,6 +11,7 @@
 #include "fileswnd.h"
 #include "mainwnd.h"
 #include "toolbar.h"
+#include "svg.h"
 #include "zip.h"
 #include "pack.h"
 #include "dialogs.h"
@@ -2492,6 +2493,7 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
         if (item.Owner == owner && item.CommandId == button->CommandId)
         {
             lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
+            item.SetIcons(button->IconPath, button->IconDarkPath);
             if (MainWindow != NULL)
                 MainWindow->RefreshExtensionToolbars();
             return TRUE;
@@ -2506,6 +2508,7 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
     item.ToolbarId = NextToolbarButtonId++;
     item.CommandId = button->CommandId;
     lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
+    item.SetIcons(button->IconPath, button->IconDarkPath);
     int index = ToolbarButtons.Add(item);
     if (index < 0 || !ToolbarButtons.IsGood())
     {
@@ -2557,13 +2560,93 @@ void CPlugins::UnregisterToolbarButtons(CPluginInterfaceAbstract* owner)
 }
 
 BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
-                                    const char** title)
+                                    const char** title, int* imageIndex)
 {
     if (index < 0 || index >= ToolbarButtons.Count ||
-        toolbarId == NULL || title == NULL)
+        toolbarId == NULL || title == NULL || imageIndex == NULL)
         return FALSE;
     *toolbarId = ToolbarButtons[index].ToolbarId;
     *title = ToolbarButtons[index].Title;
+    *imageIndex = ToolbarButtons[index].ImageIndex;
+    return TRUE;
+}
+
+BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
+                                         HIMAGELIST grayImageList)
+{
+    if (hotImageList == NULL || grayImageList == NULL)
+        return FALSE;
+
+    int hotCount = ImageList_GetImageCount(hotImageList);
+    int grayCount = ImageList_GetImageCount(grayImageList);
+    if (hotCount != grayCount)
+        return FALSE;
+
+    int iconWidth = 0;
+    int iconHeight = 0;
+    if (!ImageList_GetIconSize(hotImageList, &iconWidth, &iconHeight) ||
+        iconWidth <= 0 || iconHeight <= 0 || iconWidth != iconHeight)
+        return FALSE;
+    const int iconSize = iconWidth;
+    const BOOL darkMode = DarkModeShouldUseDarkColors();
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        CPluginToolbarButton& item = ToolbarButtons[index];
+        if (item.ImageIndex >= 0 && item.ImageIndex < hotCount)
+            continue;
+
+        const char* source = item.IconPath;
+        const char* preferred = darkMode && item.IconDarkPath != NULL &&
+                                        item.IconDarkPath[0] != 0
+                                    ? item.IconDarkPath
+                                    : item.IconPath;
+        if (source == NULL || source[0] == 0)
+            continue;
+
+        HBITMAP hotBitmap = NULL;
+        HBITMAP grayBitmap = NULL;
+        BOOL rendered = RenderSVGIconBitmapFromFile(
+                            preferred, iconSize, TRUE, &hotBitmap) &&
+                        RenderSVGIconBitmapFromFile(
+                            preferred, iconSize, FALSE, &grayBitmap);
+        if (!rendered && preferred != source)
+        {
+            if (hotBitmap != NULL)
+                HANDLES(DeleteObject(hotBitmap));
+            if (grayBitmap != NULL)
+                HANDLES(DeleteObject(grayBitmap));
+            hotBitmap = NULL;
+            grayBitmap = NULL;
+            rendered = RenderSVGIconBitmapFromFile(
+                           source, iconSize, TRUE, &hotBitmap) &&
+                       RenderSVGIconBitmapFromFile(
+                           source, iconSize, FALSE, &grayBitmap);
+        }
+        if (!rendered)
+        {
+            if (hotBitmap != NULL)
+                HANDLES(DeleteObject(hotBitmap));
+            if (grayBitmap != NULL)
+                HANDLES(DeleteObject(grayBitmap));
+            continue;
+        }
+
+        int hotIndex = ImageList_Add(hotImageList, hotBitmap, NULL);
+        int grayIndex = ImageList_Add(grayImageList, grayBitmap, NULL);
+        HANDLES(DeleteObject(hotBitmap));
+        HANDLES(DeleteObject(grayBitmap));
+        if (hotIndex < 0 || grayIndex < 0 || hotIndex != grayIndex)
+        {
+            if (hotIndex >= 0)
+                ImageList_Remove(hotImageList, hotIndex);
+            if (grayIndex >= 0)
+                ImageList_Remove(grayImageList, grayIndex);
+            continue;
+        }
+        item.ImageIndex = hotIndex;
+        hotCount = ImageList_GetImageCount(hotImageList);
+        grayCount = ImageList_GetImageCount(grayImageList);
+    }
     return TRUE;
 }
 

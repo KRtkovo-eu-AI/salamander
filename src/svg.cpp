@@ -192,12 +192,11 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
 }
 
 
-BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITMAP* hBitmap)
 {
     if (hBitmap == NULL)
         return FALSE;
     *hBitmap = NULL;
-    char* svg = LoadToolbarSVG(svgName);
     if (svg == NULL)
         return FALSE;
 
@@ -267,8 +266,35 @@ BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMA
     if (hMemBmp != NULL)
         HANDLES(DeleteObject(hMemBmp));
     HANDLES(DeleteDC(hMemDC));
-    free(svg);
     return *hBitmap != NULL;
+}
+
+BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+{
+    char* svg = LoadToolbarSVG(svgName);
+    if (svg == NULL)
+    {
+        if (hBitmap != NULL)
+            *hBitmap = NULL;
+        return FALSE;
+    }
+    BOOL result = RenderSVGIconBitmapText(svg, iconSize, enabled, hBitmap);
+    free(svg);
+    return result;
+}
+
+BOOL RenderSVGIconBitmapFromFile(const char* svgFile, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+{
+    char* svg = svgFile != NULL ? ReadSVGFile(svgFile) : NULL;
+    if (svg == NULL)
+    {
+        if (hBitmap != NULL)
+            *hBitmap = NULL;
+        return FALSE;
+    }
+    BOOL result = RenderSVGIconBitmapText(svg, iconSize, enabled, hBitmap);
+    free(svg);
+    return result;
 }
 
 //*****************************************************************************

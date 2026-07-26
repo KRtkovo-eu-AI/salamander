@@ -892,11 +892,19 @@ struct CSalamanderToolbarButton
     DWORD StructSize;
     int CommandId;
     const char* Title;
+    // Optional SVG assets owned by the plug-in/extension package.  Paths are
+    // UTF-8 and remain valid only for the duration of RegisterToolbarButton.
+    // IconDarkPath is preferred when Salamander runs in dark mode; when it is
+    // missing, the core derives the normal/gray image from IconPath.
+    const char* IconPath;
+    const char* IconDarkPath;
 
     CSalamanderToolbarButton()
         : StructSize(sizeof(CSalamanderToolbarButton)),
           CommandId(0),
-          Title(NULL)
+          Title(NULL),
+          IconPath(NULL),
+          IconDarkPath(NULL)
     {
     }
 };

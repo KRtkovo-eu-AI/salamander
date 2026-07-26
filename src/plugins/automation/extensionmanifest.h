@@ -63,6 +63,10 @@ public:
     std::string RuntimeId;
     unsigned long MinimumRuntimeVersion;
     std::string EntryPoint;
+    // Optional package-owned toolbar artwork. Paths are relative to the
+    // manifest directory and must stay inside the extension package.
+    std::string Icon;
+    std::string IconDark;
     std::vector<std::string> Capabilities;
     std::vector<CExtensionManifestCommand> Commands;
 

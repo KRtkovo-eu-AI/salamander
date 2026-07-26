@@ -106,6 +106,8 @@ private:
     char m_szSalamatrixRuntimeId[128];
     DWORD m_dwSalamatrixMinimumRuntimeVersion;
     std::vector<std::string> m_salamatrixCapabilities;
+    std::string m_salamatrixIconPath;
+    std::string m_salamatrixIconDarkPath;
     bool m_bShowInPluginMenu;
     bool m_bShowInContextMenu;
     bool m_bManifestToolbar;
@@ -311,6 +313,16 @@ public:
     const char* GetSalamatrixExtensionId() const
     {
         return m_szSalamatrixExtensionId;
+    }
+
+    const char* GetSalamatrixIconPath() const
+    {
+        return m_salamatrixIconPath.c_str();
+    }
+
+    const char* GetSalamatrixIconDarkPath() const
+    {
+        return m_salamatrixIconDarkPath.c_str();
     }
 
     bool HasDeclaredSalamatrixCapabilities() const

@@ -50,6 +50,9 @@ struct ExtensionDescriptor
     char Version[64];
     char RuntimeId[128];
     char EntryPoint[32768];
+    // Absolute UTF-8 package asset paths (resolved by the discovery layer).
+    char IconPath[32768];
+    char IconDarkPath[32768];
     DWORD Flags;
 
     ExtensionDescriptor()
@@ -61,6 +64,8 @@ struct ExtensionDescriptor
         Version[0] = 0;
         RuntimeId[0] = 0;
         EntryPoint[0] = 0;
+        IconPath[0] = 0;
+        IconDarkPath[0] = 0;
     }
 };
 

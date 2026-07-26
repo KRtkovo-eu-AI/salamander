@@ -2848,13 +2848,62 @@ struct CPluginToolbarButton
     DWORD ToolbarId;
     int CommandId;
     char Title[256];
+    char* IconPath;
+    char* IconDarkPath;
+    int ImageIndex;
 
     CPluginToolbarButton()
         : Owner(NULL),
           ToolbarId(0),
-          CommandId(0)
+          CommandId(0),
+          IconPath(NULL),
+          IconDarkPath(NULL),
+          ImageIndex(-1)
     {
         Title[0] = 0;
+    }
+
+    CPluginToolbarButton(const CPluginToolbarButton& other)
+        : Owner(other.Owner),
+          ToolbarId(other.ToolbarId),
+          CommandId(other.CommandId),
+          IconPath(other.IconPath != NULL ? _strdup(other.IconPath) : NULL),
+          IconDarkPath(other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL),
+          ImageIndex(other.ImageIndex)
+    {
+        memcpy(Title, other.Title, sizeof(Title));
+    }
+
+    CPluginToolbarButton& operator=(const CPluginToolbarButton& other)
+    {
+        if (this != &other)
+        {
+            free(IconPath);
+            free(IconDarkPath);
+            Owner = other.Owner;
+            ToolbarId = other.ToolbarId;
+            CommandId = other.CommandId;
+            IconPath = other.IconPath != NULL ? _strdup(other.IconPath) : NULL;
+            IconDarkPath = other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL;
+            ImageIndex = other.ImageIndex;
+            memcpy(Title, other.Title, sizeof(Title));
+        }
+        return *this;
+    }
+
+    ~CPluginToolbarButton()
+    {
+        free(IconPath);
+        free(IconDarkPath);
+    }
+
+    void SetIcons(const char* path, const char* darkPath)
+    {
+        free(IconPath);
+        free(IconDarkPath);
+        IconPath = path != NULL && path[0] != 0 ? _strdup(path) : NULL;
+        IconDarkPath = darkPath != NULL && darkPath[0] != 0 ? _strdup(darkPath) : NULL;
+        ImageIndex = -1;
     }
 };
 
@@ -3028,7 +3077,9 @@ public:
                                  int commandId);
     int GetToolbarButtonCount() const { return ToolbarButtons.Count; }
     BOOL GetToolbarButtonInfo(int index, DWORD* toolbarId,
-                              const char** title);
+                              const char** title, int* imageIndex);
+    BOOL EnsureToolbarButtonImages(HIMAGELIST hotImageList,
+                                   HIMAGELIST grayImageList);
     BOOL ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
                               DWORD toolbarId, BOOL& unselect);
     void UnregisterToolbarButtons(CPluginInterfaceAbstract* owner);

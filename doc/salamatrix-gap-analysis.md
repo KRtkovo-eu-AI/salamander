@@ -43,6 +43,9 @@ The repository already contains a real Salamatrix foundation, not only a design:
   refresh.
 - The Plugin Manager has an enabled Extension Runtimes catalog source and
   Salamatrix has a distinct Automation Framework capability flag.
+- Manifest extensions carry their package SVG identity icon (plus an optional
+  dark-mode variant) into the existing Plugin Manager list and toolbar image
+  lists; no separate Extension Manager is introduced.
 
 This is an MVP/PoC, not yet the framework described by the vision. In particular:
 
@@ -63,9 +66,10 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   activation after a later runtime/plugin configuration change. One-shot
   scripts still cannot remain alive after their execution ends.
 - The strict schema-1 manifest parser validates package/runtime identity,
-  minimum runtime version, safe entry points, capabilities, and multiple command
-  records. Dependencies, icons, localization, settings/storage declarations,
-  and dynamic publication of all handlers are still missing.
+  minimum runtime version, safe entry points, package-owned `icon` and optional
+  `iconDark` SVG paths, capabilities, and multiple command records. Dependencies,
+  localization, settings/storage declarations, and dynamic publication of all
+  handlers are still missing.
 - The shared native UI service exposes progress, input-box, and a reusable
   `IDialog`/`IControl` contract for modern workers and native plugins. The
   native implementation now creates Label, TextBox, CheckBox, RadioButton,
@@ -89,13 +93,13 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | Tabs and detached windows | MVP | SDK snapshots and opaque process-local ids expose tab count, index, path/type, active/source/target/locked/detached flags, activation, path changes, refresh, and selection/focus operations, with stale-handle-safe lookup and worker facades for all four runtimes. | Create/close/reorder/detach APIs, colors, lifecycle events, richer detached-window operations, and persistence semantics. |
 | Existing Salamander commands | MVP | The stable catalog now covers view/edit/open, rename, copy/move, email/delete/properties, case/attribute/space operations, refresh, directory creation, drive info, directory sizes, and disconnect; execution still uses Salamander's normal enablement and dialogs. | Parameterized command calls, richer synchronous/modal results, state/change notifications, and non-modal operation handles. |
 | Programmatic file operations | MVP | `IFileOperationsService` and all modern worker bindings expose interactive rename/copy/move/delete/create-directory/refresh/properties workflows. | Typed source/target values, progress/cancellation handles, and final structured results without requiring the native dialog. |
-| Extension command registration | MVP | Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, and native menu hotkeys; removal triggers a menu rebuild. | Enable/visible callbacks, icons, toolbar binding, and richer ownership/unload leases. |
+| Extension command registration | MVP | Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, native menu hotkeys, and toolbar contributions; removal triggers a menu/toolbar rebuild. | Enable/visible callbacks, command palette integration, and richer ownership/unload leases. |
 | Plugin and context menu placement | MVP | Metadata booleans and context masks are applied to Automation menu items and persistent registrations. | Independent placement contributions, icons, and dynamic menu APIs beyond the current MVP surface. |
-| Toolbar and shortcuts | Partial | Dynamically registered extension commands now pass Salamander hotkeys through the normal menu-extension path. | Toolbar contributions, user assignment UI, icons, persistence, conflict handling, and command palette integration. |
+| Toolbar and shortcuts | Partial | Dynamically registered extension commands now pass Salamander hotkeys through the normal menu-extension path and can contribute toolbar buttons. Native/runtime registrations use core-owned DPI-aware image lists; manifest packages may provide an SVG `icon` and optional dark-mode `iconDark`, with a generated gray fallback when the dark asset is absent. | User assignment UI, persistence of extension placement, conflict handling, command palette integration, and richer per-command enablement. |
 | Events | MVP | `Salamatrix.Events` maps host lifecycle/settings/configuration/color/panel events, successful shared-Sides path/selection/tab/refresh operations, and core path/selection/tab notifications to unsubscribe-safe native callbacks; Automation exposes `subscribe/unsubscribe` with copied payloads. Persistent worker sessions now enqueue bounded event frames instead of writing from the core callback directly into a potentially back-pressured pipe. | Persistent extension instances, UI-thread marshalling for richer event payloads, coalescing, event replay, richer file-operation/window lifecycle hooks, and unload-safe leases across modern runtimes. |
 | Per-extension storage | Implemented | `Salamatrix.Storage` persists isolated manifest-id namespaces with UTF-8 strings, signed 64-bit integers, booleans, delete/clear, validation, and synchronized access. Automation exposes `has/get/set/remove/clear`; legacy global persistence remains for compatibility. | Settings schemas/files, enumeration, quotas, migrations, transactional batches, and uninstall retention/deletion policy. |
 | Shared UI framework | MVP | `Salamatrix.UI` provides a reusable native `IDialog`/`IControl` model and `NativeDialog` implementation for labels, text boxes, check/radio buttons, combo boxes, buttons, native ListView/TreeView/TabControl controls with item binding, explicit bounds, dialog width/height, columns and selection, required validation, control-change events, common `readOnly`/`checked`/`dialogResult`/`keepOpen`/`multiline` options across native and Python/PowerShell/PHP/Node workers, message/input boxes, UTF-8 file/folder pickers, clipboard copy, dark-mode initialization, and localized Automation prompts. Progress covers Salamander's one-bar/file-progress and two-bar modes, totals/positions, stepping, text, cancellation, and cleanup; all workers expose the same calls. | Richer notifications/virtualized data, reentrancy policy, DPI/accessibility, and migration of legacy Forms wrappers. |
-| Manifest/package | MVP | Strict UTF-8 JSON parsing validates schema 1, package/runtime identity and minimum version, safe entry point, capabilities, and up to 64 command records; Ask-AI can save a validated package and refresh discovery. | Dependencies, icons, locales, settings/events declarations, installed-state management, uninstall, and richer diagnostics. |
+| Manifest/package | MVP | Strict UTF-8 JSON parsing validates schema 1, package/runtime identity and minimum version, safe entry point, package-owned SVG `icon`/`iconDark` assets, capabilities, and up to 64 command records; Ask-AI can save a validated package and refresh discovery. | Dependencies, locales, settings/events declarations, installed-state management, uninstall, and richer diagnostics. |
 | Runtime adapters | MVP | `Salamatrix.Runtime` registers/enumerates versioned adapters and executes manifest entry points through structured requests/results. Automation registers only legacy ActiveScript adapters; modern CPython, PowerShell, PHP CLI, and Node runtimes are supplied through independent `.spl` providers using the same broker. All four standalone providers now pass Debug and Release x64 project builds, with deferred registration when Salamatrix loads later. | End-to-end provider/runtime integration, cancellation beyond process termination, debugging, dependency environments, and separately installable runtime components. |
 | JavaScript runtime | Process MVP | Windows JScript remains the compatibility fallback for legacy `.js`; `JavaScriptRuntime.SPL` now discovers Node via `SALAMATRIX_NODE`, `node.exe`, or `node`, owns the dependency-free SMX1 `.mjs` worker, and registers `JavaScript.Node` independently of Automation. The worker now exposes the same host API surface as Python/PowerShell/PHP, including convenience dialog controls, native dialogs, and event subscriptions. Debug and Release x64 builds are verified. | Explicit `.js`/`.mjs` precedence with the legacy fallback, package deployment policy, and richer value bindings. |
 | Python runtime | Process MVP | ActivePython COM compatibility remains; `Python.CPython` discovers `python.exe`/`python3.exe` or `SALAMATRIX_PYTHON`, runs `.py` entries out of process, and the optional worker bootstrap exposes the shared SMX1 `Salamander` API including multiple command registration. A standalone `PythonRuntime.SPL` project owns the same adapter/worker, unregisters it through the broker, and now passes a Debug x64 build. | Richer UI/value bindings, environment/dependency policy, and bundled runtime. |
@@ -112,7 +116,10 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 
 - `src/plugins/shared/spl_gen.h` declares `RegisterService`,
   `UnregisterService`, `QueryService`, and the appended owner-aware
-  register/unregister/acquire/release methods.
+  register/unregister/acquire/release methods. Its appended toolbar contract
+  accepts package-owned SVG paths (normal plus optional dark-mode variant),
+  while the core renders those files through NanoSVG into the shared toolbar
+  image lists.
 - `src/zip.cpp` contains the fixed-size process registry, its critical-section
   guard, lease table, unload gate, and condition-variable wait for active
   consumers.

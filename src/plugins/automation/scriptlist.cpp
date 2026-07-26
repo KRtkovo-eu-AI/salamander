@@ -493,6 +493,52 @@ static BOOL LoadManifestForEntryPoint(
     return FALSE;
 }
 
+static BOOL ResolveManifestAssetPath(
+    PCTSTR entryPointPath,
+    const std::string& manifestEntryPoint,
+    const std::string& asset,
+    std::string& resolved)
+{
+    resolved.clear();
+    if (asset.empty())
+        return TRUE;
+
+    std::vector<TCHAR> base(SAL_MAX_PATH);
+    if (StringCchCopy(&base[0], base.size(), entryPointPath) != S_OK ||
+        !PathRemoveFileSpec(&base[0]))
+        return FALSE;
+
+    std::vector<TCHAR> nativeEntryPoint(SAL_MAX_PATH);
+    if (!Utf8ToNative(manifestEntryPoint, &nativeEntryPoint[0],
+                      static_cast<int>(nativeEntryPoint.size())))
+        return FALSE;
+
+    // entryPointPath currently points at the entry point. Move from its
+    // directory to the package root represented by manifest.EntryPoint.
+    for (const TCHAR* p = &nativeEntryPoint[0]; *p != _T('\0'); ++p)
+    {
+        if (*p == _T('\\') || *p == _T('/'))
+        {
+            if (!PathRemoveFileSpec(&base[0]))
+                return FALSE;
+        }
+    }
+
+    std::vector<TCHAR> nativeAsset(SAL_MAX_PATH);
+    if (!Utf8ToNative(asset, &nativeAsset[0],
+                      static_cast<int>(nativeAsset.size())) ||
+        !AppendSalPath(&base[0], &nativeAsset[0],
+                       static_cast<int>(base.size())))
+        return FALSE;
+
+    std::vector<char> utf8Path(SAL_MAX_PATH * 3);
+    if (!NativeToUtf8(&base[0], &utf8Path[0],
+                      static_cast<int>(utf8Path.size())))
+        return FALSE;
+    resolved.assign(&utf8Path[0]);
+    return TRUE;
+}
+
 CScriptInfo::CScriptInfo(
     PCTSTR pszFileName,
     CScriptContainer* pContainer)
@@ -512,6 +558,8 @@ CScriptInfo::CScriptInfo(
     m_bShowInPluginMenu = true;
     m_bShowInContextMenu = false;
     m_bManifestToolbar = false;
+    m_salamatrixIconPath.clear();
+    m_salamatrixIconDarkPath.clear();
     m_bRuntimeCommandOwned = false;
     memset(m_runtimeCommands, 0, sizeof(m_runtimeCommands));
     m_nRuntimeCommands = 0;
@@ -711,6 +759,12 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         manifest.RuntimeId.c_str());
     m_dwSalamatrixMinimumRuntimeVersion = manifest.MinimumRuntimeVersion;
     m_salamatrixCapabilities = manifest.Capabilities;
+    ResolveManifestAssetPath(
+        m_szFileName, manifest.EntryPoint, manifest.Icon,
+        m_salamatrixIconPath);
+    ResolveManifestAssetPath(
+        m_szFileName, manifest.EntryPoint, manifest.IconDark,
+        m_salamatrixIconDarkPath);
 
     if (manifest.Commands.empty())
         return;
@@ -4488,6 +4542,12 @@ bool CScriptInfo::RegisterRuntimeCommand(
         CSalamanderToolbarButton toolbarButton;
         toolbarButton.CommandId = command.MenuId;
         toolbarButton.Title = fallbackTitle;
+        toolbarButton.IconPath = m_salamatrixIconPath.empty()
+                                     ? NULL
+                                     : m_salamatrixIconPath.c_str();
+        toolbarButton.IconDarkPath = m_salamatrixIconDarkPath.empty()
+                                         ? NULL
+                                         : m_salamatrixIconDarkPath.c_str();
         if (SalamanderGeneral == NULL ||
             !SalamanderGeneral->RegisterToolbarButton(&toolbarButton))
             return false;
@@ -4504,6 +4564,9 @@ bool CScriptInfo::UnregisterRuntimeCommand(const char* commandId)
     {
         if (_stricmp(m_runtimeCommands[index].Id, commandId) != 0)
             continue;
+        if (m_runtimeCommands[index].Toolbar && SalamanderGeneral != NULL)
+            SalamanderGeneral->UnregisterToolbarButton(
+                m_runtimeCommands[index].MenuId);
         for (int move = index; move + 1 < m_nRuntimeCommands; ++move)
             m_runtimeCommands[move] = m_runtimeCommands[move + 1];
         m_runtimeCommands[m_nRuntimeCommands - 1] = RUNTIME_COMMAND_INFO();
@@ -4655,6 +4718,14 @@ void CScriptLookup::PublishSalamatrixExtensions()
                 pScript->GetFileName(),
                 descriptor.EntryPoint,
                 _countof(descriptor.EntryPoint));
+            StringCchCopyA(
+                descriptor.IconPath,
+                _countof(descriptor.IconPath),
+                pScript->GetSalamatrixIconPath());
+            StringCchCopyA(
+                descriptor.IconDarkPath,
+                _countof(descriptor.IconDarkPath),
+                pScript->GetSalamatrixIconDarkPath());
             descriptor.Flags = Salamatrix::Extensions::ExtensionFlagManifest |
                                Salamatrix::Extensions::ExtensionFlagPersistent;
 

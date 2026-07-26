@@ -679,6 +679,13 @@ namespace
         message += "'";
         return SetValidationError(error, message.c_str());
     }
+
+    static bool IsSvgAssetPath(const std::string& path)
+    {
+        size_t dot = path.find_last_of('.');
+        return dot != std::string::npos &&
+               _stricmp(path.substr(dot).c_str(), ".svg") == 0;
+    }
 } // namespace
 
 CExtensionManifest::CExtensionManifest()
@@ -696,6 +703,8 @@ void CExtensionManifest::Clear()
     RuntimeId.clear();
     MinimumRuntimeVersion = 0;
     EntryPoint.clear();
+    Icon.clear();
+    IconDark.clear();
     Capabilities.clear();
     Commands.clear();
 }
@@ -780,6 +789,22 @@ bool CExtensionManifest::Parse(
     }
     if (!IsSafeRelativeEntryPoint(EntryPoint))
         return SetValidationError(error, "entryPoint must be a safe relative path inside the extension");
+
+    if (!ReadString(root, "icon", false, Icon, error) ||
+        !ReadString(root, "iconDark", false, IconDark, error))
+    {
+        return false;
+    }
+    if ((!Icon.empty() && !IsSafeRelativeEntryPoint(Icon)) ||
+        (!IconDark.empty() && !IsSafeRelativeEntryPoint(IconDark)))
+    {
+        return SetValidationError(error, "icon and iconDark must be safe relative paths inside the extension");
+    }
+    if ((!Icon.empty() && !IsSvgAssetPath(Icon)) ||
+        (!IconDark.empty() && !IsSvgAssetPath(IconDark)))
+    {
+        return SetValidationError(error, "icon and iconDark must point to SVG files");
+    }
 
     const JsonValue* runtime = root.Find("runtime");
     if (runtime == NULL)

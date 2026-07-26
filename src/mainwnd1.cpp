@@ -633,6 +633,14 @@ void CMainWindow::RefreshExtensionToolbars()
     // Toolbar contributions are rebuilt from the persisted native-toolbar
     // layout.  Dynamic entries are appended by CMainToolBar::Load(), so they
     // never become stale configuration records when a runtime unloads.
+    Plugins.EnsureToolbarButtonImages(HHotToolBarImageList,
+                                      HGrayToolBarImageList);
+    if (HDetachedHotToolBarImageList != NULL &&
+        HDetachedGrayToolBarImageList != NULL)
+    {
+        Plugins.EnsureToolbarButtonImages(HDetachedHotToolBarImageList,
+                                          HDetachedGrayToolBarImageList);
+    }
     if (TopToolBar != NULL && TopToolBar->HWindow != NULL)
         TopToolBar->Load(Configuration.TopToolBar);
     if (MiddleToolBar != NULL && MiddleToolBar->HWindow != NULL)

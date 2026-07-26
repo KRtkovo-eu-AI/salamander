@@ -983,6 +983,7 @@ protected:
     char InstalledPluginsText[200]; // text taken from the listview caption when the dialog opens
     char PluginTestText[100];       // original label of the Test button
     std::vector<Salamatrix::Extensions::ExtensionInfo> ExtensionRows;
+    std::vector<int> ExtensionImageIndices;
 
 public:
     CPluginsDlg(HWND hParent);
@@ -999,6 +1000,7 @@ protected:
     void SetColumnWidths(); // set optimal column widths
     void RefreshListView(BOOL setOnly = TRUE, int selIndex = -1, const CPluginData* selectPlugin = NULL, BOOL setColumnWidths = FALSE);
     void RefreshExtensionRows();
+    void LoadExtensionImages(HIMAGELIST imageList);
     void AppendExtensionRows(BOOL setOnly);
     void OnSelChanged();                                                    // selected item in the listview changed
     CPluginData* GetSelectedPlugin(int* index = NULL, int* lvIndex = NULL); // returns NULL if no item is selected; index returns index to the Plugins array; lvIndex returns index within listview, can be NULL

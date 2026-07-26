@@ -1202,7 +1202,8 @@ void CMainToolBar::OnGetToolTip(LPARAM lParam)
         int extensionIndex = -2 - tbbeIndex;
         DWORD toolbarId;
         const char* title;
-        if (Plugins.GetToolbarButtonInfo(extensionIndex, &toolbarId, &title))
+        int imageIndex;
+        if (Plugins.GetToolbarButtonInfo(extensionIndex, &toolbarId, &title, &imageIndex))
         {
             lstrcpyn(tt->Buffer, title, TOOLTIP_TEXT_MAX);
             PrepareToolTipText(tt->Buffer, FALSE);
@@ -1274,13 +1275,20 @@ BOOL CMainToolBar::FillExtensionTII(int extensionIndex,
 {
     DWORD toolbarId;
     const char* title;
-    if (!Plugins.GetToolbarButtonInfo(extensionIndex, &toolbarId, &title))
+    int imageIndex;
+    if (!Plugins.GetToolbarButtonInfo(extensionIndex, &toolbarId, &title, &imageIndex))
         return FALSE;
 
     tii->Mask = TLBI_MASK_STYLE | TLBI_MASK_ID | TLBI_MASK_CUSTOMDATA |
                 TLBI_MASK_TEXT | TLBI_MASK_TEXTLEN;
-    tii->Style = TLBI_STYLE_SHOWTEXT | TLBI_STYLE_NOPREFIX |
-                 TLBI_STYLE_DARK_DISABLED_IMAGE_TEXT;
+    tii->Style = TLBI_STYLE_NOPREFIX | TLBI_STYLE_DARK_DISABLED_IMAGE_TEXT;
+    if (imageIndex >= 0)
+    {
+        tii->Mask |= TLBI_MASK_IMAGEINDEX;
+        tii->ImageIndex = imageIndex;
+    }
+    else
+        tii->Style |= TLBI_STYLE_SHOWTEXT;
     tii->ID = toolbarId;
     tii->CustomData = static_cast<DWORD>(-2 - extensionIndex);
     if (fillName)

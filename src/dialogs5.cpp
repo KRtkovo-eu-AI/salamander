@@ -143,6 +143,48 @@ void CPluginsDlg::RefreshExtensionRows()
     }
 }
 
+void CPluginsDlg::LoadExtensionImages(HIMAGELIST imageList)
+{
+    ExtensionImageIndices.assign(ExtensionRows.size(), -1);
+    if (imageList == NULL)
+        return;
+
+    int iconWidth = 0;
+    int iconHeight = 0;
+    if (!ImageList_GetIconSize(imageList, &iconWidth, &iconHeight) ||
+        iconWidth <= 0 || iconWidth != iconHeight)
+        return;
+
+    const BOOL darkMode = DarkModeShouldUseDarkColors();
+    for (size_t index = 0; index < ExtensionRows.size(); ++index)
+    {
+        const Salamatrix::Extensions::ExtensionDescriptor& descriptor =
+            ExtensionRows[index].Descriptor;
+        const char* iconPath = descriptor.IconPath;
+        const char* preferredPath = darkMode && descriptor.IconDarkPath[0] != 0
+                                        ? descriptor.IconDarkPath
+                                        : descriptor.IconPath;
+        if (iconPath == NULL || iconPath[0] == 0)
+            continue;
+
+        HBITMAP bitmap = NULL;
+        if (!RenderSVGIconBitmapFromFile(preferredPath, iconWidth, TRUE, &bitmap) &&
+            preferredPath != iconPath)
+        {
+            if (bitmap != NULL)
+                HANDLES(DeleteObject(bitmap));
+            bitmap = NULL;
+            RenderSVGIconBitmapFromFile(iconPath, iconWidth, TRUE, &bitmap);
+        }
+        if (bitmap == NULL)
+            continue;
+        int imageIndex = ImageList_Add(imageList, bitmap, NULL);
+        HANDLES(DeleteObject(bitmap));
+        if (imageIndex >= 0)
+            ExtensionImageIndices[index] = imageIndex;
+    }
+}
+
 void CPluginsDlg::AppendExtensionRows(BOOL setOnly)
 {
     const int pluginCount = Plugins.GetCount();
@@ -154,13 +196,26 @@ void CPluginsDlg::AppendExtensionRows(BOOL setOnly)
         {
             LVITEM item;
             memset(&item, 0, sizeof(item));
-            item.mask = LVIF_TEXT | LVIF_PARAM;
+            item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
             item.iItem = listIndex;
+            item.iImage = index < static_cast<int>(ExtensionImageIndices.size())
+                              ? ExtensionImageIndices[index]
+                              : -1;
             char emptyText[] = "";
             item.pszText = emptyText;
             // Negative values identify rows that are not CPluginData records.
             item.lParam = -static_cast<LPARAM>(index + 1);
             ListView_InsertItem(HListView, &item);
+        }
+
+        if (index < static_cast<int>(ExtensionImageIndices.size()))
+        {
+            LVITEM imageItem;
+            memset(&imageItem, 0, sizeof(imageItem));
+            imageItem.mask = LVIF_IMAGE;
+            imageItem.iItem = listIndex;
+            imageItem.iImage = ExtensionImageIndices[index];
+            ListView_SetItem(HListView, &imageItem);
         }
 
         ListView_SetItemText(
@@ -272,6 +327,7 @@ void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData*
     HIMAGELIST hOldIcons = ListView_SetImageList(HListView, hIcons, LVSIL_SMALL);
     if (hOldIcons != NULL)
         ImageList_Destroy(hOldIcons);
+    LoadExtensionImages(hIcons);
 
     int numOfLoaded = 0;
     Plugins.AddNamesToListView(HListView, setOnly, &numOfLoaded);

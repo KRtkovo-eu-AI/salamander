@@ -36,6 +36,7 @@ static void TestCompleteManifest()
         "\"version\":\"1.2.3\","
         "\"runtime\":{\"id\":\"Python.CPython\",\"minimumVersion\":\"3.12\"},"
         "\"entryPoint\":\"scripts/main.py\","
+        "\"icon\":\"assets/icon.svg\",\"iconDark\":\"assets/icon-dark.svg\","
         "\"capabilities\":[\"panels.read\",\"ui.dialogs\"],"
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
@@ -54,6 +55,8 @@ static void TestCompleteManifest()
     CHECK(manifest.RuntimeId == "Python.CPython");
     CHECK(manifest.MinimumRuntimeVersion == 0x0003000c);
     CHECK(manifest.EntryPoint == "scripts/main.py");
+    CHECK(manifest.Icon == "assets/icon.svg");
+    CHECK(manifest.IconDark == "assets/icon-dark.svg");
     CHECK(manifest.Capabilities.size() == 2);
     CHECK(manifest.Commands.size() == 2);
     CHECK(manifest.Commands[0].Id == "Example.First");
@@ -90,6 +93,7 @@ static void TestInvalidDocuments()
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"commands\":{}}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"commands\":["
         "{\"id\":\"Same\"},{\"id\":\"Same\"}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"icon\":\"icon.png\"}",
         "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
         "{\"id\":\"Bad\",\"runtime\":{\"id\":\"JS\",\"minimumVersion\":\"1.x\"},"
         "\"entryPoint\":\"main.js\"}",
