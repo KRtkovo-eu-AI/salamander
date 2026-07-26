@@ -174,11 +174,21 @@ BOOL ConfigureManifestExtensionSettings(
         return FALSE;
     }
 
+    std::vector<Salamatrix::Extensions::ExtensionSettingInfo> settings(settingCount);
+    int contentHeight = 12;
+    for (int index = 0; index < settingCount; ++index)
+    {
+        if (!extensions->GetExtensionSettingInfo(
+                extension.Descriptor.Id, index, &settings[index]))
+            return FALSE;
+        contentHeight += settings[index].Multiline ? 64 : 28;
+    }
+
     Salamatrix::UI::DialogOptions options;
     options.Title = extension.Descriptor.Name;
     options.Parent = parent;
     options.Width = 440;
-    options.Height = static_cast<short>(72 + settingCount * 28);
+    options.Height = static_cast<short>(72 + contentHeight);
     Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
     if (dialog == NULL)
         return FALSE;
@@ -189,24 +199,32 @@ BOOL ConfigureManifestExtensionSettings(
     {
         CExtensionSettingsControl entry;
         entry.Control = NULL;
-        if (!extensions->GetExtensionSettingInfo(
-                extension.Descriptor.Id, index, &entry.Setting))
+        entry.Setting = settings[index];
+
+        const char* label = entry.Setting.Label[0] != 0
+                                ? entry.Setting.Label
+                                : entry.Setting.Key;
+        std::string displayLabel;
+        if (entry.Setting.Group[0] != 0)
         {
-            valid = FALSE;
-            break;
+            displayLabel = entry.Setting.Group;
+            displayLabel += ": ";
         }
+        displayLabel += label;
 
         Salamatrix::UI::ControlOptions controlOptions;
         Salamatrix::UI::ControlLayout layout;
         layout.HasBounds = TRUE;
         layout.X = 12;
-        layout.Y = 12 + index * 28;
+        layout.Y = 12;
+        for (int previous = 0; previous < index; ++previous)
+            layout.Y += settings[previous].Multiline ? 64 : 28;
         layout.Width = 408;
-        layout.Height = 18;
+        layout.Height = entry.Setting.Multiline ? 54 : 18;
         if (entry.Setting.Type == Salamatrix::Extensions::ExtensionSettingBoolean)
         {
             controlOptions.Id = entry.Setting.Key;
-            controlOptions.Text = entry.Setting.Key;
+            controlOptions.Text = displayLabel.c_str();
             BOOL checked = FALSE;
             if (storage->GetValueType(
                     extension.Descriptor.Id, entry.Setting.Key) ==
@@ -227,7 +245,7 @@ BOOL ConfigureManifestExtensionSettings(
                 labelId, _countof(labelId), _TRUNCATE,
                 "label.%s", entry.Setting.Key);
             labelOptions.Id = labelId;
-            labelOptions.Text = entry.Setting.Key;
+            labelOptions.Text = displayLabel.c_str();
             Salamatrix::UI::ControlLayout labelLayout = layout;
             labelLayout.Width = 150;
             if (dialog->AddControlEx(
@@ -261,8 +279,13 @@ BOOL ConfigureManifestExtensionSettings(
                     &value[0], static_cast<int>(value.size()), NULL);
             }
             controlOptions.Text = &value[0];
+            controlOptions.Multiline = entry.Setting.Multiline;
             layout.X = 170;
-            layout.Width = 250;
+            layout.Width = entry.Setting.Width;
+            if (layout.Width < 120)
+                layout.Width = 120;
+            if (layout.Width > options.Width - layout.X - 12)
+                layout.Width = options.Width - layout.X - 12;
             entry.Control = dialog->AddControlEx(
                 Salamatrix::UI::ControlKindTextBox, controlOptions, layout);
         }

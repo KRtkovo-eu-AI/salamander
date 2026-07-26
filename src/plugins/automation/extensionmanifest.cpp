@@ -615,6 +615,34 @@ namespace
         return true;
     }
 
+    static bool ReadInteger(
+        const JsonValue& object,
+        const char* name,
+        int defaultValue,
+        int minimum,
+        int maximum,
+        int& output,
+        CExtensionManifestError& error)
+    {
+        const JsonValue* value = object.Find(name);
+        if (value == NULL)
+        {
+            output = defaultValue;
+            return true;
+        }
+        if (value->Type != JsonNumber || !isfinite(value->Number) ||
+            floor(value->Number) != value->Number ||
+            value->Number < minimum || value->Number > maximum)
+        {
+            std::string message("Manifest member '");
+            message += name;
+            message += "' must be an integer in the supported range";
+            return SetValidationError(error, message.c_str());
+        }
+        output = static_cast<int>(value->Number);
+        return true;
+    }
+
     static bool IsIdentifier(const std::string& identifier)
     {
         if (identifier.empty() || identifier.size() > 127)
@@ -951,10 +979,21 @@ bool CExtensionManifest::Parse(
             CExtensionManifestSetting setting;
             std::string type;
             if (!ReadString(settingValue, "key", true, setting.Key, error) ||
-                !ReadString(settingValue, "type", true, type, error))
+                !ReadString(settingValue, "type", true, type, error) ||
+                !ReadString(settingValue, "label", false, setting.Label, error) ||
+                !ReadString(settingValue, "description", false, setting.Description, error) ||
+                !ReadString(settingValue, "group", false, setting.Group, error) ||
+                !ReadInteger(settingValue, "order", 0, 0, 10000, setting.Order, error) ||
+                !ReadInteger(settingValue, "width", 250, 120, 1000, setting.Width, error) ||
+                !ReadBoolean(settingValue, "multiline", false, setting.Multiline, error))
                 return false;
             if (!IsIdentifier(setting.Key))
                 return SetValidationError(error, "Setting key contains unsupported characters or is too long");
+            if (setting.Label.empty())
+                setting.Label = setting.Key;
+            if (setting.Label.size() > 255 || setting.Description.size() > 1023 ||
+                setting.Group.size() > 127)
+                return SetValidationError(error, "Setting presentation metadata is too long");
             if (!ValidateEnum(
                     type, settingTypes, _countof(settingTypes), "type", error))
                 return false;
@@ -1145,6 +1184,50 @@ bool CExtensionManifest::ParseLocaleText(
     if (!ReadString(root, "name", false, localized.Name, error))
     {
         return false;
+    }
+
+    const JsonValue* settings = root.Find("settings");
+    if (settings != NULL)
+    {
+        if (settings->Type != JsonObject)
+            return SetValidationError(error, "Locale settings must be an object mapping setting keys to metadata");
+        if (settings->Object.size() > 64)
+            return SetValidationError(error, "Locale resource contains more than 64 setting labels");
+        for (size_t i = 0; i < settings->Object.size(); ++i)
+        {
+            const std::string& key = settings->Object[i].first;
+            const JsonValue& value = settings->Object[i].second;
+            if (!IsIdentifier(key))
+                return SetValidationError(error, "Locale setting keys must be valid identifiers");
+            CExtensionManifestLocalizedSetting setting;
+            setting.Key = key;
+            if (value.Type == JsonString)
+            {
+                setting.Label = value.String;
+            }
+            else if (value.Type == JsonObject)
+            {
+                if (!ReadString(value, "label", false, setting.Label, error) ||
+                    !ReadString(value, "description", false, setting.Description, error) ||
+                    !ReadString(value, "group", false, setting.Group, error))
+                    return false;
+            }
+            else
+            {
+                return SetValidationError(error, "Locale setting metadata must be a string or object");
+            }
+            if (setting.Label.empty() && setting.Description.empty() && setting.Group.empty())
+                return SetValidationError(error, "Locale setting metadata cannot be empty");
+            if (setting.Label.size() > 255 || setting.Description.size() > 1023 ||
+                setting.Group.size() > 127)
+                return SetValidationError(error, "Locale setting metadata is too long");
+            for (size_t existing = 0; existing < localized.Settings.size(); ++existing)
+            {
+                if (_stricmp(localized.Settings[existing].Key.c_str(), key.c_str()) == 0)
+                    return SetValidationError(error, "Locale setting keys must be unique");
+            }
+            localized.Settings.push_back(setting);
+        }
     }
 
     const JsonValue* commands = root.Find("commands");

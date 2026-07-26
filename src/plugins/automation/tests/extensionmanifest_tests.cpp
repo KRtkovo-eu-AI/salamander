@@ -41,7 +41,9 @@ static void TestCompleteManifest()
         "\"dependencies\":[\"org.opensalamander.Core\",\"org.opensalamander.Shared\"],"
         "\"locales\":{\"en\":\"locales/en.json\",\"cs-CZ\":\"locales/cs-CZ.json\"},"
         "\"settings\":["
-        "{\"key\":\"repositoryUrl\",\"type\":\"string\",\"default\":\"https://example.test\"},"
+        "{\"key\":\"repositoryUrl\",\"type\":\"string\",\"label\":\"Repository\","
+        "\"description\":\"Package source\",\"group\":\"General\",\"order\":10,"
+        "\"width\":360,\"multiline\":true,\"default\":\"https://example.test\"},"
         "{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"default\":true},"
         "{\"key\":\"maxItems\",\"type\":\"integer\",\"default\":42}"
         "],"
@@ -74,6 +76,12 @@ static void TestCompleteManifest()
     CHECK(manifest.Locales[1].File == "locales/cs-CZ.json");
     CHECK(manifest.Settings.size() == 3);
     CHECK(manifest.Settings[0].Key == "repositoryUrl");
+    CHECK(manifest.Settings[0].Label == "Repository");
+    CHECK(manifest.Settings[0].Description == "Package source");
+    CHECK(manifest.Settings[0].Group == "General");
+    CHECK(manifest.Settings[0].Order == 10);
+    CHECK(manifest.Settings[0].Width == 360);
+    CHECK(manifest.Settings[0].Multiline);
     CHECK(manifest.Settings[0].Type == ExtensionManifestSettingString);
     CHECK(manifest.Settings[0].HasDefault);
     CHECK(manifest.Settings[0].StringDefault == "https://example.test");
@@ -116,15 +124,31 @@ static void TestLocaleText()
 {
     const char* json =
         "{\"name\":\"Obr\\u00e1zkov\\u00e9 n\\u00e1stroje\","
+        "\"settings\":{\"repositoryUrl\":{\"label\":\"Zdroj\","
+        "\"description\":\"Adresa bal\\u00ed\\u010dku\",\"group\":\"Obecn\\u00e9\"}},"
         "\"commands\":{\"Example.Resize\":\"Zm\\u011bnit velikost\"}}";
     CExtensionManifestLocaleText localized;
     CExtensionManifestError error;
-    CHECK(CExtensionManifest::ParseLocaleText(
-        json, strlen(json), localized, error));
-    CHECK(localized.Name == "Obr\xc3\xa1zkov\xc3\xa9 n\xc3\xa1stroje");
-    CHECK(localized.Commands.size() == 1);
-    CHECK(localized.Commands[0].Id == "Example.Resize");
-    CHECK(localized.Commands[0].Title == "Zm\xc4\x9bnit velikost");
+    const bool parsedLocale = CExtensionManifest::ParseLocaleText(
+        json, strlen(json), localized, error);
+    CHECK(parsedLocale);
+    if (parsedLocale)
+    {
+        CHECK(localized.Name == "Obr\xc3\xa1zkov\xc3\xa9 n\xc3\xa1stroje");
+        CHECK(localized.Commands.size() == 1);
+        if (localized.Commands.size() == 1)
+        {
+            CHECK(localized.Commands[0].Id == "Example.Resize");
+            CHECK(localized.Commands[0].Title == "Zm\xc4\x9bnit velikost");
+        }
+        CHECK(localized.Settings.size() == 1);
+        if (localized.Settings.size() == 1)
+        {
+            CHECK(localized.Settings[0].Key == "repositoryUrl");
+            CHECK(localized.Settings[0].Label == "Zdroj");
+            CHECK(localized.Settings[0].Group == "Obecn\xc3\xa9");
+        }
+    }
 
     const char* invalid = "{\"commands\":{\"bad id\":42}}";
     CHECK(!CExtensionManifest::ParseLocaleText(
@@ -159,6 +183,10 @@ static void TestInvalidDocuments()
         "\"events\":[\"pathChanged\",\"pathChanged\"]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"settings\":[{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"default\":\"yes\"}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"settings\":[{\"key\":\"size\",\"type\":\"string\",\"width\":119}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"settings\":[{\"key\":\"size\",\"type\":\"string\",\"order\":1.5}]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"settings\":[{\"key\":\"same\",\"type\":\"string\"},{\"key\":\"SAME\",\"type\":\"string\"}]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","

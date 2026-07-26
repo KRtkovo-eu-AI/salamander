@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <string.h>
+
 namespace Salamatrix
 {
 namespace Extensions
@@ -106,14 +109,33 @@ struct ExtensionSettingInfo
     DWORD StructSize;
     char Key[128];
     ExtensionSettingType Type;
+    // Appended presentation metadata. Existing providers may continue to
+    // submit the legacy prefix ending after Type.
+    char Label[256];
+    char Description[1024];
+    char Group[128];
+    int Order;
+    int Width;
+    BOOL Multiline;
 
     ExtensionSettingInfo()
         : StructSize(sizeof(ExtensionSettingInfo)),
-          Type(ExtensionSettingString)
+          Type(ExtensionSettingString),
+          Order(0),
+          Width(250),
+          Multiline(FALSE)
     {
         Key[0] = 0;
+        Label[0] = 0;
+        Description[0] = 0;
+        Group[0] = 0;
     }
 };
+
+// Minimum prefix accepted by the 1.2 setting-schema methods. Keep this
+// before the appended display fields so old providers remain ABI-compatible.
+static const DWORD ExtensionSettingInfoLegacySize =
+    static_cast<DWORD>(offsetof(ExtensionSettingInfo, Label));
 
 typedef BOOL(WINAPI* ExtensionLifecycleCallback)(
     void* context,
@@ -674,10 +696,11 @@ public:
             return FALSE;
         }
         Record& record = Records[index];
+        ExtensionSettingInfo normalized[Record::MaxSettings];
         for (int settingIndex = 0; settingIndex < settingCount; ++settingIndex)
         {
             const ExtensionSettingInfo& setting = settings[settingIndex];
-            if (setting.StructSize < sizeof(ExtensionSettingInfo) ||
+            if (setting.StructSize < ExtensionSettingInfoLegacySize ||
                 !IsValidId(setting.Key) ||
                 (setting.Type != ExtensionSettingString &&
                  setting.Type != ExtensionSettingInteger &&
@@ -694,9 +717,15 @@ public:
                     return FALSE;
                 }
             }
+            normalized[settingIndex] = ExtensionSettingInfo();
+            DWORD copySize = setting.StructSize;
+            if (copySize > sizeof(ExtensionSettingInfo))
+                copySize = sizeof(ExtensionSettingInfo);
+            memcpy(&normalized[settingIndex], &setting, copySize);
+            normalized[settingIndex].StructSize = sizeof(ExtensionSettingInfo);
         }
         for (int settingIndex = 0; settingIndex < settingCount; ++settingIndex)
-            record.Settings[settingIndex] = settings[settingIndex];
+            record.Settings[settingIndex] = normalized[settingIndex];
         for (int settingIndex = settingCount;
              settingIndex < record.SettingCount;
              ++settingIndex)
@@ -722,7 +751,7 @@ public:
         int index,
         ExtensionSettingInfo* setting) const
     {
-        if (setting == NULL || setting->StructSize < sizeof(ExtensionSettingInfo))
+        if (setting == NULL || setting->StructSize < ExtensionSettingInfoLegacySize)
             return FALSE;
         EnterCriticalSection(&Lock);
         const int recordIndex = FindIndex(extensionId);
@@ -732,7 +761,12 @@ public:
             LeaveCriticalSection(&Lock);
             return FALSE;
         }
-        *setting = Records[recordIndex].Settings[index];
+        const DWORD requestedSize = setting->StructSize;
+        const ExtensionSettingInfo& stored = Records[recordIndex].Settings[index];
+        const DWORD copySize = requestedSize < sizeof(ExtensionSettingInfo)
+                                    ? requestedSize
+                                    : sizeof(ExtensionSettingInfo);
+        memcpy(setting, &stored, copySize);
         LeaveCriticalSection(&Lock);
         return TRUE;
     }

@@ -286,6 +286,31 @@ void TestSettingsSchema()
     Check(extensions->SetExtensionSettingsSchema(
               "settings.extension", settings, _countof(settings)) == FALSE,
           "reject duplicate settings schema keys");
+
+    // Simulate a 1.2 provider compiled before the appended presentation
+    // fields existed. The registry must accept and return the legacy prefix.
+    struct LegacySettingInfo
+    {
+        DWORD StructSize;
+        char Key[128];
+        Salamatrix::Extensions::ExtensionSettingType Type;
+    };
+    LegacySettingInfo legacy;
+    legacy.StructSize = sizeof(LegacySettingInfo);
+    strcpy_s(legacy.Key, _countof(legacy.Key), "legacySetting");
+    legacy.Type = Salamatrix::Extensions::ExtensionSettingString;
+    Check(extensions->SetExtensionSettingsSchema(
+              "settings.extension",
+              reinterpret_cast<const Salamatrix::Extensions::ExtensionSettingInfo*>(&legacy),
+              1) != FALSE,
+          "accept legacy setting schema prefix");
+    LegacySettingInfo returnedLegacy;
+    returnedLegacy.StructSize = sizeof(returnedLegacy);
+    Check(extensions->GetExtensionSettingInfo(
+              "settings.extension", 0,
+              reinterpret_cast<Salamatrix::Extensions::ExtensionSettingInfo*>(&returnedLegacy)) != FALSE &&
+              strcmp(returnedLegacy.Key, "legacySetting") == 0,
+          "return legacy setting schema prefix");
     delete extensions;
 }
 } // namespace

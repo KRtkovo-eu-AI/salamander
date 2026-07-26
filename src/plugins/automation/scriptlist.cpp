@@ -642,6 +642,22 @@ static const char* FindLocalizedManifestCommandTitle(
     return NULL;
 }
 
+static const CExtensionManifestLocalizedSetting* FindLocalizedManifestSetting(
+    const CExtensionManifestLocaleText& localized,
+    const std::string& settingKey)
+{
+    for (size_t index = 0; index < localized.Settings.size(); ++index)
+    {
+        if (_stricmp(
+                localized.Settings[index].Key.c_str(),
+                settingKey.c_str()) == 0)
+        {
+            return &localized.Settings[index];
+        }
+    }
+    return NULL;
+}
+
 CScriptInfo::CScriptInfo(
     PCTSTR pszFileName,
     CScriptContainer* pContainer)
@@ -883,6 +899,22 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
                 // name even when the locale file does not list it separately.
                 manifest.Commands[commandIndex].Title = manifest.Name;
             }
+        }
+        for (size_t settingIndex = 0;
+             settingIndex < manifest.Settings.size();
+             ++settingIndex)
+        {
+            CExtensionManifestSetting& setting = manifest.Settings[settingIndex];
+            const CExtensionManifestLocalizedSetting* translated =
+                FindLocalizedManifestSetting(localized, setting.Key);
+            if (translated == NULL)
+                continue;
+            if (!translated->Label.empty())
+                setting.Label = translated->Label;
+            if (!translated->Description.empty())
+                setting.Description = translated->Description;
+            if (!translated->Group.empty())
+                setting.Group = translated->Group;
         }
     }
 
@@ -3358,6 +3390,16 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 {
                     response += ",\"hasDefault\":false";
                 }
+                response += ",\"label\":\"" +
+                            JsonEscapeRuntimeText(setting.Label.c_str()) +
+                            "\",\"description\":\"" +
+                            JsonEscapeRuntimeText(setting.Description.c_str()) +
+                            "\",\"group\":\"" +
+                            JsonEscapeRuntimeText(setting.Group.c_str()) +
+                            "\",\"order\":" + std::to_string(setting.Order) +
+                            ",\"width\":" + std::to_string(setting.Width) +
+                            ",\"multiline\":" +
+                            (setting.Multiline ? "true" : "false");
                 response += "}";
             }
             response += "]}";
@@ -5316,6 +5358,18 @@ void CScriptLookup::PublishSalamatrixExtensions()
                         : setting.Type == ExtensionManifestSettingBoolean
                               ? Salamatrix::Extensions::ExtensionSettingBoolean
                               : Salamatrix::Extensions::ExtensionSettingString;
+                StringCchCopyA(
+                    published.Label, _countof(published.Label),
+                    setting.Label.c_str());
+                StringCchCopyA(
+                    published.Description, _countof(published.Description),
+                    setting.Description.c_str());
+                StringCchCopyA(
+                    published.Group, _countof(published.Group),
+                    setting.Group.c_str());
+                published.Order = setting.Order;
+                published.Width = setting.Width;
+                published.Multiline = setting.Multiline ? TRUE : FALSE;
             }
 
             // A failed registration (for example a duplicate manifest id)

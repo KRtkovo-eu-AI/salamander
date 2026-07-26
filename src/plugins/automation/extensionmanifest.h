@@ -66,6 +66,14 @@ enum CExtensionManifestSettingType
 struct CExtensionManifestSetting
 {
     std::string Key;
+    // Optional configuration presentation metadata. The key remains the
+    // stable storage identifier; labels and groups are display text only.
+    std::string Label;
+    std::string Description;
+    std::string Group;
+    int Order;
+    int Width;
+    bool Multiline;
     CExtensionManifestSettingType Type;
     bool HasDefault;
     std::string StringDefault;
@@ -73,7 +81,10 @@ struct CExtensionManifestSetting
     bool BooleanDefault;
 
     CExtensionManifestSetting()
-        : Type(ExtensionManifestSettingString),
+        : Order(0),
+          Width(250),
+          Multiline(false),
+          Type(ExtensionManifestSettingString),
           HasDefault(false),
           IntegerDefault(0),
           BooleanDefault(false)
@@ -95,10 +106,19 @@ struct CExtensionManifestLocalizedCommand
     std::string Title;
 };
 
+struct CExtensionManifestLocalizedSetting
+{
+    std::string Key;
+    std::string Label;
+    std::string Description;
+    std::string Group;
+};
+
 struct CExtensionManifestLocaleText
 {
     std::string Name;
     std::vector<CExtensionManifestLocalizedCommand> Commands;
+    std::vector<CExtensionManifestLocalizedSetting> Settings;
 };
 
 class CExtensionManifest
