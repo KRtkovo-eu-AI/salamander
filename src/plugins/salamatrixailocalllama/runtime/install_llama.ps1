@@ -21,13 +21,50 @@ $archive = Join-Path $temp 'llama.zip'
 $model = Join-Path $temp 'salamatrix.gguf'
 $extract = Join-Path $temp 'extract'
 
+function Download-VerifiedFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Uri,
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedHash,
+        [Parameter(Mandatory = $true)]
+        [string]$Description
+    )
+
+    $normalizedExpected = $ExpectedHash.Trim().ToUpperInvariant()
+    $lastActualHash = '<download failed>'
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        if (Test-Path -LiteralPath $Path) {
+            Remove-Item -LiteralPath $Path -Force
+        }
+
+        try {
+            Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Path
+            $lastActualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.Trim().ToUpperInvariant()
+            if ($lastActualHash -ceq $normalizedExpected) {
+                return
+            }
+
+            Write-Warning ("{0} SHA-256 mismatch on attempt {1}/3. Expected {2}, got {3}." -f
+                $Description, $attempt, $normalizedExpected, $lastActualHash)
+        }
+        catch {
+            Write-Warning ("{0} download attempt {1}/3 failed: {2}" -f
+                $Description, $attempt, $_.Exception.Message)
+        }
+    }
+
+    throw ("{0} SHA-256 verification failed after 3 attempts. Expected {1}, got {2}." -f
+        $Description, $normalizedExpected, $lastActualHash)
+}
+
 try {
     New-Item -ItemType Directory -Force -Path $temp, $extract, $runtime | Out-Null
     Write-Host 'Downloading llama.cpp Windows x64 CPU package...'
-    Invoke-WebRequest -UseBasicParsing -Uri $llamaUrl -OutFile $archive
-    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash -ne $llamaSha256) {
-        throw 'llama.cpp archive SHA-256 verification failed.'
-    }
+    Download-VerifiedFile -Uri $llamaUrl -Path $archive -ExpectedHash $llamaSha256 `
+        -Description 'llama.cpp archive'
 
     Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
     $llamaExe = Get-ChildItem -LiteralPath $extract -Filter 'llama-cli.exe' -File -Recurse | Select-Object -First 1
@@ -35,10 +72,8 @@ try {
     Get-ChildItem -LiteralPath $llamaExe.DirectoryName -File | Copy-Item -Destination $runtime -Force
 
     Write-Host 'Downloading Qwen2.5-Coder GGUF model...'
-    Invoke-WebRequest -UseBasicParsing -Uri $modelUrl -OutFile $model
-    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $model).Hash -ne $modelSha256) {
-        throw 'Qwen model SHA-256 verification failed.'
-    }
+    Download-VerifiedFile -Uri $modelUrl -Path $model -ExpectedHash $modelSha256 `
+        -Description 'Qwen model'
     Move-Item -LiteralPath $model -Destination (Join-Path $runtime 'salamatrix.gguf') -Force
     Invoke-WebRequest -UseBasicParsing -Uri $modelLicenseUrl -OutFile (Join-Path $runtime 'Qwen2.5-Coder.LICENSE.txt')
     Get-ChildItem -LiteralPath $llamaExe.DirectoryName -File -Filter '*LICENSE*' |
