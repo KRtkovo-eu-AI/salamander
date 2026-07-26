@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Salamander: Samandarin</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="description" href="https://samandarin.krtkovo.eu/" title="Open Salamander: Samandarin - Fast and reliable two-panel file manager for Windows 11 enhanced with modern features.">
+  <meta name="description" content="Open Salamander: Samandarin - Fast and reliable two-panel file manager for Windows 11 enhanced with modern features.">
+  <meta name="keywords" content="Open Salamander, Samandarin, Salamander, file manager, two-panel, Windows 11, Unicode, long paths, internal viewer, translations, portability, configurations, detached panels, tabbed panels, history, dark mode, DPI awareness, Windows Explorer columns, command shell, tree view, user folders, plugin archives, confirm delete, tooltip info">
+  <meta name="author" content="Ondřej Kotas (KRtekTM)">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="Open Salamander: Samandarin">
+  <meta property="og:description" content="Fast and reliable two-panel file manager for Windows 11 enhanced with modern features.">
+  <meta property="og:image" content="https://samandarin.krtkovo.eu/og_image.png">
+  <meta property="og:url" content="https://samandarin.krtkovo.eu/">
+  <meta property="og:type" content="website">
+</head>
+<body>
+  <header class="site-header">
+    <a class="skip-link" href="#content" data-i18n="skipToContent">Skip to content</a>
+    <div class="site-header__row">
+      <div class="site-branding">
+        <h1><img id="header-logo" src="https://samandarin.krtkovo.eu/samandarin_logo_64px.png" alt="Samandarin logo">Open Salamander <span class="site-branding__accent">Samandarin</span></h1>
+        <p id="description-text">Fast and reliable two-panel file manager for Windows 11 enhanced with modern features.</p>
+      </div>
+      <label class="language-switcher">
+        <select id="language-select" aria-label="Language selector"></select>
+      </label>
+    </div>
+    <nav class="section-nav" aria-label="Page sections" data-i18n-attr="aria-label:Page sections">
+      <a href="#download" data-i18n="navDownload">Download</a>
+      <div class="section-nav__item section-nav__item--has-submenu">
+        <a href="#features" data-i18n="navFeatures" aria-haspopup="true">Features</a>
+        <div class="section-nav__submenu">
+          <a href="#feature-unicode-long-paths">Unicode and long paths support</a>
+          <a href="#feature-internal-viewer-unicode">Internal Viewer</a>
+          <a href="#feature-translations">Translations</a>
+          <a href="#feature-portability">Portability</a>
+          <a href="#feature-manage-configurations">Manage configurations</a>
+          <a href="#feature-detached-panels">Split panels into detached window</a>
+          <a href="#feature-tabbed-panels">Tabbed Panels</a>
+          <a href="#feature-history">Shared/separate History</a>
+          <a href="#feature-dark-mode">Dark Mode</a>
+          <a href="#feature-dpi-awareness">DPI Awareness</a>
+          <a href="#feature-windows-explorer-columns">Columns from Windows Explorer</a>
+          <a href="#feature-command-shell">Configurable Command Shell Application</a>
+          <a href="#feature-tree-view">Tree View panel</a>
+          <a href="#feature-user-folders">User Folders</a>
+          <a href="#feature-plugin-archives">Copy/Move between plugin-FS and archives</a>
+          <a href="#feature-extended-confirm-delete">Extended Confirm Delete</a>
+          <a href="#feature-panel-item-info-tooltip">Panel item info tooltip</a>
+          <a href="#feature-autocomplete-path">Autocomplete path</a>
+          <a href="#feature-digitally-signed">Digitally signed</a>
+        </div>
+      </div>
+      <a href="#plugins" data-i18n="navPlugins">Plugins</a>
+      <a href="#fork" data-i18n="navFork">Fork</a>
+      <a href="#origin" data-i18n="navOrigin">Origin</a>
+      <a href="#resources" data-i18n="navResources">Resources</a>
+    </nav>
+  </header>
+  <main id="content">
+  <section class="hero-panel" aria-labelledby="hero-title" id="download">
+    <div class="hero-panel__copy">
+      <p class="eyebrow">Unofficial fork</p>
+      <!--<h2 id="hero-title">Original Salamander DNA with modern energy</h2>-->
+      <p>It evolves the <a href="https://github.com/OpenSalamander/salamander">original project</a> with enhancements and new features while staying compatible with the upstream code and plugin ecosystem.</p>
+
+  <!--<blockquote>
+    <p>!IMPORTANT<br>Open Salamander: Samandarin remains an <strong>intentionally experimental fork</strong>—its <strong>vibe-coded features</strong> are actively evolving, <strong>may surface unexpected issues</strong>, and are best explored by <strong>advanced, adventurous users</strong> who can tolerate work-in-progress behavior.</p>
+    <p>Tools used:</p>
+    <ul>
+      <li><a href="https://chatgpt.com/codex">OpenAI Codex</a> (models <code>gpt-5.3-codex</code>, <code>gpt-5.5</code>)</li>
+      <li><a href="https://opencode.ai">OpenCode</a> (models <code>MiMo-V2.5</code>, <code>Qwen3.7 Plus</code>)</li>
+    </ul>
+  </blockquote>-->
+
+      <div id="download-block">
+    <h2>Download latest release</h2>
+    <p id="latest-release-info" aria-live="polite">Loading latest GitHub release data...</p>
+    <ul id="latest-release-downloads" aria-live="polite">
+      <li><a aria="button" href="https://github.com/KRtkovo-eu-AI/salamander/releases/download/5.0-samandarin-0.12/5.0-samandarin-0.12_win_x64.exe">Installer/Extract portable</a> ~ 12.8 MB</li>
+      <li><a aria="button" href="https://github.com/KRtkovo-eu-AI/salamander/releases/download/5.0-samandarin-0.12/5.0-samandarin-0.12_win_x64.zip">ZIP archive</a> ~ 20.1 MB</li>
+    </ul>
+      </div>
+    </div>
+    <div class="hero-panel__visual">
+      <img class="preview" width="1247" height="845" alt="Samandarin application preview" src="https://github.com/user-attachments/assets/8cfedd13-c875-4400-b51c-6b9395a16c8e">
+      <span class="compatibility-badge"><img src="https://samandarin.krtkovo.eu/win11.png" alt="Windows 11 ready"></span>
+    </div>
+  </section>
+
+  <section class="content-grid">
+  <h2 id="features">Included Features Overview</h2>
+  <h3 id="feature-unicode-long-paths">Unicode and long paths support</h3>
+  <ul>
+    <li>Work with files and folders whose names use characters from different languages, emojis, and other Unicode symbols.</li>
+    <li>When Windows long paths are enabled, local and UNC paths can go beyond the traditional <code>MAX_PATH</code> limit and use the Windows extended-length limit of about <code>32,767</code> characters.</li>
+    <li>Browse, Copy, Move, Rename, Delete, and Create deeply nested folders and very long file names directly from the panels.</li>
+    <li>The core file handling paths use Unicode-aware Windows APIs, so names no longer have to fit the active system code page.</li>
+    <li>Code based on our prototype and partially derived from <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>) which is being refined for Samandarin.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/5b6e9d73-7cac-4b1b-a40f-7c3c03c1adb4">
+  <img alt="image" src="https://github.com/user-attachments/assets/ab04f8a6-fe73-4f0f-8726-12755afdbde7">
+
+  <h3 id="feature-internal-viewer-unicode">Internal Viewer</h3>
+  <ul>
+    <li>Support for Unicode encoding in text files.
+      <ul>
+        <li>Based on <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>) and refined for Samandarin.</li>
+      </ul>
+    </li>
+    <li>Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.</li>
+    <li>Zoom text with <code>Ctrl + mouse wheel</code> or <code>Ctrl + Num +</code>/<code>Ctrl + Num -</code>. Zoom reset with <code>Ctrl + Num 0</code>.</li>
+    <li>Optional line numbers for easier navigation in text files.</li>
+  </ul>
+  <img alt="Internal Viewer with Unicode text, status bar, zoom settings, and line numbers" src="https://github.com/user-attachments/assets/66a19715-e1c4-47bc-9613-b050575fa5e6">
+
+  <h3 id="feature-translations">Translations</h3>
+  <ul>
+    <li>Automatic translate with OpenAI API (model <code>gpt-5.4-nano</code>) with our own custom localization logic.</li>
+    <li>Few scripts partially derived from <a href="https://github.com/0xeb/sally">Sally</a> fork source code (author <a href="https://github.com/0xeb">0xeb</a>).</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb">
+
+  <h3 id="feature-portability">Portability</h3>
+  <ul>
+    <li>Save the Configuration into file storage instead of Registry.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/5aab6d4d-cc86-42a5-a769-95af091ecab5">
+
+  <h3 id="feature-manage-configurations">Manage configurations</h3>
+  <ul>
+    <li>Reworked welcome dialog with configuration management options.</li>
+    <li>Configuration import and export support.</li>
+    <li>Simple wizard for restoring configurations.</li>
+    <li>Choose between locations for target configuration.</li>
+  </ul>
+  <img alt="Image" src="https://github.com/user-attachments/assets/baf4bab7-50ba-4874-9241-d31b11722767">
+
+  <h3 id="feature-detached-panels">Split panels into detached window</h3>
+  <ul>
+    <li>You can have each side in separate window.</li>
+  </ul>
+  <img src="https://samandarin.krtkovo.eu/salam_detach1.gif" width="782" alt="detached panels demo">
+
+  <h3 id="feature-tabbed-panels">Tabbed Panels</h3>
+  <ul>
+    <li>One of the most wanted features over last 15 years.</li>
+    <li>When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.</li>
+    <li>You can switch between tabs on one side when holding right mouse button and scrolling with the mouse wheel.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/cd8919c4-2640-4c99-b83d-94f814100d9f">
+  <img alt="image" src="https://github.com/user-attachments/assets/d446320b-ee21-49bb-b3cd-f249186f2d41">
+  <img alt="image" src="https://github.com/user-attachments/assets/30765cbf-a26b-4a2e-8e76-720908342467">
+
+  <h3 id="feature-history">Shared/separate History</h3>
+  <img alt="image" src="https://github.com/user-attachments/assets/569b023f-9f69-4c19-a830-57e2542b0de5">
+
+  <h3 id="feature-dark-mode">Dark Mode</h3>
+  <ul>
+    <li>Complete dark mode support for all components, windows, plugins etc.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/3d124bed-a670-414d-9f21-ea453561bce3">
+
+  <h3 id="feature-dpi-awareness">DPI Awareness</h3>
+  <ul>
+    <li>Sharper interface rendering on high-DPI and mixed-DPI Windows displays.</li>
+    <li>The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.</li>
+  </ul>
+  <img width="782" alt="Samandarin DPI Awareness preview" src="https://github.com/user-attachments/assets/d4117eba-bebd-46ba-8b4e-0621e7668977">
+
+  <h3 id="feature-windows-explorer-columns">Columns from Windows Explorer</h3>
+  <ul>
+    <li>For detailed view, you can choose to show any Windows Explorer column.</li>
+  </ul>
+  <img alt="Windows Explorer column selection in detailed view" src="https://github.com/user-attachments/assets/dacf844c-8b4e-48e0-a8de-fd407ea68449">
+  <img alt="Windows Explorer columns shown in Samandarin panel" src="https://github.com/user-attachments/assets/c7a4adc9-5105-4696-81a6-6f779775b837">
+
+  <h3 id="feature-command-shell">Configurable Command Shell Application</h3>
+  <ul>
+    <li>Dynamically loads Windows Terminal profiles for quick command shell selection.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/d5109ceb-ec72-43ce-9731-749f3cb13fec">
+  <img alt="image" width="782" src="https://github.com/user-attachments/assets/26b86292-327e-4d39-bbff-ff96a649bb0f">
+
+  <h3 id="feature-tree-view">Tree View panel</h3>
+  <ul>
+    <li>Docked or floating panel with tree view structure of the active disk panel.</li>
+    <li>Based on <a href="https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy">fgodoy</a> changes.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/0717d01f-5f59-454c-a821-288b9f74b1fe">
+
+  <h3 id="feature-user-folders">User Folders</h3>
+  <ul>
+    <li>Added missing user folders for easier access.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/515790ee-46e4-40c8-ae5e-407b294afdd1">
+
+  <h3 id="feature-plugin-archives">Copy/Move between plugin-FS and archives</h3>
+  <ul>
+    <li>Support for file operations between plugin-FS and archives (for example between FTP and archives, between different FTP servers, different archives, etc).</li>
+  </ul>
+  <img width="782" alt="salam_plug_arch" src="https://github.com/user-attachments/assets/4e4fc13c-e6f7-485c-b0d6-623378e1719b">
+
+  <h3 id="feature-extended-confirm-delete">Extended Confirm Delete</h3>
+  <ul>
+    <li>Show the table with filenames of selected files to delete.</li>
+  </ul>
+  <img alt="Extended Confirm Delete dialog with selected filenames" src="https://github.com/user-attachments/assets/cf2ee640-c3a8-4a8f-8b6f-db0bd0f6edf2">
+  <img alt="Extended Confirm Delete dialog with multiple selected files" src="https://github.com/user-attachments/assets/30be4ad5-5876-4d5b-919a-d50e0a1275e0">
+
+  <h3 id="feature-panel-item-info-tooltip">Panel item info tooltip</h3>
+  <ul>
+    <li>Shows the tooltip with summary info about directory or file.</li>
+    <li>For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).</li>
+  </ul>
+  <div class="textCenter">
+    <img aria="noblock" alt="Panel item info tooltip with file details" src="https://github.com/user-attachments/assets/0aefd5f8-fd8c-4c6f-b770-bbb0dfc14803">
+    <img aria="noblock" alt="Panel item info tooltip with media details" src="https://github.com/user-attachments/assets/5a94121c-af71-4d9f-a8c8-564eb6e6da92">
+  </div>
+
+  <h3 id="feature-autocomplete-path">Autocomplete path</h3>
+  <ul>
+    <li>Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog.</li>
+    <li>Paths are suggested when typing in the path field.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/59a7cff2-0db2-4866-8d6a-74ccd2f4376f">
+  <img alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a">
+
+  <h3 id="feature-digitally-signed">Digitally signed</h3>
+  <ul>
+    <li>All binary files including installer are digitally signed.</li>
+  </ul>
+  <img alt="image" src="https://github.com/user-attachments/assets/a210db84-eee7-4b49-987a-09dd35ca56c1">
+
+  <h2 id="plugins">Plugin Catalog</h2>
+  <blockquote>
+    <p>Plugin catalog sources:</p>
+    <ul>
+      <li>Stable: <a href="https://samandarin.krtkovo.eu/catalogs/plugins-stable.json" target="_blank">https://samandarin.krtkovo.eu/catalogs/plugins-stable.json</a></li>
+      <li>Unofficial 3rd party: <a href="https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json" target="_blank">https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json</a></li>
+      <li>Extension Runtimes: <a href="https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json" target="_blank">https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json</a></li>
+    </ul>
+    <p>Explore the available plugins in <a aria="button" href="catalogs/plugin-catalog.html">Plugin catalog overview</a> or directly in the Salamander application via the Plugin Updates window in the Samandarin Update Notifier plugin.</p>
+  </blockquote>
+  <img alt="image" width="782" src="https://github.com/user-attachments/assets/54f2a2fe-f5e0-4de3-b5d4-e3a96c71c4d4">
+
+  <h2 id="fork">Samandarin Fork Overview</h2>
+  <h3>Author &amp; Motivation</h3>
+  <p><strong>Open Salamander: Samandarin</strong> is introduced by <a href="https://github.com/KRtekTM">Ondřej Kotas (KRtekTM)</a>. Instead of coming from a traditional C++ background, Ondřej is a C# developer and QA test/automation &amp; AI specialist who uses OpenAI Codex to rapidly prototype and implement new ideas. The fork exists so AI-written code can evolve separately without risking the quality of the upstream project while development practices mature.</p>
+  <h3>Fork Name Inspiration</h3>
+  <p>The “Samandarin” name is a three-way pun that pays homage to the Salamander legacy:</p>
+  <ul>
+    <li><strong>Fire salamander</strong> – the black-and-yellow amphibian that inspired the original project.</li>
+    <li><strong>Samandarin</strong> – the natural toxin secreted by that salamander, symbolising a spicy, daring twist — just like our AI-crafted changes.</li>
+    <li><strong>Mandarin orange</strong> – the vibrant citrus fruit whose fresh color palette inspired the fork logo.</li>
+  </ul>
+  <p>Together they promise the same Salamander DNA with a spicy hint of danger.</p>
+  <h3>Installation Notes</h3>
+  <p>Samandarin writes its configuration to a dedicated registry hive named "Open Salamander Samandarin" to avoid interfering with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.</p>
+
+  <h2 id="origin">Origin Overview</h2>
+  <p>The original version of Servant Salamander was developed by Petr Šolín while he was studying at the Czech Technical University. He released it as freeware in 1997. After graduating, Petr Šolín founded <a href="https://www.altap.cz/">Altap</a> together with Jan Ryšavý. In 2001, they released the first shareware version of the program. In 2007, the project was renamed Altap Salamander with the release of version 2.5. Many other programmers and translators have <a href="AUTHORS">contributed</a> to the project over the years. In 2019, Altap was acquired by <a href="https://www.finesoftware.eu/">Fine</a>. After the acquisition, Altap Salamander 4.0 was released as freeware. In 2023, the source code was released under the GPLv2 license as Open Salamander 5.0.</p>
+  <p>The name Servant Salamander came from a brainstorming session between Petr Šolín and his friend Pavel Schreib. At the time, the best-known file managers were the aging Norton Commander and the increasingly popular Windows Commander. They wondered why a file manager should be called a commander at all: a good file manager serves its users rather than commands them. That idea led to the name Servant Salamander.</p>
+  <p>Salamander was our first major C++ project, and the code reflects both that learning process and the era in which it was built. It does not follow the <a href="https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines">C++ Core Guidelines</a>, use smart pointers, rely on <a href="https://en.cppreference.com/w/cpp/language/raii">RAII</a>, or use libraries such as the <a href="https://github.com/microsoft/STL">STL</a> or <a href="https://github.com/microsoft/wil">WIL</a>. Most of these practices and libraries were still emerging when Salamander was created. Many comments are still written in Czech, but recent advances in AI-assisted translation make them much easier to improve incrementally. Salamander is a pure WinAPI application and does not use application frameworks such as MFC.</p>
+  <p>We would like to thank <a href="https://www.finesoftware.eu/">Fine</a> for making the open-source release of Salamander possible.</p>
+  <p>The Samandarin fork continues this story by blending the original Salamander DNA with AI-driven enhancements, keeping development moving while inviting adventurous contributors to explore and extend the project.</p>
+
+  <h2 id="resources">Resources</h2>
+  <ul>
+    <li><a href="https://forum.altap.cz/">Salamander users community forum</a></li>
+    <li><a href="https://github.com/OpenSalamander/salamander">Open Salamander 5.0</a> original project</li>
+    <li><a href="https://github.com/KRtkovo-eu-AI/salamander-plugins">Open Salamander SDK 5.0 Unofficial</a></li>
+    <li><a href="https://www.altap.cz/">Altap Salamander Website</a></li>
+    <li>Altap Salamander 4.0 <a href="https://www.altap.cz/salamander/features/">features</a></li>
+    <li>Altap Salamander 4.0 <a href="https://www.altap.cz/salamander/help/">documentation</a></li>
+    <li>Servant Salamander and Altap Salamander <a href="https://www.altap.cz/salamander/changelogs/">changelogs</a></li>
+    <li>Altap Salamander on <a href="https://en.wikipedia.org/wiki/Altap_Salamander">Wikipedia</a></li>
+  </ul>
+
+  <h2 id="license">License</h2>
+  <p>Open Salamander is open-source software licensed under <a href="LICENSE">GPLv2</a> or later.<br>Some individual <a href="doc/third_party.txt">files and libraries</a> use different but compatible licenses.</p>
+  </main>
+  <a class="back-to-top" href="#content" aria-label="Back to top" title="Back to top" data-back-to-top>↑</a>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/samandarin-release-downloads.js" defer></script>
+  <script src="js/back-to-top.js" defer></script>
+</body>
+</html>
