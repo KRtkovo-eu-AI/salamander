@@ -6,6 +6,19 @@ The user installs Python, PowerShell, PHP, or Node separately; the provider
 only discovers that executable, owns its worker bootstrap, and registers an
 adapter with the already loaded `Salamatrix.Runtime` broker.
 
+All four providers and the standalone `SalamatrixAI.SPL` use the conventional
+plugin metadata structure: their resource script includes `versinfo.rh2` and
+`versinfo.rc2`, their entry point uses the `VERSINFO_*` metadata constants, and
+their Plugin Manager homepage is `https://samandarin.krtkovo.eu/`. SalamatrixAI
+uses the shared Framework icon at `src/res/sal_r.ico`; it remains a separate
+Menu Extension plugin and does not move AI ownership back into Automation.
+
+Native UI dark mode is owned by the Salamatrix Framework provider. It reads the
+host's explicit `Windows Dark Mode (experimental)` scheme and current scheme
+colors, configures the existing `USE_DARKMODELIB=1` integration, refreshes
+dialog controls and title bars on theme/configuration broadcasts, and routes
+runtime/UI-service Unicode message boxes through the same dark-aware helper.
+
 ## Provider lifecycle
 
 ```cpp

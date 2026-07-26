@@ -37,6 +37,14 @@ def main() -> int:
     automation = read("src/plugins/automation/automationplug.cpp")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
+    javascriptruntime = read("src/plugins/javascriptruntime/javascriptruntime.cpp")
+    pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
+    powershellruntime = read("src/plugins/powershellruntime/powershellruntime.cpp")
+    phpruntime = read("src/plugins/phpruntime/phpruntime.cpp")
+    salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
+    salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
+    salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
+    salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
@@ -64,7 +72,14 @@ def main() -> int:
     require(ai, r"\bCmdOpenAssistant\b", "AI command symbol is missing")
     require(ai, r"ExecuteMenuItem.*?id == CmdOpenAssistant.*?ShowChat", "AI menu command does not open chat")
     require(ai_rc2, r'IDS_AI_ASSISTANT_MENU\s+1000', "AI menu resource id is missing")
+    require(ai_rc2, r'IDI_PLUGINICON\s+ICON\s+"[.][.]\\\\[.][.]\\\\res\\\\sal_r\.ico"', "AI menu icon is not sal_r.ico")
     require(ai_rc2, r'IDS_AI_ASSISTANT_MENU\s+"Ask Salamatrix AI\.\.\."', "AI menu resource text is not exact")
+    require(ai, r'#include\s+"versinfo\.rh2"', "AI implementation does not include versinfo.rh2")
+    require(ai_rc2, r'#include\s+"versinfo\.rh2"', "AI rc2 does not include versinfo.rh2")
+    require(ai_rc2, r'#include\s+"versinfo\.rc2"', "AI rc2 does not include versinfo.rc2")
+    require(ai, r'SetBasicPluginData\(\s*"Salamatrix AI",\s*FUNCTION_AUTOMATIONFRAMEWORK \| FUNCTION_DYNAMICMENUEXT,\s*VERSINFO_VERSION_NO_PLATFORM,\s*VERSINFO_COPYRIGHT,\s*VERSINFO_DESCRIPTION,\s*VERSINFO_INTERNAL,\s*NULL,\s*NULL\)',
+            "AI SetBasicPluginData does not use versinfo macros")
+    require(ai, r'SetPluginHomePageURL\("https://samandarin\.krtkovo\.eu/"\)', "AI homepage URL is not set")
     require(ai, r"SalamanderGeneral->LoadStr\(DLLInstance, IDS_AI_ASSISTANT_MENU", "AI menu caption does not use Salamander localization")
     require(ai, r'caption\s*==\s*NULL.*\?\s*"Ask Salamatrix AI\.\.\."\s*:\s*caption',
             "AI menu caption fallback to Ask Salamatrix AI... is missing or unstable")
@@ -90,6 +105,21 @@ def main() -> int:
         automation,
         r"EscapeAssistantContext|LoadAssistantString|BuildAssistantPanelContext|SaveAssistantScript|AssistantTemporaryScript|AssistantWin32Path|WriteAssistantUtf8File|CreateAssistantTemporaryScript|GetAssistantRuntimeExtension|MakeAssistantExtensionId|AssistantUtf8ToWide|SaveAssistantExtensionPackage|RunAssistantScript",
         "Automation still contains removed AI assistant helpers")
+
+    for name, runtime in (
+        ("JavaScript", javascriptruntime),
+        ("Python", pythonruntime),
+        ("PowerShell", powershellruntime),
+        ("PHP", phpruntime),
+    ):
+        require(runtime, r"SetPluginHomePageURL\(\"https://samandarin\.krtkovo\.eu/\"\)", f"{name} runtime homepage URL is not set")
+
+    require(salamatrix_props, r"USE_DARKMODELIB=1", "Salamatrix Framework is not built with win32-darkmodelib")
+    require(salamatrix, r"ApplyHostDarkModePolicy\(SalamanderGeneral", "Salamatrix host dark-mode policy is not initialized")
+    require(salamatrix_runtime, r"DarkModeSetConfiguredColors", "Salamatrix dark-mode scheme colors are not synchronized")
+    require(salamatrix_runtime, r"DarkModeMessageBoxW", "Salamatrix runtime message boxes do not use the Unicode dark-mode path")
+    require(salamatrix_ui, r"WM_SETTINGCHANGE \|\| message == WM_THEMECHANGED", "Salamatrix dialog theme-change handling is missing")
+    require(salamatrix_ui, r"DarkModeRefreshTitleBar\(hwnd\)", "Salamatrix dialog title bar dark-mode refresh is missing")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")

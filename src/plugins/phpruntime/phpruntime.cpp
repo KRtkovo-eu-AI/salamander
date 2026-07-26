@@ -1177,6 +1177,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         "PHP.RUNTIME",
         NULL,
         NULL);
+    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
     TryRegisterPHPRuntime();
     return &PluginInterface;
 }

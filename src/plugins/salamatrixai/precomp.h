@@ -11,7 +11,7 @@
 #include "../shared/spl_gen.h"
 #include "../shared/spl_gui.h"
 #include "../shared/spl_menu.h"
-#include "../shared/spl_vers.h"
+#include "versinfo.rh2"
 #include "../salamatrix/salamatrix_ai.h"
 #include "../salamatrix/salamatrix_ui.h"
 #include "salamatrixai.h"

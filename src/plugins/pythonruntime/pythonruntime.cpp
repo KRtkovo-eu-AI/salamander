@@ -1179,6 +1179,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         "PYTHON.RUNTIME",
         NULL,
         NULL);
+    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
     TryRegisterPythonRuntime();
     return &PluginInterface;
 }

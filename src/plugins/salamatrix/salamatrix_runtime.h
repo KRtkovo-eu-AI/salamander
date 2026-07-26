@@ -33,8 +33,55 @@ namespace Salamatrix
 namespace Runtime
 {
 
+static BOOL ApplyHostDarkModePolicy(
+    CSalamanderGeneralAbstract* general,
+    BOOL* isDarkModeEnabled)
+{
+    if (isDarkModeEnabled != NULL)
+        *isDarkModeEnabled = FALSE;
+
+    if (general == NULL)
+        return FALSE;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (!general->GetConfigParameter(
+            SALCFG_USEWINDOWSDARKMODE,
+            &useWindowsDarkMode,
+            sizeof(useWindowsDarkMode),
+            NULL))
+    {
+        return FALSE;
+    }
+
+    if (isDarkModeEnabled != NULL)
+        *isDarkModeEnabled = useWindowsDarkMode;
+
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF schemeText = fallbackText;
+    COLORREF schemeBackground = fallbackBackground;
+    if (useWindowsDarkMode != FALSE)
+    {
+        schemeText = general->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        schemeBackground = general->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+        if (schemeText == CLR_INVALID)
+            schemeText = fallbackText;
+        if (schemeBackground == CLR_INVALID)
+            schemeBackground = fallbackBackground;
+    }
+
+    DarkModeSetConfiguredColors(
+        schemeText,
+        schemeBackground,
+        fallbackText,
+        fallbackBackground);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+    return TRUE;
+}
+
 static int ShowUtf8MessageBox(
     HWND parent,
+    CSalamanderGeneralAbstract* general,
     const char* message,
     const char* title,
     UINT flags)
@@ -56,9 +103,17 @@ static int ShowUtf8MessageBox(
             CP_UTF8, MB_ERR_INVALID_CHARS, safeTitle, -1,
             &titleWide[0], titleLength) <= 0)
         return 0;
+    const UINT safeFlags = flags != 0 ? flags : (MB_OK | MB_ICONINFORMATION);
+    BOOL hostUseWindowsDarkMode = FALSE;
+    if (ApplyHostDarkModePolicy(general, &hostUseWindowsDarkMode) &&
+        hostUseWindowsDarkMode != FALSE)
+    {
+        return DarkModeMessageBoxW(
+            parent, messageWide.c_str(), titleWide.c_str(), safeFlags);
+    }
     return MessageBoxW(
         parent, messageWide.c_str(), titleWide.c_str(),
-        flags != 0 ? flags : (MB_OK | MB_ICONINFORMATION));
+        safeFlags);
 }
 
 struct ServiceQuery
@@ -413,7 +468,7 @@ public:
         const char* title,
         UINT flags)
     {
-        return ShowUtf8MessageBox(parent, message, title, flags);
+        return ShowUtf8MessageBox(parent, General, message, title, flags);
     }
 
     virtual BOOL WINAPI ShowNotification(

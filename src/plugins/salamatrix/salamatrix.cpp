@@ -91,6 +91,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     SalamanderGUI = salamander->GetSalamanderGUI();
+    Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
     salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK, VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    VERSINFO_DESCRIPTION,
                                    PluginNameShort, NULL, NULL);

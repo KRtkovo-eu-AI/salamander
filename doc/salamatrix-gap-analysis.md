@@ -930,3 +930,21 @@ The thirty-ninth code slice is implemented and verified:
 - rebuild `SalamatrixAI.SPL` Debug x64 into
   `build\verification\ask-ai-menu-ai-final2` and rerun the regression test;
   no Salamander process was started or controlled.
+
+The fortieth code slice is implemented and verified:
+
+- synchronize the shared Salamatrix native UI with Salamander's explicit
+  `Windows Dark Mode (experimental)` configuration and current scheme colors
+  at provider startup and when `WM_SETTINGCHANGE`/`WM_THEMECHANGED` arrives;
+- apply the existing `win32-darkmodelib` path to Salamatrix dialog trees,
+  controls, title bars, and Unicode message boxes without changing any public
+  SDK/vtable prefix;
+- give SalamatrixAI the shared `src/res/sal_r.ico` artwork, conventional
+  `versinfo.rh2`/`versinfo.rc2` metadata, and the common project homepage;
+  apply the same homepage to all four independent runtime `.SPL` providers;
+- add source-contract coverage and third-party attribution, then build the
+  Salamatrix Framework, SalamatrixAI, and all four runtime providers into
+  isolated `build\verification\ai-darkmode-*` and
+  `build\verification\metadata-*` outputs. The source regression test and
+  all six Debug x64 builds passed; no Salamander process was started or
+  controlled.

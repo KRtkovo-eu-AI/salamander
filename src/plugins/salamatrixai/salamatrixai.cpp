@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "salamatrixai.h"
+#include "versinfo.rh2"
 #include <strsafe.h>
 #include <algorithm>
 #include <winhttp.h>
@@ -1045,9 +1046,13 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER) return NULL;
     salamander->SetBasicPluginData("Salamatrix AI",
         FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_DYNAMICMENUEXT,
-        "0.1", "Open Salamander Authors",
-        "Standalone local AI helper for extension scripts",
-        "SALAMATRIX.AI", NULL, NULL);
+        VERSINFO_VERSION_NO_PLATFORM,
+        VERSINFO_COPYRIGHT,
+        VERSINFO_DESCRIPTION,
+        VERSINFO_INTERNAL,
+        NULL,
+        NULL);
+    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
     PluginInterface.Event(0, 0);
     return &PluginInterface;
 }

@@ -2,6 +2,12 @@ IDI_PLUGINICON ICON "..\\..\\res\\sal_r.ico"
 
 #define IDS_AI_ASSISTANT_MENU 1000
 
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "versinfo.rh2"
+#include "versinfo.rc2"
+
 STRINGTABLE
 BEGIN
     IDS_AI_ASSISTANT_MENU "Ask Salamatrix AI..."

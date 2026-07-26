@@ -1179,6 +1179,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         "POWERSHELL.RUNTIME",
         NULL,
         NULL);
+    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
     TryRegisterPowerShellRuntime();
     return &PluginInterface;
 }

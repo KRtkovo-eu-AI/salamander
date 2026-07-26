@@ -1196,6 +1196,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         "JAVASCRIPT.RUNTIME",
         NULL,
         NULL);
+    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
     // Salamatrix may be loaded later by the Plugin Manager. Keep this plugin
     // valid and retry registration from Event() instead of rejecting it.
     TryRegisterJavaScriptRuntime();

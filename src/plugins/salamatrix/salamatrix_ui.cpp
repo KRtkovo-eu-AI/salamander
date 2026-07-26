@@ -73,6 +73,20 @@ static BOOL WideToUtf8(const wchar_t* value, std::string& result)
     return TRUE;
 }
 
+static int ShowHostAwareMessageBox(
+    HWND parent,
+    const wchar_t* message,
+    const wchar_t* title,
+    UINT flags)
+{
+    std::string messageUtf8;
+    std::string titleUtf8;
+    if (!WideToUtf8(message, messageUtf8) || !WideToUtf8(title, titleUtf8))
+        return 0;
+    return Salamatrix::Runtime::ShowUtf8MessageBox(
+        parent, SalamanderGeneral, messageUtf8.c_str(), titleUtf8.c_str(), flags);
+}
+
 static BOOL PickFolderPath(HWND parent, const char* title, std::string& result)
 {
     result.clear();
@@ -1028,6 +1042,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         dialog->m_pImpl->CurrentDpi = dmlib_dpi::GetDpiForWindow(hwnd);
         if (dialog->m_pImpl->CurrentDpi == 0)
             dialog->m_pImpl->CurrentDpi = 96;
+        Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
         DarkModeApplyTree(hwnd);
         DarkModeRefreshTitleBar(hwnd);
         DarkModeApplyStaticTextColors(hwnd, NULL);
@@ -1206,8 +1221,9 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         EndDialog(hwnd, 0);
         return TRUE;
     }
-    if (message == WM_SETTINGCHANGE)
+    if (message == WM_SETTINGCHANGE || message == WM_THEMECHANGED)
     {
+        Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
         if (DarkModeHandleSettingChange(message, lParam))
         {
             DarkModeApplyTree(hwnd);
@@ -1355,11 +1371,8 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                     messageWide = L"This field is required.";
                 if (!Utf8ToWide(dialog->m_pImpl->Title.c_str(), titleWide))
                     titleWide = L"Salamander";
-                MessageBoxW(
-                    hwnd,
-                    messageWide.c_str(),
-                    titleWide.c_str(),
-                    MB_OK | MB_ICONWARNING);
+                ShowHostAwareMessageBox(
+                    hwnd, messageWide.c_str(), titleWide.c_str(), MB_OK | MB_ICONWARNING);
                 SetFocus(GetDlgItem(hwnd, invalid->NumericId));
                 return TRUE;
             }
