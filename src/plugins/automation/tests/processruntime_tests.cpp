@@ -24,6 +24,7 @@ struct BootstrapDispatchState
     int FolderPickerCalls;
     int RuntimeListCalls;
     int CommandRegistrationCalls;
+    bool HandlerRegistrationSeen;
 
     BootstrapDispatchState()
         : CommandCalls(0),
@@ -36,7 +37,8 @@ struct BootstrapDispatchState
           PickerCalls(0),
           FolderPickerCalls(0),
           RuntimeListCalls(0),
-          CommandRegistrationCalls(0)
+          CommandRegistrationCalls(0),
+          HandlerRegistrationSeen(false)
     {
     }
 };
@@ -82,7 +84,12 @@ BOOL WINAPI WorkerHostDispatch(
     else if (strstr(payloadJson, "salamander.commands.register") != NULL)
     {
         if (state != NULL)
+        {
             ++state->CommandRegistrationCalls;
+            if (strstr(payloadJson, "handler=\"first_handler\"") != NULL ||
+                strstr(payloadJson, "\"handler\":\"first_handler\"") != NULL)
+                state->HandlerRegistrationSeen = true;
+        }
         response = "{\"ok\":true,\"registered\":true}";
     }
     else if (strstr(payloadJson, "salamander.commands.unregister") != NULL)
@@ -458,7 +465,7 @@ void RunPythonBootstrapTest()
               "Salamander.storage.set('bootstrap', 'ok')\n"
               "if Salamander.storage.get('bootstrap') != 'ok':\n"
               "    raise RuntimeError('storage call failed')\n"
-              "if not Salamander.commands.register('bootstrap.first', 'First', True, False):\n"
+              "if not Salamander.commands.register('bootstrap.first', 'First', True, False, 0, False, 'first_handler'):\n"
               "    raise RuntimeError('first command registration failed')\n"
               "if not Salamander.commands.register('bootstrap.second', 'Second', True, True):\n"
               "    raise RuntimeError('second command registration failed')\n"
@@ -538,6 +545,7 @@ void RunPythonBootstrapTest()
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
         Check(state.CommandRegistrationCalls == 3, "bootstrap multiple command registrations reached host");
+        Check(state.HandlerRegistrationSeen, "bootstrap command handler reached host");
         Check(state.StorageCalls == 2, "bootstrap storage calls reached host");
         Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
         Check(state.SideContextCalls == 1, "bootstrap side context reached host");

@@ -70,8 +70,8 @@ $commands | Add-Member ScriptMethod Execute {
     (Invoke-Host -Method 'salamander.commands.execute' -Arguments @{ commandId = $CommandId }).result
 }
 $commands | Add-Member ScriptMethod Register {
-    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false, [int]$HotKey = 0, [bool]$Toolbar = $false)
-    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu; hotKey = $HotKey; toolbar = $Toolbar }).registered
+    param([string]$CommandId, [string]$Title, [bool]$PluginMenu = $true, [bool]$ContextMenu = $false, [int]$HotKey = 0, [bool]$Toolbar = $false, [string]$Handler = '')
+    (Invoke-Host -Method 'salamander.commands.register' -Arguments @{ commandId = $CommandId; title = $Title; pluginMenu = $PluginMenu; contextMenu = $ContextMenu; hotKey = $HotKey; toolbar = $Toolbar; handler = $Handler }).registered
 }
 $commands | Add-Member ScriptMethod Unregister {
     param([string]$CommandId)

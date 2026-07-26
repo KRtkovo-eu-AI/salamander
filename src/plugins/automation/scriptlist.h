@@ -37,6 +37,7 @@ public:
     {
         int MenuId;
         char Id[128];
+        char Handler[128];
         TCHAR Title[256];
         bool PluginMenu;
         bool ContextMenu;
@@ -55,6 +56,7 @@ public:
               MenuEventAndMask(MENU_EVENT_TRUE)
         {
             Id[0] = '\0';
+            Handler[0] = '\0';
             Title[0] = _T('\0');
         }
     };
@@ -218,7 +220,7 @@ private:
     void ApplySalamatrixRequires(PCTSTR pszValue);
     void ApplySalamatrixContextMenu(bool value);
     bool PublishSalamatrixManifestCommands();
-    const char* FindSalamatrixManifestHandler(const char* commandId) const;
+    const char* FindRuntimeCommandHandler(const char* commandId) const;
 
     void ScriptEnter();
     void ScriptLeave();
@@ -237,6 +239,7 @@ private:
     bool RegisterRuntimeCommand(
         const char* commandId,
         const char* title,
+        const char* handler,
         bool pluginMenu,
         bool contextMenu,
         bool toolbar,

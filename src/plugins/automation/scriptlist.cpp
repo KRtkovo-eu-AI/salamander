@@ -966,7 +966,7 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     request.CommandId = info.SalamatrixCommandId[0] != '\0'
                             ? info.SalamatrixCommandId
                             : m_szSalamatrixCommandId;
-    request.CommandHandler = FindSalamatrixManifestHandler(request.CommandId);
+    request.CommandHandler = FindRuntimeCommandHandler(request.CommandId);
     request.EntryPoint = &entryPointWide[0];
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
     request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
@@ -2650,6 +2650,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     {
         std::string commandId;
         std::string title;
+        std::string handler;
         BOOL pluginMenu = TRUE;
         BOOL contextMenu = FALSE;
         BOOL toolbar = script->m_bManifestToolbar ? TRUE : FALSE;
@@ -2659,6 +2660,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             return FALSE;
         Salamatrix::Runtime::Protocol::Json::FindStringMember(
             payloadJson, "title", &title);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "handler", &handler);
         if (title.empty())
             title = commandId;
         Salamatrix::Runtime::Protocol::Json::FindBoolMember(
@@ -2676,6 +2679,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         if (!script->RegisterRuntimeCommand(
                 commandId.c_str(),
                 title.c_str(),
+                handler.empty() ? NULL : handler.c_str(),
                 pluginMenu != FALSE,
                 contextMenu != FALSE,
                 toolbar != FALSE,
@@ -4555,6 +4559,7 @@ void CScriptInfo::ReleaseRuntimeEventSubscriptions()
 bool CScriptInfo::RegisterRuntimeCommand(
     const char* commandId,
     const char* title,
+    const char* handler,
     bool pluginMenu,
     bool contextMenu,
     bool toolbar,
@@ -4573,6 +4578,9 @@ bool CScriptInfo::RegisterRuntimeCommand(
         return false;
     RUNTIME_COMMAND_INFO& command = m_runtimeCommands[m_nRuntimeCommands];
     if (StringCchCopyA(command.Id, _countof(command.Id), commandId) != S_OK)
+        return false;
+    if (handler != NULL && handler[0] != '\0' &&
+        StringCchCopyA(command.Handler, _countof(command.Handler), handler) != S_OK)
         return false;
     char fallbackTitle[256];
     if (title == NULL || title[0] == '\0')
@@ -4650,6 +4658,9 @@ bool CScriptInfo::PublishSalamatrixManifestCommands()
         if (!RegisterRuntimeCommand(
                 manifestCommand.Id.c_str(),
                 manifestCommand.Title.c_str(),
+                manifestCommand.Handler.empty()
+                    ? NULL
+                    : manifestCommand.Handler.c_str(),
                 pluginMenu,
                 contextMenu,
                 manifestCommand.Toolbar,
@@ -4667,7 +4678,7 @@ bool CScriptInfo::PublishSalamatrixManifestCommands()
     return true;
 }
 
-const char* CScriptInfo::FindSalamatrixManifestHandler(
+const char* CScriptInfo::FindRuntimeCommandHandler(
     const char* commandId) const
 {
     if (commandId == NULL || commandId[0] == '\0')
@@ -4680,6 +4691,12 @@ const char* CScriptInfo::FindSalamatrixManifestHandler(
             m_salamatrixManifestCommands[index];
         if (_stricmp(command.Id.c_str(), commandId) == 0)
             return command.Handler.empty() ? NULL : command.Handler.c_str();
+    }
+    for (int index = 0; index < m_nRuntimeCommands; ++index)
+    {
+        if (_stricmp(m_runtimeCommands[index].Id, commandId) == 0 &&
+            m_runtimeCommands[index].Handler[0] != '\0')
+            return m_runtimeCommands[index].Handler;
     }
     return NULL;
 }
