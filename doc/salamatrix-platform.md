@@ -758,7 +758,8 @@ Both assets can be overridden with `SALAMATRIX_AI_BUNDLED_COMMAND` and
 `SALAMATRIX_AI_BUNDLED_MODEL`; the provider is advertised as ready only when
 both files exist.
 The chat automatically uses the first available provider, or an explicit
-`SALAMATRIX_AI_PROVIDER` such as `local.ollama`/`local.command` when set.
+`SALAMATRIX_AI_PROVIDER` such as `local.bundled`, `local.ollama`, or
+`local.command` when set.
 The standalone chat also enumerates currently available providers and lets the
 user choose one explicitly; `auto` retains resilient fallback behavior.
 When the chat is opened from a Salamander operation menu, its Run action also

@@ -582,6 +582,7 @@ struct ChatContext
     Salamatrix::AI::AssistantResponse LastResponse;
     BOOL HasResponse;
     std::wstring LastSavedPath;
+    std::string LastRuntimeId;
 };
 
 static bool SaveAssistantScript(
@@ -894,7 +895,10 @@ static bool RunResponseScript(ChatContext* chat)
         return false;
     if (chat->LastSavedPath.empty() && !SaveResponseScript(chat))
         return false;
-    return RunAssistantScript(RuntimeIdFromChoice(chat),
+    const char* runtimeId = chat->LastRuntimeId.empty()
+                                ? RuntimeIdFromChoice(chat)
+                                : chat->LastRuntimeId.c_str();
+    return RunAssistantScript(runtimeId,
                              chat->LastResponse.Summary.Script,
                              chat->Parent, chat->Runtime, chat->Runner);
 }
@@ -1105,51 +1109,14 @@ static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* e
         g_ui->ShowMessageBox(chat->Parent, summary.c_str(),
                              LoadAssistantString(IDS_AI_PREVIEW_TITLE).c_str(),
                              MB_OK | MB_ICONINFORMATION);
-        if (response.Summary.Script[0] != '\0' && Salamatrix::AI::IsSafeToRun(response.Summary) &&
-            !runtimeId.empty() &&
-            g_ui->ShowMessageBox(chat->Parent,
-                                 LoadAssistantString(IDS_AI_RUN_QUESTION).c_str(),
-                                 LoadAssistantString(IDS_AI_TITLE).c_str(),
-                                 MB_YESNO | MB_ICONQUESTION) == IDYES)
-        {
-            const bool ran = RunAssistantScript(
-                runtimeId.empty() ? RuntimeIdFromChoice(chat) : runtimeId.c_str(),
-                response.Summary.Script,
-                chat->Parent,
-                chat->Runtime,
-                chat->Runner);
-            g_ui->ShowMessageBox(chat->Parent,
-                                 LoadAssistantString(ran ? IDS_AI_RUN_SUCCEEDED : IDS_AI_RUN_FAILED).c_str(),
-                                 LoadAssistantString(IDS_AI_TITLE).c_str(),
-                                 MB_OK | (ran ? MB_ICONINFORMATION : MB_ICONWARNING));
-        }
-        if (g_ui->ShowMessageBox(chat->Parent,
-                                 LoadAssistantString(IDS_AI_SAVEQUESTION).c_str(),
-                                 LoadAssistantString(IDS_AI_TITLE).c_str(),
-                                 MB_YESNO | MB_ICONQUESTION) == IDYES)
-        {
-            const bool saved = SaveResponseScript(chat);
-            g_ui->ShowMessageBox(chat->Parent,
-                                 LoadAssistantString(saved ? IDS_AI_SAVE_SUCCEEDED : IDS_AI_SAVE_FAILED).c_str(),
-                                 LoadAssistantString(IDS_AI_TITLE).c_str(),
-                                 MB_OK | (saved ? MB_ICONINFORMATION : MB_ICONWARNING));
-        }
-        if (!runtimeId.empty() &&
-            g_ui->ShowMessageBox(chat->Parent,
-                                 LoadAssistantString(IDS_AI_EXT_QUESTION).c_str(),
-                                 LoadAssistantString(IDS_AI_TITLE).c_str(),
-                                 MB_YESNO | MB_ICONQUESTION) == IDYES)
-        {
-            const bool exported = SaveAssistantExtensionPackage(chat->Parent, g_ui, chat->Runtime, response);
-            g_ui->ShowMessageBox(chat->Parent,
-                                 LoadAssistantString(exported ? IDS_AI_EXT_SUCCEEDED : IDS_AI_EXT_FAILED).c_str(),
-                                 LoadAssistantString(IDS_AI_TITLE).c_str(),
-                                 MB_OK | (exported ? MB_ICONINFORMATION : MB_ICONWARNING));
-        }
+        // Ask is deliberately preview-only.  Run, Save, and Export remain
+        // separate explicit dialog actions so generated code never performs
+        // an operation merely because generation succeeded.
     }
 
     chat->LastResponse = response;
     chat->HasResponse = TRUE;
+    chat->LastRuntimeId = runtimeId.empty() ? RuntimeIdFromChoice(chat) : runtimeId;
     chat->Prompt->SetText("");
     return TRUE;
 }
@@ -1290,7 +1257,7 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, runOptions, runLayout);
     if (history != NULL) history->AddColumn("Conversation", 700);
     ChatContext chat = { g_ai, g_runtime, g_runner, dialog, history, prompt, runtimeChoice, providerChoice,
-                         operation, parent, Salamatrix::AI::AssistantResponse(), FALSE, std::wstring() };
+                         operation, parent, Salamatrix::AI::AssistantResponse(), FALSE, std::wstring(), std::string() };
     dialog->SetEventCallback(ChatEvent, &chat);
     dialog->ShowModal();
     dialog->Release();
@@ -1498,8 +1465,8 @@ BOOL WINAPI CLocalHttpAssistantProvider::Generate(
         return FALSE;
     }
 
-    std::string api = g_ai != NULL ? g_ai->GetApiDescriptionSlice("all") : "{}";
     std::string prompt = request->Prompt != NULL ? request->Prompt : "";
+    std::string api = Salamatrix::AI::BuildRelevantApiDescription(g_ai, prompt.c_str());
     if (request->ExistingScript != NULL && request->ExistingScript[0] != '\0')
     {
         prompt += "\n\nExisting script to repair or extend:\n";

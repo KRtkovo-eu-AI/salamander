@@ -34,6 +34,16 @@ limit.
 The host still validates the returned script, capabilities, and effect flags
 before it can be previewed, run, or saved as an extension package.
 
+## Bundled server-free provider
+
+`SalamatrixAI.SPL` also exposes `local.bundled`. It starts the colocated
+`runtime\\llama-cli.exe` with `runtime\\salamatrix.gguf`, or the paths supplied
+by `SALAMATRIX_AI_BUNDLED_COMMAND` and `SALAMATRIX_AI_BUNDLED_MODEL`.
+The provider is unavailable until both regular files exist; it never starts a
+model server and never controls the Salamander process. Its prompt contains a
+request-relevant subset of the live Salamatrix API, the selected runtime, the
+current panel context, and any previous script/repair feedback.
+
 The offline contract checks are in
 `../tests/salamatrix_ai_local_tests.py`; they mock the HTTP transport and never
 contact a model server.

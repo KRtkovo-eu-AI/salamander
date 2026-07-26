@@ -31,6 +31,7 @@ def main() -> int:
     dialogs = read("src/dialogs5.cpp")
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
+    ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
     bundled = read("src/plugins/salamatrixai/bundledprovider.cpp")
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
@@ -105,6 +106,8 @@ def main() -> int:
             "AI Release lacks current-service pointer validation")
     require(ai_header, r"class CLocalBundledAssistantProvider",
             "bundled local AI provider declaration is missing")
+    require(ai_contract, r"BuildRelevantApiDescription",
+            "AI prompt API slicing helper is missing")
     require(bundled, r'm_descriptor\.ProviderId\s*=\s*"local\.bundled"',
             "bundled local AI provider id is missing")
     require(bundled, r'SALAMATRIX_AI_BUNDLED_COMMAND.*?llama-cli\.exe',
@@ -120,6 +123,10 @@ def main() -> int:
             "bundled provider is not registered with Salamatrix.AI")
     require(ai, r'g_ai->UnregisterProvider\(&g_bundledProvider\)',
             "bundled provider is not unregistered during release")
+    require(ai, r'Ask is deliberately preview-only',
+            "AI Ask action still performs implicit Run/Save/Export actions")
+    require(ai, r'LastRuntimeId.*?RunAssistantScript\(runtimeId',
+            "AI dialog does not retain the generated response runtime for explicit Run")
     for symbol in (
         "EscapeAssistantContext",
         "LoadAssistantString",

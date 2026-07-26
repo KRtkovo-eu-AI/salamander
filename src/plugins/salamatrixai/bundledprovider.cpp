@@ -81,7 +81,7 @@ static bool IsRegularFile(const std::wstring& path)
            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
-static std::string InstalledApiDescription()
+static std::string InstalledApiDescription(const char* prompt)
 {
     if (SalamanderGeneral == NULL)
         return "{}";
@@ -93,8 +93,7 @@ static std::string InstalledApiDescription()
         return "{}";
     Salamatrix::AI::IAssistantService* service =
         static_cast<Salamatrix::AI::IAssistantService*>(result.Interface);
-    const char* description = service->GetApiDescriptionSlice("all");
-    return description != NULL ? description : "{}";
+    return Salamatrix::AI::BuildRelevantApiDescription(service, prompt);
 }
 }
 
@@ -154,8 +153,12 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         "Return only one JSON object with title, description, capabilities, "
         "estimatedEffects, script, and runtime. Generate a Salamander script "
         "using only the installed Salamander API described here: " +
-        InstalledApiDescription() + "\nTask: ";
-    prompt += request->Prompt != NULL ? request->Prompt : "";
+        InstalledApiDescription(request->Prompt) + "\nTask: ";
+    prompt += (request->Prompt != NULL ? request->Prompt : "");
+    if (request->RuntimeId != NULL && request->RuntimeId[0] != '\0')
+        prompt += "\nTarget runtime: " + std::string(request->RuntimeId);
+    if (request->ContextJson != NULL && request->ContextJson[0] != '\0')
+        prompt += "\nCurrent Salamander context (JSON):\n" + std::string(request->ContextJson);
     if (request->ExistingScript != NULL && request->ExistingScript[0] != '\0')
         prompt += "\nExisting script to repair:\n" + std::string(request->ExistingScript);
     if (request->Feedback != NULL && request->Feedback[0] != '\0')
