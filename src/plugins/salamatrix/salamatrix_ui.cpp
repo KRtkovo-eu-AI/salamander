@@ -756,34 +756,31 @@ struct NativeDialog::Impl
         event.SelectedIndex = control->SelectedIndex;
         EventCallback(EventContext, &event);
     }
-};
 
-static void AddAccessibilityTooltip(
-    HWND tooltip,
-    HWND target,
-    NativeDialog::Impl::Control* control)
-{
-    if (tooltip == NULL || target == NULL || control == NULL ||
-        (control->AccessibleName.empty() &&
-         control->AccessibleDescription.empty()))
-        return;
-    const std::string& text = control->AccessibleDescription.empty()
-                                  ? control->AccessibleName
-                                  : control->AccessibleDescription;
-    if (!Utf8ToWide(text.c_str(), control->AccessibleTooltipText) ||
-        control->AccessibleTooltipText.empty())
-        return;
-    TOOLINFOW tool;
-    memset(&tool, 0, sizeof(tool));
-    tool.cbSize = sizeof(tool);
-    tool.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
-    tool.hwnd = GetParent(target);
-    tool.uId = reinterpret_cast<UINT_PTR>(target);
-    tool.lpszText = const_cast<wchar_t*>(
-        control->AccessibleTooltipText.c_str());
-    SendMessageW(tooltip, TTM_DELTOOLW, 0, reinterpret_cast<LPARAM>(&tool));
-    SendMessageW(tooltip, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&tool));
-}
+    void AddAccessibilityTooltip(HWND tooltip, HWND target, Control* control)
+    {
+        if (tooltip == NULL || target == NULL || control == NULL ||
+            (control->AccessibleName.empty() &&
+             control->AccessibleDescription.empty()))
+            return;
+        const std::string& text = control->AccessibleDescription.empty()
+                                      ? control->AccessibleName
+                                      : control->AccessibleDescription;
+        if (!Utf8ToWide(text.c_str(), control->AccessibleTooltipText) ||
+            control->AccessibleTooltipText.empty())
+            return;
+        TOOLINFOW tool;
+        memset(&tool, 0, sizeof(tool));
+        tool.cbSize = sizeof(tool);
+        tool.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+        tool.hwnd = GetParent(target);
+        tool.uId = reinterpret_cast<UINT_PTR>(target);
+        tool.lpszText = const_cast<wchar_t*>(
+            control->AccessibleTooltipText.c_str());
+        SendMessageW(tooltip, TTM_DELTOOLW, 0, reinterpret_cast<LPARAM>(&tool));
+        SendMessageW(tooltip, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&tool));
+    }
+};
 
 NativeDialog::NativeDialog(const DialogOptions& options)
     : m_pImpl(new Impl(options))
@@ -1060,12 +1057,12 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             if (control->Kind == ControlKindFilePicker)
                 control->BrowseWindowHandle =
                     GetDlgItem(hwnd, control->BrowseNumericId);
-            AddAccessibilityTooltip(
+            dialog->m_pImpl->AddAccessibilityTooltip(
                 dialog->m_pImpl->AccessibilityTooltip,
                 child,
                 control);
             if (control->Kind == ControlKindFilePicker)
-                AddAccessibilityTooltip(
+                dialog->m_pImpl->AddAccessibilityTooltip(
                     dialog->m_pImpl->AccessibilityTooltip,
                     control->BrowseWindowHandle,
                     control);
