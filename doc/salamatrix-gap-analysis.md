@@ -45,7 +45,8 @@ The repository already contains a real Salamatrix foundation, not only a design:
   Salamatrix has a distinct Automation Framework capability flag.
 - Manifest extensions carry their package SVG identity icon (plus an optional
   dark-mode variant) into the existing Plugin Manager list and toolbar image
-  lists; no separate Extension Manager is introduced.
+  lists. Every manifest command may override those two SVG assets for its own
+  toolbar button; no separate Extension Manager is introduced.
 
 This is an MVP/PoC, not yet the framework described by the vision. In particular:
 
@@ -69,8 +70,8 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   runtime or manifest dependency is missing, discovery keeps the extension in a
   visible waiting state and reactivates it after the requirement appears.
 - The strict schema-1 manifest parser validates package/runtime identity,
-  minimum runtime version, safe entry points, package-owned `icon` and optional
-  `iconDark` SVG paths, capabilities, an optional event allow-list, typed
+  minimum runtime version, safe entry points, package-owned and per-command
+  `icon`/optional `iconDark` SVG paths, capabilities, an optional event allow-list, typed
   settings/defaults, dependencies, and multiple command records. Dependency
   declarations are resolved against the owner-aware extension registry and
   unresolved packages stay visible as waiting-for-dependency. Package-owned
@@ -89,7 +90,7 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 - The shared native UI service exposes progress, input-box, and a reusable
   `IDialog`/`IControl` contract for modern workers and native plugins. The
   native implementation now creates Label, TextBox, CheckBox, RadioButton,
-  ComboBox, Button, ListView, TreeView, and TabControl controls with item/node
+  ComboBox, Button, ListView, TreeView, TabControl, and FolderPicker controls with item/node
   binding, columns, explicit layout, notifications, validation, pickers,
   clipboard, and dark-mode support. DPI/accessibility polish and migration of
   legacy Forms wrappers remain.
@@ -125,6 +126,32 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | Permissions/capabilities | MVP | Manifest capabilities are retained by Automation and enforced at the SMX1 host boundary for declared-capability extensions (`panels.read`, `panels.write`, `ui.dialogs`, `commands`, `file-operations`, `storage`, `events`, and `ai`); panel path/refresh/selection/focus mutations require `panels.write`, while legacy scripts without a capabilities list remain compatible. | Explicit user grant/revocation UI, capability-specific filesystem/network/process policy, effect audit trail, and richer package UX. |
 | AI automation assistant | MVP | `Salamatrix.AI` provides provider registration, structured generation validation, parsed effect flags, runtime/existing-script/feedback hints, a safe `generate`/`preview` seam, and focused `Salamander.ai.api(topic)` retrieval. The separately installable `SalamatrixAI.SPL` owns the bounded local command provider, an optional native WinHTTP local model provider (`SALAMATRIX_AI_MODEL` plus Ollama `SALAMATRIX_AI_OLLAMA_URL`/`SALAMATRIX_AI_HTTP_URL` or OpenAI/llama.cpp `SALAMATRIX_AI_LLAMA_URL` with `SALAMATRIX_AI_PROTOCOL=chat-completions`), and an interactive multiline chat with Ask/Preview/Run/Save actions; follow-up prompts carry the previous script as repair context. The chat now enumerates available providers, shows ready/unavailable status, and supports explicit selection or automatic fallback. A shared static validator checks response shape, capabilities, effects, runtime identity, and undeclared external/network operations; bounded `GenerateWithRepair` is used by the standalone chat and both Automation consumers. When Automation is loaded, `Salamatrix.ScriptRunner` routes Run through the same capability-aware SMX1 host dispatcher as regular extensions. Automation's Ask-AI flow remains a compatibility consumer with context capture, preview/copy, Run/Save As, repair feedback, and validated extension-package save. The full API description now also carries live native service contract versions, the currently registered runtime adapter inventory, and schema fragments supplied by the native command, file-operation, UI, sides, events, storage, extensions, and runtime contracts. | Bundled llama.cpp inference/model distribution, complete method/field schema coverage without hand-maintained fragments, richer semantic validation, and remote providers. |
 | Testing | Initial | Standalone `/W4 /WX` tests cover the strict manifest parser, Storage persistence, Events subscribe/publish/self-unsubscribe/capacity/payload validation, Extensions registration/lifecycle/ownership, the local owned-service registry, runtime raw-JSON context and AI service contracts (including focused API slices), and an integration test for Python/PowerShell/PHP process execution, output capture, and timeout. The core Salamander Debug build compiles the owner-aware `CSalamanderGeneral` registry. Worker syntax checks cover Python, PowerShell, PHP, and Node; provider project/XML audits cover all four standalone packages. | Direct core-registry runtime tests, native UI tests, extension fixtures, lifecycle/unload integration tests, and end-to-end Salamander API adapter tests. |
+
+## Current verification snapshot
+
+The newest implementation commits are `a6a8cedc8` (Plugin Manager settings
+configuration), `9aa3cbf84` (per-command SVG toolbar artwork), and
+`6e1711cd8` (dialog `FolderPicker`). They were compiled into isolated Debug
+x64 output directories; the user's locally running Salamander process was
+never started, stopped, or otherwise controlled by this work.
+
+- `a6a8cedc8`: Automation, Salamatrix, the core Salamander executable, and
+  Extensions native tests passed.
+- `9aa3cbf84`: strict manifest parser tests and Automation Debug x64 build
+  passed.
+- `6e1711cd8`: Salamatrix, Automation, and all four standalone runtime
+  provider Debug x64 projects passed; runtime-protocol tests passed; Python,
+  PowerShell, PHP, and Node worker syntax checks passed.
+- The Python/PowerShell/PHP process-runtime integration executable built, but
+  its invocation was skipped because this environment does not set
+  `SALAMATRIX_WORKER_ROOT`. It is therefore not evidence of current end-to-end
+  runtime execution on this machine.
+
+At this pause point the only worktree artifacts outside commits are two
+untracked Python `__pycache__` directories produced by the worker syntax
+check: `src/plugins/automation/runtime/__pycache__/` and
+`src/plugins/pythonruntime/runtime/__pycache__/`. They are not source changes
+and are not staged.
 
 ## Existing implementation evidence
 

@@ -57,3 +57,28 @@ adapters, worker assets, and load/unload registration paths. Debug and Release
 x64 builds now produce all four standalone `.SPL` binaries; provider
 registration is deferred safely when Salamatrix is loaded later.
 No provider should be made a dependency of Automation.
+
+## Current worker UI surface
+
+The four modern workers expose the same Salamatrix dialog surface. Along with
+labels, text boxes, check/radio buttons, combo boxes, buttons, list/tree/tab
+controls, validation, events, and file/folder pickers, each worker now exposes
+a folder picker embedded in a dialog:
+
+| Runtime | Dialog method |
+| --- | --- |
+| Python | `dialog.add_folder_picker(id, path="")` |
+| PowerShell | `$dialog.AddFolderPicker(id, path)` |
+| PHP | `$dialog->addFolderPicker(id, path)` |
+| Node | `await dialog.addFolderPicker(id, path)` |
+
+It maps to the runtime protocol control kind `folderpicker`, opens the standard
+native folder browser when clicked, and returns the chosen UTF-8 path through
+the normal dialog `get`/control-text mechanism. It is a folder chooser button,
+not yet an editable text field with a separate browse button.
+
+Verification at the current pause point: all four provider Debug x64 projects
+build successfully and their worker files pass available Python, PowerShell,
+PHP, and Node syntax checks. The end-to-end process runtime test binary also
+builds, but cannot run in this environment until `SALAMATRIX_WORKER_ROOT` is
+configured.
