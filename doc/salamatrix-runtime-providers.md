@@ -85,12 +85,19 @@ build successfully and their worker files pass available Python, PowerShell,
 PHP, and Node syntax checks. The isolated process-runtime integration run now
 also passes with the standalone provider worker assets: with
 `SALAMATRIX_WORKER_ROOT` explicitly set to
-`build\verification\process-runtime-worker-root`, the Python/PowerShell/PHP
+`build\verification\runtime-diagnostics\worker-root`, the Python/PowerShell/PHP
 process test executable returned exit code 0 and completed the SMX1 host-call,
 persistent-session, UI, storage, event, picker, shutdown, output-capture, and
 timeout scenarios, including the editable `filepicker` control for each
-runtime. The latest verification used the isolated
-`build\verification\editable-file-picker\worker-root` copied from the four
-standalone provider build outputs; it also caught and fixed typed-storage/schema
-drift in the PowerShell and PHP provider assets. No Salamander process was
-started or controlled.
+runtime. The lifecycle assertions verify the append-only
+`IRuntimeSession::GetDiagnostic` contract for running/exited state and exit
+code. This verification caught stale typed-storage/schema methods in the
+standalone Python worker; the worker was updated before the passing rerun.
+No Salamander process was started or controlled.
+
+`RuntimeSessionDiagnostic` is a bounded value snapshot. It reports lifecycle
+state, process id when a provider supplies it, exit code, and a host/provider
+error code without exposing a process handle or provider-owned string. The
+default ABI-compatible implementation derives the running/exited state from
+the existing session methods, so older providers remain usable while newer
+providers can append richer diagnostics.

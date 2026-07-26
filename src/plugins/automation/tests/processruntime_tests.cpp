@@ -470,11 +470,23 @@ void RunPythonOneShotBootstrapTest()
           "start one-shot python worker");
     if (session != NULL)
     {
+        Salamatrix::Runtime::RuntimeSessionDiagnostic diagnostic;
+        Check(session->GetDiagnostic(&diagnostic) != FALSE,
+              "one-shot worker lifecycle diagnostic is available");
+        Check(diagnostic.State == Salamatrix::Runtime::RuntimeSessionStateRunning,
+              "one-shot worker reports running state");
         for (int attempt = 0; attempt < 30 && session->IsAlive(); ++attempt)
             session->Pump(250);
         DWORD exitCode = 1;
         Check(session->GetExitCode(&exitCode) != FALSE && exitCode == 0,
               "one-shot python worker exits successfully");
+        diagnostic = Salamatrix::Runtime::RuntimeSessionDiagnostic();
+        Check(session->GetDiagnostic(&diagnostic) != FALSE,
+              "exited worker lifecycle diagnostic is available");
+        Check(diagnostic.State == Salamatrix::Runtime::RuntimeSessionStateExited,
+              "exited worker reports exited state");
+        Check(diagnostic.ExitCode == 0,
+              "exited worker diagnostic preserves exit code");
         Check(state.CommandCalls == 1, "one-shot worker host call reached host");
         session->Stop();
         session->Release();

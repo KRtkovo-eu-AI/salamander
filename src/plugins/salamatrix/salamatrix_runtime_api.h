@@ -151,6 +151,39 @@ namespace Salamatrix
             }
         };
 
+        enum RuntimeSessionState
+        {
+            RuntimeSessionStateUnknown = 0,
+            RuntimeSessionStateStarting = 1,
+            RuntimeSessionStateRunning = 2,
+            RuntimeSessionStateExited = 3,
+            RuntimeSessionStateStopped = 4,
+            RuntimeSessionStateFailed = 5
+        };
+
+        /// Snapshot of a persistent worker lifecycle state. This is a value
+        /// type so callers never borrow provider-owned process handles or
+        /// strings. New fields belong at the end of this struct.
+        struct RuntimeSessionDiagnostic
+        {
+            DWORD StructSize;
+            RuntimeSessionState State;
+            DWORD ProcessId;
+            DWORD ExitCode;
+            HRESULT ErrorCode;
+            wchar_t Message[256];
+
+            RuntimeSessionDiagnostic()
+                : StructSize(sizeof(RuntimeSessionDiagnostic)),
+                  State(RuntimeSessionStateUnknown),
+                  ProcessId(0),
+                  ExitCode(0),
+                  ErrorCode(S_OK)
+            {
+                Message[0] = L'\0';
+            }
+        };
+
         /// Bidirectional stdio session used by persistent runtime workers.
         /// Frames are encoded by Protocol::LineCodec and include their trailing
         /// newline. The interface intentionally exposes bytes, not C++ strings,
@@ -186,6 +219,24 @@ namespace Salamatrix
             virtual BOOL WINAPI QueueFrame(const char* bytes, DWORD count)
             {
                 return SendFrame(bytes, count);
+            }
+
+            /// Returns a bounded lifecycle snapshot without exposing process
+            /// handles. This method is appended after the existing session
+            /// contract; older providers keep working through this default.
+            virtual BOOL WINAPI GetDiagnostic(
+                RuntimeSessionDiagnostic* diagnostic) const
+            {
+                if (diagnostic == NULL)
+                    return FALSE;
+                *diagnostic = RuntimeSessionDiagnostic();
+                diagnostic->State = IsAlive()
+                                         ? RuntimeSessionStateRunning
+                                         : RuntimeSessionStateExited;
+                DWORD exitCode = 0;
+                if (GetExitCode(&exitCode))
+                    diagnostic->ExitCode = exitCode;
+                return TRUE;
             }
 
         protected:
