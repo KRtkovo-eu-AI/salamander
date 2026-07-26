@@ -927,7 +927,9 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     CCompatibilityExecutionContext compatibilityContext = {this, &info};
     Salamatrix::Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = m_szSalamatrixExtensionId;
-    request.CommandId = m_szSalamatrixCommandId;
+    request.CommandId = info.SalamatrixCommandId[0] != '\0'
+                            ? info.SalamatrixCommandId
+                            : m_szSalamatrixCommandId;
     request.EntryPoint = &entryPointWide[0];
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
     request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |

@@ -212,9 +212,11 @@ class SalamatrixEvents {
 }
 
 $entry = null;
+$commandId = '';
 $oneShot = false;
 for ($i = 1; $i < count($argv); ++$i) {
     if ($argv[$i] === '--entry' && isset($argv[$i + 1])) $entry = $argv[++$i];
+    elseif ($argv[$i] === '--command-id' && isset($argv[$i + 1])) $commandId = $argv[++$i];
     elseif ($argv[$i] === '--one-shot') $oneShot = true;
 }
 class SalamatrixRuntimes {
@@ -228,6 +230,7 @@ do { $hello = smx_read(); } while ($hello['kind'] !== 'result' || $hello['id'] !
 if (isset($hello['payload']['ok']) && !$hello['payload']['ok']) throw new RuntimeException('Salamander host rejected the worker');
 
 $Salamander = new stdClass();
+$Salamander->command_id = $commandId;
 $Salamander->commands = new SalamatrixCommands($client);
 $Salamander->storage = new SalamatrixStorage($client);
 $Salamander->file_operations = new SalamatrixFileOperations($client);

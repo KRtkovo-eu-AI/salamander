@@ -830,6 +830,20 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
             pScript = g_oScriptLookup.LookupRuntimeCommand(id);
         if (pScript)
         {
+            int runtimeCommandIndex =
+                pScript->GetRuntimeCommandIndexByMenuId(id);
+            if (runtimeCommandIndex >= 0)
+            {
+                const CScriptInfo::RUNTIME_COMMAND_INFO* runtimeCommand =
+                    pScript->GetRuntimeCommand(runtimeCommandIndex);
+                if (runtimeCommand != NULL)
+                {
+                    StringCchCopyA(
+                        info.SalamatrixCommandId,
+                        _countof(info.SalamatrixCommandId),
+                        runtimeCommand->Id);
+                }
+            }
             bExecuted = pScript->Execute(info);
         }
     }

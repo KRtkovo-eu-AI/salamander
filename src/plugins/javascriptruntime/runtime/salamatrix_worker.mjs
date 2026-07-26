@@ -537,6 +537,11 @@ const Salamander = {
   },
 };
 
+const commandIdIndex = process.argv.indexOf("--command-id");
+const commandId = commandIdIndex >= 0 ? process.argv[commandIdIndex + 1] || "" : "";
+Salamander.commandId = commandId;
+Salamander.command_id = commandId;
+
 globalThis.Salamander = Salamander;
 globalThis.Salamatrix = { Salamander };
 

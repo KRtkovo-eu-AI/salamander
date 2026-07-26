@@ -86,6 +86,10 @@ public:
         // Internal members, do not touch.
         void* pInstance;
         bool bAsyncResult;
+        // The native menu command that started this invocation. Persistent
+        // extensions may register more than one command; this keeps the
+        // selected command distinct from the manifest's default command.
+        char SalamatrixCommandId[128];
         DEBUG_INFO dbgInfo;
 
         class CScriptAbortPalette* pAbortPalette;

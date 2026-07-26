@@ -752,6 +752,7 @@ public:
     {
         return
             "{\"version\":\"1.0\",\"objects\":{" 
+            "\"Salamander\":{\"fields\":[\"command_id\"]},"
             "\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"],\"registerFields\":[\"commandId\",\"title\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\"]},"
             "\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]},"
             "\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\",\"selectItem\",\"selectAll\",\"focusItem\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]},"
@@ -869,6 +870,8 @@ public:
             return GetApiDescription();
         if (strcmp(topic, "commands") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"commands\",\"objects\":{\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\"],\"registerFields\":[\"commandId\",\"title\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\"]}}}";
+        if (strcmp(topic, "execution") == 0 || strcmp(topic, "commandContext") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"execution\",\"objects\":{\"Salamander\":{\"fields\":[\"command_id\"]}}}";
         if (strcmp(topic, "fileOperations") == 0 || strcmp(topic, "file_operations") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"fileOperations\",\"objects\":{\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]}}}";
         if (strcmp(topic, "sides") == 0 || strcmp(topic, "panels") == 0)

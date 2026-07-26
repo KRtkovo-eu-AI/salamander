@@ -368,6 +368,8 @@ void TestAssistantService()
           "assistant rejects unknown capabilities");
     Check(strstr(service.GetApiDescription(), "Salamander.ai") != NULL,
           "assistant API description advertises AI object");
+    Check(strstr(service.GetApiDescription(), "command_id") != NULL,
+          "assistant API description advertises invocation command context");
     Check(strstr(service.GetApiDescription(), "contractVersions") != NULL &&
               strstr(service.GetApiDescription(), "Salamatrix.UI") != NULL &&
               strstr(service.GetApiDescription(), "1.0") != NULL,
@@ -422,6 +424,9 @@ void TestAssistantService()
     const char* commandSlice = service.GetApiDescriptionSlice("commands");
     Check(commandSlice != NULL && strstr(commandSlice, "hotKey") != NULL,
           "assistant API description exposes a focused command slice");
+    const char* executionSlice = service.GetApiDescriptionSlice("execution");
+    Check(executionSlice != NULL && strstr(executionSlice, "command_id") != NULL,
+          "assistant API description exposes invocation command context");
     const char* sidesSlice = service.GetApiDescriptionSlice("sides");
     Check(sidesSlice != NULL && strstr(sidesSlice, "lastWriteUtc") != NULL &&
               strstr(sidesSlice, "sizeValid") != NULL,

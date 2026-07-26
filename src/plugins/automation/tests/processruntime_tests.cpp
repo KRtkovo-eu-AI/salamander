@@ -391,6 +391,8 @@ void RunPythonOneShotBootstrapTest()
     MakePath(L"-oneshot.py", &script[0], static_cast<int>(script.size()));
     Check(WriteScript(
               &script[0],
+              "if Salamander.command_id != 'bootstrap.second':\n"
+              "    raise RuntimeError('command context was not propagated')\n"
               "if Salamander.commands.execute('Copy') != 'ok':\n"
               "    raise RuntimeError('one-shot host call failed')\n"),
           "write one-shot python worker");
@@ -401,6 +403,7 @@ void RunPythonOneShotBootstrapTest()
         CAutomationProcessRuntimeAdapter::ProcessKindPython);
     Salamatrix::Runtime::RuntimeExecutionRequest request;
     request.EntryPoint = &script[0];
+    request.CommandId = "bootstrap.second";
     request.Flags =
         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
         Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;

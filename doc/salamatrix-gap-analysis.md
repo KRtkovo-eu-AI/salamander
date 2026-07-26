@@ -72,6 +72,10 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   `iconDark` SVG paths, capabilities, an optional event allow-list, and multiple
   command records. Dependencies, localization, settings/storage declarations,
   and dynamic publication of all handlers are still missing.
+- Persistent workers may register multiple commands. The selected command ID
+  now follows menu activation through the native host and external runtime
+  bootstrap into `Salamander.command_id`, so one entry point can dispatch
+  distinct handlers without relying on the first command as a fallback.
 - The shared native UI service exposes progress, input-box, and a reusable
   `IDialog`/`IControl` contract for modern workers and native plugins. The
   native implementation now creates Label, TextBox, CheckBox, RadioButton,
@@ -95,7 +99,7 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
 | Tabs and detached windows | MVP | SDK snapshots and opaque process-local ids expose tab count, index, path/type, active/source/target/locked/detached flags, activation, path changes, refresh, and selection/focus operations, with stale-handle-safe lookup and worker facades for all four runtimes. | Create/close/reorder/detach APIs, colors, lifecycle events, richer detached-window operations, and persistence semantics. |
 | Existing Salamander commands | MVP | The stable catalog now covers view/edit/open, rename, copy/move, email/delete/properties, case/attribute/space operations, refresh, directory creation, drive info, directory sizes, and disconnect; execution still uses Salamander's normal enablement and dialogs. | Parameterized command calls, richer synchronous/modal results, state/change notifications, and non-modal operation handles. |
 | Programmatic file operations | MVP | `IFileOperationsService` and all modern worker bindings expose interactive rename/copy/move/delete/create-directory/refresh/properties workflows. | Typed source/target values, progress/cancellation handles, and final structured results without requiring the native dialog. |
-| Extension command registration | MVP | Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, native menu hotkeys, and toolbar contributions; removal triggers a menu/toolbar rebuild. | Enable/visible callbacks, command palette integration, and richer ownership/unload leases. |
+| Extension command registration | MVP | Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, native menu hotkeys, and toolbar contributions; removal triggers a menu/toolbar rebuild. Each selected runtime command now propagates its ID into the worker as `Salamander.command_id`, so one entry point can dispatch distinct handlers. | Enable/visible callbacks, command palette integration, and richer ownership/unload leases. |
 | Plugin and context menu placement | MVP | Metadata booleans and context masks are applied to Automation menu items and persistent registrations. | Independent placement contributions, icons, and dynamic menu APIs beyond the current MVP surface. |
 | Toolbar and shortcuts | Partial | Dynamically registered extension commands now pass Salamander hotkeys through the normal menu-extension path and can contribute toolbar buttons. Native/runtime registrations use core-owned DPI-aware image lists; manifest packages may provide an SVG `icon` and optional dark-mode `iconDark`. If `iconDark` is missing or invalid, the core generates a dark-friendly raster variant from `icon` and also creates the disabled/gray image. Dynamic placement is now serialized with stable extension/plugin keys instead of transient runtime ids. | Explicit placement/conflict UX, command palette integration, and richer per-command enablement. |
 | Events | MVP | `Salamatrix.Events` maps host lifecycle/settings/configuration/color/panel events, successful shared-Sides path/selection/tab/refresh operations, and core path/selection/tab notifications to unsubscribe-safe native callbacks; Automation exposes `subscribe/unsubscribe` with copied payloads. Manifest-backed extensions may declare an event allow-list, which the host enforces before creating a subscription. Persistent worker sessions now enqueue bounded event frames instead of writing from the core callback directly into a potentially back-pressured pipe. | Persistent extension instances, UI-thread marshalling for richer event payloads, coalescing, event replay, richer file-operation/window lifecycle hooks, and unload-safe leases across modern runtimes. |
@@ -497,3 +501,16 @@ The fifteenth code slice is now implemented:
   standalone runtime plugin registers;
 - cover registration, blocked activation, and reactivation in the extension
   lifecycle test.
+
+The sixteenth code slice is now implemented:
+
+- retain the selected runtime command ID in the Automation execution context;
+- pass that ID through the Python, PowerShell, PHP, and Node worker bootstrap
+  command lines for both the Automation compatibility broker and standalone
+  runtime providers;
+- expose it consistently as `Salamander.command_id` (with JavaScript's
+  camel-case alias `commandId` as well);
+- publish the field in the AI/API description so generated extensions can
+  dispatch manifest or dynamically registered handlers explicitly;
+- cover the end-to-end Python one-shot path and re-run all worker syntax and
+  provider Debug builds.

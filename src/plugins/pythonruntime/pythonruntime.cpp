@@ -89,6 +89,32 @@ static bool AppendQuotedArgument(std::wstring& command, const wchar_t* value)
     return true;
 }
 
+static bool AppendUtf8QuotedArgument(std::wstring& command, const char* value)
+{
+    if (value == NULL)
+        return false;
+    int required = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, value, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    if (required <= 0)
+    {
+        required = MultiByteToWideChar(CP_ACP, 0, value, -1, NULL, 0);
+        codePage = CP_ACP;
+    }
+    if (required <= 0)
+        return false;
+    std::vector<wchar_t> converted(static_cast<size_t>(required));
+    if (MultiByteToWideChar(
+            codePage,
+            codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0,
+            value,
+            -1,
+            &converted[0],
+            required) <= 0)
+        return false;
+    return AppendQuotedArgument(command, &converted[0]);
+}
+
 static void SetRuntimeText(
     const std::string& value,
     wchar_t* output,
@@ -845,6 +871,16 @@ BOOL WINAPI CPythonRuntimeAdapter::StartPersistent(
     }
     if (!AppendQuotedArgument(command, request->EntryPoint))
         return FALSE;
+    if ((request->Flags &
+         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap) != 0 &&
+        request->CommandId != NULL && request->CommandId[0] != '\0')
+    {
+        command.append(m_kind == ProcessKindPowerShell
+                           ? L" -CommandId "
+                           : L" --command-id ");
+        if (!AppendUtf8QuotedArgument(command, request->CommandId))
+            return FALSE;
+    }
     if ((request->Flags &
          Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker) != 0 &&
         (request->Flags &
