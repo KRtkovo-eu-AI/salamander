@@ -229,7 +229,10 @@ enum ControlKind
     ControlKindTabControl = 8,
     // A native folder chooser embedded in a dialog. Its text value is the
     // selected path and is available through the normal IControl accessors.
-    ControlKindFolderPicker = 9
+    ControlKindFolderPicker = 9,
+    // An editable UTF-8 file path with an adjacent native browse button.
+    // Appended so existing control-kind values remain stable.
+    ControlKindFilePicker = 10
 };
 
 struct DialogOptions

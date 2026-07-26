@@ -57,10 +57,11 @@ class SalamatrixCommands {
 }
 class SalamatrixStorage {
     private $client; public function __construct($client) { $this->client = $client; }
-    public function get($key, $default = null) { $r = $this->client->call('salamander.storage.get', array('key' => $key)); return isset($r['type']) && $r['type'] === 'string' ? $r['value'] : $default; }
+    public function get($key, $default = null) { $r = $this->client->call('salamander.storage.get', array('key' => $key)); return isset($r['type']) && in_array($r['type'], array('string', 'integer', 'boolean'), true) ? $r['value'] : $default; }
     public function set($key, $value) { $this->client->call('salamander.storage.set', array('key' => $key, 'value' => $value)); }
     public function remove($key) { $r = $this->client->call('salamander.storage.remove', array('key' => $key)); return !empty($r['removed']); }
     public function clear() { $r = $this->client->call('salamander.storage.clear', array()); return !empty($r['ok']); }
+    public function schema() { $r = $this->client->call('salamander.storage.schema', array()); return isset($r['settings']) ? $r['settings'] : array(); }
 }
 class SalamatrixFileOperations {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -167,6 +168,7 @@ class SalamatrixDialog {
     public function addLabel($id, $text) { $this->add('label', $id, $text); }
     public function addTextBox($id, $text = '', $readOnly = false, $multiline = false) { $this->add('textbox', $id, $text, array('readOnly' => $readOnly, 'multiline' => (bool)$multiline)); }
     public function addFolderPicker($id, $path = '') { $this->add('folderpicker', $id, $path); }
+    public function addFilePicker($id, $path = '') { $this->add('filepicker', $id, $path); }
     public function addCheckBox($id, $text, $checked = false) { $this->add('checkbox', $id, $text, array('checked' => $checked)); }
     public function addRadioButton($id, $text, $checked = false) { $this->add('radio', $id, $text, array('checked' => $checked)); }
     public function addComboBox($id, $text = '') { $this->add('combobox', $id, $text); }

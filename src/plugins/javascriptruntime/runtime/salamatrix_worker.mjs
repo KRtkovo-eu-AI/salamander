@@ -151,6 +151,10 @@ class Dialog {
     return this.addControl("folderpicker", controlId, path, layout);
   }
 
+  async addFilePicker(controlId, path = "", layout = null) {
+    return this.addControl("filepicker", controlId, path, layout);
+  }
+
   async addCheckBox(controlId, text, checked = false, layout = null) {
     return this.addControl("checkbox", controlId, text, layout, { checked });
   }

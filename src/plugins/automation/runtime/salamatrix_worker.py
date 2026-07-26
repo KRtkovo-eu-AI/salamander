@@ -491,6 +491,10 @@ class _Dialog:
     def add_folder_picker(self, control_id: str, path: str = "") -> None:
         self._add("folderpicker", control_id, path)
 
+    def add_file_picker(self, control_id: str, path: str = "",
+                        layout: Optional[dict] = None) -> None:
+        self.add_control("filepicker", control_id, path, layout=layout)
+
     def add_checkbox(self, control_id: str, text: str,
                      checked: bool = False) -> None:
         self._add("checkbox", control_id, text, checked=checked)

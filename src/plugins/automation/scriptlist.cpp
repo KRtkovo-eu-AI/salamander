@@ -2448,6 +2448,8 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 kind = Salamatrix::UI::ControlKindTabControl;
             else if (_stricmp(kindName.c_str(), "folderpicker") == 0)
                 kind = Salamatrix::UI::ControlKindFolderPicker;
+            else if (_stricmp(kindName.c_str(), "filepicker") == 0)
+                kind = Salamatrix::UI::ControlKindFilePicker;
             else
                 return FALSE;
             Salamatrix::UI::ControlOptions options;

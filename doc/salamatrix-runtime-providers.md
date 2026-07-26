@@ -74,15 +74,23 @@ a folder picker embedded in a dialog:
 
 It maps to the runtime protocol control kind `folderpicker`, opens the standard
 native folder browser when clicked, and returns the chosen UTF-8 path through
-the normal dialog `get`/control-text mechanism. It is a folder chooser button,
-not yet an editable text field with a separate browse button.
+the normal dialog `get`/control-text mechanism. For editable file paths, the
+same four workers additionally expose `add_file_picker`/
+`AddFilePicker`/`addFilePicker`; this maps to `filepicker`, keeps the path in an
+editable native edit control, and places a separate wide Win32 browse button
+next to it.
 
 Verification at the current pause point: all four provider Debug x64 projects
 build successfully and their worker files pass available Python, PowerShell,
 PHP, and Node syntax checks. The isolated process-runtime integration run now
-also passes: with `SALAMATRIX_WORKER_ROOT` explicitly set to
+also passes with the standalone provider worker assets: with
+`SALAMATRIX_WORKER_ROOT` explicitly set to
 `build\verification\process-runtime-worker-root`, the Python/PowerShell/PHP
 process test executable returned exit code 0 and completed the SMX1 host-call,
 persistent-session, UI, storage, event, picker, shutdown, output-capture, and
-timeout scenarios. The root contained only test copies of the three bootstrap
-files; no Salamander process was started or controlled.
+timeout scenarios, including the editable `filepicker` control for each
+runtime. The latest verification used the isolated
+`build\verification\editable-file-picker\worker-root` copied from the four
+standalone provider build outputs; it also caught and fixed typed-storage/schema
+drift in the PowerShell and PHP provider assets. No Salamander process was
+started or controlled.

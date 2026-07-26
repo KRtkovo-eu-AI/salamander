@@ -81,11 +81,11 @@ $storage = [pscustomobject]@{}
 $storage | Add-Member ScriptMethod Get {
     param([string]$Key, [object]$Default = $null)
     $result = Invoke-Host -Method 'salamander.storage.get' -Arguments @{ key = $Key }
-    if ($result.type -eq 'string') { return $result.value }
+    if ($result.type -eq 'string' -or $result.type -eq 'integer' -or $result.type -eq 'boolean') { return $result.value }
     return $Default
 }
 $storage | Add-Member ScriptMethod Set {
-    param([string]$Key, [string]$Value)
+    param([string]$Key, [object]$Value)
     [void](Invoke-Host -Method 'salamander.storage.set' -Arguments @{ key = $Key; value = $Value })
 }
 $storage | Add-Member ScriptMethod Remove {
@@ -94,6 +94,9 @@ $storage | Add-Member ScriptMethod Remove {
 }
 $storage | Add-Member ScriptMethod Clear {
     (Invoke-Host -Method 'salamander.storage.clear' -Arguments @{}).ok
+}
+$storage | Add-Member ScriptMethod Schema {
+    @((Invoke-Host -Method 'salamander.storage.schema' -Arguments @{}).settings)
 }
 $fileOperations = [pscustomobject]@{}
 $fileOperations | Add-Member ScriptMethod Rename { (Invoke-Host -Method 'salamander.fileOperations.rename' -Arguments @{}).result }
@@ -266,6 +269,7 @@ $ui | Add-Member ScriptMethod Dialog {
     $dialog | Add-Member ScriptMethod AddLabel { param([string]$Id, [string]$Text) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'label'; controlId = $Id; text = $Text }) }
     $dialog | Add-Member ScriptMethod AddTextBox { param([string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Multiline = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'textbox'; controlId = $Id; text = $Text; readOnly = $ReadOnly; multiline = $Multiline }) }
     $dialog | Add-Member ScriptMethod AddFolderPicker { param([string]$Id, [string]$Path = '') [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'folderpicker'; controlId = $Id; text = $Path }) }
+    $dialog | Add-Member ScriptMethod AddFilePicker { param([string]$Id, [string]$Path = '') [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'filepicker'; controlId = $Id; text = $Path }) }
     $dialog | Add-Member ScriptMethod AddCheckBox { param([string]$Id, [string]$Text, [bool]$Checked = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'checkbox'; controlId = $Id; text = $Text; checked = $Checked }) }
     $dialog | Add-Member ScriptMethod AddRadioButton { param([string]$Id, [string]$Text, [bool]$Checked = $false) [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'radio'; controlId = $Id; text = $Text; checked = $Checked }) }
     $dialog | Add-Member ScriptMethod AddComboBox { param([string]$Id, [string]$Text = '') [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments @{ dialogId = $this.DialogId; kind = 'combobox'; controlId = $Id; text = $Text }) }

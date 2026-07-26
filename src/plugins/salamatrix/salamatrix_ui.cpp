@@ -71,6 +71,44 @@ static BOOL PickFolderPath(HWND parent, const char* title, std::string& result)
     return converted && !result.empty();
 }
 
+static BOOL PickEditableFilePath(
+    HWND parent,
+    const char* title,
+    const char* initialPath,
+    std::string& result)
+{
+    result.clear();
+    std::wstring titleWide;
+    std::wstring initialWide;
+    if (!Utf8ToWide(title != NULL ? title : "Select file", titleWide) ||
+        !Utf8ToWide(initialPath != NULL ? initialPath : "", initialWide))
+        return FALSE;
+
+    // Keep the caller-owned path storage heap-backed and sized for the
+    // Win32 wide-path limit instead of introducing a MAX_PATH dependency.
+    const size_t FileBufferCapacity = 32768;
+    if (initialWide.size() >= FileBufferCapacity)
+        return FALSE;
+    std::vector<wchar_t> path(FileBufferCapacity, L'\0');
+    if (!initialWide.empty())
+        memcpy(&path[0], initialWide.c_str(),
+               initialWide.size() * sizeof(wchar_t));
+
+    const wchar_t filter[] = L"All files (*.*)\0*.*\0\0";
+    OPENFILENAMEW dialog;
+    memset(&dialog, 0, sizeof(dialog));
+    dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner = parent;
+    dialog.lpstrFilter = filter;
+    dialog.lpstrFile = &path[0];
+    dialog.nMaxFile = static_cast<DWORD>(path.size());
+    dialog.lpstrTitle = titleWide.c_str();
+    dialog.Flags = OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
+    if (!GetOpenFileNameW(&dialog))
+        return FALSE;
+    return WideToUtf8(&path[0], result) && !result.empty();
+}
+
 struct NotificationData
 {
     std::wstring Title;
@@ -273,6 +311,12 @@ static void CopyEventText(
     size_t length = value.size();
     if (length >= capacity)
         length = capacity - 1;
+    // DialogEvent keeps its historical bounded UTF-8 field. Never cut a
+    // multibyte path value in the middle of a code point when it is copied
+    // into that compatibility payload.
+    while (length > 0 && length < value.size() &&
+           (static_cast<unsigned char>(value[length]) & 0xc0) == 0x80)
+        --length;
     if (length != 0)
         memcpy(destination, value.data(), length);
     destination[length] = '\0';
@@ -375,6 +419,8 @@ struct NativeDialog::Impl
         BOOL KeepOpen;
         BOOL Multiline;
         HWND WindowHandle;
+        HWND BrowseWindowHandle;
+        WORD BrowseNumericId;
         BOOL Required;
         std::string ValidationMessage;
         BOOL HasBounds;
@@ -403,6 +449,8 @@ struct NativeDialog::Impl
               KeepOpen(options.KeepOpen),
               Multiline(options.Multiline),
               WindowHandle(NULL),
+              BrowseWindowHandle(NULL),
+              BrowseNumericId(0),
               Required(FALSE),
               ValidationMessage(),
               HasBounds(layout.HasBounds),
@@ -608,7 +656,8 @@ struct NativeDialog::Impl
     {
         for (size_t index = 0; index < Controls.size(); ++index)
         {
-            if (Controls[index]->NumericId == numericId)
+            if (Controls[index]->NumericId == numericId ||
+                Controls[index]->BrowseNumericId == numericId)
                 return Controls[index];
         }
         return NULL;
@@ -622,6 +671,7 @@ struct NativeDialog::Impl
             if (control->Required &&
                 (control->Kind == ControlKindTextBox ||
                  control->Kind == ControlKindFolderPicker ||
+                 control->Kind == ControlKindFilePicker ||
                  control->Kind == ControlKindComboBox) &&
                 control->Text.empty())
                 return control;
@@ -679,6 +729,8 @@ IControl* WINAPI NativeDialog::AddControlEx(
         return NULL;
     WORD numericId = static_cast<WORD>(2000 + m_pImpl->Controls.size());
     Impl::Control* control = new Impl::Control(kind, options, layout, numericId);
+    if (kind == ControlKindFilePicker)
+        control->BrowseNumericId = static_cast<WORD>(4000 + m_pImpl->Controls.size());
     m_pImpl->Controls.push_back(control);
     return control;
 }
@@ -713,7 +765,13 @@ int WINAPI NativeDialog::ShowModal()
     header->style = WS_POPUP | WS_BORDER | WS_SYSMENU | WS_CAPTION |
                     DS_MODALFRAME | DS_SETFONT;
     header->dwExtendedStyle = 0;
-    header->cdit = static_cast<WORD>(m_pImpl->Controls.size());
+    size_t dialogItemCount = m_pImpl->Controls.size();
+    for (size_t index = 0; index < m_pImpl->Controls.size(); ++index)
+    {
+        if (m_pImpl->Controls[index]->Kind == ControlKindFilePicker)
+            ++dialogItemCount;
+    }
+    header->cdit = static_cast<WORD>(dialogItemCount);
     header->x = 10;
     header->y = 10;
     header->cx = m_pImpl->Options.Width;
@@ -735,7 +793,8 @@ int WINAPI NativeDialog::ShowModal()
         WORD classOrdinal = 0x0082; // STATIC
         short height = 14;
         short width = static_cast<short>(m_pImpl->Options.Width - 16);
-        if (control->Kind == ControlKindTextBox)
+        if (control->Kind == ControlKindTextBox ||
+            control->Kind == ControlKindFilePicker)
         {
             classOrdinal = 0x0081; // EDIT
             style |= WS_BORDER;
@@ -814,8 +873,30 @@ int WINAPI NativeDialog::ShowModal()
             if (control->Height > 0)
                 height = ClampDialogCoordinate(control->Height);
         }
-        AppendItem(dialog, x, itemY, width, height, control->NumericId,
-                   style, classOrdinal, text, className);
+        if (control->Kind == ControlKindFilePicker)
+        {
+            int editWidth = width - 28;
+            if (editWidth < 1)
+                editWidth = 1;
+            int browseX = x + editWidth + 4;
+            int browseWidth = width - editWidth - 4;
+            if (browseWidth < 1)
+                browseWidth = 1;
+            AppendItem(
+                dialog, x, itemY, ClampDialogCoordinate(editWidth), height,
+                control->NumericId, style, classOrdinal, text, className);
+            AppendItem(
+                dialog, ClampDialogCoordinate(browseX), itemY,
+                ClampDialogCoordinate(browseWidth), height,
+                control->BrowseNumericId,
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                0x0080, L"...", NULL);
+        }
+        else
+        {
+            AppendItem(dialog, x, itemY, width, height, control->NumericId,
+                       style, classOrdinal, text, className);
+        }
         if (!control->HasBounds)
             y = static_cast<short>(y + (control->Kind == ControlKindComboBox ? 24 : 22));
     }
@@ -867,6 +948,9 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             if (child == NULL)
                 continue;
             control->WindowHandle = child;
+            if (control->Kind == ControlKindFilePicker)
+                control->BrowseWindowHandle =
+                    GetDlgItem(hwnd, control->BrowseNumericId);
             std::wstring text;
             if (Utf8ToWide(control->Text.c_str(), text))
                 SetWindowTextW(child, text.c_str());
@@ -1066,6 +1150,24 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         }
         return TRUE;
     }
+    if (control->Kind == ControlKindFilePicker &&
+        LOWORD(wParam) == control->BrowseNumericId)
+    {
+        std::string selectedPath;
+        if (PickEditableFilePath(
+                hwnd, dialog->m_pImpl->Title.c_str(), control->Text.c_str(),
+                selectedPath))
+        {
+            control->Text = selectedPath;
+            std::wstring selectedWide;
+            if (Utf8ToWide(control->Text.c_str(), selectedWide))
+                SetWindowTextW(
+                    GetDlgItem(hwnd, control->NumericId),
+                    selectedWide.c_str());
+            dialog->m_pImpl->NotifyChanged(control);
+        }
+        return TRUE;
+    }
     if (control->Kind == ControlKindButton)
     {
         if (control->DialogResult != IDCANCEL)
@@ -1107,7 +1209,8 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             GetDlgItem(hwnd, control->NumericId), BM_GETCHECK, 0, 0) == BST_CHECKED;
         dialog->m_pImpl->NotifyChanged(control);
     }
-    if (control->Kind == ControlKindTextBox &&
+    if ((control->Kind == ControlKindTextBox ||
+         control->Kind == ControlKindFilePicker) &&
         HIWORD(wParam) == EN_CHANGE)
     {
         wchar_t value[4096];
