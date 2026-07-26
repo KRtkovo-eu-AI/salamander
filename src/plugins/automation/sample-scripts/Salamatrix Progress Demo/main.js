@@ -23,16 +23,26 @@ finally {
 var commandResult = Salamander.Commands.execute("QuickRename");
 var sourceSide = Salamander.Sides.Source;
 var activeTab = sourceSide.ActiveTab;
-var previousSourcePath =
-    Salamander.Storage.get("lastSourcePath", "(first run)");
-Salamander.Storage.set("lastSourcePath", activeTab.Path);
+var previousSourcePath = "(Storage unavailable in legacy Automation)";
+var storageNamespace = "(legacy Automation)";
+try {
+    previousSourcePath =
+        Salamander.Storage.get("lastSourcePath", "(first run)");
+    Salamander.Storage.set("lastSourcePath", activeTab.Path);
+    storageNamespace = Salamander.Storage.Namespace;
+}
+catch (storageError) {
+    // The same script can be launched from Automation's legacy script list,
+    // where an older installation may not have the adjacent extension.json.
+    // The progress/API demonstration remains useful without package storage.
+}
 var sideSummary =
     "\n\nSource side: " + sourceSide.Name +
     "\nTabs on side: " + sourceSide.TabCount +
     "\nActive tab index: " + activeTab.Index +
     "\nActive tab path: " + activeTab.Path +
     "\nPath saved by previous run: " + previousSourcePath +
-    "\nStorage namespace: " + Salamander.Storage.Namespace;
+    "\nStorage namespace: " + storageNamespace;
 if (commandResult == "not_available") {
     Salamander.MsgBox("Quick Rename is not available in the current panel context. Select or focus a file first and run the demo again." + sideSummary, 0, "Salamatrix Demo");
 }
