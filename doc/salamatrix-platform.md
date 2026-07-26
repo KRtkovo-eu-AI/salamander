@@ -1097,6 +1097,8 @@ The platform skeleton is ready when:
     it. The command wrapper remains available for custom model adapters.
 46. The existing core Plugin Manager queries `Salamatrix.Extensions` and
     displays manifest-backed extensions alongside `.SPL` plugins. These rows
-    expose the manifest name, state, version, runtime, entry point, and ID
-    without pretending that a script package is a loadable native plugin; a
-    separate Extension Manager is intentionally not introduced.
+    expose the manifest name, state, version, runtime, entry point, and ID;
+    the existing Test action becomes localized Activate/Deactivate for the
+    selected manifest row. Script packages are still not treated as loadable
+    native plugins; a separate Extension Manager is intentionally not
+    introduced.

@@ -981,6 +981,7 @@ protected:
     char ShowInBarText[200];        // text taken from the checkbox when the dialog opens
     char ShowInChDrvText[200];      // text taken from the checkbox when the dialog opens
     char InstalledPluginsText[200]; // text taken from the listview caption when the dialog opens
+    char PluginTestText[100];       // original label of the Test button
     std::vector<Salamatrix::Extensions::ExtensionInfo> ExtensionRows;
 
 public:

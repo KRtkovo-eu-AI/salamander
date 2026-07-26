@@ -92,6 +92,19 @@ void SetPluginManagerText(HWND ctrl, const char* text)
 
     SetWindowText(ctrl, text);
 }
+
+Salamatrix::Extensions::IExtensionsService* QueryExtensionService()
+{
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = SALAMATRIX_SERVICE_EXTENSIONS;
+    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_0;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
+        return NULL;
+    return static_cast<Salamatrix::Extensions::IExtensionsService*>(result.Interface);
+}
 }
 
 //
@@ -111,23 +124,16 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     ShowInBarText[0] = 0;
     ShowInChDrvText[0] = 0;
     InstalledPluginsText[0] = 0;
+    PluginTestText[0] = 0;
 }
 
 void CPluginsDlg::RefreshExtensionRows()
 {
     ExtensionRows.clear();
 
-    CSalamanderServiceQuery query;
-    memset(&query, 0, sizeof(query));
-    query.ServiceId = SALAMATRIX_SERVICE_EXTENSIONS;
-    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_0;
-    CSalamanderServiceResult result;
-    memset(&result, 0, sizeof(result));
-    if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
+    Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
+    if (service == NULL)
         return;
-
-    Salamatrix::Extensions::IExtensionsService* service =
-        static_cast<Salamatrix::Extensions::IExtensionsService*>(result.Interface);
     int count = service->GetExtensionCount();
     for (int index = 0; index < count; ++index)
     {
@@ -330,14 +336,33 @@ void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData*
 
 void CPluginsDlg::EnableButtons(CPluginData* plugin)
 {
+    Salamatrix::Extensions::ExtensionInfo* extension =
+        plugin == NULL ? GetSelectedExtension() : NULL;
+    const BOOL extensionActionable =
+        extension != NULL &&
+        extension->State != Salamatrix::Extensions::ExtensionStateActivating &&
+        extension->State != Salamatrix::Extensions::ExtensionStateDeactivating;
+
+    if (extension != NULL)
+    {
+        SetWindowText(
+            GetDlgItem(HWindow, IDB_PLUGINTEST),
+            LoadStr(extension->State == Salamatrix::Extensions::ExtensionStateActive
+                        ? IDS_PLUGINEXTDEACTIVATE
+                        : IDS_PLUGINEXTACTIVATE));
+    }
+    else if (PluginTestText[0] != 0)
+        SetWindowText(GetDlgItem(HWindow, IDB_PLUGINTEST), PluginTestText);
+
     HWND focus = GetFocus();
     BOOL changeFocus = FALSE;
     if (GetDlgItem(HWindow, IDB_PLUGINREMOVE) == focus && plugin == NULL)
         changeFocus = TRUE;
     EnableWindow(GetDlgItem(HWindow, IDB_PLUGINREMOVE), plugin != NULL);
-    if (GetDlgItem(HWindow, IDB_PLUGINTEST) == focus && plugin == NULL)
+    if (GetDlgItem(HWindow, IDB_PLUGINTEST) == focus &&
+        plugin == NULL && !extensionActionable)
         changeFocus = TRUE;
-    EnableWindow(GetDlgItem(HWindow, IDB_PLUGINTEST), plugin != NULL);
+    EnableWindow(GetDlgItem(HWindow, IDB_PLUGINTEST), plugin != NULL || extensionActionable);
     if (GetDlgItem(HWindow, IDB_PLUGINTESTALL) == focus && plugin == NULL)
         changeFocus = TRUE;
     EnableWindow(GetDlgItem(HWindow, IDB_PLUGINTESTALL), plugin != NULL);
@@ -754,6 +779,10 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // copy the Show In Bar checkbox text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINSHOWINBAR, ShowInBarText, 200);
 
+        // The same button is reused as Activate/Deactivate for manifest
+        // extensions; keep the localized native-plugin label for restoration.
+        GetDlgItemText(HWindow, IDB_PLUGINTEST, PluginTestText, sizeof(PluginTestText));
+
         // copy the Show In Change Drive Menu checkbox text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINSHOWINCHDRV, ShowInChDrvText, 200);
 
@@ -1126,6 +1155,22 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SalMessageBox(HWindow, buf, LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
                 }
                 RefreshListView(); // a DLL was loaded, we have fresher data ...
+            }
+            else
+            {
+                int listIndex = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
+                Salamatrix::Extensions::ExtensionInfo* extension = GetSelectedExtension();
+                Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
+                if (extension != NULL && service != NULL)
+                {
+                    const BOOL active =
+                        extension->State == Salamatrix::Extensions::ExtensionStateActive;
+                    if (active)
+                        service->DeactivateExtension(extension->Descriptor.Id);
+                    else
+                        service->ActivateExtension(extension->Descriptor.Id);
+                    RefreshListView(TRUE, listIndex);
+                }
             }
             return 0;
         }
