@@ -16,7 +16,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{B56EF974-87A2-4F29-83B5-9D60FBF3145D}</ProjectGuid>
-    <RootNamespace>extensionmanifesttests</RootNamespace>
+    <RootNamespace>salamatrixmanifesttests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -44,11 +44,11 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\extensionmanifest.cpp" />
-    <ClCompile Include="extensionmanifest_tests.cpp" />
+    <ClCompile Include="..\salamatrix_manifest.cpp" />
+    <ClCompile Include="manifest_tests.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\extensionmanifest.h" />
+    <ClInclude Include="..\salamatrix_manifest.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

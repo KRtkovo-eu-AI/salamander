@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include "extensionmanifest.h"
+#include "../salamatrix/salamatrix_manifest.h"
 #include "../salamatrix/salamatrix_runtime_api.h"
 #include "../salamatrix/salamatrix_ui.h"
 #include "../salamatrix/salamatrix_extensions.h"

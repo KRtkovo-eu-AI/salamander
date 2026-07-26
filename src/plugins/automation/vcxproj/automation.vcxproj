@@ -182,6 +182,9 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\salamatrix\salamatrix_manifest.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\..\..\darkmode.cpp" />
     <ClCompile Include="..\..\..\darkmode_backend_darkmodelib.cpp" />
     <ClCompile Include="..\..\..\third_party\darkmodelib\src\Darkmodelib.cpp">
@@ -243,9 +246,6 @@
     <ClCompile Include="..\engassoc.cpp">
     </ClCompile>
     <ClCompile Include="..\entry.cpp">
-    </ClCompile>
-    <ClCompile Include="..\extensionmanifest.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\fileinfo.cpp">
     </ClCompile>
@@ -348,8 +348,6 @@
     <ClInclude Include="..\dispimpl.h">
     </ClInclude>
     <ClInclude Include="..\engassoc.h">
-    </ClInclude>
-    <ClInclude Include="..\extensionmanifest.h">
     </ClInclude>
     <ClInclude Include="..\fileinfo.h">
     </ClInclude>

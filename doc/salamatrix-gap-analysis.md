@@ -32,8 +32,9 @@ The repository already contains a real Salamatrix foundation, not only a design:
   descriptors, registration, enumeration, and lookup.
 - `Salamander.UI.progress(...)`, `Salamander.Commands.execute(...)`, and the
   three interactive file-operation wrappers work through the Salamatrix bridge.
-- Automation discovers recursive script directories and reads a minimal
-  `extension.json` next to an entry point.
+- Salamatrix owns the schema-1 extension-package manifest parser and package
+  root contract; Automation supplies only the compatibility/runtime bridge
+  that discovers entry points and starts workers.
 - `Salamander.Sides` exposes Left, Right, Source, and Target plus safe tab
   snapshots, paths, and activation to Automation scripts.
 - `Salamatrix.Storage` and `Salamander.Storage` provide typed, synchronized,
@@ -266,8 +267,9 @@ ActiveScript engines and consumes the broker like every other plugin.
 
 ### Script discovery and manifest parsing
 
-- `src/plugins/automation/extensionmanifest.cpp` contains the strict, independently
-  tested schema-1 JSON parser and validated manifest model.
+- `src/plugins/salamatrix/salamatrix_manifest.cpp` contains the strict,
+  independently tested schema-1 JSON parser and validated package model;
+  Automation consumes its framework header without owning the parser.
 - `src/plugins/automation/scriptlist.cpp` recursively discovers legacy
   ActiveScript files, registered runtime-adapter entry points, and valid
   manifest entry points even when their extension has no COM association.

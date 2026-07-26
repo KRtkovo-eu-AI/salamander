@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "id": "Salamatrix.Demo.Python",
+  "name": "Salamatrix Python Demo",
+  "version": "1.0.0",
+  "description": "Demonstrates a CPython Salamatrix extension package.",
+  "runtime": "Python.CPython",
+  "entryPoint": "main.py",
+  "icon": "icon.svg",
+  "capabilities": ["ui.notify", "storage"],
+  "commands": [{"id":"Salamatrix.Demo.Python.run","title":"Run Python demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
+}

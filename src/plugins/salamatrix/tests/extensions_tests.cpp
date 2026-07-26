@@ -53,7 +53,8 @@ Salamatrix::Extensions::ExtensionDescriptor MakeDescriptor(const char* id)
     strncpy_s(descriptor.Name, _countof(descriptor.Name), "Test extension", _TRUNCATE);
     strncpy_s(descriptor.RuntimeId, _countof(descriptor.RuntimeId), "test.runtime", _TRUNCATE);
     strncpy_s(descriptor.EntryPoint, _countof(descriptor.EntryPoint), "test.py", _TRUNCATE);
-    descriptor.Flags = Salamatrix::Extensions::ExtensionFlagManifest;
+    descriptor.Flags = Salamatrix::Extensions::ExtensionFlagManifest |
+                       Salamatrix::Extensions::ExtensionFlagPackage;
     return descriptor;
 }
 

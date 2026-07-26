@@ -59,7 +59,10 @@ enum ExtensionFlags
     ExtensionFlagDependencyUnavailable = 0x00000010,
     // User-controlled persistent disabled state. This is separate from a
     // missing runtime/dependency so Plugin Manager can explain the reason.
-    ExtensionFlagDisabled = 0x00000020
+    ExtensionFlagDisabled = 0x00000020,
+    // A schema-1 extension package (manifest + entry point + assets), rather
+    // than a legacy one-shot Automation script.
+    ExtensionFlagPackage = 0x00000040
 };
 
 struct ExtensionDescriptor

@@ -158,6 +158,9 @@
     <ClCompile Include="..\..\shared\dbg.cpp" />
     <ClCompile Include="..\..\shared\mhandles.cpp" />
     <ClCompile Include="..\salamatrix.cpp" />
+    <ClCompile Include="..\salamatrix_manifest.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\salamatrix_ui.cpp" />
     <ClCompile Include="..\precomp.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -178,6 +181,7 @@
     <ClInclude Include="..\..\shared\spl_thum.h" />
     <ClInclude Include="..\..\shared\spl_vers.h" />
     <ClInclude Include="..\salamatrix.h" />
+    <ClInclude Include="..\salamatrix_manifest.h" />
     <ClInclude Include="..\salamatrix.rh" />
     <ClInclude Include="..\versinfo.rh2" />
     <ClInclude Include="..\salamatrix_automation.h" />
@@ -202,6 +206,15 @@
   <ItemGroup>
     <ResourceCompile Include="..\salamatrix.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <DemoPackageFiles Include="..\..\..\extensions\demos\**\*.*" />
+  </ItemGroup>
+  <Target Name="CopySalamatrixDemoPackages" AfterTargets="Build">
+    <MakeDir Directories="$(OutDir)..\..\extensions\demos" />
+    <Copy SourceFiles="@(DemoPackageFiles)"
+          DestinationFiles="@(DemoPackageFiles->'$(OutDir)..\..\extensions\demos\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>

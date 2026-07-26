@@ -5,7 +5,7 @@
 
 #include <vector>
 
-#include "extensionmanifest.h"
+#include "../salamatrix/salamatrix_manifest.h"
 #include "../salamatrix/salamatrix_storage.h"
 
 BOOL ApplySalamatrixSettingsMigrations(

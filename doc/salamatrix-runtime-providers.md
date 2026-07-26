@@ -48,6 +48,19 @@ other runtime providers resolve the same descriptor through `IRuntimeService`.
 
 ## Package split
 
+Extension packages are framework-owned directories, not Automation scripts.
+The default installed package root is `$(SalDir)\extensions`; each package
+contains `extension.json`, one runtime entry point, and optional package-owned
+SVG assets. The native Plugin Manager consumes the shared
+`Salamatrix.Extensions` catalog: it shows the package row and icon, activates
+or deactivates the worker, and exposes declared commands in the Plugin menu,
+panel context menu, and toolbar. Automation remains only the host-side bridge
+that starts the selected runtime adapter and dispatches calls.
+
+Four complete package fixtures live in `src/extensions/demos`: Node.js,
+CPython, PowerShell, and PHP CLI. Their `run` commands demonstrate the common
+notification and typed-storage API.
+
 The intended packages are:
 
 | Package | Runtime id | Interpreter discovery |
@@ -71,8 +84,9 @@ duplicate AI menu item or own the chat flow; it retains only the shared
 `Salamatrix.AI` host/API bridge needed by runtime scripts and the
 `Salamatrix.ScriptRunner` compatibility service.
 
-The current branch has the broker contract, worker protocol, and provider
-lifecycle helper. `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
+The current branch has the broker contract, worker protocol, provider
+lifecycle helper, and framework-owned manifest parser in
+`src/plugins/salamatrix/salamatrix_manifest.*`. `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
 `PHPRuntime.SPL`, and `JavaScriptRuntime.SPL` now have their own projects,
 adapters, worker assets, and load/unload registration paths. Debug and Release
 x64 builds now produce all four standalone `.SPL` binaries; provider

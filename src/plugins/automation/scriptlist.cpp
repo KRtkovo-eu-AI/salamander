@@ -14,7 +14,7 @@
 #include "precomp.h"
 #include "scriptlist.h"
 #include "salamatrixsettings.h"
-#include "extensionmanifest.h"
+#include "../salamatrix/salamatrix_manifest.h"
 #include "scriptsite.h"
 #include "aututils.h"
 #include "engassoc.h"
@@ -5599,6 +5599,7 @@ void CScriptLookup::PublishSalamatrixExtensions()
                 _countof(descriptor.IconDarkPath),
                 pScript->GetSalamatrixIconDarkPath());
             descriptor.Flags = Salamatrix::Extensions::ExtensionFlagManifest |
+                               Salamatrix::Extensions::ExtensionFlagPackage |
                                Salamatrix::Extensions::ExtensionFlagPersistent;
             CAutomationSalamatrixBridge* availabilityBridge =
                 g_oAutomationPlugin.GetSalamatrixBridge();

@@ -765,7 +765,15 @@ void WINAPI CAutomationPluginInterface::LoadConfiguration(
 
         dir.Set(_T("$(SalDir)\\plugins\\automation\\scripts"));
         m_aDirectories.Add(dir);
+
     }
+
+    // Salamatrix extension packages live in the framework-owned root,
+    // outside Automation's legacy script directory. Keep this root available
+    // even when the user already has a saved legacy script-directory list;
+    // Automation only supplies the runtime bridge when a package is activated.
+    dir.Set(_T("$(SalDir)\\extensions"));
+    m_aDirectories.Add(dir);
 
     bool bLookupLoaded = false;
     if (hKey)

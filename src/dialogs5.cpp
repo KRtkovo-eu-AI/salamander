@@ -1011,7 +1011,10 @@ void CPluginsDlg::OnSelChanged()
         // remain disabled and no fake .SPL path is presented to the user.
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION),
-            "Manifest extension");
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagPackage) != 0
+                ? "Salamatrix extension package"
+                : "Manifest extension");
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINCOPYRIGHT),
             extension->Descriptor.Id);

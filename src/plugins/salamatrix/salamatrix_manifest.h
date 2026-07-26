@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
-    Automation Plugin for Open Salamander
+    Salamatrix Framework for Open Salamander
 
-    extensionmanifest.h
+    salamatrix_manifest.h
     Strict JSON parser and validated model for Salamatrix extension manifests.
 */
 
