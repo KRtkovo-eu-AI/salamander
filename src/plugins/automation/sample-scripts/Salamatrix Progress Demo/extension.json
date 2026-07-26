@@ -1,15 +1,12 @@
 {
-  "id": "Salamatrix.ProgressDemo",
+  "schema": 1,
+  "id": "Salamatrix.JScript.ProgressDemo",
   "name": "Salamatrix Progress Demo",
+  "version": "1.0.0",
+  "description": "Demonstrates an extension package for Automation plugin (legacy JScript/VBScript).",
   "runtime": "Automation.JScript",
   "entryPoint": "main.js",
-  "commands": [
-    {
-      "id": "Salamatrix.ProgressDemo",
-      "title": "Salamatrix Progress Demo",
-      "menu": "both",
-      "contextMenu": true,
-      "requires": "file"
-    }
-  ]
+  "icon": "icon.svg",
+  "capabilities": ["ui.notify", "ui.progress", "storage"],
+  "commands": [{"id":"Salamatrix.JScript.ProgressDemo","title":"Run Progress Demo","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
 }
