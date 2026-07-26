@@ -11,6 +11,7 @@
 #pragma once
 
 #include "salamatrix_sides.h"
+#include <vector>
 
 namespace Salamatrix
 {
@@ -44,7 +45,12 @@ enum EventKind
     // A filesystem change notification delivered by the Salamander core.
     // Parameter is non-zero when the notification covers subdirectories and
     // Path contains the affected UTF-8 path.
-    EventKindFileChanged = 15
+    EventKindFileChanged = 15,
+    EventKindTabCreated = 16,
+    EventKindTabClosed = 17,
+    EventKindTabReordered = 18,
+    EventKindWindowDetached = 19,
+    EventKindWindowAttached = 20
 };
 
 struct EventPayload
@@ -56,6 +62,9 @@ struct EventPayload
     ULONGLONG ActiveTabId;
     int PathType;
     char Path[32768];
+    ULONGLONG ChangedTabId;
+    int ChangedTabIndex;
+    int PreviousTabIndex;
 
     EventPayload()
         : StructSize(sizeof(EventPayload)),
@@ -63,11 +72,20 @@ struct EventPayload
           Parameter(0),
           ActivePanel(0),
           ActiveTabId(0),
-          PathType(0)
+          PathType(0),
+          ChangedTabId(0),
+          ChangedTabIndex(-1),
+          PreviousTabIndex(-1)
     {
         Path[0] = 0;
     }
 };
+
+// The fields through Path are the 1.0 payload prefix. Consumers must accept
+// this size so older native providers can still publish legacy events after
+// lifecycle fields were appended.
+static const DWORD EventPayloadV1Size =
+    static_cast<DWORD>(offsetof(EventPayload, ChangedTabId));
 
 typedef BOOL(WINAPI* EventCallback)(
     void* context,
@@ -189,6 +207,25 @@ private:
     ULONGLONG NextSubscriptionId;
     mutable CRITICAL_SECTION Lock;
     Sides::ISidesService* SidesService;
+    struct TabSnapshot
+    {
+        ULONGLONG TabId;
+        int Index;
+        int PathType;
+        DWORD Flags;
+
+        TabSnapshot()
+            : TabId(0),
+              Index(-1),
+              PathType(0),
+              Flags(Salamatrix::Sides::TabFlagNone)
+        {
+        }
+    };
+    std::vector<TabSnapshot> LastTabsLeft;
+    std::vector<TabSnapshot> LastTabsRight;
+    bool LastTabsLeftInitialized;
+    bool LastTabsRightInitialized;
 
     EventService(const EventService&);
     EventService& operator=(const EventService&);
@@ -197,7 +234,9 @@ public:
     explicit EventService(Sides::ISidesService* sidesService)
         : SubscriberCount(0),
           NextSubscriptionId(0),
-          SidesService(sidesService)
+          SidesService(sidesService),
+          LastTabsLeftInitialized(false),
+          LastTabsRightInitialized(false)
     {
         InitializeCriticalSection(&Lock);
     }
@@ -214,7 +253,7 @@ public:
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"fileChanged\"]}";
+        return "{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"fileChanged\",\"tabCreated\",\"tabClosed\",\"tabReordered\",\"windowDetached\",\"windowAttached\"]}";
     }
 
     virtual BOOL WINAPI Subscribe(
@@ -226,7 +265,7 @@ public:
         if (callback == NULL ||
             subscriptionId == NULL ||
             kind < EventKindHostStartup ||
-            kind > EventKindFileChanged)
+            kind > EventKindWindowAttached)
         {
             return FALSE;
         }
@@ -286,7 +325,9 @@ public:
     virtual BOOL WINAPI Publish(const EventPayload* payload)
     {
         if (payload == NULL ||
-            payload->StructSize < sizeof(EventPayload))
+            payload->StructSize < EventPayloadV1Size ||
+            (payload->Kind >= EventKindTabCreated &&
+             payload->StructSize < sizeof(EventPayload)))
         {
             return FALSE;
         }
@@ -308,6 +349,198 @@ public:
                 payload);
         }
         return TRUE;
+    }
+
+    BOOL WINAPI CollectTabSnapshot(
+        Sides::SideReference side,
+        std::vector<TabSnapshot>& snapshot)
+    {
+        snapshot.clear();
+        if (SidesService == NULL)
+            return FALSE;
+
+        int count = SidesService->GetTabCount(side);
+        if (count <= 0)
+            return TRUE;
+
+        snapshot.reserve(static_cast<size_t>(count));
+        for (int index = 0; index < count; ++index)
+        {
+            Sides::TabInfo info;
+            if (!SidesService->GetTabInfo(side, index, &info))
+                return FALSE;
+            TabSnapshot current;
+            current.TabId = info.TabId;
+            current.Index = info.Index;
+            current.PathType = info.PathType;
+            current.Flags = info.Flags;
+            snapshot.push_back(current);
+        }
+        return TRUE;
+    }
+
+    int WINAPI FindTabIndex(
+        const std::vector<TabSnapshot>& snapshot,
+        ULONGLONG tabId) const
+    {
+        for (size_t index = 0; index < snapshot.size(); ++index)
+        {
+            if (snapshot[index].TabId == tabId)
+                return static_cast<int>(index);
+        }
+        return -1;
+    }
+
+    void WINAPI FillActiveSideMetadata(
+        EventPayload& payload,
+        Sides::SideReference side)
+    {
+        payload.ActiveTabId = 0;
+        payload.PathType = 0;
+        payload.Path[0] = 0;
+        if (SidesService == NULL)
+            return;
+
+        Sides::TabInfo tab;
+        if (SidesService->GetActiveTabInfo(side, &tab))
+        {
+            payload.ActiveTabId = tab.TabId;
+            payload.PathType = tab.PathType;
+            SidesService->GetTabPath(
+                tab.TabId,
+                payload.Path,
+                _countof(payload.Path),
+                &payload.PathType);
+        }
+        else
+        {
+            SidesService->GetPath(
+                side,
+                payload.Path,
+                _countof(payload.Path),
+                &payload.PathType);
+        }
+    }
+
+    void WINAPI PublishTabLifecycleEvents(
+        Sides::SideReference side,
+        const std::vector<TabSnapshot>& current)
+    {
+        std::vector<TabSnapshot>& previous =
+            (side == Sides::SideReferenceRight) ? LastTabsRight : LastTabsLeft;
+
+        EventPayload payload;
+        payload.ActivePanel =
+            side == Sides::SideReferenceRight ? PANEL_RIGHT : PANEL_LEFT;
+        FillActiveSideMetadata(payload, side);
+
+        for (size_t index = 0; index < previous.size(); ++index)
+        {
+            const TabSnapshot& oldTab = previous[index];
+            int newIndex = FindTabIndex(current, oldTab.TabId);
+            if (newIndex < 0)
+            {
+                payload.Kind = EventKindTabClosed;
+                payload.ChangedTabId = oldTab.TabId;
+                payload.ChangedTabIndex = oldTab.Index;
+                payload.PreviousTabIndex = oldTab.Index;
+                Publish(&payload);
+            }
+            else
+            {
+                int oldFlags = oldTab.Flags & Salamatrix::Sides::TabFlagDetached;
+                int newFlags = current[newIndex].Flags &
+                               Salamatrix::Sides::TabFlagDetached;
+                if (oldFlags != newFlags)
+                {
+                    if (oldFlags == 0)
+                        payload.Kind = EventKindWindowDetached;
+                    else
+                        payload.Kind = EventKindWindowAttached;
+                    payload.ChangedTabId = oldTab.TabId;
+                    payload.ChangedTabIndex = newIndex;
+                    payload.PreviousTabIndex = oldTab.Index;
+                    Publish(&payload);
+                }
+            }
+        }
+
+        for (size_t index = 0; index < current.size(); ++index)
+        {
+            const TabSnapshot& newTab = current[index];
+            int oldIndex = FindTabIndex(previous, newTab.TabId);
+            if (oldIndex < 0)
+            {
+                payload.Kind = EventKindTabCreated;
+                payload.ChangedTabId = newTab.TabId;
+                payload.ChangedTabIndex = newTab.Index;
+                payload.PreviousTabIndex = -1;
+                Publish(&payload);
+            }
+        }
+
+        if (current.size() == previous.size())
+        {
+            bool reordered = FALSE;
+            for (size_t index = 0; index < current.size(); ++index)
+            {
+                int oldIndex = FindTabIndex(previous, current[index].TabId);
+                if (oldIndex >= 0 &&
+                    oldIndex != static_cast<int>(index))
+                {
+                    payload.Kind = EventKindTabReordered;
+                    payload.ChangedTabId = current[index].TabId;
+                    payload.ChangedTabIndex = current[index].Index;
+                    payload.PreviousTabIndex = oldIndex;
+                    Publish(&payload);
+                    reordered = TRUE;
+                    break;
+                }
+            }
+            if (!reordered && current.size() > 1)
+            {
+                for (size_t index = 0; index + 1 < current.size(); ++index)
+                {
+                    int oldIndex = FindTabIndex(previous, current[index].TabId);
+                    if (oldIndex != static_cast<int>(index))
+                    {
+                        payload.Kind = EventKindTabReordered;
+                        payload.ChangedTabId = current[index].TabId;
+                        payload.ChangedTabIndex = current[index].Index;
+                        payload.PreviousTabIndex = oldIndex;
+                        Publish(&payload);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    void WINAPI HandleTabChangedLifecycle(Sides::SideReference side)
+    {
+        std::vector<TabSnapshot> current;
+        if (!CollectTabSnapshot(side, current))
+            return;
+
+        bool& initialized =
+            side == Sides::SideReferenceRight ? LastTabsRightInitialized
+                                               : LastTabsLeftInitialized;
+        if (!initialized)
+        {
+            if (side == Sides::SideReferenceRight)
+                LastTabsRight = current;
+            else
+                LastTabsLeft = current;
+            initialized = true;
+            return;
+        }
+
+        PublishTabLifecycleEvents(side, current);
+
+        if (side == Sides::SideReferenceRight)
+            LastTabsRight = current;
+        else
+            LastTabsLeft = current;
     }
 
     void WINAPI PublishHostEvent(int event, DWORD parameter)
@@ -369,6 +602,13 @@ public:
             payload.ActivePanel = parameter == PANEL_RIGHT
                                       ? PANEL_RIGHT
                                       : PANEL_LEFT;
+            if (SidesService != NULL)
+            {
+                HandleTabChangedLifecycle(
+                    payload.ActivePanel == PANEL_RIGHT
+                        ? Sides::SideReferenceRight
+                        : Sides::SideReferenceLeft);
+            }
             break;
         default:
             return;
@@ -382,17 +622,7 @@ public:
                 payload.ActivePanel == PANEL_RIGHT
                     ? Sides::SideReferenceRight
                     : Sides::SideReferenceLeft;
-            Sides::TabInfo tab;
-            if (SidesService->GetActiveTabInfo(side, &tab))
-            {
-                payload.ActiveTabId = tab.TabId;
-                payload.PathType = tab.PathType;
-                SidesService->GetTabPath(
-                    tab.TabId,
-                    payload.Path,
-                    _countof(payload.Path),
-                    &payload.PathType);
-            }
+            FillActiveSideMetadata(payload, side);
         }
         Publish(&payload);
     }

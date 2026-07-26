@@ -1354,6 +1354,16 @@ static const char* RuntimeEventName(
         return "selectionChanged";
     case Salamatrix::Events::EventKindTabChanged:
         return "tabChanged";
+    case Salamatrix::Events::EventKindTabCreated:
+        return "tabCreated";
+    case Salamatrix::Events::EventKindTabClosed:
+        return "tabClosed";
+    case Salamatrix::Events::EventKindTabReordered:
+        return "tabReordered";
+    case Salamatrix::Events::EventKindWindowDetached:
+        return "windowDetached";
+    case Salamatrix::Events::EventKindWindowAttached:
+        return "windowAttached";
     case Salamatrix::Events::EventKindFileChanged:
         return "fileChanged";
     default:
@@ -1368,7 +1378,7 @@ static BOOL RuntimeEventKindFromName(
     if (kind == NULL)
         return FALSE;
     for (int value = Salamatrix::Events::EventKindHostStartup;
-         value <= Salamatrix::Events::EventKindFileChanged;
+         value <= Salamatrix::Events::EventKindWindowAttached;
          ++value)
     {
         Salamatrix::Events::EventKind candidate =
@@ -1512,13 +1522,27 @@ BOOL WINAPI CScriptInfo::RuntimeEventCallback(
     if (name == NULL)
         return FALSE;
     char tabId[32];
+    char changedTabId[32];
     _ui64toa_s(payload->ActiveTabId, tabId, _countof(tabId), 10);
+    const bool hasLifecycleFields =
+        payload->StructSize >= sizeof(Salamatrix::Events::EventPayload);
+    const ULONGLONG changedTab = hasLifecycleFields
+                                     ? payload->ChangedTabId
+                                     : 0;
+    const int tabIndex = hasLifecycleFields ? payload->ChangedTabIndex : -1;
+    const int previousTabIndex =
+        hasLifecycleFields ? payload->PreviousTabIndex : -1;
+    _ui64toa_s(changedTab, changedTabId, _countof(changedTabId), 10);
     std::string eventJson =
         std::string("{\"event\":\"") + name +
         "\",\"parameter\":" + std::to_string(payload->Parameter) +
         ",\"activePanel\":" + std::to_string(payload->ActivePanel) +
         ",\"tabId\":\"" + tabId +
-        "\",\"pathType\":" + std::to_string(payload->PathType) +
+        "\",\"changedTabId\":\"" + changedTabId +
+        "\",\"tabIndex\":" + std::to_string(tabIndex) +
+        ",\"previousTabIndex\":" +
+        std::to_string(previousTabIndex) +
+        ",\"pathType\":" + std::to_string(payload->PathType) +
         ",\"path\":\"" + JsonEscapeRuntimeText(payload->Path) + "\"}";
     std::string frame;
     if (!Salamatrix::Runtime::Protocol::LineCodec::Encode(

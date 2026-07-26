@@ -317,6 +317,16 @@ OnTabClosed
 OnWindowDetached
 OnWindowAttached
 </code></pre>
+<p>V aktuálním MVP se události tabů a odpojených oken odvozují z po sobě
+jdoucích snapshotů levé nebo pravé strany při <code>PLUGINEVENT_TABCHANGED</code>.
+První snapshot je pouze baseline, takže změna z prázdné strany na první tab
+se správně hlásí jako <code>tabCreated</code>. Události
+<code>tabCreated</code>, <code>tabClosed</code>, <code>tabReordered</code>,
+<code>windowDetached</code> a <code>windowAttached</code> jsou doručeny před
+stávající <code>tabChanged</code>; payload nese stabilní
+<code>changedTabId</code>, <code>tabIndex</code> a
+<code>previousTabIndex</code>. Přímé core hooky pro file-operace a bohatší
+window lifecycle zůstávají v GAP analýze.</p>
 <p>Například Python extension:</p>
 <pre><code class="language-python">def on_path_changed(event):
     if is_git_repository(event.new_path):

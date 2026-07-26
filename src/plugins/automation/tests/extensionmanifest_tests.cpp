@@ -47,7 +47,9 @@ static void TestCompleteManifest()
         "{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"default\":true},"
         "{\"key\":\"maxItems\",\"type\":\"integer\",\"default\":42}"
         "],"
-        "\"events\":[\"pathChanged\",\"selectionChanged\",\"fileChanged\"],"
+        "\"events\":[\"pathChanged\",\"selectionChanged\",\"tabCreated\","
+        "\"tabClosed\",\"tabReordered\",\"windowDetached\","
+        "\"windowAttached\",\"fileChanged\"],"
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
         "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\","
@@ -92,8 +94,10 @@ static void TestCompleteManifest()
     CHECK(manifest.Settings[2].Type == ExtensionManifestSettingInteger);
     CHECK(manifest.Settings[2].IntegerDefault == 42);
     CHECK(manifest.EventsDeclared);
-    CHECK(manifest.Events.size() == 3);
+    CHECK(manifest.Events.size() == 8);
     CHECK(manifest.Events[0] == "pathChanged");
+    CHECK(manifest.Events[2] == "tabCreated");
+    CHECK(manifest.Events[7] == "fileChanged");
     CHECK(manifest.Commands.size() == 2);
     CHECK(manifest.Commands[0].Id == "Example.First");
     CHECK(manifest.Commands[0].Menu == "both");

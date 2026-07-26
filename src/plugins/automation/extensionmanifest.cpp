@@ -1062,7 +1062,8 @@ bool CExtensionManifest::Parse(
             "activePanelChanged", "sidePathChanged",
             "sideSelectionChanged", "sideTabChanged", "sideRefreshed",
             "pathChanged", "selectionChanged", "tabChanged",
-            "fileChanged"};
+            "tabCreated", "tabClosed", "tabReordered", "windowDetached",
+            "windowAttached", "fileChanged"};
         for (size_t i = 0; i < events->Array.size(); ++i)
         {
             if (events->Array[i].Type != JsonString)

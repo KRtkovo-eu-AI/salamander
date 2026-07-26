@@ -140,3 +140,38 @@ as `Stopped`, clean exits as `Exited`, nonzero exits as `Failed`, and include a
 bounded message. The default ABI-compatible implementation still derives the
 running/exited state from the existing session methods, so older providers
 remain usable while newer providers can append richer diagnostics.
+
+## Tab lifecycle event bridge
+
+The native Salamatrix.Events service keeps its original vtable and event
+payload prefix. Event kinds 16–20 are append-only:
+
+| Event name | Meaning |
+| --- | --- |
+| tabCreated | A tab id exists in the current side snapshot but not the previous one. |
+| tabClosed | A previous tab id is absent from the current side snapshot. |
+| tabReordered | The tab order changed while the side retained the same tab ids. |
+| windowDetached | A tab's detached flag changed from clear to set. |
+| windowAttached | A tab's detached flag changed from set to clear. |
+
+The host compares heap-backed left/right tab snapshots when the core emits
+PLUGINEVENT_TABCHANGED. The first snapshot is only a baseline, including an
+empty side; the next transition from zero tabs therefore reports tabCreated.
+Inferred lifecycle events are published before the existing tabChanged
+notification. Their appended payload fields are changedTabId, tabIndex, and
+previousTabIndex; tabId in the worker JSON frame remains the active tab id for
+compatibility. Older V1 payloads are still accepted for legacy events and
+receive 0/-1 defaults for the appended JSON fields.
+
+Manifest extensions may subscribe only to event names in the existing Plugin
+Manager manifest allow-list. The native Events schema, runtime event bridge,
+and SalamatrixAI focused events API slice publish the same names. This is
+snapshot inference, not a new core Salamander event ABI; direct
+create/close/reorder/window hooks remain a later GAP item.
+
+The slice was rebuilt into build\verification\tab-lifecycle and verified by
+the native event tests, manifest parser tests, runtime protocol/schema tests,
+Automation/Salamatrix Debug x64 builds, all four standalone provider builds,
+all four worker syntax checks, and the explicit isolated
+SALAMATRIX_WORKER_ROOT Python/PowerShell/PHP process-runtime test. No
+Salamander process was started or controlled.

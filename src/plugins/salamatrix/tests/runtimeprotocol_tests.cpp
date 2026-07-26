@@ -461,6 +461,16 @@ void TestAssistantService()
     Check(strstr(service.GetApiDescription(), "\"filter\"") != NULL &&
               strstr(service.GetApiDescription(), "\"save\"") != NULL,
           "assistant API description schema exposes filter/save names");
+    Check(strstr(service.GetApiDescription(), "\"tabCreated\"") != NULL &&
+              strstr(service.GetApiDescription(), "\"tabClosed\"") != NULL &&
+              strstr(service.GetApiDescription(), "\"tabReordered\"") != NULL &&
+              strstr(service.GetApiDescription(), "\"windowDetached\"") != NULL &&
+              strstr(service.GetApiDescription(), "\"windowAttached\"") != NULL,
+          "assistant API description schema exposes tab lifecycle events");
+    const char* eventSlice = service.GetApiDescriptionSlice("events");
+    Check(eventSlice != NULL && strstr(eventSlice, "\"tabCreated\"") != NULL &&
+              strstr(eventSlice, "\"windowAttached\"") != NULL,
+          "assistant API description exposes lifecycle events slice");
     Check(strstr(service.GetApiDescriptionSlice("unknown"),
                  "\"objects\":{}") != NULL,
           "assistant API description handles unknown slices safely");
