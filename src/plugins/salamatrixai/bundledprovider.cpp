@@ -149,9 +149,61 @@ static bool ExtractJsonObject(const std::string& value, size_t* first, size_t* l
 {
     if (first == NULL || last == NULL)
         return false;
-    *first = value.find('{');
-    *last = value.find_last_of('}');
-    return *first != std::string::npos && *last > *first;
+
+    size_t fallbackFirst = std::string::npos;
+    size_t fallbackLast = std::string::npos;
+    for (size_t start = 0; start < value.size(); ++start)
+    {
+        if (value[start] != '{')
+            continue;
+        int depth = 0;
+        bool inString = false;
+        bool escaped = false;
+        for (size_t end = start; end < value.size(); ++end)
+        {
+            const char character = value[end];
+            if (inString)
+            {
+                if (escaped)
+                    escaped = false;
+                else if (character == '\\')
+                    escaped = true;
+                else if (character == '"')
+                    inString = false;
+                continue;
+            }
+            if (character == '"')
+                inString = true;
+            else if (character == '{')
+                ++depth;
+            else if (character == '}' && --depth == 0)
+            {
+                if (fallbackFirst == std::string::npos)
+                {
+                    fallbackFirst = start;
+                    fallbackLast = end;
+                }
+
+                const std::string candidate = value.substr(start, end - start + 1);
+                std::string title;
+                std::string script;
+                if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                        candidate.c_str(), "title", &title) &&
+                    Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                        candidate.c_str(), "script", &script))
+                {
+                    *first = start;
+                    *last = end;
+                    return true;
+                }
+                break;
+            }
+        }
+    }
+
+    *first = fallbackFirst;
+    *last = fallbackLast;
+    return fallbackFirst != std::string::npos;
 }
 
 static bool IsJsonObject(const std::string& value)
