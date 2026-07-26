@@ -165,6 +165,65 @@ static void TestLocaleText()
     CHECK(!error.Message.empty());
 }
 
+static void TestSettingMigrations()
+{
+    const char* json =
+        "{\"id\":\"Example.Migrations\",\"runtime\":\"JS\","
+        "\"entryPoint\":\"main.js\",\"settingsVersion\":3,"
+        "\"settingsMigrations\":["
+        "{\"from\":0,\"to\":1,\"remove\":[\"legacy\"]},"
+        "{\"from\":1,\"to\":2,\"rename\":[{\"from\":\"oldName\",\"to\":\"newName\"}]},"
+        "{\"from\":2,\"to\":3,\"remove\":[\"obsolete\"]}]}";
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    CHECK(Parse(json, manifest, error));
+    CHECK(manifest.SettingsVersion == 3);
+    CHECK(manifest.SettingsMigrations.size() == 3);
+    if (manifest.SettingsMigrations.size() == 3)
+    {
+        CHECK(manifest.SettingsMigrations[0].FromVersion == 0);
+        CHECK(manifest.SettingsMigrations[0].ToVersion == 1);
+        CHECK(manifest.SettingsMigrations[0].Operations.size() == 1);
+        CHECK(manifest.SettingsMigrations[0].Operations[0].Remove);
+        CHECK(manifest.SettingsMigrations[1].FromVersion == 1);
+        CHECK(manifest.SettingsMigrations[1].ToVersion == 2);
+        CHECK(manifest.SettingsMigrations[1].Operations.size() == 1);
+        CHECK(!manifest.SettingsMigrations[1].Operations[0].Remove);
+        CHECK(manifest.SettingsMigrations[1].Operations[0].FromKey == "oldName");
+        CHECK(manifest.SettingsMigrations[1].Operations[0].ToKey == "newName");
+        CHECK(manifest.SettingsMigrations[2].FromVersion == 2);
+        CHECK(manifest.SettingsMigrations[2].ToVersion == 3);
+        CHECK(manifest.SettingsMigrations[2].Operations.size() == 1);
+        CHECK(manifest.SettingsMigrations[2].Operations[0].Remove);
+        CHECK(manifest.SettingsMigrations[2].Operations[0].FromKey == "obsolete");
+    }
+
+    const char* invalid[] = {
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settingsVersion\":65536}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settingsVersion\":-1}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settingsMigrations\":[{\"from\":1,\"to\":2}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settingsMigrations\":[{\"from\":2,\"to\":3,\"rename\":[{\"from\":\"a\",\"to\":\"b\"},{\"from\":\"A\",\"to\":\"c\"}]}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settingsMigrations\":[{\"from\":2,\"to\":3,\"rename\":[{\"from\":\"a\",\"to\":\"b\"}],\"remove\":[\"B\"]}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settingsMigrations\":[{\"from\":1,\"to\":2,\"remove\":[\"a\"]},{\"from\":1,\"to\":3,\"remove\":[\"b\"]}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settingsMigrations\":[{\"from\":1,\"to\":2,\"remove\":[\"a\"]},{\"from\":2,\"to\":3,\"remove\":[\"b\"]},{\"from\":3,\"to\":2,\"remove\":[\"c\"]}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settingsVersion\":3,\"settingsMigrations\":[{\"from\":1,\"to\":2,\"remove\":[\"a\"]},{\"from\":2,\"to\":3,\"remove\":[\"b\"]}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"settings\":[{\"key\":\"salamatrix.settings.version\",\"type\":\"integer\"}]}"
+    };
+    for (size_t i = 0; i < _countof(invalid); ++i)
+    {
+        CExtensionManifest invalidManifest;
+        CExtensionManifestError invalidError;
+        CHECK(!Parse(invalid[i], invalidManifest, invalidError));
+        CHECK(!invalidError.Message.empty());
+    }
+
+    const char* omitted =
+        "{\"id\":\"Example.Legacy\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}";
+    CHECK(Parse(omitted, manifest, error));
+    CHECK(manifest.SettingsVersion == 0);
+    CHECK(manifest.SettingsMigrations.empty());
+}
+
 static void TestInvalidDocuments()
 {
     const char* invalid[] = {
@@ -227,6 +286,7 @@ int main()
     TestCompleteManifest();
     TestDefaults();
     TestLocaleText();
+    TestSettingMigrations();
     TestInvalidDocuments();
 
     if (g_failures != 0)

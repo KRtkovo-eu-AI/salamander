@@ -98,6 +98,31 @@ struct CExtensionManifestSetting
     }
 };
 
+struct CExtensionManifestSettingMigrationOperation
+{
+    std::string FromKey;
+    std::string ToKey;
+    bool Remove;
+
+    CExtensionManifestSettingMigrationOperation()
+        : Remove(false)
+    {
+    }
+};
+
+struct CExtensionManifestSettingMigration
+{
+    unsigned int FromVersion;
+    unsigned int ToVersion;
+    std::vector<CExtensionManifestSettingMigrationOperation> Operations;
+
+    CExtensionManifestSettingMigration()
+        : FromVersion(0),
+          ToVersion(0)
+    {
+    }
+};
+
 struct CExtensionManifestLocale
 {
     // BCP-47 language tag (for example "cs" or "en-US") and a package-owned
@@ -152,6 +177,8 @@ public:
     // Optional typed settings declarations.  Declarations are metadata only;
     // values remain isolated in Salamatrix.Storage under the manifest id.
     std::vector<CExtensionManifestSetting> Settings;
+    unsigned int SettingsVersion;
+    std::vector<CExtensionManifestSettingMigration> SettingsMigrations;
     // Optional event allow-list.  When EventsDeclared is true, a runtime may
     // subscribe only to names listed here; an absent member keeps legacy
     // manifests compatible and allows the complete event surface.

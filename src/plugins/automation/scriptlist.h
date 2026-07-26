@@ -120,6 +120,8 @@ private:
     std::vector<std::string> m_salamatrixCapabilities;
     std::vector<std::string> m_salamatrixDependencies;
     std::vector<CExtensionManifestSetting> m_salamatrixSettings;
+    unsigned int m_salamatrixSettingsVersion;
+    std::vector<CExtensionManifestSettingMigration> m_salamatrixSettingsMigrations;
     bool m_bSalamatrixEventsDeclared;
     std::vector<std::string> m_salamatrixEvents;
     struct SALAMATRIX_MANIFEST_COMMAND

@@ -737,6 +737,31 @@ namespace
         }
         return true;
     }
+
+    static bool ContainsIdentifierIgnoreCase(
+        const std::vector<std::string>& values,
+        const std::string& value)
+    {
+        for (size_t i = 0; i < values.size(); ++i)
+        {
+            if (_stricmp(values[i].c_str(), value.c_str()) == 0)
+                return true;
+        }
+        return false;
+    }
+
+    static bool ContainsMigrationVersion(
+        const std::vector<CExtensionManifestSettingMigration>& migrations,
+        unsigned int version,
+        bool from)
+    {
+        for (size_t i = 0; i < migrations.size(); ++i)
+        {
+            if ((from ? migrations[i].FromVersion : migrations[i].ToVersion) == version)
+                return true;
+        }
+        return false;
+    }
 } // namespace
 
 CExtensionManifest::CExtensionManifest()
@@ -760,6 +785,8 @@ void CExtensionManifest::Clear()
     Dependencies.clear();
     Locales.clear();
     Settings.clear();
+    SettingsVersion = 0;
+    SettingsMigrations.clear();
     EventsDeclared = false;
     Events.clear();
     Commands.clear();
@@ -989,6 +1016,8 @@ bool CExtensionManifest::Parse(
                 return false;
             if (!IsIdentifier(setting.Key))
                 return SetValidationError(error, "Setting key contains unsupported characters or is too long");
+            if (_stricmp(setting.Key.c_str(), "salamatrix.settings.version") == 0)
+                return SetValidationError(error, "Setting key is reserved for Salamatrix settings migration metadata");
             if (setting.Label.empty())
                 setting.Label = setting.Key;
             if (setting.Label.size() > 255 || setting.Description.size() > 1023 ||
@@ -1047,6 +1076,150 @@ bool CExtensionManifest::Parse(
                         error, "Setting keys must be unique inside one manifest");
             }
             Settings.push_back(setting);
+        }
+    }
+
+    int settingsVersion = 0;
+    if (!ReadInteger(root, "settingsVersion", 0, 0, 65535, settingsVersion, error))
+        return false;
+    SettingsVersion = static_cast<unsigned int>(settingsVersion);
+
+    const JsonValue* migrations = root.Find("settingsMigrations");
+    if (migrations != NULL)
+    {
+        if (migrations->Type != JsonArray)
+            return SetValidationError(error, "settingsMigrations must be an array");
+        if (migrations->Array.size() > 32)
+            return SetValidationError(error, "Manifest contains more than 32 setting migrations");
+
+        for (size_t i = 0; i < migrations->Array.size(); ++i)
+        {
+            const JsonValue& migrationValue = migrations->Array[i];
+            if (migrationValue.Type != JsonObject)
+                return SetValidationError(error, "Every settings migration must be an object");
+
+            int fromVersion = 0;
+            int toVersion = 0;
+            if (!ReadInteger(migrationValue, "from", -1, 0, 65535, fromVersion, error) ||
+                !ReadInteger(migrationValue, "to", -1, 1, 65535, toVersion, error))
+                return false;
+            if (fromVersion < 0 || toVersion < 0)
+                return SetValidationError(error, "Every settings migration requires from and to versions");
+            if (fromVersion >= toVersion)
+                return SetValidationError(error, "Setting migration from version must be lower than to version");
+
+            CExtensionManifestSettingMigration migration;
+            migration.FromVersion = static_cast<unsigned int>(fromVersion);
+            migration.ToVersion = static_cast<unsigned int>(toVersion);
+            if (ContainsMigrationVersion(SettingsMigrations, migration.FromVersion, true) ||
+                ContainsMigrationVersion(SettingsMigrations, migration.ToVersion, false))
+                return SetValidationError(error, "Setting migration versions must form a unique forward chain");
+
+            std::vector<std::string> renameSources;
+            std::vector<std::string> renameTargets;
+            std::vector<std::string> removedKeys;
+            const JsonValue* rename = migrationValue.Find("rename");
+            if (rename != NULL)
+            {
+                if (rename->Type != JsonArray)
+                    return SetValidationError(error, "Setting migration rename must be an array");
+                if (rename->Array.size() > 32)
+                    return SetValidationError(error, "Setting migration contains more than 32 rename operations");
+                for (size_t j = 0; j < rename->Array.size(); ++j)
+                {
+                    const JsonValue& operationValue = rename->Array[j];
+                    if (operationValue.Type != JsonObject)
+                        return SetValidationError(error, "Every setting rename operation must be an object");
+                    std::string fromKey;
+                    std::string toKey;
+                    if (!ReadString(operationValue, "from", true, fromKey, error) ||
+                        !ReadString(operationValue, "to", true, toKey, error))
+                        return false;
+                    if (!IsIdentifier(fromKey) || !IsIdentifier(toKey))
+                        return SetValidationError(error, "Setting migration keys must be valid identifiers");
+                    if (_stricmp(fromKey.c_str(), "salamatrix.settings.version") == 0 ||
+                        _stricmp(toKey.c_str(), "salamatrix.settings.version") == 0)
+                        return SetValidationError(error, "Setting migration key is reserved for Salamatrix metadata");
+                    if (ContainsIdentifierIgnoreCase(renameSources, fromKey) ||
+                        ContainsIdentifierIgnoreCase(renameTargets, toKey) ||
+                        ContainsIdentifierIgnoreCase(renameSources, toKey) ||
+                        ContainsIdentifierIgnoreCase(renameTargets, fromKey) ||
+                        ContainsIdentifierIgnoreCase(removedKeys, fromKey) ||
+                        ContainsIdentifierIgnoreCase(removedKeys, toKey))
+                        return SetValidationError(error, "Setting migration keys must not conflict or repeat");
+                    CExtensionManifestSettingMigrationOperation operation;
+                    operation.FromKey = fromKey;
+                    operation.ToKey = toKey;
+                    operation.Remove = false;
+                    migration.Operations.push_back(operation);
+                    renameSources.push_back(fromKey);
+                    renameTargets.push_back(toKey);
+                }
+            }
+
+            const JsonValue* remove = migrationValue.Find("remove");
+            if (remove != NULL)
+            {
+                if (remove->Type != JsonArray)
+                    return SetValidationError(error, "Setting migration remove must be an array");
+                if (remove->Array.size() > 32)
+                    return SetValidationError(error, "Setting migration contains more than 32 removals");
+                for (size_t j = 0; j < remove->Array.size(); ++j)
+                {
+                    if (remove->Array[j].Type != JsonString ||
+                        !IsIdentifier(remove->Array[j].String))
+                        return SetValidationError(error, "Every setting removal key must be a valid identifier");
+                    const std::string& key = remove->Array[j].String;
+                    if (_stricmp(key.c_str(), "salamatrix.settings.version") == 0)
+                        return SetValidationError(error, "Setting migration key is reserved for Salamatrix metadata");
+                    if (ContainsIdentifierIgnoreCase(removedKeys, key) ||
+                        ContainsIdentifierIgnoreCase(renameSources, key) ||
+                        ContainsIdentifierIgnoreCase(renameTargets, key))
+                        return SetValidationError(error, "Setting migration keys must not conflict or repeat");
+                    CExtensionManifestSettingMigrationOperation operation;
+                    operation.FromKey = key;
+                    operation.Remove = true;
+                    migration.Operations.push_back(operation);
+                    removedKeys.push_back(key);
+                }
+            }
+            if (migration.Operations.empty())
+                return SetValidationError(error, "Setting migration must contain rename or remove operations");
+            SettingsMigrations.push_back(migration);
+        }
+
+        if (SettingsVersion == 0)
+            return SetValidationError(error, "Setting migrations require a positive settingsVersion");
+
+        std::vector<bool> used(SettingsMigrations.size(), false);
+        unsigned int currentVersion = 0;
+        for (size_t step = 0; currentVersion < SettingsVersion && step < 32; ++step)
+        {
+            size_t nextIndex = SettingsMigrations.size();
+            for (size_t migrationIndex = 0;
+                 migrationIndex < SettingsMigrations.size();
+                 ++migrationIndex)
+            {
+                if (SettingsMigrations[migrationIndex].FromVersion == currentVersion)
+                {
+                    nextIndex = migrationIndex;
+                    break;
+                }
+            }
+            if (nextIndex == SettingsMigrations.size() || used[nextIndex] ||
+                SettingsMigrations[nextIndex].ToVersion > SettingsVersion)
+                return SetValidationError(error, "Setting migrations must form one complete chain from version 0 to settingsVersion");
+            used[nextIndex] = true;
+            currentVersion = SettingsMigrations[nextIndex].ToVersion;
+        }
+        if (currentVersion != SettingsVersion)
+            return SetValidationError(error, "Setting migrations do not reach settingsVersion");
+        for (size_t migrationIndex = 0;
+             migrationIndex < used.size();
+             ++migrationIndex)
+        {
+            if (!used[migrationIndex])
+                return SetValidationError(error, "Setting migrations contain an unreachable record");
         }
     }
 

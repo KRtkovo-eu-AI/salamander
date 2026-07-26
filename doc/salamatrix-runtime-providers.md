@@ -140,6 +140,12 @@ framework-first unload guard. The AI helper does not add a runtime dependency
 or installer; it continues to consume the shared Salamatrix services. No
 Salamander process was started or controlled.
 
+Manifest settings migrations are intentionally host-side: the Automation
+discovery layer applies the bounded typed rename/remove chain before publishing
+the shared `storage.schema()` view. All four provider workers therefore keep
+the same storage wire contract and receive already-migrated values without a
+runtime-specific migration implementation.
+
 `RuntimeSessionDiagnostic` is a bounded value snapshot. It reports lifecycle
 state, process id, exit code, and a host/provider error code without exposing a
 process handle or provider-owned string. Current process providers additionally

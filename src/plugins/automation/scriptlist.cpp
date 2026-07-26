@@ -13,6 +13,7 @@
 
 #include "precomp.h"
 #include "scriptlist.h"
+#include "salamatrixsettings.h"
 #include "extensionmanifest.h"
 #include "scriptsite.h"
 #include "aututils.h"
@@ -677,6 +678,8 @@ CScriptInfo::CScriptInfo(
     m_bSalamatrixEventsDeclared = false;
     m_salamatrixDependencies.clear();
     m_salamatrixSettings.clear();
+    m_salamatrixSettingsVersion = 0;
+    m_salamatrixSettingsMigrations.clear();
     m_salamatrixEvents.clear();
     m_salamatrixManifestCommands.clear();
     m_bSalamatrixManifestCommandsPublished = false;
@@ -932,6 +935,8 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
     m_salamatrixCapabilities = manifest.Capabilities;
     m_salamatrixDependencies = manifest.Dependencies;
     m_salamatrixSettings = manifest.Settings;
+    m_salamatrixSettingsVersion = manifest.SettingsVersion;
+    m_salamatrixSettingsMigrations = manifest.SettingsMigrations;
     m_bSalamatrixEventsDeclared = manifest.EventsDeclared;
     m_salamatrixEvents = manifest.Events;
     ResolveManifestAssetPath(
@@ -999,6 +1004,11 @@ void CScriptInfo::InitializeSalamatrixSettings(
     Salamatrix::Storage::IStorageService* storage)
 {
     if (storage == NULL || m_szSalamatrixExtensionId[0] == '\0')
+        return;
+
+    if (!ApplySalamatrixSettingsMigrations(
+            storage, m_szSalamatrixExtensionId, m_salamatrixSettingsVersion,
+            m_salamatrixSettingsMigrations))
         return;
 
     for (size_t index = 0; index < m_salamatrixSettings.size(); ++index)

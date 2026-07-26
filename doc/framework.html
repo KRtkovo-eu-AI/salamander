@@ -361,6 +361,10 @@ settings["autoRefresh"] = True
 <li>oddělení dat jednotlivých extensionů,</li>
 <li>případně migraci mezi verzemi.</li>
 </ul>
+<p>V implementaci Salamatrix je migrace deklarována v manifestu přes bounded
+<code>settingsVersion</code> a <code>settingsMigrations</code>. Host aplikuje
+typed rename/remove operace před materializací defaultů a ukládá interní
+<code>salamatrix.settings.version</code>; veřejný Plugin SDK ABI se tím nemění.</p>
 <p>Například:</p>
 <pre><code class="language-text">Configuration/
 L¦¦ Extensions/
