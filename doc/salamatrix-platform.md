@@ -342,6 +342,11 @@ to unsubscribe itself safely. The current payload contains the event name,
 host parameter, active physical panel, active tab id, path type, and a copied
 path. The initial host mapping covers startup/shutdown, settings and
 configuration changes, color changes, panel swaps, and active-panel changes.
+Successful operations through the shared Sides API additionally publish
+`sidePathChanged`, `sideSelectionChanged`, `sideTabChanged`, and
+`sideRefreshed`. These operation events are available to all runtimes through
+the same SMX1 event channel; Salamander's legacy plugin-event ABI has no
+general hooks for user-driven path, selection, or tab changes yet.
 
 The Automation facade is:
 

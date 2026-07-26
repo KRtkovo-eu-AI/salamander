@@ -1023,6 +1023,14 @@ static const char* RuntimeEventName(
         return "panelsSwapped";
     case Salamatrix::Events::EventKindActivePanelChanged:
         return "activePanelChanged";
+    case Salamatrix::Events::EventKindSidePathChanged:
+        return "sidePathChanged";
+    case Salamatrix::Events::EventKindSideSelectionChanged:
+        return "sideSelectionChanged";
+    case Salamatrix::Events::EventKindSideTabChanged:
+        return "sideTabChanged";
+    case Salamatrix::Events::EventKindSideRefreshed:
+        return "sideRefreshed";
     default:
         return NULL;
     }
@@ -1035,7 +1043,7 @@ static BOOL RuntimeEventKindFromName(
     if (kind == NULL)
         return FALSE;
     for (int value = Salamatrix::Events::EventKindHostStartup;
-         value <= Salamatrix::Events::EventKindActivePanelChanged;
+         value <= Salamatrix::Events::EventKindSideRefreshed;
          ++value)
     {
         Salamatrix::Events::EventKind candidate =
@@ -2812,6 +2820,20 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         if (sides == NULL)
             return FALSE;
         BOOL activated = sides->ActivateTab(tabId.Value, focus);
+        if (activated)
+        {
+            Salamatrix::Sides::TabInfo tab;
+            Salamatrix::Sides::SideReference side =
+                Salamatrix::Sides::SideReferenceSource;
+            if (sides->GetTabInfoById(tabId.Value, &tab))
+                side = tab.PhysicalSide;
+            Salamatrix::Events::PublishSideOperation(
+                bridge->GetEventsService(),
+                sides,
+                Salamatrix::Events::EventKindSideTabChanged,
+                side,
+                0);
+        }
         std::string response =
             std::string("{\"ok\":") +
             (activated ? "true" : "false") +
@@ -2833,8 +2855,16 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         if (sides == NULL)
             return FALSE;
         int failReason = 0;
+        Salamatrix::Sides::SideReference side = RuntimeSideFromName(sideName);
         BOOL changed = sides->ChangeActiveTabPath(
-            RuntimeSideFromName(sideName), path.c_str(), &failReason);
+            side, path.c_str(), &failReason);
+        if (changed)
+            Salamatrix::Events::PublishSideOperation(
+                bridge->GetEventsService(),
+                sides,
+                Salamatrix::Events::EventKindSidePathChanged,
+                side,
+                0);
         std::string response =
             std::string("{\"ok\":") +
             (changed ? "true" : "false") +
@@ -2858,8 +2888,16 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
         if (sides == NULL)
             return FALSE;
+        Salamatrix::Sides::SideReference side = RuntimeSideFromName(sideName);
         BOOL refreshed = sides->Refresh(
-            RuntimeSideFromName(sideName), forceRefresh, focusFirstNewItem);
+            side, forceRefresh, focusFirstNewItem);
+        if (refreshed)
+            Salamatrix::Events::PublishSideOperation(
+                bridge->GetEventsService(),
+                sides,
+                Salamatrix::Events::EventKindSideRefreshed,
+                side,
+                0);
         return CopyRuntimeHostResult(
             std::string("{\"ok\":") +
                 (refreshed ? "true}" : "false}"),
@@ -2888,11 +2926,14 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         Salamatrix::Runtime::Protocol::Json::FindBoolMember(
             payloadJson, "partVisible", &partVisible);
 
+        Salamatrix::Sides::SideReference side = RuntimeSideFromName(sideName);
         BOOL changed = FALSE;
+        DWORD eventParameter = 0;
         if (method == "salamander.sides.selectAll")
         {
             changed = sides->SelectAll(
-                RuntimeSideFromName(sideName), select, repaint);
+                side, select, repaint);
+            eventParameter = select ? 1 : 0;
         }
         else
         {
@@ -2902,11 +2943,19 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 return FALSE;
             if (method == "salamander.sides.selectItem")
                 changed = sides->SetItemSelected(
-                    RuntimeSideFromName(sideName), index, select, repaint);
+                    side, index, select, repaint);
             else
                 changed = sides->FocusItem(
-                    RuntimeSideFromName(sideName), index, partVisible);
+                    side, index, partVisible);
+            eventParameter = static_cast<DWORD>(index);
         }
+        if (changed)
+            Salamatrix::Events::PublishSideOperation(
+                bridge->GetEventsService(),
+                sides,
+                Salamatrix::Events::EventKindSideSelectionChanged,
+                side,
+                eventParameter);
         return CopyRuntimeHostResult(
             std::string("{\"ok\":") + (changed ? "true" : "false") +
                 ",\"changed\":" + (changed ? "true}" : "false}"),

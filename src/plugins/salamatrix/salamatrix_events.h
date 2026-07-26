@@ -28,7 +28,14 @@ enum EventKind
     EventKindConfigurationChanged = 4,
     EventKindColorsChanged = 5,
     EventKindPanelsSwapped = 6,
-    EventKindActivePanelChanged = 7
+    EventKindActivePanelChanged = 7,
+    // These operation events are emitted when the shared Sides API performs
+    // the corresponding operation.  Salamander's legacy PLUGINEVENT contract
+    // does not expose equivalent hooks for path/selection/tab changes.
+    EventKindSidePathChanged = 8,
+    EventKindSideSelectionChanged = 9,
+    EventKindSideTabChanged = 10,
+    EventKindSideRefreshed = 11
 };
 
 struct EventPayload
@@ -73,6 +80,56 @@ public:
 protected:
     virtual ~IEventsService() {}
 };
+
+// Publish a side operation with a bounded, runtime-neutral snapshot.  This is
+// deliberately a free helper instead of a new virtual method so the original
+// IEventsService vtable remains ABI-compatible with 1.0 providers.
+inline BOOL WINAPI PublishSideOperation(
+    IEventsService* events,
+    Sides::ISidesService* sides,
+    EventKind kind,
+    Sides::SideReference side,
+    DWORD parameter)
+{
+    if (events == NULL || sides == NULL ||
+        (kind != EventKindSidePathChanged &&
+         kind != EventKindSideSelectionChanged &&
+         kind != EventKindSideTabChanged &&
+         kind != EventKindSideRefreshed))
+        return FALSE;
+
+    EventPayload payload;
+    payload.Kind = kind;
+    payload.Parameter = parameter;
+    Sides::SideReference physicalSide = sides->ResolveSide(side);
+    payload.ActivePanel = physicalSide == Sides::SideReferenceRight
+                              ? PANEL_RIGHT
+                              : PANEL_LEFT;
+
+    Sides::TabInfo tab;
+    if (sides->GetActiveTabInfo(physicalSide, &tab))
+    {
+        payload.ActiveTabId = tab.TabId;
+        payload.PathType = tab.PathType;
+        if (!sides->GetTabPath(
+                tab.TabId,
+                payload.Path,
+                _countof(payload.Path),
+                &payload.PathType))
+        {
+            payload.Path[0] = '\0';
+        }
+    }
+    else
+    {
+        sides->GetPath(
+            physicalSide,
+            payload.Path,
+            _countof(payload.Path),
+            &payload.PathType);
+    }
+    return events->Publish(&payload);
+}
 
 class EventService : public IEventsService
 {
@@ -135,7 +192,7 @@ public:
         if (callback == NULL ||
             subscriptionId == NULL ||
             kind < EventKindHostStartup ||
-            kind > EventKindActivePanelChanged)
+            kind > EventKindSideRefreshed)
         {
             return FALSE;
         }

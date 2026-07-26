@@ -137,6 +137,24 @@ void TestCapacityAndValidation()
               &state,
               &rejectedId) == FALSE,
           "reject invalid event kind");
+
+    const Salamatrix::Events::EventKind operationKinds[] = {
+        Salamatrix::Events::EventKindSidePathChanged,
+        Salamatrix::Events::EventKindSideSelectionChanged,
+        Salamatrix::Events::EventKindSideTabChanged,
+        Salamatrix::Events::EventKindSideRefreshed};
+    for (int index = 0; index < _countof(operationKinds); ++index)
+    {
+        ULONGLONG operationId = 0;
+        Check(
+            events.Subscribe(
+                operationKinds[index],
+                CountCallback,
+                &state,
+                &operationId) != FALSE,
+            "accept shared-side operation event kind");
+        events.Unsubscribe(operationId);
+    }
 }
 } // namespace
 
