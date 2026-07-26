@@ -413,6 +413,29 @@ static std::string WideToUtf8String(const std::wstring& value)
     return std::string(buffer.data());
 }
 
+static std::string AssistantFailureText(
+    const Salamatrix::AI::AssistantResponse& response)
+{
+    std::string message;
+    if (response.Message[0] != L'\0')
+        message = WideToUtf8String(std::wstring(response.Message));
+    if (message.empty())
+        message = LoadAssistantString(IDS_AI_GENERATE_FAILED);
+
+    // A provider can return a syntactically valid JSON object that still
+    // fails the Salamatrix contract. Preserve that response for diagnosis.
+    if (response.ResponseJson[0] != '\0')
+    {
+        message += "\n\nRaw model response:\n";
+        const size_t length = strlen(response.ResponseJson);
+        message.append(response.ResponseJson,
+                       length > 12000 ? 12000 : length);
+        if (length > 12000)
+            message += "\n... (truncated)";
+    }
+    return message;
+}
+
 static bool HttpGenerateRequest(
     const std::wstring& url,
     const std::wstring& model,
@@ -1084,9 +1107,11 @@ static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* e
 
     if (!generated)
     {
+        const std::string failure = AssistantFailureText(response);
+        chat->History->AddItem((std::string("AI error: ") + failure).c_str());
         if (g_ui != NULL)
             g_ui->ShowMessageBox(chat->Parent,
-                                 LoadAssistantString(IDS_AI_GENERATE_FAILED).c_str(),
+                                 failure.c_str(),
                                  LoadAssistantString(IDS_AI_TITLE).c_str(),
                                  MB_OK | MB_ICONWARNING);
         chat->Prompt->SetText("");
