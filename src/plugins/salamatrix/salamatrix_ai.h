@@ -134,6 +134,30 @@ struct AssistantResponse
     }
 };
 
+struct AssistantValidationResult
+{
+    BOOL Valid;
+    DWORD IssueFlags;
+    char Message[512];
+
+    AssistantValidationResult()
+        : Valid(FALSE),
+          IssueFlags(0)
+    {
+        Message[0] = '\0';
+    }
+};
+
+enum AssistantValidationIssueFlags
+{
+    AssistantValidationIssueNone = 0,
+    AssistantValidationIssueShape = 0x00000001,
+    AssistantValidationIssueCapability = 0x00000002,
+    AssistantValidationIssueEffect = 0x00000004,
+    AssistantValidationIssueRuntime = 0x00000008,
+    AssistantValidationIssueUnsafeOperation = 0x00000010
+};
+
 class IAssistantProvider
 {
 public:
@@ -175,6 +199,32 @@ public:
     {
         (void)index;
         return NULL;
+    }
+
+    /// Validates structured output and its static script contract. Appended
+    /// so older AI service providers remain ABI-compatible.
+    virtual BOOL WINAPI Validate(
+        const AssistantRequest* request,
+        AssistantResponse* response,
+        AssistantValidationResult* validation)
+    {
+        (void)request;
+        (void)response;
+        if (validation != NULL)
+            *validation = AssistantValidationResult();
+        return FALSE;
+    }
+
+    /// Runs generation with a bounded automatic repair loop. Older services
+    /// fall back to one Generate call through this default implementation.
+    virtual BOOL WINAPI GenerateWithRepair(
+        const char* providerId,
+        const AssistantRequest* request,
+        AssistantResponse* response,
+        int maxAttempts)
+    {
+        (void)maxAttempts;
+        return Generate(providerId, request, response);
     }
 
 protected:
@@ -293,6 +343,166 @@ private:
         return TRUE;
     }
 
+    static BOOL SetValidationFailure(
+        AssistantValidationResult* validation,
+        DWORD issue,
+        const char* message)
+    {
+        if (validation != NULL)
+        {
+            validation->Valid = FALSE;
+            validation->IssueFlags |= issue;
+            if (message != NULL)
+                strncpy_s(validation->Message,
+                          _countof(validation->Message),
+                          message,
+                          _TRUNCATE);
+        }
+        return FALSE;
+    }
+
+    static BOOL IsKnownCapability(const std::string& capability)
+    {
+        static const char* const known[] = {
+            "panels.read", "panels.write", "ui.dialogs", "commands",
+            "file-operations", "storage", "events", "ai", "clipboard",
+            "runtimes"};
+        for (int index = 0; index < _countof(known); ++index)
+        {
+            if (capability == known[index])
+                return TRUE;
+        }
+        return FALSE;
+    }
+
+    static BOOL ValidateCapabilityArray(
+        const std::string& raw,
+        AssistantValidationResult* validation)
+    {
+        size_t position = 0;
+        Runtime::Protocol::Json::SkipWhitespace(raw, &position);
+        if (position >= raw.size() || raw[position++] != '[')
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueCapability,
+                                        "capabilities must be a JSON array");
+        Runtime::Protocol::Json::SkipWhitespace(raw, &position);
+        if (position < raw.size() && raw[position] == ']')
+            return TRUE;
+        for (;;)
+        {
+            Runtime::Protocol::Json::SkipWhitespace(raw, &position);
+            std::string capability;
+            if (!Runtime::Protocol::Json::ReadString(raw, &position, &capability) ||
+                !IsKnownCapability(capability))
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueCapability,
+                                            "capabilities contains an unsupported value");
+            Runtime::Protocol::Json::SkipWhitespace(raw, &position);
+            if (position >= raw.size())
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueCapability,
+                                            "capabilities array is unterminated");
+            if (raw[position] == ']')
+                return TRUE;
+            if (raw[position++] != ',')
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueCapability,
+                                            "capabilities must contain strings");
+        }
+    }
+
+    static BOOL ValidateOutput(
+        const AssistantRequest* request,
+        AssistantResponse* response,
+        AssistantValidationResult* validation)
+    {
+        if (validation != NULL)
+            *validation = AssistantValidationResult();
+        if (response == NULL || !ValidateResponse(response))
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueShape,
+                                        "assistant output does not match the Salamatrix response contract");
+
+        std::string capabilities;
+        std::string effects;
+        if (!Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "capabilities", &capabilities) ||
+            !ValidateCapabilityArray(capabilities, validation) ||
+            !Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "estimatedEffects", &effects) ||
+            effects.size() < 2 || effects[0] != '{' ||
+            effects[effects.size() - 1] != '}')
+        {
+            if (validation != NULL && validation->Message[0] != '\0')
+                return FALSE;
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueEffect,
+                                        "estimatedEffects must be a JSON object");
+        }
+
+        static const char* const effectNames[] = {
+            "readSelection", "readMetadata", "renameFiles", "moveFiles",
+            "deleteFiles", "modifyContents", "executeExternal", "network"};
+        for (int index = 0; index < _countof(effectNames); ++index)
+        {
+            std::string raw;
+            if (Runtime::Protocol::Json::FindRawMember(
+                    effects.c_str(), effectNames[index], &raw) &&
+                raw != "true" && raw != "false")
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueEffect,
+                                            "estimatedEffects values must be booleans");
+        }
+
+        std::string runtime;
+        BOOL hasRuntime = Runtime::Protocol::Json::FindStringMember(
+            response->ResponseJson, "runtime", &runtime);
+        if (hasRuntime && runtime.empty())
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueRuntime,
+                                        "runtime must not be empty");
+        if (request != NULL && request->RuntimeId != NULL &&
+            request->RuntimeId[0] != '\0' &&
+            (!hasRuntime || runtime != request->RuntimeId))
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueRuntime,
+                                        "assistant output runtime differs from the requested runtime");
+
+        struct UnsafeMarker
+        {
+            const char* Text;
+            DWORD Effect;
+        };
+        static const UnsafeMarker markers[] = {
+            {"child_process", AssistantEffectExecuteExternal},
+            {"subprocess", AssistantEffectExecuteExternal},
+            {"Start-Process", AssistantEffectExecuteExternal},
+            {"shell_exec", AssistantEffectExecuteExternal},
+            {"Invoke-WebRequest", AssistantEffectNetwork},
+            {"Invoke-RestMethod", AssistantEffectNetwork},
+            {"urllib.", AssistantEffectNetwork},
+            {"requests.", AssistantEffectNetwork}};
+        const std::string script(response->Summary.Script);
+        for (int index = 0; index < _countof(markers); ++index)
+        {
+            if (script.find(markers[index].Text) != std::string::npos &&
+                (response->Summary.EffectFlags & markers[index].Effect) == 0)
+                return SetValidationFailure(
+                    validation,
+                    AssistantValidationIssueUnsafeOperation,
+                    "script contains an external or network operation not declared in estimatedEffects");
+        }
+
+        if (validation != NULL)
+        {
+            validation->Valid = TRUE;
+            validation->IssueFlags = AssistantValidationIssueNone;
+            validation->Message[0] = '\0';
+        }
+        response->Summary.ContractValid = TRUE;
+        return TRUE;
+    }
+
 public:
     AssistantService()
         : ProviderCount(0),
@@ -363,6 +573,58 @@ public:
         ++ContractSchemaCount;
         ApiDescriptionCache.clear();
         return TRUE;
+    }
+
+    virtual BOOL WINAPI Validate(
+        const AssistantRequest* request,
+        AssistantResponse* response,
+        AssistantValidationResult* validation)
+    {
+        return ValidateOutput(request, response, validation);
+    }
+
+    virtual BOOL WINAPI GenerateWithRepair(
+        const char* providerId,
+        const AssistantRequest* request,
+        AssistantResponse* response,
+        int maxAttempts)
+    {
+        if (request == NULL || response == NULL)
+            return FALSE;
+        if (maxAttempts < 1)
+            maxAttempts = 1;
+        if (maxAttempts > 4)
+            maxAttempts = 4;
+
+        AssistantRequest retry = *request;
+        std::string previousScript;
+        std::string repairFeedback;
+        for (int attempt = 0; attempt < maxAttempts; ++attempt)
+        {
+            retry.ExistingScript = previousScript.empty()
+                                       ? request->ExistingScript
+                                       : previousScript.c_str();
+            retry.Feedback = repairFeedback.empty()
+                                 ? request->Feedback
+                                 : repairFeedback.c_str();
+            AssistantResponse candidate;
+            if (Generate(providerId, &retry, &candidate))
+            {
+                *response = candidate;
+                return TRUE;
+            }
+            *response = candidate;
+            if (candidate.Status != AssistantStatusInvalidResponse ||
+                attempt + 1 >= maxAttempts)
+                return FALSE;
+            if (candidate.Summary.Script[0] != '\0')
+                previousScript.assign(candidate.Summary.Script);
+            repairFeedback =
+                "The previous response failed static Salamatrix validation. "
+                "Return corrected JSON and declare every external or network "
+                "operation in estimatedEffects.";
+        }
+        return FALSE;
     }
 
     virtual DWORD WINAPI GetVersion() const
@@ -446,7 +708,8 @@ public:
             }
             if (!provider->Generate(request, response))
                 return FALSE;
-            if (!ValidateResponse(response))
+            AssistantValidationResult validation;
+            if (!ValidateOutput(request, response, &validation))
             {
                 response->Status = AssistantStatusInvalidResponse;
                 response->ErrorCode = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
@@ -456,6 +719,8 @@ public:
             return TRUE;
         }
 
+        BOOL hadInvalidResponse = FALSE;
+        AssistantResponse lastInvalidResponse;
         for (int index = 0; index < ProviderCount; ++index)
         {
             IAssistantProvider* provider = Providers[index];
@@ -464,11 +729,19 @@ public:
             *response = AssistantResponse();
             if (!provider->Generate(request, response))
                 continue;
-            if (ValidateResponse(response))
+            AssistantValidationResult validation;
+            if (ValidateOutput(request, response, &validation))
                 return TRUE;
             response->Status = AssistantStatusInvalidResponse;
             response->ErrorCode = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
             response->Summary.ContractValid = FALSE;
+            lastInvalidResponse = *response;
+            hadInvalidResponse = TRUE;
+        }
+        if (hadInvalidResponse)
+        {
+            *response = lastInvalidResponse;
+            return FALSE;
         }
         response->Status = AssistantStatusUnavailable;
         response->ErrorCode = HRESULT_FROM_WIN32(ERROR_NOT_FOUND);

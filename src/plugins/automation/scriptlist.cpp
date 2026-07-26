@@ -2478,10 +2478,11 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             existingScript.empty() ? NULL : existingScript.c_str();
         request.Feedback = feedback.empty() ? NULL : feedback.c_str();
         Salamatrix::AI::AssistantResponse responseData;
-        BOOL generated = assistant->Generate(
+        BOOL generated = assistant->GenerateWithRepair(
             provider.empty() ? NULL : provider.c_str(),
             &request,
-            &responseData);
+            &responseData,
+            2);
         const char* status =
             responseData.Status == Salamatrix::AI::AssistantStatusSucceeded
                 ? "succeeded"

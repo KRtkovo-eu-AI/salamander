@@ -503,7 +503,7 @@ static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* e
     const char* selectedProvider = ProviderIdFromChoice(chat);
     if (selectedProvider == NULL)
         selectedProvider = ConfiguredProviderId();
-    if (!chat->Ai->Generate(selectedProvider, &request, &response) ||
+    if (!chat->Ai->GenerateWithRepair(selectedProvider, &request, &response, 2) ||
         response.Status != Salamatrix::AI::AssistantStatusSucceeded)
     {
         char message[512] = "Assistant unavailable.";

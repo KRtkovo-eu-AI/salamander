@@ -661,7 +661,7 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
                 existingScript.empty() ? NULL : existingScript.c_str();
             request.Feedback = feedback.empty() ? NULL : feedback.c_str();
             Salamatrix::AI::AssistantResponse candidate;
-            BOOL attempt = assistant->Generate(NULL, &request, &candidate);
+            BOOL attempt = assistant->GenerateWithRepair(NULL, &request, &candidate, 2);
             if (!attempt)
             {
                 generated = iteration != 0;

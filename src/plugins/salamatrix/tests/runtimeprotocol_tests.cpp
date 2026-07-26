@@ -327,6 +327,10 @@ void TestAssistantService()
               response.Status == Salamatrix::AI::AssistantStatusSucceeded &&
               response.OutputLength != 0,
           "generate falls back to the next available provider");
+    Salamatrix::AI::AssistantValidationResult validation;
+    Check(service.Validate(&request, &response, &validation) != FALSE &&
+              validation.Valid != FALSE,
+          "assistant validates a contract-compliant response");
     std::string runtime;
     Check(
         Salamatrix::Runtime::Protocol::Json::FindStringMember(
@@ -338,6 +342,30 @@ void TestAssistantService()
     response.Summary.EffectFlags |= Salamatrix::AI::AssistantEffectNetwork;
     Check(Salamatrix::AI::IsSafeToRun(response.Summary) == FALSE,
           "network assistant output is blocked by safety gate");
+    Salamatrix::AI::AssistantResponse undeclaredExternal;
+    const char undeclaredExternalJson[] =
+        "{\"title\":\"Unsafe\",\"description\":\"test\","
+        "\"capabilities\":[],\"estimatedEffects\":{},"
+        "\"script\":\"import subprocess\",\"runtime\":\"Python.CPython\"}";
+    memcpy(undeclaredExternal.ResponseJson,
+           undeclaredExternalJson, sizeof(undeclaredExternalJson));
+    undeclaredExternal.OutputLength = sizeof(undeclaredExternalJson) - 1;
+    Check(service.Validate(&request, &undeclaredExternal, &validation) == FALSE &&
+              (validation.IssueFlags &
+                   Salamatrix::AI::AssistantValidationIssueUnsafeOperation) != 0,
+          "assistant rejects undeclared external operations");
+    Salamatrix::AI::AssistantResponse unknownCapability;
+    const char unknownCapabilityJson[] =
+        "{\"title\":\"Invalid\",\"description\":\"test\","
+        "\"capabilities\":[\"unknown.capability\"],\"estimatedEffects\":{},"
+        "\"script\":\"pass\",\"runtime\":\"Python.CPython\"}";
+    memcpy(unknownCapability.ResponseJson,
+           unknownCapabilityJson, sizeof(unknownCapabilityJson));
+    unknownCapability.OutputLength = sizeof(unknownCapabilityJson) - 1;
+    Check(service.Validate(&request, &unknownCapability, &validation) == FALSE &&
+              (validation.IssueFlags &
+                   Salamatrix::AI::AssistantValidationIssueCapability) != 0,
+          "assistant rejects unknown capabilities");
     Check(strstr(service.GetApiDescription(), "Salamander.ai") != NULL,
           "assistant API description advertises AI object");
     Check(strstr(service.GetApiDescription(), "contractVersions") != NULL &&
