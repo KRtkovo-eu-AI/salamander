@@ -69,6 +69,14 @@ public:
         const GeneratedScriptRequest* request,
         GeneratedScriptResult* result) = 0;
 
+    /// Refreshes the existing Plugin Manager manifest/script discovery when
+    /// a native helper writes a new extension package. Appended so older
+    /// runners remain ABI-compatible.
+    virtual BOOL WINAPI RefreshExtensions()
+    {
+        return FALSE;
+    }
+
 protected:
     virtual ~IScriptRunner() {}
 };

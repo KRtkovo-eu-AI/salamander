@@ -5,6 +5,8 @@
 #include "salamatrixrunner.h"
 #include "scriptlist.h"
 
+extern CScriptLookup g_oScriptLookup;
+
 DWORD WINAPI CGeneratedScriptRunner::GetVersion() const
 {
     return SALAMATRIX_SCRIPT_RUNNER_VERSION_1_0;
@@ -79,4 +81,9 @@ BOOL WINAPI CGeneratedScriptRunner::ExecuteGenerated(
         StringCchCopyW(result->Message, _countof(result->Message),
                        L"The generated script failed in the Automation host.");
     return succeeded;
+}
+
+BOOL WINAPI CGeneratedScriptRunner::RefreshExtensions()
+{
+    return g_oScriptLookup.Refresh(TRUE) ? TRUE : FALSE;
 }

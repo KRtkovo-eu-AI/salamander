@@ -948,3 +948,25 @@ The fortieth code slice is implemented and verified:
   `build\verification\metadata-*` outputs. The source regression test and
   all six Debug x64 builds passed; no Salamander process was started or
   controlled.
+
+The forty-first code slice is implemented and verified:
+
+- audit commit `4a2bca820dcd238abc3855f900d4a92ab37acc9f` and restore the
+  removed AI assistant workflow in the standalone `SalamatrixAI.SPL` plugin:
+  panel context, localized prompts/status text, temporary script creation,
+  bounded repair/refinement, clipboard preview, save/run actions, and runtime
+  extension-package export;
+- keep Automation independent as the legacy JavaScript/VBScript plugin and
+  shared runtime client: its removed AI command, resources, helpers, and
+  dispatch path remain absent while its `Salamatrix.AI` and
+  `Salamatrix.ScriptRunner` compatibility services remain available;
+- add the append-only `IScriptRunner::RefreshExtensions` method so the AI
+  package export requests a refresh through the shared service and the
+  existing Plugin Manager can discover the package without a new Extension
+  Manager or runtime installer;
+- add source-contract coverage for the complete migration and rebuild both
+  affected Debug x64 projects into isolated
+  `build\verification\ai-restored-logic-final` and
+  `build\verification\automation-restored-logic-final` outputs. The source
+  regression test and both builds passed; no Salamander process was started
+  or controlled.

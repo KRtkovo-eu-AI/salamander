@@ -88,6 +88,30 @@ def main() -> int:
     require(ai, r"BuildMenu.*?GetAssistantMenuCaption\(\).*?CmdOpenAssistant", "AI BuildMenu does not add the resource-backed command")
     require(ai, r"IsCurrentService\(SALAMATRIX_SERVICE_AI.*?g_ai\).*?UnregisterProvider",
             "AI Release lacks current-service pointer validation")
+    for symbol in (
+        "EscapeAssistantContext",
+        "LoadAssistantString",
+        "BuildAssistantPanelContext",
+        "AssistantTemporaryScript",
+        "CreateAssistantTemporaryScript",
+        "AssistantUtf8ToWide",
+        "GetAssistantRuntimeExtension",
+        "MakeAssistantExtensionId",
+        "SaveAssistantExtensionPackage",
+        "SaveAssistantScript",
+        "RunAssistantScript",
+        "AskForRefinement",
+    ):
+        require(ai, rf"\b{re.escape(symbol)}\b", f"SalamatrixAI migration is missing {symbol}")
+    require(ai, r"g_sides\s*=\s*static_cast<Salamatrix::Sides::ISidesService.*?Query\(\s*SALAMATRIX_SERVICE_SIDES",
+            "AI panel context does not query Salamatrix.Sides")
+    require(ai, r"GenerateWithRepair", "AI chat lost the bounded repair/refinement generation path")
+    require(ai, r"CopyTextToClipboard", "AI generated script is no longer copied for review")
+    require(ai, r"PostPluginMenuChanged", "AI package export does not refresh the existing menu/discovery surface")
+    require(ai, r"RefreshExtensions", "AI package export does not request manifest discovery refresh")
+    require(ai, r"RuntimeExecutionFlagOneShotWorker", "AI runtime execution fallback is missing")
+    require(ai_rc2, r"IDS_AI_REFINE_PROMPT.*?What should be changed", "AI refinement prompt localization is missing")
+    require_absent(ai, r"\.\./automation/extensionmanifest\.h", "AI directly depends on Automation's internal manifest parser")
     require(ai, r"result\.Interface == expected", "AI Release does not compare service pointer identity")
     for global_name in ("g_ai", "g_ui", "g_runtime", "g_runner"):
         require(ai, rf"{re.escape(global_name)}\s*=\s*NULL", f"AI Release does not clear {global_name}")

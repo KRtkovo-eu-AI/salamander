@@ -12,5 +12,5 @@ public:
     virtual BOOL WINAPI ExecuteGenerated(
         const Salamatrix::Automation::GeneratedScriptRequest* request,
         Salamatrix::Automation::GeneratedScriptResult* result);
+    virtual BOOL WINAPI RefreshExtensions();
 };
-

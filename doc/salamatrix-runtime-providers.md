@@ -233,3 +233,23 @@ camelCase/PascalCase naming conventions. The deterministic bootstrap and
 dispatcher-count test is isolated under
 `build\verification\tab-object-model`; it does not start or control
 Salamander.
+
+## SalamatrixAI ownership
+
+`SalamatrixAI.SPL` is the sole native owner of the local assistant workflow.
+Its menu extension opens the chat and owns the complete context, localization,
+repair/refinement, preview, clipboard, save, run, and extension-package export
+flow. The package writer emits the manifest and runtime entry script for the
+existing Plugin Manager discovery path.
+
+The Automation plugin remains an independent legacy JavaScript/VBScript host
+and shared Salamatrix runtime client. It no longer contains the assistant
+command or its interactive workflow, but continues to provide the shared
+`Salamatrix.AI` and `Salamatrix.ScriptRunner` services used by compatible
+clients. `IScriptRunner::RefreshExtensions` is append-only and lets the AI
+helper request manifest discovery without coupling to Automation internals.
+
+The ownership restoration was verified by the source-contract test and
+isolated Debug x64 builds in `build\verification\ai-restored-logic-final` and
+`build\verification\automation-restored-logic-final`; no Salamander process
+was started or controlled.
