@@ -752,7 +752,7 @@ returns one JSON object/array on standard output; the bridge bounds output to
 1 MiB and clamps generation to a two-minute timeout. The native provider uses
 the same structured contract over WinHTTP, so a local model can be used
 without shipping a model SDK or coupling Salamander to a vendor. The optional
-companion plugin `SalamatrixAI Local Llama` registers `local.bundled`, a
+companion plugin `Salamatrix AI Local Llama` registers `local.bundled`, a
 server-free provider that starts its colocated `runtime\\llama-cli.exe`
 against `runtime\\salamatrix.gguf`.
 Both assets can be overridden with `SALAMATRIX_AI_BUNDLED_COMMAND` and
@@ -784,7 +784,7 @@ target Python, PowerShell, PHP, or another registered adapter and continue a
 bounded conversation without a second provider-specific API. The native
 Ask-AI action offers at most three generation iterations before the final
 preview, keeping the repair loop bounded. The main AI helper remains
-model-free; the optional `SalamatrixAI Local Llama` companion supplies the
+model-free; the optional `Salamatrix AI Local Llama` companion supplies the
 separately staged llama.cpp binary and GGUF model.
 For a local model without a custom provider implementation, the repository also
 ships the optional `src/plugins/automation/runtime/salamatrix_ai_local.py`

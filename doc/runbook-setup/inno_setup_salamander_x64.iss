@@ -2115,7 +2115,7 @@ begin
   AddPlugin('demoplug', '[DEV] DemoPlug', '1.96 (x64)', False);
   AddPlugin('salamatrix', '[DEV] Salamatrix Framework', '0.1 (x64)', True);
   AddPlugin('salamatrixai', '[DEV] Salamatrix AI Helper', '0.1 (x64)', True);
-  AddPlugin('salamatrixailocalllama', '[DEV] SalamatrixAI Local Llama', '0.1 (x64)', False);
+  AddPlugin('salamatrixailocalllama', '[DEV] Salamatrix AI Local Llama', '0.1 (x64)', False);
 end;
 
 function InitializeSetup(): Boolean;

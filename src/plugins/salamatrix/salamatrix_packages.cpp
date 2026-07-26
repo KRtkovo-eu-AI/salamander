@@ -542,29 +542,7 @@ BOOL PackageManager::Activate(Package* package)
     Runtime::IRuntimeAdapter* adapter = Runtimes->FindAdapter(
         package->Manifest.RuntimeId.c_str(), package->Manifest.MinimumRuntimeVersion);
     if (adapter == NULL || !adapter->IsAvailable())
-    {
-        if (_stricmp(package->Manifest.RuntimeId.c_str(), "Automation.JScript") == 0)
-        {
-            Automation::IScriptRunner* scriptRunner = QueryScriptRunner(General);
-            if (scriptRunner != NULL)
-            {
-                Automation::GeneratedScriptRequest compatibilityRequest;
-                compatibilityRequest.EntryPoint = package->EntryPoint.c_str();
-                compatibilityRequest.RuntimeId = package->Manifest.RuntimeId.c_str();
-                compatibilityRequest.ExtensionId = package->Id.c_str();
-                compatibilityRequest.ParentWindow = General->GetMsgBoxParent();
-                compatibilityRequest.TimeoutMs = 120000;
-                compatibilityRequest.Operation = operations;
-                Automation::GeneratedScriptResult compatibilityResult;
-                BOOL executed = scriptRunner->ExecuteGenerated(
-                    &compatibilityRequest, &compatibilityResult);
-                package->Operations = NULL;
-                return executed;
-            }
-        }
-        package->Operations = NULL;
         return FALSE;
-    }
     Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = package->Id.c_str();
     request.EntryPoint = package->EntryPoint.c_str();
@@ -630,7 +608,28 @@ BOOL PackageManager::ExecuteCommand(
     Runtime::IRuntimeAdapter* adapter = Runtimes->FindAdapter(
         package->Manifest.RuntimeId.c_str(), package->Manifest.MinimumRuntimeVersion);
     if (adapter == NULL || !adapter->IsAvailable())
+    {
+        if (_stricmp(package->Manifest.RuntimeId.c_str(), "Automation.JScript") == 0)
+        {
+            Automation::IScriptRunner* scriptRunner = QueryScriptRunner(General);
+            if (scriptRunner != NULL)
+            {
+                Automation::GeneratedScriptRequest compatibilityRequest;
+                compatibilityRequest.EntryPoint = package->EntryPoint.c_str();
+                compatibilityRequest.RuntimeId = package->Manifest.RuntimeId.c_str();
+                compatibilityRequest.ExtensionId = package->Id.c_str();
+                compatibilityRequest.ParentWindow = General->GetMsgBoxParent();
+                compatibilityRequest.TimeoutMs = 120000;
+                compatibilityRequest.Operation = operations;
+                Automation::GeneratedScriptResult compatibilityResult;
+                BOOL executed = scriptRunner->ExecuteGenerated(
+                    &compatibilityRequest, &compatibilityResult);
+                package->Operations = NULL;
+                return executed;
+            }
+        }
         return FALSE;
+    }
     Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = package->Id.c_str();
     request.CommandId = commandId;

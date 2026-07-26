@@ -50,7 +50,7 @@ void WINAPI CLocalLlamaPluginInterface::About(HWND parent)
     SalamanderGeneral->SalMessageBox(
         parent,
         "Optional server-free llama.cpp model provider for Salamatrix AI.",
-        "SalamatrixAI Local Llama",
+        "Salamatrix AI Local Llama",
         MB_OK | MB_ICONINFORMATION);
 }
 
@@ -143,7 +143,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER)
         return NULL;
     salamander->SetBasicPluginData(
-        "SalamatrixAI Local Llama",
+        "Salamatrix AI Local Llama",
         FUNCTION_AUTOMATIONFRAMEWORK,
         VERSINFO_VERSION_NO_PLATFORM,
         VERSINFO_COPYRIGHT,
