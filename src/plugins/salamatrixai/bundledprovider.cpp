@@ -150,8 +150,6 @@ static bool ExtractJsonObject(const std::string& value, size_t* first, size_t* l
     if (first == NULL || last == NULL)
         return false;
 
-    size_t fallbackFirst = std::string::npos;
-    size_t fallbackLast = std::string::npos;
     for (size_t start = 0; start < value.size(); ++start)
     {
         if (value[start] != '{')
@@ -178,12 +176,6 @@ static bool ExtractJsonObject(const std::string& value, size_t* first, size_t* l
                 ++depth;
             else if (character == '}' && --depth == 0)
             {
-                if (fallbackFirst == std::string::npos)
-                {
-                    fallbackFirst = start;
-                    fallbackLast = end;
-                }
-
                 const std::string candidate = value.substr(start, end - start + 1);
                 std::string title;
                 std::string script;
@@ -201,9 +193,9 @@ static bool ExtractJsonObject(const std::string& value, size_t* first, size_t* l
         }
     }
 
-    *first = fallbackFirst;
-    *last = fallbackLast;
-    return fallbackFirst != std::string::npos;
+    *first = std::string::npos;
+    *last = std::string::npos;
+    return false;
 }
 
 static bool IsJsonObject(const std::string& value)
@@ -328,13 +320,15 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         return FALSE;
     }
 
+    const std::string apiDescription = InstalledApiDescription(request->Prompt);
     std::string prompt =
-        "Return only one JSON object with title, description, capabilities, "
-        "estimatedEffects, and script. Include runtime when known. You may "
-        "set canImplement to false and list missingCapabilities when the "
-        "installed API cannot perform the task. Generate a Salamander script "
-        "using only the installed Salamander API described here: " +
-        InstalledApiDescription(request->Prompt) + "\nTask: ";
+        "You generate one Salamander automation script. The installed API "
+        "reference is included below for context only. Do not copy or repeat "
+        "the reference objects in your answer.\n\n"
+        "BEGIN INSTALLED SALAMANDER API REFERENCE\n" +
+        apiDescription +
+        "\nEND INSTALLED SALAMANDER API REFERENCE\n\n"
+        "USER TASK:\n";
     prompt += (request->Prompt != NULL ? request->Prompt : "");
     if (request->RuntimeId != NULL && request->RuntimeId[0] != '\0')
         prompt += "\nTarget runtime: " + std::string(request->RuntimeId);
@@ -344,6 +338,13 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         prompt += "\nExisting script to repair:\n" + std::string(request->ExistingScript);
     if (request->Feedback != NULL && request->Feedback[0] != '\0')
         prompt += "\nRepair feedback:\n" + std::string(request->Feedback);
+    prompt +=
+        "\n\nFINAL OUTPUT RULE: Return exactly one JSON object and no markdown, "
+        "explanation, API reference, or schema. The object must contain the "
+        "string fields title, description, capabilities, estimatedEffects, "
+        "and script. Include runtime when known. If the task cannot be "
+        "implemented, set canImplement to false and list "
+        "missingCapabilities. The script field must still be present.";
 
     std::wstring promptFile;
     if (!CreateUtf8PromptFile(prompt, &promptFile))
