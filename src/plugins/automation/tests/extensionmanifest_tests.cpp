@@ -38,7 +38,7 @@ static void TestCompleteManifest()
         "\"entryPoint\":\"scripts/main.py\","
         "\"icon\":\"assets/icon.svg\",\"iconDark\":\"assets/icon-dark.svg\","
         "\"capabilities\":[\"panels.read\",\"ui.dialogs\"],"
-        "\"events\":[\"pathChanged\",\"selectionChanged\"],"
+        "\"events\":[\"pathChanged\",\"selectionChanged\",\"fileChanged\"],"
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
         "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\"},"
@@ -60,7 +60,7 @@ static void TestCompleteManifest()
     CHECK(manifest.IconDark == "assets/icon-dark.svg");
     CHECK(manifest.Capabilities.size() == 2);
     CHECK(manifest.EventsDeclared);
-    CHECK(manifest.Events.size() == 2);
+    CHECK(manifest.Events.size() == 3);
     CHECK(manifest.Events[0] == "pathChanged");
     CHECK(manifest.Commands.size() == 2);
     CHECK(manifest.Commands[0].Id == "Example.First");

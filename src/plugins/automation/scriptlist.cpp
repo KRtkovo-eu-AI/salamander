@@ -1136,6 +1136,8 @@ static const char* RuntimeEventName(
         return "selectionChanged";
     case Salamatrix::Events::EventKindTabChanged:
         return "tabChanged";
+    case Salamatrix::Events::EventKindFileChanged:
+        return "fileChanged";
     default:
         return NULL;
     }
@@ -1148,7 +1150,7 @@ static BOOL RuntimeEventKindFromName(
     if (kind == NULL)
         return FALSE;
     for (int value = Salamatrix::Events::EventKindHostStartup;
-         value <= Salamatrix::Events::EventKindTabChanged;
+         value <= Salamatrix::Events::EventKindFileChanged;
          ++value)
     {
         Salamatrix::Events::EventKind candidate =

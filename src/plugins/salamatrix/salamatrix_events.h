@@ -40,7 +40,11 @@ enum EventKind
     // from operation events so runtimes can distinguish the source.
     EventKindPathChanged = 12,
     EventKindSelectionChanged = 13,
-    EventKindTabChanged = 14
+    EventKindTabChanged = 14,
+    // A filesystem change notification delivered by the Salamander core.
+    // Parameter is non-zero when the notification covers subdirectories and
+    // Path contains the affected UTF-8 path.
+    EventKindFileChanged = 15
 };
 
 struct EventPayload
@@ -136,6 +140,26 @@ inline BOOL WINAPI PublishSideOperation(
     return events->Publish(&payload);
 }
 
+// Forward a core filesystem-change notification without extending the
+// IEventsService vtable. This keeps the 1.0 ABI stable for native providers.
+inline BOOL WINAPI PublishFileSystemChange(
+    IEventsService* events,
+    const char* path,
+    BOOL includingSubdirectories)
+{
+    if (events == NULL || path == NULL)
+        return FALSE;
+    EventPayload payload;
+    payload.Kind = EventKindFileChanged;
+    payload.Parameter = includingSubdirectories ? 1 : 0;
+    size_t length = strlen(path);
+    if (length >= _countof(payload.Path))
+        length = _countof(payload.Path) - 1;
+    memcpy(payload.Path, path, length);
+    payload.Path[length] = '\0';
+    return events->Publish(&payload);
+}
+
 class EventService : public IEventsService
 {
 private:
@@ -190,7 +214,7 @@ public:
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\"]}";
+        return "{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"fileChanged\"]}";
     }
 
     virtual BOOL WINAPI Subscribe(
@@ -202,7 +226,7 @@ public:
         if (callback == NULL ||
             subscriptionId == NULL ||
             kind < EventKindHostStartup ||
-            kind > EventKindTabChanged)
+            kind > EventKindFileChanged)
         {
             return FALSE;
         }

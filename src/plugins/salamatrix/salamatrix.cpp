@@ -183,6 +183,15 @@ void WINAPI CPluginInterface::Event(int event, DWORD param)
         SalamatrixRuntime->Events()->PublishHostEvent(event, param);
 }
 
+void WINAPI CPluginInterface::AcceptChangeOnPathNotification(
+    const char* path,
+    BOOL includingSubdirs)
+{
+    if (SalamatrixRuntime != NULL)
+        Salamatrix::Events::PublishFileSystemChange(
+            SalamatrixRuntime->Events(), path, includingSubdirs);
+}
+
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
     if (SalamatrixRuntime != NULL)

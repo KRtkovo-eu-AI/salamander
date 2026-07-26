@@ -34,7 +34,9 @@ public:
 
     virtual void WINAPI Event(int event, DWORD param);
     virtual void WINAPI ClearHistory(HWND parent) {}
-    virtual void WINAPI AcceptChangeOnPathNotification(const char* path, BOOL includingSubdirs) {}
+    virtual void WINAPI AcceptChangeOnPathNotification(
+        const char* path,
+        BOOL includingSubdirs);
 
     virtual void WINAPI PasswordManagerEvent(HWND parent, int event) {}
 };

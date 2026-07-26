@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstdio>
+#include <string>
 
 #include "../precomp.h"
 #include "../salamatrix_events.h"
@@ -15,6 +16,7 @@ struct CallbackState
     ULONGLONG UnsubscribeId;
     Salamatrix::Events::EventKind LastKind;
     DWORD LastParameter;
+    std::string LastPath;
 
     CallbackState()
         : Count(0),
@@ -36,6 +38,7 @@ BOOL WINAPI CountCallback(
     ++state->Count;
     state->LastKind = payload->Kind;
     state->LastParameter = payload->Parameter;
+    state->LastPath = payload->Path;
     if (state->Service != NULL && state->UnsubscribeId != 0)
     {
         state->Service->Unsubscribe(state->UnsubscribeId);
@@ -126,7 +129,7 @@ void TestCapacityAndValidation()
     Check(events.GetSubscriptionCount() == 128, "capacity count");
     for (int index = 0; index < _countof(ids); ++index)
         events.Unsubscribe(ids[index]);
-    Check(events.GetSubscriptionCount() == 0, "unsubscribe all callbacks");
+        Check(events.GetSubscriptionCount() == 0, "unsubscribe all callbacks");
 
     Salamatrix::Events::EventPayload invalid;
     invalid.StructSize = sizeof(invalid) - 1;
@@ -158,6 +161,40 @@ void TestCapacityAndValidation()
             "accept shared-side operation event kind");
         events.Unsubscribe(operationId);
     }
+
+    ULONGLONG fileId = 0;
+    Check(
+        events.Subscribe(
+            Salamatrix::Events::EventKindFileChanged,
+            CountCallback,
+            &state,
+            &fileId) != FALSE,
+        "accept filesystem change event kind");
+    events.Unsubscribe(fileId);
+}
+
+void TestFilesystemChangeHelper()
+{
+    Salamatrix::Events::EventService events(NULL);
+    CallbackState state;
+    state.Service = &events;
+    Check(
+        events.Subscribe(
+            Salamatrix::Events::EventKindFileChanged,
+            CountCallback,
+            &state,
+            &state.UnsubscribeId) != FALSE,
+        "subscribe filesystem change event");
+    Check(
+        Salamatrix::Events::PublishFileSystemChange(
+            &events, "C:/build/output", TRUE) != FALSE,
+        "publish filesystem change event");
+    Check(
+        state.Count == 1 &&
+            state.LastKind == Salamatrix::Events::EventKindFileChanged &&
+            state.LastParameter == 1 &&
+            state.LastPath == "C:/build/output",
+        "deliver filesystem change path and scope");
 }
 
 void TestCoreNotifications()
@@ -197,6 +234,7 @@ int main()
     TestSubscribePublishAndSelfUnsubscribe();
     TestCapacityAndValidation();
     TestCoreNotifications();
+    TestFilesystemChangeHelper();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d Salamatrix event test(s) failed.\n", Failures);

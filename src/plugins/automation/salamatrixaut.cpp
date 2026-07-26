@@ -1098,6 +1098,11 @@ bool CSalamanderEventsAutomation::ParseEventName(
     {
         *kind = Salamatrix::Events::EventKindActivePanelChanged;
     }
+    else if (_wcsicmp(name, L"fileChanged") == 0 ||
+             _wcsicmp(name, L"file_changed") == 0)
+    {
+        *kind = Salamatrix::Events::EventKindFileChanged;
+    }
     else
     {
         return false;
@@ -1124,6 +1129,8 @@ BSTR CSalamanderEventsAutomation::EventKindToBSTR(
         return SysAllocString(L"panelsSwapped");
     case Salamatrix::Events::EventKindActivePanelChanged:
         return SysAllocString(L"activePanelChanged");
+    case Salamatrix::Events::EventKindFileChanged:
+        return SysAllocString(L"fileChanged");
     default:
         return NULL;
     }
