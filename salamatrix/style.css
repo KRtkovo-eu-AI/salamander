@@ -141,11 +141,11 @@ pre { margin: 16px 0 20px; }
 .ai-panel h3 { margin: 0 0 8px; color: #fff; font-size: 1.35rem; }
 .ai-panel p { margin: 0; color: var(--sam-muted); }
 .ai-flow { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 7px; }
-.ai-flow span { padding: 8px 10px; color: #241700; background: #e02e2e; border-radius: 4px; font-size: .78rem; font-weight: 700; }
+.ai-flow span { padding: 8px 10px; color: #ffffff; background: #e02e2e; border-radius: 4px; font-size: .78rem; font-weight: 700; }
 .ai-flow i { color: #e02e2e; font-style: normal; }
 .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .status-item { display: flex; flex-direction: column; gap: 8px; }
-.status-item strong { color: #e02e2e; }
+.status-item strong { color: #ffffff; }
 .status-item span { color: var(--sam-muted); font-size: .86rem; }
 .status-item--done { border-left: 3px solid #78a868; }
 .status-item--next { border-left: 3px solid #6887a0; }
