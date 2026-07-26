@@ -99,6 +99,15 @@ char* ReadSVGFile(const char* fileName)
 // Renders icons for which we have an SVG representation
 static char* LoadToolbarSVG(const char* svgName)
 {
+    // Dynamic package contributions pass an absolute UTF-8 SVG path. Keep
+    // the historic toolbar-name lookup for built-in icons, but allow the
+    // shared GUI API to render package-owned artwork as well.
+    if (svgName != NULL &&
+        (strchr(svgName, ':') != NULL || svgName[0] == '\\' || svgName[0] == '/'))
+    {
+        return ReadSVGFile(svgName);
+    }
+
     char svgFile[2 * MAX_PATH];
     GetModuleFileName(NULL, svgFile, _countof(svgFile));
     char* s = strrchr(svgFile, '\\');

@@ -57,6 +57,7 @@ private:
         void* context,
         Extensions::ExtensionAction action,
         const Extensions::ExtensionInfo* info);
+    static BOOL WINAPI RefreshCallback(void* context);
     static DWORD WINAPI PumpThreadProc(void* context);
     static BOOL WINAPI HostDispatch(
         void* context,

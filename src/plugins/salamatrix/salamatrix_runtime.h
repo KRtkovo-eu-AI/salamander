@@ -615,6 +615,7 @@ private:
 
     IRuntimeAdapter* Adapters[MaxAdapters];
     int AdapterCount;
+    Extensions::IExtensionsService* ExtensionService;
 
     static BOOL WINAPI SameRuntimeId(const char* left, const char* right)
     {
@@ -625,7 +626,8 @@ private:
 
 public:
     RuntimeService()
-        : AdapterCount(0)
+        : AdapterCount(0),
+          ExtensionService(NULL)
     {
         memset(Adapters, 0, sizeof(Adapters));
     }
@@ -633,6 +635,11 @@ public:
     virtual DWORD WINAPI GetVersion() const
     {
         return SALAMATRIX_RUNTIME_VERSION_1_0;
+    }
+
+    void SetExtensionRefreshService(Extensions::IExtensionsService* service)
+    {
+        ExtensionService = service;
     }
 
     const char* GetApiSchema() const
@@ -666,6 +673,8 @@ public:
         }
 
         Adapters[AdapterCount++] = adapter;
+        if (ExtensionService != NULL)
+            ExtensionService->Refresh();
         return TRUE;
     }
 
@@ -681,6 +690,8 @@ public:
                 for (int j = i; j + 1 < AdapterCount; ++j)
                     Adapters[j] = Adapters[j + 1];
                 Adapters[--AdapterCount] = NULL;
+                if (ExtensionService != NULL)
+                    ExtensionService->Refresh();
                 return TRUE;
             }
         }
@@ -829,6 +840,7 @@ public:
           HostAIRegistered(FALSE),
           HostStorageRegistered(FALSE)
     {
+        RuntimeBroker.SetExtensionRefreshService(&ExtensionsService);
         AIService.SetRuntimeService(&RuntimeBroker);
         AIService.SetContractVersion(SALAMATRIX_SERVICE_UI, UIService.GetVersion());
         AIService.SetContractVersion(SALAMATRIX_SERVICE_COMMANDS, CommandService.GetVersion());

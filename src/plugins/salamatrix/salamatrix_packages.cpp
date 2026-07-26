@@ -23,6 +23,8 @@ struct PackageManager::Package
     std::string IconPath;
     std::string IconDarkPath;
     std::vector<int> CommandIds;
+    std::vector<std::string> CommandIconPaths;
+    std::vector<int> MenuIconIndices;
     Runtime::IRuntimeSession* Session;
     HANDLE PumpThread;
 
@@ -100,9 +102,32 @@ public:
         UNREFERENCED_PARAMETER(parent);
         if (Owner == NULL || builder == NULL)
             return;
+        int iconCount = 0;
+        for (size_t p = 0; p < Owner->Packages.size(); ++p)
+            for (size_t c = 0; c < Owner->Packages[p]->Manifest.Commands.size(); ++c)
+                if (Owner->Packages[p]->Manifest.Commands[c].Menu == "plugin" ||
+                    Owner->Packages[p]->Manifest.Commands[c].Menu == "both")
+                    ++iconCount;
+
+        CGUIIconListAbstract* icons = NULL;
+        if (SalamanderGUI != NULL && iconCount > 0)
+        {
+            icons = SalamanderGUI->CreateIconList();
+            if (icons == NULL || !icons->Create(16, 16, iconCount))
+            {
+                if (icons != NULL)
+                    SalamanderGUI->DestroyIconList(icons);
+                icons = NULL;
+            }
+        }
+        if (icons != NULL)
+            builder->SetIconListForMenu(icons);
+
+        int imageIndex = 0;
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
         {
             Package* package = Owner->Packages[p];
+            package->MenuIconIndices.clear();
             for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
             {
                 const CExtensionManifestCommand& command =
@@ -111,8 +136,26 @@ public:
                     continue;
                 char title[256];
                 StringCchCopyA(title, _countof(title), command.Title.c_str());
+                int iconIndex = -1;
+                if (icons != NULL)
+                {
+                    iconIndex = imageIndex++;
+                    const std::string& iconPath = package->CommandIconPaths[c];
+                    HICON icon = iconPath.empty()
+                                     ? NULL
+                                     : SalamanderGUI->CreateSVGIcon(
+                                           iconPath.c_str(), 16);
+                    if (icon != NULL)
+                    {
+                        icons->ReplaceIcon(iconIndex, icon);
+                        DestroyIcon(icon);
+                    }
+                    else
+                        iconIndex = -1;
+                }
+                package->MenuIconIndices.push_back(iconIndex);
                 builder->AddMenuItem(
-                    -1, title, 0, package->CommandIds[c], TRUE,
+                    iconIndex, title, 0, package->CommandIds[c], TRUE,
                     MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
             }
         }
@@ -148,11 +191,15 @@ BOOL PackageManager::Initialize(
     UI = ui;
     if (Menu == NULL)
         Menu = new MenuExtension(this);
+    if (Extensions != NULL)
+        Extensions->SetRefreshCallback(RefreshCallback, this);
     return General != NULL && Runtimes != NULL && Extensions != NULL;
 }
 
 void PackageManager::Shutdown()
 {
+    if (Extensions != NULL)
+        Extensions->SetRefreshCallback(NULL, NULL);
     UnregisterToolbarButtons();
     RemovePackages();
     delete Menu;
@@ -315,6 +362,15 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                         {
                             int id = 0x62000000 + static_cast<int>(Packages.size() * 64 + command + 1);
                             package->CommandIds.push_back(id);
+                            std::wstring commandIcon;
+                            const std::string& declaredIcon =
+                                !manifest.Commands[command].Icon.empty()
+                                    ? manifest.Commands[command].Icon
+                                    : manifest.Icon;
+                            std::string commandIconUtf8 = package->IconPath;
+                            if (!declaredIcon.empty() && ToWide(declaredIcon, &commandIcon))
+                                ToUtf8(path + L"\\" + commandIcon, &commandIconUtf8);
+                            package->CommandIconPaths.push_back(commandIconUtf8);
                         }
                         Packages.push_back(package);
                     }
@@ -366,6 +422,15 @@ BOOL WINAPI PackageManager::LifecycleCallback(
     return action == Extensions::ExtensionActionActivate
                ? package->Owner->Activate(package)
                : package->Owner->Deactivate(package);
+}
+
+BOOL WINAPI PackageManager::RefreshCallback(void* context)
+{
+    PackageManager* manager = static_cast<PackageManager*>(context);
+    if (manager == NULL)
+        return FALSE;
+    manager->Refresh();
+    return TRUE;
 }
 
 DWORD WINAPI PackageManager::PumpThreadProc(void* context)

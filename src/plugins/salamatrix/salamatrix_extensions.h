@@ -145,6 +145,8 @@ typedef BOOL(WINAPI* ExtensionLifecycleCallback)(
     ExtensionAction action,
     const ExtensionInfo* info);
 
+typedef BOOL(WINAPI* ExtensionRefreshCallback)(void* context);
+
 class IExtensionsService
 {
 public:
@@ -228,6 +230,22 @@ public:
         return FALSE;
     }
 
+    /// Requests a framework-owned discovery refresh. Appended so older
+    /// extension-service consumers retain the original vtable prefix.
+    virtual BOOL WINAPI Refresh()
+    {
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetRefreshCallback(
+        ExtensionRefreshCallback callback,
+        void* context)
+    {
+        (void)callback;
+        (void)context;
+        return FALSE;
+    }
+
 protected:
     virtual ~IExtensionsService() {}
 };
@@ -249,9 +267,9 @@ private:
         ExtensionInfo Info;
         ExtensionLifecycleCallback Callback;
         void* Context;
-        LONG ActiveLeases;
+    LONG ActiveLeases;
         ExtensionSettingInfo Settings[MaxSettings];
-        int SettingCount;
+    int SettingCount;
 
         Record()
             : Callback(NULL),
@@ -266,6 +284,8 @@ private:
     int RecordCount;
     mutable CRITICAL_SECTION Lock;
     CONDITION_VARIABLE LeaseChanged;
+    ExtensionRefreshCallback RefreshCallback;
+    void* RefreshContext;
 
     ExtensionsService(const ExtensionsService&);
     ExtensionsService& operator=(const ExtensionsService&);
@@ -408,7 +428,9 @@ private:
 
 public:
     ExtensionsService()
-        : RecordCount(0)
+        : RecordCount(0),
+          RefreshCallback(NULL),
+          RefreshContext(NULL)
     {
         InitializeCriticalSection(&Lock);
         InitializeConditionVariable(&LeaseChanged);
@@ -422,6 +444,28 @@ public:
     virtual DWORD WINAPI GetVersion() const
     {
         return SALAMATRIX_EXTENSIONS_VERSION_1_2;
+    }
+
+    virtual BOOL WINAPI SetRefreshCallback(
+        ExtensionRefreshCallback callback,
+        void* context)
+    {
+        EnterCriticalSection(&Lock);
+        RefreshCallback = callback;
+        RefreshContext = context;
+        LeaveCriticalSection(&Lock);
+        return TRUE;
+    }
+
+    virtual BOOL WINAPI Refresh()
+    {
+        ExtensionRefreshCallback callback = NULL;
+        void* context = NULL;
+        EnterCriticalSection(&Lock);
+        callback = RefreshCallback;
+        context = RefreshContext;
+        LeaveCriticalSection(&Lock);
+        return callback != NULL ? callback(context) : FALSE;
     }
 
     const char* GetApiSchema() const
