@@ -25,6 +25,7 @@ struct BootstrapDispatchState
     int RuntimeListCalls;
     int CommandRegistrationCalls;
     bool HandlerRegistrationSeen;
+    int NotificationCalls;
 
     BootstrapDispatchState()
         : CommandCalls(0),
@@ -38,7 +39,8 @@ struct BootstrapDispatchState
           FolderPickerCalls(0),
           RuntimeListCalls(0),
           CommandRegistrationCalls(0),
-          HandlerRegistrationSeen(false)
+          HandlerRegistrationSeen(false),
+          NotificationCalls(0)
     {
     }
 };
@@ -80,6 +82,12 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->CommandCalls;
         response = "{\"ok\":true,\"result\":\"ok\"}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.notify") != NULL)
+    {
+        if (state != NULL)
+            ++state->NotificationCalls;
+        response = "{\"ok\":true,\"shown\":true}";
     }
     else if (strstr(payloadJson, "salamander.commands.register") != NULL)
     {
@@ -462,6 +470,8 @@ void RunPythonBootstrapTest()
               &script[0],
               "if Salamander.commands.execute('Copy') != 'ok':\n"
               "    raise RuntimeError('command call failed')\n"
+              "if not Salamander.ui.notify('Build finished', timeout_ms=1000):\n"
+              "    raise RuntimeError('notification call failed')\n"
               "Salamander.storage.set('bootstrap', 'ok')\n"
               "if Salamander.storage.get('bootstrap') != 'ok':\n"
               "    raise RuntimeError('storage call failed')\n"
@@ -544,6 +554,7 @@ void RunPythonBootstrapTest()
         for (int attempt = 0; attempt < 40 && state.DialogCalls < 20 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
+        Check(state.NotificationCalls == 1, "bootstrap notification call reached host");
         Check(state.CommandRegistrationCalls == 3, "bootstrap multiple command registrations reached host");
         Check(state.HandlerRegistrationSeen, "bootstrap command handler reached host");
         Check(state.StorageCalls == 2, "bootstrap storage calls reached host");

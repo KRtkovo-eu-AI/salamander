@@ -27,6 +27,7 @@ namespace UI
 
 #define SALAMATRIX_SERVICE_UI "Salamatrix.UI"
 #define SALAMATRIX_UI_VERSION_1_0 0x00010000
+#define SALAMATRIX_UI_VERSION_1_1 0x00010001
 
 struct ProgressDialogOptions
 {
@@ -476,6 +477,15 @@ public:
         void* context);
 };
 
+// Implemented by the Salamatrix native UI provider and used by its local
+// service implementation. It is intentionally a free function so the
+// IUIService vtable can keep its append-only ABI contract.
+BOOL WINAPI ShowNativeNotification(
+    HWND parent,
+    const char* title,
+    const char* message,
+    DWORD timeoutMs);
+
 class IUIService
 {
 public:
@@ -562,6 +572,22 @@ public:
         (void)initialPath;
         (void)result;
         (void)resultCapacity;
+        return FALSE;
+    }
+
+    /// Non-modal, auto-dismissing native notification appended after the
+    /// original UI contract. Providers without a notification surface may
+    /// keep the default FALSE implementation.
+    virtual BOOL WINAPI ShowNotification(
+        HWND parent,
+        const char* title,
+        const char* message,
+        DWORD timeoutMs)
+    {
+        (void)parent;
+        (void)title;
+        (void)message;
+        (void)timeoutMs;
         return FALSE;
     }
 

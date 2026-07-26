@@ -364,6 +364,10 @@ const ui = {
     new Progress(title, total, options).create(),
   messageBox: (message, title = "Salamatrix") =>
     hostCall("salamander.ui.messageBox", { message, title }),
+  notify: (message, title = "Salamatrix", timeoutMs = 5000) =>
+    hostCall("salamander.ui.notify", {
+      message, title, timeoutMs: Math.max(0, Number(timeoutMs)),
+    }).then((result) => result.shown === true),
   inputBox: (prompt, initialValue = "", title = "Salamatrix") =>
     hostCall("salamander.ui.inputBox", { prompt, initialValue, title }),
   pickFile: (options = {}) => hostCall("salamander.ui.pickFile", options),

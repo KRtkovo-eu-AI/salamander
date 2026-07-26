@@ -47,6 +47,135 @@ static BOOL WideToUtf8(const wchar_t* value, std::string& result)
     return TRUE;
 }
 
+struct NotificationData
+{
+    std::wstring Title;
+    std::wstring Message;
+};
+
+static INIT_ONCE NotificationClassInit = INIT_ONCE_STATIC_INIT;
+static HINSTANCE NotificationInstance = NULL;
+static const wchar_t NotificationClassName[] =
+    L"OpenSalamander.Salamatrix.Notification";
+
+static LRESULT CALLBACK NotificationWindowProc(
+    HWND window,
+    UINT message,
+    WPARAM wParam,
+    LPARAM lParam)
+{
+    NotificationData* data = reinterpret_cast<NotificationData*>(
+        GetWindowLongPtrW(window, GWLP_USERDATA));
+    switch (message)
+    {
+    case WM_NCCREATE:
+    {
+        CREATESTRUCTW* create = reinterpret_cast<CREATESTRUCTW*>(lParam);
+        data = create != NULL
+                   ? static_cast<NotificationData*>(create->lpCreateParams)
+                   : NULL;
+        SetWindowLongPtrW(
+            window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(data));
+        return data != NULL ? TRUE : FALSE;
+    }
+    case WM_MOUSEACTIVATE:
+        return MA_NOACTIVATE;
+    case WM_TIMER:
+        if (wParam == 1)
+            DestroyWindow(window);
+        return 0;
+    case WM_LBUTTONDOWN:
+        DestroyWindow(window);
+        return 0;
+    case WM_ERASEBKGND:
+        return 1;
+    case WM_PAINT:
+    {
+        PAINTSTRUCT paint;
+        HDC dc = BeginPaint(window, &paint);
+        RECT client;
+        GetClientRect(window, &client);
+        HBRUSH background = CreateSolidBrush(
+            GetSysColor(COLOR_WINDOW));
+        FillRect(dc, &client, background);
+        DeleteObject(background);
+        SetBkMode(dc, TRANSPARENT);
+        SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT));
+        RECT titleRect = client;
+        titleRect.left += 14;
+        titleRect.top += 10;
+        titleRect.right -= 14;
+        titleRect.bottom = titleRect.top + 24;
+        RECT messageRect = titleRect;
+        messageRect.top += 28;
+        messageRect.bottom = client.bottom - 10;
+        if (data != NULL)
+        {
+            HFONT font = reinterpret_cast<HFONT>(GetStockObject(
+                DEFAULT_GUI_FONT));
+            HGDIOBJ oldFont = SelectObject(dc, font);
+            DrawTextW(
+                dc,
+                data->Title.c_str(),
+                -1,
+                &titleRect,
+                DT_SINGLELINE | DT_END_ELLIPSIS);
+            DrawTextW(
+                dc,
+                data->Message.c_str(),
+                -1,
+                &messageRect,
+                DT_WORDBREAK | DT_END_ELLIPSIS);
+            SelectObject(dc, oldFont);
+        }
+        EndPaint(window, &paint);
+        return 0;
+    }
+    case WM_NCDESTROY:
+        delete data;
+        SetWindowLongPtrW(window, GWLP_USERDATA, 0);
+        break;
+    default:
+        break;
+    }
+    return DefWindowProcW(window, message, wParam, lParam);
+}
+
+static BOOL CALLBACK RegisterNotificationClass(
+    PINIT_ONCE,
+    PVOID,
+    PVOID*)
+{
+    HINSTANCE module = NULL;
+    if (!GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCWSTR>(&ShowNativeNotification),
+            &module))
+        return FALSE;
+    NotificationInstance = module;
+    WNDCLASSEXW windowClass;
+    memset(&windowClass, 0, sizeof(windowClass));
+    windowClass.cbSize = sizeof(windowClass);
+    windowClass.hInstance = NotificationInstance;
+    windowClass.lpfnWndProc = NotificationWindowProc;
+    windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+    windowClass.hbrBackground = reinterpret_cast<HBRUSH>(
+        COLOR_WINDOW + 1);
+    windowClass.lpszClassName = NotificationClassName;
+    ATOM registered = RegisterClassExW(&windowClass);
+    return registered != 0 || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
+}
+
+static BOOL CALLBACK CountNotificationWindows(HWND window, LPARAM data)
+{
+    wchar_t className[128];
+    if (GetClassNameW(window, className, _countof(className)) > 0 &&
+        wcscmp(className, NotificationClassName) == 0)
+        ++*reinterpret_cast<int*>(data);
+    return TRUE;
+}
+
 static void AppendWord(std::vector<BYTE>& bytes, WORD value)
 {
     bytes.push_back(static_cast<BYTE>(value & 0xff));
@@ -125,6 +254,89 @@ static void CopyEventText(
     destination[length] = '\0';
 }
 } // namespace
+
+BOOL WINAPI ShowNativeNotification(
+    HWND parent,
+    const char* title,
+    const char* message,
+    DWORD timeoutMs)
+{
+    std::wstring titleWide;
+    std::wstring messageWide;
+    if (!Utf8ToWide(
+            title != NULL && title[0] != '\0' ? title : "Salamander",
+            titleWide) ||
+        !Utf8ToWide(message != NULL ? message : "", messageWide))
+        return FALSE;
+    if (!InitOnceExecuteOnce(
+            &NotificationClassInit,
+            RegisterNotificationClass,
+            NULL,
+            NULL) ||
+        NotificationInstance == NULL)
+        return FALSE;
+
+    NotificationData* data = new NotificationData;
+    if (data == NULL)
+        return FALSE;
+    data->Title = titleWide;
+    data->Message = messageWide;
+
+    HWND owner = parent != NULL && IsWindow(parent)
+                     ? parent
+                     : GetForegroundWindow();
+    HMONITOR monitor = MonitorFromWindow(
+        owner, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO monitorInfo;
+    memset(&monitorInfo, 0, sizeof(monitorInfo));
+    monitorInfo.cbSize = sizeof(monitorInfo);
+    if (monitor == NULL || !GetMonitorInfoW(monitor, &monitorInfo))
+    {
+        delete data;
+        return FALSE;
+    }
+
+    const int width = 400;
+    const int height = 112;
+    const int margin = 16;
+    int existing = 0;
+    EnumWindows(CountNotificationWindows, reinterpret_cast<LPARAM>(&existing));
+    RECT work = monitorInfo.rcWork;
+    int x = work.right - width - margin;
+    int y = work.bottom - height - margin - existing * (height + 8);
+    if (y < work.top + margin)
+        y = work.top + margin;
+
+    HWND window = CreateWindowExW(
+        WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE,
+        NotificationClassName,
+        titleWide.c_str(),
+        WS_POPUP | WS_BORDER,
+        x,
+        y,
+        width,
+        height,
+        owner,
+        NULL,
+        NotificationInstance,
+        data);
+    if (window == NULL)
+    {
+        delete data;
+        return FALSE;
+    }
+    DWORD duration = timeoutMs == 0 ? 5000 : timeoutMs;
+    if (duration > 600000)
+        duration = 600000;
+    if (SetTimer(window, 1, duration, NULL) == 0)
+    {
+        DestroyWindow(window);
+        return FALSE;
+    }
+    ShowWindow(window, SW_SHOWNOACTIVATE);
+    UpdateWindow(window);
+    return TRUE;
+}
 
 struct NativeDialog::Impl
 {

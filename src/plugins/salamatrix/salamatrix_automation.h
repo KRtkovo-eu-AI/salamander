@@ -190,6 +190,19 @@ public:
         delete progress;
     }
 
+    BOOL WINAPI Notify(
+        HWND parent,
+        const char* title,
+        const char* message,
+        DWORD timeoutMs)
+    {
+        return UIService != NULL &&
+                       UIService->GetVersion() >= SALAMATRIX_UI_VERSION_1_1
+                   ? UIService->ShowNotification(
+                         parent, title, message, timeoutMs)
+                   : FALSE;
+    }
+
     class Dialog
     {
     private:

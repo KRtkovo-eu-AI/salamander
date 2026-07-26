@@ -1721,6 +1721,37 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             response, resultJson, resultCapacity, resultLength);
     }
 
+    if (method == "salamander.ui.notify")
+    {
+        std::string title;
+        std::string message;
+        int timeoutValue = 5000;
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "title", &title);
+        Salamatrix::Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "message", &message);
+        Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+            payloadJson, "timeoutMs", &timeoutValue);
+        if (title.empty())
+            title = "Salamander";
+        if (timeoutValue < 0)
+            timeoutValue = 0;
+        Salamatrix::UI::IUIService* ui = bridge->GetUIService();
+        BOOL shown = ui != NULL &&
+                     ui->GetVersion() >= SALAMATRIX_UI_VERSION_1_1 &&
+                     ui->ShowNotification(
+                         SalamanderGeneral->GetMainWindowHWND(),
+                         title.c_str(),
+                         message.c_str(),
+                         static_cast<DWORD>(timeoutValue));
+        return CopyRuntimeHostResult(
+            std::string("{\"ok\":true,\"shown\":") +
+                (shown ? "true}" : "false}"),
+            resultJson,
+            resultCapacity,
+            resultLength);
+    }
+
     if (method == "salamander.ui.inputBox")
     {
         std::string prompt;

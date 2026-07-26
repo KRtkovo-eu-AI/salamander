@@ -387,12 +387,12 @@ public:
 
     virtual DWORD WINAPI GetVersion() const
     {
-        return SALAMATRIX_UI_VERSION_1_0;
+        return SALAMATRIX_UI_VERSION_1_1;
     }
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"messageBox\",\"inputBox\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"]}";
+        return "{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true,\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"]}";
     }
 
     virtual UI::IProgressDialog* WINAPI CreateProgressDialog(CSalamanderForOperationsAbstract* operations)
@@ -414,6 +414,16 @@ public:
         UINT flags)
     {
         return ShowUtf8MessageBox(parent, message, title, flags);
+    }
+
+    virtual BOOL WINAPI ShowNotification(
+        HWND parent,
+        const char* title,
+        const char* message,
+        DWORD timeoutMs)
+    {
+        return UI::ShowNativeNotification(
+            parent, title, message, timeoutMs);
     }
 
     virtual BOOL WINAPI CopyTextToClipboard(
@@ -779,7 +789,7 @@ public:
         AIService.SetContractSchema(SALAMATRIX_SERVICE_EXTENSIONS, ExtensionsService.GetApiSchema());
         AIService.SetContractSchema(SALAMATRIX_SERVICE_STORAGE, StorageService.GetApiSchema());
         Registered = TRUE;
-        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_1, &UIService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework", this);
@@ -792,7 +802,7 @@ public:
 
         if (General != NULL && registerHostServices)
         {
-            HostUIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0, &UIService, "Salamatrix Framework", this);
+            HostUIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_1, &UIService, "Salamatrix Framework", this);
             if (HostUIRegistered)
                 HostCommandsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);
             if (HostCommandsRegistered)

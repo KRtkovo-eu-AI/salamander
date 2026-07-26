@@ -278,6 +278,13 @@ class _UI:
             "salamander.ui.messageBox", message=message, title=title
         ).get("result", 0))
 
+    def notify(self, message: str, title: str = "Salamander",
+               timeout_ms: int = 5000) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.notify", message=message, title=title,
+            timeoutMs=max(0, int(timeout_ms))
+        ).get("shown", False))
+
     def input_box(self, prompt: str, title: str = "Salamander",
                   initial: str = "") -> dict:
         return self._transport.call(
