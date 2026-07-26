@@ -545,17 +545,21 @@ private:
                                         "assistant output does not match the Salamatrix response contract");
 
         std::string canImplement;
-        if (Runtime::Protocol::Json::FindRawMember(
-                response->ResponseJson, "canImplement", &canImplement) &&
-            canImplement != "true" && canImplement != "false")
+        if (!Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "canImplement", &canImplement) ||
+            (canImplement != "true" && canImplement != "false"))
             return SetValidationFailure(validation,
                                         AssistantValidationIssueShape,
-                                        "canImplement must be a boolean");
+                                        "canImplement is required and must be a boolean");
         std::string missingCapabilities;
         if (Runtime::Protocol::Json::FindRawMember(
                 response->ResponseJson, "missingCapabilities", &missingCapabilities) &&
             !ValidateStringArray(missingCapabilities, validation))
             return FALSE;
+        if (canImplement == "false" && missingCapabilities.empty())
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueCapability,
+                                        "missingCapabilities is required when canImplement is false");
 
         std::string capabilities;
         std::string effects;
@@ -580,9 +584,12 @@ private:
         for (int index = 0; index < _countof(effectNames); ++index)
         {
             std::string raw;
-            if (Runtime::Protocol::Json::FindRawMember(
-                    effects.c_str(), effectNames[index], &raw) &&
-                raw != "true" && raw != "false")
+            if (!Runtime::Protocol::Json::FindRawMember(
+                    effects.c_str(), effectNames[index], &raw))
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueEffect,
+                                            "estimatedEffects must contain every declared effect as a boolean");
+            if (raw != "true" && raw != "false")
                 return SetValidationFailure(validation,
                                             AssistantValidationIssueEffect,
                                             "estimatedEffects values must be booleans");
@@ -753,12 +760,25 @@ public:
                 return FALSE;
             if (candidate.Summary.Script[0] != '\0')
                 previousScript.assign(candidate.Summary.Script);
+            AssistantValidationResult validation;
+            ValidateOutput(&retry, &candidate, &validation);
             repairFeedback =
                 "The previous response failed static Salamatrix validation. "
+                "Specific validation error: " +
+                (validation.Message[0] != '\0'
+                     ? std::string(validation.Message)
+                     : std::string("the response does not match the contract")) +
+                ". "
                 "Return corrected JSON, declare every external or network "
                 "operation in estimatedEffects, or set canImplement to false "
                 "and list missingCapabilities when the installed API cannot "
-                "perform the requested task.";
+                "perform the requested task. capabilities must be a JSON "
+                "array and estimatedEffects must be a JSON object with "
+                "boolean values. Allowed capabilities are exactly: "
+                "panels.read, panels.write, ui.dialogs, commands, "
+                "file-operations, storage, events, ai, clipboard, runtimes. "
+                "canImplement and missingCapabilities belong at the top level, "
+                "not inside estimatedEffects.";
         }
         return FALSE;
     }
@@ -902,7 +922,7 @@ public:
             "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],"
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","
             "\"runtime\",\"existingScript\",\"feedback\"]}},"
-            "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"],\"optional\":[\"runtime\",\"canImplement\",\"missingCapabilities\"]}}";
+            "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"estimatedEffects\",\"canImplement\",\"script\"],\"optional\":[\"runtime\",\"missingCapabilities\"]}}";
     }
 
 private:

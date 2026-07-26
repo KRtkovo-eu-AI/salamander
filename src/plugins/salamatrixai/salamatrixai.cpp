@@ -74,8 +74,8 @@ static const char* AssistantStringFallback(UINT resourceId)
     case IDS_AI_REFINE_QUESTION: return "Refine the generated script before previewing it?";
     case IDS_AI_REFINE_PROMPT: return "What should be changed in the generated script?";
     case IDS_AI_PREVIEW_LABEL: return "Preview";
-    case IDS_AI_RUN_LABEL: return "Run";
-    case IDS_AI_EXPORT_LABEL: return "Export";
+    case IDS_AI_RUN_LABEL: return "Run script";
+    case IDS_AI_EXPORT_LABEL: return "Export package";
     case IDS_AI_ASK_LABEL: return "Ask";
     case IDS_AI_SAVE_LABEL: return "Save";
     case IDS_AI_REFINE_ACCEPT: return "Use feedback";
@@ -607,6 +607,90 @@ struct ChatContext
     std::wstring LastSavedPath;
     std::string LastRuntimeId;
 };
+
+static ChatContext* g_chat = NULL;
+
+static void WINAPI ChatResize(
+    void* context, Salamatrix::UI::IDialog* dialog, int width, int height)
+{
+    ChatContext* chat = static_cast<ChatContext*>(context);
+    if (chat == NULL || dialog == NULL)
+        return;
+    const int margin = 12;
+    const int gap = 16;
+    const int rightWidth = 220;
+    const int leftWidth = width - margin * 2 - gap - rightWidth > 300
+                              ? width - margin * 2 - gap - rightWidth : 300;
+    const int rightX = width - margin - rightWidth;
+    const int labelHeight = 18;
+    const int historyY = margin + labelHeight;
+    const int promptLabelY = height > 560 ? height - 300 : 340;
+    const int promptY = promptLabelY + labelHeight;
+    const int promptHeight = 78;
+    const int consoleLabelY = promptY + promptHeight + 10;
+    const int consoleY = consoleLabelY + labelHeight;
+    const int historyHeight = promptLabelY - historyY - 10 > 120
+                                  ? promptLabelY - historyY - 10 : 120;
+    const int consoleHeight = height - consoleY - margin > 54
+                                  ? height - consoleY - margin : 54;
+    const int rightTop = margin;
+    const int buttonY = rightTop + 142;
+    const int statusLabelY = buttonY + 88;
+    const int statusY = statusLabelY + labelHeight;
+    const int statusHeight = height - statusY - margin > 50
+                                 ? height - statusY - margin : 50;
+
+    Salamatrix::UI::IControl* control = NULL;
+#define CHAT_BOUNDS(id, x, y, w, h) \
+    do { control = dialog->FindControl(id); if (control != NULL) control->SetBounds((x), (y), (w), (h)); } while (0)
+
+    CHAT_BOUNDS("conversation-label", margin, margin, leftWidth, labelHeight);
+    CHAT_BOUNDS("prompt-label", margin, promptLabelY - labelHeight, leftWidth, labelHeight);
+    CHAT_BOUNDS("console-label", margin, consoleLabelY - labelHeight, leftWidth, labelHeight);
+    CHAT_BOUNDS("runtime-label", rightX, rightTop, rightWidth, labelHeight);
+    CHAT_BOUNDS("provider-label", rightX, rightTop + 48, rightWidth, labelHeight);
+    CHAT_BOUNDS("provider-status-label", rightX, statusLabelY, rightWidth, labelHeight);
+
+    if (chat->History != NULL)
+        chat->History->SetBounds(margin, historyY, leftWidth, historyHeight);
+    if (chat->Prompt != NULL)
+        chat->Prompt->SetBounds(margin, promptY, leftWidth, promptHeight);
+    if (chat->ConsoleLog != NULL)
+        chat->ConsoleLog->SetBounds(margin, consoleY, leftWidth, consoleHeight);
+    if (chat->RuntimeChoice != NULL)
+        chat->RuntimeChoice->SetBounds(rightX, rightTop + 18, rightWidth, 24);
+    if (chat->ProviderChoice != NULL)
+        chat->ProviderChoice->SetBounds(rightX, rightTop + 66, rightWidth, 24);
+    control = dialog->FindControl("ask");
+    if (control != NULL)
+        control->SetBounds(rightX, buttonY, 104, 26);
+    control = dialog->FindControl("preview");
+    if (control != NULL)
+        control->SetBounds(rightX + 112, buttonY, 108 - 16, 26);
+    control = dialog->FindControl("save");
+    if (control != NULL)
+        control->SetBounds(rightX, buttonY + 34, 104, 26);
+    control = dialog->FindControl("run");
+    if (control != NULL)
+        control->SetBounds(rightX + 112, buttonY + 34, 108 - 16, 26);
+    control = dialog->FindControl("export");
+    if (control != NULL)
+        control->SetBounds(rightX, buttonY + 68, rightWidth, 26);
+    control = dialog->FindControl("provider-status");
+    if (control != NULL)
+        control->SetBounds(rightX, statusY, rightWidth, statusHeight);
+#undef CHAT_BOUNDS
+}
+
+static void WINAPI ChatClosed(void* context, Salamatrix::UI::IDialog* dialog)
+{
+    ChatContext* chat = static_cast<ChatContext*>(context);
+    if (g_chat == chat)
+        g_chat = NULL;
+    delete chat;
+    if (dialog != NULL)
+        dialog->Release();
+}
 
 static void WINAPI AssistantOutput(void* context, const char* output, DWORD outputLength)
 {
@@ -1175,6 +1259,8 @@ static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* e
 
 static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
 {
+    if (g_chat != NULL)
+        return;
     EnsureServices();
     if (g_ai == NULL || g_ui == NULL)
     {
@@ -1189,18 +1275,51 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
     options.Parent = parent;
     options.Width = 760;
     options.Height = 560;
+    options.Modeless = TRUE;
+    options.Resizable = TRUE;
+    options.Taskbar = TRUE;
+    UINT iconFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags() : LR_DEFAULTCOLOR;
+    options.SmallIcon = (HICON)LoadImage(
+        DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON, 16, 16,
+        iconFlags | LR_SHARED);
+    options.LargeIcon = (HICON)LoadImage(
+        DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON, 32, 32,
+        iconFlags | LR_SHARED);
     Salamatrix::UI::IDialog* dialog = g_ui->CreateSalamatrixDialog(options);
     if (dialog == NULL) return;
+    Salamatrix::UI::ControlOptions labelOptions;
+    Salamatrix::UI::ControlLayout labelLayout;
+    labelOptions.KeepOpen = TRUE;
+    labelLayout.HasBounds = TRUE;
+    labelLayout.Width = 300; labelLayout.Height = 18;
+    labelOptions.Id = "conversation-label"; labelOptions.Text = "Conversation";
+    labelLayout.X = 12; labelLayout.Y = 12;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindLabel, labelOptions, labelLayout);
+    labelOptions.Id = "prompt-label"; labelOptions.Text = "Task / prompt";
+    labelLayout.X = 12; labelLayout.Y = 324;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindLabel, labelOptions, labelLayout);
+    labelOptions.Id = "console-label"; labelOptions.Text = "Model diagnostics (stderr)";
+    labelLayout.X = 12; labelLayout.Y = 430;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindLabel, labelOptions, labelLayout);
+    labelOptions.Id = "runtime-label"; labelOptions.Text = "Runtime";
+    labelLayout.X = 568; labelLayout.Y = 12; labelLayout.Width = 220;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindLabel, labelOptions, labelLayout);
+    labelOptions.Id = "provider-label"; labelOptions.Text = "Provider (auto selects the best available)";
+    labelLayout.Y = 60;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindLabel, labelOptions, labelLayout);
+    labelOptions.Id = "provider-status-label"; labelOptions.Text = "Provider status";
+    labelLayout.Y = 462;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindLabel, labelOptions, labelLayout);
     Salamatrix::UI::ControlLayout historyLayout;
     historyLayout.HasBounds = TRUE;
-    historyLayout.X = 8; historyLayout.Y = 8; historyLayout.Width = 744; historyLayout.Height = 330;
+    historyLayout.X = 12; historyLayout.Y = 30; historyLayout.Width = 520; historyLayout.Height = 280;
     Salamatrix::UI::ControlOptions historyOptions;
     historyOptions.Id = "history";
     Salamatrix::UI::IControl* history = dialog->AddControlEx(
         Salamatrix::UI::ControlKindListView, historyOptions, historyLayout);
     Salamatrix::UI::ControlLayout promptLayout;
     promptLayout.HasBounds = TRUE;
-    promptLayout.X = 8; promptLayout.Y = 345; promptLayout.Width = 548; promptLayout.Height = 76;
+    promptLayout.X = 12; promptLayout.Y = 342; promptLayout.Width = 520; promptLayout.Height = 78;
     Salamatrix::UI::ControlOptions promptOptions;
     promptOptions.Id = "prompt";
     promptOptions.Multiline = TRUE;
@@ -1208,7 +1327,7 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
         Salamatrix::UI::ControlKindTextBox, promptOptions, promptLayout);
     Salamatrix::UI::ControlLayout runtimeLayout;
     runtimeLayout.HasBounds = TRUE;
-    runtimeLayout.X = 568; runtimeLayout.Y = 345; runtimeLayout.Width = 184; runtimeLayout.Height = 24;
+    runtimeLayout.X = 568; runtimeLayout.Y = 30; runtimeLayout.Width = 220; runtimeLayout.Height = 24;
     Salamatrix::UI::ControlOptions runtimeOptions;
     runtimeOptions.Id = "runtime";
     Salamatrix::UI::IControl* runtimeChoice = dialog->AddControlEx(
@@ -1216,7 +1335,7 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
 
     Salamatrix::UI::ControlLayout providerLayout;
     providerLayout.HasBounds = TRUE;
-    providerLayout.X = 568; providerLayout.Y = 375; providerLayout.Width = 184; providerLayout.Height = 24;
+    providerLayout.X = 568; providerLayout.Y = 78; providerLayout.Width = 220; providerLayout.Height = 24;
     Salamatrix::UI::ControlOptions providerOptions;
     providerOptions.Id = "provider";
     Salamatrix::UI::IControl* providerChoice = dialog->AddControlEx(
@@ -1224,7 +1343,6 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
     if (providerChoice != NULL)
     {
         providerChoice->AddItem("auto");
-        const char* configured = ConfiguredProviderId();
         int configuredIndex = 0;
         for (int index = 0; index < g_ai->GetProviderCount(); ++index)
         {
@@ -1235,13 +1353,10 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
                 !provider->IsAvailable())
                 continue;
             providerChoice->AddItem(descriptor->ProviderId);
-            if (configured != NULL &&
-                _stricmp(configured, descriptor->ProviderId) == 0)
-                configuredIndex = providerChoice->GetItemCount() - 1;
         }
         providerChoice->SetSelectedIndex(configuredIndex);
     }
-    std::string providerStatus = "Providers: ";
+    std::string providerStatus = "Providers:\n";
     for (int index = 0; index < g_ai->GetProviderCount(); ++index)
     {
         Salamatrix::AI::IAssistantProvider* provider = g_ai->GetProvider(index);
@@ -1249,14 +1364,14 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
             provider != NULL ? provider->GetDescriptor() : NULL;
         if (descriptor == NULL || descriptor->ProviderId == NULL)
             continue;
-        if (providerStatus.size() > strlen("Providers: "))
-            providerStatus += ", ";
+        if (providerStatus.size() > strlen("Providers:\n"))
+            providerStatus += "\n";
         providerStatus += descriptor->ProviderId;
         providerStatus += provider->IsAvailable() ? " (ready)" : " (unavailable)";
     }
     Salamatrix::UI::ControlLayout statusLayout;
     statusLayout.HasBounds = TRUE;
-    statusLayout.X = 568; statusLayout.Y = 500; statusLayout.Width = 184; statusLayout.Height = 45;
+    statusLayout.X = 568; statusLayout.Y = 482; statusLayout.Width = 220; statusLayout.Height = 60;
     Salamatrix::UI::ControlOptions statusOptions;
     statusOptions.Id = "provider-status";
     statusOptions.Text = providerStatus.c_str();
@@ -1278,7 +1393,7 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
     }
     Salamatrix::UI::ControlLayout askLayout;
     askLayout.HasBounds = TRUE;
-    askLayout.X = 568; askLayout.Y = 405; askLayout.Width = 86; askLayout.Height = 24;
+    askLayout.X = 568; askLayout.Y = 154; askLayout.Width = 104; askLayout.Height = 26;
     Salamatrix::UI::ControlOptions askOptions;
     askOptions.Id = "ask";
     askOptions.Text = LoadAssistantString(IDS_AI_ASK_LABEL).c_str();
@@ -1288,41 +1403,43 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
     Salamatrix::UI::ControlOptions previewOptions;
     previewOptions.Id = "preview"; previewOptions.Text = LoadAssistantString(IDS_AI_PREVIEW_LABEL).c_str(); previewOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout previewLayout;
-    previewLayout.HasBounds = TRUE; previewLayout.X = 660; previewLayout.Y = 405; previewLayout.Width = 92; previewLayout.Height = 24;
+    previewLayout.HasBounds = TRUE; previewLayout.X = 680; previewLayout.Y = 154; previewLayout.Width = 108; previewLayout.Height = 26;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, previewOptions, previewLayout);
     Salamatrix::UI::ControlOptions saveOptions;
     saveOptions.Id = "save"; saveOptions.Text = LoadAssistantString(IDS_AI_SAVE_LABEL).c_str(); saveOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout saveLayout;
-    saveLayout.HasBounds = TRUE; saveLayout.X = 568; saveLayout.Y = 435; saveLayout.Width = 86; saveLayout.Height = 24;
+    saveLayout.HasBounds = TRUE; saveLayout.X = 568; saveLayout.Y = 188; saveLayout.Width = 104; saveLayout.Height = 26;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, saveOptions, saveLayout);
     Salamatrix::UI::ControlOptions runOptions;
     runOptions.Id = "run"; runOptions.Text = LoadAssistantString(IDS_AI_RUN_LABEL).c_str(); runOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout runLayout;
-    runLayout.HasBounds = TRUE; runLayout.X = 660; runLayout.Y = 435; runLayout.Width = 92; runLayout.Height = 24;
+    runLayout.HasBounds = TRUE; runLayout.X = 680; runLayout.Y = 188; runLayout.Width = 108; runLayout.Height = 26;
     Salamatrix::UI::ControlOptions exportOptions;
     exportOptions.Id = "export";
     exportOptions.Text = LoadAssistantString(IDS_AI_EXPORT_LABEL).c_str();
     exportOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout exportLayout;
-    exportLayout.HasBounds = TRUE; exportLayout.X = 568; exportLayout.Y = 465; exportLayout.Width = 184; exportLayout.Height = 24;
+    exportLayout.HasBounds = TRUE; exportLayout.X = 568; exportLayout.Y = 222; exportLayout.Width = 220; exportLayout.Height = 26;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, exportOptions, exportLayout);
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, runOptions, runLayout);
     if (history != NULL) history->AddColumn("Conversation", 700);
     Salamatrix::UI::ControlLayout consoleLayout;
     consoleLayout.HasBounds = TRUE;
-    consoleLayout.X = 8; consoleLayout.Y = 430; consoleLayout.Width = 548; consoleLayout.Height = 115;
+    consoleLayout.X = 12; consoleLayout.Y = 456; consoleLayout.Width = 520; consoleLayout.Height = 80;
     Salamatrix::UI::ControlOptions consoleOptions;
     consoleOptions.Id = "console-output";
     consoleOptions.ReadOnly = TRUE;
     consoleOptions.Multiline = TRUE;
     Salamatrix::UI::IControl* consoleLog = dialog->AddControlEx(
         Salamatrix::UI::ControlKindTextBox, consoleOptions, consoleLayout);
-    ChatContext chat = { g_ai, g_runtime, g_runner, dialog, history, prompt, runtimeChoice, providerChoice,
+    ChatContext* chat = new ChatContext{ g_ai, g_runtime, g_runner, dialog, history, prompt, runtimeChoice, providerChoice,
                          operation, parent, consoleLog, std::string(),
                          Salamatrix::AI::AssistantResponse(), FALSE, std::wstring(), std::string() };
-    dialog->SetEventCallback(ChatEvent, &chat);
+    dialog->SetEventCallback(ChatEvent, chat);
+    dialog->SetResizeCallback(ChatResize, chat);
+    dialog->SetCloseCallback(ChatClosed, chat);
+    g_chat = chat;
     dialog->ShowModal();
-    dialog->Release();
 }
 } // namespace
 
@@ -1646,6 +1763,8 @@ void WINAPI CPluginInterface::About(HWND parent)
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
     UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(force);
+    if (g_chat != NULL)
+        g_chat->Dialog->Close();
     if (!g_released && IsCurrentService(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, g_ai))
     {
         g_ai->UnregisterProvider(&g_httpProvider);

@@ -363,10 +363,34 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     prompt +=
         "\n\nFINAL OUTPUT RULE: Return exactly one JSON object and no markdown, "
         "explanation, API reference, or schema. The object must contain the "
-        "string fields title, description, capabilities, estimatedEffects, "
-        "and script. Include runtime when known. If the task cannot be "
-        "implemented, set canImplement to false and list "
-        "missingCapabilities. The script field must still be present.";
+        "string fields title, description, and script. capabilities MUST be "
+        "a JSON array containing ONLY these installed capability names: "
+        "panels.read, panels.write, ui.dialogs, commands, file-operations, "
+        "storage, events, ai, clipboard, runtimes. estimatedEffects MUST be "
+        "a JSON object whose values are booleans, never an array or a string. "
+        "canImplement and missingCapabilities are top-level properties, never "
+        "members of estimatedEffects. Include runtime when known and use exactly the requested runtime. "
+        "The script field must contain source code for that runtime, not an "
+        "error message or a command description. If the task cannot be "
+        "implemented, set canImplement to false and list missingCapabilities at "
+        "the top level. The script field must still be present. Always include "
+        "canImplement and all eight estimatedEffects keys: readSelection, "
+        "readMetadata, renameFiles, moveFiles, deleteFiles, modifyContents, "
+        "executeExternal, network.\n"
+        "Use this exact shape (values are examples only): "
+        "{\"title\":\"...\",\"description\":\"...\","
+        "\"capabilities\":[\"panels.read\"],"
+        "\"estimatedEffects\":{\"readSelection\":true,\"readMetadata\":false,"
+        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+        "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
+        "\"runtime\":\"PowerShell\",\"canImplement\":true,"
+        "\"missingCapabilities\":[],\"script\":\"...\"}.\n"
+        "Never invent an API object, method, property, capability, runtime, or "
+        "command. Use only identifiers present in the installed reference. "
+        "Do not generate Win32, cmd.exe, or PowerShell as a substitute for a "
+        "missing Salamander API operation. If the reference cannot perform the "
+        "task, return canImplement=false, name the missing API capability, and "
+        "do not pretend that a workaround implements the requested task.";
 
     std::wstring promptFile;
     if (!CreateUtf8PromptFile(prompt, &promptFile))
@@ -432,24 +456,24 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     bool timedOut = false;
     for (;;)
     {
-        ReadAvailablePipe(parentOut, output, outputCallback, outputContext);
+        ReadAvailablePipe(parentOut, output, NULL, NULL);
         ReadAvailablePipe(parentErr, diagnostics, outputCallback, outputContext);
         if (WaitForSingleObject(process.hProcess, 10) == WAIT_OBJECT_0) break;
         if (GetTickCount64() - start >= timeout)
         { timedOut = true; TerminateProcess(process.hProcess, 1); break; }
     }
     WaitForSingleObject(process.hProcess, 1000);
-    ReadAvailablePipe(parentOut, output, outputCallback, outputContext);
+    ReadAvailablePipe(parentOut, output, NULL, NULL);
     ReadAvailablePipe(parentErr, diagnostics, outputCallback, outputContext);
     DWORD exitCode = 1; GetExitCodeProcess(process.hProcess, &exitCode);
     CloseHandle(process.hThread); CloseHandle(process.hProcess);
     CloseHandle(parentOut); CloseHandle(parentErr);
     DeleteFileW(promptFile.c_str());
-    std::string failureOutput = output;
-    if (!diagnostics.empty())
-        failureOutput += "\n\nllama stderr:\n" + diagnostics;
+    std::string failureOutput;
     size_t first = std::string::npos, last = std::string::npos;
     const bool hasJsonObject = ExtractJsonObject(output, &first, &last);
+    if (hasJsonObject && last >= first)
+        failureOutput = output.substr(first, last - first + 1);
     if (timedOut)
     { BundledFailure(response, Salamatrix::AI::AssistantStatusCancelled, HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"The bundled model timed out.", &failureOutput); return FALSE; }
     if (exitCode != 0 || !hasJsonObject || last - first + 1 >= sizeof(response->ResponseJson))

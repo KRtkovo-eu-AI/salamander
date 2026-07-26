@@ -32,6 +32,7 @@ def main() -> int:
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
+    ui_contract = read("src/plugins/salamatrix/salamatrix_ui.h")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
     bundled = read("src/plugins/salamatrixai/bundledprovider.cpp")
     local_llama = read("src/plugins/salamatrixailocalllama/local_llama.cpp")
@@ -140,6 +141,8 @@ def main() -> int:
     require(bundled, r'CreateUtf8PromptFile', "bundled provider does not pass the prompt through a UTF-8 file")
     require(bundled, r'--single-turn.*--conversation', "bundled provider does not request one-shot conversation mode")
     require(bundled, r'ExtractJsonObject', "bundled provider does not tolerate llama-cli diagnostic output around JSON")
+    require(bundled, r'capabilities MUST be.*JSON array.*estimatedEffects MUST be.*JSON.*object',
+            "bundled provider prompt does not state the exact Salamatrix response shape")
     require(local_llama_header, r'class CLocalBundledAssistantProvider',
             "optional local llama provider declaration is missing")
     require(local_llama, r'g_ai->RegisterProvider\(&g_provider\)',
@@ -178,6 +181,18 @@ def main() -> int:
     require(ai, r"g_sides\s*=\s*static_cast<Salamatrix::Sides::ISidesService.*?Query\(\s*SALAMATRIX_SERVICE_SIDES",
             "AI panel context does not query Salamatrix.Sides")
     require(ai, r"GenerateWithRepair", "AI chat lost the bounded repair/refinement generation path")
+    require(ai, r"options\.Modeless\s*=\s*TRUE.*?options\.Resizable\s*=\s*TRUE.*?options\.Taskbar\s*=\s*TRUE",
+            "AI chat is not configured as a modeless taskbar-resizable window")
+    require(ai, r"SetResizeCallback\(ChatResize.*?SetCloseCallback\(ChatClosed",
+            "AI chat does not install modeless resize and lifetime callbacks")
+    require(ai, r"static ChatContext\* g_chat",
+            "AI chat does not retain modeless window lifetime state")
+    require(ui_contract, r"virtual BOOL WINAPI SetResizeCallback.*?virtual BOOL WINAPI SetCloseCallback",
+            "UI dialog contract does not expose modeless lifecycle callbacks")
+    require(ui_contract, r"virtual BOOL WINAPI SetBounds\(",
+            "UI control contract does not expose resizeable bounds")
+    require(ai_contract, r"Specific validation error:.*validation\.Message",
+            "AI repair loop does not pass the concrete contract validation error back to the model")
     require(ai, r"CopyTextToClipboard", "AI generated script is no longer copied for review")
     require(ai, r"PostPluginMenuChanged", "AI package export does not refresh the existing menu/discovery surface")
     require(ai, r"RefreshExtensions", "AI package export does not request manifest discovery refresh")
@@ -240,6 +255,10 @@ def main() -> int:
     require(salamatrix_runtime, r"DarkModeMessageBoxW", "Salamatrix runtime message boxes do not use the Unicode dark-mode path")
     require(salamatrix_ui, r"WM_SETTINGCHANGE \|\| message == WM_THEMECHANGED", "Salamatrix dialog theme-change handling is missing")
     require(salamatrix_ui, r"DarkModeRefreshTitleBar\(hwnd\)", "Salamatrix dialog title bar dark-mode refresh is missing")
+    require(salamatrix_ui, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?DarkModeAllowDarkScrollbars\(control->WindowHandle\).*?DarkModeDisallowDarkScrollbars\(control->WindowHandle\)",
+            "Salamatrix dialogs do not scope the host dark scrollbar hook to controls")
+    require(salamatrix_ui, r"PostMessage\(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS",
+            "Salamatrix dialogs apply dark scrollbar scopes during WM_INIT reentrantly")
 
     require(packages, r"BOOL RuntimeUsable;", "extension package runtime usability state is missing")
     require(packages, r"plugins.*automation.*scripts", "Automation sample-script extension root is missing")
