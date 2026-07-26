@@ -52,9 +52,11 @@ clear unavailable-runtime result.
 
 The standalone `SalamatrixAI.SPL` is likewise separate from Automation. It owns
 the local assistant provider, chat window, and localized `Ask Salamatrix AI...`
-menu command. Automation does not publish a duplicate AI menu item or own the
-chat flow; it retains only the shared `Salamatrix.AI` host/API bridge needed by
-runtime scripts and the `Salamatrix.ScriptRunner` compatibility service.
+menu command; its menu extension uses the same text as a bounded fallback when
+the plugin resource lookup is unavailable. Automation does not publish a
+duplicate AI menu item or own the chat flow; it retains only the shared
+`Salamatrix.AI` host/API bridge needed by runtime scripts and the
+`Salamatrix.ScriptRunner` compatibility service.
 
 The current branch has the broker contract, worker protocol, and provider
 lifecycle helper. `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,

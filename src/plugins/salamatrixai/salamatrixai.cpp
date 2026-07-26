@@ -42,8 +42,9 @@ static bool IsCurrentService(const char* serviceId, DWORD minimumVersion, const 
 static const char* GetAssistantMenuCaption()
 {
     if (SalamanderGeneral == NULL || DLLInstance == NULL)
-        return "";
-    return SalamanderGeneral->LoadStr(DLLInstance, IDS_AI_ASSISTANT_MENU);
+        return "Ask Salamatrix AI...";
+    const char* caption = SalamanderGeneral->LoadStr(DLLInstance, IDS_AI_ASSISTANT_MENU);
+    return (caption == NULL || caption[0] == '\0') ? "Ask Salamatrix AI..." : caption;
 }
 
 static std::string EscapeJson(const char* value)

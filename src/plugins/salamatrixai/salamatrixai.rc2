@@ -4,5 +4,5 @@ IDI_PLUGINICON ICON "..\\..\\res\\sal_r.ico"
 
 STRINGTABLE
 BEGIN
-    IDS_AI_ASSISTANT_MENU "AI Assistant..."
+    IDS_AI_ASSISTANT_MENU "Ask Salamatrix AI..."
 END

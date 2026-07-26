@@ -105,7 +105,8 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   remain.
 - `Salamatrix.AI` has a provider-neutral contract. The standalone
   `SalamatrixAI.SPL` registers the optional bounded local command provider,
-  owns the interactive chat window, and publishes the AI menu command;
+  owns the interactive chat window, and publishes the localized `Ask
+  Salamatrix AI...` menu command with a stable fallback caption;
   Automation remains a shared-service/API consumer and keeps its legacy
   scripting/runtime role without owning an AI menu or chat flow. The provider
   exchanges one bounded JSON request/response and enforces the two-minute
@@ -917,3 +918,15 @@ The thirty-eighth code slice is implemented and verified:
 - rebuild the affected Debug x64 projects and run the regression test in an
   isolated verification output; no Salamander process was started or
   controlled.
+
+The thirty-ninth code slice is implemented and verified:
+
+- make the standalone `SalamatrixAI.SPL` menu caption explicitly
+  `Ask Salamatrix AI...` in its own resource and use the same text as a
+  bounded fallback when localized resource lookup returns NULL or empty;
+- strengthen the source-contract regression test to validate the standalone
+  resource text, fallback, `BuildMenu` command insertion, and the existing
+  `ExecuteMenuItem` to `ShowChat` path;
+- rebuild `SalamatrixAI.SPL` Debug x64 into
+  `build\verification\ask-ai-menu-ai-final2` and rerun the regression test;
+  no Salamander process was started or controlled.
