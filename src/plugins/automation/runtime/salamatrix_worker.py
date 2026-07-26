@@ -629,8 +629,10 @@ class _Runtimes:
 
 
 class _Salamander:
-    def __init__(self, transport: _Transport, command_id: str = "") -> None:
+    def __init__(self, transport: _Transport, command_id: str = "",
+                 command_handler: str = "") -> None:
         self.command_id = command_id
+        self.command_handler = command_handler
         self.commands = _Commands(transport)
         self.storage = _Storage(transport)
         self.file_operations = _FileOperations(transport)
@@ -650,12 +652,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--entry", required=True)
     parser.add_argument("--command-id", default="")
+    parser.add_argument("--command-handler", default="")
     parser.add_argument("--one-shot", action="store_true")
     args = parser.parse_args()
     transport = _Transport()
     transport.handshake()
     globals_for_script = {
-        "Salamander": _Salamander(transport, args.command_id)
+        "Salamander": _Salamander(
+            transport, args.command_id, args.command_handler)
     }
     runpy.run_path(args.entry, init_globals=globals_for_script, run_name="__main__")
     if args.one_shot:

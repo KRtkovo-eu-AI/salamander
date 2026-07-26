@@ -218,6 +218,7 @@ private:
     void ApplySalamatrixRequires(PCTSTR pszValue);
     void ApplySalamatrixContextMenu(bool value);
     bool PublishSalamatrixManifestCommands();
+    const char* FindSalamatrixManifestHandler(const char* commandId) const;
 
     void ScriptEnter();
     void ScriptLeave();

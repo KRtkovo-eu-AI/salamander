@@ -129,6 +129,9 @@ namespace Salamatrix
                 DWORD* resultLength);
             RuntimeHostDispatchProc HostDispatch;
             void* HostDispatchContext;
+            /// Optional manifest handler associated with CommandId. This is
+            /// appended to preserve the existing request field layout.
+            const char* CommandHandler;
 
             RuntimeExecutionRequest()
                 : StructSize(sizeof(RuntimeExecutionRequest)),
@@ -142,7 +145,8 @@ namespace Salamatrix
                   CompatibilityExecute(NULL),
                   CompatibilityContext(NULL),
                   HostDispatch(NULL),
-                  HostDispatchContext(NULL)
+                  HostDispatchContext(NULL),
+                  CommandHandler(NULL)
             {
             }
         };

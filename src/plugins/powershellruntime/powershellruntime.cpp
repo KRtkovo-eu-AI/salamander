@@ -880,6 +880,15 @@ BOOL WINAPI CPowerShellRuntimeAdapter::StartPersistent(
             return FALSE;
     }
     if ((request->Flags &
+         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap) != 0 &&
+        request->CommandHandler != NULL &&
+        request->CommandHandler[0] != '\0')
+    {
+        command.append(L" -CommandHandler ");
+        if (!AppendUtf8QuotedArgument(command, request->CommandHandler))
+            return FALSE;
+    }
+    if ((request->Flags &
          Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker) != 0 &&
         (request->Flags &
          Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap) != 0)

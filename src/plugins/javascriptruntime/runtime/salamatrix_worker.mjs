@@ -454,6 +454,10 @@ const events = {
 };
 
 const Salamander = {
+  commandId: "",
+  command_id: "",
+  commandHandler: "",
+  command_handler: "",
   ui,
   commands: {
     execute: (commandId) => hostCall(
@@ -539,8 +543,13 @@ const Salamander = {
 
 const commandIdIndex = process.argv.indexOf("--command-id");
 const commandId = commandIdIndex >= 0 ? process.argv[commandIdIndex + 1] || "" : "";
+const commandHandlerIndex = process.argv.indexOf("--command-handler");
+const commandHandler = commandHandlerIndex >= 0
+  ? process.argv[commandHandlerIndex + 1] || "" : "";
 Salamander.commandId = commandId;
 Salamander.command_id = commandId;
+Salamander.commandHandler = commandHandler;
+Salamander.command_handler = commandHandler;
 
 globalThis.Salamander = Salamander;
 globalThis.Salamatrix = { Salamander };

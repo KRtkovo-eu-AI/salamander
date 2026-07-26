@@ -213,10 +213,12 @@ class SalamatrixEvents {
 
 $entry = null;
 $commandId = '';
+$commandHandler = '';
 $oneShot = false;
 for ($i = 1; $i < count($argv); ++$i) {
     if ($argv[$i] === '--entry' && isset($argv[$i + 1])) $entry = $argv[++$i];
     elseif ($argv[$i] === '--command-id' && isset($argv[$i + 1])) $commandId = $argv[++$i];
+    elseif ($argv[$i] === '--command-handler' && isset($argv[$i + 1])) $commandHandler = $argv[++$i];
     elseif ($argv[$i] === '--one-shot') $oneShot = true;
 }
 class SalamatrixRuntimes {
@@ -231,6 +233,7 @@ if (isset($hello['payload']['ok']) && !$hello['payload']['ok']) throw new Runtim
 
 $Salamander = new stdClass();
 $Salamander->command_id = $commandId;
+$Salamander->command_handler = $commandHandler;
 $Salamander->commands = new SalamatrixCommands($client);
 $Salamander->storage = new SalamatrixStorage($client);
 $Salamander->file_operations = new SalamatrixFileOperations($client);

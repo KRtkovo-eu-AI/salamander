@@ -966,6 +966,7 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     request.CommandId = info.SalamatrixCommandId[0] != '\0'
                             ? info.SalamatrixCommandId
                             : m_szSalamatrixCommandId;
+    request.CommandHandler = FindSalamatrixManifestHandler(request.CommandId);
     request.EntryPoint = &entryPointWide[0];
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
     request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
@@ -4664,6 +4665,23 @@ bool CScriptInfo::PublishSalamatrixManifestCommands()
     if (SalamanderGeneral != NULL)
         SalamanderGeneral->PostPluginMenuChanged();
     return true;
+}
+
+const char* CScriptInfo::FindSalamatrixManifestHandler(
+    const char* commandId) const
+{
+    if (commandId == NULL || commandId[0] == '\0')
+        return NULL;
+    for (size_t index = 0;
+         index < m_salamatrixManifestCommands.size();
+         ++index)
+    {
+        const SALAMATRIX_MANIFEST_COMMAND& command =
+            m_salamatrixManifestCommands[index];
+        if (_stricmp(command.Id.c_str(), commandId) == 0)
+            return command.Handler.empty() ? NULL : command.Handler.c_str();
+    }
+    return NULL;
 }
 
 bool CScriptInfo::UnregisterRuntimeCommand(const char* commandId)

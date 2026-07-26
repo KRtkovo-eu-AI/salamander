@@ -6,6 +6,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$EntryPoint,
     [string]$CommandId = '',
+    [string]$CommandHandler = '',
     [switch]$OneShot
 )
 
@@ -329,6 +330,7 @@ $runtimes | Add-Member ScriptMethod List {
 
 $Salamander = [pscustomobject]@{
     command_id = $CommandId
+    command_handler = $CommandHandler
     commands = $commands
     storage = $storage
     file_operations = $fileOperations
