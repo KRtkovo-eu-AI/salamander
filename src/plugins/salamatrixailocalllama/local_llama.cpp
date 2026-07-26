@@ -68,7 +68,7 @@ static std::wstring RuntimeDirectory()
     return path;
 }
 
-static bool IsRegularFile(const std::wstring& path)
+static bool IsLocalLlamaRegularFile(const std::wstring& path)
 {
     const DWORD attributes = GetFileAttributesW(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES &&
@@ -79,8 +79,8 @@ static bool HasInstalledAssets()
 {
     const std::wstring runtime = RuntimeDirectory();
     return !runtime.empty() &&
-           IsRegularFile(runtime + L"\\llama-cli.exe") &&
-           IsRegularFile(runtime + L"\\salamatrix.gguf");
+           IsLocalLlamaRegularFile(runtime + L"\\llama-cli.exe") &&
+           IsLocalLlamaRegularFile(runtime + L"\\salamatrix.gguf");
 }
 
 static std::wstring QuoteArgument(const std::wstring& value)
@@ -94,7 +94,7 @@ static bool LaunchInstaller(HWND parent)
     if (module.empty())
         return false;
     const std::wstring script = module + L"\\runtime\\install_llama.ps1";
-    if (!IsRegularFile(script))
+    if (!IsLocalLlamaRegularFile(script))
         return false;
     const std::wstring parameters =
         L"-NoLogo -NoProfile -ExecutionPolicy Bypass -File " +
