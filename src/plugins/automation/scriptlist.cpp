@@ -4743,6 +4743,21 @@ void CScriptLookup::PublishSalamatrixExtensions()
                 pScript->GetSalamatrixIconDarkPath());
             descriptor.Flags = Salamatrix::Extensions::ExtensionFlagManifest |
                                Salamatrix::Extensions::ExtensionFlagPersistent;
+            CAutomationSalamatrixBridge* availabilityBridge =
+                g_oAutomationPlugin.GetSalamatrixBridge();
+            Salamatrix::Runtime::IRuntimeService* runtimeService =
+                availabilityBridge != NULL
+                    ? availabilityBridge->GetRuntimeService()
+                    : NULL;
+            Salamatrix::Runtime::IRuntimeAdapter* runtimeAdapter =
+                runtimeService != NULL
+                    ? runtimeService->FindAdapter(
+                          pScript->GetSalamatrixRuntimeId(),
+                          pScript->GetSalamatrixMinimumRuntimeVersion())
+                    : NULL;
+            if (runtimeAdapter == NULL || !runtimeAdapter->IsAvailable())
+                descriptor.Flags |=
+                    Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable;
 
             // A failed registration (for example a duplicate manifest id)
             // is intentionally ignored here. The host registry remains

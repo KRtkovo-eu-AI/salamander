@@ -688,16 +688,29 @@ void CPluginsDlg::OnSelChanged()
             extension->Descriptor.Id);
         SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINWWW), "");
         Url->SetActionOpen("");
+        char runtimeText[256];
+        _snprintf_s(
+            runtimeText,
+            _countof(runtimeText),
+            _TRUNCATE,
+            "%s%s",
+            extension->Descriptor.RuntimeId,
+            (extension->Descriptor.Flags &
+                     Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0
+                ? " (runtime unavailable)"
+                : "");
         SetPluginManagerText(
-            GetDlgItem(HWindow, IDC_PLUGINEXTENSIONS),
-            extension->Descriptor.RuntimeId);
+            GetDlgItem(HWindow, IDC_PLUGINEXTENSIONS), runtimeText);
         SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINFSNAME), "");
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS),
             LoadStr(IDS_PLUGINTHUMBNONE));
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS),
-            "Extension");
+            (extension->Descriptor.Flags &
+                     Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0
+                ? "Extension (runtime unavailable)"
+                : "Extension");
 
         ShowWindow(showInBar, SW_HIDE);
         ShowWindow(showInChDrv, SW_HIDE);

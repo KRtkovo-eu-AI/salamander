@@ -25,7 +25,8 @@ enum ExtensionState
     ExtensionStateActive = 3,
     ExtensionStateDeactivating = 4,
     ExtensionStateInactive = 5,
-    ExtensionStateFailed = 6
+    ExtensionStateFailed = 6,
+    ExtensionStateWaitingForRuntime = 7
 };
 
 enum ExtensionAction
@@ -39,7 +40,8 @@ enum ExtensionFlags
     ExtensionFlagNone = 0x00000000,
     ExtensionFlagManifest = 0x00000001,
     ExtensionFlagPersistent = 0x00000002,
-    ExtensionFlagCompatibility = 0x00000004
+    ExtensionFlagCompatibility = 0x00000004,
+    ExtensionFlagRuntimeUnavailable = 0x00000008
 };
 
 struct ExtensionDescriptor
@@ -234,12 +236,20 @@ private:
                 LeaveCriticalSection(&Lock);
                 return TRUE;
             }
+            if (record.Info.State == ExtensionStateWaitingForRuntime &&
+                (record.Info.Descriptor.Flags &
+                 ExtensionFlagRuntimeUnavailable) != 0)
+            {
+                LeaveCriticalSection(&Lock);
+                return TRUE;
+            }
             record.Info.State = ExtensionStateActivating;
         }
         else
         {
             if (record.Info.State == ExtensionStateInactive ||
-                record.Info.State == ExtensionStateDiscovered)
+                record.Info.State == ExtensionStateDiscovered ||
+                record.Info.State == ExtensionStateWaitingForRuntime)
             {
                 LeaveCriticalSection(&Lock);
                 return TRUE;
@@ -263,7 +273,11 @@ private:
                                             ? (action == ExtensionActionActivate
                                                    ? ExtensionStateActive
                                                    : ExtensionStateInactive)
-                                            : ExtensionStateFailed;
+                                            : ((action == ExtensionActionActivate &&
+                                                (Records[index].Info.Descriptor.Flags &
+                                                 ExtensionFlagRuntimeUnavailable) != 0)
+                                                   ? ExtensionStateWaitingForRuntime
+                                                   : ExtensionStateFailed);
         }
         LeaveCriticalSection(&Lock);
         return succeeded;
@@ -289,7 +303,7 @@ public:
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\"]}";
+        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\"]}";
     }
 
     virtual BOOL WINAPI RegisterExtension(
@@ -315,6 +329,16 @@ public:
             }
             Records[existing].Info.Descriptor = *descriptor;
             Records[existing].Callback = callback;
+            if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
+            {
+                if (Records[existing].Info.State != ExtensionStateActive &&
+                    Records[existing].Info.State != ExtensionStateActivating)
+                    Records[existing].Info.State = ExtensionStateWaitingForRuntime;
+            }
+            else if (Records[existing].Info.State == ExtensionStateWaitingForRuntime)
+            {
+                Records[existing].Info.State = ExtensionStateDiscovered;
+            }
             LeaveCriticalSection(&Lock);
             return TRUE;
         }
@@ -326,6 +350,8 @@ public:
         Record& record = Records[RecordCount++];
         record.Info = ExtensionInfo();
         record.Info.Descriptor = *descriptor;
+        if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
+            record.Info.State = ExtensionStateWaitingForRuntime;
         record.Callback = callback;
         record.Context = context;
         LeaveCriticalSection(&Lock);
@@ -399,10 +425,11 @@ public:
             {
                 if (Records[index].Context == context)
                 {
-                    lstrcpynA(
+                    strncpy_s(
                         extensionId,
+                        _countof(extensionId),
                         Records[index].Info.Descriptor.Id,
-                        _countof(extensionId));
+                        _TRUNCATE);
                     break;
                 }
             }

@@ -155,6 +155,37 @@ void TestUnregisterDeactivatesActiveExtension()
           "active extension removed after deactivation");
     delete extensions;
 }
+
+void TestRuntimeAvailabilityState()
+{
+    Salamatrix::Extensions::ExtensionsService* extensions =
+        new Salamatrix::Extensions::ExtensionsService();
+    CallbackState callback;
+    Salamatrix::Extensions::ExtensionDescriptor descriptor =
+        MakeDescriptor("waiting.extension");
+    descriptor.Flags |= Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable;
+    Check(extensions->RegisterExtension(
+              &descriptor, LifecycleCallback, &callback) != FALSE,
+          "register extension with missing runtime");
+    Salamatrix::Extensions::ExtensionInfo info;
+    Check(extensions->FindExtension("waiting.extension", &info) != FALSE &&
+              info.State == Salamatrix::Extensions::ExtensionStateWaitingForRuntime,
+          "missing runtime is exposed as waiting state");
+    Check(extensions->ActivateExtension("waiting.extension") != FALSE,
+          "waiting extension activation is a safe no-op");
+    Check(callback.Count == 0, "waiting extension does not start without runtime");
+    descriptor.Flags &= ~Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable;
+    Check(extensions->RegisterExtension(
+              &descriptor, LifecycleCallback, &callback) != FALSE,
+          "refresh extension after runtime becomes available");
+    Check(extensions->FindExtension("waiting.extension", &info) != FALSE &&
+              info.State == Salamatrix::Extensions::ExtensionStateDiscovered,
+          "runtime availability refresh returns extension to discovered state");
+    Check(extensions->ActivateExtension("waiting.extension") != FALSE &&
+              callback.Count == 1,
+          "available runtime activates extension");
+    delete extensions;
+}
 } // namespace
 
 int main()
@@ -162,6 +193,7 @@ int main()
     TestRegistrationAndLifecycle();
     TestValidation();
     TestUnregisterDeactivatesActiveExtension();
+    TestRuntimeAvailabilityState();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d Salamatrix extension test(s) failed.\n", Failures);

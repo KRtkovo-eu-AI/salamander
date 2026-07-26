@@ -312,6 +312,11 @@ public:
         return m_szSalamatrixRuntimeId;
     }
 
+    DWORD GetSalamatrixMinimumRuntimeVersion() const
+    {
+        return m_dwSalamatrixMinimumRuntimeVersion;
+    }
+
     const char* GetSalamatrixExtensionId() const
     {
         return m_szSalamatrixExtensionId;
