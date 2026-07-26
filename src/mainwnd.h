@@ -601,6 +601,10 @@ public:
     void FocusLeftPanel();                                                  // calls FocusPanel for the left panel
 
     CFilesWindow* AddPanelTab(CPanelSide side, int index = -1);
+    BOOL CreatePanelTab(CPanelSide side, const char* path, int insertIndex, ULONGLONG* tabId);
+    BOOL ReorderPanelTab(ULONGLONG tabId, int newIndex);
+    BOOL MovePanelTab(ULONGLONG tabId, CPanelSide targetSide, int targetIndex);
+    BOOL ClosePanelTabById(ULONGLONG tabId);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
     void SwitchPanelTab(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);

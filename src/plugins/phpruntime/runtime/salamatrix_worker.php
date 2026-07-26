@@ -86,6 +86,11 @@ class SalamatrixSides {
     public function selectItem($index, $select = true, $side = 'source', $repaint = true) { $r = $this->client->call('salamander.sides.selectItem', array('side' => $side, 'index' => (int)$index, 'select' => (bool)$select, 'repaint' => (bool)$repaint)); return !empty($r['changed']); }
     public function selectAll($select = true, $side = 'source', $repaint = true) { $r = $this->client->call('salamander.sides.selectAll', array('side' => $side, 'select' => (bool)$select, 'repaint' => (bool)$repaint)); return !empty($r['changed']); }
     public function focusItem($index, $side = 'source', $partVisible = true) { $r = $this->client->call('salamander.sides.focusItem', array('side' => $side, 'index' => (int)$index, 'partVisible' => (bool)$partVisible)); return !empty($r['changed']); }
+    public function createTab($side = 'source', $path = null, $index = null) { $a = array('side' => $side, 'path' => $path); if ($index !== null) $a['index'] = (int)$index; return $this->client->call('salamander.sides.createTab', $a); }
+    public function closeTab($tabId) { $r = $this->client->call('salamander.sides.closeTab', array('tabId' => (string)$tabId)); return !empty($r['ok']); }
+    public function reorderTab($tabId, $index) { $r = $this->client->call('salamander.sides.reorderTab', array('tabId' => (string)$tabId, 'index' => (int)$index)); return !empty($r['ok']); }
+    public function moveTab($tabId, $side = 'source', $index = null) { $a = array('tabId' => (string)$tabId, 'side' => $side); if ($index !== null) $a['index'] = (int)$index; $r = $this->client->call('salamander.sides.moveTab', $a); return !empty($r['ok']); }
+    public function setDetached($detached) { $r = $this->client->call('salamander.sides.setDetached', array('detached' => (bool)$detached)); return !empty($r['ok']); }
 }
 class SalamatrixSideView {
     private $sides; private $name;
@@ -99,6 +104,11 @@ class SalamatrixSideView {
     public function selectItem($index, $select = true, $repaint = true) { return $this->sides->selectItem($index, $select, $this->name, $repaint); }
     public function selectAll($select = true, $repaint = true) { return $this->sides->selectAll($select, $this->name, $repaint); }
     public function focusItem($index, $partVisible = true) { return $this->sides->focusItem($index, $this->name, $partVisible); }
+    public function createTab($path = null, $index = null) { return $this->sides->createTab($this->name, $path, $index); }
+    public function closeTab($tabId) { return $this->sides->closeTab($tabId); }
+    public function reorderTab($tabId, $index) { return $this->sides->reorderTab($tabId, $index); }
+    public function moveTab($tabId, $side = null, $index = null) { return $this->sides->moveTab($tabId, $side === null ? $this->name : $side, $index); }
+    public function setDetached($detached) { return $this->sides->setDetached($detached); }
 }
 class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }

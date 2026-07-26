@@ -253,6 +253,35 @@ class _Sides:
             partVisible=part_visible
         ).get("changed", False))
 
+    def create_tab(self, side: str = "source", path: Optional[str] = None,
+                   index: Optional[int] = None) -> dict:
+        args = {"side": side, "path": path}
+        if index is not None:
+            args["index"] = int(index)
+        return self._transport.call("salamander.sides.createTab", **args)
+
+    def close_tab(self, tab_id: str) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.closeTab", tabId=str(tab_id)).get("ok", False))
+
+    def reorder_tab(self, tab_id: str, index: int) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.reorderTab", tabId=str(tab_id), index=int(index)
+        ).get("ok", False))
+
+    def move_tab(self, tab_id: str, side: str = "source",
+                 index: Optional[int] = None) -> bool:
+        args = {"tabId": str(tab_id), "side": side}
+        if index is not None:
+            args["index"] = int(index)
+        return bool(self._transport.call(
+            "salamander.sides.moveTab", **args).get("ok", False))
+
+    def set_detached(self, detached: bool) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.setDetached", detached=bool(detached)
+        ).get("ok", False))
+
 
 class _Side:
     def __init__(self, sides: _Sides, name: str) -> None:
@@ -289,6 +318,23 @@ class _Side:
 
     def focus_item(self, index: int, part_visible: bool = True) -> bool:
         return self._sides.focus_item(index, self._name, part_visible)
+
+    def create_tab(self, path: Optional[str] = None,
+                   index: Optional[int] = None) -> dict:
+        return self._sides.create_tab(self._name, path, index)
+
+    def close_tab(self, tab_id: str) -> bool:
+        return self._sides.close_tab(tab_id)
+
+    def reorder_tab(self, tab_id: str, index: int) -> bool:
+        return self._sides.reorder_tab(tab_id, index)
+
+    def move_tab(self, tab_id: str, side: str = "source",
+                 index: Optional[int] = None) -> bool:
+        return self._sides.move_tab(tab_id, side, index)
+
+    def set_detached(self, detached: bool) -> bool:
+        return self._sides.set_detached(detached)
 
 
 class _UI:

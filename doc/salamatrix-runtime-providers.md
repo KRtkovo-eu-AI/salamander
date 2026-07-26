@@ -175,3 +175,23 @@ Automation/Salamatrix Debug x64 builds, all four standalone provider builds,
 all four worker syntax checks, and the explicit isolated
 SALAMATRIX_WORKER_ROOT Python/PowerShell/PHP process-runtime test. No
 Salamander process was started or controlled.
+
+## Tab mutation worker contract
+
+The implemented Sides version 1.3 contract exposes these host calls:
+
+| Host method | Arguments | Return |
+| --- | --- | --- |
+| `salamander.sides.createTab` | `{side:string, path?:string, index?:int}` | `{created:true, tabId:string}`; `tabId` is decimal text. |
+| `salamander.sides.closeTab` | `{tabId:string}` | `{ok:true}` |
+| `salamander.sides.reorderTab` | `{tabId:string, index:int}` | `{ok:true}` |
+| `salamander.sides.moveTab` | `{tabId:string, side:string, index?:int}` | `{ok:true}` |
+| `salamander.sides.setDetached` | `{detached:bool}` | `{ok:true, detached:bool}` |
+
+Python exposes these as `source_side.create_tab(path=None, index=-1)`,
+`close_tab`, `reorder_tab`, `move_tab(side, index=-1)`, and
+`set_detached`. Node, PHP, and PowerShell retain their existing
+camelCase/PascalCase naming conventions. The deterministic bootstrap and
+dispatcher-count test is isolated under
+`build\verification\tab-object-model`; it does not start or control
+Salamander.

@@ -2391,6 +2391,12 @@ public:
     virtual BOOL WINAPI RegisterToolbarButton(
         const CSalamanderToolbarButton* button);
     virtual BOOL WINAPI UnregisterToolbarButton(int commandId);
+    virtual BOOL WINAPI CreatePanelTab(int side, const char* path, int insertIndex,
+                                       ULONGLONG* tabId);
+    virtual BOOL WINAPI ClosePanelTabById(ULONGLONG tabId);
+    virtual BOOL WINAPI ReorderPanelTab(ULONGLONG tabId, int newIndex);
+    virtual BOOL WINAPI MovePanelTab(ULONGLONG tabId, int targetSide, int targetIndex);
+    virtual BOOL WINAPI SetPanelsDetached(BOOL detached);
 };
 
 //

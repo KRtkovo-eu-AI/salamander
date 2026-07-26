@@ -3052,6 +3052,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         SetActivePanel(RightPanel);
     else
         FocusPanel(GetActivePanel());
+    Plugins.Event(PLUGINEVENT_TABCHANGED, PANEL_RIGHT);
     return TRUE;
 }
 

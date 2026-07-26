@@ -24,6 +24,7 @@ namespace Salamatrix
 #define SALAMATRIX_SIDES_VERSION_1_0 0x00010000
 #define SALAMATRIX_SIDES_VERSION_1_1 0x00010001
 #define SALAMATRIX_SIDES_VERSION_1_2 0x00010002
+#define SALAMATRIX_SIDES_VERSION_1_3 0x00010003
 #define SALAMATRIX_SIDE_ITEM_NAME_CAPACITY 512
 #define SALAMATRIX_SIDE_ITEM_PATH_CAPACITY 32768
 
@@ -163,6 +164,15 @@ namespace Salamatrix
                 int index,
                 BOOL partVisible) = 0;
 
+            virtual BOOL WINAPI CreateTab(
+                SideReference side, const char* path, int insertIndex,
+                ULONGLONG* tabId) = 0;
+            virtual BOOL WINAPI CloseTab(ULONGLONG tabId) = 0;
+            virtual BOOL WINAPI ReorderTab(ULONGLONG tabId, int newIndex) = 0;
+            virtual BOOL WINAPI MoveTab(
+                ULONGLONG tabId, SideReference targetSide, int targetIndex) = 0;
+            virtual BOOL WINAPI SetPanelsDetached(BOOL detached) = 0;
+
         protected:
             virtual ~ISidesService() {}
         };
@@ -211,12 +221,12 @@ namespace Salamatrix
 
             virtual DWORD WINAPI GetVersion() const
             {
-                return SALAMATRIX_SIDES_VERSION_1_2;
+                return SALAMATRIX_SIDES_VERSION_1_3;
             }
 
             const char* GetApiSchema() const
             {
-                return "{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\",\"selectItem\",\"selectAll\",\"focusItem\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}";
+                return "{\"version\":\"0x00010003\",\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\",\"selectItem\",\"selectAll\",\"focusItem\",\"createTab\",\"closeTab\",\"reorderTab\",\"moveTab\",\"setDetached\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}";
             }
 
             virtual SideReference WINAPI ResolveSide(SideReference side) const
@@ -527,6 +537,50 @@ namespace Salamatrix
                     return FALSE;
                 General->SetPanelFocusedItem(panel, item, partVisible);
                 return TRUE;
+            }
+
+            virtual BOOL WINAPI CreateTab(
+                SideReference side,
+                const char* path,
+                int index,
+                ULONGLONG* tabId)
+            {
+                int panel = ResolvePanel(side);
+                return General != NULL && panel != 0 && tabId != NULL
+                           ? General->CreatePanelTab(panel, path, index, tabId)
+                           : FALSE;
+            }
+
+            virtual BOOL WINAPI CloseTab(ULONGLONG tabId)
+            {
+                return General != NULL && tabId != 0
+                           ? General->ClosePanelTabById(tabId)
+                           : FALSE;
+            }
+
+            virtual BOOL WINAPI ReorderTab(ULONGLONG tabId, int index)
+            {
+                return General != NULL && tabId != 0
+                           ? General->ReorderPanelTab(tabId, index)
+                           : FALSE;
+            }
+
+            virtual BOOL WINAPI MoveTab(
+                ULONGLONG tabId,
+                SideReference side,
+                int index)
+            {
+                int panel = ResolvePanel(side);
+                return General != NULL && panel != 0 && tabId != 0
+                           ? General->MovePanelTab(tabId, panel, index)
+                           : FALSE;
+            }
+
+            virtual BOOL WINAPI SetPanelsDetached(BOOL detached)
+            {
+                return General != NULL
+                           ? General->SetPanelsDetached(detached)
+                           : FALSE;
             }
         };
 

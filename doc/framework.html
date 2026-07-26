@@ -327,6 +327,11 @@ stávající <code>tabChanged</code>; payload nese stabilní
 <code>changedTabId</code>, <code>tabIndex</code> a
 <code>previousTabIndex</code>. Přímé core hooky pro file-operace a bohatší
 window lifecycle zůstávají v GAP analýze.</p>
+<p>Pro Sides kontrakt 1.3 jsou implementovány append-only mutace
+<code>createTab</code>, <code>closeTab</code>, <code>reorderTab</code>,
+<code>moveTab</code> a <code>setDetached</code>. Lifecycle události tabů
+zůstávají snapshot-derived a zachovávají kompatibilitu stávajícího
+<code>tabChanged</code> eventu.</p>
 <p>Například Python extension:</p>
 <pre><code class="language-python">def on_path_changed(event):
     if is_git_repository(event.new_path):

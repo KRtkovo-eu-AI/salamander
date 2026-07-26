@@ -980,6 +980,52 @@ BOOL CSalamanderGeneral::ActivatePanelTab(ULONGLONG tabId, BOOL focus)
                MainWindow->GetPanelTabIndex(panel->GetPanelSide(), panel)) == panel;
 }
 
+BOOL CSalamanderGeneral::CreatePanelTab(int side, const char* path, int insertIndex,
+                                        ULONGLONG* tabId)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::CreatePanelTab()");
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL ||
+        (side != PANEL_LEFT && side != PANEL_RIGHT))
+        return FALSE;
+    return MainWindow->CreatePanelTab(side == PANEL_LEFT ? cpsLeft : cpsRight,
+                                      path, insertIndex, tabId);
+}
+
+BOOL CSalamanderGeneral::ClosePanelTabById(ULONGLONG tabId)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::ClosePanelTabById()");
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return FALSE;
+    return MainWindow->ClosePanelTabById(tabId);
+}
+
+BOOL CSalamanderGeneral::ReorderPanelTab(ULONGLONG tabId, int newIndex)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::ReorderPanelTab(%d)", newIndex);
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return FALSE;
+    return MainWindow->ReorderPanelTab(tabId, newIndex);
+}
+
+BOOL CSalamanderGeneral::MovePanelTab(ULONGLONG tabId, int targetSide, int targetIndex)
+{
+    CALL_STACK_MESSAGE3("CSalamanderGeneral::MovePanelTab(%d, %d)", targetSide, targetIndex);
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL ||
+        (targetSide != PANEL_LEFT && targetSide != PANEL_RIGHT))
+        return FALSE;
+    return MainWindow->MovePanelTab(tabId,
+                                    targetSide == PANEL_LEFT ? cpsLeft : cpsRight,
+                                    targetIndex);
+}
+
+BOOL CSalamanderGeneral::SetPanelsDetached(BOOL detached)
+{
+    CALL_STACK_MESSAGE2("CSalamanderGeneral::SetPanelsDetached(%d)", detached);
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL)
+        return FALSE;
+    return MainWindow->SetPanelsDetached(detached);
+}
+
 namespace
 {
 void AppendEscapedInstalledPluginField(std::string& output, const char* text)

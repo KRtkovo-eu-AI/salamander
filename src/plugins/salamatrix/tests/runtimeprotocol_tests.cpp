@@ -456,8 +456,13 @@ void TestAssistantService()
               strstr(sidesSlice, "selectItem") != NULL &&
               strstr(sidesSlice, "selectAll") != NULL &&
               strstr(sidesSlice, "focusItem") != NULL &&
-              strstr(sidesSlice, "\"version\":\"1.2\"") != NULL,
-          "assistant API description exposes tab and selection operations");
+              strstr(sidesSlice, "createTab") != NULL &&
+              strstr(sidesSlice, "closeTab") != NULL &&
+              strstr(sidesSlice, "reorderTab") != NULL &&
+              strstr(sidesSlice, "moveTab") != NULL &&
+              strstr(sidesSlice, "setDetached") != NULL &&
+              strstr(sidesSlice, "\"version\":\"1.3\"") != NULL,
+          "assistant API description exposes tab mutation operations");
     Check(strstr(service.GetApiDescription(), "\"filter\"") != NULL &&
               strstr(service.GetApiDescription(), "\"save\"") != NULL,
           "assistant API description schema exposes filter/save names");

@@ -150,6 +150,15 @@ $sides | Add-Member ScriptMethod FocusItem {
     param([int]$Index, [string]$Side = 'source', [bool]$PartVisible = $true)
     (Invoke-Host -Method 'salamander.sides.focusItem' -Arguments @{ side = $Side; index = $Index; partVisible = $PartVisible }).changed
 }
+$sides | Add-Member ScriptMethod CreateTab {
+    param([string]$Side = 'source', [AllowNull()][string]$Path = $null, [Nullable[int]]$Index = $null)
+    $args = @{ side = $Side; path = $Path }; if ($null -ne $Index) { $args.index = $Index.Value }
+    Invoke-Host -Method 'salamander.sides.createTab' -Arguments $args
+}
+$sides | Add-Member ScriptMethod CloseTab { param([string]$TabId); (Invoke-Host -Method 'salamander.sides.closeTab' -Arguments @{ tabId = [string]$TabId }).ok }
+$sides | Add-Member ScriptMethod ReorderTab { param([string]$TabId, [int]$Index); (Invoke-Host -Method 'salamander.sides.reorderTab' -Arguments @{ tabId = [string]$TabId; index = $Index }).ok }
+$sides | Add-Member ScriptMethod MoveTab { param([string]$TabId, [string]$Side = 'source', [Nullable[int]]$Index = $null); $args = @{ tabId = [string]$TabId; side = $Side }; if ($null -ne $Index) { $args.index = $Index.Value }; (Invoke-Host -Method 'salamander.sides.moveTab' -Arguments $args).ok }
+$sides | Add-Member ScriptMethod SetDetached { param([bool]$Detached); (Invoke-Host -Method 'salamander.sides.setDetached' -Arguments @{ detached = $Detached }).ok }
 function New-SalamatrixSideView([string]$SideName) {
     $view = [pscustomobject]@{ Side = $SideName }
     $view | Add-Member ScriptMethod ActiveTab { Invoke-Host -Method 'salamander.sides.activeTab' -Arguments @{ side = $this.Side } }
@@ -161,6 +170,11 @@ function New-SalamatrixSideView([string]$SideName) {
     $view | Add-Member ScriptMethod SelectItem { param([int]$Index, [bool]$Select = $true, [bool]$Repaint = $true); (Invoke-Host -Method 'salamander.sides.selectItem' -Arguments @{ side = $this.Side; index = $Index; select = $Select; repaint = $Repaint }).changed }
     $view | Add-Member ScriptMethod SelectAll { param([bool]$Select = $true, [bool]$Repaint = $true); (Invoke-Host -Method 'salamander.sides.selectAll' -Arguments @{ side = $this.Side; select = $Select; repaint = $Repaint }).changed }
     $view | Add-Member ScriptMethod FocusItem { param([int]$Index, [bool]$PartVisible = $true); (Invoke-Host -Method 'salamander.sides.focusItem' -Arguments @{ side = $this.Side; index = $Index; partVisible = $PartVisible }).changed }
+    $view | Add-Member ScriptMethod CreateTab { param([AllowNull()][string]$Path = $null, [Nullable[int]]$Index = $null); $args = @{ side = $this.Side; path = $Path }; if ($null -ne $Index) { $args.index = $Index.Value }; Invoke-Host -Method 'salamander.sides.createTab' -Arguments $args }
+    $view | Add-Member ScriptMethod CloseTab { param([string]$TabId); (Invoke-Host -Method 'salamander.sides.closeTab' -Arguments @{ tabId = [string]$TabId }).ok }
+    $view | Add-Member ScriptMethod ReorderTab { param([string]$TabId, [int]$Index); (Invoke-Host -Method 'salamander.sides.reorderTab' -Arguments @{ tabId = [string]$TabId; index = $Index }).ok }
+    $view | Add-Member ScriptMethod MoveTab { param([string]$TabId, [string]$Side = $this.Side, [Nullable[int]]$Index = $null); $args = @{ tabId = [string]$TabId; side = $Side }; if ($null -ne $Index) { $args.index = $Index.Value }; (Invoke-Host -Method 'salamander.sides.moveTab' -Arguments $args).ok }
+    $view | Add-Member ScriptMethod SetDetached { param([bool]$Detached); (Invoke-Host -Method 'salamander.sides.setDetached' -Arguments @{ detached = $Detached }).ok }
     return $view
 }
 $leftSide = New-SalamatrixSideView 'left'

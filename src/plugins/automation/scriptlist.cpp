@@ -1405,6 +1405,25 @@ static Salamatrix::Sides::SideReference RuntimeSideFromName(
     return Salamatrix::Sides::SideReferenceSource;
 }
 
+static BOOL RuntimeTrySideFromName(
+    const std::string& name,
+    Salamatrix::Sides::SideReference* side)
+{
+    if (side == NULL)
+        return FALSE;
+    if (_stricmp(name.c_str(), "source") == 0)
+        *side = Salamatrix::Sides::SideReferenceSource;
+    else if (_stricmp(name.c_str(), "target") == 0)
+        *side = Salamatrix::Sides::SideReferenceTarget;
+    else if (_stricmp(name.c_str(), "left") == 0)
+        *side = Salamatrix::Sides::SideReferenceLeft;
+    else if (_stricmp(name.c_str(), "right") == 0)
+        *side = Salamatrix::Sides::SideReferenceRight;
+    else
+        return FALSE;
+    return TRUE;
+}
+
 static std::string RuntimeItemInfoJson(
     const Salamatrix::Sides::ItemInfo& item)
 {
@@ -1474,10 +1493,11 @@ static BOOL FindRuntimeQuadWord(
     if (*begin == '-' || *begin == '\0')
         return FALSE;
     char* end = NULL;
+    errno = 0;
     unsigned __int64 parsed = _strtoui64(begin, &end, 10);
     while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')
         ++end;
-    if (end == begin || *end != '\0')
+    if (end == begin || *end != '\0' || errno == ERANGE)
         return FALSE;
     value->SetUI64(parsed);
     return TRUE;
@@ -1490,7 +1510,12 @@ static const char* RuntimeCapabilityForMethod(
         method == "salamander.sides.refresh" ||
         method == "salamander.sides.selectItem" ||
         method == "salamander.sides.selectAll" ||
-        method == "salamander.sides.focusItem")
+        method == "salamander.sides.focusItem" ||
+        method == "salamander.sides.createTab" ||
+        method == "salamander.sides.closeTab" ||
+        method == "salamander.sides.reorderTab" ||
+        method == "salamander.sides.moveTab" ||
+        method == "salamander.sides.setDetached")
         return "panels.write";
     if (method.compare(0, 16, "salamander.sides.") == 0)
         return "panels.read";
@@ -3426,6 +3451,100 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             resultJson,
             resultCapacity,
             resultLength);
+    }
+
+    if (method == "salamander.sides.createTab" ||
+        method == "salamander.sides.closeTab" ||
+        method == "salamander.sides.reorderTab" ||
+        method == "salamander.sides.moveTab" ||
+        method == "salamander.sides.setDetached")
+    {
+        Salamatrix::Sides::ISidesService* sides = bridge->GetSidesService();
+        if (sides == NULL)
+            return FALSE;
+        BOOL ok = FALSE;
+        if (method == "salamander.sides.createTab")
+        {
+            std::string sideName;
+            std::string path;
+            int index = -1;
+            Salamatrix::Sides::SideReference side;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "side", &sideName) ||
+                !RuntimeTrySideFromName(sideName, &side))
+                return FALSE;
+            std::string rawPath;
+            const bool hasPath = Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                payloadJson, "path", &rawPath);
+            const bool pathIsNull = !hasPath || rawPath == "null";
+            if (hasPath && !pathIsNull &&
+                !Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "path", &path))
+                return FALSE;
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "index", &rawPath) &&
+                (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "index", &index) || index < -1))
+                return FALSE;
+            ULONGLONG tabId = 0;
+            ok = sides->CreateTab(
+                side, !pathIsNull ? path.c_str() : NULL,
+                index, &tabId);
+            char id[32];
+            _ui64toa_s(tabId, id, _countof(id), 10);
+            return CopyRuntimeHostResult(
+                std::string("{\"created\":") + (ok ? "true" : "false") +
+                    ",\"tabId\":\"" + id + "\"}",
+                resultJson, resultCapacity, resultLength);
+        }
+        CQuadWord tabId;
+        if (method != "salamander.sides.setDetached" &&
+            (!FindRuntimeQuadWord(payloadJson, "tabId", &tabId) ||
+             tabId.Value == 0))
+            return FALSE;
+        if (method == "salamander.sides.closeTab")
+            ok = sides->CloseTab(tabId.Value);
+        else if (method == "salamander.sides.reorderTab")
+        {
+            int index = -1;
+            if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "index", &index) || index < 0)
+                return FALSE;
+            ok = sides->ReorderTab(tabId.Value, index);
+        }
+        else if (method == "salamander.sides.moveTab")
+        {
+            std::string sideName;
+            Salamatrix::Sides::SideReference targetSide;
+            if (!Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "side", &sideName) ||
+                !RuntimeTrySideFromName(sideName, &targetSide))
+                return FALSE;
+            int index = -1;
+            std::string rawIndex;
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "index", &rawIndex) &&
+                (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "index", &index) || index < -1))
+                return FALSE;
+            ok = sides->MoveTab(
+                tabId.Value, targetSide, index);
+        }
+        else
+        {
+            BOOL detached = FALSE;
+            if (!Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                    payloadJson, "detached", &detached))
+                return FALSE;
+            ok = sides->SetPanelsDetached(detached);
+            return CopyRuntimeHostResult(
+                std::string("{\"ok\":") + (ok ? "true" : "false") +
+                    ",\"detached\":" + (detached ? "true}" : "false}"),
+                resultJson, resultCapacity, resultLength);
+        }
+        return CopyRuntimeHostResult(
+            std::string("{\"ok\":") + (ok ? "true}" : "false}"),
+            resultJson, resultCapacity, resultLength);
     }
 
     if (method == "salamander.storage.get" ||

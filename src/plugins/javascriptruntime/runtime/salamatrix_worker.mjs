@@ -438,6 +438,30 @@ class Side {
       side: this.name, index: Number(index), partVisible,
     }).then((result) => result.changed === true);
   }
+  createTab(path = null, index = undefined) {
+    const args = { side: this.name, path };
+    if (index !== undefined) args.index = Number(index);
+    return hostCall("salamander.sides.createTab", args);
+  }
+  closeTab(tabId) {
+    return hostCall("salamander.sides.closeTab", { tabId: String(tabId) })
+      .then((result) => result.ok === true);
+  }
+  reorderTab(tabId, index) {
+    return hostCall("salamander.sides.reorderTab", {
+      tabId: String(tabId), index: Number(index),
+    }).then((result) => result.ok === true);
+  }
+  moveTab(tabId, side = this.name, index = undefined) {
+    const args = { tabId: String(tabId), side };
+    if (index !== undefined) args.index = Number(index);
+    return hostCall("salamander.sides.moveTab", args)
+      .then((result) => result.ok === true);
+  }
+  setDetached(detached) {
+    return hostCall("salamander.sides.setDetached", { detached: !!detached })
+      .then((result) => result.ok === true);
+  }
 }
 
 const fileOperations = {};
@@ -528,6 +552,26 @@ const Salamander = {
       hostCall("salamander.sides.focusItem", {
         side, index: Number(index), partVisible,
       }).then((result) => result.changed === true),
+    createTab: (side = "source", path = null, index = undefined) => {
+      const args = { side, path };
+      if (index !== undefined) args.index = Number(index);
+      return hostCall("salamander.sides.createTab", args);
+    },
+    closeTab: (tabId) => hostCall("salamander.sides.closeTab", {
+      tabId: String(tabId),
+    }).then((result) => result.ok === true),
+    reorderTab: (tabId, index) => hostCall("salamander.sides.reorderTab", {
+      tabId: String(tabId), index: Number(index),
+    }).then((result) => result.ok === true),
+    moveTab: (tabId, side = "source", index = undefined) => {
+      const args = { tabId: String(tabId), side };
+      if (index !== undefined) args.index = Number(index);
+      return hostCall("salamander.sides.moveTab", args)
+        .then((result) => result.ok === true);
+    },
+    setDetached: (detached) => hostCall("salamander.sides.setDetached", {
+      detached: Boolean(detached),
+    }).then((result) => result.ok === true),
   },
   leftSide: new Side("left"),
   rightSide: new Side("right"),

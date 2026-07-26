@@ -286,6 +286,23 @@ public:
         Salamatrix::Sides::SideReference,
         int,
         BOOL) { return FALSE; }
+
+    virtual BOOL WINAPI CreateTab(
+        Salamatrix::Sides::SideReference,
+        const char*,
+        int,
+        ULONGLONG*) { return FALSE; }
+
+    virtual BOOL WINAPI CloseTab(ULONGLONG) { return FALSE; }
+
+    virtual BOOL WINAPI ReorderTab(ULONGLONG, int) { return FALSE; }
+
+    virtual BOOL WINAPI MoveTab(
+        ULONGLONG,
+        Salamatrix::Sides::SideReference,
+        int) { return FALSE; }
+
+    virtual BOOL WINAPI SetPanelsDetached(BOOL) { return FALSE; }
 };
 
 struct CallbackState

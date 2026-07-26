@@ -31,6 +31,11 @@ struct BootstrapDispatchState
     int CommandRegistrationCalls;
     int CommandStateCalls;
     int SchemaCalls;
+    int CreateTabCalls;
+    int CloseTabCalls;
+    int ReorderTabCalls;
+    int MoveTabCalls;
+    int SetDetachedCalls;
     bool HandlerRegistrationSeen;
     bool BooleanStorageSeen;
     bool IntegerStorageSeen;
@@ -55,6 +60,11 @@ struct BootstrapDispatchState
           CommandRegistrationCalls(0),
           CommandStateCalls(0),
           SchemaCalls(0),
+          CreateTabCalls(0),
+          CloseTabCalls(0),
+          ReorderTabCalls(0),
+          MoveTabCalls(0),
+          SetDetachedCalls(0),
           HandlerRegistrationSeen(false),
           BooleanStorageSeen(false),
           IntegerStorageSeen(false),
@@ -173,6 +183,36 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->FileOperationCalls;
         response = "{\"ok\":true,\"result\":\"ok\"}";
+    }
+    else if (strstr(payloadJson, "salamander.sides.createTab") != NULL)
+    {
+        if (state != NULL)
+            ++state->CreateTabCalls;
+        response = "{\"created\":true,\"tabId\":\"1234567890123456789\"}";
+    }
+    else if (strstr(payloadJson, "salamander.sides.closeTab") != NULL)
+    {
+        if (state != NULL)
+            ++state->CloseTabCalls;
+        response = "{\"ok\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.sides.reorderTab") != NULL)
+    {
+        if (state != NULL)
+            ++state->ReorderTabCalls;
+        response = "{\"ok\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.sides.moveTab") != NULL)
+    {
+        if (state != NULL)
+            ++state->MoveTabCalls;
+        response = "{\"ok\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.sides.setDetached") != NULL)
+    {
+        if (state != NULL)
+            ++state->SetDetachedCalls;
+        response = "{\"ok\":true,\"detached\":true}";
     }
     else if (strstr(payloadJson, "salamander.sides.context") != NULL)
     {
@@ -635,6 +675,17 @@ void RunPythonBootstrapTest()
               "side_context = Salamander.source_side.context()\n"
               "if side_context.get('selectedCount') != 1 or side_context.get('focusedItem', {}).get('name') != 'seed.txt':\n"
               "    raise RuntimeError('side context call failed')\n"
+              "created = Salamander.source_side.create_tab(index=1)\n"
+              "if created.get('created') is not True or not str(created.get('tabId', '')).isdigit() or created.get('tabId') != '1234567890123456789':\n"
+              "    raise RuntimeError('create tab response failed')\n"
+              "if Salamander.source_side.close_tab(created['tabId']) is not True:\n"
+              "    raise RuntimeError('close tab response failed')\n"
+              "if Salamander.source_side.reorder_tab(created['tabId'], 1) is not True:\n"
+              "    raise RuntimeError('reorder tab response failed')\n"
+              "if Salamander.source_side.move_tab(created['tabId'], side='target', index=1) is not True:\n"
+              "    raise RuntimeError('move tab response failed')\n"
+              "if Salamander.source_side.set_detached(True) is not True:\n"
+              "    raise RuntimeError('detach response failed')\n"
               "if not Salamander.clipboard.copy_text('seed.txt'):\n"
               "    raise RuntimeError('clipboard call failed')\n"
               "picked = Salamander.ui.pick_file(save=True, filter='Text files|*.txt|All files|*.*')\n"
@@ -673,7 +724,7 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('dialog show failed')\n"
               "if dialog.get('value').get('text') != 'seed':\n"
               "    raise RuntimeError('dialog get failed')\n"
-              "dialog.close()\n"),
+            "dialog.close()\n"),
           "write python bootstrap worker");
 
     CAutomationProcessRuntimeAdapter adapter(
@@ -716,6 +767,11 @@ void RunPythonBootstrapTest()
         Check(state.SchemaCalls == 1, "bootstrap storage schema reached host");
         Check(state.SubscribeCalls == 1, "bootstrap event subscription reached host");
         Check(state.SideContextCalls == 1, "bootstrap side context reached host");
+        Check(state.CreateTabCalls == 1, "bootstrap createTab reached host once");
+        Check(state.CloseTabCalls == 1, "bootstrap closeTab reached host once");
+        Check(state.ReorderTabCalls == 1, "bootstrap reorderTab reached host once");
+        Check(state.MoveTabCalls == 1, "bootstrap moveTab reached host once");
+        Check(state.SetDetachedCalls == 1, "bootstrap setDetached reached host once");
         Check(state.ClipboardCalls == 1, "bootstrap clipboard reached host");
         Check(state.PickerCalls == 1, "bootstrap file picker reached host");
         Check(state.FolderPickerCalls == 1, "bootstrap folder picker reached host");
