@@ -3,7 +3,7 @@
 
 #include "precomp.h"
 #include "salamatrix_packages.h"
-#include "darkmode.h"
+#include "../../darkmode.h"
 
 #include <algorithm>
 #include <memory>
