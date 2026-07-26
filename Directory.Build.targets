@@ -2,6 +2,7 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release clean'">
     <OpenSalamanderReleaseClean>true</OpenSalamanderReleaseClean>
     <OpenSalamanderCopyPdb></OpenSalamanderCopyPdb>
+    <IntDir>$(OPENSAL_BUILD_DIR)salamander\ReleaseCleanIntermediate\$(ProjectName)\</IntDir>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>None</DebugType>
   </PropertyGroup>
