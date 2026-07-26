@@ -123,3 +123,4 @@ javascriptruntime 0x2a700000
 pythonruntime    0x2a800000
 powershellruntime 0x2a900000
 phpruntime       0x2aa00000
+salamatrixai     0x2ab00000
