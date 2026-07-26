@@ -194,6 +194,8 @@ def main() -> int:
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")
     require(plugins2, r"SupportDynMenuExt.*?BuildMenu", "dynamic menu rebuild path is missing")
+    require(salamatrix, r"CPluginInterface::Connect.*?SalamatrixPackages->Refresh\(\)",
+            "Salamatrix Connect does not re-evaluate package runtime states")
 
     print("Salamatrix regression source contracts passed.")
     return 0

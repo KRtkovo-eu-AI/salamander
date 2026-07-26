@@ -147,6 +147,13 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,) - Salamatrix Framework");
 
+    // Runtime provider plug-ins can connect before or after the framework.
+    // Re-evaluate package runtime states once the framework itself is fully
+    // connected, so Plugin Manager does not retain an early waiting-for-runtime
+    // classification from a provider-order race.
+    if (SalamatrixPackages != NULL)
+        SalamatrixPackages->Refresh();
+
     if (SalamanderGUI != NULL)
     {
         CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
