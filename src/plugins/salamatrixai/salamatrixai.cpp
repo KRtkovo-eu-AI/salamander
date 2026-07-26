@@ -1613,6 +1613,11 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 {
     UNREFERENCED_PARAMETER(parent);
 
+    // SalamatrixAI owns providers that must be visible before the first
+    // package/Plugin Manager refresh, including local.bundled.
+    SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
+    EnsureServices();
+
     if (SalamanderGUI != NULL)
     {
         CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
@@ -1669,6 +1674,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         VERSINFO_INTERNAL,
         NULL,
         NULL);
+    SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
     salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
     PluginInterface.Event(0, 0);
     return &PluginInterface;

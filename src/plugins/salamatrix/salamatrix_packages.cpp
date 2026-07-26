@@ -26,6 +26,22 @@ struct MainThreadDispatch
 };
 
 static __declspec(thread) MainThreadDispatch* CurrentMainThreadDispatch = NULL;
+
+static Automation::IScriptRunner* QueryScriptRunner(
+    CSalamanderGeneralAbstract* general)
+{
+    if (general == NULL)
+        return NULL;
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    memset(&query, 0, sizeof(query));
+    memset(&result, 0, sizeof(result));
+    query.ServiceId = SALAMATRIX_SERVICE_SCRIPT_RUNNER;
+    query.MinimumVersion = SALAMATRIX_SCRIPT_RUNNER_VERSION_1_0;
+    if (!general->QueryService(&query, &result) || result.Interface == NULL)
+        return NULL;
+    return static_cast<Automation::IScriptRunner*>(result.Interface);
+}
 }
 
 struct PackageManager::Package
@@ -394,6 +410,21 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                         descriptor.Flags |= Extensions::ExtensionFlagRuntimeUnavailable;
                     else if (!availableRuntime)
                         descriptor.Flags |= Extensions::ExtensionFlagRuntimeExecutableUnavailable;
+
+                    if (!registeredRuntime &&
+                        _stricmp(manifest.RuntimeId.c_str(), "Automation.JScript") == 0 &&
+                        QueryScriptRunner(General) != NULL)
+                    {
+                        // The legacy JScript provider is owned by Automation.
+                        // Its public ScriptRunner service is sufficient for
+                        // one-shot extension commands even if the compatibility
+                        // adapter registration raced framework startup.
+                        descriptor.Flags &=
+                            ~(Extensions::ExtensionFlagRuntimeUnavailable |
+                              Extensions::ExtensionFlagRuntimeExecutableUnavailable);
+                        registeredRuntime = true;
+                        availableRuntime = true;
+                    }
                     package->RuntimeUsable = registeredRuntime && availableRuntime;
                     if (Extensions->RegisterExtension(&descriptor, LifecycleCallback, package))
                     {
@@ -511,7 +542,29 @@ BOOL PackageManager::Activate(Package* package)
     Runtime::IRuntimeAdapter* adapter = Runtimes->FindAdapter(
         package->Manifest.RuntimeId.c_str(), package->Manifest.MinimumRuntimeVersion);
     if (adapter == NULL || !adapter->IsAvailable())
+    {
+        if (_stricmp(package->Manifest.RuntimeId.c_str(), "Automation.JScript") == 0)
+        {
+            Automation::IScriptRunner* scriptRunner = QueryScriptRunner(General);
+            if (scriptRunner != NULL)
+            {
+                Automation::GeneratedScriptRequest compatibilityRequest;
+                compatibilityRequest.EntryPoint = package->EntryPoint.c_str();
+                compatibilityRequest.RuntimeId = package->Manifest.RuntimeId.c_str();
+                compatibilityRequest.ExtensionId = package->Id.c_str();
+                compatibilityRequest.ParentWindow = General->GetMsgBoxParent();
+                compatibilityRequest.TimeoutMs = 120000;
+                compatibilityRequest.Operation = operations;
+                Automation::GeneratedScriptResult compatibilityResult;
+                BOOL executed = scriptRunner->ExecuteGenerated(
+                    &compatibilityRequest, &compatibilityResult);
+                package->Operations = NULL;
+                return executed;
+            }
+        }
+        package->Operations = NULL;
         return FALSE;
+    }
     Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = package->Id.c_str();
     request.EntryPoint = package->EntryPoint.c_str();
@@ -601,19 +654,7 @@ BOOL PackageManager::ExecuteCommand(
             package->Operations = NULL;
             return FALSE;
         }
-        CSalamanderServiceQuery query;
-        CSalamanderServiceResult serviceResult;
-        memset(&query, 0, sizeof(query));
-        memset(&serviceResult, 0, sizeof(serviceResult));
-        query.ServiceId = SALAMATRIX_SERVICE_SCRIPT_RUNNER;
-        query.MinimumVersion = SALAMATRIX_SCRIPT_RUNNER_VERSION_1_0;
-        Automation::IScriptRunner* scriptRunner = NULL;
-        if (General->QueryService(&query, &serviceResult) &&
-            serviceResult.Interface != NULL)
-        {
-            scriptRunner = static_cast<Automation::IScriptRunner*>(
-                serviceResult.Interface);
-        }
+        Automation::IScriptRunner* scriptRunner = QueryScriptRunner(General);
         if (scriptRunner != NULL)
         {
             Automation::GeneratedScriptRequest compatibilityRequest;

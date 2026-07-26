@@ -1375,13 +1375,13 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                     loadOnStart = loadOnStartDWORD != 0;
                 }
 
-                // Salamatrix extension packages may use Automation's legacy
-                // ActiveScript provider before any Automation menu command is
-                // invoked. Keep existing installations compatible with that
-                // contract even when they predate Automation's persisted
-                // load-on-start flag.
+                // Salamatrix packages and AI providers must be initialized
+                // before any menu command is invoked. Keep existing
+                // installations compatible with that contract even when they
+                // predate the persisted load-on-start flags.
                 if (!loadOnStart &&
-                    StrICmp(dllName, "automation.spl") == 0)
+                    (StrICmp(dllName, "automation.spl") == 0 ||
+                     StrICmp(dllName, "salamatrixai.spl") == 0))
                 {
                     loadOnStart = TRUE;
                 }
