@@ -381,6 +381,15 @@ public:
         return m_szSalamatrixExtensionId;
     }
 
+    // Legacy Automation can execute a script after the package discovery
+    // surface has been refreshed. Ensure Storage sees the manifest identity
+    // even when the CScriptInfo instance predates that refresh.
+    void EnsureSalamatrixManifestMetadata()
+    {
+        if (m_szSalamatrixExtensionId[0] == '\0')
+            LoadSalamatrixManifestMetadata();
+    }
+
     const char* GetSalamatrixIconPath() const
     {
         return m_salamatrixIconPath.c_str();

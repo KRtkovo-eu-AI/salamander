@@ -1060,6 +1060,8 @@ HRESULT CSalamanderAutomation::InvokeFilter(__out EXCEPINFO* pExcepInfo)
         return E_POINTER;
     *storage = NULL;
 
+    if (m_pScriptInfo != NULL)
+        m_pScriptInfo->EnsureSalamatrixManifestMetadata();
     const char* extensionId =
         m_pScriptInfo != NULL
             ? m_pScriptInfo->GetSalamatrixExtensionId()
