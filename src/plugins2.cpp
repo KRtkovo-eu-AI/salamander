@@ -2487,6 +2487,16 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
         button->Title[0] == 0 || button->StructSize < sizeof(DWORD) + sizeof(int) + sizeof(const char*))
         return FALSE;
 
+    const char* stableId = NULL;
+    const DWORD stableIdEnd = static_cast<DWORD>(offsetof(
+        CSalamanderToolbarButton, StableId) + sizeof(const char*));
+    if (button->StructSize >= stableIdEnd && button->StableId != NULL &&
+        button->StableId[0] != 0 && strchr(button->StableId, ',') == NULL)
+    {
+        if (strlen(button->StableId) < 512)
+            stableId = button->StableId;
+    }
+
     for (int index = 0; index < ToolbarButtons.Count; ++index)
     {
         CPluginToolbarButton& item = ToolbarButtons[index];
@@ -2494,6 +2504,8 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
         {
             lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
             item.SetIcons(button->IconPath, button->IconDarkPath);
+            if (stableId != NULL)
+                lstrcpynA(item.StableId, stableId, ARRAYSIZE(item.StableId));
             if (MainWindow != NULL)
                 MainWindow->RefreshExtensionToolbars();
             return TRUE;
@@ -2509,6 +2521,20 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
     item.CommandId = button->CommandId;
     lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
     item.SetIcons(button->IconPath, button->IconDarkPath);
+    if (stableId != NULL)
+        lstrcpynA(item.StableId, stableId, ARRAYSIZE(item.StableId));
+    else
+    {
+        int pluginIndex = GetIndex(owner);
+        if (pluginIndex >= 0 && Data[pluginIndex] != NULL)
+        {
+            _snprintf_s(item.StableId, ARRAYSIZE(item.StableId), _TRUNCATE,
+                        "plugin:%s:%d", Data[pluginIndex]->DLLName,
+                        button->CommandId);
+            if (strchr(item.StableId, ',') != NULL)
+                item.StableId[0] = 0;
+        }
+    }
     int index = ToolbarButtons.Add(item);
     if (index < 0 || !ToolbarButtons.IsGood())
     {
@@ -2569,6 +2595,31 @@ BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
     *title = ToolbarButtons[index].Title;
     *imageIndex = ToolbarButtons[index].ImageIndex;
     return TRUE;
+}
+
+BOOL CPlugins::GetToolbarButtonConfigKey(int index, char* key, int keySize)
+{
+    if (index < 0 || index >= ToolbarButtons.Count || key == NULL || keySize <= 0)
+        return FALSE;
+    key[0] = 0;
+    if (ToolbarButtons[index].StableId[0] == 0)
+        return FALSE;
+    if (static_cast<int>(strlen(ToolbarButtons[index].StableId)) >= keySize)
+        return FALSE;
+    lstrcpyA(key, ToolbarButtons[index].StableId);
+    return TRUE;
+}
+
+int CPlugins::FindToolbarButtonByConfigKey(const char* key)
+{
+    if (key == NULL || key[0] == 0)
+        return -1;
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+    {
+        if (strcmp(ToolbarButtons[index].StableId, key) == 0)
+            return index;
+    }
+    return -1;
 }
 
 BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,

@@ -1124,9 +1124,32 @@ BOOL CMainToolBar::Load(const char* data)
     lstrcpyn(tmp, data, 5000);
 
     RemoveAllItems();
+    BOOL dynamicConfigurationPresent = FALSE;
     char* p = strtok(tmp, ",");
     while (p != NULL)
     {
+        if (strncmp(p, "x:", 2) == 0)
+        {
+            // An empty x: token is a marker saying that the user has
+            // explicitly configured extension toolbar placement. This lets
+            // the user remove a contribution instead of having it appended
+            // automatically on every restart.
+            dynamicConfigurationPresent = TRUE;
+            if (p[2] != '\0')
+            {
+                int extensionIndex = Plugins.FindToolbarButtonByConfigKey(p + 2);
+                if (extensionIndex >= 0)
+                {
+                    TLBI_ITEM_INFO2 tii;
+                    if (FillExtensionTII(extensionIndex, &tii, FALSE) &&
+                        !InsertItem2(0xFFFFFFFF, TRUE, &tii))
+                        return FALSE;
+                }
+            }
+            p = strtok(NULL, ",");
+            continue;
+        }
+
         int tbbeIndex = atoi(p);
         if (tbbeIndex >= -1 && tbbeIndex < TBBE_TERMINATOR)
         {
@@ -1149,10 +1172,12 @@ BOOL CMainToolBar::Load(const char* data)
         }
     }
 
-    // Extension commands are intentionally appended to the configured
-    // native layout. Their dynamic records are not serialized by Save(), so
-    // unloading a runtime cannot leave stale toolbar ids in the registry.
+    // Older configurations have no extension marker, so retain the original
+    // default of appending every currently available contribution. Once the
+    // user saves a toolbar containing the x: marker, only explicitly listed
+    // stable extension keys are restored.
     for (int extensionIndex = 0;
+         !dynamicConfigurationPresent &&
          extensionIndex < Plugins.GetToolbarButtonCount();
          ++extensionIndex)
     {
@@ -1173,13 +1198,30 @@ BOOL CMainToolBar::Save(char* data)
     char* p = data;
     *p = 0;
     BOOL wrote = FALSE;
+    BOOL dynamicMarkerWritten = FALSE;
     int i;
     for (i = 0; i < count; i++)
     {
         tii.Mask = TLBI_MASK_STYLE | TLBI_MASK_CUSTOMDATA;
         GetItemInfo2(i, TRUE, &tii);
         if (static_cast<int>(tii.CustomData) <= -2)
-            continue; // dynamic extension contribution
+        {
+            int extensionIndex = -2 - static_cast<int>(tii.CustomData);
+            char key[512];
+            if (!Plugins.GetToolbarButtonConfigKey(extensionIndex, key, _countof(key)))
+                continue;
+            if (!dynamicMarkerWritten)
+            {
+                if (wrote)
+                    *p++ = ',';
+                p += sprintf(p, "x:");
+                wrote = TRUE;
+                dynamicMarkerWritten = TRUE;
+            }
+            *p++ = ',';
+            p += sprintf(p, "x:%s", key);
+            continue;
+        }
         if (tii.Style == TLBI_STYLE_SEPARATOR)
             tbbeIndex = -1;
         else

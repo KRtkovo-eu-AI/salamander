@@ -2850,6 +2850,7 @@ struct CPluginToolbarButton
     char Title[256];
     char* IconPath;
     char* IconDarkPath;
+    char StableId[512];
     int ImageIndex;
 
     CPluginToolbarButton()
@@ -2861,6 +2862,7 @@ struct CPluginToolbarButton
           ImageIndex(-1)
     {
         Title[0] = 0;
+        StableId[0] = 0;
     }
 
     CPluginToolbarButton(const CPluginToolbarButton& other)
@@ -2872,6 +2874,7 @@ struct CPluginToolbarButton
           ImageIndex(other.ImageIndex)
     {
         memcpy(Title, other.Title, sizeof(Title));
+        memcpy(StableId, other.StableId, sizeof(StableId));
     }
 
     CPluginToolbarButton& operator=(const CPluginToolbarButton& other)
@@ -2887,6 +2890,7 @@ struct CPluginToolbarButton
             IconDarkPath = other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL;
             ImageIndex = other.ImageIndex;
             memcpy(Title, other.Title, sizeof(Title));
+            memcpy(StableId, other.StableId, sizeof(StableId));
         }
         return *this;
     }
@@ -3078,6 +3082,8 @@ public:
     int GetToolbarButtonCount() const { return ToolbarButtons.Count; }
     BOOL GetToolbarButtonInfo(int index, DWORD* toolbarId,
                               const char** title, int* imageIndex);
+    BOOL GetToolbarButtonConfigKey(int index, char* key, int keySize);
+    int FindToolbarButtonByConfigKey(const char* key);
     BOOL EnsureToolbarButtonImages(HIMAGELIST hotImageList,
                                    HIMAGELIST grayImageList);
     BOOL ExecuteToolbarButton(CFilesWindow* panel, HWND parent,

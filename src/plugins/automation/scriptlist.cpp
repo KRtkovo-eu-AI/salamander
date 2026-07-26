@@ -4548,6 +4548,13 @@ bool CScriptInfo::RegisterRuntimeCommand(
         toolbarButton.IconDarkPath = m_salamatrixIconDarkPath.empty()
                                          ? NULL
                                          : m_salamatrixIconDarkPath.c_str();
+        char stableId[512];
+        stableId[0] = '\0';
+        if (m_szSalamatrixExtensionId[0] != '\0')
+            StringCchPrintfA(stableId, _countof(stableId),
+                             "ext:%s:%s", m_szSalamatrixExtensionId,
+                             commandId);
+        toolbarButton.StableId = stableId[0] != '\0' ? stableId : NULL;
         if (SalamanderGeneral == NULL ||
             !SalamanderGeneral->RegisterToolbarButton(&toolbarButton))
             return false;

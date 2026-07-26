@@ -898,13 +898,17 @@ struct CSalamanderToolbarButton
     // missing, the core derives the normal/gray image from IconPath.
     const char* IconPath;
     const char* IconDarkPath;
+    // Optional stable configuration key. It must not contain a comma and is
+    // used for toolbar placement persistence across Salamander restarts.
+    const char* StableId;
 
     CSalamanderToolbarButton()
         : StructSize(sizeof(CSalamanderToolbarButton)),
           CommandId(0),
           Title(NULL),
           IconPath(NULL),
-          IconDarkPath(NULL)
+          IconDarkPath(NULL),
+          StableId(NULL)
     {
     }
 };
