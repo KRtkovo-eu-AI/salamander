@@ -200,6 +200,17 @@ containing only the Python, PowerShell, and PHP workers copied from their
 standalone runtime-provider projects. The run returned exit code 0 and no
 Salamander process was started or controlled.
 
+The current worktree was audited again after the SalamatrixAI workflow changes:
+`build\verification\worker-root-current` was created as an isolated root from
+the Python, PowerShell, and PHP worker files in this checkout. The existing
+Debug x64 process-runtime executable from the parent-revision baseline was run
+with that root in `SALAMATRIX_WORKER_ROOT` and returned exit code 0. It covered
+the same host-call, persistent-session, UI, storage, event, picker, AI preview,
+shutdown, output-capture, and timeout paths; Node was additionally syntax
+checked with `node --check`. This validates the current worker assets and SMX1
+contract, while a fresh current-source Debug x64 rebuild remains dependent on
+the unavailable Visual C++/MSBuild toolchain in this environment.
+
 ## Existing implementation evidence
 
 ### Core service and plugin integration
