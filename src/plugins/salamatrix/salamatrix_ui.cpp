@@ -2,6 +2,8 @@
 
 #include "precomp.h"
 #include "salamatrix_ui.h"
+#include "salamatrix_ui_layout.h"
+#include "../../third_party/darkmodelib/src/DmlibDpi.h"
 
 #include <vector>
 
@@ -620,6 +622,7 @@ struct NativeDialog::Impl
     HWND Window;
     int Result;
     BOOL Running;
+    UINT CurrentDpi;
     DialogEventCallback EventCallback;
     void* EventContext;
 
@@ -629,6 +632,7 @@ struct NativeDialog::Impl
           Window(NULL),
           Result(0),
           Running(FALSE),
+          CurrentDpi(96),
           EventCallback(NULL),
           EventContext(NULL)
     {
@@ -764,7 +768,9 @@ int WINAPI NativeDialog::ShowModal()
     DLGTEMPLATE* header = reinterpret_cast<DLGTEMPLATE*>(&dialog[0]);
     header->style = WS_POPUP | WS_BORDER | WS_SYSMENU | WS_CAPTION |
                     DS_MODALFRAME | DS_SETFONT;
-    header->dwExtendedStyle = 0;
+    // Let dialog-manager keyboard navigation traverse child controls,
+    // including the two controls composing an editable file picker.
+    header->dwExtendedStyle = WS_EX_CONTROLPARENT;
     size_t dialogItemCount = m_pImpl->Controls.size();
     for (size_t index = 0; index < m_pImpl->Controls.size(); ++index)
     {
@@ -790,6 +796,8 @@ int WINAPI NativeDialog::ShowModal()
         if (!Utf8ToWide(control->Text.c_str(), text))
             text.clear();
         DWORD style = WS_CHILD | WS_VISIBLE;
+        if (control->Kind != ControlKindLabel)
+            style |= WS_TABSTOP;
         WORD classOrdinal = 0x0082; // STATIC
         short height = 14;
         short width = static_cast<short>(m_pImpl->Options.Width - 16);
@@ -875,21 +883,16 @@ int WINAPI NativeDialog::ShowModal()
         }
         if (control->Kind == ControlKindFilePicker)
         {
-            int editWidth = width - 28;
-            if (editWidth < 1)
-                editWidth = 1;
-            int browseX = x + editWidth + 4;
-            int browseWidth = width - editWidth - 4;
-            if (browseWidth < 1)
-                browseWidth = 1;
+            FilePickerLayoutMetrics metrics =
+                ComputeFilePickerLayout(x, width);
             AppendItem(
-                dialog, x, itemY, ClampDialogCoordinate(editWidth), height,
+                dialog, x, itemY, ClampDialogCoordinate(metrics.EditWidth), height,
                 control->NumericId, style, classOrdinal, text, className);
             AppendItem(
-                dialog, ClampDialogCoordinate(browseX), itemY,
-                ClampDialogCoordinate(browseWidth), height,
+                dialog, ClampDialogCoordinate(metrics.BrowseX), itemY,
+                ClampDialogCoordinate(metrics.BrowseWidth), height,
                 control->BrowseNumericId,
-                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
                 0x0080, L"...", NULL);
         }
         else
@@ -938,9 +941,13 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         dialog = reinterpret_cast<NativeDialog*>(lParam);
         SetWindowLongPtr(hwnd, DWLP_USER, lParam);
         dialog->m_pImpl->Window = hwnd;
+        dialog->m_pImpl->CurrentDpi = dmlib_dpi::GetDpiForWindow(hwnd);
+        if (dialog->m_pImpl->CurrentDpi == 0)
+            dialog->m_pImpl->CurrentDpi = 96;
         DarkModeApplyTree(hwnd);
         DarkModeRefreshTitleBar(hwnd);
         DarkModeApplyStaticTextColors(hwnd, NULL);
+        HWND initialFocus = NULL;
         for (size_t index = 0; index < dialog->m_pImpl->Controls.size(); ++index)
         {
             Impl::Control* control = dialog->m_pImpl->Controls[index];
@@ -948,6 +955,8 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             if (child == NULL)
                 continue;
             control->WindowHandle = child;
+            if (initialFocus == NULL && control->Kind != ControlKindLabel)
+                initialFocus = child;
             if (control->Kind == ControlKindFilePicker)
                 control->BrowseWindowHandle =
                     GetDlgItem(hwnd, control->BrowseNumericId);
@@ -1071,6 +1080,11 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                 }
             }
         }
+        if (initialFocus != NULL)
+        {
+            SetFocus(initialFocus);
+            return FALSE;
+        }
         return TRUE;
     }
     if (dialog == NULL || dialog->m_pImpl == NULL)
@@ -1090,6 +1104,49 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             DarkModeApplyStaticTextColors(hwnd, NULL);
         }
         return FALSE;
+    }
+    if (message == WM_DPICHANGED)
+    {
+        UINT oldDpi = dialog->m_pImpl->CurrentDpi;
+        UINT newDpi = HIWORD(wParam);
+        if (newDpi == 0)
+            newDpi = oldDpi;
+        RECT* suggested = reinterpret_cast<RECT*>(lParam);
+        if (suggested != NULL)
+        {
+            SetWindowPos(
+                hwnd, NULL, suggested->left, suggested->top,
+                suggested->right - suggested->left,
+                suggested->bottom - suggested->top,
+                SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        for (size_t index = 0; index < dialog->m_pImpl->Controls.size(); ++index)
+        {
+            Impl::Control* control = dialog->m_pImpl->Controls[index];
+            HWND children[2] = {control->WindowHandle, control->BrowseWindowHandle};
+            int childCount = control->BrowseWindowHandle != NULL ? 2 : 1;
+            for (int childIndex = 0; childIndex < childCount; ++childIndex)
+            {
+                if (children[childIndex] == NULL)
+                    continue;
+                RECT childRect;
+                if (!GetWindowRect(children[childIndex], &childRect))
+                    continue;
+                MapWindowPoints(
+                    NULL, hwnd, reinterpret_cast<POINT*>(&childRect), 2);
+                int x = ScaleDialogMetric(childRect.left, oldDpi, newDpi);
+                int y = ScaleDialogMetric(childRect.top, oldDpi, newDpi);
+                int width = ScaleDialogMetric(
+                    childRect.right - childRect.left, oldDpi, newDpi);
+                int height = ScaleDialogMetric(
+                    childRect.bottom - childRect.top, oldDpi, newDpi);
+                SetWindowPos(
+                    children[childIndex], NULL, x, y, width, height,
+                    SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+        }
+        dialog->m_pImpl->CurrentDpi = newDpi;
+        return TRUE;
     }
     if (message == WM_NOTIFY)
     {
