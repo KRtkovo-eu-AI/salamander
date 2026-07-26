@@ -344,9 +344,12 @@ path. The initial host mapping covers startup/shutdown, settings and
 configuration changes, color changes, panel swaps, and active-panel changes.
 Successful operations through the shared Sides API additionally publish
 `sidePathChanged`, `sideSelectionChanged`, `sideTabChanged`, and
-`sideRefreshed`. These operation events are available to all runtimes through
-the same SMX1 event channel; Salamander's legacy plugin-event ABI has no
-general hooks for user-driven path, selection, or tab changes yet.
+`sideRefreshed`. The core now also forwards `pathChanged`, `selectionChanged`,
+and `tabChanged` notifications through the same channel. These core events
+can also be observed when a host operation causes the corresponding change;
+the `side*` names identify the operation-level notifications.
+The payload includes the affected physical side, active tab id, path type, and
+current path when available.
 
 The Automation facade is:
 

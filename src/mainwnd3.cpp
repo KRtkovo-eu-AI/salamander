@@ -410,6 +410,9 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
             DestroyWindow(panelWindow);
         else
             delete panel;
+        Plugins.Event(
+            PLUGINEVENT_TABCHANGED,
+            side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
         if (Created)
             RefreshCommandStates();
         return;
@@ -445,6 +448,9 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
         if (activePanel != NULL)
             EnsurePanelRefreshAndRequest(activePanel, true, true);
     }
+    Plugins.Event(
+        PLUGINEVENT_TABCHANGED,
+        side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
 }
 
 bool CMainWindow::HasClosedTab(CPanelSide side) const
@@ -1608,6 +1614,9 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 
     UpdatePanelTabTitle(panel);
     SwitchPanelTab(panel);
+    Plugins.Event(
+        PLUGINEVENT_TABCHANGED,
+        side == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
 }
 
 void CMainWindow::CommandCloseTab(CPanelSide side)

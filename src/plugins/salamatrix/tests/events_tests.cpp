@@ -142,7 +142,10 @@ void TestCapacityAndValidation()
         Salamatrix::Events::EventKindSidePathChanged,
         Salamatrix::Events::EventKindSideSelectionChanged,
         Salamatrix::Events::EventKindSideTabChanged,
-        Salamatrix::Events::EventKindSideRefreshed};
+        Salamatrix::Events::EventKindSideRefreshed,
+        Salamatrix::Events::EventKindPathChanged,
+        Salamatrix::Events::EventKindSelectionChanged,
+        Salamatrix::Events::EventKindTabChanged};
     for (int index = 0; index < _countof(operationKinds); ++index)
     {
         ULONGLONG operationId = 0;
@@ -156,12 +159,44 @@ void TestCapacityAndValidation()
         events.Unsubscribe(operationId);
     }
 }
+
+void TestCoreNotifications()
+{
+    Salamatrix::Events::EventService events(NULL);
+    const int hostEvents[] = {
+        PLUGINEVENT_PATHCHANGED,
+        PLUGINEVENT_SELECTIONCHANGED,
+        PLUGINEVENT_TABCHANGED};
+    const Salamatrix::Events::EventKind kinds[] = {
+        Salamatrix::Events::EventKindPathChanged,
+        Salamatrix::Events::EventKindSelectionChanged,
+        Salamatrix::Events::EventKindTabChanged};
+    for (int index = 0; index < _countof(hostEvents); ++index)
+    {
+        CallbackState state;
+        state.Service = &events;
+        Check(
+            events.Subscribe(
+                kinds[index],
+                CountCallback,
+                &state,
+                &state.UnsubscribeId) != FALSE,
+            "subscribe core notification");
+        events.PublishHostEvent(hostEvents[index], PANEL_RIGHT);
+        Check(
+            state.Count == 1 &&
+                state.LastKind == kinds[index] &&
+                state.LastParameter == PANEL_RIGHT,
+            "deliver core notification");
+    }
+}
 } // namespace
 
 int main()
 {
     TestSubscribePublishAndSelfUnsubscribe();
     TestCapacityAndValidation();
+    TestCoreNotifications();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d Salamatrix event test(s) failed.\n", Failures);

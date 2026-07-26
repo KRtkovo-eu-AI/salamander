@@ -1031,6 +1031,12 @@ static const char* RuntimeEventName(
         return "sideTabChanged";
     case Salamatrix::Events::EventKindSideRefreshed:
         return "sideRefreshed";
+    case Salamatrix::Events::EventKindPathChanged:
+        return "pathChanged";
+    case Salamatrix::Events::EventKindSelectionChanged:
+        return "selectionChanged";
+    case Salamatrix::Events::EventKindTabChanged:
+        return "tabChanged";
     default:
         return NULL;
     }
@@ -1043,7 +1049,7 @@ static BOOL RuntimeEventKindFromName(
     if (kind == NULL)
         return FALSE;
     for (int value = Salamatrix::Events::EventKindHostStartup;
-         value <= Salamatrix::Events::EventKindSideRefreshed;
+         value <= Salamatrix::Events::EventKindTabChanged;
          ++value)
     {
         Salamatrix::Events::EventKind candidate =

@@ -468,6 +468,14 @@ public:
 // 'param' se zde ignoruje
 #define PLUGINEVENT_SETTINGCHANGE 4
 
+// The following notifications extend the original event set without changing
+// the meaning or numeric values of the first five events. Older plugins that
+// do not use them simply ignore the unknown event codes.
+// 'param' is PANEL_LEFT or PANEL_RIGHT.
+#define PLUGINEVENT_PATHCHANGED 5
+#define PLUGINEVENT_SELECTIONCHANGED 6
+#define PLUGINEVENT_TABCHANGED 7
+
 // kody udalosti v Password Manageru, prijima metoda CPluginInterfaceAbstract::PasswordManagerEvent():
 #define PME_MASTERPASSWORDCREATED 1 // uzivatel vytvoril master password (je potreba zasifrovat hesla)
 #define PME_MASTERPASSWORDCHANGED 2 // uzivatel zmenil master password (je potreba desifrovat a nasledne znovu zasifrovat hesla)

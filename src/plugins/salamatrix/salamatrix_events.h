@@ -30,12 +30,17 @@ enum EventKind
     EventKindPanelsSwapped = 6,
     EventKindActivePanelChanged = 7,
     // These operation events are emitted when the shared Sides API performs
-    // the corresponding operation.  Salamander's legacy PLUGINEVENT contract
-    // does not expose equivalent hooks for path/selection/tab changes.
+    // the corresponding operation. They are distinct from core notifications
+    // below even when an operation also causes a core notification.
     EventKindSidePathChanged = 8,
     EventKindSideSelectionChanged = 9,
     EventKindSideTabChanged = 10,
-    EventKindSideRefreshed = 11
+    EventKindSideRefreshed = 11,
+    // Notifications forwarded from the Salamander core. They are separate
+    // from operation events so runtimes can distinguish the source.
+    EventKindPathChanged = 12,
+    EventKindSelectionChanged = 13,
+    EventKindTabChanged = 14
 };
 
 struct EventPayload
@@ -192,7 +197,7 @@ public:
         if (callback == NULL ||
             subscriptionId == NULL ||
             kind < EventKindHostStartup ||
-            kind > EventKindSideRefreshed)
+            kind > EventKindTabChanged)
         {
             return FALSE;
         }
@@ -318,8 +323,47 @@ public:
         case PLUGINEVENT_SETTINGCHANGE:
             payload.Kind = EventKindSettingsChanged;
             break;
+        case PLUGINEVENT_PATHCHANGED:
+            payload.Kind = EventKindPathChanged;
+            payload.ActivePanel = parameter == PANEL_RIGHT
+                                      ? PANEL_RIGHT
+                                      : PANEL_LEFT;
+            break;
+        case PLUGINEVENT_SELECTIONCHANGED:
+            payload.Kind = EventKindSelectionChanged;
+            payload.ActivePanel = parameter == PANEL_RIGHT
+                                      ? PANEL_RIGHT
+                                      : PANEL_LEFT;
+            break;
+        case PLUGINEVENT_TABCHANGED:
+            payload.Kind = EventKindTabChanged;
+            payload.ActivePanel = parameter == PANEL_RIGHT
+                                      ? PANEL_RIGHT
+                                      : PANEL_LEFT;
+            break;
         default:
             return;
+        }
+        if ((payload.Kind == EventKindPathChanged ||
+             payload.Kind == EventKindSelectionChanged ||
+             payload.Kind == EventKindTabChanged) &&
+            SidesService != NULL)
+        {
+            Sides::SideReference side =
+                payload.ActivePanel == PANEL_RIGHT
+                    ? Sides::SideReferenceRight
+                    : Sides::SideReferenceLeft;
+            Sides::TabInfo tab;
+            if (SidesService->GetActiveTabInfo(side, &tab))
+            {
+                payload.ActiveTabId = tab.TabId;
+                payload.PathType = tab.PathType;
+                SidesService->GetTabPath(
+                    tab.TabId,
+                    payload.Path,
+                    _countof(payload.Path),
+                    &payload.PathType);
+            }
         }
         Publish(&payload);
     }
