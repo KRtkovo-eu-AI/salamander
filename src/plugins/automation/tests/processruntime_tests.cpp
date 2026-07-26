@@ -394,12 +394,26 @@ void RunPythonTests()
         Salamatrix::Runtime::Protocol::Frame receivedFrame;
         BOOL complete = FALSE;
         Check(
-                decoder.Append(received, receivedLength, &receivedFrame, &complete) != FALSE &&
-                complete != FALSE && receivedFrame.Type ==
-                    Salamatrix::Runtime::Protocol::MessageResult &&
+            decoder.Append(received, receivedLength, &receivedFrame, &complete) != FALSE &&
+            complete != FALSE && receivedFrame.Type ==
+                Salamatrix::Runtime::Protocol::MessageResult &&
                 receivedFrame.Id == 7,
             "persistent worker echoes frame");
+        Salamatrix::Runtime::RuntimeSessionDiagnostic diagnostic;
+        Check(session->GetDiagnostic(&diagnostic) != FALSE,
+              "persistent worker running diagnostic is available");
+        Check(diagnostic.State == Salamatrix::Runtime::RuntimeSessionStateRunning,
+              "persistent worker reports running state");
+        Check(diagnostic.ProcessId != 0,
+              "persistent worker diagnostic preserves process id");
         session->Stop();
+        diagnostic = Salamatrix::Runtime::RuntimeSessionDiagnostic();
+        Check(session->GetDiagnostic(&diagnostic) != FALSE,
+              "stopped worker diagnostic is available");
+        Check(diagnostic.State == Salamatrix::Runtime::RuntimeSessionStateStopped,
+              "stopped worker reports stopped state");
+        Check(diagnostic.Message[0] != L'\0',
+              "stopped worker diagnostic has a message");
         session->Release();
     }
     request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagNone;
@@ -436,6 +450,49 @@ void RunPowerShellTest()
     Check(adapter.Execute(&request, &result) != FALSE, "powershell execution succeeds");
     Check(wcsstr(result.Output, L"salamatrix-powershell-ok") != NULL,
           "powershell output captured");
+    DeleteFileW(&script[0]);
+}
+
+void RunPythonFailureDiagnosticTest()
+{
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(
+            L"python.exe", &interpreter[0], static_cast<int>(interpreter.size())))
+        return;
+    SetEnvironmentVariableW(L"SALAMATRIX_PYTHON", &interpreter[0]);
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L"-failure.py", &script[0], static_cast<int>(script.size()));
+    Check(WriteScript(&script[0], "raise SystemExit(7)\n"),
+          "write failing python worker");
+
+    CAutomationProcessRuntimeAdapter adapter(
+        "Python.CPython", "CPython", "python", ".py",
+        L"SALAMATRIX_PYTHON", L"python.exe", L"python3.exe",
+        CAutomationProcessRuntimeAdapter::ProcessKindPython);
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.EntryPoint = &script[0];
+    request.TimeoutMs = 5000;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    Check(adapter.StartPersistent(&request, &session) != FALSE && session != NULL,
+          "start failing python worker");
+    if (session != NULL)
+    {
+        for (int attempt = 0; attempt < 40 && session->IsAlive(); ++attempt)
+            Sleep(25);
+        Salamatrix::Runtime::RuntimeSessionDiagnostic diagnostic;
+        Check(session->GetDiagnostic(&diagnostic) != FALSE,
+              "failed worker diagnostic is available");
+        Check(diagnostic.State == Salamatrix::Runtime::RuntimeSessionStateFailed,
+              "failed worker reports failed state");
+        Check(diagnostic.ExitCode == 7,
+              "failed worker diagnostic preserves nonzero exit code");
+        Check(diagnostic.ErrorCode != S_OK,
+              "failed worker diagnostic preserves error code");
+        Check(diagnostic.Message[0] != L'\0',
+              "failed worker diagnostic has a message");
+        session->Stop();
+        session->Release();
+    }
     DeleteFileW(&script[0]);
 }
 
@@ -925,6 +982,7 @@ void RunPhpTest()
 int main()
 {
     RunPythonTests();
+    RunPythonFailureDiagnosticTest();
     RunPythonOneShotBootstrapTest();
     RunPythonBootstrapTest();
     RunPowerShellBootstrapTest();

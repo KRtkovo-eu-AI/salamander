@@ -154,6 +154,20 @@ static void SetRuntimeFailure(
     StringCchCopyW(result->Message, _countof(result->Message), message);
 }
 
+static void SetRuntimeSessionDiagnosticFailure(
+    Salamatrix::Runtime::RuntimeSessionDiagnostic* diagnostic,
+    DWORD exitCode)
+{
+    if (diagnostic == NULL || exitCode == 0)
+        return;
+    diagnostic->ErrorCode = E_FAIL;
+    StringCchPrintfW(
+        diagnostic->Message,
+        _countof(diagnostic->Message),
+        L"Runtime worker exited with code %lu",
+        exitCode);
+}
+
 } // namespace
 
 class CJavaScriptRuntimeSession : public Salamatrix::Runtime::IRuntimeSession
@@ -166,6 +180,9 @@ private:
     Salamatrix::Runtime::RuntimeExecutionRequest::RuntimeHostDispatchProc
         m_pHostDispatch;
     void* m_pHostDispatchContext;
+    DWORD m_processId;
+    mutable Salamatrix::Runtime::RuntimeSessionState m_state;
+    mutable DWORD m_exitCode;
     mutable CRITICAL_SECTION m_lock;
     std::string m_pending;
 
@@ -182,7 +199,10 @@ private:
           m_hInput(input),
           m_hOutput(output),
           m_pHostDispatch(hostDispatch),
-          m_pHostDispatchContext(hostDispatchContext)
+          m_pHostDispatchContext(hostDispatchContext),
+          m_processId(process == NULL ? 0 : GetProcessId(process)),
+          m_state(Salamatrix::Runtime::RuntimeSessionStateRunning),
+          m_exitCode(0)
     {
         InitializeCriticalSection(&m_lock);
     }
@@ -247,13 +267,29 @@ public:
             return FALSE;
         *exitCode = 0;
         EnterCriticalSection(&m_lock);
-        if (m_hProcess == NULL ||
-            WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT)
+        if (m_hProcess == NULL)
+        {
+            if (m_exitCode != 0)
+                *exitCode = m_exitCode;
+            LeaveCriticalSection(&m_lock);
+            return m_exitCode != 0;
+        }
+
+        if (WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT)
         {
             LeaveCriticalSection(&m_lock);
             return FALSE;
         }
+
         BOOL result = GetExitCodeProcess(m_hProcess, exitCode);
+        if (result)
+        {
+            m_exitCode = *exitCode;
+        if (m_state != Salamatrix::Runtime::RuntimeSessionStateStopped)
+                m_state = (*exitCode == 0)
+                              ? Salamatrix::Runtime::RuntimeSessionStateExited
+                              : Salamatrix::Runtime::RuntimeSessionStateFailed;
+        }
         LeaveCriticalSection(&m_lock);
         return result;
     }
@@ -411,10 +447,29 @@ public:
         }
         if (m_hProcess != NULL)
         {
-            if (WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT)
+            DWORD exitCode = 0;
+            BOOL processAlive = (WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT);
+            if (processAlive)
             {
+                m_state = Salamatrix::Runtime::RuntimeSessionStateStopped;
                 TerminateProcess(m_hProcess, 1);
                 WaitForSingleObject(m_hProcess, 1000);
+            }
+            if (GetExitCodeProcess(m_hProcess, &exitCode))
+            {
+                m_exitCode = exitCode;
+                if (!processAlive)
+                {
+                    m_state = (exitCode == 0)
+                                  ? Salamatrix::Runtime::RuntimeSessionStateExited
+                                  : Salamatrix::Runtime::RuntimeSessionStateFailed;
+                }
+            }
+            if (WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT)
+            {
+                m_state = Salamatrix::Runtime::RuntimeSessionStateStopped;
+                if (m_exitCode == 0)
+                    m_exitCode = 1;
             }
             CloseHandle(m_hProcess);
             m_hProcess = NULL;
@@ -430,6 +485,56 @@ public:
             m_hOutput = NULL;
         }
         LeaveCriticalSection(&m_lock);
+    }
+
+    virtual BOOL WINAPI GetDiagnostic(
+        Salamatrix::Runtime::RuntimeSessionDiagnostic* diagnostic) const
+    {
+        if (diagnostic == NULL)
+            return FALSE;
+        *diagnostic = Salamatrix::Runtime::RuntimeSessionDiagnostic();
+        EnterCriticalSection(&m_lock);
+        diagnostic->ProcessId = m_processId;
+        diagnostic->ExitCode = m_exitCode;
+        if (m_hProcess != NULL &&
+            WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT)
+        {
+            diagnostic->State = Salamatrix::Runtime::RuntimeSessionStateRunning;
+        }
+        else
+        {
+            DWORD exitCode = 0;
+            if (m_hProcess != NULL &&
+                GetExitCodeProcess(m_hProcess, &exitCode))
+            {
+                m_exitCode = exitCode;
+                diagnostic->ExitCode = exitCode;
+                m_state = (exitCode == 0)
+                              ? Salamatrix::Runtime::RuntimeSessionStateExited
+                              : Salamatrix::Runtime::RuntimeSessionStateFailed;
+            }
+            else if (m_hProcess == NULL && m_state == Salamatrix::Runtime::RuntimeSessionStateRunning)
+            {
+                m_state = m_exitCode == 0
+                              ? Salamatrix::Runtime::RuntimeSessionStateExited
+                              : Salamatrix::Runtime::RuntimeSessionStateFailed;
+            }
+            diagnostic->State = m_state;
+        }
+        if (diagnostic->State == Salamatrix::Runtime::RuntimeSessionStateStopped)
+        {
+            diagnostic->ErrorCode = HRESULT_FROM_WIN32(ERROR_CANCELLED);
+            StringCchCopyW(
+                diagnostic->Message,
+                _countof(diagnostic->Message),
+                L"Runtime worker was stopped by the host.");
+        }
+        else
+        {
+            SetRuntimeSessionDiagnosticFailure(diagnostic, diagnostic->ExitCode);
+        }
+        LeaveCriticalSection(&m_lock);
+        return TRUE;
     }
 
     virtual void WINAPI Release()

@@ -106,12 +106,17 @@ also passes with the standalone provider worker assets: with
 process test executable returned exit code 0 and completed the SMX1 host-call,
 persistent-session, UI, storage, event, picker, command-state, shutdown,
 output-capture, and timeout scenarios. The lifecycle assertions verify the
-append-only `IRuntimeSession::GetDiagnostic` contract for running/exited state
-and exit code. No Salamander process was started or controlled.
+append-only `IRuntimeSession::GetDiagnostic` contract for running, explicit
+host stop, clean exit, and nonzero failed exit, including cached process id,
+exit code, error code, and bounded message. The provider projects contain the
+same diagnostic behavior even though the process-runtime executable exercises
+the Automation-side adapter. No Salamander process was started or controlled.
 
 `RuntimeSessionDiagnostic` is a bounded value snapshot. It reports lifecycle
-state, process id when a provider supplies it, exit code, and a host/provider
-error code without exposing a process handle or provider-owned string. The
-default ABI-compatible implementation derives the running/exited state from
-the existing session methods, so older providers remain usable while newer
-providers can append richer diagnostics.
+state, process id, exit code, and a host/provider error code without exposing a
+process handle or provider-owned string. Current process providers additionally
+retain the process id and exit code after `Stop()`, report explicit host stops
+as `Stopped`, clean exits as `Exited`, nonzero exits as `Failed`, and include a
+bounded message. The default ABI-compatible implementation still derives the
+running/exited state from the existing session methods, so older providers
+remain usable while newer providers can append richer diagnostics.

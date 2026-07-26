@@ -178,6 +178,10 @@ private:
     mutable CRITICAL_SECTION m_lock;
     std::string m_pending;
     std::deque<std::string> m_queuedFrames;
+    Salamatrix::Runtime::RuntimeSessionState m_lastState;
+    DWORD m_lastProcessId;
+    DWORD m_lastExitCode;
+    HRESULT m_lastErrorCode;
     enum { MaxQueuedFrames = 128 };
 
     CAutomationProcessRuntimeSession(
@@ -193,7 +197,11 @@ private:
           m_hInput(input),
           m_hOutput(output),
           m_pHostDispatch(hostDispatch),
-          m_pHostDispatchContext(hostDispatchContext)
+          m_pHostDispatchContext(hostDispatchContext),
+          m_lastState(Salamatrix::Runtime::RuntimeSessionStateRunning),
+          m_lastProcessId(process == NULL ? 0 : GetProcessId(process)),
+          m_lastExitCode(0),
+          m_lastErrorCode(S_OK)
     {
         InitializeCriticalSection(&m_lock);
     }
@@ -250,6 +258,85 @@ public:
                      WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT;
         LeaveCriticalSection(&m_lock);
         return alive;
+    }
+
+    void UpdateLifecycleStateLocked()
+    {
+        if (m_hProcess == NULL)
+            return;
+
+        m_lastProcessId = GetProcessId(m_hProcess);
+        DWORD waitResult = WaitForSingleObject(m_hProcess, 0);
+        if (waitResult == WAIT_TIMEOUT)
+        {
+            m_lastState = Salamatrix::Runtime::RuntimeSessionStateRunning;
+            return;
+        }
+
+        if (waitResult == WAIT_OBJECT_0)
+        {
+            DWORD exitCode = 0;
+            if (GetExitCodeProcess(m_hProcess, &exitCode))
+            {
+                m_lastExitCode = exitCode;
+                if (exitCode == 0)
+                {
+                    m_lastState = Salamatrix::Runtime::RuntimeSessionStateExited;
+                    m_lastErrorCode = S_OK;
+                }
+                else
+                {
+                    m_lastState = Salamatrix::Runtime::RuntimeSessionStateFailed;
+                    m_lastErrorCode = HRESULT_FROM_WIN32(exitCode);
+                }
+                return;
+            }
+        }
+
+        m_lastState = Salamatrix::Runtime::RuntimeSessionStateFailed;
+        m_lastErrorCode = HRESULT_FROM_WIN32(GetLastError());
+    }
+
+    virtual BOOL WINAPI GetDiagnostic(
+        Salamatrix::Runtime::RuntimeSessionDiagnostic* diagnostic) const
+    {
+        if (diagnostic == NULL)
+            return FALSE;
+
+        *diagnostic = Salamatrix::Runtime::RuntimeSessionDiagnostic();
+        EnterCriticalSection(&m_lock);
+        const_cast<CAutomationProcessRuntimeSession*>(this)
+            ->UpdateLifecycleStateLocked();
+        diagnostic->State = m_lastState;
+        diagnostic->ProcessId = m_lastProcessId;
+        diagnostic->ExitCode = m_lastExitCode;
+        diagnostic->ErrorCode = m_lastErrorCode;
+        LeaveCriticalSection(&m_lock);
+
+        if (diagnostic->State == Salamatrix::Runtime::RuntimeSessionStateStopped)
+        {
+            StringCchCopyW(
+                diagnostic->Message,
+                _countof(diagnostic->Message),
+                L"Runtime worker was stopped by the host.");
+        }
+        else if (diagnostic->ExitCode != 0)
+        {
+            StringCchPrintfW(
+                diagnostic->Message,
+                _countof(diagnostic->Message),
+                L"Runtime worker exited with code %lu.",
+                diagnostic->ExitCode);
+        }
+        else if (diagnostic->ErrorCode != S_OK)
+        {
+            StringCchPrintfW(
+                diagnostic->Message,
+                _countof(diagnostic->Message),
+                L"Runtime worker lifecycle failed (HRESULT 0x%08lX).",
+                static_cast<unsigned long>(diagnostic->ErrorCode));
+        }
+        return TRUE;
     }
 
     BOOL FlushQueuedFrames()
@@ -465,10 +552,22 @@ public:
         }
         if (m_hProcess != NULL)
         {
-            if (WaitForSingleObject(m_hProcess, 0) == WAIT_TIMEOUT)
+            DWORD waitResult = WaitForSingleObject(m_hProcess, 0);
+            if (waitResult == WAIT_TIMEOUT)
             {
+                m_lastState = Salamatrix::Runtime::RuntimeSessionStateStopped;
+                m_lastErrorCode = HRESULT_FROM_WIN32(ERROR_CANCELLED);
                 TerminateProcess(m_hProcess, 1);
                 WaitForSingleObject(m_hProcess, 1000);
+            }
+            else if (waitResult == WAIT_OBJECT_0)
+            {
+                UpdateLifecycleStateLocked();
+            }
+            else
+            {
+                m_lastState = Salamatrix::Runtime::RuntimeSessionStateFailed;
+                m_lastErrorCode = HRESULT_FROM_WIN32(GetLastError());
             }
             CloseHandle(m_hProcess);
             m_hProcess = NULL;
