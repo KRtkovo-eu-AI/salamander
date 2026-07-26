@@ -25,7 +25,7 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>call ..\..\..\..\..\tools\codesign\sign_with_retry.cmd "$(TargetPath)"
+      <Command>if not "$(OpenSalamanderReleaseClean)"=="true" call ..\..\..\..\..\tools\codesign\sign_with_retry.cmd "$(TargetPath)"
                call copytozip2sfxdir.bat "$(OutDir)" $(TargetFileName)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

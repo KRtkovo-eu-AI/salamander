@@ -1,8 +1,13 @@
 <Project>
   <PropertyGroup Condition="'$(Configuration)' == 'Release clean'">
     <OpenSalamanderReleaseClean>true</OpenSalamanderReleaseClean>
+    <OpenSalamanderCopyPdb></OpenSalamanderCopyPdb>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>None</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(OpenSalamanderReleaseClean)' != 'true'">
+    <OpenSalamanderCopyPdb>copy_pdb</OpenSalamanderCopyPdb>
   </PropertyGroup>
 
   <ItemDefinitionGroup Condition="'$(OpenSalamanderReleaseClean)' == 'true'">
@@ -19,9 +24,11 @@
           AfterTargets="Build"
           Condition="'$(OpenSalamanderReleaseClean)' == 'true'">
     <RemoveDir Directories="$(IntDir)"
-               Condition="'$(IntDir)' != '' and Exists('$(IntDir)')" />
+               Condition="'$(IntDir)' != '' and Exists('$(IntDir)')"
+               ContinueOnError="WarnAndContinue" />
     <RemoveDir Directories="$(IntermediateOutputPath)"
-               Condition="'$(IntermediateOutputPath)' != '' and Exists('$(IntermediateOutputPath)')" />
+               Condition="'$(IntermediateOutputPath)' != '' and Exists('$(IntermediateOutputPath)')"
+               ContinueOnError="WarnAndContinue" />
     <ItemGroup>
       <OpenSalamanderReleaseCleanPdb Include="$(OutDir)**\*.pdb" />
       <OpenSalamanderReleaseCleanPdb Include="$(TargetDir)**\*.pdb" />

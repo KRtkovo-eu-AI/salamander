@@ -26,7 +26,7 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>call ..\..\..\..\tools\codesign\sign_with_retry.cmd "$(TargetPath)"</Command>
+      <Command>if not "$(OpenSalamanderReleaseClean)"=="true" call ..\..\..\..\tools\codesign\sign_with_retry.cmd "$(TargetPath)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
 </Project>

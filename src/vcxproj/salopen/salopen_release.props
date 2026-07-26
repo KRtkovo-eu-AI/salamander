@@ -22,8 +22,8 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>call ..\..\..\tools\codesign\sign_with_retry.cmd "$(TargetPath)"
-               call ..\..\..\tools\copytopluginsdir.cmd $(ShortPlatform) "$(OutDir)" $(TargetFileName) copy_pdb</Command>
+      <Command>if not "$(OpenSalamanderReleaseClean)"=="true" call ..\..\..\tools\codesign\sign_with_retry.cmd "$(TargetPath)"
+               call ..\..\..\tools\copytopluginsdir.cmd $(ShortPlatform) "$(OutDir)" $(TargetFileName) $(OpenSalamanderCopyPdb)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
 </Project>
