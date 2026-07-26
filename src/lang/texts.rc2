@@ -1385,6 +1385,7 @@ STRINGTABLE
  IDS_PLUGINEXTWAITINGRUNTIME, "Extension (runtime unavailable)"
  IDS_PLUGINEXTWAITINGDEPENDENCY, "Extension (dependency unavailable)"
  IDS_PLUGINEXTDISABLED, "Extension (disabled)"
+ IDS_PLUGINEXTWAITINGEXECUTABLE, "Extension (runtime executable unavailable)"
  IDS_PLUGINEXTCONFIGTOOMANY, "This extension declares too many settings for this configuration dialog."
  IDS_PLUGINEXTCONFIGINTEGER, "Setting ""%s"" must be a signed integer."
  IDS_PLUGINEXTCONFIGSAVEFAILED, "Unable to save extension settings."

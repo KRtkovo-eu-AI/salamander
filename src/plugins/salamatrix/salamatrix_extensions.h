@@ -62,7 +62,10 @@ enum ExtensionFlags
     ExtensionFlagDisabled = 0x00000020,
     // A schema-1 extension package (manifest + entry point + assets), rather
     // than a legacy one-shot Automation script.
-    ExtensionFlagPackage = 0x00000040
+    ExtensionFlagPackage = 0x00000040,
+    // The provider is registered, but its interpreter/server executable is
+    // not available on this machine (for example node.exe or php.exe).
+    ExtensionFlagRuntimeExecutableUnavailable = 0x00000080
 };
 
 struct ExtensionDescriptor
@@ -368,7 +371,8 @@ private:
             }
             if (record.Info.State == ExtensionStateWaitingForRuntime &&
                 (record.Info.Descriptor.Flags &
-                 ExtensionFlagRuntimeUnavailable) != 0)
+                 (ExtensionFlagRuntimeUnavailable |
+                  ExtensionFlagRuntimeExecutableUnavailable)) != 0)
             {
                 LeaveCriticalSection(&Lock);
                 return TRUE;
@@ -414,7 +418,8 @@ private:
                                                    : ExtensionStateInactive)
                                             : ((action == ExtensionActionActivate &&
                                                 (Records[index].Info.Descriptor.Flags &
-                                                 ExtensionFlagRuntimeUnavailable) != 0)
+                                                 (ExtensionFlagRuntimeUnavailable |
+                                                  ExtensionFlagRuntimeExecutableUnavailable)) != 0)
                                                    ? ExtensionStateWaitingForRuntime
                                                    : ((action == ExtensionActionActivate &&
                                                        (Records[index].Info.Descriptor.Flags &
@@ -502,7 +507,9 @@ public:
                     Records[existing].Info.State != ExtensionStateActivating)
                     Records[existing].Info.State = ExtensionStateDisabled;
             }
-            else if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
+            else if ((descriptor->Flags &
+                      (ExtensionFlagRuntimeUnavailable |
+                       ExtensionFlagRuntimeExecutableUnavailable)) != 0)
             {
                 if (Records[existing].Info.State != ExtensionStateActive &&
                     Records[existing].Info.State != ExtensionStateActivating)
@@ -536,7 +543,9 @@ public:
         record.Info.Descriptor = *descriptor;
         if ((descriptor->Flags & ExtensionFlagDisabled) != 0)
             record.Info.State = ExtensionStateDisabled;
-        else if ((descriptor->Flags & ExtensionFlagRuntimeUnavailable) != 0)
+        else if ((descriptor->Flags &
+                  (ExtensionFlagRuntimeUnavailable |
+                   ExtensionFlagRuntimeExecutableUnavailable)) != 0)
             record.Info.State = ExtensionStateWaitingForRuntime;
         else if ((descriptor->Flags & ExtensionFlagDependencyUnavailable) != 0)
             record.Info.State = ExtensionStateWaitingForDependency;

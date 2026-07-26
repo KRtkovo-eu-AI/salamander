@@ -78,6 +78,9 @@ private:
     void UnregisterToolbarButtons();
 
     static std::wstring ExpandRoot(const std::wstring& root);
+    static BOOL MakeDisplayEntryPoint(
+        const std::wstring& entryPoint,
+        std::string* display);
     static BOOL ReadUtf8File(const std::wstring& path, std::string* text);
     static BOOL ToUtf8(const std::wstring& value, std::string* result);
     static BOOL ToWide(const std::string& value, std::wstring* result);

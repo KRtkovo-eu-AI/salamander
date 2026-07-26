@@ -1029,6 +1029,9 @@ void CPluginsDlg::OnSelChanged()
         const BOOL runtimeUnavailable =
             (extension->Descriptor.Flags &
              Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0;
+        const BOOL runtimeExecutableUnavailable =
+            (extension->Descriptor.Flags &
+             Salamatrix::Extensions::ExtensionFlagRuntimeExecutableUnavailable) != 0;
         char runtimeText[256];
         _snprintf_s(
             runtimeText,
@@ -1040,6 +1043,8 @@ void CPluginsDlg::OnSelChanged()
                 ? " (disabled)"
                 : runtimeUnavailable
                 ? " (runtime unavailable)"
+                : runtimeExecutableUnavailable
+                ? " (runtime executable unavailable)"
                 : dependencyUnavailable
                       ? " (dependency unavailable)"
                 : "");
@@ -1056,8 +1061,10 @@ void CPluginsDlg::OnSelChanged()
                 : dependencyUnavailable
                 ? LoadStr(IDS_PLUGINEXTWAITINGDEPENDENCY)
                 : runtimeUnavailable
-                      ? LoadStr(IDS_PLUGINEXTWAITINGRUNTIME)
-                      : "Extension");
+                ? LoadStr(IDS_PLUGINEXTWAITINGRUNTIME)
+                : runtimeExecutableUnavailable
+                      ? LoadStr(IDS_PLUGINEXTWAITINGEXECUTABLE)
+                : "Extension");
 
         ShowWindow(showInBar, SW_HIDE);
         ShowWindow(showInChDrv, SW_HIDE);

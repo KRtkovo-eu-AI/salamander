@@ -323,16 +323,40 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                     StringCchCopyA(descriptor.Name, _countof(descriptor.Name), manifest.Name.c_str());
                     StringCchCopyA(descriptor.Version, _countof(descriptor.Version), manifest.Version.c_str());
                     StringCchCopyA(descriptor.RuntimeId, _countof(descriptor.RuntimeId), manifest.RuntimeId.c_str());
-                    StringCchCopyA(descriptor.EntryPoint, _countof(descriptor.EntryPoint), package->EntryPointUtf8.c_str());
+                    std::string displayEntryPoint = package->EntryPointUtf8;
+                    MakeDisplayEntryPoint(package->EntryPoint, &displayEntryPoint);
+                    StringCchCopyA(descriptor.EntryPoint, _countof(descriptor.EntryPoint), displayEntryPoint.c_str());
                     StringCchCopyA(descriptor.IconPath, _countof(descriptor.IconPath), package->IconPath.c_str());
                     StringCchCopyA(descriptor.IconDarkPath, _countof(descriptor.IconDarkPath), package->IconDarkPath.c_str());
                     descriptor.Flags = Extensions::ExtensionFlagManifest |
                                        Extensions::ExtensionFlagPackage |
                                        Extensions::ExtensionFlagPersistent;
-                    Runtime::IRuntimeAdapter* adapter = Runtimes->FindAdapter(
-                        manifest.RuntimeId.c_str(), manifest.MinimumRuntimeVersion);
-                    if (adapter == NULL || !adapter->IsAvailable())
+                    bool registeredRuntime = false;
+                    bool availableRuntime = false;
+                    for (int adapterIndex = 0;
+                         adapterIndex < Runtimes->GetAdapterCount();
+                         ++adapterIndex)
+                    {
+                        Runtime::IRuntimeAdapter* adapter =
+                            Runtimes->GetAdapter(adapterIndex);
+                        const Runtime::RuntimeAdapterDescriptor* runtimeDescriptor =
+                            adapter != NULL ? adapter->GetDescriptor() : NULL;
+                        if (runtimeDescriptor != NULL &&
+                            runtimeDescriptor->RuntimeId != NULL &&
+                            _stricmp(runtimeDescriptor->RuntimeId,
+                                     manifest.RuntimeId.c_str()) == 0 &&
+                            runtimeDescriptor->RuntimeVersion >=
+                                manifest.MinimumRuntimeVersion)
+                        {
+                            registeredRuntime = true;
+                            availableRuntime = adapter->IsAvailable() != FALSE;
+                            break;
+                        }
+                    }
+                    if (!registeredRuntime)
                         descriptor.Flags |= Extensions::ExtensionFlagRuntimeUnavailable;
+                    else if (!availableRuntime)
+                        descriptor.Flags |= Extensions::ExtensionFlagRuntimeExecutableUnavailable;
                     if (Extensions->RegisterExtension(&descriptor, LifecycleCallback, package))
                     {
                         std::vector<Extensions::ExtensionSettingInfo> settings;
@@ -628,6 +652,23 @@ std::wstring PackageManager::ExpandRoot(const std::wstring& root)
     if (slash != std::wstring::npos)
         salDir.erase(slash);
     return salDir + root.substr(9);
+}
+
+BOOL PackageManager::MakeDisplayEntryPoint(
+    const std::wstring& entryPoint,
+    std::string* display)
+{
+    if (display == NULL)
+        return FALSE;
+    std::wstring salDir = ExpandRoot(L"$(SalDir)");
+    std::wstring value = entryPoint;
+    if (entryPoint.size() > salDir.size() &&
+        _wcsnicmp(entryPoint.c_str(), salDir.c_str(), salDir.size()) == 0 &&
+        (entryPoint[salDir.size()] == L'\\' || entryPoint[salDir.size()] == L'/'))
+    {
+        value = entryPoint.substr(salDir.size() + 1);
+    }
+    return ToUtf8(value, display);
 }
 
 BOOL PackageManager::ReadUtf8File(const std::wstring& path, std::string* text)
