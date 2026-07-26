@@ -95,6 +95,9 @@ $storage | Add-Member ScriptMethod Remove {
 $storage | Add-Member ScriptMethod Clear {
     (Invoke-Host -Method 'salamander.storage.clear' -Arguments @{}).ok
 }
+$storage | Add-Member ScriptMethod Schema {
+    @((Invoke-Host -Method 'salamander.storage.schema' -Arguments @{}).settings)
+}
 $fileOperations = [pscustomobject]@{}
 $fileOperations | Add-Member ScriptMethod Rename { (Invoke-Host -Method 'salamander.fileOperations.rename' -Arguments @{}).result }
 $fileOperations | Add-Member ScriptMethod Copy { (Invoke-Host -Method 'salamander.fileOperations.copy' -Arguments @{}).result }

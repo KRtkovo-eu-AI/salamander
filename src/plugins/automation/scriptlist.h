@@ -16,10 +16,12 @@
 #include <string>
 #include <vector>
 
+#include "extensionmanifest.h"
 #include "../salamatrix/salamatrix_runtime_api.h"
 #include "../salamatrix/salamatrix_ui.h"
 #include "../salamatrix/salamatrix_extensions.h"
 #include "../salamatrix/salamatrix_events.h"
+#include "../salamatrix/salamatrix_storage.h"
 #include "../salamatrix/salamatrix_script_runner.h"
 
 BOOL ShowRuntimeInputBox(
@@ -112,6 +114,7 @@ private:
     char m_szSalamatrixRuntimeId[128];
     DWORD m_dwSalamatrixMinimumRuntimeVersion;
     std::vector<std::string> m_salamatrixCapabilities;
+    std::vector<CExtensionManifestSetting> m_salamatrixSettings;
     bool m_bSalamatrixEventsDeclared;
     std::vector<std::string> m_salamatrixEvents;
     struct SALAMATRIX_MANIFEST_COMMAND
@@ -214,6 +217,8 @@ private:
     void UninitializeDebugger(DEBUG_INFO* dbgInfo);
     void LoadSalamatrixMetadata();
     void LoadSalamatrixManifestMetadata();
+    void InitializeSalamatrixSettings(
+        Salamatrix::Storage::IStorageService* storage);
     void ApplySalamatrixMetadataLine(PCTSTR pszLine);
     void ApplySalamatrixManifestValue(const char* key, const char* value);
     void ApplySalamatrixPlacement(PCTSTR pszValue);

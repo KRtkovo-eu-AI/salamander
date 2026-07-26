@@ -52,6 +52,31 @@ struct CExtensionManifestCommand
     }
 };
 
+enum CExtensionManifestSettingType
+{
+    ExtensionManifestSettingString = 1,
+    ExtensionManifestSettingInteger = 2,
+    ExtensionManifestSettingBoolean = 3
+};
+
+struct CExtensionManifestSetting
+{
+    std::string Key;
+    CExtensionManifestSettingType Type;
+    bool HasDefault;
+    std::string StringDefault;
+    long long IntegerDefault;
+    bool BooleanDefault;
+
+    CExtensionManifestSetting()
+        : Type(ExtensionManifestSettingString),
+          HasDefault(false),
+          IntegerDefault(0),
+          BooleanDefault(false)
+    {
+    }
+};
+
 class CExtensionManifest
 {
 public:
@@ -68,6 +93,9 @@ public:
     std::string Icon;
     std::string IconDark;
     std::vector<std::string> Capabilities;
+    // Optional typed settings declarations.  Declarations are metadata only;
+    // values remain isolated in Salamatrix.Storage under the manifest id.
+    std::vector<CExtensionManifestSetting> Settings;
     // Optional event allow-list.  When EventsDeclared is true, a runtime may
     // subscribe only to names listed here; an absent member keeps legacy
     // manifests compatible and allows the complete event surface.

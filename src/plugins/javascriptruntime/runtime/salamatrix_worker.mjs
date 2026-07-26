@@ -531,6 +531,9 @@ const Salamander = {
     set: (key, value) => hostCall("salamander.storage.set", { key, value }),
     remove: (key) => hostCall("salamander.storage.remove", { key }),
     clear: () => hostCall("salamander.storage.clear"),
+    schema: () => hostCall("salamander.storage.schema", {}).then(
+      (result) => result.settings || []
+    ),
   },
   clipboard: {
     copyText: (text, showEcho = false) => hostCall(

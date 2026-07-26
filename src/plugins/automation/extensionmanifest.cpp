@@ -706,6 +706,7 @@ void CExtensionManifest::Clear()
     Icon.clear();
     IconDark.clear();
     Capabilities.clear();
+    Settings.clear();
     EventsDeclared = false;
     Events.clear();
     Commands.clear();
@@ -846,6 +847,85 @@ bool CExtensionManifest::Parse(
                 return SetValidationError(error, "Every capability must be a valid string identifier");
             }
             Capabilities.push_back(capabilities->Array[i].String);
+        }
+    }
+
+    const JsonValue* settings = root.Find("settings");
+    if (settings != NULL)
+    {
+        if (settings->Type != JsonArray)
+            return SetValidationError(error, "settings must be an array");
+        if (settings->Array.size() > 64)
+            return SetValidationError(error, "Manifest contains more than 64 settings");
+
+        static const char* const settingTypes[] = {
+            "string", "integer", "boolean"};
+        for (size_t i = 0; i < settings->Array.size(); ++i)
+        {
+            const JsonValue& settingValue = settings->Array[i];
+            if (settingValue.Type != JsonObject)
+                return SetValidationError(error, "Every settings entry must be an object");
+
+            CExtensionManifestSetting setting;
+            std::string type;
+            if (!ReadString(settingValue, "key", true, setting.Key, error) ||
+                !ReadString(settingValue, "type", true, type, error))
+                return false;
+            if (!IsIdentifier(setting.Key))
+                return SetValidationError(error, "Setting key contains unsupported characters or is too long");
+            if (!ValidateEnum(
+                    type, settingTypes, _countof(settingTypes), "type", error))
+                return false;
+            if (type == "string")
+                setting.Type = ExtensionManifestSettingString;
+            else if (type == "integer")
+                setting.Type = ExtensionManifestSettingInteger;
+            else
+                setting.Type = ExtensionManifestSettingBoolean;
+
+            const JsonValue* defaultValue = settingValue.Find("default");
+            if (defaultValue != NULL)
+            {
+                setting.HasDefault = true;
+                if (setting.Type == ExtensionManifestSettingString)
+                {
+                    if (defaultValue->Type != JsonString)
+                        return SetValidationError(error, "String setting default must be a string");
+                    setting.StringDefault = defaultValue->String;
+                }
+                else if (setting.Type == ExtensionManifestSettingBoolean)
+                {
+                    if (defaultValue->Type != JsonBoolean)
+                        return SetValidationError(error, "Boolean setting default must be a boolean");
+                    setting.BooleanDefault = defaultValue->Boolean;
+                }
+                else
+                {
+                    // JSON numbers are parsed as doubles by the strict parser;
+                    // accept only precisely representable integral defaults so
+                    // the declared value cannot silently change on conversion.
+                    if (defaultValue->Type != JsonNumber ||
+                        !isfinite(defaultValue->Number) ||
+                        floor(defaultValue->Number) != defaultValue->Number ||
+                        defaultValue->Number < -9007199254740991.0 ||
+                        defaultValue->Number > 9007199254740991.0)
+                    {
+                        return SetValidationError(
+                            error,
+                            "Integer setting default must be a precise signed integer");
+                    }
+                    setting.IntegerDefault =
+                        static_cast<long long>(defaultValue->Number);
+                }
+            }
+
+            for (size_t existing = 0; existing < Settings.size(); ++existing)
+            {
+                if (_stricmp(Settings[existing].Key.c_str(), setting.Key.c_str()) == 0)
+                    return SetValidationError(
+                        error, "Setting keys must be unique inside one manifest");
+            }
+            Settings.push_back(setting);
         }
     }
 

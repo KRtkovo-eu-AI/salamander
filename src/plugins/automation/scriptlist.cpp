@@ -556,6 +556,7 @@ CScriptInfo::CScriptInfo(
     m_szSalamatrixRuntimeId[0] = '\0';
     m_dwSalamatrixMinimumRuntimeVersion = 0;
     m_bSalamatrixEventsDeclared = false;
+    m_salamatrixSettings.clear();
     m_salamatrixEvents.clear();
     m_salamatrixManifestCommands.clear();
     m_bSalamatrixManifestCommandsPublished = false;
@@ -763,6 +764,7 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         manifest.RuntimeId.c_str());
     m_dwSalamatrixMinimumRuntimeVersion = manifest.MinimumRuntimeVersion;
     m_salamatrixCapabilities = manifest.Capabilities;
+    m_salamatrixSettings = manifest.Settings;
     m_bSalamatrixEventsDeclared = manifest.EventsDeclared;
     m_salamatrixEvents = manifest.Events;
     ResolveManifestAssetPath(
@@ -815,6 +817,47 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
             m_dwMenuEventAndMask = savedAndMask;
         }
         m_salamatrixManifestCommands.push_back(published);
+    }
+}
+
+void CScriptInfo::InitializeSalamatrixSettings(
+    Salamatrix::Storage::IStorageService* storage)
+{
+    if (storage == NULL || m_szSalamatrixExtensionId[0] == '\0')
+        return;
+
+    for (size_t index = 0; index < m_salamatrixSettings.size(); ++index)
+    {
+        const CExtensionManifestSetting& setting = m_salamatrixSettings[index];
+        if (!setting.HasDefault ||
+            storage->GetValueType(
+                m_szSalamatrixExtensionId, setting.Key.c_str()) !=
+                Salamatrix::Storage::StorageValueMissing)
+            continue;
+
+        switch (setting.Type)
+        {
+        case ExtensionManifestSettingString:
+            storage->SetString(
+                m_szSalamatrixExtensionId,
+                setting.Key.c_str(),
+                setting.StringDefault.c_str());
+            break;
+        case ExtensionManifestSettingInteger:
+            storage->SetInteger(
+                m_szSalamatrixExtensionId,
+                setting.Key.c_str(),
+                static_cast<LONGLONG>(setting.IntegerDefault));
+            break;
+        case ExtensionManifestSettingBoolean:
+            storage->SetBoolean(
+                m_szSalamatrixExtensionId,
+                setting.Key.c_str(),
+                setting.BooleanDefault ? TRUE : FALSE);
+            break;
+        default:
+            break;
+        }
     }
 }
 
@@ -3119,12 +3162,63 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     if (method == "salamander.storage.get" ||
         method == "salamander.storage.set" ||
         method == "salamander.storage.remove" ||
-        method == "salamander.storage.clear")
+        method == "salamander.storage.clear" ||
+        method == "salamander.storage.schema")
     {
         Salamatrix::Storage::IStorageService* storage =
             bridge->GetStorageService();
         if (storage == NULL || script->m_szSalamatrixExtensionId[0] == '\0')
             return FALSE;
+        if (method == "salamander.storage.schema")
+        {
+            std::string response = "{\"ok\":true,\"settings\":[";
+            for (size_t index = 0;
+                 index < script->m_salamatrixSettings.size();
+                 ++index)
+            {
+                const CExtensionManifestSetting& setting =
+                    script->m_salamatrixSettings[index];
+                if (index != 0)
+                    response += ",";
+                response += "{\"key\":\"" +
+                            JsonEscapeRuntimeText(setting.Key.c_str()) +
+                            "\",\"type\":\"";
+                if (setting.Type == ExtensionManifestSettingInteger)
+                    response += "integer";
+                else if (setting.Type == ExtensionManifestSettingBoolean)
+                    response += "boolean";
+                else
+                    response += "string";
+                response += "\"";
+                if (setting.HasDefault)
+                {
+                    response += ",\"hasDefault\":true,\"default\":";
+                    if (setting.Type == ExtensionManifestSettingString)
+                    {
+                        response += "\"" +
+                                    JsonEscapeRuntimeText(
+                                        setting.StringDefault.c_str()) +
+                                    "\"";
+                    }
+                    else if (setting.Type == ExtensionManifestSettingInteger)
+                    {
+                        response += std::to_string(setting.IntegerDefault);
+                    }
+                    else
+                    {
+                        response += setting.BooleanDefault ? "true" : "false";
+                    }
+                }
+                else
+                {
+                    response += ",\"hasDefault\":false";
+                }
+                response += "}";
+            }
+            response += "]}";
+            return CopyRuntimeHostResult(
+                response, resultJson, resultCapacity, resultLength);
+        }
         if (method == "salamander.storage.clear")
         {
             BOOL cleared = storage->ClearExtension(
@@ -4944,6 +5038,8 @@ void CScriptLookup::PublishSalamatrixExtensions()
         bridge->GetExtensionsService();
     if (service == NULL)
         return;
+    Salamatrix::Storage::IStorageService* storage =
+        bridge->GetStorageService();
 
     for (int iBin = 0; iBin < _countof(m_apHashBins); iBin++)
     {
@@ -4997,6 +5093,11 @@ void CScriptLookup::PublishSalamatrixExtensions()
             if (runtimeAdapter == NULL || !runtimeAdapter->IsAvailable())
                 descriptor.Flags |=
                     Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable;
+
+            // Materialize declared defaults before activation. Existing user
+            // values always win, so re-discovery never resets an extension's
+            // settings.
+            pScript->InitializeSalamatrixSettings(storage);
 
             // A failed registration (for example a duplicate manifest id)
             // is intentionally ignored here. The host registry remains

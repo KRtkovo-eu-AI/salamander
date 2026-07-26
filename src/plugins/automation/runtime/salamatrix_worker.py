@@ -149,6 +149,11 @@ class _Storage:
             "salamander.storage.clear"
         ).get("ok", False))
 
+    def schema(self) -> list[dict[str, Any]]:
+        return list(self._transport.call(
+            "salamander.storage.schema"
+        ).get("settings", []))
+
 
 class _FileOperations:
     def __init__(self, transport: _Transport) -> None:

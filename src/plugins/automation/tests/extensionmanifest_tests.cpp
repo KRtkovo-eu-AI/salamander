@@ -38,6 +38,11 @@ static void TestCompleteManifest()
         "\"entryPoint\":\"scripts/main.py\","
         "\"icon\":\"assets/icon.svg\",\"iconDark\":\"assets/icon-dark.svg\","
         "\"capabilities\":[\"panels.read\",\"ui.dialogs\"],"
+        "\"settings\":["
+        "{\"key\":\"repositoryUrl\",\"type\":\"string\",\"default\":\"https://example.test\"},"
+        "{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"default\":true},"
+        "{\"key\":\"maxItems\",\"type\":\"integer\",\"default\":42}"
+        "],"
         "\"events\":[\"pathChanged\",\"selectionChanged\",\"fileChanged\"],"
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
@@ -59,6 +64,15 @@ static void TestCompleteManifest()
     CHECK(manifest.Icon == "assets/icon.svg");
     CHECK(manifest.IconDark == "assets/icon-dark.svg");
     CHECK(manifest.Capabilities.size() == 2);
+    CHECK(manifest.Settings.size() == 3);
+    CHECK(manifest.Settings[0].Key == "repositoryUrl");
+    CHECK(manifest.Settings[0].Type == ExtensionManifestSettingString);
+    CHECK(manifest.Settings[0].HasDefault);
+    CHECK(manifest.Settings[0].StringDefault == "https://example.test");
+    CHECK(manifest.Settings[1].Type == ExtensionManifestSettingBoolean);
+    CHECK(manifest.Settings[1].BooleanDefault);
+    CHECK(manifest.Settings[2].Type == ExtensionManifestSettingInteger);
+    CHECK(manifest.Settings[2].IntegerDefault == 42);
     CHECK(manifest.EventsDeclared);
     CHECK(manifest.Events.size() == 3);
     CHECK(manifest.Events[0] == "pathChanged");
@@ -109,6 +123,10 @@ static void TestInvalidDocuments()
         "\"events\":[\"unknownEvent\"]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"events\":[\"pathChanged\",\"pathChanged\"]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"settings\":[{\"key\":\"autoRefresh\",\"type\":\"boolean\",\"default\":\"yes\"}]}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"settings\":[{\"key\":\"same\",\"type\":\"string\"},{\"key\":\"SAME\",\"type\":\"string\"}]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"name\":\"unterminated}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
