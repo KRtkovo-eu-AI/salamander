@@ -42,8 +42,12 @@ public:
     {
         const char result[] =
             "{\"title\":\"Test\",\"description\":\"Test script\","
-            "\"capabilities\":[],\"estimatedEffects\":{},"
-            "\"script\":\"pass\",\"runtime\":\"Python.CPython\"}";
+            "\"capabilities\":[],\"estimatedEffects\":{"
+            "\"readSelection\":false,\"readMetadata\":false,"
+            "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+            "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
+            "\"script\":\"pass\",\"runtime\":\"Python.CPython\","
+            "\"canImplement\":true,\"missingCapabilities\":[]}";
         memcpy(response->ResponseJson, result, sizeof(result));
         response->OutputLength = sizeof(result) - 1;
         response->Status = Salamatrix::AI::AssistantStatusSucceeded;
@@ -352,11 +356,33 @@ void TestAssistantService()
     response.Summary.EffectFlags |= Salamatrix::AI::AssistantEffectNetwork;
     Check(Salamatrix::AI::IsSafeToRun(response.Summary) == FALSE,
           "network assistant output is blocked by safety gate");
+    static const char prettyEffectsJson[] =
+        "{\n\"title\":\"Sidecar\",\"description\":\"write a file\","
+        "\"capabilities\":[\"panels.read\"],\"estimatedEffects\":{\n"
+        "\"readSelection\": true,\"readMetadata\": false,"
+        "\"renameFiles\": false,\"moveFiles\": false,\"deleteFiles\": false,"
+        "\"modifyContents\": true,\"executeExternal\": false,\"network\": false},"
+        "\"script\":\"await writeFile(item.path + '.md5', 'x');\","
+        "\"runtime\":\"JavaScript.Node\",\"canImplement\":true,"
+        "\"missingCapabilities\":[]}";
+    memcpy(response.ResponseJson,
+           prettyEffectsJson, sizeof(prettyEffectsJson));
+    response.OutputLength = sizeof(prettyEffectsJson) - 1;
+    Check(service.Validate(NULL, &response, &validation) != FALSE &&
+              (response.Summary.EffectFlags &
+               Salamatrix::AI::AssistantEffectReadSelection) != 0 &&
+              (response.Summary.EffectFlags &
+               Salamatrix::AI::AssistantEffectModifyContents) != 0,
+          "assistant parses pretty-printed effect booleans structurally");
     Salamatrix::AI::AssistantResponse undeclaredExternal;
     const char undeclaredExternalJson[] =
         "{\"title\":\"Unsafe\",\"description\":\"test\","
-        "\"capabilities\":[],\"estimatedEffects\":{},"
-        "\"script\":\"import subprocess\",\"runtime\":\"Python.CPython\"}";
+        "\"capabilities\":[],\"estimatedEffects\":{"
+        "\"readSelection\":false,\"readMetadata\":false,"
+        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+        "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
+        "\"script\":\"import subprocess\",\"runtime\":\"Python.CPython\","
+        "\"canImplement\":true,\"missingCapabilities\":[]}";
     memcpy(undeclaredExternal.ResponseJson,
            undeclaredExternalJson, sizeof(undeclaredExternalJson));
     undeclaredExternal.OutputLength = sizeof(undeclaredExternalJson) - 1;
@@ -367,8 +393,12 @@ void TestAssistantService()
     Salamatrix::AI::AssistantResponse unknownCapability;
     const char unknownCapabilityJson[] =
         "{\"title\":\"Invalid\",\"description\":\"test\","
-        "\"capabilities\":[\"unknown.capability\"],\"estimatedEffects\":{},"
-        "\"script\":\"pass\",\"runtime\":\"Python.CPython\"}";
+        "\"capabilities\":[\"unknown.capability\"],\"estimatedEffects\":{"
+        "\"readSelection\":false,\"readMetadata\":false,"
+        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+        "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
+        "\"script\":\"pass\",\"runtime\":\"Python.CPython\","
+        "\"canImplement\":true,\"missingCapabilities\":[]}";
     memcpy(unknownCapability.ResponseJson,
            unknownCapabilityJson, sizeof(unknownCapabilityJson));
     unknownCapability.OutputLength = sizeof(unknownCapabilityJson) - 1;
@@ -379,7 +409,11 @@ void TestAssistantService()
     Salamatrix::AI::AssistantResponse unsupported;
     const char unsupportedJson[] =
         "{\"title\":\"Unsupported\",\"description\":\"The installed API cannot do this.\","
-        "\"capabilities\":[],\"estimatedEffects\":{},\"script\":\"\","
+        "\"capabilities\":[],\"estimatedEffects\":{"
+        "\"readSelection\":false,\"readMetadata\":false,"
+        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+        "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
+        "\"script\":\"\","
         "\"canImplement\":false,\"missingCapabilities\":[\"panel columns\",\"thumbnails\"]}";
     memcpy(unsupported.ResponseJson, unsupportedJson, sizeof(unsupportedJson));
     unsupported.OutputLength = sizeof(unsupportedJson) - 1;
@@ -387,10 +421,54 @@ void TestAssistantService()
               validation.Valid != FALSE &&
               Salamatrix::AI::AssistantCanImplement(unsupported) == FALSE,
           "assistant accepts an explicit unsupported-capability response");
+    Salamatrix::AI::AssistantRequest md5Request;
+    md5Request.Prompt =
+        "Create an adjacent .md5 sidecar file for every selected file.";
+    md5Request.RuntimeId = "JavaScript.Node";
+    static const char md5UnsupportedJson[] =
+        "{\"title\":\"MD5\",\"description\":\"unsupported\","
+        "\"capabilities\":[],\"estimatedEffects\":{"
+        "\"readSelection\":false,\"readMetadata\":false,"
+        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+        "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
+        "\"runtime\":\"JavaScript.Node\",\"canImplement\":false,"
+        "\"missingCapabilities\":[\"panel.read\"],\"script\":\"\"}";
+    memcpy(response.ResponseJson,
+           md5UnsupportedJson, sizeof(md5UnsupportedJson));
+    response.OutputLength = sizeof(md5UnsupportedJson) - 1;
+    Check(service.Validate(
+              &md5Request, &response, &validation) == FALSE &&
+              (validation.IssueFlags &
+               Salamatrix::AI::AssistantValidationIssueCapability) != 0 &&
+              strstr(validation.Message, "is implementable") != NULL,
+          "assistant rejects a false framework GAP for selected-file MD5");
+    static const char md5ValidJson[] =
+        "{\"title\":\"MD5 sidecars\",\"description\":\"Writes MD5 sidecars\","
+        "\"capabilities\":[\"panels.read\"],\"estimatedEffects\":{"
+        "\"readSelection\":true,\"readMetadata\":false,"
+        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+        "\"modifyContents\":true,\"executeExternal\":false,\"network\":false},"
+        "\"runtime\":\"JavaScript.Node\",\"canImplement\":true,"
+        "\"missingCapabilities\":[],"
+        "\"script\":\"import { createHash } from 'node:crypto'; "
+        "import { readFile, writeFile } from 'node:fs/promises'; "
+        "const context = await Salamander.sides.context('source'); "
+        "for (const item of context.selectedItems) { "
+        "const digest = createHash('md5').update(await readFile(item.path)).digest('hex'); "
+        "await writeFile(item.path + '.md5', digest); }\"}";
+    memcpy(response.ResponseJson, md5ValidJson, sizeof(md5ValidJson));
+    response.OutputLength = sizeof(md5ValidJson) - 1;
+    Check(service.Validate(&md5Request, &response, &validation) != FALSE &&
+              validation.Valid != FALSE,
+          "assistant accepts a grounded selected-file MD5 sidecar script");
     Salamatrix::AI::AssistantResponse malformedMissing;
     const char malformedMissingJson[] =
         "{\"title\":\"Invalid\",\"description\":\"test\","
-        "\"capabilities\":[],\"estimatedEffects\":{},\"script\":\"pass\","
+        "\"capabilities\":[],\"estimatedEffects\":{"
+        "\"readSelection\":false,\"readMetadata\":false,"
+        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+        "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
+        "\"script\":\"pass\",\"canImplement\":true,"
         "\"missingCapabilities\":\"panel columns\"}";
     memcpy(malformedMissing.ResponseJson, malformedMissingJson,
            sizeof(malformedMissingJson));

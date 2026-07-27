@@ -123,6 +123,13 @@ def main() -> int:
             "AI unsupported-capability response helper is missing")
     require(ai_contract, r"missingCapabilities",
             "AI contract does not describe missing capabilities")
+    require(ai_contract, r'contextCall.*?selectedItems.*?javascriptNodeExample',
+            "panel API slice does not explain how generated scripts obtain selected item paths")
+    require(ai_contract, r'CopyValidationMessage\(response,\s*validation\)',
+            "assistant service discards the concrete static-validation error")
+    require(ai_contract, r'this\.selectedItems does not exist.*?'
+                         r'MD5 processing of selected file paths is implementable',
+            "assistant validator does not reject grounded-selection and MD5 semantic hallucinations")
     require(bundled, r'm_descriptor\.ProviderId\s*=\s*"local\.bundled"',
             "bundled local AI provider id is missing")
     require(bundled, r'SALAMATRIX_AI_BUNDLED_COMMAND.*?llama-cli\.exe',
@@ -144,6 +151,17 @@ def main() -> int:
     require(bundled, r'\\"capabilities\\":.*?\\"maxItems\\":10.*?'
                      r'\\"missingCapabilities\\":.*?\\"maxItems\\":16',
             "bundled output schema permits unbounded repeated capability generation")
+    require(bundled, r'\\"script\\":.*?\\"maxLength\\":1024.*?'
+                     r'--repeat-penalty 1\.20.*?--repeat-last-n 512',
+            "bundled output can loop inside script until JSON is truncated")
+    require(bundled, r'For a test, hello, or similarly vague request.*?'
+                     r'minimal side-effect-free script',
+            "bundled model turns vague test requests into unrelated API demonstrations")
+    require(bundled, r'md5NodeScript.*?createHash.*?writeFile',
+            "bundled JavaScript prompt lacks a verified MD5 recipe")
+    require(bundled, r'Never invent `this\.selectedItems`.*?'
+                     r'canImplement=true',
+            "bundled JavaScript prompt lacks grounded selected-file and MD5 guidance")
     require(bundled, r'ExtractJsonObject', "bundled provider does not tolerate llama-cli diagnostic output around JSON")
     require(bundled, r'ReadAvailablePipe\(parentOut, output, outputCallback, outputContext\).*?'
                      r'ReadAvailablePipe\(parentErr, diagnostics, outputCallback, outputContext\)',
