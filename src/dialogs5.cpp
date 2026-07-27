@@ -446,21 +446,19 @@ void CPluginsDlg::LoadExtensionImages(HIMAGELIST imageList)
         iconWidth <= 0 || iconWidth != iconHeight)
         return;
 
-    const BOOL darkMode = DarkModeShouldUseDarkColors();
+    const BOOL darkScheme = DarkModeIsWindowsDarkSchemeSelected();
     for (size_t index = 0; index < ExtensionRows.size(); ++index)
     {
         const Salamatrix::Extensions::ExtensionDescriptor& descriptor =
             ExtensionRows[index].Descriptor;
         const char* iconPath = descriptor.IconPath;
-        const char* preferredPath = darkMode && descriptor.IconDarkPath[0] != 0
+        const char* preferredPath = darkScheme && descriptor.IconDarkPath[0] != 0
                                         ? descriptor.IconDarkPath
                                         : descriptor.IconPath;
         if (iconPath == NULL || iconPath[0] == 0)
             continue;
 
         HBITMAP bitmap = NULL;
-        BOOL generatedDarkFallback =
-            darkMode && preferredPath == iconPath;
         BOOL rendered = RenderSVGIconBitmapFromFile(
             preferredPath, iconWidth, TRUE, &bitmap);
         if (!rendered && preferredPath != iconPath)
@@ -470,27 +468,9 @@ void CPluginsDlg::LoadExtensionImages(HIMAGELIST imageList)
             bitmap = NULL;
             rendered = RenderSVGIconBitmapFromFile(
                 iconPath, iconWidth, TRUE, &bitmap);
-            generatedDarkFallback = darkMode;
         }
         if (!rendered || bitmap == NULL)
             continue;
-
-        // Prefer a package-supplied dark SVG.  If it is absent or invalid,
-        // keep the extension visible in dark mode by deriving a dark-friendly
-        // bitmap from the normal artwork, just like toolbar contributions do.
-        if (generatedDarkFallback)
-        {
-            HBITMAP darkBitmap = NULL;
-            if (CreateDarkModeIconBitmap(bitmap, &darkBitmap))
-            {
-                HANDLES(DeleteObject(bitmap));
-                bitmap = darkBitmap;
-            }
-            else if (darkBitmap != NULL)
-            {
-                HANDLES(DeleteObject(darkBitmap));
-            }
-        }
         int imageIndex = ImageList_Add(imageList, bitmap, NULL);
         HANDLES(DeleteObject(bitmap));
         if (imageIndex >= 0)
@@ -854,7 +834,7 @@ void CPluginsDlg::OnSelChanged()
             HasStablePluginKey(p->RegKeyName, "SALAMATRIX.AI") ||
             IsPluginName(p->Name, "Salamatrix AI");
         BOOL isLocalAIModel =
-            IsPluginName(p->Name, "Salamatrix AI Local Llama");
+            IsPluginName(p->Name, "Salamatrix AI Local LLaMA");
         BOOL supportAutomationFramework = p->SupportAutomationFramework || isSalamatrixProvider ||
                                           isExtensionRuntime || isExtensionHelper;
         buf[0] = 0;

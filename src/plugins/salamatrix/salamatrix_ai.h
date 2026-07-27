@@ -417,12 +417,10 @@ private:
             {"network", AssistantEffectNetwork}};
         for (int index = 0; index < _countof(effectsToFlags); ++index)
         {
-            std::string marker = std::string("\"") +
-                                 effectsToFlags[index].Name + "\":";
-            size_t position = effects.find(marker);
-            if (position != std::string::npos &&
-                effects.find("true", position + marker.size()) ==
-                    position + marker.size())
+            std::string rawEffect;
+            if (Runtime::Protocol::Json::FindRawMember(
+                    effects.c_str(), effectsToFlags[index].Name, &rawEffect) &&
+                rawEffect == "true")
                 response->Summary.EffectFlags |= effectsToFlags[index].Flag;
         }
         response->Summary.ContractValid = TRUE;
@@ -445,6 +443,21 @@ private:
                           _TRUNCATE);
         }
         return FALSE;
+    }
+
+    static void CopyValidationMessage(
+        AssistantResponse* response,
+        const AssistantValidationResult& validation)
+    {
+        if (response == NULL || validation.Message[0] == '\0')
+            return;
+        if (MultiByteToWideChar(
+                CP_UTF8, 0, validation.Message, -1,
+                response->Message, _countof(response->Message)) == 0)
+        {
+            const wchar_t fallback[] = L"Static Salamatrix validation failed.";
+            memcpy(response->Message, fallback, sizeof(fallback));
+        }
     }
 
     static BOOL IsKnownCapability(const std::string& capability)
@@ -545,17 +558,33 @@ private:
                                         "assistant output does not match the Salamatrix response contract");
 
         std::string canImplement;
-        if (Runtime::Protocol::Json::FindRawMember(
-                response->ResponseJson, "canImplement", &canImplement) &&
-            canImplement != "true" && canImplement != "false")
+        if (!Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "canImplement", &canImplement) ||
+            (canImplement != "true" && canImplement != "false"))
             return SetValidationFailure(validation,
                                         AssistantValidationIssueShape,
-                                        "canImplement must be a boolean");
+                                        "canImplement is required and must be a boolean");
         std::string missingCapabilities;
         if (Runtime::Protocol::Json::FindRawMember(
                 response->ResponseJson, "missingCapabilities", &missingCapabilities) &&
             !ValidateStringArray(missingCapabilities, validation))
             return FALSE;
+        if (canImplement == "false" && missingCapabilities.empty())
+            return SetValidationFailure(validation,
+                                        AssistantValidationIssueCapability,
+                                        "missingCapabilities is required when canImplement is false");
+        if (canImplement == "true")
+        {
+            std::string script(response->Summary.Script);
+            size_t first = script.find_first_not_of(" \t\r\n");
+            size_t last = script.find_last_not_of(" \t\r\n");
+            if (first == std::string::npos ||
+                (last == first + 2 && script.compare(first, 3, "...") == 0))
+                return SetValidationFailure(
+                    validation,
+                    AssistantValidationIssueShape,
+                    "script must contain executable source code, not a placeholder");
+        }
 
         std::string capabilities;
         std::string effects;
@@ -580,9 +609,12 @@ private:
         for (int index = 0; index < _countof(effectNames); ++index)
         {
             std::string raw;
-            if (Runtime::Protocol::Json::FindRawMember(
-                    effects.c_str(), effectNames[index], &raw) &&
-                raw != "true" && raw != "false")
+            if (!Runtime::Protocol::Json::FindRawMember(
+                    effects.c_str(), effectNames[index], &raw))
+                return SetValidationFailure(validation,
+                                            AssistantValidationIssueEffect,
+                                            "estimatedEffects must contain every declared effect as a boolean");
+            if (raw != "true" && raw != "false")
                 return SetValidationFailure(validation,
                                             AssistantValidationIssueEffect,
                                             "estimatedEffects values must be booleans");
@@ -617,9 +649,96 @@ private:
             {"urllib.", AssistantEffectNetwork},
             {"requests.", AssistantEffectNetwork}};
         const std::string script(response->Summary.Script);
+        if (canImplement == "true" &&
+            script.find("this.selectedItems") != std::string::npos)
+            return SetValidationFailure(
+                validation,
+                AssistantValidationIssueShape,
+                "selected files must come from Salamander.sides.context; this.selectedItems does not exist");
+        if (canImplement == "true" &&
+            script.find("selectedItems") != std::string::npos &&
+            script.find("sides.context") == std::string::npos)
+            return SetValidationFailure(
+                validation,
+                AssistantValidationIssueShape,
+                "script uses selectedItems without obtaining it from Salamander.sides.context");
+        if (canImplement == "true" &&
+            (script.find("sides.context") != std::string::npos ||
+             script.find("selectedItems") != std::string::npos) &&
+            (response->Summary.EffectFlags & AssistantEffectReadSelection) == 0)
+            return SetValidationFailure(
+                validation,
+                AssistantValidationIssueEffect,
+                "script reads the panel selection but readSelection is false");
+        static const char* const contentWriters[] = {
+            "writeFile(", "writeFileSync(", "file_put_contents(",
+            "Set-Content", "Out-File"};
+        for (int index = 0; index < _countof(contentWriters); ++index)
+        {
+            if (canImplement == "true" &&
+                script.find(contentWriters[index]) != std::string::npos &&
+                (response->Summary.EffectFlags &
+                 AssistantEffectModifyContents) == 0)
+                return SetValidationFailure(
+                    validation,
+                    AssistantValidationIssueEffect,
+                    "script writes file contents but modifyContents is false");
+        }
+
+        if (canImplement == "true" &&
+            runtime == "JavaScript.Node" &&
+            script.find("require(") != std::string::npos)
+            return SetValidationFailure(
+                validation,
+                AssistantValidationIssueRuntime,
+                "JavaScript.Node scripts run as ECMAScript modules; use import instead of require");
+
+        std::string task = request != NULL && request->Prompt != NULL
+                               ? request->Prompt
+                               : "";
+        for (size_t index = 0; index < task.size(); ++index)
+        {
+            if (task[index] >= 'A' && task[index] <= 'Z')
+                task[index] =
+                    static_cast<char>(task[index] - 'A' + 'a');
+        }
+        const BOOL md5Task =
+            runtime == "JavaScript.Node" &&
+            task.find("md5") != std::string::npos;
+        const BOOL md5SidecarTask =
+            md5Task &&
+            (task.find(".md5") != std::string::npos ||
+             task.find("sidecar") != std::string::npos ||
+             task.find("write") != std::string::npos ||
+             task.find("save") != std::string::npos ||
+             task.find("create") != std::string::npos ||
+             task.find("vytvo") != std::string::npos ||
+             task.find("soubor") != std::string::npos);
+        if (md5Task && canImplement == "false")
+        {
+            return SetValidationFailure(
+                validation,
+                AssistantValidationIssueCapability,
+                "MD5 processing of selected file paths is implementable with Salamander.sides.context and Node built-ins");
+        }
+        if (md5SidecarTask)
+        {
+            if (script.find("sides.context") == std::string::npos ||
+                script.find("createHash") == std::string::npos ||
+                (script.find("\"md5\"") == std::string::npos &&
+                 script.find("'md5'") == std::string::npos) ||
+                script.find("writeFile") == std::string::npos ||
+                script.find(".md5") == std::string::npos)
+                return SetValidationFailure(
+                    validation,
+                    AssistantValidationIssueShape,
+                    "MD5 sidecar script must read selected paths, hash each file, and write the requested .md5 file");
+        }
+
         for (int index = 0; index < _countof(markers); ++index)
         {
-            if (script.find(markers[index].Text) != std::string::npos &&
+            if (canImplement == "true" &&
+                script.find(markers[index].Text) != std::string::npos &&
                 (response->Summary.EffectFlags & markers[index].Effect) == 0)
                 return SetValidationFailure(
                     validation,
@@ -753,12 +872,25 @@ public:
                 return FALSE;
             if (candidate.Summary.Script[0] != '\0')
                 previousScript.assign(candidate.Summary.Script);
+            AssistantValidationResult validation;
+            ValidateOutput(&retry, &candidate, &validation);
             repairFeedback =
                 "The previous response failed static Salamatrix validation. "
+                "Specific validation error: " +
+                (validation.Message[0] != '\0'
+                     ? std::string(validation.Message)
+                     : std::string("the response does not match the contract")) +
+                ". "
                 "Return corrected JSON, declare every external or network "
                 "operation in estimatedEffects, or set canImplement to false "
                 "and list missingCapabilities when the installed API cannot "
-                "perform the requested task.";
+                "perform the requested task. capabilities must be a JSON "
+                "array and estimatedEffects must be a JSON object with "
+                "boolean values. Allowed capabilities are exactly: "
+                "panels.read, panels.write, ui.dialogs, commands, "
+                "file-operations, storage, events, ai, clipboard, runtimes. "
+                "canImplement and missingCapabilities belong at the top level, "
+                "not inside estimatedEffects.";
         }
         return FALSE;
     }
@@ -850,6 +982,7 @@ public:
                 response->Status = AssistantStatusInvalidResponse;
                 response->ErrorCode = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
                 response->Summary.ContractValid = FALSE;
+                CopyValidationMessage(response, validation);
                 return FALSE;
             }
             return TRUE;
@@ -871,6 +1004,7 @@ public:
             response->Status = AssistantStatusInvalidResponse;
             response->ErrorCode = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
             response->Summary.ContractValid = FALSE;
+            CopyValidationMessage(response, validation);
             lastInvalidResponse = *response;
             hadInvalidResponse = TRUE;
         }
@@ -902,7 +1036,7 @@ public:
             "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],"
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","
             "\"runtime\",\"existingScript\",\"feedback\"]}},"
-            "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"script\"],\"optional\":[\"runtime\",\"canImplement\",\"missingCapabilities\"]}}";
+            "\"assistantOutput\":{\"required\":[\"title\",\"description\",\"capabilities\",\"estimatedEffects\",\"canImplement\",\"script\"],\"optional\":[\"runtime\",\"missingCapabilities\"]}}";
     }
 
 private:
@@ -1005,27 +1139,27 @@ public:
         if (topic == NULL || topic[0] == '\0' || strcmp(topic, "all") == 0)
             return GetApiDescription();
         if (strcmp(topic, "commands") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"commands\",\"objects\":{\"Salamander.commands\":{\"methods\":[\"execute\",\"register\",\"unregister\",\"setState\"],\"registerFields\":[\"commandId\",\"title\",\"handler\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\",\"enabled\",\"visible\"],\"stateFields\":[\"commandId\",\"enabled\",\"visible\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"commands\",\"objects\":{\"Salamander.commands\":{\"methods\":{\"execute\":{\"arguments\":[\"commandId\"],\"result\":\"string\"},\"register\":{\"arguments\":[\"commandId\",\"title\",\"pluginMenu=true\",\"contextMenu=false\",\"hotKey=0\",\"toolbar=false\",\"handler=''\",\"enabled=true\",\"visible=true\"],\"result\":\"boolean\"},\"unregister\":{\"arguments\":[\"commandId\"],\"result\":\"boolean\"},\"setState\":{\"arguments\":[\"commandId\",\"enabled?\",\"visible?\"],\"result\":\"boolean\"}},\"registerFields\":[\"commandId\",\"title\",\"handler\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\",\"enabled\",\"visible\"],\"stateFields\":[\"commandId\",\"enabled\",\"visible\"]}}}";
         if (strcmp(topic, "execution") == 0 || strcmp(topic, "commandContext") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"execution\",\"objects\":{\"Salamander\":{\"fields\":[\"command_id\",\"command_handler\"]}}}";
         if (strcmp(topic, "fileOperations") == 0 || strcmp(topic, "file_operations") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"fileOperations\",\"objects\":{\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"fileOperations\",\"objects\":{\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"],\"arguments\":\"none\",\"result\":\"string\",\"semantics\":\"Invokes Salamander interactive commands for the current selection; it does not accept arbitrary paths. Use runtime filesystem libraries for direct path-based content processing.\"}}}";
         if (strcmp(topic, "sides") == 0 || strcmp(topic, "panels") == 0)
-            return "{\"version\":\"1.3\",\"topic\":\"sides\",\"objects\":{\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\",\"selectItem\",\"selectAll\",\"focusItem\",\"createTab\",\"closeTab\",\"reorderTab\",\"moveTab\",\"setDetached\"],\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}}}";
+            return "{\"version\":\"1.3\",\"topic\":\"sides\",\"objects\":{\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\",\"selectItem\",\"selectAll\",\"focusItem\",\"createTab\",\"closeTab\",\"reorderTab\",\"moveTab\",\"setDetached\"],\"contextCall\":{\"arguments\":[\"source|target|left|right\"],\"async\":true,\"resultFields\":[\"path\",\"pathType\",\"selectedCount\",\"selectedItems\",\"focusedItem\"]},\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}},\"javascriptNodeExample\":\"const context = await Salamander.sides.context(\\\"source\\\"); for (const item of context.selectedItems) console.log(item.path);\"}";
         if (strcmp(topic, "ui") == 0 || strcmp(topic, "dialogs") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"ui\",\"objects\":{\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"controlKinds\":[\"label\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\",\"filepicker\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"ui\",\"objects\":{\"Salamander.ui\":{\"methods\":{\"messageBox\":{\"arguments\":[\"message\",\"title='Salamander'\"],\"result\":\"integer\"},\"notify\":{\"arguments\":[\"message\",\"title='Salamander'\",\"timeoutMs=5000\"],\"result\":\"boolean\"},\"inputBox\":{\"arguments\":[\"prompt\",\"title='Salamander'\",\"initial=''\"],\"resultFields\":[\"accepted\",\"value\"]},\"pickFile\":{\"arguments\":[\"save=false\",\"title=''\",\"filter=''\",\"initial=''\"],\"resultFields\":[\"selected\",\"path\"]},\"pickFolder\":{\"arguments\":[\"title=''\",\"initial=''\"],\"resultFields\":[\"selected\",\"path\"]},\"progress\":{\"arguments\":[\"title\",\"total\",\"twoProgressBars=false\",\"fileProgress=false\",\"cancelEnabled=true\",\"total2?\"],\"objectMethods\":[\"update\",\"step\",\"setTotals\",\"setPositions\",\"setTitle\",\"setCancelEnabled\",\"isCancelled\",\"close\"]},\"dialog\":{\"arguments\":[\"title\",\"width=320\",\"height=180\"],\"objectMethods\":[\"addControl\",\"addLabel\",\"addTextBox\",\"addFolderPicker\",\"addFilePicker\",\"addCheckBox\",\"addRadioButton\",\"addComboBox\",\"addListView\",\"addTreeView\",\"addTabControl\",\"addButton\",\"addItem\",\"addColumn\",\"setSelectedIndex\",\"clearItems\",\"setValidation\",\"onChange\",\"offChange\",\"show\",\"get\",\"set\",\"close\"]}},\"wireMethods\":[\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"controlKinds\":[\"label\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\",\"filepicker\"],\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\",\"filter\",\"save\"],\"layoutFields\":[\"x\",\"y\",\"width\",\"height\"]}}}";
         if (strcmp(topic, "uiOptions") == 0 || strcmp(topic, "ui_options") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"uiOptions\",\"objects\":{\"Salamander.ui\":{\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"],\"filePickerOptions\":[\"filter\",\"save\"]}}}";
         if (strcmp(topic, "uiDialogOptions") == 0 || strcmp(topic, "ui_dialog_options") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"uiDialogOptions\",\"objects\":{\"Salamander.ui\":{\"dialogOptions\":[\"title\",\"width\",\"height\"]}}}";
         if (strcmp(topic, "storage") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"storage\",\"objects\":{\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\",\"keys\",\"schema\"],\"valueTypes\":[\"string\",\"integer\",\"boolean\"],\"getResultFields\":[\"type\",\"value\"],\"keyFields\":[\"key\",\"type\"],\"schemaFields\":[\"key\",\"type\",\"hasDefault\",\"default\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"storage\",\"objects\":{\"Salamander.storage\":{\"methods\":{\"get\":{\"arguments\":[\"key\",\"default?\"],\"result\":\"typed value or default\"},\"set\":{\"arguments\":[\"key\",\"value\"]},\"remove\":{\"arguments\":[\"key\"],\"result\":\"boolean\"},\"clear\":{\"arguments\":[],\"result\":\"boolean\"},\"keys\":{\"arguments\":[],\"resultFields\":[\"key\",\"type\"]},\"schema\":{\"arguments\":[],\"resultFields\":[\"key\",\"type\",\"hasDefault\",\"default\"]}},\"valueTypes\":[\"string\",\"integer\",\"boolean\"],\"scope\":\"current extension package\"}}}";
         if (strcmp(topic, "events") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"events\",\"objects\":{\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"tabCreated\",\"tabClosed\",\"tabReordered\",\"windowDetached\",\"windowAttached\",\"fileChanged\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"events\",\"objects\":{\"Salamander.events\":{\"methods\":{\"subscribe\":{\"arguments\":[\"eventName\",\"handler\"],\"result\":\"subscriptionId string\"},\"unsubscribe\":{\"arguments\":[\"subscriptionId\"]}},\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"tabCreated\",\"tabClosed\",\"tabReordered\",\"windowDetached\",\"windowAttached\",\"fileChanged\"],\"semantics\":\"Future events are useful for persistent extensions; a one-shot script normally exits before future events arrive.\"}}}";
         if (strcmp(topic, "runtimes") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"runtimes\",\"objects\":{\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"runtimes\",\"objects\":{\"Salamander.runtimes\":{\"methods\":{\"list\":{\"arguments\":[],\"result\":\"runtime records\"}},\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"],\"runtimeIds\":[\"JavaScript.Node\",\"Python.CPython\",\"PowerShell\",\"PHP.CLI\"]}}}";
         if (strcmp(topic, "ai") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"ai\",\"objects\":{\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],\"requestFields\":[\"prompt\",\"context\",\"provider\",\"runtime\",\"existingScript\",\"feedback\",\"topic\"],\"responseOptionalFields\":[\"runtime\",\"canImplement\",\"missingCapabilities\"]}}}";
+            return "{\"version\":\"1.0\",\"topic\":\"ai\",\"objects\":{\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],\"requestFields\":[\"prompt\",\"context\",\"provider\",\"runtime\",\"existingScript\",\"feedback\",\"topic\"],\"responseRequiredFields\":[\"title\",\"description\",\"capabilities\",\"estimatedEffects\",\"canImplement\",\"script\"],\"responseOptionalFields\":[\"runtime\",\"missingCapabilities\"]}}}";
         return "{\"version\":\"1.0\",\"topic\":\"unknown\",\"objects\":{}}";
     }
 };

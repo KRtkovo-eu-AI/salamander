@@ -155,21 +155,21 @@ static void ShowConfiguration(HWND parent)
     if (ui == NULL)
     {
         SalamanderGeneral->SalMessageBox(parent, "Salamatrix UI service is not available.",
-                                         "Salamatrix AI Local Llama", MB_OK | MB_ICONWARNING);
+                                         "Salamatrix AI Local LLaMA", MB_OK | MB_ICONWARNING);
         return;
     }
     Salamatrix::UI::DialogOptions options;
-    options.Title = "Salamatrix AI Local Llama configuration";
+    options.Title = "Salamatrix AI Local LLaMA configuration";
     options.Parent = parent;
-    options.Width = 600;
-    options.Height = 230;
+    options.Width = 360;
+    options.Height = 82;
     Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
     if (dialog == NULL)
         return;
 
     Salamatrix::UI::ControlLayout statusLayout;
     statusLayout.HasBounds = TRUE;
-    statusLayout.X = 8; statusLayout.Y = 8; statusLayout.Width = 584; statusLayout.Height = 70;
+    statusLayout.X = 8; statusLayout.Y = 6; statusLayout.Width = 344; statusLayout.Height = 38;
     Salamatrix::UI::ControlOptions statusOptions;
     statusOptions.Id = "status";
     statusOptions.Text = AssetStatus().c_str();
@@ -180,29 +180,29 @@ static void ShowConfiguration(HWND parent)
 
     Salamatrix::UI::ControlOptions downloadOptions;
     downloadOptions.Id = "download";
-    downloadOptions.Text = "Download runtime and model";
+    downloadOptions.Text = "Download";
     downloadOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout downloadLayout;
     downloadLayout.HasBounds = TRUE;
-    downloadLayout.X = 8; downloadLayout.Y = 90; downloadLayout.Width = 220; downloadLayout.Height = 24;
+    downloadLayout.X = 8; downloadLayout.Y = 54; downloadLayout.Width = 72; downloadLayout.Height = 16;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, downloadOptions, downloadLayout);
 
     Salamatrix::UI::ControlOptions refreshOptions;
     refreshOptions.Id = "refresh";
-    refreshOptions.Text = "Refresh status";
+    refreshOptions.Text = "Refresh";
     refreshOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout refreshLayout;
     refreshLayout.HasBounds = TRUE;
-    refreshLayout.X = 238; refreshLayout.Y = 90; refreshLayout.Width = 120; refreshLayout.Height = 24;
+    refreshLayout.X = 88; refreshLayout.Y = 54; refreshLayout.Width = 60; refreshLayout.Height = 16;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, refreshOptions, refreshLayout);
 
     Salamatrix::UI::ControlOptions folderOptions;
     folderOptions.Id = "folder";
-    folderOptions.Text = "Open runtime folder";
+    folderOptions.Text = "Open folder";
     folderOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout folderLayout;
     folderLayout.HasBounds = TRUE;
-    folderLayout.X = 366; folderLayout.Y = 90; folderLayout.Width = 150; folderLayout.Height = 24;
+    folderLayout.X = 156; folderLayout.Y = 54; folderLayout.Width = 86; folderLayout.Height = 16;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, folderOptions, folderLayout);
 
     Salamatrix::UI::ControlOptions closeOptions;
@@ -210,7 +210,7 @@ static void ShowConfiguration(HWND parent)
     closeOptions.Text = "Close";
     Salamatrix::UI::ControlLayout closeLayout;
     closeLayout.HasBounds = TRUE;
-    closeLayout.X = 516; closeLayout.Y = 180; closeLayout.Width = 76; closeLayout.Height = 24;
+    closeLayout.X = 290; closeLayout.Y = 54; closeLayout.Width = 62; closeLayout.Height = 16;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, closeOptions, closeLayout);
 
     ConfigurationContext context = { status, parent };
@@ -225,7 +225,7 @@ void WINAPI CLocalLlamaPluginInterface::About(HWND parent)
     SalamanderGeneral->SalMessageBox(
         parent,
         "Optional server-free llama.cpp model provider for Salamatrix AI.",
-        "Salamatrix AI Local Llama",
+        "Salamatrix AI Local LLaMA",
         MB_OK | MB_ICONINFORMATION);
 }
 
@@ -323,7 +323,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER)
         return NULL;
     salamander->SetBasicPluginData(
-        "Salamatrix AI Local Llama",
+        "Salamatrix AI Local LLaMA",
         FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_CONFIGURATION,
         VERSINFO_VERSION_NO_PLATFORM,
         VERSINFO_COPYRIGHT,

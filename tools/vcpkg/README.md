@@ -81,7 +81,7 @@ utils\dbghelp.dll
 
 ### Salamatrix AI local model assets
 
-The optional `Salamatrix AI Local Llama` companion plug-in uses a pinned
+The optional `Salamatrix AI Local LLaMA` companion plug-in uses a pinned
 official CPU x64 llama.cpp release and a lightweight Qwen2.5-Coder GGUF model.
 Stage these assets before building that companion plug-in:
 

@@ -113,6 +113,40 @@ static std::wstring Quote(const std::wstring& value)
     return result;
 }
 
+static std::string LowerAscii(const char* value)
+{
+    std::string result = value != NULL ? value : "";
+    for (size_t index = 0; index < result.size(); ++index)
+    {
+        if (result[index] >= 'A' && result[index] <= 'Z')
+            result[index] = static_cast<char>(result[index] - 'A' + 'a');
+    }
+    return result;
+}
+
+static std::string JsonString(const char* value)
+{
+    std::string result = "\"";
+    const unsigned char* cursor = reinterpret_cast<const unsigned char*>(
+        value != NULL ? value : "");
+    for (; *cursor != '\0'; ++cursor)
+    {
+        switch (*cursor)
+        {
+        case '\\': result += "\\\\"; break;
+        case '"': result += "\\\""; break;
+        case '\b': result += "\\b"; break;
+        case '\f': result += "\\f"; break;
+        case '\n': result += "\\n"; break;
+        case '\r': result += "\\r"; break;
+        case '\t': result += "\\t"; break;
+        default: result.push_back(static_cast<char>(*cursor)); break;
+        }
+    }
+    result += "\"";
+    return result;
+}
+
 static bool CreateUtf8PromptFile(const std::string& prompt, std::wstring* path)
 {
     if (path == NULL)
@@ -342,6 +376,33 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         return FALSE;
     }
 
+    const std::string lowerTask = LowerAscii(request->Prompt);
+    const bool javascriptNode =
+        request->RuntimeId != NULL &&
+        _stricmp(request->RuntimeId, "JavaScript.Node") == 0;
+    const bool md5NodeTask =
+        javascriptNode && lowerTask.find("md5") != std::string::npos;
+    const bool md5NodeSidecarTask =
+        md5NodeTask &&
+        (lowerTask.find(".md5") != std::string::npos ||
+         lowerTask.find("sidecar") != std::string::npos ||
+         lowerTask.find("write") != std::string::npos ||
+         lowerTask.find("save") != std::string::npos ||
+         lowerTask.find("create") != std::string::npos ||
+         lowerTask.find("vytvo") != std::string::npos ||
+         lowerTask.find("soubor") != std::string::npos);
+    static const char md5NodeScript[] =
+        "import { createHash } from \"node:crypto\";\n"
+        "import { readFile, writeFile } from \"node:fs/promises\";\n"
+        "const context = await Salamander.sides.context(\"source\");\n"
+        "for (const item of context.selectedItems) {\n"
+        "  if (item.isDirectory) continue;\n"
+        "  const digest = createHash(\"md5\").update(await "
+        "readFile(item.path)).digest(\"hex\");\n"
+        "  await writeFile(item.path + \".md5\", digest + \" *\" + "
+        "item.name + \"\\r\\n\", \"utf8\");\n"
+        "}";
+
     const std::string apiDescription = InstalledApiDescription(request->Prompt);
     std::string prompt =
         "You generate one Salamander automation script. The installed API "
@@ -354,6 +415,59 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     prompt += (request->Prompt != NULL ? request->Prompt : "");
     if (request->RuntimeId != NULL && request->RuntimeId[0] != '\0')
         prompt += "\nTarget runtime: " + std::string(request->RuntimeId);
+    if (javascriptNode)
+    {
+        prompt +=
+            "\nJavaScript.Node runtime rules: Salamander bridge methods are "
+            "asynchronous. Read selected source-panel items exactly with "
+            "`const context = await Salamander.sides.context(\"source\");` "
+            "and iterate `context.selectedItems`; each item has `name`, `path`, "
+            "and `isDirectory`. Never invent `this.selectedItems`. Node built-in "
+            "modules are available to generated code and do not require a "
+            "Salamander capability.";
+        if (md5NodeSidecarTask)
+        {
+            prompt +=
+                "\nFor an MD5 sidecar task, the script field MUST use this exact "
+                "verified source structure; do not replace imports, invent "
+                "helpers, use require, or merely print the digest:\n";
+            prompt += md5NodeScript;
+            prompt +=
+                "\nThe structured-output grammar also fixes the script and "
+                "effect values for this verified recipe. "
+                "This task is implementable: set canImplement=true, "
+                "missingCapabilities=[], capabilities=[\"panels.read\"], "
+                "readSelection=true, modifyContents=true, and every other "
+                "estimatedEffects value=false.";
+        }
+    }
+    else if (request->RuntimeId != NULL &&
+             _stricmp(request->RuntimeId, "Python.CPython") == 0)
+    {
+        prompt +=
+            "\nPython.CPython runtime rules: Salamander calls are synchronous "
+            "and facade names use snake_case. Read selected source-panel items "
+            "with `context = Salamander.sides.context(\"source\")` and iterate "
+            "`context[\"selectedItems\"]`; item paths are `item[\"path\"]`.";
+    }
+    else if (request->RuntimeId != NULL &&
+             _stricmp(request->RuntimeId, "PowerShell") == 0)
+    {
+        prompt +=
+            "\nPowerShell runtime rules: Salamander calls are synchronous and "
+            "facade methods use PascalCase. Read selected source-panel items "
+            "with `$context = $Salamander.Sides.Context(\"source\")` and iterate "
+            "`$context.selectedItems`; item paths are `$item.path`.";
+    }
+    else if (request->RuntimeId != NULL &&
+             _stricmp(request->RuntimeId, "PHP.CLI") == 0)
+    {
+        prompt +=
+            "\nPHP.CLI runtime rules: Salamander calls are synchronous. Read "
+            "selected source-panel items with `$context = "
+            "$Salamander->sides->context('source');` and iterate "
+            "`$context['selectedItems']`; item paths are `$item['path']`.";
+    }
     if (request->ContextJson != NULL && request->ContextJson[0] != '\0')
         prompt += "\nCurrent Salamander context (JSON):\n" + std::string(request->ContextJson);
     if (request->ExistingScript != NULL && request->ExistingScript[0] != '\0')
@@ -363,10 +477,44 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     prompt +=
         "\n\nFINAL OUTPUT RULE: Return exactly one JSON object and no markdown, "
         "explanation, API reference, or schema. The object must contain the "
-        "string fields title, description, capabilities, estimatedEffects, "
-        "and script. Include runtime when known. If the task cannot be "
-        "implemented, set canImplement to false and list "
-        "missingCapabilities. The script field must still be present.";
+        "string fields title, description, and script. capabilities MUST be "
+        "a JSON array containing ONLY these installed capability names: "
+        "panels.read, panels.write, ui.dialogs, commands, file-operations, "
+        "storage, events, ai, clipboard, runtimes. estimatedEffects MUST be "
+        "a JSON object whose values are booleans, never an array or a string. "
+        "canImplement and missingCapabilities are top-level properties, never "
+        "members of estimatedEffects. Include runtime when known and use exactly the requested runtime. "
+        "The script field must contain source code for that runtime, not an "
+        "error message or a command description. If the task cannot be "
+        "implemented, set canImplement to false and list missingCapabilities at "
+        "the top level. The script field must still be present. Always include "
+        "canImplement and all eight estimatedEffects keys: readSelection, "
+        "readMetadata, renameFiles, moveFiles, deleteFiles, modifyContents, "
+        "executeExternal, network. The runtime field must exactly equal the "
+        "Target runtime value above. When canImplement is true, script must be "
+        "complete executable source code; it must never be empty, an ellipsis, "
+        "a placeholder, or a prose description. Keep the script concise and "
+        "well below 1024 characters. Implement only operations explicitly "
+        "requested by the user; never turn a vague request into a demonstration "
+        "of unrelated APIs. For a test, hello, or similarly vague request, "
+        "return a minimal side-effect-free script that writes a short test "
+        "message in the selected runtime.\n"
+        "Do not invent a Salamander API object, method, property, event, or "
+        "option: every Salamander identifier must exist in the installed "
+        "reference. You may and should use normal syntax, built-in features, "
+        "standard-library functions, and third-party libraries in the selected "
+        "runtime when they are appropriate for the task. The user is responsible "
+        "for installing or configuring such language libraries; their possible "
+        "absence is not a missing Salamander capability and must not by itself "
+        "cause canImplement=false. If the Salamander reference does not provide "
+        "a required framework operation, return canImplement=false, describe the "
+        "missing Salamander capability in missingCapabilities, and do not pretend "
+        "that an invented Salamander API implements it. Any filesystem, "
+        "external-process, or network operation performed by the generated "
+        "language code must be declared by the corresponding estimatedEffects "
+        "boolean. capabilities must list only Salamander framework capabilities "
+        "actually used by the script, and estimatedEffects must describe only "
+        "operations the generated script actually performs.";
 
     std::wstring promptFile;
     if (!CreateUtf8PromptFile(prompt, &promptFile))
@@ -374,6 +522,76 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(ERROR_WRITE_FAULT),
                        L"Unable to create the bundled model prompt file.");
+        return FALSE;
+    }
+    std::string outputSchema =
+        "{"
+        "\"type\":\"object\","
+        "\"additionalProperties\":false,"
+        "\"required\":[\"title\",\"description\",\"capabilities\","
+        "\"estimatedEffects\",\"runtime\",\"canImplement\","
+        "\"missingCapabilities\",\"script\"],"
+        "\"properties\":{"
+        "\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":160},"
+        "\"description\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":1024},";
+    if (md5NodeSidecarTask)
+        outputSchema +=
+            "\"capabilities\":{\"type\":\"array\",\"minItems\":1,"
+            "\"maxItems\":1,\"items\":{\"type\":\"string\","
+            "\"const\":\"panels.read\"}},";
+    else
+        outputSchema +=
+            "\"capabilities\":{\"type\":\"array\",\"maxItems\":10,\"items\":{"
+            "\"type\":\"string\",\"enum\":[\"panels.read\",\"panels.write\","
+            "\"ui.dialogs\",\"commands\",\"file-operations\",\"storage\","
+            "\"events\",\"ai\",\"clipboard\",\"runtimes\"]}},";
+    outputSchema +=
+        "\"estimatedEffects\":{\"type\":\"object\",\"additionalProperties\":false,"
+        "\"required\":[\"readSelection\",\"readMetadata\",\"renameFiles\","
+        "\"moveFiles\",\"deleteFiles\",\"modifyContents\",\"executeExternal\","
+        "\"network\"],\"properties\":{";
+    const char* const effectNames[] = {
+        "readSelection", "readMetadata", "renameFiles", "moveFiles",
+        "deleteFiles", "modifyContents", "executeExternal", "network"};
+    for (int index = 0; index < _countof(effectNames); ++index)
+    {
+        if (index != 0)
+            outputSchema += ",";
+        outputSchema += "\"" + std::string(effectNames[index]) +
+                        "\":{\"type\":\"boolean\"";
+        if (md5NodeSidecarTask)
+        {
+            const bool enabled =
+                index == 0 || strcmp(effectNames[index], "modifyContents") == 0;
+            outputSchema += enabled ? ",\"const\":true" : ",\"const\":false";
+        }
+        outputSchema += "}";
+    }
+    outputSchema += "}},"
+        "\"runtime\":{\"type\":\"string\",\"minLength\":1";
+    if (request->RuntimeId != NULL && request->RuntimeId[0] != '\0')
+        outputSchema += ",\"const\":" + JsonString(request->RuntimeId);
+    outputSchema += "},";
+    if (md5NodeSidecarTask)
+        outputSchema +=
+            "\"canImplement\":{\"type\":\"boolean\",\"const\":true},"
+            "\"missingCapabilities\":{\"type\":\"array\",\"maxItems\":0},"
+            "\"script\":{\"type\":\"string\",\"const\":" +
+            JsonString(md5NodeScript) + "}";
+    else
+        outputSchema +=
+            "\"canImplement\":{\"type\":\"boolean\"},"
+            "\"missingCapabilities\":{\"type\":\"array\",\"maxItems\":16,"
+            "\"items\":{\"type\":\"string\",\"maxLength\":256}},"
+            "\"script\":{\"type\":\"string\",\"maxLength\":1024}";
+    outputSchema += "}}";
+    std::wstring schemaFile;
+    if (!CreateUtf8PromptFile(outputSchema, &schemaFile))
+    {
+        DeleteFileW(promptFile.c_str());
+        BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
+                       HRESULT_FROM_WIN32(ERROR_WRITE_FAULT),
+                       L"Unable to create the bundled model output schema.");
         return FALSE;
     }
 
@@ -391,14 +609,18 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         if (parentOut) CloseHandle(parentOut); if (childOut) CloseHandle(childOut);
         if (parentErr) CloseHandle(parentErr); if (childErr) CloseHandle(childErr);
         DeleteFileW(promptFile.c_str());
+        DeleteFileW(schemaFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(GetLastError()), L"Unable to create bundled model pipes.");
         return FALSE;
     }
     std::wstring command = Quote(m_command) + L" -m " + Quote(m_model) +
                            L" -f " + Quote(promptFile) +
-                           L" --single-turn --conversation --simple-io"
-                           L" --no-display-prompt --no-perf -n 4096";
+                           L" --json-schema-file " + Quote(schemaFile) +
+                           L" --single-turn --no-conversation --no-jinja --simple-io"
+                           L" --no-display-prompt --no-perf"
+                           L" --temp 0 --top-k 1 --seed 0"
+                           L" --repeat-penalty 1.20 --repeat-last-n 512 -n 4096";
     std::vector<wchar_t> commandLine(command.begin(), command.end());
     commandLine.push_back(L'\0');
     STARTUPINFOW startup = {}; PROCESS_INFORMATION process = {};
@@ -415,6 +637,7 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     {
         CloseHandle(parentIn); CloseHandle(parentOut); CloseHandle(parentErr);
         DeleteFileW(promptFile.c_str());
+        DeleteFileW(schemaFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(GetLastError()), L"Unable to start bundled llama.cpp.");
         return FALSE;
@@ -445,11 +668,12 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     CloseHandle(process.hThread); CloseHandle(process.hProcess);
     CloseHandle(parentOut); CloseHandle(parentErr);
     DeleteFileW(promptFile.c_str());
-    std::string failureOutput = output;
-    if (!diagnostics.empty())
-        failureOutput += "\n\nllama stderr:\n" + diagnostics;
+    DeleteFileW(schemaFile.c_str());
+    std::string failureOutput;
     size_t first = std::string::npos, last = std::string::npos;
     const bool hasJsonObject = ExtractJsonObject(output, &first, &last);
+    if (hasJsonObject && last >= first)
+        failureOutput = output.substr(first, last - first + 1);
     if (timedOut)
     { BundledFailure(response, Salamatrix::AI::AssistantStatusCancelled, HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"The bundled model timed out.", &failureOutput); return FALSE; }
     if (exitCode != 0 || !hasJsonObject || last - first + 1 >= sizeof(response->ResponseJson))

@@ -13,6 +13,9 @@ namespace UI
 {
 namespace
 {
+static const UINT WM_SALAMATRIX_APPLY_DARK_SCROLLBARS = WM_APP + 0x3A1;
+static const UINT WM_SALAMATRIX_SPLITTER_MOVED = WM_APP + 0x3A2;
+
 static BOOL Utf8ToWide(const char* value, std::wstring& result);
 
 static BOOL BuildFilePickerFilter(
@@ -71,6 +74,18 @@ static BOOL WideToUtf8(const wchar_t* value, std::string& result)
         return FALSE;
     result.assign(&buffer[0]);
     return TRUE;
+}
+
+static void ApplyNativeDialogDarkMode(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+    const bool dark = DarkModeShouldUseDarkColors();
+    if (dark)
+        DarkModeFixScrollbars();
+    DarkModeApplyTree(hwnd);
+    DarkModeRefreshTitleBar(hwnd);
+    DarkModeApplyStaticTextColors(hwnd, NULL);
 }
 
 static int ShowHostAwareMessageBox(
@@ -551,6 +566,13 @@ struct NativeDialog::Impl
                 if (Utf8ToWide(Text.c_str(), wide))
                 {
                     SetWindowTextW(WindowHandle, wide.c_str());
+                    if (Multiline)
+                    {
+                        SendMessage(WindowHandle, EM_SETSEL,
+                                    static_cast<WPARAM>(-1),
+                                    static_cast<LPARAM>(-1));
+                        SendMessage(WindowHandle, EM_SCROLLCARET, 0, 0);
+                    }
                     UpdateWindow(WindowHandle);
                 }
             }
@@ -687,7 +709,73 @@ struct NativeDialog::Impl
                    ValidationMessage.size() + 1);
             return TRUE;
         }
+
+        virtual BOOL WINAPI SetBounds(int x, int y, int width, int height)
+        {
+            if (WindowHandle == NULL || width <= 0 || height <= 0)
+                return FALSE;
+            X = x; Y = y; Width = width; Height = height; HasBounds = TRUE;
+            SetWindowPos(WindowHandle, NULL, x, y, width, height,
+                         SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+            if (Kind == ControlKindListView)
+            {
+                HWND header = ListView_GetHeader(WindowHandle);
+                if (header != NULL && Header_GetItemCount(header) == 1)
+                {
+                    const int columnWidth = width - GetSystemMetrics(SM_CXVSCROLL) - 4;
+                    ListView_SetColumnWidth(WindowHandle, 0,
+                                            columnWidth > 32 ? columnWidth : 32);
+                }
+            }
+            if (BrowseWindowHandle != NULL)
+            {
+                FilePickerLayoutMetrics metrics =
+                    ComputeFilePickerLayout(x, width);
+                SetWindowPos(BrowseWindowHandle, NULL,
+                             metrics.BrowseX, y, metrics.BrowseWidth, height,
+                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+            }
+            return TRUE;
+        }
     };
+
+    static LRESULT CALLBACK SplitterSubclassProc(
+        HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+        UINT_PTR subclassId, DWORD_PTR reference)
+    {
+        Control* control = reinterpret_cast<Control*>(reference);
+        switch (message)
+        {
+        case WM_SETCURSOR:
+            SetCursor(LoadCursor(NULL, IDC_SIZENS));
+            return TRUE;
+        case WM_LBUTTONDOWN:
+            SetCapture(hwnd);
+            SetCursor(LoadCursor(NULL, IDC_SIZENS));
+            return 0;
+        case WM_MOUSEMOVE:
+            if (GetCapture() == hwnd && (wParam & MK_LBUTTON) != 0 &&
+                control != NULL)
+            {
+                POINT point = {
+                    static_cast<short>(LOWORD(lParam)),
+                    static_cast<short>(HIWORD(lParam))};
+                MapWindowPoints(hwnd, GetParent(hwnd), &point, 1);
+                SendMessage(GetParent(hwnd), WM_SALAMATRIX_SPLITTER_MOVED,
+                            control->NumericId, point.y);
+                return 0;
+            }
+            break;
+        case WM_LBUTTONUP:
+            if (GetCapture() == hwnd)
+                ReleaseCapture();
+            return 0;
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, SplitterSubclassProc, subclassId);
+            break;
+        }
+        return DefSubclassProc(hwnd, message, wParam, lParam);
+    }
 
     DialogOptions Options;
     std::string Title;
@@ -699,6 +787,31 @@ struct NativeDialog::Impl
     UINT CurrentDpi;
     DialogEventCallback EventCallback;
     void* EventContext;
+    DialogResizeCallback ResizeCallback;
+    void* ResizeContext;
+    DialogCloseCallback CloseCallback;
+    void* CloseContext;
+
+    void ApplyDarkScrollbarScopes(BOOL dark)
+    {
+        for (size_t index = 0; index < Controls.size(); ++index)
+        {
+            Control* control = Controls[index];
+            if (control == NULL || control->WindowHandle == NULL)
+                continue;
+            const bool hasScrollbar =
+                (control->Kind == ControlKindTextBox && control->Multiline) ||
+                control->Kind == ControlKindListView ||
+                control->Kind == ControlKindTreeView ||
+                control->Kind == ControlKindTabControl;
+            if (!hasScrollbar)
+                continue;
+            if (dark)
+                DarkModeAllowDarkScrollbars(control->WindowHandle);
+            else
+                DarkModeDisallowDarkScrollbars(control->WindowHandle);
+        }
+    }
 
     explicit Impl(const DialogOptions& options)
         : Options(options),
@@ -709,7 +822,11 @@ struct NativeDialog::Impl
           Running(FALSE),
           CurrentDpi(96),
           EventCallback(NULL),
-          EventContext(NULL)
+          EventContext(NULL),
+          ResizeCallback(NULL),
+          ResizeContext(NULL),
+          CloseCallback(NULL),
+          CloseContext(NULL)
     {
     }
 
@@ -851,6 +968,28 @@ BOOL WINAPI NativeDialog::SetEventCallback(
     return TRUE;
 }
 
+BOOL WINAPI NativeDialog::SetResizeCallback(
+    DialogResizeCallback callback,
+    void* context)
+{
+    if (m_pImpl == NULL)
+        return FALSE;
+    m_pImpl->ResizeCallback = callback;
+    m_pImpl->ResizeContext = context;
+    return TRUE;
+}
+
+BOOL WINAPI NativeDialog::SetCloseCallback(
+    DialogCloseCallback callback,
+    void* context)
+{
+    if (m_pImpl == NULL)
+        return FALSE;
+    m_pImpl->CloseCallback = callback;
+    m_pImpl->CloseContext = context;
+    return TRUE;
+}
+
 IControl* WINAPI NativeDialog::FindControl(const char* id)
 {
     return m_pImpl != NULL ? m_pImpl->Find(id) : NULL;
@@ -868,10 +1007,15 @@ int WINAPI NativeDialog::ShowModal()
     dialog.resize(sizeof(DLGTEMPLATE), 0);
     DLGTEMPLATE* header = reinterpret_cast<DLGTEMPLATE*>(&dialog[0]);
     header->style = WS_POPUP | WS_BORDER | WS_SYSMENU | WS_CAPTION |
-                    DS_MODALFRAME | DS_SETFONT;
+                    DS_SETFONT;
+    if (!m_pImpl->Options.Modeless)
+        header->style |= DS_MODALFRAME;
+    if (m_pImpl->Options.Resizable)
+        header->style |= WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
     // Let dialog-manager keyboard navigation traverse child controls,
     // including the two controls composing an editable file picker.
-    header->dwExtendedStyle = WS_EX_CONTROLPARENT;
+    header->dwExtendedStyle = WS_EX_CONTROLPARENT |
+                              (m_pImpl->Options.Taskbar ? WS_EX_APPWINDOW : 0);
     size_t dialogItemCount = m_pImpl->Controls.size();
     for (size_t index = 0; index < m_pImpl->Controls.size(); ++index)
     {
@@ -897,12 +1041,18 @@ int WINAPI NativeDialog::ShowModal()
         if (!Utf8ToWide(control->Text.c_str(), text))
             text.clear();
         DWORD style = WS_CHILD | WS_VISIBLE;
-        if (control->Kind != ControlKindLabel)
+        if (control->Kind != ControlKindLabel &&
+            control->Kind != ControlKindSplitter)
             style |= WS_TABSTOP;
         WORD classOrdinal = 0x0082; // STATIC
         short height = 14;
         short width = static_cast<short>(m_pImpl->Options.Width - 16);
-        if (control->Kind == ControlKindTextBox ||
+        if (control->Kind == ControlKindSplitter)
+        {
+            style |= SS_NOTIFY | SS_ETCHEDHORZ;
+            height = 4;
+        }
+        else if (control->Kind == ControlKindTextBox ||
             control->Kind == ControlKindFilePicker)
         {
             classOrdinal = 0x0081; // EDIT
@@ -1007,21 +1157,55 @@ int WINAPI NativeDialog::ShowModal()
 
     m_pImpl->Running = TRUE;
     m_pImpl->Result = 0;
-    DialogBoxIndirectParamW(
-        GetModuleHandle(NULL),
-        reinterpret_cast<DLGTEMPLATE*>(&dialog[0]),
-        m_pImpl->Options.Parent,
-        DialogProc,
-        reinterpret_cast<LPARAM>(this));
-    m_pImpl->Window = NULL;
-    m_pImpl->Running = FALSE;
+    if (m_pImpl->Options.Modeless)
+    {
+        HWND owner = m_pImpl->Options.Taskbar ? NULL : m_pImpl->Options.Parent;
+        HWND window = CreateDialogIndirectParamW(
+            GetModuleHandle(NULL), reinterpret_cast<DLGTEMPLATE*>(&dialog[0]),
+            owner, DialogProc, reinterpret_cast<LPARAM>(this));
+        if (window != NULL)
+        {
+            if (m_pImpl->Options.SmallIcon != NULL)
+                SendMessage(window, WM_SETICON, ICON_SMALL,
+                            reinterpret_cast<LPARAM>(m_pImpl->Options.SmallIcon));
+            if (m_pImpl->Options.LargeIcon != NULL)
+                SendMessage(window, WM_SETICON, ICON_BIG,
+                            reinterpret_cast<LPARAM>(m_pImpl->Options.LargeIcon));
+            RECT clientRect;
+            if (GetClientRect(window, &clientRect))
+                SendMessage(window, WM_SIZE, SIZE_RESTORED,
+                            MAKELPARAM(clientRect.right - clientRect.left,
+                                      clientRect.bottom - clientRect.top));
+            ShowWindow(window, SW_SHOWNORMAL);
+            UpdateWindow(window);
+        }
+    }
+    else
+    {
+        DialogBoxIndirectParamW(
+            GetModuleHandle(NULL),
+            reinterpret_cast<DLGTEMPLATE*>(&dialog[0]),
+            m_pImpl->Options.Parent,
+            DialogProc,
+            reinterpret_cast<LPARAM>(this));
+    }
+    if (!m_pImpl->Options.Modeless)
+    {
+        m_pImpl->Window = NULL;
+        m_pImpl->Running = FALSE;
+    }
     return m_pImpl->Result;
 }
 
 void WINAPI NativeDialog::Close()
 {
     if (m_pImpl != NULL && m_pImpl->Window != NULL)
-        EndDialog(m_pImpl->Window, 0);
+    {
+        if (m_pImpl->Options.Modeless)
+            DestroyWindow(m_pImpl->Window);
+        else
+            EndDialog(m_pImpl->Window, 0);
+    }
 }
 
 void WINAPI NativeDialog::Release()
@@ -1046,9 +1230,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         if (dialog->m_pImpl->CurrentDpi == 0)
             dialog->m_pImpl->CurrentDpi = 96;
         Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
-        DarkModeApplyTree(hwnd);
-        DarkModeRefreshTitleBar(hwnd);
-        DarkModeApplyStaticTextColors(hwnd, NULL);
+        ApplyNativeDialogDarkMode(hwnd);
         dialog->m_pImpl->AccessibilityTooltip = CreateWindowExW(
             WS_EX_TRANSPARENT,
             TOOLTIPS_CLASSW,
@@ -1070,8 +1252,15 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             if (child == NULL)
                 continue;
             control->WindowHandle = child;
-            if (initialFocus == NULL && control->Kind != ControlKindLabel)
+            if (initialFocus == NULL &&
+                control->Kind != ControlKindLabel &&
+                control->Kind != ControlKindSplitter)
                 initialFocus = child;
+            if (control->Kind == ControlKindSplitter)
+                SetWindowSubclass(
+                    child, Impl::SplitterSubclassProc,
+                    control->NumericId,
+                    reinterpret_cast<DWORD_PTR>(control));
             if (control->Kind == ControlKindFilePicker)
                 control->BrowseWindowHandle =
                     GetDlgItem(hwnd, control->BrowseNumericId);
@@ -1101,6 +1290,10 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                         SendMessageW(child, CB_ADDSTRING, 0,
                                      reinterpret_cast<LPARAM>(itemText.c_str()));
                 }
+                if (control->SelectedIndex >= 0 &&
+                    control->SelectedIndex < static_cast<int>(control->Items.size()))
+                    SendMessage(child, CB_SETCURSEL,
+                                static_cast<WPARAM>(control->SelectedIndex), 0);
             }
             else if (control->Kind == ControlKindListView)
             {
@@ -1204,6 +1397,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                 }
             }
         }
+        PostMessage(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS, 0, 0);
         if (initialFocus != NULL)
         {
             SetFocus(initialFocus);
@@ -1221,19 +1415,73 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             DestroyWindow(dialog->m_pImpl->AccessibilityTooltip);
             dialog->m_pImpl->AccessibilityTooltip = NULL;
         }
-        EndDialog(hwnd, 0);
+        if (dialog->m_pImpl->Options.Modeless)
+            DestroyWindow(hwnd);
+        else
+            EndDialog(hwnd, 0);
         return TRUE;
+    }
+    if (message == WM_NCDESTROY)
+    {
+        dialog->m_pImpl->ApplyDarkScrollbarScopes(FALSE);
+        dialog->m_pImpl->Window = NULL;
+        dialog->m_pImpl->Running = FALSE;
+        DialogCloseCallback callback = dialog->m_pImpl->CloseCallback;
+        void* context = dialog->m_pImpl->CloseContext;
+        dialog->m_pImpl->CloseCallback = NULL;
+        dialog->m_pImpl->CloseContext = NULL;
+        if (callback != NULL)
+            callback(context, dialog);
+        return FALSE;
     }
     if (message == WM_SETTINGCHANGE || message == WM_THEMECHANGED)
     {
         Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
         if (DarkModeHandleSettingChange(message, lParam))
         {
-            DarkModeApplyTree(hwnd);
-            DarkModeRefreshTitleBar(hwnd);
-            DarkModeApplyStaticTextColors(hwnd, NULL);
+            ApplyNativeDialogDarkMode(hwnd);
+            PostMessage(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS, 0, 0);
         }
         return FALSE;
+    }
+    if (message == WM_SALAMATRIX_APPLY_DARK_SCROLLBARS)
+    {
+        dialog->m_pImpl->ApplyDarkScrollbarScopes(
+            DarkModeShouldUseDarkColors() ? TRUE : FALSE);
+        return TRUE;
+    }
+    if (message == WM_SALAMATRIX_SPLITTER_MOVED)
+    {
+        Impl::Control* control =
+            dialog->m_pImpl->Find(static_cast<WORD>(wParam));
+        if (control != NULL && control->Kind == ControlKindSplitter)
+        {
+            char position[32];
+            _snprintf_s(position, _countof(position), _TRUNCATE,
+                        "%ld", static_cast<long>(lParam));
+            control->Text.assign(position);
+            dialog->m_pImpl->NotifyChanged(control);
+        }
+        return TRUE;
+    }
+    if (message == WM_GETMINMAXINFO && dialog->m_pImpl->Options.Resizable)
+    {
+        MINMAXINFO* limits = reinterpret_cast<MINMAXINFO*>(lParam);
+        if (limits != NULL)
+        {
+            limits->ptMinTrackSize.x = 640;
+            limits->ptMinTrackSize.y = 460;
+        }
+        return TRUE;
+    }
+    if (message == WM_SIZE && dialog->m_pImpl->ResizeCallback != NULL)
+    {
+        dialog->m_pImpl->ResizeCallback(
+            dialog->m_pImpl->ResizeContext, dialog,
+            LOWORD(lParam), HIWORD(lParam));
+        RedrawWindow(hwnd, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        return TRUE;
     }
     if (message == WM_DPICHANGED)
     {
@@ -1386,7 +1634,10 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         dialog->m_pImpl->Result = control->DialogResult != 0
                                       ? control->DialogResult
                                       : IDOK;
-        EndDialog(hwnd, dialog->m_pImpl->Result);
+        if (dialog->m_pImpl->Options.Modeless)
+            DestroyWindow(hwnd);
+        else
+            EndDialog(hwnd, dialog->m_pImpl->Result);
         return TRUE;
     }
     if (control->Kind == ControlKindCheckBox ||

@@ -232,7 +232,10 @@ enum ControlKind
     ControlKindFolderPicker = 9,
     // An editable UTF-8 file path with an adjacent native browse button.
     // Appended so existing control-kind values remain stable.
-    ControlKindFilePicker = 10
+    ControlKindFilePicker = 10,
+    // A draggable horizontal separator. Movement is reported through the
+    // normal dialog event callback with the parent-client Y coordinate in Text.
+    ControlKindSplitter = 11
 };
 
 struct DialogOptions
@@ -241,12 +244,22 @@ struct DialogOptions
     HWND Parent;
     short Width;
     short Height;
+    BOOL Modeless;
+    BOOL Resizable;
+    BOOL Taskbar;
+    HICON SmallIcon;
+    HICON LargeIcon;
 
     DialogOptions()
         : Title("Salamander"),
           Parent(NULL),
           Width(320),
-          Height(180)
+          Height(180),
+          Modeless(FALSE),
+          Resizable(FALSE),
+          Taskbar(FALSE),
+          SmallIcon(NULL),
+          LargeIcon(NULL)
     {
     }
 };
@@ -342,6 +355,11 @@ typedef BOOL(WINAPI* DialogEventCallback)(
     void* context,
     const DialogEvent* event);
 
+class IDialog;
+typedef void(WINAPI* DialogResizeCallback)(
+    void* context, IDialog* dialog, int width, int height);
+typedef void(WINAPI* DialogCloseCallback)(void* context, IDialog* dialog);
+
 class IControl
 {
 public:
@@ -434,6 +452,12 @@ public:
         return "";
     }
 
+    virtual BOOL WINAPI SetBounds(int x, int y, int width, int height)
+    {
+        (void)x; (void)y; (void)width; (void)height;
+        return FALSE;
+    }
+
 protected:
     virtual ~IControl() {}
 };
@@ -466,6 +490,24 @@ public:
     /// running. The event payload is valid only for the duration of callback.
     virtual BOOL WINAPI SetEventCallback(
         DialogEventCallback callback,
+        void* context)
+    {
+        (void)callback;
+        (void)context;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetResizeCallback(
+        DialogResizeCallback callback,
+        void* context)
+    {
+        (void)callback;
+        (void)context;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetCloseCallback(
+        DialogCloseCallback callback,
         void* context)
     {
         (void)callback;
@@ -508,6 +550,12 @@ public:
         const ControlLayout& layout);
     virtual BOOL WINAPI SetEventCallback(
         DialogEventCallback callback,
+        void* context);
+    virtual BOOL WINAPI SetResizeCallback(
+        DialogResizeCallback callback,
+        void* context);
+    virtual BOOL WINAPI SetCloseCallback(
+        DialogCloseCallback callback,
         void* context);
 };
 

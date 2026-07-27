@@ -2057,7 +2057,7 @@ bool ShouldUseDarkColorsInternal()
     return gShouldAppsUseDarkMode() && !IsHighContrast();
 }
 
-static bool DarkModeIsWindowsDarkSchemeSelected()
+static bool DarkModeIsWindowsDarkSchemeSelectedInternal()
 {
     return gWindowsDarkSchemeSelected;
 }
@@ -2066,14 +2066,14 @@ bool ShouldUseDarkColorsForSurfaces()
 {
     if (ShouldUseDarkColorsInternal())
         return true;
-    if (!DarkModeIsWindowsDarkSchemeSelected())
+    if (!DarkModeIsWindowsDarkSchemeSelectedInternal())
         return false;
     return ComputeLuminance(gDialogBackgroundColor) < 128;
 }
 
 bool ShouldApplyNativeDarkEnhancements()
 {
-    return DarkModeIsWindowsDarkSchemeSelected() && !IsHighContrast();
+    return DarkModeIsWindowsDarkSchemeSelectedInternal() && !IsHighContrast();
 }
 
 BOOL CALLBACK ApplyTreeCallback(HWND hwnd, LPARAM)
@@ -2403,6 +2403,11 @@ void EnsureInitialized()
 }
 
 } // namespace
+
+bool DarkModeIsWindowsDarkSchemeSelected()
+{
+    return gWindowsDarkSchemeSelected;
+}
 
 bool DarkModeInitialize()
 {

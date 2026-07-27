@@ -29,6 +29,9 @@ void DarkModeSetEnabled(bool enabled);
 
 // Returns true if dark colors should currently be used.
 bool DarkModeShouldUseDarkColors();
+// Returns true only when the explicit Windows Dark Mode (experimental)
+// color scheme is selected in Salamander configuration.
+bool DarkModeIsWindowsDarkSchemeSelected();
 // Compatibility helper used by legacy call sites.
 BOOL DarkMode_ShouldUseDark();
 

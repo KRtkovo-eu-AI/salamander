@@ -32,6 +32,7 @@ def main() -> int:
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
+    ui_contract = read("src/plugins/salamatrix/salamatrix_ui.h")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
     bundled = read("src/plugins/salamatrixai/bundledprovider.cpp")
     local_llama = read("src/plugins/salamatrixailocalllama/local_llama.cpp")
@@ -122,6 +123,13 @@ def main() -> int:
             "AI unsupported-capability response helper is missing")
     require(ai_contract, r"missingCapabilities",
             "AI contract does not describe missing capabilities")
+    require(ai_contract, r'contextCall.*?selectedItems.*?javascriptNodeExample',
+            "panel API slice does not explain how generated scripts obtain selected item paths")
+    require(ai_contract, r'CopyValidationMessage\(response,\s*validation\)',
+            "assistant service discards the concrete static-validation error")
+    require(ai_contract, r'this\.selectedItems does not exist.*?'
+                         r'MD5 processing of selected file paths is implementable',
+            "assistant validator does not reject grounded-selection and MD5 semantic hallucinations")
     require(bundled, r'm_descriptor\.ProviderId\s*=\s*"local\.bundled"',
             "bundled local AI provider id is missing")
     require(bundled, r'SALAMATRIX_AI_BUNDLED_COMMAND.*?llama-cli\.exe',
@@ -138,8 +146,30 @@ def main() -> int:
             "bundled provider does not support the legacy companion asset layout")
     require(bundled, r'120000', "bundled provider timeout is not capped at two minutes")
     require(bundled, r'CreateUtf8PromptFile', "bundled provider does not pass the prompt through a UTF-8 file")
-    require(bundled, r'--single-turn.*--conversation', "bundled provider does not request one-shot conversation mode")
+    require(bundled, r'--json-schema-file.*--single-turn.*--no-conversation.*--no-jinja',
+            "bundled provider does not enforce schema-constrained raw one-shot output")
+    require(bundled, r'\\"capabilities\\":.*?\\"maxItems\\":10.*?'
+                     r'\\"missingCapabilities\\":.*?\\"maxItems\\":16',
+            "bundled output schema permits unbounded repeated capability generation")
+    require(bundled, r'\\"script\\":.*?\\"maxLength\\":1024.*?'
+                     r'--repeat-penalty 1\.20.*?--repeat-last-n 512',
+            "bundled output can loop inside script until JSON is truncated")
+    require(bundled, r'For a test, hello, or similarly vague request.*?'
+                     r'minimal side-effect-free script',
+            "bundled model turns vague test requests into unrelated API demonstrations")
+    require(bundled, r'md5NodeScript.*?createHash.*?writeFile',
+            "bundled JavaScript prompt lacks a verified MD5 recipe")
+    require(bundled, r'Never invent `this\.selectedItems`.*?'
+                     r'canImplement=true',
+            "bundled JavaScript prompt lacks grounded selected-file and MD5 guidance")
     require(bundled, r'ExtractJsonObject', "bundled provider does not tolerate llama-cli diagnostic output around JSON")
+    require(bundled, r'ReadAvailablePipe\(parentOut, output, outputCallback, outputContext\).*?'
+                     r'ReadAvailablePipe\(parentErr, diagnostics, outputCallback, outputContext\)',
+            "bundled llama stdout/stderr are no longer streamed to the visible console")
+    require_absent(bundled, r'failureOutput \+= .*diagnostics',
+                   "bundled llama diagnostics are mixed back into the JSON failure response")
+    require(bundled, r'capabilities MUST be.*JSON array.*estimatedEffects MUST be.*JSON.*object',
+            "bundled provider prompt does not state the exact Salamatrix response shape")
     require(local_llama_header, r'class CLocalBundledAssistantProvider',
             "optional local llama provider declaration is missing")
     require(local_llama, r'g_ai->RegisterProvider\(&g_provider\)',
@@ -178,6 +208,56 @@ def main() -> int:
     require(ai, r"g_sides\s*=\s*static_cast<Salamatrix::Sides::ISidesService.*?Query\(\s*SALAMATRIX_SERVICE_SIDES",
             "AI panel context does not query Salamatrix.Sides")
     require(ai, r"GenerateWithRepair", "AI chat lost the bounded repair/refinement generation path")
+    require(ai, r"options\.Modeless\s*=\s*TRUE.*?options\.Resizable\s*=\s*TRUE.*?options\.Taskbar\s*=\s*TRUE",
+            "AI chat is not configured as a modeless taskbar-resizable window")
+    require(ai, r"SetResizeCallback\(ChatResize.*?SetCloseCallback\(ChatClosed",
+            "AI chat does not install modeless resize and lifetime callbacks")
+    require(ai, r'providerChoice->AddItem\("auto"\).*?SetSelectedIndex\(configuredIndex\)',
+            "AI chat does not keep auto as the default provider")
+    require(ai, r'CONFIG_LAST_PROVIDER.*?g_lastProvider.*?"auto".*?'
+                r'LoadConfiguration.*?GetValue\(regKey, CONFIG_LAST_PROVIDER.*?'
+                r'SaveConfiguration.*?SetValue\(regKey, CONFIG_LAST_PROVIDER',
+            "AI chat does not persist the selected provider")
+    require(ai, r'CONFIG_LAST_RUNTIME.*?g_lastRuntime.*?'
+                r'LoadConfiguration.*?CONFIG_LAST_RUNTIME.*?'
+                r'SaveConfiguration.*?CONFIG_LAST_RUNTIME',
+            "AI chat does not persist the selected runtime")
+    require(ai, r'ControlId, "provider".*?RememberChoice\(chat->ProviderChoice.*?'
+                r'ControlId, "runtime".*?RememberChoice\(chat->RuntimeChoice',
+            "AI chat does not remember provider/runtime selection changes")
+    require(ai, r'providerStatus \+= "\\r\\n"',
+            "AI provider status does not render one provider per line")
+    require(ai, r'std::string providerStatus;.*?!provider->IsAvailable\(\).*?'
+                r'providerStatus \+= " \(ready\)"',
+            "AI provider status still exposes unavailable providers")
+    require(ai, r'AddControlEx\(Salamatrix::UI::ControlKindButton, runOptions, runLayout\).*?'
+                r'AddControlEx\(Salamatrix::UI::ControlKindButton, exportOptions, exportLayout\)',
+            "AI Run button text can be invalidated by the later Export button allocation")
+    require_absent(ai, r'Provider \(auto selects the best available\)',
+                   "AI provider label still contains explanatory auto-selection text")
+    require(ai, r"static ChatContext\* g_chat",
+            "AI chat does not retain modeless window lifetime state")
+    require(ui_contract, r"virtual BOOL WINAPI SetResizeCallback.*?virtual BOOL WINAPI SetCloseCallback",
+            "UI dialog contract does not expose modeless lifecycle callbacks")
+    require(ui_contract, r"virtual BOOL WINAPI SetBounds\(",
+            "UI control contract does not expose resizeable bounds")
+    require(ui_contract, r"ControlKindSplitter\s*=\s*11",
+            "UI control contract does not expose draggable splitters")
+    require(salamatrix_ui, r"SplitterSubclassProc.*?IDC_SIZENS.*?"
+                r"WM_SALAMATRIX_SPLITTER_MOVED.*?NotifyChanged",
+            "native splitters do not report drag movement")
+    require(ai, r'"history-splitter".*?"console-splitter".*?'
+                r'HistoryPaneHeight.*?ConsolePaneHeight',
+            "AI chat does not provide independently resizable text panes")
+    require(salamatrix_ui, r'GetClientRect\(window, &clientRect\).*?'
+                r'SendMessage\(window, WM_SIZE.*?ShowWindow\(window, SW_SHOWNORMAL\)',
+            "modeless dialogs are shown before their first responsive layout pass")
+    require(salamatrix_ui, r'ControlKindComboBox.*?SelectedIndex.*?CB_SETCURSEL',
+            "preselected combo-box values are not restored during native dialog creation")
+    require(ai_contract, r"Specific validation error:.*validation\.Message",
+            "AI repair loop does not pass the concrete contract validation error back to the model")
+    require(ai_contract, r"script must contain executable source code, not a placeholder",
+            "AI validation accepts placeholder scripts")
     require(ai, r"CopyTextToClipboard", "AI generated script is no longer copied for review")
     require(ai, r"PostPluginMenuChanged", "AI package export does not refresh the existing menu/discovery surface")
     require(ai, r"RefreshExtensions", "AI package export does not request manifest discovery refresh")
@@ -240,6 +320,10 @@ def main() -> int:
     require(salamatrix_runtime, r"DarkModeMessageBoxW", "Salamatrix runtime message boxes do not use the Unicode dark-mode path")
     require(salamatrix_ui, r"WM_SETTINGCHANGE \|\| message == WM_THEMECHANGED", "Salamatrix dialog theme-change handling is missing")
     require(salamatrix_ui, r"DarkModeRefreshTitleBar\(hwnd\)", "Salamatrix dialog title bar dark-mode refresh is missing")
+    require(salamatrix_ui, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?DarkModeAllowDarkScrollbars\(control->WindowHandle\).*?DarkModeDisallowDarkScrollbars\(control->WindowHandle\)",
+            "Salamatrix dialogs do not scope the host dark scrollbar hook to controls")
+    require(salamatrix_ui, r"PostMessage\(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS",
+            "Salamatrix dialogs apply dark scrollbar scopes during WM_INIT reentrantly")
 
     require(packages, r"BOOL RuntimeUsable;", "extension package runtime usability state is missing")
     require(packages, r"plugins.*automation.*scripts", "Automation sample-script extension root is missing")

@@ -2655,7 +2655,6 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
         iconWidth <= 0 || iconHeight <= 0 || iconWidth != iconHeight)
         return FALSE;
     const int iconSize = iconWidth;
-    const BOOL darkMode = DarkModeShouldUseDarkColors();
     for (int index = 0; index < ToolbarButtons.Count; ++index)
     {
         CPluginToolbarButton& item = ToolbarButtons[index];
@@ -2663,16 +2662,16 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
             continue;
 
         const char* source = item.IconPath;
-        const char* preferred = darkMode && item.IconDarkPath != NULL &&
-                                        item.IconDarkPath[0] != 0
-                                    ? item.IconDarkPath
-                                    : item.IconPath;
         if (source == NULL || source[0] == 0)
             continue;
+        const char* preferred = DarkModeIsWindowsDarkSchemeSelected() &&
+                                        item.IconDarkPath != NULL &&
+                                        item.IconDarkPath[0] != 0
+                                    ? item.IconDarkPath
+                                    : source;
 
         HBITMAP hotBitmap = NULL;
         HBITMAP grayBitmap = NULL;
-        BOOL generatedDarkFallback = darkMode && preferred == source;
         BOOL rendered = RenderSVGIconBitmapFromFile(
                             preferred, iconSize, TRUE, &hotBitmap) &&
                         RenderSVGIconBitmapFromFile(
@@ -2685,7 +2684,6 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
                 HANDLES(DeleteObject(grayBitmap));
             hotBitmap = NULL;
             grayBitmap = NULL;
-            generatedDarkFallback = darkMode;
             rendered = RenderSVGIconBitmapFromFile(
                            source, iconSize, TRUE, &hotBitmap) &&
                        RenderSVGIconBitmapFromFile(
@@ -2698,21 +2696,6 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
             if (grayBitmap != NULL)
                 HANDLES(DeleteObject(grayBitmap));
             continue;
-        }
-
-        if (generatedDarkFallback)
-        {
-            HBITMAP darkHotBitmap = NULL;
-            if (CreateDarkModeIconBitmap(hotBitmap, &darkHotBitmap))
-            {
-                HANDLES(DeleteObject(hotBitmap));
-                hotBitmap = darkHotBitmap;
-            }
-            else
-            {
-                if (darkHotBitmap != NULL)
-                    HANDLES(DeleteObject(darkHotBitmap));
-            }
         }
 
         int hotIndex = ImageList_Add(hotImageList, hotBitmap, NULL);
