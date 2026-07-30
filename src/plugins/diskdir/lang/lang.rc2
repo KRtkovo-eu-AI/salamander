@@ -1,0 +1,49 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif
+
+#include "..\versinfo.rh2"
+#include "versinfo.rc2"
+
+STRINGTABLE
+BEGIN
+    IDS_PLUGINNAME,                "DiskDir"
+    IDS_PLUGIN_DESCRIPTION,        "Creates and browses Total Commander DiskDir-compatible file catalogs."
+    IDS_DISKDIR_TITLE,             "DiskDir"
+    IDS_ABOUT_TITLE,               "About DiskDir"
+    IDS_ABOUT_TEXT,                "Native DiskDir-compatible catalog support.\n\nCatalog files contain names, sizes and timestamps, not file contents."
+    IDS_PACKER_NAME,               "DiskDir Catalog"
+    IDS_ERR_INVALID_PATH,          "The catalog path is invalid or too long."
+    IDS_ERR_NAME_IS_DIRECTORY,     "The catalog name is already used by a directory."
+    IDS_OVERWRITE_PREFIX,          "The catalog already exists:\n\n"
+    IDS_OVERWRITE_SUFFIX,          "\n\nDo you want to overwrite it?"
+    IDS_ERR_MOVE_NOT_SUPPORTED,    "DiskDir catalogs do not store file contents, so source files cannot be moved."
+    IDS_ERR_ADD_NOT_SUPPORTED,     "Adding entries to an existing DiskDir catalog is not supported."
+    IDS_ERR_CREATE_CATALOG,        "Cannot create the DiskDir catalog."
+    IDS_ERR_SOURCE_NOT_AVAILABLE,  "The original file recorded in the catalog is not available."
+    IDS_ERR_SOURCES_NOT_AVAILABLE, "One or more original files recorded in the catalog are not available."
+    IDS_ERR_OPEN_CATALOG,          "Cannot open the catalog."
+    IDS_ERR_CATALOG_TOO_LARGE,     "The catalog is too large."
+    IDS_ERR_READ_CATALOG,          "Cannot read the catalog."
+    IDS_ERR_INVALID_UTF8,          "The UTF-8 catalog contains invalid text."
+    IDS_ERR_INVALID_CATALOG,       "The file does not contain a valid DiskDir catalog."
+    IDS_ERR_WRITE_CATALOG,         "Cannot write the DiskDir catalog."
+END
+
+IDD_DISKDIR_PACK DIALOGEX 0, 0, 278, 94
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Create DiskDir Catalog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Catalog:",-1,8,9,29,8
+    LTEXT           "",IDC_DD_ARCHIVE,42,9,228,8,SS_LEFTNOWORDWRAP | SS_NOPREFIX
+    CONTROL         "",-1,"Static",SS_ETCHEDHORZ | WS_GROUP,8,23,262,1
+    CONTROL         "Also pack path names",IDC_DD_PACK_PATHS,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,16,32,100,12
+    CONTROL         "Recursively pack subdirectories",IDC_DD_RECURSE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,48,126,12
+    CONTROL         "",-1,"Static",SS_ETCHEDHORZ | WS_GROUP,8,66,262,1
+    DEFPUSHBUTTON   "OK",IDOK,84,74,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,144,74,50,14
+END

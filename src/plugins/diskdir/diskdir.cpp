@@ -6,6 +6,7 @@
 #include "diskdir_format.h"
 
 HINSTANCE DLLInstance = NULL;
+HINSTANCE HLanguage = NULL;
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 int SalamanderVersion = 0;
@@ -15,11 +16,16 @@ static CDiskDirArchiver ArchiverInterface;
 static BOOL PackPathNames = TRUE;
 static BOOL PackSubdirectories = TRUE;
 
+const char* LoadStr(int resourceID)
+{
+    return SalamanderGeneral->LoadStr(HLanguage, resourceID);
+}
+
 namespace
 {
 static void ShowError(HWND parent, const std::string& text)
 {
-    SalamanderGeneral->SalMessageBox(parent, text.c_str(), "DiskDir",
+    SalamanderGeneral->SalMessageBox(parent, text.c_str(), LoadStr(IDS_DISKDIR_TITLE),
                                      MB_OK | MB_ICONERROR);
 }
 
@@ -38,15 +44,18 @@ static INT_PTR CALLBACK DiskDirPackDialogProc(HWND window, UINT message,
     switch (message)
     {
     case WM_INITDIALOG:
+    {
         data = reinterpret_cast<CDiskDirPackDialogData*>(lParam);
         SetWindowLongPtr(window, DWLP_USER, reinterpret_cast<LONG_PTR>(data));
-        SetDlgItemText(window, IDC_DD_ARCHIVE, data->FileName);
+        std::wstring wideFileName = DiskDirUtf8ToWide(DiskDirTextToUtf8(data->FileName));
+        SetDlgItemTextW(window, IDC_DD_ARCHIVE, wideFileName.c_str());
         CheckDlgButton(window, IDC_DD_PACK_PATHS,
                        data->PackPaths ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(window, IDC_DD_RECURSE,
                        data->Recurse ? BST_CHECKED : BST_UNCHECKED);
         SalamanderGeneral->MultiMonCenterWindow(window, GetParent(window), TRUE);
         return TRUE;
+    }
 
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK)
@@ -73,7 +82,7 @@ static bool ConfirmOverwrite(HWND parent, const char* fileName)
     std::wstring wideFileName = DiskDirPathToExtendedWide(fileName);
     if (wideFileName.empty())
     {
-        ShowError(parent, "The catalog path is invalid or too long.");
+        ShowError(parent, LoadStr(IDS_ERR_INVALID_PATH));
         return false;
     }
     DWORD attributes = GetFileAttributesW(wideFileName.c_str());
@@ -81,14 +90,15 @@ static bool ConfirmOverwrite(HWND parent, const char* fileName)
         return true;
     if ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
     {
-        ShowError(parent, "The catalog name is already used by a directory.");
+        ShowError(parent, LoadStr(IDS_ERR_NAME_IS_DIRECTORY));
         return false;
     }
 
-    std::string question = "The catalog already exists:\n\n";
+    std::string question = LoadStr(IDS_OVERWRITE_PREFIX);
     question += fileName;
-    question += "\n\nDo you want to overwrite it?";
-    return SalamanderGeneral->SalMessageBox(parent, question.c_str(), "DiskDir",
+    question += LoadStr(IDS_OVERWRITE_SUFFIX);
+    return SalamanderGeneral->SalMessageBox(parent, question.c_str(),
+                                             LoadStr(IDS_DISKDIR_TITLE),
                                              MB_YESNO | MB_ICONQUESTION |
                                                  MB_DEFBUTTON2) == IDYES;
 }
@@ -267,14 +277,19 @@ SalamanderPluginEntry(CSalamanderPluginEntryAbstract* salamander)
         return NULL;
     }
 
+    HLanguage = salamander->LoadLanguageModule(
+        salamander->GetParentWindow(), "DISKDIR" /* neprekladat! */);
+    if (HLanguage == NULL)
+        return NULL;
+
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     salamander->SetBasicPluginData(
-        "DiskDir",
+        LoadStr(IDS_PLUGINNAME),
         FUNCTION_PANELARCHIVERVIEW | FUNCTION_CUSTOMARCHIVERPACK |
             FUNCTION_CUSTOMARCHIVERUNPACK | FUNCTION_LOADSAVECONFIGURATION,
         VERSINFO_VERSION_NO_PLATFORM,
         VERSINFO_COPYRIGHT,
-        "Creates and browses Total Commander DiskDir-compatible file catalogs.",
+        LoadStr(IDS_PLUGIN_DESCRIPTION),
         "DISKDIR", "lst");
     salamander->SetPluginHomePageURL("www.altap.cz");
     return &PluginInterface;
@@ -284,9 +299,8 @@ void WINAPI CDiskDirPlugin::About(HWND parent)
 {
     SalamanderGeneral->SalMessageBox(
         parent,
-        "Native DiskDir-compatible catalog support.\n\n"
-        "Catalog files contain names, sizes and timestamps, not file contents.",
-        "About DiskDir", MB_OK | MB_ICONINFORMATION);
+        LoadStr(IDS_ABOUT_TEXT), LoadStr(IDS_ABOUT_TITLE),
+        MB_OK | MB_ICONINFORMATION);
 }
 
 void WINAPI CDiskDirPlugin::LoadConfiguration(
@@ -317,8 +331,8 @@ void WINAPI CDiskDirPlugin::SaveConfiguration(
 
 void WINAPI CDiskDirPlugin::Connect(HWND, CSalamanderConnectAbstract* salamander)
 {
-    salamander->AddCustomPacker("DiskDir Catalog", "lst", FALSE);
-    salamander->AddCustomUnpacker("DiskDir Catalog", "*.lst", FALSE);
+    salamander->AddCustomPacker(LoadStr(IDS_PACKER_NAME), "lst", FALSE);
+    salamander->AddCustomUnpacker(LoadStr(IDS_PACKER_NAME), "*.lst", FALSE);
     salamander->AddPanelArchiver("lst", FALSE, FALSE);
 }
 
@@ -362,20 +376,20 @@ BOOL WINAPI CDiskDirArchiver::PackToArchive(CSalamanderForOperationsAbstract*,
     if (move)
     {
         ShowError(SalamanderGeneral->GetMsgBoxParent(),
-                  "DiskDir catalogs do not store file contents, so source files cannot be moved.");
+                  LoadStr(IDS_ERR_MOVE_NOT_SUPPORTED));
         return FALSE;
     }
     if (archiveRoot != NULL && archiveRoot[0] != 0)
     {
         ShowError(SalamanderGeneral->GetMsgBoxParent(),
-                  "Adding entries to an existing DiskDir catalog is not supported.");
+                  LoadStr(IDS_ERR_ADD_NOT_SUPPORTED));
         return FALSE;
     }
 
     CDiskDirPackDialogData options = {fileName, PackPathNames,
                                       PackSubdirectories};
     HWND parent = SalamanderGeneral->GetMsgBoxParent();
-    if (DialogBoxParam(DLLInstance, MAKEINTRESOURCE(IDD_DISKDIR_PACK), parent,
+    if (DialogBoxParam(HLanguage, MAKEINTRESOURCE(IDD_DISKDIR_PACK), parent,
                        DiskDirPackDialogProc,
                        reinterpret_cast<LPARAM>(&options)) != IDOK)
         return FALSE;
@@ -421,7 +435,7 @@ BOOL WINAPI CDiskDirArchiver::PackToArchive(CSalamanderForOperationsAbstract*,
     if (output == INVALID_HANDLE_VALUE)
     {
         ShowError(SalamanderGeneral->GetMsgBoxParent(),
-                  "Cannot create the DiskDir catalog.");
+                  LoadStr(IDS_ERR_CREATE_CATALOG));
         return FALSE;
     }
 
@@ -476,7 +490,7 @@ BOOL WINAPI CDiskDirArchiver::UnpackOneFile(CSalamanderForOperationsAbstract*,
     if (!CopyCatalogFile(catalog, nameInArchive, destination))
     {
         ShowError(SalamanderGeneral->GetMsgBoxParent(),
-                  "The original file recorded in the catalog is not available.");
+                  LoadStr(IDS_ERR_SOURCE_NOT_AVAILABLE));
         return FALSE;
     }
     return TRUE;
@@ -524,7 +538,7 @@ BOOL WINAPI CDiskDirArchiver::UnpackArchive(CSalamanderForOperationsAbstract* sa
         SalamanderGeneral->RemoveTemporaryDir(temporary);
     if (!copied)
         ShowError(SalamanderGeneral->GetMsgBoxParent(),
-                  "One or more original files recorded in the catalog are not available.");
+                  LoadStr(IDS_ERR_SOURCES_NOT_AVAILABLE));
     return copied ? TRUE : FALSE;
 }
 

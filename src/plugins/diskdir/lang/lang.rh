@@ -1,0 +1,31 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma once
+
+#define IDS_PLUGINNAME                  100
+#define IDS_PLUGIN_DESCRIPTION          101
+#define IDS_DISKDIR_TITLE               102
+#define IDS_ABOUT_TITLE                 103
+#define IDS_ABOUT_TEXT                  104
+#define IDS_PACKER_NAME                 105
+#define IDS_ERR_INVALID_PATH            106
+#define IDS_ERR_NAME_IS_DIRECTORY       107
+#define IDS_OVERWRITE_PREFIX            108
+#define IDS_OVERWRITE_SUFFIX            109
+#define IDS_ERR_MOVE_NOT_SUPPORTED      110
+#define IDS_ERR_ADD_NOT_SUPPORTED       111
+#define IDS_ERR_CREATE_CATALOG          112
+#define IDS_ERR_SOURCE_NOT_AVAILABLE    113
+#define IDS_ERR_SOURCES_NOT_AVAILABLE   114
+#define IDS_ERR_OPEN_CATALOG            115
+#define IDS_ERR_CATALOG_TOO_LARGE       116
+#define IDS_ERR_READ_CATALOG            117
+#define IDS_ERR_INVALID_UTF8             118
+#define IDS_ERR_INVALID_CATALOG         119
+#define IDS_ERR_WRITE_CATALOG           120
+
+#define IDD_DISKDIR_PACK                200
+#define IDC_DD_ARCHIVE                  1001
+#define IDC_DD_PACK_PATHS               1002
+#define IDC_DD_RECURSE                  1003

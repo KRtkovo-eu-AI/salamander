@@ -12,80 +12,66 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{4E6E9D5C-73CF-47F2-A48D-F0A64A997729}</ProjectGuid>
-    <RootNamespace>diskdir</RootNamespace>
-    <ProjectName>diskdir</ProjectName>
+    <ProjectGuid>{EC94FCD6-6A7C-49A8-92E0-B5E0A471F6D5}</ProjectGuid>
+    <RootNamespace>lang_diskdir</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)'=='Debug' And '$(Platform)'=='Win32'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
     <Import Project="..\..\shared\vcxproj\x86.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
-    <Import Project="diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_debug.props" />
   </ImportGroup>
   <ImportGroup Condition="('$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean') And '$(Platform)'=='Win32'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
     <Import Project="..\..\shared\vcxproj\x86.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
-    <Import Project="diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_release.props" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)'=='Debug' And '$(Platform)'=='x64'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
     <Import Project="..\..\shared\vcxproj\x64.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
-    <Import Project="diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_debug.props" />
   </ImportGroup>
   <ImportGroup Condition="('$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean') And '$(Platform)'=='x64'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
     <Import Project="..\..\shared\vcxproj\x64.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
-    <Import Project="diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_release.props" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)'=='Debug' And '$(Platform)'=='ARM64'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
     <Import Project="..\..\shared\vcxproj\arm64.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
-    <Import Project="diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_debug.props" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)'=='Release' And '$(Platform)'=='ARM64'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
     <Import Project="..\..\shared\vcxproj\arm64.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
-    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
-    <Import Project="diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_release.props" />
   </ImportGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\shared\dbg.cpp" />
-    <ClCompile Include="..\diskdir.cpp" />
-    <ClCompile Include="..\diskdir_format.cpp" />
-    <ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>
+    <ResourceCompile Include="..\lang\lang.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\diskdir.h" />
-    <ClInclude Include="..\diskdir_format.h" />
-    <ClInclude Include="..\precomp.h" />
-    <ClInclude Include="..\versinfo.rh2" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\diskdir.def" />
-  </ItemGroup>
-  <ItemGroup><ResourceCompile Include="..\diskdir.rc" /></ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="lang_diskdir.vcxproj">
-      <Project>{EC94FCD6-6A7C-49A8-92E0-B5E0A471F6D5}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
+    <None Include="..\lang\lang.rc2" />
+    <None Include="..\lang\lang.rh" />
+    <None Include="..\versinfo.rh2" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

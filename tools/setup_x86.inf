@@ -183,6 +183,7 @@
 %0\plugins\diskmap\diskmap.spl,%1\plugins\diskmap\diskmap.spl
 %0\plugins\diskmap\lang\%SLG,%1\plugins\diskmap\lang\%SLG
 %0\plugins\diskdir\diskdir.spl,%1\plugins\diskdir\diskdir.spl
+%0\plugins\diskdir\lang\english.slg,%1\plugins\diskdir\lang\english.slg
 %0\plugins\filecomp\fcremote.exe,%1\plugins\filecomp\fcremote.exe
 %0\plugins\filecomp\filecomp.spl,%1\plugins\filecomp\filecomp.spl
 %0\plugins\filecomp\lang\%SLG,%1\plugins\filecomp\lang\%SLG
@@ -365,6 +366,7 @@
 %1\plugins\diskmap
 %1\plugins\diskmap\lang
 %1\plugins\diskdir
+%1\plugins\diskdir\lang
 %1\plugins\filecomp
 %1\plugins\filecomp\lang
 %1\plugins\ftp

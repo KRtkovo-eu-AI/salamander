@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 
+#include "diskdir.h"
 #include "diskdir_format.h"
 
 #include <algorithm>
@@ -196,7 +197,7 @@ bool DiskDirReadCatalog(const char* fileName, CDiskDirCatalog& catalog, std::str
                               FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     if (file == INVALID_HANDLE_VALUE)
     {
-        error = "Cannot open the catalog.";
+        error = LoadStr(IDS_ERR_OPEN_CATALOG);
         return false;
     }
 
@@ -205,7 +206,7 @@ bool DiskDirReadCatalog(const char* fileName, CDiskDirCatalog& catalog, std::str
         static_cast<uint64_t>(size.QuadPart) > MAX_CATALOG_SIZE)
     {
         CloseHandle(file);
-        error = "The catalog is too large.";
+        error = LoadStr(IDS_ERR_CATALOG_TOO_LARGE);
         return false;
     }
 
@@ -217,7 +218,7 @@ bool DiskDirReadCatalog(const char* fileName, CDiskDirCatalog& catalog, std::str
     CloseHandle(file);
     if (!readOk)
     {
-        error = "Cannot read the catalog.";
+        error = LoadStr(IDS_ERR_READ_CATALOG);
         return false;
     }
 
@@ -230,7 +231,7 @@ bool DiskDirReadCatalog(const char* fileName, CDiskDirCatalog& catalog, std::str
         bytes.erase(0, 3);
         if (!IsValidUtf8(bytes.data(), bytes.size()))
         {
-            error = "The UTF-8 catalog contains invalid text.";
+            error = LoadStr(IDS_ERR_INVALID_UTF8);
             return false;
         }
     }
@@ -290,7 +291,7 @@ bool DiskDirReadCatalog(const char* fileName, CDiskDirCatalog& catalog, std::str
 
     if (catalog.Entries.empty() && !bytes.empty())
     {
-        error = "The file does not contain a valid DiskDir catalog.";
+        error = LoadStr(IDS_ERR_INVALID_CATALOG);
         return false;
     }
     return true;
@@ -305,7 +306,7 @@ bool DiskDirWriteAll(HANDLE file, const void* data, size_t size, std::string& er
         DWORD written = 0;
         if (!WriteFile(file, position, chunk, &written, NULL) || written != chunk)
         {
-            error = "Cannot write the DiskDir catalog.";
+            error = LoadStr(IDS_ERR_WRITE_CATALOG);
             return false;
         }
         position += written;

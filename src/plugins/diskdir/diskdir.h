@@ -3,10 +3,7 @@
 
 #pragma once
 
-#define IDD_DISKDIR_PACK 101
-#define IDC_DD_ARCHIVE 1001
-#define IDC_DD_PACK_PATHS 1002
-#define IDC_DD_RECURSE 1003
+#include "lang\lang.rh"
 
 class CDiskDirArchiver : public CPluginInterfaceForArchiverAbstract
 {
@@ -61,6 +58,9 @@ public:
 };
 
 extern HINSTANCE DLLInstance;
+extern HINSTANCE HLanguage;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern CSalamanderDebugAbstract* SalamanderDebug;
 extern int SalamanderVersion;
+
+const char* LoadStr(int resourceID);
