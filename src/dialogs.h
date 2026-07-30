@@ -88,6 +88,7 @@ protected:
     CCriteriaData* Criteria;      // allocated because static declaration would require juggling headers
     BOOL HavePermissions;
     BOOL SupportsADS;
+    const std::vector<std::string>* TargetPaths;
 
     int OriginalWidth;    // full dialog width
     int OriginalHeight;   // full dialog height
@@ -103,7 +104,8 @@ public:
     CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSize, char* title,
                         CTruncatedString* subject, DWORD helpID,
                         char* history[], int historyCount, CCriteriaData* criteriaInOut,
-                        BOOL havePermissions, BOOL supportsADS);
+                        BOOL havePermissions, BOOL supportsADS,
+                        const std::vector<std::string>* targetPaths = NULL);
     ~CCopyMoveMoreDialog();
 
     virtual void Validate(CTransferInfo& ti);

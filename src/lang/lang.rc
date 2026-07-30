@@ -376,6 +376,42 @@ BEGIN
     PUSHBUTTON      "Help",IDHELP,186,191,50,14
 END
 
+IDD_COPYTOSELECTEDDIRSDIALOG DIALOGEX 31, 50, 255, 258
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDS_SUBJECT,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,10,9,235,8
+    LISTBOX         IDC_COPY_TARGETDIRS,10,19,235,44,LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "&Wait until all other Copy/Move operations are finished",IDC_CM_STARTONIDLE,
+                    "Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,10,81,192,12
+    CONTROL         "O&verwrite older and skip other existing files without asking",IDC_CM_NEWER,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,94,208,12
+    CONTROL         "&Speed limit:",IDC_CM_SPEEDLIMIT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,107,53,12
+    EDITTEXT        IDE_CM_SPEEDLIMIT,64,107,34,12,ES_AUTOHSCROLL
+    COMBOBOX        IDC_CM_SPEEDLIMITUNITS,104,107,35,49,CBS_DROPDOWNLIST | WS_TABSTOP
+    CONTROL         "Preserve &Archive, Compressed, and Encrypted attributes",IDC_CM_COPYATTRS,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,120,201,12
+    CONTROL         "&Preserve owners and permissions (not inherited) on NTFS drives",IDC_CM_SECURITY,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,133,228,12
+    CONTROL         "Preserve dates and &times of directories",IDC_CM_DIRTIME,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,146,142,12
+    CONTROL         "&Ignore alternate data streams (ADS)",IDC_CM_IGNADS,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,159,136,12
+    CONTROL         "Only &files (prevent creating of empty directories)",IDC_CM_EMPTY,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,172,174,12
+    CONTROL         "Files &named:",IDC_CM_NAMED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,185,56,12
+    EDITTEXT        IDC_CM_NAMED_MASK,68,185,177,12,ES_AUTOHSCROLL
+    RTEXT           "mask hints",IDC_FILEMASK_HINT,203,198,41,8,WS_TABSTOP
+    PUSHBUTTON      "A&dvanced...",IDC_CM_ADVANCED,10,209,50,14,WS_GROUP
+    EDITTEXT        IDC_CM_ADVANCED_INFO,68,210,177,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_TABSTOP
+    CONTROL         "",IDC_CM_SPACER,"Static",SS_GRAYFRAME | NOT WS_VISIBLE | WS_GROUP,260,83,9,148
+    CONTROL         "",IDC_CM_SEPARATOR,"Static",SS_ETCHEDHORZ | WS_GROUP,5,229,246,1
+    DEFPUSHBUTTON   "OK",IDOK,18,236,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,74,236,50,14
+    PUSHBUTTON      "&Options",IDC_MORE,130,236,50,14
+    PUSHBUTTON      "Help",IDHELP,186,236,50,14
+END
+
 IDD_SIZERESULTS DIALOGEX 10, 26, 254, 201
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Calculate Occupied Space"

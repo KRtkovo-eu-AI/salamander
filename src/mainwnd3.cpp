@@ -6764,6 +6764,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_COPYTOSELECTEDDIRS: // copy files and directories to selected directories in the other panel
+            if (!EnablerFilesCopy)
+                return 0;
+            if (!activePanel->Is(ptDisk) || !GetNonActivePanel()->Is(ptDisk))
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_COPYTOSELECTEDDIRS_NEEDDISKPANELS),
+                              LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+                return 0;
+            }
         case CM_COPYFILES: // copy files and directories
             if (!EnablerFilesCopy)
                 return 0;
@@ -6792,6 +6801,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 CActionType type;
                 switch (LOWORD(wParam))
                 {
+                case CM_COPYTOSELECTEDDIRS:
                 case CM_COPYFILES:
                     type = atCopy;
                     break;
@@ -6810,7 +6820,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 }
 
                 // perform the action
-                activePanel->FilesAction(type, GetNonActivePanel());
+                activePanel->FilesAction(type, GetNonActivePanel(), 0,
+                                         LOWORD(wParam) == CM_COPYTOSELECTEDDIRS);
             }
             else
             {

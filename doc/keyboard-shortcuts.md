@@ -19,6 +19,7 @@ Observacoes:
 | `F3` | View the focused file |
 | `F4` | Edit the focused file |
 | `F5` | Copy the selected files and directories |
+| `Shift+F5` | Copy the selected files and directories into each selected folder in the target panel |
 | `F6` | Move the selected files and directories |
 | `F7` | Create the directory in the active panel |
 | `F8` | Delete the selected files and directories |

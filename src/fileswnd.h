@@ -1462,7 +1462,8 @@ public:
     BOOL SetUnescapedHotPathToEmptyPos();
     void GotoRoot();
 
-    void FilesAction(CActionType type, CFilesWindow* target = NULL, int countSizeMode = 0);
+    void FilesAction(CActionType type, CFilesWindow* target = NULL, int countSizeMode = 0,
+                     BOOL copyToSelectedDirs = FALSE);
     void PluginFSFilesAction(CPluginFSActionType type);
     void CreateDir(CFilesWindow* target);
     void RenameFile(int specialIndex = -1);

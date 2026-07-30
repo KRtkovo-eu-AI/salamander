@@ -1240,10 +1240,13 @@ MENU_TEMPLATE_ITEM EditNewFileDialogMenu[] =
 CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSize, char* title,
                                          CTruncatedString* subject, DWORD helpID,
                                          char* history[], int historyCount, CCriteriaData* criteriaInOut,
-                                         BOOL havePermissions, BOOL supportsADS)
-    : CCommonDialog(HLanguage, IDD_COPYMOVEMOREDIALOG, helpID, parent)
+                                         BOOL havePermissions, BOOL supportsADS,
+                                         const std::vector<std::string>* targetPaths)
+    : CCommonDialog(HLanguage,
+                    targetPaths == NULL ? IDD_COPYMOVEMOREDIALOG : IDD_COPYTOSELECTEDDIRSDIALOG,
+                    helpID, parent)
 {
-    if (history == NULL)
+    if (history == NULL && targetPaths == NULL)
         TRACE_E("CCopyMoveMoreDialog without history is not supported.");
 
     Title = title;
@@ -1258,6 +1261,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
     Expanded = TRUE;
     HavePermissions = havePermissions;
     SupportsADS = supportsADS;
+    TargetPaths = targetPaths;
     MoreButton = NULL;
 }
 
@@ -1273,7 +1277,20 @@ CCopyMoveMoreDialog::~CCopyMoveMoreDialog()
 void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCopyMoveMoreDialog::Transfer()");
-    if (History != NULL)
+    if (TargetPaths != NULL)
+    {
+        if (ti.Type == ttDataToWindow)
+        {
+            HWND targetList = GetDlgItem(HWindow, IDC_COPY_TARGETDIRS);
+            SendMessage(targetList, LB_RESETCONTENT, 0, 0);
+            for (std::vector<std::string>::const_iterator path = TargetPaths->begin();
+                 path != TargetPaths->end(); ++path)
+            {
+                SendMessage(targetList, LB_ADDSTRING, 0, (LPARAM)path->c_str());
+            }
+        }
+    }
+    else if (History != NULL)
     {
         HWND hWnd;
         if (ti.GetControl(hWnd, IDE_PATH))
@@ -1527,7 +1544,7 @@ void CCopyMoveMoreDialog::DisplayMore(BOOL more, BOOL fast)
         if (!more && hCtrl == hFocus)
         {
             SendMessage(HWindow, DM_SETDEFID, IDOK, 0);
-            SetFocus(GetDlgItem(HWindow, IDE_PATH));
+            SetFocus(GetDlgItem(HWindow, TargetPaths == NULL ? IDE_PATH : IDC_COPY_TARGETDIRS));
         }
         ShowWindow(hCtrl, more ? SW_SHOW : SW_HIDE);
     }
@@ -1607,12 +1624,16 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        HWND hPath = GetDlgItem(HWindow, IDE_PATH);
-        HWND hPathEdit = ResolveComboEditControl(hPath);
-        const BOOL unicodePathInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
-        if (!unicodePathInput)
-            InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
-        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
+        BOOL unicodePathInput = TRUE;
+        if (TargetPaths == NULL)
+        {
+            HWND hPath = GetDlgItem(HWindow, IDE_PATH);
+            HWND hPathEdit = ResolveComboEditControl(hPath);
+            unicodePathInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
+            if (!unicodePathInput)
+                InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+            PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
+        }
 
         // since 2.53 we can save options, so IDC_CM_STARTONIDLE must always be enabled so the user can preset it
         // EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), !OperationsQueue.IsEmpty());
@@ -1622,9 +1643,12 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         MoreButton = new CButton(HWindow, IDC_MORE, BTF_MORE | BTF_CHECKBOX);
         SetOptionsButtonState(TRUE);
 
-        if (!unicodePathInput)
-            CreateKeyForwarder(HWindow, IDE_PATH);                  // so that we receive WM_USER_KEYDOWN
-        ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right
+        if (TargetPaths == NULL)
+        {
+            if (!unicodePathInput)
+                CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
+            ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right
+        }
 
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
@@ -1660,13 +1684,16 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_ENABLEPATHAUTOCOMPLETE:
     {
-        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), FALSE);
+        if (TargetPaths == NULL)
+            EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), FALSE);
         return 0;
     }
 
 
     case WM_USER_KEYDOWN:
     {
+        if (TargetPaths != NULL)
+            return 0;
         BOOL processed = OnDirectoryKeyDown((DWORD)lParam, HWindow, IDE_PATH, PathBufSize, IDB_BROWSE);
         if (!processed)
             processed = OnKeyDownHandleSelectAll((DWORD)lParam, HWindow, IDE_PATH);
@@ -1676,13 +1703,15 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_BUTTON:
     {
-        OnDirectoryButton(HWindow, IDE_PATH, PathBufSize, IDB_BROWSE, wParam, lParam);
+        if (TargetPaths == NULL)
+            OnDirectoryButton(HWindow, IDE_PATH, PathBufSize, IDB_BROWSE, wParam, lParam);
         return 0;
     }
 
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
     {
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);

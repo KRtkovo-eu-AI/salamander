@@ -202,11 +202,55 @@ void PluginFSConvertPathToExternal(char* path)
 
 // countSizeMode - 0 normal calculation, 1 calculation for the selected item,
 // 2 calculation for all subdirectories
-void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int countSizeMode)
+void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int countSizeMode,
+                               BOOL copyToSelectedDirs)
 {
-    CALL_STACK_MESSAGE3("CFilesWindow::FilesAction(%d, , %d)", type, countSizeMode);
+    CALL_STACK_MESSAGE4("CFilesWindow::FilesAction(%d, , %d, %d)", type, countSizeMode,
+                        copyToSelectedDirs);
     if (Dirs->Count + Files->Count == 0)
         return;
+
+    std::vector<std::string> selectedTargetPaths;
+    if (copyToSelectedDirs)
+    {
+        if (type != atCopy || target == NULL || !Is(ptDisk) || !target->Is(ptDisk))
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_COPYTOSELECTEDDIRS_NEEDDISKPANELS),
+                          LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+            return;
+        }
+
+        char targetBase[SAL_MAX_PATH];
+        target->GetGeneralPath(targetBase, SAL_MAX_PATH);
+        for (int i = 0; i < target->Dirs->Count; i++)
+        {
+            CFileData* dir = &target->Dirs->At(i);
+            if (dir->Selected && strcmp(dir->Name, "..") != 0)
+            {
+                char targetPath[SAL_MAX_PATH];
+                lstrcpyn(targetPath, targetBase, SAL_MAX_PATH);
+                if (!SalPathAppend(targetPath, dir->Name, SAL_MAX_PATH))
+                {
+                    SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY),
+                                  MB_OK | MB_ICONEXCLAMATION);
+                    return;
+                }
+                if (!HasTheSameRootPathAndVolume(targetBase, targetPath))
+                {
+                    SalMessageBox(HWindow, LoadStr(IDS_COPYTOSELECTEDDIRS_SAMEVOLUME),
+                                  LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+                    return;
+                }
+                selectedTargetPaths.push_back(targetPath);
+            }
+        }
+        if (selectedTargetPaths.empty())
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_COPYTOSELECTEDDIRS_NOTARGETS),
+                          LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+            return;
+        }
+    }
 
     // restore DefaultDir
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() == this);
@@ -325,8 +369,11 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
         //---  build the target path for copy/move
         char path[SAL_MAX_PATH];
-        target->GetGeneralPath(path, SAL_MAX_PATH);
-        if (target->Is(ptDisk))
+        if (copyToSelectedDirs)
+            lstrcpyn(path, selectedTargetPaths[0].c_str(), SAL_MAX_PATH);
+        else
+            target->GetGeneralPath(path, SAL_MAX_PATH);
+        if (target->Is(ptDisk) && !copyToSelectedDirs)
         {
             SalPathAppend(path, "*.*", SAL_MAX_PATH);
         }
@@ -541,7 +588,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                                                (type == atCopy) ? LoadStr(IDS_COPY) : LoadStr(IDS_MOVE), &str,
                                                (type == atCopy) ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
                                                Configuration.CopyHistory, COPY_HISTORY_SIZE,
-                                               &criteria, havePermissions, supportsADS)
+                                               &criteria, havePermissions, supportsADS,
+                                               copyToSelectedDirs ? &selectedTargetPaths : NULL)
                           .Execute();
                 if (!havePermissions)
                     criteria.CopySecurity = FALSE;
@@ -549,6 +597,9 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     break;
                 criteriaPtr = criteria.IsDirty() ? &criteria : NULL;
                 UpdateWindow(MainWindow->HWindow);
+
+                if (copyToSelectedDirs)
+                    break;
 
                 if (!IsPluginFSPath(path) &&
                     (path[0] != 0 && path[1] == ':' ||                                             // paths like X:...
@@ -1032,7 +1083,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     }
                     else
                         sprintf(subject, LoadStr(type == atCopy ? IDS_COPYDLGTITLE : IDS_MOVEDLGTITLE), expanded);
-                    script = new COperations(1000, 500, DupStr(subject), DupStr(GetPath()), DupStr(path));
+                    script = new COperations(1000, 500, DupStr(subject), DupStr(GetPath()),
+                                             DupStr(copyToSelectedDirs ? target->GetPath() : path));
                 }
                 else
                     script = new COperations(1000, 500, NULL, NULL, NULL);
@@ -1090,9 +1142,38 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     char* auxTargetPath = NULL;
                     if (type == atCopy || type == atMove)
                         auxTargetPath = path;
-                    BOOL res2 = BuildScriptMain(script, type, auxTargetPath, mask, count, indexes,
-                                                f, NULL, &changeCaseData, countSizeMode != 0,
-                                                criteriaPtr);
+                    BOOL res2 = TRUE;
+                    if (copyToSelectedDirs)
+                    {
+                        CQuadWord totalFileSize(0, 0);
+                        CQuadWord occupiedSpace(0, 0);
+                        CQuadWord compressedSize(0, 0);
+                        for (std::vector<std::string>::const_iterator targetPath = selectedTargetPaths.begin();
+                             targetPath != selectedTargetPaths.end(); ++targetPath)
+                        {
+                            char mutableTargetPath[SAL_MAX_PATH];
+                            lstrcpyn(mutableTargetPath, targetPath->c_str(), SAL_MAX_PATH);
+                            if (!BuildScriptMain(script, type, mutableTargetPath, mask, count, indexes,
+                                                 f, NULL, &changeCaseData,
+                                                 countSizeMode != 0, criteriaPtr))
+                            {
+                                res2 = FALSE;
+                                break;
+                            }
+                            totalFileSize += script->TotalFileSize;
+                            occupiedSpace += script->OccupiedSpace;
+                            compressedSize += script->CompressedSize;
+                        }
+                        script->TotalFileSize = totalFileSize;
+                        script->OccupiedSpace = occupiedSpace;
+                        script->CompressedSize = compressedSize;
+                    }
+                    else
+                    {
+                        res2 = BuildScriptMain(script, type, auxTargetPath, mask, count, indexes,
+                                               f, NULL, &changeCaseData, countSizeMode != 0,
+                                               criteriaPtr);
+                    }
                     // if there's nothing to do, don't show the progress dialog
                     BOOL emptyScript = script->Count == 0 && type != atCountSize;
 
@@ -1159,7 +1240,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                             if (type == atCopy)
                             {
                                 // change in the target directory and its subdirectories
-                                script->SetWorkPath1(path, TRUE);
+                                script->SetWorkPath1(copyToSelectedDirs ? target->GetPath() : path, TRUE);
                             }
                             if (type == atMove)
                             {

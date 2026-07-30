@@ -77,6 +77,7 @@ BEGIN
     VK_F4,          CM_EDIT_WITH,           VIRTKEY, SHIFT, CONTROL
     VK_F4,          SC_CLOSE,               VIRTKEY, ALT
     VK_F5,          CM_COPYFILES,           VIRTKEY 
+    VK_F5,          CM_COPYTOSELECTEDDIRS,  VIRTKEY, SHIFT
     VK_F5,          CM_ACTIVETIME,          VIRTKEY, CONTROL
     VK_F5,          CM_PACK,                VIRTKEY, ALT
     VK_F6,          CM_MOVEFILES,           VIRTKEY 

@@ -41,6 +41,7 @@
 #define IDD_CANNOTMOVE                  200
 #define IDD_COPYMOVEDIALOG_CB_BTSML     204
 #define IDD_COPYMOVEMOREDIALOG          205
+#define IDD_COPYTOSELECTEDDIRSDIALOG    8201
 #define IDD_COPYMOVEDIALOG              206
 #define IDD_COPYMOVEDIALOG_CB           207
 #define IDD_COPYMOVEDIALOG_CB_BT        208
@@ -64,6 +65,7 @@
 #define IDE_CM_SPEEDLIMIT               226
 #define IDC_CM_SPEEDLIMITUNITS          227
 #define IDC_CM_IGNADS                   228
+#define IDC_COPY_TARGETDIRS             6261
 #define IDD_CREATEDIRERR                230
 #define IDC_COMPARE_ONE_PANEL_DIRS      231
 #define IDC_COMPARE_MORE_OPTIONS        232
@@ -772,9 +774,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        8201
+#define _APS_NEXT_RESOURCE_VALUE        8202
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6261
+#define _APS_NEXT_CONTROL_VALUE         6262
 #define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

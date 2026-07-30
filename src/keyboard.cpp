@@ -797,6 +797,7 @@ BOOL IsSalHotKey(WORD hotKey)
         switch (mods)
         {
         case NONE:          // copy
+        case SHIFT:         // copy to selected directories in the target panel
         case CONTROL:       // sort by time
         case ALT:           // pack
         case CONTROL_SHIFT: // save selection
