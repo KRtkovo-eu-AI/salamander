@@ -901,6 +901,8 @@ struct CSalamanderToolbarButton
     // Optional stable configuration key. It must not contain a comma and is
     // used for toolbar placement persistence across Salamander restarts.
     const char* StableId;
+    // Initial enabled state. Appended to preserve the published SDK prefix.
+    BOOL Enabled;
 
     CSalamanderToolbarButton()
         : StructSize(sizeof(CSalamanderToolbarButton)),
@@ -908,7 +910,8 @@ struct CSalamanderToolbarButton
           Title(NULL),
           IconPath(NULL),
           IconDarkPath(NULL),
-          StableId(NULL)
+          StableId(NULL),
+          Enabled(TRUE)
     {
     }
 };

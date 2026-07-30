@@ -1280,6 +1280,7 @@ bool CExtensionManifest::Parse(
                 !ReadString(commandValue, "requires", false, command.Requires, error) ||
                 !ReadString(commandValue, "icon", false, command.Icon, error) ||
                 !ReadString(commandValue, "iconDark", false, command.IconDark, error) ||
+                !ReadString(commandValue, "requiresExecutable", false, command.RequiresExecutable, error) ||
                 !ReadBoolean(commandValue, "contextMenu", false, command.ContextMenu, error) ||
                 !ReadBoolean(commandValue, "toolbar", false, command.Toolbar, error) ||
                 !ReadBoolean(commandValue, "enabled", true, command.Enabled, error) ||
@@ -1310,6 +1311,13 @@ bool CExtensionManifest::Parse(
                 (!command.IconDark.empty() && !IsSvgAssetPath(command.IconDark)))
             {
                 return SetValidationError(error, "Command icon and iconDark must be safe relative SVG paths inside the extension");
+            }
+            if (!command.RequiresExecutable.empty() &&
+                !IsIdentifier(command.RequiresExecutable))
+            {
+                return SetValidationError(
+                    error,
+                    "Command requiresExecutable must be a file name without a path");
             }
             if (!ValidateEnum(command.Menu, menus, _countof(menus), "menu", error) ||
                 !ValidateEnum(command.Requires, requirements, _countof(requirements), "requires", error))

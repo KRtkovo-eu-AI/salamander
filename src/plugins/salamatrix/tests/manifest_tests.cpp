@@ -54,6 +54,7 @@ static void TestCompleteManifest()
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
         "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\","
         "\"icon\":\"assets/first.svg\",\"iconDark\":\"assets/first-dark.svg\","
+        "\"requiresExecutable\":\"example.exe\","
         "\"enabled\":false,\"visible\":true},"
         "{\"id\":\"Example.Second\",\"title\":\"Second\",\"placement\":\"context\","
         "\"visible\":false}"
@@ -105,10 +106,18 @@ static void TestCompleteManifest()
     CHECK(manifest.Commands[0].Toolbar);
     CHECK(manifest.Commands[0].Icon == "assets/first.svg");
     CHECK(manifest.Commands[0].IconDark == "assets/first-dark.svg");
+    CHECK(manifest.Commands[0].RequiresExecutable == "example.exe");
     CHECK(!manifest.Commands[0].Enabled);
     CHECK(manifest.Commands[0].Visible);
     CHECK(manifest.Commands[1].Menu == "context");
     CHECK(!manifest.Commands[1].Visible);
+
+    const char* invalidExecutable =
+        "{\"id\":\"Example.InvalidExecutable\",\"runtime\":\"PowerShell\","
+        "\"entryPoint\":\"main.ps1\",\"commands\":["
+        "{\"requiresExecutable\":\"tools\\\\example.exe\"}]}";
+    CHECK(!Parse(invalidExecutable, manifest, error));
+    CHECK(!error.Message.empty());
 }
 
 static void TestDefaults()

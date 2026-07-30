@@ -2554,6 +2554,10 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
         if (strlen(button->StableId) < 512)
             stableId = button->StableId;
     }
+    const DWORD enabledEnd = static_cast<DWORD>(offsetof(
+        CSalamanderToolbarButton, Enabled) + sizeof(BOOL));
+    const BOOL enabled =
+        button->StructSize >= enabledEnd ? button->Enabled : TRUE;
 
     for (int index = 0; index < ToolbarButtons.Count; ++index)
     {
@@ -2562,6 +2566,7 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
         {
             lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
             item.SetIcons(button->IconPath, button->IconDarkPath);
+            item.Enabled = enabled;
             if (stableId != NULL)
                 lstrcpynA(item.StableId, stableId, ARRAYSIZE(item.StableId));
             if (MainWindow != NULL)
@@ -2577,6 +2582,7 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
     item.Owner = owner;
     item.ToolbarId = NextToolbarButtonId++;
     item.CommandId = button->CommandId;
+    item.Enabled = enabled;
     lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
     item.SetIcons(button->IconPath, button->IconDarkPath);
     if (stableId != NULL)
@@ -2644,7 +2650,8 @@ void CPlugins::UnregisterToolbarButtons(CPluginInterfaceAbstract* owner)
 }
 
 BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
-                                    const char** title, int* imageIndex)
+                                    const char** title, int* imageIndex,
+                                    BOOL* enabled)
 {
     if (index < 0 || index >= ToolbarButtons.Count ||
         toolbarId == NULL || title == NULL || imageIndex == NULL)
@@ -2652,6 +2659,8 @@ BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
     *toolbarId = ToolbarButtons[index].ToolbarId;
     *title = ToolbarButtons[index].Title;
     *imageIndex = ToolbarButtons[index].ImageIndex;
+    if (enabled != NULL)
+        *enabled = ToolbarButtons[index].Enabled;
     return TRUE;
 }
 
@@ -2872,6 +2881,8 @@ BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
         CPluginToolbarButton& item = ToolbarButtons[index];
         if (item.ToolbarId != toolbarId)
             continue;
+        if (!item.Enabled)
+            return TRUE;
 
         int pluginIndex = GetIndex(item.Owner);
         CPluginData* plugin = pluginIndex >= 0 ? Get(pluginIndex) : NULL;

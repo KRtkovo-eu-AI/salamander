@@ -2863,6 +2863,7 @@ struct CPluginToolbarButton
     char* IconDarkPath;
     char StableId[512];
     int ImageIndex;
+    BOOL Enabled;
 
     CPluginToolbarButton()
         : Owner(NULL),
@@ -2870,7 +2871,8 @@ struct CPluginToolbarButton
           CommandId(0),
           IconPath(NULL),
           IconDarkPath(NULL),
-          ImageIndex(-1)
+          ImageIndex(-1),
+          Enabled(TRUE)
     {
         Title[0] = 0;
         StableId[0] = 0;
@@ -2882,7 +2884,8 @@ struct CPluginToolbarButton
           CommandId(other.CommandId),
           IconPath(other.IconPath != NULL ? _strdup(other.IconPath) : NULL),
           IconDarkPath(other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL),
-          ImageIndex(other.ImageIndex)
+          ImageIndex(other.ImageIndex),
+          Enabled(other.Enabled)
     {
         memcpy(Title, other.Title, sizeof(Title));
         memcpy(StableId, other.StableId, sizeof(StableId));
@@ -2900,6 +2903,7 @@ struct CPluginToolbarButton
             IconPath = other.IconPath != NULL ? _strdup(other.IconPath) : NULL;
             IconDarkPath = other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL;
             ImageIndex = other.ImageIndex;
+            Enabled = other.Enabled;
             memcpy(Title, other.Title, sizeof(Title));
             memcpy(StableId, other.StableId, sizeof(StableId));
         }
@@ -3093,7 +3097,8 @@ public:
                                  int commandId);
     int GetToolbarButtonCount() const { return ToolbarButtons.Count; }
     BOOL GetToolbarButtonInfo(int index, DWORD* toolbarId,
-                              const char** title, int* imageIndex);
+                              const char** title, int* imageIndex,
+                              BOOL* enabled = NULL);
     BOOL GetExtensionBarVisible(int index);
     BOOL GetExtensionBarVisible(const char* stableId) const;
     BOOL HasExtensionBarButton(const char* stableId);

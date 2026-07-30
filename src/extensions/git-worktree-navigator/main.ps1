@@ -12,6 +12,44 @@ namespace OpenSalamander.Extensions
 {
     public static class DarkModeNativeMethods
     {
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int SetPreferredAppModeDelegate(int appMode);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private delegate bool AllowDarkModeForAppDelegate(
+            [MarshalAs(UnmanagedType.Bool)] bool allow);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private delegate bool AllowDarkModeForWindowDelegate(
+            IntPtr hwnd, [MarshalAs(UnmanagedType.Bool)] bool allow);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate void RefreshImmersiveColorPolicyStateDelegate();
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct RtlOsVersionInfo
+        {
+            internal uint Size;
+            internal uint Major;
+            internal uint Minor;
+            internal uint Build;
+            internal uint Platform;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            internal string ServicePack;
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr LoadLibrary(string fileName);
+
+        [DllImport("kernel32.dll", ExactSpelling = true)]
+        private static extern IntPtr GetProcAddress(
+            IntPtr module, IntPtr ordinal);
+
+        [DllImport("ntdll.dll", CharSet = CharSet.Unicode)]
+        private static extern int RtlGetVersion(ref RtlOsVersionInfo version);
+
         [DllImport("dwmapi.dll")]
         public static extern int DwmSetWindowAttribute(
             IntPtr hwnd, int attribute, ref int value, int valueSize);
@@ -19,6 +57,71 @@ namespace OpenSalamander.Extensions
         [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
         public static extern int SetWindowTheme(
             IntPtr hwnd, string subAppName, string subIdList);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SendMessage(
+            IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+
+        private static int GetWindowsBuild()
+        {
+            RtlOsVersionInfo version = new RtlOsVersionInfo();
+            version.Size = (uint)Marshal.SizeOf(typeof(RtlOsVersionInfo));
+            return RtlGetVersion(ref version) == 0 ? (int)version.Build : 0;
+        }
+
+        public static void EnableImmersiveDarkMode()
+        {
+            int build = GetWindowsBuild();
+            if (build < 17763)
+                return;
+            IntPtr module = LoadLibrary("uxtheme.dll");
+            if (module == IntPtr.Zero)
+                return;
+
+            IntPtr preferred = GetProcAddress(module, new IntPtr(135));
+            if (preferred != IntPtr.Zero)
+            {
+                if (build >= 18362)
+                {
+                    SetPreferredAppModeDelegate call =
+                        (SetPreferredAppModeDelegate)Marshal.GetDelegateForFunctionPointer(
+                            preferred, typeof(SetPreferredAppModeDelegate));
+                    call(1); // PreferredAppMode.AllowDark
+                }
+                else
+                {
+                    AllowDarkModeForAppDelegate call =
+                        (AllowDarkModeForAppDelegate)Marshal.GetDelegateForFunctionPointer(
+                            preferred, typeof(AllowDarkModeForAppDelegate));
+                    call(true);
+                }
+            }
+
+            IntPtr refresh = GetProcAddress(module, new IntPtr(104));
+            if (refresh != IntPtr.Zero)
+            {
+                RefreshImmersiveColorPolicyStateDelegate call =
+                    (RefreshImmersiveColorPolicyStateDelegate)Marshal.GetDelegateForFunctionPointer(
+                        refresh, typeof(RefreshImmersiveColorPolicyStateDelegate));
+                call();
+            }
+        }
+
+        public static void AllowImmersiveDarkMode(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero || GetWindowsBuild() < 17763)
+                return;
+            IntPtr module = LoadLibrary("uxtheme.dll");
+            IntPtr proc = module != IntPtr.Zero
+                ? GetProcAddress(module, new IntPtr(133))
+                : IntPtr.Zero;
+            if (proc == IntPtr.Zero)
+                return;
+            AllowDarkModeForWindowDelegate call =
+                (AllowDarkModeForWindowDelegate)Marshal.GetDelegateForFunctionPointer(
+                    proc, typeof(AllowDarkModeForWindowDelegate));
+            call(hwnd, true);
+        }
     }
 }
 '@
@@ -30,6 +133,7 @@ function Set-ExtensionDarkMode {
     if (-not $script:UseWindowsDarkMode) { return }
 
     Initialize-ExtensionDarkMode
+    [OpenSalamander.Extensions.DarkModeNativeMethods]::EnableImmersiveDarkMode()
     $background = [System.Drawing.Color]::FromArgb(32, 32, 32)
     $surface = [System.Drawing.Color]::FromArgb(45, 45, 48)
     $input = [System.Drawing.Color]::FromArgb(37, 37, 38)
@@ -46,10 +150,12 @@ function Set-ExtensionDarkMode {
         $control.ForeColor = $text
 
         if ($control -is [System.Windows.Forms.Button]) {
-            $control.UseVisualStyleBackColor = $false
-            $control.FlatStyle = 'Flat'
-            $control.BackColor = $surface
-            $control.FlatAppearance.BorderColor = $border
+            $control.UseVisualStyleBackColor = $true
+            $control.FlatStyle = 'System'
+        } elseif (
+            $control -is [System.Windows.Forms.CheckBox] -or
+            $control -is [System.Windows.Forms.RadioButton]) {
+            $control.FlatStyle = 'System'
         } elseif (
             $control -is [System.Windows.Forms.TextBox] -or
             $control -is [System.Windows.Forms.RichTextBox] -or
@@ -72,8 +178,24 @@ function Set-ExtensionDarkMode {
         }
 
         try {
-            [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SetWindowTheme(
-                $control.Handle, 'DarkMode_Explorer', $null)
+            [OpenSalamander.Extensions.DarkModeNativeMethods]::AllowImmersiveDarkMode(
+                $control.Handle)
+            $theme = $null
+            if ($control -is [System.Windows.Forms.Button]) {
+                $theme = 'Explorer'
+            } elseif (
+                $control -is [System.Windows.Forms.TextBox] -or
+                $control -is [System.Windows.Forms.RichTextBox] -or
+                $control -is [System.Windows.Forms.ComboBox] -or
+                $control -is [System.Windows.Forms.DataGridView]) {
+                $theme = 'DarkMode_Explorer'
+            }
+            if ($null -ne $theme) {
+                [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SetWindowTheme(
+                    $control.Handle, $theme, $null)
+                [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SendMessage(
+                    $control.Handle, 0x031A, [IntPtr]::Zero, [IntPtr]::Zero)
+            }
         } catch {}
         foreach ($child in $control.Controls) {
             $controls.Push($child)
@@ -89,6 +211,8 @@ function Set-ExtensionDarkMode {
             [void][OpenSalamander.Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
                 $Form.Handle, 19, [ref]$enable, 4)
         }
+        [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SendMessage(
+            $Form.Handle, 0x031A, [IntPtr]::Zero, [IntPtr]::Zero)
     } catch {}
 }
 
@@ -1075,15 +1199,20 @@ if ($Salamander.command_handler -eq 'open' -or
     $Salamander.command_handler -eq 'commit') {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
-    [System.Windows.Forms.Application]::EnableVisualStyles()
 
     try {
-        $language = $Salamander.application.Language()
-        $script:Strings = Get-NavigatorStrings -Locale $language.locale
         $appearance = $Salamander.application.Appearance()
         $darkProperty = $appearance.PSObject.Properties['windowsDarkMode']
         $script:UseWindowsDarkMode =
             $null -ne $darkProperty -and [bool]$darkProperty.Value
+        if ($script:UseWindowsDarkMode) {
+            Initialize-ExtensionDarkMode
+            [OpenSalamander.Extensions.DarkModeNativeMethods]::EnableImmersiveDarkMode()
+        }
+        [System.Windows.Forms.Application]::EnableVisualStyles()
+
+        $language = $Salamander.application.Language()
+        $script:Strings = Get-NavigatorStrings -Locale $language.locale
         $git = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue |
             Select-Object -First 1
         if ($null -eq $git) {

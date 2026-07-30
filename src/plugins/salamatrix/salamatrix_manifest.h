@@ -44,6 +44,9 @@ struct CExtensionManifestCommand
     // icon is used so existing manifests retain their current appearance.
     std::string Icon;
     std::string IconDark;
+    // Optional executable name that must be discoverable through PATH before
+    // this command can be invoked.
+    std::string RequiresExecutable;
     bool ContextMenu;
     bool Toolbar;
     // Initial menu state. Persistent workers may update it later through the

@@ -76,6 +76,7 @@ def main() -> int:
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
     salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
+    manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
     api_docs = read("src/plugins/salamatrix/salamatrix_api_docs.h")
     general_contract = read("src/plugins/shared/spl_gen.h")
@@ -625,15 +626,50 @@ def main() -> int:
         "Git Worktree Navigator commit flow is incomplete")
     require(
         navigator,
+        r"SetPreferredAppModeDelegate.*?"
+        r"AllowDarkModeForWindowDelegate.*?"
         r"Set-ExtensionDarkMode.*?"
+        r"FlatStyle\s*=\s*'System'.*?"
         r"EnableHeadersVisualStyles\s*=\s*\$false.*?"
         r"DwmSetWindowAttribute.*?"
         r"application\.Appearance\(\).*?windowsDarkMode",
         "Git Worktree Navigator does not follow Salamander's explicit Windows dark scheme")
+    require(
+        navigator,
+        r"application\.Appearance\(\).*?EnableImmersiveDarkMode\(\).*?"
+        r"Application\]::EnableVisualStyles\(\)",
+        "Git Worktree Navigator enables WinForms visual styles before its dark-mode process opt-in")
+    require(
+        navigator,
+        r"\$theme\s*=\s*'Explorer'.*?"
+        r"\$theme\s*=\s*'DarkMode_Explorer'.*?"
+        r"SetWindowTheme\(.*?\$theme.*?"
+        r"SendMessage\(.*?0x031A",
+        "Git Worktree Navigator does not refresh controls with class-appropriate visual themes")
     require_absent(
         navigator,
-        r"FolderBrowserDialog|System\.Windows\.Forms\.MessageBox",
+        r"FolderBrowserDialog|System\.Windows\.Forms\.MessageBox|"
+        r"FlatStyle\s*=\s*'Flat'",
         "Git Worktree Navigator still opens an unthemed WinForms system dialog")
+    if any(command.get("requiresExecutable") != "git.exe"
+           for command in navigator_manifest.get("commands", [])):
+        raise AssertionError(
+            "Git Worktree Navigator commands are not gated by git.exe")
+    require(
+        manifest + packages,
+        r"requiresExecutable.*?RequiresExecutable.*?"
+        r"SearchPathW.*?command\.Enabled = false",
+        "manifest executable requirements do not disable unavailable commands")
+    require(
+        packages,
+        r"GetMenuItemState.*?Commands\[c\]\.Enabled.*?"
+        r"button\.Enabled = command\.Enabled",
+        "unavailable extension commands are not disabled in menus and toolbars")
+    require(
+        general_contract + plugins2 + toolbar8,
+        r"BOOL Enabled.*?button->Enabled.*?"
+        r"TLBI_STATE_GRAYED",
+        "Extension Bar does not propagate disabled command state")
     command_ids = {
         command.get("id") for command in navigator_manifest.get("commands", [])
     }
@@ -711,15 +747,36 @@ def main() -> int:
             "File Lock Inspector is not available in Extension Bar")
     require(
         lock_inspector,
+        r"SetPreferredAppModeDelegate.*?"
+        r"AllowDarkModeForWindowDelegate.*?"
         r"Set-ExtensionDarkMode.*?"
+        r"FlatStyle\s*=\s*'System'.*?"
         r"EnableHeadersVisualStyles\s*=\s*\$false.*?"
         r"DwmSetWindowAttribute.*?"
         r"application\.Appearance\(\).*?windowsDarkMode",
         "File Lock Inspector does not follow Salamander's explicit Windows dark scheme")
+    require(
+        lock_inspector,
+        r"application\.Appearance\(\).*?EnableImmersiveDarkMode\(\).*?"
+        r"Application\]::EnableVisualStyles\(\)",
+        "File Lock Inspector enables WinForms visual styles before its dark-mode process opt-in")
+    require(
+        lock_inspector,
+        r"\$theme\s*=\s*'Explorer'.*?"
+        r"\$theme\s*=\s*'DarkMode_Explorer'.*?"
+        r"SetWindowTheme\(.*?\$theme.*?"
+        r"SendMessage\(.*?0x031A",
+        "File Lock Inspector does not refresh controls with class-appropriate visual themes")
     require_absent(
         lock_inspector,
-        r"System\.Windows\.Forms\.MessageBox",
+        r"System\.Windows\.Forms\.MessageBox|FlatStyle\s*=\s*'Flat'",
         "File Lock Inspector still opens an unthemed WinForms message box")
+    require(
+        lock_inspector,
+        r"if \(\$paths\.Count -eq 0\).*?"
+        r"ui\.MessageBox\(.*?selectFile.*?"
+        r"Initialize-RestartManager",
+        "File Lock Inspector does not explain unsupported panel selections")
     require(
         salamatrix,
         r"SalamanderLanguageID\s*=\s*salamander->GetCurrentSalamanderLanguageID",

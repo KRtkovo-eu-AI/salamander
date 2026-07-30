@@ -35,6 +35,7 @@
       "menu": "both",
       "contextMenu": true,
       "toolbar": true,
+      "requiresExecutable": "git.exe",
       "requires": "disk"
     },
     {
@@ -44,6 +45,7 @@
       "menu": "both",
       "contextMenu": true,
       "toolbar": false,
+      "requiresExecutable": "git.exe",
       "requires": "disk"
     }
   ]

@@ -198,6 +198,17 @@ static Automation::IScriptRunner* QueryScriptRunner(
         return NULL;
     return static_cast<Automation::IScriptRunner*>(result.Interface);
 }
+
+static bool IsExecutableAvailable(const std::string& executable)
+{
+    if (executable.empty())
+        return true;
+    std::wstring name(executable.begin(), executable.end());
+    wchar_t path[32768];
+    const DWORD length = SearchPathW(
+        NULL, name.c_str(), NULL, _countof(path), path, NULL);
+    return length > 0 && length < _countof(path);
+}
 }
 
 struct PackageManager::Package
@@ -260,8 +271,13 @@ public:
                 continue;
             for (size_t c = 0; c < package->CommandIds.size(); ++c)
             {
-                if (package->CommandIds[c] == id)
-                    return MENU_ITEM_STATE_ENABLED;
+                if (package->CommandIds[c] == id &&
+                    c < package->Manifest.Commands.size())
+                {
+                    return package->Manifest.Commands[c].Enabled
+                               ? MENU_ITEM_STATE_ENABLED
+                               : 0;
+                }
             }
         }
         return 0;
@@ -292,6 +308,8 @@ public:
                 {
                     const CExtensionManifestCommand& command =
                         package->Manifest.Commands[c];
+                    if (!command.Enabled)
+                        return FALSE;
                     return Owner->ExecuteCommand(
                         package, salamander,
                         command.Id.c_str(), command.Handler.c_str());
@@ -319,8 +337,9 @@ public:
             if (!Owner->Packages[p]->RuntimeUsable)
                 continue;
             for (size_t c = 0; c < Owner->Packages[p]->Manifest.Commands.size(); ++c)
-                if (Owner->Packages[p]->Manifest.Commands[c].Menu == "plugin" ||
-                    Owner->Packages[p]->Manifest.Commands[c].Menu == "both")
+                if (Owner->Packages[p]->Manifest.Commands[c].Visible &&
+                    (Owner->Packages[p]->Manifest.Commands[c].Menu == "plugin" ||
+                     Owner->Packages[p]->Manifest.Commands[c].Menu == "both"))
                     ++iconCount;
         }
 
@@ -350,7 +369,8 @@ public:
             for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
             {
                 const std::string& menu = package->Manifest.Commands[c].Menu;
-                if (menu == "plugin" || menu == "both")
+                if (package->Manifest.Commands[c].Visible &&
+                    (menu == "plugin" || menu == "both"))
                     ++packageMenuCommandCount;
             }
             if (packageMenuCommandCount > 1)
@@ -370,7 +390,8 @@ public:
             {
                 const CExtensionManifestCommand& command =
                     package->Manifest.Commands[c];
-                if (command.Menu != "plugin" && command.Menu != "both")
+                if (!command.Visible ||
+                    (command.Menu != "plugin" && command.Menu != "both"))
                     continue;
                 char title[256];
                 StringCchCopyA(title, _countof(title), command.Title.c_str());
@@ -636,6 +657,20 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                                 if (!translated->Group.empty())
                                     setting.Group = translated->Group;
                             }
+                        }
+                    }
+                    for (size_t commandIndex = 0;
+                         commandIndex < manifest.Commands.size();
+                         ++commandIndex)
+                    {
+                        CExtensionManifestCommand& command =
+                            manifest.Commands[commandIndex];
+                        if (command.Enabled &&
+                            !command.RequiresExecutable.empty() &&
+                            !IsExecutableAvailable(
+                                command.RequiresExecutable))
+                        {
+                            command.Enabled = false;
                         }
                     }
                     Package* package = new Package(this);
@@ -1411,7 +1446,7 @@ void PackageManager::RegisterToolbarButtons()
         for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
         {
             const CExtensionManifestCommand& command = package->Manifest.Commands[c];
-            if (!command.Toolbar)
+            if (!command.Toolbar || !command.Visible)
                 continue;
             CSalamanderToolbarButton button;
             button.CommandId = package->CommandIds[c];
@@ -1419,6 +1454,7 @@ void PackageManager::RegisterToolbarButtons()
             button.IconPath = package->IconPath.c_str();
             button.IconDarkPath = package->IconDarkPath.empty() ? NULL : package->IconDarkPath.c_str();
             button.StableId = package->Id.c_str();
+            button.Enabled = command.Enabled ? TRUE : FALSE;
             General->RegisterToolbarButton(&button);
         }
     }

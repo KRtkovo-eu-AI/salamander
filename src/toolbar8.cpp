@@ -139,14 +139,17 @@ BOOL CExtensionBar::CreateExtensionButtons(HIMAGELIST imageList,
         DWORD toolbarId;
         const char* title;
         int imageIndex;
-        if (!Plugins.GetToolbarButtonInfo(index, &toolbarId, &title, &imageIndex) ||
+        BOOL enabled;
+        if (!Plugins.GetToolbarButtonInfo(
+                index, &toolbarId, &title, &imageIndex, &enabled) ||
             !Plugins.GetExtensionBarVisible(index))
             continue;
 
         TLBI_ITEM_INFO2 tii;
         tii.Mask = TLBI_MASK_STYLE | TLBI_MASK_ID | TLBI_MASK_CUSTOMDATA |
-                   TLBI_MASK_TEXT | TLBI_MASK_TEXTLEN;
+                   TLBI_MASK_TEXT | TLBI_MASK_TEXTLEN | TLBI_MASK_STATE;
         tii.Style = TLBI_STYLE_NOPREFIX | TLBI_STYLE_DARK_DISABLED_IMAGE_TEXT;
+        tii.State = enabled ? 0 : TLBI_STATE_GRAYED;
         if (imageIndex >= 0)
         {
             tii.Mask |= TLBI_MASK_IMAGEINDEX;
