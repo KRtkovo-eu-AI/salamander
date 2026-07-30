@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <sstream>
 
 namespace Salamatrix
 {
@@ -30,6 +31,136 @@ struct MainThreadDispatch
 };
 
 static __declspec(thread) MainThreadDispatch* CurrentMainThreadDispatch = NULL;
+
+static std::string JsonEscape(const char* value)
+{
+    std::string result;
+    const unsigned char* current =
+        reinterpret_cast<const unsigned char*>(value != NULL ? value : "");
+    while (*current != 0)
+    {
+        switch (*current)
+        {
+        case '"':
+            result += "\\\"";
+            break;
+        case '\\':
+            result += "\\\\";
+            break;
+        case '\b':
+            result += "\\b";
+            break;
+        case '\f':
+            result += "\\f";
+            break;
+        case '\n':
+            result += "\\n";
+            break;
+        case '\r':
+            result += "\\r";
+            break;
+        case '\t':
+            result += "\\t";
+            break;
+        default:
+            if (*current < 0x20)
+            {
+                char escaped[7];
+                _snprintf_s(
+                    escaped, _countof(escaped), _TRUNCATE,
+                    "\\u%04x", static_cast<unsigned int>(*current));
+                result += escaped;
+            }
+            else
+            {
+                result.push_back(static_cast<char>(*current));
+            }
+            break;
+        }
+        ++current;
+    }
+    return result;
+}
+
+static std::string CurrentSalamanderLocale(
+    CSalamanderGeneralAbstract* general, WORD* languageId = NULL)
+{
+    WORD id = general != NULL
+                  ? general->GetCurrentSalamanderLanguageID()
+                  : MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+    if (id == 0)
+        id = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+    if (languageId != NULL)
+        *languageId = id;
+
+    WCHAR localeName[LOCALE_NAME_MAX_LENGTH];
+    if (LCIDToLocaleName(
+            MAKELCID(id, SORT_DEFAULT), localeName,
+            _countof(localeName), 0) == 0)
+    {
+        return "en-US";
+    }
+    int length = WideCharToMultiByte(
+        CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
+    if (length <= 1)
+        return "en-US";
+    std::vector<char> utf8(static_cast<size_t>(length));
+    if (WideCharToMultiByte(
+            CP_UTF8, 0, localeName, -1, &utf8[0], length,
+            NULL, NULL) == 0)
+    {
+        return "en-US";
+    }
+    return std::string(&utf8[0]);
+}
+
+static int LocaleMatchScore(
+    const std::string& available, const std::string& preferred)
+{
+    const size_t availableSeparator = available.find('-');
+    const std::string availablePrimary =
+        available.substr(0, availableSeparator);
+    if (_stricmp(available.c_str(), preferred.c_str()) == 0)
+        return 4;
+    const size_t preferredSeparator = preferred.find('-');
+    const std::string preferredPrimary =
+        preferred.substr(0, preferredSeparator);
+    if (_stricmp(availablePrimary.c_str(), preferredPrimary.c_str()) == 0)
+        return availableSeparator == std::string::npos ? 3 : 2;
+    return _stricmp(availablePrimary.c_str(), "en") == 0 ? 1 : 0;
+}
+
+static const char* FindLocalizedCommandTitle(
+    const CExtensionManifestLocaleText& localized,
+    const std::string& commandId)
+{
+    for (size_t index = 0; index < localized.Commands.size(); ++index)
+    {
+        if (_stricmp(
+                localized.Commands[index].Id.c_str(),
+                commandId.c_str()) == 0)
+        {
+            return localized.Commands[index].Title.c_str();
+        }
+    }
+    return NULL;
+}
+
+static const CExtensionManifestLocalizedSetting* FindLocalizedSetting(
+    const CExtensionManifestLocaleText& localized,
+    const std::string& key)
+{
+    for (size_t index = 0; index < localized.Settings.size(); ++index)
+    {
+        if (_stricmp(
+                localized.Settings[index].Key.c_str(),
+                key.c_str()) == 0)
+        {
+            return &localized.Settings[index];
+        }
+    }
+    return NULL;
+}
 
 static Automation::IScriptRunner* QueryScriptRunner(
     CSalamanderGeneralAbstract* general)
@@ -249,6 +380,7 @@ PackageManager::PackageManager()
     : General(NULL),
       Runtimes(NULL),
       Extensions(NULL),
+      Sides(NULL),
       Storage(NULL),
       UI(NULL),
       Menu(NULL)
@@ -264,19 +396,22 @@ BOOL PackageManager::Initialize(
     CSalamanderGeneralAbstract* general,
     Runtime::IRuntimeService* runtimes,
     Extensions::IExtensionsService* extensions,
+    Sides::ISidesService* sides,
     Storage::IStorageService* storage,
     UI::IUIService* ui)
 {
     General = general;
     Runtimes = runtimes;
     Extensions = extensions;
+    Sides = sides;
     Storage = storage;
     UI = ui;
     if (Menu == NULL)
         Menu = new MenuExtension(this);
     if (Extensions != NULL)
         Extensions->SetRefreshCallback(RefreshCallback, this);
-    return General != NULL && Runtimes != NULL && Extensions != NULL;
+    return General != NULL && Runtimes != NULL && Extensions != NULL &&
+           Sides != NULL;
 }
 
 void PackageManager::Shutdown()
@@ -291,6 +426,7 @@ void PackageManager::Shutdown()
     General = NULL;
     Runtimes = NULL;
     Extensions = NULL;
+    Sides = NULL;
     Storage = NULL;
     UI = NULL;
 }
@@ -380,6 +516,80 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                 if (manifest.Parse(json.data(), json.size(), error) &&
                     CExtensionManifest::IsSafeRelativeEntryPoint(manifest.EntryPoint))
                 {
+                    const std::string baseName = manifest.Name;
+                    const std::string preferred =
+                        CurrentSalamanderLocale(General);
+                    int selectedLocale = -1;
+                    int bestLocaleScore = 0;
+                    for (size_t localeIndex = 0;
+                         localeIndex < manifest.Locales.size();
+                         ++localeIndex)
+                    {
+                        const int score = LocaleMatchScore(
+                            manifest.Locales[localeIndex].Language,
+                            preferred);
+                        if (score > bestLocaleScore)
+                        {
+                            selectedLocale =
+                                static_cast<int>(localeIndex);
+                            bestLocaleScore = score;
+                        }
+                    }
+                    if (selectedLocale >= 0)
+                    {
+                        std::wstring localeRelative;
+                        std::string localeJson;
+                        CExtensionManifestLocaleText localized;
+                        CExtensionManifestError localeError;
+                        if (ToWide(
+                                manifest.Locales[selectedLocale].File,
+                                &localeRelative) &&
+                            ReadUtf8File(
+                                path + L"\\" + localeRelative,
+                                &localeJson) &&
+                            CExtensionManifest::ParseLocaleText(
+                                localeJson.data(), localeJson.size(),
+                                localized, localeError))
+                        {
+                            if (!localized.Name.empty())
+                                manifest.Name = localized.Name;
+                            for (size_t commandIndex = 0;
+                                 commandIndex < manifest.Commands.size();
+                                 ++commandIndex)
+                            {
+                                const char* title =
+                                    FindLocalizedCommandTitle(
+                                        localized,
+                                        manifest.Commands[commandIndex].Id);
+                                if (title != NULL)
+                                    manifest.Commands[commandIndex].Title = title;
+                                else if (
+                                    manifest.Commands[commandIndex].Title ==
+                                    baseName)
+                                    manifest.Commands[commandIndex].Title =
+                                        manifest.Name;
+                            }
+                            for (size_t settingIndex = 0;
+                                 settingIndex < manifest.Settings.size();
+                                 ++settingIndex)
+                            {
+                                CExtensionManifestSetting& setting =
+                                    manifest.Settings[settingIndex];
+                                const CExtensionManifestLocalizedSetting*
+                                    translated = FindLocalizedSetting(
+                                        localized, setting.Key);
+                                if (translated == NULL)
+                                    continue;
+                                if (!translated->Label.empty())
+                                    setting.Label = translated->Label;
+                                if (!translated->Description.empty())
+                                    setting.Description =
+                                        translated->Description;
+                                if (!translated->Group.empty())
+                                    setting.Group = translated->Group;
+                            }
+                        }
+                    }
                     Package* package = new Package(this);
                     package->Manifest = manifest;
                     package->Directory = path;
@@ -743,6 +953,100 @@ BOOL WINAPI PackageManager::HostDispatch(
     std::string method;
     if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "method", &method))
         return FALSE;
+    if (method == "salamander.host.language")
+    {
+        WORD languageId = 0;
+        const std::string locale =
+            CurrentSalamanderLocale(owner->General, &languageId);
+        return CopyResult(
+            std::string("{\"ok\":true,\"locale\":\"") +
+                JsonEscape(locale.c_str()) +
+                "\",\"languageId\":" +
+                std::to_string(static_cast<unsigned int>(languageId)) + "}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.sides.context")
+    {
+        std::string sideName;
+        Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        Sides::SideReference side = Sides::SideReferenceSource;
+        if (_stricmp(sideName.c_str(), "left") == 0)
+            side = Sides::SideReferenceLeft;
+        else if (_stricmp(sideName.c_str(), "right") == 0)
+            side = Sides::SideReferenceRight;
+        else if (_stricmp(sideName.c_str(), "target") == 0)
+            side = Sides::SideReferenceTarget;
+        if (owner->Sides == NULL)
+            return FALSE;
+        char path[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
+        path[0] = '\0';
+        int pathType = 0;
+        if (!owner->Sides->GetPath(
+                side, path, _countof(path), &pathType))
+            return FALSE;
+        return CopyResult(
+            std::string("{\"ok\":true,\"path\":\"") +
+                JsonEscape(path) +
+                "\",\"pathType\":" + std::to_string(pathType) +
+                ",\"selectedCount\":" +
+                std::to_string(owner->Sides->GetSelectedItemCount(side)) +
+                ",\"selectedItems\":[],\"focusedItem\":null}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.sides.createTab")
+    {
+        if (owner->Sides == NULL)
+            return FALSE;
+        std::string sideName;
+        std::string path;
+        int index = -1;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "side", &sideName) ||
+            !Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "path", &path))
+        {
+            return FALSE;
+        }
+        Runtime::Protocol::Json::FindIntegerMember(
+            payloadJson, "index", &index);
+        Sides::SideReference side = Sides::SideReferenceSource;
+        if (_stricmp(sideName.c_str(), "left") == 0)
+            side = Sides::SideReferenceLeft;
+        else if (_stricmp(sideName.c_str(), "right") == 0)
+            side = Sides::SideReferenceRight;
+        else if (_stricmp(sideName.c_str(), "target") == 0)
+            side = Sides::SideReferenceTarget;
+        ULONGLONG tabId = 0;
+        const BOOL created = owner->Sides->CreateTab(
+            side, path.c_str(), index, &tabId);
+        char id[32];
+        _ui64toa_s(tabId, id, _countof(id), 10);
+        return CopyResult(
+            std::string("{\"created\":") +
+                (created ? "true" : "false") +
+                ",\"tabId\":\"" + id + "\"}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.clipboard.copyText")
+    {
+        std::string text;
+        BOOL showEcho = FALSE;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "text", &text) ||
+            owner->UI == NULL)
+        {
+            return FALSE;
+        }
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "showEcho", &showEcho);
+        const BOOL copied = owner->UI->CopyTextToClipboard(
+            text.c_str(), showEcho, owner->General->GetMsgBoxParent());
+        return CopyResult(
+            std::string("{\"ok\":true,\"copied\":") +
+                (copied ? "true}" : "false}"),
+            resultJson, resultCapacity, resultLength);
+    }
     if (method == "salamander.ui.notify")
     {
         std::string title, message;

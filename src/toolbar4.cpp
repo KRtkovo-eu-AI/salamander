@@ -1353,7 +1353,7 @@ CBottomTBData BottomTBData[btbsCount][12] =
             {TBBE_TERMINATOR},         // F2
             {NIB3(TBBE_OPEN_ACTIVE)},  // F3
             {TBBE_EDITNEW},            // F4
-            {TBBE_TERMINATOR},         // F5
+            {TBBE_COPY},               // F5
             {TBBE_TERMINATOR},         // F6
             {TBBE_CHANGEDIR},          // F7
             {TBBE_DELETE},             // F8

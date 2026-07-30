@@ -210,6 +210,7 @@
   </ItemGroup>
   <ItemGroup>
     <DemoPackageFiles Include="..\..\..\extensions\demos\**\*.*" />
+    <GitWorktreeNavigatorFiles Include="..\..\..\extensions\git-worktree-navigator\**\*.*" />
     <AutomationProgressDemoFiles Include="..\..\automation\sample-scripts\Salamatrix Progress Demo\**\*.*" />
   </ItemGroup>
   <Target Name="CopySalamatrixDemoPackages" AfterTargets="Build"
@@ -217,6 +218,10 @@
     <MakeDir Directories="$(OutDir)..\..\extensions\demos" />
     <Copy SourceFiles="@(DemoPackageFiles)"
           DestinationFiles="@(DemoPackageFiles->'$(OutDir)..\..\extensions\demos\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)..\..\extensions\git-worktree-navigator" />
+    <Copy SourceFiles="@(GitWorktreeNavigatorFiles)"
+          DestinationFiles="@(GitWorktreeNavigatorFiles->'$(OutDir)..\..\extensions\git-worktree-navigator\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <MakeDir Directories="$(OutDir)..\..\plugins\automation\scripts\Salamatrix Progress Demo" />
     <Copy SourceFiles="@(AutomationProgressDemoFiles)"

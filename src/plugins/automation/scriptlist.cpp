@@ -545,7 +545,14 @@ static BOOL ResolveManifestAssetPath(
 static std::string GetPreferredManifestLocale()
 {
     WCHAR localeName[LOCALE_NAME_MAX_LENGTH];
-    if (GetUserDefaultLocaleName(localeName, _countof(localeName)) == 0)
+    WORD languageId = SalamanderGeneral != NULL
+                          ? SalamanderGeneral->GetCurrentSalamanderLanguageID()
+                          : MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+    if (languageId == 0)
+        languageId = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+    if (LCIDToLocaleName(
+            MAKELCID(languageId, SORT_DEFAULT), localeName,
+            _countof(localeName), 0) == 0)
         return std::string();
     int length = WideCharToMultiByte(
         CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
@@ -1927,6 +1934,37 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
         response += "]}";
         return CopyRuntimeHostResult(
             response, resultJson, resultCapacity, resultLength);
+    }
+
+    if (method == "salamander.host.language")
+    {
+        WORD languageId = SalamanderGeneral != NULL
+                              ? SalamanderGeneral->GetCurrentSalamanderLanguageID()
+                              : MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+        if (languageId == 0)
+            languageId = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+        WCHAR localeName[LOCALE_NAME_MAX_LENGTH];
+        localeName[0] = L'\0';
+        LCIDToLocaleName(
+            MAKELCID(languageId, SORT_DEFAULT), localeName,
+            _countof(localeName), 0);
+        int utf8Length = WideCharToMultiByte(
+            CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
+        std::vector<char> locale(
+            utf8Length > 1 ? static_cast<size_t>(utf8Length) : 6);
+        if (utf8Length <= 1 ||
+            WideCharToMultiByte(
+                CP_UTF8, 0, localeName, -1, &locale[0],
+                utf8Length, NULL, NULL) == 0)
+        {
+            strcpy_s(&locale[0], locale.size(), "en-US");
+        }
+        return CopyRuntimeHostResult(
+            std::string("{\"ok\":true,\"locale\":\"") +
+                JsonEscapeRuntimeText(&locale[0]) +
+                "\",\"languageId\":" +
+                std::to_string(static_cast<unsigned int>(languageId)) + "}",
+            resultJson, resultCapacity, resultLength);
     }
 
     if (method == "runtime.ready")

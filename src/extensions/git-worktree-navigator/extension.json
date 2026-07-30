@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "id": "OpenSalamander.GitWorktreeNavigator",
+  "name": "Git Worktree Navigator",
+  "version": "1.0.0",
+  "description": "Browse, open, create, and safely remove Git worktrees from Open Salamander.",
+  "runtime": "PowerShell",
+  "entryPoint": "main.ps1",
+  "icon": "icon.svg",
+  "iconDark": "icon-dark.svg",
+  "capabilities": [
+    "panels.read",
+    "panels.write",
+    "ui.dialogs",
+    "ui.progress"
+  ],
+  "locales": {
+    "en": "locales/en.json",
+    "cs": "locales/cs.json",
+    "de": "locales/de.json",
+    "es": "locales/es.json",
+    "fr": "locales/fr.json",
+    "hu": "locales/hu.json",
+    "nl": "locales/nl.json",
+    "ro": "locales/ro.json",
+    "ru": "locales/ru.json",
+    "sk": "locales/sk.json",
+    "zh-CN": "locales/zh-CN.json"
+  },
+  "commands": [
+    {
+      "id": "OpenSalamander.GitWorktreeNavigator.open",
+      "title": "Git Worktree Navigator...",
+      "handler": "open",
+      "menu": "both",
+      "contextMenu": true,
+      "toolbar": true,
+      "requires": "disk"
+    }
+  ]
+}

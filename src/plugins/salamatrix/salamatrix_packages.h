@@ -10,6 +10,7 @@
 #include "salamatrix_script_runner.h"
 #include "salamatrix_runtime_api.h"
 #include "salamatrix_extensions.h"
+#include "salamatrix_sides.h"
 #include "salamatrix_storage.h"
 #include "salamatrix_ui.h"
 
@@ -27,6 +28,7 @@ private:
     CSalamanderGeneralAbstract* General;
     Runtime::IRuntimeService* Runtimes;
     Extensions::IExtensionsService* Extensions;
+    Sides::ISidesService* Sides;
     Storage::IStorageService* Storage;
     UI::IUIService* UI;
     std::vector<std::wstring> Roots;
@@ -44,6 +46,7 @@ public:
         CSalamanderGeneralAbstract* general,
         Runtime::IRuntimeService* runtimes,
         Extensions::IExtensionsService* extensions,
+        Sides::ISidesService* sides,
         Storage::IStorageService* storage,
         UI::IUIService* ui);
     void Shutdown();

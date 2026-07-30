@@ -46,11 +46,12 @@ static BOOL CreateRuntimeServices()
     SalamatrixPackages = new Salamatrix::Packages::PackageManager();
     if (SalamatrixPackages == NULL ||
         !SalamatrixPackages->Initialize(
-            SalamanderGeneral,
-            SalamatrixRuntime->Runtimes(),
-            SalamatrixRuntime->Extensions(),
-            SalamatrixRuntime->Storage(),
-            SalamatrixRuntime->UI()))
+             SalamanderGeneral,
+             SalamatrixRuntime->Runtimes(),
+             SalamatrixRuntime->Extensions(),
+             SalamatrixRuntime->Sides(),
+             SalamatrixRuntime->Storage(),
+             SalamatrixRuntime->UI()))
     {
         delete SalamatrixPackages;
         SalamatrixPackages = NULL;

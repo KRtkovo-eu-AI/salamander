@@ -362,6 +362,10 @@ $runtimes = [pscustomobject]@{}
 $runtimes | Add-Member ScriptMethod List {
     (Invoke-Host -Method 'salamander.runtimes.list' -Arguments @{}).runtimes
 }
+$application = [pscustomobject]@{}
+$application | Add-Member ScriptMethod Language {
+    Invoke-Host -Method 'salamander.host.language' -Arguments @{}
+}
 
 $Salamander = [pscustomobject]@{
     command_id = $CommandId
@@ -379,6 +383,7 @@ $Salamander = [pscustomobject]@{
     ai = $ai
     events = $events
     runtimes = $runtimes
+    application = $application
 }
 
 # stdout is reserved for SMX1 frames; discard unassigned PowerShell return
