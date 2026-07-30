@@ -433,6 +433,18 @@ def main() -> int:
             "Salamatrix dialogs do not scope the host dark scrollbar hook to controls")
     require(salamatrix_ui, r"PostMessage\(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS",
             "Salamatrix dialogs apply dark scrollbar scopes during WM_INIT reentrantly")
+    require(salamatrix_ui, r'RegisterNativeDialog\(dialog\).*?'
+                           r'WM_NCDESTROY.*?UnregisterNativeDialog\(dialog\)',
+            "Salamatrix UI provider does not track active native dialog lifetimes")
+    require(salamatrix_ui, r'CloseAllNativeDialogs\(\).*?'
+                           r'ClosingAllNativeDialogs = TRUE.*?'
+                           r'while \(!OpenNativeDialogs\.empty\(\)\).*?'
+                           r'dialog->Close\(\)',
+            "Salamatrix UI provider cannot close active dialogs before DLL unload")
+    require(salamatrix, r'CPluginInterface::Release.*?'
+                        r'CloseAllNativeDialogs\(\).*?'
+                        r'DestroyRuntimeServices\(\)',
+            "Salamatrix unloads native dialog procedures before their HWNDs")
 
     require(packages, r"BOOL RuntimeUsable;", "extension package runtime usability state is missing")
     require(packages, r"plugins.*automation.*scripts", "Automation sample-script extension root is missing")

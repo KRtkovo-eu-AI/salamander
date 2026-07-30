@@ -15,6 +15,26 @@ namespace
 {
 static const UINT WM_SALAMATRIX_APPLY_DARK_SCROLLBARS = WM_APP + 0x3A1;
 static const UINT WM_SALAMATRIX_SPLITTER_MOVED = WM_APP + 0x3A2;
+static std::vector<NativeDialog*> OpenNativeDialogs;
+static BOOL ClosingAllNativeDialogs = FALSE;
+
+static void RegisterNativeDialog(NativeDialog* dialog)
+{
+    if (dialog != NULL)
+        OpenNativeDialogs.push_back(dialog);
+}
+
+static void UnregisterNativeDialog(NativeDialog* dialog)
+{
+    for (size_t index = 0; index < OpenNativeDialogs.size(); ++index)
+    {
+        if (OpenNativeDialogs[index] == dialog)
+        {
+            OpenNativeDialogs.erase(OpenNativeDialogs.begin() + index);
+            return;
+        }
+    }
+}
 
 static BOOL Utf8ToWide(const char* value, std::wstring& result);
 
@@ -1201,7 +1221,7 @@ void WINAPI NativeDialog::Close()
 {
     if (m_pImpl != NULL && m_pImpl->Window != NULL)
     {
-        if (m_pImpl->Options.Modeless)
+        if (m_pImpl->Options.Modeless || ClosingAllNativeDialogs)
             DestroyWindow(m_pImpl->Window);
         else
             EndDialog(m_pImpl->Window, 0);
@@ -1211,6 +1231,25 @@ void WINAPI NativeDialog::Close()
 void WINAPI NativeDialog::Release()
 {
     delete this;
+}
+
+void WINAPI CloseAllNativeDialogs()
+{
+    ClosingAllNativeDialogs = TRUE;
+    while (!OpenNativeDialogs.empty())
+    {
+        NativeDialog* dialog = OpenNativeDialogs.back();
+        const size_t previousCount = OpenNativeDialogs.size();
+        dialog->Close();
+        if (OpenNativeDialogs.size() == previousCount &&
+            OpenNativeDialogs.back() == dialog)
+        {
+            // Avoid retaining a window procedure from this DLL even if an
+            // externally destroyed dialog failed to deliver WM_NCDESTROY.
+            OpenNativeDialogs.pop_back();
+        }
+    }
+    ClosingAllNativeDialogs = FALSE;
 }
 
 INT_PTR CALLBACK NativeDialog::DialogProc(
@@ -1226,6 +1265,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         dialog = reinterpret_cast<NativeDialog*>(lParam);
         SetWindowLongPtr(hwnd, DWLP_USER, lParam);
         dialog->m_pImpl->Window = hwnd;
+        RegisterNativeDialog(dialog);
         dialog->m_pImpl->CurrentDpi = dmlib_dpi::GetDpiForWindow(hwnd);
         if (dialog->m_pImpl->CurrentDpi == 0)
             dialog->m_pImpl->CurrentDpi = 96;
@@ -1415,7 +1455,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             DestroyWindow(dialog->m_pImpl->AccessibilityTooltip);
             dialog->m_pImpl->AccessibilityTooltip = NULL;
         }
-        if (dialog->m_pImpl->Options.Modeless)
+        if (dialog->m_pImpl->Options.Modeless || ClosingAllNativeDialogs)
             DestroyWindow(hwnd);
         else
             EndDialog(hwnd, 0);
@@ -1423,6 +1463,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
     }
     if (message == WM_NCDESTROY)
     {
+        UnregisterNativeDialog(dialog);
         dialog->m_pImpl->ApplyDarkScrollbarScopes(FALSE);
         dialog->m_pImpl->Window = NULL;
         dialog->m_pImpl->Running = FALSE;

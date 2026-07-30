@@ -230,6 +230,7 @@ BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
     if (SalamatrixRuntime != NULL)
         SalamatrixRuntime->Events()->PublishLifecycle(
             Salamatrix::Events::EventKindHostShutdown);
+    Salamatrix::UI::CloseAllNativeDialogs();
     delete SalamatrixPackages;
     SalamatrixPackages = NULL;
     DestroyRuntimeServices();
