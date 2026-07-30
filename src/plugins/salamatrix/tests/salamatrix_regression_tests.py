@@ -62,15 +62,18 @@ def main() -> int:
     pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
     powershellruntime = read("src/plugins/powershellruntime/powershellruntime.cpp")
     phpruntime = read("src/plugins/phpruntime/phpruntime.cpp")
+    luaruntime = read("src/plugins/luaruntime/luaruntime.cpp")
     javascriptruntime_rc = read("src/plugins/javascriptruntime/javascriptruntime.rc")
     pythonruntime_rc = read("src/plugins/pythonruntime/pythonruntime.rc")
     powershellruntime_rc = read("src/plugins/powershellruntime/powershellruntime.rc")
     phpruntime_rc = read("src/plugins/phpruntime/phpruntime.rc")
+    luaruntime_rc = read("src/plugins/luaruntime/luaruntime.rc")
     runtime_provider_sources = (
         pythonruntime,
         powershellruntime,
         javascriptruntime,
         phpruntime,
+        luaruntime,
     )
     salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
@@ -84,10 +87,13 @@ def main() -> int:
     general_contract = read("src/plugins/shared/spl_gen.h")
     general_impl = read("src/zip.cpp")
     setup = read("doc/runbook-setup/inno_setup_salamander_x64.iss")
+    runtime_package_verifier = read("tools/verify_runtime_packages.ps1")
     python_demo = read("src/extensions/demos/python/main.py")
     powershell_demo = read("src/extensions/demos/powershell/main.ps1")
     powershell_worker = read(
         "src/plugins/powershellruntime/runtime/salamatrix_worker.ps1")
+    lua_worker = read(
+        "src/plugins/luaruntime/runtime/salamatrix_worker.lua")
     navigator = read("src/extensions/git-worktree-navigator/main.ps1")
     navigator_manifest = json.loads(
         read("src/extensions/git-worktree-navigator/extension.json"))
@@ -102,6 +108,7 @@ def main() -> int:
             "Salamatrix Framework key/name fallback is missing")
     for key, name in (
         ("JAVASCRIPT.RUNTIME", "JavaScript Runtime"),
+        ("LUA.RUNTIME", "Lua Runtime"),
         ("PHP.RUNTIME", "PHP Runtime"),
         ("POWERSHELL.RUNTIME", "PowerShell Runtime"),
         ("PYTHON.RUNTIME", "Python Runtime"),
@@ -435,6 +442,7 @@ def main() -> int:
         ("Python", pythonruntime, "PythonRegistration"),
         ("PowerShell", powershellruntime, "PowerShellRegistration"),
         ("PHP", phpruntime, "PHPRegistration"),
+        ("Lua", luaruntime, "LuaRegistration"),
     ):
         require(runtime, r"SetPluginHomePageURL\(\"https://samandarin\.krtkovo\.eu/\"\)", f"{name} runtime homepage URL is not set")
         require(runtime, r"static void UnregisterRuntimeProvider\(",
@@ -453,12 +461,30 @@ def main() -> int:
         ("Python", pythonruntime_rc),
         ("PowerShell", powershellruntime_rc),
         ("PHP", phpruntime_rc),
+        ("Lua", luaruntime_rc),
     ):
         require_absent(runtime_resource, r"sal_r\.ico", f"{name} runtime must use the default Plugin Manager icon")
     for name, runtime in zip(
-        ("Python", "PowerShell", "JavaScript", "PHP"), runtime_provider_sources):
+        ("Python", "PowerShell", "JavaScript", "PHP", "Lua"), runtime_provider_sources):
         require(runtime, r"SetFlagLoadOnSalamanderStart\(TRUE\)",
                 f"{name} runtime provider is not loaded on Salamander startup")
+    require(luaruntime, r'"Lua".*?"lua".*?"\.lua".*?SALAMATRIX_LUA',
+            "Lua runtime descriptor or interpreter override is missing")
+    require(luaruntime, r'salamatrix_worker\.lua',
+            "Lua runtime does not resolve its worker bootstrap")
+    require(lua_worker, r'send_frame\("hello",\s*0,\s*\{protocol\s*=\s*1,\s*runtime\s*=\s*"lua"\}\)',
+            "Lua worker does not perform the SMX1 hello handshake")
+    require(lua_worker, r'salamander\.commands\.register.*?salamander\.storage\.set.*?salamander\.ui\.dialog\.create',
+            "Lua worker does not expose the shared command/storage/dialog facade")
+    require(setup, r"extension-runtimes\\luaruntime\\luaruntime\.spl.*?IsPluginSelected\('luaruntime'\)",
+            "x64 installer does not package LuaRuntime.SPL")
+    require(setup, r"extension-runtimes\\luaruntime\\runtime\\salamatrix_worker\.lua.*?IsPluginSelected\('luaruntime'\)",
+            "x64 installer does not package the Lua worker")
+    require(setup, r"AddPluginDependency\('luaruntime',\s*'salamatrix'\)",
+            "x64 installer does not select Salamatrix for Lua Runtime")
+    require(runtime_package_verifier,
+            r"Name\s*=\s*'luaruntime'.*?extension-runtimes\\luaruntime.*?salamatrix_worker\.lua",
+            "runtime package verifier does not validate the Lua provider layout")
 
     require(salamatrix_props, r"USE_DARKMODELIB=1", "Salamatrix Framework is not built with win32-darkmodelib")
     require(salamatrix, r"ApplyHostDarkModePolicy\(SalamanderGeneral", "Salamatrix host dark-mode policy is not initialized")

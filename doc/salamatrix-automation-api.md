@@ -346,6 +346,7 @@ worker facade when positional argument order matters:
 - `src/plugins/pythonruntime/runtime/salamatrix_worker.py`
 - `src/plugins/powershellruntime/runtime/salamatrix_worker.ps1`
 - `src/plugins/phpruntime/runtime/salamatrix_worker.php`
+- `src/plugins/luaruntime/runtime/salamatrix_worker.lua`
 
 ## AI service
 

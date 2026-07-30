@@ -1,10 +1,10 @@
 # Salamatrix extension package demos
 
-These four directories are complete, standalone extension packages. Each one
+These five directories are complete, standalone extension packages. Each one
 contains an `extension.json`, a runtime-specific entry point, and package-owned
 SVG artwork. They are deliberately outside `plugins/automation`: Automation
-provides the legacy script bridge and the runtime execution adapter, while the
-package metadata is owned by the Salamatrix Framework and surfaced by the
+provides only the legacy script bridge, while package metadata and modern
+runtime selection are owned by the Salamatrix Framework and surfaced by the
 native Plugin Manager.
 
 Install a demo by copying its directory below one of the configured

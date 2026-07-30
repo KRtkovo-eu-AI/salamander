@@ -1,7 +1,7 @@
 {
   "schemaVersion": 4,
   "catalogName": "Extension Runtimes",
-  "generatedAt": "2026-07-30T21:51:22Z",
+  "generatedAt": "2026-07-30T22:57:28Z",
   "plugins": [
     {
       "id": "salamatrix",
@@ -105,6 +105,24 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_powershellruntime_0.1_x64/plugin_5.0_powershellruntime_0.1_x64.7z",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    },
+    {
+      "id": "luaruntime",
+      "name": {
+        "english": "Lua Runtime"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Lua Runtime for integrating Lua scripts with the Salamatrix framework."
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_luaruntime_0.1_x64/plugin_5.0_luaruntime_0.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],

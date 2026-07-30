@@ -372,6 +372,8 @@ Name: "{app}\plugins\salamatrixailocalllama\runtime"
 Name: "{app}\plugins\extension-runtimes"
 Name: "{app}\plugins\extension-runtimes\javascriptruntime"
 Name: "{app}\plugins\extension-runtimes\javascriptruntime\runtime"
+Name: "{app}\plugins\extension-runtimes\luaruntime"
+Name: "{app}\plugins\extension-runtimes\luaruntime\runtime"
 Name: "{app}\plugins\extension-runtimes\phpruntime"
 Name: "{app}\plugins\extension-runtimes\phpruntime\runtime"
 Name: "{app}\plugins\extension-runtimes\powershellruntime"
@@ -1406,6 +1408,8 @@ Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\ext
 Source: "{#PayloadDir}\extensions\file-lock-inspector\*"; DestDir: "{app}\extensions\file-lock-inspector"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('filelockinspector')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\javascriptruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\runtime\salamatrix_worker.mjs"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
+Source: "{#PayloadDir}\plugins\extension-runtimes\luaruntime\luaruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\luaruntime"; Flags: ignoreversion; Check: IsPluginSelected('luaruntime')
+Source: "{#PayloadDir}\plugins\extension-runtimes\luaruntime\runtime\salamatrix_worker.lua"; DestDir: "{app}\plugins\extension-runtimes\luaruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('luaruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\phpruntime\phpruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\phpruntime"; Flags: ignoreversion; Check: IsPluginSelected('phpruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\phpruntime\runtime\salamatrix_worker.php"; DestDir: "{app}\plugins\extension-runtimes\phpruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('phpruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\powershellruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
@@ -1738,6 +1742,7 @@ function IsExtensionRuntimePlugin(const PluginId: String): Boolean;
 begin
   Result :=
     (CompareText(PluginId, 'javascriptruntime') = 0) or
+    (CompareText(PluginId, 'luaruntime') = 0) or
     (CompareText(PluginId, 'phpruntime') = 0) or
     (CompareText(PluginId, 'powershellruntime') = 0) or
     (CompareText(PluginId, 'pythonruntime') = 0);
@@ -1759,6 +1764,7 @@ begin
 
   { Runtime providers and Salamatrix AI use the Salamatrix Framework. }
   AddPluginDependency('javascriptruntime', 'salamatrix');
+  AddPluginDependency('luaruntime', 'salamatrix');
   AddPluginDependency('phpruntime', 'salamatrix');
   AddPluginDependency('powershellruntime', 'salamatrix');
   AddPluginDependency('pythonruntime', 'salamatrix');
@@ -1772,9 +1778,10 @@ begin
   AddPluginDependency('gitworktreenavigator', 'powershellruntime');
   AddPluginDependency('filelockinspector', 'powershellruntime');
 
-  { The demo package contains one Automation extension and four runtime demos. }
+  { The demo package contains one Automation extension and five runtime demos. }
   AddPluginDependency('salamatrixdemos', 'automation');
   AddPluginDependency('salamatrixdemos', 'javascriptruntime');
+  AddPluginDependency('salamatrixdemos', 'luaruntime');
   AddPluginDependency('salamatrixdemos', 'phpruntime');
   AddPluginDependency('salamatrixdemos', 'powershellruntime');
   AddPluginDependency('salamatrixdemos', 'pythonruntime');
@@ -1811,6 +1818,7 @@ begin
     (CompareText(PluginId, 'folders') = 0) or
     (CompareText(PluginId, 'ieviewer') = 0) or
     (CompareText(PluginId, 'javascriptruntime') = 0) or
+    (CompareText(PluginId, 'luaruntime') = 0) or
     (CompareText(PluginId, 'phpruntime') = 0) or
     (CompareText(PluginId, 'pythonruntime') = 0) or
     (CompareText(PluginId, 'salamatrixai') = 0) or
@@ -2313,6 +2321,7 @@ begin
   AddPlugin('ieviewer', 'Internet Explorer Viewer', '1.12 (x64)', False);
   AddPlugin('javascriptruntime', 'JavaScript Runtime', '0.1 (x64)', False);
   AddPlugin('jsonviewer', 'JSON Viewer .NET', '1.03 (x64)', True);
+  AddPlugin('luaruntime', 'Lua Runtime', '0.1 (x64)', False);
   AddPlugin('mmviewer', 'Multimedia Viewer', '1.16 (x64)', True);
   AddPlugin('nethood', 'Network', '1.09 (x64)', True);
   AddPlugin('pak', 'PAK', '1.72 (x64)', True);

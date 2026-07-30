@@ -826,10 +826,12 @@ void CPluginsDlg::OnSelChanged()
         BOOL isExtensionRuntime =
             HasStablePluginKey(p->RegKeyName, "JAVASCRIPT.RUNTIME") ||
             HasStablePluginKey(p->RegKeyName, "PHP.RUNTIME") ||
+            HasStablePluginKey(p->RegKeyName, "LUA.RUNTIME") ||
             HasStablePluginKey(p->RegKeyName, "POWERSHELL.RUNTIME") ||
             HasStablePluginKey(p->RegKeyName, "PYTHON.RUNTIME") ||
             IsPluginName(p->Name, "JavaScript Runtime") ||
             IsPluginName(p->Name, "PHP Runtime") ||
+            IsPluginName(p->Name, "Lua Runtime") ||
             IsPluginName(p->Name, "PowerShell Runtime") ||
             IsPluginName(p->Name, "Python Runtime");
         BOOL isExtensionHelper =

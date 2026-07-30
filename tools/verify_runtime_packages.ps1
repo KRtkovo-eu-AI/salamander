@@ -19,6 +19,9 @@ machine where the user's Salamander installation and runtimes are present.
 
 .EXAMPLE
 .\tools\verify_runtime_packages.ps1 -SalamanderPath C:\staging\Release_x64 -Architecture arm64
+
+.EXAMPLE
+.\tools\verify_runtime_packages.ps1 -SalamanderPath .\build\salamander\Release_x64 -Plugin luaruntime
 #>
 [CmdletBinding()]
 param(
@@ -27,7 +30,9 @@ param(
     [string]$SalamanderPath,
 
     [ValidateSet('x64', 'arm64')]
-    [string]$Architecture = 'x64'
+    [string]$Architecture = 'x64',
+
+    [string[]]$Plugin = @()
 )
 
 Set-StrictMode -Version Latest
@@ -148,20 +153,32 @@ function Get-PeExports {
 }
 
 $expected = @(
-    [pscustomobject]@{ Name = 'javascriptruntime'; Bootstrap = 'runtime\salamatrix_worker.mjs' },
-    [pscustomobject]@{ Name = 'pythonruntime'; Bootstrap = 'runtime\salamatrix_worker.py' },
-    [pscustomobject]@{ Name = 'powershellruntime'; Bootstrap = 'runtime\salamatrix_worker.ps1' },
-    [pscustomobject]@{ Name = 'phpruntime'; Bootstrap = 'runtime\salamatrix_worker.php' },
-    [pscustomobject]@{ Name = 'salamatrixai'; Bootstrap = 'runtime\salamatrix_ai_local.py' },
-    [pscustomobject]@{ Name = 'salamatrixailocalllama'; Bootstrap = 'runtime\llama-cli.exe' }
+    [pscustomobject]@{ Name = 'javascriptruntime'; RelativeRoot = 'extension-runtimes\javascriptruntime'; Bootstrap = 'runtime\salamatrix_worker.mjs' },
+    [pscustomobject]@{ Name = 'pythonruntime'; RelativeRoot = 'extension-runtimes\pythonruntime'; Bootstrap = 'runtime\salamatrix_worker.py' },
+    [pscustomobject]@{ Name = 'powershellruntime'; RelativeRoot = 'extension-runtimes\powershellruntime'; Bootstrap = 'runtime\salamatrix_worker.ps1' },
+    [pscustomobject]@{ Name = 'phpruntime'; RelativeRoot = 'extension-runtimes\phpruntime'; Bootstrap = 'runtime\salamatrix_worker.php' },
+    [pscustomobject]@{ Name = 'luaruntime'; RelativeRoot = 'extension-runtimes\luaruntime'; Bootstrap = 'runtime\salamatrix_worker.lua' },
+    [pscustomobject]@{ Name = 'salamatrixai'; RelativeRoot = 'salamatrixai'; Bootstrap = 'runtime\salamatrix_ai_local.py' },
+    [pscustomobject]@{ Name = 'salamatrixailocalllama'; RelativeRoot = 'salamatrixailocalllama'; Bootstrap = 'runtime\llama-cli.exe' }
 )
+if ($Plugin.Count -gt 0) {
+    $requested = @($Plugin | ForEach-Object { $_.ToLowerInvariant() })
+    $expected = @($expected | Where-Object {
+        $_.Name.ToLowerInvariant() -in $requested
+    })
+    if ($expected.Count -ne $requested.Count) {
+        $known = @($expected | ForEach-Object { $_.Name })
+        $missing = @($requested | Where-Object { $_ -notin $known })
+        throw "Unknown runtime/helper package(s): $($missing -join ', ')"
+    }
+}
 
 $root = Resolve-ExistingDirectory -Path $SalamanderPath -Description 'Salamander path'
 $pluginsRoot = Resolve-ExistingDirectory -Path (Join-Path $root 'plugins') -Description 'Plugins path'
 $failures = [System.Collections.Generic.List[string]]::new()
 
 foreach ($item in $expected) {
-    $pluginRoot = Join-Path $pluginsRoot $item.Name
+    $pluginRoot = Join-Path $pluginsRoot $item.RelativeRoot
     $splPath = Join-Path $pluginRoot ($item.Name + '.spl')
     if (-not (Test-Path -LiteralPath $splPath -PathType Leaf)) {
         $failures.Add("$($item.Name): missing $splPath")

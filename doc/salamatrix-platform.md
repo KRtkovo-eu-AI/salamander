@@ -182,12 +182,13 @@ environment variable:
   `powershell.exe`);
 - `PHP.CLI` for `.php` (`SALAMATRIX_PHP`, then `php.exe`);
 - `JavaScript.Node` for `.js`/`.mjs` (`SALAMATRIX_NODE`, then `node.exe`/`node`),
-  with legacy Windows JScript remaining the compatibility fallback for `.js`.
+  with legacy Windows JScript remaining the compatibility fallback for `.js`;
+- `Lua` for `.lua` (`SALAMATRIX_LUA`, then `lua.exe`/`lua55.exe`/`lua54.exe`).
 
 The process adapter uses a non-shell `CreateProcessW` invocation, passes the
 entry point as a quoted file argument, drains a combined stdout/stderr pipe,
 limits captured output to 1 MiB, terminates timed-out children, and returns the
-exit code. This makes Python/PowerShell/PHP/Node real selectable runtimes today;
+exit code. This makes Python/PowerShell/PHP/Node/Lua real selectable runtimes today;
 the shared worker bootstrap exposes the common Salamander object model to the
 modern process adapters.
 The persistent session seam is now present, and manifest activation starts a
@@ -217,7 +218,7 @@ registered extensions are protected by owner-aware unload leases.
 
 Process adapters can now opt into the common worker bootstrap with
 `RuntimeExecutionFlagUseWorkerBootstrap`. The standalone runtime providers ship
-the Python, PowerShell, PHP, and Node bootstraps beside their own `.SPL`; they
+the Python, PowerShell, PHP, Node, and Lua bootstraps beside their own `.SPL`; they
 perform the SMX1 handshake, expose the same logical `Salamander` object model,
 route host calls, and keep an event loop alive after the extension entry point
 returns. `SALAMATRIX_WORKER_ROOT` is an explicit deployment/test override; each
@@ -225,7 +226,7 @@ provider build copies its worker beside that provider binary.
 Workers can query the same broker without a runtime-specific host extension:
 `Salamander.runtimes.list()` in Python, `Salamander.runtimes.List()` in
 PowerShell, `Salamander->runtimes->list()` in PHP, and
-`Salamander.runtimes.list()` in Node call
+`Salamander.runtimes.list()` in Node and Lua call
 `salamander.runtimes.list`. The response contains each adapter's id, display
 name, language, entry-point extensions, version, and current availability, so
 an extension or the AI assistant can explain a missing interpreter before it
@@ -234,7 +235,7 @@ tries to execute or package a script.
 The legacy ActiveScript registrations remain tied to the Automation bridge
 refresh/release lifecycle. New language runtimes are intended to be separate
 provider plugins instead: a `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
-`PHPRuntime.SPL`, or `JavaScriptRuntime.SPL` queries the already registered
+`PHPRuntime.SPL`, `JavaScriptRuntime.SPL`, or `LuaRuntime.SPL` queries the already registered
 `Salamatrix.Runtime` service during `SalamanderPluginEntry`, registers only its
 own adapter objects, and unregisters those exact objects during `Release`.
 The provider plugin contains the interpreter discovery policy and worker
@@ -1039,7 +1040,7 @@ The platform skeleton is ready when:
     Automation publishes and removes manifest descriptors during script-list
     load and refresh.
 30. Independent runtime `.spl` providers register `Python.CPython`, `PowerShell`,
-    `PHP.CLI`, and eventually `JavaScript.Node` out-of-process adapters when
+    `PHP.CLI`, `JavaScript.Node`, and `Lua` out-of-process adapters when
     their interpreters are discoverable, with bounded output capture, timeout
     termination, and structured exit results; Automation consumes the broker
     without owning these modern registrations.

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "id": "Salamatrix.Demo.Lua",
+  "name": "Salamatrix Lua Demo",
+  "version": "1.0.0",
+  "description": "Demonstrates a Lua Salamatrix extension package.",
+  "runtime": "Lua",
+  "entryPoint": "main.lua",
+  "icon": "icon.svg",
+  "capabilities": ["ui.notify", "storage"],
+  "commands": [{"id":"Salamatrix.Demo.Lua.run","title":"Run Lua demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
+}

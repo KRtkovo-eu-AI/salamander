@@ -2,16 +2,20 @@
 
 Runtime providers are optional Salamander plugins (`.SPL`, i.e. DLLs). They
 are not interpreter installers and they do not depend on the Automation plugin.
-The user installs Python, PowerShell, PHP, or Node separately; the provider
+The user installs Python, PowerShell, PHP, Node, or Lua separately; the provider
 only discovers that executable, owns its worker bootstrap, and registers an
 adapter with the already loaded `Salamatrix.Runtime` broker.
 
-All four providers and the standalone `SalamatrixAI.SPL` use the conventional
+The runtime providers and the standalone `SalamatrixAI.SPL` use the conventional
 plugin metadata structure: their resource script includes `versinfo.rh2` and
 `versinfo.rc2`, their entry point uses the `VERSINFO_*` metadata constants, and
 their Plugin Manager homepage is `https://samandarin.krtkovo.eu/`. SalamatrixAI
 uses the shared Framework icon at `src/res/sal_r.ico`; it remains a separate
 Menu Extension plugin and does not move AI ownership back into Automation.
+
+See [Developing a Salamatrix language runtime provider](salamatrix-runtime-provider-development.md)
+for the native ABI, SMX1 worker, lifecycle, packaging, and verification
+requirements for adding another language.
 
 Native UI dark mode is owned by the Salamatrix Framework provider. It reads the
 host's explicit `Windows Dark Mode (experimental)` scheme and current scheme
@@ -71,6 +75,7 @@ The intended packages are:
 | `PowerShellRuntime.SPL` | `PowerShell` | `SALAMATRIX_POWERSHELL`, `pwsh.exe`, `powershell.exe` |
 | `PHPRuntime.SPL` | `PHP.CLI` | `SALAMATRIX_PHP`, `php.exe` |
 | `JavaScriptRuntime.SPL` | `JavaScript.Node` | `SALAMATRIX_NODE`, `node.exe`, `node` |
+| `LuaRuntime.SPL` | `Lua` | `SALAMATRIX_LUA`, `lua.exe`, `lua55.exe`, `lua54.exe` |
 
 Automation keeps its legacy JScript/VBScript ActiveScript adapters. It becomes
 just another broker consumer for the providers above; installing or loading a
@@ -89,15 +94,15 @@ duplicate AI menu item or own the chat flow; it retains only the shared
 The current branch has the broker contract, worker protocol, provider
 lifecycle helper, and framework-owned manifest parser in
 `src/plugins/salamatrix/salamatrix_manifest.*`. `PythonRuntime.SPL`, `PowerShellRuntime.SPL`,
-`PHPRuntime.SPL`, and `JavaScriptRuntime.SPL` now have their own projects,
-adapters, worker assets, and load/unload registration paths. Debug and Release
-x64 builds now produce all four standalone `.SPL` binaries; provider
+`PHPRuntime.SPL`, `JavaScriptRuntime.SPL`, and `LuaRuntime.SPL` now have their
+own projects, adapters, worker assets, and load/unload registration paths.
+Debug and Release x64 builds produce the standalone `.SPL` binaries; provider
 registration is deferred safely when Salamatrix is loaded later.
 No provider should be made a dependency of Automation.
 
 ## Current worker UI surface
 
-The four modern workers expose the same Salamatrix dialog surface. Along with
+The five modern workers expose the same Salamatrix dialog surface. Along with
 labels, text boxes, check/radio buttons, combo boxes, buttons, list/tree/tab
 controls, validation, events, and file/folder pickers, each worker now exposes
 a folder picker embedded in a dialog:
@@ -108,11 +113,12 @@ a folder picker embedded in a dialog:
 | PowerShell | `$dialog.AddFolderPicker(id, path)` |
 | PHP | `$dialog->addFolderPicker(id, path)` |
 | Node | `await dialog.addFolderPicker(id, path)` |
+| Lua | `dialog.add_folder_picker(id, path)` |
 
 It maps to the runtime protocol control kind `folderpicker`, opens the standard
 native folder browser when clicked, and returns the chosen UTF-8 path through
 the normal dialog `get`/control-text mechanism. For editable file paths, the
-same four workers additionally expose `add_file_picker`/
+same workers additionally expose `add_file_picker`/
 `AddFilePicker`/`addFilePicker`; this maps to `filepicker`, keeps the path in an
 editable native edit control, and places a separate wide Win32 browse button
 next to it.
@@ -127,6 +133,7 @@ pairs) and `save` (boolean) to the existing dialog-add payload:
 | PowerShell | `$dialog.AddFilePicker(id, path, filter, save)` |
 | PHP | `$dialog->addFilePicker(id, path, filter, save)` |
 | Node | `await dialog.addFilePicker(id, path, layout=null, filter="", save=false)` |
+| Lua | `dialog.add_file_picker(id, path, filter, save)` |
 
 An omitted or empty filter uses the all-files fallback. `save=true` selects the
 native save dialog and enables overwrite prompting; the selected UTF-8 path
@@ -134,7 +141,7 @@ continues to use the normal dialog control-text/get contract.
 
 ## Command state
 
-All four workers accept optional `enabled` and `visible` fields when registering
+All modern workers accept optional `enabled` and `visible` fields when registering
 commands. They also expose the same append-only state update operation:
 
 | Runtime | Registration | State update |
@@ -143,6 +150,7 @@ commands. They also expose the same append-only state update operation:
 | PowerShell | `$Salamander.Commands.Register(..., $Enabled, $Visible)` | `$Salamander.Commands.SetState(id, $Enabled, $Visible)` |
 | PHP | `$Salamander->commands->register(..., $enabled, $visible)` | `$Salamander->commands->setState($id, $enabled, $visible)` |
 | Node | `commands.register(..., enabled, visible)` | `commands.setState(id, enabled, visible)` |
+| Lua | `commands.register(id, title, options)` | `commands.set_state(id, enabled, visible)` |
 
 The host applies these values to the existing Automation command record and
 posts the normal Plugin Manager/menu refresh. Hidden commands are omitted from
