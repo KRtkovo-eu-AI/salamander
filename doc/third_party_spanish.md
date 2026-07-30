@@ -17,6 +17,13 @@ los aquí mencionados por hacer disponible su trabajo.
 | LibTomCrypt | Primitivas criptográficas del complemento de suma de verificación | LibTomCrypt está en el dominio público. Como escribió Tom St Denis: "Como debería ser todo software de calidad." |
 | Bibliotecas LGPL | Bibliotecas de terceros compartidas | Licenciadas bajo la GNU Library General Public License. Se incluye una copia de la licencia con este software. |
 | Unicode y rutas largas Win32 | Partes de manejo de nombres de archivo | Samandarin incluye código y trabajo de implementación derivado del fork [Sally](https://github.com/0xeb/sally) de [Elias Bachaalany (0xeb)](https://github.com/0xeb), o sustancialmente inspirado por él. Licenciado bajo la GNU Library General Public License. |
+| Lua 5.5.0 | Intérprete incluido para Salamatrix Lua Runtime | [Lua.org, PUC-Rio](https://www.lua.org/), instalado desde el paquete vcpkg fijado `lua[tools]`. Copyright (c) 1994-2025 Lua.org, PUC-Rio. Licencia MIT; el aviso completo se distribuye como `plugins/extension-runtimes/luaruntime/runtime/LICENSE-LUA.txt`. |
+| win32-darkmodelib | Compatibilidad nativa con el modo oscuro de Windows para diálogos compartidos y Salamatrix | Procedente de [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib), commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`. Mozilla Public License 2.0, con partes bajo licencia MIT. |
+| llama.cpp | Ejecutable de inferencia local por CPU para SalamatrixAI | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), versión fijada `b10107`. Licencia MIT. |
+| Qwen2.5-Coder 1.5B Instruct GGUF | Modelo local recomendado para SalamatrixAI | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF), archivo `q4_k_m` fijado. Licencia Apache 2.0. |
+| Qwen2.5-Coder 0.5B Instruct GGUF | Modelo local ligero para SalamatrixAI, solo para prompts en inglés | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), archivo `q4_k_m` fijado. Licencia Apache 2.0. |
+| Test Reporter | Informes de resultados de pruebas de pull requests | [dorny/test-reporter](https://github.com/dorny/test-reporter), utilizado en GitHub Actions. Licencia MIT. |
+| pytest | Ejecución de pruebas Python y generación de informes xUnit en CI | [pytest-dev/pytest](https://github.com/pytest-dev/pytest). Licencia MIT. |
 
 ## Complementos de archivado, compresión y imagen de disco
 
@@ -67,3 +74,4 @@ los aquí mencionados por hacer disponible su trabajo.
 | github-markdown-css | Estilizado de documentos Markdown | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
 | Panel Tree View | Panel Tree View | Basado en cambios propuestos por fgodoy. |
 | Scripts de localización | Partes de herramientas de localización | Samandarin incluye herramientas de localización adaptadas del fork [Sally](https://github.com/0xeb/sally) de [Elias Bachaalany (0xeb)](https://github.com/0xeb), o sustancialmente inspiradas por él. Licenciado bajo la GNU Library General Public License. |
+| Iconos SVG de plantillas de shell de comandos | Iconos del menú de perfiles de Windows Terminal | Gráficos SVG adaptados de iconos de productos Microsoft y del icono Azure Cloud Shell de SVG Repo. |

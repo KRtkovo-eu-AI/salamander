@@ -1,10 +1,11 @@
 # Standalone Salamatrix runtime providers
 
-Runtime providers are optional Salamander plugins (`.SPL`, i.e. DLLs). They
-are not interpreter installers and they do not depend on the Automation plugin.
-The user installs Python, PowerShell, PHP, Node, or Lua separately; the provider
-only discovers that executable, owns its worker bootstrap, and registers an
-adapter with the already loaded `Salamatrix.Runtime` broker.
+Runtime providers are optional Salamander plugins (`.SPL`, i.e. DLLs) and do
+not depend on the Automation plugin. Python, PowerShell, PHP, and Node discover
+a separately installed interpreter. Lua Runtime instead includes a pinned Lua
+interpreter built by vcpkg, while retaining an explicit override and `PATH`
+fallback. Every provider owns its worker bootstrap and registers an adapter
+with the already loaded `Salamatrix.Runtime` broker.
 
 The runtime providers and the standalone `SalamatrixAI.SPL` use the conventional
 plugin metadata structure: their resource script includes `versinfo.rh2` and
@@ -75,7 +76,7 @@ The intended packages are:
 | `PowerShellRuntime.SPL` | `PowerShell` | `SALAMATRIX_POWERSHELL`, `pwsh.exe`, `powershell.exe` |
 | `PHPRuntime.SPL` | `PHP.CLI` | `SALAMATRIX_PHP`, `php.exe` |
 | `JavaScriptRuntime.SPL` | `JavaScript.Node` | `SALAMATRIX_NODE`, `node.exe`, `node` |
-| `LuaRuntime.SPL` | `Lua` | `SALAMATRIX_LUA`, `lua.exe`, `lua55.exe`, `lua54.exe` |
+| `LuaRuntime.SPL` | `Lua` | `SALAMATRIX_LUA`, bundled `runtime\lua.exe`, then `lua.exe`/`lua55.exe`/`lua54.exe` on `PATH` |
 
 Automation keeps its legacy JScript/VBScript ActiveScript adapters. It becomes
 just another broker consumer for the providers above; installing or loading a

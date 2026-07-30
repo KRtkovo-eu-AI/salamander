@@ -3,6 +3,9 @@
   <PropertyGroup>
     <OutDir>$(OPENSAL_BUILD_DIR)salamander\$(Configuration)_$(ShortPlatform)\plugins\extension-runtimes\$(ProjectName)\</OutDir>
     <IntDir>$(OutDir)Intermediate\</IntDir>
+    <LuaVcpkgRoot>$(MSBuildThisFileDirectory)..\..\..\..\build\vcpkg_installed_third_party\$(ShortPlatform)-windows</LuaVcpkgRoot>
+    <LuaToolsDir>$(LuaVcpkgRoot)\tools\lua</LuaToolsDir>
+    <LuaLicenseFile>$(LuaVcpkgRoot)\share\lua\copyright</LuaLicenseFile>
     <TargetExt>.spl</TargetExt>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
     <GenerateManifest>false</GenerateManifest>
@@ -29,7 +32,14 @@
       <AdditionalIncludeDirectories>..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
   </ItemDefinitionGroup>
+  <Target Name="CopyBundledLuaRuntime" AfterTargets="Build">
+    <Error Condition="!Exists('$(LuaToolsDir)\lua.exe')" Text="Bundled Lua interpreter not found. Run tools\vcpkg\build-third-party-libs.ps1 -Triplet $(ShortPlatform)-windows." />
+    <Error Condition="!Exists('$(LuaToolsDir)\lua.dll')" Text="Bundled Lua runtime DLL not found. Run tools\vcpkg\build-third-party-libs.ps1 -Triplet $(ShortPlatform)-windows." />
+    <Error Condition="!Exists('$(LuaLicenseFile)')" Text="Lua license notice not found in the vcpkg installation." />
+    <MakeDir Directories="$(OutDir)runtime" />
+    <Copy SourceFiles="$(LuaToolsDir)\lua.exe;$(LuaToolsDir)\lua.dll;$(LuaLicenseFile)"
+          DestinationFiles="$(OutDir)runtime\lua.exe;$(OutDir)runtime\lua.dll;$(OutDir)runtime\LICENSE-LUA.txt"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
-
-
 

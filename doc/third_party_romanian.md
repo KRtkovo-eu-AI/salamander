@@ -17,6 +17,13 @@ pentru punerea la dispoziție a muncii lor.
 | LibTomCrypt | Primitive criptografice ale pluginului de verificare | LibTomCrypt este în domeniul public. După cum a scris Tom St Denis: „Așa cum ar trebui să fie orice software de calitate." |
 | Biblioteci LGPL | Biblioteci terțe partajate | Licențiate sub GNU Library General Public License. O copie a licenței este inclusă cu acest software. |
 | Unicode și căi lungi Win32 | Părți de manipulare a numelor de fișiere | Samandarin conține cod și munca de implementare derivată din forkul [Sally](https://github.com/0xeb/sally) al [Elias Bachaalany (0xeb)](https://github.com/0xeb), sau substanțial inspirată de acesta. Licențiat sub GNU Library General Public License. |
+| Lua 5.5.0 | Interpretor inclus pentru Salamatrix Lua Runtime | [Lua.org, PUC-Rio](https://www.lua.org/), instalat din pachetul vcpkg fixat `lua[tools]`. Copyright (c) 1994-2025 Lua.org, PUC-Rio. Licență MIT; notificarea completă este distribuită ca `plugins/extension-runtimes/luaruntime/runtime/LICENSE-LUA.txt`. |
+| win32-darkmodelib | Suport nativ pentru modul întunecat Windows în dialogurile comune și Salamatrix | Preluat din [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib), commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`. Mozilla Public License 2.0, cu părți sub licența MIT. |
+| llama.cpp | Executabil de inferență CPU locală pentru SalamatrixAI | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), versiunea fixată `b10107`. Licență MIT. |
+| Qwen2.5-Coder 1.5B Instruct GGUF | Model local SalamatrixAI recomandat | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF), fișierul fixat `q4_k_m`. Licență Apache 2.0. |
+| Qwen2.5-Coder 0.5B Instruct GGUF | Model local SalamatrixAI ușor, doar pentru prompturi în engleză | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), fișierul fixat `q4_k_m`. Licență Apache 2.0. |
+| Test Reporter | Rapoarte cu rezultatele testelor pentru pull request-uri | [dorny/test-reporter](https://github.com/dorny/test-reporter), utilizat în GitHub Actions. Licență MIT. |
+| pytest | Executarea testelor Python și generarea rapoartelor xUnit în CI | [pytest-dev/pytest](https://github.com/pytest-dev/pytest). Licență MIT. |
 
 ## Pluginuri de arhivare, compresie și imagine de disc
 
@@ -67,3 +74,4 @@ pentru punerea la dispoziție a muncii lor.
 | github-markdown-css | Stilizarea documentelor Markdown | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
 | Modificări ale panoului Tree View | Panoul Tree View | Bazat pe modificările propuse de fgodoy. |
 | Scripturi de localizare | Părți de instrumente de localizare | Samandarin conține instrumente de localizare adaptate din forkul [Sally](https://github.com/0xeb/sally) al [Elias Bachaalany (0xeb)](https://github.com/0xeb), sau substanțial inspirate de acesta. Licențiat sub GNU Library General Public License. |
+| Pictograme SVG pentru șabloanele de shell | Pictograme în meniul de profiluri Windows Terminal | Grafică SVG adaptată din pictogramele produselor Microsoft și pictograma Azure Cloud Shell de la SVG Repo. |

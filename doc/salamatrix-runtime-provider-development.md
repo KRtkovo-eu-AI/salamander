@@ -246,8 +246,12 @@ worker without loading the plugin:
 ## Lua reference provider
 
 `LuaRuntime.SPL` follows this model with runtime ID `Lua`, language ID `lua`,
-and `.lua` entry points. It resolves `SALAMATRIX_LUA`, then `lua.exe`,
-`lua55.exe`, or `lua54.exe`. The provider does not redistribute Lua.
+and `.lua` entry points. It resolves `SALAMATRIX_LUA`, then its bundled
+`runtime\lua.exe`, then `lua.exe`, `lua55.exe`, or `lua54.exe` on `PATH`.
+The bundled Lua 5.5.0 interpreter and DLL come from the pinned vcpkg
+`lua[tools]` port. Its complete MIT notice is copied into the package as
+`runtime\LICENSE-LUA.txt` and Lua is listed in every localized
+`third_party.md` variant.
 
 The worker supports stock Lua without external modules. It supplies its own
 bounded JSON codec, reserves stdout for SMX1, exposes the global `Salamander`
@@ -258,5 +262,6 @@ local path = Salamander.sides.context("source").path
 Salamander.ui.notify("Current path: " .. path, "Lua extension")
 ```
 
-Users with another executable name or a private Lua installation can set
-`SALAMATRIX_LUA` to the executable path before starting Salamander.
+Users who need another Lua build can set `SALAMATRIX_LUA` to its executable
+path before starting Salamander; this explicit override takes precedence over
+the bundled interpreter.

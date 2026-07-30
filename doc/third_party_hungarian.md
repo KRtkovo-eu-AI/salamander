@@ -17,6 +17,13 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 | LibTomCrypt | Ellenőrző összeg bővítmény kriptográfiai alapelemei | LibTomCrypt közszférában van. Ahogy Tom St Denis írta: „Ahogy minden minőségi szoftvernek kellene lennie." |
 | LGPL könyvtárak | Megosztott harmadik fél könyvtárak | A GNU Library General Public License alatt licencelve. A licence másolata mellékelve van ezzel a szoftverrel. |
 | Unicode és Win32 hosszú elérési utak | Fájlnév kezelés részek | Samandarin tartalmaz kódot és megvalósítási munkákat, amelyek a fork [Sally](https://github.com/0xeb/sally) [Elias Bachaalany (0xeb)](https://github.com/0xeb) származékai, vagy jelentősen abból inspiráltak. A GNU Library General Public License alatt licencelve. |
+| Lua 5.5.0 | Beépített értelmező a Salamatrix Lua Runtime számára | [Lua.org, PUC-Rio](https://www.lua.org/), a rögzített `lua[tools]` vcpkg csomagból telepítve. Copyright (c) 1994-2025 Lua.org, PUC-Rio. MIT licenc; a teljes nyilatkozat helye: `plugins/extension-runtimes/luaruntime/runtime/LICENSE-LUA.txt`. |
+| win32-darkmodelib | Natív Windows sötét mód támogatás a közös és Salamatrix párbeszédablakokhoz | Forrás: [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib), commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`. Mozilla Public License 2.0, egyes részek MIT licenc alatt. |
+| llama.cpp | Helyi SalamatrixAI CPU-következtetési futtatható állomány | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), rögzített `b10107` kiadás. MIT licenc. |
+| Qwen2.5-Coder 1.5B Instruct GGUF | Ajánlott helyi SalamatrixAI modell | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF), rögzített `q4_k_m` fájl. Apache License 2.0. |
+| Qwen2.5-Coder 0.5B Instruct GGUF | Könnyű helyi SalamatrixAI modell, csak angol promptokhoz | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), rögzített `q4_k_m` fájl. Apache License 2.0. |
+| Test Reporter | Pull request teszteredmény-jelentések | [dorny/test-reporter](https://github.com/dorny/test-reporter), GitHub Actions használatban. MIT licenc. |
+| pytest | Python tesztfuttatás és xUnit jelentések a CI-ben | [pytest-dev/pytest](https://github.com/pytest-dev/pytest). MIT licenc. |
 
 ## Archiválási, tömörítési és lemezkép bővítmények
 
@@ -67,3 +74,4 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 | github-markdown-css | Markdown dokumentumok stílusozása | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
 | Tree View panel módosítások | Tree View panel | A fgodoy által javasolt módosítások alapján. |
 | Lokalizációs szkriptek | Lokalizációs eszköz részek | Samandarin tartalmaz lokalizációs eszközöket, amelyek a fork [Sally](https://github.com/0xeb/sally) [Elias Bachaalany (0xeb)](https://github.com/0xeb) adaptált, vagy jelentősen abból inspirált munkájából származnak. A GNU Library General Public License alatt licencelve. |
+| Parancsértelmező-sablonok SVG ikonjai | Windows Terminal profilmenü ikonjai | Microsoft termékikonokból és az SVG Repo Azure Cloud Shell ikonjából átdolgozott SVG grafika. |

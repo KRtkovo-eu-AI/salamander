@@ -17,6 +17,13 @@ sprístupnenie ich práce.
 | LibTomCrypt | Kryptografické prvky pluginu kontrolných súčtov | LibTomCrypt je vo verejnej doméne. Ako napísal Tom St Denis: „Ako by mal byť každý kvalitný softvér." |
 | LGPL knižnice | Zdieľané knižnice tretích strán | Licencované pod GNU Library General Public License. Kópia licencie je súčasťou tohto softvéru. |
 | Unicode a Win32 dlhé cesty | Časti spracovania názvov súborov | Samandarin obsahuje kód a implementačné práce odvodené z fork [Sally](https://github.com/0xeb/sally) od [Elias Bachaalany (0xeb)](https://github.com/0xeb), alebo podstatne inšpirované ním. Licencované pod GNU Library General Public License. |
+| Lua 5.5.0 | Pribalený interpreter pre Salamatrix Lua Runtime | [Lua.org, PUC-Rio](https://www.lua.org/), nainštalovaný z pripnutého vcpkg balíka `lua[tools]`. Copyright (c) 1994-2025 Lua.org, PUC-Rio. Licencia MIT; úplné oznámenie je distribuované ako `plugins/extension-runtimes/luaruntime/runtime/LICENSE-LUA.txt`. |
+| win32-darkmodelib | Natívna podpora tmavého režimu Windows pre zdieľané dialógy a dialógy Salamatrix | Prevzaté z [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib), commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`. Licencia Mozilla Public License 2.0, časti pod licenciou MIT. |
+| llama.cpp | Spustiteľný súbor pre lokálnu CPU inferenciu SalamatrixAI na požiadanie | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), pripnuté vydanie `b10107`. Licencia MIT. |
+| Qwen2.5-Coder 1.5B Instruct GGUF | Odporúčaný lokálny model SalamatrixAI | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF), pripnutý súbor `q4_k_m`. Licencia Apache 2.0. |
+| Qwen2.5-Coder 0.5B Instruct GGUF | Ľahký lokálny model SalamatrixAI iba pre anglické prompty | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), pripnutý súbor `q4_k_m`. Licencia Apache 2.0. |
+| Test Reporter | Správy s výsledkami testov pull requestov | [dorny/test-reporter](https://github.com/dorny/test-reporter), používané v GitHub Actions. Licencia MIT. |
+| pytest | Spúšťanie Python testov a generovanie xUnit reportov v CI | [pytest-dev/pytest](https://github.com/pytest-dev/pytest). Licencia MIT. |
 
 ## Pluginy pre archiváciu, kompresiu a diskové obrazy
 
@@ -67,3 +74,4 @@ sprístupnenie ich práce.
 | github-markdown-css | Štýlovanie dokumentov Markdown | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
 | Základ panelu Tree View | Panel Tree View | Založené na zmenách navrhnutých fgodoy. |
 | Lokalizačné skripty | Časti nástrojov pre lokalizáciu | Samandarin obsahuje nástroje pre lokalizáciu upravené z fork [Sally](https://github.com/0xeb/sally) od [Elias Bachaalany (0xeb)](https://github.com/0xeb), alebo podstatne inšpirované ním. Licencované pod GNU Library General Public License. |
+| SVG ikony šablón príkazových prostredí | Ikony ponuky profilov Windows Terminal | SVG grafika upravená podľa ikon produktov Microsoft a ikony Azure Cloud Shell zo SVG Repo. |

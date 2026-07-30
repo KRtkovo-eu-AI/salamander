@@ -17,6 +17,13 @@ sont listés ici d'avoir rendu leur travail disponible.
 | LibTomCrypt | Primitives cryptographiques du plugin de contrôle d'intégrité | LibTomCrypt est dans le domaine public. Comme l'a écrit Tom St Denis : « Comme tout logiciel de qualité devrait l'être. » |
 | Bibliothèques LGPL | Bibliothèques tierces partagées | Sous licence GNU Library General Public License. Une copie de la licence est incluse avec ce logiciel. |
 | Unicode et longs chemins Win32 | Parties de gestion des noms de fichiers | Samandarin contient du code et du travail de dérivation du fork [Sally](https://github.com/0xeb/sally) par [Elias Bachaalany (0xeb)](https://github.com/0xeb), ou substantiellement inspiré par celui-ci. Sous licence GNU Library General Public License. |
+| Lua 5.5.0 | Interpréteur inclus pour le runtime Lua de Salamatrix | [Lua.org, PUC-Rio](https://www.lua.org/), installé depuis le paquet vcpkg épinglé `lua[tools]`. Copyright (c) 1994-2025 Lua.org, PUC-Rio. Licence MIT ; l'avis complet est distribué sous `plugins/extension-runtimes/luaruntime/runtime/LICENSE-LUA.txt`. |
+| win32-darkmodelib | Prise en charge native du mode sombre Windows pour les boîtes de dialogue partagées et Salamatrix | Provenant de [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib), commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`. Mozilla Public License 2.0, avec des parties sous licence MIT. |
+| llama.cpp | Exécutable d'inférence CPU locale à la demande pour SalamatrixAI | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), version épinglée `b10107`. Licence MIT. |
+| Qwen2.5-Coder 1.5B Instruct GGUF | Modèle local SalamatrixAI recommandé | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF), fichier `q4_k_m` épinglé. Licence Apache 2.0. |
+| Qwen2.5-Coder 0.5B Instruct GGUF | Modèle local SalamatrixAI léger, prompts anglais uniquement | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), fichier `q4_k_m` épinglé. Licence Apache 2.0. |
+| Test Reporter | Rapports de résultats de tests des pull requests | [dorny/test-reporter](https://github.com/dorny/test-reporter), utilisé dans GitHub Actions. Licence MIT. |
+| pytest | Exécution des tests Python et génération de rapports xUnit dans la CI | [pytest-dev/pytest](https://github.com/pytest-dev/pytest). Licence MIT. |
 
 ## Plugins d'archivage, de compression et d'image disque
 
@@ -67,3 +74,4 @@ sont listés ici d'avoir rendu leur travail disponible.
 | github-markdown-css | Style des documents Markdown | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
 | La base du panneau Tree View | Panneau Tree View | Basé sur les modifications proposées par fgodoy. |
 | Scripts de localisation | Parties d'outils de localisation | Samandarin contient des outils de localisation adaptés du fork [Sally](https://github.com/0xeb/sally) par [Elias Bachaalany (0xeb)](https://github.com/0xeb), ou substantiellement inspirés par celui-ci. Sous licence GNU Library General Public License. |
+| Icônes SVG des modèles d'interpréteur de commandes | Icônes du menu de profils de Windows Terminal | Illustrations SVG adaptées des icônes de produits Microsoft et de l'icône Azure Cloud Shell de SVG Repo. |

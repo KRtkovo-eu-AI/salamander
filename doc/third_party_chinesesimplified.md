@@ -14,6 +14,13 @@
 | LibTomCrypt | 校验和插件加密原语 | LibTomCrypt 处于公共领域。正如 Tom St Denis 所写："就像所有优质软件应该的那样。" |
 | LGPL 库 | 共享第三方库 | 根据 GNU Library General Public License 授权。本软件附带许可证副本。 |
 | Unicode 和 Win32 长路径 | 文件名处理部分 | Samandarin 包含源自 [Sally](https://github.com/0xeb/sally) 的 fork [Elias Bachaalany (0xeb)](https://github.com/0xeb) 的代码和实现工作，或大量受其启发。根据 GNU Library General Public License 授权。 |
+| Lua 5.5.0 | Salamatrix Lua Runtime 随附的解释器 | [Lua.org, PUC-Rio](https://www.lua.org/)，由固定的 vcpkg `lua[tools]` 包安装。Copyright (c) 1994-2025 Lua.org, PUC-Rio。MIT 许可证；完整声明以 `plugins/extension-runtimes/luaruntime/runtime/LICENSE-LUA.txt` 分发。 |
+| win32-darkmodelib | 共享对话框和 Salamatrix 对话框的原生 Windows 深色模式支持 | 来自 [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib)，commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`。Mozilla Public License 2.0，部分代码采用 MIT 许可证。 |
+| llama.cpp | SalamatrixAI 按需本地 CPU 推理可执行文件 | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)，固定版本 `b10107`。MIT 许可证。 |
+| Qwen2.5-Coder 1.5B Instruct GGUF | 推荐的 SalamatrixAI 本地模型 | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF)，固定的 `q4_k_m` 文件。Apache License 2.0。 |
+| Qwen2.5-Coder 0.5B Instruct GGUF | 仅支持英文提示的轻量 SalamatrixAI 本地模型 | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF)，固定的 `q4_k_m` 文件。Apache License 2.0。 |
+| Test Reporter | 拉取请求测试结果报告 | [dorny/test-reporter](https://github.com/dorny/test-reporter)，用于 GitHub Actions。MIT 许可证。 |
+| pytest | CI 中的 Python 测试执行和 xUnit 报告生成 | [pytest-dev/pytest](https://github.com/pytest-dev/pytest)。MIT 许可证。 |
 
 ## 归档、压缩和磁盘映像插件
 
@@ -64,3 +71,4 @@
 | github-markdown-css | Markdown 文档样式 | Copyright (c) 2014 Dave Liepmann; Copyright (c) Sindre Sorhus; Copyright (c) 2016 Osmo Salomaa. |
 | Tree View 面板更改 | Tree View 面板 | 基于 fgodoy 提出的更改。 |
 | 本地化脚本 | 本地化工具部分 | Samandarin 包含从 [Sally](https://github.com/0xeb/sally) 的 fork [Elias Bachaalany (0xeb)](https://github.com/0xeb) 改编或大量受其启发的本地化工具。根据 GNU Library General Public License 授权。 |
+| 命令外壳模板 SVG 图标 | Windows Terminal 配置文件菜单图标 | SVG 图形改编自 Microsoft 产品图标和 SVG Repo 的 Azure Cloud Shell 图标。 |

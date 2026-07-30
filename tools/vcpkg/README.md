@@ -7,12 +7,14 @@ x64 distribution:
 - `unrar.dll` for the UnRAR plugin
 - `libeay32.dll` and `ssleay32.dll` for the FTP plugin's legacy OpenSSL loader
 - `dbghelp.dll` for the HTML Help / crash reporting (provided as prebuilt)
+- `lua.exe`, `lua.dll`, and the MIT notice for Salamatrix Lua Runtime
 
 The script pins the vcpkg registry baseline and package versions so the produced
 inputs are reproducible:
 
 - `unrar` `7.2.6`
 - `openssl` `1.0.2o-3`
+- `lua[tools]` `5.5.0#1`
 
 OpenSSL 1.0.2 is intentionally used because the existing FTP plugin loads the
 legacy OpenSSL 1.0.x DLL names and symbols from `src/plugins/ftp/ssl.cpp`.
@@ -52,6 +54,10 @@ By default the script:
    `x64-windows` triplet,
 5. copies the required runtime DLLs into `build\libs`.
 
+Lua remains in `build\vcpkg_installed_third_party\<triplet>`; the Lua Runtime
+MSBuild project copies its interpreter, DLL, and vcpkg-generated license notice
+directly into the standalone runtime package.
+
 Useful options:
 
 ```powershell
@@ -77,6 +83,9 @@ plugins\unrar\unrar.dll
 utils\libeay32.dll
 utils\ssleay32.dll
 utils\dbghelp.dll
+plugins\extension-runtimes\luaruntime\runtime\lua.exe
+plugins\extension-runtimes\luaruntime\runtime\lua.dll
+plugins\extension-runtimes\luaruntime\runtime\LICENSE-LUA.txt
 ```
 
 ### Salamatrix AI local model assets

@@ -157,7 +157,12 @@ $expected = @(
     [pscustomobject]@{ Name = 'pythonruntime'; RelativeRoot = 'extension-runtimes\pythonruntime'; Bootstrap = 'runtime\salamatrix_worker.py' },
     [pscustomobject]@{ Name = 'powershellruntime'; RelativeRoot = 'extension-runtimes\powershellruntime'; Bootstrap = 'runtime\salamatrix_worker.ps1' },
     [pscustomobject]@{ Name = 'phpruntime'; RelativeRoot = 'extension-runtimes\phpruntime'; Bootstrap = 'runtime\salamatrix_worker.php' },
-    [pscustomobject]@{ Name = 'luaruntime'; RelativeRoot = 'extension-runtimes\luaruntime'; Bootstrap = 'runtime\salamatrix_worker.lua' },
+    [pscustomobject]@{
+        Name = 'luaruntime'
+        RelativeRoot = 'extension-runtimes\luaruntime'
+        Bootstrap = 'runtime\salamatrix_worker.lua'
+        AdditionalFiles = @('runtime\lua.exe', 'runtime\lua.dll', 'runtime\LICENSE-LUA.txt')
+    },
     [pscustomobject]@{ Name = 'salamatrixai'; RelativeRoot = 'salamatrixai'; Bootstrap = 'runtime\salamatrix_ai_local.py' },
     [pscustomobject]@{ Name = 'salamatrixailocalllama'; RelativeRoot = 'salamatrixailocalllama'; Bootstrap = 'runtime\llama-cli.exe' }
 )
@@ -203,6 +208,13 @@ foreach ($item in $expected) {
     $bootstrapPath = Join-Path $pluginRoot $item.Bootstrap
     if (-not (Test-Path -LiteralPath $bootstrapPath -PathType Leaf)) {
         $failures.Add("$($item.Name): missing bootstrap $bootstrapPath")
+    }
+
+    foreach ($asset in @($item.AdditionalFiles)) {
+        $assetPath = Join-Path $pluginRoot $asset
+        if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+            $failures.Add("$($item.Name): missing bundled asset $assetPath")
+        }
     }
 
     if ($item.Name -eq 'salamatrixailocalllama') {

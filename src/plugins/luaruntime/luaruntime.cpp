@@ -648,6 +648,34 @@ void CLuaRuntimeAdapter::ResolveInterpreter() const
         }
     }
 
+    if (m_kind == ProcessKindLua)
+    {
+        HMODULE module = NULL;
+        std::wstring bundled;
+        if (GetModuleHandleExW(
+                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                reinterpret_cast<LPCWSTR>(&ResolveWorkerBootstrapPath),
+                &module) &&
+            GetModulePathString(module, bundled))
+        {
+            std::wstring::size_type slash = bundled.find_last_of(L"\\/");
+            if (slash != std::wstring::npos)
+            {
+                bundled.resize(slash);
+                bundled.append(L"\\runtime\\lua.exe");
+                std::wstring bundledPath = ToWin32Path(bundled);
+                DWORD attributes = GetFileAttributesW(bundledPath.c_str());
+                if (attributes != INVALID_FILE_ATTRIBUTES &&
+                    (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+                {
+                    m_executablePath.assign(bundled);
+                    return;
+                }
+            }
+        }
+    }
+
     const wchar_t* candidates[] = {
         m_pszCandidateOne,
         m_pszCandidateTwo,

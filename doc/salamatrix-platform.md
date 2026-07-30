@@ -174,7 +174,7 @@ legacy Active Scripting engines that are actually available:
 
 These adapters are explicitly marked as in-process compatibility adapters.
 Independent runtime provider plugins register the optional out-of-process CLI
-adapters when the interpreter is discoverable through `PATH` or an explicit
+adapters. Most discover an interpreter through `PATH` or an explicit
 environment variable:
 
 - `Python.CPython` for `.py` (`SALAMATRIX_PYTHON`, then `python.exe`/`python3.exe`);
@@ -183,7 +183,8 @@ environment variable:
 - `PHP.CLI` for `.php` (`SALAMATRIX_PHP`, then `php.exe`);
 - `JavaScript.Node` for `.js`/`.mjs` (`SALAMATRIX_NODE`, then `node.exe`/`node`),
   with legacy Windows JScript remaining the compatibility fallback for `.js`;
-- `Lua` for `.lua` (`SALAMATRIX_LUA`, then `lua.exe`/`lua55.exe`/`lua54.exe`).
+- `Lua` for `.lua` (`SALAMATRIX_LUA`, then the bundled vcpkg-built
+  `runtime\lua.exe`, then `lua.exe`/`lua55.exe`/`lua54.exe` on `PATH`).
 
 The process adapter uses a non-shell `CreateProcessW` invocation, passes the
 entry point as a quoted file argument, drains a combined stdout/stderr pipe,

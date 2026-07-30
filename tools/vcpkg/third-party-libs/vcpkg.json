@@ -2,11 +2,22 @@
   "name": "opensalamander-third-party-libs",
   "version-string": "0",
   "dependencies": [
+    {
+      "name": "lua",
+      "features": [
+        "tools"
+      ]
+    },
     "openssl",
     "unrar"
   ],
   "builtin-baseline": "a0b1c8d3a477c1cb4813d8e127a56961707ca42b",
   "overrides": [
+    {
+      "name": "lua",
+      "version": "5.5.0",
+      "port-version": 1
+    },
     {
       "name": "openssl",
       "version-string": "1.0.2o-3"

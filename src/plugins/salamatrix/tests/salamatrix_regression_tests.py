@@ -472,6 +472,8 @@ def main() -> int:
             "Lua runtime descriptor or interpreter override is missing")
     require(luaruntime, r'salamatrix_worker\.lua',
             "Lua runtime does not resolve its worker bootstrap")
+    require(luaruntime, r'runtime\\\\lua\.exe',
+            "Lua runtime does not prefer its bundled interpreter")
     require(lua_worker, r'send_frame\("hello",\s*0,\s*\{protocol\s*=\s*1,\s*runtime\s*=\s*"lua"\}\)',
             "Lua worker does not perform the SMX1 hello handshake")
     require(lua_worker, r'salamander\.commands\.register.*?salamander\.storage\.set.*?salamander\.ui\.dialog\.create',
@@ -480,10 +482,14 @@ def main() -> int:
             "x64 installer does not package LuaRuntime.SPL")
     require(setup, r"extension-runtimes\\luaruntime\\runtime\\salamatrix_worker\.lua.*?IsPluginSelected\('luaruntime'\)",
             "x64 installer does not package the Lua worker")
+    for bundled_asset in ("lua.exe", "lua.dll", "LICENSE-LUA.txt"):
+        require(setup,
+                rf"extension-runtimes\\luaruntime\\runtime\\{re.escape(bundled_asset)}.*?IsPluginSelected\('luaruntime'\)",
+                f"x64 installer does not package bundled Lua asset {bundled_asset}")
     require(setup, r"AddPluginDependency\('luaruntime',\s*'salamatrix'\)",
             "x64 installer does not select Salamatrix for Lua Runtime")
     require(runtime_package_verifier,
-            r"Name\s*=\s*'luaruntime'.*?extension-runtimes\\luaruntime.*?salamatrix_worker\.lua",
+            r"Name\s*=\s*'luaruntime'.*?extension-runtimes\\luaruntime.*?salamatrix_worker\.lua.*?lua\.exe.*?lua\.dll.*?LICENSE-LUA\.txt",
             "runtime package verifier does not validate the Lua provider layout")
 
     require(salamatrix_props, r"USE_DARKMODELIB=1", "Salamatrix Framework is not built with win32-darkmodelib")
