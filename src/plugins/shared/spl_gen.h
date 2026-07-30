@@ -884,9 +884,28 @@ struct CSalamanderPanelTabInfo
     DWORD Flags;  // PANEL_TAB_FLAG_XXX
 };
 
-// A command contributed by a plug-in to Salamander's configurable main
-// toolbar.  The command id is the plug-in's own menu-extension command id;
-// Salamander assigns the low-word toolbar id internally.
+// One command in an optional toolbar-button popup menu. The command id belongs
+// to the same menu extension as the owning toolbar button.
+struct CSalamanderToolbarMenuItem
+{
+    DWORD StructSize;
+    int CommandId;
+    const char* Title;
+    // Initial enabled state. Appended fields may extend this record later.
+    BOOL Enabled;
+
+    CSalamanderToolbarMenuItem()
+        : StructSize(sizeof(CSalamanderToolbarMenuItem)),
+          CommandId(0),
+          Title(NULL),
+          Enabled(TRUE)
+    {
+    }
+};
+
+// A command contributed by a plug-in to Salamander's Extension Bar. The
+// command id is the plug-in's own menu-extension command id; Salamander
+// assigns the low-word toolbar id internally.
 struct CSalamanderToolbarButton
 {
     DWORD StructSize;
@@ -903,6 +922,10 @@ struct CSalamanderToolbarButton
     const char* StableId;
     // Initial enabled state. Appended to preserve the published SDK prefix.
     BOOL Enabled;
+    // Optional popup commands. When non-empty, clicking the button opens this
+    // menu instead of directly executing CommandId. Appended for ABI safety.
+    const CSalamanderToolbarMenuItem* MenuItems;
+    int MenuItemCount;
 
     CSalamanderToolbarButton()
         : StructSize(sizeof(CSalamanderToolbarButton)),
@@ -911,7 +934,9 @@ struct CSalamanderToolbarButton
           IconPath(NULL),
           IconDarkPath(NULL),
           StableId(NULL),
-          Enabled(TRUE)
+          Enabled(TRUE),
+          MenuItems(NULL),
+          MenuItemCount(0)
     {
     }
 };

@@ -2558,6 +2558,38 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
         CSalamanderToolbarButton, Enabled) + sizeof(BOOL));
     const BOOL enabled =
         button->StructSize >= enabledEnd ? button->Enabled : TRUE;
+    std::vector<CPluginToolbarMenuItem> menuItems;
+    const DWORD menuEnd = static_cast<DWORD>(offsetof(
+        CSalamanderToolbarButton, MenuItemCount) + sizeof(int));
+    if (button->StructSize >= menuEnd)
+    {
+        if (button->MenuItemCount < 0 || button->MenuItemCount > 64 ||
+            (button->MenuItemCount > 0 && button->MenuItems == NULL))
+        {
+            return FALSE;
+        }
+        for (int menuIndex = 0;
+             menuIndex < button->MenuItemCount; ++menuIndex)
+        {
+            const CSalamanderToolbarMenuItem& source =
+                button->MenuItems[menuIndex];
+            const DWORD requiredEnd = static_cast<DWORD>(offsetof(
+                CSalamanderToolbarMenuItem, Title) + sizeof(const char*));
+            if (source.StructSize < requiredEnd || source.Title == NULL ||
+                source.Title[0] == 0)
+            {
+                return FALSE;
+            }
+            CPluginToolbarMenuItem target;
+            target.CommandId = source.CommandId;
+            lstrcpynA(target.Title, source.Title, ARRAYSIZE(target.Title));
+            const DWORD itemEnabledEnd = static_cast<DWORD>(offsetof(
+                CSalamanderToolbarMenuItem, Enabled) + sizeof(BOOL));
+            target.Enabled =
+                source.StructSize >= itemEnabledEnd ? source.Enabled : TRUE;
+            menuItems.push_back(target);
+        }
+    }
 
     for (int index = 0; index < ToolbarButtons.Count; ++index)
     {
@@ -2567,6 +2599,7 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
             lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
             item.SetIcons(button->IconPath, button->IconDarkPath);
             item.Enabled = enabled;
+            item.MenuItems = menuItems;
             if (stableId != NULL)
                 lstrcpynA(item.StableId, stableId, ARRAYSIZE(item.StableId));
             if (MainWindow != NULL)
@@ -2583,6 +2616,7 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
     item.ToolbarId = NextToolbarButtonId++;
     item.CommandId = button->CommandId;
     item.Enabled = enabled;
+    item.MenuItems = menuItems;
     lstrcpynA(item.Title, button->Title, ARRAYSIZE(item.Title));
     item.SetIcons(button->IconPath, button->IconDarkPath);
     if (stableId != NULL)
@@ -2651,7 +2685,7 @@ void CPlugins::UnregisterToolbarButtons(CPluginInterfaceAbstract* owner)
 
 BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
                                     const char** title, int* imageIndex,
-                                    BOOL* enabled)
+                                    BOOL* enabled, BOOL* menu)
 {
     if (index < 0 || index >= ToolbarButtons.Count ||
         toolbarId == NULL || title == NULL || imageIndex == NULL)
@@ -2661,6 +2695,8 @@ BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
     *imageIndex = ToolbarButtons[index].ImageIndex;
     if (enabled != NULL)
         *enabled = ToolbarButtons[index].Enabled;
+    if (menu != NULL)
+        *menu = !ToolbarButtons[index].MenuItems.empty();
     return TRUE;
 }
 
@@ -2873,7 +2909,8 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
 }
 
 BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
-                                    DWORD toolbarId, BOOL& unselect)
+                                    DWORD toolbarId, BOOL& unselect,
+                                    const RECT* menuAnchor)
 {
     unselect = FALSE;
     for (int index = 0; index < ToolbarButtons.Count; ++index)
@@ -2888,6 +2925,78 @@ BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
         CPluginData* plugin = pluginIndex >= 0 ? Get(pluginIndex) : NULL;
         if (plugin == NULL || !plugin->GetLoaded())
             return TRUE;
+
+        if (!item.MenuItems.empty())
+        {
+            CalculateStateCache();
+            CMenuPopup menu;
+            std::vector<BOOL> enabledStates;
+            for (size_t menuIndex = 0;
+                 menuIndex < item.MenuItems.size(); ++menuIndex)
+            {
+                BOOL menuEnabled =
+                    item.MenuItems[menuIndex].Enabled;
+                BOOL commandFound = FALSE;
+                for (int pluginMenuIndex = 0;
+                     pluginMenuIndex < plugin->MenuItems.Count;
+                     ++pluginMenuIndex)
+                {
+                    if (plugin->MenuItems[pluginMenuIndex]->ID !=
+                        item.MenuItems[menuIndex].CommandId)
+                        continue;
+                    commandFound = TRUE;
+                    if (menuEnabled)
+                    {
+                        MENU_ITEM_INFO state;
+                        memset(&state, 0, sizeof(state));
+                        menuEnabled = plugin->GetMenuItemStateType(
+                            pluginIndex, pluginMenuIndex, &state);
+                    }
+                    break;
+                }
+                if (!commandFound)
+                    menuEnabled = FALSE;
+                enabledStates.push_back(menuEnabled);
+
+                MENU_ITEM_INFO info;
+                memset(&info, 0, sizeof(info));
+                info.Mask = MENU_MASK_TYPE | MENU_MASK_STRING |
+                            MENU_MASK_ID | MENU_MASK_STATE;
+                info.Type = MENU_TYPE_STRING;
+                info.State = menuEnabled
+                                 ? 0
+                                 : MENU_STATE_GRAYED;
+                info.ID = static_cast<DWORD>(menuIndex + 1);
+                info.String = item.MenuItems[menuIndex].Title;
+                if (!menu.InsertItem(0xFFFFFFFF, TRUE, &info))
+                    return TRUE;
+            }
+
+            RECT fallback;
+            if (menuAnchor == NULL)
+            {
+                POINT point;
+                GetCursorPos(&point);
+                fallback.left = point.x;
+                fallback.right = point.x + 1;
+                fallback.top = point.y;
+                fallback.bottom = point.y + 1;
+                menuAnchor = &fallback;
+            }
+            const DWORD selected = menu.Track(
+                MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
+                menuAnchor->left, menuAnchor->bottom,
+                parent, menuAnchor);
+            if (selected > 0 &&
+                selected <= static_cast<DWORD>(item.MenuItems.size()) &&
+                enabledStates[selected - 1])
+            {
+                plugin->ExecuteMenuItem2(
+                    panel, parent, pluginIndex,
+                    item.MenuItems[selected - 1].CommandId, unselect);
+            }
+            return TRUE;
+        }
 
         plugin->ExecuteMenuItem2(panel, parent, pluginIndex,
                                  item.CommandId, unselect);

@@ -534,14 +534,27 @@ def main() -> int:
     require(packages, r"void PackageManager::RegisterToolbarButtons\(\).*?if \(!package->RuntimeUsable\)\s+continue;",
             "unavailable extension packages are not filtered from the toolbar")
     require(
-        manifest + packages,
+        manifest + general_contract + packages,
         r"toolbarMenu.*?ToolbarMenu.*?"
-        r"MakeToolbarMenuCommandId.*?"
-        r"ShowToolbarMenu.*?"
-        r"CreateMenuPopup\(\).*?"
+        r"CSalamanderToolbarMenuItem.*?"
+        r"button\.MenuItems",
+        "package toolbar menus are not registered through the public toolbar API")
+    require(
+        toolbar8,
+        r"GetToolbarButtonInfo\(.*?&menu\).*?"
+        r"TLBI_STYLE_WHOLEDROPDOWN.*?TLBI_STYLE_DROPDOWN",
+        "Extension Bar menu buttons are not rendered as dropdowns")
+    require(
+        plugins2,
+        r"ExecuteToolbarButton\(.*?MenuItems.*?"
         r"MENU_TRACK_RETURNCMD.*?"
-        r"ExecuteCommand",
-        "package toolbar menu commands are not routed through a native popup")
+        r"ExecuteMenuItem2",
+        "Extension Bar menu buttons do not track and execute their popup commands")
+    require(
+        mainwnd3,
+        r"WM_USER_TBDROPDOWN.*?CM_EXTTOOLBAR_MIN.*?"
+        r"ExecuteToolbarButton\(.*?&r",
+        "Extension Bar dropdown notifications are not routed to toolbar menus")
     require_absent(
         toolbar4,
         r"FillExtensionTII|GetToolbarButtonCount",
@@ -680,6 +693,12 @@ def main() -> int:
         r"BOOL Enabled.*?button->Enabled.*?"
         r"TLBI_STATE_GRAYED",
         "Extension Bar does not propagate disabled command state")
+    require(
+        general_contract + plugins2,
+        r"CSalamanderToolbarButton.*?MenuItems.*?MenuItemCount.*?"
+        r"offsetof\(\s*CSalamanderToolbarButton,\s*MenuItemCount\).*?"
+        r"button->StructSize >= menuEnd",
+        "Extension Bar popup fields are not appended with an action-button ABI fallback")
     command_ids = {
         command.get("id") for command in navigator_manifest.get("commands", [])
     }

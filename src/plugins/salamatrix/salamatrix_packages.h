@@ -84,10 +84,6 @@ private:
         CSalamanderForOperationsAbstract* operations,
         const char* commandId,
         const char* handler);
-    BOOL ShowToolbarMenu(
-        Package* package,
-        CSalamanderForOperationsAbstract* operations,
-        HWND parent);
     void RegisterToolbarButtons();
     void UnregisterToolbarButtons();
 

@@ -2853,6 +2853,20 @@ struct CPluginFSTimer
     }
 };
 
+struct CPluginToolbarMenuItem
+{
+    int CommandId;
+    char Title[256];
+    BOOL Enabled;
+
+    CPluginToolbarMenuItem()
+        : CommandId(0),
+          Enabled(TRUE)
+    {
+        Title[0] = 0;
+    }
+};
+
 struct CPluginToolbarButton
 {
     CPluginInterfaceAbstract* Owner;
@@ -2864,6 +2878,7 @@ struct CPluginToolbarButton
     char StableId[512];
     int ImageIndex;
     BOOL Enabled;
+    std::vector<CPluginToolbarMenuItem> MenuItems;
 
     CPluginToolbarButton()
         : Owner(NULL),
@@ -2885,7 +2900,8 @@ struct CPluginToolbarButton
           IconPath(other.IconPath != NULL ? _strdup(other.IconPath) : NULL),
           IconDarkPath(other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL),
           ImageIndex(other.ImageIndex),
-          Enabled(other.Enabled)
+          Enabled(other.Enabled),
+          MenuItems(other.MenuItems)
     {
         memcpy(Title, other.Title, sizeof(Title));
         memcpy(StableId, other.StableId, sizeof(StableId));
@@ -2904,6 +2920,7 @@ struct CPluginToolbarButton
             IconDarkPath = other.IconDarkPath != NULL ? _strdup(other.IconDarkPath) : NULL;
             ImageIndex = other.ImageIndex;
             Enabled = other.Enabled;
+            MenuItems = other.MenuItems;
             memcpy(Title, other.Title, sizeof(Title));
             memcpy(StableId, other.StableId, sizeof(StableId));
         }
@@ -3098,7 +3115,8 @@ public:
     int GetToolbarButtonCount() const { return ToolbarButtons.Count; }
     BOOL GetToolbarButtonInfo(int index, DWORD* toolbarId,
                               const char** title, int* imageIndex,
-                              BOOL* enabled = NULL);
+                              BOOL* enabled = NULL,
+                              BOOL* menu = NULL);
     BOOL GetExtensionBarVisible(int index);
     BOOL GetExtensionBarVisible(const char* stableId) const;
     BOOL HasExtensionBarButton(const char* stableId);
@@ -3108,7 +3126,8 @@ public:
     BOOL EnsureToolbarButtonImages(HIMAGELIST hotImageList,
                                    HIMAGELIST grayImageList);
     BOOL ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
-                              DWORD toolbarId, BOOL& unselect);
+                              DWORD toolbarId, BOOL& unselect,
+                              const RECT* menuAnchor = NULL);
     void UnregisterToolbarButtons(CPluginInterfaceAbstract* owner);
 
     // returns plugin data from the given index

@@ -4715,6 +4715,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 menu.Track(0, r.left, r.bottom, HWindow, &r);
         }
 
+        if (id >= CM_EXTTOOLBAR_MIN && id <= CM_EXTTOOLBAR_MAX)
+        {
+            CFilesWindow* panel = GetActivePanel();
+            BOOL unselect = FALSE;
+            if (panel != NULL &&
+                Plugins.ExecuteToolbarButton(
+                    panel, HWindow, id, unselect, &r) &&
+                unselect)
+            {
+                panel->StoreSelection();
+                panel->SetSel(FALSE, -1, TRUE);
+                PostMessage(
+                    panel->HWindow, WM_USER_SELCHANGED, 0, 0);
+            }
+        }
+
         if (id >= CM_DRIVEBAR_MIN && id <= CM_DRIVEBAR_MAX)
             DriveBar->Execute(id);
         if (id >= CM_DRIVEBAR2_MIN && id <= CM_DRIVEBAR2_MAX)

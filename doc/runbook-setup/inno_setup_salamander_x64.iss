@@ -1688,11 +1688,18 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 [Code]
 
 
+type
+  TPluginDependency = record
+    PluginId: String;
+    DependencyId: String;
+  end;
+
 var
   InstallModePage: TInputOptionWizardPage;
   PluginSelectionPage: TWizardPage;
   PluginList: TNewCheckListBox;
   PluginIds: array of String;
+  PluginDependencies: array of TPluginDependency;
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
@@ -1732,6 +1739,66 @@ begin
     (CompareText(PluginId, 'phpruntime') = 0) or
     (CompareText(PluginId, 'powershellruntime') = 0) or
     (CompareText(PluginId, 'pythonruntime') = 0);
+end;
+
+procedure AddPluginDependency(const PluginId, DependencyId: String);
+var
+  Index: Integer;
+begin
+  Index := GetArrayLength(PluginDependencies);
+  SetArrayLength(PluginDependencies, Index + 1);
+  PluginDependencies[Index].PluginId := PluginId;
+  PluginDependencies[Index].DependencyId := DependencyId;
+end;
+
+procedure InitializePluginDependencies;
+begin
+  SetArrayLength(PluginDependencies, 0);
+
+  { Runtime providers and Salamatrix AI use the Salamatrix Framework. }
+  AddPluginDependency('javascriptruntime', 'salamatrix');
+  AddPluginDependency('phpruntime', 'salamatrix');
+  AddPluginDependency('powershellruntime', 'salamatrix');
+  AddPluginDependency('pythonruntime', 'salamatrix');
+  AddPluginDependency('salamatrixai', 'salamatrix');
+
+  { The local LLaMA provider extends Salamatrix AI. }
+  AddPluginDependency('salamatrixailocalllama', 'salamatrixai');
+
+  { These PowerShell extensions need the PowerShell runtime. }
+  AddPluginDependency('gitworktreenavigator', 'powershellruntime');
+  AddPluginDependency('filelockinspector', 'powershellruntime');
+
+  { The demo package contains one Automation extension and four runtime demos. }
+  AddPluginDependency('salamatrixdemos', 'automation');
+  AddPluginDependency('salamatrixdemos', 'javascriptruntime');
+  AddPluginDependency('salamatrixdemos', 'phpruntime');
+  AddPluginDependency('salamatrixdemos', 'powershellruntime');
+  AddPluginDependency('salamatrixdemos', 'pythonruntime');
+end;
+
+function PluginDependsOn(const PluginId, DependencyId: String): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to GetArrayLength(PluginDependencies) - 1 do
+  begin
+    if CompareText(PluginDependencies[I].PluginId, PluginId) = 0 then
+    begin
+      if CompareText(PluginDependencies[I].DependencyId, DependencyId) = 0 then
+      begin
+        Result := True;
+        Exit;
+      end;
+
+      if PluginDependsOn(PluginDependencies[I].DependencyId, DependencyId) then
+      begin
+        Result := True;
+        Exit;
+      end;
+    end;
+  end;
 end;
 
 function IsDefaultPlugin(const PluginId: String): Boolean;
@@ -1965,37 +2032,23 @@ begin
 end;
 
 function IsPluginSelected(const PluginId: String): Boolean;
+var
+  I: Integer;
 begin
   Result := IsPluginExplicitlySelected(PluginId);
 
   if Result then
     Exit;
 
-  { Install dependencies of selected extensions, runtimes, and AI providers. }
-  if CompareText(PluginId, 'salamatrix') = 0 then
-    Result :=
-      IsPluginExplicitlySelected('gitworktreenavigator') or
-      IsPluginExplicitlySelected('filelockinspector') or
-      IsPluginExplicitlySelected('javascriptruntime') or
-      IsPluginExplicitlySelected('phpruntime') or
-      IsPluginExplicitlySelected('powershellruntime') or
-      IsPluginExplicitlySelected('pythonruntime') or
-      IsPluginExplicitlySelected('salamatrixai') or
-      IsPluginExplicitlySelected('salamatrixailocalllama') or
-      IsPluginExplicitlySelected('salamatrixdemos')
-  else if CompareText(PluginId, 'powershellruntime') = 0 then
-    Result :=
-      IsPluginExplicitlySelected('gitworktreenavigator') or
-      IsPluginExplicitlySelected('filelockinspector') or
-      IsPluginExplicitlySelected('salamatrixdemos')
-  else if (CompareText(PluginId, 'javascriptruntime') = 0) or
-          (CompareText(PluginId, 'phpruntime') = 0) or
-          (CompareText(PluginId, 'pythonruntime') = 0) then
-    Result := IsPluginExplicitlySelected('salamatrixdemos')
-  else if CompareText(PluginId, 'automation') = 0 then
-    Result := IsPluginExplicitlySelected('salamatrixdemos')
-  else if CompareText(PluginId, 'salamatrixai') = 0 then
-    Result := IsPluginExplicitlySelected('salamatrixailocalllama');
+  for I := 0 to GetArrayLength(PluginDependencies) - 1 do
+  begin
+    if IsPluginExplicitlySelected(PluginDependencies[I].PluginId) and
+       PluginDependsOn(PluginDependencies[I].PluginId, PluginId) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
 end;
 
 procedure SelectPlugin(const PluginId: String);
@@ -2013,6 +2066,40 @@ begin
       Exit;
     end;
   end;
+end;
+
+procedure SelectPluginDependencies(const PluginId: String);
+var
+  I: Integer;
+begin
+  for I := 0 to GetArrayLength(PluginDependencies) - 1 do
+  begin
+    if CompareText(PluginDependencies[I].PluginId, PluginId) = 0 then
+    begin
+      SelectPlugin(PluginDependencies[I].DependencyId);
+      SelectPluginDependencies(PluginDependencies[I].DependencyId);
+    end;
+  end;
+end;
+
+procedure SelectAllPluginDependencies;
+var
+  I: Integer;
+begin
+  if not Assigned(PluginList) then
+    Exit;
+
+  for I := 0 to GetArrayLength(PluginIds) - 1 do
+  begin
+    if PluginList.Checked[I] then
+      SelectPluginDependencies(PluginIds[I]);
+  end;
+end;
+
+procedure PluginListClickCheck(Sender: TObject);
+begin
+  { Re-select required dependencies even if the user tries to uncheck one. }
+  SelectAllPluginDependencies;
 end;
 
 function IsPortableInstall(): Boolean;
@@ -2248,6 +2335,7 @@ begin
   AddPlugin('webview2renderviewer', 'WebView2 Render Viewer .NET', '1.04 (x64)', True);
   AddPlugin('wmobile', 'Windows Mobile', '1.09 (x64)', False);
   AddPlugin('zip', 'ZIP', '1.7 (x64)', True);
+  SelectAllPluginDependencies;
 end;
 
 function InitializeSetup(): Boolean;
@@ -2272,6 +2360,8 @@ end;
 
 procedure InitializeWizard();
 begin
+  InitializePluginDependencies;
+
   InstallModePage := CreateInputOptionPage(
     wpLicense,
     SetupMessage(msgWizardSelectTasks),
@@ -2297,6 +2387,7 @@ begin
   PluginList.Top := 0;
   PluginList.Width := PluginSelectionPage.SurfaceWidth;
   PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top - ScaleY(8);
+  PluginList.OnClickCheck := @PluginListClickCheck;
 
 end;
 
@@ -2313,35 +2404,7 @@ begin
   end;
 
   if CurPageID = PluginSelectionPage.ID then
-  begin
-    if IsPluginExplicitlySelected('gitworktreenavigator') or
-       IsPluginExplicitlySelected('filelockinspector') then
-    begin
-      SelectPlugin('salamatrix');
-      SelectPlugin('powershellruntime');
-    end;
-
-    if IsPluginExplicitlySelected('javascriptruntime') or
-       IsPluginExplicitlySelected('phpruntime') or
-       IsPluginExplicitlySelected('powershellruntime') or
-       IsPluginExplicitlySelected('pythonruntime') or
-       IsPluginExplicitlySelected('salamatrixai') or
-       IsPluginExplicitlySelected('salamatrixailocalllama') or
-       IsPluginExplicitlySelected('salamatrixdemos') then
-      SelectPlugin('salamatrix');
-
-    if IsPluginExplicitlySelected('salamatrixailocalllama') then
-      SelectPlugin('salamatrixai');
-
-    if IsPluginExplicitlySelected('salamatrixdemos') then
-    begin
-      SelectPlugin('automation');
-      SelectPlugin('javascriptruntime');
-      SelectPlugin('phpruntime');
-      SelectPlugin('powershellruntime');
-      SelectPlugin('pythonruntime');
-    end;
-  end;
+    SelectAllPluginDependencies;
 end;
 
 function IsFileConfigurationStorageSelected(): Boolean;
