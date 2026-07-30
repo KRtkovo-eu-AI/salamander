@@ -1,4 +1,9 @@
-﻿[TRANSLATION]
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hungarian\sftp\sftp.atp"
+TEXTVERSION,"1.01 beta (x64)"
+VERSION,"1,0,1,195"
+
+[TRANSLATION]
 LANGID,1038
 AUTHOR,"Dupl3xx"
 WEB,"www.altap.cz"
