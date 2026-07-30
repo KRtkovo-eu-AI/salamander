@@ -76,6 +76,8 @@ def main() -> int:
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
     salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
+    salamatrix_project = read(
+        "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
     api_docs = read("src/plugins/salamatrix/salamatrix_api_docs.h")
@@ -819,6 +821,12 @@ def main() -> int:
         r"AddPluginDependency\('extensionmenubuilder',\s*"
         r"'powershellruntime'\)",
         "x64 installer does not select the PowerShell runtime for Extension Menu Builder")
+    require(
+        salamatrix_project,
+        r"ExtensionMenuBuilderFiles.*?extension-menu-builder.*?"
+        r"Copy SourceFiles=\"@\(ExtensionMenuBuilderFiles\)\".*?"
+        r"extensions\\extension-menu-builder",
+        "Salamatrix build does not stage Extension Menu Builder")
     if set(navigator_manifest.get("locales", {})) != expected_locales:
         raise AssertionError(
             "Git Worktree Navigator does not declare every supported locale")

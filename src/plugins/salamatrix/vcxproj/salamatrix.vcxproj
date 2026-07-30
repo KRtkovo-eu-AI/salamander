@@ -210,6 +210,7 @@
   </ItemGroup>
   <ItemGroup>
     <DemoPackageFiles Include="..\..\..\extensions\demos\**\*.*" />
+    <ExtensionMenuBuilderFiles Include="..\..\..\extensions\extension-menu-builder\**\*.*" />
     <GitWorktreeNavigatorFiles Include="..\..\..\extensions\git-worktree-navigator\**\*.*" />
     <FileLockInspectorFiles Include="..\..\..\extensions\file-lock-inspector\**\*.*" />
     <AutomationProgressDemoFiles Include="..\..\automation\sample-scripts\Salamatrix Progress Demo\**\*.*" />
@@ -219,6 +220,10 @@
     <MakeDir Directories="$(OutDir)..\..\extensions\demos" />
     <Copy SourceFiles="@(DemoPackageFiles)"
           DestinationFiles="@(DemoPackageFiles->'$(OutDir)..\..\extensions\demos\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)..\..\extensions\extension-menu-builder" />
+    <Copy SourceFiles="@(ExtensionMenuBuilderFiles)"
+          DestinationFiles="@(ExtensionMenuBuilderFiles->'$(OutDir)..\..\extensions\extension-menu-builder\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <MakeDir Directories="$(OutDir)..\..\extensions\git-worktree-navigator" />
     <Copy SourceFiles="@(GitWorktreeNavigatorFiles)"
