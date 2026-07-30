@@ -1124,28 +1124,13 @@ BOOL CMainToolBar::Load(const char* data)
     lstrcpyn(tmp, data, 5000);
 
     RemoveAllItems();
-    BOOL dynamicConfigurationPresent = FALSE;
     char* p = strtok(tmp, ",");
     while (p != NULL)
     {
         if (strncmp(p, "x:", 2) == 0)
         {
-            // An empty x: token is a marker saying that the user has
-            // explicitly configured extension toolbar placement. This lets
-            // the user remove a contribution instead of having it appended
-            // automatically on every restart.
-            dynamicConfigurationPresent = TRUE;
-            if (p[2] != '\0')
-            {
-                int extensionIndex = Plugins.FindToolbarButtonByConfigKey(p + 2);
-                if (extensionIndex >= 0)
-                {
-                    TLBI_ITEM_INFO2 tii;
-                    if (FillExtensionTII(extensionIndex, &tii, FALSE) &&
-                        !InsertItem2(0xFFFFFFFF, TRUE, &tii))
-                        return FALSE;
-                }
-            }
+            // Extension contributions used to be persisted in native toolbar
+            // layouts. They now live exclusively in Extension Bar.
             p = strtok(NULL, ",");
             continue;
         }
@@ -1172,20 +1157,6 @@ BOOL CMainToolBar::Load(const char* data)
         }
     }
 
-    // Older configurations have no extension marker, so retain the original
-    // default of appending every currently available contribution. Once the
-    // user saves a toolbar containing the x: marker, only explicitly listed
-    // stable extension keys are restored.
-    for (int extensionIndex = 0;
-         !dynamicConfigurationPresent &&
-         extensionIndex < Plugins.GetToolbarButtonCount();
-         ++extensionIndex)
-    {
-        TLBI_ITEM_INFO2 tii;
-        if (FillExtensionTII(extensionIndex, &tii, FALSE) &&
-            !InsertItem2(0xFFFFFFFF, TRUE, &tii))
-            return FALSE;
-    }
     return TRUE;
 }
 
@@ -1198,30 +1169,13 @@ BOOL CMainToolBar::Save(char* data)
     char* p = data;
     *p = 0;
     BOOL wrote = FALSE;
-    BOOL dynamicMarkerWritten = FALSE;
     int i;
     for (i = 0; i < count; i++)
     {
         tii.Mask = TLBI_MASK_STYLE | TLBI_MASK_CUSTOMDATA;
         GetItemInfo2(i, TRUE, &tii);
         if (static_cast<int>(tii.CustomData) <= -2)
-        {
-            int extensionIndex = -2 - static_cast<int>(tii.CustomData);
-            char key[512];
-            if (!Plugins.GetToolbarButtonConfigKey(extensionIndex, key, _countof(key)))
-                continue;
-            if (!dynamicMarkerWritten)
-            {
-                if (wrote)
-                    *p++ = ',';
-                p += sprintf(p, "x:");
-                wrote = TRUE;
-                dynamicMarkerWritten = TRUE;
-            }
-            *p++ = ',';
-            p += sprintf(p, "x:%s", key);
             continue;
-        }
         if (tii.Style == TLBI_STYLE_SEPARATOR)
             tbbeIndex = -1;
         else
@@ -1239,19 +1193,6 @@ void CMainToolBar::OnGetToolTip(LPARAM lParam)
     CALL_STACK_MESSAGE2("CMainToolBar::OnGetToolTip(0x%IX)", lParam);
     TOOLBAR_TOOLTIP* tt = (TOOLBAR_TOOLTIP*)lParam;
     int tbbeIndex = tt->CustomData;
-    if (tbbeIndex <= -2)
-    {
-        int extensionIndex = -2 - tbbeIndex;
-        DWORD toolbarId;
-        const char* title;
-        int imageIndex;
-        if (Plugins.GetToolbarButtonInfo(extensionIndex, &toolbarId, &title, &imageIndex))
-        {
-            lstrcpyn(tt->Buffer, title, TOOLTIP_TEXT_MAX);
-            PrepareToolTipText(tt->Buffer, FALSE);
-        }
-        return;
-    }
     if (tbbeIndex < TBBE_TERMINATOR)
     {
         lstrcpy(tt->Buffer, LoadStr(ToolBarButtons[tbbeIndex].ToolTipResID));
@@ -1288,58 +1229,20 @@ BOOL CMainToolBar::OnEnumButton(LPARAM lParam)
     case mtbtMiddle:
     case mtbtTop:
         staticCount = _countof(TopToolBarButtons);
-        if (static_cast<int>(tii->Index) >= staticCount - 1)
-            return FillExtensionTII(tii->Index - (staticCount - 1), tii, TRUE);
         tbbeIndex = TopToolBarButtons[tii->Index];
         break;
     case mtbtLeft:
         staticCount = _countof(LeftToolBarButtons);
-        if (static_cast<int>(tii->Index) >= staticCount - 1)
-            return FillExtensionTII(tii->Index - (staticCount - 1), tii, TRUE);
         tbbeIndex = LeftToolBarButtons[tii->Index];
         break;
     case mtbtRight:
         staticCount = _countof(RightToolBarButtons);
-        if (static_cast<int>(tii->Index) >= staticCount - 1)
-            return FillExtensionTII(tii->Index - (staticCount - 1), tii, TRUE);
         tbbeIndex = RightToolBarButtons[tii->Index];
         break;
     }
     if (tbbeIndex == TBBE_TERMINATOR)
         return FALSE; // vsechna tlacitka uz byla natlacena
     FillTII(tbbeIndex, tii, TRUE);
-    return TRUE;
-}
-
-BOOL CMainToolBar::FillExtensionTII(int extensionIndex,
-                                    TLBI_ITEM_INFO2* tii,
-                                    BOOL fillName)
-{
-    DWORD toolbarId;
-    const char* title;
-    int imageIndex;
-    if (!Plugins.GetToolbarButtonInfo(extensionIndex, &toolbarId, &title, &imageIndex))
-        return FALSE;
-
-    tii->Mask = TLBI_MASK_STYLE | TLBI_MASK_ID | TLBI_MASK_CUSTOMDATA |
-                TLBI_MASK_TEXT | TLBI_MASK_TEXTLEN;
-    tii->Style = TLBI_STYLE_NOPREFIX | TLBI_STYLE_DARK_DISABLED_IMAGE_TEXT;
-    if (imageIndex >= 0)
-    {
-        tii->Mask |= TLBI_MASK_IMAGEINDEX;
-        tii->ImageIndex = imageIndex;
-    }
-    else
-        tii->Style |= TLBI_STYLE_SHOWTEXT;
-    tii->ID = toolbarId;
-    tii->CustomData = static_cast<DWORD>(-2 - extensionIndex);
-    if (fillName)
-    {
-        tii->Name = const_cast<char*>(title);
-        tii->NameLen = lstrlen(title);
-    }
-    tii->Text = const_cast<char*>(title);
-    tii->TextLen = lstrlen(title);
     return TRUE;
 }
 

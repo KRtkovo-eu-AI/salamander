@@ -1603,6 +1603,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
 
 void CPlugins::LoadOrder(HWND parent, HKEY regKey)
 {
+    HiddenExtensionBarItems.clear();
     if (regKey != NULL)
     {
         char dllName[MAX_PATH];
@@ -1621,6 +1622,23 @@ void CPlugins::LoadOrder(HWND parent, HKEY regKey)
             }
             itoa(++i, buf, 10);
             CloseKey(itemKey);
+        }
+
+        HKEY hiddenKey;
+        if (OpenKey(regKey, "Extension Bar Hidden", hiddenKey))
+        {
+            char stableId[512];
+            int hiddenIndex = 1;
+            strcpy(buf, "1");
+            while (OpenKey(hiddenKey, buf, itemKey))
+            {
+                if (GetValue(itemKey, "StableId", REG_SZ,
+                             stableId, _countof(stableId)))
+                    HiddenExtensionBarItems.push_back(stableId);
+                itoa(++hiddenIndex, buf, 10);
+                CloseKey(itemKey);
+            }
+            CloseKey(hiddenKey);
         }
     }
 }
@@ -1808,6 +1826,25 @@ void CPlugins::Save(HWND parent, HKEY regKey, HKEY regKeyConfig, HKEY regKeyOrde
                 SetValue(itemKey, SALAMANDER_PLUGINS_DLLNAME, REG_SZ, order->DLLName, -1);
                 CloseKey(itemKey);
             }
+        }
+
+        HKEY hiddenKey;
+        if (!HiddenExtensionBarItems.empty() &&
+            CreateKey(regKeyOrder, "Extension Bar Hidden", hiddenKey))
+        {
+            for (size_t hiddenIndex = 0;
+                 hiddenIndex < HiddenExtensionBarItems.size();
+                 ++hiddenIndex)
+            {
+                itoa(static_cast<int>(hiddenIndex) + 1, buf, 10);
+                if (CreateKey(hiddenKey, buf, itemKey))
+                {
+                    SetValue(itemKey, "StableId", REG_SZ,
+                             HiddenExtensionBarItems[hiddenIndex].c_str(), -1);
+                    CloseKey(itemKey);
+                }
+            }
+            CloseKey(hiddenKey);
         }
     }
 }
@@ -2613,6 +2650,57 @@ BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
     return TRUE;
 }
 
+BOOL CPlugins::GetExtensionBarVisible(int index)
+{
+    return index >= 0 && index < ToolbarButtons.Count &&
+           GetExtensionBarVisible(ToolbarButtons[index].StableId);
+}
+
+BOOL CPlugins::GetExtensionBarVisible(const char* stableId) const
+{
+    if (stableId == NULL || stableId[0] == 0)
+        return TRUE;
+    for (size_t index = 0; index < HiddenExtensionBarItems.size(); ++index)
+        if (_stricmp(HiddenExtensionBarItems[index].c_str(), stableId) == 0)
+            return FALSE;
+    return TRUE;
+}
+
+BOOL CPlugins::HasExtensionBarButton(const char* stableId)
+{
+    if (stableId == NULL || stableId[0] == 0)
+        return FALSE;
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+        if (_stricmp(ToolbarButtons[index].StableId, stableId) == 0)
+            return TRUE;
+    return FALSE;
+}
+
+void CPlugins::SetExtensionBarVisible(const char* stableId, BOOL visible)
+{
+    if (stableId == NULL || stableId[0] == 0)
+        return;
+    for (std::vector<std::string>::iterator item =
+             HiddenExtensionBarItems.begin();
+         item != HiddenExtensionBarItems.end(); ++item)
+    {
+        if (_stricmp(item->c_str(), stableId) == 0)
+        {
+            if (visible)
+                HiddenExtensionBarItems.erase(item);
+            if (MainWindow != NULL)
+                MainWindow->RefreshExtensionToolbars();
+            return;
+        }
+    }
+    if (!visible)
+    {
+        HiddenExtensionBarItems.push_back(stableId);
+        if (MainWindow != NULL)
+            MainWindow->RefreshExtensionToolbars();
+    }
+}
+
 BOOL CPlugins::GetToolbarButtonConfigKey(int index, char* key, int keySize)
 {
     if (index < 0 || index >= ToolbarButtons.Count || key == NULL || keySize <= 0)
@@ -2636,6 +2724,50 @@ int CPlugins::FindToolbarButtonByConfigKey(const char* key)
             return index;
     }
     return -1;
+}
+
+static BOOL CompositeExtensionToolbarBitmap(HBITMAP bitmap,
+                                            COLORREF background)
+{
+    if (bitmap == NULL || background == CLR_NONE)
+        return FALSE;
+
+    DIBSECTION section;
+    ZeroMemory(&section, sizeof(section));
+    if (GetObject(bitmap, sizeof(section), &section) != sizeof(section) ||
+        section.dsBm.bmBits == NULL || section.dsBm.bmBitsPixel != 32 ||
+        section.dsBm.bmWidth <= 0 || section.dsBm.bmHeight == 0)
+        return FALSE;
+
+    const BYTE backgroundRed = GetRValue(background);
+    const BYTE backgroundGreen = GetGValue(background);
+    const BYTE backgroundBlue = GetBValue(background);
+    const int height = abs(section.dsBm.bmHeight);
+    BYTE* row = static_cast<BYTE*>(section.dsBm.bmBits);
+    for (int y = 0; y < height; ++y)
+    {
+        BYTE* pixel = row;
+        for (int x = 0; x < section.dsBm.bmWidth; ++x, pixel += 4)
+        {
+            const BYTE alpha = pixel[3];
+            const UINT inverseAlpha = 255 - alpha;
+            // RenderSVGIconBitmapFromFile returns premultiplied RGBA. The
+            // toolbar image lists are mask-based DDBs and discard alpha, so
+            // flatten each pixel onto their real light/dark background first.
+            pixel[0] = static_cast<BYTE>(
+                min(255U, static_cast<UINT>(pixel[0]) +
+                              backgroundRed * inverseAlpha / 255));
+            pixel[1] = static_cast<BYTE>(
+                min(255U, static_cast<UINT>(pixel[1]) +
+                              backgroundGreen * inverseAlpha / 255));
+            pixel[2] = static_cast<BYTE>(
+                min(255U, static_cast<UINT>(pixel[2]) +
+                              backgroundBlue * inverseAlpha / 255));
+            pixel[3] = 255;
+        }
+        row += section.dsBm.bmWidthBytes;
+    }
+    return TRUE;
 }
 
 BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
@@ -2697,6 +2829,15 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
                 HANDLES(DeleteObject(grayBitmap));
             continue;
         }
+
+        COLORREF hotBackground = ImageList_GetBkColor(hotImageList);
+        COLORREF grayBackground = ImageList_GetBkColor(grayImageList);
+        if (hotBackground == CLR_NONE)
+            hotBackground = GetSysColor(COLOR_BTNFACE);
+        if (grayBackground == CLR_NONE)
+            grayBackground = hotBackground;
+        CompositeExtensionToolbarBitmap(hotBitmap, hotBackground);
+        CompositeExtensionToolbarBitmap(grayBitmap, grayBackground);
 
         int hotIndex = ImageList_Add(hotImageList, hotBitmap, NULL);
         int grayIndex = ImageList_Add(grayImageList, grayBitmap, NULL);

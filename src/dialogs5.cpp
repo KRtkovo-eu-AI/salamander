@@ -781,6 +781,8 @@ void CPluginsDlg::OnSelChanged()
     HWND showInChDrv = GetDlgItem(HWindow, IDC_PLUGINSHOWINCHDRV);
     if (p != NULL)
     {
+        SetWindowText(GetDlgItem(HWindow, IDC_STATIC_7),
+                      LoadStr(IDS_PLUGIN_ARCHIVES_LABEL));
         if (p->DLLName != NULL)
             lstrcpyn(LastSelectedPluginDLLName, p->DLLName, MAX_PATH);
         else
@@ -990,6 +992,8 @@ void CPluginsDlg::OnSelChanged()
     }
     else if (extension != NULL)
     {
+        SetWindowText(GetDlgItem(HWindow, IDC_STATIC_7),
+                      LoadStr(IDS_PLUGIN_RUNTIME_LABEL));
         // Manifest extensions are informational rows in Plugin Manager. They
         // are not CPluginData records, so load/unload/configuration actions
         // remain disabled and no fake .SPL path is presented to the user.
@@ -1050,14 +1054,47 @@ void CPluginsDlg::OnSelChanged()
                       ? LoadStr(IDS_PLUGINEXTWAITINGEXECUTABLE)
                 : "Extension");
 
-        ShowWindow(showInBar, SW_HIDE);
+        char extensionName[300];
+        char extensionBarText[500];
+        lstrcpyn(extensionName, extension->Descriptor.Name,
+                 _countof(extensionName));
+        DuplicateAmpersands(extensionName, _countof(extensionName));
+        const char* extensionBarFormat =
+            LoadStr(IDS_PLUGIN_SHOWINEXTENSIONBAR);
+        const char* extensionNamePlaceholder =
+            strstr(extensionBarFormat, "%s");
+        if (extensionNamePlaceholder != NULL)
+        {
+            _snprintf_s(
+                extensionBarText, _countof(extensionBarText), _TRUNCATE,
+                "%.*s%s%s",
+                static_cast<int>(extensionNamePlaceholder -
+                                 extensionBarFormat),
+                extensionBarFormat, extensionName,
+                extensionNamePlaceholder + 2);
+        }
+        else
+            lstrcpyn(extensionBarText, extensionBarFormat,
+                     _countof(extensionBarText));
+        SetWindowText(showInBar, extensionBarText);
+        ShowWindow(showInBar, SW_SHOW);
         ShowWindow(showInChDrv, SW_HIDE);
-        EnableWindow(showInBar, FALSE);
+        const BOOL hasExtensionBarButton =
+            Plugins.HasExtensionBarButton(extension->Descriptor.Id);
+        CheckDlgButton(
+            HWindow, IDC_PLUGINSHOWINBAR,
+            hasExtensionBarButton &&
+                    Plugins.GetExtensionBarVisible(extension->Descriptor.Id)
+                ? BST_CHECKED
+                : BST_UNCHECKED);
+        EnableWindow(showInBar, hasExtensionBarButton);
         EnableWindow(showInChDrv, FALSE);
         EnableButtons(NULL);
     }
     else
     {
+        SetWindowText(GetDlgItem(HWindow, IDC_STATIC_7),
+                      LoadStr(IDS_PLUGIN_ARCHIVES_LABEL));
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION), "");
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINCOPYRIGHT), "");
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINWWW), "");
@@ -1329,13 +1366,30 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDC_PLUGINSHOWINBAR:
         {
-            if (GetSelectedPlugin() == NULL)
-                break;
-            int index = Plugins.GetIndexByOrder(ListView_GetNextItem(HListView, -1, LVIS_FOCUSED));
-            if (index != -1)
+            CPluginData* selectedPlugin = GetSelectedPlugin();
+            if (selectedPlugin != NULL)
             {
-                BOOL showInBar = IsDlgButtonChecked(HWindow, IDC_PLUGINSHOWINBAR) == BST_CHECKED;
-                Plugins.SetShowInBar(index, showInBar);
+                int index = Plugins.GetIndexByOrder(
+                    ListView_GetNextItem(HListView, -1, LVIS_FOCUSED));
+                if (index != -1)
+                {
+                    BOOL showInBar =
+                        IsDlgButtonChecked(HWindow, IDC_PLUGINSHOWINBAR) ==
+                        BST_CHECKED;
+                    Plugins.SetShowInBar(index, showInBar);
+                }
+            }
+            else
+            {
+                Salamatrix::Extensions::ExtensionInfo* extension =
+                    GetSelectedExtension();
+                if (extension != NULL)
+                {
+                    Plugins.SetExtensionBarVisible(
+                        extension->Descriptor.Id,
+                        IsDlgButtonChecked(HWindow, IDC_PLUGINSHOWINBAR) ==
+                            BST_CHECKED);
+                }
             }
             break;
         }

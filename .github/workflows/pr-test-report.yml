@@ -30,7 +30,9 @@ jobs:
           path: native.xml
           reporter: java-junit
           fail-on-empty: true
-          use-actions-summary: true
+          # A Check Run is the user-visible report; true would only write the
+          # workflow Job Summary.
+          use-actions-summary: false
 
       - name: Report Python tests
         if: ${{ !cancelled() }}
@@ -41,4 +43,6 @@ jobs:
           path: python.xml
           reporter: python-xunit
           fail-on-empty: true
-          use-actions-summary: true
+          # A Check Run is the user-visible report; true would only write the
+          # workflow Job Summary.
+          use-actions-summary: false

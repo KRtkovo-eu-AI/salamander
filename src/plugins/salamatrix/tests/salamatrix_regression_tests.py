@@ -51,6 +51,12 @@ def main() -> int:
     automation_entry = read("src/plugins/automation/entry.cpp")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
+    mainwnd1 = read("src/mainwnd1.cpp")
+    mainwnd2 = read("src/mainwnd2.cpp")
+    mainwnd3 = read("src/mainwnd3.cpp")
+    toolbar4 = read("src/toolbar4.cpp")
+    toolbar8 = read("src/toolbar8.cpp")
+    main_menu = read("src/menu4.cpp")
     javascriptruntime = read("src/plugins/javascriptruntime/javascriptruntime.cpp")
     pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
     powershellruntime = read("src/plugins/powershellruntime/powershellruntime.cpp")
@@ -272,18 +278,34 @@ def main() -> int:
                                r'Report native and source-contract tests.*?'
                                r'dorny/test-reporter@v3.*?'
                                r'reporter:\s*java-junit.*?'
+                               r'use-actions-summary:\s*false.*?'
                                r'Report Python tests.*?'
                                r'dorny/test-reporter@v3.*?'
-                               r'reporter:\s*python-xunit',
+                               r'reporter:\s*python-xunit.*?'
+                               r'use-actions-summary:\s*false',
             "same-repository PR workflow does not publish both Test Reporter checks")
     require(pr_tests_workflow, r'head\.repo\.full_name == github\.repository',
             "direct Test Reporter checks are not limited to writable PR tokens")
+    require(pr_tests_workflow,
+            r'Show test counts on the PR workflow check.*?'
+            r'steps\.native_report\.outputs\.passed !=.*?'
+            r'steps\.python_report\.outputs\.passed !=.*?'
+            r'CHECK_RUN_ID:\s*\$\{\{\s*job\.check_run_id\s*\}\}.*?'
+            r'steps\.native_report\.outputs\.passed.*?'
+            r'steps\.python_report\.outputs\.passed.*?'
+            r'output\s*=\s*@\{.*?title\s*=\s*\$title.*?'
+            r'check-runs/\$env:CHECK_RUN_ID',
+            "PR workflow check does not display aggregate Test Reporter counts")
     require(pr_tests_workflow,
             r'repository:\s*\$\{\{\s*github\.event\.pull_request\.head\.repo\.full_name\s*\|\|\s*github\.repository\s*\}\}.*?'
             r'ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}',
             "PR tests do not explicitly check out the selected source branch commit")
     require(pr_test_report_workflow,
-            r'pull_requests\[0\]\.head\.repo\.full_name != github\.repository',
+            r'pull_requests\[0\]\.head\.repo\.full_name != github\.repository.*?'
+            r'dorny/test-reporter@v3.*?'
+            r'use-actions-summary:\s*false.*?'
+            r'dorny/test-reporter@v3.*?'
+            r'use-actions-summary:\s*false',
             "workflow_run Test Reporter fallback is not limited to fork PRs")
     require(runtime_protocol, r'valueEnd = position.*?'
                               r"json\[valueEnd - 1\] == '\\n'.*?"
@@ -478,6 +500,60 @@ def main() -> int:
             "installer does not package the Automation API HTML reference")
     require(packages, r"void PackageManager::RegisterToolbarButtons\(\).*?if \(!package->RuntimeUsable\)\s+continue;",
             "unavailable extension packages are not filtered from the toolbar")
+    require_absent(
+        toolbar4,
+        r"FillExtensionTII|GetToolbarButtonCount",
+        "extension buttons can still leak into native Top/Middle/Panel toolbars")
+    require(
+        toolbar8,
+        r"CExtensionBar::CreateExtensionButtons.*?"
+        r"GetExtensionBarVisible.*?InsertItem2",
+        "Extension Bar does not own and filter extension buttons")
+    require(
+        mainwnd1,
+        r"ToggleExtensionBar.*?BANDID_EXTENSIONBAR.*?"
+        r"InsertExtensionBarBand",
+        "Extension Bar lifecycle is not integrated with the main rebar")
+    require(
+        mainwnd2,
+        r"Show Extension Bar.*?ExtensionBarVisible.*?"
+        r"ExtensionBarIndex",
+        "Extension Bar visibility or placement is not persisted")
+    require(
+        mainwnd3 + main_menu,
+        r"CM_TOGGLEEXTENSIONBAR",
+        "Options - Show cannot toggle Extension Bar")
+    require(
+        dialogs,
+        r"IDS_PLUGIN_RUNTIME_LABEL.*?"
+        r"IDS_PLUGIN_SHOWINEXTENSIONBAR.*?"
+        r"SetExtensionBarVisible",
+        "Plugin Manager does not expose localized Extension Bar controls")
+    require_absent(
+        dialogs,
+        r"_snprintf_s\([^;]*LoadStr\(IDS_PLUGIN_SHOWINEXTENSIONBAR\)",
+        "localized Extension Bar text is still used as a printf format")
+    require(
+        dialogs,
+        r'extensionNamePlaceholder.*?"%\.\*s%s%s"',
+        "localized Extension Bar placeholder is not expanded as inert data")
+    require(
+        mainwnd3,
+        r"ExtensionBar = new \(std::nothrow\) CExtensionBar.*?"
+        r"if \(ExtensionBar == NULL\)",
+        "Extension Bar allocation guard is not backed by nothrow allocation")
+    require(
+        plugins2,
+        r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"
+        r"SetExtensionBarVisible",
+        "per-extension Extension Bar visibility is not persisted")
+    require(
+        plugins2,
+        r"CompositeExtensionToolbarBitmap.*?"
+        r"ImageList_GetBkColor\(hotImageList\).*?"
+        r"CompositeExtensionToolbarBitmap\(hotBitmap, hotBackground\).*?"
+        r"ImageList_Add\(hotImageList",
+        "Extension Bar SVG alpha is not flattened onto its light/dark background")
     require(python_demo, r"Salamander\.ui\.notify", "Python demo does not show a non-blocking result")
     require_absent(python_demo, r"message_box", "Python demo must not block Salamander with a modal UI call")
     require(powershell_demo, r"\$Salamander\.ui\.Notify", "PowerShell demo does not show a non-blocking result")

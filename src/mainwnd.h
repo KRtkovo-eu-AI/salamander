@@ -41,6 +41,7 @@ class CEditorMasks;
 class CHighlightMasks;
 class CMainToolBar;
 class CPluginsBar;
+class CExtensionBar;
 class CBottomToolBar;
 class CUserMenuBar;
 class CHotPathsBar;
@@ -311,6 +312,7 @@ enum CMainWindowsHitTestEnum
     mwhteMenu,          // in the rebar on the Menu band
     mwhteTopToolbar,    // in the rebar on the TopToolbar band
     mwhtePluginsBar,    // in the rebar on the PluginsBar band
+    mwhteExtensionBar,  // in the rebar on the ExtensionBar band
     mwhteMiddleToolbar, // Middle Bar on the split bar
     mwhteUMToolbar,     // in the rebar on the UserMenuBar band
     mwhteHPToolbar,     // in the rebar on the HotPathsBar band
@@ -416,6 +418,7 @@ public:
     CEditWindow* EditWindow;
     CMainToolBar* TopToolBar;
     CPluginsBar* PluginsBar;
+    CExtensionBar* ExtensionBar;
     CMainToolBar* MiddleToolBar;
     CUserMenuBar* UMToolBar;
     CHotPathsBar* HPToolBar;
@@ -530,6 +533,7 @@ protected:
     CMenuBar* DetachedMenuBar;
     CMainToolBar* DetachedTopToolBar;
     CPluginsBar* DetachedPluginsBar;
+    CExtensionBar* DetachedExtensionBar;
     CUserMenuBar* DetachedUMToolBar;
     CHotPathsBar* DetachedHPToolBar;
     CDriveBar* DetachedDriveBar;
@@ -747,6 +751,7 @@ public:
     BOOL ConfirmDetachedWindowClose(HWND hWndDetached, BOOL* closeSalamander);
     BOOL ToggleTopToolBar(BOOL storePos = TRUE);
     BOOL TogglePluginsBar(BOOL storePos = TRUE);
+    BOOL ToggleExtensionBar(BOOL storePos = TRUE);
     BOOL ToggleMiddleToolBar();
     BOOL ToggleBottomToolBar();
     BOOL ToggleTreeView();
@@ -777,6 +782,7 @@ public:
     BOOL CreateAndInsertWorkerBand();
     BOOL InsertTopToolbarBand();
     BOOL InsertPluginsBarBand();
+    BOOL InsertExtensionBarBand();
     BOOL InsertUMToolbarBand();
     BOOL InsertHPToolbarBand();
     BOOL InsertDriveBarBand(BOOL twoDriveBars);

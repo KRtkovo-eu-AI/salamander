@@ -1817,6 +1817,10 @@ CMainWindow::MapClientArea(POINT point)
         dwContext = IDH_PLUGINSBAR;
         break;
 
+    case mwhteExtensionBar:
+        dwContext = IDH_PLUGINSBAR;
+        break;
+
     case mwhteMiddleToolbar:
     {
         dwContext = IDH_MIDDLETOOLBAR;

@@ -1126,6 +1126,7 @@ const char* CONFIG_LEFTTOOLBAR_REG = "Left ToolBar";
 const char* CONFIG_RIGHTTOOLBAR_REG = "Right ToolBar";
 const char* CONFIG_TOPTOOLBARVISIBLE_REG = "Show Top ToolBar";
 const char* CONFIG_PLGTOOLBARVISIBLE_REG = "Show Plugins Bar";
+const char* CONFIG_EXTENSIONBARVISIBLE_REG = "Show Extension Bar";
 const char* CONFIG_MIDDLETOOLBARVISIBLE_REG = "Show Middle ToolBar";
 const char* CONFIG_USERMENUTOOLBARVISIBLE_REG = "Show User Menu ToolBar";
 const char* CONFIG_HOTPATHSBARVISIBLE_REG = "Hot Paths Bar";
@@ -1244,6 +1245,9 @@ const char* CONFIG_TOOLBARWIDTH_REG = "ToolBar Width";
 const char* CONFIG_PLUGINSBARINDEX_REG = "PluginsBar Index";
 const char* CONFIG_PLUGINSBARBREAK_REG = "PluginsBar Break";
 const char* CONFIG_PLUGINSBARWIDTH_REG = "PluginsBar Width";
+const char* CONFIG_EXTENSIONBARINDEX_REG = "ExtensionBar Index";
+const char* CONFIG_EXTENSIONBARBREAK_REG = "ExtensionBar Break";
+const char* CONFIG_EXTENSIONBARWIDTH_REG = "ExtensionBar Width";
 const char* CONFIG_USERMENUINDEX_REG = "User Menu Index";
 const char* CONFIG_USERMENUBREAK_REG = "User Menu Break";
 const char* CONFIG_USERMENUWIDTH_REG = "User Menu Width";
@@ -3011,6 +3015,12 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.PluginsBarBreak, sizeof(DWORD));
                 SetValue(actKey, CONFIG_PLUGINSBARWIDTH_REG, REG_DWORD,
                          &Configuration.PluginsBarWidth, sizeof(DWORD));
+                SetValue(actKey, CONFIG_EXTENSIONBARINDEX_REG, REG_DWORD,
+                         &Configuration.ExtensionBarIndex, sizeof(DWORD));
+                SetValue(actKey, CONFIG_EXTENSIONBARBREAK_REG, REG_DWORD,
+                         &Configuration.ExtensionBarBreak, sizeof(DWORD));
+                SetValue(actKey, CONFIG_EXTENSIONBARWIDTH_REG, REG_DWORD,
+                         &Configuration.ExtensionBarWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_USERMENUINDEX_REG, REG_DWORD,
                          &Configuration.UserMenuToolbarIndex, sizeof(DWORD));
                 SetValue(actKey, CONFIG_USERMENUBREAK_REG, REG_DWORD,
@@ -3401,6 +3411,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.TopToolBarVisible, sizeof(DWORD));
                 SetValue(actKey, CONFIG_PLGTOOLBARVISIBLE_REG, REG_DWORD,
                          &Configuration.PluginsBarVisible, sizeof(DWORD));
+                SetValue(actKey, CONFIG_EXTENSIONBARVISIBLE_REG, REG_DWORD,
+                         &Configuration.ExtensionBarVisible, sizeof(DWORD));
                 SetValue(actKey, CONFIG_MIDDLETOOLBARVISIBLE_REG, REG_DWORD,
                          &Configuration.MiddleToolBarVisible, sizeof(DWORD));
 
@@ -4887,6 +4899,12 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.PluginsBarBreak, sizeof(DWORD));
             GetValue(actKey, CONFIG_PLUGINSBARWIDTH_REG, REG_DWORD,
                      &Configuration.PluginsBarWidth, sizeof(DWORD));
+            GetValue(actKey, CONFIG_EXTENSIONBARINDEX_REG, REG_DWORD,
+                     &Configuration.ExtensionBarIndex, sizeof(DWORD));
+            GetValue(actKey, CONFIG_EXTENSIONBARBREAK_REG, REG_DWORD,
+                     &Configuration.ExtensionBarBreak, sizeof(DWORD));
+            GetValue(actKey, CONFIG_EXTENSIONBARWIDTH_REG, REG_DWORD,
+                     &Configuration.ExtensionBarWidth, sizeof(DWORD));
             GetValue(actKey, CONFIG_USERMENUINDEX_REG, REG_DWORD,
                      &Configuration.UserMenuToolbarIndex, sizeof(DWORD));
             GetValue(actKey, CONFIG_USERMENUBREAK_REG, REG_DWORD,
@@ -5432,6 +5450,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.TopToolBarVisible, sizeof(DWORD));
             GetValue(actKey, CONFIG_PLGTOOLBARVISIBLE_REG, REG_DWORD,
                      &Configuration.PluginsBarVisible, sizeof(DWORD));
+            GetValue(actKey, CONFIG_EXTENSIONBARVISIBLE_REG, REG_DWORD,
+                     &Configuration.ExtensionBarVisible, sizeof(DWORD));
             GetValue(actKey, CONFIG_MIDDLETOOLBARVISIBLE_REG, REG_DWORD,
                      &Configuration.MiddleToolBarVisible, sizeof(DWORD));
 
@@ -5471,6 +5491,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                         ToggleTopToolBar(FALSE);
                     if (idx == Configuration.PluginsBarIndex && Configuration.PluginsBarVisible)
                         TogglePluginsBar(FALSE);
+                    if (idx == Configuration.ExtensionBarIndex && Configuration.ExtensionBarVisible)
+                        ToggleExtensionBar(FALSE);
                     if (idx == Configuration.UserMenuToolbarIndex && Configuration.UserMenuToolBarVisible)
                         ToggleUserMenuToolBar(FALSE);
                     if (idx == Configuration.HotPathsBarIndex && Configuration.HotPathsBarVisible)

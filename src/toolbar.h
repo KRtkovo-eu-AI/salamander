@@ -297,7 +297,6 @@ protected:
     // do 'tii' naplni data pro poozku 'tbbeIndex' a vrati TRUE
     // pokud polozka neni uplna (zruseny prikaz), vrati FALSE
     BOOL FillTII(int tbbeIndex, TLBI_ITEM_INFO2* tii, BOOL fillName); // 'buttonIndex' je z rodiny TBBE_xxxx; -1 = separator
-    BOOL FillExtensionTII(int extensionIndex, TLBI_ITEM_INFO2* tii, BOOL fillName);
 };
 
 //*****************************************************************************
@@ -504,6 +503,24 @@ public:
 
     //  protected:
     //    virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+};
+
+//*****************************************************************************
+//
+// CExtensionBar
+//
+
+class CExtensionBar : public CToolBar
+{
+public:
+    CExtensionBar(HWND hNotifyWindow, CObjectOrigin origin = ooStatic);
+
+    BOOL CreateExtensionButtons(HIMAGELIST imageList, HIMAGELIST hotImageList);
+
+    virtual int WINAPI GetNeededHeight();
+    virtual void WINAPI Customize();
+
+    void OnGetToolTip(LPARAM lParam);
 };
 
 extern void PrepareToolTipText(char* buff, BOOL stripHotKey);

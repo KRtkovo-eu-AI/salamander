@@ -568,6 +568,7 @@ CConfiguration::CConfiguration()
     SingleClick = FALSE;
     TopToolBarVisible = TRUE;
     PluginsBarVisible = FALSE;
+    ExtensionBarVisible = FALSE;
     MiddleToolBarVisible = FALSE;
     BottomToolBarVisible = TRUE;
     UserMenuToolBarVisible = FALSE;
@@ -757,16 +758,20 @@ CConfiguration::CConfiguration()
     PluginsBarBreak = TRUE;
     PluginsBarWidth = 1; // dummy
 
-    UserMenuToolbarIndex = 3;
+    ExtensionBarIndex = 3;
+    ExtensionBarBreak = TRUE;
+    ExtensionBarWidth = 1; // dummy
+
+    UserMenuToolbarIndex = 4;
     UserMenuToolbarBreak = TRUE;
     UserMenuToolbarWidth = 1; // dummy
     UserMenuToolbarLabels = 1;
 
-    HotPathsBarIndex = 4;
+    HotPathsBarIndex = 5;
     HotPathsBarBreak = TRUE;
     HotPathsBarWidth = 1; // dummy
 
-    DriveBarIndex = 5;
+    DriveBarIndex = 6;
     DriveBarBreak = TRUE;
     DriveBarWidth = 1; // dummy
     TreeViewWidth = 200;

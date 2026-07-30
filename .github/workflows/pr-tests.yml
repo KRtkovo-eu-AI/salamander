@@ -92,7 +92,9 @@ jobs:
           path: test-results/native.xml
           reporter: java-junit
           fail-on-empty: true
-          use-actions-summary: true
+          # v3 publishes either a Job Summary or a Check Run. Keep this false
+          # so the detailed result is visible as a separate PR check.
+          use-actions-summary: false
 
       - name: Report Python tests
         id: python_report
@@ -111,7 +113,51 @@ jobs:
           path: test-results/python.xml
           reporter: python-xunit
           fail-on-empty: true
-          use-actions-summary: true
+          # v3 publishes either a Job Summary or a Check Run. Keep this false
+          # so the detailed result is visible as a separate PR check.
+          use-actions-summary: false
+
+      - name: Show test counts on the PR workflow check
+        if: >-
+          ${{
+            !cancelled() &&
+            steps.native_report.outputs.passed != '' &&
+            steps.python_report.outputs.passed != ''
+          }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_RUN_ID: ${{ job.check_run_id }}
+          NATIVE_PASSED: ${{ steps.native_report.outputs.passed }}
+          NATIVE_FAILED: ${{ steps.native_report.outputs.failed }}
+          NATIVE_SKIPPED: ${{ steps.native_report.outputs.skipped }}
+          PYTHON_PASSED: ${{ steps.python_report.outputs.passed }}
+          PYTHON_FAILED: ${{ steps.python_report.outputs.failed }}
+          PYTHON_SKIPPED: ${{ steps.python_report.outputs.skipped }}
+        run: |
+          $passed = [int]$env:NATIVE_PASSED + [int]$env:PYTHON_PASSED
+          $failed = [int]$env:NATIVE_FAILED + [int]$env:PYTHON_FAILED
+          $skipped = [int]$env:NATIVE_SKIPPED + [int]$env:PYTHON_SKIPPED
+          $title = "$passed passed, $failed failed and $skipped skipped"
+          $summary = @"
+          | Test group | Passed | Failed | Skipped |
+          | --- | ---: | ---: | ---: |
+          | Native and source-contract | $($env:NATIVE_PASSED) | $($env:NATIVE_FAILED) | $($env:NATIVE_SKIPPED) |
+          | Python | $($env:PYTHON_PASSED) | $($env:PYTHON_FAILED) | $($env:PYTHON_SKIPPED) |
+          | **Total** | **$passed** | **$failed** | **$skipped** |
+          "@
+          @{
+              output = @{
+                  title = $title
+                  summary = $summary
+              }
+          } |
+              ConvertTo-Json -Depth 3 -Compress |
+              gh api `
+                  --method PATCH `
+                  -H "Accept: application/vnd.github+json" `
+                  -H "X-GitHub-Api-Version: 2022-11-28" `
+                  "repos/$env:GITHUB_REPOSITORY/check-runs/$env:CHECK_RUN_ID" `
+                  --input -
 
       - name: Fail when a test group failed
         if: ${{ !cancelled() }}
