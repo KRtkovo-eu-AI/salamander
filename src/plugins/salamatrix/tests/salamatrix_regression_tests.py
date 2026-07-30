@@ -613,10 +613,19 @@ def main() -> int:
         "framework package host does not expose the selected Salamander language")
     require(
         setup,
+        r"AddPlugin\('gitworktreenavigator',\s*'Git Worktree Navigator'",
+        "x64 installer does not offer Git Worktree Navigator as a plugin")
+    require(
+        setup,
         r"extensions\\git-worktree-navigator.*?"
-        r"IsPluginSelected\('salamatrix'\).*?"
-        r"IsPluginSelected\('powershellruntime'\)",
-        "x64 installer does not package Git Worktree Navigator with its dependencies")
+        r"IsPluginSelected\('gitworktreenavigator'\)",
+        "x64 installer does not package the selected Git Worktree Navigator")
+    require(
+        setup,
+        r"CompareText\(PluginId,\s*'salamatrix'\).*?"
+        r"CompareText\(PluginId,\s*'powershellruntime'\).*?"
+        r"IsPluginExplicitlySelected\('gitworktreenavigator'\)",
+        "x64 installer does not include Git Worktree Navigator dependencies")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")

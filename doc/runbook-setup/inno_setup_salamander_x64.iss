@@ -365,6 +365,8 @@ Name: "{app}\plugins\salamatrix"
 Name: "{app}\plugins\extension-runtimes"
 Name: "{app}\plugins\extension-runtimes\powershellruntime"
 Name: "{app}\plugins\extension-runtimes\powershellruntime\runtime"
+Name: "{app}\extensions"
+Name: "{app}\extensions\git-worktree-navigator"
 Name: "{app}\plugins\serviceexplorer"
 Name: "{app}\plugins\serviceexplorer\lang"
 Name: "{app}\plugins\splitcbn"
@@ -1369,7 +1371,7 @@ Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix-automation-api.html"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
-Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\extensions\git-worktree-navigator"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrix') and IsPluginSelected('powershellruntime')
+Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\extensions\git-worktree-navigator"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('gitworktreenavigator')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\powershellruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\runtime\salamatrix_worker.ps1"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -1742,6 +1744,13 @@ var
   ExpectedPath: String;
 begin
   Result := '';
+  if CompareText(PluginId, 'gitworktreenavigator') = 0 then
+  begin
+    if FileExists(ExpandConstant('{app}\extensions\git-worktree-navigator\extension.json')) then
+      Result := '1.0.0';
+    Exit;
+  end;
+
   if CompareText(PluginId, 'powershellruntime') = 0 then
     ExpectedPath := 'plugins/extension-runtimes/' + PluginId + '/' + PluginId + '.spl'
   else
@@ -1857,7 +1866,7 @@ begin
   PluginIds[GetArrayLength(PluginIds) - 1] := PluginId;
 end;
 
-function IsPluginSelected(const PluginId: String): Boolean;
+function IsPluginExplicitlySelected(const PluginId: String): Boolean;
 var
   I: Integer;
 begin
@@ -1883,6 +1892,34 @@ begin
     if CompareText(PluginIds[I], PluginId) = 0 then
     begin
       Result := PluginList.Checked[I];
+      Exit;
+    end;
+  end;
+end;
+
+function IsPluginSelected(const PluginId: String): Boolean;
+begin
+  Result := IsPluginExplicitlySelected(PluginId);
+
+  { Git Worktree Navigator requires both the extension framework and its runtime. }
+  if (not Result) and
+     ((CompareText(PluginId, 'salamatrix') = 0) or
+      (CompareText(PluginId, 'powershellruntime') = 0)) then
+    Result := IsPluginExplicitlySelected('gitworktreenavigator');
+end;
+
+procedure SelectPlugin(const PluginId: String);
+var
+  I: Integer;
+begin
+  if not Assigned(PluginList) then
+    Exit;
+
+  for I := 0 to GetArrayLength(PluginIds) - 1 do
+  begin
+    if CompareText(PluginIds[I], PluginId) = 0 then
+    begin
+      PluginList.Checked[I] := True;
       Exit;
     end;
   end;
@@ -2095,6 +2132,7 @@ begin
   AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
   AddPlugin('salamatrix', 'Salamatrix Framework', '0.2 (x64)', True);
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.1 (x64)', True);
+  AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.0 (x64)', True);
   AddPlugin('samandarin', 'Samandarin Update Notifier', '0.8 (x64)', True);
   AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);
   AddPlugin('splitcbn', 'Split & Combine', '1.11 (x64)', True);
@@ -2174,6 +2212,13 @@ begin
       WizardForm.DirEdit.Text := GetPortableDefaultDir()
     else if (not IsPortableInstall()) and (WizardDirValue = GetPortableDefaultDir()) then
       WizardForm.DirEdit.Text := GetStandardDefaultDir();
+  end;
+
+  if (CurPageID = PluginSelectionPage.ID) and
+     IsPluginExplicitlySelected('gitworktreenavigator') then
+  begin
+    SelectPlugin('salamatrix');
+    SelectPlugin('powershellruntime');
   end;
 end;
 

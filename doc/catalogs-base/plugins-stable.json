@@ -110,7 +110,7 @@
       "latestVersion": "1.0 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_diskdir_1.0_x64/plugin_5.0_diskdir_1.0_x64.7z",
       "icon": "plugin"
     },
     {
@@ -252,6 +252,21 @@
       "homepageUrl": "https://samandarin.krtkovo.eu/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ftp_1.36_x64/plugin_5.0_ftp_1.36_x64.7z",
       "icon": "https://samandarin.krtkovo.eu/catalogs/img/ftp.png"
+    },
+    {
+      "id": "git-worktree-navigator",
+      "name": {
+        "english": "Git Worktree Navigator"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": ""
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_git-worktree-navigator_1.0.0_x64/plugin_5.0_git-worktree-navigator_1.0.0_x64.7z",
+      "icon": "plugin"
     },
     {
       "id": "hypervm",
