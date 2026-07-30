@@ -287,6 +287,16 @@ def main() -> int:
     require(pr_tests_workflow, r'head\.repo\.full_name == github\.repository',
             "direct Test Reporter checks are not limited to writable PR tokens")
     require(pr_tests_workflow,
+            r'Show test counts on the PR workflow check.*?'
+            r'steps\.native_report\.outputs\.passed !=.*?'
+            r'steps\.python_report\.outputs\.passed !=.*?'
+            r'CHECK_RUN_ID:\s*\$\{\{\s*job\.check_run_id\s*\}\}.*?'
+            r'steps\.native_report\.outputs\.passed.*?'
+            r'steps\.python_report\.outputs\.passed.*?'
+            r'output\s*=\s*@\{.*?title\s*=\s*\$title.*?'
+            r'check-runs/\$env:CHECK_RUN_ID',
+            "PR workflow check does not display aggregate Test Reporter counts")
+    require(pr_tests_workflow,
             r'repository:\s*\$\{\{\s*github\.event\.pull_request\.head\.repo\.full_name\s*\|\|\s*github\.repository\s*\}\}.*?'
             r'ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}',
             "PR tests do not explicitly check out the selected source branch commit")
