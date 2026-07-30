@@ -1476,6 +1476,10 @@ BOOL CBottomToolBar::InitDataFromResources()
         if (!InitDataResRow(BottomTBStates[i], res[i]))
             return FALSE;
     }
+    // Shift+F5 uses the localized Copy label from the normal F5 state.
+    BottomTBData[btbsShift][4].TextLen = BottomTBData[btbsNormal][4].TextLen;
+    memcpy(BottomTBData[btbsShift][4].Text, BottomTBData[btbsNormal][4].Text,
+           BottomTBData[btbsNormal][4].TextLen);
     return TRUE;
 }
 
