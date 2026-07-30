@@ -118,100 +118,127 @@ function Add-CData {
     [void]$Element.AppendChild($Document.CreateCDataSection($safeValue))
 }
 
-New-Item -ItemType Directory -Force -Path $resultsDirectory, $workerRoot |
-    Out-Null
-$workerFiles = @{
-    'salamatrix_worker.py' =
-        'src\plugins\pythonruntime\runtime\salamatrix_worker.py'
-    'salamatrix_worker.ps1' =
-        'src\plugins\powershellruntime\runtime\salamatrix_worker.ps1'
-    'salamatrix_worker.php' =
-        'src\plugins\phpruntime\runtime\salamatrix_worker.php'
-}
-foreach ($workerName in $workerFiles.Keys) {
-    Copy-Item -LiteralPath (
-        Join-Path $repositoryRoot $workerFiles[$workerName]
-    ) -Destination $workerRoot -Force
-}
-$env:SALAMATRIX_WORKER_ROOT = $workerRoot
+function Resolve-ApplicationPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
 
-$msbuild = (Get-Command msbuild.exe -CommandType Application).Source
-$testProjects = @(
-    Get-ChildItem -Path (Join-Path $repositoryRoot 'src\plugins') `
-        -Filter '*_tests.vcxproj' -File -Recurse |
-        Where-Object { $_.Directory.Name -eq 'tests' } |
-        Sort-Object FullName
-)
-if ($testProjects.Count -eq 0) {
-    throw 'No native test projects were found.'
+    $command = Get-Command $Name -CommandType Application `
+        -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -eq $command -or [string]::IsNullOrWhiteSpace($command.Source)) {
+        throw "Required application was not found: $Name"
+    }
+    return [string]$command.Source
 }
 
-foreach ($project in $testProjects) {
-    $testName = [System.IO.Path]::GetFileNameWithoutExtension($project.Name)
-    Write-Host "Building $testName..."
-    $buildResult = Invoke-TestProcess -FilePath $msbuild -Arguments @(
-        $project.FullName,
-        '/m',
-        '/t:Build',
-        "/p:Configuration=$Configuration",
-        "/p:Platform=$Platform",
-        "/p:OPENSAL_BUILD_DIR=$ciBuildRoot\",
-        '/p:PreferredToolArchitecture=x64',
-        '/p:RestoreFallbackFolders=',
-        '/nr:false',
-        '/v:minimal'
-    ) -WorkingDirectory $repositoryRoot
-    if ($buildResult.ExitCode -ne 0 -or $buildResult.TimedOut) {
-        Add-TestResult -ClassName 'native-build' -Name $testName `
-            -ProcessResult $buildResult
-        continue
+try {
+    New-Item -ItemType Directory -Force -Path $resultsDirectory, $workerRoot |
+        Out-Null
+    $workerFiles = @{
+        'salamatrix_worker.py' =
+            'src\plugins\pythonruntime\runtime\salamatrix_worker.py'
+        'salamatrix_worker.ps1' =
+            'src\plugins\powershellruntime\runtime\salamatrix_worker.ps1'
+        'salamatrix_worker.php' =
+            'src\plugins\phpruntime\runtime\salamatrix_worker.php'
+    }
+    foreach ($workerName in $workerFiles.Keys) {
+        Copy-Item -LiteralPath (
+            Join-Path $repositoryRoot $workerFiles[$workerName]
+        ) -Destination $workerRoot -Force
+    }
+    $env:SALAMATRIX_WORKER_ROOT = $workerRoot
+
+    $msbuild = Resolve-ApplicationPath -Name 'msbuild.exe'
+    $testProjects = @(
+        Get-ChildItem -Path (Join-Path $repositoryRoot 'src\plugins') `
+            -Filter '*_tests.vcxproj' -File -Recurse |
+            Where-Object { $_.Directory.Name -eq 'tests' } |
+            Sort-Object FullName
+    )
+    if ($testProjects.Count -eq 0) {
+        throw 'No native test projects were found.'
     }
 
-    $testExecutable = Join-Path $buildOutput "$testName.exe"
-    if (-not (Test-Path -LiteralPath $testExecutable -PathType Leaf)) {
-        $missingResult = [pscustomobject]@{
-            ExitCode = 1
-            TimedOut = $false
-            Duration = $buildResult.Duration
-            Output = "MSBuild succeeded but did not create $testExecutable."
+    foreach ($project in $testProjects) {
+        $testName = [System.IO.Path]::GetFileNameWithoutExtension($project.Name)
+        Write-Host "Building $testName..."
+        $buildResult = Invoke-TestProcess -FilePath $msbuild -Arguments @(
+            $project.FullName,
+            '/m',
+            '/t:Build',
+            "/p:Configuration=$Configuration",
+            "/p:Platform=$Platform",
+            "/p:OPENSAL_BUILD_DIR=$ciBuildRoot\",
+            '/p:PreferredToolArchitecture=x64',
+            '/p:RestoreFallbackFolders=',
+            '/nr:false',
+            '/v:minimal'
+        ) -WorkingDirectory $repositoryRoot
+        if ($buildResult.ExitCode -ne 0 -or $buildResult.TimedOut) {
+            Add-TestResult -ClassName 'native-build' -Name $testName `
+                -ProcessResult $buildResult
+            continue
         }
+
+        $testExecutable = Join-Path $buildOutput "$testName.exe"
+        if (-not (Test-Path -LiteralPath $testExecutable -PathType Leaf)) {
+            $missingResult = [pscustomobject]@{
+                ExitCode = 1
+                TimedOut = $false
+                Duration = $buildResult.Duration
+                Output = "MSBuild succeeded but did not create $testExecutable."
+            }
+            Add-TestResult -ClassName 'native-test' -Name $testName `
+                -ProcessResult $missingResult
+            continue
+        }
+
+        Write-Host "Running $testName..."
+        $testResult = Invoke-TestProcess -FilePath $testExecutable `
+            -WorkingDirectory $repositoryRoot
         Add-TestResult -ClassName 'native-test' -Name $testName `
-            -ProcessResult $missingResult
-        continue
+            -ProcessResult $testResult
     }
 
-    Write-Host "Running $testName..."
-    $testResult = Invoke-TestProcess -FilePath $testExecutable `
-        -WorkingDirectory $repositoryRoot
-    Add-TestResult -ClassName 'native-test' -Name $testName `
-        -ProcessResult $testResult
+    $python = Resolve-ApplicationPath -Name 'python.exe'
+    foreach ($contractTest in @(
+        @{
+            Name = 'salamatrix_regression_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\plugins\salamatrix\tests\salamatrix_regression_tests.py')
+            )
+        },
+        @{
+            Name = 'generated_automation_reference'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'tools\generate_salamatrix_automation_reference.py'),
+                '--check'
+            )
+        }
+    )) {
+        Write-Host "Running $($contractTest.Name)..."
+        $contractResult = Invoke-TestProcess -FilePath $python `
+            -Arguments $contractTest.Arguments -WorkingDirectory $repositoryRoot
+        Add-TestResult -ClassName 'source-contract' -Name $contractTest.Name `
+            -ProcessResult $contractResult
+    }
 }
-
-$python = (Get-Command python.exe -CommandType Application).Source
-foreach ($contractTest in @(
-    @{
-        Name = 'salamatrix_regression_tests'
-        Arguments = @(
-            '-B',
-            (Join-Path $repositoryRoot `
-                'src\plugins\salamatrix\tests\salamatrix_regression_tests.py')
-        )
-    },
-    @{
-        Name = 'generated_automation_reference'
-        Arguments = @(
-            '-B',
-            (Join-Path $repositoryRoot `
-                'tools\generate_salamatrix_automation_reference.py'),
-            '--check'
-        )
+catch {
+    $infrastructureFailure = [pscustomobject]@{
+        ExitCode = 1
+        TimedOut = $false
+        Duration = 0.0
+        Output = ($_ | Out-String).Trim()
     }
-)) {
-    Write-Host "Running $($contractTest.Name)..."
-    $contractResult = Invoke-TestProcess -FilePath $python `
-        -Arguments $contractTest.Arguments -WorkingDirectory $repositoryRoot
-    Add-TestResult -ClassName 'source-contract' -Name $contractTest.Name `
-        -ProcessResult $contractResult
+    Add-TestResult -ClassName 'test-infrastructure' `
+        -Name 'native-test-runner' -ProcessResult $infrastructureFailure
 }
 
 $document = [System.Xml.XmlDocument]::new()
@@ -271,6 +298,6 @@ finally {
 $failedCount = @($results | Where-Object { -not $_.Passed }).Count
 Write-Host "Wrote $($results.Count) results to $resultsFullPath."
 if ($failedCount -ne 0) {
-    Write-Error "$failedCount native or contract test groups failed."
+    Write-Host "$failedCount native, contract, or infrastructure test groups failed."
     exit 1
 }

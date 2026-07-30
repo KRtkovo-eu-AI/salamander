@@ -41,6 +41,7 @@ def main() -> int:
     local_llama_project = read("src/plugins/salamatrixailocalllama/vcxproj/local_llama.vcxproj")
     local_llama_installer = read("src/plugins/salamatrixailocalllama/runtime/install_llama.ps1")
     local_llama_rc2 = read("src/plugins/salamatrixailocalllama/local_llama.rc2")
+    native_test_runner = read("tools/run_native_tests.ps1")
     runtime_protocol = read("src/plugins/salamatrix/salamatrix_runtime_protocol.h")
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
@@ -232,6 +233,13 @@ def main() -> int:
             "large model downloader does not use Windows BITS")
     require_absent(local_llama_installer, r'wget(?:\.exe)?',
                    "large model downloader still depends on wget")
+    require(native_test_runner, r'Get-Command \$Name -CommandType Application.*?'
+                                r'Select-Object -First 1.*?'
+                                r'return \[string\]\$command\.Source',
+            "native CI runner does not resolve one deterministic application path")
+    require(native_test_runner, r"catch \{.*?'test-infrastructure'.*?"
+                                r"'native-test-runner'.*?CreateElement\('testsuite'\)",
+            "native CI runner does not report infrastructure failures as JUnit")
     require(runtime_protocol, r'valueEnd = position.*?'
                               r"json\[valueEnd - 1\] == '\\n'.*?"
                               r'value->assign\(json, valueStart, valueEnd - valueStart\)',
