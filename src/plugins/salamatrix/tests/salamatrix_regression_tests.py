@@ -518,6 +518,13 @@ def main() -> int:
         r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"
         r"SetExtensionBarVisible",
         "per-extension Extension Bar visibility is not persisted")
+    require(
+        plugins2,
+        r"CompositeExtensionToolbarBitmap.*?"
+        r"ImageList_GetBkColor\(hotImageList\).*?"
+        r"CompositeExtensionToolbarBitmap\(hotBitmap, hotBackground\).*?"
+        r"ImageList_Add\(hotImageList",
+        "Extension Bar SVG alpha is not flattened onto its light/dark background")
     require(python_demo, r"Salamander\.ui\.notify", "Python demo does not show a non-blocking result")
     require_absent(python_demo, r"message_box", "Python demo must not block Salamander with a modal UI call")
     require(powershell_demo, r"\$Salamander\.ui\.Notify", "PowerShell demo does not show a non-blocking result")

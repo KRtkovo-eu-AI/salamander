@@ -2726,6 +2726,50 @@ int CPlugins::FindToolbarButtonByConfigKey(const char* key)
     return -1;
 }
 
+static BOOL CompositeExtensionToolbarBitmap(HBITMAP bitmap,
+                                            COLORREF background)
+{
+    if (bitmap == NULL || background == CLR_NONE)
+        return FALSE;
+
+    DIBSECTION section;
+    ZeroMemory(&section, sizeof(section));
+    if (GetObject(bitmap, sizeof(section), &section) != sizeof(section) ||
+        section.dsBm.bmBits == NULL || section.dsBm.bmBitsPixel != 32 ||
+        section.dsBm.bmWidth <= 0 || section.dsBm.bmHeight == 0)
+        return FALSE;
+
+    const BYTE backgroundRed = GetRValue(background);
+    const BYTE backgroundGreen = GetGValue(background);
+    const BYTE backgroundBlue = GetBValue(background);
+    const int height = abs(section.dsBm.bmHeight);
+    BYTE* row = static_cast<BYTE*>(section.dsBm.bmBits);
+    for (int y = 0; y < height; ++y)
+    {
+        BYTE* pixel = row;
+        for (int x = 0; x < section.dsBm.bmWidth; ++x, pixel += 4)
+        {
+            const BYTE alpha = pixel[3];
+            const UINT inverseAlpha = 255 - alpha;
+            // RenderSVGIconBitmapFromFile returns premultiplied RGBA. The
+            // toolbar image lists are mask-based DDBs and discard alpha, so
+            // flatten each pixel onto their real light/dark background first.
+            pixel[0] = static_cast<BYTE>(
+                min(255U, static_cast<UINT>(pixel[0]) +
+                              backgroundRed * inverseAlpha / 255));
+            pixel[1] = static_cast<BYTE>(
+                min(255U, static_cast<UINT>(pixel[1]) +
+                              backgroundGreen * inverseAlpha / 255));
+            pixel[2] = static_cast<BYTE>(
+                min(255U, static_cast<UINT>(pixel[2]) +
+                              backgroundBlue * inverseAlpha / 255));
+            pixel[3] = 255;
+        }
+        row += section.dsBm.bmWidthBytes;
+    }
+    return TRUE;
+}
+
 BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
                                          HIMAGELIST grayImageList)
 {
@@ -2785,6 +2829,15 @@ BOOL CPlugins::EnsureToolbarButtonImages(HIMAGELIST hotImageList,
                 HANDLES(DeleteObject(grayBitmap));
             continue;
         }
+
+        COLORREF hotBackground = ImageList_GetBkColor(hotImageList);
+        COLORREF grayBackground = ImageList_GetBkColor(grayImageList);
+        if (hotBackground == CLR_NONE)
+            hotBackground = GetSysColor(COLOR_BTNFACE);
+        if (grayBackground == CLR_NONE)
+            grayBackground = hotBackground;
+        CompositeExtensionToolbarBitmap(hotBitmap, hotBackground);
+        CompositeExtensionToolbarBitmap(grayBitmap, grayBackground);
 
         int hotIndex = ImageList_Add(hotImageList, hotBitmap, NULL);
         int grayIndex = ImageList_Add(grayImageList, grayBitmap, NULL);
