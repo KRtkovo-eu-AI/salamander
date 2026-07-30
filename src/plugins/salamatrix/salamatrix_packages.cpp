@@ -227,6 +227,7 @@ struct PackageManager::Package
     ULONGLONG ProgressId;
     std::vector<int> CommandIds;
     std::vector<std::string> CommandIconPaths;
+    std::vector<std::string> CommandIconDarkPaths;
     std::vector<int> MenuIconIndices;
     Runtime::IRuntimeSession* Session;
     HANDLE PumpThread;
@@ -341,6 +342,19 @@ public:
                     (Owner->Packages[p]->Manifest.Commands[c].Menu == "plugin" ||
                      Owner->Packages[p]->Manifest.Commands[c].Menu == "both"))
                     ++iconCount;
+            int packageMenuCommandCount = 0;
+            for (size_t c = 0;
+                 c < Owner->Packages[p]->Manifest.Commands.size(); ++c)
+            {
+                const CExtensionManifestCommand& command =
+                    Owner->Packages[p]->Manifest.Commands[c];
+                if (command.Visible &&
+                    (command.Menu == "plugin" || command.Menu == "both"))
+                    ++packageMenuCommandCount;
+            }
+            if (packageMenuCommandCount > 1 &&
+                !Owner->Packages[p]->IconPath.empty())
+                ++iconCount;
         }
 
         CGUIIconListAbstract* icons = NULL;
@@ -382,8 +396,33 @@ public:
                 if (Owner->General != NULL)
                     Owner->General->DuplicateAmpersands(
                         packageTitle, _countof(packageTitle));
+                int packageIconIndex = -1;
+                if (icons != NULL && !package->IconPath.empty())
+                {
+                    packageIconIndex = imageIndex++;
+                    const char* preferredPath =
+                        DarkModeIsWindowsDarkSchemeSelected() &&
+                                !package->IconDarkPath.empty()
+                            ? package->IconDarkPath.c_str()
+                            : package->IconPath.c_str();
+                    HICON icon =
+                        SalamanderGUI->CreateSVGIcon(preferredPath, 16);
+                    if (icon == NULL &&
+                        preferredPath != package->IconPath.c_str())
+                    {
+                        icon = SalamanderGUI->CreateSVGIcon(
+                            package->IconPath.c_str(), 16);
+                    }
+                    if (icon != NULL)
+                    {
+                        icons->ReplaceIcon(packageIconIndex, icon);
+                        DestroyIcon(icon);
+                    }
+                    else
+                        packageIconIndex = -1;
+                }
                 builder->AddSubmenuStart(
-                    -1, packageTitle, 0, FALSE,
+                    packageIconIndex, packageTitle, 0, FALSE,
                     MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
             }
             for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
@@ -400,18 +439,18 @@ public:
                 {
                     iconIndex = imageIndex++;
                     const std::string& iconPath = package->CommandIconPaths[c];
-                    const bool usesPackageIcon = command.Icon.empty();
-                    const bool useDarkPackageIcon =
+                    const std::string& iconDarkPath =
+                        package->CommandIconDarkPaths[c];
+                    const bool useDarkIcon =
                         DarkModeIsWindowsDarkSchemeSelected() &&
-                        usesPackageIcon && !package->IconDarkPath.empty();
-                    const char* preferredPath = useDarkPackageIcon
-                                                    ? package->IconDarkPath.c_str()
-                                                    : iconPath.c_str();
+                        !iconDarkPath.empty();
+                    const char* preferredPath =
+                        useDarkIcon ? iconDarkPath.c_str() : iconPath.c_str();
                     HICON icon = iconPath.empty()
                                      ? NULL
                                      : SalamanderGUI->CreateSVGIcon(
                                            preferredPath, 16);
-                    if (icon == NULL && useDarkPackageIcon)
+                    if (icon == NULL && useDarkIcon)
                         icon = SalamanderGUI->CreateSVGIcon(iconPath.c_str(), 16);
                     if (icon != NULL)
                     {
@@ -789,6 +828,22 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                             if (!declaredIcon.empty() && ToWide(declaredIcon, &commandIcon))
                                 ToUtf8(path + L"\\" + commandIcon, &commandIconUtf8);
                             package->CommandIconPaths.push_back(commandIconUtf8);
+                            std::wstring commandIconDark;
+                            const std::string declaredIconDark =
+                                !manifest.Commands[command].IconDark.empty()
+                                    ? manifest.Commands[command].IconDark
+                                    : manifest.Commands[command].Icon.empty()
+                                          ? manifest.IconDark
+                                          : std::string();
+                            std::string commandIconDarkUtf8;
+                            if (!declaredIconDark.empty() &&
+                                ToWide(declaredIconDark, &commandIconDark))
+                            {
+                                ToUtf8(path + L"\\" + commandIconDark,
+                                       &commandIconDarkUtf8);
+                            }
+                            package->CommandIconDarkPaths.push_back(
+                                commandIconDarkUtf8);
                         }
                         Packages.push_back(package);
                     }
@@ -1478,6 +1533,14 @@ void PackageManager::RegisterToolbarButtons()
                     menuItem.Title = menuCommand.Title.c_str();
                     menuItem.Enabled =
                         menuCommand.Enabled ? TRUE : FALSE;
+                    menuItem.IconPath =
+                        package->CommandIconPaths[item].empty()
+                            ? NULL
+                            : package->CommandIconPaths[item].c_str();
+                    menuItem.IconDarkPath =
+                        package->CommandIconDarkPaths[item].empty()
+                            ? NULL
+                            : package->CommandIconDarkPaths[item].c_str();
                     menuItems.push_back(menuItem);
                 }
                 button.MenuItems =

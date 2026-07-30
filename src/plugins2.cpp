@@ -2587,6 +2587,16 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
                 CSalamanderToolbarMenuItem, Enabled) + sizeof(BOOL));
             target.Enabled =
                 source.StructSize >= itemEnabledEnd ? source.Enabled : TRUE;
+            const DWORD itemIconsEnd = static_cast<DWORD>(offsetof(
+                CSalamanderToolbarMenuItem, IconDarkPath) +
+                                                           sizeof(const char*));
+            if (source.StructSize >= itemIconsEnd)
+            {
+                if (source.IconPath != NULL)
+                    target.IconPath = source.IconPath;
+                if (source.IconDarkPath != NULL)
+                    target.IconDarkPath = source.IconDarkPath;
+            }
             menuItems.push_back(target);
         }
     }
@@ -2930,7 +2940,28 @@ BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
         {
             CalculateStateCache();
             CMenuPopup menu;
+            HIMAGELIST menuImages = ImageList_Create(
+                16, 16, ILC_COLOR32, 0,
+                static_cast<int>(item.MenuItems.size()));
+            HIMAGELIST menuHotImages = ImageList_Create(
+                16, 16, ILC_COLOR32, 0,
+                static_cast<int>(item.MenuItems.size()));
+            if (menuImages == NULL || menuHotImages == NULL)
+            {
+                if (menuImages != NULL)
+                    ImageList_Destroy(menuImages);
+                if (menuHotImages != NULL)
+                    ImageList_Destroy(menuHotImages);
+                menuImages = NULL;
+                menuHotImages = NULL;
+            }
+            if (menuImages != NULL)
+            {
+                menu.SetImageList(menuImages);
+                menu.SetHotImageList(menuHotImages);
+            }
             std::vector<BOOL> enabledStates;
+            BOOL menuBuilt = TRUE;
             for (size_t menuIndex = 0;
                  menuIndex < item.MenuItems.size(); ++menuIndex)
             {
@@ -2968,8 +2999,64 @@ BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
                                  : MENU_STATE_GRAYED;
                 info.ID = static_cast<DWORD>(menuIndex + 1);
                 info.String = item.MenuItems[menuIndex].Title;
+                info.ImageIndex = -1;
+                if (menuImages != NULL &&
+                    !item.MenuItems[menuIndex].IconPath.empty())
+                {
+                    const char* source =
+                        item.MenuItems[menuIndex].IconPath.c_str();
+                    const char* preferred =
+                        DarkModeIsWindowsDarkSchemeSelected() &&
+                                !item.MenuItems[menuIndex].IconDarkPath.empty()
+                            ? item.MenuItems[menuIndex].IconDarkPath.c_str()
+                            : source;
+                    HBITMAP hotBitmap = NULL;
+                    HBITMAP grayBitmap = NULL;
+                    BOOL rendered = RenderSVGIconBitmapFromFile(
+                                        preferred, 16, TRUE, &hotBitmap) &&
+                                    RenderSVGIconBitmapFromFile(
+                                        preferred, 16, FALSE, &grayBitmap);
+                    if (!rendered && preferred != source)
+                    {
+                        if (hotBitmap != NULL)
+                            HANDLES(DeleteObject(hotBitmap));
+                        if (grayBitmap != NULL)
+                            HANDLES(DeleteObject(grayBitmap));
+                        hotBitmap = NULL;
+                        grayBitmap = NULL;
+                        rendered = RenderSVGIconBitmapFromFile(
+                                       source, 16, TRUE, &hotBitmap) &&
+                                   RenderSVGIconBitmapFromFile(
+                                       source, 16, FALSE, &grayBitmap);
+                    }
+                    if (rendered)
+                    {
+                        const int hotIndex =
+                            ImageList_Add(menuHotImages, hotBitmap, NULL);
+                        const int grayIndex =
+                            ImageList_Add(menuImages, grayBitmap, NULL);
+                        if (hotIndex >= 0 && grayIndex == hotIndex)
+                            info.ImageIndex = hotIndex;
+                        else
+                        {
+                            if (hotIndex >= 0)
+                                ImageList_Remove(menuHotImages, hotIndex);
+                            if (grayIndex >= 0)
+                                ImageList_Remove(menuImages, grayIndex);
+                        }
+                    }
+                    if (hotBitmap != NULL)
+                        HANDLES(DeleteObject(hotBitmap));
+                    if (grayBitmap != NULL)
+                        HANDLES(DeleteObject(grayBitmap));
+                }
+                if (info.ImageIndex >= 0)
+                    info.Mask |= MENU_MASK_IMAGEINDEX;
                 if (!menu.InsertItem(0xFFFFFFFF, TRUE, &info))
-                    return TRUE;
+                {
+                    menuBuilt = FALSE;
+                    break;
+                }
             }
 
             RECT fallback;
@@ -2983,10 +3070,19 @@ BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
                 fallback.bottom = point.y + 1;
                 menuAnchor = &fallback;
             }
-            const DWORD selected = menu.Track(
-                MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
-                menuAnchor->left, menuAnchor->bottom,
-                parent, menuAnchor);
+            const DWORD selected =
+                menuBuilt
+                    ? menu.Track(
+                          MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
+                          menuAnchor->left, menuAnchor->bottom,
+                          parent, menuAnchor)
+                    : 0;
+            menu.SetImageList(NULL);
+            menu.SetHotImageList(NULL);
+            if (menuImages != NULL)
+                ImageList_Destroy(menuImages);
+            if (menuHotImages != NULL)
+                ImageList_Destroy(menuHotImages);
             if (selected > 0 &&
                 selected <= static_cast<DWORD>(item.MenuItems.size()) &&
                 enabledStates[selected - 1])

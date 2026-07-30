@@ -547,9 +547,22 @@ def main() -> int:
     require(
         plugins2,
         r"ExecuteToolbarButton\(.*?MenuItems.*?"
+        r"RenderSVGIconBitmapFromFile.*?"
+        r"MENU_MASK_IMAGEINDEX.*?"
         r"MENU_TRACK_RETURNCMD.*?"
         r"ExecuteMenuItem2",
-        "Extension Bar menu buttons do not track and execute their popup commands")
+        "Extension Bar menu buttons do not render icons and execute popup commands")
+    require(
+        general_contract + plugins2 + packages,
+        r"CSalamanderToolbarMenuItem.*?IconPath.*?IconDarkPath.*?"
+        r"itemIconsEnd.*?"
+        r"menuItem\.IconPath.*?menuItem\.IconDarkPath",
+        "Extension Bar popup commands do not support per-item light/dark icons")
+    require(
+        packages,
+        r"packageIconIndex.*?AddSubmenuStart\(\s*"
+        r"packageIconIndex",
+        "multi-command extension submenus do not display the package icon")
     require(
         mainwnd3,
         r"WM_USER_TBDROPDOWN.*?CM_EXTTOOLBAR_MIN.*?"
@@ -717,6 +730,22 @@ def main() -> int:
             not navigator_toolbar_commands[0].get("toolbarMenu")):
         raise AssertionError(
             "Git Worktree Navigator toolbar button does not open its package menu")
+    navigator_menu_commands = [
+        command for command in navigator_manifest.get("commands", [])
+        if command.get("menu") in {"plugin", "both"}
+    ]
+    normal_icons = [command.get("icon") for command in navigator_menu_commands]
+    dark_icons = [command.get("iconDark") for command in navigator_menu_commands]
+    if (not all(normal_icons) or not all(dark_icons) or
+            len(set(normal_icons)) != len(normal_icons) or
+            len(set(dark_icons)) != len(dark_icons)):
+        raise AssertionError(
+            "Git Worktree Navigator menu commands do not declare distinct light/dark icons")
+    for relative_icon in normal_icons + dark_icons:
+        if not (ROOT / "src/extensions/git-worktree-navigator" /
+                relative_icon).is_file():
+            raise AssertionError(
+                f"Git Worktree Navigator menu icon is missing: {relative_icon}")
     require(
         navigator,
         r"Invoke-NavigatorCreateLocalRepository.*?"

@@ -891,14 +891,20 @@ struct CSalamanderToolbarMenuItem
     DWORD StructSize;
     int CommandId;
     const char* Title;
-    // Initial enabled state. Appended fields may extend this record later.
+    // Initial enabled state.
     BOOL Enabled;
+    // Optional per-command SVG icons. Paths are UTF-8 and only need to remain
+    // valid for the duration of RegisterToolbarButton. Appended for ABI safety.
+    const char* IconPath;
+    const char* IconDarkPath;
 
     CSalamanderToolbarMenuItem()
         : StructSize(sizeof(CSalamanderToolbarMenuItem)),
           CommandId(0),
           Title(NULL),
-          Enabled(TRUE)
+          Enabled(TRUE),
+          IconPath(NULL),
+          IconDarkPath(NULL)
     {
     }
 };

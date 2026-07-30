@@ -36,6 +36,8 @@
       "contextMenu": true,
       "toolbar": true,
       "toolbarMenu": true,
+      "icon": "icon.svg",
+      "iconDark": "icon-dark.svg",
       "requiresExecutable": "git.exe",
       "requires": "disk"
     },
@@ -46,6 +48,8 @@
       "menu": "both",
       "contextMenu": true,
       "toolbar": false,
+      "icon": "commit.svg",
+      "iconDark": "commit-dark.svg",
       "requiresExecutable": "git.exe",
       "requires": "disk"
     },
@@ -56,6 +60,8 @@
       "menu": "both",
       "contextMenu": true,
       "toolbar": false,
+      "icon": "repository.svg",
+      "iconDark": "repository-dark.svg",
       "requiresExecutable": "git.exe",
       "requires": "disk"
     }

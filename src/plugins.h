@@ -2858,6 +2858,8 @@ struct CPluginToolbarMenuItem
     int CommandId;
     char Title[256];
     BOOL Enabled;
+    std::string IconPath;
+    std::string IconDarkPath;
 
     CPluginToolbarMenuItem()
         : CommandId(0),
