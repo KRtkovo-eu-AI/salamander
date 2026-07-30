@@ -42,6 +42,8 @@ def main() -> int:
     local_llama_installer = read("src/plugins/salamatrixailocalllama/runtime/install_llama.ps1")
     local_llama_rc2 = read("src/plugins/salamatrixailocalllama/local_llama.rc2")
     native_test_runner = read("tools/run_native_tests.ps1")
+    pr_tests_workflow = read(".github/workflows/pr-tests.yml")
+    pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
     runtime_protocol = read("src/plugins/salamatrix/salamatrix_runtime_protocol.h")
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
@@ -240,6 +242,23 @@ def main() -> int:
     require(native_test_runner, r"catch \{.*?'test-infrastructure'.*?"
                                 r"'native-test-runner'.*?CreateElement\('testsuite'\)",
             "native CI runner does not report infrastructure failures as JUnit")
+    require(pr_tests_workflow, r'checks:\s*write.*?'
+                               r'Report native and source-contract tests.*?'
+                               r'dorny/test-reporter@v3.*?'
+                               r'reporter:\s*java-junit.*?'
+                               r'Report Python tests.*?'
+                               r'dorny/test-reporter@v3.*?'
+                               r'reporter:\s*python-xunit',
+            "same-repository PR workflow does not publish both Test Reporter checks")
+    require(pr_tests_workflow, r'head\.repo\.full_name == github\.repository',
+            "direct Test Reporter checks are not limited to writable PR tokens")
+    require(pr_tests_workflow,
+            r'repository:\s*\$\{\{\s*github\.event\.pull_request\.head\.repo\.full_name\s*\|\|\s*github\.repository\s*\}\}.*?'
+            r'ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}',
+            "PR tests do not explicitly check out the selected source branch commit")
+    require(pr_test_report_workflow,
+            r'pull_requests\[0\]\.head\.repo\.full_name != github\.repository',
+            "workflow_run Test Reporter fallback is not limited to fork PRs")
     require(runtime_protocol, r'valueEnd = position.*?'
                               r"json\[valueEnd - 1\] == '\\n'.*?"
                               r'value->assign\(json, valueStart, valueEnd - valueStart\)',
