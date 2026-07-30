@@ -92,7 +92,9 @@ jobs:
           path: test-results/native.xml
           reporter: java-junit
           fail-on-empty: true
-          use-actions-summary: true
+          # v3 publishes either a Job Summary or a Check Run. Keep this false
+          # so the detailed result is visible as a separate PR check.
+          use-actions-summary: false
 
       - name: Report Python tests
         id: python_report
@@ -111,7 +113,9 @@ jobs:
           path: test-results/python.xml
           reporter: python-xunit
           fail-on-empty: true
-          use-actions-summary: true
+          # v3 publishes either a Job Summary or a Check Run. Keep this false
+          # so the detailed result is visible as a separate PR check.
+          use-actions-summary: false
 
       - name: Fail when a test group failed
         if: ${{ !cancelled() }}

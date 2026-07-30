@@ -278,9 +278,11 @@ def main() -> int:
                                r'Report native and source-contract tests.*?'
                                r'dorny/test-reporter@v3.*?'
                                r'reporter:\s*java-junit.*?'
+                               r'use-actions-summary:\s*false.*?'
                                r'Report Python tests.*?'
                                r'dorny/test-reporter@v3.*?'
-                               r'reporter:\s*python-xunit',
+                               r'reporter:\s*python-xunit.*?'
+                               r'use-actions-summary:\s*false',
             "same-repository PR workflow does not publish both Test Reporter checks")
     require(pr_tests_workflow, r'head\.repo\.full_name == github\.repository',
             "direct Test Reporter checks are not limited to writable PR tokens")
@@ -289,7 +291,11 @@ def main() -> int:
             r'ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}',
             "PR tests do not explicitly check out the selected source branch commit")
     require(pr_test_report_workflow,
-            r'pull_requests\[0\]\.head\.repo\.full_name != github\.repository',
+            r'pull_requests\[0\]\.head\.repo\.full_name != github\.repository.*?'
+            r'dorny/test-reporter@v3.*?'
+            r'use-actions-summary:\s*false.*?'
+            r'dorny/test-reporter@v3.*?'
+            r'use-actions-summary:\s*false',
             "workflow_run Test Reporter fallback is not limited to fork PRs")
     require(runtime_protocol, r'valueEnd = position.*?'
                               r"json\[valueEnd - 1\] == '\\n'.*?"
