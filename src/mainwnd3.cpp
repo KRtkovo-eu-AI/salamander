@@ -461,7 +461,16 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
             if (previousPanel->DirectoryLine != NULL && previousPanel->DirectoryLine->ToolBar != NULL)
                 previousToolBar = previousPanel->DirectoryLine->ToolBar->HWindow;
             if (panel->DirectoryLine != NULL && panel->DirectoryLine->ToolBar != NULL)
+            {
                 newToolBar = panel->DirectoryLine->ToolBar->HWindow;
+                // A hidden tab can outlive a host-specific image-list rebuild.
+                // Always bind the incoming toolbar to the lists currently
+                // owned by its top-level window before it is painted.
+                panel->DirectoryLine->ToolBar->SetImageList(
+                    GetToolbarImageListForWindow(panel->DirectoryLine->HWindow, FALSE));
+                panel->DirectoryLine->ToolBar->SetHotImageList(
+                    GetToolbarImageListForWindow(panel->DirectoryLine->HWindow, TRUE));
+            }
             if (previousToolBar != NULL)
                 SendMessage(previousToolBar, WM_SETREDRAW, FALSE, 0);
             if (newToolBar != NULL && newToolBar != previousToolBar)

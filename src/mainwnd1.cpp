@@ -5719,6 +5719,15 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
     ArchivePanelMenu.SetImageList(HGrayToolBarImageList, TRUE);
     ArchivePanelMenu.SetHotImageList(HHotToolBarImageList, TRUE);
 
+    if (DetachedPanels)
+    {
+        // Recreate the detached image lists before panel toolbars are rebound
+        // below. Rebinding first would leave every detached tab referencing
+        // handles that DestroyDetachedChrome() destroys a few lines later.
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+    }
+
     // Every tab can own DPI-specific icon copies for a different top-level
     // window. Global icon sources have just been recreated, so invalidate
     // all tab copies rather than only the two currently active panels.
@@ -5746,8 +5755,6 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
 
     if (DetachedPanels)
     {
-        DestroyDetachedChrome();
-        EnsureDetachedChrome();
         LayoutDetachedPanels();
         RedrawWindow(HRightDetachedWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
     }
