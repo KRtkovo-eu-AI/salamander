@@ -640,6 +640,14 @@ def main() -> int:
         "framework package locales do not use Salamander's selected language")
     require(
         packages,
+        r"packageMenuCommandCount\s*>\s*1.*?"
+        r"Manifest\.Name.*?"
+        r"AddSubmenuStart.*?"
+        r"AddMenuItem.*?"
+        r"AddSubmenuEnd",
+        "multi-command extensions do not get a named extension submenu")
+    require(
+        packages,
         r'salamander\.host\.language.*?languageId.*?locale',
         "framework package host does not expose the selected Salamander language")
     require(

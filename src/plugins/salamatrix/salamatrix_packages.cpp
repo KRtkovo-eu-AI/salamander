@@ -324,6 +324,26 @@ public:
             if (!package->RuntimeUsable)
                 continue;
             package->MenuIconIndices.clear();
+            int packageMenuCommandCount = 0;
+            for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+            {
+                const std::string& menu = package->Manifest.Commands[c].Menu;
+                if (menu == "plugin" || menu == "both")
+                    ++packageMenuCommandCount;
+            }
+            if (packageMenuCommandCount > 1)
+            {
+                char packageTitle[256];
+                StringCchCopyA(
+                    packageTitle, _countof(packageTitle),
+                    package->Manifest.Name.c_str());
+                if (Owner->General != NULL)
+                    Owner->General->DuplicateAmpersands(
+                        packageTitle, _countof(packageTitle));
+                builder->AddSubmenuStart(
+                    -1, packageTitle, 0, FALSE,
+                    MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+            }
             for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
             {
                 const CExtensionManifestCommand& command =
@@ -364,6 +384,8 @@ public:
                     MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
                 packageMenuItemAdded = true;
             }
+            if (packageMenuCommandCount > 1)
+                builder->AddSubmenuEnd();
         }
         if (packageMenuItemAdded)
             builder->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0,
