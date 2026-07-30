@@ -90,7 +90,7 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "powershellruntime",
@@ -108,7 +108,7 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "phpruntime",
@@ -126,7 +126,7 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "javascriptruntime",
@@ -144,7 +144,7 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "demoplug",

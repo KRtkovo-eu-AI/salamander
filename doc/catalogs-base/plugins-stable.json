@@ -111,7 +111,7 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_diskdir_1.0_x64/plugin_5.0_diskdir_1.0_x64.7z",
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "diskmap",
@@ -199,7 +199,7 @@
       "dependencies": [
         "powershellruntime"
       ],
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "folders",
@@ -287,7 +287,7 @@
       "dependencies": [
         "powershellruntime"
       ],
-      "icon": "plugin"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "hypervm",
