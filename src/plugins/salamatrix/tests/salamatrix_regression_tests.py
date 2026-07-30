@@ -157,15 +157,22 @@ def main() -> int:
             "bundled provider does not support the legacy companion asset layout")
     require(bundled, r'120000', "bundled provider timeout is not capped at two minutes")
     require(bundled, r'CreateUtf8PromptFile', "bundled provider does not pass the prompt through a UTF-8 file")
-    require(bundled, r'-sysf.*-f.*--json-schema-file.*'
-                     r'--conversation.*--single-turn.*--jinja',
-            "bundled provider does not use the model chat template with separate system and user prompts")
+    require(bundled, r'EscapeQwenChatControlTokens.*?'
+                     r'<\|im_start\|>system.*?<\|im_start\|>user.*?'
+                     r'<\|im_start\|>assistant',
+            "bundled provider does not safely render the Qwen chat template")
+    require(bundled, r'-f.*--json-schema-file.*'
+                     r'--no-conversation.*--no-jinja',
+            "bundled provider can apply the JSON grammar to a Qwen chat control token")
+    require_absent(bundled, r'L" -sysf |L" --conversation|L" --single-turn|L" --jinja',
+                   "bundled provider still delegates Qwen chat rendering to llama.cpp")
     require(bundled, r'\\"capabilities\\":.*?\\"maxItems\\":10.*?'
                      r'\\"missingCapabilities\\":.*?\\"maxItems\\":16',
             "bundled output schema permits unbounded repeated capability generation")
-    require(bundled, r'\\"script\\":.*?\\"maxLength\\":1024.*?'
-                     r'--repeat-penalty 1\.20.*?--repeat-last-n 512',
-            "bundled output can loop inside script until JSON is truncated")
+    require_absent(bundled, r'\\"maxLength\\":',
+                   "bundled output schema uses string repetition bounds rejected by llama.cpp grammar")
+    require(bundled, r'--repeat-penalty 1\.20.*?--repeat-last-n 512.*?-n 4096',
+            "bundled output generation is not bounded against repetition")
     require(bundled, r'test, hello, or similarly vague input.*?'
                      r'minimal side-effect-free script',
             "bundled model turns vague test requests into unrelated API demonstrations")
@@ -189,12 +196,18 @@ def main() -> int:
             "prompt and llama.cpp grammar do not share one output schema instance")
     require(bundled, r'Contract priority: OUTPUT > RUNTIME > INSTALLED API > TASK',
             "strict interface contract does not define instruction priority")
-    require(bundled, r'ExtractJsonObject', "bundled provider does not tolerate llama-cli diagnostic output around JSON")
+    require(bundled, r'IsAssistantJsonObject.*?ExtractJsonObject',
+            "bundled provider does not distinguish assistant JSON from echoed contract objects")
+    require(bundled, r'found = true.*?return found',
+            "bundled provider does not select the final assistant JSON object")
+    require(bundled, r'parseableOutput = output.*?parseableOutput \+= diagnostics.*?'
+                     r'ExtractJsonObject\(parseableOutput',
+            "bundled provider does not parse generated JSON from both llama-cli streams")
     require(bundled, r'ReadAvailablePipe\(parentOut, output, outputCallback, outputContext\).*?'
                      r'ReadAvailablePipe\(parentErr, diagnostics, outputCallback, outputContext\)',
             "bundled llama stdout/stderr are no longer streamed to the visible console")
-    require_absent(bundled, r'failureOutput \+= .*diagnostics',
-                   "bundled llama diagnostics are mixed back into the JSON failure response")
+    require(bundled, r'failureOutput \+= diagnostics',
+            "bundled llama failures hide the process diagnostics needed to diagnose invalid output")
     require(bundled, r'additionalProperties.*?false.*?'
                      r'estimatedEffects.*?additionalProperties.*?false',
             "bundled output schema does not close the response and effect objects")

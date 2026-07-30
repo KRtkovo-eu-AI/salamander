@@ -147,6 +147,25 @@ static std::string JsonString(const char* value)
     return result;
 }
 
+static std::string EscapeQwenChatControlTokens(const std::string& value)
+{
+    std::string result = value;
+    const char* const tokens[] = {"<|im_start|>", "<|im_end|>"};
+    const char* const replacements[] = {"< |im_start| >", "< |im_end| >"};
+    for (int tokenIndex = 0; tokenIndex < _countof(tokens); ++tokenIndex)
+    {
+        size_t position = 0;
+        while ((position = result.find(tokens[tokenIndex], position)) !=
+               std::string::npos)
+        {
+            result.replace(position, strlen(tokens[tokenIndex]),
+                           replacements[tokenIndex]);
+            position += strlen(replacements[tokenIndex]);
+        }
+    }
+    return result;
+}
+
 static bool CreateUtf8PromptFile(const std::string& prompt, std::wstring* path)
 {
     if (path == NULL)
@@ -181,11 +200,53 @@ static bool CreateUtf8PromptFile(const std::string& prompt, std::wstring* path)
     return true;
 }
 
+static bool IsAssistantJsonObject(const std::string& candidate)
+{
+    std::string title;
+    std::string description;
+    std::string runtime;
+    std::string script;
+    std::string capabilities;
+    std::string effects;
+    std::string canImplement;
+    std::string missingCapabilities;
+    return Salamatrix::Runtime::Protocol::Json::FindStringMember(
+               candidate.c_str(), "title", &title) &&
+           Salamatrix::Runtime::Protocol::Json::FindStringMember(
+               candidate.c_str(), "description", &description) &&
+           Salamatrix::Runtime::Protocol::Json::FindStringMember(
+               candidate.c_str(), "runtime", &runtime) &&
+           Salamatrix::Runtime::Protocol::Json::FindStringMember(
+               candidate.c_str(), "script", &script) &&
+           Salamatrix::Runtime::Protocol::Json::FindRawMember(
+               candidate.c_str(), "capabilities", &capabilities) &&
+           Salamatrix::Runtime::Protocol::Json::FindRawMember(
+               candidate.c_str(), "estimatedEffects", &effects) &&
+           Salamatrix::Runtime::Protocol::Json::FindRawMember(
+               candidate.c_str(), "canImplement", &canImplement) &&
+           Salamatrix::Runtime::Protocol::Json::FindRawMember(
+               candidate.c_str(), "missingCapabilities",
+               &missingCapabilities) &&
+           !title.empty() && !description.empty() && !runtime.empty() &&
+           !script.empty() &&
+           capabilities.size() >= 2 && capabilities[0] == '[' &&
+           capabilities[capabilities.size() - 1] == ']' &&
+           effects.size() >= 2 && effects[0] == '{' &&
+           effects[effects.size() - 1] == '}' &&
+           (canImplement == "true" || canImplement == "false") &&
+           missingCapabilities.size() >= 2 &&
+           missingCapabilities[0] == '[' &&
+           missingCapabilities[missingCapabilities.size() - 1] == ']';
+}
+
 static bool ExtractJsonObject(const std::string& value, size_t* first, size_t* last)
 {
     if (first == NULL || last == NULL)
         return false;
 
+    bool found = false;
+    *first = std::string::npos;
+    *last = std::string::npos;
     for (size_t start = 0; start < value.size(); ++start)
     {
         if (value[start] != '{')
@@ -213,25 +274,18 @@ static bool ExtractJsonObject(const std::string& value, size_t* first, size_t* l
             else if (character == '}' && --depth == 0)
             {
                 const std::string candidate = value.substr(start, end - start + 1);
-                std::string title;
-                std::string script;
-                if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
-                        candidate.c_str(), "title", &title) &&
-                    Salamatrix::Runtime::Protocol::Json::FindStringMember(
-                        candidate.c_str(), "script", &script))
+                if (IsAssistantJsonObject(candidate))
                 {
                     *first = start;
                     *last = end;
-                    return true;
+                    found = true;
                 }
                 break;
             }
         }
     }
 
-    *first = std::string::npos;
-    *last = std::string::npos;
-    return false;
+    return found;
 }
 
 static bool IsJsonObject(const std::string& value)
@@ -541,11 +595,10 @@ static std::string BuildStrictOutputSchema(
         "\"estimatedEffects\",\"runtime\",\"canImplement\","
         "\"missingCapabilities\",\"script\"],"
         "\"properties\":{"
-        "\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":160";
+        "\"title\":{\"type\":\"string\",\"minLength\":1";
     if (recipe != NULL)
         schema += ",\"const\":" + JsonString(recipe->Title.c_str());
-    schema += "},\"description\":{\"type\":\"string\",\"minLength\":1,"
-              "\"maxLength\":1024";
+    schema += "},\"description\":{\"type\":\"string\",\"minLength\":1";
     if (recipe != NULL)
         schema += ",\"const\":" + JsonString(recipe->Description.c_str());
     schema += "},";
@@ -593,8 +646,8 @@ static std::string BuildStrictOutputSchema(
         schema +=
             "\"canImplement\":{\"type\":\"boolean\"},"
             "\"missingCapabilities\":{\"type\":\"array\",\"maxItems\":16,"
-            "\"items\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":256}},"
-            "\"script\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":1024}";
+            "\"items\":{\"type\":\"string\",\"minLength\":1}},"
+            "\"script\":{\"type\":\"string\",\"minLength\":1}";
     schema += "}}";
     return schema;
 }
@@ -753,22 +806,23 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         "performed through runtime libraries. Never mark unrelated values true.\n"
         "7. Implement only INPUT.task. For test, hello, or similarly vague input, "
         "produce a minimal side-effect-free script that writes a short message.\n"
-        "8. Keep source concise and under the schema limit. If existingScript and "
+        "8. Keep source concise. If existingScript and "
         "repairFeedback are present, repair that source while preserving the task.\n"
         "[/GENERATION RULES]";
 
-    std::wstring systemPromptFile;
-    if (!CreateUtf8PromptFile(systemPrompt, &systemPromptFile))
-    {
-        BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
-                       HRESULT_FROM_WIN32(ERROR_WRITE_FAULT),
-                       L"Unable to create the bundled model system prompt file.");
-        return FALSE;
-    }
+    // llama.cpp applies a JSON grammar to every token emitted in conversation
+    // mode, including Qwen's assistant-role control token. Render the Qwen chat
+    // template into the input instead, so constrained generation starts at the
+    // first byte of the JSON object.
+    const std::string modelPrompt =
+        "<|im_start|>system\n" +
+        EscapeQwenChatControlTokens(systemPrompt) +
+        "<|im_end|>\n<|im_start|>user\n" +
+        EscapeQwenChatControlTokens(userPrompt) +
+        "<|im_end|>\n<|im_start|>assistant\n";
     std::wstring promptFile;
-    if (!CreateUtf8PromptFile(userPrompt, &promptFile))
+    if (!CreateUtf8PromptFile(modelPrompt, &promptFile))
     {
-        DeleteFileW(systemPromptFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(ERROR_WRITE_FAULT),
                        L"Unable to create the bundled model prompt file.");
@@ -777,7 +831,6 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     std::wstring schemaFile;
     if (!CreateUtf8PromptFile(outputSchema, &schemaFile))
     {
-        DeleteFileW(systemPromptFile.c_str());
         DeleteFileW(promptFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
                        HRESULT_FROM_WIN32(ERROR_WRITE_FAULT),
@@ -798,7 +851,6 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         if (parentIn) CloseHandle(parentIn); if (childIn) CloseHandle(childIn);
         if (parentOut) CloseHandle(parentOut); if (childOut) CloseHandle(childOut);
         if (parentErr) CloseHandle(parentErr); if (childErr) CloseHandle(childErr);
-        DeleteFileW(systemPromptFile.c_str());
         DeleteFileW(promptFile.c_str());
         DeleteFileW(schemaFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
@@ -806,10 +858,9 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
         return FALSE;
     }
     std::wstring command = Quote(m_command) + L" -m " + Quote(m_model) +
-                           L" -sysf " + Quote(systemPromptFile) +
                            L" -f " + Quote(promptFile) +
                            L" --json-schema-file " + Quote(schemaFile) +
-                           L" --conversation --single-turn --jinja --simple-io"
+                           L" --no-conversation --no-jinja --simple-io"
                            L" --no-display-prompt --no-perf"
                            L" --temp 0 --top-k 1 --seed 0"
                            L" --repeat-penalty 1.20 --repeat-last-n 512 -n 4096";
@@ -828,7 +879,6 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     if (!created)
     {
         CloseHandle(parentIn); CloseHandle(parentOut); CloseHandle(parentErr);
-        DeleteFileW(systemPromptFile.c_str());
         DeleteFileW(promptFile.c_str());
         DeleteFileW(schemaFile.c_str());
         BundledFailure(response, Salamatrix::AI::AssistantStatusFailed,
@@ -860,19 +910,36 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     DWORD exitCode = 1; GetExitCodeProcess(process.hProcess, &exitCode);
     CloseHandle(process.hThread); CloseHandle(process.hProcess);
     CloseHandle(parentOut); CloseHandle(parentErr);
-    DeleteFileW(systemPromptFile.c_str());
     DeleteFileW(promptFile.c_str());
     DeleteFileW(schemaFile.c_str());
     std::string failureOutput;
     size_t first = std::string::npos, last = std::string::npos;
-    const bool hasJsonObject = ExtractJsonObject(output, &first, &last);
+    // Depending on the llama.cpp build and console mode, generated content can
+    // be written to either redirected stream. Parse both after the process has
+    // exited, and select the final response object so echoed contracts from the
+    // prompt cannot be mistaken for the assistant answer.
+    std::string parseableOutput = output;
+    if (!parseableOutput.empty() && !diagnostics.empty())
+        parseableOutput += "\n";
+    parseableOutput += diagnostics;
+    const bool hasJsonObject =
+        ExtractJsonObject(parseableOutput, &first, &last);
     if (hasJsonObject && last >= first)
-        failureOutput = output.substr(first, last - first + 1);
+        failureOutput = parseableOutput.substr(first, last - first + 1);
+    else
+        failureOutput = output;
+    if (!diagnostics.empty())
+    {
+        if (!failureOutput.empty())
+            failureOutput += "\n\n";
+        failureOutput += diagnostics;
+    }
     if (timedOut)
     { BundledFailure(response, Salamatrix::AI::AssistantStatusCancelled, HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"The bundled model timed out.", &failureOutput); return FALSE; }
     if (exitCode != 0 || !hasJsonObject || last - first + 1 >= sizeof(response->ResponseJson))
     { BundledFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse, HRESULT_FROM_WIN32(ERROR_INVALID_DATA), L"The bundled model returned invalid structured JSON.", &failureOutput); return FALSE; }
-    const std::string json = output.substr(first, last - first + 1);
+    const std::string json =
+        parseableOutput.substr(first, last - first + 1);
     if (!IsJsonObject(json))
     { BundledFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse, HRESULT_FROM_WIN32(ERROR_INVALID_DATA), L"The bundled model returned invalid structured JSON.", &failureOutput); return FALSE; }
     const size_t length = json.size();
