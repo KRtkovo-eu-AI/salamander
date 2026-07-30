@@ -41,6 +41,36 @@ for `sides`, `fileOperations`, `commands`, `ui`, `storage`, `events`,
 `runtimes`, and `ai`. The assistant selects slices from the user's task instead
 of sending an unbounded copy of the whole manual.
 
+The bundled local model receives these slices through a **Strict Interface
+Contract**, split into five explicit sections:
+
+1. `INPUT CONTRACT`: typed task, selected runtime id, current Salamander context,
+   existing source, and optional repair feedback, including their actual values;
+2. `INSTALLED SALAMANDER API CONTRACT`: only the relevant implemented API
+   slices;
+3. `SELECTED RUNTIME CONTRACT`: the real worker facade conventions for the
+   selected JavaScript, Python, PowerShell, or PHP runtime;
+4. `OUTPUT CONTRACT`: the exact closed JSON Schema for the response;
+5. `GENERATION RULES`: precedence, grounding, capability, effect, and honest
+   framework-GAP rules.
+
+The exact same output schema instance is included in the prompt and supplied to
+`llama.cpp` through `--json-schema-file`. It therefore acts both as instructions
+for the model and as a constrained-generation grammar. The runtime contracts
+document the injected root object, synchronous or asynchronous call model,
+naming convention, selected-item access, and use of language libraries. Full
+general-purpose language manuals are deliberately not inserted into every
+request because they would consume context without describing the Salamatrix
+binding.
+
+The local llama.cpp companion offers two Q4_K_M profiles. The recommended
+Qwen2.5-Coder 1.5B Instruct model is intended for normal multilingual tasks.
+The lightweight 0.5B profile is retained for constrained machines and accepts
+English prompts only. Both are run in one-turn conversation mode using the
+chat template embedded in their GGUF metadata. The invariant API, runtime, and
+output contracts are sent as the system message; the typed task input is sent
+as the user message.
+
 For operations with a verified implementation recipe, the provider may also
 constrain semantic fields and source code through JSON Schema constants. This
 is intentional: prose documentation helps the model choose an API, while the

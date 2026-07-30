@@ -24,6 +24,16 @@ CLocalBundledAssistantProvider g_provider;
 Salamatrix::AI::IAssistantService* g_ai = NULL;
 bool g_registered = false;
 bool g_released = false;
+LocalLlamaModel g_selectedModel = LocalLlamaModelQwen15B;
+const char* const CONFIG_SELECTED_MODEL = "SelectedModel";
+
+static const char* LoadLocalLlamaString(int resourceId)
+{
+    if (SalamanderGeneral == NULL || DLLInstance == NULL)
+        return "";
+    const char* value = SalamanderGeneral->LoadStr(DLLInstance, resourceId);
+    return value != NULL ? value : "";
+}
 
 static void* Query(const char* serviceId, DWORD minimumVersion)
 {
@@ -77,12 +87,38 @@ static bool IsLocalLlamaRegularFile(const std::wstring& path)
            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
-static bool HasInstalledAssets()
+static std::wstring SelectedModelPath()
+{
+    const std::wstring runtime = RuntimeDirectory();
+    if (runtime.empty())
+        return std::wstring();
+    std::wstring path = runtime + L"\\" +
+                        GetSelectedLocalLlamaModelFileName();
+    if (g_selectedModel == LocalLlamaModelQwen05B &&
+        !IsLocalLlamaRegularFile(path))
+    {
+        const std::wstring legacy = runtime + L"\\salamatrix.gguf";
+        if (IsLocalLlamaRegularFile(legacy))
+            return legacy;
+    }
+    return path;
+}
+
+static bool HasLlamaRuntime()
 {
     const std::wstring runtime = RuntimeDirectory();
     return !runtime.empty() &&
-           IsLocalLlamaRegularFile(runtime + L"\\llama-cli.exe") &&
-           IsLocalLlamaRegularFile(runtime + L"\\salamatrix.gguf");
+           IsLocalLlamaRegularFile(runtime + L"\\llama-cli.exe");
+}
+
+static bool HasSelectedModel()
+{
+    return IsLocalLlamaRegularFile(SelectedModelPath());
+}
+
+static bool HasInstalledAssets()
+{
+    return HasLlamaRuntime() && HasSelectedModel();
 }
 
 static std::wstring QuoteArgument(const std::wstring& value)
@@ -98,9 +134,12 @@ static bool LaunchInstaller(HWND parent)
     const std::wstring script = module + L"\\runtime\\install_llama.ps1";
     if (!IsLocalLlamaRegularFile(script))
         return false;
+    const wchar_t* model =
+        g_selectedModel == LocalLlamaModelQwen05B ? L"0.5B" : L"1.5B";
     const std::wstring parameters =
         L"-NoLogo -NoProfile -ExecutionPolicy Bypass -File " +
-        QuoteArgument(script) + L" -Destination " + QuoteArgument(module);
+        QuoteArgument(script) + L" -Destination " + QuoteArgument(module) +
+        L" -Model " + QuoteArgument(model);
     HINSTANCE result = ShellExecuteW(parent, L"runas", L"powershell.exe",
                                      parameters.c_str(), module.c_str(),
                                      SW_SHOWNORMAL);
@@ -114,15 +153,35 @@ static void OpenRuntimeFolder(HWND parent)
         ShellExecuteW(parent, L"open", runtime.c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
+static const char* SelectedModelDisplayName()
+{
+    return LoadLocalLlamaString(
+        g_selectedModel == LocalLlamaModelQwen05B
+            ? IDS_LLAMA_MODEL_05B
+            : IDS_LLAMA_MODEL_15B);
+}
+
+static std::string FormatStatusText(const char* format)
+{
+    std::string text = format != NULL ? format : "";
+    const size_t placeholder = text.find("%s");
+    if (placeholder != std::string::npos)
+        text.replace(placeholder, 2, SelectedModelDisplayName());
+    return text;
+}
+
 static std::string AssetStatus()
 {
-    return HasInstalledAssets()
-               ? "Installed: llama.cpp and the Qwen GGUF model are ready."
-               : "Not installed. Use Download runtime to fetch the verified files.";
+    if (!HasLlamaRuntime())
+        return LoadLocalLlamaString(IDS_LLAMA_STATUS_RUNTIME_MISSING);
+    return FormatStatusText(LoadLocalLlamaString(
+        HasSelectedModel() ? IDS_LLAMA_STATUS_READY
+                           : IDS_LLAMA_STATUS_MODEL_MISSING));
 }
 
 struct ConfigurationContext
 {
+    Salamatrix::UI::IControl* Model;
     Salamatrix::UI::IControl* Status;
     HWND Parent;
 };
@@ -132,14 +191,22 @@ static BOOL WINAPI ConfigurationEvent(
 {
     ConfigurationContext* configuration =
         static_cast<ConfigurationContext*>(context);
-    if (configuration == NULL || event == NULL || configuration->Status == NULL)
+    if (configuration == NULL || event == NULL ||
+        configuration->Model == NULL || configuration->Status == NULL)
         return TRUE;
-    if (strcmp(event->ControlId, "download") == 0)
+    if (strcmp(event->ControlId, "model") == 0)
+    {
+        const int selected = configuration->Model->GetSelectedIndex();
+        g_selectedModel = selected == 1 ? LocalLlamaModelQwen05B
+                                        : LocalLlamaModelQwen15B;
+        configuration->Status->SetText(AssetStatus().c_str());
+    }
+    else if (strcmp(event->ControlId, "download") == 0)
     {
         configuration->Status->SetText(
             LaunchInstaller(configuration->Parent)
-                ? "Download started in an elevated PowerShell window."
-                : "Unable to start the downloader.");
+                ? LoadLocalLlamaString(IDS_LLAMA_DOWNLOAD_STARTED)
+                : LoadLocalLlamaString(IDS_LLAMA_DOWNLOAD_FAILED));
     }
     else if (strcmp(event->ControlId, "refresh") == 0)
         configuration->Status->SetText(AssetStatus().c_str());
@@ -154,22 +221,52 @@ static void ShowConfiguration(HWND parent)
         Query(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_0));
     if (ui == NULL)
     {
-        SalamanderGeneral->SalMessageBox(parent, "Salamatrix UI service is not available.",
-                                         "Salamatrix AI Local LLaMA", MB_OK | MB_ICONWARNING);
+        SalamanderGeneral->SalMessageBox(
+            parent, LoadLocalLlamaString(IDS_LLAMA_UI_UNAVAILABLE),
+            LoadLocalLlamaString(IDS_LLAMA_TITLE),
+            MB_OK | MB_ICONWARNING);
         return;
     }
     Salamatrix::UI::DialogOptions options;
-    options.Title = "Salamatrix AI Local LLaMA configuration";
+    options.Title = LoadLocalLlamaString(IDS_LLAMA_TITLE);
     options.Parent = parent;
     options.Width = 360;
-    options.Height = 82;
+    options.Height = 126;
     Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
     if (dialog == NULL)
         return;
 
+    Salamatrix::UI::ControlLayout modelLabelLayout;
+    modelLabelLayout.HasBounds = TRUE;
+    modelLabelLayout.X = 8; modelLabelLayout.Y = 6;
+    modelLabelLayout.Width = 344; modelLabelLayout.Height = 14;
+    Salamatrix::UI::ControlOptions modelLabelOptions;
+    modelLabelOptions.Id = "model-label";
+    modelLabelOptions.Text = LoadLocalLlamaString(IDS_LLAMA_MODEL_LABEL);
+    dialog->AddControlEx(
+        Salamatrix::UI::ControlKindLabel,
+        modelLabelOptions, modelLabelLayout);
+
+    Salamatrix::UI::ControlLayout modelLayout;
+    modelLayout.HasBounds = TRUE;
+    modelLayout.X = 8; modelLayout.Y = 22;
+    modelLayout.Width = 344; modelLayout.Height = 22;
+    Salamatrix::UI::ControlOptions modelOptions;
+    modelOptions.Id = "model";
+    Salamatrix::UI::IControl* model = dialog->AddControlEx(
+        Salamatrix::UI::ControlKindComboBox, modelOptions, modelLayout);
+    if (model != NULL)
+    {
+        model->AddItem(LoadLocalLlamaString(IDS_LLAMA_MODEL_15B));
+        model->AddItem(LoadLocalLlamaString(IDS_LLAMA_MODEL_05B));
+        model->SetSelectedIndex(
+            g_selectedModel == LocalLlamaModelQwen05B ? 1 : 0);
+    }
+
     Salamatrix::UI::ControlLayout statusLayout;
     statusLayout.HasBounds = TRUE;
-    statusLayout.X = 8; statusLayout.Y = 6; statusLayout.Width = 344; statusLayout.Height = 38;
+    statusLayout.X = 8; statusLayout.Y = 50;
+    statusLayout.Width = 344; statusLayout.Height = 38;
     Salamatrix::UI::ControlOptions statusOptions;
     statusOptions.Id = "status";
     statusOptions.Text = AssetStatus().c_str();
@@ -180,52 +277,64 @@ static void ShowConfiguration(HWND parent)
 
     Salamatrix::UI::ControlOptions downloadOptions;
     downloadOptions.Id = "download";
-    downloadOptions.Text = "Download";
+    downloadOptions.Text = LoadLocalLlamaString(IDS_LLAMA_DOWNLOAD);
     downloadOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout downloadLayout;
     downloadLayout.HasBounds = TRUE;
-    downloadLayout.X = 8; downloadLayout.Y = 54; downloadLayout.Width = 72; downloadLayout.Height = 16;
+    downloadLayout.X = 8; downloadLayout.Y = 98; downloadLayout.Width = 72; downloadLayout.Height = 16;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, downloadOptions, downloadLayout);
 
     Salamatrix::UI::ControlOptions refreshOptions;
     refreshOptions.Id = "refresh";
-    refreshOptions.Text = "Refresh";
+    refreshOptions.Text = LoadLocalLlamaString(IDS_LLAMA_REFRESH);
     refreshOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout refreshLayout;
     refreshLayout.HasBounds = TRUE;
-    refreshLayout.X = 88; refreshLayout.Y = 54; refreshLayout.Width = 60; refreshLayout.Height = 16;
+    refreshLayout.X = 88; refreshLayout.Y = 98; refreshLayout.Width = 60; refreshLayout.Height = 16;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, refreshOptions, refreshLayout);
 
     Salamatrix::UI::ControlOptions folderOptions;
     folderOptions.Id = "folder";
-    folderOptions.Text = "Open folder";
+    folderOptions.Text = LoadLocalLlamaString(IDS_LLAMA_OPEN_FOLDER);
     folderOptions.KeepOpen = TRUE;
     Salamatrix::UI::ControlLayout folderLayout;
     folderLayout.HasBounds = TRUE;
-    folderLayout.X = 156; folderLayout.Y = 54; folderLayout.Width = 86; folderLayout.Height = 16;
+    folderLayout.X = 156; folderLayout.Y = 98; folderLayout.Width = 86; folderLayout.Height = 16;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, folderOptions, folderLayout);
 
     Salamatrix::UI::ControlOptions closeOptions;
     closeOptions.Id = "close";
-    closeOptions.Text = "Close";
+    closeOptions.Text = LoadLocalLlamaString(IDS_LLAMA_CLOSE);
     Salamatrix::UI::ControlLayout closeLayout;
     closeLayout.HasBounds = TRUE;
-    closeLayout.X = 290; closeLayout.Y = 54; closeLayout.Width = 62; closeLayout.Height = 16;
+    closeLayout.X = 290; closeLayout.Y = 98; closeLayout.Width = 62; closeLayout.Height = 16;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, closeOptions, closeLayout);
 
-    ConfigurationContext context = { status, parent };
+    ConfigurationContext context = { model, status, parent };
     dialog->SetEventCallback(ConfigurationEvent, &context);
     dialog->ShowModal();
     dialog->Release();
 }
 }
 
+LocalLlamaModel GetSelectedLocalLlamaModel()
+{
+    return g_selectedModel;
+}
+
+const wchar_t* GetSelectedLocalLlamaModelFileName()
+{
+    return g_selectedModel == LocalLlamaModelQwen05B
+               ? L"qwen2.5-coder-0.5b-instruct-q4_k_m.gguf"
+               : L"qwen2.5-coder-1.5b-instruct-q4_k_m.gguf";
+}
+
 void WINAPI CLocalLlamaPluginInterface::About(HWND parent)
 {
     SalamanderGeneral->SalMessageBox(
         parent,
-        "Optional server-free llama.cpp model provider for Salamatrix AI.",
-        "Salamatrix AI Local LLaMA",
+        LoadLocalLlamaString(IDS_LLAMA_ABOUT),
+        LoadLocalLlamaString(IDS_LLAMA_TITLE),
         MB_OK | MB_ICONINFORMATION);
 }
 
@@ -256,16 +365,42 @@ void WINAPI CLocalLlamaPluginInterface::LoadConfiguration(HWND parent, HKEY regK
                                                   CSalamanderRegistryAbstract* registry)
 {
     UNREFERENCED_PARAMETER(parent);
-    UNREFERENCED_PARAMETER(regKey);
-    UNREFERENCED_PARAMETER(registry);
+    DWORD selected = static_cast<DWORD>(LocalLlamaModelQwen15B);
+    const bool loaded =
+        registry != NULL &&
+        regKey != NULL &&
+        registry->GetValue(regKey, CONFIG_SELECTED_MODEL, REG_DWORD,
+                           &selected, sizeof(selected)) &&
+        selected <= static_cast<DWORD>(LocalLlamaModelQwen05B);
+    if (loaded)
+        g_selectedModel = static_cast<LocalLlamaModel>(selected);
+    else
+    {
+        const std::wstring runtime = RuntimeDirectory();
+        const bool hasRecommended =
+            !runtime.empty() && IsLocalLlamaRegularFile(
+                runtime + L"\\qwen2.5-coder-1.5b-instruct-q4_k_m.gguf");
+        const bool hasLegacyLightweight =
+            !runtime.empty() &&
+            (IsLocalLlamaRegularFile(runtime + L"\\salamatrix.gguf") ||
+            IsLocalLlamaRegularFile(
+                runtime + L"\\qwen2.5-coder-0.5b-instruct-q4_k_m.gguf"));
+        g_selectedModel = hasLegacyLightweight && !hasRecommended
+                              ? LocalLlamaModelQwen05B
+                              : LocalLlamaModelQwen15B;
+    }
 }
 
 void WINAPI CLocalLlamaPluginInterface::SaveConfiguration(HWND parent, HKEY regKey,
                                                  CSalamanderRegistryAbstract* registry)
 {
     UNREFERENCED_PARAMETER(parent);
-    UNREFERENCED_PARAMETER(regKey);
-    UNREFERENCED_PARAMETER(registry);
+    if (registry != NULL && regKey != NULL)
+    {
+        const DWORD selected = static_cast<DWORD>(g_selectedModel);
+        registry->SetValue(regKey, CONFIG_SELECTED_MODEL, REG_DWORD,
+                           &selected, sizeof(selected));
+    }
 }
 
 void WINAPI CLocalLlamaPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)

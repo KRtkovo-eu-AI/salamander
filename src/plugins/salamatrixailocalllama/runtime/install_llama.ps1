@@ -4,21 +4,35 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$Destination
+    [string]$Destination,
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('0.5B', '1.5B')]
+    [string]$Model = '1.5B'
 )
 
 $ErrorActionPreference = 'Stop'
 
 $llamaUrl = 'https://github.com/ggml-org/llama.cpp/releases/download/b10107/llama-b10107-bin-win-cpu-x64.zip'
 $llamaSha256 = '52133A0A5A8F6035B1BDD2F89C3425EA8B742413D9BDB9A2DEE30E3A1681B18C'
-$modelUrl = 'https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf?download=true'
-$modelSha256 = '1D9614638D18024D0FBB36575A15F1302A3ADF044DF10345688EC4F6E1C4FF32'
-$modelLicenseUrl = 'https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/LICENSE'
+if ($Model -eq '0.5B') {
+    $modelUrl = 'https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf?download=true'
+    $modelSha256 = '1D9614638D18024D0FBB36575A15F1302A3ADF044DF10345688EC4F6E1C4FF32'
+    $modelLicenseUrl = 'https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/LICENSE'
+    $modelFileName = 'qwen2.5-coder-0.5b-instruct-q4_k_m.gguf'
+    $modelLicenseFileName = 'Qwen2.5-Coder-0.5B.LICENSE.txt'
+}
+else {
+    $modelUrl = 'https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf?download=true'
+    $modelSha256 = 'CC324AF070C2ECBFD324A30884D2F951A7FF756ABA85CB811A6EC436933BB046'
+    $modelLicenseUrl = 'https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/LICENSE'
+    $modelFileName = 'qwen2.5-coder-1.5b-instruct-q4_k_m.gguf'
+    $modelLicenseFileName = 'Qwen2.5-Coder-1.5B.LICENSE.txt'
+}
 
 $runtime = Join-Path $Destination 'runtime'
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ('salamatrix-llama-' + [guid]::NewGuid().ToString('N'))
 $archive = Join-Path $temp 'llama.zip'
-$model = Join-Path $temp 'salamatrix.gguf'
+$modelDownloadPath = Join-Path $temp 'salamatrix.gguf'
 $extract = Join-Path $temp 'extract'
 
 function Download-VerifiedFile {
@@ -39,10 +53,6 @@ function Download-VerifiedFile {
         Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
 
         try {
-            if ($null -eq (Get-Command Start-BitsTransfer -ErrorAction SilentlyContinue)) {
-                throw 'Windows BITS is not available; cannot reliably download large runtime files.'
-            }
-
             Start-BitsTransfer -Source $Uri -Destination $Path `
                 -DisplayName "Salamatrix: $Description" -Priority Foreground
 
@@ -75,11 +85,12 @@ try {
     if ($null -eq $llamaExe) { throw 'The downloaded llama.cpp archive has no llama-cli.exe.' }
     Get-ChildItem -LiteralPath $llamaExe.DirectoryName -File | Copy-Item -Destination $runtime -Force
 
-    Write-Host 'Downloading Qwen2.5-Coder GGUF model...'
-    Download-VerifiedFile -Uri $modelUrl -Path $model -ExpectedHash $modelSha256 `
-        -Description 'Qwen model'
-    Move-Item -LiteralPath $model -Destination (Join-Path $runtime 'salamatrix.gguf') -Force
-    Invoke-WebRequest -UseBasicParsing -Uri $modelLicenseUrl -OutFile (Join-Path $runtime 'Qwen2.5-Coder.LICENSE.txt')
+    Write-Host "Downloading Qwen2.5-Coder $Model Instruct GGUF model..."
+    Download-VerifiedFile -Uri $modelUrl -Path $modelDownloadPath -ExpectedHash $modelSha256 `
+        -Description "Qwen2.5-Coder $Model model"
+    Move-Item -LiteralPath $modelDownloadPath -Destination (Join-Path $runtime $modelFileName) -Force
+    Invoke-WebRequest -UseBasicParsing -Uri $modelLicenseUrl `
+        -OutFile (Join-Path $runtime $modelLicenseFileName)
     Get-ChildItem -LiteralPath $llamaExe.DirectoryName -File -Filter '*LICENSE*' |
         Copy-Item -Destination $runtime -Force
     Write-Host 'Salamatrix Local LLaMA installation completed.'

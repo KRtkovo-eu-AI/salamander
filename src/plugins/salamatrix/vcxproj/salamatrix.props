@@ -13,4 +13,9 @@
       <AdditionalDependencies>Shell32.lib;Ole32.lib;Shlwapi.lib;Comctl32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <Target Name="CopySalamatrixAutomationApiReference" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\..\..\doc\salamatrix-automation-api.html"
+          DestinationFiles="$(OutDir)salamatrix-automation-api.html"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

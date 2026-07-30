@@ -3,3 +3,38 @@
 
 #include "versinfo.rh2"
 #include "versinfo.rc2"
+
+#define IDS_LLAMA_TITLE 1100
+#define IDS_LLAMA_UI_UNAVAILABLE 1101
+#define IDS_LLAMA_MODEL_LABEL 1102
+#define IDS_LLAMA_MODEL_15B 1103
+#define IDS_LLAMA_MODEL_05B 1104
+#define IDS_LLAMA_STATUS_READY 1105
+#define IDS_LLAMA_STATUS_MODEL_MISSING 1106
+#define IDS_LLAMA_STATUS_RUNTIME_MISSING 1107
+#define IDS_LLAMA_DOWNLOAD 1108
+#define IDS_LLAMA_REFRESH 1109
+#define IDS_LLAMA_OPEN_FOLDER 1110
+#define IDS_LLAMA_CLOSE 1111
+#define IDS_LLAMA_DOWNLOAD_STARTED 1112
+#define IDS_LLAMA_DOWNLOAD_FAILED 1113
+#define IDS_LLAMA_ABOUT 1114
+
+STRINGTABLE
+BEGIN
+    IDS_LLAMA_TITLE "Salamatrix AI Local LLaMA configuration"
+    IDS_LLAMA_UI_UNAVAILABLE "Salamatrix UI service is not available."
+    IDS_LLAMA_MODEL_LABEL "Model"
+    IDS_LLAMA_MODEL_15B "Qwen2.5-Coder 1.5B Instruct Q4_K_M — Recommended"
+    IDS_LLAMA_MODEL_05B "Qwen2.5-Coder 0.5B Instruct Q4_K_M — English prompts only"
+    IDS_LLAMA_STATUS_READY "%s is installed and ready."
+    IDS_LLAMA_STATUS_MODEL_MISSING "%s is not installed. Download the selected model."
+    IDS_LLAMA_STATUS_RUNTIME_MISSING "llama.cpp runtime is not installed. Download the selected model and runtime."
+    IDS_LLAMA_DOWNLOAD "Download"
+    IDS_LLAMA_REFRESH "Refresh"
+    IDS_LLAMA_OPEN_FOLDER "Open folder"
+    IDS_LLAMA_CLOSE "Close"
+    IDS_LLAMA_DOWNLOAD_STARTED "Download started in an elevated PowerShell window."
+    IDS_LLAMA_DOWNLOAD_FAILED "Unable to start the downloader."
+    IDS_LLAMA_ABOUT "Optional server-free llama.cpp provider with selectable Qwen2.5-Coder 0.5B and 1.5B models."
+END

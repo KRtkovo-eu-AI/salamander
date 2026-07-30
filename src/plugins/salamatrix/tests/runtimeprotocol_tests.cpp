@@ -361,7 +361,7 @@ void TestAssistantService()
         "\"capabilities\":[\"panels.read\"],\"estimatedEffects\":{\n"
         "\"readSelection\": true,\"readMetadata\": false,"
         "\"renameFiles\": false,\"moveFiles\": false,\"deleteFiles\": false,"
-        "\"modifyContents\": true,\"executeExternal\": false,\"network\": false},"
+        "\"modifyContents\": true,\"executeExternal\": false,\"network\": false\n  },"
         "\"script\":\"await writeFile(item.path + '.md5', 'x');\","
         "\"runtime\":\"JavaScript.Node\",\"canImplement\":true,"
         "\"missingCapabilities\":[]}";
@@ -374,6 +374,20 @@ void TestAssistantService()
               (response.Summary.EffectFlags &
                Salamatrix::AI::AssistantEffectModifyContents) != 0,
           "assistant parses pretty-printed effect booleans structurally");
+    Salamatrix::AI::AssistantResponse emptyGap;
+    const char emptyGapJson[] =
+        "{\"title\":\"Unsupported\",\"description\":\"test\","
+        "\"capabilities\":[],\"estimatedEffects\":{"
+        "\"readSelection\":false,\"readMetadata\":false,"
+        "\"renameFiles\":false,\"moveFiles\":false,\"deleteFiles\":false,"
+        "\"modifyContents\":false,\"executeExternal\":false,\"network\":false},"
+        "\"script\":\"\",\"runtime\":\"JavaScript.Node\","
+        "\"canImplement\":false,\"missingCapabilities\":[]}";
+    memcpy(emptyGap.ResponseJson, emptyGapJson, sizeof(emptyGapJson));
+    emptyGap.OutputLength = sizeof(emptyGapJson) - 1;
+    Check(service.Validate(NULL, &emptyGap, &validation) == FALSE &&
+              strstr(validation.Message, "at least one host gap") != NULL,
+          "assistant rejects canImplement=false without a concrete host gap");
     Salamatrix::AI::AssistantResponse undeclaredExternal;
     const char undeclaredExternalJson[] =
         "{\"title\":\"Unsafe\",\"description\":\"test\","
@@ -489,6 +503,16 @@ void TestAssistantService()
           "assistant API description includes live native contract versions");
     Check(strstr(service.GetApiDescription(), "runtimeAdapters") != NULL,
           "assistant API description includes runtime adapter inventory");
+    const std::string czechMoveApi =
+        Salamatrix::AI::BuildRelevantApiDescription(
+            &service,
+            "Ozna\xc4\x8d" "en\xc3\xa9 soubory p\xc5\x99"
+            "esu\xc5\x88 do prot\xc4\x9b" "j\xc5\xa1"
+            "\xc3\xad" "ho panelu.");
+    Check(czechMoveApi.find("\"fileOperations\"") != std::string::npos &&
+              czechMoveApi.find("\"sides\"") != std::string::npos &&
+              czechMoveApi.find("\"all\"") == std::string::npos,
+          "Czech move request receives bounded sides and file-operation API slices");
     std::string contractVersions;
     std::string runtimeAdapters;
     std::string nativeContracts;

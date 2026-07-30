@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 
@@ -38,6 +39,9 @@ def main() -> int:
     local_llama = read("src/plugins/salamatrixailocalllama/local_llama.cpp")
     local_llama_header = read("src/plugins/salamatrixailocalllama/local_llama.h")
     local_llama_project = read("src/plugins/salamatrixailocalllama/vcxproj/local_llama.vcxproj")
+    local_llama_installer = read("src/plugins/salamatrixailocalllama/runtime/install_llama.ps1")
+    local_llama_rc2 = read("src/plugins/salamatrixailocalllama/local_llama.rc2")
+    runtime_protocol = read("src/plugins/salamatrix/salamatrix_runtime_protocol.h")
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
@@ -63,6 +67,10 @@ def main() -> int:
     salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
+    api_docs = read("src/plugins/salamatrix/salamatrix_api_docs.h")
+    general_contract = read("src/plugins/shared/spl_gen.h")
+    general_impl = read("src/zip.cpp")
+    setup = read("doc/runbook-setup/inno_setup_salamander_x64.iss")
     python_demo = read("src/extensions/demos/python/main.py")
     powershell_demo = read("src/extensions/demos/powershell/main.ps1")
 
@@ -146,30 +154,47 @@ def main() -> int:
             "bundled provider does not support the legacy companion asset layout")
     require(bundled, r'120000', "bundled provider timeout is not capped at two minutes")
     require(bundled, r'CreateUtf8PromptFile', "bundled provider does not pass the prompt through a UTF-8 file")
-    require(bundled, r'--json-schema-file.*--single-turn.*--no-conversation.*--no-jinja',
-            "bundled provider does not enforce schema-constrained raw one-shot output")
+    require(bundled, r'-sysf.*-f.*--json-schema-file.*'
+                     r'--conversation.*--single-turn.*--jinja',
+            "bundled provider does not use the model chat template with separate system and user prompts")
     require(bundled, r'\\"capabilities\\":.*?\\"maxItems\\":10.*?'
                      r'\\"missingCapabilities\\":.*?\\"maxItems\\":16',
             "bundled output schema permits unbounded repeated capability generation")
     require(bundled, r'\\"script\\":.*?\\"maxLength\\":1024.*?'
                      r'--repeat-penalty 1\.20.*?--repeat-last-n 512',
             "bundled output can loop inside script until JSON is truncated")
-    require(bundled, r'For a test, hello, or similarly vague request.*?'
+    require(bundled, r'test, hello, or similarly vague input.*?'
                      r'minimal side-effect-free script',
             "bundled model turns vague test requests into unrelated API demonstrations")
     require(bundled, r'md5NodeScript.*?createHash.*?writeFile',
             "bundled JavaScript prompt lacks a verified MD5 recipe")
-    require(bundled, r'Never invent `this\.selectedItems`.*?'
-                     r'canImplement=true',
-            "bundled JavaScript prompt lacks grounded selected-file and MD5 guidance")
+    require(bundled, r'BuildStrictInputContract.*?'
+                     r'SalamatrixAssistantInput/1\.0.*?'
+                     r'contextJson.*?existingScript.*?repairFeedback',
+            "bundled model input is not described by a typed strict contract")
+    require(bundled, r'RuntimeInterfaceContract.*?JavaScript\.Node.*?'
+                     r'Python\.CPython.*?PowerShell.*?PHP\.CLI',
+            "bundled model lacks strict contracts for all four runtime facades")
+    require(bundled, r'this\.selectedItems does not exist',
+            "bundled JavaScript contract permits an invented selection property")
+    require(bundled, r'BuildStrictOutputSchema.*?'
+                     r'draft/2020-12/schema.*?additionalProperties',
+            "bundled model output does not have a strict JSON Schema contract")
+    require(bundled, r'const std::string outputSchema = BuildStrictOutputSchema.*?'
+                     r'\[OUTPUT CONTRACT.*?outputSchema.*?'
+                     r'CreateUtf8PromptFile\(outputSchema',
+            "prompt and llama.cpp grammar do not share one output schema instance")
+    require(bundled, r'Contract priority: OUTPUT > RUNTIME > INSTALLED API > TASK',
+            "strict interface contract does not define instruction priority")
     require(bundled, r'ExtractJsonObject', "bundled provider does not tolerate llama-cli diagnostic output around JSON")
     require(bundled, r'ReadAvailablePipe\(parentOut, output, outputCallback, outputContext\).*?'
                      r'ReadAvailablePipe\(parentErr, diagnostics, outputCallback, outputContext\)',
             "bundled llama stdout/stderr are no longer streamed to the visible console")
     require_absent(bundled, r'failureOutput \+= .*diagnostics',
                    "bundled llama diagnostics are mixed back into the JSON failure response")
-    require(bundled, r'capabilities MUST be.*JSON array.*estimatedEffects MUST be.*JSON.*object',
-            "bundled provider prompt does not state the exact Salamatrix response shape")
+    require(bundled, r'additionalProperties.*?false.*?'
+                     r'estimatedEffects.*?additionalProperties.*?false',
+            "bundled output schema does not close the response and effect objects")
     require(local_llama_header, r'class CLocalBundledAssistantProvider',
             "optional local llama provider declaration is missing")
     require(local_llama, r'g_ai->RegisterProvider\(&g_provider\)',
@@ -180,6 +205,37 @@ def main() -> int:
             "optional local llama provider does not expose configuration")
     require(local_llama, r'install_llama\.ps1|LaunchInstaller',
             "optional local llama provider has no downloader integration")
+    require(local_llama, r'CONFIG_SELECTED_MODEL.*?'
+                         r'regKey != NULL.*?'
+                         r'GetValue\(regKey, CONFIG_SELECTED_MODEL.*?'
+                         r'SetValue\(regKey, CONFIG_SELECTED_MODEL',
+            "local llama model selection is not persistent")
+    require(local_llama, r'if \(registry != NULL && regKey != NULL\).*?'
+                         r'SetValue\(regKey, CONFIG_SELECTED_MODEL',
+            "local llama model selection writes through a null registry key")
+    require(local_llama, r'qwen2\.5-coder-1\.5b-instruct-q4_k_m\.gguf.*?'
+                         r'qwen2\.5-coder-0\.5b-instruct-q4_k_m\.gguf',
+            "provider does not resolve both selectable model files")
+    require(local_llama_rc2, r'1\.5B.*?Recommended.*?'
+                             r'0\.5B.*?English prompts only',
+            "localized model choices do not communicate recommendation and language limit")
+    require(local_llama_installer, r"ValidateSet\('0\.5B', '1\.5B'\).*?"
+                                   r'CC324AF070C2ECBFD324A30884D2F951A7FF756ABA85CB811A6EC436933BB046',
+            "downloader does not expose and verify both Qwen model profiles")
+    require(local_llama_installer, r'\$modelDownloadPath\s*=.*?'
+                                   r'Download-VerifiedFile.*?-Path \$modelDownloadPath.*?'
+                                   r'Move-Item -LiteralPath \$modelDownloadPath',
+            "model download path is not kept separate from the validated Model parameter")
+    require_absent(local_llama_installer, r'(?im)^\s*\$model\s*=',
+                   "case-insensitive PowerShell variable collides with the Model parameter")
+    require(local_llama_installer, r'Start-BitsTransfer',
+            "large model downloader does not use Windows BITS")
+    require_absent(local_llama_installer, r'wget(?:\.exe)?',
+                   "large model downloader still depends on wget")
+    require(runtime_protocol, r'valueEnd = position.*?'
+                              r"json\[valueEnd - 1\] == '\\n'.*?"
+                              r'value->assign\(json, valueStart, valueEnd - valueStart\)',
+            "raw JSON member parsing does not trim insignificant trailing whitespace")
     require(local_llama_project, r'CopySalamatrixAILocalLlamaInstaller',
             "optional local llama project does not stage the downloader script")
     require_absent(local_llama_project, r'SalamatrixAIAssetRoot|SalamatrixAIBundledAsset',
@@ -338,6 +394,23 @@ def main() -> int:
             "extension host does not acknowledge the runtime worker handshake")
     require(packages, r"if \(!package->RuntimeUsable\)\s+continue;.*?BuildMenu",
             "unavailable extension packages are not filtered from the menu")
+    require(packages, r"Automation API &Reference\.\.\.",
+            "Salamatrix plugin menu does not expose the installed Automation API reference")
+    require(packages, r"OpenAutomationApiReference",
+            "Salamatrix plugin menu does not open the Automation API reference")
+    require(api_docs, r"plugins.*?salamatrix.*?salamatrix-automation-api\.html.*?"
+                r"OpenFileInConfiguredViewer",
+            "Automation API reference is not resolved from the installed Salamatrix plugin directory")
+    require(general_contract, r"SetPanelsDetached.*?"
+                r"OpenFileInConfiguredViewer\(HWND parent",
+            "configured-viewer SDK method is not append-only")
+    require(general_impl, r"OpenFileInConfiguredViewer.*?"
+                r"ViewFileInt\(parent, fileName, FALSE, 0xFFFFFFFF",
+            "plugin documentation does not use the same configured-viewer selection path as built-in documentation")
+    require(ai, r'"api-reference".*?OpenAutomationApiReference',
+            "Salamatrix AI window has no Automation API reference button")
+    require(setup, r"plugins\\salamatrix\\salamatrix-automation-api\.html",
+            "installer does not package the Automation API HTML reference")
     require(packages, r"void PackageManager::RegisterToolbarButtons\(\).*?if \(!package->RuntimeUsable\)\s+continue;",
             "unavailable extension packages are not filtered from the toolbar")
     require(python_demo, r"Salamander\.ui\.notify", "Python demo does not show a non-blocking result")
@@ -350,6 +423,21 @@ def main() -> int:
     require(plugins2, r"SupportDynMenuExt.*?BuildMenu", "dynamic menu rebuild path is missing")
     require(salamatrix, r"CPluginInterface::Connect.*?SalamatrixPackages->Refresh\(\)",
             "Salamatrix Connect does not re-evaluate package runtime states")
+
+    generated_docs = subprocess.run(
+        [sys.executable, "-B",
+         str(ROOT / "tools" / "generate_salamatrix_automation_reference.py"),
+         "--check"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if generated_docs.returncode != 0:
+        raise AssertionError(
+            "generated Automation API HTML reference is stale: "
+            + generated_docs.stderr.strip()
+        )
 
     print("Salamatrix regression source contracts passed.")
     return 0

@@ -280,39 +280,51 @@ inline std::string BuildRelevantApiDescription(
         result += "\":";
         result += slice;
     };
-    if (text.find("panel") != std::string::npos ||
-        text.find("selected") != std::string::npos ||
-        text.find("file") != std::string::npos ||
-        text.find("directory") != std::string::npos)
+    const auto containsAny = [&](const char* const* terms, int termCount) {
+        for (int index = 0; index < termCount; ++index)
+            if (text.find(terms[index]) != std::string::npos)
+                return true;
+        return false;
+    };
+    static const char* const panelTerms[] = {
+        "panel", "selected", "selection", "file", "directory",
+        "ozna", "vybran", "soubor", "adres", "sloz"};
+    static const char* const fileOperationTerms[] = {
+        "rename", "copy", "move", "delete", "command",
+        "p\xc5\x99" "ejmen", "kop", "p\xc5\x99" "esu",
+        "sma", "odstran", "p\xc5\x99" "\xc3\xadkaz"};
+    static const char* const uiTerms[] = {
+        "dialog", "ui", "progress", "show", "window",
+        "okno", "zobraz", "pr\xc5\xaf" "b\xc4\x9b" "h"};
+    static const char* const storageTerms[] = {
+        "storage", "setting", "config", "uloz", "nastaven"};
+    static const char* const eventTerms[] = {
+        "event", "change", "ud\xc3\xa1l", "zm\xc4\x9b" "n"};
+    static const char* const runtimeTerms[] = {
+        "runtime", "python", "powershell", "javascript", "node", "php"};
+    if (containsAny(panelTerms, _countof(panelTerms)))
         add("sides");
-    if (text.find("rename") != std::string::npos ||
-        text.find("copy") != std::string::npos ||
-        text.find("move") != std::string::npos ||
-        text.find("delete") != std::string::npos ||
-        text.find("command") != std::string::npos)
+    if (containsAny(fileOperationTerms, _countof(fileOperationTerms)))
     {
         add("commands");
         add("fileOperations");
     }
-    if (text.find("dialog") != std::string::npos ||
-        text.find("ui") != std::string::npos ||
-        text.find("progress") != std::string::npos ||
-        text.find("show") != std::string::npos)
+    if (containsAny(uiTerms, _countof(uiTerms)))
         add("ui");
-    if (text.find("storage") != std::string::npos ||
-        text.find("setting") != std::string::npos)
+    if (containsAny(storageTerms, _countof(storageTerms)))
         add("storage");
-    if (text.find("event") != std::string::npos ||
-        text.find("change") != std::string::npos)
+    if (containsAny(eventTerms, _countof(eventTerms)))
         add("events");
-    if (text.find("runtime") != std::string::npos ||
-        text.find("python") != std::string::npos ||
-        text.find("powershell") != std::string::npos ||
-        text.find("javascript") != std::string::npos ||
-        text.find("node") != std::string::npos)
+    if (containsAny(runtimeTerms, _countof(runtimeTerms)))
         add("runtimes");
     if (count == 0)
-        add("all");
+    {
+        // A small local model performs better with the two core automation
+        // surfaces than with the unbounded full reference. Unknown natural
+        // languages still receive useful selection and file-operation APIs.
+        add("sides");
+        add("fileOperations");
+    }
     result += "}}";
     return result;
 }
@@ -512,8 +524,11 @@ private:
 
     static BOOL ValidateStringArray(
         const std::string& raw,
-        AssistantValidationResult* validation)
+        AssistantValidationResult* validation,
+        int* itemCount)
     {
+        if (itemCount != NULL)
+            *itemCount = 0;
         size_t position = 0;
         Runtime::Protocol::Json::SkipWhitespace(raw, &position);
         if (position >= raw.size() || raw[position++] != '[')
@@ -527,10 +542,13 @@ private:
         {
             Runtime::Protocol::Json::SkipWhitespace(raw, &position);
             std::string value;
-            if (!Runtime::Protocol::Json::ReadString(raw, &position, &value))
+            if (!Runtime::Protocol::Json::ReadString(raw, &position, &value) ||
+                value.empty())
                 return SetValidationFailure(validation,
                                             AssistantValidationIssueCapability,
-                                            "missingCapabilities must contain strings");
+                                            "missingCapabilities must contain non-empty strings");
+            if (itemCount != NULL)
+                ++*itemCount;
             Runtime::Protocol::Json::SkipWhitespace(raw, &position);
             if (position >= raw.size())
                 return SetValidationFailure(validation,
@@ -565,14 +583,20 @@ private:
                                         AssistantValidationIssueShape,
                                         "canImplement is required and must be a boolean");
         std::string missingCapabilities;
-        if (Runtime::Protocol::Json::FindRawMember(
-                response->ResponseJson, "missingCapabilities", &missingCapabilities) &&
-            !ValidateStringArray(missingCapabilities, validation))
+        int missingCapabilityCount = 0;
+        const BOOL hasMissingCapabilities =
+            Runtime::Protocol::Json::FindRawMember(
+                response->ResponseJson, "missingCapabilities",
+                &missingCapabilities);
+        if (hasMissingCapabilities &&
+            !ValidateStringArray(missingCapabilities, validation,
+                                 &missingCapabilityCount))
             return FALSE;
-        if (canImplement == "false" && missingCapabilities.empty())
+        if (canImplement == "false" &&
+            (!hasMissingCapabilities || missingCapabilityCount == 0))
             return SetValidationFailure(validation,
                                         AssistantValidationIssueCapability,
-                                        "missingCapabilities is required when canImplement is false");
+                                        "missingCapabilities must contain at least one host gap when canImplement is false");
         if (canImplement == "true")
         {
             std::string script(response->Summary.Script);

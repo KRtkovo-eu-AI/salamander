@@ -754,10 +754,14 @@ the same structured contract over WinHTTP, so a local model can be used
 without shipping a model SDK or coupling Salamander to a vendor. The optional
 companion plugin `Salamatrix AI Local LLaMA` registers `local.bundled`, a
 server-free provider that starts `runtime\\llama-cli.exe` against
-`runtime\\salamatrix.gguf` after the user installs those assets from the
-plugin Configuration page. The installer downloads the pinned Windows x64
-CPU package and Qwen GGUF file, verifies both SHA-256 values, and stores the
-applicable license notices beside the files.
+the model selected on the plugin Configuration page. Qwen2.5-Coder 1.5B
+Instruct Q4_K_M is the recommended default; Qwen2.5-Coder 0.5B Instruct
+Q4_K_M remains available as a lightweight option for English prompts only.
+Both models may be installed side by side and the selection is persisted.
+The installer downloads the pinned Windows x64 CPU package and selected Qwen
+GGUF file, verifies both SHA-256 values, and stores the applicable license
+notices beside the files. Existing `runtime\\salamatrix.gguf` installations
+are migrated as the 0.5B profile.
 Both assets can be overridden with `SALAMATRIX_AI_BUNDLED_COMMAND` and
 `SALAMATRIX_AI_BUNDLED_MODEL`; the provider is advertised as ready only when
 both files exist.

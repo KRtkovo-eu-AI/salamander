@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "salamatrixai.h"
+#include "../salamatrix/salamatrix_api_docs.h"
 #include "versinfo.rh2"
 #include <strsafe.h>
 #include <algorithm>
@@ -94,6 +95,8 @@ static const char* AssistantStringFallback(UINT resourceId)
     case IDS_AI_SAVE_LABEL: return "Save script";
     case IDS_AI_REFINE_ACCEPT: return "Use feedback";
     case IDS_AI_REFINE_CANCEL: return "Cancel";
+    case IDS_AI_API_REFERENCE_LABEL: return "API reference";
+    case IDS_AI_API_REFERENCE_FAILED: return "The Salamatrix Automation API reference is not installed.";
     default: return "";
     }
 }
@@ -728,6 +731,7 @@ static void WINAPI ChatResize(
     CHAT_BUTTON("run", 86);
     CHAT_BUTTON("preview", 76);
     CHAT_BUTTON("ask", 72);
+    CHAT_BUTTON("api-reference", 96);
 #undef CHAT_BUTTON
 #undef CHAT_BOUNDS
 }
@@ -1179,6 +1183,20 @@ static BOOL WINAPI ChatEvent(void* context, const Salamatrix::UI::DialogEvent* e
                        _countof(g_lastRuntime));
         return TRUE;
     }
+    if (strcmp(event->ControlId, "api-reference") == 0)
+    {
+        if (!Salamatrix::Documentation::OpenAutomationApiReference(
+                SalamanderGeneral, chat->Parent) &&
+            g_ui != NULL)
+        {
+            g_ui->ShowMessageBox(
+                chat->Parent,
+                LoadAssistantString(IDS_AI_API_REFERENCE_FAILED).c_str(),
+                LoadAssistantString(IDS_AI_TITLE).c_str(),
+                MB_OK | MB_ICONWARNING);
+        }
+        return TRUE;
+    }
     if (strcmp(event->ControlId, "preview") == 0)
     {
         if (chat->HasResponse && g_ui != NULL)
@@ -1529,6 +1547,19 @@ static void ShowChat(HWND parent, CSalamanderForOperationsAbstract* operation)
     Salamatrix::UI::ControlLayout exportLayout;
     exportLayout.HasBounds = TRUE; exportLayout.X = 468; exportLayout.Y = 390; exportLayout.Width = 104; exportLayout.Height = 26;
     dialog->AddControlEx(Salamatrix::UI::ControlKindButton, exportOptions, exportLayout);
+    Salamatrix::UI::ControlOptions apiReferenceOptions;
+    apiReferenceOptions.Id = "api-reference";
+    apiReferenceOptions.Text =
+        LoadAssistantString(IDS_AI_API_REFERENCE_LABEL).c_str();
+    apiReferenceOptions.KeepOpen = TRUE;
+    Salamatrix::UI::ControlLayout apiReferenceLayout;
+    apiReferenceLayout.HasBounds = TRUE;
+    apiReferenceLayout.X = 24;
+    apiReferenceLayout.Y = 390;
+    apiReferenceLayout.Width = 96;
+    apiReferenceLayout.Height = 26;
+    dialog->AddControlEx(Salamatrix::UI::ControlKindButton,
+                         apiReferenceOptions, apiReferenceLayout);
     if (history != NULL) history->AddColumn("Conversation", 700);
     Salamatrix::UI::ControlLayout consoleLayout;
     consoleLayout.HasBounds = TRUE;

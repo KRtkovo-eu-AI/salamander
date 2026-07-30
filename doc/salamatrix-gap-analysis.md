@@ -117,8 +117,10 @@ This is an MVP/PoC, not yet the framework described by the vision. In particular
   llama.cpp CLI/model assets. The main `SalamatrixAI.SPL` remains model-free,
   so users can install only another provider. The Local LLaMA Configuration
   page launches a pinned downloader for the official CPU x64 llama.cpp release
-  and lightweight Qwen GGUF model, with SHA-256 checks and third-party license
-  files; the binary and model are no longer staged into the plugin package.
+  and a selectable Qwen2.5-Coder GGUF model: recommended 1.5B or lightweight
+  English-prompt-only 0.5B. Both downloads retain SHA-256 checks and
+  third-party license files; the binary and models are no longer staged into
+  the plugin package.
   Its response contract now also permits an explicit `canImplement:false` plus
   a validated `missingCapabilities` list, so unsupported requests can be
   explained instead of being forced into invented API calls.
@@ -163,8 +165,8 @@ stopped, or otherwise controlled by this work.
 The current implementation separates the optional `Salamatrix AI Local
 LLaMA.SPL` companion from the model-free `SalamatrixAI.SPL`. Its configuration
 downloader is syntax-checked and pins the official llama.cpp CPU x64 archive
-and Qwen GGUF model by SHA-256; the plugin build contains only the downloader
-script, not the binary or model. A live model download was intentionally
+and both selectable Qwen GGUF models by SHA-256; the plugin build contains
+only the downloader script, not the binary or model. A live model download was intentionally
 stopped at the 120-second command limit in this environment; no Salamander
 process was started or controlled.
 
