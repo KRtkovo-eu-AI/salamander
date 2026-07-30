@@ -126,6 +126,12 @@ def main() -> int:
             "AI menu command is not always exposed as enabled")
     require(ai, r"IsCurrentService\(SALAMATRIX_SERVICE_AI.*?g_ai\).*?UnregisterProvider",
             "AI Release lacks current-service pointer validation")
+    require(ai, r"IsInterfaceModuleLoaded.*?VirtualQuery.*?"
+                r"GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS",
+            "AI Release cannot detect an interface whose provider DLL was unloaded")
+    require(ai, r"g_chat != NULL && IsInterfaceModuleLoaded\(g_chat->Dialog\).*?"
+                r"g_chat->Dialog->Close",
+            "AI Release can close a dialog through an unloaded UI service")
     require_absent(ai_header, r"class CLocalBundledAssistantProvider",
                    "bundled local provider must not be part of the mandatory AI helper")
     require(ai_contract, r"BuildRelevantApiDescription",
@@ -219,6 +225,11 @@ def main() -> int:
             "optional local llama provider is not registered with Salamatrix.AI")
     require(local_llama, r'g_ai->UnregisterProvider\(&g_provider\)',
             "optional local llama provider is not unregistered during release")
+    require(local_llama, r'IsInterfaceModuleLoaded.*?VirtualQuery.*?'
+                         r'GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS.*?'
+                         r'IsInterfaceModuleLoaded\(g_ai\).*?'
+                         r'g_ai->UnregisterProvider',
+            "local llama Release can call an AI service from an unloaded provider DLL")
     require(local_llama, r'FUNCTION_CONFIGURATION',
             "optional local llama provider does not expose configuration")
     require(local_llama, r'install_llama\.ps1|LaunchInstaller',

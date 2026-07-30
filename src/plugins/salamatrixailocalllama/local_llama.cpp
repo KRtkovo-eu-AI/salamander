@@ -27,6 +27,28 @@ bool g_released = false;
 LocalLlamaModel g_selectedModel = LocalLlamaModelQwen15B;
 const char* const CONFIG_SELECTED_MODEL = "SelectedModel";
 
+static bool IsInterfaceModuleLoaded(const void* interfacePointer)
+{
+    if (interfacePointer == NULL)
+        return false;
+
+    MEMORY_BASIC_INFORMATION memory = {};
+    if (VirtualQuery(interfacePointer, &memory, sizeof(memory)) != sizeof(memory) ||
+        memory.State != MEM_COMMIT ||
+        (memory.Protect & (PAGE_NOACCESS | PAGE_GUARD)) != 0)
+        return false;
+
+    const void* vtable = *static_cast<void* const*>(interfacePointer);
+    if (vtable == NULL)
+        return false;
+
+    HMODULE module = NULL;
+    return GetModuleHandleExW(
+               GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                   GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+               reinterpret_cast<LPCWSTR>(vtable), &module) != FALSE;
+}
+
 static const char* LoadLocalLlamaString(int resourceId)
 {
     if (SalamanderGeneral == NULL || DLLInstance == NULL)
@@ -347,7 +369,8 @@ BOOL WINAPI CLocalLlamaPluginInterface::Release(HWND parent, BOOL force)
 {
     UNREFERENCED_PARAMETER(parent);
     UNREFERENCED_PARAMETER(force);
-    if (!g_released && g_registered && g_ai != NULL && SalamanderGeneral != NULL) {
+    if (!g_released && g_registered && SalamanderGeneral != NULL &&
+        IsInterfaceModuleLoaded(g_ai)) {
         CSalamanderServiceQuery query = {};
         query.ServiceId = SALAMATRIX_SERVICE_AI;
         query.MinimumVersion = SALAMATRIX_AI_VERSION_1_0;

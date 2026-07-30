@@ -32,6 +32,28 @@ static const char* CONFIG_LAST_RUNTIME = "LastRuntime";
 char g_lastProvider[128] = "auto";
 char g_lastRuntime[128] = "";
 
+static bool IsInterfaceModuleLoaded(const void* interfacePointer)
+{
+    if (interfacePointer == NULL)
+        return false;
+
+    MEMORY_BASIC_INFORMATION memory = {};
+    if (VirtualQuery(interfacePointer, &memory, sizeof(memory)) != sizeof(memory) ||
+        memory.State != MEM_COMMIT ||
+        (memory.Protect & (PAGE_NOACCESS | PAGE_GUARD)) != 0)
+        return false;
+
+    const void* vtable = *static_cast<void* const*>(interfacePointer);
+    if (vtable == NULL)
+        return false;
+
+    HMODULE module = NULL;
+    return GetModuleHandleExW(
+               GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                   GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+               reinterpret_cast<LPCWSTR>(vtable), &module) != FALSE;
+}
+
 static void RememberChoice(
     Salamatrix::UI::IControl* control, char* destination, size_t capacity)
 {
@@ -44,7 +66,8 @@ static void RememberChoice(
 
 static bool IsCurrentService(const char* serviceId, DWORD minimumVersion, const void* expected)
 {
-    if (g_released || SalamanderGeneral == NULL || serviceId == NULL || expected == NULL)
+    if (g_released || SalamanderGeneral == NULL || serviceId == NULL ||
+        !IsInterfaceModuleLoaded(expected))
         return false;
 
     CSalamanderServiceQuery query;
@@ -1902,8 +1925,10 @@ void WINAPI CPluginInterface::About(HWND parent)
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
     UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(force);
-    if (g_chat != NULL)
+    if (g_chat != NULL && IsInterfaceModuleLoaded(g_chat->Dialog))
         g_chat->Dialog->Close();
+    else
+        g_chat = NULL;
     if (!g_released && IsCurrentService(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, g_ai))
     {
         g_ai->UnregisterProvider(&g_httpProvider);
