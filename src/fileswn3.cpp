@@ -162,13 +162,14 @@ LABEL_SortExplorerNameExtAux:
     }
 }
 
-void FillExplorerSortCache(CExplorerSortContext& context, const char* path, CFilesArray* items, int firstIndex, int explorerIndex)
+void FillExplorerSortCache(CExplorerSortContext& context, const char* path, const wchar_t* pathW,
+                           CFilesArray* items, int firstIndex, int explorerIndex)
 {
     char text[TRANSFER_BUFFER_MAX];
     for (int i = firstIndex; i < items->Count; i++)
     {
         CFileData* file = &items->At(i);
-        if (GetExplorerColumnTextForFile(path, file, explorerIndex, text, TRANSFER_BUFFER_MAX))
+        if (GetExplorerColumnTextForFile(path, pathW, file, explorerIndex, text, TRANSFER_BUFFER_MAX))
             context.Values[file->Name] = text;
         else
             context.Values[file->Name] = "";
@@ -1944,9 +1945,9 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
         ExplorerSortContext = &context;
         BOOL hasRoot = dirs->Count > 0 && dirs->At(0).NameLen == 2 && dirs->At(0).Name[0] == '.' && dirs->At(0).Name[1] == '.';
         int firstDirIndex = hasRoot ? 1 : 0;
-        FillExplorerSortCache(context, GetPath(), files, 0, (int)SortCustomData);
+        FillExplorerSortCache(context, GetPath(), GetPathW(), files, 0, (int)SortCustomData);
         if (!Configuration.SortDirsByName)
-            FillExplorerSortCache(context, GetPath(), dirs, firstDirIndex, (int)SortCustomData);
+            FillExplorerSortCache(context, GetPath(), GetPathW(), dirs, firstDirIndex, (int)SortCustomData);
         if (!Configuration.SortDirsByName && dirs->Count - firstDirIndex > 1)
             SortExplorerNameExtAux(*dirs, firstDirIndex, dirs->Count - 1, ReverseSort);
         else if (dirs->Count - firstDirIndex > 1)

@@ -5114,6 +5114,13 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
             free(nameColWidths);
 
         TransferPluginDataIface = PluginData.GetInterface();
+        TransferPanelPath[0] = 0;
+        TransferPanelPathW[0] = 0;
+        if (Is(ptDisk))
+        {
+            GetGeneralPath(TransferPanelPath, SAL_MAX_PATH);
+            lstrcpynW(TransferPanelPathW, GetPathW(), SAL_MAX_PATH);
+        }
         int totalWidth = 0;
         for (i = 0; i < Columns.Count; i++)
         {

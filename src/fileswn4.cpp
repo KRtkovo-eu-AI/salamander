@@ -844,8 +844,12 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             // callback that fill the buffer with text and then we draw the column
             TransferPluginDataIface = PluginData.GetInterface();
             TransferPanelPath[0] = 0;
+            TransferPanelPathW[0] = 0;
             if (Is(ptDisk))
+            {
                 GetGeneralPath(TransferPanelPath, SAL_MAX_PATH);
+                lstrcpynW(TransferPanelPathW, GetPathW(), SAL_MAX_PATH);
+            }
             TransferFileData = f;
             TransferIsDir = isDir ? (isItemUpDir ? 2 : 1) : 0;
             TransferRowData = 0; // this variable must be zero for each row;

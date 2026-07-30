@@ -60,6 +60,7 @@ public static class EntryPoint
 
     private static int Initialize(IntPtr parent, string currentVersion)
     {
+        PluginDependencyResolver.Initialize();
         UpdateCoordinator.Initialize(currentVersion, parent);
         if (PluginPackageInstaller.TryTakeLastError(out var installError))
         {
@@ -2026,7 +2027,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         }
         catch (Exception ex)
         {
-            var message = $"{NativeStrings.Get(NativeStringId.PluginInstallFailed)}{Environment.NewLine}{ex.Message}";
+            var message = $"{NativeStrings.Get(NativeStringId.PluginInstallFailed)}{Environment.NewLine}{GetExceptionMessage(ex)}";
             _statusLabel.Text = message;
             ThemeHelper.ShowMessageBox(
                 this,
@@ -2043,6 +2044,20 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             _sourcesButton.Enabled = true;
             _installButton.Enabled = CanInstallSelected();
         }
+    }
+
+    private static string GetExceptionMessage(Exception exception)
+    {
+        var messages = new List<string>();
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message) &&
+                !messages.Contains(current.Message, StringComparer.Ordinal))
+            {
+                messages.Add(current.Message);
+            }
+        }
+        return string.Join(Environment.NewLine, messages);
     }
 
     private void OpenSelectedPage()

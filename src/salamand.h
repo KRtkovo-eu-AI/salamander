@@ -318,6 +318,7 @@ extern DWORD TransferRowData;                                 // user data, bits
 extern CPluginDataInterfaceAbstract* TransferPluginDataIface; // plugin data interface of the panel in which the item is drawn (belongs to TransferFileData->PluginData)
 extern DWORD TransferActCustomData;                           // column CustomData for which text is obtained (for which the callback is invoked) // FIXME_X64 - too small for a pointer, is it ever needed?
 extern char TransferPanelPath[SAL_MAX_PATH];                  // current disk panel path for Explorer property columns
+extern WCHAR TransferPanelPathW[SAL_MAX_PATH];                // Unicode variant of TransferPanelPath
 
 // if the extension was already looked up in Associations, the search result is stored here
 extern int TransferAssocIndex; // -2 not searched yet, -1 not present, >=0 valid index
@@ -335,7 +336,8 @@ void WINAPI InternalGetTimeOnlyForDisk();
 void WINAPI InternalGetAttr();
 void WINAPI InternalGetDescr();
 void WINAPI InternalGetExplorerColumn();
-BOOL GetExplorerColumnTextForFile(const char* panelPath, const CFileData* fileData, int columnIndex, char* buffer, int bufferSize);
+BOOL GetExplorerColumnTextForFile(const char* panelPath, const WCHAR* panelPathW, const CFileData* fileData,
+                                  int columnIndex, char* buffer, int bufferSize);
 int GetExplorerColumnCount();
 const char* GetExplorerColumnName(int index);
 

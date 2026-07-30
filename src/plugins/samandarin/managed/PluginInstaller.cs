@@ -7,11 +7,47 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using SharpCompress.Archives;
 
 namespace OpenSalamander.Samandarin;
+
+internal static class PluginDependencyResolver
+{
+    private const string UnsafeAssemblyName = "System.Runtime.CompilerServices.Unsafe";
+    private static readonly object SyncRoot = new();
+    private static bool _initialized;
+
+    public static void Initialize()
+    {
+        lock (SyncRoot)
+        {
+            if (_initialized) return;
+            AppDomain.CurrentDomain.AssemblyResolve += ResolveLocalDependency;
+            _initialized = true;
+        }
+    }
+
+    private static Assembly? ResolveLocalDependency(object? sender, ResolveEventArgs args)
+    {
+        var requestedName = new AssemblyName(args.Name).Name;
+        if (!string.Equals(requestedName, UnsafeAssemblyName, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var assemblyDirectory = Path.GetDirectoryName(typeof(PluginDependencyResolver).Assembly.Location);
+        if (string.IsNullOrWhiteSpace(assemblyDirectory))
+        {
+            return null;
+        }
+
+        var path = Path.Combine(assemblyDirectory, UnsafeAssemblyName + ".dll");
+        return File.Exists(path) ? Assembly.LoadFrom(path) : null;
+    }
+}
 
 internal enum OfficialPackageKind
 {

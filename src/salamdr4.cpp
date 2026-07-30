@@ -1731,6 +1731,7 @@ const CFileData* TransferFileData;
 int TransferIsDir;
 char TransferBuffer[TRANSFER_BUFFER_MAX];
 char TransferPanelPath[SAL_MAX_PATH];
+WCHAR TransferPanelPathW[SAL_MAX_PATH];
 int TransferLen;
 DWORD TransferRowData;
 CPluginDataInterfaceAbstract* TransferPluginDataIface;
@@ -1952,25 +1953,63 @@ void WINAPI InternalGetDescr()
     }
 }
 
-BOOL GetExplorerColumnTextForFile(const char* panelPath, const CFileData* fileData, int columnIndex, char* buffer, int bufferSize)
+static BOOL BuildExplorerColumnPathW(const char* panelPath, const WCHAR* panelPathW,
+                                     const CFileData* fileData, WCHAR* pathW, int pathSize)
+{
+    if (pathW == NULL || pathSize <= 0 || fileData == NULL)
+        return FALSE;
+
+    pathW[0] = 0;
+    if (panelPathW != NULL && panelPathW[0] != 0)
+        lstrcpynW(pathW, panelPathW, pathSize);
+    else if (panelPath == NULL || panelPath[0] == 0 ||
+             MultiByteToWideChar(CP_ACP, 0, panelPath, -1, pathW, pathSize) <= 0)
+    {
+        return FALSE;
+    }
+
+    int pathLen = lstrlenW(pathW);
+    if (pathLen == 0)
+        return FALSE;
+    if (pathW[pathLen - 1] != L'\\')
+    {
+        if (pathLen + 1 >= pathSize)
+            return FALSE;
+        pathW[pathLen++] = L'\\';
+        pathW[pathLen] = 0;
+    }
+
+    if (fileData->UseWideName())
+    {
+        const WCHAR* nameW = (const WCHAR*)fileData->NameW;
+        int nameLen = lstrlenW(nameW);
+        if (pathLen + nameLen >= pathSize)
+            return FALSE;
+        memcpy(pathW + pathLen, nameW, (nameLen + 1) * sizeof(WCHAR));
+    }
+    else if (MultiByteToWideChar(CP_ACP, 0, fileData->Name, -1,
+                                 pathW + pathLen, pathSize - pathLen) <= 0)
+    {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL GetExplorerColumnTextForFile(const char* panelPath, const WCHAR* panelPathW, const CFileData* fileData,
+                                  int columnIndex, char* buffer, int bufferSize)
 {
     if (buffer == NULL || bufferSize <= 0)
         return FALSE;
     buffer[0] = 0;
-    if (panelPath == NULL || panelPath[0] == 0 || fileData == NULL)
+    if (fileData == NULL)
         return FALSE;
 
     LoadExplorerColumns();
     if (columnIndex < 0 || columnIndex >= ExplorerColumnsCount)
         return FALSE;
 
-    char path[SAL_MAX_PATH];
-    lstrcpyn(path, panelPath, SAL_MAX_PATH);
-    if (!SalPathAppend(path, fileData->Name, SAL_MAX_PATH))
-        return FALSE;
-
     WCHAR pathW[SAL_MAX_PATH];
-    if (MultiByteToWideChar(CP_ACP, 0, path, -1, pathW, SAL_MAX_PATH) <= 0)
+    if (!BuildExplorerColumnPathW(panelPath, panelPathW, fileData, pathW, SAL_MAX_PATH))
         return FALSE;
 
     IPropertyStore* store = NULL;
@@ -2002,7 +2041,8 @@ void WINAPI InternalGetExplorerColumn()
         return;
 
     char text[TRANSFER_BUFFER_MAX];
-    if (GetExplorerColumnTextForFile(TransferPanelPath, TransferFileData, (int)TransferActCustomData, text, TRANSFER_BUFFER_MAX))
+    if (GetExplorerColumnTextForFile(TransferPanelPath, TransferPanelPathW, TransferFileData,
+                                     (int)TransferActCustomData, text, TRANSFER_BUFFER_MAX))
     {
         TransferLen = (int)strlen(text);
         if (TransferLen > TRANSFER_BUFFER_MAX)
