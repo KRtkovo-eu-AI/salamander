@@ -47,6 +47,16 @@
       "toolbar": false,
       "requiresExecutable": "git.exe",
       "requires": "disk"
+    },
+    {
+      "id": "OpenSalamander.GitWorktreeNavigator.createLocalRepository",
+      "title": "Git Create Local Repository",
+      "handler": "createLocalRepository",
+      "menu": "both",
+      "contextMenu": true,
+      "toolbar": false,
+      "requiresExecutable": "git.exe",
+      "requires": "disk"
     }
   ]
 }

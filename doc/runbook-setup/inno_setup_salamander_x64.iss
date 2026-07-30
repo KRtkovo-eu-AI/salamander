@@ -65,7 +65,6 @@ DisableProgramGroupPage=yes
 DisableFinishedPage=yes
 OutputBaseFilename={#AppToInstallVersion}_win_x64
 PrivilegesRequired=admin
-SetupArchitecture=x64
 SetupIconFile=..\..\src\res\samandarin.ico
 SolidCompression=yes
 Uninstallable=not IsPortableInstall
@@ -322,8 +321,11 @@ Name: "{app}\plugins\7zip\lang"
 Name: "{app}\plugins\automation"
 Name: "{app}\plugins\automation\lang"
 Name: "{app}\plugins\automation\scripts"
+Name: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"
 Name: "{app}\plugins\dbviewer"
 Name: "{app}\plugins\dbviewer\lang"
+Name: "{app}\plugins\demoplug"
+Name: "{app}\plugins\demoplug\lang"
 Name: "{app}\plugins\diskdir"
 Name: "{app}\plugins\diskdir\lang"
 Name: "{app}\plugins\diskmap"
@@ -362,10 +364,21 @@ Name: "{app}\plugins\renamer\lang"
 Name: "{app}\plugins\samandarin"
 Name: "{app}\plugins\samandarin\lang"
 Name: "{app}\plugins\salamatrix"
+Name: "{app}\plugins\salamatrixai"
+Name: "{app}\plugins\salamatrixai\runtime"
+Name: "{app}\plugins\salamatrixailocalllama"
+Name: "{app}\plugins\salamatrixailocalllama\runtime"
 Name: "{app}\plugins\extension-runtimes"
+Name: "{app}\plugins\extension-runtimes\javascriptruntime"
+Name: "{app}\plugins\extension-runtimes\javascriptruntime\runtime"
+Name: "{app}\plugins\extension-runtimes\phpruntime"
+Name: "{app}\plugins\extension-runtimes\phpruntime\runtime"
 Name: "{app}\plugins\extension-runtimes\powershellruntime"
 Name: "{app}\plugins\extension-runtimes\powershellruntime\runtime"
+Name: "{app}\plugins\extension-runtimes\pythonruntime"
+Name: "{app}\plugins\extension-runtimes\pythonruntime\runtime"
 Name: "{app}\extensions"
+Name: "{app}\extensions\demos"
 Name: "{app}\extensions\git-worktree-navigator"
 Name: "{app}\extensions\file-lock-inspector"
 Name: "{app}\plugins\serviceexplorer"
@@ -585,9 +598,7 @@ Source: "{#PayloadDir}\plugins\automation\scripts\Make Link.js"; DestDir: "{app}
 Source: "{#PayloadDir}\plugins\automation\scripts\Make List (JScript).js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\scripts\Make List (VBScript).vbs"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\scripts\Unpack Multiple Archives.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
-Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\extension.json"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion; Check: IsPluginSelected('automation')
-Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\icon.svg"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion; Check: IsPluginSelected('automation')
-Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\main.js"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\*"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrixdemos')
 Source: "{#PayloadDir}\plugins\dbviewer\dbviewer.spl"; DestDir: "{app}\plugins\dbviewer"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\czech.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\dutch.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
@@ -1381,10 +1392,23 @@ Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix-automation-api.html"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
+Source: "{#PayloadDir}\plugins\salamatrixai\salamatrixai.spl"; DestDir: "{app}\plugins\salamatrixai"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixai')
+Source: "{#PayloadDir}\plugins\salamatrixai\runtime\salamatrix_ai_local.py"; DestDir: "{app}\plugins\salamatrixai\runtime"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixai')
+Source: "{#PayloadDir}\plugins\salamatrixailocalllama\salamatrixailocalllama.spl"; DestDir: "{app}\plugins\salamatrixailocalllama"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixailocalllama')
+Source: "{#PayloadDir}\plugins\salamatrixailocalllama\runtime\install_llama.ps1"; DestDir: "{app}\plugins\salamatrixailocalllama\runtime"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixailocalllama')
+Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
+Source: "{#PayloadDir}\plugins\demoplug\lang\english.slg"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
+Source: "{#PayloadDir}\extensions\demos\*"; DestDir: "{app}\extensions\demos"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrixdemos')
 Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\extensions\git-worktree-navigator"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('gitworktreenavigator')
 Source: "{#PayloadDir}\extensions\file-lock-inspector\*"; DestDir: "{app}\extensions\file-lock-inspector"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('filelockinspector')
+Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\javascriptruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
+Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\runtime\salamatrix_worker.mjs"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
+Source: "{#PayloadDir}\plugins\extension-runtimes\phpruntime\phpruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\phpruntime"; Flags: ignoreversion; Check: IsPluginSelected('phpruntime')
+Source: "{#PayloadDir}\plugins\extension-runtimes\phpruntime\runtime\salamatrix_worker.php"; DestDir: "{app}\plugins\extension-runtimes\phpruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('phpruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\powershellruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\runtime\salamatrix_worker.ps1"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
+Source: "{#PayloadDir}\plugins\extension-runtimes\pythonruntime\pythonruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\pythonruntime"; Flags: ignoreversion; Check: IsPluginSelected('pythonruntime')
+Source: "{#PayloadDir}\plugins\extension-runtimes\pythonruntime\runtime\salamatrix_worker.py"; DestDir: "{app}\plugins\extension-runtimes\pythonruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('pythonruntime')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\salamand.exe.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
@@ -1700,11 +1724,27 @@ begin
   Result := Pos(',' + NormalizedToken + ',', ',' + NormalizedList + ',') > 0;
 end;
 
+function IsExtensionRuntimePlugin(const PluginId: String): Boolean;
+begin
+  Result :=
+    (CompareText(PluginId, 'javascriptruntime') = 0) or
+    (CompareText(PluginId, 'phpruntime') = 0) or
+    (CompareText(PluginId, 'powershellruntime') = 0) or
+    (CompareText(PluginId, 'pythonruntime') = 0);
+end;
+
 function IsDefaultPlugin(const PluginId: String): Boolean;
 begin
   Result := not (
+    (CompareText(PluginId, 'demoplug') = 0) or
     (CompareText(PluginId, 'folders') = 0) or
     (CompareText(PluginId, 'ieviewer') = 0) or
+    (CompareText(PluginId, 'javascriptruntime') = 0) or
+    (CompareText(PluginId, 'phpruntime') = 0) or
+    (CompareText(PluginId, 'pythonruntime') = 0) or
+    (CompareText(PluginId, 'salamatrixai') = 0) or
+    (CompareText(PluginId, 'salamatrixailocalllama') = 0) or
+    (CompareText(PluginId, 'salamatrixdemos') = 0) or
     (CompareText(PluginId, 'wmobile') = 0));
 end;
 
@@ -1769,7 +1809,15 @@ begin
     Exit;
   end;
 
-  if CompareText(PluginId, 'powershellruntime') = 0 then
+  if CompareText(PluginId, 'salamatrixdemos') = 0 then
+  begin
+    if FileExists(ExpandConstant('{app}\extensions\demos\README.md')) and
+       FileExists(ExpandConstant('{app}\plugins\automation\scripts\Salamatrix Progress Demo\extension.json')) then
+      Result := '1.0.0';
+    Exit;
+  end;
+
+  if IsExtensionRuntimePlugin(PluginId) then
     ExpectedPath := 'plugins/extension-runtimes/' + PluginId + '/' + PluginId + '.spl'
   else
     ExpectedPath := 'plugins/' + PluginId + '/' + PluginId + '.spl';
@@ -1919,12 +1967,34 @@ function IsPluginSelected(const PluginId: String): Boolean;
 begin
   Result := IsPluginExplicitlySelected(PluginId);
 
-  { PowerShell extensions require both the extension framework and its runtime. }
-  if (not Result) and
-     ((CompareText(PluginId, 'salamatrix') = 0) or
-      (CompareText(PluginId, 'powershellruntime') = 0)) then
-    Result := IsPluginExplicitlySelected('gitworktreenavigator') or
-              IsPluginExplicitlySelected('filelockinspector');
+  if Result then
+    Exit;
+
+  { Install dependencies of selected extensions, runtimes, and AI providers. }
+  if CompareText(PluginId, 'salamatrix') = 0 then
+    Result :=
+      IsPluginExplicitlySelected('gitworktreenavigator') or
+      IsPluginExplicitlySelected('filelockinspector') or
+      IsPluginExplicitlySelected('javascriptruntime') or
+      IsPluginExplicitlySelected('phpruntime') or
+      IsPluginExplicitlySelected('powershellruntime') or
+      IsPluginExplicitlySelected('pythonruntime') or
+      IsPluginExplicitlySelected('salamatrixai') or
+      IsPluginExplicitlySelected('salamatrixailocalllama') or
+      IsPluginExplicitlySelected('salamatrixdemos')
+  else if CompareText(PluginId, 'powershellruntime') = 0 then
+    Result :=
+      IsPluginExplicitlySelected('gitworktreenavigator') or
+      IsPluginExplicitlySelected('filelockinspector') or
+      IsPluginExplicitlySelected('salamatrixdemos')
+  else if (CompareText(PluginId, 'javascriptruntime') = 0) or
+          (CompareText(PluginId, 'phpruntime') = 0) or
+          (CompareText(PluginId, 'pythonruntime') = 0) then
+    Result := IsPluginExplicitlySelected('salamatrixdemos')
+  else if CompareText(PluginId, 'automation') = 0 then
+    Result := IsPluginExplicitlySelected('salamatrixdemos')
+  else if CompareText(PluginId, 'salamatrixai') = 0 then
+    Result := IsPluginExplicitlySelected('salamatrixailocalllama');
 end;
 
 procedure SelectPlugin(const PluginId: String);
@@ -2132,6 +2202,7 @@ begin
   AddPlugin('automation', 'Automation', '2.1 (x64)', True);
   AddPlugin('checksum', 'Checksum', '2.3 (x64)', True);
   AddPlugin('dbviewer', 'Database Viewer', '1.26 (x64)', True);
+  AddPlugin('demoplug', 'Demo Plugin', '1.96 (x64)', False);
   AddPlugin('diskdir', 'DiskDir', '1.0 (x64)', True);
   AddPlugin('diskmap', 'DiskMap', '1.13 (x64)', True);
   AddPlugin('filecomp', 'File Comparator', '1.21 (x64)', True);
@@ -2141,17 +2212,23 @@ begin
   AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.0 (x64)', True);
   AddPlugin('hypervm', 'Hyper-V Machines', '1.08 (x64)', True);
   AddPlugin('ieviewer', 'Internet Explorer Viewer', '1.12 (x64)', False);
+  AddPlugin('javascriptruntime', 'JavaScript Runtime', '0.1 (x64)', False);
   AddPlugin('jsonviewer', 'JSON Viewer .NET', '1.03 (x64)', True);
   AddPlugin('mmviewer', 'Multimedia Viewer', '1.16 (x64)', True);
   AddPlugin('nethood', 'Network', '1.09 (x64)', True);
   AddPlugin('pak', 'PAK', '1.72 (x64)', True);
+  AddPlugin('phpruntime', 'PHP Runtime', '0.1 (x64)', False);
   AddPlugin('pictview', 'PictView', '2.25 (x64)', True);
   AddPlugin('portables', 'Portable Devices', '0.4 (x64)', True);
   AddPlugin('peviewer', 'Portable Executable Viewer', '3.0 (x64)', True);
+  AddPlugin('pythonruntime', 'Python Runtime', '0.1 (x64)', False);
   AddPlugin('textviewer', 'PrismSharp Text Viewer .NET', '1.03 (x64)', True);
   AddPlugin('regedt', 'Registry Editor', '1.15 (x64)', True);
   AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
   AddPlugin('salamatrix', 'Salamatrix Framework', '0.2 (x64)', True);
+  AddPlugin('salamatrixai', 'Salamatrix AI', '0.1 (x64)', False);
+  AddPlugin('salamatrixailocalllama', 'Salamatrix AI Local LLaMA', '0.1 (x64)', False);
+  AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.0.0 (x64)', False);
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.1 (x64)', True);
   AddPlugin('samandarin', 'Samandarin Update Notifier', '0.8 (x64)', True);
   AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);
@@ -2234,12 +2311,35 @@ begin
       WizardForm.DirEdit.Text := GetStandardDefaultDir();
   end;
 
-  if (CurPageID = PluginSelectionPage.ID) and
-     (IsPluginExplicitlySelected('gitworktreenavigator') or
-      IsPluginExplicitlySelected('filelockinspector')) then
+  if CurPageID = PluginSelectionPage.ID then
   begin
-    SelectPlugin('salamatrix');
-    SelectPlugin('powershellruntime');
+    if IsPluginExplicitlySelected('gitworktreenavigator') or
+       IsPluginExplicitlySelected('filelockinspector') then
+    begin
+      SelectPlugin('salamatrix');
+      SelectPlugin('powershellruntime');
+    end;
+
+    if IsPluginExplicitlySelected('javascriptruntime') or
+       IsPluginExplicitlySelected('phpruntime') or
+       IsPluginExplicitlySelected('powershellruntime') or
+       IsPluginExplicitlySelected('pythonruntime') or
+       IsPluginExplicitlySelected('salamatrixai') or
+       IsPluginExplicitlySelected('salamatrixailocalllama') or
+       IsPluginExplicitlySelected('salamatrixdemos') then
+      SelectPlugin('salamatrix');
+
+    if IsPluginExplicitlySelected('salamatrixailocalllama') then
+      SelectPlugin('salamatrixai');
+
+    if IsPluginExplicitlySelected('salamatrixdemos') then
+    begin
+      SelectPlugin('automation');
+      SelectPlugin('javascriptruntime');
+      SelectPlugin('phpruntime');
+      SelectPlugin('powershellruntime');
+      SelectPlugin('pythonruntime');
+    end;
   end;
 end;
 

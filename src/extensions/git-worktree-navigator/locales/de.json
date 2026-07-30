@@ -2,7 +2,8 @@
   "name": "Git-Worktree-Navigator",
   "commands": {
     "OpenSalamander.GitWorktreeNavigator.open": "Git-Worktree-Navigator...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Git-Commit..."
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git-Commit...",
+    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Lokales Git-Repository erstellen"
   },
   "strings": {
     "title": "Git-Worktree-Navigator",
@@ -72,6 +73,8 @@
     "commitMessageRequired": "Geben Sie eine Commit-Nachricht ein.",
     "nothingToCommit": "Der Worktree ist sauber. Es gibt nichts zu committen.",
     "noStagedChanges": "Es gibt keine gestagten Änderungen zum Committen.",
-    "commitComplete": "Commit erstellt."
+    "commitComplete": "Commit erstellt.",
+    "alreadyRepository": "Dieser Ordner befindet sich bereits in einem Git-Repository:{0}",
+    "repositoryCreated": "Ein lokales Git-Repository wurde erstellt in:{0}"
   }
 }

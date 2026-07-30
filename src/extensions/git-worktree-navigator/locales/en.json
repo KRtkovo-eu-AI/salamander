@@ -2,7 +2,8 @@
   "name": "Git Worktree Navigator",
   "commands": {
     "OpenSalamander.GitWorktreeNavigator.open": "Git Worktree Navigator...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Git Commit..."
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git Commit...",
+    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Git Create Local Repository"
   },
   "strings": {
     "title": "Git Worktree Navigator",
@@ -72,6 +73,8 @@
     "commitMessageRequired": "Enter a commit message.",
     "nothingToCommit": "The worktree is clean. There is nothing to commit.",
     "noStagedChanges": "There are no staged changes to commit.",
-    "commitComplete": "Commit created."
+    "commitComplete": "Commit created.",
+    "alreadyRepository": "This folder is already inside a Git repository:{0}",
+    "repositoryCreated": "A local Git repository was created in:{0}"
   }
 }

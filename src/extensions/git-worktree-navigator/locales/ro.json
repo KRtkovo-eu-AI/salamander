@@ -2,7 +2,8 @@
   "name": "Navigator worktree Git",
   "commands": {
     "OpenSalamander.GitWorktreeNavigator.open": "Navigator worktree Git...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Commit Git..."
+    "OpenSalamander.GitWorktreeNavigator.commit": "Commit Git...",
+    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Creează depozit Git local"
   },
   "strings": {
     "title": "Navigator worktree Git",
@@ -72,6 +73,8 @@
     "commitMessageRequired": "Introduceți un mesaj de commit.",
     "nothingToCommit": "Worktree-ul este curat. Nu există nimic de confirmat.",
     "noStagedChanges": "Nu există modificări în stage pentru commit.",
-    "commitComplete": "Commit creat."
+    "commitComplete": "Commit creat.",
+    "alreadyRepository": "Acest folder se află deja într-un depozit Git:{0}",
+    "repositoryCreated": "A fost creat un depozit Git local în:{0}"
   }
 }

@@ -2,7 +2,8 @@
   "name": "Navegador de worktrees Git",
   "commands": {
     "OpenSalamander.GitWorktreeNavigator.open": "Navegador de worktrees Git...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Commit de Git..."
+    "OpenSalamander.GitWorktreeNavigator.commit": "Commit de Git...",
+    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Crear repositorio Git local"
   },
   "strings": {
     "title": "Navegador de worktrees Git",
@@ -72,6 +73,8 @@
     "commitMessageRequired": "Introduzca un mensaje de commit.",
     "nothingToCommit": "El worktree está limpio. No hay nada que confirmar.",
     "noStagedChanges": "No hay cambios preparados para confirmar.",
-    "commitComplete": "Commit creado."
+    "commitComplete": "Commit creado.",
+    "alreadyRepository": "Esta carpeta ya está dentro de un repositorio Git:{0}",
+    "repositoryCreated": "Se creó un repositorio Git local en:{0}"
   }
 }

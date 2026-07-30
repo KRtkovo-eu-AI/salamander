@@ -150,8 +150,14 @@ function Set-ExtensionDarkMode {
         $control.ForeColor = $text
 
         if ($control -is [System.Windows.Forms.Button]) {
-            $control.UseVisualStyleBackColor = $true
-            $control.FlatStyle = 'System'
+            $control.UseVisualStyleBackColor = $false
+            $control.FlatStyle = 'Flat'
+            $control.BackColor = $surface
+            $control.FlatAppearance.BorderColor = $border
+            $control.FlatAppearance.MouseOverBackColor =
+                [System.Drawing.Color]::FromArgb(62, 62, 66)
+            $control.FlatAppearance.MouseDownBackColor =
+                [System.Drawing.Color]::FromArgb(75, 75, 80)
         } elseif (
             $control -is [System.Windows.Forms.CheckBox] -or
             $control -is [System.Windows.Forms.RadioButton]) {
@@ -181,7 +187,8 @@ function Set-ExtensionDarkMode {
             [OpenSalamander.Extensions.DarkModeNativeMethods]::AllowImmersiveDarkMode(
                 $control.Handle)
             $theme = $null
-            if ($control -is [System.Windows.Forms.Button]) {
+            if ($control -is [System.Windows.Forms.CheckBox] -or
+                $control -is [System.Windows.Forms.RadioButton]) {
                 $theme = 'Explorer'
             } elseif (
                 $control -is [System.Windows.Forms.TextBox] -or

@@ -2,7 +2,8 @@
   "name": "Git-worktree-navigator",
   "commands": {
     "OpenSalamander.GitWorktreeNavigator.open": "Git-worktree-navigator...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Git-commit..."
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git-commit...",
+    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Lokale Git-repository maken"
   },
   "strings": {
     "title": "Git-worktree-navigator",
@@ -72,6 +73,8 @@
     "commitMessageRequired": "Voer een commitbericht in.",
     "nothingToCommit": "De worktree is schoon. Er is niets om te committen.",
     "noStagedChanges": "Er zijn geen gestagede wijzigingen om te committen.",
-    "commitComplete": "Commit gemaakt."
+    "commitComplete": "Commit gemaakt.",
+    "alreadyRepository": "Deze map bevindt zich al in een Git-repository:{0}",
+    "repositoryCreated": "Een lokale Git-repository is gemaakt in:{0}"
   }
 }

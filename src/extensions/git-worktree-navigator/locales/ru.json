@@ -2,7 +2,8 @@
   "name": "Навигатор рабочих деревьев Git",
   "commands": {
     "OpenSalamander.GitWorktreeNavigator.open": "Навигатор рабочих деревьев Git...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Коммит Git..."
+    "OpenSalamander.GitWorktreeNavigator.commit": "Коммит Git...",
+    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Создать локальный репозиторий Git"
   },
   "strings": {
     "title": "Навигатор рабочих деревьев Git",
@@ -72,6 +73,8 @@
     "commitMessageRequired": "Введите сообщение коммита.",
     "nothingToCommit": "Рабочее дерево чистое. Коммитить нечего.",
     "noStagedChanges": "В индексе нет изменений для коммита.",
-    "commitComplete": "Коммит создан."
+    "commitComplete": "Коммит создан.",
+    "alreadyRepository": "Эта папка уже находится в репозитории Git:{0}",
+    "repositoryCreated": "Локальный репозиторий Git создан в:{0}"
   }
 }

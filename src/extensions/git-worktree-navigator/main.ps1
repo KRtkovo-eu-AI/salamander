@@ -150,8 +150,14 @@ function Set-ExtensionDarkMode {
         $control.ForeColor = $text
 
         if ($control -is [System.Windows.Forms.Button]) {
-            $control.UseVisualStyleBackColor = $true
-            $control.FlatStyle = 'System'
+            $control.UseVisualStyleBackColor = $false
+            $control.FlatStyle = 'Flat'
+            $control.BackColor = $surface
+            $control.FlatAppearance.BorderColor = $border
+            $control.FlatAppearance.MouseOverBackColor =
+                [System.Drawing.Color]::FromArgb(62, 62, 66)
+            $control.FlatAppearance.MouseDownBackColor =
+                [System.Drawing.Color]::FromArgb(75, 75, 80)
         } elseif (
             $control -is [System.Windows.Forms.CheckBox] -or
             $control -is [System.Windows.Forms.RadioButton]) {
@@ -181,7 +187,8 @@ function Set-ExtensionDarkMode {
             [OpenSalamander.Extensions.DarkModeNativeMethods]::AllowImmersiveDarkMode(
                 $control.Handle)
             $theme = $null
-            if ($control -is [System.Windows.Forms.Button]) {
+            if ($control -is [System.Windows.Forms.CheckBox] -or
+                $control -is [System.Windows.Forms.RadioButton]) {
                 $theme = 'Explorer'
             } elseif (
                 $control -is [System.Windows.Forms.TextBox] -or
@@ -453,6 +460,31 @@ function Refresh-NavigatorSourcePanel {
     catch {
         # A Git operation has already succeeded; panel refresh is best effort.
     }
+}
+
+function Invoke-NavigatorCreateLocalRepository {
+    param([string]$Path)
+
+    $existing = Invoke-NavigatorGit -WorkingDirectory $Path `
+        -Arguments @('rev-parse', '--show-toplevel') -AllowFailure
+    if ($existing.ExitCode -eq 0 -and
+        -not [string]::IsNullOrWhiteSpace($existing.Text)) {
+        [void]$Salamander.ui.MessageBox(
+            ([string]::Format(
+                $script:Strings.alreadyRepository, $existing.Text)),
+            $script:Strings.title,
+            'OK',
+            'Information')
+        return $false
+    }
+
+    Invoke-NavigatorGit -WorkingDirectory $Path -Arguments @('init') | Out-Null
+    Refresh-NavigatorSourcePanel
+    [void]$Salamander.ui.Notify(
+        ([string]::Format($script:Strings.repositoryCreated, $Path)),
+        $script:Strings.title,
+        4000)
+    return $true
 }
 
 function Open-NavigatorTab {
@@ -1196,7 +1228,8 @@ if ($null -eq (Get-Variable -Name Salamander -ErrorAction SilentlyContinue)) {
 }
 
 if ($Salamander.command_handler -eq 'open' -or
-    $Salamander.command_handler -eq 'commit') {
+    $Salamander.command_handler -eq 'commit' -or
+    $Salamander.command_handler -eq 'createLocalRepository') {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
 
@@ -1222,6 +1255,10 @@ if ($Salamander.command_handler -eq 'open' -or
         }
         $script:GitExecutable = $git.Source
         $context = $Salamander.source_side.Context()
+        if ($Salamander.command_handler -eq 'createLocalRepository') {
+            [void](Invoke-NavigatorCreateLocalRepository -Path $context.path)
+            return
+        }
         $rootResult = Invoke-NavigatorGit -WorkingDirectory $context.path `
             -Arguments @('rev-parse', '--show-toplevel') -AllowFailure
         if ($rootResult.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($rootResult.Text)) {

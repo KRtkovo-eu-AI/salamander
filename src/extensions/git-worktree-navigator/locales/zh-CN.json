@@ -2,7 +2,8 @@
   "name": "Git 工作树导航器",
   "commands": {
     "OpenSalamander.GitWorktreeNavigator.open": "Git 工作树导航器...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Git 提交..."
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git 提交...",
+    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "创建本地 Git 仓库"
   },
   "strings": {
     "title": "Git 工作树导航器",
@@ -72,6 +73,8 @@
     "commitMessageRequired": "请输入提交消息。",
     "nothingToCommit": "工作树是干净的，没有可提交的内容。",
     "noStagedChanges": "没有已暂存的更改可提交。",
-    "commitComplete": "提交已创建。"
+    "commitComplete": "提交已创建。",
+    "alreadyRepository": "此文件夹已位于 Git 仓库中：{0}",
+    "repositoryCreated": "已在以下位置创建本地 Git 仓库：{0}"
   }
 }

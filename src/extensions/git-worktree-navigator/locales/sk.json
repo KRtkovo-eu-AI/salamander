@@ -2,7 +2,8 @@
   "name": "Navigátor Git worktree",
   "commands": {
     "OpenSalamander.GitWorktreeNavigator.open": "Navigátor Git worktree...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Git commit..."
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git commit...",
+    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Git – vytvoriť lokálny repozitár"
   },
   "strings": {
     "title": "Navigátor Git worktree",
@@ -72,6 +73,8 @@
     "commitMessageRequired": "Zadajte správu commitu.",
     "nothingToCommit": "Worktree je čistý. Nie je čo commitnúť.",
     "noStagedChanges": "V stage nie sú žiadne zmeny na commit.",
-    "commitComplete": "Commit bol vytvorený."
+    "commitComplete": "Commit bol vytvorený.",
+    "alreadyRepository": "Tento priečinok je už súčasťou Git repozitára:{0}",
+    "repositoryCreated": "Lokálny Git repozitár bol vytvorený v:{0}"
   }
 }

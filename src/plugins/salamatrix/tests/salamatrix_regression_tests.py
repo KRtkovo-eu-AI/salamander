@@ -629,7 +629,9 @@ def main() -> int:
         r"SetPreferredAppModeDelegate.*?"
         r"AllowDarkModeForWindowDelegate.*?"
         r"Set-ExtensionDarkMode.*?"
-        r"FlatStyle\s*=\s*'System'.*?"
+        r"UseVisualStyleBackColor\s*=\s*\$false.*?"
+        r"FlatStyle\s*=\s*'Flat'.*?"
+        r"MouseOverBackColor.*?MouseDownBackColor.*?"
         r"EnableHeadersVisualStyles\s*=\s*\$false.*?"
         r"DwmSetWindowAttribute.*?"
         r"application\.Appearance\(\).*?windowsDarkMode",
@@ -648,8 +650,7 @@ def main() -> int:
         "Git Worktree Navigator does not refresh controls with class-appropriate visual themes")
     require_absent(
         navigator,
-        r"FolderBrowserDialog|System\.Windows\.Forms\.MessageBox|"
-        r"FlatStyle\s*=\s*'Flat'",
+        r"FolderBrowserDialog|System\.Windows\.Forms\.MessageBox",
         "Git Worktree Navigator still opens an unthemed WinForms system dialog")
     if any(command.get("requiresExecutable") != "git.exe"
            for command in navigator_manifest.get("commands", [])):
@@ -676,6 +677,18 @@ def main() -> int:
     if "OpenSalamander.GitWorktreeNavigator.commit" not in command_ids:
         raise AssertionError(
             "Git Worktree Navigator does not expose Commit in the extension menu")
+    if ("OpenSalamander.GitWorktreeNavigator.createLocalRepository"
+            not in command_ids):
+        raise AssertionError(
+            "Git Worktree Navigator does not expose local repository creation")
+    require(
+        navigator,
+        r"Invoke-NavigatorCreateLocalRepository.*?"
+        r"'rev-parse', '--show-toplevel'.*?"
+        r"alreadyRepository.*?"
+        r"Arguments @\('init'\).*?"
+        r"repositoryCreated",
+        "Git Worktree Navigator local repository creation is incomplete")
     require(
         powershell_worker,
         r"Payload\.PSObject\.Properties\['ok'\].*?"
@@ -698,6 +711,9 @@ def main() -> int:
             "src/extensions/git-worktree-navigator/" + relative))
         if not localized.get("name") or not localized.get("commands"):
             raise AssertionError(f"navigator locale metadata is incomplete: {locale}")
+        if set(localized["commands"]) != command_ids:
+            raise AssertionError(
+                f"navigator localized commands are incomplete: {locale}")
         keys = set(localized.get("strings", {}))
         if english_keys is None:
             english_keys = keys
@@ -750,7 +766,9 @@ def main() -> int:
         r"SetPreferredAppModeDelegate.*?"
         r"AllowDarkModeForWindowDelegate.*?"
         r"Set-ExtensionDarkMode.*?"
-        r"FlatStyle\s*=\s*'System'.*?"
+        r"UseVisualStyleBackColor\s*=\s*\$false.*?"
+        r"FlatStyle\s*=\s*'Flat'.*?"
+        r"MouseOverBackColor.*?MouseDownBackColor.*?"
         r"EnableHeadersVisualStyles\s*=\s*\$false.*?"
         r"DwmSetWindowAttribute.*?"
         r"application\.Appearance\(\).*?windowsDarkMode",
@@ -769,7 +787,7 @@ def main() -> int:
         "File Lock Inspector does not refresh controls with class-appropriate visual themes")
     require_absent(
         lock_inspector,
-        r"System\.Windows\.Forms\.MessageBox|FlatStyle\s*=\s*'Flat'",
+        r"System\.Windows\.Forms\.MessageBox",
         "File Lock Inspector still opens an unthemed WinForms message box")
     require(
         lock_inspector,
