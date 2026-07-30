@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-26T18:18:12Z",
+  "generatedAt": "2026-07-30T13:50:33Z",
   "plugins": [
     {
       "id": "7zip",
@@ -97,6 +97,21 @@
       "homepageUrl": "https://samandarin.krtkovo.eu",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_dbviewer_1.25_x64/plugin_5.0_dbviewer_1.25_x64.7z",
       "icon": "https://samandarin.krtkovo.eu/catalogs/img/dbviewer.png"
+    },
+    {
+      "id": "diskdir",
+      "name": {
+        "english": "Diskdir"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "DiskDir catalog support for Open Salamander"
+      },
+      "latestVersion": "1.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "icon": "plugin"
     },
     {
       "id": "diskmap",

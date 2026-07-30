@@ -362,8 +362,6 @@ Name: "{app}\plugins\renamer\lang"
 Name: "{app}\plugins\samandarin"
 Name: "{app}\plugins\samandarin\lang"
 Name: "{app}\plugins\salamatrix"
-Name: "{app}\plugins\demoplug"
-Name: "{app}\plugins\demoplug\lang"
 Name: "{app}\plugins\serviceexplorer"
 Name: "{app}\plugins\serviceexplorer\lang"
 Name: "{app}\plugins\splitcbn"
@@ -507,15 +505,11 @@ Source: "{#PayloadDir}\doc\translations.txt"; DestDir: "{app}\doc"; Flags: ignor
 Source: "{#PayloadDir}\help\english\7zip.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\automation.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\dbviewer.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
-Source: "{#PayloadDir}\help\english\demomenu.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
-Source: "{#PayloadDir}\help\english\demoplug.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
-Source: "{#PayloadDir}\help\english\demoview.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\diskmap.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\filecomp.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\ftp.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\hypervm.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\checksum.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
-Source: "{#PayloadDir}\help\english\checkver.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\ieviewer.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\mmviewer.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\nethood.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
@@ -1372,8 +1366,6 @@ Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix-automation-api.html"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
-Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
-Source: "{#PayloadDir}\plugins\demoplug\lang\*"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\salamand.exe.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
@@ -1694,8 +1686,7 @@ begin
   Result := not (
     (CompareText(PluginId, 'folders') = 0) or
     (CompareText(PluginId, 'ieviewer') = 0) or
-    (CompareText(PluginId, 'wmobile') = 0) or
-    (CompareText(PluginId, 'demoplug') = 0));
+    (CompareText(PluginId, 'wmobile') = 0));
 end;
 
 function ShouldCreateShortcut(const ShortcutId: String): Boolean;
@@ -2093,6 +2084,7 @@ begin
   AddPlugin('textviewer', 'PrismSharp Text Viewer .NET', '1.03 (x64)', True);
   AddPlugin('regedt', 'Registry Editor', '1.15 (x64)', True);
   AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
+  AddPlugin('salamatrix', 'Salamatrix Framework', '0.2 (x64)', True);
   AddPlugin('samandarin', 'Samandarin Update Notifier', '0.8 (x64)', True);
   AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);
   AddPlugin('splitcbn', 'Split & Combine', '1.11 (x64)', True);
@@ -2110,8 +2102,6 @@ begin
   AddPlugin('webview2renderviewer', 'WebView2 Render Viewer .NET', '1.04 (x64)', True);
   AddPlugin('wmobile', 'Windows Mobile', '1.09 (x64)', False);
   AddPlugin('zip', 'ZIP', '1.7 (x64)', True);
-  AddPlugin('demoplug', '[DEV] DemoPlug', '1.96 (x64)', False);
-  AddPlugin('salamatrix', '[DEV] Salamatrix Framework', '0.2 (x64)', True);
 end;
 
 function InitializeSetup(): Boolean;

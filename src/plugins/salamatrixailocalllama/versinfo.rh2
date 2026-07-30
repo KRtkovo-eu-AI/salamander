@@ -10,10 +10,12 @@
 
 #include "../shared/spl_vers.h"
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2026 Open Salamander Authors"
-#define VERSINFO_COMPANY     "Open Salamander"
+#define VERSINFO_COPYRIGHT   "Copyright © 2026 Ondřej Kotas (KRtekTM)"
+#define VERSINFO_COMPANY     "KRtkovo.eu"
 #define VERSINFO_DESCRIPTION "Optional local llama.cpp model provider for Salamatrix AI."
 #define VERSINFO_INTERNAL    "SALAMATRIX.AI.LOCAL.LLAMA"
 #define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SPL"
+#define VERSINFO_SLG_WEB     "samandarin.krtkovo.eu/salamatrix"
+#define VERSINFO_SLG_COMMENT "English version"
 
 #endif

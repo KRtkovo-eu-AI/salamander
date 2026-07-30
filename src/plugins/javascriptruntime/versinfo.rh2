@@ -10,8 +10,8 @@
 
 #include "../shared/spl_vers.h"
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2026 Open Salamander Authors"
-#define VERSINFO_COMPANY     "Open Salamander"
+#define VERSINFO_COPYRIGHT   "Copyright © 2026 Ondřej Kotas (KRtekTM)"
+#define VERSINFO_COMPANY     "KRtkovo.eu"
 #define VERSINFO_DESCRIPTION "Standalone JavaScript Node runtime provider for Salamatrix."
 #define VERSINFO_INTERNAL    "JAVASCRIPT.RUNTIME"
 #define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SPL"
