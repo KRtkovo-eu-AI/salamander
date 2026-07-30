@@ -351,12 +351,13 @@ $sourceProcessId = {Process.GetCurrentProcess().Id}
 $source = Decode('{Encode(extractedRoot)}')
 $target = Decode('{Encode(targetDirectory)}')
 $pluginsRoot = Decode('{Encode(pluginsRoot)}')
+$staging = Decode('{Encode(stagingDirectory)}')
 $pluginRelative = Decode('{Encode(pluginRelativePath ?? string.Empty)}')
 $errorLog = Decode('{Encode(errorLog)}')
 $backup = $target + '.samandarin-backup-{Guid.NewGuid():N}'
 try {{
     Wait-Process -Id $sourceProcessId -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Path (Split-Path -LiteralPath $target -Parent) -Force | Out-Null
+    New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($target)) -Force | Out-Null
     if (Test-Path -LiteralPath $target) {{ Move-Item -LiteralPath $target -Destination $backup -Force }}
     try {{
         Move-Item -LiteralPath $source -Destination $target -Force
@@ -369,7 +370,7 @@ try {{
     if (Test-Path -LiteralPath $backup) {{ Remove-Item -LiteralPath $backup -Recurse -Force }}
     if ($pluginRelative.Length -ne 0) {{
         $versionFile = Join-Path $pluginsRoot 'plugins.ver'
-        $lines = if (Test-Path -LiteralPath $versionFile) {{ [IO.File]::ReadAllLines($versionFile, [Text.Encoding]::Default) }} else {{ @() }}
+        [string[]]$lines = if (Test-Path -LiteralPath $versionFile) {{ [IO.File]::ReadAllLines($versionFile, [Text.Encoding]::Default) }} else {{ @() }}
         $oldVersion = 0
         if ($lines.Count -gt 0 -and $lines[0] -match '^\s*(\d+)') {{ $oldVersion = [int]$Matches[1] }}
         $newVersion = $oldVersion + 1
@@ -386,7 +387,7 @@ try {{
         [IO.File]::WriteAllLines($versionFile, [string[]]$lines, [Text.Encoding]::Default)
     }}
     if (Test-Path -LiteralPath $errorLog) {{ Remove-Item -LiteralPath $errorLog -Force -ErrorAction SilentlyContinue }}
-    Remove-Item -LiteralPath (Split-Path -LiteralPath $source -Parent | Split-Path -Parent) -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
 }} catch {{
     [IO.File]::WriteAllText($errorLog, ($_ | Out-String), [Text.Encoding]::UTF8)
 }}";
