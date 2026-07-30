@@ -3264,6 +3264,29 @@ BOOL CSalamanderGeneral::ViewFileInPluginViewer(const char* pluginSPL,
                                     rootTmpPath, fileNameInCache, error);
 }
 
+BOOL CSalamanderGeneral::OpenFileInConfiguredViewer(HWND parent,
+                                                    const char* fileName)
+{
+    CALL_STACK_MESSAGE3("CSalamanderGeneral::OpenFileInConfiguredViewer(0x%p, %s)",
+                        parent, fileName);
+    if (MainThreadID != GetCurrentThreadId() || (INT_PTR)Plugin == -1)
+    {
+        if (MainThreadID == GetCurrentThreadId())
+            TRACE_E("You may not call CSalamanderGeneral::OpenFileInConfiguredViewer from entry-point!");
+        else
+            TRACE_E("You can call CSalamanderGeneral::OpenFileInConfiguredViewer only from main thread!");
+        return FALSE;
+    }
+    if (fileName == NULL || fileName[0] == '\0' ||
+        GetFileAttributes(fileName) == INVALID_FILE_ATTRIBUTES)
+        return FALSE;
+
+    HANDLE lock;
+    BOOL lockOwner;
+    return ViewFileInt(parent, fileName, FALSE, 0xFFFFFFFF, FALSE,
+                       lock, lockOwner, FALSE, -1, -1);
+}
+
 void CSalamanderGeneral::ExecuteAssociation(HWND parent, const char* path, const char* name)
 {
     CALL_STACK_MESSAGE4("CSalamanderGeneral::ExecuteAssociation(0x%p, %s, %s)", parent, path, name);

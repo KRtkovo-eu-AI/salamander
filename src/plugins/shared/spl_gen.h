@@ -3595,6 +3595,13 @@ public:
     virtual BOOL WINAPI ReorderPanelTab(ULONGLONG tabId, int newIndex) = 0;
     virtual BOOL WINAPI MovePanelTab(ULONGLONG tabId, int targetSide, int targetIndex) = 0;
     virtual BOOL WINAPI SetPanelsDetached(BOOL detached) = 0;
+
+    // Opens an existing local file with the viewer configured for its extension
+    // in Salamander.  This is the same selection path used by built-in
+    // documentation commands.  Main-thread only.
+    // Appended to preserve the published SDK vtable prefix.
+    virtual BOOL WINAPI OpenFileInConfiguredViewer(HWND parent,
+                                                    const char* fileName) = 0;
 };
 
 #ifdef _MSC_VER

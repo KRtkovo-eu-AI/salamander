@@ -237,7 +237,14 @@ inline BOOL FindRawMember(
             return FALSE;
         if (key == member)
         {
-            value->assign(json, valueStart, position - valueStart);
+            size_t valueEnd = position;
+            while (valueEnd > valueStart &&
+                   (json[valueEnd - 1] == ' ' ||
+                    json[valueEnd - 1] == '\t' ||
+                    json[valueEnd - 1] == '\r' ||
+                    json[valueEnd - 1] == '\n'))
+                --valueEnd;
+            value->assign(json, valueStart, valueEnd - valueStart);
             return TRUE;
         }
         SkipWhitespace(json, &position);

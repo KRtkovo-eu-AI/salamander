@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "salamatrix_packages.h"
+#include "salamatrix_api_docs.h"
 #include "../../darkmode.h"
 
 #include <algorithm>
@@ -15,6 +16,8 @@ namespace Packages
 
 namespace
 {
+const int CommandOpenAutomationApiReference = 0x61ffffff;
+
 struct MainThreadDispatch
 {
     void* Context;
@@ -90,6 +93,14 @@ public:
         UNREFERENCED_PARAMETER(eventMask);
         if (Owner == NULL)
             return 0;
+        if (id == CommandOpenAutomationApiReference)
+        {
+            char path[SAL_MAX_PATH];
+            return Documentation::GetAutomationApiReferencePath(
+                       Owner->General, path, _countof(path))
+                       ? MENU_ITEM_STATE_ENABLED
+                       : 0;
+        }
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
         {
             Package* package = Owner->Packages[p];
@@ -111,10 +122,12 @@ public:
         DWORD eventMask)
     {
         UNREFERENCED_PARAMETER(salamander);
-        UNREFERENCED_PARAMETER(parent);
         UNREFERENCED_PARAMETER(eventMask);
         if (Owner == NULL)
             return FALSE;
+        if (id == CommandOpenAutomationApiReference)
+            return Documentation::OpenAutomationApiReference(
+                Owner->General, parent);
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
         {
             Package* package = Owner->Packages[p];
@@ -174,6 +187,7 @@ public:
             builder->SetIconListForMenu(icons);
 
         int imageIndex = 0;
+        bool packageMenuItemAdded = false;
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
         {
             Package* package = Owner->Packages[p];
@@ -218,8 +232,16 @@ public:
                 builder->AddMenuItem(
                     iconIndex, title, 0, package->CommandIds[c], TRUE,
                     MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+                packageMenuItemAdded = true;
             }
         }
+        if (packageMenuItemAdded)
+            builder->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0,
+                                 MENU_SKILLLEVEL_ALL);
+        builder->AddMenuItem(
+            -1, "Automation API &Reference...", 0,
+            CommandOpenAutomationApiReference, TRUE,
+            MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
     }
 };
 

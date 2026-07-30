@@ -60,7 +60,7 @@
       },
       "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "Local AI assistant based on LLaMA and Qwen2.5-Coder 0.5B Instruct GGUF Q4_K_M model for aid with script and extension development."
+        "english": "Local llama.cpp assistant with selectable Qwen2.5-Coder 1.5B Instruct (recommended) and lightweight 0.5B Instruct (English prompts only) Q4_K_M models."
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",

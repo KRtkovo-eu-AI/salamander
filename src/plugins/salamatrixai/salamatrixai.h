@@ -44,6 +44,8 @@ extern CSalamanderGeneralAbstract* SalamanderGeneral;
 #define IDS_AI_SAVE_LABEL 1027
 #define IDS_AI_REFINE_ACCEPT 1028
 #define IDS_AI_REFINE_CANCEL 1029
+#define IDS_AI_API_REFERENCE_LABEL 1031
+#define IDS_AI_API_REFERENCE_FAILED 1032
 
 class CLocalAssistantProvider : public Salamatrix::AI::IAssistantProvider
 {

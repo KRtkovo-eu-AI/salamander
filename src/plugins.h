@@ -2397,6 +2397,8 @@ public:
     virtual BOOL WINAPI ReorderPanelTab(ULONGLONG tabId, int newIndex);
     virtual BOOL WINAPI MovePanelTab(ULONGLONG tabId, int targetSide, int targetIndex);
     virtual BOOL WINAPI SetPanelsDetached(BOOL detached);
+    virtual BOOL WINAPI OpenFileInConfiguredViewer(HWND parent,
+                                                   const char* fileName);
 };
 
 //
