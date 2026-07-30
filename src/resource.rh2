@@ -533,6 +533,7 @@
 #define CM_ACTIVE_SMARTMODE        2951
 #define CM_LEFT_SMARTMODE          2952
 #define CM_RIGHT_SMARTMODE         2953
+#define CM_TOGGLEEXTENSIONBAR      2954
 
 #define CM_ACTIVEMODE_1            2970  // Alt+1..0 pro volbu rezimu aktivniho pohledu
 #define CM_ACTIVEMODE_2            2971

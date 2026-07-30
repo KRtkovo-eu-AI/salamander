@@ -1603,6 +1603,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
 
 void CPlugins::LoadOrder(HWND parent, HKEY regKey)
 {
+    HiddenExtensionBarItems.clear();
     if (regKey != NULL)
     {
         char dllName[MAX_PATH];
@@ -1621,6 +1622,23 @@ void CPlugins::LoadOrder(HWND parent, HKEY regKey)
             }
             itoa(++i, buf, 10);
             CloseKey(itemKey);
+        }
+
+        HKEY hiddenKey;
+        if (OpenKey(regKey, "Extension Bar Hidden", hiddenKey))
+        {
+            char stableId[512];
+            int hiddenIndex = 1;
+            strcpy(buf, "1");
+            while (OpenKey(hiddenKey, buf, itemKey))
+            {
+                if (GetValue(itemKey, "StableId", REG_SZ,
+                             stableId, _countof(stableId)))
+                    HiddenExtensionBarItems.push_back(stableId);
+                itoa(++hiddenIndex, buf, 10);
+                CloseKey(itemKey);
+            }
+            CloseKey(hiddenKey);
         }
     }
 }
@@ -1808,6 +1826,25 @@ void CPlugins::Save(HWND parent, HKEY regKey, HKEY regKeyConfig, HKEY regKeyOrde
                 SetValue(itemKey, SALAMANDER_PLUGINS_DLLNAME, REG_SZ, order->DLLName, -1);
                 CloseKey(itemKey);
             }
+        }
+
+        HKEY hiddenKey;
+        if (!HiddenExtensionBarItems.empty() &&
+            CreateKey(regKeyOrder, "Extension Bar Hidden", hiddenKey))
+        {
+            for (size_t hiddenIndex = 0;
+                 hiddenIndex < HiddenExtensionBarItems.size();
+                 ++hiddenIndex)
+            {
+                itoa(static_cast<int>(hiddenIndex) + 1, buf, 10);
+                if (CreateKey(hiddenKey, buf, itemKey))
+                {
+                    SetValue(itemKey, "StableId", REG_SZ,
+                             HiddenExtensionBarItems[hiddenIndex].c_str(), -1);
+                    CloseKey(itemKey);
+                }
+            }
+            CloseKey(hiddenKey);
         }
     }
 }
@@ -2611,6 +2648,57 @@ BOOL CPlugins::GetToolbarButtonInfo(int index, DWORD* toolbarId,
     *title = ToolbarButtons[index].Title;
     *imageIndex = ToolbarButtons[index].ImageIndex;
     return TRUE;
+}
+
+BOOL CPlugins::GetExtensionBarVisible(int index)
+{
+    return index >= 0 && index < ToolbarButtons.Count &&
+           GetExtensionBarVisible(ToolbarButtons[index].StableId);
+}
+
+BOOL CPlugins::GetExtensionBarVisible(const char* stableId) const
+{
+    if (stableId == NULL || stableId[0] == 0)
+        return TRUE;
+    for (size_t index = 0; index < HiddenExtensionBarItems.size(); ++index)
+        if (_stricmp(HiddenExtensionBarItems[index].c_str(), stableId) == 0)
+            return FALSE;
+    return TRUE;
+}
+
+BOOL CPlugins::HasExtensionBarButton(const char* stableId)
+{
+    if (stableId == NULL || stableId[0] == 0)
+        return FALSE;
+    for (int index = 0; index < ToolbarButtons.Count; ++index)
+        if (_stricmp(ToolbarButtons[index].StableId, stableId) == 0)
+            return TRUE;
+    return FALSE;
+}
+
+void CPlugins::SetExtensionBarVisible(const char* stableId, BOOL visible)
+{
+    if (stableId == NULL || stableId[0] == 0)
+        return;
+    for (std::vector<std::string>::iterator item =
+             HiddenExtensionBarItems.begin();
+         item != HiddenExtensionBarItems.end(); ++item)
+    {
+        if (_stricmp(item->c_str(), stableId) == 0)
+        {
+            if (visible)
+                HiddenExtensionBarItems.erase(item);
+            if (MainWindow != NULL)
+                MainWindow->RefreshExtensionToolbars();
+            return;
+        }
+    }
+    if (!visible)
+    {
+        HiddenExtensionBarItems.push_back(stableId);
+        if (MainWindow != NULL)
+            MainWindow->RefreshExtensionToolbars();
+    }
 }
 
 BOOL CPlugins::GetToolbarButtonConfigKey(int index, char* key, int keySize)

@@ -51,6 +51,12 @@ def main() -> int:
     automation_entry = read("src/plugins/automation/entry.cpp")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
+    mainwnd1 = read("src/mainwnd1.cpp")
+    mainwnd2 = read("src/mainwnd2.cpp")
+    mainwnd3 = read("src/mainwnd3.cpp")
+    toolbar4 = read("src/toolbar4.cpp")
+    toolbar8 = read("src/toolbar8.cpp")
+    main_menu = read("src/menu4.cpp")
     javascriptruntime = read("src/plugins/javascriptruntime/javascriptruntime.cpp")
     pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
     powershellruntime = read("src/plugins/powershellruntime/powershellruntime.cpp")
@@ -478,6 +484,40 @@ def main() -> int:
             "installer does not package the Automation API HTML reference")
     require(packages, r"void PackageManager::RegisterToolbarButtons\(\).*?if \(!package->RuntimeUsable\)\s+continue;",
             "unavailable extension packages are not filtered from the toolbar")
+    require_absent(
+        toolbar4,
+        r"FillExtensionTII|GetToolbarButtonCount",
+        "extension buttons can still leak into native Top/Middle/Panel toolbars")
+    require(
+        toolbar8,
+        r"CExtensionBar::CreateExtensionButtons.*?"
+        r"GetExtensionBarVisible.*?InsertItem2",
+        "Extension Bar does not own and filter extension buttons")
+    require(
+        mainwnd1,
+        r"ToggleExtensionBar.*?BANDID_EXTENSIONBAR.*?"
+        r"InsertExtensionBarBand",
+        "Extension Bar lifecycle is not integrated with the main rebar")
+    require(
+        mainwnd2,
+        r"Show Extension Bar.*?ExtensionBarVisible.*?"
+        r"ExtensionBarIndex",
+        "Extension Bar visibility or placement is not persisted")
+    require(
+        mainwnd3 + main_menu,
+        r"CM_TOGGLEEXTENSIONBAR",
+        "Options - Show cannot toggle Extension Bar")
+    require(
+        dialogs,
+        r"IDS_PLUGIN_RUNTIME_LABEL.*?"
+        r"IDS_PLUGIN_SHOWINEXTENSIONBAR.*?"
+        r"SetExtensionBarVisible",
+        "Plugin Manager does not expose localized Extension Bar controls")
+    require(
+        plugins2,
+        r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"
+        r"SetExtensionBarVisible",
+        "per-extension Extension Bar visibility is not persisted")
     require(python_demo, r"Salamander\.ui\.notify", "Python demo does not show a non-blocking result")
     require_absent(python_demo, r"message_box", "Python demo must not block Salamander with a modal UI call")
     require(powershell_demo, r"\$Salamander\.ui\.Notify", "PowerShell demo does not show a non-blocking result")

@@ -1344,6 +1344,7 @@ extern int SPACE_WIDTH; // mezera mezi sloupcema v detailed view
 #define BANDID_WORKER 6
 #define BANDID_HPTOOLBAR 7
 #define BANDID_PLUGINSBAR 8
+#define BANDID_EXTENSIONBAR 9
 
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))

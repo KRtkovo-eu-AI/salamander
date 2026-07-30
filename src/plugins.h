@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <string>
+#include <vector>
+
 // when changing this header search for "BuiltForVersion" - tests for older plugin versions will no longer make sense and should be removed
 #define PLUGIN_REQVER 102 // ("4.0") load only plugins that return at least this required Salamander version
 
@@ -2927,6 +2930,7 @@ protected:
 
     TDirectArray<CPluginOrder> Order; // order in which plugins are displayed
     TDirectArray<CPluginToolbarButton> ToolbarButtons;
+    std::vector<std::string> HiddenExtensionBarItems;
     DWORD NextToolbarButtonId;
 
     BOOL DefaultConfiguration; // TRUE => ZIP+TAR+PAK; allows recoding of old archiver data
@@ -3090,6 +3094,10 @@ public:
     int GetToolbarButtonCount() const { return ToolbarButtons.Count; }
     BOOL GetToolbarButtonInfo(int index, DWORD* toolbarId,
                               const char** title, int* imageIndex);
+    BOOL GetExtensionBarVisible(int index);
+    BOOL GetExtensionBarVisible(const char* stableId) const;
+    BOOL HasExtensionBarButton(const char* stableId);
+    void SetExtensionBarVisible(const char* stableId, BOOL visible);
     BOOL GetToolbarButtonConfigKey(int index, char* key, int keySize);
     int FindToolbarButtonByConfigKey(const char* key);
     BOOL EnsureToolbarButtonImages(HIMAGELIST hotImageList,

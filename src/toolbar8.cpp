@@ -110,3 +110,81 @@ void CPluginsBar::OnGetToolTip(LPARAM lParam)
     if (plugin != NULL)
         lstrcpy(tt->Buffer, plugin->Name);
 }
+
+//*****************************************************************************
+//
+// CExtensionBar
+//
+
+CExtensionBar::CExtensionBar(HWND hNotifyWindow, CObjectOrigin origin)
+    : CToolBar(hNotifyWindow, origin)
+{
+}
+
+BOOL CExtensionBar::CreateExtensionButtons(HIMAGELIST imageList,
+                                           HIMAGELIST hotImageList)
+{
+    CALL_STACK_MESSAGE1("CExtensionBar::CreateExtensionButtons()");
+    if (HWindow == NULL)
+        return FALSE;
+
+    RemoveAllItems();
+    SetStyle(TLB_STYLE_IMAGE);
+    SetImageList(imageList);
+    SetHotImageList(hotImageList);
+    Plugins.EnsureToolbarButtonImages(hotImageList, imageList);
+
+    for (int index = 0; index < Plugins.GetToolbarButtonCount(); ++index)
+    {
+        DWORD toolbarId;
+        const char* title;
+        int imageIndex;
+        if (!Plugins.GetToolbarButtonInfo(index, &toolbarId, &title, &imageIndex) ||
+            !Plugins.GetExtensionBarVisible(index))
+            continue;
+
+        TLBI_ITEM_INFO2 tii;
+        tii.Mask = TLBI_MASK_STYLE | TLBI_MASK_ID | TLBI_MASK_CUSTOMDATA |
+                   TLBI_MASK_TEXT | TLBI_MASK_TEXTLEN;
+        tii.Style = TLBI_STYLE_NOPREFIX | TLBI_STYLE_DARK_DISABLED_IMAGE_TEXT;
+        if (imageIndex >= 0)
+        {
+            tii.Mask |= TLBI_MASK_IMAGEINDEX;
+            tii.ImageIndex = imageIndex;
+        }
+        else
+            tii.Style |= TLBI_STYLE_SHOWTEXT;
+        tii.ID = toolbarId;
+        tii.CustomData = index;
+        tii.Text = const_cast<char*>(title);
+        tii.TextLen = lstrlen(title);
+        if (!InsertItem2(0xFFFFFFFF, TRUE, &tii))
+            return FALSE;
+    }
+    return TRUE;
+}
+
+int CExtensionBar::GetNeededHeight()
+{
+    int height = CToolBar::GetNeededHeight();
+    int iconSize = MulDiv(16, (int)WinLibDPIGetWindowDPI(HWindow),
+                          USER_DEFAULT_SCREEN_DPI);
+    return max(height, 3 + iconSize + 3);
+}
+
+void CExtensionBar::Customize()
+{
+    PostMessage(MainWindow->HWindow, WM_COMMAND, CM_PLUGINS, 0);
+}
+
+void CExtensionBar::OnGetToolTip(LPARAM lParam)
+{
+    TOOLBAR_TOOLTIP* tt = (TOOLBAR_TOOLTIP*)lParam;
+    DWORD toolbarId;
+    const char* title;
+    int imageIndex;
+    tt->Buffer[0] = 0;
+    if (Plugins.GetToolbarButtonInfo(static_cast<int>(tt->CustomData),
+                                     &toolbarId, &title, &imageIndex))
+        lstrcpyn(tt->Buffer, title, TOOLTIP_TEXT_MAX);
+}

@@ -320,6 +320,7 @@ CMainWindow::CMainWindow()
     EditPermanentVisible = FALSE;
     TopToolBar = NULL;
     PluginsBar = NULL;
+    ExtensionBar = NULL;
     MiddleToolBar = NULL;
     UMToolBar = NULL;
     HPToolBar = NULL;
@@ -387,6 +388,7 @@ CMainWindow::CMainWindow()
     DetachedMenuBar = NULL;
     DetachedTopToolBar = NULL;
     DetachedPluginsBar = NULL;
+    DetachedExtensionBar = NULL;
     DetachedUMToolBar = NULL;
     DetachedHPToolBar = NULL;
     DetachedDriveBar = NULL;
@@ -630,25 +632,55 @@ BOOL CMainWindow::ToggleTopToolBar(BOOL storePos)
 
 void CMainWindow::RefreshExtensionToolbars()
 {
-    // Toolbar contributions are rebuilt from the persisted native-toolbar
-    // layout.  Dynamic entries are appended by CMainToolBar::Load(), so they
-    // never become stale configuration records when a runtime unloads.
-    Plugins.EnsureToolbarButtonImages(HHotToolBarImageList,
-                                      HGrayToolBarImageList);
-    if (HDetachedHotToolBarImageList != NULL &&
-        HDetachedGrayToolBarImageList != NULL)
-    {
-        Plugins.EnsureToolbarButtonImages(HDetachedHotToolBarImageList,
-                                          HDetachedGrayToolBarImageList);
-    }
-    if (TopToolBar != NULL && TopToolBar->HWindow != NULL)
-        TopToolBar->Load(Configuration.TopToolBar);
-    if (MiddleToolBar != NULL && MiddleToolBar->HWindow != NULL)
-        MiddleToolBar->Load(Configuration.MiddleToolBar);
-    if (DetachedTopToolBar != NULL && DetachedTopToolBar->HWindow != NULL)
-        DetachedTopToolBar->Load(Configuration.TopToolBar);
+    if (ExtensionBar != NULL && ExtensionBar->HWindow != NULL)
+        ExtensionBar->CreateExtensionButtons(HGrayToolBarImageList,
+                                             HHotToolBarImageList);
+    if (DetachedExtensionBar != NULL &&
+        DetachedExtensionBar->HWindow != NULL)
+        DetachedExtensionBar->CreateExtensionButtons(
+            HDetachedGrayToolBarImageList, HDetachedHotToolBarImageList);
 
     LayoutWindows();
+}
+
+BOOL CMainWindow::ToggleExtensionBar(BOOL storePos)
+{
+    CALL_STACK_MESSAGE2("CMainWindow::ToggleExtensionBar(%d)", storePos);
+    if (ExtensionBar == NULL)
+        return FALSE;
+
+    LockWindowUpdate(HWindow);
+    if (ExtensionBar->HWindow != NULL)
+    {
+        int index = (int)SendMessage(HTopRebar, RB_IDTOINDEX,
+                                     BANDID_EXTENSIONBAR, 0);
+        SendMessage(HTopRebar, RB_DELETEBAND, index, 0);
+        DestroyWindow(ExtensionBar->HWindow);
+        Configuration.ExtensionBarVisible = FALSE;
+        if (storePos)
+            StoreBandsPos();
+    }
+    else
+    {
+        if (!ExtensionBar->CreateWnd(HTopRebar))
+            return FALSE;
+        ExtensionBar->CreateExtensionButtons(HGrayToolBarImageList,
+                                             HHotToolBarImageList);
+        InsertExtensionBarBand();
+        ShowWindow(ExtensionBar->HWindow, SW_SHOW);
+        Configuration.ExtensionBarVisible = TRUE;
+        if (storePos)
+            StoreBandsPos();
+    }
+    LockWindowUpdate(NULL);
+
+    if (DetachedPanels)
+    {
+        DestroyDetachedChrome();
+        EnsureDetachedChrome();
+        LayoutDetachedPanels();
+    }
+    return TRUE;
 }
 
 BOOL CMainWindow::TogglePluginsBar(BOOL storePos)
@@ -965,6 +997,14 @@ void CMainWindow::ToggleToolBarGrips()
         InsertPluginsBarBand();
     }
 
+    // extension bar
+    index = (int)SendMessage(HTopRebar, RB_IDTOINDEX, BANDID_EXTENSIONBAR, 0);
+    if (index != -1)
+    {
+        SendMessage(HTopRebar, RB_DELETEBAND, index, 0);
+        InsertExtensionBarBand();
+    }
+
     // user menu bar
     index = (int)SendMessage(HTopRebar, RB_IDTOINDEX, BANDID_UMTOOLBAR, 0);
     if (index != -1)
@@ -1033,6 +1073,18 @@ void CMainWindow::StoreBandsPos()
                     Configuration.PluginsBarIndex, (LPARAM)&rbbi);
         Configuration.PluginsBarBreak = (rbbi.fStyle & RBBS_BREAK) != 0;
         Configuration.PluginsBarWidth = rbbi.cx;
+    }
+    if (ExtensionBar->HWindow != NULL)
+    {
+        rbbi.cbSize = sizeof(rbbi);
+        rbbi.fMask = RBBIM_STYLE | RBBIM_SIZE;
+        Configuration.ExtensionBarIndex = (int)SendMessage(
+            HTopRebar, RB_IDTOINDEX, BANDID_EXTENSIONBAR, 0);
+        SendMessage(HTopRebar, RB_GETBANDINFO,
+                    Configuration.ExtensionBarIndex, (LPARAM)&rbbi);
+        Configuration.ExtensionBarBreak =
+            (rbbi.fStyle & RBBS_BREAK) != 0;
+        Configuration.ExtensionBarWidth = rbbi.cx;
     }
     if (UMToolBar->HWindow != NULL)
     {
@@ -1206,6 +1258,41 @@ BOOL CMainWindow::InsertPluginsBarBand()
         Configuration.PluginsBarIndex = count;
     SendMessage(HTopRebar, RB_INSERTBAND,
                 (WPARAM)Configuration.PluginsBarIndex, (LPARAM)&rbbi);
+    return TRUE;
+}
+
+BOOL CMainWindow::InsertExtensionBarBand()
+{
+    CALL_STACK_MESSAGE1("CMainWindow::InsertExtensionBarBand()");
+    REBARBANDINFO rbbi;
+    ZeroMemory(&rbbi, sizeof(rbbi));
+    rbbi.cbSize = sizeof(REBARBANDINFO);
+    rbbi.fMask = RBBIM_SIZE | RBBIM_CHILD | RBBIM_CHILDSIZE |
+                 RBBIM_STYLE | RBBIM_ID;
+    rbbi.cxMinChild = 10;
+    rbbi.cyMinChild = ExtensionBar->GetNeededHeight() +
+                      (DarkModeShouldUseDarkColors() ? 2 : 0);
+    rbbi.cx = Configuration.ExtensionBarWidth;
+    if (Configuration.ExtensionBarBreak)
+        rbbi.fStyle |= RBBS_BREAK;
+    if (Configuration.GripsVisible)
+        rbbi.fStyle |= RBBS_GRIPPERALWAYS;
+    else
+    {
+        rbbi.fStyle |= RBBS_NOGRIPPER;
+        rbbi.fMask |= RBBIM_HEADERSIZE;
+        rbbi.cxHeader = 2;
+    }
+    rbbi.hwndChild = ExtensionBar->HWindow;
+    rbbi.wID = BANDID_EXTENSIONBAR;
+
+    int count = (int)SendMessage(HTopRebar, RB_GETBANDCOUNT, 0, 0);
+    if (count >= 2 && DriveBar2 != NULL && DriveBar2->HWindow != NULL)
+        count -= 2;
+    if (Configuration.ExtensionBarIndex > count)
+        Configuration.ExtensionBarIndex = count;
+    SendMessage(HTopRebar, RB_INSERTBAND,
+                (WPARAM)Configuration.ExtensionBarIndex, (LPARAM)&rbbi);
     return TRUE;
 }
 
@@ -2160,6 +2247,28 @@ BOOL CMainWindow::EnsureDetachedChrome()
         }
     }
 
+    if (ExtensionBar != NULL && ExtensionBar->HWindow != NULL)
+    {
+        if (DetachedExtensionBar == NULL)
+            DetachedExtensionBar = new CExtensionBar(HWindow, ooStatic);
+        if (DetachedExtensionBar == NULL)
+            DETACHED_CHROME_FAIL();
+        if (DetachedExtensionBar->HWindow == NULL)
+        {
+            if (!DetachedExtensionBar->CreateWnd(HDetachedTopRebar))
+                DETACHED_CHROME_FAIL();
+            DetachedExtensionBar->CreateExtensionButtons(
+                HDetachedGrayToolBarImageList, HDetachedHotToolBarImageList);
+            InsertDetachedBand(
+                HDetachedTopRebar, DetachedExtensionBar->HWindow,
+                BANDID_EXTENSIONBAR, Configuration.ExtensionBarIndex,
+                Configuration.ExtensionBarWidth,
+                DetachedExtensionBar->GetNeededHeight(),
+                Configuration.ExtensionBarBreak);
+            ShowWindow(DetachedExtensionBar->HWindow, SW_SHOW);
+        }
+    }
+
     if (UMToolBar != NULL && UMToolBar->HWindow != NULL)
     {
         if (DetachedUMToolBar == NULL)
@@ -2299,6 +2408,8 @@ void CMainWindow::DestroyDetachedChrome()
         DestroyWindow(DetachedUMToolBar->HWindow);
     if (DetachedPluginsBar != NULL && DetachedPluginsBar->HWindow != NULL)
         DestroyWindow(DetachedPluginsBar->HWindow);
+    if (DetachedExtensionBar != NULL && DetachedExtensionBar->HWindow != NULL)
+        DestroyWindow(DetachedExtensionBar->HWindow);
     if (DetachedTopToolBar != NULL && DetachedTopToolBar->HWindow != NULL)
         DestroyWindow(DetachedTopToolBar->HWindow);
     if (DetachedMenuBar != NULL && DetachedMenuBar->HWindow != NULL)
@@ -2338,6 +2449,11 @@ void CMainWindow::DestroyDetachedChrome()
     {
         delete DetachedPluginsBar;
         DetachedPluginsBar = NULL;
+    }
+    if (DetachedExtensionBar != NULL)
+    {
+        delete DetachedExtensionBar;
+        DetachedExtensionBar = NULL;
     }
     if (DetachedTopToolBar != NULL)
     {
@@ -4040,6 +4156,8 @@ CMainWindow::HitTest(int xPos, int yPos) // screen coordinates
             return mwhteTopToolbar;
         case BANDID_PLUGINSBAR:
             return mwhtePluginsBar;
+        case BANDID_EXTENSIONBAR:
+            return mwhteExtensionBar;
         case BANDID_UMTOOLBAR:
             return mwhteUMToolbar;
         case BANDID_HPTOOLBAR:
@@ -4115,6 +4233,9 @@ CMainWindow::HitTest(int xPos, int yPos) // screen coordinates
                 break;
             case BANDID_PLUGINSBAR:
                 hit = mwhtePluginsBar;
+                break;
+            case BANDID_EXTENSIONBAR:
+                hit = mwhteExtensionBar;
                 break;
             case BANDID_UMTOOLBAR:
                 hit = mwhteUMToolbar;
@@ -4256,7 +4377,8 @@ void CMainWindow::OnWmContextMenu(HWND hWnd, int xPos, int yPos)
     BOOL mainClass = (hit == mwhteTopRebar || hit == mwhteMenu || hit == mwhteTopToolbar ||
                       hit == mwhteUMToolbar || hit == mwhteDriveBar || hit == mwhteCmdLine ||
                       hit == mwhteBottomToolbar || hit == mwhteMiddleToolbar ||
-                      hit == mwhteHPToolbar || hit == mwhtePluginsBar);
+                      hit == mwhteHPToolbar || hit == mwhtePluginsBar ||
+                      hit == mwhteExtensionBar);
     BOOL leftPanel = (hit == mwhteLeftDirLine || hit == mwhteLeftHeaderLine ||
                       hit == mwhteLeftStatusLine);
     BOOL panelClass = (leftPanel || hit == mwhteRightDirLine || hit == mwhteRightHeaderLine ||
@@ -4304,6 +4426,7 @@ MENU_TEMPLATE_ITEM ToolbarsCtxMenu[] =
   {MNTT_PB, 0
   {MNTT_IT, IDS_TOPTOOLBAR
   {MNTT_IT, IDS_PLUGINSBAR
+  {MNTT_IT, IDS_EXTENSIONBAR
   {MNTT_IT, IDS_UMTOOLBAR
   {MNTT_IT, IDS_HPTOOLBAR
   {MNTT_IT, IDS_DRIVEBAR
@@ -4328,6 +4451,11 @@ MENU_TEMPLATE_ITEM ToolbarsCtxMenu[] =
         mii.String = LoadStr(IDS_PLUGINSBAR);
         mii.ID = 12;
         mii.State = PluginsBar->HWindow != NULL ? MENU_STATE_CHECKED : 0;
+        menu.InsertItem(0xffffffff, TRUE, &mii);
+
+        mii.String = LoadStr(IDS_EXTENSIONBAR);
+        mii.ID = 15;
+        mii.State = ExtensionBar->HWindow != NULL ? MENU_STATE_CHECKED : 0;
         menu.InsertItem(0xffffffff, TRUE, &mii);
 
         mii.String = LoadStr(IDS_UMTOOLBAR);
@@ -4388,7 +4516,8 @@ MENU_TEMPLATE_ITEM ToolbarsCtxMenu[] =
         menu.InsertItem(0xffffffff, TRUE, &mii);
 
         if (hit == mwhteTopToolbar || hit == mwhteUMToolbar || hit == mwhteHPToolbar ||
-            hit == mwhteMiddleToolbar || hit == mwhtePluginsBar)
+            hit == mwhteMiddleToolbar || hit == mwhtePluginsBar ||
+            hit == mwhteExtensionBar)
         {
             menu.InsertItem(0xffffffff, TRUE, &miiSep);
 
@@ -4658,6 +4787,9 @@ MENU_TEMPLATE_ITEM InfoLineMenu[] =
         case 14:
             cm = CM_TOGGLEPANELTABS;
             break;
+        case 15:
+            cm = CM_TOGGLEEXTENSIONBAR;
+            break;
         }
         if (cm != 0)
         {
@@ -4677,6 +4809,12 @@ MENU_TEMPLATE_ITEM InfoLineMenu[] =
             case mwhtePluginsBar:
             {
                 PostMessage(MainWindow->HWindow, WM_COMMAND, CM_CUSTOMIZEPLUGINS, 0);
+                break;
+            }
+
+            case mwhteExtensionBar:
+            {
+                PostMessage(MainWindow->HWindow, WM_COMMAND, CM_PLUGINS, 0);
                 break;
             }
 
@@ -5482,6 +5620,13 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
     if (PluginsBar != NULL)
     {
         PluginsBar->OnColorsChanged();
+    }
+    if (ExtensionBar != NULL)
+    {
+        if (ExtensionBar->HWindow != NULL)
+            ExtensionBar->CreateExtensionButtons(HGrayToolBarImageList,
+                                                 HHotToolBarImageList);
+        ExtensionBar->OnColorsChanged();
     }
 
     // user menu toolbar

@@ -220,6 +220,7 @@ struct CConfiguration
         SingleClick,            // single click selects an item
         TopToolBarVisible,      // toolbar visibility
         PluginsBarVisible,      // toolbar visibility
+        ExtensionBarVisible,    // toolbar visibility
         MiddleToolBarVisible,   // toolbar visibility
         BottomToolBarVisible,   // toolbar visibility
         UserMenuToolBarVisible, // toolbar visibility
@@ -406,6 +407,9 @@ struct CConfiguration
     int PluginsBarIndex;
     int PluginsBarBreak;
     int PluginsBarWidth;
+    int ExtensionBarIndex;
+    int ExtensionBarBreak;
+    int ExtensionBarWidth;
     int UserMenuToolbarIndex;
     int UserMenuToolbarBreak;
     int UserMenuToolbarWidth;

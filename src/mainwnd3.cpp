@@ -4050,6 +4050,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
 
+        ExtensionBar = new CExtensionBar(HWindow);
+        if (ExtensionBar == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return -1;
+        }
+
         //      AnimateBar = new CAnimate(HWorkerBitmap, 50, 0, RGB(255, 255, 255)); // 50 frames total, loop from 0, white background
         //      AnimateBar = new CAnimate(HWorkerBitmap, 43, 3, RGB(0, 0, 0)); // 43 frames total, loop from 3, black background
         //      if (AnimateBar == NULL)
@@ -7486,6 +7493,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
+        case CM_TOGGLEEXTENSIONBAR:
+        {
+            ToggleExtensionBar();
+            break;
+        }
+
         case CM_TOGGLEMIDDLETOOLBAR:
         {
             ToggleMiddleToolBar();
@@ -8457,6 +8470,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             MiddleToolBar->OnGetToolTip(lParam);
         if (PluginsBar != NULL && hToolBar == PluginsBar->HWindow)
             PluginsBar->OnGetToolTip(lParam);
+        if (ExtensionBar != NULL && hToolBar == ExtensionBar->HWindow)
+            ExtensionBar->OnGetToolTip(lParam);
         if (UMToolBar != NULL && hToolBar == UMToolBar->HWindow)
             UMToolBar->OnGetToolTip(lParam);
         if (HPToolBar != NULL && hToolBar == HPToolBar->HWindow)
@@ -8783,6 +8798,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             popup->CheckItem(CM_TOGGLETOPTOOLBAR, FALSE, TopToolBar->HWindow != NULL);
             popup->CheckItem(CM_TOGGLEPLUGINSBAR, FALSE, PluginsBar->HWindow != NULL);
+            popup->CheckItem(CM_TOGGLEEXTENSIONBAR, FALSE, ExtensionBar->HWindow != NULL);
             popup->CheckItem(CM_TOGGLEMIDDLETOOLBAR, FALSE, MiddleToolBar->HWindow != NULL);
             popup->CheckItem(CM_TOGGLEUSERMENUTOOLBAR, FALSE, UMToolBar->HWindow != NULL);
             popup->CheckItem(CM_TOGGLEHOTPATHSBAR, FALSE, HPToolBar->HWindow != NULL);
@@ -11249,6 +11265,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 DestroyWindow(PluginsBar->HWindow);
             delete PluginsBar;
             PluginsBar = NULL;
+        }
+        if (ExtensionBar != NULL)
+        {
+            if (ExtensionBar->HWindow != NULL)
+                DestroyWindow(ExtensionBar->HWindow);
+            delete ExtensionBar;
+            ExtensionBar = NULL;
         }
         if (MiddleToolBar != NULL)
         {
