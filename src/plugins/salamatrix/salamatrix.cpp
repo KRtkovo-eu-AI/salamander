@@ -22,6 +22,8 @@ HINSTANCE DLLInstance = NULL;
 HINSTANCE HLanguage = NULL;
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
 CSalamanderGUIAbstract* SalamanderGUI = NULL;
+WORD SalamanderLanguageID =
+    MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 int SalamanderVersion = 0;
 
@@ -107,6 +109,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     SalamanderGUI = salamander->GetSalamanderGUI();
+    SalamanderLanguageID = salamander->GetCurrentSalamanderLanguageID();
     Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
     salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_DYNAMICMENUEXT, VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    VERSINFO_DESCRIPTION,

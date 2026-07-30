@@ -11,6 +11,7 @@ extern HINSTANCE DLLInstance;
 extern HINSTANCE HLanguage;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern CSalamanderGUIAbstract* SalamanderGUI;
+extern WORD SalamanderLanguageID;
 
 class CPluginInterface : public CPluginInterfaceAbstract
 {

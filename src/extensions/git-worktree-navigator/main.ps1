@@ -86,7 +86,7 @@ function ConvertFrom-GitWorktreePorcelain {
         if ($line.StartsWith('locked')) { $record.Locked = $true; continue }
         if ($line.StartsWith('prunable')) { $record.Prunable = $true; continue }
     }
-    return @($result)
+    return $result.ToArray()
 }
 
 function Get-WorktreeState {
@@ -290,7 +290,10 @@ function Remove-NavigatorWorktree {
             $script:Strings.cannotRemoveDirty, $script:Strings.title, 'OK', 'Warning')
         return $false
     }
-    $question = [string]::Format($script:Strings.confirmRemove, $Worktree.Path)
+    $question = [string]::Format(
+        $script:Strings.confirmRemove,
+        [Environment]::NewLine,
+        $Worktree.Path)
     $answer = [System.Windows.Forms.MessageBox]::Show(
         $question, $script:Strings.title, 'YesNo', 'Warning')
     if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
@@ -316,7 +319,7 @@ function Copy-NavigatorReport {
         } else {
             "$($worktree.Upstream), +$($worktree.Ahead)/-$($worktree.Behind)"
         }
-        $lines.Add("- **$branch** — $($worktree.Status) — $sync")
+        $lines.Add("- **$branch** -- $($worktree.Status) -- $sync")
         $lines.Add("  - $($worktree.Path)")
     }
     [void]$Salamander.clipboard.CopyText(($lines -join "`r`n"), $true)

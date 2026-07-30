@@ -85,9 +85,8 @@ static std::string JsonEscape(const char* value)
 static std::string CurrentSalamanderLocale(
     CSalamanderGeneralAbstract* general, WORD* languageId = NULL)
 {
-    WORD id = general != NULL
-                  ? general->GetCurrentSalamanderLanguageID()
-                  : MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+    UNREFERENCED_PARAMETER(general);
+    WORD id = SalamanderLanguageID;
     if (id == 0)
         id = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
     if (languageId != NULL)

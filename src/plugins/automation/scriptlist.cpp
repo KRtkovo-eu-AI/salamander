@@ -545,9 +545,7 @@ static BOOL ResolveManifestAssetPath(
 static std::string GetPreferredManifestLocale()
 {
     WCHAR localeName[LOCALE_NAME_MAX_LENGTH];
-    WORD languageId = SalamanderGeneral != NULL
-                          ? SalamanderGeneral->GetCurrentSalamanderLanguageID()
-                          : MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+    WORD languageId = SalamanderLanguageID;
     if (languageId == 0)
         languageId = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
     if (LCIDToLocaleName(
@@ -1938,9 +1936,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
 
     if (method == "salamander.host.language")
     {
-        WORD languageId = SalamanderGeneral != NULL
-                              ? SalamanderGeneral->GetCurrentSalamanderLanguageID()
-                              : MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+        WORD languageId = SalamanderLanguageID;
         if (languageId == 0)
             languageId = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
         WCHAR localeName[LOCALE_NAME_MAX_LENGTH];

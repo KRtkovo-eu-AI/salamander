@@ -1369,6 +1369,7 @@ Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix-automation-api.html"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
+Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\extensions\git-worktree-navigator"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrix') and IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\powershellruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\runtime\salamatrix_worker.ps1"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion

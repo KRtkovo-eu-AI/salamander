@@ -109,6 +109,7 @@ ICanHandleException : public IUnknown
 #include "strconv.h"
 
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
+extern WORD SalamanderLanguageID;
 extern CSalamanderGUIAbstract* SalamanderGUI;
 
 #include "mhandles.h"

@@ -2,6 +2,7 @@
 """Fast source-level regression checks for Salamatrix integration contracts."""
 
 from pathlib import Path
+import json
 import re
 import subprocess
 import sys
@@ -82,6 +83,9 @@ def main() -> int:
     setup = read("doc/runbook-setup/inno_setup_salamander_x64.iss")
     python_demo = read("src/extensions/demos/python/main.py")
     powershell_demo = read("src/extensions/demos/powershell/main.ps1")
+    navigator = read("src/extensions/git-worktree-navigator/main.ps1")
+    navigator_manifest = json.loads(
+        read("src/extensions/git-worktree-navigator/extension.json"))
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
@@ -558,6 +562,61 @@ def main() -> int:
     require_absent(python_demo, r"message_box", "Python demo must not block Salamander with a modal UI call")
     require(powershell_demo, r"\$Salamander\.ui\.Notify", "PowerShell demo does not show a non-blocking result")
     require_absent(powershell_demo, r"MessageBox", "PowerShell demo must not block Salamander with a modal UI call")
+    require(
+        navigator,
+        r"source_side\.Context\(\)",
+        "Git Worktree Navigator does not use the source-panel context")
+    require(
+        navigator,
+        r"worktree.*?list.*?--porcelain",
+        "Git Worktree Navigator does not derive worktrees from the source panel")
+    require(
+        navigator,
+        r"source_side\.CreateTab.*?target_side\.CreateTab",
+        "Git Worktree Navigator does not integrate with both Salamander sides")
+    require(
+        navigator,
+        r"status.*?--porcelain=v1.*?cannotRemoveDirty.*?worktree.*?remove",
+        "Git Worktree Navigator removal is not guarded by a clean status check")
+    require_absent(
+        navigator, r"worktree.*?remove.*?--force",
+        "Git Worktree Navigator must not force-remove worktrees")
+    expected_locales = {
+        "en", "cs", "de", "es", "fr", "hu",
+        "nl", "ro", "ru", "sk", "zh-CN",
+    }
+    if set(navigator_manifest.get("locales", {})) != expected_locales:
+        raise AssertionError(
+            "Git Worktree Navigator does not declare every supported locale")
+    english_keys = None
+    for locale, relative in navigator_manifest["locales"].items():
+        localized = json.loads(read(
+            "src/extensions/git-worktree-navigator/" + relative))
+        if not localized.get("name") or not localized.get("commands"):
+            raise AssertionError(f"navigator locale metadata is incomplete: {locale}")
+        keys = set(localized.get("strings", {}))
+        if english_keys is None:
+            english_keys = keys
+        elif keys != english_keys:
+            raise AssertionError(f"navigator runtime strings are incomplete: {locale}")
+    require(
+        salamatrix,
+        r"SalamanderLanguageID\s*=\s*salamander->GetCurrentSalamanderLanguageID",
+        "framework does not capture Salamander's selected language")
+    require(
+        packages,
+        r"CurrentSalamanderLocale.*?manifest\.Locales.*?ParseLocaleText",
+        "framework package locales do not use Salamander's selected language")
+    require(
+        packages,
+        r'salamander\.host\.language.*?languageId.*?locale',
+        "framework package host does not expose the selected Salamander language")
+    require(
+        setup,
+        r"extensions\\git-worktree-navigator.*?"
+        r"IsPluginSelected\('salamatrix'\).*?"
+        r"IsPluginSelected\('powershellruntime'\)",
+        "x64 installer does not package Git Worktree Navigator with its dependencies")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")

@@ -26,6 +26,8 @@ HINSTANCE g_hLangInst;
 
 /// Salamander general interface.
 CSalamanderGeneralAbstract* SalamanderGeneral;
+WORD SalamanderLanguageID =
+    MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
 
 /// Salamander version (see \e spl_vers.h).
 int SalamanderVersion;
@@ -85,6 +87,7 @@ CPluginInterfaceAbstract*
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    SalamanderLanguageID = salamander->GetCurrentSalamanderLanguageID();
     InitializeWinLibDarkMode(SalamanderGeneral);
     SalamanderGUI = salamander->GetSalamanderGUI();
 
