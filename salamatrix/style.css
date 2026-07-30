@@ -101,7 +101,7 @@ img:not([id="header-logo"]):not([aria="noblock"]) { display: block; }
 img:not([id="header-logo"]) { max-width: 100%; height: auto; margin: 14px auto; background: var(--sam-canvas-inset); border: 1px solid var(--sam-border); border-radius: 4px; box-shadow: 0 8px 20px rgba(0,0,0,.22); }
 .hero-panel__visual img { margin: 0; }
 a[aria="button"] { display: inline-block; margin: 4px 4px 4px 0; padding: 7px 13px; color: #ffffff; background: linear-gradient(#f35353, #e02e2e); border: 1px solid #e02e2e; border-radius: 4px; font-weight: 700; text-decoration: none; }
-a[aria="button"]:hover { color: #000; background: #f35353; text-decoration: none; }
+a[aria="button"]:hover { color: #ffffff; background: #f35353; text-decoration: none; }
 .button-secondary { color: var(--sam-text) !important; background: linear-gradient(#4a4a4a, #292929) !important; border-color: #666 !important; }
 .button-secondary:hover { color: #fff !important; background: linear-gradient(#5b5b5b, #353535) !important; }
 .hero-actions { margin-top: 20px; }

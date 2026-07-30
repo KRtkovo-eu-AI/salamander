@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salamatrix Automation API reference</title>
+<style>
+:root { color-scheme:light dark; --bg:#fff; --fg:#202124; --surface:#f6f8fa;
+ --border:#d0d7de; --accent:#c9252d; --code:#f0f2f4; }
+@media (prefers-color-scheme:dark) { :root { --bg:#1e1f20; --fg:#e8eaed;
+ --surface:#27292c; --border:#45484d; --code:#2d3034; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+ font:15px/1.55 "Segoe UI",Arial,sans-serif; }
+main { max-width:1120px; margin:0 auto; padding:32px 28px 64px; }
+h1 { font-size:2rem; border-bottom:3px solid var(--accent); padding-bottom:.3em; }
+h2 { font-size:1.45rem; margin-top:2em; border-bottom:1px solid var(--border);
+ padding-bottom:.25em; }
+h3 { font-size:1.15rem; margin-top:1.6em; }
+p,ul { max-width:92ch; } a { color:#2f81f7; }
+code { font-family:Consolas,"Cascadia Mono",monospace; background:var(--code);
+ border-radius:3px; padding:.08em .3em; }
+pre { overflow:auto; padding:14px 16px; background:var(--surface);
+ border:1px solid var(--border); border-radius:6px; }
+pre code { padding:0; background:transparent; }
+.table-wrap { overflow:auto; margin:1em 0; }
+table { border-collapse:collapse; min-width:620px; width:100%; }
+th,td { border:1px solid var(--border); padding:7px 10px; text-align:left;
+ vertical-align:top; }
+th { background:var(--surface); } li { margin:.2em 0; }
+</style>
+</head>
+<body><main>
+<h1 id="salamatrix-automation-api-reference">Salamatrix Automation API reference</h1>
+<p>This document describes the API that is implemented by the current Salamatrix Framework and exposed to scripted extensions. It is intended for both people writing scripts and AI providers generating scripts. Examples use public worker facades, not the private <code>SMX1</code> transport.</p>
+<p>The rule is simple: a generated script may combine the documented Salamander API with normal facilities of its selected language runtime. A missing Python package, Node package, PowerShell module, or PHP extension is an environment concern, not a missing Salamander capability. <code>canImplement=false</code> is reserved for a host integration that the documented Salamander API genuinely does not provide.</p>
+<h2 id="runtime-model">Runtime model</h2>
+<div class="table-wrap"><table><thead><tr>
+<th>Runtime id</th>
+<th>Script style</th>
+<th>Salamander calls</th>
+</tr></thead><tbody>
+<tr>
+<td><code>JavaScript.Node</code></td>
+<td>ECMAScript module (<code>.mjs</code> or <code>.js</code>)</td>
+<td>asynchronous; use <code>await</code></td>
+</tr>
+<tr>
+<td><code>Python.CPython</code></td>
+<td>Python module</td>
+<td>synchronous</td>
+</tr>
+<tr>
+<td><code>PowerShell</code></td>
+<td>PowerShell script</td>
+<td>synchronous</td>
+</tr>
+<tr>
+<td><code>PHP.CLI</code></td>
+<td>PHP script</td>
+<td>synchronous</td>
+</tr>
+</tbody></table></div>
+<p>The worker injects one root object:</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Runtime</th>
+<th>Root object</th>
+</tr></thead><tbody>
+<tr>
+<td>JavaScript</td>
+<td><code>Salamander</code></td>
+</tr>
+<tr>
+<td>Python</td>
+<td><code>Salamander</code></td>
+</tr>
+<tr>
+<td>PowerShell</td>
+<td><code>$Salamander</code></td>
+</tr>
+<tr>
+<td>PHP</td>
+<td><code>$Salamander</code></td>
+</tr>
+</tbody></table></div>
+<p>JavaScript scripts run as modules and may use top-level <code>await</code>. They must not use an invented <code>this.selectedItems</code> property. The current selection is obtained through <code>await Salamander.sides.context("source")</code>.</p>
+<h3 id="how-the-ai-consumes-this-contract">How the AI consumes this contract</h3>
+<p>The live <code>Salamatrix.AI</code> service publishes versioned machine-readable slices for <code>sides</code>, <code>fileOperations</code>, <code>commands</code>, <code>ui</code>, <code>storage</code>, <code>events</code>, <code>runtimes</code>, and <code>ai</code>. The assistant selects slices from the user's task instead of sending an unbounded copy of the whole manual.</p>
+<p>The bundled local model receives these slices through a <strong>Strict Interface Contract</strong>, split into five explicit sections:</p>
+<p>1. <code>INPUT CONTRACT</code>: typed task, selected runtime id, current Salamander context, existing source, and optional repair feedback, including their actual values; 2. <code>INSTALLED SALAMANDER API CONTRACT</code>: only the relevant implemented API slices; 3. <code>SELECTED RUNTIME CONTRACT</code>: the real worker facade conventions for the selected JavaScript, Python, PowerShell, or PHP runtime; 4. <code>OUTPUT CONTRACT</code>: the exact closed JSON Schema for the response; 5. <code>GENERATION RULES</code>: precedence, grounding, capability, effect, and honest framework-GAP rules.</p>
+<p>The exact same output schema instance is included in the prompt and supplied to <code>llama.cpp</code> through <code>--json-schema-file</code>. It therefore acts both as instructions for the model and as a constrained-generation grammar. The runtime contracts document the injected root object, synchronous or asynchronous call model, naming convention, selected-item access, and use of language libraries. Full general-purpose language manuals are deliberately not inserted into every request because they would consume context without describing the Salamatrix binding.</p>
+<p>The local llama.cpp companion offers two Q4_K_M profiles. The recommended Qwen2.5-Coder 1.5B Instruct model is intended for normal multilingual tasks. The lightweight 0.5B profile is retained for constrained machines and accepts English prompts only. Both are run in one-turn conversation mode using the chat template embedded in their GGUF metadata. The invariant API, runtime, and output contracts are sent as the system message; the typed task input is sent as the user message.</p>
+<p>For operations with a verified implementation recipe, the provider may also constrain semantic fields and source code through JSON Schema constants. This is intentional: prose documentation helps the model choose an API, while the schema prevents a small local model from replacing a verified recipe with invented source. Static validation then checks cross-field facts such as:</p>
+<ul>
+<li><code>sides.context</code> implies <code>readSelection=true</code>;</li>
+<li>a file writer implies <code>modifyContents=true</code>;</li>
+<li>Node module scripts use <code>import</code>, not CommonJS <code>require</code>;</li>
+<li><code>selectedItems</code> must originate from <code>Salamander.sides.context</code>;</li>
+<li>a known implementable recipe must not be reported as a framework GAP.</li>
+</ul>
+<p>The concrete validation message is returned to the repair loop and to the UI. An invalid response must not be reduced to the generic statement that the model returned no valid script.</p>
+<h2 id="side-names-and-current-context">Side names and current context</h2>
+<p>Every API accepting a side uses one of:</p>
+<ul>
+<li><code>source</code>: the panel from which the command was invoked;</li>
+<li><code>target</code>: the opposite panel;</li>
+<li><code>left</code>: the physical left panel;</li>
+<li><code>right</code>: the physical right panel.</li>
+</ul>
+<p><code>source</code> and <code>target</code> are normally the correct choice for reusable automation.</p>
+<h3 id="reading-selected-files">Reading selected files</h3>
+<p>The canonical operation is <code>sides.context(side)</code>.</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Runtime</th>
+<th>Call</th>
+</tr></thead><tbody>
+<tr>
+<td>JavaScript</td>
+<td><code>await Salamander.sides.context("source")</code></td>
+</tr>
+<tr>
+<td>Python</td>
+<td><code>Salamander.sides.context("source")</code></td>
+</tr>
+<tr>
+<td>PowerShell</td>
+<td><code>$Salamander.Sides.Context("source")</code></td>
+</tr>
+<tr>
+<td>PHP</td>
+<td><code>$Salamander-&gt;sides-&gt;context("source")</code></td>
+</tr>
+</tbody></table></div>
+<p>It returns:</p>
+<pre><code class="language-json">{
+  &quot;ok&quot;: true,
+  &quot;path&quot;: &quot;C:\\Work&quot;,
+  &quot;pathType&quot;: 1,
+  &quot;selectedCount&quot;: 2,
+  &quot;selectedItems&quot;: [
+    {
+      &quot;name&quot;: &quot;one.txt&quot;,
+      &quot;path&quot;: &quot;C:\\Work\\one.txt&quot;,
+      &quot;extension&quot;: &quot;txt&quot;,
+      &quot;size&quot;: 123,
+      &quot;sizeValid&quot;: true,
+      &quot;attributes&quot;: 32,
+      &quot;lastWriteUtc&quot;: 134000000000000000,
+      &quot;isDirectory&quot;: false,
+      &quot;hidden&quot;: false,
+      &quot;link&quot;: false,
+      &quot;offline&quot;: false
+    }
+  ],
+  &quot;focusedItem&quot;: null
+}</code></pre>
+<p><code>selectedItems</code> is bounded to 64 returned records. <code>selectedCount</code> reports the complete selection count, so scripts that require every selected record must detect <code>selectedCount &gt; selectedItems.length</code> and explain the limitation rather than silently processing only the prefix.</p>
+<h3 id="side-and-tab-methods">Side and tab methods</h3>
+<p>The generic facade is <code>Salamander.sides</code>; runtimes also provide side-bound facades such as <code>sourceSide</code>/<code>source_side</code>.</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Operation</th>
+<th>Parameters</th>
+<th>Result</th>
+</tr></thead><tbody>
+<tr>
+<td><code>activeTab</code></td>
+<td><code>side="source"</code></td>
+<td>active tab object</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td><code>side="source"</code></td>
+<td>context object described above</td>
+</tr>
+<tr>
+<td><code>tabs</code></td>
+<td><code>side="source"</code></td>
+<td>array of tab objects</td>
+</tr>
+<tr>
+<td><code>activateTab</code></td>
+<td><code>tabId</code>, <code>focus=true</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>changePath</code></td>
+<td><code>path</code>, <code>side="source"</code></td>
+<td>host result object</td>
+</tr>
+<tr>
+<td><code>refresh</code></td>
+<td><code>side</code>, <code>force=false</code>, <code>focusFirstNewItem=false</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>selectItem</code></td>
+<td><code>index</code>, <code>select=true</code>, <code>side</code>, <code>repaint=true</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>selectAll</code></td>
+<td><code>select=true</code>, <code>side</code>, <code>repaint=true</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>focusItem</code></td>
+<td><code>index</code>, <code>side</code>, <code>partVisible=true</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>createTab</code></td>
+<td><code>side</code>, optional <code>path</code>, optional <code>index</code></td>
+<td><code>{created, tabId}</code></td>
+</tr>
+<tr>
+<td><code>closeTab</code></td>
+<td><code>tabId</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>reorderTab</code></td>
+<td><code>tabId</code>, <code>index</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>moveTab</code></td>
+<td><code>tabId</code>, <code>side</code>, optional <code>index</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>setDetached</code></td>
+<td><code>detached</code></td>
+<td>boolean</td>
+</tr>
+</tbody></table></div>
+<p>Tab ids are decimal strings and must not be converted to floating-point numbers. Tab objects contain <code>id</code>, <code>index</code>, <code>side</code>, <code>pathType</code>, <code>flags</code>, and <code>path</code>.</p>
+<h2 id="file-contents-versus-salamander-file-operations">File contents versus Salamander file operations</h2>
+<p>The runtime language may read or write a path returned by <code>sides.context</code> using its standard filesystem APIs. This is the correct approach for hashing, parsing, creating sidecar files, or transforming contents.</p>
+<p><code>Salamander.fileOperations</code> is different: its methods invoke Salamander's interactive commands for the current panel selection. They do not accept arbitrary source and destination paths.</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Result</th>
+</tr></thead><tbody>
+<tr>
+<td><code>rename()</code></td>
+<td>none</td>
+<td>textual command result</td>
+</tr>
+<tr>
+<td><code>copy()</code></td>
+<td>none</td>
+<td>textual command result</td>
+</tr>
+<tr>
+<td><code>move()</code></td>
+<td>none</td>
+<td>textual command result</td>
+</tr>
+<tr>
+<td><code>delete()</code></td>
+<td>none</td>
+<td>textual command result</td>
+</tr>
+<tr>
+<td><code>createDirectory()</code></td>
+<td>none</td>
+<td>textual command result</td>
+</tr>
+<tr>
+<td><code>refresh()</code></td>
+<td>none</td>
+<td>textual command result</td>
+</tr>
+<tr>
+<td><code>properties()</code></td>
+<td>none</td>
+<td>textual command result</td>
+</tr>
+</tbody></table></div>
+<p>Python uses <code>file_operations.create_directory()</code>. PowerShell uses <code>$Salamander.FileOperations.CreateDirectory()</code>. PHP uses <code>$Salamander-&gt;file_operations-&gt;createDirectory()</code>.</p>
+<h3 id="complete-javascript-md5-sidecar-example">Complete JavaScript MD5 sidecar example</h3>
+<pre><code class="language-javascript">import { createHash } from &quot;node:crypto&quot;;
+import { readFile, writeFile } from &quot;node:fs/promises&quot;;
+
+const context = await Salamander.sides.context(&quot;source&quot;);
+if (context.selectedCount &gt; context.selectedItems.length) {
+  throw new Error(&quot;The selection exceeds the context record limit.&quot;);
+}
+
+for (const item of context.selectedItems) {
+  if (item.isDirectory) continue;
+  const digest = createHash(&quot;md5&quot;)
+    .update(await readFile(item.path))
+    .digest(&quot;hex&quot;);
+  await writeFile(
+    `${item.path}.md5`,
+    `${digest} *${item.name}\r\n`,
+    &quot;utf8&quot;
+  );
+}</code></pre>
+<p>This script uses Salamander capability <code>panels.read</code>. Its effects are <code>readSelection=true</code> and <code>modifyContents=true</code>; the other six effect flags are false. Node's <code>node:crypto</code> and <code>node:fs/promises</code> are runtime facilities and must not be reported as missing Salamander capabilities.</p>
+<h2 id="commands">Commands</h2>
+<p>Commands belong to an extension and may appear in the plugin menu, panel context menu, or toolbar.</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Operation</th>
+<th>Parameters</th>
+<th>Result</th>
+</tr></thead><tbody>
+<tr>
+<td><code>execute</code></td>
+<td><code>commandId</code></td>
+<td>textual result</td>
+</tr>
+<tr>
+<td><code>register</code></td>
+<td><code>commandId</code>, <code>title</code>, <code>pluginMenu=true</code>, <code>contextMenu=false</code>, <code>hotKey=0</code>, <code>toolbar=false</code>, <code>handler=""</code>, <code>enabled=true</code>, <code>visible=true</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>unregister</code></td>
+<td><code>commandId</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>setState</code></td>
+<td><code>commandId</code>, optional <code>enabled</code>, optional <code>visible</code></td>
+<td>boolean</td>
+</tr>
+</tbody></table></div>
+<p>Python uses snake case (<code>set_state</code>, <code>plugin_menu</code>, <code>context_menu</code>, <code>hot_key</code>). The current invocation is available as <code>commandId</code>/<code>commandHandler</code> in JavaScript, <code>command_id</code>/<code>command_handler</code> in Python and PHP, and <code>CommandId</code>/<code>CommandHandler</code> in PowerShell.</p>
+<h2 id="typed-storage">Typed storage</h2>
+<p>Storage is scoped to the extension package. Supported value types are string, integer, and boolean.</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Operation</th>
+<th>Parameters</th>
+<th>Result</th>
+</tr></thead><tbody>
+<tr>
+<td><code>get</code></td>
+<td><code>key</code>, optional default</td>
+<td>stored value or default</td>
+</tr>
+<tr>
+<td><code>set</code></td>
+<td><code>key</code>, supported value</td>
+<td>none/host result</td>
+</tr>
+<tr>
+<td><code>remove</code></td>
+<td><code>key</code></td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>clear</code></td>
+<td>none</td>
+<td>boolean/host result</td>
+</tr>
+<tr>
+<td><code>schema</code></td>
+<td>none</td>
+<td>declared settings records</td>
+</tr>
+<tr>
+<td><code>keys</code></td>
+<td>none</td>
+<td>records containing <code>key</code> and <code>type</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="clipboard">Clipboard</h2>
+<p><code>copyText(text, showEcho=false)</code> copies UTF-8 text and returns a boolean. Python names it <code>copy_text</code>.</p>
+<h2 id="runtime-discovery">Runtime discovery</h2>
+<p><code>runtimes.list()</code> returns records with <code>id</code>, <code>name</code>, <code>language</code>, <code>extensions</code>, <code>version</code>, and <code>available</code>. The runtime id placed in generated assistant output must exactly equal the selected runtime id.</p>
+<h2 id="events">Events</h2>
+<p><code>events.subscribe(name, handler)</code> returns a subscription id. <code>events.unsubscribe(subscriptionId)</code> removes it.</p>
+<p>Implemented event names:</p>
+<pre><code class="language-text">hostStartup, hostShutdown, settingsChanged, configurationChanged,
+colorsChanged, panelsSwapped, activePanelChanged, sidePathChanged,
+sideSelectionChanged, sideTabChanged, sideRefreshed, pathChanged,
+selectionChanged, tabChanged, tabCreated, tabClosed, tabReordered,
+windowDetached, windowAttached, fileChanged</code></pre>
+<p>An AI must not invent an event name. Event callbacks are meaningful for saved extensions; a one-shot script normally completes before future events arrive.</p>
+<h2 id="shared-ui">Shared UI</h2>
+<p>The UI facade creates native Salamander windows and controls. Scripts should use it instead of Win32, Tkinter, HTML, or another unrelated UI toolkit when the required control exists.</p>
+<h3 id="immediate-ui">Immediate UI</h3>
+<div class="table-wrap"><table><thead><tr>
+<th>Operation</th>
+<th>Main parameters</th>
+<th>Result</th>
+</tr></thead><tbody>
+<tr>
+<td><code>messageBox</code></td>
+<td>message, title</td>
+<td>integer dialog result</td>
+</tr>
+<tr>
+<td><code>notify</code></td>
+<td>message, title, timeout</td>
+<td>boolean</td>
+</tr>
+<tr>
+<td><code>inputBox</code></td>
+<td>prompt, title, initial value</td>
+<td><code>{accepted, value}</code></td>
+</tr>
+<tr>
+<td><code>pickFile</code></td>
+<td>save, title, filter, initial</td>
+<td><code>{selected, path}</code></td>
+</tr>
+<tr>
+<td><code>pickFolder</code></td>
+<td>title, initial</td>
+<td><code>{selected, path}</code></td>
+</tr>
+<tr>
+<td><code>progress</code></td>
+<td>title, total, style flags, optional second total</td>
+<td>progress object</td>
+</tr>
+<tr>
+<td><code>dialog</code></td>
+<td>title, width, height</td>
+<td>dialog object</td>
+</tr>
+</tbody></table></div>
+<p>Python uses <code>message_box</code>, <code>input_box</code>, <code>pick_file</code>, and <code>pick_folder</code>.</p>
+<p>File filters are pipe-separated description/pattern pairs, for example <code>"Text files|*.txt|All files|*.*"</code>. Save mode enables overwrite prompting.</p>
+<h3 id="progress-object">Progress object</h3>
+<div class="table-wrap"><table><thead><tr>
+<th>Operation</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td><code>update</code></td>
+<td>set position, optional total, text, paint mode, and second bar</td>
+</tr>
+<tr>
+<td><code>step</code></td>
+<td>increment the primary bar</td>
+</tr>
+<tr>
+<td><code>setTotals</code></td>
+<td>set both totals</td>
+</tr>
+<tr>
+<td><code>setPositions</code></td>
+<td>set both positions</td>
+</tr>
+<tr>
+<td><code>setTitle</code></td>
+<td>change the title</td>
+</tr>
+<tr>
+<td><code>setCancelEnabled</code></td>
+<td>enable or disable cancellation</td>
+</tr>
+<tr>
+<td><code>isCancelled</code></td>
+<td>query cancellation</td>
+</tr>
+<tr>
+<td><code>close</code></td>
+<td>destroy the progress UI</td>
+</tr>
+</tbody></table></div>
+<p>Python uses snake-case names. Every loop doing substantial work should check cancellation and close the progress object even when an operation fails.</p>
+<h3 id="dialog-object">Dialog object</h3>
+<p>Supported controls are <code>label</code>, <code>textbox</code>, <code>checkbox</code>, <code>radio</code>, <code>combobox</code>, <code>button</code>, <code>listview</code>, <code>treeview</code>, <code>tabcontrol</code>, <code>folderpicker</code>, and <code>filepicker</code>.</p>
+<p>The generic add operation accepts a control id, text, optional <code>x/y/width/height</code>, and applicable options: <code>readOnly</code>, <code>checked</code>, <code>dialogResult</code>, <code>keepOpen</code>, <code>multiline</code>, <code>filter</code>, and <code>save</code>.</p>
+<p>Convenience methods include:</p>
+<pre><code class="language-text">addLabel, addTextBox, addFolderPicker, addFilePicker, addCheckBox,
+addRadioButton, addComboBox, addListView, addTreeView, addTabControl,
+addButton, addItem/addNode/addTab, addColumn, setSelectedIndex,
+clearItems, setValidation, onChange, offChange, show/showModal,
+get/getValue, set/setValue, close/destroy</code></pre>
+<p>Names follow each runtime's normal convention. Consult the corresponding worker facade when positional argument order matters:</p>
+<ul>
+<li><code>src/plugins/javascriptruntime/runtime/salamatrix_worker.mjs</code></li>
+<li><code>src/plugins/pythonruntime/runtime/salamatrix_worker.py</code></li>
+<li><code>src/plugins/powershellruntime/runtime/salamatrix_worker.ps1</code></li>
+<li><code>src/plugins/phpruntime/runtime/salamatrix_worker.php</code></li>
+</ul>
+<h2 id="ai-service">AI service</h2>
+<p>Scripts may call the provider-neutral AI service through <code>ai.generate</code>, <code>ai.preview</code>, and <code>ai.api</code>/<code>apiDescription</code>. Generation accepts:</p>
+<pre><code class="language-text">prompt, context, provider, runtime, existingScript, feedback</code></pre>
+<p>The assistant itself must return exactly one JSON object:</p>
+<pre><code class="language-json">{
+  &quot;title&quot;: &quot;Short action title&quot;,
+  &quot;description&quot;: &quot;What the generated script actually does&quot;,
+  &quot;capabilities&quot;: [&quot;panels.read&quot;],
+  &quot;estimatedEffects&quot;: {
+    &quot;readSelection&quot;: true,
+    &quot;readMetadata&quot;: false,
+    &quot;renameFiles&quot;: false,
+    &quot;moveFiles&quot;: false,
+    &quot;deleteFiles&quot;: false,
+    &quot;modifyContents&quot;: true,
+    &quot;executeExternal&quot;: false,
+    &quot;network&quot;: false
+  },
+  &quot;runtime&quot;: &quot;JavaScript.Node&quot;,
+  &quot;canImplement&quot;: true,
+  &quot;missingCapabilities&quot;: [],
+  &quot;script&quot;: &quot;...&quot;
+}</code></pre>
+<p>Allowed capability names are exactly:</p>
+<pre><code class="language-text">panels.read, panels.write, ui.dialogs, commands, file-operations,
+storage, events, ai, clipboard, runtimes</code></pre>
+<p>All eight effect keys are mandatory booleans. <code>capabilities</code> says which Salamander framework surfaces the script uses; <code>estimatedEffects</code> says what the script actually does, including operations performed directly by runtime libraries.</p>
+<p>If and only if required Salamander host integration is absent:</p>
+<pre><code class="language-json">{
+  &quot;canImplement&quot;: false,
+  &quot;missingCapabilities&quot;: [
+    &quot;Register a custom panel column&quot;,
+    &quot;Provide a thumbnail for a panel item&quot;
+  ]
+}</code></pre>
+<p>The missing entries are human-readable framework gaps, not misspelled API identifiers and not missing language packages. A script that can obtain a selected file path and process it with its runtime is implementable.</p>
+<h2 id="capability-and-effect-guide">Capability and effect guide</h2>
+<div class="table-wrap"><table><thead><tr>
+<th>Script behavior</th>
+<th>Capability</th>
+<th>Effects</th>
+</tr></thead><tbody>
+<tr>
+<td>Read current selection</td>
+<td><code>panels.read</code></td>
+<td><code>readSelection</code></td>
+</tr>
+<tr>
+<td>Read item metadata returned by Salamander</td>
+<td><code>panels.read</code></td>
+<td><code>readMetadata</code></td>
+</tr>
+<tr>
+<td>Change panel selection/path/tab state</td>
+<td><code>panels.write</code></td>
+<td>according to resulting file impact</td>
+</tr>
+<tr>
+<td>Invoke interactive rename</td>
+<td><code>file-operations</code></td>
+<td><code>renameFiles</code></td>
+</tr>
+<tr>
+<td>Invoke interactive move</td>
+<td><code>file-operations</code></td>
+<td><code>moveFiles</code></td>
+</tr>
+<tr>
+<td>Invoke interactive delete</td>
+<td><code>file-operations</code></td>
+<td><code>deleteFiles</code></td>
+</tr>
+<tr>
+<td>Read a selected file with a runtime library</td>
+<td>usually <code>panels.read</code></td>
+<td><code>readSelection</code>, optionally <code>readMetadata</code></td>
+</tr>
+<tr>
+<td>Write a sidecar or transformed file</td>
+<td>capability for how paths were obtained</td>
+<td><code>modifyContents</code></td>
+</tr>
+<tr>
+<td>Start another process</td>
+<td>none unless Salamander API is also used</td>
+<td><code>executeExternal</code></td>
+</tr>
+<tr>
+<td>Access HTTP or another network service</td>
+<td>none unless Salamander API is also used</td>
+<td><code>network</code></td>
+</tr>
+</tbody></table></div>
+<p>Conservative declaration is required, but setting every effect and every capability to true is incorrect. The preview is useful only when it describes the generated source accurately.</p>
+<h2 id="known-limits-and-honest-gap-reporting">Known limits and honest GAP reporting</h2>
+<p>The current context returns at most 64 selected item records. The framework does not currently expose arbitrary custom panel columns, panel thumbnail providers, overlay icons, archive internals, or dockable panes to scripts. Those are legitimate <code>missingCapabilities</code>.</p>
+<p>By contrast, hashing files, parsing formats, creating sidecars, calling an installed command-line tool, or using a language package is not automatically a framework GAP once the script can obtain the required paths.</p>
+</main></body>
+</html>

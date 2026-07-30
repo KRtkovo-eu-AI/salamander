@@ -752,12 +752,16 @@ returns one JSON object/array on standard output; the bridge bounds output to
 1 MiB and clamps generation to a two-minute timeout. The native provider uses
 the same structured contract over WinHTTP, so a local model can be used
 without shipping a model SDK or coupling Salamander to a vendor. The optional
-companion plugin `Salamatrix AI Local Llama` registers `local.bundled`, a
+companion plugin `Salamatrix AI Local LLaMA` registers `local.bundled`, a
 server-free provider that starts `runtime\\llama-cli.exe` against
-`runtime\\salamatrix.gguf` after the user installs those assets from the
-plugin Configuration page. The installer downloads the pinned Windows x64
-CPU package and Qwen GGUF file, verifies both SHA-256 values, and stores the
-applicable license notices beside the files.
+the model selected on the plugin Configuration page. Qwen2.5-Coder 1.5B
+Instruct Q4_K_M is the recommended default; Qwen2.5-Coder 0.5B Instruct
+Q4_K_M remains available as a lightweight option for English prompts only.
+Both models may be installed side by side and the selection is persisted.
+The installer downloads the pinned Windows x64 CPU package and selected Qwen
+GGUF file, verifies both SHA-256 values, and stores the applicable license
+notices beside the files. Existing `runtime\\salamatrix.gguf` installations
+are migrated as the 0.5B profile.
 Both assets can be overridden with `SALAMATRIX_AI_BUNDLED_COMMAND` and
 `SALAMATRIX_AI_BUNDLED_MODEL`; the provider is advertised as ready only when
 both files exist.
@@ -787,7 +791,7 @@ target Python, PowerShell, PHP, or another registered adapter and continue a
 bounded conversation without a second provider-specific API. The native
 Ask-AI action offers at most three generation iterations before the final
 preview, keeping the repair loop bounded. The main AI helper remains
-model-free; the optional `Salamatrix AI Local Llama` companion supplies the
+model-free; the optional `Salamatrix AI Local LLaMA` companion supplies the
 on-demand downloader for the separately installed llama.cpp binary and GGUF model.
 For a local model without a custom provider implementation, the repository also
 ships the optional `src/plugins/automation/runtime/salamatrix_ai_local.py`
@@ -928,7 +932,9 @@ Schema version 1 supports:
 - a runtime string or `{ "id", "minimumVersion" }` object;
 - a validated string array of declared `capabilities`;
 - up to 64 command records with `id`, `title`, `handler`, `menu`/`placement`,
-  `contextMenu`, and `requires`.
+  `contextMenu`, `toolbar`, `toolbarMenu`, and `requires`. A command with both
+  `toolbar` and `toolbarMenu` contributes one Extension Bar button that opens
+  the package's visible plugin-menu commands instead of executing directly.
 
 Automation currently contributes the first parsed command to its legacy native
 menu surface; preserving all parsed commands for dynamic command contribution
