@@ -97,4 +97,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 120,1,"Automatische installatie is alleen beschikbaar voor officiële .7z-releasepakketten van plug-ins of extensies."
 121,1,"Het pakket is gereed en wordt geïnstalleerd nadat Open Salamander is afgesloten."
 122,1,"De update is gereed en vervangt het geïnstalleerde pakket nadat Open Salamander is afgesloten."
+123,1,"De geselecteerde plug-in vereist de volgende ontbrekende afhankelijkheden. Ze worden automatisch geïnstalleerd of hun webpagina's worden samen geopend:\n\n{0}\n\nDoorgaan?"
+124,1,"Een vereiste afhankelijkheid ontbreekt in de ingeschakelde catalogi of biedt geen installatiepagina:\n\n{0}"
 

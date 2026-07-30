@@ -97,4 +97,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 120,1,"La instalación automática solo está disponible para paquetes de versión .7z oficiales de plugins o extensiones."
 121,1,"El paquete está listo y se instalará después de cerrar Open Salamander."
 122,1,"La actualización está lista y reemplazará el paquete instalado después de cerrar Open Salamander."
+123,1,"El plugin seleccionado requiere las siguientes dependencias que faltan. Se instalarán automáticamente o sus páginas web se abrirán juntas:\n\n{0}\n\n¿Continuar?"
+124,1,"Falta una dependencia requerida en los catálogos habilitados o no proporciona una página de instalación:\n\n{0}"
 

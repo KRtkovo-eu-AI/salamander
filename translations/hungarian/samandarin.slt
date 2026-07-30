@@ -97,4 +97,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 120,1,"Az automatikus telepítés csak hivatalos plugin- vagy kiterjesztéskiadási .7z csomagokhoz érhető el."
 121,1,"A csomag készen áll, és az Open Salamander bezárása után települ."
 122,1,"A frissítés készen áll, és az Open Salamander bezárása után lecseréli a telepített csomagot."
+123,1,"A kijelölt bővítményhez a következő hiányzó függőségek szükségesek. Ezek automatikusan települnek, vagy együtt megnyílnak a weboldalaik:\n\n{0}\n\nFolytatja?"
+124,1,"Egy szükséges függőség hiányzik az engedélyezett katalógusokból, vagy nem biztosít telepítési oldalt:\n\n{0}"
 

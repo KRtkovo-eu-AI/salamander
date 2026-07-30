@@ -99,4 +99,6 @@ STRINGTABLE
  IDS_PLUGIN_INSTALL_UNAVAILABLE, "Automatic installation is available only for official plugin or extension .7z release packages."
  IDS_PLUGIN_INSTALL_SCHEDULED, "The package is ready and will be installed after Open Salamander exits."
  IDS_PLUGIN_UPDATE_SCHEDULED, "The update is ready and will replace the installed package after Open Salamander exits."
+ IDS_PLUGIN_DEPENDENCIES_REQUIRED, "The selected plugin requires these missing dependencies. They will be installed automatically or their web pages will be opened together:\n\n{0}\n\nContinue?"
+ IDS_PLUGIN_DEPENDENCY_UNAVAILABLE, "A required dependency is missing from the enabled catalogs or does not provide an installation page:\n\n{0}"
 }

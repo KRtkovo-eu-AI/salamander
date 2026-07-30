@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "catalogName": "Stable",
-  "generatedAt": "2026-07-30T13:50:33Z",
+  "generatedAt": "2026-07-30T20:41:17Z",
   "plugins": [
     {
       "id": "7zip",
@@ -184,6 +184,24 @@
       "icon": "https://samandarin.krtkovo.eu/catalogs/img/filecomp.png"
     },
     {
+      "id": "file-lock-inspector",
+      "name": {
+        "english": "File Lock Inspector"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Find processes that prevent selected files from being changed, moved, or deleted."
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.0_x64/plugin_5.0_file-lock-inspector_1.0.0_x64.7z",
+      "dependencies": [
+        "powershellruntime"
+      ],
+      "icon": "plugin"
+    },
+    {
       "id": "folders",
       "name": {
         "english": "Folders",
@@ -266,6 +284,9 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_git-worktree-navigator_1.0.0_x64/plugin_5.0_git-worktree-navigator_1.0.0_x64.7z",
+      "dependencies": [
+        "powershellruntime"
+      ],
       "icon": "plugin"
     },
     {
