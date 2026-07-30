@@ -30,7 +30,7 @@ COMMENT,"English version"
 106,1,"Het cataloguspad is ongeldig of te lang."
 107,1,"De catalogusnaam wordt al gebruikt door een map."
 108,0,"The catalog already exists:\n\n"
-109,0,"\n\nDo you want to overwrite it?"
+109,1,"\n\nWil je het overschrijven?"
 110,1,"DiskDir-catalogi slaan geen bestandsinhoud op, dus bronbestanden kunnen niet worden verplaatst."
 111,1,"Items toevoegen aan een bestaande DiskDir-catalogus wordt niet ondersteund."
 

@@ -30,7 +30,7 @@ COMMENT,"English version"
 106,1,"A katalógus elérési útja érvénytelen vagy túl hosszú."
 107,1,"A katalógusnév már használatban van."
 108,0,"The catalog already exists:\n\n"
-109,0,"\n\nDo you want to overwrite it?"
+109,1,"\n\nFelülírjam?"
 110,1,"A DiskDir katalógusok nem tárolják a fájltartalmat, ezért a forrásfájlok nem mozgathatók."
 111,1,"Nem támogatott meglévő DiskDir katalógusba bejegyzéseket hozzáadni."
 
