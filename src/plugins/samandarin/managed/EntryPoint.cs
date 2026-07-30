@@ -61,6 +61,16 @@ public static class EntryPoint
     private static int Initialize(IntPtr parent, string currentVersion)
     {
         UpdateCoordinator.Initialize(currentVersion, parent);
+        if (PluginPackageInstaller.TryTakeLastError(out var installError))
+        {
+            var owner = parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null;
+            ThemeHelper.ShowMessageBox(
+                owner,
+                $"{NativeStrings.Get(NativeStringId.PluginInstallFailed)}{Environment.NewLine}{installError}",
+                NativeStrings.PluginCaption,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
         return 0;
     }
 
@@ -264,6 +274,13 @@ internal enum NativeStringId
     PluginDetails = 113,
     PluginDescriptionLabel = 114,
     PluginDownloadPage = 115,
+    PluginInstall = 116,
+    PluginUpdate = 117,
+    PluginInstallPreparing = 118,
+    PluginInstallFailed = 119,
+    PluginInstallUnavailable = 120,
+    PluginInstallScheduled = 121,
+    PluginUpdateScheduled = 122,
 }
 
 internal static class NativeStrings
@@ -1187,6 +1204,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private readonly Label _statusLabel;
     private readonly Button _refreshButton;
     private readonly Button _sourcesButton;
+    private readonly Button _installButton;
     private readonly ContextMenuStrip _listContextMenu;
     private readonly ImageList _pluginImages;
     private readonly Dictionary<string, Image> _pluginImageSources =
@@ -1208,6 +1226,8 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private readonly List<PluginUpdateRow> _rows = new();
     private int _sortColumn = 2;
     private SortOrder _sortOrder = SortOrder.Ascending;
+    private bool _installScheduled;
+    private bool _installInProgress;
 
     private static readonly System.Drawing.Size LogicalMinimumWindowSize =
         new(940, 650);
@@ -1337,7 +1357,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             FlowDirection = FlowDirection.RightToLeft,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
-            Size = new System.Drawing.Size(275, 27),
+            Size = new System.Drawing.Size(394, 27),
         };
         var closeButton = CreateDialogButton(
             NativeStrings.Get(NativeStringId.PluginUpdatesClose), 75);
@@ -1350,11 +1370,17 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources),
             116);
         _sourcesButton.Margin = new Padding(0, 0, 4, 0);
+        _installButton = CreateDialogButton(
+            NativeStrings.Get(NativeStringId.PluginInstall),
+            115);
+        _installButton.Margin = new Padding(0, 0, 4, 0);
         _refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
         _sourcesButton.Click += (_, _) => ShowSourcesDialog();
+        _installButton.Click += async (_, _) => await ActivateSelectedAsync().ConfigureAwait(true);
         buttons.Controls.Add(closeButton);
         buttons.Controls.Add(_refreshButton);
         buttons.Controls.Add(_sourcesButton);
+        buttons.Controls.Add(_installButton);
         bottomPanel.Controls.Add(buttons, 1, 0);
         layout.Controls.Add(bottomPanel, 0, 4);
 
@@ -1562,6 +1588,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         _showOnlyUpdates.Enabled = !isLoading;
         _refreshButton.Enabled = !isLoading;
         _sourcesButton.Enabled = !isLoading;
+        _installButton.Enabled = !isLoading && CanInstallSelected();
         UseWaitCursor = isLoading;
     }
 
@@ -1857,6 +1884,15 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         _detailHomepageValue.Text = row?.Homepage ?? string.Empty;
         _detailDownloadValue.Text = row?.WebUrl ?? string.Empty;
         _detailDescriptionValue.Text = row?.Description ?? string.Empty;
+        var supportsAutomaticInstall = PluginPackageInstaller.CanInstall(row);
+        _installButton.Text = supportsAutomaticInstall
+            ? row is not null && !string.IsNullOrWhiteSpace(row.InstallDirectory)
+                ? NativeStrings.Get(NativeStringId.PluginUpdate)
+                : NativeStrings.Get(NativeStringId.PluginInstall)
+            : NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage);
+        _installButton.Enabled = supportsAutomaticInstall
+            ? !_installScheduled && !_installInProgress
+            : !_installInProgress && row is not null && !string.IsNullOrWhiteSpace(row.WebUrl);
     }
 
     private void ListViewOnMouseDown(object? sender, MouseEventArgs e)
@@ -1930,7 +1966,83 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             return;
         }
 
+        _ = ActivateSelectedAsync();
+    }
+
+    private PluginUpdateRow? GetSelectedRow() =>
+        _listView.SelectedItems.Count == 0
+            ? null
+            : _listView.SelectedItems[0].Tag as PluginUpdateRow;
+
+    private bool CanInstallSelected() =>
+        !_installScheduled && !_installInProgress && PluginPackageInstaller.CanInstall(GetSelectedRow());
+
+    private async Task ActivateSelectedAsync()
+    {
+        var row = GetSelectedRow();
+        if (PluginPackageInstaller.CanInstall(row))
+        {
+            if (CanInstallSelected())
+            {
+                await InstallSelectedAsync().ConfigureAwait(true);
+            }
+            return;
+        }
+
         OpenSelectedPage();
+    }
+
+    private async Task InstallSelectedAsync()
+    {
+        var row = GetSelectedRow();
+        if (!CanInstallSelected())
+        {
+            ThemeHelper.ShowMessageBox(
+                this,
+                NativeStrings.Get(NativeStringId.PluginInstallUnavailable),
+                NativeStrings.PluginCaption,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        _installInProgress = true;
+        _installButton.Enabled = false;
+        _refreshButton.Enabled = false;
+        _sourcesButton.Enabled = false;
+        _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginInstallPreparing);
+        UseWaitCursor = true;
+        try
+        {
+            var status = await PluginPackageInstaller.StageAsync(row!).ConfigureAwait(true);
+            _installScheduled = true;
+            _statusLabel.Text = status;
+            ThemeHelper.ShowMessageBox(
+                this,
+                status,
+                NativeStrings.PluginCaption,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            var message = $"{NativeStrings.Get(NativeStringId.PluginInstallFailed)}{Environment.NewLine}{ex.Message}";
+            _statusLabel.Text = message;
+            ThemeHelper.ShowMessageBox(
+                this,
+                message,
+                NativeStrings.PluginCaption,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _installInProgress = false;
+            UseWaitCursor = false;
+            _refreshButton.Enabled = true;
+            _sourcesButton.Enabled = true;
+            _installButton.Enabled = CanInstallSelected();
+        }
     }
 
     private void OpenSelectedPage()
@@ -2392,14 +2504,14 @@ internal static class PluginCatalogService
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id);
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
     {
         if (entry is null)
         {
-            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty, string.Empty);
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty, string.Empty, plugin.Id, plugin.Kind, plugin.InstallDirectory);
         }
 
         var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
@@ -2415,7 +2527,7 @@ internal static class PluginCatalogService
         var displayName = IsTotalCommanderProxyCatalogEntry(entry) && IsTotalCommanderProxyInstance(plugin)
             ? plugin.DisplayName
             : LocalizedText.Resolve(entry.name) ?? plugin.DisplayName;
-        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty);
+        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id ?? plugin.Id, plugin.Kind, plugin.InstallDirectory);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -2581,9 +2693,14 @@ internal static class InstalledPluginScanner
 {
     public static IEnumerable<InstalledPlugin> Scan()
     {
-        return NativeInstalledPluginProvider.TryReadInstalledPlugins(out var livePlugins)
-            ? livePlugins
-            : ScanPluginDirectory();
+        var packages = NativeInstalledPluginProvider.TryReadInstalledPlugins(out var livePlugins)
+            ? livePlugins.ToList()
+            : ScanPluginDirectory().ToList();
+        if (NativeInstalledExtensionProvider.TryReadInstalledExtensions(out var liveExtensions))
+        {
+            packages.AddRange(liveExtensions);
+        }
+        return packages;
     }
 
     private static IEnumerable<InstalledPlugin> ScanPluginDirectory()
@@ -2612,7 +2729,7 @@ internal static class InstalledPluginScanner
             var id = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }).FirstOrDefault() ?? Path.GetFileNameWithoutExtension(file);
             var display = BuildDisplayName(id, file);
             var version = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion! : info.ProductVersion ?? string.Empty;
-            yield return new InstalledPlugin(id, display, version, file);
+            yield return new InstalledPlugin(id, display, version, file, InstalledPackageKind.Plugin, Path.GetDirectoryName(file));
         }
     }
 
@@ -2680,7 +2797,56 @@ internal static class NativeInstalledPluginProvider
                 displayName = id;
             }
 
-            yield return new InstalledPlugin(id, displayName!, version ?? string.Empty, resolvedDllPath);
+            yield return new InstalledPlugin(
+                id,
+                displayName!,
+                version ?? string.Empty,
+                resolvedDllPath,
+                InstalledPackageKind.Plugin,
+                string.IsNullOrWhiteSpace(resolvedDllPath) ? null : Path.GetDirectoryName(resolvedDllPath));
+        }
+    }
+}
+
+internal static class NativeInstalledExtensionProvider
+{
+    [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+    private static extern int Samandarin_ExportInstalledExtensions(StringBuilder? buffer, int cchBuffer);
+
+    public static bool TryReadInstalledExtensions(out IReadOnlyList<InstalledPlugin> extensions)
+    {
+        extensions = Array.Empty<InstalledPlugin>();
+        try
+        {
+            var required = Samandarin_ExportInstalledExtensions(null, 0);
+            if (required <= 1) return false;
+            var buffer = new StringBuilder(required);
+            if (Samandarin_ExportInstalledExtensions(buffer, buffer.Capacity) <= 1) return false;
+            extensions = ParseExport(buffer.ToString()).ToList();
+            return extensions.Count > 0;
+        }
+        catch (DllNotFoundException) { return false; }
+        catch (EntryPointNotFoundException) { return false; }
+    }
+
+    private static IEnumerable<InstalledPlugin> ParseExport(string exportText)
+    {
+        foreach (var line in exportText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Split('\t');
+            if (parts.Length < 4 || string.IsNullOrWhiteSpace(parts[0])) continue;
+            var entryPoint = PluginMetadata.ResolveApplicationRelativePath(parts[3]);
+            var packageDirectory = PluginMetadata.FindExtensionPackageDirectory(entryPoint);
+            var iconPath = parts.Length > 4
+                ? PluginMetadata.ResolveApplicationRelativePath(parts[4])
+                : null;
+            yield return new InstalledPlugin(
+                parts[0],
+                string.IsNullOrWhiteSpace(parts[1]) ? parts[0] : parts[1],
+                parts[2],
+                iconPath,
+                InstalledPackageKind.Extension,
+                packageDirectory);
         }
     }
 }
@@ -2720,7 +2886,31 @@ internal static class PluginMetadata
             : firstSegment!;
     }
 
-    private static string? GetExecutableDirectory()
+    public static string? ResolveApplicationRelativePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        var normalized = path!.Trim();
+        if (Path.IsPathRooted(normalized)) return Path.GetFullPath(normalized);
+        var executableDirectory = GetExecutableDirectory();
+        return string.IsNullOrWhiteSpace(executableDirectory)
+            ? null
+            : Path.GetFullPath(Path.Combine(executableDirectory!, normalized));
+    }
+
+    public static string? FindExtensionPackageDirectory(string? entryPoint)
+    {
+        var current = string.IsNullOrWhiteSpace(entryPoint)
+            ? null
+            : (Directory.Exists(entryPoint) ? entryPoint : Path.GetDirectoryName(entryPoint));
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current!, "extension.json"))) return current;
+            current = Path.GetDirectoryName(current);
+        }
+        return null;
+    }
+
+    public static string? GetExecutableDirectory()
     {
         var executablePath = Application.ExecutablePath;
         return string.IsNullOrWhiteSpace(executablePath) ? null : Path.GetDirectoryName(executablePath);
@@ -2849,21 +3039,26 @@ internal static class PluginVersionComparer
 
 internal enum PluginVersionComparison { Unknown, Current, UpdateAvailable, Different }
 internal enum PluginUpdateStatus { Other, UpdateAvailable, NotInCatalog, CatalogError }
+internal enum InstalledPackageKind { Unknown, Plugin, Extension }
 
 internal sealed class InstalledPlugin
 {
-    public InstalledPlugin(string id, string displayName, string versionText, string? iconPath = null)
+    public InstalledPlugin(string id, string displayName, string versionText, string? iconPath = null, InstalledPackageKind kind = InstalledPackageKind.Unknown, string? installDirectory = null)
     {
         Id = id;
         DisplayName = displayName;
         VersionText = InstalledPluginVersionFormatter.WithCurrentPlatform(versionText);
         IconPath = iconPath ?? string.Empty;
+        Kind = kind;
+        InstallDirectory = installDirectory ?? string.Empty;
     }
 
     public string Id { get; }
     public string DisplayName { get; }
     public string VersionText { get; }
     public string IconPath { get; }
+    public InstalledPackageKind Kind { get; }
+    public string InstallDirectory { get; }
 }
 
 internal static class InstalledPluginVersionFormatter
@@ -2893,7 +3088,7 @@ internal static class InstalledPluginVersionFormatter
 
 internal sealed class PluginUpdateRow
 {
-    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? catalogIconReference, string? catalogSourceUrl)
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? catalogIconReference, string? catalogSourceUrl, string? id = null, InstalledPackageKind installedKind = InstalledPackageKind.Unknown, string? installDirectory = null)
     {
         Name = name;
         InstalledVersion = installedVersion;
@@ -2908,6 +3103,9 @@ internal sealed class PluginUpdateRow
         IconPath = iconPath ?? string.Empty;
         CatalogIconReference = catalogIconReference ?? string.Empty;
         CatalogSourceUrl = catalogSourceUrl ?? string.Empty;
+        Id = id ?? string.Empty;
+        InstalledKind = installedKind;
+        InstallDirectory = installDirectory ?? string.Empty;
     }
 
     public string Name { get; }
@@ -2923,6 +3121,9 @@ internal sealed class PluginUpdateRow
     public string IconPath { get; }
     public string CatalogIconReference { get; }
     public string CatalogSourceUrl { get; }
+    public string Id { get; }
+    public InstalledPackageKind InstalledKind { get; }
+    public string InstallDirectory { get; }
 
     public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty, null, string.Empty, string.Empty);
 }

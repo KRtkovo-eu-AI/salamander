@@ -65,4 +65,8 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpCompress" Version="0.48.1" />
+  </ItemGroup>
 </Project>

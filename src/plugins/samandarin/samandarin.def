@@ -9,3 +9,5 @@ EXPORTS Samandarin_GetLanguageModulePath
 EXPORTS Samandarin_SaveSettings
 EXPORTS Samandarin_SetDarkModeState
 EXPORTS Samandarin_UpdateListViewDarkMode
+EXPORTS Samandarin_ExportInstalledPlugins
+EXPORTS Samandarin_ExportInstalledExtensions

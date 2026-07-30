@@ -11,6 +11,9 @@
 
 #include "precomp.h"
 #include <stdlib.h>
+#include <string>
+
+#include "../salamatrix/salamatrix_extensions.h"
 
 // objekt interfacu pluginu, jeho metody se volaji ze Salamandera
 CPluginInterface PluginInterface;
@@ -50,6 +53,81 @@ extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledPlugins
         return 0;
 
     return exportInstalledPlugins(buffer, cchBuffer);
+}
+
+namespace
+{
+void AppendUtf8ExportField(std::wstring& output, const char* text)
+{
+    if (text == NULL)
+        return;
+    int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    if (required == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        required = MultiByteToWideChar(codePage, flags, text, -1, NULL, 0);
+    }
+    if (required <= 1)
+        return;
+    std::wstring wide(static_cast<size_t>(required), L'\0');
+    MultiByteToWideChar(codePage, flags, text, -1, &wide[0], required);
+    wide.resize(static_cast<size_t>(required - 1));
+    for (size_t index = 0; index < wide.size(); ++index)
+    {
+        wchar_t character = wide[index];
+        output.push_back(character == L'\t' || character == L'\r' || character == L'\n'
+                             ? L' '
+                             : character);
+    }
+}
+}
+
+extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledExtensions(wchar_t* buffer, int cchBuffer)
+{
+    if (SalamanderGeneral == NULL)
+        return 0;
+
+    CSalamanderServiceQuery query;
+    memset(&query, 0, sizeof(query));
+    query.ServiceId = SALAMATRIX_SERVICE_EXTENSIONS;
+    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_0;
+    CSalamanderServiceResult result;
+    memset(&result, 0, sizeof(result));
+    if (!SalamanderGeneral->QueryService(&query, &result) || result.Interface == NULL)
+        return 0;
+
+    Salamatrix::Extensions::IExtensionsService* service =
+        static_cast<Salamatrix::Extensions::IExtensionsService*>(result.Interface);
+    std::wstring text;
+    const int count = service->GetExtensionCount();
+    for (int index = 0; index < count; ++index)
+    {
+        Salamatrix::Extensions::ExtensionInfo info;
+        if (!service->GetExtensionInfo(index, &info) ||
+            (info.Descriptor.Flags & Salamatrix::Extensions::ExtensionFlagPackage) == 0)
+        {
+            continue;
+        }
+
+        AppendUtf8ExportField(text, info.Descriptor.Id);
+        text.push_back(L'\t');
+        AppendUtf8ExportField(text, info.Descriptor.Name);
+        text.push_back(L'\t');
+        AppendUtf8ExportField(text, info.Descriptor.Version);
+        text.push_back(L'\t');
+        AppendUtf8ExportField(text, info.Descriptor.EntryPoint);
+        text.push_back(L'\t');
+        AppendUtf8ExportField(text, info.Descriptor.IconPath);
+        text.push_back(L'\n');
+    }
+
+    const int required = static_cast<int>(text.size()) + 1;
+    if (buffer != NULL && cchBuffer > 0)
+        lstrcpynW(buffer, text.c_str(), cchBuffer);
+    return required;
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
