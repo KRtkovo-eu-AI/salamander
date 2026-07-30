@@ -6,6 +6,8 @@
 
 #include "cfgdlg.h"
 #include "mainwnd.h"
+#include "usermenu.h"
+#include "execute.h"
 #include "plugins.h"
 #include "fileswnd.h"
 #include "dialogs.h"
@@ -384,6 +386,340 @@ const char* WINAPI PanelSalEnumSelection(HWND parent, int enumFiles, BOOL* isDir
         enumFiles = 1;
     }
     return _PanelSalEnumSelection(enumFiles, NULL, isDir, size, fileData, param, parent, errorOccured);
+}
+
+namespace
+{
+struct CDiskDirEnumEntry
+{
+    std::string Name;
+    std::string DosName;
+    BOOL IsDirectory;
+    CQuadWord Size;
+    DWORD Attributes;
+    FILETIME LastWrite;
+};
+
+struct CDiskDirEnumData
+{
+    CFilesWindow* Panel;
+    std::vector<int> Indexes;
+    std::vector<CDiskDirEnumEntry> Entries;
+    std::wstring OutputPath;
+};
+
+static std::wstring DiskDirFileNameW(const CFileData* file)
+{
+    if (file->UseWideName())
+        return file->NameW;
+    std::wstring name = SalMultiByteToWidePath(file->Name, CP_UTF8);
+    if (name.empty())
+        name = SalMultiByteToWidePath(file->Name, CP_ACP);
+    return name;
+}
+
+static std::string DiskDirFileNameUtf8(const wchar_t* name)
+{
+    return SalWideToMultiBytePath(name, CP_UTF8);
+}
+
+static bool DiskDirSamePath(const std::wstring& first,
+                            const std::wstring& second)
+{
+    return !first.empty() && !second.empty() &&
+           CompareStringOrdinal(first.c_str(), -1, second.c_str(), -1,
+                                TRUE) == CSTR_EQUAL;
+}
+
+static bool DiskDirAddEnumEntry(CDiskDirEnumData* data,
+                                const std::wstring& relativeName,
+                                const wchar_t* dosName, BOOL isDirectory,
+                                const CQuadWord& size, DWORD attributes,
+                                const FILETIME& lastWrite)
+{
+    CDiskDirEnumEntry entry;
+    entry.Name = DiskDirFileNameUtf8(relativeName.c_str());
+    if (entry.Name.empty())
+        return false;
+    if (dosName != NULL && dosName[0] != 0)
+        entry.DosName = DiskDirFileNameUtf8(dosName);
+    entry.IsDirectory = isDirectory;
+    entry.Size = size;
+    entry.Attributes = attributes;
+    entry.LastWrite = lastWrite;
+    data->Entries.push_back(entry);
+    return true;
+}
+
+static bool DiskDirReportEnumerationError(HWND parent,
+                                          const std::wstring& path,
+                                          DWORD error)
+{
+    std::string pathUtf8 = DiskDirFileNameUtf8(path.c_str());
+    const char* errorText = GetErrorText(error);
+    std::string message = LoadStr(IDS_CANNOTREADDIR);
+    size_t pathPos = message.find("%s");
+    size_t errorPos = pathPos == std::string::npos
+                          ? std::string::npos
+                          : message.find("%s", pathPos + 2);
+    if (errorPos != std::string::npos)
+        message.replace(errorPos, 2, errorText);
+    if (pathPos != std::string::npos)
+        message.replace(pathPos, 2, pathUtf8);
+    SalMessageBox(parent, message.c_str(), LoadStr(IDS_ERRORTITLE),
+                  MB_OK | MB_ICONEXCLAMATION);
+    return false;
+}
+
+static bool DiskDirEnumDirectory(HWND parent, const std::wstring& fullPath,
+                                 const std::wstring& relativePath,
+                                 CDiskDirEnumData* data)
+{
+    std::wstring searchPath = fullPath;
+    if (!SalPathAppendW(searchPath, L"*"))
+        return DiskDirReportEnumerationError(parent, fullPath,
+                                             ERROR_FILENAME_EXCED_RANGE);
+    searchPath = SalPathAddExtendedPrefixW(searchPath.c_str());
+
+    WIN32_FIND_DATAW found = {};
+    HANDLE find = FindFirstFileW(searchPath.c_str(), &found);
+    if (find == INVALID_HANDLE_VALUE)
+    {
+        DWORD error = GetLastError();
+        if (error == ERROR_FILE_NOT_FOUND || error == ERROR_NO_MORE_FILES)
+            return true;
+        return DiskDirReportEnumerationError(parent, fullPath, error);
+    }
+
+    bool result = true;
+    do
+    {
+        if (found.cFileName[0] == L'.' &&
+            (found.cFileName[1] == 0 ||
+             (found.cFileName[1] == L'.' && found.cFileName[2] == 0)))
+            continue;
+
+        std::wstring childRelative = relativePath;
+        std::wstring childFull = fullPath;
+        if (!SalPathAppendW(childRelative, found.cFileName) ||
+            !SalPathAppendW(childFull, found.cFileName))
+        {
+            result = DiskDirReportEnumerationError(
+                parent, childFull, ERROR_FILENAME_EXCED_RANGE);
+            break;
+        }
+        if (DiskDirSamePath(childFull, data->OutputPath))
+            continue;
+
+        BOOL isDirectory =
+            (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        CQuadWord size(isDirectory ? 0 : found.nFileSizeLow,
+                       isDirectory ? 0 : found.nFileSizeHigh);
+        if (!DiskDirAddEnumEntry(data, childRelative,
+                                 found.cAlternateFileName, isDirectory, size,
+                                 found.dwFileAttributes, found.ftLastWriteTime))
+        {
+            result = false;
+            break;
+        }
+
+        if (isDirectory &&
+            (found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0 &&
+            !DiskDirEnumDirectory(parent, childFull, childRelative, data))
+        {
+            result = false;
+            break;
+        }
+    } while (FindNextFileW(find, &found));
+
+    if (result)
+    {
+        DWORD error = GetLastError();
+        if (error != ERROR_NO_MORE_FILES)
+            result = DiskDirReportEnumerationError(parent, fullPath, error);
+    }
+    FindClose(find);
+    return result;
+}
+
+static bool DiskDirBuildEnumeration(HWND parent, int enumFiles,
+                                    CDiskDirEnumData* data)
+{
+    std::wstring panelPath = data->Panel->GetPathW();
+    if (panelPath.empty())
+    {
+        panelPath = SalMultiByteToWidePath(data->Panel->GetPath(), CP_UTF8);
+        if (panelPath.empty())
+            panelPath = SalMultiByteToWidePath(data->Panel->GetPath(), CP_ACP);
+    }
+    if (panelPath.empty())
+        return false;
+
+    for (int index : data->Indexes)
+    {
+        BOOL isDirectory = index < data->Panel->Dirs->Count;
+        CFileData* file =
+            &(isDirectory
+                  ? data->Panel->Dirs->At(index)
+                  : data->Panel->Files->At(index - data->Panel->Dirs->Count));
+        std::wstring name = DiskDirFileNameW(file);
+        if (name.empty() || name == L"..")
+            continue;
+
+        std::wstring fullPath = panelPath;
+        if (!SalPathAppendW(fullPath, name.c_str()))
+            return false;
+        if (DiskDirSamePath(fullPath, data->OutputPath))
+            continue;
+
+        std::wstring dosName;
+        if (file->DosName != NULL)
+            dosName = SalMultiByteToWidePath(file->DosName, CP_ACP);
+        if (!DiskDirAddEnumEntry(data, name,
+                                 dosName.empty() ? NULL : dosName.c_str(),
+                                 isDirectory, file->Size, file->Attr,
+                                 file->LastWrite))
+            return false;
+
+        if (enumFiles > 0 && isDirectory &&
+            (file->Attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
+        {
+            if (!DiskDirEnumDirectory(parent, fullPath, name, data))
+                return false;
+        }
+    }
+    return true;
+}
+
+static void DiskDirPrepareFileListEntry(const CDiskDirEnumEntry& entry,
+                                        const std::string& panelPath,
+                                        CFileData& file, std::string& name,
+                                        std::string& path)
+{
+    size_t slash = entry.Name.find_last_of("\\/");
+    name = slash == std::string::npos ? entry.Name : entry.Name.substr(slash + 1);
+    path = panelPath;
+    if (slash != std::string::npos)
+    {
+        if (!path.empty() && path.back() != '\\')
+            path.push_back('\\');
+        path.append(entry.Name, 0, slash);
+    }
+
+    file = {};
+    file.Name = const_cast<char*>(name.c_str());
+    file.NameLen = static_cast<int>(name.size());
+    file.DosName = entry.DosName.empty()
+                       ? NULL
+                       : const_cast<char*>(entry.DosName.c_str());
+    char* extension = strrchr(file.Name, '.');
+    file.Ext = !entry.IsDirectory && extension != NULL
+                   ? extension + 1
+                   : file.Name + file.NameLen;
+    file.Size = entry.Size;
+    file.Attr = entry.Attributes;
+    file.LastWrite = entry.LastWrite;
+    file.IsLink = !entry.IsDirectory && IsFileLink(file.Ext);
+    file.IconOverlayIndex = ICONOVERLAYINDEX_NOTUSED;
+}
+}
+
+BOOL CFilesWindow::MakeFileListRecursive(HANDLE hFile,
+                                         const char* outputFileName)
+{
+    CALL_STACK_MESSAGE2("CFilesWindow::MakeFileListRecursive(, %s)",
+                        outputFileName);
+    if (!Is(ptDisk) || outputFileName == NULL || FilesActionInProgress)
+        return FALSE;
+
+    CDiskDirEnumData data = {};
+    data.Panel = this;
+    data.OutputPath = SalMultiByteToWidePath(outputFileName, CP_UTF8);
+    if (data.OutputPath.empty())
+        data.OutputPath = SalMultiByteToWidePath(outputFileName, CP_ACP);
+    data.OutputPath = SalPathRemoveExtendedPrefixW(data.OutputPath.c_str());
+    int selectedCount = GetSelCount();
+    if (selectedCount > 0)
+    {
+        data.Indexes.resize(selectedCount);
+        GetSelItems(selectedCount, data.Indexes.data());
+    }
+    else
+        data.Indexes.push_back(GetCaretIndex());
+
+    BOOL upDir = Dirs->Count > 0 && strcmp(Dirs->At(0).Name, "..") == 0;
+    if (data.Indexes[0] < 0 ||
+        (upDir && data.Indexes.size() == 1 && data.Indexes[0] == 0))
+        return FALSE;
+
+    FilesActionInProgress = TRUE;
+    BOOL result = FALSE;
+    if (DiskDirBuildEnumeration(HWindow, 1, &data))
+    {
+        const DWORD validData =
+            VALID_DATA_EXTENSION | VALID_DATA_SIZE | VALID_DATA_DATE |
+            VALID_DATA_TIME | VALID_DATA_ATTRIBUTES | VALID_DATA_DOSNAME |
+            VALID_DATA_ISLINK;
+        std::string panelPath = SalWideToMultiBytePath(GetPathW(), CP_UTF8);
+        if (panelPath.empty())
+            panelPath = GetPath();
+
+        int maxSizes[100];
+        ZeroMemory(maxSizes, sizeof(maxSizes));
+        std::vector<char> line(4 * SAL_MAX_PATH);
+        result = TRUE;
+        for (int pass = 0; pass < 2 && result; ++pass)
+        {
+            size_t entryIndex = 0;
+            for (const CDiskDirEnumEntry& entry : data.Entries)
+            {
+                CFileData file;
+                std::string name;
+                std::string path;
+                DiskDirPrepareFileListEntry(entry, panelPath, file, name, path);
+                if (pass == 0)
+                {
+                    if (!ExpandMakeFileList(
+                            HWindow, Configuration.FileListHistory[0],
+                            &PluginData, &file, entry.IsDirectory, NULL, 0,
+                            TRUE, maxSizes, _countof(maxSizes), validData,
+                            path.c_str(), entryIndex != 0))
+                    {
+                        result = FALSE;
+                        break;
+                    }
+                }
+                else
+                {
+                    if (!ExpandMakeFileList(
+                            HWindow, Configuration.FileListHistory[0],
+                            &PluginData, &file, entry.IsDirectory, line.data(),
+                            static_cast<int>(line.size()), FALSE, maxSizes,
+                            _countof(maxSizes), validData, path.c_str(), TRUE))
+                    {
+                        result = FALSE;
+                        break;
+                    }
+                    DWORD length = static_cast<DWORD>(strlen(line.data()));
+                    DWORD written = 0;
+                    if (length != 0 &&
+                        (!WriteFile(hFile, line.data(), length, &written, NULL) ||
+                         written != length))
+                    {
+                        DWORD error = GetLastError();
+                        SalMessageBox(HWindow, GetErrorText(error),
+                                      LoadStr(IDS_ERRORTITLE),
+                                      MB_OK | MB_ICONEXCLAMATION);
+                        result = FALSE;
+                        break;
+                    }
+                }
+                ++entryIndex;
+            }
+        }
+    }
+    FilesActionInProgress = FALSE;
+    return result;
 }
 
 static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* target,

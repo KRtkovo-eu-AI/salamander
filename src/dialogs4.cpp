@@ -706,6 +706,7 @@ CConfiguration::CConfiguration()
 
     FileListName[0] = 0;
     FileListAppend = FALSE;
+    FileListRecursive = FALSE;
     FileListDestination = 0;
     // Internal Viewer:
     CopyFindText = TRUE;

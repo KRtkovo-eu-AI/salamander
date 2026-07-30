@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32"><Configuration>Debug</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64"><Configuration>Debug</Configuration><Platform>ARM64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32"><Configuration>Release</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release clean|Win32"><Configuration>Release clean</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release clean|x64"><Configuration>Release clean</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64"><Configuration>Release</Configuration><Platform>ARM64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{EC94FCD6-6A7C-49A8-92E0-B5E0A471F6D5}</ProjectGuid>
+    <RootNamespace>lang_diskdir</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Condition="'$(Configuration)'=='Debug' And '$(Platform)'=='Win32'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_debug.props" />
+  </ImportGroup>
+  <ImportGroup Condition="('$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean') And '$(Platform)'=='Win32'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_release.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)'=='Debug' And '$(Platform)'=='x64'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_debug.props" />
+  </ImportGroup>
+  <ImportGroup Condition="('$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean') And '$(Platform)'=='x64'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_release.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)'=='Debug' And '$(Platform)'=='ARM64'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\arm64.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_debug.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)'=='Release' And '$(Platform)'=='ARM64'" Label="PropertySheets">
+    <Import Project="lang_diskdir.props" />
+    <Import Project="..\..\shared\vcxproj\arm64.props" />
+    <Import Project="..\..\shared\vcxproj\lang_base.props" />
+    <Import Project="..\..\shared\vcxproj\lang_release.props" />
+  </ImportGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\lang\lang.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\lang\lang.rc2" />
+    <None Include="..\lang\lang.rh" />
+    <None Include="..\versinfo.rh2" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

@@ -1,0 +1,6 @@
+#pragma code_page(65001)
+#include "winresrc.h"
+#include "versinfo.rh2"
+#include "versinfo.rc2"
+#define IDI_PLUGINICON 1030
+IDI_PLUGINICON ICON "..\\..\\res\\sal_r.ico"

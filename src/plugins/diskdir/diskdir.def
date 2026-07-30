@@ -1,0 +1,6 @@
+LIBRARY DISKDIR.SPL
+
+EXPORTS
+    SalamanderPluginEntry
+    SalamanderPluginGetReqVer
+

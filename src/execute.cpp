@@ -941,12 +941,39 @@ const char* WINAPI ExecuteExpSalDir2(HWND msgParent, void* param) // full path t
 
 struct CFileDataExpData
 {
+    CFileDataExpData()
+        : PluginData(NULL), FileData(NULL), IsDir(FALSE), ValidFileData(0),
+          Path(""), Buffer(static_cast<char*>(malloc(2000))),
+          BufferCapacity(2000)
+    {
+        if (Buffer != NULL)
+            Buffer[0] = 0;
+    }
+
+    ~CFileDataExpData()
+    {
+        free(Buffer);
+    }
+
+    BOOL EnsureBuffer(size_t capacity)
+    {
+        if (capacity <= BufferCapacity)
+            return Buffer != NULL;
+        char* larger = static_cast<char*>(realloc(Buffer, capacity));
+        if (larger == NULL)
+            return FALSE;
+        Buffer = larger;
+        BufferCapacity = capacity;
+        return TRUE;
+    }
+
     CPluginDataInterfaceEncapsulation* PluginData;
     const CFileData* FileData;
     BOOL IsDir;          // this is a file, not a directory
     DWORD ValidFileData; // mask of valid data in CFileData
-    char Path[MAX_PATH]; // path to the current panel (only for Make File List)
-    char Buffer[2000];
+    const char* Path;     // path to the current item (only for Make File List)
+    char* Buffer;
+    size_t BufferCapacity;
 };
 
 const char* WINAPI FileDataExpFileName(HWND msgParent, void* param)
@@ -1850,7 +1877,9 @@ BOOL ExpandInfoLineItems(HWND msgParent, const char* varText, CPluginDataInterfa
     data.FileData = fData;
     data.IsDir = isDir;
     data.ValidFileData = validFileData;
-    data.Path[0] = 0;
+    data.Path = "";
+    if (data.Buffer == NULL)
+        return FALSE;
     return ExpandVarString(msgParent, varText, buffer, bufferLen, GetInfoLineExpArray(isDisk),
                            &data, TRUE, varPlacements, varPlacementsCount);
 }
@@ -1872,7 +1901,10 @@ BOOL ExpandMakeFileList(HWND msgParent, const char* varText, CPluginDataInterfac
     data.FileData = fData;
     data.IsDir = isDir;
     data.ValidFileData = validFileData;
-    strcpy(data.Path, path);
+    data.Path = path != NULL ? path : "";
+    // $(Path) can contain a full UTF-8 Win32 long path plus a trailing slash.
+    if (!data.EnsureBuffer(strlen(data.Path) + 4))
+        return FALSE;
     return ExpandVarString(msgParent, varText, buffer, bufferLen, MakeFileListExpArray, &data,
                            ignoreEnvVarNotFoundOrTooLong, NULL, NULL, detectMaxVarSizes,
                            maxVarSizes, maxVarSizesCount);

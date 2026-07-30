@@ -366,6 +366,7 @@ struct CConfiguration
 
     char FileListName[MAX_PATH]; // file name
     BOOL FileListAppend;
+    BOOL FileListRecursive;
     int FileListDestination; // 0=Clipboard 1=Viewer 2=File
 
     // Internal Viewer:
