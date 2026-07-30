@@ -58,7 +58,7 @@
           <div class="stack-connector">↕</div>
           <div class="stack-box stack-box--bottom"><strong>Open Salamander</strong><span>Host, panels and Plugin Manager</span></div>
         </div>
-        <span class="compatibility-badge">SMX1<br><small>versioned</small></span>
+        <span class="compatibility-badge">SMX1<br><small>API protocol</small></span>
       </div>
     </section>
 
@@ -119,11 +119,11 @@ commands.setState("watch", true, true)</code></pre>
       </div>
       <p class="note"><strong>Operational note:</strong> Runtime providers borrow the framework broker but do not own it. Shutdown validates the broker identity before unregistering adapters, preventing stale-broker calls during unload.</p>
 
-      <h2 id="ai">Salamatrix AI</h2>
+      <h2 id="ai">Salamatrix AI (experimental)</h2>
       <p><code>SalamatrixAI.SPL</code> is a separate native provider and the sole owner of the local assistant workflow. It can use the same service registry and focused events without making AI or Automation a prerequisite for the runtime providers.</p>
-      <p>Use local AI model based on <code>LLaMA</code> and <code>Qwen2.5-Coder 0.5B Instruct GGUF Q4_K_M</code> model or connect to a remote AI service for automated tasks, scripts and extensions development.</p>
+      <p>Use local AI model based on <code>LLaMA</code> and <code>Qwen2.5-Coder</code> model or connect to a remote AI service for automated tasks, scripts and extensions development.</p>
       <div class="ai-panel">
-        <div><span class="eyebrow">AI-ready by design</span><h3>Ask · Preview · Run · Save</h3><p>The framework exposes machine-readable service and API descriptions so an assistant can propose an extension action, show the user what will happen, run it through the same command and file-operation paths, and persist the useful result.</p></div>
+        <div><span class="eyebrow">AI-ready by design</span><p>The framework exposes machine-readable service and API descriptions so an assistant can propose an extension action, show the user what will happen, run it through the same command and file-operation paths, and persist the useful result.</p></div>
         <div class="ai-flow"><span>Ask</span><i>→</i><span>Preview</span><i>→</i><span>Run</span><i>→</i><span>Save</span></div>
       </div>
 
