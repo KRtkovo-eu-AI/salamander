@@ -1,7 +1,7 @@
 {
   "schemaVersion": 4,
   "catalogName": "Extension Runtimes",
-  "generatedAt": "2026-07-30T20:41:17Z",
+  "generatedAt": "2026-07-30T21:51:22Z",
   "plugins": [
     {
       "id": "salamatrix",
@@ -47,7 +47,7 @@
       "description": {
         "english": "Salamatrix AI is native provider and the sole owner of the local AI assistant workflow."
       },
-      "latestVersion": "0.2 (x64)",
+      "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixai_0.1_x64/plugin_5.0_salamatrixai_0.1_x64.7z",
