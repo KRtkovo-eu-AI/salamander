@@ -457,12 +457,16 @@ static bool DiskDirReportEnumerationError(HWND parent,
 {
     std::string pathUtf8 = DiskDirFileNameUtf8(path.c_str());
     const char* errorText = GetErrorText(error);
-    const char* format = LoadStr(IDS_CANNOTREADDIR);
-    int length = _scprintf(format, pathUtf8.c_str(), errorText);
-    std::vector<char> message(static_cast<size_t>(max(length, 0)) + 1);
-    _snprintf_s(message.data(), message.size(), _TRUNCATE, format,
-                pathUtf8.c_str(), errorText);
-    SalMessageBox(parent, message.data(), LoadStr(IDS_ERRORTITLE),
+    std::string message = LoadStr(IDS_CANNOTREADDIR);
+    size_t pathPos = message.find("%s");
+    size_t errorPos = pathPos == std::string::npos
+                          ? std::string::npos
+                          : message.find("%s", pathPos + 2);
+    if (errorPos != std::string::npos)
+        message.replace(errorPos, 2, errorText);
+    if (pathPos != std::string::npos)
+        message.replace(pathPos, 2, pathUtf8);
+    SalMessageBox(parent, message.c_str(), LoadStr(IDS_ERRORTITLE),
                   MB_OK | MB_ICONEXCLAMATION);
     return false;
 }

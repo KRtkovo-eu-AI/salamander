@@ -29,3 +29,6 @@
 #define IDC_DD_ARCHIVE                  1001
 #define IDC_DD_PACK_PATHS               1002
 #define IDC_DD_RECURSE                  1003
+#define IDC_DD_CATALOG_LABEL            1004
+#define IDC_DD_SEPARATOR_TOP            1005
+#define IDC_DD_SEPARATOR_BOTTOM         1006
