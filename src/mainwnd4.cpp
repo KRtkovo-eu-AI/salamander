@@ -507,10 +507,47 @@ void CMainWindow::MakeFileList()
 
     BeginStopRefresh(); // snooper takes a break
 
-    CFileListDialog dlg(HWindow);
+    int diskDirPluginIndex = -1;
+    CPluginData* diskDirPlugin = NULL;
+    if (panel->Is(ptDisk) &&
+        Plugins.FindDLL("diskdir\\diskdir.spl", diskDirPluginIndex))
+    {
+        CPluginData* candidate = Plugins.Get(diskDirPluginIndex);
+        if (candidate != NULL && candidate->SupportCustomPack)
+        {
+            BOOL available = candidate->GetLoaded();
+            if (!available)
+            {
+                char pluginPath[SAL_MAX_PATH];
+                DWORD length = GetModuleFileName(HInstance, pluginPath,
+                                                 _countof(pluginPath));
+                char* slash = length > 0 && length < _countof(pluginPath)
+                                  ? strrchr(pluginPath, '\\')
+                                  : NULL;
+                if (slash != NULL)
+                {
+                    *slash = 0;
+                    if (strlen(pluginPath) + strlen("\\plugins\\") +
+                            strlen(candidate->DLLName) <
+                        _countof(pluginPath))
+                    {
+                        strcat(pluginPath, "\\plugins\\");
+                        strcat(pluginPath, candidate->DLLName);
+                        DWORD attributes = SalGetFileAttributes(pluginPath);
+                        available = attributes != INVALID_FILE_ATTRIBUTES &&
+                                    (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+                    }
+                }
+            }
+            if (available)
+                diskDirPlugin = candidate;
+        }
+    }
+
+    CFileListDialog dlg(HWindow, diskDirPlugin != NULL);
     if (dlg.Execute() == IDOK)
     {
-        char fileName[MAX_PATH];
+        char fileName[_countof(Configuration.FileListDiskDirName)];
 
         switch (Configuration.FileListDestination)
         {
@@ -541,6 +578,21 @@ void CMainWindow::MakeFileList()
             break;
         }
 
+        case 3: // DiskDir catalog
+        {
+            strcpy(fileName, Configuration.FileListDiskDirName);
+            int errTextID;
+            if (!SalGetFullName(fileName, &errTextID,
+                                GetActivePanel()->Is(ptDisk) ? GetActivePanel()->GetPath() : NULL,
+                                panel->NextFocusName, NULL, _countof(fileName)))
+            {
+                SalMessageBox(HWindow, LoadStr(errTextID), LoadStr(IDS_ERRORTITLE),
+                              MB_OK | MB_ICONEXCLAMATION);
+                fileName[0] = 0;
+            }
+            break;
+        }
+
         default:
         {
             TRACE_E("Unknown destination!");
@@ -550,6 +602,20 @@ void CMainWindow::MakeFileList()
 
         if (fileName[0] != 0)
         {
+            if (Configuration.FileListDestination == 3)
+            {
+                if (diskDirPlugin != NULL &&
+                    panel->MakeDiskDirCatalog(diskDirPlugin, fileName))
+                {
+                    panel->SetSel(FALSE, -1, TRUE);
+                    PostMessage(panel->HWindow, WM_USER_SELCHANGED, 0, 0);
+                    CutDirectory(fileName);
+                    MainWindow->PostChangeOnPathNotification(fileName, FALSE);
+                }
+                EndStopRefresh();
+                return;
+            }
+
             BOOL append = (Configuration.FileListDestination == 2 && Configuration.FileListAppend);
             HANDLE hFile = HANDLES_Q(CreateFile(fileName, GENERIC_WRITE | GENERIC_READ,
                                                 FILE_SHARE_READ, NULL,

@@ -182,6 +182,7 @@
 %0\plugins\dbviewer\lang\%SLG,%1\plugins\dbviewer\lang\%SLG
 %0\plugins\diskmap\diskmap.spl,%1\plugins\diskmap\diskmap.spl
 %0\plugins\diskmap\lang\%SLG,%1\plugins\diskmap\lang\%SLG
+%0\plugins\diskdir\diskdir.spl,%1\plugins\diskdir\diskdir.spl
 %0\plugins\filecomp\fcremote.exe,%1\plugins\filecomp\fcremote.exe
 %0\plugins\filecomp\filecomp.spl,%1\plugins\filecomp\filecomp.spl
 %0\plugins\filecomp\lang\%SLG,%1\plugins\filecomp\lang\%SLG
@@ -363,6 +364,7 @@
 %1\plugins\dbviewer\lang
 %1\plugins\diskmap
 %1\plugins\diskmap\lang
+%1\plugins\diskdir
 %1\plugins\filecomp
 %1\plugins\filecomp\lang
 %1\plugins\ftp
@@ -457,7 +459,7 @@ LicenseFileCZ=%0\doc\license_cz.txt
 ViewReadme=%1\doc\readme.txt
 RunProgram=%1\salamand.exe
 IncrementFileContentSrc=HKCU,Software\Open Salamander Samandarin\Open Salamander 5.0-samandarin-0.1\Configuration,Plugins.ver Version (x86)
-IncrementFileContentDst=%1\plugins\plugins.ver,winscp\winscp.spl,jsonviewer\jsonviewer.spl,textviewer\textviewer.spl,webview2renderviewer\webview2renderviewer.spl,samandarin\samandarin.spl
+IncrementFileContentDst=%1\plugins\plugins.ver,winscp\winscp.spl,jsonviewer\jsonviewer.spl,textviewer\textviewer.spl,webview2renderviewer\webview2renderviewer.spl,samandarin\samandarin.spl,diskdir\diskdir.spl
 SaveRemoveLog=%1\remove\remove.rlg
 AutoImportConfig=HKCU,Software\Open Salamander Samandarin\Open Salamander 5.0-samandarin-0.1,AutoImportConfig
 DisplayWelcomeWarning=0

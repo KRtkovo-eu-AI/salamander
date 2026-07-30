@@ -324,6 +324,7 @@ Name: "{app}\plugins\automation\lang"
 Name: "{app}\plugins\automation\scripts"
 Name: "{app}\plugins\dbviewer"
 Name: "{app}\plugins\dbviewer\lang"
+Name: "{app}\plugins\diskdir"
 Name: "{app}\plugins\diskmap"
 Name: "{app}\plugins\diskmap\lang"
 Name: "{app}\plugins\filecomp"
@@ -597,6 +598,7 @@ Source: "{#PayloadDir}\plugins\dbviewer\lang\romanian.slg"; DestDir: "{app}\plug
 Source: "{#PayloadDir}\plugins\dbviewer\lang\russian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\slovak.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\spanish.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\diskdir\diskdir.spl"; DestDir: "{app}\plugins\diskdir"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
 Source: "{#PayloadDir}\plugins\diskmap\diskmap.spl"; DestDir: "{app}\plugins\diskmap"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\czech.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\dutch.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
@@ -2072,6 +2074,7 @@ begin
   AddPlugin('automation', 'Automation', '2.1 (x64)', True);
   AddPlugin('checksum', 'Checksum', '2.3 (x64)', True);
   AddPlugin('dbviewer', 'Database Viewer', '1.26 (x64)', True);
+  AddPlugin('diskdir', 'DiskDir', '1.0 (x64)', True);
   AddPlugin('diskmap', 'DiskMap', '1.13 (x64)', True);
   AddPlugin('filecomp', 'File Comparator', '1.21 (x64)', True);
   AddPlugin('folders', 'Folders', '0.2 (x64)', False);

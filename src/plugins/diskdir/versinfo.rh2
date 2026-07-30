@@ -1,0 +1,20 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#ifndef __DISKDIR_VERSINFO_RH2
+#define __DISKDIR_VERSINFO_RH2
+
+#define VERSINFO_MAJOR       1
+#define VERSINFO_MINORA      0
+#define VERSINFO_MINORB      0
+
+#include "../shared/spl_vers.h"
+
+#define VERSINFO_COPYRIGHT   "Copyright © 2026 Open Salamander Authors"
+#define VERSINFO_COMPANY     "Open Salamander"
+#define VERSINFO_DESCRIPTION "DiskDir catalog support for Open Salamander"
+#define VERSINFO_INTERNAL    "DISKDIR"
+#define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SPL"
+
+#endif
+

@@ -1,0 +1,25 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "versinfo.rh2"
+#include "versinfo.rc2"
+
+#define IDD_DISKDIR_PACK                101
+#define IDC_DD_ARCHIVE                  1001
+#define IDC_DD_PACK_PATHS               1002
+#define IDC_DD_RECURSE                  1003
+
+IDD_DISKDIR_PACK DIALOGEX 0, 0, 278, 94
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Create DiskDir Catalog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Catalog:",-1,8,9,29,8
+    LTEXT           "",IDC_DD_ARCHIVE,42,9,228,8,SS_LEFTNOWORDWRAP | SS_NOPREFIX
+    CONTROL         "",-1,"Static",SS_ETCHEDHORZ | WS_GROUP,8,23,262,1
+    CONTROL         "Also pack path names",IDC_DD_PACK_PATHS,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,16,32,100,12
+    CONTROL         "Recursively pack subdirectories",IDC_DD_RECURSE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,48,126,12
+    CONTROL         "",-1,"Static",SS_ETCHEDHORZ | WS_GROUP,8,66,262,1
+    DEFPUSHBUTTON   "OK",IDOK,84,74,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,144,74,50,14
+END

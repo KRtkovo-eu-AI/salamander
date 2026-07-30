@@ -879,9 +879,10 @@ class CFileListDialog : public CCommonDialog
 {
 protected:
     CComboboxEdit* EditLine;
+    BOOL DiskDirAvailable;
 
 public:
-    CFileListDialog(HWND parent);
+    CFileListDialog(HWND parent, BOOL diskDirAvailable);
     ~CFileListDialog();
 
     virtual void Validate(CTransferInfo& ti);

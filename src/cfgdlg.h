@@ -365,8 +365,10 @@ struct CConfiguration
     char* FilterHistory[FILTER_HISTORY_SIZE];
 
     char FileListName[MAX_PATH]; // file name
+    // UTF-8 can need four bytes for one Win32 UTF-16 path character.
+    char FileListDiskDirName[4 * SAL_MAX_PATH]; // DiskDir catalog file name
     BOOL FileListAppend;
-    int FileListDestination; // 0=Clipboard 1=Viewer 2=File
+    int FileListDestination; // 0=Clipboard 1=Viewer 2=File 3=DiskDir catalog
 
     // Internal Viewer:
     int CopyFindText; // after F3 from Find Files dialog: copy find text to viewer?

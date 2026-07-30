@@ -705,6 +705,7 @@ CConfiguration::CConfiguration()
     FileListHistory[0] = DupStr("$(FileName)$(CRLF)"); // default for MakeFileList
 
     FileListName[0] = 0;
+    FileListDiskDirName[0] = 0;
     FileListAppend = FALSE;
     FileListDestination = 0;
     // Internal Viewer:
