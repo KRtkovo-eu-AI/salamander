@@ -533,6 +533,15 @@ def main() -> int:
             "installer does not package the Automation API HTML reference")
     require(packages, r"void PackageManager::RegisterToolbarButtons\(\).*?if \(!package->RuntimeUsable\)\s+continue;",
             "unavailable extension packages are not filtered from the toolbar")
+    require(
+        manifest + packages,
+        r"toolbarMenu.*?ToolbarMenu.*?"
+        r"MakeToolbarMenuCommandId.*?"
+        r"ShowToolbarMenu.*?"
+        r"CreateMenuPopup\(\).*?"
+        r"MENU_TRACK_RETURNCMD.*?"
+        r"ExecuteCommand",
+        "package toolbar menu commands are not routed through a native popup")
     require_absent(
         toolbar4,
         r"FillExtensionTII|GetToolbarButtonCount",
@@ -681,6 +690,14 @@ def main() -> int:
             not in command_ids):
         raise AssertionError(
             "Git Worktree Navigator does not expose local repository creation")
+    navigator_toolbar_commands = [
+        command for command in navigator_manifest.get("commands", [])
+        if command.get("toolbar")
+    ]
+    if (len(navigator_toolbar_commands) != 1 or
+            not navigator_toolbar_commands[0].get("toolbarMenu")):
+        raise AssertionError(
+            "Git Worktree Navigator toolbar button does not open its package menu")
     require(
         navigator,
         r"Invoke-NavigatorCreateLocalRepository.*?"

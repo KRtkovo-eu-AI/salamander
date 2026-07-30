@@ -18,6 +18,13 @@ namespace Packages
 namespace
 {
 const int CommandOpenAutomationApiReference = 0x61ffffff;
+const int ToolbarMenuCommandBase = 0x63000000;
+
+static int MakeToolbarMenuCommandId(size_t packageIndex, size_t commandIndex)
+{
+    return ToolbarMenuCommandBase +
+           static_cast<int>(packageIndex * 64 + commandIndex + 1);
+}
 
 struct MainThreadDispatch
 {
@@ -226,6 +233,7 @@ struct PackageManager::Package
     UI::IProgressDialog* Progress;
     ULONGLONG ProgressId;
     std::vector<int> CommandIds;
+    std::vector<int> ToolbarRegistrationIds;
     std::vector<std::string> CommandIconPaths;
     std::vector<int> MenuIconIndices;
     Runtime::IRuntimeSession* Session;
@@ -269,6 +277,34 @@ public:
             Package* package = Owner->Packages[p];
             if (!package->RuntimeUsable)
                 continue;
+            for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+            {
+                const CExtensionManifestCommand& command =
+                    package->Manifest.Commands[c];
+                if (command.ToolbarMenu &&
+                    MakeToolbarMenuCommandId(p, c) == id)
+                {
+                    for (size_t item = 0;
+                         item < package->Manifest.Commands.size(); ++item)
+                    {
+                        const CExtensionManifestCommand& menuCommand =
+                            package->Manifest.Commands[item];
+                        if (menuCommand.Visible && menuCommand.Enabled &&
+                            (menuCommand.Menu == "plugin" ||
+                             menuCommand.Menu == "both"))
+                        {
+                            return MENU_ITEM_STATE_ENABLED;
+                        }
+                    }
+                    return 0;
+                }
+            }
+        }
+        for (size_t p = 0; p < Owner->Packages.size(); ++p)
+        {
+            Package* package = Owner->Packages[p];
+            if (!package->RuntimeUsable)
+                continue;
             for (size_t c = 0; c < package->CommandIds.size(); ++c)
             {
                 if (package->CommandIds[c] == id &&
@@ -296,6 +332,21 @@ public:
         if (id == CommandOpenAutomationApiReference)
             return Documentation::OpenAutomationApiReference(
                 Owner->General, parent);
+        for (size_t p = 0; p < Owner->Packages.size(); ++p)
+        {
+            Package* package = Owner->Packages[p];
+            if (!package->RuntimeUsable)
+                continue;
+            for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+            {
+                if (package->Manifest.Commands[c].ToolbarMenu &&
+                    MakeToolbarMenuCommandId(p, c) == id)
+                {
+                    return Owner->ShowToolbarMenu(
+                        package, salamander, parent);
+                }
+            }
+        }
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
         {
             Package* package = Owner->Packages[p];
@@ -1012,6 +1063,64 @@ BOOL PackageManager::ExecuteCommand(
     return succeeded;
 }
 
+BOOL PackageManager::ShowToolbarMenu(
+    Package* package,
+    CSalamanderForOperationsAbstract* operations,
+    HWND parent)
+{
+    if (package == NULL || SalamanderGUI == NULL)
+        return FALSE;
+
+    CGUIMenuPopupAbstract* popup = SalamanderGUI->CreateMenuPopup();
+    if (popup == NULL)
+        return FALSE;
+
+    std::vector<size_t> commands;
+    for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+    {
+        const CExtensionManifestCommand& command =
+            package->Manifest.Commands[c];
+        if (!command.Visible ||
+            (command.Menu != "plugin" && command.Menu != "both"))
+        {
+            continue;
+        }
+
+        MENU_ITEM_INFO item;
+        memset(&item, 0, sizeof(item));
+        item.Mask = MENU_MASK_TYPE | MENU_MASK_STRING |
+                    MENU_MASK_ID | MENU_MASK_STATE;
+        item.Type = MENU_TYPE_STRING;
+        item.State = command.Enabled ? 0 : MENU_STATE_GRAYED;
+        item.ID = static_cast<DWORD>(commands.size() + 1);
+        item.String = const_cast<char*>(command.Title.c_str());
+        if (!popup->InsertItem(0xFFFFFFFF, TRUE, &item))
+        {
+            SalamanderGUI->DestroyMenuPopup(popup);
+            return FALSE;
+        }
+        commands.push_back(c);
+    }
+
+    POINT point;
+    GetCursorPos(&point);
+    point.y += GetSystemMetrics(SM_CYSMICON);
+    const DWORD selected = popup->Track(
+        MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON |
+            MENU_TRACK_NONOTIFY | MENU_TRACK_HIDEACCEL,
+        point.x, point.y, parent, NULL);
+    SalamanderGUI->DestroyMenuPopup(popup);
+
+    if (selected == 0 || selected > commands.size())
+        return TRUE;
+    const CExtensionManifestCommand& command =
+        package->Manifest.Commands[commands[selected - 1]];
+    if (!command.Enabled)
+        return TRUE;
+    return ExecuteCommand(
+        package, operations, command.Id.c_str(), command.Handler.c_str());
+}
+
 BOOL WINAPI PackageManager::HostDispatch(
     void* context, Runtime::Protocol::MessageType type, ULONGLONG requestId,
     const char* payloadJson, char* resultJson, DWORD resultCapacity, DWORD* resultLength)
@@ -1443,19 +1552,41 @@ void PackageManager::RegisterToolbarButtons()
         Package* package = Packages[p];
         if (!package->RuntimeUsable)
             continue;
+        package->ToolbarRegistrationIds.clear();
         for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
         {
             const CExtensionManifestCommand& command = package->Manifest.Commands[c];
             if (!command.Toolbar || !command.Visible)
                 continue;
             CSalamanderToolbarButton button;
-            button.CommandId = package->CommandIds[c];
+            button.CommandId = command.ToolbarMenu
+                                   ? MakeToolbarMenuCommandId(p, c)
+                                   : package->CommandIds[c];
             button.Title = command.Title.c_str();
             button.IconPath = package->IconPath.c_str();
             button.IconDarkPath = package->IconDarkPath.empty() ? NULL : package->IconDarkPath.c_str();
             button.StableId = package->Id.c_str();
-            button.Enabled = command.Enabled ? TRUE : FALSE;
-            General->RegisterToolbarButton(&button);
+            if (command.ToolbarMenu)
+            {
+                button.Enabled = FALSE;
+                for (size_t item = 0;
+                     item < package->Manifest.Commands.size(); ++item)
+                {
+                    const CExtensionManifestCommand& menuCommand =
+                        package->Manifest.Commands[item];
+                    if (menuCommand.Visible && menuCommand.Enabled &&
+                        (menuCommand.Menu == "plugin" ||
+                         menuCommand.Menu == "both"))
+                    {
+                        button.Enabled = TRUE;
+                        break;
+                    }
+                }
+            }
+            else
+                button.Enabled = command.Enabled ? TRUE : FALSE;
+            if (General->RegisterToolbarButton(&button))
+                package->ToolbarRegistrationIds.push_back(button.CommandId);
         }
     }
 }
@@ -1465,8 +1596,15 @@ void PackageManager::UnregisterToolbarButtons()
     if (General == NULL)
         return;
     for (size_t p = 0; p < Packages.size(); ++p)
-        for (size_t c = 0; c < Packages[p]->CommandIds.size(); ++c)
-            General->UnregisterToolbarButton(Packages[p]->CommandIds[c]);
+    {
+        for (size_t c = 0;
+             c < Packages[p]->ToolbarRegistrationIds.size(); ++c)
+        {
+            General->UnregisterToolbarButton(
+                Packages[p]->ToolbarRegistrationIds[c]);
+        }
+        Packages[p]->ToolbarRegistrationIds.clear();
+    }
 }
 
 std::wstring PackageManager::ExpandRoot(const std::wstring& root)

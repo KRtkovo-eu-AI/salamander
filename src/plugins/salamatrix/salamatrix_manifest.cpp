@@ -1283,6 +1283,7 @@ bool CExtensionManifest::Parse(
                 !ReadString(commandValue, "requiresExecutable", false, command.RequiresExecutable, error) ||
                 !ReadBoolean(commandValue, "contextMenu", false, command.ContextMenu, error) ||
                 !ReadBoolean(commandValue, "toolbar", false, command.Toolbar, error) ||
+                !ReadBoolean(commandValue, "toolbarMenu", false, command.ToolbarMenu, error) ||
                 !ReadBoolean(commandValue, "enabled", true, command.Enabled, error) ||
                 !ReadBoolean(commandValue, "visible", true, command.Visible, error))
             {
@@ -1298,6 +1299,9 @@ bool CExtensionManifest::Parse(
                     return SetValidationError(error, "Command cannot specify conflicting menu and placement values");
                 command.Menu = placement;
             }
+            if (command.ToolbarMenu && !command.Toolbar)
+                return SetValidationError(
+                    error, "toolbarMenu requires toolbar to be enabled");
 
             if (command.Id.empty())
                 command.Id = Id;

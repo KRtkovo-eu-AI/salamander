@@ -65,6 +65,7 @@ DisableProgramGroupPage=yes
 DisableFinishedPage=yes
 OutputBaseFilename={#AppToInstallVersion}_win_x64
 PrivilegesRequired=admin
+SetupArchitecture=x64
 SetupIconFile=..\..\src\res\samandarin.ico
 SolidCompression=yes
 Uninstallable=not IsPortableInstall

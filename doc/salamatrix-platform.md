@@ -932,7 +932,9 @@ Schema version 1 supports:
 - a runtime string or `{ "id", "minimumVersion" }` object;
 - a validated string array of declared `capabilities`;
 - up to 64 command records with `id`, `title`, `handler`, `menu`/`placement`,
-  `contextMenu`, and `requires`.
+  `contextMenu`, `toolbar`, `toolbarMenu`, and `requires`. A command with both
+  `toolbar` and `toolbarMenu` contributes one Extension Bar button that opens
+  the package's visible plugin-menu commands instead of executing directly.
 
 Automation currently contributes the first parsed command to its legacy native
 menu surface; preserving all parsed commands for dynamic command contribution

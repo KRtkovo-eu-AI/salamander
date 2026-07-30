@@ -52,7 +52,8 @@ static void TestCompleteManifest()
         "\"windowAttached\",\"fileChanged\"],"
         "\"commands\":["
         "{\"id\":\"Example.First\",\"title\":\"First\",\"menu\":\"both\","
-        "\"contextMenu\":true,\"toolbar\":true,\"requires\":\"selection\",\"handler\":\"first\","
+        "\"contextMenu\":true,\"toolbar\":true,\"toolbarMenu\":true,"
+        "\"requires\":\"selection\",\"handler\":\"first\","
         "\"icon\":\"assets/first.svg\",\"iconDark\":\"assets/first-dark.svg\","
         "\"requiresExecutable\":\"example.exe\","
         "\"enabled\":false,\"visible\":true},"
@@ -104,6 +105,7 @@ static void TestCompleteManifest()
     CHECK(manifest.Commands[0].Menu == "both");
     CHECK(manifest.Commands[0].ContextMenu);
     CHECK(manifest.Commands[0].Toolbar);
+    CHECK(manifest.Commands[0].ToolbarMenu);
     CHECK(manifest.Commands[0].Icon == "assets/first.svg");
     CHECK(manifest.Commands[0].IconDark == "assets/first-dark.svg");
     CHECK(manifest.Commands[0].RequiresExecutable == "example.exe");
@@ -111,6 +113,14 @@ static void TestCompleteManifest()
     CHECK(manifest.Commands[0].Visible);
     CHECK(manifest.Commands[1].Menu == "context");
     CHECK(!manifest.Commands[1].Visible);
+    CHECK(!manifest.Commands[1].ToolbarMenu);
+
+    const char* invalidToolbarMenu =
+        "{\"id\":\"Example.InvalidToolbarMenu\",\"runtime\":\"PowerShell\","
+        "\"entryPoint\":\"main.ps1\",\"commands\":["
+        "{\"toolbarMenu\":true}]}";
+    CHECK(!Parse(invalidToolbarMenu, manifest, error));
+    CHECK(!error.Message.empty());
 
     const char* invalidExecutable =
         "{\"id\":\"Example.InvalidExecutable\",\"runtime\":\"PowerShell\","

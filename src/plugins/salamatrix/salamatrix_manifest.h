@@ -49,6 +49,9 @@ struct CExtensionManifestCommand
     std::string RequiresExecutable;
     bool ContextMenu;
     bool Toolbar;
+    // When true, the toolbar contribution opens a package-local command menu
+    // instead of executing this command directly.
+    bool ToolbarMenu;
     // Initial menu state. Persistent workers may update it later through the
     // command state host call without changing the command identity.
     bool Enabled;
@@ -59,6 +62,7 @@ struct CExtensionManifestCommand
           Requires("any"),
           ContextMenu(false),
           Toolbar(false),
+          ToolbarMenu(false),
           Enabled(true),
           Visible(true)
     {
