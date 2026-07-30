@@ -766,9 +766,7 @@
 #define IDC_MCD_GROUP_TARGET            6254
 #define IDC_MCD_SYNC_NAME                6255
 #define IDC_MCD_DELETE_SOURCE_AFTER      6256
-#define IDC_FL_DISKDIR                  6258
-#define IDC_FL_DISKDIR_FILENAME         6259
-#define IDC_FL_DISKDIR_BROWSE           6260
+#define IDC_FL_RECURSE                  6258
 
 // Next default values for new objects
 // 

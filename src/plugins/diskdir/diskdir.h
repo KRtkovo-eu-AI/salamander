@@ -40,7 +40,7 @@ class CDiskDirPlugin : public CPluginInterfaceAbstract
 {
 public:
     void WINAPI About(HWND parent) override;
-    BOOL WINAPI Release(HWND, BOOL) override { return TRUE; }
+    BOOL WINAPI Release(HWND, BOOL) override;
     void WINAPI LoadConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) override;
     void WINAPI SaveConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) override;
     void WINAPI Configuration(HWND) override {}

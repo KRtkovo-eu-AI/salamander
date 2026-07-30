@@ -1559,8 +1559,8 @@ public:
     void OfferArchiveUpdateIfNeededAux(HWND parent, int textID, BOOL* archMaybeUpdated); // used internally only
 
     // writes the list of selected files to the file hFile
-    BOOL MakeFileList(HANDLE hFile);
-    BOOL MakeDiskDirCatalog(CPluginData* plugin, const char* fileName);
+    BOOL MakeFileList(HANDLE hFile, BOOL recursively, const char* outputFileName);
+    BOOL MakeFileListRecursive(HANDLE hFile, const char* outputFileName);
 
     void Pack(CFilesWindow* target, int pluginIndex = -1, const char* pluginName = NULL, int delFilesAfterPacking = 0);
     void Unpack(CFilesWindow* target, int pluginIndex = -1, const char* pluginName = NULL, const char* unpackMask = NULL);

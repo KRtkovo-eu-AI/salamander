@@ -169,9 +169,13 @@ void CFilesWindow::Activate(BOOL shares)
     }
 }
 
-BOOL CFilesWindow::MakeFileList(HANDLE hFile)
+BOOL CFilesWindow::MakeFileList(HANDLE hFile, BOOL recursively,
+                                const char* outputFileName)
 {
     CALL_STACK_MESSAGE_NONE
+    if (recursively)
+        return MakeFileListRecursive(hFile, outputFileName);
+
     BOOL ret = TRUE;
 
     if (FilesActionInProgress)
@@ -213,6 +217,7 @@ BOOL CFilesWindow::MakeFileList(HANDLE hFile)
         int maxSizes[100];
         int maxSizesCount = 100;
         ZeroMemory(maxSizes, sizeof(maxSizes));
+        std::vector<char> buff(4 * SAL_MAX_PATH);
         int i;
         for (i = 0; i < alloc; i++)
         {
@@ -236,17 +241,19 @@ BOOL CFilesWindow::MakeFileList(HANDLE hFile)
             {
                 f = (indexes[i] < Dirs->Count) ? &Dirs->At(indexes[i]) : &Files->At(indexes[i] - Dirs->Count);
 
-                char buff[1000];
                 buff[0] = 0;
                 if (ExpandMakeFileList(HWindow, Configuration.FileListHistory[0], &PluginData, f,
-                                       indexes[i] < Dirs->Count, buff, 1000, FALSE, maxSizes, maxSizesCount,
+                                       indexes[i] < Dirs->Count, buff.data(),
+                                       static_cast<int>(buff.size()), FALSE,
+                                       maxSizes, maxSizesCount,
                                        ValidFileData, GetPath(), TRUE))
                 {
-                    DWORD len = (DWORD)strlen(buff);
+                    DWORD len = (DWORD)strlen(buff.data());
                     if (len > 0)
                     {
                         DWORD written;
-                        if (!WriteFile(hFile, buff, len, &written, NULL) || written != len)
+                        if (!WriteFile(hFile, buff.data(), len, &written, NULL) ||
+                            written != len)
                         {
                             DWORD err = GetLastError();
                             SalMessageBox(HWindow, GetErrorText(err),

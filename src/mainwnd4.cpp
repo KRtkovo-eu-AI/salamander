@@ -24,6 +24,7 @@ extern "C"
 }
 #include "salshlib.h"
 #include "zip.h"
+#include "common/widepath.h"
 
 BOOL ImageDragging = FALSE;
 BOOL ImageDraggingVisible = FALSE;
@@ -518,24 +519,33 @@ void CMainWindow::MakeFileList()
             BOOL available = candidate->GetLoaded();
             if (!available)
             {
-                char pluginPath[SAL_MAX_PATH];
-                DWORD length = GetModuleFileName(HInstance, pluginPath,
-                                                 _countof(pluginPath));
-                char* slash = length > 0 && length < _countof(pluginPath)
-                                  ? strrchr(pluginPath, '\\')
-                                  : NULL;
-                if (slash != NULL)
+                std::vector<wchar_t> modulePath(SAL_MAX_PATH);
+                DWORD length = GetModuleFileNameW(
+                    HInstance, modulePath.data(),
+                    static_cast<DWORD>(modulePath.size()));
+                if (length > 0 && length < modulePath.size())
                 {
-                    *slash = 0;
-                    if (strlen(pluginPath) + strlen("\\plugins\\") +
-                            strlen(candidate->DLLName) <
-                        _countof(pluginPath))
+                    std::wstring pluginPath(modulePath.data(), length);
+                    size_t slash = pluginPath.find_last_of(L'\\');
+                    std::wstring pluginName =
+                        SalMultiByteToWidePath(candidate->DLLName, CP_UTF8);
+                    if (pluginName.empty())
+                        pluginName = SalMultiByteToWidePath(
+                            candidate->DLLName, CP_ACP);
+                    if (slash != std::wstring::npos && !pluginName.empty())
                     {
-                        strcat(pluginPath, "\\plugins\\");
-                        strcat(pluginPath, candidate->DLLName);
-                        DWORD attributes = SalGetFileAttributes(pluginPath);
-                        available = attributes != INVALID_FILE_ATTRIBUTES &&
-                                    (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+                        pluginPath.resize(slash);
+                        if (SalPathAppendW(pluginPath, L"plugins") &&
+                            SalPathAppendW(pluginPath, pluginName.c_str()))
+                        {
+                            std::wstring extended =
+                                SalPathAddExtendedPrefixW(pluginPath.c_str());
+                            DWORD attributes =
+                                GetFileAttributesW(extended.c_str());
+                            available =
+                                attributes != INVALID_FILE_ATTRIBUTES &&
+                                (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+                        }
                     }
                 }
             }
@@ -547,7 +557,7 @@ void CMainWindow::MakeFileList()
     CFileListDialog dlg(HWindow, diskDirPlugin != NULL);
     if (dlg.Execute() == IDOK)
     {
-        char fileName[_countof(Configuration.FileListDiskDirName)];
+        char fileName[MAX_PATH];
 
         switch (Configuration.FileListDestination)
         {
@@ -578,21 +588,6 @@ void CMainWindow::MakeFileList()
             break;
         }
 
-        case 3: // DiskDir catalog
-        {
-            strcpy(fileName, Configuration.FileListDiskDirName);
-            int errTextID;
-            if (!SalGetFullName(fileName, &errTextID,
-                                GetActivePanel()->Is(ptDisk) ? GetActivePanel()->GetPath() : NULL,
-                                panel->NextFocusName, NULL, _countof(fileName)))
-            {
-                SalMessageBox(HWindow, LoadStr(errTextID), LoadStr(IDS_ERRORTITLE),
-                              MB_OK | MB_ICONEXCLAMATION);
-                fileName[0] = 0;
-            }
-            break;
-        }
-
         default:
         {
             TRACE_E("Unknown destination!");
@@ -602,20 +597,6 @@ void CMainWindow::MakeFileList()
 
         if (fileName[0] != 0)
         {
-            if (Configuration.FileListDestination == 3)
-            {
-                if (diskDirPlugin != NULL &&
-                    panel->MakeDiskDirCatalog(diskDirPlugin, fileName))
-                {
-                    panel->SetSel(FALSE, -1, TRUE);
-                    PostMessage(panel->HWindow, WM_USER_SELCHANGED, 0, 0);
-                    CutDirectory(fileName);
-                    MainWindow->PostChangeOnPathNotification(fileName, FALSE);
-                }
-                EndStopRefresh();
-                return;
-            }
-
             BOOL append = (Configuration.FileListDestination == 2 && Configuration.FileListAppend);
             HANDLE hFile = HANDLES_Q(CreateFile(fileName, GENERIC_WRITE | GENERIC_READ,
                                                 FILE_SHARE_READ, NULL,
@@ -629,7 +610,10 @@ void CMainWindow::MakeFileList()
 
                 // fill the file with data -- insert one entry for each file or directory
                 BOOL deleteFile = TRUE;
-                if (panel->MakeFileList(hFile))
+                if (panel->MakeFileList(
+                        hFile,
+                        diskDirPlugin != NULL && Configuration.FileListRecursive,
+                        fileName))
                 {
                     panel->SetSel(FALSE, -1, TRUE);                        // force redraw
                     PostMessage(panel->HWindow, WM_USER_SELCHANGED, 0, 0); // sel-change notify

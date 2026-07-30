@@ -1084,8 +1084,8 @@ const char* CONFIG_CONVERTHISTORY_REG = "Convert History";
 const char* CONFIG_FILTERHISTORY_REG = "Filter History";
 const char* CONFIG_WORKDIRSHISTORY_REG = "Working Directories";
 const char* CONFIG_FILELISTNAME_REG = "Make File List Name";
-const char* CONFIG_FILELISTDISKDIRNAME_REG = "Make File List DiskDir Name";
 const char* CONFIG_FILELISTAPPEND_REG = "Make File List Append";
+const char* CONFIG_FILELISTRECURSIVE_REG = "Make File List Recursive";
 const char* CONFIG_FILELISTDESTINATION_REG = "Make File List Destination";
 const char* CONFIG_COPYFINDTEXT_REG = "Copy Find Text";
 const char* CONFIG_CLEARREADONLY_REG = "Clear Readonly Attribute";
@@ -3545,8 +3545,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 }
 
                 SetValue(actKey, CONFIG_FILELISTNAME_REG, REG_SZ, Configuration.FileListName, -1);
-                SetValue(actKey, CONFIG_FILELISTDISKDIRNAME_REG, REG_SZ, Configuration.FileListDiskDirName, -1);
                 SetValue(actKey, CONFIG_FILELISTAPPEND_REG, REG_DWORD, &Configuration.FileListAppend, sizeof(DWORD));
+                SetValue(actKey, CONFIG_FILELISTRECURSIVE_REG, REG_DWORD, &Configuration.FileListRecursive, sizeof(DWORD));
                 SetValue(actKey, CONFIG_FILELISTDESTINATION_REG, REG_DWORD, &Configuration.FileListDestination, sizeof(DWORD));
 
                 CloseKey(actKey);
@@ -5611,10 +5611,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             }
 
             GetValue(actKey, CONFIG_FILELISTNAME_REG, REG_SZ, Configuration.FileListName, MAX_PATH);
-            GetValue(actKey, CONFIG_FILELISTDISKDIRNAME_REG, REG_SZ,
-                     Configuration.FileListDiskDirName,
-                     sizeof(Configuration.FileListDiskDirName));
             GetValue(actKey, CONFIG_FILELISTAPPEND_REG, REG_DWORD, &Configuration.FileListAppend, sizeof(DWORD));
+            GetValue(actKey, CONFIG_FILELISTRECURSIVE_REG, REG_DWORD, &Configuration.FileListRecursive, sizeof(DWORD));
             GetValue(actKey, CONFIG_FILELISTDESTINATION_REG, REG_DWORD, &Configuration.FileListDestination, sizeof(DWORD));
 
             CloseKey(actKey);

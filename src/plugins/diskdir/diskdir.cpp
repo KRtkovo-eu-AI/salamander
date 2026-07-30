@@ -4,6 +4,7 @@
 #include "precomp.h"
 
 #include "diskdir_format.h"
+#include "../../darkmode.h"
 
 HINSTANCE DLLInstance = NULL;
 HINSTANCE HLanguage = NULL;
@@ -23,6 +24,62 @@ const char* LoadStr(int resourceID)
 
 namespace
 {
+HBRUSH DiskDirDarkModeDialogBrush = NULL;
+COLORREF DiskDirDarkModeDialogBrushColor = CLR_INVALID;
+
+static HBRUSH GetDiskDirDarkModeDialogBrush(COLORREF background)
+{
+    if (DiskDirDarkModeDialogBrush == NULL ||
+        DiskDirDarkModeDialogBrushColor != background)
+    {
+        if (DiskDirDarkModeDialogBrush != NULL)
+            DeleteObject(DiskDirDarkModeDialogBrush);
+        DiskDirDarkModeDialogBrush = CreateSolidBrush(background);
+        DiskDirDarkModeDialogBrushColor = background;
+    }
+    return DiskDirDarkModeDialogBrush;
+}
+
+static BOOL ConfigureDiskDirDarkModeFromHost()
+{
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral == NULL ||
+        !SalamanderGeneral->GetConfigParameter(
+            SALCFG_USEWINDOWSDARKMODE, &useWindowsDarkMode,
+            sizeof(useWindowsDarkMode), NULL))
+    {
+        useWindowsDarkMode = FALSE;
+    }
+
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+    if (useWindowsDarkMode)
+    {
+        text = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        background = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+
+    COLORREF readableText =
+        DarkModeEnsureReadableForeground(text, background);
+    DarkModeSetConfiguredColors(text, background, fallbackText,
+                                fallbackBackground);
+    DarkModeConfigureDialogColors(
+        readableText, background,
+        GetDiskDirDarkModeDialogBrush(background));
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+    return useWindowsDarkMode;
+}
+
+static void ApplyDiskDirDarkMode(HWND window)
+{
+    ConfigureDiskDirDarkModeFromHost();
+    DarkModeApplyWindow(window);
+    DarkModeRefreshTitleBar(window);
+    DarkModeApplyTree(window);
+}
+
 static void ShowError(HWND parent, const std::string& text)
 {
     SalamanderGeneral->SalMessageBox(parent, text.c_str(), LoadStr(IDS_DISKDIR_TITLE),
@@ -53,8 +110,43 @@ static INT_PTR CALLBACK DiskDirPackDialogProc(HWND window, UINT message,
                        data->PackPaths ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(window, IDC_DD_RECURSE,
                        data->Recurse ? BST_CHECKED : BST_UNCHECKED);
+        ApplyDiskDirDarkMode(window);
         SalamanderGeneral->MultiMonCenterWindow(window, GetParent(window), TRUE);
         return TRUE;
+    }
+
+    case WM_THEMECHANGED:
+        ApplyDiskDirDarkMode(window);
+        RedrawWindow(window, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+
+    case WM_SETTINGCHANGE:
+        ConfigureDiskDirDarkModeFromHost();
+        if (DarkModeHandleSettingChange(message, lParam))
+        {
+            ApplyDiskDirDarkMode(window);
+            RedrawWindow(window, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        if (ConfigureDiskDirDarkModeFromHost())
+        {
+            LRESULT brush = 0;
+            if (DarkModeHandleCtlColor(message, wParam, lParam, brush))
+                return brush;
+        }
+        break;
     }
 
     case WM_COMMAND:
@@ -301,6 +393,17 @@ void WINAPI CDiskDirPlugin::About(HWND parent)
         parent,
         LoadStr(IDS_ABOUT_TEXT), LoadStr(IDS_ABOUT_TITLE),
         MB_OK | MB_ICONINFORMATION);
+}
+
+BOOL WINAPI CDiskDirPlugin::Release(HWND, BOOL)
+{
+    if (DiskDirDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(DiskDirDarkModeDialogBrush);
+        DiskDirDarkModeDialogBrush = NULL;
+        DiskDirDarkModeDialogBrushColor = CLR_INVALID;
+    }
+    return TRUE;
 }
 
 void WINAPI CDiskDirPlugin::LoadConfiguration(

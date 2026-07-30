@@ -1978,12 +1978,13 @@ void BrowseFileName(HWND hParent, int editlineResID, const char* name)
     }
 }
 
-CFileListDialog::CFileListDialog(HWND parent, BOOL diskDirAvailable)
+CFileListDialog::CFileListDialog(HWND parent, BOOL recursiveAvailable)
     : CCommonDialog(HLanguage, IDD_FILELIST, IDD_FILELIST, parent)
 {
     EditLine = new CComboboxEdit();
-    DiskDirAvailable = diskDirAvailable;
-    if (!DiskDirAvailable && Configuration.FileListDestination == 3)
+    RecursiveAvailable = recursiveAvailable;
+    if (Configuration.FileListDestination < 0 ||
+        Configuration.FileListDestination > 2)
         Configuration.FileListDestination = 0;
 }
 
@@ -1997,13 +1998,10 @@ void CFileListDialog::Transfer(CTransferInfo& ti)
     ti.RadioButton(IDC_FL_CLIPBOARD, 0, Configuration.FileListDestination);
     ti.RadioButton(IDC_FL_VIEWER, 1, Configuration.FileListDestination);
     ti.RadioButton(IDC_FL_FILE, 2, Configuration.FileListDestination);
-    if (DiskDirAvailable)
-        ti.RadioButton(IDC_FL_DISKDIR, 3, Configuration.FileListDestination);
     ti.EditLine(IDC_FL_FILENAME, Configuration.FileListName, MAX_PATH);
-    if (DiskDirAvailable)
-        ti.EditLine(IDC_FL_DISKDIR_FILENAME, Configuration.FileListDiskDirName,
-                    _countof(Configuration.FileListDiskDirName));
     ti.CheckBox(IDC_FL_APPEND, Configuration.FileListAppend);
+    if (RecursiveAvailable)
+        ti.CheckBox(IDC_FL_RECURSE, Configuration.FileListRecursive);
 
     char** history = Configuration.FileListHistory;
     HWND hWnd;
@@ -2018,7 +2016,7 @@ void CFileListDialog::Transfer(CTransferInfo& ti)
                 text = history[0];
             SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)text);
         }
-        else if (Configuration.FileListDestination != 3)
+        else
         {
             char buff[MAX_PATH];
             SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)buff);
@@ -2034,9 +2032,7 @@ void CFileListDialog::Validate(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CFileListDialog::Validate()");
     HWND hWnd;
-    BOOL diskDir = DiskDirAvailable && IsDlgButtonChecked(HWindow, IDC_FL_DISKDIR);
-
-    if (!diskDir && ti.GetControl(hWnd, IDC_FL_LINE))
+    if (ti.GetControl(hWnd, IDC_FL_LINE))
     {
         char buff[MAX_PATH];
         SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)buff);
@@ -2049,23 +2045,23 @@ void CFileListDialog::Validate(CTransferInfo& ti)
         }
     }
 
-    BOOL file = IsDlgButtonChecked(HWindow, IDC_FL_FILE) || diskDir;
+    BOOL file = IsDlgButtonChecked(HWindow, IDC_FL_FILE);
     if (file)
     {
-        int fileNameControl = diskDir ? IDC_FL_DISKDIR_FILENAME : IDC_FL_FILENAME;
+        int fileNameControl = IDC_FL_FILENAME;
         if (ti.GetControl(hWnd, fileNameControl))
         {
             // DefaultDir restoration
             MainWindow->UpdateDefaultDir(TRUE);
 
-            char buffFile[_countof(Configuration.FileListDiskDirName)];
-            SendMessage(hWnd, WM_GETTEXT, _countof(buffFile), (LPARAM)buffFile);
+            char buffFile[MAX_PATH];
+            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)buffFile);
             int errTextID;
             if (!SalGetFullName(buffFile, &errTextID,
                                 MainWindow->GetActivePanel()->Is(ptDisk)
                                     ? MainWindow->GetActivePanel()->GetPath()
                                     : NULL,
-                                NULL, NULL, _countof(buffFile)))
+                                NULL, NULL, MAX_PATH))
             {
                 SalMessageBox(HWindow, LoadStr(errTextID), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 ti.ErrorOn(fileNameControl);
@@ -2078,14 +2074,8 @@ void CFileListDialog::Validate(CTransferInfo& ti)
             }
 
             BOOL append;
-            if (diskDir)
-                append = FALSE;
-            else
-                ti.CheckBox(IDC_FL_APPEND, append);
-
-            // DiskDir performs this check with Unicode long-path Win32 APIs.
-            DWORD attr = diskDir ? INVALID_FILE_ATTRIBUTES
-                                 : SalGetFileAttributes(buffFile);
+            ti.CheckBox(IDC_FL_APPEND, append);
+            DWORD attr = SalGetFileAttributes(buffFile);
 
             if (attr != 0xFFFFFFFF && (attr & FILE_ATTRIBUTE_DIRECTORY))
             {
@@ -2095,8 +2085,7 @@ void CFileListDialog::Validate(CTransferInfo& ti)
                 return;
             }
             // if not appending, ask whether to overwrite
-            // DiskDir confirms overwrite only after its own options dialog is accepted.
-            if (!diskDir && !append && attr != 0xFFFFFFFF)
+            if (!append && attr != 0xFFFFFFFF)
             {
                 char text[300];
                 sprintf(text, LoadStr(IDS_FILEALREADYEXIST), buffFile);
@@ -2113,16 +2102,10 @@ void CFileListDialog::Validate(CTransferInfo& ti)
 
 void CFileListDialog::EnableControls()
 {
-    BOOL diskDir = DiskDirAvailable && IsDlgButtonChecked(HWindow, IDC_FL_DISKDIR);
-    BOOL file = !diskDir && IsDlgButtonChecked(HWindow, IDC_FL_FILE);
-    EnableWindow(GetDlgItem(HWindow, IDC_FL_LINE), !diskDir);
-    EnableWindow(GetDlgItem(HWindow, IDC_FL_LINEBROWSE), !diskDir);
-    EnableWindow(GetDlgItem(HWindow, IDC_FL_LINE_HINT), !diskDir);
+    BOOL file = IsDlgButtonChecked(HWindow, IDC_FL_FILE);
     EnableWindow(GetDlgItem(HWindow, IDC_FL_FILENAME), file);
     EnableWindow(GetDlgItem(HWindow, IDC_FL_FNBROWSE), file);
     EnableWindow(GetDlgItem(HWindow, IDC_FL_APPEND), file);
-    EnableWindow(GetDlgItem(HWindow, IDC_FL_DISKDIR_FILENAME), diskDir);
-    EnableWindow(GetDlgItem(HWindow, IDC_FL_DISKDIR_BROWSE), diskDir);
 }
 
 INT_PTR
@@ -2133,11 +2116,9 @@ CFileListDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        if (!DiskDirAvailable)
+        if (!RecursiveAvailable)
         {
-            ShowWindow(GetDlgItem(HWindow, IDC_FL_DISKDIR), SW_HIDE);
-            ShowWindow(GetDlgItem(HWindow, IDC_FL_DISKDIR_FILENAME), SW_HIDE);
-            ShowWindow(GetDlgItem(HWindow, IDC_FL_DISKDIR_BROWSE), SW_HIDE);
+            ShowWindow(GetDlgItem(HWindow, IDC_FL_RECURSE), SW_HIDE);
 
             RECT deltaRect = {0, 0, 0, 20};
             MapDialogRect(HWindow, &deltaRect);
@@ -2169,20 +2150,11 @@ CFileListDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                          windowRect.bottom - windowRect.top - delta,
                          SWP_NOZORDER | SWP_NOMOVE);
         }
-        else if (Configuration.FileListDiskDirName[0] == 0)
-        {
-            lstrcpyn(Configuration.FileListDiskDirName, "catalog.lst",
-                     _countof(Configuration.FileListDiskDirName));
-            SetDlgItemText(HWindow, IDC_FL_DISKDIR_FILENAME,
-                           Configuration.FileListDiskDirName);
-        }
-
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FL_LINE_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_FILELISTLINE_HINT));
 
         InstallWordBreakProc(GetDlgItem(HWindow, IDC_FL_FILENAME)); // install WordBreakProc into the editline
-        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FL_DISKDIR_FILENAME));
 
         HWND hCombo = GetDlgItem(HWindow, IDC_FL_LINE);
         EditLine->AttachToWindow(GetWindow(hCombo, GW_CHILD));
@@ -2211,25 +2183,6 @@ CFileListDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
             BrowseFileName(HWindow, IDC_FL_FILENAME, buffFile);
-            return 0;
-        }
-
-        case IDC_FL_DISKDIR_BROWSE:
-        {
-            char buffFile[_countof(Configuration.FileListDiskDirName)];
-            MainWindow->UpdateDefaultDir(TRUE);
-            SendMessage(GetDlgItem(HWindow, IDC_FL_DISKDIR_FILENAME), WM_GETTEXT,
-                        _countof(buffFile), (LPARAM)buffFile);
-            if (!SalGetFullName(buffFile, NULL,
-                                MainWindow->GetActivePanel()->Is(ptDisk)
-                                    ? MainWindow->GetActivePanel()->GetPath()
-                                    : NULL,
-                                NULL, NULL, _countof(buffFile)))
-            {
-                SendMessage(GetDlgItem(HWindow, IDC_FL_DISKDIR_FILENAME), WM_GETTEXT,
-                            _countof(buffFile), (LPARAM)buffFile);
-            }
-            BrowseFileName(HWindow, IDC_FL_DISKDIR_FILENAME, buffFile);
             return 0;
         }
 
