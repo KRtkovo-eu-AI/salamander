@@ -125,6 +125,19 @@ if (-not $WorkspaceDir)
 {
     $WorkspaceDir = Join-Path ([System.IO.Path]::GetTempPath()) "salamand-langpack-workspace"
 }
+else
+{
+    # Translator stores the export path from the project file as-is.  A
+    # relative workspace therefore becomes relative to each project directory
+    # (for example, projects\czech\7zip\.\out\...), which makes quiet
+    # round-trip export fail with "path not found".  Normalize it once before
+    # generating any project files.
+    if (-not [System.IO.Path]::IsPathRooted($WorkspaceDir))
+    {
+        $WorkspaceDir = Join-Path (Get-Location).Path $WorkspaceDir
+    }
+    $WorkspaceDir = [System.IO.Path]::GetFullPath($WorkspaceDir)
+}
 
 if (Test-Path -LiteralPath $WorkspaceDir)
 {
