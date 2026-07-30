@@ -83,6 +83,8 @@ def main() -> int:
     setup = read("doc/runbook-setup/inno_setup_salamander_x64.iss")
     python_demo = read("src/extensions/demos/python/main.py")
     powershell_demo = read("src/extensions/demos/powershell/main.ps1")
+    powershell_worker = read(
+        "src/plugins/powershellruntime/runtime/salamatrix_worker.ps1")
     navigator = read("src/extensions/git-worktree-navigator/main.ps1")
     navigator_manifest = json.loads(
         read("src/extensions/git-worktree-navigator/extension.json"))
@@ -572,7 +574,8 @@ def main() -> int:
         "Git Worktree Navigator does not derive worktrees from the source panel")
     require(
         navigator,
-        r"source_side\.CreateTab.*?target_side\.CreateTab",
+        r"Open-NavigatorTab.*?source_side.*?"
+        r"Open-NavigatorTab.*?target_side",
         "Git Worktree Navigator does not integrate with both Salamander sides")
     require(
         navigator,
@@ -581,6 +584,34 @@ def main() -> int:
     require_absent(
         navigator, r"worktree.*?remove.*?--force",
         "Git Worktree Navigator must not force-remove worktrees")
+    require(
+        navigator,
+        r"for-each-ref.*?refs/heads.*?refs/remotes.*?"
+        r"Switch-NavigatorBranch.*?'switch'.*?"
+        r"Invoke-NavigatorFetch.*?'fetch'.*?"
+        r"Invoke-NavigatorPull.*?'pull'.*?'--ff-only'.*?"
+        r"Invoke-NavigatorPush.*?'push'",
+        "Git Worktree Navigator branch and remote operations are incomplete")
+    require(
+        navigator,
+        r"Invoke-NavigatorCommit.*?'add'.*?'--all'.*?"
+        r"'diff'.*?'--cached'.*?'commit'.*?'-m'",
+        "Git Worktree Navigator commit flow is incomplete")
+    command_ids = {
+        command.get("id") for command in navigator_manifest.get("commands", [])
+    }
+    if "OpenSalamander.GitWorktreeNavigator.commit" not in command_ids:
+        raise AssertionError(
+            "Git Worktree Navigator does not expose Commit in the extension menu")
+    require(
+        powershell_worker,
+        r"Payload\.PSObject\.Properties\['ok'\].*?"
+        r"\$null\s+-ne\s+\$okProperty",
+        "PowerShell runtime assumes every successful host result has an ok field")
+    require_absent(
+        powershell_worker,
+        r"frame\.Payload\.ok\s+-eq\s+\$false",
+        "PowerShell runtime still reads an optional ok field under StrictMode")
     expected_locales = {
         "en", "cs", "de", "es", "fr", "hu",
         "nl", "ro", "ru", "sk", "zh-CN",

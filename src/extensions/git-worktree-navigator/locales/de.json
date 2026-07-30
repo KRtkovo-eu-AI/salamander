@@ -1,7 +1,8 @@
 {
   "name": "Git-Worktree-Navigator",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Git-Worktree-Navigator..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Git-Worktree-Navigator...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git-Commit..."
   },
   "strings": {
     "title": "Git-Worktree-Navigator",
@@ -39,6 +40,38 @@
     "removed": "Der Worktree wurde entfernt.",
     "gitMissing": "Git for Windows wurde in PATH nicht gefunden.",
     "notRepository": "Das Quellfenster befindet sich nicht in einem Git-Repository.",
-    "gitFailed": "Der Git-Befehl ist fehlgeschlagen."
+    "gitFailed": "Der Git-Befehl ist fehlgeschlagen.",
+    "worktrees": "Worktrees",
+    "branches": "Branches (lokal und remote)",
+    "kind": "Typ",
+    "state": "Status",
+    "worktree": "Ausgecheckt in",
+    "local": "Lokal",
+    "remote": "Remote",
+    "current": "Aktuell",
+    "checkedOut": "Anderer Worktree",
+    "switch": "Wechseln",
+    "fetch": "Fetch",
+    "pull": "Pull",
+    "push": "Push",
+    "commit": "Commit...",
+    "openFailed": "Open Salamander konnte den angeforderten Tab nicht erstellen.",
+    "branchInWorktree": "Branch „{0}“ ist bereits in einem anderen Worktree ausgecheckt:{1}",
+    "confirmDirtySwitch": "Dieser Worktree enthält nicht committete Änderungen. Branch trotzdem wechseln?",
+    "switched": "Zu Branch {0} gewechselt.",
+    "fetchComplete": "Fetch abgeschlossen.",
+    "pullComplete": "Pull abgeschlossen.",
+    "pushComplete": "Push abgeschlossen.",
+    "detachedPush": "Von einem detached HEAD kann ohne Branch-Auswahl nicht gepusht werden.",
+    "noPushUpstream": "Der aktuelle Branch hat keinen Upstream und das Remote origin ist nicht verfügbar.",
+    "confirmSetUpstream": "Branch „{0}“ hat keinen Upstream. Zu origin pushen und den Upstream setzen?",
+    "commitTitle": "Git-Commit",
+    "changes": "Änderungen",
+    "commitMessage": "Commit-Nachricht",
+    "stageAll": "Alle verfolgten und unverfolgten Änderungen stagen",
+    "commitMessageRequired": "Geben Sie eine Commit-Nachricht ein.",
+    "nothingToCommit": "Der Worktree ist sauber. Es gibt nichts zu committen.",
+    "noStagedChanges": "Es gibt keine gestagten Änderungen zum Committen.",
+    "commitComplete": "Commit erstellt."
   }
 }

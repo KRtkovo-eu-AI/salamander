@@ -36,6 +36,15 @@
       "contextMenu": true,
       "toolbar": true,
       "requires": "disk"
+    },
+    {
+      "id": "OpenSalamander.GitWorktreeNavigator.commit",
+      "title": "Git Commit...",
+      "handler": "commit",
+      "menu": "both",
+      "contextMenu": true,
+      "toolbar": false,
+      "requires": "disk"
     }
   ]
 }

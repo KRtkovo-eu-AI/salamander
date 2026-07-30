@@ -1,7 +1,8 @@
 {
   "name": "Git-worktree-navigator",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Git-worktree-navigator..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Git-worktree-navigator...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git-commit..."
   },
   "strings": {
     "title": "Git-worktree-navigator",
@@ -39,6 +40,38 @@
     "removed": "De worktree is verwijderd.",
     "gitMissing": "Git for Windows is niet gevonden in PATH.",
     "notRepository": "Het bronpaneel bevindt zich niet in een Git-repository.",
-    "gitFailed": "De Git-opdracht is mislukt."
+    "gitFailed": "De Git-opdracht is mislukt.",
+    "worktrees": "Worktrees",
+    "branches": "Branches (lokaal en extern)",
+    "kind": "Type",
+    "state": "Status",
+    "worktree": "Uitgecheckt in",
+    "local": "Lokaal",
+    "remote": "Extern",
+    "current": "Huidig",
+    "checkedOut": "Andere worktree",
+    "switch": "Wisselen",
+    "fetch": "Fetch",
+    "pull": "Pull",
+    "push": "Push",
+    "commit": "Commit...",
+    "openFailed": "Open Salamander kon het gevraagde tabblad niet maken.",
+    "branchInWorktree": "Branch ‘{0}’ is al uitgecheckt in een andere worktree:{1}",
+    "confirmDirtySwitch": "Deze worktree bevat niet-gecommitte wijzigingen. Toch van branch wisselen?",
+    "switched": "Gewisseld naar branch {0}.",
+    "fetchComplete": "Fetch voltooid.",
+    "pullComplete": "Pull voltooid.",
+    "pushComplete": "Push voltooid.",
+    "detachedPush": "Pushen vanuit een detached HEAD kan niet zonder een branch te kiezen.",
+    "noPushUpstream": "De huidige branch heeft geen upstream en remote origin is niet beschikbaar.",
+    "confirmSetUpstream": "Branch ‘{0}’ heeft geen upstream. Naar origin pushen en upstream instellen?",
+    "commitTitle": "Git-commit",
+    "changes": "Wijzigingen",
+    "commitMessage": "Commitbericht",
+    "stageAll": "Alle gevolgde en niet-gevolgde wijzigingen stagen",
+    "commitMessageRequired": "Voer een commitbericht in.",
+    "nothingToCommit": "De worktree is schoon. Er is niets om te committen.",
+    "noStagedChanges": "Er zijn geen gestagede wijzigingen om te committen.",
+    "commitComplete": "Commit gemaakt."
   }
 }

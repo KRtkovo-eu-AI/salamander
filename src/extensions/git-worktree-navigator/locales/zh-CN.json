@@ -1,7 +1,8 @@
 {
   "name": "Git 工作树导航器",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Git 工作树导航器..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Git 工作树导航器...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git 提交..."
   },
   "strings": {
     "title": "Git 工作树导航器",
@@ -39,6 +40,38 @@
     "removed": "工作树已移除。",
     "gitMissing": "在 PATH 中找不到 Git for Windows。",
     "notRepository": "源面板不在 Git 仓库内。",
-    "gitFailed": "Git 命令失败。"
+    "gitFailed": "Git 命令失败。",
+    "worktrees": "工作树",
+    "branches": "分支（本地和远程）",
+    "kind": "类型",
+    "state": "状态",
+    "worktree": "签出位置",
+    "local": "本地",
+    "remote": "远程",
+    "current": "当前",
+    "checkedOut": "其他工作树",
+    "switch": "切换",
+    "fetch": "获取",
+    "pull": "拉取",
+    "push": "推送",
+    "commit": "提交...",
+    "openFailed": "Open Salamander 无法创建请求的标签页。",
+    "branchInWorktree": "分支“{0}”已在另一个工作树中签出：{1}",
+    "confirmDirtySwitch": "此工作树包含未提交的更改。仍要切换分支吗？",
+    "switched": "已切换到分支 {0}。",
+    "fetchComplete": "获取完成。",
+    "pullComplete": "拉取完成。",
+    "pushComplete": "推送完成。",
+    "detachedPush": "未选择分支时，无法从分离的 HEAD 推送。",
+    "noPushUpstream": "当前分支没有上游，且远程 origin 不可用。",
+    "confirmSetUpstream": "分支“{0}”没有上游。是否推送到 origin 并设置上游？",
+    "commitTitle": "Git 提交",
+    "changes": "更改",
+    "commitMessage": "提交消息",
+    "stageAll": "暂存所有已跟踪和未跟踪的更改",
+    "commitMessageRequired": "请输入提交消息。",
+    "nothingToCommit": "工作树是干净的，没有可提交的内容。",
+    "noStagedChanges": "没有已暂存的更改可提交。",
+    "commitComplete": "提交已创建。"
   }
 }

@@ -54,7 +54,11 @@ function Invoke-Host {
         $frame = Read-Frame
         if ($frame.Kind -eq 'event') { Invoke-Event $frame.Payload; continue }
         if ($frame.Id -ne $id) { continue }
-        if ($frame.Kind -eq 'error' -or $frame.Payload.ok -eq $false) { throw [string]$frame.Payload.error }
+        if ($frame.Kind -eq 'error') { throw [string]$frame.Payload.error }
+        $okProperty = $frame.Payload.PSObject.Properties['ok']
+        if ($null -ne $okProperty -and $okProperty.Value -eq $false) {
+            throw [string]$frame.Payload.error
+        }
         if ($frame.Kind -ne 'result') { throw "Unexpected SMX1 response: $($frame.Kind)" }
         return $frame.Payload
     }

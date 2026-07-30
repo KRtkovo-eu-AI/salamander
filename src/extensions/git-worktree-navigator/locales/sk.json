@@ -1,7 +1,8 @@
 {
   "name": "Navigátor Git worktree",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Navigátor Git worktree..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Navigátor Git worktree...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git commit..."
   },
   "strings": {
     "title": "Navigátor Git worktree",
@@ -39,6 +40,38 @@
     "removed": "Worktree bol odstránený.",
     "gitMissing": "Git for Windows nebol nájdený v PATH.",
     "notRepository": "Zdrojový panel nie je v Git repozitári.",
-    "gitFailed": "Príkaz Git zlyhal."
+    "gitFailed": "Príkaz Git zlyhal.",
+    "worktrees": "Worktrees",
+    "branches": "Vetvy (lokálne aj vzdialené)",
+    "kind": "Typ",
+    "state": "Stav",
+    "worktree": "Použitá vo worktree",
+    "local": "Lokálna",
+    "remote": "Vzdialená",
+    "current": "Aktuálna",
+    "checkedOut": "Iný worktree",
+    "switch": "Prepnúť",
+    "fetch": "Fetch",
+    "pull": "Pull",
+    "push": "Push",
+    "commit": "Commit...",
+    "openFailed": "Open Salamander nemohol vytvoriť požadovanú záložku.",
+    "branchInWorktree": "Vetva „{0}“ je už použitá v inom worktree:{1}",
+    "confirmDirtySwitch": "Tento worktree obsahuje necommitnuté zmeny. Napriek tomu prepnúť vetvu?",
+    "switched": "Prepnuté na vetvu {0}.",
+    "fetchComplete": "Fetch bol dokončený.",
+    "pullComplete": "Pull bol dokončený.",
+    "pushComplete": "Push bol dokončený.",
+    "detachedPush": "Z detached HEAD nemožno pushnúť bez výberu vetvy.",
+    "noPushUpstream": "Aktuálna vetva nemá upstream a vzdialený repozitár origin nie je dostupný.",
+    "confirmSetUpstream": "Vetva „{0}“ nemá upstream. Pushnúť ju na origin a nastaviť upstream?",
+    "commitTitle": "Git commit",
+    "changes": "Zmeny",
+    "commitMessage": "Správa commitu",
+    "stageAll": "Pridať do stage všetky sledované aj nesledované zmeny",
+    "commitMessageRequired": "Zadajte správu commitu.",
+    "nothingToCommit": "Worktree je čistý. Nie je čo commitnúť.",
+    "noStagedChanges": "V stage nie sú žiadne zmeny na commit.",
+    "commitComplete": "Commit bol vytvorený."
   }
 }

@@ -1,7 +1,8 @@
 {
   "name": "Git Worktree Navigator",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Git Worktree Navigator..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Git Worktree Navigator...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git Commit..."
   },
   "strings": {
     "title": "Git Worktree Navigator",
@@ -39,6 +40,38 @@
     "removed": "The worktree was removed.",
     "gitMissing": "Git for Windows was not found in PATH.",
     "notRepository": "The source panel is not inside a Git repository.",
-    "gitFailed": "The Git command failed."
+    "gitFailed": "The Git command failed.",
+    "worktrees": "Worktrees",
+    "branches": "Branches (local and remote)",
+    "kind": "Type",
+    "state": "State",
+    "worktree": "Checked out in",
+    "local": "Local",
+    "remote": "Remote",
+    "current": "Current",
+    "checkedOut": "Other worktree",
+    "switch": "Switch",
+    "fetch": "Fetch",
+    "pull": "Pull",
+    "push": "Push",
+    "commit": "Commit...",
+    "openFailed": "Open Salamander could not create the requested tab.",
+    "branchInWorktree": "Branch \"{0}\" is already checked out in another worktree:{1}",
+    "confirmDirtySwitch": "This worktree contains uncommitted changes. Switch branches anyway?",
+    "switched": "Switched to branch {0}.",
+    "fetchComplete": "Fetch completed.",
+    "pullComplete": "Pull completed.",
+    "pushComplete": "Push completed.",
+    "detachedPush": "Cannot push from a detached HEAD without selecting a branch.",
+    "noPushUpstream": "The current branch has no upstream and the origin remote is unavailable.",
+    "confirmSetUpstream": "Branch \"{0}\" has no upstream. Push it to origin and set the upstream?",
+    "commitTitle": "Git Commit",
+    "changes": "Changes",
+    "commitMessage": "Commit message",
+    "stageAll": "Stage all tracked and untracked changes",
+    "commitMessageRequired": "Enter a commit message.",
+    "nothingToCommit": "The worktree is clean. There is nothing to commit.",
+    "noStagedChanges": "There are no staged changes to commit.",
+    "commitComplete": "Commit created."
   }
 }

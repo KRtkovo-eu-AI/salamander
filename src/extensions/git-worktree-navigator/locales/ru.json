@@ -1,7 +1,8 @@
 {
   "name": "Навигатор рабочих деревьев Git",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Навигатор рабочих деревьев Git..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Навигатор рабочих деревьев Git...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Коммит Git..."
   },
   "strings": {
     "title": "Навигатор рабочих деревьев Git",
@@ -39,6 +40,38 @@
     "removed": "Рабочее дерево удалено.",
     "gitMissing": "Git for Windows не найден в PATH.",
     "notRepository": "Панель источника не находится в репозитории Git.",
-    "gitFailed": "Команда Git завершилась с ошибкой."
+    "gitFailed": "Команда Git завершилась с ошибкой.",
+    "worktrees": "Рабочие деревья",
+    "branches": "Ветки (локальные и удалённые)",
+    "kind": "Тип",
+    "state": "Состояние",
+    "worktree": "Извлечена в",
+    "local": "Локальная",
+    "remote": "Удалённая",
+    "current": "Текущая",
+    "checkedOut": "Другое дерево",
+    "switch": "Переключить",
+    "fetch": "Получить",
+    "pull": "Загрузить",
+    "push": "Отправить",
+    "commit": "Коммит...",
+    "openFailed": "Open Salamander не удалось создать запрошенную вкладку.",
+    "branchInWorktree": "Ветка «{0}» уже извлечена в другом рабочем дереве:{1}",
+    "confirmDirtySwitch": "В рабочем дереве есть незакоммиченные изменения. Всё равно переключить ветку?",
+    "switched": "Выполнено переключение на ветку {0}.",
+    "fetchComplete": "Получение завершено.",
+    "pullComplete": "Загрузка завершена.",
+    "pushComplete": "Отправка завершена.",
+    "detachedPush": "Нельзя отправить detached HEAD без выбора ветки.",
+    "noPushUpstream": "У текущей ветки нет upstream, а удалённый репозиторий origin недоступен.",
+    "confirmSetUpstream": "У ветки «{0}» нет upstream. Отправить её в origin и настроить upstream?",
+    "commitTitle": "Коммит Git",
+    "changes": "Изменения",
+    "commitMessage": "Сообщение коммита",
+    "stageAll": "Добавить в индекс все отслеживаемые и неотслеживаемые изменения",
+    "commitMessageRequired": "Введите сообщение коммита.",
+    "nothingToCommit": "Рабочее дерево чистое. Коммитить нечего.",
+    "noStagedChanges": "В индексе нет изменений для коммита.",
+    "commitComplete": "Коммит создан."
   }
 }

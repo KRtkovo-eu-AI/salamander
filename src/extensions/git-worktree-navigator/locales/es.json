@@ -1,7 +1,8 @@
 {
   "name": "Navegador de worktrees Git",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Navegador de worktrees Git..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Navegador de worktrees Git...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Commit de Git..."
   },
   "strings": {
     "title": "Navegador de worktrees Git",
@@ -39,6 +40,38 @@
     "removed": "Se eliminó el worktree.",
     "gitMissing": "No se encontró Git for Windows en PATH.",
     "notRepository": "El panel de origen no está dentro de un repositorio Git.",
-    "gitFailed": "El comando Git falló."
+    "gitFailed": "El comando Git falló.",
+    "worktrees": "Worktrees",
+    "branches": "Ramas (locales y remotas)",
+    "kind": "Tipo",
+    "state": "Estado",
+    "worktree": "Activa en",
+    "local": "Local",
+    "remote": "Remota",
+    "current": "Actual",
+    "checkedOut": "Otro worktree",
+    "switch": "Cambiar",
+    "fetch": "Fetch",
+    "pull": "Pull",
+    "push": "Push",
+    "commit": "Commit...",
+    "openFailed": "Open Salamander no pudo crear la pestaña solicitada.",
+    "branchInWorktree": "La rama «{0}» ya está activa en otro worktree:{1}",
+    "confirmDirtySwitch": "Este worktree contiene cambios sin confirmar. ¿Cambiar de rama de todos modos?",
+    "switched": "Se cambió a la rama {0}.",
+    "fetchComplete": "Fetch completado.",
+    "pullComplete": "Pull completado.",
+    "pushComplete": "Push completado.",
+    "detachedPush": "No se puede hacer push desde un HEAD separado sin seleccionar una rama.",
+    "noPushUpstream": "La rama actual no tiene upstream y el remoto origin no está disponible.",
+    "confirmSetUpstream": "La rama «{0}» no tiene upstream. ¿Enviar a origin y establecerlo?",
+    "commitTitle": "Commit de Git",
+    "changes": "Cambios",
+    "commitMessage": "Mensaje del commit",
+    "stageAll": "Preparar todos los cambios rastreados y no rastreados",
+    "commitMessageRequired": "Introduzca un mensaje de commit.",
+    "nothingToCommit": "El worktree está limpio. No hay nada que confirmar.",
+    "noStagedChanges": "No hay cambios preparados para confirmar.",
+    "commitComplete": "Commit creado."
   }
 }

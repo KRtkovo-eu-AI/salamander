@@ -1,7 +1,8 @@
 {
   "name": "Navigateur de worktrees Git",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Navigateur de worktrees Git..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Navigateur de worktrees Git...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Commit Git..."
   },
   "strings": {
     "title": "Navigateur de worktrees Git",
@@ -39,6 +40,38 @@
     "removed": "Le worktree a été supprimé.",
     "gitMissing": "Git for Windows est introuvable dans PATH.",
     "notRepository": "Le panneau source n’est pas dans un dépôt Git.",
-    "gitFailed": "La commande Git a échoué."
+    "gitFailed": "La commande Git a échoué.",
+    "worktrees": "Worktrees",
+    "branches": "Branches (locales et distantes)",
+    "kind": "Type",
+    "state": "État",
+    "worktree": "Extraite dans",
+    "local": "Locale",
+    "remote": "Distante",
+    "current": "Actuelle",
+    "checkedOut": "Autre worktree",
+    "switch": "Basculer",
+    "fetch": "Fetch",
+    "pull": "Pull",
+    "push": "Push",
+    "commit": "Commit...",
+    "openFailed": "Open Salamander n’a pas pu créer l’onglet demandé.",
+    "branchInWorktree": "La branche « {0} » est déjà extraite dans un autre worktree :{1}",
+    "confirmDirtySwitch": "Ce worktree contient des modifications non validées. Changer quand même de branche ?",
+    "switched": "Basculement vers la branche {0}.",
+    "fetchComplete": "Fetch terminé.",
+    "pullComplete": "Pull terminé.",
+    "pushComplete": "Push terminé.",
+    "detachedPush": "Impossible de pousser depuis un HEAD détaché sans sélectionner une branche.",
+    "noPushUpstream": "La branche actuelle n’a pas d’upstream et le dépôt distant origin est indisponible.",
+    "confirmSetUpstream": "La branche « {0} » n’a pas d’upstream. La pousser vers origin et le définir ?",
+    "commitTitle": "Commit Git",
+    "changes": "Modifications",
+    "commitMessage": "Message du commit",
+    "stageAll": "Indexer toutes les modifications suivies et non suivies",
+    "commitMessageRequired": "Saisissez un message de commit.",
+    "nothingToCommit": "Le worktree est propre. Rien à valider.",
+    "noStagedChanges": "Aucune modification indexée à valider.",
+    "commitComplete": "Commit créé."
   }
 }

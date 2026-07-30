@@ -1,7 +1,8 @@
 {
   "name": "Navigator worktree Git",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Navigator worktree Git..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Navigator worktree Git...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Commit Git..."
   },
   "strings": {
     "title": "Navigator worktree Git",
@@ -39,6 +40,38 @@
     "removed": "Worktree-ul a fost eliminat.",
     "gitMissing": "Git for Windows nu a fost găsit în PATH.",
     "notRepository": "Panoul sursă nu este într-un depozit Git.",
-    "gitFailed": "Comanda Git a eșuat."
+    "gitFailed": "Comanda Git a eșuat.",
+    "worktrees": "Worktree-uri",
+    "branches": "Ramuri (locale și la distanță)",
+    "kind": "Tip",
+    "state": "Stare",
+    "worktree": "Extras în",
+    "local": "Locală",
+    "remote": "La distanță",
+    "current": "Curentă",
+    "checkedOut": "Alt worktree",
+    "switch": "Comută",
+    "fetch": "Fetch",
+    "pull": "Pull",
+    "push": "Push",
+    "commit": "Commit...",
+    "openFailed": "Open Salamander nu a putut crea fila solicitată.",
+    "branchInWorktree": "Ramura „{0}” este deja extrasă în alt worktree:{1}",
+    "confirmDirtySwitch": "Acest worktree conține modificări neconfirmate. Comutați ramura oricum?",
+    "switched": "S-a comutat la ramura {0}.",
+    "fetchComplete": "Fetch finalizat.",
+    "pullComplete": "Pull finalizat.",
+    "pushComplete": "Push finalizat.",
+    "detachedPush": "Nu se poate face push dintr-un HEAD detașat fără selectarea unei ramuri.",
+    "noPushUpstream": "Ramura curentă nu are upstream, iar depozitul origin nu este disponibil.",
+    "confirmSetUpstream": "Ramura „{0}” nu are upstream. Faceți push la origin și îl setați?",
+    "commitTitle": "Commit Git",
+    "changes": "Modificări",
+    "commitMessage": "Mesaj commit",
+    "stageAll": "Adaugă în stage toate modificările urmărite și neurmărite",
+    "commitMessageRequired": "Introduceți un mesaj de commit.",
+    "nothingToCommit": "Worktree-ul este curat. Nu există nimic de confirmat.",
+    "noStagedChanges": "Nu există modificări în stage pentru commit.",
+    "commitComplete": "Commit creat."
   }
 }

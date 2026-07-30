@@ -1,7 +1,8 @@
 {
   "name": "Navigátor Git worktree",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Navigátor Git worktree..."
+    "OpenSalamander.GitWorktreeNavigator.open": "Navigátor Git worktree...",
+    "OpenSalamander.GitWorktreeNavigator.commit": "Git commit..."
   },
   "strings": {
     "title": "Navigátor Git worktree",
@@ -39,6 +40,38 @@
     "removed": "Worktree byl odstraněn.",
     "gitMissing": "Git for Windows nebyl nalezen v PATH.",
     "notRepository": "Zdrojový panel není uvnitř Git repozitáře.",
-    "gitFailed": "Příkaz Git selhal."
+    "gitFailed": "Příkaz Git selhal.",
+    "worktrees": "Worktrees",
+    "branches": "Větve (lokální i vzdálené)",
+    "kind": "Typ",
+    "state": "Stav",
+    "worktree": "Použita ve worktree",
+    "local": "Lokální",
+    "remote": "Vzdálená",
+    "current": "Aktuální",
+    "checkedOut": "Jiný worktree",
+    "switch": "Přepnout",
+    "fetch": "Fetch",
+    "pull": "Pull",
+    "push": "Push",
+    "commit": "Commit...",
+    "openFailed": "Open Salamander nemohl vytvořit požadovanou záložku.",
+    "branchInWorktree": "Větev „{0}“ je již použita v jiném worktree:{1}",
+    "confirmDirtySwitch": "Tento worktree obsahuje necommitnuté změny. Přesto přepnout větev?",
+    "switched": "Přepnuto na větev {0}.",
+    "fetchComplete": "Fetch byl dokončen.",
+    "pullComplete": "Pull byl dokončen.",
+    "pushComplete": "Push byl dokončen.",
+    "detachedPush": "Z detached HEAD nelze pushnout bez výběru větve.",
+    "noPushUpstream": "Aktuální větev nemá upstream a vzdálený repozitář origin není dostupný.",
+    "confirmSetUpstream": "Větev „{0}“ nemá upstream. Pushnout ji na origin a nastavit upstream?",
+    "commitTitle": "Git commit",
+    "changes": "Změny",
+    "commitMessage": "Zpráva commitu",
+    "stageAll": "Přidat do stage všechny sledované i nesledované změny",
+    "commitMessageRequired": "Zadejte zprávu commitu.",
+    "nothingToCommit": "Worktree je čistý. Není co commitnout.",
+    "noStagedChanges": "Ve stage nejsou žádné změny ke commitu.",
+    "commitComplete": "Commit byl vytvořen."
   }
 }
