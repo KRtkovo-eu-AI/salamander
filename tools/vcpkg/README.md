@@ -38,11 +38,22 @@ compilation (headers + import libs) and at runtime (DLLs).
 Run from a Visual Studio Developer PowerShell on Windows:
 
 ```powershell
+.\tools\vcpkg\build-and-deploy-dependencies.ps1       # interactive selection, build, and payload deployment
+.\tools\vcpkg\build-and-deploy-dependencies.ps1 -Dependency unrar,lua
+.\tools\vcpkg\build-and-deploy-dependencies.ps1 -All
 .\tools\vcpkg\build-third-party-libs.ps1
 .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin    # incl. libssh2 + OpenSSL 3.x for SFTP plugin
 .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin  # only SFTP deps
 .\tools\vcpkg\build-third-party-libs.ps1 -PrebuiltDllsDir C:\path\to\dlls  # fallback for non-vcpkg DLLs
 ```
+
+`build-and-deploy-dependencies.ps1` is the preferred end-to-end entry point.
+Without selection parameters it first shows a numbered menu for UnRAR, legacy
+FTP OpenSSL, Lua Runtime, SFTP, and the staging-only Windows `dbghelp.dll`.
+For automation, use `-Dependency` or `-All`. The default destination is
+`%OPENSAL_BUILD_DIR%\salamander\Release_<platform>`; override it with
+`-PayloadDir`. Only selected groups are deployed, and partial runs preserve
+other groups already present in the shared vcpkg installation.
 
 By default the script:
 
@@ -86,6 +97,9 @@ utils\dbghelp.dll
 plugins\extension-runtimes\luaruntime\runtime\lua.exe
 plugins\extension-runtimes\luaruntime\runtime\lua.dll
 plugins\extension-runtimes\luaruntime\runtime\LICENSE-LUA.txt
+plugins\sftp\libssh2.dll
+plugins\sftp\libcrypto-3*.dll
+plugins\sftp\z.dll
 ```
 
 ### Salamatrix AI local model assets

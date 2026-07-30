@@ -7,7 +7,10 @@ param(
     [switch]$NoBootstrap,
     [switch]$SkipInstall,
     [switch]$SftpPlugin,
-    [switch]$OnlySftpPlugin
+    [switch]$OnlySftpPlugin,
+    [string[]]$ManifestFeature = @(),
+    [switch]$NoDefaultFeatures,
+    [switch]$SkipLegacyCopy
 )
 
 $ErrorActionPreference = 'Stop'
@@ -135,82 +138,94 @@ if (!$OnlySftpPlugin)
 {
     if (!$SkipInstall)
     {
-        Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments @(
+        $installArguments = @(
             'install',
             '--triplet', $Triplet,
             '--x-install-root', $installRoot
-        ) -WorkingDirectory $manifestRoot
+        )
+        if ($NoDefaultFeatures)
+        {
+            $installArguments += '--x-no-default-features'
+        }
+        foreach ($feature in $ManifestFeature)
+        {
+            $installArguments += "--x-feature=$feature"
+        }
+        Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments $installArguments -WorkingDirectory $manifestRoot
     }
 
-    if (!(Test-Path -LiteralPath $tripletBinDir))
+    if (!$SkipLegacyCopy -and !(Test-Path -LiteralPath $tripletBinDir))
     {
         throw "vcpkg bin directory does not exist: $tripletBinDir"
     }
 
-    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-
-    foreach ($dllName in $RequiredDlls)
+    if (!$SkipLegacyCopy)
     {
-        $source = Join-Path $tripletBinDir $dllName
-        if (!(Test-Path -LiteralPath $source))
+        New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+
+        foreach ($dllName in $RequiredDlls)
         {
-            $matches = @(Get-ChildItem -LiteralPath (Join-Path $installRoot $Triplet) -Recurse -File -Filter $dllName -ErrorAction SilentlyContinue)
-            if ($matches.Count -eq 1)
+            $source = Join-Path $tripletBinDir $dllName
+            if (!(Test-Path -LiteralPath $source))
             {
-                $source = $matches[0].FullName
-            }
-            elseif ($matches.Count -gt 1)
-            {
-                throw "Found multiple candidates for ${dllName}: $($matches.FullName -join ', ')"
-            }
-            else
-            {
-                # Not produced by vcpkg - try prebuilt DLLs directory
-                if (![string]::IsNullOrWhiteSpace($PrebuiltDllsDir))
+                $matches = @(Get-ChildItem -LiteralPath (Join-Path $installRoot $Triplet) -Recurse -File -Filter $dllName -ErrorAction SilentlyContinue)
+                if ($matches.Count -eq 1)
                 {
-                    $prebuilt = Join-Path $PrebuiltDllsDir $dllName
-                    if (Test-Path -LiteralPath $prebuilt)
-                    {
-                        $source = $prebuilt
-                    }
-                    elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
-                    {
-                        Write-Warning "DLL '$dllName' not in vcpkg or prebuilt dir, keeping existing copy in output dir"
-                        continue
-                    }
-                    else
-                    {
-                        throw "Required DLL was not produced by vcpkg and not found in prebuilt dir: $dllName"
-                    }
+                    $source = $matches[0].FullName
+                }
+                elseif ($matches.Count -gt 1)
+                {
+                    throw "Found multiple candidates for ${dllName}: $($matches.FullName -join ', ')"
                 }
                 else
                 {
-                    # Fallback: some DLLs are standard Windows system DLLs
-                    $systemDll = Join-Path "$env:SystemRoot\System32" $dllName
-                    if (Test-Path -LiteralPath $systemDll)
+                    # Not produced by vcpkg - try prebuilt DLLs directory
+                    if (![string]::IsNullOrWhiteSpace($PrebuiltDllsDir))
                     {
-                        Write-Host "Using system DLL: $systemDll"
-                        $source = $systemDll
-                    }
-                    elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
-                    {
-                        Write-Warning "DLL '$dllName' not produced by vcpkg, keeping existing copy in output dir"
-                        continue
+                        $prebuilt = Join-Path $PrebuiltDllsDir $dllName
+                        if (Test-Path -LiteralPath $prebuilt)
+                        {
+                            $source = $prebuilt
+                        }
+                        elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
+                        {
+                            Write-Warning "DLL '$dllName' not in vcpkg or prebuilt dir, keeping existing copy in output dir"
+                            continue
+                        }
+                        else
+                        {
+                            throw "Required DLL was not produced by vcpkg and not found in prebuilt dir: $dllName"
+                        }
                     }
                     else
                     {
-                        throw "Required DLL was not produced by vcpkg: $dllName"
+                        # Fallback: some DLLs are standard Windows system DLLs
+                        $systemDll = Join-Path "$env:SystemRoot\System32" $dllName
+                        if (Test-Path -LiteralPath $systemDll)
+                        {
+                            Write-Host "Using system DLL: $systemDll"
+                            $source = $systemDll
+                        }
+                        elseif (Test-Path -LiteralPath (Join-Path $OutputDir $dllName))
+                        {
+                            Write-Warning "DLL '$dllName' not produced by vcpkg, keeping existing copy in output dir"
+                            continue
+                        }
+                        else
+                        {
+                            throw "Required DLL was not produced by vcpkg: $dllName"
+                        }
                     }
                 }
             }
+
+            $destination = Join-Path $OutputDir $dllName
+            Copy-Item -LiteralPath $source -Destination $destination -Force
+            Write-Host "Copied $source -> $destination"
         }
 
-        $destination = Join-Path $OutputDir $dllName
-        Copy-Item -LiteralPath $source -Destination $destination -Force
-        Write-Host "Copied $source -> $destination"
+        Write-Host "Done. Third-party DLLs are available in $OutputDir"
     }
-
-    Write-Host "Done. Third-party DLLs are available in $OutputDir"
 }
 
 # --- SFTP plugin dependencies (libssh2 + OpenSSL 3.x) ---

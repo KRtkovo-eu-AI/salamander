@@ -1,16 +1,37 @@
 {
   "name": "opensalamander-third-party-libs",
   "version-string": "0",
-  "dependencies": [
-    {
-      "name": "lua",
-      "features": [
-        "tools"
+  "dependencies": [],
+  "default-features": [
+    "ftp-openssl",
+    "lua-runtime",
+    "unrar-runtime"
+  ],
+  "features": {
+    "ftp-openssl": {
+      "description": "Legacy OpenSSL runtime DLLs used by the FTP plugin",
+      "dependencies": [
+        "openssl"
       ]
     },
-    "openssl",
-    "unrar"
-  ],
+    "lua-runtime": {
+      "description": "Lua interpreter and runtime DLL used by Salamatrix Lua Runtime",
+      "dependencies": [
+        {
+          "name": "lua",
+          "features": [
+            "tools"
+          ]
+        }
+      ]
+    },
+    "unrar-runtime": {
+      "description": "UnRAR runtime DLL used by the UnRAR plugin",
+      "dependencies": [
+        "unrar"
+      ]
+    }
+  },
   "builtin-baseline": "a0b1c8d3a477c1cb4813d8e127a56961707ca42b",
   "overrides": [
     {
