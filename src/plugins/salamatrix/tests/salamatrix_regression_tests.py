@@ -162,9 +162,9 @@ def main() -> int:
                      r'<\|im_start\|>assistant',
             "bundled provider does not safely render the Qwen chat template")
     require(bundled, r'-f.*--json-schema-file.*'
-                     r'--no-conversation.*--no-jinja',
+                     r'--no-conversation.*--no-jinja.*--single-turn',
             "bundled provider can apply the JSON grammar to a Qwen chat control token")
-    require_absent(bundled, r'L" -sysf |L" --conversation|L" --single-turn|L" --jinja',
+    require_absent(bundled, r'L" -sysf |L" --conversation|L" --jinja',
                    "bundled provider still delegates Qwen chat rendering to llama.cpp")
     require(bundled, r'\\"capabilities\\":.*?\\"maxItems\\":10.*?'
                      r'\\"missingCapabilities\\":.*?\\"maxItems\\":16',
@@ -203,6 +203,8 @@ def main() -> int:
     require(bundled, r'parseableOutput = output.*?parseableOutput \+= diagnostics.*?'
                      r'ExtractJsonObject\(parseableOutput',
             "bundled provider does not parse generated JSON from both llama-cli streams")
+    require_absent(bundled, r'exitCode\s*!=\s*0\s*\|\|',
+                   "bundled provider rejects a complete JSON response because llama-cli saw stdin EOF")
     require(bundled, r'ReadAvailablePipe\(parentOut, output, outputCallback, outputContext\).*?'
                      r'ReadAvailablePipe\(parentErr, diagnostics, outputCallback, outputContext\)',
             "bundled llama stdout/stderr are no longer streamed to the visible console")

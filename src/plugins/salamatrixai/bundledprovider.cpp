@@ -860,7 +860,7 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     std::wstring command = Quote(m_command) + L" -m " + Quote(m_model) +
                            L" -f " + Quote(promptFile) +
                            L" --json-schema-file " + Quote(schemaFile) +
-                           L" --no-conversation --no-jinja --simple-io"
+                           L" --no-conversation --no-jinja --single-turn --simple-io"
                            L" --no-display-prompt --no-perf"
                            L" --temp 0 --top-k 1 --seed 0"
                            L" --repeat-penalty 1.20 --repeat-last-n 512 -n 4096";
@@ -907,7 +907,6 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     WaitForSingleObject(process.hProcess, 1000);
     ReadAvailablePipe(parentOut, output, outputCallback, outputContext);
     ReadAvailablePipe(parentErr, diagnostics, outputCallback, outputContext);
-    DWORD exitCode = 1; GetExitCodeProcess(process.hProcess, &exitCode);
     CloseHandle(process.hThread); CloseHandle(process.hProcess);
     CloseHandle(parentOut); CloseHandle(parentErr);
     DeleteFileW(promptFile.c_str());
@@ -936,7 +935,10 @@ BOOL WINAPI CLocalBundledAssistantProvider::Generate(
     }
     if (timedOut)
     { BundledFailure(response, Salamatrix::AI::AssistantStatusCancelled, HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"The bundled model timed out.", &failureOutput); return FALSE; }
-    if (exitCode != 0 || !hasJsonObject || last - first + 1 >= sizeof(response->ResponseJson))
+    // A complete contract-valid response remains usable even when llama-cli
+    // reports a non-success process status after receiving EOF on stdin.
+    if (!hasJsonObject ||
+        last - first + 1 >= sizeof(response->ResponseJson))
     { BundledFailure(response, Salamatrix::AI::AssistantStatusInvalidResponse, HRESULT_FROM_WIN32(ERROR_INVALID_DATA), L"The bundled model returned invalid structured JSON.", &failureOutput); return FALSE; }
     const std::string json =
         parseableOutput.substr(first, last - first + 1);
