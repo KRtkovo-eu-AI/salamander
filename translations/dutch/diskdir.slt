@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\dutch\diskdir\diskdir.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,195"
+
+[TRANSLATION]
+LANGID,1043
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.krtkovo.eu"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"DiskDir-catalogus maken"
+1004,8,9,38,8,1,"Catalogus:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Ook padnamen inpakken"
+1003,16,48,126,12,1,"Submappen recursief inpakken"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Annuleren"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Maakt en doorzoekt Total Commander DiskDir-compatibele bestandscatalogi."
+102,1,"DiskDir"
+103,1,"Info over DiskDir"
+104,1,"Inheemse ondersteuning voor DiskDir-compatibele catalogi.\n\nCatalogusbestanden bevatten namen, groottes en tijdstempels, niet de inhoud van bestanden."
+105,1,"DiskDir-catalogus"
+106,1,"Het cataloguspad is ongeldig of te lang."
+107,1,"De catalogusnaam wordt al gebruikt door een map."
+108,0,"The catalog already exists:\n\n"
+109,0,"\n\nDo you want to overwrite it?"
+110,1,"DiskDir-catalogi slaan geen bestandsinhoud op, dus bronbestanden kunnen niet worden verplaatst."
+111,1,"Items toevoegen aan een bestaande DiskDir-catalogus wordt niet ondersteund."
+
+[STRINGTABLE 1]
+112,1,"Kan de DiskDir-catalogus niet maken."
+113,1,"Het originele bestand in de catalogus is niet beschikbaar."
+114,1,"Een of meer originele bestanden in de catalogus zijn niet beschikbaar."
+115,1,"Kan de catalogus niet openen."
+116,1,"De catalogus is te groot."
+117,1,"Kan de catalogus niet lezen."
+118,1,"De UTF-8-catalogus bevat ongeldige tekst."
+119,1,"Het bestand bevat geen geldige DiskDir-catalogus."
+120,1,"Kan de DiskDir-catalogus niet schrijven."
+

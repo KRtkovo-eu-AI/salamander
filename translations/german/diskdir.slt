@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\german\diskdir\diskdir.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,195"
+
+[TRANSLATION]
+LANGID,1031
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.krtkovo.eu"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"DiskDir-Katalog erstellen"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Auch Pfadnamen packen"
+1003,16,48,129,12,1,"Unterverzeichnisse rekursiv packen"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Abbrechen"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Erstellt und durchsucht Total Commander DiskDir-kompatible Dateikataloge."
+102,1,"DiskDir"
+103,1,"Über DiskDir"
+104,1,"Natives DiskDir-kompatibles Katalog-\n\nKatalogdateien enthalten Namen, Größen und Zeitstempel, nicht den Dateiinhalte."
+105,1,"DiskDir-Katalog"
+106,1,"Der Katalogpfad ist ungültig oder zu lang."
+107,1,"Der Katalogname wird bereits von einem Ordner verwendet."
+108,1,"Der Katalog existiert bereits:\n\n"
+109,1,"\n\nMöchten Sie es überschreiben?"
+110,1,"DiskDir-Kataloge speichern keine Dateiinhalte, daher können Quelldateien nicht verschoben werden."
+111,1,"Das Hinzufügen von Einträgen zu einem vorhandenen DiskDir-Katalog wird nicht unterstützt."
+
+[STRINGTABLE 1]
+112,1,"Der DiskDir-Katalog kann nicht erstellt werden."
+113,1,"Die im Katalog aufgezeichnete Originaldatei ist nicht verfügbar."
+114,1,"Eine oder mehrere im Katalog aufgezeichnete Originaldateien sind nicht verfügbar."
+115,1,"Der Katalog kann nicht geöffnet werden."
+116,1,"Der Katalog ist zu groß."
+117,1,"Der Katalog kann nicht gelesen werden."
+118,1,"Der UTF-8-Katalog enthält ungültigen Text."
+119,1,"Die Datei enthält keinen gültigen DiskDir-Katalog."
+120,1,"Der DiskDir-Katalog kann nicht geschrieben werden."
+

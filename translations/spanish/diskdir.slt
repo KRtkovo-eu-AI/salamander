@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\spanish\diskdir\diskdir.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,195"
+
+[TRANSLATION]
+LANGID,3082
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.krtkovo.eu"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Crear catálogo DiskDir"
+1004,8,9,34,8,1,"Catálogo:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,122,12,1,"Incluir también nombres de ruta"
+1003,16,48,168,12,1,"Empaquetar subdirectorios de forma recursiva"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"Aceptar"
+2,144,74,50,14,1,"Cancelar"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Crea y examina catálogos de archivos compatibles con DiskDir de Total Commander."
+102,1,"DiskDir"
+103,1,"Acerca de DiskDir"
+104,1,"Compatibilidad nativa de catálogos compatibles con DiskDir.\n\nLos archivos de catálogo contienen nombres, tamaños y marcas de tiempo, no el contenido de los archivos."
+105,1,"Catálogo DiskDir"
+106,1,"La ruta del catálogo no es válida o es demasiado larga."
+107,1,"El nombre del catálogo ya está en uso."
+108,0,"The catalog already exists:\n\n"
+109,1,"¿Desea sobrescribirlo?\n\n"
+110,1,"Los catálogos DiskDir no almacenan el contenido de los archivos, por lo que no se pueden mover los archivos de origen."
+111,1,"No se admite agregar entradas a un catálogo DiskDir existente."
+
+[STRINGTABLE 1]
+112,1,"No se puede crear el catálogo DiskDir."
+113,1,"No se puede acceder al archivo original registrado."
+114,1,"No se puede acceder a uno o más archivos originales."
+115,1,"No se puede abrir el catálogo."
+116,1,"El catálogo es demasiado grande."
+117,1,"No se puede leer el catálogo."
+118,1,"El catálogo UTF-8 contiene texto no válido."
+119,1,"El archivo no contiene un catálogo DiskDir válido."
+120,1,"No se puede escribir el catálogo DiskDir."
+

@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\romanian\diskdir\diskdir.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,195"
+
+[TRANSLATION]
+LANGID,1048
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.krtkovo.eu"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Creeaza catalog DiskDir"
+1004,8,9,29,8,1,"Catalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Include si numele de cai"
+1003,16,48,142,12,1,"Impacheteaza recursiv subdirectoarele"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Anuleaza"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Creeaza si rasfoieste cataloage de fisiere compatibile cu DiskDir pentru Total Commander."
+102,1,"DiskDir"
+103,1,"Despre DiskDir"
+104,1,"Suport nativ pentru cataloage compatibile DiskDir.\n\nFișierele de catalog contin nume, dimensiuni si marcaje de timp, nu continutul fisierelor."
+105,1,"Catalog DiskDir"
+106,1,"Calea catalogului este invalida sau prea lunga."
+107,1,"Numele catalogului este deja folosit de un director."
+108,0,"The catalog already exists:\n\n"
+109,1,"\n\nDoriți să o suprascrieți?"
+110,1,"Cataloagele DiskDir nu stocheaza continutul fisierelor, deci fisierele sursa nu pot fi mutate."
+111,1,"Adaugarea intrarilor intr-un catalog DiskDir existent nu este acceptata."
+
+[STRINGTABLE 1]
+112,1,"Nu se poate crea catalogul DiskDir."
+113,1,"Fișierul original din catalog nu este disponibil."
+114,1,"Unul sau mai multe fișiere originale din catalog nu sunt disponibile."
+115,1,"Nu se poate deschide catalogul."
+116,1,"Catalogul este prea mare."
+117,1,"Nu se poate citi catalogul."
+118,1,"Catalogul UTF-8 conține text nevalid."
+119,1,"Fișierul nu conține un catalog DiskDir valid."
+120,1,"Nu se poate scrie catalogul DiskDir."
+

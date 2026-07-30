@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\czech\diskdir\diskdir.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,195"
+
+[TRANSLATION]
+LANGID,1029
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.krtkovo.eu"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Vytvořit katalog DiskDir"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Zabalit i názvy cest"
+1003,16,48,126,12,1,"Rekurzivně zabalit podadresáře"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Zrušit"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Vytváří a prochází soubory katalogů DiskDir kompatibilní se Total Commanderem."
+102,1,"DiskDir"
+103,1,"O DiskDir"
+104,1,"Nativní podpora katalogů kompatibilních s DiskDir.\n\nSoubory katalogu obsahují názvy, velikosti a časová razítka, nikoli obsah souborů."
+105,1,"Katalog DiskDir"
+106,1,"Cesta katalogu je neplatná nebo příliš dlouhá."
+107,1,"Název katalogu se už používá pro složku."
+108,1,"Katalog již existuje:\n\n"
+109,1,"\n\nChcete jej přepsat?"
+110,1,"Katalogy DiskDir neuchovávají obsah souborů, proto nelze přesunout zdrojové soubory."
+111,1,"Přidávání položek do existujícího katalogu DiskDir není podporováno."
+
+[STRINGTABLE 1]
+112,1,"Nelze vytvořit katalog DiskDir."
+113,1,"Pvodní soubor uvedený v katalogu není k dispozici."
+114,1,"Jeden nebo více původních souborů uvedených v katalogu není k dispozici."
+115,1,"Nelze otevřít katalog."
+116,1,"Katalog je příliš velký."
+117,1,"Nelze číst katalog."
+118,1,"Katalog UTF-8 obsahuje neplatný text."
+119,1,"Soubor neobsahuje platný katalog DiskDir."
+120,1,"Nelze zapisovat katalog DiskDir."
+

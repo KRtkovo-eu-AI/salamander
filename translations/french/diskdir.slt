@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\french\diskdir\diskdir.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,195"
+
+[TRANSLATION]
+LANGID,1036
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.krtkovo.eu"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Créer un catalogue DiskDir"
+1004,8,9,41,8,1,"Catalogue :"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,124,12,1,"Inclure aussi les noms de chemin"
+1003,16,48,144,12,1,"Inclure récursivement les sous-dossiers"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Annuler"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Crée et explore les catalogues de fichiers compatibles Total Commander DiskDir."
+102,1,"DiskDir"
+103,1,"À propos de DiskDir"
+104,1,"Prise en charge native des catalogues compatibles DiskDir.\n\nLes fichiers de catalogue contiennent les noms, les tailles et les horodatages, pas le contenu des fichiers."
+105,1,"Catalogue DiskDir"
+106,1,"Le chemin du catalogue est invalide ou trop long."
+107,1,"Le nom du catalogue est deja utilise par un dossier."
+108,0,"The catalog already exists:\n\n"
+109,1,"\n\nVoulez-vous l'ecraser ?"
+110,1,"Les catalogues DiskDir ne stockent pas le contenu des fichiers ; les fichiers source ne peuvent donc pas etre deplaces."
+111,1,"L'ajout d'entrees a un catalogue DiskDir existant n'est pas pris en charge."
+
+[STRINGTABLE 1]
+112,1,"Impossible de creer le catalogue DiskDir."
+113,1,"Le fichier original enregistré dans le catalogue n'est pas disponible."
+114,1,"Un ou plusieurs fichiers originaux enregistrés dans le catalogue ne sont pas disponibles."
+115,1,"Impossible d'ouvrir le catalogue."
+116,1,"Le catalogue est trop volumineux."
+117,1,"Impossible de lire le catalogue."
+118,1,"Le catalogue UTF-8 contient un texte non valide."
+119,1,"Le fichier ne contient pas un catalogue DiskDir valide."
+120,1,"Impossible d'écrire le catalogue DiskDir."
+
