@@ -1,0 +1,40 @@
+{
+  "name": "Inspector de bloqueos de archivos",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "Inspector de bloqueos de archivos..."
+  },
+  "strings": {
+    "title": "Inspector de bloqueos de archivos",
+    "files": "Archivos",
+    "noLocks": "No se encontraron procesos que bloqueen los archivos.",
+    "lockingProcesses": "Procesos que bloquean",
+    "process": "Proceso",
+    "pid": "PID",
+    "type": "Tipo",
+    "status": "Estado",
+    "executable": "Ejecutable",
+    "inspecting": "Buscando procesos que bloquean...",
+    "lockCount": "Procesos encontrados: {0}",
+    "inspectFailed": "No se pudo inspeccionar el bloqueo.",
+    "openLocation": "Abrir ubicación",
+    "closeProcess": "Cerrar proceso",
+    "endProcess": "Finalizar proceso...",
+    "copyReport": "Copiar informe",
+    "refresh": "Actualizar",
+    "close": "Cerrar",
+    "locationUnavailable": "La ubicación del ejecutable no está disponible para este proceso.",
+    "closeUnavailable": "El proceso no tiene una ventana principal que pueda cerrarse de forma segura.",
+    "confirmEnd": "¿Finalizar el proceso «{0}» (PID {1})?{2}{2}Los datos no guardados pueden perderse.",
+    "selectFile": "Seleccione o enfoque primero al menos un archivo.",
+    "responding": "Responde",
+    "notResponding": "No responde",
+    "processEnded": "(proceso finalizado)",
+    "appMainWindow": "Aplicación",
+    "appOtherWindow": "Ventana en segundo plano",
+    "appService": "Servicio",
+    "appExplorer": "Explorador de Windows",
+    "appConsole": "Consola",
+    "appCritical": "Proceso crítico",
+    "appUnknown": "Desconocido"
+  }
+}

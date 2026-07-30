@@ -1,0 +1,40 @@
+{
+  "name": "File Lock Inspector",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "File Lock Inspector..."
+  },
+  "strings": {
+    "title": "File Lock Inspector",
+    "files": "Files",
+    "noLocks": "No locking processes were found.",
+    "lockingProcesses": "Locking processes",
+    "process": "Process",
+    "pid": "PID",
+    "type": "Type",
+    "status": "Status",
+    "executable": "Executable",
+    "inspecting": "Looking for locking processes...",
+    "lockCount": "Locking processes found: {0}",
+    "inspectFailed": "The lock inspection failed.",
+    "openLocation": "Open location",
+    "closeProcess": "Close process",
+    "endProcess": "End process...",
+    "copyReport": "Copy report",
+    "refresh": "Refresh",
+    "close": "Close",
+    "locationUnavailable": "The executable location is not available for this process.",
+    "closeUnavailable": "The process has no main window that can be closed safely.",
+    "confirmEnd": "End process \"{0}\" (PID {1})?{2}{2}Unsaved data in that application may be lost.",
+    "selectFile": "Select or focus at least one file first.",
+    "responding": "Responding",
+    "notResponding": "Not responding",
+    "processEnded": "(process ended)",
+    "appMainWindow": "Application",
+    "appOtherWindow": "Background window",
+    "appService": "Service",
+    "appExplorer": "Windows Explorer",
+    "appConsole": "Console",
+    "appCritical": "Critical process",
+    "appUnknown": "Unknown"
+  }
+}

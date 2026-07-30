@@ -4883,6 +4883,21 @@ MENU_TEMPLATE_ITEM InfoLineMenu[] =
                         colCfg->RightWidth = column->Width;
                 }
             }
+            else if (column->GetText == InternalGetExplorerColumn &&
+                     column->CustomData < EXPLORER_COLUMNS_COUNT)
+            {
+                CColumnConfig* colCfg = &panel->ViewTemplate->ExplorerColumns[column->CustomData];
+                if (leftPanel)
+                {
+                    colCfg->LeftFixedWidth = column->FixedWidth ? 0 : 1;
+                    colCfg->LeftWidth = column->Width;
+                }
+                else
+                {
+                    colCfg->RightFixedWidth = column->FixedWidth ? 0 : 1;
+                    colCfg->RightWidth = column->Width;
+                }
+            }
             else
             {
                 if (panel->PluginData.NotEmpty()) // "always true"

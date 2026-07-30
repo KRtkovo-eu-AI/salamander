@@ -1,0 +1,40 @@
+{
+  "name": "Inspektor zámků souborů",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "Inspektor zámků souborů..."
+  },
+  "strings": {
+    "title": "Inspektor zámků souborů",
+    "files": "Soubory",
+    "noLocks": "Nebyly nalezeny žádné procesy, které soubory zamykají.",
+    "lockingProcesses": "Procesy zamykající soubory",
+    "process": "Proces",
+    "pid": "PID",
+    "type": "Typ",
+    "status": "Stav",
+    "executable": "Spustitelný soubor",
+    "inspecting": "Hledám procesy zamykající soubory...",
+    "lockCount": "Počet nalezených procesů: {0}",
+    "inspectFailed": "Zjišťování zámků selhalo.",
+    "openLocation": "Otevřít umístění",
+    "closeProcess": "Zavřít proces",
+    "endProcess": "Ukončit proces...",
+    "copyReport": "Kopírovat zprávu",
+    "refresh": "Obnovit",
+    "close": "Zavřít",
+    "locationUnavailable": "Umístění spustitelného souboru tohoto procesu není dostupné.",
+    "closeUnavailable": "Proces nemá hlavní okno, které by bylo možné bezpečně zavřít.",
+    "confirmEnd": "Ukončit proces „{0}“ (PID {1})?{2}{2}Neuložená data v této aplikaci mohou být ztracena.",
+    "selectFile": "Nejprve vyberte nebo zaměřte alespoň jeden soubor.",
+    "responding": "Odpovídá",
+    "notResponding": "Neodpovídá",
+    "processEnded": "(proces skončil)",
+    "appMainWindow": "Aplikace",
+    "appOtherWindow": "Okno na pozadí",
+    "appService": "Služba",
+    "appExplorer": "Průzkumník Windows",
+    "appConsole": "Konzole",
+    "appCritical": "Kritický proces",
+    "appUnknown": "Neznámý"
+  }
+}

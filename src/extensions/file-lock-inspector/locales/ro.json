@@ -1,0 +1,40 @@
+{
+  "name": "Inspector blocări fișiere",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "Inspector blocări fișiere..."
+  },
+  "strings": {
+    "title": "Inspector blocări fișiere",
+    "files": "Fișiere",
+    "noLocks": "Nu au fost găsite procese care blochează fișierele.",
+    "lockingProcesses": "Procese care blochează",
+    "process": "Proces",
+    "pid": "PID",
+    "type": "Tip",
+    "status": "Stare",
+    "executable": "Executabil",
+    "inspecting": "Se caută procesele care blochează...",
+    "lockCount": "Procese găsite: {0}",
+    "inspectFailed": "Inspectarea blocării a eșuat.",
+    "openLocation": "Deschide locația",
+    "closeProcess": "Închide procesul",
+    "endProcess": "Oprește procesul...",
+    "copyReport": "Copiază raportul",
+    "refresh": "Reîmprospătează",
+    "close": "Închide",
+    "locationUnavailable": "Locația executabilului nu este disponibilă pentru acest proces.",
+    "closeUnavailable": "Procesul nu are o fereastră principală care să poată fi închisă în siguranță.",
+    "confirmEnd": "Opriți procesul „{0}” (PID {1})?{2}{2}Datele nesalvate se pot pierde.",
+    "selectFile": "Selectați sau focalizați mai întâi cel puțin un fișier.",
+    "responding": "Răspunde",
+    "notResponding": "Nu răspunde",
+    "processEnded": "(proces încheiat)",
+    "appMainWindow": "Aplicație",
+    "appOtherWindow": "Fereastră de fundal",
+    "appService": "Serviciu",
+    "appExplorer": "Explorer Windows",
+    "appConsole": "Consolă",
+    "appCritical": "Proces critic",
+    "appUnknown": "Necunoscut"
+  }
+}

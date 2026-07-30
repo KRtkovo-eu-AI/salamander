@@ -367,6 +367,7 @@ Name: "{app}\plugins\extension-runtimes\powershellruntime"
 Name: "{app}\plugins\extension-runtimes\powershellruntime\runtime"
 Name: "{app}\extensions"
 Name: "{app}\extensions\git-worktree-navigator"
+Name: "{app}\extensions\file-lock-inspector"
 Name: "{app}\plugins\serviceexplorer"
 Name: "{app}\plugins\serviceexplorer\lang"
 Name: "{app}\plugins\splitcbn"
@@ -1380,6 +1381,7 @@ Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix-automation-api.html"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\extensions\git-worktree-navigator"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('gitworktreenavigator')
+Source: "{#PayloadDir}\extensions\file-lock-inspector\*"; DestDir: "{app}\extensions\file-lock-inspector"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('filelockinspector')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\powershellruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\runtime\salamatrix_worker.ps1"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -1759,6 +1761,13 @@ begin
     Exit;
   end;
 
+  if CompareText(PluginId, 'filelockinspector') = 0 then
+  begin
+    if FileExists(ExpandConstant('{app}\extensions\file-lock-inspector\extension.json')) then
+      Result := '1.0.0';
+    Exit;
+  end;
+
   if CompareText(PluginId, 'powershellruntime') = 0 then
     ExpectedPath := 'plugins/extension-runtimes/' + PluginId + '/' + PluginId + '.spl'
   else
@@ -1909,11 +1918,12 @@ function IsPluginSelected(const PluginId: String): Boolean;
 begin
   Result := IsPluginExplicitlySelected(PluginId);
 
-  { Git Worktree Navigator requires both the extension framework and its runtime. }
+  { PowerShell extensions require both the extension framework and its runtime. }
   if (not Result) and
      ((CompareText(PluginId, 'salamatrix') = 0) or
       (CompareText(PluginId, 'powershellruntime') = 0)) then
-    Result := IsPluginExplicitlySelected('gitworktreenavigator');
+    Result := IsPluginExplicitlySelected('gitworktreenavigator') or
+              IsPluginExplicitlySelected('filelockinspector');
 end;
 
 procedure SelectPlugin(const PluginId: String);
@@ -2141,6 +2151,7 @@ begin
   AddPlugin('salamatrix', 'Salamatrix Framework', '0.2 (x64)', True);
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.1 (x64)', True);
   AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.0 (x64)', True);
+  AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.0 (x64)', True);
   AddPlugin('samandarin', 'Samandarin Update Notifier', '0.8 (x64)', True);
   AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);
   AddPlugin('splitcbn', 'Split & Combine', '1.11 (x64)', True);
@@ -2223,7 +2234,8 @@ begin
   end;
 
   if (CurPageID = PluginSelectionPage.ID) and
-     IsPluginExplicitlySelected('gitworktreenavigator') then
+     (IsPluginExplicitlySelected('gitworktreenavigator') or
+      IsPluginExplicitlySelected('filelockinspector')) then
   begin
     SelectPlugin('salamatrix');
     SelectPlugin('powershellruntime');

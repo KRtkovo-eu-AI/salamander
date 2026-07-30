@@ -1,0 +1,40 @@
+{
+  "name": "Bestandsvergrendelingsinspecteur",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "Bestandsvergrendelingsinspecteur..."
+  },
+  "strings": {
+    "title": "Bestandsvergrendelingsinspecteur",
+    "files": "Bestanden",
+    "noLocks": "Er zijn geen vergrendelende processen gevonden.",
+    "lockingProcesses": "Vergrendelende processen",
+    "process": "Proces",
+    "pid": "PID",
+    "type": "Type",
+    "status": "Status",
+    "executable": "Uitvoerbaar bestand",
+    "inspecting": "Zoeken naar vergrendelende processen...",
+    "lockCount": "Vergrendelende processen gevonden: {0}",
+    "inspectFailed": "De vergrendelingsinspectie is mislukt.",
+    "openLocation": "Locatie openen",
+    "closeProcess": "Proces sluiten",
+    "endProcess": "Proces beëindigen...",
+    "copyReport": "Rapport kopiëren",
+    "refresh": "Vernieuwen",
+    "close": "Sluiten",
+    "locationUnavailable": "De locatie van het uitvoerbare bestand is niet beschikbaar voor dit proces.",
+    "closeUnavailable": "Het proces heeft geen hoofdvenster dat veilig kan worden gesloten.",
+    "confirmEnd": "Proces ‘{0}’ (PID {1}) beëindigen?{2}{2}Niet-opgeslagen gegevens kunnen verloren gaan.",
+    "selectFile": "Selecteer of focus eerst ten minste één bestand.",
+    "responding": "Reageert",
+    "notResponding": "Reageert niet",
+    "processEnded": "(proces beëindigd)",
+    "appMainWindow": "Toepassing",
+    "appOtherWindow": "Achtergrondvenster",
+    "appService": "Service",
+    "appExplorer": "Windows Verkenner",
+    "appConsole": "Console",
+    "appCritical": "Kritiek proces",
+    "appUnknown": "Onbekend"
+  }
+}

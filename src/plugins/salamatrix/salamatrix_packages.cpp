@@ -82,6 +82,28 @@ static std::string JsonEscape(const char* value)
     return result;
 }
 
+static std::string SideItemJson(const Sides::ItemInfo& item)
+{
+    ULARGE_INTEGER lastWrite;
+    lastWrite.LowPart = item.LastWriteUtc.dwLowDateTime;
+    lastWrite.HighPart = item.LastWriteUtc.dwHighDateTime;
+    return std::string("{\"name\":\"") + JsonEscape(item.Name) +
+           "\",\"path\":\"" + JsonEscape(item.Path) +
+           "\",\"extension\":\"" + JsonEscape(item.Extension) +
+           "\",\"size\":\"" +
+           std::to_string(static_cast<unsigned long long>(item.Size.Value)) +
+           "\",\"sizeValid\":" + (item.SizeValid ? "true" : "false") +
+           ",\"attributes\":" + std::to_string(item.Attributes) +
+           ",\"lastWriteUtc\":\"" +
+           std::to_string(
+               static_cast<unsigned long long>(lastWrite.QuadPart)) +
+           "\",\"isDirectory\":" +
+           (item.IsDirectory ? "true" : "false") +
+           ",\"hidden\":" + (item.Hidden ? "true" : "false") +
+           ",\"link\":" + (item.IsLink ? "true" : "false") +
+           ",\"offline\":" + (item.IsOffline ? "true" : "false") + "}";
+}
+
 static std::string CurrentSalamanderLocale(
     CSalamanderGeneralAbstract* general, WORD* languageId = NULL)
 {
@@ -1006,13 +1028,33 @@ BOOL WINAPI PackageManager::HostDispatch(
         if (!owner->Sides->GetPath(
                 side, path, _countof(path), &pathType))
             return FALSE;
+
+        const int selectedCount =
+            owner->Sides->GetSelectedItemCount(side);
+        std::string selectedItems("[");
+        for (int index = 0; index < selectedCount; ++index)
+        {
+            Sides::ItemInfo item;
+            if (!owner->Sides->GetSelectedItem(side, index, &item))
+                continue;
+            if (selectedItems.size() > 1)
+                selectedItems += ",";
+            selectedItems += SideItemJson(item);
+        }
+        selectedItems += "]";
+
+        Sides::ItemInfo focused;
+        const BOOL hasFocused =
+            owner->Sides->GetFocusedItem(side, &focused);
         return CopyResult(
             std::string("{\"ok\":true,\"path\":\"") +
                 JsonEscape(path) +
                 "\",\"pathType\":" + std::to_string(pathType) +
                 ",\"selectedCount\":" +
-                std::to_string(owner->Sides->GetSelectedItemCount(side)) +
-                ",\"selectedItems\":[],\"focusedItem\":null}",
+                std::to_string(selectedCount) +
+                ",\"selectedItems\":" + selectedItems +
+                ",\"focusedItem\":" +
+                (hasFocused ? SideItemJson(focused) : "null") + "}",
             resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.sides.createTab")

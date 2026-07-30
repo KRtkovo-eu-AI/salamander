@@ -88,6 +88,9 @@ def main() -> int:
     navigator = read("src/extensions/git-worktree-navigator/main.ps1")
     navigator_manifest = json.loads(
         read("src/extensions/git-worktree-navigator/extension.json"))
+    lock_inspector = read("src/extensions/file-lock-inspector/main.ps1")
+    lock_inspector_manifest = json.loads(
+        read("src/extensions/file-lock-inspector/extension.json"))
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
@@ -483,6 +486,17 @@ def main() -> int:
             "extension package runtime usability is not derived from provider availability")
     require(packages, r"InvokeOnMainThread\(\s*HostDispatchOnMainThread",
             "extension host calls are not marshaled to Salamander's UI thread")
+    require(
+        packages,
+        r'salamander\.sides\.context.*?'
+        r'GetSelectedItemCount.*?GetSelectedItem.*?'
+        r'GetFocusedItem.*?'
+        r'selectedItems.*?focusedItem',
+        "process runtimes do not receive the selected and focused panel items")
+    require_absent(
+        packages,
+        r'"selectedItems":\[\],"focusedItem":null',
+        "process-runtime panel context still discards selection and focus")
     require(packages, r"MessageHello\).*?CopyResult\(\"\{\\\"ok\\\":true\}\"",
             "extension host does not acknowledge the runtime worker handshake")
     require(packages, r"if \(!package->RuntimeUsable\)\s+continue;.*?BuildMenu",
@@ -630,6 +644,44 @@ def main() -> int:
             english_keys = keys
         elif keys != english_keys:
             raise AssertionError(f"navigator runtime strings are incomplete: {locale}")
+    if set(lock_inspector_manifest.get("locales", {})) != expected_locales:
+        raise AssertionError(
+            "File Lock Inspector does not declare every supported locale")
+    inspector_english_keys = None
+    for locale, relative in lock_inspector_manifest["locales"].items():
+        localized = json.loads(read(
+            "src/extensions/file-lock-inspector/" + relative))
+        if not localized.get("name") or not localized.get("commands"):
+            raise AssertionError(
+                f"lock inspector locale metadata is incomplete: {locale}")
+        keys = set(localized.get("strings", {}))
+        if inspector_english_keys is None:
+            inspector_english_keys = keys
+        elif keys != inspector_english_keys:
+            raise AssertionError(
+                f"lock inspector runtime strings are incomplete: {locale}")
+    require(
+        lock_inspector,
+        r"rstrtmgr\.dll.*?RmStartSession.*?RmRegisterResources.*?"
+        r"RmGetList.*?RmEndSession",
+        "File Lock Inspector does not use a complete Restart Manager session")
+    require(
+        lock_inspector,
+        r"source_side\.Context\(\).*?selectedItems.*?focusedItem.*?"
+        r"isDirectory.*?Show-InspectorWindow",
+        "File Lock Inspector does not inspect the selected or focused files")
+    require(
+        lock_inspector,
+        r"CloseMainWindow.*?confirmEnd.*?\.Kill\(\)",
+        "File Lock Inspector does not separate graceful close from forced termination")
+    require(
+        lock_inspector,
+        r"target_side\.CreateTab",
+        "File Lock Inspector cannot open the process location")
+    require(
+        lock_inspector,
+        r"clipboard\.CopyText",
+        "File Lock Inspector cannot copy its report")
     require(
         salamatrix,
         r"SalamanderLanguageID\s*=\s*salamander->GetCurrentSalamanderLanguageID",
@@ -665,6 +717,21 @@ def main() -> int:
         r"CompareText\(PluginId,\s*'powershellruntime'\).*?"
         r"IsPluginExplicitlySelected\('gitworktreenavigator'\)",
         "x64 installer does not include Git Worktree Navigator dependencies")
+    require(
+        setup,
+        r"AddPlugin\('filelockinspector',\s*'File Lock Inspector'",
+        "x64 installer does not offer File Lock Inspector as a plugin")
+    require(
+        setup,
+        r"extensions\\file-lock-inspector.*?"
+        r"IsPluginSelected\('filelockinspector'\)",
+        "x64 installer does not package the selected File Lock Inspector")
+    require(
+        setup,
+        r"CompareText\(PluginId,\s*'salamatrix'\).*?"
+        r"CompareText\(PluginId,\s*'powershellruntime'\).*?"
+        r"IsPluginExplicitlySelected\('filelockinspector'\)",
+        "x64 installer does not include File Lock Inspector dependencies")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")

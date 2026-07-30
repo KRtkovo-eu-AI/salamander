@@ -1,0 +1,40 @@
+{
+  "name": "Inspecteur de verrouillage de fichiers",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "Inspecteur de verrouillage de fichiers..."
+  },
+  "strings": {
+    "title": "Inspecteur de verrouillage de fichiers",
+    "files": "Fichiers",
+    "noLocks": "Aucun processus verrouillant les fichiers n’a été trouvé.",
+    "lockingProcesses": "Processus verrouillants",
+    "process": "Processus",
+    "pid": "PID",
+    "type": "Type",
+    "status": "État",
+    "executable": "Exécutable",
+    "inspecting": "Recherche des processus verrouillants...",
+    "lockCount": "Processus verrouillants trouvés : {0}",
+    "inspectFailed": "L’inspection du verrouillage a échoué.",
+    "openLocation": "Ouvrir l’emplacement",
+    "closeProcess": "Fermer le processus",
+    "endProcess": "Terminer le processus...",
+    "copyReport": "Copier le rapport",
+    "refresh": "Actualiser",
+    "close": "Fermer",
+    "locationUnavailable": "L’emplacement de l’exécutable n’est pas disponible pour ce processus.",
+    "closeUnavailable": "Le processus ne possède pas de fenêtre principale pouvant être fermée en toute sécurité.",
+    "confirmEnd": "Terminer le processus « {0} » (PID {1}) ?{2}{2}Les données non enregistrées peuvent être perdues.",
+    "selectFile": "Sélectionnez ou placez d’abord le focus sur au moins un fichier.",
+    "responding": "Répond",
+    "notResponding": "Ne répond pas",
+    "processEnded": "(processus terminé)",
+    "appMainWindow": "Application",
+    "appOtherWindow": "Fenêtre en arrière-plan",
+    "appService": "Service",
+    "appExplorer": "Explorateur Windows",
+    "appConsole": "Console",
+    "appCritical": "Processus critique",
+    "appUnknown": "Inconnu"
+  }
+}

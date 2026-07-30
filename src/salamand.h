@@ -433,8 +433,8 @@ public:
     BOOL SwapItems(int index1, int index2); // swaps two items in the array
     BOOL CleanName(char* name);             // trims spaces and returns TRUE if name is ok
 
-    int SaveColumns(CColumnConfig* columns, char* buffer);  // convert the array to a string
-    void LoadColumns(CColumnConfig* columns, char* buffer); // and back again
+    int SaveColumns(CColumnConfig* columns, char* buffer, int count = STANDARD_COLUMNS_COUNT);  // convert the array to a string
+    void LoadColumns(CColumnConfig* columns, char* buffer, int count = STANDARD_COLUMNS_COUNT); // and back again
     int SaveColumnOrder(BYTE* order, char* buffer, int count = STANDARD_COLUMNS_COUNT); // convert the column order to a string
     int SaveColumnOrder(WORD* order, char* buffer, int count);
     void LoadColumnOrder(BYTE* order, char* buffer, int count = STANDARD_COLUMNS_COUNT);  // and back again

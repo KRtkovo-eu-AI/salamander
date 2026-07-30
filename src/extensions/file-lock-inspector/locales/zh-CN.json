@@ -1,0 +1,40 @@
+{
+  "name": "文件锁定检查器",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "文件锁定检查器..."
+  },
+  "strings": {
+    "title": "文件锁定检查器",
+    "files": "文件",
+    "noLocks": "未找到锁定这些文件的进程。",
+    "lockingProcesses": "锁定进程",
+    "process": "进程",
+    "pid": "PID",
+    "type": "类型",
+    "status": "状态",
+    "executable": "可执行文件",
+    "inspecting": "正在查找锁定进程...",
+    "lockCount": "找到的锁定进程数：{0}",
+    "inspectFailed": "锁定检查失败。",
+    "openLocation": "打开位置",
+    "closeProcess": "关闭进程",
+    "endProcess": "结束进程...",
+    "copyReport": "复制报告",
+    "refresh": "刷新",
+    "close": "关闭",
+    "locationUnavailable": "无法获取此进程的可执行文件位置。",
+    "closeUnavailable": "此进程没有可安全关闭的主窗口。",
+    "confirmEnd": "结束进程“{0}”(PID {1})？{2}{2}该应用中未保存的数据可能会丢失。",
+    "selectFile": "请先选择或聚焦至少一个文件。",
+    "responding": "正在响应",
+    "notResponding": "未响应",
+    "processEnded": "（进程已结束）",
+    "appMainWindow": "应用程序",
+    "appOtherWindow": "后台窗口",
+    "appService": "服务",
+    "appExplorer": "Windows 资源管理器",
+    "appConsole": "控制台",
+    "appCritical": "关键进程",
+    "appUnknown": "未知"
+  }
+}

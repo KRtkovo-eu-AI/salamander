@@ -1,0 +1,40 @@
+{
+  "name": "Fájlzárolás-vizsgáló",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "Fájlzárolás-vizsgáló..."
+  },
+  "strings": {
+    "title": "Fájlzárolás-vizsgáló",
+    "files": "Fájlok",
+    "noLocks": "Nem található a fájlokat zároló folyamat.",
+    "lockingProcesses": "Zároló folyamatok",
+    "process": "Folyamat",
+    "pid": "PID",
+    "type": "Típus",
+    "status": "Állapot",
+    "executable": "Programfájl",
+    "inspecting": "Zároló folyamatok keresése...",
+    "lockCount": "Talált zároló folyamatok: {0}",
+    "inspectFailed": "A zárolás vizsgálata sikertelen.",
+    "openLocation": "Hely megnyitása",
+    "closeProcess": "Folyamat bezárása",
+    "endProcess": "Folyamat leállítása...",
+    "copyReport": "Jelentés másolása",
+    "refresh": "Frissítés",
+    "close": "Bezárás",
+    "locationUnavailable": "A programfájl helye nem érhető el ehhez a folyamathoz.",
+    "closeUnavailable": "A folyamatnak nincs biztonságosan bezárható főablaka.",
+    "confirmEnd": "Leállítja a(z) „{0}” folyamatot (PID {1})?{2}{2}A nem mentett adatok elveszhetnek.",
+    "selectFile": "Először jelöljön ki vagy fókuszáljon legalább egy fájlt.",
+    "responding": "Válaszol",
+    "notResponding": "Nem válaszol",
+    "processEnded": "(a folyamat befejeződött)",
+    "appMainWindow": "Alkalmazás",
+    "appOtherWindow": "Háttérablak",
+    "appService": "Szolgáltatás",
+    "appExplorer": "Windows Intéző",
+    "appConsole": "Konzol",
+    "appCritical": "Kritikus folyamat",
+    "appUnknown": "Ismeretlen"
+  }
+}

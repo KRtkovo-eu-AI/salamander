@@ -2607,7 +2607,17 @@ void CFilesWindow::OnHeaderLineColWidthChanged()
             colIndex = 8;
             break;
         }
-        if (column->ID == COLUMN_ID_CUSTOM) // it is a column added by a plugin
+        if (column->ID == COLUMN_ID_CUSTOM &&
+            column->GetText == InternalGetExplorerColumn &&
+            column->CustomData < EXPLORER_COLUMNS_COUNT)
+        {
+            CColumnConfig* colCfg = &ViewTemplate->ExplorerColumns[column->CustomData];
+            if (leftPanel)
+                colCfg->LeftWidth = column->Width;
+            else
+                colCfg->RightWidth = column->Width;
+        }
+        else if (column->ID == COLUMN_ID_CUSTOM) // it is a column added by a plugin
         {
             if (column->FixedWidth && PluginData.NotEmpty()) // only non-elastic columns + "always true"
             {

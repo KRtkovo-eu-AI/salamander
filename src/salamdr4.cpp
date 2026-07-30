@@ -1031,6 +1031,7 @@ const char* SALAMANDER_VIEWTEMPLATE_NAME = "Name";
 const char* SALAMANDER_VIEWTEMPLATE_FLAGS = "Flags";
 const char* SALAMANDER_VIEWTEMPLATE_COLUMNS = "Columns";
 const char* SALAMANDER_VIEWTEMPLATE_COLUMNORDER = "Column Order";
+const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNS = "Explorer Columns";
 const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE = "Explorer Column Visible";
 const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER = "Explorer Column Order";
 const char* SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE = "Left Smart Mode";
@@ -1113,11 +1114,11 @@ BOOL CViewTemplates::CleanName(char* name)
     return strlen(name) > 0;
 }
 
-int CViewTemplates::SaveColumns(CColumnConfig* columns, char* buffer)
+int CViewTemplates::SaveColumns(CColumnConfig* columns, char* buffer, int count)
 {
     char* s = buffer;
     int i;
-    for (i = 0; i < STANDARD_COLUMNS_COUNT; i++)
+    for (i = 0; i < count; i++)
     {
         CColumnConfig* column = &columns[i];
         if (i > 0)
@@ -1129,7 +1130,7 @@ int CViewTemplates::SaveColumns(CColumnConfig* columns, char* buffer)
         s += sprintf(s, "%lx", data);
     }
     *s++ = ',';
-    for (i = 0; i < STANDARD_COLUMNS_COUNT; i++)
+    for (i = 0; i < count; i++)
     {
         CColumnConfig* column = &columns[i];
         if (i > 0)
@@ -1144,14 +1145,14 @@ int CViewTemplates::SaveColumns(CColumnConfig* columns, char* buffer)
     return (int)(s - buffer);
 }
 
-void CViewTemplates::LoadColumns(CColumnConfig* columns, char* buffer)
+void CViewTemplates::LoadColumns(CColumnConfig* columns, char* buffer, int count)
 {
     CColumnConfig* firstColumn = columns;
     char* p = strtok(buffer, ",");
     while (p != NULL)
     {
         DWORD data;
-        int i = sscanf(p, "%xl", &data);
+        int i = sscanf(p, "%lx", &data);
         columns->LeftWidth = data & 0x0000ffff;
         columns->LeftFixedWidth = (data & 0x00010000) >> 16;
         if (columns->LeftWidth > 2000)
@@ -1160,21 +1161,21 @@ void CViewTemplates::LoadColumns(CColumnConfig* columns, char* buffer)
         columns->RightFixedWidth = columns->LeftFixedWidth;
         p = strtok(NULL, ",");
         columns++;
-        if (columns - firstColumn >= STANDARD_COLUMNS_COUNT)
+        if (columns - firstColumn >= count)
             break;
     }
     columns = firstColumn;
     while (p != NULL)
     {
         DWORD data;
-        int i = sscanf(p, "%xl", &data);
+        int i = sscanf(p, "%lx", &data);
         columns->RightWidth = data & 0x0000ffff;
         columns->RightFixedWidth = (data & 0x00010000) >> 16;
         if (columns->RightWidth > 2000)
             columns->RightWidth = 2000;
         p = strtok(NULL, ",");
         columns++;
-        if (columns - firstColumn >= STANDARD_COLUMNS_COUNT)
+        if (columns - firstColumn >= count)
             break;
     }
 }
@@ -1285,7 +1286,7 @@ void CViewTemplates::LoadExplorerColumnVisible(BYTE* visible, char* buffer)
 
 BOOL CViewTemplates::Save(HKEY hKey)
 {
-    char buff[6 * EXPLORER_COLUMNS_COUNT + 1];
+    char buff[12 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[5];
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
@@ -1298,6 +1299,8 @@ BOOL CViewTemplates::Save(HKEY hKey)
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &Items[i].Flags, sizeof(DWORD));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, SaveColumns(Items[i].Columns, buff));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ColumnOrder, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNS, REG_SZ, buff,
+                     SaveColumns(Items[i].ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, SaveExplorerColumnVisible(Items[i].ExplorerColumnVisible, buff));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &Items[i].LeftSmartMode, sizeof(DWORD));
@@ -1310,7 +1313,7 @@ BOOL CViewTemplates::Save(HKEY hKey)
 
 BOOL CViewTemplates::Load(HKEY hKey)
 {
-    char buff[6 * EXPLORER_COLUMNS_COUNT + 1];
+    char buff[12 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[5];
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
@@ -1337,6 +1340,8 @@ BOOL CViewTemplates::Load(HKEY hKey)
                 LoadColumns(Items[i].Columns, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, sizeof(buff)))
                     LoadColumnOrder(Items[i].ColumnOrder, buff);
+                if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNS, REG_SZ, buff, sizeof(buff)))
+                    LoadColumns(Items[i].ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, sizeof(buff)))
                     LoadExplorerColumnVisible(Items[i].ExplorerColumnVisible, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, sizeof(buff)))
@@ -1995,6 +2000,36 @@ static BOOL BuildExplorerColumnPathW(const char* panelPath, const WCHAR* panelPa
     return TRUE;
 }
 
+static BOOL ConvertExplorerColumnText(const WCHAR* text, char* buffer, int bufferSize)
+{
+    if (text == NULL || buffer == NULL || bufferSize <= 0)
+        return FALSE;
+
+    buffer[0] = 0;
+    int textLen = lstrlenW(text);
+    int low = 0;
+    int high = textLen;
+    while (low < high)
+    {
+        int count = low + (high - low + 1) / 2;
+        int bytes = WideCharToMultiByte(CP_ACP, 0, text, count, NULL, 0, NULL, NULL);
+        if (bytes > 0 && bytes < bufferSize)
+            low = count;
+        else
+            high = count - 1;
+    }
+    if (low > 0 && text[low - 1] >= 0xd800 && text[low - 1] <= 0xdbff)
+        low--;
+
+    int bytes = 0;
+    if (low > 0)
+        bytes = WideCharToMultiByte(CP_ACP, 0, text, low, buffer, bufferSize - 1, NULL, NULL);
+    if (low > 0 && bytes <= 0)
+        return FALSE;
+    buffer[bytes] = 0;
+    return TRUE;
+}
+
 BOOL GetExplorerColumnTextForFile(const char* panelPath, const WCHAR* panelPathW, const CFileData* fileData,
                                   int columnIndex, char* buffer, int bufferSize)
 {
@@ -2024,7 +2059,7 @@ BOOL GetExplorerColumnTextForFile(const char* panelPath, const WCHAR* panelPathW
         PWSTR display = NULL;
         if (SUCCEEDED(PSFormatForDisplayAlloc(ExplorerColumnKeys[columnIndex], value, PDFF_DEFAULT, &display)) && display != NULL)
         {
-            if (WideCharToMultiByte(CP_ACP, 0, display, -1, buffer, bufferSize, NULL, NULL) > 0)
+            if (ConvertExplorerColumnText(display, buffer, bufferSize))
                 ret = TRUE;
             CoTaskMemFree(display);
         }

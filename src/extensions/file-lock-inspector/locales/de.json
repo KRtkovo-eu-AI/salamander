@@ -1,0 +1,40 @@
+{
+  "name": "Dateisperren-Inspektor",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "Dateisperren-Inspektor..."
+  },
+  "strings": {
+    "title": "Dateisperren-Inspektor",
+    "files": "Dateien",
+    "noLocks": "Es wurden keine sperrenden Prozesse gefunden.",
+    "lockingProcesses": "Sperrende Prozesse",
+    "process": "Prozess",
+    "pid": "PID",
+    "type": "Typ",
+    "status": "Status",
+    "executable": "Programmdatei",
+    "inspecting": "Sperrende Prozesse werden gesucht...",
+    "lockCount": "Gefundene sperrende Prozesse: {0}",
+    "inspectFailed": "Die Untersuchung der Dateisperren ist fehlgeschlagen.",
+    "openLocation": "Speicherort öffnen",
+    "closeProcess": "Prozess schließen",
+    "endProcess": "Prozess beenden...",
+    "copyReport": "Bericht kopieren",
+    "refresh": "Aktualisieren",
+    "close": "Schließen",
+    "locationUnavailable": "Der Speicherort der Programmdatei ist für diesen Prozess nicht verfügbar.",
+    "closeUnavailable": "Der Prozess besitzt kein Hauptfenster, das sicher geschlossen werden kann.",
+    "confirmEnd": "Prozess „{0}“ (PID {1}) beenden?{2}{2}Nicht gespeicherte Daten können verloren gehen.",
+    "selectFile": "Wählen oder fokussieren Sie zuerst mindestens eine Datei.",
+    "responding": "Antwortet",
+    "notResponding": "Antwortet nicht",
+    "processEnded": "(Prozess beendet)",
+    "appMainWindow": "Anwendung",
+    "appOtherWindow": "Hintergrundfenster",
+    "appService": "Dienst",
+    "appExplorer": "Windows-Explorer",
+    "appConsole": "Konsole",
+    "appCritical": "Kritischer Prozess",
+    "appUnknown": "Unbekannt"
+  }
+}

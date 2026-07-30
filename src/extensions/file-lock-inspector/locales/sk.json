@@ -1,0 +1,40 @@
+{
+  "name": "Inšpektor zámkov súborov",
+  "commands": {
+    "OpenSalamander.FileLockInspector.inspect": "Inšpektor zámkov súborov..."
+  },
+  "strings": {
+    "title": "Inšpektor zámkov súborov",
+    "files": "Súbory",
+    "noLocks": "Nenašli sa žiadne procesy, ktoré súbory zamykajú.",
+    "lockingProcesses": "Procesy zamykajúce súbory",
+    "process": "Proces",
+    "pid": "PID",
+    "type": "Typ",
+    "status": "Stav",
+    "executable": "Spustiteľný súbor",
+    "inspecting": "Hľadajú sa procesy zamykajúce súbory...",
+    "lockCount": "Počet nájdených procesov: {0}",
+    "inspectFailed": "Zisťovanie zámkov zlyhalo.",
+    "openLocation": "Otvoriť umiestnenie",
+    "closeProcess": "Zavrieť proces",
+    "endProcess": "Ukončiť proces...",
+    "copyReport": "Kopírovať správu",
+    "refresh": "Obnoviť",
+    "close": "Zavrieť",
+    "locationUnavailable": "Umiestnenie spustiteľného súboru tohto procesu nie je dostupné.",
+    "closeUnavailable": "Proces nemá hlavné okno, ktoré možno bezpečne zavrieť.",
+    "confirmEnd": "Ukončiť proces „{0}“ (PID {1})?{2}{2}Neuložené údaje v tejto aplikácii sa môžu stratiť.",
+    "selectFile": "Najprv vyberte alebo zamerajte aspoň jeden súbor.",
+    "responding": "Odpovedá",
+    "notResponding": "Neodpovedá",
+    "processEnded": "(proces skončil)",
+    "appMainWindow": "Aplikácia",
+    "appOtherWindow": "Okno na pozadí",
+    "appService": "Služba",
+    "appExplorer": "Prieskumník Windows",
+    "appConsole": "Konzola",
+    "appCritical": "Kritický proces",
+    "appUnknown": "Neznámy"
+  }
+}
