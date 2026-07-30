@@ -586,6 +586,7 @@ Source: "{#PayloadDir}\plugins\automation\scripts\Make List (JScript).js"; DestD
 Source: "{#PayloadDir}\plugins\automation\scripts\Make List (VBScript).vbs"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\scripts\Unpack Multiple Archives.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\extension.json"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\icon.svg"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\scripts\Salamatrix Progress Demo\main.js"; DestDir: "{app}\plugins\automation\scripts\Salamatrix Progress Demo"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\dbviewer\dbviewer.spl"; DestDir: "{app}\plugins\dbviewer"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\czech.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
@@ -2134,8 +2135,10 @@ begin
   AddPlugin('diskdir', 'DiskDir', '1.0 (x64)', True);
   AddPlugin('diskmap', 'DiskMap', '1.13 (x64)', True);
   AddPlugin('filecomp', 'File Comparator', '1.21 (x64)', True);
+  AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.0 (x64)', True);
   AddPlugin('folders', 'Folders', '0.2 (x64)', False);
   AddPlugin('ftp', 'FTP Client', '1.36 (x64)', True);
+  AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.0 (x64)', True);
   AddPlugin('hypervm', 'Hyper-V Machines', '1.08 (x64)', True);
   AddPlugin('ieviewer', 'Internet Explorer Viewer', '1.12 (x64)', False);
   AddPlugin('jsonviewer', 'JSON Viewer .NET', '1.03 (x64)', True);
@@ -2150,8 +2153,6 @@ begin
   AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
   AddPlugin('salamatrix', 'Salamatrix Framework', '0.2 (x64)', True);
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.1 (x64)', True);
-  AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.0 (x64)', True);
-  AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.0 (x64)', True);
   AddPlugin('samandarin', 'Samandarin Update Notifier', '0.8 (x64)', True);
   AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);
   AddPlugin('splitcbn', 'Split & Combine', '1.11 (x64)', True);

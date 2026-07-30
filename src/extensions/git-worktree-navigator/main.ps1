@@ -1,5 +1,97 @@
 Set-StrictMode -Version 2.0
 
+function Initialize-ExtensionDarkMode {
+    if ($null -ne ('OpenSalamander.Extensions.DarkModeNativeMethods' -as [type])) {
+        return
+    }
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+namespace OpenSalamander.Extensions
+{
+    public static class DarkModeNativeMethods
+    {
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmSetWindowAttribute(
+            IntPtr hwnd, int attribute, ref int value, int valueSize);
+
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+        public static extern int SetWindowTheme(
+            IntPtr hwnd, string subAppName, string subIdList);
+    }
+}
+'@
+}
+
+function Set-ExtensionDarkMode {
+    param([System.Windows.Forms.Form]$Form)
+
+    if (-not $script:UseWindowsDarkMode) { return }
+
+    Initialize-ExtensionDarkMode
+    $background = [System.Drawing.Color]::FromArgb(32, 32, 32)
+    $surface = [System.Drawing.Color]::FromArgb(45, 45, 48)
+    $input = [System.Drawing.Color]::FromArgb(37, 37, 38)
+    $header = [System.Drawing.Color]::FromArgb(50, 50, 54)
+    $border = [System.Drawing.Color]::FromArgb(80, 80, 80)
+    $text = [System.Drawing.Color]::FromArgb(241, 241, 241)
+    $selection = [System.Drawing.Color]::FromArgb(0, 122, 204)
+
+    $controls = New-Object System.Collections.Stack
+    $controls.Push($Form)
+    while ($controls.Count -gt 0) {
+        $control = $controls.Pop()
+        $control.BackColor = $background
+        $control.ForeColor = $text
+
+        if ($control -is [System.Windows.Forms.Button]) {
+            $control.UseVisualStyleBackColor = $false
+            $control.FlatStyle = 'Flat'
+            $control.BackColor = $surface
+            $control.FlatAppearance.BorderColor = $border
+        } elseif (
+            $control -is [System.Windows.Forms.TextBox] -or
+            $control -is [System.Windows.Forms.RichTextBox] -or
+            $control -is [System.Windows.Forms.ComboBox]) {
+            $control.BackColor = $input
+        } elseif ($control -is [System.Windows.Forms.DataGridView]) {
+            $control.BackgroundColor = $background
+            $control.GridColor = $border
+            $control.EnableHeadersVisualStyles = $false
+            $control.ColumnHeadersDefaultCellStyle.BackColor = $header
+            $control.ColumnHeadersDefaultCellStyle.ForeColor = $text
+            $control.ColumnHeadersDefaultCellStyle.SelectionBackColor = $header
+            $control.ColumnHeadersDefaultCellStyle.SelectionForeColor = $text
+            $control.DefaultCellStyle.BackColor = $input
+            $control.DefaultCellStyle.ForeColor = $text
+            $control.DefaultCellStyle.SelectionBackColor = $selection
+            $control.DefaultCellStyle.SelectionForeColor = $text
+            $control.AlternatingRowsDefaultCellStyle.BackColor = $surface
+            $control.AlternatingRowsDefaultCellStyle.ForeColor = $text
+        }
+
+        try {
+            [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SetWindowTheme(
+                $control.Handle, 'DarkMode_Explorer', $null)
+        } catch {}
+        foreach ($child in $control.Controls) {
+            $controls.Push($child)
+        }
+    }
+
+    $enable = 1
+    try {
+        $result =
+            [OpenSalamander.Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
+                $Form.Handle, 20, [ref]$enable, 4)
+        if ($result -ne 0) {
+            [void][OpenSalamander.Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
+                $Form.Handle, 19, [ref]$enable, 4)
+        }
+    } catch {}
+}
+
 function Get-NavigatorStrings {
     param([string]$Locale)
 
@@ -225,7 +317,7 @@ function Invoke-NavigatorUiAction {
         & $Action
     }
     catch {
-        [void][System.Windows.Forms.MessageBox]::Show(
+        [void]$Salamander.ui.MessageBox(
             $_.Exception.Message, $script:Strings.title, 'OK', 'Error')
     }
 }
@@ -303,6 +395,7 @@ function Show-CreateWorktreeDialog {
     $form.Controls.Add($cancel)
     $form.AcceptButton = $ok
     $form.CancelButton = $cancel
+    Set-ExtensionDarkMode -Form $form
 
     $branch.Add_TextChanged({
         $safe = $branch.Text -replace '[\\/:*?"<>| ]', '-'
@@ -312,17 +405,16 @@ function Show-CreateWorktreeDialog {
         }
     })
     $browse.Add_Click({
-        $picker = New-Object System.Windows.Forms.FolderBrowserDialog
-        $picker.Description = $script:Strings.chooseFolder
-        $picker.SelectedPath = if (Test-Path -LiteralPath $path.Text) {
+        $initialPath = if (Test-Path -LiteralPath $path.Text) {
             $path.Text
         } else {
             Split-Path -Parent $RepositoryRoot
         }
-        if ($picker.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {
-            $path.Text = $picker.SelectedPath
+        $picked = $Salamander.ui.PickFolder(
+            $script:Strings.chooseFolder, $initialPath)
+        if ($null -ne $picked -and [bool]$picked.selected) {
+            $path.Text = [string]$picked.path
         }
-        $picker.Dispose()
     })
 
     try {
@@ -347,14 +439,14 @@ function New-NavigatorWorktree {
     if ($null -eq $request) { return $false }
     if ([string]::IsNullOrWhiteSpace($request.Branch) -or
         [string]::IsNullOrWhiteSpace($request.Path)) {
-        [void][System.Windows.Forms.MessageBox]::Show(
+        [void]$Salamander.ui.MessageBox(
             $script:Strings.required, $script:Strings.title, 'OK', 'Warning')
         return $false
     }
     $checked = Invoke-NavigatorGit -WorkingDirectory $RepositoryRoot `
         -Arguments @('check-ref-format', '--branch', $request.Branch) -AllowFailure
     if ($checked.ExitCode -ne 0) {
-        [void][System.Windows.Forms.MessageBox]::Show(
+        [void]$Salamander.ui.MessageBox(
             $script:Strings.invalidBranch, $script:Strings.title, 'OK', 'Warning')
         return $false
     }
@@ -373,13 +465,13 @@ function Remove-NavigatorWorktree {
     param([string]$RepositoryRoot, [object]$Worktree)
 
     if ($Worktree.Path -eq $RepositoryRoot) {
-        [void][System.Windows.Forms.MessageBox]::Show(
+        [void]$Salamander.ui.MessageBox(
             $script:Strings.cannotRemoveCurrent, $script:Strings.title, 'OK', 'Warning')
         return $false
     }
     Get-WorktreeState -Worktree $Worktree
     if ($Worktree.Status -ne $script:Strings.clean) {
-        [void][System.Windows.Forms.MessageBox]::Show(
+        [void]$Salamander.ui.MessageBox(
             $script:Strings.cannotRemoveDirty, $script:Strings.title, 'OK', 'Warning')
         return $false
     }
@@ -387,9 +479,9 @@ function Remove-NavigatorWorktree {
         $script:Strings.confirmRemove,
         [Environment]::NewLine,
         $Worktree.Path)
-    $answer = [System.Windows.Forms.MessageBox]::Show(
+    $answer = $Salamander.ui.MessageBox(
         $question, $script:Strings.title, 'YesNo', 'Warning')
-    if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
+    if ($answer -ne 6) { return $false }
     Invoke-NavigatorGit -WorkingDirectory $RepositoryRoot `
         -Arguments @('worktree', 'remove', '--', $Worktree.Path) | Out-Null
     [void]$Salamander.ui.Notify(
@@ -418,18 +510,18 @@ function Switch-NavigatorBranch {
             $script:Strings.branchInWorktree,
             $Branch.Name,
             $Branch.WorktreePath)
-        [void][System.Windows.Forms.MessageBox]::Show(
+        [void]$Salamander.ui.MessageBox(
             $message, $script:Strings.title, 'OK', 'Warning')
         return $false
     }
 
     if (Test-NavigatorWorktreeDirty -RepositoryRoot $RepositoryRoot) {
-        $answer = [System.Windows.Forms.MessageBox]::Show(
+        $answer = $Salamander.ui.MessageBox(
             $script:Strings.confirmDirtySwitch,
             $script:Strings.title,
             'YesNo',
             'Warning')
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) {
+        if ($answer -ne 6) {
             return $false
         }
     }
@@ -502,12 +594,12 @@ function Invoke-NavigatorPush {
         if ($origin.ExitCode -ne 0) {
             throw $script:Strings.noPushUpstream
         }
-        $answer = [System.Windows.Forms.MessageBox]::Show(
+        $answer = $Salamander.ui.MessageBox(
             ([string]::Format($script:Strings.confirmSetUpstream, $branch.Text)),
             $script:Strings.title,
             'YesNo',
             'Question')
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+        if ($answer -ne 6) { return }
         Invoke-NavigatorGit -WorkingDirectory $RepositoryRoot `
             -Arguments @('push', '--set-upstream', 'origin', $branch.Text) | Out-Null
     }
@@ -577,13 +669,14 @@ function Show-NavigatorCommitDialog {
     $form.Controls.Add($cancel)
     $form.AcceptButton = $ok
     $form.CancelButton = $cancel
+    Set-ExtensionDarkMode -Form $form
 
     try {
         if ($form.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
             return $null
         }
         if ([string]::IsNullOrWhiteSpace($message.Text)) {
-            [void][System.Windows.Forms.MessageBox]::Show(
+            [void]$Salamander.ui.MessageBox(
                 $script:Strings.commitMessageRequired,
                 $script:Strings.title,
                 'OK',
@@ -963,6 +1056,7 @@ function Show-NavigatorWindow {
             }
         }
     })
+    Set-ExtensionDarkMode -Form $form
 
     try {
         & $refreshAll
@@ -986,6 +1080,10 @@ if ($Salamander.command_handler -eq 'open' -or
     try {
         $language = $Salamander.application.Language()
         $script:Strings = Get-NavigatorStrings -Locale $language.locale
+        $appearance = $Salamander.application.Appearance()
+        $darkProperty = $appearance.PSObject.Properties['windowsDarkMode']
+        $script:UseWindowsDarkMode =
+            $null -ne $darkProperty -and [bool]$darkProperty.Value
         $git = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue |
             Select-Object -First 1
         if ($null -eq $git) {
@@ -1014,7 +1112,7 @@ if ($Salamander.command_handler -eq 'open' -or
         } else {
             $title = 'Git Worktree Navigator'
         }
-        [void][System.Windows.Forms.MessageBox]::Show(
+        [void]$Salamander.ui.MessageBox(
             $_.Exception.Message, $title, 'OK', 'Error')
     }
 }

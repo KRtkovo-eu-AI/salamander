@@ -35,7 +35,7 @@
       "handler": "inspect",
       "menu": "both",
       "contextMenu": true,
-      "toolbar": false,
+      "toolbar": true,
       "requires": "file"
     }
   ]

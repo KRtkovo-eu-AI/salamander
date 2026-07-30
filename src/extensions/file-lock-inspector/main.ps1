@@ -1,5 +1,97 @@
 Set-StrictMode -Version 2.0
 
+function Initialize-ExtensionDarkMode {
+    if ($null -ne ('OpenSalamander.Extensions.DarkModeNativeMethods' -as [type])) {
+        return
+    }
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+namespace OpenSalamander.Extensions
+{
+    public static class DarkModeNativeMethods
+    {
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmSetWindowAttribute(
+            IntPtr hwnd, int attribute, ref int value, int valueSize);
+
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+        public static extern int SetWindowTheme(
+            IntPtr hwnd, string subAppName, string subIdList);
+    }
+}
+'@
+}
+
+function Set-ExtensionDarkMode {
+    param([System.Windows.Forms.Form]$Form)
+
+    if (-not $script:UseWindowsDarkMode) { return }
+
+    Initialize-ExtensionDarkMode
+    $background = [System.Drawing.Color]::FromArgb(32, 32, 32)
+    $surface = [System.Drawing.Color]::FromArgb(45, 45, 48)
+    $input = [System.Drawing.Color]::FromArgb(37, 37, 38)
+    $header = [System.Drawing.Color]::FromArgb(50, 50, 54)
+    $border = [System.Drawing.Color]::FromArgb(80, 80, 80)
+    $text = [System.Drawing.Color]::FromArgb(241, 241, 241)
+    $selection = [System.Drawing.Color]::FromArgb(0, 122, 204)
+
+    $controls = New-Object System.Collections.Stack
+    $controls.Push($Form)
+    while ($controls.Count -gt 0) {
+        $control = $controls.Pop()
+        $control.BackColor = $background
+        $control.ForeColor = $text
+
+        if ($control -is [System.Windows.Forms.Button]) {
+            $control.UseVisualStyleBackColor = $false
+            $control.FlatStyle = 'Flat'
+            $control.BackColor = $surface
+            $control.FlatAppearance.BorderColor = $border
+        } elseif (
+            $control -is [System.Windows.Forms.TextBox] -or
+            $control -is [System.Windows.Forms.RichTextBox] -or
+            $control -is [System.Windows.Forms.ComboBox]) {
+            $control.BackColor = $input
+        } elseif ($control -is [System.Windows.Forms.DataGridView]) {
+            $control.BackgroundColor = $background
+            $control.GridColor = $border
+            $control.EnableHeadersVisualStyles = $false
+            $control.ColumnHeadersDefaultCellStyle.BackColor = $header
+            $control.ColumnHeadersDefaultCellStyle.ForeColor = $text
+            $control.ColumnHeadersDefaultCellStyle.SelectionBackColor = $header
+            $control.ColumnHeadersDefaultCellStyle.SelectionForeColor = $text
+            $control.DefaultCellStyle.BackColor = $input
+            $control.DefaultCellStyle.ForeColor = $text
+            $control.DefaultCellStyle.SelectionBackColor = $selection
+            $control.DefaultCellStyle.SelectionForeColor = $text
+            $control.AlternatingRowsDefaultCellStyle.BackColor = $surface
+            $control.AlternatingRowsDefaultCellStyle.ForeColor = $text
+        }
+
+        try {
+            [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SetWindowTheme(
+                $control.Handle, 'DarkMode_Explorer', $null)
+        } catch {}
+        foreach ($child in $control.Controls) {
+            $controls.Push($child)
+        }
+    }
+
+    $enable = 1
+    try {
+        $result =
+            [OpenSalamander.Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
+                $Form.Handle, 20, [ref]$enable, 4)
+        if ($result -ne 0) {
+            [void][OpenSalamander.Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
+                $Form.Handle, 19, [ref]$enable, 4)
+        }
+    } catch {}
+}
+
 function Get-InspectorStrings {
     param([string]$Locale)
 
@@ -309,6 +401,7 @@ function Show-InspectorWindow {
     $openButton = Add-InspectorButton $script:Strings.openLocation
     $form.AcceptButton = $refreshButton
     $form.CancelButton = $closeButton
+    Set-ExtensionDarkMode -Form $form
 
     $script:InspectorProcesses = @()
     $refresh = {
@@ -338,7 +431,7 @@ function Show-InspectorWindow {
             }
         }
         catch {
-            [void][System.Windows.Forms.MessageBox]::Show(
+            [void]$Salamander.ui.MessageBox(
                 $_.Exception.Message, $script:Strings.title, 'OK', 'Error')
             $statusLabel.Text = $script:Strings.inspectFailed
         }
@@ -376,7 +469,7 @@ function Show-InspectorWindow {
             }
         }
         catch {
-            [void][System.Windows.Forms.MessageBox]::Show(
+            [void]$Salamander.ui.MessageBox(
                 $_.Exception.Message, $script:Strings.title, 'OK', 'Error')
         }
     })
@@ -385,9 +478,9 @@ function Show-InspectorWindow {
         if ($null -eq $selected) { return }
         $message = $script:Strings.confirmEnd -f
             $selected.Name, $selected.ProcessId, [Environment]::NewLine
-        $answer = [System.Windows.Forms.MessageBox]::Show(
+        $answer = $Salamander.ui.MessageBox(
             $message, $script:Strings.title, 'YesNo', 'Warning')
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+        if ($answer -ne 6) { return }
         try {
             $process =
                 [System.Diagnostics.Process]::GetProcessById(
@@ -397,7 +490,7 @@ function Show-InspectorWindow {
             & $refresh
         }
         catch {
-            [void][System.Windows.Forms.MessageBox]::Show(
+            [void]$Salamander.ui.MessageBox(
                 $_.Exception.Message, $script:Strings.title, 'OK', 'Error')
         }
     })
@@ -430,6 +523,10 @@ if ($Salamander.command_handler -eq 'inspect') {
     try {
         $language = $Salamander.application.Language()
         $script:Strings = Get-InspectorStrings -Locale $language.locale
+        $appearance = $Salamander.application.Appearance()
+        $darkProperty = $appearance.PSObject.Properties['windowsDarkMode']
+        $script:UseWindowsDarkMode =
+            $null -ne $darkProperty -and [bool]$darkProperty.Value
         Initialize-RestartManager
 
         $context = $Salamander.source_side.Context()
@@ -457,7 +554,7 @@ if ($Salamander.command_handler -eq 'inspect') {
         } else {
             'File Lock Inspector'
         }
-        [void][System.Windows.Forms.MessageBox]::Show(
+        [void]$Salamander.ui.MessageBox(
             $_.Exception.Message, $title, 'OK', 'Error')
     }
 }

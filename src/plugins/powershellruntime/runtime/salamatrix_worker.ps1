@@ -192,8 +192,18 @@ $sourceSide = New-SalamatrixSideView 'source'
 $targetSide = New-SalamatrixSideView 'target'
 $ui = [pscustomobject]@{}
 $ui | Add-Member ScriptMethod MessageBox {
-    param([string]$Message, [string]$Title = 'Salamander')
-    (Invoke-Host -Method 'salamander.ui.messageBox' -Arguments @{ message = $Message; title = $Title }).result
+    param(
+        [string]$Message,
+        [string]$Title = 'Salamander',
+        [string]$Buttons = 'OK',
+        [string]$Icon = 'Information'
+    )
+    (Invoke-Host -Method 'salamander.ui.messageBox' -Arguments @{
+        message = $Message
+        title = $Title
+        buttons = $Buttons
+        icon = $Icon
+    }).result
 }
 $ui | Add-Member ScriptMethod Notify {
     param([string]$Message, [string]$Title = 'Salamander', [int]$TimeoutMs = 5000)
@@ -369,6 +379,9 @@ $runtimes | Add-Member ScriptMethod List {
 $application = [pscustomobject]@{}
 $application | Add-Member ScriptMethod Language {
     Invoke-Host -Method 'salamander.host.language' -Arguments @{}
+}
+$application | Add-Member ScriptMethod Appearance {
+    Invoke-Host -Method 'salamander.host.appearance' -Arguments @{}
 }
 
 $Salamander = [pscustomobject]@{

@@ -482,8 +482,20 @@ def main() -> int:
     require(packages, r"salamander\.ui\.progress\.create", "framework progress host dispatch is missing")
     require(packages, r"SALAMATRIX_SERVICE_SCRIPT_RUNNER", "legacy compatibility script runner fallback is missing")
     require(packages, r"RuntimeAdapterFlagCompatibility", "legacy fallback is not limited to compatibility adapters")
+    require(
+        packages,
+        r"\(!registeredRuntime \|\| !availableRuntime\).*?"
+        r"Automation\.JScript.*?QueryScriptRunner.*?"
+        r"registeredRuntime = true;.*?availableRuntime = true;",
+        "Automation.JScript does not remain usable through its ScriptRunner fallback")
     require(packages, r"package->RuntimeUsable = registeredRuntime && availableRuntime",
             "extension package runtime usability is not derived from provider availability")
+    require(
+        packages,
+        r"void PackageManager::Refresh\(\).*?"
+        r"UnregisterToolbarButtons\(\);.*?RemovePackages\(\);.*?"
+        r"RegisterToolbarButtons\(\);",
+        "package refresh does not rebuild Extension Bar registrations cleanly")
     require(packages, r"InvokeOnMainThread\(\s*HostDispatchOnMainThread",
             "extension host calls are not marshaled to Salamander's UI thread")
     require(
@@ -611,6 +623,17 @@ def main() -> int:
         r"Invoke-NavigatorCommit.*?'add'.*?'--all'.*?"
         r"'diff'.*?'--cached'.*?'commit'.*?'-m'",
         "Git Worktree Navigator commit flow is incomplete")
+    require(
+        navigator,
+        r"Set-ExtensionDarkMode.*?"
+        r"EnableHeadersVisualStyles\s*=\s*\$false.*?"
+        r"DwmSetWindowAttribute.*?"
+        r"application\.Appearance\(\).*?windowsDarkMode",
+        "Git Worktree Navigator does not follow Salamander's explicit Windows dark scheme")
+    require_absent(
+        navigator,
+        r"FolderBrowserDialog|System\.Windows\.Forms\.MessageBox",
+        "Git Worktree Navigator still opens an unthemed WinForms system dialog")
     command_ids = {
         command.get("id") for command in navigator_manifest.get("commands", [])
     }
@@ -682,6 +705,21 @@ def main() -> int:
         lock_inspector,
         r"clipboard\.CopyText",
         "File Lock Inspector cannot copy its report")
+    inspector_commands = lock_inspector_manifest.get("commands", [])
+    if not inspector_commands or not inspector_commands[0].get("toolbar"):
+        raise AssertionError(
+            "File Lock Inspector is not available in Extension Bar")
+    require(
+        lock_inspector,
+        r"Set-ExtensionDarkMode.*?"
+        r"EnableHeadersVisualStyles\s*=\s*\$false.*?"
+        r"DwmSetWindowAttribute.*?"
+        r"application\.Appearance\(\).*?windowsDarkMode",
+        "File Lock Inspector does not follow Salamander's explicit Windows dark scheme")
+    require_absent(
+        lock_inspector,
+        r"System\.Windows\.Forms\.MessageBox",
+        "File Lock Inspector still opens an unthemed WinForms message box")
     require(
         salamatrix,
         r"SalamanderLanguageID\s*=\s*salamander->GetCurrentSalamanderLanguageID",
@@ -703,6 +741,20 @@ def main() -> int:
         r'salamander\.host\.language.*?languageId.*?locale',
         "framework package host does not expose the selected Salamander language")
     require(
+        packages,
+        r'salamander\.host\.appearance.*?'
+        r'DarkModeIsWindowsDarkSchemeSelected\(\).*?windowsDarkMode',
+        "framework package host does not expose the explicit Windows dark scheme")
+    require(
+        powershell_worker,
+        r'ScriptMethod Appearance.*?salamander\.host\.appearance',
+        "PowerShell runtime does not expose Salamander appearance")
+    require(
+        powershell_worker + packages,
+        r'ScriptMethod MessageBox.*?buttons.*?icon.*?'
+        r'MB_YESNO.*?MB_ICONWARNING',
+        "PowerShell message boxes cannot use themed confirmations and error icons")
+    require(
         setup,
         r"AddPlugin\('gitworktreenavigator',\s*'Git Worktree Navigator'",
         "x64 installer does not offer Git Worktree Navigator as a plugin")
@@ -721,6 +773,11 @@ def main() -> int:
         setup,
         r"AddPlugin\('filelockinspector',\s*'File Lock Inspector'",
         "x64 installer does not offer File Lock Inspector as a plugin")
+    require(
+        setup,
+        r"Salamatrix Progress Demo\\icon\.svg.*?"
+        r"IsPluginSelected\('automation'\)",
+        "x64 installer omits the Automation.JScript extension icon")
     require(
         setup,
         r"extensions\\file-lock-inspector.*?"

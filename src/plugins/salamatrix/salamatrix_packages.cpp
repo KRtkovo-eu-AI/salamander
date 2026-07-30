@@ -522,6 +522,11 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 
 void PackageManager::Refresh()
 {
+    // Toolbar registrations outlive the package objects that contributed
+    // them.  Drop them before rebuilding the package list so a runtime
+    // availability refresh cannot leave stale or missing Extension Bar
+    // entries behind.
+    UnregisterToolbarButtons();
     RemovePackages();
     for (size_t index = 0; index < Roots.size(); ++index)
         DiscoverRoot(Roots[index]);
@@ -696,14 +701,14 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                     else if (!availableRuntime)
                         descriptor.Flags |= Extensions::ExtensionFlagRuntimeExecutableUnavailable;
 
-                    if (!registeredRuntime &&
+                    if ((!registeredRuntime || !availableRuntime) &&
                         _stricmp(manifest.RuntimeId.c_str(), "Automation.JScript") == 0 &&
                         QueryScriptRunner(General) != NULL)
                     {
                         // The legacy JScript provider is owned by Automation.
                         // Its public ScriptRunner service is sufficient for
-                        // one-shot extension commands even if the compatibility
-                        // adapter registration raced framework startup.
+                        // one-shot extension commands even if compatibility
+                        // adapter discovery or availability raced startup.
                         descriptor.Flags &=
                             ~(Extensions::ExtensionFlagRuntimeUnavailable |
                               Extensions::ExtensionFlagRuntimeExecutableUnavailable);
@@ -1008,6 +1013,14 @@ BOOL WINAPI PackageManager::HostDispatch(
                 std::to_string(static_cast<unsigned int>(languageId)) + "}",
             resultJson, resultCapacity, resultLength);
     }
+    if (method == "salamander.host.appearance")
+    {
+        return CopyResult(
+            DarkModeIsWindowsDarkSchemeSelected()
+                ? "{\"ok\":true,\"windowsDarkMode\":true}"
+                : "{\"ok\":true,\"windowsDarkMode\":false}",
+            resultJson, resultCapacity, resultLength);
+    }
     if (method == "salamander.sides.context")
     {
         std::string sideName;
@@ -1126,14 +1139,27 @@ BOOL WINAPI PackageManager::HostDispatch(
     }
     if (method == "salamander.ui.messageBox")
     {
-        std::string title, message;
+        std::string title, message, buttons, icon;
         Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
         Runtime::Protocol::Json::FindStringMember(payloadJson, "message", &message);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "buttons", &buttons);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "icon", &icon);
+        UINT flags = _stricmp(buttons.c_str(), "yesNo") == 0
+                         ? MB_YESNO
+                         : MB_OK;
+        if (_stricmp(icon.c_str(), "error") == 0)
+            flags |= MB_ICONERROR;
+        else if (_stricmp(icon.c_str(), "warning") == 0)
+            flags |= MB_ICONWARNING;
+        else if (_stricmp(icon.c_str(), "question") == 0)
+            flags |= MB_ICONQUESTION;
+        else if (_stricmp(icon.c_str(), "none") != 0)
+            flags |= MB_ICONINFORMATION;
         int result = owner->UI != NULL
                          ? owner->UI->ShowMessageBox(
                                owner->General->GetMsgBoxParent(),
                                message.c_str(), title.c_str(),
-                               MB_OK | MB_ICONINFORMATION)
+                               flags)
                          : 0;
         return CopyResult(
             std::string("{\"ok\":true,\"result\":") +

@@ -1,19 +1,22 @@
 <#
 .SYNOPSIS
-Packages each unpacked Open Salamander plugin directory into a separate 7z archive.
+Packages each unpacked Open Salamander plugin and extension directory into a separate 7z archive.
 
 .DESCRIPTION
 The script expects a path to an unpacked Open Salamander x64 directory that contains
-an immediate plugins subdirectory. Every immediate child directory under plugins is
-packed as a whole directory, so the archive contains e.g. automation\automation.spl
-instead of only automation.spl at the archive root.
+an immediate plugins and/or extensions subdirectory. Every immediate child directory
+under either subdirectory is packed as a whole directory, so an archive contains e.g.
+automation\automation.spl or git-worktree-navigator\extension.json instead of only
+the directory contents at the archive root.
 
-Archive names use the plugin directory name, the plugin file version read from
-the first plugin binary (*.spl preferred, then *.dll/*.exe), and the x64 suffix:
+Archive names use the package directory name and version. Plugin versions are read
+from the first plugin binary (*.spl preferred, then *.dll/*.exe); extension versions
+are read from extension.json. All archive names use the existing plugin package format:
   <plugin>_<version>_x64.7z
 
 .PARAMETER SalamanderPath
-Path to an unpacked Open Salamander directory containing the plugins directory.
+Path to an unpacked Open Salamander directory containing a plugins directory,
+an extensions directory, or both.
 
 .PARAMETER OutputPath
 Directory where the resulting archives are written. Defaults to a
@@ -153,41 +156,114 @@ function Get-PluginVersion {
     return Convert-ToArchiveSafeVersion -Version $version
 }
 
+function Get-ExtensionVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.DirectoryInfo]$ExtensionDirectory
+    )
+
+    $manifestPath = Join-Path $ExtensionDirectory.FullName 'extension.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw "Extension '$($ExtensionDirectory.Name)' does not contain extension.json."
+    }
+
+    try {
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    }
+    catch {
+        throw "Cannot read extension manifest '$manifestPath': $_"
+    }
+
+    $versionProperty = $manifest.PSObject.Properties['version']
+    if (-not $versionProperty -or
+        $versionProperty.Value -isnot [string] -or
+        [string]::IsNullOrWhiteSpace($versionProperty.Value)) {
+        throw "Extension manifest '$manifestPath' does not contain a string version."
+    }
+
+    try {
+        return Convert-ToArchiveSafeVersion -Version $versionProperty.Value
+    }
+    catch {
+        throw "Cannot use extension version from '$manifestPath': $_"
+    }
+}
+
+function Get-PackageGroups {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SalamanderRoot
+    )
+
+    $groups = @()
+    foreach ($definition in @(
+        @{ DirectoryName = 'plugins'; PackageType = 'plugin' },
+        @{ DirectoryName = 'extensions'; PackageType = 'extension' }
+    )) {
+        $root = Join-Path $SalamanderRoot $definition.DirectoryName
+        if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+            continue
+        }
+
+        $directories = @(Get-ChildItem -LiteralPath $root -Directory | Sort-Object Name)
+        if ($directories.Count -eq 0) {
+            continue
+        }
+
+        $groups += [PSCustomObject]@{
+            Root = (Get-Item -LiteralPath $root).FullName
+            PackageType = $definition.PackageType
+            Directories = $directories
+        }
+    }
+
+    return $groups
+}
+
 $salamanderRoot = Resolve-ExistingDirectory -Path $SalamanderPath -Description 'Salamander path'
-$pluginsRoot = Join-Path $salamanderRoot 'plugins'
-$pluginsRoot = Resolve-ExistingDirectory -Path $pluginsRoot -Description 'Plugins path'
 $sevenZip = Resolve-SevenZip -RequestedPath $SevenZipPath
 $outputRoot = New-Item -ItemType Directory -Path $OutputPath -Force
 
-$pluginDirectories = Get-ChildItem -LiteralPath $pluginsRoot -Directory | Sort-Object Name
-if ($pluginDirectories.Count -eq 0) {
-    throw "No plugin directories found in '$pluginsRoot'."
+$packageGroups = @(Get-PackageGroups -SalamanderRoot $salamanderRoot)
+if ($packageGroups.Count -eq 0) {
+    throw "No plugin or extension directories found under '$salamanderRoot'."
 }
 
-foreach ($pluginDirectory in $pluginDirectories) {
-    $version = Get-PluginVersion -PluginDirectory $pluginDirectory
-    $archiveName = 'plugin_5.0_{0}_{1}_x64.7z' -f $pluginDirectory.Name, $version
-    $archivePath = Join-Path $outputRoot.FullName $archiveName
-
-    if ((Test-Path -LiteralPath $archivePath) -and -not $Force) {
-        throw "Archive already exists: $archivePath. Use -Force to overwrite it."
-    }
-
-    if (Test-Path -LiteralPath $archivePath) {
-        Remove-Item -LiteralPath $archivePath -Force
-    }
-
-    Write-Host "Packing $($pluginDirectory.Name) -> $archiveName"
-    Push-Location -LiteralPath $pluginsRoot
-    try {
-        & $sevenZip a -t7z -mx=9 $archivePath $pluginDirectory.Name | Write-Host
-        if ($LASTEXITCODE -ne 0) {
-            throw "7-Zip failed for plugin '$($pluginDirectory.Name)' with exit code $LASTEXITCODE."
+$archiveCount = 0
+foreach ($packageGroup in $packageGroups) {
+    foreach ($packageDirectory in $packageGroup.Directories) {
+        if ($packageGroup.PackageType -eq 'extension') {
+            $version = Get-ExtensionVersion -ExtensionDirectory $packageDirectory
         }
-    }
-    finally {
-        Pop-Location
+        else {
+            $version = Get-PluginVersion -PluginDirectory $packageDirectory
+        }
+
+        $archiveName = 'plugin_5.0_{0}_{1}_x64.7z' -f $packageDirectory.Name, $version
+        $archivePath = Join-Path $outputRoot.FullName $archiveName
+
+        if ((Test-Path -LiteralPath $archivePath) -and -not $Force) {
+            throw "Archive already exists: $archivePath. Use -Force to overwrite it."
+        }
+
+        if (Test-Path -LiteralPath $archivePath) {
+            Remove-Item -LiteralPath $archivePath -Force
+        }
+
+        Write-Host "Packing $($packageGroup.PackageType) $($packageDirectory.Name) -> $archiveName"
+        Push-Location -LiteralPath $packageGroup.Root
+        try {
+            & $sevenZip a -t7z -mx=9 $archivePath $packageDirectory.Name | Write-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "7-Zip failed for $($packageGroup.PackageType) '$($packageDirectory.Name)' with exit code $LASTEXITCODE."
+            }
+        }
+        finally {
+            Pop-Location
+        }
+
+        $archiveCount++
     }
 }
 
-Write-Host "Created $($pluginDirectories.Count) archive(s) in $($outputRoot.FullName)."
+Write-Host "Created $archiveCount archive(s) in $($outputRoot.FullName)."
