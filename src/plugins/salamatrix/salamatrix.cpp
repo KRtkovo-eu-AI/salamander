@@ -136,7 +136,7 @@ void WINAPI CPluginInterface::About(HWND parent)
 {
     char buf[1000];
     _snprintf_s(buf, _TRUNCATE,
-                "Salamatrix Framework " VERSINFO_MAJOR "." VERSINFO_MINORA "\n\n"
+                "Salamatrix Framework " VERSINFO_VERSION_NO_PLATFORM "\n\n"
                 "Registered services: %s\n"
                 "Service count: %d\n"
                 "Runtime adapters: %d\n\n"
