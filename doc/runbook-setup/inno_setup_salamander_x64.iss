@@ -380,6 +380,7 @@ Name: "{app}\plugins\extension-runtimes\pythonruntime"
 Name: "{app}\plugins\extension-runtimes\pythonruntime\runtime"
 Name: "{app}\extensions"
 Name: "{app}\extensions\demos"
+Name: "{app}\extensions\extension-menu-builder"
 Name: "{app}\extensions\git-worktree-navigator"
 Name: "{app}\extensions\file-lock-inspector"
 Name: "{app}\plugins\serviceexplorer"
@@ -1400,6 +1401,7 @@ Source: "{#PayloadDir}\plugins\salamatrixailocalllama\runtime\install_llama.ps1"
 Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\plugins\demoplug\lang\english.slg"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\extensions\demos\*"; DestDir: "{app}\extensions\demos"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrixdemos')
+Source: "{#PayloadDir}\extensions\extension-menu-builder\*"; DestDir: "{app}\extensions\extension-menu-builder"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('extensionmenubuilder')
 Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\extensions\git-worktree-navigator"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('gitworktreenavigator')
 Source: "{#PayloadDir}\extensions\file-lock-inspector\*"; DestDir: "{app}\extensions\file-lock-inspector"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('filelockinspector')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\javascriptruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
@@ -1766,6 +1768,7 @@ begin
   AddPluginDependency('salamatrixailocalllama', 'salamatrixai');
 
   { These PowerShell extensions need the PowerShell runtime. }
+  AddPluginDependency('extensionmenubuilder', 'powershellruntime');
   AddPluginDependency('gitworktreenavigator', 'powershellruntime');
   AddPluginDependency('filelockinspector', 'powershellruntime');
 
@@ -1863,6 +1866,13 @@ var
   ExpectedPath: String;
 begin
   Result := '';
+  if CompareText(PluginId, 'extensionmenubuilder') = 0 then
+  begin
+    if FileExists(ExpandConstant('{app}\extensions\extension-menu-builder\extension.json')) then
+      Result := '1.0.0';
+    Exit;
+  end;
+
   if CompareText(PluginId, 'gitworktreenavigator') = 0 then
   begin
     if FileExists(ExpandConstant('{app}\extensions\git-worktree-navigator\extension.json')) then
@@ -2293,6 +2303,7 @@ begin
   AddPlugin('demoplug', 'Demo Plugin', '1.96 (x64)', False);
   AddPlugin('diskdir', 'DiskDir', '1.0 (x64)', True);
   AddPlugin('diskmap', 'DiskMap', '1.13 (x64)', True);
+  AddPlugin('extensionmenubuilder', 'Extension Menu Builder', '1.0.0 (x64)', True);
   AddPlugin('filecomp', 'File Comparator', '1.21 (x64)', True);
   AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.0 (x64)', True);
   AddPlugin('folders', 'Folders', '0.2 (x64)', False);

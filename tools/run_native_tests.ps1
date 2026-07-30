@@ -229,6 +229,21 @@ try {
         Add-TestResult -ClassName 'source-contract' -Name $contractTest.Name `
             -ProcessResult $contractResult
     }
+
+    $windowsPowerShell = Resolve-ApplicationPath -Name 'powershell.exe'
+    Write-Host 'Running extension_menu_builder_smoke_tests...'
+    $menuBuilderResult = Invoke-TestProcess -FilePath $windowsPowerShell `
+        -Arguments @(
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            (Join-Path $repositoryRoot `
+                'src\plugins\salamatrix\tests\menu_builder_smoke_tests.ps1')
+        ) -WorkingDirectory $repositoryRoot
+    Add-TestResult -ClassName 'source-contract' `
+        -Name 'extension_menu_builder_smoke_tests' `
+        -ProcessResult $menuBuilderResult
 }
 catch {
     $infrastructureFailure = [pscustomobject]@{

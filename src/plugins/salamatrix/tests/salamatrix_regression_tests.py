@@ -92,6 +92,9 @@ def main() -> int:
     lock_inspector = read("src/extensions/file-lock-inspector/main.ps1")
     lock_inspector_manifest = json.loads(
         read("src/extensions/file-lock-inspector/extension.json"))
+    menu_builder = read("src/extensions/extension-menu-builder/main.ps1")
+    menu_builder_manifest = json.loads(
+        read("src/extensions/extension-menu-builder/extension.json"))
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
@@ -767,6 +770,55 @@ def main() -> int:
         "en", "cs", "de", "es", "fr", "hu",
         "nl", "ro", "ru", "sk", "zh-CN",
     }
+    if set(menu_builder_manifest.get("locales", {})) != expected_locales:
+        raise AssertionError(
+            "Extension Menu Builder does not declare every supported locale")
+    builder_command_ids = {
+        command.get("id")
+        for command in menu_builder_manifest.get("commands", [])
+    }
+    builder_english_keys = None
+    for locale, relative in menu_builder_manifest["locales"].items():
+        localized = json.loads(read(
+            "src/extensions/extension-menu-builder/" + relative))
+        if set(localized.get("commands", {})) != builder_command_ids:
+            raise AssertionError(
+                f"menu builder command localization is incomplete: {locale}")
+        localized_keys = set(localized.get("strings", {}))
+        if builder_english_keys is None:
+            builder_english_keys = localized_keys
+        elif localized_keys != builder_english_keys:
+            raise AssertionError(
+                f"menu builder strings differ from English: {locale}")
+    require(
+        menu_builder,
+        r"Save-BuilderProject.*?extension\.json.*?menu-builder\.json.*?"
+        r"actions\.json.*?Get-GeneratedRuntimeScript",
+        "Extension Menu Builder does not emit an editable runnable extension")
+    require(
+        menu_builder,
+        r"iconDark.*?Copy-BuilderAsset.*?toolbarMenu.*?"
+        r"Preview menu|preview",
+        "Extension Menu Builder does not expose per-command icons and menu preview")
+    require(
+        menu_builder,
+        r"focusedItem\.path.*?selectedItems.*?activePanel\.path.*?"
+        r"targetPanel\.path",
+        "generated custom menus do not expand Salamander panel tokens")
+    require(
+        setup,
+        r"AddPlugin\('extensionmenubuilder',\s*'Extension Menu Builder'",
+        "x64 installer does not offer Extension Menu Builder")
+    require(
+        setup,
+        r"extensions\\extension-menu-builder.*?"
+        r"IsPluginSelected\('extensionmenubuilder'\)",
+        "x64 installer does not package Extension Menu Builder")
+    require(
+        setup,
+        r"AddPluginDependency\('extensionmenubuilder',\s*"
+        r"'powershellruntime'\)",
+        "x64 installer does not select the PowerShell runtime for Extension Menu Builder")
     if set(navigator_manifest.get("locales", {})) != expected_locales:
         raise AssertionError(
             "Git Worktree Navigator does not declare every supported locale")
@@ -905,9 +957,9 @@ def main() -> int:
         "x64 installer does not package the selected Git Worktree Navigator")
     require(
         setup,
-        r"CompareText\(PluginId,\s*'salamatrix'\).*?"
-        r"CompareText\(PluginId,\s*'powershellruntime'\).*?"
-        r"IsPluginExplicitlySelected\('gitworktreenavigator'\)",
+        r"AddPluginDependency\('powershellruntime',\s*'salamatrix'\).*?"
+        r"AddPluginDependency\('gitworktreenavigator',\s*"
+        r"'powershellruntime'\)",
         "x64 installer does not include Git Worktree Navigator dependencies")
     require(
         setup,
@@ -915,8 +967,8 @@ def main() -> int:
         "x64 installer does not offer File Lock Inspector as a plugin")
     require(
         setup,
-        r"Salamatrix Progress Demo\\icon\.svg.*?"
-        r"IsPluginSelected\('automation'\)",
+        r"Salamatrix Progress Demo\\\*.*?recursesubdirs.*?"
+        r"IsPluginSelected\('salamatrixdemos'\)",
         "x64 installer omits the Automation.JScript extension icon")
     require(
         setup,
@@ -925,9 +977,9 @@ def main() -> int:
         "x64 installer does not package the selected File Lock Inspector")
     require(
         setup,
-        r"CompareText\(PluginId,\s*'salamatrix'\).*?"
-        r"CompareText\(PluginId,\s*'powershellruntime'\).*?"
-        r"IsPluginExplicitlySelected\('filelockinspector'\)",
+        r"AddPluginDependency\('powershellruntime',\s*'salamatrix'\).*?"
+        r"AddPluginDependency\('filelockinspector',\s*"
+        r"'powershellruntime'\)",
         "x64 installer does not include File Lock Inspector dependencies")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
