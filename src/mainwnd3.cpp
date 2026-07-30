@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include <algorithm>
+#include <new>
 #include <string>
 #include <utility>
 #include <cwctype>
@@ -4050,7 +4051,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
 
-        ExtensionBar = new CExtensionBar(HWindow);
+#ifdef new
+#undef new
+#define RESTORE_EXTENSION_BAR_DEBUG_NEW_MACRO
+#endif
+        ExtensionBar = new (std::nothrow) CExtensionBar(HWindow);
+#ifdef RESTORE_EXTENSION_BAR_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_EXTENSION_BAR_DEBUG_NEW_MACRO
+#endif
         if (ExtensionBar == NULL)
         {
             TRACE_E(LOW_MEMORY);

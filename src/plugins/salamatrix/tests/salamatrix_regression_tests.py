@@ -519,6 +519,19 @@ def main() -> int:
         r"IDS_PLUGIN_SHOWINEXTENSIONBAR.*?"
         r"SetExtensionBarVisible",
         "Plugin Manager does not expose localized Extension Bar controls")
+    require_absent(
+        dialogs,
+        r"_snprintf_s\([^;]*LoadStr\(IDS_PLUGIN_SHOWINEXTENSIONBAR\)",
+        "localized Extension Bar text is still used as a printf format")
+    require(
+        dialogs,
+        r'extensionNamePlaceholder.*?"%\.\*s%s%s"',
+        "localized Extension Bar placeholder is not expanded as inert data")
+    require(
+        mainwnd3,
+        r"ExtensionBar = new \(std::nothrow\) CExtensionBar.*?"
+        r"if \(ExtensionBar == NULL\)",
+        "Extension Bar allocation guard is not backed by nothrow allocation")
     require(
         plugins2,
         r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"

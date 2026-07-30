@@ -1059,8 +1059,23 @@ void CPluginsDlg::OnSelChanged()
         lstrcpyn(extensionName, extension->Descriptor.Name,
                  _countof(extensionName));
         DuplicateAmpersands(extensionName, _countof(extensionName));
-        _snprintf_s(extensionBarText, _countof(extensionBarText), _TRUNCATE,
-                    LoadStr(IDS_PLUGIN_SHOWINEXTENSIONBAR), extensionName);
+        const char* extensionBarFormat =
+            LoadStr(IDS_PLUGIN_SHOWINEXTENSIONBAR);
+        const char* extensionNamePlaceholder =
+            strstr(extensionBarFormat, "%s");
+        if (extensionNamePlaceholder != NULL)
+        {
+            _snprintf_s(
+                extensionBarText, _countof(extensionBarText), _TRUNCATE,
+                "%.*s%s%s",
+                static_cast<int>(extensionNamePlaceholder -
+                                 extensionBarFormat),
+                extensionBarFormat, extensionName,
+                extensionNamePlaceholder + 2);
+        }
+        else
+            lstrcpyn(extensionBarText, extensionBarFormat,
+                     _countof(extensionBarText));
         SetWindowText(showInBar, extensionBarText);
         ShowWindow(showInBar, SW_SHOW);
         ShowWindow(showInChDrv, SW_HIDE);
