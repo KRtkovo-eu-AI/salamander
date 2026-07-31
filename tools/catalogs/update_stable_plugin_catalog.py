@@ -25,6 +25,14 @@ DEFAULT_EXTENSIONS_ROOT = ROOT / "src" / "extensions"
 DEFAULT_RELEASE_URL = "https://github.com/KRtkovo-eu-AI/salamander/releases"
 DEFAULT_PACKAGE_RELEASE_URL = "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases"
 DEFAULT_PLUGIN_ICON_URL = "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+EXTENSION_BUNDLES = {
+    "salamatrixdemos": {
+        "directory": "demos",
+        "name": "Salamatrix Demo Sample Scripts",
+        "description": "Demo sample scripts for the Salamatrix framework.",
+        "runtime_id": "salamatrix",
+    }
+}
 
 SOURCE_SPL_RE = re.compile(
     r'^\s*Source:\s*"\{#PayloadDir\}\\plugins\\(?P<path>[^"]+\.spl)"',
@@ -81,11 +89,24 @@ def parse_installer_extensions(
     extensions: list[tuple[str, str]] = []
     seen: set[str] = set()
     for match in SOURCE_EXTENSION_RE.finditer(text):
-        extension_id = match.group("directory")
+        directory = match.group("directory")
+        installer_id = match.group("installer_id")
+        bundle_id = next(
+            (
+                package_id
+                for package_id, bundle in EXTENSION_BUNDLES.items()
+                if bundle["directory"].casefold() == directory.casefold()
+            ),
+            None,
+        )
+        extension_id = bundle_id or directory
         if extension_id in seen:
             continue
-        if (extensions_root / extension_id / "extension.json").is_file():
-            extensions.append((extension_id, match.group("installer_id")))
+        extension_root = extensions_root / directory
+        has_manifest = (extension_root / "extension.json").is_file()
+        has_bundle_manifests = bundle_id is not None and any(extension_root.rglob("extension.json"))
+        if has_manifest or has_bundle_manifests:
+            extensions.append((extension_id, installer_id))
             seen.add(extension_id)
     return extensions
 
@@ -158,6 +179,40 @@ def read_extension_metadata(
     extension_id: str, extensions_root: Path, include_platform: bool = True
 ) -> tuple[str, str, str, str | None]:
     """Return (version, name, description, runtime catalog id)."""
+    bundle = EXTENSION_BUNDLES.get(extension_id)
+    if bundle:
+        manifest_paths = sorted(
+            (extensions_root / bundle["directory"]).rglob("extension.json")
+        )
+        if not manifest_paths:
+            raise RuntimeError(
+                f"Extension bundle {extension_id!r} has no extension manifests"
+            )
+        manifests = [
+            json.loads(path.read_text(encoding="utf-8-sig")) for path in manifest_paths
+        ]
+        versions = {
+            manifest.get("version", "").strip()
+            for manifest in manifests
+            if isinstance(manifest.get("version"), str)
+        }
+        if len(versions) != 1:
+            raise RuntimeError(
+                f"Extension bundle {extension_id!r} has inconsistent versions: "
+                + ", ".join(sorted(versions))
+            )
+        version = next(iter(versions))
+        if not version:
+            raise RuntimeError(f"Extension bundle {extension_id!r} has an empty version")
+        if include_platform:
+            version = f"{version} (x64)"
+        return (
+            version,
+            bundle["name"],
+            bundle["description"],
+            bundle["runtime_id"],
+        )
+
     manifest = read_extension_manifest(extension_id, extensions_root)
     version = manifest["version"].strip()
     if include_platform:

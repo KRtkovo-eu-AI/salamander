@@ -7,10 +7,11 @@ The script expects a path to an unpacked Open Salamander x64 directory that cont
 a plugins and/or extensions subdirectory. Ordinary plugin directories are discovered
 directly under plugins. Runtime plugins are discovered one level deeper under the
 plugins\extension-runtimes container. Extensions are discovered recursively by their
-extension.json manifests. Each package is packed as a whole directory, so an archive
-contains e.g. automation\automation.spl, pythonruntime\pythonruntime.spl, or
-git-worktree-navigator\extension.json instead of only the directory contents at the
-archive root.
+extension.json manifests, except extensions\demos, whose scripts form the single
+salamatrixdemos package. Each package is packed as a whole directory, so an archive
+contains e.g. automation\automation.spl, pythonruntime\pythonruntime.spl,
+git-worktree-navigator\extension.json, or the complete demos directory instead of
+only the directory contents at the archive root.
 
 Archive names use the package directory name and version. Plugin versions are read
 from the first plugin binary (*.spl preferred, then *.dll/*.exe); extension versions
@@ -192,6 +193,33 @@ function Get-ExtensionVersion {
     }
 }
 
+function Get-ExtensionBundleVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.DirectoryInfo]$ExtensionBundleDirectory
+    )
+
+    $manifests = @(
+        Get-ChildItem -LiteralPath $ExtensionBundleDirectory.FullName `
+            -File -Filter 'extension.json' -Recurse |
+            Sort-Object FullName
+    )
+    if ($manifests.Count -eq 0) {
+        throw "Extension bundle '$($ExtensionBundleDirectory.Name)' does not contain any extension.json manifests."
+    }
+
+    $versions = @(
+        $manifests |
+            ForEach-Object { Get-ExtensionVersion -ExtensionDirectory $_.Directory } |
+            Sort-Object -Unique
+    )
+    if ($versions.Count -ne 1) {
+        throw "Extension bundle '$($ExtensionBundleDirectory.Name)' contains inconsistent versions: $($versions -join ', ')."
+    }
+
+    return $versions[0]
+}
+
 function New-PackageDefinition {
     param(
         [Parameter(Mandatory = $true)]
@@ -202,13 +230,23 @@ function New-PackageDefinition {
         [string]$PackageType,
 
         [Parameter(Mandatory = $true)]
-        [System.IO.DirectoryInfo]$Directory
+        [System.IO.DirectoryInfo]$Directory,
+
+        [string]$PackageId,
+
+        [switch]$ExtensionBundle
     )
+
+    if ([string]::IsNullOrWhiteSpace($PackageId)) {
+        $PackageId = $Directory.Name
+    }
 
     return [PSCustomObject]@{
         Root = $Root
         PackageType = $PackageType
         Directory = $Directory
+        PackageId = $PackageId
+        ExtensionBundle = [bool]$ExtensionBundle
     }
 }
 
@@ -250,11 +288,32 @@ function Get-PackageDefinitions {
 
     $extensionsRoot = Join-Path $SalamanderRoot 'extensions'
     if (Test-Path -LiteralPath $extensionsRoot -PathType Container) {
+        $extensionsRoot = (Get-Item -LiteralPath $extensionsRoot).FullName
+        $demosDirectory = Get-Item -LiteralPath (Join-Path $extensionsRoot 'demos') `
+            -ErrorAction SilentlyContinue
+        $demosPrefix = $null
+        if ($demosDirectory -and $demosDirectory.PSIsContainer) {
+            $demosPrefix = $demosDirectory.FullName.TrimEnd('\') + '\'
+            $packages += New-PackageDefinition `
+                -Root $extensionsRoot `
+                -PackageType 'extension' `
+                -Directory $demosDirectory `
+                -PackageId 'salamatrixdemos' `
+                -ExtensionBundle
+        }
+
         $extensionManifests = @(
             Get-ChildItem -LiteralPath $extensionsRoot -File -Filter 'extension.json' -Recurse |
                 Sort-Object FullName
         )
         foreach ($manifest in $extensionManifests) {
+            if ($demosPrefix -and
+                $manifest.FullName.StartsWith(
+                    $demosPrefix,
+                    [System.StringComparison]::OrdinalIgnoreCase)) {
+                continue
+            }
+
             $extensionDirectory = $manifest.Directory
             $packages += New-PackageDefinition `
                 -Root $extensionDirectory.Parent.FullName `
@@ -277,7 +336,7 @@ if ($packages.Count -eq 0) {
 
 $duplicatePackageNames = @(
     $packages |
-        Group-Object { $_.Directory.Name } |
+        Group-Object PackageId |
         Where-Object Count -gt 1
 )
 if ($duplicatePackageNames.Count -gt 0) {
@@ -288,14 +347,17 @@ if ($duplicatePackageNames.Count -gt 0) {
 $archiveCount = 0
 foreach ($package in $packages) {
     $packageDirectory = $package.Directory
-    if ($package.PackageType -eq 'extension') {
+    if ($package.ExtensionBundle) {
+        $version = Get-ExtensionBundleVersion -ExtensionBundleDirectory $packageDirectory
+    }
+    elseif ($package.PackageType -eq 'extension') {
         $version = Get-ExtensionVersion -ExtensionDirectory $packageDirectory
     }
     else {
         $version = Get-PluginVersion -PluginDirectory $packageDirectory
     }
 
-    $archiveName = 'plugin_5.0_{0}_{1}_x64.7z' -f $packageDirectory.Name, $version
+    $archiveName = 'plugin_5.0_{0}_{1}_x64.7z' -f $package.PackageId, $version
     $archivePath = Join-Path $outputRoot.FullName $archiveName
 
     if ((Test-Path -LiteralPath $archivePath) -and -not $Force) {
@@ -306,12 +368,12 @@ foreach ($package in $packages) {
         Remove-Item -LiteralPath $archivePath -Force
     }
 
-    Write-Host "Packing $($package.PackageType) $($packageDirectory.Name) -> $archiveName"
+    Write-Host "Packing $($package.PackageType) $($package.PackageId) -> $archiveName"
     Push-Location -LiteralPath $package.Root
     try {
         & $sevenZip a -t7z -mx=9 $archivePath $packageDirectory.Name | Write-Host
         if ($LASTEXITCODE -ne 0) {
-            throw "7-Zip failed for $($package.PackageType) '$($packageDirectory.Name)' with exit code $LASTEXITCODE."
+            throw "7-Zip failed for $($package.PackageType) '$($package.PackageId)' with exit code $LASTEXITCODE."
         }
     }
     finally {

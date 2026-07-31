@@ -105,6 +105,40 @@ class CatalogUpdaterTests(unittest.TestCase):
                 )
             )
 
+    def test_demo_extensions_are_one_salamatrixdemos_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            extensions_root = root / "extensions"
+            for demo_name in ("python", "powershell"):
+                demo_root = extensions_root / "demos" / demo_name
+                demo_root.mkdir(parents=True)
+                (demo_root / "extension.json").write_text(
+                    json.dumps(
+                        {
+                            "name": demo_name,
+                            "version": "1.0.0",
+                            "description": f"{demo_name} demo",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            installer = root / "setup.iss"
+            installer.write_text(
+                'Source: "{#PayloadDir}\\extensions\\demos\\*"; '
+                'DestDir: "{app}\\extensions\\demos"; '
+                "Check: IsPluginSelected('salamatrixdemos')\n",
+                encoding="utf-8",
+            )
+
+            extensions = UPDATER.parse_installer_extensions(installer, extensions_root)
+            metadata = UPDATER.read_extension_metadata(
+                "salamatrixdemos", extensions_root
+            )
+
+            self.assertEqual(extensions, [("salamatrixdemos", "salamatrixdemos")])
+            self.assertEqual(metadata[0], "1.0.0 (x64)")
+            self.assertEqual(metadata[3], "salamatrix")
+
 
 if __name__ == "__main__":
     unittest.main()
