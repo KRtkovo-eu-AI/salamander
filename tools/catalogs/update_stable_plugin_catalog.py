@@ -36,7 +36,9 @@ SOURCE_EXTENSION_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 DEFINE_RE = re.compile(
-    r"^\s*#define\s+(VERSINFO_(?:MAJOR|MINORA|MINORB|DESCRIPTION))\s+(.+?)\s*$",
+    r"^\s*#define\s+"
+    r"(VERSINFO_(?:MAJOR|MINORA|MINORB|DESCRIPTION|BETAVERSION_TXT_NO_PLATFORM))"
+    r"\s+(.+?)\s*$",
     re.MULTILINE,
 )
 INSTALLER_ADD_PLUGIN_RE = re.compile(
@@ -134,6 +136,7 @@ def read_plugin_metadata(
         raise RuntimeError(f"Cannot parse version macros in {versinfo}") from exc
 
     version = f"{major}.{minora}" if minorb == 0 else f"{major}.{minora}{minorb}"
+    version += defines.get("VERSINFO_BETAVERSION_TXT_NO_PLATFORM", "")
     if include_platform:
         version = f"{version} (x64)"
     return version, defines.get("VERSINFO_DESCRIPTION")

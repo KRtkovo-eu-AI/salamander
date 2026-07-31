@@ -780,6 +780,41 @@
       "icon": "https://samandarin.krtkovo.eu/catalogs/img/serviceexplorer.png"
     },
     {
+      "id": "sftp",
+      "name": {
+        "english": "SFTP/SCP client",
+        "czech": "SFTP/SCP klient",
+        "dutch": "SFTP/SCP client",
+        "french": "Client SFTP/SCP",
+        "german": "SFTP/SCP-Client",
+        "hungarian": "SFTP/SCP kliens",
+        "chinesesimplified": "SFTP/SCP 客户端",
+        "romanian": "Client SFTP/SCP",
+        "russian": "Клиент SFTP/SCP",
+        "slovak": "SFTP/SCP klient",
+        "spanish": "Cliente SFTP/SCP"
+      },
+      "author": "Dupl3xx",
+      "description": {
+        "english": "A full-featured SFTP and SCP client as a file-system add-on for Open Salamander 5.0 (x64). Built on top of libssh2 + OpenSSL, it can handle modern cryptography that the original solution couldn't.",
+        "czech": "Plnohodnotný SFTP a SCP klient jako file-system doplněk do Open Salamander 5.0 (x64). Postavený nad libssh2 + OpenSSL, takže umí i moderní kryptografii, kterou původní řešení neuměla.",
+        "dutch": "Een volwaardige SFTP- en SCP-client als file-system add-on voor Open Salamander 5.0 (x64). Gebouwd op libssh2 + OpenSSL, waardoor hij moderne cryptografie aankan die de oorspronkelijke oplossing niet ondersteunde.",
+        "french": "Un client SFTP et SCP complet sous forme d’extension de système de fichiers pour Open Salamander 5.0 (x64). Basé sur libssh2 + OpenSSL, il prend en charge la cryptographie moderne que la solution d’origine ne pouvait pas gérer.",
+        "german": "Ein voll ausgestatteter SFTP- und SCP-Client als Dateisystem-Add-on für Open Salamander 5.0 (x64). Basierend auf libssh2 + OpenSSL unterstützt er moderne Kryptografie, die die ursprüngliche Lösung nicht beherrschte.",
+        "hungarian": "Teljes értékű SFTP- és SCP-kliens fájlrendszer-kiegészítőként az Open Salamander 5.0 (x64) számára. A libssh2 + OpenSSL alapjaira épül, így kezeli a modern kriptográfiát is, amelyre az eredeti megoldás nem volt képes.",
+        "chinesesimplified": "一个功能完整的 SFTP 和 SCP 客户端，作为 Open Salamander 5.0 (x64) 的文件系统插件提供。它基于 libssh2 + OpenSSL 构建，因此能够处理原始解决方案无法支持的现代加密技术。",
+        "romanian": "Un client SFTP și SCP complet, sub formă de extensie de sistem de fișiere pentru Open Salamander 5.0 (x64). Construit pe libssh2 + OpenSSL, poate gestiona criptografia modernă pe care soluția originală nu o putea suporta.",
+        "russian": "Полнофункциональный клиент SFTP и SCP в виде дополнения файловой системы для Open Salamander 5.0 (x64). Построен на базе libssh2 + OpenSSL, поэтому поддерживает современную криптографию, с которой исходное решение не справлялось.",
+        "slovak": "Plnohodnotný SFTP a SCP klient ako file-system doplnok pre Open Salamander 5.0 (x64). Postavený nad libssh2 + OpenSSL, takže zvláda aj modernú kryptografiu, ktorú pôvodné riešenie nepodporovalo.",
+        "spanish": "Un cliente SFTP y SCP completo como complemento de sistema de archivos para Open Salamander 5.0 (x64). Basado en libssh2 + OpenSSL, puede manejar criptografía moderna que la solución original no podía soportar."
+      },
+      "latestVersion": "1.01 beta (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_sftp_1.01_beta_x64/plugin_5.0_sftp_1.01_beta_x64.7z",
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    },
+    {
       "id": "splitcbn",
       "name": {
         "english": "Split & Combine",

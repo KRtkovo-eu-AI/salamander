@@ -26,23 +26,46 @@ class CatalogUpdaterTests(unittest.TestCase):
 
             self.assertEqual(UPDATER.parse_installer_plugins(installer), ["pythonruntime"])
 
-    def test_existing_catalog_membership_wins_and_new_package_defaults_to_stable(self) -> None:
+    def test_existing_stable_membership_wins_and_new_package_defaults_to_stable(self) -> None:
         stable = Path("plugins-stable.json")
         runtimes = Path("extension-runtimes.json")
         unofficial = Path("plugins-unofficial.json")
         catalogs = {
-            stable: {"plugins": [{"id": "tar"}]},
+            stable: {"plugins": [{"id": "tar"}, {"id": "sftp"}]},
             runtimes: {"plugins": [{"id": "pythonruntime"}]},
             unofficial: {"plugins": [{"id": "tar"}]},
         }
 
         assignments = UPDATER.assign_packages_to_catalogs(
-            catalogs, stable, ["tar", "pythonruntime", "new-plugin"]
+            catalogs, stable, ["tar", "sftp", "pythonruntime", "new-plugin"]
         )
 
-        self.assertEqual(assignments[stable], ["tar", "new-plugin"])
+        self.assertEqual(assignments[stable], ["tar", "sftp", "new-plugin"])
         self.assertEqual(assignments[runtimes], ["pythonruntime"])
         self.assertNotIn(unofficial, assignments)
+
+    def test_plugin_beta_suffix_is_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            plugins_root = Path(directory)
+            plugin_root = plugins_root / "sftp"
+            plugin_root.mkdir()
+            (plugin_root / "versinfo.rh2").write_text(
+                "\n".join(
+                    (
+                        "#define VERSINFO_MAJOR 1",
+                        "#define VERSINFO_MINORA 0",
+                        "#define VERSINFO_MINORB 1",
+                        '#define VERSINFO_BETAVERSION_TXT_NO_PLATFORM " beta"',
+                        '#define VERSINFO_DESCRIPTION "SFTP client"',
+                    )
+                ),
+                encoding="utf-8",
+            )
+
+            version, description = UPDATER.read_plugin_metadata("sftp", plugins_root)
+
+            self.assertEqual(version, "1.01 beta (x64)")
+            self.assertEqual(description, "SFTP client")
 
     def test_manifest_extension_is_added_with_version_and_runtime_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
