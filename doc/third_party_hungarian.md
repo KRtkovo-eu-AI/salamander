@@ -62,6 +62,7 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 | --- | --- | --- |
 | OpenSSL | FTP Client bővítmény és SFTP függőségek | Copyright (c) 1998-2026 The OpenSSL Project Authors. Minden jog fenntartva. Az OpenSSL 1.0.x az OpenSSL és az eredeti SSLeay licencek alatt terjesztve. Az OpenSSL 3.x az Apache License 2.0 alatt terjesztve. A vcpkg csővezeték telepíti az OpenSSL-t a FTP bővítmény kompatibilitási DLL-jeihez és az SFTP bővítmény függőségeihez. |
 | libssh2 | SFTP bővítmény | Daniel Stenberg, Simon Josefsson és a libssh2 közreműködők. BSD 3-Clause Licenc alatt terjesztve. A vcpkg csővezeték telepíti a `libssh2` csomagot az SFTP bővítmény függőségeihez. |
+| Dupl3xx | SFTP bővítmény | A bővítményt Dupl3xx készítette és tartja karban. Forráskód-tárhely: [salamander-sftp-plugin](https://github.com/Dupl3xx/salamander-sftp-plugin). |
 | Martin Prikryl | WinSCP bővítmény | A WinSCP bővítmény egyes részei Martin Prikryl licencéből származnak. Copyright (C) 2000-2026 Martin Prikryl. |
 | Juraj Rojko | Windows Mobile bővítmény | Tartalmaz Juraj Rojko által írt szoftvert. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Samandarin Update Notifier bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |

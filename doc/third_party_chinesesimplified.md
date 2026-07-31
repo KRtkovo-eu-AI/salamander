@@ -59,6 +59,7 @@
 | --- | --- | --- |
 | OpenSSL | FTP Client 插件和 SFTP 依赖项 | Copyright (c) 1998-2026 The OpenSSL Project Authors. 保留所有权利。OpenSSL 1.0.x 在 OpenSSL 和原始 SSLeay 许可证下分发。OpenSSL 3.x 在 Apache License 2.0 下分发。vcpkg 流水线为 FTP 插件兼容性 DLL 和 SFTP 插件依赖项安装 OpenSSL。 |
 | libssh2 | SFTP 插件 | 由 Daniel Stenberg、Simon Josefsson 和 libssh2 贡献者提供。在 BSD 3-Clause 许可证下分发。vcpkg 流水线为 SFTP 插件依赖项安装 `libssh2` 包。 |
+| Dupl3xx | SFTP 插件 | 插件由 Dupl3xx 编写和维护。源代码仓库：[salamander-sftp-plugin](https://github.com/Dupl3xx/salamander-sftp-plugin)。 |
 | Martin Prikryl | WinSCP 插件 | WinSCP 插件的部分内容由 Martin Prikryl 授权。Copyright (C) 2000-2026 Martin Prikryl. |
 | Juraj Rojko | Windows Mobile 插件 | 包含由 Juraj Rojko 编写的软件。Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Samandarin Update Notifier 插件 | 由 Microsoft Corporation 根据 Microsoft .NET Framework 许可条款提供。 |

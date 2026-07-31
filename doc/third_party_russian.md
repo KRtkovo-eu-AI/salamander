@@ -62,6 +62,7 @@
 | --- | --- | --- |
 | OpenSSL | Плагин FTP Client и зависимости SFTP | Copyright (c) 1998-2026 The OpenSSL Project Authors. Все права защищены. OpenSSL 1.0.x распространяется под лицензиями OpenSSL и оригинальной SSLeay. OpenSSL 3.x распространяется под Apache License 2.0. Конвейер vcpkg устанавливает OpenSSL для DLL совместимости плагина FTP и для зависимостей плагина SFTP. |
 | libssh2 | Плагин SFTP | Автор: Daniel Stenberg, Simon Josefsson и контрибьюторы libssh2. Распространяется под лицензией BSD 3-Clause. Конвейер vcpkg устанавливает пакет `libssh2` для зависимостей плагина SFTP. |
+| Dupl3xx | Плагин SFTP | Плагин создан и поддерживается Dupl3xx. Исходный репозиторий: [salamander-sftp-plugin](https://github.com/Dupl3xx/salamander-sftp-plugin). |
 | Martin Prikryl | Плагин WinSCP | Части плагина WinSCP лицензированы от Martin Prikryl. Copyright (C) 2000-2026 Martin Prikryl. |
 | Juraj Rojko | Плагин Windows Mobile | Включает программное обеспечение, написанное Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Плагин Samandarin Update Notifier | Предоставлено Microsoft Corporation по условиям лицензии Microsoft .NET Framework. |

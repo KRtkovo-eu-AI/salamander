@@ -62,6 +62,7 @@ pentru punerea la dispoziție a muncii lor.
 | --- | --- | --- |
 | OpenSSL | Plugin FTP Client și dependențe SFTP | Copyright (c) 1998-2026 The OpenSSL Project Authors. Toate drepturile rezervate. OpenSSL 1.0.x este distribuit sub licențele OpenSSL și SSLeay originale. OpenSSL 3.x este distribuit sub Apache License 2.0. Pipeline-ul vcpkg instalează OpenSSL pentru DLL-urile de compatibilitate ale pluginului FTP și pentru dependențele pluginului SFTP. |
 | libssh2 | Plugin SFTP | De Daniel Stenberg, Simon Josefsson și contribuitorii libssh2. Distribuit sub licența BSD 3-Clause. Pipeline-ul vcpkg instalează pachetul `libssh2` pentru dependențele pluginului SFTP. |
+| Dupl3xx | Plugin SFTP | Plugin creat și întreținut de Dupl3xx. Repozitoriu sursă: [salamander-sftp-plugin](https://github.com/Dupl3xx/salamander-sftp-plugin). |
 | Martin Prikryl | Plugin WinSCP | Părți din pluginul WinSCP sunt licențiate de la Martin Prikryl. Copyright (C) 2000-2026 Martin Prikryl. |
 | Juraj Rojko | Plugin Windows Mobile | Include software scris de Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Plugin Samandarin Update Notifier | Furnizat de Microsoft Corporation sub termenii licenței Microsoft .NET Framework. |

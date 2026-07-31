@@ -62,6 +62,7 @@ sprístupnenie ich práce.
 | --- | --- | --- |
 | OpenSSL | Plugin FTP Client a závislosti SFTP | Copyright (c) 1998-2026 The OpenSSL Project Authors. Všetky práva vyhradené. OpenSSL 1.0.x je distribuované pod OpenSSL a pôvodnými SSLeay licenciami. OpenSSL 3.x je distribuované pod Apache License 2.0. Vcpkg pipeline inštaluje OpenSSL pre kompatibilitu DLL pluginu FTP a pre závislosti pluginu SFTP. |
 | libssh2 | Plugin SFTP | Od Daniela Stenberga, Simona Josefa a prispievateľov libssh2. Distribuované pod BSD 3-Clause License. Vcpkg pipeline inštaluje balík `libssh2` pre závislosti pluginu SFTP. |
+| Dupl3xx | Plugin SFTP | Plugin vytvoril a udržiava Dupl3xx. Zdrojový repozitár: [salamander-sftp-plugin](https://github.com/Dupl3xx/salamander-sftp-plugin). |
 | Martin Prikryl | Plugin WinSCP | Časti pluginu WinSCP sú licencované od Martina Prikryla. Copyright (C) 2000-2026 Martin Prikryl. |
 | Juraj Rojko | Plugin Windows Mobile | Obsahuje softvér napísaný Jurajom Rojkom. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Plugin Samandarin Update Notifier | Poskytnuté Microsoft Corporation pod licenčnými podmienkami Microsoft .NET Framework. |

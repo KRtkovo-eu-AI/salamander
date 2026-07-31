@@ -369,6 +369,8 @@ Name: "{app}\plugins\salamatrixai"
 Name: "{app}\plugins\salamatrixai\runtime"
 Name: "{app}\plugins\salamatrixailocalllama"
 Name: "{app}\plugins\salamatrixailocalllama\runtime"
+Name: "{app}\plugins\sftp"
+Name: "{app}\plugins\sftp\lang"
 Name: "{app}\plugins\extension-runtimes"
 Name: "{app}\plugins\extension-runtimes\javascriptruntime"
 Name: "{app}\plugins\extension-runtimes\javascriptruntime\runtime"
@@ -616,7 +618,17 @@ Source: "{#PayloadDir}\plugins\dbviewer\lang\russian.slg"; DestDir: "{app}\plugi
 Source: "{#PayloadDir}\plugins\dbviewer\lang\slovak.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\spanish.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\diskdir\diskdir.spl"; DestDir: "{app}\plugins\diskdir"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\czech.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\dutch.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
 Source: "{#PayloadDir}\plugins\diskdir\lang\english.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\french.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\german.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\hungarian.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\romanian.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\russian.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\slovak.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\spanish.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
 Source: "{#PayloadDir}\plugins\diskmap\diskmap.spl"; DestDir: "{app}\plugins\diskmap"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\czech.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\dutch.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
@@ -666,6 +678,21 @@ Source: "{#PayloadDir}\plugins\ftp\lang\romanian.slg"; DestDir: "{app}\plugins\f
 Source: "{#PayloadDir}\plugins\ftp\lang\russian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
 Source: "{#PayloadDir}\plugins\ftp\lang\slovak.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
 Source: "{#PayloadDir}\plugins\ftp\lang\spanish.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\sftp\libcrypto-3-x64.dll"; DestDir: "{app}\plugins\sftp"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\libssh2.dll"; DestDir: "{app}\plugins\sftp"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\czech.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\dutch.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\english.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\french.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\german.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\hungarian.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\chinesesimplified.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\romanian.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\russian.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\slovak.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\spanish.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\sftp.spl"; DestDir: "{app}\plugins\sftp"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\z.dll"; DestDir: "{app}\plugins\sftp"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
 Source: "{#PayloadDir}\plugins\hypervm\HyperVM.Managed.dll"; DestDir: "{app}\plugins\hypervm"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
 Source: "{#PayloadDir}\plugins\hypervm\hypervm.spl"; DestDir: "{app}\plugins\hypervm"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
 Source: "{#PayloadDir}\plugins\hypervm\lang\czech.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
@@ -2340,6 +2367,7 @@ begin
   AddPlugin('salamatrixai', 'Salamatrix AI', '0.1 (x64)', False);
   AddPlugin('salamatrixailocalllama', 'Salamatrix AI Local LLaMA', '0.1 (x64)', False);
   AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.0.0 (x64)', False);
+  AddPlugin('sftp', 'SFTP/SCP Client', '1.01 beta (x64)', True);
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.1 (x64)', True);
   AddPlugin('samandarin', 'Samandarin Update Notifier', '0.8 (x64)', True);
   AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);

@@ -62,6 +62,7 @@ los aquí mencionados por hacer disponible su trabajo.
 | --- | --- | --- |
 | OpenSSL | Complemento FTP Client y dependencias SFTP | Copyright (c) 1998-2026 The OpenSSL Project Authors. Todos los derechos reservados. OpenSSL 1.0.x se distribuye bajo las licencias OpenSSL y SSLeay originales. OpenSSL 3.x se distribuye bajo la Apache License 2.0. El pipeline vcpkg instala OpenSSL para los DLL de compatibilidad del complemento FTP y para las dependencias del complemento SFTP. |
 | libssh2 | Complemento SFTP | Por Daniel Stenberg, Simon Josefsson y colaboradores de libssh2. Distribuido bajo la licencia BSD 3-Clause. El pipeline vcpkg instala el paquete `libssh2` para las dependencias del complemento SFTP. |
+| Dupl3xx | Complemento SFTP | Complemento creado y mantenido por Dupl3xx. Repositorio del código fuente: [salamander-sftp-plugin](https://github.com/Dupl3xx/salamander-sftp-plugin). |
 | Martin Prikryl | Complemento WinSCP | Partes del complemento WinSCP están licenciadas de Martin Prikryl. Copyright (C) 2000-2026 Martin Prikryl. |
 | Juraj Rojko | Complemento Windows Mobile | Incluye software escrito por Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Complemento Samandarin Update Notifier | Proporcionado por Microsoft Corporation bajo los términos de licencia de Microsoft .NET Framework. |

@@ -62,6 +62,7 @@ sont listés ici d'avoir rendu leur travail disponible.
 | --- | --- | --- |
 | OpenSSL | Plugin FTP Client et dépendances SFTP | Copyright (c) 1998-2026 The OpenSSL Project Authors. Tous droits réservés. OpenSSL 1.0.x est distribué sous les licences OpenSSL et SSLeay originales. OpenSSL 3.x est distribué sous la Apache License 2.0. Le pipeline vcpkg installe OpenSSL pour les DLL de compatibilité du plugin FTP et pour les dépendances du plugin SFTP. |
 | libssh2 | Plugin SFTP | Par Daniel Stenberg, Simon Josefsson et les contributeurs libssh2. Distribué sous la licence BSD 3-Clause. Le pipeline vcpkg installe le paquet `libssh2` pour les dépendances du plugin SFTP. |
+| Dupl3xx | Plugin SFTP | Plugin créé et maintenu par Dupl3xx. Dépôt source : [salamander-sftp-plugin](https://github.com/Dupl3xx/salamander-sftp-plugin). |
 | Martin Prikryl | Plugin WinSCP | Des parties du plugin WinSCP sont sous licence de Martin Prikryl. Copyright (C) 2000-2026 Martin Prikryl. |
 | Juraj Rojko | Plugin Windows Mobile | Inclut du logiciel écrit par Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Plugin Samandarin Update Notifier | Fourni par Microsoft Corporation sous les termes de la licence Microsoft .NET Framework. |

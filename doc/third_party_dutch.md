@@ -62,6 +62,7 @@ aan iedereen die hier wordt genoemd voor het beschikbaar stellen van hun werk.
 | --- | --- | --- |
 | OpenSSL | FTP Client plug-in en SFTP-afhankelijkheden | Copyright (c) 1998-2026 The OpenSSL Project Authors. Alle rechten voorbehouden. OpenSSL 1.0.x wordt gedistribueerd onder de OpenSSL- en originele SSLeay-licenties. OpenSSL 3.x wordt gedistribueerd onder de Apache License 2.0. De vcpkg-pipeline installeert OpenSSL voor de FTP plug-in compatibiliteits-DLL's en voor de SFTP plug-in afhankelijkheden. |
 | libssh2 | SFTP plug-in | Door Daniel Stenberg, Simon Josefsson en libssh2-bijdragers. Gedistribueerd onder de BSD 3-Clause-licentie. De vcpkg-pipeline installeert het `libssh2`-pakket voor de SFTP plug-in afhankelijkheden. |
+| Dupl3xx | SFTP plug-in | Plug-in geschreven en onderhouden door Dupl3xx. Bronrepository: [salamander-sftp-plugin](https://github.com/Dupl3xx/salamander-sftp-plugin). |
 | Martin Prikryl | WinSCP plug-in | Delen van de WinSCP plug-in zijn gelicenseerd van Martin Prikryl. Copyright (C) 2000-2026 Martin Prikryl. |
 | Juraj Rojko | Windows Mobile plug-in | Bevat software geschreven door Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Samandarin Update Notifier plug-in | Verstrekt door Microsoft Corporation onder de licentievoorwaarden van het Microsoft .NET Framework. |
