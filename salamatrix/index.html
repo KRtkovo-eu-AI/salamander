@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
   <meta name="description" content="Salamatrix is the modern extension framework for Open Salamander: shared services, persistent extensions, runtime providers, native UI and AI-ready automation.">
-  <meta name="keywords" content="Salamatrix, Open Salamander, extension framework, Automation, plugins, Python, PowerShell, PHP, Node, AI">
+  <meta name="keywords" content="Salamatrix, Open Salamander, extension framework, Automation, plugins, Python, PowerShell, PHP, Node, Lua, Extension Bar, AI">
   <meta name="author" content="Open Salamander community">
 </head>
 <body>
@@ -31,10 +31,13 @@
           <a href="#service-storage">Persistent storage</a>
           <a href="#service-ui">UI and dialogs</a>
           <a href="#service-runtime">Runtime broker</a>
+          <a href="#service-extensions">Extensions registry</a>
+          <a href="#service-automation">Automation adapter</a>
         </div>
       </div>
       <a href="#extensions">Extensions</a>
       <a href="#runtimes">Runtimes</a>
+      <a href="#bundled-extensions">Bundled extensions</a>
       <a href="#ai">AI</a>
       <a href="#resources">Resources</a>
       <a href="https://samandarin.krtkovo.eu/" aria="samandarin">Samandarin</a>
@@ -47,7 +50,7 @@
         <p class="eyebrow">Open Salamander platform foundation</p>
         <h2 id="hero-title">Extensions that feel native, whatever the language.</h2>
         <p>Salamatrix is the new extension layer between a one-shot Automation script and a full native C++ plugin. It gives extensions a stable service model, a manifest, lifecycle, events, persistent state and a common way to work with Salamander panels.</p>
-        <p>Native plugins and out-of-process workers can use the same concepts. A Python, PowerShell, PHP or Node extension does not need to reinvent the host integration for every runtime.</p>
+        <p>Native plugins and out-of-process workers can use the same concepts. A Python, PowerShell, PHP, Node or Lua extension does not need to reinvent the host integration for every runtime.</p>
         <p class="hero-actions"><a aria="button" href="#architecture">Explore the framework</a> <a class="button-secondary" aria="button" href="salamatrix-platform.md">Read the platform specification</a></p>
       </div>
       <div class="hero-panel__visual architecture-visual" aria-label="Salamatrix architecture overview">
@@ -67,7 +70,7 @@
       <p>Salamatrix keeps the useful simplicity of Automation while adding the pieces needed for real, long-lived extensions. The public surface is service-oriented and versioned, so providers can evolve through append-only contracts instead of coupling every extension to Salamander internals.</p>
       <div class="card-grid">
         <article class="info-card"><h3>Native foundation</h3><p><code>SALAMATRIX.SPL</code> is the framework provider. It registers the shared service registry, host adapters and the common object model used by native and scripted callers.</p></article>
-        <article class="info-card"><h3>Common object model</h3><p>Extensions can reason about <code>Salamander.Sides</code>, <code>Tabs</code>, <code>Commands</code>, <code>File Operations</code>, <code>Dialogs</code>, <code>Events</code> and <code>Storage</code> in a consistent way across languages.</p></article>
+        <article class="info-card"><h3>Common object model</h3><p>Extensions can reason about <code>Salamander.Sides</code>, <code>Tabs</code>, <code>Commands</code>, <code>File Operations</code>, <code>Dialogs</code>, <code>Events</code>, <code>Storage</code>, the clipboard and the host language in a consistent way across runtimes.</p></article>
         <article class="info-card"><h3>Process boundary when useful</h3><p>The <code>SMX1</code> worker protocol provides a bounded JSON line transport with typed messages, request IDs, events, shutdown and error handling.</p></article>
       </div>
 
@@ -77,29 +80,41 @@
       <div class="service-list">
         <article class="service-card" id="service-sides"><span class="service-icon">◫</span><div><h3>Sides &amp; tabs</h3><p><code>Salamatrix.Sides</code> exposes snapshots of the left and right sides, their active tabs, paths and selection context. It is the foundation for extensions that inspect or react to the current workspace.</p></div></article>
         <article class="service-card" id="service-commands"><span class="service-icon">⌘</span><div><h3>Commands &amp; file operations</h3><p><code>Salamatrix.Commands</code> maps public names such as <code>QuickRename</code>, <code>Copy</code> and <code>Move</code> to existing Salamander command handlers. <code>FileOperations</code> adds interactive copy, move, rename, delete, folder creation, refresh and properties operations.</p></div></article>
-        <article class="service-card" id="service-events"><span class="service-icon">◉</span><div><h3>Events</h3><p><code>Salamatrix.Events</code> provides versioned subscriptions with safe unsubscribe handles. Extensions can receive host notifications and tab lifecycle events through the same event names, including worker-runtime bridges.</p></div></article>
-        <article class="service-card" id="service-storage"><span class="service-icon">▣</span><div><h3>Persistent storage</h3><p><code>Salamatrix.Storage</code> gives every manifest extension its own validated namespace for typed values and keys. State survives reloads without falling back to one unsafe global script namespace.</p></div></article>
-        <article class="service-card" id="service-ui"><span class="service-icon">▤</span><div><h3>UI and dialogs</h3><p><code>Salamatrix.UI</code> supplies shared dialog primitives and progress UI. Runtime workers can add controls, validation, events, file pickers and folder pickers while Salamander owns the actual native window.</p></div></article>
-        <article class="service-card" id="service-runtime"><span class="service-icon">⇄</span><div><h3>Runtime broker</h3><p><code>Salamatrix.Runtime</code> is the broker between the framework and optional interpreter providers. It keeps Python, PowerShell, PHP and Node integration modular and discoverable.</p></div></article>
-        <article class="service-card" id="service-extensions"><span class="service-icon">◇</span><div><h3>Extensions registry</h3><p><code>Salamatrix.Extensions</code> tracks manifest-backed extensions, activation state, capabilities and lifecycle callbacks. It gives the Plugin Manager a stable host-side view of installed extensions.</p></div></article>
-        <article class="service-card" id="service-automation"><span class="service-icon">⚙</span><div><h3>Automation adapter</h3><p>The Automation adapter exposes the same modern services through a script-shaped <code>Salamander</code> object. Existing one-shot scripts remain useful while manifest extensions gain lifecycle and persistent state.</p></div></article>
+        <article class="service-card" id="service-events"><span class="service-icon">◉</span><div><h3>Events</h3><p><code>Salamatrix.Events</code> provides versioned subscriptions with safe unsubscribe handles. Extensions can receive lifecycle, settings, color, panel, path, selection, tab and filesystem-change notifications through the same event bridge.</p></div></article>
+        <article class="service-card" id="service-storage"><span class="service-icon">▣</span><div><h3>Persistent storage</h3><p><code>Salamatrix.Storage</code> gives every manifest extension its own validated namespace for strings, integers, booleans and key enumeration. Declared defaults and bounded settings migrations keep state compatible across package updates.</p></div></article>
+        <article class="service-card" id="service-ui"><span class="service-icon">▤</span><div><h3>UI and dialogs</h3><p><code>Salamatrix.UI</code> supplies native dialogs, controls, progress, notifications and clipboard support. Workers can use validation, ListView, TreeView, tabs, editable file pickers and folder pickers while Salamander owns dark mode, DPI scaling and the actual windows.</p></div></article>
+        <article class="service-card" id="service-runtime"><span class="service-icon">⇄</span><div><h3>Runtime broker</h3><p><code>Salamatrix.Runtime</code> keeps Python, PowerShell, PHP, Node and Lua providers modular and discoverable. Persistent <code>SMX1</code> sessions expose bounded diagnostics and can be stopped without sharing native pointers across the process boundary.</p></div></article>
+        <article class="service-card" id="service-extensions"><span class="service-icon">◇</span><div><h3>Extensions registry</h3><p><code>Salamatrix.Extensions</code> tracks manifest-backed packages, activation state, capabilities, dependencies, localized metadata, settings and lifecycle callbacks. Plugin Manager remains the single host-side management surface.</p></div></article>
+        <article class="service-card" id="service-automation"><span class="service-icon">⚙</span><div><h3>Automation and host adapters</h3><p>The Automation adapter exposes modern services through a script-shaped <code>Salamander</code> object, while workers also receive the selected Salamander language and locale. Existing one-shot JavaScript and VBScript automation remains compatible.</p></div></article>
       </div>
 
       <h2 id="extensions">From script to extension</h2>
       <p>A simple script can remain simple. A manifest-backed extension opts into identity, capabilities, lifecycle and services only when it needs them.</p>
       <div class="lifecycle-panel">
-        <div class="lifecycle-step"><b>01</b><strong>Discover</strong><span>Plugin Manager finds the manifest and checks its runtime and minimum framework version.</span></div>
-        <div class="lifecycle-step"><b>02</b><strong>Activate</strong><span>The framework validates capabilities, registers commands and starts the selected entry point.</span></div>
+        <div class="lifecycle-step"><b>01</b><strong>Discover</strong><span>Salamatrix finds the manifest, selects its locale, checks its runtime and resolves extension dependencies.</span></div>
+        <div class="lifecycle-step"><b>02</b><strong>Activate</strong><span>The framework validates capabilities, applies settings migrations, registers commands and starts the selected entry point.</span></div>
         <div class="lifecycle-step"><b>03</b><strong>Run</strong><span>The extension uses shared services, receives events and keeps its own persistent state.</span></div>
         <div class="lifecycle-step"><b>04</b><strong>Release</strong><span>Subscriptions, worker sessions and provider registrations are removed safely and predictably.</span></div>
       </div>
       <pre><code>{
+  "schema": 1,
   "id": "example.folder-watcher",
-  "runtime": "python",
-  "entry": "main.py",
-  "minimumFramework": "1.0",
-  "capabilities": ["events", "storage", "commands"]
+  "name": "Folder Watcher",
+  "version": "1.0.0",
+  "runtime": "Lua",
+  "entryPoint": "main.lua",
+  "capabilities": ["panels.read", "events", "storage"],
+  "commands": [{
+    "id": "example.folder-watcher.open",
+    "title": "Folder Watcher...",
+    "handler": "open",
+    "menu": "both",
+    "toolbar": true
+  }]
 }</code></pre>
+      <h3>Native menu and toolbar integration</h3>
+      <p>Every declared command can contribute to the Plugins menu, panel context menus and the dedicated, configurable Extension Bar. Multi-command packages are grouped under their localized package name, toolbar buttons can open package-local command menus, and command-specific light/dark SVG icons follow Salamander's theme and DPI.</p>
+      <p>Plugin Manager shows ordinary plugins and manifest extensions together. Users can activate or deactivate an extension, edit its declared settings, and inspect runtime or dependency status. The Samandarin Plugin Updates window installs catalog packages together with their required plugin dependencies.</p>
       <blockquote><p><strong>Design boundary:</strong> Salamatrix is not intended to replace the complete native Plugin SDK. Native plugins remain the right choice for deep integration, maximum performance and ownership of complex UI.</p></blockquote>
 
       <h2 id="runtimes">Standalone runtime providers</h2>
@@ -109,19 +124,30 @@
         <div class="runtime-pill"><strong>PowerShellRuntime.SPL</strong><span>PowerShell worker and cmdlet-shaped API</span></div>
         <div class="runtime-pill"><strong>PHPRuntime.SPL</strong><span>PHP CLI worker and PHP API</span></div>
         <div class="runtime-pill"><strong>JavaScriptRuntime.SPL</strong><span>Node worker and asynchronous API</span></div>
+        <div class="runtime-pill"><strong>LuaRuntime.SPL</strong><span>Bundled Lua interpreter, worker and Lua API</span></div>
+        <a href="salamatrix-runtime-provider-development.md"><div class="runtime-pill"><strong>Develop Your Own Runtime</strong><span>Integrate any language with Salamander</span></div></a>
       </div>
-      <p>The four workers share the same dialog surface, command state, storage contract, event bridge and <code>SMX1</code> transport. They can add native folder and file pickers, for example:</p>
+      <p>The five workers share the same dialog surface, command state, typed storage contract, event bridge, host language lookup and <code>SMX1</code> transport. Python, PowerShell, PHP and Node are discovered from explicit environment overrides or the system path. The Lua provider ships a compatible interpreter, while still allowing an explicit override. Workers can add native folder and file pickers, for example:</p>
       <div class="code-columns">
         <pre><code>dialog.add_folder_picker("root", "C:\\")
 commands.register("watch", "Watch folder")</code></pre>
         <pre><code>await dialog.addFolderPicker("root", "C:\\")
 commands.setState("watch", true, true)</code></pre>
       </div>
+      <p>Lua extensions use the same snake-case facade as Python, including <code>dialog.add_folder_picker</code>, <code>commands.register</code>, <code>storage.keys</code> and <code>ui.notify</code>.</p>
       <p class="note"><strong>Operational note:</strong> Runtime providers borrow the framework broker but do not own it. Shutdown validates the broker identity before unregistering adapters, preventing stale-broker calls during unload.</p>
+
+      <h2 id="bundled-extensions">Bundled extensions</h2>
+      <div class="card-grid">
+        <article class="info-card"><h3>Git Worktree Navigator</h3><p>Browse, open, create and safely remove Git worktrees, inspect branch state, commit changes and create a local repository from native Salamatrix dialogs and toolbar menus.</p></article>
+        <article class="info-card"><h3>File Lock Inspector</h3><p>Find processes that keep selected files locked and prevent them from being changed, moved or deleted, with actions exposed from the menu, context menu and Extension Bar.</p></article>
+        <article class="info-card"><h3>Extension Menu Builder</h3><p>Create and edit simple menu-driven Salamatrix extension packages interactively, including commands, context-menu placement, Extension Bar buttons and toolbar menus.</p></article>
+      </div>
+      <p>All three packages include localized metadata and UI resources for the languages shipped by Samandarin.</p>
 
       <h2 id="ai">Salamatrix AI (experimental)</h2>
       <p><code>SalamatrixAI.SPL</code> is a separate native provider and the sole owner of the local assistant workflow. It can use the same service registry and focused events without making AI or Automation a prerequisite for the runtime providers.</p>
-      <p>Use local AI model based on <code>LLaMA</code> and <code>Qwen2.5-Coder</code> model or connect to a remote AI service for automated tasks, scripts and extensions development.</p>
+      <p>The assistant supports provider selection, structured generation, capability and effect validation, preview, run and save/package flows. The optional <code>Salamatrix AI Local LLaMA.SPL</code> companion runs a server-free llama.cpp and Qwen coder model; its CPU runtime and model assets are installed on demand instead of being bundled with the main installer.</p>
       <div class="ai-panel">
         <div><span class="eyebrow">AI-ready by design</span><p>The framework exposes machine-readable service and API descriptions so an assistant can propose an extension action, show the user what will happen, run it through the same command and file-operation paths, and persist the useful result.</p></div>
         <div class="ai-flow"><span>Ask</span><i>→</i><span>Preview</span><i>→</i><span>Run</span><i>→</i><span>Save</span></div>
@@ -130,9 +156,10 @@ commands.setState("watch", true, true)</code></pre>
       <h2 id="status">Current status</h2>
       <p>Salamatrix is an evolving MVP with a working platform foundation. The implementation and GAP analysis are intentionally explicit about what is already wired and what remains to mature.</p>
       <div class="status-grid">
-        <div class="status-item status-item--done"><strong>Implemented</strong><span>Service registry, versioned contracts, Plugin Manager integration, manifests, lifecycle registry, storage, events, Sides, UI, Commands and FileOperations.</span></div>
-        <div class="status-item status-item--done"><strong>Implemented</strong><span>Standalone Python, PowerShell, PHP and Node providers with shared worker protocol and FolderPicker support.</span></div>
-        <div class="status-item status-item--next"><strong>Next layers</strong><span>Broader UI coverage, richer worker event dispatch, capability policy, packaging/distribution polish and continued compatibility testing.</span></div>
+        <div class="status-item status-item--done"><strong>Implemented</strong><span>Service registry, versioned contracts, package discovery, Plugin Manager integration, localized manifests, lifecycle, typed settings and migrations, dependencies, storage, events, Sides, UI, Commands and FileOperations.</span></div>
+        <div class="status-item status-item--done"><strong>Implemented</strong><span>Standalone Python, PowerShell, PHP, Node and Lua providers with the shared worker protocol, native pickers, command state, notifications and host-language access.</span></div>
+        <div class="status-item status-item--done"><strong>Integrated</strong><span>Extension Bar, Plugins and context menus, package-local toolbar menus, light/dark command icons, catalog installation with dependency resolution, and three bundled extension packages.</span></div>
+        <div class="status-item status-item--next"><strong>Next layers</strong><span>Richer diagnostics and permission UX, broader value bindings, package removal, debugger integration and continued end-to-end compatibility testing.</span></div>
         <div class="status-item status-item--next"><strong>Guiding rule</strong><span>Extend contracts append-only, preserve legacy Automation, and keep runtime providers independent from Automation dependencies.</span></div>
       </div>
 
@@ -141,9 +168,8 @@ commands.setState("watch", true, true)</code></pre>
         <li><a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a><span>Documentation for the API: what is implemented by the current Salamatrix Framework and exposed to scripted extensions.</span></li>
         <li><a href="salamatrix-platform.md">Salamatrix Platform Foundation</a><span>Service names, versioning, registry, APIs, UI, worker transport and acceptance criteria.</span></li>
         <li><a href="salamatrix-runtime-providers.md">Standalone Salamatrix runtime providers</a><span>Provider lifecycle, package split, worker UI, events, commands, storage and shutdown safety.</span></li>
+        <li><a href="salamatrix-runtime-provider-development.md">Salamatrix runtime provider development</a><span>Guidelines and best practices for developing standalone runtime providers in your preferred language.</span></li>
         <li><a href="salamatrix-gap-analysis.md">Salamatrix framework GAP analysis</a><span>Requirement matrix, verification snapshot, implementation evidence, risks and recommended phases.</span></li>
-        <!--<li><a href="../framework.html">Extension Framework design notes</a><span>The original architecture discussion, examples and long-term direction.</span></li>
-        <li><a href="https://github.com/OpenSalamander/salamander">Open Salamander on GitHub</a><span>The host application and original plugin ecosystem.</span></li>-->
       </ul>
 
       <h2 id="license">License</h2>
