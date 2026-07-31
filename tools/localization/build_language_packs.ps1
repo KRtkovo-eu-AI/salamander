@@ -18,6 +18,10 @@
     Comma-separated list of languages to build. If omitted, builds all
     languages that have translation archives in the repo.
 
+.PARAMETER Modules
+    Comma-separated list of modules to build. If omitted, builds all modules
+    available in the populated runtime tree.
+
 .PARAMETER WorkspaceDir
     Path for the temporary translator workspace. Defaults to a temp directory.
 
@@ -36,6 +40,11 @@
 .EXAMPLE
     pwsh -File tools\localization\build_language_packs.ps1 `
         -BuildRoot build\out\salamand\Release_x64
+
+.EXAMPLE
+    pwsh -File tools\localization\build_language_packs.ps1 `
+        -BuildRoot build\out\salamand\Release_x64 `
+        -Modules sftp
 #>
 [CmdletBinding()]
 param(
@@ -43,6 +52,8 @@ param(
     [string]$BuildRoot,
 
     [string[]]$Languages,
+
+    [string[]]$Modules,
 
     [string]$WorkspaceDir,
 
@@ -81,12 +92,35 @@ if (-not (Test-Path -LiteralPath $TranslatorExe))
     throw "translator.exe not found at: $TranslatorExe"
 }
 
+# Normalize the optional module filter before synchronizing plugin archives.
+$requestedModules = @()
+if ($Modules -and $Modules.Count -gt 0)
+{
+    foreach ($module in $Modules)
+    {
+        foreach ($piece in ($module -split "[,;]"))
+        {
+            $trimmed = $piece.Trim().ToLowerInvariant()
+            if ($trimmed -ne "")
+            {
+                $requestedModules += $trimmed
+            }
+        }
+    }
+    $requestedModules = @($requestedModules | Sort-Object -Unique)
+}
+
 # Sync .slt files from plugin submodules into translations/
 $syncScript = Join-Path $scriptDir "sync_plugin_translations.ps1"
 if (Test-Path -LiteralPath $syncScript)
 {
     Write-Host "Syncing plugin translations..."
-    & $syncScript -RepoRoot $repoRoot
+    $syncArgs = @{ RepoRoot = $repoRoot }
+    if ($requestedModules.Count -gt 0)
+    {
+        $syncArgs['Modules'] = $requestedModules
+    }
+    & $syncScript @syncArgs
     Write-Host ""
 }
 
@@ -118,6 +152,14 @@ else
 }
 
 Write-Host "Building language packs for: $($requestedLanguages -join ', ')"
+if ($requestedModules.Count -gt 0)
+{
+    Write-Host "Building modules: $($requestedModules -join ', ')"
+}
+else
+{
+    Write-Host "Building modules: all"
+}
 Write-Host "Build root: $buildRootFull"
 
 # Create workspace directory
@@ -153,6 +195,10 @@ $prepareArgs = @{
     Languages = ($requestedLanguages -join ",")
     ImportArchives = $true
     Force = $true
+}
+if ($requestedModules.Count -gt 0)
+{
+    $prepareArgs['Modules'] = $requestedModules
 }
 if ($TranslatorExe)
 {

@@ -14,13 +14,20 @@
 .PARAMETER RepoRoot
     Path to the repository root. Auto-detected if omitted.
 
+.PARAMETER Modules
+    Comma-separated list of plugin modules to synchronize. If omitted, all
+    plugin translation archives are synchronized.
+
 .EXAMPLE
     pwsh -File tools\localization\sync_plugin_translations.ps1
     pwsh -File tools\localization\sync_plugin_translations.ps1 -RepoRoot H:\_projects\salamander
+    pwsh -File tools\localization\sync_plugin_translations.ps1 -Modules sftp
 #>
 [CmdletBinding()]
 param(
-    [string]$RepoRoot
+    [string]$RepoRoot,
+
+    [string[]]$Modules
 )
 
 Set-StrictMode -Version Latest
@@ -40,10 +47,32 @@ if (-not (Test-Path -LiteralPath $pluginsDir))
 }
 
 $synced = 0
+$requestedModules = @()
+if ($Modules -and $Modules.Count -gt 0)
+{
+    foreach ($module in $Modules)
+    {
+        foreach ($piece in ($module -split "[,;]"))
+        {
+            $trimmed = $piece.Trim().ToLowerInvariant()
+            if ($trimmed -ne "")
+            {
+                $requestedModules += $trimmed
+            }
+        }
+    }
+    $requestedModules = @($requestedModules | Sort-Object -Unique)
+}
 
 # Scan each plugin for a translations/ subdirectory
 foreach ($pluginDir in (Get-ChildItem -Path $pluginsDir -Directory))
 {
+    if ($requestedModules.Count -gt 0 -and
+        $requestedModules -notcontains $pluginDir.Name.ToLowerInvariant())
+    {
+        continue
+    }
+
     $pluginTranslationsDir = Join-Path $pluginDir.FullName "translations"
     if (-not (Test-Path -LiteralPath $pluginTranslationsDir))
     {
