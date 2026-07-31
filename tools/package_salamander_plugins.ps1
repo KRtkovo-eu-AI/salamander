@@ -4,10 +4,13 @@ Packages each unpacked Open Salamander plugin and extension directory into a sep
 
 .DESCRIPTION
 The script expects a path to an unpacked Open Salamander x64 directory that contains
-an immediate plugins and/or extensions subdirectory. Every immediate child directory
-under either subdirectory is packed as a whole directory, so an archive contains e.g.
-automation\automation.spl or git-worktree-navigator\extension.json instead of only
-the directory contents at the archive root.
+a plugins and/or extensions subdirectory. Ordinary plugin directories are discovered
+directly under plugins. Runtime plugins are discovered one level deeper under the
+plugins\extension-runtimes container. Extensions are discovered recursively by their
+extension.json manifests. Each package is packed as a whole directory, so an archive
+contains e.g. automation\automation.spl, pythonruntime\pythonruntime.spl, or
+git-worktree-navigator\extension.json instead of only the directory contents at the
+archive root.
 
 Archive names use the package directory name and version. Plugin versions are read
 from the first plugin binary (*.spl preferred, then *.dll/*.exe); extension versions
@@ -97,7 +100,7 @@ function Convert-ToArchiveSafeVersion {
 
     $normalized = $Version.Trim()
     $normalized = $normalized -replace ',', '.'
-    $normalized = $normalized -replace '\s+', ''
+    $normalized = $normalized -replace '\s+', '_'
     $normalized = $normalized -replace '[^0-9A-Za-z._-]', '_'
     $normalized = $normalized.Trim('._-')
 
@@ -114,6 +117,10 @@ function Get-VersionStringFromFileVersionInfo {
         [System.Diagnostics.FileVersionInfo]$VersionInfo
     )
 
+    if (-not [string]::IsNullOrWhiteSpace($VersionInfo.FileVersion)) {
+        return $VersionInfo.FileVersion -replace '\s*\((?:x86|x64)\)\s*$', ''
+    }
+
     if ($VersionInfo.FileMajorPart -ne 0 -or $VersionInfo.FileMinorPart -ne 0) {
         $version = '{0}.{1}' -f $VersionInfo.FileMajorPart, $VersionInfo.FileMinorPart
         if ($VersionInfo.FileBuildPart -ne 0) {
@@ -121,10 +128,6 @@ function Get-VersionStringFromFileVersionInfo {
         }
 
         return $version
-    }
-
-    if ($VersionInfo.FileVersion) {
-        return $VersionInfo.FileVersion -replace '\s*\((?:x86|x64)\)\s*$', ''
     }
 
     throw 'File version metadata is empty.'
@@ -189,81 +192,133 @@ function Get-ExtensionVersion {
     }
 }
 
-function Get-PackageGroups {
+function New-PackageDefinition {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('plugin', 'extension')]
+        [string]$PackageType,
+
+        [Parameter(Mandatory = $true)]
+        [System.IO.DirectoryInfo]$Directory
+    )
+
+    return [PSCustomObject]@{
+        Root = $Root
+        PackageType = $PackageType
+        Directory = $Directory
+    }
+}
+
+function Get-PackageDefinitions {
     param(
         [Parameter(Mandatory = $true)]
         [string]$SalamanderRoot
     )
 
-    $groups = @()
-    foreach ($definition in @(
-        @{ DirectoryName = 'plugins'; PackageType = 'plugin' },
-        @{ DirectoryName = 'extensions'; PackageType = 'extension' }
-    )) {
-        $root = Join-Path $SalamanderRoot $definition.DirectoryName
-        if (-not (Test-Path -LiteralPath $root -PathType Container)) {
-            continue
-        }
+    $packages = @()
+    $pluginsRoot = Join-Path $SalamanderRoot 'plugins'
+    if (Test-Path -LiteralPath $pluginsRoot -PathType Container) {
+        $pluginsRoot = (Get-Item -LiteralPath $pluginsRoot).FullName
+        foreach ($pluginDirectory in @(Get-ChildItem -LiteralPath $pluginsRoot -Directory | Sort-Object Name)) {
+            if ($pluginDirectory.Name -ieq 'extension-runtimes') {
+                $runtimeDirectories = @(
+                    Get-ChildItem -LiteralPath $pluginDirectory.FullName -Directory |
+                        Sort-Object Name
+                )
+                if ($runtimeDirectories.Count -eq 0) {
+                    throw "Plugin container '$($pluginDirectory.FullName)' does not contain any runtime plugin directories."
+                }
 
-        $directories = @(Get-ChildItem -LiteralPath $root -Directory | Sort-Object Name)
-        if ($directories.Count -eq 0) {
-            continue
-        }
-
-        $groups += [PSCustomObject]@{
-            Root = (Get-Item -LiteralPath $root).FullName
-            PackageType = $definition.PackageType
-            Directories = $directories
+                foreach ($runtimeDirectory in $runtimeDirectories) {
+                    $packages += New-PackageDefinition `
+                        -Root $pluginDirectory.FullName `
+                        -PackageType 'plugin' `
+                        -Directory $runtimeDirectory
+                }
+            }
+            else {
+                $packages += New-PackageDefinition `
+                    -Root $pluginsRoot `
+                    -PackageType 'plugin' `
+                    -Directory $pluginDirectory
+            }
         }
     }
 
-    return $groups
+    $extensionsRoot = Join-Path $SalamanderRoot 'extensions'
+    if (Test-Path -LiteralPath $extensionsRoot -PathType Container) {
+        $extensionManifests = @(
+            Get-ChildItem -LiteralPath $extensionsRoot -File -Filter 'extension.json' -Recurse |
+                Sort-Object FullName
+        )
+        foreach ($manifest in $extensionManifests) {
+            $extensionDirectory = $manifest.Directory
+            $packages += New-PackageDefinition `
+                -Root $extensionDirectory.Parent.FullName `
+                -PackageType 'extension' `
+                -Directory $extensionDirectory
+        }
+    }
+
+    return $packages
 }
 
 $salamanderRoot = Resolve-ExistingDirectory -Path $SalamanderPath -Description 'Salamander path'
 $sevenZip = Resolve-SevenZip -RequestedPath $SevenZipPath
 $outputRoot = New-Item -ItemType Directory -Path $OutputPath -Force
 
-$packageGroups = @(Get-PackageGroups -SalamanderRoot $salamanderRoot)
-if ($packageGroups.Count -eq 0) {
+$packages = @(Get-PackageDefinitions -SalamanderRoot $salamanderRoot)
+if ($packages.Count -eq 0) {
     throw "No plugin or extension directories found under '$salamanderRoot'."
 }
 
+$duplicatePackageNames = @(
+    $packages |
+        Group-Object { $_.Directory.Name } |
+        Where-Object Count -gt 1
+)
+if ($duplicatePackageNames.Count -gt 0) {
+    $names = ($duplicatePackageNames.Name | Sort-Object) -join ', '
+    throw "Package directory names must be unique because they form archive names. Duplicates: $names"
+}
+
 $archiveCount = 0
-foreach ($packageGroup in $packageGroups) {
-    foreach ($packageDirectory in $packageGroup.Directories) {
-        if ($packageGroup.PackageType -eq 'extension') {
-            $version = Get-ExtensionVersion -ExtensionDirectory $packageDirectory
-        }
-        else {
-            $version = Get-PluginVersion -PluginDirectory $packageDirectory
-        }
-
-        $archiveName = 'plugin_5.0_{0}_{1}_x64.7z' -f $packageDirectory.Name, $version
-        $archivePath = Join-Path $outputRoot.FullName $archiveName
-
-        if ((Test-Path -LiteralPath $archivePath) -and -not $Force) {
-            throw "Archive already exists: $archivePath. Use -Force to overwrite it."
-        }
-
-        if (Test-Path -LiteralPath $archivePath) {
-            Remove-Item -LiteralPath $archivePath -Force
-        }
-
-        Write-Host "Packing $($packageGroup.PackageType) $($packageDirectory.Name) -> $archiveName"
-        Push-Location -LiteralPath $packageGroup.Root
-        try {
-            & $sevenZip a -t7z -mx=9 $archivePath $packageDirectory.Name | Write-Host
-            if ($LASTEXITCODE -ne 0) {
-                throw "7-Zip failed for $($packageGroup.PackageType) '$($packageDirectory.Name)' with exit code $LASTEXITCODE."
-            }
-        }
-        finally {
-            Pop-Location
-        }
-
-        $archiveCount++
+foreach ($package in $packages) {
+    $packageDirectory = $package.Directory
+    if ($package.PackageType -eq 'extension') {
+        $version = Get-ExtensionVersion -ExtensionDirectory $packageDirectory
     }
+    else {
+        $version = Get-PluginVersion -PluginDirectory $packageDirectory
+    }
+
+    $archiveName = 'plugin_5.0_{0}_{1}_x64.7z' -f $packageDirectory.Name, $version
+    $archivePath = Join-Path $outputRoot.FullName $archiveName
+
+    if ((Test-Path -LiteralPath $archivePath) -and -not $Force) {
+        throw "Archive already exists: $archivePath. Use -Force to overwrite it."
+    }
+
+    if (Test-Path -LiteralPath $archivePath) {
+        Remove-Item -LiteralPath $archivePath -Force
+    }
+
+    Write-Host "Packing $($package.PackageType) $($packageDirectory.Name) -> $archiveName"
+    Push-Location -LiteralPath $package.Root
+    try {
+        & $sevenZip a -t7z -mx=9 $archivePath $packageDirectory.Name | Write-Host
+        if ($LASTEXITCODE -ne 0) {
+            throw "7-Zip failed for $($package.PackageType) '$($packageDirectory.Name)' with exit code $LASTEXITCODE."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+
+    $archiveCount++
 }
 
 Write-Host "Created $archiveCount archive(s) in $($outputRoot.FullName)."
