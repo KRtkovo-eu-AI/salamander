@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "catalogName": "Extension Runtimes",
-  "generatedAt": "2026-07-29T05:07:00Z",
+  "generatedAt": "2026-07-30T22:57:28Z",
   "plugins": [
     {
       "id": "salamatrix",
@@ -32,11 +32,137 @@
         "romanian": "Salamatrix este un furnizor de framework de automatizare pentru pluginuri native și extensii de script.",
         "spanish": "Salamatrix es un proveedor de framework de automatización para plugins nativos y extensiones de script."
       },
+      "latestVersion": "0.2 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.2_x64/plugin_5.0_salamatrix_0.2_x64.7z",
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png"
+    },
+    {
+      "id": "salamatrixai",
+      "name": {
+        "english": "Salamatrix AI"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Salamatrix AI is native provider and the sole owner of the local AI assistant workflow."
+      },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.1_x64/plugin_5.0_salamatrix_0.1_x64.7z",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixai_0.1_x64/plugin_5.0_salamatrixai_0.1_x64.7z",
+      "dependencies": [
+        "salamatrix"
+      ],
       "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png"
+    },
+    {
+      "id": "salamatrixailocalllama",
+      "name": {
+        "english": "Salamatrix AI Local LLaMA"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Local llama.cpp assistant with selectable Qwen2.5-Coder 1.5B Instruct (recommended) and lightweight 0.5B Instruct (English prompts only) Q4_K_M models."
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixailocalllama_0.1_x64/plugin_5.0_salamatrixailocalllama_0.1_x64.7z",
+      "dependencies": [
+        "salamatrixai"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png"
+    },
+    {
+      "id": "pythonruntime",
+      "name": {
+        "english": "Python Runtime"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Python Runtime for integrating Python scripts with the Salamatrix framework."
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pythonruntime_0.1_x64/plugin_5.0_pythonruntime_0.1_x64.7z",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    },
+    {
+      "id": "powershellruntime",
+      "name": {
+        "english": "PowerShell Runtime"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "PowerShell Runtime for integrating PowerShell scripts with the Salamatrix framework."
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_powershellruntime_0.1_x64/plugin_5.0_powershellruntime_0.1_x64.7z",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    },
+    {
+      "id": "luaruntime",
+      "name": {
+        "english": "Lua Runtime"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Lua Runtime for integrating Lua scripts with the Salamatrix framework."
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_luaruntime_0.1_x64/plugin_5.0_luaruntime_0.1_x64.7z",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    },
+    {
+      "id": "phpruntime",
+      "name": {
+        "english": "PHP Runtime"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "PHP Runtime for integrating PHP scripts with the Salamatrix framework."
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_phpruntime_0.1_x64/plugin_5.0_phpruntime_0.1_x64.7z",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    },
+    {
+      "id": "javascriptruntime",
+      "name": {
+        "english": "JavaScript Runtime"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "JavaScript Runtime for integrating JavaScript scripts with the Salamatrix framework."
+      },
+      "latestVersion": "0.1 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_javascriptruntime_0.1_x64/plugin_5.0_javascriptruntime_0.1_x64.7z",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     },
     {
       "id": "demoplug",
@@ -69,9 +195,27 @@
       },
       "latestVersion": "1.96 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_1.96_x64/plugin_5.0_demoplug_1.96_x64.7z",
       "icon": "https://samandarin.krtkovo.eu/catalogs/img/demoplug.png"
+    },
+    {
+      "id": "salamatrixdemos",
+      "name": {
+        "english": "Salamatrix Demo Sample Scripts"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Demo sample scripts for the Salamatrix framework."
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixdemos_1.0.0_x64/plugin_5.0_salamatrixdemos_1.0.0_x64.7z",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     }
   ]
 }
