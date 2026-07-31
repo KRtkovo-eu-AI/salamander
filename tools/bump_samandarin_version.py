@@ -101,9 +101,18 @@ def main() -> None:
     old_config_version = int(config_match.group(1))
     new_config_version = old_config_version + 1
 
+    config_history_match = re.search(
+        rf"^// {old_config_version} = 5\.0-samandarin-([^\s]+).*$",
+        main_text,
+        re.MULTILINE,
+    )
+    if not config_history_match:
+        raise RuntimeError(f"Could not find configuration history entry {old_config_version} in {mainwnd2}.")
+    old_config_version_name = config_history_match.group(1)
+
     main_text = replace_one(
         main_text,
-        rf"^(// {old_config_version} = 5\.0-samandarin-{re.escape(old_version)}\n)",
+        rf"^(// {old_config_version} = 5\.0-samandarin-{re.escape(old_config_version_name)}.*\n)",
         rf"\g<1>// {new_config_version} = 5.0-samandarin-{new_version}\n",
         file_name=str(mainwnd2),
     )
@@ -115,13 +124,13 @@ def main() -> None:
     )
     main_text = replace_one(
         main_text,
-        rf"^(\s*)\"Software\\\\Open Salamander Samandarin\\\\5\.0-samandarin-{re.escape(old_version)}\",$",
+        rf"^(\s*)\"Software\\\\Open Salamander Samandarin\\\\5\.0-samandarin-{re.escape(old_config_version_name)}\",$",
         rf'\g<1>"Software\\\\Open Salamander Samandarin\\\\5.0-samandarin-{new_version}",\n\g<0>',
         file_name=str(mainwnd2),
     )
     main_text = replace_one(
         main_text,
-        rf"^(\s*)\"5\.0 Samandarin {re.escape(old_version)}\",$",
+        rf"^(\s*)\"5\.0 Samandarin {re.escape(old_config_version_name)}\",$",
         rf'\g<1>"5.0 Samandarin {new_version}",\n\g<0>',
         file_name=str(mainwnd2),
     )
