@@ -1157,7 +1157,51 @@ BOOL WINAPI PackageManager::HostDispatch(
                 std::to_string(selectedCount) +
                 ",\"selectedItems\":" + selectedItems +
                 ",\"focusedItem\":" +
-                (hasFocused ? SideItemJson(focused) : "null") + "}",
+            (hasFocused ? SideItemJson(focused) : "null") + "}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.sides.selectAll" ||
+        method == "salamander.sides.selectItem")
+    {
+        if (owner->Sides == NULL)
+            return FALSE;
+
+        std::string sideName;
+        Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        Sides::SideReference side = Sides::SideReferenceSource;
+        if (_stricmp(sideName.c_str(), "left") == 0)
+            side = Sides::SideReferenceLeft;
+        else if (_stricmp(sideName.c_str(), "right") == 0)
+            side = Sides::SideReferenceRight;
+        else if (_stricmp(sideName.c_str(), "target") == 0)
+            side = Sides::SideReferenceTarget;
+
+        BOOL select = TRUE;
+        BOOL repaint = TRUE;
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "select", &select);
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "repaint", &repaint);
+
+        BOOL changed = FALSE;
+        if (method == "salamander.sides.selectAll")
+        {
+            changed = owner->Sides->SelectAll(side, select, repaint);
+        }
+        else
+        {
+            int index = -1;
+            if (!Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "index", &index) || index < 0)
+                return FALSE;
+            changed = owner->Sides->SetItemSelected(
+                side, index, select, repaint);
+        }
+
+        return CopyResult(
+            std::string("{\"ok\":true,\"changed\":") +
+                (changed ? "true}" : "false}"),
             resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.sides.createTab")

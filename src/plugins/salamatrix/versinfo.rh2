@@ -18,7 +18,7 @@
 
 #include "spl_vers.h" // retrieve version and build numbers
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2026 Ondřej Kotas (KRtekTM)"
+#define VERSINFO_COPYRIGHT   "Copyright © 2026 Ondrej Kotas (KRtekTM)"
 #define VERSINFO_COMPANY     "KRtkovo.eu"
 
 #define VERSINFO_DESCRIPTION "Automation Framework provider for Salamatrix UI, Commands, FileOperations and Automation services."

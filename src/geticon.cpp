@@ -160,6 +160,56 @@ static HICON GetShellImageListIcon(int imageListSize, int iconIndex)
     return hIcon;
 }
 
+static BOOL IsSolidBlackIcon(HICON icon, int pixelSize)
+{
+    if (icon == NULL || pixelSize <= 0)
+        return FALSE;
+
+    BITMAPINFO bi;
+    ZeroMemory(&bi, sizeof(bi));
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bi.bmiHeader.biWidth = pixelSize;
+    bi.bmiHeader.biHeight = -pixelSize;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+
+    DWORD* bits = NULL;
+    HDC screenDC = GetDC(NULL);
+    HBITMAP bitmap = CreateDIBSection(screenDC, &bi, DIB_RGB_COLORS, (void**)&bits, NULL, 0);
+    HDC dc = bitmap != NULL ? CreateCompatibleDC(screenDC) : NULL;
+    ReleaseDC(NULL, screenDC);
+    if (bitmap == NULL || dc == NULL)
+    {
+        if (dc != NULL)
+            DeleteDC(dc);
+        if (bitmap != NULL)
+            DeleteObject(bitmap);
+        return FALSE;
+    }
+
+    HBITMAP oldBitmap = (HBITMAP)SelectObject(dc, bitmap);
+    for (int i = 0; i < pixelSize * pixelSize; ++i)
+        bits[i] = 0x00ffffff;
+    DrawIconEx(dc, 0, 0, icon, pixelSize, pixelSize, 0, NULL, DI_NORMAL);
+    GdiFlush();
+
+    BOOL solidBlack = TRUE;
+    for (int i = 0; i < pixelSize * pixelSize; ++i)
+    {
+        if ((bits[i] & 0x00ffffff) != 0)
+        {
+            solidBlack = FALSE;
+            break;
+        }
+    }
+
+    SelectObject(dc, oldBitmap);
+    DeleteDC(dc);
+    DeleteObject(bitmap);
+    return solidBlack;
+}
+
 BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl, HICON* hIcon,
                         CIconSizeEnum iconSize, BOOL fallbackToDefIcon, BOOL defIconIsDir)
 {
@@ -496,6 +546,35 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
                 DestroyIcon(hIconSmall);
                 hIconSmall = NULL;
             }
+        }
+    }
+
+    // Do not let a stale/corrupt shell image-list entry poison Salamander's
+    // icon caches. Try the system list once more, otherwise keep the caller's
+    // existing association/default icon by reporting extraction failure.
+    if (ret && iconSize == ICONSIZE_16 && path != NULL &&
+        IsSolidBlackIcon(*hIcon, IconSizes[ICONSIZE_16]))
+    {
+        SHFILEINFO sfi;
+        ZeroMemory(&sfi, sizeof(sfi));
+        HIMAGELIST systemIcons = (HIMAGELIST)SHGetFileInfo(path, 0, &sfi, sizeof(sfi),
+                                                          SHGFI_SYSICONINDEX | SHGFI_SMALLICON);
+        HICON fallbackIcon = systemIcons != NULL ?
+                                 ImageList_GetIcon(systemIcons, sfi.iIcon, ILD_NORMAL) :
+                                 NULL;
+        if (fallbackIcon != NULL &&
+            !IsSolidBlackIcon(fallbackIcon, IconSizes[ICONSIZE_16]))
+        {
+            HANDLES(DestroyIcon(*hIcon));
+            *hIcon = fallbackIcon;
+        }
+        else
+        {
+            if (fallbackIcon != NULL)
+                HANDLES(DestroyIcon(fallbackIcon));
+            HANDLES(DestroyIcon(*hIcon));
+            *hIcon = NULL;
+            ret = FALSE;
         }
     }
 
