@@ -89,6 +89,9 @@ def main() -> int:
     setup = read("doc/runbook-setup/inno_setup_salamander_x64.iss")
     runtime_package_verifier = read("tools/verify_runtime_packages.ps1")
     python_demo = read("src/extensions/demos/python/main.py")
+    lua_demo = read("src/extensions/demos/lua/main.lua")
+    lua_demo_manifest = json.loads(
+        read("src/extensions/demos/lua/extension.json"))
     powershell_demo = read("src/extensions/demos/powershell/main.ps1")
     powershell_worker = read(
         "src/plugins/powershellruntime/runtime/salamatrix_worker.ps1")
@@ -478,6 +481,12 @@ def main() -> int:
             "Lua worker does not perform the SMX1 hello handshake")
     require(lua_worker, r'salamander\.commands\.register.*?salamander\.storage\.set.*?salamander\.ui\.dialog\.create',
             "Lua worker does not expose the shared command/storage/dialog facade")
+    require(lua_demo,
+            r'Salamander\.ui\.notify.*?Salamander\.ui\.progress.*?progress\.update.*?progress\.is_cancelled.*?progress\.close.*?Salamander\.storage\.set\("lastRun",\s*"Lua"\)',
+            "Lua demo does not exercise the shared notify/progress/storage flow")
+    if "ui.progress" not in lua_demo_manifest.get("capabilities", []):
+        raise AssertionError(
+            "Lua demo manifest does not declare the progress capability")
     require(setup, r"extension-runtimes\\luaruntime\\luaruntime\.spl.*?IsPluginSelected\('luaruntime'\)",
             "x64 installer does not package LuaRuntime.SPL")
     require(setup, r"extension-runtimes\\luaruntime\\runtime\\salamatrix_worker\.lua.*?IsPluginSelected\('luaruntime'\)",

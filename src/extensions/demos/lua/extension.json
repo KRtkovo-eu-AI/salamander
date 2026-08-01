@@ -7,6 +7,6 @@
   "runtime": "Lua",
   "entryPoint": "main.lua",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "storage"],
+  "capabilities": ["ui.notify", "ui.progress", "storage"],
   "commands": [{"id":"Salamatrix.Demo.Lua.run","title":"Run Lua demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
 }
