@@ -995,6 +995,8 @@
     </ClInclude>
     <ClInclude Include="..\fileswnd.h">
     </ClInclude>
+    <ClInclude Include="..\filenamecase.h">
+    </ClInclude>
     <ClInclude Include="..\filter.h">
     </ClInclude>
     <ClInclude Include="..\find.h">

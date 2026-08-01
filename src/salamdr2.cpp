@@ -12,6 +12,7 @@
 #include "logo.h"
 #include "reglib\src\regparse.h"
 #include "configstorage.h"
+#include "filenamecase.h"
 
 // ****************************************************************************
 
@@ -1680,6 +1681,7 @@ void GetMessagePos(POINT& p)
 // AlterFileName
 //  - changes the format of the file name (letter casing)
 //
+
 //   tgtName - buffer for the result (at least as large as filename)
 //
 //   filename - input file name
@@ -1710,6 +1712,7 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
         format = dir ? 3 : 2; // VC display style
     if (format == 7 && change != 0)
         format = (change == 1) ? 1 : 2; // convert to mixed/lower case
+    BOOL utf8ACP = GetACP() == CP_UTF8;
 
     char* ext = NULL; // points past the last dot or is NULL (no extension)
     if (change != 0 && format != 5 && format != 7)
@@ -1765,16 +1768,17 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
         char* name = filename;
         while (*name != 0)
         {
+            char separator = *name;
             if (!capital)
             {
-                *tgt++ = LowerCase[*name];
-                if (*name++ == ' ')
+                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase);
+                if (separator == ' ')
                     capital = TRUE;
             }
             else
             {
-                *tgt++ = UpperCase[*name];
-                if (*name++ != ' ')
+                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP, LowerCase, UpperCase);
+                if (separator != ' ')
                     capital = FALSE;
             }
         }
@@ -1789,19 +1793,19 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
         char* name = filename;
         while (*name != 0)
         {
+            char separator = *name;
             if (!capital)
             {
-                *tgt++ = LowerCase[*name];
-                if (*name == ' ' || *name == '.')
+                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase);
+                if (separator == ' ' || separator == '.')
                     capital = TRUE;
             }
             else
             {
-                *tgt++ = UpperCase[*name];
-                if (*name != ' ' || *name == '.')
+                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP, LowerCase, UpperCase);
+                if (separator != ' ' || separator == '.')
                     capital = FALSE;
             }
-            name++;
         }
         *tgt = 0;
         break;
@@ -1812,7 +1816,7 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
         char* tgt = tgtName;
         char* name = filename;
         while (*name != 0)
-            *tgt++ = LowerCase[*name++];
+            CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase);
         *tgt = 0;
         break;
     }
@@ -1822,7 +1826,7 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
         char* tgt = tgtName;
         char* name = filename;
         while (*name != 0)
-            *tgt++ = UpperCase[*name++];
+            CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP, LowerCase, UpperCase);
         *tgt = 0;
         break;
     }
@@ -1842,21 +1846,22 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
         char* name = filename;
         while (name < ext) // name mixed case
         {
+            char separator = *name;
             if (!capital)
             {
-                *tgt++ = LowerCase[*name];
-                if (*name++ == ' ')
+                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase);
+                if (separator == ' ')
                     capital = TRUE;
             }
             else
             {
-                *tgt++ = UpperCase[*name];
-                if (*name++ != ' ')
+                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP, LowerCase, UpperCase);
+                if (separator != ' ')
                     capital = FALSE;
             }
         }
         while (*name != 0)
-            *tgt++ = LowerCase[*name++]; // extension lower case
+            CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase); // extension lower case
         *tgt = 0;
         break;
     }
@@ -1875,8 +1880,9 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
     {
         if (ext != NULL)
         {
-            *--ext = '.';                            // restore '.' in the name
-            strcpy(tgtName + (ext - filename), ext); // append the extension
+            *--ext = '.'; // restore '.' in the name
+            size_t targetLen = strlen(tgtName);
+            memmove(tgtName + targetLen, ext, strlen(ext) + 1); // append the extension
         }
     }
 }
