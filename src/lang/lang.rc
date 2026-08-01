@@ -1984,6 +1984,8 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,126,125,12
     CONTROL         "Display mounted Volumes in &Drive bar",IDC_CHD_MOUNTFOLDERS_DRIVEBAR,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,139,137,12
+    CONTROL         "Display &Windows Sandbox",IDC_CHD_SHOWWINDOWSSANDBOX,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,157,139,129,12
     GROUPBOX        " Additional items ",IDC_STATIC_9,1,164,294,78,WS_GROUP
     CONTROL         "&Documents",IDC_CHD_SHOWMYDOC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,176,55,12
     CONTROL         "&3D Objects",IDC_CHD_SHOW3DOBJECTS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,189,62,12
