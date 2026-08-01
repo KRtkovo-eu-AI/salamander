@@ -153,7 +153,7 @@ try {
 
     $msbuild = Resolve-ApplicationPath -Name 'msbuild.exe'
     $testProjects = @(
-        Get-ChildItem -Path (Join-Path $repositoryRoot 'src\plugins') `
+        Get-ChildItem -Path (Join-Path $repositoryRoot 'src') `
             -Filter '*_tests.vcxproj' -File -Recurse |
             Where-Object { $_.Directory.Name -eq 'tests' } |
             Sort-Object FullName

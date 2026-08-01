@@ -12,6 +12,7 @@
 #include "logo.h"
 #include "reglib\src\regparse.h"
 #include "configstorage.h"
+#include "filenamecase.h"
 
 // ****************************************************************************
 
@@ -1681,65 +1682,6 @@ void GetMessagePos(POINT& p)
 //  - changes the format of the file name (letter casing)
 //
 
-static void CopyFileNameCharWithCase(char*& target, char*& source, BOOL upperCase, BOOL utf8ACP)
-{
-    unsigned char first = (unsigned char)*source;
-    if (!utf8ACP || first < 0x80)
-    {
-        *target++ = upperCase ? UpperCase[first] : LowerCase[first];
-        source++;
-        return;
-    }
-
-    int sourceBytes;
-    if ((first & 0xE0) == 0xC0)
-        sourceBytes = 2;
-    else if ((first & 0xF0) == 0xE0)
-        sourceBytes = 3;
-    else if ((first & 0xF8) == 0xF0)
-        sourceBytes = 4;
-    else
-        sourceBytes = 1;
-
-    for (int i = 1; i < sourceBytes; i++)
-    {
-        unsigned char continuation = (unsigned char)source[i];
-        if (continuation == 0 || (continuation & 0xC0) != 0x80)
-        {
-            sourceBytes = 1;
-            break;
-        }
-    }
-
-    WCHAR wide[2];
-    int wideChars = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, source, sourceBytes,
-                                        wide, _countof(wide));
-    if (wideChars > 0)
-    {
-        int convertedChars = upperCase ? CharUpperBuffW(wide, wideChars) :
-                                         CharLowerBuffW(wide, wideChars);
-        if (convertedChars == wideChars)
-        {
-            char converted[8];
-            int convertedBytes = WideCharToMultiByte(CP_UTF8, 0, wide, wideChars,
-                                                     converted, _countof(converted), NULL, NULL);
-            // AlterFileName's target buffer is only guaranteed to be as large as
-            // the source. Keep the original code point if its mapping would grow.
-            if (convertedBytes > 0 && convertedBytes <= sourceBytes)
-            {
-                memcpy(target, converted, convertedBytes);
-                target += convertedBytes;
-                source += sourceBytes;
-                return;
-            }
-        }
-    }
-
-    memcpy(target, source, sourceBytes);
-    target += sourceBytes;
-    source += sourceBytes;
-}
-
 //   tgtName - buffer for the result (at least as large as filename)
 //
 //   filename - input file name
@@ -1829,13 +1771,13 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
             char separator = *name;
             if (!capital)
             {
-                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP);
+                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase);
                 if (separator == ' ')
                     capital = TRUE;
             }
             else
             {
-                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP);
+                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP, LowerCase, UpperCase);
                 if (separator != ' ')
                     capital = FALSE;
             }
@@ -1854,13 +1796,13 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
             char separator = *name;
             if (!capital)
             {
-                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP);
+                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase);
                 if (separator == ' ' || separator == '.')
                     capital = TRUE;
             }
             else
             {
-                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP);
+                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP, LowerCase, UpperCase);
                 if (separator != ' ' || separator == '.')
                     capital = FALSE;
             }
@@ -1874,7 +1816,7 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
         char* tgt = tgtName;
         char* name = filename;
         while (*name != 0)
-            CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP);
+            CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase);
         *tgt = 0;
         break;
     }
@@ -1884,7 +1826,7 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
         char* tgt = tgtName;
         char* name = filename;
         while (*name != 0)
-            CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP);
+            CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP, LowerCase, UpperCase);
         *tgt = 0;
         break;
     }
@@ -1907,19 +1849,19 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
             char separator = *name;
             if (!capital)
             {
-                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP);
+                CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase);
                 if (separator == ' ')
                     capital = TRUE;
             }
             else
             {
-                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP);
+                CopyFileNameCharWithCase(tgt, name, TRUE, utf8ACP, LowerCase, UpperCase);
                 if (separator != ' ')
                     capital = FALSE;
             }
         }
         while (*name != 0)
-            CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP); // extension lower case
+            CopyFileNameCharWithCase(tgt, name, FALSE, utf8ACP, LowerCase, UpperCase); // extension lower case
         *tgt = 0;
         break;
     }

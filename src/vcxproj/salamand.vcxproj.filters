@@ -588,6 +588,9 @@
     <ClInclude Include="..\fileswnd.h">
       <Filter>h</Filter>
     </ClInclude>
+    <ClInclude Include="..\filenamecase.h">
+      <Filter>h</Filter>
+    </ClInclude>
     <ClInclude Include="..\filter.h">
       <Filter>h</Filter>
     </ClInclude>
