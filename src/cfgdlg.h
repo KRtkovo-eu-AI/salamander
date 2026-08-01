@@ -170,6 +170,7 @@ extern const char* DefRightToolBar;
 #define TITLE_BAR_MODE_DIRECTORY 0 // must correspond to the array {IDS_TITLEBAR_DIRECTORY, IDS_TITLEBAR_COMPOSITE, IDS_TITLEBAR_FULLPATH}
 #define TITLE_BAR_MODE_COMPOSITE 1
 #define TITLE_BAR_MODE_FULLPATH 2
+#define MOUNTED_VOLUME_PATH_MODE_NONE 3
 
 #define TITLE_PREFIX_MAX 100 // size of the buffer for the title prefix
 
@@ -435,6 +436,7 @@ struct CConfiguration
     int ChangeDriveMountFoldersMode; // TITLE_BAR_MODE_xxx for mounted folder paths
     int ChangeDriveMountFoldersName; // display mounted volume caption
     int ChangeDriveMountFoldersDriveBar; // display mounted volumes in Drive Bar
+    int ChangeDriveShowWindowsSandbox; // display Windows Sandbox mounted volumes
     int ChangeDriveShowMyDoc;     // display Documents item
     int ChangeDriveShow3DObjects; // display 3D Objects item
     int ChangeDriveShowDesktop;   // display Desktop item
@@ -1203,6 +1205,7 @@ protected:
     void SetDrivesToListbox(int redID, DWORD drives);
     DWORD GetDrivesFromListbox(int redID);
     void InitList(int resID); // setup listbox
+    void EnableMountFolderControls();
 
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };

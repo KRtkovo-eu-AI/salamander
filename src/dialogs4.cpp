@@ -736,6 +736,7 @@ CConfiguration::CConfiguration()
     ChangeDriveMountFoldersMode = TITLE_BAR_MODE_DIRECTORY;
     ChangeDriveMountFoldersName = TRUE;
     ChangeDriveMountFoldersDriveBar = FALSE;
+    ChangeDriveShowWindowsSandbox = FALSE;
     ChangeDriveShowMyDoc = TRUE;
     ChangeDriveShow3DObjects = FALSE;
     ChangeDriveShowDesktop = FALSE;

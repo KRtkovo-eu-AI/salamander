@@ -1156,6 +1156,7 @@ const char* CONFIG_CHD_SHOWMOUNTFOLDERS = "Change Drive Show Mount Folders";
 const char* CONFIG_CHD_MOUNTFOLDERS_MODE = "Change Drive Mount Folders Mode";
 const char* CONFIG_CHD_MOUNTFOLDERS_NAME = "Change Drive Mount Folders Name";
 const char* CONFIG_CHD_MOUNTFOLDERS_DRIVEBAR = "Change Drive Mount Folders Drive Bar";
+const char* CONFIG_CHD_SHOWWINDOWSSANDBOX = "Change Drive Show Windows Sandbox";
 const char* CONFIG_CHD_SHOWMYDOC = "Change Drive Show My Documents";
 const char* CONFIG_CHD_SHOW3DOBJECTS = "Change Drive Show 3D Objects";
 const char* CONFIG_CHD_SHOWDESKTOP = "Change Drive Show Desktop";
@@ -3172,6 +3173,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.ChangeDriveMountFoldersName, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_MOUNTFOLDERS_DRIVEBAR, REG_DWORD,
                          &Configuration.ChangeDriveMountFoldersDriveBar, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_SHOWWINDOWSSANDBOX, REG_DWORD,
+                         &Configuration.ChangeDriveShowWindowsSandbox, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOWMYDOC, REG_DWORD,
                          &Configuration.ChangeDriveShowMyDoc, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOW3DOBJECTS, REG_DWORD,
@@ -5098,9 +5101,13 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.ChangeDriveMountFoldersName, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_MOUNTFOLDERS_DRIVEBAR, REG_DWORD,
                      &Configuration.ChangeDriveMountFoldersDriveBar, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_SHOWWINDOWSSANDBOX, REG_DWORD,
+                     &Configuration.ChangeDriveShowWindowsSandbox, sizeof(DWORD));
             if (Configuration.ChangeDriveMountFoldersMode < TITLE_BAR_MODE_DIRECTORY ||
-                Configuration.ChangeDriveMountFoldersMode > TITLE_BAR_MODE_FULLPATH)
+                Configuration.ChangeDriveMountFoldersMode > MOUNTED_VOLUME_PATH_MODE_NONE)
                 Configuration.ChangeDriveMountFoldersMode = TITLE_BAR_MODE_DIRECTORY;
+            if (Configuration.ChangeDriveMountFoldersMode == MOUNTED_VOLUME_PATH_MODE_NONE)
+                Configuration.ChangeDriveMountFoldersName = TRUE;
             GetValue(actKey, CONFIG_CHD_SHOWMYDOC, REG_DWORD,
                      &Configuration.ChangeDriveShowMyDoc, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOW3DOBJECTS, REG_DWORD,

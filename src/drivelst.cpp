@@ -1154,12 +1154,22 @@ void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
                 CQuadWord freeSpace(-1, -1);
                 if (GetVolumeInformation(path, volumeText, MAX_PATH, NULL, &dummy, &dummy, NULL, 0))
                 {
-                    DuplicateAmpersands(volumeText, MAX_PATH);
                     CQuadWord total;
                     freeSpace = MyGetDiskFreeSpace(path, &total);
                 }
                 else
                     volumeText[0] = 0;
+
+                static const char windowsSandboxPath[] = "C:\\ProgramData\\Microsoft\\Windows\\Containers\\BaseImages";
+                int windowsSandboxPathLen = (int)strlen(windowsSandboxPath);
+                if (!Configuration.ChangeDriveShowWindowsSandbox &&
+                    _stricmp(volumeText, "PortableBaseLayer") == 0 &&
+                    _strnicmp(mountPath, windowsSandboxPath, windowsSandboxPathLen) == 0)
+                {
+                    continue;
+                }
+
+                DuplicateAmpersands(volumeText, MAX_PATH);
 
                 char freeSpaceText[50];
                 freeSpaceText[0] = 0;
@@ -1182,10 +1192,13 @@ void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
                                     (int)(lastComponent - mountPath >= 3 ? 3 : lastComponent - mountPath),
                                     mountPath, lastComponent + 1);
                 }
-                DuplicateAmpersands(displayPath, SAL_MAX_PATH);
+                BOOL showPath = Configuration.ChangeDriveMountFoldersMode != MOUNTED_VOLUME_PATH_MODE_NONE;
+                if (showPath)
+                    DuplicateAmpersands(displayPath, SAL_MAX_PATH);
+                BOOL displayVolumeName = Configuration.ChangeDriveMountFoldersName || !showPath;
 
-                int textLen = 1 + (int)strlen(displayPath) +
-                              (Configuration.ChangeDriveMountFoldersName && volumeText[0] != 0 ? 2 + (int)strlen(volumeText) : 0) +
+                int textLen = 1 + (showPath ? (int)strlen(displayPath) : 0) +
+                              (displayVolumeName && volumeText[0] != 0 ? (showPath ? 2 : 0) + (int)strlen(volumeText) : 0) +
                               (freeSpaceText[0] != 0 ? 1 + (int)strlen(freeSpaceText) : 0) + 1;
                 drv.DriveText = (char*)malloc(textLen);
                 drv.MountPointPath = DupStr(mountPath);
@@ -1201,10 +1214,12 @@ void CDrivesList::AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons)
                     continue;
                 }
                 strcpy(drv.DriveText, "\t");
-                strcat(drv.DriveText, displayPath);
-                if (Configuration.ChangeDriveMountFoldersName && volumeText[0] != 0)
+                if (showPath)
+                    strcat(drv.DriveText, displayPath);
+                if (displayVolumeName && volumeText[0] != 0)
                 {
-                    strcat(drv.DriveText, "  ");
+                    if (showPath)
+                        strcat(drv.DriveText, "  ");
                     strcat(drv.DriveText, volumeText);
                 }
                 if (freeSpaceText[0] != 0)
