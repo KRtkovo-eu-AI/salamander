@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 4,
+  "catalogName": "Extensions Stable",
+  "generatedAt": "2026-07-30T22:57:28Z",
+  "plugins": [
+    {
+      "id": "file-lock-inspector",
+      "name": {
+        "english": "File Lock Inspector"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Find processes that prevent selected files from being changed, moved, or deleted."
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.0_x64/plugin_5.0_file-lock-inspector_1.0.0_x64.7z",
+      "dependencies": [
+        "powershellruntime"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    },
+    {
+      "id": "git-worktree-navigator",
+      "name": {
+        "english": "Git Worktree Navigator"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": ""
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_git-worktree-navigator_1.0.0_x64/plugin_5.0_git-worktree-navigator_1.0.0_x64.7z",
+      "dependencies": [
+        "powershellruntime"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    },
+    {
+      "id": "extension-menu-builder",
+      "name": {
+        "english": "Extension Menu Builder"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Create and edit simple menu-driven Salamatrix extensions interactively."
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_extension-menu-builder_1.0.0_x64/plugin_5.0_extension-menu-builder_1.0.0_x64.7z",
+      "dependencies": [
+        "powershellruntime"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+    }
+  ]
+}
