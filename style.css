@@ -74,7 +74,7 @@ body.site-header--scrolled .site-header { top: 0; }
 
 main { padding-top: calc(var(--site-header-height) + 22px); padding-bottom: 28px; }
 .hero-panel { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr); gap: 22px; padding: 28px; margin-bottom: 28px; background: radial-gradient(circle at 78% 35%, rgba(210, 210, 210, .10), transparent 18rem), linear-gradient(#282828, #1b1b1b); border: 1px solid #444444; border-radius: 6px; box-shadow: inset 0 1px rgba(255,255,255,.06); }
-.eyebrow { margin: 0 0 8px; color: var(--sam-link-hover); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
+.eyebrow { margin: 0 0 8px; color: var(--sam-accent); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
 .hero-panel h2 { margin: 0 0 18px; border: 0; }
 .hero-panel h2::before { content: none; }
 .hero-panel__copy > p:not(.eyebrow) { max-width: 36rem; font-size: 1.02rem; }
@@ -97,7 +97,7 @@ code { padding: .15em .35em; background: #171717; border: 1px solid var(--sam-bo
 img:not([id="header-logo"]):not([aria="noblock"]) { display: block; }
 img:not([id="header-logo"]) { max-width: 100%; height: auto; margin: 14px auto; background: var(--sam-canvas-inset); border: 1px solid var(--sam-border); border-radius: 4px; box-shadow: 0 8px 20px rgba(0,0,0,.22); }
 .hero-panel__visual img { margin: 0; }
-a[aria="button"] { display: inline-block; margin: 4px 4px 4px 0; padding: 7px 13px; color: #1b1100; background: linear-gradient(#ffb950, #fd9506); border: 1px solid #ffb950; border-radius: 4px; font-weight: 700; text-decoration: none; }
+a[aria="button"] { display: inline-block; margin: 4px 4px 4px 0; padding: 7px 13px; color: #1b1100; background: linear-gradient(#ffb950, #fd9506); border: 1px solid #fd9506; border-radius: 4px; font-weight: 700; text-decoration: none; }
 a[aria="button"]:hover { color: #000; background: linear-gradient(#ffc773, #eda33c); text-decoration: none; }
 .back-to-top { position: fixed; right: 24px; bottom: 24px; z-index: 20; display: grid; place-items: center; width: 44px; height: 44px; color: #1b1100; background: linear-gradient(#ffb950, #fd9506); border: 1px solid #ffb950; border-radius: 50%; box-shadow: 0 10px 24px rgba(0,0,0,.45); font-size: 1.45rem; font-weight: 700; line-height: 1; text-decoration: none; opacity: 0; pointer-events: none; transform: translateY(12px); transition: opacity .18s ease, transform .18s ease, background .18s ease; }
 .back-to-top--visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
