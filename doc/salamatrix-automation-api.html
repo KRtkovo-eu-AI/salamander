@@ -13,6 +13,11 @@
 body { margin:0; background:var(--bg); color:var(--fg);
  font:15px/1.55 "Segoe UI",Arial,sans-serif; }
 main { max-width:1120px; margin:0 auto; padding:32px 28px 64px; }
+.doc-nav { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.5rem;
+ padding:.75rem; background:var(--surface); border:1px solid var(--border);
+ border-radius:6px; }
+.doc-nav a { padding:.35rem .6rem; border-radius:4px; text-decoration:none; }
+.doc-nav a:hover { background:var(--code); }
 h1 { font-size:2rem; border-bottom:3px solid var(--accent); padding-bottom:.3em; }
 h2 { font-size:1.45rem; margin-top:2em; border-bottom:1px solid var(--border);
  padding-bottom:.25em; }
@@ -31,6 +36,12 @@ th { background:var(--surface); } li { margin:.2em 0; }
 </style>
 </head>
 <body><main>
+<nav class="doc-nav" aria-label="Salamatrix documentation">
+<a href="salamatrix-ui.md">Salamatrix.UI guide</a>
+<a href="salamatrix-platform.md">Platform foundation</a>
+<a href="salamatrix-runtime-providers.md">Runtime providers</a>
+<a href="salamatrix-gap-analysis.md">GAP analysis</a>
+</nav>
 <h1 id="salamatrix-automation-api-reference">Salamatrix Automation API reference</h1>
 <p>This document describes the API that is implemented by the current Salamatrix Framework and exposed to scripted extensions. It is intended for both people writing scripts and AI providers generating scripts. Examples use public worker facades, not the private <code>SMX1</code> transport.</p>
 <p>The rule is simple: a generated script may combine the documented Salamander API with normal facilities of its selected language runtime. A missing Python package, Node package, PowerShell module, or PHP extension is an environment concern, not a missing Salamander capability. <code>canImplement=false</code> is reserved for a host integration that the documented Salamander API genuinely does not provide.</p>
@@ -60,6 +71,11 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <td>PHP script</td>
 <td>synchronous</td>
 </tr>
+<tr>
+<td><code>Lua</code></td>
+<td>Lua script</td>
+<td>synchronous</td>
+</tr>
 </tbody></table></div>
 <p>The worker injects one root object:</p>
 <div class="table-wrap"><table><thead><tr>
@@ -82,12 +98,16 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <td>PHP</td>
 <td><code>$Salamander</code></td>
 </tr>
+<tr>
+<td>Lua</td>
+<td><code>Salamander</code></td>
+</tr>
 </tbody></table></div>
 <p>JavaScript scripts run as modules and may use top-level <code>await</code>. They must not use an invented <code>this.selectedItems</code> property. The current selection is obtained through <code>await Salamander.sides.context("source")</code>.</p>
 <h3 id="how-the-ai-consumes-this-contract">How the AI consumes this contract</h3>
 <p>The live <code>Salamatrix.AI</code> service publishes versioned machine-readable slices for <code>sides</code>, <code>fileOperations</code>, <code>commands</code>, <code>ui</code>, <code>storage</code>, <code>events</code>, <code>runtimes</code>, and <code>ai</code>. The assistant selects slices from the user's task instead of sending an unbounded copy of the whole manual.</p>
 <p>The bundled local model receives these slices through a <strong>Strict Interface Contract</strong>, split into five explicit sections:</p>
-<p>1. <code>INPUT CONTRACT</code>: typed task, selected runtime id, current Salamander context, existing source, and optional repair feedback, including their actual values; 2. <code>INSTALLED SALAMANDER API CONTRACT</code>: only the relevant implemented API slices; 3. <code>SELECTED RUNTIME CONTRACT</code>: the real worker facade conventions for the selected JavaScript, Python, PowerShell, or PHP runtime; 4. <code>OUTPUT CONTRACT</code>: the exact closed JSON Schema for the response; 5. <code>GENERATION RULES</code>: precedence, grounding, capability, effect, and honest framework-GAP rules.</p>
+<p>1. <code>INPUT CONTRACT</code>: typed task, selected runtime id, current Salamander context, existing source, and optional repair feedback, including their actual values; 2. <code>INSTALLED SALAMANDER API CONTRACT</code>: only the relevant implemented API slices; 3. <code>SELECTED RUNTIME CONTRACT</code>: the real worker facade conventions for the selected JavaScript, Python, PowerShell, PHP, or Lua runtime; 4. <code>OUTPUT CONTRACT</code>: the exact closed JSON Schema for the response; 5. <code>GENERATION RULES</code>: precedence, grounding, capability, effect, and honest framework-GAP rules.</p>
 <p>The exact same output schema instance is included in the prompt and supplied to <code>llama.cpp</code> through <code>--json-schema-file</code>. It therefore acts both as instructions for the model and as a constrained-generation grammar. The runtime contracts document the injected root object, synchronous or asynchronous call model, naming convention, selected-item access, and use of language libraries. Full general-purpose language manuals are deliberately not inserted into every request because they would consume context without describing the Salamatrix binding.</p>
 <p>The local llama.cpp companion offers two Q4_K_M profiles. The recommended Qwen2.5-Coder 1.5B Instruct model is intended for normal multilingual tasks. The lightweight 0.5B profile is retained for constrained machines and accepts English prompts only. Both are run in one-turn conversation mode using the chat template embedded in their GGUF metadata. The invariant API, runtime, and output contracts are sent as the system message; the typed task input is sent as the user message.</p>
 <p>For operations with a verified implementation recipe, the provider may also constrain semantic fields and source code through JSON Schema constants. This is intentional: prose documentation helps the model choose an API, while the schema prevents a small local model from replacing a verified recipe with invented source. Static validation then checks cross-field facts such as:</p>
@@ -95,6 +115,8 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <li><code>sides.context</code> implies <code>readSelection=true</code>;</li>
 <li>a file writer implies <code>modifyContents=true</code>;</li>
 <li>Node module scripts use <code>import</code>, not CommonJS <code>require</code>;</li>
+<li>Lua scripts use the injected global <code>Salamander</code> table and standard Lua</li>
+<p>libraries available in the provider package;</p>
 <li><code>selectedItems</code> must originate from <code>Salamander.sides.context</code>;</li>
 <li>a known implementable recipe must not be reported as a framework GAP.</li>
 </ul>
@@ -423,6 +445,11 @@ windowDetached, windowAttached, fileChanged</code></pre>
 <td>title, width, height</td>
 <td>dialog object</td>
 </tr>
+<tr>
+<td><code>uptime</code></td>
+<td>none</td>
+<td>host uptime in milliseconds as a decimal string</td>
+</tr>
 </tbody></table></div>
 <p>Python uses <code>message_box</code>, <code>input_box</code>, <code>pick_file</code>, and <code>pick_folder</code>.</p>
 <p>File filters are pipe-separated description/pattern pairs, for example <code>"Text files|*.txt|All files|*.*"</code>. Save mode enables overwrite prompting.</p>
@@ -466,8 +493,9 @@ windowDetached, windowAttached, fileChanged</code></pre>
 </tbody></table></div>
 <p>Python uses snake-case names. Every loop doing substantial work should check cancellation and close the progress object even when an operation fails.</p>
 <h3 id="dialog-object">Dialog object</h3>
-<p>Supported controls are <code>label</code>, <code>textbox</code>, <code>checkbox</code>, <code>radio</code>, <code>combobox</code>, <code>button</code>, <code>listview</code>, <code>treeview</code>, <code>tabcontrol</code>, <code>folderpicker</code>, and <code>filepicker</code>.</p>
-<p>The generic add operation accepts a control id, text, optional <code>x/y/width/height</code>, and applicable options: <code>readOnly</code>, <code>checked</code>, <code>dialogResult</code>, <code>keepOpen</code>, <code>multiline</code>, <code>filter</code>, and <code>save</code>.</p>
+<p>Supported controls are <code>label</code>, <code>statictext</code>, <code>textbox</code>, <code>checkbox</code>, <code>radio</code>, <code>combobox</code>, <code>button</code>, <code>listview</code>, <code>treeview</code>, <code>tabcontrol</code>, <code>folderpicker</code>, <code>filepicker</code>, <code>groupbox</code>, <code>hyperlink</code>, <code>progressbar</code>, <code>arrowbutton</code>, <code>textarrowbutton</code>, <code>colorarrowbutton</code>, and <code>toolbarheader</code>.</p>
+<p>The generic add operation accepts a control id, text, optional <code>x/y/width/height</code>, and applicable options: <code>readOnly</code>, <code>checked</code>, <code>dialogResult</code>, <code>keepOpen</code>, <code>multiline</code>, <code>filter</code>, and <code>save</code>. The complete native option set additionally includes <code>styleFlags</code>, <code>pathSeparator</code>, <code>toolTip</code>, <code>actionOpen</code>, <code>actionCommand</code>, <code>actionHint</code>, <code>progress</code>, <code>progressCurrent</code>, <code>progressTotal</code>, <code>progressText</code>, <code>indeterminateDuration</code>, <code>indeterminateInterval</code>, <code>textColor</code>, <code>backgroundColor</code>, <code>alignControlId</code>, and <code>buttonMask</code>.</p>
+<p>Every modern runtime forwards that same extended option set to the framework package host. The package host owns the dialog independently of Automation, routes change events back through SMX1, and destroys outstanding dialogs when the extension deactivates. Automation JScript exposes a thin COM <code>UI.dialog</code> adapter over the same <code>IDialog</code>/<code>IControl</code> service, while native plugins query <code>SALAMATRIX_SERVICE_UI</code> directly.</p>
 <p>Convenience methods include:</p>
 <pre><code class="language-text">addLabel, addTextBox, addFolderPicker, addFilePicker, addCheckBox,
 addRadioButton, addComboBox, addListView, addTreeView, addTabControl,
@@ -482,6 +510,7 @@ get/getValue, set/setValue, close/destroy</code></pre>
 <li><code>src/plugins/phpruntime/runtime/salamatrix_worker.php</code></li>
 <li><code>src/plugins/luaruntime/runtime/salamatrix_worker.lua</code></li>
 </ul>
+<p>The complete control catalog, layout/property reference, dark-mode/DPI model, and side-by-side JavaScript, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ examples are documented in <a href="salamatrix-ui.md">Salamatrix.UI framework and custom dialog guide</a>. The bundled demo sources deliberately build the complete capabilities gallery themselves instead of calling a prebuilt showcase window.</p>
 <h2 id="ai-service">AI service</h2>
 <p>Scripts may call the provider-neutral AI service through <code>ai.generate</code>, <code>ai.preview</code>, and <code>ai.api</code>/<code>apiDescription</code>. Generation accepts:</p>
 <pre><code class="language-text">prompt, context, provider, runtime, existingScript, feedback</code></pre>

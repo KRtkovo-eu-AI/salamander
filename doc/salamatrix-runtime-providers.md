@@ -17,6 +17,8 @@ Menu Extension plugin and does not move AI ownership back into Automation.
 See [Developing a Salamatrix language runtime provider](salamatrix-runtime-provider-development.md)
 for the native ABI, SMX1 worker, lifecycle, packaging, and verification
 requirements for adding another language.
+See [Salamatrix.UI framework and custom dialog guide](salamatrix-ui.md) for
+the shared native control catalog and examples in every supported runtime.
 
 Native UI dark mode is owned by the Salamatrix Framework provider. It reads the
 host's explicit `Windows Dark Mode (experimental)` scheme and current scheme
@@ -108,10 +110,27 @@ No provider should be made a dependency of Automation.
 
 ## Current worker UI surface
 
-The five modern workers expose the same Salamatrix dialog surface. Along with
-labels, text boxes, check/radio buttons, combo boxes, buttons, list/tree/tab
-controls, validation, events, and file/folder pickers, each worker now exposes
-a folder picker embedded in a dialog:
+The five modern workers expose the same Salamatrix dialog surface. Their
+language facades differ only in naming and async syntax; they send the same
+`salamander.ui.dialog.*` methods and option fields to the package dispatcher
+owned by Salamatrix Framework. Automation is not a dependency of this path.
+
+The common control set contains labels, host static text, text boxes,
+check/radio buttons, combo boxes, ordinary buttons, ListView/TreeView/TabControl,
+folder/file pickers, group boxes, host hyperlinks and progress bars,
+arrow/text-arrow/color-arrow buttons, and toolbar headers. The generic add
+operation forwards explicit bounds plus style flags, path separators, tooltips,
+hyperlink actions, known/indeterminate progress, 64-bit progress values, colors,
+and toolbar-header button masks.
+
+Each bundled runtime demo builds the complete `463 x 236` capabilities gallery
+itself and identifies its runtime and extension in the `Created by` group. That
+makes runtime parity directly inspectable in JavaScript, Python, PowerShell,
+PHP, and Lua source instead of hiding the layout behind a prebuilt showcase
+call. The complete cross-language reference is in
+`doc/salamatrix-ui.md`.
+
+Each worker also exposes a folder picker embedded in a dialog:
 
 | Runtime | Dialog method |
 | --- | --- |
@@ -145,6 +164,10 @@ An omitted or empty filter uses the all-files fallback. `save=true` selects the
 native save dialog and enables overwrite prompting; the selected UTF-8 path
 continues to use the normal dialog control-text/get contract.
 
+All five facades also expose a host-uptime helper backed by
+`salamander.host.uptime`. It returns a decimal millisecond string so 32-bit
+language integer limits do not truncate long-running systems.
+
 ## Command state
 
 All modern workers accept optional `enabled` and `visible` fields when registering
@@ -163,9 +186,9 @@ posts the normal Plugin Manager/menu refresh. Hidden commands are omitted from
 the native menu and disabled commands remain visible but non-invokable. This
 does not add a public vtable method or require a separate Extension Manager.
 
-Verification at the current pause point: all four provider Debug x64 projects
-build successfully and their worker files pass available Python, PowerShell,
-PHP, and Node syntax checks. The isolated process-runtime integration run now
+Verification at the current pause point: all five provider projects have
+verified x64 build paths and their worker files pass available Python,
+PowerShell, PHP, Node, and Lua syntax/load checks. The isolated process-runtime integration run now
 also passes with the standalone provider worker assets: with
 `SALAMATRIX_WORKER_ROOT` explicitly set to
 `build\verification\command-state\worker-root`, the Python/PowerShell/PHP
@@ -239,8 +262,8 @@ create/close/reorder/window hooks remain a later GAP item.
 
 The slice was rebuilt into build\verification\tab-lifecycle and verified by
 the native event tests, manifest parser tests, runtime protocol/schema tests,
-Automation/Salamatrix Debug x64 builds, all four standalone provider builds,
-all four worker syntax checks, and the explicit isolated
+Automation/Salamatrix Debug x64 builds, all five standalone provider builds,
+all five worker syntax/load checks, and the explicit isolated
 SALAMATRIX_WORKER_ROOT Python/PowerShell/PHP process-runtime test. No
 Salamander process was started or controlled.
 
@@ -306,7 +329,7 @@ self-contained while retaining each project's existing `USE_DARKMODELIB`
 configuration. The isolated `demoplug` Debug x64 verification build passed.
 
 The shared `src/res/sal_r.ico` artwork is intentionally used only by the
-Salamatrix Framework and SalamatrixAI plugins. The four standalone runtime
+Salamatrix Framework and SalamatrixAI plugins. The five standalone runtime
 providers do not define a custom plugin icon resource and therefore keep the
 standard Plugin Manager fallback icon. SalamatrixAI registers resource ID
 1030 through its normal GUI icon-list callbacks during `Connect`.
