@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 REPORT = ROOT / "tools" / "code_metrics" / "report_code_growth.py"
+RELEASE_REPORTS = ROOT / "tools" / "code_metrics" / "generate_release_reports.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "code-growth.yml"
 PR_BUILD = ROOT / ".github" / "workflows" / "pr-msbuild.yml"
 DIRECTORY_TARGETS = ROOT / "Directory.Build.targets"
@@ -71,6 +72,41 @@ def test_report_compares_source_without_building_release(tmp_path: Path) -> None
     assert report["comparison"]["summary"]["deltaNloc"] > 0
     assert report["comparison"]["files"][0]["path"] == "src/main.cpp"
     assert "Source code growth report" in output_markdown.read_text(encoding="utf-8")
+
+
+def test_release_report_compares_two_explicit_tags(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    create_repository(repository)
+    source = repository / "src" / "main.cpp"
+    source.parent.mkdir()
+    source.write_text("int Small() { return 1; }\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository), "commit", "-q", "-m", "release 0.1"], check=True)
+    subprocess.run(["git", "-C", str(repository), "tag", "5.0-samandarin-0.1"], check=True)
+
+    source.write_text("int Small() {\n    return 2;\n}\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository), "commit", "-q", "-m", "release 0.2"], check=True)
+    subprocess.run(["git", "-C", str(repository), "tag", "5.0-samandarin-0.2"], check=True)
+
+    output_directory = tmp_path / "reports"
+    subprocess.run(
+        [
+            sys.executable,
+            str(RELEASE_REPORTS),
+            "--repository-root", str(repository),
+            "--output-directory", str(output_directory),
+            "5.0-samandarin-0.1", "5.0-samandarin-0.2",
+        ],
+        check=True,
+    )
+
+    output = output_directory / "5.0-samandarin-0.1-to-0.2.md"
+    rendered = output.read_text(encoding="utf-8")
+    assert "Baseline: **5.0-samandarin-0.1**" in rendered
+    assert "Current: **5.0-samandarin-0.2**" in rendered
+    assert "NLOC: **1 -> 3** (**+2**)" in rendered
 
 
 def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> None:
