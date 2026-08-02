@@ -1016,7 +1016,7 @@ protected:
     Salamatrix::Extensions::ExtensionInfo* GetSelectedExtension();
     void EnableButtons(CPluginData* plugin);
     void OnContextMenu(int x, int y); // show the context menu for the selected item at coordinates x, y
-    void OnMove(BOOL up);
+    void OnMove(BOOL up, BOOL toEnd = FALSE);
     void OnSort();
     void EnableHeader();
     void ApplyTheme();

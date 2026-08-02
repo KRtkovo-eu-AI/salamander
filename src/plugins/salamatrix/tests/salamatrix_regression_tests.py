@@ -725,6 +725,32 @@ def main() -> int:
         r"EnableHeader\(\);\s*\}",
         "Plugin Manager does not refresh extension move buttons for every selection")
     require(
+        dialogs,
+        r"void CPluginsDlg::EnableHeader\(\).*?"
+        r"TLBHDRMASK_TOP \| TLBHDRMASK_UP.*?"
+        r"TLBHDRMASK_DOWN \| TLBHDRMASK_BOTTOM",
+        "Plugin Manager does not enable move-to-top and move-to-bottom buttons")
+    require(
+        dialogs,
+        r"void CPluginsDlg::OnMove\(BOOL up, BOOL toEnd\).*?"
+        r"toEnd \? \(up \? 0 : Plugins\.GetCount\(\) - 1\).*?"
+        r"while \(movedExtensionIndex != newExtensionIndex &&\s*"
+        r"service->MoveManagedExtension\(extensionId, direction\)\)",
+        "Plugin Manager does not move plugins and extensions to list boundaries")
+    require(
+        dialogs,
+        r"TLBHDRMASK_SORT \| TLBHDRMASK_TOP \|\s*"
+        r"TLBHDRMASK_UP \| TLBHDRMASK_DOWN \|\s*"
+        r"TLBHDRMASK_BOTTOM.*?"
+        r"case TLBHDR_TOP:.*?OnMove\(TRUE, TRUE\).*?"
+        r"case TLBHDR_BOTTOM:.*?OnMove\(FALSE, TRUE\)",
+        "Plugin Manager header does not expose boundary move commands")
+    require(
+        dialog_resources,
+        r'IDD_PLUGINS DIALOGEX.*?CAPTION "Plugins and Extensions Manager".*?'
+        r'"Installed &Plugins and Extensions: \(total: %d, loaded: %d\)"',
+        "Plugin Manager does not use the combined plugins and extensions title")
+    require(
         dialog_resources,
         r"IDD_PLUGINS DIALOGEX[^\n]*\n"
         r"STYLE (?=[^\n]*DS_MODALFRAME)(?=[^\n]*WS_THICKFRAME)"

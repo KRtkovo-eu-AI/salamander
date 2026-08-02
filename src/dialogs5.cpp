@@ -853,17 +853,17 @@ void CPluginsDlg::EnableHeader()
     {
         const int extensionIndex = index - Plugins.GetCount();
         if (extensionIndex > 0)
-            mask |= TLBHDRMASK_UP;
+            mask |= TLBHDRMASK_TOP | TLBHDRMASK_UP;
         if (extensionIndex >= 0 &&
             extensionIndex + 1 < static_cast<int>(ExtensionRows.size()))
-            mask |= TLBHDRMASK_DOWN;
+            mask |= TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
     }
     else
     {
         if (index > 0)
-            mask |= TLBHDRMASK_UP;
+            mask |= TLBHDRMASK_TOP | TLBHDRMASK_UP;
         if (index >= 0 && index + 1 < Plugins.GetCount())
-            mask |= TLBHDRMASK_DOWN;
+            mask |= TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
     }
     Header->EnableToolbar(mask);
 }
@@ -1264,14 +1264,15 @@ void CPluginsDlg::OnContextMenu(int x, int y)
         PostMessage(HWindow, WM_COMMAND, cmd, 0);
 }
 
-void CPluginsDlg::OnMove(BOOL up)
+void CPluginsDlg::OnMove(BOOL up, BOOL toEnd)
 {
     int index = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
     if (index < 0)
         return;
     if (index < Plugins.GetCount())
     {
-        int newIndex = up ? index - 1 : index + 1;
+        int newIndex = toEnd ? (up ? 0 : Plugins.GetCount() - 1)
+                             : (up ? index - 1 : index + 1);
         if (Plugins.ChangePluginsOrder(index, newIndex))
         {
             if (Configuration.KeepPluginsSorted)
@@ -1288,15 +1289,22 @@ void CPluginsDlg::OnMove(BOOL up)
     if (extension == NULL || service == NULL)
         return;
     const int extensionIndex = index - Plugins.GetCount();
-    const int newExtensionIndex = extensionIndex + (up ? -1 : 1);
+    const int direction = up ? -1 : 1;
+    const int newExtensionIndex =
+        toEnd ? (up ? 0 : static_cast<int>(ExtensionRows.size()) - 1)
+              : extensionIndex + direction;
     if (newExtensionIndex < 0 ||
         newExtensionIndex >= static_cast<int>(ExtensionRows.size()))
         return;
     char extensionId[128];
     lstrcpynA(
         extensionId, extension->Descriptor.Id, _countof(extensionId));
-    if (service->MoveManagedExtension(extensionId, up ? -1 : 1))
-        RefreshListView(FALSE, Plugins.GetCount() + newExtensionIndex);
+    int movedExtensionIndex = extensionIndex;
+    while (movedExtensionIndex != newExtensionIndex &&
+           service->MoveManagedExtension(extensionId, direction))
+        movedExtensionIndex += direction;
+    if (movedExtensionIndex != extensionIndex)
+        RefreshListView(FALSE, Plugins.GetCount() + movedExtensionIndex);
 }
 
 void CPluginsDlg::OnSort()
@@ -1347,7 +1355,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // copy the Show In Change Drive Menu checkbox text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINSHOWINCHDRV, ShowInChDrvText, 200);
 
-        // copy the "Installed Plugins:" text into our buffer
+        // copy the "Installed Plugins and Extensions:" text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINHEADER, InstalledPluginsText, 200);
 
         SetWindowText(GetDlgItem(HWindow, IDB_PLUGINUPDATES), LoadStr(IDS_PLUGINUPDATES));
@@ -1366,7 +1374,9 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // header line
         Header = new CToolbarHeader(HWindow, IDC_PLUGINHEADER, HListView,
-                                    TLBHDRMASK_SORT | TLBHDRMASK_UP | TLBHDRMASK_DOWN);
+                                    TLBHDRMASK_SORT | TLBHDRMASK_TOP |
+                                        TLBHDRMASK_UP | TLBHDRMASK_DOWN |
+                                        TLBHDRMASK_BOTTOM);
         if (Header == NULL)
             TRACE_E(LOW_MEMORY);
 
@@ -1532,11 +1542,17 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SetFocus(HListView);
             switch (HIWORD(wParam))
             {
+            case TLBHDR_TOP:
+                OnMove(TRUE, TRUE);
+                break;
             case TLBHDR_UP:
                 OnMove(TRUE);
                 break;
             case TLBHDR_DOWN:
                 OnMove(FALSE);
+                break;
+            case TLBHDR_BOTTOM:
+                OnMove(FALSE, TRUE);
                 break;
             case TLBHDR_SORT:
                 if (!Configuration.KeepPluginsSorted)
