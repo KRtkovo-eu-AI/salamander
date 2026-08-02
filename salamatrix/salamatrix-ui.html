@@ -105,27 +105,7 @@
           <img src="../images/salamatrix_preview_jsnode.png" alt="JavaScript/Node preview">
         </div>
         <h4>Node.js script source code example:</h4>
-        <pre><code>if (Salamander.command_handler === "run") {
-  await Salamander.ui.notify(
-    "Node.js extension package is running through Salamatrix.",
-    "Salamatrix Node Demo",
-    2500,
-  );
-  const progress = await Salamander.ui.progress(
-    "Salamatrix Node Progress Demo", 5,
-  );
-  try {
-    for (let step = 1; step &lt;= 5; step += 1) {
-      await progress.update(step, undefined, `Step ${step} of 5`);
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      if (await progress.isCancelled()) break;
-    }
-  } finally {
-    await progress.close();
-  }
-  await Salamander.storage.set("lastRun", "JavaScript.Node");
-
-  // Build the complete gallery here, through the public runtime-neutral API.
+        <pre><code>// Build the complete gallery here, through the public runtime-neutral API.
   const dialog = await Salamander.ui.dialog(
     "Salamatrix UI capabilities", { width: 463, height: 236 }).create();
   const add = (kind, id, text, x, y, width, height, options = {}) =>
@@ -190,21 +170,7 @@
           <img src="../images/salamatrix_preview_python.png" alt="Python preview">
         </div>
         <h4>Python script source code example:</h4>
-        <pre><code>import time
-
-Salamander.ui.notify("CPython extension package is running through Salamatrix.", "Salamatrix Python Demo", 2500)
-progress = Salamander.ui.progress("Salamatrix Python Progress Demo", 5)
-try:
-    for step in range(1, 6):
-        progress.update(step, text=f"Step {step} of 5")
-        time.sleep(0.15)
-        if progress.is_cancelled():
-            break
-finally:
-    progress.close()
-Salamander.storage.set("lastRun", "Python.CPython")
-
-# Build the complete gallery here, through the public runtime-neutral API.
+        <pre><code># Build the complete gallery here, through the public runtime-neutral API.
 dialog = Salamander.ui.dialog("Salamatrix UI capabilities", 463, 236)
 def add(kind, control_id, text, x, y, width, height, **options):
     dialog.add_control(kind, control_id, text,
@@ -271,22 +237,7 @@ finally:
           <img src="../images/salamatrix_preview_powershell.png" alt="PowerShell preview">
         </div>
         <h4>PowerShell script source code example:</h4>
-        <pre><code>if ($Salamander.command_handler -eq 'run') {
-    $Salamander.ui.Notify('PowerShell extension package is running through Salamatrix.', 'Salamatrix PowerShell Demo', 2500)
-    $progress = $Salamander.ui.Progress('Salamatrix PowerShell Progress Demo', 5)
-    try {
-        for ($step = 1; $step -le 5; $step++) {
-            [void]$progress.Update($step, -1, "Step $step of 5")
-            Start-Sleep -Milliseconds 150
-            if ($progress.IsCancelled()) { break }
-        }
-    }
-    finally {
-        $progress.Close()
-    }
-    $null = $Salamander.storage.Set('lastRun', 'PowerShell')
-
-    # Build the complete gallery here, through the public runtime-neutral API.
+        <pre><code># Build the complete gallery here, through the public runtime-neutral API.
     $dialog = $Salamander.ui.Dialog('Salamatrix UI capabilities', 463, 236)
     function Add-CapabilityControl($kind, $id, $text, $x, $y, $width, $height, $options = @{}) {
         $dialog.AddControl($kind, $id, $text, $false, $false, 0,
@@ -350,22 +301,6 @@ finally:
         </div>
         <h4>PHP script source code example:</h4>
         <pre><code>&lt;?php
-if ($Salamander->command_handler === 'run') {
-    $Salamander->ui->notify('PHP CLI extension package is running through Salamatrix.', 'Salamatrix PHP Demo', 2500);
-    $progress = $Salamander->ui->progress('Salamatrix PHP Progress Demo', 5);
-    try {
-        for ($step = 1; $step &lt;= 5; $step++) {
-            $progress->update($step, null, "Step {$step} of 5");
-            usleep(150000);
-            if ($progress->isCancelled()) {
-                break;
-            }
-        }
-    } finally {
-        $progress->close();
-    }
-    $Salamander->storage->set('lastRun', 'PHP.CLI');
-
     // Build the complete gallery here, through the public runtime-neutral API.
     $dialog = $Salamander->ui->dialog('Salamatrix UI capabilities', 463, 236);
     $add = function ($kind, $id, $text, $x, $y, $width, $height, $options = array()) use ($dialog) {
@@ -430,32 +365,7 @@ if ($Salamander->command_handler === 'run') {
           <img src="../images/salamatrix_preview_lua.png" alt="Lua preview">
         </div>
         <h4>LUA script source code example:</h4>
-        <pre><code>if Salamander.command_handler == "run" then
-    Salamander.ui.notify(
-        "Lua extension package is running through Salamatrix.",
-        "Salamatrix Lua Demo",
-        2500)
-
-    local progress = Salamander.ui.progress(
-        "Salamatrix Lua Progress Demo", 5)
-    local succeeded, failure = pcall(function()
-        for step = 1, 5 do
-            progress.update(step, {text = "Step " .. step .. " of 5"})
-
-            -- Standard Lua has no sleep function. Keep the short demo progress
-            -- visible without starting an external process.
-            local resume_at = os.clock() + 0.15
-            while os.clock() &lt; resume_at do end
-
-            if progress.is_cancelled() then break end
-        end
-    end)
-    progress.close()
-    if not succeeded then error(failure) end
-
-    Salamander.storage.set("lastRun", "Lua")
-
-    -- Build the complete gallery here, through the public runtime-neutral API.
+        <pre><code>-- Build the complete gallery here, through the public runtime-neutral API.
     local dialog = Salamander.ui.dialog("Salamatrix UI capabilities", 463, 236)
     local function add(kind, id, text, x, y, width, height, options)
         options = options or {}; options.x=x; options.y=y
@@ -524,56 +434,6 @@ end
         <h4>JavaScript source code example:</h4>
         <pre><code>// Demonstrates the Salamatrix-backed Automation API.
 // Requires the Salamatrix Framework plugin to be installed and loaded.
-
-var progress = Salamander.UI.progress("Salamatrix progress demo");
-progress.Maximum = 5;
-progress.Show();
-
-try {
-    for (var i = 1; i &lt;= 5; ++i) {
-        progress.AddText("Step " + i + " of 5");
-        progress.Position = i;
-        Salamander.Sleep(150);
-        if (progress.IsCancelled) {
-            break;
-        }
-    }
-}
-finally {
-    progress.CanCancel = false;
-    progress.Hide();
-}
-
-var commandResult = Salamander.Commands.execute("QuickRename");
-var sourceSide = Salamander.Sides.Source;
-var activeTab = sourceSide.ActiveTab;
-var previousSourcePath = "(Storage unavailable in legacy Automation)";
-var storageNamespace = "(legacy Automation)";
-try {
-    previousSourcePath =
-        Salamander.Storage.get("lastSourcePath", "(first run)");
-    Salamander.Storage.set("lastSourcePath", activeTab.Path);
-    storageNamespace = Salamander.Storage.Namespace;
-}
-catch (storageError) {
-    // The same script can be launched from Automation's legacy script list,
-    // where an older installation may not have the adjacent extension.json.
-    // The progress/API demonstration remains useful without package storage.
-}
-var sideSummary =
-    "\n\nSource side: " + sourceSide.Name +
-    "\nTabs on side: " + sourceSide.TabCount +
-    "\nActive tab index: " + activeTab.Index +
-    "\nActive tab path: " + activeTab.Path +
-    "\nPath saved by previous run: " + previousSourcePath +
-    "\nStorage namespace: " + storageNamespace;
-if (commandResult == "not_available") {
-    Salamander.MsgBox("Quick Rename is not available in the current panel context. Select or focus a file first and run the demo again." + sideSummary, 0, "Salamatrix Demo");
-}
-else {
-    Salamander.MsgBox("Salamatrix command result: " + commandResult + sideSummary, 0, "Salamatrix Demo");
-}
-
 // Build the complete gallery here through Salamatrix.UI, just like every
 // external runtime demo does through its worker facade.
 var dialog = Salamander.UI.dialog("Salamatrix UI capabilities", 463, 236);
