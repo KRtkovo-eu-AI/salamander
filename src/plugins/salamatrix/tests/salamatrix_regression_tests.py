@@ -146,6 +146,29 @@ def main() -> int:
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
+    require(
+        salamatrix,
+        r"SetBasicPluginData\(PluginNameEN,.*?"
+        r"FUNCTION_AUTOMATIONFRAMEWORK\s*\|.*?"
+        r"FUNCTION_DYNAMICMENUEXT\s*\|.*?"
+        r"FUNCTION_LOADSAVECONFIGURATION",
+        "Salamatrix does not advertise package configuration persistence")
+    require(
+        salamatrix,
+        r"CPluginInterface::LoadConfiguration.*?"
+        r"SalamatrixPackages->LoadConfiguration\(regKey, registry\).*?"
+        r"CPluginInterface::SaveConfiguration.*?"
+        r"SalamatrixPackages->SaveConfiguration\(regKey, registry\)",
+        "Salamatrix does not forward host configuration callbacks to packages")
+    require(
+        packages,
+        r'StringListLoader::Load\(\s*key, "ExtensionOrder".*?'
+        r'StringListLoader::Load\(\s*key, "RemovedExtensions".*?'
+        r'StringListLoader::Load\(\s*key, "ExtensionManifests".*?'
+        r'StringListSaver::Save\(\s*key, "ExtensionOrder".*?'
+        r'StringListSaver::Save\(\s*key, "RemovedExtensions".*?'
+        r'StringListSaver::Save\(\s*key, "ExtensionManifests"',
+        "Salamatrix does not persist extension order, removals and custom manifests")
     for key, name in (
         ("JAVASCRIPT.RUNTIME", "JavaScript Runtime"),
         ("LUA.RUNTIME", "Lua Runtime"),
