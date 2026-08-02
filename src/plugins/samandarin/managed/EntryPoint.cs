@@ -1202,6 +1202,20 @@ internal sealed class ThemedGroupBox : GroupBox
 
 internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 {
+    private const string DefaultPluginImageKey = "default-plugin";
+    private const string DefaultPluginIconResource = "OpenSalamander.Plugin.ico";
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint ExtractIconEx(
+        string fileName,
+        int iconIndex,
+        IntPtr[]? largeIcons,
+        IntPtr[]? smallIcons,
+        uint iconCount);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyIcon(IntPtr icon);
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
@@ -1285,6 +1299,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         };
         EnableSmoothListViewPainting(_listView);
         _pluginImages = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new System.Drawing.Size(16, 16) };
+        AddDefaultPluginImage();
         _listView.SmallImageList = _pluginImages;
         _listView.Columns.Add(string.Empty, 46);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 140);
@@ -1687,7 +1702,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 
         if (string.IsNullOrWhiteSpace(row.IconPath))
         {
-            return string.Empty;
+            return DefaultPluginImageKey;
         }
 
         var key = row.IconPath!;
@@ -1696,21 +1711,73 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             return key;
         }
 
+        if (TryAddInstalledPackageImage(key))
+        {
+            return key;
+        }
+
+        return DefaultPluginImageKey;
+    }
+
+    private bool TryAddInstalledPackageImage(string path)
+    {
         try
         {
-            using var icon = Icon.ExtractAssociatedIcon(key);
-            if (icon is not null)
+            var extension = Path.GetExtension(path);
+            if (extension.Equals(".ico", StringComparison.OrdinalIgnoreCase))
             {
+                using var icon = new Icon(path);
                 using var bitmap = icon.ToBitmap();
-                AddPluginImage(key, bitmap);
-                return key;
+                AddPluginImage(path, bitmap);
+                return true;
+            }
+
+            if (extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase))
+            {
+                using var image = Image.FromFile(path);
+                AddPluginImage(path, image);
+                return true;
+            }
+
+            var smallIcons = new[] { IntPtr.Zero };
+            if (ExtractIconEx(path, 0, null, smallIcons, 1) == 0 || smallIcons[0] == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            try
+            {
+                using var icon = (Icon)Icon.FromHandle(smallIcons[0]).Clone();
+                using var bitmap = icon.ToBitmap();
+                AddPluginImage(path, bitmap);
+                return true;
+            }
+            finally
+            {
+                DestroyIcon(smallIcons[0]);
             }
         }
         catch
         {
+            return false;
+        }
+    }
+
+    private void AddDefaultPluginImage()
+    {
+        using var stream = typeof(PluginUpdatesDialog).Assembly.GetManifestResourceStream(
+            DefaultPluginIconResource);
+        if (stream is null)
+        {
+            return;
         }
 
-        return string.Empty;
+        using var icon = new Icon(stream);
+        using var bitmap = icon.ToBitmap();
+        AddPluginImage(DefaultPluginImageKey, bitmap);
     }
 
     private async Task EnsureCatalogImagesAsync(IEnumerable<PluginUpdateRow> rows)
@@ -2676,6 +2743,14 @@ internal static class PluginCatalogService
 
     private static bool IsCatalogEntryMatch(PluginCatalogEntry entry, InstalledPlugin plugin)
     {
+        var catalogKind = PluginCatalogMetadata.GetPackageKind(entry.packageType);
+        if (catalogKind != InstalledPackageKind.Unknown &&
+            plugin.Kind != InstalledPackageKind.Unknown &&
+            catalogKind != plugin.Kind)
+        {
+            return false;
+        }
+
         if (string.Equals(entry.id, plugin.Id, StringComparison.OrdinalIgnoreCase))
         {
             return true;
@@ -2697,14 +2772,14 @@ internal static class PluginCatalogService
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id, dependencies: entry.dependencies);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id, catalogKind: PluginCatalogMetadata.GetPackageKind(entry.packageType), dependencies: entry.dependencies);
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
     {
         if (entry is null)
         {
-            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty, string.Empty, plugin.Id, plugin.Kind, plugin.InstallDirectory);
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty, plugin.IconPath, string.Empty, string.Empty, plugin.Id, plugin.Kind, installDirectory: plugin.InstallDirectory);
         }
 
         var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
@@ -2720,7 +2795,7 @@ internal static class PluginCatalogService
         var displayName = IsTotalCommanderProxyCatalogEntry(entry) && IsTotalCommanderProxyInstance(plugin)
             ? plugin.DisplayName
             : LocalizedText.Resolve(entry.name) ?? plugin.DisplayName;
-        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id ?? plugin.Id, plugin.Kind, plugin.InstallDirectory, entry.dependencies);
+        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id ?? plugin.Id, plugin.Kind, PluginCatalogMetadata.GetPackageKind(entry.packageType), plugin.InstallDirectory, entry.dependencies);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -2745,6 +2820,7 @@ internal sealed class PluginCatalogSource
 internal static class PluginCatalogSources
 {
     private const string StablePluginSource = "https://samandarin.krtkovo.eu/catalogs/plugins-stable.json";
+    private const string StableExtensionSource = "https://samandarin.krtkovo.eu/catalogs/extensions-stable.json";
     private const string UnofficialExternalSource = "https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json";
     private const string ExtensionRuntimesSource = "https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json";
     private const string LegacyStablePluginSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
@@ -2821,6 +2897,7 @@ internal static class PluginCatalogSources
     private static IReadOnlyList<PluginCatalogSource> DefaultSources() => new[]
     {
         new PluginCatalogSource { Url = StablePluginSource, Enabled = true },
+        new PluginCatalogSource { Url = StableExtensionSource, Enabled = true },
         new PluginCatalogSource { Url = UnofficialExternalSource, Enabled = true },
         new PluginCatalogSource { Url = ExtensionRuntimesSource, Enabled = true },
     };
@@ -2831,6 +2908,7 @@ internal static class PluginCatalogSources
         changed |= ReplaceSourceUrl(sources, LegacyStablePluginSource, StablePluginSource);
         changed |= ReplaceSourceUrl(sources, LegacyUnofficialExternalSource, UnofficialExternalSource);
         changed |= AddMissingDefaultSource(sources, StablePluginSource);
+        changed |= AddMissingDefaultSource(sources, StableExtensionSource);
         changed |= AddMissingDefaultSource(sources, UnofficialExternalSource);
         changed |= AddMissingDefaultSource(sources, ExtensionRuntimesSource);
         changed |= RemoveDuplicateSources(sources);
@@ -2891,9 +2969,31 @@ internal static class InstalledPluginScanner
             : ScanPluginDirectory().ToList();
         if (NativeInstalledExtensionProvider.TryReadInstalledExtensions(out var liveExtensions))
         {
-            packages.AddRange(liveExtensions);
+            packages.AddRange(CollapseExtensions(liveExtensions));
         }
         return packages;
+    }
+
+    private static IEnumerable<InstalledPlugin> CollapseExtensions(
+        IEnumerable<InstalledPlugin> extensions)
+    {
+        foreach (var group in extensions.GroupBy(extension => extension.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            var items = group.ToList();
+            var first = items[0];
+            var version = items.Select(item => item.VersionText)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() == 1
+                    ? first.VersionText
+                    : string.Empty;
+            yield return new InstalledPlugin(
+                first.Id,
+                first.DisplayName,
+                version,
+                items.Select(item => item.IconPath).FirstOrDefault(path => !string.IsNullOrWhiteSpace(path)),
+                InstalledPackageKind.Extension,
+                items.Select(item => item.InstallDirectory).FirstOrDefault(path => !string.IsNullOrWhiteSpace(path)));
+        }
     }
 
     private static IEnumerable<InstalledPlugin> ScanPluginDirectory()
@@ -3030,16 +3130,18 @@ internal static class NativeInstalledExtensionProvider
             if (parts.Length < 4 || string.IsNullOrWhiteSpace(parts[0])) continue;
             var entryPoint = PluginMetadata.ResolveApplicationRelativePath(parts[3]);
             var packageDirectory = PluginMetadata.FindExtensionPackageDirectory(entryPoint);
+            var catalogId = PluginMetadata.BuildExtensionCatalogId(parts[0], packageDirectory);
+            var installDirectory = PluginMetadata.ResolveExtensionInstallDirectory(catalogId, packageDirectory);
             var iconPath = parts.Length > 4
                 ? PluginMetadata.ResolveApplicationRelativePath(parts[4])
                 : null;
             yield return new InstalledPlugin(
-                parts[0],
+                catalogId,
                 string.IsNullOrWhiteSpace(parts[1]) ? parts[0] : parts[1],
                 parts[2],
                 iconPath,
                 InstalledPackageKind.Extension,
-                packageDirectory);
+                installDirectory);
         }
     }
 }
@@ -3068,24 +3170,46 @@ internal static class PluginMetadata
     {
         var normalized = dllName.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var fileName = Path.GetFileNameWithoutExtension(normalized);
-        if (Path.IsPathRooted(normalized))
+        return string.IsNullOrWhiteSpace(fileName) ? normalized : fileName!;
+    }
+
+    public static string BuildExtensionCatalogId(string manifestId, string? packageDirectory)
+    {
+        if (IsSalamatrixDemoId(manifestId))
         {
-            return string.IsNullOrWhiteSpace(fileName) ? normalized : fileName!;
+            return "salamatrixdemos";
         }
 
-        var segments = normalized.Split(
-            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
-            StringSplitOptions.RemoveEmptyEntries);
-        var firstSegment = segments.FirstOrDefault();
-        if (segments.Length > 1 &&
-            string.Equals(firstSegment, "extension-runtimes", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(packageDirectory))
         {
-            return segments[1];
+            var directoryName = Path.GetFileName(packageDirectory!.TrimEnd(
+                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.IsNullOrWhiteSpace(directoryName))
+            {
+                return directoryName!;
+            }
         }
 
-        return string.IsNullOrWhiteSpace(firstSegment)
-            ? (string.IsNullOrWhiteSpace(fileName) ? normalized : fileName!)
-            : firstSegment!;
+        return manifestId;
+    }
+
+    public static string? ResolveExtensionInstallDirectory(string catalogId, string? packageDirectory)
+    {
+        if (!string.Equals(catalogId, "salamatrixdemos", StringComparison.OrdinalIgnoreCase))
+        {
+            return packageDirectory;
+        }
+
+        var executableDirectory = GetExecutableDirectory();
+        return string.IsNullOrWhiteSpace(executableDirectory)
+            ? packageDirectory
+            : Path.Combine(executableDirectory!, "extensions", "demos");
+    }
+
+    private static bool IsSalamatrixDemoId(string id)
+    {
+        return id.StartsWith("Salamatrix.Demo.", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(id, "Salamatrix.JScript.ProgressDemo", StringComparison.OrdinalIgnoreCase);
     }
 
     public static string? ResolveApplicationRelativePath(string? path)
@@ -3123,6 +3247,7 @@ internal sealed class PluginCatalogManifest { public int schemaVersion { get; se
 internal sealed class PluginCatalogEntry
 {
     public string? id { get; set; }
+    public string? packageType { get; set; }
     public object? name { get; set; }
     public string? author { get; set; }
     public object? description { get; set; }
@@ -3134,6 +3259,22 @@ internal sealed class PluginCatalogEntry
     public string[]? dependencies { get; set; }
     public string? source { get; set; }
     public string? sourceUrl { get; set; }
+}
+
+internal static class PluginCatalogMetadata
+{
+    public static InstalledPackageKind GetPackageKind(string? packageType)
+    {
+        if (string.Equals(packageType, "plugin", StringComparison.OrdinalIgnoreCase))
+        {
+            return InstalledPackageKind.Plugin;
+        }
+        if (string.Equals(packageType, "extension", StringComparison.OrdinalIgnoreCase))
+        {
+            return InstalledPackageKind.Extension;
+        }
+        return InstalledPackageKind.Unknown;
+    }
 }
 
 internal static class LocalizedText
@@ -3291,7 +3432,7 @@ internal static class InstalledPluginVersionFormatter
 
 internal sealed class PluginUpdateRow
 {
-    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? catalogIconReference, string? catalogSourceUrl, string? id = null, InstalledPackageKind installedKind = InstalledPackageKind.Unknown, string? installDirectory = null, IEnumerable<string>? dependencies = null)
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description, string? iconPath, string? catalogIconReference, string? catalogSourceUrl, string? id = null, InstalledPackageKind installedKind = InstalledPackageKind.Unknown, InstalledPackageKind catalogKind = InstalledPackageKind.Unknown, string? installDirectory = null, IEnumerable<string>? dependencies = null)
     {
         Name = name;
         InstalledVersion = installedVersion;
@@ -3308,6 +3449,7 @@ internal sealed class PluginUpdateRow
         CatalogSourceUrl = catalogSourceUrl ?? string.Empty;
         Id = id ?? string.Empty;
         InstalledKind = installedKind;
+        CatalogKind = catalogKind;
         InstallDirectory = installDirectory ?? string.Empty;
         Dependencies = (dependencies ?? Array.Empty<string>())
             .Where(dependency => !string.IsNullOrWhiteSpace(dependency))
@@ -3331,6 +3473,7 @@ internal sealed class PluginUpdateRow
     public string CatalogSourceUrl { get; }
     public string Id { get; }
     public InstalledPackageKind InstalledKind { get; }
+    public InstalledPackageKind CatalogKind { get; }
     public string InstallDirectory { get; }
     public IReadOnlyList<string> Dependencies { get; }
 

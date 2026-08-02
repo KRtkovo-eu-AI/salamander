@@ -25,6 +25,9 @@ DEFAULT_EXTENSIONS_ROOT = ROOT / "src" / "extensions"
 DEFAULT_RELEASE_URL = "https://github.com/KRtkovo-eu-AI/salamander/releases"
 DEFAULT_PACKAGE_RELEASE_URL = "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases"
 DEFAULT_PLUGIN_ICON_URL = "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+CATALOG_SCHEMA_VERSION = 5
+PACKAGE_TYPE_PLUGIN = "plugin"
+PACKAGE_TYPE_EXTENSION = "extension"
 EXTENSION_BUNDLES = {
     "salamatrixdemos": {
         "directory": "demos",
@@ -235,6 +238,7 @@ def new_plugin_entry(plugin_id: str, version: str | None, description: str | Non
     display_name = plugin_id.replace("-", " ").replace("_", " ").title()
     return {
         "id": plugin_id,
+        "packageType": PACKAGE_TYPE_PLUGIN,
         "name": {"english": display_name},
         "author": "Open Salamander Authors",
         "description": {"english": description or f"{display_name} plugin for Open Salamander"},
@@ -248,6 +252,7 @@ def new_plugin_entry(plugin_id: str, version: str | None, description: str | Non
 def new_extension_entry(extension_id: str, extensions_root: Path) -> dict[str, Any]:
     version, name, description, runtime_id = read_extension_metadata(extension_id, extensions_root)
     entry = new_plugin_entry(extension_id, version, description)
+    entry["packageType"] = PACKAGE_TYPE_EXTENSION
     entry["name"] = {"english": name}
     archive_version = version.removesuffix(" (x64)")
     archive_name = f"plugin_5.0_{extension_id}_{archive_version}_x64"
@@ -276,9 +281,15 @@ def load_catalogs(catalog: Path) -> dict[Path, dict[str, Any]]:
 
 
 def assign_packages_to_catalogs(
-    catalogs: dict[Path, dict[str, Any]], stable_catalog: Path, package_ids: list[str]
+    catalogs: dict[Path, dict[str, Any]],
+    stable_catalog: Path,
+    package_ids: list[str],
+    *,
+    extension_ids: set[str] | None = None,
+    extension_catalog: Path | None = None,
 ) -> dict[Path, list[str]]:
     """Assign packages using existing membership, defaulting new ids to stable."""
+    extension_ids = extension_ids or set()
     owners: dict[str, list[Path]] = {}
     for path, catalog in catalogs.items():
         for entry in catalog["plugins"]:
@@ -286,6 +297,11 @@ def assign_packages_to_catalogs(
 
     assignments: dict[Path, list[str]] = {}
     for package_id in package_ids:
+        if package_id in extension_ids:
+            if extension_catalog is None or extension_catalog not in catalogs:
+                raise RuntimeError("Manifest extensions require extensions-stable.json")
+            assignments.setdefault(extension_catalog, []).append(package_id)
+            continue
         candidates = owners.get(package_id, [])
         if stable_catalog in candidates:
             target = stable_catalog
@@ -321,9 +337,11 @@ def update_catalog(
         if package_id in extension_ids:
             version, _, description, _ = read_extension_metadata(package_id, extensions_root)
             entry = dict(existing.get(package_id) or new_extension_entry(package_id, extensions_root))
+            entry["packageType"] = PACKAGE_TYPE_EXTENSION
         else:
             version, description = read_plugin_metadata(package_id, plugins_root)
             entry = dict(existing.get(package_id) or new_plugin_entry(package_id, version, description))
+            entry["packageType"] = PACKAGE_TYPE_PLUGIN
         if version is not None:
             entry["latestVersion"] = version
         elif "latestVersion" not in entry:
@@ -331,8 +349,28 @@ def update_catalog(
         updated_plugins.append(entry)
 
     updated = dict(catalog)
+    updated["schemaVersion"] = CATALOG_SCHEMA_VERSION
     updated["generatedAt"] = generated_at or now_utc()
     updated["plugins"] = updated_plugins
+    return updated
+
+
+def update_catalog_schema(
+    catalog: dict[str, Any], extension_ids: set[str], *, extension_catalog: bool = False
+) -> dict[str, Any]:
+    """Upgrade catalog metadata without changing its entry membership or ordering."""
+    updated = dict(catalog)
+    updated["schemaVersion"] = CATALOG_SCHEMA_VERSION
+    updated_entries: list[dict[str, Any]] = []
+    for package in catalog.get("plugins", []):
+        entry = dict(package)
+        entry["packageType"] = (
+            PACKAGE_TYPE_EXTENSION
+            if extension_catalog or entry.get("id") in extension_ids
+            else PACKAGE_TYPE_PLUGIN
+        )
+        updated_entries.append(entry)
+    updated["plugins"] = updated_entries
     return updated
 
 
@@ -382,19 +420,35 @@ def main() -> int:
     shipped_extensions = parse_installer_extensions(args.installer, args.extensions_root)
     extension_ids = [extension_id for extension_id, _ in shipped_extensions]
     package_ids = shipped_plugin_ids + extension_ids
-    assignments = assign_packages_to_catalogs(catalogs, args.catalog, package_ids)
+    extension_catalog = args.catalog.parent / "extensions-stable.json"
+    assignments = assign_packages_to_catalogs(
+        catalogs,
+        args.catalog,
+        package_ids,
+        extension_ids=set(extension_ids),
+        extension_catalog=extension_catalog,
+    )
     generated_at = None if args.check else now_utc()
 
     rendered_catalogs: dict[Path, str] = {}
-    for path, assigned_ids in assignments.items():
-        timestamp = catalogs[path].get("generatedAt") if args.check else generated_at
-        updated = update_catalog(
-            catalogs[path],
-            assigned_ids,
-            args.plugins_root,
-            timestamp,
-            extension_ids=set(extension_ids),
-            extensions_root=args.extensions_root,
+    extension_id_set = set(extension_ids)
+    for path, catalog_data in catalogs.items():
+        if path in assignments:
+            timestamp = catalog_data.get("generatedAt") if args.check else generated_at
+            updated = update_catalog(
+                catalog_data,
+                assignments[path],
+                args.plugins_root,
+                timestamp,
+                extension_ids=extension_id_set,
+                extensions_root=args.extensions_root,
+            )
+        else:
+            updated = catalog_data
+        updated = update_catalog_schema(
+            updated,
+            extension_id_set,
+            extension_catalog=path.name.casefold() == "extensions-stable.json",
         )
         rendered_catalogs[path] = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
 
@@ -429,7 +483,7 @@ def main() -> int:
         path.write_text(rendered, encoding="utf-8")
     args.installer.write_text(installer_rendered, encoding="utf-8")
     counts = ", ".join(
-        f"{path.name}: {len(assignments[path])}" for path in sorted(assignments)
+        f"{path.name}: {len(assignments.get(path, []))}" for path in sorted(catalogs)
     )
     print(f"Updated base catalogs ({counts}) and synchronized installer plugin versions.")
     return 0

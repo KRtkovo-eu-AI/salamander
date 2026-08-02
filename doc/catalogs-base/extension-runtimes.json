@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "catalogName": "Extension Runtimes",
-  "generatedAt": "2026-07-30T22:57:28Z",
+  "generatedAt": "2026-08-02T00:20:57Z",
   "plugins": [
     {
       "id": "salamatrix",
@@ -36,7 +36,8 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.2_x64/plugin_5.0_salamatrix_0.2_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png",
+      "packageType": "plugin"
     },
     {
       "id": "salamatrixai",
@@ -54,7 +55,8 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png",
+      "packageType": "plugin"
     },
     {
       "id": "salamatrixailocalllama",
@@ -72,7 +74,8 @@
       "dependencies": [
         "salamatrixai"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png",
+      "packageType": "plugin"
     },
     {
       "id": "pythonruntime",
@@ -90,7 +93,8 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "packageType": "plugin"
     },
     {
       "id": "powershellruntime",
@@ -108,7 +112,8 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "packageType": "plugin"
     },
     {
       "id": "luaruntime",
@@ -126,7 +131,8 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "packageType": "plugin"
     },
     {
       "id": "phpruntime",
@@ -144,7 +150,8 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "packageType": "plugin"
     },
     {
       "id": "javascriptruntime",
@@ -162,7 +169,8 @@
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "packageType": "plugin"
     },
     {
       "id": "demoplug",
@@ -197,25 +205,8 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_1.96_x64/plugin_5.0_demoplug_1.96_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/demoplug.png"
-    },
-    {
-      "id": "salamatrixdemos",
-      "name": {
-        "english": "Salamatrix Demo Sample Scripts"
-      },
-      "author": "Ondřej Kotas (KRtekTM)",
-      "description": {
-        "english": "Demo sample scripts for the Salamatrix framework."
-      },
-      "latestVersion": "1.0.0 (x64)",
-      "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixdemos_1.0.0_x64/plugin_5.0_salamatrixdemos_1.0.0_x64.7z",
-      "dependencies": [
-        "salamatrix"
-      ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/demoplug.png",
+      "packageType": "plugin"
     }
   ]
 }
