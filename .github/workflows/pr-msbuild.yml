@@ -138,6 +138,14 @@ jobs:
         run: |
           .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet '${{ matrix.sftp_triplet }}'
 
+      - name: Install Lua runtime dependencies
+        # The changed-project filter below builds Lua only when this PR changes
+        # the Lua runtime project. Do not install its vcpkg manifest for other
+        # selected projects; this setup is intentionally expensive.
+        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && contains(steps.build_changes.outputs.changed_files_json, 'src/plugins/luaruntime/')
+        run: |
+          .\tools\vcpkg\build-third-party-libs.ps1 -Triplet '${{ matrix.sftp_triplet }}'
+
       - name: Select changed projects
         if: github.event_name == 'pull_request' && steps.build_changes.outputs.has_build_relevant_changes == 'true'
         id: changed_projects
