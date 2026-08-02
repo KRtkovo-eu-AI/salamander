@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "pythonruntime.h"
+#include "python_executable_discovery.h"
 #include "pythonruntime.rh"
 #include "versinfo.rh2"
 #include "../shared/runtime_configuration.h"
@@ -59,29 +60,6 @@ static bool GetModulePathString(HMODULE module, std::wstring& value)
             return true;
         }
         capacity *= 2;
-    }
-    return false;
-}
-
-static bool SearchPathString(
-    const wchar_t* fileName,
-    std::wstring& value)
-{
-    value.clear();
-    DWORD capacity = SAL_MAX_PATH;
-    for (int attempt = 0; attempt < 8; ++attempt)
-    {
-        std::vector<wchar_t> buffer(static_cast<size_t>(capacity));
-        DWORD length = SearchPathW(
-            NULL, fileName, NULL, capacity, &buffer[0], NULL);
-        if (length == 0)
-            return false;
-        if (length < capacity)
-        {
-            value.assign(&buffer[0], length);
-            return true;
-        }
-        capacity = length + 1;
     }
     return false;
 }
@@ -645,31 +623,24 @@ void CPythonRuntimeAdapter::ResolveInterpreter() const
 
     if (RuntimeSettings.UseCustomExecutable)
     {
-        std::wstring customPath = ToWin32Path(
-            RuntimeSettings.CustomExecutablePath);
-        DWORD attributes = GetFileAttributesW(customPath.c_str());
-        if (attributes != INVALID_FILE_ATTRIBUTES &&
-            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+        if (PythonExecutableDiscovery::IsUsablePythonInterpreter(
+                RuntimeSettings.CustomExecutablePath))
             m_executablePath = RuntimeSettings.CustomExecutablePath;
         return;
     }
 
+    std::wstring pathValue;
+    GetEnvironmentString(L"PATH", pathValue);
+
     std::wstring configured;
     if (GetEnvironmentString(m_pszEnvironmentVariable, configured))
     {
-        std::wstring configuredPath = ToWin32Path(configured);
-        DWORD attributes = GetFileAttributesW(configuredPath.c_str());
-        if (attributes != INVALID_FILE_ATTRIBUTES &&
-            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+        if (PythonExecutableDiscovery::FindUsableExecutable(
+                configured.c_str(),
+                pathValue,
+                PythonExecutableDiscovery::IsUsablePythonInterpreter,
+                m_executablePath))
         {
-            m_executablePath.assign(configured);
-            return;
-        }
-
-        std::wstring resolved;
-        if (SearchPathString(configured.c_str(), resolved))
-        {
-            m_executablePath.assign(resolved);
             return;
         }
     }
@@ -679,10 +650,12 @@ void CPythonRuntimeAdapter::ResolveInterpreter() const
     {
         if (candidates[index] == NULL)
             continue;
-        std::wstring resolved;
-        if (SearchPathString(candidates[index], resolved))
+        if (PythonExecutableDiscovery::FindUsableExecutable(
+                candidates[index],
+                pathValue,
+                PythonExecutableDiscovery::IsUsablePythonInterpreter,
+                m_executablePath))
         {
-            m_executablePath.assign(resolved);
             return;
         }
     }
@@ -1285,7 +1258,8 @@ void WINAPI CPluginInterface::Configuration(HWND parent)
 
     if (RuntimeConfiguration::ShowDialog(
             parent, SalamanderGeneral, DLLInstance, RuntimeTextIds,
-            automaticPath, effectivePath, RuntimeSettings))
+            automaticPath, effectivePath, RuntimeSettings,
+            PythonExecutableDiscovery::IsUsablePythonInterpreter))
         PythonRuntime.InvalidateExecutablePath();
 }
 

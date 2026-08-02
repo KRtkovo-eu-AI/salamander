@@ -66,6 +66,8 @@ def main() -> int:
         "src/plugins/samandarin/managed/Samandarin.Managed.csproj")
     javascriptruntime = read("src/plugins/javascriptruntime/javascriptruntime.cpp")
     pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
+    python_discovery = read(
+        "src/plugins/pythonruntime/python_executable_discovery.h")
     powershellruntime = read("src/plugins/powershellruntime/powershellruntime.cpp")
     phpruntime = read("src/plugins/phpruntime/phpruntime.cpp")
     luaruntime = read("src/plugins/luaruntime/luaruntime.cpp")
@@ -580,6 +582,27 @@ def main() -> int:
     require(runtime_configuration,
             r'"UseCustomExecutable".*?"CustomExecutablePath"',
             "runtime executable selection is not persisted")
+    require(runtime_configuration + pythonruntime,
+            r'ExecutableValidator executableValidator = NULL.*?'
+            r'!executableValidator\(selectedWide\).*?'
+            r'RuntimeConfiguration::ShowDialog\(.*?'
+            r'PythonExecutableDiscovery::IsUsablePythonInterpreter',
+            "Python custom executable does not use provider-specific validation")
+    require(python_discovery,
+            r'PythonProbeTimeoutMs\s*=\s*3000.*?'
+            r' -I -S -c .*?sys\.version_info\.major == 3.*?'
+            r'CREATE_NO_WINDOW.*?WaitForSingleObject\(.*?'
+            r'PythonProbeTimeoutMs.*?TerminateProcess',
+            "Python discovery does not safely probe Python 3 with a bounded hidden process")
+    require(pythonruntime + python_discovery,
+            r'UseCustomExecutable.*?IsUsablePythonInterpreter.*?'
+            r'GetEnvironmentString\(m_pszEnvironmentVariable.*?'
+            r'FindUsableExecutable.*?m_pszCandidateOne.*?m_pszCandidateTwo.*?'
+            r'FindUsableExecutableInPath',
+            "Python discovery does not validate custom, environment, and all PATH candidates")
+    require(pythonruntime_rc,
+            r'IDS_RUNTIME_CUSTOM_INVALID\s+"[^"]*Python 3 interpreter',
+            "Python invalid custom executable message is not specific or localizable")
     require(runtime_configuration,
             r'SALAMATRIX_UI_VERSION_1_2.*?'
             r'if \(strcmp\(event->ControlId, "use-custom"\) == 0\).*?'

@@ -78,6 +78,11 @@ The intended packages are:
 | `JavaScriptRuntime.SPL` | `JavaScript.Node` | `SALAMATRIX_NODE`, `node.exe`, `node` |
 | `LuaRuntime.SPL` | `Lua` | `SALAMATRIX_LUA`, bundled `runtime\lua.exe`, then `lua.exe`/`lua55.exe`/`lua54.exe` on `PATH` |
 
+Python candidates must successfully identify themselves as Python 3 before the
+provider publishes them as available. Discovery continues past unusable PATH
+entries, including the Windows Microsoft Store placeholder aliases, while a
+working Store-installed Python execution alias remains supported.
+
 Automation keeps its legacy JScript/VBScript ActiveScript adapters. It becomes
 just another broker consumer for the providers above; installing or loading a
 provider must not require Automation. A manifest's runtime id and minimum

@@ -10,6 +10,8 @@
 
 namespace RuntimeConfiguration
 {
+typedef bool (*ExecutableValidator)(const std::wstring& path);
+
 struct Settings
 {
     bool UseCustomExecutable;
@@ -212,7 +214,8 @@ inline bool ShowDialog(
     const TextIds& textIds,
     const std::wstring& automaticPath,
     const std::wstring& effectivePath,
-    Settings& settings)
+    Settings& settings,
+    ExecutableValidator executableValidator = NULL)
 {
     Salamatrix::UI::IUIService* ui = QueryUI(general);
     if (ui == NULL)
@@ -312,7 +315,10 @@ inline bool ShowDialog(
         std::wstring selectedWide;
         bool converted = Utf8ToWide(selectedPath, selectedWide);
         dialog->Release();
-        if (useSelected && (!converted || !IsRegularFile(selectedWide)))
+        if (useSelected &&
+            (!converted || !IsRegularFile(selectedWide) ||
+             (executableValidator != NULL &&
+              !executableValidator(selectedWide))))
         {
             general->SalMessageBox(
                 parent,

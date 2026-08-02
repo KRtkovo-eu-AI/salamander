@@ -20,7 +20,7 @@ BEGIN
     IDS_RUNTIME_CANCEL "Cancel"
     IDS_RUNTIME_UI_UNAVAILABLE "The Salamatrix UI service is unavailable."
     IDS_RUNTIME_CUSTOM_REQUIRED "Select a custom executable."
-    IDS_RUNTIME_CUSTOM_INVALID "The selected custom executable does not exist or is not a file."
+    IDS_RUNTIME_CUSTOM_INVALID "The selected executable is not a usable Python 3 interpreter."
 END
 
 #ifndef APSTUDIO_INVOKED

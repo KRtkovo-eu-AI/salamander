@@ -72,6 +72,7 @@
     <ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\python_executable_discovery.h" />
     <ClInclude Include="..\pythonruntime.h" />
     <ClInclude Include="..\precomp.h" />
     <ClInclude Include="..\versinfo.rh2" />
