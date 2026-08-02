@@ -96,9 +96,9 @@ function hostCall(method, params = {}) {
 }
 
 class Dialog {
-  constructor(title, options = {}) {
+  constructor(title = "Salamander", options = {}) {
     this.id = null;
-    this.title = title || "Salamatrix";
+    this.title = title || "Salamander";
     this.options = options;
     this.changeHandlers = [];
   }
@@ -130,6 +130,10 @@ class Dialog {
         if (layout[name] !== undefined && layout[name] !== null)
           payload[name] = Number(layout[name]);
       }
+    }
+    if (kind === "filepicker") {
+      payload.filter = String(options.filter || "");
+      payload.save = Boolean(options.save);
     }
     return hostCall("salamander.ui.dialog.add", payload);
   }
@@ -188,12 +192,13 @@ class Dialog {
   }
 
   async addItem(controlId, text, parentIndex = -1) {
-    return hostCall("salamander.ui.dialog.item", {
+    const result = await hostCall("salamander.ui.dialog.item", {
       dialogId: this.id,
       controlId,
       text,
       parentIndex,
     });
+    return Number(result.itemCount || 0);
   }
 
   async addNode(controlId, text, parentIndex = -1) {
@@ -204,8 +209,8 @@ class Dialog {
     return this.addItem(controlId, text, -1);
   }
 
-  async addColumn(controlId, title, width = 120) {
-    return hostCall("salamander.ui.dialog.addColumn", {
+  async addColumn(controlId, title, width = 180) {
+    await hostCall("salamander.ui.dialog.column", {
       dialogId: this.id,
       controlId,
       title,
@@ -214,19 +219,27 @@ class Dialog {
   }
 
   async setSelectedIndex(controlId, index) {
-    return hostCall("salamander.ui.dialog.setSelectedIndex", {
+    const result = await hostCall("salamander.ui.dialog.selection", {
       dialogId: this.id,
       controlId,
       index,
     });
+    return Number(result.selectedIndex ?? -1);
   }
 
   async setValidation(controlId, required, message = "") {
-    return hostCall("salamander.ui.dialog.setValidation", {
+    await hostCall("salamander.ui.dialog.validation", {
       dialogId: this.id,
       controlId,
       required,
       message,
+    });
+  }
+
+  async clearItems(controlId) {
+    await hostCall("salamander.ui.dialog.clearItems", {
+      dialogId: this.id,
+      controlId,
     });
   }
 
@@ -243,30 +256,46 @@ class Dialog {
     }).then(() => this);
   }
 
-  async showModal() {
+  async show() {
     const result = await hostCall("salamander.ui.dialog.show", { dialogId: this.id });
     return result.result ?? result;
   }
 
-  async getValue(controlId) {
+  async showModal() {
+    return this.show();
+  }
+
+  async get(controlId) {
     return hostCall("salamander.ui.dialog.get", {
       dialogId: this.id,
       controlId,
     });
   }
 
-  async setValue(controlId, value) {
-    return hostCall("salamander.ui.dialog.set", {
+  async getValue(controlId) {
+    return this.get(controlId);
+  }
+
+  async set(controlId, value) {
+    await hostCall("salamander.ui.dialog.set", {
       dialogId: this.id,
       controlId,
       value,
     });
   }
 
-  async destroy() {
+  async setValue(controlId, value) {
+    await this.set(controlId, value);
+  }
+
+  async close() {
     if (this.id === null) return;
     await hostCall("salamander.ui.dialog.destroy", { dialogId: this.id });
     this.id = null;
+  }
+
+  async destroy() {
+    await this.close();
   }
 
   async offChange() {
@@ -372,14 +401,17 @@ class Progress {
 const ui = {
   progress: async (title = "Salamatrix", total = 0, options = {}) =>
     new Progress(title, total, options).create(),
-  messageBox: (message, title = "Salamatrix") =>
-    hostCall("salamander.ui.messageBox", { message, title }),
-  notify: (message, title = "Salamatrix", timeoutMs = 5000) =>
+  messageBox: (message, title = "Salamander", buttons = "OK",
+               icon = "Information") =>
+    hostCall("salamander.ui.messageBox", {
+      message, title, buttons, icon,
+    }).then((result) => Number(result.result || 0)),
+  notify: (message, title = "Salamander", timeoutMs = 5000) =>
     hostCall("salamander.ui.notify", {
       message, title, timeoutMs: Math.max(0, Number(timeoutMs)),
     }).then((result) => result.shown === true),
-  inputBox: (prompt, initialValue = "", title = "Salamatrix") =>
-    hostCall("salamander.ui.inputBox", { prompt, initialValue, title }),
+  inputBox: (prompt, initial = "", title = "Salamander") =>
+    hostCall("salamander.ui.inputBox", { prompt, title, initial }),
   pickFile: (options = {}) => hostCall("salamander.ui.pickFile", options),
   pickFolder: (options = {}) => hostCall("salamander.ui.pickFolder", options),
   dialog: (title, options = {}) => new Dialog(title, options),
@@ -469,7 +501,7 @@ for (const operation of ["rename", "copy", "move", "delete",
                          "createDirectory", "refresh", "properties"]) {
   fileOperations[operation] = () =>
     hostCall(`salamander.fileOperations.${operation}`).then(
-      (result) => result.result || "error");
+      (result) => result.result);
 }
 
 const subscriptions = new Map();
@@ -500,7 +532,7 @@ const Salamander = {
   commands: {
     execute: (commandId) => hostCall(
       "salamander.commands.execute", { commandId }
-    ).then((result) => result.result || "error"),
+    ).then((result) => result.result),
     register: (commandId, title, pluginMenu = true, contextMenu = false,
                hotKey = 0, toolbar = false, handler = "", enabled = true,
                visible = true) =>
@@ -590,9 +622,15 @@ const Salamander = {
         ? result.value
         : defaultValue;
     }),
-    set: (key, value) => hostCall("salamander.storage.set", { key, value }),
-    remove: (key) => hostCall("salamander.storage.remove", { key }),
-    clear: () => hostCall("salamander.storage.clear"),
+    set: (key, value) => hostCall(
+      "salamander.storage.set", { key, value }
+    ).then(() => undefined),
+    remove: (key) => hostCall(
+      "salamander.storage.remove", { key }
+    ).then((result) => result.removed === true),
+    clear: () => hostCall("salamander.storage.clear").then(
+      (result) => result.ok === true
+    ),
     schema: () => hostCall("salamander.storage.schema", {}).then(
       (result) => result.settings || []
     ),
@@ -607,6 +645,10 @@ const Salamander = {
   },
   runtimes: {
     list: async () => (await hostCall("salamander.runtimes.list")).runtimes || [],
+  },
+  application: {
+    language: () => hostCall("salamander.host.language"),
+    appearance: () => hostCall("salamander.host.appearance"),
   },
   events,
   ai: {

@@ -93,8 +93,14 @@ def main() -> int:
     lua_demo_manifest = json.loads(
         read("src/extensions/demos/lua/extension.json"))
     powershell_demo = read("src/extensions/demos/powershell/main.ps1")
+    javascript_worker = read(
+        "src/plugins/javascriptruntime/runtime/salamatrix_worker.mjs")
+    python_worker = read(
+        "src/plugins/pythonruntime/runtime/salamatrix_worker.py")
     powershell_worker = read(
         "src/plugins/powershellruntime/runtime/salamatrix_worker.ps1")
+    php_worker = read(
+        "src/plugins/phpruntime/runtime/salamatrix_worker.php")
     lua_worker = read(
         "src/plugins/luaruntime/runtime/salamatrix_worker.lua")
     navigator = read("src/extensions/git-worktree-navigator/main.ps1")
@@ -481,6 +487,37 @@ def main() -> int:
             "Lua worker does not perform the SMX1 hello handshake")
     require(lua_worker, r'salamander\.commands\.register.*?salamander\.storage\.set.*?salamander\.ui\.dialog\.create',
             "Lua worker does not expose the shared command/storage/dialog facade")
+    runtime_workers = {
+        "JavaScript": javascript_worker,
+        "Python": python_worker,
+        "PowerShell": powershell_worker,
+        "PHP": php_worker,
+        "Lua": lua_worker,
+    }
+    for name, worker in runtime_workers.items():
+        require(worker, r'salamander\.host\.language',
+                f"{name} worker does not expose host language")
+        require(worker, r'salamander\.host\.appearance',
+                f"{name} worker does not expose host appearance")
+        require(worker, r'salamander\.ui\.messageBox.*?buttons.*?icon',
+                f"{name} worker does not expose message-box buttons and icon")
+    require(javascript_worker,
+            r'salamander\.ui\.inputBox.*?\{\s*prompt,\s*title,\s*initial\s*\}',
+            "JavaScript worker does not use the shared input-box payload")
+    require_absent(javascript_worker, r'initialValue',
+                   "JavaScript worker still uses the obsolete input-box field")
+    for wire_method in ("column", "selection", "validation", "clearItems"):
+        require(javascript_worker,
+                rf'salamander\.ui\.dialog\.{wire_method}',
+                f"JavaScript worker does not use dialog.{wire_method}")
+    for obsolete_method in ("addColumn", "setSelectedIndex", "setValidation"):
+        require_absent(
+            javascript_worker,
+            rf'salamander\.ui\.dialog\.{obsolete_method}',
+            f"JavaScript worker still uses unsupported dialog.{obsolete_method}")
+    require(javascript_worker,
+            r'kind\s*===\s*"filepicker".*?payload\.filter.*?payload\.save',
+            "JavaScript file-picker control drops filter or save options")
     require(lua_demo,
             r'Salamander\.ui\.notify.*?Salamander\.ui\.progress.*?progress\.update.*?progress\.is_cancelled.*?progress\.close.*?Salamander\.storage\.set\("lastRun",\s*"Lua"\)',
             "Lua demo does not exercise the shared notify/progress/storage flow")

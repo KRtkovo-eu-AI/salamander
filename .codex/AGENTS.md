@@ -91,3 +91,9 @@ When adding SVG icons to Salamander popup menus, use the same shared toolbar/men
 ## Plugin SDK binary compatibility
 
 When changing any plug-in-facing SDK interface, preserve binary compatibility with plug-ins built against older headers. In particular, never insert, remove, reorder, or change the signature of existing `virtual` methods in `*Abstract` interfaces such as `CSalamanderGeneralAbstract`, `CSalamanderGUIAbstract`, `CSalamanderConnectAbstract`, `CPluginInterfaceAbstract`, or related shared headers under `src/plugins/shared/`. New virtual methods must be appended at the end of the relevant interface and mirrored in the concrete implementation class in the same appended order. Before committing SDK/interface changes, compare the virtual method order against the latest released Samandarin tag and verify that all pre-existing methods remain an unchanged prefix of the new interface layout. This is required because older binary plug-ins call methods by vtable slot, so even source-compatible insertions can crash existing plug-ins at runtime.
+
+## Salamatrix runtime parity
+
+- Treat the JavaScript, Python, PowerShell, PHP, and Lua runtime providers as one shared public capability surface. Their language syntax may be idiomatic, but supported operations, host wire methods, payload fields, defaults, return semantics, error handling, and lifecycle behavior must remain equivalent.
+- Any runtime change that adds, removes, or modifies a function, option, payload, capability, or behavior must update all five runtime providers and worker facades in the same change: `src/plugins/javascriptruntime`, `src/plugins/pythonruntime`, `src/plugins/powershellruntime`, `src/plugins/phpruntime`, and `src/plugins/luaruntime`.
+- Update the corresponding demos, manifests, documentation, source-contract checks, and isolated process-runtime tests together. Do not merge a runtime capability change while another runtime still exposes an older contract.

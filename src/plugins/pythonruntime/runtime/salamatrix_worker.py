@@ -346,9 +346,11 @@ class _UI:
     def __init__(self, transport: _Transport) -> None:
         self._transport = transport
 
-    def message_box(self, message: str, title: str = "Salamander") -> int:
+    def message_box(self, message: str, title: str = "Salamander",
+                    buttons: str = "OK", icon: str = "Information") -> int:
         return int(self._transport.call(
-            "salamander.ui.messageBox", message=message, title=title
+            "salamander.ui.messageBox", message=message, title=title,
+            buttons=buttons, icon=icon
         ).get("result", 0))
 
     def notify(self, message: str, title: str = "Salamander",
@@ -724,6 +726,17 @@ class _Runtimes:
         )
 
 
+class _Application:
+    def __init__(self, transport: _Transport) -> None:
+        self._transport = transport
+
+    def language(self) -> dict:
+        return self._transport.call("salamander.host.language")
+
+    def appearance(self) -> dict:
+        return self._transport.call("salamander.host.appearance")
+
+
 class _Salamander:
     def __init__(self, transport: _Transport, command_id: str = "",
                  command_handler: str = "") -> None:
@@ -738,6 +751,7 @@ class _Salamander:
         self.ai = _AI(transport)
         self.events = _Events(transport)
         self.runtimes = _Runtimes(transport)
+        self.application = _Application(transport)
         self.left_side = _Side(self.sides, "left")
         self.right_side = _Side(self.sides, "right")
         self.source_side = _Side(self.sides, "source")

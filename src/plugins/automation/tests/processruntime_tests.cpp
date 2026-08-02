@@ -29,6 +29,9 @@ struct BootstrapDispatchState
     int PickerCalls;
     int FolderPickerCalls;
     int RuntimeListCalls;
+    int LanguageCalls;
+    int AppearanceCalls;
+    int MessageBoxCalls;
     int CommandRegistrationCalls;
     int CommandStateCalls;
     int SchemaCalls;
@@ -40,6 +43,7 @@ struct BootstrapDispatchState
     bool HandlerRegistrationSeen;
     bool BooleanStorageSeen;
     bool IntegerStorageSeen;
+    bool MessageBoxOptionsSeen;
     int NotificationCalls;
 
     BootstrapDispatchState()
@@ -59,6 +63,9 @@ struct BootstrapDispatchState
           PickerCalls(0),
           FolderPickerCalls(0),
           RuntimeListCalls(0),
+          LanguageCalls(0),
+          AppearanceCalls(0),
+          MessageBoxCalls(0),
           CommandRegistrationCalls(0),
           CommandStateCalls(0),
           SchemaCalls(0),
@@ -70,6 +77,7 @@ struct BootstrapDispatchState
           HandlerRegistrationSeen(false),
           BooleanStorageSeen(false),
           IntegerStorageSeen(false),
+          MessageBoxOptionsSeen(false),
           NotificationCalls(0)
     {
     }
@@ -118,6 +126,29 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->NotificationCalls;
         response = "{\"ok\":true,\"shown\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.messageBox") != NULL)
+    {
+        if (state != NULL)
+        {
+            ++state->MessageBoxCalls;
+            if (strstr(payloadJson, "\"buttons\":\"YesNo\"") != NULL &&
+                strstr(payloadJson, "\"icon\":\"Question\"") != NULL)
+                state->MessageBoxOptionsSeen = true;
+        }
+        response = "{\"ok\":true,\"result\":1}";
+    }
+    else if (strstr(payloadJson, "salamander.host.language") != NULL)
+    {
+        if (state != NULL)
+            ++state->LanguageCalls;
+        response = "{\"ok\":true,\"language\":\"en\"}";
+    }
+    else if (strstr(payloadJson, "salamander.host.appearance") != NULL)
+    {
+        if (state != NULL)
+            ++state->AppearanceCalls;
+        response = "{\"ok\":true,\"darkMode\":true}";
     }
     else if (strstr(payloadJson, "salamander.commands.register") != NULL)
     {
@@ -662,6 +693,12 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('command call failed')\n"
               "if not Salamander.ui.notify('Build finished', timeout_ms=1000):\n"
               "    raise RuntimeError('notification call failed')\n"
+              "if Salamander.ui.message_box('Parity', 'Runtime', buttons='YesNo', icon='Question') != 1:\n"
+              "    raise RuntimeError('message box options failed')\n"
+              "if Salamander.application.language().get('language') != 'en':\n"
+              "    raise RuntimeError('host language call failed')\n"
+              "if Salamander.application.appearance().get('darkMode') is not True:\n"
+              "    raise RuntimeError('host appearance call failed')\n"
               "Salamander.storage.set('bootstrap', 'ok')\n"
               "if Salamander.storage.get('bootstrap') != 'ok':\n"
               "    raise RuntimeError('storage call failed')\n"
@@ -773,6 +810,10 @@ void RunPythonBootstrapTest()
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "bootstrap command call reached host");
         Check(state.NotificationCalls == 1, "bootstrap notification call reached host");
+        Check(state.MessageBoxCalls == 1, "bootstrap message box call reached host");
+        Check(state.MessageBoxOptionsSeen, "bootstrap message box options reached host");
+        Check(state.LanguageCalls == 1, "bootstrap host language call reached host");
+        Check(state.AppearanceCalls == 1, "bootstrap host appearance call reached host");
         Check(state.CommandRegistrationCalls == 3, "bootstrap multiple command registrations reached host");
         Check(state.CommandStateCalls == 2, "bootstrap command state updates reached host");
         Check(state.HandlerRegistrationSeen, "bootstrap command handler reached host");
@@ -837,6 +878,9 @@ void RunPowerShellBootstrapTest()
     Check(WriteScript(
               &script[0],
               "if ($Salamander.commands.Execute('Copy') -ne 'ok') { throw 'command call failed' }\n"
+              "if ($Salamander.ui.MessageBox('Parity', 'Runtime', 'YesNo', 'Question') -ne 1) { throw 'message box options failed' }\n"
+              "if ($Salamander.application.Language().language -ne 'en') { throw 'host language call failed' }\n"
+              "if ($Salamander.application.Appearance().darkMode -ne $true) { throw 'host appearance call failed' }\n"
               "$Salamander.storage.Set('bootstrap', 'ok')\n"
               "if ($Salamander.storage.Get('bootstrap') -ne 'ok') { throw 'storage call failed' }\n"
               "$Salamander.storage.Set('autoRefresh', $true)\n"
@@ -906,6 +950,10 @@ void RunPowerShellBootstrapTest()
         for (int attempt = 0; attempt < 60 && state.DialogCalls < 22 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "powershell bootstrap command call");
+        Check(state.MessageBoxCalls == 1, "powershell message box call");
+        Check(state.MessageBoxOptionsSeen, "powershell message box options");
+        Check(state.LanguageCalls == 1, "powershell host language call");
+        Check(state.AppearanceCalls == 1, "powershell host appearance call");
         Check(state.CommandRegistrationCalls == 3, "powershell multiple command registrations");
         Check(state.CommandStateCalls == 2, "powershell command state updates");
         Check(state.StorageCalls == 6, "powershell typed storage calls");
@@ -959,6 +1007,9 @@ void RunPhpBootstrapTest()
               &script[0],
               "<?php\n"
               "if ($Salamander->commands->execute('Copy') !== 'ok') throw new Exception('command call failed');\n"
+              "if ($Salamander->ui->messageBox('Parity', 'Runtime', 'YesNo', 'Question') !== 1) throw new Exception('message box options failed');\n"
+              "if ($Salamander->application->language()['language'] !== 'en') throw new Exception('host language call failed');\n"
+              "if ($Salamander->application->appearance()['darkMode'] !== true) throw new Exception('host appearance call failed');\n"
               "$Salamander->storage->set('bootstrap', 'ok');\n"
               "if ($Salamander->storage->get('bootstrap') !== 'ok') throw new Exception('storage call failed');\n"
               "$Salamander->storage->set('autoRefresh', true);\n"
@@ -1030,6 +1081,10 @@ void RunPhpBootstrapTest()
         for (int attempt = 0; attempt < 60 && state.DialogCalls < 22 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
         Check(state.CommandCalls == 1, "php bootstrap command call");
+        Check(state.MessageBoxCalls == 1, "php message box call");
+        Check(state.MessageBoxOptionsSeen, "php message box options");
+        Check(state.LanguageCalls == 1, "php host language call");
+        Check(state.AppearanceCalls == 1, "php host appearance call");
         Check(state.CommandRegistrationCalls == 3, "php multiple command registrations");
         Check(state.CommandStateCalls == 2, "php command state updates");
         Check(state.StorageCalls == 6, "php typed storage calls");

@@ -113,7 +113,7 @@ class SalamatrixSideView {
 }
 class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }
-    public function messageBox($message, $title = 'Salamander') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title)); return isset($r['result']) ? $r['result'] : 0; }
+    public function messageBox($message, $title = 'Salamander', $buttons = 'OK', $icon = 'Information') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title, 'buttons' => $buttons, 'icon' => $icon)); return isset($r['result']) ? $r['result'] : 0; }
     public function notify($message, $title = 'Salamander', $timeoutMs = 5000) { $r = $this->client->call('salamander.ui.notify', array('message' => $message, 'title' => $title, 'timeoutMs' => max(0, (int)$timeoutMs))); return !empty($r['shown']); }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }
@@ -251,6 +251,11 @@ class SalamatrixRuntimes {
     private $client; public function __construct($client) { $this->client = $client; }
     public function list() { $r = $this->client->call('salamander.runtimes.list', array()); return isset($r['runtimes']) ? $r['runtimes'] : array(); }
 }
+class SalamatrixApplication {
+    private $client; public function __construct($client) { $this->client = $client; }
+    public function language() { return $this->client->call('salamander.host.language', array()); }
+    public function appearance() { return $this->client->call('salamander.host.appearance', array()); }
+}
 if ($entry === null) throw new RuntimeException('Missing --entry');
 $client = new SalamatrixClient();
 smx_send('hello', 0, array('protocol' => 1, 'runtime' => 'php'));
@@ -273,6 +278,7 @@ $Salamander->clipboard = new SalamatrixClipboard($client);
 $Salamander->ai = new SalamatrixAi($client);
 $Salamander->events = new SalamatrixEvents($client);
 $Salamander->runtimes = new SalamatrixRuntimes($client);
+$Salamander->application = new SalamatrixApplication($client);
 include $entry;
 
 if ($oneShot) exit(0);
