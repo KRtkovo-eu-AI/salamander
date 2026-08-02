@@ -5,7 +5,7 @@
 #define __POWERSHELLRUNTIME_VERSINFO_RH2
 
 #define VERSINFO_MAJOR       0
-#define VERSINFO_MINORA      1
+#define VERSINFO_MINORA      2
 #define VERSINFO_MINORB      0
 
 #include "../shared/spl_vers.h"
