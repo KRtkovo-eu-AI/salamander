@@ -29,6 +29,7 @@ namespace UI
 #define SALAMATRIX_UI_VERSION_1_0 0x00010000
 #define SALAMATRIX_UI_VERSION_1_1 0x00010001
 #define SALAMATRIX_UI_VERSION_1_2 0x00010002
+#define SALAMATRIX_UI_VERSION_1_3 0x00010003
 
 struct ProgressDialogOptions
 {
@@ -588,6 +589,11 @@ BOOL WINAPI ShowNativeNotification(
     const char* message,
     DWORD timeoutMs);
 
+// Framework-owned showcase of the controls exposed by Salamatrix.UI.
+// Native plug-ins and runtime adapters reach the same implementation through
+// IUIService::ShowControlsShowcase.
+BOOL WINAPI ShowNativeControlsShowcase(HWND parent);
+
 class IUIService
 {
 public:
@@ -690,6 +696,14 @@ public:
         (void)title;
         (void)message;
         (void)timeoutMs;
+        return FALSE;
+    }
+
+    /// Shows the framework-owned native controls showcase. Appended in UI
+    /// 1.3 so existing providers keep their vtable layout.
+    virtual BOOL WINAPI ShowControlsShowcase(HWND parent)
+    {
+        (void)parent;
         return FALSE;
     }
 

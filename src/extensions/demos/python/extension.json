@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "Salamatrix.Demo.Python",
   "name": "Salamatrix Python Demo",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Demonstrates a CPython Salamatrix extension package.",
   "runtime": "Python.CPython",
   "entryPoint": "main.py",

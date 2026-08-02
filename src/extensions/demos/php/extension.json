@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "Salamatrix.Demo.PHP",
   "name": "Salamatrix PHP Demo",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Demonstrates a PHP CLI Salamatrix extension package.",
   "runtime": "PHP.CLI",
   "entryPoint": "main.php",

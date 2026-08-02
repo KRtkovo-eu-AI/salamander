@@ -2065,6 +2065,19 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             resultLength);
     }
 
+    if (method == "salamander.ui.controls")
+    {
+        Salamatrix::UI::IUIService* ui = bridge->GetUIService();
+        BOOL shown = ui != NULL &&
+                     ui->GetVersion() >= SALAMATRIX_UI_VERSION_1_3 &&
+                     ui->ShowControlsShowcase(
+                         SalamanderGeneral->GetMsgBoxParent());
+        return CopyRuntimeHostResult(
+            std::string("{\"ok\":true,\"shown\":") +
+                (shown ? "true}" : "false}"),
+            resultJson, resultCapacity, resultLength);
+    }
+
     if (method == "salamander.ui.inputBox")
     {
         std::string prompt;

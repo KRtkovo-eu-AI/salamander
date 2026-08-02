@@ -1250,6 +1250,125 @@ void WINAPI NativeDialog::Release()
     delete this;
 }
 
+static IControl* AddControlsShowcaseControl(
+    IDialog* dialog,
+    ControlKind kind,
+    const char* id,
+    const char* text,
+    int x,
+    int y,
+    int width,
+    int height,
+    BOOL readOnly = FALSE,
+    BOOL checked = FALSE,
+    int dialogResult = 0,
+    BOOL multiline = FALSE,
+    const char* fileFilter = NULL)
+{
+    ControlOptions options;
+    options.Id = id;
+    options.Text = text;
+    options.ReadOnly = readOnly;
+    options.Checked = checked;
+    options.DialogResult = dialogResult;
+    options.Multiline = multiline;
+    options.FileFilter = fileFilter;
+
+    ControlLayout layout;
+    layout.HasBounds = TRUE;
+    layout.X = x;
+    layout.Y = y;
+    layout.Width = width;
+    layout.Height = height;
+    return dialog->AddControlEx(kind, options, layout);
+}
+
+BOOL WINAPI ShowNativeControlsShowcase(HWND parent)
+{
+    DialogOptions options;
+    options.Title = "Salamatrix UI capabilities";
+    options.Parent = parent;
+    options.Width = 520;
+    options.Height = 315;
+    NativeDialog dialog(options);
+
+    bool complete = true;
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindLabel,
+                   "intro", "Controls provided by Salamatrix",
+                   10, 8, 500, 12) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindLabel,
+                   "text-heading", "Text and picker controls",
+                   10, 28, 240, 12) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindTextBox,
+                   "description",
+                   "Native controls are shared by every Salamatrix runtime.\r\n"
+                   "The dialog follows the current Salamander theme and DPI.",
+                   10, 42, 240, 42, TRUE, FALSE, 0, TRUE) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindFilePicker,
+                   "file", "C:\\Example\\document.txt",
+                   10, 94, 240, 18, FALSE, FALSE, 0, FALSE,
+                   "Text files|*.txt|All files|*.*") != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindFolderPicker,
+                   "folder", "Choose a folder...",
+                   10, 118, 240, 18) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindCheckBox,
+                   "checkbox", "Check box",
+                   10, 146, 110, 14, FALSE, TRUE) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindRadioButton,
+                   "radio", "Radio button",
+                   130, 146, 120, 14, FALSE, TRUE) != NULL && complete;
+
+    IControl* tabs = AddControlsShowcaseControl(
+        &dialog, ControlKindTabControl,
+        "tabs", "", 10, 174, 240, 70);
+    complete = tabs != NULL && tabs->AddItem("Overview") &&
+               tabs->AddItem("Details") && tabs->SetSelectedIndex(0) && complete;
+
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindLabel,
+                   "collection-heading", "Choice and collection controls",
+                   270, 28, 240, 12) != NULL && complete;
+    IControl* choice = AddControlsShowcaseControl(
+        &dialog, ControlKindComboBox,
+        "choice", "", 270, 42, 240, 80);
+    complete = choice != NULL && choice->AddItem("Salamatrix UI") &&
+               choice->AddItem("Native Win32 controls") &&
+               choice->AddItem("Runtime-neutral API") &&
+               choice->SetSelectedIndex(0) && complete;
+
+    IControl* list = AddControlsShowcaseControl(
+        &dialog, ControlKindListView,
+        "list", "", 270, 70, 240, 78);
+    complete = list != NULL && list->AddColumn("Capability", 210) &&
+               list->AddItem("Explicit layouts") &&
+               list->AddItem("Validation and events") &&
+               list->AddItem("Accessible metadata") &&
+               list->SetSelectedIndex(0) && complete;
+
+    IControl* tree = AddControlsShowcaseControl(
+        &dialog, ControlKindTreeView,
+        "tree", "", 270, 158, 240, 86);
+    complete = tree != NULL && tree->AddItem("Salamatrix UI") &&
+               tree->AddItem("Dialogs", 0) && tree->AddItem("Controls", 0) &&
+               complete;
+    complete = AddControlsShowcaseControl(
+                   &dialog, ControlKindButton,
+                   "close", "Close", 440, 276, 70, 22,
+                   FALSE, FALSE, 1) != NULL && complete;
+
+    if (!complete)
+        return FALSE;
+    dialog.ShowModal();
+    return TRUE;
+}
+
 void WINAPI CloseAllNativeDialogs()
 {
     ClosingAllNativeDialogs = TRUE;

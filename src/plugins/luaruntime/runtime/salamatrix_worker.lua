@@ -502,6 +502,9 @@ function ui.notify(message, title, timeout_ms)
         timeoutMs = math.max(0, timeout_ms or 5000)
     }).shown
 end
+function ui.controls()
+    return host_call("salamander.ui.controls", {}).shown
+end
 function ui.input_box(prompt, title, initial)
     return host_call("salamander.ui.inputBox", {
         prompt = prompt, title = title or "Salamander", initial = initial or ""

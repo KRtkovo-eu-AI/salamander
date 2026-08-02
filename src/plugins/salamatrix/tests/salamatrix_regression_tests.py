@@ -616,9 +616,9 @@ def main() -> int:
             r'EnableWindow\(BrowseWindowHandle, enabled\)',
             "Salamatrix file picker cannot disable both the path and browse button")
     require(salamatrix_runtime,
-            r'GetVersion\(\) const.*?SALAMATRIX_UI_VERSION_1_2.*?'
-            r'RegisterServiceOwned\(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_2',
-            "Salamatrix does not publish the enabled-control UI contract version")
+            r'GetVersion\(\) const.*?SALAMATRIX_UI_VERSION_1_3.*?'
+            r'RegisterServiceOwned\(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_3',
+            "Salamatrix does not publish the controls-showcase UI contract version")
     for name, runtime in zip(
         ("Python", "PowerShell", "JavaScript", "PHP", "Lua"), runtime_provider_sources):
         require(runtime, r"SetFlagLoadOnSalamanderStart\(TRUE\)",
@@ -647,6 +647,13 @@ def main() -> int:
                 f"{name} worker does not expose host appearance")
         require(worker, r'salamander\.ui\.messageBox.*?buttons.*?icon',
                 f"{name} worker does not expose message-box buttons and icon")
+        require(worker, r'salamander\.ui\.controls',
+                f"{name} worker does not expose the framework controls showcase")
+    require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,
+            r'SALAMATRIX_UI_VERSION_1_3.*?'
+            r'ShowControlsShowcase.*?ShowNativeControlsShowcase.*?'
+            r'salamander\.ui\.controls.*?ShowControlsShowcase',
+            "controls showcase is not owned and dispatched by Salamatrix Framework")
     require(javascript_worker,
             r'salamander\.ui\.inputBox.*?\{\s*prompt,\s*title,\s*initial\s*\}',
             "JavaScript worker does not use the shared input-box payload")

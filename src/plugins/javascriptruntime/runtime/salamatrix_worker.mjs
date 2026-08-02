@@ -410,6 +410,8 @@ const ui = {
     hostCall("salamander.ui.notify", {
       message, title, timeoutMs: Math.max(0, Number(timeoutMs)),
     }).then((result) => result.shown === true),
+  controls: () => hostCall("salamander.ui.controls")
+    .then((result) => result.shown === true),
   inputBox: (prompt, initial = "", title = "Salamander") =>
     hostCall("salamander.ui.inputBox", { prompt, title, initial }),
   pickFile: (options = {}) => hostCall("salamander.ui.pickFile", options),

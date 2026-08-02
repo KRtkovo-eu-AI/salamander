@@ -1758,6 +1758,16 @@ BOOL WINAPI PackageManager::HostDispatch(
                               (shown ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
     }
+    if (method == "salamander.ui.controls")
+    {
+        BOOL shown = owner->UI != NULL &&
+                     owner->UI->GetVersion() >= SALAMATRIX_UI_VERSION_1_3 &&
+                     owner->UI->ShowControlsShowcase(
+                         owner->General->GetMsgBoxParent());
+        return CopyResult(std::string("{\"ok\":true,\"shown\":") +
+                              (shown ? "true}" : "false}"),
+                          resultJson, resultCapacity, resultLength);
+    }
     if (method == "salamander.ui.messageBox")
     {
         std::string title, message, buttons, icon;

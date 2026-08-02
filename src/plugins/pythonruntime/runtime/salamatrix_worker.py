@@ -360,6 +360,11 @@ class _UI:
             timeoutMs=max(0, int(timeout_ms))
         ).get("shown", False))
 
+    def controls(self) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.controls"
+        ).get("shown", False))
+
     def input_box(self, prompt: str, title: str = "Salamander",
                   initial: str = "") -> dict:
         return self._transport.call(

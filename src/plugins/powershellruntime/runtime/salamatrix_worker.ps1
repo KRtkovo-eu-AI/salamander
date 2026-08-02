@@ -326,6 +326,9 @@ $ui | Add-Member ScriptMethod Notify {
     param([string]$Message, [string]$Title = 'Salamander', [int]$TimeoutMs = 5000)
     (Invoke-Host -Method 'salamander.ui.notify' -Arguments @{ message = $Message; title = $Title; timeoutMs = [Math]::Max(0, $TimeoutMs) }).shown
 }
+$ui | Add-Member ScriptMethod Controls {
+    (Invoke-Host -Method 'salamander.ui.controls' -Arguments @{}).shown
+}
 $ui | Add-Member ScriptMethod InputBox {
     param([string]$Prompt, [string]$Title = 'Salamander', [string]$Initial = '')
     Invoke-Host -Method 'salamander.ui.inputBox' -Arguments @{ prompt = $Prompt; title = $Title; initial = $Initial }
