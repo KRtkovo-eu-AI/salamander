@@ -85,6 +85,7 @@ public:
 
     virtual /* [id] */ HRESULT STDMETHODCALLTYPE progress(/* [optional][in] */ VARIANT* title,
                                                           /* [retval][out] */ ISalamanderProgressDialog** dialog);
+    virtual /* [id] */ HRESULT STDMETHODCALLTYPE controls(void);
 };
 
 class CSalamanderCommandsAutomation : public CDispatchImpl<CSalamanderCommandsAutomation, ISalamanderCommands>

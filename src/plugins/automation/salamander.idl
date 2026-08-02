@@ -786,6 +786,10 @@ interface ISalamanderUI : IUnknown
 	HRESULT progress(
 		[in, optional] VARIANT *title,
 		[out, retval] ISalamanderProgressDialog **dialog);
+
+	/// \brief Shows the native Salamatrix controls showcase used by the demo package.
+	[id(2)]
+	HRESULT controls();
 };
 
 

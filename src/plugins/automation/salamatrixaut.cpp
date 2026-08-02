@@ -466,6 +466,134 @@ CSalamanderUINamespaceAutomation::CSalamanderUINamespaceAutomation(CSalamanderFo
     return S_OK;
 }
 
+static Salamatrix::UI::IControl* AddControlsShowcaseControl(
+    Salamatrix::UI::IDialog* dialog,
+    Salamatrix::UI::ControlKind kind,
+    const char* id,
+    const char* text,
+    int x,
+    int y,
+    int width,
+    int height,
+    BOOL readOnly = FALSE,
+    BOOL checked = FALSE,
+    int dialogResult = 0,
+    BOOL multiline = FALSE,
+    const char* fileFilter = NULL)
+{
+    Salamatrix::UI::ControlOptions options;
+    options.Id = id;
+    options.Text = text;
+    options.ReadOnly = readOnly;
+    options.Checked = checked;
+    options.DialogResult = dialogResult;
+    options.Multiline = multiline;
+    options.FileFilter = fileFilter;
+
+    Salamatrix::UI::ControlLayout layout;
+    layout.HasBounds = TRUE;
+    layout.X = x;
+    layout.Y = y;
+    layout.Width = width;
+    layout.Height = height;
+    return dialog->AddControlEx(kind, options, layout);
+}
+
+/* [id] */ HRESULT STDMETHODCALLTYPE CSalamanderUINamespaceAutomation::controls(void)
+{
+    g_oAutomationPlugin.RefreshSalamatrixServices();
+    Salamatrix::UI::IUIService* uiService =
+        g_oAutomationPlugin.GetSalamatrixBridge()->GetUIService();
+    if (uiService == NULL)
+        return RaiseMissingRuntime(GetProgId());
+
+    Salamatrix::UI::DialogOptions options;
+    options.Title = "Salamatrix UI capabilities";
+    options.Parent = SalamanderGeneral->GetMsgBoxParent();
+    options.Width = 520;
+    options.Height = 315;
+    Salamatrix::UI::IDialog* dialog =
+        uiService->CreateSalamatrixDialog(options);
+    if (dialog == NULL)
+        return RaiseMissingRuntime(GetProgId());
+
+    bool complete = true;
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindLabel,
+                   "intro", "Controls provided by Salamatrix",
+                   10, 8, 500, 12) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindLabel,
+                   "text-heading", "Text and picker controls",
+                   10, 28, 240, 12) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindTextBox,
+                   "description",
+                   "Native controls are shared by every Salamatrix runtime.\r\n"
+                   "The dialog follows the current Salamander theme and DPI.",
+                   10, 42, 240, 42, TRUE, FALSE, 0, TRUE) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindFilePicker,
+                   "file", "C:\\Example\\document.txt",
+                   10, 94, 240, 18, FALSE, FALSE, 0, FALSE,
+                   "Text files|*.txt|All files|*.*") != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindFolderPicker,
+                   "folder", "Choose a folder...",
+                   10, 118, 240, 18) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindCheckBox,
+                   "checkbox", "Check box",
+                   10, 146, 110, 14, FALSE, TRUE) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindRadioButton,
+                   "radio", "Radio button",
+                   130, 146, 120, 14, FALSE, TRUE) != NULL && complete;
+
+    Salamatrix::UI::IControl* tabs = AddControlsShowcaseControl(
+        dialog, Salamatrix::UI::ControlKindTabControl,
+        "tabs", "", 10, 174, 240, 70);
+    complete = tabs != NULL && tabs->AddItem("Overview") &&
+               tabs->AddItem("Details") && tabs->SetSelectedIndex(0) && complete;
+
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindLabel,
+                   "collection-heading", "Choice and collection controls",
+                   270, 28, 240, 12) != NULL && complete;
+    Salamatrix::UI::IControl* choice = AddControlsShowcaseControl(
+        dialog, Salamatrix::UI::ControlKindComboBox,
+        "choice", "", 270, 42, 240, 80);
+    complete = choice != NULL && choice->AddItem("Salamatrix UI") &&
+               choice->AddItem("Native Win32 controls") &&
+               choice->AddItem("Runtime-neutral API") &&
+               choice->SetSelectedIndex(0) && complete;
+
+    Salamatrix::UI::IControl* list = AddControlsShowcaseControl(
+        dialog, Salamatrix::UI::ControlKindListView,
+        "list", "", 270, 70, 240, 78);
+    complete = list != NULL && list->AddColumn("Capability", 210) &&
+               list->AddItem("Explicit layouts") &&
+               list->AddItem("Validation and events") &&
+               list->AddItem("Accessible metadata") &&
+               list->SetSelectedIndex(0) && complete;
+
+    Salamatrix::UI::IControl* tree = AddControlsShowcaseControl(
+        dialog, Salamatrix::UI::ControlKindTreeView,
+        "tree", "", 270, 158, 240, 86);
+    complete = tree != NULL && tree->AddItem("Salamatrix UI") &&
+               tree->AddItem("Dialogs", 0) && tree->AddItem("Controls", 0) &&
+               complete;
+    complete = AddControlsShowcaseControl(
+                   dialog, Salamatrix::UI::ControlKindButton,
+                   "close", "Close", 440, 276, 70, 22,
+                   FALSE, FALSE, 1) != NULL && complete;
+
+    if (complete)
+        dialog->ShowModal();
+    uiService->DestroyDialog(dialog);
+    return complete ? S_OK : E_FAIL;
+}
+
 /* [id] */ HRESULT STDMETHODCALLTYPE CSalamanderCommandsAutomation::execute(BSTR commandId, BSTR* result)
 {
     if (result == NULL)

@@ -49,3 +49,6 @@ if (commandResult == "not_available") {
 else {
     Salamander.MsgBox("Salamatrix command result: " + commandResult + sideSummary, 0, "Salamatrix Demo");
 }
+
+// Keep the native controls showcase as the final step of the demo.
+Salamander.UI.controls();
