@@ -868,7 +868,7 @@ public:
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_2, &SidesService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework", this);
-        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_2, &ExtensionsService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_3, &ExtensionsService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework", this);
 
@@ -888,7 +888,7 @@ public:
             if (HostSidesRegistered)
                 HostEventsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework", this);
             if (HostEventsRegistered)
-                HostExtensionsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_2, &ExtensionsService, "Salamatrix Framework", this);
+                HostExtensionsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_3, &ExtensionsService, "Salamatrix Framework", this);
             if (HostExtensionsRegistered)
                 HostAIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework", this);
             if (HostAIRegistered)

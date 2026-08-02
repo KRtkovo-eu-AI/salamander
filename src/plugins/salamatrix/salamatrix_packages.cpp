@@ -512,7 +512,10 @@ BOOL PackageManager::Initialize(
     if (Menu == NULL)
         Menu = new MenuExtension(this);
     if (Extensions != NULL)
+    {
         Extensions->SetRefreshCallback(RefreshCallback, this);
+        Extensions->SetManagementCallback(ManagementCallback, this);
+    }
     return General != NULL && Runtimes != NULL && Extensions != NULL &&
            Sides != NULL;
 }
@@ -520,12 +523,18 @@ BOOL PackageManager::Initialize(
 void PackageManager::Shutdown()
 {
     if (Extensions != NULL)
+    {
         Extensions->SetRefreshCallback(NULL, NULL);
+        Extensions->SetManagementCallback(NULL, NULL);
+    }
     UnregisterToolbarButtons();
     RemovePackages();
     delete Menu;
     Menu = NULL;
     Roots.clear();
+    CustomPackages.clear();
+    ExtensionOrder.clear();
+    RemovedExtensions.clear();
     General = NULL;
     Runtimes = NULL;
     Extensions = NULL;
@@ -537,28 +546,72 @@ void PackageManager::Shutdown()
 void PackageManager::LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* registry)
 {
     Roots.clear();
+    CustomPackages.clear();
+    ExtensionOrder.clear();
+    RemovedExtensions.clear();
     Roots.push_back(ExpandRoot(L"$(SalDir)\\extensions"));
     Roots.push_back(ExpandRoot(L"$(SalDir)\\plugins\\automation\\scripts"));
     if (key == NULL || registry == NULL)
         return;
     HKEY rootsKey = NULL;
-    if (!registry->OpenKey(key, "ExtensionRoots", rootsKey))
-        return;
-    char name[16];
-    char path[SAL_MAX_PATH];
-    for (int index = 1;; ++index)
+    if (registry->OpenKey(key, "ExtensionRoots", rootsKey))
     {
-        _snprintf_s(name, _countof(name), _TRUNCATE, "%d", index);
-        if (!registry->GetValue(rootsKey, name, REG_SZ, path, _countof(path)))
-            break;
-        std::wstring root;
-        if (!ToWide(path, &root))
-            continue;
-        if (root != ExpandRoot(L"$(SalDir)\\extensions") &&
-            root != ExpandRoot(L"$(SalDir)\\plugins\\automation\\scripts"))
-            Roots.push_back(ExpandRoot(root));
+        char name[16];
+        char path[SAL_MAX_PATH];
+        for (int index = 1;; ++index)
+        {
+            _snprintf_s(name, _countof(name), _TRUNCATE, "%d", index);
+            if (!registry->GetValue(
+                    rootsKey, name, REG_SZ, path, _countof(path)))
+                break;
+            std::wstring root;
+            if (!ToWide(path, &root))
+                continue;
+            if (root != ExpandRoot(L"$(SalDir)\\extensions") &&
+                root != ExpandRoot(
+                            L"$(SalDir)\\plugins\\automation\\scripts"))
+                Roots.push_back(ExpandRoot(root));
+        }
+        registry->CloseKey(rootsKey);
     }
-    registry->CloseKey(rootsKey);
+
+    struct StringListLoader
+    {
+        static void Load(
+            HKEY parent, const char* subKey,
+            CSalamanderRegistryAbstract* registry,
+            std::vector<std::string>* values)
+        {
+            HKEY listKey = NULL;
+            if (!registry->OpenKey(parent, subKey, listKey))
+                return;
+            char name[16];
+            char value[512];
+            for (int index = 1;; ++index)
+            {
+                _snprintf_s(name, _countof(name), _TRUNCATE, "%d", index);
+                if (!registry->GetValue(
+                        listKey, name, REG_SZ, value, _countof(value)))
+                    break;
+                if (value[0] != 0)
+                    values->push_back(value);
+            }
+            registry->CloseKey(listKey);
+        }
+    };
+    StringListLoader::Load(
+        key, "ExtensionOrder", registry, &ExtensionOrder);
+    StringListLoader::Load(
+        key, "RemovedExtensions", registry, &RemovedExtensions);
+    std::vector<std::string> customPackages;
+    StringListLoader::Load(
+        key, "ExtensionManifests", registry, &customPackages);
+    for (size_t index = 0; index < customPackages.size(); ++index)
+    {
+        std::wstring packageDirectory;
+        if (ToWide(customPackages[index], &packageDirectory))
+            CustomPackages.push_back(packageDirectory);
+    }
 }
 
 void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* registry)
@@ -578,6 +631,43 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
             registry->SetValue(rootsKey, name, REG_SZ, root.c_str(), -1);
     }
     registry->CloseKey(rootsKey);
+
+    struct StringListSaver
+    {
+        static void Save(
+            HKEY parent, const char* subKey,
+            CSalamanderRegistryAbstract* registry,
+            const std::vector<std::string>& values)
+        {
+            HKEY listKey = NULL;
+            if (!registry->CreateKey(parent, subKey, listKey))
+                return;
+            registry->ClearKey(listKey);
+            char name[16];
+            for (size_t index = 0; index < values.size(); ++index)
+            {
+                _snprintf_s(
+                    name, _countof(name), _TRUNCATE, "%d",
+                    static_cast<int>(index + 1));
+                registry->SetValue(
+                    listKey, name, REG_SZ, values[index].c_str(), -1);
+            }
+            registry->CloseKey(listKey);
+        }
+    };
+    StringListSaver::Save(
+        key, "ExtensionOrder", registry, ExtensionOrder);
+    StringListSaver::Save(
+        key, "RemovedExtensions", registry, RemovedExtensions);
+    std::vector<std::string> customPackages;
+    for (size_t index = 0; index < CustomPackages.size(); ++index)
+    {
+        std::string packageDirectory;
+        if (ToUtf8(CustomPackages[index], &packageDirectory))
+            customPackages.push_back(packageDirectory);
+    }
+    StringListSaver::Save(
+        key, "ExtensionManifests", registry, customPackages);
 }
 
 void PackageManager::Refresh()
@@ -590,6 +680,17 @@ void PackageManager::Refresh()
     RemovePackages();
     for (size_t index = 0; index < Roots.size(); ++index)
         DiscoverRoot(Roots[index]);
+    for (size_t index = 0; index < CustomPackages.size(); ++index)
+    {
+        std::wstring parent = CustomPackages[index];
+        size_t slash = parent.find_last_of(L"\\/");
+        if (slash != std::wstring::npos)
+        {
+            parent.erase(slash);
+            DiscoverDirectory(parent, &CustomPackages[index]);
+        }
+    }
+    ApplyUserOrder();
     RegisterToolbarButtons();
     if (General != NULL)
         General->PostPluginMenuChanged();
@@ -601,7 +702,9 @@ void PackageManager::DiscoverRoot(const std::wstring& root)
         DiscoverDirectory(root);
 }
 
-void PackageManager::DiscoverDirectory(const std::wstring& directory)
+void PackageManager::DiscoverDirectory(
+    const std::wstring& directory,
+    const std::wstring* onlyPackage)
 {
     std::wstring pattern = directory + L"\\*";
     WIN32_FIND_DATAW data;
@@ -615,6 +718,9 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
         std::wstring path = directory + L"\\" + data.cFileName;
         if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
         {
+            if (onlyPackage != NULL &&
+                _wcsicmp(path.c_str(), onlyPackage->c_str()) != 0)
+                continue;
             std::wstring manifestPath = path + L"\\extension.json";
             std::string json;
             if (ReadUtf8File(manifestPath, &json))
@@ -622,6 +728,7 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                 CExtensionManifest manifest;
                 CExtensionManifestError error;
                 if (manifest.Parse(json.data(), json.size(), error) &&
+                    !IsRemoved(manifest.Id) &&
                     CExtensionManifest::IsSafeRelativeEntryPoint(manifest.EntryPoint))
                 {
                     const std::string baseName = manifest.Name;
@@ -853,7 +960,8 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                     }
                 }
             }
-            DiscoverDirectory(path);
+            if (onlyPackage == NULL)
+                DiscoverDirectory(path);
         }
     } while (FindNextFileW(find, &data));
     FindClose(find);
@@ -1065,6 +1173,188 @@ BOOL PackageManager::ExecuteCommand(
     ReleaseProgress(package);
     package->Operations = NULL;
     return succeeded;
+}
+
+BOOL WINAPI PackageManager::ManagementCallback(
+    void* context,
+    Extensions::ExtensionManagementAction action,
+    const char* extensionId,
+    const wchar_t* manifestPath,
+    int moveDelta)
+{
+    PackageManager* manager = static_cast<PackageManager*>(context);
+    if (manager == NULL)
+        return FALSE;
+    switch (action)
+    {
+    case Extensions::ExtensionManagementInstallManifest:
+        return manager->InstallManifest(manifestPath);
+    case Extensions::ExtensionManagementRemove:
+        return manager->RemoveExtension(extensionId);
+    case Extensions::ExtensionManagementMove:
+        return manager->MoveExtension(extensionId, moveDelta);
+    }
+    return FALSE;
+}
+
+bool PackageManager::IsRemoved(const std::string& extensionId) const
+{
+    for (size_t index = 0; index < RemovedExtensions.size(); ++index)
+        if (_stricmp(
+                RemovedExtensions[index].c_str(), extensionId.c_str()) == 0)
+            return true;
+    return false;
+}
+
+void PackageManager::ApplyUserOrder()
+{
+    for (size_t packageIndex = 0;
+         packageIndex < Packages.size(); ++packageIndex)
+    {
+        const std::string& id = Packages[packageIndex]->Id;
+        bool found = false;
+        for (size_t orderIndex = 0;
+             orderIndex < ExtensionOrder.size(); ++orderIndex)
+        {
+            if (_stricmp(ExtensionOrder[orderIndex].c_str(), id.c_str()) == 0)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            ExtensionOrder.push_back(id);
+    }
+
+    std::stable_sort(
+        Packages.begin(), Packages.end(),
+        [this](const Package* left, const Package* right) {
+            size_t leftOrder = ExtensionOrder.size();
+            size_t rightOrder = ExtensionOrder.size();
+            for (size_t index = 0; index < ExtensionOrder.size(); ++index)
+            {
+                if (_stricmp(
+                        ExtensionOrder[index].c_str(), left->Id.c_str()) == 0)
+                    leftOrder = index;
+                if (_stricmp(
+                        ExtensionOrder[index].c_str(), right->Id.c_str()) == 0)
+                    rightOrder = index;
+            }
+            return leftOrder < rightOrder;
+        });
+
+    if (Extensions != NULL && !Packages.empty())
+    {
+        std::vector<const char*> ids;
+        for (size_t index = 0; index < Packages.size(); ++index)
+            ids.push_back(Packages[index]->Id.c_str());
+        Extensions->ApplyExtensionOrder(
+            &ids[0], static_cast<int>(ids.size()));
+    }
+}
+
+BOOL PackageManager::InstallManifest(const wchar_t* manifestPath)
+{
+    if (manifestPath == NULL || manifestPath[0] == 0)
+        return FALSE;
+    wchar_t absolute[SAL_MAX_PATH];
+    wchar_t* filePart = NULL;
+    DWORD length = GetFullPathNameW(
+        manifestPath, _countof(absolute), absolute, &filePart);
+    if (length == 0 || length >= _countof(absolute) || filePart == NULL ||
+        _wcsicmp(filePart, L"extension.json") != 0)
+        return FALSE;
+
+    std::string json;
+    if (!ReadUtf8File(absolute, &json))
+        return FALSE;
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    if (!manifest.Parse(json.data(), json.size(), error) ||
+        !CExtensionManifest::IsSafeRelativeEntryPoint(manifest.EntryPoint))
+        return FALSE;
+
+    std::wstring packageDirectory(absolute);
+    size_t slash = packageDirectory.find_last_of(L"\\/");
+    if (slash == std::wstring::npos)
+        return FALSE;
+    packageDirectory.erase(slash);
+    bool packageFound = false;
+    for (size_t index = 0; index < CustomPackages.size(); ++index)
+        if (_wcsicmp(
+                CustomPackages[index].c_str(), packageDirectory.c_str()) == 0)
+            packageFound = true;
+    if (!packageFound)
+        CustomPackages.push_back(packageDirectory);
+
+    for (std::vector<std::string>::iterator item =
+             RemovedExtensions.begin();
+         item != RemovedExtensions.end();)
+    {
+        if (_stricmp(item->c_str(), manifest.Id.c_str()) == 0)
+            item = RemovedExtensions.erase(item);
+        else
+            ++item;
+    }
+    Refresh();
+    Extensions::ExtensionInfo installed;
+    return Extensions != NULL &&
+           Extensions->FindExtension(manifest.Id.c_str(), &installed) != FALSE;
+}
+
+BOOL PackageManager::RemoveExtension(const char* extensionId)
+{
+    if (extensionId == NULL || extensionId[0] == 0)
+        return FALSE;
+    bool managed = false;
+    for (size_t index = 0; index < Packages.size(); ++index)
+        if (_stricmp(Packages[index]->Id.c_str(), extensionId) == 0)
+            managed = true;
+    if (!managed)
+        return FALSE;
+    if (!IsRemoved(extensionId))
+        RemovedExtensions.push_back(extensionId);
+    Refresh();
+    return TRUE;
+}
+
+BOOL PackageManager::MoveExtension(const char* extensionId, int delta)
+{
+    if (extensionId == NULL || (delta != -1 && delta != 1))
+        return FALSE;
+    size_t packageIndex = Packages.size();
+    for (size_t index = 0; index < Packages.size(); ++index)
+        if (_stricmp(Packages[index]->Id.c_str(), extensionId) == 0)
+            packageIndex = index;
+    if (packageIndex == Packages.size())
+        return FALSE;
+    const int target = static_cast<int>(packageIndex) + delta;
+    if (target < 0 || target >= static_cast<int>(Packages.size()))
+        return FALSE;
+
+    UnregisterToolbarButtons();
+    std::swap(Packages[packageIndex], Packages[target]);
+    size_t firstOrder = ExtensionOrder.size();
+    size_t secondOrder = ExtensionOrder.size();
+    for (size_t index = 0; index < ExtensionOrder.size(); ++index)
+    {
+        if (_stricmp(
+                ExtensionOrder[index].c_str(),
+                Packages[packageIndex]->Id.c_str()) == 0)
+            firstOrder = index;
+        if (_stricmp(
+                ExtensionOrder[index].c_str(),
+                Packages[target]->Id.c_str()) == 0)
+            secondOrder = index;
+    }
+    if (firstOrder < ExtensionOrder.size() &&
+        secondOrder < ExtensionOrder.size())
+        std::swap(ExtensionOrder[firstOrder], ExtensionOrder[secondOrder]);
+    ApplyUserOrder();
+    RegisterToolbarButtons();
+    if (General != NULL)
+        General->PostPluginMenuChanged();
+    return TRUE;
 }
 
 BOOL WINAPI PackageManager::HostDispatch(

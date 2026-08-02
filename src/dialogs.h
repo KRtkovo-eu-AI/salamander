@@ -987,6 +987,10 @@ protected:
     char PluginTestText[100];       // original label of the Test button
     std::vector<Salamatrix::Extensions::ExtensionInfo> ExtensionRows;
     std::vector<int> ExtensionImageIndices;
+    int MinDlgW;
+    int MinDlgH;
+    int LastClientW;
+    int LastClientH;
 
 public:
     CPluginsDlg(HWND hParent);
@@ -1014,6 +1018,7 @@ protected:
     void OnSort();
     void EnableHeader();
     void ApplyTheme();
+    void LayoutControls();
 };
 
 //

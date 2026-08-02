@@ -21,6 +21,22 @@ struct CallbackState
     }
 };
 
+struct ManagementState
+{
+    int Count;
+    Salamatrix::Extensions::ExtensionManagementAction Action;
+    std::string ExtensionId;
+    std::wstring ManifestPath;
+    int MoveDelta;
+
+    ManagementState()
+        : Count(0),
+          Action(Salamatrix::Extensions::ExtensionManagementInstallManifest),
+          MoveDelta(0)
+    {
+    }
+};
+
 BOOL WINAPI LifecycleCallback(
     void* context,
     Salamatrix::Extensions::ExtensionAction action,
@@ -32,6 +48,24 @@ BOOL WINAPI LifecycleCallback(
     ++state->Count;
     state->LastAction = action;
     state->CallbackStateValue = info->State;
+    return TRUE;
+}
+
+BOOL WINAPI ManagementCallback(
+    void* context,
+    Salamatrix::Extensions::ExtensionManagementAction action,
+    const char* extensionId,
+    const wchar_t* manifestPath,
+    int moveDelta)
+{
+    ManagementState* state = static_cast<ManagementState*>(context);
+    if (state == NULL)
+        return FALSE;
+    ++state->Count;
+    state->Action = action;
+    state->ExtensionId = extensionId != NULL ? extensionId : "";
+    state->ManifestPath = manifestPath != NULL ? manifestPath : L"";
+    state->MoveDelta = moveDelta;
     return TRUE;
 }
 
@@ -314,6 +348,65 @@ void TestSettingsSchema()
           "return legacy setting schema prefix");
     delete extensions;
 }
+
+void TestManagementAndOrdering()
+{
+    Salamatrix::Extensions::ExtensionsService* extensions =
+        new Salamatrix::Extensions::ExtensionsService();
+    CallbackState owners[3];
+    Salamatrix::Extensions::ExtensionDescriptor descriptor =
+        MakeDescriptor("first.extension");
+    Check(extensions->RegisterExtension(
+              &descriptor, NULL, &owners[0]) != FALSE,
+          "register first ordered extension");
+    descriptor = MakeDescriptor("second.extension");
+    Check(extensions->RegisterExtension(
+              &descriptor, NULL, &owners[1]) != FALSE,
+          "register second ordered extension");
+    descriptor = MakeDescriptor("third.extension");
+    Check(extensions->RegisterExtension(
+              &descriptor, NULL, &owners[2]) != FALSE,
+          "register third ordered extension");
+
+    const char* order[] = {"third.extension", "first.extension"};
+    Check(extensions->ApplyExtensionOrder(order, _countof(order)) != FALSE,
+          "apply stable extension order");
+    Salamatrix::Extensions::ExtensionInfo info;
+    Check(extensions->GetExtensionInfo(0, &info) != FALSE &&
+              strcmp(info.Descriptor.Id, "third.extension") == 0,
+          "ordered extension moved to the first row");
+    Check(extensions->GetExtensionInfo(1, &info) != FALSE &&
+              strcmp(info.Descriptor.Id, "first.extension") == 0,
+          "second ordered extension follows it");
+    Check(extensions->GetExtensionInfo(2, &info) != FALSE &&
+              strcmp(info.Descriptor.Id, "second.extension") == 0,
+          "unlisted extension retains a stable trailing position");
+
+    ManagementState management;
+    Check(extensions->SetManagementCallback(
+              ManagementCallback, &management) != FALSE,
+          "register extension management callback");
+    Check(extensions->InstallExtensionManifest(
+              L"C:\\custom\\extension.json") != FALSE &&
+              management.Action ==
+                  Salamatrix::Extensions::ExtensionManagementInstallManifest &&
+              management.ManifestPath == L"C:\\custom\\extension.json",
+          "forward custom manifest installation");
+    Check(extensions->RemoveManagedExtension("first.extension") != FALSE &&
+              management.Action ==
+                  Salamatrix::Extensions::ExtensionManagementRemove &&
+              management.ExtensionId == "first.extension",
+          "forward managed extension removal");
+    Check(extensions->MoveManagedExtension("third.extension", 1) != FALSE &&
+              management.Action ==
+                  Salamatrix::Extensions::ExtensionManagementMove &&
+              management.ExtensionId == "third.extension" &&
+              management.MoveDelta == 1,
+          "forward managed extension move");
+    Check(extensions->MoveManagedExtension("third.extension", 2) == FALSE,
+          "reject invalid managed extension move delta");
+    delete extensions;
+}
 } // namespace
 
 int main()
@@ -325,6 +418,7 @@ int main()
     TestDependencyAvailabilityState();
     TestDisabledState();
     TestSettingsSchema();
+    TestManagementAndOrdering();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d Salamatrix extension test(s) failed.\n", Failures);
