@@ -183,6 +183,151 @@ static const CExtensionManifestLocalizedSetting* FindLocalizedSetting(
     return NULL;
 }
 
+static void AppendIconWord(std::vector<unsigned char>& output, WORD value)
+{
+    output.push_back(static_cast<unsigned char>(value & 0xff));
+    output.push_back(static_cast<unsigned char>((value >> 8) & 0xff));
+}
+
+static void AppendIconDword(std::vector<unsigned char>& output, DWORD value)
+{
+    output.push_back(static_cast<unsigned char>(value & 0xff));
+    output.push_back(static_cast<unsigned char>((value >> 8) & 0xff));
+    output.push_back(static_cast<unsigned char>((value >> 16) & 0xff));
+    output.push_back(static_cast<unsigned char>((value >> 24) & 0xff));
+}
+
+static std::string Base64Encode(const std::vector<unsigned char>& input)
+{
+    static const char alphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string output;
+    output.reserve(((input.size() + 2) / 3) * 4);
+    for (size_t index = 0; index < input.size(); index += 3)
+    {
+        const unsigned int first = input[index];
+        const unsigned int second =
+            index + 1 < input.size() ? input[index + 1] : 0;
+        const unsigned int third =
+            index + 2 < input.size() ? input[index + 2] : 0;
+        const unsigned int value = (first << 16) | (second << 8) | third;
+        output.push_back(alphabet[(value >> 18) & 0x3f]);
+        output.push_back(alphabet[(value >> 12) & 0x3f]);
+        output.push_back(
+            index + 1 < input.size() ? alphabet[(value >> 6) & 0x3f] : '=');
+        output.push_back(
+            index + 2 < input.size() ? alphabet[value & 0x3f] : '=');
+    }
+    return output;
+}
+
+static std::string SerializeWindowIcon(HICON icon)
+{
+    if (icon == NULL)
+        return std::string();
+
+    ICONINFO iconInfo;
+    memset(&iconInfo, 0, sizeof(iconInfo));
+    if (!GetIconInfo(icon, &iconInfo))
+        return std::string();
+
+    BITMAP colorBitmap;
+    memset(&colorBitmap, 0, sizeof(colorBitmap));
+    const bool hasColorBitmap =
+        iconInfo.hbmColor != NULL &&
+        GetObject(iconInfo.hbmColor, sizeof(colorBitmap), &colorBitmap) != 0;
+    const int width = hasColorBitmap ? colorBitmap.bmWidth : 0;
+    const int height = hasColorBitmap ? abs(colorBitmap.bmHeight) : 0;
+    const DWORD colorBytes =
+        width > 0 && height > 0
+            ? static_cast<DWORD>(width * height * 4)
+            : 0;
+    const DWORD maskStride =
+        width > 0 ? static_cast<DWORD>(((width + 31) / 32) * 4) : 0;
+    const DWORD maskBytes = maskStride * static_cast<DWORD>(height);
+    std::vector<unsigned char> colorBits(colorBytes);
+    std::vector<unsigned char> maskBits(maskBytes, 0);
+
+    bool copied = false;
+    HDC screen = GetDC(NULL);
+    if (screen != NULL && colorBytes > 0)
+    {
+        BITMAPINFO colorInfo;
+        memset(&colorInfo, 0, sizeof(colorInfo));
+        colorInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        colorInfo.bmiHeader.biWidth = width;
+        colorInfo.bmiHeader.biHeight = height;
+        colorInfo.bmiHeader.biPlanes = 1;
+        colorInfo.bmiHeader.biBitCount = 32;
+        colorInfo.bmiHeader.biCompression = BI_RGB;
+        copied = GetDIBits(
+                     screen, iconInfo.hbmColor, 0, height,
+                     &colorBits[0], &colorInfo, DIB_RGB_COLORS) == height;
+
+        if (copied && iconInfo.hbmMask != NULL && maskBytes > 0)
+        {
+            struct MonoBitmapInfo
+            {
+                BITMAPINFOHEADER Header;
+                RGBQUAD Colors[2];
+            } maskInfo;
+            memset(&maskInfo, 0, sizeof(maskInfo));
+            maskInfo.Header.biSize = sizeof(BITMAPINFOHEADER);
+            maskInfo.Header.biWidth = width;
+            maskInfo.Header.biHeight = height;
+            maskInfo.Header.biPlanes = 1;
+            maskInfo.Header.biBitCount = 1;
+            maskInfo.Header.biCompression = BI_RGB;
+            maskInfo.Colors[1].rgbBlue = 255;
+            maskInfo.Colors[1].rgbGreen = 255;
+            maskInfo.Colors[1].rgbRed = 255;
+            GetDIBits(
+                screen, iconInfo.hbmMask, 0, height,
+                &maskBits[0], reinterpret_cast<BITMAPINFO*>(&maskInfo),
+                DIB_RGB_COLORS);
+        }
+        ReleaseDC(NULL, screen);
+    }
+
+    // GetIconInfo creates independent bitmap handles even for shared icons.
+    if (iconInfo.hbmColor != NULL)
+        ::DeleteObject(iconInfo.hbmColor);
+    if (iconInfo.hbmMask != NULL)
+        ::DeleteObject(iconInfo.hbmMask);
+    if (!copied || width > 255 || height > 255)
+        return std::string();
+
+    const DWORD imageBytes =
+        sizeof(BITMAPINFOHEADER) + colorBytes + maskBytes;
+    std::vector<unsigned char> ico;
+    ico.reserve(6 + 16 + imageBytes);
+    AppendIconWord(ico, 0);
+    AppendIconWord(ico, 1);
+    AppendIconWord(ico, 1);
+    ico.push_back(static_cast<unsigned char>(width));
+    ico.push_back(static_cast<unsigned char>(height));
+    ico.push_back(0);
+    ico.push_back(0);
+    AppendIconWord(ico, 1);
+    AppendIconWord(ico, 32);
+    AppendIconDword(ico, imageBytes);
+    AppendIconDword(ico, 22);
+    AppendIconDword(ico, sizeof(BITMAPINFOHEADER));
+    AppendIconDword(ico, static_cast<DWORD>(width));
+    AppendIconDword(ico, static_cast<DWORD>(height * 2));
+    AppendIconWord(ico, 1);
+    AppendIconWord(ico, 32);
+    AppendIconDword(ico, BI_RGB);
+    AppendIconDword(ico, colorBytes);
+    AppendIconDword(ico, 0);
+    AppendIconDword(ico, 0);
+    AppendIconDword(ico, 0);
+    AppendIconDword(ico, 0);
+    ico.insert(ico.end(), colorBits.begin(), colorBits.end());
+    ico.insert(ico.end(), maskBits.begin(), maskBits.end());
+    return Base64Encode(ico);
+}
+
 static Automation::IScriptRunner* QueryScriptRunner(
     CSalamanderGeneralAbstract* general)
 {
@@ -1391,6 +1536,58 @@ BOOL WINAPI PackageManager::HostDispatch(
                 JsonEscape(locale.c_str()) +
                 "\",\"languageId\":" +
                 std::to_string(static_cast<unsigned int>(languageId)) + "}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.host.windowIcon")
+    {
+        HICON icon = NULL;
+        bool destroyIcon = false;
+        const bool useDarkIcon =
+            DarkModeIsWindowsDarkSchemeSelected() &&
+            !package->IconDarkPath.empty();
+        const char* preferredPath =
+            useDarkIcon ? package->IconDarkPath.c_str()
+                        : package->IconPath.c_str();
+        if (SalamanderGUI != NULL && preferredPath[0] != '\0')
+        {
+            icon = SalamanderGUI->CreateSVGIcon(preferredPath, 32);
+            if (icon == NULL && useDarkIcon && !package->IconPath.empty())
+                icon = SalamanderGUI->CreateSVGIcon(
+                    package->IconPath.c_str(), 32);
+            destroyIcon = icon != NULL;
+        }
+
+        if (icon == NULL && owner->General != NULL)
+        {
+            HWND mainWindow = owner->General->GetMainWindowHWND();
+            HICON mainIcon = mainWindow != NULL
+                                 ? reinterpret_cast<HICON>(SendMessage(
+                                       mainWindow, WM_GETICON, ICON_BIG, 0))
+                                 : NULL;
+            if (mainIcon == NULL && mainWindow != NULL)
+                mainIcon = reinterpret_cast<HICON>(SendMessage(
+                    mainWindow, WM_GETICON, ICON_SMALL2, 0));
+            if (mainIcon == NULL && mainWindow != NULL)
+                mainIcon = reinterpret_cast<HICON>(GetClassLongPtr(
+                    mainWindow, GCLP_HICON));
+            if (mainIcon == NULL && mainWindow != NULL)
+                mainIcon = reinterpret_cast<HICON>(GetClassLongPtr(
+                    mainWindow, GCLP_HICONSM));
+            if (mainIcon != NULL)
+            {
+                icon = CopyIcon(mainIcon);
+                destroyIcon = icon != NULL;
+                if (icon == NULL)
+                    icon = mainIcon;
+            }
+        }
+
+        const std::string encodedIcon = SerializeWindowIcon(icon);
+        if (destroyIcon)
+            DestroyIcon(icon);
+        return CopyResult(
+            std::string("{\"ok\":true,\"icon\":\"") +
+                encodedIcon + "\"}",
             resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.host.appearance")

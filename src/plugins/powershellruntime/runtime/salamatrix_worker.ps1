@@ -68,6 +68,123 @@ Send-Frame -Kind 'hello' -Id 0 -Payload @{ protocol = 1; runtime = 'powershell' 
 do { $hello = Read-Frame } while ($hello.Kind -ne 'result' -or $hello.Id -ne 0)
 if ($hello.Payload.ok -eq $false) { throw 'Salamander host rejected the worker' }
 
+function Initialize-SalamatrixWindowIcon {
+    try {
+        $response = Invoke-Host -Method 'salamander.host.windowIcon' -Arguments @{}
+        if ($null -eq $response -or
+            [string]::IsNullOrWhiteSpace([string]$response.icon)) {
+            return
+        }
+
+        Add-Type -AssemblyName System.Drawing
+        Add-Type -AssemblyName System.Windows.Forms
+        if ($null -eq ('OpenSalamander.Salamatrix.ExtensionWindowIconFilter' -as [type])) {
+            $filterSource = @'
+using System;
+using System.Drawing;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
+
+namespace OpenSalamander.Salamatrix
+{
+    public sealed class ExtensionWindowIconFilter : IMessageFilter, IDisposable
+    {
+        private const int GA_ROOT = 2;
+        private const int WM_SETICON = 0x0080;
+        private const int ICON_SMALL = 0;
+        private const int ICON_BIG = 1;
+
+        private readonly Icon icon;
+        private IntPtr[] initializedWindows = new IntPtr[8];
+        private int initializedWindowCount;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(
+            IntPtr hwnd, out uint processId);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentProcessId();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(
+            IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam);
+
+        public ExtensionWindowIconFilter(Icon windowIcon)
+        {
+            icon = (Icon)windowIcon.Clone();
+        }
+
+        public bool PreFilterMessage(ref Message message)
+        {
+            IntPtr root = GetAncestor(message.HWnd, GA_ROOT);
+            if (root == IntPtr.Zero || IsInitialized(root))
+                return false;
+
+            uint processId;
+            GetWindowThreadProcessId(root, out processId);
+            if (processId != GetCurrentProcessId())
+                return false;
+
+            SendMessage(root, WM_SETICON, new IntPtr(ICON_BIG), icon.Handle);
+            SendMessage(root, WM_SETICON, new IntPtr(ICON_SMALL), icon.Handle);
+            if (initializedWindowCount == initializedWindows.Length)
+                Array.Resize(ref initializedWindows, initializedWindows.Length * 2);
+            initializedWindows[initializedWindowCount++] = root;
+            return false;
+        }
+
+        private bool IsInitialized(IntPtr hwnd)
+        {
+            for (int index = 0; index < initializedWindowCount; ++index)
+                if (initializedWindows[index] == hwnd)
+                    return true;
+            return false;
+        }
+
+        public void Dispose()
+        {
+            Application.RemoveMessageFilter(this);
+            icon.Dispose();
+        }
+    }
+}
+'@
+            if ($PSVersionTable.PSEdition -eq 'Core') {
+                $references = @(
+                    [System.Drawing.Icon].Assembly.Location
+                    [System.Windows.Forms.Form].Assembly.Location
+                    [System.Windows.Forms.Message].Assembly.Location
+                ) | Select-Object -Unique
+                Add-Type -ReferencedAssemblies $references -TypeDefinition $filterSource
+            } else {
+                Add-Type -ReferencedAssemblies 'System.Drawing', 'System.Windows.Forms' -TypeDefinition $filterSource
+            }
+        }
+
+        $bytes = [Convert]::FromBase64String([string]$response.icon)
+        $stream = New-Object System.IO.MemoryStream -ArgumentList @(,$bytes)
+        try {
+            $sourceIcon = New-Object System.Drawing.Icon -ArgumentList $stream
+            try {
+                $filter = New-Object OpenSalamander.Salamatrix.ExtensionWindowIconFilter -ArgumentList $sourceIcon
+                [System.Windows.Forms.Application]::AddMessageFilter($filter)
+                $global:SalamatrixWindowIconFilter = $filter
+            } finally {
+                $sourceIcon.Dispose()
+            }
+        } finally {
+            $stream.Dispose()
+        }
+    } catch {
+        # Window icon decoration is optional and must never block an extension.
+    }
+}
+
+Initialize-SalamatrixWindowIcon
+
 $commands = [pscustomobject]@{}
 $commands | Add-Member ScriptMethod Execute {
     param([string]$CommandId)

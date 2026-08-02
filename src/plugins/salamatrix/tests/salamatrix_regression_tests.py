@@ -1156,6 +1156,20 @@ def main() -> int:
         r'ScriptMethod Appearance.*?salamander\.host\.appearance',
         "PowerShell runtime does not expose Salamander appearance")
     require(
+        packages,
+        r'salamander\.host\.windowIcon.*?'
+        r'DarkModeIsWindowsDarkSchemeSelected\(\).*?'
+        r'CreateSVGIcon\(preferredPath, 32\).*?'
+        r'GetMainWindowHWND\(\).*?SerializeWindowIcon\(icon\)',
+        "Salamatrix does not provide extension/main-window icon fallback to workers")
+    require(
+        powershell_worker,
+        r"Invoke-Host -Method 'salamander\.host\.windowIcon'.*?"
+        r"ExtensionWindowIconFilter : IMessageFilter.*?"
+        r"WM_SETICON.*?ICON_BIG.*?ICON_SMALL.*?"
+        r"Application\]::AddMessageFilter\(\$filter\)",
+        "PowerShell worker does not apply the extension icon to top-level windows")
+    require(
         powershell_worker + packages,
         r'ScriptMethod MessageBox.*?buttons.*?icon.*?'
         r'MB_YESNO.*?MB_ICONWARNING',
