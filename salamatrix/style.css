@@ -205,12 +205,24 @@ a:hover .runtime-pill span, a:hover .runtime-pill strong { text-decoration: none
 .identity-grid article { display: flex; flex-direction: column; gap: 5px; padding: 13px; background: linear-gradient(145deg, #303030, #242424); border: 1px solid #4a4a4a; border-radius: 4px; }
 .identity-grid b { color: #f35353; font-size: .86rem; }
 .identity-grid span { color: var(--sam-muted); font-size: .78rem; }
-.language-example { margin: 18px 0 28px; background: #252525; border: 1px solid #474747; border-radius: 6px; overflow: hidden; }
-.language-example > header { display: flex; align-items: center; gap: 13px; padding: 14px 17px; background: linear-gradient(#303030, #292929); border-bottom: 1px solid #474747; }
+.language-example { margin: 18px 0 28px; background: #252525; border: 1px solid #474747; border-radius: 6px; overflow: hidden; interpolate-size: allow-keywords; }
+.language-example::details-content { block-size: 0; overflow: hidden; transition: block-size .35s ease-in-out, content-visibility .35s allow-discrete; }
+.language-example[open]::details-content { block-size: auto; }
+.language-example > summary { display: flex; align-items: center; gap: 13px; padding: 14px 52px 14px 17px; background: linear-gradient(#303030, #292929); cursor: pointer; list-style: none; position: relative; transition: background .2s ease-in-out; }
+.language-example > summary::-webkit-details-marker { display: none; }
+.language-example > summary::after { content: ""; position: absolute; right: 21px; width: 10px; height: 10px; border-right: 2px solid var(--sam-muted); border-bottom: 2px solid var(--sam-muted); transform: rotate(45deg) translateY(-3px); transition: transform .25s ease-in-out, border-color .2s ease-in-out; }
+.language-example[open] > summary { border-bottom: 1px solid #474747; }
+.language-example[open] > summary::after { transform: rotate(225deg) translate(-2px, -2px); }
+.language-example > summary:hover,
+.language-example > summary:focus-visible { background: linear-gradient(#393939, #303030); }
+.language-example > summary:hover::after,
+.language-example > summary:focus-visible::after { border-color: #fff; }
+.language-example > summary:focus-visible { outline: 2px solid var(--sam-link); outline-offset: -2px; }
 .language-example h3 { margin: 0 0 3px; color: #fff; }
-.language-example header p { margin: 0; color: var(--sam-muted); font-size: .82rem; }
+.language-example summary p { margin: 0; color: var(--sam-muted); font-size: .82rem; }
 .language-example pre { margin: 0; border: 0; border-radius: 0; }
 .language-badge { display: grid; place-items: center; min-width: 48px; height: 38px; padding: 0 7px; color: #fff; background: #e02e2e; border-radius: 4px; font: 700 .75rem var(--sam-mono); }
+@media (prefers-reduced-motion: reduce) { .language-example::details-content, .language-example > summary, .language-example > summary::after { transition: none; } }
 .protocol-grid { display: grid; grid-template-columns: minmax(190px, .3fr) 1fr; gap: 1px; margin: 18px 0 26px; background: #494949; border: 1px solid #494949; }
 .protocol-grid code, .protocol-grid span { padding: 10px 12px; border: 0; border-radius: 0; background: #272727; }
 .protocol-grid code { color: #f35353; }
