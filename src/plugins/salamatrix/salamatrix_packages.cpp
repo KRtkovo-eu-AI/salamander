@@ -2207,6 +2207,26 @@ BOOL WINAPI PackageManager::HostDispatch(
                 JsonEscape(selected ? &selectedPath[0] : "") + "\"}",
             resultJson, resultCapacity, resultLength);
     }
+    if (method == "salamander.ui.renderIcon")
+    {
+        std::string path;
+        int size = 16;
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "path", &path);
+        Runtime::Protocol::Json::FindIntegerMember(payloadJson, "size", &size);
+        if (path.empty() || size < 1 || size > 256 || SalamanderGUI == NULL)
+            return CopyResult(
+                "{\"ok\":true,\"icon\":\"\"}",
+                resultJson, resultCapacity, resultLength);
+
+        HICON icon = SalamanderGUI->CreateSVGIcon(path.c_str(), size);
+        const std::string encodedIcon = SerializeWindowIcon(icon);
+        if (icon != NULL)
+            DestroyIcon(icon);
+        return CopyResult(
+            std::string("{\"ok\":true,\"icon\":\"") +
+                encodedIcon + "\"}",
+            resultJson, resultCapacity, resultLength);
+    }
     if (method == "salamander.ui.progress.create" ||
         method == "salamander.ui.progress.update" ||
         method == "salamander.ui.progress.step" ||

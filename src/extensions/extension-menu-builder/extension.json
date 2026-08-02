@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "OpenSalamander.ExtensionMenuBuilder",
   "name": "Extension Menu Builder",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Create and edit simple menu-driven Salamatrix extensions interactively.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",

@@ -5,6 +5,43 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 $builderRoot = Join-Path $root 'src\extensions\extension-menu-builder'
 . (Join-Path $builderRoot 'main.ps1')
 
+Add-Type -AssemblyName System.Drawing
+
+$iconStream = New-Object System.IO.MemoryStream
+try {
+    $systemIcon = [System.Drawing.SystemIcons]::Application
+    $systemIcon.Save($iconStream)
+    $script:MockPreviewIcon = [System.Convert]::ToBase64String(
+        $iconStream.ToArray())
+} finally {
+    $iconStream.Dispose()
+}
+$script:MockPreviewPath = ''
+function Invoke-Host {
+    param([string]$Method, [hashtable]$Arguments)
+    if ($Method -ne 'salamander.ui.renderIcon') {
+        throw "Unexpected mocked host method: $Method"
+    }
+    $script:MockPreviewPath = [string]$Arguments.path
+    return [pscustomobject]@{ icon = $script:MockPreviewIcon }
+}
+
+$script:UseWindowsDarkMode = $true
+$previewCommand = [pscustomobject]@{
+    Icon = Join-Path $builderRoot 'icon.svg'
+    IconDark = Join-Path $builderRoot 'icon-dark.svg'
+}
+$previewImage = Get-BuilderPreviewImage $previewCommand
+try {
+    if ($null -eq $previewImage -or
+        $script:MockPreviewPath -ne [System.IO.Path]::GetFullPath(
+            $previewCommand.IconDark)) {
+        throw 'Menu preview did not create an image from the dark SVG icon.'
+    }
+} finally {
+    if ($null -ne $previewImage) { $previewImage.Dispose() }
+}
+
 $script:Strings = (
     Get-Content -Raw (Join-Path $builderRoot 'locales\en.json') |
     ConvertFrom-Json).strings

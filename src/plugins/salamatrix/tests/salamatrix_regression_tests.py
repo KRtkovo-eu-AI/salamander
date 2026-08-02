@@ -746,6 +746,11 @@ def main() -> int:
         r'salamander\.ui\.pickFile.*?PickFile\(.*?'
         r'salamander\.ui\.pickFolder.*?PickFolder\(',
         "framework file and folder picker host dispatch is missing")
+    require(
+        packages + menu_builder,
+        r'salamander\.ui\.renderIcon.*?CreateSVGIcon.*?'
+        r'Get-BuilderPreviewImage.*?item\.Image',
+        "Extension Menu Builder preview does not render command SVG icons")
     require(packages, r"SALAMATRIX_SERVICE_SCRIPT_RUNNER", "legacy compatibility script runner fallback is missing")
     require(packages, r"RuntimeAdapterFlagCompatibility", "legacy fallback is not limited to compatibility adapters")
     require(

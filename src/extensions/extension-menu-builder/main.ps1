@@ -302,6 +302,46 @@ function Get-DefaultExtensionIcon {
 "@
 }
 
+function Get-BuilderPreviewImage {
+    param([object]$Command)
+    $candidates = if ($script:UseWindowsDarkMode) {
+        @([string]$Command.IconDark, [string]$Command.Icon)
+    } else {
+        @([string]$Command.Icon)
+    }
+    $path = ''
+    foreach ($candidate in $candidates) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and
+            [System.IO.File]::Exists(
+                [System.IO.Path]::GetFullPath($candidate))) {
+            $path = [System.IO.Path]::GetFullPath($candidate)
+            break
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($path)) { return $null }
+
+    try {
+        $rendered = Invoke-Host -Method 'salamander.ui.renderIcon' -Arguments @{
+            path = $path
+            size = 16
+        }
+        if ($null -eq $rendered -or
+            [string]::IsNullOrWhiteSpace([string]$rendered.icon)) {
+            return $null
+        }
+        $bytes = [System.Convert]::FromBase64String([string]$rendered.icon)
+        $stream = New-Object System.IO.MemoryStream -ArgumentList @(,$bytes)
+        try {
+            $source = New-Object System.Drawing.Icon -ArgumentList $stream
+            try { return $source.ToBitmap() } finally { $source.Dispose() }
+        } finally {
+            $stream.Dispose()
+        }
+    } catch {
+        return $null
+    }
+}
+
 function Get-GeneratedRuntimeScript {
     return @'
 Set-StrictMode -Version 2.0
@@ -1177,11 +1217,18 @@ function Show-BuilderWindow {
     $previewButton.Add_Click({
         Save-CommandEditor
         $preview = New-Object System.Windows.Forms.ContextMenuStrip
+        $preview.ImageScalingSize = New-Object System.Drawing.Size(16, 16)
+        $previewImages = New-Object System.Collections.Generic.List[System.Drawing.Image]
         foreach ($command in $script:Commands) {
             if (-not $command.PluginMenu) { continue }
             $item = New-Object System.Windows.Forms.ToolStripMenuItem
             $item.Text = $command.Title
             $item.Enabled = -not [string]::IsNullOrWhiteSpace($command.Target)
+            $previewImage = Get-BuilderPreviewImage $command
+            if ($null -ne $previewImage) {
+                $previewImages.Add($previewImage)
+                $item.Image = $previewImage
+            }
             [void]$preview.Items.Add($item)
         }
         if ($preview.Items.Count -eq 0) {
@@ -1190,6 +1237,10 @@ function Show-BuilderWindow {
             $item.Enabled = $false
             [void]$preview.Items.Add($item)
         }
+        $preview.Add_Closed({
+            foreach ($image in $previewImages) { $image.Dispose() }
+            $preview.Dispose()
+        }.GetNewClosure())
         $preview.Show($previewButton, 0, $previewButton.Height)
     })
     $openButton.Add_Click({
