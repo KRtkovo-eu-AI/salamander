@@ -79,6 +79,10 @@ def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> No
     targets = DIRECTORY_TARGETS.read_text(encoding="utf-8")
     assert "report_code_growth.py" in workflow
     assert "lizard==1.23.0" in workflow
+    assert "<!-- source-code-growth-report -->" in workflow
+    assert "github.rest.issues.createComment" in workflow
+    assert "github.rest.issues.updateComment" in workflow
+    assert "pull-requests: write" in workflow
     assert "msbuild" not in workflow.lower()
     assert "binary-size" not in workflow
     assert "configuration: Release" not in pr_build
