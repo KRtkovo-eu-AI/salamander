@@ -365,6 +365,11 @@ class _UI:
             "salamander.ui.controls"
         ).get("shown", False))
 
+    def uptime(self) -> str:
+        return str(self._transport.call(
+            "salamander.host.uptime"
+        ).get("milliseconds", "0"))
+
     def input_box(self, prompt: str, title: str = "Salamander",
                   initial: str = "") -> dict:
         return self._transport.call(
@@ -517,7 +522,8 @@ class _Dialog:
                     keep_open: bool = False,
                     multiline: bool = False,
                     filter: str = "",
-                    save: bool = False) -> None:
+                    save: bool = False,
+                    options: Optional[dict] = None) -> None:
         arguments: dict = {
             "readOnly": read_only,
             "checked": checked,
@@ -532,6 +538,8 @@ class _Dialog:
         if kind == "filepicker":
             arguments["filter"] = filter
             arguments["save"] = save
+        if options:
+            arguments.update(options)
         self._add(kind, control_id, text, **arguments)
 
     def set_validation(self, control_id: str, required: bool = False,

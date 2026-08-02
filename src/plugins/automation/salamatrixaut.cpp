@@ -479,6 +479,165 @@ CSalamanderUINamespaceAutomation::CSalamanderUINamespaceAutomation(CSalamanderFo
     return S_OK;
 }
 
+/* [id] */ HRESULT STDMETHODCALLTYPE CSalamanderUINamespaceAutomation::dialog(
+    BSTR title, long width, long height, ISalamanderDialog** result)
+{
+    if (result == NULL)
+        return E_POINTER;
+    *result = NULL;
+    g_oAutomationPlugin.RefreshSalamatrixServices();
+    Salamatrix::UI::IUIService* ui =
+        g_oAutomationPlugin.GetSalamatrixBridge()->GetUIService();
+    if (ui == NULL || ui->GetVersion() < SALAMATRIX_UI_VERSION_1_4)
+        return RaiseMissingRuntime(GetProgId());
+    _bstr_t titleA(title);
+    Salamatrix::UI::DialogOptions options;
+    options.Title = static_cast<const char*>(titleA);
+    options.Parent = SalamanderGeneral->GetMsgBoxParent();
+    options.Width = static_cast<short>(width);
+    options.Height = static_cast<short>(height);
+    Salamatrix::UI::IDialog* nativeDialog = ui->CreateSalamatrixDialog(options);
+    if (nativeDialog == NULL)
+        return E_OUTOFMEMORY;
+// Preserve Automation's exception-free COM boundary even when the debug CRT
+// allocation macro is active.
+#ifdef new
+#undef new
+#define RESTORE_SALAMATRIX_DIALOG_AUTOMATION_DEBUG_NEW_MACRO
+#endif
+    *result = new (std::nothrow) CSalamatrixDialogAutomation(ui, nativeDialog);
+#ifdef RESTORE_SALAMATRIX_DIALOG_AUTOMATION_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_SALAMATRIX_DIALOG_AUTOMATION_DEBUG_NEW_MACRO
+#endif
+    if (*result == NULL)
+    {
+        ui->DestroyDialog(nativeDialog);
+        return E_OUTOFMEMORY;
+    }
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE CSalamanderUINamespaceAutomation::get_uptime(BSTR* milliseconds)
+{
+    if (milliseconds == NULL) return E_POINTER;
+    WCHAR value[32];
+    _ui64tow_s(GetTickCount64(), value, _countof(value), 10);
+    *milliseconds = SysAllocString(value);
+    return *milliseconds != NULL ? S_OK : E_OUTOFMEMORY;
+}
+
+CSalamatrixDialogAutomation::CSalamatrixDialogAutomation(
+    Salamatrix::UI::IUIService* uiService, Salamatrix::UI::IDialog* dialog)
+    : m_pUIService(uiService), m_pDialog(dialog)
+{
+}
+
+CSalamatrixDialogAutomation::~CSalamatrixDialogAutomation()
+{
+    close();
+}
+
+static bool OptionalVariantLong(VARIANT* value, long* result)
+{
+    if (value == NULL || V_VT(value) == VT_ERROR || V_VT(value) == VT_EMPTY)
+        return false;
+    VARIANT converted;
+    VariantInit(&converted);
+    if (FAILED(VariantChangeType(&converted, value, 0, VT_I4)))
+        return false;
+    *result = V_I4(&converted);
+    VariantClear(&converted);
+    return true;
+}
+
+HRESULT STDMETHODCALLTYPE CSalamatrixDialogAutomation::add(
+    BSTR kindValue, BSTR controlId, BSTR text, long x, long y,
+    long width, long height, VARIANT* styleFlags, VARIANT* dialogResult)
+{
+    if (m_pDialog == NULL)
+        return E_UNEXPECTED;
+    _bstr_t kindA(kindValue), idA(controlId), textA(text);
+    const char* kindName = static_cast<const char*>(kindA);
+    struct KindMap { const char* Name; Salamatrix::UI::ControlKind Kind; };
+    static const KindMap kinds[] = {
+        {"label",Salamatrix::UI::ControlKindLabel},{"groupbox",Salamatrix::UI::ControlKindGroupBox},
+        {"statictext",Salamatrix::UI::ControlKindStaticText},{"hyperlink",Salamatrix::UI::ControlKindHyperLink},
+        {"progressbar",Salamatrix::UI::ControlKindProgressBar},{"button",Salamatrix::UI::ControlKindButton},
+        {"arrowbutton",Salamatrix::UI::ControlKindArrowButton},{"textarrowbutton",Salamatrix::UI::ControlKindTextArrowButton},
+        {"colorarrowbutton",Salamatrix::UI::ControlKindColorArrowButton},{"listview",Salamatrix::UI::ControlKindListView},
+        {"toolbarheader",Salamatrix::UI::ControlKindToolbarHeader}};
+    Salamatrix::UI::ControlKind kind = Salamatrix::UI::ControlKindLabel;
+    bool found = false;
+    for (int index=0; index<(int)_countof(kinds); ++index)
+        if (_stricmp(kindName,kinds[index].Name)==0) { kind=kinds[index].Kind; found=true; break; }
+    if (!found)
+        return E_INVALIDARG;
+    Salamatrix::UI::ControlOptions options;
+    options.Id=static_cast<const char*>(idA); options.Text=static_cast<const char*>(textA);
+    long number=0; if (OptionalVariantLong(dialogResult,&number)) options.DialogResult=number;
+    Salamatrix::UI::ControlLayout layout;
+    layout.HasBounds=TRUE; layout.X=x; layout.Y=y; layout.Width=width; layout.Height=height;
+    Salamatrix::UI::IControl* control=m_pDialog->AddControlEx(kind,options,layout);
+    if (control==NULL)
+        return E_FAIL;
+    if (OptionalVariantLong(styleFlags,&number) && !control->SetStyleFlags((DWORD)number))
+        return E_FAIL;
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE CSalamatrixDialogAutomation::set(
+    BSTR controlId, BSTR propertyValue, VARIANT* value, VARIANT* value2)
+{
+    if (m_pDialog == NULL || value == NULL)
+        return E_INVALIDARG;
+    _bstr_t idA(controlId), propertyA(propertyValue);
+    Salamatrix::UI::IControl* control=m_pDialog->FindControl(static_cast<const char*>(idA));
+    if (control==NULL)
+        return E_INVALIDARG;
+    const char* property=static_cast<const char*>(propertyA);
+    long first=0,second=0;
+    OptionalVariantLong(value,&first); OptionalVariantLong(value2,&second);
+    if (_stricmp(property,"progress")==0) return control->SetProgress(first)?S_OK:E_FAIL;
+    if (_stricmp(property,"indeterminate")==0) return control->SetIndeterminateTiming((DWORD)first,(DWORD)second)?S_OK:E_FAIL;
+    if (_stricmp(property,"color")==0) return control->SetColor((COLORREF)first,(COLORREF)second)?S_OK:E_FAIL;
+    if (_stricmp(property,"pathSeparator")==0 || _stricmp(property,"toolTip")==0 ||
+        _stricmp(property,"actionOpen")==0 || _stricmp(property,"actionHint")==0 ||
+        _stricmp(property,"toolbarHeader")==0)
+    {
+        VARIANT converted; VariantInit(&converted);
+        if (FAILED(VariantChangeType(&converted,value,0,VT_BSTR))) return E_INVALIDARG;
+        _bstr_t stringA(V_BSTR(&converted)); const char* stringValue=static_cast<const char*>(stringA);
+        BOOL ok=FALSE;
+        if (_stricmp(property,"pathSeparator")==0) ok=stringValue[0]!=0&&stringValue[1]==0&&control->SetPathSeparator(stringValue[0]);
+        else if (_stricmp(property,"toolTip")==0) ok=control->SetToolTipText(stringValue);
+        else if (_stricmp(property,"actionOpen")==0) ok=control->SetActionOpen(stringValue);
+        else if (_stricmp(property,"actionHint")==0) ok=control->SetActionShowHint(stringValue);
+        else ok=control->SetToolbarHeader(stringValue,(DWORD)second);
+        VariantClear(&converted); return ok?S_OK:E_FAIL;
+    }
+    if (_stricmp(property,"actionCommand")==0) return control->SetActionPostCommand((WORD)first)?S_OK:E_FAIL;
+    return E_INVALIDARG;
+}
+
+HRESULT STDMETHODCALLTYPE CSalamatrixDialogAutomation::show(long* result)
+{
+    if (result==NULL) return E_POINTER;
+    if (m_pDialog==NULL) return E_UNEXPECTED;
+    *result=m_pDialog->ShowModal(); return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE CSalamatrixDialogAutomation::close()
+{
+    if (m_pDialog!=NULL)
+    {
+        m_pDialog->SetEventCallback(NULL,NULL);
+        if (m_pUIService!=NULL) m_pUIService->DestroyDialog(m_pDialog);
+        m_pDialog=NULL;
+    }
+    return S_OK;
+}
+
 /* [id] */ HRESULT STDMETHODCALLTYPE CSalamanderCommandsAutomation::execute(BSTR commandId, BSTR* result)
 {
     if (result == NULL)

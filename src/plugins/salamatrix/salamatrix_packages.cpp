@@ -370,6 +370,16 @@ struct PackageManager::Package
     CSalamanderForOperationsAbstract* Operations;
     UI::IProgressDialog* Progress;
     ULONGLONG ProgressId;
+    struct RuntimeDialog
+    {
+        Package* Owner;
+        ULONGLONG Id;
+        UI::IDialog* Dialog;
+        BOOL EventsEnabled;
+        char EventName[128];
+    };
+    std::vector<RuntimeDialog*> Dialogs;
+    ULONGLONG NextDialogId;
     std::vector<int> CommandIds;
     std::vector<std::string> CommandIconPaths;
     std::vector<std::string> CommandIconDarkPaths;
@@ -383,6 +393,7 @@ struct PackageManager::Package
           Operations(NULL),
           Progress(NULL),
           ProgressId(0),
+          NextDialogId(1),
           Session(NULL),
           PumpThread(NULL)
     {
@@ -1148,6 +1159,7 @@ void PackageManager::RemovePackages()
             package->Session->Release();
         }
         ReleaseProgress(package);
+        ReleaseDialogs(package);
         delete package;
     }
     Packages.clear();
@@ -1234,7 +1246,26 @@ BOOL PackageManager::Deactivate(Package* package)
     }
     package->Session->Release();
     package->Session = NULL;
+    ReleaseDialogs(package);
     return TRUE;
+}
+
+void PackageManager::ReleaseDialogs(Package* package)
+{
+    if (package == NULL)
+        return;
+    for (size_t index = 0; index < package->Dialogs.size(); ++index)
+    {
+        Package::RuntimeDialog* binding = package->Dialogs[index];
+        UI::IDialog* dialog = binding != NULL ? binding->Dialog : NULL;
+        if (dialog != NULL && UI != NULL)
+        {
+            dialog->SetEventCallback(NULL, NULL);
+            UI->DestroyDialog(dialog);
+        }
+        delete binding;
+    }
+    package->Dialogs.clear();
 }
 
 void PackageManager::ReleaseProgress(Package* package)
@@ -1520,6 +1551,33 @@ BOOL PackageManager::MoveExtension(const char* extensionId, int delta)
     return TRUE;
 }
 
+BOOL WINAPI PackageManager::RuntimeDialogEventCallback(
+    void* context, const UI::DialogEvent* event)
+{
+    Package::RuntimeDialog* binding =
+        static_cast<Package::RuntimeDialog*>(context);
+    if (binding == NULL || binding->Owner == NULL || event == NULL ||
+        !binding->EventsEnabled || binding->EventName[0] == '\0' ||
+        binding->Owner->Session == NULL)
+        return FALSE;
+    char dialogId[32];
+    _ui64toa_s(binding->Id, dialogId, _countof(dialogId), 10);
+    std::string eventJson =
+        std::string("{\"event\":\"") + JsonEscape(binding->EventName) +
+        "\",\"dialogId\":\"" + dialogId +
+        "\",\"controlId\":\"" + JsonEscape(event->ControlId) +
+        "\",\"kind\":" + std::to_string(static_cast<int>(event->Control)) +
+        ",\"text\":\"" + JsonEscape(event->Text) +
+        "\",\"checked\":" + (event->Checked ? "true" : "false") +
+        ",\"selectedIndex\":" + std::to_string(event->SelectedIndex) + "}";
+    std::string frame;
+    if (!Runtime::Protocol::LineCodec::Encode(
+            Runtime::Protocol::MessageEvent, 0, eventJson, &frame))
+        return FALSE;
+    return binding->Owner->Session->QueueFrame(
+        frame.c_str(), static_cast<DWORD>(frame.size()));
+}
+
 BOOL WINAPI PackageManager::HostDispatch(
     void* context, Runtime::Protocol::MessageType type, ULONGLONG requestId,
     const char* payloadJson, char* resultJson, DWORD resultCapacity, DWORD* resultLength)
@@ -1556,6 +1614,10 @@ BOOL WINAPI PackageManager::HostDispatch(
                 std::to_string(static_cast<unsigned int>(languageId)) + "}",
             resultJson, resultCapacity, resultLength);
     }
+    if (method == "salamander.host.uptime")
+        return CopyResult(std::string("{\"ok\":true,\"milliseconds\":\"") +
+                              std::to_string(static_cast<unsigned long long>(GetTickCount64())) + "\"}",
+                          resultJson, resultCapacity, resultLength);
     if (method == "salamander.host.windowIcon")
     {
         HICON icon = NULL;
@@ -1775,6 +1837,287 @@ BOOL WINAPI PackageManager::HostDispatch(
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
+    }
+    if (method.compare(0, 21, "salamander.ui.dialog.") == 0)
+    {
+        if (owner->UI == NULL || owner->UI->GetVersion() < SALAMATRIX_UI_VERSION_1_4)
+            return CopyResult("{\"ok\":false,\"error\":\"dialog service unavailable\"}",
+                              resultJson, resultCapacity, resultLength);
+
+        if (method == "salamander.ui.dialog.create")
+        {
+            std::string title;
+            int width = 320;
+            int height = 180;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &width);
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &height);
+            UI::DialogOptions options;
+            options.Title = title.empty() ? "Salamatrix" : title.c_str();
+            options.Parent = owner->General->GetMsgBoxParent();
+            options.Width = static_cast<short>(width < 160 ? 160 : (width > 1200 ? 1200 : width));
+            options.Height = static_cast<short>(height < 100 ? 100 : (height > 900 ? 900 : height));
+            UI::IDialog* dialog = owner->UI->CreateSalamatrixDialog(options);
+            if (dialog == NULL)
+                return FALSE;
+#ifdef new
+#undef new
+#define RESTORE_SALAMATRIX_PACKAGE_DIALOG_DEBUG_NEW_MACRO
+#endif
+            Package::RuntimeDialog* binding =
+                new (std::nothrow) Package::RuntimeDialog;
+#ifdef RESTORE_SALAMATRIX_PACKAGE_DIALOG_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_SALAMATRIX_PACKAGE_DIALOG_DEBUG_NEW_MACRO
+#endif
+            if (binding == NULL)
+            {
+                owner->UI->DestroyDialog(dialog);
+                return CopyResult("{\"ok\":false,\"error\":\"out of memory\"}",
+                                  resultJson, resultCapacity, resultLength);
+            }
+            binding->Owner = package;
+            binding->Id = package->NextDialogId++;
+            if (binding->Id == 0)
+                binding->Id = package->NextDialogId++;
+            binding->Dialog = dialog;
+            binding->EventsEnabled = FALSE;
+            binding->EventName[0] = '\0';
+            package->Dialogs.push_back(binding);
+            char idText[32];
+            _ui64toa_s(binding->Id, idText, _countof(idText), 10);
+            return CopyResult(std::string("{\"ok\":true,\"dialogId\":\"") + idText + "\"}",
+                              resultJson, resultCapacity, resultLength);
+        }
+
+        std::string idText;
+        if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "dialogId", &idText))
+            return FALSE;
+        char* idEnd = NULL;
+        const ULONGLONG dialogId = _strtoui64(idText.c_str(), &idEnd, 10);
+        if (idEnd == idText.c_str() || *idEnd != '\0')
+            return FALSE;
+        size_t dialogIndex = package->Dialogs.size();
+        for (size_t index = 0; index < package->Dialogs.size(); ++index)
+            if (package->Dialogs[index] != NULL && package->Dialogs[index]->Id == dialogId)
+            {
+                dialogIndex = index;
+                break;
+            }
+        if (dialogIndex == package->Dialogs.size() || package->Dialogs[dialogIndex] == NULL ||
+            package->Dialogs[dialogIndex]->Dialog == NULL)
+            return FALSE;
+        Package::RuntimeDialog* binding = package->Dialogs[dialogIndex];
+        UI::IDialog* dialog = binding->Dialog;
+
+        if (method == "salamander.ui.dialog.add")
+        {
+            std::string kindName, controlId, controlText;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "kind", &kindName) ||
+                !Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId))
+                return FALSE;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "text", &controlText);
+            struct KindName { const char* Name; UI::ControlKind Kind; };
+            static const KindName kinds[] = {
+                {"label", UI::ControlKindLabel}, {"textbox", UI::ControlKindTextBox},
+                {"checkbox", UI::ControlKindCheckBox}, {"radio", UI::ControlKindRadioButton},
+                {"combobox", UI::ControlKindComboBox}, {"button", UI::ControlKindButton},
+                {"listview", UI::ControlKindListView}, {"treeview", UI::ControlKindTreeView},
+                {"tabcontrol", UI::ControlKindTabControl}, {"folderpicker", UI::ControlKindFolderPicker},
+                {"filepicker", UI::ControlKindFilePicker}, {"groupbox", UI::ControlKindGroupBox},
+                {"statictext", UI::ControlKindStaticText}, {"hyperlink", UI::ControlKindHyperLink},
+                {"progressbar", UI::ControlKindProgressBar}, {"arrowbutton", UI::ControlKindArrowButton},
+                {"textarrowbutton", UI::ControlKindTextArrowButton},
+                {"colorarrowbutton", UI::ControlKindColorArrowButton},
+                {"toolbarheader", UI::ControlKindToolbarHeader}};
+            UI::ControlKind kind = UI::ControlKindLabel;
+            bool kindFound = false;
+            for (size_t index = 0; index < _countof(kinds); ++index)
+                if (_stricmp(kindName.c_str(), kinds[index].Name) == 0)
+                {
+                    kind = kinds[index].Kind;
+                    kindFound = true;
+                    break;
+                }
+            if (!kindFound)
+                return FALSE;
+
+            UI::ControlOptions options;
+            options.Id = controlId.c_str();
+            options.Text = controlText.c_str();
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "readOnly", &options.ReadOnly);
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "checked", &options.Checked);
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "keepOpen", &options.KeepOpen);
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "multiline", &options.Multiline);
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "dialogResult", &options.DialogResult);
+            std::string fileFilter;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "filter", &fileFilter);
+            options.FileFilter = fileFilter.empty() ? NULL : fileFilter.c_str();
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "save", &options.FileSave);
+            UI::ControlLayout layout;
+            std::string raw;
+            layout.HasBounds = Runtime::Protocol::Json::FindRawMember(payloadJson, "x", &raw);
+            if (layout.HasBounds)
+            {
+                if (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "x", &layout.X) ||
+                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "y", &layout.Y) ||
+                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &layout.Width) ||
+                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &layout.Height))
+                    return FALSE;
+            }
+            UI::IControl* control = dialog->AddControlEx(kind, options, layout);
+            if (control == NULL)
+                return FALSE;
+            int integerValue = 0;
+            std::string stringValue;
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "styleFlags", &integerValue) &&
+                !control->SetStyleFlags(static_cast<DWORD>(integerValue))) return FALSE;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "pathSeparator", &stringValue) &&
+                (stringValue.size() != 1 || !control->SetPathSeparator(stringValue[0]))) return FALSE;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "toolTip", &stringValue) &&
+                !control->SetToolTipText(stringValue.c_str())) return FALSE;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionOpen", &stringValue) &&
+                !control->SetActionOpen(stringValue.c_str())) return FALSE;
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "actionCommand", &integerValue) &&
+                !control->SetActionPostCommand(static_cast<WORD>(integerValue))) return FALSE;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionHint", &stringValue) &&
+                !control->SetActionShowHint(stringValue.c_str())) return FALSE;
+            std::string progressText;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "progressText", &progressText);
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "progress", &integerValue) &&
+                !control->SetProgress(integerValue, progressText.empty() ? NULL : progressText.c_str())) return FALSE;
+            LONGLONG current = 0, total = 0;
+            if (Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressCurrent", &current) &&
+                (!Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressTotal", &total) ||
+                 current < 0 || total < 0 || !control->SetProgressValues(current, total,
+                    progressText.empty() ? NULL : progressText.c_str()))) return FALSE;
+            int duration = 0, interval = 0;
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateDuration", &duration) &&
+                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateInterval", &interval) ||
+                 !control->SetIndeterminateTiming(static_cast<DWORD>(duration), static_cast<DWORD>(interval)))) return FALSE;
+            int textColor = 0, backgroundColor = 0;
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "textColor", &textColor) &&
+                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "backgroundColor", &backgroundColor) ||
+                 !control->SetColor(static_cast<COLORREF>(textColor), static_cast<COLORREF>(backgroundColor)))) return FALSE;
+            std::string alignId;
+            int buttonMask = 0;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "alignControlId", &alignId) &&
+                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "buttonMask", &buttonMask) ||
+                 !control->SetToolbarHeader(alignId.c_str(), static_cast<DWORD>(buttonMask)))) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.item")
+        {
+            std::string controlId, itemText;
+            int parentIndex = -1;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId) ||
+                !Runtime::Protocol::Json::FindStringMember(payloadJson, "text", &itemText)) return FALSE;
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "parentIndex", &parentIndex);
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->AddItem(itemText.c_str(), parentIndex)) return FALSE;
+            return CopyResult(std::string("{\"ok\":true,\"itemCount\":") +
+                                  std::to_string(control->GetItemCount()) + "}",
+                              resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.column")
+        {
+            std::string controlId, title;
+            int width = 180;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId) ||
+                !Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title)) return FALSE;
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &width);
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->AddColumn(title.c_str(), width)) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.selection")
+        {
+            std::string controlId; int selected = -1;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId) ||
+                !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "index", &selected)) return FALSE;
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetSelectedIndex(selected)) return FALSE;
+            return CopyResult(std::string("{\"ok\":true,\"selectedIndex\":") +
+                                  std::to_string(control->GetSelectedIndex()) + "}",
+                              resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.clearItems")
+        {
+            std::string controlId;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId)) return FALSE;
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->ClearItems()) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.validation")
+        {
+            std::string controlId, message; BOOL required = FALSE;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId)) return FALSE;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "message", &message);
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "required", &required);
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetRequired(required) ||
+                !control->SetValidationMessage(message.c_str())) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.events")
+        {
+            BOOL enabled = FALSE;
+            std::string eventName;
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "enabled", &enabled);
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "event", &eventName);
+            if (enabled)
+            {
+                if (eventName.empty() || eventName.size() >= _countof(binding->EventName) ||
+                    StringCchCopyA(binding->EventName, _countof(binding->EventName), eventName.c_str()) != S_OK ||
+                    !dialog->SetEventCallback(RuntimeDialogEventCallback, binding)) return FALSE;
+                binding->EventsEnabled = TRUE;
+            }
+            else
+            {
+                if (!dialog->SetEventCallback(NULL, NULL)) return FALSE;
+                binding->EventsEnabled = FALSE;
+                binding->EventName[0] = '\0';
+            }
+            return CopyResult(std::string("{\"ok\":true,\"enabled\":") +
+                                  (enabled ? "true}" : "false}"),
+                              resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.show")
+            return CopyResult(std::string("{\"ok\":true,\"result\":") +
+                                  std::to_string(dialog->ShowModal()) + "}",
+                              resultJson, resultCapacity, resultLength);
+        if (method == "salamander.ui.dialog.get")
+        {
+            std::string controlId;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId)) return FALSE;
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL) return FALSE;
+            char value[4096]; value[0] = '\0'; control->GetText(value, _countof(value));
+            return CopyResult(std::string("{\"ok\":true,\"text\":\"") + JsonEscape(value) +
+                                  "\",\"checked\":" + (control->GetChecked() ? "true" : "false") +
+                                  ",\"itemCount\":" + std::to_string(control->GetItemCount()) +
+                                  ",\"selectedIndex\":" + std::to_string(control->GetSelectedIndex()) + "}",
+                              resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.set")
+        {
+            std::string controlId, value;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId) ||
+                !Runtime::Protocol::Json::FindStringMember(payloadJson, "value", &value)) return FALSE;
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetText(value.c_str())) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.destroy" || method == "salamander.ui.dialog.close")
+        {
+            dialog->SetEventCallback(NULL, NULL);
+            owner->UI->DestroyDialog(dialog);
+            package->Dialogs.erase(package->Dialogs.begin() + dialogIndex);
+            delete binding;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        return FALSE;
     }
     if (method == "salamander.ui.controls")
     {

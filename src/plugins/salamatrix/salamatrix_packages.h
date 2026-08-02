@@ -84,6 +84,8 @@ private:
         DWORD resultCapacity,
         DWORD* resultLength);
     static BOOL WINAPI HostDispatchOnMainThread(void* context);
+    static BOOL WINAPI RuntimeDialogEventCallback(
+        void* context, const UI::DialogEvent* event);
 
     void DiscoverRoot(const std::wstring& root);
     void DiscoverDirectory(
@@ -98,6 +100,7 @@ private:
     BOOL Activate(Package* package);
     BOOL Deactivate(Package* package);
     void ReleaseProgress(Package* package);
+    void ReleaseDialogs(Package* package);
     BOOL ExecuteCommand(
         Package* package,
         CSalamanderForOperationsAbstract* operations,

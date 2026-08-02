@@ -329,6 +329,7 @@ $ui | Add-Member ScriptMethod Notify {
 $ui | Add-Member ScriptMethod Controls {
     (Invoke-Host -Method 'salamander.ui.controls' -Arguments @{}).shown
 }
+$ui | Add-Member ScriptMethod Uptime { [string](Invoke-Host -Method 'salamander.host.uptime' -Arguments @{}).milliseconds }
 $ui | Add-Member ScriptMethod InputBox {
     param([string]$Prompt, [string]$Title = 'Salamander', [string]$Initial = '')
     Invoke-Host -Method 'salamander.ui.inputBox' -Arguments @{ prompt = $Prompt; title = $Title; initial = $Initial }
@@ -391,13 +392,14 @@ $ui | Add-Member ScriptMethod Dialog {
     $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title; width = $Width; height = $Height }
     $dialog = [pscustomobject]@{ DialogId = [string]$created.dialogId }
     $dialog | Add-Member ScriptMethod AddControl {
-        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null, [bool]$KeepOpen = $false, [bool]$Multiline = $false)
+        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null, [bool]$KeepOpen = $false, [bool]$Multiline = $false, [hashtable]$Options = $null)
         $arguments = @{ dialogId = $this.DialogId; kind = $Kind; controlId = $Id; text = $Text; readOnly = $ReadOnly; checked = $Checked; dialogResult = $DialogResult; keepOpen = $KeepOpen; multiline = $Multiline }
         if ($null -ne $Layout) {
             foreach ($name in @('x', 'y', 'width', 'height')) {
                 if ($Layout.ContainsKey($name)) { $arguments[$name] = [int]$Layout[$name] }
             }
         }
+        if ($null -ne $Options) { foreach ($name in $Options.Keys) { $arguments[$name] = $Options[$name] } }
         [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments $arguments)
     }
     $dialog | Add-Member ScriptMethod SetValidation {

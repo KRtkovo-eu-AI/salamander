@@ -505,6 +505,7 @@ end
 function ui.controls()
     return host_call("salamander.ui.controls", {}).shown
 end
+function ui.uptime() return tostring(host_call("salamander.host.uptime", {}).milliseconds) end
 function ui.input_box(prompt, title, initial)
     return host_call("salamander.ui.inputBox", {
         prompt = prompt, title = title or "Salamander", initial = initial or ""
@@ -594,7 +595,19 @@ function ui.dialog(title, width, height)
             multiline = options.multiline == true,
             filter = options.filter, save = options.save,
             x = options.x, y = options.y, width = options.width,
-            height = options.height
+            height = options.height, styleFlags = options.style_flags,
+            pathSeparator = options.path_separator, toolTip = options.tool_tip,
+            actionOpen = options.action_open, actionCommand = options.action_command,
+            actionHint = options.action_hint, progress = options.progress,
+            progressCurrent = options.progress_current,
+            progressTotal = options.progress_total,
+            progressText = options.progress_text,
+            indeterminateDuration = options.indeterminate_duration,
+            indeterminateInterval = options.indeterminate_interval,
+            textColor = options.text_color,
+            backgroundColor = options.background_color,
+            alignControlId = options.align_control_id,
+            buttonMask = options.button_mask
         })
     end
     function dialog.set_validation(control_id, required, message)

@@ -135,6 +135,15 @@ class Dialog {
       payload.filter = String(options.filter || "");
       payload.save = Boolean(options.save);
     }
+    for (const name of ["styleFlags", "pathSeparator", "toolTip",
+                        "actionOpen", "actionCommand", "actionHint",
+                        "progress", "progressCurrent", "progressTotal",
+                        "progressText", "indeterminateDuration",
+                        "indeterminateInterval", "textColor",
+                        "backgroundColor", "alignControlId", "buttonMask"]) {
+      if (options[name] !== undefined && options[name] !== null)
+        payload[name] = options[name];
+    }
     return hostCall("salamander.ui.dialog.add", payload);
   }
 
@@ -412,6 +421,8 @@ const ui = {
     }).then((result) => result.shown === true),
   controls: () => hostCall("salamander.ui.controls")
     .then((result) => result.shown === true),
+  uptime: () => hostCall("salamander.host.uptime")
+    .then((result) => String(result.milliseconds)),
   inputBox: (prompt, initial = "", title = "Salamander") =>
     hostCall("salamander.ui.inputBox", { prompt, title, initial }),
   pickFile: (options = {}) => hostCall("salamander.ui.pickFile", options),

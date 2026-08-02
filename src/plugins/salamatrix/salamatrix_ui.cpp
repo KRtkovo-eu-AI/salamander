@@ -1672,6 +1672,25 @@ BOOL WINAPI ShowNativeControlsShowcase(HWND parent)
     complete = header != NULL && header->SetToolbarHeader(
         "header-list",
         ToolbarHeaderModify | ToolbarHeaderUp | ToolbarHeaderDown) && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindGroupBox, "origin-group",
+        "Created by", 269, 169, 185, 38) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, "runtime-label",
+        "Runtime:", 277, 181, 42, 8) != NULL && complete;
+    IControl* runtimeValue = AddControlsShowcaseControl(
+        &dialog, ControlKindStaticText, "runtime-value",
+        "Native", 323, 181, 122, 8);
+    complete = runtimeValue != NULL &&
+               runtimeValue->SetStyleFlags(StaticTextBold) && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, "extension-label",
+        "Extension:", 277, 192, 42, 8) != NULL && complete;
+    IControl* extensionValue = AddControlsShowcaseControl(
+        &dialog, ControlKindStaticText, "extension-value",
+        "Salamatrix Framework", 323, 192, 122, 8);
+    complete = extensionValue != NULL &&
+               extensionValue->SetStyleFlags(StaticTextBold) && complete;
     IControl* close = AddControlsShowcaseControl(
                    &dialog, ControlKindButton,
                    "close", "Close", 403, 213, 50, 14,

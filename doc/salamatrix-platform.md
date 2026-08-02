@@ -1080,7 +1080,9 @@ The platform skeleton is ready when:
     to Python, PowerShell, PHP, and Node.
 39. `Salamatrix.UI` now publishes a reusable native `IDialog`/`IControl`
     contract and `NativeDialog` implementation for labels, text boxes,
-    check/radio buttons, combo boxes, buttons, ListView, TreeView, and TabControl;
+    check/radio buttons, combo boxes, buttons, ListView, TreeView, TabControl,
+    group boxes, host static text and hyperlinks, progress bars, arrow/text-arrow/
+    color-arrow buttons, and toolbar headers;
     workers can use `dialog.addControl(..., layout)` for explicit control bounds
     and the common `readOnly`, `checked`, `dialogResult`, `keepOpen`, and
     `multiline` control options; worker `dialog(...)` facades also pass
@@ -1088,7 +1090,13 @@ The platform skeleton is ready when:
     and `dialog.setValidation(...)` for required-field checks; `dialog.onChange(...)`
     receives control-change events through the same SMX1 event channel,
     and the worker input-box path goes through this service rather than owning a
-    second dialog backend.
+    second dialog backend. The JavaScript, Python, PowerShell, PHP, and Lua
+    demos each construct the same explicit capabilities dialog themselves and
+    identify their runtime and extension in its `Created by` group. The native
+    DemoPlug and Automation JScript demo do the same through their respective
+    public Salamatrix.UI facades; none depends on a prebuilt Automation-owned
+    gallery window. `Salamander.ui.uptime()` supplies the shared host uptime
+    text without language-specific platform calls.
 40. The command catalog covers the available core `SALCMD_*` operations and
     `IFileOperationsService` exposes interactive rename/copy/move/delete,
     create-directory, refresh, and properties wrappers to native callers and
