@@ -827,6 +827,9 @@ public:
     void GetWindowSplitRect(RECT& r);
     BOOL PtInChild(HWND hChild, POINT p);
     void OnWmContextMenu(HWND hWnd, int xPos, int yPos);
+    // Keep the heavyweight modal dialog outside WindowProc: Windows can synchronously
+    // re-enter the main window while the dialog is closing.
+    void OnConfiguration(int mode, int param);
 
     CFilesWindow* GetNonActivePanel()
     {

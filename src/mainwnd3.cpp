@@ -3840,6 +3840,129 @@ static void PromptIfSessionDPIChanged(HWND hWindow)
         ShowDPIChangePrompt(hWindow);
 }
 
+void CMainWindow::OnConfiguration(int mode, int param)
+{
+    if (!SalamanderBusy)
+    {
+        SalamanderBusy = TRUE; // now BUSY
+        LastSalamanderIdleTime = GetTickCount();
+    }
+
+    BeginStopRefresh(); // snooper takes a break
+
+    BOOL oldStatusArea = Configuration.StatusArea;
+    BOOL oldPanelCaption = Configuration.ShowPanelCaption;
+    BOOL oldPanelZoom = Configuration.ShowPanelZoom;
+    BOOL oldTreeViewVisible = Configuration.TreeViewVisible;
+    double visibleLeftRatio = GetVisibleLeftPanelRatio();
+
+    UserMenuIconBkgndReader.ResetSysColorsChanged(); // now, we start watching system color changes (icon reload required)
+    BOOL readingUMIcons = UserMenuIconBkgndReader.IsReadingIcons();
+    if (readingUMIcons) // new icons are on their way to the user menu; show them after configuration is done (on OK reload icons again so newly added ones are read as well)
+        UserMenuIconBkgndReader.BeginUserMenuIconsInUse();
+    BOOL oldUseCustomPanelFont = UseCustomPanelFont;
+    LOGFONT oldLogFont = LogFont;
+    CConfigurationDlg dlg(GetDetachedAwareDialogParent(HWindow), UserMenuItems, mode, param);
+    int res = dlg.Execute(LoadStr(IDS_BUTTON_OK), LoadStr(IDS_BUTTON_CANCEL),
+                          LoadStr(IDS_BUTTON_HELP));
+    if (readingUMIcons)
+        UserMenuIconBkgndReader.EndUserMenuIconsInUse();
+
+    // dialog closed - the user could have changed the clipboard, check it
+    IdleRefreshStates = TRUE;  // force status variable check on next Idle
+    IdleCheckClipboard = TRUE; // also check the clipboard
+
+    if (res == IDOK) // values changed -> refresh everything possible
+    {
+        if (dlg.PageView.IsDirty())
+        {
+            // user changed something in the view configuration - rebuild the columns
+            LeftPanel->SelectViewTemplate(LeftPanel->GetViewTemplateIndex(), TRUE, FALSE);
+            RightPanel->SelectViewTemplate(RightPanel->GetViewTemplateIndex(), TRUE, FALSE);
+        }
+        if (memcmp(&oldLogFont, &LogFont, sizeof(LogFont)) != 0 ||
+            oldUseCustomPanelFont != UseCustomPanelFont)
+        {
+            SetFont();
+            // if the header line is shown, we must set its correct size
+            LeftPanel->LayoutListBoxChilds();
+            RightPanel->LayoutListBoxChilds();
+        }
+
+        if (Configuration.ThumbnailSize != LeftPanel->GetThumbnailSize() ||
+            Configuration.ThumbnailSize != RightPanel->GetThumbnailSize())
+        {
+            // if the thumbnail size changed, it must be propagated to the panels
+            LeftPanel->SetThumbnailSize(Configuration.ThumbnailSize);
+            RightPanel->SetThumbnailSize(Configuration.ThumbnailSize);
+        }
+
+        if (oldStatusArea != Configuration.StatusArea)
+        {
+            if (Configuration.StatusArea)
+                AddTrayIcon();
+            else
+                RemoveTrayIcon();
+        }
+
+        if (UMToolBar != NULL && UMToolBar->HWindow != NULL)
+            UMToolBar->CreateButtons();
+
+        if (HPToolBar != NULL && HPToolBar->HWindow != NULL)
+            HPToolBar->CreateButtons();
+
+        if (Windows7AndLater)
+            CreateJumpList();
+
+        // the user could have enabled/disabled Documents
+        CDriveBar* copyDrivesListFrom = NULL;
+        if (DriveBar != NULL && DriveBar->HWindow != NULL)
+        {
+            DriveBar->RebuildDrives(DriveBar); // we don't need slow drive enumeration
+            copyDrivesListFrom = DriveBar;
+        }
+        if (DriveBar2 != NULL && DriveBar2->HWindow != NULL)
+            DriveBar2->RebuildDrives(copyDrivesListFrom);
+
+        if (oldPanelCaption != Configuration.ShowPanelCaption || oldPanelZoom != Configuration.ShowPanelZoom)
+        {
+            if (LeftPanel->DirectoryLine != NULL && LeftPanel->DirectoryLine->HWindow != NULL)
+                LeftPanel->DirectoryLine->Repaint();
+            if (RightPanel->DirectoryLine != NULL && RightPanel->DirectoryLine->HWindow != NULL)
+                RightPanel->DirectoryLine->Repaint();
+        }
+
+        // main window icon
+        SetWindowIcon();
+        // icon in progress windows
+        ProgressDlgArray.PostIconChange();
+
+        // tell both panels they need to refresh
+        LeftPanel->RefreshForConfig();
+        RightPanel->RefreshForConfig();
+
+        if (oldTreeViewVisible != Configuration.TreeViewVisible)
+        {
+            if (KeepSplitPositionCenteredOnVisiblePanes)
+                UpdateCenteredSplitPosition();
+            else
+                SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(visibleLeftRatio);
+            LayoutWindows();
+        }
+
+        // clear stored data in SalShExtPastedData (the archiver may have changed)
+        SalShExtPastedData.ReleaseStoredArchiveData();
+
+        // Internal Viewer and Find: refresh all windows (font already changed)
+        BroadcastConfigChanged();
+
+        // distribute this news among plugins as well
+        Plugins.Event(PLUGINEVENT_CONFIGURATIONCHANGED, 0);
+    }
+
+    EndStopRefresh(); // snooper starts again now
+}
+
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -4858,7 +4981,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     {
         if (GetForegroundWindow() != HWindow)
             SetForegroundWindow(HWindow); // so we rise above the viewer
-        WindowProc(WM_USER_CONFIGURATION, 3, 0);
+        OnConfiguration(3, 0);
         HWND hCaller = (HWND)wParam;
         if (IsWindow(hCaller))
         {
@@ -4873,125 +4996,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_USER_CONFIGURATION:
     {
-        if (!SalamanderBusy)
-        {
-            SalamanderBusy = TRUE; // now BUSY
-            LastSalamanderIdleTime = GetTickCount();
-        }
-
-        BeginStopRefresh(); // snooper takes a break
-
-        BOOL oldStatusArea = Configuration.StatusArea;
-        BOOL oldPanelCaption = Configuration.ShowPanelCaption;
-        BOOL oldPanelZoom = Configuration.ShowPanelZoom;
-        BOOL oldTreeViewVisible = Configuration.TreeViewVisible;
-        double visibleLeftRatio = GetVisibleLeftPanelRatio();
-
-        UserMenuIconBkgndReader.ResetSysColorsChanged(); // now, we start watching system color changes (icon reload required)
-        BOOL readingUMIcons = UserMenuIconBkgndReader.IsReadingIcons();
-        if (readingUMIcons) // new icons are on their way to the user menu; show them after configuration is done (on OK reload icons again so newly added ones are read as well)
-            UserMenuIconBkgndReader.BeginUserMenuIconsInUse();
-        BOOL oldUseCustomPanelFont = UseCustomPanelFont;
-        LOGFONT oldLogFont = LogFont;
-        CConfigurationDlg dlg(GetDetachedAwareDialogParent(HWindow), UserMenuItems, (int)wParam, (int)lParam);
-        int res = dlg.Execute(LoadStr(IDS_BUTTON_OK), LoadStr(IDS_BUTTON_CANCEL),
-                              LoadStr(IDS_BUTTON_HELP));
-        if (readingUMIcons)
-            UserMenuIconBkgndReader.EndUserMenuIconsInUse();
-
-        // dialog closed - the user could have changed the clipboard, check it
-        IdleRefreshStates = TRUE;  // force status variable check on next Idle
-        IdleCheckClipboard = TRUE; // also check the clipboard
-
-        if (res == IDOK) // values changed -> refresh everything possible
-        {
-            if (dlg.PageView.IsDirty())
-            {
-                // user changed something in the view configuration - rebuild the columns
-                LeftPanel->SelectViewTemplate(LeftPanel->GetViewTemplateIndex(), TRUE, FALSE);
-                RightPanel->SelectViewTemplate(RightPanel->GetViewTemplateIndex(), TRUE, FALSE);
-            }
-            if (memcmp(&oldLogFont, &LogFont, sizeof(LogFont)) != 0 ||
-                oldUseCustomPanelFont != UseCustomPanelFont)
-            {
-                SetFont();
-                // if the header line is shown, we must set its correct size
-                LeftPanel->LayoutListBoxChilds();
-                RightPanel->LayoutListBoxChilds();
-            }
-
-            if (Configuration.ThumbnailSize != LeftPanel->GetThumbnailSize() ||
-                Configuration.ThumbnailSize != RightPanel->GetThumbnailSize())
-            {
-                // if the thumbnail size changed, it must be propagated to the panels
-                LeftPanel->SetThumbnailSize(Configuration.ThumbnailSize);
-                RightPanel->SetThumbnailSize(Configuration.ThumbnailSize);
-            }
-
-            if (oldStatusArea != Configuration.StatusArea)
-            {
-                if (Configuration.StatusArea)
-                    AddTrayIcon();
-                else
-                    RemoveTrayIcon();
-            }
-
-            if (UMToolBar != NULL && UMToolBar->HWindow != NULL)
-                UMToolBar->CreateButtons();
-
-            if (HPToolBar != NULL && HPToolBar->HWindow != NULL)
-                HPToolBar->CreateButtons();
-
-            if (Windows7AndLater)
-                CreateJumpList();
-
-            // the user could have enabled/disabled Documents
-            CDriveBar* copyDrivesListFrom = NULL;
-            if (DriveBar != NULL && DriveBar->HWindow != NULL)
-            {
-                DriveBar->RebuildDrives(DriveBar); // we don't need slow drive enumeration
-                copyDrivesListFrom = DriveBar;
-            }
-            if (DriveBar2 != NULL && DriveBar2->HWindow != NULL)
-                DriveBar2->RebuildDrives(copyDrivesListFrom);
-
-            if (oldPanelCaption != Configuration.ShowPanelCaption || oldPanelZoom != Configuration.ShowPanelZoom)
-            {
-                if (LeftPanel->DirectoryLine != NULL && LeftPanel->DirectoryLine->HWindow != NULL)
-                    LeftPanel->DirectoryLine->Repaint();
-                if (RightPanel->DirectoryLine != NULL && RightPanel->DirectoryLine->HWindow != NULL)
-                    RightPanel->DirectoryLine->Repaint();
-            }
-
-            // main window icon
-            SetWindowIcon();
-            // icon in progress windows
-            ProgressDlgArray.PostIconChange();
-
-            // tell both panels they need to refresh
-            LeftPanel->RefreshForConfig();
-            RightPanel->RefreshForConfig();
-
-            if (oldTreeViewVisible != Configuration.TreeViewVisible)
-            {
-                if (KeepSplitPositionCenteredOnVisiblePanes)
-                    UpdateCenteredSplitPosition();
-                else
-                    SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(visibleLeftRatio);
-                LayoutWindows();
-            }
-
-            // clear stored data in SalShExtPastedData (the archiver may have changed)
-            SalShExtPastedData.ReleaseStoredArchiveData();
-
-            // Internal Viewer and Find: refresh all windows (font already changed)
-            BroadcastConfigChanged();
-
-            // distribute this news among plugins as well
-            Plugins.Event(PLUGINEVENT_CONFIGURATIONCHANGED, 0);
-        }
-
-        EndStopRefresh(); // snooper starts again now
+        OnConfiguration((int)wParam, (int)lParam);
         return 0;
     }
 
