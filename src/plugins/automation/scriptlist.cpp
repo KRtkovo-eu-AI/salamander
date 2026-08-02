@@ -2069,7 +2069,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     {
         Salamatrix::UI::IUIService* ui = bridge->GetUIService();
         BOOL shown = ui != NULL &&
-                     ui->GetVersion() >= SALAMATRIX_UI_VERSION_1_3 &&
+                     ui->GetVersion() >= SALAMATRIX_UI_VERSION_1_4 &&
                      ui->ShowControlsShowcase(
                          SalamanderGeneral->GetMsgBoxParent());
         return CopyRuntimeHostResult(
@@ -2592,6 +2592,22 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 kind = Salamatrix::UI::ControlKindFolderPicker;
             else if (_stricmp(kindName.c_str(), "filepicker") == 0)
                 kind = Salamatrix::UI::ControlKindFilePicker;
+            else if (_stricmp(kindName.c_str(), "groupbox") == 0)
+                kind = Salamatrix::UI::ControlKindGroupBox;
+            else if (_stricmp(kindName.c_str(), "statictext") == 0)
+                kind = Salamatrix::UI::ControlKindStaticText;
+            else if (_stricmp(kindName.c_str(), "hyperlink") == 0)
+                kind = Salamatrix::UI::ControlKindHyperLink;
+            else if (_stricmp(kindName.c_str(), "progressbar") == 0)
+                kind = Salamatrix::UI::ControlKindProgressBar;
+            else if (_stricmp(kindName.c_str(), "arrowbutton") == 0)
+                kind = Salamatrix::UI::ControlKindArrowButton;
+            else if (_stricmp(kindName.c_str(), "textarrowbutton") == 0)
+                kind = Salamatrix::UI::ControlKindTextArrowButton;
+            else if (_stricmp(kindName.c_str(), "colorarrowbutton") == 0)
+                kind = Salamatrix::UI::ControlKindColorArrowButton;
+            else if (_stricmp(kindName.c_str(), "toolbarheader") == 0)
+                kind = Salamatrix::UI::ControlKindToolbarHeader;
             else
                 return FALSE;
             std::string fileFilter;
@@ -2637,6 +2653,111 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             Salamatrix::UI::IControl* control = dialog->AddControlEx(
                 kind, options, layout);
             if (control == NULL)
+                return FALSE;
+            int styleFlags = 0;
+            if (Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "styleFlags", &styleFlags) &&
+                !control->SetStyleFlags(static_cast<DWORD>(styleFlags)))
+                return FALSE;
+            std::string pathSeparator;
+            if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "pathSeparator", &pathSeparator) &&
+                (pathSeparator.size() != 1 ||
+                 !control->SetPathSeparator(pathSeparator[0])))
+                return FALSE;
+            std::string toolTip;
+            if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "toolTip", &toolTip) &&
+                !control->SetToolTipText(toolTip.c_str()))
+                return FALSE;
+            std::string actionOpen;
+            if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "actionOpen", &actionOpen) &&
+                !control->SetActionOpen(actionOpen.c_str()))
+                return FALSE;
+            int actionCommand = 0;
+            if (Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "actionCommand", &actionCommand) &&
+                !control->SetActionPostCommand(
+                    static_cast<WORD>(actionCommand)))
+                return FALSE;
+            std::string actionHint;
+            if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "actionHint", &actionHint) &&
+                !control->SetActionShowHint(actionHint.c_str()))
+                return FALSE;
+            int progressValue = 0;
+            std::string progressRaw;
+            std::string progressText;
+            Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "progressText", &progressText);
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "progress", &progressRaw))
+            {
+                if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "progress", &progressValue) ||
+                    !control->SetProgress(
+                        progressValue,
+                        progressText.empty() ? NULL : progressText.c_str()))
+                    return FALSE;
+            }
+            LONGLONG progressCurrent = 0;
+            LONGLONG progressTotal = 0;
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "progressCurrent", &progressRaw))
+            {
+                if (!Salamatrix::Runtime::Protocol::Json::FindInteger64Member(
+                        payloadJson, "progressCurrent", &progressCurrent) ||
+                    !Salamatrix::Runtime::Protocol::Json::FindInteger64Member(
+                        payloadJson, "progressTotal", &progressTotal) ||
+                    progressCurrent < 0 || progressTotal < 0 ||
+                    !control->SetProgressValues(
+                        static_cast<ULONGLONG>(progressCurrent),
+                        static_cast<ULONGLONG>(progressTotal),
+                        progressText.empty() ? NULL : progressText.c_str()))
+                    return FALSE;
+            }
+            int indeterminateDuration = 0;
+            int indeterminateInterval = 0;
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "indeterminateDuration", &progressRaw))
+            {
+                if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "indeterminateDuration",
+                        &indeterminateDuration) ||
+                    !Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "indeterminateInterval",
+                        &indeterminateInterval) ||
+                    indeterminateDuration < -1 || indeterminateInterval <= 0 ||
+                    !control->SetIndeterminateTiming(
+                        static_cast<DWORD>(indeterminateDuration),
+                        static_cast<DWORD>(indeterminateInterval)))
+                    return FALSE;
+            }
+            int textColor = 0;
+            int backgroundColor = 0;
+            std::string colorRaw;
+            if (Salamatrix::Runtime::Protocol::Json::FindRawMember(
+                    payloadJson, "textColor", &colorRaw))
+            {
+                if (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "textColor", &textColor) ||
+                    !Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                        payloadJson, "backgroundColor", &backgroundColor) ||
+                    !control->SetColor(
+                        static_cast<COLORREF>(textColor),
+                        static_cast<COLORREF>(backgroundColor)))
+                    return FALSE;
+            }
+            std::string alignControlId;
+            int toolbarButtonMask = 0;
+            if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "alignControlId", &alignControlId) &&
+                (!Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
+                     payloadJson, "buttonMask", &toolbarButtonMask) ||
+                 !control->SetToolbarHeader(
+                     alignControlId.c_str(),
+                     static_cast<DWORD>(toolbarButtonMask))))
                 return FALSE;
             return CopyRuntimeHostResult(
                 "{\"ok\":true}", resultJson, resultCapacity, resultLength);

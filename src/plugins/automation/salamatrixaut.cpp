@@ -473,7 +473,7 @@ CSalamanderUINamespaceAutomation::CSalamanderUINamespaceAutomation(CSalamanderFo
         g_oAutomationPlugin.GetSalamatrixBridge()->GetUIService();
     if (uiService == NULL)
         return RaiseMissingRuntime(GetProgId());
-    if (uiService->GetVersion() < SALAMATRIX_UI_VERSION_1_3 ||
+    if (uiService->GetVersion() < SALAMATRIX_UI_VERSION_1_4 ||
         !uiService->ShowControlsShowcase(SalamanderGeneral->GetMsgBoxParent()))
         return RaiseMissingRuntime(GetProgId());
     return S_OK;

@@ -2618,12 +2618,44 @@ BOOL CPlugins::RegisterToolbarButton(CPluginInterfaceAbstract* owner,
         }
     }
 
-    if (NextToolbarButtonId > CM_EXTTOOLBAR_MAX)
+    // Toolbar command IDs are a deliberately small Win32 command range.
+    // Registrations can be transient (for example while extension runtimes
+    // are refreshed), so a monotonic allocator eventually exhausted all 199
+    // IDs even though most of them had already been unregistered. Reuse a
+    // free slot instead; simultaneous registrations remain bounded by the
+    // range, while repeated refreshes no longer make the Extension Bar empty.
+    DWORD toolbarId = NextToolbarButtonId;
+    BOOL foundToolbarId = FALSE;
+    const DWORD toolbarIdCount = CM_EXTTOOLBAR_MAX - CM_EXTTOOLBAR_MIN + 1;
+    for (DWORD attempt = 0; attempt < toolbarIdCount; ++attempt)
+    {
+        if (toolbarId < CM_EXTTOOLBAR_MIN || toolbarId > CM_EXTTOOLBAR_MAX)
+            toolbarId = CM_EXTTOOLBAR_MIN;
+        BOOL used = FALSE;
+        for (int index = 0; index < ToolbarButtons.Count; ++index)
+        {
+            if (ToolbarButtons[index].ToolbarId == toolbarId)
+            {
+                used = TRUE;
+                break;
+            }
+        }
+        if (!used)
+        {
+            foundToolbarId = TRUE;
+            break;
+        }
+        ++toolbarId;
+    }
+    if (!foundToolbarId)
         return FALSE;
 
     CPluginToolbarButton item;
     item.Owner = owner;
-    item.ToolbarId = NextToolbarButtonId++;
+    item.ToolbarId = toolbarId;
+    NextToolbarButtonId = toolbarId == CM_EXTTOOLBAR_MAX
+                              ? CM_EXTTOOLBAR_MIN
+                              : toolbarId + 1;
     item.CommandId = button->CommandId;
     item.Enabled = enabled;
     item.MenuItems = menuItems;

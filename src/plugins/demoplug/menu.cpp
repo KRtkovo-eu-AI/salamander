@@ -849,8 +849,30 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 
     case MENUCMD_SHOWCONTROLS:
     {
-        CCtrlExampleDialog dlg(parent);
-        dlg.Execute();
+        CSalamanderServiceQuery query;
+        CSalamanderServiceResult result;
+        query.ServiceId = SALAMATRIX_SERVICE_UI;
+        query.MinimumVersion = SALAMATRIX_UI_VERSION_1_4;
+        query.Flags = 0;
+        result.Interface = NULL;
+        result.Version = 0;
+        result.ProviderName = NULL;
+        BOOL shown = FALSE;
+        if (SalamanderGeneral != NULL &&
+            SalamanderGeneral->QueryService(&query, &result) &&
+            result.Interface != NULL)
+        {
+            Salamatrix::UI::IUIService* ui =
+                static_cast<Salamatrix::UI::IUIService*>(result.Interface);
+            shown = ui->ShowControlsShowcase(parent);
+        }
+        if (!shown)
+        {
+            // Keep DemoPlug usable against older Salamander builds while the
+            // canonical implementation now lives in Salamatrix.UI.
+            CCtrlExampleDialog dlg(parent);
+            dlg.Execute();
+        }
         break;
     }
 

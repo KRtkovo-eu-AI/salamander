@@ -37,6 +37,9 @@ private:
     std::vector<std::string> RemovedExtensions;
     std::vector<Package*> Packages;
     MenuExtension* Menu;
+    BOOL RefreshInProgress;
+    BOOL RefreshPending;
+    LONG ActiveHostDispatches;
 
     PackageManager(const PackageManager&);
     PackageManager& operator=(const PackageManager&);
@@ -102,6 +105,7 @@ private:
         const char* handler);
     void RegisterToolbarButtons();
     void UnregisterToolbarButtons();
+    void FinishHostDispatch();
 
     static std::wstring ExpandRoot(const std::wstring& root);
     static BOOL MakeDisplayEntryPoint(

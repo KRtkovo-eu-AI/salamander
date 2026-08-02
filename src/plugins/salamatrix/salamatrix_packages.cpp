@@ -631,7 +631,10 @@ PackageManager::PackageManager()
       Sides(NULL),
       Storage(NULL),
       UI(NULL),
-      Menu(NULL)
+      Menu(NULL),
+      RefreshInProgress(FALSE),
+      RefreshPending(FALSE),
+      ActiveHostDispatches(0)
 {
 }
 
@@ -817,6 +820,18 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 
 void PackageManager::Refresh()
 {
+    // A modal host call keeps its Package context alive while Windows pumps
+    // messages. Runtime/provider notifications can request another catalog
+    // refresh from that nested loop. Defer it until the host call unwinds;
+    // deleting the package here would invalidate the dispatch context and
+    // temporarily unregister every Extension Bar button.
+    if (RefreshInProgress || ActiveHostDispatches != 0)
+    {
+        RefreshPending = TRUE;
+        return;
+    }
+    RefreshInProgress = TRUE;
+    RefreshPending = FALSE;
     // Toolbar registrations outlive the package objects that contributed
     // them.  Drop them before rebuilding the package list so a runtime
     // availability refresh cannot leave stale or missing Extension Bar
@@ -839,6 +854,9 @@ void PackageManager::Refresh()
     RegisterToolbarButtons();
     if (General != NULL)
         General->PostPluginMenuChanged();
+    RefreshInProgress = FALSE;
+    if (RefreshPending && ActiveHostDispatches == 0)
+        Refresh();
 }
 
 void PackageManager::DiscoverRoot(const std::wstring& root)
@@ -1761,7 +1779,7 @@ BOOL WINAPI PackageManager::HostDispatch(
     if (method == "salamander.ui.controls")
     {
         BOOL shown = owner->UI != NULL &&
-                     owner->UI->GetVersion() >= SALAMATRIX_UI_VERSION_1_3 &&
+                     owner->UI->GetVersion() >= SALAMATRIX_UI_VERSION_1_4 &&
                      owner->UI->ShowControlsShowcase(
                          owner->General->GetMsgBoxParent());
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
@@ -2023,11 +2041,25 @@ BOOL WINAPI PackageManager::HostDispatchOnMainThread(void* context)
         return FALSE;
     MainThreadDispatch* previous = CurrentMainThreadDispatch;
     CurrentMainThreadDispatch = call;
+    Package* package = static_cast<Package*>(call->Context);
+    PackageManager* owner = package != NULL ? package->Owner : NULL;
+    if (owner != NULL)
+        ++owner->ActiveHostDispatches;
     BOOL result = HostDispatch(
         call->Context, call->Type, call->RequestId, call->PayloadJson,
         call->ResultJson, call->ResultCapacity, call->ResultLength);
     CurrentMainThreadDispatch = previous;
+    if (owner != NULL)
+        owner->FinishHostDispatch();
     return result;
+}
+
+void PackageManager::FinishHostDispatch()
+{
+    if (ActiveHostDispatches > 0)
+        --ActiveHostDispatches;
+    if (ActiveHostDispatches == 0 && RefreshPending && !RefreshInProgress)
+        Refresh();
 }
 
 void PackageManager::RegisterToolbarButtons()

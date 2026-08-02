@@ -616,8 +616,8 @@ def main() -> int:
             r'EnableWindow\(BrowseWindowHandle, enabled\)',
             "Salamatrix file picker cannot disable both the path and browse button")
     require(salamatrix_runtime,
-            r'GetVersion\(\) const.*?SALAMATRIX_UI_VERSION_1_3.*?'
-            r'RegisterServiceOwned\(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_3',
+            r'GetVersion\(\) const.*?SALAMATRIX_UI_VERSION_1_4.*?'
+            r'RegisterServiceOwned\(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_4',
             "Salamatrix does not publish the controls-showcase UI contract version")
     for name, runtime in zip(
         ("Python", "PowerShell", "JavaScript", "PHP", "Lua"), runtime_provider_sources):
@@ -650,10 +650,34 @@ def main() -> int:
         require(worker, r'salamander\.ui\.controls',
                 f"{name} worker does not expose the framework controls showcase")
     require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,
-            r'SALAMATRIX_UI_VERSION_1_3.*?'
+            r'SALAMATRIX_UI_VERSION_1_4.*?'
             r'ShowControlsShowcase.*?ShowNativeControlsShowcase.*?'
             r'salamander\.ui\.controls.*?ShowControlsShowcase',
             "controls showcase is not owned and dispatched by Salamatrix Framework")
+    require(ui_contract + salamatrix_ui,
+            r'ControlKindStaticText.*?ControlKindHyperLink.*?'
+            r'ControlKindProgressBar.*?ControlKindArrowButton.*?'
+            r'ControlKindTextArrowButton.*?ControlKindColorArrowButton.*?'
+            r'ControlKindToolbarHeader.*?AttachStaticText.*?AttachHyperLink.*?'
+            r'AttachProgressBar.*?ChangeToArrowButton.*?AttachButton.*?'
+            r'AttachColorArrowButton.*?AttachToolbarHeader',
+            "Salamatrix UI does not expose every host control demonstrated by DemoPlug")
+    require(salamatrix_ui,
+            r'options\.Width = 463.*?options\.Height = 236.*?'
+            r'"CGUIStaticTextAbstract", 6, 4, 254, 108.*?'
+            r'"CGUIProgressBarAbstract", 6, 118, 254, 66.*?'
+            r'"CGUIHyperLinkAbstract", 269, 4, 185, 48.*?'
+            r'"close", "Close", 403, 213, 50, 14',
+            "Salamatrix controls showcase no longer matches DemoPlug geometry")
+    require(salamatrix_ui,
+            r'ApplyHostDarkModePolicy.*?ApplyNativeDialogDarkMode.*?'
+            r'AttachStaticText.*?AttachHyperLink.*?AttachProgressBar.*?'
+            r'ApplyNativeDialogDarkMode\(hwnd\)',
+            "host controls are not re-themed after attachment for dark mode")
+    require(php_worker,
+            r'function call\(\$method, \$arguments = array\(\)\).*?'
+            r"salamander\.ui\.controls', array\(\)",
+            "PHP no-argument controls call still violates the worker call signature")
     require(javascript_worker,
             r'salamander\.ui\.inputBox.*?\{\s*prompt,\s*title,\s*initial\s*\}',
             "JavaScript worker does not use the shared input-box payload")
@@ -789,6 +813,13 @@ def main() -> int:
         r"ExecuteMenuItem2",
         "Extension Bar menu buttons do not render icons and execute popup commands")
     require(
+        plugins2 + packages,
+        r"toolbarIdCount.*?ToolbarButtons\[index\]\.ToolbarId == toolbarId.*?"
+        r"NextToolbarButtonId = toolbarId.*?"
+        r"RefreshInProgress \|\| ActiveHostDispatches.*?RefreshPending.*?"
+        r"FinishHostDispatch",
+        "Extension Bar IDs are not recycled or package refresh can invalidate an active host call")
+    require(
         general_contract + plugins2 + packages,
         r"CSalamanderToolbarMenuItem.*?IconPath.*?IconDarkPath.*?"
         r"itemIconsEnd.*?"
@@ -875,9 +906,12 @@ def main() -> int:
         "Plugin Manager does not use the Configuration-style resizable dialog frame and grip")
     require(
         dialogs,
-        r"GripWindow = new CTPHGripWindow.*?"
+        r"RESTORE_PLUGIN_MANAGER_GRIP_DEBUG_NEW_MACRO.*?"
+        r"GripWindow = new \(std::nothrow\) CTPHGripWindow.*?"
+        r"#define new new \(_NORMAL_BLOCK, __FILE__, __LINE__\).*?"
+        r"if \(GripWindow == NULL\).*?"
         r"DarkModeApplyWindow\(GripWindow->HWindow\)",
-        "Plugin Manager resize grip is not dark-mode aware")
+        "Plugin Manager resize grip does not preserve nothrow OOM handling and dark mode")
     require(
         dialogs,
         r"void CPluginsDlg::LayoutControls\(\).*?"

@@ -1382,7 +1382,16 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         Header->CheckToolbar(Configuration.KeepPluginsSorted ? TLBHDRMASK_SORT : 0);
 
-        GripWindow = new CTPHGripWindow(HWindow, IDC_PLUGINS_GRIP);
+#ifdef new
+#undef new
+#define RESTORE_PLUGIN_MANAGER_GRIP_DEBUG_NEW_MACRO
+#endif
+        GripWindow = new (std::nothrow) CTPHGripWindow(
+            HWindow, IDC_PLUGINS_GRIP);
+#ifdef RESTORE_PLUGIN_MANAGER_GRIP_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_PLUGIN_MANAGER_GRIP_DEBUG_NEW_MACRO
+#endif
         if (GripWindow == NULL)
             TRACE_E(LOW_MEMORY);
         else
