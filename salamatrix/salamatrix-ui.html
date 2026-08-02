@@ -104,8 +104,8 @@
       <h2 id="languages">Build it in every supported language</h2>
       <p>The examples below show the same origin group and Close button. The complete demo files add the static-text, hyperlink, progress, toolbar-header, and color-arrow portions using the same pattern.</p>
 
-      <article class="language-example" id="javascript">
-        <header><span class="language-badge">JS</span><div><h3>JavaScript / Node</h3><p>Async facade; create first, then await every host operation.</p></div></header>
+      <details class="language-example" id="javascript">
+        <summary><span class="language-badge">JS</span><div><h3>JavaScript / Node</h3><p>Async facade; create first, then await every host operation.</p></div></summary>
         <pre><code>if (Salamander.command_handler === "run") {
   await Salamander.ui.notify(
     "Node.js extension package is running through Salamatrix.",
@@ -186,10 +186,10 @@
         <div class="language-example__visual">
           <img src="../images/salamatrix_preview_jsnode.png" alt="JavaScript/Node preview">
         </div>
-      </article>
+      </details>
 
-      <article class="language-example" id="python">
-        <header><span class="language-badge">PY</span><div><h3>Python</h3><p>Synchronous facade with a Python options dictionary.</p></div></header>
+      <details class="language-example" id="python">
+        <summary><span class="language-badge">PY</span><div><h3>Python</h3><p>Synchronous facade with a Python options dictionary.</p></div></summary>
         <pre><code>import time
 
 Salamander.ui.notify("CPython extension package is running through Salamatrix.", "Salamatrix Python Demo", 2500)
@@ -266,10 +266,10 @@ finally:
         <div class="language-example__visual">
           <img src="../images/salamatrix_preview_python.png" alt="Python preview">
         </div>
-      </article>
+      </details>
 
-      <article class="language-example" id="powershell">
-        <header><span class="language-badge">PS</span><div><h3>PowerShell</h3><p>Layout and extended properties are ordinary hashtables.</p></div></header>
+      <details class="language-example" id="powershell">
+        <summary><span class="language-badge">PS</span><div><h3>PowerShell</h3><p>Layout and extended properties are ordinary hashtables.</p></div></summary>
         <pre><code>if ($Salamander.command_handler -eq 'run') {
     $Salamander.ui.Notify('PowerShell extension package is running through Salamatrix.', 'Salamatrix PowerShell Demo', 2500)
     $progress = $Salamander.ui.Progress('Salamatrix PowerShell Progress Demo', 5)
@@ -343,10 +343,10 @@ finally:
         <div class="language-example__visual">
           <img src="../images/salamatrix_preview_powershell.png" alt="PowerShell preview">
         </div>
-      </article>
+      </details>
 
-      <article class="language-example" id="php">
-        <header><span class="language-badge">PHP</span><div><h3>PHP</h3><p>The last argument is the common extended option map.</p></div></header>
+      <details class="language-example" id="php">
+        <summary><span class="language-badge">PHP</span><div><h3>PHP</h3><p>The last argument is the common extended option map.</p></div></summary>
         <pre><code>&lt;?php
 if ($Salamander->command_handler === 'run') {
     $Salamander->ui->notify('PHP CLI extension package is running through Salamatrix.', 'Salamatrix PHP Demo', 2500);
@@ -423,10 +423,10 @@ if ($Salamander->command_handler === 'run') {
         <div class="language-example__visual">
           <img src="../images/salamatrix_preview_php.png" alt="PHP preview">
         </div>
-      </article>
+      </details>
 
-      <article class="language-example" id="lua">
-        <header><span class="language-badge">LUA</span><div><h3>Lua</h3><p>Snake-case options map to the same SMX1 payload.</p></div></header>
+      <details class="language-example" id="lua">
+        <summary><span class="language-badge">LUA</span><div><h3>Lua</h3><p>Snake-case options map to the same SMX1 payload.</p></div></summary>
         <pre><code>if Salamander.command_handler == "run" then
     Salamander.ui.notify(
         "Lua extension package is running through Salamatrix.",
@@ -514,10 +514,10 @@ end
         <div class="language-example__visual">
           <img src="../images/salamatrix_preview_lua.png" alt="Lua preview">
         </div>
-      </article>
+      </details>
 
-      <article class="language-example" id="automation">
-        <header><span class="language-badge">COM</span><div><h3>Automation JScript</h3><p>A thin COM adapter over the same native service.</p></div></header>
+      <details class="language-example" id="automation">
+        <summary><span class="language-badge">COM</span><div><h3>Automation JScript</h3><p>A thin COM adapter over the same native service.</p></div></summary>
         <pre><code>// Demonstrates the Salamatrix-backed Automation API.
 // Requires the Salamatrix Framework plugin to be installed and loaded.
 
@@ -620,10 +620,10 @@ try { dialog.show(); } finally { dialog.close(); }</code></pre>
         <div class="language-example__visual">
           <img src="../images/salamatrix_preview_automation.png" alt="Automation JScript preview">
         </div>
-      </article>
+      </details>
 
-      <article class="language-example" id="native">
-        <header><span class="language-badge">C++</span><div><h3>Native plugin</h3><p>Version negotiation and direct <code>IDialog</code>/<code>IControl</code> use.</p></div></header>
+      <details class="language-example" id="native">
+        <summary><span class="language-badge">C++</span><div><h3>Native plugin</h3><p>Version negotiation and direct <code>IDialog</code>/<code>IControl</code> use.</p></div></summary>
         <pre><code>static Salamatrix::UI::IControl* AddSalamatrixDemoControl(
     Salamatrix::UI::IDialog* dialog, Salamatrix::UI::ControlKind kind,
     const char* id, const char* text, int x, int y, int width, int height)
@@ -717,7 +717,7 @@ static BOOL ShowDemoPlugSalamatrixControls(
         <div class="language-example__visual">
           <img src="../images/salamatrix_preview_native.png" alt="Native plugin preview">
         </div>
-      </article>
+      </details>
 
       <h2 id="appearance">Dark mode, DPI, keyboard, accessibility</h2>
       <div class="card-grid">
@@ -754,5 +754,6 @@ static BOOL ShowDemoPlugSalamatrixControls(
 
   <a class="back-to-top" href="#content" aria-label="Back to top" title="Back to top" data-back-to-top>↑</a>
   <script src="../js/back-to-top.js" defer></script>
+  <script src="../js/language-examples.js" defer></script>
 </body>
 </html>
