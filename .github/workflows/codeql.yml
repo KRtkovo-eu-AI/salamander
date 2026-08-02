@@ -1,8 +1,9 @@
 name: CodeQL Security Scan
 
 on:
-  pull_request:
-    branches: [main, darkmode, dev_tabs, 'release/*']
+  workflow_run:
+    workflows: [PR Build]
+    types: [completed]
   workflow_dispatch:
     inputs:
       target-ref:
@@ -41,13 +42,20 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            if (context.eventName !== 'pull_request') {
+            if (context.eventName === 'workflow_dispatch') {
               core.setOutput('should_analyze', 'true');
-              core.info('Not a pull request event; CodeQL analysis will run.');
+              core.info('Manual dispatch; CodeQL analysis will run.');
               return;
             }
 
-            const pull = context.payload.pull_request;
+            const run = context.payload.workflow_run;
+            if (!run || run.conclusion !== 'success') {
+              core.setOutput('should_analyze', 'false');
+              core.info(`PR Build did not succeed (conclusion: ${run?.conclusion || 'unknown'}); CodeQL analysis will be skipped.`);
+              return;
+            }
+
+            const pull = run.pull_requests?.[0];
             if (!pull) {
               core.setOutput('should_analyze', 'false');
               core.info('No pull request payload found; CodeQL analysis steps will be skipped.');
@@ -82,7 +90,7 @@ jobs:
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs['target-ref'] || github.ref }}
+          ref: ${{ github.event.workflow_run.head_sha || github.event.inputs['target-ref'] || github.ref }}
           fetch-depth: 2
 
       - name: Initialize CodeQL
