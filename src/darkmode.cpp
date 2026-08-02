@@ -454,7 +454,7 @@ void PaintDarkChoiceButton(HWND hwnd, HDC hdc)
 
     RECT textRect = rc;
     textRect.left = glyph.right + 4;
-    COLORREF textColor = enabled ? colors.readableText : RGB(0xA0, 0xA0, 0xA0);
+    COLORREF textColor = enabled ? colors.readableText : DarkModeGetDisabledTextColor();
     HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
     HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
     COLORREF oldText = SetTextColor(hdc, textColor);
@@ -2783,6 +2783,12 @@ COLORREF DarkModeGetDialogBackgroundColor()
 {
     EnsureInitialized();
     return DarkModeGetColors().background;
+}
+
+COLORREF DarkModeGetDisabledTextColor()
+{
+    // Keep custom-drawn controls consistent with darkmodelib's disabled labels.
+    return RGB(0x80, 0x80, 0x80);
 }
 
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background)

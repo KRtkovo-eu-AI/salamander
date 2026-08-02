@@ -2369,7 +2369,7 @@ begin
   AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.0.0 (x64)', False);
   AddPlugin('sftp', 'SFTP/SCP Client', '1.01 beta (x64)', True);
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.1 (x64)', True);
-  AddPlugin('samandarin', 'Samandarin Update Notifier', '0.8 (x64)', True);
+  AddPlugin('samandarin', 'Samandarin Update Notifier', '0.9 (x64)', True);
   AddPlugin('serviceexplorer', 'Service Explorer', '0.013 (x64)', True);
   AddPlugin('splitcbn', 'Split & Combine', '1.11 (x64)', True);
   AddPlugin('tar', 'TAR', '3.34 (x64)', True);

@@ -28,6 +28,9 @@ namespace UI
 #define SALAMATRIX_SERVICE_UI "Salamatrix.UI"
 #define SALAMATRIX_UI_VERSION_1_0 0x00010000
 #define SALAMATRIX_UI_VERSION_1_1 0x00010001
+#define SALAMATRIX_UI_VERSION_1_2 0x00010002
+#define SALAMATRIX_UI_VERSION_1_3 0x00010003
+#define SALAMATRIX_UI_VERSION_1_4 0x00010004
 
 struct ProgressDialogOptions
 {
@@ -235,7 +238,67 @@ enum ControlKind
     ControlKindFilePicker = 10,
     // A draggable horizontal separator. Movement is reported through the
     // normal dialog event callback with the parent-client Y coordinate in Text.
-    ControlKindSplitter = 11
+    ControlKindSplitter = 11,
+    // Host-rendered controls appended in 1.4. These wrap the same native
+    // implementations exposed by CSalamanderGUIAbstract, so native plug-ins
+    // and every Salamatrix runtime receive identical theme/DPI behaviour.
+    ControlKindGroupBox = 12,
+    ControlKindStaticText = 13,
+    ControlKindHyperLink = 14,
+    ControlKindProgressBar = 15,
+    ControlKindArrowButton = 16,
+    ControlKindTextArrowButton = 17,
+    ControlKindColorArrowButton = 18,
+    ControlKindToolbarHeader = 19
+};
+
+enum StaticTextStyle
+{
+    StaticTextCachedPaint = 0x00000001,
+    StaticTextBold = 0x00000002,
+    StaticTextUnderline = 0x00000004,
+    StaticTextDotUnderline = 0x00000008,
+    StaticTextHyperLinkColor = 0x00000010,
+    StaticTextEndEllipsis = 0x00000020,
+    StaticTextPathEllipsis = 0x00000040,
+    StaticTextHandlePrefix = 0x00000080,
+    StaticTextAlignCenter = 0x00010000,
+    StaticTextAlignRight = 0x00020000,
+    StaticTextNotify = 0x00040000
+};
+
+enum TextArrowButtonStyle
+{
+    TextArrowButtonRightArrow = 0x00000008,
+    TextArrowButtonDropDown = 0x00000002,
+    TextArrowButtonMore = 0x00000010
+};
+
+enum ButtonStyle
+{
+    ButtonDefault = 0x00100000
+};
+
+enum ListViewStyle
+{
+    ListViewNoDefaultColumn = 0x00200000,
+    ListViewShowSelectionAlways = 0x00400000,
+    ListViewEditLabels = 0x00800000,
+    ListViewNoSortHeader = 0x01000000
+};
+
+enum ToolbarHeaderButtons
+{
+    ToolbarHeaderModify = 0x00000001,
+    ToolbarHeaderNew = 0x00000002,
+    ToolbarHeaderDelete = 0x00000004,
+    ToolbarHeaderSort = 0x00000008,
+    ToolbarHeaderUp = 0x00000010,
+    ToolbarHeaderDown = 0x00000020,
+    ToolbarHeaderTop = 0x00000040,
+    ToolbarHeaderFilter = 0x00000080,
+    ToolbarHeaderSearch = 0x00000100,
+    ToolbarHeaderBottom = 0x00000200
 };
 
 struct DialogOptions
@@ -458,6 +521,99 @@ public:
         return FALSE;
     }
 
+    /// Optional enabled state appended after the original control surface.
+    /// Composite controls, such as a file picker, apply the state to all of
+    /// their child windows.
+    virtual BOOL WINAPI SetEnabled(BOOL enabled)
+    {
+        (void)enabled;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI IsEnabled() const
+    {
+        return TRUE;
+    }
+
+    /// Host-control configuration appended in UI 1.4. Unsupported control
+    /// kinds return FALSE and older providers retain their default behaviour.
+    virtual BOOL WINAPI SetStyleFlags(DWORD flags)
+    {
+        (void)flags;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetPathSeparator(char separator)
+    {
+        (void)separator;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetToolTipText(const char* text)
+    {
+        (void)text;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetActionOpen(const char* target)
+    {
+        (void)target;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetActionPostCommand(WORD command)
+    {
+        (void)command;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetActionShowHint(const char* text)
+    {
+        (void)text;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetProgress(int progress, const char* text = NULL)
+    {
+        (void)progress;
+        (void)text;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetProgressValues(
+        ULONGLONG current,
+        ULONGLONG total,
+        const char* text = NULL)
+    {
+        (void)current;
+        (void)total;
+        (void)text;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetIndeterminateTiming(DWORD duration, DWORD interval)
+    {
+        (void)duration;
+        (void)interval;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetColor(COLORREF textColor, COLORREF backgroundColor)
+    {
+        (void)textColor;
+        (void)backgroundColor;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetToolbarHeader(
+        const char* alignControlId,
+        DWORD buttonMask)
+    {
+        (void)alignControlId;
+        (void)buttonMask;
+        return FALSE;
+    }
+
 protected:
     virtual ~IControl() {}
 };
@@ -573,6 +729,11 @@ BOOL WINAPI ShowNativeNotification(
     const char* message,
     DWORD timeoutMs);
 
+// Framework-owned showcase of the controls exposed by Salamatrix.UI.
+// Native plug-ins and runtime adapters reach the same implementation through
+// IUIService::ShowControlsShowcase.
+BOOL WINAPI ShowNativeControlsShowcase(HWND parent);
+
 class IUIService
 {
 public:
@@ -675,6 +836,14 @@ public:
         (void)title;
         (void)message;
         (void)timeoutMs;
+        return FALSE;
+    }
+
+    /// Shows the framework-owned native controls showcase. Appended in UI
+    /// 1.3 so existing providers keep their vtable layout.
+    virtual BOOL WINAPI ShowControlsShowcase(HWND parent)
+    {
+        (void)parent;
         return FALSE;
     }
 

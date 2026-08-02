@@ -20,6 +20,7 @@ interface ISalamanderWaitWindow;
 interface ISalamanderGui;
 interface ISalamanderScriptInfo;
 interface ISalamanderUI;
+interface ISalamanderDialog;
 interface ISalamanderCommands;
 interface ISalamanderFileOperations;
 interface ISalamanderSides;
@@ -786,6 +787,35 @@ interface ISalamanderUI : IUnknown
 	HRESULT progress(
 		[in, optional] VARIANT *title,
 		[out, retval] ISalamanderProgressDialog **dialog);
+
+	/// \brief Shows the native Salamatrix controls showcase used by the demo package.
+	[id(2)]
+	HRESULT controls();
+
+	/// \brief Creates an explicitly laid out Salamatrix dialog.
+	[id(3)]
+	HRESULT dialog([in] BSTR title, [in] long width, [in] long height,
+		[out, retval] ISalamanderDialog **dialog);
+	[id(4), propget] HRESULT uptime([out, retval] BSTR *milliseconds);
+};
+
+[
+	object,
+	uuid(63B396B0-836D-43D3-B5C8-FC4944FC4D40),
+	dual,
+	pointer_default(unique),
+	oleautomation,
+	nonextensible
+]
+interface ISalamanderDialog : IUnknown
+{
+	[id(1)] HRESULT add([in] BSTR kind, [in] BSTR controlId, [in] BSTR text,
+		[in] long x, [in] long y, [in] long width, [in] long height,
+		[in, optional] VARIANT *styleFlags, [in, optional] VARIANT *dialogResult);
+	[id(2)] HRESULT set([in] BSTR controlId, [in] BSTR property,
+		[in] VARIANT *value, [in, optional] VARIANT *value2);
+	[id(3)] HRESULT show([out, retval] long *result);
+	[id(4)] HRESULT close();
 };
 
 

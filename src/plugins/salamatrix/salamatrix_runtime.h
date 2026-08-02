@@ -447,12 +447,12 @@ public:
 
     virtual DWORD WINAPI GetVersion() const
     {
-        return SALAMATRIX_UI_VERSION_1_1;
+        return SALAMATRIX_UI_VERSION_1_4;
     }
 
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"controlKinds\":[\"label\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\",\"filepicker\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true,\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"],\"filePickerOptions\":[\"filter\",\"save\"]}";
+        return "{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"controls\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"controlKinds\":[\"label\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\",\"filepicker\",\"groupbox\",\"statictext\",\"hyperlink\",\"progressbar\",\"arrowbutton\",\"textarrowbutton\",\"colorarrowbutton\",\"toolbarheader\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true,\"controlsShowcase\":true,\"hostControls\":true,\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\",\"styleFlags\",\"pathSeparator\",\"toolTip\",\"actionOpen\",\"actionCommand\",\"actionHint\",\"progress\",\"progressCurrent\",\"progressTotal\",\"progressText\",\"indeterminateDuration\",\"indeterminateInterval\",\"textColor\",\"backgroundColor\",\"alignControlId\",\"buttonMask\"],\"filePickerOptions\":[\"filter\",\"save\"]}";
     }
 
     virtual UI::IProgressDialog* WINAPI CreateProgressDialog(CSalamanderForOperationsAbstract* operations)
@@ -484,6 +484,11 @@ public:
     {
         return UI::ShowNativeNotification(
             parent, title, message, timeoutMs);
+    }
+
+    virtual BOOL WINAPI ShowControlsShowcase(HWND parent)
+    {
+        return UI::ShowNativeControlsShowcase(parent);
     }
 
     virtual BOOL WINAPI CopyTextToClipboard(
@@ -861,20 +866,20 @@ public:
         AIService.SetContractSchema(SALAMATRIX_SERVICE_EXTENSIONS, ExtensionsService.GetApiSchema());
         AIService.SetContractSchema(SALAMATRIX_SERVICE_STORAGE, StorageService.GetApiSchema());
         Registered = TRUE;
-        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_1, &UIService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_4, &UIService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_RUNTIME, SALAMATRIX_RUNTIME_VERSION_1_0, &RuntimeBroker, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_SIDES, SALAMATRIX_SIDES_VERSION_1_2, &SidesService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework", this);
-        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_2, &ExtensionsService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_3, &ExtensionsService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_STORAGE, SALAMATRIX_STORAGE_VERSION_1_0, &StorageService, "Salamatrix Framework", this);
 
         if (General != NULL && registerHostServices)
         {
-            HostUIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_1, &UIService, "Salamatrix Framework", this);
+            HostUIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_4, &UIService, "Salamatrix Framework", this);
             if (HostUIRegistered)
                 HostCommandsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);
             if (HostCommandsRegistered)
@@ -888,7 +893,7 @@ public:
             if (HostSidesRegistered)
                 HostEventsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EVENTS, SALAMATRIX_EVENTS_VERSION_1_0, &EventService, "Salamatrix Framework", this);
             if (HostEventsRegistered)
-                HostExtensionsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_2, &ExtensionsService, "Salamatrix Framework", this);
+                HostExtensionsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_EXTENSIONS, SALAMATRIX_EXTENSIONS_VERSION_1_3, &ExtensionsService, "Salamatrix Framework", this);
             if (HostExtensionsRegistered)
                 HostAIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_AI, SALAMATRIX_AI_VERSION_1_0, &AIService, "Salamatrix Framework", this);
             if (HostAIRegistered)

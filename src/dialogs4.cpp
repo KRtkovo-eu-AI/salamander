@@ -534,6 +534,8 @@ CConfiguration::CConfiguration()
     ConfigurationWidth = 0;
     ConfigurationTreeWidth = 0;
     ConfigurationViewsRightWidth = 0;
+    PluginsManagerWidth = 0;
+    PluginsManagerHeight = 0;
     ViewersAndEditorsExpanded = 0;
     PackersAndUnpackersExpanded = 0;
     ClearReadOnly = TRUE;

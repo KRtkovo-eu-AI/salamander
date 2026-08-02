@@ -306,7 +306,7 @@ STRINGTABLE
  IDS_EXEFILTER, "Executables (*.exe, *.pif, *.com)|*.exe;*.pif;*.com|All files (*.*)|*.*|"
  IDS_REGFILTER, "Registry file (*.reg)|*.reg|"
  IDS_ICOFILTER, "Icon files (*exe, *.dll, *.ico)|*.exe;*.dll;*.ico|Programs (*.exe)|*exe|Libraries (*.dll)|*.dll|Icons (*.ico)|*.ico|All files (*.*)|*.*|"
- IDS_PLUGINFILTER, "Plugin files (*.spl)|*.spl|All files (*.*)|*.*|"
+ IDS_PLUGINFILTER, "Plugin or extension files (*.spl; extension.json)|*.spl;extension.json|Plugin files (*.spl)|*.spl|Extension manifests (extension.json)|extension.json|All files (*.*)|*.*|"
 
  IDS_NETWORKERROR, "Network Error"
 
@@ -1396,11 +1396,13 @@ STRINGTABLE
  IDS_PLUGINEXTCONFIGTOOMANY, "This extension declares too many settings for this configuration dialog."
  IDS_PLUGINEXTCONFIGINTEGER, "Setting ""%s"" must be a signed integer."
  IDS_PLUGINEXTCONFIGSAVEFAILED, "Unable to save extension settings."
- IDS_PLUGINADDTITLE, "Add Plugins"
+ IDS_PLUGINADDTITLE, "Add Plugin or Extension"
  IDS_PLUGINTESTOK, "%s plugin seems to work correctly."
  IDS_PLUGINTESTALLOK, "All plugins seem to work correctly."
  IDS_PLUGINSAVECONFIG, "%s plugin is about to unload.\n\nDo you want to save its configuration?"
  IDS_PLUGINREMOVEOK, "Do you really want to remove %s plugin?\n\nNote: it doesn't delete plugin files from disk."
+ IDS_EXTENSIONREMOVEOK, "Do you really want to remove the %s extension?\n\nIts files will not be deleted. Automatic discovery will keep it removed until you add its extension.json again."
+ IDS_EXTENSIONADDFAILED, "The selected extension.json could not be installed. Check that the manifest is valid and its entry point is a safe relative path."
  IDS_PLUGINEXISTS, "%s plugin (%s) has already been installed.\nYou can not add it once more."
  IDS_PLUGINFORCEUNLOAD, "%s plugin has rejected to unload.\nDo you want to force it to unload?"
  IDS_PLUGINEXTNONE, "(none)"

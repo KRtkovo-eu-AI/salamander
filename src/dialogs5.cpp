@@ -23,6 +23,7 @@
 #include "consts.h"
 #include "darkmode.h"
 #include "svg.h"
+#include "common/winlibdpi.h"
 #include "plugins/salamatrix/salamatrix_storage.h"
 #include "plugins/salamatrix/salamatrix_ui.h"
 #include "third_party/darkmodelib/include/Darkmodelib.h"
@@ -117,7 +118,7 @@ Salamatrix::Extensions::IExtensionsService* QueryExtensionService()
     CSalamanderServiceQuery query;
     memset(&query, 0, sizeof(query));
     query.ServiceId = SALAMATRIX_SERVICE_EXTENSIONS;
-    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_2;
+    query.MinimumVersion = SALAMATRIX_EXTENSIONS_VERSION_1_3;
     CSalamanderServiceResult result;
     memset(&result, 0, sizeof(result));
     if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
@@ -408,6 +409,7 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     HListView = NULL;
     Header = NULL;
     HImageList = NULL;
+    GripWindow = NULL;
     RefreshPanels = FALSE;
     DrivesBarChange = FALSE;
     FocusPlugin[0] = 0;
@@ -416,6 +418,10 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     ShowInChDrvText[0] = 0;
     InstalledPluginsText[0] = 0;
     PluginTestText[0] = 0;
+    MinDlgW = 0;
+    MinDlgH = 0;
+    LastClientW = 0;
+    LastClientH = 0;
 }
 
 void CPluginsDlg::RefreshExtensionRows()
@@ -551,6 +557,82 @@ void CPluginsDlg::ApplyTheme()
     {
         DarkModeApplyWindow(Header->HWindow);
         InvalidateRect(Header->HWindow, NULL, TRUE);
+    }
+}
+
+void CPluginsDlg::LayoutControls()
+{
+    if (HListView == NULL || LastClientW <= 0 || LastClientH <= 0)
+        return;
+    RECT client;
+    GetClientRect(HWindow, &client);
+    const int dx = client.right - LastClientW;
+    const int dy = client.bottom - LastClientH;
+    const int rightTop[] = {
+        IDB_PLUGINADD, IDB_PLUGINREMOVE, IDB_PLUGINCONFIG,
+        IDB_PLUGINKEYS, IDB_PLUGINTEST, IDB_PLUGINTESTALL,
+        IDB_PLUGINUNLOAD, IDB_PLUGINABOUT, IDB_PLUGINFOCUS};
+    const int rightBottom[] = {IDB_PLUGINUPDATES, IDHELP, IDOK};
+    const int detailLabels[] = {
+        IDC_STATIC_5, IDC_STATIC_6, IDC_STATIC_10, IDC_STATIC_7,
+        IDC_STATIC_8, IDC_STATIC_11, IDC_STATIC_9};
+    const int detailValues[] = {
+        IDC_PLUGINDESCRIPTION, IDC_PLUGINCOPYRIGHT, IDC_PLUGINWWW,
+        IDC_PLUGINEXTENSIONS, IDC_PLUGINFSNAME, IDC_PLUGINTHUMBNAILS,
+        IDC_PLUGINFUNCTIONS};
+
+    auto adjust = [this](HWND control, int moveX, int moveY,
+                         int growX, int growY) {
+        if (control == NULL)
+            return;
+        RECT rect;
+        GetWindowRect(control, &rect);
+        MapWindowPoints(
+            HWND_DESKTOP, HWindow, reinterpret_cast<POINT*>(&rect), 2);
+        SetWindowPos(
+            control, NULL, rect.left + moveX, rect.top + moveY,
+            rect.right - rect.left + growX,
+            rect.bottom - rect.top + growY,
+            SWP_NOZORDER | SWP_NOACTIVATE);
+    };
+
+    if (dx != 0 || dy != 0)
+    {
+        adjust(HListView, 0, 0, dx, dy);
+        if (Header != NULL)
+            adjust(Header->HWindow, 0, 0, dx, 0);
+        for (int index = 0; index < ARRAYSIZE(rightTop); ++index)
+            adjust(GetDlgItem(HWindow, rightTop[index]), dx, 0, 0, 0);
+        for (int index = 0; index < ARRAYSIZE(rightBottom); ++index)
+            adjust(GetDlgItem(HWindow, rightBottom[index]), dx, dy, 0, 0);
+        for (int index = 0; index < ARRAYSIZE(detailLabels); ++index)
+            adjust(GetDlgItem(HWindow, detailLabels[index]), 0, dy, 0, 0);
+        for (int index = 0; index < ARRAYSIZE(detailValues); ++index)
+            adjust(GetDlgItem(HWindow, detailValues[index]), 0, dy, dx, 0);
+        adjust(GetDlgItem(HWindow, IDC_PLUGINSHOWINBAR), 0, dy, dx, 0);
+        adjust(GetDlgItem(HWindow, IDC_PLUGINSHOWINCHDRV), 0, dy, dx, 0);
+    }
+
+    HWND grip = GetDlgItem(HWindow, IDC_PLUGINS_GRIP);
+    if (grip != NULL)
+    {
+        const int gripWidth =
+            WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
+        const int gripHeight =
+            WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL);
+        SetWindowPos(
+            grip, NULL, client.right - gripWidth,
+            client.bottom - gripHeight, gripWidth, gripHeight,
+            SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    LastClientW = client.right;
+    LastClientH = client.bottom;
+    if (dx != 0 || dy != 0)
+    {
+        RedrawWindow(
+            HWindow, NULL, NULL,
+            RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
     }
 }
 
@@ -711,9 +793,12 @@ void CPluginsDlg::EnableButtons(CPluginData* plugin)
 
     HWND focus = GetFocus();
     BOOL changeFocus = FALSE;
-    if (GetDlgItem(HWindow, IDB_PLUGINREMOVE) == focus && plugin == NULL)
+    if (GetDlgItem(HWindow, IDB_PLUGINREMOVE) == focus &&
+        plugin == NULL && extension == NULL)
         changeFocus = TRUE;
-    EnableWindow(GetDlgItem(HWindow, IDB_PLUGINREMOVE), plugin != NULL);
+    EnableWindow(
+        GetDlgItem(HWindow, IDB_PLUGINREMOVE),
+        plugin != NULL || extension != NULL);
     if (GetDlgItem(HWindow, IDB_PLUGINTEST) == focus &&
         plugin == NULL && !extensionActionable)
         changeFocus = TRUE;
@@ -764,11 +849,22 @@ void CPluginsDlg::EnableHeader()
 {
     DWORD mask = TLBHDRMASK_SORT;
     int index = ListView_GetNextItem(HListView, -1, LVNI_FOCUSED);
-    int count = ListView_GetItemCount(HListView);
-    if (index > 0)
-        mask |= TLBHDRMASK_UP;
-    if (index < count - 1)
-        mask |= TLBHDRMASK_DOWN;
+    if (index >= Plugins.GetCount())
+    {
+        const int extensionIndex = index - Plugins.GetCount();
+        if (extensionIndex > 0)
+            mask |= TLBHDRMASK_TOP | TLBHDRMASK_UP;
+        if (extensionIndex >= 0 &&
+            extensionIndex + 1 < static_cast<int>(ExtensionRows.size()))
+            mask |= TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
+    }
+    else
+    {
+        if (index > 0)
+            mask |= TLBHDRMASK_TOP | TLBHDRMASK_UP;
+        if (index >= 0 && index + 1 < Plugins.GetCount())
+            mask |= TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
+    }
     Header->EnableToolbar(mask);
 }
 
@@ -988,17 +1084,15 @@ void CPluginsDlg::OnSelChanged()
             EnableWindow(GetDlgItem(HWindow, IDC_PLUGINSHOWINCHDRV), hasItem);
         }
 
-        EnableHeader();
-
         EnableButtons(p);
     }
     else if (extension != NULL)
     {
         SetWindowText(GetDlgItem(HWindow, IDC_STATIC_7),
                       LoadStr(IDS_PLUGIN_RUNTIME_LABEL));
-        // Manifest extensions are informational rows in Plugin Manager. They
-        // are not CPluginData records, so load/unload/configuration actions
-        // remain disabled and no fake .SPL path is presented to the user.
+        // Manifest extensions are service-backed rows rather than fake .SPL
+        // records. Their package manager owns activation, configuration,
+        // ordering and removal.
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION),
             (extension->Descriptor.Flags &
@@ -1109,6 +1203,7 @@ void CPluginsDlg::OnSelChanged()
         /*if (IsWindowVisible(showInChDrv))*/ ShowWindow(showInChDrv, SW_HIDE); // condition commented out because it misbehaves during WM_INITDIALOG (the dialog is not visible as a whole -> the check fails)
         EnableButtons(NULL);
     }
+    EnableHeader();
 }
 
 CPluginData*
@@ -1169,19 +1264,47 @@ void CPluginsDlg::OnContextMenu(int x, int y)
         PostMessage(HWindow, WM_COMMAND, cmd, 0);
 }
 
-void CPluginsDlg::OnMove(BOOL up)
+void CPluginsDlg::OnMove(BOOL up, BOOL toEnd)
 {
     int index = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
-    if (index < 0 || index >= Plugins.GetCount())
-        return; // manifest-extension rows have no persisted plugin order
-    int newIndex = up ? index - 1 : index + 1;
-    if (Plugins.ChangePluginsOrder(index, newIndex))
+    if (index < 0)
+        return;
+    if (index < Plugins.GetCount())
     {
-        if (Configuration.KeepPluginsSorted)
-            OnSort();
-        Plugins.UpdatePluginsOrder(FALSE);
-        RefreshListView(TRUE, newIndex);
+        int newIndex = toEnd ? (up ? 0 : Plugins.GetCount() - 1)
+                             : (up ? index - 1 : index + 1);
+        if (Plugins.ChangePluginsOrder(index, newIndex))
+        {
+            if (Configuration.KeepPluginsSorted)
+                OnSort();
+            Plugins.UpdatePluginsOrder(FALSE);
+            RefreshListView(TRUE, newIndex);
+        }
+        return;
     }
+
+    Salamatrix::Extensions::ExtensionInfo* extension = GetSelectedExtension();
+    Salamatrix::Extensions::IExtensionsService* service =
+        QueryExtensionService();
+    if (extension == NULL || service == NULL)
+        return;
+    const int extensionIndex = index - Plugins.GetCount();
+    const int direction = up ? -1 : 1;
+    const int newExtensionIndex =
+        toEnd ? (up ? 0 : static_cast<int>(ExtensionRows.size()) - 1)
+              : extensionIndex + direction;
+    if (newExtensionIndex < 0 ||
+        newExtensionIndex >= static_cast<int>(ExtensionRows.size()))
+        return;
+    char extensionId[128];
+    lstrcpynA(
+        extensionId, extension->Descriptor.Id, _countof(extensionId));
+    int movedExtensionIndex = extensionIndex;
+    while (movedExtensionIndex != newExtensionIndex &&
+           service->MoveManagedExtension(extensionId, direction))
+        movedExtensionIndex += direction;
+    if (movedExtensionIndex != extensionIndex)
+        RefreshListView(FALSE, Plugins.GetCount() + movedExtensionIndex);
 }
 
 void CPluginsDlg::OnSort()
@@ -1232,7 +1355,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // copy the Show In Change Drive Menu checkbox text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINSHOWINCHDRV, ShowInChDrvText, 200);
 
-        // copy the "Installed Plugins:" text into our buffer
+        // copy the "Installed Plugins and Extensions:" text into our buffer
         GetDlgItemText(HWindow, IDC_PLUGINHEADER, InstalledPluginsText, 200);
 
         SetWindowText(GetDlgItem(HWindow, IDB_PLUGINUPDATES), LoadStr(IDS_PLUGINUPDATES));
@@ -1251,11 +1374,28 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // header line
         Header = new CToolbarHeader(HWindow, IDC_PLUGINHEADER, HListView,
-                                    TLBHDRMASK_SORT | TLBHDRMASK_UP | TLBHDRMASK_DOWN);
+                                    TLBHDRMASK_SORT | TLBHDRMASK_TOP |
+                                        TLBHDRMASK_UP | TLBHDRMASK_DOWN |
+                                        TLBHDRMASK_BOTTOM);
         if (Header == NULL)
             TRACE_E(LOW_MEMORY);
 
         Header->CheckToolbar(Configuration.KeepPluginsSorted ? TLBHDRMASK_SORT : 0);
+
+#ifdef new
+#undef new
+#define RESTORE_PLUGIN_MANAGER_GRIP_DEBUG_NEW_MACRO
+#endif
+        GripWindow = new (std::nothrow) CTPHGripWindow(
+            HWindow, IDC_PLUGINS_GRIP);
+#ifdef RESTORE_PLUGIN_MANAGER_GRIP_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_PLUGIN_MANAGER_GRIP_DEBUG_NEW_MACRO
+#endif
+        if (GripWindow == NULL)
+            TRACE_E(LOW_MEMORY);
+        else
+            DarkModeApplyWindow(GripWindow->HWindow);
 
         // insert columns
         InitColumns();
@@ -1269,6 +1409,35 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // insert items
         RefreshListView(FALSE, 0, lastSelectPluginData, TRUE);
 
+        RECT windowRect;
+        RECT clientRect;
+        GetWindowRect(HWindow, &windowRect);
+        GetClientRect(HWindow, &clientRect);
+        MinDlgW = windowRect.right - windowRect.left;
+        MinDlgH = windowRect.bottom - windowRect.top;
+        LastClientW = clientRect.right;
+        LastClientH = clientRect.bottom;
+
+        int restoredWidth = max(
+            MinDlgW, static_cast<int>(Configuration.PluginsManagerWidth));
+        int restoredHeight = max(
+            MinDlgH, static_cast<int>(Configuration.PluginsManagerHeight));
+        RECT clipRect;
+        MultiMonGetClipRectByWindow(HWindow, &clipRect, NULL);
+        restoredWidth = max(
+            MinDlgW,
+            min(restoredWidth, clipRect.right - clipRect.left));
+        restoredHeight = max(
+            MinDlgH,
+            min(restoredHeight, clipRect.bottom - clipRect.top));
+        if (restoredWidth != MinDlgW || restoredHeight != MinDlgH)
+        {
+            SetWindowPos(
+                HWindow, NULL, 0, 0, restoredWidth, restoredHeight,
+                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        LayoutControls();
+
         ApplyTheme();
 
         break;
@@ -1276,9 +1445,39 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
+        WINDOWPLACEMENT placement;
+        ZeroMemory(&placement, sizeof(placement));
+        placement.length = sizeof(placement);
+        if (GetWindowPlacement(HWindow, &placement))
+        {
+            const int width =
+                placement.rcNormalPosition.right -
+                placement.rcNormalPosition.left;
+            const int height =
+                placement.rcNormalPosition.bottom -
+                placement.rcNormalPosition.top;
+            if (width >= MinDlgW && height >= MinDlgH)
+            {
+                Configuration.PluginsManagerWidth = width;
+                Configuration.PluginsManagerHeight = height;
+            }
+        }
         MainWindow->OnPluginsStateChanged(); // maybe this should have a Dirty flag
         break;
     }
+
+    case WM_SIZE:
+        LayoutControls();
+        return 0;
+
+    case WM_GETMINMAXINFO:
+        if (MinDlgW > 0 && MinDlgH > 0)
+        {
+            LPMINMAXINFO minMax = reinterpret_cast<LPMINMAXINFO>(lParam);
+            minMax->ptMinTrackSize.x = MinDlgW;
+            minMax->ptMinTrackSize.y = MinDlgH;
+        }
+        return 0;
 
     case WM_NOTIFY:
     {
@@ -1352,11 +1551,17 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SetFocus(HListView);
             switch (HIWORD(wParam))
             {
+            case TLBHDR_TOP:
+                OnMove(TRUE, TRUE);
+                break;
             case TLBHDR_UP:
                 OnMove(TRUE);
                 break;
             case TLBHDR_DOWN:
                 OnMove(FALSE);
+                break;
+            case TLBHDR_BOTTOM:
+                OnMove(FALSE, TRUE);
                 break;
             case TLBHDR_SORT:
                 if (!Configuration.KeepPluginsSorted)
@@ -1529,7 +1734,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (SafeGetOpenFileName(&ofn))
             {
                 // loop over all selected names
-                char oneName[MAX_PATH];
+                char oneName[2000];
                 char* fName = NULL;
                 int off = 0;
                 strcpy(oneName, fileName);
@@ -1545,6 +1750,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
 
                 BOOL pluginAdded = FALSE;
+                BOOL extensionAdded = FALSE;
                 CPluginData* addedPlugin = NULL;
                 while (1)
                 {
@@ -1554,7 +1760,36 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         off += (int)(strlen(fileName + off + 1) + 1);
                     }
 
-                    // oneName contains the name of the x-th selected plugin (enumeration)
+                    // oneName contains the selected plug-in or extension
+                    // manifest.
+                    const char* leaf = strrchr(oneName, '\\');
+                    leaf = leaf != NULL ? leaf + 1 : oneName;
+                    if (StrICmp(leaf, "extension.json") == 0)
+                    {
+                        WCHAR manifestPath[SAL_MAX_PATH];
+                        Salamatrix::Extensions::IExtensionsService* service =
+                            QueryExtensionService();
+                        const BOOL converted = MultiByteToWideChar(
+                            CP_ACP, 0, oneName, -1, manifestPath,
+                            _countof(manifestPath)) != 0;
+                        if (converted && service != NULL &&
+                            service->InstallExtensionManifest(manifestPath))
+                        {
+                            extensionAdded = TRUE;
+                        }
+                        else
+                        {
+                            SalMessageBox(
+                                HWindow, LoadStr(IDS_EXTENSIONADDFAILED),
+                                LoadStr(IDS_ERRORTITLE),
+                                MB_OK | MB_ICONEXCLAMATION);
+                        }
+                        if (off + 1 >= 2000 ||
+                            *(fileName + off + 1) == 0)
+                            break;
+                        continue;
+                    }
+
                     char pluginName[MAX_PATH];
                     if (StrNICmp(oneName, buf, (int)strlen(buf)) == 0 && oneName[(int)strlen(buf)] == '\\')
                     {
@@ -1587,12 +1822,15 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         break;
                 }
 
-                if (pluginAdded)
+                if (pluginAdded || extensionAdded)
                 {
-                    if (Configuration.KeepPluginsSorted)
+                    if (pluginAdded && Configuration.KeepPluginsSorted)
                         Plugins.UpdatePluginsOrder(TRUE);
                     // insert items and select the one that was added
-                    RefreshListView(FALSE, -1, addedPlugin);
+                    RefreshListView(
+                        FALSE,
+                        extensionAdded ? ListView_GetItemCount(HListView) : -1,
+                        addedPlugin);
                 }
             }
             return 0;
@@ -1617,6 +1855,42 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     Plugins.Remove(HWindow, index, TRUE);
                     UnloadingPluginsForMainWindowClose = oldUnloadingPluginsForMainWindowClose;
                     RefreshListView(FALSE, lvIndex); // a DLL was removed, we have fresher data ...
+                }
+            }
+            else
+            {
+                lvIndex = ListView_GetNextItem(
+                    HListView, -1, LVIS_FOCUSED);
+                Salamatrix::Extensions::ExtensionInfo* extension =
+                    GetSelectedExtension();
+                Salamatrix::Extensions::IExtensionsService* service =
+                    QueryExtensionService();
+                if (extension != NULL && service != NULL)
+                {
+                    char extensionId[128];
+                    lstrcpynA(
+                        extensionId, extension->Descriptor.Id,
+                        _countof(extensionId));
+                    char message[900];
+                    const char* format = LoadStr(IDS_EXTENSIONREMOVEOK);
+                    const char* placeholder = strstr(format, "%s");
+                    if (placeholder != NULL)
+                    {
+                        _snprintf_s(
+                            message, _countof(message), _TRUNCATE,
+                            "%.*s%s%s",
+                            static_cast<int>(placeholder - format), format,
+                            extension->Descriptor.Name, placeholder + 2);
+                    }
+                    else
+                        lstrcpynA(message, format, _countof(message));
+                    if (SalMessageBox(
+                            HWindow, message, LoadStr(IDS_QUESTION),
+                            MB_YESNO | MB_ICONQUESTION) == IDYES &&
+                        service->RemoveManagedExtension(extensionId))
+                    {
+                        RefreshListView(FALSE, lvIndex);
+                    }
                 }
             }
             return 0;

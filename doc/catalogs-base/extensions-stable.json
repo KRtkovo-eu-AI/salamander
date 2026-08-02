@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "catalogName": "Extensions Stable",
-  "generatedAt": "2026-07-30T22:57:28Z",
+  "generatedAt": "2026-08-02T00:20:57Z",
   "plugins": [
     {
       "id": "file-lock-inspector",
@@ -19,7 +19,8 @@
       "dependencies": [
         "powershellruntime"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "packageType": "extension"
     },
     {
       "id": "git-worktree-navigator",
@@ -37,7 +38,8 @@
       "dependencies": [
         "powershellruntime"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "packageType": "extension"
     },
     {
       "id": "extension-menu-builder",
@@ -54,6 +56,26 @@
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_extension-menu-builder_1.0.0_x64/plugin_5.0_extension-menu-builder_1.0.0_x64.7z",
       "dependencies": [
         "powershellruntime"
+      ],
+      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "packageType": "extension"
+    },
+    {
+      "id": "salamatrixdemos",
+      "packageType": "extension",
+      "name": {
+        "english": "Salamatrix Demo Sample Scripts"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Demo sample scripts for the Salamatrix framework."
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixdemos_1.0.0_x64/plugin_5.0_salamatrixdemos_1.0.0_x64.7z",
+      "dependencies": [
+        "salamatrix"
       ],
       "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
     }

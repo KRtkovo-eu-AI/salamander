@@ -44,6 +44,26 @@ class CatalogUpdaterTests(unittest.TestCase):
         self.assertEqual(assignments[runtimes], ["pythonruntime"])
         self.assertNotIn(unofficial, assignments)
 
+    def test_manifest_extension_moves_to_extensions_catalog(self) -> None:
+        stable = Path("plugins-stable.json")
+        extensions = Path("extensions-stable.json")
+        runtimes = Path("extension-runtimes.json")
+        catalogs = {
+            stable: {"plugins": []},
+            extensions: {"plugins": []},
+            runtimes: {"plugins": [{"id": "salamatrixdemos"}]},
+        }
+
+        assignments = UPDATER.assign_packages_to_catalogs(
+            catalogs,
+            stable,
+            ["salamatrixdemos"],
+            extension_ids={"salamatrixdemos"},
+            extension_catalog=extensions,
+        )
+
+        self.assertEqual(assignments, {extensions: ["salamatrixdemos"]})
+
     def test_plugin_beta_suffix_is_preserved(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             plugins_root = Path(directory)
@@ -95,6 +115,8 @@ class CatalogUpdaterTests(unittest.TestCase):
             )
 
             self.assertEqual(updated["generatedAt"], "fixed")
+            self.assertEqual(updated["schemaVersion"], 5)
+            self.assertEqual(updated["plugins"][0]["packageType"], "extension")
             self.assertEqual(updated["plugins"][0]["latestVersion"], "1.0.0 (x64)")
             self.assertEqual(updated["plugins"][0]["name"]["english"], "Extension Menu Builder")
             self.assertEqual(updated["plugins"][0]["dependencies"], ["powershellruntime"])
@@ -138,6 +160,25 @@ class CatalogUpdaterTests(unittest.TestCase):
             self.assertEqual(extensions, [("salamatrixdemos", "salamatrixdemos")])
             self.assertEqual(metadata[0], "1.0.0 (x64)")
             self.assertEqual(metadata[3], "salamatrix")
+
+    def test_schema_upgrade_marks_plugins_and_extensions_without_reordering(self) -> None:
+        catalog = {
+            "schemaVersion": 4,
+            "plugins": [
+                {"id": "pythonruntime", "name": "Python Runtime"},
+                {"id": "salamatrixdemos", "name": "Demos"},
+            ],
+        }
+
+        updated = UPDATER.update_catalog_schema(catalog, {"salamatrixdemos"})
+
+        self.assertEqual(updated["schemaVersion"], 5)
+        self.assertEqual(
+            [entry["id"] for entry in updated["plugins"]],
+            ["pythonruntime", "salamatrixdemos"],
+        )
+        self.assertEqual(updated["plugins"][0]["packageType"], "plugin")
+        self.assertEqual(updated["plugins"][1]["packageType"], "extension")
 
 
 if __name__ == "__main__":

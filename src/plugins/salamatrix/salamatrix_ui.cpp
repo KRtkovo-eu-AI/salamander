@@ -511,6 +511,7 @@ struct NativeDialog::Impl
         std::string AccessibleName;
         std::string AccessibleDescription;
         std::wstring AccessibleTooltipText;
+        BOOL Enabled;
         HWND WindowHandle;
         HWND BrowseWindowHandle;
         WORD BrowseNumericId;
@@ -527,6 +528,29 @@ struct NativeDialog::Impl
         std::vector<int> ItemParents;
         std::vector<std::string> ColumnTitles;
         std::vector<int> ColumnWidths;
+        DWORD StyleFlags;
+        char PathSeparator;
+        std::string ToolTipText;
+        std::string ActionTarget;
+        std::string ActionHint;
+        WORD ActionCommand;
+        int ProgressValue;
+        ULONGLONG ProgressCurrent;
+        ULONGLONG ProgressTotal;
+        BOOL HasProgressValues;
+        std::string ProgressText;
+        DWORD IndeterminateDuration;
+        DWORD IndeterminateInterval;
+        COLORREF TextColor;
+        COLORREF BackgroundColor;
+        std::string ToolbarAlignControlId;
+        DWORD ToolbarButtonMask;
+        CGUIStaticTextAbstract* StaticText;
+        CGUIHyperLinkAbstract* HyperLink;
+        CGUIProgressBarAbstract* ProgressBar;
+        CGUIButtonAbstract* TextArrowButton;
+        CGUIColorArrowButtonAbstract* ColorArrowButton;
+        CGUIToolbarHeaderAbstract* ToolbarHeader;
 
         Control(
             ControlKind kind,
@@ -545,6 +569,7 @@ struct NativeDialog::Impl
               FileSave(options.FileSave),
               AccessibleName(options.AccessibleName != NULL ? options.AccessibleName : ""),
               AccessibleDescription(options.AccessibleDescription != NULL ? options.AccessibleDescription : ""),
+              Enabled(TRUE),
               WindowHandle(NULL),
               BrowseWindowHandle(NULL),
               BrowseNumericId(0),
@@ -556,7 +581,25 @@ struct NativeDialog::Impl
               Width(layout.Width),
               Height(layout.Height),
               SelectedIndex(-1),
-              NumericId(numericId)
+              NumericId(numericId),
+              StyleFlags(0),
+              PathSeparator('\\'),
+              ActionCommand(0),
+              ProgressValue(0),
+              ProgressCurrent(0),
+              ProgressTotal(0),
+              HasProgressValues(FALSE),
+              IndeterminateDuration(0xFFFFFFFF),
+              IndeterminateInterval(50),
+              TextColor(RGB(0, 0, 0)),
+              BackgroundColor(RGB(255, 255, 255)),
+              ToolbarButtonMask(0),
+              StaticText(NULL),
+              HyperLink(NULL),
+              ProgressBar(NULL),
+              TextArrowButton(NULL),
+              ColorArrowButton(NULL),
+              ToolbarHeader(NULL)
         {
         }
 
@@ -580,6 +623,10 @@ struct NativeDialog::Impl
             if (value == NULL)
                 return FALSE;
             Text.assign(value);
+            if (StaticText != NULL)
+                return StaticText->SetText(value);
+            if (HyperLink != NULL)
+                return HyperLink->SetText(value);
             if (WindowHandle != NULL)
             {
                 std::wstring wide;
@@ -604,6 +651,9 @@ struct NativeDialog::Impl
         virtual BOOL WINAPI SetChecked(BOOL checked)
         {
             Checked = checked;
+            if (WindowHandle != NULL)
+                SendMessage(WindowHandle, BM_SETCHECK,
+                            checked ? BST_CHECKED : BST_UNCHECKED, 0);
             return TRUE;
         }
 
@@ -755,6 +805,155 @@ struct NativeDialog::Impl
                              metrics.BrowseX, y, metrics.BrowseWidth, height,
                              SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
             }
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetEnabled(BOOL enabled)
+        {
+            Enabled = enabled;
+            if (WindowHandle != NULL)
+                EnableWindow(WindowHandle, enabled);
+            if (BrowseWindowHandle != NULL)
+                EnableWindow(BrowseWindowHandle, enabled);
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI IsEnabled() const
+        {
+            return Enabled;
+        }
+
+        virtual BOOL WINAPI SetStyleFlags(DWORD flags)
+        {
+            if (WindowHandle != NULL)
+                return FALSE;
+            StyleFlags = flags;
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetPathSeparator(char separator)
+        {
+            if (Kind != ControlKindStaticText || separator == '\0')
+                return FALSE;
+            PathSeparator = separator;
+            if (StaticText != NULL)
+                StaticText->SetPathSeparator(separator);
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetToolTipText(const char* text)
+        {
+            ToolTipText.assign(text != NULL ? text : "");
+            if (StaticText != NULL)
+                return StaticText->SetToolTipText(ToolTipText.c_str());
+            if (HyperLink != NULL)
+                return HyperLink->SetToolTipText(ToolTipText.c_str());
+            if (TextArrowButton != NULL)
+                return TextArrowButton->SetToolTipText(ToolTipText.c_str());
+            return WindowHandle == NULL;
+        }
+
+        virtual BOOL WINAPI SetActionOpen(const char* target)
+        {
+            if (Kind != ControlKindHyperLink || target == NULL)
+                return FALSE;
+            ActionTarget.assign(target);
+            if (HyperLink != NULL)
+                HyperLink->SetActionOpen(ActionTarget.c_str());
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetActionPostCommand(WORD command)
+        {
+            if (Kind != ControlKindHyperLink)
+                return FALSE;
+            ActionCommand = command;
+            if (HyperLink != NULL)
+                HyperLink->SetActionPostCommand(command);
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetActionShowHint(const char* text)
+        {
+            if (Kind != ControlKindHyperLink)
+                return FALSE;
+            ActionHint.assign(text != NULL ? text : "");
+            return HyperLink != NULL
+                       ? HyperLink->SetActionShowHint(
+                             text != NULL ? ActionHint.c_str() : NULL)
+                       : TRUE;
+        }
+
+        virtual BOOL WINAPI SetProgress(int progress, const char* text)
+        {
+            if (Kind != ControlKindProgressBar || progress < -1 || progress > 1000)
+                return FALSE;
+            ProgressValue = progress;
+            HasProgressValues = FALSE;
+            ProgressText.assign(text != NULL ? text : "");
+            if (ProgressBar != NULL)
+                ProgressBar->SetProgress(
+                    static_cast<DWORD>(progress),
+                    text != NULL ? ProgressText.c_str() : NULL);
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetProgressValues(
+            ULONGLONG current, ULONGLONG total, const char* text)
+        {
+            if (Kind != ControlKindProgressBar)
+                return FALSE;
+            ProgressCurrent = current;
+            ProgressTotal = total;
+            HasProgressValues = TRUE;
+            ProgressText.assign(text != NULL ? text : "");
+            if (ProgressBar != NULL)
+            {
+                CQuadWord currentValue;
+                CQuadWord totalValue;
+                currentValue.SetUI64(current);
+                totalValue.SetUI64(total);
+                ProgressBar->SetProgress2(
+                    currentValue, totalValue,
+                    text != NULL ? ProgressText.c_str() : NULL);
+            }
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetIndeterminateTiming(DWORD duration, DWORD interval)
+        {
+            if (Kind != ControlKindProgressBar || interval == 0)
+                return FALSE;
+            IndeterminateDuration = duration;
+            IndeterminateInterval = interval;
+            if (ProgressBar != NULL)
+            {
+                ProgressBar->SetSelfMoveTime(duration);
+                ProgressBar->SetSelfMoveSpeed(interval);
+            }
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetColor(
+            COLORREF textColor, COLORREF backgroundColor)
+        {
+            if (Kind != ControlKindColorArrowButton)
+                return FALSE;
+            TextColor = textColor;
+            BackgroundColor = backgroundColor;
+            if (ColorArrowButton != NULL)
+                ColorArrowButton->SetColor(textColor, backgroundColor);
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI SetToolbarHeader(
+            const char* alignControlId, DWORD buttonMask)
+        {
+            if (Kind != ControlKindToolbarHeader || alignControlId == NULL ||
+                alignControlId[0] == '\0' || WindowHandle != NULL)
+                return FALSE;
+            ToolbarAlignControlId.assign(alignControlId);
+            ToolbarButtonMask = buttonMask;
             return TRUE;
         }
     };
@@ -950,7 +1149,7 @@ NativeDialog::~NativeDialog()
 
 DWORD WINAPI NativeDialog::GetVersion() const
 {
-    return SALAMATRIX_UI_VERSION_1_0;
+    return SALAMATRIX_UI_VERSION_1_4;
 }
 
 IControl* WINAPI NativeDialog::AddControl(
@@ -1062,6 +1261,10 @@ int WINAPI NativeDialog::ShowModal()
             text.clear();
         DWORD style = WS_CHILD | WS_VISIBLE;
         if (control->Kind != ControlKindLabel &&
+            control->Kind != ControlKindStaticText &&
+            control->Kind != ControlKindProgressBar &&
+            control->Kind != ControlKindToolbarHeader &&
+            control->Kind != ControlKindGroupBox &&
             control->Kind != ControlKindSplitter)
             style |= WS_TABSTOP;
         WORD classOrdinal = 0x0082; // STATIC
@@ -1071,6 +1274,30 @@ int WINAPI NativeDialog::ShowModal()
         {
             style |= SS_NOTIFY | SS_ETCHEDHORZ;
             height = 4;
+        }
+        else if (control->Kind == ControlKindGroupBox)
+        {
+            classOrdinal = 0x0080;
+            style |= BS_GROUPBOX;
+        }
+        else if (control->Kind == ControlKindStaticText ||
+                 control->Kind == ControlKindHyperLink ||
+                 control->Kind == ControlKindToolbarHeader)
+        {
+            classOrdinal = 0x0082;
+            if ((control->StyleFlags & StaticTextAlignCenter) != 0)
+                style |= SS_CENTER;
+            else if ((control->StyleFlags & StaticTextAlignRight) != 0)
+                style |= SS_RIGHT;
+            else
+                style |= SS_LEFT;
+            if ((control->StyleFlags & StaticTextNotify) != 0)
+                style |= SS_NOTIFY;
+        }
+        else if (control->Kind == ControlKindProgressBar)
+        {
+            // AttachProgressBar replaces the rendering of this placeholder.
+            classOrdinal = 0x0082;
         }
         else if (control->Kind == ControlKindTextBox ||
             control->Kind == ControlKindFilePicker)
@@ -1104,8 +1331,17 @@ int WINAPI NativeDialog::ShowModal()
         else if (control->Kind == ControlKindButton)
         {
             classOrdinal = 0x0080;
-            style |= BS_PUSHBUTTON;
+            style |= (control->StyleFlags & ButtonDefault) != 0
+                         ? BS_DEFPUSHBUTTON
+                         : BS_PUSHBUTTON;
             width = 70;
+        }
+        else if (control->Kind == ControlKindArrowButton ||
+                 control->Kind == ControlKindTextArrowButton ||
+                 control->Kind == ControlKindColorArrowButton)
+        {
+            classOrdinal = 0x0080;
+            style |= BS_PUSHBUTTON;
         }
         else if (control->Kind == ControlKindComboBox)
         {
@@ -1128,6 +1364,12 @@ int WINAPI NativeDialog::ShowModal()
         {
             className = L"SysListView32";
             style |= LVS_REPORT | LVS_SINGLESEL;
+            if ((control->StyleFlags & ListViewShowSelectionAlways) != 0)
+                style |= LVS_SHOWSELALWAYS;
+            if ((control->StyleFlags & ListViewEditLabels) != 0)
+                style |= LVS_EDITLABELS;
+            if ((control->StyleFlags & ListViewNoSortHeader) != 0)
+                style |= LVS_NOSORTHEADER;
         }
         else if (control->Kind == ControlKindTreeView)
         {
@@ -1233,6 +1475,234 @@ void WINAPI NativeDialog::Release()
     delete this;
 }
 
+static IControl* AddControlsShowcaseControl(
+    IDialog* dialog,
+    ControlKind kind,
+    const char* id,
+    const char* text,
+    int x,
+    int y,
+    int width,
+    int height,
+    BOOL readOnly = FALSE,
+    BOOL checked = FALSE,
+    int dialogResult = 0,
+    BOOL multiline = FALSE,
+    const char* fileFilter = NULL,
+    BOOL keepOpen = FALSE)
+{
+    ControlOptions options;
+    options.Id = id;
+    options.Text = text;
+    options.ReadOnly = readOnly;
+    options.Checked = checked;
+    options.DialogResult = dialogResult;
+    options.Multiline = multiline;
+    options.FileFilter = fileFilter;
+    options.KeepOpen = keepOpen;
+
+    ControlLayout layout;
+    layout.HasBounds = TRUE;
+    layout.X = x;
+    layout.Y = y;
+    layout.Width = width;
+    layout.Height = height;
+    return dialog->AddControlEx(kind, options, layout);
+}
+
+BOOL WINAPI ShowNativeControlsShowcase(HWND parent)
+{
+    DialogOptions options;
+    options.Title = "Salamatrix UI capabilities";
+    options.Parent = parent;
+    options.Width = 463;
+    options.Height = 236;
+    NativeDialog dialog(options);
+
+    bool complete = true;
+    char uptime[96];
+    _snprintf_s(
+        uptime, _countof(uptime), _TRUNCATE,
+        "System was started %lu ms ago.",
+        static_cast<unsigned long>(GetTickCount()));
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindGroupBox, "static-group",
+        "CGUIStaticTextAbstract", 6, 4, 254, 108) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, "not-attached-label",
+        "Not attached static text", 14, 17, 80, 8) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, "uptime-plain",
+        uptime, 102, 17, 152, 8) != NULL && complete;
+
+    struct StaticRow
+    {
+        const char* Id;
+        const char* Caption;
+        const char* Value;
+        int Y;
+        DWORD Flags;
+    };
+    const StaticRow rows[] = {
+        {"static-none", "0 (no flags)", uptime, 27, 0},
+        {"static-cache", "STF_CACHED_PAINT", uptime, 37, StaticTextCachedPaint},
+        {"static-bold", "STF_BOLD", "Bold &text", 47, StaticTextBold | StaticTextHandlePrefix | StaticTextAlignCenter},
+        {"static-underline", "STF_UNDERLINE", "Underlined text", 56, StaticTextUnderline | StaticTextAlignRight},
+        {"static-end", "STF_END_ELLIPSIS", "Long long long long long long long long long string.", 66, StaticTextEndEllipsis},
+        {"static-path", "STF_PATH_ELLIPSIS", "C:\\Program Files\\Some Application With Long Path\\example.exe", 76, StaticTextPathEllipsis},
+        {"static-path-url", "STF_PATH_ELLIPSIS", "ftp://ftp.altap.cz/pub/salamander/example.exe", 87, StaticTextPathEllipsis}};
+    for (size_t index = 0; index < _countof(rows); ++index)
+    {
+        complete = AddControlsShowcaseControl(
+            &dialog, ControlKindLabel, NULL, rows[index].Caption,
+            14, rows[index].Y, 75, 8) != NULL && complete;
+        IControl* text = AddControlsShowcaseControl(
+            &dialog, ControlKindStaticText, rows[index].Id,
+            rows[index].Value, 102, rows[index].Y, 152, 8);
+        complete = text != NULL && text->SetStyleFlags(rows[index].Flags) && complete;
+        if (text != NULL && index == _countof(rows) - 1)
+            complete = text->SetPathSeparator('/') && complete;
+    }
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, "drag-hint",
+        "Drag texts to change their size.", 151, 97, 103, 8) != NULL && complete;
+
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindGroupBox, "progress-group",
+        "CGUIProgressBarAbstract", 6, 118, 254, 66) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, NULL, "Progress label",
+        15, 129, 60, 8) != NULL && complete;
+    IControl* progress = AddControlsShowcaseControl(
+        &dialog, ControlKindProgressBar, "progress", "",
+        15, 138, 235, 12);
+    complete = progress != NULL && progress->SetProgress(120) && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, NULL, "Unknown progress",
+        15, 154, 67, 8) != NULL && complete;
+    IControl* unknownProgress = AddControlsShowcaseControl(
+        &dialog, ControlKindProgressBar, "unknown-progress", "",
+        15, 163, 235, 12);
+    complete = unknownProgress != NULL &&
+               unknownProgress->SetIndeterminateTiming(0xFFFFFFFF, 100) &&
+               unknownProgress->SetProgress(-1) && complete;
+
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindGroupBox, "buttons-group",
+        "Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract",
+        6, 188, 254, 40) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindButton, "more", "...",
+        15, 204, 15, 14, FALSE, FALSE, 0, FALSE, NULL, TRUE) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindArrowButton, "arrow", "",
+        37, 204, 15, 14) != NULL && complete;
+    IControl* choose = AddControlsShowcaseControl(
+        &dialog, ControlKindTextArrowButton, "choose", "&Choose",
+        60, 204, 50, 14);
+    complete = choose != NULL &&
+               choose->SetStyleFlags(TextArrowButtonRightArrow) && complete;
+    IControl* drop = AddControlsShowcaseControl(
+        &dialog, ControlKindTextArrowButton, "drop", "&Drop",
+        117, 204, 50, 14);
+    complete = drop != NULL &&
+               drop->SetStyleFlags(TextArrowButtonDropDown) && complete;
+    IControl* color = AddControlsShowcaseControl(
+        &dialog, ControlKindColorArrowButton, "color", "",
+        174, 204, 33, 14);
+    complete = color != NULL &&
+               color->SetColor(RGB(0, 128, 255), RGB(0, 128, 255)) && complete;
+    IControl* colorText = AddControlsShowcaseControl(
+        &dialog, ControlKindColorArrowButton, "color-text", "ABC",
+        215, 204, 33, 14);
+    complete = colorText != NULL &&
+               colorText->SetColor(RGB(0, 0, 0), RGB(255, 255, 0)) && complete;
+
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindGroupBox, "hyperlink-group",
+        "CGUIHyperLinkAbstract", 269, 4, 185, 48) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, NULL, "SetActionOpen",
+        277, 17, 75, 8) != NULL && complete;
+    IControl* open = AddControlsShowcaseControl(
+        &dialog, ControlKindHyperLink, "open-link", "www.altap.cz",
+        365, 17, 47, 8);
+    complete = open != NULL &&
+               open->SetStyleFlags(StaticTextUnderline | StaticTextHyperLinkColor) &&
+               open->SetActionOpen("https://www.altap.cz") && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, NULL, "SetActionPostCommand",
+        277, 27, 81, 8) != NULL && complete;
+    IControl* command = AddControlsShowcaseControl(
+        &dialog, ControlKindHyperLink, "command-link", "Say something!",
+        365, 27, 55, 8);
+    complete = command != NULL &&
+               command->SetStyleFlags(StaticTextUnderline | StaticTextHyperLinkColor) &&
+               command->SetActionPostCommand(0x7F01) && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, NULL, "SetActionPostCommand",
+        277, 37, 81, 8) != NULL && complete;
+    IControl* hint = AddControlsShowcaseControl(
+        &dialog, ControlKindHyperLink, "hint-link", "mask hints",
+        365, 37, 40, 8);
+    complete = hint != NULL &&
+               hint->SetStyleFlags(StaticTextDotUnderline) &&
+               hint->SetActionShowHint(
+                   "text 1 text 1 text 1 text 1\ntext 2 text 2 text 2 ") && complete;
+
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindGroupBox, "tooltip-group",
+        "SetCurrentToolTip", 269, 59, 185, 31) != NULL && complete;
+    IControl* tooltip = AddControlsShowcaseControl(
+        &dialog, ControlKindStaticText, "tooltip",
+        "Pause the mouse pointer over this text.", 278, 73, 130, 8);
+    complete = tooltip != NULL &&
+               tooltip->SetStyleFlags(StaticTextNotify) &&
+               tooltip->SetToolTipText("ToolTip") && complete;
+
+    IControl* list = AddControlsShowcaseControl(
+        &dialog, ControlKindListView, "header-list", "",
+        269, 113, 185, 50);
+    complete = list != NULL && list->SetStyleFlags(
+        ListViewNoDefaultColumn | ListViewShowSelectionAlways |
+        ListViewEditLabels | ListViewNoSortHeader) && complete;
+    IControl* header = AddControlsShowcaseControl(
+        &dialog, ControlKindToolbarHeader, "toolbar-header",
+        "CGUIToolbarHeaderAbstract", 269, 102, 96, 8);
+    complete = header != NULL && header->SetToolbarHeader(
+        "header-list",
+        ToolbarHeaderModify | ToolbarHeaderUp | ToolbarHeaderDown) && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindGroupBox, "origin-group",
+        "Created by", 269, 169, 185, 38) != NULL && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, "runtime-label",
+        "Runtime:", 277, 181, 42, 8) != NULL && complete;
+    IControl* runtimeValue = AddControlsShowcaseControl(
+        &dialog, ControlKindStaticText, "runtime-value",
+        "Native", 323, 181, 122, 8);
+    complete = runtimeValue != NULL &&
+               runtimeValue->SetStyleFlags(StaticTextBold) && complete;
+    complete = AddControlsShowcaseControl(
+        &dialog, ControlKindLabel, "extension-label",
+        "Extension:", 277, 192, 42, 8) != NULL && complete;
+    IControl* extensionValue = AddControlsShowcaseControl(
+        &dialog, ControlKindStaticText, "extension-value",
+        "Salamatrix Framework", 323, 192, 122, 8);
+    complete = extensionValue != NULL &&
+               extensionValue->SetStyleFlags(StaticTextBold) && complete;
+    IControl* close = AddControlsShowcaseControl(
+                   &dialog, ControlKindButton,
+                   "close", "Close", 403, 213, 50, 14,
+                   FALSE, FALSE, 1);
+    complete = close != NULL && close->SetStyleFlags(ButtonDefault) && complete;
+
+    if (!complete)
+        return FALSE;
+    dialog.ShowModal();
+    return TRUE;
+}
+
 void WINAPI CloseAllNativeDialogs()
 {
     ClosingAllNativeDialogs = TRUE;
@@ -1294,6 +1764,10 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             control->WindowHandle = child;
             if (initialFocus == NULL &&
                 control->Kind != ControlKindLabel &&
+                control->Kind != ControlKindStaticText &&
+                control->Kind != ControlKindProgressBar &&
+                control->Kind != ControlKindToolbarHeader &&
+                control->Kind != ControlKindGroupBox &&
                 control->Kind != ControlKindSplitter)
                 initialFocus = child;
             if (control->Kind == ControlKindSplitter)
@@ -1304,6 +1778,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             if (control->Kind == ControlKindFilePicker)
                 control->BrowseWindowHandle =
                     GetDlgItem(hwnd, control->BrowseNumericId);
+            control->SetEnabled(control->Enabled);
             dialog->m_pImpl->AddAccessibilityTooltip(
                 dialog->m_pImpl->AccessibilityTooltip,
                 child,
@@ -1316,6 +1791,101 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             std::wstring text;
             if (Utf8ToWide(control->Text.c_str(), text))
                 SetWindowTextW(child, text.c_str());
+            if (SalamanderGUI != NULL)
+            {
+                const DWORD hostFlags = control->StyleFlags & 0x0000FFFF;
+                if (control->Kind == ControlKindStaticText)
+                {
+                    control->StaticText = SalamanderGUI->AttachStaticText(
+                        hwnd, control->NumericId, hostFlags);
+                    if (control->StaticText != NULL)
+                    {
+                        control->StaticText->SetPathSeparator(
+                            control->PathSeparator);
+                        if (!control->ToolTipText.empty())
+                            control->StaticText->SetToolTipText(
+                                control->ToolTipText.c_str());
+                    }
+                }
+                else if (control->Kind == ControlKindHyperLink)
+                {
+                    control->HyperLink = SalamanderGUI->AttachHyperLink(
+                        hwnd, control->NumericId, hostFlags);
+                    if (control->HyperLink != NULL)
+                    {
+                        if (!control->ActionTarget.empty())
+                            control->HyperLink->SetActionOpen(
+                                control->ActionTarget.c_str());
+                        else if (control->ActionCommand != 0)
+                            control->HyperLink->SetActionPostCommand(
+                                control->ActionCommand);
+                        else if (!control->ActionHint.empty())
+                            control->HyperLink->SetActionShowHint(
+                                control->ActionHint.c_str());
+                        if (!control->ToolTipText.empty())
+                            control->HyperLink->SetToolTipText(
+                                control->ToolTipText.c_str());
+                    }
+                }
+                else if (control->Kind == ControlKindProgressBar)
+                {
+                    control->ProgressBar = SalamanderGUI->AttachProgressBar(
+                        hwnd, control->NumericId);
+                    if (control->ProgressBar != NULL)
+                    {
+                        control->ProgressBar->SetSelfMoveTime(
+                            control->IndeterminateDuration);
+                        control->ProgressBar->SetSelfMoveSpeed(
+                            control->IndeterminateInterval);
+                        if (control->HasProgressValues)
+                        {
+                            CQuadWord currentValue;
+                            CQuadWord totalValue;
+                            currentValue.SetUI64(control->ProgressCurrent);
+                            totalValue.SetUI64(control->ProgressTotal);
+                            control->ProgressBar->SetProgress2(
+                                currentValue, totalValue,
+                                control->ProgressText.empty()
+                                    ? NULL
+                                    : control->ProgressText.c_str());
+                        }
+                        else
+                        {
+                            control->ProgressBar->SetProgress(
+                                static_cast<DWORD>(control->ProgressValue),
+                                control->ProgressText.empty()
+                                    ? NULL
+                                    : control->ProgressText.c_str());
+                        }
+                    }
+                }
+                else if (control->Kind == ControlKindArrowButton)
+                {
+                    SalamanderGUI->ChangeToArrowButton(
+                        hwnd, control->NumericId);
+                }
+                else if (control->Kind == ControlKindTextArrowButton)
+                {
+                    control->TextArrowButton = SalamanderGUI->AttachButton(
+                        hwnd, control->NumericId, hostFlags);
+                    if (control->TextArrowButton != NULL &&
+                        !control->ToolTipText.empty())
+                    {
+                        control->TextArrowButton->SetToolTipText(
+                            control->ToolTipText.c_str());
+                    }
+                }
+                else if (control->Kind == ControlKindColorArrowButton)
+                {
+                    control->ColorArrowButton =
+                        SalamanderGUI->AttachColorArrowButton(
+                            hwnd, control->NumericId, TRUE);
+                    if (control->ColorArrowButton != NULL)
+                        control->ColorArrowButton->SetColor(
+                            control->TextColor,
+                            control->BackgroundColor);
+                }
+            }
             if (control->Kind == ControlKindCheckBox ||
                 control->Kind == ControlKindRadioButton)
                 SendMessage(child, BM_SETCHECK,
@@ -1337,9 +1907,12 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             }
             else if (control->Kind == ControlKindListView)
             {
-                const size_t columnCount = control->ColumnTitles.empty()
-                                                ? 1
-                                                : control->ColumnTitles.size();
+                const size_t columnCount =
+                    control->ColumnTitles.empty() &&
+                            (control->StyleFlags &
+                             ListViewNoDefaultColumn) == 0
+                        ? 1
+                        : control->ColumnTitles.size();
                 for (size_t columnIndex = 0;
                      columnIndex < columnCount; ++columnIndex)
                 {
@@ -1437,6 +2010,33 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                 }
             }
         }
+        // Toolbar headers align to another control and therefore attach only
+        // after every child handle has been collected.
+        if (SalamanderGUI != NULL)
+        {
+            for (size_t index = 0;
+                 index < dialog->m_pImpl->Controls.size(); ++index)
+            {
+                Impl::Control* control = dialog->m_pImpl->Controls[index];
+                if (control->Kind != ControlKindToolbarHeader ||
+                    control->ToolbarAlignControlId.empty())
+                    continue;
+                Impl::Control* align = dialog->m_pImpl->Find(
+                    control->ToolbarAlignControlId.c_str());
+                if (align != NULL && align->WindowHandle != NULL)
+                {
+                    control->ToolbarHeader =
+                        SalamanderGUI->AttachToolbarHeader(
+                            hwnd, control->NumericId,
+                            align->WindowHandle,
+                            control->ToolbarButtonMask);
+                }
+            }
+        }
+        // Host wrappers were attached after the initial dialog theme pass.
+        // Re-apply the full tree so every newly subclassed control receives
+        // the selected Windows Dark Mode palette immediately.
+        ApplyNativeDialogDarkMode(hwnd);
         PostMessage(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS, 0, 0);
         if (initialFocus != NULL)
         {

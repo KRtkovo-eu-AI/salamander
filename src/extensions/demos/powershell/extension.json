@@ -2,11 +2,11 @@
   "schema": 1,
   "id": "Salamatrix.Demo.PowerShell",
   "name": "Salamatrix PowerShell Demo",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Demonstrates a PowerShell Salamatrix extension package.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "ui.progress", "storage"],
+  "capabilities": ["ui.notify", "ui.progress", "ui.dialogs", "storage"],
   "commands": [{"id":"Salamatrix.Demo.PowerShell.run","title":"Run PowerShell demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
 }

@@ -43,7 +43,9 @@ Use these files as references:
   facade in a dynamic language;
 - `src/plugins/salamatrix/salamatrix_runtime_api.h` for the native ABI;
 - `src/plugins/salamatrix/salamatrix_runtime_protocol.h` for SMX1 framing;
-- `doc/salamatrix-automation-api.md` for the script-facing API.
+- `doc/salamatrix-automation-api.md` for the script-facing API;
+- `doc/salamatrix-ui.md` for the complete native control contract and
+  cross-language dialog examples.
 
 ## 1. Describe the adapter
 
@@ -177,6 +179,16 @@ clipboard, AI, events, runtime enumeration, and host appearance/language.
 Keep language naming idiomatic, but do not change host method names or payload
 fields.
 
+For dialogs, implement the full generic `addControl` equivalent rather than
+only convenience helpers. It must forward explicit `x`/`y`/`width`/`height`
+and the common extended properties: style flags, path separator, tooltip,
+hyperlink open/command/hint actions, known and 64-bit progress values,
+indeterminate timing, text/background colors, and toolbar-header alignment and
+button mask. Support the complete control-kind set documented in
+`doc/salamatrix-ui.md`. Dialog creation, ownership, native rendering, event
+delivery, dark mode, and DPI belong to Salamatrix Framework; a runtime provider
+must not implement a parallel UI toolkit or depend on Automation.
+
 ## 6. Add the project and package
 
 Follow the standalone provider layout:
@@ -230,10 +242,18 @@ Verification should include:
 - persistent session diagnostics and unload ordering;
 - the isolated process-runtime integration test with
   `SALAMATRIX_WORKER_ROOT`;
-- a visible demo extension that exercises representative host APIs.
+- a visible demo extension that exercises representative host APIs;
+- a capabilities-dialog example that constructs its controls in the provider
+  language and identifies the runtime and extension in the common `Created by`
+  group. Do not replace this source-level example with a call to a prebuilt
+  gallery window.
 
 Use a disposable worker root containing only the bootstrap files under test.
 The process-runtime tests do not require starting Salamander.
+Use the same `463 x 236` gallery geometry and options as the five bundled demos
+when adding a provider so parity can be reviewed source-to-source. The current
+layout and examples are described in
+[Salamatrix.UI framework and custom dialog guide](salamatrix-ui.md).
 After building or staging the package, verify its PE exports and colocated
 worker without loading the plugin:
 

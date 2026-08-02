@@ -1014,20 +1014,10 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
-        HWND hPathEdit = ResolveComboEditControl(hPath);
-        const BOOL unicodeNameInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
-
-        // Salamander keeps the Unicode filename controls away from the legacy ANSI
-        // subclasses.  InstallWordBreakProc/CreateKeyForwarder subclass the edit
-        // window and make Windows marshal characters through the ANSI window proc;
-        // with the Windows emoji picker that turns surrogate pairs into '?' and
-        // with CJK text it makes repeated rename/create cycles progressively lossy.
-        if (!unicodeNameInput)
-            InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+        InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
         PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
-        if (!unicodeNameInput)
-            CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
+        CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         if (DirectoryHelper)
         {
             ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY);   // the button will have a folder icon and an arrow to the right
@@ -1624,14 +1614,10 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        BOOL unicodePathInput = TRUE;
         if (TargetPaths == NULL)
         {
             HWND hPath = GetDlgItem(HWindow, IDE_PATH);
-            HWND hPathEdit = ResolveComboEditControl(hPath);
-            unicodePathInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
-            if (!unicodePathInput)
-                InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+            InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
             PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
         }
 
@@ -1645,8 +1631,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (TargetPaths == NULL)
         {
-            if (!unicodePathInput)
-                CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
+            CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
             ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right
         }
 
@@ -1953,20 +1938,10 @@ CChangeDirDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
-        HWND hPathEdit = ResolveComboEditControl(hPath);
-        const BOOL unicodePathInput = IsWindowUnicode(hPath) || IsWindowUnicode(hPathEdit);
-
         if (SendDirectlyToPlugin == NULL)
             EnableWindow(GetDlgItem(HWindow, IDC_SENDDIRECTTOPLG), FALSE);
-        // Keep Unicode combo edits away from the legacy ANSI subclasses.  The
-        // same pattern is used by copy/move/create directory/quick rename; the
-        // ANSI subclass path makes Windows emoji picker and other non-ACP text
-        // arrive as '?'.
-        if (!unicodePathInput)
-        {
-            InstallWordBreakProc(hPath);       // install WordBreakProc into the combobox
-            CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
-        }
+        InstallWordBreakProc(hPath);           // install WordBreakProc into the combobox
+        CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         ChangeToIconButton(HWindow, IDB_BROWSE, IDI_DIRECTORY); // the button will have a folder icon and an arrow to the right
 
         CHyperLink* hl = new CHyperLink(HWindow, IDC_CHANGEDIR_HINT, STF_DOTUNDERLINE);

@@ -126,6 +126,11 @@ def render(markdown: str) -> str:
 body {{ margin:0; background:var(--bg); color:var(--fg);
  font:15px/1.55 "Segoe UI",Arial,sans-serif; }}
 main {{ max-width:1120px; margin:0 auto; padding:32px 28px 64px; }}
+.doc-nav {{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.5rem;
+ padding:.75rem; background:var(--surface); border:1px solid var(--border);
+ border-radius:6px; }}
+.doc-nav a {{ padding:.35rem .6rem; border-radius:4px; text-decoration:none; }}
+.doc-nav a:hover {{ background:var(--code); }}
 h1 {{ font-size:2rem; border-bottom:3px solid var(--accent); padding-bottom:.3em; }}
 h2 {{ font-size:1.45rem; margin-top:2em; border-bottom:1px solid var(--border);
  padding-bottom:.25em; }}
@@ -144,6 +149,12 @@ th {{ background:var(--surface); }} li {{ margin:.2em 0; }}
 </style>
 </head>
 <body><main>
+<nav class="doc-nav" aria-label="Salamatrix documentation">
+<a href="salamatrix-ui.md">Salamatrix.UI guide</a>
+<a href="salamatrix-platform.md">Platform foundation</a>
+<a href="salamatrix-runtime-providers.md">Runtime providers</a>
+<a href="salamatrix-gap-analysis.md">GAP analysis</a>
+</nav>
 {body}
 </main></body>
 </html>

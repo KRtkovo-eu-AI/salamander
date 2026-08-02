@@ -33,7 +33,7 @@ class SalamatrixClient {
         if (!empty($this->handlers[$name])) foreach ($this->handlers[$name] as $handler) call_user_func($handler, $payload);
     }
 
-    public function call($method, $arguments) {
+    public function call($method, $arguments = array()) {
         $payload = array('method' => $method);
         foreach ($arguments as $key => $value) $payload[$key] = $value;
         $id = $this->nextId++;
@@ -115,6 +115,8 @@ class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }
     public function messageBox($message, $title = 'Salamander', $buttons = 'OK', $icon = 'Information') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title, 'buttons' => $buttons, 'icon' => $icon)); return isset($r['result']) ? $r['result'] : 0; }
     public function notify($message, $title = 'Salamander', $timeoutMs = 5000) { $r = $this->client->call('salamander.ui.notify', array('message' => $message, 'title' => $title, 'timeoutMs' => max(0, (int)$timeoutMs))); return !empty($r['shown']); }
+    public function controls() { $r = $this->client->call('salamander.ui.controls', array()); return !empty($r['shown']); }
+    public function uptime() { $r = $this->client->call('salamander.host.uptime', array()); return (string)$r['milliseconds']; }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }
     public function pickFolder($title = '', $initial = '') { return $this->client->call('salamander.ui.pickFolder', array('title' => $title, 'initial' => $initial)); }
@@ -159,9 +161,10 @@ class SalamatrixDialog {
     private $client; private $id;
     public function __construct($client, $id) { $this->client = $client; $this->id = $id; }
     private function add($kind, $controlId, $text = '', $extra = array()) { $args = array('dialogId' => $this->id, 'kind' => $kind, 'controlId' => $controlId, 'text' => $text); foreach ($extra as $key => $value) $args[$key] = $value; $this->client->call('salamander.ui.dialog.add', $args); }
-    public function addControl($kind, $id, $text = '', $readOnly = false, $checked = false, $dialogResult = 0, $layout = array(), $keepOpen = false, $multiline = false) {
+    public function addControl($kind, $id, $text = '', $readOnly = false, $checked = false, $dialogResult = 0, $layout = array(), $keepOpen = false, $multiline = false, $options = array()) {
         $extra = array('readOnly' => (bool)$readOnly, 'checked' => (bool)$checked, 'dialogResult' => (int)$dialogResult, 'keepOpen' => (bool)$keepOpen, 'multiline' => (bool)$multiline);
         foreach (array('x', 'y', 'width', 'height') as $name) if (is_array($layout) && array_key_exists($name, $layout)) $extra[$name] = (int)$layout[$name];
+        if (is_array($options)) foreach ($options as $key => $value) $extra[$key] = $value;
         $this->add($kind, $id, $text, $extra);
     }
     public function setValidation($id, $required = false, $message = '') { $this->client->call('salamander.ui.dialog.validation', array('dialogId' => $this->id, 'controlId' => $id, 'required' => (bool)$required, 'message' => $message)); }

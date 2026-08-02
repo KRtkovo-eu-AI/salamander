@@ -72,12 +72,14 @@
     <ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\python_executable_discovery.h" />
     <ClInclude Include="..\pythonruntime.h" />
     <ClInclude Include="..\precomp.h" />
     <ClInclude Include="..\versinfo.rh2" />
     <ClInclude Include="..\pythonruntime.rh" />
     <ClInclude Include="..\..\salamatrix\salamatrix_runtime_api.h" />
     <ClInclude Include="..\..\salamatrix\salamatrix_runtime_protocol.h" />
+    <ClInclude Include="..\..\shared\runtime_configuration.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\pythonruntime.def" />

@@ -16,6 +16,97 @@
 // MENU SECTION
 // ****************************************************************************
 
+static Salamatrix::UI::IControl* AddSalamatrixDemoControl(
+    Salamatrix::UI::IDialog* dialog, Salamatrix::UI::ControlKind kind,
+    const char* id, const char* text, int x, int y, int width, int height)
+{
+    Salamatrix::UI::ControlOptions options;
+    options.Id = id;
+    options.Text = text;
+    Salamatrix::UI::ControlLayout layout;
+    layout.HasBounds = TRUE;
+    layout.X = x; layout.Y = y; layout.Width = width; layout.Height = height;
+    return dialog->AddControlEx(kind, options, layout);
+}
+
+static BOOL ShowDemoPlugSalamatrixControls(
+    Salamatrix::UI::IUIService* ui, HWND parent)
+{
+    using namespace Salamatrix::UI;
+    DialogOptions options;
+    options.Title = "Salamatrix UI capabilities";
+    options.Parent = parent;
+    options.Width = 463;
+    options.Height = 236;
+    IDialog* dialog = ui->CreateSalamatrixDialog(options);
+    if (dialog == NULL)
+        return FALSE;
+    BOOL complete = TRUE;
+#define ADD_CONTROL(kind, id, text, x, y, w, h) \
+    (complete = AddSalamatrixDemoControl(dialog, kind, id, text, x, y, w, h) != NULL && complete)
+    char uptime[96];
+    _snprintf_s(uptime, _countof(uptime), _TRUNCATE,
+                "System was started %llu ms ago.",
+                static_cast<unsigned long long>(GetTickCount64()));
+    ADD_CONTROL(ControlKindGroupBox,"static-group","CGUIStaticTextAbstract",6,4,254,108);
+    ADD_CONTROL(ControlKindLabel,"not-attached-label","Not attached static text",14,17,80,8);
+    ADD_CONTROL(ControlKindLabel,"uptime-plain",uptime,102,17,152,8);
+    struct StaticRow { const char* Id; const char* Caption; const char* Text; int Y; DWORD Flags; };
+    const StaticRow rows[] = {
+        {"static-none","0 (no flags)",uptime,27,0},
+        {"static-cache","STF_CACHED_PAINT",uptime,37,StaticTextCachedPaint},
+        {"static-bold","STF_BOLD","Bold &text",47,StaticTextBold|StaticTextHandlePrefix|StaticTextAlignCenter},
+        {"static-underline","STF_UNDERLINE","Underlined text",56,StaticTextUnderline|StaticTextAlignRight},
+        {"static-end","STF_END_ELLIPSIS","Long long long long long long long long long string.",66,StaticTextEndEllipsis},
+        {"static-path","STF_PATH_ELLIPSIS","C:\\Program Files\\Some Application With Long Path\\example.exe",76,StaticTextPathEllipsis},
+        {"static-path-url","STF_PATH_ELLIPSIS","ftp://ftp.altap.cz/pub/salamander/example.exe",87,StaticTextPathEllipsis}};
+    for (int index = 0; index < (int)_countof(rows); ++index)
+    {
+        ADD_CONTROL(ControlKindLabel,NULL,rows[index].Caption,14,rows[index].Y,75,8);
+        IControl* control = AddSalamatrixDemoControl(dialog,ControlKindStaticText,rows[index].Id,rows[index].Text,102,rows[index].Y,152,8);
+        complete = control != NULL && control->SetStyleFlags(rows[index].Flags) && complete;
+        if (control != NULL && index == (int)_countof(rows)-1) complete = control->SetPathSeparator('/') && complete;
+    }
+    ADD_CONTROL(ControlKindLabel,"drag-hint","Drag texts to change their size.",151,97,103,8);
+    ADD_CONTROL(ControlKindGroupBox,"progress-group","CGUIProgressBarAbstract",6,118,254,66);
+    ADD_CONTROL(ControlKindLabel,NULL,"Progress label",15,129,60,8);
+    IControl* control = AddSalamatrixDemoControl(dialog,ControlKindProgressBar,"progress","",15,138,235,12);
+    complete = control != NULL && control->SetProgress(120) && complete;
+    ADD_CONTROL(ControlKindLabel,NULL,"Unknown progress",15,154,67,8);
+    control = AddSalamatrixDemoControl(dialog,ControlKindProgressBar,"unknown-progress","",15,163,235,12);
+    complete = control != NULL && control->SetIndeterminateTiming(0xffffffff,100) && control->SetProgress(-1) && complete;
+    ADD_CONTROL(ControlKindGroupBox,"buttons-group","Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract",6,188,254,40);
+    ADD_CONTROL(ControlKindButton,"more","...",15,204,15,14);
+    ADD_CONTROL(ControlKindArrowButton,"arrow","",37,204,15,14);
+    control=AddSalamatrixDemoControl(dialog,ControlKindTextArrowButton,"choose","&Choose",60,204,50,14); complete=control!=NULL&&control->SetStyleFlags(TextArrowButtonRightArrow)&&complete;
+    control=AddSalamatrixDemoControl(dialog,ControlKindTextArrowButton,"drop","&Drop",117,204,50,14); complete=control!=NULL&&control->SetStyleFlags(TextArrowButtonDropDown)&&complete;
+    control=AddSalamatrixDemoControl(dialog,ControlKindColorArrowButton,"color","",174,204,33,14); complete=control!=NULL&&control->SetColor(RGB(0,128,255),RGB(0,128,255))&&complete;
+    control=AddSalamatrixDemoControl(dialog,ControlKindColorArrowButton,"color-text","ABC",215,204,33,14); complete=control!=NULL&&control->SetColor(RGB(0,0,0),RGB(255,255,0))&&complete;
+    ADD_CONTROL(ControlKindGroupBox,"hyperlink-group","CGUIHyperLinkAbstract",269,4,185,48);
+    ADD_CONTROL(ControlKindLabel,NULL,"SetActionOpen",277,17,75,8);
+    control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"open-link","www.altap.cz",365,17,47,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextUnderline|StaticTextHyperLinkColor)&&control->SetActionOpen("https://www.altap.cz")&&complete;
+    ADD_CONTROL(ControlKindLabel,NULL,"SetActionPostCommand",277,27,81,8);
+    control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"command-link","Say something!",365,27,55,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextUnderline|StaticTextHyperLinkColor)&&control->SetActionPostCommand(0x7f01)&&complete;
+    ADD_CONTROL(ControlKindLabel,NULL,"SetActionShowHint",277,37,81,8);
+    control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"hint-link","mask hints",365,37,40,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextDotUnderline)&&control->SetActionShowHint("text 1 text 1 text 1 text 1\ntext 2 text 2 text 2")&&complete;
+    ADD_CONTROL(ControlKindGroupBox,"tooltip-group","SetCurrentToolTip",269,59,185,31);
+    control=AddSalamatrixDemoControl(dialog,ControlKindStaticText,"tooltip","Pause the mouse pointer over this text.",278,73,130,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextNotify)&&control->SetToolTipText("ToolTip")&&complete;
+    control=AddSalamatrixDemoControl(dialog,ControlKindListView,"header-list","",269,113,185,50); complete=control!=NULL&&control->SetStyleFlags(ListViewNoDefaultColumn|ListViewShowSelectionAlways|ListViewEditLabels|ListViewNoSortHeader)&&complete;
+    control=AddSalamatrixDemoControl(dialog,ControlKindToolbarHeader,"toolbar-header","CGUIToolbarHeaderAbstract",269,102,96,8); complete=control!=NULL&&control->SetToolbarHeader("header-list",ToolbarHeaderModify|ToolbarHeaderUp|ToolbarHeaderDown)&&complete;
+    ADD_CONTROL(ControlKindGroupBox,"origin-group","Created by",269,169,185,38);
+    ADD_CONTROL(ControlKindLabel,"runtime-label","Runtime:",277,181,42,8);
+    control=AddSalamatrixDemoControl(dialog,ControlKindStaticText,"runtime-value","Native",323,181,122,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextBold)&&complete;
+    ADD_CONTROL(ControlKindLabel,"extension-label","Extension:",277,192,42,8);
+    control=AddSalamatrixDemoControl(dialog,ControlKindStaticText,"extension-value","DemoPlug",323,192,122,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextBold)&&complete;
+    ControlOptions closeOptions; closeOptions.Id="close"; closeOptions.Text="Close"; closeOptions.DialogResult=1;
+    ControlLayout closeLayout; closeLayout.HasBounds=TRUE; closeLayout.X=403; closeLayout.Y=213; closeLayout.Width=50; closeLayout.Height=14;
+    control=dialog->AddControlEx(ControlKindButton,closeOptions,closeLayout); complete=control!=NULL&&control->SetStyleFlags(ButtonDefault)&&complete;
+#undef ADD_CONTROL
+    if (complete) dialog->ShowModal();
+    ui->DestroyDialog(dialog);
+    return complete;
+}
+
 DWORD WINAPI
 CPluginInterfaceForMenuExt::GetMenuItemState(int id, DWORD eventMask)
 {
@@ -849,8 +940,30 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 
     case MENUCMD_SHOWCONTROLS:
     {
-        CCtrlExampleDialog dlg(parent);
-        dlg.Execute();
+        CSalamanderServiceQuery query;
+        CSalamanderServiceResult result;
+        query.ServiceId = SALAMATRIX_SERVICE_UI;
+        query.MinimumVersion = SALAMATRIX_UI_VERSION_1_4;
+        query.Flags = 0;
+        result.Interface = NULL;
+        result.Version = 0;
+        result.ProviderName = NULL;
+        BOOL shown = FALSE;
+        if (SalamanderGeneral != NULL &&
+            SalamanderGeneral->QueryService(&query, &result) &&
+            result.Interface != NULL)
+        {
+            Salamatrix::UI::IUIService* ui =
+                static_cast<Salamatrix::UI::IUIService*>(result.Interface);
+            shown = ShowDemoPlugSalamatrixControls(ui, parent);
+        }
+        if (!shown)
+        {
+            // Keep DemoPlug usable against older Salamander builds while the
+            // canonical implementation now lives in Salamatrix.UI.
+            CCtrlExampleDialog dlg(parent);
+            dlg.Execute();
+        }
         break;
     }
 

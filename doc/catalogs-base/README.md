@@ -4,6 +4,7 @@
 > 
 > Up to date plugin catalog sources are published here:
 > - Stable: https://samandarin.krtkovo.eu/catalogs/plugins-stable.json
+> - Stable extensions: https://samandarin.krtkovo.eu/catalogs/extensions-stable.json
 > - Unofficial 3rd party: https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json
 > - Extension Runtimes: https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json
 
@@ -16,6 +17,11 @@ IDs. Dependencies are transitive. Before installing, updating, or opening the
 web page for an entry, Samandarin warns about missing dependencies and offers
 to install official packages automatically or open their web pages together.
 Older catalogs without `dependencies` remain supported.
+
+Schema version 5 requires `packageType` on every entry. Its value is `plugin`
+for native `.spl` packages or `extension` for manifest-based packages installed
+under the `extensions` directory. Samandarin uses this field for matching and
+for selecting the installation root; archive names do not determine the type.
 
 ```json
 {

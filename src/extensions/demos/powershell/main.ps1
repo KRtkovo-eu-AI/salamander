@@ -12,4 +12,59 @@ if ($Salamander.command_handler -eq 'run') {
         $progress.Close()
     }
     $null = $Salamander.storage.Set('lastRun', 'PowerShell')
+
+    # Build the complete gallery here, through the public runtime-neutral API.
+    $dialog = $Salamander.ui.Dialog('Salamatrix UI capabilities', 463, 236)
+    function Add-CapabilityControl($kind, $id, $text, $x, $y, $width, $height, $options = @{}) {
+        $dialog.AddControl($kind, $id, $text, $false, $false, 0,
+            @{x=$x; y=$y; width=$width; height=$height}, $false, $false, $options)
+    }
+    $uptime = "System was started $($Salamander.ui.Uptime()) ms ago."
+    Add-CapabilityControl groupbox static-group 'CGUIStaticTextAbstract' 6 4 254 108
+    Add-CapabilityControl label not-attached-label 'Not attached static text' 14 17 80 8
+    Add-CapabilityControl label uptime-plain $uptime 102 17 152 8
+    $rows = @(
+        @('static-none','0 (no flags)',$uptime,27,0),
+        @('static-cache','STF_CACHED_PAINT',$uptime,37,1),
+        @('static-bold','STF_BOLD','Bold &text',47,0x10082),
+        @('static-underline','STF_UNDERLINE','Underlined text',56,0x20004),
+        @('static-end','STF_END_ELLIPSIS','Long long long long long long long long long string.',66,0x20),
+        @('static-path','STF_PATH_ELLIPSIS','C:\Program Files\Some Application With Long Path\example.exe',76,0x40),
+        @('static-path-url','STF_PATH_ELLIPSIS','ftp://ftp.altap.cz/pub/salamander/example.exe',87,0x40))
+    foreach ($row in $rows) {
+        Add-CapabilityControl label "$($row[0])-label" $row[1] 14 $row[3] 75 8
+        $extra = @{styleFlags=$row[4]}; if ($row[0] -eq 'static-path-url') { $extra.pathSeparator='/' }
+        Add-CapabilityControl statictext $row[0] $row[2] 102 $row[3] 152 8 $extra
+    }
+    Add-CapabilityControl label drag-hint 'Drag texts to change their size.' 151 97 103 8
+    Add-CapabilityControl groupbox progress-group 'CGUIProgressBarAbstract' 6 118 254 66
+    Add-CapabilityControl label progress-label 'Progress label' 15 129 60 8
+    Add-CapabilityControl progressbar progress '' 15 138 235 12 @{progress=120}
+    Add-CapabilityControl label unknown-label 'Unknown progress' 15 154 67 8
+    Add-CapabilityControl progressbar unknown-progress '' 15 163 235 12 @{progress=-1;indeterminateDuration=-1;indeterminateInterval=100}
+    Add-CapabilityControl groupbox buttons-group 'Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract' 6 188 254 40
+    Add-CapabilityControl button more '...' 15 204 15 14 @{keepOpen=$true}
+    Add-CapabilityControl arrowbutton arrow '' 37 204 15 14
+    Add-CapabilityControl textarrowbutton choose '&Choose' 60 204 50 14 @{styleFlags=8}
+    Add-CapabilityControl textarrowbutton drop '&Drop' 117 204 50 14 @{styleFlags=2}
+    Add-CapabilityControl colorarrowbutton color '' 174 204 33 14 @{textColor=0xff8000;backgroundColor=0xff8000}
+    Add-CapabilityControl colorarrowbutton color-text ABC 215 204 33 14 @{textColor=0;backgroundColor=0xffff}
+    Add-CapabilityControl groupbox hyperlink-group CGUIHyperLinkAbstract 269 4 185 48
+    Add-CapabilityControl label open-label SetActionOpen 277 17 75 8
+    Add-CapabilityControl hyperlink open-link www.altap.cz 365 17 47 8 @{styleFlags=0x14;actionOpen='https://www.altap.cz'}
+    Add-CapabilityControl label command-label SetActionPostCommand 277 27 81 8
+    Add-CapabilityControl hyperlink command-link 'Say something!' 365 27 55 8 @{styleFlags=0x14;actionCommand=0x7f01}
+    Add-CapabilityControl label hint-label SetActionShowHint 277 37 81 8
+    Add-CapabilityControl hyperlink hint-link 'mask hints' 365 37 40 8 @{styleFlags=8;actionHint="text 1 text 1 text 1 text 1`ntext 2 text 2 text 2"}
+    Add-CapabilityControl groupbox tooltip-group SetCurrentToolTip 269 59 185 31
+    Add-CapabilityControl statictext tooltip 'Pause the mouse pointer over this text.' 278 73 130 8 @{styleFlags=0x40000;toolTip='ToolTip'}
+    Add-CapabilityControl listview header-list '' 269 113 185 50 @{styleFlags=0x01e00000}
+    Add-CapabilityControl toolbarheader toolbar-header CGUIToolbarHeaderAbstract 269 102 96 8 @{alignControlId='header-list';buttonMask=0x31}
+    Add-CapabilityControl groupbox origin-group 'Created by' 269 169 185 38
+    Add-CapabilityControl label runtime-label 'Runtime:' 277 181 42 8
+    Add-CapabilityControl statictext runtime-value PowerShell 323 181 122 8 @{styleFlags=2}
+    Add-CapabilityControl label extension-label 'Extension:' 277 192 42 8
+    Add-CapabilityControl statictext extension-value 'Salamatrix PowerShell Demo' 323 192 122 8 @{styleFlags=2}
+    Add-CapabilityControl button close Close 403 213 50 14 @{dialogResult=1;styleFlags=0x100000}
+    try { [void]$dialog.Show() } finally { $dialog.Close() }
 }

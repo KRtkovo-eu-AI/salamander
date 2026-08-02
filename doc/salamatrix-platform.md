@@ -25,6 +25,9 @@ as a language runtime or user-facing command plugin. It may expose a small About
 and demo commands while the MVP is developed, but its primary purpose is to
 provide shared services to other plugins and future script runtime adapters.
 
+For the current native dialog/control surface and construction examples, see
+[Salamatrix.UI framework and custom dialog guide](salamatrix-ui.md).
+
 Recommended user-visible names:
 
 - `Salamatrix Framework`
@@ -551,7 +554,7 @@ Recommended implementation direction:
 - unload blocks removal while exported services are still held,
 - persist only plugin installation metadata, not live service pointers.
 
-## Salamatrix.UI progress dialog MVP
+## Salamatrix.UI native dialogs and progress
 
 The first concrete object API in `Salamatrix.UI` is the progress dialog. The C++
 MVP surface is declared in:
@@ -615,6 +618,41 @@ finally {
 Existing Automation scripts may keep using `Salamander.ProgressDialog`; the new
 `Salamander.UI.progress(...)` path returns the same progress Automation interface
 but is backed by `Salamatrix.UI` through the Automation bridge.
+
+The service has since grown into the shared native dialog framework. Its
+append-only 1.4 surface exposes `IDialog`, `IControl`, `DialogOptions`,
+`ControlOptions`, and `ControlLayout`. The concrete `NativeDialog` remains in
+Salamatrix and covers the complete host-control gallery used by DemoPlug:
+
+- labels, host static text, text boxes, check boxes, and radio buttons;
+- combo boxes, ListView, TreeView, and TabControl item binding;
+- ordinary, arrow, text-arrow, and color-arrow buttons;
+- editable native folder and file pickers;
+- host hyperlinks, progress bars, group boxes, and toolbar headers;
+- explicit bounds, validation, change events, tooltips, hyperlink actions,
+  style flags, colors, known/indeterminate progress, and header button masks.
+
+Manifest extensions call the framework-owned package dispatcher through the
+`salamander.ui.dialog.*` SMX1 vocabulary. Dialog records are scoped to their
+owning package and are released on close, deactivation, or package removal.
+This dispatcher is part of Salamatrix; it is not supplied by Automation.
+Automation JScript has a thin COM dialog facade, and native plugins negotiate
+`SALAMATRIX_UI_VERSION_1_4` and use the same C++ objects directly.
+
+The Node, Python, PowerShell, PHP, Lua, Automation JScript, and DemoPlug demos
+each construct the same `463 x 236` **Salamatrix UI capabilities** window from
+their own source. A `Created by` group identifies the runtime and extension,
+making the window both a control gallery and an executable construction
+example. The five worker facades forward the same extended control properties;
+`salamander.host.uptime` supplies the common system-uptime label without
+language-specific platform code.
+
+`NativeDialog` applies the Salamander-selected **Windows Dark Mode
+(experimental)** color scheme, not the Windows application-mode preference.
+It also owns DPI scaling, dialog font, initial focus, tab traversal, and bounded
+accessibility tooltip metadata. See
+[Salamatrix.UI framework and custom dialog guide](salamatrix-ui.md) for the
+complete control/property table and examples in every supported language.
 
 ## Salamatrix.Commands and FileOperations MVP
 
@@ -1080,7 +1118,9 @@ The platform skeleton is ready when:
     to Python, PowerShell, PHP, and Node.
 39. `Salamatrix.UI` now publishes a reusable native `IDialog`/`IControl`
     contract and `NativeDialog` implementation for labels, text boxes,
-    check/radio buttons, combo boxes, buttons, ListView, TreeView, and TabControl;
+    check/radio buttons, combo boxes, buttons, ListView, TreeView, TabControl,
+    group boxes, host static text and hyperlinks, progress bars, arrow/text-arrow/
+    color-arrow buttons, and toolbar headers;
     workers can use `dialog.addControl(..., layout)` for explicit control bounds
     and the common `readOnly`, `checked`, `dialogResult`, `keepOpen`, and
     `multiline` control options; worker `dialog(...)` facades also pass
@@ -1088,7 +1128,13 @@ The platform skeleton is ready when:
     and `dialog.setValidation(...)` for required-field checks; `dialog.onChange(...)`
     receives control-change events through the same SMX1 event channel,
     and the worker input-box path goes through this service rather than owning a
-    second dialog backend.
+    second dialog backend. The JavaScript, Python, PowerShell, PHP, and Lua
+    demos each construct the same explicit capabilities dialog themselves and
+    identify their runtime and extension in its `Created by` group. The native
+    DemoPlug and Automation JScript demo do the same through their respective
+    public Salamatrix.UI facades; none depends on a prebuilt Automation-owned
+    gallery window. `Salamander.ui.uptime()` supplies the shared host uptime
+    text without language-specific platform calls.
 40. The command catalog covers the available core `SALCMD_*` operations and
     `IFileOperationsService` exposes interactive rename/copy/move/delete,
     create-directory, refresh, and properties wrappers to native callers and

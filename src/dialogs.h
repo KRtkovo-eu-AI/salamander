@@ -968,6 +968,7 @@ protected:
 // ****************************************************************************
 
 class CToolbarHeader;
+class CTPHGripWindow;
 struct CPluginData;
 class CHyperLink;
 
@@ -987,6 +988,11 @@ protected:
     char PluginTestText[100];       // original label of the Test button
     std::vector<Salamatrix::Extensions::ExtensionInfo> ExtensionRows;
     std::vector<int> ExtensionImageIndices;
+    CTPHGripWindow* GripWindow;
+    int MinDlgW;
+    int MinDlgH;
+    int LastClientW;
+    int LastClientH;
 
 public:
     CPluginsDlg(HWND hParent);
@@ -1010,10 +1016,11 @@ protected:
     Salamatrix::Extensions::ExtensionInfo* GetSelectedExtension();
     void EnableButtons(CPluginData* plugin);
     void OnContextMenu(int x, int y); // show the context menu for the selected item at coordinates x, y
-    void OnMove(BOOL up);
+    void OnMove(BOOL up, BOOL toEnd = FALSE);
     void OnSort();
     void EnableHeader();
     void ApplyTheme();
+    void LayoutControls();
 };
 
 //

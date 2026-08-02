@@ -35,24 +35,15 @@ static COLORREF GetToolBarBkColor()
     return DarkMode_ShouldUseDark() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
 }
 
-static COLORREF DarkenColor(COLORREF color, int amount)
-{
-    return RGB(max(0, GetRValue(color) - amount),
-               max(0, GetGValue(color) - amount),
-               max(0, GetBValue(color) - amount));
-}
-
 static COLORREF GetDisabledToolBarHighlightColor()
 {
-    if (DarkModeShouldUseDarkColors())
-        return LightenColorSimple(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), 24);
     return GetSysColor(COLOR_BTNHILIGHT);
 }
 
 static COLORREF GetDisabledToolBarTextColor()
 {
     if (DarkModeShouldUseDarkColors())
-        return DarkenColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), 40);
+        return DarkModeGetDisabledTextColor();
     return GetSysColor(COLOR_BTNSHADOW);
 }
 
@@ -744,14 +735,17 @@ void CToolBar::DrawItem(HDC hDC, int index)
                                                                  : GetSysColor(COLOR_BTNTEXT);
             if (grayed)
             {
-                RECT textR2 = r;
-                textR2.left++;
-                textR2.top++;
-                textR2.right++;
-                textR2.bottom++;
-                SetTextColor(CacheBitmap->HMemDC, GetDisabledToolBarHighlightColor());
-                DrawText(CacheBitmap->HMemDC, item->Text, item->TextLen,
-                         &textR2, noPrefix | DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                if (!DarkModeShouldUseDarkColors())
+                {
+                    RECT textR2 = r;
+                    textR2.left++;
+                    textR2.top++;
+                    textR2.right++;
+                    textR2.bottom++;
+                    SetTextColor(CacheBitmap->HMemDC, GetDisabledToolBarHighlightColor());
+                    DrawText(CacheBitmap->HMemDC, item->Text, item->TextLen,
+                             &textR2, noPrefix | DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                }
                 SetTextColor(CacheBitmap->HMemDC, GetDisabledToolBarTextColor());
             }
             else

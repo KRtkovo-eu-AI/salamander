@@ -3,12 +3,29 @@
 
 #include "precomp.h"
 #include "pythonruntime.h"
+#include "python_executable_discovery.h"
+#include "pythonruntime.rh"
 #include "versinfo.rh2"
+#include "../shared/runtime_configuration.h"
 #include <strsafe.h>
 #include <vector>
 
 namespace
 {
+RuntimeConfiguration::Settings RuntimeSettings;
+const RuntimeConfiguration::TextIds RuntimeTextIds = {
+    IDS_RUNTIME_CONFIG_TITLE,
+    IDS_RUNTIME_EXECUTABLE_IN_USE,
+    IDS_RUNTIME_NOT_FOUND,
+    IDS_RUNTIME_USE_CUSTOM,
+    IDS_RUNTIME_CUSTOM_EXECUTABLE,
+    IDS_RUNTIME_FILE_FILTER,
+    IDS_RUNTIME_OK,
+    IDS_RUNTIME_CANCEL,
+    IDS_RUNTIME_UI_UNAVAILABLE,
+    IDS_RUNTIME_CUSTOM_REQUIRED,
+    IDS_RUNTIME_CUSTOM_INVALID};
+
 static bool GetEnvironmentString(
     const wchar_t* name,
     std::wstring& value)
@@ -43,29 +60,6 @@ static bool GetModulePathString(HMODULE module, std::wstring& value)
             return true;
         }
         capacity *= 2;
-    }
-    return false;
-}
-
-static bool SearchPathString(
-    const wchar_t* fileName,
-    std::wstring& value)
-{
-    value.clear();
-    DWORD capacity = SAL_MAX_PATH;
-    for (int attempt = 0; attempt < 8; ++attempt)
-    {
-        std::vector<wchar_t> buffer(static_cast<size_t>(capacity));
-        DWORD length = SearchPathW(
-            NULL, fileName, NULL, capacity, &buffer[0], NULL);
-        if (length == 0)
-            return false;
-        if (length < capacity)
-        {
-            value.assign(&buffer[0], length);
-            return true;
-        }
-        capacity = length + 1;
     }
     return false;
 }
@@ -625,23 +619,28 @@ void CPythonRuntimeAdapter::ResolveInterpreter() const
     if (m_bInterpreterResolved)
         return;
     m_bInterpreterResolved = true;
+    m_executablePath.clear();
+
+    if (RuntimeSettings.UseCustomExecutable)
+    {
+        if (PythonExecutableDiscovery::IsUsablePythonInterpreter(
+                RuntimeSettings.CustomExecutablePath))
+            m_executablePath = RuntimeSettings.CustomExecutablePath;
+        return;
+    }
+
+    std::wstring pathValue;
+    GetEnvironmentString(L"PATH", pathValue);
 
     std::wstring configured;
     if (GetEnvironmentString(m_pszEnvironmentVariable, configured))
     {
-        std::wstring configuredPath = ToWin32Path(configured);
-        DWORD attributes = GetFileAttributesW(configuredPath.c_str());
-        if (attributes != INVALID_FILE_ATTRIBUTES &&
-            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+        if (PythonExecutableDiscovery::FindUsableExecutable(
+                configured.c_str(),
+                pathValue,
+                PythonExecutableDiscovery::IsUsablePythonInterpreter,
+                m_executablePath))
         {
-            m_executablePath.assign(configured);
-            return;
-        }
-
-        std::wstring resolved;
-        if (SearchPathString(configured.c_str(), resolved))
-        {
-            m_executablePath.assign(resolved);
             return;
         }
     }
@@ -651,10 +650,12 @@ void CPythonRuntimeAdapter::ResolveInterpreter() const
     {
         if (candidates[index] == NULL)
             continue;
-        std::wstring resolved;
-        if (SearchPathString(candidates[index], resolved))
+        if (PythonExecutableDiscovery::FindUsableExecutable(
+                candidates[index],
+                pathValue,
+                PythonExecutableDiscovery::IsUsablePythonInterpreter,
+                m_executablePath))
         {
-            m_executablePath.assign(resolved);
             return;
         }
     }
@@ -670,6 +671,18 @@ BOOL WINAPI CPythonRuntimeAdapter::IsAvailable() const
 {
     ResolveInterpreter();
     return m_executablePath.empty() ? FALSE : TRUE;
+}
+
+const std::wstring& CPythonRuntimeAdapter::GetExecutablePath() const
+{
+    ResolveInterpreter();
+    return m_executablePath;
+}
+
+void CPythonRuntimeAdapter::InvalidateExecutablePath()
+{
+    m_executablePath.clear();
+    m_bInterpreterResolved = false;
 }
 
 BOOL WINAPI CPythonRuntimeAdapter::SupportsEntryPoint(
@@ -1207,7 +1220,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         return NULL;
     salamander->SetBasicPluginData(
         "Python Runtime",
-        FUNCTION_AUTOMATIONFRAMEWORK,
+        FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_CONFIGURATION |
+            FUNCTION_LOADSAVECONFIGURATION,
         VERSINFO_VERSION_NO_PLATFORM,
         VERSINFO_COPYRIGHT,
         VERSINFO_DESCRIPTION,
@@ -1232,6 +1246,23 @@ void WINAPI CPluginInterface::About(HWND parent)
                                          MB_OK | MB_ICONINFORMATION);
 }
 
+void WINAPI CPluginInterface::Configuration(HWND parent)
+{
+    bool useCustom = RuntimeSettings.UseCustomExecutable;
+    RuntimeSettings.UseCustomExecutable = false;
+    PythonRuntime.InvalidateExecutablePath();
+    std::wstring automaticPath = PythonRuntime.GetExecutablePath();
+    RuntimeSettings.UseCustomExecutable = useCustom;
+    PythonRuntime.InvalidateExecutablePath();
+    std::wstring effectivePath = PythonRuntime.GetExecutablePath();
+
+    if (RuntimeConfiguration::ShowDialog(
+            parent, SalamanderGeneral, DLLInstance, RuntimeTextIds,
+            automaticPath, effectivePath, RuntimeSettings,
+            PythonExecutableDiscovery::IsUsablePythonInterpreter))
+        PythonRuntime.InvalidateExecutablePath();
+}
+
 BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
 {
     UnregisterRuntimeProvider(PythonRegistration);
@@ -1239,8 +1270,18 @@ BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
     return TRUE;
 }
 
-void WINAPI CPluginInterface::LoadConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
-void WINAPI CPluginInterface::SaveConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
+void WINAPI CPluginInterface::LoadConfiguration(
+    HWND, HKEY key, CSalamanderRegistryAbstract* registry)
+{
+    RuntimeConfiguration::Load(key, registry, RuntimeSettings);
+    PythonRuntime.InvalidateExecutablePath();
+}
+
+void WINAPI CPluginInterface::SaveConfiguration(
+    HWND, HKEY key, CSalamanderRegistryAbstract* registry)
+{
+    RuntimeConfiguration::Save(key, registry, RuntimeSettings);
+}
 void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*)
 {
     TryRegisterPythonRuntime();

@@ -22,6 +22,7 @@ namespace Extensions
 #define SALAMATRIX_EXTENSIONS_VERSION_1_0 0x00010000
 #define SALAMATRIX_EXTENSIONS_VERSION_1_1 0x00010001
 #define SALAMATRIX_EXTENSIONS_VERSION_1_2 0x00010002
+#define SALAMATRIX_EXTENSIONS_VERSION_1_3 0x00010003
 
 enum ExtensionState
 {
@@ -150,6 +151,20 @@ typedef BOOL(WINAPI* ExtensionLifecycleCallback)(
 
 typedef BOOL(WINAPI* ExtensionRefreshCallback)(void* context);
 
+enum ExtensionManagementAction
+{
+    ExtensionManagementInstallManifest = 1,
+    ExtensionManagementRemove = 2,
+    ExtensionManagementMove = 3
+};
+
+typedef BOOL(WINAPI* ExtensionManagementCallback)(
+    void* context,
+    ExtensionManagementAction action,
+    const char* extensionId,
+    const wchar_t* manifestPath,
+    int moveDelta);
+
 class IExtensionsService
 {
 public:
@@ -249,6 +264,52 @@ public:
         return FALSE;
     }
 
+    /// Appended in 1.3. These requests are implemented by the framework-owned
+    /// package manager, which also persists custom manifests, removals and
+    /// user ordering. Keeping them on the registry service lets the native
+    /// Plugin Manager remain independent of the provider plug-in class.
+    virtual BOOL WINAPI InstallExtensionManifest(const wchar_t* manifestPath)
+    {
+        (void)manifestPath;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI RemoveManagedExtension(const char* extensionId)
+    {
+        (void)extensionId;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI MoveManagedExtension(
+        const char* extensionId,
+        int delta)
+    {
+        (void)extensionId;
+        (void)delta;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI SetManagementCallback(
+        ExtensionManagementCallback callback,
+        void* context)
+    {
+        (void)callback;
+        (void)context;
+        return FALSE;
+    }
+
+    /// Reorders the current registry snapshot without changing ownership or
+    /// lifecycle state. The package manager calls this after discovery so an
+    /// automatic refresh cannot overwrite the user's order.
+    virtual BOOL WINAPI ApplyExtensionOrder(
+        const char* const* extensionIds,
+        int extensionCount)
+    {
+        (void)extensionIds;
+        (void)extensionCount;
+        return FALSE;
+    }
+
 protected:
     virtual ~IExtensionsService() {}
 };
@@ -289,6 +350,8 @@ private:
     CONDITION_VARIABLE LeaseChanged;
     ExtensionRefreshCallback RefreshCallback;
     void* RefreshContext;
+    ExtensionManagementCallback ManagementCallback;
+    void* ManagementContext;
 
     ExtensionsService(const ExtensionsService&);
     ExtensionsService& operator=(const ExtensionsService&);
@@ -435,7 +498,9 @@ public:
     ExtensionsService()
         : RecordCount(0),
           RefreshCallback(NULL),
-          RefreshContext(NULL)
+          RefreshContext(NULL),
+          ManagementCallback(NULL),
+          ManagementContext(NULL)
     {
         InitializeCriticalSection(&Lock);
         InitializeConditionVariable(&LeaseChanged);
@@ -448,7 +513,7 @@ public:
 
     virtual DWORD WINAPI GetVersion() const
     {
-        return SALAMATRIX_EXTENSIONS_VERSION_1_2;
+        return SALAMATRIX_EXTENSIONS_VERSION_1_3;
     }
 
     virtual BOOL WINAPI SetRefreshCallback(
@@ -473,9 +538,99 @@ public:
         return callback != NULL ? callback(context) : FALSE;
     }
 
+    virtual BOOL WINAPI SetManagementCallback(
+        ExtensionManagementCallback callback,
+        void* context)
+    {
+        EnterCriticalSection(&Lock);
+        ManagementCallback = callback;
+        ManagementContext = context;
+        LeaveCriticalSection(&Lock);
+        return TRUE;
+    }
+
+    BOOL RequestManagement(
+        ExtensionManagementAction action,
+        const char* extensionId,
+        const wchar_t* manifestPath,
+        int moveDelta)
+    {
+        ExtensionManagementCallback callback = NULL;
+        void* context = NULL;
+        EnterCriticalSection(&Lock);
+        callback = ManagementCallback;
+        context = ManagementContext;
+        LeaveCriticalSection(&Lock);
+        return callback != NULL
+                   ? callback(context, action, extensionId, manifestPath,
+                              moveDelta)
+                   : FALSE;
+    }
+
+    virtual BOOL WINAPI InstallExtensionManifest(const wchar_t* manifestPath)
+    {
+        if (manifestPath == NULL || manifestPath[0] == 0)
+            return FALSE;
+        return RequestManagement(
+            ExtensionManagementInstallManifest, NULL, manifestPath, 0);
+    }
+
+    virtual BOOL WINAPI RemoveManagedExtension(const char* extensionId)
+    {
+        if (!IsValidId(extensionId))
+            return FALSE;
+        return RequestManagement(
+            ExtensionManagementRemove, extensionId, NULL, 0);
+    }
+
+    virtual BOOL WINAPI MoveManagedExtension(
+        const char* extensionId,
+        int delta)
+    {
+        if (!IsValidId(extensionId) || (delta != -1 && delta != 1))
+            return FALSE;
+        return RequestManagement(
+            ExtensionManagementMove, extensionId, NULL, delta);
+    }
+
+    virtual BOOL WINAPI ApplyExtensionOrder(
+        const char* const* extensionIds,
+        int extensionCount)
+    {
+        if (extensionCount < 0 ||
+            (extensionCount > 0 && extensionIds == NULL))
+            return FALSE;
+
+        EnterCriticalSection(&Lock);
+        int target = 0;
+        for (int orderIndex = 0;
+             orderIndex < extensionCount && target < RecordCount;
+             ++orderIndex)
+        {
+            if (!IsValidId(extensionIds[orderIndex]))
+            {
+                LeaveCriticalSection(&Lock);
+                return FALSE;
+            }
+            int current = FindIndex(extensionIds[orderIndex]);
+            if (current < target)
+                continue;
+            if (current > target)
+            {
+                Record moved = Records[current];
+                for (int index = current; index > target; --index)
+                    Records[index] = Records[index - 1];
+                Records[target] = moved;
+            }
+            ++target;
+        }
+        LeaveCriticalSection(&Lock);
+        return TRUE;
+    }
+
     const char* GetApiSchema() const
     {
-        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"setDisabled\",\"setSettingsSchema\",\"getSettingsSchema\",\"list\",\"find\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\",\"waitingForDependency\",\"disabled\"]}";
+        return "{\"methods\":[\"register\",\"unregister\",\"activate\",\"deactivate\",\"setDisabled\",\"setSettingsSchema\",\"getSettingsSchema\",\"list\",\"find\",\"installManifest\",\"removeManaged\",\"moveManaged\"],\"states\":[\"discovered\",\"activating\",\"active\",\"deactivating\",\"inactive\",\"failed\",\"waitingForRuntime\",\"waitingForDependency\",\"disabled\"]}";
     }
 
     virtual BOOL WINAPI RegisterExtension(

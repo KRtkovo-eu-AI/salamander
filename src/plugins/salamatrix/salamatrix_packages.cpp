@@ -183,6 +183,151 @@ static const CExtensionManifestLocalizedSetting* FindLocalizedSetting(
     return NULL;
 }
 
+static void AppendIconWord(std::vector<unsigned char>& output, WORD value)
+{
+    output.push_back(static_cast<unsigned char>(value & 0xff));
+    output.push_back(static_cast<unsigned char>((value >> 8) & 0xff));
+}
+
+static void AppendIconDword(std::vector<unsigned char>& output, DWORD value)
+{
+    output.push_back(static_cast<unsigned char>(value & 0xff));
+    output.push_back(static_cast<unsigned char>((value >> 8) & 0xff));
+    output.push_back(static_cast<unsigned char>((value >> 16) & 0xff));
+    output.push_back(static_cast<unsigned char>((value >> 24) & 0xff));
+}
+
+static std::string Base64Encode(const std::vector<unsigned char>& input)
+{
+    static const char alphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string output;
+    output.reserve(((input.size() + 2) / 3) * 4);
+    for (size_t index = 0; index < input.size(); index += 3)
+    {
+        const unsigned int first = input[index];
+        const unsigned int second =
+            index + 1 < input.size() ? input[index + 1] : 0;
+        const unsigned int third =
+            index + 2 < input.size() ? input[index + 2] : 0;
+        const unsigned int value = (first << 16) | (second << 8) | third;
+        output.push_back(alphabet[(value >> 18) & 0x3f]);
+        output.push_back(alphabet[(value >> 12) & 0x3f]);
+        output.push_back(
+            index + 1 < input.size() ? alphabet[(value >> 6) & 0x3f] : '=');
+        output.push_back(
+            index + 2 < input.size() ? alphabet[value & 0x3f] : '=');
+    }
+    return output;
+}
+
+static std::string SerializeWindowIcon(HICON icon)
+{
+    if (icon == NULL)
+        return std::string();
+
+    ICONINFO iconInfo;
+    memset(&iconInfo, 0, sizeof(iconInfo));
+    if (!GetIconInfo(icon, &iconInfo))
+        return std::string();
+
+    BITMAP colorBitmap;
+    memset(&colorBitmap, 0, sizeof(colorBitmap));
+    const bool hasColorBitmap =
+        iconInfo.hbmColor != NULL &&
+        GetObject(iconInfo.hbmColor, sizeof(colorBitmap), &colorBitmap) != 0;
+    const int width = hasColorBitmap ? colorBitmap.bmWidth : 0;
+    const int height = hasColorBitmap ? abs(colorBitmap.bmHeight) : 0;
+    const DWORD colorBytes =
+        width > 0 && height > 0
+            ? static_cast<DWORD>(width * height * 4)
+            : 0;
+    const DWORD maskStride =
+        width > 0 ? static_cast<DWORD>(((width + 31) / 32) * 4) : 0;
+    const DWORD maskBytes = maskStride * static_cast<DWORD>(height);
+    std::vector<unsigned char> colorBits(colorBytes);
+    std::vector<unsigned char> maskBits(maskBytes, 0);
+
+    bool copied = false;
+    HDC screen = GetDC(NULL);
+    if (screen != NULL && colorBytes > 0)
+    {
+        BITMAPINFO colorInfo;
+        memset(&colorInfo, 0, sizeof(colorInfo));
+        colorInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        colorInfo.bmiHeader.biWidth = width;
+        colorInfo.bmiHeader.biHeight = height;
+        colorInfo.bmiHeader.biPlanes = 1;
+        colorInfo.bmiHeader.biBitCount = 32;
+        colorInfo.bmiHeader.biCompression = BI_RGB;
+        copied = GetDIBits(
+                     screen, iconInfo.hbmColor, 0, height,
+                     &colorBits[0], &colorInfo, DIB_RGB_COLORS) == height;
+
+        if (copied && iconInfo.hbmMask != NULL && maskBytes > 0)
+        {
+            struct MonoBitmapInfo
+            {
+                BITMAPINFOHEADER Header;
+                RGBQUAD Colors[2];
+            } maskInfo;
+            memset(&maskInfo, 0, sizeof(maskInfo));
+            maskInfo.Header.biSize = sizeof(BITMAPINFOHEADER);
+            maskInfo.Header.biWidth = width;
+            maskInfo.Header.biHeight = height;
+            maskInfo.Header.biPlanes = 1;
+            maskInfo.Header.biBitCount = 1;
+            maskInfo.Header.biCompression = BI_RGB;
+            maskInfo.Colors[1].rgbBlue = 255;
+            maskInfo.Colors[1].rgbGreen = 255;
+            maskInfo.Colors[1].rgbRed = 255;
+            GetDIBits(
+                screen, iconInfo.hbmMask, 0, height,
+                &maskBits[0], reinterpret_cast<BITMAPINFO*>(&maskInfo),
+                DIB_RGB_COLORS);
+        }
+        ReleaseDC(NULL, screen);
+    }
+
+    // GetIconInfo creates independent bitmap handles even for shared icons.
+    if (iconInfo.hbmColor != NULL)
+        ::DeleteObject(iconInfo.hbmColor);
+    if (iconInfo.hbmMask != NULL)
+        ::DeleteObject(iconInfo.hbmMask);
+    if (!copied || width > 255 || height > 255)
+        return std::string();
+
+    const DWORD imageBytes =
+        sizeof(BITMAPINFOHEADER) + colorBytes + maskBytes;
+    std::vector<unsigned char> ico;
+    ico.reserve(6 + 16 + imageBytes);
+    AppendIconWord(ico, 0);
+    AppendIconWord(ico, 1);
+    AppendIconWord(ico, 1);
+    ico.push_back(static_cast<unsigned char>(width));
+    ico.push_back(static_cast<unsigned char>(height));
+    ico.push_back(0);
+    ico.push_back(0);
+    AppendIconWord(ico, 1);
+    AppendIconWord(ico, 32);
+    AppendIconDword(ico, imageBytes);
+    AppendIconDword(ico, 22);
+    AppendIconDword(ico, sizeof(BITMAPINFOHEADER));
+    AppendIconDword(ico, static_cast<DWORD>(width));
+    AppendIconDword(ico, static_cast<DWORD>(height * 2));
+    AppendIconWord(ico, 1);
+    AppendIconWord(ico, 32);
+    AppendIconDword(ico, BI_RGB);
+    AppendIconDword(ico, colorBytes);
+    AppendIconDword(ico, 0);
+    AppendIconDword(ico, 0);
+    AppendIconDword(ico, 0);
+    AppendIconDword(ico, 0);
+    ico.insert(ico.end(), colorBits.begin(), colorBits.end());
+    ico.insert(ico.end(), maskBits.begin(), maskBits.end());
+    return Base64Encode(ico);
+}
+
 static Automation::IScriptRunner* QueryScriptRunner(
     CSalamanderGeneralAbstract* general)
 {
@@ -225,6 +370,16 @@ struct PackageManager::Package
     CSalamanderForOperationsAbstract* Operations;
     UI::IProgressDialog* Progress;
     ULONGLONG ProgressId;
+    struct RuntimeDialog
+    {
+        Package* Owner;
+        ULONGLONG Id;
+        UI::IDialog* Dialog;
+        BOOL EventsEnabled;
+        char EventName[128];
+    };
+    std::vector<RuntimeDialog*> Dialogs;
+    ULONGLONG NextDialogId;
     std::vector<int> CommandIds;
     std::vector<std::string> CommandIconPaths;
     std::vector<std::string> CommandIconDarkPaths;
@@ -238,6 +393,7 @@ struct PackageManager::Package
           Operations(NULL),
           Progress(NULL),
           ProgressId(0),
+          NextDialogId(1),
           Session(NULL),
           PumpThread(NULL)
     {
@@ -486,7 +642,10 @@ PackageManager::PackageManager()
       Sides(NULL),
       Storage(NULL),
       UI(NULL),
-      Menu(NULL)
+      Menu(NULL),
+      RefreshInProgress(FALSE),
+      RefreshPending(FALSE),
+      ActiveHostDispatches(0)
 {
 }
 
@@ -512,7 +671,10 @@ BOOL PackageManager::Initialize(
     if (Menu == NULL)
         Menu = new MenuExtension(this);
     if (Extensions != NULL)
+    {
         Extensions->SetRefreshCallback(RefreshCallback, this);
+        Extensions->SetManagementCallback(ManagementCallback, this);
+    }
     return General != NULL && Runtimes != NULL && Extensions != NULL &&
            Sides != NULL;
 }
@@ -520,12 +682,18 @@ BOOL PackageManager::Initialize(
 void PackageManager::Shutdown()
 {
     if (Extensions != NULL)
+    {
         Extensions->SetRefreshCallback(NULL, NULL);
+        Extensions->SetManagementCallback(NULL, NULL);
+    }
     UnregisterToolbarButtons();
     RemovePackages();
     delete Menu;
     Menu = NULL;
     Roots.clear();
+    CustomPackages.clear();
+    ExtensionOrder.clear();
+    RemovedExtensions.clear();
     General = NULL;
     Runtimes = NULL;
     Extensions = NULL;
@@ -537,28 +705,72 @@ void PackageManager::Shutdown()
 void PackageManager::LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* registry)
 {
     Roots.clear();
+    CustomPackages.clear();
+    ExtensionOrder.clear();
+    RemovedExtensions.clear();
     Roots.push_back(ExpandRoot(L"$(SalDir)\\extensions"));
     Roots.push_back(ExpandRoot(L"$(SalDir)\\plugins\\automation\\scripts"));
     if (key == NULL || registry == NULL)
         return;
     HKEY rootsKey = NULL;
-    if (!registry->OpenKey(key, "ExtensionRoots", rootsKey))
-        return;
-    char name[16];
-    char path[SAL_MAX_PATH];
-    for (int index = 1;; ++index)
+    if (registry->OpenKey(key, "ExtensionRoots", rootsKey))
     {
-        _snprintf_s(name, _countof(name), _TRUNCATE, "%d", index);
-        if (!registry->GetValue(rootsKey, name, REG_SZ, path, _countof(path)))
-            break;
-        std::wstring root;
-        if (!ToWide(path, &root))
-            continue;
-        if (root != ExpandRoot(L"$(SalDir)\\extensions") &&
-            root != ExpandRoot(L"$(SalDir)\\plugins\\automation\\scripts"))
-            Roots.push_back(ExpandRoot(root));
+        char name[16];
+        char path[SAL_MAX_PATH];
+        for (int index = 1;; ++index)
+        {
+            _snprintf_s(name, _countof(name), _TRUNCATE, "%d", index);
+            if (!registry->GetValue(
+                    rootsKey, name, REG_SZ, path, _countof(path)))
+                break;
+            std::wstring root;
+            if (!ToWide(path, &root))
+                continue;
+            if (root != ExpandRoot(L"$(SalDir)\\extensions") &&
+                root != ExpandRoot(
+                            L"$(SalDir)\\plugins\\automation\\scripts"))
+                Roots.push_back(ExpandRoot(root));
+        }
+        registry->CloseKey(rootsKey);
     }
-    registry->CloseKey(rootsKey);
+
+    struct StringListLoader
+    {
+        static void Load(
+            HKEY parent, const char* subKey,
+            CSalamanderRegistryAbstract* registry,
+            std::vector<std::string>* values)
+        {
+            HKEY listKey = NULL;
+            if (!registry->OpenKey(parent, subKey, listKey))
+                return;
+            char name[16];
+            char value[512];
+            for (int index = 1;; ++index)
+            {
+                _snprintf_s(name, _countof(name), _TRUNCATE, "%d", index);
+                if (!registry->GetValue(
+                        listKey, name, REG_SZ, value, _countof(value)))
+                    break;
+                if (value[0] != 0)
+                    values->push_back(value);
+            }
+            registry->CloseKey(listKey);
+        }
+    };
+    StringListLoader::Load(
+        key, "ExtensionOrder", registry, &ExtensionOrder);
+    StringListLoader::Load(
+        key, "RemovedExtensions", registry, &RemovedExtensions);
+    std::vector<std::string> customPackages;
+    StringListLoader::Load(
+        key, "ExtensionManifests", registry, &customPackages);
+    for (size_t index = 0; index < customPackages.size(); ++index)
+    {
+        std::wstring packageDirectory;
+        if (ToWide(customPackages[index], &packageDirectory))
+            CustomPackages.push_back(packageDirectory);
+    }
 }
 
 void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* registry)
@@ -578,10 +790,59 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
             registry->SetValue(rootsKey, name, REG_SZ, root.c_str(), -1);
     }
     registry->CloseKey(rootsKey);
+
+    struct StringListSaver
+    {
+        static void Save(
+            HKEY parent, const char* subKey,
+            CSalamanderRegistryAbstract* registry,
+            const std::vector<std::string>& values)
+        {
+            HKEY listKey = NULL;
+            if (!registry->CreateKey(parent, subKey, listKey))
+                return;
+            registry->ClearKey(listKey);
+            char name[16];
+            for (size_t index = 0; index < values.size(); ++index)
+            {
+                _snprintf_s(
+                    name, _countof(name), _TRUNCATE, "%d",
+                    static_cast<int>(index + 1));
+                registry->SetValue(
+                    listKey, name, REG_SZ, values[index].c_str(), -1);
+            }
+            registry->CloseKey(listKey);
+        }
+    };
+    StringListSaver::Save(
+        key, "ExtensionOrder", registry, ExtensionOrder);
+    StringListSaver::Save(
+        key, "RemovedExtensions", registry, RemovedExtensions);
+    std::vector<std::string> customPackages;
+    for (size_t index = 0; index < CustomPackages.size(); ++index)
+    {
+        std::string packageDirectory;
+        if (ToUtf8(CustomPackages[index], &packageDirectory))
+            customPackages.push_back(packageDirectory);
+    }
+    StringListSaver::Save(
+        key, "ExtensionManifests", registry, customPackages);
 }
 
 void PackageManager::Refresh()
 {
+    // A modal host call keeps its Package context alive while Windows pumps
+    // messages. Runtime/provider notifications can request another catalog
+    // refresh from that nested loop. Defer it until the host call unwinds;
+    // deleting the package here would invalidate the dispatch context and
+    // temporarily unregister every Extension Bar button.
+    if (RefreshInProgress || ActiveHostDispatches != 0)
+    {
+        RefreshPending = TRUE;
+        return;
+    }
+    RefreshInProgress = TRUE;
+    RefreshPending = FALSE;
     // Toolbar registrations outlive the package objects that contributed
     // them.  Drop them before rebuilding the package list so a runtime
     // availability refresh cannot leave stale or missing Extension Bar
@@ -590,9 +851,23 @@ void PackageManager::Refresh()
     RemovePackages();
     for (size_t index = 0; index < Roots.size(); ++index)
         DiscoverRoot(Roots[index]);
+    for (size_t index = 0; index < CustomPackages.size(); ++index)
+    {
+        std::wstring parent = CustomPackages[index];
+        size_t slash = parent.find_last_of(L"\\/");
+        if (slash != std::wstring::npos)
+        {
+            parent.erase(slash);
+            DiscoverDirectory(parent, &CustomPackages[index]);
+        }
+    }
+    ApplyUserOrder();
     RegisterToolbarButtons();
     if (General != NULL)
         General->PostPluginMenuChanged();
+    RefreshInProgress = FALSE;
+    if (RefreshPending && ActiveHostDispatches == 0)
+        Refresh();
 }
 
 void PackageManager::DiscoverRoot(const std::wstring& root)
@@ -601,7 +876,9 @@ void PackageManager::DiscoverRoot(const std::wstring& root)
         DiscoverDirectory(root);
 }
 
-void PackageManager::DiscoverDirectory(const std::wstring& directory)
+void PackageManager::DiscoverDirectory(
+    const std::wstring& directory,
+    const std::wstring* onlyPackage)
 {
     std::wstring pattern = directory + L"\\*";
     WIN32_FIND_DATAW data;
@@ -615,6 +892,9 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
         std::wstring path = directory + L"\\" + data.cFileName;
         if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
         {
+            if (onlyPackage != NULL &&
+                _wcsicmp(path.c_str(), onlyPackage->c_str()) != 0)
+                continue;
             std::wstring manifestPath = path + L"\\extension.json";
             std::string json;
             if (ReadUtf8File(manifestPath, &json))
@@ -622,6 +902,7 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                 CExtensionManifest manifest;
                 CExtensionManifestError error;
                 if (manifest.Parse(json.data(), json.size(), error) &&
+                    !IsRemoved(manifest.Id) &&
                     CExtensionManifest::IsSafeRelativeEntryPoint(manifest.EntryPoint))
                 {
                     const std::string baseName = manifest.Name;
@@ -853,7 +1134,8 @@ void PackageManager::DiscoverDirectory(const std::wstring& directory)
                     }
                 }
             }
-            DiscoverDirectory(path);
+            if (onlyPackage == NULL)
+                DiscoverDirectory(path);
         }
     } while (FindNextFileW(find, &data));
     FindClose(find);
@@ -877,6 +1159,7 @@ void PackageManager::RemovePackages()
             package->Session->Release();
         }
         ReleaseProgress(package);
+        ReleaseDialogs(package);
         delete package;
     }
     Packages.clear();
@@ -963,7 +1246,26 @@ BOOL PackageManager::Deactivate(Package* package)
     }
     package->Session->Release();
     package->Session = NULL;
+    ReleaseDialogs(package);
     return TRUE;
+}
+
+void PackageManager::ReleaseDialogs(Package* package)
+{
+    if (package == NULL)
+        return;
+    for (size_t index = 0; index < package->Dialogs.size(); ++index)
+    {
+        Package::RuntimeDialog* binding = package->Dialogs[index];
+        UI::IDialog* dialog = binding != NULL ? binding->Dialog : NULL;
+        if (dialog != NULL && UI != NULL)
+        {
+            dialog->SetEventCallback(NULL, NULL);
+            UI->DestroyDialog(dialog);
+        }
+        delete binding;
+    }
+    package->Dialogs.clear();
 }
 
 void PackageManager::ReleaseProgress(Package* package)
@@ -1067,6 +1369,215 @@ BOOL PackageManager::ExecuteCommand(
     return succeeded;
 }
 
+BOOL WINAPI PackageManager::ManagementCallback(
+    void* context,
+    Extensions::ExtensionManagementAction action,
+    const char* extensionId,
+    const wchar_t* manifestPath,
+    int moveDelta)
+{
+    PackageManager* manager = static_cast<PackageManager*>(context);
+    if (manager == NULL)
+        return FALSE;
+    switch (action)
+    {
+    case Extensions::ExtensionManagementInstallManifest:
+        return manager->InstallManifest(manifestPath);
+    case Extensions::ExtensionManagementRemove:
+        return manager->RemoveExtension(extensionId);
+    case Extensions::ExtensionManagementMove:
+        return manager->MoveExtension(extensionId, moveDelta);
+    }
+    return FALSE;
+}
+
+bool PackageManager::IsRemoved(const std::string& extensionId) const
+{
+    for (size_t index = 0; index < RemovedExtensions.size(); ++index)
+        if (_stricmp(
+                RemovedExtensions[index].c_str(), extensionId.c_str()) == 0)
+            return true;
+    return false;
+}
+
+void PackageManager::ApplyUserOrder()
+{
+    for (size_t packageIndex = 0;
+         packageIndex < Packages.size(); ++packageIndex)
+    {
+        const std::string& id = Packages[packageIndex]->Id;
+        bool found = false;
+        for (size_t orderIndex = 0;
+             orderIndex < ExtensionOrder.size(); ++orderIndex)
+        {
+            if (_stricmp(ExtensionOrder[orderIndex].c_str(), id.c_str()) == 0)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            ExtensionOrder.push_back(id);
+    }
+
+    std::stable_sort(
+        Packages.begin(), Packages.end(),
+        [this](const Package* left, const Package* right) {
+            size_t leftOrder = ExtensionOrder.size();
+            size_t rightOrder = ExtensionOrder.size();
+            for (size_t index = 0; index < ExtensionOrder.size(); ++index)
+            {
+                if (_stricmp(
+                        ExtensionOrder[index].c_str(), left->Id.c_str()) == 0)
+                    leftOrder = index;
+                if (_stricmp(
+                        ExtensionOrder[index].c_str(), right->Id.c_str()) == 0)
+                    rightOrder = index;
+            }
+            return leftOrder < rightOrder;
+        });
+
+    if (Extensions != NULL && !Packages.empty())
+    {
+        std::vector<const char*> ids;
+        for (size_t index = 0; index < Packages.size(); ++index)
+            ids.push_back(Packages[index]->Id.c_str());
+        Extensions->ApplyExtensionOrder(
+            &ids[0], static_cast<int>(ids.size()));
+    }
+}
+
+BOOL PackageManager::InstallManifest(const wchar_t* manifestPath)
+{
+    if (manifestPath == NULL || manifestPath[0] == 0)
+        return FALSE;
+    wchar_t absolute[SAL_MAX_PATH];
+    wchar_t* filePart = NULL;
+    DWORD length = GetFullPathNameW(
+        manifestPath, _countof(absolute), absolute, &filePart);
+    if (length == 0 || length >= _countof(absolute) || filePart == NULL ||
+        _wcsicmp(filePart, L"extension.json") != 0)
+        return FALSE;
+
+    std::string json;
+    if (!ReadUtf8File(absolute, &json))
+        return FALSE;
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    if (!manifest.Parse(json.data(), json.size(), error) ||
+        !CExtensionManifest::IsSafeRelativeEntryPoint(manifest.EntryPoint))
+        return FALSE;
+
+    std::wstring packageDirectory(absolute);
+    size_t slash = packageDirectory.find_last_of(L"\\/");
+    if (slash == std::wstring::npos)
+        return FALSE;
+    packageDirectory.erase(slash);
+    bool packageFound = false;
+    for (size_t index = 0; index < CustomPackages.size(); ++index)
+        if (_wcsicmp(
+                CustomPackages[index].c_str(), packageDirectory.c_str()) == 0)
+            packageFound = true;
+    if (!packageFound)
+        CustomPackages.push_back(packageDirectory);
+
+    for (std::vector<std::string>::iterator item =
+             RemovedExtensions.begin();
+         item != RemovedExtensions.end();)
+    {
+        if (_stricmp(item->c_str(), manifest.Id.c_str()) == 0)
+            item = RemovedExtensions.erase(item);
+        else
+            ++item;
+    }
+    Refresh();
+    Extensions::ExtensionInfo installed;
+    return Extensions != NULL &&
+           Extensions->FindExtension(manifest.Id.c_str(), &installed) != FALSE;
+}
+
+BOOL PackageManager::RemoveExtension(const char* extensionId)
+{
+    if (extensionId == NULL || extensionId[0] == 0)
+        return FALSE;
+    bool managed = false;
+    for (size_t index = 0; index < Packages.size(); ++index)
+        if (_stricmp(Packages[index]->Id.c_str(), extensionId) == 0)
+            managed = true;
+    if (!managed)
+        return FALSE;
+    if (!IsRemoved(extensionId))
+        RemovedExtensions.push_back(extensionId);
+    Refresh();
+    return TRUE;
+}
+
+BOOL PackageManager::MoveExtension(const char* extensionId, int delta)
+{
+    if (extensionId == NULL || (delta != -1 && delta != 1))
+        return FALSE;
+    size_t packageIndex = Packages.size();
+    for (size_t index = 0; index < Packages.size(); ++index)
+        if (_stricmp(Packages[index]->Id.c_str(), extensionId) == 0)
+            packageIndex = index;
+    if (packageIndex == Packages.size())
+        return FALSE;
+    const int target = static_cast<int>(packageIndex) + delta;
+    if (target < 0 || target >= static_cast<int>(Packages.size()))
+        return FALSE;
+
+    UnregisterToolbarButtons();
+    std::swap(Packages[packageIndex], Packages[target]);
+    size_t firstOrder = ExtensionOrder.size();
+    size_t secondOrder = ExtensionOrder.size();
+    for (size_t index = 0; index < ExtensionOrder.size(); ++index)
+    {
+        if (_stricmp(
+                ExtensionOrder[index].c_str(),
+                Packages[packageIndex]->Id.c_str()) == 0)
+            firstOrder = index;
+        if (_stricmp(
+                ExtensionOrder[index].c_str(),
+                Packages[target]->Id.c_str()) == 0)
+            secondOrder = index;
+    }
+    if (firstOrder < ExtensionOrder.size() &&
+        secondOrder < ExtensionOrder.size())
+        std::swap(ExtensionOrder[firstOrder], ExtensionOrder[secondOrder]);
+    ApplyUserOrder();
+    RegisterToolbarButtons();
+    if (General != NULL)
+        General->PostPluginMenuChanged();
+    return TRUE;
+}
+
+BOOL WINAPI PackageManager::RuntimeDialogEventCallback(
+    void* context, const UI::DialogEvent* event)
+{
+    Package::RuntimeDialog* binding =
+        static_cast<Package::RuntimeDialog*>(context);
+    if (binding == NULL || binding->Owner == NULL || event == NULL ||
+        !binding->EventsEnabled || binding->EventName[0] == '\0' ||
+        binding->Owner->Session == NULL)
+        return FALSE;
+    char dialogId[32];
+    _ui64toa_s(binding->Id, dialogId, _countof(dialogId), 10);
+    std::string eventJson =
+        std::string("{\"event\":\"") + JsonEscape(binding->EventName) +
+        "\",\"dialogId\":\"" + dialogId +
+        "\",\"controlId\":\"" + JsonEscape(event->ControlId) +
+        "\",\"kind\":" + std::to_string(static_cast<int>(event->Control)) +
+        ",\"text\":\"" + JsonEscape(event->Text) +
+        "\",\"checked\":" + (event->Checked ? "true" : "false") +
+        ",\"selectedIndex\":" + std::to_string(event->SelectedIndex) + "}";
+    std::string frame;
+    if (!Runtime::Protocol::LineCodec::Encode(
+            Runtime::Protocol::MessageEvent, 0, eventJson, &frame))
+        return FALSE;
+    return binding->Owner->Session->QueueFrame(
+        frame.c_str(), static_cast<DWORD>(frame.size()));
+}
+
 BOOL WINAPI PackageManager::HostDispatch(
     void* context, Runtime::Protocol::MessageType type, ULONGLONG requestId,
     const char* payloadJson, char* resultJson, DWORD resultCapacity, DWORD* resultLength)
@@ -1101,6 +1612,62 @@ BOOL WINAPI PackageManager::HostDispatch(
                 JsonEscape(locale.c_str()) +
                 "\",\"languageId\":" +
                 std::to_string(static_cast<unsigned int>(languageId)) + "}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.host.uptime")
+        return CopyResult(std::string("{\"ok\":true,\"milliseconds\":\"") +
+                              std::to_string(static_cast<unsigned long long>(GetTickCount64())) + "\"}",
+                          resultJson, resultCapacity, resultLength);
+    if (method == "salamander.host.windowIcon")
+    {
+        HICON icon = NULL;
+        bool destroyIcon = false;
+        const bool useDarkIcon =
+            DarkModeIsWindowsDarkSchemeSelected() &&
+            !package->IconDarkPath.empty();
+        const char* preferredPath =
+            useDarkIcon ? package->IconDarkPath.c_str()
+                        : package->IconPath.c_str();
+        if (SalamanderGUI != NULL && preferredPath[0] != '\0')
+        {
+            icon = SalamanderGUI->CreateSVGIcon(preferredPath, 32);
+            if (icon == NULL && useDarkIcon && !package->IconPath.empty())
+                icon = SalamanderGUI->CreateSVGIcon(
+                    package->IconPath.c_str(), 32);
+            destroyIcon = icon != NULL;
+        }
+
+        if (icon == NULL && owner->General != NULL)
+        {
+            HWND mainWindow = owner->General->GetMainWindowHWND();
+            HICON mainIcon = mainWindow != NULL
+                                 ? reinterpret_cast<HICON>(SendMessage(
+                                       mainWindow, WM_GETICON, ICON_BIG, 0))
+                                 : NULL;
+            if (mainIcon == NULL && mainWindow != NULL)
+                mainIcon = reinterpret_cast<HICON>(SendMessage(
+                    mainWindow, WM_GETICON, ICON_SMALL2, 0));
+            if (mainIcon == NULL && mainWindow != NULL)
+                mainIcon = reinterpret_cast<HICON>(GetClassLongPtr(
+                    mainWindow, GCLP_HICON));
+            if (mainIcon == NULL && mainWindow != NULL)
+                mainIcon = reinterpret_cast<HICON>(GetClassLongPtr(
+                    mainWindow, GCLP_HICONSM));
+            if (mainIcon != NULL)
+            {
+                icon = CopyIcon(mainIcon);
+                destroyIcon = icon != NULL;
+                if (icon == NULL)
+                    icon = mainIcon;
+            }
+        }
+
+        const std::string encodedIcon = SerializeWindowIcon(icon);
+        if (destroyIcon)
+            DestroyIcon(icon);
+        return CopyResult(
+            std::string("{\"ok\":true,\"icon\":\"") +
+                encodedIcon + "\"}",
             resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.host.appearance")
@@ -1267,6 +1834,297 @@ BOOL WINAPI PackageManager::HostDispatch(
         BOOL shown = owner->UI != NULL && owner->UI->ShowNotification(
             owner->General->GetMsgBoxParent(), title.c_str(), message.c_str(),
             static_cast<DWORD>(timeout > 0 ? timeout : 2500));
+        return CopyResult(std::string("{\"ok\":true,\"shown\":") +
+                              (shown ? "true}" : "false}"),
+                          resultJson, resultCapacity, resultLength);
+    }
+    if (method.compare(0, 21, "salamander.ui.dialog.") == 0)
+    {
+        if (owner->UI == NULL || owner->UI->GetVersion() < SALAMATRIX_UI_VERSION_1_4)
+            return CopyResult("{\"ok\":false,\"error\":\"dialog service unavailable\"}",
+                              resultJson, resultCapacity, resultLength);
+
+        if (method == "salamander.ui.dialog.create")
+        {
+            std::string title;
+            int width = 320;
+            int height = 180;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &width);
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &height);
+            UI::DialogOptions options;
+            options.Title = title.empty() ? "Salamatrix" : title.c_str();
+            options.Parent = owner->General->GetMsgBoxParent();
+            options.Width = static_cast<short>(width < 160 ? 160 : (width > 1200 ? 1200 : width));
+            options.Height = static_cast<short>(height < 100 ? 100 : (height > 900 ? 900 : height));
+            UI::IDialog* dialog = owner->UI->CreateSalamatrixDialog(options);
+            if (dialog == NULL)
+                return FALSE;
+#ifdef new
+#undef new
+#define RESTORE_SALAMATRIX_PACKAGE_DIALOG_DEBUG_NEW_MACRO
+#endif
+            Package::RuntimeDialog* binding =
+                new (std::nothrow) Package::RuntimeDialog;
+#ifdef RESTORE_SALAMATRIX_PACKAGE_DIALOG_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_SALAMATRIX_PACKAGE_DIALOG_DEBUG_NEW_MACRO
+#endif
+            if (binding == NULL)
+            {
+                owner->UI->DestroyDialog(dialog);
+                return CopyResult("{\"ok\":false,\"error\":\"out of memory\"}",
+                                  resultJson, resultCapacity, resultLength);
+            }
+            binding->Owner = package;
+            binding->Id = package->NextDialogId++;
+            if (binding->Id == 0)
+                binding->Id = package->NextDialogId++;
+            binding->Dialog = dialog;
+            binding->EventsEnabled = FALSE;
+            binding->EventName[0] = '\0';
+            package->Dialogs.push_back(binding);
+            char idText[32];
+            _ui64toa_s(binding->Id, idText, _countof(idText), 10);
+            return CopyResult(std::string("{\"ok\":true,\"dialogId\":\"") + idText + "\"}",
+                              resultJson, resultCapacity, resultLength);
+        }
+
+        std::string idText;
+        if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "dialogId", &idText))
+            return FALSE;
+        char* idEnd = NULL;
+        const ULONGLONG dialogId = _strtoui64(idText.c_str(), &idEnd, 10);
+        if (idEnd == idText.c_str() || *idEnd != '\0')
+            return FALSE;
+        size_t dialogIndex = package->Dialogs.size();
+        for (size_t index = 0; index < package->Dialogs.size(); ++index)
+            if (package->Dialogs[index] != NULL && package->Dialogs[index]->Id == dialogId)
+            {
+                dialogIndex = index;
+                break;
+            }
+        if (dialogIndex == package->Dialogs.size() || package->Dialogs[dialogIndex] == NULL ||
+            package->Dialogs[dialogIndex]->Dialog == NULL)
+            return FALSE;
+        Package::RuntimeDialog* binding = package->Dialogs[dialogIndex];
+        UI::IDialog* dialog = binding->Dialog;
+
+        if (method == "salamander.ui.dialog.add")
+        {
+            std::string kindName, controlId, controlText;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "kind", &kindName) ||
+                !Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId))
+                return FALSE;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "text", &controlText);
+            struct KindName { const char* Name; UI::ControlKind Kind; };
+            static const KindName kinds[] = {
+                {"label", UI::ControlKindLabel}, {"textbox", UI::ControlKindTextBox},
+                {"checkbox", UI::ControlKindCheckBox}, {"radio", UI::ControlKindRadioButton},
+                {"combobox", UI::ControlKindComboBox}, {"button", UI::ControlKindButton},
+                {"listview", UI::ControlKindListView}, {"treeview", UI::ControlKindTreeView},
+                {"tabcontrol", UI::ControlKindTabControl}, {"folderpicker", UI::ControlKindFolderPicker},
+                {"filepicker", UI::ControlKindFilePicker}, {"groupbox", UI::ControlKindGroupBox},
+                {"statictext", UI::ControlKindStaticText}, {"hyperlink", UI::ControlKindHyperLink},
+                {"progressbar", UI::ControlKindProgressBar}, {"arrowbutton", UI::ControlKindArrowButton},
+                {"textarrowbutton", UI::ControlKindTextArrowButton},
+                {"colorarrowbutton", UI::ControlKindColorArrowButton},
+                {"toolbarheader", UI::ControlKindToolbarHeader}};
+            UI::ControlKind kind = UI::ControlKindLabel;
+            bool kindFound = false;
+            for (size_t index = 0; index < _countof(kinds); ++index)
+                if (_stricmp(kindName.c_str(), kinds[index].Name) == 0)
+                {
+                    kind = kinds[index].Kind;
+                    kindFound = true;
+                    break;
+                }
+            if (!kindFound)
+                return FALSE;
+
+            UI::ControlOptions options;
+            options.Id = controlId.c_str();
+            options.Text = controlText.c_str();
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "readOnly", &options.ReadOnly);
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "checked", &options.Checked);
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "keepOpen", &options.KeepOpen);
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "multiline", &options.Multiline);
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "dialogResult", &options.DialogResult);
+            std::string fileFilter;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "filter", &fileFilter);
+            options.FileFilter = fileFilter.empty() ? NULL : fileFilter.c_str();
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "save", &options.FileSave);
+            UI::ControlLayout layout;
+            std::string raw;
+            layout.HasBounds = Runtime::Protocol::Json::FindRawMember(payloadJson, "x", &raw);
+            if (layout.HasBounds)
+            {
+                if (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "x", &layout.X) ||
+                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "y", &layout.Y) ||
+                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &layout.Width) ||
+                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &layout.Height))
+                    return FALSE;
+            }
+            UI::IControl* control = dialog->AddControlEx(kind, options, layout);
+            if (control == NULL)
+                return FALSE;
+            int integerValue = 0;
+            std::string stringValue;
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "styleFlags", &integerValue) &&
+                !control->SetStyleFlags(static_cast<DWORD>(integerValue))) return FALSE;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "pathSeparator", &stringValue) &&
+                (stringValue.size() != 1 || !control->SetPathSeparator(stringValue[0]))) return FALSE;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "toolTip", &stringValue) &&
+                !control->SetToolTipText(stringValue.c_str())) return FALSE;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionOpen", &stringValue) &&
+                !control->SetActionOpen(stringValue.c_str())) return FALSE;
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "actionCommand", &integerValue) &&
+                !control->SetActionPostCommand(static_cast<WORD>(integerValue))) return FALSE;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionHint", &stringValue) &&
+                !control->SetActionShowHint(stringValue.c_str())) return FALSE;
+            std::string progressText;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "progressText", &progressText);
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "progress", &integerValue) &&
+                !control->SetProgress(integerValue, progressText.empty() ? NULL : progressText.c_str())) return FALSE;
+            LONGLONG current = 0, total = 0;
+            if (Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressCurrent", &current) &&
+                (!Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressTotal", &total) ||
+                 current < 0 || total < 0 || !control->SetProgressValues(current, total,
+                    progressText.empty() ? NULL : progressText.c_str()))) return FALSE;
+            int duration = 0, interval = 0;
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateDuration", &duration) &&
+                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateInterval", &interval) ||
+                 !control->SetIndeterminateTiming(static_cast<DWORD>(duration), static_cast<DWORD>(interval)))) return FALSE;
+            int textColor = 0, backgroundColor = 0;
+            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "textColor", &textColor) &&
+                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "backgroundColor", &backgroundColor) ||
+                 !control->SetColor(static_cast<COLORREF>(textColor), static_cast<COLORREF>(backgroundColor)))) return FALSE;
+            std::string alignId;
+            int buttonMask = 0;
+            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "alignControlId", &alignId) &&
+                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "buttonMask", &buttonMask) ||
+                 !control->SetToolbarHeader(alignId.c_str(), static_cast<DWORD>(buttonMask)))) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.item")
+        {
+            std::string controlId, itemText;
+            int parentIndex = -1;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId) ||
+                !Runtime::Protocol::Json::FindStringMember(payloadJson, "text", &itemText)) return FALSE;
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "parentIndex", &parentIndex);
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->AddItem(itemText.c_str(), parentIndex)) return FALSE;
+            return CopyResult(std::string("{\"ok\":true,\"itemCount\":") +
+                                  std::to_string(control->GetItemCount()) + "}",
+                              resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.column")
+        {
+            std::string controlId, title;
+            int width = 180;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId) ||
+                !Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title)) return FALSE;
+            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &width);
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->AddColumn(title.c_str(), width)) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.selection")
+        {
+            std::string controlId; int selected = -1;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId) ||
+                !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "index", &selected)) return FALSE;
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetSelectedIndex(selected)) return FALSE;
+            return CopyResult(std::string("{\"ok\":true,\"selectedIndex\":") +
+                                  std::to_string(control->GetSelectedIndex()) + "}",
+                              resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.clearItems")
+        {
+            std::string controlId;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId)) return FALSE;
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->ClearItems()) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.validation")
+        {
+            std::string controlId, message; BOOL required = FALSE;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId)) return FALSE;
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "message", &message);
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "required", &required);
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetRequired(required) ||
+                !control->SetValidationMessage(message.c_str())) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.events")
+        {
+            BOOL enabled = FALSE;
+            std::string eventName;
+            Runtime::Protocol::Json::FindBoolMember(payloadJson, "enabled", &enabled);
+            Runtime::Protocol::Json::FindStringMember(payloadJson, "event", &eventName);
+            if (enabled)
+            {
+                if (eventName.empty() || eventName.size() >= _countof(binding->EventName) ||
+                    StringCchCopyA(binding->EventName, _countof(binding->EventName), eventName.c_str()) != S_OK ||
+                    !dialog->SetEventCallback(RuntimeDialogEventCallback, binding)) return FALSE;
+                binding->EventsEnabled = TRUE;
+            }
+            else
+            {
+                if (!dialog->SetEventCallback(NULL, NULL)) return FALSE;
+                binding->EventsEnabled = FALSE;
+                binding->EventName[0] = '\0';
+            }
+            return CopyResult(std::string("{\"ok\":true,\"enabled\":") +
+                                  (enabled ? "true}" : "false}"),
+                              resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.show")
+            return CopyResult(std::string("{\"ok\":true,\"result\":") +
+                                  std::to_string(dialog->ShowModal()) + "}",
+                              resultJson, resultCapacity, resultLength);
+        if (method == "salamander.ui.dialog.get")
+        {
+            std::string controlId;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId)) return FALSE;
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL) return FALSE;
+            char value[4096]; value[0] = '\0'; control->GetText(value, _countof(value));
+            return CopyResult(std::string("{\"ok\":true,\"text\":\"") + JsonEscape(value) +
+                                  "\",\"checked\":" + (control->GetChecked() ? "true" : "false") +
+                                  ",\"itemCount\":" + std::to_string(control->GetItemCount()) +
+                                  ",\"selectedIndex\":" + std::to_string(control->GetSelectedIndex()) + "}",
+                              resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.set")
+        {
+            std::string controlId, value;
+            if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId) ||
+                !Runtime::Protocol::Json::FindStringMember(payloadJson, "value", &value)) return FALSE;
+            UI::IControl* control = dialog->FindControl(controlId.c_str());
+            if (control == NULL || !control->SetText(value.c_str())) return FALSE;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        if (method == "salamander.ui.dialog.destroy" || method == "salamander.ui.dialog.close")
+        {
+            dialog->SetEventCallback(NULL, NULL);
+            owner->UI->DestroyDialog(dialog);
+            package->Dialogs.erase(package->Dialogs.begin() + dialogIndex);
+            delete binding;
+            return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        }
+        return FALSE;
+    }
+    if (method == "salamander.ui.controls")
+    {
+        BOOL shown = owner->UI != NULL &&
+                     owner->UI->GetVersion() >= SALAMATRIX_UI_VERSION_1_4 &&
+                     owner->UI->ShowControlsShowcase(
+                         owner->General->GetMsgBoxParent());
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
@@ -1526,11 +2384,25 @@ BOOL WINAPI PackageManager::HostDispatchOnMainThread(void* context)
         return FALSE;
     MainThreadDispatch* previous = CurrentMainThreadDispatch;
     CurrentMainThreadDispatch = call;
+    Package* package = static_cast<Package*>(call->Context);
+    PackageManager* owner = package != NULL ? package->Owner : NULL;
+    if (owner != NULL)
+        ++owner->ActiveHostDispatches;
     BOOL result = HostDispatch(
         call->Context, call->Type, call->RequestId, call->PayloadJson,
         call->ResultJson, call->ResultCapacity, call->ResultLength);
     CurrentMainThreadDispatch = previous;
+    if (owner != NULL)
+        owner->FinishHostDispatch();
     return result;
+}
+
+void PackageManager::FinishHostDispatch()
+{
+    if (ActiveHostDispatches > 0)
+        --ActiveHostDispatches;
+    if (ActiveHostDispatches == 0 && RefreshPending && !RefreshInProgress)
+        Refresh();
 }
 
 void PackageManager::RegisterToolbarButtons()

@@ -32,8 +32,14 @@ private:
     Storage::IStorageService* Storage;
     UI::IUIService* UI;
     std::vector<std::wstring> Roots;
+    std::vector<std::wstring> CustomPackages;
+    std::vector<std::string> ExtensionOrder;
+    std::vector<std::string> RemovedExtensions;
     std::vector<Package*> Packages;
     MenuExtension* Menu;
+    BOOL RefreshInProgress;
+    BOOL RefreshPending;
+    LONG ActiveHostDispatches;
 
     PackageManager(const PackageManager&);
     PackageManager& operator=(const PackageManager&);
@@ -62,6 +68,12 @@ private:
         Extensions::ExtensionAction action,
         const Extensions::ExtensionInfo* info);
     static BOOL WINAPI RefreshCallback(void* context);
+    static BOOL WINAPI ManagementCallback(
+        void* context,
+        Extensions::ExtensionManagementAction action,
+        const char* extensionId,
+        const wchar_t* manifestPath,
+        int moveDelta);
     static DWORD WINAPI PumpThreadProc(void* context);
     static BOOL WINAPI HostDispatch(
         void* context,
@@ -72,13 +84,23 @@ private:
         DWORD resultCapacity,
         DWORD* resultLength);
     static BOOL WINAPI HostDispatchOnMainThread(void* context);
+    static BOOL WINAPI RuntimeDialogEventCallback(
+        void* context, const UI::DialogEvent* event);
 
     void DiscoverRoot(const std::wstring& root);
-    void DiscoverDirectory(const std::wstring& directory);
+    void DiscoverDirectory(
+        const std::wstring& directory,
+        const std::wstring* onlyPackage = NULL);
     void RemovePackages();
+    BOOL InstallManifest(const wchar_t* manifestPath);
+    BOOL RemoveExtension(const char* extensionId);
+    BOOL MoveExtension(const char* extensionId, int delta);
+    void ApplyUserOrder();
+    bool IsRemoved(const std::string& extensionId) const;
     BOOL Activate(Package* package);
     BOOL Deactivate(Package* package);
     void ReleaseProgress(Package* package);
+    void ReleaseDialogs(Package* package);
     BOOL ExecuteCommand(
         Package* package,
         CSalamanderForOperationsAbstract* operations,
@@ -86,6 +108,7 @@ private:
         const char* handler);
     void RegisterToolbarButtons();
     void UnregisterToolbarButtons();
+    void FinishHostDispatch();
 
     static std::wstring ExpandRoot(const std::wstring& root);
     static BOOL MakeDisplayEntryPoint(

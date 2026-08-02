@@ -1,8 +1,16 @@
 name: CodeQL Security Scan
 
 on:
-  pull_request:
-    branches: [main, darkmode, dev_tabs, 'release/*']
+  workflow_call:
+    inputs:
+      pr_number:
+        description: Pull request number whose changed files determine whether analysis is needed
+        required: true
+        type: number
+      target_ref:
+        description: Exact PR head commit to analyze
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       target-ref:
@@ -41,16 +49,16 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            if (context.eventName !== 'pull_request') {
+            if (context.eventName === 'workflow_dispatch') {
               core.setOutput('should_analyze', 'true');
-              core.info('Not a pull request event; CodeQL analysis will run.');
+              core.info('Manual dispatch; CodeQL analysis will run.');
               return;
             }
 
-            const pull = context.payload.pull_request;
-            if (!pull) {
+            const pullNumber = Number('${{ inputs.pr_number }}');
+            if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
               core.setOutput('should_analyze', 'false');
-              core.info('No pull request payload found; CodeQL analysis steps will be skipped.');
+              core.info('No valid pull request number was supplied; CodeQL analysis steps will be skipped.');
               return;
             }
 
@@ -60,7 +68,7 @@ jobs:
               {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: pull.number,
+                pull_number: pullNumber,
                 per_page: 100,
               },
             );
@@ -82,7 +90,7 @@ jobs:
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs['target-ref'] || github.ref }}
+          ref: ${{ inputs.target_ref || github.event.inputs['target-ref'] || github.ref }}
           fetch-depth: 2
 
       - name: Initialize CodeQL

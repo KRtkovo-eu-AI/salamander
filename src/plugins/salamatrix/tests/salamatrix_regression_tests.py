@@ -31,6 +31,9 @@ def require_absent(text: str, pattern: str, message: str) -> None:
 
 def main() -> int:
     dialogs = read("src/dialogs5.cpp")
+    dialog_resources = read("src/lang/lang.rc")
+    configuration_header = read("src/cfgdlg.h")
+    configuration_defaults = read("src/dialogs4.cpp")
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
@@ -58,8 +61,13 @@ def main() -> int:
     toolbar4 = read("src/toolbar4.cpp")
     toolbar8 = read("src/toolbar8.cpp")
     main_menu = read("src/menu4.cpp")
+    samandarin_entry = read("src/plugins/samandarin/managed/EntryPoint.cs")
+    samandarin_managed_project = read(
+        "src/plugins/samandarin/managed/Samandarin.Managed.csproj")
     javascriptruntime = read("src/plugins/javascriptruntime/javascriptruntime.cpp")
     pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
+    python_discovery = read(
+        "src/plugins/pythonruntime/python_executable_discovery.h")
     powershellruntime = read("src/plugins/powershellruntime/powershellruntime.cpp")
     phpruntime = read("src/plugins/phpruntime/phpruntime.cpp")
     luaruntime = read("src/plugins/luaruntime/luaruntime.cpp")
@@ -68,6 +76,8 @@ def main() -> int:
     powershellruntime_rc = read("src/plugins/powershellruntime/powershellruntime.rc")
     phpruntime_rc = read("src/plugins/phpruntime/phpruntime.rc")
     luaruntime_rc = read("src/plugins/luaruntime/luaruntime.rc")
+    runtime_configuration = read(
+        "src/plugins/shared/runtime_configuration.h")
     runtime_provider_sources = (
         pythonruntime,
         powershellruntime,
@@ -113,8 +123,75 @@ def main() -> int:
     menu_builder_manifest = json.loads(
         read("src/extensions/extension-menu-builder/extension.json"))
 
+    update_check = re.search(
+        r"public static async Task CheckForUpdatesAsync\(.*?"
+        r"(?=\n    public static void Shutdown\(\))",
+        samandarin_entry,
+        re.MULTILINE | re.DOTALL)
+    if update_check is None or update_check.group(0).count(
+            "CheckSemaphore.WaitAsync") != 1:
+        raise AssertionError(
+            "Samandarin update check must acquire its semaphore exactly once")
+    require(
+        samandarin_entry,
+        r"private void AddImageListImage\(string key, Image source\).*?"
+        r"CreateImageListBitmap\(source, _pluginImages\.ImageSize\).*?"
+        r"_pluginImages\.Images\.Add\(key, bitmap\);.*?"
+        r"_ = _pluginImages\.Handle;",
+        "Samandarin Plugin Updates disposes images before ImageList copies them")
+    require(
+        samandarin_entry + samandarin_managed_project,
+        r"DefaultPluginImageResource = \"OpenSalamander\.Plugin\.png\".*?"
+        r"Image\.FromStream\(stream\).*?"
+        r"res\\plugin\.png.*?OpenSalamander\.Plugin\.png",
+        "Samandarin Plugin Updates does not use src/res/plugin.png by default")
+    require(
+        samandarin_entry,
+        r"private async Task RefreshAsync\(\).*?"
+        r"BindRows\(\);.*?SetLoadingState\(false\);.*?"
+        r"StartCatalogImageLoad\(_rows\);",
+        "Samandarin Plugin Updates still blocks the initial list on catalog icons")
+    require_absent(
+        samandarin_entry,
+        r"SetLoadingState\(false\);\s*"
+        r"await EnsureCatalogImagesAsync",
+        "Samandarin Plugin Updates still downloads icons serially before refresh completes")
+    require(
+        samandarin_entry,
+        r"CatalogImageDownloadConcurrency\s*=\s*[2-9][0-9]*.*?"
+        r"HashSet<string>\(StringComparer\.OrdinalIgnoreCase\).*?"
+        r"SemaphoreSlim\(CatalogImageDownloadConcurrency\).*?"
+        r"Task\.WhenAll\(downloads\).*?"
+        r"SendAsync\(request, cancellationToken\).*?"
+        r"MaxConnectionsPerServer\s*=\s*"
+        r"PluginUpdatesDialog\.CatalogImageDownloadConcurrency",
+        "Samandarin catalog icons are not deduplicated and loaded with bounded concurrency")
+
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
+    require(
+        salamatrix,
+        r"SetBasicPluginData\(PluginNameEN,.*?"
+        r"FUNCTION_AUTOMATIONFRAMEWORK\s*\|.*?"
+        r"FUNCTION_DYNAMICMENUEXT\s*\|.*?"
+        r"FUNCTION_LOADSAVECONFIGURATION",
+        "Salamatrix does not advertise package configuration persistence")
+    require(
+        salamatrix,
+        r"CPluginInterface::LoadConfiguration.*?"
+        r"SalamatrixPackages->LoadConfiguration\(regKey, registry\).*?"
+        r"CPluginInterface::SaveConfiguration.*?"
+        r"SalamatrixPackages->SaveConfiguration\(regKey, registry\)",
+        "Salamatrix does not forward host configuration callbacks to packages")
+    require(
+        packages,
+        r'StringListLoader::Load\(\s*key, "ExtensionOrder".*?'
+        r'StringListLoader::Load\(\s*key, "RemovedExtensions".*?'
+        r'StringListLoader::Load\(\s*key, "ExtensionManifests".*?'
+        r'StringListSaver::Save\(\s*key, "ExtensionOrder".*?'
+        r'StringListSaver::Save\(\s*key, "RemovedExtensions".*?'
+        r'StringListSaver::Save\(\s*key, "ExtensionManifests"',
+        "Salamatrix does not persist extension order, removals and custom manifests")
     for key, name in (
         ("JAVASCRIPT.RUNTIME", "JavaScript Runtime"),
         ("LUA.RUNTIME", "Lua Runtime"),
@@ -464,6 +541,18 @@ def main() -> int:
                 f"{name} runtime release guard does not clear local registration state")
         require(runtime, rf"UnregisterRuntimeProvider\(\s*{re.escape(registration_var)}\s*\)",
                 f"{name} runtime Release does not call safe registration unregister")
+        require(runtime,
+                r"FUNCTION_AUTOMATIONFRAMEWORK\s*\|\s*FUNCTION_CONFIGURATION\s*\|\s*FUNCTION_LOADSAVECONFIGURATION",
+                f"{name} runtime does not expose Plugin Manager configuration")
+        require(runtime,
+                r"RuntimeConfiguration::ShowDialog.*?InvalidateExecutablePath",
+                f"{name} runtime configuration does not refresh executable resolution")
+        require(runtime,
+                r"RuntimeConfiguration::Load.*?RuntimeConfiguration::Save",
+                f"{name} runtime does not persist custom executable settings")
+        require(runtime,
+                r"RuntimeSettings\.UseCustomExecutable.*?CustomExecutablePath.*?return;.*?GetEnvironmentString",
+                f"{name} runtime does not prefer the configured executable")
 
     for name, runtime_resource in (
         ("JavaScript", javascriptruntime_rc),
@@ -473,6 +562,63 @@ def main() -> int:
         ("Lua", luaruntime_rc),
     ):
         require_absent(runtime_resource, r"sal_r\.ico", f"{name} runtime must use the default Plugin Manager icon")
+        for resource_id in (
+            "IDS_RUNTIME_CONFIG_TITLE",
+            "IDS_RUNTIME_EXECUTABLE_IN_USE",
+            "IDS_RUNTIME_USE_CUSTOM",
+            "IDS_RUNTIME_CUSTOM_EXECUTABLE",
+            "IDS_RUNTIME_FILE_FILTER",
+            "IDS_RUNTIME_OK",
+            "IDS_RUNTIME_CANCEL",
+        ):
+            require(runtime_resource, resource_id,
+                    f"{name} runtime configuration text is not localizable: {resource_id}")
+    require(runtime_configuration,
+            r"options\.Width\s*=\s*420.*?options\.Height\s*=\s*146",
+            "runtime configuration dialog is no longer compact")
+    require(runtime_configuration,
+            r"ControlKindTextBox.*?ControlKindCheckBox.*?ControlKindFilePicker.*?IDOK.*?IDCANCEL",
+            "runtime configuration dialog controls are incomplete")
+    require(runtime_configuration,
+            r'"UseCustomExecutable".*?"CustomExecutablePath"',
+            "runtime executable selection is not persisted")
+    require(runtime_configuration + pythonruntime,
+            r'ExecutableValidator executableValidator = NULL.*?'
+            r'!executableValidator\(selectedWide\).*?'
+            r'RuntimeConfiguration::ShowDialog\(.*?'
+            r'PythonExecutableDiscovery::IsUsablePythonInterpreter',
+            "Python custom executable does not use provider-specific validation")
+    require(python_discovery,
+            r'PythonProbeTimeoutMs\s*=\s*3000.*?'
+            r' -I -S -c .*?sys\.version_info\.major == 3.*?'
+            r'CREATE_NO_WINDOW.*?WaitForSingleObject\(.*?'
+            r'PythonProbeTimeoutMs.*?TerminateProcess',
+            "Python discovery does not safely probe Python 3 with a bounded hidden process")
+    require(pythonruntime + python_discovery,
+            r'UseCustomExecutable.*?IsUsablePythonInterpreter.*?'
+            r'GetEnvironmentString\(m_pszEnvironmentVariable.*?'
+            r'FindUsableExecutable.*?m_pszCandidateOne.*?m_pszCandidateTwo.*?'
+            r'FindUsableExecutableInPath',
+            "Python discovery does not validate custom, environment, and all PATH candidates")
+    require(pythonruntime_rc,
+            r'IDS_RUNTIME_CUSTOM_INVALID\s+"[^"]*Python 3 interpreter',
+            "Python invalid custom executable message is not specific or localizable")
+    require(runtime_configuration,
+            r'SALAMATRIX_UI_VERSION_1_2.*?'
+            r'if \(strcmp\(event->ControlId, "use-custom"\) == 0\).*?'
+            r'CustomPath->SetEnabled\(event->Checked\).*?'
+            r'customPath->SetEnabled\(candidateUseCustom \? TRUE : FALSE\)',
+            "runtime custom executable picker does not follow its checkbox")
+    require(ui_contract + salamatrix_ui,
+            r'SALAMATRIX_UI_VERSION_1_2.*?'
+            r'virtual BOOL WINAPI SetEnabled\(BOOL enabled\).*?'
+            r'EnableWindow\(WindowHandle, enabled\).*?'
+            r'EnableWindow\(BrowseWindowHandle, enabled\)',
+            "Salamatrix file picker cannot disable both the path and browse button")
+    require(salamatrix_runtime,
+            r'GetVersion\(\) const.*?SALAMATRIX_UI_VERSION_1_4.*?'
+            r'RegisterServiceOwned\(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_4',
+            "Salamatrix does not publish the controls-showcase UI contract version")
     for name, runtime in zip(
         ("Python", "PowerShell", "JavaScript", "PHP", "Lua"), runtime_provider_sources):
         require(runtime, r"SetFlagLoadOnSalamanderStart\(TRUE\)",
@@ -501,6 +647,37 @@ def main() -> int:
                 f"{name} worker does not expose host appearance")
         require(worker, r'salamander\.ui\.messageBox.*?buttons.*?icon',
                 f"{name} worker does not expose message-box buttons and icon")
+        require(worker, r'salamander\.ui\.controls',
+                f"{name} worker does not expose the framework controls showcase")
+    require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,
+            r'SALAMATRIX_UI_VERSION_1_4.*?'
+            r'ShowControlsShowcase.*?ShowNativeControlsShowcase.*?'
+            r'salamander\.ui\.controls.*?ShowControlsShowcase',
+            "controls showcase is not owned and dispatched by Salamatrix Framework")
+    require(ui_contract + salamatrix_ui,
+            r'ControlKindStaticText.*?ControlKindHyperLink.*?'
+            r'ControlKindProgressBar.*?ControlKindArrowButton.*?'
+            r'ControlKindTextArrowButton.*?ControlKindColorArrowButton.*?'
+            r'ControlKindToolbarHeader.*?AttachStaticText.*?AttachHyperLink.*?'
+            r'AttachProgressBar.*?ChangeToArrowButton.*?AttachButton.*?'
+            r'AttachColorArrowButton.*?AttachToolbarHeader',
+            "Salamatrix UI does not expose every host control demonstrated by DemoPlug")
+    require(salamatrix_ui,
+            r'options\.Width = 463.*?options\.Height = 236.*?'
+            r'"CGUIStaticTextAbstract", 6, 4, 254, 108.*?'
+            r'"CGUIProgressBarAbstract", 6, 118, 254, 66.*?'
+            r'"CGUIHyperLinkAbstract", 269, 4, 185, 48.*?'
+            r'"close", "Close", 403, 213, 50, 14',
+            "Salamatrix controls showcase no longer matches DemoPlug geometry")
+    require(salamatrix_ui,
+            r'ApplyHostDarkModePolicy.*?ApplyNativeDialogDarkMode.*?'
+            r'AttachStaticText.*?AttachHyperLink.*?AttachProgressBar.*?'
+            r'ApplyNativeDialogDarkMode\(hwnd\)',
+            "host controls are not re-themed after attachment for dark mode")
+    require(php_worker,
+            r'function call\(\$method, \$arguments = array\(\)\).*?'
+            r"salamander\.ui\.controls', array\(\)",
+            "PHP no-argument controls call still violates the worker call signature")
     require(javascript_worker,
             r'salamander\.ui\.inputBox.*?\{\s*prompt,\s*title,\s*initial\s*\}',
             "JavaScript worker does not use the shared input-box payload")
@@ -636,6 +813,13 @@ def main() -> int:
         r"ExecuteMenuItem2",
         "Extension Bar menu buttons do not render icons and execute popup commands")
     require(
+        plugins2 + packages,
+        r"toolbarIdCount.*?ToolbarButtons\[index\]\.ToolbarId == toolbarId.*?"
+        r"NextToolbarButtonId = toolbarId.*?"
+        r"RefreshInProgress \|\| ActiveHostDispatches.*?RefreshPending.*?"
+        r"FinishHostDispatch",
+        "Extension Bar IDs are not recycled or package refresh can invalidate an active host call")
+    require(
         general_contract + plugins2 + packages,
         r"CSalamanderToolbarMenuItem.*?IconPath.*?IconDarkPath.*?"
         r"itemIconsEnd.*?"
@@ -680,6 +864,74 @@ def main() -> int:
         r"IDS_PLUGIN_SHOWINEXTENSIONBAR.*?"
         r"SetExtensionBarVisible",
         "Plugin Manager does not expose localized Extension Bar controls")
+    require(
+        dialogs,
+        r"void CPluginsDlg::OnSelChanged\(\).*?"
+        r"else if \(extension != NULL\).*?EnableButtons\(NULL\);\s*\}\s*"
+        r"else\s*\{.*?EnableButtons\(NULL\);\s*\}\s*"
+        r"EnableHeader\(\);\s*\}",
+        "Plugin Manager does not refresh extension move buttons for every selection")
+    require(
+        dialogs,
+        r"void CPluginsDlg::EnableHeader\(\).*?"
+        r"TLBHDRMASK_TOP \| TLBHDRMASK_UP.*?"
+        r"TLBHDRMASK_DOWN \| TLBHDRMASK_BOTTOM",
+        "Plugin Manager does not enable move-to-top and move-to-bottom buttons")
+    require(
+        dialogs,
+        r"void CPluginsDlg::OnMove\(BOOL up, BOOL toEnd\).*?"
+        r"toEnd \? \(up \? 0 : Plugins\.GetCount\(\) - 1\).*?"
+        r"while \(movedExtensionIndex != newExtensionIndex &&\s*"
+        r"service->MoveManagedExtension\(extensionId, direction\)\)",
+        "Plugin Manager does not move plugins and extensions to list boundaries")
+    require(
+        dialogs,
+        r"TLBHDRMASK_SORT \| TLBHDRMASK_TOP \|\s*"
+        r"TLBHDRMASK_UP \| TLBHDRMASK_DOWN \|\s*"
+        r"TLBHDRMASK_BOTTOM.*?"
+        r"case TLBHDR_TOP:.*?OnMove\(TRUE, TRUE\).*?"
+        r"case TLBHDR_BOTTOM:.*?OnMove\(FALSE, TRUE\)",
+        "Plugin Manager header does not expose boundary move commands")
+    require(
+        dialog_resources,
+        r'IDD_PLUGINS DIALOGEX.*?CAPTION "Plugins and Extensions Manager".*?'
+        r'"Installed &Plugins and Extensions: \(total: %d, loaded: %d\)"',
+        "Plugin Manager does not use the combined plugins and extensions title")
+    require(
+        dialog_resources,
+        r"IDD_PLUGINS DIALOGEX[^\n]*\n"
+        r"STYLE (?=[^\n]*DS_MODALFRAME)(?=[^\n]*WS_THICKFRAME)"
+        r"(?![^\n]*(?:WS_MINIMIZEBOX|WS_MAXIMIZEBOX))[^\n]*\n"
+        r".*?IDC_PLUGINS_GRIP.*?SBS_SIZEBOXBOTTOMRIGHTALIGN",
+        "Plugin Manager does not use the Configuration-style resizable dialog frame and grip")
+    require(
+        dialogs,
+        r"RESTORE_PLUGIN_MANAGER_GRIP_DEBUG_NEW_MACRO.*?"
+        r"GripWindow = new \(std::nothrow\) CTPHGripWindow.*?"
+        r"#define new new \(_NORMAL_BLOCK, __FILE__, __LINE__\).*?"
+        r"if \(GripWindow == NULL\).*?"
+        r"DarkModeApplyWindow\(GripWindow->HWindow\)",
+        "Plugin Manager resize grip does not preserve nothrow OOM handling and dark mode")
+    require(
+        dialogs,
+        r"void CPluginsDlg::LayoutControls\(\).*?"
+        r"RDW_INVALIDATE \| RDW_ERASE \| "
+        r"RDW_ALLCHILDREN \| RDW_UPDATENOW",
+        "Plugin Manager does not fully repaint after resizing")
+    require(
+        configuration_header + configuration_defaults + mainwnd2 + dialogs,
+        r"PluginsManagerWidth.*?PluginsManagerHeight.*?"
+        r"PluginsManagerWidth = 0.*?PluginsManagerHeight = 0.*?"
+        r"Plugins Manager Width.*?Plugins Manager Height.*?"
+        r"CONFIG_PLUGINS_MANAGER_WIDTH.*?SetValue.*?"
+        r"CONFIG_PLUGINS_MANAGER_HEIGHT.*?SetValue.*?"
+        r"CONFIG_PLUGINS_MANAGER_WIDTH.*?GetValue.*?"
+        r"CONFIG_PLUGINS_MANAGER_HEIGHT.*?GetValue.*?"
+        r"Configuration\.PluginsManagerWidth.*?SetWindowPos.*?"
+        r"GetWindowPlacement.*?rcNormalPosition.*?"
+        r"Configuration\.PluginsManagerWidth = width.*?"
+        r"Configuration\.PluginsManagerHeight = height",
+        "Plugin Manager size is not restored and persisted through main configuration")
     require_absent(
         dialogs,
         r"_snprintf_s\([^;]*LoadStr\(IDS_PLUGIN_SHOWINEXTENSIONBAR\)",
@@ -1027,6 +1279,20 @@ def main() -> int:
         powershell_worker,
         r'ScriptMethod Appearance.*?salamander\.host\.appearance',
         "PowerShell runtime does not expose Salamander appearance")
+    require(
+        packages,
+        r'salamander\.host\.windowIcon.*?'
+        r'DarkModeIsWindowsDarkSchemeSelected\(\).*?'
+        r'CreateSVGIcon\(preferredPath, 32\).*?'
+        r'GetMainWindowHWND\(\).*?SerializeWindowIcon\(icon\)',
+        "Salamatrix does not provide extension/main-window icon fallback to workers")
+    require(
+        powershell_worker,
+        r"Invoke-Host -Method 'salamander\.host\.windowIcon'.*?"
+        r"ExtensionWindowIconFilter : IMessageFilter.*?"
+        r"WM_SETICON.*?ICON_BIG.*?ICON_SMALL.*?"
+        r"Application\]::AddMessageFilter\(\$filter\)",
+        "PowerShell worker does not apply the extension icon to top-level windows")
     require(
         powershell_worker + packages,
         r'ScriptMethod MessageBox.*?buttons.*?icon.*?'

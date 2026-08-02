@@ -85,6 +85,30 @@ public:
 
     virtual /* [id] */ HRESULT STDMETHODCALLTYPE progress(/* [optional][in] */ VARIANT* title,
                                                           /* [retval][out] */ ISalamanderProgressDialog** dialog);
+    virtual /* [id] */ HRESULT STDMETHODCALLTYPE controls(void);
+    virtual /* [id] */ HRESULT STDMETHODCALLTYPE dialog(BSTR title, long width, long height,
+                                                         ISalamanderDialog** dialog);
+    virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_uptime(BSTR* milliseconds);
+};
+
+class CSalamatrixDialogAutomation : public CDispatchImpl<CSalamatrixDialogAutomation, ISalamanderDialog>
+{
+private:
+    Salamatrix::UI::IUIService* m_pUIService;
+    Salamatrix::UI::IDialog* m_pDialog;
+
+public:
+    DECLARE_DISPOBJ_NAME(L"Salamander.UI.Dialog")
+    CSalamatrixDialogAutomation(Salamatrix::UI::IUIService* uiService,
+                                Salamatrix::UI::IDialog* dialog);
+    virtual ~CSalamatrixDialogAutomation();
+    virtual HRESULT STDMETHODCALLTYPE add(BSTR kind, BSTR controlId, BSTR text,
+                                           long x, long y, long width, long height,
+                                           VARIANT* styleFlags, VARIANT* dialogResult);
+    virtual HRESULT STDMETHODCALLTYPE set(BSTR controlId, BSTR property,
+                                           VARIANT* value, VARIANT* value2);
+    virtual HRESULT STDMETHODCALLTYPE show(long* result);
+    virtual HRESULT STDMETHODCALLTYPE close();
 };
 
 class CSalamanderCommandsAutomation : public CDispatchImpl<CSalamanderCommandsAutomation, ISalamanderCommands>

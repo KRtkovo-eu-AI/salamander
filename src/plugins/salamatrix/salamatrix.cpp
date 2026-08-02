@@ -111,7 +111,11 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGUI = salamander->GetSalamanderGUI();
     SalamanderLanguageID = salamander->GetCurrentSalamanderLanguageID();
     Salamatrix::Runtime::ApplyHostDarkModePolicy(SalamanderGeneral, NULL);
-    salamander->SetBasicPluginData(PluginNameEN, FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_DYNAMICMENUEXT, VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
+    salamander->SetBasicPluginData(PluginNameEN,
+                                   FUNCTION_AUTOMATIONFRAMEWORK |
+                                       FUNCTION_DYNAMICMENUEXT |
+                                       FUNCTION_LOADSAVECONFIGURATION,
+                                   VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    VERSINFO_DESCRIPTION,
                                    PluginNameShort, NULL, NULL);
     salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");

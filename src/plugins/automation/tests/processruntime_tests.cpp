@@ -45,6 +45,7 @@ struct BootstrapDispatchState
     bool IntegerStorageSeen;
     bool MessageBoxOptionsSeen;
     int NotificationCalls;
+    int ControlsCalls;
 
     BootstrapDispatchState()
         : FilePickerOptionsPayloadCalls(0),
@@ -78,7 +79,8 @@ struct BootstrapDispatchState
           BooleanStorageSeen(false),
           IntegerStorageSeen(false),
           MessageBoxOptionsSeen(false),
-          NotificationCalls(0)
+          NotificationCalls(0),
+          ControlsCalls(0)
     {
     }
 };
@@ -125,6 +127,12 @@ BOOL WINAPI WorkerHostDispatch(
     {
         if (state != NULL)
             ++state->NotificationCalls;
+        response = "{\"ok\":true,\"shown\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.controls") != NULL)
+    {
+        if (state != NULL)
+            ++state->ControlsCalls;
         response = "{\"ok\":true,\"shown\":true}";
     }
     else if (strstr(payloadJson, "salamander.ui.messageBox") != NULL)
@@ -1008,6 +1016,7 @@ void RunPhpBootstrapTest()
               "<?php\n"
               "if ($Salamander->commands->execute('Copy') !== 'ok') throw new Exception('command call failed');\n"
               "if ($Salamander->ui->messageBox('Parity', 'Runtime', 'YesNo', 'Question') !== 1) throw new Exception('message box options failed');\n"
+              "if (!$Salamander->ui->controls()) throw new Exception('controls showcase call failed');\n"
               "if ($Salamander->application->language()['language'] !== 'en') throw new Exception('host language call failed');\n"
               "if ($Salamander->application->appearance()['darkMode'] !== true) throw new Exception('host appearance call failed');\n"
               "$Salamander->storage->set('bootstrap', 'ok');\n"
@@ -1083,6 +1092,7 @@ void RunPhpBootstrapTest()
         Check(state.CommandCalls == 1, "php bootstrap command call");
         Check(state.MessageBoxCalls == 1, "php message box call");
         Check(state.MessageBoxOptionsSeen, "php message box options");
+        Check(state.ControlsCalls == 1, "php controls showcase call");
         Check(state.LanguageCalls == 1, "php host language call");
         Check(state.AppearanceCalls == 1, "php host appearance call");
         Check(state.CommandRegistrationCalls == 3, "php multiple command registrations");

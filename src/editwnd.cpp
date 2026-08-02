@@ -27,11 +27,16 @@
 
 BOOL IsCharacterDelimiter(char ch)
 {
-    return ch == ' ' || ch == '/' || ch == '\\' || ch == ';' || ch == ',' || ch == '.';
+    return ch == ' ' || ch == '/' || ch == '\\' || ch == ';' || ch == ',' || ch == '.' || ch == '_';
+}
+
+BOOL IsCharacterDelimiter(WCHAR ch)
+{
+    return ch == L' ' || ch == L'/' || ch == L'\\' || ch == L';' || ch == L',' || ch == L'.' || ch == L'_';
 }
 
 int CALLBACK
-EditWordBreakProc(LPTSTR text, int current, int textLen, int code)
+EditWordBreakProc(char* text, int current, int textLen, int code)
 {
     CALL_STACK_MESSAGE5("EditWordBreakProc(%s, %d, %d, %d)", text, current, textLen, code);
     if (textLen == 0)
@@ -70,10 +75,10 @@ EditWordBreakProc(LPTSTR text, int current, int textLen, int code)
     case WB_RIGHT:
     {
         gRightBreak = FALSE;
-        BOOL edi = !IsCharacterDelimiter(*esi);
         ebp_10 = text + textLen;
         if (esi == ebp_10)
             return (int)(esi - text);
+        BOOL edi = !IsCharacterDelimiter(*esi);
         do
         {
             esi = CharNext(esi);
@@ -98,29 +103,24 @@ EditWordBreakProc(LPTSTR text, int current, int textLen, int code)
 }
 
 int CALLBACK
-EditWordBreakProcUNICODE(LPTSTR text, int current, int textLen, int code)
+EditWordBreakProcUNICODE(WCHAR* text, int current, int textLen, int code)
 {
-    CALL_STACK_MESSAGE5("EditWordBreakProcUNICODE(%s, %d, %d, %d)", text, current, textLen, code);
+    CALL_STACK_MESSAGE5("EditWordBreakProcUNICODE(0x%p, %d, %d, %d)", text, current, textLen, code);
     if (textLen == 0)
         return 0;
 
-    char buff[10000];
-    // Convert the String to ANSI
-    WideCharToMultiByte(CP_ACP, 0, (wchar_t*)text, textLen, buff, 10000, NULL, NULL);
-    buff[10000 - 1] = 0;
-    text = buff;
-
     static BOOL gRightBreak = FALSE;
     BOOL ebp_8 = FALSE;
-    char* ebp_10 = NULL;
-    char* esi = text + current;
+    WCHAR* ebp_10 = NULL;
+    WCHAR* esi = text + current;
     switch (code)
     {
     case WB_LEFT:
     {
         do
         {
-            esi = CharPrev(text, esi);
+            if (esi > text)
+                esi--;
             if (esi == text)
                 break;
             if (!IsCharacterDelimiter(*esi))
@@ -144,13 +144,13 @@ EditWordBreakProcUNICODE(LPTSTR text, int current, int textLen, int code)
     case WB_RIGHT:
     {
         gRightBreak = FALSE;
-        BOOL edi = !IsCharacterDelimiter(*esi);
         ebp_10 = text + textLen;
         if (esi == ebp_10)
             return (int)(esi - text);
+        BOOL edi = !IsCharacterDelimiter(*esi);
         do
         {
-            esi = CharNext(esi);
+            esi++;
             if (esi == ebp_10)
                 return (int)(esi - text);
 
@@ -172,7 +172,7 @@ EditWordBreakProcUNICODE(LPTSTR text, int current, int textLen, int code)
 }
 
 const char* BACKSPACE_SUBCLASSPROC = "SALBSSubClass";
-int CALLBACK EditWordBreakProc(LPTSTR text, int current, int textLen, int code);
+int CALLBACK EditWordBreakProc(char* text, int current, int textLen, int code);
 
 LRESULT CALLBACK
 BSHandlerSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -213,16 +213,25 @@ BSHandlerSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 //          if (iStart == iEnd) // nothing can't be selected
                 //          {
-                char buff[10000];
-                int len = GetWindowTextLength(hwnd);
+                int len = IsWindowUnicode(hwnd) ? GetWindowTextLengthW(hwnd) : GetWindowTextLengthA(hwnd);
                 if (len >= 10000 - 1)
                     break;
-                SendMessage(hwnd, WM_GETTEXT, 10000, (LPARAM)buff);
-
-                // delete the word
-                iStart = EditWordBreakProc(buff, iStart, iStart + 1, WB_LEFT);
-                SendMessage(hwnd, EM_SETSEL, iStart, iEnd);
-                SendMessage(hwnd, EM_REPLACESEL, TRUE, (LPARAM) "");
+                if (IsWindowUnicode(hwnd))
+                {
+                    WCHAR buff[10000];
+                    GetWindowTextW(hwnd, buff, ARRAYSIZE(buff));
+                    iStart = EditWordBreakProcUNICODE(buff, iStart, len, WB_LEFT);
+                    SendMessageW(hwnd, EM_SETSEL, iStart, iEnd);
+                    SendMessageW(hwnd, EM_REPLACESEL, TRUE, (LPARAM)L"");
+                }
+                else
+                {
+                    char buff[10000];
+                    GetWindowTextA(hwnd, buff, ARRAYSIZE(buff));
+                    iStart = EditWordBreakProc(buff, iStart, len, WB_LEFT);
+                    SendMessageA(hwnd, EM_SETSEL, iStart, iEnd);
+                    SendMessageA(hwnd, EM_REPLACESEL, TRUE, (LPARAM)"");
+                }
                 //          }
                 return 0; // we handled it
             }
@@ -234,13 +243,18 @@ BSHandlerSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         // clean up the stored OldWndProc
         WNDPROC currentWndProc = (WNDPROC)GetWindowLongPtr(hwnd, GWLP_WNDPROC);
-        SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)OldWndProc);
+        if (IsWindowUnicode(hwnd))
+            SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)OldWndProc);
+        else
+            SetWindowLongPtrA(hwnd, GWLP_WNDPROC, (LONG_PTR)OldWndProc);
 
         RemoveProp(hwnd, BACKSPACE_SUBCLASSPROC);
         break;
     }
     }
-    return CallWindowProc(OldWndProc, hwnd, message, wParam, lParam);
+    if (IsWindowUnicode(hwnd))
+        return CallWindowProcW(OldWndProc, hwnd, message, wParam, lParam);
+    return CallWindowProcA(OldWndProc, hwnd, message, wParam, lParam);
 }
 
 // we don't use WinLib's subclass so we don't step on its toes
@@ -250,7 +264,10 @@ BOOL AttachBackspaceHandler(HWND hwndEdit)
     WNDPROC oldWndProc = (WNDPROC)GetWindowLongPtr(hwndEdit, GWLP_WNDPROC);
     if (SetProp(hwndEdit, BACKSPACE_SUBCLASSPROC, (HANDLE)oldWndProc))
     {
-        SetWindowLongPtr(hwndEdit, GWLP_WNDPROC, (LONG_PTR)BSHandlerSubclassProc);
+        if (IsWindowUnicode(hwndEdit))
+            SetWindowLongPtrW(hwndEdit, GWLP_WNDPROC, (LONG_PTR)BSHandlerSubclassProc);
+        else
+            SetWindowLongPtrA(hwndEdit, GWLP_WNDPROC, (LONG_PTR)BSHandlerSubclassProc);
         return TRUE;
     }
     return FALSE;
@@ -278,11 +295,10 @@ BOOL InstallWordBreakProc(HWND hWindow)
             return FALSE;
         }
     }
-    // Under Windows XP and .NET with common controls 6, EditWordBreakProc receives UNICODE text
-    if (CCVerMajor >= 6)
-        SendMessage(hWindow, EM_SETWORDBREAKPROC, NULL, (LPARAM)EditWordBreakProcUNICODE);
+    if (IsWindowUnicode(hWindow))
+        SendMessageW(hWindow, EM_SETWORDBREAKPROC, NULL, (LPARAM)EditWordBreakProcUNICODE);
     else
-        SendMessage(hWindow, EM_SETWORDBREAKPROC, NULL, (LPARAM)EditWordBreakProc);
+        SendMessageA(hWindow, EM_SETWORDBREAKPROC, NULL, (LPARAM)EditWordBreakProc);
 
     // enable Ctrl+Backspace deletion by words
     if (!AttachBackspaceHandler(hWindow))

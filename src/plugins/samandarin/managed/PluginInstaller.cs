@@ -110,7 +110,7 @@ internal static class PluginPackageInstaller
     {
         return row is not null &&
                OfficialPackageDescriptor.TryParse(row.WebUrl, out var package) &&
-               IsCompatibleWithInstalledPackage(row, package!);
+               IsCompatibleWithInstalledPackage(row, ResolvePackageKind(row, package!));
     }
 
     public static bool TryTakeLastError(out string error)
@@ -134,14 +134,15 @@ internal static class PluginPackageInstaller
     public static async Task<string> StageAsync(PluginUpdateRow row)
     {
         if (!OfficialPackageDescriptor.TryParse(row.WebUrl, out var package) ||
-            !IsCompatibleWithInstalledPackage(row, package!))
+            !IsCompatibleWithInstalledPackage(row, ResolvePackageKind(row, package!)))
         {
             throw new InvalidOperationException("Only official plugin and extension .7z packages can be installed automatically.");
         }
 
         var executableDirectory = PluginMetadata.GetExecutableDirectory()
             ?? throw new InvalidOperationException("The Salamander installation directory could not be determined.");
-        var packageRoot = package!.Kind == OfficialPackageKind.Plugin
+        var packageKind = ResolvePackageKind(row, package!);
+        var packageRoot = packageKind == OfficialPackageKind.Plugin
             ? Path.Combine(executableDirectory, "plugins")
             : Path.Combine(executableDirectory, "extensions");
         var updateRoot = GetUpdateRoot();
@@ -153,14 +154,14 @@ internal static class PluginPackageInstaller
         try
         {
             var archivePath = Path.Combine(stagingDirectory, "package.7z");
-            await DownloadAsync(package.Uri, archivePath).ConfigureAwait(true);
-            var extractedRoot = ExtractAndValidate(archivePath, payloadDirectory, package.Kind);
+            await DownloadAsync(package!.Uri, archivePath).ConfigureAwait(true);
+            var extractedRoot = ExtractAndValidate(archivePath, payloadDirectory, packageKind);
             var installed = !string.IsNullOrWhiteSpace(row.InstallDirectory);
             var targetDirectory = installed
                 ? Path.GetFullPath(row.InstallDirectory)
                 : Path.Combine(packageRoot, Path.GetFileName(extractedRoot));
             ValidateTargetDirectory(targetDirectory, executableDirectory, packageRoot);
-            var pluginRelativePath = package.Kind == OfficialPackageKind.Plugin
+            var pluginRelativePath = packageKind == OfficialPackageKind.Plugin
                 ? FindPluginRelativePath(extractedRoot, row.Id)
                 : null;
             var helperPath = WriteInstallHelper(
@@ -169,7 +170,7 @@ internal static class PluginPackageInstaller
                 targetDirectory,
                 packageRoot,
                 pluginRelativePath,
-                appendPluginRecord: package.Kind == OfficialPackageKind.Plugin && !installed);
+                appendPluginRecord: packageKind == OfficialPackageKind.Plugin && !installed);
             StartInstallHelper(
                 helperPath,
                 RequiresElevation(targetDirectory) || RequiresElevation(packageRoot));
@@ -185,11 +186,22 @@ internal static class PluginPackageInstaller
         }
     }
 
-    private static bool IsCompatibleWithInstalledPackage(PluginUpdateRow row, OfficialPackageDescriptor package)
+    private static OfficialPackageKind ResolvePackageKind(
+        PluginUpdateRow row, OfficialPackageDescriptor package)
+    {
+        return row.CatalogKind switch
+        {
+            InstalledPackageKind.Plugin => OfficialPackageKind.Plugin,
+            InstalledPackageKind.Extension => OfficialPackageKind.Extension,
+            _ => package.Kind,
+        };
+    }
+
+    private static bool IsCompatibleWithInstalledPackage(PluginUpdateRow row, OfficialPackageKind packageKind)
     {
         return row.InstalledKind == InstalledPackageKind.Unknown ||
-               (row.InstalledKind == InstalledPackageKind.Plugin && package.Kind == OfficialPackageKind.Plugin) ||
-               (row.InstalledKind == InstalledPackageKind.Extension && package.Kind == OfficialPackageKind.Extension);
+               (row.InstalledKind == InstalledPackageKind.Plugin && packageKind == OfficialPackageKind.Plugin) ||
+               (row.InstalledKind == InstalledPackageKind.Extension && packageKind == OfficialPackageKind.Extension);
     }
 
     private static async Task DownloadAsync(Uri uri, string destination)
@@ -285,9 +297,10 @@ internal static class PluginPackageInstaller
         {
             throw new InvalidDataException("The plugin package does not contain an .spl module.");
         }
-        if (kind == OfficialPackageKind.Extension && !File.Exists(Path.Combine(root, "extension.json")))
+        if (kind == OfficialPackageKind.Extension &&
+            !Directory.EnumerateFiles(root, "extension.json", SearchOption.AllDirectories).Any())
         {
-            throw new InvalidDataException("The extension package does not contain extension.json in its top-level directory.");
+            throw new InvalidDataException("The extension package does not contain extension.json.");
         }
         return root;
     }
