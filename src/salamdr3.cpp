@@ -4104,6 +4104,9 @@ BOOL CreateKeyForwarder(HWND hDialog, int ctrlID)
     CKeyForwarder* edit = new CKeyForwarder(hDialog, ctrlID);
     if (edit != NULL)
     {
+#ifndef _UNICODE
+        edit->SetUnicodeWindow(IsWindowUnicode(hWindow));
+#endif // _UNICODE
         edit->AttachToWindow(hWindow);
         return TRUE;
     }
