@@ -2158,6 +2158,55 @@ BOOL WINAPI PackageManager::HostDispatch(
                 std::to_string(result) + "}",
             resultJson, resultCapacity, resultLength);
     }
+    if (method == "salamander.ui.pickFile")
+    {
+        if (owner->UI == NULL)
+            return FALSE;
+
+        BOOL save = FALSE;
+        std::string title, filter, initialPath;
+        Runtime::Protocol::Json::FindBoolMember(payloadJson, "save", &save);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "filter", &filter);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "initial", &initialPath);
+        if (title.empty())
+            title = save ? "Save file" : "Open file";
+
+        std::vector<char> selectedPath(SAL_MAX_PATH * 3);
+        BOOL selected = owner->UI->PickFile(
+            owner->General->GetMsgBoxParent(), save, title.c_str(),
+            filter.c_str(), initialPath.c_str(), &selectedPath[0],
+            static_cast<DWORD>(selectedPath.size()));
+        return CopyResult(
+            std::string("{\"ok\":true,\"selected\":") +
+                (selected ? "true" : "false") +
+                ",\"path\":\"" +
+                JsonEscape(selected ? &selectedPath[0] : "") + "\"}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.ui.pickFolder")
+    {
+        if (owner->UI == NULL)
+            return FALSE;
+
+        std::string title, initialPath;
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "initial", &initialPath);
+        if (title.empty())
+            title = "Select folder";
+
+        std::vector<char> selectedPath(SAL_MAX_PATH * 3);
+        BOOL selected = owner->UI->PickFolder(
+            owner->General->GetMsgBoxParent(), title.c_str(),
+            initialPath.c_str(), &selectedPath[0],
+            static_cast<DWORD>(selectedPath.size()));
+        return CopyResult(
+            std::string("{\"ok\":true,\"selected\":") +
+                (selected ? "true" : "false") +
+                ",\"path\":\"" +
+                JsonEscape(selected ? &selectedPath[0] : "") + "\"}",
+            resultJson, resultCapacity, resultLength);
+    }
     if (method == "salamander.ui.progress.create" ||
         method == "salamander.ui.progress.update" ||
         method == "salamander.ui.progress.step" ||

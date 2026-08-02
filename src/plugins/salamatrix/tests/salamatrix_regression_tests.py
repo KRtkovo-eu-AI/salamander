@@ -741,6 +741,11 @@ def main() -> int:
     require(packages, r"BOOL RuntimeUsable;", "extension package runtime usability state is missing")
     require(packages, r"plugins.*automation.*scripts", "Automation sample-script extension root is missing")
     require(packages, r"salamander\.ui\.progress\.create", "framework progress host dispatch is missing")
+    require(
+        packages,
+        r'salamander\.ui\.pickFile.*?PickFile\(.*?'
+        r'salamander\.ui\.pickFolder.*?PickFolder\(',
+        "framework file and folder picker host dispatch is missing")
     require(packages, r"SALAMATRIX_SERVICE_SCRIPT_RUNNER", "legacy compatibility script runner fallback is missing")
     require(packages, r"RuntimeAdapterFlagCompatibility", "legacy fallback is not limited to compatibility adapters")
     require(
