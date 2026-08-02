@@ -11,16 +11,6 @@
 #include "darkmode.h"
 #include "common/winlibdpi.h"
 
-namespace
-{
-COLORREF DarkenColor(COLORREF color, int amount)
-{
-    return RGB(max(0, GetRValue(color) - amount),
-               max(0, GetGValue(color) - amount),
-               max(0, GetBValue(color) - amount));
-}
-} // namespace
-
 static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
 {
     HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
@@ -157,7 +147,7 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
         SelectedTextColor = GetSysColor(COLOR_HIGHLIGHTTEXT);
         NormalTextColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
         HilightColor = LightenColorSimple(panelBg, 24);
-        GrayTextColor = DarkenColor(panelBg, 40);
+        GrayTextColor = DarkModeGetDisabledTextColor();
     }
     else
     {
@@ -1003,7 +993,9 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
 
                 if (item->State & MENU_STATE_GRAYED)
                 {
-                    if (!selected)
+                    if (DarkModeShouldUseDarkColors())
+                        SetTextColor(hDC, SharedRes->GrayTextColor);
+                    else if (!selected)
                     {
                         SetTextColor(hDC, SharedRes->HilightColor);
                         RECT textR2 = textR;
@@ -1029,7 +1021,9 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
                 textR.left = SharedRes->TextItemHeight + 1 + item->ColumnL2X;
                 if (item->State & MENU_STATE_GRAYED)
                 {
-                    if (!selected)
+                    if (DarkModeShouldUseDarkColors())
+                        SetTextColor(hDC, SharedRes->GrayTextColor);
+                    else if (!selected)
                     {
                         SetTextColor(hDC, SharedRes->HilightColor);
                         RECT textR2 = textR;
@@ -1058,7 +1052,9 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
                 textR.left = SharedRes->TextItemHeight + 1 + item->ColumnRX;
                 if (item->State & MENU_STATE_GRAYED)
                 {
-                    if (!selected)
+                    if (DarkModeShouldUseDarkColors())
+                        SetTextColor(hDC, SharedRes->GrayTextColor);
+                    else if (!selected)
                     {
                         SetTextColor(hDC, SharedRes->HilightColor);
                         RECT textR2 = textR;

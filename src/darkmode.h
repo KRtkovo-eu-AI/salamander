@@ -100,6 +100,7 @@ int DarkModeMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType
 HBRUSH DarkModeGetPanelFrameBrush();
 COLORREF DarkModeGetDialogTextColor();
 COLORREF DarkModeGetDialogBackgroundColor();
+COLORREF DarkModeGetDisabledTextColor();
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
 void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
