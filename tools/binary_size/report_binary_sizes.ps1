@@ -3,10 +3,11 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
     [string]$CurrentRoot,
+    [string]$CurrentSnapshotJson,
 
     [string]$BaselineRoot,
+    [string]$BaselineSnapshotJson,
     [string]$BaselineTag = '',
     [string]$BaselineCommit = '',
     [string]$CurrentLabel = 'Current',
@@ -219,13 +220,33 @@ function New-Markdown {
     return $lines -join [Environment]::NewLine
 }
 
-$current = New-Snapshot -Root $CurrentRoot -Label $CurrentLabel
-if ([string]::IsNullOrWhiteSpace($BaselineRoot)) {
+if ([string]::IsNullOrWhiteSpace($CurrentRoot) -eq [string]::IsNullOrWhiteSpace($CurrentSnapshotJson)) {
+    throw 'Specify exactly one of CurrentRoot or CurrentSnapshotJson.'
+}
+if (-not [string]::IsNullOrWhiteSpace($BaselineRoot) -and -not [string]::IsNullOrWhiteSpace($BaselineSnapshotJson)) {
+    throw 'Specify at most one of BaselineRoot or BaselineSnapshotJson.'
+}
+
+$current = if ($CurrentSnapshotJson) {
+    (Get-Content -LiteralPath $CurrentSnapshotJson -Raw | ConvertFrom-Json).current
+} else {
+    New-Snapshot -Root $CurrentRoot -Label $CurrentLabel
+}
+$current.label = $CurrentLabel
+
+$hasBaseline = -not [string]::IsNullOrWhiteSpace($BaselineRoot) -or
+    -not [string]::IsNullOrWhiteSpace($BaselineSnapshotJson)
+if (-not $hasBaseline) {
     $report = [pscustomobject]@{ schemaVersion = 1; current = $current }
     $markdown = "# Binary size report`n`n**$($current.artifactCount)** PE artifacts, **$(Format-Bytes $current.fileSizeBytes)** total."
 }
 else {
-    $baseline = New-Snapshot -Root $BaselineRoot -Label $BaselineTag
+    $baseline = if ($BaselineSnapshotJson) {
+        (Get-Content -LiteralPath $BaselineSnapshotJson -Raw | ConvertFrom-Json).current
+    } else {
+        New-Snapshot -Root $BaselineRoot -Label $BaselineTag
+    }
+    $baseline.label = $BaselineTag
     $comparison = New-Comparison -Baseline $baseline -Current $current
     $delta = [long]$current.fileSizeBytes - [long]$baseline.fileSizeBytes
     $changedCount = @($comparison | Where-Object { $_.status -ne 'unchanged' }).Count
@@ -240,7 +261,7 @@ else {
             changedArtifactCount = $changedCount
             title = "$(Format-Bytes $delta -Signed) across $changedCount changed artifacts"
         }
-        comparison = $comparison
+        comparison = @($comparison)
     }
     $markdown = New-Markdown -Report $report
 }

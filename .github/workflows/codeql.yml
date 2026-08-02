@@ -1,9 +1,16 @@
 name: CodeQL Security Scan
 
 on:
-  workflow_run:
-    workflows: [PR Build]
-    types: [completed]
+  workflow_call:
+    inputs:
+      pr_number:
+        description: Pull request number whose changed files determine whether analysis is needed
+        required: true
+        type: number
+      target_ref:
+        description: Exact PR head commit to analyze
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       target-ref:
@@ -48,17 +55,10 @@ jobs:
               return;
             }
 
-            const run = context.payload.workflow_run;
-            if (!run || run.conclusion !== 'success') {
+            const pullNumber = Number('${{ inputs.pr_number }}');
+            if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
               core.setOutput('should_analyze', 'false');
-              core.info(`PR Build did not succeed (conclusion: ${run?.conclusion || 'unknown'}); CodeQL analysis will be skipped.`);
-              return;
-            }
-
-            const pull = run.pull_requests?.[0];
-            if (!pull) {
-              core.setOutput('should_analyze', 'false');
-              core.info('No pull request payload found; CodeQL analysis steps will be skipped.');
+              core.info('No valid pull request number was supplied; CodeQL analysis steps will be skipped.');
               return;
             }
 
@@ -68,7 +68,7 @@ jobs:
               {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: pull.number,
+                pull_number: pullNumber,
                 per_page: 100,
               },
             );
@@ -90,7 +90,7 @@ jobs:
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.event.inputs['target-ref'] || github.ref }}
+          ref: ${{ inputs.target_ref || github.event.inputs['target-ref'] || github.ref }}
           fetch-depth: 2
 
       - name: Initialize CodeQL

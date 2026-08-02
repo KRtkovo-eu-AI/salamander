@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[3]
 REPORT = ROOT / "tools" / "binary_size" / "report_binary_sizes.ps1"
 RESOLVER = ROOT / "tools" / "binary_size" / "resolve_release_baseline.ps1"
 WORKFLOW = ROOT / ".github" / "workflows" / "binary-size.yml"
+PR_BUILD_WORKFLOW = ROOT / ".github" / "workflows" / "pr-msbuild.yml"
+CODEQL_WORKFLOW = ROOT / ".github" / "workflows" / "codeql.yml"
 DIRECTORY_TARGETS = ROOT / "Directory.Build.targets"
 PWSH = shutil.which("pwsh") or shutil.which("powershell")
 
@@ -79,6 +81,37 @@ def test_report_compares_files_and_pe_sections(tmp_path: Path) -> None:
     assert "PE section changes" in output_md.read_text(encoding="utf-8")
 
 
+def test_report_accepts_current_snapshot_from_pr_build(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline"
+    current = tmp_path / "current"
+    baseline.mkdir()
+    current.mkdir()
+    write_pe(baseline / "salamand.exe", 0x200, 0x100)
+    write_pe(current / "salamand.exe", 0x400, 0x180)
+    snapshot_json = tmp_path / "current-snapshot.json"
+    report_json = tmp_path / "comparison.json"
+
+    run_ps1(
+        REPORT,
+        "-CurrentRoot", str(current),
+        "-CurrentLabel", "pr-head",
+        "-OutputJson", str(snapshot_json),
+    )
+    run_ps1(
+        REPORT,
+        "-BaselineRoot", str(baseline),
+        "-CurrentSnapshotJson", str(snapshot_json),
+        "-CurrentLabel", "pr-head",
+        "-BaselineTag", "5.0-samandarin-0.14",
+        "-OutputJson", str(report_json),
+    )
+
+    report = json.loads(report_json.read_text(encoding="utf-8"))
+    assert report["current"]["label"] == "pr-head"
+    assert report["summary"]["changedArtifactCount"] == 1
+    assert report["comparison"][0]["path"] == "salamand.exe"
+
+
 def test_resolver_uses_numeric_tag_order_and_peels_annotated_tag(tmp_path: Path) -> None:
     repository = tmp_path / "repo"
     repository.mkdir()
@@ -108,10 +141,21 @@ def test_resolver_uses_numeric_tag_order_and_peels_annotated_tag(tmp_path: Path)
 def test_msbuild_and_workflow_keep_release_clean_out_of_reporting() -> None:
     targets = DIRECTORY_TARGETS.read_text(encoding="utf-8")
     workflow = WORKFLOW.read_text(encoding="utf-8")
+    pr_build = PR_BUILD_WORKFLOW.read_text(encoding="utf-8")
+    codeql = CODEQL_WORKFLOW.read_text(encoding="utf-8")
     assert "'$(Configuration)|$(Platform)' == 'Release|x64'" in targets
     assert "[binary-size]" in targets
     assert "Release clean|x64" not in targets.split('OpenSalamanderReportBinarySize', 1)[1]
+    assert "workflow_call:" in workflow
+    assert "pr-build-x64-release-binary-size" in workflow
+    assert "Build-Tree -tree ./head" not in workflow
     assert "resolve_release_baseline.ps1" in workflow
     assert "/p:Configuration=Release" in workflow
     assert "/p:Platform=x64" in workflow
     assert "job.check_run_id" in workflow
+    assert "configuration: Release" in pr_build
+    assert "uses: ./.github/workflows/binary-size.yml" in pr_build
+    assert "uses: ./.github/workflows/codeql.yml" in pr_build
+    assert "needs.build.result == 'success'" in pr_build
+    assert "workflow_call:" in codeql
+    assert "workflow_run:" not in codeql
