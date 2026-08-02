@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
@@ -13,7 +13,7 @@
 // look at shared\versinfo.rc2
 
 #define VERSINFO_MAJOR       0
-#define VERSINFO_MINORA      2
+#define VERSINFO_MINORA      3
 #define VERSINFO_MINORB      0
 
 #include "spl_vers.h" // retrieve version and build numbers
