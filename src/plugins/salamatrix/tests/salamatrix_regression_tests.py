@@ -61,6 +61,9 @@ def main() -> int:
     toolbar4 = read("src/toolbar4.cpp")
     toolbar8 = read("src/toolbar8.cpp")
     main_menu = read("src/menu4.cpp")
+    samandarin_entry = read("src/plugins/samandarin/managed/EntryPoint.cs")
+    samandarin_managed_project = read(
+        "src/plugins/samandarin/managed/Samandarin.Managed.csproj")
     javascriptruntime = read("src/plugins/javascriptruntime/javascriptruntime.cpp")
     pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
     powershellruntime = read("src/plugins/powershellruntime/powershellruntime.cpp")
@@ -117,6 +120,29 @@ def main() -> int:
     menu_builder = read("src/extensions/extension-menu-builder/main.ps1")
     menu_builder_manifest = json.loads(
         read("src/extensions/extension-menu-builder/extension.json"))
+
+    update_check = re.search(
+        r"public static async Task CheckForUpdatesAsync\(.*?"
+        r"(?=\n    public static void Shutdown\(\))",
+        samandarin_entry,
+        re.MULTILINE | re.DOTALL)
+    if update_check is None or update_check.group(0).count(
+            "CheckSemaphore.WaitAsync") != 1:
+        raise AssertionError(
+            "Samandarin update check must acquire its semaphore exactly once")
+    require(
+        samandarin_entry,
+        r"private void AddImageListImage\(string key, Image source\).*?"
+        r"CreateImageListBitmap\(source, _pluginImages\.ImageSize\).*?"
+        r"_pluginImages\.Images\.Add\(key, bitmap\);.*?"
+        r"_ = _pluginImages\.Handle;",
+        "Samandarin Plugin Updates disposes images before ImageList copies them")
+    require(
+        samandarin_entry + samandarin_managed_project,
+        r"DefaultPluginImageResource = \"OpenSalamander\.Plugin\.png\".*?"
+        r"Image\.FromStream\(stream\).*?"
+        r"res\\plugin\.png.*?OpenSalamander\.Plugin\.png",
+        "Samandarin Plugin Updates does not use src/res/plugin.png by default")
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")

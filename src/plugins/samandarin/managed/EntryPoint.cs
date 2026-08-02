@@ -409,7 +409,6 @@ internal static class UpdateCoordinator
             }
         }
 
-        await CheckSemaphore.WaitAsync().ConfigureAwait(false);
         var shutdownToken = ShutdownCancellation.Token;
         if (shutdownToken.IsCancellationRequested)
             return;
@@ -1203,7 +1202,7 @@ internal sealed class ThemedGroupBox : GroupBox
 internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 {
     private const string DefaultPluginImageKey = "default-plugin";
-    private const string DefaultPluginIconResource = "OpenSalamander.Plugin.ico";
+    private const string DefaultPluginImageResource = "OpenSalamander.Plugin.png";
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern uint ExtractIconEx(
@@ -1448,9 +1447,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             _pluginImages.ImageSize = imageSize;
             foreach (var pair in _pluginImageSources)
             {
-                using var bitmap =
-                    CreateImageListBitmap(pair.Value, imageSize);
-                _pluginImages.Images.Add(pair.Key, bitmap);
+                AddImageListImage(pair.Key, pair.Value);
             }
             _listView.SmallImageList = _pluginImages;
         }
@@ -1769,15 +1766,14 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private void AddDefaultPluginImage()
     {
         using var stream = typeof(PluginUpdatesDialog).Assembly.GetManifestResourceStream(
-            DefaultPluginIconResource);
+            DefaultPluginImageResource);
         if (stream is null)
         {
             return;
         }
 
-        using var icon = new Icon(stream);
-        using var bitmap = icon.ToBitmap();
-        AddPluginImage(DefaultPluginImageKey, bitmap);
+        using var image = Image.FromStream(stream);
+        AddPluginImage(DefaultPluginImageKey, image);
     }
 
     private async Task EnsureCatalogImagesAsync(IEnumerable<PluginUpdateRow> rows)
@@ -1870,9 +1866,19 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 
         var source = new Bitmap(image);
         _pluginImageSources.Add(key, source);
+        AddImageListImage(key, source);
+    }
+
+    private void AddImageListImage(string key, Image source)
+    {
         using var bitmap =
             CreateImageListBitmap(source, _pluginImages.ImageSize);
         _pluginImages.Images.Add(key, bitmap);
+
+        // ImageList keeps the original managed image until its native handle
+        // is created. Force that copy while bitmap is still alive; otherwise
+        // a later DPI resize can try to read the disposed temporary bitmap.
+        _ = _pluginImages.Handle;
     }
 
     protected override void Dispose(bool disposing)
