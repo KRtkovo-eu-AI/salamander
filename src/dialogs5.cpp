@@ -23,6 +23,7 @@
 #include "consts.h"
 #include "darkmode.h"
 #include "svg.h"
+#include "common/winlibdpi.h"
 #include "plugins/salamatrix/salamatrix_storage.h"
 #include "plugins/salamatrix/salamatrix_ui.h"
 #include "third_party/darkmodelib/include/Darkmodelib.h"
@@ -408,6 +409,7 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     HListView = NULL;
     Header = NULL;
     HImageList = NULL;
+    GripWindow = NULL;
     RefreshPanels = FALSE;
     DrivesBarChange = FALSE;
     FocusPlugin[0] = 0;
@@ -566,9 +568,6 @@ void CPluginsDlg::LayoutControls()
     GetClientRect(HWindow, &client);
     const int dx = client.right - LastClientW;
     const int dy = client.bottom - LastClientH;
-    if (dx == 0 && dy == 0)
-        return;
-
     const int rightTop[] = {
         IDB_PLUGINADD, IDB_PLUGINREMOVE, IDB_PLUGINCONFIG,
         IDB_PLUGINKEYS, IDB_PLUGINTEST, IDB_PLUGINTESTALL,
@@ -597,22 +596,44 @@ void CPluginsDlg::LayoutControls()
             SWP_NOZORDER | SWP_NOACTIVATE);
     };
 
-    adjust(HListView, 0, 0, dx, dy);
-    if (Header != NULL)
-        adjust(Header->HWindow, 0, 0, dx, 0);
-    for (int index = 0; index < ARRAYSIZE(rightTop); ++index)
-        adjust(GetDlgItem(HWindow, rightTop[index]), dx, 0, 0, 0);
-    for (int index = 0; index < ARRAYSIZE(rightBottom); ++index)
-        adjust(GetDlgItem(HWindow, rightBottom[index]), dx, dy, 0, 0);
-    for (int index = 0; index < ARRAYSIZE(detailLabels); ++index)
-        adjust(GetDlgItem(HWindow, detailLabels[index]), 0, dy, 0, 0);
-    for (int index = 0; index < ARRAYSIZE(detailValues); ++index)
-        adjust(GetDlgItem(HWindow, detailValues[index]), 0, dy, dx, 0);
-    adjust(GetDlgItem(HWindow, IDC_PLUGINSHOWINBAR), 0, dy, dx, 0);
-    adjust(GetDlgItem(HWindow, IDC_PLUGINSHOWINCHDRV), 0, dy, dx, 0);
+    if (dx != 0 || dy != 0)
+    {
+        adjust(HListView, 0, 0, dx, dy);
+        if (Header != NULL)
+            adjust(Header->HWindow, 0, 0, dx, 0);
+        for (int index = 0; index < ARRAYSIZE(rightTop); ++index)
+            adjust(GetDlgItem(HWindow, rightTop[index]), dx, 0, 0, 0);
+        for (int index = 0; index < ARRAYSIZE(rightBottom); ++index)
+            adjust(GetDlgItem(HWindow, rightBottom[index]), dx, dy, 0, 0);
+        for (int index = 0; index < ARRAYSIZE(detailLabels); ++index)
+            adjust(GetDlgItem(HWindow, detailLabels[index]), 0, dy, 0, 0);
+        for (int index = 0; index < ARRAYSIZE(detailValues); ++index)
+            adjust(GetDlgItem(HWindow, detailValues[index]), 0, dy, dx, 0);
+        adjust(GetDlgItem(HWindow, IDC_PLUGINSHOWINBAR), 0, dy, dx, 0);
+        adjust(GetDlgItem(HWindow, IDC_PLUGINSHOWINCHDRV), 0, dy, dx, 0);
+    }
+
+    HWND grip = GetDlgItem(HWindow, IDC_PLUGINS_GRIP);
+    if (grip != NULL)
+    {
+        const int gripWidth =
+            WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL);
+        const int gripHeight =
+            WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL);
+        SetWindowPos(
+            grip, NULL, client.right - gripWidth,
+            client.bottom - gripHeight, gripWidth, gripHeight,
+            SWP_NOZORDER | SWP_NOACTIVATE);
+    }
 
     LastClientW = client.right;
     LastClientH = client.bottom;
+    if (dx != 0 || dy != 0)
+    {
+        RedrawWindow(
+            HWindow, NULL, NULL,
+            RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+    }
 }
 
 void CPluginsDlg::InitColumns()
@@ -1352,6 +1373,12 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         Header->CheckToolbar(Configuration.KeepPluginsSorted ? TLBHDRMASK_SORT : 0);
 
+        GripWindow = new CTPHGripWindow(HWindow, IDC_PLUGINS_GRIP);
+        if (GripWindow == NULL)
+            TRACE_E(LOW_MEMORY);
+        else
+            DarkModeApplyWindow(GripWindow->HWindow);
+
         // insert columns
         InitColumns();
 
@@ -1372,6 +1399,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         MinDlgH = windowRect.bottom - windowRect.top;
         LastClientW = clientRect.right;
         LastClientH = clientRect.bottom;
+        LayoutControls();
 
         ApplyTheme();
 

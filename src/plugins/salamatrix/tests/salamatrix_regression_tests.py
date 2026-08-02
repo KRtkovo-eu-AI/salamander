@@ -31,6 +31,7 @@ def require_absent(text: str, pattern: str, message: str) -> None:
 
 def main() -> int:
     dialogs = read("src/dialogs5.cpp")
+    dialog_resources = read("src/lang/lang.rc")
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
@@ -714,6 +715,24 @@ def main() -> int:
         r"IDS_PLUGIN_SHOWINEXTENSIONBAR.*?"
         r"SetExtensionBarVisible",
         "Plugin Manager does not expose localized Extension Bar controls")
+    require(
+        dialog_resources,
+        r"IDD_PLUGINS DIALOGEX[^\n]*\n"
+        r"STYLE (?=[^\n]*DS_MODALFRAME)(?=[^\n]*WS_THICKFRAME)"
+        r"(?![^\n]*(?:WS_MINIMIZEBOX|WS_MAXIMIZEBOX))[^\n]*\n"
+        r".*?IDC_PLUGINS_GRIP.*?SBS_SIZEBOXBOTTOMRIGHTALIGN",
+        "Plugin Manager does not use the Configuration-style resizable dialog frame and grip")
+    require(
+        dialogs,
+        r"GripWindow = new CTPHGripWindow.*?"
+        r"DarkModeApplyWindow\(GripWindow->HWindow\)",
+        "Plugin Manager resize grip is not dark-mode aware")
+    require(
+        dialogs,
+        r"void CPluginsDlg::LayoutControls\(\).*?"
+        r"RDW_INVALIDATE \| RDW_ERASE \| "
+        r"RDW_ALLCHILDREN \| RDW_UPDATENOW",
+        "Plugin Manager does not fully repaint after resizing")
     require_absent(
         dialogs,
         r"_snprintf_s\([^;]*LoadStr\(IDS_PLUGIN_SHOWINEXTENSIONBAR\)",

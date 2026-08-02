@@ -968,6 +968,7 @@ protected:
 // ****************************************************************************
 
 class CToolbarHeader;
+class CTPHGripWindow;
 struct CPluginData;
 class CHyperLink;
 
@@ -987,6 +988,7 @@ protected:
     char PluginTestText[100];       // original label of the Test button
     std::vector<Salamatrix::Extensions::ExtensionInfo> ExtensionRows;
     std::vector<int> ExtensionImageIndices;
+    CTPHGripWindow* GripWindow;
     int MinDlgW;
     int MinDlgH;
     int LastClientW;
