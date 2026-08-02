@@ -164,8 +164,7 @@ a:hover .runtime-pill span, a:hover .runtime-pill strong { text-decoration: none
 .resource-list span { color: var(--sam-muted); font-size: .88rem; }
 .back-to-top { position: fixed; right: 24px; bottom: 24px; z-index: 20; display: grid; place-items: center; width: 44px; height: 44px; color: #1b1100; background: linear-gradient(#f35353, #e02e2e); border: 1px solid #e02e2e; border-radius: 50%; box-shadow: 0 10px 24px rgba(0,0,0,.45); font-size: 1.45rem; font-weight: 700; line-height: 1; text-decoration: none; opacity: 0; pointer-events: none; transform: translateY(12px); transition: all .18s ease; }
 .back-to-top--visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
-.back-to-top:hover,
-.back-to-top:focus { color: #ffffff; background: linear-gradient(#f35353, #e02e2e); text-decoration: none; }
+.back-to-top:hover { color: #ffffff; background: linear-gradient(#f35353, #e02e2e); text-decoration: none; }
 .textCenter { text-align: center; }
 
 /* Salamatrix.UI reference */
