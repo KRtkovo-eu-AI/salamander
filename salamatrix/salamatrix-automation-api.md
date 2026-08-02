@@ -20,6 +20,7 @@ provide.
 | `Python.CPython` | Python module | synchronous |
 | `PowerShell` | PowerShell script | synchronous |
 | `PHP.CLI` | PHP script | synchronous |
+| `Lua` | Lua script | synchronous |
 
 The worker injects one root object:
 
@@ -29,6 +30,7 @@ The worker injects one root object:
 | Python | `Salamander` |
 | PowerShell | `$Salamander` |
 | PHP | `$Salamander` |
+| Lua | `Salamander` |
 
 JavaScript scripts run as modules and may use top-level `await`. They must not
 use an invented `this.selectedItems` property. The current selection is obtained
@@ -49,7 +51,7 @@ Contract**, split into five explicit sections:
 2. `INSTALLED SALAMANDER API CONTRACT`: only the relevant implemented API
    slices;
 3. `SELECTED RUNTIME CONTRACT`: the real worker facade conventions for the
-   selected JavaScript, Python, PowerShell, or PHP runtime;
+   selected JavaScript, Python, PowerShell, PHP, or Lua runtime;
 4. `OUTPUT CONTRACT`: the exact closed JSON Schema for the response;
 5. `GENERATION RULES`: precedence, grounding, capability, effect, and honest
    framework-GAP rules.
@@ -80,6 +82,8 @@ invented source. Static validation then checks cross-field facts such as:
 - `sides.context` implies `readSelection=true`;
 - a file writer implies `modifyContents=true`;
 - Node module scripts use `import`, not CommonJS `require`;
+- Lua scripts use the injected global `Salamander` table and standard Lua
+  libraries available in the provider package;
 - `selectedItems` must originate from `Salamander.sides.context`;
 - a known implementable recipe must not be reported as a framework GAP.
 
@@ -297,6 +301,7 @@ the required control exists.
 | `pickFolder` | title, initial | `{selected, path}` |
 | `progress` | title, total, style flags, optional second total | progress object |
 | `dialog` | title, width, height | dialog object |
+| `uptime` | none | host uptime in milliseconds as a decimal string |
 
 Python uses `message_box`, `input_box`, `pick_file`, and `pick_folder`.
 
@@ -321,13 +326,26 @@ cancellation and close the progress object even when an operation fails.
 
 ### Dialog object
 
-Supported controls are `label`, `textbox`, `checkbox`, `radio`, `combobox`,
-`button`, `listview`, `treeview`, `tabcontrol`, `folderpicker`, and
-`filepicker`.
+Supported controls are `label`, `statictext`, `textbox`, `checkbox`, `radio`,
+`combobox`, `button`, `listview`, `treeview`, `tabcontrol`, `folderpicker`,
+`filepicker`, `groupbox`, `hyperlink`, `progressbar`, `arrowbutton`,
+`textarrowbutton`, `colorarrowbutton`, and `toolbarheader`.
 
 The generic add operation accepts a control id, text, optional
 `x/y/width/height`, and applicable options: `readOnly`, `checked`,
-`dialogResult`, `keepOpen`, `multiline`, `filter`, and `save`.
+`dialogResult`, `keepOpen`, `multiline`, `filter`, and `save`. The complete
+native option set additionally includes `styleFlags`, `pathSeparator`,
+`toolTip`, `actionOpen`, `actionCommand`, `actionHint`, `progress`,
+`progressCurrent`, `progressTotal`, `progressText`,
+`indeterminateDuration`, `indeterminateInterval`, `textColor`,
+`backgroundColor`, `alignControlId`, and `buttonMask`.
+
+Every modern runtime forwards that same extended option set to the framework
+package host. The package host owns the dialog independently of Automation,
+routes change events back through SMX1, and destroys outstanding dialogs when
+the extension deactivates. Automation JScript exposes a thin COM `UI.dialog`
+adapter over the same `IDialog`/`IControl` service, while native plugins query
+`SALAMATRIX_SERVICE_UI` directly.
 
 Convenience methods include:
 
@@ -347,6 +365,13 @@ worker facade when positional argument order matters:
 - `src/plugins/powershellruntime/runtime/salamatrix_worker.ps1`
 - `src/plugins/phpruntime/runtime/salamatrix_worker.php`
 - `src/plugins/luaruntime/runtime/salamatrix_worker.lua`
+
+The complete control catalog, layout/property reference, dark-mode/DPI model,
+and side-by-side JavaScript, Python, PowerShell, PHP, Lua, Automation JScript,
+and native C++ examples are documented in
+[Salamatrix.UI framework and custom dialog guide](salamatrix-ui.md). The
+bundled demo sources deliberately build the complete capabilities gallery
+themselves instead of calling a prebuilt showcase window.
 
 ## AI service
 
