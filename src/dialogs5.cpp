@@ -1084,8 +1084,6 @@ void CPluginsDlg::OnSelChanged()
             EnableWindow(GetDlgItem(HWindow, IDC_PLUGINSHOWINCHDRV), hasItem);
         }
 
-        EnableHeader();
-
         EnableButtons(p);
     }
     else if (extension != NULL)
@@ -1205,6 +1203,7 @@ void CPluginsDlg::OnSelChanged()
         /*if (IsWindowVisible(showInChDrv))*/ ShowWindow(showInChDrv, SW_HIDE); // condition commented out because it misbehaves during WM_INITDIALOG (the dialog is not visible as a whole -> the check fails)
         EnableButtons(NULL);
     }
+    EnableHeader();
 }
 
 CPluginData*

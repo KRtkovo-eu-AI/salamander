@@ -718,6 +718,13 @@ def main() -> int:
         r"SetExtensionBarVisible",
         "Plugin Manager does not expose localized Extension Bar controls")
     require(
+        dialogs,
+        r"void CPluginsDlg::OnSelChanged\(\).*?"
+        r"else if \(extension != NULL\).*?EnableButtons\(NULL\);\s*\}\s*"
+        r"else\s*\{.*?EnableButtons\(NULL\);\s*\}\s*"
+        r"EnableHeader\(\);\s*\}",
+        "Plugin Manager does not refresh extension move buttons for every selection")
+    require(
         dialog_resources,
         r"IDD_PLUGINS DIALOGEX[^\n]*\n"
         r"STYLE (?=[^\n]*DS_MODALFRAME)(?=[^\n]*WS_THICKFRAME)"
