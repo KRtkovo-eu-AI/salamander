@@ -1203,6 +1203,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 {
     private const string DefaultPluginImageKey = "default-plugin";
     private const string DefaultPluginImageResource = "OpenSalamander.Plugin.png";
+    internal const int CatalogImageDownloadConcurrency = 6;
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern uint ExtractIconEx(
@@ -1244,6 +1245,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private SortOrder _sortOrder = SortOrder.Ascending;
     private bool _installScheduled;
     private bool _installInProgress;
+    private CancellationTokenSource? _catalogImageLoadCancellation;
 
     private static readonly System.Drawing.Size LogicalMinimumWindowSize =
         new(940, 650);
@@ -1572,6 +1574,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 
     private async Task RefreshAsync()
     {
+        CancelCatalogImageLoad();
         SetLoadingState(true);
         _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginUpdatesLoading);
         try
@@ -1584,8 +1587,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
                 ? NativeStrings.Get(NativeStringId.PluginUpdatesReady)
                 : $"{NativeStrings.Get(NativeStringId.PluginUpdatesReady)} {string.Join(" | ", PluginCatalogService.LastErrors)}";
             SetLoadingState(false);
-            await EnsureCatalogImagesAsync(_rows).ConfigureAwait(true);
-            RefreshCatalogImages();
+            StartCatalogImageLoad(_rows);
         }
         catch (Exception ex)
         {
@@ -1776,17 +1778,79 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         AddPluginImage(DefaultPluginImageKey, image);
     }
 
-    private async Task EnsureCatalogImagesAsync(IEnumerable<PluginUpdateRow> rows)
+    private void StartCatalogImageLoad(IEnumerable<PluginUpdateRow> rows)
     {
+        CancelCatalogImageLoad();
+        _catalogImageLoadCancellation = new CancellationTokenSource();
+        _ = LoadCatalogImagesAndRefreshAsync(
+            rows.ToList(), _catalogImageLoadCancellation);
+    }
+
+    private void CancelCatalogImageLoad()
+    {
+        var cancellation = _catalogImageLoadCancellation;
+        _catalogImageLoadCancellation = null;
+        cancellation?.Cancel();
+    }
+
+    private async Task LoadCatalogImagesAndRefreshAsync(
+        IReadOnlyList<PluginUpdateRow> rows,
+        CancellationTokenSource cancellation)
+    {
+        var cancellationToken = cancellation.Token;
+        try
+        {
+            await EnsureCatalogImagesAsync(rows, cancellationToken).ConfigureAwait(true);
+            if (!cancellationToken.IsCancellationRequested && !IsDisposed && !Disposing)
+            {
+                RefreshCatalogImages();
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_catalogImageLoadCancellation, cancellation))
+            {
+                _catalogImageLoadCancellation = null;
+            }
+            cancellation.Dispose();
+        }
+    }
+
+    private async Task EnsureCatalogImagesAsync(
+        IEnumerable<PluginUpdateRow> rows,
+        CancellationToken cancellationToken)
+    {
+        var pendingRows = new List<PluginUpdateRow>();
+        var pendingIcons = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in rows)
         {
-            if (!string.IsNullOrEmpty(GetCachedCatalogIconImageKey(row)))
+            if (!string.IsNullOrEmpty(GetCachedCatalogIconImageKey(row)) ||
+                !TryResolveCatalogIconReference(row, out var resolvedIcon) ||
+                !pendingIcons.Add(resolvedIcon))
             {
                 continue;
             }
 
-            await EnsureCatalogIconImageAsync(row).ConfigureAwait(true);
+            pendingRows.Add(row);
         }
+
+        using var concurrency = new SemaphoreSlim(CatalogImageDownloadConcurrency);
+        var downloads = pendingRows.Select(async row =>
+        {
+            await concurrency.WaitAsync(cancellationToken).ConfigureAwait(true);
+            try
+            {
+                await EnsureCatalogIconImageAsync(row, cancellationToken).ConfigureAwait(true);
+            }
+            finally
+            {
+                concurrency.Release();
+            }
+        });
+        await Task.WhenAll(downloads).ConfigureAwait(true);
     }
 
     private string GetCachedCatalogIconImageKey(PluginUpdateRow row)
@@ -1799,7 +1863,9 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         return _catalogImageKeys.TryGetValue(resolvedIcon, out var key) && _pluginImages.Images.ContainsKey(key) ? key : string.Empty;
     }
 
-    private async Task EnsureCatalogIconImageAsync(PluginUpdateRow row)
+    private async Task EnsureCatalogIconImageAsync(
+        PluginUpdateRow row,
+        CancellationToken cancellationToken)
     {
         if (!TryResolveCatalogIconReference(row, out var resolvedIcon))
         {
@@ -1821,13 +1887,15 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
                 request.Headers.Accept.ParseAdd("image/*");
                 request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true, MaxAge = TimeSpan.Zero };
                 request.Headers.Pragma.ParseAdd("no-cache");
-                using var response = await SharedHttpClient.Instance.SendAsync(request).ConfigureAwait(true);
+                using var response = await SharedHttpClient.Instance.SendAsync(request, cancellationToken).ConfigureAwait(true);
                 response.EnsureSuccessStatusCode();
                 using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(true);
+                cancellationToken.ThrowIfCancellationRequested();
                 AddCatalogImageFromStream(key, stream, resolvedIcon);
             }
             else
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var path = Uri.TryCreate(resolvedIcon, UriKind.Absolute, out var fileUri) && fileUri.IsFile ? fileUri.LocalPath : resolvedIcon;
                 using var stream = File.OpenRead(path);
                 AddCatalogImageFromStream(key, stream, path);
@@ -1837,6 +1905,10 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             {
                 _catalogImageKeys[resolvedIcon] = key;
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -1885,6 +1957,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     {
         if (disposing)
         {
+            CancelCatalogImageLoad();
             foreach (Image image in _pluginImageSources.Values)
             {
                 image.Dispose();
@@ -2809,7 +2882,13 @@ internal static class PluginCatalogService
 
 internal static class SharedHttpClient
 {
-    public static readonly HttpClient Instance = new(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate, UseProxy = true, Proxy = WebRequest.DefaultWebProxy }) { Timeout = TimeSpan.FromSeconds(20) };
+    public static readonly HttpClient Instance = new(new HttpClientHandler
+    {
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+        UseProxy = true,
+        Proxy = WebRequest.DefaultWebProxy,
+        MaxConnectionsPerServer = PluginUpdatesDialog.CatalogImageDownloadConcurrency,
+    }) { Timeout = TimeSpan.FromSeconds(20) };
 
     static SharedHttpClient()
     {

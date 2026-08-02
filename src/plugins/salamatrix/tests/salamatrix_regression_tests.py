@@ -143,6 +143,27 @@ def main() -> int:
         r"Image\.FromStream\(stream\).*?"
         r"res\\plugin\.png.*?OpenSalamander\.Plugin\.png",
         "Samandarin Plugin Updates does not use src/res/plugin.png by default")
+    require(
+        samandarin_entry,
+        r"private async Task RefreshAsync\(\).*?"
+        r"BindRows\(\);.*?SetLoadingState\(false\);.*?"
+        r"StartCatalogImageLoad\(_rows\);",
+        "Samandarin Plugin Updates still blocks the initial list on catalog icons")
+    require_absent(
+        samandarin_entry,
+        r"SetLoadingState\(false\);\s*"
+        r"await EnsureCatalogImagesAsync",
+        "Samandarin Plugin Updates still downloads icons serially before refresh completes")
+    require(
+        samandarin_entry,
+        r"CatalogImageDownloadConcurrency\s*=\s*[2-9][0-9]*.*?"
+        r"HashSet<string>\(StringComparer\.OrdinalIgnoreCase\).*?"
+        r"SemaphoreSlim\(CatalogImageDownloadConcurrency\).*?"
+        r"Task\.WhenAll\(downloads\).*?"
+        r"SendAsync\(request, cancellationToken\).*?"
+        r"MaxConnectionsPerServer\s*=\s*"
+        r"PluginUpdatesDialog\.CatalogImageDownloadConcurrency",
+        "Samandarin catalog icons are not deduplicated and loaded with bounded concurrency")
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
