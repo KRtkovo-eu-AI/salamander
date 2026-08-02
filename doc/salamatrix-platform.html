@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salamatrix Platform Foundation</title>
+<style>
+:root { color-scheme:light dark; --bg:#fff; --fg:#202124; --surface:#f6f8fa;
+ --border:#d0d7de; --accent:#c9252d; --code:#f0f2f4; }
+@media (prefers-color-scheme:dark) { :root { --bg:#1e1f20; --fg:#e8eaed;
+ --surface:#27292c; --border:#45484d; --code:#2d3034; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+ font:15px/1.55 "Segoe UI",Arial,sans-serif; }
+main { max-width:1120px; margin:0 auto; padding:32px 28px 64px; }
+.doc-nav { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.5rem;
+ padding:.75rem; background:var(--surface); border:1px solid var(--border);
+ border-radius:6px; }
+.doc-nav a { padding:.35rem .6rem; border-radius:4px; text-decoration:none; }
+.doc-nav a:hover { background:var(--code); }
+h1 { font-size:2rem; border-bottom:3px solid var(--accent); padding-bottom:.3em; }
+h2 { font-size:1.45rem; margin-top:2em; border-bottom:1px solid var(--border);
+ padding-bottom:.25em; }
+h3 { font-size:1.15rem; margin-top:1.6em; }
+p,ul { max-width:92ch; } a { color:#2f81f7; }
+code { font-family:Consolas,"Cascadia Mono",monospace; background:var(--code);
+ border-radius:3px; padding:.08em .3em; }
+pre { overflow:auto; padding:14px 16px; background:var(--surface);
+ border:1px solid var(--border); border-radius:6px; }
+pre code { padding:0; background:transparent; }
+.table-wrap { overflow:auto; margin:1em 0; }
+table { border-collapse:collapse; min-width:620px; width:100%; }
+th,td { border:1px solid var(--border); padding:7px 10px; text-align:left;
+ vertical-align:top; }
+th { background:var(--surface); } li { margin:.2em 0; }
+</style>
+</head>
+<body><main>
+<nav class="doc-nav" aria-label="Salamatrix documentation">
+<a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html" aria-current="page">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html">Salamatrix GAP analysis</a>
+</nav>
+<h1 id="salamatrix-platform-foundation">Salamatrix Platform Foundation</h1>
+<h2 id="purpose">Purpose</h2>
+<p>Salamatrix is the working technical name for the unified extensibility platform in Open Salamander. It is intended to connect the Salamander core, native plugins, scripted extensions, future language runtime adapters, shared UI services, and future SDK surface area without creating separate APIs for each runtime.</p>
+<p>This document captures the initial platform foundation for the first MVP. It is a design and integration guide, not a commitment that all subsystems must be built at once.</p>
+<h2 id="component-name-and-location">Component name and location</h2>
+<p>The first Automation Framework provider component uses the technical name <strong>Salamatrix</strong>. The preferred source-tree location for the framework plugin is:</p>
+<pre><code class="language-text">src/plugins/salamatrix/</code></pre>
+<p>The component should be packaged and registered as an Automation Framework/service plugin, not as a language runtime or user-facing command plugin. It may expose a small About/configuration page and demo commands while the MVP is developed, but its primary purpose is to provide shared services to other plugins and future script runtime adapters.</p>
+<p>For the current native dialog/control surface and construction examples, see <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a>.</p>
+<p>Recommended user-visible names:</p>
+<ul>
+<li><code>Salamatrix Framework</code></li>
+<li><code>Salamatrix UI Framework</code></li>
+<li><code>Salamatrix SDK</code> for developer-facing documentation and headers</li>
+</ul>
+<h2 id="naming-model">Naming model</h2>
+<p>Use one umbrella platform name and technical subsystem names beneath it:</p>
+<pre><code class="language-text">Salamatrix
+├── Salamatrix.Core
+├── Salamatrix.UI
+├── Salamatrix.Commands
+├── Salamatrix.FileOperations
+├── Salamatrix.Runtime
+├── Salamatrix.Events
+├── Salamatrix.Extensions
+├── Salamatrix.Storage
+└── Salamatrix.SDK</code></pre>
+<p>For the MVP, only these names should be treated as active design targets:</p>
+<ul>
+<li><code>Salamatrix.UI</code></li>
+<li><code>Salamatrix.Commands</code></li>
+<li><code>Salamatrix.FileOperations</code></li>
+<li><code>Salamatrix.Runtime</code></li>
+<li><code>Salamatrix.Sides</code></li>
+<li><code>Salamatrix.Events</code></li>
+<li><code>Salamatrix.Extensions</code></li>
+<li><code>Salamatrix.Storage</code></li>
+</ul>
+<h3 id="native-naming">Native naming</h3>
+<p>Native C++ headers can use <code>Salamatrix</code> as the namespace or API prefix:</p>
+<pre><code class="language-cpp">Salamatrix::UI::CreateProgressDialog(...);
+Salamatrix::Commands::Execute(...);
+Salamatrix::FileOperations::CopyInteractive(...);</code></pre>
+<p>The exact ABI-safe interface exposed to plugins should still use abstract interfaces and versioned service identifiers instead of requiring C++ callers to link directly to a C++ implementation class.</p>
+<h3 id="script-naming">Script naming</h3>
+<p>Scripts should normally see the existing product concept as their root object:</p>
+<pre><code class="language-python">Salamander.UI.progress(...)
+Salamander.Commands.execute(...)
+Salamander.FileOperations.copy_interactive(...)
+Salamander.Sides.Source.ActiveTab.Path
+Salamander.SourceSide.Context().SelectedItems
+Salamander.SourceSide.Context().FocusedItem
+Salamander.Storage.get(&quot;lastPath&quot;)
+Salamander.Clipboard.copy_text(&quot;generated output&quot;)</code></pre>
+<p>In this model, <strong>Salamatrix</strong> is the platform and SDK name, while <strong>Salamander</strong> is the user-friendly script root object. Future runtime adapters such as Python, JavaScript, PowerShell, or WSH may also expose advanced adapter metadata under <code>Salamander.Runtime</code> when needed.</p>
+<h2 id="service-identifiers-and-versioning">Service identifiers and versioning</h2>
+<p>Each shared surface should be published as a versioned service. The service name is a stable ASCII identifier; the version is a monotonically increasing integer or a packed semantic version.</p>
+<p>Initial service identifiers:</p>
+<pre><code class="language-text">Salamatrix.UI
+Salamatrix.Commands
+Salamatrix.FileOperations
+Salamatrix.Runtime
+Salamatrix.Automation
+Salamatrix.Sides
+Salamatrix.Events
+Salamatrix.Extensions
+Salamatrix.Storage</code></pre>
+<p>Implemented C-style constants in the Salamatrix headers:</p>
+<pre><code class="language-cpp">#define SALAMATRIX_SERVICE_UI              &quot;Salamatrix.UI&quot;
+#define SALAMATRIX_SERVICE_COMMANDS        &quot;Salamatrix.Commands&quot;
+#define SALAMATRIX_SERVICE_FILEOPERATIONS  &quot;Salamatrix.FileOperations&quot;
+#define SALAMATRIX_SERVICE_RUNTIME         &quot;Salamatrix.Runtime&quot;
+#define SALAMATRIX_SERVICE_AUTOMATION_ADAPTER &quot;Salamatrix.Automation&quot;
+#define SALAMATRIX_SERVICE_SIDES           &quot;Salamatrix.Sides&quot;
+#define SALAMATRIX_SERVICE_EVENTS         &quot;Salamatrix.Events&quot;
+#define SALAMATRIX_SERVICE_EXTENSIONS     &quot;Salamatrix.Extensions&quot;
+#define SALAMATRIX_SERVICE_STORAGE         &quot;Salamatrix.Storage&quot;
+
+#define SALAMATRIX_UI_VERSION_1_0             0x00010000
+#define SALAMATRIX_COMMANDS_VERSION_1_0       0x00010000
+#define SALAMATRIX_FILEOPERATIONS_VERSION_1_0 0x00010000
+#define SALAMATRIX_AUTOMATION_VERSION_1_0     0x00010000
+#define SALAMATRIX_RUNTIME_VERSION_1_0        0x00010000
+#define SALAMATRIX_SIDES_VERSION_1_0          0x00010000
+#define SALAMATRIX_EVENTS_VERSION_1_0         0x00010000
+#define SALAMATRIX_EXTENSIONS_VERSION_1_0     0x00010000
+#define SALAMATRIX_STORAGE_VERSION_1_0        0x00010000</code></pre>
+<p><code>SALAMATRIX.SPL</code> itself is an Automation Framework provider. The current host registration publishes the UI, Commands, FileOperations, Runtime broker, and Automation adapter, Sides, Events, Extensions, AI, and Storage services. The event service is fed by the host's plugin event callback and is also available to native runtime adapters.</p>
+<h2 id="salamatrix-runtime-broker-and-execution-contract">Salamatrix.Runtime broker and execution contract</h2>
+<p>The first runtime broker contract is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_runtime_api.h</code></pre>
+<p><code>IRuntimeService</code> owns the process-local catalog of language runtime adapters. Adapters publish a stable runtime id, display/language metadata, supported entry point extensions, a runtime version, and flags describing in-process, out-of-process, bundled, compatibility, and persistent-extension capabilities. The broker supports registration, unregistration, enumeration, lookup by runtime id/version, and fallback lookup by entry point. <code>IRuntimeAdapter</code> also receives a versioned <code>RuntimeExecutionRequest</code> and returns a structured <code>RuntimeExecutionResult</code> with succeeded, failed, or cancelled status, HRESULT, process/exit information, a bounded UTF-16 output capture, and an adapter-owned error message. Requests carry an explicit working directory and a default two-minute timeout (clamped to one hour).</p>
+<p>The Automation consumer bridge is the first adapter provider. It advertises the legacy Active Scripting engines that are actually available:</p>
+<ul>
+<li><code>Automation.JScript</code> for <code>.js</code>;</li>
+<li><code>Automation.VBScript</code> for <code>.vbs</code>;</li>
+<li><code>Automation.ActivePython</code> for <code>.pys</code>, when the legacy ActivePython COM engine</li>
+<p>is installed;</p>
+<li><code>Automation.PHPScript</code> for <code>.phps</code>, when the legacy PHPScript COM engine is</li>
+<p>installed.</p>
+</ul>
+<p>These adapters are explicitly marked as in-process compatibility adapters. Independent runtime provider plugins register the optional out-of-process CLI adapters. Most discover an interpreter through <code>PATH</code> or an explicit environment variable:</p>
+<ul>
+<li><code>Python.CPython</code> for <code>.py</code> (<code>SALAMATRIX_PYTHON</code>, then <code>python.exe</code>/<code>python3.exe</code>);</li>
+<li><code>PowerShell</code> for <code>.ps1</code> (<code>SALAMATRIX_POWERSHELL</code>, then <code>pwsh.exe</code>/</li>
+<p><code>powershell.exe</code>);</p>
+<li><code>PHP.CLI</code> for <code>.php</code> (<code>SALAMATRIX_PHP</code>, then <code>php.exe</code>);</li>
+<li><code>JavaScript.Node</code> for <code>.js</code>/<code>.mjs</code> (<code>SALAMATRIX_NODE</code>, then <code>node.exe</code>/<code>node</code>),</li>
+<p>with legacy Windows JScript remaining the compatibility fallback for <code>.js</code>;</p>
+<li><code>Lua</code> for <code>.lua</code> (<code>SALAMATRIX_LUA</code>, then the bundled vcpkg-built</li>
+<p><code>runtime\lua.exe</code>, then <code>lua.exe</code>/<code>lua55.exe</code>/<code>lua54.exe</code> on <code>PATH</code>).</p>
+</ul>
+<p>The process adapter uses a non-shell <code>CreateProcessW</code> invocation, passes the entry point as a quoted file argument, drains a combined stdout/stderr pipe, limits captured output to 1 MiB, terminates timed-out children, and returns the exit code. This makes Python/PowerShell/PHP/Node/Lua real selectable runtimes today; the shared worker bootstrap exposes the common Salamander object model to the modern process adapters. The persistent session seam is now present, and manifest activation starts a bounded host pump thread so worker stdout is processed during normal plugin operation. The Automation host dispatcher also handles the first language-neutral calls (<code>runtime.ready</code>, command execution, active-tab snapshots, string storage, event subscribe/unsubscribe, and a message-box dialog) without sharing native pointers. Richer UI/value bindings are implemented on top of the same boundary, including the shared dialog and control model, progress variants, panel-tab activation/path/refresh, and clipboard/file-picker helpers. Because the worker pump is not Salamander's UI thread, the host dispatch now synchronously marshals calls through <code>CSalamanderGeneralAbstract::InvokeOnMainThread</code>; the callback context remains valid until the main-thread operation completes. Queued long-lived worker lifecycle rules and richer value bindings remain future extensions.</p>
+<p>The first worker-transport slice is declared in <code>src/plugins/salamatrix/salamatrix_runtime_protocol.h</code>. It provides a bounded, incremental <code>SMX1</code> line codec with typed message kinds (<code>hello</code>, <code>ready</code>, <code>call</code>, <code>result</code>, <code>event</code>, <code>shutdown</code>, <code>error</code>), decimal request ids, and compact JSON payloads. The codec rejects embedded newlines, malformed ids, and frames over 1 MiB, and is intentionally independent of any language's JSON library. The Automation bridge now answers the first host calls through this transport; modern process adapters share the standard worker bootstrap; richer value bindings and queued callback/reentrancy policy remain. Host callbacks for registered extensions are protected by owner-aware unload leases.</p>
+<p>Process adapters can now opt into the common worker bootstrap with <code>RuntimeExecutionFlagUseWorkerBootstrap</code>. The standalone runtime providers ship the Python, PowerShell, PHP, Node, and Lua bootstraps beside their own <code>.SPL</code>; they perform the SMX1 handshake, expose the same logical <code>Salamander</code> object model, route host calls, and keep an event loop alive after the extension entry point returns. <code>SALAMATRIX_WORKER_ROOT</code> is an explicit deployment/test override; each provider build copies its worker beside that provider binary. Workers can query the same broker without a runtime-specific host extension: <code>Salamander.runtimes.list()</code> in Python, <code>Salamander.runtimes.List()</code> in PowerShell, <code>Salamander-&gt;runtimes-&gt;list()</code> in PHP, and <code>Salamander.runtimes.list()</code> in Node and Lua call <code>salamander.runtimes.list</code>. The response contains each adapter's id, display name, language, entry-point extensions, version, and current availability, so an extension or the AI assistant can explain a missing interpreter before it tries to execute or package a script.</p>
+<p>The legacy ActiveScript registrations remain tied to the Automation bridge refresh/release lifecycle. New language runtimes are intended to be separate provider plugins instead: a <code>PythonRuntime.SPL</code>, <code>PowerShellRuntime.SPL</code>, <code>PHPRuntime.SPL</code>, <code>JavaScriptRuntime.SPL</code>, or <code>LuaRuntime.SPL</code> queries the already registered <code>Salamatrix.Runtime</code> service during <code>SalamanderPluginEntry</code>, registers only its own adapter objects, and unregisters those exact objects during <code>Release</code>. The provider plugin contains the interpreter discovery policy and worker bootstrap, but it does not provide a second UI/command framework and it does not require Automation to be loaded. Native plugins and Automation both query the same broker. Before unregistering, each provider verifies that the same broker is still published by the host so unload cannot turn cleanup into a call through a stale service pointer.</p>
+<p>Automation now registers only its legacy ActiveScript adapters. The separate <code>PythonRuntime.SPL</code>, <code>PowerShellRuntime.SPL</code>, <code>PHPRuntime.SPL</code>, and <code>JavaScriptRuntime.SPL</code> own their adapters and worker assets. The public <code>IRuntimeService::RegisterAdapter</code>/<code>UnregisterAdapter</code> contract already permits that split without changing consumers.</p>
+<p>The framework's host-service registration is transactional. If any of the ten services cannot be registered, services registered earlier in the attempt are rolled back in reverse order instead of leaving dangling partial registrations.</p>
+<h2 id="salamatrix-sides-and-panel-tab-snapshots">Salamatrix.Sides and panel-tab snapshots</h2>
+<p>The runtime-neutral side and tab contract is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_sides.h</code></pre>
+<p><code>ISidesService</code> resolves the logical Left, Right, Source, and Target references to physical sides. It exposes tab counts, active-tab snapshots, lookup by a stable process-local tab id, path reads, tab activation, active-tab path changes, and bounded item-context snapshots (<code>Path</code>, <code>SelectedItems</code>, and <code>FocusedItem</code>). Tab snapshots include physical side, index, path type, and flags for active-on-side, source, target, locked, and detached state.</p>
+<p>The core SDK additions in <code>CSalamanderGeneralAbstract</code> expose only value snapshots and opaque ids. They do not leak <code>CFilesWindow</code> or tab-array pointers across the plugin boundary. Each <code>CFilesWindow</code> receives a nonzero monotonically increasing id for its lifetime. Callers must therefore re-read a tab by id before each operation and treat a failed lookup as a stale handle.</p>
+<p>Automation publishes the same model under the <code>Salamander.Sides</code> root:</p>
+<pre><code class="language-javascript">var source = Salamander.Sides.Source;
+var tab = source.ActiveTab;
+Salamander.TraceI(
+    source.Name + &quot;: &quot; + tab.Path + &quot; (&quot; + tab.Id + &quot;)&quot;);
+tab.Activate(true);
+Salamander.Sides.Target.Path = &quot;C:\\Temp&quot;;</code></pre>
+<p>The tab id is exposed to scripts as a decimal string, not a JavaScript number, so a 64-bit native id cannot lose precision in legacy JScript. The current service deliberately stops at tab identity, state, path, and activation. Focused/selected item snapshots, view settings, refresh, and tab lifecycle events remain follow-up work.</p>
+<h2 id="salamatrix-storage-per-extension-persistence">Salamatrix.Storage per-extension persistence</h2>
+<p>The runtime-neutral persistent storage contract is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_storage.h</code></pre>
+<p><code>IStorageService</code> accepts a validated manifest extension id and a key, keeping each extension in a separate namespace. Version 1 supports UTF-8 strings up to 16 KiB, signed 64-bit integers, booleans, deletion, and clearing one namespace. The service is synchronized so future worker-process/runtime bridges do not need to share Automation's old global <code>VARIANT</code> container.</p>
+<p><code>SALAMATRIX.SPL</code> owns the storage and persists all namespaces as one bounded, versioned binary configuration blob through <code>CSalamanderRegistryAbstract</code>. Loading validates the complete header, entry count, lengths, identifiers, types, payload sizes, embedded NULs, and duplicate records before accepting values. Unchanged data is not rewritten.</p>
+<p>Manifest-based Automation extensions use the same service through:</p>
+<pre><code class="language-javascript">var previous = Salamander.Storage.get(&quot;lastPath&quot;, &quot;(first run)&quot;);
+Salamander.Storage.set(&quot;lastPath&quot;, Salamander.Sides.Source.Path);
+Salamander.TraceI(Salamander.Storage.Namespace + &quot;: &quot; + previous);</code></pre>
+<p><code>Salamander.Storage</code> is deliberately unavailable to loose legacy scripts with no manifest id, because silently returning to one shared global namespace would break the isolation guarantee. The older <code>SetPersistentVal</code> and <code>GetPersistentVal</code> methods remain as compatibility APIs. Future package management still needs quotas, migration hooks, settings schemas, and an uninstall retention/deletion policy.</p>
+<h2 id="salamatrix-events-host-subscriptions">Salamatrix.Events host subscriptions</h2>
+<p>The event contract is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_events.h</code></pre>
+<p><code>IEventsService</code> provides versioned subscribe/unsubscribe with opaque 64-bit subscription ids. Dispatch snapshots matching subscribers under a short lock, releases the lock before invoking callbacks, and therefore permits a callback to unsubscribe itself safely. The current payload contains the event name, host parameter, active physical panel, active tab id, path type, and a copied path. The initial host mapping covers startup/shutdown, settings and configuration changes, color changes, panel swaps, and active-panel changes. Successful operations through the shared Sides API additionally publish <code>sidePathChanged</code>, <code>sideSelectionChanged</code>, <code>sideTabChanged</code>, and <code>sideRefreshed</code>. The core now also forwards <code>pathChanged</code>, <code>selectionChanged</code>, and <code>tabChanged</code> notifications through the same channel. These core events can also be observed when a host operation causes the corresponding change; the <code>side*</code> names identify the operation-level notifications. The payload includes the affected physical side, active tab id, path type, and current path when available.</p>
+<p>The Automation facade is:</p>
+<pre><code class="language-javascript">var subscription = Salamander.Events.subscribe(
+    &quot;activePanelChanged&quot;,
+    function (name, parameter, path, activeTabId) {
+        Salamander.TraceI(name + &quot;: &quot; + path);
+    });
+Salamander.Events.unsubscribe(subscription);</code></pre>
+<p>Callbacks are owned by the subscribing extension object and are automatically unsubscribed when that object is released. Persistent extension instances and worker-runtime dispatch queues still need to be added; one-shot legacy scripts cannot receive an event after their execution has ended.</p>
+<h2 id="salamatrix-extensions-lifecycle-registry">Salamatrix.Extensions lifecycle registry</h2>
+<p>The lifecycle registry is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_extensions.h</code></pre>
+<p><code>IExtensionsService</code> keeps a bounded, owner-aware catalog of valid extension descriptors. Entries have explicit <code>discovered</code>, <code>activating</code>, <code>active</code>, <code>deactivating</code>, <code>inactive</code>, and <code>failed</code> states and can be activated or deactivated through a callback that runs outside the registry lock. Automation registers valid manifest-backed scripts during initial load and refresh, using the <code>CScriptInfo</code> address as the owner; removed scripts are unregistered before their objects are deleted. Duplicate ids from another owner are rejected.</p>
+<p>Automation registrations carry a lifecycle callback. Activating a manifest looks up its selected runtime adapter and starts an <code>IRuntimeSession</code>; the session is retained by the owning <code>CScriptInfo</code> and is stopped before that script is removed. Legacy ActiveScript adapters deliberately reject persistent activation, while the new CLI adapters require a worker-compatible entry point and fail activation if the child exits immediately. Command ownership, host call dispatch, and owner-aware unload leases build on this seam. A runtime host callback acquires a short lease while it touches the extension; unregister waits for those leases after deactivation and rejects new calls once unloading starts.</p>
+<h2 id="service-lookup-api">Service lookup API</h2>
+<p>The natural integration point is the existing plugin host interfaces. Plugins already receive a <code>CSalamanderPluginEntryAbstract</code> in <code>SalamanderPluginEntry()</code> and use it to obtain core services such as the general, debug, and GUI interfaces. The service lookup should therefore be exposed either from the plugin entry interface or from <code>CSalamanderGeneralAbstract</code>.</p>
+<p>Implemented MVP shape:</p>
+<pre><code class="language-cpp">struct CSalamanderServiceQuery
+{
+    const char* ServiceId;
+    DWORD MinimumVersion;
+    DWORD Flags;
+};
+
+struct CSalamanderServiceResult
+{
+    void* Interface;
+    DWORD Version;
+    const char* ProviderName;
+};
+
+virtual BOOL WINAPI QueryService(
+    const CSalamanderServiceQuery* query,
+    CSalamanderServiceResult* result) = 0;</code></pre>
+<p>The MVP also adds <code>UnregisterService(serviceId, serviceInterface)</code> so temporary PoC providers can safely remove stack-owned service instances before returning from DemoPlug command handlers.</p>
+<p>The core-facing MVP is now implemented on <code>CSalamanderGeneralAbstract</code> and backed by a process-local registry in <code>CSalamanderGeneral</code>. <code>Runtime::RuntimeServices</code> registers the PoC UI, Commands, FileOperations, Runtime broker, Automation, Sides, Events, Extensions, AI, and Storage services with both its local registry and the host registry while the runtime object is alive.</p>
+<h3 id="provider-registration">Provider registration</h3>
+<p>Automation Framework providers should register services during their plugin entry/init phase, after their own version check and language/resource initialization succeed.</p>
+<p>Implemented MVP shape:</p>
+<pre><code class="language-cpp">virtual BOOL WINAPI RegisterService(
+    const char* serviceId,
+    DWORD version,
+    void* serviceInterface,
+    const char* providerName) = 0;
+
+virtual BOOL WINAPI UnregisterService(
+    const char* serviceId,
+    void* serviceInterface) = 0;</code></pre>
+<p>The registry must reject duplicate providers for the same service/version unless a future policy explicitly supports replacement. The provider plugin must not be unloaded while a registered service may still be queried or retained by other plugins.</p>
+<h2 id="missing-runtime-behavior">Missing runtime behavior</h2>
+<h3 id="native-plugin-callers">Native plugin callers</h3>
+<p>If a native plugin requests a service that is not installed, not loaded, or too old, <code>QueryService</code> should return failure and set the output interface pointer to <code>NULL</code>. The caller remains responsible for deciding whether this is optional or fatal.</p>
+<p>Recommended helper behavior for required services:</p>
+<pre><code class="language-cpp">CSalamanderServiceQuery query;
+memset(&amp;query, 0, sizeof(query));
+query.ServiceId = SALAMATRIX_SERVICE_UI;
+query.MinimumVersion = SALAMATRIX_UI_VERSION_1_0;
+
+CSalamanderServiceResult result;
+memset(&amp;result, 0, sizeof(result));
+if (!SalamanderGeneral-&gt;QueryService(&amp;query, &amp;result) || result.Interface == NULL)
+{
+    SalamanderGeneral-&gt;SalMessageBox(
+        parent,
+        &quot;This plugin requires Salamatrix UI Framework.&quot;,
+        pluginName,
+        MB_OK | MB_ICONERROR);
+    return FALSE;
+}</code></pre>
+<h3 id="script-callers">Script callers</h3>
+<p>Script runtimes should translate missing required services into clear runtime exceptions. Recommended wording:</p>
+<pre><code class="language-text">This script requires Salamatrix UI Framework 1.0 or newer. Install or enable the
+Salamatrix Framework plugin and try again.</code></pre>
+<p>The exception should include:</p>
+<ul>
+<li>service identifier,</li>
+<li>requested version,</li>
+<li>currently available version, if any,</li>
+<li>plugin/runtime that requested it.</li>
+</ul>
+<h3 id="ui-behavior">UI behavior</h3>
+<p>When a user invokes an extension whose required service is missing, the UI should show a localized message in this form:</p>
+<pre><code class="language-text">This extension requires Salamatrix UI Framework.
+Install or enable Salamatrix Framework and try again.</code></pre>
+<p>If the Plugin Manager supports Automation Framework classification, Salamatrix should be shown as a runtime/service component rather than as an ordinary menu extension.</p>
+<h2 id="integration-with-existing-plugin-registration">Integration with existing plugin registration</h2>
+<p>The current plugin model already has a natural lifecycle for service providers:</p>
+<p>1. Salamander loads a plugin and calls <code>SalamanderPluginEntry()</code>. 2. The plugin obtains <code>CSalamanderGeneralAbstract</code>, debug, and GUI interfaces. 3. The plugin verifies <code>SalamanderPluginGetReqVer()</code> compatibility. 4. The plugin loads language resources and initializes WinLib if needed. 5. The plugin calls <code>SetBasicPluginData()</code> to declare its basic metadata and functions. 6. The plugin returns its <code>CPluginInterfaceAbstract</code> implementation.</p>
+<p>Salamatrix should register its services after step 4 and before returning the plugin interface. Consumers should query services after their own basic startup checks have completed.</p>
+<p>The core plugin manager now owns the service registry near the code that tracks loaded plugins and their metadata. Each provider can register an opaque owner; consumers acquire a short lease around calls through the borrowed interface. Unregister marks the service as unloading, rejects new acquisitions, waits for active leases, and only then removes the record. This keeps service ownership tied to the same objects that already control plugin lifetime and unload checks.</p>
+<p>Recommended implementation direction:</p>
+<ul>
+<li>service registry storage and synchronization live in the core plugin manager,</li>
+<li><code>RegisterServiceOwned</code>/<code>UnregisterServiceOwned</code> expose provider ownership,</li>
+<li><code>QueryService</code> plus <code>AcquireService</code>/<code>ReleaseService</code> expose borrowed services</li>
+<p>with an explicit consumer lease through <code>CSalamanderGeneralAbstract</code>,</p>
+<li>unload blocks removal while exported services are still held,</li>
+<li>persist only plugin installation metadata, not live service pointers.</li>
+</ul>
+<h2 id="salamatrix-ui-native-dialogs-and-progress">Salamatrix.UI native dialogs and progress</h2>
+<p>The first concrete object API in <code>Salamatrix.UI</code> is the progress dialog. The C++ MVP surface is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_ui.h</code></pre>
+<p>The declaration intentionally wraps the existing <code>CSalamanderForOperationsAbstract</code> progress methods instead of duplicating progress-window behavior. This keeps the first Salamatrix UI object compatible with current native plugin operations and with the existing Automation progress object.</p>
+<p>The initial API shape contains:</p>
+<ul>
+<li><code>Salamatrix::UI::ProgressDialogOptions</code> for title, parent window, one/two-bar</li>
+<p>mode, file/total labeling, and initial Cancel state.</p>
+<li><code>Salamatrix::UI::IProgressDialog</code> as the ABI-oriented object contract.</li>
+<li><code>Salamatrix::UI::ProgressDialog</code> as the first C++ adapter over</li>
+<p><code>CSalamanderForOperationsAbstract</code>.</p>
+<li><code>Salamatrix::UI::IUIService</code> as the future service returned by</li>
+<p><code>QueryService("Salamatrix.UI", SALAMATRIX_UI_VERSION_1_0, ...)</code>.</p>
+</ul>
+<p>The object covers the MVP lifecycle and control flow:</p>
+<p>1. <code>SetTitle(...)</code> sets the title before the dialog is opened. 2. <code>Open()</code> or <code>Open(options)</code> creates the existing Salamander progress dialog. 3. <code>SetTotal(...)</code> and <code>SetTotals(...)</code> configure one-bar or two-bar totals. 4. <code>AddText(...)</code> appends progress log/status text. 5. <code>Step(...)</code>, <code>SetPosition(...)</code>, and <code>SetPositions(...)</code> update progress and return whether the operation should continue. 6. <code>IsCancelled()</code> polls cancellation by refreshing the existing progress dialog with a zero-sized progress update. 7. <code>SetCancelEnabled(FALSE)</code> supports cleanup phases where Cancel must be disabled. 8. <code>Close()</code> closes the dialog explicitly, and the C++ adapter destructor closes it as a final safety net.</p>
+<p>The first script mapping is now exposed through the <code>Salamander</code> root object and is backed by <code>Salamatrix.UI</code> internally:</p>
+<pre><code class="language-javascript">var progress = Salamander.UI.progress(&quot;Processing files&quot;);
+progress.Maximum = files.length;
+progress.Show();
+try {
+    for (var i = 0; i &lt; files.length; ++i) {
+        progress.AddText(files[i].Name);
+        progress.Position = i + 1;
+        if (progress.IsCancelled) {
+            progress.CanCancel = false;
+            break;
+        }
+    }
+}
+finally {
+    progress.Hide();
+}</code></pre>
+<p>Existing Automation scripts may keep using <code>Salamander.ProgressDialog</code>; the new <code>Salamander.UI.progress(...)</code> path returns the same progress Automation interface but is backed by <code>Salamatrix.UI</code> through the Automation bridge.</p>
+<p>The service has since grown into the shared native dialog framework. Its append-only 1.4 surface exposes <code>IDialog</code>, <code>IControl</code>, <code>DialogOptions</code>, <code>ControlOptions</code>, and <code>ControlLayout</code>. The concrete <code>NativeDialog</code> remains in Salamatrix and covers the complete host-control gallery used by DemoPlug:</p>
+<ul>
+<li>labels, host static text, text boxes, check boxes, and radio buttons;</li>
+<li>combo boxes, ListView, TreeView, and TabControl item binding;</li>
+<li>ordinary, arrow, text-arrow, and color-arrow buttons;</li>
+<li>editable native folder and file pickers;</li>
+<li>host hyperlinks, progress bars, group boxes, and toolbar headers;</li>
+<li>explicit bounds, validation, change events, tooltips, hyperlink actions,</li>
+<p>style flags, colors, known/indeterminate progress, and header button masks.</p>
+</ul>
+<p>Manifest extensions call the framework-owned package dispatcher through the <code>salamander.ui.dialog.*</code> SMX1 vocabulary. Dialog records are scoped to their owning package and are released on close, deactivation, or package removal. This dispatcher is part of Salamatrix; it is not supplied by Automation. Automation JScript has a thin COM dialog facade, and native plugins negotiate <code>SALAMATRIX_UI_VERSION_1_4</code> and use the same C++ objects directly.</p>
+<p>The Node, Python, PowerShell, PHP, Lua, Automation JScript, and DemoPlug demos each construct the same <code>463 x 236</code> <strong>Salamatrix UI capabilities</strong> window from their own source. A <code>Created by</code> group identifies the runtime and extension, making the window both a control gallery and an executable construction example. The five worker facades forward the same extended control properties; <code>salamander.host.uptime</code> supplies the common system-uptime label without language-specific platform code.</p>
+<p><code>NativeDialog</code> applies the Salamander-selected <strong>Windows Dark Mode (experimental)</strong> color scheme, not the Windows application-mode preference. It also owns DPI scaling, dialog font, initial focus, tab traversal, and bounded accessibility tooltip metadata. See <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a> for the complete control/property table and examples in every supported language.</p>
+<h2 id="salamatrix-commands-and-fileoperations-mvp">Salamatrix.Commands and FileOperations MVP</h2>
+<p>The command and interactive file-operation MVP surface is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_commands.h</code></pre>
+<p><code>Salamatrix.Commands</code> is intentionally a thin layer over existing Salamander commands. It maps public command names such as <code>QuickRename</code>, <code>Copy</code>, and <code>Move</code> to the existing <code>SALCMD_QUICKRENAME</code>, <code>SALCMD_COPY</code>, and <code>SALCMD_MOVE</code> command identifiers and posts them through <code>CSalamanderGeneralAbstract::PostSalamanderCommand</code>. Before posting, the MVP implementation can check <code>GetSalamanderCommand</code> so that disabled commands fail instead of opening inconsistent UI.</p>
+<p><code>Salamatrix.FileOperations</code> uses the same command path for its interactive MVP:</p>
+<ul>
+<li><code>RenameInteractive(...)</code> opens the existing Quick Rename workflow.</li>
+<li><code>CopyInteractive(...)</code> opens the existing Copy dialog/workflow.</li>
+<li><code>MoveInteractive(...)</code> opens the existing Move/Rename dialog/workflow.</li>
+</ul>
+<p>The file-operation MVP must not clone <code>.rc</code> dialog resources or reimplement the copy/move/rename validation logic. It should route to the command handlers that already use the localized strings, histories, target-directory helpers, operation mask handling, and panel/file-system integration. This keeps the behavior aligned with the documented Quick Rename, Copy, and Move/Rename dialog boxes.</p>
+<p>The shared return enum is <code>Salamatrix::Runtime::OperationResult</code>:</p>
+<pre><code class="language-cpp">OperationResultOk
+OperationResultCancel
+OperationResultError
+OperationResultNotAvailable</code></pre>
+<p>For the command-posting MVP, <code>OperationResultOk</code> means the existing command was accepted and posted, <code>OperationResultNotAvailable</code> means the command exists but is disabled in the current panel context (for example Quick Rename without a focused/selected item), and <code>OperationResultError</code> means the command was unknown or no command service was available. <code>OperationResultCancel</code> is reserved for the next synchronous/modal integration step where a direct workflow wrapper can observe the dialog result.</p>
+<p>Implemented script mapping:</p>
+<pre><code class="language-javascript">Salamander.Commands.execute(&quot;QuickRename&quot;)              // returns &quot;ok&quot;, &quot;cancel&quot;, &quot;not_available&quot;, or &quot;error&quot;
+Salamander.FileOperations.rename_interactive()          // returns &quot;ok&quot;, &quot;cancel&quot;, &quot;not_available&quot;, or &quot;error&quot;
+Salamander.FileOperations.copy_interactive()            // returns &quot;ok&quot;, &quot;cancel&quot;, &quot;not_available&quot;, or &quot;error&quot;
+Salamander.FileOperations.move_interactive()            // returns &quot;ok&quot;, &quot;cancel&quot;, &quot;not_available&quot;, or &quot;error&quot;</code></pre>
+<p>Missing Salamatrix runtime services are converted by the Automation wrapper to a readable script exception: <code>This script requires Salamatrix Framework to be installed and loaded.</code></p>
+<h2 id="salamatrix-automation-adapter-mvp">Salamatrix Automation adapter MVP</h2>
+<p>The first script/Automation adapter contract is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_automation.h</code></pre>
+<p>The adapter is deliberately thin: it owns no dialog resources and implements no parallel UI behavior. It receives native <code>Salamatrix.UI</code>, <code>Salamatrix.Commands</code>, and <code>Salamatrix.FileOperations</code> services and exposes script-shaped wrapper objects over them. This keeps the Automation/COM layer as an adapter instead of a second UI framework.</p>
+<p>MVP script facade mapping:</p>
+<pre><code class="language-text">Salamander.UI.progress(...)              -&gt; Salamatrix::Automation::ScriptUIAdapter
+Salamander.UI.dialog(...)                -&gt; Salamatrix::Automation::ScriptUIAdapter::Dialog
+Salamander.Commands.execute(...)         -&gt; Salamatrix::Automation::ScriptCommandsAdapter
+Salamander.FileOperations.*_interactive  -&gt; Salamatrix::Automation::ScriptFileOperationsAdapter
+Salamander.FileOperations.delete/create_directory/refresh/properties
+                                           -&gt; same native service</code></pre>
+<p><code>ScriptProgressDialog</code> creates a native <code>Salamatrix::UI::IProgressDialog</code> through <code>IUIService</code>, opens it with the supplied title, delegates <code>total</code>, <code>add_text</code>, <code>step</code>, <code>is_cancelled</code>, and <code>cancel_enabled</code>, then closes and destroys the native progress object when the script wrapper is destroyed. Existing Automation <code>Salamander.ProgressDialog</code> can remain as a compatibility facade and later be implemented on top of the same <code>IUIService</code>.</p>
+<p><code>ScriptUIAdapter::Dialog</code> creates the shared <code>Salamatrix::UI::IDialog</code>, adds native controls, shows it modally, and exposes the same control state to the caller. This is the in-process counterpart of the SMX1 worker dialog calls.</p>
+<p><code>ScriptCommandsAdapter::Execute(...)</code> delegates to <code>ICommandService::Execute(...)</code> so script calls such as <code>Salamander.Commands.execute("QuickRename")</code> still use the existing Salamander command handlers. <code>ScriptFileOperationsAdapter</code> delegates <code>rename_interactive</code>, <code>copy_interactive</code>, <code>move_interactive</code>, <code>delete</code>, <code>create_directory</code>, <code>refresh</code>, and <code>properties</code> to <code>IFileOperationsService</code>, which posts the corresponding existing Salamander command and preserves its normal native dialogs and enablement rules.</p>
+<p>The shared UI contract now includes a native dialog/control model in <code>salamatrix_ui.h/.cpp</code>. It is intentionally small but real: native plugins and Automation workers use the same dialog object and control state:</p>
+<ul>
+<li><code>Dialog</code> -&gt; shared <code>Salamatrix::UI::IDialog</code> (legacy <code>IDialogAdapter</code> remains a compatibility shape)</li>
+<li><code>Container</code> -&gt; <code>IContainerAdapter</code>/shared dialog control collection</li>
+<li><code>Label</code> -&gt; <code>ControlKindLabel</code></li>
+<li><code>TextBox</code> -&gt; <code>ControlKindTextBox</code></li>
+<li><code>CheckBox</code> -&gt; <code>ControlKindCheckBox</code></li>
+<li><code>ComboBox</code> -&gt; <code>ControlKindComboBox</code></li>
+<li><code>Button</code> -&gt; <code>ControlKindButton</code></li>
+<li><code>RadioButton</code> -&gt; <code>ControlKindRadioButton</code></li>
+<li><code>ListView</code> -&gt; <code>ControlKindListView</code> (native common-control surface with item binding)</li>
+<li><code>TreeView</code> -&gt; <code>ControlKindTreeView</code> (native common-control surface with node/parent binding)</li>
+<li><code>TabControl</code> -&gt; <code>ControlKindTabControl</code> (native common-control surface with tab item binding)</li>
+</ul>
+<p>The current Automation GUI layer can now be migrated incrementally to these interfaces instead of creating a second runtime-specific UI. The native implementation renders labels, text boxes, check/radio buttons, combo boxes, buttons, and the native ListView/TreeView/TabControl common-control surfaces. Runtime workers can add and clear items before showing a dialog; TreeView items accept a parent index, while ListView columns and selected indexes are exposed through the same dialog object. Richer selection notifications and virtualized data binding remain a follow-up.</p>
+<h2 id="salamatrix-ai-provider-seam">Salamatrix.AI provider seam</h2>
+<p><code>src/plugins/salamatrix/salamatrix_ai.h</code> defines a provider-neutral assistant contract. The separately installable <code>SalamatrixAI.SPL</code> registers <code>local.command</code> when <code>SALAMATRIX_AI_COMMAND</code> is configured and can also register a native <code>local.ollama</code> provider when <code>SALAMATRIX_AI_MODEL</code> and a local endpoint are configured; Automation remains a consumer of the service. The command receives one UTF-8 JSON request on standard input and returns one JSON object/array on standard output; the bridge bounds output to 1 MiB and clamps generation to a two-minute timeout. The native provider uses the same structured contract over WinHTTP, so a local model can be used without shipping a model SDK or coupling Salamander to a vendor. The optional companion plugin <code>Salamatrix AI Local LLaMA</code> registers <code>local.bundled</code>, a server-free provider that starts <code>runtime\\llama-cli.exe</code> against the model selected on the plugin Configuration page. Qwen2.5-Coder 1.5B Instruct Q4_K_M is the recommended default; Qwen2.5-Coder 0.5B Instruct Q4_K_M remains available as a lightweight option for English prompts only. Both models may be installed side by side and the selection is persisted. The installer downloads the pinned Windows x64 CPU package and selected Qwen GGUF file, verifies both SHA-256 values, and stores the applicable license notices beside the files. Existing <code>runtime\\salamatrix.gguf</code> installations are migrated as the 0.5B profile. Both assets can be overridden with <code>SALAMATRIX_AI_BUNDLED_COMMAND</code> and <code>SALAMATRIX_AI_BUNDLED_MODEL</code>; the provider is advertised as ready only when both files exist. The chat automatically uses the first available provider, or an explicit <code>SALAMATRIX_AI_PROVIDER</code> such as <code>local.bundled</code>, <code>local.ollama</code>, or <code>local.command</code> when set. The standalone chat also enumerates currently available providers and lets the user choose one explicitly; <code>auto</code> retains resilient fallback behavior. When the chat is opened from a Salamander operation menu, its Run action also passes that borrowed operation context through <code>Salamatrix.ScriptRunner</code>, so generated workers can create and update the same host-owned progress dialog as ordinary extensions; a standalone chat has no implicit operation context. The shared service validates the structured assistant contract (<code>title</code>, <code>description</code>, <code>capabilities</code>, <code>estimatedEffects</code>, and <code>script</code>) and exposes the parsed effect flags to callers. Workers expose both <code>ai.generate(...)</code> and <code>ai.preview(...)</code>; preview adds a conservative <code>canRun</code> safety result (shared by native clients through <code>Salamatrix::AI::IsSafeToRun</code>). Automation now includes an Ask-AI menu action that gathers source-panel context, shows a native preview summary, copies the generated script for explicit review, offers an explicit Run only after user confirmation when the response names an available runtime, and offers an explicit Save As file picker. When a supported runtime is present, the same workflow can also create a manifest-validated <code>extension.json</code> plus entry-point package under a user-selected folder. Both calls accept an optional runtime hint, existing script, and repair feedback, so a configured local model can target Python, PowerShell, PHP, or another registered adapter and continue a bounded conversation without a second provider-specific API. The native Ask-AI action offers at most three generation iterations before the final preview, keeping the repair loop bounded. The main AI helper remains model-free; the optional <code>Salamatrix AI Local LLaMA</code> companion supplies the on-demand downloader for the separately installed llama.cpp binary and GGUF model. For a local model without a custom provider implementation, the repository also ships the optional <code>src/plugins/automation/runtime/salamatrix_ai_local.py</code> command wrapper. It speaks Ollama's local <code>/api/generate</code> protocol by default and can switch to an OpenAI/llama.cpp-compatible <code>/v1/chat/completions</code> endpoint with <code>SALAMATRIX_AI_PROTOCOL=chat-completions</code>. The native provider accepts <code>SALAMATRIX_AI_OLLAMA_URL</code> (or the compatibility alias <code>SALAMATRIX_AI_HTTP_URL</code>) for Ollama, and <code>SALAMATRIX_AI_LLAMA_URL</code> for a llama.cpp/OpenAI-compatible endpoint; a bare host URL automatically receives the matching default path. <code>SALAMATRIX_AI_MODEL</code> (or <code>SALAMATRIX_AI_OLLAMA_MODEL</code>) selects the model. The wrapper is never launched unless it is selected through <code>SALAMATRIX_AI_COMMAND</code>, and its own timeout is capped below the host's two-minute provider limit.</p>
+<h2 id="salamatrix-poc-runtime-wiring">Salamatrix PoC runtime wiring</h2>
+<p>The first in-process proof-of-concept wiring is declared in:</p>
+<pre><code class="language-text">src/plugins/salamatrix/salamatrix_poc.h</code></pre>
+<p>This PoC is intentionally small and can run either against the real Salamatrix runtime plugin or against a local fallback service aggregate. The runtime plugin lives in <code>src/plugins/salamatrix/</code>, has a standalone Visual Studio project in <code>src/plugins/salamatrix/vcxproj/</code>, and exports <code>SALAMATRIX.SPL</code>; on plugin entry it creates a persistent <code>Runtime::RuntimeServices</code> instance and registers <code>Salamatrix.UI</code>, <code>Salamatrix.Commands</code>, <code>Salamatrix.FileOperations</code>, and the Runtime broker, Automation adapter, Sides, Events, Extensions, AI, and Storage services in Salamander's core-facing <code>CSalamanderGeneralAbstract</code> service registry. DemoPlug remains only a consumer/sample and no longer needs to act as the long-lived provider.</p>
+<ul>
+<li><code>Runtime::ServiceRegistry</code> provides a fixed-size local registry with owned</li>
+<p>providers and consumer leases, while <code>CSalamanderGeneral</code> provides the synchronized core-facing registry used by plugin consumers.</p>
+<li><code>Runtime::LocalUIService</code> implements <code>Salamatrix::UI::IUIService</code> by creating</li>
+<p>and destroying <code>Salamatrix::UI::ProgressDialog</code> objects over the existing <code>CSalamanderForOperationsAbstract</code> progress API.</p>
+<li><code>Runtime::RuntimeServices</code> wires one in-process UI service, command service,</li>
+<p>file-operation service, runtime broker, script root adapter, Sides, Events, Extensions, Storage, and service registry together. The Salamatrix runtime plugin owns one persistent instance and unregisters the host services when the plugin is released.</p>
+<li><code>RunProgressDialogPoc(...)</code> opens a native Salamatrix progress dialog, sets a</li>
+<p>total, adds text, steps progress, detects Cancel, disables Cancel for cleanup, and closes the dialog.</p>
+<li><code>RunAutomationProgressPoc(...)</code> exercises the script-facing</li>
+<p><code>Salamander.UI.progress(...)</code> shape through <code>ScriptUIAdapter</code>.</p>
+<li><code>ExecuteQuickRenamePoc(...)</code> and <code>CopyInteractivePoc(...)</code> prove that the</li>
+<p>Commands/FileOperations MVP can route to existing Salamander command workflows.</p>
+</ul>
+<p>The first consumer/sample integration point is a DemoPlug menu submenu named <code>Salamatrix PoC</code>. It exposes a <code>Run All PoC</code> summary command, a progress PoC command, a Quick Rename command PoC, and a Copy dialog PoC. The individual menu entries are always enabled; for these PoC menu commands the adapter bypasses panel enabler checks so the summary reports whether the existing command was accepted/posted rather than whether the current panel context has a focused or selected item. The progress command calls the native progress PoC and the script-facing progress adapter PoC from <code>CPluginInterfaceForMenuExt::ExecuteMenuItem</code>, while the Quick Rename and Copy entries route through the Commands/FileOperations adapters. When <code>SALAMATRIX.SPL</code> is installed and loaded, the sample queries the host registry first and uses the registered runtime services; when the runtime plugin is missing, the PoC keeps a local fallback so the demo remains runnable.</p>
+<p>The Automation plugin is the first non-demo consumer bridge. Its <code>CAutomationSalamatrixBridge</code> queries <code>CSalamanderGeneral::QueryService</code> for the framework-provided <code>Salamatrix.Automation</code>, <code>Salamatrix.UI</code>, <code>Salamatrix.Commands</code>, <code>Salamatrix.FileOperations</code>, <code>Salamatrix.Runtime</code>, and <code>Salamatrix.Sides</code>, <code>Salamatrix.Events</code>, <code>Salamatrix.Extensions</code>, and <code>Salamatrix.Storage</code> services when the plugin connects and immediately before script execution. It does not create a local fallback framework provider, so the Automation layer remains an adapter/consumer of <code>SALAMATRIX.SPL</code> rather than another provider of duplicated UI or command logic.</p>
+<p>Automation 2.0 exposes that bridge to scripts through <code>Salamander.UI</code>, <code>Salamander.Commands</code>, <code>Salamander.FileOperations</code>, <code>Salamander.Sides</code>, <code>Salamander.Events</code>, and <code>Salamander.Storage</code>. The first script-facing UI object is <code>Salamander.UI.progress(...)</code>, returning the existing progress Automation interface backed by <code>Salamatrix.UI</code>. Commands and interactive file operations return textual MVP results: <code>ok</code>, <code>cancel</code>, <code>not_available</code>, or <code>error</code>. Sides and tabs are COM/IDispatch wrappers over the same runtime-neutral snapshots and opaque ids used by native callers; Storage is bound to the executing manifest's extension id.</p>
+<p>The initial command catalog is deliberately small and stable: <code>QuickRename</code>, <code>Copy</code>, <code>Move</code>, and <code>MoveRename</code>, with script aliases <code>quick_rename</code>, <code>copy</code>, <code>move</code>, and <code>move_rename</code>. All MVP entries route to existing Salamander command handlers and require the current panel context to make the command meaningful.</p>
+<p>For the first real scripted-extension sample, Automation recognizes two MVP registration styles while discovering scripts in the existing script repository.</p>
+<p>Inline script metadata remains supported for tiny single-file samples:</p>
+<pre><code class="language-javascript">// Salamatrix.CommandId: Salamatrix.ProgressDemo
+// Salamatrix.CommandTitle: Salamatrix Progress Demo
+// Salamatrix.CommandMenu: both
+// Salamatrix.CommandContextMenu: true
+// Salamatrix.CommandRequires: file</code></pre>
+<p>Manifest-based extensions use an <code>extension.json</code> file in the extension root. The entry point may be next to it or in a safe relative subdirectory:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;Salamatrix.ProgressDemo&quot;,
+  &quot;name&quot;: &quot;Salamatrix Progress Demo&quot;,
+  &quot;runtime&quot;: &quot;Automation.JScript&quot;,
+  &quot;entryPoint&quot;: &quot;main.js&quot;,
+  &quot;commands&quot;: [
+    {
+      &quot;id&quot;: &quot;Salamatrix.ProgressDemo&quot;,
+      &quot;title&quot;: &quot;Salamatrix Progress Demo&quot;,
+      &quot;menu&quot;: &quot;both&quot;,
+      &quot;contextMenu&quot;: true,
+      &quot;requires&quot;: &quot;file&quot;
+    }
+  ]
+}</code></pre>
+<p>The reader is a strict UTF-8 JSON parser rather than a scalar text scanner. It rejects malformed JSON, duplicate members, invalid UTF-8 and Unicode surrogate pairs, unsafe absolute or traversing entry points, unsupported schema versions, invalid field types, duplicate command ids, and unsupported placement/context values. Manifests are limited to 1 MiB and nesting depth 64.</p>
+<p>Schema version 1 supports:</p>
+<ul>
+<li>package <code>id</code>, <code>name</code>/<code>title</code>, <code>version</code>, <code>description</code>, and <code>entryPoint</code>;</li>
+<li>a runtime string or <code>{ "id", "minimumVersion" }</code> object;</li>
+<li>a validated string array of declared <code>capabilities</code>;</li>
+<li>up to 64 command records with <code>id</code>, <code>title</code>, <code>handler</code>, <code>menu</code>/<code>placement</code>,</li>
+<p><code>contextMenu</code>, <code>toolbar</code>, <code>toolbarMenu</code>, and <code>requires</code>. A command with both <code>toolbar</code> and <code>toolbarMenu</code> contributes one Extension Bar button that opens the package's visible plugin-menu commands instead of executing directly.</p>
+</ul>
+<p>Automation currently contributes the first parsed command to its legacy native menu surface; preserving all parsed commands for dynamic command contribution is the next command-service step. Unlike the old scanner, discovery is not limited to extensions with an <code>IActiveScript</code> file association. A valid manifest entry point is discovered first, then execution resolves the exact runtime id and minimum version through <code>Salamatrix.Runtime</code>. Missing or incompatible runtimes produce an explicit error instead of silently failing engine lookup.</p>
+<p>MVP <code>requires</code> values map to Salamander menu event masks as follows:</p>
+<ul>
+<li><code>any</code>: no special context; enabled by <code>MENU_EVENT_TRUE</code>.</li>
+<li><code>disk</code>: requires a disk panel context.</li>
+<li><code>focused</code>: requires a focused file or directory on disk.</li>
+<li><code>file</code>: requires a focused file or selected files on disk.</li>
+<li><code>selection</code>: requires selected files or directories on disk.</li>
+</ul>
+<p>When a manifest declares a non-empty <code>capabilities</code> array, Automation also enforces the list at the persistent SMX1 host boundary. Calls are grouped into <code>panels.read</code>, <code>panels.write</code>, <code>ui.dialogs</code>, <code>commands</code>, <code>file-operations</code>, <code>storage</code>, <code>events</code>, and <code>ai</code>; a denied call returns a structured <code>capability denied</code> error. Persistent runtime event frames use a bounded session queue so host callbacks do not synchronously block the Salamander UI on a worker pipe. Scripts without a declared list retain legacy compatibility until the user-facing grant/revocation policy is available.</p>
+<h2 id="mvp-acceptance-criteria">MVP acceptance criteria</h2>
+<p>The platform skeleton is ready when:</p>
+<p>1. The runtime component name and source location are documented as Salamatrix in <code>src/plugins/salamatrix/</code>. 2. The active MVP subsystem names are defined as <code>Salamatrix.UI</code>, <code>Salamatrix.Commands</code>, <code>Salamatrix.FileOperations</code>, and <code>Salamatrix.Runtime</code>, <code>Salamatrix.Sides</code>, <code>Salamatrix.Events</code>, <code>Salamatrix.Extensions</code>, and <code>Salamatrix.Storage</code>. 3. A versioned <code>QueryService</code>/<code>RegisterService</code> ABI shape is documented. 4. Missing-runtime behavior is defined for native plugins, scripts, and UI. 5. The intended integration point with existing plugin registration and plugin lifetime management is documented. 6. The first <code>Salamatrix.UI</code> progress dialog contract exists and wraps the current <code>CSalamanderForOperationsAbstract</code> progress implementation. 7. The first <code>Salamatrix.Commands</code> and <code>Salamatrix.FileOperations</code> contracts exist and route their MVP interactive behavior through existing Salamander command/workflow entry points. 8. The first <code>Salamatrix.Automation</code> adapter contract exposes script-shaped wrappers over the native UI, Commands, FileOperations, Sides, Events, and Storage MVP services. 9. The generic form-builder model is reserved as adapter contracts only; no duplicate Automation UI implementation is introduced outside <code>Salamatrix.UI</code>. 10. The in-process Salamatrix PoC wires UI, Commands, FileOperations, Runtime, Sides, Events, Extensions, Storage, Automation adapters, an owned local service registry, and the core-facing leased <code>CSalamanderGeneral</code> service registry together and is exposed as a DemoPlug <code>Salamatrix PoC</code> menu sample. 11. <code>SALAMATRIX.SPL</code> exists as the first Automation Framework provider plugin, creates the persistent <code>Runtime::RuntimeServices</code> aggregate, registers the MVP services with <code>CSalamanderGeneral</code> under its owner token, and unregisters them during plugin release after active service leases drain. 12. The Automation plugin contains a consumer-only bridge that refreshes and caches host-registered Salamatrix services instead of instantiating a local duplicate runtime. 13. Automation 2.0 exposes <code>Salamander.UI</code>, <code>Salamander.Commands</code>, and <code>Salamander.FileOperations</code> backed by the Salamatrix runtime bridge. 14. Script discovery supports command-registration metadata for multiple commands and a minimal <code>extension.json</code> manifest for the sample scripted extension; the Automation menu publishes every registered command. 15. Scripted-extension command placement controls plugin-menu vs context-menu visibility and applies MVP <code>requires</code> context masks to Automation menu items. 16. <code>Salamatrix.Runtime</code> is a registered broker service with versioned adapter descriptors, registration, enumeration, and lookup. 17. Automation advertises available legacy Active Scripting engines as compatibility runtime adapters and unregisters them during release. 18. Partial host-service registration is rolled back transactionally. 19. Runtime adapters expose structured execution requests/results; manifest execution is selected by runtime id and minimum version through the broker. 20. <code>extension.json</code> is parsed as strict UTF-8 JSON with schema, path, runtime, capability, and command validation. 21. Manifest entry points are discovered independently of legacy ActiveScript file associations. 22. <code>Salamatrix.Sides</code> exposes Left, Right, Source, and Target resolution plus safe panel-tab snapshots, opaque ids, paths, activation, and active-tab path changes without leaking core implementation pointers. 23. Automation exposes the same model through <code>Salamander.Sides</code>, including precision-safe string tab ids and stale-handle checks. 24. The plugin SDK version is raised to 105 for the appended service-registry and panel-tab virtual methods. 25. <code>Salamatrix.Storage</code> provides synchronized per-extension namespaces for UTF-8 strings, signed 64-bit integers, and booleans, with versioned configuration persistence. 26. Automation exposes the current manifest namespace through <code>Salamander.Storage</code>; loose scripts without an extension id cannot enter a shared fallback namespace. 27. Standalone <code>/W4 /WX</code> tests cover namespace isolation, types, limits, mutation, configuration round-trip, unchanged-save behavior, and corrupt blob rejection. 28. <code>Salamatrix.Events</code> provides unsubscribe-safe host subscriptions for the initial lifecycle, settings, configuration, color, panel-swap, and active panel events; Automation exposes the same subscription contract. 29. <code>Salamatrix.Extensions</code> provides an owner-aware manifest registry with explicit lifecycle states and safe activate/deactivate transitions; Automation publishes and removes manifest descriptors during script-list load and refresh. 30. Independent runtime <code>.spl</code> providers register <code>Python.CPython</code>, <code>PowerShell</code>, <code>PHP.CLI</code>, <code>JavaScript.Node</code>, and <code>Lua</code> out-of-process adapters when their interpreters are discoverable, with bounded output capture, timeout termination, and structured exit results; Automation consumes the broker without owning these modern registrations. 31. <code>salamatrix_runtime_protocol.h</code> provides bounded incremental <code>SMX1</code> worker framing with typed lifecycle/call/event messages and standalone limit and malformed-frame tests. 32. <code>IRuntimeSession</code> and <code>StartPersistent()</code> provide bidirectional persistent process sessions; manifest lifecycle activation owns and releases sessions, and a Python echo-worker integration test verifies round-trip framing. 33. The Automation host dispatcher answers <code>runtime.ready</code>, command execution, active-tab snapshots, and per-extension string storage calls over <code>SMX1</code>. 34. Manifest activation starts and joins a host pump thread for each persistent worker, so the dispatcher is active outside of tests as well. 35. The dispatcher supports event subscriptions with pushed <code>event</code> frames and a parented <code>salamander.ui.messageBox</code> call; subscriptions are removed before the worker session is stopped. 36. Python, PowerShell, PHP, and Node process adapters can start their shared worker bootstraps; the process-runtime integration test exercises handshake, commands, storage, event subscription, shared dialogs, and shutdown end to end for Python, PowerShell, and PHP. 37. <code>Salamatrix.AI</code> exposes provider registration; the separately installable <code>SalamatrixAI.SPL</code> supplies the optional bounded local command provider selected by <code>SALAMATRIX_AI_COMMAND</code>, a native Ollama HTTP provider selected by <code>SALAMATRIX_AI_MODEL</code>, and its native Ask/Preview/Run/Save chat with an Auto/explicit provider picker and ready/unavailable provider status. When Automation is loaded, it also publishes <code>Salamatrix.ScriptRunner</code>, so the AI Run action uses the same capability-aware SMX1 host dispatcher as a regular scripted extension instead of a privileged AI-only execution path, including the borrowed operation context required by host progress dialogs when the chat was opened from an operation menu. 38. The shared worker object model exposes <code>Salamander.ui.input_box(...)</code> and the host renders it as a parented native Windows dialog with an editable value; <code>message_box(...)</code> and <code>input_box(...)</code> are routed through the shared <code>Salamatrix.UI</code> service and the same SMX1 host calls are available to Python, PowerShell, PHP, and Node. 39. <code>Salamatrix.UI</code> now publishes a reusable native <code>IDialog</code>/<code>IControl</code> contract and <code>NativeDialog</code> implementation for labels, text boxes, check/radio buttons, combo boxes, buttons, ListView, TreeView, TabControl, group boxes, host static text and hyperlinks, progress bars, arrow/text-arrow/ color-arrow buttons, and toolbar headers; workers can use <code>dialog.addControl(..., layout)</code> for explicit control bounds and the common <code>readOnly</code>, <code>checked</code>, <code>dialogResult</code>, <code>keepOpen</code>, and <code>multiline</code> control options; worker <code>dialog(...)</code> facades also pass explicit native <code>width</code>/<code>height</code> through the same contract; and <code>dialog.setValidation(...)</code> for required-field checks; <code>dialog.onChange(...)</code> receives control-change events through the same SMX1 event channel, and the worker input-box path goes through this service rather than owning a second dialog backend. The JavaScript, Python, PowerShell, PHP, and Lua demos each construct the same explicit capabilities dialog themselves and identify their runtime and extension in its <code>Created by</code> group. The native DemoPlug and Automation JScript demo do the same through their respective public Salamatrix.UI facades; none depends on a prebuilt Automation-owned gallery window. <code>Salamander.ui.uptime()</code> supplies the shared host uptime text without language-specific platform calls. 40. The command catalog covers the available core <code>SALCMD_*</code> operations and <code>IFileOperationsService</code> exposes interactive rename/copy/move/delete, create-directory, refresh, and properties wrappers to native callers and all four modern worker runtimes. 41. Workers can create native dialogs, add all currently supported control kinds (including item/node/tab binding), show them modally, read control state, and destroy them through the same <code>Salamatrix.UI</code> service; the bounded process-runtime tests exercise this path in Python, PowerShell, PHP, and Node. 42. The same shared UI service now exposes UTF-8 open/save file pickers and a native folder picker; Python, PowerShell, PHP, and Node workers call <code>Salamander.ui.pick_file()</code> / <code>PickFile()</code> / <code>pickFile()</code> or <code>pick_folder()</code> / <code>PickFolder()</code> / <code>pickFolder()</code> and receive a structured selected/path result. 43. The shared worker facade exposes runtime discovery through <code>Salamander.runtimes.list()</code> / <code>List()</code> / <code>list()</code>; the host returns each adapter's id, language, entry-point extensions, version, and availability. 44. The optional <code>runtime/salamatrix_ai_local.py</code> command wrapper translates the provider-neutral AI request into Ollama or OpenAI-compatible local endpoint calls while preserving the host's bounded JSON contract. 45. <code>SalamatrixAI.SPL</code> also exposes <code>local.ollama</code> directly over WinHTTP when <code>SALAMATRIX_AI_MODEL</code> and <code>SALAMATRIX_AI_OLLAMA_URL</code> (or <code>SALAMATRIX_AI_HTTP_URL</code>) are configured; setting <code>SALAMATRIX_AI_LLAMA_URL</code> selects the OpenAI/llama.cpp-compatible <code>/v1/chat/completions</code> protocol unless <code>SALAMATRIX_AI_PROTOCOL</code> overrides it. The command wrapper remains available for custom model adapters. 46. The existing core Plugin Manager queries <code>Salamatrix.Extensions</code> and displays manifest-backed extensions alongside <code>.SPL</code> plugins. These rows expose the manifest name, state, version, runtime, entry point, and ID; the existing Test action becomes localized Activate/Deactivate for the selected manifest row. Script packages are still not treated as loadable native plugins; a separate Extension Manager is intentionally not introduced.</p>
+</main></body>
+</html>

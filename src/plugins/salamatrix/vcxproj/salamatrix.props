@@ -13,9 +13,17 @@
       <AdditionalDependencies>Shell32.lib;Ole32.lib;Shlwapi.lib;Comctl32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-  <Target Name="CopySalamatrixAutomationApiReference" AfterTargets="Build">
-    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\..\..\doc\salamatrix-automation-api.html"
-          DestinationFiles="$(OutDir)salamatrix-automation-api.html"
+  <ItemGroup>
+    <SalamatrixDocumentation Include="$(MSBuildThisFileDirectory)..\..\..\..\doc\salamatrix-automation-api.html" />
+    <SalamatrixDocumentation Include="$(MSBuildThisFileDirectory)..\..\..\..\doc\salamatrix-ui.html" />
+    <SalamatrixDocumentation Include="$(MSBuildThisFileDirectory)..\..\..\..\doc\salamatrix-platform.html" />
+    <SalamatrixDocumentation Include="$(MSBuildThisFileDirectory)..\..\..\..\doc\salamatrix-runtime-providers.html" />
+    <SalamatrixDocumentation Include="$(MSBuildThisFileDirectory)..\..\..\..\doc\salamatrix-runtime-provider-development.html" />
+    <SalamatrixDocumentation Include="$(MSBuildThisFileDirectory)..\..\..\..\doc\salamatrix-gap-analysis.html" />
+  </ItemGroup>
+  <Target Name="CopySalamatrixDocumentation" AfterTargets="Build">
+    <Copy SourceFiles="@(SalamatrixDocumentation)"
+          DestinationFolder="$(OutDir)"
           SkipUnchangedFiles="true" />
   </Target>
 </Project>

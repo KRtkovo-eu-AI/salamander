@@ -303,8 +303,19 @@ def main() -> int:
                      r'contextJson.*?existingScript.*?repairFeedback',
             "bundled model input is not described by a typed strict contract")
     require(bundled, r'RuntimeInterfaceContract.*?JavaScript\.Node.*?'
-                     r'Python\.CPython.*?PowerShell.*?PHP\.CLI',
-            "bundled model lacks strict contracts for all four runtime facades")
+                     r'Python\.CPython.*?PowerShell.*?PHP\.CLI.*?Lua',
+            "bundled model lacks strict contracts for all five runtime facades")
+    require(bundled, r'Lua chunk.*?Salamander is an injected global table',
+            "bundled model does not receive the Lua facade conventions")
+    require(ai_contract,
+            r'fullFrameworkTerms.*?extensions.*?clipboard.*?application.*?ai',
+            "full-framework AI requests do not receive every public API slice")
+    require(ai_contract,
+            r'extensionManifest.*?schemaVersion.*?capabilityValues.*?generatedPackage',
+            "AI extension slice does not describe manifest packaging and capabilities")
+    require(ai_contract,
+            r'statictext.*?toolbarheader.*?styleFlags.*?buttonMask',
+            "AI UI contract omits framework-native controls or extended options")
     require(bundled, r'this\.selectedItems does not exist',
             "bundled JavaScript contract permits an invented selection property")
     require(bundled, r'BuildStrictOutputSchema.*?'
@@ -799,8 +810,20 @@ def main() -> int:
             "plugin documentation does not use the same configured-viewer selection path as built-in documentation")
     require(ai, r'"api-reference".*?OpenAutomationApiReference',
             "Salamatrix AI window has no Automation API reference button")
+    require(ai, r'PHP\|\*\.php\|Lua\|\*\.lua\|All files',
+            "Salamatrix AI Save script picker does not expose the Lua extension")
     require(setup, r"plugins\\salamatrix\\salamatrix-automation-api\.html",
             "installer does not package the Automation API HTML reference")
+    for document in (
+            "salamatrix-ui.html",
+            "salamatrix-platform.html",
+            "salamatrix-runtime-providers.html",
+            "salamatrix-runtime-provider-development.html",
+            "salamatrix-gap-analysis.html"):
+        require(salamatrix_props, re.escape(document),
+                f"Salamatrix build does not stage {document}")
+        require(setup, re.escape(document),
+                f"installer does not package {document}")
     require(packages, r"void PackageManager::RegisterToolbarButtons\(\).*?if \(!package->RuntimeUsable\)\s+continue;",
             "unavailable extension packages are not filtered from the toolbar")
     require(
@@ -1361,7 +1384,7 @@ def main() -> int:
     )
     if generated_docs.returncode != 0:
         raise AssertionError(
-            "generated Automation API HTML reference is stale: "
+            "generated Salamatrix HTML documentation is stale: "
             + generated_docs.stderr.strip()
         )
 

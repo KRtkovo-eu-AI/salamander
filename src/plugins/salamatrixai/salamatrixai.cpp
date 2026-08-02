@@ -929,7 +929,7 @@ static bool SaveAssistantScript(
     if (script == NULL || ui == NULL || parent == NULL)
         return false;
     std::vector<char> path(32768, '\0');
-    const char filter[] = "JavaScript|*.js;*.mjs|Python|*.py|PowerShell|*.ps1|PHP|*.php|All files|*.*";
+    const char filter[] = "JavaScript|*.js;*.mjs|Python|*.py|PowerShell|*.ps1|PHP|*.php|Lua|*.lua|All files|*.*";
     if (!ui->PickFile(parent, TRUE, "Save generated script",
                       filter, "", path.data(), static_cast<DWORD>(path.size())))
         return false;

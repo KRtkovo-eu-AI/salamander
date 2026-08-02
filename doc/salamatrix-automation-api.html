@@ -37,10 +37,7 @@ th { background:var(--surface); } li { margin:.2em 0; }
 </head>
 <body><main>
 <nav class="doc-nav" aria-label="Salamatrix documentation">
-<a href="salamatrix-ui.md">Salamatrix.UI guide</a>
-<a href="salamatrix-platform.md">Platform foundation</a>
-<a href="salamatrix-runtime-providers.md">Runtime providers</a>
-<a href="salamatrix-gap-analysis.md">GAP analysis</a>
+<a href="salamatrix-automation-api.html" aria-current="page">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html">Salamatrix GAP analysis</a>
 </nav>
 <h1 id="salamatrix-automation-api-reference">Salamatrix Automation API reference</h1>
 <p>This document describes the API that is implemented by the current Salamatrix Framework and exposed to scripted extensions. It is intended for both people writing scripts and AI providers generating scripts. Examples use public worker facades, not the private <code>SMX1</code> transport.</p>
@@ -104,8 +101,33 @@ th { background:var(--surface); } li { margin:.2em 0; }
 </tr>
 </tbody></table></div>
 <p>JavaScript scripts run as modules and may use top-level <code>await</code>. They must not use an invented <code>this.selectedItems</code> property. The current selection is obtained through <code>await Salamander.sides.context("source")</code>.</p>
+<h3 id="one-shot-scripts-and-extension-packages">One-shot scripts and extension packages</h3>
+<p>The generated source contract is the same for a one-shot preview and for a saved extension. A one-shot script is executed immediately with the selected runtime. <strong>Save as extension</strong> creates a directory containing <code>extension.json</code> and the generated <code>main</code> entry point, then asks Salamatrix to refresh extension discovery. The assistant returns source code, not a JSON manifest embedded in the source.</p>
+<p>The generated manifest uses schema version 1 and binds one plugin-menu command to handler <code>main</code>:</p>
+<pre><code class="language-json">{
+  &quot;schemaVersion&quot;: 1,
+  &quot;id&quot;: &quot;generated.example&quot;,
+  &quot;name&quot;: &quot;Generated example&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;description&quot;: &quot;What the extension does&quot;,
+  &quot;runtime&quot;: &quot;Python.CPython&quot;,
+  &quot;entryPoint&quot;: &quot;main.py&quot;,
+  &quot;capabilities&quot;: [&quot;panels.read&quot;, &quot;ui.dialogs&quot;],
+  &quot;commands&quot;: [
+    {
+      &quot;id&quot;: &quot;generated.example&quot;,
+      &quot;title&quot;: &quot;Generated example&quot;,
+      &quot;handler&quot;: &quot;main&quot;,
+      &quot;menu&quot;: &quot;plugin&quot;,
+      &quot;requires&quot;: &quot;any&quot;
+    }
+  ]
+}</code></pre>
+<p>Hand-authored packages may define up to 64 commands. Command fields are <code>id</code>, <code>title</code>, <code>handler</code>, <code>menu</code>/<code>placement</code>, <code>contextMenu</code>, <code>toolbar</code>, <code>toolbarMenu</code>, and <code>requires</code>. Supported <code>requires</code> values are <code>any</code>, <code>disk</code>, <code>focused</code>, <code>file</code>, and <code>selection</code>. Entry points must be safe relative paths; absolute paths and parent traversal are rejected. Manifests are strict UTF-8 JSON and reject duplicate members, invalid types, duplicate command ids, and unsupported schema versions.</p>
+<p>An extension must declare every applicable gated framework surface it calls. Public capability names are <code>panels.read</code>, <code>panels.write</code>, <code>ui.dialogs</code>, <code>commands</code>, <code>file-operations</code>, <code>storage</code>, <code>events</code>, <code>ai</code>, <code>clipboard</code>, and <code>runtimes</code>. Application language/appearance and other host metadata have no separate capability name. Direct use of language/runtime libraries does not add a Salamatrix capability, but its real effects must still be reported by AI preview metadata.</p>
+<p>The entry point executes at top level. Its invocation identity is available as <code>commandId</code>/<code>commandHandler</code> in JavaScript, <code>command_id</code>/<code>command_handler</code> in Python, PHP, and Lua, and <code>CommandId</code>/<code>CommandHandler</code> in PowerShell. Persistent event subscriptions are useful only for an activated extension whose runtime supports persistent sessions; a one-shot script normally exits before a future event can arrive.</p>
 <h3 id="how-the-ai-consumes-this-contract">How the AI consumes this contract</h3>
-<p>The live <code>Salamatrix.AI</code> service publishes versioned machine-readable slices for <code>sides</code>, <code>fileOperations</code>, <code>commands</code>, <code>ui</code>, <code>storage</code>, <code>events</code>, <code>runtimes</code>, and <code>ai</code>. The assistant selects slices from the user's task instead of sending an unbounded copy of the whole manual.</p>
+<p>The live <code>Salamatrix.AI</code> service publishes versioned machine-readable slices for invocation context, extension manifests, sides, file operations, commands, UI, storage, clipboard, application state, events, runtime discovery, and AI. The assistant selects slices from the user's task instead of sending an unbounded copy of the whole manual. A request explicitly asking for the whole framework receives every public slice.</p>
 <p>The bundled local model receives these slices through a <strong>Strict Interface Contract</strong>, split into five explicit sections:</p>
 <p>1. <code>INPUT CONTRACT</code>: typed task, selected runtime id, current Salamander context, existing source, and optional repair feedback, including their actual values; 2. <code>INSTALLED SALAMANDER API CONTRACT</code>: only the relevant implemented API slices; 3. <code>SELECTED RUNTIME CONTRACT</code>: the real worker facade conventions for the selected JavaScript, Python, PowerShell, PHP, or Lua runtime; 4. <code>OUTPUT CONTRACT</code>: the exact closed JSON Schema for the response; 5. <code>GENERATION RULES</code>: precedence, grounding, capability, effect, and honest framework-GAP rules.</p>
 <p>The exact same output schema instance is included in the prompt and supplied to <code>llama.cpp</code> through <code>--json-schema-file</code>. It therefore acts both as instructions for the model and as a constrained-generation grammar. The runtime contracts document the injected root object, synchronous or asynchronous call model, naming convention, selected-item access, and use of language libraries. Full general-purpose language manuals are deliberately not inserted into every request because they would consume context without describing the Salamatrix binding.</p>
@@ -393,6 +415,8 @@ for (const item of context.selectedItems) {
 <p><code>copyText(text, showEcho=false)</code> copies UTF-8 text and returns a boolean. Python names it <code>copy_text</code>.</p>
 <h2 id="runtime-discovery">Runtime discovery</h2>
 <p><code>runtimes.list()</code> returns records with <code>id</code>, <code>name</code>, <code>language</code>, <code>extensions</code>, <code>version</code>, and <code>available</code>. The runtime id placed in generated assistant output must exactly equal the selected runtime id.</p>
+<h2 id="application-language-and-appearance">Application language and appearance</h2>
+<p><code>application.language()</code> returns the selected Salamander language record. <code>application.appearance()</code> returns the current appearance record, including whether Salamander is using its <strong>Windows Dark Mode (experimental)</strong> color scheme. Extensions must use these host values for localized behavior and appearance decisions; operating-system app mode is not the Salamander dark-mode contract. Python and Lua use <code>application.language()</code> / <code>appearance()</code>, PowerShell uses <code>$Salamander.Application.Language()</code> / <code>Appearance()</code>, PHP uses <code>$Salamander-&gt;application-&gt;language()</code> / <code>appearance()</code>, and JavaScript awaits the corresponding calls.</p>
 <h2 id="events">Events</h2>
 <p><code>events.subscribe(name, handler)</code> returns a subscription id. <code>events.unsubscribe(subscriptionId)</code> removes it.</p>
 <p>Implemented event names:</p>
@@ -510,7 +534,7 @@ get/getValue, set/setValue, close/destroy</code></pre>
 <li><code>src/plugins/phpruntime/runtime/salamatrix_worker.php</code></li>
 <li><code>src/plugins/luaruntime/runtime/salamatrix_worker.lua</code></li>
 </ul>
-<p>The complete control catalog, layout/property reference, dark-mode/DPI model, and side-by-side JavaScript, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ examples are documented in <a href="salamatrix-ui.md">Salamatrix.UI framework and custom dialog guide</a>. The bundled demo sources deliberately build the complete capabilities gallery themselves instead of calling a prebuilt showcase window.</p>
+<p>The complete control catalog, layout/property reference, dark-mode/DPI model, and side-by-side JavaScript, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ examples are documented in <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a>. The bundled demo sources deliberately build the complete capabilities gallery themselves instead of calling a prebuilt showcase window.</p>
 <h2 id="ai-service">AI service</h2>
 <p>Scripts may call the provider-neutral AI service through <code>ai.generate</code>, <code>ai.preview</code>, and <code>ai.api</code>/<code>apiDescription</code>. Generation accepts:</p>
 <pre><code class="language-text">prompt, context, provider, runtime, existingScript, feedback</code></pre>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the self-contained HTML Salamatrix Automation API reference."""
+"""Generate the self-contained HTML Salamatrix authoring references."""
 
 from __future__ import annotations
 
@@ -10,18 +10,38 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "doc" / "salamatrix-automation-api.md"
-TARGET = ROOT / "doc" / "salamatrix-automation-api.html"
+DOCUMENTS = (
+    ("salamatrix-automation-api", "Salamatrix Automation API reference"),
+    ("salamatrix-ui", "Salamatrix.UI framework and custom dialog guide"),
+    ("salamatrix-platform", "Salamatrix Platform Foundation"),
+    ("salamatrix-runtime-providers", "Standalone Salamatrix runtime providers"),
+    (
+        "salamatrix-runtime-provider-development",
+        "Developing a Salamatrix language runtime provider",
+    ),
+    ("salamatrix-gap-analysis", "Salamatrix GAP analysis"),
+)
+
+HTML_DOCUMENT_NAMES = {f"{slug}.md": f"{slug}.html" for slug, _ in DOCUMENTS}
 
 
 def inline(text: str) -> str:
     value = html.escape(text, quote=False)
     value = re.sub(r"`([^`]+)`", r"<code>\1</code>", value)
     value = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", value)
-    return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', value)
+
+    def link(match: re.Match[str]) -> str:
+        target = match.group(2)
+        for markdown_name, html_name in HTML_DOCUMENT_NAMES.items():
+            if target == markdown_name or target.startswith(markdown_name + "#"):
+                target = html_name + target[len(markdown_name) :]
+                break
+        return f'<a href="{target}">{match.group(1)}</a>'
+
+    return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link, value)
 
 
-def render(markdown: str) -> str:
+def render(markdown: str, document_title: str, current_slug: str) -> str:
     lines = markdown.splitlines()
     output: list[str] = []
     paragraph: list[str] = []
@@ -87,9 +107,11 @@ def render(markdown: str) -> str:
             flush_paragraph()
             close_list()
             level = len(heading.group(1))
-            title = heading.group(2)
-            anchor = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-            output.append(f'<h{level} id="{anchor}">{inline(title)}</h{level}>')
+            heading_title = heading.group(2)
+            anchor = re.sub(r"[^a-z0-9]+", "-", heading_title.lower()).strip("-")
+            output.append(
+                f'<h{level} id="{anchor}">{inline(heading_title)}</h{level}>'
+            )
             index += 1
             continue
         item = re.match(r"^\s*[-*]\s+(.+)$", line)
@@ -116,7 +138,7 @@ def render(markdown: str) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Salamatrix Automation API reference</title>
+<title>{html.escape(document_title)}</title>
 <style>
 :root {{ color-scheme:light dark; --bg:#fff; --fg:#202124; --surface:#f6f8fa;
  --border:#d0d7de; --accent:#c9252d; --code:#f0f2f4; }}
@@ -150,10 +172,7 @@ th {{ background:var(--surface); }} li {{ margin:.2em 0; }}
 </head>
 <body><main>
 <nav class="doc-nav" aria-label="Salamatrix documentation">
-<a href="salamatrix-ui.md">Salamatrix.UI guide</a>
-<a href="salamatrix-platform.md">Platform foundation</a>
-<a href="salamatrix-runtime-providers.md">Runtime providers</a>
-<a href="salamatrix-gap-analysis.md">GAP analysis</a>
+{' '.join(f'<a href="{slug}.html"' + (' aria-current="page"' if slug == current_slug else '') + f'>{html.escape(nav_title)}</a>' for slug, nav_title in DOCUMENTS)}
 </nav>
 {body}
 </main></body>
@@ -165,13 +184,21 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    generated = render(SOURCE.read_text(encoding="utf-8"))
+    stale: list[Path] = []
+    generated_documents: list[tuple[Path, str]] = []
+    for slug, title in DOCUMENTS:
+        source = ROOT / "doc" / f"{slug}.md"
+        target = ROOT / "doc" / f"{slug}.html"
+        generated = render(source.read_text(encoding="utf-8"), title, slug)
+        generated_documents.append((target, generated))
+        if not target.exists() or target.read_text(encoding="utf-8") != generated:
+            stale.append(target)
     if args.check:
-        if not TARGET.exists() or TARGET.read_text(encoding="utf-8") != generated:
-            print(f"{TARGET} is stale; run {Path(__file__).name}", file=sys.stderr)
-            return 1
-        return 0
-    TARGET.write_text(generated, encoding="utf-8", newline="\n")
+        for target in stale:
+            print(f"{target} is stale; run {Path(__file__).name}", file=sys.stderr)
+        return 1 if stale else 0
+    for target, generated in generated_documents:
+        target.write_text(generated, encoding="utf-8", newline="\n")
     return 0
 
 

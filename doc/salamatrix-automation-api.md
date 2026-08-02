@@ -36,12 +36,71 @@ JavaScript scripts run as modules and may use top-level `await`. They must not
 use an invented `this.selectedItems` property. The current selection is obtained
 through `await Salamander.sides.context("source")`.
 
+### One-shot scripts and extension packages
+
+The generated source contract is the same for a one-shot preview and for a
+saved extension. A one-shot script is executed immediately with the selected
+runtime. **Save as extension** creates a directory containing `extension.json`
+and the generated `main` entry point, then asks Salamatrix to refresh extension
+discovery. The assistant returns source code, not a JSON manifest embedded in
+the source.
+
+The generated manifest uses schema version 1 and binds one plugin-menu command
+to handler `main`:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "generated.example",
+  "name": "Generated example",
+  "version": "1.0.0",
+  "description": "What the extension does",
+  "runtime": "Python.CPython",
+  "entryPoint": "main.py",
+  "capabilities": ["panels.read", "ui.dialogs"],
+  "commands": [
+    {
+      "id": "generated.example",
+      "title": "Generated example",
+      "handler": "main",
+      "menu": "plugin",
+      "requires": "any"
+    }
+  ]
+}
+```
+
+Hand-authored packages may define up to 64 commands. Command fields are `id`,
+`title`, `handler`, `menu`/`placement`, `contextMenu`, `toolbar`,
+`toolbarMenu`, and `requires`. Supported `requires` values are `any`, `disk`,
+`focused`, `file`, and `selection`. Entry points must be safe relative paths;
+absolute paths and parent traversal are rejected. Manifests are strict UTF-8
+JSON and reject duplicate members, invalid types, duplicate command ids, and
+unsupported schema versions.
+
+An extension must declare every applicable gated framework surface it calls.
+Public capability names are `panels.read`, `panels.write`, `ui.dialogs`, `commands`,
+`file-operations`, `storage`, `events`, `ai`, `clipboard`, and `runtimes`.
+Application language/appearance and other host metadata have no separate
+capability name.
+Direct use of language/runtime libraries does not add a Salamatrix capability,
+but its real effects must still be reported by AI preview metadata.
+
+The entry point executes at top level. Its invocation identity is available as
+`commandId`/`commandHandler` in JavaScript, `command_id`/`command_handler` in
+Python, PHP, and Lua, and `CommandId`/`CommandHandler` in PowerShell. Persistent
+event subscriptions are useful only for an activated extension whose runtime
+supports persistent sessions; a one-shot script normally exits before a future
+event can arrive.
+
 ### How the AI consumes this contract
 
 The live `Salamatrix.AI` service publishes versioned machine-readable slices
-for `sides`, `fileOperations`, `commands`, `ui`, `storage`, `events`,
-`runtimes`, and `ai`. The assistant selects slices from the user's task instead
-of sending an unbounded copy of the whole manual.
+for invocation context, extension manifests, sides, file operations, commands,
+UI, storage, clipboard, application state, events, runtime discovery, and AI.
+The assistant selects slices from the user's task instead of sending an
+unbounded copy of the whole manual. A request explicitly asking for the whole
+framework receives every public slice.
 
 The bundled local model receives these slices through a **Strict Interface
 Contract**, split into five explicit sections:
@@ -265,6 +324,18 @@ Python names it `copy_text`.
 `runtimes.list()` returns records with `id`, `name`, `language`, `extensions`,
 `version`, and `available`. The runtime id placed in generated assistant output
 must exactly equal the selected runtime id.
+
+## Application language and appearance
+
+`application.language()` returns the selected Salamander language record.
+`application.appearance()` returns the current appearance record, including
+whether Salamander is using its **Windows Dark Mode (experimental)** color
+scheme. Extensions must use these host values for localized behavior and
+appearance decisions; operating-system app mode is not the Salamander dark-mode
+contract. Python and Lua use `application.language()` / `appearance()`,
+PowerShell uses `$Salamander.Application.Language()` / `Appearance()`, PHP uses
+`$Salamander->application->language()` / `appearance()`, and JavaScript awaits
+the corresponding calls.
 
 ## Events
 

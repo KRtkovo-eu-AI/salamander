@@ -5,6 +5,13 @@ Salamander extensions. It lets a native plugin, an Automation script, or an
 out-of-process JavaScript, Python, PowerShell, PHP, or Lua extension construct
 the same dialog from the same control model.
 
+This is both the user-facing UI authoring guide and the normative source for AI
+providers generating Salamatrix dialogs. The installed HTML edition is linked
+from the Automation API reference. Local AI providers receive a bounded,
+machine-readable projection of the same lifecycle, control kinds, option names,
+result fields, and runtime conventions; they must not infer methods from the
+examples that are absent from that projection.
+
 The window is not rendered by the language runtime and it is not owned by the
 Automation plugin. Callers describe a dialog and its controls; Salamatrix
 creates the native window, attaches Open Salamander controls, applies the

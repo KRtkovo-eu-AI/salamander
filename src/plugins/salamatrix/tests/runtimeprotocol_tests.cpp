@@ -513,6 +513,30 @@ void TestAssistantService()
               czechMoveApi.find("\"sides\"") != std::string::npos &&
               czechMoveApi.find("\"all\"") == std::string::npos,
           "Czech move request receives bounded sides and file-operation API slices");
+    const std::string extensionApi =
+        Salamatrix::AI::BuildRelevantApiDescription(
+            &service,
+            "Create a Lua extension with a toolbar command and native dialog.");
+    Check(extensionApi.find("\"extensions\"") != std::string::npos &&
+              extensionApi.find("\"execution\"") != std::string::npos &&
+              extensionApi.find("\"commands\"") != std::string::npos &&
+              extensionApi.find("\"runtimes\"") != std::string::npos &&
+              extensionApi.find("\"ui\"") != std::string::npos &&
+              extensionApi.find("generatedPackage") != std::string::npos,
+          "extension requests receive manifest, invocation, runtime, command, and UI slices");
+    const std::string fullFrameworkApi =
+        Salamatrix::AI::BuildRelevantApiDescription(
+            &service, "Use the whole framework API.");
+    Check(fullFrameworkApi.find("\"clipboard\"") != std::string::npos &&
+              fullFrameworkApi.find("\"application\"") != std::string::npos &&
+              fullFrameworkApi.find("\"events\"") != std::string::npos &&
+              fullFrameworkApi.find("\"ai\"") != std::string::npos,
+          "explicit full-framework requests receive every secondary API slice");
+    std::string fullFrameworkSlices;
+    Check(Salamatrix::Runtime::Protocol::Json::FindRawMember(
+              fullFrameworkApi.c_str(), "slices", &fullFrameworkSlices) != FALSE &&
+              fullFrameworkSlices.size() >= 2 && fullFrameworkSlices[0] == '{',
+          "full-framework API projection is valid nested JSON");
     std::string contractVersions;
     std::string runtimeAdapters;
     std::string nativeContracts;
@@ -557,7 +581,11 @@ void TestAssistantService()
           "assistant API description advertises runtime discovery");
     const char* uiSlice = service.GetApiDescriptionSlice("ui");
     Check(uiSlice != NULL && strstr(uiSlice, "\"topic\":\"ui\"") != NULL &&
-              strstr(uiSlice, "dialog.validation") != NULL,
+              strstr(uiSlice, "dialog.validation") != NULL &&
+              strstr(uiSlice, "statictext") != NULL &&
+              strstr(uiSlice, "toolbarheader") != NULL &&
+              strstr(uiSlice, "styleFlags") != NULL &&
+              strstr(uiSlice, "buttonMask") != NULL,
           "assistant API description exposes a focused UI slice");
     const char* uiOptionsSlice = service.GetApiDescriptionSlice("uiOptions");
     Check(uiOptionsSlice != NULL && strstr(uiOptionsSlice, "keepOpen") != NULL &&
@@ -570,8 +598,22 @@ void TestAssistantService()
               strstr(commandSlice, "visible") != NULL,
           "assistant API description exposes a focused command slice");
     const char* executionSlice = service.GetApiDescriptionSlice("execution");
-    Check(executionSlice != NULL && strstr(executionSlice, "command_id") != NULL,
+    Check(executionSlice != NULL && strstr(executionSlice, "command_id") != NULL &&
+              strstr(executionSlice, "commandId") != NULL &&
+              strstr(executionSlice, "CommandId") != NULL,
           "assistant API description exposes invocation command context");
+    const char* extensionSlice = service.GetApiDescriptionSlice("extensions");
+    Check(extensionSlice != NULL && strstr(extensionSlice, "schemaVersion") != NULL &&
+              strstr(extensionSlice, "extension.json") != NULL &&
+              strstr(extensionSlice, "capabilityValues") != NULL,
+          "assistant API description exposes extension package authoring");
+    const char* applicationSlice = service.GetApiDescriptionSlice("application");
+    Check(applicationSlice != NULL && strstr(applicationSlice, "language") != NULL &&
+              strstr(applicationSlice, "appearance") != NULL &&
+              strstr(applicationSlice, "Windows Dark Mode") != NULL,
+          "assistant API description exposes language and appearance state");
+    Check(strstr(service.GetApiDescriptionSlice("runtimes"), "Lua") != NULL,
+          "assistant runtime slice includes Lua");
     const char* sidesSlice = service.GetApiDescriptionSlice("sides");
     Check(sidesSlice != NULL && strstr(sidesSlice, "lastWriteUtc") != NULL &&
               strstr(sidesSlice, "sizeValid") != NULL,

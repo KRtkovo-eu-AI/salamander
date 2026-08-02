@@ -458,6 +458,19 @@ static const char* RuntimeInterfaceContract(const char* runtimeId)
             "\"runtimeLibraries\":\"PHP built-ins and installed Composer packages or extensions may be used\","
             "\"rules\":[\"do not await Salamander calls\","
             "\"missing PHP packages are not missing Salamander capabilities\"]}";
+    if (runtimeId != NULL && _stricmp(runtimeId, "Lua") == 0)
+        return
+            "{\"runtimeId\":\"Lua\",\"language\":\"Lua\","
+            "\"sourceKind\":\"Lua chunk\",\"rootObject\":\"Salamander\","
+            "\"callModel\":\"synchronous\",\"facadeNaming\":\"snake_case\","
+            "\"selectionRead\":\"local context = Salamander.sides.context('source')\","
+            "\"selectionItems\":\"context.selectedItems\","
+            "\"itemPath\":\"item.path\",\"itemName\":\"item.name\","
+            "\"itemDirectoryFlag\":\"item.isDirectory\","
+            "\"runtimeLibraries\":\"Lua standard libraries and bundled modules may be used\","
+            "\"rules\":[\"do not await Salamander calls\","
+            "\"Salamander is an injected global table; do not require it\","
+            "\"missing Lua modules are not missing Salamander capabilities\"]}";
     return
         "{\"runtimeId\":\"unsupported\",\"available\":false,"
         "\"rule\":\"Do not invent a runtime binding.\"}";

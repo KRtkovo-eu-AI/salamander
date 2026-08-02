@@ -270,6 +270,9 @@ inline std::string BuildRelevantApiDescription(
     std::string result = "{\"version\":\"1.0\",\"slices\":{";
     int count = 0;
     const auto add = [&](const char* name) {
+        const std::string key = std::string("\"") + name + "\":";
+        if (result.find(key) != std::string::npos)
+            return;
         const char* slice = service->GetApiDescriptionSlice(name);
         if (slice == NULL || slice[0] == '\0')
             return;
@@ -286,37 +289,92 @@ inline std::string BuildRelevantApiDescription(
                 return true;
         return false;
     };
+    static const char* const fullFrameworkTerms[] = {
+        "whole framework", "entire framework", "full framework", "all api",
+        "complete api", "cely framework", "cele api", "kompletni api",
+        "cel\xc3\xbd framework", "cel\xc3\xa9ho frameworku",
+        "cel\xc3\xa9 api", "kompletn\xc3\xad api"};
+    static const char* const extensionTerms[] = {
+        "extension", "manifest", "extension.json", "plugin menu", "toolbar",
+        "rozsir", "roz\xc5\xa1\xc3\xad\xc5\x99", "plugin", "nastrojov"};
     static const char* const panelTerms[] = {
         "panel", "selected", "selection", "file", "directory",
         "ozna", "vybran", "soubor", "adres", "sloz"};
     static const char* const fileOperationTerms[] = {
-        "rename", "copy", "move", "delete", "command",
+        "rename", "copy", "move", "delete", "create directory", "properties",
         "p\xc5\x99" "ejmen", "kop", "p\xc5\x99" "esu",
-        "sma", "odstran", "p\xc5\x99" "\xc3\xadkaz"};
+        "sma", "odstran", "vytvor adres", "vlastnost"};
+    static const char* const commandTerms[] = {
+        "command", "menu", "toolbar", "handler", "hotkey",
+        "prikaz", "nabidk", "klaves"};
     static const char* const uiTerms[] = {
-        "dialog", "ui", "progress", "show", "window",
-        "okno", "zobraz", "pr\xc5\xaf" "b\xc4\x9b" "h"};
+        "dialog", "ui", "progress", "show", "window", "control", "picker",
+        "message", "notify", "okno", "ovladac", "zobraz",
+        "pr\xc5\xaf" "b\xc4\x9b" "h"};
     static const char* const storageTerms[] = {
         "storage", "setting", "config", "uloz", "nastaven"};
+    static const char* const clipboardTerms[] = {
+        "clipboard", "copy text", "schrank"};
+    static const char* const applicationTerms[] = {
+        "language", "locale", "appearance", "dark mode", "theme",
+        "jazyk", "vzhled", "tmav"};
     static const char* const eventTerms[] = {
         "event", "change", "ud\xc3\xa1l", "zm\xc4\x9b" "n"};
     static const char* const runtimeTerms[] = {
-        "runtime", "python", "powershell", "javascript", "node", "php"};
-    if (containsAny(panelTerms, _countof(panelTerms)))
-        add("sides");
-    if (containsAny(fileOperationTerms, _countof(fileOperationTerms)))
+        "runtime", "python", "powershell", "javascript", "node", "php", "lua"};
+    static const char* const aiTerms[] = {
+        " ai", "assistant", "generate", "model", "llama",
+        "asistent", "gener"};
+    const bool fullFramework =
+        containsAny(fullFrameworkTerms, _countof(fullFrameworkTerms));
+    if (fullFramework)
     {
+        add("extensions");
+        add("execution");
         add("commands");
+        add("sides");
         add("fileOperations");
-    }
-    if (containsAny(uiTerms, _countof(uiTerms)))
         add("ui");
-    if (containsAny(storageTerms, _countof(storageTerms)))
         add("storage");
-    if (containsAny(eventTerms, _countof(eventTerms)))
+        add("clipboard");
+        add("application");
         add("events");
-    if (containsAny(runtimeTerms, _countof(runtimeTerms)))
         add("runtimes");
+        add("ai");
+    }
+    else
+    {
+        if (containsAny(extensionTerms, _countof(extensionTerms)))
+        {
+            add("extensions");
+            add("execution");
+            add("commands");
+            add("runtimes");
+        }
+        if (containsAny(panelTerms, _countof(panelTerms)))
+            add("sides");
+        if (containsAny(fileOperationTerms, _countof(fileOperationTerms)))
+            add("fileOperations");
+        if (containsAny(commandTerms, _countof(commandTerms)))
+        {
+            add("execution");
+            add("commands");
+        }
+        if (containsAny(uiTerms, _countof(uiTerms)))
+            add("ui");
+        if (containsAny(storageTerms, _countof(storageTerms)))
+            add("storage");
+        if (containsAny(clipboardTerms, _countof(clipboardTerms)))
+            add("clipboard");
+        if (containsAny(applicationTerms, _countof(applicationTerms)))
+            add("application");
+        if (containsAny(eventTerms, _countof(eventTerms)))
+            add("events");
+        if (containsAny(runtimeTerms, _countof(runtimeTerms)))
+            add("runtimes");
+        if (containsAny(aiTerms, _countof(aiTerms)))
+            add("ai");
+    }
     if (count == 0)
     {
         // A small local model performs better with the two core automation
@@ -1053,10 +1111,12 @@ public:
             "\"Salamander.storage\":{\"methods\":[\"get\",\"set\",\"remove\",\"clear\",\"keys\",\"schema\"],\"valueTypes\":[\"string\",\"integer\",\"boolean\"],\"getResultFields\":[\"type\",\"value\"],\"keyFields\":[\"key\",\"type\"],\"schemaFields\":[\"key\",\"type\",\"hasDefault\",\"default\"]},"
             "\"Salamander.events\":{\"methods\":[\"subscribe\",\"unsubscribe\"],\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"tabCreated\",\"tabClosed\",\"tabReordered\",\"windowDetached\",\"windowAttached\",\"fileChanged\"]},"
             "\"Salamander.runtimes\":{\"methods\":[\"list\"],\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"]},"
-            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"controls\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\",\"setValidation\",\"onChange\",\"addColumn\",\"setSelectedIndex\"],\"controlKinds\":[\"label\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\",\"filepicker\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true,\"controlsShowcase\":true},"
-            "\"Salamander.uiOptions\":{\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"],\"filePickerOptions\":[\"filter\",\"save\"]},"
+            "\"Salamander.application\":{\"methods\":[\"language\",\"appearance\"]},"
+            "\"Salamander.ui\":{\"methods\":[\"messageBox\",\"inputBox\",\"notify\",\"controls\",\"uptime\",\"pickFile\",\"pickFolder\",\"progress\",\"progress.update\",\"progress.step\",\"progress.setTotals\",\"progress.setPositions\",\"progress.setTitle\",\"progress.setCancelEnabled\",\"progress.cancelled\",\"progress.close\",\"dialog\",\"dialog.add\",\"dialog.get\",\"dialog.set\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\",\"setValidation\",\"onChange\",\"offChange\",\"addColumn\",\"setSelectedIndex\"],\"controlKinds\":[\"label\",\"statictext\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\",\"filepicker\",\"groupbox\",\"hyperlink\",\"progressbar\",\"arrowbutton\",\"textarrowbutton\",\"colorarrowbutton\",\"toolbarheader\"],\"progressStyles\":[1,2],\"layout\":true,\"validation\":true,\"events\":true,\"selection\":true,\"notifications\":true,\"controlsShowcase\":true},"
+            "\"Salamander.uiOptions\":{\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\",\"filter\",\"save\",\"styleFlags\",\"pathSeparator\",\"toolTip\",\"actionOpen\",\"actionCommand\",\"actionHint\",\"progress\",\"progressCurrent\",\"progressTotal\",\"progressText\",\"indeterminateDuration\",\"indeterminateInterval\",\"textColor\",\"backgroundColor\",\"alignControlId\",\"buttonMask\"]},"
             "\"Salamander.uiDialogOptions\":{\"fields\":[\"title\",\"width\",\"height\"]},"
             "\"Salamander.clipboard\":{\"methods\":[\"copyText\"]},"
+            "\"Salamatrix.extensionManifest\":{\"schemaVersion\":1,\"fields\":[\"id\",\"name\",\"version\",\"description\",\"runtime\",\"entryPoint\",\"capabilities\",\"commands\"],\"commandFields\":[\"id\",\"title\",\"handler\",\"menu\",\"placement\",\"contextMenu\",\"toolbar\",\"toolbarMenu\",\"requires\"]},"
             "\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],"
             "\"requestFields\":[\"prompt\",\"context\",\"provider\","
             "\"runtime\",\"existingScript\",\"feedback\"]}},"
@@ -1165,23 +1225,29 @@ public:
         if (strcmp(topic, "commands") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"commands\",\"objects\":{\"Salamander.commands\":{\"methods\":{\"execute\":{\"arguments\":[\"commandId\"],\"result\":\"string\"},\"register\":{\"arguments\":[\"commandId\",\"title\",\"pluginMenu=true\",\"contextMenu=false\",\"hotKey=0\",\"toolbar=false\",\"handler=''\",\"enabled=true\",\"visible=true\"],\"result\":\"boolean\"},\"unregister\":{\"arguments\":[\"commandId\"],\"result\":\"boolean\"},\"setState\":{\"arguments\":[\"commandId\",\"enabled?\",\"visible?\"],\"result\":\"boolean\"}},\"registerFields\":[\"commandId\",\"title\",\"handler\",\"pluginMenu\",\"contextMenu\",\"toolbar\",\"hotKey\",\"enabled\",\"visible\"],\"stateFields\":[\"commandId\",\"enabled\",\"visible\"]}}}";
         if (strcmp(topic, "execution") == 0 || strcmp(topic, "commandContext") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"execution\",\"objects\":{\"Salamander\":{\"fields\":[\"command_id\",\"command_handler\"]}}}";
+            return "{\"version\":\"1.1\",\"topic\":\"execution\",\"objects\":{\"Salamander\":{\"invocationFieldsByRuntime\":{\"JavaScript.Node\":[\"commandId\",\"commandHandler\"],\"Python.CPython\":[\"command_id\",\"command_handler\"],\"PowerShell\":[\"CommandId\",\"CommandHandler\"],\"PHP.CLI\":[\"command_id\",\"command_handler\"],\"Lua\":[\"command_id\",\"command_handler\"]},\"semantics\":\"The extension entry point executes at top level for the manifest command handler.\"}}}";
+        if (strcmp(topic, "extensions") == 0 || strcmp(topic, "manifest") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"extensions\",\"objects\":{\"Salamatrix.extensionManifest\":{\"schemaVersion\":1,\"format\":\"strict UTF-8 JSON\",\"fields\":[\"id\",\"name|title\",\"version\",\"description\",\"runtime\",\"entryPoint\",\"capabilities\",\"commands\"],\"runtime\":\"runtime id string or object with id and minimumVersion\",\"entryPoint\":\"safe relative path; absolute and parent traversal are rejected\",\"capabilityValues\":[\"panels.read\",\"panels.write\",\"ui.dialogs\",\"commands\",\"file-operations\",\"storage\",\"events\",\"ai\",\"clipboard\",\"runtimes\"],\"ungatedSurfaces\":[\"application language and appearance\",\"host metadata\"],\"commandFields\":[\"id\",\"title\",\"handler\",\"menu|placement\",\"contextMenu\",\"toolbar\",\"toolbarMenu\",\"requires\"],\"requiresValues\":[\"any\",\"disk\",\"focused\",\"file\",\"selection\"],\"generatedPackage\":\"The assistant returns only complete entry-point source. Save as extension creates extension.json and main.<runtime extension>, binds handler main, and copies response capabilities. Do not embed a manifest in script.\"}}}";
         if (strcmp(topic, "fileOperations") == 0 || strcmp(topic, "file_operations") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"fileOperations\",\"objects\":{\"Salamander.fileOperations\":{\"methods\":[\"rename\",\"copy\",\"move\",\"delete\",\"createDirectory\",\"refresh\",\"properties\"],\"arguments\":\"none\",\"result\":\"string\",\"semantics\":\"Invokes Salamander interactive commands for the current selection; it does not accept arbitrary paths. Use runtime filesystem libraries for direct path-based content processing.\"}}}";
         if (strcmp(topic, "sides") == 0 || strcmp(topic, "panels") == 0)
             return "{\"version\":\"1.3\",\"topic\":\"sides\",\"objects\":{\"Salamander.sides\":{\"methods\":[\"activeTab\",\"context\",\"tabs\",\"activateTab\",\"changePath\",\"refresh\",\"selectItem\",\"selectAll\",\"focusItem\",\"createTab\",\"closeTab\",\"reorderTab\",\"moveTab\",\"setDetached\"],\"contextCall\":{\"arguments\":[\"source|target|left|right\"],\"async\":true,\"resultFields\":[\"path\",\"pathType\",\"selectedCount\",\"selectedItems\",\"focusedItem\"]},\"contextFields\":[\"path\",\"selectedItems\",\"focusedItem\"],\"tabFields\":[\"id\",\"index\",\"side\",\"pathType\",\"flags\",\"path\"],\"itemFields\":[\"name\",\"path\",\"extension\",\"size\",\"sizeValid\",\"attributes\",\"lastWriteUtc\",\"isDirectory\",\"hidden\",\"link\",\"offline\"]}},\"javascriptNodeExample\":\"const context = await Salamander.sides.context(\\\"source\\\"); for (const item of context.selectedItems) console.log(item.path);\"}";
         if (strcmp(topic, "ui") == 0 || strcmp(topic, "dialogs") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"ui\",\"objects\":{\"Salamander.ui\":{\"methods\":{\"messageBox\":{\"arguments\":[\"message\",\"title='Salamander'\"],\"result\":\"integer\"},\"notify\":{\"arguments\":[\"message\",\"title='Salamander'\",\"timeoutMs=5000\"],\"result\":\"boolean\"},\"controls\":{\"arguments\":[],\"result\":\"boolean\",\"description\":\"Shows the framework-owned native controls showcase\"},\"inputBox\":{\"arguments\":[\"prompt\",\"title='Salamander'\",\"initial=''\"],\"resultFields\":[\"accepted\",\"value\"]},\"pickFile\":{\"arguments\":[\"save=false\",\"title=''\",\"filter=''\",\"initial=''\"],\"resultFields\":[\"selected\",\"path\"]},\"pickFolder\":{\"arguments\":[\"title=''\",\"initial=''\"],\"resultFields\":[\"selected\",\"path\"]},\"progress\":{\"arguments\":[\"title\",\"total\",\"twoProgressBars=false\",\"fileProgress=false\",\"cancelEnabled=true\",\"total2?\"],\"objectMethods\":[\"update\",\"step\",\"setTotals\",\"setPositions\",\"setTitle\",\"setCancelEnabled\",\"isCancelled\",\"close\"]},\"dialog\":{\"arguments\":[\"title\",\"width=320\",\"height=180\"],\"objectMethods\":[\"addControl\",\"addLabel\",\"addTextBox\",\"addFolderPicker\",\"addFilePicker\",\"addCheckBox\",\"addRadioButton\",\"addComboBox\",\"addListView\",\"addTreeView\",\"addTabControl\",\"addButton\",\"addItem\",\"addColumn\",\"setSelectedIndex\",\"clearItems\",\"setValidation\",\"onChange\",\"offChange\",\"show\",\"get\",\"set\",\"close\"]}},\"wireMethods\":[\"controls\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"controlKinds\":[\"label\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\",\"filepicker\"],\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\",\"filter\",\"save\"],\"layoutFields\":[\"x\",\"y\",\"width\",\"height\"]}}}";
+            return "{\"version\":\"1.4\",\"topic\":\"ui\",\"objects\":{\"Salamander.ui\":{\"ownership\":\"Framework-owned native modal UI; do not substitute HTML, Tkinter, WinForms, or direct Win32 when a published control exists.\",\"methods\":{\"messageBox\":{\"arguments\":[\"message\",\"title='Salamander'\",\"buttons='OK'\",\"icon='Information'\"],\"result\":\"integer\"},\"notify\":{\"arguments\":[\"message\",\"title='Salamander'\",\"timeoutMs=5000\"],\"result\":\"boolean\"},\"controls\":{\"arguments\":[],\"result\":\"boolean\",\"description\":\"Shows the framework-owned native controls showcase\"},\"uptime\":{\"arguments\":[],\"result\":\"decimal milliseconds string\"},\"inputBox\":{\"arguments\":[\"prompt\",\"title='Salamander'\",\"initial=''\"],\"resultFields\":[\"accepted\",\"value\"]},\"pickFile\":{\"arguments\":[\"save=false\",\"title=''\",\"filter=''\",\"initial=''\"],\"filterFormat\":\"Description|pattern|Description|pattern\",\"resultFields\":[\"selected\",\"path\"]},\"pickFolder\":{\"arguments\":[\"title=''\",\"initial=''\"],\"resultFields\":[\"selected\",\"path\"]},\"progress\":{\"arguments\":[\"title\",\"total\",\"twoProgressBars=false\",\"fileProgress=false\",\"cancelEnabled=true\",\"total2?\"],\"objectMethods\":[\"update\",\"step\",\"setTotals\",\"setPositions\",\"setTitle\",\"setCancelEnabled\",\"isCancelled\",\"close\"],\"rule\":\"Check cancellation during substantial loops and always close in cleanup.\"},\"dialog\":{\"arguments\":[\"title\",\"width=320\",\"height=180\"],\"objectMethods\":[\"addControl\",\"addLabel\",\"addTextBox\",\"addFolderPicker\",\"addFilePicker\",\"addCheckBox\",\"addRadioButton\",\"addComboBox\",\"addListView\",\"addTreeView\",\"addTabControl\",\"addButton\",\"addItem|addNode|addTab\",\"addColumn\",\"setSelectedIndex\",\"clearItems\",\"setValidation\",\"onChange\",\"offChange\",\"show|showModal\",\"get|getValue\",\"set|setValue\",\"close|destroy\"],\"lifecycle\":[\"create\",\"add controls\",\"populate items and columns\",\"configure validation and events\",\"show modal\",\"read values\",\"close in cleanup\"]}},\"wireMethods\":[\"controls\",\"dialog.validation\",\"dialog.events\",\"dialog.item\",\"dialog.column\",\"dialog.selection\",\"dialog.clearItems\"],\"controlKinds\":[\"label\",\"statictext\",\"textbox\",\"checkbox\",\"radio\",\"combobox\",\"button\",\"listview\",\"treeview\",\"tabcontrol\",\"folderpicker\",\"filepicker\",\"groupbox\",\"hyperlink\",\"progressbar\",\"arrowbutton\",\"textarrowbutton\",\"colorarrowbutton\",\"toolbarheader\"],\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\",\"filter\",\"save\",\"styleFlags\",\"pathSeparator\",\"toolTip\",\"actionOpen\",\"actionCommand\",\"actionHint\",\"progress\",\"progressCurrent\",\"progressTotal\",\"progressText\",\"indeterminateDuration\",\"indeterminateInterval\",\"textColor\",\"backgroundColor\",\"alignControlId\",\"buttonMask\"],\"layoutFields\":[\"x\",\"y\",\"width\",\"height\"],\"appearance\":\"Native DPI scaling and the selected Salamander Windows Dark Mode experimental color scheme are applied by the framework.\"}}}";
         if (strcmp(topic, "uiOptions") == 0 || strcmp(topic, "ui_options") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"uiOptions\",\"objects\":{\"Salamander.ui\":{\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\"],\"filePickerOptions\":[\"filter\",\"save\"]}}}";
+            return "{\"version\":\"1.4\",\"topic\":\"uiOptions\",\"objects\":{\"Salamander.ui\":{\"controlOptions\":[\"readOnly\",\"checked\",\"dialogResult\",\"keepOpen\",\"multiline\",\"filter\",\"save\",\"styleFlags\",\"pathSeparator\",\"toolTip\",\"actionOpen\",\"actionCommand\",\"actionHint\",\"progress\",\"progressCurrent\",\"progressTotal\",\"progressText\",\"indeterminateDuration\",\"indeterminateInterval\",\"textColor\",\"backgroundColor\",\"alignControlId\",\"buttonMask\"]}}}";
         if (strcmp(topic, "uiDialogOptions") == 0 || strcmp(topic, "ui_dialog_options") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"uiDialogOptions\",\"objects\":{\"Salamander.ui\":{\"dialogOptions\":[\"title\",\"width\",\"height\"]}}}";
         if (strcmp(topic, "storage") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"storage\",\"objects\":{\"Salamander.storage\":{\"methods\":{\"get\":{\"arguments\":[\"key\",\"default?\"],\"result\":\"typed value or default\"},\"set\":{\"arguments\":[\"key\",\"value\"]},\"remove\":{\"arguments\":[\"key\"],\"result\":\"boolean\"},\"clear\":{\"arguments\":[],\"result\":\"boolean\"},\"keys\":{\"arguments\":[],\"resultFields\":[\"key\",\"type\"]},\"schema\":{\"arguments\":[],\"resultFields\":[\"key\",\"type\",\"hasDefault\",\"default\"]}},\"valueTypes\":[\"string\",\"integer\",\"boolean\"],\"scope\":\"current extension package\"}}}";
+        if (strcmp(topic, "clipboard") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"clipboard\",\"objects\":{\"Salamander.clipboard\":{\"methods\":{\"copyText\":{\"arguments\":[\"text\",\"showEcho=false\"],\"result\":\"boolean\"}},\"capability\":\"clipboard\"}}}";
+        if (strcmp(topic, "application") == 0 || strcmp(topic, "host") == 0)
+            return "{\"version\":\"1.0\",\"topic\":\"application\",\"objects\":{\"Salamander.application\":{\"methods\":{\"language\":{\"arguments\":[],\"result\":\"selected Salamander language record\"},\"appearance\":{\"arguments\":[],\"result\":\"selected Salamander appearance record\"}},\"darkModeSemantics\":\"Dark means Salamander Configuration > Colors > Windows Dark Mode (experimental), not operating-system app mode.\"}}}";
         if (strcmp(topic, "events") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"events\",\"objects\":{\"Salamander.events\":{\"methods\":{\"subscribe\":{\"arguments\":[\"eventName\",\"handler\"],\"result\":\"subscriptionId string\"},\"unsubscribe\":{\"arguments\":[\"subscriptionId\"]}},\"eventNames\":[\"hostStartup\",\"hostShutdown\",\"settingsChanged\",\"configurationChanged\",\"colorsChanged\",\"panelsSwapped\",\"activePanelChanged\",\"sidePathChanged\",\"sideSelectionChanged\",\"sideTabChanged\",\"sideRefreshed\",\"pathChanged\",\"selectionChanged\",\"tabChanged\",\"tabCreated\",\"tabClosed\",\"tabReordered\",\"windowDetached\",\"windowAttached\",\"fileChanged\"],\"semantics\":\"Future events are useful for persistent extensions; a one-shot script normally exits before future events arrive.\"}}}";
         if (strcmp(topic, "runtimes") == 0)
-            return "{\"version\":\"1.0\",\"topic\":\"runtimes\",\"objects\":{\"Salamander.runtimes\":{\"methods\":{\"list\":{\"arguments\":[],\"result\":\"runtime records\"}},\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"],\"runtimeIds\":[\"JavaScript.Node\",\"Python.CPython\",\"PowerShell\",\"PHP.CLI\"]}}}";
+            return "{\"version\":\"1.1\",\"topic\":\"runtimes\",\"objects\":{\"Salamander.runtimes\":{\"methods\":{\"list\":{\"arguments\":[],\"result\":\"runtime records\"}},\"fields\":[\"id\",\"name\",\"language\",\"extensions\",\"version\",\"available\"],\"runtimeIds\":[\"JavaScript.Node\",\"Python.CPython\",\"PowerShell\",\"PHP.CLI\",\"Lua\"]}}}";
         if (strcmp(topic, "ai") == 0)
             return "{\"version\":\"1.0\",\"topic\":\"ai\",\"objects\":{\"Salamander.ai\":{\"methods\":[\"generate\",\"preview\",\"api\"],\"requestFields\":[\"prompt\",\"context\",\"provider\",\"runtime\",\"existingScript\",\"feedback\",\"topic\"],\"responseRequiredFields\":[\"title\",\"description\",\"capabilities\",\"estimatedEffects\",\"canImplement\",\"script\"],\"responseOptionalFields\":[\"runtime\",\"missingCapabilities\"]}}}";
         return "{\"version\":\"1.0\",\"topic\":\"unknown\",\"objects\":{}}";
