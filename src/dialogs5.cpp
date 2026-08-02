@@ -1399,6 +1399,25 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         MinDlgH = windowRect.bottom - windowRect.top;
         LastClientW = clientRect.right;
         LastClientH = clientRect.bottom;
+
+        int restoredWidth = max(
+            MinDlgW, static_cast<int>(Configuration.PluginsManagerWidth));
+        int restoredHeight = max(
+            MinDlgH, static_cast<int>(Configuration.PluginsManagerHeight));
+        RECT clipRect;
+        MultiMonGetClipRectByWindow(HWindow, &clipRect, NULL);
+        restoredWidth = max(
+            MinDlgW,
+            min(restoredWidth, clipRect.right - clipRect.left));
+        restoredHeight = max(
+            MinDlgH,
+            min(restoredHeight, clipRect.bottom - clipRect.top));
+        if (restoredWidth != MinDlgW || restoredHeight != MinDlgH)
+        {
+            SetWindowPos(
+                HWindow, NULL, 0, 0, restoredWidth, restoredHeight,
+                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
         LayoutControls();
 
         ApplyTheme();
@@ -1408,6 +1427,23 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
+        WINDOWPLACEMENT placement;
+        ZeroMemory(&placement, sizeof(placement));
+        placement.length = sizeof(placement);
+        if (GetWindowPlacement(HWindow, &placement))
+        {
+            const int width =
+                placement.rcNormalPosition.right -
+                placement.rcNormalPosition.left;
+            const int height =
+                placement.rcNormalPosition.bottom -
+                placement.rcNormalPosition.top;
+            if (width >= MinDlgW && height >= MinDlgH)
+            {
+                Configuration.PluginsManagerWidth = width;
+                Configuration.PluginsManagerHeight = height;
+            }
+        }
         MainWindow->OnPluginsStateChanged(); // maybe this should have a Dirty flag
         break;
     }

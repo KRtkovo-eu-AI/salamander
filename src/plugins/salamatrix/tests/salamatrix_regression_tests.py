@@ -32,6 +32,8 @@ def require_absent(text: str, pattern: str, message: str) -> None:
 def main() -> int:
     dialogs = read("src/dialogs5.cpp")
     dialog_resources = read("src/lang/lang.rc")
+    configuration_header = read("src/cfgdlg.h")
+    configuration_defaults = read("src/dialogs4.cpp")
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
@@ -733,6 +735,20 @@ def main() -> int:
         r"RDW_INVALIDATE \| RDW_ERASE \| "
         r"RDW_ALLCHILDREN \| RDW_UPDATENOW",
         "Plugin Manager does not fully repaint after resizing")
+    require(
+        configuration_header + configuration_defaults + mainwnd2 + dialogs,
+        r"PluginsManagerWidth.*?PluginsManagerHeight.*?"
+        r"PluginsManagerWidth = 0.*?PluginsManagerHeight = 0.*?"
+        r"Plugins Manager Width.*?Plugins Manager Height.*?"
+        r"CONFIG_PLUGINS_MANAGER_WIDTH.*?SetValue.*?"
+        r"CONFIG_PLUGINS_MANAGER_HEIGHT.*?SetValue.*?"
+        r"CONFIG_PLUGINS_MANAGER_WIDTH.*?GetValue.*?"
+        r"CONFIG_PLUGINS_MANAGER_HEIGHT.*?GetValue.*?"
+        r"Configuration\.PluginsManagerWidth.*?SetWindowPos.*?"
+        r"GetWindowPlacement.*?rcNormalPosition.*?"
+        r"Configuration\.PluginsManagerWidth = width.*?"
+        r"Configuration\.PluginsManagerHeight = height",
+        "Plugin Manager size is not restored and persisted through main configuration")
     require_absent(
         dialogs,
         r"_snprintf_s\([^;]*LoadStr\(IDS_PLUGIN_SHOWINEXTENSIONBAR\)",

@@ -493,6 +493,8 @@ struct CConfiguration
     DWORD ConfigurationWidth;       // width of the configuration dialog in pixels
     DWORD ConfigurationTreeWidth;   // width of the configuration dialog tree in pixels
     DWORD ConfigurationViewsRightWidth; // width of Available Columns in the Views configuration page
+    DWORD PluginsManagerWidth;      // last user-selected Plugin Manager width in pixels
+    DWORD PluginsManagerHeight;     // last user-selected Plugin Manager height in pixels
     BOOL ViewersAndEditorsExpanded; // expanded items in the tree
     BOOL PackersAndUnpackersExpanded;
 
