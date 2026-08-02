@@ -30,7 +30,7 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /><Import Project="..\..\shared\vcxproj\arm64.props" /><Import Project="..\..\shared\vcxproj\plugin_base.props" /><Import Project="..\..\shared\vcxproj\plugin_release.props" /><Import Project="luaruntime.props" /></ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /><Import Project="..\..\shared\vcxproj\arm64.props" /><Import Project="..\..\shared\vcxproj\plugin_base.props" /><Import Project="..\..\shared\vcxproj\plugin_debug.props" /><Import Project="luaruntime.props" /></ImportGroup>
   <ItemGroup><ClCompile Include="..\..\shared\sal_safe_memcpy.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile><ClCompile Include="..\luaruntime.cpp" /><ClCompile Include="..\precomp.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile></ItemGroup>
-  <ItemGroup><ClInclude Include="..\luaruntime.h" /><ClInclude Include="..\precomp.h" /><ClInclude Include="..\versinfo.rh2" /><ClInclude Include="..\luaruntime.rh" /><ClInclude Include="..\..\salamatrix\salamatrix_runtime_api.h" /><ClInclude Include="..\..\salamatrix\salamatrix_runtime_protocol.h" /></ItemGroup>
+  <ItemGroup><ClInclude Include="..\luaruntime.h" /><ClInclude Include="..\precomp.h" /><ClInclude Include="..\versinfo.rh2" /><ClInclude Include="..\luaruntime.rh" /><ClInclude Include="..\..\salamatrix\salamatrix_runtime_api.h" /><ClInclude Include="..\..\salamatrix\salamatrix_runtime_protocol.h" /><ClInclude Include="..\..\shared\runtime_configuration.h" /></ItemGroup>
   <ItemGroup><None Include="..\luaruntime.def" /><None Include="..\luaruntime.rc2" /></ItemGroup>
   <ItemGroup><ResourceCompile Include="..\luaruntime.rc" /></ItemGroup>
   <ItemGroup><RuntimeBootstrap Include="..\runtime\salamatrix_worker.lua" /></ItemGroup>
@@ -38,4 +38,3 @@
   <Target Name="CopyLuaRuntimeWorkerBootstrap" AfterTargets="Build"><MakeDir Directories="$(OutDir)runtime" /><Copy SourceFiles="@(RuntimeBootstrap)" DestinationFiles="@(RuntimeBootstrap->'$(OutDir)runtime\%(Filename)%(Extension)')" SkipUnchangedFiles="true" /></Target>
   <ImportGroup Label="ExtensionTargets" />
 </Project>
-

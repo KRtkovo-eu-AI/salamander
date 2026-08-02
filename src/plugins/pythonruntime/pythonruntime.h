@@ -54,6 +54,8 @@ public:
     virtual BOOL WINAPI StartPersistent(
         const Salamatrix::Runtime::RuntimeExecutionRequest* request,
         Salamatrix::Runtime::IRuntimeSession** session);
+    const std::wstring& GetExecutablePath() const;
+    void InvalidateExecutablePath();
 };
 
 class CPluginInterface : public CPluginInterfaceAbstract
@@ -65,7 +67,7 @@ public:
                                           CSalamanderRegistryAbstract* registry);
     virtual void WINAPI SaveConfiguration(HWND parent, HKEY regKey,
                                            CSalamanderRegistryAbstract* registry);
-    virtual void WINAPI Configuration(HWND parent) {}
+    virtual void WINAPI Configuration(HWND parent);
     virtual void WINAPI Connect(HWND parent, CSalamanderConnectAbstract* salamander);
     virtual void WINAPI ReleasePluginDataInterface(CPluginDataInterfaceAbstract*) {}
     virtual CPluginInterfaceForArchiverAbstract* WINAPI GetInterfaceForArchiver() { return NULL; }

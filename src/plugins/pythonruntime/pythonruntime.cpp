@@ -3,12 +3,28 @@
 
 #include "precomp.h"
 #include "pythonruntime.h"
+#include "pythonruntime.rh"
 #include "versinfo.rh2"
+#include "../shared/runtime_configuration.h"
 #include <strsafe.h>
 #include <vector>
 
 namespace
 {
+RuntimeConfiguration::Settings RuntimeSettings;
+const RuntimeConfiguration::TextIds RuntimeTextIds = {
+    IDS_RUNTIME_CONFIG_TITLE,
+    IDS_RUNTIME_EXECUTABLE_IN_USE,
+    IDS_RUNTIME_NOT_FOUND,
+    IDS_RUNTIME_USE_CUSTOM,
+    IDS_RUNTIME_CUSTOM_EXECUTABLE,
+    IDS_RUNTIME_FILE_FILTER,
+    IDS_RUNTIME_OK,
+    IDS_RUNTIME_CANCEL,
+    IDS_RUNTIME_UI_UNAVAILABLE,
+    IDS_RUNTIME_CUSTOM_REQUIRED,
+    IDS_RUNTIME_CUSTOM_INVALID};
+
 static bool GetEnvironmentString(
     const wchar_t* name,
     std::wstring& value)
@@ -625,6 +641,18 @@ void CPythonRuntimeAdapter::ResolveInterpreter() const
     if (m_bInterpreterResolved)
         return;
     m_bInterpreterResolved = true;
+    m_executablePath.clear();
+
+    if (RuntimeSettings.UseCustomExecutable)
+    {
+        std::wstring customPath = ToWin32Path(
+            RuntimeSettings.CustomExecutablePath);
+        DWORD attributes = GetFileAttributesW(customPath.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES &&
+            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+            m_executablePath = RuntimeSettings.CustomExecutablePath;
+        return;
+    }
 
     std::wstring configured;
     if (GetEnvironmentString(m_pszEnvironmentVariable, configured))
@@ -670,6 +698,18 @@ BOOL WINAPI CPythonRuntimeAdapter::IsAvailable() const
 {
     ResolveInterpreter();
     return m_executablePath.empty() ? FALSE : TRUE;
+}
+
+const std::wstring& CPythonRuntimeAdapter::GetExecutablePath() const
+{
+    ResolveInterpreter();
+    return m_executablePath;
+}
+
+void CPythonRuntimeAdapter::InvalidateExecutablePath()
+{
+    m_executablePath.clear();
+    m_bInterpreterResolved = false;
 }
 
 BOOL WINAPI CPythonRuntimeAdapter::SupportsEntryPoint(
@@ -1207,7 +1247,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         return NULL;
     salamander->SetBasicPluginData(
         "Python Runtime",
-        FUNCTION_AUTOMATIONFRAMEWORK,
+        FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_CONFIGURATION |
+            FUNCTION_LOADSAVECONFIGURATION,
         VERSINFO_VERSION_NO_PLATFORM,
         VERSINFO_COPYRIGHT,
         VERSINFO_DESCRIPTION,
@@ -1232,6 +1273,22 @@ void WINAPI CPluginInterface::About(HWND parent)
                                          MB_OK | MB_ICONINFORMATION);
 }
 
+void WINAPI CPluginInterface::Configuration(HWND parent)
+{
+    bool useCustom = RuntimeSettings.UseCustomExecutable;
+    RuntimeSettings.UseCustomExecutable = false;
+    PythonRuntime.InvalidateExecutablePath();
+    std::wstring automaticPath = PythonRuntime.GetExecutablePath();
+    RuntimeSettings.UseCustomExecutable = useCustom;
+    PythonRuntime.InvalidateExecutablePath();
+    std::wstring effectivePath = PythonRuntime.GetExecutablePath();
+
+    if (RuntimeConfiguration::ShowDialog(
+            parent, SalamanderGeneral, DLLInstance, RuntimeTextIds,
+            automaticPath, effectivePath, RuntimeSettings))
+        PythonRuntime.InvalidateExecutablePath();
+}
+
 BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
 {
     UnregisterRuntimeProvider(PythonRegistration);
@@ -1239,8 +1296,18 @@ BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
     return TRUE;
 }
 
-void WINAPI CPluginInterface::LoadConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
-void WINAPI CPluginInterface::SaveConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
+void WINAPI CPluginInterface::LoadConfiguration(
+    HWND, HKEY key, CSalamanderRegistryAbstract* registry)
+{
+    RuntimeConfiguration::Load(key, registry, RuntimeSettings);
+    PythonRuntime.InvalidateExecutablePath();
+}
+
+void WINAPI CPluginInterface::SaveConfiguration(
+    HWND, HKEY key, CSalamanderRegistryAbstract* registry)
+{
+    RuntimeConfiguration::Save(key, registry, RuntimeSettings);
+}
 void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*)
 {
     TryRegisterPythonRuntime();

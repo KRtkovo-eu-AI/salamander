@@ -8,6 +8,21 @@
 
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
+STRINGTABLE
+BEGIN
+    IDS_RUNTIME_CONFIG_TITLE "PHP Runtime Configuration"
+    IDS_RUNTIME_EXECUTABLE_IN_USE "Executable in use:"
+    IDS_RUNTIME_NOT_FOUND "No executable found"
+    IDS_RUNTIME_USE_CUSTOM "Use custom executable"
+    IDS_RUNTIME_CUSTOM_EXECUTABLE "Custom executable:"
+    IDS_RUNTIME_FILE_FILTER "Executables (*.exe)|*.exe|All files (*.*)|*.*"
+    IDS_RUNTIME_OK "OK"
+    IDS_RUNTIME_CANCEL "Cancel"
+    IDS_RUNTIME_UI_UNAVAILABLE "The Salamatrix UI service is unavailable."
+    IDS_RUNTIME_CUSTOM_REQUIRED "Select a custom executable."
+    IDS_RUNTIME_CUSTOM_INVALID "The selected custom executable does not exist or is not a file."
+END
+
 #ifndef APSTUDIO_INVOKED
 #include "phpruntime.rc2"
 #endif

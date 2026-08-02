@@ -78,6 +78,7 @@
     <ClInclude Include="..\pythonruntime.rh" />
     <ClInclude Include="..\..\salamatrix\salamatrix_runtime_api.h" />
     <ClInclude Include="..\..\salamatrix\salamatrix_runtime_protocol.h" />
+    <ClInclude Include="..\..\shared\runtime_configuration.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\pythonruntime.def" />

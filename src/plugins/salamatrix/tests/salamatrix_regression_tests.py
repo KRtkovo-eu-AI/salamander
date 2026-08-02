@@ -68,6 +68,8 @@ def main() -> int:
     powershellruntime_rc = read("src/plugins/powershellruntime/powershellruntime.rc")
     phpruntime_rc = read("src/plugins/phpruntime/phpruntime.rc")
     luaruntime_rc = read("src/plugins/luaruntime/luaruntime.rc")
+    runtime_configuration = read(
+        "src/plugins/shared/runtime_configuration.h")
     runtime_provider_sources = (
         pythonruntime,
         powershellruntime,
@@ -464,6 +466,18 @@ def main() -> int:
                 f"{name} runtime release guard does not clear local registration state")
         require(runtime, rf"UnregisterRuntimeProvider\(\s*{re.escape(registration_var)}\s*\)",
                 f"{name} runtime Release does not call safe registration unregister")
+        require(runtime,
+                r"FUNCTION_AUTOMATIONFRAMEWORK\s*\|\s*FUNCTION_CONFIGURATION\s*\|\s*FUNCTION_LOADSAVECONFIGURATION",
+                f"{name} runtime does not expose Plugin Manager configuration")
+        require(runtime,
+                r"RuntimeConfiguration::ShowDialog.*?InvalidateExecutablePath",
+                f"{name} runtime configuration does not refresh executable resolution")
+        require(runtime,
+                r"RuntimeConfiguration::Load.*?RuntimeConfiguration::Save",
+                f"{name} runtime does not persist custom executable settings")
+        require(runtime,
+                r"RuntimeSettings\.UseCustomExecutable.*?CustomExecutablePath.*?return;.*?GetEnvironmentString",
+                f"{name} runtime does not prefer the configured executable")
 
     for name, runtime_resource in (
         ("JavaScript", javascriptruntime_rc),
@@ -473,6 +487,26 @@ def main() -> int:
         ("Lua", luaruntime_rc),
     ):
         require_absent(runtime_resource, r"sal_r\.ico", f"{name} runtime must use the default Plugin Manager icon")
+        for resource_id in (
+            "IDS_RUNTIME_CONFIG_TITLE",
+            "IDS_RUNTIME_EXECUTABLE_IN_USE",
+            "IDS_RUNTIME_USE_CUSTOM",
+            "IDS_RUNTIME_CUSTOM_EXECUTABLE",
+            "IDS_RUNTIME_FILE_FILTER",
+            "IDS_RUNTIME_OK",
+            "IDS_RUNTIME_CANCEL",
+        ):
+            require(runtime_resource, resource_id,
+                    f"{name} runtime configuration text is not localizable: {resource_id}")
+    require(runtime_configuration,
+            r"options\.Width\s*=\s*420.*?options\.Height\s*=\s*146",
+            "runtime configuration dialog is no longer compact")
+    require(runtime_configuration,
+            r"ControlKindTextBox.*?ControlKindCheckBox.*?ControlKindFilePicker.*?IDOK.*?IDCANCEL",
+            "runtime configuration dialog controls are incomplete")
+    require(runtime_configuration,
+            r'"UseCustomExecutable".*?"CustomExecutablePath"',
+            "runtime executable selection is not persisted")
     for name, runtime in zip(
         ("Python", "PowerShell", "JavaScript", "PHP", "Lua"), runtime_provider_sources):
         require(runtime, r"SetFlagLoadOnSalamanderStart\(TRUE\)",

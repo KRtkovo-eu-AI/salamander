@@ -3,12 +3,22 @@
 
 #include "precomp.h"
 #include "luaruntime.h"
+#include "luaruntime.rh"
 #include "versinfo.rh2"
+#include "../shared/runtime_configuration.h"
 #include <strsafe.h>
 #include <vector>
 
 namespace
 {
+RuntimeConfiguration::Settings RuntimeSettings;
+const RuntimeConfiguration::TextIds RuntimeTextIds = {
+    IDS_RUNTIME_CONFIG_TITLE, IDS_RUNTIME_EXECUTABLE_IN_USE,
+    IDS_RUNTIME_NOT_FOUND, IDS_RUNTIME_USE_CUSTOM,
+    IDS_RUNTIME_CUSTOM_EXECUTABLE, IDS_RUNTIME_FILE_FILTER,
+    IDS_RUNTIME_OK, IDS_RUNTIME_CANCEL, IDS_RUNTIME_UI_UNAVAILABLE,
+    IDS_RUNTIME_CUSTOM_REQUIRED, IDS_RUNTIME_CUSTOM_INVALID};
+
 static bool GetEnvironmentString(
     const wchar_t* name,
     std::wstring& value)
@@ -627,6 +637,17 @@ void CLuaRuntimeAdapter::ResolveInterpreter() const
     if (m_bInterpreterResolved)
         return;
     m_bInterpreterResolved = true;
+    m_executablePath.clear();
+
+    if (RuntimeSettings.UseCustomExecutable)
+    {
+        std::wstring customPath = ToWin32Path(RuntimeSettings.CustomExecutablePath);
+        DWORD attributes = GetFileAttributesW(customPath.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES &&
+            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+            m_executablePath = RuntimeSettings.CustomExecutablePath;
+        return;
+    }
 
     std::wstring configured;
     if (GetEnvironmentString(m_pszEnvironmentVariable, configured))
@@ -703,6 +724,18 @@ BOOL WINAPI CLuaRuntimeAdapter::IsAvailable() const
 {
     ResolveInterpreter();
     return m_executablePath.empty() ? FALSE : TRUE;
+}
+
+const std::wstring& CLuaRuntimeAdapter::GetExecutablePath() const
+{
+    ResolveInterpreter();
+    return m_executablePath;
+}
+
+void CLuaRuntimeAdapter::InvalidateExecutablePath()
+{
+    m_executablePath.clear();
+    m_bInterpreterResolved = false;
 }
 
 BOOL WINAPI CLuaRuntimeAdapter::SupportsEntryPoint(
@@ -1238,7 +1271,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         return NULL;
     salamander->SetBasicPluginData(
         "Lua Runtime",
-        FUNCTION_AUTOMATIONFRAMEWORK,
+        FUNCTION_AUTOMATIONFRAMEWORK | FUNCTION_CONFIGURATION |
+            FUNCTION_LOADSAVECONFIGURATION,
         VERSINFO_VERSION_NO_PLATFORM,
         VERSINFO_COPYRIGHT,
         VERSINFO_DESCRIPTION,
@@ -1263,6 +1297,21 @@ void WINAPI CPluginInterface::About(HWND parent)
                                          MB_OK | MB_ICONINFORMATION);
 }
 
+void WINAPI CPluginInterface::Configuration(HWND parent)
+{
+    bool useCustom = RuntimeSettings.UseCustomExecutable;
+    RuntimeSettings.UseCustomExecutable = false;
+    LuaRuntime.InvalidateExecutablePath();
+    std::wstring automaticPath = LuaRuntime.GetExecutablePath();
+    RuntimeSettings.UseCustomExecutable = useCustom;
+    LuaRuntime.InvalidateExecutablePath();
+    std::wstring effectivePath = LuaRuntime.GetExecutablePath();
+    if (RuntimeConfiguration::ShowDialog(
+            parent, SalamanderGeneral, DLLInstance, RuntimeTextIds,
+            automaticPath, effectivePath, RuntimeSettings))
+        LuaRuntime.InvalidateExecutablePath();
+}
+
 BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
 {
     UnregisterRuntimeProvider(LuaRegistration);
@@ -1270,8 +1319,17 @@ BOOL WINAPI CPluginInterface::Release(HWND, BOOL)
     return TRUE;
 }
 
-void WINAPI CPluginInterface::LoadConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
-void WINAPI CPluginInterface::SaveConfiguration(HWND, HKEY, CSalamanderRegistryAbstract*) {}
+void WINAPI CPluginInterface::LoadConfiguration(
+    HWND, HKEY key, CSalamanderRegistryAbstract* registry)
+{
+    RuntimeConfiguration::Load(key, registry, RuntimeSettings);
+    LuaRuntime.InvalidateExecutablePath();
+}
+void WINAPI CPluginInterface::SaveConfiguration(
+    HWND, HKEY key, CSalamanderRegistryAbstract* registry)
+{
+    RuntimeConfiguration::Save(key, registry, RuntimeSettings);
+}
 void WINAPI CPluginInterface::Connect(HWND, CSalamanderConnectAbstract*)
 {
     TryRegisterLuaRuntime();
