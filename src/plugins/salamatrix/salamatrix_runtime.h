@@ -447,7 +447,7 @@ public:
 
     virtual DWORD WINAPI GetVersion() const
     {
-        return SALAMATRIX_UI_VERSION_1_1;
+        return SALAMATRIX_UI_VERSION_1_2;
     }
 
     const char* GetApiSchema() const
@@ -861,7 +861,7 @@ public:
         AIService.SetContractSchema(SALAMATRIX_SERVICE_EXTENSIONS, ExtensionsService.GetApiSchema());
         AIService.SetContractSchema(SALAMATRIX_SERVICE_STORAGE, StorageService.GetApiSchema());
         Registered = TRUE;
-        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_1, &UIService, "Salamatrix Framework", this);
+        Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_2, &UIService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_FILEOPERATIONS, SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &FileOperationsService, "Salamatrix Framework", this);
         Registered &= Registry.RegisterServiceOwned(SALAMATRIX_SERVICE_AUTOMATION_ADAPTER, SALAMATRIX_AUTOMATION_VERSION_1_0, &ScriptRoot, "Salamatrix Framework", this);
@@ -874,7 +874,7 @@ public:
 
         if (General != NULL && registerHostServices)
         {
-            HostUIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_1, &UIService, "Salamatrix Framework", this);
+            HostUIRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_2, &UIService, "Salamatrix Framework", this);
             if (HostUIRegistered)
                 HostCommandsRegistered = General->RegisterServiceOwned(SALAMATRIX_SERVICE_COMMANDS, SALAMATRIX_COMMANDS_VERSION_1_0, &CommandService, "Salamatrix Framework", this);
             if (HostCommandsRegistered)

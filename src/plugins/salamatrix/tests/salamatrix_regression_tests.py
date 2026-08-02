@@ -580,6 +580,22 @@ def main() -> int:
     require(runtime_configuration,
             r'"UseCustomExecutable".*?"CustomExecutablePath"',
             "runtime executable selection is not persisted")
+    require(runtime_configuration,
+            r'SALAMATRIX_UI_VERSION_1_2.*?'
+            r'if \(strcmp\(event->ControlId, "use-custom"\) == 0\).*?'
+            r'CustomPath->SetEnabled\(event->Checked\).*?'
+            r'customPath->SetEnabled\(candidateUseCustom \? TRUE : FALSE\)',
+            "runtime custom executable picker does not follow its checkbox")
+    require(ui_contract + salamatrix_ui,
+            r'SALAMATRIX_UI_VERSION_1_2.*?'
+            r'virtual BOOL WINAPI SetEnabled\(BOOL enabled\).*?'
+            r'EnableWindow\(WindowHandle, enabled\).*?'
+            r'EnableWindow\(BrowseWindowHandle, enabled\)',
+            "Salamatrix file picker cannot disable both the path and browse button")
+    require(salamatrix_runtime,
+            r'GetVersion\(\) const.*?SALAMATRIX_UI_VERSION_1_2.*?'
+            r'RegisterServiceOwned\(SALAMATRIX_SERVICE_UI, SALAMATRIX_UI_VERSION_1_2',
+            "Salamatrix does not publish the enabled-control UI contract version")
     for name, runtime in zip(
         ("Python", "PowerShell", "JavaScript", "PHP", "Lua"), runtime_provider_sources):
         require(runtime, r"SetFlagLoadOnSalamanderStart\(TRUE\)",

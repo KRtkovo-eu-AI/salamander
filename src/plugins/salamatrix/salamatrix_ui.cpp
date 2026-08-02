@@ -511,6 +511,7 @@ struct NativeDialog::Impl
         std::string AccessibleName;
         std::string AccessibleDescription;
         std::wstring AccessibleTooltipText;
+        BOOL Enabled;
         HWND WindowHandle;
         HWND BrowseWindowHandle;
         WORD BrowseNumericId;
@@ -545,6 +546,7 @@ struct NativeDialog::Impl
               FileSave(options.FileSave),
               AccessibleName(options.AccessibleName != NULL ? options.AccessibleName : ""),
               AccessibleDescription(options.AccessibleDescription != NULL ? options.AccessibleDescription : ""),
+              Enabled(TRUE),
               WindowHandle(NULL),
               BrowseWindowHandle(NULL),
               BrowseNumericId(0),
@@ -756,6 +758,21 @@ struct NativeDialog::Impl
                              SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
             }
             return TRUE;
+        }
+
+        virtual BOOL WINAPI SetEnabled(BOOL enabled)
+        {
+            Enabled = enabled;
+            if (WindowHandle != NULL)
+                EnableWindow(WindowHandle, enabled);
+            if (BrowseWindowHandle != NULL)
+                EnableWindow(BrowseWindowHandle, enabled);
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI IsEnabled() const
+        {
+            return Enabled;
         }
     };
 
@@ -1304,6 +1321,7 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             if (control->Kind == ControlKindFilePicker)
                 control->BrowseWindowHandle =
                     GetDlgItem(hwnd, control->BrowseNumericId);
+            control->SetEnabled(control->Enabled);
             dialog->m_pImpl->AddAccessibilityTooltip(
                 dialog->m_pImpl->AccessibilityTooltip,
                 child,

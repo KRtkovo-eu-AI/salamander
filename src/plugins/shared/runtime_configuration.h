@@ -131,7 +131,7 @@ inline Salamatrix::UI::IUIService* QueryUI(
         return NULL;
     CSalamanderServiceQuery query = {};
     query.ServiceId = SALAMATRIX_SERVICE_UI;
-    query.MinimumVersion = SALAMATRIX_UI_VERSION_1_1;
+    query.MinimumVersion = SALAMATRIX_UI_VERSION_1_2;
     CSalamanderServiceResult result = {};
     return general->QueryService(&query, &result)
                ? static_cast<Salamatrix::UI::IUIService*>(result.Interface)
@@ -158,6 +158,7 @@ inline BOOL WINAPI DialogEvent(
 
     if (strcmp(event->ControlId, "use-custom") == 0)
     {
+        dialog->CustomPath->SetEnabled(event->Checked);
         dialog->CustomPath->SetRequired(event->Checked);
         char path[4096] = {};
         dialog->CustomPath->GetText(path, _countof(path));
@@ -290,6 +291,7 @@ inline bool ShowDialog(
             dialog->Release();
             return false;
         }
+        customPath->SetEnabled(candidateUseCustom ? TRUE : FALSE);
         customPath->SetRequired(candidateUseCustom ? TRUE : FALSE);
         customPath->SetValidationMessage(
             LoadText(general, module, textIds.CustomRequired));

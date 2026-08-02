@@ -28,6 +28,7 @@ namespace UI
 #define SALAMATRIX_SERVICE_UI "Salamatrix.UI"
 #define SALAMATRIX_UI_VERSION_1_0 0x00010000
 #define SALAMATRIX_UI_VERSION_1_1 0x00010001
+#define SALAMATRIX_UI_VERSION_1_2 0x00010002
 
 struct ProgressDialogOptions
 {
@@ -456,6 +457,20 @@ public:
     {
         (void)x; (void)y; (void)width; (void)height;
         return FALSE;
+    }
+
+    /// Optional enabled state appended after the original control surface.
+    /// Composite controls, such as a file picker, apply the state to all of
+    /// their child windows.
+    virtual BOOL WINAPI SetEnabled(BOOL enabled)
+    {
+        (void)enabled;
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI IsEnabled() const
+    {
+        return TRUE;
     }
 
 protected:
