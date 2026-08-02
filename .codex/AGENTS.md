@@ -9,6 +9,11 @@ These rules apply to all future agentic development in this repository.
 - Never leave a command running while waiting for output.
 - If escalation approval hangs, cancel the tool call; do not wait or retry.
 
+## Python cache cleanup
+
+- Before finishing any task, remove Python cache artifacts created during the task from the repository working tree, including `__pycache__` directories and `*.pyc`/`*.pyo` files.
+- Delete only cache artifacts; do not alter, stage, restore, or remove unrelated user or parallel-agent changes while performing this cleanup.
+
 ## Windows paths and buffer sizes
 
 - Do not introduce new `MAX_PATH`-sized buffers for file names, directory names, command lines, viewer/editor arguments, or paths.

@@ -43,36 +43,16 @@
             Condition="'@(OpenSalamanderReleaseCleanLinkArtifacts)' != ''" />
   </Target>
 
-  <UsingTask TaskName="OpenSalamanderGetFileSize"
-             TaskFactory="RoslynCodeTaskFactory"
-             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-    <ParameterGroup>
-      <FilePath ParameterType="System.String" Required="true" />
-      <Length ParameterType="System.Int64" Output="true" />
-      <LengthMiB ParameterType="System.String" Output="true" />
-    </ParameterGroup>
-    <Task>
-      <Using Namespace="System.IO" />
-      <Using Namespace="System.Globalization" />
-      <Code Type="Fragment" Language="cs"><![CDATA[
-        Length = new FileInfo(FilePath).Length;
-        LengthMiB = (Length / 1048576.0).ToString("F2", CultureInfo.InvariantCulture);
-      ]]></Code>
-    </Task>
-  </UsingTask>
-
-  <Target Name="OpenSalamanderReportBinarySize"
+  <Target Name="OpenSalamanderReportCodeGrowth"
           AfterTargets="Build"
           Condition="'$(Configuration)|$(Platform)' == 'Release|x64' and
+                     '$(MSBuildProjectName)' == 'salamand' and
                      '$(DesignTimeBuild)' != 'true' and
-                     '$(OpenSalamanderReportBinarySize)' != 'false' and
-                     '$(TargetPath)' != '' and
-                     Exists('$(TargetPath)')">
-    <OpenSalamanderGetFileSize FilePath="$(TargetPath)">
-      <Output TaskParameter="Length" PropertyName="OpenSalamanderTargetSizeBytes" />
-      <Output TaskParameter="LengthMiB" PropertyName="OpenSalamanderTargetSizeMiB" />
-    </OpenSalamanderGetFileSize>
-    <Message Importance="high"
-             Text="[binary-size] $(MSBuildProjectName) | $(Configuration)|$(Platform) | $(TargetFileName) | $(OpenSalamanderTargetSizeBytes) B ($(OpenSalamanderTargetSizeMiB) MiB)" />
+                     '$(OpenSalamanderReportCodeGrowth)' != 'false'">
+    <Exec Command="python &quot;$(MSBuildThisFileDirectory)tools\code_metrics\report_code_growth.py&quot; --repository-root &quot;$(MSBuildThisFileDirectory).&quot; --summary-only"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="high"
+          StandardErrorImportance="high"
+          ContinueOnError="WarnAndContinue" />
   </Target>
 </Project>

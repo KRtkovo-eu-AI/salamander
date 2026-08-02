@@ -45,8 +45,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Python test runner
-        run: python -m pip install --disable-pip-version-check pytest
+      - name: Install Python test runner and source metrics analyzer
+        run: python -m pip install --disable-pip-version-check pytest lizard==1.23.0
 
       - name: Run native and source-contract tests
         id: native_tests
@@ -63,7 +63,7 @@ jobs:
         run: |
           python -m pytest `
             src/plugins/automation/tests/salamatrix_ai_local_tests.py `
-            tools/binary_size/tests `
+            tools/code_metrics/tests `
             tools/localization/tests `
             --junitxml=test-results/python.xml
 

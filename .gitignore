@@ -240,3 +240,7 @@ src/plugins/hypervm/help/hypervm.chm
 src/plugins/pythonruntime/runtime/__pycache__/
 
 src/plugins/automation/runtime/__pycache__/
+
+# Python bytecode and test caches
+__pycache__/
+*.py[cod]
