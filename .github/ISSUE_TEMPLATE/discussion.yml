@@ -1,0 +1,33 @@
+name: Discussion
+description: Start a discussion about Open Salamander that is not a bug report.
+title: "Discussion: "
+type: Discussion
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this issue for questions, feedback, and topics that would benefit from an open discussion.
+
+        If you have found a bug or experienced a crash, please open a separate bug or crash report instead.
+  - type: textarea
+    id: topic
+    attributes:
+      label: Topic
+      description: What would you like to discuss?
+      placeholder: Describe the question, idea, or topic you would like to discuss.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any background, examples, screenshots, or links that may help the discussion.
+    validations:
+      required: false
+  - type: checkboxes
+    id: not-a-bug-report
+    attributes:
+      label: Issue purpose
+      options:
+        - label: I confirm that this topic is intended for discussion and is not a bug or crash report.
+          required: true
