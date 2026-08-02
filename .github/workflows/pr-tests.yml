@@ -63,6 +63,7 @@ jobs:
         run: |
           python -m pytest `
             src/plugins/automation/tests/salamatrix_ai_local_tests.py `
+            tools/binary_size/tests `
             tools/localization/tests `
             --junitxml=test-results/python.xml
 

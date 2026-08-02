@@ -1,0 +1,281 @@
+name: Binary Size
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: ["**"]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: read
+
+concurrency:
+  group: binary-size-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    name: Release x64 against latest Samandarin release
+    runs-on: windows-2022
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Find build-relevant PR files
+        id: changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changedFiles = await github.paginate(
+              github.rest.pulls.listFiles,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                per_page: 100,
+              },
+            );
+            core.setOutput('files_json', JSON.stringify(changedFiles.map((file) => file.filename)));
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: head
+          submodules: recursive
+
+      - name: Checkout canonical repository with release tags
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: baseline
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Resolve latest Samandarin release baseline
+        id: baseline
+        run: |
+          $resolved = ./head/tools/binary_size/resolve_release_baseline.ps1 `
+            -RepositoryPath ./baseline | ConvertFrom-Json
+          "tag=$($resolved.tag)" | Add-Content -Path $env:GITHUB_OUTPUT
+          "commit=$($resolved.commit)" | Add-Content -Path $env:GITHUB_OUTPUT
+          Write-Host "Binary size baseline: $($resolved.tag) at $($resolved.commit)"
+          git -C baseline checkout --detach $resolved.commit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C baseline submodule sync --recursive
+          git -C baseline submodule update --init --recursive --force
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup MSVC x64 toolchain
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Select projects affected by the PR
+        id: projects
+        env:
+          CHANGED_FILES_JSON: ${{ steps.changes.outputs.files_json }}
+        run: |
+          $root = (Resolve-Path ./head).Path
+          $solutionPath = Join-Path $root 'src/vcxproj/salamand.sln'
+          $solutionDir = Split-Path -Parent $solutionPath
+          $changedFiles = @($env:CHANGED_FILES_JSON | ConvertFrom-Json)
+          $projectMatches = Select-String -LiteralPath $solutionPath -Pattern '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{([^}]+)\}"'
+          $projects = foreach ($match in $projectMatches) {
+            $relativePath = $match.Matches[0].Groups[2].Value
+            if ($relativePath -notmatch '\.(?:vcxproj|csproj)$') { continue }
+            $absolutePath = [IO.Path]::GetFullPath((Join-Path $solutionDir $relativePath))
+            $repoRelativePath = [IO.Path]::GetRelativePath($root, $absolutePath).Replace('\', '/')
+            $projectRoot = (Split-Path -Parent $repoRelativePath).Replace('\', '/')
+            if ($repoRelativePath -match '^src/plugins/([^/]+)/') { $projectRoot = "src/plugins/$($Matches[1])" }
+            [pscustomobject]@{ Name = $match.Matches[0].Groups[1].Value; Path = $repoRelativePath; Root = $projectRoot }
+          }
+
+          $selected = [Collections.Generic.List[object]]::new()
+          $buildAllPlugins = $false
+          foreach ($file in $changedFiles) {
+            $normalized = $file.Replace('\', '/')
+            if ($normalized -match '^src/plugins/shared/') {
+              $buildAllPlugins = $true
+              break
+            }
+            $owners = @($projects | Where-Object {
+              $normalized -eq $_.Path -or
+              ($normalized.StartsWith($_.Root + '/') -and ($_.Root -ne 'src' -or $normalized -match '^src/(?!plugins/)'))
+            })
+            if ($owners.Count -eq 0 -and $normalized -match '^src/(?!plugins/)') {
+              $owners = @($projects | Where-Object { $_.Name -in @('salamand', 'lang') })
+            }
+            if ($owners.Count -eq 0 -and $normalized -eq 'Directory.Build.targets') {
+              $owners = @($projects | Where-Object { $_.Name -in @('salamand', 'lang') })
+            }
+            foreach ($owner in $owners) {
+              if ($owner.Name -in @('sftp', 'lang_sftp', 'zip2sfx')) { continue }
+              if (-not ($selected | Where-Object Path -eq $owner.Path)) { $selected.Add($owner) }
+            }
+          }
+
+          if ($buildAllPlugins) {
+            'build_full_solution=true' | Add-Content -Path $env:GITHUB_OUTPUT
+            'project_paths_json=[]' | Add-Content -Path $env:GITHUB_OUTPUT
+            'needs_lua=true' | Add-Content -Path $env:GITHUB_OUTPUT
+            'needs_unrar=true' | Add-Content -Path $env:GITHUB_OUTPUT
+            'needs_ftp_openssl=true' | Add-Content -Path $env:GITHUB_OUTPUT
+          } else {
+            $paths = @($selected.Path)
+            $json = ConvertTo-Json $paths -Compress
+            if ($paths.Count -eq 0) { $json = '[]' }
+            'build_full_solution=false' | Add-Content -Path $env:GITHUB_OUTPUT
+            "project_paths_json=$json" | Add-Content -Path $env:GITHUB_OUTPUT
+            "needs_lua=$(if (@($selected | Where-Object Name -eq 'luaruntime').Count -gt 0) { 'true' } else { 'false' })" | Add-Content -Path $env:GITHUB_OUTPUT
+            "needs_unrar=$(if (@($selected | Where-Object Name -eq 'unrar').Count -gt 0) { 'true' } else { 'false' })" | Add-Content -Path $env:GITHUB_OUTPUT
+            "needs_ftp_openssl=$(if (@($selected | Where-Object Name -eq 'ftp').Count -gt 0) { 'true' } else { 'false' })" | Add-Content -Path $env:GITHUB_OUTPUT
+            Write-Host "Selected $($paths.Count) projects for binary size comparison."
+          }
+
+      - name: Install selected Release dependencies in both trees
+        if: >-
+          ${{
+            steps.projects.outputs.needs_lua == 'true' ||
+            steps.projects.outputs.needs_unrar == 'true' ||
+            steps.projects.outputs.needs_ftp_openssl == 'true'
+          }}
+        env:
+          NEEDS_LUA: ${{ steps.projects.outputs.needs_lua }}
+          NEEDS_UNRAR: ${{ steps.projects.outputs.needs_unrar }}
+          NEEDS_FTP_OPENSSL: ${{ steps.projects.outputs.needs_ftp_openssl }}
+        run: |
+          $sharedVcpkgRoot = [IO.Path]::GetFullPath('./binary-size-vcpkg')
+          foreach ($tree in @('baseline', 'head')) {
+            $script = Join-Path $tree 'tools/vcpkg/build-third-party-libs.ps1'
+            if ($env:NEEDS_LUA -eq 'true') {
+              & $script -Triplet x64-windows -VcpkgRoot $sharedVcpkgRoot -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy
+            }
+            if ($env:NEEDS_UNRAR -eq 'true') {
+              & $script -Triplet x64-windows -VcpkgRoot $sharedVcpkgRoot -NoDefaultFeatures -ManifestFeature unrar-runtime -SkipLegacyCopy
+            }
+            if ($env:NEEDS_FTP_OPENSSL -eq 'true') {
+              & $script -Triplet x64-windows -VcpkgRoot $sharedVcpkgRoot -NoDefaultFeatures -ManifestFeature ftp-openssl -SkipLegacyCopy
+            }
+          }
+
+      - name: Build baseline and PR head (Release x64)
+        env:
+          BUILD_FULL_SOLUTION: ${{ steps.projects.outputs.build_full_solution }}
+          PROJECT_PATHS_JSON: ${{ steps.projects.outputs.project_paths_json }}
+        run: |
+          function Build-Tree([string]$tree, [string]$outputRoot) {
+            $absoluteOutput = [IO.Path]::GetFullPath($outputRoot).TrimEnd('\') + '\'
+            $common = @(
+              '/m'
+              '/t:Rebuild'
+              '/p:Configuration=Release'
+              '/p:Platform=x64'
+              '/p:PreferredToolArchitecture=x64'
+              "/p:OPENSAL_BUILD_DIR=$absoluteOutput"
+              '/p:OpenSalamanderReportBinarySize=false'
+              '/nr:false'
+              '/v:m'
+            )
+            if ($env:BUILD_FULL_SOLUTION -eq 'true') {
+              $solutionPath = [IO.Path]::GetFullPath("$tree/src/vcxproj/salamand.sln")
+              $solutionDir = Split-Path -Parent $solutionPath
+              $filterPath = Join-Path $solutionDir 'binary-size.slnf'
+              $excludedProjects = @('sftp', 'lang_sftp', 'zip2sfx')
+              $projectPaths = Select-String -LiteralPath $solutionPath -Pattern '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{[^}]+\}"' |
+                ForEach-Object {
+                  [pscustomobject]@{
+                    Name = $_.Matches[0].Groups[1].Value
+                    Path = $_.Matches[0].Groups[2].Value
+                  }
+                } |
+                Where-Object { $_.Path -match '\.(?:vcxproj|csproj)$' -and $_.Name -notin $excludedProjects } |
+                ForEach-Object Path
+              @{
+                solution = @{
+                  path = Split-Path -Leaf $solutionPath
+                  projects = @($projectPaths)
+                }
+              } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $filterPath -Encoding UTF8
+              msbuild $filterPath @common
+              if ($LASTEXITCODE -ne 0) { throw "Release x64 solution build failed in $tree." }
+              return
+            }
+            $projects = @($env:PROJECT_PATHS_JSON | ConvertFrom-Json)
+            foreach ($project in $projects) {
+              $path = Join-Path $tree $project
+              if (-not (Test-Path -LiteralPath $path)) {
+                Write-Warning "Project does not exist in $tree and will be treated as added or removed: $project"
+                continue
+              }
+              msbuild $path @common
+              if ($LASTEXITCODE -ne 0) { throw "Release x64 build failed for $project in $tree." }
+            }
+          }
+
+          New-Item -ItemType Directory -Force -Path ./binary-size-out/baseline, ./binary-size-out/head | Out-Null
+          Build-Tree -tree ./baseline -outputRoot ./binary-size-out/baseline
+          Build-Tree -tree ./head -outputRoot ./binary-size-out/head
+
+      - name: Generate binary size comparison
+        id: report
+        env:
+          BASELINE_TAG: ${{ steps.baseline.outputs.tag }}
+          BASELINE_COMMIT: ${{ steps.baseline.outputs.commit }}
+        run: |
+          New-Item -ItemType Directory -Force -Path ./binary-size-report | Out-Null
+          ./head/tools/binary_size/report_binary_sizes.ps1 `
+            -BaselineRoot ./binary-size-out/baseline `
+            -CurrentRoot ./binary-size-out/head `
+            -BaselineTag $env:BASELINE_TAG `
+            -BaselineCommit $env:BASELINE_COMMIT `
+            -CurrentLabel '${{ github.event.pull_request.head.sha || github.sha }}' `
+            -OutputJson ./binary-size-report/report.json `
+            -OutputMarkdown ./binary-size-report/report.md
+          Get-Content ./binary-size-report/report.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          $report = Get-Content ./binary-size-report/report.json -Raw | ConvertFrom-Json
+          "title=$($report.summary.title)" | Add-Content -Path $env:GITHUB_OUTPUT
+
+      - name: Show size summary on the PR check
+        if: >-
+          ${{
+            github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository
+          }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_RUN_ID: ${{ job.check_run_id }}
+          REPORT_TITLE: ${{ steps.report.outputs.title }}
+        run: |
+          $summary = Get-Content ./binary-size-report/report.md -Raw
+          @{
+            output = @{
+              title = $env:REPORT_TITLE
+              summary = $summary
+            }
+          } |
+            ConvertTo-Json -Depth 3 -Compress |
+            gh api `
+              --method PATCH `
+              -H "Accept: application/vnd.github+json" `
+              -H "X-GitHub-Api-Version: 2022-11-28" `
+              "repos/$env:GITHUB_REPOSITORY/check-runs/$env:CHECK_RUN_ID" `
+              --input -
+
+      - name: Upload binary size report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-size-report
+          path: binary-size-report/*
+          if-no-files-found: error
+          retention-days: 14
