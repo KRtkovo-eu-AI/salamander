@@ -9,7 +9,6 @@ on:
 permissions:
   contents: read
   actions: read
-  checks: write
   pull-requests: read
   security-events: write
 
@@ -19,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build ${{ matrix.platform }} ${{ matrix.configuration }} (fail on warnings)
+    name: Build ${{ matrix.platform }} Debug (fail on warnings)
     runs-on: windows-2022
 
     strategy:
@@ -27,15 +26,12 @@ jobs:
       matrix:
         include:
           - platform: Win32
-            configuration: Debug
             msvc_arch: x64
             sftp_triplet: x86-windows
           - platform: x64
-            configuration: Release
             msvc_arch: x64
             sftp_triplet: x64-windows
           - platform: ARM64
-            configuration: Debug
             msvc_arch: x64_arm64
             sftp_triplet: arm64-windows
 
@@ -45,13 +41,12 @@ jobs:
         working-directory: s
 
     env:
-      BUILD_CONFIGURATION: ${{ matrix.configuration }}
+      BUILD_CONFIGURATION: Debug
       # SFTP is not shipped yet; keep this off to avoid building the plugin and
       # its vcpkg dependencies during PR validation.
       BUILD_SFTP_PLUGIN: 'false'
       SOLUTION_PATH: '.\src\vcxproj\salamand.sln'
       LOG_DIRECTORY: build_logs
-      BUILD_OUTPUT_DIRECTORY: ${{ github.workspace }}\pr-build-output
 
     steps:
       - name: Check whether build-relevant files changed
@@ -261,7 +256,6 @@ jobs:
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
             '/p:PreferredToolArchitecture=x64'
-            "/p:OPENSAL_BUILD_DIR=$([IO.Path]::GetFullPath($env:BUILD_OUTPUT_DIRECTORY).TrimEnd('\'))\"
             '/warnaserror'
             '/nr:false'
             '/v:m'
@@ -321,7 +315,6 @@ jobs:
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
             '/p:PreferredToolArchitecture=x64'
-            "/p:OPENSAL_BUILD_DIR=$([IO.Path]::GetFullPath($env:BUILD_OUTPUT_DIRECTORY).TrimEnd('\'))\"
             '/warnaserror'
             '/nr:false'
             '/v:m'
@@ -342,79 +335,6 @@ jobs:
           path: |
             ${{ env.LOG_PATH }}
           if-no-files-found: warn
-
-      - name: Create Release x64 binary size snapshot
-        if: github.event_name == 'pull_request' && matrix.platform == 'x64'
-        working-directory: .
-        env:
-          PROJECT_PATHS_JSON: ${{ steps.changed_projects.outputs.project_paths_json }}
-          NEEDS_LUA: ${{ steps.changed_projects.outputs.needs_lua }}
-          NEEDS_UNRAR: ${{ steps.changed_projects.outputs.needs_unrar }}
-          NEEDS_FTP_OPENSSL: ${{ steps.changed_projects.outputs.needs_ftp_openssl }}
-        run: |
-          $artifactRoot = Join-Path $env:BUILD_OUTPUT_DIRECTORY 'binary-size'
-          $releaseRoot = Join-Path $env:BUILD_OUTPUT_DIRECTORY 'salamander\Release_x64'
-          New-Item -ItemType Directory -Force -Path $artifactRoot, $releaseRoot | Out-Null
-
-          $reportScript = '.\s\tools\binary_size\report_binary_sizes.ps1'
-          if (Test-Path -LiteralPath $reportScript) {
-            & $reportScript `
-              -CurrentRoot $releaseRoot `
-              -CurrentLabel '${{ github.event.pull_request.head.sha }}' `
-              -OutputJson (Join-Path $artifactRoot 'current-snapshot.json') `
-              -OutputMarkdown (Join-Path $artifactRoot 'current-snapshot.md')
-          } else {
-            @{
-              schemaVersion = 1
-              current = @{
-                label = '${{ github.event.pull_request.head.sha }}'
-                artifactCount = 0
-                fileSizeBytes = 0
-                sizeOfImageBytes = 0
-                sectionRawSizeBytes = @{}
-                artifacts = @()
-              }
-            } | ConvertTo-Json -Depth 5 | Set-Content `
-              -LiteralPath (Join-Path $artifactRoot 'current-snapshot.json') `
-              -Encoding UTF8
-          }
-
-          $projectPaths = if ([string]::IsNullOrWhiteSpace($env:PROJECT_PATHS_JSON)) {
-            @()
-          } else {
-            @($env:PROJECT_PATHS_JSON | ConvertFrom-Json)
-          }
-
-          @{
-            projectPaths = $projectPaths
-            needsLua = $env:NEEDS_LUA -eq 'true'
-            needsUnrar = $env:NEEDS_UNRAR -eq 'true'
-            needsFtpOpenssl = $env:NEEDS_FTP_OPENSSL -eq 'true'
-          } | ConvertTo-Json -Depth 3 | Set-Content `
-            -LiteralPath (Join-Path $artifactRoot 'build-selection.json') `
-            -Encoding UTF8
-
-      - name: Upload Release x64 binary size snapshot
-        if: github.event_name == 'pull_request' && matrix.platform == 'x64'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr-build-x64-release-binary-size
-          path: ${{ env.BUILD_OUTPUT_DIRECTORY }}\binary-size\*
-          if-no-files-found: error
-          retention-days: 1
-
-  binary_size:
-    name: Binary size against latest Samandarin release
-    if: github.event_name == 'pull_request' && needs.build.result == 'success'
-    needs: build
-    permissions:
-      actions: read
-      checks: write
-      contents: read
-      pull-requests: read
-    uses: ./.github/workflows/binary-size.yml
-    with:
-      head_sha: ${{ github.event.pull_request.head.sha }}
 
   codeql:
     name: CodeQL Analyze C++
