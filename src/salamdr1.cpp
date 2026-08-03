@@ -2859,19 +2859,21 @@ BOOL CreateBottomToolbarImageLists(int dpi, HIMAGELIST* normal, HIMAGELIST* hot)
 
     COLORMAP clrMap[3];
     clrMap[0].from = RGB(128, 128, 128);
-    clrMap[0].to = toolbarShadow;
+    clrMap[0].to = useDark ? toolbarFace : toolbarShadow;
     clrMap[1].from = RGB(0, 0, 0);
     clrMap[1].to = useDark
-                       ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
+                       ? DarkModeGetDisabledTextColor()
                        : GetSysColor(COLOR_BTNTEXT);
     clrMap[2].from = RGB(255, 255, 255);
-    clrMap[2].to = RGB(255, 0, 255);
+    clrMap[2].to = useDark ? toolbarFace : RGB(255, 0, 255);
     HBITMAP sourceNormal = HANDLES(CreateMappedBitmap(
         HInstance, IDB_BOTTOMTOOLBAR, 0, clrMap, 3));
 
     BOOL remapWhite = FALSE;
     if (useDark)
     {
+        clrMap[0].to = toolbarShadow;
+        clrMap[1].to = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
         clrMap[2].to = LightenColorSimple(toolbarFace, 24);
         remapWhite = TRUE;
     }

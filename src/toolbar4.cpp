@@ -1547,7 +1547,7 @@ BOOL CBottomToolBar::CreateWnd(HWND hParent)
     {
         TLBI_ITEM_INFO2 tii;
         tii.Mask = TLBI_MASK_STYLE | TLBI_MASK_IMAGEINDEX | TLBI_MASK_WIDTH;
-        tii.Style = TLBI_STYLE_SHOWTEXT | TLBI_STYLE_FIXEDWIDTH | TLBI_STYLE_NOPREFIX | TLBI_STYLE_DARK_DISABLED_IMAGE_TEXT;
+        tii.Style = TLBI_STYLE_SHOWTEXT | TLBI_STYLE_FIXEDWIDTH | TLBI_STYLE_NOPREFIX;
         tii.ImageIndex = i;
         tii.Width = 60;
         if (!InsertItem2(i, TRUE, &tii))
