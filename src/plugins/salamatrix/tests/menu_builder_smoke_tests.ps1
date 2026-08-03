@@ -5,6 +5,13 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 $builderRoot = Join-Path $root 'src\extensions\extension-menu-builder'
 . (Join-Path $builderRoot 'main.ps1')
 
+$builderSource = Get-Content -Raw (Join-Path $builderRoot 'main.ps1')
+if ($builderSource -notmatch '\$form\.BeginInvoke\(\$disposePreview\)' -or
+    $builderSource -match '(?s)\$preview\.Add_Closed\(\{.*?\$preview\.Dispose\(\).*?\}\s*\.GetNewClosure') {
+    throw ('Menu preview cleanup must be deferred until after the ' +
+        'ContextMenuStrip Closed event has completed.')
+}
+
 Add-Type -AssemblyName System.Drawing
 
 $iconStream = New-Object System.IO.MemoryStream
