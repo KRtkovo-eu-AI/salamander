@@ -32,6 +32,18 @@ describe('shared SDK contracts', () => {
     expect(host).toContain('dmlib::setChildCtrlsSubclassAndTheme');
   });
 
+  it('implements the Salamander-specific preview controls instead of placeholder glyphs', () => {
+    const controls = readFileSync(resolve(process.cwd(), '..', '..', 'salamatrix-sdk', 'native-ui-runtime', 'salamatrix_ui_controls.cpp'), 'utf8');
+    expect(controls).toContain('class NativeToolTip');
+    expect(controls).toContain('TTF_IDISHWND | TTF_SUBCLASS');
+    expect(controls).toContain('Indeterminate = progress == static_cast<DWORD>(-1)');
+    expect(controls).toContain('SetTimer(Window, 1');
+    expect(controls).toContain('Flags & STF_HYPERLINK_COLOR');
+    expect(controls).toContain('Flags & STF_DOTUNDERLINE');
+    expect(controls).toContain('Caption(Wide(WindowText(window).c_str()))');
+    expect(controls).not.toContain('SetWindowTextW(window, L"✎  ＋  ×  ↕  ↑  ↓  ⇈  ⌕")');
+  });
+
   it('ships the exact 463 x 236 UI capabilities gallery as a Studio project', () => {
     const demoPath = resolve(process.cwd(), 'examples', 'salamatrix-ui-capabilities');
     const dialog = JSON.parse(readFileSync(resolve(demoPath, '.salamatrix', 'dialogs', 'ui-capabilities.salamatrix-dialog.json'), 'utf8')) as {

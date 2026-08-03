@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.1.3
+
+- Faithful indeterminate progress animation without a percentage label.
+- Functional static-text tooltips and persistent hyperlink hints.
+- Correct hyperlink colors, dotted hint underline, split arrow buttons, and color buttons.
+- Toolbar headers retain their caption and render only the requested action buttons.
+
 ## 0.1.2
 
 - Correct Win32 dialog-unit geometry in the visual designer.
