@@ -47,6 +47,15 @@ def main() -> int:
         "src/tools/salamatrix-studio/preview-host/SalamatrixStudio.Host.vcxproj")
     studio_host_build = read("src/tools/salamatrix-studio/build-host.mjs")
     studio_host = read("src/tools/salamatrix-studio/preview-host/main.cpp")
+    studio_package = json.loads(read("src/tools/salamatrix-studio/package.json"))
+    studio_package_lock = json.loads(
+        read("src/tools/salamatrix-studio/package-lock.json"))
+    studio_extension = read("src/tools/salamatrix-studio/src/extension.ts")
+    studio_explorer = read("src/tools/salamatrix-studio/src/projectExplorer.ts")
+    studio_manifest_editor = read(
+        "src/tools/salamatrix-studio/src/manifestEditor.ts")
+    studio_menu_model = read("src/tools/salamatrix-studio/src/menuModel.ts")
+    studio_scaffold = read("src/tools/salamatrix-studio/src/extensionScaffold.ts")
     populate_build_dir = read("src/vcxproj/!populate_build_dir.cmd")
     setup_x64_inf = read("tools/setup_x64.inf")
     inno_setup_x64 = read(
@@ -526,6 +535,44 @@ def main() -> int:
             "Studio preview host build does not reject dynamic MSVC/UCRT imports")
     require_absent(studio_host, r"CreateWindowExW\(.*?PreviewProc",
                    "Studio preview host still contains its old independent Win32 renderer")
+    studio_version = studio_package.get("version", "0.0.0")
+    try:
+        studio_version_parts = tuple(int(part) for part in studio_version.split("."))
+    except (AttributeError, ValueError):
+        studio_version_parts = ()
+    if studio_version_parts < (0, 1, 1):
+        raise AssertionError("Salamatrix Studio VSIX version is older than 0.1.1")
+    if studio_package_lock.get("version") != studio_version or \
+            studio_package_lock.get("packages", {}).get("", {}).get(
+                "version") != studio_version:
+        raise AssertionError("Salamatrix Studio package versions are inconsistent")
+    studio_commands = {
+        item.get("command") for item in
+        studio_package.get("contributes", {}).get("commands", [])
+    }
+    for command in ("salamatrixStudio.createExtension",
+                    "salamatrixStudio.addExistingExtensionFolder"):
+        if command not in studio_commands:
+            raise AssertionError(f"Salamatrix Studio does not contribute {command}")
+    require(studio_extension,
+            r"createExtensionProject\(\).*?findScaffoldConflicts.*?"
+            r"createDirectory.*?writeFile",
+            "Studio new-extension workflow does not preflight before writing")
+    for section in ("Overview", "Menu Builder", "Dialogs", "Source Files"):
+        if f"'{section}'" not in studio_explorer:
+            raise AssertionError(
+                f"Studio project explorer does not expose section {section}")
+    require(studio_manifest_editor,
+            r"enableGeneratedActions.*?integrateMenuDispatch.*?writeGeneratedActions",
+            "Studio does not keep generated menu actions behind explicit migration")
+    require(studio_menu_model,
+            r"synchronizeMenuDocument.*?\.\.\.document.*?existing\.get\(handler\)",
+            "Studio menu model does not preserve unknown project/action fields")
+    for runtime in ("PowerShell", "Python.CPython", "JavaScript.Node",
+                    "PHP.CLI", "Lua", "Automation.JScript"):
+        if runtime not in studio_scaffold:
+            raise AssertionError(
+                f"Studio extension scaffolder omits runtime {runtime}")
     require(populate_build_dir,
             r"Release_x64.*?Microsoft\.VC143\.CRT.*?vcruntime140_1\.dll",
             "Release x64 populate does not copy vcruntime140_1.dll")

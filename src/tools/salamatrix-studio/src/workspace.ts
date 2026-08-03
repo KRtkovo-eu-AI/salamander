@@ -7,6 +7,7 @@ export interface ExtensionProject {
   manifest: vscode.Uri;
   name: string;
   runtime: string;
+  entryPoint: string;
 }
 
 export async function discoverProjects(): Promise<ExtensionProject[]> {
@@ -23,6 +24,7 @@ export async function discoverProjects(): Promise<ExtensionProject[]> {
         name?: string;
         title?: string;
         runtime?: string | { id?: string };
+        entryPoint?: string;
       };
       const runtime = typeof json.runtime === 'string' ? json.runtime : json.runtime?.id ?? 'Unknown';
       projects.push({
@@ -30,6 +32,7 @@ export async function discoverProjects(): Promise<ExtensionProject[]> {
         manifest,
         name: json.name ?? json.title ?? path.basename(path.dirname(manifest.fsPath)),
         runtime,
+        entryPoint: typeof json.entryPoint === 'string' ? json.entryPoint : 'main',
       });
     } catch {
       projects.push({
@@ -37,6 +40,7 @@ export async function discoverProjects(): Promise<ExtensionProject[]> {
         manifest,
         name: path.basename(path.dirname(manifest.fsPath)),
         runtime: 'Invalid manifest',
+        entryPoint: 'extension.json',
       });
     }
   }

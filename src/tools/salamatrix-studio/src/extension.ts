@@ -4,6 +4,10 @@ import { DialogEditorProvider } from './dialogEditor.js';
 import { ManifestEditorProvider } from './manifestEditor.js';
 import { generateDialog, runtimeFromManifest } from './generator.js';
 import {
+  createExtensionScaffold, extensionRuntimeIds, findScaffoldConflicts, validateExtensionFolderName, validateExtensionId,
+  type ExtensionScaffoldSpec,
+} from './extensionScaffold.js';
+import {
   ControlCatalog,
   createDialogDocument,
   parseDialogDocument,
@@ -11,10 +15,12 @@ import {
   RuntimeId,
 } from './model.js';
 import { StudioProjectExplorer } from './projectExplorer.js';
+import { t, tf } from './localize.js';
 import { PreviewHost } from './previewHost.js';
 import { chooseProject, findProjectRoot, readJson } from './workspace.js';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  const pendingOverviewKey = 'salamatrixStudio.pendingOverview';
   const catalog = await loadCatalog(context);
   const editor = new DialogEditorProvider(context, catalog);
   const explorer = new StudioProjectExplorer();
@@ -22,17 +28,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const previewHost = new PreviewHost(context);
   const projectWatcher = vscode.workspace.createFileSystemWatcher('**/extension.json');
   const dialogWatcher = vscode.workspace.createFileSystemWatcher('**/*.salamatrix-dialog.json');
-  const refreshExplorer = (): void => { void explorer.refresh(); };
+  const refreshExplorer = async (): Promise<void> => {
+    const count = await explorer.refresh();
+    await vscode.commands.executeCommand('setContext', 'salamatrixStudio.hasProjects', count > 0);
+  };
   projectWatcher.onDidCreate(refreshExplorer);
   projectWatcher.onDidChange(refreshExplorer);
   projectWatcher.onDidDelete(refreshExplorer);
   dialogWatcher.onDidCreate(refreshExplorer);
   dialogWatcher.onDidChange(refreshExplorer);
   dialogWatcher.onDidDelete(refreshExplorer);
+  const workspaceFoldersChanged = vscode.workspace.onDidChangeWorkspaceFolders(refreshExplorer);
 
   context.subscriptions.push(
     projectWatcher,
     dialogWatcher,
+    workspaceFoldersChanged,
     previewHost,
     vscode.window.registerCustomEditorProvider(DialogEditorProvider.viewType, editor, {
       webviewOptions: { retainContextWhenHidden: false },
@@ -43,32 +54,53 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       supportsMultipleEditorsPerDocument: false,
     }),
     vscode.window.registerTreeDataProvider('salamatrixStudio.projectExplorer', explorer),
-    vscode.commands.registerCommand('salamatrixStudio.refreshExplorer', () => explorer.refresh()),
-    vscode.commands.registerCommand('salamatrixStudio.openManifestDesigner', async (uri?: vscode.Uri) => {
+    vscode.commands.registerCommand('salamatrixStudio.refreshExplorer', refreshExplorer),
+    vscode.commands.registerCommand('salamatrixStudio.createExtension', async () => {
+      const created = await createExtensionProject();
+      if (!created) return;
+      if (!vscode.workspace.getWorkspaceFolder(created)) {
+        const folders = vscode.workspace.workspaceFolders ?? [];
+        if (folders.length === 0) {
+          await context.globalState.update(
+            pendingOverviewKey, vscode.Uri.joinPath(created, 'extension.json').toString(),
+          );
+          await vscode.commands.executeCommand('vscode.openFolder', created);
+          return;
+        }
+        vscode.workspace.updateWorkspaceFolders(folders.length, 0, { uri: created, name: path.basename(created.fsPath) });
+      }
+      await refreshExplorer();
+      await manifestEditor.open(vscode.Uri.joinPath(created, 'extension.json'), 'overview');
+    }),
+    vscode.commands.registerCommand('salamatrixStudio.addExistingExtensionFolder', async () => {
+      await addExistingExtensionFolder();
+      await refreshExplorer();
+    }),
+    vscode.commands.registerCommand('salamatrixStudio.openManifestDesigner', async (uri?: vscode.Uri, section: 'overview' | 'menus' = 'overview') => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target || path.basename(target.fsPath).toLowerCase() !== 'extension.json') {
-        void vscode.window.showErrorMessage('Select or open an extension.json file first.');
+        void vscode.window.showErrorMessage(t('Select or open an extension.json file first.'));
         return;
       }
-      await vscode.commands.executeCommand('vscode.openWith', target, ManifestEditorProvider.viewType);
+      await manifestEditor.open(target, section);
     }),
     vscode.commands.registerCommand('salamatrixStudio.addDialog', async () => {
       await addDialog();
-      await explorer.refresh();
+      await refreshExplorer();
     }),
     vscode.commands.registerCommand('salamatrixStudio.addStandaloneDialog', async () => {
       await addStandaloneDialog();
     }),
     vscode.commands.registerCommand('salamatrixStudio.generateDialog', async (uri?: vscode.Uri) => {
       await generateActiveDialog(uri ?? editor.activeDocument);
-      await explorer.refresh();
+      await refreshExplorer();
     }),
     vscode.commands.registerCommand('salamatrixStudio.generateDialogForRuntime', async (uri?: vscode.Uri) => {
       const picked = await vscode.window.showQuickPick([
         'PowerShell', 'Python.CPython', 'JavaScript.Node', 'PHP.CLI', 'Lua', 'Automation.JScript', 'Native.Cpp',
       ], { title: 'Generate Salamatrix Dialog Code', placeHolder: 'Select the target runtime' });
       if (picked) await generateActiveDialog(uri ?? editor.activeDocument, picked as RuntimeId);
-      await explorer.refresh();
+      await refreshExplorer();
     }),
     vscode.commands.registerCommand('salamatrixStudio.previewDialog', async (uri?: vscode.Uri) => {
       const target = uri ?? editor.activeDocument;
@@ -89,7 +121,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
-  await explorer.refresh();
+  await refreshExplorer();
+  const pendingOverview = context.globalState.get<string>(pendingOverviewKey);
+  if (pendingOverview) {
+    const uri = vscode.Uri.parse(pendingOverview);
+    if (vscode.workspace.getWorkspaceFolder(uri)) {
+      await context.globalState.update(pendingOverviewKey, undefined);
+      await manifestEditor.open(uri, 'overview');
+    }
+  }
 }
 
 export function deactivate(): void {}
@@ -233,4 +273,97 @@ async function loadCatalog(context: vscode.ExtensionContext): Promise<ControlCat
   const uri = vscode.Uri.joinPath(context.extensionUri, 'dist', 'contracts', 'control-catalog.json');
   const bytes = await vscode.workspace.fs.readFile(uri);
   return JSON.parse(new TextDecoder().decode(bytes)) as ControlCatalog;
+}
+
+async function createExtensionProject(): Promise<vscode.Uri | undefined> {
+  const name = await vscode.window.showInputBox({
+    title: t('Create Salamatrix Extension (1/5)'), prompt: t('Extension display name'), value: 'My Extension',
+    validateInput: (value) => value.trim() ? undefined : t('Extension name is required.'),
+  });
+  if (!name) return undefined;
+  const suggestedId = `MyCompany.${name.replace(/[^A-Za-z0-9_-]+/g, '') || 'Extension'}`;
+  const id = await vscode.window.showInputBox({
+    title: t('Create Salamatrix Extension (2/5)'), prompt: t('Unique dotted extension identifier'), value: suggestedId,
+    validateInput: (value) => validateExtensionId(value) ? t('Use a dotted identifier such as MyCompany.MyExtension.') : undefined,
+  });
+  if (!id) return undefined;
+  const runtime = await vscode.window.showQuickPick(extensionRuntimeIds, {
+    title: t('Create Salamatrix Extension (3/5)'), placeHolder: t('Select the extension runtime'),
+  });
+  if (!runtime) return undefined;
+  const description = await vscode.window.showInputBox({
+    title: t('Create Salamatrix Extension (4/5)'), prompt: t('Description (optional)'),
+    value: `${name} extension for Open Salamander.`,
+  });
+  if (description === undefined) return undefined;
+  const root = await chooseExtensionDestination(name);
+  if (!root) return undefined;
+
+  const files = createExtensionScaffold({ id, name, description, runtime } as ExtensionScaffoldSpec);
+  const conflicts = await findScaffoldConflicts(files, async (relativePath) => {
+    const target = vscode.Uri.joinPath(root, ...relativePath.split('/'));
+    try { await vscode.workspace.fs.stat(target); return true; } catch { return false; }
+  });
+  if (conflicts.length > 0) {
+    void vscode.window.showErrorMessage(tf('Extension was not created because these files already exist: {0}', conflicts.join(', ')));
+    return undefined;
+  }
+  await vscode.workspace.fs.createDirectory(root);
+  for (const file of files) {
+    const parts = file.path.split('/');
+    const target = vscode.Uri.joinPath(root, ...parts);
+    if (parts.length > 1) await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, ...parts.slice(0, -1)));
+    await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(file.content));
+  }
+  void vscode.window.showInformationMessage(tf('Created Salamatrix extension {0} for {1}.', `'${name}'`, runtime));
+  return root;
+}
+
+async function chooseExtensionDestination(name: string): Promise<vscode.Uri | undefined> {
+  let base: vscode.Uri | undefined;
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  if (folders.length === 1) base = folders[0]!.uri;
+  else if (folders.length > 1) {
+    base = (await vscode.window.showQuickPick(
+      folders.map((folder) => ({ label: folder.name, description: folder.uri.fsPath, uri: folder.uri })),
+      { title: t('Create Salamatrix Extension (5/5)'), placeHolder: t('Select the workspace folder') },
+    ))?.uri;
+  } else {
+    base = (await vscode.window.showOpenDialog({ title: t('Select the parent folder'), canSelectFolders: true, canSelectFiles: false, canSelectMany: false }))?.[0];
+  }
+  if (!base) return undefined;
+  const placement = await vscode.window.showQuickPick([
+    { label: t('Use workspace folder'), description: base.fsPath, value: 'root' },
+    { label: t('Create a new subfolder'), description: t('Recommended when the workspace contains other projects'), value: 'subfolder' },
+  ], { title: t('Create Salamatrix Extension (5/5)'), placeHolder: t('Choose the project location') });
+  if (!placement) return undefined;
+  if (placement.value === 'root') return base;
+  const folderName = await vscode.window.showInputBox({
+    title: t('Extension folder name'), value: name.trim().replace(/[^A-Za-z0-9._-]+/g, '-') || 'extension',
+    validateInput: (value) => validateExtensionFolderName(value) ? t('Enter one safe folder name.') : undefined,
+  });
+  return folderName ? vscode.Uri.joinPath(base, folderName) : undefined;
+}
+
+async function addExistingExtensionFolder(): Promise<void> {
+  const selected = (await vscode.window.showOpenDialog({
+    title: t('Add Existing Salamatrix Extension Folder'), canSelectFolders: true, canSelectFiles: false, canSelectMany: false,
+  }))?.[0];
+  if (!selected) return;
+  try { await vscode.workspace.fs.stat(vscode.Uri.joinPath(selected, 'extension.json')); } catch {
+    void vscode.window.showErrorMessage(t('The selected folder does not contain extension.json.'));
+    return;
+  }
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  if (folders.some((folder) => containsUri(folder.uri, selected))) return;
+  if (folders.length === 0) {
+    await vscode.commands.executeCommand('vscode.openFolder', selected);
+    return;
+  }
+  vscode.workspace.updateWorkspaceFolders(folders.length, 0, { uri: selected, name: path.basename(selected.fsPath) });
+}
+
+function containsUri(parent: vscode.Uri, child: vscode.Uri): boolean {
+  const relative = path.relative(parent.fsPath, child.fsPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }

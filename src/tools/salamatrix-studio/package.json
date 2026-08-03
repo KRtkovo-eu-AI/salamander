@@ -1,8 +1,8 @@
 {
   "name": "salamatrix-studio",
-  "displayName": "Salamatrix Studio",
-  "description": "Developer tools and visual designers for Open Salamander extensions.",
-  "version": "0.1.0",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.1.1",
   "publisher": "opensalamander",
   "license": "GPL-2.0-or-later",
   "repository": {
@@ -29,53 +29,66 @@
   ],
   "activationEvents": [
     "workspaceContains:**/extension.json",
+    "onView:salamatrixStudio.projectExplorer",
+    "onCommand:salamatrixStudio.createExtension",
+    "onCommand:salamatrixStudio.addExistingExtensionFolder",
     "onCustomEditor:salamatrixStudio.dialogDesigner",
     "onCustomEditor:salamatrixStudio.manifestDesigner"
   ],
   "contributes": {
     "commands": [
       {
+        "command": "salamatrixStudio.createExtension",
+        "title": "%command.createExtension%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "salamatrixStudio.addExistingExtensionFolder",
+        "title": "%command.addExistingExtensionFolder%",
+        "icon": "$(folder-opened)"
+      },
+      {
         "command": "salamatrixStudio.addStandaloneDialog",
-        "title": "Salamatrix Studio: New Standalone Dialog Design..."
+        "title": "%command.addStandaloneDialog%"
       },
       {
         "command": "salamatrixStudio.generateDialogForRuntime",
-        "title": "Salamatrix Studio: Generate Dialog Code For Runtime..."
+        "title": "%command.generateDialogForRuntime%"
       },
       {
         "command": "salamatrixStudio.previewDialog",
-        "title": "Salamatrix Studio: Native Preview"
+        "title": "%command.previewDialog%"
       },
       {
         "command": "salamatrixStudio.openManifestDesigner",
-        "title": "Salamatrix Studio: Open Extension Designer"
+        "title": "%command.openManifestDesigner%"
       },
       {
         "command": "salamatrixStudio.addDialog",
-        "title": "Salamatrix Studio: Add Dialog"
+        "title": "%command.addDialog%"
       },
       {
         "command": "salamatrixStudio.generateDialog",
-        "title": "Salamatrix Studio: Generate Dialog Code"
+        "title": "%command.generateDialog%"
       },
       {
         "command": "salamatrixStudio.saveDialogTemplate",
-        "title": "Salamatrix Studio: Save Dialog as Template"
+        "title": "%command.saveDialogTemplate%"
       },
       {
         "command": "salamatrixStudio.newDialogFromTemplate",
-        "title": "Salamatrix Studio: New Dialog from Template"
+        "title": "%command.newDialogFromTemplate%"
       },
       {
         "command": "salamatrixStudio.refreshExplorer",
-        "title": "Refresh",
+        "title": "%command.refresh%",
         "icon": "$(refresh)"
       }
     ],
     "customEditors": [
       {
         "viewType": "salamatrixStudio.dialogDesigner",
-        "displayName": "Salamatrix Dialog Designer",
+        "displayName": "%editor.dialogDesigner%",
         "selector": [
           {
             "filenamePattern": "*.salamatrix-dialog.json"
@@ -85,7 +98,7 @@
       },
       {
         "viewType": "salamatrixStudio.manifestDesigner",
-        "displayName": "Salamatrix Extension Designer",
+        "displayName": "%editor.extensionDesigner%",
         "selector": [
           {
             "filenamePattern": "extension.json"
@@ -104,7 +117,7 @@
       "activitybar": [
         {
           "id": "salamatrixStudio",
-          "title": "Salamatrix Studio",
+          "title": "%viewContainer.title%",
           "icon": "resources/studio.svg"
         }
       ]
@@ -113,21 +126,44 @@
       "salamatrixStudio": [
         {
           "id": "salamatrixStudio.projectExplorer",
-          "name": "Extension Project"
+          "name": "%view.projectExplorer%"
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "salamatrixStudio.projectExplorer",
+        "contents": "%welcome.noProjects%",
+        "when": "!salamatrixStudio.hasProjects"
+      }
+    ],
     "menus": {
-      "view/title": [
+      "commandPalette": [
         {
           "command": "salamatrixStudio.addDialog",
+          "when": "salamatrixStudio.hasProjects"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "salamatrixStudio.createExtension",
           "when": "view == salamatrixStudio.projectExplorer",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "salamatrixStudio.addDialog",
+          "when": "view == salamatrixStudio.projectExplorer && salamatrixStudio.hasProjects",
+          "group": "navigation@2"
         },
         {
           "command": "salamatrixStudio.refreshExplorer",
           "when": "view == salamatrixStudio.projectExplorer",
-          "group": "navigation"
+          "group": "navigation@3"
+        },
+        {
+          "command": "salamatrixStudio.addExistingExtensionFolder",
+          "when": "view == salamatrixStudio.projectExplorer",
+          "group": "navigation@4"
         }
       ],
       "editor/title": [
@@ -158,6 +194,11 @@
         {
           "command": "salamatrixStudio.openManifestDesigner",
           "when": "view == salamatrixStudio.projectExplorer && viewItem == salamatrixManifest",
+          "group": "inline"
+        },
+        {
+          "command": "salamatrixStudio.addDialog",
+          "when": "view == salamatrixStudio.projectExplorer && viewItem == salamatrixDialogs",
           "group": "inline"
         }
       ]

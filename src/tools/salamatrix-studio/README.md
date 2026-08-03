@@ -6,8 +6,12 @@ standalone VSIX and does not require a running or installed Open Salamander.
 
 ## Implemented scope
 
-- discovers `extension.json` projects in the workspace;
-- shows projects, manifests, and dialogs in the Salamatrix Studio activity bar;
+- creates functional extension projects for PowerShell, Python, Node.js, PHP,
+  Lua, and Automation JScript without overwriting existing files;
+- discovers `extension.json` projects in the workspace and offers a welcome
+  page for creating or adding one when the workspace is empty;
+- shows each project as **Overview**, **Menu Builder**, **Dialogs**, and
+  **Source Files** in the Salamatrix Studio activity bar;
 - creates `.salamatrix/dialogs/*.salamatrix-dialog.json` design documents;
 - creates standalone dialog designs for native plugin projects without an
   `extension.json`;
@@ -15,16 +19,18 @@ standalone VSIX and does not require a running or installed Open Salamander.
 - supports drag-and-drop insertion, selection, movement, resizing, deletion,
   text/geometry editing, option maps, items, columns, selection, and validation;
 - saves project-local dialog templates and creates dialogs from them;
-- provides a visual `extension.json` and command/menu editor while preserving
-  manifest fields outside its visual surface;
+- provides separate visual Overview and Menu Builder tabs while preserving
+  manifest fields outside their visual surface;
+- stores Studio-owned menu action metadata in `.salamatrix/menu.json`, previews
+  plugin/context/toolbar placements with light or dark SVG icons, and can
+  generate simple Program, Open, Command Line, and PowerShell actions;
 - generates readable PowerShell, Python, Node.js, PHP, Lua, Automation JScript,
   and native C++ dialog modules, either from the project runtime or an explicit
   per-generation target selection;
 - bundles a standalone x64 native Win32 preview host in the VSIX.
 
 The existing PowerShell Extension Menu Builder remains an independent shipped
-extension. Its behavior will be reproduced in Studio without changing or
-removing the original extension.
+extension and is not changed or removed by Studio.
 
 ## Development
 
@@ -55,13 +61,18 @@ module:
 MyExtension/
   extension.json
   main.ps1
+  generated/menu-actions.generated.ps1
   generated/settings-dialog.generated.ps1
+  .salamatrix/menu.json
   .salamatrix/dialogs/settings.salamatrix-dialog.json
   .salamatrix/templates/optional-template.salamatrix-dialog.json
 ```
 
-Files below `generated/` are overwritten by Studio. Hand-written entry points
-and application logic are never rewritten.
+Files below `generated/` are overwritten by Studio. A newly scaffolded entry
+point contains one stable menu-dispatch integration block. Existing projects
+remain in non-invasive Custom Handler mode until the developer explicitly
+enables generated actions and accepts a preview of that one-time entry-point
+integration; code outside the marked block is left untouched.
 
 ## Native preview boundary
 

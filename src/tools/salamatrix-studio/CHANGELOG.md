@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.1.1
+
+- Guided creation of functional extension projects for every supported script runtime.
+- Clear Overview, Menu Builder, Dialogs, and Source Files project navigation.
+- Runtime-neutral menu actions, generated dispatchers, icon preview, and an actionable empty workspace.
+
 ## 0.1.0
 
 - Initial standalone VSIX project.
