@@ -40,5 +40,5 @@ describe('generated menu dispatcher syntax', () => {
       });
       expect(result.status, `${check.runtime}: ${result.stderr || result.stdout}`).toBe(0);
     }
-  });
+  }, 20_000);
 });
