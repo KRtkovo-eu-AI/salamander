@@ -37,7 +37,15 @@ def main() -> int:
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
-    ui_contract = read("src/plugins/salamatrix/salamatrix_ui.h")
+    ui_contract = read("src/salamatrix-sdk/native-ui-runtime/salamatrix_ui.h")
+    ui_implementation = read("src/salamatrix-sdk/native-ui-runtime/salamatrix_ui.cpp")
+    ui_controls = read("src/salamatrix-sdk/native-ui-runtime/salamatrix_ui_controls.cpp")
+    ui_salamander_host = read(
+        "src/plugins/salamatrix/salamatrix_ui_salamander_host.cpp")
+    salamatrix_project = read("src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
+    studio_host_project = read(
+        "src/tools/salamatrix-studio/preview-host/SalamatrixStudio.Host.vcxproj")
+    studio_host = read("src/tools/salamatrix-studio/preview-host/main.cpp")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
     bundled = read("src/plugins/salamatrixai/bundledprovider.cpp")
     local_llama = read("src/plugins/salamatrixailocalllama/local_llama.cpp")
@@ -87,7 +95,7 @@ def main() -> int:
     )
     salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
-    salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
+    salamatrix_ui = ui_implementation
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
     salamatrix_project = read(
         "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
@@ -493,6 +501,19 @@ def main() -> int:
             "UI control contract does not expose resizeable bounds")
     require(ui_contract, r"ControlKindSplitter\s*=\s*11",
             "UI control contract does not expose draggable splitters")
+    require(ui_implementation, r"GetNativeDialogHost\(\).*?AttachStaticText.*?"
+                r"AttachHyperLink.*?AttachProgressBar.*?AttachToolbarHeader",
+            "NativeDialog does not route Salamatrix-specific controls through the SDK host boundary")
+    require(ui_controls, r"AttachNativeStaticText.*?AttachNativeHyperLink.*?"
+                r"AttachNativeProgressBar.*?AttachNativeColorArrowButton.*?"
+                r"AttachNativeToolbarHeader",
+            "shared SDK control implementations are incomplete")
+    for project, consumer in ((salamatrix_project, "Salamatrix.SPL"),
+                              (studio_host_project, "Studio preview host")):
+        require(project, r"salamatrix_ui\.cpp.*?salamatrix_ui_controls\.cpp",
+                f"{consumer} does not compile the shared NativeDialog and control sources")
+    require_absent(studio_host, r"CreateWindowExW\(.*?PreviewProc",
+                   "Studio preview host still contains its old independent Win32 renderer")
     require(salamatrix_ui, r"SplitterSubclassProc.*?IDC_SIZENS.*?"
                 r"WM_SALAMATRIX_SPLITTER_MOVED.*?NotifyChanged",
             "native splitters do not report drag movement")
@@ -681,7 +702,7 @@ def main() -> int:
             r'"close", "Close", 403, 213, 50, 14',
             "Salamatrix controls showcase no longer matches DemoPlug geometry")
     require(salamatrix_ui,
-            r'ApplyHostDarkModePolicy.*?ApplyNativeDialogDarkMode.*?'
+            r'host->PrepareTheme.*?ApplyNativeDialogDarkMode.*?'
             r'AttachStaticText.*?AttachHyperLink.*?AttachProgressBar.*?'
             r'ApplyNativeDialogDarkMode\(hwnd\)',
             "host controls are not re-themed after attachment for dark mode")
@@ -731,8 +752,8 @@ def main() -> int:
     require(salamatrix_runtime, r"DarkModeSetConfiguredColors", "Salamatrix dark-mode scheme colors are not synchronized")
     require(salamatrix_runtime, r"DarkModeMessageBoxW", "Salamatrix runtime message boxes do not use the Unicode dark-mode path")
     require(salamatrix_ui, r"WM_SETTINGCHANGE \|\| message == WM_THEMECHANGED", "Salamatrix dialog theme-change handling is missing")
-    require(salamatrix_ui, r"DarkModeRefreshTitleBar\(hwnd\)", "Salamatrix dialog title bar dark-mode refresh is missing")
-    require(salamatrix_ui, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?DarkModeAllowDarkScrollbars\(control->WindowHandle\).*?DarkModeDisallowDarkScrollbars\(control->WindowHandle\)",
+    require(ui_salamander_host, r"DarkModeRefreshTitleBar\(window\)", "Salamatrix dialog title bar dark-mode refresh is missing")
+    require(salamatrix_ui + ui_salamander_host, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?SetDarkScrollbars.*?DarkModeAllowDarkScrollbars\(window\).*?DarkModeDisallowDarkScrollbars\(window\)",
             "Salamatrix dialogs do not scope the host dark scrollbar hook to controls")
     require(salamatrix_ui, r"PostMessage\(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS",
             "Salamatrix dialogs apply dark scrollbar scopes during WM_INIT reentrantly")

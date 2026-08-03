@@ -7,6 +7,12 @@ on:
     paths:
       - "src/tools/salamatrix-studio/**"
       - "src/salamatrix-sdk/**"
+      - "src/plugins/salamatrix/salamatrix_ui.h"
+      - "src/plugins/salamatrix/salamatrix_ui.cpp"
+      - "src/plugins/salamatrix/salamatrix_ui_salamander_host.cpp"
+      - "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj*"
+      - "src/plugins/salamatrix/tests/ui_layout_tests.*"
+      - "src/plugins/demoplug/vcxproj/demoplug.vcxproj"
       - ".github/workflows/pr-salamatrix-studio.yml"
   workflow_dispatch:
 
@@ -48,6 +54,16 @@ jobs:
 
       - name: Build native x64 preview host
         run: msbuild preview-host/SalamatrixStudio.Host.vcxproj /m /t:Build /p:Configuration=Release /p:Platform=x64 /nr:false /v:minimal
+
+      - name: Build Salamatrix UI provider with shared SDK
+        run: msbuild ../../plugins/salamatrix/vcxproj/salamatrix.vcxproj /m /t:Build /p:Configuration=Release /p:Platform=x64 /nr:false /v:minimal
+
+      - name: Build and run shared native UI tests
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP "salamatrix-studio-tests\"
+          msbuild ../../plugins/salamatrix/tests/ui_layout_tests.vcxproj /m /t:Build /p:Configuration=Debug /p:Platform=x64 "/p:OPENSAL_BUILD_DIR=$testRoot" /nr:false /v:minimal
+          & (Join-Path $testRoot "tests\Debug_x64\ui_layout_tests.exe")
+          if ($LASTEXITCODE -ne 0) { throw "Shared native UI tests failed with exit code $LASTEXITCODE" }
 
       - name: Validate native preview transport fixture
         run: |

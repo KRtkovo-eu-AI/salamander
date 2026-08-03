@@ -1,62 +1,64 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <commctrl.h>
 #include <shellapi.h>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
-#include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_layout.h"
+#include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui.h"
+#include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_host.h"
+#include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_controls.h"
+#include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_win32_host.h"
 
-struct Control
+struct PreviewControl
 {
-    std::wstring Kind, Id, Text;
+    struct Option { std::string Name, Type, Value; };
+    struct Column { std::string Title; int Width; };
+    std::string Kind, Id, Text;
     int X = 0, Y = 0, Width = 0, Height = 0;
-    unsigned Style = 0;
-    bool Checked = false;
+    DWORD Style = 0;
+    BOOL Checked = FALSE;
+    std::vector<Option> Options;
+    std::vector<std::string> Items;
+    std::vector<Column> Columns;
+    int SelectedIndex = -1;
+    BOOL HasSelection = FALSE;
+    BOOL Required = FALSE;
+    std::string ValidationMessage;
 };
 
-struct DialogModel
+struct PreviewModel
 {
-    std::wstring Title;
+    std::string Title;
     int Width = 320, Height = 180;
-    std::vector<Control> Controls;
+    std::vector<PreviewControl> Controls;
 };
 
-static std::wstring Utf8ToWide(const std::string& value)
-{
-    if (value.empty()) return std::wstring();
-    const int size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), NULL, 0);
-    if (size <= 0) return std::wstring();
-    std::wstring result(static_cast<size_t>(size), L'\0');
-    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), &result[0], size);
-    return result;
-}
-
-static bool Hex(const std::string& value, std::wstring& result)
+static bool Hex(const std::string& value, std::string& result)
 {
     if ((value.size() & 1) != 0) return false;
-    std::string decoded;
-    decoded.reserve(value.size() / 2);
+    result.clear(); result.reserve(value.size() / 2);
     for (size_t i = 0; i < value.size(); i += 2)
     {
         char* end = NULL;
         const std::string pair = value.substr(i, 2);
-        const long byte = strtol(pair.c_str(), &end, 16);
-        if (end == NULL || *end != '\0' || byte < 0 || byte > 255) return false;
-        decoded.push_back(static_cast<char>(byte));
+        long byte = strtol(pair.c_str(), &end, 16);
+        if (end == NULL || *end != 0 || byte < 0 || byte > 255) return false;
+        result.push_back(static_cast<char>(byte));
     }
-    result = Utf8ToWide(decoded);
-    return decoded.empty() || !result.empty();
+    return true;
 }
 
 static std::vector<std::string> Split(const std::string& line)
 {
-    std::vector<std::string> fields;
-    size_t start = 0;
+    std::vector<std::string> fields; size_t start = 0;
     for (;;)
     {
-        const size_t tab = line.find('\t', start);
+        size_t tab = line.find('\t', start);
         fields.push_back(line.substr(start, tab == std::string::npos ? tab : tab - start));
         if (tab == std::string::npos) return fields;
         start = tab + 1;
@@ -70,12 +72,11 @@ static bool ReadLine(std::ifstream& input, std::string& line)
     return true;
 }
 
-static bool LoadModel(const wchar_t* path, DialogModel& model)
+static bool LoadModel(const wchar_t* path, PreviewModel& model)
 {
     std::ifstream input(path, std::ios::binary);
-    if (!input) return false;
     std::string line;
-    if (!ReadLine(input, line) || line != "SMXPREVIEW1") return false;
+    if (!input || !ReadLine(input, line) || line != "SMXPREVIEW1") return false;
     if (!ReadLine(input, line) || !Hex(line, model.Title)) return false;
     if (!ReadLine(input, line)) return false;
     std::vector<std::string> size = Split(line);
@@ -83,97 +84,135 @@ static bool LoadModel(const wchar_t* path, DialogModel& model)
     model.Width = atoi(size[0].c_str()); model.Height = atoi(size[1].c_str());
     while (ReadLine(input, line))
     {
-        const std::vector<std::string> field = Split(line);
+        std::vector<std::string> field = Split(line);
+        if (!field.empty() && field[0] == "O")
+        {
+            if (model.Controls.empty() || field.size() != 4) return false;
+            PreviewControl::Option option;
+            if (!Hex(field[1], option.Name) || !Hex(field[3], option.Value)) return false;
+            option.Type = field[2]; model.Controls.back().Options.push_back(option); continue;
+        }
+        if (!field.empty() && field[0] == "I")
+        {
+            if (model.Controls.empty() || field.size() != 2) return false;
+            std::string item; if (!Hex(field[1], item)) return false;
+            model.Controls.back().Items.push_back(item); continue;
+        }
+        if (!field.empty() && field[0] == "C")
+        {
+            if (model.Controls.empty() || field.size() != 3) return false;
+            PreviewControl::Column column; if (!Hex(field[1], column.Title)) return false;
+            column.Width = atoi(field[2].c_str()); model.Controls.back().Columns.push_back(column); continue;
+        }
+        if (!field.empty() && field[0] == "S")
+        {
+            if (model.Controls.empty() || field.size() != 2) return false;
+            model.Controls.back().SelectedIndex = atoi(field[1].c_str()); model.Controls.back().HasSelection = TRUE; continue;
+        }
+        if (!field.empty() && field[0] == "V")
+        {
+            if (model.Controls.empty() || field.size() != 3) return false;
+            model.Controls.back().Required = field[1] == "1" ? TRUE : FALSE;
+            if (!Hex(field[2], model.Controls.back().ValidationMessage)) return false; continue;
+        }
         if (field.size() != 10) return false;
-        Control control;
+        PreviewControl control;
         if (!Hex(field[0], control.Kind) || !Hex(field[1], control.Id) || !Hex(field[2], control.Text)) return false;
         control.X = atoi(field[3].c_str()); control.Y = atoi(field[4].c_str());
         control.Width = atoi(field[5].c_str()); control.Height = atoi(field[6].c_str());
-        control.Style = static_cast<unsigned>(strtoul(field[7].c_str(), NULL, 10));
-        control.Checked = field[8] == "1";
+        control.Style = static_cast<DWORD>(strtoul(field[7].c_str(), NULL, 10));
+        control.Checked = field[8] == "1" ? TRUE : FALSE;
         model.Controls.push_back(control);
     }
     return model.Width > 0 && model.Height > 0;
 }
 
-static int DluX(int value) { return MulDiv(value, LOWORD(GetDialogBaseUnits()), 4); }
-static int DluY(int value) { return MulDiv(value, HIWORD(GetDialogBaseUnits()), 8); }
-
-static HWND AddWindow(HWND parent, const wchar_t* cls, const std::wstring& text, DWORD style, DWORD exStyle, const Control& control)
+static const PreviewControl::Option* FindOption(const PreviewControl& control, const char* name)
 {
-    HWND window = CreateWindowExW(exStyle, cls, text.c_str(), WS_CHILD | WS_VISIBLE | style,
-        DluX(control.X), DluY(control.Y), DluX(control.Width), DluY(control.Height), parent, NULL, GetModuleHandleW(NULL), NULL);
-    if (window != NULL) SendMessageW(window, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
-    return window;
+    for (size_t i = 0; i < control.Options.size(); ++i)
+        if (control.Options[i].Name == name) return &control.Options[i];
+    return NULL;
 }
 
-static void CreateControl(HWND parent, const Control& control)
+static BOOL BoolOption(const PreviewControl& control, const char* name, BOOL fallback = FALSE)
 {
-    HWND window = NULL;
-    if (control.Kind == L"textbox") window = AddWindow(parent, L"EDIT", control.Text, WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL, WS_EX_CLIENTEDGE, control);
-    else if (control.Kind == L"checkbox") window = AddWindow(parent, L"BUTTON", control.Text, WS_TABSTOP | BS_AUTOCHECKBOX, 0, control);
-    else if (control.Kind == L"radio") window = AddWindow(parent, L"BUTTON", control.Text, WS_TABSTOP | BS_AUTORADIOBUTTON, 0, control);
-    else if (control.Kind == L"button" || control.Kind == L"arrowbutton" || control.Kind == L"textarrowbutton" || control.Kind == L"colorarrowbutton") window = AddWindow(parent, L"BUTTON", control.Text, WS_TABSTOP | BS_PUSHBUTTON | control.Style, 0, control);
-    else if (control.Kind == L"combobox") window = AddWindow(parent, WC_COMBOBOXW, control.Text, WS_TABSTOP | CBS_DROPDOWNLIST, 0, control);
-    else if (control.Kind == L"listview") window = AddWindow(parent, WC_LISTVIEWW, L"", WS_TABSTOP | LVS_REPORT | LVS_SHOWSELALWAYS, WS_EX_CLIENTEDGE, control);
-    else if (control.Kind == L"treeview") window = AddWindow(parent, WC_TREEVIEWW, L"", WS_TABSTOP | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS, WS_EX_CLIENTEDGE, control);
-    else if (control.Kind == L"tabcontrol") window = AddWindow(parent, WC_TABCONTROLW, L"", WS_TABSTOP, 0, control);
-    else if (control.Kind == L"progressbar") window = AddWindow(parent, PROGRESS_CLASSW, L"", 0, 0, control);
-    else if (control.Kind == L"groupbox") window = AddWindow(parent, L"BUTTON", control.Text, BS_GROUPBOX, 0, control);
-    else if (control.Kind == L"hyperlink") window = AddWindow(parent, WC_LINK, (L"<a>" + control.Text + L"</a>"), WS_TABSTOP, 0, control);
-    else if (control.Kind == L"folderpicker" || control.Kind == L"filepicker")
-    {
-        const Salamatrix::UI::FilePickerLayoutMetrics metrics = Salamatrix::UI::ComputeFilePickerLayout(control.X, control.Width);
-        Control edit = control; edit.Width = metrics.EditWidth;
-        AddWindow(parent, L"EDIT", control.Text, WS_TABSTOP | ES_AUTOHSCROLL, WS_EX_CLIENTEDGE, edit);
-        Control browse = control; browse.X = metrics.BrowseX; browse.Width = metrics.BrowseWidth;
-        AddWindow(parent, L"BUTTON", L"...", WS_TABSTOP | BS_PUSHBUTTON, 0, browse);
-    }
-    else window = AddWindow(parent, L"STATIC", control.Text, control.Kind == L"statictext" ? control.Style : SS_LEFT, 0, control);
-    if (window != NULL && control.Checked) SendMessageW(window, BM_SETCHECK, BST_CHECKED, 0);
-    if (window != NULL && control.Kind == L"progressbar") SendMessageW(window, PBM_SETPOS, 50, 0);
+    const PreviewControl::Option* value = FindOption(control, name);
+    return value != NULL ? (value->Value == "true" ? TRUE : FALSE) : fallback;
 }
 
-static DialogModel g_model;
-static LRESULT CALLBACK PreviewProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+static int IntOption(const PreviewControl& control, const char* name, int fallback = 0)
 {
-    if (message == WM_CREATE)
-    {
-        for (size_t i = 0; i < g_model.Controls.size(); ++i) CreateControl(hwnd, g_model.Controls[i]);
-        return 0;
-    }
-    if (message == WM_CLOSE) { DestroyWindow(hwnd); return 0; }
-    if (message == WM_DESTROY) { PostQuitMessage(0); return 0; }
-    return DefWindowProcW(hwnd, message, wParam, lParam);
+    const PreviewControl::Option* value = FindOption(control, name);
+    return value != NULL ? atoi(value->Value.c_str()) : fallback;
 }
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
+static const char* StringOption(const PreviewControl& control, const char* name)
 {
-    int argumentCount = 0;
-    wchar_t** arguments = CommandLineToArgvW(GetCommandLineW(), &argumentCount);
-    const bool validateOnly = arguments != NULL && argumentCount == 3 && wcscmp(arguments[1], L"--validate") == 0;
-    const wchar_t* modelPath = arguments == NULL ? NULL : validateOnly ? arguments[2] : argumentCount == 2 ? arguments[1] : NULL;
-    if (arguments == NULL || modelPath == NULL || !LoadModel(modelPath, g_model))
+    const PreviewControl::Option* value = FindOption(control, name);
+    return value != NULL ? value->Value.c_str() : NULL;
+}
+
+static Salamatrix::UI::ControlKind Kind(const std::string& value)
+{
+    using namespace Salamatrix::UI;
+    if (value == "textbox") return ControlKindTextBox; if (value == "checkbox") return ControlKindCheckBox;
+    if (value == "radio") return ControlKindRadioButton; if (value == "combobox") return ControlKindComboBox;
+    if (value == "button") return ControlKindButton; if (value == "listview") return ControlKindListView;
+    if (value == "treeview") return ControlKindTreeView; if (value == "tabcontrol") return ControlKindTabControl;
+    if (value == "folderpicker") return ControlKindFolderPicker; if (value == "filepicker") return ControlKindFilePicker;
+    if (value == "groupbox") return ControlKindGroupBox; if (value == "statictext") return ControlKindStaticText;
+    if (value == "hyperlink") return ControlKindHyperLink; if (value == "progressbar") return ControlKindProgressBar;
+    if (value == "arrowbutton") return ControlKindArrowButton; if (value == "textarrowbutton") return ControlKindTextArrowButton;
+    if (value == "colorarrowbutton") return ControlKindColorArrowButton; if (value == "toolbarheader") return ControlKindToolbarHeader;
+    return ControlKindLabel;
+}
+
+static int ShowPreview(const PreviewModel& model)
+{
+    Salamatrix::UI::INativeDialogHost* host = Salamatrix::UI::GetWin32NativeDialogHost();
+    Salamatrix::UI::SetNativeDialogHost(host);
+    Salamatrix::UI::DialogOptions options;
+    options.Title = model.Title.c_str(); options.Width = static_cast<short>(model.Width); options.Height = static_cast<short>(model.Height);
+    Salamatrix::UI::NativeDialog dialog(options);
+    for (size_t i = 0; i < model.Controls.size(); ++i)
     {
-        if (arguments != NULL) LocalFree(arguments);
-        MessageBoxW(NULL, L"The Salamatrix Studio preview model is invalid.", L"Salamatrix Studio", MB_OK | MB_ICONERROR);
-        return 2;
+        const PreviewControl& source = model.Controls[i];
+        Salamatrix::UI::ControlOptions control; control.Id = source.Id.c_str(); control.Text = source.Text.c_str();
+        control.ReadOnly = BoolOption(source, "readOnly"); control.Checked = BoolOption(source, "checked", source.Checked);
+        control.DialogResult = IntOption(source, "dialogResult"); control.KeepOpen = BoolOption(source, "keepOpen");
+        control.Multiline = BoolOption(source, "multiline"); control.FileFilter = StringOption(source, "filter"); control.FileSave = BoolOption(source, "save");
+        Salamatrix::UI::ControlLayout layout; layout.HasBounds = TRUE; layout.X = source.X; layout.Y = source.Y; layout.Width = source.Width; layout.Height = source.Height;
+        Salamatrix::UI::IControl* added = dialog.AddControlEx(Kind(source.Kind), control, layout);
+        if (added == NULL) { Salamatrix::UI::SetNativeDialogHost(NULL); return 3; }
+        if (source.Style != 0) added->SetStyleFlags(source.Style);
+        for (size_t item = 0; item < source.Items.size(); ++item) added->AddItem(source.Items[item].c_str());
+        for (size_t column = 0; column < source.Columns.size(); ++column) added->AddColumn(source.Columns[column].Title.c_str(), source.Columns[column].Width);
+        if (source.HasSelection) added->SetSelectedIndex(source.SelectedIndex);
+        added->SetRequired(source.Required); added->SetValidationMessage(source.ValidationMessage.c_str());
+        const char* pathSeparator = StringOption(source, "pathSeparator"); if (pathSeparator != NULL && pathSeparator[0] != 0) added->SetPathSeparator(pathSeparator[0]);
+        const char* toolTip = StringOption(source, "toolTip"); if (toolTip != NULL) added->SetToolTipText(toolTip);
+        const char* actionOpen = StringOption(source, "actionOpen"); if (actionOpen != NULL) added->SetActionOpen(actionOpen);
+        const char* actionHint = StringOption(source, "actionHint"); if (actionHint != NULL) added->SetActionShowHint(actionHint);
+        if (FindOption(source, "actionCommand") != NULL) added->SetActionPostCommand(static_cast<WORD>(IntOption(source, "actionCommand")));
+        if (FindOption(source, "progress") != NULL) added->SetProgress(IntOption(source, "progress"), StringOption(source, "progressText"));
+        if (FindOption(source, "progressCurrent") != NULL || FindOption(source, "progressTotal") != NULL) added->SetProgressValues(IntOption(source, "progressCurrent"), IntOption(source, "progressTotal"), StringOption(source, "progressText"));
+        if (FindOption(source, "indeterminateDuration") != NULL) added->SetIndeterminateTiming(IntOption(source, "indeterminateDuration"), IntOption(source, "indeterminateInterval", 50));
+        if (FindOption(source, "textColor") != NULL || FindOption(source, "backgroundColor") != NULL) added->SetColor(IntOption(source, "textColor"), IntOption(source, "backgroundColor", 0xFFFFFF));
+        const char* align = StringOption(source, "alignControlId"); if (align != NULL) added->SetToolbarHeader(align, IntOption(source, "buttonMask"));
     }
-    LocalFree(arguments);
-    if (validateOnly) return 0;
-    INITCOMMONCONTROLSEX controls = { sizeof(controls), ICC_WIN95_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TREEVIEW_CLASSES | ICC_TAB_CLASSES | ICC_PROGRESS_CLASS | ICC_LINK_CLASS };
-    InitCommonControlsEx(&controls);
-    WNDCLASSEXW cls = { sizeof(cls) };
-    cls.hInstance = instance; cls.lpfnWndProc = PreviewProc; cls.lpszClassName = L"SalamatrixStudioPreview";
-    cls.hCursor = LoadCursorW(NULL, IDC_ARROW); cls.hIcon = LoadIconW(NULL, IDI_APPLICATION); cls.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_3DFACE + 1);
-    if (!RegisterClassExW(&cls)) return 3;
-    RECT rect = { 0, 0, DluX(g_model.Width), DluY(g_model.Height) };
-    AdjustWindowRectEx(&rect, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, FALSE, WS_EX_DLGMODALFRAME);
-    HWND window = CreateWindowExW(WS_EX_DLGMODALFRAME, cls.lpszClassName, g_model.Title.c_str(), WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-        CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, instance, NULL);
-    if (window == NULL) return 4;
-    ShowWindow(window, show); UpdateWindow(window);
-    MSG message;
-    while (GetMessageW(&message, NULL, 0, 0) > 0) { TranslateMessage(&message); DispatchMessageW(&message); }
-    return 0;
+    int result = dialog.ShowModal();
+    return result;
+}
+
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+{
+    INITCOMMONCONTROLSEX common = { sizeof(common), ICC_WIN95_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TREEVIEW_CLASSES | ICC_TAB_CLASSES };
+    InitCommonControlsEx(&common);
+    int count = 0; wchar_t** args = CommandLineToArgvW(GetCommandLineW(), &count);
+    bool validate = args != NULL && count == 3 && wcscmp(args[1], L"--validate") == 0;
+    const wchar_t* path = args == NULL ? NULL : validate ? args[2] : count == 2 ? args[1] : NULL;
+    PreviewModel model; bool loaded = path != NULL && LoadModel(path, model);
+    if (args != NULL) LocalFree(args);
+    if (!loaded) return 2;
+    return validate ? 0 : ShowPreview(model);
 }

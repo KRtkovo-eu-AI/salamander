@@ -65,11 +65,9 @@ and application logic are never rewritten.
 ## Native preview boundary
 
 The preview host does not link or start `salamand.exe`. It consumes the Studio
-dialog model through a versioned private transport and shares layout helpers
-with the Salamatrix UI SDK. Standard Win32 controls are rendered natively.
-Host-owned Salamander controls still use native Win32 fallbacks in this first
-standalone host; moving those implementations behind the same SDK boundary is
-required before the preview can be called pixel-identical for every control.
+dialog model through a versioned private transport and compiles the same SDK
+`NativeDialog` and Salamatrix-specific control sources as `Salamatrix.spl`.
+There is no separate Studio renderer or Win32 fallback control path.
 
 The planned persistent request/response boundary is described by
 `src/salamatrix-sdk/contracts/studio-host-protocol.schema.json`; the current

@@ -162,7 +162,13 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\salamatrix_packages.cpp" />
-    <ClCompile Include="..\salamatrix_ui.cpp" />
+    <ClCompile Include="..\salamatrix_ui_salamander_host.cpp" />
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui_controls.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\precomp.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

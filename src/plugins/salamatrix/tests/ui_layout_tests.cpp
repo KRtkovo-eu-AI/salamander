@@ -11,6 +11,7 @@
 #include "../salamatrix_ui.h"
 #pragma warning(pop)
 #include "../salamatrix_ui_layout.h"
+#include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_controls.h"
 
 namespace
 {
@@ -71,6 +72,8 @@ public:
 
 int main()
 {
+    INITCOMMONCONTROLSEX common = {sizeof(common), ICC_WIN95_CLASSES};
+    InitCommonControlsEx(&common);
     Salamatrix::UI::ControlOptions defaults;
     Check(defaults.AccessibleName == NULL,
           "default accessible name is null");
@@ -112,11 +115,78 @@ int main()
     Check(Salamatrix::UI::ScaleDialogMetric(10, 0, 144) == 15,
           "zero source DPI uses the Windows baseline");
 
+    HWND parent = CreateWindowExW(
+        0, L"STATIC", L"SDK controls test", WS_OVERLAPPED,
+        0, 0, 480, 320, NULL, NULL, GetModuleHandleW(NULL), NULL);
+    Check(parent != NULL, "hidden SDK control host window is created");
+    if (parent != NULL)
+    {
+        CreateWindowExW(0, L"STATIC", L"Original", WS_CHILD | WS_VISIBLE,
+                        4, 4, 180, 20, parent, reinterpret_cast<HMENU>(1001), NULL, NULL);
+        CGUIStaticTextAbstract* text =
+            Salamatrix::UI::AttachNativeStaticText(parent, 1001, STF_BOLD | STF_END_ELLIPSIS);
+        Check(text != NULL, "shared static-text implementation attaches");
+        Check(text != NULL && text->SetText("Shared SDK"), "shared static-text value changes");
+        Check(text != NULL && std::strcmp(text->GetText(), "Shared SDK") == 0,
+              "shared static-text value is retained");
+
+        CreateWindowExW(0, L"STATIC", L"Link", WS_CHILD | WS_VISIBLE,
+                        4, 28, 180, 20, parent, reinterpret_cast<HMENU>(1002), NULL, NULL);
+        CGUIHyperLinkAbstract* link =
+            Salamatrix::UI::AttachNativeHyperLink(parent, 1002, STF_UNDERLINE);
+        Check(link != NULL && link->SetActionShowHint("Hint"),
+              "shared hyperlink implementation attaches");
+
+        CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE,
+                        4, 52, 180, 18, parent, reinterpret_cast<HMENU>(1003), NULL, NULL);
+        CGUIProgressBarAbstract* progress =
+            Salamatrix::UI::AttachNativeProgressBar(parent, 1003);
+        Check(progress != NULL, "shared progress implementation attaches");
+        if (progress != NULL) progress->SetProgress(500, "Half");
+
+        CreateWindowExW(0, L"BUTTON", L"Color", WS_CHILD | WS_VISIBLE,
+                        4, 76, 120, 24, parent, reinterpret_cast<HMENU>(1004), NULL, NULL);
+        CGUIColorArrowButtonAbstract* color =
+            Salamatrix::UI::AttachNativeColorArrowButton(parent, 1004, TRUE);
+        Check(color != NULL, "shared color-arrow implementation attaches");
+        if (color != NULL)
+        {
+            color->SetColor(RGB(1, 2, 3), RGB(4, 5, 6));
+            Check(color->GetTextColor() == RGB(1, 2, 3),
+                  "shared color-arrow text color is retained");
+            Check(color->GetBkgndColor() == RGB(4, 5, 6),
+                  "shared color-arrow background is retained");
+        }
+
+        CreateWindowExW(0, L"BUTTON", L"More", WS_CHILD | WS_VISIBLE,
+                        4, 104, 120, 24, parent, reinterpret_cast<HMENU>(1005), NULL, NULL);
+        CGUIButtonAbstract* button =
+            Salamatrix::UI::AttachNativeButton(parent, 1005, BTF_DROPDOWN);
+        Check(button != NULL && button->SetToolTipText("Menu"),
+              "shared text-arrow implementation attaches");
+
+        CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_VISIBLE,
+                        130, 104, 24, 24, parent, reinterpret_cast<HMENU>(1006), NULL, NULL);
+        Check(Salamatrix::UI::ChangeNativeArrowButton(parent, 1006),
+              "shared arrow-button implementation attaches");
+
+        CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE,
+                        4, 132, 220, 20, parent, reinterpret_cast<HMENU>(1007), NULL, NULL);
+        HWND align = CreateWindowExW(0, WC_LISTVIEWW, L"", WS_CHILD | WS_VISIBLE,
+                                     4, 154, 220, 100, parent,
+                                     reinterpret_cast<HMENU>(1008), NULL, NULL);
+        CGUIToolbarHeaderAbstract* toolbar =
+            Salamatrix::UI::AttachNativeToolbarHeader(
+                parent, 1007, align, TLBHDRMASK_NEW | TLBHDRMASK_DELETE);
+        Check(toolbar != NULL, "shared toolbar-header implementation attaches");
+        DestroyWindow(parent);
+    }
+
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d UI layout test(s) failed.\n", Failures);
         return 1;
     }
-    std::printf("All Salamatrix UI layout tests passed.\n");
+    std::printf("All Salamatrix UI SDK tests passed.\n");
     return 0;
 }

@@ -9,7 +9,9 @@
   <ItemGroup>
     <ClCompile Include="..\salamatrix.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\salamatrix_packages.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="..\salamatrix_ui.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\salamatrix_ui_salamander_host.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui_controls.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\precomp.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\..\shared\mhandles.cpp"><Filter>Source Files</Filter></ClCompile>

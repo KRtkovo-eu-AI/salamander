@@ -10,12 +10,13 @@ windows, message boxes, file/folder pickers, icons, and shell actions.
 host will provide a standalone Windows adapter. Neither consumer owns a second
 copy of the dialog behavior.
 
-The shared layout helpers in this directory are now consumed by both
-`Salamatrix.spl` and the standalone x64 Studio host. The host can render and
-validate complete dialog documents without `salamand.exe`.
+This directory now owns the public UI contract, `NativeDialog`, layout/DPI
+helpers, and the Salamatrix-specific static text, hyperlink, progress, arrow,
+text-arrow, color-arrow, and toolbar-header control implementations.
+`Salamatrix.spl` and the standalone x64 Studio host compile these same sources;
+neither consumer contains a second renderer or a control fallback.
 
-The current host uses standard Win32 implementations as fallbacks for the
-Salamander-owned static text, arrow button, color button, progress, and toolbar
-header controls. Moving those implementations, dark-mode handling, and the
-remaining `NativeDialog` code behind this boundary is still required before
-all preview controls are pixel-identical to the in-process Salamatrix UI.
+Environment behavior is supplied through `INativeDialogHost`. Salamatrix's
+adapter integrates the selected Salamander dark-mode policy and message-box
+parenting. The standalone adapter uses the current Windows appearance and has
+no dependency on `salamand.exe`.

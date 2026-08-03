@@ -9,6 +9,6 @@ describe('native preview transport', () => {
     expect(encoded).toMatch(/^SMXPREVIEW1\n/);
     expect(encoded).toContain(Buffer.from(dialog.title, 'utf8').toString('hex'));
     expect(encoded).toContain('\n420\t240\n');
-    expect(encoded.split('\n')).toHaveLength(dialog.controls.length + 4);
+    expect(encoded).toContain(`O\t${Buffer.from('dialogResult').toString('hex')}\tnumber\t31`);
   });
 });
