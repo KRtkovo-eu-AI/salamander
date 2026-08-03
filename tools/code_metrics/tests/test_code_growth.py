@@ -109,6 +109,41 @@ def test_release_report_compares_two_explicit_tags(tmp_path: Path) -> None:
     assert "NLOC: **1 -> 3** (**+2**)" in rendered
 
 
+def test_release_report_allows_explicit_initial_non_release_tag(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    create_repository(repository)
+    source = repository / "src" / "main.cpp"
+    source.parent.mkdir()
+    source.write_text("int Original() { return 1; }\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository), "commit", "-q", "-m", "original"], check=True)
+    subprocess.run(["git", "-C", str(repository), "tag", "original_code_synced"], check=True)
+
+    source.write_text("int Release() {\n    return 2;\n}\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository), "commit", "-q", "-m", "release"], check=True)
+    subprocess.run(["git", "-C", str(repository), "tag", "5.0-samandarin-0.1"], check=True)
+
+    output_directory = tmp_path / "reports"
+    subprocess.run(
+        [
+            sys.executable,
+            str(RELEASE_REPORTS),
+            "--repository-root", str(repository),
+            "--output-directory", str(output_directory),
+            "--allow-initial-tag",
+            "original_code_synced", "5.0-samandarin-0.1",
+        ],
+        check=True,
+    )
+
+    output = output_directory / "original_code_synced-to-0.1.md"
+    rendered = output.read_text(encoding="utf-8")
+    assert "Baseline: **original_code_synced**" in rendered
+    assert "Current: **5.0-samandarin-0.1**" in rendered
+
+
 def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     pr_build = PR_BUILD.read_text(encoding="utf-8")

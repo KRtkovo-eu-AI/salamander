@@ -1,15 +1,16 @@
 # Samandarin release source-code growth
 
-These reports compare source-code metrics between consecutive published
-Samandarin release tags. They use the same analyzer and Markdown format as the
-pull-request source-code growth report.
+These reports compare source-code metrics from the original synchronized code
+through consecutive published Samandarin release tags. They use the same
+analyzer and Markdown format as the pull-request source-code growth report.
 
 Tag `5.0-samandarin-0.13` does not exist: version 0.13 was explicitly skipped.
 The final report therefore compares the consecutive published tags 0.12 and
 0.14.
 
-| Published releases | NLOC | Delta | Files delta | Functions/methods delta | Report |
+| Compared states | NLOC | Delta | Files delta | Functions/methods delta | Report |
 | --- | ---: | ---: | ---: | ---: | --- |
+| `original_code_synced` -> 0.1 | 969,956 -> 1,002,824 | +32,868 | +201 | +1,470 | [Details](original_code_synced-to-0.1.md) |
 | 0.1 -> 0.2 | 1,002,824 -> 1,012,814 | +9,990 | +42 | +493 | [Details](5.0-samandarin-0.1-to-0.2.md) |
 | 0.2 -> 0.3 | 1,012,814 -> 1,034,386 | +21,572 | +41 | +911 | [Details](5.0-samandarin-0.2-to-0.3.md) |
 | 0.3 -> 0.4 | 1,034,386 -> 1,038,107 | +3,721 | +2 | +96 | [Details](5.0-samandarin-0.3-to-0.4.md) |

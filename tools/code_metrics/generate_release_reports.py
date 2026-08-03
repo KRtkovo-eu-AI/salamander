@@ -11,15 +11,18 @@ from typing import Any
 import report_code_growth as growth
 
 
-def release(repository: Path, tag: str, prefix: str) -> dict[str, str]:
+def release(
+    repository: Path, tag: str, prefix: str, allow_non_release: bool = False
+) -> dict[str, str]:
     pattern = re.compile(rf"^{re.escape(prefix)}(?P<version>\d+(?:\.\d+)*)$")
     match = pattern.fullmatch(tag)
-    if match is None:
+    if match is None and not allow_non_release:
         raise ValueError(f"Release tag does not match {prefix}<numeric version>: {tag}")
     commit = str(growth.git(repository, "rev-list", "-n", "1", tag)).strip().lower()
     if not commit:
         raise ValueError(f"Release tag was not found: {tag}")
-    return {"tag": tag, "version": match.group("version"), "commit": commit}
+    version = match.group("version") if match is not None else tag
+    return {"tag": tag, "version": version, "commit": commit}
 
 
 def report_name(before: dict[str, str], after: dict[str, str]) -> str:
@@ -27,9 +30,16 @@ def report_name(before: dict[str, str], after: dict[str, str]) -> str:
 
 
 def generate_reports(
-    repository: Path, output_directory: Path, tags: list[str], prefix: str
+    repository: Path,
+    output_directory: Path,
+    tags: list[str],
+    prefix: str,
+    allow_initial_tag: bool = False,
 ) -> list[Path]:
-    releases = [release(repository, tag, prefix) for tag in tags]
+    releases = [
+        release(repository, tag, prefix, allow_non_release=allow_initial_tag and index == 0)
+        for index, tag in enumerate(tags)
+    ]
     lizard_module = growth.load_lizard()
     snapshots: list[dict[str, Any]] = []
     for item in releases:
@@ -72,6 +82,11 @@ def main() -> int:
     parser.add_argument("--repository-root", type=Path, default=Path.cwd())
     parser.add_argument("--output-directory", type=Path, required=True)
     parser.add_argument("--tag-prefix", default="5.0-samandarin-")
+    parser.add_argument(
+        "--allow-initial-tag",
+        action="store_true",
+        help="Allow the first baseline tag to be outside the numeric release series",
+    )
     args = parser.parse_args()
     if len(args.tags) < 2:
         parser.error("at least two release tags are required")
@@ -81,6 +96,7 @@ def main() -> int:
         args.output_directory.resolve(),
         args.tags,
         args.tag_prefix,
+        args.allow_initial_tag,
     )
     return 0
 
