@@ -189,18 +189,22 @@ static BOOL IsSolidBlackIcon(HICON icon, int pixelSize)
     }
 
     HBITMAP oldBitmap = (HBITMAP)SelectObject(dc, bitmap);
+    // Draw on an opaque background.  A transparent white background can make a
+    // valid alpha icon render as all-zero RGB and trigger the black-icon fallback.
     for (int i = 0; i < pixelSize * pixelSize; ++i)
-        bits[i] = 0x00ffffff;
-    DrawIconEx(dc, 0, 0, icon, pixelSize, pixelSize, 0, NULL, DI_NORMAL);
-    GdiFlush();
-
-    BOOL solidBlack = TRUE;
-    for (int i = 0; i < pixelSize * pixelSize; ++i)
+        bits[i] = 0xffffffff;
+    BOOL solidBlack = FALSE;
+    if (DrawIconEx(dc, 0, 0, icon, pixelSize, pixelSize, 0, NULL, DI_NORMAL))
     {
-        if ((bits[i] & 0x00ffffff) != 0)
+        GdiFlush();
+        solidBlack = TRUE;
+        for (int i = 0; i < pixelSize * pixelSize; ++i)
         {
-            solidBlack = FALSE;
-            break;
+            if ((bits[i] & 0x00ffffff) != 0)
+            {
+                solidBlack = FALSE;
+                break;
+            }
         }
     }
 
