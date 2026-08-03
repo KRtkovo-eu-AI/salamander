@@ -20,9 +20,16 @@
       </div>
     </div>
     <nav class="section-nav" aria-label="Page sections">
-      <a href="#overview">Overview</a>
+            <div class="section-nav__item section-nav__item--has-submenu">
+        <a href="index.html" aria-haspopup="true">Salamatrix Framework</a>
+        <div class="section-nav__submenu">
+          <a href="index.html">Salamatrix Framework Overview</a>
+          <a href="salamatrix-ui.html">Salamatrix.UI Framework</a>
+          <a href="index.html#ai">Salamatrix.AI Companion</a>
+          <!--<a href="#">Salamatrix Studio for Visual Studio Code</a>-->
+        </div>
+      </div>
       <a href="#architecture">Architecture</a>
-      <a href="salamatrix-ui.html">Salamatrix.UI</a>
       <div class="section-nav__item section-nav__item--has-submenu">
         <a href="#services" aria-haspopup="true">Services</a>
         <div class="section-nav__submenu">
@@ -36,10 +43,13 @@
           <a href="#service-automation">Automation adapter</a>
         </div>
       </div>
-      <a href="#extensions">Extensions</a>
       <a href="#runtimes">Runtimes</a>
-      <a href="#bundled-extensions">Bundled extensions</a>
-      <a href="#ai">AI</a>
+      <div class="section-nav__item section-nav__item--has-submenu">
+        <a href="#extensions" aria-haspopup="true">Extensions</a>
+        <div class="section-nav__submenu">
+          <a href="#bundled-extensions">Bundled extensions</a>
+        </div>
+      </div>
       <a href="https://samandarin.krtkovo.eu/" aria="samandarin">Samandarin</a>
     </nav>
   </header>
