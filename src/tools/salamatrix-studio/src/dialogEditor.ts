@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import { ControlCatalog, DialogDocument, parseDialogDocument, serializeDialogDocument } from './model.js';
+import type { PreviewTheme } from './previewHost.js';
 
 interface WebviewMessage {
   type: 'ready' | 'update' | 'generate' | 'generateForRuntime' | 'preview';
   dialog?: DialogDocument;
+  theme?: PreviewTheme;
 }
 
 export class DialogEditorProvider implements vscode.CustomTextEditorProvider {
@@ -51,7 +53,7 @@ export class DialogEditorProvider implements vscode.CustomTextEditorProvider {
         } else if (message.type === 'generateForRuntime') {
           await vscode.commands.executeCommand('salamatrixStudio.generateDialogForRuntime', document.uri);
         } else if (message.type === 'preview') {
-          await vscode.commands.executeCommand('salamatrixStudio.previewDialog', document.uri);
+          await vscode.commands.executeCommand('salamatrixStudio.previewDialog', document.uri, message.theme);
         }
       },
     );
@@ -73,7 +75,7 @@ export class DialogEditorProvider implements vscode.CustomTextEditorProvider {
     const style = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.css'));
     const nonce = randomNonce();
     return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${vscode.env.language}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">

@@ -210,9 +210,13 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
     InitCommonControlsEx(&common);
     int count = 0; wchar_t** args = CommandLineToArgvW(GetCommandLineW(), &count);
     bool validate = args != NULL && count == 3 && wcscmp(args[1], L"--validate") == 0;
-    const wchar_t* path = args == NULL ? NULL : validate ? args[2] : count == 2 ? args[1] : NULL;
+    bool themed = args != NULL && count == 4 && wcscmp(args[1], L"--theme") == 0 &&
+        (wcscmp(args[2], L"light") == 0 || wcscmp(args[2], L"dark") == 0);
+    BOOL dark = themed && wcscmp(args[2], L"dark") == 0 ? TRUE : FALSE;
+    const wchar_t* path = args == NULL ? NULL : validate ? args[2] : themed ? args[3] : count == 2 ? args[1] : NULL;
     PreviewModel model; bool loaded = path != NULL && LoadModel(path, model);
     if (args != NULL) LocalFree(args);
     if (!loaded) return 2;
+    Salamatrix::UI::SetWin32NativeDialogDarkMode(dark);
     return validate ? 0 : ShowPreview(model);
 }

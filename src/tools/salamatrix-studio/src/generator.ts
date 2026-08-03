@@ -294,6 +294,16 @@ function generateCpp(dialog: DialogDocument): GeneratedDialog {
     if (options.save !== undefined) lines.push(`        options.FileSave = ${options.save ? 'TRUE' : 'FALSE'};`);
     lines.push('        Salamatrix::UI::ControlLayout layout;', '        layout.HasBounds = TRUE;', `        layout.X = ${b.x}; layout.Y = ${b.y};`, `        layout.Width = ${b.width}; layout.Height = ${b.height};`, `        Salamatrix::UI::IControl* control${index} = dialog->AddControlEx(Salamatrix::UI::${cppControlKinds[control.kind]}, options, layout);`, `        if (control${index} == NULL) { ui->DestroyDialog(dialog); return 0; }`);
     if (options.styleFlags !== undefined) lines.push(`        control${index}->SetStyleFlags(${Number(options.styleFlags)});`);
+    if (typeof options.pathSeparator === 'string' && options.pathSeparator.length > 0) lines.push(`        control${index}->SetPathSeparator(${cppString(options.pathSeparator)}[0]);`);
+    if (typeof options.toolTip === 'string') lines.push(`        control${index}->SetToolTipText(${cppString(options.toolTip)});`);
+    if (typeof options.actionOpen === 'string') lines.push(`        control${index}->SetActionOpen(${cppString(options.actionOpen)});`);
+    if (options.actionCommand !== undefined) lines.push(`        control${index}->SetActionPostCommand(static_cast<WORD>(${Number(options.actionCommand)}));`);
+    if (typeof options.actionHint === 'string') lines.push(`        control${index}->SetActionShowHint(${cppString(options.actionHint)});`);
+    if (options.progress !== undefined) lines.push(`        control${index}->SetProgress(${Number(options.progress)}${typeof options.progressText === 'string' ? `, ${cppString(options.progressText)}` : ''});`);
+    if (options.progressCurrent !== undefined || options.progressTotal !== undefined) lines.push(`        control${index}->SetProgressValues(${Number(options.progressCurrent ?? 0)}, ${Number(options.progressTotal ?? 0)}${typeof options.progressText === 'string' ? `, ${cppString(options.progressText)}` : ''});`);
+    if (options.indeterminateDuration !== undefined) lines.push(`        control${index}->SetIndeterminateTiming(${Number(options.indeterminateDuration)}, ${Number(options.indeterminateInterval ?? 50)});`);
+    if (options.textColor !== undefined || options.backgroundColor !== undefined) lines.push(`        control${index}->SetColor(${Number(options.textColor ?? 0)}, ${Number(options.backgroundColor ?? 0xFFFFFF)});`);
+    if (typeof options.alignControlId === 'string') lines.push(`        control${index}->SetToolbarHeader(${cppString(options.alignControlId)}, ${Number(options.buttonMask ?? 0)});`);
     for (const column of control.columns ?? []) lines.push(`        control${index}->AddColumn(${cppString(column.title)}, ${column.width});`);
     for (const item of control.items ?? []) lines.push(`        control${index}->AddItem(${cppString(item)});`);
     if (control.selectedIndex !== undefined) lines.push(`        control${index}->SetSelectedIndex(${control.selectedIndex});`);

@@ -38,6 +38,14 @@ const czech: Record<string, string> = {
   'Review the open diff. Enable generated menu actions? Studio will insert one marked dispatch block into {0} and will own {1}. Your existing code outside that block will not be changed.': 'Zkontrolujte otevřený diff. Povolit generované akce menu? Studio vloží jeden označený dispatch blok do {0} a bude spravovat {1}. Váš stávající kód mimo tento blok nezmění.',
   '{0} - Salamatrix Studio menu dispatch preview': '{0} - náhled menu dispatch bloku Salamatrix Studia',
   'Studio will not overwrite the existing unowned file {0}. Move or rename it before enabling generated actions.': 'Studio nepřepíše existující soubor {0}, který nevlastní. Před povolením generovaných akcí ho přesuňte nebo přejmenujte.',
+  'Open a Salamatrix dialog design first.': 'Nejprve otevřete návrh Salamatrix dialogu.',
+  'Native Preview': 'Nativní náhled',
+  'Select the preview color mode': 'Vyberte barevný režim náhledu',
+  'Dark': 'Tmavý',
+  'Light': 'Světlý',
+  'Preview with Salamander dark mode': 'Náhled v tmavém režimu Salamanderu',
+  'Preview with modern Windows light mode': 'Náhled v moderním světlém režimu Windows',
+  'Cannot start native preview: {0}': 'Nativní náhled nelze spustit: {0}',
 };
 
 export function t(text: string): string {

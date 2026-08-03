@@ -55,12 +55,23 @@ describe('dialog generators', () => {
   });
 
   it('generates a native C++ header and implementation', () => {
-    const generated = generateDialog(dialog, 'Native.Cpp');
+    const nativeDialog = createDialogDocument('settings', 'Settings');
+    nativeDialog.controls[0]!.options = {
+      styleFlags: 20, pathSeparator: '/', toolTip: 'Tip', actionOpen: 'https://www.altap.cz',
+      actionCommand: 32513, actionHint: 'Hint', progress: 120, indeterminateDuration: -1,
+      indeterminateInterval: 100, textColor: 1, backgroundColor: 2,
+      alignControlId: 'list', buttonMask: 49,
+    };
+    const generated = generateDialog(nativeDialog, 'Native.Cpp');
     expect(generated.files.map((file) => file.fileName)).toEqual([
       'settings-dialog.generated.h',
       'settings-dialog.generated.cpp',
     ]);
     expect(generated.files[1]!.content).toContain('MinimumVersion = SALAMATRIX_UI_VERSION_1_4');
     expect(generated.files[1]!.content).toContain('Salamatrix::UI::ControlKindButton');
+    expect(generated.files[1]!.content).toContain('SetPathSeparator("/"[0])');
+    expect(generated.files[1]!.content).toContain('SetActionPostCommand(static_cast<WORD>(32513))');
+    expect(generated.files[1]!.content).toContain('SetIndeterminateTiming(-1, 100)');
+    expect(generated.files[1]!.content).toContain('SetToolbarHeader("list", 49)');
   });
 });

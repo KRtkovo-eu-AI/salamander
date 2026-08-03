@@ -8,8 +8,29 @@
 #include <shellapi.h>
 #include <string>
 #include "salamatrix_ui_controls.h"
+#include "salamatrix_ui_host.h"
 
 namespace Salamatrix { namespace UI { namespace {
+
+static BOOL IsDarkMode()
+{
+    INativeDialogHost* host = GetNativeDialogHost();
+    return host != NULL && host->IsDarkMode();
+}
+
+static void FillSolid(HDC dc, const RECT& rect, COLORREF color)
+{
+    HBRUSH brush = CreateSolidBrush(color);
+    FillRect(dc, &rect, brush);
+    DeleteObject(brush);
+}
+
+static void FrameSolid(HDC dc, const RECT& rect, COLORREF color)
+{
+    HBRUSH brush = CreateSolidBrush(color);
+    FrameRect(dc, &rect, brush);
+    DeleteObject(brush);
+}
 
 static std::wstring Wide(const char* text)
 {
@@ -162,11 +183,17 @@ class ProgressControl : public CGUIProgressBarAbstract
         if (message == WM_PAINT && self != NULL)
         {
             PAINTSTRUCT paint; HDC dc = BeginPaint(window, &paint); RECT rect; GetClientRect(window, &rect);
-            FillRect(dc, &rect, GetSysColorBrush(COLOR_3DFACE)); FrameRect(dc, &rect, GetSysColorBrush(COLOR_3DSHADOW));
+            const BOOL dark = IsDarkMode();
+            FillSolid(dc, rect, dark ? RGB(45, 45, 48) : GetSysColor(COLOR_3DFACE));
+            FrameSolid(dc, rect, dark ? RGB(16, 16, 16) : GetSysColor(COLOR_3DSHADOW));
             RECT fill = rect; InflateRect(&fill, -1, -1); fill.right = fill.left + MulDiv(fill.right - fill.left, self->Value > 1000 ? 1000 : self->Value, 1000);
-            FillRect(dc, &fill, GetSysColorBrush(COLOR_HIGHLIGHT));
+            FillSolid(dc, fill, dark ? RGB(0, 128, 220) : GetSysColor(COLOR_HIGHLIGHT));
             std::wstring text = self->Text.empty() ? std::to_wstring(self->Value / 10) + L" %" : Wide(self->Text.c_str());
-            SetBkMode(dc, TRANSPARENT); DrawTextW(dc, text.c_str(), -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            HFONT font = reinterpret_cast<HFONT>(SendMessage(window, WM_GETFONT, 0, 0));
+            HFONT oldFont = font != NULL ? reinterpret_cast<HFONT>(SelectObject(dc, font)) : NULL;
+            SetBkMode(dc, TRANSPARENT); ::SetTextColor(dc, dark ? RGB(240, 240, 240) : GetSysColor(COLOR_BTNTEXT));
+            DrawTextW(dc, text.c_str(), -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            if (oldFont != NULL) SelectObject(dc, oldFont);
             EndPaint(window, &paint); return 0;
         }
         if (message == WM_NCDESTROY) { RemoveWindowSubclass(window, Proc, id); delete self; }
@@ -203,10 +230,23 @@ class ColorButtonControl : public CGUIColorArrowButtonAbstract
         ColorButtonControl* self = reinterpret_cast<ColorButtonControl*>(data);
         if (message == WM_PAINT && self != NULL)
         {
-            PAINTSTRUCT paint; HDC dc = BeginPaint(window, &paint); RECT r; GetClientRect(window, &r); DrawFrameControl(dc, &r, DFC_BUTTON, DFCS_BUTTONPUSH);
-            InflateRect(&r, -5, -4); if (self->Arrow) r.right -= 13; HBRUSH brush = CreateSolidBrush(self->Background); FillRect(dc, &r, brush); DeleteObject(brush); FrameRect(dc, &r, GetSysColorBrush(COLOR_BTNSHADOW));
+            PAINTSTRUCT paint; HDC dc = BeginPaint(window, &paint); RECT r; GetClientRect(window, &r);
+            const BOOL dark = IsDarkMode();
+            if (dark)
+            {
+                FillSolid(dc, r, RGB(51, 51, 55));
+                FrameSolid(dc, r, RGB(112, 112, 112));
+            }
+            else
+                DrawFrameControl(dc, &r, DFC_BUTTON, DFCS_BUTTONPUSH);
+            InflateRect(&r, -5, -4); if (self->Arrow) r.right -= 13;
+            FillSolid(dc, r, self->Background);
+            FrameSolid(dc, r, dark ? RGB(15, 15, 15) : GetSysColor(COLOR_BTNSHADOW));
+            HFONT font = reinterpret_cast<HFONT>(SendMessage(window, WM_GETFONT, 0, 0));
+            HFONT oldFont = font != NULL ? reinterpret_cast<HFONT>(SelectObject(dc, font)) : NULL;
             std::wstring text = Wide(WindowText(window).c_str()); SetBkMode(dc, TRANSPARENT); ::SetTextColor(dc, self->TextColor); DrawTextW(dc, text.c_str(), -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            if (self->Arrow) { RECT arrow = r; arrow.left = r.right + 4; arrow.right += 13; DrawTextW(dc, L"▼", -1, &arrow, DT_CENTER | DT_VCENTER | DT_SINGLELINE); }
+            if (self->Arrow) { RECT arrow = r; arrow.left = r.right + 4; arrow.right += 13; ::SetTextColor(dc, dark ? RGB(240, 240, 240) : GetSysColor(COLOR_BTNTEXT)); DrawTextW(dc, L"▼", -1, &arrow, DT_CENTER | DT_VCENTER | DT_SINGLELINE); }
+            if (oldFont != NULL) SelectObject(dc, oldFont);
             EndPaint(window, &paint); return 0;
         }
         if (message == WM_NCDESTROY) { RemoveWindowSubclass(window, Proc, id); delete self; }

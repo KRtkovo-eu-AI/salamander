@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.1.2
+
+- Correct Win32 dialog-unit geometry in the visual designer.
+- Modern Common Controls v6 native preview with bundled win32-darkmodelib.
+- Selectable light and Salamander dark native preview modes.
+- Exact Salamatrix UI Capabilities gallery as a ready-to-open Studio demo project.
+
 ## 0.1.1
 
 - Guided creation of functional extension projects for every supported script runtime.

@@ -4,4 +4,5 @@
 
 namespace Salamatrix { namespace UI {
 INativeDialogHost* WINAPI GetWin32NativeDialogHost();
+void WINAPI SetWin32NativeDialogDarkMode(BOOL enabled);
 } }

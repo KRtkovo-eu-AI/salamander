@@ -16,7 +16,7 @@ import {
 } from './model.js';
 import { StudioProjectExplorer } from './projectExplorer.js';
 import { t, tf } from './localize.js';
-import { PreviewHost } from './previewHost.js';
+import { PreviewHost, type PreviewTheme } from './previewHost.js';
 import { chooseProject, findProjectRoot, readJson } from './workspace.js';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -102,12 +102,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (picked) await generateActiveDialog(uri ?? editor.activeDocument, picked as RuntimeId);
       await refreshExplorer();
     }),
-    vscode.commands.registerCommand('salamatrixStudio.previewDialog', async (uri?: vscode.Uri) => {
+    vscode.commands.registerCommand('salamatrixStudio.previewDialog', async (uri?: vscode.Uri, requestedTheme?: PreviewTheme) => {
       const target = uri ?? editor.activeDocument;
-      if (!target) { void vscode.window.showErrorMessage('Open a Salamatrix dialog design first.'); return; }
+      if (!target) { void vscode.window.showErrorMessage(t('Open a Salamatrix dialog design first.')); return; }
       try {
+        const theme = requestedTheme ?? await pickPreviewTheme();
+        if (!theme) return;
         const bytes = await vscode.workspace.fs.readFile(target);
-        await previewHost.show(parseDialogDocument(new TextDecoder().decode(bytes)));
+        await previewHost.show(parseDialogDocument(new TextDecoder().decode(bytes)), theme);
       } catch (error) {
         void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
       }
@@ -133,6 +135,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function deactivate(): void {}
+
+async function pickPreviewTheme(): Promise<PreviewTheme | undefined> {
+  const selected = await vscode.window.showQuickPick([
+    { label: t('Dark'), description: t('Preview with Salamander dark mode'), value: 'dark' as const },
+    { label: t('Light'), description: t('Preview with modern Windows light mode'), value: 'light' as const },
+  ], { title: t('Native Preview'), placeHolder: t('Select the preview color mode') });
+  return selected?.value;
+}
 
 async function addDialog(source?: ReturnType<typeof createDialogDocument>): Promise<void> {
   const project = await chooseProject();

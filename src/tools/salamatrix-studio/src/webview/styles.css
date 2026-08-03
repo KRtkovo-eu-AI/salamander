@@ -26,7 +26,7 @@ input, select, textarea { background: var(--vscode-input-background); border: 1p
 h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 4px 0 10px; color: var(--vscode-sideBarSectionHeader-foreground); }
 .palette button { display: block; width: 100%; margin: 0 0 5px; text-align: left; cursor: grab; }
 .designer-scroll { overflow: auto; padding: 32px; background-color: var(--vscode-editor-background); background-image: radial-gradient(var(--vscode-editorIndentGuide-background1) 1px, transparent 1px); background-size: 12px 12px; }
-.dialog-frame { position: relative; margin: 0 auto; min-width: 240px; min-height: 150px; border: 1px solid var(--vscode-contrastBorder, #777); border-radius: 6px 6px 0 0; background: var(--vscode-editorWidget-background); box-shadow: 0 8px 24px #0005; padding-top: 29px; }
+.dialog-frame { position: relative; margin: 0 auto; min-width: 240px; min-height: 150px; border: 1px solid var(--vscode-contrastBorder, #777); border-radius: 6px 6px 0 0; background: var(--vscode-editorWidget-background); box-shadow: 0 8px 24px #0005; }
 .dialog-title { position: absolute; inset: 0 0 auto; height: 29px; padding: 6px 10px; background: var(--vscode-titleBar-activeBackground); color: var(--vscode-titleBar-activeForeground); border-radius: 5px 5px 0 0; white-space: nowrap; overflow: hidden; }
 .dialog-client { position: absolute; inset: 29px 0 0; }
 .design-control { position: absolute; display: flex; align-items: center; cursor: move; user-select: none; outline: 1px solid transparent; }

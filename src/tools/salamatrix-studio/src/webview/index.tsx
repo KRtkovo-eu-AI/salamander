@@ -7,6 +7,12 @@ import type {
   DialogControl,
   DialogDocument,
 } from '../model.js';
+import {
+  designerTitleBarHeight,
+  dialogFramePixels,
+  dialogUnitScaleX,
+  dialogUnitScaleY,
+} from '../dialogGeometry.js';
 
 declare function acquireVsCodeApi<T = unknown>(): {
   postMessage(message: unknown): void;
@@ -14,8 +20,30 @@ declare function acquireVsCodeApi<T = unknown>(): {
   setState(state: T): void;
 };
 
-const vscode = acquireVsCodeApi<{ dialog?: DialogDocument }>();
-const scale = 1.5;
+type PreviewTheme = 'light' | 'dark';
+interface WebviewState { dialog?: DialogDocument; previewTheme?: PreviewTheme }
+const vscode = acquireVsCodeApi<WebviewState>();
+
+const czech: Record<string, string> = {
+  'Cannot open dialog': 'Dialog nelze otevřít',
+  'Loading Salamatrix Dialog Designer…': 'Načítání editoru Salamatrix dialogu…',
+  'Title': 'Název', 'Width': 'Šířka', 'Height': 'Výška',
+  'Generate Code': 'Generovat kód', 'Generate For…': 'Generovat pro…',
+  'Preview': 'Náhled', 'Light': 'Světlý', 'Dark': 'Tmavý', 'Native Preview': 'Nativní náhled',
+  'Controls': 'Prvky', 'Properties': 'Vlastnosti',
+  'Drag to the dialog or double-click': 'Přetáhněte do dialogu nebo dvakrát klikněte',
+  'Untitled dialog': 'Dialog bez názvu', 'Kind': 'Typ', 'Text': 'Text',
+  'Options': 'Možnosti', 'Items': 'Položky', 'Columns': 'Sloupce',
+  'Selected': 'Vybraná položka', 'Required': 'Povinné', 'Message': 'Zpráva',
+  'Delete Control': 'Odstranit prvek', 'Select a control to edit its properties.': 'Vyberte prvek a upravte jeho vlastnosti.',
+  'Button': 'Tlačítko', 'Hyperlink': 'Odkaz', 'Progress Bar': 'Ukazatel průběhu',
+  'Arrow Button': 'Tlačítko se šipkou', 'Text Arrow Button': 'Textové tlačítko se šipkou',
+  'Color Arrow Button': 'Barevné tlačítko se šipkou', 'Toolbar Header': 'Záhlaví panelu nástrojů',
+};
+
+function tr(text: string): string {
+  return document.documentElement.lang.toLowerCase().startsWith('cs') ? czech[text] ?? text : text;
+}
 
 type HostMessage =
   | { type: 'document'; dialog: DialogDocument; catalog: ControlCatalog }
@@ -31,6 +59,7 @@ interface DragState {
 
 function App(): React.JSX.Element {
   const restored = vscode.getState()?.dialog;
+  const [previewTheme, setPreviewTheme] = useState<PreviewTheme>(vscode.getState()?.previewTheme ?? 'dark');
   const [dialog, setDialog] = useState<DialogDocument | undefined>(restored);
   const [catalog, setCatalog] = useState<ControlCatalog | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -45,7 +74,7 @@ function App(): React.JSX.Element {
         setDialog(event.data.dialog);
         setCatalog(event.data.catalog);
         setError(undefined);
-        vscode.setState({ dialog: event.data.dialog });
+        vscode.setState({ dialog: event.data.dialog, previewTheme });
       } else {
         setError(event.data.message);
       }
@@ -58,7 +87,7 @@ function App(): React.JSX.Element {
   const commit = (next: DialogDocument): void => {
     dialogRef.current = next;
     setDialog(next);
-    vscode.setState({ dialog: next });
+    vscode.setState({ dialog: next, previewTheme });
     vscode.postMessage({ type: 'update', dialog: next });
   };
 
@@ -67,8 +96,8 @@ function App(): React.JSX.Element {
       const current = drag.current;
       const currentDialog = dialogRef.current;
       if (!current || !currentDialog) return;
-      const dx = Math.round((event.clientX - current.startX) / scale);
-      const dy = Math.round((event.clientY - current.startY) / scale);
+      const dx = Math.round((event.clientX - current.startX) / dialogUnitScaleX);
+      const dy = Math.round((event.clientY - current.startY) / dialogUnitScaleY);
       const next = {
         ...currentDialog,
         controls: currentDialog.controls.map((control) => {
@@ -84,7 +113,7 @@ function App(): React.JSX.Element {
     };
     const up = (): void => {
       if (drag.current && dialogRef.current) {
-        vscode.setState({ dialog: dialogRef.current });
+        vscode.setState({ dialog: dialogRef.current, previewTheme });
         vscode.postMessage({ type: 'update', dialog: dialogRef.current });
       }
       drag.current = undefined;
@@ -95,10 +124,10 @@ function App(): React.JSX.Element {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
     };
-  }, []);
+  }, [previewTheme]);
 
-  if (error) return <main className="error-panel"><h2>Cannot open dialog</h2><p>{error}</p></main>;
-  if (!dialog || !catalog) return <main className="loading">Loading Salamatrix Dialog Designer…</main>;
+  if (error) return <main className="error-panel"><h2>{tr('Cannot open dialog')}</h2><p>{error}</p></main>;
+  if (!dialog || !catalog) return <main className="loading">{tr('Loading Salamatrix Dialog Designer…')}</main>;
 
   const selected = dialog.controls.find((control) => control.id === selectedId);
   const updateDialog = (patch: Partial<DialogDocument>): void => commit({ ...dialog, ...patch });
@@ -118,7 +147,7 @@ function App(): React.JSX.Element {
     const control: DialogControl = {
       kind: entry.kind,
       id,
-      text: defaultText(entry.kind, entry.title),
+      text: defaultText(entry.kind, tr(entry.title)),
       bounds: { x, y, width: entry.defaultWidth, height: entry.defaultHeight },
       options: {},
     };
@@ -129,32 +158,42 @@ function App(): React.JSX.Element {
   return (
     <main className="studio">
       <header className="toolbar">
-        <label>Title <input value={dialog.title} onChange={(e) => updateDialog({ title: e.target.value })} /></label>
-        <label>Width <NumberInput value={dialog.width} onCommit={(width) => updateDialog({ width })} /></label>
-        <label>Height <NumberInput value={dialog.height} onCommit={(height) => updateDialog({ height })} /></label>
-        <button onClick={() => vscode.postMessage({ type: 'generate' })}>Generate Code</button>
-        <button onClick={() => vscode.postMessage({ type: 'generateForRuntime' })}>Generate For…</button>
-        <button onClick={() => vscode.postMessage({ type: 'preview' })}>Native Preview</button>
+        <label>{tr('Title')} <input value={dialog.title} onChange={(e) => updateDialog({ title: e.target.value })} /></label>
+        <label>{tr('Width')} <NumberInput value={dialog.width} onCommit={(width) => updateDialog({ width })} /></label>
+        <label>{tr('Height')} <NumberInput value={dialog.height} onCommit={(height) => updateDialog({ height })} /></label>
+        <button onClick={() => vscode.postMessage({ type: 'generate' })}>{tr('Generate Code')}</button>
+        <button onClick={() => vscode.postMessage({ type: 'generateForRuntime' })}>{tr('Generate For…')}</button>
+        <label>{tr('Preview')}
+          <select value={previewTheme} onChange={(event) => {
+            const theme = event.target.value as PreviewTheme;
+            setPreviewTheme(theme);
+            vscode.setState({ dialog: dialogRef.current, previewTheme: theme });
+          }}>
+            <option value="light">{tr('Light')}</option>
+            <option value="dark">{tr('Dark')}</option>
+          </select>
+        </label>
+        <button onClick={() => vscode.postMessage({ type: 'preview', theme: previewTheme })}>{tr('Native Preview')}</button>
       </header>
       <section className="workspace">
         <aside className="palette">
-          <h2>Controls</h2>
+          <h2>{tr('Controls')}</h2>
           {catalog.controls.map((entry) => (
             <button
               key={entry.kind}
               draggable
               onDragStart={(event) => event.dataTransfer.setData('application/x-salamatrix-control', entry.kind)}
               onDoubleClick={() => addControl(entry)}
-              title="Drag to the dialog or double-click"
+              title={tr('Drag to the dialog or double-click')}
             >
-              {entry.title}
+              {tr(entry.title)}
             </button>
           ))}
         </aside>
         <section className="designer-scroll">
           <div
             className="dialog-frame"
-            style={{ width: dialog.width * scale, height: dialog.height * scale }}
+            style={dialogFramePixels(dialog.width, dialog.height)}
             onClick={() => setSelectedId(undefined)}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
@@ -163,10 +202,14 @@ function App(): React.JSX.Element {
               const entry = catalog.controls.find((item) => item.kind === kind);
               if (!entry) return;
               const rect = event.currentTarget.getBoundingClientRect();
-              addControl(entry, Math.max(0, Math.round((event.clientX - rect.left) / scale)), Math.max(0, Math.round((event.clientY - rect.top) / scale)));
+              addControl(
+                entry,
+                Math.max(0, Math.round((event.clientX - rect.left) / dialogUnitScaleX)),
+                Math.max(0, Math.round((event.clientY - rect.top - designerTitleBarHeight) / dialogUnitScaleY)),
+              );
             }}
           >
-            <div className="dialog-title">{dialog.title || 'Untitled dialog'}</div>
+            <div className="dialog-title">{dialog.title || tr('Untitled dialog')}</div>
             <div className="dialog-client">
               {dialog.controls.map((control) => (
                 <DesignControl
@@ -191,10 +234,10 @@ function App(): React.JSX.Element {
           </div>
         </section>
         <aside className="properties">
-          <h2>Properties</h2>
+          <h2>{tr('Properties')}</h2>
           {selected ? (
             <>
-              <Property label="Kind"><input value={selected.kind} readOnly /></Property>
+              <Property label={tr('Kind')}><input value={selected.kind} readOnly /></Property>
               <Property label="ID">
                 <TextCommitInput value={selected.id} onCommit={(id) => {
                   if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(id) || dialog.controls.some((control) => control.id === id && control.id !== selected.id)) return;
@@ -205,36 +248,36 @@ function App(): React.JSX.Element {
                   setSelectedId(id);
                 }} />
               </Property>
-              <Property label="Text"><input value={selected.text} onChange={(e) => updateControl({ text: e.target.value })} /></Property>
+              <Property label={tr('Text')}><input value={selected.text} onChange={(e) => updateControl({ text: e.target.value })} /></Property>
               {(['x', 'y', 'width', 'height'] as const).map((name) => (
                 <Property key={name} label={name}>
                   <NumberInput value={selected.bounds[name]} onCommit={(value) => updateControl({ bounds: { ...selected.bounds, [name]: value } })} />
                 </Property>
               ))}
-              <Property label="Options">
+              <Property label={tr('Options')}>
                 <JsonCommitInput value={selected.options ?? {}} onCommit={(options) => updateControl({ options })} />
               </Property>
-              <Property label="Items">
+              <Property label={tr('Items')}>
                 <TextCommitArea value={(selected.items ?? []).join('\n')} onCommit={(value) => updateControl({ items: textLines(value) })} />
               </Property>
-              <Property label="Columns">
+              <Property label={tr('Columns')}>
                 <JsonCommitInput value={selected.columns ?? []} onCommit={(columns) => updateControl({ columns: columns as DialogControl['columns'] })} />
               </Property>
-              <Property label="Selected">
+              <Property label={tr('Selected')}>
                 <NumberInput value={selected.selectedIndex ?? -1} onCommit={(selectedIndex) => updateControl({ selectedIndex })} />
               </Property>
-              <Property label="Required">
+              <Property label={tr('Required')}>
                 <input type="checkbox" checked={Boolean(selected.validation?.required)} onChange={(event) => updateControl({ validation: { ...selected.validation, required: event.target.checked } })} />
               </Property>
-              <Property label="Message">
+              <Property label={tr('Message')}>
                 <input value={selected.validation?.message ?? ''} onChange={(event) => updateControl({ validation: { ...selected.validation, message: event.target.value } })} />
               </Property>
               <button className="danger" onClick={() => {
                 commit({ ...dialog, controls: dialog.controls.filter((control) => control.id !== selected.id) });
                 setSelectedId(undefined);
-              }}>Delete Control</button>
+              }}>{tr('Delete Control')}</button>
             </>
-          ) : <p>Select a control to edit its properties.</p>}
+          ) : <p>{tr('Select a control to edit its properties.')}</p>}
         </aside>
       </section>
     </main>
@@ -249,10 +292,10 @@ function DesignControl(props: {
 }): React.JSX.Element {
   const { control } = props;
   const style: React.CSSProperties = {
-    left: control.bounds.x * scale,
-    top: control.bounds.y * scale,
-    width: control.bounds.width * scale,
-    height: control.bounds.height * scale,
+    left: control.bounds.x * dialogUnitScaleX,
+    top: control.bounds.y * dialogUnitScaleY,
+    width: control.bounds.width * dialogUnitScaleX,
+    height: control.bounds.height * dialogUnitScaleY,
   };
   return (
     <div
@@ -272,12 +315,12 @@ function ControlPreview({ control }: { control: DialogControl }): React.JSX.Elem
     case 'textbox': return <input tabIndex={-1} value={control.text} readOnly />;
     case 'checkbox': return <label><input tabIndex={-1} type="checkbox" checked={Boolean(control.options?.checked)} readOnly />{control.text}</label>;
     case 'radio': return <label><input tabIndex={-1} type="radio" checked={Boolean(control.options?.checked)} readOnly />{control.text}</label>;
-    case 'button': case 'arrowbutton': case 'textarrowbutton': case 'colorarrowbutton': return <button tabIndex={-1}>{control.text || 'Button'}</button>;
+    case 'button': case 'arrowbutton': case 'textarrowbutton': case 'colorarrowbutton': return <button tabIndex={-1}>{control.text || tr('Button')}</button>;
     case 'combobox': return <select tabIndex={-1}><option>{control.items?.[0] ?? control.text}</option></select>;
     case 'groupbox': return <fieldset><legend>{control.text}</legend></fieldset>;
     case 'progressbar': return <progress value={Number(control.options?.progress ?? 50)} max={100} />;
     case 'listview': case 'treeview': case 'tabcontrol': return <div className="collection-preview">{control.text || control.kind}</div>;
-    case 'hyperlink': return <a>{control.text || 'Hyperlink'}</a>;
+    case 'hyperlink': return <a>{control.text || tr('Hyperlink')}</a>;
     default: return <span>{control.text || control.kind}</span>;
   }
 }
