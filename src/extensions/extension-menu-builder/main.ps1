@@ -834,6 +834,7 @@ function Show-BuilderWindow {
     $form.MinimumSize = New-Object System.Drawing.Size(940, 680)
     $form.Size = New-Object System.Drawing.Size(1080, 760)
     $form.FormBorderStyle = 'Sizable'
+    $previewResources = New-Object System.Collections.Generic.List[object]
 
     $extensionGroup = New-Object System.Windows.Forms.GroupBox
     $extensionGroup.Text = Get-BuilderString 'extension'
@@ -1237,9 +1238,23 @@ function Show-BuilderWindow {
             $item.Enabled = $false
             [void]$preview.Items.Add($item)
         }
-        $preview.Add_Closed({
+        $previewResource = [pscustomobject]@{
+            Menu = $preview
+            Images = $previewImages
+        }
+        $previewResources.Add($previewResource)
+        $disposePreview = [System.Action]{
+            if (-not $preview.IsDisposed) { $preview.Dispose() }
             foreach ($image in $previewImages) { $image.Dispose() }
-            $preview.Dispose()
+            [void]$previewResources.Remove($previewResource)
+        }.GetNewClosure()
+        $preview.Add_Closed({
+            # ContextMenuStrip is still completing its Closed event here.
+            # Dispose it on the next UI message to avoid invalidating the
+            # object while WinForms is still using it.
+            if ($form.IsHandleCreated -and -not $form.IsDisposed) {
+                [void]$form.BeginInvoke($disposePreview)
+            }
         }.GetNewClosure())
         $preview.Show($previewButton, 0, $previewButton.Height)
     })
@@ -1290,7 +1305,15 @@ function Show-BuilderWindow {
 
     Refresh-CommandList 0
     Set-BuilderDarkMode $form
-    try { [void]$form.ShowDialog() } finally { $form.Dispose() }
+    try {
+        [void]$form.ShowDialog()
+    } finally {
+        foreach ($resource in @($previewResources)) {
+            if (-not $resource.Menu.IsDisposed) { $resource.Menu.Dispose() }
+            foreach ($image in $resource.Images) { $image.Dispose() }
+        }
+        $form.Dispose()
+    }
 }
 
 if ($null -eq (Get-Variable -Name Salamander -ErrorAction SilentlyContinue)) {
