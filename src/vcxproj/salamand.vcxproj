@@ -348,6 +348,9 @@
     </ClCompile>
     <ClCompile Include="..\codetbl.cpp">
     </ClCompile>
+    <ClCompile Include="..\codetbl_utils.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\configstorage.cpp">
     </ClCompile>
     <ClCompile Include="..\color.cpp">
@@ -933,6 +936,8 @@
     <ClInclude Include="..\configstorage.h">
     </ClInclude>
     <ClInclude Include="..\codetbl.h">
+    </ClInclude>
+    <ClInclude Include="..\codetbl_utils.h">
     </ClInclude>
     <ClInclude Include="..\color.h">
     </ClInclude>

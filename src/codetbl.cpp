@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include "codetbl.h"
+#include "codetbl_utils.h"
 #include "cfgdlg.h"
 
 CCodeTables CodeTables;
@@ -102,13 +103,7 @@ void InitAux(HWND hWindow, TIndirectArray<CCodeTablesData>& Data,
                 char* beg = txt;
                 while (txt < endTxt && *txt != '\r' && *txt != '\n')
                     txt++;
-                int l = (int)min(txt - beg, 100);
-                char buff[101];
-                memcpy(buff, beg, l);
-                while (l > 0 && (identifier[l - 1] == ' ' || identifier[l - 1] == '\t'))
-                    l--; // trim trailing white spaces
-                buff[l] = 0;
-                *identifier = atoi(buff);
+                ParseConversionCodePageIdentifier(beg, (size_t)(txt - beg), identifier);
             }
             else if (endTxt - txt >= 30 && StrNICmp(txt, "WINDOWS_CODE_PAGE_DESCRIPTION=", 30) == 0)
             {
@@ -296,6 +291,43 @@ void InitAux(HWND hWindow, TIndirectArray<CCodeTablesData>& Data,
             TRACE_E("File " << fileName << " does not contain assignment to WINDOWS_CODE_PAGE_IDENTIFIER!");
         if (description[0] == 0)
             TRACE_E("File " << fileName << " does not contain assignment to WINDOWS_CODE_PAGE_DESCRIPTION!");
+
+        if (*identifier != 0xffffffff)
+        {
+            UINT activeCodePage = GetACP();
+            BOOL normalizationFailed = FALSE;
+            char convertedName[4 * 200 + 1];
+            for (int i = 0; i < Data.Count; i++)
+            {
+                if (Data[i]->Name != NULL)
+                {
+                    if (ConvertConversionTableText(Data[i]->Name, *identifier, activeCodePage,
+                                                   convertedName, sizeof(convertedName)))
+                    {
+                        char* normalizedName = DupStr(convertedName);
+                        if (normalizedName != NULL)
+                        {
+                            free(Data[i]->Name);
+                            Data[i]->Name = normalizedName;
+                        }
+                    }
+                    else
+                        normalizationFailed = TRUE;
+                }
+            }
+
+            char convertedDescription[4 * 100 + 1];
+            if (ConvertConversionTableText(description, *identifier, activeCodePage,
+                                           convertedDescription, sizeof(convertedDescription)))
+            {
+                lstrcpyn(description, convertedDescription, 401);
+            }
+            else
+                normalizationFailed = TRUE;
+
+            if (normalizationFailed)
+                TRACE_E("Unable to normalize user-visible text from " << fileName << " (code page " << *identifier << ")");
+        }
     }
     __except (HandleFileException(GetExceptionInformation(), fileMem, fileSize))
     {
@@ -540,7 +572,9 @@ void CCodeTables::GetBestPreloadedConversion(const char* cfgDirName, char* dirNa
     }
 
     //  criterion (2): item matching the OS code page
-    DWORD cp = GetACP();
+    DWORD activeCodePage = GetACP();
+    DWORD cp = GetConversionAutoCodePage(activeCodePage,
+                                         activeCodePage == CP_UTF8 ? GetSystemLocaleAnsiCodePage() : 0);
     int i;
     for (i = 0; i < Preloaded.Count; i++)
     {

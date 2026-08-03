@@ -45,6 +45,9 @@
     <ClCompile Include="..\codetbl.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\codetbl_utils.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\configstorage.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -556,6 +559,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\codetbl.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\codetbl_utils.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\color.h">
