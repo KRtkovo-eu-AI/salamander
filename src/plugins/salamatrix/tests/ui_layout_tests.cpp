@@ -12,6 +12,24 @@
 #pragma warning(pop)
 #include "../salamatrix_ui_layout.h"
 #include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_controls.h"
+#include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_host.h"
+
+namespace Salamatrix { namespace UI {
+namespace
+{
+INativeDialogHost* TestDialogHost = NULL;
+}
+
+void WINAPI SetNativeDialogHost(INativeDialogHost* host)
+{
+    TestDialogHost = host;
+}
+
+INativeDialogHost* WINAPI GetNativeDialogHost()
+{
+    return TestDialogHost;
+}
+} }
 
 namespace
 {

@@ -218,18 +218,18 @@ class HyperLinkControl : public CGUIHyperLinkAbstract
             GetTextExtentPoint32W(dc, wide.c_str(), static_cast<int>(wide.size()), &size);
             TEXTMETRICW metric;
             GetTextMetricsW(dc, &metric);
-            const int y = std::min(rect.bottom - 1, (rect.bottom - rect.top - metric.tmHeight) / 2 + metric.tmAscent + 1);
+            const int y = (std::min)(rect.bottom - 1, (rect.bottom - rect.top - metric.tmHeight) / 2 + metric.tmAscent + 1);
             HPEN pen = CreatePen(PS_DOT, 1, (Flags & STF_HYPERLINK_COLOR) != 0 ? link : normal);
             HPEN oldPen = reinterpret_cast<HPEN>(SelectObject(dc, pen));
             MoveToEx(dc, rect.left, y, NULL);
-            LineTo(dc, std::min(rect.right, rect.left + size.cx), y);
+            LineTo(dc, (std::min)(rect.right, rect.left + size.cx), y);
             SelectObject(dc, oldPen);
             DeleteObject(pen);
         }
         if (GetFocus() == Window)
         {
             RECT focus = rect;
-            focus.right = std::min(focus.right, focus.left + textRect.right - textRect.left);
+            focus.right = (std::min)(focus.right, focus.left + textRect.right - textRect.left);
             DrawFocusRect(dc, &focus);
         }
         if (oldFont != NULL) SelectObject(dc, oldFont);
@@ -300,7 +300,7 @@ class ProgressControl : public CGUIProgressBarAbstract
     {
         StopTimer();
         MoveStarted = GetTickCount();
-        if (MoveTime != 0) SetTimer(Window, 1, std::max<DWORD>(10, MoveSpeed), NULL);
+        if (MoveTime != 0) SetTimer(Window, 1, (std::max<DWORD>)(10, MoveSpeed), NULL);
     }
 
     void MoveBlock()
@@ -308,8 +308,8 @@ class ProgressControl : public CGUIProgressBarAbstract
         RECT rect;
         GetClientRect(Window, &rect);
         const int height = static_cast<int>(rect.bottom - rect.top);
-        const int half = std::max(4, height * 2);
-        const int step = std::max(1, height / 6);
+        const int half = (std::max)(4, height * 2);
+        const int step = (std::max)(1, height / 6);
         BarX += MoveRight ? step : -step;
         if (BarX + half >= rect.right - 1) { BarX = rect.right - 1 - half; MoveRight = FALSE; }
         if (BarX - half <= rect.left + 1) { BarX = rect.left + 1 + half; MoveRight = TRUE; }
@@ -329,9 +329,9 @@ class ProgressControl : public CGUIProgressBarAbstract
             InflateRect(&fill, -1, -1);
             if (self->Indeterminate)
             {
-                const int half = std::max(4, static_cast<int>(rect.bottom - rect.top) * 2);
-                fill.left = std::max<LONG>(fill.left, static_cast<LONG>(self->BarX - half));
-                fill.right = std::min<LONG>(fill.right, static_cast<LONG>(self->BarX + half));
+                const int half = (std::max)(4, static_cast<int>(rect.bottom - rect.top) * 2);
+                fill.left = (std::max<LONG>)(fill.left, static_cast<LONG>(self->BarX - half));
+                fill.right = (std::min<LONG>)(fill.right, static_cast<LONG>(self->BarX + half));
                 if (fill.right > fill.left) FillSolid(dc, fill, dark ? RGB(0, 128, 220) : GetSysColor(COLOR_HIGHLIGHT));
             }
             else
@@ -373,7 +373,7 @@ public:
         if (Indeterminate)
         {
             RECT rect; GetClientRect(Window, &rect);
-            BarX = static_cast<int>(rect.left) + std::max(4, static_cast<int>(rect.bottom - rect.top) * 2) + 1;
+            BarX = static_cast<int>(rect.left) + (std::max)(4, static_cast<int>(rect.bottom - rect.top) * 2) + 1;
             MoveRight = TRUE;
             StartTimer();
             if (MoveTime == 0) MoveBlock();
@@ -389,7 +389,7 @@ public:
     virtual void WINAPI SetSelfMoveTime(DWORD time) { MoveTime = time; }
     virtual void WINAPI SetSelfMoveSpeed(DWORD time)
     {
-        MoveSpeed = std::max<DWORD>(10, time);
+        MoveSpeed = (std::max<DWORD>)(10, time);
         if (Indeterminate) StartTimer();
     }
     virtual void WINAPI Stop() { StopTimer(); }
@@ -456,7 +456,7 @@ class ButtonControl : public CGUIButtonAbstract
         const BOOL hasArrow = (Flags & (BTF_DROPDOWN | BTF_RIGHTARROW)) != 0;
         INativeDialogHost* host = GetNativeDialogHost();
         const UINT dpi = host != NULL ? host->GetWindowDpi(Window) : 96;
-        const int arrowWidth = hasArrow ? std::max(13, MulDiv(14, dpi, 96)) : 0;
+        const int arrowWidth = hasArrow ? (std::max)(13, MulDiv(14, dpi, 96)) : 0;
         if (hasArrow) textRect.right -= arrowWidth;
         std::wstring text = Wide(WindowText(Window).c_str());
         HFONT font = reinterpret_cast<HFONT>(SendMessage(Window, WM_GETFONT, 0, 0));

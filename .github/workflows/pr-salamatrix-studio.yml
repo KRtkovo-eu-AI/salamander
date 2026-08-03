@@ -49,6 +49,9 @@ jobs:
           cache: npm
           cache-dependency-path: src/tools/salamatrix-studio/package-lock.json
 
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
       - name: Install locked dependencies
         run: npm ci
 
