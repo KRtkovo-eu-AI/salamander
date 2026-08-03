@@ -5,6 +5,7 @@ test/**
 *.tsbuildinfo
 build.mjs
 build-host.mjs
+package-vsix.mjs
 tsconfig.json
 vitest.config.ts
 package-lock.json

@@ -170,7 +170,7 @@
     "watch": "node build.mjs --watch",
     "test": "vitest run",
     "check": "tsc --noEmit && vitest run",
-    "package": "npm run build:host && npm run clean && npm run check && npm run build && vsce package --target win32-x64"
+    "package": "npm run build:host && npm run clean && npm run check && npm run build && node package-vsix.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",

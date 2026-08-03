@@ -77,6 +77,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: salamatrix-studio-win32-x64
-          path: src/tools/salamatrix-studio/*-win32-x64-*.vsix
+          path: build/salamatrix-studio/*-win32-x64-*.vsix
           if-no-files-found: error
           retention-days: 14

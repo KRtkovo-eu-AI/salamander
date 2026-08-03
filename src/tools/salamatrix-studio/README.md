@@ -41,9 +41,10 @@ npm run build
 npm run package
 ```
 
-`npm run package` produces a `win32-x64` VSIX. The project structure and native
-host protocol are architecture-neutral so a `win32-arm64` package can be added
-later.
+`npm run package` produces a `win32-x64` VSIX in
+`build/salamatrix-studio/` at the repository root. The project structure and
+native host protocol are architecture-neutral so a `win32-arm64` package can
+be added later.
 
 ## Project files
 
