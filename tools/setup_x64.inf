@@ -45,6 +45,7 @@
 %0\msvcp140.dll,%1\msvcp140.dll
 %0\ucrtbase.dll,%1\ucrtbase.dll
 %0\vcruntime140.dll,%1\vcruntime140.dll
+%0\vcruntime140_1.dll,%1\vcruntime140_1.dll
 %0\convert\centeuro\1-1.tab,%1\convert\centeuro\1-1.tab
 %0\convert\centeuro\1250asci.tab,%1\convert\centeuro\1250asci.tab
 %0\convert\centeuro\1250c852.tab,%1\convert\centeuro\1250c852.tab

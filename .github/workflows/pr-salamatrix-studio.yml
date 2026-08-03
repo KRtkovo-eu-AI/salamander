@@ -1,0 +1,85 @@
+name: PR Salamatrix Studio
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: ["**"]
+    paths:
+      - "src/tools/salamatrix-studio/**"
+      - "src/salamatrix-sdk/**"
+      - "src/plugins/salamatrix/salamatrix_ui.h"
+      - "src/plugins/salamatrix/salamatrix_ui.cpp"
+      - "src/plugins/salamatrix/salamatrix_ui_salamander_host.cpp"
+      - "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj*"
+      - "src/plugins/salamatrix/tests/ui_layout_tests.*"
+      - "src/plugins/demoplug/vcxproj/demoplug.vcxproj"
+      - ".github/workflows/pr-salamatrix-studio.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-salamatrix-studio-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: VSIX build and tests
+    runs-on: windows-2022
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: src/tools/salamatrix-studio
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/tools/salamatrix-studio/package-lock.json
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build native x64 preview host
+        run: msbuild preview-host/SalamatrixStudio.Host.vcxproj /m /t:Build /p:Configuration=Release /p:Platform=x64 /nr:false /v:minimal
+
+      - name: Build Salamatrix UI provider with shared SDK
+        run: msbuild ../../plugins/salamatrix/vcxproj/salamatrix.vcxproj /m /t:Build /p:Configuration=Release /p:Platform=x64 /nr:false /v:minimal
+
+      - name: Build and run shared native UI tests
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP "salamatrix-studio-tests\"
+          msbuild ../../plugins/salamatrix/tests/ui_layout_tests.vcxproj /m /t:Build /p:Configuration=Debug /p:Platform=x64 "/p:OPENSAL_BUILD_DIR=$testRoot" /nr:false /v:minimal
+          & (Join-Path $testRoot "tests\Debug_x64\ui_layout_tests.exe")
+          if ($LASTEXITCODE -ne 0) { throw "Shared native UI tests failed with exit code $LASTEXITCODE" }
+
+      - name: Validate native preview transport fixture
+        run: |
+          $process = Start-Process -FilePath (Resolve-Path "native/win32-x64/SalamatrixStudio.Host.exe") -ArgumentList @("--validate", (Resolve-Path "test/fixtures/basic.smxp")) -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Native preview validation failed with exit code $($process.ExitCode)" }
+
+      - name: Type-check, test, and package win32-x64 VSIX
+        run: npm run package
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: salamatrix-studio-win32-x64
+          path: build/salamatrix-studio/*-win32-x64-*.vsix
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,230 @@
+{
+  "name": "salamatrix-studio",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.1.3",
+  "publisher": "opensalamander",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KRtkovo-eu-AI/salamander.git",
+    "directory": "src/tools/salamatrix-studio"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "open salamander",
+    "salamatrix",
+    "extension",
+    "dialog designer"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/extension.json",
+    "onView:salamatrixStudio.projectExplorer",
+    "onCommand:salamatrixStudio.createExtension",
+    "onCommand:salamatrixStudio.addExistingExtensionFolder",
+    "onCustomEditor:salamatrixStudio.dialogDesigner",
+    "onCustomEditor:salamatrixStudio.manifestDesigner"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "salamatrixStudio.createExtension",
+        "title": "%command.createExtension%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "salamatrixStudio.addExistingExtensionFolder",
+        "title": "%command.addExistingExtensionFolder%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "salamatrixStudio.addStandaloneDialog",
+        "title": "%command.addStandaloneDialog%"
+      },
+      {
+        "command": "salamatrixStudio.generateDialogForRuntime",
+        "title": "%command.generateDialogForRuntime%"
+      },
+      {
+        "command": "salamatrixStudio.previewDialog",
+        "title": "%command.previewDialog%"
+      },
+      {
+        "command": "salamatrixStudio.openManifestDesigner",
+        "title": "%command.openManifestDesigner%"
+      },
+      {
+        "command": "salamatrixStudio.addDialog",
+        "title": "%command.addDialog%"
+      },
+      {
+        "command": "salamatrixStudio.generateDialog",
+        "title": "%command.generateDialog%"
+      },
+      {
+        "command": "salamatrixStudio.saveDialogTemplate",
+        "title": "%command.saveDialogTemplate%"
+      },
+      {
+        "command": "salamatrixStudio.newDialogFromTemplate",
+        "title": "%command.newDialogFromTemplate%"
+      },
+      {
+        "command": "salamatrixStudio.refreshExplorer",
+        "title": "%command.refresh%",
+        "icon": "$(refresh)"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "salamatrixStudio.dialogDesigner",
+        "displayName": "%editor.dialogDesigner%",
+        "selector": [
+          {
+            "filenamePattern": "*.salamatrix-dialog.json"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "salamatrixStudio.manifestDesigner",
+        "displayName": "%editor.extensionDesigner%",
+        "selector": [
+          {
+            "filenamePattern": "extension.json"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "*.salamatrix-dialog.json",
+        "url": "./dist/contracts/salamatrix-dialog.schema.json"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "salamatrixStudio",
+          "title": "%viewContainer.title%",
+          "icon": "resources/studio.svg"
+        }
+      ]
+    },
+    "views": {
+      "salamatrixStudio": [
+        {
+          "id": "salamatrixStudio.projectExplorer",
+          "name": "%view.projectExplorer%"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "salamatrixStudio.projectExplorer",
+        "contents": "%welcome.noProjects%",
+        "when": "!salamatrixStudio.hasProjects"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "salamatrixStudio.addDialog",
+          "when": "salamatrixStudio.hasProjects"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "salamatrixStudio.createExtension",
+          "when": "view == salamatrixStudio.projectExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "salamatrixStudio.addDialog",
+          "when": "view == salamatrixStudio.projectExplorer && salamatrixStudio.hasProjects",
+          "group": "navigation@2"
+        },
+        {
+          "command": "salamatrixStudio.refreshExplorer",
+          "when": "view == salamatrixStudio.projectExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "salamatrixStudio.addExistingExtensionFolder",
+          "when": "view == salamatrixStudio.projectExplorer",
+          "group": "navigation@4"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "salamatrixStudio.generateDialog",
+          "when": "activeCustomEditorId == salamatrixStudio.dialogDesigner",
+          "group": "navigation"
+        },
+        {
+          "command": "salamatrixStudio.previewDialog",
+          "when": "activeCustomEditorId == salamatrixStudio.dialogDesigner",
+          "group": "navigation"
+        },
+        {
+          "command": "salamatrixStudio.generateDialogForRuntime",
+          "when": "activeCustomEditorId == salamatrixStudio.dialogDesigner",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "salamatrixStudio.openManifestDesigner",
+          "when": "resourceFilename == extension.json",
+          "group": "open@5"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "salamatrixStudio.openManifestDesigner",
+          "when": "view == salamatrixStudio.projectExplorer && viewItem == salamatrixManifest",
+          "group": "inline"
+        },
+        {
+          "command": "salamatrixStudio.addDialog",
+          "when": "view == salamatrixStudio.projectExplorer && viewItem == salamatrixDialogs",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "clean": "node build.mjs --clean",
+    "build": "node build.mjs",
+    "build:host": "node build-host.mjs",
+    "watch": "node build.mjs --watch",
+    "test": "vitest run",
+    "check": "tsc --noEmit && vitest run",
+    "package": "npm run build:host && npm run clean && npm run check && npm run build && node package-vsix.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/vscode": "1.100.0",
+    "@vscode/vsce": "^3.9.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^7.0.0",
+    "vitest": "^4.1.0"
+  }
+}

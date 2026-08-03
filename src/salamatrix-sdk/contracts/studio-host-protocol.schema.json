@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.opensalamander.com/schemas/salamatrix-studio-host-protocol-1.json",
+  "title": "Salamatrix Studio native host message",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/response" },
+    { "$ref": "#/$defs/event" }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "kind", "id", "method", "params"],
+      "properties": {
+        "protocol": { "const": 1 },
+        "kind": { "const": "request" },
+        "id": { "type": "integer", "minimum": 1 },
+        "method": {
+          "enum": ["hello", "validateManifest", "validateDialog", "showPreview", "updatePreview", "closePreview"]
+        },
+        "params": { "type": "object" }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "kind", "id", "ok"],
+      "properties": {
+        "protocol": { "const": 1 },
+        "kind": { "const": "response" },
+        "id": { "type": "integer", "minimum": 1 },
+        "ok": { "type": "boolean" },
+        "result": {},
+        "error": { "type": "string" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "kind", "event", "params"],
+      "properties": {
+        "protocol": { "const": 1 },
+        "kind": { "const": "event" },
+        "event": { "enum": ["previewClosed", "controlChanged", "log"] },
+        "params": { "type": "object" }
+      }
+    }
+  }
+}

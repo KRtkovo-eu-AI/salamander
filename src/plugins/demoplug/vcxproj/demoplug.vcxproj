@@ -231,7 +231,13 @@
     </ClCompile>
     <ClCompile Include="..\demoplug.cpp">
     </ClCompile>
-    <ClCompile Include="..\..\salamatrix\salamatrix_ui.cpp">
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui_controls.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui_win32_host.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\dialogs.cpp">

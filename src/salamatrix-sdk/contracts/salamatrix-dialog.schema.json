@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.opensalamander.com/schemas/salamatrix-dialog-1.json",
+  "title": "Salamatrix dialog design",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "title", "width", "height", "controls"],
+  "properties": {
+    "schema": { "const": 1 },
+    "targetUiVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$", "default": "1.4" },
+    "id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$" },
+    "title": { "type": "string", "maxLength": 512 },
+    "width": { "type": "integer", "minimum": 160, "maximum": 1200 },
+    "height": { "type": "integer", "minimum": 100, "maximum": 900 },
+    "controls": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/control" }
+    }
+  },
+  "$defs": {
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0, "maximum": 1200 },
+        "y": { "type": "integer", "minimum": 0, "maximum": 900 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 1200 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 900 }
+      }
+    },
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "width"],
+      "properties": {
+        "title": { "type": "string" },
+        "width": { "type": "integer", "minimum": 1, "maximum": 1200 }
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "text", "bounds"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "label", "statictext", "textbox", "checkbox", "radio",
+            "combobox", "button", "listview", "treeview", "tabcontrol",
+            "folderpicker", "filepicker", "groupbox", "hyperlink",
+            "progressbar", "arrowbutton", "textarrowbutton",
+            "colorarrowbutton", "toolbarheader"
+          ]
+        },
+        "id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$" },
+        "text": { "type": "string", "maxLength": 4096 },
+        "bounds": { "$ref": "#/$defs/bounds" },
+        "options": { "type": "object", "additionalProperties": true },
+        "items": { "type": "array", "items": { "type": "string" }, "maxItems": 4096 },
+        "columns": { "type": "array", "items": { "$ref": "#/$defs/column" }, "maxItems": 64 },
+        "selectedIndex": { "type": "integer", "minimum": -1 },
+        "validation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "events": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" }
+        }
+      }
+    }
+  }
+}

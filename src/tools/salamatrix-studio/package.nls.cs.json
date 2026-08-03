@@ -1,0 +1,20 @@
+{
+  "displayName": "Salamatrix Studio",
+  "description": "Vývojářské nástroje a vizuální editory extensions pro Open Salamander.",
+  "command.createExtension": "Salamatrix Studio: Vytvořit novou extension...",
+  "command.addExistingExtensionFolder": "Salamatrix Studio: Přidat složku existující extension...",
+  "command.addStandaloneDialog": "Salamatrix Studio: Nový samostatný návrh dialogu...",
+  "command.generateDialogForRuntime": "Salamatrix Studio: Generovat kód dialogu pro runtime...",
+  "command.previewDialog": "Salamatrix Studio: Nativní náhled",
+  "command.openManifestDesigner": "Salamatrix Studio: Otevřít editor extension",
+  "command.addDialog": "Salamatrix Studio: Přidat dialog",
+  "command.generateDialog": "Salamatrix Studio: Generovat kód dialogu",
+  "command.saveDialogTemplate": "Salamatrix Studio: Uložit dialog jako šablonu",
+  "command.newDialogFromTemplate": "Salamatrix Studio: Nový dialog ze šablony",
+  "command.refresh": "Obnovit",
+  "editor.dialogDesigner": "Salamatrix Dialog Designer",
+  "editor.extensionDesigner": "Salamatrix Extension Designer",
+  "viewContainer.title": "Salamatrix Studio",
+  "view.projectExplorer": "Projekt extension",
+  "welcome.noProjects": "V tomto workspace nebyla nalezena žádná Salamatrix extension.\n[Vytvořit novou extension](command:salamatrixStudio.createExtension)\n[Přidat složku existující extension](command:salamatrixStudio.addExistingExtensionFolder)"
+}

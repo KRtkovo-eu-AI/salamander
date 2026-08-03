@@ -37,7 +37,30 @@ def main() -> int:
     texts = read("src/lang/texts.rc2")
     ai_header = read("src/plugins/salamatrixai/salamatrixai.h")
     ai_contract = read("src/plugins/salamatrix/salamatrix_ai.h")
-    ui_contract = read("src/plugins/salamatrix/salamatrix_ui.h")
+    ui_contract = read("src/salamatrix-sdk/native-ui-runtime/salamatrix_ui.h")
+    ui_implementation = read("src/salamatrix-sdk/native-ui-runtime/salamatrix_ui.cpp")
+    ui_controls = read("src/salamatrix-sdk/native-ui-runtime/salamatrix_ui_controls.cpp")
+    ui_salamander_host = read(
+        "src/plugins/salamatrix/salamatrix_ui_salamander_host.cpp")
+    salamatrix_project = read("src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
+    studio_host_project = read(
+        "src/tools/salamatrix-studio/preview-host/SalamatrixStudio.Host.vcxproj")
+    studio_host_build = read("src/tools/salamatrix-studio/build-host.mjs")
+    studio_host = read("src/tools/salamatrix-studio/preview-host/main.cpp")
+    studio_package = json.loads(read("src/tools/salamatrix-studio/package.json"))
+    studio_package_lock = json.loads(
+        read("src/tools/salamatrix-studio/package-lock.json"))
+    studio_extension = read("src/tools/salamatrix-studio/src/extension.ts")
+    studio_explorer = read("src/tools/salamatrix-studio/src/projectExplorer.ts")
+    studio_manifest_editor = read(
+        "src/tools/salamatrix-studio/src/manifestEditor.ts")
+    studio_menu_model = read("src/tools/salamatrix-studio/src/menuModel.ts")
+    studio_scaffold = read("src/tools/salamatrix-studio/src/extensionScaffold.ts")
+    populate_build_dir = read("src/vcxproj/!populate_build_dir.cmd")
+    setup_x64_inf = read("tools/setup_x64.inf")
+    inno_setup_x64 = read(
+        "doc/runbook-setup/inno_setup_salamander_x64.iss")
+    codesign = read("tools/codesign/codesign_certum.ps1")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
     bundled = read("src/plugins/salamatrixai/bundledprovider.cpp")
     local_llama = read("src/plugins/salamatrixailocalllama/local_llama.cpp")
@@ -87,7 +110,7 @@ def main() -> int:
     )
     salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
-    salamatrix_ui = read("src/plugins/salamatrix/salamatrix_ui.cpp")
+    salamatrix_ui = ui_implementation
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
     salamatrix_project = read(
         "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
@@ -493,6 +516,76 @@ def main() -> int:
             "UI control contract does not expose resizeable bounds")
     require(ui_contract, r"ControlKindSplitter\s*=\s*11",
             "UI control contract does not expose draggable splitters")
+    require(ui_implementation, r"GetNativeDialogHost\(\).*?AttachStaticText.*?"
+                r"AttachHyperLink.*?AttachProgressBar.*?AttachToolbarHeader",
+            "NativeDialog does not route Salamatrix-specific controls through the SDK host boundary")
+    require(ui_controls, r"AttachNativeStaticText.*?AttachNativeHyperLink.*?"
+                r"AttachNativeProgressBar.*?AttachNativeColorArrowButton.*?"
+                r"AttachNativeToolbarHeader",
+            "shared SDK control implementations are incomplete")
+    for project, consumer in ((salamatrix_project, "Salamatrix.SPL"),
+                              (studio_host_project, "Studio preview host")):
+        require(project, r"salamatrix_ui\.cpp.*?salamatrix_ui_controls\.cpp",
+                f"{consumer} does not compile the shared NativeDialog and control sources")
+    require(studio_host_project,
+            r"<RuntimeLibrary>MultiThreaded</RuntimeLibrary>",
+            "Studio preview host does not statically link the release C/C++ runtime")
+    require(studio_host_build,
+            r"dumpbin\.exe.*?forbiddenRuntime.*?api-ms-win-crt-.*?forbiddenImports",
+            "Studio preview host build does not reject dynamic MSVC/UCRT imports")
+    require_absent(studio_host, r"CreateWindowExW\(.*?PreviewProc",
+                   "Studio preview host still contains its old independent Win32 renderer")
+    studio_version = studio_package.get("version", "0.0.0")
+    try:
+        studio_version_parts = tuple(int(part) for part in studio_version.split("."))
+    except (AttributeError, ValueError):
+        studio_version_parts = ()
+    if studio_version_parts < (0, 1, 1):
+        raise AssertionError("Salamatrix Studio VSIX version is older than 0.1.1")
+    if studio_package_lock.get("version") != studio_version or \
+            studio_package_lock.get("packages", {}).get("", {}).get(
+                "version") != studio_version:
+        raise AssertionError("Salamatrix Studio package versions are inconsistent")
+    studio_commands = {
+        item.get("command") for item in
+        studio_package.get("contributes", {}).get("commands", [])
+    }
+    for command in ("salamatrixStudio.createExtension",
+                    "salamatrixStudio.addExistingExtensionFolder"):
+        if command not in studio_commands:
+            raise AssertionError(f"Salamatrix Studio does not contribute {command}")
+    require(studio_extension,
+            r"createExtensionProject\(\).*?findScaffoldConflicts.*?"
+            r"createDirectory.*?writeFile",
+            "Studio new-extension workflow does not preflight before writing")
+    for section in ("Overview", "Menu Builder", "Dialogs", "Source Files"):
+        if f"'{section}'" not in studio_explorer:
+            raise AssertionError(
+                f"Studio project explorer does not expose section {section}")
+    require(studio_manifest_editor,
+            r"enableGeneratedActions.*?integrateMenuDispatch.*?writeGeneratedActions",
+            "Studio does not keep generated menu actions behind explicit migration")
+    require(studio_menu_model,
+            r"synchronizeMenuDocument.*?\.\.\.document.*?existing\.get\(handler\)",
+            "Studio menu model does not preserve unknown project/action fields")
+    for runtime in ("PowerShell", "Python.CPython", "JavaScript.Node",
+                    "PHP.CLI", "Lua", "Automation.JScript"):
+        if runtime not in studio_scaffold:
+            raise AssertionError(
+                f"Studio extension scaffolder omits runtime {runtime}")
+    require(populate_build_dir,
+            r"Release_x64.*?Microsoft\.VC143\.CRT.*?vcruntime140_1\.dll",
+            "Release x64 populate does not copy vcruntime140_1.dll")
+    require(setup_x64_inf,
+            r"%0\\vcruntime140_1\.dll,%1\\vcruntime140_1\.dll",
+            "legacy x64 payload manifest does not contain vcruntime140_1.dll")
+    require(inno_setup_x64,
+            r'Source: "\{#PayloadDir\}\\vcruntime140_1\.dll"; '
+            r'DestDir: "\{app\}"; Flags: ignoreversion',
+            "Inno Setup x64 installer does not package vcruntime140_1.dll")
+    require(codesign,
+            r"'vcruntime140_1\.dll'",
+            "Microsoft vcruntime140_1.dll is not excluded from product signing")
     require(salamatrix_ui, r"SplitterSubclassProc.*?IDC_SIZENS.*?"
                 r"WM_SALAMATRIX_SPLITTER_MOVED.*?NotifyChanged",
             "native splitters do not report drag movement")
@@ -681,7 +774,7 @@ def main() -> int:
             r'"close", "Close", 403, 213, 50, 14',
             "Salamatrix controls showcase no longer matches DemoPlug geometry")
     require(salamatrix_ui,
-            r'ApplyHostDarkModePolicy.*?ApplyNativeDialogDarkMode.*?'
+            r'host->PrepareTheme.*?ApplyNativeDialogDarkMode.*?'
             r'AttachStaticText.*?AttachHyperLink.*?AttachProgressBar.*?'
             r'ApplyNativeDialogDarkMode\(hwnd\)',
             "host controls are not re-themed after attachment for dark mode")
@@ -731,8 +824,8 @@ def main() -> int:
     require(salamatrix_runtime, r"DarkModeSetConfiguredColors", "Salamatrix dark-mode scheme colors are not synchronized")
     require(salamatrix_runtime, r"DarkModeMessageBoxW", "Salamatrix runtime message boxes do not use the Unicode dark-mode path")
     require(salamatrix_ui, r"WM_SETTINGCHANGE \|\| message == WM_THEMECHANGED", "Salamatrix dialog theme-change handling is missing")
-    require(salamatrix_ui, r"DarkModeRefreshTitleBar\(hwnd\)", "Salamatrix dialog title bar dark-mode refresh is missing")
-    require(salamatrix_ui, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?DarkModeAllowDarkScrollbars\(control->WindowHandle\).*?DarkModeDisallowDarkScrollbars\(control->WindowHandle\)",
+    require(ui_salamander_host, r"DarkModeRefreshTitleBar\(window\)", "Salamatrix dialog title bar dark-mode refresh is missing")
+    require(salamatrix_ui + ui_salamander_host, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?SetDarkScrollbars.*?DarkModeAllowDarkScrollbars\(window\).*?DarkModeDisallowDarkScrollbars\(window\)",
             "Salamatrix dialogs do not scope the host dark scrollbar hook to controls")
     require(salamatrix_ui, r"PostMessage\(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS",
             "Salamatrix dialogs apply dark scrollbar scopes during WM_INIT reentrantly")

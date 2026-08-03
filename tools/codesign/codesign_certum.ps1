@@ -61,6 +61,7 @@ function Test-ExcludedExternalBinary([string] $path) {
         'prismsharp.dll',
         'ucrtbase.dll',
         'vcruntime140.dll',
+        'vcruntime140_1.dll',
         'msvcp140.dll',
         'concrt140.dll'
     )

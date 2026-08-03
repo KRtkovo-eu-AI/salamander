@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals"><ProjectGuid>{7AF486E7-C6EF-4A21-A792-5685B2E80DA5}</ProjectGuid><Keyword>Win32Proj</Keyword><RootNamespace>SalamatrixStudioHost</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>Unicode</CharacterSet><WholeProgramOptimization>true</WholeProgramOptimization></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'"><OutDir>$(ProjectDir)..\native\win32-x64\</OutDir><IntDir>$(ProjectDir)obj\x64\</IntDir><TargetName>SalamatrixStudio.Host</TargetName></PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp17</LanguageStandard><RuntimeLibrary>MultiThreaded</RuntimeLibrary><PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;UNICODE;_UNICODE;USE_DARKMODELIB=1;_DARKMODELIB_NO_INI_CONFIG;WINVER=0x0601;_WIN32_WINNT=0x0601;_WIN32_IE=0x0800;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalIncludeDirectories>$(ProjectDir)..\..\..\third_party\darkmodelib\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><DisableSpecificWarnings>4121;4201;4245;4457;4505;%(DisableSpecificWarnings)</DisableSpecificWarnings><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <Link><SubSystem>Windows</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation><AdditionalDependencies>Comctl32.lib;UxTheme.lib;Shell32.lib;Dwmapi.lib;Gdi32.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies><AdditionalManifestDependencies>type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*';%(AdditionalManifestDependencies)</AdditionalManifestDependencies></Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui.cpp" />
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui_controls.cpp" />
+    <ClCompile Include="..\..\..\salamatrix-sdk\native-ui-runtime\salamatrix_ui_win32_host.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\Darkmodelib.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibColor.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibDpi.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibHook.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibPaintHelper.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclass.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassControl.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassWindow.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibWinApi.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
