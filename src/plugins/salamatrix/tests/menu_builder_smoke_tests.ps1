@@ -11,6 +11,11 @@ if ($builderSource -notmatch '\$form\.BeginInvoke\(\$disposePreview\)' -or
     throw ('Menu preview cleanup must be deferred until after the ' +
         'ContextMenuStrip Closed event has completed.')
 }
+if ($builderSource -notmatch
+    'foreach \(\$resource in \$previewResources\.ToArray\(\)\)') {
+    throw ('Menu preview cleanup must use List.ToArray(); Windows PowerShell ' +
+        'cannot reliably enumerate this generic list through @(...).')
+}
 
 Add-Type -AssemblyName System.Drawing
 

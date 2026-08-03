@@ -1308,7 +1308,7 @@ function Show-BuilderWindow {
     try {
         [void]$form.ShowDialog()
     } finally {
-        foreach ($resource in @($previewResources)) {
+        foreach ($resource in $previewResources.ToArray()) {
             if (-not $resource.Menu.IsDisposed) { $resource.Menu.Dispose() }
             foreach ($image in $resource.Images) { $image.Dispose() }
         }
